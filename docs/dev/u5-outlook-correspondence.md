@@ -51,8 +51,9 @@ Three parts:
 1. **No local directory data:** recipients, AD values, previews, plans, reports and mailbox matches exist in memory only.
    On disk: settings (`CorrespondenceSettings`: options, templates, last draft, field definitions, mailbox options –
    names, LDAP filters and portable DNs only), template images (`message-images`, operator content), the journal
-   (hashes, section 7.6), Outlook temp images (deleted at once, D5), and files the operator exports (recipient CSV,
-   report, preview `.html`, responses CSV). Logs never contain addresses, names, subjects or bodies.
+   (keyed hashes of addresses – for mailbox owner queries, of the address together with the mailbox's address or DN;
+   section 7.6), Outlook temp images (deleted at once, D5), and files the operator exports (recipient CSV, report,
+   preview `.html`, responses CSV). Logs never contain addresses, names, subjects or bodies.
 2. **No passwords:** none are involved (Outlook uses its own profile). `ToString()` of records with addresses returns
    type names / counts only.
 3. **Escaping:** all filters with `LdapFilter`; the operator's extra mailbox filter is validated with
@@ -64,9 +65,10 @@ Three parts:
 
 ## 2. CLAUDE.md amendment (rule 1, allowed on disk)
 
-Add to "Allowed on disk" of rule 1: *"the Korespondencja journal (U5): keyed hashes of recipient addresses
-(HMAC-SHA-256, per-user key protected with DPAPI), send times and the subjects as typed – no address, name or other
-directory value"*. Layout table rows: `src/AdMng.Outlook` and `tests/AdMng.Outlook.Tests`.
+Add to "Allowed on disk" of rule 1: *"the Korespondencja journal (U5): keyed hashes of recipient addresses (for mailbox
+owner queries: of the address together with the mailbox's address or DN) – HMAC-SHA-256 with a per-user key protected
+by DPAPI – send times and the subjects as typed – no address, name or other directory value"*. Layout table rows:
+`src/AdMng.Outlook` and `tests/AdMng.Outlook.Tests`.
 
 ## 3. Core: `src/AdMng.Core/Correspondence` (pure, net10.0)
 
@@ -161,8 +163,9 @@ public static class BuiltInFields
     public const string Email = "email";
     public const string List = "lista";           // grouped messages (section 3.4)
     public const string Count = "liczba";         // grouped messages: number of rows
+    public const string Signature = "podpis";     // the Outlook signature where the body places it (section 7.7); "" elsewhere
     public const string DefaultSalutation = "Szanowni Państwo";
-    public static IReadOnlyList<string> All { get; }            // zwrot, nazwa, email, lista, liczba
+    public static IReadOnlyList<string> All { get; }            // zwrot, nazwa, email, lista, liczba, podpis
     public static bool IsBuiltInColumn(string column);         // nazwa/name/email/e-mail/mail/adres e-mail/zwrot – hidden from "Wstaw pole" as duplicates
 }
 
@@ -181,7 +184,20 @@ public static class FieldTemplate
         ICollection<string>? unknown = null, ICollection<string>? empty = null);
 }
 
-public sealed record CustomFieldDefinition(string Name, string Value);   // Value may use {{other fields}} (not other custom fields)
+public enum CustomFieldKind { Text, Date }
+
+/// Text: Value may use {{other fields}} (not other custom fields). Date: Value is "yyyy-MM-dd" (invariant), Format a .NET
+/// custom date format (null/blank → CustomFieldFormats.DefaultDate), rendered with the Polish culture; an empty or
+/// unparsable date renders "".
+public sealed record CustomFieldDefinition(string Name, string Value, CustomFieldKind Kind = CustomFieldKind.Text, string? Format = null);
+
+public static class CustomFieldFormats
+{
+    public const string DefaultDate = "d MMMM yyyy'r.'";            // 15 listopada 2026r. (genitive month after a day)
+    public static IReadOnlyList<string> DateChoices { get; }        // DefaultDate, "d MMMM yyyy 'r.'", "d MMMM yyyy", "dd.MM.yyyy", "dd.MM.yyyy 'r.'", "dddd, d MMMM yyyy", "yyyy-MM-dd"
+    public static string FormatDate(DateOnly date, string? format); // pl-PL; blank, too long (> 64) or invalid (time parts, unclosed quote) → DefaultDate
+    public static string DateText(CustomFieldDefinition field);     // the formatted date, "" without one
+}
 
 /// Field values of one recipient (or group): built-ins, custom fields, then columns (FieldKey matching).
 public sealed class RecipientFieldSet
@@ -194,10 +210,11 @@ public sealed class RecipientFieldSet
 ```
 
 Lookup order: `zwrot` → salutation (blank → default); `nazwa`/`name` → row name, else the salutation; `email`/`mail`/
-`adres e-mail` → address; `lista`/`liczba` → group values (null when not grouped); custom fields (their value merged with
-the same lookup minus custom fields, text encoding – encoding is applied once at the outer merge); row columns; a column
-known to the list but empty in this row → ""; else null (unknown → warning, renders empty). `{{Pole|tekst}}` renders
-the fallback when the value is empty or unknown.
+`adres e-mail` → address; `podpis` → "" (the renderer places the signature in the body, section 7.7; a column or custom
+field of that name never wins); `lista`/`liczba` → group values (null when not grouped); custom fields (a text field's
+value merged with the same lookup minus custom fields, text encoding – encoding is applied once at the outer merge; a
+date field's date in its format); row columns; a column known to the list but empty in this row → ""; else null
+(unknown → warning, renders empty). `{{Pole|tekst}}` renders the fallback when the value is empty or unknown.
 
 ### 3.3 Composition – `Correspondence/Composition`
 
@@ -228,13 +245,23 @@ public static class OutlookSignatureParser
 }
 public sealed record SignatureParseResult(CorrespondenceSignature Signature, IReadOnlyList<string> Problems);
 
+/// The style of the wrapping div: today's values are the default.
+public sealed record MessageBaseStyle(string FontFamily, double FontSizePoints, string LineHeight)
+{
+    public static MessageBaseStyle Default { get; } = new("Calibri,'Segoe UI',Arial,sans-serif", 11, "1.4");
+    public string Css { get; }   // "font-family:…;font-size:…pt;color:#000000;line-height:…" – only values the sanitizer allows
+                                 // (family list, 6–72 pt, normal/number/length), else the default's part
+    public static MessageBaseStyle Of(string? fontFamily, double? fontSizePoints, string? lineHeight);   // stored values, missing parts default
+}
+
 public static class CorrespondenceDocument
 {
     public const string BodyFont = "Calibri,'Segoe UI',Arial,sans-serif";
     public const double BodyPoints = 11;
-    /// <html><head><meta charset=utf-8></head><body><div style="font-family:…;font-size:11pt;color:#000000;line-height:1.4">
-    /// body (+ "<br>" + signature)</div></body></html> – MailerWPiA's BuildMessage without a <style> block.
-    public static string Build(string bodyHtml, CorrespondenceSignature? signature);
+    /// <html><head><meta charset=utf-8></head><body><div style="{style.Css}">body (+ "<br>" + signature)</div></body></html>
+    /// – MailerWPiA's BuildMessage without a <style> block; style null → MessageBaseStyle.Default. A body that places the
+    /// signature itself ({{podpis}}) is built without one.
+    public static string Build(string bodyHtml, CorrespondenceSignature? signature, MessageBaseStyle? style = null);
     public static string BodyOf(string document);   // inner content of <body> (for previews)
 }
 
@@ -253,6 +280,8 @@ public sealed record CorrespondenceDraft
     public IReadOnlyList<CustomFieldDefinition> CustomFields { get; init; } = [];
     public string ListItemTemplate { get; init; } = "";
     public string Salutation { get; init; } = BuiltInFields.DefaultSalutation;
+    public bool GroupByAddress { get; init; }
+    public MessageBaseStyle? BaseStyle { get; init; }   // null → MessageBaseStyle.Default
 }
 
 public sealed record CorrespondenceUnit(            // one message: one row, or several rows of one address (group)
@@ -267,7 +296,11 @@ public static class CorrespondenceRenderer
 {
     /// Merges subject (Header) and body (Html) for one unit; groups render {{lista}} as <ul><li> of the list item template
     /// (Html) per row and {{liczba}} as the row count; the first row gives the other fields. The body is repaired
-    /// (FieldTemplate.RepairHtml), merged, wrapped by CorrespondenceDocument.Build and re-sanitized as a document.
+    /// (FieldTemplate.RepairHtml), merged, wrapped by CorrespondenceDocument.Build (with the draft's BaseStyle) and
+    /// re-sanitized as a document. {{podpis}} in the body is the signature's HTML (raw, like the list; its paragraph split
+    /// by ListPlacement, which moves every block field – list and signature – out of its paragraph), and the signature is
+    /// then not appended again (no <br>); without a signature, in the subject, list items and custom values it is "" and
+    /// never reported as unknown or empty.
     public static RenderedCorrespondence Render(CorrespondenceDraft draft, CorrespondenceUnit unit, IReadOnlyCollection<string> knownColumns);
     public static string PlainText(string htmlDocument);    // HtmlToText.Convert (for logs-free previews, tests)
 }
@@ -292,6 +325,10 @@ public static class JournalHashing
     public const int KeyBytes = 32;
     /// Base64url of the first 16 bytes of HMAC-SHA-256(key, UTF-8(EmailAddressText.Normalize(address))).
     public static string Hash(ReadOnlySpan<byte> key, string address);
+    /// Scoped (a mailbox owner row, section 7.6): HMAC of normalize(address) + "\n" + scope (trimmed, lower-invariant: the
+    /// mailbox address or DN, never cut); a null or blank scope is the unscoped hash. An address with a line break is
+    /// refused, so no scoped input equals an unscoped one or another scope's.
+    public static string Hash(ReadOnlySpan<byte> key, string address, string? scope);
 }
 
 public static class JournalFile
@@ -640,7 +677,12 @@ public sealed class CorrespondenceTemplate
     public bool? VotingEnabled { get; set; }
     public string? VotingOptions { get; set; }
     public bool? GroupByAddress { get; set; }
+    public string? FontFamily { get; set; }     // CSS family list; all three null = saved before 0.7.0: the default style (7.7)
+    public double? FontSize { get; set; }       // points
+    public string? LineHeight { get; set; }     // "normal" or a number such as "1.4"
 }
+// Normalize keeps a custom field's Kind and Format (a date that does not parse keeps Value "" – the window flags it; an
+// unknown kind is text) and the font values the sanitizer allows (else null). Export files stay version 1 (additive).
 
 public sealed record DirectoryFieldDefinition(string Name, string Expression, DirectoryFieldTarget Target = DirectoryFieldTarget.Person);
 public enum DirectoryFieldTarget { Person, Mailbox }   // Person: the recipient (AD rows) or the owner (mailbox rows)
@@ -653,7 +695,7 @@ public sealed class MailboxOwnerSettings
     public string NameAttribute { get; set; } = "";
     public string PersonBase { get; set; } = "";                  // portable DN ({domain}); empty = domain
     public bool EnabledOwnersOnly { get; set; } = true;           // disabled persons stay candidates but never auto-match (OwnerDisabled)
-    public bool GroupByOwner { get; set; } = true;
+    public bool GroupByOwner { get; set; }                         // off: one message per mailbox (the built-in names it in the subject)
     public List<DirectoryFieldDefinition> Fields { get; set; } = []; // empty → Defaults for mailbox rows
 }
 ```
@@ -667,30 +709,21 @@ Utworzona `{$created:d MMMM yyyy}`, Login skrzynki `{sAMAccountName}`, and perso
 Imię, Nazwisko, Nazwa wyświetlana, Stanowisko, Dział, Zwrot osobowy, Pan/Pani, Pana/Panią, Panu/Pani, Szanowny/a).
 Expressions are checked with `UserMessageFields.Engine.Parse` and `UserMessageRules.IsForbiddenAttribute` (no secrets).
 
-**Built-in template** `mailbox-still-needed` (not stored, `CorrespondenceTemplateLibrary.BuiltIns`):
-subject "Czy skrzynka pocztowa jest nadal potrzebna?"; body (HTML):
-
-> {{Zwrot osobowy}},
->
-> w ewidencji poczty jako osobę, do której przypisano skrzynkę, wskazano {{Pana/Panią}}:
->
-> {{lista}}
->
-> Prosimy o informację, czy skrzynka jest nadal potrzebna. W Outlooku wystarczy kliknąć przycisk nad treścią tej
-> wiadomości („Tak, nadal potrzebna” albo „Nie, można usunąć”); można też po prostu odpowiedzieć na tę wiadomość.
-> Jeżeli do {{Termin}} nie otrzymamy odpowiedzi, skrzynka zostanie zablokowana.
->
-> Z poważaniem
-
-custom field Termin = "" (the window flags it empty), list item template "{{Skrzynka}} ({{Adres skrzynki}}) –
-ostatnie logowanie: {{Ostatnie logowanie|brak danych}}", voting on with the default options, group by address on.
+**Built-in templates** (not stored, `CorrespondenceTemplateLibrary.BuiltIns`, both `IsBuiltIn`): the mailbox query as
+the operator's team sends it today – section 7.7. `mailbox-still-needed` "Weryfikacja skrzynki pocztowej (wiadomość na
+każdą skrzynkę)", subject `Weryfikacja skrzynki pocztowej: {{Skrzynka}}`, one message per mailbox;
+`mailbox-still-needed-grouped` "Weryfikacja skrzynek pocztowych (jedna wiadomość na osobę)", subject `Weryfikacja
+skrzynek pocztowych`, the mailboxes in `{{lista}}`, grouping on. Both: the body of the operator's example message
+(embedded resources `Correspondence/Templates/*.html`, read once), custom field Termin (date, today + 14 days,
+`CustomFieldFormats.DefaultDate`), list item template "{{Skrzynka}} ({{Adres skrzynki}})", no salutation, no voting
+buttons, Aptos 12 pt with line height normal.
 
 ### 6.2 Services and registration
 
 | Type | Lifetime | Notes |
 |---|---|---|
-| `CorrespondenceTemplateLibrary(ISettingsStore, MessageImageStore?)` | singleton | built-ins + saved; save/delete/export (`{"format":"AdMng.CorrespondenceTemplates","version":1,...}` with images base64, 20 MiB cap)/import (new ids); `LastDraft` save/load; `Changed` event |
-| `CorrespondenceJournal(IAppPaths, ICorrespondenceKeyProtector, TimeProvider)` | singleton | `<SettingsDirectory>/correspondence/journal.txt` + `journal.key` (protected 32 bytes); `LoadAsync`, `Find(address) → JournalEntry?`, `AppendAsync(address, subject)` (line written and flushed at once, FileShare.ReadWrite), `PruneAsync(retention)`, `ClearAsync`, `Count`, `Oldest`, `Newest`; prune at load with the settings retention; thread-safe; corrupted key → new key, old journal renamed `journal-<date>.old` (and reported) |
+| `CorrespondenceTemplateLibrary(ISettingsStore, MessageImageStore?, TimeProvider?)` | singleton | built-ins (their deadline from the clock; default `TimeProvider.System`) + saved; save/delete/export (`{"format":"AdMng.CorrespondenceTemplates","version":1,...}` with images base64, 20 MiB cap)/import (new ids); `LastDraft` save/load; `StyleOf(template)`; `Changed` event |
+| `CorrespondenceJournal(IAppPaths, ICorrespondenceKeyProtector, TimeProvider)` | singleton | `<SettingsDirectory>/correspondence/journal.txt` + `journal.key` (protected 32 bytes); `LoadAsync`, `Find(address, scope = null) → JournalEntry?`, `AppendAsync(address, subject, ct)` and `AppendAsync(address, subject, scope, ct)` (line written and flushed at once, FileShare.ReadWrite; scope: a mailbox owner row's mailbox key, section 7.6), `PruneAsync(retention)`, `ClearAsync`, `Count`, `Oldest`, `Newest`; prune at load with the settings retention; thread-safe; corrupted key → new key, old journal renamed `journal-<date>.old` (and reported) |
 | `ICorrespondenceKeyProtector` | singleton (App: DPAPI CurrentUser + entropy "AdMng.CorrespondenceJournal") | `byte[] Protect(byte[])`, `byte[] Unprotect(byte[])`; tests: XOR fake |
 | `ICorrespondencePlatform` | singleton (App) | `string? DownloadsFolder` (SHGetKnownFolderPath), `int AnsiCodePage` via `IRegionalSettings` |
 | `IBrowserPreview` | singleton (App) | `Task OpenAsync(HtmlPreviewContent content, string title)` (loopback, section 9.3) |
@@ -745,7 +778,7 @@ All in `AdMng.Presentation.Correspondence`; `CorrespondenceViewModel : WindowVie
 - `Filter` (`MailboxRowFilter { All, Ready, NeedsReview, NotFound, Excluded }`), `SummaryText` ("Dopasowane: 90 · do sprawdzenia: 12 · nieznalezione: 8 · wykluczone: 2").
 - Row commands (parameter = row): `PickOwnerCommand` (object picker users → reads the person and sets Manual), `TypeOwnerAddressCommand` (prompt, validates with `EmailAddressText`), `ExcludeCommand`, `RestoreCommand`.
 - `MailboxFields` (`ObservableCollection<DirectoryFieldViewModel>`, mailbox + owner definitions), add/remove/reset.
-- `AddToRecipientsCommand`: rows with an owner address and `Include` → recipient rows (Email = owner address, Name = owner display name, Fields = mailbox fields + owner fields, `MailboxKeys` = mailbox address or DN, Source "Skrzynki"); replaces earlier "Skrzynki" rows; sets `GroupByAddress = GroupByOwner`; loads the built-in template when the message is empty; switches to Recipients.
+- `AddToRecipientsCommand`: rows with an owner address and `Include` → recipient rows (Email = owner address, Name = owner display name, Fields = mailbox fields + owner fields, `MailboxKeys` = mailbox address or DN – the row's `JournalScope`, section 7.6 –, Source "Skrzynki"); replaces earlier "Skrzynki" rows; loads the built-in that fits `GroupByOwner` (off by default → `mailbox-still-needed`, on → `mailbox-still-needed-grouped`) when the message body is empty or still the other built-in as loaded (`MessagePageViewModel.UseMailboxTemplateAsync`: no question then, the custom fields' values such as the chosen deadline kept; the fitting built-in held unchanged stays), then sets `GroupByAddress = GroupByOwner`; switches to Recipients.
 
 **`MessagePageViewModel`** (implements `IRichEditorHost`, section 9.2)
 - `Subject`, `Salutation`, `BodyHtml` (two-way with the editor), `BodyImages` (`IReadOnlyDictionary<string, MessageImage>`; the editor registers images through the host), `IsBodyEmpty`.
@@ -754,13 +787,14 @@ All in `AdMng.Presentation.Correspondence`; `CorrespondenceViewModel : WindowVie
 - `Attachments` (`ObservableCollection<AttachmentViewModel>`: `Name`, `Path`, `SizeText`, `Exists`), `SelectedAttachments`, `AttachmentsHeaderText` ("Załączniki (2, 1,4 MB)"), `HasAttachments` (header turns red), `AddAttachmentsCommand`, `RemoveAttachmentsCommand`, `ClearAttachmentsCommand`, `AddAttachmentFilesAsync(paths)` (drop); warning above `AttachmentWarningBytes`.
 - `SendModeChoices`/`SendMode`, `BccChunkSize`, `DelaySeconds`, `ReadReceipt`, `DeliverLater`, `DeliverDate` (`DateTime?`, default tomorrow), `DeliverTime` ("08:00"), `DeliverError`, `TryGetDeferredDelivery(out DateTimeOffset?)` (MailerWPiA rules: future > now+1 min, ≤ 365 days, `H:mm`/`HH:mm`/`H`).
 - `UseVoting`, `VotingOptions`.
-- `CustomFields` (`ObservableCollection<CustomFieldViewModel>`: `Name`, `Value`, `Error`), `AddCustomFieldCommand`, `RemoveCustomFieldCommand`; `GroupByAddress`, `ListItemTemplate`.
-- Templates: `Templates` (`IReadOnlyList<TemplateOption>`: built-ins then saved), `SelectedTemplate` (loading asks when the body is not empty and differs), `TemplateName`, `SaveTemplateCommand`, `DeleteTemplateCommand`, `ExportTemplatesCommand`, `ImportTemplatesCommand`, `NewMessageCommand` (confirm, clears subject/body/fields).
-- `Draft()` → `CorrespondenceDraft` (with the loaded signature); `ValidateForSend()` → localized errors (empty subject/body, missing attachments, deferred delivery, custom field errors, images over limits).
+- `CustomFields` (`ObservableCollection<CustomFieldViewModel>`: `Name`, `Value`, `Error`; date fields: `Kind`, `IsDate`, `Date` (`DateTime?`), `Format`, `Sample` (the formatted date or ""), static `FormatChoices` = `CustomFieldFormats.DateChoices`; a date field without a date is an error), `AddCustomFieldCommand`, `AddDateFieldCommand`, `RemoveCustomFieldCommand`; `GroupByAddress`, `ListItemTemplate`.
+- Base style: `FontFamily` (CSS family list), `FontSize` (points), `LineHeight` ("normal" or a number) with `FontFamilyChoices`, `FontSizeChoices`, `LineHeightChoices` (`Option` items, the current value always among them; "normal" → "Pojedyncza"), `BaseStyle`, `ApplyBaseStyle(style)` (templates and the last draft; a template without font values loads `MessageBaseStyle.Default`, never keeps the page's); a value the message cannot use goes back to the previous one.
+- Templates: `Templates` (`IReadOnlyList<TemplateOption>`: built-ins then saved), `SelectedTemplate` (loading asks when the page holds a message that differs – never over a built-in as it was loaded), `TemplateName`, `SaveTemplateCommand`, `DeleteTemplateCommand`, `ExportTemplatesCommand`, `ImportTemplatesCommand`, `NewMessageCommand` (confirm, clears subject/body/fields).
+- `Draft()` → `CorrespondenceDraft` (with the loaded signature and the base style); `ValidateForSend()` → localized errors (empty subject/body, missing attachments, deferred delivery, custom field errors, images over limits).
 - `PasteFormattedAsync` (Ctrl+V through the editor host): `HtmlPasteWorkflow` (U1c) with `Engine = null` → `FieldTemplate.RepairHtml` → `RichPaste(fragment, images)`; problems shown in `PasteProblemsText`.
 
 **`PreviewPageViewModel`**
-- `PreviewRecipients` (first 500 units: "Name <email>"), `SelectedRecipient`, `WidthChoices`/`Width`, `Preview` (`HtmlPreviewContent`: the card of MailerWPiA – Od/Do/Temat/Załączniki header, body, width), `InfoText` ("obrazków osadzonych: 3 • pola: zwrot, Miejscowość"), `Warnings` (`IReadOnlyList<string>`: unknown fields with the available list, empty fields "Pole {{X}} jest puste u 12 z 95 odbiorców", lint findings, size), `HasWarnings`, `IsFromOutlook`, `OkText` ("Wygląda dobrze – …").
+- `PreviewRecipients` (first 500 units: "Name <email>"), `SelectedRecipient`, `WidthChoices`/`Width`, `Preview` (`HtmlPreviewContent`: the card of MailerWPiA – Od/Do/Temat/Załączniki header, body, width), `InfoText` ("obrazków osadzonych: 3 • pola: zwrot, Miejscowość"), `Warnings` (`IReadOnlyList<string>`: unknown fields with the available list, the setup – a date field the message uses dated before today, `{{podpis}}` in the body without a chosen signature, a column field in the subject of messages grouped by address (it gets the group's first row) –, empty fields "Pole {{X}} jest puste u 12 z 95 odbiorców" (`{{podpis}}` never), lint findings, size), `HasWarnings`, `IsFromOutlook`, `OkText` ("Wygląda dobrze – …").
 - `RefreshCommand` (also on tab entry and recipient/width change; debounced 200 ms), `PreviewViaOutlookCommand` (session `RenderAsync`, images from memory), `OpenInBrowserCommand` (`IBrowserPreview`), `SaveHtmlCommand` (folder + file name: `podglad_wiadomosci.html` and image files next to it, cid → file names).
 
 **`SendPageViewModel`**
@@ -797,23 +831,30 @@ tracks merge without conflicts.
   `prawo-pl_kontakty_*.csv`, which the default covers).
 - Exclusions ("Nie wysyłać") are in memory only (as MailerWPiA); count shown.
 - Already sent: when `SkipAlreadySent`, rows whose address is in the journal are skipped and show
-  `PreviouslySentText`.
+  `PreviouslySentText` – a mailbox owner row only when its address was sent for its own mailbox (section 7.6).
 - Filter box: email/name/source/fields contains (folded).
 - Grid shows Wyślij, E-mail, Nazwa, Źródło, Status, Wcześniej, then the field columns (horizontal scroll).
 
 ### 7.2 Message
 
 - The editor (section 9.2) produces `BodyHtml`; the subject is plain text with `{{fields}}`.
-- Signature: loaded when selected (parse on the thread pool), problems shown; images embedded.
+- Signature: loaded when selected (parse on the thread pool), problems shown; images embedded. It goes after the body
+  (after a line break), or where the body has `{{podpis}}` (section 7.7).
 - Attachments: added to **every** message of the run (MailerWPiA warning text kept); list not persisted.
-- Last draft (subject, body, images, custom fields, list item template, voting, grouping, salutation) and the options are
-  saved on close and before sending; template images go to `MessageImageStore`.
+- Custom fields are text ("Dodaj pole") or dates ("Dodaj datę": a date picker, an editable format with
+  `CustomFieldFormats.DateChoices`, the sample as messages write it).
+- "Czcionka", "Rozmiar", "Interlinia": the base style of the message (the wrapping div); the editor shows the body in it
+  (`RichMessageEditor.BaseFontFamily`/`BaseFontSize`, bound by the window).
+- Last draft (subject, body, images, custom fields with their kind and format, list item template, voting, grouping,
+  salutation, base style) and the options are saved on close and before sending; template images go to
+  `MessageImageStore`.
 
 ### 7.3 Preview
 
 As MailerWPiA: the card (max-width 700/380 px or full, grey background, header Od/Do/Temat/Załączniki); warnings:
-unknown fields (with "Dostępne: …"), empty fields per field over the send list, lint, message size. The preview HTML
-and images stay in memory.
+unknown fields (with "Dostępne: …"), the setup (a past date field, `{{podpis}}` without a signature, a row field in a
+grouped subject), empty fields per field over the send list, lint, message size. The preview HTML and images stay in
+memory.
 
 ### 7.4 Sending
 
@@ -832,6 +873,58 @@ File `correspondence/journal.txt` next to `settings.json`: header line, then one
 (`JournalFile.Line`). Key: `correspondence/journal.key` (DPAPI-protected 32 random bytes, CurrentUser, entropy
 "AdMng.CorrespondenceJournal"). `Find` hashes the normalized address with the key and looks it up in a dictionary
 (latest entry wins). Retention pruning rewrites the file atomically (temp + move). The journal never stores the address.
+
+**Per mailbox.** A mailbox owner row (it has a mailbox key: the mailbox address, else its DN) is "already sent" only
+for that mailbox: its `CorrespondenceRecipientViewModel.JournalScope` is the key, and the journal hashes the owner's
+address together with it (`JournalHashing.Hash(key, address, scope)`). Every reader of a row's mark uses the row's own
+scope – the marks and the "Wcześniej" text of the recipients page, the send list and the summary, the marks set after
+a send, the rows of a retry. A send records **pairs**: each row of the message with its own scope
+(`CorrespondenceSendJob.JournalTargets`), never the addresses of a BCC chunk crossed with its keys; rows without a
+mailbox key stay unscoped. So one person with three mailboxes gets three messages (three entries) and a later run for a
+fourth mailbox is not skipped. A line does not say whether it is scoped; unscoped entries of older journals keep
+answering for unscoped rows only (never for a mailbox row: an invitation sent to the owner once does not skip the
+mailbox query).
+
+### 7.7 Template after the operator's example (1:1)
+
+The built-in mailbox templates (section 6.1) reproduce the message the operator's team sends today to ask whether a
+mailbox is still needed – the same text, spacing, colours and structure. The two variables are the deadline and the
+mailbox name in the subject; the rest is the example message, kept as embedded resources
+(`src/AdMng.Presentation/Correspondence/Templates/mailbox-still-needed.html` and `…-grouped.html`, LF line ends
+pinned in `.gitattributes`) that must not be "improved": its tables, cell borders and backgrounds, paddings and
+paragraph margins are what makes it 1:1. Neither the people of the example, nor the mailbox names, the sender's address
+or the signature block are part of it: the signature comes from the operator's Outlook signature files at run time.
+
+- **One message per mailbox** (`mailbox-still-needed`): the body says the mailbox is "wskazana w temacie tej
+  wiadomości", the subject is `Weryfikacja skrzynki pocztowej: {{Skrzynka}}`. That is why "Jedna wiadomość na
+  właściciela" is off by default; when it is on, `mailbox-still-needed-grouped` lists the owner's mailboxes in
+  `{{lista}}` ("{{Skrzynka}} ({{Adres skrzynki}})"). The preview warns when grouping is on and the subject uses a row
+  field such as `{{Skrzynka}}` (the subject gets the group's first row).
+- **Date fields.** `{{Termin}}` is a custom field of kind Date (`CustomFieldKind.Date`): its value is `yyyy-MM-dd`, it
+  renders in the Polish culture with its format – by default `d MMMM yyyy'r.'`, "15 listopada 2026r." exactly as the
+  example (genitive month, no space before "r.") – and the built-ins set it to today + 14 days (the library's clock).
+  The window picks the date in a calendar, offers the usual formats in an editable box and shows the sample; a date
+  field without a date blocks sending, a past date is a preview warning.
+- **`{{podpis}}`.** The example ends with "Z poważaniem", the team's name and the signature right after it, without the
+  blank line the renderer puts before an appended signature. `{{podpis}}` places the chosen signature there (its
+  paragraph split away – no empty paragraph is left) and the signature is then not appended; without a signature it
+  renders nothing (a preview warning, never an empty field). Signature images still go with the message.
+- **Base style.** The example is Aptos 12 pt with single line spacing, while earlier messages were Calibri 11 pt, 1.4:
+  `MessageBaseStyle` on the draft and the template sets the wrapping div (a template without font values was saved
+  before they existed and loads the default style, never the page's current one); the window keeps the last values in
+  the last draft and shows "Czcionka", "Rozmiar", "Interlinia"; the editor shows the body in that font.
+- **No voting buttons** (the example has none); the answers come as replies.
+- **Journal per mailbox** (section 7.6): one owner of three mailboxes gets three messages, each recorded for its mailbox.
+
+With `{{Termin}}` = "15 listopada 2026r.", the signature in place of `{{podpis}}` and the wrapping style
+`font-family:Aptos,sans-serif;font-size:12pt;color:#000000;line-height:normal`, Chromium renders the body pixel-identical
+to the example (checked when the template was taken over). `GoldenTemplateRenderTests` (Presentation) renders the
+built-in through the message page and the renderer for a synthetic mailbox row and compares the body with the embedded
+HTML semantically – element tree, attributes, text runs and the CSS value of every property – and checks the base style
+of the wrapper; the library tests pin the bytes of the embedded files. Until the message sanitizer allows Outlook's
+`mso-margin-top-alt`/`-bottom-alt` hints (inert in browsers, used by classic Outlook's Word engine) they are the only
+declarations the test lets go missing. The editor's side – keeping the look when the operator edits the template – is
+section 9.2.
 
 ## 8. AD sources and rule 4
 

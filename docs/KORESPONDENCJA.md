@@ -160,8 +160,16 @@ obie przyczyny pominięcia, np. *Pominięcia: 12 własnych + 340 z dziennika*.
 
 Każdy adres, do którego **wysłano** wiadomość, trafia do dziennika (test do siebie i wersje robocze – nie). Przy
 włączonym *Pomijaj już wysłane* (domyślnie) odbiorcy z adresem z dziennika są pomijani, a kolumna *Wysłano wcześniej*
-pokazuje datę i temat, np. *28.10.2026 · Czy skrzynka pocztowa jest nadal potrzebna?*. Żeby wysłać ponownie do tych
-samych osób (np. przypomnienie), wyłącz *Pomijaj już wysłane*.
+pokazuje datę i temat tak, jak go wpisano, np. *28.10.2026 · Weryfikacja skrzynki pocztowej: {{Skrzynka}}*. Żeby
+wysłać ponownie do tych samych osób (np. przypomnienie), wyłącz *Pomijaj już wysłane*.
+
+**Wiersze z zakładki *Skrzynki* liczą się osobno dla każdej skrzynki.** Wiersz właściciela skrzynki jest „już wysłany”
+tylko wtedy, gdy do tej osoby wysłano wiadomość **o tej skrzynce**: dziennik zapisuje skrót adresu właściciela razem z
+adresem skrzynki. Osoba, której przypisano trzy skrzynki, dostaje więc trzy wiadomości (trzy wpisy w dzienniku), a gdy
+później przybędzie jej czwarta skrzynka, wiadomość o niej nie zostanie pominięta. Wcześniejsza wiadomość z innej
+wysyłki (np. zaproszenie z pliku) nie pomija pytania o skrzynkę – i odwrotnie. Przy jednej wiadomości na właściciela
+(grupowanie) zapisuje się wpis dla każdej skrzynki z listy, a przy wysyłce w UDW – dla każdego wiersza z jego własną
+skrzynką.
 
 *Dziennik „już wysłane”…* pokazuje liczbę wpisów, najstarszy i najnowszy wpis oraz okres przechowywania (365 dni) i
 pozwala usunąć wpisy starsze niż ten okres albo wyczyścić cały dziennik. Dziennik **nie zna adresów** – trzyma tylko ich
@@ -181,6 +189,7 @@ W temacie, treści, elemencie listy i polach własnych wpisuje się pola w podw�
 | `{{nazwa}}` | nazwa odbiorcy, np. „Urząd Gminy Andrespol”; gdy odbiorca nie ma nazwy (sam adres) – zwrot grzecznościowy, żeby powitanie nie było puste |
 | `{{email}}` | adres odbiorcy |
 | `{{lista}}`, `{{liczba}}` | przy grupowaniu po adresie: lista wierszy odbiorcy i ich liczba (rozdział 5) |
+| `{{podpis}}` | podpis Outlooka wybrany na zakładce *Wiadomość* – dokładnie w tym miejscu treści, bez pustej linii przed nim (rozdział 5); bez tego pola podpis trafia pod treść |
 | `{{Dowolna kolumna}}` | wartość kolumny wczytanej tabeli, np. `{{Miejscowość}}`, `{{Kod pocztowy}}`, `{{Telefon}}`, pola z AD (`{{Imię}}`, `{{Pana/Panią}}`, `{{Zwrot osobowy}}`) i pola skrzynek |
 | `{{Pole własne}}` | wartość pola własnego (niżej) |
 | `{{Pole\|tekst}}` | „tekst”, gdy pole jest puste, np. `{{Ostatnie logowanie\|brak danych}}` |
@@ -204,10 +213,15 @@ Typowy początek listu:
 w nawiązaniu do działalności {{nazwa}} w {{Miejscowość}}…
 ```
 
-**Pola własne** (zakładka *Wiadomość*): nazwa i wartość, ta sama dla wszystkich odbiorców, np. *Termin* = „15 listopada
-2026” albo *Telefon działu* = „22 555 01 00”. Wartość może zawierać inne pola (`{{nazwa}}`, kolumny), ale nie inne pola
-własne. Pola własne zapisują się w szablonach i w ostatnim szkicu – zamiast pól `{$input:…}` z wiadomości do
-użytkowników.
+**Pola własne** (zakładka *Wiadomość*): nazwa i wartość, ta sama dla wszystkich odbiorców, np. *Telefon działu* =
+„22 555 01 00”. Wartość może zawierać inne pola (`{{nazwa}}`, kolumny), ale nie inne pola własne. Pola własne zapisują
+się w szablonach i w ostatnim szkicu – zamiast pól `{$input:…}` z wiadomości do użytkowników.
+
+**Pola daty** (*Dodaj datę*): datę wybiera się w kalendarzu, a format – z listy albo wpisując własny (format daty .NET:
+`d` – dzień, `MMMM` – miesiąc słownie, `yyyy` – rok, tekst w apostrofach). Domyślny format `d MMMM yyyy'r.'` daje
+„15 listopada 2026r.” (miesiąc w dopełniaczu, bez spacji przed „r.”); obok widać, jak data wyjdzie w wiadomości. Na
+liście są też m.in. „15 listopada 2026 r.”, „15.11.2026” i „niedziela, 15 listopada 2026”. Pole daty bez daty blokuje
+wysyłkę, a data z przeszłości to ostrzeżenie podglądu.
 
 **Dwie składnie pól.** Wiadomość Korespondencji używa `{{Pole}}` – tak jak Korespondencja WPiA, bo kolumny w rodzaju
 „Kod pocztowy” nie są nazwami atrybutów. Wyrażenia pól z AD (rozdziały 3 i 8) mają składnię wiadomości do użytkowników
@@ -228,8 +242,12 @@ z pojedynczymi nawiasami (`{givenName}`, `{$salutation}`), a w treści używa si
 
 - **Temat** – zwykły tekst z polami (*Wstaw pole* obok).
 - **Zwrot grzecznościowy – pole {{zwrot}}** – domyślnie „Szanowni Państwo”.
-- **Treść** – edytor z białym tłem i czcionką Calibri 11 pt (jak wiadomość w Outlooku), ze sprawdzaniem pisowni po
-  polsku. Pasek: pogrubienie (Ctrl+B), kursywa (Ctrl+I), podkreślenie (Ctrl+U), lista punktowana i numerowana,
+- **Czcionka, Rozmiar, Interlinia** – styl podstawowy wiadomości: czcionka, rozmiar i odstęp między wierszami tekstu,
+  który nie ma własnego formatowania. Domyślnie Calibri 11 pt z interlinią 1,4; wbudowane szablony skrzynek mają Aptos
+  12 pt z interlinią pojedynczą (jak nowa wiadomość w Outlooku z Microsoft 365). Formatowanie wpisane w treść (np.
+  tekst wklejony z Worda z własną czcionką) ma pierwszeństwo. Styl zapisuje się w szablonie i w ostatnim szkicu.
+- **Treść** – edytor z białym tłem, pokazujący tekst czcionką i rozmiarem wiadomości (jak w Outlooku), ze sprawdzaniem
+  pisowni po polsku. Pasek: pogrubienie (Ctrl+B), kursywa (Ctrl+I), podkreślenie (Ctrl+U), lista punktowana i numerowana,
   *Wstaw odsyłacz…* (zaznacz najpierw tekst w jednym akapicie; adres `https://…`, `mailto:`, `tel:` albo pole, np.
   `{{Link}}`; sama domena dostaje `https://`, adres e-mail – `mailto:`; puste pole usuwa odsyłacz), *Wyczyść
   formatowanie zaznaczenia*, *Wklej bez formatowania* (Ctrl+Shift+V) oraz lista pól z *Wstaw pole*.
@@ -247,6 +265,12 @@ Lista *Podpis* to podpisy z Twojego Outlooka (pliki z `%APPDATA%\Microsoft\Signa
 *Odśwież* czyta je ponownie. Podpis jest dopisywany pod treścią, z obrazkami osadzonymi w wiadomości. Jego style są
 wpisywane w tekst (poczta w przeglądarce, np. Gmail, pomija bloki `<style>`), a obrazki z internetu i elementy, których
 poczta nie pokaże, są usuwane – okno wymienia takie problemy pod listą. Pól `{{…}}` w podpisie się nie wypełnia.
+
+**Podpis w wybranym miejscu – pole `{{podpis}}`.** Gdy treść zawiera `{{podpis}}`, podpis staje dokładnie tam, a nie pod
+treścią – bez pustej linii przed nim, np. zaraz pod „Z poważaniem” (tak jak podpis wstawiony w Outlooku). Najlepiej
+wpisać pole w osobnym akapicie; w środku akapitu akapit zostaje rozcięty, bo podpis to osobne akapity. Treść z polem
+`{{podpis}}` bez wybranego podpisu nie ma w tym miejscu nic – podgląd o tym ostrzega. Pole `{{podpis}}` jest zawsze
+podpisem, nawet gdy dane mają kolumnę o tej nazwie.
 
 ### Załączniki
 
@@ -274,7 +298,8 @@ wysłanych* – przy dużych plikach lepiej wysłać łącze.
 
 ### Pola własne i grupowanie
 
-- **Pola własne** – rozdział 4; *Dodaj pole*, *Usuń*. Pole z błędem (np. pusta nazwa) blokuje wysyłkę.
+- **Pola własne** – rozdział 4; *Dodaj pole*, *Dodaj datę* (pole daty z kalendarzem i formatem), *Usuń*. Pole z błędem
+  (np. pusta nazwa albo pole daty bez daty) blokuje wysyłkę.
 - **Jedna wiadomość na adres – wiersze jako {{lista}}, ich liczba jako {{liczba}}.** Wiersze z tym samym adresem dają
   jedną wiadomość. `{{lista}}` staje się listą punktowaną: jeden punkt na wiersz, według wzoru *Element listy {{lista}}*
   (np. `{{Skrzynka}} ({{Adres skrzynki}})`); `{{liczba}}` to liczba wierszy, a pozostałe pola pochodzą z pierwszego
@@ -283,17 +308,20 @@ wysłanych* – przy dużych plikach lepiej wysłać łącze.
 
 ### Szablony
 
-- **Szablon** – na początku listy wbudowany szablon *Czy skrzynka pocztowa jest nadal potrzebna?* (rozdział 8), dalej
-  własne. Wybranie szablonu przy niepustej treści pyta, czy ją zastąpić.
+- **Szablon** – na początku listy dwa wbudowane szablony zapytania o skrzynki (rozdział 8): *Weryfikacja skrzynki
+  pocztowej (wiadomość na każdą skrzynkę)* i *Weryfikacja skrzynek pocztowych (jedna wiadomość na osobę)*, dalej własne.
+  Wybranie szablonu przy niepustej treści pyta, czy ją zastąpić – chyba że na stronie jest niezmieniony szablon
+  wbudowany (wtedy nie ma czego tracić).
 - **Nazwa szablonu** + *Zapisz* zapisuje bieżącą wiadomość; *Usuń szablon*; *Nowa wiadomość* (po potwierdzeniu czyści
   temat, treść i pola własne).
-- Szablon zawiera temat, treść z obrazkami, pola własne, element listy, zwrot grzecznościowy, przyciski głosowania i
-  grupowanie – nie zawiera odbiorców, załączników ani nadawcy. Wbudowanego szablonu nie da się zmienić; *Zapisz* pod
-  nową nazwą tworzy kopię.
+- Szablon zawiera temat, treść z obrazkami, pola własne (z datami i formatami pól daty), element listy, zwrot
+  grzecznościowy, przyciski głosowania, grupowanie oraz czcionkę, rozmiar i interlinię – nie zawiera odbiorców,
+  załączników ani nadawcy. Wbudowanego szablonu nie da się zmienić; *Zapisz* pod nową nazwą tworzy kopię. Szablony
+  zapisane we wcześniejszej wersji nie mają czcionki – wczytują się ze stylem domyślnym (Calibri 11 pt).
 - *Eksportuj…* / *Importuj…* – plik JSON z szablonami i ich obrazkami (do 20 MB) dla zespołu; import dodaje kopie i
   ponownie sprawdza treść oraz obrazki.
-- **Ostatni szkic** (temat, treść, obrazki, pola własne, element listy, zwrot, głosowanie, grupowanie) zapisuje się przy
-  zamknięciu okna i przed każdą wysyłką, a przy następnym otwarciu wraca do pustej wiadomości.
+- **Ostatni szkic** (temat, treść, obrazki, pola własne, element listy, zwrot, głosowanie, grupowanie, czcionka) zapisuje
+  się przy zamknięciu okna i przed każdą wysyłką, a przy następnym otwarciu wraca do pustej wiadomości.
 
 ## 6. Krok 3 – Podgląd
 
@@ -308,6 +336,13 @@ Podgląd pokazuje wiadomość dokładnie tak, jak zobaczy ją wybrany odbiorca: 
   jako `data:`, pozycjonowanie bezwzględne, obrazy tła, bloki `<style>`, elementy szersze niż 700 px, odsyłacz, którego
   tekst pokazuje inną domenę niż adres docelowy – typowy znak phishingu) i zbyt duża wiadomość. Bez ostrzeżeń widać
   *Wygląda dobrze…*.
+- Ostrzeżenia o ustawieniach wiadomości:
+  - **data z przeszłości** w polu daty użytym w temacie lub treści (*Pole {{Termin}} ma datę z przeszłości: …*) –
+    typowo przy szablonie zapisanym dawno temu; wybierz nową datę na zakładce *Wiadomość*;
+  - **`{{podpis}}` bez podpisu** – treść ma pole `{{podpis}}`, a na liście *Podpis* wybrano *(bez podpisu)*;
+  - **pole wiersza w temacie przy grupowaniu** – przy *Jedna wiadomość na adres* temat z polem kolumny (np.
+    `{{Skrzynka}}`) dostaje wartość tylko z pierwszego wiersza grupy; użyj szablonu „wiadomość na każdą skrzynkę” albo
+    tematu bez tego pola.
 - **Podgląd z Outlooka** buduje wiadomość w Outlooku (jak do wysyłki), odczytuje z niej gotową treść z obrazkami i kasuje
   wersję roboczą – trafia ona do *Elementów usuniętych*. To dowód „jeden do jednego”: widzisz HTML, który dostanie
   odbiorca. Outlook zmienia zwykle tylko zapis cudzysłowów i myślników na encje (`&#8222;`, `&#8212;`).
@@ -369,7 +404,7 @@ osobnym wątkiem, więc *Zatrzymaj*, przewijanie i zakładki działają normalni
 
 W wielu firmach konto skrzynki współdzielonej (np. *Sekretariat IT*) ma w polach *Imię* i *Nazwisko* (`givenName`, `sn`)
 dane osoby, do której skrzynkę przypisano. Zakładka *Skrzynki* czyta te dane, znajduje **własne konto tej osoby** i
-dodaje ją do odbiorców z polami skrzynki i właściciela – a wbudowany szablon pyta, czy skrzynka jest nadal potrzebna.
+dodaje ją do odbiorców z polami skrzynki i właściciela – a wbudowane szablony pytają, czy skrzynka jest nadal potrzebna.
 
 ### Gdzie i jakie skrzynki
 
@@ -471,34 +506,38 @@ skrzynki* albo *pole właściciela*. Domyślnie:
 
 *Ostatnie logowanie* skrzynki to logowanie na **konto** skrzynki – konto skrzynki współdzielonej jest zwykle wyłączone,
 a ludzie otwierają skrzynkę własnym kontem, więc pole bywa puste i nie mówi, czy skrzynka jest używana (aktywność
-skrzynek zna tylko Exchange). Dlatego szablon wbudowany pisze w takim przypadku „brak danych”.
+skrzynek zna tylko Exchange). Używając go w wiadomości, podaj tekst na brak wartości, np.
+`{{Ostatnie logowanie|brak danych}}`.
 
 ### Dodaj właścicieli do odbiorców
 
 *Dodaj właścicieli do odbiorców* przenosi zaznaczone wiersze z adresem właściciela na zakładkę *Odbiorcy*: adresem
 odbiorcy jest adres właściciela, nazwą – jego nazwa wyświetlana, polami – pola skrzynki i właściciela, źródłem –
-„Skrzynki”. Wcześniejsze wiersze ze źródła „Skrzynki” są zastępowane. Przy włączonym *Jedna wiadomość do właściciela
-(wszystkie jego skrzynki)* (domyślnie) włącza się grupowanie po adresie, więc osoba z trzema skrzynkami dostaje jedną
-wiadomość z listą trzech skrzynek; bez niego każda skrzynka to osobna wiadomość. Gdy wiadomość jest pusta, wczytuje się
-szablon wbudowany.
+„Skrzynki”. Wcześniejsze wiersze ze źródła „Skrzynki” są zastępowane. Domyślnie **każda skrzynka to osobna wiadomość**:
+osoba z trzema skrzynkami dostaje trzy wiadomości, każdą z nazwą swojej skrzynki w temacie. Po zaznaczeniu *Jedna
+wiadomość do właściciela (wszystkie jego skrzynki)* włącza się grupowanie po adresie i ta osoba dostaje jedną wiadomość
+z listą trzech skrzynek.
 
-**Szablon wbudowany *Czy skrzynka pocztowa jest nadal potrzebna?*** (przyciski głosowania i grupowanie włączone):
+Gdy treść wiadomości jest pusta (przy wpisanym temacie – po pytaniu) albo na zakładce *Wiadomość* jest niezmieniony
+szablon wbudowany, wczytuje się szablon wbudowany pasujący do tego wyboru: *Weryfikacja skrzynki pocztowej (wiadomość
+na każdą skrzynkę)* albo *Weryfikacja skrzynek pocztowych (jedna wiadomość na osobę)*. Ponowne dodanie z drugim
+wyborem zamienia jeden szablon wbudowany na drugi i zachowuje datę z pola *Termin*. Wiadomości, którą już napisano albo
+zmieniono, AD Manager nie zastępuje.
 
-> {{Zwrot osobowy}},
->
-> w ewidencji poczty jako osobę, do której przypisano skrzynkę, wskazano {{Pana/Panią}}:
->
-> {{lista}}
->
-> Prosimy o informację, czy skrzynka jest nadal potrzebna. W Outlooku wystarczy kliknąć przycisk nad treścią tej
-> wiadomości („Tak, nadal potrzebna” albo „Nie, można usunąć”); można też po prostu odpowiedzieć na tę wiadomość.
-> Jeżeli do {{Termin}} nie otrzymamy odpowiedzi, skrzynka zostanie zablokowana.
->
-> Z poważaniem
+**Szablony wbudowane** odtwarzają wiadomość, którą zespół IT wysyłał dotąd z Outlooka – ten sam tekst, odstępy, kolory
+i tabele. Czcionka Aptos 12 pt z interlinią pojedynczą, bez przycisków głosowania (odpowiedzią jest zwykła odpowiedź na
+wiadomość):
 
-Element listy: `{{Skrzynka}} ({{Adres skrzynki}}) – ostatnie logowanie: {{Ostatnie logowanie|brak danych}}`. Przed
-wysyłką **wpisz datę w polu własnym *Termin*** – podgląd ostrzega, dopóki jest puste. Szablon można zapisać pod inną
-nazwą i zmienić.
+- **Temat:** `Weryfikacja skrzynki pocztowej: {{Skrzynka}}`, a przy jednej wiadomości na osobę *Weryfikacja skrzynek
+  pocztowych*.
+- **Treść:** prośba o potwierdzenie, czy skrzynka wskazana w temacie (albo skrzynki z listy `{{lista}}`, element listy
+  `{{Skrzynka}} ({{Adres skrzynki}})`) jest nadal potrzebna, a jeśli ma zostać – o wskazanie w systemie zgłoszeń osoby
+  odpowiedzialnej i osób z dostępem; termin odpowiedzi `{{Termin}}` jest pogrubiony. Na końcu „Z poważaniem”, nazwa
+  zespołu i **podpis z Outlooka w miejscu `{{podpis}}`** – wybierz go na liście *Podpis* (rozdział 5).
+- **Termin** – pole daty ustawione na dziś + 14 dni, w formacie „15 listopada 2026r.”. Przed wysyłką sprawdź datę na
+  zakładce *Wiadomość* – data z przeszłości to ostrzeżenie podglądu.
+
+Szablon wbudowany można zapisać pod inną nazwą i zmienić (np. odsyłacz do systemu zgłoszeń w treści).
 
 ## 9. Krok 5 – Odpowiedzi
 
@@ -537,8 +576,8 @@ Outlooka* albo opis błędu z rozdziału 13.
 | Co | Gdzie | Zawartość |
 |---|---|---|
 | ustawienia okna | `%APPDATA%\AdMng\settings.json`, sekcja `correspondence` | temat, zwrot, konto, *w imieniu*, nazwa podpisu, odstęp, sposób wysyłki, potwierdzenie przeczytania, pomijanie wysłanych, grupowanie, głosowanie, godzina dostarczenia, szerokość podglądu, wzorzec pliku z *Pobranych* (`downloadsPattern`), próg potwierdzenia (`confirmationThreshold`, 20), okres przechowywania dziennika (`journalRetentionDays`, 365 dni); definicje pól z AD i pól skrzynek (nazwa + wyrażenie); opcje *Skrzynek* (rodzaj, filtr LDAP, źródło imienia i nazwiska, atrybut, miejsce osób jako DN przenośny `{domain}`) |
-| szablony i ostatni szkic | `settings.json` i obrazki w `%APPDATA%\AdMng\message-images` (wspólne z szablonami U1) | treść operatora: temat, treść z polami, obrazki, pola własne, element listy, opcje |
-| dziennik „już wysłane” | `%APPDATA%\AdMng\correspondence\journal.txt` | jeden wiersz na wysłany adres: **skrót adresu** (HMAC-SHA-256 z kluczem, pierwsze 16 bajtów), czas wysyłki, temat tak, jak go wpisano (bez wypełnionych pól) |
+| szablony i ostatni szkic | `settings.json` i obrazki w `%APPDATA%\AdMng\message-images` (wspólne z szablonami U1) | treść operatora: temat, treść z polami, obrazki, pola własne (pola daty z datą i formatem), element listy, czcionka, rozmiar i interlinia, opcje |
+| dziennik „już wysłane” | `%APPDATA%\AdMng\correspondence\journal.txt` | jeden wiersz na wysłany adres: **skrót adresu** (HMAC-SHA-256 z kluczem, pierwsze 16 bajtów; dla wierszy z *Skrzynek* – skrót adresu właściciela razem z adresem skrzynki, a gdy skrzynka nie ma adresu, z jej DN), czas wysyłki, temat tak, jak go wpisano (bez wypełnionych pól) |
 | klucz dziennika | `…\correspondence\journal.key` | 32 losowe bajty zaszyfrowane DPAPI dla bieżącego użytkownika Windows |
 | blokada dziennika | `…\correspondence\journal.lock` | pusty plik – kilka okien i uruchomień AD Managera zapisuje dziennik po kolei |
 | obrazki dla Outlooka | `%TEMP%\AdMng-Outlook-<proces>-<losowe>` | obrazki treści i podpisu (Outlook przyjmuje obrazki tylko z pliku); usuwane zaraz po zapisaniu wiadomości, pozostałości po awarii – przy następnym starcie |
@@ -553,9 +592,10 @@ każda poczta wysłana z Outlooka.
 **Dlaczego lista odbiorców nie zapisuje się sama.** Korespondencja WPiA co 25 wiadomości zapisywała `odbiorcy.csv` ze
 statusami, żeby po przerwaniu dokończyć wysyłkę. AD Manager nie zapisuje na dysku danych katalogu (zasada 1): odbiorcy z
 AD i ich pola to dane katalogu, a pliki z adresami to dane osobowe. Dokończenie zapewnia dziennik: wczytaj plik
-ponownie, a adresy, do których już wysłano, zostaną pominięte. Sam dziennik nie zawiera adresów – nawet z kluczem da się
-tylko sprawdzić, czy do **znanego** adresu już wysłano, a nie odczytać listę adresów. To jedyny wyjątek etapu U5 od
-zasady „żadnych danych katalogu na dysku” ([ADR-0003](adr/0003-brak-lokalnych-danych.md)).
+ponownie, a adresy, do których już wysłano, zostaną pominięte. Sam dziennik nie zawiera adresów ani nazw skrzynek – nawet
+z kluczem da się tylko sprawdzić, czy do **znanego** adresu (w sprawie znanej skrzynki) już wysłano, a nie odczytać listę
+adresów. To jedyny wyjątek etapu U5 od zasady „żadnych danych katalogu na dysku”
+([ADR-0003](adr/0003-brak-lokalnych-danych.md)).
 
 ## 12. Różnice względem Korespondencji WPiA
 

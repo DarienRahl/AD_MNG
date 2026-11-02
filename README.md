@@ -1060,7 +1060,7 @@ OU). Szczegóły: [docs/dev/u4-privileged-access.md, 6.3](docs/dev/u4-privileged
 Outlooka – osobna wiadomość do każdego, z kopią w *Elementach wysłanych*, z kontem i podpisem operatora) ze wszystkimi
 funkcjami w AD Managerze, a do tego **odbiorcy prosto z AD** i **zapytania do właścicieli skrzynek**: konto skrzynki
 współdzielonej z imieniem i nazwiskiem osoby, której ją przypisano, prowadzi do jej własnego konta, a osoba dostaje
-wiadomość „czy skrzynka jest nadal potrzebna?” z przyciskami głosowania.
+wiadomość z pytaniem, czy skrzynka jest nadal potrzebna.
 
 **Stan realizacji – zaimplementowane, czeka na pilotaż z klasycznym Outlookiem i Exchange.** Instrukcja dla
 użytkownika: [docs/KORESPONDENCJA.md](docs/KORESPONDENCJA.md); opis techniczny:
@@ -1076,27 +1076,31 @@ użytkownika: [docs/KORESPONDENCJA.md](docs/KORESPONDENCJA.md); opis techniczny:
   (zagnieżdżeni). Każda kolumna to pole `{{Kolumna}}`; pola z AD to **wyrażenia wiadomości do użytkowników** (`{givenName}`,
   `{$salutation}`, `{$honorific:biernik}`, `{$lastLogon:d MMMM yyyy}` …) liczone na żywo z kontrolera okna. Lista *Nie
   wysyłać*, filtr, eksport CSV na żądanie.
-- ✅ Pola `{{zwrot}}`, `{{nazwa}}`, `{{email}}`, `{{Pole|tekst gdy puste}}`, pola własne, grupowanie po adresie
+- ✅ Pola `{{zwrot}}`, `{{nazwa}}`, `{{email}}`, `{{Pole|tekst gdy puste}}`, pola własne, pola daty (kalendarz i format,
+  np. „15 listopada 2026r.”), `{{podpis}}` (podpis Outlooka w wybranym miejscu treści), grupowanie po adresie
   (`{{lista}}`, `{{liczba}}`); pola rozcięte formatowaniem Worda są sklejane.
 - ✅ Wiadomość: edytor WYSIWYG (pogrubienie, kursywa, podkreślenie, listy, odsyłacze, wklejanie z Worda i Outlooka z
   obrazkami osadzonymi), podpisy Outlooka z obrazkami, załączniki, *Wyślij jako*, *W imieniu*, dostarczenie o wskazanej
   porze, potwierdzenie przeczytania, przyciski głosowania, osobna wiadomość do każdego albo UDW (do 500 adresatów na
-  wiadomość), odstęp między wiadomościami, szablony z eksportem i importem, ostatni szkic.
+  wiadomość), odstęp między wiadomościami, czcionka, rozmiar i interlinia wiadomości, szablony z eksportem i importem,
+  ostatni szkic.
 - ✅ Podgląd jak u odbiorcy (700 px, 380 px, pełna szerokość), *Podgląd z Outlooka*, *Otwórz w przeglądarce* (z pamięci,
-  pod adresem 127.0.0.1, 15 minut), *Zapisz jako .html*, ostrzeżenia (nieznane i puste pola, rzeczy psujące się w
-  poczcie, rozmiar).
+  pod adresem 127.0.0.1, 15 minut), *Zapisz jako .html*, ostrzeżenia (nieznane i puste pola, data z przeszłości,
+  `{{podpis}}` bez podpisu, pole wiersza w temacie wiadomości grupowanej, rzeczy psujące się w poczcie, rozmiar).
 - ✅ Wysyłka przez Outlooka na osobnym wątku (okno odpowiada): *Test do siebie*, *Utwórz wersje robocze*, *Wyślij* z
   potwierdzeniem (powyżej 20 wiadomości – wpisanie liczby), *Zatrzymaj*, *Ponów nieudane*, zatrzymanie po 5 błędach z
   rzędu, czas do końca, raport na żądanie; wiadomość najpierw zapisana, a przy błędzie zostaje w *Wersjach roboczych*.
   Dziennik „już wysłane” pomija adresy, do których wysłano wcześniej – przechowuje tylko **skróty adresów** (HMAC z
-  kluczem użytkownika chronionym DPAPI), czas i temat; lista odbiorców nie jest zapisywana.
+  kluczem użytkownika chronionym DPAPI), czas i temat – przy zapytaniach o skrzynki osobno dla każdej skrzynki; lista
+  odbiorców nie jest zapisywana.
 - ✅ Zakładka *Skrzynki*: skrzynki współdzielone, sale i sprzęt albo wszystkie skrzynki (`msExchRecipientTypeDetails`,
   także zdalne), a bez schematu Exchange – wszystkie konta w zakresie; imię i nazwisko właściciela z `givenName`/`sn`,
   nazwy wyświetlanej, opisu albo atrybutu (bez tytułów i uwag); dopasowanie w pamięci bez względu na polskie znaki,
   kolejność imienia i nazwiska, tytuły w nazwie wyświetlanej i nazwiska dwuczłonowe, potwierdzone pełnomocnictwem
   (`msExchDelegateListLink`, `publicDelegates`); statusy do przeglądu, ręczny wybór osoby lub adresu, wykluczenie;
   właściciele trafiają do odbiorców z polami skrzynki i właściciela – jedna wiadomość na skrzynkę albo na właściciela z
-  listą jego skrzynek – z wbudowanym szablonem *Czy skrzynka pocztowa jest nadal potrzebna?*.
+  listą jego skrzynek – z dwoma wbudowanymi szablonami *Weryfikacja skrzynki pocztowej* (nazwa skrzynki w temacie,
+  termin jako pole daty, podpis w treści) i wersją z listą skrzynek.
 - ✅ Zakładka *Odpowiedzi*: głosy z *Elementów wysłanych* Outlooka przypisane do skrzynek, podsumowanie i eksport CSV.
 - ✅ Wiadomości do użytkowników (U1) mają trzeci sposób wysyłki – *Przez Outlooka* (rozdział U1 wyżej); nowe pole U1
   `{$created:…}`.
