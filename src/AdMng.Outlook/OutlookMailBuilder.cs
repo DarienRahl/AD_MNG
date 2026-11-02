@@ -158,7 +158,7 @@ internal sealed partial class OutlookMailBuilder
             if (message.InlineImages.Count > 0)
             {
                 step = OutlookSteps.Images;
-                AddImages(mail, message.InlineImages, images, scope);
+                AddImages(mail, message.InlineImages, message.Attachments, images, scope);
             }
 
             if (message.Attachments.Count > 0)
@@ -241,7 +241,7 @@ internal sealed partial class OutlookMailBuilder
             if (message.InlineImages.Count > 0)
             {
                 step = OutlookSteps.Images;
-                AddImages(mail, message.InlineImages, images, scope);
+                AddImages(mail, message.InlineImages, message.Attachments, images, scope);
             }
 
             if (message.Attachments.Count > 0)
@@ -571,11 +571,18 @@ internal sealed partial class OutlookMailBuilder
     }
 
     /// <summary>Writes each image to the item's temp folder and adds it at position 0 (not in the attachment list) with its
-    /// content id and the hidden flag (MailerWPiA).</summary>
-    private void AddImages(object mail, IReadOnlyList<MessageImage> images, ImageFiles files, ComScope scope)
+    /// content id and the hidden flag (MailerWPiA). The images are found again by file name after the save
+    /// (<see cref="MarkInlineImages"/>), so no image file takes the name of one of the item's <paramref name="others"/>
+    /// (an operator's "image001.png" would be hidden, with the image's content id).</summary>
+    private void AddImages(object mail, IReadOnlyList<MessageImage> images, IReadOnlyList<OutlookAttachment> others, ImageFiles files, ComScope scope)
     {
         dynamic attachments = scope.Track((object)((dynamic)mail).Attachments);
         var folder = files.Folder(_tempFiles);
+        foreach (var other in others)
+        {
+            folder.Exclude(string.IsNullOrWhiteSpace(other.Path) ? null : Path.GetFileName(other.Path));
+        }
+
         foreach (var image in images)
         {
             var path = folder.Write(image.FileName, image.Data);
@@ -620,7 +627,8 @@ internal sealed partial class OutlookMailBuilder
     }
 
     /// <summary>After the save: content id, MIME type and the hidden flag again on the saved image attachments (matched by
-    /// file name; MailerWPiA <c>MarkInlineImages</c>; PR_ATTACH_FLAGS is blocked by the object model and not needed).</summary>
+    /// file name, which no other attachment of the item shares – <see cref="AddImages"/>; MailerWPiA
+    /// <c>MarkInlineImages</c>; PR_ATTACH_FLAGS is blocked by the object model and not needed).</summary>
     private static void MarkInlineImages(object mail, ImageFiles files, ComScope scope)
     {
         dynamic attachments = scope.Track((object)((dynamic)mail).Attachments);

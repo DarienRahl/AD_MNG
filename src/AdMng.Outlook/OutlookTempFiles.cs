@@ -137,6 +137,18 @@ internal sealed partial class OutlookTempFolder : IDisposable
         return path;
     }
 
+    /// <summary>Keeps <paramref name="fileName"/> (as given and made safe) from ever being handed out by
+    /// <see cref="Reserve"/>: the name of another attachment of the item, which no file of this folder may share.</summary>
+    public void Exclude(string? fileName)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!string.IsNullOrEmpty(fileName))
+        {
+            _names.Add(fileName);
+            _names.Add(SafeName(fileName));
+        }
+    }
+
     /// <summary>A unique, safe file name in this folder for <paramref name="fileName"/> (the file is not created).</summary>
     public string Reserve(string? fileName)
     {

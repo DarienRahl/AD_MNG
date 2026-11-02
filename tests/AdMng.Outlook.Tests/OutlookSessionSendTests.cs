@@ -130,6 +130,34 @@ public class OutlookSessionSendTests
     }
 
     [Fact]
+    public async Task SendAsync_AnAttachmentNamedLikeAnInlineImage_StaysAVisibleAttachment()
+    {
+        // A signature image "image001.png" and the operator's screenshot saved as "image001.png": the images are found again
+        // by file name after the save, so the screenshot must not share that name (it would be hidden, with the image's
+        // content id).
+        await using var harness = new OutlookHarness();
+        var session = await harness.ConnectAsync();
+        var image = OutlookHarness.Image(0x30, "image001.png");
+        var screenshot = harness.File("image001.png", "zrzut ekranu – błąd logowania");
+
+        var result = await session.SendAsync(
+            OutlookHarness.Message() with { InlineImages = [image], Attachments = [new OutlookAttachment(screenshot)] }, OutlookSendMode.Send, Ct);
+
+        Assert.True(result.Succeeded);
+        var attachments = Assert.Single(harness.Application.Created).AttachmentList.Items;
+        Assert.Equal(2, attachments.Count);
+        var inline = attachments.Single(attachment => attachment.SourcePath != screenshot);
+        var visible = attachments.Single(attachment => attachment.SourcePath == screenshot);
+        Assert.Equal("image001.png", visible.FileName);
+        Assert.Empty(visible.Accessor.Values);
+        Assert.Equal(image.Data, inline.Data);
+        Assert.NotEqual("image001.png", inline.FileName, StringComparer.OrdinalIgnoreCase);
+        Assert.Equal(image.ContentId, inline.Accessor.Values[MapiProperties.AttachContentId]);
+        Assert.Equal(true, inline.Accessor.Values[MapiProperties.AttachmentHidden]);
+        Assert.Equal(image.MediaType, inline.Accessor.Values[MapiProperties.AttachMimeTag]);
+    }
+
+    [Fact]
     public async Task SendAsync_TheImageFilesExistOnlyWhileTheItemIsBuilt()
     {
         await using var harness = new OutlookHarness();

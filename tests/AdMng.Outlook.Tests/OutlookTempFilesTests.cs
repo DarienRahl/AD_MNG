@@ -54,6 +54,19 @@ public sealed class OutlookTempFilesTests : IDisposable
         Assert.All(Directory.EnumerateFiles(folder.Path), file => Assert.Equal(folder.Path, Path.GetDirectoryName(file)));
     }
 
+    [Fact]
+    public void Exclude_KeepsTheNamesOfOtherAttachments_FromTheImages()
+    {
+        using var folder = new OutlookTempFiles(_root, _ => true).Create();
+        folder.Exclude("IMAGE001.png");
+        folder.Exclude("zdjęcie ekranu.png");
+        folder.Exclude(null);
+
+        var names = new[] { "image001.png", "zdj_cie_ekranu.png", "logo.png" }.Select(folder.Reserve).ToList();
+
+        Assert.Equal(["image001-2.png", "zdj_cie_ekranu-2.png", "logo.png"], names);
+    }
+
     [Theory]
     [InlineData("image001.png", "image001.png")]
     [InlineData("a/b/c.gif", "c.gif")]
