@@ -3,6 +3,7 @@ using AdMng.Core.Correspondence.Composition;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
+using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
@@ -21,7 +22,8 @@ internal sealed record DirectoryRead(IReadOnlyList<(DirectoryRow Row, string Sou
 
 /// <summary>
 /// Recipients from the directory (design note 6.4): the objects selected in the connection window, picked users and
-/// contacts, the members of a group (nested, users and contacts, at most <see cref="MaxGroupMembers"/>). Every object is
+/// contacts, the members of a group (nested, and the accounts whose primary group it is – Domain Users; users and
+/// contacts, at most <see cref="MaxGroupMembers"/>). Every object is
 /// read from the window's session (rule 4) with the attributes its field definitions need and turned into a row by
 /// <see cref="DirectoryRowBuilder"/> on the thread pool; objects without an address become invalid rows.
 /// </summary>
@@ -123,7 +125,10 @@ public sealed partial class RecipientsPageViewModel
         string directorySource, Func<string, string> groupSource, int pageSize, CancellationToken token)
     {
         var attributes = builder.AttributesFor(DirectoryFieldTarget.Person);
-        var objects = await DirectoryLookup.ReadManyAsync(session, dns, attributes, token).ConfigureAwait(false);
+
+        // objectSid: the RID of a group finds the accounts whose primary group it is.
+        IReadOnlyList<string> read = [.. attributes.Append(Attr.ObjectSid).Distinct(StringComparer.OrdinalIgnoreCase)];
+        var objects = await DirectoryLookup.ReadManyAsync(session, dns, read, token).ConfigureAwait(false);
         var rows = new List<(DirectoryRow, string)>();
         var truncated = new List<string>();
         var other = 0;
@@ -144,7 +149,8 @@ public sealed partial class RecipientsPageViewModel
                 case ObjectKind.Group:
                     var name = DirectoryRowBuilder.NameOf(obj);
                     var source = groupSource(name);
-                    var (members, more) = await MembersAsync(session, obj.DistinguishedName, attributes, pageSize, token).ConfigureAwait(false);
+                    var (members, more) = await MembersAsync(session, obj.DistinguishedName, AdConvert.GetRid(obj.ObjectSid), attributes, pageSize, token)
+                        .ConfigureAwait(false);
                     rows.AddRange(members.Select(m => (builder.Recipient(m), source)));
                     if (more)
                     {
@@ -161,15 +167,20 @@ public sealed partial class RecipientsPageViewModel
         return new DirectoryRead(rows, other, truncated);
     }
 
-    /// <summary>The users and contacts of a group, nested membership included (<c>LDAP_MATCHING_RULE_IN_CHAIN</c>), at most <see cref="MaxGroupMembers"/>.</summary>
-    private static async Task<(List<DirectoryObject> Members, bool More)> MembersAsync(IDirectorySession session, string groupDn,
+    /// <summary>
+    /// The users and contacts of a group, at most <see cref="MaxGroupMembers"/>: nested membership
+    /// (<c>LDAP_MATCHING_RULE_IN_CHAIN</c>) and the accounts whose primary group it is (<c>primaryGroupID</c> = the group's
+    /// RID – the primary group is not in <c>memberOf</c>; every ordinary user of Domain Users is a member that way only).
+    /// </summary>
+    private static async Task<(List<DirectoryObject> Members, bool More)> MembersAsync(IDirectorySession session, string groupDn, uint? groupRid,
         IReadOnlyList<string> attributes, int pageSize, CancellationToken token)
     {
         var search = new DirectorySearch
         {
             BaseDn = session.Info.DefaultNamingContext,
             Scope = SearchScope.Subtree,
-            Filter = LdapFilter.And(LdapFilter.Or(ObjectKind.User.ToLdapFilter(), ObjectKind.Contact.ToLdapFilter()), LdapFilter.InChain(Attr.MemberOf, groupDn)),
+            Filter = LdapFilter.And(LdapFilter.Or(ObjectKind.User.ToLdapFilter(), ObjectKind.Contact.ToLdapFilter()),
+                AccountReviewQuery.GroupMembersFilter(groupDn, groupRid)),
             Attributes = attributes,
             PageSize = pageSize,
             SizeLimit = MaxGroupMembers + 1,
