@@ -12118,6 +12118,9 @@ Use "Check Outlook" – it shows the version, profile, accounts and signatures s
   <data name="UserMessages.Outlook.DefaultAccount" xml:space="preserve">
     <value>the profile's default account</value>
   </data>
+  <data name="UserMessages.Outlook.Description" xml:space="preserve">
+    <value>Outlook ({0})</value>
+  </data>
   <data name="UserMessages.Outlook.Account" xml:space="preserve">
     <value>Outlook account</value>
   </data>

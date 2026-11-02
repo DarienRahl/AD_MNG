@@ -498,9 +498,10 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         var count = items.Count;
         var title = Localizer[L.UserMessages.Send];
         var threshold = Services.Settings.Current.UserMessages.ConfirmationThreshold;
+        var via = ConfirmationTransport(transport);
         var confirmed = count > threshold
-            ? await Services.Dialogs.ConfirmTypedAsync(title, Localizer.Format(L.UserMessages.ConfirmTyped, count, transport.Description, ConfirmationDomain), count.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(true)
-            : await Services.Dialogs.ConfirmAsync(title, Localizer.Format(L.UserMessages.Confirm, count, transport.Description, ConfirmationDomain), destructive: false).ConfigureAwait(true);
+            ? await Services.Dialogs.ConfirmTypedAsync(title, Localizer.Format(L.UserMessages.ConfirmTyped, count, via, ConfirmationDomain), count.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(true)
+            : await Services.Dialogs.ConfirmAsync(title, Localizer.Format(L.UserMessages.Confirm, count, via, ConfirmationDomain), destructive: false).ConfigureAwait(true);
         if (!confirmed)
         {
             return;
@@ -844,6 +845,13 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
     /// <summary>The Outlook account of the settings, or "konto domyślne profilu" (U5).</summary>
     private string OutlookAccountText() =>
         Services.Settings.Current.UserMessages.OutlookAccount is { Length: > 0 } account ? account : Localizer[L.UserMessagesOutlook.DefaultAccount];
+
+    /// <summary>Where the messages go, as the send confirmation names it: the transport's description (a server, a service),
+    /// for Outlook "Outlooka (konto domyślne profilu)" in the UI language – its description is a technical value (U5).</summary>
+    private string ConfirmationTransport(IUserMessageTransport transport) =>
+        transport.Kind == UserMessageTransportKind.Outlook
+            ? Localizer.Format(L.UserMessagesOutlook.Description, OutlookAccountText())
+            : transport.Description;
 
     /// <summary>The transport for a send; asks the SMTP password from the window's box when needed (kept in memory only).</summary>
     private async Task<IUserMessageTransport?> EnsureTransportAsync()

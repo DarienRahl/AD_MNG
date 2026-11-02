@@ -117,6 +117,24 @@ public sealed class OutlookTransportChoiceTests
         Assert.Equal(expected, composer.TransportText);
     }
 
+    [Theory]
+    [InlineData(null, "pl-PL", "przez Outlooka (konto domyślne profilu) do użytkowników z domeny")]
+    [InlineData("sekretariat.lodz@contoso.test", "pl-PL", "przez Outlooka (sekretariat.lodz@contoso.test) do użytkowników z domeny")]
+    [InlineData(null, "en-US", "via Outlook (the profile's default account) to users of the domain")]
+    public async Task Window_TheSendConfirmation_NamesOutlookInTheUiLanguage(string? account, string culture, string expected)
+    {
+        var scenario = await OutlookScenarioAsync(account, culture: CultureInfo.GetCultureInfo(culture));
+        var composer = await scenario.OpenAsync([scenario.Company.JanKowalski], BuiltInMessageTemplates.PasswordExpiring, 14);
+        await composer.PlanCommand.ExecuteAsync(null);
+
+        await composer.SendCommand.ExecuteAsync(null);   // not confirmed
+
+        var confirmation = Assert.Single(scenario.Harness.Dialogs.Shown, shown => shown.StartsWith("confirm:", StringComparison.Ordinal));
+        Assert.Contains(expected, confirmation, StringComparison.Ordinal);
+        Assert.DoesNotContain("default account)", confirmation.Replace("profile's default account", string.Empty, StringComparison.Ordinal), StringComparison.Ordinal);
+        Assert.Empty(scenario.OutlookTransports.Transport.Accepted);
+    }
+
     [Fact]
     public async Task Window_WithoutClassicOutlook_ShowsTheProblem()
     {

@@ -50,7 +50,8 @@ public sealed class OutlookUserMessageTransport : IUserMessageTransport
 
     public UserMessageTransportKind Kind => UserMessageTransportKind.Outlook;
 
-    /// <summary>"Outlook (account)" or "Outlook (default account)".</summary>
+    /// <summary>"Outlook (account)" or "Outlook (default account)": a technical value (the session log); the windows name the
+    /// transport in the UI language (<c>UserMessages.Outlook.Description</c>, <c>UserMessages.ViaOutlook</c>).</summary>
     public string Description => $"Outlook ({Account ?? "default account"})";
 
     /// <summary>Installed → available with the Outlook capabilities; not installed → <see cref="NotInstalledReason"/>; not
