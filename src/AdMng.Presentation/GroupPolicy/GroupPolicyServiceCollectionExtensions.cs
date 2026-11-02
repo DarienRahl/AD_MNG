@@ -1,3 +1,5 @@
+using AdMng.Core.Computers.Remote;
+using AdMng.Core.Csv;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Presentation.BatchEditing;
@@ -42,7 +44,9 @@ public static class GroupPolicyServiceCollectionExtensions
             sp.GetRequiredService<GroupPolicyServices>(),
             sp.GetRequiredService<GroupPolicyActions>(),
             sp.GetRequiredService<PolicyDefinitionsService>(),
-            sp.GetRequiredService<PolicyTemplatePackageLoader>()));
+            sp.GetRequiredService<PolicyTemplatePackageLoader>(),
+            sp.GetService<IHostAddressResolver>(),
+            sp.GetService<ICsvCodec>()));
         return services;
     }
 

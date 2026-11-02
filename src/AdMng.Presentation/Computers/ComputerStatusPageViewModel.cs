@@ -47,6 +47,9 @@ public sealed partial class ComputerStatusPageViewModel : PropertyPageViewModel
 
     public bool CanResolveSite => Dialogs?.Actions.CanResolveSites == true;
 
+    /// <summary>"Co dostanie komputer…" (K5) is offered: the window has the Group Policy services.</summary>
+    public bool CanModelGroupPolicy => Dialogs?.Actions.CanModelGroupPolicy == true;
+
     private IComputerDialogs? Dialogs => Context.Services.Dialogs as IComputerDialogs;
 
     internal override IEnumerable<string> ReadAttributes => ComputerFacts.Attributes(Context.Schema);
@@ -193,6 +196,16 @@ public sealed partial class ComputerStatusPageViewModel : PropertyPageViewModel
         {
             IsReading = false;
             RefreshDetails();
+        }
+    }
+
+    /// <summary>"Co dostanie komputer…": the Group Policy model of this computer in the main window.</summary>
+    [RelayCommand]
+    private void ModelGroupPolicy()
+    {
+        if (_row is { } row && Dialogs?.Actions is { CanModelGroupPolicy: true } actions)
+        {
+            actions.ModelGroupPolicy(row.DistinguishedName);
         }
     }
 

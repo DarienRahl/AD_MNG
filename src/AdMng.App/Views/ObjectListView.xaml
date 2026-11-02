@@ -237,6 +237,7 @@
               <MenuItem b:CommandMenu.Id="computer.manage" />
               <MenuItem b:CommandMenu.Id="computer.eventViewer" />
               <MenuItem b:CommandMenu.Id="computer.ping" />
+              <MenuItem b:CommandMenu.Id="gpo.model" />
               <Separator />
               <MenuItem b:CommandMenu.Id="computer.reset" />
             </MenuItem>
@@ -245,6 +246,7 @@
             <MenuItem b:CommandMenu.Id="object.mailboxOwners" />
             <MenuItem b:CommandMenu.Id="object.move" />
             <MenuItem b:CommandMenu.Id="gpo.containerPolicies" />
+            <MenuItem b:CommandMenu.Id="gpo.modelUser" />
             <MenuItem b:CommandMenu.Id="object.batchEdit" />
             <Separator />
             <MenuItem b:CommandMenu.Id="object.copyRows" />

@@ -43,6 +43,11 @@
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
         <Button x:Name="LinkExistingButton" Margin="0,0,6,0" Command="{Binding LinkExistingCommand}" Content="{l:Tr GroupPolicy.LinkExistingCommand}" />
         <Button x:Name="CreateAndLinkButton" Margin="0,0,6,0" Command="{Binding CreateAndLinkCommand}" Content="{l:Tr GroupPolicy.NewLinkedCommand}" />
+        <Button x:Name="ModelPoliciesButton"
+                Margin="0,0,6,0"
+                Command="{Binding ModelPoliciesCommand}"
+                Content="{l:Tr GpModel.ModelCommand}"
+                Visibility="{Binding CanBlockInheritance, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         <Button x:Name="RefreshButton"
                 AutomationProperties.Name="{l:Tr GroupPolicy.RefreshCommand}"
                 Command="{Binding RefreshCommand}"

@@ -1472,6 +1472,13 @@
           </WrapPanel>
         </StackPanel>
         <WrapPanel Margin="0,0,0,8" DockPanel.Dock="Top">
+          <!-- K5: "Co dostanie komputer…" opens the Group Policy model of this computer in the main window. -->
+          <Button x:Name="ComputerModelGroupPolicyButton"
+                  Margin="0,0,6,6"
+                  Command="{Binding ModelGroupPolicyCommand}"
+                  Content="{l:Tr GpModel.ComputerCommand}"
+                  Style="{StaticResource SmallButton}"
+                  Visibility="{Binding CanModelGroupPolicy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
           <Button Margin="0,0,6,6"
                   Command="{Binding ReadExactLastLogonCommand}"
                   Content="{l:Tr Computers.Status.CheckAllDomainControllers}"

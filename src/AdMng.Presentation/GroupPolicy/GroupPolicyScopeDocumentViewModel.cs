@@ -194,6 +194,7 @@ public sealed partial class GroupPolicyScopeDocumentViewModel : GroupPolicyDocum
         CreateAndLinkCommand.NotifyCanExecuteChanged();
         ToggleBlockInheritanceCommand.NotifyCanExecuteChanged();
         OpenGpoCommand.NotifyCanExecuteChanged();
+        ModelPoliciesCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand(CanExecute = nameof(CanMoveUp))]
@@ -244,6 +245,13 @@ public sealed partial class GroupPolicyScopeDocumentViewModel : GroupPolicyDocum
             Actions.OpenGpo(gpo.Id, gpo.DisplayName);
         }
     }
+
+    /// <summary>"Modeluj zasady…" (K5): what a new computer and a new user in this domain or OU would get.</summary>
+    [RelayCommand(CanExecute = nameof(CanModel))]
+    private void ModelPolicies() =>
+        Gp.OpenDocument(new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.Modeling) { ContainerDn = ContainerDn, Name = _name });
+
+    private bool CanModel() => !IsLoading && HasSession && !IsMissing && !IsSite;
 
     private bool CanEdit() => !IsLoading && HasSession && !IsMissing;
 

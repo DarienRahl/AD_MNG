@@ -36,6 +36,13 @@ public enum GroupPolicyDocumentKind
 
     /// <summary>"Szablony administracyjne" of one GPO (K3, <see cref="GroupPolicyDocumentRequest.GpoId"/>).</summary>
     AdministrativeTemplates,
+
+    /// <summary>
+    /// "Co dostanie komputer" (K5): a Group Policy model of <see cref="GroupPolicyDocumentRequest.ComputerDn"/> and/or
+    /// <see cref="GroupPolicyDocumentRequest.UserDn"/>, or of a new computer and user in
+    /// <see cref="GroupPolicyDocumentRequest.ContainerDn"/>; one tab per target set.
+    /// </summary>
+    Modeling,
 }
 
 /// <summary>A request to open a Group Policy document in the connection window's shell.</summary>
@@ -45,8 +52,17 @@ public sealed record GroupPolicyDocumentRequest(GroupPolicyDocumentKind Kind)
     /// <summary>The GPO of <see cref="GroupPolicyDocumentKind.Object"/>.</summary>
     public Guid? GpoId { get; init; }
 
-    /// <summary>The domain head, OU or site of <see cref="GroupPolicyDocumentKind.Scope"/>.</summary>
+    /// <summary>
+    /// The domain head, OU or site of <see cref="GroupPolicyDocumentKind.Scope"/>; for <see cref="GroupPolicyDocumentKind.Modeling"/>
+    /// the container of a new computer and a new user (when no account is named).
+    /// </summary>
     public string? ContainerDn { get; init; }
+
+    /// <summary>The computer account of <see cref="GroupPolicyDocumentKind.Modeling"/>.</summary>
+    public string? ComputerDn { get; init; }
+
+    /// <summary>The user account of <see cref="GroupPolicyDocumentKind.Modeling"/>.</summary>
+    public string? UserDn { get; init; }
 
     /// <summary>The name shown until the document has loaded (GPO name, container name).</summary>
     public string? Name { get; init; }
