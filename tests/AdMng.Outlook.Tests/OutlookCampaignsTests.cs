@@ -71,6 +71,32 @@ public class OutlookCampaignsTests
     }
 
     [Fact]
+    public async Task CampaignReads_OpenOneItemAtATime_SoTheLimitOfOnlineModeLosesNothing()
+    {
+        // Exchange in online mode (VDI, shared mailboxes) refuses to open more than about 250 items at once ("your server
+        // administrator has limited the number of items you can open simultaneously"): a campaign of 300 messages must still
+        // be counted and read whole.
+        await using var harness = new OutlookHarness();
+        harness.Application.OpenItemLimit = 250;
+        for (var index = 0; index < 300; index++)
+        {
+            Sent(harness, CampaignA, "2026-10-01 10:00", "Czy skrzynka jest nadal potrzebna?", $"skrzynka{index:000}@contoso.test",
+                Vote(harness, $"wlasciciel{index:000}@contoso.test", 1, index % 2 == 0 ? "Tak, nadal potrzebna" : string.Empty, Never));
+        }
+
+        var session = await harness.ConnectAsync();
+
+        var campaign = Assert.Single(await session.FindCampaignsAsync(new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero), Ct));
+        var responses = await session.ReadResponsesAsync(CampaignA, Ct);
+
+        Assert.Equal(300, campaign.Messages);
+        Assert.Equal(300, responses.Count);
+        Assert.Equal(150, responses.Count(response => response.Response is not null));
+        Assert.Equal(["skrzynka299@contoso.test"], responses[^1].Keys);
+        harness.AssertAllReleased();
+    }
+
+    [Fact]
     public async Task FindCampaignsAsync_NothingSent_IsEmpty()
     {
         await using var harness = new OutlookHarness();
@@ -134,6 +160,21 @@ public class OutlookCampaignsTests
     }
 
     [Fact]
+    public async Task ReadResponsesAsync_AVoteForAnOptionWithACommaLookAlike_GetsItsCommaBack()
+    {
+        // Sent where ',' was Outlook's delimiter: the button read "Tak‚ nadal potrzebna" (U+201A) – the option of the
+        // settings is "Tak, nadal potrzebna".
+        await using var harness = new OutlookHarness();
+        Sent(harness, CampaignA, "2026-10-01 10:00", "Czy skrzynka jest nadal potrzebna?", "sekretariat.it@contoso.test",
+            Vote(harness, "anna.nowak@contoso.test", 1, "Tak‚ nadal potrzebna", "2026-10-02 08:30"));
+        var session = await harness.ConnectAsync();
+
+        var response = Assert.Single(await session.ReadResponsesAsync(CampaignA, Ct));
+
+        Assert.Equal("Tak, nadal potrzebna", response.Response);
+    }
+
+    [Fact]
     public async Task ReadResponsesAsync_InABccMessage_LeavesOutTheSendersOwnToRecipient()
     {
         await using var harness = new OutlookHarness();
@@ -148,6 +189,27 @@ public class OutlookCampaignsTests
 
         Assert.Equal(["anna.nowak@contoso.test", "jan.nowak@contoso.test", OutlookHarness.Own], responses.Select(response => response.Recipient));
         Assert.Empty(responses[0].Keys);
+    }
+
+    [Fact]
+    public async Task ReadResponsesAsync_InABccMessageSentFromAnotherAccountOfTheProfile_LeavesOutItsToRecipient()
+    {
+        // The "Do" of a BCC message is the address of the account the run was sent from, not necessarily the current user.
+        await using var harness = new OutlookHarness();
+        var archive = Vote(harness, "/o=ExchangeLabs/cn=archiwum", 1, string.Empty, Never);
+        archive.Entry = new AddressEntry(harness.Application) { Exchange = new ExchangeUser { PrimarySmtpAddress = OutlookHarness.Archive } };
+        Sent(harness, CampaignA, "2026-10-01 10:00", "Komunikat sekretariatu", string.Empty,
+            Vote(harness, "SEKRETARIAT.LODZ@contoso.test", 1, string.Empty, Never),
+            Vote(harness, "anna.nowak@contoso.test", 3, "Tak", "2026-10-02 09:00"));
+        Sent(harness, CampaignA, "2026-10-01 10:01", "Komunikat archiwum", string.Empty,
+            archive,
+            Vote(harness, "jan.nowak@contoso.test", 3, string.Empty, Never));
+        var session = await harness.ConnectAsync();
+
+        var responses = await session.ReadResponsesAsync(CampaignA, Ct);
+
+        Assert.Equal(["anna.nowak@contoso.test", "jan.nowak@contoso.test"], responses.Select(response => response.Recipient));
+        Assert.Equal("Tak", responses[0].Response);
     }
 
     [Fact]

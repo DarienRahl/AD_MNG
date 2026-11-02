@@ -1,6 +1,7 @@
 using AdMng.Core.Correspondence.Outlook;
 using AdMng.Core.Messaging;
 using AdMng.Testing;
+using Microsoft.Extensions.Time.Testing;
 
 namespace AdMng.Outlook.Tests;
 
@@ -119,13 +120,13 @@ public class OutlookUserMessageTransportTests
     [InlineData(OutlookFailureKind.Disconnected, UserMessageDeliveryOutcome.TransportFailed, "outlook.disconnected")]
     [InlineData(OutlookFailureKind.Elevated, UserMessageDeliveryOutcome.TransportFailed, "outlook.elevated")]
     [InlineData(OutlookFailureKind.RecipientUnresolved, UserMessageDeliveryOutcome.Rejected, "outlook.recipient")]
-    [InlineData(OutlookFailureKind.InvalidAccount, UserMessageDeliveryOutcome.Rejected, "outlook.account")]
+    [InlineData(OutlookFailureKind.InvalidAccount, UserMessageDeliveryOutcome.TransportFailed, "outlook.account")]
     [InlineData(OutlookFailureKind.ItemTooLarge, UserMessageDeliveryOutcome.Rejected, "outlook.tooLarge")]
     [InlineData(OutlookFailureKind.Unknown, UserMessageDeliveryOutcome.Rejected, "outlook.error")]
     public async Task SendAsync_ClassifiesTheFailure(OutlookFailureKind kind, UserMessageDeliveryOutcome outcome, string code)
     {
         var client = new FakeOutlookClient();
-        client.Script("anna.nowak@contoso.test", FakeOutlookClient.Failed(kind, savedAsDraft: true));
+        client.Script("anna.nowak@contoso.test", FakeOutlookClient.Failed(kind));
         await using var connection = await new OutlookUserMessageTransport(client).ConnectAsync(Ct);
 
         var delivery = await connection.SendAsync(Message(), Ct);
@@ -136,6 +137,69 @@ public class OutlookUserMessageTransportTests
         Assert.Equal(outcome == UserMessageDeliveryOutcome.TransportFailed, delivery.StopsRun);
         Assert.Null(delivery.SmtpStatus);
         Assert.True(next.IsAccepted);
+    }
+
+    [Theory]
+    [InlineData(OutlookFailureKind.Busy, UserMessageDeliveryOutcome.Rejected, "outlook.busy")]
+    [InlineData(OutlookFailureKind.NotResponding, UserMessageDeliveryOutcome.Rejected, "outlook.notResponding")]
+    [InlineData(OutlookFailureKind.ItemTooLarge, UserMessageDeliveryOutcome.Rejected, "outlook.tooLarge")]
+    [InlineData(OutlookFailureKind.Disconnected, UserMessageDeliveryOutcome.TransportFailed, "outlook.disconnected")]
+    public void ToDelivery_AFailureThatLeftADraft_IsNeverRetried(OutlookFailureKind kind, UserMessageDeliveryOutcome outcome, string code)
+    {
+        // The item is in "Wersje robocze" (and after a failed Send() it may even have gone out): a retry would build and send
+        // a second copy.
+        var delivery = OutlookUserMessageTransport.ToDelivery(FakeOutlookClient.Failed(kind, "send", savedAsDraft: true));
+
+        Assert.Equal(outcome, delivery.Outcome);
+        Assert.Equal(code, delivery.Code);
+    }
+
+    [Fact]
+    public async Task EndToEnd_ABusyOutlookAfterTheSave_IsNotRetried_SoNoSecondCopyIsBuilt()
+    {
+        await using var harness = new OutlookHarness();
+        harness.Log.FailWith("MailItem.Send()", 0x80010001);
+        var time = new FakeTimeProvider(new DateTimeOffset(2026, 10, 28, 9, 0, 0, TimeSpan.Zero));
+        var transport = new OutlookUserMessageTransport(harness.Client);
+
+        var results = await Dispatcher(time).SendAsync(transport, [Planned(0, Message())], Limiter(time), null, null, Ct);
+
+        var result = Assert.Single(results);
+        Assert.Equal(UserMessageSendStatus.Failed, result.Status);
+        Assert.Equal("outlook.busy", result.Delivery!.Code);
+        Assert.Equal(1, result.Attempts);
+        var draft = Assert.Single(harness.Application.Created);
+        Assert.False(draft.WasSent);
+        Assert.True(draft.SaveCount > 0);
+    }
+
+    [Fact]
+    public async Task EndToEnd_AnAccountMissingFromTheProfile_StopsTheRun_AfterTheFirstMessage()
+    {
+        await using var harness = new OutlookHarness();
+        var time = new FakeTimeProvider(new DateTimeOffset(2026, 10, 28, 9, 0, 0, TimeSpan.Zero));
+        var transport = new OutlookUserMessageTransport(harness.Client, "rekrutacja@contoso.test");
+        PlannedUserMessage[] planned =
+        [
+            Planned(0, Message()),
+            Planned(1, Message("jan.nowak@contoso.test")),
+            Planned(2, Message("agnieszka.zolc@contoso.test")),
+        ];
+
+        var results = await Dispatcher(time).SendAsync(transport, planned, Limiter(time), null, null, Ct);
+
+        Assert.Equal(UserMessageSendStatus.Failed, results[0].Status);
+        Assert.Equal("outlook.account", results[0].Delivery!.Code);
+        Assert.True(results[0].Delivery!.StopsRun);
+        Assert.All(results.Skip(1), result =>
+        {
+            Assert.Equal(UserMessageSendStatus.NotSent, result.Status);
+            Assert.Equal(UserMessageNotSentReason.TransportStopped, result.NotSentReason);
+        });
+
+        // One connection: the run did not attach to Outlook (and read its profile) again for every message.
+        Assert.Equal(1, harness.Provider.AttachCalls);
+        Assert.All(harness.Application.Created, item => Assert.False(item.WasSent));
     }
 
     [Fact]
@@ -241,6 +305,27 @@ public class OutlookUserMessageTransportTests
     }
 
     [Fact]
+    public async Task EndToEnd_AnOutlookTheRunStarted_IsStillReferencedAfterTheRun()
+    {
+        // Nobody had Outlook open: the run starts it. Released with the last session – after the run, or when the dispatcher
+        // reconnects after a rejected message – it would exit with the messages sent last still in the Outbox.
+        await using var harness = new OutlookHarness();
+        harness.Provider.Running = false;
+        harness.Application.Unresolvable.Add("zly-adres@contoso");
+        var time = new FakeTimeProvider(new DateTimeOffset(2026, 10, 28, 9, 0, 0, TimeSpan.Zero));
+        var transport = new OutlookUserMessageTransport(harness.Client);
+
+        var results = await Dispatcher(time).SendAsync(
+            transport, [Planned(0, Message()), Planned(1, Message("zly-adres@contoso")), Planned(2, Message("jan.nowak@contoso.test"))], Limiter(time), null, null, Ct);
+
+        Assert.Equal(
+            [UserMessageSendStatus.Accepted, UserMessageSendStatus.Failed, UserMessageSendStatus.Accepted],
+            results.Select(result => result.Status));
+        Assert.Equal(1, harness.ApplicationReferences);
+        Assert.Equal(2, harness.Application.Created.Count(item => item.WasSent));
+    }
+
+    [Fact]
     public void Factory_CreatesTransportsOfTheClient()
     {
         var client = new FakeOutlookClient();
@@ -267,4 +352,24 @@ public class OutlookUserMessageTransportTests
         Assert.Equal("Outlook (sekretariat.lodz@contoso.test)", transport.Description);
         Assert.Equal((" sekretariat.lodz@contoso.test ", true), Assert.Single(factory.Created));
     }
+
+    /// <summary>The U1 dispatcher on a manual clock: its pauses (rate limit, retries) advance the clock at once.</summary>
+    private static UserMessageDispatcher Dispatcher(FakeTimeProvider time) => new(time, Advance(time));
+
+    private static MessageRateLimiter Limiter(FakeTimeProvider time) => new(time, Advance(time));
+
+    private static Func<TimeSpan, CancellationToken, Task> Advance(FakeTimeProvider time) => (delay, _) =>
+    {
+        time.Advance(delay);
+        return Task.CompletedTask;
+    };
+
+    private static PlannedUserMessage Planned(int index, OutgoingUserMessage message) => new()
+    {
+        Index = index,
+        DistinguishedName = $"CN={message.To[0].Address},OU=Pracownicy,DC=contoso,DC=test",
+        Name = "Anna Nowak",
+        Status = PlannedMessageStatus.Ready,
+        Message = message,
+    };
 }

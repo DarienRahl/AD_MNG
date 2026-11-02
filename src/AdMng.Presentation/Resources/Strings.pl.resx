@@ -12118,6 +12118,9 @@ Użyj przycisku „Sprawdź Outlooka” – pokaże wersję, profil, konta i pod
   <data name="UserMessages.Outlook.DefaultAccount" xml:space="preserve">
     <value>konto domyślne profilu</value>
   </data>
+  <data name="UserMessages.Outlook.Description" xml:space="preserve">
+    <value>Outlooka ({0})</value>
+  </data>
   <data name="UserMessages.Outlook.Account" xml:space="preserve">
     <value>Konto Outlooka</value>
   </data>

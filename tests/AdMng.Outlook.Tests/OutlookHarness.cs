@@ -47,11 +47,14 @@ internal sealed class OutlookHarness : IAsyncDisposable
         Provider.Clock = Time.GetUtcNow;
         TempFiles = new OutlookTempFiles(TempRoot, _ => false);
         Signatures = new FakeSignatureSource();
-        Client = new OutlookClient(Provider, Time, Signatures, TempFiles, Log.Release, () => elevated);
+        Client = new OutlookClient(Provider, Time, Signatures, TempFiles, Log.Release, () => elevated, () => ListSeparator);
     }
 
     /// <summary>A fixed +01:00 zone (no daylight saving), so local times are predictable on every machine.</summary>
     public static TimeZoneInfo Zone { get; } = TimeZoneInfo.CreateCustomTimeZone("AdMng/Test+01", TimeSpan.FromHours(1), "Test +01", "Test +01");
+
+    /// <summary>The Windows list separator (sList) of the "PC": ';' with Polish formats, ',' with English (United States).</summary>
+    public string ListSeparator { get; set; } = ";";
 
     public string Root { get; }
 
@@ -72,6 +75,11 @@ internal sealed class OutlookHarness : IAsyncDisposable
     public OutlookClient Client { get; }
 
     public static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    /// <summary>The references to the application object AD Manager holds: handed out by the provider, not released yet. An
+    /// Outlook started by automation exits when this reaches 0.</summary>
+    public int ApplicationReferences =>
+        Provider.HandedOut - Log.Released.Count(value => ReferenceEquals(value, Application));
 
     /// <summary>A PNG of the U1c samples as a message image.</summary>
     public static MessageImage Image(byte seed = 0x40, string fileName = "logo.png") =>
@@ -128,6 +136,7 @@ internal sealed class OutlookHarness : IAsyncDisposable
             await session.DisposeAsync();
         }
 
+        await Client.DisposeAsync();
         try
         {
             Directory.Delete(Root, recursive: true);
@@ -145,7 +154,22 @@ internal sealed class FakeSignatureSource : IOutlookSignatureSource
 
     public List<string> Names { get; } = ["Jan Kowalski – podpis", "Krótki"];
 
-    public IReadOnlyList<string> List() => [.. Names];
+    /// <summary>A redirected %APPDATA% on a share that does not answer: when set, <see cref="List"/> waits for it (at most
+    /// 5 s, then <see cref="GaveUp"/>).</summary>
+    public ManualResetEventSlim? Share { get; set; }
+
+    /// <summary><see cref="List"/> waited for <see cref="Share"/> in vain.</summary>
+    public bool GaveUp { get; private set; }
+
+    public IReadOnlyList<string> List()
+    {
+        if (Share is { } share && !share.Wait(TimeSpan.FromSeconds(5)))
+        {
+            GaveUp = true;
+        }
+
+        return [.. Names];
+    }
 
     public Task<Core.Correspondence.Composition.SignatureParseResult?> ReadAsync(string name, int ansiCodePage, CancellationToken cancellationToken) =>
         Task.FromResult<Core.Correspondence.Composition.SignatureParseResult?>(null);

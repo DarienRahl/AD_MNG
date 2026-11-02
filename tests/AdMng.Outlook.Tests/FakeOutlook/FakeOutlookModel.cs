@@ -67,6 +67,15 @@ public sealed class OutlookLog
     public IReadOnlyList<string> CallsOf(params string[] prefixes) =>
         [.. Calls.Where(call => prefixes.Any(prefix => call.StartsWith(prefix, StringComparison.Ordinal)))];
 
+    /// <summary>How many objects of type <typeparamref name="T"/> were handed out and are not released yet.</summary>
+    public int Outstanding<T>()
+    {
+        lock (_gate)
+        {
+            return _handedOut.Count(value => value is T) - _released.Count(value => value is T);
+        }
+    }
+
     /// <summary>Makes the calls starting with <paramref name="member"/> ("MailItem.Send", "MailItem.Subject=", …) throw
     /// <paramref name="times"/> times after letting <paramref name="skip"/> of them pass.</summary>
     public void Fail(string member, Exception exception, int times = int.MaxValue, int skip = 0)
@@ -160,6 +169,10 @@ public sealed class Application
 
     /// <summary>Called on every new item (e.g. to make its SendUsingAccount setter fail).</summary>
     public Action<MailItem>? ConfigureItem { get; set; }
+
+    /// <summary>Exchange in online mode: at most this many items may be open (handed out, not released) at once; opening
+    /// one more from <see cref="FakeItems"/> fails as the server refuses it. Null: no limit (cached mode).</summary>
+    public int? OpenItemLimit { get; set; }
 
     public string Version
     {
@@ -690,6 +703,12 @@ public sealed class FakeItems(Application application, List<MailItem> items)
         get
         {
             application.Log.Call($"Items[{index}]");
+            if (application.OpenItemLimit is { } limit && application.Log.Outstanding<MailItem>() >= limit)
+            {
+                // "Your server administrator has limited the number of items you can open simultaneously."
+                throw new COMException("Too many items open.", unchecked((int)0x80004005));
+            }
+
             return application.Log.Out(List[index - 1]);
         }
     }
@@ -717,12 +736,16 @@ internal sealed class FakeApplicationProvider(Application application) : IOutloo
 {
     private readonly Queue<Exception> _attachFailures = new();
     private readonly Queue<Exception> _startFailures = new();
+    private int _handedOut;
 
     public Application Application { get; } = application;
 
     public int AttachCalls { get; private set; }
 
     public int StartCalls { get; private set; }
+
+    /// <summary>The references to <see cref="Application"/> handed out (attach or start that succeeded).</summary>
+    public int HandedOut => Volatile.Read(ref _handedOut);
 
     public List<int> Threads { get; } = [];
 
@@ -765,9 +788,16 @@ internal sealed class FakeApplicationProvider(Application application) : IOutloo
             throw failure;
         }
 
-        return Running ? Application : throw new COMException("Operation unavailable.", unchecked((int)0x800401E3));
+        if (!Running)
+        {
+            throw new COMException("Operation unavailable.", unchecked((int)0x800401E3));
+        }
+
+        Interlocked.Increment(ref _handedOut);
+        return Application;
     }
 
+    /// <summary>Starts Outlook – or, as Outlook runs once per user, returns the running one.</summary>
     public object Start()
     {
         StartCalls++;
@@ -778,6 +808,7 @@ internal sealed class FakeApplicationProvider(Application application) : IOutloo
         }
 
         Running = true;
+        Interlocked.Increment(ref _handedOut);
         return Application;
     }
 }

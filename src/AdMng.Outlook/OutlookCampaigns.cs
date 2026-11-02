@@ -48,22 +48,22 @@ internal sealed class OutlookCampaigns
         try
         {
             var groups = new Dictionary<string, CampaignBuilder>(StringComparer.OrdinalIgnoreCase);
-            foreach (var item in Items(CampaignsFilter(since), scope))
+            ForEachItem(CampaignsFilter(since), scope, (item, accessor, _) =>
             {
-                var id = ReadString(item.Accessor, MapiProperties.Campaign);
-                if (!OutlookMailBuilder.IsCampaignId(id) || ReadDate(item.Item, "SentOn") is not { } sentOn || sentOn < since)
+                var id = ReadString(accessor, MapiProperties.Campaign);
+                if (!OutlookMailBuilder.IsCampaignId(id) || ReadDate(item, "SentOn") is not { } sentOn || sentOn < since)
                 {
-                    continue;
+                    return;
                 }
 
-                var subject = OutlookProfileReader.Get(() => (string?)((dynamic)item.Item).Subject);
+                var subject = OutlookProfileReader.Get(() => (string?)((dynamic)item).Subject);
                 if (!groups.TryGetValue(id, out var group))
                 {
                     groups[id] = group = new CampaignBuilder(id);
                 }
 
                 group.Add(subject, sentOn);
-            }
+            });
 
             return [.. groups.Values.Select(group => group.Build()).OrderByDescending(campaign => campaign.LastSent).ThenBy(campaign => campaign.Id, StringComparer.Ordinal)];
         }
@@ -80,12 +80,14 @@ internal sealed class OutlookCampaigns
     /// <summary>
     /// The responses of one campaign: per recipient of each item the vote (<c>AutoResponse</c>, null when none), when it
     /// came (<c>TrackingStatusTime</c>; null without a vote or with Outlook's "no date"), the item's <c>SentOn</c>, subject and
-    /// keys. In a Bcc message the To recipient that is the sender's own mailbox is left out.
+    /// keys. In a Bcc message a To recipient that is one of the sender's own mailboxes (<paramref name="ownAddresses"/>:
+    /// the accounts of the profile and its current user) is left out.
     /// </summary>
     /// <exception cref="ArgumentException">The id is not a campaign id.</exception>
     /// <exception cref="OutlookException">The folder or the search failed (classified, step responses).</exception>
-    public IReadOnlyList<OutlookVoteResponse> Responses(string campaignId, string? ownAddress)
+    public IReadOnlyList<OutlookVoteResponse> Responses(string campaignId, IReadOnlySet<string> ownAddresses)
     {
+        ArgumentNullException.ThrowIfNull(ownAddresses);
         if (!OutlookMailBuilder.IsCampaignId(campaignId))
         {
             throw new ArgumentException("Not a campaign id.", nameof(campaignId));
@@ -95,20 +97,20 @@ internal sealed class OutlookCampaigns
         try
         {
             var responses = new List<OutlookVoteResponse>();
-            foreach (var item in Items(ResponsesFilter(campaignId), scope))
+            ForEachItem(ResponsesFilter(campaignId), scope, (item, accessor, itemScope) =>
             {
-                var id = ReadString(item.Accessor, MapiProperties.Campaign);
+                var id = ReadString(accessor, MapiProperties.Campaign);
                 if (!string.Equals(id, campaignId, StringComparison.OrdinalIgnoreCase))
                 {
-                    continue;
+                    return;
                 }
 
-                var sentOn = ReadDate(item.Item, "SentOn") ?? DateTimeOffset.MinValue;
-                var subject = OutlookProfileReader.Get(() => (string?)((dynamic)item.Item).Subject);
-                IReadOnlyList<string> keys = ReadString(item.Accessor, MapiProperties.Keys)
+                var sentOn = ReadDate(item, "SentOn") ?? DateTimeOffset.MinValue;
+                var subject = OutlookProfileReader.Get(() => (string?)((dynamic)item).Subject);
+                IReadOnlyList<string> keys = ReadString(accessor, MapiProperties.Keys)
                     .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                responses.AddRange(Recipients(item.Item, ownAddress, sentOn, subject, keys, scope));
-            }
+                responses.AddRange(Recipients(item, ownAddresses, sentOn, subject, keys, itemScope));
+            });
 
             return responses;
         }
@@ -122,9 +124,15 @@ internal sealed class OutlookCampaigns
         }
     }
 
-    /// <summary>The items of Sent Items matching <paramref name="filter"/>, sorted by <c>SentOn</c>, with their property
-    /// accessors (null when unreadable).</summary>
-    private List<(object Item, object? Accessor)> Items(string filter, ComScope scope)
+    /// <summary>
+    /// Reads the items of Sent Items matching <paramref name="filter"/>, sorted by <c>SentOn</c>, one at a time: each item, its
+    /// property accessor (null when unreadable) and every object <paramref name="read"/> tracks in the item's scope are
+    /// released before the next item is opened. Exchange in online mode counts every open item against a limit of objects
+    /// a session may hold at once (about 250), and a cached store would keep every one of them in memory (MailerWPiA: "przy
+    /// setkach wiadomości nieoddane obiekty COM potrafią się uzbierać"). An item that cannot be opened (deleted since the
+    /// search) is skipped; a busy or lost Outlook fails the read.
+    /// </summary>
+    private void ForEachItem(string filter, ComScope scope, Action<object, object?, ComScope> read)
     {
         dynamic app = _application;
         dynamic session = scope.Track((object)app.Session);
@@ -141,72 +149,86 @@ internal sealed class OutlookCampaigns
         }
 
         var count = Math.Min((int)found.Count, MaxItems);
-        var items = new List<(object, object?)>(count);
         for (var index = 1; index <= count; index++)
         {
-            object item;
+            var itemScope = new ComScope(_release);
             try
             {
-                item = scope.Track((object)found[index]);
-            }
-            catch (Exception ex) when (OutlookErrors.Classify(ex, null, isElevated: false).Kind == OutlookFailureKind.Unknown)
-            {
-                continue;
-            }
+                object item;
+                try
+                {
+                    item = itemScope.Track((object)found[index]);
+                }
+                catch (Exception ex) when (OutlookErrors.Classify(ex, null, isElevated: false).Kind == OutlookFailureKind.Unknown)
+                {
+                    continue;
+                }
 
-            object? accessor = null;
-            try
-            {
-                accessor = scope.Track((object)((dynamic)item).PropertyAccessor);
-            }
-            catch (Exception)
-            {
-                // Without the accessor the item has no readable campaign: skipped by the callers.
-            }
+                object? accessor = null;
+                try
+                {
+                    accessor = itemScope.Track((object)((dynamic)item).PropertyAccessor);
+                }
+                catch (Exception)
+                {
+                    // Without the accessor the item has no readable campaign: skipped by the callers.
+                }
 
-            items.Add((item, accessor));
+                read(item, accessor, itemScope);
+            }
+            finally
+            {
+                itemScope.Dispose();
+            }
         }
-
-        return items;
     }
 
-    private List<OutlookVoteResponse> Recipients(object item, string? ownAddress, DateTimeOffset sentOn, string subject, IReadOnlyList<string> keys, ComScope scope)
+    /// <summary>The rows of one item's recipients; each recipient and what was read through it are released before the
+    /// next one is fetched.</summary>
+    private List<OutlookVoteResponse> Recipients(object item, IReadOnlySet<string> ownAddresses, DateTimeOffset sentOn, string subject, IReadOnlyList<string> keys, ComScope scope)
     {
         dynamic recipients = scope.Track((object)((dynamic)item).Recipients);
         var count = OutlookProfileReader.GetInt(() => (int)recipients.Count);
         var rows = new List<(int Type, string Address, string? Response, DateTimeOffset? At)>();
         for (var index = 1; index <= count; index++)
         {
-            object recipient;
+            var recipientScope = new ComScope(_release);
             try
             {
-                recipient = scope.Track((object)recipients[index]);
-            }
-            catch (Exception)
-            {
-                continue;
-            }
+                object recipient;
+                try
+                {
+                    recipient = recipientScope.Track((object)recipients[index]);
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
 
-            dynamic entry = recipient;
-            var address = AddressOf(recipient, scope);
-            var type = OutlookProfileReader.GetInt(() => (int)entry.Type);
-            var vote = OutlookProfileReader.Get(() => (string?)entry.AutoResponse);
-            var response = vote.Length > 0 ? vote : null;
-            DateTimeOffset? at = null;
-            if (response is not null)
-            {
-                at = ReadDate(recipient, "TrackingStatusTime");
-            }
+                dynamic entry = recipient;
+                var address = AddressOf(recipient, recipientScope);
+                var type = OutlookProfileReader.GetInt(() => (int)entry.Type);
+                var vote = OutlookVotingOptions.RestoreVote(OutlookProfileReader.Get(() => (string?)entry.AutoResponse));
+                var response = vote.Length > 0 ? vote : null;
+                DateTimeOffset? at = null;
+                if (response is not null)
+                {
+                    at = ReadDate(recipient, "TrackingStatusTime");
+                }
 
-            rows.Add((type, address, response, at));
+                rows.Add((type, address, response, at));
+            }
+            finally
+            {
+                recipientScope.Dispose();
+            }
         }
 
         var hasBcc = rows.Any(row => row.Type == OutlookConstants.OlBcc);
         return
         [
             .. rows
-                .Where(row => !(hasBcc && row.Type == OutlookConstants.OlTo && ownAddress is not null
-                    && string.Equals(row.Address, ownAddress, StringComparison.OrdinalIgnoreCase)))
+                .Where(row => !(hasBcc && row.Type == OutlookConstants.OlTo && ownAddresses.Contains(row.Address)))
                 .Select(row => new OutlookVoteResponse(row.Address, row.Response, row.At, sentOn, subject, keys)),
         ];
     }

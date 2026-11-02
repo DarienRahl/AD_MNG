@@ -130,6 +130,34 @@ public class OutlookSessionSendTests
     }
 
     [Fact]
+    public async Task SendAsync_AnAttachmentNamedLikeAnInlineImage_StaysAVisibleAttachment()
+    {
+        // A signature image "image001.png" and the operator's screenshot saved as "image001.png": the images are found again
+        // by file name after the save, so the screenshot must not share that name (it would be hidden, with the image's
+        // content id).
+        await using var harness = new OutlookHarness();
+        var session = await harness.ConnectAsync();
+        var image = OutlookHarness.Image(0x30, "image001.png");
+        var screenshot = harness.File("image001.png", "zrzut ekranu – błąd logowania");
+
+        var result = await session.SendAsync(
+            OutlookHarness.Message() with { InlineImages = [image], Attachments = [new OutlookAttachment(screenshot)] }, OutlookSendMode.Send, Ct);
+
+        Assert.True(result.Succeeded);
+        var attachments = Assert.Single(harness.Application.Created).AttachmentList.Items;
+        Assert.Equal(2, attachments.Count);
+        var inline = attachments.Single(attachment => attachment.SourcePath != screenshot);
+        var visible = attachments.Single(attachment => attachment.SourcePath == screenshot);
+        Assert.Equal("image001.png", visible.FileName);
+        Assert.Empty(visible.Accessor.Values);
+        Assert.Equal(image.Data, inline.Data);
+        Assert.NotEqual("image001.png", inline.FileName, StringComparer.OrdinalIgnoreCase);
+        Assert.Equal(image.ContentId, inline.Accessor.Values[MapiProperties.AttachContentId]);
+        Assert.Equal(true, inline.Accessor.Values[MapiProperties.AttachmentHidden]);
+        Assert.Equal(image.MediaType, inline.Accessor.Values[MapiProperties.AttachMimeTag]);
+    }
+
+    [Fact]
     public async Task SendAsync_TheImageFilesExistOnlyWhileTheItemIsBuilt()
     {
         await using var harness = new OutlookHarness();
@@ -567,6 +595,21 @@ public class OutlookSessionSendTests
     }
 
     [Fact]
+    public async Task SendAsync_VotingOptions_AreJoinedWithTheUsersListSeparator()
+    {
+        // Outlook splits VotingOptions on the Windows list separator (sList), which is ',' with English (United States)
+        // formats: the default options must stay two buttons, their commas kept as a look-alike (U+201A).
+        await using var harness = new OutlookHarness { ListSeparator = "," };
+        var session = await harness.ConnectAsync();
+
+        var result = await session.SendAsync(
+            OutlookHarness.Message() with { VotingOptions = "Tak, nadal potrzebna; Nie, można usunąć" }, OutlookSendMode.Send, Ct);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Tak‚ nadal potrzebna,Nie‚ można usunąć", Assert.Single(harness.Application.Created).VotingOptions);
+    }
+
+    [Fact]
     public async Task SendAsync_EmptyVotingOptions_AreNotSet()
     {
         await using var harness = new OutlookHarness();
@@ -578,13 +621,41 @@ public class OutlookSessionSendTests
     }
 
     [Theory]
-    [InlineData(null, null)]
-    [InlineData("", null)]
-    [InlineData(" ; ", null)]
-    [InlineData("Tak", "Tak")]
-    [InlineData(" Tak; Nie ;;Może ", "Tak;Nie;Może")]
-    public void NormalizeVoting_TrimsAndDropsEmptyOptions(string? options, string? expected) =>
-        Assert.Equal(expected, OutlookMailBuilder.NormalizeVoting(options));
+    [InlineData(null, ";", null)]
+    [InlineData("", ";", null)]
+    [InlineData(" ; ", ";", null)]
+    [InlineData(" ; ", ",", null)]
+    [InlineData("Tak", ";", "Tak")]
+    [InlineData(" Tak; Nie ;;Może ", ";", "Tak;Nie;Może")]
+    [InlineData(" Tak; Nie ;;Może ", ",", "Tak,Nie,Może")]
+    [InlineData("Tak, nadal potrzebna;Nie, można usunąć", ";", "Tak, nadal potrzebna;Nie, można usunąć")]
+    [InlineData("Tak, nadal potrzebna;Nie, można usunąć", ",", "Tak‚ nadal potrzebna,Nie‚ można usunąć")]
+    [InlineData("Tak, nadal potrzebna;Nie, można usunąć", null, "Tak, nadal potrzebna;Nie, można usunąć")]
+    [InlineData("Tak | zgoda;Nie", "|", "Tak   zgoda|Nie")]
+    [InlineData("Tak, zgoda;Nie", " ", "Tak, zgoda Nie")]
+    [InlineData(",;Nie", ",", "‚,Nie")]
+    public void VotingOptions_ForOutlook_AreJoinedWithItsDelimiter_EachOptionStayingOneButton(string? options, string? delimiter, string? expected) =>
+        Assert.Equal(expected, OutlookVotingOptions.ForOutlook(options, delimiter));
+
+    [Theory]
+    [InlineData("Tak‚ nadal potrzebna", "Tak, nadal potrzebna")]
+    [InlineData("Nie, można usunąć", "Nie, można usunąć")]
+    [InlineData("", "")]
+    public void VotingOptions_RestoreVote_GivesTheCommaBack(string vote, string expected) =>
+        Assert.Equal(expected, OutlookVotingOptions.RestoreVote(vote));
+
+    [Fact]
+    public void VotingOptions_UserListSeparator_IsNeverEmpty()
+    {
+        // Windows: the user's sList (';' or ',' in practice); elsewhere ';'.
+        var separator = OutlookVotingOptions.UserListSeparator();
+
+        Assert.False(string.IsNullOrEmpty(separator));
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Equal(";", separator);
+        }
+    }
 
     [Fact]
     public void JoinKeys_WholeKeysOnly_UpTo4000Characters_WithoutLineBreaksInside()

@@ -10,7 +10,14 @@ namespace AdMng.Outlook;
 /// running Outlook or starts it on a new STA worker (3 attempts, 700 ms apart) and loads the profile and its accounts. The
 /// constructor never touches COM. Off Windows nothing is called: <see cref="OutlookAvailability.NotSupported"/>.
 /// </summary>
-public sealed class OutlookClient : IOutlookClient
+/// <remarks>
+/// An Outlook the client had to start runs without a window, and Outlook started by automation exits as soon as its last
+/// reference is released – <c>Send()</c> only puts an item into the Outbox, so the messages sent last would wait there until
+/// someone opens Outlook. The client therefore keeps one reference to an Outlook it started, on a thread of its own, until
+/// it is disposed (the app ends), as MailerWPiA kept its application object for the program's life; sessions come and go
+/// (a U1 run reconnects after every failed message) without Outlook closing in between. Outlook the user runs is never held.
+/// </remarks>
+public sealed class OutlookClient : IOutlookClient, IAsyncDisposable, IDisposable
 {
     /// <summary>The ProgID of classic Outlook ("new Outlook" does not register it).</summary>
     public const string ProgId = "Outlook.Application";
@@ -21,8 +28,18 @@ public sealed class OutlookClient : IOutlookClient
     /// <summary>The pause between two connection attempts.</summary>
     public static readonly TimeSpan AttemptDelay = TimeSpan.FromMilliseconds(700);
 
+    /// <summary>How long a connection waits for the reference kept (it goes on in the background after that).</summary>
+    private static readonly TimeSpan KeepAliveTimeout = TimeSpan.FromSeconds(10);
+
+    /// <summary>How long disposing waits for the reference kept to be released (a hung Outlook must not hang the app).</summary>
+    private static readonly TimeSpan ReleaseTimeout = TimeSpan.FromSeconds(30);
+
     private readonly Lazy<OutlookAvailability> _availability = new(Probe);
     private readonly Func<bool> _isElevated;
+    private readonly Lock _keepAliveGate = new();
+    private StaWorker? _keepAliveWorker;
+    private object? _kept;
+    private int _disposed;
     private int _staleCleaned;
 
     /// <param name="time">The clock of the attempts and the PC's time zone (null: the system clock).</param>
@@ -38,13 +55,16 @@ public sealed class OutlookClient : IOutlookClient
     /// <param name="tempFiles">The temp folders of inline images (null: <c>%TEMP%</c>).</param>
     /// <param name="release">Releases one COM object (null: <see cref="ComRelease.Release"/>; tests record it).</param>
     /// <param name="isElevated">Whether the process runs elevated (null: <see cref="Environment.IsPrivilegedProcess"/>).</param>
+    /// <param name="listSeparator">The Windows list separator, Outlook's delimiter of the voting options (null:
+    /// <see cref="OutlookVotingOptions.UserListSeparator"/>).</param>
     internal OutlookClient(
         IOutlookApplicationProvider? provider,
         TimeProvider? time = null,
         IOutlookSignatureSource? signatures = null,
         OutlookTempFiles? tempFiles = null,
         Action<object>? release = null,
-        Func<bool>? isElevated = null)
+        Func<bool>? isElevated = null,
+        Func<string>? listSeparator = null)
     {
         Provider = provider;
         Time = time ?? TimeProvider.System;
@@ -52,6 +72,7 @@ public sealed class OutlookClient : IOutlookClient
         TempFiles = tempFiles ?? new OutlookTempFiles();
         Release = release ?? ComRelease.Release;
         _isElevated = isElevated ?? (() => Environment.IsPrivilegedProcess);
+        ListSeparator = listSeparator ?? OutlookVotingOptions.UserListSeparator;
     }
 
     /// <summary>Whether classic Outlook is registered; with a test provider always <see cref="OutlookAvailability.Installed"/>.</summary>
@@ -67,6 +88,8 @@ public sealed class OutlookClient : IOutlookClient
     internal OutlookTempFiles TempFiles { get; }
 
     internal Action<object> Release { get; }
+
+    internal Func<string> ListSeparator { get; }
 
     /// <summary>
     /// Attaches to the running Outlook or starts it, and reads the profile: up to <see cref="Attempts"/> attempts,
@@ -105,13 +128,19 @@ public sealed class OutlookClient : IOutlookClient
             {
                 try
                 {
-                    var (application, profile) = await worker.RunAsync(() => Open(provider), cancellationToken).ConfigureAwait(false);
-                    var session = new OutlookSession(worker, application, profile, new OutlookSessionOptions(TempFiles, Time, Signatures, Release));
+                    var (application, profile, started) = await worker.RunAsync(() => Open(provider), cancellationToken).ConfigureAwait(false);
+                    var session = new OutlookSession(
+                        worker, application, profile, new OutlookSessionOptions(TempFiles, Time, Signatures, Release) { ListSeparator = ListSeparator });
                     handedOver = true;
                     if (cancellationToken.IsCancellationRequested)
                     {
                         await session.DisposeAsync().ConfigureAwait(false);
                         cancellationToken.ThrowIfCancellationRequested();
+                    }
+
+                    if (started)
+                    {
+                        await KeepAliveAsync(provider).ConfigureAwait(false);
                     }
 
                     return new OutlookConnectResult(session, null);
@@ -149,16 +178,54 @@ public sealed class OutlookClient : IOutlookClient
 
     public override string ToString() => nameof(OutlookClient);
 
+    /// <summary>Releases the reference kept to an Outlook the client started (which may then close) and ends its thread.
+    /// The sessions are not touched: each is disposed by its owner.</summary>
+    public async ValueTask DisposeAsync()
+    {
+        StaWorker? worker;
+        lock (_keepAliveGate)
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
+            worker = _keepAliveWorker;
+            _keepAliveWorker = null;
+        }
+
+        if (worker is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await worker.RunAsync(() => ReleaseKept(), CancellationToken.None).WaitAsync(ReleaseTimeout).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is ObjectDisposedException or InvalidOperationException or TimeoutException)
+        {
+            // The thread is gone, or a COM call hangs: the background thread ends with the process.
+        }
+
+        await worker.DisposeAsync().ConfigureAwait(false);
+    }
+
+    /// <inheritdoc cref="DisposeAsync"/>
+    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
+
     private static OutlookAvailability Probe() => OperatingSystem.IsWindows() ? ProbeOnWindows() : OutlookAvailability.NotSupported;
 
     [SupportedOSPlatform("windows")]
     private static OutlookAvailability ProbeOnWindows() =>
         Type.GetTypeFromProgID(ProgId) is null ? OutlookAvailability.NotInstalled : OutlookAvailability.Installed;
 
-    /// <summary>On the worker: attach (else start) and read the profile; the application is released when that fails.</summary>
-    private (object Application, OutlookProfile Profile) Open(IOutlookApplicationProvider provider)
+    /// <summary>On the worker: attach (else start) and read the profile; the application is released when that fails.
+    /// <c>Started</c>: Outlook had to be started (no running one could be attached to).</summary>
+    private (object Application, OutlookProfile Profile, bool Started) Open(IOutlookApplicationProvider provider)
     {
         object application;
+        var started = false;
         try
         {
             application = provider.Attach() ?? throw new COMException(null, OutlookErrors.MkEUnavailable);
@@ -167,12 +234,13 @@ public sealed class OutlookClient : IOutlookClient
         {
             // Not running (MK_E_UNAVAILABLE) or not reachable: start it (MailerWPiA).
             application = provider.Start() ?? throw new COMException(null, OutlookErrors.CoEServerExecFailure);
+            started = true;
         }
 
         var scope = new ComScope(Release);
         try
         {
-            return (application, OutlookProfileReader.Read(application, scope));
+            return (application, OutlookProfileReader.Read(application, scope), started);
         }
         catch (Exception)
         {
@@ -184,6 +252,62 @@ public sealed class OutlookClient : IOutlookClient
         {
             scope.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Keeps an Outlook the client started running: a reference of its own, taken on the keep-alive thread (created on first
+    /// use) and replacing the one kept before (Outlook may have been closed and started again since). Best effort and
+    /// bounded: without it Outlook closes with the last session, as before.
+    /// </summary>
+    private async Task KeepAliveAsync(IOutlookApplicationProvider provider)
+    {
+        StaWorker worker;
+        lock (_keepAliveGate)
+        {
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                return;
+            }
+
+            worker = _keepAliveWorker ??= new StaWorker("AdMng Outlook keep-alive");
+        }
+
+        try
+        {
+            await worker.RunAsync(() => Keep(provider), CancellationToken.None).WaitAsync(KeepAliveTimeout).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // Outlook refused the reference, hangs, or the client is being disposed: the session works all the same.
+        }
+    }
+
+    /// <summary>On the keep-alive thread: Outlook's application object – starting Outlook returns the running one, Outlook
+    /// runs once per user, and it is found even when it is not in the running object table – replaces the one kept.</summary>
+    private bool Keep(IOutlookApplicationProvider provider)
+    {
+        if (Volatile.Read(ref _disposed) != 0)
+        {
+            return false;
+        }
+
+        var application = provider.Start() ?? throw new COMException(null, OutlookErrors.CoEServerExecFailure);
+        ReleaseKept();
+        _kept = application;
+        return true;
+    }
+
+    /// <summary>On the keep-alive thread: releases the reference kept, if any.</summary>
+    private bool ReleaseKept()
+    {
+        var kept = _kept;
+        _kept = null;
+        if (kept is not null)
+        {
+            Release(kept);
+        }
+
+        return kept is not null;
     }
 
     /// <summary>Removes the temp folders of dead processes once per client (design note 4.1); best effort.</summary>

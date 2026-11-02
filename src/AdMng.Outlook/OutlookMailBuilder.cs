@@ -70,17 +70,21 @@ internal sealed partial class OutlookMailBuilder
     private readonly OutlookTempFiles _tempFiles;
     private readonly TimeZoneInfo _localTimeZone;
     private readonly Action<object> _release;
+    private readonly Func<string> _listSeparator;
 
     /// <param name="application">The late-bound Outlook application.</param>
     /// <param name="tempFiles">The temp folders of inline images.</param>
     /// <param name="localTimeZone">The time zone of the PC (deferred delivery is set in local time).</param>
     /// <param name="release">Releases one COM object (tests record it).</param>
-    public OutlookMailBuilder(object application, OutlookTempFiles tempFiles, TimeZoneInfo localTimeZone, Action<object> release)
+    /// <param name="listSeparator">The Windows list separator, Outlook's delimiter of the voting options (null:
+    /// <see cref="OutlookVotingOptions.UserListSeparator"/>).</param>
+    public OutlookMailBuilder(object application, OutlookTempFiles tempFiles, TimeZoneInfo localTimeZone, Action<object> release, Func<string>? listSeparator = null)
     {
         _application = application;
         _tempFiles = tempFiles;
         _localTimeZone = localTimeZone;
         _release = release;
+        _listSeparator = listSeparator ?? OutlookVotingOptions.UserListSeparator;
     }
 
     /// <summary>Builds the item and sends it (or only saves it in <see cref="OutlookSendMode.Draft"/>). Never throws.</summary>
@@ -140,8 +144,9 @@ internal sealed partial class OutlookMailBuilder
                 item.DeferredDeliveryTime = LocalTime(deferred);
             }
 
-            if (NormalizeVoting(message.VotingOptions) is { } voting)
+            if (OutlookVotingOptions.ForOutlook(message.VotingOptions, _listSeparator()) is { } voting)
             {
+                // Outlook splits the options on the Windows list separator, not on ';'.
                 step = OutlookSteps.Voting;
                 item.VotingOptions = voting;
             }
@@ -158,7 +163,7 @@ internal sealed partial class OutlookMailBuilder
             if (message.InlineImages.Count > 0)
             {
                 step = OutlookSteps.Images;
-                AddImages(mail, message.InlineImages, images, scope);
+                AddImages(mail, message.InlineImages, message.Attachments, images, scope);
             }
 
             if (message.Attachments.Count > 0)
@@ -241,7 +246,7 @@ internal sealed partial class OutlookMailBuilder
             if (message.InlineImages.Count > 0)
             {
                 step = OutlookSteps.Images;
-                AddImages(mail, message.InlineImages, images, scope);
+                AddImages(mail, message.InlineImages, message.Attachments, images, scope);
             }
 
             if (message.Attachments.Count > 0)
@@ -325,18 +330,6 @@ internal sealed partial class OutlookMailBuilder
         {
             scope.Dispose();
         }
-    }
-
-    /// <summary>"Tak; Nie ;;" → "Tak;Nie"; null when no option is left.</summary>
-    internal static string? NormalizeVoting(string? options)
-    {
-        if (string.IsNullOrWhiteSpace(options))
-        {
-            return null;
-        }
-
-        var parts = options.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        return parts.Length == 0 ? null : string.Join(';', parts);
     }
 
     /// <summary>The keys joined by "\n" (line breaks inside a key become spaces, empty keys dropped), whole keys only up to
@@ -571,11 +564,18 @@ internal sealed partial class OutlookMailBuilder
     }
 
     /// <summary>Writes each image to the item's temp folder and adds it at position 0 (not in the attachment list) with its
-    /// content id and the hidden flag (MailerWPiA).</summary>
-    private void AddImages(object mail, IReadOnlyList<MessageImage> images, ImageFiles files, ComScope scope)
+    /// content id and the hidden flag (MailerWPiA). The images are found again by file name after the save
+    /// (<see cref="MarkInlineImages"/>), so no image file takes the name of one of the item's <paramref name="others"/>
+    /// (an operator's "image001.png" would be hidden, with the image's content id).</summary>
+    private void AddImages(object mail, IReadOnlyList<MessageImage> images, IReadOnlyList<OutlookAttachment> others, ImageFiles files, ComScope scope)
     {
         dynamic attachments = scope.Track((object)((dynamic)mail).Attachments);
         var folder = files.Folder(_tempFiles);
+        foreach (var other in others)
+        {
+            folder.Exclude(string.IsNullOrWhiteSpace(other.Path) ? null : Path.GetFileName(other.Path));
+        }
+
         foreach (var image in images)
         {
             var path = folder.Write(image.FileName, image.Data);
@@ -620,7 +620,8 @@ internal sealed partial class OutlookMailBuilder
     }
 
     /// <summary>After the save: content id, MIME type and the hidden flag again on the saved image attachments (matched by
-    /// file name; MailerWPiA <c>MarkInlineImages</c>; PR_ATTACH_FLAGS is blocked by the object model and not needed).</summary>
+    /// file name, which no other attachment of the item shares – <see cref="AddImages"/>; MailerWPiA
+    /// <c>MarkInlineImages</c>; PR_ATTACH_FLAGS is blocked by the object model and not needed).</summary>
     private static void MarkInlineImages(object mail, ImageFiles files, ComScope scope)
     {
         dynamic attachments = scope.Track((object)((dynamic)mail).Attachments);

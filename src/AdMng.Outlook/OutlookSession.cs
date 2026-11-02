@@ -38,7 +38,7 @@ public sealed class OutlookSession : IOutlookSession
         ArgumentNullException.ThrowIfNull(options);
         _release = options.Release;
         _signatures = options.Signatures;
-        _builder = new OutlookMailBuilder(application, options.TempFiles, options.Time.LocalTimeZone, options.Release);
+        _builder = new OutlookMailBuilder(application, options.TempFiles, options.Time.LocalTimeZone, options.Release, options.ListSeparator);
         _campaigns = new OutlookCampaigns(application, options.Time.LocalTimeZone, options.Release);
     }
 
@@ -83,14 +83,16 @@ public sealed class OutlookSession : IOutlookSession
     /// <summary>
     /// "Sprawdź Outlooka" (MailerWPiA <c>Diagnose</c>): version, profile, accounts and current user read again, the signature
     /// names (when a signature source is configured), the bitness of the process and optionally a test item that is created
-    /// and discarded without sending.
+    /// and discarded without sending. The signatures folder is listed on the thread pool: it is in <c>%APPDATA%</c>, which
+    /// folder redirection may put on a share that answers late or not at all – never on the caller's (UI) thread, nor on the
+    /// worker the Outlook calls wait for.
     /// </summary>
     /// <exception cref="OutlookException">Outlook cannot be reached (classified, step diagnose).</exception>
-    public Task<OutlookDiagnostics> DiagnoseAsync(bool createTestItem, CancellationToken cancellationToken)
+    public async Task<OutlookDiagnostics> DiagnoseAsync(bool createTestItem, CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
-        var signatures = ReadSignatureNames();
-        return Observed(_worker.RunAsync(
+        var signatures = Task.Run(ReadSignatureNames, CancellationToken.None);
+        var diagnostics = await Observed(_worker.RunAsync(
             () =>
             {
                 OutlookProfile profile;
@@ -114,12 +116,13 @@ public sealed class OutlookSession : IOutlookSession
                     profile.ProfileName,
                     profile.Accounts,
                     profile.CurrentUserAddress,
-                    signatures,
+                    [],
                     Environment.Is64BitProcess,
                     createTestItem ? testFailure is null : null,
                     testFailure);
             },
-            cancellationToken));
+            cancellationToken)).ConfigureAwait(false);
+        return diagnostics with { Signatures = await signatures.WaitAsync(cancellationToken).ConfigureAwait(false) };
     }
 
     /// <summary>The campaigns (send runs) of "Elementy wysłane" since <paramref name="since"/>, newest first.</summary>
@@ -130,7 +133,9 @@ public sealed class OutlookSession : IOutlookSession
         return Observed(_worker.RunAsync(() => _campaigns.Find(since), cancellationToken));
     }
 
-    /// <summary>The voting responses of one campaign.</summary>
+    /// <summary>The voting responses of one campaign. The sender's own "Do" of a BCC message is left out: the address of any
+    /// account of the profile or its current user (a run sends from the account chosen then, which need not be the current
+    /// user's).</summary>
     /// <exception cref="ArgumentException">Not a campaign id (1–64 letters, digits or '-').</exception>
     /// <exception cref="OutlookException">The search failed (classified).</exception>
     public Task<IReadOnlyList<OutlookVoteResponse>> ReadResponsesAsync(string campaignId, CancellationToken cancellationToken)
@@ -141,11 +146,13 @@ public sealed class OutlookSession : IOutlookSession
         }
 
         ThrowIfDisposed();
-        return Observed(_worker.RunAsync(() => _campaigns.Responses(campaignId, Profile.CurrentUserAddress), cancellationToken));
+        var own = OwnAddresses(Profile);
+        return Observed(_worker.RunAsync(() => _campaigns.Responses(campaignId, own), cancellationToken));
     }
 
-    /// <summary>Lets the calls already queued finish, releases the application object and ends the worker thread. Outlook
-    /// itself keeps running.</summary>
+    /// <summary>Lets the calls already queued finish, releases the application object and ends the worker thread. Outlook is
+    /// never quit: one the user runs goes on, one the client started is kept running by the client (see
+    /// <see cref="OutlookClient"/>).</summary>
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
@@ -174,6 +181,16 @@ public sealed class OutlookSession : IOutlookSession
     private static bool HasRecipient(OutlookMessage message) =>
         message.To.Concat(message.Cc).Concat(message.Bcc).Any(address => !string.IsNullOrWhiteSpace(address));
 
+    /// <summary>The SMTP addresses of the profile's accounts and of its current user (case-insensitive).</summary>
+    private static HashSet<string> OwnAddresses(OutlookProfile profile) =>
+        new(
+            profile.Accounts.Select(account => account.SmtpAddress).Append(profile.CurrentUserAddress)
+                .Where(OutlookProfileReader.IsAddress)
+                .Select(address => address!.Trim()),
+            StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The signature names, or none: the folder never fails the diagnostics (it is listed in the background, where
+    /// a failure would go unobserved).</summary>
     private IReadOnlyList<string> ReadSignatureNames()
     {
         if (_signatures is null)
@@ -185,7 +202,7 @@ public sealed class OutlookSession : IOutlookSession
         {
             return _signatures.List();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception)
         {
             return [];
         }
@@ -222,5 +239,9 @@ public sealed class OutlookSession : IOutlookSession
 /// <param name="Release">Releases one COM object (<see cref="ComRelease.Release"/>; tests record it).</param>
 internal sealed record OutlookSessionOptions(OutlookTempFiles TempFiles, TimeProvider Time, IOutlookSignatureSource? Signatures, Action<object> Release)
 {
+    /// <summary>The Windows list separator, Outlook's delimiter of the voting options
+    /// (<see cref="OutlookVotingOptions.UserListSeparator"/>; tests set the one of their "PC").</summary>
+    public Func<string> ListSeparator { get; init; } = OutlookVotingOptions.UserListSeparator;
+
     public override string ToString() => nameof(OutlookSessionOptions);
 }

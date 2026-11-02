@@ -64,8 +64,12 @@ public static partial class L
     /// </summary>
     public static class UserMessagesOutlook
     {
-        /// <summary>"konto domyślne profilu" ({0} of <see cref="UserMessages.ViaOutlook"/>).</summary>
+        /// <summary>"konto domyślne profilu" ({0} of <see cref="UserMessages.ViaOutlook"/> and <see cref="Description"/>).</summary>
         public const string DefaultAccount = "UserMessages.Outlook.DefaultAccount";
+
+        /// <summary>"Outlooka ({0})": where the messages go in the send confirmation ({1} of <see cref="UserMessages.Confirm"/>
+        /// and <see cref="UserMessages.ConfirmTyped"/>, "przez …"); {0} = the account or <see cref="DefaultAccount"/>.</summary>
+        public const string Description = "UserMessages.Outlook.Description";
 
         /// <summary>"Konto Outlooka" (settings label).</summary>
         public const string Account = "UserMessages.Outlook.Account";
