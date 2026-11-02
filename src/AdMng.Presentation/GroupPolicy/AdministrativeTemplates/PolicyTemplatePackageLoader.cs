@@ -1,5 +1,7 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using System.Text.Json;
 using AdMng.Core.GroupPolicy.AdministrativeTemplates;
 
 namespace AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
@@ -73,22 +75,42 @@ public interface IPolicyPackageExtractor
 }
 
 /// <summary>
-/// Loads packages of ADMX templates for "Zaktualizuj szablony" (K3): a folder, a ZIP archive, an ADMX file (its folder),
-/// the installers and archives of <see cref="IPolicyPackageExtractor"/>, the templates of this computer, and the downloads
-/// of the vendors with stable addresses (<see cref="VendorTemplateCatalog"/>: Edge, Chrome, Firefox – HTTPS only on the
-/// vendors' hosts, also after redirects, with the published SHA-256 checked when there is one). Archives are held in
-/// memory; nothing is written except the temporary CAB of an Edge download that only offers a CAB.
+/// Loads packages of ADMX templates for "Zaktualizuj szablony" (K3): a folder, a ZIP archive, one ADMX file (with the
+/// language files of the culture folders beside it), the installers and archives of <see cref="IPolicyPackageExtractor"/>,
+/// the templates of this computer, and the downloads of the vendors with stable addresses (<see cref="VendorTemplateCatalog"/>:
+/// Edge, Chrome, Firefox – HTTPS only on the vendors' hosts, also after redirects, with the published SHA-256 checked when
+/// there is one; through the system proxy with the operator's Windows credentials; each request within
+/// <see cref="DownloadTimeout"/>, its body included). Archives are held in memory; nothing is written except the temporary
+/// CAB of an Edge download that only offers a CAB.
 /// </summary>
 public sealed class PolicyTemplatePackageLoader(IPolicyPackageExtractor? extractor = null, ILocalPolicyDefinitions? local = null,
     Func<HttpMessageHandler>? handler = null)
 {
-    private readonly Func<HttpMessageHandler> _handler = handler ?? (() => new SocketsHttpHandler { AllowAutoRedirect = true, MaxAutomaticRedirections = 5 });
+    private readonly Func<HttpMessageHandler> _handler = handler ?? DefaultHandler;
 
     /// <summary>The file types offered in the open dialog.</summary>
     public static IReadOnlyList<string> Extensions { get; } = [".zip", ".cab", ".msi", ".exe", ".admx"];
 
     /// <summary>Unpacking MSI, EXE and CAB packages is possible here.</summary>
     public bool CanExtractInstallers => extractor is not null;
+
+    /// <summary>
+    /// The most one request of a download may take, from sending it to the last byte of its body (a stalled connection
+    /// ends as a failed download instead of a window busy forever).
+    /// </summary>
+    public TimeSpan DownloadTimeout { get; init; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// The handler of the downloads: redirects followed (their targets checked against the pinned hosts), the system proxy
+    /// with the logged-on operator's credentials (an NTLM/Kerberos proxy answers 407 otherwise). The credentials go only to
+    /// the proxy, never to the vendors' hosts.
+    /// </summary>
+    internal static SocketsHttpHandler DefaultHandler() => new()
+    {
+        AllowAutoRedirect = true,
+        MaxAutomaticRedirections = 5,
+        DefaultProxyCredentials = CredentialCache.DefaultCredentials,
+    };
 
     /// <summary>The templates of this computer as a package (null: none).</summary>
     public PolicyTemplatePackage? LocalStore() => local?.Folder is { } folder && Directory.Exists(folder)
@@ -104,7 +126,10 @@ public sealed class PolicyTemplatePackageLoader(IPolicyPackageExtractor? extract
             : throw new PolicyTemplatePackageException(PolicyTemplatePackageError.NotFound, "The folder does not exist.")), cancellationToken);
     }
 
-    /// <summary>A package file: ZIP, CAB, MSI, EXE, or an ADMX file (then its folder with the culture folders beside it).</summary>
+    /// <summary>
+    /// A package file: ZIP, CAB, MSI, EXE, or one ADMX file – that template only, with its language files
+    /// (<c>&lt;culture&gt;\&lt;name&gt;.adml</c> of the culture folders directly beside it; see <see cref="LoadAdmxFileAsync"/>).
+    /// </summary>
     public async Task<PolicyTemplatePackage> LoadFileAsync(string file, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(file);
@@ -126,7 +151,7 @@ public sealed class PolicyTemplatePackageLoader(IPolicyPackageExtractor? extract
                 var bytes = await File.ReadAllBytesAsync(file, cancellationToken).ConfigureAwait(false);
                 return Checked(FromZip(Path.GetFileName(file), bytes));
             case ".admx":
-                return await LoadFolderAsync(Path.GetDirectoryName(Path.GetFullPath(file))!, cancellationToken).ConfigureAwait(false);
+                return await LoadAdmxFileAsync(file, cancellationToken).ConfigureAwait(false);
             case ".cab" or ".msi" or ".exe":
                 if (extractor is null)
                 {
@@ -139,16 +164,72 @@ public sealed class PolicyTemplatePackageLoader(IPolicyPackageExtractor? extract
         }
     }
 
+    /// <summary>
+    /// One ADMX file the operator picked, as a package of that template only: the file and <c>&lt;culture&gt;\&lt;name&gt;.adml</c>
+    /// of every culture folder directly beside it (<c>en-US</c>, <c>pl-PL</c> …; no other folder, no recursion). Other
+    /// templates of the folder, and copies in other folders, are not part of it. A language file larger than
+    /// <see cref="PolicyTemplatePackage.MaxEntryBytes"/> is left out.
+    /// </summary>
+    /// <exception cref="PolicyTemplatePackageException">The file does not exist or is too large.</exception>
+    public Task<PolicyTemplatePackage> LoadAdmxFileAsync(string file, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(file);
+        return Task.Run(async () =>
+        {
+            var admx = new FileInfo(Path.GetFullPath(file));
+            if (!admx.Exists)
+            {
+                throw new PolicyTemplatePackageException(PolicyTemplatePackageError.NotFound, "The file does not exist.");
+            }
+
+            if (admx.Length > PolicyTemplatePackage.MaxEntryBytes)
+            {
+                throw new PolicyTemplatePackageException(PolicyTemplatePackageError.TooLarge, "The template is too large.");
+            }
+
+            var files = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                [admx.Name] = await File.ReadAllBytesAsync(admx.FullName, cancellationToken).ConfigureAwait(false),
+            };
+            var baseName = Path.GetFileNameWithoutExtension(admx.Name);
+            var options = new EnumerationOptions
+            {
+                RecurseSubdirectories = false,
+                IgnoreInaccessible = true,
+                ReturnSpecialDirectories = false,
+                MatchCasing = MatchCasing.CaseInsensitive,
+            };
+            foreach (var culture in admx.Directory!.EnumerateDirectories("*", options).Where(d => PolicyTemplatePackage.IsCultureName(d.Name))
+                .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var adml = culture.EnumerateFiles("*.adml", options)
+                    .Where(f => string.Equals(Path.GetFileNameWithoutExtension(f.Name), baseName, StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(f => f.Name, StringComparer.Ordinal)
+                    .FirstOrDefault();
+                if (adml is not null && adml.Length <= PolicyTemplatePackage.MaxEntryBytes)
+                {
+                    files[culture.Name + "/" + baseName + ".adml"] = await File.ReadAllBytesAsync(adml.FullName, cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            return Checked(PolicyTemplatePackage.FromFiles(admx.Name, files));
+        }, cancellationToken);
+    }
+
     /// <summary>Downloads the current templates of a vendor (HTTPS on the vendor's hosts only).</summary>
     public async Task<PolicyTemplatePackage> DownloadAsync(TemplateVendor vendor, CancellationToken cancellationToken)
     {
-        using var client = new HttpClient(_handler(), disposeHandler: true) { Timeout = TimeSpan.FromMinutes(5) };
+        // No client-wide timeout: every request has its own (DownloadTimeout), which also covers reading the body.
+        using var client = new HttpClient(_handler(), disposeHandler: true) { Timeout = Timeout.InfiniteTimeSpan };
         client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("ADManager", "1.0"));
         var download = vendor switch
         {
             TemplateVendor.GoogleChrome => VendorTemplateCatalog.Chrome(),
-            TemplateVendor.MicrosoftEdge => VendorTemplateCatalog.ParseEdgeProducts(await TextAsync(client, vendor, VendorTemplateCatalog.EdgeProducts, cancellationToken).ConfigureAwait(false)),
-            TemplateVendor.MozillaFirefox => VendorTemplateCatalog.ParseFirefoxRelease(await TextAsync(client, vendor, VendorTemplateCatalog.FirefoxLatestRelease, cancellationToken).ConfigureAwait(false)),
+            TemplateVendor.MicrosoftEdge => Release(VendorTemplateCatalog.ParseEdgeProducts,
+                await TextAsync(client, vendor, VendorTemplateCatalog.EdgeProducts, cancellationToken).ConfigureAwait(false)),
+            TemplateVendor.MozillaFirefox => Release(VendorTemplateCatalog.ParseFirefoxRelease,
+                await TextAsync(client, vendor, VendorTemplateCatalog.FirefoxLatestRelease, cancellationToken).ConfigureAwait(false)),
             _ => null,
         } ?? throw new PolicyTemplatePackageException(PolicyTemplatePackageError.DownloadFailed, "The vendor publishes no template package.");
 
@@ -214,26 +295,47 @@ public sealed class PolicyTemplatePackageLoader(IPolicyPackageExtractor? extract
         ? package
         : throw new PolicyTemplatePackageException(PolicyTemplatePackageError.NoTemplates, "The package holds no ADMX file.");
 
-    private static async Task<string> TextAsync(HttpClient client, TemplateVendor vendor, Uri url, CancellationToken cancellationToken)
+    /// <summary>The download a vendor's release description names (a description that is not JSON is a failed download).</summary>
+    private static VendorDownload? Release(Func<string, VendorDownload?> parse, string description)
+    {
+        try
+        {
+            return parse(description);
+        }
+        catch (JsonException ex)
+        {
+            // E.g. the block page of a TLS-inspecting proxy answered with 200.
+            throw new PolicyTemplatePackageException(PolicyTemplatePackageError.DownloadFailed, "The vendor's release description is not valid.", ex);
+        }
+    }
+
+    private async Task<string> TextAsync(HttpClient client, TemplateVendor vendor, Uri url, CancellationToken cancellationToken)
     {
         var bytes = await GetAsync(client, vendor, url, VendorTemplateCatalog.MaxDescriptionBytes, cancellationToken).ConfigureAwait(false);
         return System.Text.Encoding.UTF8.GetString(bytes);
     }
 
-    private static Task<byte[]> BytesAsync(HttpClient client, TemplateVendor vendor, Uri url, CancellationToken cancellationToken) =>
+    private Task<byte[]> BytesAsync(HttpClient client, TemplateVendor vendor, Uri url, CancellationToken cancellationToken) =>
         GetAsync(client, vendor, url, VendorTemplateCatalog.MaxDownloadBytes, cancellationToken);
 
-    /// <summary>A GET on a pinned host whose final address (after redirects) is pinned too, within <paramref name="limit"/>.</summary>
-    private static async Task<byte[]> GetAsync(HttpClient client, TemplateVendor vendor, Uri url, long limit, CancellationToken cancellationToken)
+    /// <summary>
+    /// A GET on a pinned host whose final address (after redirects) is pinned too, within <paramref name="limit"/> and
+    /// <see cref="DownloadTimeout"/> (headers and body). Network failures, an interrupted body and a timeout are
+    /// <see cref="PolicyTemplatePackageError.DownloadFailed"/>; only <paramref name="cancellationToken"/> cancels.
+    /// </summary>
+    private async Task<byte[]> GetAsync(HttpClient client, TemplateVendor vendor, Uri url, long limit, CancellationToken cancellationToken)
     {
         if (!VendorTemplateCatalog.IsPinnedHost(vendor, url))
         {
             throw new PolicyTemplatePackageException(PolicyTemplatePackageError.DownloadFailed, "The address is not one of the vendor's.");
         }
 
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(DownloadTimeout);
+        var token = timeout.Token;
         try
         {
-            using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
             if (response.RequestMessage?.RequestUri is { } final && !VendorTemplateCatalog.IsPinnedHost(vendor, final))
             {
                 throw new PolicyTemplatePackageException(PolicyTemplatePackageError.DownloadFailed, "The download was redirected outside the vendor's hosts.");
@@ -249,11 +351,11 @@ public sealed class PolicyTemplatePackageLoader(IPolicyPackageExtractor? extract
                 throw new PolicyTemplatePackageException(PolicyTemplatePackageError.TooLarge, "The download is too large.");
             }
 
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            await using var stream = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
             using var buffer = new MemoryStream();
             var chunk = new byte[81920];
             int read;
-            while ((read = await stream.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) > 0)
+            while ((read = await stream.ReadAsync(chunk, token).ConfigureAwait(false)) > 0)
             {
                 if (buffer.Length + read > limit)
                 {
@@ -269,7 +371,12 @@ public sealed class PolicyTemplatePackageLoader(IPolicyPackageExtractor? extract
         {
             throw new PolicyTemplatePackageException(PolicyTemplatePackageError.DownloadFailed, "The vendor could not be reached.", ex);
         }
-        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        catch (IOException ex)
+        {
+            // The connection broke while the body was read (HttpIOException and other stream failures).
+            throw new PolicyTemplatePackageException(PolicyTemplatePackageError.DownloadFailed, "The download was interrupted.", ex);
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
             throw new PolicyTemplatePackageException(PolicyTemplatePackageError.DownloadFailed, "The download timed out.", ex);
         }

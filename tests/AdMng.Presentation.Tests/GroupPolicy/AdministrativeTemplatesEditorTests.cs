@@ -1,13 +1,19 @@
 using System.Globalization;
+using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.AdministrativeTemplates;
 using AdMng.Core.GroupPolicy.Content;
+using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
+using AdMng.Presentation.Services;
+using AdMng.Presentation.Tests.Lists;
 using AdMng.Testing;
 
 namespace AdMng.Presentation.Tests.GroupPolicy;
 
 public class AdministrativeTemplatesEditorTests
 {
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
     private static async Task<(GroupPolicyHarness Harness, AdministrativeTemplatesEditorViewModel Editor)> OpenAsync(CultureInfo? culture = null, bool centralStore = true)
     {
         var harness = await GroupPolicyHarness.CreateAsync(culture);
@@ -305,5 +311,200 @@ public class AdministrativeTemplatesEditorTests
         var editor = Assert.Single(shell.Documents.OfType<AdministrativeTemplatesEditorViewModel>());
         Assert.Equal(harness.Sample.SitePrinters, editor.GpoId);
         Assert.Same(editor, shell.SelectedTab);
+    }
+
+    [Fact]
+    public async Task AfterAReload_TheSelectedPolicyCanStillBeEdited()
+    {
+        var (_, editor) = await OpenAsync();
+        var row = Select(editor, PolicyClass.Machine, "Configure automatic updates", "Windows Components", "Contoso Update");
+        Assert.True(editor.Editor!.CanEdit);
+
+        await editor.LoadAsync(); // F5, a change elsewhere in the window, the reload after a save: the row stays selected
+
+        Assert.Same(row, editor.SelectedPolicy);
+        var panel = editor.Editor!;
+        Assert.True(panel.CanEdit);
+        panel.IsEnabled = true;
+        Assert.Equal(PolicyState.Enabled, row.State);
+        Assert.True(panel.Elements.OfType<DropDownEditorViewModel>().Single().IsEditable);
+        Assert.True(editor.HasChanges);
+    }
+
+    [Fact]
+    public async Task InvalidOptions_BlockTheSave_UntilTheyAreCorrected()
+    {
+        var (harness, editor) = await OpenAsync();
+        Select(editor, PolicyClass.Machine, "Configure automatic updates", "Windows Components", "Contoso Update");
+        var panel = editor.Editor!;
+        panel.IsEnabled = true;
+        var day = panel.Elements.OfType<NumberEditorViewModel>().Single();
+        day.Text = "3";
+        Assert.True(editor.SaveCommand.CanExecute(null));
+
+        day.Text = "8"; // shown, but invalid: the document still holds 3
+        Assert.Equal(["Scheduled install day: enter a number from 0 to 7."], panel.Problems);
+        Assert.False(editor.SaveCommand.CanExecute(null));
+
+        await editor.SaveCommand.ExecuteAsync(null); // started another way: still nothing saved
+        Assert.Empty(harness.Windows.Previews);
+        Assert.Contains(harness.B2.Notifications.Items,
+            n => n.Severity == NotificationSeverity.Warning && n.Message.Contains("“Configure automatic updates”", StringComparison.Ordinal));
+
+        day.Text = "4";
+        Assert.Empty(panel.Problems);
+        Assert.True(editor.SaveCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task WhileSaving_TheEditorIsReadOnly_AndEditableAgainAfterwards()
+    {
+        var (harness, editor) = await OpenAsync();
+        var row = Select(editor, PolicyClass.Machine, "Turn off the preview pane", "System");
+        editor.Editor!.IsEnabled = true;
+        var seen = new List<(bool Saving, bool CanEdit, bool Save, bool Discard)>();
+        harness.Windows.BeforePreview = _ =>
+        {
+            var panel = editor.Editor!;
+            seen.Add((editor.IsSaving, panel.CanEdit, editor.SaveCommand.CanExecute(null), editor.DiscardCommand.CanExecute(null)));
+            panel.IsDisabled = true; // a click while the plan is shown: refused, never half in and half out of the plan
+            return Task.CompletedTask;
+        };
+
+        await editor.SaveCommand.ExecuteAsync(null);
+        await editor.LoadAsync();
+
+        Assert.Equal([(true, false, false, false)], seen);
+        var written = RegistryPolicyDocument.Parse(harness.Sysvol.Get(harness.Sample.SitePrinters, "Machine/Registry.pol"));
+        Assert.Equal(PolicyState.Enabled, PolicyEngine.Read(row.Definition.Policy, written.View).State);
+        Assert.False(editor.IsSaving);
+        Assert.False(editor.HasChanges);
+        Assert.Null(editor.ConflictNote);
+        Assert.True(editor.Editor!.CanEdit);
+        Assert.True(editor.Editor.IsEnabled);
+    }
+
+    [Fact]
+    public async Task EditsAfterASave_WhoseReloadCouldNotReadTheFile_StayWithoutAFalseConflict()
+    {
+        var (harness, editor) = await OpenAsync();
+        var preview = Select(editor, PolicyClass.Machine, "Turn off the preview pane", "System");
+        editor.Editor!.IsEnabled = true;
+
+        // The reload that follows the save cannot read Machine/Registry.pol: the tab still holds the edits as unsaved.
+        harness.Windows.AfterPreview = _ => harness.Sysvol.Fail("Read", SysvolWriteError.Failed, "Machine/Registry.pol");
+        await editor.SaveCommand.ExecuteAsync(null);
+        await ObjectListViewModelTests.WaitUntilAsync(() => !editor.IsLoading);
+        harness.Windows.AfterPreview = null;
+        Assert.True(editor.HasChanges);
+
+        var workMode = Select(editor, PolicyClass.Machine, "Work mode", "System");
+        editor.Editor!.IsDisabled = true;
+        await editor.LoadAsync(); // now the file reads: it holds what this tab saved – not someone else's change
+
+        Assert.Null(editor.ConflictNote);
+        Assert.False(preview.IsChanged);
+        Assert.True(workMode.IsChanged);
+        Assert.Equal(1, editor.ChangedCount);
+
+        await editor.SaveCommand.ExecuteAsync(null); // the compare-and-swap accepts it
+        await editor.LoadAsync();
+
+        var written = RegistryPolicyDocument.Parse(harness.Sysvol.Get(harness.Sample.SitePrinters, "Machine/Registry.pol"));
+        Assert.Equal(PolicyState.Enabled, PolicyEngine.Read(preview.Definition.Policy, written.View).State);
+        Assert.Equal(PolicyState.Disabled, PolicyEngine.Read(workMode.Definition.Policy, written.View).State);
+        Assert.False(editor.HasChanges);
+        Assert.Null(editor.ConflictNote);
+    }
+
+    [Fact]
+    public async Task ClosingTheTab_WithUnsavedChanges_AsksFirst()
+    {
+        var harness = await GroupPolicyHarness.CreateAsync();
+        harness.AddCentralStore();
+        using var shell = harness.CreateShell();
+        var editor = Assert.IsType<AdministrativeTemplatesEditorViewModel>(shell.OpenGroupPolicyDocument(
+            new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.AdministrativeTemplates) { GpoId = harness.Sample.SitePrinters }));
+        await editor.LoadAsync();
+        Assert.False(editor.HasUnsavedChanges);
+        Assert.True(await editor.CanCloseAsync()); // nothing to lose: no question
+
+        Select(editor, PolicyClass.Machine, "Turn off the preview pane", "System");
+        editor.Editor!.IsEnabled = true;
+        Assert.True(editor.HasUnsavedChanges);
+        Assert.True(shell.HasUnsavedDocuments);
+
+        harness.B2.Dialogs.ConfirmAnswers.Enqueue(false);
+        await shell.CloseTabCommand.ExecuteAsync(editor);
+        Assert.Contains(editor, shell.Documents); // kept, with its edits
+        Assert.True(editor.HasChanges);
+        Assert.Contains("confirm:Setting changes not saved yet: 1. Close the tab and discard them?", harness.B2.Dialogs.Shown);
+
+        harness.B2.Dialogs.ConfirmAnswers.Enqueue(true);
+        await shell.CloseTabCommand.ExecuteAsync(editor);
+        Assert.DoesNotContain(editor, shell.Documents);
+    }
+
+    [Fact]
+    public async Task ReloadingTheTemplates_SupersededByAnotherLoad_StillReadsTheStore()
+    {
+        var (harness, editor) = await OpenAsync();
+        harness.Sysvol.PutPolicyDefinition("en-US/contoso.adml", SampleAdministrativeTemplates.Utf8(
+            SampleAdministrativeTemplates.ContosoAdmlEn.Replace("Configure automatic updates", "Configure automatic updates (2026)", StringComparison.Ordinal)));
+        using var entered = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var lists = 0;
+        harness.Sysvol.BeforeCall = (operation, _, _) =>
+        {
+            if (operation == "ListDefinitions" && Interlocked.Increment(ref lists) == 1)
+            {
+                entered.Release();
+                release.Wait(TimeSpan.FromSeconds(30));
+            }
+        };
+
+        var reload = editor.ReloadDefinitionsCommand.ExecuteAsync(null); // reads the store…
+        Assert.True(await entered.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        var refresh = editor.LoadAsync(); // …and F5 (or a change elsewhere) supersedes it
+        release.Set();
+        await Task.WhenAll(reload, refresh);
+        harness.Sysvol.BeforeCall = null;
+
+        Select(editor, PolicyClass.Machine, "Configure automatic updates (2026)", "Windows Components", "Contoso Update");
+    }
+
+    [Fact]
+    public async Task UnreadableTemplates_AreReportedInTheUiLanguage_AndAFailedReadIsNotCached()
+    {
+        var harness = await GroupPolicyHarness.CreateAsync(CultureInfo.GetCultureInfo("pl-PL"));
+        harness.AddCentralStore();
+        harness.Sysvol.PutPolicyDefinition("uszkodzony.admx", SampleAdministrativeTemplates.Utf8("<policyDefinitions><niedomknięty>"));
+        harness.Sysvol.Fail("ReadDefinitions", SysvolWriteError.Failed, "contoso.admx"); // one SMB read fails
+
+        var first = await harness.TemplatesAsync(harness.Sample.SitePrinters);
+
+        Assert.Equal(["contoso.admx: nie można odczytać pliku – brak jego ustawień (błąd odczytu)",
+            "uszkodzony.admx: nie można odczytać pliku – brak jego ustawień (plik jest uszkodzony)"], first.DefinitionIssues);
+        first.SelectedNode = first.Roots[0].Children.Single(c => c.Name == "Wszystkie ustawienia");
+        Assert.DoesNotContain(first.Policies, p => p.Name == "Konfiguruj aktualizacje automatyczne");
+
+        // The set without contoso.admx was not kept: the next tab of the window reads the store again.
+        var second = await harness.TemplatesAsync(harness.Sample.WorkstationPasswords);
+        Assert.Equal(["uszkodzony.admx: nie można odczytać pliku – brak jego ustawień (plik jest uszkodzony)"], second.DefinitionIssues);
+        second.SelectedNode = second.Roots[0].Children.Single(c => c.Name == "Wszystkie ustawienia");
+        Assert.Contains(second.Policies, p => p.Name == "Konfiguruj aktualizacje automatyczne");
+    }
+
+    [Fact]
+    public async Task ATemplateTooLargeToRead_IsReportedAsSuch()
+    {
+        var harness = await GroupPolicyHarness.CreateAsync();
+        var files = SampleAdministrativeTemplates.Files();
+        harness.Local.Folder = @"C:\Windows\PolicyDefinitions";
+        harness.Local.Source = new ScriptedPolicyDefinitionSource(files) { Lengths = { ["contoso.admx"] = PolicyDefinitionLoader.MaxFileBytes + 1 } };
+
+        var editor = await harness.TemplatesAsync(harness.Sample.SitePrinters);
+
+        Assert.Equal(["contoso.admx: the file cannot be read – its settings are missing (the file is too large)"], editor.DefinitionIssues);
     }
 }

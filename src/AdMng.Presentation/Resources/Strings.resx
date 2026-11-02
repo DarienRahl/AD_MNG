@@ -12293,7 +12293,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>The installer has no valid signature of its vendor, so it is not run. Download it again from the vendor.</value>
   </data>
   <data name="CentralStore.ErrorDownload" xml:space="preserve">
-    <value>The download failed (no connection to the vendor, an answer other than OK, or a redirect outside the vendor's addresses).</value>
+    <value>The download failed (no connection to the vendor, a timeout, an interrupted connection, an unexpected answer, or a redirect outside the vendor's addresses).</value>
   </data>
   <data name="CentralStore.ErrorHash" xml:space="preserve">
     <value>The download does not match the hash or size the vendor publishes – it was discarded.</value>
@@ -12306,6 +12306,39 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="CentralStore.ErrorBackup" xml:space="preserve">
     <value>The backup could not be written to the chosen folder; nothing was changed.</value>
+  </data>
+  <data name="CentralStore.Comparing" xml:space="preserve">
+    <value>Comparing with the central store…</value>
+  </data>
+  <data name="CentralStore.BackingUp" xml:space="preserve">
+    <value>Backing up the central store…</value>
+  </data>
+  <data name="CentralStore.Updating" xml:space="preserve">
+    <value>Preparing the update of the central store…</value>
+  </data>
+  <data name="CentralStore.PackageIssues" xml:space="preserve">
+    <value>Files of the package that are not used ({0})</value>
+  </data>
+  <data name="CentralStore.PackageIssue" xml:space="preserve">
+    <value>{0} – {1}</value>
+  </data>
+  <data name="CentralStore.IssueTooLarge" xml:space="preserve">
+    <value>the file is too large</value>
+  </data>
+  <data name="CentralStore.IssueDuplicateTemplate" xml:space="preserve">
+    <value>a template of this name was found earlier in the package – that file is used</value>
+  </data>
+  <data name="CentralStore.IssueDuplicateLanguage" xml:space="preserve">
+    <value>a language file of this name was found earlier in the package – that file is used</value>
+  </data>
+  <data name="CentralStore.IssueSkipped" xml:space="preserve">
+    <value>the file is skipped</value>
+  </data>
+  <data name="AdmTemplates.SaveBlocked" xml:space="preserve">
+    <value>Correct the options of “{0}” first: an invalid value blocks the save.</value>
+  </data>
+  <data name="AdmTemplates.CloseDiscard" xml:space="preserve">
+    <value>Setting changes not saved yet: {0}. Close the tab and discard them?</value>
   </data>
   <!-- K3: administrative templates (end) -->
 

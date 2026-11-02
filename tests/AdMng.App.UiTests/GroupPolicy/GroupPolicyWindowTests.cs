@@ -103,7 +103,7 @@ public sealed class GroupPolicyWindowTests
     });
 
     [Fact]
-    public Task CentralStoreUpdate_ComparesAFolderOfTemplates_BacksUpTheStore_AndUpdatesItThroughThePreviewWindow() => WpfTestHost.RunAsync(async () =>
+    public Task CentralStoreUpdate_ComparesOneTemplateFile_BacksUpTheStore_AndUpdatesItThroughThePreviewWindow() => WpfTestHost.RunAsync(async () =>
     {
         var files = new PreparedSaveDialog();
         await using var context = await UiTestContext.CreateAsync(language: "pl", configure: s => s.AddSingleton<IFileDialogService>(files));
@@ -113,7 +113,8 @@ public sealed class GroupPolicyWindowTests
             context.Sysvol.PutPolicyDefinition(path, content);
         }
 
-        // The package: the sample templates with their Polish files, as an unpacked folder (the ADMX file opens its folder).
+        // An unpacked folder with both sample templates and their Polish files; the operator picks contoso.admx: the package
+        // is that template with the language files beside it (en-US, pl-PL) – windows.admx of the same folder is not part of it.
         var package = System.IO.Directory.CreateTempSubdirectory("admng-k3-package-");
         var backups = System.IO.Directory.CreateTempSubdirectory("admng-k3-backup-");
         try
@@ -145,12 +146,16 @@ public sealed class GroupPolicyWindowTests
                 Assert.False(w.UpdateButton.IsEnabled);
 
                 await w.ViewModel.OpenFileCommand.ExecuteAsync(null);
-                await UiWait.UntilAsync(() => !w.ViewModel.IsBusy && w.ViewModel.Rows.Count == 6, "the comparison");
+                await UiWait.UntilAsync(() => !w.ViewModel.IsWorking && w.ViewModel.Rows.Count == 3, "the comparison");
                 await UiTestSupport.WaitForIdleAsync(rounds: 2);
                 Assert.Null(w.ViewModel.Error);
-                Assert.Equal(6, w.FileList.Items.Count);
+                Assert.Equal(["contoso.admx"], w.ViewModel.Package!.AdmxFiles);
+                Assert.Equal(["contoso.admx", "en-US/contoso.adml", "pl-PL/contoso.adml"], w.ViewModel.Rows.Select(r => r.Path));
+                Assert.Equal(3, w.FileList.Items.Count);
                 Assert.Equal(2, w.CultureList.Items.Count);
-                Assert.Equal("Do zapisania: 2, bez zmian: 4, pominięte: 0", w.SummaryTextBlock.Text);
+                Assert.Equal("Do zapisania: 1, bez zmian: 2, pominięte: 0", w.SummaryTextBlock.Text);
+                Assert.False(w.PackageIssuesExpander.IsVisible); // the package skips nothing
+                Assert.False(w.WorkingProgress.IsVisible);
 
                 // The store exists: a backup folder is required before the update (the box is checked by default).
                 Assert.True(w.MakeBackupBox.IsChecked);
@@ -171,17 +176,19 @@ public sealed class GroupPolicyWindowTests
                 await w.ViewModel.UpdateCommand.ExecuteAsync(null);
                 await preview;
 
-                await UiWait.UntilAsync(() => w.ViewModel.Rows.All(r => r.Status == Core.GroupPolicy.Management.CentralStoreFileStatus.Unchanged), "the new comparison");
+                await UiWait.UntilAsync(() => !w.ViewModel.IsWorking && w.ViewModel.Rows.Count == 3
+                    && w.ViewModel.Rows.All(r => r.Status == Core.GroupPolicy.Management.CentralStoreFileStatus.Unchanged), "the new comparison");
                 await UiTestSupport.WaitForIdleAsync(rounds: 2);
                 Assert.Equal(Visibility.Visible, w.ResultBar.Visibility);
                 Assert.True(w.ViewModel.ChangedStore);
+                Assert.True(w.CloseButton.IsEnabled);
                 w.ViewModel.CloseCommand.Execute(null);
             });
             await objects.UpdateTemplatesCommand.ExecuteAsync(null);
             await drive;
 
             Assert.Equal(SampleAdministrativeTemplates.Utf8(SampleAdministrativeTemplates.ContosoAdmlPl), context.Sysvol.GetPolicyDefinition("pl-PL/contoso.adml"));
-            Assert.NotNull(context.Sysvol.GetPolicyDefinition("pl-PL/windows.adml"));
+            Assert.Null(context.Sysvol.GetPolicyDefinition("pl-PL/windows.adml")); // only the template the operator picked
             var backup = Assert.Single(System.IO.Directory.GetDirectories(backups.FullName));
             Assert.True(File.Exists(Path.Combine(backup, "en-US", "contoso.adml")));
             context.AssertHealthy();
@@ -351,6 +358,15 @@ public sealed class GroupPolicyWindowTests
 
         Assert.NotNull(context.Sysvol.Get(sample.SitePrinters, "Machine/Registry.pol"));
         await UiWait.UntilAsync(() => !editor.IsLoading && !editor.HasChanges, "the saved templates");
+
+        // After the reload the selected policy can still be edited, and its state radios belong to this editor only.
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        Assert.True(editor.Editor!.CanEdit);
+        var radios = UiWait.Descendants<RadioButton>(view).ToList();
+        Assert.Equal(3, radios.Count);
+        Assert.All(radios, r => Assert.True(r.IsEnabled));
+        Assert.All(radios, r => Assert.True(string.IsNullOrEmpty(r.GroupName)));
+        Assert.True(Assert.Single(radios, r => r.Name == "EnabledRadio").IsChecked);
         context.AssertHealthy();
     });
 

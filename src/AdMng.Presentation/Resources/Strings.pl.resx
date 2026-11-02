@@ -12293,7 +12293,7 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Instalator nie ma prawidłowego podpisu producenta, więc nie zostanie uruchomiony. Pobierz go ponownie od producenta.</value>
   </data>
   <data name="CentralStore.ErrorDownload" xml:space="preserve">
-    <value>Pobieranie nie powiodło się (brak połączenia z producentem, odpowiedź inna niż OK albo przekierowanie poza adresy producenta).</value>
+    <value>Pobieranie nie powiodło się (brak połączenia z producentem, przekroczony czas, przerwane połączenie, odpowiedź inna niż oczekiwana albo przekierowanie poza adresy producenta).</value>
   </data>
   <data name="CentralStore.ErrorHash" xml:space="preserve">
     <value>Pobrany plik nie zgadza się z sumą kontrolną lub rozmiarem podanym przez producenta – odrzucono go.</value>
@@ -12306,6 +12306,39 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   </data>
   <data name="CentralStore.ErrorBackup" xml:space="preserve">
     <value>Nie udało się zapisać kopii zapasowej w wybranym folderze; niczego nie zmieniono.</value>
+  </data>
+  <data name="CentralStore.Comparing" xml:space="preserve">
+    <value>Porównywanie z magazynem centralnym…</value>
+  </data>
+  <data name="CentralStore.BackingUp" xml:space="preserve">
+    <value>Tworzenie kopii zapasowej magazynu centralnego…</value>
+  </data>
+  <data name="CentralStore.Updating" xml:space="preserve">
+    <value>Przygotowywanie aktualizacji magazynu centralnego…</value>
+  </data>
+  <data name="CentralStore.PackageIssues" xml:space="preserve">
+    <value>Pominięte pliki paczki ({0})</value>
+  </data>
+  <data name="CentralStore.PackageIssue" xml:space="preserve">
+    <value>{0} – {1}</value>
+  </data>
+  <data name="CentralStore.IssueTooLarge" xml:space="preserve">
+    <value>plik jest za duży</value>
+  </data>
+  <data name="CentralStore.IssueDuplicateTemplate" xml:space="preserve">
+    <value>szablon o tej nazwie znaleziono w paczce wcześniej – użyto tamtego pliku</value>
+  </data>
+  <data name="CentralStore.IssueDuplicateLanguage" xml:space="preserve">
+    <value>plik językowy o tej nazwie znaleziono w paczce wcześniej – użyto tamtego pliku</value>
+  </data>
+  <data name="CentralStore.IssueSkipped" xml:space="preserve">
+    <value>plik pominięto</value>
+  </data>
+  <data name="AdmTemplates.SaveBlocked" xml:space="preserve">
+    <value>Najpierw popraw opcje ustawienia „{0}”: błędna wartość blokuje zapis.</value>
+  </data>
+  <data name="AdmTemplates.CloseDiscard" xml:space="preserve">
+    <value>Zmiany ustawień (liczba: {0}) nie zostały zapisane. Zamknąć kartę i odrzucić je?</value>
   </data>
   <!-- K3: administrative templates (end) -->
 

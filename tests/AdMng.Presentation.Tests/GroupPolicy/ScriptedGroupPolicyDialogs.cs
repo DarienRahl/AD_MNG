@@ -28,6 +28,12 @@ internal sealed class ScriptedGroupPolicyDialogs : IGroupPolicyDialogs
     /// <summary>Also play "Cofnij" and execute the rollback after a successful execution.</summary>
     public bool UndoAfterExecute { get; set; }
 
+    /// <summary>Runs when the preview is shown, before it is executed (what the window looks like meanwhile).</summary>
+    public Func<ChangePlanPreviewViewModel, Task>? BeforePreview { get; set; }
+
+    /// <summary>Runs after the preview was played, before it closes (e.g. to make the reload that follows fail).</summary>
+    public Action<PreviewSeen>? AfterPreview { get; set; }
+
     /// <summary>The name typed into the name dialog (null: keep the proposal); <see cref="CancelNameDialog"/> cancels.</summary>
     public string? NewGpoName { get; set; }
 
@@ -60,6 +66,11 @@ internal sealed class ScriptedGroupPolicyDialogs : IGroupPolicyDialogs
     {
         ArgumentNullException.ThrowIfNull(preview);
         var rows = preview.Rows.Select(r => $"{r.Action} | {r.Attribute} | {r.Before} | {r.After}").ToList();
+        if (BeforePreview is { } before)
+        {
+            await before(preview);
+        }
+
         BatchResult? result = null;
         if (ExecutePreviews && preview.ExecuteCommand.CanExecute(null))
         {
@@ -72,7 +83,9 @@ internal sealed class ScriptedGroupPolicyDialogs : IGroupPolicyDialogs
             }
         }
 
-        Previews.Add(new PreviewSeen(preview.ChangeTitle, preview.Plan, preview.PowerShellScript, rows, preview.Notes, result));
+        var seen = new PreviewSeen(preview.ChangeTitle, preview.Plan, preview.PowerShellScript, rows, preview.Notes, result);
+        Previews.Add(seen);
+        AfterPreview?.Invoke(seen);
         return preview.ChangedDirectory;
     }
 

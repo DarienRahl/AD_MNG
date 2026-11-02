@@ -382,22 +382,24 @@
                     <StackPanel DockPanel.Dock="Top">
                       <TextBlock x:Name="PolicyName" FontWeight="SemiBold" Text="{Binding Name, Mode=OneWay}" TextWrapping="Wrap" />
                       <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding CategoryText, Mode=OneWay}" TextWrapping="Wrap" />
+                      <!--
+                        No GroupName: radios are grouped by their parent panel. A GroupName (e.g. the policy's name) groups
+                        across every view of the window's visual root, so the same policy open in two editor tabs would
+                        uncheck each other's state.
+                      -->
                       <WrapPanel Margin="0,8,0,0">
                         <RadioButton x:Name="NotConfiguredRadio"
                                      Margin="0,0,16,0"
                                      Content="{l:Tr AdmTemplates.StateNotConfigured}"
-                                     GroupName="{Binding Name, Mode=OneWay}"
                                      IsChecked="{Binding IsNotConfigured}"
                                      IsEnabled="{Binding CanEdit, Mode=OneWay}" />
                         <RadioButton x:Name="EnabledRadio"
                                      Margin="0,0,16,0"
                                      Content="{l:Tr AdmTemplates.StateEnabled}"
-                                     GroupName="{Binding Name, Mode=OneWay}"
                                      IsChecked="{Binding IsEnabled}"
                                      IsEnabled="{Binding CanEdit, Mode=OneWay}" />
                         <RadioButton x:Name="DisabledRadio"
                                      Content="{l:Tr AdmTemplates.StateDisabled}"
-                                     GroupName="{Binding Name, Mode=OneWay}"
                                      IsChecked="{Binding IsDisabled}"
                                      IsEnabled="{Binding CanEdit, Mode=OneWay}" />
                       </WrapPanel>

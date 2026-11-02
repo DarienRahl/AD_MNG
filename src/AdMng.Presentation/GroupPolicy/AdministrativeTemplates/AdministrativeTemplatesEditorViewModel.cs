@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Globalization;
 using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
@@ -6,6 +7,7 @@ using AdMng.Core.GroupPolicy.Content;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Localization;
+using AdMng.Presentation.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -18,7 +20,9 @@ namespace AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 /// skonfigurowane" / "tylko zmienione", the selected policy's editor, the Registry.pol entries no template describes, and
 /// "Zapisz zmiany…" – one plan (Registry.pol, extension names, version) through the change plan preview (CLAUDE.md rule
 /// 5). Edits live in memory until saved; a reload never drops them: a half whose file changed on SYSVOL meanwhile keeps the
-/// edits and the conflict note (the save is refused as a conflict), a half saved as edited becomes clean.
+/// edits and the conflict note (the save is refused as a conflict), a half saved as edited becomes clean, a half saved and
+/// edited again keeps the later edits on top of what was saved. The selected policy can be edited only while the document
+/// is neither loading nor saving; invalid options block the save; closing the tab with unsaved edits asks first.
 /// </summary>
 public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicyDocumentBase
 {
@@ -26,13 +30,17 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     private readonly string _initialName;
     private readonly Dictionary<(PolicyClass, string), PolicyRowViewModel> _rows = [];
     private readonly HashSet<(PolicyClass Scope, string PolicyId)> _touched = [];
+
+    /// <summary>What the last save asked to write per half: a reload that finds it on SYSVOL knows the save landed.</summary>
+    private readonly Dictionary<PolicyClass, byte[]> _saved = [];
     private RegistryHalf? _machine;
     private RegistryHalf? _user;
     private PolicyDefinitionSet _set = PolicyDefinitionSet.Empty;
+    private IReadOnlyDictionary<string, PolicyFileReadProblem> _fileProblems = new Dictionary<string, PolicyFileReadProblem>();
     private Dictionary<string, HashSet<string>> _ownedNames = new(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> _listKeys = new(StringComparer.OrdinalIgnoreCase);
     private GpoInfo? _gpo;
-    private bool _reloadDefinitions;
+    private bool _confirmingClose;
 
     public AdministrativeTemplatesEditorViewModel(GroupPolicyServices services, GroupPolicyActions actions, PolicyDefinitionsService definitions, Guid gpoId, string? name)
         : base(services, actions)
@@ -145,8 +153,17 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     /// <summary>A Registry.pol differs from what was read.</summary>
     public bool HasChanges => (_machine?.IsChanged ?? false) || (_user?.IsChanged ?? false);
 
-    /// <summary>The GPO can be edited now (connected, SYSVOL writable, loaded).</summary>
-    public bool CanEdit => IsSysvolWritable && _gpo is not null;
+    /// <summary>"Zapisz zmiany…" is running (plan, preview, execution): the editor is read-only meanwhile.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanEdit))]
+    [NotifyCanExecuteChangedFor(nameof(SaveCommand), nameof(DiscardCommand), nameof(DeleteExtraEntryCommand))]
+    public partial bool IsSaving { get; private set; }
+
+    /// <summary>The GPO can be edited now (connected, SYSVOL writable, loaded, not being saved).</summary>
+    public bool CanEdit => IsSysvolWritable && _gpo is not null && !IsSaving;
+
+    /// <summary>Closing the tab would discard edits (the shell asks first).</summary>
+    public override bool HasUnsavedChanges => HasChanges;
 
     // ---- Commands ------------------------------------------------------------------------------------------------------
 
@@ -156,6 +173,13 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     {
         if (_gpo is not { } gpo)
         {
+            return;
+        }
+
+        if (Editor is { HasProblems: true } invalid)
+        {
+            // The document holds the last valid options, not what the editor shows: never save something else than shown.
+            Gp.Ui.Notifications.Show(NotificationSeverity.Warning, Localizer.Format(L.AdministrativeTemplates.SaveBlocked, invalid.Name));
             return;
         }
 
@@ -170,11 +194,23 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
             return;
         }
 
-        await Actions.SaveAdministrativeTemplatesAsync(gpo, machine, user).ConfigureAwait(true);
+        Remember(PolicyClass.Machine, machine);
+        Remember(PolicyClass.User, user);
+        IsSaving = true;
+        SyncEditor();
+        try
+        {
+            await Actions.SaveAdministrativeTemplatesAsync(gpo, machine, user).ConfigureAwait(true);
+        }
+        finally
+        {
+            IsSaving = false;
+            SyncEditor();
+        }
     }
 
     /// <summary>"Odrzuć zmiany": the documents as read from SYSVOL again (then a reload shows the current files).</summary>
-    [RelayCommand(CanExecute = nameof(HasChanges))]
+    [RelayCommand(CanExecute = nameof(CanDiscard))]
     private async Task DiscardAsync()
     {
         if (!await Gp.Ui.Dialogs.ConfirmAsync(Localizer[L.AdministrativeTemplates.DiscardTitle], Localizer.Format(L.AdministrativeTemplates.DiscardMessage, ChangedCount),
@@ -190,11 +226,14 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         await LoadAsync().ConfigureAwait(true);
     }
 
-    /// <summary>"Wczytaj szablony ponownie": the central store (or local store) is read again.</summary>
+    /// <summary>
+    /// "Wczytaj szablony ponownie": the central store (or local store) is read again – the window's cache is dropped first,
+    /// so a load superseded meanwhile (F5, a change elsewhere) still reads the store.
+    /// </summary>
     [RelayCommand]
     private Task ReloadDefinitionsAsync()
     {
-        _reloadDefinitions = true;
+        _definitions.Invalidate();
         return LoadAsync();
     }
 
@@ -204,8 +243,37 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     {
         if (UpdateTemplates is { } update && await update().ConfigureAwait(true))
         {
-            _reloadDefinitions = true;
+            _definitions.Invalidate();
             await LoadAsync().ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Closing the tab (Ctrl+W, its close button, the connection window) with unsaved edits: asks before they are
+    /// discarded. True when the tab may close; never while its save is being planned.
+    /// </summary>
+    public override async Task<bool> CanCloseAsync()
+    {
+        if (!HasChanges || IsDisposed)
+        {
+            return true;
+        }
+
+        if (_confirmingClose || IsSaving)
+        {
+            // A second Ctrl+W while the question is open, or the save of these edits runs (its preview follows).
+            return false;
+        }
+
+        _confirmingClose = true;
+        try
+        {
+            return await Gp.Ui.Dialogs.ConfirmAsync(Title, Localizer.Format(L.AdministrativeTemplates.CloseDiscard, ChangedCount), destructive: true)
+                .ConfigureAwait(true);
+        }
+        finally
+        {
+            _confirmingClose = false;
         }
     }
 
@@ -215,7 +283,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     [RelayCommand(CanExecute = nameof(CanDeleteExtraEntry))]
     private void DeleteExtraEntry()
     {
-        if (SelectedExtraEntry is not { } entry || Half(entry.Scope) is not { Error: null } half)
+        if (!CanEdit || SelectedExtraEntry is not { } entry || Half(entry.Scope) is not { Error: null } half)
         {
             return;
         }
@@ -226,7 +294,10 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         UpdateChanges();
     }
 
-    private bool CanSave() => HasChanges && CanEdit && !IsLoading;
+    /// <summary>Something to save, the GPO writable, and the shown options valid (an invalid value blocks the save).</summary>
+    private bool CanSave() => HasChanges && CanEdit && !IsLoading && Editor is not { HasProblems: true };
+
+    private bool CanDiscard() => HasChanges && !IsSaving;
 
     private bool CanDeleteExtraEntry() => SelectedExtraEntry is not null && CanEdit && Half(SelectedExtraEntry.Scope) is { Error: null };
 
@@ -245,9 +316,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
             return;
         }
 
-        var reload = _reloadDefinitions;
-        _reloadDefinitions = false;
-        var definitions = await _definitions.GetAsync(session, sysvol, Localizer.Culture, reload, cancellationToken).ConfigureAwait(true);
+        var definitions = await _definitions.GetAsync(session, sysvol, Localizer.Culture, reload: false, cancellationToken).ConfigureAwait(true);
         (byte[]? Content, string? Error) machineFile = (null, null), userFile = (null, null);
         if (sysvol is not null)
         {
@@ -273,6 +342,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
             _ => Localizer.Format(L.AdministrativeTemplates.SourceNone, session.Info.Server),
         };
         IsCentralStoreMissing = definitions.Origin != PolicyDefinitionOrigin.CentralStore;
+        _fileProblems = definitions.FileProblems;
         DefinitionIssues = [.. _set.Issues.Select(IssueText)];
         if (definitionsChanged || Roots.Count == 0)
         {
@@ -303,6 +373,19 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         DeleteExtraEntryCommand.NotifyCanExecuteChanged();
         UpdateTemplatesCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanEdit));
+
+        // The editor of the selected policy was built while loading (read-only then): editable again now.
+        SyncEditor();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && Editor is { } editor)
+        {
+            editor.PropertyChanged -= OnEditorPropertyChanged;
+        }
+
+        base.Dispose(disposing);
     }
 
     protected override void OnCultureChanged()
@@ -327,8 +410,9 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
 
     /// <summary>
     /// The half after a read of <paramref name="file"/> (null: SYSVOL unavailable – nothing to edit): without edits it is
-    /// the file; with edits it stays edited unless the file now equals the edits (they were saved); a file that changed
-    /// under the edits marks a conflict and keeps the old original (the save's compare-and-swap refuses it).
+    /// the file; with edits it stays edited unless the file now equals the edits (they were saved); a file that holds what
+    /// the last save of this tab wrote rebases the edits made since onto it (no conflict: that change is ours); any other
+    /// file that changed under the edits marks a conflict and keeps the old original (the save's compare-and-swap refuses it).
     /// </summary>
     private RegistryHalf? Reconcile(RegistryHalf? half, PolicyClass scope, (byte[]? Content, string? Error)? file)
     {
@@ -351,7 +435,19 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
                 return RegistryHalf.Of(scope, read.Content);
             }
 
-            return RegistryHalf.SameContent(read.Content, half.Original) ? half : half with { Conflict = true };
+            if (RegistryHalf.SameContent(read.Content, half.Original))
+            {
+                return half;
+            }
+
+            if (_saved.TryGetValue(scope, out var saved) && RegistryHalf.SameContent(read.Content, saved))
+            {
+                // Our save landed, and the editor holds edits made after it (e.g. after a reload that could not read the
+                // file): those edits stay, on top of the saved file.
+                return half.Rebased(read.Content);
+            }
+
+            return half with { Conflict = true };
         }
 
         try
@@ -539,13 +635,47 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
 
         var half = Half(row.Scope);
         var current = half is null ? PolicySetting.NotConfigured : PolicyEngine.Read(row.Definition.Policy, half.Document.View);
-        Editor = new PolicyEditorViewModel(Localizer, row.Definition, row.Scope, current, CanEdit && half is { Error: null }, Apply);
+        Editor = new PolicyEditorViewModel(Localizer, row.Definition, row.Scope, current, CanEditHalf(row.Scope), Apply);
+    }
+
+    /// <summary>The selected policy's editor follows whether the GPO can be edited now (after a load, around a save).</summary>
+    private void SyncEditor()
+    {
+        if (Editor is { } editor)
+        {
+            editor.SetCanEdit(CanEditHalf(editor.Scope));
+        }
+    }
+
+    private bool CanEditHalf(PolicyClass scope) => CanEdit && Half(scope) is { Error: null };
+
+    partial void OnEditorChanged(PolicyEditorViewModel? oldValue, PolicyEditorViewModel? newValue)
+    {
+        if (oldValue is not null)
+        {
+            oldValue.PropertyChanged -= OnEditorPropertyChanged;
+        }
+
+        if (newValue is not null)
+        {
+            newValue.PropertyChanged += OnEditorPropertyChanged;
+        }
+
+        SaveCommand.NotifyCanExecuteChanged();
+    }
+
+    private void OnEditorPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(PolicyEditorViewModel.HasProblems) or nameof(PolicyEditorViewModel.Problems))
+        {
+            SaveCommand.NotifyCanExecuteChanged();
+        }
     }
 
     /// <summary>A valid setting of the editor goes into the half's document.</summary>
     private void Apply(PolicyEditorViewModel editor, PolicySetting setting)
     {
-        if (!ReferenceEquals(editor, Editor) || Half(editor.Scope) is not { Error: null } half)
+        if (!ReferenceEquals(editor, Editor) || !editor.CanEdit || Half(editor.Scope) is not { Error: null } half)
         {
             return;
         }
@@ -643,11 +773,21 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
 
         ChangedCount = HasChanges ? Math.Max(count, 1) : 0;
         OnPropertyChanged(nameof(HasChanges));
+        OnPropertyChanged(nameof(HasUnsavedChanges));
         SaveCommand.NotifyCanExecuteChanged();
         DiscardCommand.NotifyCanExecuteChanged();
     }
 
     private void ForgetTouched(PolicyClass scope) => _touched.RemoveWhere(t => t.Scope == scope);
+
+    /// <summary>Remembers what a save asks to write into a half (a half not saved keeps what an earlier save wrote).</summary>
+    private void Remember(PolicyClass scope, RegistryPolicySave? save)
+    {
+        if (save is not null)
+        {
+            _saved[scope] = save.Content;
+        }
+    }
 
     private int CountConfigured() =>
         _set.Policies.Sum(d => (d.Policy.AppliesTo(PolicyClass.Machine) && _machine is { } m && PolicyEngine.Read(d.Policy, m.Document.View).State != PolicyState.NotConfigured ? 1 : 0)
@@ -679,6 +819,10 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
 
     private RegistryHalf? Half(PolicyClass scope) => scope == PolicyClass.User ? _user : _machine;
 
+    /// <summary>
+    /// A problem of the templates in the UI language. The detail of an unreadable file is the parser's English message:
+    /// the localized reason is shown instead (the read failed, the file is too large, or it is damaged).
+    /// </summary>
     private string IssueText(PolicyDefinitionIssue issue) => Localizer.Format(issue.Kind switch
     {
         PolicyDefinitionIssueKind.FileUnreadable => L.AdministrativeTemplates.IssueFileUnreadable,
@@ -690,7 +834,13 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         PolicyDefinitionIssueKind.UnknownCategory => L.AdministrativeTemplates.IssueUnknownCategory,
         PolicyDefinitionIssueKind.CategoryLoop => L.AdministrativeTemplates.IssueCategoryLoop,
         _ => L.AdministrativeTemplates.IssueTooManyFiles,
-    }, issue.FileName, issue.Detail ?? string.Empty);
+    }, issue.FileName, issue.Kind is PolicyDefinitionIssueKind.FileUnreadable or PolicyDefinitionIssueKind.LanguageUnreadable
+        ? UnreadableReason(issue.FileName)
+        : issue.Detail ?? string.Empty);
+
+    private string UnreadableReason(string path) => Localizer[_fileProblems.TryGetValue(path, out var problem)
+        ? problem == PolicyFileReadProblem.TooLarge ? L.AdministrativeTemplates.FileTooLarge : L.AdministrativeTemplates.FileReadFailed
+        : L.AdministrativeTemplates.FileMalformed];
 
     /// <summary>One Registry.pol of the GPO: as read (original) and as edited.</summary>
     private sealed record RegistryHalf(PolicyClass Scope, byte[]? Original, RegistryPolicyDocument OriginalDocument, RegistryPolicyDocument Document, string? Error)
@@ -711,6 +861,10 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
 
         /// <summary>Back to the original (the edits are dropped).</summary>
         public RegistryHalf Discarded() => this with { Document = OriginalDocument.Clone(), Conflict = false };
+
+        /// <summary>The same edits on top of <paramref name="content"/>, now the file on SYSVOL (what this tab saved).</summary>
+        public RegistryHalf Rebased(byte[]? content) =>
+            this with { Original = content, OriginalDocument = RegistryPolicyDocument.Parse(content), Conflict = false };
 
         /// <summary>Same content; a missing file, an empty one and one without entries are the same.</summary>
         public static bool SameContent(byte[]? a, byte[]? b)

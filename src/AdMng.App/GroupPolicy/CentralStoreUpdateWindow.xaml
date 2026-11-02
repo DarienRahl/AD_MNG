@@ -1,7 +1,8 @@
 <!--
   "Zaktualizuj szablony ADMX" (CentralStoreUpdateViewModel, modal, K3): the package (a file, a folder, the templates of
-  this computer or a download of Edge, Chrome or Firefox) and its trust, the languages, the files of the central store
-  that change, the backup of the store to a folder the operator picks, and "Zaktualizuj…" (the change plan preview).
+  this computer or a download of Edge, Chrome or Firefox), its trust and the files it skips, the languages, the files of
+  the central store that change, the backup of the store to a folder the operator picks, and "Zaktualizuj…" (the change
+  plan preview). The progress bar runs while a package loads, the store is compared or updated.
 -->
 <Window x:Class="AdMng.App.GroupPolicy.CentralStoreUpdateWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -48,11 +49,12 @@
                   Style="{StaticResource Ad.DialogButton}" />
         </StackPanel>
         <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
-          <ProgressBar Width="72"
+          <ProgressBar x:Name="WorkingProgress"
+                       Width="72"
                        Margin="0,0,10,0"
                        VerticalAlignment="Center"
                        IsIndeterminate="True"
-                       Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                       Visibility="{Binding IsWorking, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
           <TextBlock x:Name="SummaryTextBlock"
                      VerticalAlignment="Center"
                      AutomationProperties.LiveSetting="Polite"
@@ -95,9 +97,10 @@
       <!-- Messages -->
       <StackPanel Grid.Row="1" Margin="0,10,0,0">
         <TextBlock x:Name="BusyTextBlock"
+                   AutomationProperties.LiveSetting="Polite"
                    Style="{StaticResource Ad.SecondaryText}"
-                   Text="{Binding BusyText, Mode=OneWay}"
-                   Visibility="{Binding BusyText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+                   Text="{Binding ProgressText, Mode=OneWay}"
+                   Visibility="{Binding ProgressText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
         <Border x:Name="ErrorBar" Margin="0,4,0,0" Style="{StaticResource Ad.ErrorBar}" Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
           <TextBlock AutomationProperties.LiveSetting="Assertive" Text="{Binding Error, Mode=OneWay}" TextWrapping="Wrap" />
         </Border>
@@ -120,6 +123,31 @@
                        Visibility="{Binding IsUntrusted, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
             <TextBlock x:Name="TrustText" Style="{StaticResource Ad.SecondaryText}" Text="{Binding TrustText, Mode=OneWay}" TextWrapping="Wrap" />
           </DockPanel>
+          <!-- Files the package does not use (a second template of a name, a file too large): never skipped unnoticed. -->
+          <DockPanel Margin="0,4,0,0" Visibility="{Binding HasPackageIssues, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <TextBlock Margin="0,5,8,0"
+                       VerticalAlignment="Top"
+                       DockPanel.Dock="Left"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Warning}" />
+            <Expander x:Name="PackageIssuesExpander" Header="{Binding PackageIssuesTitle, Mode=OneWay}">
+              <ItemsControl x:Name="PackageIssuesList" MaxHeight="96" ItemsSource="{Binding PackageIssues, Mode=OneWay}">
+                <ItemsControl.Template>
+                  <ControlTemplate TargetType="ItemsControl">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                      <ItemsPresenter />
+                    </ScrollViewer>
+                  </ControlTemplate>
+                </ItemsControl.Template>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="{x:Type sys:String}">
+                    <TextBlock Margin="0,1" Style="{StaticResource Ad.SecondaryText}" Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Expander>
+          </DockPanel>
         </StackPanel>
       </Border>
 
@@ -127,7 +155,9 @@
       <StackPanel Grid.Row="3" Margin="0,10,0,0" Visibility="{Binding HasPackage, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
         <TextBlock Margin="0,0,0,4" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr CentralStore.Languages}" />
         <ScrollViewer MaxHeight="96" VerticalScrollBarVisibility="Auto">
-          <ItemsControl x:Name="CultureList" ItemsSource="{Binding Cultures, Mode=OneWay}">
+          <ItemsControl x:Name="CultureList"
+                        IsEnabled="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.InverseBool}}"
+                        ItemsSource="{Binding Cultures, Mode=OneWay}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
                 <WrapPanel />
@@ -172,7 +202,9 @@
 
       <!-- Options -->
       <StackPanel Grid.Row="5" Margin="0,10,0,0">
-        <CheckBox x:Name="ReplaceCollidingBox" IsChecked="{Binding ReplaceCollidingFiles}">
+        <CheckBox x:Name="ReplaceCollidingBox"
+                  IsChecked="{Binding ReplaceCollidingFiles}"
+                  IsEnabled="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.InverseBool}}">
           <TextBlock Text="{l:Tr CentralStore.ReplaceColliding}" TextWrapping="Wrap" />
         </CheckBox>
         <DockPanel Margin="0,8,0,0">
