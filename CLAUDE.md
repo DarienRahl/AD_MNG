@@ -10,7 +10,11 @@ commit messages and these notes are in English.
    (objects, attribute values, search results, schema dumps, snapshots) to disk, registry, temp files or logs. Everything
    is read live from the DC and kept in memory only while displayed. Allowed on disk: settings (UI layout, language,
    connection profiles without passwords, saved views = names + DNs + LDAP filters, the Watchdog service URL),
-   diagnostic logs WITHOUT directory values, and files the operator explicitly exports.
+   diagnostic logs WITHOUT directory values, files the operator explicitly exports, and the Korespondencja journal
+   (U5, `<settings>/correspondence/`: keyed hashes of recipient addresses – HMAC-SHA-256 with a per-user key protected
+   by DPAPI – send times and the subjects as typed, its key, lock file and `journal-<date>.old` backups; no address,
+   name or other directory value). Outlook gets images and attachments as temp files that are deleted once the item is
+   saved (operator content, never directory values).
    **Only exception:** the AdMng Watchdog service host (`src/AdMng.Watchdog.Service` and the store implementations it
    hosts) stores snapshots of watched attributes, GPO settings snapshots (never `cpassword` or other secrets), events,
    normalized DC log records (logon records 48 h), its outbox (alerts and, when switched on, AD Manager's user messages –
@@ -51,6 +55,8 @@ commit messages and these notes are in English.
 | `src/AdMng.App` | net10.0-windows | WPF views (XAML), Generic Host/DI, Windows-only services |
 | `src/AdMng.Remote` | net10.0 | Remote actions on computers (K1): CIM over WinRM (`Microsoft.Management.Infrastructure`, Kerberos with the window's credentials, never stored), ping, local tools (mstsc, Computer Management, Event Viewer); used by the App only, never shipped in the Watchdog package |
 | `tests/AdMng.Remote.Tests` | net10.0 | Remote action tests (CIM mapping, error classification, host name checks, command lines) |
+| `src/AdMng.Outlook` | net10.0 | Classic Outlook through COM late binding (U5, `docs/dev/u5-outlook-correspondence.md`): one STA thread per session with a COM message filter, send / save as draft with inline images, attachments, send-as, on behalf, deferred delivery, voting, the preview Outlook builds, diagnostics, campaigns and votes from Sent Items, signature files, the U1 Outlook transport; Windows only at run time, used by the App only |
+| `tests/AdMng.Outlook.Tests` | net10.0 | Outlook engine tests against a CLR fake of the object model (the code uses `dynamic`), error classification, STA worker, temp files, signatures |
 | `src/AdMng.Mail` | net10.0 | Direct SMTP transport of user messages (U1, MailKit): TLS modes, certificate policy, authentication, failure classification; the SMTP password lives only in memory |
 | `tests/AdMng.Mail.Tests` | net10.0 | SMTP transport tests (in-process test servers; Mailpit with `ADMNG_TEST_SMTP_*`) |
 | `tests/AdMng.Testing` | net10.0 | Shared test library: `FakeDirectorySession` (in-memory directory with real LDAP modify semantics), `FakeDirectoryBuilder.AddSampleCompany()` |
