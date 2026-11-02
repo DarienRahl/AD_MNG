@@ -1,0 +1,126 @@
+# Zrzuty ekranu – gałąź `claude/magical-tesla-uprvxg`
+
+- Gałąź: `claude/magical-tesla-uprvxg`
+- Commit: [`a15ef66`](https://github.com/DarienRahl/AD_MNG/commit/a15ef6603d8357b28cb98c44c3887b763a1c2540) (`a15ef6603d8357b28cb98c44c3887b763a1c2540`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/41527052999
+
+## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
+
+![Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika](01-main-window.png)
+
+## Okno główne w motywie ciemnym
+
+![Okno główne w motywie ciemnym](02-main-window-dark.png)
+
+## Właściwości użytkownika – karta Ogólne
+
+![Właściwości użytkownika – karta Ogólne](03-user-properties-general.png)
+
+## Właściwości użytkownika – karta Konto
+
+![Właściwości użytkownika – karta Konto](04-user-properties-account.png)
+
+## Edytor zbiorczy – podgląd zmian (przed → po) przed wykonaniem
+
+![Edytor zbiorczy – podgląd zmian (przed → po) przed wykonaniem](05-batch-editor-preview.png)
+
+## Kosz Active Directory – usunięte obiekty do przywrócenia
+
+![Kosz Active Directory – usunięte obiekty do przywrócenia](06-recycle-bin.png)
+
+## Wyszukiwanie – użytkownicy z Warszawy (warunek zaawansowany)
+
+![Wyszukiwanie – użytkownicy z Warszawy (warunek zaawansowany)](07-find.png)
+
+## Połączenie z domeną
+
+![Połączenie z domeną](08-connect.png)
+
+## Watchdog – zdarzenia (filtr, lista i szczegóły blokady konta)
+
+![Watchdog – zdarzenia (filtr, lista i szczegóły blokady konta)](09-watchdog-events.png)
+
+## Watchdog – szczegóły zdarzenia: co się zmieniło, kto i skąd
+
+![Watchdog – szczegóły zdarzenia: co się zmieniło, kto i skąd](10-watchdog-event-details.png)
+
+## Watchdog – reguły (lista i edytor reguły)
+
+![Watchdog – reguły (lista i edytor reguły)](11-watchdog-rules.png)
+
+## Watchdog – kanały i SMTP
+
+![Watchdog – kanały i SMTP](12-watchdog-channels.png)
+
+## Watchdog – stan usługi
+
+![Watchdog – stan usługi](13-watchdog-status.png)
+
+## Godziny logowania – tygodniowy harmonogram konta w czasie lokalnym, zaznaczone godziny pracy
+
+![Godziny logowania – tygodniowy harmonogram konta w czasie lokalnym, zaznaczone godziny pracy](14-logon-hours.png)
+
+## Watchdog – potwierdzenie certyfikatu usługi przy pierwszym połączeniu (odcisk SHA-256 do porównania z serwerem)
+
+![Watchdog – potwierdzenie certyfikatu usługi przy pierwszym połączeniu (odcisk SHA-256 do porównania z serwerem)](15-watchdog-certificate.png)
+
+## Watchdog – źródła i retencja (OpenWEC, treść GPO, rekordy logowań)
+
+![Watchdog – źródła i retencja (OpenWEC, treść GPO, rekordy logowań)](16-watchdog-sources.png)
+
+## Przegląd kont – kafelki sprawdzeń i lista kont, którym wkrótce wygaśnie hasło
+
+![Przegląd kont – kafelki sprawdzeń i lista kont, którym wkrótce wygaśnie hasło](17-account-review.png)
+
+## Wiadomości do użytkowników – podgląd wiadomości „hasło wygasa” dla każdego odbiorcy przed wysyłką
+
+![Wiadomości do użytkowników – podgląd wiadomości „hasło wygasa” dla każdego odbiorcy przed wysyłką](18-user-messages.png)
+
+## Przegląd kont – zakładka Uprawnienia: konta z uprawnieniami ponad zwykłego użytkownika, poziomy i ścieżka uprawnienia
+
+![Przegląd kont – zakładka Uprawnienia: konta z uprawnieniami ponad zwykłego użytkownika, poziomy i ścieżka uprawnienia](19-privileged-access.png)
+
+## Dwa połączenia jednocześnie – contoso.test i fabrikam.test w osobnych oknach, każde z własnym kolorem i kontem
+
+![Dwa połączenia jednocześnie – contoso.test i fabrikam.test w osobnych oknach, każde z własnym kolorem i kontem](20-two-connections.png)
+
+## Porównanie obiektów między połączeniami – Łukasz Wiśniewski w contoso.test i fabrikam.test, tylko różnice (stanowisko, miasto)
+
+![Porównanie obiektów między połączeniami – Łukasz Wiśniewski w contoso.test i fabrikam.test, tylko różnice (stanowisko, miasto)](21-compare-objects.png)
+
+## Przegląd komputerów – systemy po końcu wsparcia, kafelki wersji Windows i porządku, szczegóły zaznaczonego komputera
+
+![Przegląd komputerów – systemy po końcu wsparcia, kafelki wersji Windows i porządku, szczegóły zaznaczonego komputera](22-computers.png)
+
+## Zasady grupy jednostki Komputery – połączone GPO (jedno wyłączone), dziedziczenie z wymuszonym GPO domeny, obiekty zasad grupy w drzewie
+
+![Zasady grupy jednostki Komputery – połączone GPO (jedno wyłączone), dziedziczenie z wymuszonym GPO domeny, obiekty zasad grupy w drzewie](23-group-policy.png)
+
+## Wiadomości do użytkowników – wiadomość wklejona z Outlooka: treść HTML, osadzone obrazy i wyniki wklejania z akcją „Zezwól na domenę”
+
+![Wiadomości do użytkowników – wiadomość wklejona z Outlooka: treść HTML, osadzone obrazy i wyniki wklejania z akcją „Zezwól na domenę”](24-user-messages-rich-html.png)
+
+## Wiadomości do użytkowników – zwroty grzecznościowe z tytułem i płcią: kolumna „Zwrot” (≈ zgadnięte, ⚠ zwrot neutralny) i pola wyliczone zaznaczonej wiadomości
+
+![Wiadomości do użytkowników – zwroty grzecznościowe z tytułem i płcią: kolumna „Zwrot” (≈ zgadnięte, ⚠ zwrot neutralny) i pola wyliczone zaznaczonej wiadomości](25-user-messages-salutations.png)
+
+## Korespondencja – odbiorcy wczytani z pliku CSV: kolumny pól, statusy wysyłki przez Outlooka i adres pominięty jako „już wysłany”
+
+![Korespondencja – odbiorcy wczytani z pliku CSV: kolumny pól, statusy wysyłki przez Outlooka i adres pominięty jako „już wysłany”](26-correspondence-recipients.png)
+
+## Korespondencja – wiadomość: edytor z formatowaniem i polem {{Miejscowość}}, podpis z Outlooka, załączniki, przyciski głosowania i dostarczenie o wskazanej porze
+
+![Korespondencja – wiadomość: edytor z formatowaniem i polem {{Miejscowość}}, podpis z Outlooka, załączniki, przyciski głosowania i dostarczenie o wskazanej porze](27-correspondence-message.png)
+
+## Korespondencja – właściciele skrzynek: dopasowani, potwierdzeni przez pełnomocnictwo, niejednoznaczni z kandydatami do wyboru i nieznalezieni
+
+![Korespondencja – właściciele skrzynek: dopasowani, potwierdzeni przez pełnomocnictwo, niejednoznaczni z kandydatami do wyboru i nieznalezieni](28-correspondence-mailbox-owners.png)
+
+## Szablony administracyjne GPO – kategorie z magazynu centralnego, włączane ustawienie z opcjami i pomocą, niezapisana zmiana
+
+![Szablony administracyjne GPO – kategorie z magazynu centralnego, włączane ustawienie z opcjami i pomocą, niezapisana zmiana](29-administrative-templates.png)
+
+## Aktualizacja szablonów ADMX – paczka wskazana przez operatora, języki, pliki magazynu centralnego (nowe, zastąpiony, bez zmian) i kopia zapasowa przed zapisem
+
+![Aktualizacja szablonów ADMX – paczka wskazana przez operatora, języki, pliki magazynu centralnego (nowe, zastąpiony, bez zmian) i kopia zapasowa przed zapisem](30-central-store-update.png)
+
