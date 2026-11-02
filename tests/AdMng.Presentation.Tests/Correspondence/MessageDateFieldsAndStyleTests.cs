@@ -107,6 +107,28 @@ public sealed class MessageDateFieldsAndStyleTests
     }
 
     [Fact]
+    public async Task ATemplateWithoutFontValues_LoadsWithTheDefaultStyle_NotTheCurrentOne()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        var older = await scenario.Templates.SaveAsync(new CorrespondenceTemplate
+        {
+            Name = "Zaproszenie na szkolenie – Łódź",
+            Subject = "Zaproszenie na szkolenie",
+            BodyHtml = "<p>{{zwrot}},</p><p>zapraszamy na szkolenie.</p>",
+        });
+        Assert.Null(CorrespondenceTemplateLibrary.StyleOf(older));                // saved before the fonts existed
+        using var window = await scenario.OpenAsync();
+        var message = window.Message;
+        Assert.True(await message.LoadTemplateAsync(CorrespondenceTemplateLibrary.MailboxStillNeededId));
+        Assert.Equal(CorrespondenceTemplateLibrary.MailboxStyle, message.BaseStyle);
+
+        Assert.True(await message.LoadTemplateAsync(older.Id));
+
+        Assert.Equal(MessageBaseStyle.Default, message.BaseStyle);
+        Assert.Equal(MessageBaseStyle.Default, message.Draft().BaseStyle);
+    }
+
+    [Fact]
     public async Task BaseStyle_DefaultsToTheEarlierLook_TheChoicesHoldEveryValue()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();
