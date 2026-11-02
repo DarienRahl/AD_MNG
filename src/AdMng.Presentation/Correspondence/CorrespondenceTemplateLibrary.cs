@@ -174,12 +174,37 @@ public sealed class CorrespondenceTemplateLibrary
     /// <see cref="MessageImage.Create(ReadOnlySpan{byte}, string?, string?, int, int)"/> with the Korespondencja limits and must
     /// have its declared SHA-256; the body and the list item template are sanitized again (fragment, <c>{{field}}</c> links
     /// allowed). A template keeps its text when an image is refused (the image is removed from it). Templates beyond
-    /// <see cref="CorrespondenceSettings.MaxTemplates"/> are not added.
+    /// <see cref="CorrespondenceSettings.MaxTemplates"/> are not added. Parsing the JSON, checking the images and sanitizing
+    /// run on the thread pool (up to 20 MiB and 100 templates: never on the UI thread, rule 6); the images and the settings
+    /// are stored on the caller's context.
     /// </summary>
     /// <exception cref="FormatException">Not a templates file (also unreadable JSON, or larger than <see cref="MaxFileLength"/>).</exception>
     public async Task<TemplateImportResult> ImportAsync(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
+        var room = Math.Max(0, CorrespondenceSettings.MaxTemplates - Saved.Count);
+        var (imported, accepted, lost) = await Task.Run(() => Prepare(json, room)).ConfigureAwait(true);
+        if (imported.Count == 0)
+        {
+            return new TemplateImportResult(0, lost);
+        }
+
+        var used = imported.SelectMany(t => t.Images).Select(i => i.ContentId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        await StoreImagesAsync([.. accepted.Values.Where(i => used.Contains(i.ContentId))]).ConfigureAwait(true);
+        await _settings.UpdateAsync(s => s.Correspondence.Templates.AddRange(imported.Select(t => Copy(t)))).ConfigureAwait(true);
+        CollectGarbage();
+        OnChanged();
+        return new TemplateImportResult(imported.Count, lost);
+    }
+
+    /// <summary>
+    /// The templates of an export file as they are imported (at most <paramref name="room"/>), the images accepted by content
+    /// id and the number of images refused – the work of <see cref="ImportAsync"/> that touches neither the settings nor the
+    /// image store.
+    /// </summary>
+    /// <exception cref="FormatException">Not a templates file.</exception>
+    private static (List<CorrespondenceTemplate> Imported, Dictionary<string, MessageImage> Accepted, int Lost) Prepare(string json, int room)
+    {
         if (json.Length > MaxFileLength)
         {
             throw new FormatException("The templates file is larger than 20 MiB.");
@@ -211,7 +236,6 @@ public sealed class CorrespondenceTemplateLibrary
             }
         }
 
-        var room = Math.Max(0, CorrespondenceSettings.MaxTemplates - Saved.Count);
         var lost = 0;
         var imported = new List<CorrespondenceTemplate>();
         foreach (var template in file.Templates.Where(t => t is not null && !string.IsNullOrWhiteSpace(t.Name)).Take(room))
@@ -219,17 +243,7 @@ public sealed class CorrespondenceTemplateLibrary
             imported.Add(Imported(template, accepted, ref lost));
         }
 
-        if (imported.Count == 0)
-        {
-            return new TemplateImportResult(0, lost);
-        }
-
-        var used = imported.SelectMany(t => t.Images).Select(i => i.ContentId).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        await StoreImagesAsync([.. accepted.Values.Where(i => used.Contains(i.ContentId))]).ConfigureAwait(true);
-        await _settings.UpdateAsync(s => s.Correspondence.Templates.AddRange(imported.Select(t => Copy(t)))).ConfigureAwait(true);
-        CollectGarbage();
-        OnChanged();
-        return new TemplateImportResult(imported.Count, lost);
+        return (imported, accepted, lost);
     }
 
     /// <summary>A copy of the last draft of the settings, or null.</summary>

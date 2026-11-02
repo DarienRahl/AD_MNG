@@ -228,6 +228,31 @@ public sealed class CorrespondenceTemplateLibraryTests : IDisposable
     }
 
     [Fact]
+    public async Task Import_ParsesValidatesAndSanitizesOffTheCallersThread()
+    {
+        // Up to 20 MiB of JSON with base64 images and 100 templates to sanitize: never on the UI thread (rule 6). On a
+        // thread with a synchronization context the import gives the thread back before the work is done.
+        await _library.SaveAsync(Template("Zaproszenie"));
+        var json = await _library.ExportJsonAsync();
+        var other = new CorrespondenceTemplateLibrary(new InMemorySettingsStore(), _store);
+        using var ui = new Watchdog.TestUiThread();
+
+        var completedOnTheCallersThread = true;
+        TemplateImportResult? result = null;
+        await ui.RunAsync(async () =>
+        {
+            var import = other.ImportAsync(json);
+            completedOnTheCallersThread = import.IsCompleted;
+            result = await import;
+        });
+
+        Assert.False(completedOnTheCallersThread);
+        Assert.Equal(new TemplateImportResult(1, 0), result);
+        Assert.Equal(["Zaproszenie"], other.Saved.Select(t => t.Name));
+        Assert.Empty(ui.Errors);
+    }
+
+    [Fact]
     public async Task Import_ChecksEveryImage_AndSanitizesTheHtml()
     {
         await _library.SaveAsync(Template("Z obrazkami", Logo, Stamp), [Logo, Stamp]);
