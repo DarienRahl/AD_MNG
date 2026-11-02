@@ -28,7 +28,11 @@ public static class CorrespondenceRenderer
     /// when the subject or the body uses <c>{{lista}}</c>, or a custom field they use does. In the subject and inside a
     /// custom field's value <c>{{lista}}</c> is the text of the items joined by ", ". A paragraph holding <c>{{lista}}</c>
     /// is split around it (a list cannot stand in a paragraph), empty halves dropped.</para>
-    /// <para>The signature is appended as parsed (no fields). The sanitizer removes anything outside the message policy –
+    /// <para>The signature (as parsed, no fields) goes where the body has <c>{{podpis}}</c> – its paragraph split like the
+    /// list's, no line break before it – and is then not appended again; without <c>{{podpis}}</c> in the body it is
+    /// appended after a line break. <c>{{podpis}}</c> renders "" without a signature, in the subject, in list items and in
+    /// custom field values, and is never reported as unknown or empty. The document is wrapped in the draft's
+    /// <see cref="CorrespondenceDraft.BaseStyle"/>. The sanitizer removes anything outside the message policy –
     /// a script or a <c>javascript:</c> link merged from a value included – and empties <c>&lt;head&gt;</c> (Outlook takes
     /// the body as a Unicode string, no charset needed). <see cref="RenderedCorrespondence.Images"/> holds the draft and
     /// signature images the document references, in order of first reference; a <c>cid:</c> that is not the content id of
@@ -48,9 +52,24 @@ public static class CorrespondenceRenderer
         var countApplies = BuiltInApplies(BuiltInFields.Count, draft, unit, knownColumns);
         bool IsBuiltInList(string field) => listApplies && IsList(field);
 
-        // The list items (only when the message lists them – directly, or through a custom field it uses).
+        // The block fields leave their paragraphs: the list (when it is the built-in) and the signature.
         var repaired = FieldTemplate.RepairHtml(draft.BodyHtml);
-        var bodyTemplate = listApplies ? ListPlacement.Prepare(repaired) : repaired;
+        var placesSignature = FieldTemplate.Parse(repaired).Any(t => IsSignature(t.Field));
+        var blocks = new HashSet<string>(StringComparer.Ordinal);
+        if (listApplies)
+        {
+            blocks.Add(BuiltInFields.List);
+        }
+
+        if (placesSignature)
+        {
+            blocks.Add(BuiltInFields.Signature);
+        }
+
+        var bodyTemplate = ListPlacement.Prepare(repaired, blocks);
+        var signature = string.IsNullOrWhiteSpace(draft.Signature?.BodyHtml) ? string.Empty : draft.Signature.BodyHtml;
+
+        // The list items (only when the message lists them – directly, or through a custom field it uses).
         var customUsesList = listApplies && CustomFieldsUseList(customFields, draft.Subject, bodyTemplate);
         var subjectUsesList = listApplies && UsesList(draft.Subject);
         var listUnknown = new List<string>();
@@ -86,8 +105,9 @@ public static class CorrespondenceRenderer
         var empty = new List<string>();
         var subject = FieldTemplate.Merge(draft.Subject, field => IsBuiltInList(field) ? listText : fields.Lookup(field), FieldEncoding.Header, unknown, empty);
 
-        // Body (the built-in list is HTML already; a column named "Lista" is encoded like any value).
-        var body = FieldTemplate.MergeCore(bodyTemplate, fields.Lookup, FieldEncoding.Html, unknown, empty, raw: IsBuiltInList);
+        // Body (the built-in list and the signature are HTML already; a column named "Lista" is encoded like any value).
+        var body = FieldTemplate.MergeCore(bodyTemplate, field => IsSignature(field) ? signature : fields.Lookup(field), FieldEncoding.Html,
+            unknown, empty, raw: field => IsBuiltInList(field) || IsSignature(field));
         var images = new Dictionary<string, MessageImage>(StringComparer.OrdinalIgnoreCase);
         foreach (var image in (draft.Images ?? ReadOnlyDictionary<string, MessageImage>.Empty).Values)
         {
@@ -102,7 +122,7 @@ public static class CorrespondenceRenderer
             images.TryAdd(image.ContentId, image);
         }
 
-        var result = MessageHtmlSanitizer.Sanitize(CorrespondenceDocument.Build(body, draft.Signature, draft.BaseStyle), new HtmlSanitizeOptions
+        var result = MessageHtmlSanitizer.Sanitize(CorrespondenceDocument.Build(body, placesSignature ? null : draft.Signature, draft.BaseStyle), new HtmlSanitizeOptions
         {
             Mode = HtmlSanitizeMode.Document,
             InlineImageIds = images.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase),
@@ -118,7 +138,7 @@ public static class CorrespondenceRenderer
             result.Html,
             referenced,
             Distinct(unknown.Concat(listUnknown)),
-            Distinct(empty.Concat(listEmpty)));
+            Distinct(empty.Concat(listEmpty).Where(f => !IsSignature(f))));   // no signature chosen is no empty field
     }
 
     /// <summary>The text of a document (<c>HtmlToText.Convert</c>) for log-free previews and tests.</summary>
@@ -146,6 +166,8 @@ public static class CorrespondenceRenderer
     }
 
     private static bool IsList(string field) => FieldKey.Of(field) == BuiltInFields.List;
+
+    private static bool IsSignature(string field) => FieldKey.Of(field) == BuiltInFields.Signature;
 
     private static bool UsesList(string? template) => FieldTemplate.Parse(template).Any(t => IsList(t.Field));
 

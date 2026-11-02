@@ -17,6 +17,7 @@ public sealed record CorrespondenceDraft
     /// <summary>Body images by content id.</summary>
     public IReadOnlyDictionary<string, MessageImage> Images { get; init; } = ReadOnlyDictionary<string, MessageImage>.Empty;
 
+    /// <summary>The chosen Outlook signature: where the body has <c>{{podpis}}</c>, else after the body (null: none).</summary>
     public CorrespondenceSignature? Signature { get; init; }
 
     public IReadOnlyList<CustomFieldDefinition> CustomFields { get; init; } = [];

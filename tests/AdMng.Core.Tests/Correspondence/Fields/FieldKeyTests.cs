@@ -33,7 +33,7 @@ public class FieldKeyTests
 public class BuiltInFieldsTests
 {
     [Fact]
-    public void All_InOrder() => Assert.Equal(["zwrot", "nazwa", "email", "lista", "liczba"], BuiltInFields.All);
+    public void All_InOrder() => Assert.Equal(["zwrot", "nazwa", "email", "lista", "liczba", "podpis"], BuiltInFields.All);
 
     [Theory]
     [InlineData("Nazwa", true)]

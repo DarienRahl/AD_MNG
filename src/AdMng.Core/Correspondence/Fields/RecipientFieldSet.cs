@@ -5,7 +5,8 @@ namespace AdMng.Core.Correspondence.Fields;
 /// <summary>
 /// Field values of one recipient (or group), design note 3.2: built-ins, custom fields, then columns (<see cref="FieldKey"/>
 /// matching). Lookup order: <c>zwrot</c> → salutation (blank → default); <c>nazwa</c>/<c>name</c> → row name, else the
-/// salutation; <c>email</c>/<c>mail</c>/<c>adres e-mail</c> → address; <c>lista</c>/<c>liczba</c> → group values (null
+/// salutation; <c>email</c>/<c>mail</c>/<c>adres e-mail</c> → address; <c>podpis</c> → "" (the renderer puts the
+/// signature where the body has it); <c>lista</c>/<c>liczba</c> → group values (null
 /// when not grouped); custom fields (a text field's value merged with the same lookup minus custom fields, text encoding;
 /// a date field's date in its format, <see cref="CustomFieldFormats.DateText"/>, "" without a date); row columns; a column
 /// known to the list but empty in this row → ""; else null (unknown).
@@ -96,6 +97,11 @@ public sealed class RecipientFieldSet
         if (BuiltInFields.EmailKeys.Contains(key))
         {
             return _email;
+        }
+
+        if (key == BuiltInFields.Signature)
+        {
+            return string.Empty;   // the renderer places the signature in the body; text never carries it
         }
 
         if (key == BuiltInFields.List && _list is not null)
