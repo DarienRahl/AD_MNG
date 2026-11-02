@@ -559,20 +559,41 @@ public sealed class RichMessageEditorTests
     [Fact]
     public Task Enter_InAParagraphWithItsOwnLook_GivesTheNewParagraphTheSameLook() => WpfTestHost.RunAsync(async () =>
     {
-        const string Paragraph = "<p style=\"mso-margin-top-alt:12pt;margin:0 0 12pt 0\">";
-        var body = new BodyModel { Html = Paragraph + "Pierwsze zdanie. Drugie zdanie.</p>" };
-        await WithEditorAsync(new FakeEditorHost(), body, editor =>
+        const string OpeningTag = "<p style=\"mso-margin-top-alt:12pt;margin:0 0 12pt 0\">";
+        var body = new BodyModel { Html = OpeningTag + "Pierwsze zdanie. Drugie zdanie.</p>" };
+        await WithEditorAsync(new FakeEditorHost(), body, async editor =>
         {
             var box = editor.MessageEditorBox;
+            var first = Assert.IsType<Paragraph>(Assert.Single(box.Document.Blocks));
+            var look = Assert.IsType<FlowDocumentHtml.HtmlLayout>(first.Tag);
+            box.Focus();
+            await UiTestSupport.WaitForIdleAsync();
             box.CaretPosition = Find(box, "Drugie").Start;
 
             EditingCommands.EnterParagraphBreak.Execute(null, box);
+            await UiTestSupport.WaitForIdleAsync();
+            if (box.Document.Blocks.Count == 1)
+            {
+                // WPF's Enter does nothing without the keyboard focus, which the off-screen window does not get without an
+                // interactive desktop: the same split as the command (TextRangeEdit.InsertParagraphBreak), at the caret.
+                box.CaretPosition.InsertParagraphBreak();
+            }
+
             editor.FlushHtml();
 
+            // The new paragraph has the local values of the one it came from: the margin and the stashed layout (Word's
+            // spacing the editor cannot show), so both are written as the HTML wrote the first one.
             Assert.Equal(2, box.Document.Blocks.Count);
-            Assert.Equal(2, body.Html.Split(Paragraph).Length - 1);
-            Assert.Contains(Paragraph + "Drugie zdanie.</p>", body.Html, StringComparison.Ordinal);
-            return Task.CompletedTask;
+            Assert.Same(first, box.Document.Blocks.FirstBlock);
+            var second = Assert.IsType<Paragraph>(box.Document.Blocks.LastBlock);
+            Assert.Equal("Drugie zdanie.", Text(second));
+            Assert.Same(look, second.Tag);
+            Assert.Contains(new KeyValuePair<string, string>("mso-margin-top-alt", "12pt"), look.Extra);
+            Assert.Equal(first.ReadLocalValue(Block.MarginProperty), second.ReadLocalValue(Block.MarginProperty));
+            Assert.Equal(0, second.Margin.Top, 2);
+            Assert.Equal(16, second.Margin.Bottom, 2);   // 12 pt
+            Assert.Equal(2, body.Html.Split(OpeningTag).Length - 1);
+            Assert.Contains(OpeningTag + "Drugie zdanie.</p>", body.Html, StringComparison.Ordinal);
         });
     });
 
