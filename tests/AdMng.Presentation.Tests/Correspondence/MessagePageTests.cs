@@ -285,6 +285,31 @@ public sealed class MessagePageTests
         Assert.Equal(new DateTimeOffset(2026, 10, 13, 18, 15, 0, TimeSpan.Zero), at);
     }
 
+    [Theory]
+    [InlineData("2027-03-28 02:30", "2027-03-28 03:30")]   // in the spring-forward gap: after the gap, never before it
+    [InlineData("2027-03-28 02:00", "2027-03-28 03:00")]
+    [InlineData("2027-03-28 02:59", "2027-03-28 03:59")]
+    [InlineData("2027-03-28 01:59", "2027-03-28 01:59")]
+    [InlineData("2027-03-28 03:00", "2027-03-28 03:00")]
+    [InlineData("2026-10-25 02:30", "2026-10-25 02:30")]   // the repeated hour: the later one (standard time)
+    public void DeferredDelivery_ALocalTimeOfTheChangeOfTime_IsNeverEarlierThanTyped(string typed, string delivered)
+    {
+        // Europe/Warsaw: CET, summer time from the last Sunday of March 02:00 to the last Sunday of October 03:00.
+        var warsaw = TimeZoneInfo.CreateCustomTimeZone("Europe/Warsaw (test)", TimeSpan.FromHours(1), "Warszawa", "CET", "CEST",
+            [TimeZoneInfo.AdjustmentRule.CreateAdjustmentRule(DateTime.MinValue.Date, DateTime.MaxValue.Date, TimeSpan.FromHours(1),
+                TimeZoneInfo.TransitionTime.CreateFloatingDateRule(new DateTime(1, 1, 1, 2, 0, 0), 3, 5, DayOfWeek.Sunday),
+                TimeZoneInfo.TransitionTime.CreateFloatingDateRule(new DateTime(1, 1, 1, 3, 0, 0), 10, 5, DayOfWeek.Sunday))]);
+        var local = DateTime.ParseExact(typed, "yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+
+        var at = MessagePageViewModel.DeliveryInstant(local, warsaw);
+
+        Assert.Equal(DateTime.ParseExact(delivered, "yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture), TimeZoneInfo.ConvertTime(at, warsaw).DateTime);
+        if (typed == "2026-10-25 02:30")
+        {
+            Assert.Equal(new DateTimeOffset(2026, 10, 25, 1, 30, 0, TimeSpan.Zero), at);
+        }
+    }
+
     [Fact]
     public async Task Attachments_AreAdded_Counted_Removed_AndCheckedBeforeSending()
     {
