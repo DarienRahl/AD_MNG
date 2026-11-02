@@ -139,6 +139,40 @@ public class OutlookUserMessageTransportTests
         Assert.True(next.IsAccepted);
     }
 
+    [Theory]
+    [InlineData(OutlookFailureKind.Busy, UserMessageDeliveryOutcome.Rejected, "outlook.busy")]
+    [InlineData(OutlookFailureKind.NotResponding, UserMessageDeliveryOutcome.Rejected, "outlook.notResponding")]
+    [InlineData(OutlookFailureKind.ItemTooLarge, UserMessageDeliveryOutcome.Rejected, "outlook.tooLarge")]
+    [InlineData(OutlookFailureKind.Disconnected, UserMessageDeliveryOutcome.TransportFailed, "outlook.disconnected")]
+    public void ToDelivery_AFailureThatLeftADraft_IsNeverRetried(OutlookFailureKind kind, UserMessageDeliveryOutcome outcome, string code)
+    {
+        // The item is in "Wersje robocze" (and after a failed Send() it may even have gone out): a retry would build and send
+        // a second copy.
+        var delivery = OutlookUserMessageTransport.ToDelivery(FakeOutlookClient.Failed(kind, "send", savedAsDraft: true));
+
+        Assert.Equal(outcome, delivery.Outcome);
+        Assert.Equal(code, delivery.Code);
+    }
+
+    [Fact]
+    public async Task EndToEnd_ABusyOutlookAfterTheSave_IsNotRetried_SoNoSecondCopyIsBuilt()
+    {
+        await using var harness = new OutlookHarness();
+        harness.Log.FailWith("MailItem.Send()", 0x80010001);
+        var time = new FakeTimeProvider(new DateTimeOffset(2026, 10, 28, 9, 0, 0, TimeSpan.Zero));
+        var transport = new OutlookUserMessageTransport(harness.Client);
+
+        var results = await Dispatcher(time).SendAsync(transport, [Planned(0, Message())], Limiter(time), null, null, Ct);
+
+        var result = Assert.Single(results);
+        Assert.Equal(UserMessageSendStatus.Failed, result.Status);
+        Assert.Equal("outlook.busy", result.Delivery!.Code);
+        Assert.Equal(1, result.Attempts);
+        var draft = Assert.Single(harness.Application.Created);
+        Assert.False(draft.WasSent);
+        Assert.True(draft.SaveCount > 0);
+    }
+
     [Fact]
     public async Task EndToEnd_AnAccountMissingFromTheProfile_StopsTheRun_AfterTheFirstMessage()
     {
