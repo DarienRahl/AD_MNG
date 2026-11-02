@@ -28,7 +28,7 @@ public sealed class ScopedJournalTests
     [
         Mailbox(Owner, "Jan Kowalski", "Sekretariat Wydziału Łączności", "sekretariat.lacznosci@contoso.test"),
         Mailbox(Owner, "Jan Kowalski", "Rekrutacja", "rekrutacja@contoso.test"),
-        Mailbox(Owner, "Jan Kowalski", "Archiwum Łódź", "archiwum.lodz@contoso.test"),
+        Mailbox(Owner, "Jan Kowalski", "Archiwum Zakładowe", "archiwum.zakladowe@contoso.test"),
     ];
 
     private static async Task<CorrespondenceViewModel> OpenAsync(CorrespondencePagesScenario scenario, params CorrespondenceRecipientViewModel[] rows)
@@ -59,7 +59,7 @@ public sealed class ScopedJournalTests
         await window.Send.SendCommand.ExecuteAsync(null);
 
         Assert.Equal(
-            ["Weryfikacja skrzynki pocztowej: Sekretariat Wydziału Łączności", "Weryfikacja skrzynki pocztowej: Rekrutacja", "Weryfikacja skrzynki pocztowej: Archiwum Łódź"],
+            ["Weryfikacja skrzynki pocztowej: Sekretariat Wydziału Łączności", "Weryfikacja skrzynki pocztowej: Rekrutacja", "Weryfikacja skrzynki pocztowej: Archiwum Zakładowe"],
             scenario.Outlook.Succeeded().Select(m => m.Subject));
         Assert.Equal(3, scenario.Journal.Count);
         Assert.All(rows, r => Assert.Equal("Weryfikacja skrzynki pocztowej: {{Skrzynka}}", scenario.Journal.Find(r.Email, r.JournalScope)?.Subject));
@@ -71,7 +71,7 @@ public sealed class ScopedJournalTests
         });
 
         // A later query finds a fourth mailbox of the same owner: only that row is sent.
-        var fourth = Mailbox(Owner, "Jan Kowalski", "Biuro Rady Wydziału", "biuro.rady@contoso.test");
+        var fourth = Mailbox(Owner, "Jan Kowalski", "Biuro Zarządu", "biuro.zarzadu@contoso.test");
         CorrespondencePagesScenario.AddRows(window, fourth);
         var set = CorrespondenceSendSet.Of(window.Recipients);
         Assert.Equal([fourth], set.Rows);
@@ -82,10 +82,10 @@ public sealed class ScopedJournalTests
 
         await window.Send.SendCommand.ExecuteAsync(null);
 
-        Assert.Equal("Weryfikacja skrzynki pocztowej: Biuro Rady Wydziału", scenario.Outlook.Succeeded()[^1].Subject);
+        Assert.Equal("Weryfikacja skrzynki pocztowej: Biuro Zarządu", scenario.Outlook.Succeeded()[^1].Subject);
         Assert.Equal(4, scenario.Outlook.Succeeded().Count);
         Assert.Equal(4, scenario.Journal.Count);
-        Assert.NotNull(scenario.Journal.Find(Owner, "biuro.rady@contoso.test"));
+        Assert.NotNull(scenario.Journal.Find(Owner, "biuro.zarzadu@contoso.test"));
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public sealed class ScopedJournalTests
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();
         var jan = ThreeMailboxesOfJan()[..2];
-        var anna = Mailbox("anna.nowak@contoso.test", "Anna Nowak", "Dziekanat", "dziekanat@contoso.test");
+        var anna = Mailbox("anna.nowak@contoso.test", "Anna Nowak", "Kadry", "kadry@contoso.test");
         var file = CorrespondencePagesScenario.Row("zofia.wisniewska@contoso.test", "Zofia Wiśniewska");
         using var window = await OpenAsync(scenario, [.. jan, anna, file]);
         window.Message.SendMode = window.Message.SendModeChoices.Single(m => m.Value == CorrespondenceSendMode.Bcc);
@@ -126,11 +126,11 @@ public sealed class ScopedJournalTests
         Assert.Equal(4, scenario.Journal.Count);
         Assert.NotNull(scenario.Journal.Find(Owner, jan[0].JournalScope));
         Assert.NotNull(scenario.Journal.Find(Owner, jan[1].JournalScope));
-        Assert.NotNull(scenario.Journal.Find("anna.nowak@contoso.test", "dziekanat@contoso.test"));
+        Assert.NotNull(scenario.Journal.Find("anna.nowak@contoso.test", "kadry@contoso.test"));
         Assert.NotNull(scenario.Journal.Find("zofia.wisniewska@contoso.test"));                 // a file row: the address alone
-        Assert.Null(scenario.Journal.Find(Owner, "dziekanat@contoso.test"));                     // no cross product
+        Assert.Null(scenario.Journal.Find(Owner, "kadry@contoso.test"));                                 // no cross product
         Assert.Null(scenario.Journal.Find("anna.nowak@contoso.test", "rekrutacja@contoso.test"));
-        Assert.Null(scenario.Journal.Find("zofia.wisniewska@contoso.test", "dziekanat@contoso.test"));
+        Assert.Null(scenario.Journal.Find("zofia.wisniewska@contoso.test", "kadry@contoso.test"));
         Assert.Null(scenario.Journal.Find(Owner));
     }
 
@@ -175,7 +175,7 @@ public sealed class ScopedJournalTests
         Assert.Equal(2, reopened.Count);
         Assert.Equal("Stary temat", reopened.Find(Owner)!.Subject);
         Assert.Equal("Weryfikacja skrzynki", reopened.Find(Owner, "rekrutacja@contoso.test")!.Subject);
-        Assert.Null(reopened.Find(Owner, "archiwum.lodz@contoso.test"));
+        Assert.Null(reopened.Find(Owner, "archiwum.zakladowe@contoso.test"));
         Assert.Equal(reopened.Find(Owner), reopened.Find(Owner, "  "));                         // a blank scope is no scope
     }
 
