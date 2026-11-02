@@ -524,7 +524,7 @@ public static partial class FlowDocumentHtml
         {
             if (layout is not null && cell.Padding == layout.AppliedPadding)
             {
-                return layout.PaddingCss;
+                return layout.PaddingCss is { } css ? Escape(css) : null;
             }
 
             return cell.ReadLocalValue(Block.PaddingProperty) is Thickness padding && (layout is not null || padding != new Thickness(CellPadding))
@@ -540,7 +540,7 @@ public static partial class FlowDocumentHtml
             var color = (cell.BorderBrush as SolidColorBrush)?.Color;
             if (layout is not null && thickness == layout.AppliedBorder && color == layout.AppliedBorderColor)
             {
-                return layout.BorderCss ?? (thickness == default ? null : BorderCss(thickness, color));
+                return layout.BorderCss is { } css ? Escape(css) : thickness == default ? null : BorderCss(thickness, color);
             }
 
             return cell.ReadLocalValue(Block.BorderThicknessProperty) == DependencyProperty.UnsetValue
