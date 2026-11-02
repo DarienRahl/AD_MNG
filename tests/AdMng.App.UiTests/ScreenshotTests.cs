@@ -14,6 +14,7 @@ using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Connections;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.GroupPolicy;
+using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -162,6 +163,45 @@ public sealed class ScreenshotTests
         "23-group-policy.png",
         "Zasady grupy jednostki Komputery – połączone GPO (jedno wyłączone), dziedziczenie z wymuszonym GPO domeny, obiekty zasad grupy w drzewie",
         "Group Policy of the Komputery unit – linked GPOs (one disabled), inheritance with the domain's enforced GPO, the Group Policy Objects in the tree");
+
+    private static readonly ScreenshotInfo AdministrativeTemplates = new(
+        "29-administrative-templates.png",
+        "Szablony administracyjne GPO – kategorie z magazynu centralnego, włączane ustawienie z opcjami i pomocą, niezapisana zmiana",
+        "Administrative templates of a GPO – the categories of the central store, a setting being enabled with its options and help, an unsaved change");
+
+    [Fact]
+    public Task Screenshot29_AdministrativeTemplates() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>
+    {
+        // K3 (design note docs/dev/k-computers-and-gpo.md 6): the editor of a GPO over the sample templates in the central store.
+        var sample = context.Directory.AddGroupPolicyManagementSample(context.Company, context.Sysvol);
+        foreach (var (path, content) in SampleAdministrativeTemplates.Files())
+        {
+            context.Sysvol.PutPolicyDefinition(path, content);
+        }
+
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, MainWindowWidth, MainWindowHeight);
+        var shell = window.Shell;
+        await shell.InitializeAsync();
+        var editor = Assert.IsType<AdministrativeTemplatesEditorViewModel>(shell.OpenGroupPolicyDocument(
+            new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.AdministrativeTemplates) { GpoId = sample.WorkstationPasswords, Name = "Stacje robocze – Zasady haseł" }));
+        await UiWait.UntilAsync(() => !editor.IsLoading && editor.Roots.Count == 2, "the administrative templates");
+        var windowsComponents = editor.Roots[0].Children.Single(c => c.Name == "Składniki systemu Windows");
+        windowsComponents.IsExpanded = true;
+        var updates = windowsComponents.Children.Single();
+        updates.IsSelected = true;
+        editor.SelectedNode = updates;
+        editor.SelectedPolicy = editor.Policies.Single(p => p.Name == "Konfiguruj aktualizacje automatyczne");
+        editor.Editor!.IsEnabled = true;
+        editor.Editor.Elements.OfType<DropDownEditorViewModel>().Single().SelectedIndex = 2;
+        editor.Editor.Elements.OfType<NumberEditorViewModel>().Single().Text = "3";
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        Assert.Equal(1, editor.ChangedCount);
+        Assert.Empty(editor.Editor.Problems);
+        await ScreenshotWriter.SaveAsync(window, AdministrativeTemplates, dark: false);
+    });
 
     [Fact]
     public Task Screenshot21_CompareObjects() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>

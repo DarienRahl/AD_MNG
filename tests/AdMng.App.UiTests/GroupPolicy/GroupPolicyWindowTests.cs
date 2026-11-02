@@ -11,6 +11,7 @@ using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Backup;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.GroupPolicy;
+using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Views;
@@ -188,6 +189,66 @@ public sealed class GroupPolicyWindowTests
         main.UpdateLayout();
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         Assert.Single(Assert.Single(UiWait.Descendants<WmiFiltersView>(main)).FiltersList.Items);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task AdministrativeTemplatesEditor_EnablesAPolicy_AndSavesItThroughThePreviewWindow() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync(language: "pl");
+        var sample = context.Directory.AddGroupPolicyManagementSample(context.Company, context.Sysvol);
+        foreach (var (path, content) in SampleAdministrativeTemplates.Files())
+        {
+            context.Sysvol.PutPolicyDefinition(path, content);
+        }
+
+        await context.ConnectAsync();
+        var main = context.Services.GetRequiredService<MainWindow>();
+        UiTestSupport.ShowOffScreen(main);
+        var shell = main.Shell;
+        await shell.InitializeAsync();
+
+        var editor = Assert.IsType<AdministrativeTemplatesEditorViewModel>(shell.OpenGroupPolicyDocument(
+            new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.AdministrativeTemplates) { GpoId = sample.SitePrinters, Name = "Lokacja Warszawa – Drukarki" }));
+        await UiWait.UntilAsync(() => !editor.IsLoading && editor.Roots.Count == 2, "the administrative templates");
+        main.UpdateLayout();
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        var view = Assert.Single(UiWait.Descendants<AdministrativeTemplatesEditorView>(main));
+        Assert.Equal(2, view.CategoryTree.Items.Count);
+        Assert.Contains("magazyn centralny", view.DefinitionsText.Text, StringComparison.Ordinal);
+        Assert.False(view.SaveButton.IsEnabled);
+
+        editor.SelectedNode = editor.Roots[0].Children.Single(c => c.Name == "Składniki systemu Windows").Children.Single();
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        Assert.Equal(2, view.PolicyList.Items.Count);
+        editor.SelectedPolicy = editor.Policies.Single(p => p.Name == "Konfiguruj aktualizacje automatyczne");
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        editor.Editor!.IsEnabled = true;
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        var options = Assert.Single(UiWait.Descendants<ItemsControl>(view), i => i.Name == "OptionsList");
+        Assert.Equal(4, options.Items.Count);
+        Assert.True(view.SaveButton.IsEnabled);
+
+        // The search narrows the list.
+        editor.SearchText = "wuserver";
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        Assert.Single(view.PolicyList.Items);
+        editor.SearchText = string.Empty;
+
+        var drive = UiWait.DriveModalAsync<ChangePlanPreviewWindow>(async w =>
+        {
+            await UiTestSupport.WaitForIdleAsync(rounds: 2);
+            Assert.Contains("Set-GPRegistryValue", w.ViewModel.PowerShellScript, StringComparison.Ordinal);
+            await w.ViewModel.ExecuteCommand.ExecuteAsync(null);
+            await UiWait.UntilAsync(() => w.ViewModel.Step == PlanPreviewStep.Results, "the results");
+            Assert.False(w.ViewModel.ResultHasFailures);
+            w.ViewModel.CloseCommand.Execute(null);
+        });
+        await editor.SaveCommand.ExecuteAsync(null);
+        await drive;
+
+        Assert.NotNull(context.Sysvol.Get(sample.SitePrinters, "Machine/Registry.pol"));
+        await UiWait.UntilAsync(() => !editor.IsLoading && !editor.HasChanges, "the saved templates");
         context.AssertHealthy();
     });
 

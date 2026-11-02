@@ -322,7 +322,7 @@ internal static class SmokeTest
     }
 
     /// <summary>
-    /// Group Policy (K2), disconnected: the four documents ("not connected"), the name dialog (new, copy, rename), the GPO
+    /// Group Policy (K2, K3), disconnected: the five documents ("not connected"; the administrative templates editor too), the name dialog (new, copy, rename), the GPO
     /// picker, the backup window in every mode, the comparison, the WMI filter editor (new, edit) and the change plan
     /// preview with SYSVOL rows (a sample plan; nothing is executed). No DC and no SYSVOL share is contacted.
     /// </summary>
@@ -340,6 +340,7 @@ internal static class SmokeTest
             new(GroupPolicyDocumentKind.Object) { GpoId = GroupPolicySamples.PasswordsId, Name = "Stacje robocze – Zasady haseł", Tab = GpoDocumentTab.Status },
             new(GroupPolicyDocumentKind.Scope) { ContainerDn = "OU=Komputery,OU=Firma," + GroupPolicySamples.DomainDn, Name = "Komputery" },
             new(GroupPolicyDocumentKind.WmiFilters),
+            new(GroupPolicyDocumentKind.AdministrativeTemplates) { GpoId = GroupPolicySamples.PasswordsId, Name = "Stacje robocze – Zasady haseł" },
         })
         {
             var document = shell.OpenGroupPolicyDocument(request) ?? throw new InvalidOperationException("A Group Policy document did not open.");

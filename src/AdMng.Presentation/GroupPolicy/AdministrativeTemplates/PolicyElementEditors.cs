@@ -284,10 +284,6 @@ public sealed partial class ListEditorViewModel : PolicyElementEditorViewModel
 
     public ObservableCollection<ListEntryViewModel> Entries { get; } = [];
 
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(RemoveCommand))]
-    public partial ListEntryViewModel? SelectedEntry { get; set; }
-
     public override PolicyElementValue? Value => new ListElementValue([.. Entries
         .Where(e => e.Name.Trim().Length > 0 || e.Value.Trim().Length > 0)
         .Select(e => new ListElementItem(IsExplicit ? e.Name.Trim() : string.Empty, e.Value))]);
@@ -312,22 +308,18 @@ public sealed partial class ListEditorViewModel : PolicyElementEditorViewModel
             return;
         }
 
-        var entry = new ListEntryViewModel();
-        Entries.Add(entry);
-        SelectedEntry = entry;
+        Entries.Add(new ListEntryViewModel());
     }
 
-    [RelayCommand(CanExecute = nameof(CanRemove))]
-    private void Remove()
+    /// <summary>Removes an entry (the row's remove button passes it).</summary>
+    [RelayCommand]
+    private void Remove(ListEntryViewModel? entry)
     {
-        if (SelectedEntry is { } entry && IsEditable)
+        if (entry is not null && IsEditable)
         {
             Entries.Remove(entry);
-            SelectedEntry = null;
         }
     }
-
-    private bool CanRemove() => SelectedEntry is not null;
 
     private void OnEntryChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {

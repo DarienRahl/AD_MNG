@@ -17,6 +17,7 @@
         xmlns:wd="clr-namespace:AdMng.Presentation.Watchdog;assembly=AdMng.Presentation"
         xmlns:gpv="clr-namespace:AdMng.App.GroupPolicy"
         xmlns:gpd="clr-namespace:AdMng.Presentation.GroupPolicy;assembly=AdMng.Presentation"
+        xmlns:gpat="clr-namespace:AdMng.Presentation.GroupPolicy.AdministrativeTemplates;assembly=AdMng.Presentation"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1360"
         Height="840"
@@ -880,6 +881,10 @@
             </DataTemplate>
             <DataTemplate DataType="{x:Type gpd:WmiFiltersDocumentViewModel}">
               <gpv:WmiFiltersView />
+            </DataTemplate>
+            <!-- Administrative templates (K3). -->
+            <DataTemplate DataType="{x:Type gpat:AdministrativeTemplatesEditorViewModel}">
+              <gpv:AdministrativeTemplatesEditorView />
             </DataTemplate>
           </ItemsControl.Resources>
         </ItemsControl>

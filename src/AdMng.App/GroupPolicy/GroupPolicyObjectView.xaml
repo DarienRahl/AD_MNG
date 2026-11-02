@@ -35,6 +35,7 @@
   <DockPanel Margin="8,6,8,8">
     <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+        <Button x:Name="EditTemplatesButton" Margin="0,0,6,0" Command="{Binding EditTemplatesCommand}" Content="{l:Tr AdmTemplates.EditCommand}" />
         <Button x:Name="RenameButton" Margin="0,0,6,0" Command="{Binding RenameCommand}" Content="{l:Tr GroupPolicy.RenameCommand}" />
         <Button x:Name="BackupButton" Margin="0,0,6,0" Command="{Binding BackupCommand}" Content="{l:Tr GroupPolicy.BackupCommand}" />
         <Button x:Name="CompareButton" Margin="0,0,6,0" Command="{Binding CompareCommand}" Content="{l:Tr GroupPolicy.CompareWithCommand}" />
@@ -168,7 +169,15 @@
       <!-- Ustawienia -->
       <TabItem x:Name="SettingsTab" Header="{l:Tr GroupPolicy.TabSettings}">
         <DockPanel Margin="4,8,4,4">
-          <TextBlock Margin="0,0,0,4" DockPanel.Dock="Top" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr GroupPolicy.SettingsHint}" TextWrapping="Wrap" />
+          <DockPanel Margin="0,0,0,4" DockPanel.Dock="Top">
+            <Button x:Name="SettingsEditTemplatesButton"
+                    Margin="12,0,0,0"
+                    VerticalAlignment="Top"
+                    Command="{Binding EditTemplatesCommand}"
+                    Content="{l:Tr AdmTemplates.EditCommand}"
+                    DockPanel.Dock="Right" />
+            <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr GroupPolicy.SettingsHint}" TextWrapping="Wrap" />
+          </DockPanel>
           <TextBlock x:Name="SettingsNote"
                      Margin="0,0,0,6"
                      DockPanel.Dock="Top"
