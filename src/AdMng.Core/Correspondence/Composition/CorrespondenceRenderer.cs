@@ -149,10 +149,11 @@ public static class CorrespondenceRenderer
 
     private static bool UsesList(string? template) => FieldTemplate.Parse(template).Any(t => IsList(t.Field));
 
-    /// <summary>A custom field the subject or the body uses has <c>{{lista}}</c> in its value (it gets the list as text).</summary>
+    /// <summary>A text custom field the subject or the body uses has <c>{{lista}}</c> in its value (it gets the list as
+    /// text; a date field's value is a date).</summary>
     private static bool CustomFieldsUseList(IReadOnlyList<CustomFieldDefinition> customFields, string? subject, string body)
     {
-        var listing = customFields.Where(f => f is not null && UsesList(f.Value)).Select(f => FieldKey.Of(f.Name)).Where(k => k.Length > 0)
+        var listing = customFields.Where(f => f is not null && f.Kind != CustomFieldKind.Date && UsesList(f.Value)).Select(f => FieldKey.Of(f.Name)).Where(k => k.Length > 0)
             .ToHashSet(StringComparer.Ordinal);
         return listing.Count > 0 && FieldTemplate.Parse(subject).Concat(FieldTemplate.Parse(body)).Any(t => listing.Contains(FieldKey.Of(t.Field)));
     }

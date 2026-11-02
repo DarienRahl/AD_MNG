@@ -2,15 +2,13 @@ using System.Globalization;
 
 namespace AdMng.Core.Correspondence.Fields;
 
-/// <summary>An operator-defined field: <paramref name="Value"/> may use <c>{{other fields}}</c> (not other custom fields).</summary>
-public sealed record CustomFieldDefinition(string Name, string Value);
-
 /// <summary>
 /// Field values of one recipient (or group), design note 3.2: built-ins, custom fields, then columns (<see cref="FieldKey"/>
 /// matching). Lookup order: <c>zwrot</c> → salutation (blank → default); <c>nazwa</c>/<c>name</c> → row name, else the
 /// salutation; <c>email</c>/<c>mail</c>/<c>adres e-mail</c> → address; <c>lista</c>/<c>liczba</c> → group values (null
-/// when not grouped); custom fields (their value merged with the same lookup minus custom fields, text encoding); row
-/// columns; a column known to the list but empty in this row → ""; else null (unknown).
+/// when not grouped); custom fields (a text field's value merged with the same lookup minus custom fields, text encoding;
+/// a date field's date in its format, <see cref="CustomFieldFormats.DateText"/>, "" without a date); row columns; a column
+/// known to the list but empty in this row → ""; else null (unknown).
 /// </summary>
 /// <remarks>When there are no group values (<c>list</c>/<c>count</c> null), <c>lista</c>/<c>liczba</c> fall through to
 /// custom fields and columns, so a column called "Liczba" still works in ungrouped messages; without such a column they
@@ -28,7 +26,7 @@ public sealed class RecipientFieldSet
     private readonly int? _count;
     private readonly Dictionary<string, string> _columns = new(StringComparer.Ordinal);
     private readonly HashSet<string> _known = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, string> _custom = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, CustomFieldDefinition> _custom = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _customValues = new(StringComparer.Ordinal);
 
     /// <param name="email">The address of the message.</param>
@@ -68,7 +66,7 @@ public sealed class RecipientFieldSet
         {
             if (custom is not null && FieldKey.Of(custom.Name) is { Length: > 0 } key)
             {
-                _custom.TryAdd(key, custom.Value ?? string.Empty);
+                _custom.TryAdd(key, custom);
             }
         }
     }
@@ -110,11 +108,13 @@ public sealed class RecipientFieldSet
             return count.ToString(CultureInfo.InvariantCulture);
         }
 
-        if (withCustom && _custom.TryGetValue(key, out var template))
+        if (withCustom && _custom.TryGetValue(key, out var custom))
         {
             if (!_customValues.TryGetValue(key, out var merged))
             {
-                merged = FieldTemplate.Merge(template, f => Lookup(FieldKey.Of(f), withCustom: false), FieldEncoding.Text);
+                merged = custom.Kind == CustomFieldKind.Date
+                    ? CustomFieldFormats.DateText(custom)
+                    : FieldTemplate.Merge(custom.Value ?? string.Empty, f => Lookup(FieldKey.Of(f), withCustom: false), FieldEncoding.Text);
                 _customValues[key] = merged;
             }
 
