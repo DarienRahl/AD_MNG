@@ -12926,6 +12926,12 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="Correspondence.Preview.SampleAddress" xml:space="preserve">
     <value>adres@odbiorcy.pl</value>
   </data>
+  <data name="Correspondence.Preview.RecipientMailbox" xml:space="preserve">
+    <value>{0} – {1}</value>
+  </data>
+  <data name="Correspondence.Preview.RecipientNumber" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
   <data name="Correspondence.Preview.OwnAddress" xml:space="preserve">
     <value>(Twój adres)</value>
   </data>

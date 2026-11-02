@@ -232,7 +232,8 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
     [ObservableProperty]
     public partial IReadOnlyList<TemplateOption> Templates { get; private set; } = [];
 
-    /// <summary>Loading asks first when the body is not empty and differs.</summary>
+    /// <summary>Loading asks first when the page holds a message the template would replace – not over a built-in as it was
+    /// loaded (<see cref="HeldBuiltIn"/>), whose deadline chosen the other built-in keeps.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(DeleteTemplateCommand))]
     public partial TemplateOption? SelectedTemplate { get; set; }
@@ -747,10 +748,15 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
             return;
         }
 
-        // A built-in template as it was loaded is no message of the operator's: replacing it asks nothing.
-        var holdsMessage = (!IsBodyEmpty || !string.IsNullOrWhiteSpace(Subject)) && UnchangedBuiltIn() is null;
-        var differs = !string.Equals(Subject?.Trim(), template.Subject?.Trim(), StringComparison.Ordinal)
-                      || !string.Equals(BodyHtml?.Trim(), template.BodyHtml?.Trim(), StringComparison.Ordinal);
+        // A built-in as it was loaded is no message of the operator's: replacing it asks nothing. Between the built-ins the
+        // values of its custom fields stay (the deadline chosen); any other template replaces them, so a changed value is
+        // asked about – as is any other change (subject, body, list item, font, voting, the fields themselves).
+        var kept = CustomFields.Select(f => f.ToDefinition()).ToList();
+        var held = HeldBuiltIn(out var valuesChanged);
+        var keepValues = held is not null && CorrespondenceTemplateLibrary.IsBuiltIn(template.Id);
+        var holdsMessage = (!IsBodyEmpty || !string.IsNullOrWhiteSpace(Subject)) && (held is null || (valuesChanged && !keepValues));
+        var differs = !SameText(Subject, template.Subject) || !SameText(BodyHtml, template.BodyHtml)
+                      || !SameText(ListItemTemplate, template.ListItemTemplate) || !SameFields(kept, AsLoaded(template.CustomFields), values: true);
         if (holdsMessage && differs && !await Services.Dialogs.ConfirmAsync(
                 Localizer[L.CorrespondenceMessage.TemplatesTitle],
                 Localizer.Format(L.CorrespondenceMessage.ReplaceMessage, template.Name),
@@ -789,6 +795,11 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
             {
                 CustomFields.Add(new CustomFieldViewModel(field));
             }
+        }
+
+        if (keepValues)
+        {
+            KeepFieldValues(kept);
         }
 
         if (template.VotingEnabled is { } voting)
@@ -839,19 +850,31 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
         }
     }
 
-    /// <summary>The id of the built-in template the page holds as it was loaded (its subject and body unchanged), or null.</summary>
-    internal string? UnchangedBuiltIn()
+    /// <summary>
+    /// The id of the built-in template the page holds as it was loaded – its subject, body, list item template, voting, font
+    /// and custom fields (names and kinds, in order) the built-in's – or null. <paramref name="valuesChanged"/>: the value or
+    /// date format of a custom field is no longer the built-in's (the deadline chosen – or the default of an earlier day),
+    /// which loading a built-in keeps and any other template replaces. The grouping is no part of it: each built-in sets
+    /// its own, and the mailbox owner page sets it after loading.
+    /// </summary>
+    internal string? HeldBuiltIn(out bool valuesChanged)
     {
+        valuesChanged = false;
         if (IsBodyEmpty)
         {
             return null;
         }
 
+        var fields = CustomFields.Select(f => f.ToDefinition()).ToList();
         foreach (var builtIn in Correspondence.Templates.BuiltIns)
         {
-            if (string.Equals(Subject?.Trim(), builtIn.Subject.Trim(), StringComparison.Ordinal)
-                && string.Equals(BodyHtml?.Trim(), builtIn.BodyHtml.Trim(), StringComparison.Ordinal))
+            var builtInFields = AsLoaded(builtIn.CustomFields);
+            if (SameText(Subject, builtIn.Subject) && SameText(BodyHtml, builtIn.BodyHtml) && SameText(ListItemTemplate, builtIn.ListItemTemplate)
+                && (builtIn.VotingEnabled is not { } voting || voting == UseVoting)
+                && (CorrespondenceTemplateLibrary.StyleOf(builtIn) is not { } style || style == BaseStyle)
+                && SameFields(fields, builtInFields, values: false))
             {
+                valuesChanged = !SameFields(fields, builtInFields, values: true);
                 return builtIn.Id;
             }
         }
@@ -862,25 +885,44 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
     /// <summary>
     /// "Dodaj do odbiorców" of the mailbox owner page: the built-in mailbox template that fits the grouping
     /// (<see cref="CorrespondenceTemplateLibrary.MailboxTemplateId"/>) is loaded when the page holds no message of the
-    /// operator's – an empty body (asking first when there is a subject) or the other built-in as it was loaded. Switching
+    /// operator's – an empty body (asking first when there is a subject) or the other built-in as it was loaded
+    /// (<see cref="HeldBuiltIn"/>; anything changed but the values of its custom fields makes it the operator's). Switching
     /// between the two keeps the values of the custom fields of the same name and kind (the deadline chosen); the built-in
-    /// that fits, held unchanged, stays as it is (its deadline too).
+    /// that fits, held as loaded, stays as it is (its deadline too).
     /// </summary>
     internal async Task UseMailboxTemplateAsync(bool groupByOwner)
     {
         var id = CorrespondenceTemplateLibrary.MailboxTemplateId(groupByOwner);
-        var unchanged = UnchangedBuiltIn();
-        if ((!IsBodyEmpty && unchanged is null) || string.Equals(unchanged, id, StringComparison.Ordinal))
+        var held = HeldBuiltIn(out _);
+        if ((!IsBodyEmpty && held is null) || string.Equals(held, id, StringComparison.Ordinal))
         {
             return;
         }
 
-        var kept = unchanged is null ? [] : CustomFields.Select(f => f.ToDefinition()).ToList();
-        if (!await LoadTemplateAsync(id).ConfigureAwait(true))
-        {
-            return;
-        }
+        await LoadTemplateAsync(id).ConfigureAwait(true);
+    }
 
+    /// <summary>Two texts of a template alike (null is empty, outer white space ignored).</summary>
+    private static bool SameText(string? first, string? second) =>
+        string.Equals((first ?? string.Empty).Trim(), (second ?? string.Empty).Trim(), StringComparison.Ordinal);
+
+    /// <summary>The custom fields of a template as the page holds them once loaded (a date that does not parse is no date).</summary>
+    private static List<CustomFieldDefinition> AsLoaded(IEnumerable<CustomFieldDefinition>? fields) =>
+        [.. (fields ?? []).Where(f => f is not null).Select(f => new CustomFieldViewModel(f).ToDefinition())];
+
+    /// <summary>The same custom fields in the same order: names and kinds, and with <paramref name="values"/> their values
+    /// (a date field's format too; blank is the default).</summary>
+    private static bool SameFields(IReadOnlyList<CustomFieldDefinition> first, IReadOnlyList<CustomFieldDefinition> second, bool values) =>
+        first.Count == second.Count && first.Zip(second).All(pair =>
+            string.Equals(pair.First.Name, pair.Second.Name, StringComparison.Ordinal) && pair.First.Kind == pair.Second.Kind
+            && (!values || (string.Equals(pair.First.Value ?? string.Empty, pair.Second.Value ?? string.Empty, StringComparison.Ordinal)
+                && (pair.First.Kind != CustomFieldKind.Date || string.Equals(DateFormat(pair.First.Format), DateFormat(pair.Second.Format), StringComparison.Ordinal)))));
+
+    private static string DateFormat(string? format) => string.IsNullOrWhiteSpace(format) ? CustomFieldFormats.DefaultDate : format.Trim();
+
+    /// <summary>The values (a date and its format) of <paramref name="kept"/> on the custom fields of the same name and kind.</summary>
+    private void KeepFieldValues(IReadOnlyList<CustomFieldDefinition> kept)
+    {
         foreach (var field in CustomFields)
         {
             if (kept.FirstOrDefault(k => FieldKey.Same(k.Name, field.Name) && k.Kind == field.Kind) is not { } old)
@@ -891,11 +933,11 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
             if (field.IsDate)
             {
                 field.Date = CustomFieldFormats.TryParseValue(old.Value, out var date) ? date.ToDateTime(TimeOnly.MinValue) : null;
-                field.Format = string.IsNullOrWhiteSpace(old.Format) ? CustomFieldFormats.DefaultDate : old.Format;
+                field.Format = DateFormat(old.Format);
             }
             else
             {
-                field.Value = old.Value;
+                field.Value = old.Value ?? string.Empty;
             }
         }
     }

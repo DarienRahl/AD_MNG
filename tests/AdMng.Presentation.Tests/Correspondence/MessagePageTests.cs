@@ -613,6 +613,133 @@ public sealed class MessagePageTests
     }
 
     [Fact]
+    public async Task Templates_TheOtherBuiltIn_KeepsTheDeadlineChosen_WithoutAQuestion()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenAsync();
+        var message = window.Message;
+        Assert.True(await message.LoadTemplateAsync(CorrespondenceTemplateLibrary.MailboxStillNeededId));
+        message.CustomFields[0].Date = new DateTime(2026, 12, 4);   // the operator chose the deadline
+        message.CustomFields[0].Format = "dd.MM.yyyy 'r.'";
+
+        message.SelectedTemplate = message.Templates[1];
+        await message.TemplateLoading!;
+
+        Assert.Empty(scenario.Ui.Shown);
+        Assert.Equal("Weryfikacja skrzynek pocztowych", message.Subject);
+        var termin = Assert.Single(message.CustomFields);
+        Assert.Equal((new DateTime(2026, 12, 4), "dd.MM.yyyy 'r.'", "04.12.2026 r."), (termin.Date, termin.Format, termin.Sample));
+        Assert.Equal(("Aptos,sans-serif", 12d, "normal"), (message.FontFamily, message.FontSize, message.LineHeight));
+
+        message.SelectedTemplate = message.Templates[0];
+        await message.TemplateLoading!;
+
+        Assert.Empty(scenario.Ui.Shown);
+        Assert.Equal("Weryfikacja skrzynki pocztowej: {{Skrzynka}}", message.Subject);
+        Assert.Equal(new DateTime(2026, 12, 4), Assert.Single(message.CustomFields).Date);
+    }
+
+    [Fact]
+    public async Task Templates_ASavedTemplateOverABuiltInWithAChosenDeadline_AsksFirst()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenAsync();
+        var message = window.Message;
+        var saved = await scenario.Templates.SaveAsync(new CorrespondenceTemplate
+        {
+            Name = "Zaproszenie do Łodzi",
+            Subject = "Zaproszenie do Łodzi",
+            BodyHtml = "<p>Zapraszamy na konferencję.</p>",
+        });
+        Assert.True(await message.LoadTemplateAsync(CorrespondenceTemplateLibrary.MailboxStillNeededId));
+        message.CustomFields[0].Date = new DateTime(2026, 12, 4);
+
+        scenario.Ui.ConfirmAnswers.Enqueue(false);
+        Assert.False(await message.LoadTemplateAsync(saved.Id));
+
+        Assert.Equal(
+            "confirm:Zastąpić bieżącą wiadomość szablonem „Zaproszenie do Łodzi”? Temat, treść i pola własne zostaną zastąpione.",
+            Assert.Single(scenario.Ui.Shown));
+        Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededId, message.SelectedTemplate?.Id);
+        Assert.Equal(new DateTime(2026, 12, 4), Assert.Single(message.CustomFields).Date);
+
+        scenario.Ui.ConfirmAnswers.Enqueue(true);
+        Assert.True(await message.LoadTemplateAsync(saved.Id));
+        Assert.Equal("Zaproszenie do Łodzi", message.Subject);
+        Assert.Empty(message.CustomFields);
+    }
+
+    [Theory]
+    [InlineData("czcionka")]
+    [InlineData("rozmiar")]
+    [InlineData("element listy")]
+    [InlineData("głosowanie")]
+    [InlineData("nowe pole")]
+    [InlineData("nazwa pola")]
+    public async Task Templates_OverABuiltInChangedBesidesItsDeadline_AskFirst(string change)
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenAsync();
+        var message = window.Message;
+        Assert.True(await message.LoadTemplateAsync(CorrespondenceTemplateLibrary.MailboxStillNeededId));
+        switch (change)
+        {
+            case "czcionka":
+                message.FontFamily = "Georgia,serif";
+                break;
+            case "rozmiar":
+                message.FontSize = 14;
+                break;
+            case "element listy":
+                message.ListItemTemplate = "{{Skrzynka}} – {{Opis skrzynki}}";
+                break;
+            case "głosowanie":
+                message.UseVoting = true;
+                break;
+            case "nowe pole":
+                message.CustomFields.Add(new CustomFieldViewModel("Telefon", "42 123 45 67"));
+                break;
+            default:
+                message.CustomFields[0].Name = "Termin odpowiedzi";
+                break;
+        }
+
+        var before = Page(message);
+        scenario.Ui.ConfirmAnswers.Enqueue(false);
+        message.SelectedTemplate = message.Templates[1];
+        await message.TemplateLoading!;
+
+        Assert.Equal(
+            "confirm:Zastąpić bieżącą wiadomość szablonem „Weryfikacja skrzynek pocztowych (jedna wiadomość na osobę)”? Temat, treść i pola własne zostaną zastąpione.",
+            Assert.Single(scenario.Ui.Shown));
+        Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededId, message.SelectedTemplate?.Id);
+        Assert.Equal(before, Page(message));   // nothing replaced
+
+        static string Page(MessagePageViewModel page) => JsonSerializer.Serialize(CorrespondenceTemplateLibrary.Copy(page.ToTemplate(), id: "strona"));
+    }
+
+    [Fact]
+    public async Task MailboxTemplate_NeverReplacesASavedCopyOfTheBuiltIn_WithOtherOptions()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenAsync();
+        var message = window.Message;
+        Assert.True(await message.LoadTemplateAsync(CorrespondenceTemplateLibrary.MailboxStillNeededId));
+        message.UseVoting = true;
+        message.TemplateName = "Weryfikacja skrzynki z głosowaniem";
+        await message.SaveTemplateCommand.ExecuteAsync(null);
+        var copy = Assert.Single(scenario.Templates.Saved);
+        Assert.True(await message.LoadTemplateAsync(copy.Id));
+
+        await message.UseMailboxTemplateAsync(groupByOwner: true);
+
+        Assert.Empty(scenario.Ui.Shown);
+        Assert.Equal(copy.Id, message.SelectedTemplate?.Id);
+        Assert.Equal("Weryfikacja skrzynki pocztowej: {{Skrzynka}}", message.Subject);
+        Assert.True(message.UseVoting);
+    }
+
+    [Fact]
     public async Task SaveTemplate_NewOverwriteAndRename_KeepTheImages()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();

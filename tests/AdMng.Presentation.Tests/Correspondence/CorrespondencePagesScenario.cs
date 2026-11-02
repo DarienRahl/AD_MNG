@@ -124,6 +124,22 @@ internal sealed class CorrespondencePagesScenario : IDisposable
         Row("kancelaria@zgierz.pl", "Starostwo Powiatowe w Zgierzu", ("Miejscowość", "Zgierz"), ("Kod pocztowy", "")),
     ];
 
+    /// <summary>A row of the mailbox owner page: the owner's address and name, the mailbox fields and the mailbox key.</summary>
+    public static CorrespondenceRecipientViewModel MailboxRow(string owner, string name, string mailbox, string mailboxAddress) =>
+        new(owner, name, "Skrzynki", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["Skrzynka"] = mailbox, ["Adres skrzynki"] = mailboxAddress },
+            mailboxKeys: [mailboxAddress])
+        {
+            Origin = RecipientOrigin.Mailboxes,
+        };
+
+    /// <summary>Three mailboxes of one owner (one message each without grouping).</summary>
+    public static CorrespondenceRecipientViewModel[] MailboxRowsOfJan() =>
+    [
+        MailboxRow("jan.kowalski@contoso.test", "Jan Kowalski", "Sekretariat Wydziału Łączności", "sekretariat.lacznosci@contoso.test"),
+        MailboxRow("jan.kowalski@contoso.test", "Jan Kowalski", "Rekrutacja", "rekrutacja@contoso.test"),
+        MailboxRow("jan.kowalski@contoso.test", "Jan Kowalski", "Archiwum Zakładowe", "archiwum.zakladowe@contoso.test"),
+    ];
+
     /// <summary>Puts rows on the recipients page (their columns first, in order).</summary>
     public static void AddRows(CorrespondenceViewModel window, params CorrespondenceRecipientViewModel[] rows)
     {

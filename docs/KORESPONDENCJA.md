@@ -333,8 +333,10 @@ wysłanych* – przy dużych plikach lepiej wysłać łącze.
 
 - **Szablon** – na początku listy dwa wbudowane szablony zapytania o skrzynki (rozdział 8): *Weryfikacja skrzynki
   pocztowej (wiadomość na każdą skrzynkę)* i *Weryfikacja skrzynek pocztowych (jedna wiadomość na osobę)*, dalej własne.
-  Wybranie szablonu przy niepustej treści pyta, czy ją zastąpić – chyba że na stronie jest niezmieniony szablon
-  wbudowany (wtedy nie ma czego tracić).
+  Wybranie szablonu przy niepustej treści pyta, czy ją zastąpić – chyba że na stronie jest szablon wbudowany tak, jak
+  go wczytano (temat, treść, element listy, czcionka, głosowanie i pola własne bez zmian; wtedy nie ma czego tracić).
+  Data wybrana w polu *Termin* zostaje przy przejściu na drugi szablon wbudowany; inny szablon by ją zastąpił, więc
+  okno najpierw pyta – tak samo po każdej innej zmianie szablonu wbudowanego.
 - **Nazwa szablonu** + *Zapisz* zapisuje bieżącą wiadomość; *Usuń szablon*; *Nowa wiadomość* (po potwierdzeniu czyści
   temat, treść i pola własne).
 - Szablon zawiera temat, treść z obrazkami, pola własne (z datami i formatami pól daty), element listy, zwrot
@@ -352,9 +354,12 @@ wysłanych* – przy dużych plikach lepiej wysłać łącze.
 Podgląd pokazuje wiadomość dokładnie tak, jak zobaczy ją wybrany odbiorca: kartę z polami *Od*, *Do*, *Temat* i
 *Załączniki*, a pod nią treść ze scalonymi polami, obrazkami i podpisem.
 
-- **Pokaż tak, jak zobaczy:** wybór odbiorcy (pierwszych 500 wiadomości). **Szerokość:** komputer (700 px), telefon
-  (380 px) albo pełna – tak jak w skrzynce. Podgląd odświeża się przy wejściu na zakładkę i po każdej zmianie wyboru;
-  *Odśwież* robi to na żądanie.
+- **Pokaż tak, jak zobaczy:** wybór odbiorcy (pierwszych 500 wiadomości). Gdy jeden adres dostaje kilka wiadomości
+  (wiadomość na każdą skrzynkę, kilka wierszy z tym samym adresem bez grupowania), przy adresie widać skrzynkę
+  (*Jan Kowalski <jan.kowalski@contoso.test> – rekrutacja@contoso.test*), a bez skrzynki – numer wiadomości (*(2)*);
+  każdą z nich można wybrać, a wybór zostaje po odświeżeniu. **Szerokość:** komputer (700 px), telefon (380 px) albo
+  pełna – tak jak w skrzynce. Podgląd odświeża się przy wejściu na zakładkę i po każdej zmianie wyboru; *Odśwież* robi
+  to na żądanie. *Podgląd z Outlooka*, *Otwórz w przeglądarce* i *Test do siebie* używają wybranej wiadomości.
 - Pod paskiem: liczba osadzonych obrazków i użyte pola, a potem **ostrzeżenia** – nieznane pola (z listą dostępnych),
   pola puste u części odbiorców, rzeczy, które psują się w poczcie (skrypty, obrazki linkowane z internetu albo zapisane
   jako `data:`, pozycjonowanie bezwzględne, obrazy tła, bloki `<style>`, elementy szersze niż 700 px, odsyłacz, którego
@@ -384,7 +389,7 @@ wysyłki, temat, podpis, załączniki, dostarczenie później, głosowanie i sza
 
 | Przycisk | Co robi |
 |---|---|
-| *Test do siebie* | jedna wiadomość na Twój adres (wybrane konto, a bez wyboru – bieżąca skrzynka Outlooka; gdy i jej nie ma, okno pyta o adres), z tematem „[TEST] …” i polami odbiorcy wybranego w podglądzie (albo pierwszego); nie trafia do dziennika |
+| *Test do siebie* | jedna wiadomość na Twój adres (wybrane konto, a bez wyboru – bieżąca skrzynka Outlooka; gdy i jej nie ma, okno pyta o adres), z tematem „[TEST] …” i polami wiadomości wybranej w podglądzie (np. o drugiej skrzynce tej samej osoby; bez wyboru – pierwszej); nie trafia do dziennika |
 | *Utwórz wersje robocze* | zapisuje wiadomości w *Wersjach roboczych* Outlooka – nic nie jest wysyłane ani wpisywane do dziennika; wysłane później ręcznie z Outlooka też nie trafią do dziennika |
 | *Wyślij* | wysyłka po potwierdzeniu |
 | *Zatrzymaj* | przerywa po bieżącej wiadomości |
@@ -551,11 +556,12 @@ osoba z trzema skrzynkami dostaje trzy wiadomości, każdą z nazwą swojej skrz
 wiadomość do właściciela (wszystkie jego skrzynki)* włącza się grupowanie po adresie i ta osoba dostaje jedną wiadomość
 z listą trzech skrzynek.
 
-Gdy treść wiadomości jest pusta (przy wpisanym temacie – po pytaniu) albo na zakładce *Wiadomość* jest niezmieniony
-szablon wbudowany, wczytuje się szablon wbudowany pasujący do tego wyboru: *Weryfikacja skrzynki pocztowej (wiadomość
-na każdą skrzynkę)* albo *Weryfikacja skrzynek pocztowych (jedna wiadomość na osobę)*. Ponowne dodanie z drugim
-wyborem zamienia jeden szablon wbudowany na drugi i zachowuje datę z pola *Termin*. Wiadomości, którą już napisano albo
-zmieniono, AD Manager nie zastępuje.
+Gdy treść wiadomości jest pusta (przy wpisanym temacie – po pytaniu) albo na zakładce *Wiadomość* jest szablon
+wbudowany tak, jak go wczytano (poza datą w polu *Termin*), wczytuje się szablon wbudowany pasujący do tego wyboru:
+*Weryfikacja skrzynki pocztowej (wiadomość na każdą skrzynkę)* albo *Weryfikacja skrzynek pocztowych (jedna wiadomość
+na osobę)*. Ponowne dodanie z drugim wyborem zamienia jeden szablon wbudowany na drugi i zachowuje datę z pola
+*Termin*. Wiadomości, którą już napisano albo zmieniono (także samą czcionkę, element listy, głosowanie czy pola
+własne – np. zapisaną kopię szablonu z głosowaniem), AD Manager nie zastępuje.
 
 **Szablony wbudowane** odtwarzają wiadomość, którą zespół IT wysyłał dotąd z Outlooka – ten sam tekst, odstępy, kolory
 i tabele. Czcionka Aptos 12 pt z interlinią pojedynczą, bez przycisków głosowania (odpowiedzią jest zwykła odpowiedź na

@@ -18,6 +18,14 @@ public static partial class L
         /// <summary>The "To" of a preview without recipients.</summary>
         public const string SampleAddress = "Correspondence.Preview.SampleAddress";
 
+        /// <summary>A message of the recipient choice whose address has several: {0} = "Name &lt;email&gt;", {1} = its
+        /// mailbox (address or DN; several when grouped).</summary>
+        public const string RecipientMailbox = "Correspondence.Preview.RecipientMailbox";
+
+        /// <summary>A message of the recipient choice whose address has several and no mailbox: {0} = "Name &lt;email&gt;",
+        /// {1} = its number among them.</summary>
+        public const string RecipientNumber = "Correspondence.Preview.RecipientNumber";
+
         public const string OwnAddress = "Correspondence.Preview.OwnAddress";
         public const string BccCount = "Correspondence.Preview.BccCount";
         public const string InfoImages = "Correspondence.Preview.InfoImages";

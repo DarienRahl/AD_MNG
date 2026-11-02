@@ -30,6 +30,7 @@ public sealed partial class PreviewPageViewModel : ObservableObject
     public const int MaxRecipients = 500;
 
     private readonly SerialCancellation _refreshes = new();
+    private IReadOnlyList<SendUnit> _recipientUnits = [];
     private bool _changingRecipients;
     private bool _loadingOptions;
 
@@ -48,7 +49,8 @@ public sealed partial class PreviewPageViewModel : ObservableObject
         _loadingOptions = false;
     }
 
-    /// <summary>The first 500 messages: "Name &lt;email&gt;".</summary>
+    /// <summary>The first 500 messages: "Name &lt;email&gt;"; an address with several messages (one per mailbox, rows of one
+    /// address without grouping) shows what tells them apart – the mailbox, else the message's number.</summary>
     [ObservableProperty]
     public partial IReadOnlyList<Option<CorrespondenceUnit>> PreviewRecipients { get; private set; } = [];
 
@@ -98,6 +100,29 @@ public sealed partial class PreviewPageViewModel : ObservableObject
 
     /// <summary>The last refresh (tests await it), or null.</summary>
     internal Task? Refreshing { get; private set; }
+
+    /// <summary>The message chosen in <see cref="PreviewRecipients"/> with its rows ("Test do siebie" sends it), or null.</summary>
+    internal SendUnit? SelectedUnit
+    {
+        get
+        {
+            if (SelectedRecipient is not { } selected)
+            {
+                return null;
+            }
+
+            var options = PreviewRecipients;
+            for (var i = 0; i < options.Count && i < _recipientUnits.Count; i++)
+            {
+                if (ReferenceEquals(options[i], selected))
+                {
+                    return _recipientUnits[i];
+                }
+            }
+
+            return null;
+        }
+    }
 
     private Debouncer Debouncer { get; }
 
@@ -376,21 +401,108 @@ public sealed partial class PreviewPageViewModel : ObservableObject
         return new PreviewState(options, job, set, units, bcc, attachmentNames, Message.AttachmentsBytes, today);
     }
 
-    /// <summary>The recipient choice: the first <see cref="MaxRecipients"/> units, the chosen one kept (by address).</summary>
+    /// <summary>
+    /// The index of the message of <paramref name="units"/> that is <paramref name="chosen"/> (the send list built again): the
+    /// one holding its first row – the same recipient row, also after the grouping changed –, else the one of the same
+    /// address and mailbox (the rows added again), else the first of the same address; -1 when there is none. Never by the
+    /// address alone first: one owner's messages about each of their mailboxes share it.
+    /// </summary>
+    internal static int IndexOfSame(IReadOnlyList<SendUnit> units, SendUnit? chosen)
+    {
+        ArgumentNullException.ThrowIfNull(units);
+        if (chosen is null)
+        {
+            return -1;
+        }
+
+        var first = chosen.Rows.Count > 0 ? chosen.Rows[0] : null;
+        if (first is not null)
+        {
+            for (var i = 0; i < units.Count; i++)
+            {
+                if (units[i].Rows.Any(r => ReferenceEquals(r, first)))
+                {
+                    return i;
+                }
+            }
+        }
+
+        var address = CorrespondenceSendSet.Key(chosen.Unit.Email);
+        if (first?.JournalScope is { } scope)
+        {
+            for (var i = 0; i < units.Count; i++)
+            {
+                if (CorrespondenceSendSet.Key(units[i].Unit.Email) == address
+                    && units[i].Rows.Any(r => string.Equals(r.JournalScope, scope, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return i;
+                }
+            }
+        }
+
+        for (var i = 0; i < units.Count; i++)
+        {
+            if (CorrespondenceSendSet.Key(units[i].Unit.Email) == address)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>The recipient choice: the first <see cref="MaxRecipients"/> messages, the chosen one kept
+    /// (<see cref="IndexOfSame"/>).</summary>
     private void RefreshRecipients(IReadOnlyList<SendUnit> units)
     {
-        var keep = SelectedRecipient?.Value is { } current ? CorrespondenceSendSet.Key(current.Email) : null;
-        var options = units.Take(MaxRecipients).Select(u => new Option<CorrespondenceUnit>(u.Unit, u.Text)).ToList();
+        var chosen = SelectedUnit;
+        var shown = units.Take(MaxRecipients).ToList();
+        var texts = RecipientTexts(shown);
+        var options = shown.Select((u, i) => new Option<CorrespondenceUnit>(u.Unit, texts[i])).ToList();
+        var index = IndexOfSame(shown, chosen);
         _changingRecipients = true;
         try
         {
+            _recipientUnits = shown;
             PreviewRecipients = options;
-            SelectedRecipient = options.FirstOrDefault(o => keep is not null && CorrespondenceSendSet.Key(o.Value.Email) == keep) ?? options.FirstOrDefault();
+            SelectedRecipient = index >= 0 ? options[index] : options.FirstOrDefault();
         }
         finally
         {
             _changingRecipients = false;
         }
+    }
+
+    /// <summary>"Name &lt;email&gt;" per message; an address with several messages adds the mailbox of each ("… –
+    /// rekrutacja@contoso.test") or, without one, the message's number among them ("… (2)").</summary>
+    private string[] RecipientTexts(IReadOnlyList<SendUnit> units)
+    {
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var unit in units)
+        {
+            var key = CorrespondenceSendSet.Key(unit.Unit.Email);
+            counts[key] = counts.GetValueOrDefault(key) + 1;
+        }
+
+        var numbers = new Dictionary<string, int>(StringComparer.Ordinal);
+        var texts = new string[units.Count];
+        for (var i = 0; i < units.Count; i++)
+        {
+            var unit = units[i];
+            var key = CorrespondenceSendSet.Key(unit.Unit.Email);
+            if (counts[key] < 2)
+            {
+                texts[i] = unit.Text;
+                continue;
+            }
+
+            var number = numbers[key] = numbers.GetValueOrDefault(key) + 1;
+            texts[i] = unit.Keys is { Count: > 0 } mailboxes
+                ? Localizer.Format(L.CorrespondencePreview.RecipientMailbox, unit.Text, string.Join(", ", mailboxes))
+                : Localizer.Format(L.CorrespondencePreview.RecipientNumber, unit.Text, number);
+        }
+
+        return texts;
     }
 
     private async Task RefreshCoreAsync(CancellationToken cancellationToken)
