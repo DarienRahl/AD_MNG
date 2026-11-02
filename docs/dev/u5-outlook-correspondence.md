@@ -1018,7 +1018,9 @@ differs from sections 1–13 or goes beyond them.
 - **Table detection (3.1):** the header is the first of the first 8 *non-blank* rows; a row holding a valid address is
   never a header; delimited text needs 2+ header cells. E-mail column tiers: the exact names, then `poczta`, then a header
   containing `mail` – the first column of a tier with at least one valid address wins. The "contains name" rule skips
-  first-name, surname and login headers (so "First name" + "Last name" still give the Imię+Nazwisko rule). A column is
+  first-name, surname, middle-name ("Middle Name", "Additional Name", "Drugie imię") and login headers (so "First name" +
+  "Last name" still give the Imię+Nazwisko rule); a row whose name cell is empty (or only an address) takes Imię+Nazwisko
+  when both columns exist. A column is
   named by its header on one line: line breaks (Excel's Alt+Enter, a multi-line quoted CSV header), tabs and other
   control characters become one space, since a `{{field}}` cannot hold a line break.
 - **Free text:** contacts in file order; a later name fills an earlier empty one; addresses never start inside a word

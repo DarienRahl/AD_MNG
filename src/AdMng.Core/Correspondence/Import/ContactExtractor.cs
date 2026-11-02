@@ -41,6 +41,7 @@ public static class ContactExtractor
     private static readonly HashSet<string> NotNameHeaders = new(StringComparer.Ordinal)
     {
         "username", "nazwauzytkownika", "login", "nick", "nickname", "filename", "nazwapliku",
+        "middlename", "secondname", "additionalname", "drugieimie", "drugieimiona",   // Outlook / Gmail contact exports
     };
 
     /// <summary>A table first (delimiters ';', tab, ',' in this order, header within the first 8 rows), then "Name &lt;addr&gt;", then bare addresses.</summary>
@@ -177,11 +178,12 @@ public static class ContactExtractor
                 continue;
             }
 
-            var name = nameColumn >= 0
-                ? EmailAddressText.CleanName(Cell(row, nameColumn))
-                : givenColumn >= 0 && surnameColumn >= 0
-                    ? EmailAddressText.CleanName(Cell(row, givenColumn).Trim() + " " + Cell(row, surnameColumn).Trim())
-                    : string.Empty;
+            var name = nameColumn >= 0 ? EmailAddressText.CleanName(Cell(row, nameColumn)) : string.Empty;
+            if (name.Length == 0 && givenColumn >= 0 && surnameColumn >= 0)
+            {
+                // No name column, or its cell is empty in this row (or holds only an address): "Imię Nazwisko".
+                name = EmailAddressText.CleanName(Cell(row, givenColumn).Trim() + " " + Cell(row, surnameColumn).Trim());
+            }
             var fields = new Dictionary<string, string>(columns.Count, StringComparer.Ordinal);
             foreach (var (index, columnName) in columns)
             {

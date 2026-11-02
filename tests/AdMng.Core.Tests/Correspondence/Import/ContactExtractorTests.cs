@@ -187,6 +187,11 @@ public class ContactExtractorTests
     [InlineData("Imię;Nazwisko;Nazwa;E-mail\nJan;Kowalski;Biuro Jana;j@x.pl", "Biuro Jana")]
     [InlineData("Imię;E-mail\nJan;j@x.pl", "")]
     [InlineData("Login;E-mail\njkowalski;j@x.pl", "")]
+    [InlineData("First Name,Middle Name,Last Name,Company,E-mail Address\nJan,,Kowalski,Firma,jan@x.pl", "Jan Kowalski")]   // Outlook export
+    [InlineData("Imię;Drugie imię;Nazwisko;E-mail\nJan;Maria;Rokita;j@x.pl", "Jan Rokita")]
+    [InlineData("Name,Given Name,Additional Name,Family Name,E-mail 1 - Value\n,Ewa,Anna,Żak,e@x.pl", "Ewa Żak")]   // Gmail export
+    [InlineData("First Name;Last Name;E-mail Address;E-mail Display Name\nAnna;Nowak;a@x.pl;Anna Nowak (a@x.pl)", "Anna Nowak")]
+    [InlineData("Imię;Nazwisko;Nazwa;E-mail\nJan;Kowalski;;j@x.pl", "Jan Kowalski")]
     public void FromText_NameColumnRules(string text, string expected) =>
         Assert.Equal(expected, Assert.Single(ContactExtractor.FromText(text).Contacts).Name);
 
