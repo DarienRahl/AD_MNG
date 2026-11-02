@@ -1017,7 +1017,10 @@ differs from sections 1–13 or goes beyond them.
   ("code" or "code: detail"); `MailCompatibilityLint.MaxWidthPixels`; `JournalHashing.HashBytes`, `IsHash`.
   Review fixes: `ContactFileReader.ReadAddresses` – every address of a file (any column, a second address of a cell,
   hidden sheets too), which "Nie wysyłać z pliku" takes instead of the contacts (one per table row), as MailerWPiA's
-  whole-text pass did; `ContactImportResult.HiddenSheets`, `HiddenRows`; `SpreadsheetLimits.MaxCharacters`.
+  whole-text pass did; `ContactImportResult.HiddenSheets`, `HiddenRows`; `SpreadsheetLimits.MaxCharacters`;
+  `HtmlImportRequest.ImageLimits` (`HtmlImageLimits`, default `UserMessages` = U1c's 1 MiB / 10 images / 2 MiB) and
+  `HtmlPasteWorkflow(…, imageLimits)`, which the message page's paste sets to `CorrespondenceLimits.PastedImages` (10 MiB
+  per image, 50 images, 25 MiB) – a pasted Outlook message with a 3 MB picture was refused before.
 - **Table detection (3.1):** the header is one of the first 8 *non-blank* rows; a row holding a valid address is never a
   header; delimited text needs 2+ header cells. Every candidate row is tried: it is taken when its e-mail column gives at
   least one address, a row with 2+ non-empty cells before a one-cell title or caption ("Wykaz adresów e-mail …" merged

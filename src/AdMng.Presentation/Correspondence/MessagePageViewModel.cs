@@ -445,7 +445,7 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
     /// </summary>
     public async Task<RichPaste?> PasteFormattedAsync()
     {
-        var workflow = new HtmlPasteWorkflow(Services.Clipboard, Correspondence.PastedImages, engine: null);
+        var workflow = new HtmlPasteWorkflow(Services.Clipboard, Correspondence.PastedImages, engine: null, CorrespondenceLimits.PastedImages);
         var content = workflow.ReadClipboard();
         if (content is null || content.IsEmpty)
         {

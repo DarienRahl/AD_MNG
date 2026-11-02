@@ -40,10 +40,13 @@ public sealed record HtmlPasteResult(HtmlPasteKind Kind, string Html, IReadOnlyL
 /// thread – the clipboard is STA – then everything else runs off it: CF_HTML parsing (raw bytes, or the platform's string in
 /// text mode), the import (styles inlined, Office markup resolved, images read once under the clipboard file rule, never
 /// fetched from the network, sanitized, placeholders repaired, links checked) and the text suggestion. A bitmap alone
-/// becomes one image, text alone becomes paragraphs. Never throws on content.
+/// becomes one image, text alone becomes paragraphs. Never throws on content. The image limits are those of messages to
+/// users unless <c>imageLimits</c> gives others (Korespondencja: <c>CorrespondenceLimits.PastedImages</c>).
 /// </summary>
-public sealed class HtmlPasteWorkflow(IClipboardService clipboard, IPastedImageSource? files, ITemplateEngine? engine = null)
+public sealed class HtmlPasteWorkflow(IClipboardService clipboard, IPastedImageSource? files, ITemplateEngine? engine = null, HtmlImageLimits? imageLimits = null)
 {
+    private readonly HtmlImageLimits _imageLimits = imageLimits ?? HtmlImageLimits.UserMessages;
+
     /// <summary>The formatted content of the clipboard (call on the UI thread).</summary>
     public ClipboardContent? ReadClipboard() => clipboard.ReadFormatted();
 
@@ -68,17 +71,18 @@ public sealed class HtmlPasteWorkflow(IClipboardService clipboard, IPastedImageS
         return Task.Run(() => ImportCoreAsync(content, allowedLinkDomains, existingImages, cancellationToken), cancellationToken);
     }
 
-    /// <summary>The clipboard's bitmap as an image for "Wklej obraz", or why not (null + the error).</summary>
-    public static (MessageImage? Image, MessageImageError? Error) ImageOf(ClipboardContent? content, int number = 1)
+    /// <summary>The clipboard's bitmap as an image for "Wklej obraz", or why not (null + the error); at most
+    /// <paramref name="maxImageBytes"/> after stripping.</summary>
+    public static (MessageImage? Image, MessageImageError? Error) ImageOf(ClipboardContent? content, int number = 1, int maxImageBytes = MessageImageLimits.MaxImageBytes)
     {
         if (content?.Png is not { Length: > 0 } png)
         {
             return (null, null);
         }
 
-        return png.Length > MessageImageLimits.MaxImageBytes * 4L
+        return png.Length > maxImageBytes * 4L
             ? (null, MessageImageError.TooLarge)
-            : MessageImage.TryCreate(png, $"obraz{number}.png", "image/png", out var image, out var error) ? (image, null) : (null, error);
+            : MessageImage.TryCreate(png, $"obraz{number}.png", "image/png", out var image, out var error, maxImageBytes) ? (image, null) : (null, error);
     }
 
     /// <summary>The HTML of an inserted image: <c>&lt;img src="cid:…" alt="…"&gt;</c>.</summary>
@@ -127,6 +131,7 @@ public sealed class HtmlPasteWorkflow(IClipboardService clipboard, IPastedImageS
                     AllowedLinkDomains = allowedLinkDomains,
                     Engine = engine,
                     ExistingImages = existingImages,
+                    ImageLimits = _imageLimits,
                 },
                 cancellationToken).ConfigureAwait(false);
             return new HtmlPasteResult(HtmlPasteKind.Html, result.Html, result.Images, result.Problems, result.SuggestedText);
@@ -134,7 +139,7 @@ public sealed class HtmlPasteWorkflow(IClipboardService clipboard, IPastedImageS
 
         if (content.Png is { Length: > 0 })
         {
-            var (image, error) = ImageOf(content, existingImages.Count + 1);
+            var (image, error) = ImageOf(content, existingImages.Count + 1, _imageLimits.MaxImageBytes);
             return image is null
                 ? new HtmlPasteResult(HtmlPasteKind.Image, string.Empty, [], [new HtmlImportProblem(HtmlImportProblemKind.ImageRejected, MessageIssueSeverity.Warning, error?.ToString())], string.Empty)
                 : new HtmlPasteResult(HtmlPasteKind.Image, "<p>" + ImageHtml(image) + "</p>\n", [image], [], string.Empty);

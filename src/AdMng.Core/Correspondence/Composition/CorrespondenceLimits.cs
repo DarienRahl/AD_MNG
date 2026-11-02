@@ -25,4 +25,9 @@ public static class CorrespondenceLimits
 
     /// <summary>Rows of the recipient list.</summary>
     public const int MaxRecipients = 100_000;
+
+    /// <summary>The image limits of formatted content pasted into the message (one body, so the "template" limits are the
+    /// message's): the paste importer otherwise applies those of messages to users (1 MiB, 10 images, 2 MiB).</summary>
+    public static Messaging.Html.HtmlImageLimits PastedImages { get; } =
+        new(MaxImageBytes, MaxImagesPerMessage, MaxImagesBytesPerMessage, MaxImagesPerMessage, MaxImagesBytesPerMessage);
 }

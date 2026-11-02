@@ -15,7 +15,7 @@ public enum PastedImageFailure
     /// <summary>The file does not exist (any more).</summary>
     NotFound,
 
-    /// <summary>Larger than <see cref="MessageImageLimits.MaxImageBytes"/>.</summary>
+    /// <summary>Larger than the largest image of the request (<see cref="HtmlImageLimits.MaxImageBytes"/>).</summary>
     TooLarge,
 
     /// <summary>Reading failed.</summary>
@@ -56,6 +56,24 @@ public sealed record HtmlImportRequest
 
     /// <summary>Images the template already has (the other language): counted against the template's limits.</summary>
     public IReadOnlyList<MessageImage> ExistingImages { get; init; } = [];
+
+    /// <summary>The image limits: those of messages to users (U1c) unless the caller has others (Korespondencja).</summary>
+    public HtmlImageLimits ImageLimits { get; init; } = HtmlImageLimits.UserMessages;
+}
+
+/// <summary>The image limits of a paste (<see cref="HtmlImportRequest.ImageLimits"/>).</summary>
+/// <param name="MaxImageBytes">The largest image after metadata stripping (a file or <c>data:</c> image above it is refused).</param>
+/// <param name="MaxImagesPerMessage">Images of the pasted content.</param>
+/// <param name="MaxImagesBytesPerMessage">Bytes of the images of the pasted content.</param>
+/// <param name="MaxImagesPerTemplate">Images of the template, those it already has included.</param>
+/// <param name="MaxImagesBytesPerTemplate">Bytes of the images of the template, those it already has included.</param>
+public sealed record HtmlImageLimits(
+    int MaxImageBytes, int MaxImagesPerMessage, long MaxImagesBytesPerMessage, int MaxImagesPerTemplate, long MaxImagesBytesPerTemplate)
+{
+    /// <summary>Messages to users (U1c, <see cref="MessageImageLimits"/>).</summary>
+    public static HtmlImageLimits UserMessages { get; } = new(
+        MessageImageLimits.MaxImageBytes, MessageImageLimits.MaxImagesPerMessage, MessageImageLimits.MaxImagesBytesPerMessage,
+        MessageImageLimits.MaxImagesPerTemplate, MessageImageLimits.MaxImagesBytesPerTemplate);
 }
 
 /// <summary>Result of an import: sanitized HTML (a fragment), its images (referenced by <c>cid:</c>), the problems and a
@@ -432,6 +450,7 @@ public static partial class PastedHtmlImporter
             .Select(e => HtmlSanitizerRun.CleanUrl(e.GetAttribute("src") ?? string.Empty))
             .ToList();
         var result = new Dictionary<string, MessageImage?>(StringComparer.Ordinal);
+        var limits = request.ImageLimits ?? HtmlImageLimits.UserMessages;
         // "Copy image" in a browser: the HTML has exactly one web image and the clipboard carries its bitmap.
         var remote = sources.Where(s => s.Length > 0 && IsRemote(s)).ToList();
         var useBitmap = remote.Count == 1 && HtmlSanitizerRun.SchemeOf(remote[0]) is "http" or "https" or "blob" && request.ClipboardBitmap is { Length: > 0 };
@@ -453,8 +472,8 @@ public static partial class PastedHtmlImporter
             var image = await ReadAsync(source, request, useBitmap, ++number, problems, cancellationToken).ConfigureAwait(false);
             if (image is not null && result.Values.All(i => i?.ContentId != image.ContentId) && request.ExistingImages.All(i => i.ContentId != image.ContentId))
             {
-                if (messageCount + 1 > MessageImageLimits.MaxImagesPerMessage || messageBytes + image.Data.Length > MessageImageLimits.MaxImagesBytesPerMessage
-                    || count + 1 > MessageImageLimits.MaxImagesPerTemplate || templateBytes + image.Data.Length > MessageImageLimits.MaxImagesBytesPerTemplate)
+                if (messageCount + 1 > limits.MaxImagesPerMessage || messageBytes + image.Data.Length > limits.MaxImagesBytesPerMessage
+                    || count + 1 > limits.MaxImagesPerTemplate || templateBytes + image.Data.Length > limits.MaxImagesBytesPerTemplate)
                 {
                     problems.Add(new HtmlImportProblem(HtmlImportProblemKind.ImageRejected, MessageIssueSeverity.Warning, "limit"));
                     image = null;
@@ -497,7 +516,7 @@ public static partial class PastedHtmlImporter
         {
             if (useBitmap)
             {
-                return Create(request.ClipboardBitmap!, "image.png", "image/png", number, problems);
+                return Create(request.ClipboardBitmap!, "image.png", "image/png", number, MaxImageBytes(request), problems);
             }
 
             problems.Add(scheme is "http" or "https"
@@ -508,7 +527,7 @@ public static partial class PastedHtmlImporter
 
         if (scheme == "data")
         {
-            return DataUri(source, number, problems);
+            return DataUri(source, number, MaxImageBytes(request), problems);
         }
 
         if (scheme == "file")
@@ -520,7 +539,7 @@ public static partial class PastedHtmlImporter
                 return null;
             }
 
-            var read = await request.Files.ReadAsync(source, MessageImageLimits.MaxImageBytes, cancellationToken).ConfigureAwait(false);
+            var read = await request.Files.ReadAsync(source, MaxImageBytes(request), cancellationToken).ConfigureAwait(false);
             if (read.Failure is { } failure || read.Data is null)
             {
                 problems.Add(read.Failure == PastedImageFailure.TooLarge
@@ -529,7 +548,7 @@ public static partial class PastedHtmlImporter
                 return null;
             }
 
-            return Create(read.Data, read.FileName, null, number, problems);
+            return Create(read.Data, read.FileName, null, number, MaxImageBytes(request), problems);
         }
 
         problems.Add(new HtmlImportProblem(HtmlImportProblemKind.ImageUnreadable, MessageIssueSeverity.Warning, scheme));
@@ -537,7 +556,7 @@ public static partial class PastedHtmlImporter
     }
 
     /// <summary>A <c>data:image/png|jpeg|gif;base64,…</c> URI; base64 longer than the limit allows is refused before decoding.</summary>
-    private static MessageImage? DataUri(string source, int number, List<HtmlImportProblem> problems)
+    private static MessageImage? DataUri(string source, int number, int maxImageBytes, List<HtmlImportProblem> problems)
     {
         var comma = source.IndexOf(',', StringComparison.Ordinal);
         if (comma < 0)
@@ -556,7 +575,7 @@ public static partial class PastedHtmlImporter
         }
 
         var payload = source[(comma + 1)..];
-        if (payload.Length > ((MessageImageLimits.MaxImageBytes + 2) / 3 * 4) + 1024)
+        if (payload.Length > (((long)maxImageBytes + 2) / 3 * 4) + 1024)
         {
             problems.Add(new HtmlImportProblem(HtmlImportProblemKind.ImageRejected, MessageIssueSeverity.Warning, nameof(MessageImageError.TooLarge)));
             return null;
@@ -573,14 +592,17 @@ public static partial class PastedHtmlImporter
             return null;
         }
 
-        return Create(data, null, mediaType, number, problems);
+        return Create(data, null, mediaType, number, maxImageBytes, problems);
     }
 
-    private static MessageImage? Create(byte[] data, string? fileName, string? mediaType, int number, List<HtmlImportProblem> problems)
+    /// <summary>The largest image of the request.</summary>
+    private static int MaxImageBytes(HtmlImportRequest request) => (request.ImageLimits ?? HtmlImageLimits.UserMessages).MaxImageBytes;
+
+    private static MessageImage? Create(byte[] data, string? fileName, string? mediaType, int number, int maxImageBytes, List<HtmlImportProblem> problems)
     {
         try
         {
-            return MessageImage.Create(data, fileName, mediaType, number);
+            return MessageImage.Create(data, fileName, mediaType, number, maxImageBytes);
         }
         catch (MessageImageException ex)
         {
