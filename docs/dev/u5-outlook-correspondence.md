@@ -1020,7 +1020,9 @@ differs from sections 1–13 or goes beyond them.
   containing `mail` – the first column of a tier with at least one valid address wins. The "contains name" rule skips
   first-name, surname and login headers (so "First name" + "Last name" still give the Imię+Nazwisko rule).
 - **Free text:** contacts in file order; a later name fills an earlier empty one; addresses never start inside a word
-  (`Łucja.Żak@x.pl` does not yield `ak@x.pl`); `<mailto:…>` accepted. Text with a table reads only the lines before the
+  (`Łucja.Żak@x.pl` does not yield `ak@x.pl`), also not after an apostrophe or another RFC 5322 `atext` character inside
+  a word (`o'brien@x.ie`, `biuro&sekretariat@x.pl` are refused whole, not cut to `brien@x.ie`, `sekretariat@x.pl`; a
+  quote or bullet before an address is fine); `<mailto:…>` accepted. Text with a table reads only the lines before the
   header as free text (other columns such as "Inne e-maile" are not imported as recipients); when no delimiter gives a
   table with contacts, the whole text is free text. Address validity is stricter than MailerWPiA (no `..`, no dot at the
   ends of the local part, no hyphen at a label edge, length limits); junk list wider (`example.*` and subdomains,

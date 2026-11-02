@@ -76,6 +76,40 @@ public class EmailAddressTextTests
         Assert.Equal(["sekretariat@gmina.pl", "wojt@gmina.pl"], EmailAddressText.Extract(text));
     }
 
+    [Theory]
+    [InlineData("o'brien@x.ie")]
+    [InlineData("Jan.O’Neil@firma.pl")]
+    [InlineData("biuro&sekretariat@gmina.pl")]
+    [InlineData("jan#1@urzad.pl")]
+    [InlineData("Ewa=Nowak@urzad.pl")]
+    [InlineData("a!b@urzad.pl")]
+    [InlineData("dział/kadry@urzad.pl")]
+    [InlineData("anna~kowalska@urzad.pl")]
+    public void AnAddressWithOtherLocalPartCharacters_IsNotCutToItsTail(string text)
+    {
+        // RFC 5322 allows these characters, the validity check does not: the address is refused whole – never imported as
+        // the different, valid-looking address of its tail ("brien@x.ie", "sekretariat@gmina.pl" …).
+        Assert.Empty(EmailAddressText.Extract(text));
+        Assert.Null(EmailAddressText.FirstValid(text));
+        Assert.Null(EmailAddressText.FirstValid("Nazwa: " + text + ";"));
+        Assert.Empty(ContactExtractor.FromText("Kontakt: " + text).Contacts);
+        var table = ContactExtractor.FromText("Nazwa;E-mail\nŁukasz Wiśniewski;" + text);
+        Assert.Empty(table.Contacts);
+        Assert.Equal(1, table.InvalidAddresses);
+    }
+
+    [Theory]
+    [InlineData("'jan@urzad.pl'")]
+    [InlineData("‘jan@urzad.pl’")]
+    [InlineData("*jan@urzad.pl")]
+    [InlineData("adres: /jan@urzad.pl")]
+    [InlineData("|jan@urzad.pl|")]
+    [InlineData("(jan@urzad.pl)")]
+    [InlineData("mailto:jan@urzad.pl")]
+    [InlineData("Pan Łukasz – jan@urzad.pl")]
+    public void AQuoteOrBulletBeforeAnAddress_IsNoPartOfIt(string text) =>
+        Assert.Equal(["jan@urzad.pl"], EmailAddressText.Extract(text));
+
     [Fact]
     public void Extract_NothingFromEmptyText()
     {

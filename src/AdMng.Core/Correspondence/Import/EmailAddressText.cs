@@ -196,8 +196,15 @@ public static partial class EmailAddressText
         return builder.ToString();
     }
 
-    /// <summary>MailerWPiA's pattern, not starting inside a word ("Łucja.Żak@…" is no "ak@…").</summary>
-    [GeneratedRegex(@"(?<![\p{L}\p{N}._%+\-])[A-Za-z0-9._%+\-]+@[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,63}", RegexOptions.CultureInvariant)]
+    /// <summary>
+    /// MailerWPiA's pattern, not starting inside a word: not after a letter, digit or address character ("Łucja.Żak@…" is
+    /// no "ak@…"), nor after one of the other characters a local part may hold (RFC 5322 <c>atext</c>: <c>' &amp; # = ! $ *
+    /// / ? ^ ` { | } ~</c>, and the typographic apostrophe) that itself follows one – "o'brien@x.ie", "biuro&amp;sekretariat@…",
+    /// "Jan.O’Neil@…" are not cut to a stranger's "brien@x.ie", "sekretariat@…", "neil@…" (they are refused whole, as the
+    /// validity check does not take those characters). A quote or bullet before an address ("'jan@x.pl'", "*jan@x.pl") is no
+    /// part of a word.
+    /// </summary>
+    [GeneratedRegex(@"(?<![\p{L}\p{N}._%+\-])(?<![\p{L}\p{N}._%+\-][!#$&'*/=?^`{|}~’])[A-Za-z0-9._%+\-]+@[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,63}", RegexOptions.CultureInvariant)]
     private static partial Regex AnyPattern();
 
     [GeneratedRegex("\"?([^\"<>()\\r\\n;,\\t]{2,80}?)\"?\\s*[<(]\\s*(?:mailto:)?([A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,63})\\s*[>)]", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
