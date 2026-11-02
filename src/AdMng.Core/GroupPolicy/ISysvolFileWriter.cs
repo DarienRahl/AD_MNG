@@ -71,6 +71,14 @@ public interface ISysvolWriteConnection : ISysvolConnection
 
     /// <summary>Deletes a file of the central store; a missing file is <see cref="SysvolWriteError.NotFound"/>.</summary>
     Task DeletePolicyDefinitionsFileAsync(string relativePath, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Removes a folder of the central store when it is empty: a culture folder (<c>pl-PL</c>), or with an empty
+    /// <paramref name="relativeFolder"/> the central store itself. A missing or non-empty folder stays as it is (no error):
+    /// an update that is undone, cancelled or fails leaves no empty folder behind - an empty <c>PolicyDefinitions</c> would
+    /// make every administrator's editor use a central store without templates.
+    /// </summary>
+    Task DeleteEmptyPolicyDefinitionsFolderAsync(string relativeFolder, CancellationToken cancellationToken);
 }
 
 /// <summary>A file or folder of a GPO folder.</summary>

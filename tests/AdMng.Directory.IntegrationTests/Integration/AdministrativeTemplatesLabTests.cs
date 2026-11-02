@@ -14,8 +14,8 @@ namespace AdMng.Directory.IntegrationTests.Integration;
 /// (<see cref="SmbClientSysvolFileWriter"/>): a GPO's Registry.pol files saved (read back by samba-tool's own PReg parser)
 /// and undone, and a central store update (created or extended, backed up, replaced, undone). The lab is shared: the GPO
 /// is named <c>K3T-&lt;run&gt; …</c> and deleted at the end; the central store files are this run's own
-/// (<c>k3t-&lt;run&gt;.admx</c> with its own namespace) and removed by the undo, the store's folders too when the lab had no
-/// central store before. Templates are the synthetic Polish samples (<see cref="SampleAdministrativeTemplates"/>), never
+/// (<c>k3t-&lt;run&gt;.admx</c> with its own namespace) and removed by the undo - with the store's folders when the lab had no
+/// central store before (the transaction removes the folders its deletes empty). Templates are the synthetic Polish samples (<see cref="SampleAdministrativeTemplates"/>), never
 /// vendor files.
 /// </summary>
 [Collection(SambaToolCollection.Name)]
@@ -171,7 +171,15 @@ public sealed class AdministrativeTemplatesLabTests(LabFixture lab)
                 Assert.Equal(SysvolFileStatus.NotFound, (await sysvol.ReadPolicyDefinitionsFileAsync(path, 1 << 20, Ct)).Status);
             }
 
-            await AssertNoTempFilesAsync(sysvol);
+            if (!existed)
+            {
+                // Undoing the creation of a store removes it: an empty PolicyDefinitions would hide every template.
+                Assert.Null(await sysvol.ListPolicyDefinitionsAsync(GroupPolicyPlanner.MaxCentralStoreFiles, Ct));
+            }
+            else
+            {
+                await AssertNoTempFilesAsync(sysvol);
+            }
         }
         finally
         {

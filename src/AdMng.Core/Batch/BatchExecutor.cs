@@ -333,13 +333,21 @@ public sealed partial class BatchExecutor : IBatchExecutor
                     continue;
                 }
 
-                if (_cancellationToken.IsCancellationRequested)
+                // A SYSVOL transaction decides its later steps when its first step runs (the switch ignores cancellation, so
+                // the files are committed): those steps are recorded, audited and undoable even after a cancel.
+                StepOutcome? decided;
+                lock (_transactionGate)
+                {
+                    _transactionOutcomes.TryGetValue(change, out decided);
+                }
+
+                if (decided is null && _cancellationToken.IsCancellationRequested)
                 {
                     status = anySucceeded ? ObjectResultStatus.PartiallySucceeded : ObjectResultStatus.Cancelled;
                     break;
                 }
 
-                var outcome = await ExecuteStepAsync(objectPlan, change, currentDn).ConfigureAwait(false);
+                var outcome = decided ?? await ExecuteStepAsync(objectPlan, change, currentDn).ConfigureAwait(false);
                 results.Add(outcome.Result);
                 Audit(change, currentDn, outcome);
                 if (!outcome.Result.Succeeded)

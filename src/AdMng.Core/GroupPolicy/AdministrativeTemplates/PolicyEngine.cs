@@ -17,14 +17,23 @@ namespace AdMng.Core.GroupPolicy.AdministrativeTemplates;
 /// <c>**delvals.</c> for list keys.</item>
 /// <item><b>Not configured</b>: no entry about any of these values.</item>
 /// </list>
-/// Reading weighs what the entries say (the policy value and its lists count twice as much as element values): more
-/// evidence for enabled is Enabled, for disabled Disabled; entries that match neither are <see cref="PolicyState.Inconsistent"/>.
+/// Reading weighs what the entries say (the policy value and its lists count twice as much as element values; deleted
+/// element values count only when no element value is set, since an enabled policy's chosen item or cleared check box
+/// may itself be a deletion): more evidence for enabled is Enabled, for disabled Disabled; entries that match neither are
+/// <see cref="PolicyState.Inconsistent"/>. A policy with a value name whose value the file does not mention is not
+/// configured (both states write it), whatever other policies wrote into the values it shares.
+/// A list's entries are the string values of its key that no loaded policy names (<c>ownedByAny</c>): other policies'
+/// values are neither listed nor touched, and an additive list (which shares its key) leaves values of other types alone.
 /// The byte-exact output of the Microsoft editor is confirmed by fixtures from the pilot (design note 6, K3).
 /// </summary>
 public static class PolicyEngine
 {
     /// <summary>The state and element values of <paramref name="policy"/> in a Registry.pol.</summary>
-    public static PolicySetting Read(AdmxPolicy policy, RegistryPolicyView view)
+    /// <param name="policy">The policy.</param>
+    /// <param name="view">The net state of the file.</param>
+    /// <param name="ownedByAny">The value names every loaded policy owns per normalized key (<see cref="OwnValueNames"/> of
+    /// all of them): values a list must not count as its entries. Null: only the policy's own names are excluded.</param>
+    public static PolicySetting Read(AdmxPolicy policy, RegistryPolicyView view, IReadOnlyDictionary<string, HashSet<string>>? ownedByAny = null)
     {
         ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(view);
@@ -35,7 +44,15 @@ public static class PolicyEngine
         if (policy.ValueName is { } valueName)
         {
             var state = view.Get(policy.Key, valueName);
-            any |= state.Kind != RegistryValueStateKind.Missing;
+            if (state.Kind == RegistryValueStateKind.Missing)
+            {
+                // Enabled and Disabled both write the policy's own value (or its **del.): without it the policy is not
+                // configured, whatever other policies wrote into the values it shares (an IE zone template and the zone's
+                // single URL actions).
+                return PolicySetting.NotConfigured;
+            }
+
+            any = true;
             if (Matches(state, policy.EnabledValue ?? PolicyValue.One))
             {
                 enabled += 2;
@@ -78,20 +95,22 @@ public static class PolicyEngine
         }
 
         var ownNames = OwnValueNames(policy);
+        var present = 0;
+        var deleted = 0;
         foreach (var element in policy.Elements)
         {
             var key = element.KeyIn(policy);
             if (element is ListElement)
             {
-                var values = ListValues(view, key, ownNames);
+                var values = ListValues(view, key, ownNames, ownedByAny);
                 any |= values.Count > 0 || view.ClearsValues(key);
                 if (values.Count > 0)
                 {
-                    enabled++;
+                    present++;
                 }
                 else if (view.ClearsValues(key))
                 {
-                    disabled++;
+                    deleted++;
                 }
 
                 continue;
@@ -101,12 +120,23 @@ public static class PolicyEngine
             any |= state.Kind != RegistryValueStateKind.Missing;
             if (state.IsSet)
             {
-                enabled++;
+                present++;
             }
             else if (state.IsDeleted)
             {
-                disabled++;
+                deleted++;
             }
+        }
+
+        // An enabled policy may write deletions itself (the chosen item's <delete/>, a cleared check box's <delete/>
+        // falseValue): deletions are evidence for Disabled only when no element value is set.
+        if (present > 0)
+        {
+            enabled += present;
+        }
+        else
+        {
+            disabled += deleted;
         }
 
         var policyState = !any ? PolicyState.NotConfigured
@@ -121,7 +151,7 @@ public static class PolicyEngine
         var result = new Dictionary<string, PolicyElementValue>(StringComparer.OrdinalIgnoreCase);
         foreach (var element in policy.Elements)
         {
-            if (ElementValue(policy, element, view, ownNames) is { } value)
+            if (ElementValue(policy, element, view, ownNames, ownedByAny) is { } value)
             {
                 result[element.Id] = value;
             }
@@ -135,7 +165,13 @@ public static class PolicyEngine
     /// those of the old one; entries of other policies are not touched. Validate first (<see cref="Validate"/>); an invalid
     /// value is written as far as it can be (a missing required value is skipped).
     /// </summary>
-    public static void Write(AdmxPolicy policy, PolicySetting setting, RegistryPolicyDocument document)
+    /// <param name="policy">The policy.</param>
+    /// <param name="setting">The state and element values to write.</param>
+    /// <param name="document">The Registry.pol of the policy's half.</param>
+    /// <param name="ownedByAny">The value names every loaded policy owns per normalized key: a list keeps them (and every
+    /// value that is not a string) when it rewrites its key. Null: only the policy's own names are kept.</param>
+    public static void Write(AdmxPolicy policy, PolicySetting setting, RegistryPolicyDocument document,
+        IReadOnlyDictionary<string, HashSet<string>>? ownedByAny = null)
     {
         ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(setting);
@@ -148,12 +184,18 @@ public static class PolicyEngine
         var state = setting.State;
         var ownNames = OwnValueNames(policy);
 
-        // Lists first: their **delvals. leads the key, the values the policy writes follow.
+        // Lists first: their **delvals. leads the key, the values the policy writes follow. A list rewrites its entries and
+        // keeps the values other loaded policies own in its key; an additive list (no **delvals.: it shares its key) also
+        // keeps every value that is not a string, which cannot be one of its entries.
         foreach (var list in policy.Elements.OfType<ListElement>())
         {
             var key = list.KeyIn(policy);
-            var keep = ownNames.TryGetValue(RegistryPolicyDocument.NormalizeKey(key), out var names) ? names : null;
-            document.ForgetKey(key, keep);
+            var normalized = RegistryPolicyDocument.NormalizeKey(key);
+            var own = ownNames.TryGetValue(normalized, out var names) ? names : null;
+            var others = ownedByAny is not null && ownedByAny.TryGetValue(normalized, out var foreign) ? foreign : null;
+            document.ForgetKey(key, e => (list.Additive && !IsListEntry(e))
+                || own?.Contains(RegistryPolicyDocument.BaseName(e.ValueName)) == true
+                || others?.Contains(RegistryPolicyDocument.BaseName(e.ValueName)) == true);
             if (state == PolicyState.Disabled || (state == PolicyState.Enabled && !list.Additive))
             {
                 document.ClearValues(key);
@@ -172,6 +214,19 @@ public static class PolicyEngine
                         document.Set(key, name, type, RegistryPolFile.StringData(item.Value));
                     }
                 }
+            }
+        }
+
+        // Disabled: the elements' values (and the lists of check boxes and enum items) are deleted first, so the policy's own
+        // disabledValue, enabledList and disabledList written below win where they name the same values (Citrix's
+        // "false" lockdowns, the IE zone templates' <delete/> lists).
+        if (state == PolicyState.Disabled)
+        {
+            foreach (var element in policy.Elements.Where(e => e is not ListElement))
+            {
+                var key = element.KeyIn(policy);
+                ForgetExtraLists(document, element, key);
+                document.MarkDeleted(key, element.ValueName!);
             }
         }
 
@@ -232,27 +287,20 @@ public static class PolicyEngine
             }
         }
 
-        // The other elements.
+        // The other elements (Disabled: done above).
         foreach (var element in policy.Elements.Where(e => e is not ListElement))
         {
             var key = element.KeyIn(policy);
             var name = element.ValueName!;
-            if (state != PolicyState.Enabled)
+            if (state == PolicyState.NotConfigured)
             {
                 ForgetExtraLists(document, element, key);
-                if (state == PolicyState.Disabled)
-                {
-                    document.MarkDeleted(key, name);
-                }
-                else
-                {
-                    document.Forget(key, name);
-                }
-
-                continue;
+                document.Forget(key, name);
             }
-
-            WriteElement(document, element, key, name, setting.ValueOf(element.Id));
+            else if (state == PolicyState.Enabled)
+            {
+                WriteElement(document, element, key, name, setting.ValueOf(element.Id));
+            }
         }
     }
 
@@ -455,12 +503,12 @@ public static class PolicyEngine
     }
 
     private static PolicyElementValue? ElementValue(AdmxPolicy policy, PolicyElement element, RegistryPolicyView view,
-        IReadOnlyDictionary<string, HashSet<string>> ownNames)
+        IReadOnlyDictionary<string, HashSet<string>> ownNames, IReadOnlyDictionary<string, HashSet<string>>? ownedByAny)
     {
         var key = element.KeyIn(policy);
         if (element is ListElement list)
         {
-            var values = ListValues(view, key, ownNames);
+            var values = ListValues(view, key, ownNames, ownedByAny);
             return new ListElementValue([.. values.Select(v => new ListElementItem(
                 list.ExplicitValue ? StripSoft(v.ValueName) : string.Empty, RegistryPolFile.ReadString(v.Data)))]);
         }
@@ -482,10 +530,14 @@ public static class PolicyEngine
             case MultiTextElement when state.Entry is { } entry && entry.Type == RegistryFormat.RegMultiSz:
                 return new MultiTextElementValue(RegistryPolFile.ReadMultiString(entry.Data));
             case EnumElement choice:
+                // The item's value list is written after its value: where the list names the enum's own value (BITS
+                // "Custom" deletes ForegroundTransferPolicy), the list's value is what the file holds.
+                PolicyValue Expected(EnumItem item) =>
+                    item.ValueList?.Items.LastOrDefault(v => SameValue(item.ValueList.KeyOf(v, key), v.ValueName, key, element.ValueName!))?.Value ?? item.Value;
                 for (var i = 0; i < choice.Items.Count; i++)
                 {
                     var item = choice.Items[i];
-                    if (Matches(state, item.Value)
+                    if (Matches(state, Expected(item))
                         && (item.ValueList is null || item.ValueList.Items.All(v => Matches(view.Get(item.ValueList.KeyOf(v, key), v.ValueName), v.Value))))
                     {
                         return new EnumElementValue(i);
@@ -494,7 +546,7 @@ public static class PolicyEngine
 
                 for (var i = 0; i < choice.Items.Count; i++)
                 {
-                    if (Matches(state, choice.Items[i].Value))
+                    if (Matches(state, Expected(choice.Items[i])))
                     {
                         return new EnumElementValue(i);
                     }
@@ -659,12 +711,31 @@ public static class PolicyEngine
         _ => null,
     };
 
-    /// <summary>The list values of a key: everything set there except the policy's other values.</summary>
-    private static List<RegistryPolEntry> ListValues(RegistryPolicyView view, string key, IReadOnlyDictionary<string, HashSet<string>> ownNames)
+    /// <summary>
+    /// The list values of a key: the string values set there except the policy's other values and the values other loaded
+    /// policies own.
+    /// </summary>
+    private static List<RegistryPolEntry> ListValues(RegistryPolicyView view, string key, IReadOnlyDictionary<string, HashSet<string>> ownNames,
+        IReadOnlyDictionary<string, HashSet<string>>? ownedByAny)
     {
-        var others = ownNames.TryGetValue(RegistryPolicyDocument.NormalizeKey(key), out var names) ? names : null;
-        return [.. view.ValuesOf(key).Where(v => others is null || !others.Contains(StripSoft(v.ValueName)))];
+        var normalized = RegistryPolicyDocument.NormalizeKey(key);
+        var own = ownNames.TryGetValue(normalized, out var names) ? names : null;
+        var others = ownedByAny is not null && ownedByAny.TryGetValue(normalized, out var foreign) ? foreign : null;
+        return [.. view.ValuesOf(key).Where(v => IsListEntry(v)
+            && own?.Contains(StripSoft(v.ValueName)) != true
+            && others?.Contains(StripSoft(v.ValueName)) != true)];
     }
+
+    /// <summary>A value a list can own: a string value (lists write REG_SZ or REG_EXPAND_SZ), not a directive.</summary>
+    private static bool IsListEntry(RegistryPolEntry entry) =>
+        entry.Type is RegistryFormat.RegSz or RegistryFormat.RegExpandSz
+        && (!entry.ValueName.StartsWith("**", StringComparison.Ordinal) || entry.ValueName.StartsWith(RegistryPolicyDocument.SoftPrefix, StringComparison.OrdinalIgnoreCase)
+            || entry.ValueName.StartsWith(RegistryPolicyDocument.DeletePrefix, StringComparison.OrdinalIgnoreCase)
+            || entry.ValueName.Equals(RegistryPolicyDocument.DeleteAllValues, StringComparison.OrdinalIgnoreCase));
+
+    private static bool SameValue(string key, string valueName, string otherKey, string otherName) =>
+        valueName.Equals(otherName, StringComparison.OrdinalIgnoreCase)
+        && RegistryPolicyDocument.NormalizeKey(key).Equals(RegistryPolicyDocument.NormalizeKey(otherKey), StringComparison.OrdinalIgnoreCase);
 
     private static string StripSoft(string valueName) =>
         valueName.StartsWith(RegistryPolicyDocument.SoftPrefix, StringComparison.OrdinalIgnoreCase) ? valueName[RegistryPolicyDocument.SoftPrefix.Length..] : valueName;

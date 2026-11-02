@@ -32,6 +32,12 @@ public enum CentralStoreFileStatus
 
     /// <summary>A leftover of an interrupted update (<c>*.admng-*.tmp</c>): deleted.</summary>
     Leftover,
+
+    /// <summary>
+    /// A language file of the store, in a language the update does not write, for a template the update replaces: it stays at
+    /// the old revision (editors in that language may miss texts of the new template). Choose its language or delete it.
+    /// </summary>
+    OutdatedLanguage,
 }
 
 /// <summary>One file of a central store update.</summary>
@@ -133,8 +139,9 @@ public sealed partial class GroupPolicyPlanner
             storeAdmx[path] = parsed;
         }
 
-        var files = new List<CentralStoreFileChange>();
-        var written = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // The package's templates; of two package files with one namespace, the one the store already has (else the first)
+        // is the template, the other collides with it.
+        var packageAdmx = new List<(string Name, byte[]? Content, AdmxFile? Parsed)>();
         foreach (var admxName in package.AdmxFiles)
         {
             var content = await package.ReadAsync(admxName, PolicyTemplatePackage.MaxEntryBytes, cancellationToken).ConfigureAwait(false);
@@ -147,9 +154,34 @@ public sealed partial class GroupPolicyPlanner
             {
             }
 
+            packageAdmx.Add((admxName, content, parsed));
+        }
+
+        var packageOwners = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var group in packageAdmx.Where(a => a.Parsed is not null).GroupBy(a => a.Parsed!.TargetNamespace, StringComparer.OrdinalIgnoreCase))
+        {
+            var inStore = storeNamespaces.TryGetValue(group.Key, out var storeOwner) ? group.FirstOrDefault(a => string.Equals(a.Name, storeOwner, StringComparison.OrdinalIgnoreCase)).Name : null;
+            packageOwners[group.Key] = inStore ?? group.First().Name;
+        }
+
+        var files = new List<CentralStoreFileChange>();
+        var written = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (admxName, content, parsed) in packageAdmx)
+        {
             if (parsed is null)
             {
-                files.Add(new CentralStoreFileChange(admxName, CentralStoreFileStatus.Unreadable, store.GetValueOrDefault(admxName), content));
+                files.Add(new CentralStoreFileChange(admxName, CentralStoreFileStatus.Unreadable, store.GetValueOrDefault(admxName), null));
+                continue;
+            }
+
+            if (packageOwners.TryGetValue(parsed.TargetNamespace, out var packageOwner) && !string.Equals(packageOwner, admxName, StringComparison.OrdinalIgnoreCase))
+            {
+                // The package itself holds two templates of one namespace: the Microsoft editor would refuse both.
+                files.Add(new CentralStoreFileChange(admxName, CentralStoreFileStatus.NamespaceCollision, store.GetValueOrDefault(admxName), null)
+                {
+                    Namespace = parsed.TargetNamespace,
+                    CollidesWith = packageOwner,
+                });
                 continue;
             }
 
@@ -157,7 +189,7 @@ public sealed partial class GroupPolicyPlanner
             {
                 if (!options.ReplaceCollidingFiles)
                 {
-                    files.Add(new CentralStoreFileChange(admxName, CentralStoreFileStatus.NamespaceCollision, store.GetValueOrDefault(admxName), content)
+                    files.Add(new CentralStoreFileChange(admxName, CentralStoreFileStatus.NamespaceCollision, store.GetValueOrDefault(admxName), null)
                     {
                         Namespace = parsed.TargetNamespace,
                         CollidesWith = owner,
@@ -176,7 +208,7 @@ public sealed partial class GroupPolicyPlanner
 
             var existing = store.GetValueOrDefault(admxName);
             var status = existing is null ? CentralStoreFileStatus.New
-                : existing.AsSpan().SequenceEqual(content) ? CentralStoreFileStatus.Unchanged
+                : existing.AsSpan().SequenceEqual(content!) ? CentralStoreFileStatus.Unchanged
                 : CentralStoreFileStatus.Changed;
             var oldNames = storeAdmx.GetValueOrDefault(admxName)?.Policies.Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
             var newNames = parsed.Policies.Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -216,7 +248,22 @@ public sealed partial class GroupPolicyPlanner
                 files.Add(new CentralStoreFileChange(path, !valid ? CentralStoreFileStatus.Unreadable
                     : existing is null ? CentralStoreFileStatus.New
                     : existing.AsSpan().SequenceEqual(content) ? CentralStoreFileStatus.Unchanged
-                    : CentralStoreFileStatus.Changed, existing, content));
+                    : CentralStoreFileStatus.Changed, existing, valid ? content : null));
+            }
+        }
+
+        // The store's language files of templates the update writes that it does not write itself (a language not chosen, or
+        // one the package lacks): they keep the old revision.
+        var replaced = files.Where(f => f.IsWritten && PolicyDefinitionLoader.IsAdmx(f.RelativePath)).Select(f => Path.GetFileNameWithoutExtension(f.RelativePath))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var listed = files.Select(f => f.RelativePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var (path, old) in store)
+        {
+            var slash = path.IndexOf('/', StringComparison.Ordinal);
+            if (slash > 0 && path.EndsWith(".adml", StringComparison.OrdinalIgnoreCase) && !listed.Contains(path)
+                && replaced.Contains(Path.GetFileNameWithoutExtension(path[(slash + 1)..])))
+            {
+                files.Add(new CentralStoreFileChange(path, CentralStoreFileStatus.OutdatedLanguage, old, null));
             }
         }
 
@@ -226,9 +273,19 @@ public sealed partial class GroupPolicyPlanner
             files.Add(new CentralStoreFileChange(path, CentralStoreFileStatus.Leftover, content, null));
         }
 
-        var unique = files.GroupBy(f => f.RelativePath, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).OrderBy(f => f.RelativePath, StringComparer.OrdinalIgnoreCase);
+        // One row per path: what the plan writes or keeps wins over a deletion.
+        var unique = files.GroupBy(f => f.RelativePath, StringComparer.OrdinalIgnoreCase).Select(g => g.MinBy(Priority)!).OrderBy(f => f.RelativePath, StringComparer.OrdinalIgnoreCase);
         return new CentralStoreComparison(listing is not null, [.. unique], store);
     }
+
+    private static int Priority(CentralStoreFileChange change) => change.Status switch
+    {
+        CentralStoreFileStatus.New or CentralStoreFileStatus.Changed => 0,
+        CentralStoreFileStatus.Unchanged => 1,
+        CentralStoreFileStatus.NamespaceCollision or CentralStoreFileStatus.Unreadable or CentralStoreFileStatus.OutdatedLanguage => 2,
+        CentralStoreFileStatus.Removed => 3,
+        _ => 4,
+    };
 
     /// <summary>
     /// The update as a plan: one object (the <c>CN=Policies</c> container of the domain stands for the central store

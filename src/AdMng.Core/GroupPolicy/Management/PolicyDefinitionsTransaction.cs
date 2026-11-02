@@ -9,7 +9,9 @@ namespace AdMng.Core.GroupPolicy.Management;
 /// <see cref="GpoTransaction"/> without version numbers: <b>stage</b> every new content beside its target, <b>verify</b>
 /// every target against the plan's old content (a difference is a conflict and nothing changes), <b>switch</b> (renames
 /// and deletes in plan order), and on a failure <b>compensate</b> from the old contents in memory. Cancellation is honoured
-/// until the switch starts. Messages carry no paths or content.
+/// until the switch starts. Folders the run created are removed again when it does not commit, and folders its deletes
+/// empty are removed (the store itself included: undoing the creation of a central store removes it) - an empty
+/// <c>PolicyDefinitions</c> would make every editor use a store without templates. Messages carry no paths or content.
 /// </summary>
 public static class PolicyDefinitionsTransaction
 {
@@ -31,8 +33,12 @@ public static class PolicyDefinitionsTransaction
 
         var run = Guid.NewGuid();
         var staged = new List<string>();
+        IReadOnlyCollection<string> created = [];
         try
         {
+            // 0. The folders that exist now (staging creates the missing ones).
+            created = await FoldersToCreateAsync(sysvol, steps, cancellationToken).ConfigureAwait(false);
+
             // 1. Stage.
             foreach (var step in steps.Where(s => s.Action == ChangeAction.WritePolicyDefinitionsFile))
             {
@@ -50,6 +56,7 @@ public static class PolicyDefinitionsTransaction
                 if (!SameContent(current, step.Sysvol.OldContent))
                 {
                     await DeleteTempsAsync(sysvol, staged).ConfigureAwait(false);
+                    await RemoveEmptyFoldersAsync(sysvol, created).ConfigureAwait(false);
                     return new GpoTransactionResult(GpoTransactionOutcome.Conflict, DirectoryErrorKind.NoSuchAttribute,
                         BatchExecutor.ConflictMessagePrefix + ". A file of the central store changed after the preview.");
                 }
@@ -58,11 +65,13 @@ public static class PolicyDefinitionsTransaction
         catch (OperationCanceledException)
         {
             await DeleteTempsAsync(sysvol, staged).ConfigureAwait(false);
+            await RemoveEmptyFoldersAsync(sysvol, created).ConfigureAwait(false);
             return new GpoTransactionResult(GpoTransactionOutcome.Cancelled, DirectoryErrorKind.Cancelled, "Cancelled before the central store was changed.");
         }
         catch (Exception ex) when (ex is SysvolWriteException or IOException or UnauthorizedAccessException)
         {
             await DeleteTempsAsync(sysvol, staged).ConfigureAwait(false);
+            await RemoveEmptyFoldersAsync(sysvol, created).ConfigureAwait(false);
             return Failed(GpoTransactionOutcome.Reverted, ex);
         }
 
@@ -86,6 +95,13 @@ public static class PolicyDefinitionsTransaction
                 done.Add(step);
             }
 
+            // Deletes may leave empty folders (undoing the creation of a store empties it completely).
+            var emptied = steps.Where(s => s.Action == ChangeAction.DeletePolicyDefinitionsFile).Select(s => FolderOf(s.Sysvol!.RelativePath!)).ToList();
+            if (emptied.Count > 0)
+            {
+                await RemoveEmptyFoldersAsync(sysvol, [.. emptied.Where(f => f.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase), string.Empty]).ConfigureAwait(false);
+            }
+
             return GpoTransactionResult.Committed;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -99,8 +115,58 @@ public static class PolicyDefinitionsTransaction
             }
 
             await DeleteTempsAsync(sysvol, staged).ConfigureAwait(false);
+            if (restored)
+            {
+                await RemoveEmptyFoldersAsync(sysvol, created).ConfigureAwait(false);
+            }
+
             return Failed(restored ? GpoTransactionOutcome.Reverted : GpoTransactionOutcome.Inconsistent, ex);
         }
+    }
+
+    /// <summary>
+    /// The folders staging will create (deepest first): the culture folders of written files that do not exist, and the
+    /// store itself (<c>""</c>) when there is none.
+    /// </summary>
+    private static async Task<IReadOnlyCollection<string>> FoldersToCreateAsync(ISysvolWriteConnection sysvol, IReadOnlyList<PlannedChange> steps, CancellationToken cancellationToken)
+    {
+        var listing = await sysvol.ListPolicyDefinitionsAsync(GroupPolicyPlanner.MaxCentralStoreFiles, cancellationToken).ConfigureAwait(false);
+        var existing = new HashSet<string>(listing?.Where(e => e.IsFolder).Select(e => e.RelativePath) ?? [], StringComparer.OrdinalIgnoreCase);
+        var result = steps.Where(s => s.Action == ChangeAction.WritePolicyDefinitionsFile)
+            .Select(s => FolderOf(s.Sysvol!.RelativePath!))
+            .Where(f => f.Length > 0 && !existing.Contains(f))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(f => f.Count(c => c == '/'))
+            .ToList();
+        if (listing is null)
+        {
+            result.Add(string.Empty);
+        }
+
+        return result;
+    }
+
+    /// <summary>Removes the folders (in the order given) that are empty; nothing fails.</summary>
+    private static async Task RemoveEmptyFoldersAsync(ISysvolWriteConnection sysvol, IReadOnlyCollection<string> folders)
+    {
+        foreach (var folder in folders)
+        {
+            try
+            {
+                await sysvol.DeleteEmptyPolicyDefinitionsFolderAsync(folder, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                // An empty folder that stays is listed by the next update; nothing else depends on it.
+            }
+        }
+    }
+
+    /// <summary>The folder of a relative path ('' for a file at the store's top).</summary>
+    private static string FolderOf(string relativePath)
+    {
+        var slash = relativePath.LastIndexOf('/');
+        return slash < 0 ? string.Empty : relativePath[..slash];
     }
 
     private static async Task<bool> TryRestoreAsync(ISysvolWriteConnection sysvol, string path, byte[]? content, Guid run)

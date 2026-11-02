@@ -89,7 +89,8 @@ public static class AdmlParser
                 {
                     RefId = refId,
                     Label = element.Value,
-                    DefaultValue = Number(GpoXml.Attribute(element, "defaultValue")),
+                    // PolicyDefinitions.xsd: defaultValue defaults to 1 (the Microsoft editor pre-fills it).
+                    DefaultValue = Number(GpoXml.Attribute(element, "defaultValue")) ?? 1,
                     Spin = Bool(GpoXml.Attribute(element, "spin"), fallback: true),
                     SpinStep = Number(GpoXml.Attribute(element, "spinStep")) is { } step and > 0 ? step : 1,
                 },

@@ -31,6 +31,12 @@ public enum PolicyDefinitionIssueKind
 
     /// <summary>The store holds more files than are read.</summary>
     TooManyFiles,
+
+    /// <summary>
+    /// Categories nest deeper than <see cref="PolicyDefinitionSet.MaxCategoryDepth"/> (real stores nest about five levels):
+    /// the category is shown at the root.
+    /// </summary>
+    CategoryTooDeep,
 }
 
 /// <summary>A problem of one file of the store (shown in the editor; never fatal for the other files).</summary>
@@ -88,6 +94,8 @@ public sealed class PolicyCategoryNode
     }
 
     internal void AddChild(PolicyCategoryNode child) => _children.Add(child);
+
+    internal void RemoveChild(PolicyCategoryNode child) => _children.Remove(child);
 
     internal void AddPolicy(PolicyDefinition policy) => _policies.Add(policy);
 
@@ -155,6 +163,9 @@ public sealed class PolicyDefinition
 /// </summary>
 public sealed class PolicyDefinitionSet
 {
+    /// <summary>Deepest category nesting kept (Windows, Edge, Office and browser templates nest about five levels).</summary>
+    public const int MaxCategoryDepth = 32;
+
     private readonly Dictionary<string, PolicyDefinition> _policies;
 
     private PolicyDefinitionSet(IReadOnlyList<PolicyCategoryNode> roots, Dictionary<string, PolicyDefinition> policies,
@@ -256,6 +267,29 @@ public sealed class PolicyDefinitionSet
                     parentId is not null && categories.ContainsKey(parentId) ? PolicyDefinitionIssueKind.CategoryLoop : PolicyDefinitionIssueKind.UnknownCategory,
                     file.FileName, node.Category.ParentCategory));
                 roots.Add(node);
+            }
+        }
+
+        // Depth: categories chained through files could nest without limit (and the tree is walked recursively); below
+        // MaxCategoryDepth a category starts a new root.
+        var queue = new Queue<(PolicyCategoryNode Node, int Depth)>(roots.Select(r => (r, 1)));
+        while (queue.Count > 0)
+        {
+            var (node, depth) = queue.Dequeue();
+            foreach (var child in node.Children.ToList())
+            {
+                if (depth + 1 > MaxCategoryDepth)
+                {
+                    node.RemoveChild(child);
+                    child.Parent = null;
+                    roots.Add(child);
+                    issues.Add(new PolicyDefinitionIssue(PolicyDefinitionIssueKind.CategoryTooDeep, child.FileName, child.Category.Name));
+                    queue.Enqueue((child, 1));
+                }
+                else
+                {
+                    queue.Enqueue((child, depth + 1));
+                }
             }
         }
 

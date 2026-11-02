@@ -258,6 +258,13 @@ internal sealed partial class SmbClientSysvolFileWriter(string address, string u
         public async Task DeletePolicyDefinitionsFileAsync(string relativePath, CancellationToken cancellationToken) =>
             Check(await SmbAsync("del \"" + DefinitionsFolder() + "/" + Normalize(relativePath) + "\"", null, cancellationToken), "delete central store file");
 
+        public async Task DeleteEmptyPolicyDefinitionsFolderAsync(string relativeFolder, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(relativeFolder);
+            var folder = relativeFolder.Length == 0 ? DefinitionsFolder() : DefinitionsFolder() + "/" + Normalize(relativeFolder);
+            _ = await SmbAsync("rmdir \"" + folder + "\"", null, cancellationToken); // not empty or missing: it stays (rmdir refuses)
+        }
+
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"//{Server}/SYSVOL");

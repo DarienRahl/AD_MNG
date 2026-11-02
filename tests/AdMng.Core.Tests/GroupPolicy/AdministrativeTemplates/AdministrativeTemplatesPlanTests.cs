@@ -161,6 +161,28 @@ public class AdministrativeTemplatesPlanTests : GroupPolicyTestBed
         Assert.Contains("Remove-GPRegistryValue -Guid '" + gpo.ToString("D") + "' -Domain 'contoso.test' -Server $server -Key 'HKLM\\Software\\Policies\\Contoso\\Eksplorator'", script, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task PowerShell_OfAPolicyTurnedOnOrOff_SetsTheValue_AndNeverRemovesItAfterwards(bool toEnabled)
+    {
+        var gpo = Sample.SitePrinters;
+        var policy = Set.Find(SampleAdministrativeTemplates.HidePreview)!.Policy;
+        var before = new RegistryPolicyDocument();
+        PolicyEngine.Write(policy, toEnabled ? PolicySetting.Disabled : PolicySetting.Enabled(new Dictionary<string, PolicyElementValue>()), before);
+        var original = before.ToBytes();
+        var after = before.Clone();
+        PolicyEngine.Write(policy, toEnabled ? PolicySetting.Enabled(new Dictionary<string, PolicyElementValue>()) : PolicySetting.Disabled, after);
+        Sysvol.Put(gpo, "Machine/Registry.pol", original);
+        await using var sysvol = await OpenSysvolAsync();
+
+        var plan = await Planner.PlanAdministrativeTemplatesAsync(Session, sysvol, gpo, new RegistryPolicySave { Original = original, Content = after.ToBytes() }, null, Ct);
+        var script = Script(plan);
+
+        Assert.Contains(toEnabled ? "-ValueName 'NoPreview' -Type 'DWord' -Value 1" : "-ValueName 'NoPreview' -Disable", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("Remove-GPRegistryValue", script, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void PowerShell_WritesALiteralList()
     {

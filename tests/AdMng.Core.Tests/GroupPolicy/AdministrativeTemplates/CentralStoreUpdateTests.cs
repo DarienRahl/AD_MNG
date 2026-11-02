@@ -145,6 +145,49 @@ public class CentralStoreUpdateTests : GroupPolicyTestBed
             ("windows-nowy.admx", CentralStoreFileStatus.New), ("windows.admx", CentralStoreFileStatus.Removed)], comparison.Files.Select(f => (f.RelativePath, f.Status)));
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Compare_TwoPackageTemplatesOfOneNamespace_KeepTheStoresOne_AndTheOtherCollides(bool replace)
+    {
+        // A computer's PolicyDefinitions after an in-place upgrade holds the old and the new file of one template.
+        AddStore();
+        var files = new Dictionary<string, byte[]>
+        {
+            ["windows.admx"] = SampleAdministrativeTemplates.Utf8(SampleAdministrativeTemplates.BaseAdmx),
+            ["a-windows-nowszy.admx"] = SampleAdministrativeTemplates.Utf8(SampleAdministrativeTemplates.BaseAdmx.Replace("revision=\"1.0\"", "revision=\"1.1\"", StringComparison.Ordinal)),
+            ["en-US/windows.adml"] = SampleAdministrativeTemplates.Utf8(SampleAdministrativeTemplates.BaseAdmlEn),
+            ["en-US/a-windows-nowszy.adml"] = SampleAdministrativeTemplates.Utf8(SampleAdministrativeTemplates.BaseAdmlEn),
+        };
+        await using var sysvol = await OpenSysvolAsync();
+
+        var comparison = await GroupPolicyPlanner.CompareCentralStoreAsync(sysvol, PolicyTemplatePackage.FromFiles("x", files),
+            new CentralStoreUpdateOptions { Cultures = ["en-US"], ReplaceCollidingFiles = replace }, Ct);
+
+        Assert.Equal([("a-windows-nowszy.admx", CentralStoreFileStatus.NamespaceCollision), ("en-US/windows.adml", CentralStoreFileStatus.Unchanged),
+            ("windows.admx", CentralStoreFileStatus.Unchanged)], comparison.Files.Select(f => (f.RelativePath, f.Status)));
+        Assert.Equal("windows.admx", comparison.Files[0].CollidesWith);
+        Assert.False(comparison.HasChanges);
+    }
+
+    [Fact]
+    public async Task Compare_ListsTheStoresLanguageFilesThatAReplacedTemplateLeavesBehind()
+    {
+        AddStore();
+        Sysvol.PutPolicyDefinition("de-DE/contoso.adml", SampleAdministrativeTemplates.Utf8(SampleAdministrativeTemplates.ContosoAdmlEn));
+        var files = ChromeLike(SampleAdministrativeTemplates.ContosoAdmx.Replace("revision=\"1.2\"", "revision=\"1.3\"", StringComparison.Ordinal));
+        await using var sysvol = await OpenSysvolAsync();
+
+        var comparison = await GroupPolicyPlanner.CompareCentralStoreAsync(sysvol, PolicyTemplatePackage.FromFiles("x", files), new CentralStoreUpdateOptions { Cultures = ["en-US"] }, Ct);
+
+        // pl-PL is in the package but not chosen, de-DE is not in the package: both stay at the old revision.
+        Assert.Equal(CentralStoreFileStatus.Changed, comparison.Files.Single(f => f.RelativePath == "contoso.admx").Status);
+        Assert.Equal(["de-DE/contoso.adml", "pl-PL/contoso.adml"],
+            comparison.Files.Where(f => f.Status == CentralStoreFileStatus.OutdatedLanguage).Select(f => f.RelativePath));
+        Assert.DoesNotContain(comparison.Files, f => f.RelativePath == "pl-PL/windows.adml");
+        Assert.Equal(1, comparison.WrittenCount);
+    }
+
     [Fact]
     public async Task Compare_SkipsUnreadableFiles_AndListsLeftovers()
     {

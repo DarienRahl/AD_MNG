@@ -247,14 +247,27 @@ public sealed class RegistryPolicyDocument
     /// Removes every entry of a key (values, deletions, <c>**delvals.</c>) except the values named in <paramref name="keep"/>
     /// (other values of the same policy in that key).
     /// </summary>
-    public void ForgetKey(string key, IReadOnlyCollection<string>? keep = null)
+    public void ForgetKey(string key, IReadOnlyCollection<string>? keep = null) =>
+        ForgetKey(key, keep is null ? null : e => Keeps(keep, e.ValueName));
+
+    /// <summary>Removes every entry of a key except those <paramref name="keep"/> accepts (null: none is kept).</summary>
+    public void ForgetKey(string key, Func<RegistryPolEntry, bool>? keep)
     {
         var normalized = NormalizeKey(key);
-        var removed = _entries.RemoveAll(e => SameKey(e.Key, normalized) && (keep is null || !Keeps(keep, e.ValueName)));
+        var removed = _entries.RemoveAll(e => SameKey(e.Key, normalized) && (keep is null || !keep(e)));
         if (removed > 0)
         {
             _view = null;
         }
+    }
+
+    /// <summary>The value name an entry is about: <c>**del.X</c> and <c>**soft.X</c> are about X; directives are about themselves.</summary>
+    public static string BaseName(string valueName)
+    {
+        ArgumentNullException.ThrowIfNull(valueName);
+        return valueName.StartsWith(DeletePrefix, StringComparison.OrdinalIgnoreCase) ? valueName[DeletePrefix.Length..]
+            : valueName.StartsWith(SoftPrefix, StringComparison.OrdinalIgnoreCase) ? valueName[SoftPrefix.Length..]
+            : valueName;
     }
 
     /// <summary>
@@ -309,19 +322,14 @@ public sealed class RegistryPolicyDocument
 
     private static bool SameKey(string entryKey, string normalized) => NormalizeKey(entryKey).Equals(normalized, StringComparison.OrdinalIgnoreCase);
 
-    private static bool Keeps(IReadOnlyCollection<string> keep, string valueName)
-    {
-        var name = valueName.StartsWith(DeletePrefix, StringComparison.OrdinalIgnoreCase) ? valueName[DeletePrefix.Length..]
-            : valueName.StartsWith(SoftPrefix, StringComparison.OrdinalIgnoreCase) ? valueName[SoftPrefix.Length..]
-            : valueName;
-        return keep.Contains(name, StringComparer.OrdinalIgnoreCase);
-    }
+    private static bool Keeps(IReadOnlyCollection<string> keep, string valueName) => keep.Contains(BaseName(valueName), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Writes the entry of a raw value name: over its existing entry, else over the first entry of a name it replaces
     /// (<paramref name="replaces"/>: the deletion or the other form of the same value), else after the key's entries (a new
     /// key where it sorts). The other entries of these names are removed; the stored spelling of a replaced entry's key is
-    /// kept.
+    /// kept. A value is never left before a later directive that deletes it (<c>**delvals.</c>, <c>**DeleteValues</c>, an
+    /// ancestor's <c>**DeleteKeys</c> written by another tool): the client applies the entries in order, so it moves after them.
     /// </summary>
     private void Put(string key, string rawName, string[] replaces, uint type, byte[] data)
     {
@@ -330,6 +338,16 @@ public sealed class RegistryPolicyDocument
         if (index < 0)
         {
             index = _entries.FindIndex(e => replaces.Any(r => Named(e, r)));
+        }
+
+        if (index >= 0 && !rawName.StartsWith(DeletePrefix, StringComparison.OrdinalIgnoreCase) && DeletedAfter(index, key, BaseName(rawName)))
+        {
+            // Every form of the value goes; the value is written after the key's last entry (after the directive).
+            _entries.RemoveAll(e => Named(e, rawName) || replaces.Any(r => Named(e, r)));
+            var last = _entries.FindLastIndex(e => SameKey(e.Key, key));
+            _entries.Insert(last >= 0 ? last + 1 : InsertionIndexForNewKey(key), new RegistryPolEntry(key, rawName, type, data));
+            _view = null;
+            return;
         }
 
         if (index >= 0)
@@ -352,6 +370,41 @@ public sealed class RegistryPolicyDocument
 
         _view = null;
     }
+
+    /// <summary>An entry after <paramref name="index"/> deletes <paramref name="valueName"/> of <paramref name="key"/> on the client.</summary>
+    private bool DeletedAfter(int index, string key, string valueName)
+    {
+        for (var i = index + 1; i < _entries.Count; i++)
+        {
+            var entry = _entries[i];
+            var entryKey = NormalizeKey(entry.Key);
+            if (entryKey.Equals(key, StringComparison.OrdinalIgnoreCase))
+            {
+                if (entry.ValueName.Equals(DeleteAllValues, StringComparison.OrdinalIgnoreCase)
+                    || (entry.ValueName.Equals(DeleteValuesList, StringComparison.OrdinalIgnoreCase) && SemicolonList(entry.Data).Contains(valueName, StringComparer.OrdinalIgnoreCase)))
+                {
+                    return true;
+                }
+            }
+
+            if (entry.ValueName.Equals(DeleteKeysList, StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (var subkey in SemicolonList(entry.Data))
+                {
+                    var deleted = entryKey.Length == 0 ? subkey.Trim('\\') : entryKey + "\\" + subkey.Trim('\\');
+                    if (key.Equals(deleted, StringComparison.OrdinalIgnoreCase) || key.StartsWith(deleted + "\\", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<string> SemicolonList(byte[] data) =>
+        RegistryPolFile.ReadString(data).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     private void RemoveNames(string key, params string[] rawNames)
     {

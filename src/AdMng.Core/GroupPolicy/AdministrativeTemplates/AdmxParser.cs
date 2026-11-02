@@ -141,7 +141,9 @@ public static class AdmxParser
                 var parsed = Element(element);
                 if (elements.Any(e => string.Equals(e.Id, parsed.Id, StringComparison.OrdinalIgnoreCase)))
                 {
-                    throw new GpoParseException("A policy has two elements with the same id.");
+                    // The schema does not require unique ids and the Microsoft editor loads such files (BIS-F repeats one
+                    // element): the first definition is the one presentations and values bind to.
+                    continue;
                 }
 
                 elements.Add(parsed);
@@ -285,7 +287,8 @@ public static class AdmxParser
         {
             "DECIMAL" => PolicyValue.Decimal((uint)(Number(Required(child, "value"), isLong: false) ?? 0)),
             "LONGDECIMAL" => PolicyValue.LongDecimal(Number(Required(child, "value"), isLong: true) ?? 0),
-            "STRING" => PolicyValue.String(child.Value),
+            "STRING" => PolicyValue.String(child.Value.Contains('\0', StringComparison.Ordinal)
+                ? throw new GpoParseException("A string value holds a NUL character.") : child.Value),
             "DELETE" => PolicyValue.Delete,
             _ => throw new GpoParseException("A value has an unknown type."),
         };
@@ -407,15 +410,22 @@ public static class AdmxParser
             throw new GpoParseException("A required attribute is missing.");
         }
 
-        return value.Length > MaxNameLength ? throw new GpoParseException("An attribute is too long.") : value.Trim();
+        return value.Length > MaxNameLength ? throw new GpoParseException("An attribute is too long.")
+            : HasControlCharacter(value) ? throw new GpoParseException("An attribute holds a control character.")
+            : value.Trim();
     }
 
     /// <summary>An attribute that may be missing (empty kept: an empty value name is the key's default value).</summary>
     private static string? Optional(XElement element, string attribute)
     {
         var value = GpoXml.Attribute(element, attribute);
-        return value is { Length: > MaxNameLength } ? throw new GpoParseException("An attribute is too long.") : value;
+        return value is { Length: > MaxNameLength } ? throw new GpoParseException("An attribute is too long.")
+            : value is not null && HasControlCharacter(value) ? throw new GpoParseException("An attribute holds a control character.")
+            : value;
     }
+
+    /// <summary>NUL and other control characters (keys, value names and references never hold them; Registry.pol cannot).</summary>
+    private static bool HasControlCharacter(string value) => value.Any(c => c < ' ' && c is not '\t');
 
     internal static bool Is(XElement element, string localName) => element.Name.LocalName.Equals(localName, StringComparison.OrdinalIgnoreCase);
 

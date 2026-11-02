@@ -289,6 +289,28 @@ internal static partial class WindowsSysvol
             }, cancellationToken);
         }
 
+        public Task DeleteEmptyPolicyDefinitionsFolderAsync(string relativeFolder, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(relativeFolder);
+            var path = relativeFolder.Length == 0 ? PolicyDefinitionsPath(null) : PolicyDefinitionsPath(relativeFolder);
+            return RunAsync("Removing an empty central store folder", () =>
+            {
+                try
+                {
+                    if (System.IO.Directory.Exists(path) && !System.IO.Directory.EnumerateFileSystemEntries(path).Any())
+                    {
+                        System.IO.Directory.Delete(path, recursive: false);
+                    }
+                }
+                catch (IOException)
+                {
+                    // Not empty after all, or gone meanwhile: it stays as it is.
+                }
+
+                return true;
+            }, cancellationToken);
+        }
+
         /// <summary>A new file (missing parent folders created), flushed to the server and closed.</summary>
         private static void WriteNew(string path, byte[] bytes)
         {

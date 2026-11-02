@@ -144,9 +144,11 @@ public sealed partial class GroupPolicyPlanner
     private static List<PowerShellCommand> RegistryCommands(IDirectorySession session, Guid gpoId, string hive, RegistryPolicySave save)
     {
         static string Id(RegistryPolEntry e) => RegistryPolicyDocument.NormalizeKey(e.Key).ToUpperInvariant() + "\n" + e.ValueName.ToUpperInvariant();
+        static string BaseId(RegistryPolEntry e) => RegistryPolicyDocument.NormalizeKey(e.Key).ToUpperInvariant() + "\n" + RegistryPolicyDocument.BaseName(e.ValueName).ToUpperInvariant();
         var old = (save.Original is { Length: > 0 } original ? RegistryPolFile.Read(original) : []).GroupBy(Id).ToDictionary(g => g.Key, g => g.Last());
         var next = RegistryPolFile.Read(save.Content);
         var nextIds = next.Select(Id).ToHashSet();
+        var nextBases = next.Select(BaseId).ToHashSet();
         var nextKeys = next.Select(e => RegistryPolicyDocument.NormalizeKey(e.Key)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var commands = new List<PowerShellCommand>();
         PowerShellCommand Command(string cmdlet, string key, params PowerShellParameter[] parameters) => new(cmdlet,
@@ -194,7 +196,8 @@ public sealed partial class GroupPolicyPlanner
         var removedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var (id, entry) in old)
         {
-            if (nextIds.Contains(id))
+            // Still named in another form (X became **del.X, **soft.X or back): its new state was set above.
+            if (nextIds.Contains(id) || nextBases.Contains(BaseId(entry)))
             {
                 continue;
             }

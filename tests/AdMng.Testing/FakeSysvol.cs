@@ -579,6 +579,25 @@ public sealed class FakeSysvol : ISysvolFileReader, ISysvolFileWriter
             return Task.CompletedTask;
         }
 
+        public Task DeleteEmptyPolicyDefinitionsFolderAsync(string relativeFolder, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(relativeFolder);
+            Check(cancellationToken);
+            var key = relativeFolder.Length == 0 ? SysvolPaths.PolicyDefinitionsFolder : DefinitionsKey(relativeFolder);
+            owner.Enter(Server, "DeleteEmptyDefinitionsFolder", Guid.Empty, relativeFolder);
+            lock (owner._gate)
+            {
+                var prefix = key + "/";
+                if (!owner._files.Keys.Any(f => f.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    && !owner._folders.Any(f => f.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+                {
+                    owner._folders.Remove(key);
+                }
+            }
+
+            return Task.CompletedTask;
+        }
+
         public ValueTask DisposeAsync()
         {
             if (Interlocked.Exchange(ref _disposed, 1) == 0)

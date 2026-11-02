@@ -103,7 +103,6 @@ public class AdmxParserTests
     [Theory]
     [InlineData("""<policy name="P" class="Computer" displayName="x" key="Software\X" />""")]
     [InlineData("""<policy name="P" class="Machine" displayName="x" />""")]
-    [InlineData("""<policy name="P" class="Machine" displayName="x" key="Software\X"><elements><text id="a" valueName="b" /><text id="A" valueName="c" /></elements></policy>""")]
     [InlineData("""<policy name="P" class="Machine" displayName="x" key="Software\X"><elements><text id="a" /></elements></policy>""")]
     [InlineData("""<policy name="P" class="Machine" displayName="x" key="Software\X" valueName="v"><enabledValue><decimal value="abc" /></enabledValue></policy>""")]
     [InlineData("""<policy name="P" class="Machine" displayName="x" key="Software\X"><elements><decimal id="a" valueName="b" minValue="5" maxValue="1" /></elements></policy>""")]
