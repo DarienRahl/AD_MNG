@@ -188,7 +188,7 @@ public sealed partial class PreviewPageViewModel : ObservableObject
             catch (Exception ex) when (ex is OutlookException or ObjectDisposedException)
             {
                 var failure = (ex as OutlookException)?.Failure ?? CorrespondenceSender.SessionClosed;
-                Outlook.ReportFailure(failure);
+                Outlook.ReportFailure(failure, session);   // a session the window replaced meanwhile changes nothing
                 ShowFailure(Localizer.Format(L.CorrespondencePreview.OutlookFailed, CorrespondenceText.FailureText(Localizer, failure)));
                 return;
             }

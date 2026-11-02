@@ -134,6 +134,38 @@ public sealed class ResponsesPageTests
     }
 
     [Fact]
+    public async Task ALateFailureOfAReplacedSession_LeavesTheNewConnectionAlone()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        AddSample(scenario.Outlook);
+        using var window = await scenario.OpenAsync();
+        var responses = window.Responses;
+        var outlook = window.Outlook;
+        await responses.LoadCampaignsCommand.ExecuteAsync(null);
+        scenario.Outlook.ReadFailure = FakeOutlookClient.Failure(OutlookFailureKind.Disconnected, "responses");
+
+        // While Outlook reads the votes, another page loses the session and the window connects again.
+        var reconnected = ReconnectDuringTheNextRead(scenario, outlook);
+        await responses.LoadResponsesCommand.ExecuteAsync(null);
+
+        Assert.StartsWith("Nie udało się odczytać odpowiedzi: Połączenie z Outlookiem", responses.SummaryText, StringComparison.Ordinal);
+        Assert.Same(await reconnected, outlook.Session);
+        Assert.Equal(OutlookState.Connected, outlook.State);   // the failure was the replaced session's
+
+        // The same while the campaigns are searched.
+        reconnected = ReconnectDuringTheNextRead(scenario, outlook);
+        await responses.LoadCampaignsCommand.ExecuteAsync(null);
+
+        Assert.Same(await reconnected, outlook.Session);
+        Assert.Equal(OutlookState.Connected, outlook.State);
+        Assert.Equal(3, scenario.Outlook.Connections);
+
+        // A failure of the session in use still shows: the next read connects again.
+        await responses.LoadCampaignsCommand.ExecuteAsync(null);
+        Assert.Equal(OutlookState.Failed, outlook.State);
+    }
+
+    [Fact]
     public async Task WithoutOutlook_ResponsesCannotBeRead()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync(withOutlook: false);
@@ -158,6 +190,20 @@ public sealed class ResponsesPageTests
 
     private static OutlookVoteResponse Vote(string recipient, string? response, IReadOnlyList<string> keys, DateTimeOffset? at = null) =>
         new(recipient, response, response is null ? null : at ?? Day(10, 2, 7, 0), Day(10, 1, 9, 0), "Ankieta", keys);
+
+    /// <summary>The next read of a session first loses the window's session (another page reports it lost) and connects
+    /// again; the task gives the new session.</summary>
+    private static Task<IOutlookSession?> ReconnectDuringTheNextRead(CorrespondencePagesScenario scenario, OutlookConnectionViewModel outlook)
+    {
+        var reconnected = new TaskCompletionSource<Task<IOutlookSession?>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        scenario.Outlook.BeforeRead = () =>
+        {
+            scenario.Outlook.BeforeRead = null;
+            outlook.ReportFailure(FakeOutlookClient.Failure(OutlookFailureKind.NotResponding, "send"), outlook.Session);
+            reconnected.SetResult(outlook.EnsureConnectedAsync(Token));
+        };
+        return reconnected.Task.Unwrap();
+    }
 
     private static DateTimeOffset Day(int month, int day, int hour, int minute) => new(2026, month, day, hour, minute, 0, TimeSpan.Zero);
 

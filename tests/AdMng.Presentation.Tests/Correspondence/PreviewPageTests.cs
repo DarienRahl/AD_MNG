@@ -284,6 +284,34 @@ public sealed class PreviewPageTests
     }
 
     [Fact]
+    public async Task PreviewViaOutlook_ALateFailureOfAReplacedSession_LeavesTheNewConnectionAlone()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenWithMessageAsync();
+        var outlook = window.Outlook;
+        var first = Assert.Single(scenario.Outlook.Sessions);
+        Task<IOutlookSession?>? reconnected = null;
+        scenario.Outlook.BeforeRender = _ =>
+        {
+            // While Outlook renders, another page loses the session and the window connects again.
+            outlook.ReportFailure(FakeOutlookClient.Failure(OutlookFailureKind.NotResponding, "send"), first);
+            reconnected = outlook.EnsureConnectedAsync(Token);
+        };
+        scenario.Outlook.RenderFailure = FakeOutlookClient.Failure(OutlookFailureKind.Disconnected, "render");
+
+        await window.Preview.PreviewViaOutlookCommand.ExecuteAsync(null);
+
+        Assert.StartsWith("Nie udało się pobrać podglądu z Outlooka: Połączenie z Outlookiem", Assert.Single(window.Preview.Warnings),
+            StringComparison.Ordinal);
+        var second = await reconnected!;
+        Assert.NotSame(first, second);
+        Assert.Same(second, outlook.Session);
+        Assert.Equal(OutlookState.Connected, outlook.State);   // the failure was the replaced session's
+        Assert.Same(second, await outlook.EnsureConnectedAsync(Token));
+        Assert.Equal(2, scenario.Outlook.Connections);
+    }
+
+    [Fact]
     public async Task WithoutOutlookOrBrowser_TheCommandsAreDisabled()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync(withOutlook: false);
