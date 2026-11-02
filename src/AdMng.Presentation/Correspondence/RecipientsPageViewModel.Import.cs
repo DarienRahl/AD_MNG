@@ -180,7 +180,7 @@ public sealed partial class RecipientsPageViewModel
                 var result = await ReadFileAsync(path).ConfigureAwait(true);
                 var outcome = AddRows(result.Contacts, name, RecipientOrigin.File);
                 added += outcome.Added;
-                duplicates += outcome.Duplicates;
+                duplicates += outcome.Duplicates + result.Duplicates;   // on the list already, or repeated in the file
                 overLimit += outcome.OverLimit;
                 invalid += result.InvalidAddresses;
                 hiddenSheets += result.HiddenSheets;
@@ -305,7 +305,7 @@ public sealed partial class RecipientsPageViewModel
 
         var result = await Task.Run(() => ContactExtractor.FromText(text)).ConfigureAwait(true);
         var added = AddRows(result.Contacts, Localizer[L.CorrespondenceRecipients.SourceClipboard], RecipientOrigin.Clipboard);
-        ReportStatus(Localizer.Format(L.CorrespondenceRecipients.Pasted, CountsPart(added, result.InvalidAddresses)));
+        ReportStatus(Localizer.Format(L.CorrespondenceRecipients.Pasted, CountsPart(WithRepeats(added, result), result.InvalidAddresses)));
     }
 
     /// <summary>Addresses typed into a multiline prompt.</summary>
@@ -326,8 +326,13 @@ public sealed partial class RecipientsPageViewModel
 
         var result = await Task.Run(() => ContactExtractor.FromText(text)).ConfigureAwait(true);
         var added = AddRows(result.Contacts, Localizer[L.CorrespondenceRecipients.SourceManual], RecipientOrigin.Manual);
-        ReportStatus(Localizer.Format(L.CorrespondenceRecipients.Typed, CountsPart(added, result.InvalidAddresses)));
+        ReportStatus(Localizer.Format(L.CorrespondenceRecipients.Typed, CountsPart(WithRepeats(added, result), result.InvalidAddresses)));
     }
+
+    /// <summary>The duplicates of an import: addresses already on the list and addresses repeated in the source itself
+    /// (merged by the reader, design note 7.1).</summary>
+    private static RecipientsAdded WithRepeats(RecipientsAdded added, ContactImportResult result) =>
+        added with { Duplicates = added.Duplicates + result.Duplicates };
 
     private bool HasDialogs() => Correspondence.Dialogs is not null;
 

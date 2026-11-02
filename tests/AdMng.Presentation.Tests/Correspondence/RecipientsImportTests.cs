@@ -124,6 +124,31 @@ public sealed class RecipientsImportTests
     }
 
     [Fact]
+    public async Task ImportFiles_AddressesRepeatedInsideTheFile_AreToldAsRepeated()
+    {
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
+        using var window = await scenario.OpenAsync();
+        var page = window.Recipients;
+        var csv = Text(scenario, "jednostki.csv",
+            "Nazwa;E-mail\r\nUrząd Gminy Łask;sekretariat@lask.pl\r\nGOPS Łask;SEKRETARIAT@lask.pl\r\nSzkoła w Łasku;szkola@lask.pl\r\n"
+            + "Biblioteka w Łasku;sekretariat@lask.pl\r\n");
+        scenario.Dialogs.Files.Enqueue([csv]);
+
+        await page.ImportFilesCommand.ExecuteAsync(null);
+
+        Assert.Equal(["sekretariat@lask.pl", "szkola@lask.pl"], page.Items.Select(r => r.Email));
+        Assert.Equal("Wczytano plik „jednostki.csv” (CSV): 2 nowe, 2 powtórzone", page.StatusText);
+
+        Clipboard(scenario, "E-mail\tNazwa\r\nnowy@lask.pl\tNowy\r\nNOWY@lask.pl\tNowy raz jeszcze\r\nszkola@lask.pl\tSzkoła\r\n");
+        await page.PasteCommand.ExecuteAsync(null);
+        Assert.Equal("Ze schowka: 1 nowy, 2 powtórzone", page.StatusText);
+
+        scenario.Dialogs.Prompts.Enqueue("rada@lask.pl, Rada <RADA@lask.pl>");
+        await page.AddManualCommand.ExecuteAsync(null);
+        Assert.Equal("Dodano ręcznie: 1 nowy, 1 powtórzony", page.StatusText);
+    }
+
+    [Fact]
     public async Task ImportFiles_LeavesOutWhatExcelHides_AndSaysSo()
     {
         using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
