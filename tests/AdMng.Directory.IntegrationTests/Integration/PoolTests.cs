@@ -348,7 +348,7 @@ public sealed class PoolTests
         await Assert.ThrowsAsync<ObjectDisposedException>(() => session.Pool.Factory.OpenAsync(false, TestContext.Current.CancellationToken));
     }
 
-    private static async Task WaitUntilIdleAsync(LdapConnectionPool pool, CancellationToken ct)
+    internal static async Task WaitUntilIdleAsync(LdapConnectionPool pool, CancellationToken ct)
     {
         await WaitUntilAsync(() => pool.IsIdle, ct);
         Assert.True(pool.IsIdle, "The pool is still busy (background requests or growth).");

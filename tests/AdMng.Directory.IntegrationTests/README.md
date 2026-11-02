@@ -61,6 +61,19 @@ Optional overrides (defaults match `tools/testlab`): `ADMNG_TEST_LDAP_HELPDESK_U
   changes. Disposing a subscription therefore shuts its socket down first (`OpenLdapTls.TryShutdownSocket`, which
   wakes the poll) and aborts on a separate thread; with several quiet subscriptions open, delivery to the others
   can still be delayed.
+- **Signals must not end a request**: libldap waits for answers in `poll()`, and a signal handled by the process
+  interrupts it (`EINTR`). Without `LDAP_OPT_RESTART` libldap reports that as `LDAP_SERVER_DOWN` (81) although the
+  connection is fine and the server still carries the request out. In .NET every exiting child process sends
+  `SIGCHLD`, by preference to the thread pool thread that started it, which may by then wait in libldap; the same
+  `timeval` bug often turns even the zero-timeout polls of S.DS.P's asynchronous path into waits until the answer
+  arrives. CI showed it as "Add failed: ServerUnavailable (LDAP 81)" during bulk adds 2.5–4 s into the run - the only
+  child process of the parallel phase, `ldapsearch` of `ComputerLabTests`, starts about 3 s into it (earlier
+  `samba-tool`, see `SambaToolCollection`). In the lab, parallel adds
+  while child processes exit failed the same way, each "failed" contact existed afterwards, and Samba had closed nothing
+  (only client-initiated disconnects in its level 3 log, every FIN/RST from the client in a capture). The factory sets
+  `LDAP_OPT_RESTART` on every handle (`OpenLdapRestart`), so libldap waits again for the rest of the timeout.
+  `SignalTests` deliver SIGCHLD to every thread (`tgkill`) while a page is awaited, and run parallel adds while child
+  processes exit.
 
 ## Samba deviations seen in the lab (AD behaves as documented)
 

@@ -36,7 +36,7 @@ internal static partial class OpenLdapSasl
     public static int? TryGetSecurityStrengthFactor(LdapConnection connection)
     {
         ArgumentNullException.ThrowIfNull(connection);
-        return WithHandle(connection, static handle =>
+        return OpenLdapTls.WithHandle(connection, static handle =>
         {
             nuint ssf = 0;
             return GetSizeOption(handle, OptionSaslSsf, ref ssf) == Success ? (int)Math.Min((ulong)ssf, int.MaxValue) : 0;
@@ -54,39 +54,12 @@ internal static partial class OpenLdapSasl
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentOutOfRangeException.ThrowIfNegative(minimum);
         ArgumentOutOfRangeException.ThrowIfNegative(maximum);
-        return WithHandle(connection, handle =>
+        return OpenLdapTls.WithHandle(connection, handle =>
         {
             nuint min = (nuint)minimum;
             nuint max = (nuint)maximum;
             return SetSizeOption(handle, OptionSaslSsfMin, ref min) == Success && SetSizeOption(handle, OptionSaslSsfMax, ref max) == Success;
         }) ?? false;
-    }
-
-    private static T? WithHandle<T>(LdapConnection connection, Func<IntPtr, T> action)
-        where T : struct
-    {
-        if (OpenLdapTls.HandleField?.GetValue(connection) is not SafeHandle { IsInvalid: false, IsClosed: false } handle)
-        {
-            return default;
-        }
-
-        var added = false;
-        try
-        {
-            handle.DangerousAddRef(ref added);
-            return action(handle.DangerousGetHandle());
-        }
-        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or ObjectDisposedException)
-        {
-            return default;
-        }
-        finally
-        {
-            if (added)
-            {
-                handle.DangerousRelease();
-            }
-        }
     }
 
     [LibraryImport(LibraryName, EntryPoint = "ldap_get_option")]

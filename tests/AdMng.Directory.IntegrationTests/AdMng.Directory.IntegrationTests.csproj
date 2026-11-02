@@ -6,6 +6,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <!-- LibraryImport stub of libc's tgkill (Infrastructure/ThreadSignals: signals to the threads of the test process). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\AdMng.Directory\AdMng.Directory.csproj" />

@@ -49,6 +49,37 @@ internal static partial class OpenLdapTls
     {
     }
 
+    /// <summary>
+    /// Runs <paramref name="action"/> with the native <c>LDAP*</c> of a connection (kept alive meanwhile); null when the
+    /// handle (closed, or a future S.DS.P renamed the field) or libldap cannot be reached.
+    /// </summary>
+    internal static T? WithHandle<T>(LdapConnection connection, Func<IntPtr, T> action)
+        where T : struct
+    {
+        if (HandleField?.GetValue(connection) is not SafeHandle { IsInvalid: false, IsClosed: false } handle)
+        {
+            return default;
+        }
+
+        var added = false;
+        try
+        {
+            handle.DangerousAddRef(ref added);
+            return action(handle.DangerousGetHandle());
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or ObjectDisposedException)
+        {
+            return default;
+        }
+        finally
+        {
+            if (added)
+            {
+                handle.DangerousRelease();
+            }
+        }
+    }
+
     /// <summary>Creates a connection whose TLS layer does not validate the server certificate.</summary>
     /// <exception cref="PlatformNotSupportedException">libldap could not be configured.</exception>
     public static LdapConnection CreateWithoutCertificateValidation(Func<LdapConnection> factory)

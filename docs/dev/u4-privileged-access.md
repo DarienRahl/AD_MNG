@@ -397,7 +397,9 @@ The two tracks were built in parallel from U4a and merged; this is how they run 
 * **Lab.** Both lab tests change only their own OU (U4b: `samba-tool dsacl` on the run's OU, no ACE on the shared domain
   head; U4c: GPOs `U4C-…` linked to its OU and deleted at the end) and both run alone in the `SambaTool` collection,
   because both call `samba-tool` commands that write (`dsacl set`, `gpo create` / `setlink`), and such a write made
-  concurrent Adds of other test classes fail with LDAP 81 during U4b.
+  concurrent Adds of other test classes fail with LDAP 81 during U4b. The cause was found later in the client: the
+  samba-tool child's exit sent SIGCHLD into the test process and interrupted libldap's `poll()` in a request, which
+  libldap reported as "server down"; every connection now sets `LDAP_OPT_RESTART` (`OpenLdapRestart`).
 * **Status: built, waiting for a pilot on Windows Server AD.** Everything above was checked on fake DCs and on the Samba
   4.19 lab only. To be confirmed on Windows Server: no false ACL findings on a fresh Windows domain (its default ACLs
   differ from Samba's), Exchange, LAPS (legacy and Windows LAPS), the owner and ACEs of computers joined through
@@ -560,7 +562,9 @@ Uprawnienia) →"); the link runs the tab once if it has not run.
   ACE on the shared domain head that other runs would see (and that a killed run would leave behind), is covered by the
   fake DC only. It runs alone (collection
   `SambaTool`): while `samba-tool dsacl set` ran, Adds of other test classes of the same process failed with
-  ServerUnavailable (LDAP 81); read-only `samba-tool` calls and runs in another process did not show it (cause not found).
+  ServerUnavailable (LDAP 81); read-only `samba-tool` calls and runs in another process did not show it. Cause, found
+  later: the SIGCHLD of the exiting samba-tool interrupted libldap's wait in this process (fixed with `LDAP_OPT_RESTART`,
+  `OpenLdapRestart`; `SignalTests`).
 * U4c: see section 6.2 (*Tests*).
 * U4b with U4c: `CombinedGrantSourcesTests` (both sources and both samples on one fake DC, section 6.3); the UI test of
   the GPO source checks that the tab offers both registered sources.

@@ -1,6 +1,12 @@
 admng-watchdog (@VERSION@) unstable; urgency=medium
 
-  * No change in how the service works and no database migration.
+  * No database migration.
+  * LDAP requests no longer fail with ServerUnavailable (LDAP 81) when a
+    signal reaches the service while it waits for the domain controller,
+    e.g. the exit of an smbclient child of the GPO snapshots: libldap now
+    waits again (LDAP_OPT_RESTART on every connection) instead of reporting
+    the healthy connection as down, which dropped the connection and failed
+    a paged search past its first page.
   * The Registry.pol reader of the GPO settings snapshots is now shared
     with AD Manager's administrative templates editor (the same checks:
     PReg signature and version, terminated strings, data within the file);

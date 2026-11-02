@@ -155,13 +155,14 @@ jobs:
       - name: Watchdog lab logs
         if: failure()
         run: tail -n 200 ~/.cache/admng/watchdog-lab/watchdog.log ~/.cache/admng/watchdog-lab/webhook-sink.log || true
-      # A dropped LDAP connection (ServerUnavailable) shows here as a crashed or restarted Samba worker.
+      # A crashed or restarted Samba worker shows here (LDAP workers younger than the root process). The earlier
+      # ServerUnavailable (LDAP 81) failures were not Samba but a signal in the test process (tools/testlab/README.md).
       - name: Samba DC log
         if: failure()
         run: |
           sudo grep -n -i -E "panic|internal error|exited with|signal|backtrace|prefork" /var/log/samba/log.samba | tail -n 60 || true
           sudo tail -n 150 /var/log/samba/log.samba || true
-          ps -eo pid,etimes,args | grep -E "[s]amba" | head -n 30 || true
+          ps -eo pid,etimes,args | grep -E "[s]amba: (root process|task\[ldap\])" || true
       - name: Stop the watchdog lab and Mailpit
         if: always()
         run: |

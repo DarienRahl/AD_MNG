@@ -111,6 +111,10 @@ internal static partial class Log
         Message = "Idle LDAP connection to {Server} recycled")]
     public static partial void PoolConnectionRecycled(ILogger logger, string server);
 
+    [LoggerMessage(EventId = 1105, Level = LogLevel.Warning,
+        Message = "libldap could not be set to restart waits interrupted by a signal (connections to {Server}); a signal such as the exit of a child process can end requests with ServerUnavailable")]
+    public static partial void InterruptedWaitsNotRestarted(ILogger logger, string server);
+
     [LoggerMessage(EventId = 1200, Level = LogLevel.Information,
         Message = "{Operation} completed in {ElapsedMs} ms")]
     public static partial void OperationCompleted(ILogger logger, OperationKind operation, long elapsedMs);

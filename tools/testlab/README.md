@@ -46,6 +46,29 @@ Linuksie. Aplikacja produkcyjnie używa Negotiate (Kerberos) z podpisywaniem i s
 Jeśli laboratorium nie odpowiada na porcie 389 (np. po restarcie kontenera), uruchom je ponownie poleceniem
 `samba -D` i poczekaj, aż port 389 zacznie przyjmować połączenia.
 
+### ServerUnavailable (LDAP 81) w testach
+
+Sporadyczne w CI błędy „Add failed: ServerUnavailable (LDAP 81)” podczas masowego tworzenia kontaktów nie pochodziły od
+Samby. W laboratorium ten sam błąd pojawiał się przy równoległych zapisach, gdy kończyły się procesy potomne procesu
+testów, przy czym Samba nie zamykała żadnego połączenia (w nagraniu ruchu każde FIN/RST wysyłał klient, w jej dzienniku
+na poziomie 3 są tylko rozłączenia klienta), a każdy „nieudany” obiekt istniał po teście. Przyczyna leżała w kliencie:
+zakończenie procesu potomnego (`ldapsearch`, `samba-tool`, `smbclient` uruchamiane przez testy) wysyła do procesu testów
+sygnał `SIGCHLD`, który przerywa `poll()` libldap czekającej na odpowiedź, a libldap bez opcji `LDAP_OPT_RESTART`
+zgłasza to jako „server down”. Każde połączenie ustawia teraz tę opcję (`src/AdMng.Directory/OpenLdapRestart.cs`, test
+`tests/AdMng.Directory.IntegrationTests/Integration/SignalTests.cs`).
+
+Jeśli LDAP 81 wróci, najpierw sprawdź, kto zamyka połączenia: przełącz procesy serwera LDAP Samby na poziom dziennika 3
+(ok. 1 KB dziennika na operację; potem z powrotem `debug 1`) i policz powody zakończenia połączeń:
+
+```bash
+for pid in $(ps -eo pid,comm | awk '$2 ~ /^ldap/ {print $1}'); do sudo smbcontrol "$pid" debug 3; done
+sudo grep -o "Terminating connection - '[^']*'" /var/log/samba/log.samba | sort | uniq -c
+```
+
+`NT_STATUS_LOCAL_DISCONNECT` (po żądaniu unbind) oraz `NT_STATUS_CONNECTION_DISCONNECTED` i
+`NT_STATUS_CONNECTION_RESET` (klient zamknął TCP) to rozłączenia, które zaczął klient; inny powód wskazuje, że połączenie
+zakończyła Samba.
+
 ### Kerberos (SASL GSSAPI) przez LDAP
 
 AdMng Watchdog na Linuksie łączy się z DC przez LDAP 389 z Kerberosem i szyfrowaniem SASL (GSSAPI, SSF ≥ 56). Do tego

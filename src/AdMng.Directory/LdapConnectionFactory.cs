@@ -15,6 +15,8 @@ namespace AdMng.Directory;
 /// every bind the factory reads the negotiated security strength factor itself and refuses a connection below
 /// <see cref="OpenLdapSasl.MinimumSealedSsf"/> (<see cref="DirectoryErrorKind.StrongAuthRequired"/>) – a misconfigured
 /// or missing <c>LDAPCONF</c> must not silently yield an unsealed session (AdMng Watchdog Linux design 5.1).
+/// Every libldap handle also gets <c>LDAP_OPT_RESTART</c> (<see cref="OpenLdapRestart"/>): a signal that interrupts a
+/// wait for the server must not end the request as "server down".
 /// </remarks>
 internal sealed class LdapConnectionFactory
 {
@@ -28,6 +30,7 @@ internal sealed class LdapConnectionFactory
     private readonly ILogger _logger;
     private readonly bool _isHostName;
     private int _certificateWarningLogged;
+    private int _restartWarningLogged;
 
     /// <param name="settings">Validated settings incl. the credential.</param>
     /// <param name="host">DC host name or address all connections go to.</param>
@@ -176,6 +179,13 @@ internal sealed class LdapConnectionFactory
         if (options.Security == TransportSecurity.Tls)
         {
             session.SecureSocketLayer = true;
+        }
+
+        if (!OperatingSystem.IsWindows() && !OpenLdapRestart.TryEnable(connection)
+            && Interlocked.Exchange(ref _restartWarningLogged, 1) == 0)
+        {
+            // Still usable; only a signal during a wait would end that request as "server down".
+            Log.InterruptedWaitsNotRestarted(_logger, Host);
         }
 
         if (!OperatingSystem.IsWindows() && _settings.AuthType == AuthType.Negotiate
