@@ -50,7 +50,9 @@ internal static class WordReader
             {
                 if (textDepth >= 0)
                 {
-                    Current().Append(reader.Value);
+                    var value = reader.Value;
+                    budget.Characters(value.Length);
+                    Current().Append(value);
                 }
 
                 continue;
@@ -81,14 +83,16 @@ internal static class WordReader
                     case "tc" when tableDepth == 1 && row is not null && cell is not null:
                         var value = cell.ToString().Trim();
                         var column = row.Count;
+                        var copied = 0;
                         if (value.Length == 0 && continuesMerge && previousRow is not null && column < previousRow.Count)
                         {
                             value = previousRow[column];
+                            copied = value.Length;   // the cell above, once more (its own text was counted as it was read)
                         }
 
                         if (value.Length > 0)
                         {
-                            budget.Cell();
+                            budget.Cell(copied);
                         }
 
                         row.Add(value);

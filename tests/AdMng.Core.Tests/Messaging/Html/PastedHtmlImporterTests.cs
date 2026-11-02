@@ -211,6 +211,34 @@ public class PastedHtmlImporterTests
     }
 
     [Fact]
+    public async Task ImageLimits_ComeFromTheRequest_TheDefaultAreThoseOfMessagesToUsers()
+    {
+        // A 1.26 MB image (above U1's 1 MiB) and 12 small ones (above U1's 10 per message).
+        // A 1.26 MB data: image and a 1.26 MB Outlook temp file (above U1's 1 MiB), 12 small images (above U1's 10).
+        var large = MessageImageSamples.Png(700, 600, seed: 0x21);
+        var small = string.Concat(Enumerable.Range(1, 12).Select(i => $"<img src=\"{MessageImageSamples.DataUri(MessageImageSamples.Png(2, 2, seed: (byte)i), "image/png")}\">"));
+        var html = "<html><body><!--StartFragment--><p>"
+            + $"<img src=\"{MessageImageSamples.DataUri(large, "image/png")}\">"
+            + "<img src=\"file:///C:/Users/JKOWAL~1/AppData/Local/Temp/msohtmlclip1/01/clip_big.png\">"
+            + $"{small}</p><!--EndFragment--></body></html>";
+        var files = new FakePastedImageSource().Add("clip_big.png", MessageImageSamples.Png(600, 700, seed: 0x22));
+        var limits = new HtmlImageLimits(2 * 1024 * 1024, 50, 25L * 1024 * 1024, 50, 25L * 1024 * 1024);
+
+        var userMessage = await PastedHtmlImporter.ImportAsync(
+            new HtmlImportRequest { Document = CfHtmlParser.Parse(CfHtmlFixture.Build(html)), Files = files }, TestContext.Current.CancellationToken);
+        var wider = await PastedHtmlImporter.ImportAsync(
+            new HtmlImportRequest { Document = CfHtmlParser.Parse(CfHtmlFixture.Build(html)), ImageLimits = limits, Files = files },
+            TestContext.Current.CancellationToken);
+
+        Assert.Same(HtmlImageLimits.UserMessages, new HtmlImportRequest { Document = CfHtmlParser.Parse(CfHtmlFixture.Build(html)) }.ImageLimits);
+        Assert.Equal(MessageImageLimits.MaxImagesPerMessage, userMessage.Images.Count);
+        Assert.Equal(2, userMessage.Problems.Count(p => p.Kind == HtmlImportProblemKind.ImageRejected && p.Detail == nameof(MessageImageError.TooLarge)));
+        Assert.Equal(14, wider.Images.Count);
+        Assert.Equal(2, wider.Images.Count(i => i.Data.Length > MessageImageLimits.MaxImageBytes));
+        Assert.DoesNotContain(wider.Problems, p => p.Kind == HtmlImportProblemKind.ImageRejected);
+    }
+
+    [Fact]
     public async Task TheSameImageTwice_IsOneImage()
     {
         var uri = MessageImageSamples.DataUri(MessageImageSamples.Gif1x1, "image/gif");

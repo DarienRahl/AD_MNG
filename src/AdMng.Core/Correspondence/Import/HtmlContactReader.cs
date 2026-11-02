@@ -44,6 +44,16 @@ internal static class HtmlContactReader
         return accumulator.Result(ContactSourceFormat.Html);
     }
 
+    /// <summary>All the text of the body, tables included (cells joined by tab), with "text &lt;address&gt;" for
+    /// <c>mailto:</c> links.</summary>
+    public static string Text(string html)
+    {
+        var document = HtmlNesting.ParseDocument(html) ?? throw new InvalidDataException("The HTML is nested too deeply.");
+        var text = new StringBuilder();
+        AppendText((INode?)document.Body ?? document.DocumentElement, text, skipTables: false, cellSeparator: '\t');
+        return text.ToString();
+    }
+
     /// <summary>The rows of a table: the <c>tr</c> elements whose nearest table is this one, each as the text of its own
     /// cells (<c>colspan</c> adds empty cells, capped at the column limit).</summary>
     private static List<IReadOnlyList<string>> Rows(IElement table)

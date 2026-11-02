@@ -234,6 +234,7 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
         CustomFields = [.. CustomFields.Where(f => !string.IsNullOrWhiteSpace(f.Name)).Select(f => new CustomFieldDefinition(f.Name.Trim(), f.Value ?? string.Empty))],
         ListItemTemplate = ListItemTemplate,
         Salutation = Salutation,
+        GroupByAddress = GroupByAddress,
     };
 
     /// <summary>The draft once the chosen signature has been read (sending and the preview use it).</summary>
@@ -444,7 +445,7 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
     /// </summary>
     public async Task<RichPaste?> PasteFormattedAsync()
     {
-        var workflow = new HtmlPasteWorkflow(Services.Clipboard, Correspondence.PastedImages, engine: null);
+        var workflow = new HtmlPasteWorkflow(Services.Clipboard, Correspondence.PastedImages, engine: null, CorrespondenceLimits.PastedImages);
         var content = workflow.ReadClipboard();
         if (content is null || content.IsEmpty)
         {

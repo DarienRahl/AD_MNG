@@ -21,10 +21,15 @@ public sealed record CorrespondenceDraft
 
     public IReadOnlyList<CustomFieldDefinition> CustomFields { get; init; } = [];
 
-    /// <summary>The HTML of one <c>{{lista}}</c> item of grouped messages.</summary>
+    /// <summary>One <c>{{lista}}</c> item: plain text with <c>{{fields}}</c>, as typed in its text box (the renderer
+    /// HTML-encodes its text, so "&lt;" and "&amp;" show as typed).</summary>
     public string ListItemTemplate { get; init; } = "";
 
     public string Salutation { get; init; } = BuiltInFields.DefaultSalutation;
+
+    /// <summary>The messages are grouped by address: <c>{{lista}}</c>/<c>{{liczba}}</c> are always the built-ins; without
+    /// grouping a column or custom field of that name wins (<see cref="CorrespondenceRenderer.BuiltInApplies"/>).</summary>
+    public bool GroupByAddress { get; init; }
 
     public override string ToString() => nameof(CorrespondenceDraft);
 }

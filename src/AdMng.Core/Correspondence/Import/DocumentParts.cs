@@ -79,23 +79,29 @@ internal sealed class DocumentParts
     /// concatenated; when none has one, everything as free text.</summary>
     public ContactImportResult SheetContacts(ContactSourceFormat format) => Sheets(Tables.ToList(), AllText, format);
 
+    /// <summary>
+    /// The sheets that have an e-mail header, in order: a sheet whose header gives addresses as a table (with the free text
+    /// above it), a sheet whose e-mail column holds none as free text; sheets without an e-mail header are left out. When no
+    /// sheet gives a table with addresses, every cell of every sheet is free text (<paramref name="allText"/>).
+    /// </summary>
     internal static ContactImportResult Sheets(
         IReadOnlyList<IReadOnlyList<IReadOnlyList<string>>> sheets, Func<string> allText, ContactSourceFormat format)
     {
         var accumulator = new ContactAccumulator();
-        var any = false;
-        foreach (var sheet in sheets)
+        var matches = sheets.Select(sheet => ContactExtractor.FindTable(sheet, format, minimumCells: 1)).ToList();
+        if (!matches.Any(m => m is { Accepted: true }))
         {
-            if (ContactExtractor.TryTable(sheet, format, minimumCells: 1, out var table, out var headerRow))
-            {
-                any = true;
-                accumulator.Merge(ContactExtractor.WithPreamble(sheet, headerRow, table, format));
-            }
+            accumulator.Merge(ContactExtractor.FreeText(allText(), format));
+            accumulator.InvalidAddresses += matches.Sum(m => m is { } empty && empty.Table.Contacts.Count == 0 ? empty.Table.InvalidAddresses : 0);
+            return accumulator.Result(format);
         }
 
-        if (!any)
+        for (var i = 0; i < sheets.Count; i++)
         {
-            accumulator.Merge(ContactExtractor.FromText(allText()));
+            if (matches[i] is { } match)
+            {
+                accumulator.Merge(ContactExtractor.Contacts(sheets[i], match, format));
+            }
         }
 
         return accumulator.Result(format);

@@ -438,7 +438,8 @@ public sealed partial class PreviewPageViewModel : ObservableObject
         }
 
         var draft = state.Options.Draft;
-        var used = FieldTemplate.UsedFields(draft.Subject).Concat(FieldTemplate.UsedFields(draft.BodyHtml))
+        var body = FieldTemplate.RepairHtml(draft.BodyHtml);   // as the renderer merges it: tokens split by formatting joined
+        var used = FieldTemplate.UsedFields(draft.Subject).Concat(FieldTemplate.UsedFields(body))
             .Concat(listItemFields.Select(t => t.Field))
             .DistinctBy(FieldKey.Of, StringComparer.Ordinal)
             .ToList();
@@ -456,7 +457,7 @@ public sealed partial class PreviewPageViewModel : ObservableObject
 
         if (!state.IsBcc)
         {
-            warnings.AddRange(EmptyFieldWarnings(state, listItemFields, cancellationToken));
+            warnings.AddRange(EmptyFieldWarnings(state, body, listItemFields, cancellationToken));
         }
 
         var attachmentBytes = state.AttachmentBytes;
@@ -479,9 +480,10 @@ public sealed partial class PreviewPageViewModel : ObservableObject
     /// <summary>
     /// "Pole {{X}} jest puste u 12 z 95 odbiorców": per field of the subject and the body without a fallback (not
     /// <c>{{email}}</c>, <c>{{nazwa}}</c> – MailerWPiA – and not <c>{{lista}}</c>) over the messages of the send list, and per
-    /// field of the list item template over the rows of grouped messages.
+    /// field of the list item template over the rows of grouped messages. <paramref name="body"/> is the body repaired as
+    /// the renderer merges it (a token split by formatting counts).
     /// </summary>
-    private List<string> EmptyFieldWarnings(PreviewState state, IReadOnlyList<FieldToken> listItemFields, CancellationToken cancellationToken)
+    private List<string> EmptyFieldWarnings(PreviewState state, string body, IReadOnlyList<FieldToken> listItemFields, CancellationToken cancellationToken)
     {
         var warnings = new List<string>();
         if (state.Units.Count == 0)
@@ -491,7 +493,7 @@ public sealed partial class PreviewPageViewModel : ObservableObject
 
         var draft = state.Options.Draft;
         var skipped = new HashSet<string>(StringComparer.Ordinal) { "email", "mail", "adresemail", "nazwa", "name", BuiltInFields.List };
-        var fields = FieldTemplate.Parse(draft.Subject).Concat(FieldTemplate.Parse(draft.BodyHtml))
+        var fields = FieldTemplate.Parse(draft.Subject).Concat(FieldTemplate.Parse(body))
             .GroupBy(t => FieldKey.Of(t.Field), StringComparer.Ordinal)
             .Where(g => g.Key.Length > 0 && !skipped.Contains(g.Key) && g.Any(t => t.Fallback is null))
             .Select(g => g.First().Field)
@@ -502,7 +504,7 @@ public sealed partial class PreviewPageViewModel : ObservableObject
             cancellationToken.ThrowIfCancellationRequested();
             var first = unit.Unit.Rows.Count > 0 ? unit.Unit.Rows[0] : new Dictionary<string, string>();
             var set = new RecipientFieldSet(unit.Unit.Email, unit.Unit.Name, first, draft.Salutation, draft.CustomFields, state.Set.KnownColumns,
-                count: unit.Unit.Rows.Count);
+                count: CorrespondenceRenderer.BuiltInApplies(BuiltInFields.Count, draft, unit.Unit, state.Set.KnownColumns) ? unit.Unit.Rows.Count : null);
             for (var i = 0; i < fields.Count; i++)
             {
                 if (set.Lookup(fields[i]) is { } value && string.IsNullOrWhiteSpace(value))

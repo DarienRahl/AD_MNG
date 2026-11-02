@@ -70,15 +70,15 @@ public class CorrespondenceRendererTests
         {
             Subject = "Skrzynki ({{liczba}}): {{lista}}",
             BodyHtml = "<p>{{Zwrot osobowy}},</p><p>{{lista}}</p><p>Skrzynek: {{liczba}}.</p>",
-            ListItemTemplate = "<b>{{Skrzynka}}</b> ({{Adres skrzynki}}) – ostatnie logowanie: {{Ostatnie logowanie|brak danych}}",
+            ListItemTemplate = "{{Skrzynka}} ({{Adres skrzynki}}) – ostatnie logowanie: {{Ostatnie logowanie|brak danych}}",
         };
         var rendered = Render(draft, new CorrespondenceUnit("jan.kowalski@contoso.test", "Jan Kowalski", rows), ["Zwrot osobowy", "Skrzynka", "Adres skrzynki", "Ostatnie logowanie"]);
         var html = rendered.HtmlDocument;
         Assert.Contains("<p>Szanowny Panie,</p>", html, StringComparison.Ordinal);
         Assert.Equal(1, Count(html, "<ul"));
         Assert.Equal(3, Count(html, "<li>"));
-        Assert.Contains("<b>Sekretariat IT</b> (sekretariat.it@contoso.test) – ostatnie logowanie: 3 marca 2026", html, StringComparison.Ordinal);
-        Assert.Contains("<b>Rekrutacja &lt;HR&gt;</b> (rekrutacja@contoso.test) – ostatnie logowanie: brak danych", html, StringComparison.Ordinal);
+        Assert.Contains("<li>Sekretariat IT (sekretariat.it@contoso.test) – ostatnie logowanie: 3 marca 2026</li>", html, StringComparison.Ordinal);
+        Assert.Contains("<li>Rekrutacja &lt;HR&gt; (rekrutacja@contoso.test) – ostatnie logowanie: brak danych</li>", html, StringComparison.Ordinal);
         Assert.Contains("Skrzynek: 3.", html, StringComparison.Ordinal);
         Assert.StartsWith("Skrzynki (3): ", rendered.Subject, StringComparison.Ordinal);
         Assert.Contains("Archiwum (archiwum@contoso.test)", rendered.Subject, StringComparison.Ordinal);
@@ -143,10 +143,75 @@ public class CorrespondenceRendererTests
     [Fact]
     public void ListOnlyInTheSubject()
     {
-        var rendered = Render(new CorrespondenceDraft { Subject = "Dotyczy: {{lista}}", BodyHtml = "<p>x</p>", ListItemTemplate = "<b>{{Miejscowość}}</b> {{Kod pocztowy}}" },
+        var rendered = Render(new CorrespondenceDraft { Subject = "Dotyczy: {{lista}}", BodyHtml = "<p>x</p>", ListItemTemplate = "{{Miejscowość}} {{Kod pocztowy}}" },
             Unit(Row(), Row(town: "Łódź")));
         Assert.Equal("Dotyczy: Żórawina 55-020, Łódź 55-020", rendered.Subject);
         Assert.DoesNotContain("<ul", rendered.HtmlDocument, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ListItemTemplate_IsPlainText_ItsAngleBracketsAndAmpersandsShowAsTyped()
+    {
+        // Typed in a text box: "<{{Adres skrzynki}}>" must not turn the merged address into a tag the sanitizer drops.
+        var rows = new[]
+        {
+            new Dictionary<string, string> { ["Skrzynka"] = "Sekretariat & Kadry", ["Adres skrzynki"] = "sekretariat@firma.pl" },
+            new Dictionary<string, string> { ["Skrzynka"] = "Księgowość", ["Adres skrzynki"] = "ksiegowosc@firma.pl" },
+        };
+        var draft = new CorrespondenceDraft
+        {
+            Subject = "Skrzynki: {{lista}}",
+            BodyHtml = "<p>{{lista}}</p>",
+            ListItemTemplate = "{{Skrzynka}} <{{Adres skrzynki}}> – R&D <b>{{Brak|„brak”}}</b>",
+        };
+
+        var rendered = Render(draft, new CorrespondenceUnit("jan@firma.pl", "Jan Łęcki", rows), ["Skrzynka", "Adres skrzynki"]);
+
+        Assert.Contains("<li>Sekretariat &amp; Kadry &lt;sekretariat@firma.pl&gt; – R&amp;D &lt;b&gt;„brak”&lt;/b&gt;</li>", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.Contains("Księgowość <ksiegowosc@firma.pl>", CorrespondenceRenderer.PlainText(rendered.HtmlDocument), StringComparison.Ordinal);
+        Assert.Equal("Skrzynki: Sekretariat & Kadry <sekretariat@firma.pl> – R&D <b>„brak”</b>, Księgowość <ksiegowosc@firma.pl> – R&D <b>„brak”</b>",
+            rendered.Subject);
+        Assert.Equal(["Brak"], rendered.UnknownFields);
+        Assert.Equal(rendered.HtmlDocument, Resanitized(rendered));
+    }
+
+    [Fact]
+    public void WithoutGrouping_ColumnsNamedListaAndLiczba_KeepTheirValues()
+    {
+        // "Wstaw pole" offers {{Liczba}} and {{Lista}} of the file when messages are not grouped: they must be the columns.
+        var row = new Dictionary<string, string> { ["Nazwa"] = "Gmina Łęki", ["Liczba"] = "25", ["Lista"] = "<b>szkoły</b>, przedszkola" };
+        var draft = new CorrespondenceDraft
+        {
+            Subject = "{{Lista}} ({{liczba}})",
+            BodyHtml = "<p>Liczba: {{Liczba}}. Lista: {{lista}}.</p>",
+            ListItemTemplate = "{{Nazwa}}",
+        };
+
+        var rendered = Render(draft, new CorrespondenceUnit("ug@leki.pl", "Gmina Łęki", [row]), ["Nazwa", "Liczba", "Lista"]);
+
+        Assert.Equal("<b>szkoły</b>, przedszkola (25)", rendered.Subject);
+        Assert.Contains("<p>Liczba: 25. Lista: &lt;b&gt;szkoły&lt;/b&gt;, przedszkola.</p>", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.DoesNotContain("<ul", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.False(CorrespondenceRenderer.BuiltInApplies("Liczba", draft, Unit(row), ["Nazwa"]));   // the row's own column
+        Assert.True(CorrespondenceRenderer.BuiltInApplies("lista", draft, Unit(Row()), Columns));
+    }
+
+    [Fact]
+    public void WithGrouping_TheBuiltInsWin_OverColumnsOfThatName()
+    {
+        var rows = new[]
+        {
+            new Dictionary<string, string> { ["Placówka"] = "Szkoła w Łękach", ["Liczba"] = "25" },
+            new Dictionary<string, string> { ["Placówka"] = "Przedszkole w Łękach", ["Liczba"] = "40" },
+        };
+        var draft = new CorrespondenceDraft { BodyHtml = "<p>Placówek: {{Liczba}}</p><p>{{Lista}}</p>", ListItemTemplate = "{{Placówka}} ({{Liczba}})", GroupByAddress = true };
+
+        var rendered = Render(draft, new CorrespondenceUnit("ug@leki.pl", "Gmina Łęki", rows), ["Placówka", "Liczba"]);
+
+        Assert.Contains("<p>Placówek: 2</p>", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.Contains("<li>Szkoła w Łękach (25)</li>", rendered.HtmlDocument, StringComparison.Ordinal);   // list items see the row's columns
+        Assert.Contains("<li>Przedszkole w Łękach (40)</li>", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.True(CorrespondenceRenderer.BuiltInApplies("liczba", draft, Unit(rows[0]), ["Liczba"]));
     }
 
     [Fact]
@@ -202,6 +267,31 @@ public class CorrespondenceRendererTests
             CustomFields = [new CustomFieldDefinition("Termin", "30 listopada 2026"), new CustomFieldDefinition("Adres", "{{Kod pocztowy}} {{Miejscowość}} <ul>")],
         });
         Assert.Contains("Termin: 30 listopada 2026. Adres: 55-020 Żórawina &lt;ul&gt;", rendered.HtmlDocument, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ACustomFieldUsingTheList_GetsItsText_InTheBodyAndTheSubject()
+    {
+        var rows = new[]
+        {
+            new Dictionary<string, string> { ["Skrzynka"] = "Sekretariat <IT>" },
+            new Dictionary<string, string> { ["Skrzynka"] = "Księgowość" },
+        };
+        var draft = new CorrespondenceDraft
+        {
+            Subject = "Dotyczy: {{Wykaz}}",
+            BodyHtml = "<p>{{Wykaz}}</p>",
+            ListItemTemplate = "{{Skrzynka}}",
+            CustomFields = [new CustomFieldDefinition("Wykaz", "skrzynki {{lista}} – razem {{liczba}}")],
+            GroupByAddress = true,
+        };
+
+        var rendered = Render(draft, new CorrespondenceUnit("jan@firma.pl", "Jan Łęcki", rows), ["Skrzynka"]);
+
+        Assert.Equal("Dotyczy: skrzynki Sekretariat <IT>, Księgowość – razem 2", rendered.Subject);
+        Assert.Contains("<p>skrzynki Sekretariat &lt;IT&gt;, Księgowość – razem 2</p>", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.DoesNotContain("<ul", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.DoesNotContain("&lt;ul", rendered.HtmlDocument, StringComparison.Ordinal);
     }
 
     [Fact]

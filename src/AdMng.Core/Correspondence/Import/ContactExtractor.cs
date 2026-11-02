@@ -10,7 +10,8 @@ namespace AdMng.Core.Correspondence.Import;
 /// column as a field under its header; free text as "Name &lt;addr&gt;" / "Name (addr)" pairs, then bare addresses.
 /// </summary>
 /// <remarks>
-/// <para>Header detection: the first of the first <see cref="HeaderRows"/> non-blank rows with an e-mail column. A header
+/// <para>Header detection: among the first <see cref="HeaderRows"/> non-blank rows, a row with an e-mail column whose
+/// table gives addresses – one with two or more cells before a one-cell title (see <see cref="FindTable"/>). A header
 /// cell (folded with <see cref="FieldKey"/>) equal to <c>email</c>, <c>e-mail</c>, <c>mail</c>, <c>adres e-mail</c>,
 /// <c>adres email</c> or <c>e-mail address</c> is an e-mail column; then <c>poczta</c>; then a header containing
 /// <c>e-mail</c>/<c>email</c>/<c>mail</c> ("Inne e-maile" therefore loses to "E-mail"). Of these candidates, in this
@@ -19,9 +20,10 @@ namespace AdMng.Core.Correspondence.Import;
 /// <c>urząd</c>, <c>firma</c>, <c>odbiorca</c>, <c>adresat</c>, <c>imię i nazwisko</c> or <c>pełna nazwa</c> (not a
 /// given name, surname or login header); else, when an <c>imię</c>/<c>first name</c> and a
 /// <c>nazwisko</c>/<c>surname</c>/<c>last name</c> column exist, "Imię Nazwisko".</para>
-/// <para>Text: a delimited table (<c>;</c>, tab, <c>,</c> in this order) whose header has at least two cells and which
-/// yields a contact; the lines before its header are free text. Free text: every "Name &lt;addr&gt;" / "Name (addr)" pair
-/// and every other address, in the order they appear.</para>
+/// <para>Text: a delimited table (<c>;</c>, tab, <c>,</c> in this order) whose header has at least two cells, is no lead-in
+/// sentence and whose e-mail column gives more addresses than the lines that end before it; the lines before its header
+/// are free text. Rows or tables without such a header are free text: every "Name &lt;addr&gt;" / "Name (addr)" pair and
+/// every other address, in the order they appear.</para>
 /// </remarks>
 public static class ContactExtractor
 {
@@ -41,6 +43,7 @@ public static class ContactExtractor
     private static readonly HashSet<string> NotNameHeaders = new(StringComparer.Ordinal)
     {
         "username", "nazwauzytkownika", "login", "nick", "nickname", "filename", "nazwapliku",
+        "middlename", "secondname", "additionalname", "drugieimie", "drugieimiona",   // Outlook / Gmail contact exports
     };
 
     /// <summary>A table first (delimiters ';', tab, ',' in this order, header within the first 8 rows), then "Name &lt;addr&gt;", then bare addresses.</summary>
@@ -55,25 +58,29 @@ public static class ContactExtractor
         foreach (var delimiter in Delimiters)
         {
             var records = DelimitedText.Parse(text, delimiter);
-            if (!TryTable([.. records.Select(r => r.Cells)], ContactSourceFormat.Delimited, minimumCells: 2, out var table, out var headerRow))
+            if (FindTable([.. records.Select(r => r.Cells)], ContactSourceFormat.Delimited, minimumCells: 2) is not { } match)
             {
                 continue;
             }
 
-            if (table.Contacts.Count == 0)
+            if (!match.Accepted)
             {
-                emptyTable ??= table;
+                if (match.Table.Contacts.Count == 0)
+                {
+                    emptyTable ??= match.Table;
+                }
+
                 continue;
             }
 
             var accumulator = new ContactAccumulator();
-            var preamble = text[..records[headerRow].Start];
+            var preamble = text[..records[match.HeaderRow].Start];
             if (preamble.Contains('@', StringComparison.Ordinal))
             {
                 accumulator.Merge(FreeText(preamble, ContactSourceFormat.Text));
             }
 
-            accumulator.Merge(table);
+            accumulator.Merge(match.Table);
             return accumulator.Result(ContactSourceFormat.Delimited);
         }
 
@@ -82,16 +89,24 @@ public static class ContactExtractor
     }
 
     /// <summary>One sheet or table (header within the first 8 rows; the rows above it are free text); without an e-mail
-    /// column its cells are free text.</summary>
+    /// column – or when its e-mail column holds no address – its cells are free text.</summary>
     public static ContactImportResult FromRows(IReadOnlyList<IReadOnlyList<string>> rows, ContactSourceFormat format)
     {
         ArgumentNullException.ThrowIfNull(rows);
-        if (TryTable(rows, format, minimumCells: 1, out var table, out var headerRow))
+        return FindTable(rows, format, minimumCells: 1) is { } match ? Contacts(rows, match, format) : FreeText(RowsText(rows), format);
+    }
+
+    /// <summary>The contacts of rows with a header: the table (after the free text above its header) when it was accepted,
+    /// else the rows as free text (with the invalid rows of a table whose e-mail column held no address).</summary>
+    internal static ContactImportResult Contacts(IReadOnlyList<IReadOnlyList<string>> rows, TableMatch match, ContactSourceFormat format)
+    {
+        if (match.Accepted)
         {
-            return WithPreamble(rows, headerRow, table, format);
+            return WithPreamble(rows, match.HeaderRow, match.Table, format);
         }
 
-        return FreeText(RowsText(rows), format);
+        var free = FreeText(RowsText(rows), format);
+        return match.Table.Contacts.Count == 0 ? free with { InvalidAddresses = free.InvalidAddresses + match.Table.InvalidAddresses } : free;
     }
 
     /// <summary>The table's contacts after those of the free text in the rows above its header.</summary>
@@ -123,15 +138,26 @@ public static class ContactExtractor
     }
 
     /// <summary>
-    /// The table of <paramref name="rows"/> when a header with an e-mail column is among the first
-    /// <see cref="HeaderRows"/> non-blank rows (with at least <paramref name="minimumCells"/> cells).
+    /// The table of <paramref name="rows"/>, or null when none of the first <see cref="HeaderRows"/> non-blank rows is a
+    /// header candidate: a row with at least <paramref name="minimumCells"/> cells, an e-mail column and no address.
     /// </summary>
-    internal static bool TryTable(
-        IReadOnlyList<IReadOnlyList<string>> rows, ContactSourceFormat format, int minimumCells, out ContactImportResult result, out int headerRow)
+    /// <remarks>
+    /// <para>Every candidate is tried, not only the first: a title or caption above the real header ("Wykaz adresów e-mail
+    /// jednostek" merged over the columns) also names "e-mail", but its column holds names. A candidate is accepted when its
+    /// e-mail column gives at least one address; a candidate with two or more non-empty cells wins over a one-cell row (a
+    /// title), then the earlier row.</para>
+    /// <para>Delimited text (<see cref="ContactSourceFormat.Delimited"/>) splits prose at its commas too, so a sentence
+    /// such as "Dzień dobry, adresy e-mail poniżej" looks like a header. There a candidate is also refused when its last
+    /// cell is a lead-in ending with a colon ("…, pod które wysyłamy:"), and when no more of its rows give an address in the
+    /// e-mail column than hold an address but do not reach that column (lines without the delimiter: the text is a list,
+    /// not a table). In an accepted delimited table such a short line is read as free text, never lost.</para>
+    /// <para>Without an accepted candidate the result is the first candidate's table, not <see cref="TableMatch.Accepted"/>
+    /// (its invalid rows count when its e-mail column held no address at all).</para>
+    /// </remarks>
+    internal static TableMatch? FindTable(IReadOnlyList<IReadOnlyList<string>> rows, ContactSourceFormat format, int minimumCells)
     {
-        result = ContactImportResult.Empty;
-        headerRow = -1;
-        List<int>? mailCandidates = null;
+        var delimited = format == ContactSourceFormat.Delimited;
+        var candidates = new List<(int Row, List<int> MailColumns)>();
         var seen = 0;
         for (var i = 0; i < rows.Count && seen < HeaderRows; i++)
         {
@@ -146,23 +172,88 @@ public static class ContactExtractor
                 continue;   // too few cells, or data: a header never holds an address
             }
 
-            var candidates = MailColumns(rows[i]);
-            if (candidates.Count > 0)
+            var mailColumns = MailColumns(rows[i]);
+            if (mailColumns.Count > 0 && !(delimited && IsLeadIn(rows[i])))
             {
-                headerRow = i;
-                mailCandidates = candidates;
+                candidates.Add((i, mailColumns));
+            }
+        }
+
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        (int Row, int MailColumn)? chosen = null;
+        var chosenCells = 0;
+        foreach (var (row, mailColumns) in candidates)
+        {
+            var data = DataRows(rows, row);
+            var mailColumn = MailColumn(rows, data, mailColumns);
+            var found = data.Count(r => EmailAddressText.FirstValid(Cell(rows[r], mailColumn)) is not null);
+            if (found == 0)
+            {
+                continue;
+            }
+
+            if (delimited && found <= data.Count(r => IsShortRowWithAddress(rows[r], mailColumn)))
+            {
+                continue;   // most addresses are on lines without the e-mail column: a list in prose, not a table
+            }
+
+            var cells = rows[row].Count(c => !string.IsNullOrWhiteSpace(c));
+            if (chosen is null || (chosenCells < 2 && cells >= 2))
+            {
+                chosen = (row, mailColumn);
+                chosenCells = cells;
+            }
+
+            if (cells >= 2)
+            {
                 break;
             }
         }
 
-        if (mailCandidates is null)
+        if (chosen is { } accepted)
         {
-            return false;
+            return new TableMatch(Table(rows, accepted.Row, accepted.MailColumn, format), accepted.Row, Accepted: true);
         }
 
+        var first = candidates[0];
+        return new TableMatch(Table(rows, first.Row, MailColumn(rows, DataRows(rows, first.Row), first.MailColumns), format), first.Row, Accepted: false);
+    }
+
+    /// <summary>The indexes of the non-blank rows below <paramref name="headerRow"/>.</summary>
+    private static List<int> DataRows(IReadOnlyList<IReadOnlyList<string>> rows, int headerRow)
+    {
+        var data = new List<int>();
+        for (var r = headerRow + 1; r < rows.Count; r++)
+        {
+            if (!IsBlank(rows[r]))
+            {
+                data.Add(r);
+            }
+        }
+
+        return data;
+    }
+
+    /// <summary>The first e-mail column (in tier order) with at least one valid address in the data rows, else the first.</summary>
+    private static int MailColumn(IReadOnlyList<IReadOnlyList<string>> rows, List<int> dataRows, List<int> mailColumns) =>
+        mailColumns.FirstOrDefault(c => dataRows.Any(r => EmailAddressText.FirstValid(Cell(rows[r], c)) is not null), mailColumns[0]);
+
+    /// <summary>A row that holds an address but ends before the e-mail column (a line of delimited text without the
+    /// delimiter, such as a lone "anna@y.pl" below a header).</summary>
+    private static bool IsShortRowWithAddress(IReadOnlyList<string> row, int mailColumn) =>
+        row.Count <= mailColumn && row.Any(c => EmailAddressText.FirstValid(c) is not null);
+
+    /// <summary>The table of the header <paramref name="headerRow"/> with its e-mail column <paramref name="mailColumn"/>:
+    /// one contact per row with a valid address there, the other rows counted as invalid – except, in delimited text, a
+    /// line that ends before the e-mail column: its addresses are free text.</summary>
+    private static ContactImportResult Table(IReadOnlyList<IReadOnlyList<string>> rows, int headerRow, int mailColumn, ContactSourceFormat format)
+    {
         var header = rows[headerRow];
         var data = rows.Skip(headerRow + 1).Where(r => !IsBlank(r)).ToList();
-        var mailColumn = mailCandidates.FirstOrDefault(c => data.Any(r => EmailAddressText.FirstValid(Cell(r, c)) is not null), mailCandidates[0]);
         var (nameColumn, givenColumn, surnameColumn) = NameColumns(header, mailColumn);
         var columns = Columns(header, data);
 
@@ -173,15 +264,23 @@ public static class ContactExtractor
             var address = EmailAddressText.FirstValid(Cell(row, mailColumn));
             if (address is null)
             {
+                if (format == ContactSourceFormat.Delimited && IsShortRowWithAddress(row, mailColumn))
+                {
+                    accumulator.Merge(FreeText(string.Join('\t', row), format));
+                    continue;
+                }
+
                 accumulator.InvalidAddresses++;
                 continue;
             }
 
-            var name = nameColumn >= 0
-                ? EmailAddressText.CleanName(Cell(row, nameColumn))
-                : givenColumn >= 0 && surnameColumn >= 0
-                    ? EmailAddressText.CleanName(Cell(row, givenColumn).Trim() + " " + Cell(row, surnameColumn).Trim())
-                    : string.Empty;
+            var name = nameColumn >= 0 ? EmailAddressText.CleanName(Cell(row, nameColumn)) : string.Empty;
+            if (name.Length == 0 && givenColumn >= 0 && surnameColumn >= 0)
+            {
+                // No name column, or its cell is empty in this row (or holds only an address): "Imię Nazwisko".
+                name = EmailAddressText.CleanName(Cell(row, givenColumn).Trim() + " " + Cell(row, surnameColumn).Trim());
+            }
+
             var fields = new Dictionary<string, string>(columns.Count, StringComparer.Ordinal);
             foreach (var (index, columnName) in columns)
             {
@@ -191,8 +290,15 @@ public static class ContactExtractor
             accumulator.Add(address, name, fields.AsReadOnly());
         }
 
-        result = accumulator.Result(format);
-        return true;
+        return accumulator.Result(format);
+    }
+
+    /// <summary>A line of prose that introduces a list: its last non-empty cell has two or more words and ends with a colon
+    /// ("Poniżej adresy e-mail, pod które wysyłamy:").</summary>
+    private static bool IsLeadIn(IReadOnlyList<string> row)
+    {
+        var last = row.LastOrDefault(c => !string.IsNullOrWhiteSpace(c))?.Trim();
+        return last is not null && last.EndsWith(':') && last.Contains(' ', StringComparison.Ordinal);
     }
 
     /// <summary>Free text: "Name &lt;addr&gt;" / "Name (addr)" pairs and bare addresses, in the order they appear.</summary>
@@ -304,8 +410,8 @@ public static class ContactExtractor
         return (name, given, surname);
     }
 
-    /// <summary>The columns of a table: every column (of the first 256) with a header or a value, named by its trimmed
-    /// header ("Kolumna N" when empty), a repeated name made unique as "Name (2)".</summary>
+    /// <summary>The columns of a table: every column (of the first 256) with a header or a value, named by its header on one
+    /// line (<see cref="ColumnName"/>; "Kolumna N" when empty), a repeated name made unique as "Name (2)".</summary>
     private static List<(int Index, string Name)> Columns(IReadOnlyList<string> header, List<IReadOnlyList<string>> data)
     {
         var width = header.Count;
@@ -320,7 +426,7 @@ public static class ContactExtractor
         var keys = new HashSet<string>(StringComparer.Ordinal);
         for (var c = 0; c < width; c++)
         {
-            var title = Cell(header, c).Trim();
+            var title = ColumnName(Cell(header, c));
             if (title.Length == 0 && !data.Any(r => Cell(r, c).Trim().Length > 0))
             {
                 continue;
@@ -339,7 +445,42 @@ public static class ContactExtractor
         return columns;
     }
 
+    /// <summary>
+    /// A header as a field name: every run of white space and control characters (the line break of an Excel header typed
+    /// with Alt+Enter, a multi-line quoted CSV header, a tab) becomes one space, the ends trimmed – a <c>{{field}}</c> holds
+    /// no line break, so "Kod⏎pocztowy" could never be inserted and merged.
+    /// </summary>
+    private static string ColumnName(string header)
+    {
+        var builder = new StringBuilder(header.Length);
+        var space = false;
+        foreach (var c in header)
+        {
+            if (char.IsWhiteSpace(c) || char.IsControl(c))   // white space includes U+2028 and U+2029
+            {
+                space = builder.Length > 0;
+                continue;
+            }
+
+            if (space)
+            {
+                builder.Append(' ');
+                space = false;
+            }
+
+            builder.Append(c);
+        }
+
+        return builder.ToString();
+    }
+
     private static string Cell(IReadOnlyList<string> row, int index) => index >= 0 && index < row.Count ? row[index] ?? string.Empty : string.Empty;
 
     private static bool IsBlank(IReadOnlyList<string> row) => row.All(string.IsNullOrWhiteSpace);
 }
+
+/// <summary>A table found in rows (<see cref="ContactExtractor.FindTable"/>).</summary>
+/// <param name="Table">The contacts of its rows, its columns and invalid rows.</param>
+/// <param name="HeaderRow">The index of its header row.</param>
+/// <param name="Accepted">The rows are this table; else they are free text (the table only tells the invalid rows).</param>
+internal readonly record struct TableMatch(ContactImportResult Table, int HeaderRow, bool Accepted);

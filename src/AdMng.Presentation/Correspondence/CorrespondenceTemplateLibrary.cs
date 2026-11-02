@@ -369,7 +369,8 @@ public sealed class CorrespondenceTemplateLibrary
         var ids = kept.Select(i => i.ContentId).ToHashSet(StringComparer.OrdinalIgnoreCase);
         copy.Images = kept;
         copy.BodyHtml = Sanitize(copy.BodyHtml, ids);
-        copy.ListItemTemplate = Sanitize(copy.ListItemTemplate, ids);
+        // The list item template is plain text (its text box; the renderer encodes it): sanitizing it as HTML would turn
+        // a typed "<" into "&lt;", shown as such in every message.
         return copy;
     }
 

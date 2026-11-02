@@ -124,6 +124,75 @@ public sealed class RecipientsImportTests
     }
 
     [Fact]
+    public async Task ImportFiles_AddressesRepeatedInsideTheFile_AreToldAsRepeated()
+    {
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
+        using var window = await scenario.OpenAsync();
+        var page = window.Recipients;
+        var csv = Text(scenario, "jednostki.csv",
+            "Nazwa;E-mail\r\nUrząd Gminy Łask;sekretariat@lask.pl\r\nGOPS Łask;SEKRETARIAT@lask.pl\r\nSzkoła w Łasku;szkola@lask.pl\r\n"
+            + "Biblioteka w Łasku;sekretariat@lask.pl\r\n");
+        scenario.Dialogs.Files.Enqueue([csv]);
+
+        await page.ImportFilesCommand.ExecuteAsync(null);
+
+        Assert.Equal(["sekretariat@lask.pl", "szkola@lask.pl"], page.Items.Select(r => r.Email));
+        Assert.Equal("Wczytano plik „jednostki.csv” (CSV): 2 nowe, 2 powtórzone", page.StatusText);
+
+        Clipboard(scenario, "E-mail\tNazwa\r\nnowy@lask.pl\tNowy\r\nNOWY@lask.pl\tNowy raz jeszcze\r\nszkola@lask.pl\tSzkoła\r\n");
+        await page.PasteCommand.ExecuteAsync(null);
+        Assert.Equal("Ze schowka: 1 nowy, 2 powtórzone", page.StatusText);
+
+        scenario.Dialogs.Prompts.Enqueue("rada@lask.pl, Rada <RADA@lask.pl>");
+        await page.AddManualCommand.ExecuteAsync(null);
+        Assert.Equal("Dodano ręcznie: 1 nowy, 1 powtórzony", page.StatusText);
+    }
+
+    [Fact]
+    public async Task ImportFiles_LeavesOutWhatExcelHides_AndSaysSo()
+    {
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
+        using var window = await scenario.OpenAsync();
+        var page = window.Recipients;
+        static string Row(int r, string name, string email, string attributes = "") =>
+            $"<row r=\"{r}\"{attributes}><c r=\"A{r}\" t=\"inlineStr\"><is><t>{name}</t></is></c><c r=\"B{r}\" t=\"inlineStr\"><is><t>{email}</t></is></c></row>";
+        static string Sheet(string rows) =>
+            $"<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>{rows}</sheetData></worksheet>";
+        var xlsx = Zip(
+            ("xl/workbook.xml", "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" "
+                + "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets>"
+                + "<sheet name=\"Lista\" sheetId=\"1\" r:id=\"rId1\"/><sheet name=\"Archiwum\" sheetId=\"2\" state=\"hidden\" r:id=\"rId2\"/></sheets></workbook>"),
+            ("xl/_rels/workbook.xml.rels", "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+                + "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>"
+                + "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet2.xml\"/>"
+                + "</Relationships>"),
+            ("xl/worksheets/sheet1.xml", Sheet(Row(1, "Nazwa", "E-mail") + Row(2, "Urząd Gminy Zgierz", "urzad@gmina-zgierz.pl")
+                + Row(3, "Wycofany urząd", "wycofany@urzad.pl", " hidden=\"1\"") + Row(4, "Urząd Gminy Andrespol", "sekretariat@andrespol.pl"))),
+            ("xl/worksheets/sheet2.xml", Sheet(Row(1, "Nazwa", "E-mail") + Row(2, "Stary urząd", "stary@urzad.pl"))));
+        scenario.Dialogs.Files.Enqueue([File(scenario, "lista.xlsx", xlsx)]);
+
+        await page.ImportFilesCommand.ExecuteAsync(null);
+
+        Assert.Equal(["urzad@gmina-zgierz.pl", "sekretariat@andrespol.pl"], page.Items.Select(r => r.Email));
+        Assert.Equal("Wczytano plik „lista.xlsx” (Excel): 2 nowe, pominięte ukryte arkusze: 1, pominięte ukryte wiersze: 1", page.StatusText);
+    }
+
+    private static byte[] Zip(params (string Name, string Content)[] entries)
+    {
+        using var stream = new MemoryStream();
+        using (var archive = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var (name, content) in entries)
+            {
+                using var writer = archive.CreateEntry(name).Open();
+                writer.Write(Encoding.UTF8.GetBytes(content));
+            }
+        }
+
+        return stream.ToArray();
+    }
+
+    [Fact]
     public async Task AddRows_StopsAtTheRecipientLimit_AndSaysHowManyWereLeftOut()
     {
         using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);

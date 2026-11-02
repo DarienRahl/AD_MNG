@@ -87,6 +87,19 @@ public class RecipientFieldSetTests
     }
 
     [Fact]
+    public void CustomFields_GetTheListAsText_NeverItsMarkup()
+    {
+        var set = new RecipientFieldSet("ug@zorawina.pl", "Urząd Gminy Żórawina", Row, "Szanowni Państwo",
+            [new CustomFieldDefinition("Wykaz", "Lista: {{lista}} ({{liczba}})")], Known,
+            list: "<ul style=\"margin:0 0 8pt 0\"><li>Łódź</li><li>Żórawina</li></ul>", count: 2, listText: "Łódź, Żórawina");
+        Assert.Equal("Lista: Łódź, Żórawina (2)", set.Lookup("wykaz"));
+        Assert.Equal("Lista: Łódź, Żórawina (2)", FieldTemplate.Merge("{{Wykaz}}", set.Lookup, FieldEncoding.Html));
+        Assert.StartsWith("<ul", set.Lookup("lista"), StringComparison.Ordinal);   // the body's own {{lista}} stays HTML
+        Assert.Equal("Lista:  (3)", Set(custom: [new CustomFieldDefinition("Wykaz", "Lista: {{lista}} ({{liczba}})")], list: "<ul></ul>", count: 3)
+            .Lookup("Wykaz"));   // no text given: empty, not markup
+    }
+
+    [Fact]
     public void CustomFields_CannotUseOtherCustomFields()
     {
         var set = Set(custom: [new CustomFieldDefinition("A", "[{{B}}]"), new CustomFieldDefinition("B", "b"), new CustomFieldDefinition("C", "{{C}}")]);

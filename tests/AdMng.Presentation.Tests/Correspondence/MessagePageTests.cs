@@ -429,6 +429,28 @@ public sealed class MessagePageTests
     }
 
     [Fact]
+    public async Task PasteFormatted_HasTheImageLimitsOfKorespondencja_NotThoseOfMessagesToUsers()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenAsync();
+        var message = window.Message;
+        scenario.PastedImages.Add("clip_duzy.png", MessageImageSamples.Png(700, 600, seed: 0x31));   // 1.26 MB: above U1's 1 MiB
+        var small = string.Concat(Enumerable.Range(1, 11).Select(i => $"<img src=\"{MessageImageSamples.DataUri(MessageImageSamples.Png(3, 3, seed: (byte)(0x40 + i)), "image/png")}\">"));
+        var html = "<html><body><!--StartFragment--><p>Plan sali w Łodzi:</p>"
+            + "<p><img src=\"file:///C:/Users/JKOWAL~1/AppData/Local/Temp/msohtmlclip1/01/clip_duzy.png\" alt=\"Plan\"></p>"
+            + $"<p>{small}</p><!--EndFragment--></body></html>";
+        scenario.Harness.Clipboard.Formatted = new ClipboardContent(CfHtmlFixture.Build(html), null, null, "Plan sali");
+
+        var paste = await message.PasteFormattedAsync();
+
+        Assert.NotNull(paste);
+        Assert.Equal(12, paste.Images.Count);   // U1 would keep 10, without the large one
+        Assert.Contains(paste.Images, i => i.Data.Length > MessageImageLimits.MaxImageBytes);
+        Assert.Equal(12, message.BodyImages.Count);
+        Assert.Equal(string.Empty, message.PasteProblemsText);
+    }
+
+    [Fact]
     public async Task PasteFormatted_ATextOnlyClipboard_GivesParagraphs()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();

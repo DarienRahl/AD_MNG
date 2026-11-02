@@ -12277,6 +12277,12 @@ Użyj przycisku „Sprawdź Outlooka” – pokaże wersję, profil, konta i pod
   <data name="Correspondence.Recipients.OverLimit" xml:space="preserve">
     <value>lista mieści najwyżej {0:N0} odbiorców – pominięto {1}</value>
   </data>
+  <data name="Correspondence.Recipients.HiddenSheets" xml:space="preserve">
+    <value>pominięte ukryte arkusze: {0:N0}</value>
+  </data>
+  <data name="Correspondence.Recipients.HiddenRows" xml:space="preserve">
+    <value>pominięte ukryte wiersze: {0:N0}</value>
+  </data>
   <data name="Correspondence.Recipients.GroupTruncated" xml:space="preserve">
     <value>Grupa {0} ma więcej niż {1:N0} członków – dodano tylko pierwszych {1:N0}.</value>
   </data>

@@ -78,10 +78,12 @@ public sealed partial class RecipientsPageViewModel
         return new RecipientsAdded(added.Count, duplicates, overLimit);
     }
 
-    /// <summary>"120 nowych, 3 powtórzone, 2 błędne adresy" (Polish plural forms); "" parts left out except the new ones.</summary>
-    internal string CountsPart(RecipientsAdded added, int invalid, int withoutAddress = 0, int other = 0)
+    /// <summary>"120 nowych, 3 powtórzone, 2 błędne adresy" (Polish plural forms); "" parts left out except the new ones.
+    /// <paramref name="hiddenSheets"/>/<paramref name="hiddenRows"/>: what an Excel workbook hides and the import left out.</summary>
+    internal string CountsPart(RecipientsAdded added, int invalid, int withoutAddress = 0, int other = 0, int hiddenSheets = 0, int hiddenRows = 0)
     {
-        if (added.Added == 0 && added.Duplicates == 0 && added.OverLimit == 0 && invalid == 0 && withoutAddress == 0 && other == 0)
+        if (added.Added == 0 && added.Duplicates == 0 && added.OverLimit == 0 && invalid == 0 && withoutAddress == 0 && other == 0
+            && hiddenSheets == 0 && hiddenRows == 0)
         {
             return Localizer[L.CorrespondenceRecipients.NothingFound];
         }
@@ -110,6 +112,16 @@ public sealed partial class RecipientsPageViewModel
             parts.Add(Localizer.Format(L.CorrespondenceRecipients.OtherObjects, other));
         }
 
+        if (hiddenSheets > 0)
+        {
+            parts.Add(Localizer.Format(L.CorrespondenceRecipients.HiddenSheets, hiddenSheets));
+        }
+
+        if (hiddenRows > 0)
+        {
+            parts.Add(Localizer.Format(L.CorrespondenceRecipients.HiddenRows, hiddenRows));
+        }
+
         if (added.OverLimit > 0)
         {
             parts.Add(Localizer.Format(L.CorrespondenceRecipients.OverLimit, CorrespondenceLimits.MaxRecipients, added.OverLimit));
@@ -129,7 +141,12 @@ public sealed partial class RecipientsPageViewModel
 
     /// <summary>Reads and parses one file on the thread pool.</summary>
     /// <exception cref="InvalidDataException">Too large, corrupt or not readable as its format.</exception>
-    private Task<ContactImportResult> ReadFileAsync(string path)
+    private Task<ContactImportResult> ReadFileAsync(string path) =>
+        ReadFileAsync(path, (name, bytes, codePage) => ContactFileReader.Read(name, bytes, codePage));
+
+    /// <summary>Reads one file on the thread pool and parses it with <paramref name="parse"/> (file name, bytes, ANSI code page).</summary>
+    /// <exception cref="InvalidDataException">Too large, corrupt or not readable as its format.</exception>
+    private Task<T> ReadFileAsync<T>(string path, Func<string, byte[], int, T> parse)
     {
         var codePage = AnsiCodePage;
         return Task.Run(async () =>
@@ -140,7 +157,7 @@ public sealed partial class RecipientsPageViewModel
             }
 
             var bytes = await File.ReadAllBytesAsync(path).ConfigureAwait(false);
-            return ContactFileReader.Read(Path.GetFileName(path), bytes, codePage);
+            return parse(Path.GetFileName(path), bytes, codePage);
         });
     }
 
@@ -153,7 +170,7 @@ public sealed partial class RecipientsPageViewModel
         }
 
         var errors = new List<string>();
-        int added = 0, duplicates = 0, overLimit = 0, invalid = 0;
+        int added = 0, duplicates = 0, overLimit = 0, invalid = 0, hiddenSheets = 0, hiddenRows = 0;
         ContactSourceFormat? format = null;
         foreach (var path in paths)
         {
@@ -163,9 +180,11 @@ public sealed partial class RecipientsPageViewModel
                 var result = await ReadFileAsync(path).ConfigureAwait(true);
                 var outcome = AddRows(result.Contacts, name, RecipientOrigin.File);
                 added += outcome.Added;
-                duplicates += outcome.Duplicates;
+                duplicates += outcome.Duplicates + result.Duplicates;   // on the list already, or repeated in the file
                 overLimit += outcome.OverLimit;
                 invalid += result.InvalidAddresses;
+                hiddenSheets += result.HiddenSheets;
+                hiddenRows += result.HiddenRows;
                 format = result.Format;
             }
             catch (InvalidDataException)
@@ -178,7 +197,7 @@ public sealed partial class RecipientsPageViewModel
             }
         }
 
-        var counts = CountsPart(new RecipientsAdded(added, duplicates, overLimit), invalid);
+        var counts = CountsPart(new RecipientsAdded(added, duplicates, overLimit), invalid, hiddenSheets: hiddenSheets, hiddenRows: hiddenRows);
         if (paths.Count - errors.Count > 0)
         {
             ReportStatus(paths.Count == 1
@@ -286,7 +305,7 @@ public sealed partial class RecipientsPageViewModel
 
         var result = await Task.Run(() => ContactExtractor.FromText(text)).ConfigureAwait(true);
         var added = AddRows(result.Contacts, Localizer[L.CorrespondenceRecipients.SourceClipboard], RecipientOrigin.Clipboard);
-        ReportStatus(Localizer.Format(L.CorrespondenceRecipients.Pasted, CountsPart(added, result.InvalidAddresses)));
+        ReportStatus(Localizer.Format(L.CorrespondenceRecipients.Pasted, CountsPart(WithRepeats(added, result), result.InvalidAddresses)));
     }
 
     /// <summary>Addresses typed into a multiline prompt.</summary>
@@ -307,12 +326,18 @@ public sealed partial class RecipientsPageViewModel
 
         var result = await Task.Run(() => ContactExtractor.FromText(text)).ConfigureAwait(true);
         var added = AddRows(result.Contacts, Localizer[L.CorrespondenceRecipients.SourceManual], RecipientOrigin.Manual);
-        ReportStatus(Localizer.Format(L.CorrespondenceRecipients.Typed, CountsPart(added, result.InvalidAddresses)));
+        ReportStatus(Localizer.Format(L.CorrespondenceRecipients.Typed, CountsPart(WithRepeats(added, result), result.InvalidAddresses)));
     }
+
+    /// <summary>The duplicates of an import: addresses already on the list and addresses repeated in the source itself
+    /// (merged by the reader, design note 7.1).</summary>
+    private static RecipientsAdded WithRepeats(RecipientsAdded added, ContactImportResult result) =>
+        added with { Duplicates = added.Duplicates + result.Duplicates };
 
     private bool HasDialogs() => Correspondence.Dialogs is not null;
 
-    /// <summary>The addresses of files become "Nie wysyłać" entries.</summary>
+    /// <summary>Every address of the files becomes a "Nie wysyłać" entry – in any column, cell or sheet, not only the e-mail
+    /// column of a table (<see cref="ContactFileReader.ReadAddresses"/>).</summary>
     [RelayCommand]
     private async Task ExclusionsFromFileAsync()
     {
@@ -328,8 +353,8 @@ public sealed partial class RecipientsPageViewModel
         {
             try
             {
-                var result = await ReadFileAsync(path).ConfigureAwait(true);
-                addresses.AddRange(result.Contacts.Select(c => c.Email));
+                var found = await ReadFileAsync(path, (name, bytes, codePage) => ContactFileReader.ReadAddresses(name, bytes, codePage)).ConfigureAwait(true);
+                addresses.AddRange(found);
             }
             catch (InvalidDataException)
             {

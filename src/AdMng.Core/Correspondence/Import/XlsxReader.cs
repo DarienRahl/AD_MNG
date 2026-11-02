@@ -8,29 +8,44 @@ namespace AdMng.Core.Correspondence.Import;
 /// The sheets of an XLSX/XLSM/XLTX workbook as rows of cells (design note 3.1): sheet order from <c>xl/workbook.xml</c>
 /// and its relationships; shared strings (every <c>&lt;t&gt;</c> of an <c>&lt;si&gt;</c>, rich runs joined, phonetic runs
 /// skipped); cells placed by their <c>r</c> reference (gaps stay empty), inline strings, formula strings and numbers as
-/// text, booleans <c>TRUE</c>/<c>FALSE</c>.
+/// text – a number formatted as a date or as a pattern of digits (<c>00-000</c>) as Excel shows it
+/// (<see cref="XlsxNumberFormats"/>) –, booleans <c>TRUE</c>/<c>FALSE</c>. What Excel does not show – sheets in the state <c>hidden</c> or
+/// <c>veryHidden</c>, rows marked <c>hidden</c> (hidden by hand, by a filter or a collapsed outline) – is left out and
+/// counted, unless the caller asks for it.
 /// </summary>
 internal static class XlsxReader
 {
     private const string WorkbookPath = "xl/workbook.xml";
     private const string WorkbookRelationshipsPath = "xl/_rels/workbook.xml.rels";
 
-    public static IReadOnlyList<IReadOnlyList<IReadOnlyList<string>>> ReadSheets(SafeZip zip)
+    /// <summary>The sheets in workbook order; hidden sheets and hidden rows only with <paramref name="includeHidden"/>.</summary>
+    public static XlsxWorkbook ReadSheets(SafeZip zip, bool includeHidden = false)
     {
         var budget = new SpreadsheetLimits.Budget();
         var relationships = Relationships(zip);
-        var shared = SharedStrings(zip, relationships);
+        var shared = SharedStrings(zip, relationships, new SpreadsheetLimits.Budget());
         var sheets = new List<IReadOnlyList<IReadOnlyList<string>>>();
-        foreach (var path in SheetPaths(zip, relationships))
+        var (paths, hiddenSheets, date1904) = SheetPaths(zip, relationships, includeHidden);
+        var formats = NumberFormats(zip, relationships, date1904);
+        var hiddenRows = 0;
+        foreach (var path in paths)
         {
             using var reader = zip.OpenXml(path);
             if (reader is not null)
             {
-                sheets.Add(ReadSheet(reader, shared, budget));
+                sheets.Add(ReadSheet(reader, shared, formats, budget, includeHidden, ref hiddenRows));
             }
         }
 
-        return sheets;
+        return new XlsxWorkbook(sheets, hiddenSheets, hiddenRows);
+    }
+
+    /// <summary>The number formats of the workbook's styles part (dates and digit patterns, <see cref="XlsxNumberFormats"/>).</summary>
+    private static XlsxNumberFormats NumberFormats(SafeZip zip, Dictionary<string, (string Type, string Target)> relationships, bool date1904)
+    {
+        var path = relationships.Values.FirstOrDefault(r => r.Type.EndsWith("/styles", StringComparison.OrdinalIgnoreCase)).Target ?? "xl/styles.xml";
+        using var reader = zip.OpenXml(path) ?? zip.OpenXml("xl/styles.xml");
+        return XlsxNumberFormats.Read(reader, date1904);
     }
 
     /// <summary>Relationship id → (type, target part name) of the workbook.</summary>
@@ -56,16 +71,26 @@ internal static class XlsxReader
         return result;
     }
 
-    /// <summary>The worksheets in workbook order; without a usable workbook every <c>xl/worksheets/*.xml</c> in natural order.</summary>
-    private static List<string> SheetPaths(SafeZip zip, Dictionary<string, (string Type, string Target)> relationships)
+    /// <summary>The worksheets in workbook order (hidden ones counted, not listed, unless <paramref name="includeHidden"/>)
+    /// and whether dates count from 1904; without a usable workbook every <c>xl/worksheets/*.xml</c> in natural order.</summary>
+    private static (List<string> Paths, int Hidden, bool Date1904) SheetPaths(
+        SafeZip zip, Dictionary<string, (string Type, string Target)> relationships, bool includeHidden)
     {
         var paths = new List<string>();
+        var hidden = 0;
+        var date1904 = false;
         using (var reader = zip.OpenXml(WorkbookPath))
         {
             if (reader is not null)
             {
                 while (reader.Read())
                 {
+                    if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "workbookPr")
+                    {
+                        date1904 = reader.GetAttribute("date1904") is "1" or "true";
+                        continue;
+                    }
+
                     if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "sheet")
                     {
                         continue;
@@ -75,22 +100,28 @@ internal static class XlsxReader
                     if (id is not null && relationships.TryGetValue(id, out var relationship)
                         && relationship.Type.EndsWith("/worksheet", StringComparison.OrdinalIgnoreCase) && !paths.Contains(relationship.Target))
                     {
+                        if (!includeHidden && reader.GetAttribute("state") is "hidden" or "veryHidden")
+                        {
+                            hidden++;
+                            continue;
+                        }
+
                         paths.Add(relationship.Target);
                     }
                 }
             }
         }
 
-        if (paths.Count > 0)
+        if (paths.Count > 0 || hidden > 0)
         {
-            return paths;
+            return (paths, hidden, date1904);
         }
 
-        return [.. zip.Names
+        return ([.. zip.Names
             .Where(n => n.StartsWith("xl/worksheets/", StringComparison.OrdinalIgnoreCase) && n.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
                 && n.IndexOf('/', "xl/worksheets/".Length) < 0)
             .OrderBy(n => n.Length)
-            .ThenBy(n => n, StringComparer.OrdinalIgnoreCase)];
+            .ThenBy(n => n, StringComparer.OrdinalIgnoreCase)], 0, date1904);
     }
 
     private static string? RelationshipId(XmlReader reader)
@@ -114,7 +145,9 @@ internal static class XlsxReader
         return id;
     }
 
-    private static List<string> SharedStrings(SafeZip zip, Dictionary<string, (string Type, string Target)> relationships)
+    /// <summary>The shared strings (their characters counted in <paramref name="budget"/>: once each – a cell that references
+    /// one counts it again in the sheet's budget).</summary>
+    private static List<string> SharedStrings(SafeZip zip, Dictionary<string, (string Type, string Target)> relationships, SpreadsheetLimits.Budget budget)
     {
         var path = relationships.Values.FirstOrDefault(r => r.Type.EndsWith("/sharedStrings", StringComparison.OrdinalIgnoreCase)).Target
             ?? "xl/sharedStrings.xml";
@@ -134,15 +167,16 @@ internal static class XlsxReader
                     throw new InvalidDataException("The workbook has too many shared strings.");
                 }
 
-                strings.Add(reader.IsEmptyElement ? string.Empty : RichText(reader));
+                strings.Add(reader.IsEmptyElement ? string.Empty : RichText(reader, budget));
             }
         }
 
         return strings;
     }
 
-    /// <summary>The text of the current <c>si</c> / <c>is</c> element: every <c>t</c> outside phonetic runs, joined.</summary>
-    private static string RichText(XmlReader reader)
+    /// <summary>The text of the current <c>si</c> / <c>is</c> element: every <c>t</c> outside phonetic runs, joined (its
+    /// characters counted in <paramref name="budget"/> while it is read).</summary>
+    private static string RichText(XmlReader reader, SpreadsheetLimits.Budget budget)
     {
         var depth = reader.Depth;
         var builder = new StringBuilder();
@@ -165,7 +199,9 @@ internal static class XlsxReader
                     inText = 0;
                     break;
                 case XmlNodeType.Text or XmlNodeType.CDATA or XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace when inText > 0:
-                    builder.Append(reader.Value);
+                    var value = reader.Value;
+                    budget.Characters(value.Length);
+                    builder.Append(value);
                     break;
             }
         }
@@ -173,11 +209,16 @@ internal static class XlsxReader
         return builder.ToString();
     }
 
-    private static List<IReadOnlyList<string>> ReadSheet(XmlReader reader, List<string> shared, SpreadsheetLimits.Budget budget)
+    /// <summary>The rows of a sheet; rows marked hidden are counted in <paramref name="hiddenRows"/> (when they hold a value)
+    /// and left out, unless <paramref name="includeHidden"/>.</summary>
+    private static List<IReadOnlyList<string>> ReadSheet(XmlReader reader, List<string> shared, XlsxNumberFormats formats,
+        SpreadsheetLimits.Budget budget, bool includeHidden, ref int hiddenRows)
     {
         var rows = new List<IReadOnlyList<string>>();
         List<string>? row = null;
         var inRow = false;
+        var hiddenRow = false;
+        var hiddenCounted = false;
         var nextColumn = 0;
         while (reader.Read())
         {
@@ -196,6 +237,8 @@ internal static class XlsxReader
             {
                 // A row is materialized with its first value: rows Excel writes only for their formatting cost nothing.
                 inRow = !reader.IsEmptyElement;
+                hiddenRow = !includeHidden && reader.GetAttribute("hidden") is "1" or "true";
+                hiddenCounted = false;
                 row = null;
                 nextColumn = 0;
                 continue;
@@ -214,13 +257,31 @@ internal static class XlsxReader
 
             nextColumn = column == int.MaxValue ? column : column + 1;
             var type = reader.GetAttribute("t");
-            var value = reader.IsEmptyElement ? string.Empty : CellValue(reader, type, shared);
+            var style = reader.GetAttribute("s");
+            var value = reader.IsEmptyElement ? string.Empty : CellValue(reader, type, shared, budget);
             if (value.Length == 0 || column >= SpreadsheetLimits.MaxColumns)
             {
                 continue;
             }
 
-            budget.Cell();
+            if (type is null or "n" && style is not null)
+            {
+                value = formats.Apply(value, style);   // a date or a pattern such as 00-000, as Excel shows it
+            }
+
+            if (hiddenRow)
+            {
+                // Hidden by hand, filtered out or in a collapsed group: the operator does not see it in Excel.
+                if (!hiddenCounted)
+                {
+                    hiddenRows++;
+                    hiddenCounted = true;
+                }
+
+                continue;
+            }
+
+            budget.Cell();   // its characters were counted by CellValue
             if (row is null)
             {
                 row = [];
@@ -238,8 +299,9 @@ internal static class XlsxReader
         return rows;
     }
 
-    /// <summary>The text of the current <c>c</c> element; leaves the reader on its end tag.</summary>
-    private static string CellValue(XmlReader reader, string? type, List<string> shared)
+    /// <summary>The text of the current <c>c</c> element, its characters counted in <paramref name="budget"/> (a shared
+    /// string once per cell that references it); leaves the reader on its end tag.</summary>
+    private static string CellValue(XmlReader reader, string? type, List<string> shared, SpreadsheetLimits.Budget budget)
     {
         var depth = reader.Depth;
         string? value = null;
@@ -250,12 +312,13 @@ internal static class XlsxReader
             if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "v")
             {
                 value = reader.ReadElementContentAsString();   // moves past </v>
+                budget.Characters(value.Length);
                 continue;
             }
 
             if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "is")
             {
-                inline = reader.IsEmptyElement ? string.Empty : RichText(reader);   // RichText stops on </is>
+                inline = reader.IsEmptyElement ? string.Empty : RichText(reader, budget);   // RichText stops on </is>
             }
 
             reader.Read();
@@ -264,8 +327,13 @@ internal static class XlsxReader
         switch (type)
         {
             case "s":
-                return int.TryParse(value?.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var index)
-                    && index >= 0 && index < shared.Count ? shared[index] : string.Empty;
+                if (int.TryParse(value?.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var index) && index >= 0 && index < shared.Count)
+                {
+                    budget.Characters(shared[index].Length);
+                    return shared[index];
+                }
+
+                return string.Empty;
             case "inlineStr":
                 return inline ?? value ?? string.Empty;
             case "b":
@@ -309,4 +377,13 @@ internal static class XlsxReader
 
         return string.Join('/', segments);
     }
+}
+
+/// <summary>The sheets of a workbook (<see cref="XlsxReader.ReadSheets"/>).</summary>
+/// <param name="Sheets">The rows of cells of each sheet read, in workbook order.</param>
+/// <param name="HiddenSheets">Worksheets left out because Excel hides them.</param>
+/// <param name="HiddenRows">Rows with a value left out because Excel hides them.</param>
+internal sealed record XlsxWorkbook(IReadOnlyList<IReadOnlyList<IReadOnlyList<string>>> Sheets, int HiddenSheets, int HiddenRows)
+{
+    public override string ToString() => $"{nameof(XlsxWorkbook)} ({Sheets.Count} sheets)";
 }

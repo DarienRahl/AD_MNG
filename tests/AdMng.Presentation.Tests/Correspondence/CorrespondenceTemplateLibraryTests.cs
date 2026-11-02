@@ -265,6 +265,21 @@ public sealed class CorrespondenceTemplateLibraryTests : IDisposable
     }
 
     [Fact]
+    public async Task ExportImport_KeepsThePlainTextListItemTemplateAsTyped()
+    {
+        var template = Template("Skrzynki");
+        template.ListItemTemplate = "{{Skrzynka}} <{{Adres skrzynki}}> & „więcej” <b>";
+        await _library.SaveAsync(template, []);
+        var json = await _library.ExportJsonAsync();
+
+        using var otherPaths = new TempAppPaths();
+        var other = new CorrespondenceTemplateLibrary(new InMemorySettingsStore(), new MessageImageStore(otherPaths, _time));
+        await other.ImportAsync(json);
+
+        Assert.Equal("{{Skrzynka}} <{{Adres skrzynki}}> & „więcej” <b>", Assert.Single(other.Saved).ListItemTemplate);
+    }
+
+    [Fact]
     public async Task Import_RefusesWhatIsNotATemplatesFile()
     {
         await Assert.ThrowsAsync<FormatException>(() => _library.ImportAsync("{ to nie jest JSON"));

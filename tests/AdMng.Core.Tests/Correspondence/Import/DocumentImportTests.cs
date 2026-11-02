@@ -29,6 +29,29 @@ public class DocumentImportTests
     }
 
     [Fact]
+    public void Docx_CaptionRowNamingEmail_IsNotTheHeader()
+    {
+        var body = Tbl(
+            Tr(Tc("Adresy e-mail gmin", "<w:gridSpan w:val=\"2\"/>")),
+            Tr(Tc("Nazwa"), Tc("E-mail")),
+            Tr(Tc("Gmina Łęki Szlacheckie"), Tc("ug@lekiszlacheckie.pl")),
+            Tr(Tc("Gmina Żarnów"), Tc("ug@zarnow.pl")));
+        var result = Read("gminy.docx", Docx(body));
+        Assert.Equal(["Nazwa", "E-mail"], result.Columns);
+        Assert.Equal(["ug@lekiszlacheckie.pl", "ug@zarnow.pl"], result.Contacts.Select(c => c.Email));
+        Assert.Equal("Gmina Żarnów", result.Contacts[1].Name);
+    }
+
+    [Fact]
+    public void Docx_LeadInSentenceWithACommaAndEmail_KeepsEveryAddress()
+    {
+        var body = P("Poniżej adresy e-mail, pod które wysyłamy:") + P("Jan Kowalski, jan@x.pl") + P("anna@y.pl") + P("Urząd Gminy Bełchatów - ug@b.pl");
+        var result = Read("lista.docx", Docx(body));
+        Assert.Empty(result.Columns);
+        Assert.Equal(["jan@x.pl", "anna@y.pl", "ug@b.pl"], result.Contacts.Select(c => c.Email));
+    }
+
+    [Fact]
     public void Docx_GridSpanAddsEmptyCells()
     {
         var body = Tbl(
@@ -100,6 +123,16 @@ public class DocumentImportTests
         Assert.Throws<InvalidDataException>(() => Read("a.docx", Zip(("word/styles.xml", "<w:styles xmlns:w=\"" + WordNs + "\"/>"))));
 
     [Fact]
+    public void Docx_MergedCellContinuedOverManyRows_ExpandingToTooMuchText_IsRefused()
+    {
+        // 1 MB of text in one cell, continued (w:vMerge) in 60 rows below it: 61 million characters of table text.
+        var rows = new List<string> { Tr(Tc(new string('a', 1_000_000))) };
+        rows.AddRange(Enumerable.Range(0, 60).Select(_ => Tr(Tc(string.Empty, "<w:vMerge/>"))));
+        var ex = Assert.Throws<InvalidDataException>(() => Read("a.docx", Docx(Tbl([.. rows]))));
+        Assert.Contains("too much text", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Docx_Dtd_IsProhibited()
     {
         var document = $"<?xml version=\"1.0\"?><!DOCTYPE d [<!ENTITY x \"y\">]><w:document xmlns:w=\"{WordNs}\"><w:body/></w:document>";
@@ -128,6 +161,29 @@ public class DocumentImportTests
         Assert.Equal(["Nazwa", "E-mail", "Telefon", "Telefon zapasowy"], result.Columns);
         var contact = Assert.Single(result.Contacts);
         Assert.Equal(("Gmina Ożarów", "555", "555"), (contact.Name, contact.Fields["Telefon"], contact.Fields["Telefon zapasowy"]));
+    }
+
+    [Fact]
+    public void Ods_RepeatedCellExpandingToTooMuchText_IsRefused()
+    {
+        // 300 000 characters repeated in 256 columns: 77 million characters from 300 kB of XML.
+        var sheet = Table("A", Row(Cell(new string('a', 300_000), "table:number-columns-repeated=\"256\"")));
+        var ex = Assert.Throws<InvalidDataException>(() => Read("a.ods", OpenDocument(sheet, spreadsheet: true)));
+        Assert.Contains("too much text", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Odt_ExpandedSpacesBeyondTheTextLimit_AreRefused()
+    {
+        // 60 000 × <text:s text:c="1000"/> = 60 million spaces from 1.3 MB of XML; the skipped annotation of random text
+        // keeps the compression ratio under the zip bomb check, so the text limit is what refuses the file.
+        var random = new Random(5);
+        const string Letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        var noise = new string([.. Enumerable.Range(0, 40_000).Select(_ => Letters[random.Next(Letters.Length)])]);
+        var body = $"<text:p><office:annotation><text:p>{noise}</text:p></office:annotation>Uwagi"
+            + string.Concat(Enumerable.Repeat("<text:s text:c=\"1000\"/>", 60_000)) + "koniec</text:p>";
+        var ex = Assert.Throws<InvalidDataException>(() => Read("a.odt", OpenDocument(body, spreadsheet: false)));
+        Assert.Contains("too much text", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
