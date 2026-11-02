@@ -113,8 +113,9 @@ public sealed class PolicyTemplatePackageLoader(IPolicyPackageExtractor? extract
     };
 
     /// <summary>The templates of this computer as a package (null: none).</summary>
+    /// <exception cref="PolicyTemplatePackageException">The folder holds more than a package may (<see cref="PolicyTemplatePackageError.TooLarge"/>).</exception>
     public PolicyTemplatePackage? LocalStore() => local?.Folder is { } folder && Directory.Exists(folder)
-        ? PolicyTemplatePackage.FromFolder(folder, folder)
+        ? FromFolder(folder, folder)
         : null;
 
     /// <summary>A folder of templates (an extracted package, the operator's own ADMX).</summary>
@@ -122,7 +123,7 @@ public sealed class PolicyTemplatePackageLoader(IPolicyPackageExtractor? extract
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(folder);
         return Task.Run(() => Checked(Directory.Exists(folder)
-            ? PolicyTemplatePackage.FromFolder(Path.GetFileName(folder.TrimEnd('\\', '/')), folder)
+            ? FromFolder(Path.GetFileName(folder.TrimEnd('\\', '/')), folder)
             : throw new PolicyTemplatePackageException(PolicyTemplatePackageError.NotFound, "The folder does not exist.")), cancellationToken);
     }
 
@@ -285,9 +286,26 @@ public sealed class PolicyTemplatePackageLoader(IPolicyPackageExtractor? extract
         {
             return PolicyTemplatePackage.FromZip(name, archive);
         }
+        catch (InvalidDataException ex) when (PolicyTemplatePackage.IsTooLarge(ex))
+        {
+            throw new PolicyTemplatePackageException(PolicyTemplatePackageError.TooLarge, "The package holds more than a package may.", ex);
+        }
         catch (InvalidDataException ex)
         {
             throw new PolicyTemplatePackageException(PolicyTemplatePackageError.ExtractionFailed, "The archive cannot be read.", ex);
+        }
+    }
+
+    /// <summary>A folder as a package; more templates or bytes than a package may hold is <see cref="PolicyTemplatePackageError.TooLarge"/>.</summary>
+    private static PolicyTemplatePackage FromFolder(string description, string folder)
+    {
+        try
+        {
+            return PolicyTemplatePackage.FromFolder(description, folder);
+        }
+        catch (InvalidDataException ex) when (PolicyTemplatePackage.IsTooLarge(ex))
+        {
+            throw new PolicyTemplatePackageException(PolicyTemplatePackageError.TooLarge, "The folder holds more than a package may.", ex);
         }
     }
 

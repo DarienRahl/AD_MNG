@@ -12340,6 +12340,15 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="AdmTemplates.CloseDiscard" xml:space="preserve">
     <value>Setting changes not saved yet: {0}. Close the tab and discard them?</value>
   </data>
+  <data name="AdmTemplates.IssueCategoryTooDeep" xml:space="preserve">
+    <value>{0}: category {1} is nested too deeply – shown at the top</value>
+  </data>
+  <data name="CentralStore.StatusOutdated" xml:space="preserve">
+    <value>Kept at the old revision</value>
+  </data>
+  <data name="CentralStore.DetailOutdated" xml:space="preserve">
+    <value>language file of a replaced template – choose its language or delete the file</value>
+  </data>
   <!-- K3: administrative templates (end) -->
 
   <!-- U5 core: begin -->

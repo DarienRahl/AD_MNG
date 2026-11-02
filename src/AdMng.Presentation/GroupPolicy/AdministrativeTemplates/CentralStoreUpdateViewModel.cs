@@ -259,12 +259,17 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, _gp.Lifetime);
             var package = await Task.Run(() => load(linked.Token), linked.Token).ConfigureAwait(true);
             linked.Token.ThrowIfCancellationRequested(); // the window closed meanwhile
+            // The languages the store already has are chosen too: a replaced template's language files would otherwise stay
+            // at the old revision there.
+            var storeCultures = await StoreCulturesAsync(linked.Token).ConfigureAwait(true);
+            linked.Token.ThrowIfCancellationRequested();
             Package = package;
             Cultures.Clear();
             var preferred = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { PolicyDefinitionLoader.DefaultCulture, Localizer.Culture.Name, Localizer.Culture.TwoLetterISOLanguageName };
             foreach (var culture in package.Cultures)
             {
-                var choice = new CultureChoiceViewModel(culture, CultureName(culture), preferred.Contains(culture));
+                var inStore = storeCultures.Contains(GroupPolicyPlanner.TargetCulture(culture, storeCultures), StringComparer.OrdinalIgnoreCase);
+                var choice = new CultureChoiceViewModel(culture, CultureName(culture), preferred.Contains(culture) || inStore);
                 choice.PropertyChanged += (_, _) => CompareAsync().Forget();
                 Cultures.Add(choice);
             }
@@ -294,6 +299,34 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase
                 IsBusy = false;
                 BusyText = null;
             }
+        }
+    }
+
+    /// <summary>The culture folders of the central store (none when it cannot be listed: the comparison says why).</summary>
+    private async Task<IReadOnlyCollection<string>> StoreCulturesAsync(CancellationToken token)
+    {
+        if (Session is not { } session)
+        {
+            return [];
+        }
+
+        try
+        {
+            var access = await _gp.OpenSysvolAsync(session, token).ConfigureAwait(true);
+            if (access.Connection is not { } sysvol)
+            {
+                return [];
+            }
+
+            await using (sysvol.ConfigureAwait(true))
+            {
+                var listing = await sysvol.ListPolicyDefinitionsAsync(GroupPolicyPlanner.MaxCentralStoreFiles, token).ConfigureAwait(true);
+                return [.. (listing ?? []).Where(e => e.IsFolder && !e.RelativePath.Contains('/', StringComparison.Ordinal)).Select(e => e.RelativePath)];
+            }
+        }
+        catch (Exception ex) when (GroupPolicyText.IsExpected(ex))
+        {
+            return [];
         }
     }
 
@@ -358,7 +391,7 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase
             Rows = [.. comparison.Files.Select(Row)];
             StoreNote = comparison.StoreExists ? null : Localizer[L.CentralStore.StoreMissing];
             SummaryText = Localizer.Format(L.CentralStore.Summary, Rows.Count(r => r.IsChange), Rows.Count(r => r.Status == CentralStoreFileStatus.Unchanged),
-                Rows.Count(r => r.Status is CentralStoreFileStatus.NamespaceCollision or CentralStoreFileStatus.Unreadable));
+                Rows.Count(r => r.Status is CentralStoreFileStatus.NamespaceCollision or CentralStoreFileStatus.Unreadable or CentralStoreFileStatus.OutdatedLanguage));
             Error = null;
         }
         catch (OperationCanceledException)
@@ -517,12 +550,14 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase
             CentralStoreFileStatus.NamespaceCollision => L.CentralStore.StatusCollision,
             CentralStoreFileStatus.Unreadable => L.CentralStore.StatusUnreadable,
             CentralStoreFileStatus.Removed => L.CentralStore.StatusRemoved,
+            CentralStoreFileStatus.OutdatedLanguage => L.CentralStore.StatusOutdated,
             _ => L.CentralStore.StatusLeftover,
         }];
         var detail = change.Status switch
         {
             CentralStoreFileStatus.NamespaceCollision => Localizer.Format(L.CentralStore.DetailCollision, change.CollidesWith ?? string.Empty, change.Namespace ?? string.Empty),
             CentralStoreFileStatus.Removed => Localizer.Format(L.CentralStore.DetailRemoved, change.CollidesWith ?? string.Empty),
+            CentralStoreFileStatus.OutdatedLanguage => Localizer[L.CentralStore.DetailOutdated],
             _ when change.PoliciesAdded > 0 || change.PoliciesRemoved > 0 => Localizer.Format(L.CentralStore.DetailPolicies, change.PoliciesAdded, change.PoliciesRemoved),
             _ => string.Empty,
         };

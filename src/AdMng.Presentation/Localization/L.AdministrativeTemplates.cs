@@ -55,6 +55,7 @@ public static partial class L
         public const string IssueDuplicate = "AdmTemplates.IssueDuplicate";
         public const string IssueUnknownCategory = "AdmTemplates.IssueUnknownCategory";
         public const string IssueCategoryLoop = "AdmTemplates.IssueCategoryLoop";
+        public const string IssueCategoryTooDeep = "AdmTemplates.IssueCategoryTooDeep";
         public const string IssueTooManyFiles = "AdmTemplates.IssueTooManyFiles";
         public const string FileUnreadable = "AdmTemplates.FileUnreadable";
         public const string FileAccessDenied = "AdmTemplates.FileAccessDenied";
@@ -130,8 +131,10 @@ public static partial class L
         public const string StatusUnreadable = "CentralStore.StatusUnreadable";
         public const string StatusRemoved = "CentralStore.StatusRemoved";
         public const string StatusLeftover = "CentralStore.StatusLeftover";
+        public const string StatusOutdated = "CentralStore.StatusOutdated";
         public const string DetailCollision = "CentralStore.DetailCollision";
         public const string DetailRemoved = "CentralStore.DetailRemoved";
+        public const string DetailOutdated = "CentralStore.DetailOutdated";
         public const string DetailPolicies = "CentralStore.DetailPolicies";
         public const string Summary = "CentralStore.Summary";
         public const string StoreMissing = "CentralStore.StoreMissing";

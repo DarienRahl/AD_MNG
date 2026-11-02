@@ -610,11 +610,11 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     private void UpdateRow(PolicyRowViewModel row)
     {
         var half = Half(row.Scope);
-        var state = half is null ? PolicySetting.NotConfigured : PolicyEngine.Read(row.Definition.Policy, half.Document.View);
+        var state = half is null ? PolicySetting.NotConfigured : PolicyEngine.Read(row.Definition.Policy, half.Document.View, _ownedNames);
         row.State = state.State;
         row.StateText = half is null || half.Error is not null ? Localizer[L.AdministrativeTemplates.StateUnknown] : StateText(state.State);
         row.IsChanged = half is not null && _touched.Contains((row.Scope, row.Definition.Id))
-            && !Equals(PolicyEngine.Read(row.Definition.Policy, half.OriginalDocument.View), state);
+            && !Equals(PolicyEngine.Read(row.Definition.Policy, half.OriginalDocument.View, _ownedNames), state);
     }
 
     private string StateText(PolicyState state) => Localizer[state switch
@@ -634,7 +634,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         }
 
         var half = Half(row.Scope);
-        var current = half is null ? PolicySetting.NotConfigured : PolicyEngine.Read(row.Definition.Policy, half.Document.View);
+        var current = half is null ? PolicySetting.NotConfigured : PolicyEngine.Read(row.Definition.Policy, half.Document.View, _ownedNames);
         Editor = new PolicyEditorViewModel(Localizer, row.Definition, row.Scope, current, CanEditHalf(row.Scope), Apply);
     }
 
@@ -680,7 +680,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
             return;
         }
 
-        PolicyEngine.Write(editor.Definition.Policy, setting, half.Document);
+        PolicyEngine.Write(editor.Definition.Policy, setting, half.Document, _ownedNames);
         _touched.Add((editor.Scope, editor.Definition.Id));
         if (_rows.TryGetValue((editor.Scope, editor.Definition.Id), out var row))
         {
@@ -765,7 +765,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
                 count++;
             }
             else if (_set.Find(id) is { } definition
-                && !Equals(PolicyEngine.Read(definition.Policy, half.OriginalDocument.View), PolicyEngine.Read(definition.Policy, half.Document.View)))
+                && !Equals(PolicyEngine.Read(definition.Policy, half.OriginalDocument.View, _ownedNames), PolicyEngine.Read(definition.Policy, half.Document.View, _ownedNames)))
             {
                 count++;
             }
@@ -790,8 +790,8 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     }
 
     private int CountConfigured() =>
-        _set.Policies.Sum(d => (d.Policy.AppliesTo(PolicyClass.Machine) && _machine is { } m && PolicyEngine.Read(d.Policy, m.Document.View).State != PolicyState.NotConfigured ? 1 : 0)
-            + (d.Policy.AppliesTo(PolicyClass.User) && _user is { } u && PolicyEngine.Read(d.Policy, u.Document.View).State != PolicyState.NotConfigured ? 1 : 0));
+        _set.Policies.Sum(d => (d.Policy.AppliesTo(PolicyClass.Machine) && _machine is { } m && PolicyEngine.Read(d.Policy, m.Document.View, _ownedNames).State != PolicyState.NotConfigured ? 1 : 0)
+            + (d.Policy.AppliesTo(PolicyClass.User) && _user is { } u && PolicyEngine.Read(d.Policy, u.Document.View, _ownedNames).State != PolicyState.NotConfigured ? 1 : 0));
 
     /// <summary>The extensions the configured policies of a half name (ADMX <c>clientExtension</c>).</summary>
     private IReadOnlyCollection<Guid> ClientExtensions(RegistryHalf half)
@@ -800,7 +800,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         foreach (var definition in _set.Policies.Where(d => d.Policy.AppliesTo(half.Scope)
             && (d.Policy.ClientExtension is not null || d.Policy.Elements.Any(e => e.ClientExtension is not null))))
         {
-            var setting = PolicyEngine.Read(definition.Policy, half.Document.View);
+            var setting = PolicyEngine.Read(definition.Policy, half.Document.View, _ownedNames);
             if (setting.State == PolicyState.NotConfigured)
             {
                 continue;
@@ -833,6 +833,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         PolicyDefinitionIssueKind.Duplicate => L.AdministrativeTemplates.IssueDuplicate,
         PolicyDefinitionIssueKind.UnknownCategory => L.AdministrativeTemplates.IssueUnknownCategory,
         PolicyDefinitionIssueKind.CategoryLoop => L.AdministrativeTemplates.IssueCategoryLoop,
+        PolicyDefinitionIssueKind.CategoryTooDeep => L.AdministrativeTemplates.IssueCategoryTooDeep,
         _ => L.AdministrativeTemplates.IssueTooManyFiles,
     }, issue.FileName, issue.Kind is PolicyDefinitionIssueKind.FileUnreadable or PolicyDefinitionIssueKind.LanguageUnreadable
         ? UnreadableReason(issue.FileName)

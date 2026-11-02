@@ -146,6 +146,62 @@ public class CentralStoreUpdateTests
     }
 
     [Fact]
+    public async Task Window_ChoosesTheLanguagesTheStoreHas_AndListsTheLanguageFilesAReplacedTemplateLeavesOld()
+    {
+        // An English UI: Polish is chosen because the store has pl-PL; de-DE is in the store but not in the package.
+        var harness = await GroupPolicyHarness.CreateAsync();
+        foreach (var (path, content) in SampleAdministrativeTemplates.Files())
+        {
+            harness.Sysvol.PutPolicyDefinition(path, content);
+        }
+
+        harness.Sysvol.PutPolicyDefinition("de-DE/contoso.adml", SampleAdministrativeTemplates.Utf8(SampleAdministrativeTemplates.ContosoAdmlEn));
+        var folder = System.IO.Directory.CreateTempSubdirectory("admng-k3-langs-");
+        try
+        {
+            var archive = Path.Combine(folder.FullName, "policy_templates.zip");
+            await File.WriteAllBytesAsync(archive, Zip(SampleAdministrativeTemplates.ContosoAdmx.Replace("revision=\"1.2\"", "revision=\"1.3\"", StringComparison.Ordinal)), Ct);
+            harness.B2.Files.NextOpenPath = archive;
+            var update = new CentralStoreUpdateViewModel(harness.Services, harness.Definitions, new PolicyTemplatePackageLoader());
+
+            await update.OpenFileCommand.ExecuteAsync(null);
+
+            Assert.Null(update.Error);
+            Assert.All(update.Cultures, c => Assert.True(c.IsSelected, c.Culture));
+            var outdated = Assert.Single(update.Rows, r => r.Status == CentralStoreFileStatus.OutdatedLanguage);
+            Assert.Equal("de-DE/contoso.adml", outdated.Path);
+            Assert.Equal("Kept at the old revision", outdated.StatusText);
+            Assert.False(outdated.IsChange);
+            Assert.Equal("To write: 1, unchanged: 2, skipped: 1", update.SummaryText);
+        }
+        finally
+        {
+            folder.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task AFolderWithMoreTemplatesThanAPackageMayHold_IsTooLarge()
+    {
+        var folder = System.IO.Directory.CreateTempSubdirectory("admng-k3-many-");
+        try
+        {
+            for (var i = 0; i <= PolicyTemplatePackage.MaxTemplates; i++)
+            {
+                await File.WriteAllBytesAsync(Path.Combine(folder.FullName, "szablon" + i.ToString(CultureInfo.InvariantCulture) + ".admx"), [0x3c], Ct);
+            }
+
+            var error = await Assert.ThrowsAsync<PolicyTemplatePackageException>(() => new PolicyTemplatePackageLoader().LoadFolderAsync(folder.FullName, Ct));
+
+            Assert.Equal(PolicyTemplatePackageError.TooLarge, error.Error);
+        }
+        finally
+        {
+            folder.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Window_WithoutAStore_OffersTheTemplatesOfThisComputer_AndCreatesTheStore()
     {
         var harness = await GroupPolicyHarness.CreateAsync();

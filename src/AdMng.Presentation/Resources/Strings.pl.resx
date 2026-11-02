@@ -12340,6 +12340,15 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="AdmTemplates.CloseDiscard" xml:space="preserve">
     <value>Zmiany ustawień (liczba: {0}) nie zostały zapisane. Zamknąć kartę i odrzucić je?</value>
   </data>
+  <data name="AdmTemplates.IssueCategoryTooDeep" xml:space="preserve">
+    <value>{0}: kategoria {1} jest zagnieżdżona zbyt głęboko – pokazano ją na najwyższym poziomie</value>
+  </data>
+  <data name="CentralStore.StatusOutdated" xml:space="preserve">
+    <value>Zostaje w starej wersji</value>
+  </data>
+  <data name="CentralStore.DetailOutdated" xml:space="preserve">
+    <value>plik językowy zastępowanego szablonu – zaznacz ten język albo usuń plik</value>
+  </data>
   <!-- K3: administrative templates (end) -->
 
   <!-- U5 core: begin -->
