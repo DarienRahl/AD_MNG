@@ -1,5 +1,19 @@
 admng-watchdog (@VERSION@) unstable; urgency=medium
 
+  * No change in how the service works and no database migration.
+  * Messages to users go through the message sanitizer shared with AD
+    Manager, which now keeps Word's paragraph spacing hints
+    mso-margin-top-alt and mso-margin-bottom-alt (one length or auto; inert
+    in browsers, honoured by classic Outlook) and still drops every other
+    mso-* property.
+  * Rebuilt for AD Manager 0.7.0: Korespondencja (messages through classic
+    Outlook) and the mailbox owner queries are AD Manager features that do
+    not use the service.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Mon, 02 Nov 2026 12:30:00 +0000
+
+admng-watchdog (0.6.0-1) unstable; urgency=medium
+
   * Inline images in messages to users (AdMng 0.6.0, contract v2):
     POST /api/v1/user-messages accepts inlineImages (PNG, JPEG or GIF
     checked by content, at most 4096 x 4096 px, 10 images, 1 MiB each and
