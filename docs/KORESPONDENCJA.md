@@ -428,7 +428,7 @@ skrzynki, wygrywa zawsze (co najmniej na poziomie *częściowo*).
 |---|---|---|
 | dopasowano | jedna osoba, dokładnie lub bez polskich znaków | nic |
 | dopasowano przez pełnomocnictwo | jedyny kandydat-pełnomocnik | nic |
-| prawdopodobne | jedna osoba na niższym poziomie | sprawdź, w razie potrzeby wybierz inną |
+| prawdopodobne | jedna osoba na niższym poziomie (zgodna tylko część nazwiska – osoba nie jest wybierana automatycznie) | sprawdź, w razie potrzeby wybierz inną; przy części nazwiska wybierz osobę z listy |
 | niejednoznaczne | kilka osób na tym samym poziomie | wybierz kandydata z listy |
 | nie znaleziono | nikt nie pasuje | wybierz osobę, wpisz adres albo wyklucz skrzynkę |
 | brak imienia i nazwiska | skrzynka nie ma danych osoby | wybierz osobę albo zmień źródło imienia i nazwiska |
@@ -447,7 +447,9 @@ wykluczone: 2*.
 
 - Wybór innego kandydata z listy w kolumnie *Właściciel* zmienia wiersz na wybrany ręcznie.
 - *Wybierz właściciela…* – dowolny użytkownik z okna wyboru obiektów.
-- *Wpisz adres właściciela…* – adres wpisany ręcznie (sprawdzany).
+- *Wpisz adres właściciela…* – adres wpisany ręcznie (sprawdzany). Adres jednego z kandydatów wybiera tę osobę, osobie
+  bez adresu wpisany adres go uzupełnia, a adres kogoś innego niż wybrana osoba usuwa ją z wiersza – jej imię i zwrot nie
+  trafią pod obcy adres (pola osoby zostają puste, podgląd o tym mówi).
 - *Wyklucz* / *Przywróć* – skrzynka nie trafi do odbiorców.
 
 ### Pola skrzynek i właścicieli

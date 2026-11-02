@@ -19,7 +19,11 @@ namespace AdMng.Presentation.Correspondence;
 /// </summary>
 public sealed partial class MailboxOwnersPageViewModel
 {
-    /// <summary>Adds a batch of matched mailboxes (UI thread); the automatic owner follows <paramref name="enabledOnly"/>.</summary>
+    /// <summary>
+    /// Adds a batch of matched mailboxes (UI thread); the automatic owner follows <paramref name="enabledOnly"/>. A best
+    /// candidate found only by a part of the name (<see cref="OwnerMatchLevel.Partial"/>, no delegate link) is never chosen
+    /// automatically: the operator confirms it in the row (it may be another person of a similar name).
+    /// </summary>
     private void AddRows(IReadOnlyList<(MailboxRead Mailbox, OwnerMatch Match)> batch, bool enabledOnly, CancellationToken token)
     {
         if (token.IsCancellationRequested || batch.Count == 0)
@@ -36,10 +40,12 @@ public sealed partial class MailboxOwnersPageViewModel
             {
                 MailboxObject = mailbox.Account,
             };
+            var weak = match.Best is { Level: OwnerMatchLevel.Partial, IsDelegate: false };
             row.ApplyAutomatic(match.Status switch
             {
-                OwnerMatchStatus.Matched or OwnerMatchStatus.MatchedByDelegate or OwnerMatchStatus.Probable or OwnerMatchStatus.OwnerWithoutAddress => true,
-                OwnerMatchStatus.OwnerDisabled => !enabledOnly,
+                OwnerMatchStatus.Matched or OwnerMatchStatus.MatchedByDelegate => true,
+                OwnerMatchStatus.Probable or OwnerMatchStatus.OwnerWithoutAddress => !weak,
+                OwnerMatchStatus.OwnerDisabled => !enabledOnly && !weak,
                 _ => false,
             });
             UpdateRow(row);

@@ -40,10 +40,11 @@ public sealed record CandidateOption(PersonCandidate Person, string Text, bool I
 /// The matcher's best candidate is chosen automatically for <see cref="OwnerMatchStatus.Matched"/>,
 /// <see cref="OwnerMatchStatus.MatchedByDelegate"/>, <see cref="OwnerMatchStatus.Probable"/> and
 /// <see cref="OwnerMatchStatus.OwnerWithoutAddress"/> (no address: not sent until one is typed), and for
-/// <see cref="OwnerMatchStatus.OwnerDisabled"/> only when disabled owners are allowed. Choosing another candidate (the combo
-/// box), picking any user or typing an address makes the row <see cref="MailboxOwnerRowState.Manual"/>; choosing the
-/// automatic candidate again returns it to <see cref="MailboxOwnerRowState.Automatic"/>. A cleared selection (a recycled row of
-/// the virtualized grid) is ignored.
+/// <see cref="OwnerMatchStatus.OwnerDisabled"/> only when disabled owners are allowed – never when it matches only by a part
+/// of the name (<see cref="OwnerMatchLevel.Partial"/> without a delegate link). Choosing another candidate (the combo box),
+/// picking any user or typing an address makes the row <see cref="MailboxOwnerRowState.Manual"/>; choosing the automatic
+/// candidate again returns it to <see cref="MailboxOwnerRowState.Automatic"/>. A cleared selection (a recycled row of the
+/// virtualized grid) is ignored.
 /// </remarks>
 public sealed partial class MailboxOwnerRowViewModel : ObservableObject
 {
@@ -183,12 +184,31 @@ public sealed partial class MailboxOwnerRowViewModel : ObservableObject
         SetState(ReferenceEquals(existing, AutomaticCandidate) ? MailboxOwnerRowState.Automatic : MailboxOwnerRowState.Manual);
     }
 
-    /// <summary>"Wpisz adres właściciela…": the typed address is the owner's address.</summary>
+    /// <summary>
+    /// "Wpisz adres właściciela…": the typed address is the owner's address. The address of a candidate chooses that
+    /// person (their name and salutation go with it); the chosen person stays when they have no address of their own (the
+    /// typed one is theirs), but a person whose own address differs is no longer the owner – another person's name,
+    /// salutation and fields never go to the typed address (the person fields stay empty, the preview says so).
+    /// </summary>
     internal void TypeAddress(string address)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(address);
+        if (_candidates.FirstOrDefault(c => SameAddress(c.Person.Address, address)) is { } owner)
+        {
+            ChooseManually(owner);
+            return;
+        }
+
         _typedAddress = address;
-        OwnerAddress = address;
+        if (SelectedCandidate is { Person.Address: { } own } && !SameAddress(own, address))
+        {
+            Apply(null);
+        }
+        else
+        {
+            OwnerAddress = address;
+        }
+
         SetState(MailboxOwnerRowState.Manual);
         OnPropertyChanged(nameof(HasTypedAddress));
     }
@@ -227,6 +247,9 @@ public sealed partial class MailboxOwnerRowViewModel : ObservableObject
 
     private static bool SamePerson(PersonCandidate a, PersonCandidate b) =>
         Core.Ldap.DistinguishedName.AreEqual(a.DistinguishedName, b.DistinguishedName);
+
+    private static bool SameAddress(string? a, string? b) =>
+        !string.IsNullOrWhiteSpace(a) && string.Equals(EmailAddressText.Normalize(a), EmailAddressText.Normalize(b), StringComparison.Ordinal);
 
     private void Apply(CandidateOption? option)
     {
