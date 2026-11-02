@@ -119,7 +119,11 @@ public sealed partial class MailboxOwnersPageViewModel : ObservableObject
     [ObservableProperty]
     public partial string PersonBaseText { get; private set; } = string.Empty;
 
-    /// <summary>Disabled persons stay candidates but are never chosen automatically (<see cref="OwnerMatchStatus.OwnerDisabled"/>).</summary>
+    /// <summary>
+    /// Disabled persons stay candidates but are never chosen automatically (<see cref="OwnerMatchStatus.OwnerDisabled"/>), and
+    /// among several candidates of one level the only enabled one wins (<see cref="OwnerMatchOptions.PreferEnabled"/>); off,
+    /// such candidates are ambiguous.
+    /// </summary>
     [ObservableProperty]
     public partial bool EnabledOwnersOnly { get; set; } = true;
 

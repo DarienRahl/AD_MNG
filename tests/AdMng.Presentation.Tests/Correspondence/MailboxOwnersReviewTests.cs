@@ -200,6 +200,32 @@ public sealed class MailboxOwnersReviewTests
         Assert.Equal("zgodne imię i nazwisko · konto właściciela jest wyłączone", stara.DetailText);
     }
 
+    [Theory]
+    [InlineData(true, OwnerMatchStatus.Matched)]
+    [InlineData(false, OwnerMatchStatus.Ambiguous)]
+    public async Task TwoOwnersOfTheSameName_OneDisabled_TheEnabledOneWinsOnlyWhileDisabledOwnersAreNotAllowed(bool enabledOnly, OwnerMatchStatus expected)
+    {
+        // docs/KORESPONDENCJA.md: with several candidates the only enabled account wins with "Właścicielem może być tylko
+        // włączone konto"; otherwise the result is ambiguous (the disabled one may be the owner).
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
+        var sample = MailboxSample(scenario);
+        scenario.Harness.Builder.AddUser("Ewa", "Zielińska", scenario.Company.SalesOu, new Dictionary<string, object?>
+        {
+            [Core.ActiveDirectory.Attr.Mail] = "ewa.zielinska2@contoso.test",
+            [Core.ActiveDirectory.Attr.UserAccountControl] = (int)(Core.ActiveDirectory.UserAccountControl.NormalAccount | Core.ActiveDirectory.UserAccountControl.AccountDisable),
+        });
+        using var window = await scenario.OpenAsync(new CorrespondenceRequest([], CorrespondenceStart.MailboxOwners));
+        await UseSampleOuAsync(scenario, window.Mailboxes, sample);
+        window.Mailboxes.EnabledOwnersOnly = enabledOnly;
+
+        await window.Mailboxes.FindOwnersCommand.ExecuteAsync(null);
+
+        var kadry = Row(window.Mailboxes, sample.DzialKadr);
+        Assert.Equal(2, kadry.Candidates.Count);
+        Assert.Equal(expected, kadry.Status);
+        Assert.Equal(enabledOnly, kadry.IsReady);
+    }
+
     [Fact]
     public async Task AddToRecipients_OneMessagePerOwner_WithTheMailboxAndOwnerFields()
     {

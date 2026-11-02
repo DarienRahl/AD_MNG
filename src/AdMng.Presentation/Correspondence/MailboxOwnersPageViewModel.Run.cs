@@ -145,7 +145,10 @@ public sealed partial class MailboxOwnersPageViewModel
             async () =>
             {
                 var index = new PersonIndex(persons);
-                var options = new OwnerMatchOptions();
+
+                // Several candidates of one level: the only enabled one wins only while disabled owners are not allowed
+                // (with them allowed, the disabled one may be the owner – ambiguous).
+                var options = new OwnerMatchOptions { PreferEnabled = enabledOnly };
                 var batch = new List<(MailboxRead Mailbox, OwnerMatch Match)>(RowBatchSize);
                 foreach (var mailbox in mailboxes)
                 {
