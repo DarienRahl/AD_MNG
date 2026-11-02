@@ -12,7 +12,8 @@ wins for the parts it covers.
 
 * **A1** – Pasting a formatted message ("HTML Format" / CF_HTML from Outlook; also Word and browsers) into the HTML body of
   a template, *sanitized but faithful*: Outlook's `<style>` class rules (`MsoNormal` …) inlined into `style` attributes,
-  conditional comments, `o:`/`v:`/`w:` elements and `mso-*` properties removed, allow-listed tags, attributes and CSS
+  conditional comments, `o:`/`v:`/`w:` elements and `mso-*` properties removed (but Word's paragraph spacing
+  `mso-margin-top-alt`/`mso-margin-bottom-alt`, policy version 2), allow-listed tags, attributes and CSS
   properties kept, links kept (http/https/mailto; the allowed-link-domain rule of U1 §5 stays – pasted links to other
   domains are problems with an "allow this domain" action), placeholders such as `{givenName}` that Outlook split with
   inline tags repaired.
