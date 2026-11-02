@@ -21,7 +21,8 @@ public sealed record CorrespondenceDraft
 
     public IReadOnlyList<CustomFieldDefinition> CustomFields { get; init; } = [];
 
-    /// <summary>The HTML of one <c>{{lista}}</c> item of grouped messages.</summary>
+    /// <summary>One <c>{{lista}}</c> item: plain text with <c>{{fields}}</c>, as typed in its text box (the renderer
+    /// HTML-encodes its text, so "&lt;" and "&amp;" show as typed).</summary>
     public string ListItemTemplate { get; init; } = "";
 
     public string Salutation { get; init; } = BuiltInFields.DefaultSalutation;

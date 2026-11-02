@@ -1068,7 +1068,9 @@ differs from sections 1–13 or goes beyond them.
   through to custom fields and columns.
 - **Renderer:** every unit is a group (a single row renders `{{lista}}` with one item, `{{liczba}}` = 1); the list is
   rendered only when used, and the paragraph holding `{{lista}}` is split around the `<ul>`; in the subject `{{lista}}` is
-  the items joined by ", "; list items take `{{nazwa}}` from the unit; the signature is appended without merging fields;
+  the items joined by ", "; list items take `{{nazwa}}` from the unit; the list item template is plain text, as its text
+  box suggests (its own text HTML-encoded, `FieldTemplate.TextToHtml`, so a typed `{{Skrzynka}} <{{Adres}}>` keeps the
+  address; template import keeps it as text instead of sanitizing it as HTML); the signature is appended without merging fields;
   only images whose content id is referenced are kept; the sanitizer empties `<head>`, so the final document has no
   `<meta charset>` (previews add their own).
 - **Signature parser:** decoding BOM → meta charset → strict UTF-8 → ANSI; web images removed with a problem, `data:`

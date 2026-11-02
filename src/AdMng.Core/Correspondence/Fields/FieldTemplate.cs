@@ -164,6 +164,29 @@ public static class FieldTemplate
         return builder.ToString();
     }
 
+    /// <summary>
+    /// A plain-text template (the list item template, typed in a text box) as an HTML template: its own text HTML-encoded
+    /// (<c>&amp; &lt; &gt; " '</c>, line breaks → <c>&lt;br&gt;</c>), its tokens kept as they are for <see cref="Merge"/> –
+    /// so "{{Skrzynka}} &lt;{{Adres}}&gt;" shows its angle brackets instead of turning the merged address into a tag.
+    /// </summary>
+    internal static string TextToHtml(string? template)
+    {
+        if (string.IsNullOrEmpty(template))
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder(template.Length + 16);
+        var position = 0;
+        foreach (var token in Parse(template))
+        {
+            builder.Append(HtmlEncode(template[position..token.Start])).Append(template, token.Start, token.Length);
+            position = token.Start + token.Length;
+        }
+
+        return builder.Append(HtmlEncode(template[position..])).ToString();
+    }
+
     /// <summary>A value as it is written into a template of the given encoding.</summary>
     public static string Encode(string value, FieldEncoding encoding)
     {

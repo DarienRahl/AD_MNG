@@ -14,7 +14,7 @@ public static class CorrespondenceRenderer
 
     /// <summary>
     /// Merges subject (Header) and body (Html) for one unit; groups render <c>{{lista}}</c> as <c>&lt;ul&gt;&lt;li&gt;</c>
-    /// of the list item template (Html) per row and <c>{{liczba}}</c> as the row count; the first row gives the other
+    /// of the list item template (plain text, HTML-encoded, values Html) per row and <c>{{liczba}}</c> as the row count; the first row gives the other
     /// fields. The body is repaired (<c>FieldTemplate.RepairHtml</c>), merged, wrapped by
     /// <see cref="CorrespondenceDocument.Build"/> and re-sanitized as a document.
     /// </summary>
@@ -49,7 +49,7 @@ public static class CorrespondenceRenderer
         var listEmpty = new List<string>();
         var list = string.Empty;
         var listText = string.Empty;
-        var itemTemplate = FieldTemplate.RepairHtml(draft.ListItemTemplate);
+        var itemTemplate = FieldTemplate.TextToHtml(draft.ListItemTemplate);   // plain text, as typed in its text box
         if (!string.IsNullOrWhiteSpace(itemTemplate) && rows.Count > 0 && (subjectUsesList || UsesList(bodyTemplate)))
         {
             var builder = new StringBuilder(ListStart);
