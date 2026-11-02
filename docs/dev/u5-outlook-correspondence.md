@@ -251,7 +251,7 @@ public sealed record CorrespondenceDraft
     public IReadOnlyDictionary<string, MessageImage> Images { get; init; }   // body images by content id
     public CorrespondenceSignature? Signature { get; init; }
     public IReadOnlyList<CustomFieldDefinition> CustomFields { get; init; } = [];
-    public string ListItemTemplate { get; init; } = "";
+    public string ListItemTemplate { get; init; } = "";   // plain text with {{fields}}, as typed in its text box
     public string Salutation { get; init; } = BuiltInFields.DefaultSalutation;
 }
 
@@ -266,7 +266,8 @@ public sealed record RenderedCorrespondence(
 public static class CorrespondenceRenderer
 {
     /// Merges subject (Header) and body (Html) for one unit; groups render {{lista}} as <ul><li> of the list item template
-    /// (Html) per row and {{liczba}} as the row count; the first row gives the other fields. The body is repaired
+    /// per row – plain text: its own text HTML-encoded (FieldTemplate.TextToHtml), the values merged with Html – and
+    /// {{liczba}} as the row count; the first row gives the other fields. The body is repaired
     /// (FieldTemplate.RepairHtml), merged, wrapped by CorrespondenceDocument.Build and re-sanitized as a document.
     public static RenderedCorrespondence Render(CorrespondenceDraft draft, CorrespondenceUnit unit, IReadOnlyCollection<string> knownColumns);
     public static string PlainText(string htmlDocument);    // HtmlToText.Convert (for logs-free previews, tests)
@@ -396,6 +397,10 @@ Matching:
    that one at the same rule), else `Ambiguous` (`Best` null). A chosen best that is disabled → `OwnerDisabled`; without
    address → `OwnerWithoutAddress`. Candidates sorted by score desc, then display name (culture-insensitive ordinal of
    the folded name), capped at `MaxCandidates`.
+6. The page (6.4) chooses `Best` automatically for `Matched`, `MatchedByDelegate`, `Probable` and
+   `OwnerWithoutAddress`, and for `OwnerDisabled` only when disabled owners are allowed – never a best at the `Partial`
+   level without a delegate link (only a part of the name agrees: maybe another person of a similar name), which the
+   operator confirms in the row. `Swapped` and `DisplayName` bests are chosen.
 
 ### 3.8 U1 fields addition
 
@@ -435,7 +440,8 @@ public enum OutlookFailureKind { NotSupported, NotInstalled, Elevated, Busy, Not
     RecipientUnresolved, AttachmentMissing, InvalidAccount, ItemTooLarge, Cancelled, Unknown }
 public sealed record OutlookFailure(OutlookFailureKind Kind, string Code, string? Step, int? HResult)
 {   // Code: "outlook.<kind>" camel case, e.g. outlook.notInstalled; Step: a stable step id (section 4.3), never a value
-    public bool StopsRun { get; }   // NotInstalled, Elevated, SecurityDenied, Disconnected, NotSupported
+    public bool StopsRun { get; }   // NotInstalled, Elevated, SecurityDenied, Disconnected, NotSupported,
+                                    // InvalidAccount (every message of a run is sent from the same account)
     public bool IsTransient { get; }  // Busy, NotResponding
 }
 public sealed record OutlookConnectResult(IOutlookSession? Session, OutlookFailure? Failure);
@@ -458,7 +464,7 @@ public sealed record OutlookMessage
     public string? SentOnBehalfOf { get; init; }
     public bool ReadReceipt { get; init; }
     public DateTimeOffset? DeferredDelivery { get; init; }
-    public string? VotingOptions { get; init; }                           // "Tak;Nie" – semicolon separated
+    public string? VotingOptions { get; init; }                           // "Tak;Nie" – semicolon separated (see below)
     public OutlookImportance Importance { get; init; } = OutlookImportance.Normal;
     public string? CampaignId { get; init; }                              // stored as a named property for the Odpowiedzi tab
     public IReadOnlyList<string> CampaignKeys { get; init; } = [];        // e.g. mailbox addresses of this message
@@ -475,6 +481,12 @@ public sealed record OutlookDiagnostics(string Version, string ProfileName, IRea
 public sealed record OutlookCampaign(string Id, string Subject, DateTimeOffset FirstSent, DateTimeOffset LastSent, int Messages);
 public sealed record OutlookVoteResponse(string Recipient, string? Response, DateTimeOffset? RespondedAt, DateTimeOffset SentAt,
     string Subject, IReadOnlyList<string> Keys) { public override string ToString() => nameof(OutlookVoteResponse); }
+
+// VotingOptions: Outlook splits MailItem.VotingOptions on the Windows list separator (sList, ',' with US formats),
+// not on ';' – the engine splits AD Manager's ';' options and joins them with the user's separator (GetLocaleInfoEx
+// LOCALE_SLIST). A delimiter inside an option becomes a look-alike so each option stays one button: a comma U+201A
+// '‚' while ',' is the delimiter, a no-break space for a blank delimiter, a space for any other; votes read back for
+// the Odpowiedzi tab get their comma again (U+201A → ',') before they are matched to the options.
 
 public interface IOutlookSignatureSource       // %APPDATA%\Microsoft\Signatures (file system, no COM)
 {
@@ -690,7 +702,7 @@ ostatnie logowanie: {{Ostatnie logowanie|brak danych}}", voting on with the defa
 | Type | Lifetime | Notes |
 |---|---|---|
 | `CorrespondenceTemplateLibrary(ISettingsStore, MessageImageStore?)` | singleton | built-ins + saved; save/delete/export (`{"format":"AdMng.CorrespondenceTemplates","version":1,...}` with images base64, 20 MiB cap)/import (new ids); `LastDraft` save/load; `Changed` event |
-| `CorrespondenceJournal(IAppPaths, ICorrespondenceKeyProtector, TimeProvider)` | singleton | `<SettingsDirectory>/correspondence/journal.txt` + `journal.key` (protected 32 bytes); `LoadAsync`, `Find(address) → JournalEntry?`, `AppendAsync(address, subject)` (line written and flushed at once, FileShare.ReadWrite), `PruneAsync(retention)`, `ClearAsync`, `Count`, `Oldest`, `Newest`; prune at load with the settings retention; thread-safe; corrupted key → new key, old journal renamed `journal-<date>.old` (and reported) |
+| `CorrespondenceJournal(IAppPaths, ICorrespondenceKeyProtector, TimeProvider)` | singleton | `<SettingsDirectory>/correspondence/journal.txt` + `journal.key` (protected 32 bytes); `LoadAsync`, `Find(address) → JournalEntry?`, `AppendAsync(address, subject)` (line written and flushed at once, FileShare.ReadWrite), `PruneAsync(retention)`, `ClearAsync`, `Count`, `Oldest`, `Newest`; prune at load with the settings retention; thread-safe; corrupted key → new key, old journal renamed `journal-<date>.old` (and reported); the backups follow the retention (every prune drops their older entries, an emptied backup is deleted, one of another format once last written before the cutoff) and `ClearAsync` deletes them before the journal |
 | `ICorrespondenceKeyProtector` | singleton (App: DPAPI CurrentUser + entropy "AdMng.CorrespondenceJournal") | `byte[] Protect(byte[])`, `byte[] Unprotect(byte[])`; tests: XOR fake |
 | `ICorrespondencePlatform` | singleton (App) | `string? DownloadsFolder` (SHGetKnownFolderPath), `int AnsiCodePage` via `IRegionalSettings` |
 | `IBrowserPreview` | singleton (App) | `Task OpenAsync(HtmlPreviewContent content, string title)` (loopback, section 9.3) |
@@ -728,7 +740,7 @@ All in `AdMng.Presentation.Correspondence`; `CorrespondenceViewModel : WindowVie
 - `CanCloseAsync`: while sending asks to stop; saves `LastDraft` and options.
 - `OnSessionEnded`: AD actions disabled (`Recipients.CanUseDirectory=false`), Outlook sending continues to work.
 
-**`OutlookConnectionViewModel`**: `State` (`OutlookState { Unknown, Connecting, Connected, NotInstalled, Failed, NotSupported }`), `StateText` ("Outlook: połączono (2 konta)" …), `Accounts` (`ObservableCollection<OutlookAccount>`), `SelectedAccount`, `OnBehalfOf`, `Session` (internal), `ConnectCommand`, `CheckCommand` ("Sprawdź Outlooka" → diagnostics report incl. journal folder path, Downloads folder, signatures folder), `EnsureConnectedAsync()`; failures show the localized code text (`Correspondence.Outlook.{code}`).
+**`OutlookConnectionViewModel`**: `State` (`OutlookState { Unknown, Connecting, Connected, NotInstalled, Failed, NotSupported }`), `StateText` ("Outlook: połączono (2 konta)" …), `Accounts` (`ObservableCollection<OutlookAccount>`), `SelectedAccount` (after connecting: the account of the settings when the profile has it, else the profile's default – the current user's, else the first – so never empty while connected; that default is not saved as the operator's choice), `OnBehalfOf`, `Session` (internal), `ConnectCommand`, `CheckCommand` ("Sprawdź Outlooka" → diagnostics report incl. journal folder path, Downloads folder, signatures folder), `EnsureConnectedAsync()`; failures show the localized code text (`Correspondence.Outlook.{code}`).
 
 **`RecipientsPageViewModel`**
 - Collection `Items` (`BulkObservableCollection<CorrespondenceRecipientViewModel>`), `View` (filtered by `SearchText` over email, name, source and fields), `SelectedItems` (set by the view), `Columns` (`ObservableCollection<string>`: field columns in import order – the view builds grid columns), `CountsText` ("Odbiorcy: 120 • do wysłania: 95 • pominięci: 20 • błędne: 5"), `ExclusionsText` ("Pominięcia: 12 własnych + 340 z dziennika").
@@ -741,9 +753,9 @@ All in `AdMng.Presentation.Correspondence`; `CorrespondenceViewModel : WindowVie
 **`MailboxOwnersPageViewModel`**
 - Scope: `ScopeKind` (`MailboxScopeKind { Selection, Domain, OrganizationalUnit }`), `ScopeText`, `BrowseScopeCommand` (container picker), `SelectionChoices`/`Selection` (`MailboxSelection`), `IsExchangeSchemaPresent` (schema has `msExchRecipientTypeDetails`; without it only `AllAccounts` is offered and a hint says so), `ExtraFilter` + `ExtraFilterError`, `NameSourceChoices`/`NameSource`, `NameAttribute`, `PersonBaseText`, `BrowsePersonBaseCommand`, `ClearPersonBaseCommand`, `EnabledOwnersOnly`, `GroupByOwner`.
 - Run: `FindOwnersCommand` (reads mailboxes: `And(QuickFilters.Users, type filter, extra filter)` under the scope, attributes = mailbox needs + mailbox field expressions; then persons of the person base: `And(QuickFilters.Users, Or(Present(givenName), Present(sn), Present(displayName)))`, attributes = person needs + owner field expressions; builds `PersonIndex`; matches; streams rows), `CancelCommand`, `ProgressText` ("Skrzynki: 120 · osoby: 4 210"), limits: 20 000 mailboxes, 300 000 persons (beyond → error asking to narrow the base).
-- Rows `MailboxOwnerRowViewModel`: `Include`, `MailboxName`, `MailboxAddress`, `MailboxLocation`, `MailboxTypeText`, `OwnerNameText` (as parsed), `Status` (`OwnerMatchStatus` + `Manual`, `Excluded` via `RowState`), `StatusText`, `StatusKind` (Ok/Warning/Error for colour), `Candidates` (`CandidateOption`: `Text` "Jan Kowalski – IT, jan.kowalski@…", `IsDelegate`, `Level`), `SelectedCandidate` (two-way; selecting sets Manual when it differs from the matcher's best), `OwnerDisplayName`, `OwnerAddress`, `OwnerDepartment`, `DetailText` (why: level, delegate, disabled), `HasCandidates`, `NeedsReview`.
+- Rows `MailboxOwnerRowViewModel`: `Include` (ticked only while the row has an owner to write to – a valid owner address, from the automatic owner, a chosen candidate or user, or a typed address – and following it until the operator ticks or clears it), `MailboxName`, `MailboxAddress`, `MailboxLocation`, `MailboxTypeText`, `OwnerNameText` (as parsed), `Status` (`OwnerMatchStatus` + `Manual`, `Excluded` via `RowState`), `StatusText`, `StatusKind` (Ok/Warning/Error for colour), `Candidates` (`CandidateOption`: `Text` "Jan Kowalski – IT, jan.kowalski@…", `IsDelegate`, `Level`), `SelectedCandidate` (two-way; the matcher's best when chosen automatically, 3.7 step 6; selecting sets Manual when it differs from it), `OwnerDisplayName`, `OwnerAddress`, `OwnerDepartment`, `DetailText` (why: level, delegate, disabled), `HasCandidates`, `NeedsReview`.
 - `Filter` (`MailboxRowFilter { All, Ready, NeedsReview, NotFound, Excluded }`), `SummaryText` ("Dopasowane: 90 · do sprawdzenia: 12 · nieznalezione: 8 · wykluczone: 2").
-- Row commands (parameter = row): `PickOwnerCommand` (object picker users → reads the person and sets Manual), `TypeOwnerAddressCommand` (prompt, validates with `EmailAddressText`), `ExcludeCommand`, `RestoreCommand`.
+- Row commands (parameter = row): `PickOwnerCommand` (object picker users → reads the person and sets Manual), `TypeOwnerAddressCommand` (prompt, validates with `EmailAddressText`; the address of a candidate chooses that person, a chosen person without an address keeps the typed one as theirs, and a chosen person whose own address differs is dropped – their name, salutation and fields never go to another address), `ExcludeCommand`, `RestoreCommand`.
 - `MailboxFields` (`ObservableCollection<DirectoryFieldViewModel>`, mailbox + owner definitions), add/remove/reset.
 - `AddToRecipientsCommand`: rows with an owner address and `Include` → recipient rows (Email = owner address, Name = owner display name, Fields = mailbox fields + owner fields, `MailboxKeys` = mailbox address or DN, Source "Skrzynki"); replaces earlier "Skrzynki" rows; sets `GroupByAddress = GroupByOwner`; loads the built-in template when the message is empty; switches to Recipients.
 
@@ -766,7 +778,7 @@ All in `AdMng.Presentation.Correspondence`; `CorrespondenceViewModel : WindowVie
 **`SendPageViewModel`**
 - `SummaryText` (MailerWPiA summary: count with skipped/invalid, sender, on behalf, mode, subject, signature, attachments, deferred, voting, estimated time), `RefreshSummaryCommand`.
 - `SendTestCommand` (to the selected account's address, else `Profile.CurrentUserAddress`, else prompt; subject prefix "[TEST] "; the selected preview unit's fields or the first unit), `CreateDraftsCommand`, `SendCommand` (confirmation as MailerWPiA's text; typed confirmation of the count above `ConfirmationThreshold`; warning when delay < 2 s with more than 50 messages), `StopCommand`, `RetryFailedCommand`, `ExportReportCommand` (text report: date, subject, lines), `IsSending`, `ProgressValue`, `ProgressMaximum`, `ProgressText` ("Wysyłam 12 z 95 · zostało ok. 4 min"), `SentCount`, `FailedCount`, `SkippedCount`, `Results` (`ObservableCollection<SendResultLine>`: `Text`, `IsSuccess`).
-- Engine `CorrespondenceSender` (internal, testable): per unit build `OutlookMessage` (rendered subject/html/images; attachments; account; on behalf; receipt; deferred; voting; campaign id per run + keys); Individual → one message per unit, To = unit address; Bcc → chunks of `BccChunkSize`, To = own address (account / current user), Bcc = addresses, subject/body merged with an empty row (fields of the first row are **not** used; unknown/empty warnings apply); stop on cancellation; 5 failures in a row → stop with the MailerWPiA message; `StopsRun` failure → stop at once; delay between messages with cancellation; ETA = left × (delay + average seconds per message); after each success in Send mode: row status "wysłano" + `Journal.AppendAsync(address, subject as typed)`; Draft mode: "wersja robocza", no journal; test: "test wysłany", no journal; failure: "błąd – {code text}" (+ "zapisana w Wersjach roboczych" when `SavedAsDraft`).
+- Engine `CorrespondenceSender` (internal, testable): per unit build `OutlookMessage` (rendered subject/html/images; attachments; account; on behalf; receipt; deferred; voting; campaign id per run + keys); Individual → one message per unit, To = unit address; Bcc → chunks of `BccChunkSize`, To = own address (account / current user), Bcc = addresses, subject/body merged with an empty row (fields of the first row are **not** used; unknown/empty warnings apply); stop on cancellation; 5 failures in a row → stop with the MailerWPiA message; `StopsRun` failure (an account missing from the profile among them) → stop at once; delay between messages with cancellation; ETA = left × (delay + average seconds per message); after each success in Send mode: row status "wysłano" + `Journal.AppendAsync(address, subject as typed)`; Draft mode: "wersja robocza", no journal; test: "test wysłany", no journal; failure: "błąd – {code text}" (+ "zapisana w Wersjach roboczych" when `SavedAsDraft`).
 - One session-log entry per run (`AuditEntry`: action `SendCorrespondence`, server = "Outlook", OldValue = subject template? **no** – `L` text "Korespondencja (Outlook)", NewValue "ok/total", success flag) – no addresses, no subject.
 
 **`ResponsesPageViewModel`**
@@ -831,7 +843,8 @@ addresses) so the operator sees which mailbox each answer concerns.
 File `correspondence/journal.txt` next to `settings.json`: header line, then one line per sent address
 (`JournalFile.Line`). Key: `correspondence/journal.key` (DPAPI-protected 32 random bytes, CurrentUser, entropy
 "AdMng.CorrespondenceJournal"). `Find` hashes the normalized address with the key and looks it up in a dictionary
-(latest entry wins). Retention pruning rewrites the file atomically (temp + move). The journal never stores the address.
+(latest entry wins). Retention pruning rewrites the file atomically (temp + move) and prunes the `journal-<date>.old`
+backups the same way; clearing the journal deletes the backups first. The journal never stores the address.
 
 ## 8. AD sources and rule 4
 
@@ -1133,6 +1146,16 @@ differs from sections 1–13 or goes beyond them.
   `Close(olDiscard)`.
 - **Render** follows MailerWPiA's `RenderViaOutlook` (account, To only, no unresolved refusal, existing attachments only);
   a failure deletes the draft; an image that cannot be read back is left out unless Outlook is lost or busy.
+- **An Outlook the client started** (no running one to attach to) runs without a window, and Outlook started by
+  automation exits as soon as its last reference is released – while `Send()` only queues the item in the Outbox. The
+  client therefore keeps one reference of its own on a keep-alive STA thread until it is disposed with the app
+  (`IAsyncDisposable`, `IDisposable`), renewed when Outlook had to be started again; an Outlook the user runs is never
+  held (MailerWPiA kept its application object for the program's life). Sessions come and go meanwhile.
+- **Voting options** are joined with the Windows list separator (3.9, `OutlookVotingOptions`).
+- **U1 mapping (section 5):** Busy/NotResponding are Transient only before the item was saved; after `Save` (a draft
+  left in *Wersje robocze* – after a failed `Send()` it may even have gone out) the failure is Rejected with its code,
+  never retried, since a retry would build and send a second copy. The `StopsRun` kinds are TransportFailed –
+  InvalidAccount among them: every message of a U1 run is sent from the account of the settings.
 - **Classification additions (4.3):** `E_ABORT` at the replyTo step = SecurityDenied; `MAPI_E_TOO_BIG` 0x80040305 =
   ItemTooLarge; `REGDB_E_CLASSNOTREG` 0x80040154 and `CO_E_CLASSSTRING` 0x800401F3 = NotInstalled; FileNotFound /
   DirectoryNotFound at the attachments step = AttachmentMissing; `PlatformNotSupportedException` = NotSupported; without
@@ -1150,9 +1173,9 @@ differs from sections 1–13 or goes beyond them.
   segments (also URL-encoded), resolve inside the folder (symbolic links included), ≤ 2 MiB.
 - **Testing:** `FakeOutlookClient` (availability, `ConnectFailure`, Polish `Profile`, per-recipient `Script`,
   `DefaultResult`, `Items`, `RenderResult`/`RenderFailure`, `DiagnoseResult`, `Signatures`, `Campaigns`, `Responses`,
-  `ReadFailure`, `BeforeSend`, `Sessions`, `Connections`), `FakeOutlookSession`, `FakeOutlookItem`,
-  `FakeOutlookUserMessageTransportFactory`. Not testable on Linux: `ComOutlookApplicationProvider`,
-  `MessageFilterRegistration`, `ComRetryFilter`, real RCW release.
+  `ReadFailure`, the hooks `BeforeSend`, `BeforeRender` and `BeforeRead`, `Sessions`, `Connections`),
+  `FakeOutlookSession`, `FakeOutlookItem`, `FakeOutlookUserMessageTransportFactory`. Not testable on Linux:
+  `ComOutlookApplicationProvider`, `MessageFilterRegistration`, `ComRetryFilter`, real RCW release.
 
 ### 14.4 App services (T7a)
 
@@ -1198,9 +1221,11 @@ differs from sections 1–13 or goes beyond them.
 - **`OutlookConnectionViewModel`:** a connection starts outside the lock; "Sprawdź Outlooka" reports a diagnostics
   failure (`DiagFailed`); accounts are written out explicitly; one account gives "Outlook: połączono" without a count.
   Added: `Failure`, `FailureText`, `IsChecking`, `IsConnected`, `IsAvailable`, `AccountAddress`, `OwnAddress`, `Profile`,
-  `ConnectInBackground()`, `ReportFailure(OutlookFailure)`, `RefreshTexts()`. `EnsureConnectedAsync` returns null when
-  Outlook cannot be used (the state says why); `ReportFailure` after `Disconnected`/`NotResponding`/`Elevated` makes the
-  next use reconnect.
+  `ConnectInBackground()`, `ReportFailure(OutlookFailure, IOutlookSession?)`, `RefreshTexts()`. `EnsureConnectedAsync`
+  returns null when Outlook cannot be used (the state says why); `ReportFailure` after `Disconnected`/`NotResponding`/
+  `Elevated` makes the next use reconnect – reported by every page with the session it used, so a late failure of a
+  session the window has replaced since (a held run, a preview, a read of the responses) changes nothing. After
+  connecting, "Wyślij jako" shows the account of the settings, else the profile's default account (6.4).
 - **`CorrespondenceViewModel`:** opening loads the last draft (images first through `Message.AddImage`) only into an
   empty message page; the end of the session also cancels a running owner query. Added (internal): `Initialization`,
   `SaveStateAsync`, `CurrentDraft`. `CorrespondenceText.OutlookStateKey`, `OutlookCodeKey`, `FailureText`.
