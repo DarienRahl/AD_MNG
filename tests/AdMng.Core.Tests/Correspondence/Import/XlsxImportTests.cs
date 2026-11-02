@@ -116,7 +116,7 @@ public class XlsxImportTests
         + "<cellXfs count=\"9\"><xf numFmtId=\"0\"/><xf numFmtId=\"14\" applyNumberFormat=\"1\"/><xf numFmtId=\"164\"/><xf numFmtId=\"165\"/>"
         + "<xf numFmtId=\"166\"/><xf numFmtId=\"167\"/><xf numFmtId=\"168\"/><xf numFmtId=\"20\"/><xf numFmtId=\"169\"/></cellXfs></styleSheet>";
 
-    private static byte[] StyledWorkbook(string sheetData, bool date1904 = false)
+    private static byte[] StyledWorkbook(string sheetData, bool date1904 = false, string styles = Styles)
     {
         var workbook = $"<workbook xmlns=\"{SpreadsheetNs}\" xmlns:r=\"{RelationshipsNs}\">"
             + (date1904 ? "<workbookPr date1904=\"1\"/>" : "<workbookPr/>")
@@ -125,7 +125,7 @@ public class XlsxImportTests
             + "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>"
             + "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>"
             + "</Relationships>";
-        return Zip(("xl/workbook.xml", workbook), ("xl/_rels/workbook.xml.rels", rels), ("xl/styles.xml", Styles), ("xl/worksheets/sheet1.xml", Sheet(sheetData)));
+        return Zip(("xl/workbook.xml", workbook), ("xl/_rels/workbook.xml.rels", rels), ("xl/styles.xml", styles), ("xl/worksheets/sheet1.xml", Sheet(sheetData)));
     }
 
     private static string Number(string reference, string value, int? style = null) =>
@@ -165,6 +165,25 @@ public class XlsxImportTests
         Assert.Equal("15.03.2026", fields["Data"]);
         Assert.Equal("-5", fields["Ujemna"]);
         Assert.Equal("99999999", fields["Za duża"]);
+    }
+
+    [Fact]
+    public void FormatCodeLongerThanExcelAllows_IsNotRead()
+    {
+        // Excel keeps a format code to 255 characters: a longer one comes from a crafted file and is not kept in memory.
+        var literal = string.Concat(Enumerable.Repeat("Łódź ", 50));
+        var styles = "<styleSheet xmlns=\"" + SpreadsheetNs + "\"><numFmts count=\"2\">"
+            + "<numFmt numFmtId=\"164\" formatCode=\"dd.mm.yyyy&quot; r.&quot;\"/>"
+            + $"<numFmt numFmtId=\"165\" formatCode=\"dd.mm.yyyy&quot;{literal}&quot;\"/></numFmts>"
+            + "<cellXfs count=\"3\"><xf numFmtId=\"0\"/><xf numFmtId=\"164\"/><xf numFmtId=\"165\"/></cellXfs></styleSheet>";
+        var header = InlineRow(1, ("A1", "E-mail"), ("B1", "Data"), ("C1", "Data opisowa"));
+        var row = "<row r=\"2\"><c r=\"A2\" t=\"inlineStr\"><is><t>ug@lodz.pl</t></is></c>"
+            + Number("B2", "46096", 1) + Number("C2", "46096", 2) + "</row>";
+
+        var fields = Assert.Single(Read(StyledWorkbook(header + row, styles: styles)).Contacts).Fields;
+
+        Assert.Equal("15.03.2026", fields["Data"]);
+        Assert.Equal("46096", fields["Data opisowa"]);
     }
 
     [Fact]

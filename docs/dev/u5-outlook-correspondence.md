@@ -1056,7 +1056,9 @@ differs from sections 1–13 or goes beyond them.
   "15.03.2026 10:00" or "10:00" (Polish order whatever the code, rounded to the second; elapsed `[h]` stays a number), and
   a whole number in a code of digit placeholders and literals (`00\-000`, `00000000000`), which becomes "95-020" or keeps
   the leading zero of a PESEL (`XlsxNumberFormats`). RTF: a font's `\fcharset` wins over `\ansicpg`.
-- **Limits:** 256 columns; 4 million cells and 2 million shared strings per workbook; zip entries ≤ 200 MiB, ≤ 20 000
+- **Limits:** 256 columns; 4 million cells and 2 million shared strings per workbook; 65 536 number formats and 65 536
+  cell formats read from `xl/styles.xml` (a format code over 255 characters, longer than Excel allows, is ignored and its
+  cells keep the stored value); zip entries ≤ 200 MiB, ≤ 20 000
   entries and ≤ 512 MiB in total; the ratio check (> 100) only for entries over 1 MiB; inflated bytes are counted (a
   forged size is caught). The text of a package's cells and paragraphs ≤ 50 Mi characters
   (`SpreadsheetLimits.MaxCharacters`: a shared string, a repeated ODF cell or a merged Word cell counted each time it

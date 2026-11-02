@@ -17,6 +17,7 @@ namespace AdMng.Core.Correspondence.Import;
 internal sealed class XlsxNumberFormats
 {
     private const int MaxStyles = 65_536;
+    private const int MaxCodeLength = 255;
     private const double MaxSerial = 2_958_466;   // 10000-01-01
 
     private readonly List<CellFormat> _styles;
@@ -61,8 +62,9 @@ internal sealed class XlsxNumberFormats
 
             switch (styles.LocalName)
             {
-                case "numFmt" when Number(styles.GetAttribute("numFmtId")) is { } id && styles.GetAttribute("formatCode") is { } code:
-                    codes[id] = code;
+                case "numFmt" when codes.Count < MaxStyles && Number(styles.GetAttribute("numFmtId")) is { } id
+                    && styles.GetAttribute("formatCode") is { Length: <= MaxCodeLength } code:
+                    codes[id] = code;   // a crafted part cannot make the table grow without bound (Excel: ≤ 255 characters)
                     break;
                 case "cellXfs" when !styles.IsEmptyElement:
                     cellXfsDepth = styles.Depth;
