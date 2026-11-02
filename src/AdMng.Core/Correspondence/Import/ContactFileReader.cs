@@ -90,6 +90,69 @@ public static class ContactFileReader
         }
     }
 
+    /// <summary>
+    /// Every valid address of one file, normalized, de-duplicated, in file order – in any column, cell (a second address of a
+    /// cell too), row, sheet (hidden ones included), table or paragraph, not only the e-mail column of a table: the "Nie
+    /// wysyłać" list must hold every address of the file, an address left out would get the letter.
+    /// </summary>
+    /// <exception cref="InvalidDataException">The file is too large, a zip bomb or not readable as its format.</exception>
+    public static IReadOnlyList<string> ReadAddresses(string fileName, ReadOnlySpan<byte> content, int ansiCodePage)
+    {
+        ArgumentNullException.ThrowIfNull(fileName);
+        if (content.Length > MaxFileBytes)
+        {
+            throw new InvalidDataException("The file is larger than 50 MiB.");
+        }
+
+        string text;
+        try
+        {
+            switch (Extension(fileName))
+            {
+                case ".xlsx" or ".xlsm" or ".xltx":
+                    using (var zip = SafeZip.Open(content))
+                    {
+                        text = string.Concat(XlsxReader.ReadSheets(zip, includeHidden: true).Sheets.Select(ContactExtractor.RowsText));
+                    }
+
+                    break;
+                case ".ods" or ".odt":
+                    using (var zip = SafeZip.Open(content))
+                    {
+                        text = OpenDocumentReader.Read(zip).AllText();
+                    }
+
+                    break;
+                case ".docx" or ".dotx" or ".docm":
+                    using (var zip = SafeZip.Open(content))
+                    {
+                        text = WordReader.Read(zip).AllText();
+                    }
+
+                    break;
+                case ".rtf":
+                    text = RtfReader.Read(content, ansiCodePage);
+                    break;
+                case ".htm" or ".html":
+                    text = HtmlContactReader.Text(TextDecoding.DecodeHtml(content, ansiCodePage));
+                    break;
+                default:
+                    text = TextDecoding.Decode(content, ansiCodePage);
+                    break;
+            }
+        }
+        catch (XmlException ex)
+        {
+            throw new InvalidDataException("The file is not well-formed XML or uses a prohibited feature (DTD).", ex);
+        }
+        catch (NotSupportedException ex)
+        {
+            throw new InvalidDataException("The package uses a feature that is not supported (compression method).", ex);
+        }
+
+        return EmailAddressText.Extract(text);
+    }
+
     private static string Extension(string fileName)
     {
         var name = fileName.Trim();

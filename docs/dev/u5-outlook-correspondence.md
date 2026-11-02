@@ -1015,6 +1015,9 @@ differs from sections 1–13 or goes beyond them.
   `Encode`; `CorrespondenceDocument.WrapperStyle`; `CorrespondenceRenderer.ListStart`;
   `RenderedCorrespondence.ImageBytes`, `ExceedsImageLimits` (the per-message limits of 3.6); `SignatureProblemCodes`
   ("code" or "code: detail"); `MailCompatibilityLint.MaxWidthPixels`; `JournalHashing.HashBytes`, `IsHash`.
+  Review fixes: `ContactFileReader.ReadAddresses` – every address of a file (any column, a second address of a cell,
+  hidden sheets too), which "Nie wysyłać z pliku" takes instead of the contacts (one per table row), as MailerWPiA's
+  whole-text pass did; `ContactImportResult.HiddenSheets`, `HiddenRows`; `SpreadsheetLimits.MaxCharacters`.
 - **Table detection (3.1):** the header is one of the first 8 *non-blank* rows; a row holding a valid address is never a
   header; delimited text needs 2+ header cells. Every candidate row is tried: it is taken when its e-mail column gives at
   least one address, a row with 2+ non-empty cells before a one-cell title or caption ("Wykaz adresów e-mail …" merged

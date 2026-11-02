@@ -76,6 +76,31 @@ public sealed class RecipientsListTests
     }
 
     [Fact]
+    public async Task Exclusions_FromAFile_TakeEveryAddressOfIt_NotOnlyTheEmailColumnOfItsTable()
+    {
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
+        using var window = await scenario.OpenAsync();
+        var page = window.Recipients;
+        page.AddRows(
+        [
+            new ImportedContact("wojt@gmina-lask.pl", "Wójt Gminy Łask", Lodz),
+            new ImportedContact("skarbnik@gmina-leki.pl", "Skarbnik Gminy Łęki", Lodz),
+            new ImportedContact("rada@gmina-lask.pl", "Rada Gminy Łask", Lodz),
+            new ImportedContact("soltys@zdziechow.pl", "Sołtys Ździechowa", Lodz),
+        ], "kontakty.csv");
+        var file = Text(scenario, "nie-wysylac.csv",
+            "Nazwa;E-mail;Inne\r\nGmina Łask;sekretariat@gmina-lask.pl, wojt@gmina-lask.pl;\r\nGmina Łęki;\"ug@gmina-leki.pl; skarbnik@gmina-leki.pl\";\r\n"
+            + "Sołectwo;;soltys@zdziechow.pl\r\n");
+        scenario.Dialogs.Files.Enqueue([file]);
+
+        await page.ExclusionsFromFileCommand.ExecuteAsync(null);
+
+        Assert.Equal(["rada@gmina-lask.pl"], page.SendList().Select(r => r.Email));
+        Assert.Equal(5, page.ExclusionCount);
+        Assert.Equal("„Nie wysyłać”: dodano 5, na liście 5.", page.StatusText);
+    }
+
+    [Fact]
     public async Task AlreadySent_RowsShowTheJournalEntry_AndAreSkippedWhileTheOptionIsOn()
     {
         using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
