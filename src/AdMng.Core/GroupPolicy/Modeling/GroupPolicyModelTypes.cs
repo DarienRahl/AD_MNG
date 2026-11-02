@@ -201,6 +201,9 @@ public enum ModeledGpoOutcome
     /// <summary>The link names no group policy container of this domain.</summary>
     NotFound,
 
+    /// <summary>The link names a GPO of another domain of the forest (e.g. linked to a site): not modelled.</summary>
+    OtherDomain,
+
     /// <summary>The GPO's configuration of this part is disabled.</summary>
     PartDisabled,
 

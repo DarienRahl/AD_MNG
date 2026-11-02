@@ -268,6 +268,55 @@ public sealed class GroupPolicyModelerTests
     }
 
     [Fact]
+    public void RegistryValues_NoConfiguredPolicyOfThePartCovers_StayExtraValues()
+    {
+        var definitions = SampleAdministrativeTemplates.LoadPolish();
+        var containers = new[] { Som(Domain, GroupPolicySomKind.Domain, false, Link(DomainPolicy, 0, 1)) };
+        var registry = new RegistryPolicyDocument();
+        // A value only a user policy describes, in the computer's Registry.pol (Set-GPRegistryValue writes such files).
+        registry.Set(@"Software\Policies\Contoso\Komunikat", "Path", 1, Encoding.Unicode.GetBytes("C:\\Dane\0"));
+        // An option of the updates policy without the policy's own value: the policy is not configured.
+        registry.Set(SampleAdministrativeTemplates.UpdatesKey, "AUOptions", 4, Dword(3));
+        // A list value whose name holds '!': the trusted sites policy covers it, once.
+        registry.Set(@"Software\Policies\Contoso\Przegladarka\ZaufaneWitryny", "https://intranet.contoso.test/#!/start", 1, Encoding.Unicode.GetBytes("1\0"));
+        var input = Input(containers, [Gpo(DomainPolicy, "Default Domain Policy")], computer: Computer(Stacje)) with { Definitions = definitions };
+
+        var part = GroupPolicyModeler.Build(input, Contents((DomainPolicy, Folder((Machine + "Registry.pol", registry.ToBytes()))))).Computer!;
+
+        Assert.Equal("Default Domain Policy", Setting(part, @"Computer/Registry/HKLM\Software\Policies\Contoso\Komunikat!Path").Winner.Source.GpoName);
+        Assert.Equal("Default Domain Policy", Setting(part, $@"Computer/Registry/HKLM\{SampleAdministrativeTemplates.UpdatesKey}!AUOptions").Winner.Source.GpoName);
+        Assert.DoesNotContain(part.Policies, p => p.Definition.Id is SampleAdministrativeTemplates.Message or SampleAdministrativeTemplates.Updates);
+        Assert.Contains(part.Policies, p => p.Definition.Id == SampleAdministrativeTemplates.TrustedSites);
+        Assert.DoesNotContain(part.Settings, s => s.Key.Contains("ZaufaneWitryny", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Links_ToAGpoOfAnotherDomain_AreNotModelled_NorTakenForTheLocalGpoWithTheSameGuid()
+    {
+        const string Root = "DC=corp,DC=test";
+        var rootDefault = new GroupPolicyLink($"CN={SysvolPaths.FolderName(DomainPolicy)},CN=Policies,CN=System,{Root}", 0, 1);
+        var child = new GroupPolicyLink($"CN={SysvolPaths.FolderName(FirmaPolicy)},CN=Policies,CN=System,DC=eu,{Domain}", 0, 2);
+        var input = Input(
+            [
+                Som(Site, GroupPolicySomKind.Site, false, child, rootDefault),
+                Som(Domain, GroupPolicySomKind.Domain, false, Link(DomainPolicy, 0, 1)),
+            ],
+            [Gpo(DomainPolicy, "Default Domain Policy"), Gpo(FirmaPolicy, "Firma – wspólne")],
+            computer: Computer(Stacje));
+
+        var part = GroupPolicyModeler.Build(input, Contents()).Computer!;
+
+        // The site's link to the root domain's Default Domain Policy is its own row; the local one still applies.
+        Assert.Equal(["Default Domain Policy"], part.Applied.Select(g => g.Name));
+        Assert.Equal(Domain, part.Applied.Single().Container.Dn);
+        var others = part.Gpos.Where(g => g.Outcome == ModeledGpoOutcome.OtherDomain).ToList();
+        Assert.Equal(2, others.Count);
+        Assert.All(others, g => Assert.Equal(GroupPolicySomKind.Site, g.Container.Kind));
+        Assert.DoesNotContain(part.Gpos, g => g.Outcome == ModeledGpoOutcome.Duplicate);
+        Assert.Equal([DomainPolicy], GroupPolicyModeler.GposToRead(input));
+    }
+
+    [Fact]
     public void PreferenceItems_WithItemLevelTargeting_AreConditional()
     {
         const string groups = """

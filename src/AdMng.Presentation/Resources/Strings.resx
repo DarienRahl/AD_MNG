@@ -14533,6 +14533,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="GpModel.OutcomeNotFound" xml:space="preserve">
     <value>The GPO does not exist</value>
   </data>
+  <data name="GpModel.OutcomeOtherDomain" xml:space="preserve">
+    <value>GPO of another domain (not modelled)</value>
+  </data>
   <data name="GpModel.OutcomeComputerDisabled" xml:space="preserve">
     <value>Computer configuration disabled</value>
   </data>

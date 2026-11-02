@@ -301,6 +301,8 @@ użytkownik w tym kontenerze); właściwości komputera, strona *Stan* – **Co 
   *Dlaczego*. Skrypty są **kumulatywne** (działają wszystkie). Na kontrolerze domeny zasady kont (hasła, blokada,
   Kerberos) liczą się tylko z GPO połączonych z domeną – ostrzeżenie wskazuje pozostałe. Szablony administracyjne są
   pokazywane jako zasady z ADMX (stan i opcje), wartości `Registry.pol` bez definicji – jako wartości rejestru.
+  Wartość `Registry.pol`, której nie opisuje żadna skonfigurowana zasada tej części (np. wartość zasady użytkownika w
+  pliku komputera albo opcja bez wartości samej zasady), zostaje na liście jako wartość rejestru – jak w GPMC.
   Elementy preferencji z kierowaniem na poziomie elementu mają uwagę *zależy od komputera*.
 
 **Wynik:** dla komputera i dla użytkownika – lista GPO z wynikiem (*Zastosowany*, *Zablokowany przez blokowanie
@@ -311,8 +313,9 @@ nieczytelny w SYSVOL, brak `tokenGroups`, brak szablonów ADMX). **Eksportuj do 
 obu części do pliku wskazanego przez operatora.
 
 **Czym to nie jest:** model, nie wynik z komputera (RSoP z `gpresult`). Nie uwzględnia filtrów WMI, kierowania
-elementów preferencji, lokalnych zasad komputera, zasad z innych domen lasu (łącza do GPO innej domeny – jako *GPO nie
-istnieje*), powolnego łącza i stanu przetwarzania na kliencie. Gdy SYSVOL jest niedostępny, listy GPO są pełne, a
+elementów preferencji, lokalnych zasad komputera, GPO z innych domen lasu (łącze lokacji lub OU do GPO innej domeny ma
+wynik *GPO innej domeny (nie modelowany)* – nigdy nie jest mylone z GPO tej domeny o tym samym GUID, jak *Default
+Domain Policy*), powolnego łącza i stanu przetwarzania na kliencie. Gdy SYSVOL jest niedostępny, listy GPO są pełne, a
 ustawień brak.
 
 ## 10. Kontroler domeny, emulator PDC i SYSVOL

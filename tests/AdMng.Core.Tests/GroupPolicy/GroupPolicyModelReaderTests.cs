@@ -59,6 +59,54 @@ public sealed class GroupPolicyModelReaderTests : GroupPolicyTestBed
     }
 
     [Fact]
+    public async Task ReadContents_AFolderThatFailsInAnyWay_IsUnreadable_TheOthersAreRead()
+    {
+        await using var sysvol = await OpenSysvolAsync();
+        var failing = FailingFolder.Wrap(sysvol, Sample.SitePrinters);
+
+        var contents = await GroupPolicyModelReader.ReadContentsAsync(failing, [Sample.SitePrinters, Sample.DriveMappings], Ct);
+
+        Assert.True(contents[Sample.SitePrinters].Unreadable);
+        Assert.False(contents[Sample.DriveMappings].Unreadable);
+        Assert.NotEmpty(contents[Sample.DriveMappings].Settings);
+    }
+
+    /// <summary>A SYSVOL connection whose reads of one GPO's folder throw what no SYSVOL error is (a rejected path).</summary>
+    public class FailingFolder : System.Reflection.DispatchProxy
+    {
+        private ISysvolWriteConnection _inner = null!;
+        private string _folder = string.Empty;
+
+        public static ISysvolWriteConnection Wrap(ISysvolWriteConnection inner, Guid gpoId)
+        {
+            var proxy = Create<ISysvolWriteConnection, FailingFolder>();
+            var failing = (FailingFolder)(object)proxy;
+            failing._inner = inner;
+            failing._folder = SysvolPaths.FolderName(gpoId);
+            return proxy;
+        }
+
+        protected override object? Invoke(System.Reflection.MethodInfo? targetMethod, object?[]? args)
+        {
+            ArgumentNullException.ThrowIfNull(targetMethod);
+            if (args is not null && args.Any(a => a is Guid id && SysvolPaths.FolderName(id) == _folder
+                || a is string text && text.Contains(_folder, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new ArgumentException("The path is too long (test).");
+            }
+
+            try
+            {
+                return targetMethod.Invoke(_inner, args);
+            }
+            catch (System.Reflection.TargetInvocationException ex) when (ex.InnerException is not null)
+            {
+                throw ex.InnerException;
+            }
+        }
+    }
+
+    [Fact]
     public async Task Tokens_AreTheNestedSecurityGroups_OrThePrimaryGroupWhenTokenGroupsIsUnreadable()
     {
         Session.ComputesTokenGroups = true;

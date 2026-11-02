@@ -232,6 +232,7 @@ internal sealed class GroupPolicyModelText(ILocalizer localizer, string domainDn
             ModeledGpoOutcome.Blocked => L10n.Format(L.GroupPolicyModel.OutcomeBlocked, gpo.BlockedBy is { } by ? AddressResolver.ToDisplayPath(by) : "–"),
             ModeledGpoOutcome.Duplicate => L10n[L.GroupPolicyModel.OutcomeDuplicate],
             ModeledGpoOutcome.NotFound => L10n[L.GroupPolicyModel.OutcomeNotFound],
+            ModeledGpoOutcome.OtherDomain => L10n[L.GroupPolicyModel.OutcomeOtherDomain],
             ModeledGpoOutcome.PartDisabled => L10n[part == ModelingPart.Computer ? L.GroupPolicyModel.OutcomeComputerDisabled : L.GroupPolicyModel.OutcomeUserDisabled],
             ModeledGpoOutcome.Empty => L10n[L.GroupPolicyModel.OutcomeEmpty],
             ModeledGpoOutcome.SecurityDenied => L10n[L.GroupPolicyModel.OutcomeSecurityDenied],

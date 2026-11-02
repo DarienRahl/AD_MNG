@@ -40,6 +40,8 @@ public sealed partial class GroupPolicyModelingDocumentViewModel : GroupPolicyDo
     private readonly List<ModelExportRow> _export = [];
     private bool _siteExplicit;
     private bool _applyingSite;
+    private int _inputVersion;
+    private string _modelTitle = string.Empty;
 
     public GroupPolicyModelingDocumentViewModel(
         GroupPolicyServices services,
@@ -60,24 +62,20 @@ public sealed partial class GroupPolicyModelingDocumentViewModel : GroupPolicyDo
         WmiOptions = BuildWmiOptions();
         LoopbackOptions = BuildLoopbackOptions();
         Sites = [new ModelingSiteOption(null, Localizer[L.GroupPolicyModel.SiteUnknown])];
-        SelectedSite = Sites[0];
+        _applyingSite = true;
+        SelectedSite = Sites[0]; // not the operator's choice: the first calculation looks the computer's site up
+        _applyingSite = false;
         SummaryText = Localizer[L.GroupPolicyModel.SummaryNone];
         ComputerPart.Clear(Localizer[L.GroupPolicyModel.PartNoComputer]);
         UserPart.Clear(Localizer[L.GroupPolicyModel.PartNoUser]);
     }
 
-    public override string Title
-    {
-        get
-        {
-            if (!ComputerChoice.IsNone)
-            {
-                return Localizer.Format(L.GroupPolicyModel.TitleComputer, TargetName(ComputerChoice));
-            }
+    public override string Title => TitleOf(ComputerChoice, UserChoice);
 
-            return UserChoice.IsNone ? Localizer[L.GroupPolicyModel.TitleEmpty] : Localizer.Format(L.GroupPolicyModel.TitleUser, TargetName(UserChoice));
-        }
-    }
+    private string TitleOf(ModelingTargetChoice computer, ModelingTargetChoice user) =>
+        !computer.IsNone ? Localizer.Format(L.GroupPolicyModel.TitleComputer, TargetName(computer))
+        : user.IsNone ? Localizer[L.GroupPolicyModel.TitleEmpty]
+        : Localizer.Format(L.GroupPolicyModel.TitleUser, TargetName(user));
 
     public override ObjectIcon Icon => !ComputerChoice.IsNone ? ObjectIcon.Computer : !UserChoice.IsNone ? ObjectIcon.User : ObjectIcon.GroupPolicy;
 
@@ -119,8 +117,9 @@ public sealed partial class GroupPolicyModelingDocumentViewModel : GroupPolicyDo
     [ObservableProperty]
     public partial LoopbackChoice Loopback { get; set; } = LoopbackChoice.FromSettings;
 
-    /// <summary>The inputs changed after the last calculation ("kliknij Przelicz").</summary>
+    /// <summary>The inputs changed after the last calculation ("kliknij Przelicz"); the export waits for a new one.</summary>
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ExportCsvCommand))]
     public partial bool IsStale { get; private set; }
 
     // ---- Result ------------------------------------------------------------------------------------------------------------
@@ -173,23 +172,29 @@ public sealed partial class GroupPolicyModelingDocumentViewModel : GroupPolicyDo
     partial void OnComputerChoiceChanged(ModelingTargetChoice value)
     {
         _siteExplicit = false;
-        IsStale = true;
+        InputsChanged();
     }
 
-    partial void OnUserChoiceChanged(ModelingTargetChoice value) => IsStale = true;
+    partial void OnUserChoiceChanged(ModelingTargetChoice value) => InputsChanged();
 
     partial void OnSelectedSiteChanged(ModelingSiteOption? value)
     {
         if (!_applyingSite)
         {
             _siteExplicit = true;
-            IsStale = true;
+            InputsChanged();
         }
     }
 
-    partial void OnWmiFiltersChanged(WmiFilterAssumption value) => IsStale = true;
+    partial void OnWmiFiltersChanged(WmiFilterAssumption value) => InputsChanged();
 
-    partial void OnLoopbackChanged(LoopbackChoice value) => IsStale = true;
+    partial void OnLoopbackChanged(LoopbackChoice value) => InputsChanged();
+
+    private void InputsChanged()
+    {
+        _inputVersion++;
+        IsStale = true;
+    }
 
     // ---- Commands ----------------------------------------------------------------------------------------------------------
 
@@ -222,7 +227,7 @@ public sealed partial class GroupPolicyModelingDocumentViewModel : GroupPolicyDo
     private async Task PickUserAsync()
     {
         if (Gp.Sessions.Current is { } session
-            && await Gp.Ui.Dialogs.PickObjectsAsync(session, [ObjectKind.User], multiSelect: false).ConfigureAwait(true) is [var dn, ..])
+            && await Gp.Ui.Dialogs.PickObjectsAsync(session, [ObjectKind.User, ObjectKind.InetOrgPerson], multiSelect: false).ConfigureAwait(true) is [var dn, ..])
         {
             UserChoice = ModelingTargetChoice.Account(dn);
         }
@@ -245,10 +250,10 @@ public sealed partial class GroupPolicyModelingDocumentViewModel : GroupPolicyDo
     private Task RecalculateAsync() => LoadAsync();
 
     /// <summary>"Eksportuj do CSV…": the GPO lists and the settings of both parts to a file the operator chooses.</summary>
-    [RelayCommand(CanExecute = nameof(HasModel))]
+    [RelayCommand(CanExecute = nameof(CanExport))]
     private async Task ExportCsvAsync()
     {
-        if (!HasModel || _export.Count == 0)
+        if (!CanExport() || _export.Count == 0)
         {
             return;
         }
@@ -256,7 +261,7 @@ public sealed partial class GroupPolicyModelingDocumentViewModel : GroupPolicyDo
         var title = Localizer[L.GroupPolicyModel.ExportCsv];
         var path = await Gp.Ui.Files.SaveFileAsync(
             title,
-            ListExportSnapshot.SuggestFileName(Title, Gp.Time.GetLocalNow()),
+            ListExportSnapshot.SuggestFileName(_modelTitle, Gp.Time.GetLocalNow()),
             [new FileFilter(Localizer[L.Files.CsvFilter], "*.csv")]).ConfigureAwait(true);
         if (path is null)
         {
@@ -284,6 +289,9 @@ public sealed partial class GroupPolicyModelingDocumentViewModel : GroupPolicyDo
 
     private bool CanPick() => HasSession;
 
+    /// <summary>A model of the current inputs is shown (not one of earlier inputs).</summary>
+    private bool CanExport() => HasModel && !IsStale;
+
     protected override void RefreshCommands()
     {
         PickComputerCommand.NotifyCanExecuteChanged();
@@ -300,20 +308,34 @@ public sealed partial class GroupPolicyModelingDocumentViewModel : GroupPolicyDo
     {
         var request = new Calculation(ComputerChoice, UserChoice, _siteExplicit ? SelectedSite?.Dn : null, _siteExplicit,
             new ModelingOptions { WmiFilters = WmiFilters, Loopback = Loopback });
-        IsStale = false;
+        var version = _inputVersion;
         if (request.Computer.IsNone && request.User.IsNone)
         {
             ShowNoModel([Localizer[L.GroupPolicyModel.NoteNoTargets]]);
+            IsStale = version != _inputVersion;
             return;
         }
 
-        var definitions = await _definitions.GetAsync(session, sysvol, Localizer.Culture, reload: false, cancellationToken).ConfigureAwait(true);
-        var resolver = _resolver ?? NoAddresses.Instance;
-        var localizer = Localizer;
-        var result = await Task.Run(() => CalculateAsync(session, sysvol, request, definitions.Set, resolver, localizer, cancellationToken), cancellationToken)
-            .ConfigureAwait(true);
-        cancellationToken.ThrowIfCancellationRequested();
-        Show(session, result, sysvol is null);
+        try
+        {
+            var definitions = await _definitions.GetAsync(session, sysvol, Localizer.Culture, reload: false, cancellationToken).ConfigureAwait(true);
+            var resolver = _resolver ?? NoAddresses.Instance;
+            var localizer = Localizer;
+            var result = await Task.Run(() => CalculateAsync(session, sysvol, request, definitions.Set, resolver, localizer, cancellationToken), cancellationToken)
+                .ConfigureAwait(true);
+            cancellationToken.ThrowIfCancellationRequested();
+            Show(session, result, sysvol is null);
+            _modelTitle = TitleOf(request.Computer, request.User);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // No model of earlier inputs stays on screen (or exportable) under the new title; the error is shown by the base.
+            ShowNoModel([]);
+            throw;
+        }
+
+        // Inputs changed while the model was computed: it is the model of the inputs captured above.
+        IsStale = version != _inputVersion;
     }
 
     protected override void OnNotConnected() => ShowNoModel([]);

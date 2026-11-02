@@ -272,6 +272,59 @@ public sealed class GroupPolicyModelingTests
     }
 
     [Fact]
+    public async Task Site_OfTheComputer_IsTakenFromItsSubnet_UntilTheOperatorPicksOne()
+    {
+        var h = await HarnessAsync();
+        var sites = Core.Ldap.DistinguishedName.Parse(h.Sample.SiteDn).Parent!.ToString();
+        var subnets = "CN=Subnets," + sites;
+        if (!h.Session.Exists(subnets))
+        {
+            h.Session.Seed(subnets, new Dictionary<string, object?> { [Core.ActiveDirectory.Attr.ObjectClass] = new[] { "top", "subnetContainer" } });
+        }
+
+        h.Session.Seed("CN=10.10.0.0/16," + subnets, new Dictionary<string, object?>
+        {
+            [Core.ActiveDirectory.Attr.ObjectClass] = new[] { "top", "subnet" },
+            [Core.ActiveDirectory.Attr.Cn] = "10.10.0.0/16",
+            ["siteObject"] = h.Sample.SiteDn,
+        });
+        var resolver = new FakeHostAddressResolver().Add("WAW-PC001", "10.10.4.2").Add("WAW-PC001.contoso.test", "10.10.4.2");
+        var model = new GroupPolicyModelingDocumentViewModel(h.Services, h.Actions, h.Definitions,
+            new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.Modeling) { ComputerDn = h.Company.Computer1 }, resolver);
+
+        await model.LoadAsync();
+
+        Assert.Equal("Warszawa", model.SelectedSite?.Name);
+        Assert.False(model.IsStale);
+        Assert.Equal("Pusty (wersja 0)", Gpo(model.ComputerPart, "Lokacja Warszawa – Drukarki").OutcomeText);
+
+        // The operator's "(nieznana)" is kept on the next calculation.
+        model.SelectedSite = model.Sites[0];
+        await model.RecalculateCommand.ExecuteAsync(null);
+        Assert.Null(model.SelectedSite?.Dn);
+        Assert.DoesNotContain(model.ComputerPart.Gpos, g => g.Name == "Lokacja Warszawa – Drukarki");
+    }
+
+    [Fact]
+    public async Task FailedRecalculation_LeavesNoModelOfTheEarlierInputs_AndTheExportWaitsForAModel()
+    {
+        var h = await HarnessAsync();
+        var model = await ModelAsync(h, computer: h.Company.Computer1);
+        Assert.True(model.ExportCsvCommand.CanExecute(null));
+
+        h.B2.Dialogs.PickedObjects.Enqueue([h.Company.Computer2]);
+        await model.PickComputerCommand.ExecuteAsync(null);
+        Assert.False(model.ExportCsvCommand.CanExecute(null)); // the shown model is WAW-PC001's
+        h.Session.FailNext(FakeOperationKind.Search, null, Core.Directory.DirectoryErrorKind.ServerUnavailable, times: 10);
+        await model.RecalculateCommand.ExecuteAsync(null);
+
+        Assert.NotNull(model.Error);
+        Assert.False(model.HasModel);
+        Assert.False(model.ComputerPart.IsAvailable);
+        Assert.False(model.ExportCsvCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task ExportCsv_WritesTheGpoListsAndTheSettingsOfBothParts_ToTheChosenFile()
     {
         var h = await HarnessAsync();
@@ -333,6 +386,18 @@ public sealed class GroupPolicyModelingTests
         var user = Assert.IsType<GroupPolicyModelingDocumentViewModel>(shell.SelectedTab);
         Assert.NotSame(model, user);
         Assert.Equal(ModelingTargetChoice.Account(h.Company.JanKowalski), user.UserChoice);
+
+        // An inetOrgPerson is a user account too.
+        var anna = "CN=Anna Zielińska," + h.Company.ItOu;
+        h.Session.Seed(anna, new Dictionary<string, object?>
+        {
+            [Core.ActiveDirectory.Attr.ObjectClass] = new[] { "top", "person", "organizationalPerson", "user", "inetOrgPerson" },
+            [Core.ActiveDirectory.Attr.Cn] = "Anna Zielińska",
+            [Core.ActiveDirectory.Attr.SamAccountName] = "anna.zielinska",
+        });
+        await shell.NavigateAsync(ListLocation.ForContainer(h.Company.ItOu, "IT", Icons.ObjectIcon.OrganizationalUnit));
+        Select(shell, "Anna Zielińska");
+        Assert.True(shell.ModelUserGroupPolicyCommand.CanExecute(null));
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using AdMng.Core.GroupPolicy.AdministrativeTemplates;
 using AdMng.Core.GroupPolicy.Content;
+using AdMng.Core.Ldap;
 
 namespace AdMng.Core.GroupPolicy.Modeling;
 
@@ -58,7 +59,7 @@ public static class GroupPolicyModeler
         {
             if (target is not null)
             {
-                ids.UnionWith(inheritance.Resolve(target.ContainerDn, input.SiteDn).Select(a => a.GpoId));
+                ids.UnionWith(inheritance.Resolve(target.ContainerDn, input.SiteDn).Where(a => a.Link.IsInDomain(input.DomainDn)).Select(a => a.GpoId));
             }
         }
 
@@ -120,12 +121,12 @@ public static class GroupPolicyModeler
     private static PartLinks Merge(PartLinks user, PartLinks computer)
     {
         var all = user.Applied.Concat(computer.Applied).ToList();
-        var seen = new HashSet<Guid>();
+        var seen = new HashSet<DistinguishedName>();
         var applied = new List<(AppliedGroupPolicy, bool)>();
         var excluded = user.Excluded.Concat(computer.Excluded).ToList();
         for (var i = all.Count - 1; i >= 0; i--)
         {
-            if (seen.Add(all[i].Link.GpoId))
+            if (seen.Add(DistinguishedName.Parse(all[i].Link.Link.GpoDn)))
             {
                 applied.Add(all[i]);
             }
@@ -210,8 +211,10 @@ public static class GroupPolicyModeler
 
             // Outcomes in application order; precedence counts the applying GPOs from the last one.
             var evaluated = links.Applied
-                .Select(l => (l.Link, l.Loopback, Gpo: input.Gpos.GetValueOrDefault(l.Link.GpoId)))
-                .Select(l => (l.Link, l.Loopback, l.Gpo, Outcome: Outcome(part, l.Gpo, target.Token, computerToken, input.Options.WmiFilters)))
+                .Select(l => (l.Link, l.Loopback, Local: l.Link.Link.IsInDomain(input.DomainDn)))
+                .Select(l => (l.Link, l.Loopback, Gpo: l.Local ? input.Gpos.GetValueOrDefault(l.Link.GpoId) : null, l.Local))
+                .Select(l => (l.Link, l.Loopback, l.Gpo,
+                    Outcome: l.Local ? Outcome(part, l.Gpo, target.Token, computerToken, input.Options.WmiFilters) : ModeledGpoOutcome.OtherDomain))
                 .ToList();
             var applying = evaluated.Count(e => e.Outcome is ModeledGpoOutcome.Applied or ModeledGpoOutcome.AppliedIfWmiFilter);
             var precedence = applying;
@@ -240,21 +243,25 @@ public static class GroupPolicyModeler
 
             var gpos = rows.Where(r => r.Applies).OrderBy(r => r.Precedence)
                 .Concat(rows.Where(r => !r.Applies))
-                .Concat(links.Excluded.Select(e => new ModeledGpo
+                .Concat(links.Excluded.Select(e =>
                 {
-                    GpoId = e.Link.GpoId,
-                    Name = input.Gpos.TryGetValue(e.Link.GpoId, out var gpo) ? gpo.DisplayName : SysvolPaths.FolderName(e.Link.GpoId),
-                    Container = e.Link.Container,
-                    Link = e.Link.Link,
-                    Outcome = e.Link.Reason switch
+                    var gpo = e.Link.Link.IsInDomain(input.DomainDn) ? input.Gpos.GetValueOrDefault(e.Link.GpoId) : null;
+                    return new ModeledGpo
                     {
-                        GroupPolicyLinkExclusion.LinkDisabled => ModeledGpoOutcome.LinkDisabled,
-                        GroupPolicyLinkExclusion.Blocked => ModeledGpoOutcome.Blocked,
-                        _ => ModeledGpoOutcome.Duplicate,
-                    },
-                    BlockedBy = e.Link.BlockedBy,
-                    WmiFilterName = gpo?.WmiFilterName,
-                    FromLoopback = e.Loopback,
+                        GpoId = e.Link.GpoId,
+                        Name = gpo?.DisplayName ?? SysvolPaths.FolderName(e.Link.GpoId),
+                        Container = e.Link.Container,
+                        Link = e.Link.Link,
+                        Outcome = e.Link.Reason switch
+                        {
+                            GroupPolicyLinkExclusion.LinkDisabled => ModeledGpoOutcome.LinkDisabled,
+                            GroupPolicyLinkExclusion.Blocked => ModeledGpoOutcome.Blocked,
+                            _ => ModeledGpoOutcome.Duplicate,
+                        },
+                        BlockedBy = e.Link.BlockedBy,
+                        WmiFilterName = gpo?.WmiFilterName,
+                        FromLoopback = e.Loopback,
+                    };
                 }))
                 .ToList();
 
@@ -327,7 +334,9 @@ public static class GroupPolicyModeler
                     warnings.Add(new ModelingWarning(ModelingWarningKind.FileUnreadable, gpo.GpoId, gpo.Name, marker.Source));
                 }
 
-                // Administrative template policies of this GPO's Registry.pol.
+                // Administrative template policies of this GPO's Registry.pol, and the values they cover: a value only a
+                // policy of the other class or an unconfigured one describes stays an extra registry value (as in GPMC).
+                var covered = new RegistryCoverage();
                 if (content.Registry(part) is { } registry)
                 {
                     if (hasDefinitions)
@@ -338,6 +347,7 @@ public static class GroupPolicyModeler
                             if (setting.State != PolicyState.NotConfigured)
                             {
                                 Add(policySources, definition.Id, new ModeledPolicySource(source, setting));
+                                covered.Add(definition.Policy);
                             }
                         }
                     }
@@ -361,9 +371,9 @@ public static class GroupPolicyModeler
                         continue;
                     }
 
-                    // Registry.pol values: the policies above cover what the templates describe.
+                    // Registry.pol values: the policies above show what they cover.
                     if (setting.Source is { } path && path.Equals(registryPath, StringComparison.OrdinalIgnoreCase)
-                        && hasDefinitions && IsDescribed(setting.Key))
+                        && covered.Covers(setting.Key))
                     {
                         continue;
                     }
@@ -402,34 +412,6 @@ public static class GroupPolicyModeler
             return (policies, settings);
         }
 
-        /// <summary>A Registry.pol setting key (<c>Computer/Registry/HKLM\key!value</c>) whose value some template describes.</summary>
-        private bool IsDescribed(string key)
-        {
-            var slash = key.IndexOf("/Registry/", StringComparison.OrdinalIgnoreCase);
-            if (slash < 0)
-            {
-                return false;
-            }
-
-            var path = key[(slash + "/Registry/".Length)..];
-            var bang = path.LastIndexOf('!');
-            if (bang < 0)
-            {
-                return false; // a deleted key: not a value of a template
-            }
-
-            var name = path[(bang + 1)..];
-            var hiveAndKey = path[..bang];
-            var firstSlash = hiveAndKey.IndexOf('\\', StringComparison.Ordinal);
-            var registryKey = firstSlash < 0 ? string.Empty : hiveAndKey[(firstSlash + 1)..];
-            if (name == "**delvals.")
-            {
-                return Policies.Ownership.ListKeys.Contains(RegistryPolicyDocument.NormalizeKey(registryKey));
-            }
-
-            return name != "*" && Policies.Ownership.IsOwned(registryKey, name == "(Default)" ? string.Empty : name);
-        }
-
         private static void Add<T>(Dictionary<string, List<T>> sources, string key, T source)
         {
             if (!sources.TryGetValue(key, out var list))
@@ -439,6 +421,61 @@ public static class GroupPolicyModeler
             }
 
             list.Add(source);
+        }
+    }
+
+    /// <summary>The registry values the configured policies of one GPO's <c>Registry.pol</c> own (their values and list keys).</summary>
+    private sealed class RegistryCoverage
+    {
+        private readonly Dictionary<string, HashSet<string>> _names = new(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _listKeys = new(StringComparer.OrdinalIgnoreCase);
+
+        public void Add(AdmxPolicy policy)
+        {
+            foreach (var (key, names) in PolicyEngine.OwnValueNames(policy))
+            {
+                var normalized = RegistryPolicyDocument.NormalizeKey(key);
+                if (!_names.TryGetValue(normalized, out var existing))
+                {
+                    existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    _names[normalized] = existing;
+                }
+
+                existing.UnionWith(names);
+            }
+
+            _listKeys.UnionWith(PolicyEngine.ListKeys(policy).Select(RegistryPolicyDocument.NormalizeKey));
+        }
+
+        /// <summary>
+        /// A Registry.pol setting key (<c>Computer/Registry/HKLM\key!value</c>) whose value a configured policy owns. The key
+        /// path ends at the first <c>!</c> (template key names have none; a value name may).
+        /// </summary>
+        public bool Covers(string settingKey)
+        {
+            if (_names.Count == 0 && _listKeys.Count == 0)
+            {
+                return false;
+            }
+
+            var slash = settingKey.IndexOf("/Registry/", StringComparison.OrdinalIgnoreCase);
+            var path = slash < 0 ? null : settingKey[(slash + "/Registry/".Length)..];
+            var bang = path?.IndexOf('!', StringComparison.Ordinal) ?? -1;
+            if (path is null || bang < 0)
+            {
+                return false; // a deleted key: not a value of a template
+            }
+
+            var name = path[(bang + 1)..];
+            var hiveAndKey = path[..bang];
+            var firstSlash = hiveAndKey.IndexOf('\\', StringComparison.Ordinal);
+            var key = RegistryPolicyDocument.NormalizeKey(firstSlash < 0 ? string.Empty : hiveAndKey[(firstSlash + 1)..]);
+            if (_listKeys.Contains(key))
+            {
+                return true;
+            }
+
+            return name is not ("*" or "**delvals.") && _names.TryGetValue(key, out var names) && names.Contains(name == "(Default)" ? string.Empty : name);
         }
     }
 

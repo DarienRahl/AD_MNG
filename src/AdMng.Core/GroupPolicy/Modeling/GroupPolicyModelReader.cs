@@ -142,7 +142,8 @@ public static class GroupPolicyModelReader
 
     /// <summary>
     /// The folders of <paramref name="gpoIds"/> from SYSVOL of the session's DC; a folder that cannot be read (missing,
-    /// access denied, too large) is <see cref="ModelingGpoContent.Unreadable"/>.
+    /// access denied, too large, any other failure) is <see cref="ModelingGpoContent.Unreadable"/>. Only cancellation stops
+    /// the read.
     /// </summary>
     public static async Task<IReadOnlyDictionary<Guid, ModelingGpoContent>> ReadContentsAsync(
         ISysvolWriteConnection sysvol, IEnumerable<Guid> gpoIds, CancellationToken cancellationToken)
@@ -157,8 +158,10 @@ public static class GroupPolicyModelReader
             {
                 content = FromFolder(await GroupPolicyReader.ReadFolderAsync(sysvol, id, token).ConfigureAwait(false));
             }
-            catch (Exception ex) when (ex is SysvolWriteException or GpoTooLargeException)
+            catch (Exception ex) when (ex is not OperationCanceledException || !token.IsCancellationRequested)
             {
+                // Any failure of one folder (SYSVOL error, too large, a path SYSVOL rejects …) makes only that GPO
+                // unreadable; the model warns about it and goes on.
                 content = new ModelingGpoContent { Unreadable = true };
             }
 

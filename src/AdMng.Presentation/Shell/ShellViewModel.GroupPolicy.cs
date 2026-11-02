@@ -210,9 +210,13 @@ public sealed partial class ShellViewModel
     private (string Dn, string? Name)? ModelTarget(object? parameter, ObjectKind kind) => parameter switch
     {
         string dn when !string.IsNullOrWhiteSpace(dn) => (dn, null),
-        ObjectRowViewModel row => row.Kind == kind ? (row.Dn, row.Name) : null,
-        _ => CurrentSelection is [var selected] && selected.Kind == kind ? (selected.Dn, selected.Name) : null,
+        ObjectRowViewModel row => IsKind(row.Kind, kind) ? (row.Dn, row.Name) : null,
+        _ => CurrentSelection is [var selected] && IsKind(selected.Kind, kind) ? (selected.Dn, selected.Name) : null,
     };
+
+    /// <summary>An inetOrgPerson is a user account too (it processes user Group Policy).</summary>
+    private static bool IsKind(ObjectKind actual, ObjectKind wanted) =>
+        actual == wanted || (wanted == ObjectKind.User && actual == ObjectKind.InetOrgPerson);
 
     /// <summary>"Widok → Zasady grupy w drzewie".</summary>
     [RelayCommand(CanExecute = nameof(CanUseGroupPolicyAlways))]

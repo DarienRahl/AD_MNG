@@ -157,12 +157,13 @@ public sealed class GroupPolicyInheritance
             }
         }
 
-        // A GPO counts once, at its last (winning) position.
-        var seen = new HashSet<Guid>();
+        // A GPO counts once, at its last (winning) position. A GPO is its container's DN: the default GPOs have the same
+        // GUID in every domain, and a site or another domain's OU may link the GPO of another domain.
+        var seen = new HashSet<DistinguishedName>();
         var result = new List<AppliedGroupPolicy>();
         for (var i = applied.Count - 1; i >= 0; i--)
         {
-            if (seen.Add(applied[i].GpoId))
+            if (seen.Add(DistinguishedName.Parse(applied[i].Link.GpoDn)))
             {
                 result.Add(applied[i]);
             }

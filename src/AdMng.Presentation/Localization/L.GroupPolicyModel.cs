@@ -56,6 +56,7 @@ public static partial class L
         public const string OutcomeBlocked = "GpModel.OutcomeBlocked";
         public const string OutcomeDuplicate = "GpModel.OutcomeDuplicate";
         public const string OutcomeNotFound = "GpModel.OutcomeNotFound";
+        public const string OutcomeOtherDomain = "GpModel.OutcomeOtherDomain";
         public const string OutcomeComputerDisabled = "GpModel.OutcomeComputerDisabled";
         public const string OutcomeUserDisabled = "GpModel.OutcomeUserDisabled";
         public const string OutcomeEmpty = "GpModel.OutcomeEmpty";

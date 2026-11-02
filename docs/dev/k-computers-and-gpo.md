@@ -1443,6 +1443,14 @@ extensions without settings).
   the account and takes every account for a user ("GPOs for user …"), so it skips GPOs with the user configuration
   disabled even for a computer – the test leaves the computer-disabled GPO out of the comparison when Samba says
   "user".
+* **Review fixes (before release):** a `Registry.pol` value is hidden from the extra values only when a policy of the
+  part's class that is configured in that GPO owns it (a value only another class's or an unconfigured policy describes
+  stays an extra value, as in GPMC; a value name may contain `!`); links are GPO DNs, not GUIDs – a link to another
+  domain's GPO (a site's, or an OU's) is *OtherDomain* (not read from this domain's SYSVOL, never taken for the local GPO
+  with the same GUID such as the Default Domain Policy) and duplicates are counted by DN; a GPO folder that fails in any
+  way but cancellation is *Unreadable*; the document keeps the computer's default site until the operator picks one,
+  clears the model when a recalculation fails, exports only a model of the current inputs (named after its targets) and
+  models inetOrgPerson accounts as users.
 * **Deviations from the design:** the GPO row of a GPO that is blocked in the user's chain and applied from the
   computer's chain under loopback merge appears twice in `ModeledPart.Gpos` (blocked, then applied through loopback) –
   deliberate, both facts are true.

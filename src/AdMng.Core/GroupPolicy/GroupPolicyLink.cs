@@ -24,6 +24,14 @@ public sealed record GroupPolicyLink(string GpoDn, int Options, int Order)
 
     /// <summary>The GPO's GUID from the <c>cn</c> of <see cref="GpoDn"/>, null when the cn is not <c>{GUID}</c>.</summary>
     public Guid? GpoId => DistinguishedName.TryParse(GpoDn, out var dn) && !dn.IsRoot && GroupPolicyLinks.TryParseGpoId(dn.Name, out var id) ? id : null;
+
+    /// <summary>
+    /// The linked GPO is a container of <c>CN=Policies,CN=System</c> of the domain <paramref name="domainDn"/> (a site may
+    /// link a GPO of any domain of the forest; a child domain's GPO is not its parent domain's).
+    /// </summary>
+    public bool IsInDomain(string domainDn) =>
+        DistinguishedName.TryParse(GpoDn, out var dn) && DistinguishedName.TryParse(domainDn, out var domain)
+        && dn.Parent is { } policies && policies.Parent is { } system && system.Parent is { } owner && owner == domain;
 }
 
 /// <summary>Parser of <c>gPLink</c> (shared by the privileged access review and AdMng Watchdog).</summary>

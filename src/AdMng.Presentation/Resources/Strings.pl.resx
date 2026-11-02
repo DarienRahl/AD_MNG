@@ -14533,6 +14533,9 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="GpModel.OutcomeNotFound" xml:space="preserve">
     <value>GPO nie istnieje</value>
   </data>
+  <data name="GpModel.OutcomeOtherDomain" xml:space="preserve">
+    <value>GPO innej domeny (nie modelowany)</value>
+  </data>
   <data name="GpModel.OutcomeComputerDisabled" xml:space="preserve">
     <value>Konfiguracja komputera wyłączona</value>
   </data>
