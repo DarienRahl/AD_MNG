@@ -11,8 +11,9 @@ namespace AdMng.Outlook;
 /// maps each <see cref="OutgoingUserMessage"/> to an <see cref="OutlookMessage"/> (To/Cc, ReplyTo, subject, HTML, inline
 /// images, the account, "w imieniu" = From when configured, internet headers <c>Auto-Submitted: auto-generated</c>,
 /// <c>X-Auto-Response-Suppress: All</c>, <c>X-AdMng-Message: user-notification</c>) and classifies the result: sent →
-/// Accepted <see cref="SentCode"/>; Busy/NotResponding → Transient; <see cref="OutlookFailure.StopsRun"/> kinds →
-/// TransportFailed; else Rejected with the failure code. Disposing the connection ends the session.
+/// Accepted <see cref="SentCode"/>; Busy/NotResponding → Transient; <see cref="OutlookFailure.StopsRun"/> kinds and an
+/// account missing from the profile → TransportFailed; else Rejected with the failure code. Disposing the connection ends
+/// the session.
 /// </summary>
 public sealed class OutlookUserMessageTransport : IUserMessageTransport
 {
@@ -99,7 +100,9 @@ public sealed class OutlookUserMessageTransport : IUserMessageTransport
         };
     }
 
-    /// <summary>The delivery of an Outlook item result.</summary>
+    /// <summary>The delivery of an Outlook item result. An account missing from the profile stops the run like the
+    /// <see cref="OutlookFailure.StopsRun"/> kinds: every message of a run is sent from the account of the settings, so each
+    /// one would fail the same way (and reconnect to Outlook first).</summary>
     internal static UserMessageDelivery ToDelivery(OutlookItemResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
@@ -111,7 +114,9 @@ public sealed class OutlookUserMessageTransport : IUserMessageTransport
         var failure = result.Failure ?? OutlookErrors.Failure(OutlookFailureKind.Unknown);
         var outcome = failure.IsTransient
             ? UserMessageDeliveryOutcome.Transient
-            : failure.StopsRun ? UserMessageDeliveryOutcome.TransportFailed : UserMessageDeliveryOutcome.Rejected;
+            : failure.StopsRun || failure.Kind == OutlookFailureKind.InvalidAccount
+                ? UserMessageDeliveryOutcome.TransportFailed
+                : UserMessageDeliveryOutcome.Rejected;
         return new UserMessageDelivery(outcome, failure.Code);
     }
 
