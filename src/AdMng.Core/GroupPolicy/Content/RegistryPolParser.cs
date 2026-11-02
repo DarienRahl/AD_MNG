@@ -19,53 +19,18 @@ namespace AdMng.Core.GroupPolicy.Content;
 public static class RegistryPolParser
 {
     /// <summary>"PReg" read as a little-endian 32-bit integer.</summary>
-    public const uint Signature = 0x67655250;
+    public const uint Signature = RegistryPolFile.Signature;
 
-    public const uint Version = 1;
-
-    /// <summary>Longest key or value name accepted (registry limits: key path 32 767 characters, value name 16 383).</summary>
-    private const int MaxStringChars = 32_767;
+    public const uint Version = RegistryPolFile.Version;
 
     public static void Parse(ReadOnlySpan<byte> content, GpoScope scope, GpoSettingSink sink)
     {
         ArgumentNullException.ThrowIfNull(sink);
-        if (content.Length == 0)
-        {
-            return; // a policy file without entries; GPMC writes the header, but an empty file applies nothing either
-        }
-
-        if (content.Length < 8 || BinaryPrimitives.ReadUInt32LittleEndian(content) != Signature)
-        {
-            throw new GpoParseException("Registry.pol has no PReg signature.");
-        }
-
-        if (BinaryPrimitives.ReadUInt32LittleEndian(content[4..]) != Version)
-        {
-            throw new GpoParseException("Registry.pol has an unsupported version.");
-        }
-
+        var entries = RegistryPolFile.Read(content);
         var (prefix, hive) = scope == GpoScope.User ? ("User/Registry/", "HKCU") : ("Computer/Registry/", "HKLM");
-        var position = 8;
-        while (position < content.Length)
+        foreach (var entry in entries)
         {
-            Expect(content, ref position, '[');
-            var key = ReadString(content, ref position);
-            Expect(content, ref position, ';');
-            var valueName = ReadString(content, ref position);
-            Expect(content, ref position, ';');
-            var type = ReadUInt32(content, ref position);
-            Expect(content, ref position, ';');
-            var size = ReadUInt32(content, ref position);
-            Expect(content, ref position, ';');
-            if (size > (uint)(content.Length - position))
-            {
-                throw new GpoParseException("Registry.pol entry data exceeds the file.");
-            }
-
-            var data = content.Slice(position, (int)size);
-            position += (int)size;
-            Expect(content, ref position, ']');
-            Entry(sink, prefix, hive + (key.Length == 0 ? string.Empty : "\\" + key.Trim('\\')), valueName, type, data);
+            Entry(sink, prefix, hive + (entry.Key.Length == 0 ? string.Empty : "\\" + entry.Key.Trim('\\')), entry.ValueName, entry.Type, entry.Data);
         }
     }
 
@@ -156,54 +121,4 @@ public static class RegistryPolParser
 
     private static IEnumerable<string> SemicolonList(ReadOnlySpan<byte> data) =>
         Utf16(data).Split('\0')[0].Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-    private static void Expect(ReadOnlySpan<byte> content, ref int position, char expected)
-    {
-        if (content.Length - position < 2 || BinaryPrimitives.ReadUInt16LittleEndian(content[position..]) != expected)
-        {
-            throw new GpoParseException("Registry.pol is malformed: expected '" + expected + "'.");
-        }
-
-        position += 2;
-    }
-
-    private static uint ReadUInt32(ReadOnlySpan<byte> content, ref int position)
-    {
-        if (content.Length - position < 4)
-        {
-            throw new GpoParseException("Registry.pol is truncated.");
-        }
-
-        var value = BinaryPrimitives.ReadUInt32LittleEndian(content[position..]);
-        position += 4;
-        return value;
-    }
-
-    /// <summary>A NUL-terminated UTF-16LE string (the terminator consumed).</summary>
-    private static string ReadString(ReadOnlySpan<byte> content, ref int position)
-    {
-        var start = position;
-        while (true)
-        {
-            if (content.Length - position < 2)
-            {
-                throw new GpoParseException("Registry.pol has an unterminated string.");
-            }
-
-            if (BinaryPrimitives.ReadUInt16LittleEndian(content[position..]) == 0)
-            {
-                break;
-            }
-
-            position += 2;
-            if ((position - start) / 2 > MaxStringChars)
-            {
-                throw new GpoParseException("Registry.pol has an over-long string.");
-            }
-        }
-
-        var text = Encoding.Unicode.GetString(content[start..position]);
-        position += 2;
-        return text;
-    }
 }
