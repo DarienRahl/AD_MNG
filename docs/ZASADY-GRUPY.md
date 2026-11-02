@@ -217,10 +217,13 @@ są pokazywane. *Eksportuj CSV…* zapisuje porównanie tylko na żądanie. Oba 
    tworzy się magazyn centralny, gdy domena go nie ma); **Pobierz Microsoft Edge / Google Chrome / Mozilla Firefox** –
    najnowsze szablony prosto od producenta.
    Szablony Windows i Microsoft 365 Apps nie mają stałego adresu – pobierasz je ze strony Microsoftu i wskazujesz plik.
-   Paczki MSI, CAB i EXE rozpakowuje Windows (`msiexec /a`, `/extract`, `expand`) z kopii w prywatnym folderze
+   Paczki MSI i EXE rozpakowuje Windows (`msiexec /a`, `/extract`), a archiwum CAB – AD Manager w pamięci, biblioteką
+   CAB systemu Windows (`cabinet.dll`), bez zapisywania jego plików na dysku. Zawsze z kopii w prywatnym folderze
    tymczasowym profilu – kopia jest otwarta tylko do odczytu, więc nikt jej nie podmieni między sprawdzeniem podpisu a
    rozpakowaniem – a folder jest usuwany zaraz po wczytaniu plików. CAB, który rozpakowałby się do ponad 512 MiB, jest
-   częścią zestawu kilku plików CAB albo zawiera plik spoza swojego folderu, nie jest rozpakowywany. Paczka może mieć
+   częścią zestawu kilku plików CAB albo zawiera plik spoza swojego folderu, nie jest rozpakowywany; z CAB brane są tylko
+   szablony i archiwa ZIP. Instalator, który zakończy się bez rozpakowania czegokolwiek, to błąd rozpakowania (a nie
+   paczka bez szablonów). Paczka może mieć
    najwyżej 512 MiB, 5000 szablonów i 512 MiB plików ADMX/ADML razem – większa jest odrzucana. Pliki paczki, których
    okno nie użyje (np. drugi szablon o tej samej nazwie w innym folderze, za duży plik), są wymienione osobno.
 2. **Zaufanie.** Okno mówi, skąd są pliki: *Podpisany przez …* (podpis Authenticode sprawdzony przez Windows, w oknie
@@ -277,7 +280,8 @@ są widoczne. Zapamiętywane są wyłącznie: widoczność węzłów GPO w drzew
 komentarza kopii i wybór *Utwórz kopię zapasową przed usunięciem*. Pliki powstają tylko tam, gdzie operator je wskaże:
 kopie zapasowe GPO, kopia magazynu centralnego przed aktualizacją i eksport porównania do CSV. Paczki szablonów
 producentów (pliki producentów, nie dane katalogu) są trzymane w pamięci; tylko instalatory MSI i EXE oraz archiwa CAB
-są kopiowane i rozpakowywane w folderze tymczasowym profilu, usuwanym zaraz po wczytaniu. Dziennik audytu zawiera
+są kopiowane do folderu tymczasowego profilu (instalatory są tam też rozpakowywane, CAB – w pamięci), usuwanego zaraz po
+wczytaniu. Dziennik audytu zawiera
 przy zmianach SYSVOL ścieżki plików w folderze GPO lub magazynie centralnym, rozmiary i sumy SHA-256 – nie treść
 plików.
 
@@ -288,8 +292,9 @@ plików.
 - Szablony administracyjne i magazyn centralny (K3) sprawdzono testami na fałszywym katalogu i syntetycznych szablonach
   (polskie ADMX/ADML przygotowane do testów, nie pliki producentów); edytor i okno aktualizacji – CI na Windows.
   Pobieranie szablonów Edge, Chrome i Firefox sprawdzono na odpowiedziach przygotowanych według formatów producentów
-  (środowisko testowe nie ma dostępu do ich serwerów); rozpakowywanie MSI, EXE i CAB oraz sprawdzanie podpisu działa
-  tylko w Windows i potwierdzi je pilotaż.
+  (środowisko testowe nie ma dostępu do ich serwerów). Rozpakowywanie MSI, EXE i CAB oraz sprawdzanie podpisu działa
+  tylko w Windows: sprawdzanie podpisu (na bibliotece .NET podpisanej przez Microsoft) i rozpakowywanie CAB (na plikach
+  testowych z `makecab`) sprawdza CI na Windows, instalatory MSI i EXE Microsoftu – pilotaż.
 - Do potwierdzenia w pilotażu (Windows Server 2025, Windows 11): GPMC odtwarza kopie AD Managera, a AD Manager kopie
   GPMC (z `gpreport.xml` i bez); GPMC nie zgłasza niespójnych uprawnień po zmianach AD Managera; maski poziomów
   uprawnień GPMC i format `msWMI-Parm2` filtrów WMI; GPO utworzone w AD Managerze działa jak utworzone w GPMC

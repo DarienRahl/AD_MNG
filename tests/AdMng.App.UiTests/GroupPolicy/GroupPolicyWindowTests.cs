@@ -338,11 +338,16 @@ public sealed class GroupPolicyWindowTests
         Assert.Equal(4, options.Items.Count);
         Assert.True(view.SaveButton.IsEnabled);
 
-        // The search narrows the list.
+        // The search narrows the list – to another policy, so the selected one is no longer listed and loses its selection.
         editor.SearchText = "wuserver";
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         Assert.Single(view.PolicyList.Items);
+        Assert.Null(editor.Editor);
         editor.SearchText = string.Empty;
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        editor.SelectedPolicy = editor.Policies.Single(p => p.Name == "Konfiguruj aktualizacje automatyczne");
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        Assert.True(editor.Editor!.IsEnabled); // the edit stays in the document
 
         var drive = UiWait.DriveModalAsync<ChangePlanPreviewWindow>(async w =>
         {

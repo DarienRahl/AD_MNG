@@ -10,19 +10,20 @@ namespace AdMng.App.GroupPolicy;
 /// <summary>
 /// Unpacks the template packages only Windows opens (K3, "Zaktualizuj szablony"): the Windows templates MSI
 /// (<c>msiexec /a</c>, an administrative installation into a folder), the Microsoft 365 Apps EXE (<c>/extract: /quiet</c>)
-/// and CAB archives (<c>expand.exe</c>; Edge's CAB holds a ZIP).
+/// and CAB archives (in memory through Windows' cabinet library, <see cref="CabinetUnpacker"/>; Edge's CAB holds a ZIP).
 /// </summary>
 /// <remarks>
 /// The package (at most <see cref="PolicyTemplatePackage.MaxArchiveBytes"/>) is first copied into a new private folder of a
 /// temporary folder of the operator's profile and held open there read-only (nobody can change or replace it) while its
-/// Authenticode signature is checked through that handle (<see cref="AuthenticodeVerifier"/>) and while the tool runs on
-/// that very copy, with the private folder as its working folder (no DLL planted beside a package in the operator's folder is
-/// loaded). An MSI or EXE runs only when Microsoft signed it: a valid signature whose chain ends in a Microsoft root and
-/// whose certificate's organization is exactly "Microsoft Corporation". A CAB, which is only unpacked, may be unsigned (the
-/// window says so); its header is read first and a CAB that would unpack more than
-/// <see cref="PolicyTemplatePackage.MaxArchiveBytes"/>, belongs to a set or names a file outside its folder is refused. What
-/// was unpacked is read within the limits of <see cref="PolicyTemplatePackage"/> (only the files the package keeps) and the
-/// temporary folder is deleted right after (vendor files, not directory data).
+/// Authenticode signature is checked through that handle (<see cref="AuthenticodeVerifier"/>) and while it is unpacked: an
+/// MSI or EXE by its tool running on that very copy, with the private folder as its working folder (no DLL planted beside a
+/// package in the operator's folder is loaded), a CAB read through the same handle (no tool runs, nothing is written). An
+/// MSI or EXE runs only when Microsoft signed it: a valid signature whose chain ends in a Microsoft root and whose
+/// certificate's organization is exactly "Microsoft Corporation"; a tool that ends without having written anything did not
+/// unpack the package. A CAB, which is only unpacked, may be unsigned (the window says so); its header is read first and a
+/// CAB that would unpack more than <see cref="PolicyTemplatePackage.MaxArchiveBytes"/>, belongs to a set or names a file
+/// outside its folder is refused. What was unpacked is read within the limits of <see cref="PolicyTemplatePackage"/> (only
+/// the files the package keeps) and the temporary folder is deleted right after (vendor files, not directory data).
 /// </remarks>
 [SupportedOSPlatform("windows")]
 public sealed class WindowsPolicyPackageExtractor : IPolicyPackageExtractor
@@ -50,12 +51,13 @@ public sealed class WindowsPolicyPackageExtractor : IPolicyPackageExtractor
         {
             // The private copy has a name of its own: nothing of the operator's file name reaches the tools' command lines.
             var folder = System.IO.Directory.CreateDirectory(Path.Combine(temp, "package")).FullName;
-            var output = System.IO.Directory.CreateDirectory(Path.Combine(temp, "out")).FullName;
             var copy = Path.Combine(folder, "package" + extension);
             await CopyAsync(source, copy, cancellationToken).ConfigureAwait(false);
 
+            var name = Path.GetFileName(source);
             PackageTrust trust;
             string? signer;
+            PolicyTemplatePackage package;
             using (var handle = File.OpenHandle(copy, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 if (extension == ".cab")
@@ -74,17 +76,23 @@ public sealed class WindowsPolicyPackageExtractor : IPolicyPackageExtractor
                     ? (PackageTrust.Signed, signature.Signer)
                     : (PackageTrust.Unsigned, null);
 
-                var (tool, arguments) = extension switch
+                if (extension == ".cab")
                 {
-                    ".msi" => (SystemTool("msiexec.exe"), $"/a {Quote(copy)} /qn TARGETDIR={Quote(output)}"),
-                    ".exe" => (copy, $"/extract:{Quote(output)} /quiet"),
-                    _ => (SystemTool("expand.exe"), $"{Quote(copy)} -F:* {Quote(output)}"),
-                };
-                await RunAsync(tool, arguments, folder, cancellationToken).ConfigureAwait(false);
+                    // In memory, through the handle that was checked: no tool runs and nothing of the cabinet is written.
+                    var files = await Task.Run(() => CabinetUnpacker.Unpack(handle, cancellationToken), cancellationToken).ConfigureAwait(false);
+                    package = FromCabinet(name, files);
+                }
+                else
+                {
+                    var output = System.IO.Directory.CreateDirectory(Path.Combine(temp, "out")).FullName;
+                    var (tool, arguments) = extension == ".msi"
+                        ? (SystemTool("msiexec.exe"), $"/a {Quote(copy)} /qn TARGETDIR={Quote(output)}")
+                        : (copy, $"/extract:{Quote(output)} /quiet");
+                    await RunAsync(tool, arguments, folder, cancellationToken).ConfigureAwait(false);
+                    package = await Task.Run(() => Unpacked(name, output), cancellationToken).ConfigureAwait(false);
+                }
             }
 
-            var name = Path.GetFileName(source);
-            var package = await Task.Run(() => Unpacked(name, output), cancellationToken).ConfigureAwait(false);
             return package.WithTrust(trust, signer);
         }
         catch (InvalidDataException ex)
@@ -106,9 +114,17 @@ public sealed class WindowsPolicyPackageExtractor : IPolicyPackageExtractor
         }
     }
 
-    /// <summary>The package of what was unpacked: its templates, or the ZIP inside (Edge's CAB holds MicrosoftEdgePolicyTemplates.zip).</summary>
+    /// <summary>
+    /// The package of what an installer unpacked: its templates, or the ZIP inside. A tool that ended without writing
+    /// anything did not unpack the package (it is not a package without templates).
+    /// </summary>
     private static PolicyTemplatePackage Unpacked(string name, string output)
     {
+        if (!System.IO.Directory.EnumerateFileSystemEntries(output).Any())
+        {
+            throw new PolicyTemplatePackageException(PolicyTemplatePackageError.ExtractionFailed, "The unpacking tool wrote nothing.");
+        }
+
         var package = PolicyTemplatePackage.FromFolder(name, output, eager: true);
         if (package.AdmxFiles.Count > 0 || System.IO.Directory.EnumerateFiles(output, "*.zip", SearchOption.AllDirectories).FirstOrDefault() is not { } zip)
         {
@@ -117,6 +133,21 @@ public sealed class WindowsPolicyPackageExtractor : IPolicyPackageExtractor
 
         return new FileInfo(zip).Length > PolicyTemplatePackage.MaxArchiveBytes ? throw TooLarge() : PolicyTemplatePackage.FromZip(name, File.ReadAllBytes(zip));
     }
+
+    /// <summary>The package of a cabinet's files: its templates, or else the ZIP inside (Edge's CAB holds MicrosoftEdgePolicyTemplates.zip).</summary>
+    private static PolicyTemplatePackage FromCabinet(string name, IReadOnlyDictionary<string, byte[]> files)
+    {
+        var templates = files.Where(f => !IsZip(f.Key)).ToDictionary(f => f.Key, f => f.Value, StringComparer.OrdinalIgnoreCase);
+        var package = PolicyTemplatePackage.FromFiles(name, templates);
+        if (package.AdmxFiles.Count > 0 || files.Keys.Where(IsZip).Order(StringComparer.OrdinalIgnoreCase).FirstOrDefault() is not { } zip)
+        {
+            return package;
+        }
+
+        return PolicyTemplatePackage.FromZip(name, files[zip]);
+    }
+
+    private static bool IsZip(string path) => path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Copies the package into the private folder (at most <see cref="PolicyTemplatePackage.MaxArchiveBytes"/>).</summary>
     private static async Task CopyAsync(string source, string target, CancellationToken cancellationToken)
@@ -156,7 +187,7 @@ public sealed class WindowsPolicyPackageExtractor : IPolicyPackageExtractor
 
     private static string SystemTool(string name) => Path.Combine(Environment.SystemDirectory, name);
 
-    /// <summary>A path in double quotes, as msiexec (<c>TARGETDIR="…"</c>), expand and the Office extractor expect it.</summary>
+    /// <summary>A path in double quotes, as msiexec (<c>TARGETDIR="…"</c>) and the Office extractor expect it.</summary>
     private static string Quote(string path) => path.Contains('"', StringComparison.Ordinal)
         ? throw new ArgumentException("A path cannot contain quotation marks.", nameof(path))
         : "\"" + path + "\"";

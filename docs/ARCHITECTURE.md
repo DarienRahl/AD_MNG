@@ -196,7 +196,8 @@ z zapasowymi szablonami tego komputera), edytor (`AdministrativeTemplatesEditorV
 `PolicyTemplatePackageLoader` (pliki, foldery, pobieranie HTTPS wyłącznie z hostów producentów – także po
 przekierowaniach – z limitem rozmiaru i sumą) i `CentralStoreUpdateViewModel`. `AdMng.App/GroupPolicy`: karta edytora,
 okno aktualizacji i `WindowsPolicyPackageExtractor` (podpis Authenticode przez `WinVerifyTrust`; instalatory MSI/EXE
-uruchamiane tylko z podpisem Microsoftu; `msiexec /a`, `/extract`, `expand` w folderze tymczasowym usuwanym od razu).
+uruchamiane tylko z podpisem Microsoftu – `msiexec /a`, `/extract` w folderze tymczasowym usuwanym od razu; CAB
+rozpakowywany w pamięci przez `cabinet.dll` – `CabinetUnpacker`).
 Szablony i ustawienia są tylko w pamięci; kopia magazynu powstaje wyłącznie w folderze wskazanym przez operatora
 (zasada 1), a dziennik audytu zapisuje ścieżki, rozmiary i SHA-256 plików magazynu – nie ich treść.
 

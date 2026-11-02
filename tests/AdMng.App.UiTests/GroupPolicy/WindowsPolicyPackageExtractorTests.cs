@@ -11,8 +11,9 @@ namespace AdMng.App.UiTests.GroupPolicy;
 
 /// <summary>
 /// The packages only Windows unpacks (K3 review): the Authenticode check through WinVerifyTrust, the signer's chain and the
-/// Microsoft root policy; installers Microsoft did not sign never run; a CAB is unpacked from a private copy within the
-/// limits, its header checked before <c>expand.exe</c> runs. Windows only (no window needed).
+/// Microsoft root policy; installers Microsoft did not sign never run; a CAB is unpacked in memory through Windows' cabinet
+/// library from a private copy held open, within the limits, its header checked first. Windows only (no window needed);
+/// the cabinets are made by <c>makecab.exe</c>.
 /// </summary>
 public sealed class WindowsPolicyPackageExtractorTests
 {
@@ -98,6 +99,36 @@ public sealed class WindowsPolicyPackageExtractorTests
             Assert.Equal(SampleAdministrativeTemplates.Utf8(SampleAdministrativeTemplates.ContosoAdmlPl),
                 await package.ReadAsync("pl/contoso.adml", PolicyTemplatePackage.MaxEntryBytes, Ct));
             Assert.True(File.Exists(cab)); // the operator's file is only read
+        }
+        finally
+        {
+            folder.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Extract_UnpacksACabOfTemplates_AndSkipsOtherFiles()
+    {
+        SkipUnlessWindows();
+        var folder = System.IO.Directory.CreateTempSubdirectory("admng-k3-cab-");
+        try
+        {
+            var admx = Path.Combine(folder.FullName, "contoso.admx");
+            await File.WriteAllTextAsync(admx, SampleAdministrativeTemplates.ContosoAdmx, Ct);
+            var templates = Path.Combine(folder.FullName, "szablony.cab");
+            Run(Path.Combine(Environment.SystemDirectory, "makecab.exe"), $"\"{admx}\" \"{templates}\"", folder.FullName);
+            var notes = Path.Combine(folder.FullName, "informacje.txt");
+            await File.WriteAllTextAsync(notes, "Szablony zasad – pliki producenta.", Ct);
+            var other = Path.Combine(folder.FullName, "informacje.cab");
+            Run(Path.Combine(Environment.SystemDirectory, "makecab.exe"), $"\"{notes}\" \"{other}\"", folder.FullName);
+
+            var package = await new WindowsPolicyPackageExtractor().ExtractAsync(templates, Ct);
+            var empty = await new WindowsPolicyPackageExtractor().ExtractAsync(other, Ct);
+
+            Assert.Equal(["contoso.admx"], package.AdmxFiles);
+            Assert.Equal(await File.ReadAllBytesAsync(admx, Ct), await package.ReadAsync("contoso.admx", PolicyTemplatePackage.MaxEntryBytes, Ct));
+            Assert.Empty(empty.AdmxFiles); // a cabinet without templates is a package without templates, not an error
+            Assert.Equal(PackageTrust.Unsigned, empty.Trust);
         }
         finally
         {

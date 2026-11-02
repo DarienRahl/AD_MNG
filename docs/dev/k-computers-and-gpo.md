@@ -1201,8 +1201,8 @@ listed below.
   (host shown), *Unsigned*, *NotChecked* (the operator's files) – the last two with a warning. The package (at most
   `MaxArchiveBytes`) is first copied into a private subfolder of a temporary folder of the profile (`admng-admx-*\package`,
   a name of its own) and held open there read-only (`FileShare.Read`) while it is verified – through that handle,
-  `WINTRUST_FILE_INFO.hFile` – and while the tool runs on that copy with the private folder as working folder (no swap
-  after the check, no DLL planted beside the operator's file). An MSI or EXE is run (`msiexec /a … TARGETDIR="…"`,
+  `WINTRUST_FILE_INFO.hFile` – and while it is unpacked: an installer's tool runs on that copy with the private folder as
+  working folder, a CAB is read through the handle (no swap after the check, no DLL planted beside the operator's file). An MSI or EXE is run (`msiexec /a … TARGETDIR="…"`,
   `/extract:"…" /quiet`) only when Microsoft signed it (`AuthenticodeVerifier`): `WinVerifyTrust` keeps its state, the
   signer's chain is taken from it (`WTHelperProvDataFromStateData`, `WTHelperGetProvSignerFromChain`) and must pass
   `CertVerifyCertificateChainPolicy(CERT_CHAIN_POLICY_MICROSOFT_ROOT)` – the product roots (flight root disabled) or the
@@ -1210,11 +1210,17 @@ listed below.
   publisher certificate (`PackageSigner`: its only `O` RDN exactly `Microsoft Corporation`, compared on the parsed name,
   never on a formatted subject; not a Windows Hardware Compatibility Publisher certificate, whose WHQL usages mark other
   vendors' drivers). The window shows that parsed organization (else the common name, without control or formatting
-  characters), also for a signed CAB. A CAB is only unpacked (`expand -F:*`) and may be unsigned; its header is read
-  first (`CabinetDirectory`) and a CAB that would unpack more than `MaxArchiveBytes`, belongs to a set or names a file
-  that is not a plain relative path is refused; a CAB whose certificate claims Microsoft Corporation without Microsoft's
-  chain counts as *Unsigned*. Edge's CAB holds a ZIP, which is read in memory. The temporary folder is deleted right
-  after; a downloaded Edge CAB is the only download written to disk (temp file, deleted after extraction).
+  characters), also for a signed CAB. A CAB is only unpacked and may be unsigned; its header is read first
+  (`CabinetDirectory`) and a CAB that would unpack more than `MaxArchiveBytes`, belongs to a set or names a file that is
+  not a plain relative path is refused; a CAB whose certificate claims Microsoft Corporation without Microsoft's chain
+  counts as *Unsigned*. The CAB is unpacked in memory through Windows' cabinet library (`CabinetUnpacker`: `cabinet.dll`
+  FDI with our own callbacks), read through the same held handle – no tool runs and nothing of it is written; only
+  templates and ZIP archives are kept, every name a plain relative path again, every file within the size its entry
+  declares (a template within `MaxEntryBytes`) and all of them within `MaxArchiveBytes`, a file of a set refused. Edge's
+  CAB holds a ZIP, which is read in memory. (The first build ran `expand -F:*` on the held copy: on Windows CI it ended
+  with 0 having written nothing, so an installer whose tool writes nothing is now *ExtractionFailed* as well, never a
+  package without templates.) The temporary folder is deleted right after; a downloaded Edge CAB is the only download
+  written to disk (temp file, deleted after extraction).
 * **Package limits** (`PolicyTemplatePackage`, a crafted archive must not exhaust memory or time): at most
   `MaxEntries` (100 000) entries looked at – a ZIP whose end of central directory (classic or ZIP64) declares more is
   refused before its directory is read –, `MaxEntryBytes` (32 MiB) per file, `MaxTemplates` (5 000) templates and
