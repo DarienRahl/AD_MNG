@@ -45,6 +45,9 @@ internal sealed class CabinetUnpacker
     /// <summary>Size of <c>ERF</c>: <c>erfOper</c>, <c>erfType</c>, <c>fError</c> (three 32-bit values).</summary>
     private const int ErrorBytes = 3 * sizeof(int);
 
+    /// <summary>The name <c>FDICopy</c> is given (with an empty folder): FDI opens the cabinet by it.</summary>
+    private const string CabinetName = "package.cab";
+
     private static readonly IntPtr Failure = new(-1);
 
     private readonly SafeFileHandle _cabinet;
@@ -120,7 +123,7 @@ internal sealed class CabinetUnpacker
     private IReadOnlyDictionary<string, byte[]> Run()
     {
         var error = Marshal.AllocHGlobal(ErrorBytes);
-        var name = Marshal.StringToHGlobalAnsi("package.cab");
+        var name = Marshal.StringToHGlobalAnsi(CabinetName);
         var folder = Marshal.StringToHGlobalAnsi(string.Empty);
         var context = IntPtr.Zero;
         try
@@ -132,7 +135,7 @@ internal sealed class CabinetUnpacker
                 throw Failed("The cabinet library did not start.");
             }
 
-            // The name and folder only make up the path FDI hands to Open, which always opens this cabinet.
+            // The name and folder only make up the path FDI hands to Open, which opens this cabinet by it.
             var unpacked = FDICopy(context, name, folder, 0, _notify, IntPtr.Zero, IntPtr.Zero);
             _cancellationToken.ThrowIfCancellationRequested();
             if (_failure is PolicyTemplatePackageException or OperationCanceledException)
@@ -182,12 +185,18 @@ internal sealed class CabinetUnpacker
 
     private static void Free(IntPtr memory) => Marshal.FreeHGlobal(memory);
 
-    /// <summary>FDI opens the cabinet: always the one of this unpacker, read-only (a set's next cabinet is refused in <see cref="Notify"/>).</summary>
+    /// <summary>
+    /// FDI opens the cabinet by the name <c>FDICopy</c> was given, read-only. Any other open – a decompressor's spill
+    /// file, opened read-write (FDI never assumes it knows what the client opens) – fails; a set's next cabinet is
+    /// refused earlier, in <see cref="Notify"/>.
+    /// </summary>
     private IntPtr Open(IntPtr path, int flags, int mode)
     {
         try
         {
-            return (flags & WriteAccess) != 0 || _failure is not null ? Failure : Add(new CabinetPosition());
+            var cabinet = (flags & WriteAccess) == 0 && _failure is null
+                && Marshal.PtrToStringAnsi(path) is { } name && name.EndsWith(CabinetName, StringComparison.OrdinalIgnoreCase);
+            return cabinet ? Add(new CabinetPosition()) : Failure;
         }
         catch (Exception ex)
         {
@@ -200,7 +209,7 @@ internal sealed class CabinetUnpacker
         try
         {
             _cancellationToken.ThrowIfCancellationRequested();
-            if (!_handles.TryGetValue(handle, out var item) || item is not CabinetPosition cabinet)
+            if (_failure is not null || !_handles.TryGetValue(handle, out var item) || item is not CabinetPosition cabinet)
             {
                 return uint.MaxValue;
             }
@@ -238,7 +247,7 @@ internal sealed class CabinetUnpacker
     {
         try
         {
-            if (!_handles.TryGetValue(handle, out var item) || item is not OutputFile file)
+            if (_failure is not null || !_handles.TryGetValue(handle, out var item) || item is not OutputFile file)
             {
                 return uint.MaxValue;
             }
@@ -306,6 +315,12 @@ internal sealed class CabinetUnpacker
 
     private IntPtr Notify(int type, IntPtr notification)
     {
+        if (_failure is not null)
+        {
+            // A callback failed: stop here (Microsoft's FDI aborts by itself; one that went on would get no more buffers).
+            return Failure;
+        }
+
         try
         {
             var info = Marshal.PtrToStructure<FdiNotification>(notification);
