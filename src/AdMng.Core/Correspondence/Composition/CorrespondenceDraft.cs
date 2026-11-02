@@ -31,6 +31,10 @@ public sealed record CorrespondenceDraft
     /// grouping a column or custom field of that name wins (<see cref="CorrespondenceRenderer.BuiltInApplies"/>).</summary>
     public bool GroupByAddress { get; init; }
 
+    /// <summary>The font, size and line height of the message (the wrapping <c>div</c>); null →
+    /// <see cref="MessageBaseStyle.Default"/>.</summary>
+    public MessageBaseStyle? BaseStyle { get; init; }
+
     public override string ToString() => nameof(CorrespondenceDraft);
 }
 

@@ -102,7 +102,7 @@ public static class CorrespondenceRenderer
             images.TryAdd(image.ContentId, image);
         }
 
-        var result = MessageHtmlSanitizer.Sanitize(CorrespondenceDocument.Build(body, draft.Signature), new HtmlSanitizeOptions
+        var result = MessageHtmlSanitizer.Sanitize(CorrespondenceDocument.Build(body, draft.Signature, draft.BaseStyle), new HtmlSanitizeOptions
         {
             Mode = HtmlSanitizeMode.Document,
             InlineImageIds = images.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase),
