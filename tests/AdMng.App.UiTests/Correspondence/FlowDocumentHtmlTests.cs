@@ -346,7 +346,7 @@ public sealed class FlowDocumentHtmlTests
     public Task KeptLayout_CellBorders_PerSide_InTheColourOfTheWidest(string css, double left, double top, double right, double bottom, string color) =>
         WpfTestHost.RunAsync(() =>
         {
-            var html = $"<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\"><tr><td style=\"{css}\">Komórka</td></tr></table>";
+            var html = $"<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\"><tr><td style=\"{css}\"><p style=\"margin:0\">Komórka</p></td></tr></table>";
 
             var cell = Assert.Single(Cells(Assert.IsType<Table>(Assert.Single(FlowDocumentHtml.ToDocument(html, Images, keepLayout: true).Blocks))));
 
