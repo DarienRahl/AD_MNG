@@ -127,6 +127,35 @@ public sealed class PreviewPageTests
     }
 
     [Fact]
+    public async Task AColumnNamedLiczba_IsTheColumnWithoutGrouping_TheRowCountWithIt_AsWstawPoleOffers()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenAsync();
+        CorrespondencePagesScenario.AddRows(window,
+            CorrespondencePagesScenario.Row("ug@leki.pl", "Gmina Łęki", ("Liczba", "25")),
+            CorrespondencePagesScenario.Row("ug@leki.pl", "Gmina Łęki", ("Liczba", "40")),
+            CorrespondencePagesScenario.Row("ug@zarnow.pl", "Gmina Żarnów", ("Liczba", "")));
+        var message = window.Message;
+        message.Subject = "Ankieta";
+        message.BodyHtml = "<p>Uczniów: {{Liczba}}.</p>";
+
+        await window.Preview.RefreshCommand.ExecuteAsync(null);
+
+        Assert.Contains("{{Liczba}}", message.FieldChoices);
+        Assert.DoesNotContain("{{liczba}}", message.FieldChoices);
+        Assert.Contains("<p>Uczniów: 25.</p>", window.Preview.Preview.Html, StringComparison.Ordinal);
+        Assert.Equal(["Pole {{Liczba}} jest puste u 1 z 3 odbiorców – u nich zostanie pusta luka."], window.Preview.Warnings);
+
+        message.GroupByAddress = true;
+        await window.Preview.RefreshCommand.ExecuteAsync(null);
+
+        Assert.Contains("{{liczba}}", message.FieldChoices);
+        Assert.DoesNotContain("{{Liczba}}", message.FieldChoices);
+        Assert.Contains("<p>Uczniów: 2.</p>", window.Preview.Preview.Html, StringComparison.Ordinal);
+        Assert.Empty(window.Preview.Warnings);
+    }
+
+    [Fact]
     public async Task Bcc_IsPreviewedAsSent_WithoutTheFieldsOfARow()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();

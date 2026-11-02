@@ -502,7 +502,7 @@ public sealed partial class PreviewPageViewModel : ObservableObject
             cancellationToken.ThrowIfCancellationRequested();
             var first = unit.Unit.Rows.Count > 0 ? unit.Unit.Rows[0] : new Dictionary<string, string>();
             var set = new RecipientFieldSet(unit.Unit.Email, unit.Unit.Name, first, draft.Salutation, draft.CustomFields, state.Set.KnownColumns,
-                count: unit.Unit.Rows.Count);
+                count: CorrespondenceRenderer.BuiltInApplies(BuiltInFields.Count, draft, unit.Unit, state.Set.KnownColumns) ? unit.Unit.Rows.Count : null);
             for (var i = 0; i < fields.Count; i++)
             {
                 if (set.Lookup(fields[i]) is { } value && string.IsNullOrWhiteSpace(value))

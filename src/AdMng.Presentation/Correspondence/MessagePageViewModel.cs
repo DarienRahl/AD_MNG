@@ -234,6 +234,7 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
         CustomFields = [.. CustomFields.Where(f => !string.IsNullOrWhiteSpace(f.Name)).Select(f => new CustomFieldDefinition(f.Name.Trim(), f.Value ?? string.Empty))],
         ListItemTemplate = ListItemTemplate,
         Salutation = Salutation,
+        GroupByAddress = GroupByAddress,
     };
 
     /// <summary>The draft once the chosen signature has been read (sending and the preview use it).</summary>

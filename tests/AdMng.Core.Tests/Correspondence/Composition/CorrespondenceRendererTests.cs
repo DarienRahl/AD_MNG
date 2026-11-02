@@ -176,6 +176,45 @@ public class CorrespondenceRendererTests
     }
 
     [Fact]
+    public void WithoutGrouping_ColumnsNamedListaAndLiczba_KeepTheirValues()
+    {
+        // "Wstaw pole" offers {{Liczba}} and {{Lista}} of the file when messages are not grouped: they must be the columns.
+        var row = new Dictionary<string, string> { ["Nazwa"] = "Gmina Łęki", ["Liczba"] = "25", ["Lista"] = "<b>szkoły</b>, przedszkola" };
+        var draft = new CorrespondenceDraft
+        {
+            Subject = "{{Lista}} ({{liczba}})",
+            BodyHtml = "<p>Liczba: {{Liczba}}. Lista: {{lista}}.</p>",
+            ListItemTemplate = "{{Nazwa}}",
+        };
+
+        var rendered = Render(draft, new CorrespondenceUnit("ug@leki.pl", "Gmina Łęki", [row]), ["Nazwa", "Liczba", "Lista"]);
+
+        Assert.Equal("<b>szkoły</b>, przedszkola (25)", rendered.Subject);
+        Assert.Contains("<p>Liczba: 25. Lista: &lt;b&gt;szkoły&lt;/b&gt;, przedszkola.</p>", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.DoesNotContain("<ul", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.False(CorrespondenceRenderer.BuiltInApplies("Liczba", draft, Unit(row), ["Nazwa"]));   // the row's own column
+        Assert.True(CorrespondenceRenderer.BuiltInApplies("lista", draft, Unit(Row()), Columns));
+    }
+
+    [Fact]
+    public void WithGrouping_TheBuiltInsWin_OverColumnsOfThatName()
+    {
+        var rows = new[]
+        {
+            new Dictionary<string, string> { ["Placówka"] = "Szkoła w Łękach", ["Liczba"] = "25" },
+            new Dictionary<string, string> { ["Placówka"] = "Przedszkole w Łękach", ["Liczba"] = "40" },
+        };
+        var draft = new CorrespondenceDraft { BodyHtml = "<p>Placówek: {{Liczba}}</p><p>{{Lista}}</p>", ListItemTemplate = "{{Placówka}} ({{Liczba}})", GroupByAddress = true };
+
+        var rendered = Render(draft, new CorrespondenceUnit("ug@leki.pl", "Gmina Łęki", rows), ["Placówka", "Liczba"]);
+
+        Assert.Contains("<p>Placówek: 2</p>", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.Contains("<li>Szkoła w Łękach (25)</li>", rendered.HtmlDocument, StringComparison.Ordinal);   // list items see the row's columns
+        Assert.Contains("<li>Przedszkole w Łękach (40)</li>", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.True(CorrespondenceRenderer.BuiltInApplies("liczba", draft, Unit(rows[0]), ["Liczba"]));
+    }
+
+    [Fact]
     public void BlankListItemTemplate_ListIsEmptyAndReported()
     {
         var rendered = Render(new CorrespondenceDraft { BodyHtml = "<p>{{lista}}</p>", ListItemTemplate = "  " });

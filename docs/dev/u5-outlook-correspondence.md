@@ -1064,9 +1064,13 @@ differs from sections 1–13 or goes beyond them.
 - **Fields:** `FieldToken.Field`/`Fallback` are HTML-decoded and `&nbsp;` becomes a space. An empty value with a
   fallback is not reported as empty; an unknown field is always reported. HTML encoding encodes only `& < > " '` and
   turns CR/LF into `<br>`. `RepairHtml` never joins across block elements, `<br>`, comments or script/style, keeps the
-  tags inside a token (moved, not deleted) and turns `&nbsp;` into a space. Without grouping `lista`/`liczba` fall
-  through to custom fields and columns.
-- **Renderer:** every unit is a group (a single row renders `{{lista}}` with one item, `{{liczba}}` = 1); the list is
+  tags inside a token (moved, not deleted) and turns `&nbsp;` into a space. Without group values (`list`/`count` null)
+  `lista`/`liczba` fall through to custom fields and columns.
+- **Renderer:** every unit is a group (a single row renders `{{lista}}` with one item, `{{liczba}}` = 1) – except that
+  without grouping by address (`CorrespondenceDraft.GroupByAddress`, set from the message page) a column or custom field
+  named "Lista"/"Liczba" wins over the built-in (`CorrespondenceRenderer.BuiltInApplies`), as "Wstaw pole" offers the
+  column then and the built-ins only with grouping; such a column is encoded like any value and its paragraph is not
+  split; the preview's empty-field count follows the same rule; the list is
   rendered only when used, and the paragraph holding `{{lista}}` is split around the `<ul>`; in the subject `{{lista}}` is
   the items joined by ", "; list items take `{{nazwa}}` from the unit; the list item template is plain text, as its text
   box suggests (its own text HTML-encoded, `FieldTemplate.TextToHtml`, so a typed `{{Skrzynka}} <{{Adres}}>` keeps the
