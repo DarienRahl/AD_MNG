@@ -33,6 +33,16 @@ public interface ISysvolConnection : IAsyncDisposable
     /// <param name="maxBytes">Largest file read.</param>
     /// <param name="cancellationToken">Stops the read.</param>
     Task<SysvolFileResult> ReadGpoFileAsync(Guid gpoId, string relativePath, long maxBytes, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The files and folders of the central store <c>&lt;domain&gt;\Policies\PolicyDefinitions</c> (K3), paths relative to it
+    /// ('/'-separated), at most <paramref name="maxEntries"/>; null when the central store does not exist.
+    /// </summary>
+    /// <exception cref="SysvolWriteException">The central store exists but cannot be listed.</exception>
+    Task<IReadOnlyList<SysvolEntry>?> ListPolicyDefinitionsAsync(int maxEntries, CancellationToken cancellationToken);
+
+    /// <summary>Reads one file of the central store into memory (as <see cref="ReadGpoFileAsync"/>; path validated the same way).</summary>
+    Task<SysvolFileResult> ReadPolicyDefinitionsFileAsync(string relativePath, long maxBytes, CancellationToken cancellationToken);
 }
 
 /// <summary>Outcome of one file read.</summary>
@@ -172,6 +182,9 @@ public static class SysvolPaths
         normalized = string.Join('/', segments);
         return true;
     }
+
+    /// <summary>The central store's folder below <c>&lt;domain&gt;\Policies</c> (K3).</summary>
+    public const string PolicyDefinitionsFolder = "PolicyDefinitions";
 
     /// <summary>The GPO folder name: the GUID in braces, upper case (as GPMC creates it).</summary>
     public static string FolderName(Guid gpoId) => gpoId.ToString("B", CultureInfo.InvariantCulture).ToUpperInvariant();

@@ -11874,6 +11874,15 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   </data>
   <!-- K2: Group Policy (end) -->
 
+  <!-- K3: administrative templates (begin) -->
+  <data name="Issue.GpoComputerPartDisabled" xml:space="preserve">
+    <value>Konfiguracja komputera tego GPO jest wyłączona (stan GPO): klienci zastosują te ustawienia dopiero po jej ponownym włączeniu.</value>
+  </data>
+  <data name="Issue.GpoUserPartDisabled" xml:space="preserve">
+    <value>Konfiguracja użytkownika tego GPO jest wyłączona (stan GPO): klienci zastosują te ustawienia dopiero po jej ponownym włączeniu.</value>
+  </data>
+  <!-- K3: administrative templates (end) -->
+
   <!-- U5 core: begin -->
   <!-- U5 core: end -->
 

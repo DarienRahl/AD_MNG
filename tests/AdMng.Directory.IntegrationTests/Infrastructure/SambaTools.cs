@@ -259,14 +259,24 @@ internal sealed class SmbClientSysvolFileReader(string address, string userName,
     {
         public string Server { get; } = server;
 
-        public async Task<SysvolFileResult> ReadGpoFileAsync(Guid gpoId, string relativePath, long maxBytes, CancellationToken cancellationToken)
+        public Task<SysvolFileResult> ReadGpoFileAsync(Guid gpoId, string relativePath, long maxBytes, CancellationToken cancellationToken) =>
+            ReadAsync(SysvolPaths.FolderName(gpoId), relativePath, maxBytes, cancellationToken);
+
+        public Task<SysvolFileResult> ReadPolicyDefinitionsFileAsync(string relativePath, long maxBytes, CancellationToken cancellationToken) =>
+            ReadAsync(SysvolPaths.PolicyDefinitionsFolder, relativePath, maxBytes, cancellationToken);
+
+        /// <summary>The read-only lab reader does not list; the K3 lab tests use <see cref="SmbClientSysvolFileWriter"/>.</summary>
+        public Task<IReadOnlyList<SysvolEntry>?> ListPolicyDefinitionsAsync(int maxEntries, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("The read-only lab reader does not list the central store.");
+
+        private async Task<SysvolFileResult> ReadAsync(string folder, string relativePath, long maxBytes, CancellationToken cancellationToken)
         {
             if (!SysvolPaths.TryNormalize(relativePath, out var path))
             {
                 throw new ArgumentException("Invalid relative path.", nameof(relativePath));
             }
 
-            var remote = domain + "/Policies/" + SysvolPaths.FolderName(gpoId) + "/" + path;
+            var remote = domain + "/Policies/" + folder + "/" + path;
             var result = await SambaTools.RunAsync(
                 "/usr/bin/smbclient",
                 ["//" + Server + "/SYSVOL", "-I", address, "-U", userName, "-m", "SMB3", "-c", "get \"" + remote + "\" -"],

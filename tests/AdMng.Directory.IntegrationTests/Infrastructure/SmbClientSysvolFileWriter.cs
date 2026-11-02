@@ -94,10 +94,16 @@ internal sealed partial class SmbClientSysvolFileWriter(string address, string u
             var folder = Folder(gpoId);
             var result = await SmbAsync((options.Recursive ? "recurse; " : string.Empty) + "ls \"" + folder + "/*\"", null, cancellationToken);
             Check(result, "list");
+            return ParseListing(result.Output, folder, options.MaxEntries);
+        }
+
+        /// <summary>The entries of a recursive <c>ls</c> below <paramref name="folder"/> (paths relative to it).</summary>
+        private static List<SysvolEntry> ParseListing(string output, string folder, int maxEntries)
+        {
             var prefix = "\\" + folder.Replace('/', '\\') + "\\";
             var entries = new List<SysvolEntry>();
             var current = string.Empty;
-            foreach (var line in result.Output.Split('\n'))
+            foreach (var line in output.Split('\n'))
             {
                 var text = line.TrimEnd('\r');
                 if (text.StartsWith('\\'))
@@ -119,7 +125,7 @@ internal sealed partial class SmbClientSysvolFileWriter(string address, string u
                     : DateTimeOffset.MinValue;
                 entries.Add(new SysvolEntry(current + match.Groups["name"].Value, isFolder,
                     isFolder ? 0 : long.Parse(match.Groups["size"].Value, CultureInfo.InvariantCulture), lastWrite));
-                if (entries.Count >= options.MaxEntries)
+                if (entries.Count >= maxEntries)
                 {
                     break;
                 }
@@ -201,11 +207,64 @@ internal sealed partial class SmbClientSysvolFileWriter(string address, string u
             Check(await CaclsAsync(gpoId, ["--sddl", "--propagate-inheritance", "--set", sddl], cancellationToken), "propagate security " + sddl);
         }
 
+        public async Task<IReadOnlyList<SysvolEntry>?> ListPolicyDefinitionsAsync(int maxEntries, CancellationToken cancellationToken)
+        {
+            var folder = DefinitionsFolder();
+            var result = await SmbAsync("recurse; ls \"" + folder + "/*\"", null, cancellationToken);
+            if (result.Exit != 0)
+            {
+                return ErrorOf(result) == SysvolWriteError.NotFound ? null : throw Error(result, "list central store");
+            }
+
+            return ParseListing(result.Output, folder, maxEntries);
+        }
+
+        public async Task<SysvolFileResult> ReadPolicyDefinitionsFileAsync(string relativePath, long maxBytes, CancellationToken cancellationToken)
+        {
+            var result = await SmbAsync("get \"" + DefinitionsFolder() + "/" + Normalize(relativePath) + "\" -", null, cancellationToken);
+            if (result.Exit == 0)
+            {
+                return result.Bytes.LongLength > maxBytes ? SysvolFileResult.TooLarge : SysvolFileResult.Of(result.Bytes);
+            }
+
+            return ErrorOf(result) switch
+            {
+                SysvolWriteError.NotFound => SysvolFileResult.NotFound,
+                SysvolWriteError.AccessDenied => SysvolFileResult.AccessDenied,
+                _ => SysvolFileResult.Failed,
+            };
+        }
+
+        public async Task WritePolicyDefinitionsTempFileAsync(string tempRelativePath, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
+        {
+            var path = Normalize(tempRelativePath);
+            var folders = (SysvolPaths.PolicyDefinitionsFolder + "/" + path).Split('/')[..^1];
+            for (var i = 1; i <= folders.Length; i++)
+            {
+                var made = await SmbAsync("mkdir \"" + domain + "/Policies/" + string.Join('/', folders[..i]) + "\"", null, cancellationToken);
+                if (made.Exit != 0 && ErrorOf(made) != SysvolWriteError.AlreadyExists)
+                {
+                    throw Error(made, "create central store folder");
+                }
+            }
+
+            Check(await SmbAsync("put /dev/stdin \"" + DefinitionsFolder() + "/" + path + "\"", content.ToArray(), cancellationToken), "write central store file");
+        }
+
+        public async Task ReplacePolicyDefinitionsFileAsync(string tempRelativePath, string targetRelativePath, CancellationToken cancellationToken) =>
+            Check(await SmbAsync("rename \"" + DefinitionsFolder() + "/" + Normalize(tempRelativePath) + "\" \"" + DefinitionsFolder() + "/" + Normalize(targetRelativePath)
+                + "\" -f", null, cancellationToken), "replace central store file");
+
+        public async Task DeletePolicyDefinitionsFileAsync(string relativePath, CancellationToken cancellationToken) =>
+            Check(await SmbAsync("del \"" + DefinitionsFolder() + "/" + Normalize(relativePath) + "\"", null, cancellationToken), "delete central store file");
+
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"//{Server}/SYSVOL");
 
         private string Folder(Guid gpoId) => domain + "/Policies/" + SysvolPaths.FolderName(gpoId);
+
+        private string DefinitionsFolder() => domain + "/Policies/" + SysvolPaths.PolicyDefinitionsFolder;
 
         private string Remote(Guid gpoId, string relativePath) => Folder(gpoId) + "/" + Normalize(relativePath);
 

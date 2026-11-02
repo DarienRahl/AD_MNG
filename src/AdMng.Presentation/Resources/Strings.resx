@@ -11874,6 +11874,15 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <!-- K2: Group Policy (end) -->
 
+  <!-- K3: administrative templates (begin) -->
+  <data name="Issue.GpoComputerPartDisabled" xml:space="preserve">
+    <value>The computer configuration of this GPO is disabled (GPO status): clients apply these settings only after it is enabled again.</value>
+  </data>
+  <data name="Issue.GpoUserPartDisabled" xml:space="preserve">
+    <value>The user configuration of this GPO is disabled (GPO status): clients apply these settings only after it is enabled again.</value>
+  </data>
+  <!-- K3: administrative templates (end) -->
+
   <!-- U5 core: begin -->
   <!-- U5 core: end -->
 

@@ -227,6 +227,9 @@ public sealed class PowerShellExporter : IPowerShellExporter
                     case PowerShellValueKind.Boolean:
                         text.Append(" -").Append(parameter.Name).Append(parameter.Value == "true" ? " $true" : " $false");
                         break;
+                    case PowerShellValueKind.LiteralList:
+                        text.Append(" -").Append(parameter.Name).Append(" @(").Append(string.Join(", ", parameter.Values.Select(Quote))).Append(')');
+                        break;
                     default:
                         text.Append(" -").Append(parameter.Name).Append(' ').Append(Quote(parameter.Value ?? string.Empty));
                         break;

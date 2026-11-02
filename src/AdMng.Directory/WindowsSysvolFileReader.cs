@@ -269,11 +269,81 @@ internal static partial class WindowsSysvol
         /// <summary>Runs a blocking file call as the run's logon session (or the process identity).</summary>
         protected T AsLogon<T>(Func<T> call) => Token is null ? call() : WindowsIdentity.RunImpersonated(Token, call);
 
-        public async Task<SysvolFileResult> ReadGpoFileAsync(Guid gpoId, string relativePath, long maxBytes, CancellationToken cancellationToken)
+        /// <summary>The UNC path of the central store (<paramref name="relativePath"/> null) or of a path below it (validated).</summary>
+        protected string PolicyDefinitionsPath(string? relativePath)
+        {
+            var folder = share + @"\" + domain + @"\Policies\" + SysvolPaths.PolicyDefinitionsFolder;
+            if (relativePath is null)
+            {
+                return folder;
+            }
+
+            if (!SysvolPaths.TryNormalize(relativePath, out var normalized))
+            {
+                throw new ArgumentException("The path is not a path below the central store.", nameof(relativePath));
+            }
+
+            return folder + @"\" + normalized.Replace('/', '\\');
+        }
+
+        public Task<SysvolFileResult> ReadGpoFileAsync(Guid gpoId, string relativePath, long maxBytes, CancellationToken cancellationToken)
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxBytes);
-            var path = GpoPath(gpoId, relativePath ?? throw new ArgumentNullException(nameof(relativePath)));
+            return ReadFileAsync(GpoPath(gpoId, relativePath ?? throw new ArgumentNullException(nameof(relativePath))), maxBytes, cancellationToken);
+        }
+
+        public Task<SysvolFileResult> ReadPolicyDefinitionsFileAsync(string relativePath, long maxBytes, CancellationToken cancellationToken)
+        {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxBytes);
+            return ReadFileAsync(PolicyDefinitionsPath(relativePath ?? throw new ArgumentNullException(nameof(relativePath))), maxBytes, cancellationToken);
+        }
+
+        public async Task<IReadOnlyList<SysvolEntry>?> ListPolicyDefinitionsAsync(int maxEntries, CancellationToken cancellationToken)
+        {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxEntries);
+            var root = PolicyDefinitionsPath(null);
+            try
+            {
+                return await Task.Run(() => AsLogon<IReadOnlyList<SysvolEntry>?>(() =>
+                {
+                    var folder = new DirectoryInfo(root);
+                    if (!folder.Exists)
+                    {
+                        return null;
+                    }
+
+                    var entries = new List<SysvolEntry>();
+                    var enumeration = new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = 0, IgnoreInaccessible = false, ReturnSpecialDirectories = false };
+                    foreach (var info in folder.EnumerateFileSystemInfos("*", enumeration))
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        var isFolder = info is DirectoryInfo;
+                        entries.Add(new SysvolEntry(Path.GetRelativePath(root, info.FullName).Replace('\\', '/'), isFolder,
+                            isFolder ? 0 : ((FileInfo)info).Length, info.LastWriteTimeUtc));
+                        if (entries.Count >= maxEntries)
+                        {
+                            break;
+                        }
+                    }
+
+                    return entries;
+                }), cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+            {
+                throw SysvolWriteErrors.From(ex, "Listing the central store");
+            }
+        }
+
+        private async Task<SysvolFileResult> ReadFileAsync(string path, long maxBytes, CancellationToken cancellationToken)
+        {
             try
             {
                 // CreateFile on a UNC path blocks (SMB round trips): off the calling thread, as the run's own logon session

@@ -30,6 +30,9 @@ public enum PowerShellValueKind
 
     /// <summary><c>$true</c> / <c>$false</c> (Value "true" / "false").</summary>
     Boolean,
+
+    /// <summary>An array of literals <c>@('a', 'b')</c> (<see cref="PowerShellParameter.Values"/>).</summary>
+    LiteralList,
 }
 
 /// <summary>One parameter of a <see cref="PowerShellCommand"/>.</summary>
@@ -43,6 +46,13 @@ public sealed record PowerShellParameter(string Name, string? Value, PowerShellV
         new(name, value.ToString(System.Globalization.CultureInfo.InvariantCulture), PowerShellValueKind.Number);
 
     public static PowerShellParameter Boolean(string name, bool value) => new(name, value ? "true" : "false", PowerShellValueKind.Boolean);
+
+    /// <summary><c>-Name @('a', 'b')</c>.</summary>
+    public static PowerShellParameter Literals(string name, IReadOnlyList<string> values) =>
+        new(name, null, PowerShellValueKind.LiteralList) { Values = values ?? throw new ArgumentNullException(nameof(values)) };
+
+    /// <summary>The literals of a <see cref="PowerShellValueKind.LiteralList"/> parameter.</summary>
+    public IReadOnlyList<string> Values { get; init; } = [];
 
     /// <summary><c>-Server $server</c> (omitted when the script has no server).</summary>
     public static PowerShellParameter Server { get; } = new("Server", null, PowerShellValueKind.Server);

@@ -169,20 +169,7 @@ internal static partial class WindowsSysvol
             return RunAsync("Writing a file", () =>
             {
                 RequireFolder(root);
-                System.IO.Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                using (var stream = new FileStream(path, new FileStreamOptions
-                {
-                    Mode = FileMode.CreateNew,
-                    Access = FileAccess.Write,
-                    Share = FileShare.None,
-                    BufferSize = 0,
-                    PreallocationSize = bytes.Length,
-                }))
-                {
-                    stream.Write(bytes);
-                    stream.Flush(flushToDisk: true);
-                }
-
+                WriteNew(path, bytes);
                 return true;
             }, cancellationToken);
         }
@@ -257,6 +244,65 @@ internal static partial class WindowsSysvol
                 new DirectoryInfo(root).SetAccessControl(security);
                 return true;
             }, cancellationToken);
+        }
+
+        public Task WritePolicyDefinitionsTempFileAsync(string tempRelativePath, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
+        {
+            var path = PolicyDefinitionsPath(tempRelativePath);
+            var bytes = content.ToArray();
+            return RunAsync("Writing a central store file", () =>
+            {
+                // The central store and its culture folders are created as needed (a domain without a central store yet).
+                WriteNew(path, bytes);
+                return true;
+            }, cancellationToken);
+        }
+
+        public Task ReplacePolicyDefinitionsFileAsync(string tempRelativePath, string targetRelativePath, CancellationToken cancellationToken)
+        {
+            var temp = PolicyDefinitionsPath(tempRelativePath);
+            var target = PolicyDefinitionsPath(targetRelativePath);
+            if (!string.Equals(Path.GetDirectoryName(temp), Path.GetDirectoryName(target), StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("A temp file must be in the folder of its target (atomic rename).", nameof(tempRelativePath));
+            }
+
+            return RunAsync("Replacing a central store file", () =>
+            {
+                File.Move(temp, target, overwrite: true);
+                return true;
+            }, cancellationToken);
+        }
+
+        public Task DeletePolicyDefinitionsFileAsync(string relativePath, CancellationToken cancellationToken)
+        {
+            var path = PolicyDefinitionsPath(relativePath);
+            return RunAsync("Deleting a central store file", () =>
+            {
+                if (!File.Exists(path))
+                {
+                    throw new SysvolWriteException(SysvolWriteError.NotFound, "Deleting a central store file failed: not found.");
+                }
+
+                File.Delete(path);
+                return true;
+            }, cancellationToken);
+        }
+
+        /// <summary>A new file (missing parent folders created), flushed to the server and closed.</summary>
+        private static void WriteNew(string path, byte[] bytes)
+        {
+            System.IO.Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            using var stream = new FileStream(path, new FileStreamOptions
+            {
+                Mode = FileMode.CreateNew,
+                Access = FileAccess.Write,
+                Share = FileShare.None,
+                BufferSize = 0,
+                PreallocationSize = bytes.Length,
+            });
+            stream.Write(bytes);
+            stream.Flush(flushToDisk: true);
         }
 
         private static void RequireFolder(string root)

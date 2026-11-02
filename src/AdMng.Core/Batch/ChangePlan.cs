@@ -275,6 +275,12 @@ public static class IssueCodes
 
     /// <summary>Restored or imported preferences still hold GPP passwords (<c>cpassword</c>, MS14-025) that every domain user can decrypt.</summary>
     public const string GpoGppPassword = "GpoGppPassword";
+
+    /// <summary>Administrative templates (K3): the computer configuration of the GPO is disabled, so clients do not apply the change yet.</summary>
+    public const string GpoComputerPartDisabled = "GpoComputerPartDisabled";
+
+    /// <summary>Administrative templates (K3): the user configuration of the GPO is disabled, so clients do not apply the change yet.</summary>
+    public const string GpoUserPartDisabled = "GpoUserPartDisabled";
 }
 
 /// <summary>One step for one object. Steps of an object run sequentially in list order.</summary>

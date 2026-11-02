@@ -58,6 +58,19 @@ public interface ISysvolWriteConnection : ISysvolConnection
 
     /// <summary>Writes the folder's DACL (protected, propagated to its children by the server).</summary>
     Task SetGpoFolderSecurityAsync(Guid gpoId, byte[] descriptor, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Writes a new file (it must not exist) of the central store <c>&lt;domain&gt;\Policies\PolicyDefinitions</c>, flushed to the
+    /// server; missing folders - the central store itself included - are created. Stages content before
+    /// <see cref="ReplacePolicyDefinitionsFileAsync"/> (K3, "Zaktualizuj szablony").
+    /// </summary>
+    Task WritePolicyDefinitionsTempFileAsync(string tempRelativePath, ReadOnlyMemory<byte> content, CancellationToken cancellationToken);
+
+    /// <summary>Renames a temp file of the central store over its target (same folder, so the rename is atomic).</summary>
+    Task ReplacePolicyDefinitionsFileAsync(string tempRelativePath, string targetRelativePath, CancellationToken cancellationToken);
+
+    /// <summary>Deletes a file of the central store; a missing file is <see cref="SysvolWriteError.NotFound"/>.</summary>
+    Task DeletePolicyDefinitionsFileAsync(string relativePath, CancellationToken cancellationToken);
 }
 
 /// <summary>A file or folder of a GPO folder.</summary>

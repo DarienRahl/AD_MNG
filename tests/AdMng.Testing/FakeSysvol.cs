@@ -55,9 +55,9 @@ public sealed class FakeSysvol : ISysvolFileReader, ISysvolFileWriter
     /// <summary>Connections opened and not yet disposed.</summary>
     public int OpenConnections => Volatile.Read(ref _open);
 
-    /// <summary>The write calls (everything but Open, Read, List, Exists and GetSecurity).</summary>
+    /// <summary>The write calls (everything but Open, Read, List, Exists, GetSecurity and the central store's reads).</summary>
     public IReadOnlyList<FakeSysvolCall> Writes =>
-        [.. Calls.Where(c => c.Operation is not ("Open" or "Read" or "List" or "Exists" or "GetSecurity"))];
+        [.. Calls.Where(c => c.Operation is not ("Open" or "Read" or "List" or "Exists" or "GetSecurity" or "ReadDefinitions" or "ListDefinitions"))];
 
     /// <summary>Creates a GPO folder as <c>samba-tool gpo create</c> does: Machine, User and GPT.INI version 0.</summary>
     public void AddGpoFolder(Guid gpoId, int version = 0)
@@ -85,6 +85,45 @@ public sealed class FakeSysvol : ISysvolFileReader, ISysvolFileWriter
 
     /// <summary>Stores a text file (UTF-8 without BOM).</summary>
     public void PutText(Guid gpoId, string relativePath, string text) => Put(gpoId, relativePath, Encoding.UTF8.GetBytes(text));
+
+    /// <summary>Stores a file of the central store <c>PolicyDefinitions</c> (the store and its folders are created).</summary>
+    public void PutPolicyDefinition(string relativePath, byte[] content)
+    {
+        lock (_gate)
+        {
+            var key = DefinitionsKey(relativePath);
+            AddParents(key);
+            _files[key] = [.. content];
+        }
+    }
+
+    /// <summary>Creates an empty central store.</summary>
+    public void CreateCentralStore()
+    {
+        lock (_gate)
+        {
+            _folders.Add(SysvolPaths.PolicyDefinitionsFolder);
+        }
+    }
+
+    /// <summary>A file of the central store, or null.</summary>
+    public byte[]? GetPolicyDefinition(string relativePath)
+    {
+        lock (_gate)
+        {
+            return _files.TryGetValue(DefinitionsKey(relativePath), out var content) ? [.. content] : null;
+        }
+    }
+
+    /// <summary>The central store's files ('/'-separated, relative), sorted.</summary>
+    public IReadOnlyList<string> PolicyDefinitionFiles()
+    {
+        lock (_gate)
+        {
+            const string Prefix = SysvolPaths.PolicyDefinitionsFolder + "/";
+            return [.. _files.Keys.Where(k => k.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)).Select(k => k[Prefix.Length..]).Order(StringComparer.OrdinalIgnoreCase)];
+        }
+    }
 
     /// <summary>The file's content, or null.</summary>
     public byte[]? Get(Guid gpoId, string relativePath)
@@ -182,6 +221,16 @@ public sealed class FakeSysvol : ISysvolFileReader, ISysvolFileWriter
         }
 
         return SysvolPaths.FolderName(gpoId) + "/" + path;
+    }
+
+    private static string DefinitionsKey(string relativePath)
+    {
+        if (!SysvolPaths.TryNormalize(relativePath, out var path))
+        {
+            throw new ArgumentException("Invalid relative path.", nameof(relativePath));
+        }
+
+        return SysvolPaths.PolicyDefinitionsFolder + "/" + path;
     }
 
     private void AddParents(string key)
@@ -427,6 +476,104 @@ public sealed class FakeSysvol : ISysvolFileReader, ISysvolFileWriter
             {
                 RequireRoot(gpoId);
                 owner._security[gpoId] = [.. descriptor];
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<SysvolEntry>?> ListPolicyDefinitionsAsync(int maxEntries, CancellationToken cancellationToken)
+        {
+            Check(cancellationToken);
+            owner.Enter(Server, "ListDefinitions", Guid.Empty, null);
+            lock (owner._gate)
+            {
+                const string Root = SysvolPaths.PolicyDefinitionsFolder;
+                if (!owner._folders.Contains(Root))
+                {
+                    return Task.FromResult<IReadOnlyList<SysvolEntry>?>(null);
+                }
+
+                const string Prefix = Root + "/";
+                IReadOnlyList<SysvolEntry> entries = [.. owner._folders.Where(f => f.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
+                    .Select(f => new SysvolEntry(f[Prefix.Length..], true, 0, owner.Now))
+                    .Concat(owner._files.Where(f => f.Key.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
+                        .Select(f => new SysvolEntry(f.Key[Prefix.Length..], false, f.Value.Length, owner.Now)))
+                    .OrderBy(e => e.RelativePath, StringComparer.OrdinalIgnoreCase)
+                    .Take(maxEntries)];
+                return Task.FromResult<IReadOnlyList<SysvolEntry>?>(entries);
+            }
+        }
+
+        public Task<SysvolFileResult> ReadPolicyDefinitionsFileAsync(string relativePath, long maxBytes, CancellationToken cancellationToken)
+        {
+            Check(cancellationToken);
+            var key = DefinitionsKey(relativePath);
+            try
+            {
+                owner.Enter(Server, "ReadDefinitions", Guid.Empty, relativePath);
+            }
+            catch (SysvolWriteException ex)
+            {
+                return Task.FromResult(ex.Error == SysvolWriteError.AccessDenied ? SysvolFileResult.AccessDenied : SysvolFileResult.Failed);
+            }
+
+            lock (owner._gate)
+            {
+                return Task.FromResult(!owner._files.TryGetValue(key, out var content) ? SysvolFileResult.NotFound
+                    : content.Length > maxBytes ? SysvolFileResult.TooLarge
+                    : SysvolFileResult.Of([.. content]));
+            }
+        }
+
+        public Task WritePolicyDefinitionsTempFileAsync(string tempRelativePath, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
+        {
+            Check(cancellationToken);
+            var key = DefinitionsKey(tempRelativePath);
+            owner.Enter(Server, "WriteTempDefinitions", Guid.Empty, tempRelativePath);
+            lock (owner._gate)
+            {
+                if (owner._files.ContainsKey(key))
+                {
+                    throw new SysvolWriteException(SysvolWriteError.AlreadyExists, "The temp file exists (test).");
+                }
+
+                owner.AddParents(key);
+                owner._files[key] = content.ToArray();
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task ReplacePolicyDefinitionsFileAsync(string tempRelativePath, string targetRelativePath, CancellationToken cancellationToken)
+        {
+            Check(cancellationToken);
+            var temp = DefinitionsKey(tempRelativePath);
+            var target = DefinitionsKey(targetRelativePath);
+            owner.Enter(Server, "ReplaceDefinitions", Guid.Empty, targetRelativePath);
+            lock (owner._gate)
+            {
+                if (!owner._files.Remove(temp, out var content))
+                {
+                    throw new SysvolWriteException(SysvolWriteError.NotFound, "The temp file does not exist (test).");
+                }
+
+                owner._files[target] = content;
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task DeletePolicyDefinitionsFileAsync(string relativePath, CancellationToken cancellationToken)
+        {
+            Check(cancellationToken);
+            var key = DefinitionsKey(relativePath);
+            owner.Enter(Server, "DeleteDefinitions", Guid.Empty, relativePath);
+            lock (owner._gate)
+            {
+                if (!owner._files.Remove(key))
+                {
+                    throw new SysvolWriteException(SysvolWriteError.NotFound, "The file does not exist (test).");
+                }
             }
 
             return Task.CompletedTask;
