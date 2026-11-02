@@ -66,6 +66,12 @@ public static partial class L
         public const string FieldValue = "Correspondence.App.FieldValue";
         public const string AddField = "Correspondence.App.AddField";
 
+        /// <summary>"Dodaj datę": a date custom field.</summary>
+        public const string AddDateField = "Correspondence.App.AddDateField";
+        public const string FieldDate = "Correspondence.App.FieldDate";
+        public const string FieldFormat = "Correspondence.App.FieldFormat";
+        public const string FieldFormatHint = "Correspondence.App.FieldFormatHint";
+
         // ---- 1 · Odbiorcy.
         public const string RecipientsFromDownloads = "Correspondence.App.Recipients.FromDownloads";
         public const string RecipientsFromDownloadsHint = "Correspondence.App.Recipients.FromDownloadsHint";
@@ -185,6 +191,12 @@ public static partial class L
         public const string MessageVotingHint = "Correspondence.App.Message.VotingHint";
         public const string MessageCustomFields = "Correspondence.App.Message.CustomFields";
         public const string MessageCustomFieldsHint = "Correspondence.App.Message.CustomFieldsHint";
+
+        /// <summary>The base style of the message: "Czcionka", "Rozmiar", "Interlinia" and their tooltip.</summary>
+        public const string MessageFont = "Correspondence.App.Message.Font";
+        public const string MessageFontSize = "Correspondence.App.Message.FontSize";
+        public const string MessageLineHeight = "Correspondence.App.Message.LineHeight";
+        public const string MessageFontHint = "Correspondence.App.Message.FontHint";
         public const string MessageGroupByAddress = "Correspondence.App.Message.GroupByAddress";
         public const string MessageListItem = "Correspondence.App.Message.ListItem";
         public const string MessageTemplates = "Correspondence.App.Message.Templates";

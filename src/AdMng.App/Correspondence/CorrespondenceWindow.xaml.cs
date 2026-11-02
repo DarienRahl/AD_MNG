@@ -52,6 +52,7 @@ public partial class CorrespondenceWindow : Window, IDialogResultWindow
 
         viewModel.Recipients.SelectedItems = RecipientsGrid.SelectedItems;
         viewModel.Message.SelectedAttachments = AttachmentsList.SelectedItems;
+        BindEditorBaseFont();
         _fixedRecipientColumns = RecipientsGridView.Columns.Count;
         BuildFieldColumns();
         viewModel.Recipients.Columns.CollectionChanged += OnRecipientColumnsChanged;
@@ -166,6 +167,26 @@ public partial class CorrespondenceWindow : Window, IDialogResultWindow
         else
         {
             MessageEditor.InsertField(field);
+        }
+    }
+
+    /// <summary>
+    /// The editor shows the body in the message's base font: its <c>BaseFontFamily</c> (a CSS family list) and
+    /// <c>BaseFontSize</c> (points) follow "Czcionka" and "Rozmiar" (<see cref="MessagePageViewModel.FontFamily"/>,
+    /// <see cref="MessagePageViewModel.FontSize"/>), and the HTML it writes leaves out run fonts equal to them. The editor's
+    /// properties are found by name, so the window works with an editor that does not have them yet.
+    /// </summary>
+    private void BindEditorBaseFont()
+    {
+        Bind("BaseFontFamily", "Message.FontFamily");
+        Bind("BaseFontSize", "Message.FontSize");
+
+        void Bind(string property, string path)
+        {
+            if (DependencyPropertyDescriptor.FromName(property, MessageEditor.GetType(), MessageEditor.GetType()) is { } descriptor)
+            {
+                MessageEditor.SetBinding(descriptor.DependencyProperty, new Binding(path) { Mode = BindingMode.OneWay });
+            }
         }
     }
 

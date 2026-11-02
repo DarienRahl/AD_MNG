@@ -13430,6 +13430,18 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="Correspondence.App.AddField" xml:space="preserve">
     <value>Dodaj pole</value>
   </data>
+  <data name="Correspondence.App.AddDateField" xml:space="preserve">
+    <value>Dodaj datę</value>
+  </data>
+  <data name="Correspondence.App.FieldDate" xml:space="preserve">
+    <value>Data pola</value>
+  </data>
+  <data name="Correspondence.App.FieldFormat" xml:space="preserve">
+    <value>Format daty</value>
+  </data>
+  <data name="Correspondence.App.FieldFormatHint" xml:space="preserve">
+    <value>Jak wiadomości zapisują datę (format daty .NET: dd – dzień, MMMM – miesiąc słownie, yyyy – rok, 'r.' – tekst); domyślny daje „15 listopada 2026r.”</value>
+  </data>
   <data name="Correspondence.App.Recipients.FromDownloads" xml:space="preserve">
     <value>Wczytaj CSV z Pobranych</value>
   </data>
@@ -13731,7 +13743,19 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Pola własne</value>
   </data>
   <data name="Correspondence.App.Message.CustomFieldsHint" xml:space="preserve">
-    <value>Ta sama wartość dla wszystkich odbiorców; może zawierać inne {{pola}}.</value>
+    <value>Ta sama wartość dla wszystkich odbiorców; może zawierać inne {{pola}}. Pole daty jest zapisywane w wybranym formacie.</value>
+  </data>
+  <data name="Correspondence.App.Message.Font" xml:space="preserve">
+    <value>Czcionka</value>
+  </data>
+  <data name="Correspondence.App.Message.FontSize" xml:space="preserve">
+    <value>Rozmiar</value>
+  </data>
+  <data name="Correspondence.App.Message.LineHeight" xml:space="preserve">
+    <value>Interlinia</value>
+  </data>
+  <data name="Correspondence.App.Message.FontHint" xml:space="preserve">
+    <value>Czcionka, rozmiar i interlinia całej wiadomości; formatowanie wewnątrz treści ma pierwszeństwo.</value>
   </data>
   <data name="Correspondence.App.Message.GroupByAddress" xml:space="preserve">
     <value>Jedna wiadomość na adres – wiersze jako {{lista}}, ich liczba jako {{liczba}}</value>

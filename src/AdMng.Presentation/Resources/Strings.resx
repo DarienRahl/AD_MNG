@@ -13430,6 +13430,18 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Correspondence.App.AddField" xml:space="preserve">
     <value>Add field</value>
   </data>
+  <data name="Correspondence.App.AddDateField" xml:space="preserve">
+    <value>Add date</value>
+  </data>
+  <data name="Correspondence.App.FieldDate" xml:space="preserve">
+    <value>Date of the field</value>
+  </data>
+  <data name="Correspondence.App.FieldFormat" xml:space="preserve">
+    <value>Date format</value>
+  </data>
+  <data name="Correspondence.App.FieldFormatHint" xml:space="preserve">
+    <value>How the messages write the date (a .NET date format; dd = day, MMMM = month in words, yyyy = year, 'r.' = text); the default gives "15 listopada 2026r."</value>
+  </data>
   <data name="Correspondence.App.Recipients.FromDownloads" xml:space="preserve">
     <value>Load CSV from Downloads</value>
   </data>
@@ -13731,7 +13743,19 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Own fields</value>
   </data>
   <data name="Correspondence.App.Message.CustomFieldsHint" xml:space="preserve">
-    <value>The same value for every recipient; it may use other {{fields}}.</value>
+    <value>The same value for every recipient; it may use other {{fields}}. A date field is written in the format chosen.</value>
+  </data>
+  <data name="Correspondence.App.Message.Font" xml:space="preserve">
+    <value>Font</value>
+  </data>
+  <data name="Correspondence.App.Message.FontSize" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="Correspondence.App.Message.LineHeight" xml:space="preserve">
+    <value>Line spacing</value>
+  </data>
+  <data name="Correspondence.App.Message.FontHint" xml:space="preserve">
+    <value>The font, size and line spacing of the whole message; formatting inside the body wins.</value>
   </data>
   <data name="Correspondence.App.Message.GroupByAddress" xml:space="preserve">
     <value>One message per address – its rows as {{lista}}, their number as {{liczba}}</value>
