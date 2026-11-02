@@ -806,9 +806,12 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
             GroupByAddress = group;
         }
 
-        // Before the body: the editor shows the body in it. A template without font values was saved before they existed,
-        // so it was written for (and always sent with) the default style – it never takes over the current page's.
-        ApplyBaseStyle(CorrespondenceTemplateLibrary.StyleOf(template) ?? MessageBaseStyle.Default);
+        // Before the body: the editor shows the body in it. A template without font values (saved before they existed)
+        // keeps the window's values – the last ones, which the window keeps in the last draft.
+        if (CorrespondenceTemplateLibrary.StyleOf(template) is { } style)
+        {
+            ApplyBaseStyle(style);
+        }
 
         TemplateName = template.Name ?? string.Empty;
         BodyHtml = template.BodyHtml ?? string.Empty;

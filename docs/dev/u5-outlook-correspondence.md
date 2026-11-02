@@ -677,7 +677,7 @@ public sealed class CorrespondenceTemplate
     public bool? VotingEnabled { get; set; }
     public string? VotingOptions { get; set; }
     public bool? GroupByAddress { get; set; }
-    public string? FontFamily { get; set; }     // CSS family list; all three null = saved before 0.7.0: the default style (7.7)
+    public string? FontFamily { get; set; }     // CSS family list; null = the window's (its last values, section 7.7)
     public double? FontSize { get; set; }       // points
     public string? LineHeight { get; set; }     // "normal" or a number such as "1.4"
 }
@@ -788,7 +788,7 @@ All in `AdMng.Presentation.Correspondence`; `CorrespondenceViewModel : WindowVie
 - `SendModeChoices`/`SendMode`, `BccChunkSize`, `DelaySeconds`, `ReadReceipt`, `DeliverLater`, `DeliverDate` (`DateTime?`, default tomorrow), `DeliverTime` ("08:00"), `DeliverError`, `TryGetDeferredDelivery(out DateTimeOffset?)` (MailerWPiA rules: future > now+1 min, ≤ 365 days, `H:mm`/`HH:mm`/`H`).
 - `UseVoting`, `VotingOptions`.
 - `CustomFields` (`ObservableCollection<CustomFieldViewModel>`: `Name`, `Value`, `Error`; date fields: `Kind`, `IsDate`, `Date` (`DateTime?`), `Format`, `Sample` (the formatted date or ""), static `FormatChoices` = `CustomFieldFormats.DateChoices`; a date field without a date is an error), `AddCustomFieldCommand`, `AddDateFieldCommand`, `RemoveCustomFieldCommand`; `GroupByAddress`, `ListItemTemplate`.
-- Base style: `FontFamily` (CSS family list), `FontSize` (points), `LineHeight` ("normal" or a number) with `FontFamilyChoices`, `FontSizeChoices`, `LineHeightChoices` (`Option` items, the current value always among them; "normal" → "Pojedyncza"), `BaseStyle`, `ApplyBaseStyle(style)` (templates and the last draft; a template without font values loads `MessageBaseStyle.Default`, never keeps the page's); a value the message cannot use goes back to the previous one.
+- Base style: `FontFamily` (CSS family list), `FontSize` (points), `LineHeight` ("normal" or a number) with `FontFamilyChoices`, `FontSizeChoices`, `LineHeightChoices` (`Option` items, the current value always among them; "normal" → "Pojedyncza"), `BaseStyle`, `ApplyBaseStyle(style)` (templates and the last draft; a template without font values keeps the window's); a value the message cannot use goes back to the previous one.
 - Templates: `Templates` (`IReadOnlyList<TemplateOption>`: built-ins then saved), `SelectedTemplate` (loading asks when the page holds a message that differs – never over a built-in as it was loaded), `TemplateName`, `SaveTemplateCommand`, `DeleteTemplateCommand`, `ExportTemplatesCommand`, `ImportTemplatesCommand`, `NewMessageCommand` (confirm, clears subject/body/fields).
 - `Draft()` → `CorrespondenceDraft` (with the loaded signature and the base style); `ValidateForSend()` → localized errors (empty subject/body, missing attachments, deferred delivery, custom field errors, images over limits).
 - `PasteFormattedAsync` (Ctrl+V through the editor host): `HtmlPasteWorkflow` (U1c) with `Engine = null` → `FieldTemplate.RepairHtml` → `RichPaste(fragment, images)`; problems shown in `PasteProblemsText`.
@@ -910,9 +910,9 @@ or the signature block are part of it: the signature comes from the operator's O
   paragraph split away – no empty paragraph is left) and the signature is then not appended; without a signature it
   renders nothing (a preview warning, never an empty field). Signature images still go with the message.
 - **Base style.** The example is Aptos 12 pt with single line spacing, while earlier messages were Calibri 11 pt, 1.4:
-  `MessageBaseStyle` on the draft and the template sets the wrapping div (a template without font values was saved
-  before they existed and loads the default style, never the page's current one); the window keeps the last values in
-  the last draft and shows "Czcionka", "Rozmiar", "Interlinia"; the editor shows the body in that font.
+  `MessageBaseStyle` on the draft and the template sets the wrapping div (a template without font values – saved
+  before they existed – keeps the window's, i.e. its last values); the window keeps the last values in the last draft
+  and shows "Czcionka", "Rozmiar", "Interlinia"; the editor shows the body in that font.
 - **No voting buttons** (the example has none); the answers come as replies.
 - **Journal per mailbox** (section 7.6): one owner of three mailboxes gets three messages, each recorded for its mailbox.
 

@@ -316,8 +316,9 @@ wysłanych* – przy dużych plikach lepiej wysłać łącze.
   temat, treść i pola własne).
 - Szablon zawiera temat, treść z obrazkami, pola własne (z datami i formatami pól daty), element listy, zwrot
   grzecznościowy, przyciski głosowania, grupowanie oraz czcionkę, rozmiar i interlinię – nie zawiera odbiorców,
-  załączników ani nadawcy. Wbudowanego szablonu nie da się zmienić; *Zapisz* pod nową nazwą tworzy kopię. Szablony
-  zapisane we wcześniejszej wersji nie mają czcionki – wczytują się ze stylem domyślnym (Calibri 11 pt).
+  załączników ani nadawcy. Wbudowanego szablonu nie da się zmienić; *Zapisz* pod nową nazwą tworzy kopię. Szablon
+  zapisany we wcześniejszej wersji nie ma czcionki – po wczytaniu zostają czcionka, rozmiar i interlinia ustawione w
+  oknie.
 - *Eksportuj…* / *Importuj…* – plik JSON z szablonami i ich obrazkami (do 20 MB) dla zespołu; import dodaje kopie i
   ponownie sprawdza treść oraz obrazki.
 - **Ostatni szkic** (temat, treść, obrazki, pola własne, element listy, zwrot, głosowanie, grupowanie, czcionka) zapisuje

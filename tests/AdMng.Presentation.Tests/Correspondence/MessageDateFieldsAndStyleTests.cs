@@ -107,7 +107,7 @@ public sealed class MessageDateFieldsAndStyleTests
     }
 
     [Fact]
-    public async Task ATemplateWithoutFontValues_LoadsWithTheDefaultStyle_NotTheCurrentOne()
+    public async Task ATemplateWithoutFontValues_KeepsTheWindowsStyle()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();
         var older = await scenario.Templates.SaveAsync(new CorrespondenceTemplate
@@ -119,13 +119,17 @@ public sealed class MessageDateFieldsAndStyleTests
         Assert.Null(CorrespondenceTemplateLibrary.StyleOf(older));                // saved before the fonts existed
         using var window = await scenario.OpenAsync();
         var message = window.Message;
-        Assert.True(await message.LoadTemplateAsync(CorrespondenceTemplateLibrary.MailboxStillNeededId));
-        Assert.Equal(CorrespondenceTemplateLibrary.MailboxStyle, message.BaseStyle);
+        var chosen = new MessageBaseStyle("Georgia,serif", 14, "1.5");
+        message.ApplyBaseStyle(chosen);
 
         Assert.True(await message.LoadTemplateAsync(older.Id));
 
-        Assert.Equal(MessageBaseStyle.Default, message.BaseStyle);
-        Assert.Equal(MessageBaseStyle.Default, message.Draft().BaseStyle);
+        Assert.Equal("<p>{{zwrot}},</p><p>zapraszamy na szkolenie.</p>", message.BodyHtml);
+        Assert.Equal(chosen, message.BaseStyle);                                   // the window's values, not the default
+        Assert.Equal(chosen, message.Draft().BaseStyle);
+        scenario.Ui.ConfirmAnswers.Enqueue(true);                                  // replace the body loaded above
+        Assert.True(await message.LoadTemplateAsync(CorrespondenceTemplateLibrary.MailboxStillNeededId));
+        Assert.Equal(CorrespondenceTemplateLibrary.MailboxStyle, message.BaseStyle); // a template's own values win
     }
 
     [Fact]
