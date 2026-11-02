@@ -164,10 +164,18 @@ internal sealed class ScriptedDialogService : IDialogService
         return Task.CompletedTask;
     }
 
-    public Task<bool> ConfirmAsync(string title, string message, bool destructive)
+    /// <summary>Awaited before a question is answered (null: answered at once) – an operator who takes a while.</summary>
+    public Func<Task>? BeforeConfirmAnswer { get; set; }
+
+    public async Task<bool> ConfirmAsync(string title, string message, bool destructive)
     {
         Shown.Add($"confirm:{message}");
-        return Task.FromResult(ConfirmAnswers.Count > 0 && ConfirmAnswers.Dequeue());
+        if (BeforeConfirmAnswer is { } wait)
+        {
+            await wait();
+        }
+
+        return ConfirmAnswers.Count > 0 && ConfirmAnswers.Dequeue();
     }
 
     public Task<bool> ConfirmTypedAsync(string title, string message, string expectedText)

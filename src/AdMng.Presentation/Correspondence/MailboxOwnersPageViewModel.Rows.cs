@@ -269,8 +269,9 @@ public sealed partial class MailboxOwnersPageViewModel
     private void Restore(MailboxOwnerRowViewModel? row) => row?.Restore();
 
     /// <summary>
-    /// Rows with an owner address and Include become recipient rows (replacing earlier "Skrzynki" rows); grouping follows
-    /// <see cref="GroupByOwner"/>; the built-in template is loaded when the message is empty. The owners are read again
+    /// Rows with an owner address and Include become recipient rows (replacing earlier "Skrzynki" rows); the built-in
+    /// template is loaded when the message body is empty (again when it is the selected template already), then grouping
+    /// follows <see cref="GroupByOwner"/>. The owners are read again
     /// (with the attributes of the owner fields; the mailboxes too when a mailbox field added after the query needs more
     /// attributes) from the window's session on the thread pool; the read runs like a query (<see cref="IsRunning"/>,
     /// <see cref="CancelCommand"/>, cancelled when the session ends).
@@ -350,7 +351,9 @@ public sealed partial class MailboxOwnersPageViewModel
         var added = Recipients.ReplaceMailboxRows(recipients);
         if (Message.IsBodyEmpty)
         {
-            SelectMailboxTemplate();
+            // Loaded (after the question when the page holds a subject) before the grouping is set: the template carries
+            // its own grouping, which must not override "Jedna wiadomość na właściciela".
+            await Message.LoadTemplateAsync(CorrespondenceTemplateLibrary.MailboxStillNeededId).ConfigureAwait(true);
         }
 
         Message.GroupByAddress = GroupByOwner;
@@ -402,16 +405,5 @@ public sealed partial class MailboxOwnersPageViewModel
         {
             Origin = RecipientOrigin.Mailboxes,
         };
-    }
-
-    /// <summary>
-    /// "Czy skrzynka pocztowa jest nadal potrzebna?" through the message page's template choice (the message page loads a
-    /// template when its selection changes).
-    /// </summary>
-    private void SelectMailboxTemplate()
-    {
-        var id = CorrespondenceTemplateLibrary.MailboxStillNeededId;
-        Message.SelectedTemplate = Message.Templates.FirstOrDefault(t => string.Equals(t.Id, id, StringComparison.Ordinal))
-            ?? new TemplateOption(id, CorrespondenceTemplateLibrary.BuiltIns[0].Name, IsBuiltIn: true);
     }
 }

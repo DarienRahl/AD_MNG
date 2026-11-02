@@ -311,6 +311,47 @@ public sealed class MailboxOwnersReviewTests
     }
 
     [Fact]
+    public async Task AddToRecipients_OneMessagePerMailbox_IsKept_WhenTheTemplateIsLoadedAfterAQuestion()
+    {
+        var (scenario, window, _) = await RunAsync(page => page.GroupByOwner = false);
+        using var __ = scenario;
+        using var ___ = window;
+        window.Message.Subject = "Skrzynki do przeglądu";              // a subject, an empty body: loading asks first
+        var answer = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        scenario.Harness.Dialogs.BeforeConfirmAnswer = () => answer.Task;
+        scenario.Harness.Dialogs.ConfirmAnswers.Enqueue(true);
+
+        var add = window.Mailboxes.AddToRecipientsCommand.ExecuteAsync(null);
+        await B2Harness.WaitUntilAsync(() => scenario.Harness.Dialogs.Shown.Count > 0);
+        answer.SetResult();
+        await add;
+        await (window.Message.TemplateLoading ?? Task.CompletedTask);
+
+        Assert.StartsWith("confirm:", Assert.Single(scenario.Harness.Dialogs.Shown), StringComparison.Ordinal);
+        Assert.Contains("{{Zwrot osobowy}}", window.Message.BodyHtml, StringComparison.Ordinal);
+        Assert.False(window.Message.GroupByAddress);                     // "Jedna wiadomość na właściciela" was off
+        Assert.Equal(9, window.Recipients.Units(window.Message.GroupByAddress).Count);
+    }
+
+    [Fact]
+    public async Task AddToRecipients_AgainWithAnEmptiedMessage_LoadsTheTemplateAgain()
+    {
+        var (scenario, window, _) = await RunAsync();
+        using var __ = scenario;
+        using var ___ = window;
+        await window.Mailboxes.AddToRecipientsCommand.ExecuteAsync(null);
+        Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededId, window.Message.SelectedTemplate?.Id);
+        window.Message.BodyHtml = string.Empty;                          // the operator emptied the body by hand
+        window.Message.Subject = string.Empty;
+
+        await window.Mailboxes.AddToRecipientsCommand.ExecuteAsync(null);
+
+        Assert.Contains("{{Zwrot osobowy}}", window.Message.BodyHtml, StringComparison.Ordinal);
+        Assert.Equal("Czy skrzynka pocztowa jest nadal potrzebna?", window.Message.Subject);
+        Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededId, window.Message.SelectedTemplate?.Id);
+    }
+
+    [Fact]
     public async Task AddToRecipients_ATypedAddressWithoutAPerson_HasTheMailboxFields_AndEmptyOwnerFields()
     {
         var (scenario, window, sample) = await RunAsync();
