@@ -234,7 +234,7 @@ public sealed partial class OutlookConnectionViewModel : ObservableObject, IAsyn
         ArgumentNullException.ThrowIfNull(settings);
         _savedAccount = settings.AccountAddress?.Trim() ?? string.Empty;
         OnBehalfOf = settings.OnBehalfOf?.Trim() ?? string.Empty;
-        SelectSavedAccount();
+        SelectSavedAccount(Profile);
     }
 
     /// <summary>Writes the account and "w imieniu" into the settings (an account of the settings not in this profile is
@@ -605,15 +605,20 @@ public sealed partial class OutlookConnectionViewModel : ObservableObject, IAsyn
             _restoringAccount = false;
         }
 
-        SelectSavedAccount();
+        SelectSavedAccount(profile);
         OnPropertyChanged(nameof(Profile));
         OnPropertyChanged(nameof(OwnAddress));
     }
 
-    /// <summary>Selects the account of the settings when the profile has it (else the profile's default account).</summary>
-    private void SelectSavedAccount()
+    /// <summary>
+    /// Selects the account of the settings when the profile has it, else the profile's default account – the current
+    /// user's, else the first – so "Wyślij jako" is never empty while connected (MailerWPiA selected the default account).
+    /// Nothing is selected before a profile is read. A default chosen this way is no choice of the operator: the account of
+    /// the settings is kept for <see cref="SaveTo"/> until the operator chooses one.
+    /// </summary>
+    private void SelectSavedAccount(OutlookProfile? profile)
     {
-        if (Accounts.Count == 0)
+        if (Accounts.Count == 0 && SelectedAccount is null)
         {
             return;
         }
@@ -621,15 +626,21 @@ public sealed partial class OutlookConnectionViewModel : ObservableObject, IAsyn
         _restoringAccount = true;
         try
         {
-            SelectedAccount = _savedAccount.Length == 0
+            SelectedAccount = Accounts.Count == 0
                 ? null
-                : Accounts.FirstOrDefault(a => string.Equals(a.SmtpAddress, _savedAccount, StringComparison.OrdinalIgnoreCase));
+                : AccountOf(_savedAccount) ?? AccountOf(profile?.CurrentUserAddress) ?? Accounts[0];
         }
         finally
         {
             _restoringAccount = false;
         }
     }
+
+    /// <summary>The account of the profile with the SMTP address <paramref name="address"/> (ignoring case), or null.</summary>
+    private OutlookAccount? AccountOf(string? address) =>
+        string.IsNullOrWhiteSpace(address)
+            ? null
+            : Accounts.FirstOrDefault(a => string.Equals(a.SmtpAddress, address.Trim(), StringComparison.OrdinalIgnoreCase));
 
     partial void OnSelectedAccountChanged(OutlookAccount? value)
     {

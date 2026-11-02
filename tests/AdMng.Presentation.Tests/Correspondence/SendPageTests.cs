@@ -223,8 +223,11 @@ public sealed class SendPageTests
     public async Task SendTest_WithoutAnOwnAddress_AsksForOne()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();
-        scenario.Outlook.Profile = FakeOutlookClient.SampleProfile with { CurrentUserAddress = null };
+        // The profile's account (chosen as its default) has no address Outlook could tell, nor has the current user.
+        scenario.Outlook.Profile = FakeOutlookClient.SampleProfile with { Accounts = [new OutlookAccount("Skrzynka Exchange", "")], CurrentUserAddress = null };
         using var window = await scenario.OpenWithMessageAsync();
+        Assert.NotNull(window.Outlook.SelectedAccount);
+        Assert.Null(window.Outlook.OwnAddress);
 
         scenario.Dialogs.Prompts.Enqueue("to nie adres");
         await window.Send.SendTestCommand.ExecuteAsync(null);
@@ -506,7 +509,7 @@ public sealed class SendPageTests
         Assert.Equal(("Wysyłka przez Outlooka", "51"), (title, expected));
         Assert.Equal(
             "Wysłać wiadomość do 51 odbiorców?" + NewLine + NewLine
-            + "Nadawca: konto domyślne profilu Outlooka" + NewLine
+            + "Nadawca: Jan Kowalski <jan.kowalski@contoso.test>" + NewLine
             + "Tryb: osobna wiadomość do każdego" + NewLine
             + "Pominięci (wykluczenia / już wysłane): 2" + NewLine
             + "Błędne adresy: 1" + NewLine
@@ -759,7 +762,7 @@ public sealed class SendPageTests
         Assert.Equal(
             [
                 "Do wysłania: 2    (pominięci: 1, błędne adresy: 0)",
-                "Nadawca: konto domyślne profilu Outlooka",
+                "Nadawca: Jan Kowalski <jan.kowalski@contoso.test>",
                 "W imieniu: rektorat@contoso.test",
                 "Tryb: osobna wiadomość do każdego",
                 "Temat: Zaproszenie na konferencję – {{Miejscowość}}",
