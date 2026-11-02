@@ -226,11 +226,13 @@ public sealed class CorrespondenceJournal
         {
             await Task.Run(() => Locked(() =>
             {
-                Rewrite(FilePath, []);
+                // The backups first: a backup that cannot be deleted leaves the journal (file and memory) as it was.
                 foreach (var backup in Backups())
                 {
                     File.Delete(backup);
                 }
+
+                Rewrite(FilePath, []);
             }), cancellationToken).ConfigureAwait(false);
             lock (_state)
             {
