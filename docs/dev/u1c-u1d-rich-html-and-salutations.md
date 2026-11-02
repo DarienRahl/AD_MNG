@@ -250,7 +250,7 @@ and listed as a note); in the planner on every rendered message document (docume
 the Watchdog validator (document mode: security findings → 400 `forbiddenHtml`; then `Sanitize` and the sanitized
 document is what the service sends – section 9.3).
 
-### 4.3 Policy (`HtmlPolicy`, version 1)
+### 4.3 Policy (`HtmlPolicy`, version 2)
 
 **Elements kept:** `a abbr b bdi bdo big blockquote br caption center cite code col colgroup dd del dfn div dl dt em
 font h1 h2 h3 h4 h5 h6 hr i img ins kbd li mark ol p pre q s samp small span strike strong sub sup table tbody td tfoot th
@@ -285,11 +285,12 @@ Numeric attributes: digits (and `%` for widths), ≤ 5 digits; colours: `#rgb`, 
 | `font font-family font-size font-style font-weight font-variant line-height letter-spacing word-spacing text-transform text-indent text-align vertical-align white-space direction` | keywords, lengths (`px pt em rem % cm mm in`, ≥ 0 except `text-indent` and `letter-spacing`, clamped to −1in and −2px), family names as identifiers or strings (re-serialized with single quotes); a font size below 4px on an element with text of that size is a security finding (an empty 1pt spacer paragraph stays) |
 | `text-decoration text-decoration-line text-decoration-style text-decoration-color` | keywords, colour |
 | `margin padding` and their `-top/-right/-bottom/-left` | lengths ≥ 0 (**no negative margins** – they can pull content over the fixed footer) |
+| `mso-margin-top-alt mso-margin-bottom-alt` (version 2) | one length ≥ 0 or `auto`; Word's space before/after a paragraph – browsers ignore it, classic Outlook (Word's engine) uses it, so a message written in Outlook keeps its look there; written before `margin`, as Word writes it; negative = security finding as for margins |
 | `border` and every `border-*` longhand, `border-collapse border-spacing border-radius` | lengths ≥ 0, styles, colours |
 | `width height min-width max-width min-height` | lengths ≥ 0, `auto` |
 | `list-style-type list-style-position table-layout caption-side empty-cells word-wrap overflow-wrap word-break` | keywords |
 
-Dropped always: `mso-*` and every vendor-prefixed property, `position`, `z-index`, `display`, `visibility`, `opacity`, `transform`, `filter`, `clip`, `clip-path`, `overflow*`, `max-height`, `float`,
+Dropped always: `mso-*` (except the two spacing properties above) and every vendor-prefixed property, `position`, `z-index`, `display`, `visibility`, `opacity`, `transform`, `filter`, `clip`, `clip-path`, `overflow*`, `max-height`, `float`,
 `content`, `behavior`, `-moz-binding`, `cursor`, `pointer-events`, `animation*`, `transition*`, `page*`, `background`
 (after the colour conversion of section 3) and `background-image`. Any value containing `url(`, `expression(`, `\`, `/*`,
 `@`, `<`, `javascript:` or a control character is dropped; `var()`, `calc()`, `attr()` dropped; `!important` stripped.

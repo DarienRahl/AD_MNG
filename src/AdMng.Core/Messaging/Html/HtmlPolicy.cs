@@ -28,8 +28,9 @@ public static class MessageHtmlLimits
 /// </summary>
 public static class HtmlPolicy
 {
-    /// <summary>Version of the policy (bumped when an allow-list changes).</summary>
-    public const int Version = 1;
+    /// <summary>Version of the policy (bumped when an allow-list changes; 2: <c>mso-margin-top-alt</c> and
+    /// <c>mso-margin-bottom-alt</c>).</summary>
+    public const int Version = 2;
 
     /// <summary>Elements kept (with filtered attributes).</summary>
     public static IReadOnlySet<string> KeptElements { get; } = Set(
@@ -100,9 +101,13 @@ public static class HtmlPolicy
         "href", "src", "srcset", "background", "action", "formaction", "poster", "dynsrc", "lowsrc", "data", "codebase", "classid",
         "profile", "manifest", "icon", "ping", "xlink:href", "xml:base", "srcdoc", "archive");
 
-    /// <summary>Allowed CSS properties in the fixed serialization order of the declarations.</summary>
+    /// <summary>Allowed CSS properties in the fixed serialization order of the declarations. The only <c>mso-*</c>
+    /// properties are Word's paragraph spacing <c>mso-margin-top-alt</c> and <c>mso-margin-bottom-alt</c>: browsers
+    /// ignore them, classic Outlook (Word's engine) takes them for the space before and after a paragraph, so a message
+    /// written in Outlook keeps its look there. They come before <c>margin</c>, as Word writes them.</summary>
     public static IReadOnlyList<string> CssProperties { get; } =
     [
+        "mso-margin-top-alt", "mso-margin-bottom-alt",
         "margin", "margin-top", "margin-right", "margin-bottom", "margin-left",
         "padding", "padding-top", "padding-right", "padding-bottom", "padding-left",
         "border", "border-top", "border-right", "border-bottom", "border-left",
