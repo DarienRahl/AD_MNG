@@ -22,9 +22,12 @@ namespace AdMng.App.Correspondence;
 /// lists, tables, runs (bold, italic, underline/strike, colour, background, size, font), links, line breaks and
 /// <c>cid:</c> images. <see cref="ToHtml"/> is MailerWPiA's <c>FromDocument</c> (inline styles only, so webmail that drops
 /// <c>&lt;style&gt;</c> shows the same message); its output is re-sanitized by the U1c sanitizer (fragment, the written
-/// images as <c>InlineImageIds</c>, <c>{{field}}</c> links allowed). <see cref="ToDocument"/> is the inverse for that
-/// subset (the input is sanitized first, anything else becomes text); <c>ToDocument(ToHtml(document))</c> gives the same
-/// HTML again. Call on the UI thread (the documents are WPF objects).
+/// images as <c>InlineImageIds</c>, <c>{{field}}</c> links allowed). <see cref="ToDocument(string, IReadOnlyDictionary{string, MessageImage})"/>
+/// is the inverse for that subset (the input is sanitized first, anything else becomes text);
+/// <c>ToDocument(ToHtml(document))</c> gives the same HTML again. Read with the layout kept
+/// (<see cref="ToDocument(string, IReadOnlyDictionary{string, MessageImage}, bool)"/>, the editor's own body), the margins,
+/// cell borders and paddings, table attributes and the CSS the editor cannot show stay as the HTML wrote them. Call on the
+/// UI thread (the documents are WPF objects).
 /// </summary>
 public static partial class FlowDocumentHtml
 {
@@ -72,7 +75,9 @@ public static partial class FlowDocumentHtml
 
     /// <summary>
     /// The document as an HTML fragment of the sanitized subset; <paramref name="contentIdOf"/> gives an image's content
-    /// id (null: the image is left out). An empty document (only white space) gives an empty string.
+    /// id (null: the image is left out). An empty document (only white space) gives an empty string. The document's font
+    /// is the base font of the message: runs in it (its first family, a size within 0.6 pt) are written without a font of
+    /// their own.
     /// </summary>
     public static string ToHtml(FlowDocument document, Func<Image, string?> contentIdOf)
     {
@@ -83,7 +88,7 @@ public static partial class FlowDocumentHtml
             return string.Empty;
         }
 
-        var writer = new HtmlWriter(contentIdOf);
+        var writer = new HtmlWriter(contentIdOf, FirstFamily(document.FontFamily), document.FontSize * 72 / 96);
         writer.WriteBlocks(document.Blocks, listDepth: 0);
         return Sanitize(writer.Html, writer.ImageIds);
     }
@@ -92,9 +97,22 @@ public static partial class FlowDocumentHtml
     /// The inverse of <see cref="ToHtml"/> for the sanitized subset (<c>p</c>, <c>div</c>, <c>br</c>, <c>b/strong</c>,
     /// <c>i/em</c>, <c>u</c>, <c>s/strike</c>, <c>span</c> and <c>font</c> with their styles, <c>a</c>, nested
     /// <c>ul/ol/li</c>, <c>table/tr/td/th</c> with spans, <c>h1–h6</c>, <c>hr</c>); <c>img cid:</c> becomes an inline
-    /// image tagged with its content id (unknown ids are dropped). Anything else becomes text.
+    /// image tagged with its content id (unknown ids are dropped). Anything else becomes text. Blocks get the message's
+    /// spacing (MailerWPiA: 8 pt below paragraphs, lists and tables) and tables a grid – what a paste gets.
     /// </summary>
-    public static FlowDocument ToDocument(string html, IReadOnlyDictionary<string, MessageImage> images)
+    public static FlowDocument ToDocument(string html, IReadOnlyDictionary<string, MessageImage> images) => ToDocument(html, images, keepLayout: false);
+
+    /// <summary>
+    /// <see cref="ToDocument(string, IReadOnlyDictionary{string, MessageImage})"/>; with <paramref name="keepLayout"/> (the
+    /// editor's own body) the layout the HTML writes is kept: margins of <c>p</c>, <c>h1–h6</c>, <c>ul/ol</c>, <c>li</c> and
+    /// tables (a <c>div</c>'s margins go to the blocks inside it, as a browser stacks them), per-side cell borders, cell
+    /// paddings and backgrounds, the attributes of tables and cells, a link's colour and underline, and the CSS the editor
+    /// cannot show (<c>mso-margin-top-alt</c>, <c>line-height</c>, <c>max-width</c>, <c>border-spacing</c> …), each kept
+    /// on its element and written back by <see cref="ToHtml"/> unless the editor changed it. Sides the HTML leaves out get
+    /// the message's spacing; a table with <c>border="0"</c> gets neither a grid nor spacing of its own. Blocks without any
+    /// of it are read as by a paste.
+    /// </summary>
+    public static FlowDocument ToDocument(string html, IReadOnlyDictionary<string, MessageImage> images, bool keepLayout)
     {
         ArgumentNullException.ThrowIfNull(images);
         var document = NewDocument();
@@ -113,7 +131,7 @@ public static partial class FlowDocumentHtml
             var parsed = new HtmlParser().ParseDocument("<!DOCTYPE html><html><head></head><body>" + sanitized + "</body></html>");
             if (parsed.Body is { } body)
             {
-                var builder = new DocumentBuilder(document.Blocks, known);
+                var builder = new DocumentBuilder(document.Blocks, known, keepLayout);
                 builder.AppendChildren(body, TextFormat.Default);
                 builder.Flush();
             }
@@ -290,9 +308,12 @@ public static partial class FlowDocumentHtml
 
     // ---- FlowDocument → HTML (MailerWPiA FromDocument) ---------------------------------------------------------------
 
-    /// <summary>Writes blocks and inlines as HTML with inline styles (the sanitizer normalizes the result).</summary>
-    private sealed class HtmlWriter(Func<Image, string?> contentIdOf)
+    /// <summary>Writes blocks and inlines as HTML with inline styles (the sanitizer normalizes the result). Blocks read
+    /// with their layout write it back (<see cref="HtmlLayout"/>); the others get MailerWPiA's spacing and grid.</summary>
+    private sealed class HtmlWriter(Func<Image, string?> contentIdOf, string baseFamily, double basePoints)
     {
+        private const string MessageMargin = "0 0 8pt 0";
+
         private readonly StringBuilder _html = new();
         private readonly HashSet<string> _imageIds = new(StringComparer.OrdinalIgnoreCase);
 
@@ -314,7 +335,7 @@ public static partial class FlowDocumentHtml
             {
                 case Paragraph paragraph:
                     var content = Inlines(paragraph);
-                    _html.Append("<p style=\"").Append(BlockMargin).Append(AlignCss(paragraph.TextAlignment)).Append("\">")
+                    _html.Append("<p style=\"").Append(Style(Margin(paragraph, MessageMargin), AlignCss(paragraph.TextAlignment), Kept(paragraph))).Append("\">")
                         .Append(string.IsNullOrWhiteSpace(content) ? "&nbsp;" : content).Append("</p>");
                     break;
                 case List list:
@@ -375,21 +396,18 @@ public static partial class FlowDocumentHtml
                 _html.Append(" start=\"").Append(list.StartIndex.ToString(CultureInfo.InvariantCulture)).Append('"');
             }
 
-            _html.Append(" style=\"").Append(listDepth == 0 ? BlockMargin : "margin:0");
-            if (marker == TextMarkerStyle.None)
-            {
-                _html.Append(";list-style-type:none");
-            }
-
-            _html.Append("\">");
+            _html.Append(" style=\"")
+                .Append(Style(Margin(list, listDepth == 0 ? MessageMargin : "0"), marker == TextMarkerStyle.None ? "list-style-type:none" : null, Kept(list)))
+                .Append("\">");
             foreach (var item in list.ListItems)
             {
                 var paragraphs = item.Blocks.OfType<Paragraph>().ToList();
                 var single = paragraphs.Count == 1 ? paragraphs[0] : null;
                 _html.Append("<li");
-                if (single is not null && AlignCss(single.TextAlignment) is { Length: > 0 } align)
+                var itemStyle = Style(Margin(item, null), single is null ? null : AlignCss(single.TextAlignment), Kept(item));
+                if (itemStyle.Length > 0)
                 {
-                    _html.Append(" style=\"").Append(align.TrimStart(';')).Append('"');
+                    _html.Append(" style=\"").Append(itemStyle).Append('"');
                 }
 
                 _html.Append('>');
@@ -404,9 +422,10 @@ public static partial class FlowDocumentHtml
                         }
                         else
                         {
-                            // Several paragraphs of one item stay paragraphs (MailerWPiA ran them together).
-                            var paragraphAlign = AlignCss(paragraph.TextAlignment);
-                            _html.Append("<div").Append(paragraphAlign.Length > 0 ? " style=\"" + paragraphAlign.TrimStart(';') + "\"" : string.Empty).Append('>')
+                            // Several paragraphs of one item stay paragraphs (MailerWPiA ran them together); a paragraph
+                            // read with its layout keeps its margin.
+                            var paragraphStyle = Style(paragraph.Tag is HtmlLayout ? Margin(paragraph, null) : null, AlignCss(paragraph.TextAlignment), Kept(paragraph));
+                            _html.Append("<div").Append(paragraphStyle.Length > 0 ? " style=\"" + paragraphStyle + "\"" : string.Empty).Append('>')
                                 .Append(string.IsNullOrWhiteSpace(content) ? "&nbsp;" : content).Append("</div>");
                         }
                     }
@@ -430,32 +449,30 @@ public static partial class FlowDocumentHtml
                 return;
             }
 
-            _html.Append("<table cellpadding=\"5\" cellspacing=\"0\" style=\"border-collapse:collapse;").Append(BlockMargin).Append("\">");
+            if (table.Tag is HtmlLayout layout)
+            {
+                // Read with its layout: its attributes and CSS as they were, a margin only where the HTML (or, for a grid
+                // table, the editor) gives one.
+                _html.Append("<table");
+                foreach (var (name, value) in layout.Attributes)
+                {
+                    _html.Append(' ').Append(name).Append("=\"").Append(Escape(value)).Append('"');
+                }
+
+                var style = Style(Margin(table, layout.Borderless ? null : MessageMargin), Kept(table));
+                _html.Append(style.Length > 0 ? " style=\"" + style + "\">" : ">");
+            }
+            else
+            {
+                _html.Append("<table cellpadding=\"5\" cellspacing=\"0\" style=\"").Append(Style("border-collapse:collapse", Margin(table, MessageMargin))).Append("\">");
+            }
+
             foreach (var row in rows)
             {
                 _html.Append("<tr>");
                 foreach (var cell in row.Cells)
                 {
-                    _html.Append("<td style=\"border:1px solid ").Append(Hex(CellBorderColor)).Append(";vertical-align:top");
-                    if (cell.Background is SolidColorBrush { Color: var background } && IsVisibleBackground(background))
-                    {
-                        _html.Append(";background-color:").Append(Hex(background));
-                    }
-
-                    _html.Append('"');
-                    if (cell.ColumnSpan > 1)
-                    {
-                        _html.Append(" colspan=\"").Append(cell.ColumnSpan.ToString(CultureInfo.InvariantCulture)).Append('"');
-                    }
-
-                    if (cell.RowSpan > 1)
-                    {
-                        _html.Append(" rowspan=\"").Append(cell.RowSpan.ToString(CultureInfo.InvariantCulture)).Append('"');
-                    }
-
-                    _html.Append('>');
-                    WriteBlocks(cell.Blocks, listDepth);
-                    _html.Append("</td>");
+                    WriteCell(cell, listDepth);
                 }
 
                 _html.Append("</tr>");
@@ -463,6 +480,99 @@ public static partial class FlowDocumentHtml
 
             _html.Append("</table>");
         }
+
+        private void WriteCell(TableCell cell, int listDepth)
+        {
+            var layout = cell.Tag as HtmlLayout;
+            _html.Append("<td");
+            if (cell.ColumnSpan > 1)
+            {
+                _html.Append(" colspan=\"").Append(cell.ColumnSpan.ToString(CultureInfo.InvariantCulture)).Append('"');
+            }
+
+            if (cell.RowSpan > 1)
+            {
+                _html.Append(" rowspan=\"").Append(cell.RowSpan.ToString(CultureInfo.InvariantCulture)).Append('"');
+            }
+
+            foreach (var (name, value) in layout?.Attributes ?? [])
+            {
+                _html.Append(' ').Append(name).Append("=\"").Append(Escape(value)).Append('"');
+            }
+
+            string? background = null;
+            if (cell.Background is SolidColorBrush { Color: var color } && (layout is null ? IsVisibleBackground(color) : color.A > 0))
+            {
+                // A cell read with its layout keeps a white background too (a white box on a coloured one).
+                background = "background-color:" + Hex(color);
+            }
+
+            var style = Style(PaddingCss(cell, layout), BorderOf(cell, layout), background, layout is null ? "vertical-align:top" : null, Kept(cell));
+            if (style.Length > 0)
+            {
+                _html.Append(" style=\"").Append(style).Append('"');
+            }
+
+            _html.Append('>');
+            WriteBlocks(cell.Blocks, listDepth);
+            _html.Append("</td>");
+        }
+
+        /// <summary>The padding of a cell: as read while unchanged (none when it came from <c>cellpadding</c>), else the
+        /// editor's value when it is not the table's <c>cellpadding="5"</c>.</summary>
+        private static string? PaddingCss(TableCell cell, HtmlLayout? layout)
+        {
+            if (layout is not null && cell.Padding == layout.AppliedPadding)
+            {
+                return layout.PaddingCss;
+            }
+
+            return cell.ReadLocalValue(Block.PaddingProperty) is Thickness padding && (layout is not null || padding != new Thickness(CellPadding))
+                ? "padding:" + CssBox.Of(padding).Css
+                : null;
+        }
+
+        /// <summary>The border of a cell: as read while unchanged, else the editor's border (MailerWPiA's grid for a cell
+        /// without one).</summary>
+        private static string? BorderOf(TableCell cell, HtmlLayout? layout)
+        {
+            var thickness = cell.BorderThickness;
+            var color = (cell.BorderBrush as SolidColorBrush)?.Color;
+            if (layout is not null && thickness == layout.AppliedBorder && color == layout.AppliedBorderColor)
+            {
+                return layout.BorderCss ?? (thickness == default ? null : BorderCss(thickness, color));
+            }
+
+            return cell.ReadLocalValue(Block.BorderThicknessProperty) == DependencyProperty.UnsetValue
+                ? "border:1px solid " + Hex(CellBorderColor)
+                : BorderCss(thickness, color);
+        }
+
+        /// <summary>
+        /// The <c>margin</c> declaration of a block or list item: as the HTML wrote it while the editor has not changed it,
+        /// the editor's margin when it set one (an indent, a pasted block), else <paramref name="defaultCss"/> (null: none).
+        /// </summary>
+        private static string? Margin(TextElement element, string? defaultCss)
+        {
+            var local = element.ReadLocalValue(Block.MarginProperty);
+            if (element.Tag is HtmlLayout { Margin: { } box } && local is Thickness applied && applied == box.Thickness)
+            {
+                return "margin:" + box.Css;
+            }
+
+            if (local is Thickness margin)
+            {
+                return "margin:" + CssBox.Of(margin).Css;
+            }
+
+            return defaultCss is null ? null : "margin:" + defaultCss;
+        }
+
+        /// <summary>The declarations kept on an element read with its layout (written as they were).</summary>
+        private static string? Kept(TextElement element) => element.Tag is HtmlLayout { Extra.Count: > 0 } layout ? Escape(Css(layout.Extra)) : null;
+
+        /// <summary>Declarations joined by <c>;</c> (empty ones left out).</summary>
+        private static string Style(params string?[] declarations) => string.Join(';', declarations.Where(d => !string.IsNullOrEmpty(d)));
 
         /// <summary>The inlines of a paragraph; a paragraph that ends with a line break keeps its empty last line (an extra
         /// <c>&lt;br&gt;</c>, as browsers drop a trailing one).</summary>
@@ -499,7 +609,14 @@ public static partial class FlowDocumentHtml
                         var address = hyperlink.NavigateUri?.OriginalString.Trim();
                         if (!string.IsNullOrEmpty(address) && inner.Length > 0)
                         {
-                            html.Append("<a href=\"").Append(Escape(address)).Append("\">").Append(inner).Append("</a>");
+                            html.Append("<a href=\"").Append(Escape(address)).Append('"');
+                            if (Kept(hyperlink) is { } style)
+                            {
+                                // The link's own colour and underline, as the HTML wrote them.
+                                html.Append(" style=\"").Append(style).Append('"');
+                            }
+
+                            html.Append('>').Append(inner).Append("</a>");
                         }
                         else
                         {
@@ -552,7 +669,7 @@ public static partial class FlowDocumentHtml
         }
 
         /// <summary>A run: its text (line breaks, tab stops and runs of spaces kept) in a span with its formatting.</summary>
-        private static string WrapRun(Run run, LineState line, Hyperlink? link)
+        private string WrapRun(Run run, LineState line, Hyperlink? link)
         {
             var text = run.Text;
             if (string.IsNullOrEmpty(text))
@@ -580,7 +697,7 @@ public static partial class FlowDocumentHtml
                 if ((line.AtLineStart || line.AfterSpace) && part[0] == ' ')
                 {
                     // A space at the start of a line, or after a space that ended the previous run, would collapse in HTML.
-                    part = "\u00A0" + part[1..];
+                    part = " " + part[1..];
                 }
 
                 // Runs of spaces: one breakable space, then non-breaking ones (stable when read back, also at a line end).
@@ -599,7 +716,7 @@ public static partial class FlowDocumentHtml
             return style.Length == 0 ? body.ToString() : "<span style=\"" + style + "\">" + body + "</span>";
         }
 
-        private static string RunStyle(Run run, Hyperlink? link)
+        private string RunStyle(Run run, Hyperlink? link)
         {
             var style = new List<string>();
             if (run.FontWeight.ToOpenTypeWeight() >= 600)
@@ -629,8 +746,9 @@ public static partial class FlowDocumentHtml
                 style.Add("background-color:" + Hex(background));
             }
 
+            // The base font of the message (the document's) is not written: the message's base style gives it.
             var points = Math.Round(run.FontSize * 72.0 / 96.0, 1);
-            if (Math.Abs(points - BodyPoints) > 0.6)
+            if (Math.Abs(points - basePoints) > 0.6)
             {
                 style.Add("font-size:" + points.ToString(CultureInfo.InvariantCulture) + "pt");
             }
@@ -680,11 +798,11 @@ public static partial class FlowDocumentHtml
 
         private static bool IsVisibleBackground(Color color) => color.A > 0 && color != Colors.White && color != Colors.Transparent;
 
-        /// <summary>CSS of a font family list other than the body font: names quoted, generic families bare.</summary>
-        private static string? FontFamilyCss(FontFamily? family)
+        /// <summary>CSS of a font family list other than the base font: names quoted, generic families bare.</summary>
+        private string? FontFamilyCss(FontFamily? family)
         {
             var names = (family?.Source ?? string.Empty).Split(',').Select(n => n.Trim().Trim('"', '\'')).Where(n => n.Length > 0).ToList();
-            if (names.Count == 0 || names[0].StartsWith(FontFamilyName, StringComparison.OrdinalIgnoreCase)
+            if (names.Count == 0 || names[0].StartsWith(baseFamily, StringComparison.OrdinalIgnoreCase)
                 || names.Any(n => n.IndexOfAny(['#', '/', '\\', '"', '\'', ';', '<', '>', '@']) >= 0))
             {
                 return null;
@@ -693,12 +811,12 @@ public static partial class FlowDocumentHtml
             return string.Join(',', names.Select(n => GenericFamilies.Contains(n) ? n.ToLowerInvariant() : "'" + n + "'"));
         }
 
-        private static string AlignCss(TextAlignment alignment) => alignment switch
+        private static string? AlignCss(TextAlignment alignment) => alignment switch
         {
-            TextAlignment.Center => ";text-align:center",
-            TextAlignment.Right => ";text-align:right",
-            TextAlignment.Justify => ";text-align:justify",
-            _ => string.Empty,
+            TextAlignment.Center => "text-align:center",
+            TextAlignment.Right => "text-align:right",
+            TextAlignment.Justify => "text-align:justify",
+            _ => null,
         };
 
         /// <summary>Whether the next text starts a line (paragraph start or after a line break) or follows a space.</summary>
@@ -743,8 +861,15 @@ public static partial class FlowDocumentHtml
 
         public Uri? LinkUri { get; init; }
 
+        /// <summary>The colour and underline of the link's own style, kept on the hyperlink (layout kept).</summary>
+        public HtmlLayout? LinkLayout { get; init; }
+
         /// <summary>The format inside <paramref name="element"/>: its meaning, attributes and inline style.</summary>
-        public TextFormat With(HtmlElement element)
+        public TextFormat With(HtmlElement element) => With(element, skipped: null);
+
+        /// <summary>The format inside <paramref name="element"/> without the declarations of <paramref name="skipped"/>
+        /// (kept on the element itself).</summary>
+        public TextFormat With(HtmlElement element, IReadOnlySet<string>? skipped)
         {
             var name = element.LocalName;
             var format = this;
@@ -793,7 +918,10 @@ public static partial class FlowDocumentHtml
 
             foreach (var declaration in CssParser.ParseDeclarations(element.GetAttribute("style")))
             {
-                format = format.WithDeclaration(declaration.Property, declaration.Value);
+                if (skipped?.Contains(declaration.Property) != true)
+                {
+                    format = format.WithDeclaration(declaration.Property, declaration.Value);
+                }
             }
 
             return format;
@@ -1135,8 +1263,9 @@ public static partial class FlowDocumentHtml
     }
 
     /// <summary>Builds blocks from the sanitized HTML tree: inline content goes into the current paragraph (made when
-    /// needed), block elements end it. White space collapses as in a browser.</summary>
-    private sealed class DocumentBuilder(BlockCollection target, IReadOnlyDictionary<string, MessageImage> images)
+    /// needed), block elements end it. White space collapses as in a browser. With <paramref name="keepLayout"/> the
+    /// elements' layout is kept on the blocks (<see cref="HtmlLayout"/>).</summary>
+    private sealed class DocumentBuilder(BlockCollection target, IReadOnlyDictionary<string, MessageImage> images, bool keepLayout)
     {
         private BlockCollection _target = target;
         private Paragraph? _paragraph;
@@ -1224,13 +1353,14 @@ public static partial class FlowDocumentHtml
                     return;
                 case "table":
                     Flush();
-                    AppendTable(element, format.With(element));
+                    AppendTable(element, format);
                     return;
             }
 
             if (ParagraphElements.Contains(name))
             {
                 Flush();
+                var before = _target.LastBlock;
                 var made = _paragraphsMade;
                 var paragraphFormat = format.With(element);
                 AppendChildren(element, paragraphFormat);
@@ -1241,28 +1371,48 @@ public static partial class FlowDocumentHtml
                 }
 
                 Flush();
+                if (keepLayout)
+                {
+                    KeepParagraphLayout(element, BlocksAfter(before), paragraphFormat);
+                }
+
                 return;
             }
 
             if (BlockContainers.Contains(name))
             {
                 Flush();
-                AppendChildren(element, format.With(element));
+                var before = _target.LastBlock;
+                var containerFormat = format.With(element);
+                AppendChildren(element, containerFormat);
                 Flush();
+                if (keepLayout && name == "div")
+                {
+                    KeepContainerLayout(element, BlocksAfter(before), containerFormat);
+                }
+
                 return;
             }
 
             var inner = format.With(element);
             if (name == "a")
             {
-                inner = inner with { LinkElement = null, LinkUri = null };
+                HtmlLayout? linkLayout = null;
+                if (keepLayout && CssParser.ParseDeclarations(element.GetAttribute("style")).Where(d => LinkProperties.Contains(d.Property)).ToList() is { Count: > 0 } own)
+                {
+                    // The link's colour and underline stay the link's (on the hyperlink), not its runs'.
+                    linkLayout = new HtmlLayout { Extra = [.. own.Select(d => new KeyValuePair<string, string>(d.Property, d.Value.Trim()))] };
+                    inner = format.With(element, LinkProperties);
+                }
+
+                inner = inner with { LinkElement = null, LinkUri = null, LinkLayout = null };
                 if (format.LinkElement is null && LinkUri(element.GetAttribute("href")) is { } uri)
                 {
-                    inner = inner with { LinkElement = element, LinkUri = uri };
+                    inner = inner with { LinkElement = element, LinkUri = uri, LinkLayout = linkLayout };
                 }
                 else if (format.LinkElement is not null)
                 {
-                    inner = inner with { LinkElement = format.LinkElement, LinkUri = format.LinkUri };
+                    inner = inner with { LinkElement = format.LinkElement, LinkUri = format.LinkUri, LinkLayout = format.LinkLayout };
                 }
             }
 
@@ -1358,6 +1508,11 @@ public static partial class FlowDocumentHtml
             }
 
             _target.Add(list);
+            if (keepLayout)
+            {
+                KeepListLayout(element, list, format);
+            }
+
             var outer = _target;
             var outerInListItem = _inListItem;
             _listDepth++;
@@ -1381,9 +1536,10 @@ public static partial class FlowDocumentHtml
 
                     _target = item.Blocks;
                     _inListItem = true;
+                    var itemFormat = isItem ? format.With((HtmlElement)child) : format;
                     if (isItem)
                     {
-                        AppendChildren(child, format.With((HtmlElement)child));
+                        AppendChildren(child, itemFormat);
                     }
                     else
                     {
@@ -1394,6 +1550,11 @@ public static partial class FlowDocumentHtml
                     if (item.Blocks.Count == 0)
                     {
                         item.Blocks.Add(new Paragraph { Margin = new Thickness(0) });
+                    }
+
+                    if (keepLayout && isItem)
+                    {
+                        KeepListItemLayout((HtmlElement)child, item, itemFormat);
                     }
                 }
             }
@@ -1410,8 +1571,9 @@ public static partial class FlowDocumentHtml
             }
         }
 
-        private void AppendTable(HtmlElement element, TextFormat format)
+        private void AppendTable(HtmlElement element, TextFormat outerFormat)
         {
+            var format = outerFormat.With(element);
             foreach (var caption in element.Children.Where(c => c.LocalName == "caption"))
             {
                 AppendChildren(caption, format.With(caption));
@@ -1419,6 +1581,10 @@ public static partial class FlowDocumentHtml
             }
 
             var table = new Table { CellSpacing = 0, Margin = new Thickness(0, 0, 0, BlockSpacing) };
+            var layout = keepLayout ? KeepTableLayout(element, table, format) : null;
+
+            // A kept table's background is the table's (shown behind its cells), not a highlight of the text in them.
+            var textBackground = layout is null ? format.Background : outerFormat.Background;
             var group = new TableRowGroup();
             table.RowGroups.Add(group);
             var outer = _target;
@@ -1431,12 +1597,14 @@ public static partial class FlowDocumentHtml
                     group.Rows.Add(tableRow);
                     foreach (var cell in row.Children.Where(c => c.LocalName is "td" or "th"))
                     {
-                        var tableCell = new TableCell
-                        {
-                            BorderBrush = Frozen(new SolidColorBrush(CellBorderColor)),
-                            BorderThickness = new Thickness(1),
-                            Padding = new Thickness(CellPadding),
-                        };
+                        var tableCell = layout is null
+                            ? new TableCell
+                            {
+                                BorderBrush = Frozen(new SolidColorBrush(CellBorderColor)),
+                                BorderThickness = new Thickness(1),
+                                Padding = new Thickness(CellPadding),
+                            }
+                            : KeptCell(cell, layout, format);
                         if (Span(cell.GetAttribute("colspan")) is { } columns)
                         {
                             tableCell.ColumnSpan = columns;
@@ -1460,7 +1628,7 @@ public static partial class FlowDocumentHtml
                         tableRow.Cells.Add(tableCell);
                         _target = tableCell.Blocks;
                         _inListItem = false;
-                        AppendChildren(cell, cellFormat with { Background = format.Background });
+                        AppendChildren(cell, cellFormat with { Background = textBackground });
                         Flush();
                         if (tableCell.Blocks.Count == 0)
                         {
@@ -1502,6 +1670,213 @@ public static partial class FlowDocumentHtml
                 int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var span) && span > 1 ? Math.Min(span, 1000) : null;
         }
 
+        // ---- the layout of the HTML (keepLayout) -----------------------------------------------------------------------
+
+        /// <summary>The blocks of the current collection after <paramref name="before"/> (all of them when null).</summary>
+        private List<Block> BlocksAfter(Block? before)
+        {
+            var blocks = new List<Block>();
+            for (var block = before is null ? _target.FirstBlock : before.NextBlock; block is not null; block = block.NextBlock)
+            {
+                blocks.Add(block);
+            }
+
+            return blocks;
+        }
+
+        /// <summary>A <c>p</c>, <c>h1–h6</c> or <c>pre</c>: its margins (the sides it leaves out are the message's) and the
+        /// CSS the editor cannot show go to the paragraph it made. One without either is read as by a paste.</summary>
+        private static void KeepParagraphLayout(HtmlElement element, List<Block> blocks, TextFormat format)
+        {
+            var declarations = CssParser.ParseDeclarations(element.GetAttribute("style"));
+            var sides = Sides(declarations, "margin");
+            var extra = Extras(declarations, p => TextProperties.Contains(p) || IsMargin(p));
+            if (sides is null && extra.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var paragraph in blocks.OfType<Paragraph>())
+            {
+                Keep(paragraph, new HtmlLayout { Margin = sides is null ? null : Box(sides, MarginOf(paragraph), FontPixels(format)), Extra = extra });
+            }
+        }
+
+        /// <summary>A <c>div</c> is no element of its own: its margins go to the blocks inside it as a browser stacks them
+        /// (its top margin collapses with the first block's, its bottom margin with the last block's, the larger one wins;
+        /// left and right add up) and its inherited CSS the editor cannot show (<c>line-height</c> …) to each of them.</summary>
+        private static void KeepContainerLayout(HtmlElement element, List<Block> blocks, TextFormat format)
+        {
+            var declarations = CssParser.ParseDeclarations(element.GetAttribute("style"));
+            var sides = Sides(declarations, "margin");
+            var inherited = Extras(declarations, p => !InheritedLayoutProperties.Contains(p));
+            if ((sides is null && inherited.Count == 0) || blocks.Count == 0)
+            {
+                return;
+            }
+
+            // The sides a div leaves out are 0: it has no margin of its own.
+            var outer = Box(sides, default, FontPixels(format));
+            foreach (var block in blocks.Where(b => b is Paragraph or List or Table))
+            {
+                var layout = block.Tag as HtmlLayout ?? new HtmlLayout();
+                var margin = layout.Margin;
+                if (sides is not null)
+                {
+                    var own = margin ?? CssBox.Of(MarginOf(block));
+                    margin = new CssBox(
+                        ReferenceEquals(block, blocks[0]) && sides[0] is not null ? own.Top.Collapse(outer.Top) : own.Top,
+                        sides[1] is not null ? own.Right.Add(outer.Right) : own.Right,
+                        ReferenceEquals(block, blocks[^1]) && sides[2] is not null ? own.Bottom.Collapse(outer.Bottom) : own.Bottom,
+                        sides[3] is not null ? own.Left.Add(outer.Left) : own.Left);
+                }
+
+                Keep(block, layout with { Margin = margin, Extra = MergeExtras(layout.Extra, inherited) });
+            }
+        }
+
+        /// <summary>A <c>ul</c> or <c>ol</c>: its margins (the sides it leaves out are the message's) and the CSS the editor
+        /// cannot show (the marker is the list's own).</summary>
+        private static void KeepListLayout(HtmlElement element, List list, TextFormat format)
+        {
+            var declarations = CssParser.ParseDeclarations(element.GetAttribute("style"));
+            var sides = Sides(declarations, "margin");
+            var extra = Extras(declarations, p => TextProperties.Contains(p) || IsMargin(p) || p == "list-style-type");
+            if (sides is not null || extra.Count > 0)
+            {
+                Keep(list, new HtmlLayout { Margin = sides is null ? null : Box(sides, list.Margin, FontPixels(format)), Extra = extra });
+            }
+        }
+
+        /// <summary>An <c>li</c>: its margins and kept CSS; those of a single paragraph in it go to the item too (the
+        /// paragraph is written as the item's content), stacked as a browser stacks them.</summary>
+        private static void KeepListItemLayout(HtmlElement element, ListItem item, TextFormat format)
+        {
+            var declarations = CssParser.ParseDeclarations(element.GetAttribute("style"));
+            var sides = Sides(declarations, "margin");
+            var margin = sides is null ? null : Box(sides, default, FontPixels(format));
+            IReadOnlyList<KeyValuePair<string, string>> extra = Extras(declarations, p => TextProperties.Contains(p) || IsMargin(p));
+            if (item.Blocks is { Count: 1, FirstBlock: Paragraph { Tag: HtmlLayout inner } paragraph })
+            {
+                if (inner.Margin is { } own)
+                {
+                    var outer = margin ?? CssBox.Of(default);
+                    margin = new CssBox(own.Top.Collapse(outer.Top), own.Right.Add(outer.Right), own.Bottom.Collapse(outer.Bottom), own.Left.Add(outer.Left));
+                }
+
+                extra = MergeExtras(inner.Extra, extra);
+                paragraph.Tag = null;
+                paragraph.Margin = new Thickness(0);
+            }
+
+            if (margin is not null || extra.Count > 0)
+            {
+                Keep(item, new HtmlLayout { Margin = margin, Extra = extra });
+            }
+        }
+
+        /// <summary>A table read with its layout: its attributes as they were, the cell spacing, its margins (none of the
+        /// editor's own with <c>border="0"</c>), its background and the CSS the editor cannot show (<c>border-collapse</c>,
+        /// <c>width</c>, <c>max-width</c> …).</summary>
+        private static HtmlLayout KeepTableLayout(HtmlElement element, Table table, TextFormat format)
+        {
+            var declarations = CssParser.ParseDeclarations(element.GetAttribute("style"));
+            var borderless = Digits(element.GetAttribute("border")) == 0;
+            var collapse = declarations.LastOrDefault(d => d.Property == "border-collapse")?.Value.Trim().Equals("collapse", StringComparison.OrdinalIgnoreCase) == true;
+
+            // Without cellspacing a browser separates the cells of a table by 2 px unless their borders collapse.
+            table.CellSpacing = Digits(element.GetAttribute("cellspacing")) ?? (borderless && !collapse ? 2 : 0);
+            var sides = Sides(declarations, "margin");
+            var defaults = borderless ? default : new Thickness(0, 0, 0, BlockSpacing);
+            var margin = sides is null ? null : Box(sides, defaults, FontPixels(format));
+            if (margin is not null)
+            {
+                table.Margin = margin.Thickness;
+            }
+            else if (borderless)
+            {
+                // No margin of its own (a table's default is none): none is written back either.
+                table.ClearValue(Block.MarginProperty);
+            }
+            var background = declarations.LastOrDefault(d => d.Property == "background-color")?.Value ?? element.GetAttribute("bgcolor");
+            if (background is not null && ParseColor(background) is { A: > 0 } color)
+            {
+                table.Background = Frozen(new SolidColorBrush(color));
+            }
+
+            var layout = new HtmlLayout
+            {
+                Margin = margin,
+                Extra = Extras(declarations, p => (TextProperties.Contains(p) && p != "background-color") || IsMargin(p)),
+                Attributes = AttributesOf(element, TableAttributes),
+                Borderless = borderless,
+            };
+            table.Tag = layout;
+            return layout;
+        }
+
+        /// <summary>A cell read with its layout: per-side borders from its CSS (else none in a table with
+        /// <c>border="0"</c>, the grid in any other), the padding from its CSS (else the table's <c>cellpadding</c>, else a
+        /// browser's 1 px with <c>border="0"</c> and the message's 5 px otherwise), its attributes and the CSS the editor
+        /// cannot show.</summary>
+        private static TableCell KeptCell(HtmlElement cell, HtmlLayout table, TextFormat format)
+        {
+            var declarations = CssParser.ParseDeclarations(cell.GetAttribute("style"));
+            var font = FontPixels(format);
+            var borders = declarations.Where(d => IsBorder(d.Property)).ToList();
+            var (thickness, color) = borders.Count > 0 ? Borders(borders, font)
+                : table.Borderless ? (default(Thickness), (Color?)null)
+                : (new Thickness(1), CellBorderColor);
+            var cellPadding = Digits(table.Attributes.FirstOrDefault(a => a.Key == "cellpadding").Value);
+            var defaultPadding = new Thickness(cellPadding ?? (table.Borderless ? 1 : CellPadding));
+            var paddingSides = Sides(declarations, "padding");
+            var padding = paddingSides is null ? defaultPadding : Box(paddingSides, defaultPadding, font).Thickness;
+            var tableCell = new TableCell { BorderThickness = thickness, Padding = padding };
+            if (color is { } borderColor)
+            {
+                tableCell.BorderBrush = Frozen(new SolidColorBrush(borderColor));
+            }
+
+            tableCell.Tag = new HtmlLayout
+            {
+                PaddingCss = paddingSides is null ? null : string.Join(';', declarations.Where(d => IsPadding(d.Property)).Select(d => d.Property + ":" + d.Value.Trim())),
+                AppliedPadding = padding,
+                BorderCss = borders.Count == 0 ? null : string.Join(';', borders.Select(d => d.Property + ":" + d.Value.Trim())),
+                AppliedBorder = thickness,
+                AppliedBorderColor = color,
+                Extra = Extras(declarations, p => TextProperties.Contains(p) || IsPadding(p) || IsBorder(p)),
+                Attributes = AttributesOf(cell, CellAttributes),
+            };
+            return tableCell;
+        }
+
+        /// <summary>The margin a block has now: its own, else the message's for a paragraph (8 pt below it, none in a list
+        /// item) and none for a table read without one.</summary>
+        private static Thickness MarginOf(Block block) =>
+            block.ReadLocalValue(Block.MarginProperty) is Thickness margin ? margin
+            : block is not Paragraph || block.Parent is ListItem ? default : new Thickness(0, 0, 0, BlockSpacing);
+
+        /// <summary>Keeps <paramref name="layout"/> on the element and shows its margin.</summary>
+        private static void Keep(TextElement element, HtmlLayout layout)
+        {
+            if (layout.Margin is { } margin)
+            {
+                element.SetValue(Block.MarginProperty, margin.Thickness);
+            }
+
+            element.Tag = layout;
+        }
+
+        private static double FontPixels(TextFormat format) => format.FontSize ?? DefaultFontSize;
+
+        /// <summary>The attributes of <paramref name="names"/> the element has, in that order.</summary>
+        private static List<KeyValuePair<string, string>> AttributesOf(HtmlElement element, string[] names) =>
+            [.. names.Where(element.HasAttribute).Select(n => new KeyValuePair<string, string>(n, element.GetAttribute(n) ?? string.Empty))];
+
+        /// <summary>A whole number attribute (digits only) in pixels, or null.</summary>
+        private static double? Digits(string? value) =>
+            int.TryParse(value?.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var number) ? Math.Min(number, 1_000) : null;
+
         private Paragraph EnsureParagraph(TextFormat format)
         {
             if (_paragraph is not null)
@@ -1542,6 +1917,22 @@ public static partial class FlowDocumentHtml
             if (_hyperlink is null || !ReferenceEquals(_hyperlinkElement, format.LinkElement) || !ReferenceEquals(_hyperlink.Parent, paragraph))
             {
                 _hyperlink = new Hyperlink { NavigateUri = format.LinkUri, Foreground = LinkBrush };
+                if (format.LinkLayout is { } layout)
+                {
+                    // The link's own style, shown and written back: its colour (the runs without one take it) and underline.
+                    _hyperlink.Tag = layout;
+                    if (layout.Extra.LastOrDefault(d => d.Key == "color").Value is { } color && ParseColor(color) is { A: > 0 } linkColor)
+                    {
+                        _hyperlink.Foreground = Frozen(new SolidColorBrush(linkColor));
+                    }
+
+                    if (layout.Extra.LastOrDefault(d => d.Key is "text-decoration" or "text-decoration-line").Value is { } decoration
+                        && !decoration.Contains("underline", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _hyperlink.TextDecorations = Frozen(new TextDecorationCollection());
+                    }
+                }
+
                 _hyperlinkElement = format.LinkElement;
                 paragraph.Inlines.Add(_hyperlink);
             }
