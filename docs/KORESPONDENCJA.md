@@ -310,8 +310,10 @@ wysłanych* – przy dużych plikach lepiej wysłać łącze.
 
 - **Szablon** – na początku listy dwa wbudowane szablony zapytania o skrzynki (rozdział 8): *Weryfikacja skrzynki
   pocztowej (wiadomość na każdą skrzynkę)* i *Weryfikacja skrzynek pocztowych (jedna wiadomość na osobę)*, dalej własne.
-  Wybranie szablonu przy niepustej treści pyta, czy ją zastąpić – chyba że na stronie jest niezmieniony szablon
-  wbudowany (wtedy nie ma czego tracić).
+  Wybranie szablonu przy niepustej treści pyta, czy ją zastąpić – chyba że na stronie jest szablon wbudowany tak, jak
+  go wczytano (temat, treść, element listy, czcionka, głosowanie i pola własne bez zmian; wtedy nie ma czego tracić).
+  Data wybrana w polu *Termin* zostaje przy przejściu na drugi szablon wbudowany; inny szablon by ją zastąpił, więc
+  okno najpierw pyta – tak samo po każdej innej zmianie szablonu wbudowanego.
 - **Nazwa szablonu** + *Zapisz* zapisuje bieżącą wiadomość; *Usuń szablon*; *Nowa wiadomość* (po potwierdzeniu czyści
   temat, treść i pola własne).
 - Szablon zawiera temat, treść z obrazkami, pola własne (z datami i formatami pól daty), element listy, zwrot
@@ -522,11 +524,12 @@ osoba z trzema skrzynkami dostaje trzy wiadomości, każdą z nazwą swojej skrz
 wiadomość do właściciela (wszystkie jego skrzynki)* włącza się grupowanie po adresie i ta osoba dostaje jedną wiadomość
 z listą trzech skrzynek.
 
-Gdy treść wiadomości jest pusta (przy wpisanym temacie – po pytaniu) albo na zakładce *Wiadomość* jest niezmieniony
-szablon wbudowany, wczytuje się szablon wbudowany pasujący do tego wyboru: *Weryfikacja skrzynki pocztowej (wiadomość
-na każdą skrzynkę)* albo *Weryfikacja skrzynek pocztowych (jedna wiadomość na osobę)*. Ponowne dodanie z drugim
-wyborem zamienia jeden szablon wbudowany na drugi i zachowuje datę z pola *Termin*. Wiadomości, którą już napisano albo
-zmieniono, AD Manager nie zastępuje.
+Gdy treść wiadomości jest pusta (przy wpisanym temacie – po pytaniu) albo na zakładce *Wiadomość* jest szablon
+wbudowany tak, jak go wczytano (poza datą w polu *Termin*), wczytuje się szablon wbudowany pasujący do tego wyboru:
+*Weryfikacja skrzynki pocztowej (wiadomość na każdą skrzynkę)* albo *Weryfikacja skrzynek pocztowych (jedna wiadomość
+na osobę)*. Ponowne dodanie z drugim wyborem zamienia jeden szablon wbudowany na drugi i zachowuje datę z pola
+*Termin*. Wiadomości, którą już napisano albo zmieniono (także samą czcionkę, element listy, głosowanie czy pola
+własne – np. zapisaną kopię szablonu z głosowaniem), AD Manager nie zastępuje.
 
 **Szablony wbudowane** odtwarzają wiadomość, którą zespół IT wysyłał dotąd z Outlooka – ten sam tekst, odstępy, kolory
 i tabele. Czcionka Aptos 12 pt z interlinią pojedynczą, bez przycisków głosowania (odpowiedzią jest zwykła odpowiedź na
