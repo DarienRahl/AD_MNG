@@ -1,6 +1,19 @@
 admng-watchdog (@VERSION@) unstable; urgency=medium
 
   * No change in how the service works and no database migration.
+  * The Registry.pol reader of the GPO settings snapshots is now shared
+    with AD Manager's administrative templates editor (the same checks:
+    PReg signature and version, terminated strings, data within the file);
+    the snapshots and their events are unchanged.
+  * Rebuilt for AD Manager 0.8.0: the administrative templates (ADMX)
+    editor and the central store update are AD Manager features that do
+    not use the service.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Mon, 02 Nov 2026 17:00:00 +0000
+
+admng-watchdog (0.7.0-1) unstable; urgency=medium
+
+  * No change in how the service works and no database migration.
   * Messages to users go through the message sanitizer shared with AD
     Manager, which now keeps Word's paragraph spacing hints
     mso-margin-top-alt and mso-margin-bottom-alt (one length or auto; inert

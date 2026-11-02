@@ -9,7 +9,7 @@
 **Szybki, nowoczesny następca przystawki `dsa.msc` – z edycją zbiorczą, Koszem AD i monitorem zmian w katalogu**
 
 [![CI](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml/badge.svg)](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml)
-[![Wersja](https://img.shields.io/badge/wersja-0.7.0-2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
+[![Wersja](https://img.shields.io/badge/wersja-0.8.0-2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
 ![WPF Fluent](https://img.shields.io/badge/WPF-Fluent-0078D4)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011%20%7C%20Server%202019%2B-0078D4)
@@ -153,12 +153,13 @@ Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV
   </tr>
 </table>
 
-<sub>Zrzuty pochodzą z wersji 0.2.0 (polski interfejs, przykładowa firma z testów); zrzuty wersji 0.7.0 – także okno
+<sub>Zrzuty pochodzą z wersji 0.2.0 (polski interfejs, przykładowa firma z testów); zrzuty wersji 0.8.0 – także okno
 *Przegląd komputerów*, karta *Zasady grupy* jednostki organizacyjnej, wiadomość wklejona z Outlooka z obrazami
 osadzonymi, zwroty grzecznościowe w podglądzie wiadomości, *Przegląd kont* (z zakładką *Uprawnienia*), dwa okna połączeń
 obok siebie, porównanie obiektów między nimi, potwierdzenie certyfikatu Watchdoga i podzakładka „Źródła i retencja” – są
 dołączone do wydania. Okno *Korespondencja* (U5) pokazują zrzuty 26–28: odbiorcy wczytani z pliku z kolumnami pól,
-wiadomość w edytorze z podpisem i załącznikami oraz właściciele skrzynek po dopasowaniu. Aktualny komplet CI
+wiadomość w edytorze z podpisem i załącznikami oraz właściciele skrzynek po dopasowaniu; szablony administracyjne GPO
+(K3) – zrzuty 29 i 30: edytor ustawień ADMX i aktualizacja magazynu centralnego. Aktualny komplet CI
 publikuje przy każdym pushu na gałęzi `screenshots` – zob. [Zrzuty ekranu z CI](#zrzuty-ekranu-z-ci).</sub>
 
 ## 🧭 Roadmapa
@@ -614,7 +615,7 @@ specyfikacje [dev/watchdog-spec.md](docs/dev/watchdog-spec.md) i
   LDAP przez GSSAPI, API z Negotiate i rolami, OpenWEC, SYSVOL), skrypty laboratoryjne (`tools/testlab/watchdog`)
   uruchamiane także w CI, testy instalacji pakietów w kontenerach Debian 12 i 13.
 
-**Do zrobienia przed wersją stabilną (0.7.0 jest wersją zapoznawczą):** pilotaż na laboratorium Windows Server 2025
+**Do zrobienia przed wersją stabilną (0.8.0 jest wersją zapoznawczą):** pilotaż na laboratorium Windows Server 2025
 z Debianem 13 i stacją administratora, potem w domenie testowej z kontrolerami 2025 i 2022 – lista kontrolna
 [WATCHDOG-LINUX.md, rozdział 7](docs/WATCHDOG-LINUX.md#7-pilotaż--lista-kontrolna) (przekazywanie zdarzeń z prawdziwych
 DC do OpenWEC i atrybucja „kto i skąd”, zmiana hasła konta komputera przy wpisie odmowy dla SELF, pierwsza
