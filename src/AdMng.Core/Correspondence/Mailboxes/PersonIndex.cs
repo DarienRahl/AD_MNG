@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using AdMng.Core.ActiveDirectory;
+using AdMng.Core.Correspondence.Import;
 using AdMng.Core.Messaging;
 using AdMng.Core.Messaging.Salutations;
 using AdMng.Core.Model;
@@ -14,7 +15,8 @@ namespace AdMng.Core.Correspondence.Mailboxes;
 /// <param name="GivenName">givenName (empty when missing).</param>
 /// <param name="Surname">sn (empty when missing).</param>
 /// <param name="DisplayName">displayName, else the RDN value.</param>
-/// <param name="Address">mail, else the primary SMTP proxy address; null without a valid one.</param>
+/// <param name="Address">mail, else the primary SMTP proxy address – normalized and valid for the recipient rows
+/// (<see cref="EmailAddressText.IsValid"/>); null without such an address.</param>
 /// <param name="IsDisabled">The account is disabled.</param>
 /// <param name="Type">The person's own mailbox type (a functional mailbox account is no person).</param>
 /// <param name="Department">department.</param>
@@ -55,18 +57,23 @@ public sealed record PersonCandidate(string DistinguishedName, string GivenName,
 
     public override string ToString() => nameof(PersonCandidate);
 
-    /// <summary><c>mail</c> when it is a valid address, else the valid primary SMTP proxy address, else null.</summary>
+    /// <summary>
+    /// <c>mail</c> when it is an address Korespondencja sends to (<see cref="EmailAddressText.IsValid"/>, the rule of the
+    /// recipient rows), else such a primary SMTP proxy address, else null; normalized. An owner whose address the send list
+    /// would refuse is therefore an owner without an address – flagged for review, never matched and then silently left out.
+    /// </summary>
     internal static string? AddressOf(DirectoryObject account)
     {
-        if (UserMessageRules.TryParseAddress(account.GetString(Attr.Mail), out var mail))
+        foreach (var candidate in new[] { account.GetString(Attr.Mail), UserMessageRules.PrimarySmtpAddress(account.GetStrings(Attr.ProxyAddresses)) })
         {
-            return mail;
+            var address = EmailAddressText.Normalize(candidate);
+            if (EmailAddressText.IsValid(address))
+            {
+                return address;
+            }
         }
 
-        return UserMessageRules.PrimarySmtpAddress(account.GetStrings(Attr.ProxyAddresses)) is { } proxy
-            && UserMessageRules.TryParseAddress(proxy, out var primary)
-            ? primary
-            : null;
+        return null;
     }
 
     /// <summary>The attributes of <paramref name="names"/> the schema has (all of them without a schema).</summary>

@@ -74,7 +74,8 @@ public sealed record OwnerMatch(OwnerMatchStatus Status, OwnerCandidateMatch? Be
 /// <summary>A mailbox account: DN, name, address, type, the DNs of its delegates and whether it is disabled.</summary>
 /// <param name="DistinguishedName">The DN of the mailbox account.</param>
 /// <param name="Name">displayName, else the RDN value.</param>
-/// <param name="Address">mail, else the primary SMTP proxy address; null without a valid one.</param>
+/// <param name="Address">mail, else the primary SMTP proxy address (normalized, <c>EmailAddressText.IsValid</c>); null without a
+/// valid one.</param>
 /// <param name="Type">The mailbox type.</param>
 /// <param name="DelegateDns">The DNs of <c>msExchDelegateListLink</c> and <c>publicDelegates</c> (distinct).</param>
 /// <param name="IsDisabled">The mailbox account is disabled (normal for shared mailboxes).</param>

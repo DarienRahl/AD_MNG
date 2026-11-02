@@ -96,6 +96,34 @@ public class MailboxEntryTests
         Assert.Throws<ArgumentNullException>(() => PersonCandidate.From(null!));
     }
 
+    [Theory]
+    [InlineData("d'souza@firma.pl")]
+    [InlineData("łucja.żak@łódź.pl")]
+    [InlineData("jan&anna@firma.pl")]
+    [InlineData("biuro#1@firma.pl")]
+    [InlineData("jan@example.com")]
+    public void Person_AnAddressKorespondencjaDoesNotSendTo_IsNoAddress_ThePrimaryProxyIsTakenInstead(string mail)
+    {
+        // The rule of the recipient rows (EmailAddressText): a matched owner whose address the send list refuses would be
+        // shown as matched and silently left out.
+        var person = PersonCandidate.From(Object($"CN=Łucja D'Souza,{PeopleOu}", (Attr.Mail, mail)));
+        var withProxy = PersonCandidate.From(Object($"CN=Łucja D'Souza,{PeopleOu}",
+            (Attr.Mail, mail), (Attr.ProxyAddresses, new[] { "smtp:stary@firma.pl", "SMTP:Lucja.DSouza@Firma.pl" })));
+
+        Assert.Null(person.Address);
+        Assert.Equal("lucja.dsouza@firma.pl", withProxy.Address);
+        Assert.Null(MailboxEntry.From(Account("Biuro", (Attr.Mail, mail))).Address);
+        var match = Match(Mailbox(), Name("Łucja", "D'Souza"), [person]);
+        Assert.Equal(OwnerMatchStatus.OwnerWithoutAddress, match.Status);
+    }
+
+    [Fact]
+    public void Person_AndMailbox_AddressesAreNormalized()
+    {
+        Assert.Equal("anna.nowak@contoso.test", PersonCandidate.From(Object($"CN=Anna Nowak,{PeopleOu}", (Attr.Mail, " Anna.Nowak@Contoso.test "))).Address);
+        Assert.Equal("wydarzenia@contoso.test", MailboxEntry.From(Account("Wydarzenia", (Attr.Mail, "mailto:Wydarzenia@contoso.test"))).Address);
+    }
+
     [Fact]
     public void AttributesFor_AskForExchangeAttributesOnlyWhenTheSchemaHasThem()
     {
