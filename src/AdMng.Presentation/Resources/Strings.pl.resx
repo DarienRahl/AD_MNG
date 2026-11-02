@@ -12121,6 +12121,15 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="AdmTemplates.PlanTitle" xml:space="preserve">
     <value>Szablony administracyjne GPO {0}</value>
   </data>
+  <data name="ChangeAction.WritePolicyDefinitionsFile" xml:space="preserve">
+    <value>Zapisz plik szablonu (magazyn centralny)</value>
+  </data>
+  <data name="ChangeAction.DeletePolicyDefinitionsFile" xml:space="preserve">
+    <value>Usuń plik szablonu (magazyn centralny)</value>
+  </data>
+  <data name="Issue.CentralStoreCreated" xml:space="preserve">
+    <value>Domena nie ma jeszcze magazynu centralnego: aktualizacja utworzy PolicyDefinitions w SYSVOL. Od tej chwili edytor każdego administratora będzie używał go zamiast szablonów z własnego komputera.</value>
+  </data>
   <!-- K3: administrative templates (end) -->
 
   <!-- U5 core: begin -->

@@ -148,7 +148,8 @@ public sealed class PowerShellExporter : IPowerShellExporter
         switch (change.Action)
         {
             case ChangeAction.CreateGpoFolder or ChangeAction.WriteGpoFile or ChangeAction.DeleteGpoFile or ChangeAction.SyncGpoFolderSecurity
-                or ChangeAction.SetGpoFolderSecurity or ChangeAction.SetGpoVersion or ChangeAction.DeleteGpoFolder:
+                or ChangeAction.SetGpoFolderSecurity or ChangeAction.SetGpoVersion or ChangeAction.DeleteGpoFolder
+                or ChangeAction.WritePolicyDefinitionsFile or ChangeAction.DeletePolicyDefinitionsFile:
                 WriteSysvolComment(sb, change);
                 break;
             case ChangeAction.Modify:
@@ -259,6 +260,8 @@ public sealed class PowerShellExporter : IPowerShellExporter
             ChangeAction.CreateGpoFolder => "create the GPO folder - done by New-GPO",
             ChangeAction.SyncGpoFolderSecurity or ChangeAction.SetGpoFolderSecurity => "folder permissions of the GPO - kept consistent by Set-GPPermission",
             ChangeAction.DeleteGpoFolder => "delete the GPO folder - done by Remove-GPO",
+            ChangeAction.WritePolicyDefinitionsFile => $"write PolicyDefinitions/{path} ({Size(sysvol?.OldContent)} -> {Size(sysvol?.NewContent)}) - Copy-Item the template into the central store",
+            ChangeAction.DeletePolicyDefinitionsFile => $"delete PolicyDefinitions/{path} ({Size(sysvol?.OldContent)}) - Remove-Item from the central store",
             _ => change.Action.ToString(),
         };
         Line(sb, $"# SYSVOL: {text}");

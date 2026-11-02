@@ -12121,6 +12121,15 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="AdmTemplates.PlanTitle" xml:space="preserve">
     <value>Administrative templates of {0}</value>
   </data>
+  <data name="ChangeAction.WritePolicyDefinitionsFile" xml:space="preserve">
+    <value>Write a template file (central store)</value>
+  </data>
+  <data name="ChangeAction.DeletePolicyDefinitionsFile" xml:space="preserve">
+    <value>Delete a template file (central store)</value>
+  </data>
+  <data name="Issue.CentralStoreCreated" xml:space="preserve">
+    <value>The domain has no central store yet: the update creates PolicyDefinitions on SYSVOL. From then on every administrator's editor uses it instead of the templates of their own computer.</value>
+  </data>
   <!-- K3: administrative templates (end) -->
 
   <!-- U5 core: begin -->

@@ -10,7 +10,10 @@ namespace AdMng.Core.Batch;
 /// </summary>
 public sealed record SysvolChange
 {
-    /// <summary>The GPO (its folder <c>{GUID}</c> on SYSVOL of the session's DC).</summary>
+    /// <summary>
+    /// The GPO (its folder <c>{GUID}</c> on SYSVOL of the session's DC); <see cref="Guid.Empty"/> for the central store steps
+    /// (<see cref="ChangeAction.WritePolicyDefinitionsFile"/>, <see cref="ChangeAction.DeletePolicyDefinitionsFile"/>).
+    /// </summary>
     public required Guid GpoId { get; init; }
 
     /// <summary>'/'-separated path below the GPO folder (<see cref="ChangeAction.WriteGpoFile"/>, <see cref="ChangeAction.DeleteGpoFile"/>).</summary>
@@ -50,7 +53,7 @@ public sealed record SysvolChange
     /// <summary>Paths, sizes and the GUID only.</summary>
     public override string ToString()
     {
-        var path = RelativePath ?? SysvolPaths.FolderName(GpoId);
+        var path = RelativePath ?? (GpoId == Guid.Empty ? SysvolPaths.PolicyDefinitionsFolder : SysvolPaths.FolderName(GpoId));
         return OldContent is null && NewContent is null
             ? path
             : string.Create(CultureInfo.InvariantCulture, $"{path} {Size(OldContent)} -> {Size(NewContent)}");

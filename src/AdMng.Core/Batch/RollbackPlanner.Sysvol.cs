@@ -24,6 +24,14 @@ public sealed partial class RollbackPlanner
             case ChangeAction.DeleteGpoFile when sysvol is { OldContent: { } deleted }:
                 steps.Add(new PlannedChange { Action = ChangeAction.WriteGpoFile, Sysvol = sysvol with { OldContent = null, NewContent = deleted } });
                 break;
+            case ChangeAction.WritePolicyDefinitionsFile when sysvol is { NewContent: { } storeWritten }:
+                steps.Add(sysvol.OldContent is null
+                    ? new PlannedChange { Action = ChangeAction.DeletePolicyDefinitionsFile, Sysvol = sysvol with { OldContent = storeWritten, NewContent = null } }
+                    : new PlannedChange { Action = ChangeAction.WritePolicyDefinitionsFile, Sysvol = sysvol with { OldContent = storeWritten, NewContent = sysvol.OldContent } });
+                break;
+            case ChangeAction.DeletePolicyDefinitionsFile when sysvol is { OldContent: { } storeDeleted }:
+                steps.Add(new PlannedChange { Action = ChangeAction.WritePolicyDefinitionsFile, Sysvol = sysvol with { OldContent = null, NewContent = storeDeleted } });
+                break;
             case ChangeAction.SyncGpoFolderSecurity or ChangeAction.SetGpoFolderSecurity when sysvol?.OldFolderSecurity is { } before:
                 steps.Add(new PlannedChange
                 {

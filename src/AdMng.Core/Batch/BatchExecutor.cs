@@ -389,7 +389,8 @@ public sealed partial class BatchExecutor : IBatchExecutor
             switch (change.Action)
             {
                 case ChangeAction.CreateGpoFolder or ChangeAction.WriteGpoFile or ChangeAction.DeleteGpoFile or ChangeAction.SyncGpoFolderSecurity
-                    or ChangeAction.SetGpoFolderSecurity or ChangeAction.SetGpoVersion or ChangeAction.DeleteGpoFolder:
+                    or ChangeAction.SetGpoFolderSecurity or ChangeAction.SetGpoVersion or ChangeAction.DeleteGpoFolder
+                    or ChangeAction.WritePolicyDefinitionsFile or ChangeAction.DeletePolicyDefinitionsFile:
                     return await SysvolStepAsync(objectPlan, change, dn).ConfigureAwait(false);
                 case ChangeAction.Modify:
                     return await ModifyAsync(change, dn).ConfigureAwait(false);
@@ -845,7 +846,8 @@ public sealed partial class BatchExecutor : IBatchExecutor
             switch (change.Action)
             {
                 case ChangeAction.CreateGpoFolder or ChangeAction.WriteGpoFile or ChangeAction.DeleteGpoFile or ChangeAction.SyncGpoFolderSecurity
-                    or ChangeAction.SetGpoFolderSecurity or ChangeAction.SetGpoVersion or ChangeAction.DeleteGpoFolder:
+                    or ChangeAction.SetGpoFolderSecurity or ChangeAction.SetGpoVersion or ChangeAction.DeleteGpoFolder
+                    or ChangeAction.WritePolicyDefinitionsFile or ChangeAction.DeletePolicyDefinitionsFile:
                     foreach (var (attribute, oldValue, newValue) in SysvolAuditValues(change))
                     {
                         Record(change.Action, Entry(change.Action.ToString(), attribute, oldValue, newValue));

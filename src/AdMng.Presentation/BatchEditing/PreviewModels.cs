@@ -322,6 +322,13 @@ internal sealed class PreviewBuilder(ILocalizer localizer, ErrorTranslator error
                         change.Action == ChangeAction.DeleteGpoFile ? localizer[L.PlanPreview.Absent] : SizeOf(change.Sysvol?.NewContent), change.Issues, isChange: true);
                     rows[^1].Sysvol = change.Sysvol;
                     break;
+                case ChangeAction.WritePolicyDefinitionsFile or ChangeAction.DeletePolicyDefinitionsFile:
+                    // Central store rows (K3): PolicyDefinitions/<path> and the sizes; the content through "Pokaż różnice".
+                    Add(action, "PolicyDefinitions/" + (change.Sysvol?.RelativePath ?? string.Empty), SizeOf(change.Sysvol?.OldContent),
+                        change.Action == ChangeAction.DeletePolicyDefinitionsFile ? localizer[L.PlanPreview.Absent] : SizeOf(change.Sysvol?.NewContent),
+                        change.Issues, isChange: true);
+                    rows[^1].Sysvol = change.Sysvol;
+                    break;
                 case ChangeAction.SetGpoVersion when change.GpoVersion is { } version:
                     Add(action, localizer[L.PlanPreview.Version], VersionText(version.Old), VersionText(version.New), change.Issues, isChange: true);
                     break;

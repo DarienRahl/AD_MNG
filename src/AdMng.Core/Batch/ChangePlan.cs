@@ -78,6 +78,16 @@ public enum ChangeAction
     /// result with the SD flags control DACL_SECURITY_INFORMATION – owner, group and SACL are never written.
     /// </summary>
     ModifySecurity,
+
+    /// <summary>
+    /// SYSVOL (K3): write one file of the central store <c>&lt;domain&gt;\Policies\PolicyDefinitions</c>
+    /// (<see cref="PlannedChange.Sysvol"/>: path below the store, old content or null for a new file, new content). The
+    /// central store steps of an object are staged, verified and switched as one transaction (no version number).
+    /// </summary>
+    WritePolicyDefinitionsFile,
+
+    /// <summary>SYSVOL (K3): delete one file of the central store (<see cref="PlannedChange.Sysvol"/> carries its old content).</summary>
+    DeletePolicyDefinitionsFile,
 }
 
 /// <summary>How <see cref="AttributeChange.NewValues"/> relate to the current values.</summary>
@@ -281,6 +291,9 @@ public static class IssueCodes
 
     /// <summary>Administrative templates (K3): the user configuration of the GPO is disabled, so clients do not apply the change yet.</summary>
     public const string GpoUserPartDisabled = "GpoUserPartDisabled";
+
+    /// <summary>"Zaktualizuj szablony" (K3): the central store does not exist yet; the update creates it.</summary>
+    public const string CentralStoreCreated = "CentralStoreCreated";
 }
 
 /// <summary>One step for one object. Steps of an object run sequentially in list order.</summary>

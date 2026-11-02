@@ -92,7 +92,8 @@ public sealed partial class RollbackPlanner : IRollbackPlanner
             switch (change.Action)
             {
                 case ChangeAction.CreateGpoFolder or ChangeAction.WriteGpoFile or ChangeAction.DeleteGpoFile or ChangeAction.SyncGpoFolderSecurity
-                    or ChangeAction.SetGpoFolderSecurity or ChangeAction.SetGpoVersion or ChangeAction.DeleteGpoFolder:
+                    or ChangeAction.SetGpoFolderSecurity or ChangeAction.SetGpoVersion or ChangeAction.DeleteGpoFolder
+                    or ChangeAction.WritePolicyDefinitionsFile or ChangeAction.DeletePolicyDefinitionsFile:
                     InvertSysvol(change, succeeded, steps, issues);
                     break;
                 case ChangeAction.Modify:

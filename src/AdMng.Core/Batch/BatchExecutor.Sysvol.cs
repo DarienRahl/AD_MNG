@@ -45,7 +45,9 @@ public sealed partial class BatchExecutor
                 }
             }
 
-            if ((change.Sysvol?.GpoId ?? GpoIdOf(dn)) is not { } gpoId || gpoId == Guid.Empty)
+            var centralStore = PolicyDefinitionsTransaction.IsStep(change.Action);
+            var gpoId = centralStore ? Guid.Empty : change.Sysvol?.GpoId ?? GpoIdOf(dn) ?? Guid.Empty;
+            if (!centralStore && gpoId == Guid.Empty)
             {
                 return Invalid(change, "The SYSVOL step names no GPO.");
             }
@@ -64,6 +66,8 @@ public sealed partial class BatchExecutor
             {
                 switch (change.Action)
                 {
+                    case ChangeAction.WritePolicyDefinitionsFile or ChangeAction.DeletePolicyDefinitionsFile:
+                        return await CentralStoreTransactionAsync(objectPlan, change, sysvol).ConfigureAwait(false);
                     case ChangeAction.WriteGpoFile or ChangeAction.DeleteGpoFile or ChangeAction.SetGpoVersion:
                         return await TransactionAsync(objectPlan, change, dn, sysvol, gpoId).ConfigureAwait(false);
                     case ChangeAction.CreateGpoFolder:
@@ -159,6 +163,52 @@ public sealed partial class BatchExecutor
             }
 
             var result = await GpoTransaction.RunAsync(sysvol, gpoId, group, new VersionStore(this, dn), _cancellationToken).ConfigureAwait(false);
+            if (!result.Succeeded && _owner._logger is { } logger)
+            {
+                LogSysvolFailed(logger, change.Action, result.Outcome.ToString());
+            }
+
+            var outcome = result.Succeeded
+                ? Success(change)
+                : Failure(change, result.ErrorKind ?? DirectoryErrorKind.Unknown, result.Message ?? GpoTransaction.RevertedMessage,
+                    cancelled: result.Outcome == GpoTransactionOutcome.Cancelled);
+            lock (_transactionGate)
+            {
+                foreach (var step in group.Skip(1))
+                {
+                    _transactionOutcomes[step] = outcome with { Result = outcome.Result with { Change = step } };
+                }
+            }
+
+            return outcome;
+        }
+
+        /// <summary>Runs the central store steps from <paramref name="change"/> on (the contiguous run of them) as one transaction (K3).</summary>
+        private async Task<StepOutcome> CentralStoreTransactionAsync(ObjectPlan objectPlan, PlannedChange change, ISysvolWriteConnection sysvol)
+        {
+            var changes = objectPlan.Changes;
+            var start = -1;
+            for (var i = 0; i < changes.Count; i++)
+            {
+                if (ReferenceEquals(changes[i], change))
+                {
+                    start = i;
+                    break;
+                }
+            }
+
+            var group = new List<PlannedChange>();
+            for (var i = Math.Max(start, 0); i < changes.Count && PolicyDefinitionsTransaction.IsStep(changes[i].Action); i++)
+            {
+                group.Add(changes[i]);
+            }
+
+            if (start < 0 || group.Count == 0)
+            {
+                group = [change];
+            }
+
+            var result = await PolicyDefinitionsTransaction.RunAsync(sysvol, group, _cancellationToken).ConfigureAwait(false);
             if (!result.Succeeded && _owner._logger is { } logger)
             {
                 LogSysvolFailed(logger, change.Action, result.Outcome.ToString());
@@ -352,6 +402,10 @@ public sealed partial class BatchExecutor
                 case ChangeAction.WriteGpoFile or ChangeAction.DeleteGpoFile when sysvol is not null:
                     yield return ("sysvol:" + sysvol.RelativePath, Fingerprint(sysvol.OldContent),
                         change.Action == ChangeAction.DeleteGpoFile ? null : Fingerprint(sysvol.NewContent));
+                    break;
+                case ChangeAction.WritePolicyDefinitionsFile or ChangeAction.DeletePolicyDefinitionsFile when sysvol is not null:
+                    yield return ("sysvol:" + SysvolPaths.PolicyDefinitionsFolder + "/" + sysvol.RelativePath, Fingerprint(sysvol.OldContent),
+                        change.Action == ChangeAction.DeletePolicyDefinitionsFile ? null : Fingerprint(sysvol.NewContent));
                     break;
                 case ChangeAction.SetGpoVersion when change.GpoVersion is { } version:
                     yield return (GroupPolicyAttributes.VersionNumber, version.OldDirectory?.ToInt32().ToString(CultureInfo.InvariantCulture),
