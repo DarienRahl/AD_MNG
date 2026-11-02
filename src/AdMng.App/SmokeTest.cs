@@ -34,7 +34,8 @@ namespace AdMng.App;
 /// the main window (disconnected) with the Watchdog tab (not configured), the Watchdog certificate confirmation, the
 /// computer windows (K1), Korespondencja with every tab (U5) and the dialogs of this release off-screen in English and
 /// Polish, and fails on any exception or WPF binding error. Exit codes: 0 = passed, 1 = failures (printed to stderr), 2 =
-/// did not finish within 30 seconds. Settings go to a temporary folder that is deleted afterwards; nothing touches a
+/// did not finish within <see cref="FailSafe"/> (a hang, not a slow run: each language pass prints its time). Settings go
+/// to a temporary folder that is deleted afterwards; nothing touches a
 /// directory, a watchdog service or Outlook (<see cref="OfflineOutlook"/>).
 /// </summary>
 /// <remarks>
@@ -51,7 +52,10 @@ internal static class SmokeTest
 
     private const int AttachParentProcess = -1;
     private const int StdErrorHandle = -12;
-    private static readonly TimeSpan FailSafe = TimeSpan.FromSeconds(30);
+
+    /// <summary>The limit of a run that hangs. Rendering every window twice takes about 25 s on the CI agents, so the limit
+    /// leaves room for a slow agent: it stops a hang, it is no performance budget.</summary>
+    private static readonly TimeSpan FailSafe = TimeSpan.FromSeconds(120);
 
     // Rooted here: a timer referenced only by the (possibly stuck) async state machine could be collected and never fire.
     private static Timer? _failSafe;
@@ -71,7 +75,7 @@ internal static class SmokeTest
         var failSafe = _failSafe = new Timer(
             static _ =>
             {
-                Console.Error.WriteLine("SMOKE TEST TIMED OUT after 30 s.");
+                Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture, $"SMOKE TEST TIMED OUT after {FailSafe.TotalSeconds:0} s."));
                 Environment.Exit(TimedOut);
             },
             null,
@@ -100,10 +104,16 @@ internal static class SmokeTest
             var localizer = host.Services.GetRequiredService<ILocalizer>();
             foreach (var language in (string[])["en", "pl"])
             {
+                var pass = System.Diagnostics.Stopwatch.StartNew();
                 localizer.SetCulture(ResxLocalizer.ResolveCulture(language));
-                await using var first = host.Services.CreateAsyncScope();
-                await using var second = host.Services.CreateAsyncScope();
-                await RenderWindowsAsync(first.ServiceProvider, second.ServiceProvider, localizer).ConfigureAwait(true);
+                await using (var first = host.Services.CreateAsyncScope())
+                await using (var second = host.Services.CreateAsyncScope())
+                {
+                    await RenderWindowsAsync(first.ServiceProvider, second.ServiceProvider, localizer).ConfigureAwait(true);
+                }
+
+                // Where the time goes when a run comes near the fail-safe (printed at once: a run that hangs never reports).
+                Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture, $"smoke test: the {language} pass took {pass.Elapsed.TotalSeconds:0.0} s"));
             }
         }
         catch (Exception ex)
