@@ -138,5 +138,10 @@
     "file": "28-correspondence-mailbox-owners.png",
     "title_pl": "Korespondencja – właściciele skrzynek: dopasowani, potwierdzeni przez pełnomocnictwo, niejednoznaczni z kandydatami do wyboru i nieznalezieni",
     "title_en": "Correspondence – mailbox owners: matched, confirmed by a delegate link, ambiguous with candidates to choose from, and not found"
+  },
+  {
+    "file": "29-administrative-templates.png",
+    "title_pl": "Szablony administracyjne GPO – kategorie z magazynu centralnego, włączane ustawienie z opcjami i pomocą, niezapisana zmiana",
+    "title_en": "Administrative templates of a GPO – the categories of the central store, a setting being enabled with its options and help, an unsaved change"
   }
 ]

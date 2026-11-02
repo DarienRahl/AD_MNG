@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `claude/active-directory-manager-w9v9i8`
 
 - Gałąź: `claude/active-directory-manager-w9v9i8`
-- Commit: [`cbc37c0`](https://github.com/DarienRahl/AD_MNG/commit/cbc37c0de04cbbfd19d70bebd9b2f13b425e88fb) (`cbc37c0de04cbbfd19d70bebd9b2f13b425e88fb`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/41462927257
+- Commit: [`ce178c8`](https://github.com/DarienRahl/AD_MNG/commit/ce178c83a2da51261f8dab8934057d9d71fa0996) (`ce178c83a2da51261f8dab8934057d9d71fa0996`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/41466722066
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
@@ -115,4 +115,8 @@
 ## Korespondencja – właściciele skrzynek: dopasowani, potwierdzeni przez pełnomocnictwo, niejednoznaczni z kandydatami do wyboru i nieznalezieni
 
 ![Korespondencja – właściciele skrzynek: dopasowani, potwierdzeni przez pełnomocnictwo, niejednoznaczni z kandydatami do wyboru i nieznalezieni](28-correspondence-mailbox-owners.png)
+
+## Szablony administracyjne GPO – kategorie z magazynu centralnego, włączane ustawienie z opcjami i pomocą, niezapisana zmiana
+
+![Szablony administracyjne GPO – kategorie z magazynu centralnego, włączane ustawienie z opcjami i pomocą, niezapisana zmiana](29-administrative-templates.png)
 
