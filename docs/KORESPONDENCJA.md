@@ -329,9 +329,12 @@ wysłanych* – przy dużych plikach lepiej wysłać łącze.
 Podgląd pokazuje wiadomość dokładnie tak, jak zobaczy ją wybrany odbiorca: kartę z polami *Od*, *Do*, *Temat* i
 *Załączniki*, a pod nią treść ze scalonymi polami, obrazkami i podpisem.
 
-- **Pokaż tak, jak zobaczy:** wybór odbiorcy (pierwszych 500 wiadomości). **Szerokość:** komputer (700 px), telefon
-  (380 px) albo pełna – tak jak w skrzynce. Podgląd odświeża się przy wejściu na zakładkę i po każdej zmianie wyboru;
-  *Odśwież* robi to na żądanie.
+- **Pokaż tak, jak zobaczy:** wybór odbiorcy (pierwszych 500 wiadomości). Gdy jeden adres dostaje kilka wiadomości
+  (wiadomość na każdą skrzynkę, kilka wierszy z tym samym adresem bez grupowania), przy adresie widać skrzynkę
+  (*Jan Kowalski <jan.kowalski@contoso.test> – rekrutacja@contoso.test*), a bez skrzynki – numer wiadomości (*(2)*);
+  każdą z nich można wybrać, a wybór zostaje po odświeżeniu. **Szerokość:** komputer (700 px), telefon (380 px) albo
+  pełna – tak jak w skrzynce. Podgląd odświeża się przy wejściu na zakładkę i po każdej zmianie wyboru; *Odśwież* robi
+  to na żądanie. *Podgląd z Outlooka*, *Otwórz w przeglądarce* i *Test do siebie* używają wybranej wiadomości.
 - Pod paskiem: liczba osadzonych obrazków i użyte pola, a potem **ostrzeżenia** – nieznane pola (z listą dostępnych),
   pola puste u części odbiorców, rzeczy, które psują się w poczcie (skrypty, obrazki linkowane z internetu albo zapisane
   jako `data:`, pozycjonowanie bezwzględne, obrazy tła, bloki `<style>`, elementy szersze niż 700 px, odsyłacz, którego
@@ -361,7 +364,7 @@ wysyłki, temat, podpis, załączniki, dostarczenie później, głosowanie i sza
 
 | Przycisk | Co robi |
 |---|---|
-| *Test do siebie* | jedna wiadomość na Twój adres (wybrane konto, a bez wyboru – bieżąca skrzynka Outlooka; gdy i jej nie ma, okno pyta o adres), z tematem „[TEST] …” i polami odbiorcy wybranego w podglądzie (albo pierwszego); nie trafia do dziennika |
+| *Test do siebie* | jedna wiadomość na Twój adres (wybrane konto, a bez wyboru – bieżąca skrzynka Outlooka; gdy i jej nie ma, okno pyta o adres), z tematem „[TEST] …” i polami wiadomości wybranej w podglądzie (np. o drugiej skrzynce tej samej osoby; bez wyboru – pierwszej); nie trafia do dziennika |
 | *Utwórz wersje robocze* | zapisuje wiadomości w *Wersjach roboczych* Outlooka – nic nie jest wysyłane ani wpisywane do dziennika; wysłane później ręcznie z Outlooka też nie trafią do dziennika |
 | *Wyślij* | wysyłka po potwierdzeniu |
 | *Zatrzymaj* | przerywa po bieżącej wiadomości |

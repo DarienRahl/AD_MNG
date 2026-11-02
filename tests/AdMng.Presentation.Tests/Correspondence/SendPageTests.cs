@@ -220,6 +220,28 @@ public sealed class SendPageTests
     }
 
     [Fact]
+    public async Task SendTest_OfOneOwnersMailboxes_IsTheMessageOfTheMailboxChosenOnThePreview()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenAsync();
+        var rows = CorrespondencePagesScenario.MailboxRowsOfJan();
+        CorrespondencePagesScenario.AddRows(window, rows);
+        window.Message.Subject = "Weryfikacja skrzynki pocztowej: {{Skrzynka}}";
+        window.Message.BodyHtml = "<p>Czy skrzynka {{Skrzynka}} jest nadal potrzebna?</p>";
+        await window.Preview.RefreshCommand.ExecuteAsync(null);
+        window.Preview.SelectedRecipient = window.Preview.PreviewRecipients[2];
+        await window.Preview.Refreshing!;
+
+        await window.Send.SendTestCommand.ExecuteAsync(null);
+
+        var test = Assert.Single(scenario.Outlook.Succeeded());
+        Assert.Equal(["jan.kowalski@contoso.test"], test.To);
+        Assert.Equal("[TEST] Weryfikacja skrzynki pocztowej: Archiwum Zakładowe", test.Subject);
+        Assert.Equal([RecipientStatusKind.None, RecipientStatusKind.None, RecipientStatusKind.Test], rows.Select(r => r.StatusKind));
+        Assert.Equal(0, scenario.Journal.Count);
+    }
+
+    [Fact]
     public async Task SendTest_WithoutAnOwnAddress_AsksForOne()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();

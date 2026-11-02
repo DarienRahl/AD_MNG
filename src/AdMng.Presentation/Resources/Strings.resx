@@ -12926,6 +12926,12 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Correspondence.Preview.SampleAddress" xml:space="preserve">
     <value>recipient@example.org</value>
   </data>
+  <data name="Correspondence.Preview.RecipientMailbox" xml:space="preserve">
+    <value>{0} – {1}</value>
+  </data>
+  <data name="Correspondence.Preview.RecipientNumber" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
   <data name="Correspondence.Preview.OwnAddress" xml:space="preserve">
     <value>(your address)</value>
   </data>

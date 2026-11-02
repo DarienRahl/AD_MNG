@@ -127,6 +127,77 @@ public sealed class PreviewPageTests
     }
 
     [Fact]
+    public async Task OneMessagePerMailbox_EachMailboxOfAnOwnerCanBeChosen_AndStaysChosen()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenAsync();
+        CorrespondencePagesScenario.AddRows(window, CorrespondencePagesScenario.MailboxRowsOfJan());
+        window.Message.Subject = "Weryfikacja skrzynki pocztowej: {{Skrzynka}}";
+        window.Message.BodyHtml = "<p>Czy skrzynka {{Skrzynka}} jest nadal potrzebna?</p>";
+        var preview = window.Preview;
+
+        await preview.RefreshCommand.ExecuteAsync(null);
+
+        // The address repeats: the mailbox tells the messages apart.
+        Assert.Equal(
+        [
+            "Jan Kowalski <jan.kowalski@contoso.test> – sekretariat.lacznosci@contoso.test",
+            "Jan Kowalski <jan.kowalski@contoso.test> – rekrutacja@contoso.test",
+            "Jan Kowalski <jan.kowalski@contoso.test> – archiwum.zakladowe@contoso.test",
+        ], preview.PreviewRecipients.Select(r => r.Text));
+        Assert.Same(preview.PreviewRecipients[0], preview.SelectedRecipient);
+
+        preview.SelectedRecipient = preview.PreviewRecipients[1];
+        await preview.Refreshing!;
+
+        Assert.Same(preview.PreviewRecipients[1], preview.SelectedRecipient);
+        Assert.Contains("<div><b>Temat:</b> Weryfikacja skrzynki pocztowej: Rekrutacja</div>", preview.Preview.Html, StringComparison.Ordinal);
+        Assert.Contains("Czy skrzynka Rekrutacja jest nadal potrzebna?", preview.Preview.Html, StringComparison.Ordinal);
+
+        await preview.OpenInBrowserCommand.ExecuteAsync(null);
+        Assert.Contains("Weryfikacja skrzynki pocztowej: Rekrutacja", Assert.Single(scenario.Browser.Opened).Content.Html, StringComparison.Ordinal);
+
+        await preview.PreviewViaOutlookCommand.ExecuteAsync(null);
+        Assert.Equal("Weryfikacja skrzynki pocztowej: Rekrutacja", Assert.Single(scenario.Outlook.Rendered).Subject);
+        Assert.Same(preview.PreviewRecipients[1], preview.SelectedRecipient);
+
+        // The mailboxes added again (new rows, the same mailboxes): the chosen mailbox stays chosen.
+        window.Recipients.ReplaceMailboxRows(CorrespondencePagesScenario.MailboxRowsOfJan());
+        await preview.RefreshCommand.ExecuteAsync(null);
+        Assert.Same(preview.PreviewRecipients[1], preview.SelectedRecipient);
+        Assert.Contains("Weryfikacja skrzynki pocztowej: Rekrutacja", preview.Preview.Html, StringComparison.Ordinal);
+
+        // One message per owner: one entry, without a mailbox.
+        window.Message.GroupByAddress = true;
+        await preview.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal(["Jan Kowalski <jan.kowalski@contoso.test>"], preview.PreviewRecipients.Select(r => r.Text));
+        Assert.Same(preview.PreviewRecipients[0], preview.SelectedRecipient);
+    }
+
+    [Fact]
+    public async Task RowsOfOneAddressWithoutGrouping_AreNumbered_AndEachCanBeChosen()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenWithMessageAsync();
+        CorrespondencePagesScenario.AddRows(window,
+            CorrespondencePagesScenario.Row("ug@brojce.pl", "Urząd Gminy Brójce", ("Miejscowość", "Brójce")),
+            CorrespondencePagesScenario.Row("sekretariat@andrespol.pl", "Urząd Gminy Andrespol", ("Miejscowość", "Andrespol")),
+            CorrespondencePagesScenario.Row("ug@brojce.pl", "Urząd Gminy Brójce", ("Miejscowość", "Bukowiec")));
+        var preview = window.Preview;
+        await preview.RefreshCommand.ExecuteAsync(null);
+
+        Assert.Equal(
+            ["Urząd Gminy Brójce <ug@brojce.pl> (1)", "Urząd Gminy Andrespol <sekretariat@andrespol.pl>", "Urząd Gminy Brójce <ug@brojce.pl> (2)"],
+            preview.PreviewRecipients.Select(r => r.Text));
+
+        preview.SelectedRecipient = preview.PreviewRecipients[2];
+        await preview.Refreshing!;
+
+        Assert.Same(preview.PreviewRecipients[2], preview.SelectedRecipient);
+        Assert.Contains("Zaproszenie na konferencję – Bukowiec", preview.Preview.Html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task AFieldSplitByFormatting_IsCountedAndListed_AsTheRendererMergesIt()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();

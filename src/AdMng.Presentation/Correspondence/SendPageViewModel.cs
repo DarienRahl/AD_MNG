@@ -386,8 +386,8 @@ public sealed partial class SendPageViewModel : ObservableObject
         return (jobs, jobRows);
     }
 
-    /// <summary>A test to self: one message to the own address (or one typed), with the fields of the recipient chosen on the
-    /// preview (else the first message) – or, in the BCC mode, as the BCC message is sent.</summary>
+    /// <summary>A test to self: one message to the own address (or one typed), the message chosen on the preview with its
+    /// fields and rows (else the first message) – or, in the BCC mode, as the BCC message is sent.</summary>
     private async Task TestCoreAsync()
     {
         if (!await ValidateAsync().ConfigureAwait(true))
@@ -432,11 +432,11 @@ public sealed partial class SendPageViewModel : ObservableObject
         }
         else
         {
+            // The message chosen on the preview – that message, not the first one of its address (one owner's messages about
+            // each of their mailboxes share the address).
             var units = set.Units(Message.GroupByAddress);
-            var chosen = Preview.SelectedRecipient?.Value is { } selected
-                ? units.FirstOrDefault(u => CorrespondenceSendSet.Key(u.Unit.Email) == CorrespondenceSendSet.Key(selected.Email))
-                : null;
-            if ((chosen ?? units.FirstOrDefault()) is { } found)
+            var chosen = PreviewPageViewModel.IndexOfSame(units, Preview.SelectedUnit);
+            if ((chosen >= 0 ? units[chosen] : units.FirstOrDefault()) is { } found)
             {
                 unit = found.Unit;
                 rows = found.Rows;
