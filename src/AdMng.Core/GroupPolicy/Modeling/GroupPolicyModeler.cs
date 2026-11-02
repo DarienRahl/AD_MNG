@@ -279,12 +279,13 @@ public static class GroupPolicyModeler
                 return ModeledGpoOutcome.Empty;
             }
 
-            if (gpo.SecurityFilter is { } filter && !filter.Applies(token))
+            // Security filtering: the account needs Read and Apply Group Policy (Read when the filter knows the readers).
+            if (gpo.SecurityFilter is { } filter && (!filter.Applies(token) || (filter.KnowsReaders && !filter.CanRead(token))))
             {
                 return ModeledGpoOutcome.SecurityDenied;
             }
 
-            if (part == ModelingPart.User && computerToken is not null && gpo.SecurityFilter is { } read && !read.CanRead(computerToken))
+            if (part == ModelingPart.User && computerToken is not null && gpo.SecurityFilter is { KnowsReaders: true } read && !read.CanRead(computerToken))
             {
                 return ModeledGpoOutcome.ComputerCannotRead;
             }

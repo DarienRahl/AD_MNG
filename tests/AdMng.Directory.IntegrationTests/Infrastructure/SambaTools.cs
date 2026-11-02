@@ -80,6 +80,27 @@ internal sealed partial class SambaTools : IDisposable
         return result.Output;
     }
 
+    /// <summary>
+    /// <c>samba-tool gpo list &lt;account&gt;</c> (K5): the GPOs Samba lists for a user or computer account (its OU chain,
+    /// disabled links, block inheritance and enforced links, read access of the account's token, the GPO's flags – not the
+    /// Apply Group Policy right, sites or the order of precedence). <c>AsComputer</c>: Samba took the account for a computer
+    /// (its header says "GPOs for computer"; some versions say "user" for every account and then skip the GPOs with the user
+    /// configuration disabled instead of the computer one).
+    /// </summary>
+    public async Task<(bool AsComputer, IReadOnlySet<Guid> Gpos)> GpoListAsync(string accountName, CancellationToken cancellationToken)
+    {
+        var result = await SambaToolAsync(["gpo", "list", accountName], cancellationToken);
+        Assert.True(result.Exit == 0, "samba-tool gpo list failed: " + result.Output + result.Error);
+        var lines = result.Output.Split('\n');
+        var asComputer = lines.Any(line => line.StartsWith("GPOs for computer ", StringComparison.Ordinal));
+        return (asComputer, lines
+            .Where(line => line.StartsWith("    ", StringComparison.Ordinal))
+            .Select(line => GpoName().Match(line))
+            .Where(match => match.Success)
+            .Select(match => Guid.Parse(match.Groups[1].Value))
+            .ToHashSet());
+    }
+
     /// <summary><c>samba-tool gpo del</c> (removes the links, the container and the SYSVOL folder; best effort).</summary>
     public async Task DeleteGpoAsync(Guid gpo)
     {
@@ -235,6 +256,10 @@ internal sealed partial class SambaTools : IDisposable
 
     [GeneratedRegex(@"created as (\{[0-9A-Fa-f-]{36}\})", RegexOptions.CultureInvariant)]
     private static partial Regex GpoCreated();
+
+    /// <summary>The <c>{GUID}</c> name at the end of a line of <c>samba-tool gpo list</c>.</summary>
+    [GeneratedRegex(@"(\{[0-9A-Fa-f-]{36}\})\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex GpoName();
 
     internal sealed record ProcessResult(int Exit, byte[] Bytes, string Error)
     {

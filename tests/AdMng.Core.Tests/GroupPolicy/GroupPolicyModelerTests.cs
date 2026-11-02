@@ -344,9 +344,10 @@ public sealed class GroupPolicyModelerTests
             null,
             null,
             [
+                SecurityDescriptorWriter.EncodeAce(0x01, 0, read, Laptopy, null, null),
                 SecurityDescriptorWriter.EncodeAce(0x00, 0, read, GroupPolicySecurityFilter.AuthenticatedUsersSid, null, null),
                 SecurityDescriptorWriter.EncodeAce(0x05, 0, 0x100, Ksiegowosc, GroupPolicySecurityFilter.ApplyGroupPolicyRight, null),
-                SecurityDescriptorWriter.EncodeAce(0x01, 0, read, Laptopy, null, null),
+                SecurityDescriptorWriter.EncodeAce(0x01, 0, read, DomainComputers, null, null), // after the allow: does not take it back
                 SecurityDescriptorWriter.EncodeAce(0x00, SecurityDescriptorAce.InheritOnlyFlag, read, DomainUsers, null, null),
             ]);
 
@@ -357,6 +358,8 @@ public sealed class GroupPolicyModelerTests
         Assert.False(filter.CanRead(new HashSet<string> { DomainUsers }));
         Assert.True(filter.Applies(Token(Ksiegowosc)));
         Assert.False(filter.Applies(Token(DomainUsers)));
+        Assert.Contains(DomainComputers, filter.ReadDenied); // listed, yet the earlier allow decided (AccessCheck's order)
+        Assert.False((filter with { Aces = [] }).CanRead(Token(DomainComputers))); // the sets alone: the deny wins
     }
 
     // ---- Helpers -------------------------------------------------------------------------------------------------------
