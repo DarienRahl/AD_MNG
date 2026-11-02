@@ -289,6 +289,27 @@ public sealed class SendPageTests
     }
 
     [Fact]
+    public async Task AnAccountMissingFromTheProfile_StopsTheRunAtTheFirstMessage()
+    {
+        // Every message of a run is sent from the same account: each one would fail the same way (until five in a row).
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenWithMessageAsync();
+        var offices = CorrespondencePagesScenario.Offices();
+        CorrespondencePagesScenario.AddRows(window, offices);
+        scenario.Outlook.DefaultResult = FakeOutlookClient.Failed(OutlookFailureKind.InvalidAccount, "account");
+        scenario.Ui.ConfirmAnswers.Enqueue(true);
+
+        await window.Send.SendCommand.ExecuteAsync(null);
+
+        Assert.Single(scenario.Outlook.Items);
+        Assert.Equal((RecipientStatusKind.Failed, "błąd – Wybranego konta nie ma w profilu Outlooka."), (offices[0].StatusKind, offices[0].Status));
+        Assert.All(offices[1..], row => Assert.Equal(RecipientStatusKind.None, row.StatusKind));
+        Assert.Contains("■ przerwano: Wybranego konta nie ma w profilu Outlooka.", window.Send.Results.Select(r => r.Text));
+        Assert.Equal("Wysyłka przerwana: udane 0, błędy 1, niewysłane 2.", window.Send.ProgressText);
+        Assert.Equal(OutlookState.Connected, window.Outlook.State);   // Outlook itself is fine: another account can be chosen
+    }
+
+    [Fact]
     public async Task AReconnectDuringARun_NeverCutsTheRunOff()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();
