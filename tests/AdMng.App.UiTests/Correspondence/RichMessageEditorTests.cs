@@ -574,8 +574,9 @@ public sealed class RichMessageEditorTests
             await UiTestSupport.WaitForIdleAsync();
             if (box.Document.Blocks.Count == 1)
             {
-                // WPF's Enter does nothing without the keyboard focus, which the off-screen window does not get without an
-                // interactive desktop: the same split as the command (TextRangeEdit.InsertParagraphBreak), at the caret.
+                // WPF's Enter does nothing without the keyboard focus, which the off-screen window (shown without being
+                // activated) does not always get – it did not in the Windows CI run: the same split as the command
+                // (TextRangeEdit.InsertParagraphBreak), at the caret.
                 box.CaretPosition.InsertParagraphBreak();
             }
 
