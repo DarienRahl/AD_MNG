@@ -322,7 +322,7 @@ public sealed partial class RecipientsPageViewModel : ObservableObject
 
     private void MarkJournal(CorrespondenceRecipientViewModel row)
     {
-        var entry = row.IsValid ? Correspondence.Journal.Find(row.Email) : null;
+        var entry = row.IsValid ? Correspondence.Journal.Find(row.Email, row.JournalScope) : null;   // a mailbox row: for its mailbox
         row.IsInJournal = entry is not null;
         row.IsAlreadySent = SkipAlreadySent && row.IsInJournal;
         if (entry is null)

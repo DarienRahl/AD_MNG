@@ -11932,8 +11932,9 @@ FIELDS IN THE SUBJECT AND THE BODY
    {{email}}   – the recipient's address
    {{lista}}   – when grouping by address: the list of the recipient's rows (the item pattern is on the Message tab)
    {{liczba}}  – when grouping: the number of the recipient's rows
-   …and EVERY column of the loaded table, e.g. {{Miejscowość}}, {{Telefon}}, custom fields and fields from AD,
-   e.g. {{Imię}}, {{Pana/Panią}}, {{Zwrot osobowy}}.
+   {{podpis}}  – the Outlook signature at this place of the body (no blank line before it); without it the signature goes last
+   …and EVERY column of the loaded table, e.g. {{Miejscowość}}, {{Telefon}}, custom fields (dates too, e.g. {{Termin}})
+   and fields from AD, e.g. {{Imię}}, {{Pana/Panią}}, {{Zwrot osobowy}}.
    {{Field|text}} inserts "text" when the field is empty.
 
    A typical opening:
@@ -11951,7 +11952,7 @@ MODES
 The delay between messages protects against server limits (Microsoft 365: about 30 messages a minute, 10,000 recipients a day). After 5 failures in a row the run stops by itself.
 
 ALREADY SENT
-Every address sent to goes to the "already sent" journal and is skipped by later runs. The journal keeps only keyed hashes of the addresses (never the addresses), the date and the subject. Your own addresses to skip go to "Do not send". The recipient list is not saved – after an interruption load the file again and the addresses already sent are skipped.
+Every address sent to goes to the "already sent" journal and is skipped by later runs; a row of the mailbox owner query only for its own mailbox (the owner of three mailboxes gets three messages, and a fourth mailbox later is not skipped). The journal keeps only keyed hashes of the addresses (never the addresses), the date and the subject. Your own addresses to skip go to "Do not send". The recipient list is not saved – after an interruption load the file again and the addresses already sent are skipped.
 
 WHEN SOMETHING DOES NOT WORK
 Use "Check Outlook" – it shows the version, profile, accounts and signatures seen on this computer and tries to create a message (without sending it). Classic Outlook is required: the "new Outlook" and Outlook on the web offer no automation. At the first send Outlook may ask whether you allow a program to send messages – that is its safeguard.</value>

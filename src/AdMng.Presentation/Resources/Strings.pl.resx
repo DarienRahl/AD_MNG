@@ -11932,8 +11932,9 @@ POLA W TEMACIE I TREŚCI
    {{email}}   – adres odbiorcy
    {{lista}}   – przy grupowaniu po adresie: lista wierszy odbiorcy (wzór elementu ustawiasz na zakładce Wiadomość)
    {{liczba}}  – przy grupowaniu: liczba wierszy odbiorcy
-   …oraz KAŻDA kolumna wczytanej tabeli, np. {{Miejscowość}}, {{Telefon}}, pola własne i pola z AD,
-   np. {{Imię}}, {{Pana/Panią}}, {{Zwrot osobowy}}.
+   {{podpis}}  – podpis Outlooka w tym miejscu treści (bez pustej linii przed nim); bez tego pola podpis trafia na koniec
+   …oraz KAŻDA kolumna wczytanej tabeli, np. {{Miejscowość}}, {{Telefon}}, pola własne (także daty, np. {{Termin}})
+   i pola z AD, np. {{Imię}}, {{Pana/Panią}}, {{Zwrot osobowy}}.
    {{Pole|tekst}} wstawia „tekst”, gdy pole jest puste.
 
    Typowy początek listu:
@@ -11951,7 +11952,7 @@ TRYBY
 Odstęp między wiadomościami chroni przed limitami serwera (Microsoft 365: ok. 30 wiadomości na minutę, 10 000 odbiorców na dobę). Po 5 błędach z rzędu wysyłka zatrzymuje się sama.
 
 JUŻ WYSŁANE
-Każdy wysłany adres trafia do dziennika „już wysłane” i przy kolejnych wysyłkach jest pomijany. Dziennik przechowuje tylko skróty adresów (nie same adresy), datę i temat. Własne adresy do pominięcia dodasz w sekcji „Nie wysyłać”. Lista odbiorców nie jest zapisywana – po przerwaniu wczytaj plik ponownie, a wysłane adresy zostaną pominięte.
+Każdy wysłany adres trafia do dziennika „już wysłane” i przy kolejnych wysyłkach jest pomijany; wiersz zapytania o skrzynki – tylko dla swojej skrzynki (właściciel trzech skrzynek dostaje trzy wiadomości, a czwarta skrzynka później nie jest pomijana). Dziennik przechowuje tylko skróty adresów (nie same adresy), datę i temat. Własne adresy do pominięcia dodasz w sekcji „Nie wysyłać”. Lista odbiorców nie jest zapisywana – po przerwaniu wczytaj plik ponownie, a wysłane adresy zostaną pominięte.
 
 GDY COŚ NIE DZIAŁA
 Użyj przycisku „Sprawdź Outlooka” – pokaże wersję, profil, konta i podpisy widziane na tym komputerze oraz wykona próbę utworzenia wiadomości (bez wysyłania). Potrzebny jest klasyczny Outlook: „nowy Outlook” i Outlook w przeglądarce nie udostępniają automatyzacji. Przy pierwszej wysyłce Outlook może zapytać, czy zgadzasz się na wysłanie wiadomości przez program – to jego zabezpieczenie.</value>

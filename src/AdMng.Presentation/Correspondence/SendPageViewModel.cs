@@ -351,6 +351,8 @@ public sealed partial class SendPageViewModel : ObservableObject
     /// <summary>
     /// The messages of a run and the rows of each (off the UI thread: the rows' addresses, names and fields never change):
     /// one per row or per address, or BCC chunks with the own address in "Do" (none when it is unknown, as MailerWPiA).
+    /// Each message records its rows in the journal – every row's address with the row's own scope (a mailbox owner row:
+    /// its mailbox key), so a retry or a later run skips exactly the rows already sent.
     /// </summary>
     private static (IReadOnlyList<CorrespondenceSendJob> Jobs, IReadOnlyList<IReadOnlyList<CorrespondenceRecipientViewModel>> Rows) Jobs(
         IReadOnlyList<CorrespondenceRecipientViewModel> rows, bool bcc, bool groupByAddress, int chunkSize, string? ownAddress)
@@ -362,7 +364,10 @@ public sealed partial class SendPageViewModel : ObservableObject
             IReadOnlyList<string> to = string.IsNullOrWhiteSpace(ownAddress) ? [] : [ownAddress.Trim()];
             foreach (var chunk in CorrespondenceSendSet.ChunksOf(rows, chunkSize))
             {
-                jobs.Add(new CorrespondenceSendJob(CorrespondenceSendSet.BccUnit, to, chunk.Addresses, [], chunk.Addresses));
+                jobs.Add(new CorrespondenceSendJob(CorrespondenceSendSet.BccUnit, to, chunk.Addresses, [], chunk.Addresses)
+                {
+                    JournalTargets = CorrespondenceSendJob.TargetsOf(chunk.Rows),
+                });
                 jobRows.Add(chunk.Rows);
             }
         }
@@ -370,7 +375,10 @@ public sealed partial class SendPageViewModel : ObservableObject
         {
             foreach (var unit in CorrespondenceSendSet.UnitsOf(rows, groupByAddress))
             {
-                jobs.Add(new CorrespondenceSendJob(unit.Unit, [unit.Unit.Email], [], unit.Keys, [unit.Unit.Email]));
+                jobs.Add(new CorrespondenceSendJob(unit.Unit, [unit.Unit.Email], [], unit.Keys, [unit.Unit.Email])
+                {
+                    JournalTargets = CorrespondenceSendJob.TargetsOf(unit.Rows),
+                });
                 jobRows.Add(unit.Rows);
             }
         }
@@ -542,7 +550,7 @@ public sealed partial class SendPageViewModel : ObservableObject
                 {
                     case SendRunKind.Send:
                         SetStatus(row, RecipientStatusKind.Sent, Localizer[L.CorrespondenceSend.StatusSent]);
-                        if (journalLoaded && Correspondence.Journal.Find(row.Email) is not null)
+                        if (journalLoaded && Correspondence.Journal.Find(row.Email, row.JournalScope) is not null)
                         {
                             // Recorded before the outcome was reported: the mark is the journal's (the send list reads the
                             // marks again, so a row is never sent twice while "Pomijaj już wysłane" is on).
@@ -848,8 +856,9 @@ public sealed partial class SendPageViewModel : ObservableObject
 
     /// <summary>
     /// Records sent addresses in the journal "już wysłane" (from the thread pool, right after Outlook accepted the message):
-    /// the subject as typed, never the merged one. A journal that is not loaded records nothing; a write that fails is
-    /// counted (the message was sent all the same).
+    /// one entry per <see cref="CorrespondenceSendJob.JournalEntries"/> pair – a row's address with its own scope, so a
+    /// mailbox owner row is recorded for its mailbox – and the subject as typed, never the merged one. A journal that is not
+    /// loaded records nothing; a write that fails is counted (the message was sent all the same).
     /// </summary>
     private sealed class JournalRecorder(CorrespondenceJournal journal, string subject)
     {
@@ -870,11 +879,11 @@ public sealed partial class SendPageViewModel : ObservableObject
                 return;
             }
 
-            foreach (var address in job.Addresses)
+            foreach (var target in job.JournalEntries)
             {
                 try
                 {
-                    await journal.AppendAsync(address, subject).ConfigureAwait(false);
+                    await journal.AppendAsync(target.Address, subject, target.Scope).ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
                 {
