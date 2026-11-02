@@ -25,7 +25,7 @@ internal sealed class CorrespondenceShellScenario : IDisposable
     {
         Harness = harness;
         Images = new MessageImageStore(Paths, harness.Time);
-        Templates = new CorrespondenceTemplateLibrary(harness.Settings, Images);
+        Templates = new CorrespondenceTemplateLibrary(harness.Settings, Images, harness.Time);
         Journal = new CorrespondenceJournal(Paths, Protector, harness.Time);
         Platform = new FakePlatform(Path.Combine(Paths.SettingsDirectory, "Pobrane"));
         Signatures = new FakeSignatures(Path.Combine(Paths.SettingsDirectory, "Signatures"), ["Jan Kowalski – podpis", "Sekretariat"]);

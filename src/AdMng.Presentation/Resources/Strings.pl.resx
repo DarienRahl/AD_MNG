@@ -12803,6 +12803,18 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="Correspondence.Message.CustomFieldUsesCustom" xml:space="preserve">
     <value>wartość nie może używać innych pól własnych ({0})</value>
   </data>
+  <data name="Correspondence.Message.CustomFieldDateMissing" xml:space="preserve">
+    <value>wybierz datę</value>
+  </data>
+  <data name="Correspondence.Message.FontSizePoints" xml:space="preserve">
+    <value>{0} pkt</value>
+  </data>
+  <data name="Correspondence.Message.LineHeightSingle" xml:space="preserve">
+    <value>Pojedyncza</value>
+  </data>
+  <data name="Correspondence.Message.LineHeightDouble" xml:space="preserve">
+    <value>Podwójna</value>
+  </data>
   <data name="Correspondence.Message.ImagesOverLimit" xml:space="preserve">
     <value>Obrazy przekraczają limit wiadomości: {0} obrazów, {1} (najwyżej {2} obrazów i {3}).</value>
   </data>

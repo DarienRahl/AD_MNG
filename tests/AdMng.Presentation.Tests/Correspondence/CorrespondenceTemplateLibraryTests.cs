@@ -28,7 +28,7 @@ public sealed class CorrespondenceTemplateLibraryTests : IDisposable
     public CorrespondenceTemplateLibraryTests()
     {
         _store = new MessageImageStore(_paths, _time);
-        _library = new CorrespondenceTemplateLibrary(_settings, _store);
+        _library = new CorrespondenceTemplateLibrary(_settings, _store, _time);
     }
 
     public void Dispose() => _paths.Dispose();
@@ -51,55 +51,103 @@ public sealed class CorrespondenceTemplateLibraryTests : IDisposable
     };
 
     [Fact]
-    public void BuiltIn_MailboxStillNeeded_AsInTheDesignNote()
+    public void BuiltIns_TheMailboxQueryPerMailbox_ThenGroupedByOwner()
     {
-        var builtIn = Assert.Single(CorrespondenceTemplateLibrary.BuiltIns);
+        var builtIns = _library.BuiltIns;
 
-        Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededId, builtIn.Id);
-        Assert.True(CorrespondenceTemplateLibrary.IsBuiltIn(builtIn.Id));
-        Assert.Equal("Czy skrzynka pocztowa jest nadal potrzebna?", builtIn.Subject);
-        Assert.Contains("<p>{{lista}}</p>", builtIn.BodyHtml, StringComparison.Ordinal);       // a paragraph of its own
-        Assert.StartsWith("<p>{{Zwrot osobowy}},</p>", builtIn.BodyHtml, StringComparison.Ordinal);
-        Assert.Contains("{{Pana/Panią}}", builtIn.BodyHtml, StringComparison.Ordinal);
-        Assert.Contains("Jeżeli do {{Termin}} nie otrzymamy odpowiedzi", builtIn.BodyHtml, StringComparison.Ordinal);
-        Assert.Equal([new CustomFieldDefinition("Termin", "")], builtIn.CustomFields);
-        Assert.Equal("{{Skrzynka}} ({{Adres skrzynki}}) – ostatnie logowanie: {{Ostatnie logowanie|brak danych}}", builtIn.ListItemTemplate);
-        Assert.True(builtIn.VotingEnabled);
-        Assert.Equal("Tak, nadal potrzebna;Nie, można usunąć", builtIn.VotingOptions);
-        Assert.True(builtIn.GroupByAddress);
-        Assert.Empty(builtIn.Images);
-        Assert.Equal(["Zwrot osobowy", "Pana/Panią", "lista", "Termin"], FieldTemplate.UsedFields(builtIn.BodyHtml));
+        Assert.Equal([CorrespondenceTemplateLibrary.MailboxStillNeededId, CorrespondenceTemplateLibrary.MailboxStillNeededGroupedId], builtIns.Select(t => t.Id));
+        Assert.All(builtIns, t => Assert.True(CorrespondenceTemplateLibrary.IsBuiltIn(t.Id)));
+        var single = builtIns[0];
+        Assert.Equal("Weryfikacja skrzynki pocztowej (wiadomość na każdą skrzynkę)", single.Name);
+        Assert.Equal("Weryfikacja skrzynki pocztowej: {{Skrzynka}}", single.Subject);
+        Assert.False(single.GroupByAddress);
+        Assert.Contains("wskazana w temacie tej wiadomości", single.BodyHtml, StringComparison.Ordinal);
+        Assert.Equal(["Termin", "podpis"], FieldTemplate.UsedFields(single.BodyHtml));
+        var grouped = builtIns[1];
+        Assert.Equal("Weryfikacja skrzynek pocztowych (jedna wiadomość na osobę)", grouped.Name);
+        Assert.Equal("Weryfikacja skrzynek pocztowych", grouped.Subject);
+        Assert.True(grouped.GroupByAddress);
+        Assert.Contains("<p style=\"margin:0\">{{lista}}</p>", grouped.BodyHtml, StringComparison.Ordinal);   // a paragraph of its own
+        Assert.Equal(["lista", "Termin", "podpis"], FieldTemplate.UsedFields(grouped.BodyHtml));
+        Assert.All(builtIns, t =>
+        {
+            // The deadline is a date field: today (2026-10-13 on the test clock) + 14 days, "15 listopada 2026r." style.
+            Assert.Equal([new CustomFieldDefinition("Termin", "2026-10-27", CustomFieldKind.Date, CustomFieldFormats.DefaultDate)], t.CustomFields);
+            Assert.Equal("27 października 2026r.", CustomFieldFormats.DateText(t.CustomFields[0]));
+            Assert.Equal("{{Skrzynka}} ({{Adres skrzynki}})", t.ListItemTemplate);
+            Assert.Null(t.Salutation);
+            Assert.False(t.VotingEnabled);
+            Assert.Equal(("Aptos,sans-serif", 12d, "normal"), (t.FontFamily, t.FontSize!.Value, t.LineHeight));
+            Assert.Equal(new MessageBaseStyle("Aptos,sans-serif", 12, "normal"), CorrespondenceTemplateLibrary.StyleOf(t));
+            Assert.Empty(t.Images);
+            Assert.DoesNotContain('\r', t.BodyHtml);
+            Assert.False(t.BodyHtml.EndsWith('\n'));
+        });
 
-        // New instances: changing one changes nothing else.
-        builtIn.Subject = "zmieniony";
-        Assert.Equal("Czy skrzynka pocztowa jest nadal potrzebna?", _library.Find(CorrespondenceTemplateLibrary.MailboxStillNeededId)!.Subject);
+        // New instances: changing one changes nothing else; the deadline follows the clock.
+        single.Subject = "zmieniony";
+        Assert.Equal("Weryfikacja skrzynki pocztowej: {{Skrzynka}}", _library.Find(CorrespondenceTemplateLibrary.MailboxStillNeededId)!.Subject);
         Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededId, _library.All[0].Id);
+        Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededGroupedId, _library.All[1].Id);
+        _time.Advance(TimeSpan.FromDays(20));
+        Assert.Equal("2026-11-16", _library.Find(CorrespondenceTemplateLibrary.MailboxStillNeededGroupedId)!.CustomFields[0].Value);
+        Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededGroupedId, CorrespondenceTemplateLibrary.MailboxTemplateId(groupByOwner: true));
+        Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededId, CorrespondenceTemplateLibrary.MailboxTemplateId(groupByOwner: false));
     }
 
     [Fact]
-    public void BuiltIn_RendersItsListWithoutAnEmptyParagraph()
+    public void BuiltIn_Grouped_RendersItsListWithoutAnEmptyParagraph()
     {
-        var builtIn = _library.Find(CorrespondenceTemplateLibrary.MailboxStillNeededId)!;
+        var builtIn = _library.Find(CorrespondenceTemplateLibrary.MailboxStillNeededGroupedId)!;
         var draft = new CorrespondenceDraft
         {
             Subject = builtIn.Subject,
             BodyHtml = builtIn.BodyHtml,
             CustomFields = builtIn.CustomFields,
             ListItemTemplate = builtIn.ListItemTemplate,
+            GroupByAddress = true,
         };
         var unit = new CorrespondenceUnit("jan.kowalski@contoso.test", "Jan Kowalski",
         [
-            new Dictionary<string, string> { ["Skrzynka"] = "Sekretariat IT", ["Adres skrzynki"] = "sekretariat.it@contoso.test", ["Ostatnie logowanie"] = "" },
-            new Dictionary<string, string> { ["Skrzynka"] = "Rekrutacja", ["Adres skrzynki"] = "rekrutacja@contoso.test", ["Ostatnie logowanie"] = "3 marca 2026" },
+            new Dictionary<string, string> { ["Skrzynka"] = "Sekretariat IT", ["Adres skrzynki"] = "sekretariat.it@contoso.test" },
+            new Dictionary<string, string> { ["Skrzynka"] = "Rekrutacja", ["Adres skrzynki"] = "rekrutacja@contoso.test" },
         ]);
 
-        var rendered = CorrespondenceRenderer.Render(draft, unit, ["Skrzynka", "Adres skrzynki", "Ostatnie logowanie", "Zwrot osobowy", "Pana/Panią"]);
+        var rendered = CorrespondenceRenderer.Render(draft, unit, ["Skrzynka", "Adres skrzynki"]);
 
-        Assert.Contains("<li>Sekretariat IT (sekretariat.it@contoso.test) – ostatnie logowanie: brak danych</li>", rendered.HtmlDocument, StringComparison.Ordinal);
-        Assert.Contains("<li>Rekrutacja (rekrutacja@contoso.test) – ostatnie logowanie: 3 marca 2026</li>", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.Contains("<li>Sekretariat IT (sekretariat.it@contoso.test)</li>", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.Contains("<li>Rekrutacja (rekrutacja@contoso.test)</li>", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.Contains("<b>27 października 2026r.</b>", rendered.HtmlDocument, StringComparison.Ordinal);
         Assert.DoesNotContain("<p><ul>", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.DoesNotContain("<p style=\"margin:0\"></p>", rendered.HtmlDocument, StringComparison.Ordinal);
         Assert.DoesNotContain("<p></p>", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.DoesNotContain("{{", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.Empty(rendered.UnknownFields);
+        Assert.Empty(rendered.EmptyFields);
     }
+
+    [Fact]
+    public void BuiltInBodies_AreTheOperatorsExampleMessage_Unchanged()
+    {
+        // The embedded files are the golden HTML byte for byte (LF line ends, pinned by .gitattributes): any edit of their
+        // text or styles breaks the 1:1 look of the message.
+        Assert.Equal("c03bfcb9ad637c4a933f6e23484c85a9118ef924c00aeefe7ef44f48f355b887", ResourceSha256("mailbox-still-needed.html"));
+        Assert.Equal("0cb9a68857a150f4b254d715e9369c16593dd825bb7615ed60a1fc090baa4442", ResourceSha256("mailbox-still-needed-grouped.html"));
+        Assert.Equal(ResourceText("mailbox-still-needed.html").TrimEnd('\n'), _library.Find(CorrespondenceTemplateLibrary.MailboxStillNeededId)!.BodyHtml);
+        Assert.Equal(ResourceText("mailbox-still-needed-grouped.html").TrimEnd('\n'), _library.Find(CorrespondenceTemplateLibrary.MailboxStillNeededGroupedId)!.BodyHtml);
+    }
+
+    private static byte[] ResourceBytes(string fileName)
+    {
+        using var stream = typeof(CorrespondenceTemplateLibrary).Assembly.GetManifestResourceStream("AdMng.Presentation.Correspondence.Templates." + fileName)!;
+        using var copy = new MemoryStream();
+        stream.CopyTo(copy);
+        return copy.ToArray();
+    }
+
+    private static string ResourceSha256(string fileName) => Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(ResourceBytes(fileName)));
+
+    private static string ResourceText(string fileName) => System.Text.Encoding.UTF8.GetString(ResourceBytes(fileName));
 
     [Fact]
     public async Task Save_NewReplaceDelete_AndBuiltInsAreNeverStored()
@@ -125,7 +173,7 @@ public sealed class CorrespondenceTemplateLibraryTests : IDisposable
         var own = await _library.SaveAsync(fromBuiltIn);
         Assert.NotEqual(CorrespondenceTemplateLibrary.MailboxStillNeededId, own.Id);
         Assert.Equal(2, _library.Saved.Count);
-        Assert.Equal(3, _library.All.Count);
+        Assert.Equal(4, _library.All.Count);   // the two built-ins and the two saved
         Assert.DoesNotContain(_settings.Current.Correspondence.Templates, t => CorrespondenceTemplateLibrary.IsBuiltIn(t.Id));
 
         await _library.DeleteAsync(CorrespondenceTemplateLibrary.MailboxStillNeededId);
@@ -225,6 +273,88 @@ public sealed class CorrespondenceTemplateLibraryTests : IDisposable
         await other.ImportAsync(json);
         Assert.Equal(4, other.Saved.Count);
         Assert.Equal(4, other.Saved.Select(t => t.Id).Distinct().Count());
+    }
+
+    [Fact]
+    public async Task DateFieldsAndTheBaseStyle_SurviveSavingExportAndImport()
+    {
+        var template = Template("Weryfikacja – kopia");
+        template.CustomFields = [new CustomFieldDefinition("Termin", "2026-11-15", CustomFieldKind.Date, "dd.MM.yyyy"), new CustomFieldDefinition("Wydział", "Łączności")];
+        template.FontFamily = "Aptos,sans-serif";
+        template.FontSize = 12;
+        template.LineHeight = "normal";
+
+        var saved = await _library.SaveAsync(template);
+        var json = await _library.ExportJsonAsync();
+        var other = new CorrespondenceTemplateLibrary(new InMemorySettingsStore(), new MessageImageStore(_paths, _time));
+        await other.ImportAsync(json);
+
+        foreach (var copy in new[] { _library.Find(saved.Id)!, Assert.Single(other.Saved) })
+        {
+            Assert.Equal(
+                [new CustomFieldDefinition("Termin", "2026-11-15", CustomFieldKind.Date, "dd.MM.yyyy"), new CustomFieldDefinition("Wydział", "Łączności")],
+                copy.CustomFields);
+            Assert.Equal(new MessageBaseStyle("Aptos,sans-serif", 12, "normal"), CorrespondenceTemplateLibrary.StyleOf(copy));
+        }
+
+        using var document = JsonDocument.Parse(json);
+        var field = document.RootElement.GetProperty("templates")[0].GetProperty("customFields")[0];
+        Assert.Equal("Date", field.GetProperty("kind").GetString());
+        Assert.Equal("dd.MM.yyyy", field.GetProperty("format").GetString());
+        Assert.Equal(1, document.RootElement.GetProperty("version").GetInt32());   // additive: still version 1
+    }
+
+    [Fact]
+    public async Task OlderFilesWithoutKindsOrFonts_ImportAsTextFields_KeepingTheWindowsFont()
+    {
+        const string json = """
+            {"format":"AdMng.CorrespondenceTemplates","version":1,"templates":[{"id":"x","name":"Stary szablon","subject":"Temat",
+             "bodyHtml":"<p>Treść {{Termin}}</p>","customFields":[{"name":"Termin","value":"15 listopada"}]}]}
+            """;
+
+        await _library.ImportAsync(json);
+
+        var imported = Assert.Single(_library.Saved);
+        Assert.Equal([new CustomFieldDefinition("Termin", "15 listopada")], imported.CustomFields);
+        Assert.Null(CorrespondenceTemplateLibrary.StyleOf(imported));
+    }
+
+    [Fact]
+    public void SettingsNormalization_KeepsKindAndFormat_ADateThatDoesNotParseIsEmpty()
+    {
+        var settings = new CorrespondenceSettings
+        {
+            LastDraft = new CorrespondenceTemplate
+            {
+                Name = "Szkic",
+                CustomFields =
+                [
+                    new CustomFieldDefinition(" Termin ", " 2026-11-15 ", CustomFieldKind.Date, "  d MMMM yyyy  "),
+                    new CustomFieldDefinition("Spotkanie", "jutro", CustomFieldKind.Date, " "),
+                    new CustomFieldDefinition("Długi", "2026-11-15", CustomFieldKind.Date, new string('d', CustomFieldFormats.MaxFormatLength + 1)),
+                    new CustomFieldDefinition("Opis", "tekst", CustomFieldKind.Text, "dd.MM.yyyy"),
+                    new CustomFieldDefinition("Dziwny", "wartość", (CustomFieldKind)7, "x"),
+                ],
+                FontFamily = "Arial\" onclick=\"x",
+                FontSize = 400,
+                LineHeight = " 1.15 ",
+            },
+        };
+
+        settings.Normalize();
+
+        Assert.Equal(
+        [
+            new CustomFieldDefinition("Termin", "2026-11-15", CustomFieldKind.Date, "d MMMM yyyy"),
+            new CustomFieldDefinition("Spotkanie", "", CustomFieldKind.Date),
+            new CustomFieldDefinition("Długi", "2026-11-15", CustomFieldKind.Date),
+            new CustomFieldDefinition("Opis", "tekst"),
+            new CustomFieldDefinition("Dziwny", "wartość"),
+        ], settings.LastDraft.CustomFields);
+        Assert.Null(settings.LastDraft.FontFamily);
+        Assert.Null(settings.LastDraft.FontSize);
+        Assert.Equal("1.15", settings.LastDraft.LineHeight);
+        Assert.False(new MailboxOwnerSettings().GroupByOwner);   // one message per mailbox unless the operator groups
     }
 
     [Fact]

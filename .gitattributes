@@ -1,3 +1,5 @@
 # The Linux package tree is built and run on Linux only: keep LF in every checkout (shell scripts, units).
 packaging/** text eol=lf
 tools/packaging/** text eol=lf
+# The bodies of the built-in Korespondencja templates are embedded as they are: the same bytes on every checkout.
+src/AdMng.Presentation/Correspondence/Templates/*.html text eol=lf

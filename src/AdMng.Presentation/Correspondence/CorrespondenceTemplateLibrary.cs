@@ -27,15 +27,35 @@ public sealed class CorrespondenceTemplateLibrary
     /// <summary>The largest export file (20 MiB of UTF-8).</summary>
     public const int MaxFileLength = 20 * 1024 * 1024;
 
-    /// <summary>Id of the built-in "is the mailbox still needed?" template.</summary>
+    /// <summary>Id of the built-in "is the mailbox still needed?" template: one message per mailbox, named in the subject.</summary>
     public const string MailboxStillNeededId = "mailbox-still-needed";
 
-    private readonly ISettingsStore _settings;
+    /// <summary>Id of the built-in "are the mailboxes still needed?" template: one message per owner with the list of their
+    /// mailboxes.</summary>
+    public const string MailboxStillNeededGroupedId = "mailbox-still-needed-grouped";
 
-    public CorrespondenceTemplateLibrary(ISettingsStore settings, MessageImageStore? images = null)
+    /// <summary>The days from today to the default deadline (<c>{{Termin}}</c>) of the built-in mailbox templates.</summary>
+    public const int MailboxDeadlineDays = 14;
+
+    /// <summary>The font of the built-in mailbox templates (the operator's message: Aptos 12 pt, single line height).</summary>
+    public static MessageBaseStyle MailboxStyle { get; } = new("Aptos,sans-serif", 12, "normal");
+
+    private static readonly Lazy<string> MailboxBody = new(() => BuiltInBody("mailbox-still-needed.html"));
+
+    private static readonly Lazy<string> MailboxGroupedBody = new(() => BuiltInBody("mailbox-still-needed-grouped.html"));
+
+    private readonly ISettingsStore _settings;
+    private readonly TimeProvider _time;
+
+    /// <param name="settings">The settings holding the saved templates and the last draft.</param>
+    /// <param name="images">The image store (null: templates are saved without images).</param>
+    /// <param name="time">The clock of the built-ins' deadline (today + <see cref="MailboxDeadlineDays"/>); null:
+    /// <see cref="TimeProvider.System"/>.</param>
+    public CorrespondenceTemplateLibrary(ISettingsStore settings, MessageImageStore? images = null, TimeProvider? time = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         Images = images;
+        _time = time ?? TimeProvider.System;
     }
 
     /// <summary>A template or the last draft was saved, deleted or imported.</summary>
@@ -44,8 +64,9 @@ public sealed class CorrespondenceTemplateLibrary
     /// <summary>The image store (null: templates are saved without images).</summary>
     public MessageImageStore? Images { get; }
 
-    /// <summary>The built-in templates (new instances on each call; never stored).</summary>
-    public static IReadOnlyList<CorrespondenceTemplate> BuiltIns => [MailboxStillNeeded()];
+    /// <summary>The built-in templates: the mailbox query per mailbox, then grouped by owner (new instances on each call,
+    /// the deadline counted from today; never stored).</summary>
+    public IReadOnlyList<CorrespondenceTemplate> BuiltIns => [MailboxStillNeeded(), MailboxStillNeededGrouped()];
 
     /// <summary>The operator's templates (settings, in the order they were saved). Treat them as read-only: change a
     /// template through <see cref="SaveAsync"/>.</summary>
@@ -54,7 +75,11 @@ public sealed class CorrespondenceTemplateLibrary
     /// <summary>The built-ins, then the saved templates.</summary>
     public IReadOnlyList<CorrespondenceTemplate> All => [.. BuiltIns, .. Saved];
 
-    public static bool IsBuiltIn(string? id) => string.Equals(id, MailboxStillNeededId, StringComparison.Ordinal);
+    public static bool IsBuiltIn(string? id) =>
+        string.Equals(id, MailboxStillNeededId, StringComparison.Ordinal) || string.Equals(id, MailboxStillNeededGroupedId, StringComparison.Ordinal);
+
+    /// <summary>The id of the built-in mailbox template of a grouping: one message per owner, else one per mailbox.</summary>
+    public static string MailboxTemplateId(bool groupByOwner) => groupByOwner ? MailboxStillNeededGroupedId : MailboxStillNeededId;
 
     /// <summary>A copy of the template <paramref name="id"/> (a built-in or a saved one), or null.</summary>
     public CorrespondenceTemplate? Find(string? id)
@@ -64,9 +89,14 @@ public sealed class CorrespondenceTemplateLibrary
             return null;
         }
 
-        if (IsBuiltIn(id))
+        if (string.Equals(id, MailboxStillNeededId, StringComparison.Ordinal))
         {
             return MailboxStillNeeded();
+        }
+
+        if (string.Equals(id, MailboxStillNeededGroupedId, StringComparison.Ordinal))
+        {
+            return MailboxStillNeededGrouped();
         }
 
         return Saved.FirstOrDefault(t => string.Equals(t.Id, id, StringComparison.Ordinal)) is { } saved ? Copy(saved) : null;
@@ -265,8 +295,9 @@ public sealed class CorrespondenceTemplateLibrary
 
     /// <summary>
     /// The template of a draft as edited (the last draft, or a template to save): subject, body, the metadata of the images
-    /// the body references, custom fields, list item template and salutation. The options a template may carry (voting,
-    /// grouping) are left null (keep the window's) – set them on the result.
+    /// the body references, custom fields, list item template, salutation and the base style (font, size, line height; none
+    /// when the draft has none). The options a template may carry (voting, grouping) are left null (keep the window's) – set
+    /// them on the result.
     /// </summary>
     public static CorrespondenceTemplate FromDraft(CorrespondenceDraft draft, string name = "")
     {
@@ -279,6 +310,9 @@ public sealed class CorrespondenceTemplateLibrary
             CustomFields = [.. (draft.CustomFields ?? []).Where(f => f is not null)],
             ListItemTemplate = draft.ListItemTemplate ?? string.Empty,
             Salutation = string.IsNullOrWhiteSpace(draft.Salutation) ? null : draft.Salutation.Trim(),
+            FontFamily = draft.BaseStyle?.FontFamily,
+            FontSize = draft.BaseStyle?.FontSizePoints,
+            LineHeight = draft.BaseStyle?.LineHeight,
         };
         var images = draft.Images ?? new Dictionary<string, MessageImage>();
         template.Images = [.. ReferencedIds(template)
@@ -306,7 +340,20 @@ public sealed class CorrespondenceTemplateLibrary
             VotingEnabled = template.VotingEnabled,
             VotingOptions = template.VotingOptions,
             GroupByAddress = template.GroupByAddress,
+            FontFamily = template.FontFamily,
+            FontSize = template.FontSize,
+            LineHeight = template.LineHeight,
         };
+    }
+
+    /// <summary>The base style a template carries: null when it has none of its own (keep the window's), else its values
+    /// with every missing or invalid part the default's.</summary>
+    public static MessageBaseStyle? StyleOf(CorrespondenceTemplate template)
+    {
+        ArgumentNullException.ThrowIfNull(template);
+        return template.FontFamily is null && template.FontSize is null && template.LineHeight is null
+            ? null
+            : MessageBaseStyle.Of(template.FontFamily, template.FontSize, template.LineHeight);
     }
 
     public override string ToString() => nameof(CorrespondenceTemplateLibrary);
@@ -424,27 +471,63 @@ public sealed class CorrespondenceTemplateLibrary
     /// <summary>Raises <see cref="Changed"/>.</summary>
     private void OnChanged() => Changed?.Invoke(this, EventArgs.Empty);
 
-    /// <summary>"Czy skrzynka pocztowa jest nadal potrzebna?" (design note 6.1); <c>{{lista}}</c> has a paragraph of its own,
-    /// which the renderer replaces with the list.</summary>
-    private static CorrespondenceTemplate MailboxStillNeeded() => new()
+    /// <summary>
+    /// "Weryfikacja skrzynki pocztowej" (design note 6.1, "Template after the operator's example (1:1)"): one message per
+    /// mailbox, the mailbox's name (<c>{{Skrzynka}}</c>) in the subject, the operator's example message as the body (an
+    /// embedded resource, never changed), the deadline <c>{{Termin}}</c> today + <see cref="MailboxDeadlineDays"/> in
+    /// <see cref="CustomFieldFormats.DefaultDate"/>, <c>{{podpis}}</c> where the signature goes, Aptos 12 pt with a single
+    /// line height, no voting buttons.
+    /// </summary>
+    private CorrespondenceTemplate MailboxStillNeeded() => MailboxTemplate(
+        MailboxStillNeededId,
+        "Weryfikacja skrzynki pocztowej (wiadomość na każdą skrzynkę)",
+        "Weryfikacja skrzynki pocztowej: {{Skrzynka}}",
+        MailboxBody.Value,
+        groupByAddress: false);
+
+    /// <summary>"Weryfikacja skrzynek pocztowych": the same message once per owner, its mailboxes listed by
+    /// <c>{{lista}}</c> (a paragraph of its own, which the renderer replaces with the list).</summary>
+    private CorrespondenceTemplate MailboxStillNeededGrouped() => MailboxTemplate(
+        MailboxStillNeededGroupedId,
+        "Weryfikacja skrzynek pocztowych (jedna wiadomość na osobę)",
+        "Weryfikacja skrzynek pocztowych",
+        MailboxGroupedBody.Value,
+        groupByAddress: true);
+
+    private CorrespondenceTemplate MailboxTemplate(string id, string name, string subject, string body, bool groupByAddress)
     {
-        Id = MailboxStillNeededId,
-        Name = "Czy skrzynka pocztowa jest nadal potrzebna?",
-        Subject = "Czy skrzynka pocztowa jest nadal potrzebna?",
-        BodyHtml =
-            "<p>{{Zwrot osobowy}},</p>"
-            + "<p>w ewidencji poczty jako osobę, do której przypisano skrzynkę, wskazano {{Pana/Panią}}:</p>"
-            + "<p>{{lista}}</p>"
-            + "<p>Prosimy o informację, czy skrzynka jest nadal potrzebna. W Outlooku wystarczy kliknąć przycisk nad treścią tej "
-            + "wiadomości („Tak, nadal potrzebna” albo „Nie, można usunąć”); można też po prostu odpowiedzieć na tę wiadomość. "
-            + "Jeżeli do {{Termin}} nie otrzymamy odpowiedzi, skrzynka zostanie zablokowana.</p>"
-            + "<p>Z poważaniem</p>",
-        CustomFields = [new CustomFieldDefinition("Termin", "")],
-        ListItemTemplate = "{{Skrzynka}} ({{Adres skrzynki}}) – ostatnie logowanie: {{Ostatnie logowanie|brak danych}}",
-        VotingEnabled = true,
-        VotingOptions = CorrespondenceSettings.DefaultVotingOptions,
-        GroupByAddress = true,
-    };
+        var today = DateOnly.FromDateTime(_time.GetLocalNow().DateTime);
+        return new CorrespondenceTemplate
+        {
+            Id = id,
+            Name = name,
+            Subject = subject,
+            BodyHtml = body,
+            CustomFields =
+            [
+                new CustomFieldDefinition("Termin", CustomFieldFormats.ValueOf(today.AddDays(MailboxDeadlineDays)), CustomFieldKind.Date,
+                    CustomFieldFormats.DefaultDate),
+            ],
+            ListItemTemplate = "{{Skrzynka}} ({{Adres skrzynki}})",
+            Salutation = null,
+            VotingEnabled = false,
+            GroupByAddress = groupByAddress,
+            FontFamily = MailboxStyle.FontFamily,
+            FontSize = MailboxStyle.FontSizePoints,
+            LineHeight = MailboxStyle.LineHeight,
+        };
+    }
+
+    /// <summary>The body of a built-in template (an embedded resource of this assembly): line breaks as LF, without the
+    /// file's last line break.</summary>
+    private static string BuiltInBody(string fileName)
+    {
+        var name = "AdMng.Presentation.Correspondence.Templates." + fileName;
+        using var stream = typeof(CorrespondenceTemplateLibrary).Assembly.GetManifestResourceStream(name)
+            ?? throw new InvalidOperationException($"The built-in template {fileName} is missing.");
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        return reader.ReadToEnd().Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd('\n');
+    }
 
     /// <summary>The export file.</summary>
     private sealed class TemplatesFile

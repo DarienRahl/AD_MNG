@@ -26,7 +26,7 @@ internal sealed class CorrespondencePagesScenario : IDisposable
     {
         Harness = harness;
         Images = new MessageImageStore(Paths, harness.Time);
-        Templates = new CorrespondenceTemplateLibrary(harness.Settings, Images);
+        Templates = new CorrespondenceTemplateLibrary(harness.Settings, Images, harness.Time);
         Journal = new CorrespondenceJournal(Paths, Protector, harness.Time);
         Platform = new CorrespondenceShellScenario.FakePlatform(Path.Combine(Paths.SettingsDirectory, "Pobrane"));
         Services = new CorrespondenceServices(

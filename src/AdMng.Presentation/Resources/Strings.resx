@@ -12803,6 +12803,18 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Correspondence.Message.CustomFieldUsesCustom" xml:space="preserve">
     <value>the value cannot use other custom fields ({0})</value>
   </data>
+  <data name="Correspondence.Message.CustomFieldDateMissing" xml:space="preserve">
+    <value>choose a date</value>
+  </data>
+  <data name="Correspondence.Message.FontSizePoints" xml:space="preserve">
+    <value>{0} pt</value>
+  </data>
+  <data name="Correspondence.Message.LineHeightSingle" xml:space="preserve">
+    <value>Single</value>
+  </data>
+  <data name="Correspondence.Message.LineHeightDouble" xml:space="preserve">
+    <value>Double</value>
+  </data>
   <data name="Correspondence.Message.ImagesOverLimit" xml:space="preserve">
     <value>The images exceed the limit of a message: {0} images, {1} (at most {2} images and {3}).</value>
   </data>

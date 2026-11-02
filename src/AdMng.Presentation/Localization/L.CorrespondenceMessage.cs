@@ -54,6 +54,18 @@ public static partial class L
         public const string CustomFieldBuiltIn = "Correspondence.Message.CustomFieldBuiltIn";
         public const string CustomFieldColumn = "Correspondence.Message.CustomFieldColumn";
         public const string CustomFieldUsesCustom = "Correspondence.Message.CustomFieldUsesCustom";
+
+        /// <summary>A date field without a date (the error of the field).</summary>
+        public const string CustomFieldDateMissing = "Correspondence.Message.CustomFieldDateMissing";
+
+        /// <summary>A font size of the "Rozmiar" choices; {0} = the points.</summary>
+        public const string FontSizePoints = "Correspondence.Message.FontSizePoints";
+
+        /// <summary>The line height "normal" of the "Interlinia" choices.</summary>
+        public const string LineHeightSingle = "Correspondence.Message.LineHeightSingle";
+
+        /// <summary>The line height 2 of the "Interlinia" choices.</summary>
+        public const string LineHeightDouble = "Correspondence.Message.LineHeightDouble";
         public const string ImagesOverLimit = "Correspondence.Message.ImagesOverLimit";
         public const string VotingEmpty = "Correspondence.Message.VotingEmpty";
         public const string ImageRejected = "Correspondence.Message.ImageRejected";
