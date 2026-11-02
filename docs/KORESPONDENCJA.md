@@ -66,6 +66,10 @@ Brak Outlooka nie jest błędem okna – widać go tylko na pasku stanu, a *Poł
 próbuje ponownie. Zamknięcie okna w trakcie wysyłki pyta, czy ją przerwać; przy zamknięciu zapisywany jest ostatni
 szkic i opcje.
 
+Outlook, którego AD Manager musiał uruchomić, działa bez okna aż do zamknięcia AD Managera, także po zamknięciu okna
+*Korespondencja* – inaczej zamknąłby się zaraz po wysyłce, a ostatnie wiadomości zostałyby w *Skrzynce nadawczej*.
+Outlooka uruchomionego przez Ciebie AD Manager nie zamyka.
+
 ## 3. Krok 1 – Odbiorcy
 
 ### Źródła odbiorców
@@ -87,8 +91,10 @@ wczytanie, np. *Wczytano plik: 120 nowych, 3 powtórzone, 2 błędne adresy*.
 
 **Jak czytane są pliki i tabele:**
 
-- Nagłówek tabeli to pierwszy z pierwszych 8 niepustych wierszy; w tekście separatorem jest `;`, tabulator albo `,`
-  (w tej kolejności).
+- Nagłówek tabeli to jeden z pierwszych 8 niepustych wierszy – pierwszy, pod którym w kolumnie adresów naprawdę są
+  adresy; w tekście separatorem jest `;`, tabulator albo `,` (w tej kolejności). Tytuł nad tabelą (np. scalona komórka
+  „Wykaz adresów e-mail jednostek” albo podpis tabeli w Wordzie) ani zdanie wprowadzające („Dzień dobry, adresy e-mail
+  poniżej:”) nie są brane za nagłówek; gdy żaden wiersz nie pasuje, całość jest czytana jak zwykły tekst.
 - **Kolumna z adresem:** nagłówek *E-mail*, *Email*, *Mail*, *Adres e-mail* albo *E-mail address*, potem *Poczta*, a
   na końcu każdy nagłówek zawierający „mail” – wygrywa pierwsza taka kolumna, w której naprawdę są adresy (*Inne
   e-maile* przegrywa z *E-mail*). Komórka z kilkoma adresami („a@x.pl; b@y.pl”) daje pierwszy poprawny.
@@ -100,12 +106,21 @@ wczytanie, np. *Wczytano plik: 120 nowych, 3 powtórzone, 2 błędne adresy*.
 - Wiersze bez poprawnego adresu są liczone jako błędne. Tekst bez tabeli: najpierw pary „Nazwa &lt;adres&gt;” i
   „Nazwa (adres)”, potem pojedyncze adresy.
 - **Excel:** każdy arkusz ma własny nagłówek, a arkusze z kolumną adresów są łączone; komórki trafiają do kolumn według
-  ich adresu (A1, C1 …), więc puste komórki nie przesuwają kolumn. **Word, OpenDocument, HTML:** tabele zachowują
-  kolumny, łącza `mailto:` dają „tekst &lt;adres&gt;”, a tekst poza tabelami jest czytany jak zwykły tekst.
+  ich adresu (A1, C1 …), więc puste komórki nie przesuwają kolumn. Arkusze i wiersze, których Excel nie pokazuje
+  (ukryte ręcznie, odfiltrowane, w zwiniętej grupie), są pomijane i liczone – pasek stanu podaje np. *pominięte ukryte
+  arkusze: 1, pominięte ukryte wiersze: 15*; w plikach ODS ukryte arkusze i wiersze są na razie wczytywane. Daty i
+  godziny trafiają do pól jako daty, a nie jako liczby, którymi Excel je zapisuje – w polskim zapisie, bez względu na
+  format komórki („15.03.2026”, „15.03.2026 10:00”, „10:00”); liczby z formatem takim jak kod pocztowy (`00-000`) albo
+  PESEL (`00000000000`) – tak, jak pokazuje je Excel („95-020”, PESEL z zerem na początku). Inne liczby mają zapisaną
+  wartość. **Word, OpenDocument, HTML:** tabele zachowują kolumny, łącza `mailto:` dają „tekst &lt;adres&gt;”, a tekst
+  poza tabelami jest czytany jak zwykły tekst.
 - Kodowanie plików tekstowych: znacznik BOM, UTF-8, a w pozostałych przypadkach strona kodowa Windows (na polskim
   Windows – Windows-1250, jak w CSV z polskiego Excela).
 - Adresy są sprawdzane ostrzej niż w Korespondencji WPiA (bez „..”, kropek i łączników na brzegach, z limitami długości),
-  a adresy-śmieci ze stron i dokumentów (`example.*`, `*.sentry.io`, `*.w3.org`, `schemas.*`) są pomijane.
+  a adresy-śmieci ze stron i dokumentów (`example.*`, `*.sentry.io`, `*.w3.org`, `schemas.*`) są pomijane. Adres z
+  apostrofem albo znakiem `&`, `#` czy `=` przed „@” (np. `o'brien@…`, `Jan.O’Neil@…`, `biuro&sekretariat@…`) jest
+  odrzucany w całości – nigdy nie jest obcinany do końcówki (`brien@…`, `sekretariat@…`), która byłaby adresem kogoś
+  innego.
 - Uszkodzony plik, plik powyżej 50 MB albo podejrzane archiwum (tzw. bomba zip – XLSX, DOCX i ODF to archiwa ZIP)
   są odrzucane z komunikatem; treść pliku nigdy nie trafia do komunikatu ani dziennika.
 
@@ -218,7 +233,10 @@ z pojedynczymi nawiasami (`{givenName}`, `{$salutation}`), a w treści używa si
 
 ### Nadawca
 
-- **Wyślij jako** – konto z Twojego profilu Outlooka; puste pole oznacza konto domyślne profilu. Wybór jest zapamiętywany.
+- **Wyślij jako** – konto z Twojego profilu Outlooka. Po połączeniu z Outlookiem pole pokazuje zapamiętane konto, a gdy
+  go nie ma albo brakuje go w profilu – konto domyślne profilu (konto bieżącej skrzynki, a w razie jego braku pierwsze),
+  więc przy *Outlook: połączono* nigdy nie jest puste. Zapamiętywany jest tylko Twój wybór: konto, którego brakuje w
+  profilu, wróci, gdy profil znów będzie je miał.
 - **W imieniu (skrzynka współdzielona)** – opcjonalnie adres skrzynki, w imieniu której idą wiadomości (wymaga prawa
   *Wyślij w imieniu*). Gdy Outlook nie przyjmie tego ustawienia, wiadomość kończy się błędem – nigdy nie wychodzi po
   cichu z innego nadawcy.
@@ -280,6 +298,9 @@ wysłanych* – przy dużych plikach lepiej wysłać łącze.
   (np. `{{Skrzynka}} ({{Adres skrzynki}})`); `{{liczba}}` to liczba wierszy, a pozostałe pola pochodzą z pierwszego
   wiersza. Wpisz `{{lista}}` w osobnym akapicie – cały akapit zostanie zastąpiony listą. W temacie `{{lista}}` daje punkty
   rozdzielone przecinkami. Bez grupowania każda wiadomość ma listę z jednym punktem.
+- **Element listy** to zwykły tekst, tak jak w jego polu: znaki `<` czy `&` trafiają do wiadomości dosłownie, więc wzór
+  `{{Skrzynka}} <{{Adres skrzynki}}>` pokaże adres w nawiasach ostrych. Bez grupowania kolumna albo pole własne o nazwie
+  *Lista* lub *Liczba* jest zwykłym polem i wygrywa z polem wbudowanym – *Wstaw pole* podpowiada wtedy właśnie je.
 
 ### Szablony
 
@@ -348,7 +369,8 @@ osobnym wątkiem, więc *Zatrzymaj*, przewijanie i zakładki działają normalni
 - Adres, którego Outlook nie rozpozna, kończy wiadomość błędem zamiast wysyłki.
 - **Po 5 błędach z rzędu wysyłka zatrzymuje się sama** – zwykle znaczy to, że Outlook został zamknięty albo padło
   połączenie; po naprawieniu użyj *Ponów nieudane*. Błędy, po których dalsza wysyłka nie ma sensu (Outlook zamknięty,
-  odmowa zabezpieczenia Outlooka, różne poziomy uprawnień), zatrzymują ją od razu.
+  odmowa zabezpieczenia Outlooka, różne poziomy uprawnień, konto *Wyślij jako*, którego nie ma w profilu – z niego
+  szłaby każda kolejna wiadomość), zatrzymują ją od razu, z komunikatem *■ przerwano: …*.
 - Dziennik sesji AD Managera dostaje jeden wpis na wysyłkę („Korespondencja (Outlook)”, liczba udanych z wszystkich) –
   bez adresów i bez tematu.
 
@@ -422,13 +444,16 @@ to potwierdzenie, że osoba naprawdę korzysta ze skrzynki), konto włączone +1
 poziom, jaki wystąpił: jeden kandydat na nim to dopasowanie (dokładne albo bez polskich znaków) lub dopasowanie
 prawdopodobne (pozostałe poziomy – do sprawdzenia); kilku kandydatów – przy *Właścicielem może być tylko włączone konto*
 wygrywa jedyne włączone konto, a inaczej wynik jest niejednoznaczny. Jeden kandydat, który jest pełnomocnikiem
-skrzynki, wygrywa zawsze (co najmniej na poziomie *częściowo*).
+skrzynki, wygrywa zawsze (co najmniej na poziomie *częściowo*). Przy dopasowaniu prawdopodobnym osoba jest wybierana
+automatycznie (do sprawdzenia) – z wyjątkiem poziomu *częściowo* bez pełnomocnictwa: gdy zgadza się tylko część
+nazwiska, jedno z kilku imion albo samo nazwisko, może to być ktoś inny o podobnym nazwisku, więc osobę trzeba wybrać
+z listy samodzielnie.
 
 | Wynik | Znaczenie | Co zrobić |
 |---|---|---|
 | dopasowano | jedna osoba, dokładnie lub bez polskich znaków | nic |
 | dopasowano przez pełnomocnictwo | jedyny kandydat-pełnomocnik | nic |
-| prawdopodobne | jedna osoba na niższym poziomie (zgodna tylko część nazwiska – osoba nie jest wybierana automatycznie) | sprawdź, w razie potrzeby wybierz inną; przy części nazwiska wybierz osobę z listy |
+| prawdopodobne | jedna osoba na niższym poziomie (zamieniona kolejność, nazwa wyświetlana albo częściowo – przy dopasowaniu częściowym osoba nie jest wybierana automatycznie) | sprawdź, w razie potrzeby wybierz inną; przy dopasowaniu częściowym wybierz osobę z listy |
 | niejednoznaczne | kilka osób na tym samym poziomie | wybierz kandydata z listy |
 | nie znaleziono | nikt nie pasuje | wybierz osobę, wpisz adres albo wyklucz skrzynkę |
 | brak imienia i nazwiska | skrzynka nie ma danych osoby | wybierz osobę albo zmień źródło imienia i nazwiska |
@@ -445,6 +470,11 @@ jan.kowalski@…”, pełnomocnicy oznaczeni), *Adres właściciela*, *Dział*, 
 nieznalezione albo wykluczone, a podsumowanie – np. *Dopasowane: 90 · do sprawdzenia: 12 · nieznalezione: 8 ·
 wykluczone: 2*.
 
+- *Wyślij* jest zaznaczone tylko tam, gdzie jest do kogo napisać – przy wybranym właścicielu z adresem. Wiersze bez
+  imienia i nazwiska, nieznalezione, niejednoznaczne albo dopasowane częściowo (nikogo nie wybrano), z właścicielem
+  wyłączonym (gdy właścicielem może być tylko włączone konto) albo bez adresu mają je odznaczone. Wybór kandydata,
+  *Wybierz właściciela…* i *Wpisz adres właściciela…* same je zaznaczają (osoba bez adresu – odznacza), chyba że
+  zmieniłeś je wcześniej ręcznie: wtedy zostaje tak, jak je ustawiłeś.
 - Wybór innego kandydata z listy w kolumnie *Właściciel* zmienia wiersz na wybrany ręcznie.
 - *Wybierz właściciela…* – dowolny użytkownik z okna wyboru obiektów.
 - *Wpisz adres właściciela…* – adres wpisany ręcznie (sprawdzany). Adres jednego z kandydatów wybiera tę osobę, osobie
@@ -541,6 +571,7 @@ Outlooka* albo opis błędu z rozdziału 13.
 | dziennik „już wysłane” | `%APPDATA%\AdMng\correspondence\journal.txt` | jeden wiersz na wysłany adres: **skrót adresu** (HMAC-SHA-256 z kluczem, pierwsze 16 bajtów), czas wysyłki, temat tak, jak go wpisano (bez wypełnionych pól) |
 | klucz dziennika | `…\correspondence\journal.key` | 32 losowe bajty zaszyfrowane DPAPI dla bieżącego użytkownika Windows |
 | blokada dziennika | `…\correspondence\journal.lock` | pusty plik – kilka okien i uruchomień AD Managera zapisuje dziennik po kolei |
+| kopia dawnego dziennika | `…\correspondence\journal-<data>.old` | dziennik odłożony, gdy jego klucza nie dało się odczytać (rozdział 13): skróty adresów, czasy i tematy jak w dzienniku; obowiązuje ją ten sam okres przechowywania (starsze wpisy są usuwane, pusta kopia znika), a wyczyszczenie dziennika usuwa także kopie |
 | obrazki dla Outlooka | `%TEMP%\AdMng-Outlook-<proces>-<losowe>` | obrazki treści i podpisu (Outlook przyjmuje obrazki tylko z pliku); usuwane zaraz po zapisaniu wiadomości, pozostałości po awarii – przy następnym starcie |
 | eksporty na żądanie | miejsce wskazane przez operatora | lista odbiorców (CSV), raport, podgląd `.html` z obrazkami, odpowiedzi (CSV), szablony (JSON) |
 
@@ -601,7 +632,7 @@ liczbę wpisów, folder *Pobrane* i folder podpisów. *Kopiuj* przenosi raport d
 | *Połączenie z Outlookiem zostało przerwane…* (`outlook.disconnected`) | uruchom Outlooka, *Połącz z Outlookiem*, potem *Ponów nieudane* |
 | *Outlook nie rozpoznał adresata.* (`outlook.recipient`) | popraw adres (literówka, nieistniejący adres w organizacji) |
 | *Nie znaleziono pliku załącznika.* (`outlook.attachment`) | plik przeniesiono lub usunięto po dodaniu – dodaj go ponownie |
-| *Wybranego konta nie ma w profilu Outlooka.* (`outlook.account`) | wybierz konto z listy *Wyślij jako* albo dodaj je do profilu |
+| *Wybranego konta nie ma w profilu Outlooka.* (`outlook.account`) | wysyłka zatrzymuje się na pierwszej wiadomości – wybierz konto z listy *Wyślij jako* albo dodaj je do profilu |
 | *Wiadomość jest za duża dla skrzynki lub serwera.* (`outlook.tooLarge`) | zmniejsz załączniki lub obrazki, wyślij łącze |
 | *Przerwano.* (`outlook.cancelled`) | wysyłkę zatrzymano – *Ponów nieudane* dokończy |
 | *Nieznany błąd Outlooka.* (`outlook.error`, z kodem `0x…`) | podaj kod i krok z raportu w zgłoszeniu; treść komunikatu Outlooka nie jest zapisywana, bo może zawierać adresy |
@@ -609,8 +640,8 @@ liczbę wpisów, folder *Pobrane* i folder podpisów. *Kopiuj* przenosi raport d
 Inne sytuacje:
 
 - *Klucza dziennika „już wysłane” nie udało się odczytać…* – inny użytkownik Windows albo przeniesiony profil: okno
-  założyło nowy dziennik, a stary zachowało (`journal-<data>.old`). Pominięcia z poprzedniego dziennika nie działają –
-  przed powtórną wysyłką użyj *Nie wysyłać* albo raportu.
+  założyło nowy dziennik, a stary zachowało (`journal-<data>.old`, przez okres przechowywania dziennika). Pominięcia z
+  poprzedniego dziennika nie działają – przed powtórną wysyłką użyj *Nie wysyłać* albo raportu.
 - *Dziennika „już wysłane” nie można użyć…* – wysłane adresy nie będą pomijane; sprawdź uprawnienia do folderu
   `%APPDATA%\AdMng\correspondence`.
 - *Wczytaj CSV z Pobranych* nic nie znajduje – plik musi pasować do wzorca `*kontakty*.csv`; folder *Pobrane* pokazuje
