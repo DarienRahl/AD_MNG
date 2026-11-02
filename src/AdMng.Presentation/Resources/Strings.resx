@@ -14677,9 +14677,6 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="GpModel.NoteSysvol" xml:space="preserve">
     <value>SYSVOL unavailable: the GPOs' settings were not read; the GPO lists are complete.</value>
   </data>
-  <data name="GpModel.NoteSite" xml:space="preserve">
-    <value>Site of the computer: {0}.</value>
-  </data>
   <data name="GpModel.PartNoComputer" xml:space="preserve">
     <value>The model has no computer.</value>
   </data>

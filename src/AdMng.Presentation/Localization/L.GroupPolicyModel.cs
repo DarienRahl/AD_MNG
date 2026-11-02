@@ -104,7 +104,6 @@ public static partial class L
         public const string NoteAccountMissing = "GpModel.NoteAccountMissing";
         public const string NoteContainerMissing = "GpModel.NoteContainerMissing";
         public const string NoteSysvol = "GpModel.NoteSysvol";
-        public const string NoteSite = "GpModel.NoteSite";
         public const string PartNoComputer = "GpModel.PartNoComputer";
         public const string PartNoUser = "GpModel.PartNoUser";
         public const string TrusteeThisOrganization = "GpModel.TrusteeThisOrganization";

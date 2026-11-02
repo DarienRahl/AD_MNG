@@ -14677,9 +14677,6 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="GpModel.NoteSysvol" xml:space="preserve">
     <value>SYSVOL niedostępny: ustawienia GPO nie zostały odczytane; listy GPO są pełne.</value>
   </data>
-  <data name="GpModel.NoteSite" xml:space="preserve">
-    <value>Lokacja komputera: {0}.</value>
-  </data>
   <data name="GpModel.PartNoComputer" xml:space="preserve">
     <value>Model nie obejmuje komputera.</value>
   </data>
