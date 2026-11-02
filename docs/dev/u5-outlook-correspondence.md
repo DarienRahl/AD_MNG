@@ -186,7 +186,8 @@ public static class FieldTemplate
 
 public enum CustomFieldKind { Text, Date }
 
-/// Text: Value may use {{other fields}} (not other custom fields). Date: Value is "yyyy-MM-dd" (invariant), Format a .NET
+/// Text: Value may use {{other fields}}, other custom fields included (a loop renders "" there, at most
+/// RecipientFieldSet.MaxCustomDepth = 8 nested; the window flags a loop). Date: Value is "yyyy-MM-dd" (invariant), Format a .NET
 /// custom date format (null/blank → CustomFieldFormats.DefaultDate), rendered with the Polish culture; an empty or
 /// unparsable date renders "".
 public sealed record CustomFieldDefinition(string Name, string Value, CustomFieldKind Kind = CustomFieldKind.Text, string? Format = null);
@@ -927,6 +928,13 @@ or the signature block are part of it: the signature comes from the operator's O
   before they existed – keeps the window's, i.e. its last values); the window keeps the last values in the last draft
   and shows "Czcionka", "Rozmiar", "Interlinia"; the editor shows the body in that font.
 - **No voting buttons** (the example has none); the answers come as replies.
+- **The help desk is a field.** The example sends people to `hd.uni.lodz.pl`; the operator wanted to keep it but be able
+  to change it. The link is `<a href="{{Link do systemu zgłoszeń}}">…{{System zgłoszeń}}…</a>` with the custom fields
+  *System zgłoszeń* = `hd.uni.lodz.pl` (the text) and *Link do systemu zgłoszeń* = `https://{{System zgłoszeń}}` (a
+  custom field may use other custom fields, section 3.2), so another help desk is one field. An `href` that starts with a
+  field is what the template sanitizer (`AllowFieldUrls`) and the editor (`LinkUri`) accept; .NET cannot even hold
+  `https://{{…}}` as a `Uri`. After the merge the document sanitizer checks the real address again. With the defaults the
+  message is the example, byte for byte in the link.
 - **Journal per mailbox** (section 7.6): one owner of three mailboxes gets three messages, each recorded for its mailbox.
 
 With `{{Termin}}` = "15 listopada 2026r.", the signature in place of `{{podpis}}` and the wrapping style

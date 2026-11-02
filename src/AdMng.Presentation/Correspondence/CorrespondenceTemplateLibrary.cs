@@ -28,6 +28,16 @@ public sealed class CorrespondenceTemplateLibrary
     public const int MaxFileLength = 20 * 1024 * 1024;
 
     /// <summary>Id of the built-in "is the mailbox still needed?" template: one message per mailbox, named in the subject.</summary>
+    /// <summary>The custom field of the mailbox templates that names the help desk (its link text; change it to send
+    /// people to another system).</summary>
+    public const string HelpdeskField = "System zgłoszeń";
+
+    /// <summary>The custom field of the mailbox templates with the link to the help desk: <c>https://{{System zgłoszeń}}</c>.</summary>
+    public const string HelpdeskLinkField = "Link do systemu zgłoszeń";
+
+    /// <summary>The help desk of the operator's example message (the default of <see cref="HelpdeskField"/>).</summary>
+    public const string DefaultHelpdesk = "hd.uni.lodz.pl";
+
     public const string MailboxStillNeededId = "mailbox-still-needed";
 
     /// <summary>Id of the built-in "are the mailboxes still needed?" template: one message per owner with the list of their
@@ -507,6 +517,8 @@ public sealed class CorrespondenceTemplateLibrary
             [
                 new CustomFieldDefinition("Termin", CustomFieldFormats.ValueOf(today.AddDays(MailboxDeadlineDays)), CustomFieldKind.Date,
                     CustomFieldFormats.DefaultDate),
+                new CustomFieldDefinition(HelpdeskField, DefaultHelpdesk),
+                new CustomFieldDefinition(HelpdeskLinkField, "https://{{" + HelpdeskField + "}}"),
             ],
             ListItemTemplate = "{{Skrzynka}} ({{Adres skrzynki}})",
             Salutation = null,

@@ -101,7 +101,13 @@ public sealed class MessageDateFieldsAndStyleTests
         await message.SaveTemplateCommand.ExecuteAsync(null);
 
         var saved = Assert.Single(scenario.Templates.Saved);
-        Assert.Equal([new CustomFieldDefinition("Termin", "2026-11-30", CustomFieldKind.Date, CustomFieldFormats.DefaultDate)], saved.CustomFields);
+        Assert.Equal(
+            [
+                new CustomFieldDefinition("Termin", "2026-11-30", CustomFieldKind.Date, CustomFieldFormats.DefaultDate),
+                new CustomFieldDefinition("System zgłoszeń", "hd.uni.lodz.pl"),
+                new CustomFieldDefinition("Link do systemu zgłoszeń", "https://{{System zgłoszeń}}"),
+            ],
+            saved.CustomFields);
         Assert.Equal(new MessageBaseStyle("Aptos,sans-serif", 12, "normal"), CorrespondenceTemplateLibrary.StyleOf(saved));
         Assert.Equal((false, false), (saved.VotingEnabled, saved.GroupByAddress));
     }

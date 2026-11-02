@@ -6,7 +6,7 @@ namespace AdMng.Core.Correspondence.Fields;
 /// <summary>What a custom field holds.</summary>
 public enum CustomFieldKind
 {
-    /// <summary>Text that may use <c>{{other fields}}</c> (not other custom fields).</summary>
+    /// <summary>Text that may use <c>{{other fields}}</c>, other custom fields included.</summary>
     Text,
 
     /// <summary>A date (<see cref="CustomFieldDefinition.Value"/> is <c>yyyy-MM-dd</c>) rendered with a date format.</summary>
@@ -14,8 +14,8 @@ public enum CustomFieldKind
 }
 
 /// <summary>
-/// An operator-defined field. <see cref="CustomFieldKind.Text"/>: <paramref name="Value"/> may use <c>{{other fields}}</c>
-/// (not other custom fields). <see cref="CustomFieldKind.Date"/>: <paramref name="Value"/> is <c>yyyy-MM-dd</c>
+/// An operator-defined field. <see cref="CustomFieldKind.Text"/>: <paramref name="Value"/> may use <c>{{other fields}}</c>,
+/// other custom fields included (a loop renders ""). <see cref="CustomFieldKind.Date"/>: <paramref name="Value"/> is <c>yyyy-MM-dd</c>
 /// (invariant), <paramref name="Format"/> a .NET custom date format (null or blank → <see cref="CustomFieldFormats.DefaultDate"/>),
 /// rendered with the Polish culture (<see cref="MessageLanguages.Culture"/>); an empty or unparsable date renders "".
 /// </summary>

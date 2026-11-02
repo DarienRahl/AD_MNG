@@ -1116,10 +1116,25 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
         var fields = CustomFields.ToList();
         var columns = Recipients.KnownColumns.Select(FieldKey.Of).ToHashSet(StringComparer.Ordinal);
 
-        // A value may use columns and built-ins; a name that is a column or a built-in refers to them, not to the custom
-        // field (which is an error of its own).
+        // A value may use columns, built-ins and other custom fields; a name that is a column or a built-in refers to them,
+        // not to the custom field (which is an error of its own). A value that comes back to its own field – directly or
+        // through other custom fields – is an error (it would render empty).
         var customKeys = fields.Where(f => !IsBuiltInName(f.Name)).Select(f => FieldKey.Of(f.Name))
             .Where(k => k.Length > 0 && !columns.Contains(k)).ToHashSet(StringComparer.Ordinal);
+        var uses = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        var names = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var candidate in fields)
+        {
+            var candidateKey = FieldKey.Of(candidate.Name);
+            if (candidateKey.Length > 0 && customKeys.Contains(candidateKey) && !uses.ContainsKey(candidateKey))
+            {
+                names[candidateKey] = candidate.Name.Trim();
+                uses[candidateKey] = candidate.IsDate
+                    ? []
+                    : [.. FieldTemplate.UsedFields(candidate.Value).Select(FieldKey.Of).Where(customKeys.Contains).Distinct(StringComparer.Ordinal)];
+            }
+        }
+
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var field in fields)
         {
@@ -1150,15 +1165,50 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
             {
                 error = field.Date is null ? Localizer[L.CorrespondenceMessage.CustomFieldDateMissing] : null;
             }
-            else if (FieldTemplate.UsedFields(field.Value).Where(u => customKeys.Contains(FieldKey.Of(u))).ToList() is { Count: > 0 } used)
+            else if (LoopOf(key, uses) is { } loop)
             {
-                error = Localizer.Format(L.CorrespondenceMessage.CustomFieldUsesCustom, string.Join(", ", used.Select(u => "{{" + u + "}}")));
+                error = Localizer.Format(L.CorrespondenceMessage.CustomFieldLoop,
+                    string.Join(" → ", loop.Select(k => "{{" + names.GetValueOrDefault(k, k) + "}}")));
             }
 
             if (!string.Equals(field.Error, error, StringComparison.Ordinal))
             {
                 field.Error = error;
             }
+        }
+    }
+
+    /// <summary>The custom fields from <paramref name="start"/> back to it (start first and last), or null when its value never
+    /// comes back to it.</summary>
+    private static List<string>? LoopOf(string start, IReadOnlyDictionary<string, List<string>> uses)
+    {
+        var path = new List<string> { start };
+        var visited = new HashSet<string>(StringComparer.Ordinal) { start };
+        return Walk(start) ? path : null;
+
+        bool Walk(string current)
+        {
+            foreach (var next in uses.GetValueOrDefault(current) ?? [])
+            {
+                if (next == start)
+                {
+                    path.Add(next);
+                    return true;
+                }
+
+                if (visited.Add(next))
+                {
+                    path.Add(next);
+                    if (Walk(next))
+                    {
+                        return true;
+                    }
+
+                    path.RemoveAt(path.Count - 1);
+                }
+            }
+
+            return false;
         }
     }
 

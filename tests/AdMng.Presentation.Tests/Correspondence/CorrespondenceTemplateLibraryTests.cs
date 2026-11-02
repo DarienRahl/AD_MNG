@@ -62,17 +62,24 @@ public sealed class CorrespondenceTemplateLibraryTests : IDisposable
         Assert.Equal("Weryfikacja skrzynki pocztowej: {{Skrzynka}}", single.Subject);
         Assert.False(single.GroupByAddress);
         Assert.Contains("wskazana w temacie tej wiadomości", single.BodyHtml, StringComparison.Ordinal);
-        Assert.Equal(["Termin", "podpis"], FieldTemplate.UsedFields(single.BodyHtml));
+        Assert.Equal(["Link do systemu zgłoszeń", "System zgłoszeń", "Termin", "podpis"], FieldTemplate.UsedFields(single.BodyHtml));
         var grouped = builtIns[1];
         Assert.Equal("Weryfikacja skrzynek pocztowych (jedna wiadomość na osobę)", grouped.Name);
         Assert.Equal("Weryfikacja skrzynek pocztowych", grouped.Subject);
         Assert.True(grouped.GroupByAddress);
         Assert.Contains("<p style=\"margin:0\">{{lista}}</p>", grouped.BodyHtml, StringComparison.Ordinal);   // a paragraph of its own
-        Assert.Equal(["lista", "Termin", "podpis"], FieldTemplate.UsedFields(grouped.BodyHtml));
+        Assert.Equal(["lista", "Link do systemu zgłoszeń", "System zgłoszeń", "Termin", "podpis"], FieldTemplate.UsedFields(grouped.BodyHtml));
         Assert.All(builtIns, t =>
         {
             // The deadline is a date field: today (2026-10-13 on the test clock) + 14 days, "15 listopada 2026r." style.
-            Assert.Equal([new CustomFieldDefinition("Termin", "2026-10-27", CustomFieldKind.Date, CustomFieldFormats.DefaultDate)], t.CustomFields);
+            // The help desk is a field to change: its link follows it.
+            Assert.Equal(
+                [
+                    new CustomFieldDefinition("Termin", "2026-10-27", CustomFieldKind.Date, CustomFieldFormats.DefaultDate),
+                    new CustomFieldDefinition("System zgłoszeń", "hd.uni.lodz.pl"),
+                    new CustomFieldDefinition("Link do systemu zgłoszeń", "https://{{System zgłoszeń}}"),
+                ],
+                t.CustomFields);
             Assert.Equal("27 października 2026r.", CustomFieldFormats.DateText(t.CustomFields[0]));
             Assert.Equal("{{Skrzynka}} ({{Adres skrzynki}})", t.ListItemTemplate);
             Assert.Null(t.Salutation);
@@ -122,17 +129,45 @@ public sealed class CorrespondenceTemplateLibraryTests : IDisposable
         Assert.DoesNotContain("<p style=\"margin:0\"></p>", rendered.HtmlDocument, StringComparison.Ordinal);
         Assert.DoesNotContain("<p></p>", rendered.HtmlDocument, StringComparison.Ordinal);
         Assert.DoesNotContain("{{", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.Contains("<a href=\"https://hd.uni.lodz.pl\"", rendered.HtmlDocument, StringComparison.Ordinal);
         Assert.Empty(rendered.UnknownFields);
         Assert.Empty(rendered.EmptyFields);
+    }
+
+    [Theory]
+    [InlineData(CorrespondenceTemplateLibrary.MailboxStillNeededId)]
+    [InlineData(CorrespondenceTemplateLibrary.MailboxStillNeededGroupedId)]
+    public void BuiltIns_TheHelpDesk_IsOneFieldToChange(string id)
+    {
+        var builtIn = _library.Find(id)!;
+        Assert.Contains(new CustomFieldDefinition(CorrespondenceTemplateLibrary.HelpdeskField, "hd.uni.lodz.pl"), builtIn.CustomFields);
+        Assert.Contains(new CustomFieldDefinition(CorrespondenceTemplateLibrary.HelpdeskLinkField, "https://{{System zgłoszeń}}"), builtIn.CustomFields);
+        Assert.DoesNotContain("hd.uni.lodz.pl", builtIn.BodyHtml, StringComparison.Ordinal);
+
+        // Another help desk: the text and the link of the message follow the one field.
+        var fields = builtIn.CustomFields
+            .Select(f => f.Name == CorrespondenceTemplateLibrary.HelpdeskField ? f with { Value = "pomoc.example.test" } : f)
+            .ToList();
+        var draft = new CorrespondenceDraft { Subject = builtIn.Subject, BodyHtml = builtIn.BodyHtml, CustomFields = fields, ListItemTemplate = builtIn.ListItemTemplate };
+        var unit = new CorrespondenceUnit("jan.kowalski@contoso.test", "Jan Kowalski",
+            [new Dictionary<string, string> { ["Skrzynka"] = "Sekretariat IT", ["Adres skrzynki"] = "sekretariat.it@contoso.test" }]);
+
+        var rendered = CorrespondenceRenderer.Render(draft, unit, ["Skrzynka", "Adres skrzynki"]);
+
+        Assert.Contains("<a href=\"https://pomoc.example.test\"", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.Contains(">pomoc.example.test</span>", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.DoesNotContain("hd.uni.lodz.pl", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.Empty(rendered.UnknownFields);
     }
 
     [Fact]
     public void BuiltInBodies_AreTheOperatorsExampleMessage_Unchanged()
     {
-        // The embedded files are the golden HTML byte for byte (LF line ends, pinned by .gitattributes): any edit of their
-        // text or styles breaks the 1:1 look of the message.
-        Assert.Equal("c03bfcb9ad637c4a933f6e23484c85a9118ef924c00aeefe7ef44f48f355b887", ResourceSha256("mailbox-still-needed.html"));
-        Assert.Equal("0cb9a68857a150f4b254d715e9369c16593dd825bb7615ed60a1fc090baa4442", ResourceSha256("mailbox-still-needed-grouped.html"));
+        // The embedded files are the golden HTML byte for byte (LF line ends, pinned by .gitattributes) with the help desk
+        // link in two fields ({{System zgłoszeń}}, {{Link do systemu zgłoszeń}}): any other edit of their text or styles
+        // breaks the 1:1 look of the message.
+        Assert.Equal("ebebeb79e76e71b955d85a1efea7040bbf26c41b93d7f613c603170d1a82a465", ResourceSha256("mailbox-still-needed.html"));
+        Assert.Equal("19b13af24c72b1d26694987aa703e90a929a234e39598420f8c19b1e15618b59", ResourceSha256("mailbox-still-needed-grouped.html"));
         Assert.Equal(ResourceText("mailbox-still-needed.html").TrimEnd('\n'), _library.Find(CorrespondenceTemplateLibrary.MailboxStillNeededId)!.BodyHtml);
         Assert.Equal(ResourceText("mailbox-still-needed-grouped.html").TrimEnd('\n'), _library.Find(CorrespondenceTemplateLibrary.MailboxStillNeededGroupedId)!.BodyHtml);
     }

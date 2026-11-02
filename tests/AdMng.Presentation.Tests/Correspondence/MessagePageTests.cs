@@ -157,13 +157,13 @@ public sealed class MessagePageTests
                 "to nazwa pola wbudowanego",
                 "to nazwa kolumny listy odbiorców",
                 "nazwa nie może zawierać znaków { } | i może mieć najwyżej 80 znaków",
-                "wartość nie może używać innych pól własnych ({{Termin}})",
+                null,   // another custom field ({{Termin}}) and a column ({{Miejscowość}}) in the value
                 null,
             ],
             message.CustomFields.Select(f => f.Error));
         var errors = message.ValidateForSend();
         Assert.Contains("Pole własne „Miejscowość”: to nazwa kolumny listy odbiorców", errors);
-        Assert.Equal(7, errors.Count(e => e.StartsWith("Pole własne „", StringComparison.Ordinal)));
+        Assert.Equal(6, errors.Count(e => e.StartsWith("Pole własne „", StringComparison.Ordinal)));
 
         foreach (var field in message.CustomFields.Where(f => f.Error is not null).ToList())
         {
@@ -171,7 +171,52 @@ public sealed class MessagePageTests
         }
 
         Assert.Empty(message.ValidateForSend());
-        Assert.Equal([new CustomFieldDefinition("Termin", "15 listopada"), new CustomFieldDefinition("Sala", "nr 12 ({{nazwa}})")], message.Draft().CustomFields);
+        Assert.Equal(
+            [
+                new CustomFieldDefinition("Termin", "15 listopada"),
+                new CustomFieldDefinition("Zaproszenie", "na {{Termin}} w {{Miejscowość}}"),
+                new CustomFieldDefinition("Sala", "nr 12 ({{nazwa}})"),
+            ],
+            message.Draft().CustomFields);
+    }
+
+    [Fact]
+    public async Task CustomFields_MayUseEachOther_ButALoopIsAnError()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenAsync();
+        var message = window.Message;
+        CorrespondencePagesScenario.AddRows(window, CorrespondencePagesScenario.Offices());
+        message.Subject = "Zgłoszenia";
+        message.BodyHtml = "<p><a href=\"{{Link do systemu zgłoszeń}}\">{{System zgłoszeń}}</a></p>";
+
+        message.CustomFields.Add(new CustomFieldViewModel("System zgłoszeń", "pomoc.example.test"));
+        message.CustomFields.Add(new CustomFieldViewModel("Link do systemu zgłoszeń", "https://{{System zgłoszeń}}"));
+        message.CustomFields.Add(new CustomFieldViewModel("Pętla A", "a {{Pętla B}}"));
+        message.CustomFields.Add(new CustomFieldViewModel("Pętla B", "b {{Pętla C}}"));
+        message.CustomFields.Add(new CustomFieldViewModel("Pętla C", "c {{pętla a}}"));
+        message.CustomFields.Add(new CustomFieldViewModel("Sama", "{{Sama}}!"));
+
+        Assert.Equal(
+            [
+                null,
+                null,
+                "wartość odwołuje się sama do siebie ({{Pętla A}} → {{Pętla B}} → {{Pętla C}} → {{Pętla A}})",
+                "wartość odwołuje się sama do siebie ({{Pętla B}} → {{Pętla C}} → {{Pętla A}} → {{Pętla B}})",
+                "wartość odwołuje się sama do siebie ({{Pętla C}} → {{Pętla A}} → {{Pętla B}} → {{Pętla C}})",
+                "wartość odwołuje się sama do siebie ({{Sama}} → {{Sama}})",
+            ],
+            message.CustomFields.Select(f => f.Error));
+
+        foreach (var field in message.CustomFields.Where(f => f.Error is not null).ToList())
+        {
+            message.RemoveCustomFieldCommand.Execute(field);
+        }
+
+        Assert.Empty(message.ValidateForSend());
+        var fields = new RecipientFieldSet("jan.kowalski@example.test", "Jan Kowalski", new Dictionary<string, string>(), "",
+            message.Draft().CustomFields, []);
+        Assert.Equal("https://pomoc.example.test", fields.Lookup("Link do systemu zgłoszeń"));
     }
 
     [Fact]
@@ -514,7 +559,9 @@ public sealed class MessagePageTests
         Assert.Empty(scenario.Ui.Shown);
         Assert.Equal("Weryfikacja skrzynki pocztowej: {{Skrzynka}}", message.Subject);
         Assert.Contains("{{Termin}}", message.BodyHtml, StringComparison.Ordinal);
-        var termin = Assert.Single(message.CustomFields);
+        Assert.Equal(["Termin", "System zgłoszeń", "Link do systemu zgłoszeń"], message.CustomFields.Select(f => f.Name));
+        Assert.Equal(["hd.uni.lodz.pl", "https://{{System zgłoszeń}}"], message.CustomFields.Skip(1).Select(f => f.Value));
+        var termin = message.CustomFields[0];
         Assert.Equal(("Termin", true, new DateTime(2026, 10, 27), CustomFieldFormats.DefaultDate), (termin.Name, termin.IsDate, termin.Date, termin.Format));
         Assert.Equal("27 października 2026r.", termin.Sample);
         Assert.Null(termin.Error);

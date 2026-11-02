@@ -229,8 +229,10 @@ w nawiązaniu do działalności {{nazwa}} w {{Miejscowość}}…
 ```
 
 **Pola własne** (zakładka *Wiadomość*): nazwa i wartość, ta sama dla wszystkich odbiorców, np. *Telefon działu* =
-„22 555 01 00”. Wartość może zawierać inne pola (`{{nazwa}}`, kolumny), ale nie inne pola własne. Pola własne zapisują
-się w szablonach i w ostatnim szkicu – zamiast pól `{$input:…}` z wiadomości do użytkowników.
+„22 555 01 00”. Wartość może zawierać inne pola (`{{nazwa}}`, kolumny), także inne pola własne – np. *Link do systemu
+zgłoszeń* = `https://{{System zgłoszeń}}`, więc zmiana jednego pola zmienia oba miejsca. Pole, które przez inne wraca
+samo do siebie, jest oznaczone błędem (*wartość odwołuje się sama do siebie*). Pola własne zapisują się w szablonach
+i w ostatnim szkicu – zamiast pól `{$input:…}` z wiadomości do użytkowników.
 
 **Pola daty** (*Dodaj datę*): datę wybiera się w kalendarzu, a format – z listy albo wpisując własny (format daty .NET:
 `d` – dzień, `MMMM` – miesiąc słownie, `yyyy` – rok, tekst w apostrofach). Domyślny format `d MMMM yyyy'r.'` daje
@@ -567,8 +569,11 @@ wiadomość):
   zespołu i **podpis z Outlooka w miejscu `{{podpis}}`** – wybierz go na liście *Podpis* (rozdział 5).
 - **Termin** – pole daty ustawione na dziś + 14 dni, w formacie „15 listopada 2026r.”. Przed wysyłką sprawdź datę na
   zakładce *Wiadomość* – data z przeszłości to ostrzeżenie podglądu.
+- **System zgłoszeń** – pole własne z adresem systemu zgłoszeń, domyślnie `hd.uni.lodz.pl`: tekst odsyłacza w treści.
+  Adres odsyłacza bierze się z pola *Link do systemu zgłoszeń* = `https://{{System zgłoszeń}}`, więc innym systemem
+  zgłoszeń zmienia się tylko jedno pole (adres z inną ścieżką albo `http://` – wpisz cały w *Link do systemu zgłoszeń*).
 
-Szablon wbudowany można zapisać pod inną nazwą i zmienić (np. odsyłacz do systemu zgłoszeń w treści).
+Szablon wbudowany można zapisać pod inną nazwą (z własnym systemem zgłoszeń, terminem i czcionką) i dalej zmieniać.
 
 ## 9. Krok 5 – Odpowiedzi
 

@@ -100,11 +100,54 @@ public class RecipientFieldSetTests
     }
 
     [Fact]
-    public void CustomFields_CannotUseOtherCustomFields()
+    public void CustomFields_UseOtherCustomFields_AChainOfThem()
     {
-        var set = Set(custom: [new CustomFieldDefinition("A", "[{{B}}]"), new CustomFieldDefinition("B", "b"), new CustomFieldDefinition("C", "{{C}}")]);
-        Assert.Equal("[]", set.Lookup("A"));
-        Assert.Equal(string.Empty, set.Lookup("C"));   // no recursion
+        var set = Set(custom:
+        [
+            new CustomFieldDefinition("Link do systemu zgłoszeń", "https://{{System zgłoszeń}}"),
+            new CustomFieldDefinition("System zgłoszeń", "pomoc.example.test"),
+            new CustomFieldDefinition("Opis", "{{Link do systemu zgłoszeń}} – {{nazwa}}"),
+            new CustomFieldDefinition("Termin", "2026-11-15", CustomFieldKind.Date),
+            new CustomFieldDefinition("Do kiedy", "do {{Termin}}"),
+        ]);
+        Assert.Equal("https://pomoc.example.test", set.Lookup("link do systemu zgloszen"));
+        Assert.Equal("https://pomoc.example.test – Urząd Gminy Żórawina", set.Lookup("Opis"));
+        Assert.Equal("do 15 listopada 2026r.", set.Lookup("Do kiedy"));
+        Assert.Equal("<a href=\"https://pomoc.example.test\">pomoc.example.test</a>",
+            FieldTemplate.Merge("<a href=\"{{Link do systemu zgłoszeń}}\">{{System zgłoszeń}}</a>", set.Lookup, FieldEncoding.Html));
+    }
+
+    [Fact]
+    public void CustomFields_ALoopIsEmptyThere_NeverEndless()
+    {
+        var set = Set(custom:
+        [
+            new CustomFieldDefinition("A", "[{{B}}]"),
+            new CustomFieldDefinition("B", "b{{A}}"),
+            new CustomFieldDefinition("C", "{{C}}"),
+        ]);
+        Assert.Equal("[b]", set.Lookup("A"));
+        Assert.Equal(string.Empty, set.Lookup("C"));
+        Assert.Equal("b[]", Set(custom: [new CustomFieldDefinition("A", "[{{B}}]"), new CustomFieldDefinition("B", "b{{A}}")]).Lookup("B"));   // where the merge starts decides
+    }
+
+    [Fact]
+    public void CustomFields_NestedDeeperThanTheLimit_AreEmptyThere()
+    {
+        var chain = Enumerable.Range(0, RecipientFieldSet.MaxCustomDepth + 2)
+            .Select(i => new CustomFieldDefinition("P" + i, i == RecipientFieldSet.MaxCustomDepth + 1 ? "koniec" : "{{P" + (i + 1) + "}}"))
+            .ToList();
+        Assert.Equal(string.Empty, Set(custom: chain).Lookup("P0"));
+        Assert.Equal("koniec", Set(custom: chain).Lookup("P2"));
+    }
+
+    [Fact]
+    public void CustomFields_UsingAnotherOne_GetTheListAsText()
+    {
+        var set = new RecipientFieldSet("ug@zorawina.pl", "Urząd Gminy Żórawina", Row, "Szanowni Państwo",
+            [new CustomFieldDefinition("Wykaz", "Lista: {{lista}}"), new CustomFieldDefinition("Wstęp", "{{Wykaz}}.")], Known,
+            list: "<ul><li>Łódź</li></ul>", count: 1, listText: "Łódź");
+        Assert.Equal("Lista: Łódź.", set.Lookup("Wstęp"));
     }
 
     [Fact]

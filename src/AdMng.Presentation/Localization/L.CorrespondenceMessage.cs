@@ -53,7 +53,7 @@ public static partial class L
         public const string CustomFieldDuplicate = "Correspondence.Message.CustomFieldDuplicate";
         public const string CustomFieldBuiltIn = "Correspondence.Message.CustomFieldBuiltIn";
         public const string CustomFieldColumn = "Correspondence.Message.CustomFieldColumn";
-        public const string CustomFieldUsesCustom = "Correspondence.Message.CustomFieldUsesCustom";
+        public const string CustomFieldLoop = "Correspondence.Message.CustomFieldLoop";
 
         /// <summary>A date field without a date (the error of the field).</summary>
         public const string CustomFieldDateMissing = "Correspondence.Message.CustomFieldDateMissing";

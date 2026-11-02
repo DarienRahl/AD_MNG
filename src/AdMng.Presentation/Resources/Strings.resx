@@ -12800,8 +12800,8 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Correspondence.Message.CustomFieldColumn" xml:space="preserve">
     <value>this is the name of a column of the recipient list</value>
   </data>
-  <data name="Correspondence.Message.CustomFieldUsesCustom" xml:space="preserve">
-    <value>the value cannot use other custom fields ({0})</value>
+  <data name="Correspondence.Message.CustomFieldLoop" xml:space="preserve">
+    <value>the value refers back to itself ({0})</value>
   </data>
   <data name="Correspondence.Message.CustomFieldDateMissing" xml:space="preserve">
     <value>choose a date</value>

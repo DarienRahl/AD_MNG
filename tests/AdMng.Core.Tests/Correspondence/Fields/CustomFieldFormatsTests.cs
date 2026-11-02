@@ -74,7 +74,7 @@ public class CustomFieldFormatsTests
             new("Termin", "2026-11-15", CustomFieldKind.Date),
             new("Termin krótki", "2026-11-15", CustomFieldKind.Date, "dd.MM.yyyy"),
             new("Brak terminu", "", CustomFieldKind.Date),
-            new("Opis", "Skrzynka {{Skrzynka}} – do {{Termin}}"),       // text: no custom fields inside a custom value
+            new("Opis", "Skrzynka {{Skrzynka}} – do {{Termin}}"),       // text: other custom fields (a date too) inside
         ];
         var set = new RecipientFieldSet("jan.kowalski@contoso.test", "Jan Kowalski",
             new Dictionary<string, string> { ["Skrzynka"] = "Sekretariat Wydziału Łączności" }, "Szanowni Państwo", custom, ["Skrzynka"]);
@@ -82,7 +82,7 @@ public class CustomFieldFormatsTests
         Assert.Equal("15 listopada 2026r.", set.Lookup("termin"));
         Assert.Equal("15.11.2026", set.Lookup("Termin krótki"));
         Assert.Equal(string.Empty, set.Lookup("Brak terminu"));      // known and empty: the preview flags it
-        Assert.Equal("Skrzynka Sekretariat Wydziału Łączności – do ", set.Lookup("Opis"));
+        Assert.Equal("Skrzynka Sekretariat Wydziału Łączności – do 15 listopada 2026r.", set.Lookup("Opis"));
     }
 
     [Fact]

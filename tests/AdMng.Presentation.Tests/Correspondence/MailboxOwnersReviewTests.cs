@@ -532,12 +532,14 @@ public sealed class MailboxOwnersReviewTests
         using var __ = scenario;
         using var ___ = window;
         await window.Mailboxes.AddToRecipientsCommand.ExecuteAsync(null);
-        var termin = Assert.Single(window.Message.CustomFields);
+        var termin = window.Message.CustomFields[0];
+        Assert.Equal("Termin", termin.Name);
         termin.Date = new DateTime(2026, 12, 4);                         // the operator chose the deadline
 
         // The same grouping again: the built-in that fits stays as it is (the deadline too).
         await window.Mailboxes.AddToRecipientsCommand.ExecuteAsync(null);
-        Assert.Same(termin, Assert.Single(window.Message.CustomFields));
+        Assert.Same(termin, window.Message.CustomFields[0]);
+        Assert.Equal(3, window.Message.CustomFields.Count);
 
         // Grouped now: the other built-in replaces the unchanged one without a question, the deadline is kept.
         window.Mailboxes.GroupByOwner = true;
@@ -547,7 +549,8 @@ public sealed class MailboxOwnersReviewTests
         Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededGroupedId, window.Message.SelectedTemplate?.Id);
         Assert.Equal("Weryfikacja skrzynek pocztowych", window.Message.Subject);
         Assert.True(window.Message.GroupByAddress);
-        Assert.Equal(new DateTime(2026, 12, 4), Assert.Single(window.Message.CustomFields).Date);
+        Assert.Equal(3, window.Message.CustomFields.Count);
+        Assert.Equal(new DateTime(2026, 12, 4), window.Message.CustomFields[0].Date);
         Assert.Equal("4 grudnia 2026r.", window.Message.CustomFields[0].Sample);
 
         // A message of the operator's is never replaced.

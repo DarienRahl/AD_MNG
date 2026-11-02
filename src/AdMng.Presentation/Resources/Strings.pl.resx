@@ -12800,8 +12800,8 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="Correspondence.Message.CustomFieldColumn" xml:space="preserve">
     <value>to nazwa kolumny listy odbiorców</value>
   </data>
-  <data name="Correspondence.Message.CustomFieldUsesCustom" xml:space="preserve">
-    <value>wartość nie może używać innych pól własnych ({0})</value>
+  <data name="Correspondence.Message.CustomFieldLoop" xml:space="preserve">
+    <value>wartość odwołuje się sama do siebie ({0})</value>
   </data>
   <data name="Correspondence.Message.CustomFieldDateMissing" xml:space="preserve">
     <value>wybierz datę</value>

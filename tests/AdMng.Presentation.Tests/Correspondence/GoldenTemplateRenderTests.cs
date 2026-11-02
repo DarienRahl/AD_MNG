@@ -101,12 +101,19 @@ public sealed partial class GoldenTemplateRenderTests
         return window;
     }
 
-    /// <summary>The nodes of the golden HTML as the message shows them: the deadline filled in, the signature's paragraph
-    /// left out (the signature itself stands there).</summary>
+    /// <summary>The nodes of the golden HTML as the message shows them: the deadline and the help desk of the operator's
+    /// example filled in (the link exactly as the example has it), the signature's paragraph left out (the signature itself
+    /// stands there).</summary>
     private static IReadOnlyList<INode> Golden(string body)
     {
         Assert.Contains("<p>{{podpis}}</p>", body, StringComparison.Ordinal);
-        var html = body.Replace("{{Termin}}", Deadline, StringComparison.Ordinal).Replace("<p>{{podpis}}</p>", string.Empty, StringComparison.Ordinal);
+        var html = body.Replace("{{Termin}}", Deadline, StringComparison.Ordinal)
+            .Replace("{{Link do systemu zgłoszeń}}", "https://hd.uni.lodz.pl", StringComparison.Ordinal)
+            .Replace("{{System zgłoszeń}}", "hd.uni.lodz.pl", StringComparison.Ordinal)
+            .Replace("<p>{{podpis}}</p>", string.Empty, StringComparison.Ordinal);
+        Assert.Contains(
+            "<a href=\"https://hd.uni.lodz.pl\" style=\"color:blue;text-decoration:underline\"><b><span style=\"color:#0056B3\">hd.uni.lodz.pl</span></b></a>",
+            html, StringComparison.Ordinal);
         return Significant(new HtmlParser().ParseDocument("<!DOCTYPE html><html><body>" + html + "</body></html>").Body!.ChildNodes);
     }
 
