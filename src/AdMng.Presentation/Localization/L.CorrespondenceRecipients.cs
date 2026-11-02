@@ -75,6 +75,12 @@ public static partial class L
         /// <summary>The list is full: {0} = <c>CorrespondenceLimits.MaxRecipients</c>, {1} = rows not added.</summary>
         public const string OverLimit = "Correspondence.Recipients.OverLimit";
 
+        /// <summary>Sheets of an Excel workbook left out because Excel hides them: {0} = their number.</summary>
+        public const string HiddenSheets = "Correspondence.Recipients.HiddenSheets";
+
+        /// <summary>Rows of an Excel workbook left out because Excel hides them (hidden, filtered out): {0} = their number.</summary>
+        public const string HiddenRows = "Correspondence.Recipients.HiddenRows";
+
         /// <summary>A group with more members than the limit: {0} = the group, {1} = the limit.</summary>
         public const string GroupTruncated = "Correspondence.Recipients.GroupTruncated";
 

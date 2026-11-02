@@ -130,6 +130,47 @@ public class XlsxImportTests
     }
 
     [Fact]
+    public void HiddenSheetsAndHiddenRows_AreLeftOut_AndCounted()
+    {
+        // "Archiwum" is hidden, "Stare" very hidden; in "Lista" row 3 is filtered out and row 5 (empty) hidden.
+        var list = Sheet(InlineRow(1, ("A1", "Nazwa"), ("B1", "E-mail"))
+            + InlineRow(2, ("A2", "Urząd Gminy Łask"), ("B2", "ug@lask.pl"))
+            + InlineRow(3, ("A3", "Wycofany urząd"), ("B3", "wycofany@urzad.pl")).Replace("<row r=\"3\">", "<row r=\"3\" hidden=\"1\">", StringComparison.Ordinal)
+            + InlineRow(4, ("A4", "Starostwo Zduńska Wola"), ("B4", "sp@zdunskawola.pl")).Replace("<row r=\"4\">", "<row r=\"4\" hidden=\"0\">", StringComparison.Ordinal)
+            + "<row r=\"5\" hidden=\"true\"/>");
+        var archive = Sheet(InlineRow(1, ("A1", "Nazwa"), ("B1", "E-mail")) + InlineRow(2, ("A2", "Stary urząd"), ("B2", "stary@urzad.pl")));
+        var workbook = $"<workbook xmlns=\"{SpreadsheetNs}\" xmlns:r=\"{RelationshipsNs}\"><sheets>"
+            + "<sheet name=\"Lista\" sheetId=\"1\" r:id=\"rId1\"/><sheet name=\"Archiwum\" sheetId=\"2\" state=\"hidden\" r:id=\"rId2\"/>"
+            + "<sheet name=\"Stare\" sheetId=\"3\" state=\"veryHidden\" r:id=\"rId3\"/></sheets></workbook>";
+        var rels = "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+            + "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>"
+            + "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet2.xml\"/>"
+            + "<Relationship Id=\"rId3\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet3.xml\"/>"
+            + "</Relationships>";
+        var xlsx = Zip(("xl/workbook.xml", workbook), ("xl/_rels/workbook.xml.rels", rels),
+            ("xl/worksheets/sheet1.xml", list), ("xl/worksheets/sheet2.xml", archive), ("xl/worksheets/sheet3.xml", archive));
+
+        var result = Read(xlsx);
+
+        Assert.Equal(["ug@lask.pl", "sp@zdunskawola.pl"], result.Contacts.Select(c => c.Email));
+        Assert.Equal(2, result.HiddenSheets);
+        Assert.Equal(1, result.HiddenRows);
+        Assert.Equal(0, result.InvalidAddresses);
+    }
+
+    [Fact]
+    public void OnlyHiddenSheets_NothingIsRead()
+    {
+        var sheet = Sheet(InlineRow(1, ("A1", "E-mail")) + InlineRow(2, ("A2", "ukryty@urzad.pl")));
+        var workbook = $"<workbook xmlns=\"{SpreadsheetNs}\" xmlns:r=\"{RelationshipsNs}\"><sheets><sheet name=\"A\" sheetId=\"1\" state=\"hidden\" r:id=\"rId1\"/></sheets></workbook>";
+        var rels = "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+            + "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/></Relationships>";
+        var result = Read(Zip(("xl/workbook.xml", workbook), ("xl/_rels/workbook.xml.rels", rels), ("xl/worksheets/sheet1.xml", sheet)));
+        Assert.Empty(result.Contacts);
+        Assert.Equal(1, result.HiddenSheets);
+    }
+
+    [Fact]
     public void WithoutAWorkbook_SheetsInNaturalOrder()
     {
         string SheetWith(string address) => Sheet(InlineRow(1, ("A1", "E-mail")) + InlineRow(2, ("A2", address)));

@@ -37,5 +37,11 @@ public sealed record ContactImportResult(
     /// <summary>No contacts (free text).</summary>
     public static ContactImportResult Empty { get; } = new([], [], 0, 0, ContactSourceFormat.Text);
 
+    /// <summary>Worksheets of an Excel workbook left out because Excel hides them (state hidden or very hidden).</summary>
+    public int HiddenSheets { get; init; }
+
+    /// <summary>Rows of an Excel workbook left out because Excel hides them (hidden by hand, filtered out, collapsed).</summary>
+    public int HiddenRows { get; init; }
+
     public override string ToString() => $"{Contacts.Count} contacts";
 }

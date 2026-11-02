@@ -1041,7 +1041,10 @@ differs from sections 1–13 or goes beyond them.
 - **Documents:** DOCX, ODT and HTML tables go through `FromRows` (not tab-joined text); `gridSpan`/`colspan` add empty
   cells, a `vMerge` continuation repeats the cell above; `mailto:` links become "text <addr>" in every document format;
   deleted text, field codes, fallbacks and annotations are skipped. XLSX/ODS rows above a sheet's header are free text;
-  with no e-mail column in any sheet every cell is free text. RTF: a font's `\fcharset` wins over `\ansicpg`.
+  with no e-mail column in any sheet every cell is free text. What Excel hides is left out of an XLSX import – sheets in
+  the state `hidden`/`veryHidden`, rows marked `hidden` (by hand, a filter, a collapsed group) – and counted
+  (`ContactImportResult.HiddenSheets`/`HiddenRows`, "pominięte ukryte arkusze: 1, pominięte ukryte wiersze: 15" in the
+  status). RTF: a font's `\fcharset` wins over `\ansicpg`.
 - **Limits:** 256 columns; 4 million cells and 2 million shared strings per workbook; zip entries ≤ 200 MiB, ≤ 20 000
   entries and ≤ 512 MiB in total; the ratio check (> 100) only for entries over 1 MiB; inflated bytes are counted (a
   forged size is caught). The text of a package's cells and paragraphs ≤ 50 Mi characters (`SpreadsheetLimits.MaxCharacters`:

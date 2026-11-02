@@ -12277,6 +12277,12 @@ Use "Check Outlook" – it shows the version, profile, accounts and signatures s
   <data name="Correspondence.Recipients.OverLimit" xml:space="preserve">
     <value>the list holds at most {0:N0} recipients – {1} left out</value>
   </data>
+  <data name="Correspondence.Recipients.HiddenSheets" xml:space="preserve">
+    <value>hidden sheets skipped: {0:N0}</value>
+  </data>
+  <data name="Correspondence.Recipients.HiddenRows" xml:space="preserve">
+    <value>hidden rows skipped: {0:N0}</value>
+  </data>
   <data name="Correspondence.Recipients.GroupTruncated" xml:space="preserve">
     <value>The group {0} has more than {1:N0} members – only the first {1:N0} were added.</value>
   </data>

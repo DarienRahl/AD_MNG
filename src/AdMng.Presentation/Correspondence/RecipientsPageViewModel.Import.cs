@@ -78,10 +78,12 @@ public sealed partial class RecipientsPageViewModel
         return new RecipientsAdded(added.Count, duplicates, overLimit);
     }
 
-    /// <summary>"120 nowych, 3 powtórzone, 2 błędne adresy" (Polish plural forms); "" parts left out except the new ones.</summary>
-    internal string CountsPart(RecipientsAdded added, int invalid, int withoutAddress = 0, int other = 0)
+    /// <summary>"120 nowych, 3 powtórzone, 2 błędne adresy" (Polish plural forms); "" parts left out except the new ones.
+    /// <paramref name="hiddenSheets"/>/<paramref name="hiddenRows"/>: what an Excel workbook hides and the import left out.</summary>
+    internal string CountsPart(RecipientsAdded added, int invalid, int withoutAddress = 0, int other = 0, int hiddenSheets = 0, int hiddenRows = 0)
     {
-        if (added.Added == 0 && added.Duplicates == 0 && added.OverLimit == 0 && invalid == 0 && withoutAddress == 0 && other == 0)
+        if (added.Added == 0 && added.Duplicates == 0 && added.OverLimit == 0 && invalid == 0 && withoutAddress == 0 && other == 0
+            && hiddenSheets == 0 && hiddenRows == 0)
         {
             return Localizer[L.CorrespondenceRecipients.NothingFound];
         }
@@ -108,6 +110,16 @@ public sealed partial class RecipientsPageViewModel
         if (other > 0)
         {
             parts.Add(Localizer.Format(L.CorrespondenceRecipients.OtherObjects, other));
+        }
+
+        if (hiddenSheets > 0)
+        {
+            parts.Add(Localizer.Format(L.CorrespondenceRecipients.HiddenSheets, hiddenSheets));
+        }
+
+        if (hiddenRows > 0)
+        {
+            parts.Add(Localizer.Format(L.CorrespondenceRecipients.HiddenRows, hiddenRows));
         }
 
         if (added.OverLimit > 0)
@@ -153,7 +165,7 @@ public sealed partial class RecipientsPageViewModel
         }
 
         var errors = new List<string>();
-        int added = 0, duplicates = 0, overLimit = 0, invalid = 0;
+        int added = 0, duplicates = 0, overLimit = 0, invalid = 0, hiddenSheets = 0, hiddenRows = 0;
         ContactSourceFormat? format = null;
         foreach (var path in paths)
         {
@@ -166,6 +178,8 @@ public sealed partial class RecipientsPageViewModel
                 duplicates += outcome.Duplicates;
                 overLimit += outcome.OverLimit;
                 invalid += result.InvalidAddresses;
+                hiddenSheets += result.HiddenSheets;
+                hiddenRows += result.HiddenRows;
                 format = result.Format;
             }
             catch (InvalidDataException)
@@ -178,7 +192,7 @@ public sealed partial class RecipientsPageViewModel
             }
         }
 
-        var counts = CountsPart(new RecipientsAdded(added, duplicates, overLimit), invalid);
+        var counts = CountsPart(new RecipientsAdded(added, duplicates, overLimit), invalid, hiddenSheets: hiddenSheets, hiddenRows: hiddenRows);
         if (paths.Count - errors.Count > 0)
         {
             ReportStatus(paths.Count == 1

@@ -10,7 +10,9 @@ namespace AdMng.Core.Correspondence.Import;
 /// </summary>
 /// <remarks>
 /// Text files go through <see cref="ContactExtractor.FromText"/>. Workbooks (XLSX, ODS): every sheet with an e-mail column
-/// is a table of its own, their contacts concatenated; when no sheet has one, all cells are free text. Documents (DOCX,
+/// is a table of its own, their contacts concatenated; when no sheet has one, all cells are free text. Sheets and rows
+/// Excel hides are left out of an XLSX (<see cref="ContactImportResult.HiddenSheets"/>,
+/// <see cref="ContactImportResult.HiddenRows"/>): the operator never saw them. Documents (DOCX,
 /// ODT, HTML): text outside tables through <see cref="ContactExtractor.FromText"/>, every table through
 /// <see cref="ContactExtractor.FromRows"/> (HTML: the tables first, then the remaining text). A file with any other
 /// extension is read as text. Exception messages never contain the file's content.
@@ -46,9 +48,10 @@ public static class ContactFileReader
                 case ".xlsx" or ".xlsm" or ".xltx":
                     using (var zip = SafeZip.Open(content))
                     {
-                        var sheets = XlsxReader.ReadSheets(zip);
-                        return DocumentParts.Sheets(
-                            sheets, () => string.Concat(sheets.Select(ContactExtractor.RowsText)), ContactSourceFormat.Excel);
+                        var workbook = XlsxReader.ReadSheets(zip);
+                        var sheets = workbook.Sheets;
+                        return DocumentParts.Sheets(sheets, () => string.Concat(sheets.Select(ContactExtractor.RowsText)), ContactSourceFormat.Excel)
+                            with { HiddenSheets = workbook.HiddenSheets, HiddenRows = workbook.HiddenRows };
                     }
 
                 case ".ods":
