@@ -14,8 +14,8 @@ public static class CorrespondenceRenderer
 
     /// <summary>
     /// Merges subject (Header) and body (Html) for one unit; groups render <c>{{lista}}</c> as <c>&lt;ul&gt;&lt;li&gt;</c>
-    /// of the list item template (plain text, HTML-encoded, values Html) per row and <c>{{liczba}}</c> as the row count; the first row gives the other
-    /// fields. The body is repaired (<c>FieldTemplate.RepairHtml</c>), merged, wrapped by
+    /// of the list item template (plain text, HTML-encoded; values Html) per row and <c>{{liczba}}</c> as the row count;
+    /// the first row gives the other fields. The body is repaired (<c>FieldTemplate.RepairHtml</c>), merged, wrapped by
     /// <see cref="CorrespondenceDocument.Build"/> and re-sanitized as a document.
     /// </summary>
     /// <remarks>

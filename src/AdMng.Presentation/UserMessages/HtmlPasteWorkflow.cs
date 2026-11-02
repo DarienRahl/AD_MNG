@@ -43,7 +43,8 @@ public sealed record HtmlPasteResult(HtmlPasteKind Kind, string Html, IReadOnlyL
 /// becomes one image, text alone becomes paragraphs. Never throws on content. The image limits are those of messages to
 /// users unless <c>imageLimits</c> gives others (Korespondencja: <c>CorrespondenceLimits.PastedImages</c>).
 /// </summary>
-public sealed class HtmlPasteWorkflow(IClipboardService clipboard, IPastedImageSource? files, ITemplateEngine? engine = null, HtmlImageLimits? imageLimits = null)
+public sealed class HtmlPasteWorkflow(
+    IClipboardService clipboard, IPastedImageSource? files, ITemplateEngine? engine = null, HtmlImageLimits? imageLimits = null)
 {
     private readonly HtmlImageLimits _imageLimits = imageLimits ?? HtmlImageLimits.UserMessages;
 
@@ -73,7 +74,8 @@ public sealed class HtmlPasteWorkflow(IClipboardService clipboard, IPastedImageS
 
     /// <summary>The clipboard's bitmap as an image for "Wklej obraz", or why not (null + the error); at most
     /// <paramref name="maxImageBytes"/> after stripping.</summary>
-    public static (MessageImage? Image, MessageImageError? Error) ImageOf(ClipboardContent? content, int number = 1, int maxImageBytes = MessageImageLimits.MaxImageBytes)
+    public static (MessageImage? Image, MessageImageError? Error) ImageOf(
+        ClipboardContent? content, int number = 1, int maxImageBytes = MessageImageLimits.MaxImageBytes)
     {
         if (content?.Png is not { Length: > 0 } png)
         {

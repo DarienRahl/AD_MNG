@@ -1028,16 +1028,15 @@ differs from sections 1–13 or goes beyond them.
   with `:`) and a "header" whose e-mail column gives no more addresses than the lines that hold an address but end
   before that column (prose split at commas, "Dzień dobry, adresy e-mail poniżej" over single addresses); in an accepted
   delimited table such a short line is free text, never lost (a row that has the e-mail cell but no address in it stays
-  invalid – other columns are no recipients). When no candidate is taken the rows are free text – a sheet or document table
-  as well as text (the invalid rows of an e-mail column without any address still count); a workbook keeps the tables
-  of the sheets that have one, takes the other e-mail-headed sheets as free text and, when no sheet has a table, reads
-  every cell as free text. E-mail column tiers: the exact names, then `poczta`, then a header
-  containing `mail` – the first column of a tier with at least one valid address wins. The "contains name" rule skips
+  invalid – other columns are no recipients). When no candidate is taken the rows are free text – a sheet or document
+  table as well as text (the invalid rows of an e-mail column without any address still count); a workbook keeps the
+  tables of the sheets that have one, takes the other e-mail-headed sheets as free text and, when no sheet has a table,
+  reads every cell as free text. E-mail column tiers: the exact names, then `poczta`, then a header containing `mail` –
+  the first column of a tier with at least one valid address wins. The "contains name" rule skips
   first-name, surname, middle-name ("Middle Name", "Additional Name", "Drugie imię") and login headers (so "First name" +
   "Last name" still give the Imię+Nazwisko rule); a row whose name cell is empty (or only an address) takes Imię+Nazwisko
-  when both columns exist. A column is
-  named by its header on one line: line breaks (Excel's Alt+Enter, a multi-line quoted CSV header), tabs and other
-  control characters become one space, since a `{{field}}` cannot hold a line break.
+  when both columns exist. A column is named by its header on one line: line breaks (Excel's Alt+Enter, a multi-line
+  quoted CSV header), tabs and other control characters become one space, since a `{{field}}` cannot hold a line break.
 - **Free text:** contacts in file order; a later name fills an earlier empty one; addresses never start inside a word
   (`Łucja.Żak@x.pl` does not yield `ak@x.pl`), also not after an apostrophe or another RFC 5322 `atext` character inside
   a word (`o'brien@x.ie`, `biuro&sekretariat@x.pl` are refused whole, not cut to `brien@x.ie`, `sekretariat@x.pl`; a
@@ -1059,11 +1058,11 @@ differs from sections 1–13 or goes beyond them.
   the leading zero of a PESEL (`XlsxNumberFormats`). RTF: a font's `\fcharset` wins over `\ansicpg`.
 - **Limits:** 256 columns; 4 million cells and 2 million shared strings per workbook; zip entries ≤ 200 MiB, ≤ 20 000
   entries and ≤ 512 MiB in total; the ratio check (> 100) only for entries over 1 MiB; inflated bytes are counted (a
-  forged size is caught). The text of a package's cells and paragraphs ≤ 50 Mi characters (`SpreadsheetLimits.MaxCharacters`:
-  a shared string, a repeated ODF cell or a merged Word cell counted each time it appears, ODF `text:s` spaces as
-  expanded; the shared strings of a workbook have their own 50 Mi) – a few kilobytes cannot expand to gigabytes. Unknown
-  extension → read as text; unsupported compression, too much text or too deep HTML → `InvalidDataException` (English
-  message, never file content).
+  forged size is caught). The text of a package's cells and paragraphs ≤ 50 Mi characters
+  (`SpreadsheetLimits.MaxCharacters`: a shared string, a repeated ODF cell or a merged Word cell counted each time it
+  appears, ODF `text:s` spaces as expanded; the shared strings of a workbook have their own 50 Mi) – a few kilobytes
+  cannot expand to gigabytes. Unknown extension → read as text; unsupported compression, too much text or too deep HTML
+  → `InvalidDataException` (English message, never file content).
 - **Fields:** `FieldToken.Field`/`Fallback` are HTML-decoded and `&nbsp;` becomes a space. An empty value with a
   fallback is not reported as empty; an unknown field is always reported. HTML encoding encodes only `& < > " '` and
   turns CR/LF into `<br>`. `RepairHtml` never joins across block elements, `<br>`, comments or script/style, keeps the
@@ -1079,9 +1078,9 @@ differs from sections 1–13 or goes beyond them.
   rendered only when used, and the paragraph holding `{{lista}}` is split around the `<ul>`; in the subject `{{lista}}` is
   the items joined by ", "; list items take `{{nazwa}}` from the unit; the list item template is plain text, as its text
   box suggests (its own text HTML-encoded, `FieldTemplate.TextToHtml`, so a typed `{{Skrzynka}} <{{Adres}}>` keeps the
-  address; template import keeps it as text instead of sanitizing it as HTML); the signature is appended without merging fields;
-  only images whose content id is referenced are kept; the sanitizer empties `<head>`, so the final document has no
-  `<meta charset>` (previews add their own).
+  address; template import keeps it as text instead of sanitizing it as HTML); the signature is appended without merging
+  fields; only images whose content id is referenced are kept; the sanitizer empties `<head>`, so the final document has
+  no `<meta charset>` (previews add their own).
 - **Signature parser:** decoding BOM → meta charset → strict UTF-8 → ANSI; web images removed with a problem, `data:`
   images embedded; removed `<link>`/`<meta>` are not problems. **Lint** works on the parsed document (pt converted to px,
   `max-width` ignored), one finding per kind except one `LinkTextMismatch` per host. **Grouping** compares normalized

@@ -146,7 +146,8 @@ internal static class OpenDocumentReader
 
                         break;
                     case "s" when paragraphDepth > 0:
-                        var count = Math.Clamp(int.TryParse(reader.GetAttribute("c", TextNamespace), NumberStyles.None, CultureInfo.InvariantCulture, out var c) ? c : 1, 1, MaxSpaces);
+                        var count = int.TryParse(reader.GetAttribute("c", TextNamespace), NumberStyles.None, CultureInfo.InvariantCulture, out var c) ? c : 1;
+                        count = Math.Clamp(count, 1, MaxSpaces);
                         budget.Characters(count);
                         Current().Append(' ', count);
                         break;

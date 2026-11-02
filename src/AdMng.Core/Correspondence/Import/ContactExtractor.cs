@@ -21,9 +21,9 @@ namespace AdMng.Core.Correspondence.Import;
 /// given name, surname or login header); else, when an <c>imię</c>/<c>first name</c> and a
 /// <c>nazwisko</c>/<c>surname</c>/<c>last name</c> column exist, "Imię Nazwisko".</para>
 /// <para>Text: a delimited table (<c>;</c>, tab, <c>,</c> in this order) whose header has at least two cells, is no lead-in
-/// sentence and whose e-mail column holds the addresses of most rows; the lines before its header are free text. Rows or
-/// tables without such a header are free text: every "Name &lt;addr&gt;" / "Name (addr)" pair and every other address, in
-/// the order they appear.</para>
+/// sentence and whose e-mail column gives more addresses than the lines that end before it; the lines before its header
+/// are free text. Rows or tables without such a header are free text: every "Name &lt;addr&gt;" / "Name (addr)" pair and
+/// every other address, in the order they appear.</para>
 /// </remarks>
 public static class ContactExtractor
 {

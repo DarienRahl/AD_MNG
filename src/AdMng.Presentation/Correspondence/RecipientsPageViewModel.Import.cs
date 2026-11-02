@@ -353,7 +353,8 @@ public sealed partial class RecipientsPageViewModel
         {
             try
             {
-                addresses.AddRange(await ReadFileAsync(path, (name, bytes, codePage) => ContactFileReader.ReadAddresses(name, bytes, codePage)).ConfigureAwait(true));
+                var found = await ReadFileAsync(path, (name, bytes, codePage) => ContactFileReader.ReadAddresses(name, bytes, codePage)).ConfigureAwait(true);
+                addresses.AddRange(found);
             }
             catch (InvalidDataException)
             {
