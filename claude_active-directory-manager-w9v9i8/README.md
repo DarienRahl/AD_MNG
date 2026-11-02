@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `claude/active-directory-manager-w9v9i8`
 
 - Gałąź: `claude/active-directory-manager-w9v9i8`
-- Commit: [`a047e52`](https://github.com/DarienRahl/AD_MNG/commit/a047e52d3d5d0379721c0cd35d8b24295d1c7403) (`a047e52d3d5d0379721c0cd35d8b24295d1c7403`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/41526786974
+- Commit: [`3c8ce67`](https://github.com/DarienRahl/AD_MNG/commit/3c8ce6703fdc8b8f428b4eaf1c729cb81d28cef5) (`3c8ce6703fdc8b8f428b4eaf1c729cb81d28cef5`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/41535330418
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
@@ -123,4 +123,8 @@
 ## Aktualizacja szablonów ADMX – paczka wskazana przez operatora, języki, pliki magazynu centralnego (nowe, zastąpiony, bez zmian) i kopia zapasowa przed zapisem
 
 ![Aktualizacja szablonów ADMX – paczka wskazana przez operatora, języki, pliki magazynu centralnego (nowe, zastąpiony, bez zmian) i kopia zapasowa przed zapisem](30-central-store-update.png)
+
+## Co dostanie komputer – GPO komputera z wynikiem (wymuszony, filtr WMI, łącze wyłączone), zwycięskie ustawienia i „Dlaczego” z przesłoniętym GPO
+
+![Co dostanie komputer – GPO komputera z wynikiem (wymuszony, filtr WMI, łącze wyłączone), zwycięskie ustawienia i „Dlaczego” z przesłoniętym GPO](31-group-policy-model.png)
 

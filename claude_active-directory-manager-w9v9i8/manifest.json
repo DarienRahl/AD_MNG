@@ -148,5 +148,10 @@
     "file": "30-central-store-update.png",
     "title_pl": "Aktualizacja szablonów ADMX – paczka wskazana przez operatora, języki, pliki magazynu centralnego (nowe, zastąpiony, bez zmian) i kopia zapasowa przed zapisem",
     "title_en": "Updating the ADMX templates – a package the operator chose, its languages, the central store\u0027s files (new, replaced, unchanged) and the backup before writing"
+  },
+  {
+    "file": "31-group-policy-model.png",
+    "title_pl": "Co dostanie komputer – GPO komputera z wynikiem (wymuszony, filtr WMI, łącze wyłączone), zwycięskie ustawienia i „Dlaczego” z przesłoniętym GPO",
+    "title_en": "What the computer gets – the computer\u0027s GPOs with their results (enforced, WMI filter, disabled link), the winning settings and “Why” with the overridden GPO"
   }
 ]
