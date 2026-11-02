@@ -1019,8 +1019,10 @@ differs from sections 1–13 or goes beyond them.
   header; delimited text needs 2+ header cells. Every candidate row is tried: it is taken when its e-mail column gives at
   least one address, a row with 2+ non-empty cells before a one-cell title or caption ("Wykaz adresów e-mail …" merged
   over the columns, a Word caption row). Delimited text also refuses a lead-in sentence (last cell of 2+ words ending
-  with `:`) and a "header" whose e-mail column misses the addresses of most rows that have one (prose split at commas,
-  "Dzień dobry, adresy e-mail poniżej"). When no candidate is taken the rows are free text – a sheet or document table
+  with `:`) and a "header" whose e-mail column gives no more addresses than the lines that hold an address but end
+  before that column (prose split at commas, "Dzień dobry, adresy e-mail poniżej" over single addresses); in an accepted
+  delimited table such a short line is free text, never lost (a row that has the e-mail cell but no address in it stays
+  invalid – other columns are no recipients). When no candidate is taken the rows are free text – a sheet or document table
   as well as text (the invalid rows of an e-mail column without any address still count); a workbook keeps the tables
   of the sheets that have one, takes the other e-mail-headed sheets as free text and, when no sheet has a table, reads
   every cell as free text. E-mail column tiers: the exact names, then `poczta`, then a header

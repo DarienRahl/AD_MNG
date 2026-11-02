@@ -293,6 +293,25 @@ public class ContactExtractorTests
         Assert.Equal(["jan@x.pl", "anna@y.pl", "ug@b.pl"], result.Contacts.Select(c => c.Email));
     }
 
+    [Fact]
+    public void FromText_ALineWithoutTheDelimiter_BelowATable_IsFreeText()
+    {
+        var result = ContactExtractor.FromText("Nazwa;E-mail\nGmina Łask;ug@lask.pl\nGmina Łęki;ug@leki.pl\nsoltys@zdziechow.pl\nGmina Ślesin;\n");
+        Assert.Equal(ContactSourceFormat.Delimited, result.Format);
+        Assert.Equal(["ug@lask.pl", "ug@leki.pl", "soltys@zdziechow.pl"], result.Contacts.Select(c => c.Email));
+        Assert.Empty(result.Contacts[2].Fields);
+        Assert.Equal(1, result.InvalidAddresses);   // "Gmina Ślesin" has the e-mail column, empty
+    }
+
+    [Fact]
+    public void FromText_AnEmptyEmailCell_IsInvalid_EvenWithAnAddressInAnotherColumn()
+    {
+        // Other columns are no recipients (an old address in "Uwagi" must not get the letter); the row is reported.
+        var result = ContactExtractor.FromText("Nazwa;E-mail;Uwagi\nGmina Łask;ug@lask.pl;\nGmina Łęki;;dawniej stary@leki.pl\n");
+        Assert.Equal(["ug@lask.pl"], result.Contacts.Select(c => c.Email));
+        Assert.Equal(1, result.InvalidAddresses);
+    }
+
     [Theory]
     [InlineData("Nazwa:;E-mail:\nGmina Łódź;ug@lodz.pl\n")]
     [InlineData("Adresat, Adres e-mail\nGmina Łódź, ug@lodz.pl\nGmina Łask, ug@lask.pl\nbrak, -\n")]

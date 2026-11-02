@@ -148,8 +148,9 @@ public static class ContactExtractor
     /// title), then the earlier row.</para>
     /// <para>Delimited text (<see cref="ContactSourceFormat.Delimited"/>) splits prose at its commas too, so a sentence
     /// such as "Dzień dobry, adresy e-mail poniżej" looks like a header. There a candidate is also refused when its last
-    /// cell is a lead-in ending with a colon ("…, pod które wysyłamy:"), and accepted only when its e-mail column holds the
-    /// address of most of the rows that have one – otherwise the addresses in the lines below would be lost.</para>
+    /// cell is a lead-in ending with a colon ("…, pod które wysyłamy:"), and when no more of its rows give an address in the
+    /// e-mail column than hold an address but do not reach that column (lines without the delimiter: the text is a list,
+    /// not a table). In an accepted delimited table such a short line is read as free text, never lost.</para>
     /// <para>Without an accepted candidate the result is the first candidate's table, not <see cref="TableMatch.Accepted"/>
     /// (its invalid rows count when its e-mail column held no address at all).</para>
     /// </remarks>
@@ -183,7 +184,6 @@ public static class ContactExtractor
             return null;
         }
 
-        bool[]? hasAddress = null;   // per row: any cell holds an address (delimited text only)
         (int Row, int MailColumn)? chosen = null;
         var chosenCells = 0;
         foreach (var (row, mailColumns) in candidates)
@@ -196,13 +196,9 @@ public static class ContactExtractor
                 continue;
             }
 
-            if (delimited)
+            if (delimited && found <= data.Count(r => IsShortRowWithAddress(rows[r], mailColumn)))
             {
-                hasAddress ??= [.. rows.Select(r => r.Any(c => EmailAddressText.FirstValid(c) is not null))];
-                if (found * 2 <= data.Count(r => hasAddress[r]))
-                {
-                    continue;   // the e-mail column misses the addresses of most rows: prose, not a table
-                }
+                continue;   // most addresses are on lines without the e-mail column: a list in prose, not a table
             }
 
             var cells = rows[row].Count(c => !string.IsNullOrWhiteSpace(c));
@@ -246,8 +242,14 @@ public static class ContactExtractor
     private static int MailColumn(IReadOnlyList<IReadOnlyList<string>> rows, List<int> dataRows, List<int> mailColumns) =>
         mailColumns.FirstOrDefault(c => dataRows.Any(r => EmailAddressText.FirstValid(Cell(rows[r], c)) is not null), mailColumns[0]);
 
+    /// <summary>A row that holds an address but ends before the e-mail column (a line of delimited text without the
+    /// delimiter, such as a lone "anna@y.pl" below a header).</summary>
+    private static bool IsShortRowWithAddress(IReadOnlyList<string> row, int mailColumn) =>
+        row.Count <= mailColumn && row.Any(c => EmailAddressText.FirstValid(c) is not null);
+
     /// <summary>The table of the header <paramref name="headerRow"/> with its e-mail column <paramref name="mailColumn"/>:
-    /// one contact per row with a valid address there, the other rows counted as invalid.</summary>
+    /// one contact per row with a valid address there, the other rows counted as invalid – except, in delimited text, a
+    /// line that ends before the e-mail column: its addresses are free text.</summary>
     private static ContactImportResult Table(IReadOnlyList<IReadOnlyList<string>> rows, int headerRow, int mailColumn, ContactSourceFormat format)
     {
         var header = rows[headerRow];
@@ -262,6 +264,12 @@ public static class ContactExtractor
             var address = EmailAddressText.FirstValid(Cell(row, mailColumn));
             if (address is null)
             {
+                if (format == ContactSourceFormat.Delimited && IsShortRowWithAddress(row, mailColumn))
+                {
+                    accumulator.Merge(FreeText(string.Join('\t', row), format));
+                    continue;
+                }
+
                 accumulator.InvalidAddresses++;
                 continue;
             }
