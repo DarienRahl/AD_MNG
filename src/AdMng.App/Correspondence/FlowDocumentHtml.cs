@@ -549,15 +549,24 @@ public static partial class FlowDocumentHtml
         }
 
         /// <summary>
-        /// The <c>margin</c> declaration of a block or list item: as the HTML wrote it while the editor has not changed it,
-        /// the editor's margin when it set one (an indent, a pasted block), else <paramref name="defaultCss"/> (null: none).
+        /// The <c>margin</c> declaration of a block or list item: as the HTML wrote it while the editor has not changed it
+        /// (none for a margin of 0 the editor gave a block the HTML gave none, <see cref="HtmlLayout.ImplicitMargin"/>), the
+        /// editor's margin when it set one (an indent, a pasted block), else <paramref name="defaultCss"/> (null: none).
         /// </summary>
         private static string? Margin(TextElement element, string? defaultCss)
         {
             var local = element.ReadLocalValue(Block.MarginProperty);
-            if (element.Tag is HtmlLayout { Margin: { } box } && local is Thickness applied && applied == box.Thickness)
+            if (element.Tag is HtmlLayout layout && local is Thickness applied)
             {
-                return "margin:" + box.Css;
+                if (layout.Margin is { } box && applied == box.Thickness)
+                {
+                    return "margin:" + box.Css;
+                }
+
+                if (layout is { Margin: null, ImplicitMargin: true } && applied == default)
+                {
+                    return null;
+                }
             }
 
             if (local is Thickness margin)
@@ -1789,15 +1798,19 @@ public static partial class FlowDocumentHtml
             var sides = Sides(declarations, "margin");
             var defaults = borderless ? default : new Thickness(0, 0, 0, BlockSpacing);
             var margin = sides is null ? null : Box(sides, defaults, FontPixels(format));
+            var implicitMargin = false;
             if (margin is not null)
             {
                 table.Margin = margin.Thickness;
             }
             else if (borderless)
             {
-                // No margin of its own (a table's default is none): none is written back either.
-                table.ClearValue(Block.MarginProperty);
+                // No margin of its own, as in a browser: shown as 0 – the default margin of a WPF table is auto
+                // (Thickness(NaN): a line above and below it) –, and none is written back (ImplicitMargin).
+                table.Margin = new Thickness(0);
+                implicitMargin = true;
             }
+
             var background = declarations.LastOrDefault(d => d.Property == "background-color")?.Value ?? element.GetAttribute("bgcolor");
             if (background is not null && ParseColor(background) is { A: > 0 } color)
             {
@@ -1814,7 +1827,7 @@ public static partial class FlowDocumentHtml
                 AddMissing(extra, "border-collapse", "collapse");
             }
 
-            var layout = new HtmlLayout { Margin = margin, Extra = extra, Attributes = attributes, Borderless = borderless };
+            var layout = new HtmlLayout { Margin = margin, ImplicitMargin = implicitMargin, Extra = extra, Attributes = attributes, Borderless = borderless };
             table.Tag = layout;
             return layout;
 
@@ -1862,8 +1875,8 @@ public static partial class FlowDocumentHtml
             return tableCell;
         }
 
-        /// <summary>The margin a block has now: its own, else the message's for a paragraph (8 pt below it, none in a list
-        /// item) and none for a table read without one.</summary>
+        /// <summary>The margin a block has now: its own (a list or table always has one), else the message's for a paragraph
+        /// (8 pt below it, none in a list item).</summary>
         private static Thickness MarginOf(Block block) =>
             block.ReadLocalValue(Block.MarginProperty) is Thickness margin ? margin
             : block is not Paragraph || block.Parent is ListItem ? default : new Thickness(0, 0, 0, BlockSpacing);

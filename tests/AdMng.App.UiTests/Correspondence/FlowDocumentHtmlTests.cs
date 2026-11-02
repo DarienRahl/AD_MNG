@@ -281,7 +281,7 @@ public sealed class FlowDocumentHtmlTests
         Assert.Equal(3, blocks.Count);
         var layout = Assert.IsType<Table>(blocks[0]);
         Assert.Equal(0, layout.CellSpacing);
-        AssertThickness(new Thickness(0), layout.Margin);
+        AssertThickness(new Thickness(0), layout.Margin);   // none of its own: 0, not a WPF table's auto margin
         var outer = Assert.Single(Cells(layout));
         AssertThickness(new Thickness(0), outer.BorderThickness);
         AssertThickness(new Thickness(0), outer.Padding);
@@ -295,6 +295,8 @@ public sealed class FlowDocumentHtmlTests
         AssertThickness(new Thickness(0, 16, 0, 6), inside[5].Margin);
         AssertThickness(new Thickness(0, 0, 0, 16), inside[6].Margin);
 
+        AssertThickness(new Thickness(0), inside[3].Margin);
+        AssertThickness(new Thickness(0), inside[4].Margin);
         var blue = Assert.Single(Cells(Assert.IsType<Table>(inside[3])));
         AssertThickness(new Thickness(4, 0, 0, 0), blue.BorderThickness);
         Assert.Equal(Color.FromRgb(0x1B, 0x36, 0x5D), ((SolidColorBrush)blue.BorderBrush).Color);
@@ -360,18 +362,23 @@ public sealed class FlowDocumentHtmlTests
     [Fact]
     public Task KeptLayout_TablesWithoutBorders_AndGridTables() => WpfTestHost.RunAsync(() =>
     {
-        // border="0" and no cell border: none, padding from cellpadding (else the browser's 1 px), no margin of its own.
-        var borderless = Assert.IsType<Table>(Assert.Single(FlowDocumentHtml.ToDocument(
+        // border="0" and no cell border: none, padding from cellpadding (else the browser's 1 px), no margin of its own
+        // (shown as 0, not a WPF table's auto margin; none written back).
+        var document = FlowDocumentHtml.ToDocument(
             "<table border=\"0\" cellpadding=\"4\"><tr><td>a</td><td style=\"padding:0.5cm 6px\">b</td></tr></table><table border=\"0\"><tr><td>c</td></tr></table>",
-            Images, keepLayout: true).Blocks.Take(1)));
+            Images, keepLayout: true);
+        var tables = document.Blocks.Select(Assert.IsType<Table>).ToList();
+        Assert.Equal(2, tables.Count);
+        var borderless = tables[0];
         var cells = Cells(borderless).ToList();
         AssertThickness(new Thickness(0), cells[0].BorderThickness);
         AssertThickness(new Thickness(4), cells[0].Padding);
         AssertThickness(new Thickness(6, 96 / 2.54 / 2, 6, 96 / 2.54 / 2), cells[1].Padding);
         AssertThickness(new Thickness(0), borderless.Margin);
-        var html = ToHtml(FlowDocumentHtml.ToDocument(
-            "<table border=\"0\" cellpadding=\"4\"><tr><td>a</td><td style=\"padding:0.5cm 6px\">b</td></tr></table><table border=\"0\"><tr><td>c</td></tr></table>",
-            Images, keepLayout: true));
+        Assert.Equal(2, borderless.CellSpacing);   // without cellspacing and border-collapse: a browser's 2 px
+        AssertThickness(new Thickness(0), tables[1].Margin);
+        AssertThickness(new Thickness(1), Assert.Single(Cells(tables[1])).Padding);
+        var html = ToHtml(document);
         Assert.Contains("<table border=\"0\" cellpadding=\"4\"><tbody><tr><td><p style=\"margin:0 0 8pt 0\">a</p>", html, StringComparison.Ordinal);
         Assert.Contains("<td style=\"padding:0.5cm 6px\">", html, StringComparison.Ordinal);
         Assert.Contains("<table border=\"0\"><tbody><tr><td><p style=\"margin:0 0 8pt 0\">c</p>", html, StringComparison.Ordinal);
