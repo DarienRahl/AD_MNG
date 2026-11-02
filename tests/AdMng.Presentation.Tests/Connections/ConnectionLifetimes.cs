@@ -37,6 +37,7 @@ internal static class ConnectionLifetimes
         typeof(Presentation.GroupPolicy.GroupPolicyServices),
         typeof(Presentation.GroupPolicy.GroupPolicyActions),
         typeof(Presentation.GroupPolicy.GroupPolicyViewModelFactory),
+        typeof(Presentation.GroupPolicy.AdministrativeTemplates.PolicyDefinitionsService),
         typeof(IDialogViewModelFactory),
         typeof(UserMessageServices),
         typeof(Presentation.Correspondence.CorrespondenceServices),

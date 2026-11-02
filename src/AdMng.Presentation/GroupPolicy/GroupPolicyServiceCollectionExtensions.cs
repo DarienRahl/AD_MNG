@@ -3,6 +3,7 @@ using AdMng.Core.GroupPolicy.Management;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Watchdog;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,7 +35,12 @@ public static class GroupPolicyServiceCollectionExtensions
             sp.GetService<ISysvolFileWriter>(),
             sp.GetService<WatchdogObjectHistoryLauncher>()));
         services.TryAddScoped<GroupPolicyActions>();
-        services.TryAddScoped<GroupPolicyViewModelFactory>();
+        services.TryAddSingleton<ILocalPolicyDefinitions, WindowsLocalPolicyDefinitions>();
+        services.TryAddScoped(sp => new PolicyDefinitionsService(sp.GetService<ILocalPolicyDefinitions>()));
+        services.TryAddScoped(sp => new GroupPolicyViewModelFactory(
+            sp.GetRequiredService<GroupPolicyServices>(),
+            sp.GetRequiredService<GroupPolicyActions>(),
+            sp.GetRequiredService<PolicyDefinitionsService>()));
         return services;
     }
 

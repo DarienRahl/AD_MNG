@@ -1,0 +1,706 @@
+using System.Globalization;
+using AdMng.Core.Directory;
+using AdMng.Core.GroupPolicy;
+using AdMng.Core.GroupPolicy.AdministrativeTemplates;
+using AdMng.Core.GroupPolicy.Content;
+using AdMng.Core.GroupPolicy.Management;
+using AdMng.Presentation.Icons;
+using AdMng.Presentation.Localization;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+
+namespace AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
+
+/// <summary>
+/// "Szablony administracyjne" of one GPO (K3, design note docs/dev/k-computers-and-gpo.md 6): the computer and user
+/// configuration as a tree of the ADMX categories (central store of the session's DC, else the templates of this computer),
+/// the policies of the selected category with their state, search over names, help texts and registry values, "tylko
+/// skonfigurowane" / "tylko zmienione", the selected policy's editor, the Registry.pol entries no template describes, and
+/// "Zapisz zmiany…" – one plan (Registry.pol, extension names, version) through the change plan preview (CLAUDE.md rule
+/// 5). Edits live in memory until saved; a reload never drops them: a half whose file changed on SYSVOL meanwhile keeps the
+/// edits and the conflict note (the save is refused as a conflict), a half saved as edited becomes clean.
+/// </summary>
+public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicyDocumentBase
+{
+    private readonly PolicyDefinitionsService _definitions;
+    private readonly string _initialName;
+    private readonly Dictionary<(PolicyClass, string), PolicyRowViewModel> _rows = [];
+    private readonly HashSet<(PolicyClass Scope, string PolicyId)> _touched = [];
+    private RegistryHalf? _machine;
+    private RegistryHalf? _user;
+    private PolicyDefinitionSet _set = PolicyDefinitionSet.Empty;
+    private Dictionary<string, HashSet<string>> _ownedNames = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _listKeys = new(StringComparer.OrdinalIgnoreCase);
+    private GpoInfo? _gpo;
+    private bool _reloadDefinitions;
+
+    public AdministrativeTemplatesEditorViewModel(GroupPolicyServices services, GroupPolicyActions actions, PolicyDefinitionsService definitions, Guid gpoId, string? name)
+        : base(services, actions)
+    {
+        _definitions = definitions ?? throw new ArgumentNullException(nameof(definitions));
+        GpoId = gpoId;
+        _initialName = name ?? GroupPolicyText.Guid(gpoId);
+    }
+
+    public Guid GpoId { get; }
+
+    public override string Title => Localizer.Format(L.AdministrativeTemplates.Title, _gpo?.DisplayName ?? _initialName);
+
+    public override ObjectIcon Icon => ObjectIcon.GroupPolicy;
+
+    public override string SelectionText => ChangedCount > 0 ? Localizer.Format(L.AdministrativeTemplates.ChangedCount, ChangedCount) : string.Empty;
+
+    // ---- Tree, list and editor -----------------------------------------------------------------------------------------
+
+    /// <summary>"Konfiguracja komputera" and "Konfiguracja użytkownika".</summary>
+    [ObservableProperty]
+    public partial IReadOnlyList<PolicyTreeNodeViewModel> Roots { get; private set; } = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsExtraSelected), nameof(ShowsCategoryColumn))]
+    public partial PolicyTreeNodeViewModel? SelectedNode { get; set; }
+
+    /// <summary>The policies of the selected node (with the search and the filters).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ListNote))]
+    public partial IReadOnlyList<PolicyRowViewModel> Policies { get; private set; } = [];
+
+    [ObservableProperty]
+    public partial PolicyRowViewModel? SelectedPolicy { get; set; }
+
+    /// <summary>The selected policy's editor (null: none selected).</summary>
+    [ObservableProperty]
+    public partial PolicyEditorViewModel? Editor { get; private set; }
+
+    /// <summary>Search in names, help texts and registry keys/values (diacritics and case ignored).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsCategoryColumn))]
+    public partial string SearchText { get; set; } = string.Empty;
+
+    /// <summary>"Tylko skonfigurowane": configured policies of the node and every category below it.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsCategoryColumn))]
+    public partial bool OnlyConfigured { get; set; }
+
+    /// <summary>"Tylko zmienione": policies changed and not saved yet, below the node.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsCategoryColumn))]
+    public partial bool OnlyChanged { get; set; }
+
+    /// <summary>The list spans categories (search, filters, "Wszystkie ustawienia"): the category column is shown.</summary>
+    public bool ShowsCategoryColumn => SearchText.Trim().Length > 0 || OnlyConfigured || OnlyChanged
+        || SelectedNode?.Kind is PolicyTreeNodeKind.Scope or PolicyTreeNodeKind.AllSettings;
+
+    /// <summary>"Brak pasujących ustawień." / "Wybierz kategorię." (null when the list has rows).</summary>
+    public string? ListNote => IsExtraSelected || Policies.Count > 0 ? null
+        : SelectedNode is null ? Localizer[L.AdministrativeTemplates.SelectCategory]
+        : Localizer[L.AdministrativeTemplates.NoMatches];
+
+    /// <summary>"Ustawienia rejestru spoza szablonów" is selected (the extra entries list is shown instead of policies).</summary>
+    public bool IsExtraSelected => SelectedNode?.Kind == PolicyTreeNodeKind.Extra;
+
+    [ObservableProperty]
+    public partial IReadOnlyList<ExtraRegistryEntryViewModel> ExtraEntries { get; private set; } = [];
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(DeleteExtraEntryCommand))]
+    public partial ExtraRegistryEntryViewModel? SelectedExtraEntry { get; set; }
+
+    // ---- Notes ---------------------------------------------------------------------------------------------------------
+
+    /// <summary>"Szablony: magazyn centralny na dc1 (plików: 213)" / local store / none.</summary>
+    [ObservableProperty]
+    public partial string? DefinitionsNote { get; private set; }
+
+    /// <summary>No central store: the note is shown as a warning.</summary>
+    [ObservableProperty]
+    public partial bool IsCentralStoreMissing { get; private set; }
+
+    /// <summary>Problems of the template files (localized).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDefinitionIssues), nameof(DefinitionIssuesTitle))]
+    public partial IReadOnlyList<string> DefinitionIssues { get; private set; } = [];
+
+    public bool HasDefinitionIssues => DefinitionIssues.Count > 0;
+
+    public string DefinitionIssuesTitle => Localizer.Format(L.AdministrativeTemplates.DefinitionIssues, DefinitionIssues.Count);
+
+    /// <summary>A Registry.pol that cannot be read (that half is read-only), else null.</summary>
+    [ObservableProperty]
+    public partial string? FileNote { get; private set; }
+
+    /// <summary>The GPO's files changed on SYSVOL since the edits started (a save would be a conflict), else null.</summary>
+    [ObservableProperty]
+    public partial string? ConflictNote { get; private set; }
+
+    /// <summary>Policies (and extra entries) changed and not saved.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasChanges), nameof(SelectionText))]
+    [NotifyCanExecuteChangedFor(nameof(SaveCommand), nameof(DiscardCommand))]
+    public partial int ChangedCount { get; private set; }
+
+    /// <summary>A Registry.pol differs from what was read.</summary>
+    public bool HasChanges => (_machine?.IsChanged ?? false) || (_user?.IsChanged ?? false);
+
+    /// <summary>The GPO can be edited now (connected, SYSVOL writable, loaded).</summary>
+    public bool CanEdit => IsSysvolWritable && _gpo is not null;
+
+    // ---- Commands ------------------------------------------------------------------------------------------------------
+
+    /// <summary>"Zapisz zmiany…": one plan through the preview; the reload afterwards keeps what was not saved.</summary>
+    [RelayCommand(CanExecute = nameof(CanSave))]
+    private async Task SaveAsync()
+    {
+        if (_gpo is not { } gpo)
+        {
+            return;
+        }
+
+        var machine = _machine is { IsChanged: true, Error: null } m
+            ? new RegistryPolicySave { Original = m.Original, Content = m.Document.ToBytes(), ClientExtensions = ClientExtensions(m) }
+            : null;
+        var user = _user is { IsChanged: true, Error: null } u
+            ? new RegistryPolicySave { Original = u.Original, Content = u.Document.ToBytes(), ClientExtensions = ClientExtensions(u) }
+            : null;
+        if (machine is null && user is null)
+        {
+            return;
+        }
+
+        await Actions.SaveAdministrativeTemplatesAsync(gpo, machine, user).ConfigureAwait(true);
+    }
+
+    /// <summary>"Odrzuć zmiany": the documents as read from SYSVOL again (then a reload shows the current files).</summary>
+    [RelayCommand(CanExecute = nameof(HasChanges))]
+    private async Task DiscardAsync()
+    {
+        if (!await Gp.Ui.Dialogs.ConfirmAsync(Localizer[L.AdministrativeTemplates.DiscardTitle], Localizer.Format(L.AdministrativeTemplates.DiscardMessage, ChangedCount),
+            destructive: true).ConfigureAwait(true))
+        {
+            return;
+        }
+
+        _machine = _machine?.Discarded();
+        _user = _user?.Discarded();
+        _touched.Clear();
+        ConflictNote = null;
+        await LoadAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>"Wczytaj szablony ponownie": the central store (or local store) is read again.</summary>
+    [RelayCommand]
+    private Task ReloadDefinitionsAsync()
+    {
+        _reloadDefinitions = true;
+        return LoadAsync();
+    }
+
+    /// <summary>Removes an entry no template describes (written on save).</summary>
+    [RelayCommand(CanExecute = nameof(CanDeleteExtraEntry))]
+    private void DeleteExtraEntry()
+    {
+        if (SelectedExtraEntry is not { } entry || Half(entry.Scope) is not { Error: null } half)
+        {
+            return;
+        }
+
+        half.Document.Remove(entry.Entry);
+        _touched.Add((entry.Scope, "extra:" + entry.Entry.Key + "\n" + entry.Entry.ValueName));
+        RebuildExtra();
+        UpdateChanges();
+    }
+
+    private bool CanSave() => HasChanges && CanEdit && !IsLoading;
+
+    private bool CanDeleteExtraEntry() => SelectedExtraEntry is not null && CanEdit && Half(SelectedExtraEntry.Scope) is { Error: null };
+
+    // ---- Loading -------------------------------------------------------------------------------------------------------
+
+    protected override async Task LoadCoreAsync(IDirectorySession session, ISysvolWriteConnection? sysvol, CancellationToken cancellationToken)
+    {
+        var reader = Gp.Reader;
+        var gpo = await Task.Run(() => reader.ReadPolicyAsync(session, GpoId, cancellationToken), cancellationToken).ConfigureAwait(true);
+        if (gpo is null)
+        {
+            _gpo = null;
+            Error = Localizer[L.GroupPolicy.Missing];
+            LoadedText = Error;
+            OnPropertyChanged(nameof(Title));
+            return;
+        }
+
+        var reload = _reloadDefinitions;
+        _reloadDefinitions = false;
+        var definitions = await _definitions.GetAsync(session, sysvol, Localizer.Culture, reload, cancellationToken).ConfigureAwait(true);
+        (byte[]? Content, string? Error) machineFile = (null, null), userFile = (null, null);
+        if (sysvol is not null)
+        {
+            machineFile = await ReadFileAsync(sysvol, GroupPolicyPlanner.MachineRegistryPolicyPath, cancellationToken).ConfigureAwait(true);
+            userFile = await ReadFileAsync(sysvol, GroupPolicyPlanner.UserRegistryPolicyPath, cancellationToken).ConfigureAwait(true);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        _gpo = gpo;
+        OnPropertyChanged(nameof(Title));
+        _machine = Reconcile(_machine, PolicyClass.Machine, sysvol is null ? null : machineFile);
+        _user = Reconcile(_user, PolicyClass.User, sysvol is null ? null : userFile);
+        ConflictNote = (_machine?.Conflict ?? false) || (_user?.Conflict ?? false) ? Localizer.Format(L.AdministrativeTemplates.ConflictNote, session.Info.Server) : null;
+        FileNote = string.Join(Environment.NewLine, new[] { _machine?.Error, _user?.Error }.OfType<string>()) is { Length: > 0 } note ? note : null;
+
+        var definitionsChanged = !ReferenceEquals(definitions.Set, _set);
+        _set = definitions.Set;
+        DefinitionsNote = definitions.Origin switch
+        {
+            PolicyDefinitionOrigin.CentralStore => Localizer.Format(L.AdministrativeTemplates.SourceCentral, definitions.Location, definitions.FileCount),
+            PolicyDefinitionOrigin.LocalStore when sysvol is null => Localizer.Format(L.AdministrativeTemplates.SourceLocalWithoutSysvol, session.Info.Server, definitions.Location, definitions.FileCount),
+            PolicyDefinitionOrigin.LocalStore => Localizer.Format(L.AdministrativeTemplates.SourceLocal, session.Info.Server, definitions.Location, definitions.FileCount),
+            _ => Localizer.Format(L.AdministrativeTemplates.SourceNone, session.Info.Server),
+        };
+        IsCentralStoreMissing = definitions.Origin != PolicyDefinitionOrigin.CentralStore;
+        DefinitionIssues = [.. _set.Issues.Select(IssueText)];
+        if (definitionsChanged || Roots.Count == 0)
+        {
+            IndexOwnedValues();
+            BuildTree();
+        }
+
+        RefreshRows();
+        RebuildList();
+        RebuildExtra();
+        UpdateChanges();
+        ShowEditor();
+        LoadedText = Localizer.Format(L.AdministrativeTemplates.Loaded, _set.PolicyCount, CountConfigured());
+    }
+
+    protected override void OnNotConnected()
+    {
+        Roots = [];
+        Policies = [];
+        Editor = null;
+        ExtraEntries = [];
+    }
+
+    protected override void RefreshCommands()
+    {
+        SaveCommand.NotifyCanExecuteChanged();
+        DiscardCommand.NotifyCanExecuteChanged();
+        DeleteExtraEntryCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanEdit));
+    }
+
+    protected override void OnCultureChanged()
+    {
+        // The texts come from the ADML of the new language: the templates are read again (the edits stay).
+        _set = PolicyDefinitionSet.Empty;
+        base.OnCultureChanged();
+    }
+
+    /// <summary>A Registry.pol of the GPO: its content (null: none) or a localized reason it cannot be read.</summary>
+    private async Task<(byte[]? Content, string? Error)> ReadFileAsync(ISysvolConnection sysvol, string path, CancellationToken cancellationToken)
+    {
+        var result = await sysvol.ReadGpoFileAsync(GpoId, path, GpoTransaction.MaxFileBytes, cancellationToken).ConfigureAwait(true);
+        return result.Status switch
+        {
+            SysvolFileStatus.Read or SysvolFileStatus.NotFound => (result.Content, null),
+            SysvolFileStatus.AccessDenied => (null, Localizer[L.AdministrativeTemplates.FileAccessDenied]),
+            SysvolFileStatus.TooLarge => (null, Localizer[L.AdministrativeTemplates.FileTooLarge]),
+            _ => (null, Localizer[L.AdministrativeTemplates.FileReadFailed]),
+        };
+    }
+
+    /// <summary>
+    /// The half after a read of <paramref name="file"/> (null: SYSVOL unavailable – nothing to edit): without edits it is
+    /// the file; with edits it stays edited unless the file now equals the edits (they were saved); a file that changed
+    /// under the edits marks a conflict and keeps the old original (the save's compare-and-swap refuses it).
+    /// </summary>
+    private RegistryHalf? Reconcile(RegistryHalf? half, PolicyClass scope, (byte[]? Content, string? Error)? file)
+    {
+        if (file is not { } read)
+        {
+            return half is { IsChanged: true } ? half : null;
+        }
+
+        var path = scope == PolicyClass.Machine ? GroupPolicyPlanner.MachineRegistryPolicyPath : GroupPolicyPlanner.UserRegistryPolicyPath;
+        if (read.Error is not null)
+        {
+            return half is { IsChanged: true } ? half : RegistryHalf.Unreadable(scope, Localizer.Format(L.AdministrativeTemplates.FileUnreadable, path, read.Error));
+        }
+
+        if (half is { IsChanged: true })
+        {
+            if (RegistryHalf.SameContent(read.Content, half.Document.ToBytes()))
+            {
+                ForgetTouched(scope);
+                return RegistryHalf.Of(scope, read.Content);
+            }
+
+            return RegistryHalf.SameContent(read.Content, half.Original) ? half : half with { Conflict = true };
+        }
+
+        try
+        {
+            ForgetTouched(scope);
+            return RegistryHalf.Of(scope, read.Content);
+        }
+        catch (GpoParseException)
+        {
+            return RegistryHalf.Unreadable(scope, Localizer.Format(L.AdministrativeTemplates.FileUnreadable, path, Localizer[L.AdministrativeTemplates.FileMalformed]));
+        }
+    }
+
+    // ---- Tree and list -------------------------------------------------------------------------------------------------
+
+    private void BuildTree()
+    {
+        var selected = SelectedNode;
+        Roots = [ScopeNode(PolicyClass.Machine), ScopeNode(PolicyClass.User)];
+        _rows.Clear();
+        SelectedNode = Find(Roots, selected) ?? Roots[0];
+        Roots[0].IsExpanded = true;
+        Roots[1].IsExpanded = true;
+    }
+
+    private PolicyTreeNodeViewModel ScopeNode(PolicyClass scope)
+    {
+        var children = new List<PolicyTreeNodeViewModel>();
+        children.AddRange(_set.Roots.Where(c => c.HasPolicies(scope)).Select(c => CategoryNode(c, scope)));
+        if (_set.Uncategorized.Any(p => p.Policy.AppliesTo(scope)))
+        {
+            children.Add(new PolicyTreeNodeViewModel(PolicyTreeNodeKind.Uncategorized, scope, Localizer[L.AdministrativeTemplates.Uncategorized]));
+        }
+
+        children.Add(new PolicyTreeNodeViewModel(PolicyTreeNodeKind.AllSettings, scope, Localizer[L.AdministrativeTemplates.AllSettings]));
+        children.Add(new PolicyTreeNodeViewModel(PolicyTreeNodeKind.Extra, scope, Localizer.Format(L.AdministrativeTemplates.ExtraSettings, 0)));
+        return new PolicyTreeNodeViewModel(PolicyTreeNodeKind.Scope, scope,
+            Localizer[scope == PolicyClass.Machine ? L.AdministrativeTemplates.ComputerConfiguration : L.AdministrativeTemplates.UserConfiguration], null, children);
+    }
+
+    private static PolicyTreeNodeViewModel CategoryNode(PolicyCategoryNode category, PolicyClass scope) =>
+        new(PolicyTreeNodeKind.Category, scope, category.DisplayName, category,
+            [.. category.Children.Where(c => c.HasPolicies(scope)).Select(c => CategoryNode(c, scope))]);
+
+    private static PolicyTreeNodeViewModel? Find(IEnumerable<PolicyTreeNodeViewModel> nodes, PolicyTreeNodeViewModel? old)
+    {
+        if (old is null)
+        {
+            return null;
+        }
+
+        foreach (var node in nodes)
+        {
+            if (node.Kind == old.Kind && node.Scope == old.Scope && string.Equals(node.Category?.Id, old.Category?.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                return node;
+            }
+
+            if (Find(node.Children, old) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    partial void OnSelectedNodeChanged(PolicyTreeNodeViewModel? value)
+    {
+        RebuildList();
+        RebuildExtra();
+    }
+
+    partial void OnSearchTextChanged(string value) => RebuildList();
+
+    partial void OnOnlyConfiguredChanged(bool value) => RebuildList();
+
+    partial void OnOnlyChangedChanged(bool value) => RebuildList();
+
+    partial void OnSelectedPolicyChanged(PolicyRowViewModel? value) => ShowEditor();
+
+    /// <summary>The rows of the selected node (direct policies; with a search or filter every category below it).</summary>
+    private void RebuildList()
+    {
+        if (SelectedNode is not { } node || node.Kind == PolicyTreeNodeKind.Extra)
+        {
+            Policies = [];
+            SelectedPolicy = null;
+            return;
+        }
+
+        var search = SearchText.Trim();
+        var deep = search.Length > 0 || OnlyConfigured || OnlyChanged || node.Kind is PolicyTreeNodeKind.Scope or PolicyTreeNodeKind.AllSettings;
+        IEnumerable<PolicyDefinition> candidates = node.Kind switch
+        {
+            PolicyTreeNodeKind.Category when deep => Below(node.Category!),
+            PolicyTreeNodeKind.Category => node.Category!.Policies,
+            PolicyTreeNodeKind.Uncategorized => _set.Uncategorized,
+            _ => _set.Policies,
+        };
+        var compare = CultureInfo.CurrentCulture.CompareInfo;
+        var rows = new List<PolicyRowViewModel>();
+        foreach (var definition in candidates.Where(d => d.Policy.AppliesTo(node.Scope)))
+        {
+            if (search.Length > 0 && !Matches(compare, definition, search))
+            {
+                continue;
+            }
+
+            var row = Row(definition, node.Scope);
+            if ((OnlyConfigured && row.State == PolicyState.NotConfigured) || (OnlyChanged && !row.IsChanged))
+            {
+                continue;
+            }
+
+            rows.Add(row);
+        }
+
+        var selected = SelectedPolicy;
+        Policies = deep ? [.. rows.OrderBy(r => r.Name, StringComparer.Create(Localizer.Culture, ignoreCase: true))] : rows;
+        SelectedPolicy = selected is not null && Policies.Contains(selected) ? selected : null;
+    }
+
+    private static IEnumerable<PolicyDefinition> Below(PolicyCategoryNode category) =>
+        category.Policies.Concat(category.Children.SelectMany(Below));
+
+    private static bool Matches(CompareInfo compare, PolicyDefinition definition, string search)
+    {
+        const CompareOptions Options = CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace;
+        var policy = definition.Policy;
+        return compare.IndexOf(definition.DisplayName, search, Options) >= 0
+            || compare.IndexOf(definition.ExplainText, search, Options) >= 0
+            || compare.IndexOf(policy.Key, search, Options) >= 0
+            || (policy.ValueName is { } name && compare.IndexOf(name, search, Options) >= 0)
+            || policy.Elements.Any(e => (e.ValueName is { } elementName && compare.IndexOf(elementName, search, Options) >= 0)
+                || (e.Key is { } key && compare.IndexOf(key, search, Options) >= 0));
+    }
+
+    /// <summary>The row of a policy (kept per scope, so the state of every listed row is refreshed in place).</summary>
+    private PolicyRowViewModel Row(PolicyDefinition definition, PolicyClass scope)
+    {
+        if (!_rows.TryGetValue((scope, definition.Id), out var row))
+        {
+            row = new PolicyRowViewModel(definition, scope, definition.Category is { } category ? string.Join(" / ", category.PathNames()) : string.Empty);
+            _rows[(scope, definition.Id)] = row;
+            UpdateRow(row);
+        }
+
+        return row;
+    }
+
+    private void RefreshRows()
+    {
+        foreach (var row in _rows.Values)
+        {
+            UpdateRow(row);
+        }
+    }
+
+    private void UpdateRow(PolicyRowViewModel row)
+    {
+        var half = Half(row.Scope);
+        var state = half is null ? PolicySetting.NotConfigured : PolicyEngine.Read(row.Definition.Policy, half.Document.View);
+        row.State = state.State;
+        row.StateText = half is null || half.Error is not null ? Localizer[L.AdministrativeTemplates.StateUnknown] : StateText(state.State);
+        row.IsChanged = half is not null && _touched.Contains((row.Scope, row.Definition.Id))
+            && !Equals(PolicyEngine.Read(row.Definition.Policy, half.OriginalDocument.View), state);
+    }
+
+    private string StateText(PolicyState state) => Localizer[state switch
+    {
+        PolicyState.Enabled => L.AdministrativeTemplates.StateEnabled,
+        PolicyState.Disabled => L.AdministrativeTemplates.StateDisabled,
+        PolicyState.Inconsistent => L.AdministrativeTemplates.StateInconsistent,
+        _ => L.AdministrativeTemplates.StateNotConfigured,
+    }];
+
+    private void ShowEditor()
+    {
+        if (SelectedPolicy is not { } row)
+        {
+            Editor = null;
+            return;
+        }
+
+        var half = Half(row.Scope);
+        var current = half is null ? PolicySetting.NotConfigured : PolicyEngine.Read(row.Definition.Policy, half.Document.View);
+        Editor = new PolicyEditorViewModel(Localizer, row.Definition, row.Scope, current, CanEdit && half is { Error: null }, Apply);
+    }
+
+    /// <summary>A valid setting of the editor goes into the half's document.</summary>
+    private void Apply(PolicyEditorViewModel editor, PolicySetting setting)
+    {
+        if (!ReferenceEquals(editor, Editor) || Half(editor.Scope) is not { Error: null } half)
+        {
+            return;
+        }
+
+        PolicyEngine.Write(editor.Definition.Policy, setting, half.Document);
+        _touched.Add((editor.Scope, editor.Definition.Id));
+        if (_rows.TryGetValue((editor.Scope, editor.Definition.Id), out var row))
+        {
+            UpdateRow(row);
+        }
+
+        RebuildExtra();
+        UpdateChanges();
+    }
+
+    // ---- Extra registry settings ---------------------------------------------------------------------------------------
+
+    /// <summary>The values every loaded policy owns, per key, and the keys of list elements.</summary>
+    private void IndexOwnedValues()
+    {
+        _ownedNames = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        _listKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var definition in _set.Policies)
+        {
+            foreach (var (key, names) in PolicyEngine.OwnValueNames(definition.Policy))
+            {
+                if (!_ownedNames.TryGetValue(key, out var set))
+                {
+                    set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    _ownedNames[key] = set;
+                }
+
+                set.UnionWith(names);
+            }
+
+            _listKeys.UnionWith(PolicyEngine.ListKeys(definition.Policy));
+        }
+    }
+
+    private bool IsOwned(RegistryPolEntry entry)
+    {
+        var key = RegistryPolicyDocument.NormalizeKey(entry.Key);
+        if (_listKeys.Contains(key))
+        {
+            return true;
+        }
+
+        var name = entry.ValueName;
+        name = name.StartsWith(RegistryPolicyDocument.DeletePrefix, StringComparison.OrdinalIgnoreCase) ? name[RegistryPolicyDocument.DeletePrefix.Length..]
+            : name.StartsWith(RegistryPolicyDocument.SoftPrefix, StringComparison.OrdinalIgnoreCase) ? name[RegistryPolicyDocument.SoftPrefix.Length..]
+            : name;
+        return _ownedNames.TryGetValue(key, out var names) && names.Contains(name);
+    }
+
+    private List<ExtraRegistryEntryViewModel> ExtraOf(PolicyClass scope) => Half(scope) is { } half
+        ? [.. half.Document.Entries.Where(e => !IsOwned(e)).Select(e => new ExtraRegistryEntryViewModel(e, scope))]
+        : [];
+
+    private void RebuildExtra()
+    {
+        foreach (var root in Roots)
+        {
+            if (root.Children.LastOrDefault(c => c.Kind == PolicyTreeNodeKind.Extra) is { } extra)
+            {
+                extra.Name = Localizer.Format(L.AdministrativeTemplates.ExtraSettings, ExtraOf(root.Scope).Count);
+            }
+        }
+
+        ExtraEntries = SelectedNode is { Kind: PolicyTreeNodeKind.Extra } node ? ExtraOf(node.Scope) : [];
+        SelectedExtraEntry = null;
+    }
+
+    // ---- Changes -------------------------------------------------------------------------------------------------------
+
+    private void UpdateChanges()
+    {
+        var count = 0;
+        foreach (var (scope, id) in _touched)
+        {
+            if (Half(scope) is not { } half)
+            {
+                continue;
+            }
+
+            if (id.StartsWith("extra:", StringComparison.Ordinal))
+            {
+                count++;
+            }
+            else if (_set.Find(id) is { } definition
+                && !Equals(PolicyEngine.Read(definition.Policy, half.OriginalDocument.View), PolicyEngine.Read(definition.Policy, half.Document.View)))
+            {
+                count++;
+            }
+        }
+
+        ChangedCount = HasChanges ? Math.Max(count, 1) : 0;
+        OnPropertyChanged(nameof(HasChanges));
+        SaveCommand.NotifyCanExecuteChanged();
+        DiscardCommand.NotifyCanExecuteChanged();
+    }
+
+    private void ForgetTouched(PolicyClass scope) => _touched.RemoveWhere(t => t.Scope == scope);
+
+    private int CountConfigured() =>
+        _set.Policies.Sum(d => (d.Policy.AppliesTo(PolicyClass.Machine) && _machine is { } m && PolicyEngine.Read(d.Policy, m.Document.View).State != PolicyState.NotConfigured ? 1 : 0)
+            + (d.Policy.AppliesTo(PolicyClass.User) && _user is { } u && PolicyEngine.Read(d.Policy, u.Document.View).State != PolicyState.NotConfigured ? 1 : 0));
+
+    /// <summary>The extensions the configured policies of a half name (ADMX <c>clientExtension</c>).</summary>
+    private IReadOnlyCollection<Guid> ClientExtensions(RegistryHalf half)
+    {
+        var result = new HashSet<Guid>();
+        foreach (var definition in _set.Policies.Where(d => d.Policy.AppliesTo(half.Scope)
+            && (d.Policy.ClientExtension is not null || d.Policy.Elements.Any(e => e.ClientExtension is not null))))
+        {
+            var setting = PolicyEngine.Read(definition.Policy, half.Document.View);
+            if (setting.State == PolicyState.NotConfigured)
+            {
+                continue;
+            }
+
+            if (definition.Policy.ClientExtension is { } cse)
+            {
+                result.Add(cse);
+            }
+
+            result.UnionWith(definition.Policy.Elements.Select(e => e.ClientExtension).OfType<Guid>());
+        }
+
+        return result;
+    }
+
+    private RegistryHalf? Half(PolicyClass scope) => scope == PolicyClass.User ? _user : _machine;
+
+    private string IssueText(PolicyDefinitionIssue issue) => Localizer.Format(issue.Kind switch
+    {
+        PolicyDefinitionIssueKind.FileUnreadable => L.AdministrativeTemplates.IssueFileUnreadable,
+        PolicyDefinitionIssueKind.LanguageMissing => L.AdministrativeTemplates.IssueLanguageMissing,
+        PolicyDefinitionIssueKind.LanguageUnreadable => L.AdministrativeTemplates.IssueLanguageUnreadable,
+        PolicyDefinitionIssueKind.LanguageOutdated => L.AdministrativeTemplates.IssueLanguageOutdated,
+        PolicyDefinitionIssueKind.NamespaceCollision => L.AdministrativeTemplates.IssueNamespaceCollision,
+        PolicyDefinitionIssueKind.Duplicate => L.AdministrativeTemplates.IssueDuplicate,
+        PolicyDefinitionIssueKind.UnknownCategory => L.AdministrativeTemplates.IssueUnknownCategory,
+        PolicyDefinitionIssueKind.CategoryLoop => L.AdministrativeTemplates.IssueCategoryLoop,
+        _ => L.AdministrativeTemplates.IssueTooManyFiles,
+    }, issue.FileName, issue.Detail ?? string.Empty);
+
+    /// <summary>One Registry.pol of the GPO: as read (original) and as edited.</summary>
+    private sealed record RegistryHalf(PolicyClass Scope, byte[]? Original, RegistryPolicyDocument OriginalDocument, RegistryPolicyDocument Document, string? Error)
+    {
+        /// <summary>The file changed on SYSVOL under the edits.</summary>
+        public bool Conflict { get; init; }
+
+        public bool IsChanged => Error is null && !SameContent(Original, Document.ToBytes());
+
+        public static RegistryHalf Of(PolicyClass scope, byte[]? content)
+        {
+            var original = RegistryPolicyDocument.Parse(content);
+            return new RegistryHalf(scope, content, original, original.Clone(), null);
+        }
+
+        public static RegistryHalf Unreadable(PolicyClass scope, string error) =>
+            new(scope, null, new RegistryPolicyDocument(), new RegistryPolicyDocument(), error);
+
+        /// <summary>Back to the original (the edits are dropped).</summary>
+        public RegistryHalf Discarded() => this with { Document = OriginalDocument.Clone(), Conflict = false };
+
+        /// <summary>Same content; a missing file, an empty one and one without entries are the same.</summary>
+        public static bool SameContent(byte[]? a, byte[]? b)
+        {
+            var left = a is { Length: > 8 } ? a : null;
+            var right = b is { Length: > 8 } ? b : null;
+            return left is null ? right is null : right is not null && left.AsSpan().SequenceEqual(right);
+        }
+    }
+}

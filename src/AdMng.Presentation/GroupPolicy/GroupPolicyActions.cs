@@ -39,6 +39,21 @@ public sealed class GroupPolicyActions(GroupPolicyServices services)
     /// <summary>Opens "Filtry WMI".</summary>
     public void OpenWmiFilters() => Services.OpenDocument(new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.WmiFilters));
 
+    /// <summary>"Edytuj szablony administracyjne": the editor of a GPO's administrative templates (K3).</summary>
+    public void EditAdministrativeTemplates(Guid gpoId, string name) =>
+        Services.OpenDocument(new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.AdministrativeTemplates) { GpoId = gpoId, Name = name });
+
+    /// <summary>
+    /// "Zapisz zmiany…" of the administrative templates editor: Registry.pol of the changed halves, the extension names
+    /// and the versions as one plan through the preview (K3).
+    /// </summary>
+    public Task<bool> SaveAdministrativeTemplatesAsync(GpoInfo gpo, RegistryPolicySave? machine, RegistryPolicySave? user)
+    {
+        ArgumentNullException.ThrowIfNull(gpo);
+        return RunAsync(Localizer.Format(L.AdministrativeTemplates.PlanTitle, gpo.DisplayName), SysvolUse.Required,
+            (session, sysvol, token) => Services.Planner.PlanAdministrativeTemplatesAsync(session, sysvol!, gpo.Id, machine, user, token));
+    }
+
     // ---- Create, copy, rename, delete ---------------------------------------------------------------------------------
 
     /// <summary>"Nowe…" / "Utwórz GPO w tej domenie i połącz je tutaj…": the name, then the create plan (and the link).</summary>

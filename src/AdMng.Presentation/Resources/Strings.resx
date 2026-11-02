@@ -11881,6 +11881,246 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Issue.GpoUserPartDisabled" xml:space="preserve">
     <value>The user configuration of this GPO is disabled (GPO status): clients apply these settings only after it is enabled again.</value>
   </data>
+  <data name="AdmTemplates.Title" xml:space="preserve">
+    <value>Administrative templates – {0}</value>
+  </data>
+  <data name="AdmTemplates.EditCommand" xml:space="preserve">
+    <value>Edit administrative templates</value>
+  </data>
+  <data name="AdmTemplates.ComputerConfiguration" xml:space="preserve">
+    <value>Computer configuration</value>
+  </data>
+  <data name="AdmTemplates.UserConfiguration" xml:space="preserve">
+    <value>User configuration</value>
+  </data>
+  <data name="AdmTemplates.AllSettings" xml:space="preserve">
+    <value>All settings</value>
+  </data>
+  <data name="AdmTemplates.Uncategorized" xml:space="preserve">
+    <value>Without a category</value>
+  </data>
+  <data name="AdmTemplates.ExtraSettings" xml:space="preserve">
+    <value>Registry settings outside the templates ({0})</value>
+  </data>
+  <data name="AdmTemplates.ExtraHint" xml:space="preserve">
+    <value>Registry.pol entries that no loaded template describes (written by another tool, or by a template missing from the store). A deleted entry disappears from the GPO when you save.</value>
+  </data>
+  <data name="AdmTemplates.StateNotConfigured" xml:space="preserve">
+    <value>Not configured</value>
+  </data>
+  <data name="AdmTemplates.StateEnabled" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="AdmTemplates.StateDisabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="AdmTemplates.StateInconsistent" xml:space="preserve">
+    <value>Unclear</value>
+  </data>
+  <data name="AdmTemplates.StateUnknown" xml:space="preserve">
+    <value>–</value>
+  </data>
+  <data name="AdmTemplates.ColumnSetting" xml:space="preserve">
+    <value>Setting</value>
+  </data>
+  <data name="AdmTemplates.ColumnState" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="AdmTemplates.ColumnCategory" xml:space="preserve">
+    <value>Category</value>
+  </data>
+  <data name="AdmTemplates.ColumnKey" xml:space="preserve">
+    <value>Key</value>
+  </data>
+  <data name="AdmTemplates.ColumnValueName" xml:space="preserve">
+    <value>Value name</value>
+  </data>
+  <data name="AdmTemplates.ColumnType" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="AdmTemplates.ColumnData" xml:space="preserve">
+    <value>Data</value>
+  </data>
+  <data name="AdmTemplates.ColumnName" xml:space="preserve">
+    <value>Value name</value>
+  </data>
+  <data name="AdmTemplates.ColumnValue" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="AdmTemplates.ChangedMark" xml:space="preserve">
+    <value>Changed, not saved</value>
+  </data>
+  <data name="AdmTemplates.SearchPlaceholder" xml:space="preserve">
+    <value>Search names, help texts and registry values</value>
+  </data>
+  <data name="AdmTemplates.OnlyConfigured" xml:space="preserve">
+    <value>Only configured</value>
+  </data>
+  <data name="AdmTemplates.OnlyChanged" xml:space="preserve">
+    <value>Only changed</value>
+  </data>
+  <data name="AdmTemplates.Save" xml:space="preserve">
+    <value>Save changes…</value>
+  </data>
+  <data name="AdmTemplates.Discard" xml:space="preserve">
+    <value>Discard changes</value>
+  </data>
+  <data name="AdmTemplates.DiscardTitle" xml:space="preserve">
+    <value>Discard changes</value>
+  </data>
+  <data name="AdmTemplates.DiscardMessage" xml:space="preserve">
+    <value>Discard the changes of {0} settings that are not saved yet?</value>
+  </data>
+  <data name="AdmTemplates.ReloadDefinitions" xml:space="preserve">
+    <value>Reload templates</value>
+  </data>
+  <data name="AdmTemplates.DeleteExtraEntry" xml:space="preserve">
+    <value>Delete entry</value>
+  </data>
+  <data name="AdmTemplates.ChangedCount" xml:space="preserve">
+    <value>Changed settings: {0} (not saved)</value>
+  </data>
+  <data name="AdmTemplates.Loaded" xml:space="preserve">
+    <value>{0} settings, {1} configured</value>
+  </data>
+  <data name="AdmTemplates.SelectCategory" xml:space="preserve">
+    <value>Select a category.</value>
+  </data>
+  <data name="AdmTemplates.NoMatches" xml:space="preserve">
+    <value>No settings match.</value>
+  </data>
+  <data name="AdmTemplates.SelectPolicy" xml:space="preserve">
+    <value>Select a setting to see its help and options.</value>
+  </data>
+  <data name="AdmTemplates.SourceCentral" xml:space="preserve">
+    <value>Templates: central store on {0} ({1} files)</value>
+  </data>
+  <data name="AdmTemplates.SourceLocal" xml:space="preserve">
+    <value>{0} has no central store: templates of this computer ({1}, {2} files) – as the Microsoft editor does. Create the central store with "Update templates".</value>
+  </data>
+  <data name="AdmTemplates.SourceLocalWithoutSysvol" xml:space="preserve">
+    <value>SYSVOL of {0} cannot be read: templates of this computer ({1}, {2} files); the GPO's settings cannot be shown.</value>
+  </data>
+  <data name="AdmTemplates.SourceNone" xml:space="preserve">
+    <value>No ADMX templates: neither a central store on {0} nor templates on this computer. Settings are listed as registry values only.</value>
+  </data>
+  <data name="AdmTemplates.DefinitionIssues" xml:space="preserve">
+    <value>Template problems ({0})</value>
+  </data>
+  <data name="AdmTemplates.IssueFileUnreadable" xml:space="preserve">
+    <value>{0}: the file cannot be read – its settings are missing ({1})</value>
+  </data>
+  <data name="AdmTemplates.IssueLanguageMissing" xml:space="preserve">
+    <value>{0}: no language file – names show as identifiers</value>
+  </data>
+  <data name="AdmTemplates.IssueLanguageUnreadable" xml:space="preserve">
+    <value>{0}: the language file cannot be read ({1})</value>
+  </data>
+  <data name="AdmTemplates.IssueLanguageOutdated" xml:space="preserve">
+    <value>{0}: the language file is older than its template needs (revision {1}) – some texts may be missing</value>
+  </data>
+  <data name="AdmTemplates.IssueNamespaceCollision" xml:space="preserve">
+    <value>{0}: namespace {1} is already defined by another file – this file is ignored (an old and a new version of the same template?)</value>
+  </data>
+  <data name="AdmTemplates.IssueDuplicate" xml:space="preserve">
+    <value>{0}: {1} is defined twice – the first definition is used</value>
+  </data>
+  <data name="AdmTemplates.IssueUnknownCategory" xml:space="preserve">
+    <value>{0}: category {1} is not defined – shown at the top level</value>
+  </data>
+  <data name="AdmTemplates.IssueCategoryLoop" xml:space="preserve">
+    <value>{0}: categories refer to each other ({1}) – the loop is cut</value>
+  </data>
+  <data name="AdmTemplates.IssueTooManyFiles" xml:space="preserve">
+    <value>The store holds {1} templates; only the first ones are read</value>
+  </data>
+  <data name="AdmTemplates.FileUnreadable" xml:space="preserve">
+    <value>{0} cannot be read ({1}): this part of the GPO cannot be edited.</value>
+  </data>
+  <data name="AdmTemplates.FileAccessDenied" xml:space="preserve">
+    <value>access denied</value>
+  </data>
+  <data name="AdmTemplates.FileTooLarge" xml:space="preserve">
+    <value>the file is too large</value>
+  </data>
+  <data name="AdmTemplates.FileReadFailed" xml:space="preserve">
+    <value>the read failed</value>
+  </data>
+  <data name="AdmTemplates.FileMalformed" xml:space="preserve">
+    <value>the file is damaged</value>
+  </data>
+  <data name="AdmTemplates.ConflictNote" xml:space="preserve">
+    <value>The settings of this GPO changed on {0} since you started editing. Saving will be refused as a conflict: discard your changes to see the current settings.</value>
+  </data>
+  <data name="AdmTemplates.SupportedOn" xml:space="preserve">
+    <value>Supported on: {0}</value>
+  </data>
+  <data name="AdmTemplates.Registry" xml:space="preserve">
+    <value>Registry</value>
+  </data>
+  <data name="AdmTemplates.File" xml:space="preserve">
+    <value>Template</value>
+  </data>
+  <data name="AdmTemplates.Options" xml:space="preserve">
+    <value>Options</value>
+  </data>
+  <data name="AdmTemplates.Help" xml:space="preserve">
+    <value>Help</value>
+  </data>
+  <data name="AdmTemplates.NoOptions" xml:space="preserve">
+    <value>This setting has no options.</value>
+  </data>
+  <data name="AdmTemplates.NotWritable" xml:space="preserve">
+    <value>This setting has no registry value the editor can write; it is shown for reference only.</value>
+  </data>
+  <data name="AdmTemplates.InconsistentNote" xml:space="preserve">
+    <value>Registry.pol holds values of this setting that match neither Enabled nor Disabled (written by another tool or another template version). Choose a state to replace them.</value>
+  </data>
+  <data name="AdmTemplates.AddEntry" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="AdmTemplates.RemoveEntry" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="AdmTemplates.SpinUp" xml:space="preserve">
+    <value>Increase</value>
+  </data>
+  <data name="AdmTemplates.SpinDown" xml:space="preserve">
+    <value>Decrease</value>
+  </data>
+  <data name="AdmTemplates.Range" xml:space="preserve">
+    <value>Range: {0}</value>
+  </data>
+  <data name="AdmTemplates.ProblemRequired" xml:space="preserve">
+    <value>{0}: a value is required.</value>
+  </data>
+  <data name="AdmTemplates.ProblemOutOfRange" xml:space="preserve">
+    <value>{0}: enter a number from {1} to {2}.</value>
+  </data>
+  <data name="AdmTemplates.ProblemTooLong" xml:space="preserve">
+    <value>{0}: at most {1} characters.</value>
+  </data>
+  <data name="AdmTemplates.ProblemTooManyLines" xml:space="preserve">
+    <value>{0}: at most {1} lines.</value>
+  </data>
+  <data name="AdmTemplates.ProblemUnknownItem" xml:space="preserve">
+    <value>{0}: choose an item.</value>
+  </data>
+  <data name="AdmTemplates.ProblemEmptyListEntry" xml:space="preserve">
+    <value>{0}: an entry is empty.</value>
+  </data>
+  <data name="AdmTemplates.ProblemDuplicateListEntry" xml:space="preserve">
+    <value>{0}: entries repeat.</value>
+  </data>
+  <data name="AdmTemplates.ProblemInvalidCharacter" xml:space="preserve">
+    <value>{0}: the value holds a character that cannot be stored.</value>
+  </data>
+  <data name="AdmTemplates.ProblemNotANumber" xml:space="preserve">
+    <value>{0}: not a whole number.</value>
+  </data>
+  <data name="AdmTemplates.PlanTitle" xml:space="preserve">
+    <value>Administrative templates of {0}</value>
+  </data>
   <!-- K3: administrative templates (end) -->
 
   <!-- U5 core: begin -->

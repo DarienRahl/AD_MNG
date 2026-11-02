@@ -135,6 +135,7 @@ public sealed partial class GroupPolicyObjectsDocumentViewModel(GroupPolicyServi
         CompareCommand.NotifyCanExecuteChanged();
         OpenCommand.NotifyCanExecuteChanged();
         HistoryCommand.NotifyCanExecuteChanged();
+        EditTemplatesCommand.NotifyCanExecuteChanged();
     }
 
     private GpoInfo? Single => Selection.Count == 1 ? Selection[0].Gpo : null;
@@ -175,6 +176,16 @@ public sealed partial class GroupPolicyObjectsDocumentViewModel(GroupPolicyServi
 
     [RelayCommand(CanExecute = nameof(CanHistory))]
     private Task HistoryAsync() => Single is { } gpo ? Actions.ShowHistoryAsync(gpo) : Task.CompletedTask;
+
+    /// <summary>"Edytuj szablony administracyjne" (K3): the editor of the selected GPO.</summary>
+    [RelayCommand(CanExecute = nameof(CanSingle))]
+    private void EditTemplates()
+    {
+        if (Single is { } gpo)
+        {
+            Actions.EditAdministrativeTemplates(gpo.Id, gpo.DisplayName);
+        }
+    }
 
     private bool CanSingle() => !IsLoading && HasSession && Single is not null;
 

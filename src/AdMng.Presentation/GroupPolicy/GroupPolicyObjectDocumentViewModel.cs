@@ -380,6 +380,7 @@ public sealed partial class GroupPolicyObjectDocumentViewModel : GroupPolicyDocu
         CompareCommand.NotifyCanExecuteChanged();
         DeleteCommand.NotifyCanExecuteChanged();
         HistoryCommand.NotifyCanExecuteChanged();
+        EditTemplatesCommand.NotifyCanExecuteChanged();
     }
 
     protected override void OnCultureChanged()
@@ -478,6 +479,16 @@ public sealed partial class GroupPolicyObjectDocumentViewModel : GroupPolicyDocu
 
     [RelayCommand(CanExecute = nameof(CanHistory))]
     private Task HistoryAsync() => _gpo is { } gpo ? Actions.ShowHistoryAsync(gpo) : Task.CompletedTask;
+
+    /// <summary>"Edytuj szablony administracyjne" (K3): the editor of this GPO's administrative templates.</summary>
+    [RelayCommand(CanExecute = nameof(CanEdit))]
+    private void EditTemplates()
+    {
+        if (_gpo is { } gpo)
+        {
+            Actions.EditAdministrativeTemplates(gpo.Id, gpo.DisplayName);
+        }
+    }
 
     private bool CanEdit() => !IsLoading && HasSession && _gpo is not null;
 

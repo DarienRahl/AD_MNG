@@ -33,6 +33,9 @@ public enum GroupPolicyDocumentKind
 
     /// <summary>"Filtry WMI".</summary>
     WmiFilters,
+
+    /// <summary>"Szablony administracyjne" of one GPO (K3, <see cref="GroupPolicyDocumentRequest.GpoId"/>).</summary>
+    AdministrativeTemplates,
 }
 
 /// <summary>A request to open a Group Policy document in the connection window's shell.</summary>

@@ -3,7 +3,9 @@ using AdMng.Core.Batch;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Dialogs;
+using AdMng.Core.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.GroupPolicy;
+using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Shell;
 using AdMng.Presentation.Tests.Dialogs;
@@ -31,7 +33,8 @@ internal sealed class GroupPolicyHarness
         Planner = new GroupPolicyPlanner(new GroupPolicyReader(), b2.Time);
         Services = new GroupPolicyServices(Ui, b2.Engines, Planner, Windows, withWriter ? Sysvol : null);
         Actions = new GroupPolicyActions(Services);
-        Factory = new GroupPolicyViewModelFactory(Services, Actions);
+        Definitions = new PolicyDefinitionsService(Local);
+        Factory = new GroupPolicyViewModelFactory(Services, Actions, Definitions);
     }
 
     public B2Harness B2 { get; }
@@ -55,6 +58,23 @@ internal sealed class GroupPolicyHarness
     public GroupPolicyActions Actions { get; }
 
     public GroupPolicyViewModelFactory Factory { get; }
+
+    /// <summary>The templates of "this computer" (none until a test sets <see cref="TestLocalPolicyDefinitions.Source"/>).</summary>
+    public TestLocalPolicyDefinitions Local { get; } = new();
+
+    public PolicyDefinitionsService Definitions { get; }
+
+    /// <summary>Puts the sample templates (<see cref="SampleAdministrativeTemplates"/>) into the central store of SYSVOL.</summary>
+    public void AddCentralStore(bool polish = true)
+    {
+        foreach (var (path, content) in SampleAdministrativeTemplates.Files(polish))
+        {
+            Sysvol.PutPolicyDefinition(path, content);
+        }
+    }
+
+    public Task<AdministrativeTemplatesEditorViewModel> TemplatesAsync(Guid id) =>
+        OpenAsync<AdministrativeTemplatesEditorViewModel>(new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.AdministrativeTemplates) { GpoId = id });
 
     public FakeDirectorySession Session => B2.Session;
 
@@ -107,4 +127,12 @@ internal sealed class GroupPolicyHarness
         B2.Notifications,
         new Core.Csv.CsvCodec(),
         B2.Regional);
+}
+
+/// <summary>The templates of "this computer" in the tests (none by default).</summary>
+internal sealed class TestLocalPolicyDefinitions : ILocalPolicyDefinitions
+{
+    public string? Folder { get; set; }
+
+    public IPolicyDefinitionSource? Source { get; set; }
 }

@@ -11881,6 +11881,246 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Issue.GpoUserPartDisabled" xml:space="preserve">
     <value>Konfiguracja użytkownika tego GPO jest wyłączona (stan GPO): klienci zastosują te ustawienia dopiero po jej ponownym włączeniu.</value>
   </data>
+  <data name="AdmTemplates.Title" xml:space="preserve">
+    <value>Szablony administracyjne – {0}</value>
+  </data>
+  <data name="AdmTemplates.EditCommand" xml:space="preserve">
+    <value>Edytuj szablony administracyjne</value>
+  </data>
+  <data name="AdmTemplates.ComputerConfiguration" xml:space="preserve">
+    <value>Konfiguracja komputera</value>
+  </data>
+  <data name="AdmTemplates.UserConfiguration" xml:space="preserve">
+    <value>Konfiguracja użytkownika</value>
+  </data>
+  <data name="AdmTemplates.AllSettings" xml:space="preserve">
+    <value>Wszystkie ustawienia</value>
+  </data>
+  <data name="AdmTemplates.Uncategorized" xml:space="preserve">
+    <value>Bez kategorii</value>
+  </data>
+  <data name="AdmTemplates.ExtraSettings" xml:space="preserve">
+    <value>Ustawienia rejestru spoza szablonów ({0})</value>
+  </data>
+  <data name="AdmTemplates.ExtraHint" xml:space="preserve">
+    <value>Wpisy Registry.pol, których nie opisuje żaden wczytany szablon (zapisane innym narzędziem albo przez szablon, którego brak w magazynie). Usunięty wpis zniknie z GPO po zapisaniu.</value>
+  </data>
+  <data name="AdmTemplates.StateNotConfigured" xml:space="preserve">
+    <value>Nie skonfigurowano</value>
+  </data>
+  <data name="AdmTemplates.StateEnabled" xml:space="preserve">
+    <value>Włączone</value>
+  </data>
+  <data name="AdmTemplates.StateDisabled" xml:space="preserve">
+    <value>Wyłączone</value>
+  </data>
+  <data name="AdmTemplates.StateInconsistent" xml:space="preserve">
+    <value>Niejednoznaczne</value>
+  </data>
+  <data name="AdmTemplates.StateUnknown" xml:space="preserve">
+    <value>–</value>
+  </data>
+  <data name="AdmTemplates.ColumnSetting" xml:space="preserve">
+    <value>Ustawienie</value>
+  </data>
+  <data name="AdmTemplates.ColumnState" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="AdmTemplates.ColumnCategory" xml:space="preserve">
+    <value>Kategoria</value>
+  </data>
+  <data name="AdmTemplates.ColumnKey" xml:space="preserve">
+    <value>Klucz</value>
+  </data>
+  <data name="AdmTemplates.ColumnValueName" xml:space="preserve">
+    <value>Nazwa wartości</value>
+  </data>
+  <data name="AdmTemplates.ColumnType" xml:space="preserve">
+    <value>Typ</value>
+  </data>
+  <data name="AdmTemplates.ColumnData" xml:space="preserve">
+    <value>Dane</value>
+  </data>
+  <data name="AdmTemplates.ColumnName" xml:space="preserve">
+    <value>Nazwa wartości</value>
+  </data>
+  <data name="AdmTemplates.ColumnValue" xml:space="preserve">
+    <value>Wartość</value>
+  </data>
+  <data name="AdmTemplates.ChangedMark" xml:space="preserve">
+    <value>Zmienione, niezapisane</value>
+  </data>
+  <data name="AdmTemplates.SearchPlaceholder" xml:space="preserve">
+    <value>Szukaj w nazwach, opisach i wartościach rejestru</value>
+  </data>
+  <data name="AdmTemplates.OnlyConfigured" xml:space="preserve">
+    <value>Tylko skonfigurowane</value>
+  </data>
+  <data name="AdmTemplates.OnlyChanged" xml:space="preserve">
+    <value>Tylko zmienione</value>
+  </data>
+  <data name="AdmTemplates.Save" xml:space="preserve">
+    <value>Zapisz zmiany…</value>
+  </data>
+  <data name="AdmTemplates.Discard" xml:space="preserve">
+    <value>Odrzuć zmiany</value>
+  </data>
+  <data name="AdmTemplates.DiscardTitle" xml:space="preserve">
+    <value>Odrzucanie zmian</value>
+  </data>
+  <data name="AdmTemplates.DiscardMessage" xml:space="preserve">
+    <value>Odrzucić niezapisane zmiany ustawień (liczba: {0})?</value>
+  </data>
+  <data name="AdmTemplates.ReloadDefinitions" xml:space="preserve">
+    <value>Wczytaj szablony ponownie</value>
+  </data>
+  <data name="AdmTemplates.DeleteExtraEntry" xml:space="preserve">
+    <value>Usuń wpis</value>
+  </data>
+  <data name="AdmTemplates.ChangedCount" xml:space="preserve">
+    <value>Zmienione ustawienia: {0} (niezapisane)</value>
+  </data>
+  <data name="AdmTemplates.Loaded" xml:space="preserve">
+    <value>Ustawienia: {0}, skonfigurowane: {1}</value>
+  </data>
+  <data name="AdmTemplates.SelectCategory" xml:space="preserve">
+    <value>Wybierz kategorię.</value>
+  </data>
+  <data name="AdmTemplates.NoMatches" xml:space="preserve">
+    <value>Brak pasujących ustawień.</value>
+  </data>
+  <data name="AdmTemplates.SelectPolicy" xml:space="preserve">
+    <value>Wybierz ustawienie, aby zobaczyć jego opis i opcje.</value>
+  </data>
+  <data name="AdmTemplates.SourceCentral" xml:space="preserve">
+    <value>Szablony: magazyn centralny na {0} (plików: {1})</value>
+  </data>
+  <data name="AdmTemplates.SourceLocal" xml:space="preserve">
+    <value>Na {0} nie ma magazynu centralnego: szablony tego komputera ({1}, plików: {2}) – jak w edytorze Microsoftu. Magazyn centralny utworzysz poleceniem „Zaktualizuj szablony”.</value>
+  </data>
+  <data name="AdmTemplates.SourceLocalWithoutSysvol" xml:space="preserve">
+    <value>Nie można odczytać SYSVOL na {0}: szablony tego komputera ({1}, plików: {2}); ustawień GPO nie da się pokazać.</value>
+  </data>
+  <data name="AdmTemplates.SourceNone" xml:space="preserve">
+    <value>Brak szablonów ADMX: ani magazynu centralnego na {0}, ani szablonów na tym komputerze. Ustawienia są widoczne tylko jako wartości rejestru.</value>
+  </data>
+  <data name="AdmTemplates.DefinitionIssues" xml:space="preserve">
+    <value>Problemy z szablonami ({0})</value>
+  </data>
+  <data name="AdmTemplates.IssueFileUnreadable" xml:space="preserve">
+    <value>{0}: nie można odczytać pliku – brak jego ustawień ({1})</value>
+  </data>
+  <data name="AdmTemplates.IssueLanguageMissing" xml:space="preserve">
+    <value>{0}: brak pliku językowego – nazwy pokazane jako identyfikatory</value>
+  </data>
+  <data name="AdmTemplates.IssueLanguageUnreadable" xml:space="preserve">
+    <value>{0}: nie można odczytać pliku językowego ({1})</value>
+  </data>
+  <data name="AdmTemplates.IssueLanguageOutdated" xml:space="preserve">
+    <value>{0}: plik językowy jest starszy, niż wymaga szablon (wersja {1}) – może brakować tekstów</value>
+  </data>
+  <data name="AdmTemplates.IssueNamespaceCollision" xml:space="preserve">
+    <value>{0}: przestrzeń nazw {1} definiuje już inny plik – ten plik pominięto (stara i nowa wersja tego samego szablonu?)</value>
+  </data>
+  <data name="AdmTemplates.IssueDuplicate" xml:space="preserve">
+    <value>{0}: {1} zdefiniowano dwa razy – używana jest pierwsza definicja</value>
+  </data>
+  <data name="AdmTemplates.IssueUnknownCategory" xml:space="preserve">
+    <value>{0}: kategoria {1} nie jest zdefiniowana – pokazano na najwyższym poziomie</value>
+  </data>
+  <data name="AdmTemplates.IssueCategoryLoop" xml:space="preserve">
+    <value>{0}: kategorie odwołują się do siebie nawzajem ({1}) – pętlę przerwano</value>
+  </data>
+  <data name="AdmTemplates.IssueTooManyFiles" xml:space="preserve">
+    <value>Magazyn zawiera szablonów: {1}; wczytano tylko pierwsze</value>
+  </data>
+  <data name="AdmTemplates.FileUnreadable" xml:space="preserve">
+    <value>Nie można odczytać {0} ({1}): tej części GPO nie można edytować.</value>
+  </data>
+  <data name="AdmTemplates.FileAccessDenied" xml:space="preserve">
+    <value>odmowa dostępu</value>
+  </data>
+  <data name="AdmTemplates.FileTooLarge" xml:space="preserve">
+    <value>plik jest za duży</value>
+  </data>
+  <data name="AdmTemplates.FileReadFailed" xml:space="preserve">
+    <value>błąd odczytu</value>
+  </data>
+  <data name="AdmTemplates.FileMalformed" xml:space="preserve">
+    <value>plik jest uszkodzony</value>
+  </data>
+  <data name="AdmTemplates.ConflictNote" xml:space="preserve">
+    <value>Ustawienia tego GPO zmieniły się na {0} od rozpoczęcia edycji. Zapis zostanie odrzucony jako konflikt: odrzuć swoje zmiany, aby zobaczyć aktualne ustawienia.</value>
+  </data>
+  <data name="AdmTemplates.SupportedOn" xml:space="preserve">
+    <value>Obsługiwane w: {0}</value>
+  </data>
+  <data name="AdmTemplates.Registry" xml:space="preserve">
+    <value>Rejestr</value>
+  </data>
+  <data name="AdmTemplates.File" xml:space="preserve">
+    <value>Szablon</value>
+  </data>
+  <data name="AdmTemplates.Options" xml:space="preserve">
+    <value>Opcje</value>
+  </data>
+  <data name="AdmTemplates.Help" xml:space="preserve">
+    <value>Pomoc</value>
+  </data>
+  <data name="AdmTemplates.NoOptions" xml:space="preserve">
+    <value>To ustawienie nie ma opcji.</value>
+  </data>
+  <data name="AdmTemplates.NotWritable" xml:space="preserve">
+    <value>To ustawienie nie ma wartości rejestru, którą edytor może zapisać; jest pokazane tylko informacyjnie.</value>
+  </data>
+  <data name="AdmTemplates.InconsistentNote" xml:space="preserve">
+    <value>Registry.pol zawiera wartości tego ustawienia, które nie odpowiadają ani stanowi Włączone, ani Wyłączone (zapisane innym narzędziem albo inną wersją szablonu). Wybierz stan, aby je zastąpić.</value>
+  </data>
+  <data name="AdmTemplates.AddEntry" xml:space="preserve">
+    <value>Dodaj</value>
+  </data>
+  <data name="AdmTemplates.RemoveEntry" xml:space="preserve">
+    <value>Usuń</value>
+  </data>
+  <data name="AdmTemplates.SpinUp" xml:space="preserve">
+    <value>Zwiększ</value>
+  </data>
+  <data name="AdmTemplates.SpinDown" xml:space="preserve">
+    <value>Zmniejsz</value>
+  </data>
+  <data name="AdmTemplates.Range" xml:space="preserve">
+    <value>Zakres: {0}</value>
+  </data>
+  <data name="AdmTemplates.ProblemRequired" xml:space="preserve">
+    <value>{0}: wartość jest wymagana.</value>
+  </data>
+  <data name="AdmTemplates.ProblemOutOfRange" xml:space="preserve">
+    <value>{0}: wpisz liczbę od {1} do {2}.</value>
+  </data>
+  <data name="AdmTemplates.ProblemTooLong" xml:space="preserve">
+    <value>{0}: co najwyżej {1} znaków.</value>
+  </data>
+  <data name="AdmTemplates.ProblemTooManyLines" xml:space="preserve">
+    <value>{0}: co najwyżej {1} wierszy.</value>
+  </data>
+  <data name="AdmTemplates.ProblemUnknownItem" xml:space="preserve">
+    <value>{0}: wybierz pozycję.</value>
+  </data>
+  <data name="AdmTemplates.ProblemEmptyListEntry" xml:space="preserve">
+    <value>{0}: jeden z wpisów jest pusty.</value>
+  </data>
+  <data name="AdmTemplates.ProblemDuplicateListEntry" xml:space="preserve">
+    <value>{0}: wpisy się powtarzają.</value>
+  </data>
+  <data name="AdmTemplates.ProblemInvalidCharacter" xml:space="preserve">
+    <value>{0}: wartość zawiera znak, którego nie można zapisać.</value>
+  </data>
+  <data name="AdmTemplates.ProblemNotANumber" xml:space="preserve">
+    <value>{0}: to nie jest liczba całkowita.</value>
+  </data>
+  <data name="AdmTemplates.PlanTitle" xml:space="preserve">
+    <value>Szablony administracyjne GPO {0}</value>
+  </data>
   <!-- K3: administrative templates (end) -->
 
   <!-- U5 core: begin -->
