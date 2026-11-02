@@ -697,7 +697,7 @@ public static partial class FlowDocumentHtml
                 if ((line.AtLineStart || line.AfterSpace) && part[0] == ' ')
                 {
                     // A space at the start of a line, or after a space that ended the previous run, would collapse in HTML.
-                    part = " " + part[1..];
+                    part = "\u00A0" + part[1..];
                 }
 
                 // Runs of spaces: one breakable space, then non-breaking ones (stable when read back, also at a line end).
