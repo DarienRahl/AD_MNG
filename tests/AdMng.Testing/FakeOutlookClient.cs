@@ -9,8 +9,8 @@ namespace AdMng.Testing;
 /// 4.5): <see cref="Availability"/>, a scripted <see cref="ConnectFailure"/>, the <see cref="Profile"/> of new sessions and
 /// everything a <see cref="FakeOutlookSession"/> answers: scripted results per recipient address (a queue per address, then
 /// <see cref="DefaultResult"/>), the record of every item with its mode, <see cref="RenderResult"/>,
-/// <see cref="DiagnoseResult"/>, <see cref="Campaigns"/>, <see cref="Responses"/> and a <see cref="BeforeSend"/> hook.
-/// Never starts or attaches to Outlook. Thread-safe.
+/// <see cref="DiagnoseResult"/>, <see cref="Campaigns"/>, <see cref="Responses"/> and the hooks <see cref="BeforeSend"/>,
+/// <see cref="BeforeRender"/> and <see cref="BeforeRead"/>. Never starts or attaches to Outlook. Thread-safe.
 /// </summary>
 public sealed class FakeOutlookClient : IOutlookClient
 {
@@ -63,6 +63,12 @@ public sealed class FakeOutlookClient : IOutlookClient
 
     /// <summary>Called before every item is "built" (e.g. to cancel a run in the middle or to check the message).</summary>
     public Action<OutlookMessage, OutlookSendMode>? BeforeSend { get; set; }
+
+    /// <summary>Called while a session renders a message, before it answers (e.g. to replace the window's session meanwhile).</summary>
+    public Action<OutlookMessage>? BeforeRender { get; set; }
+
+    /// <summary>Called while a session reads the campaigns or the responses, before it answers.</summary>
+    public Action? BeforeRead { get; set; }
 
     /// <summary>Every item sent or saved (also the failed ones), in order.</summary>
     public ConcurrentQueue<FakeOutlookItem> Items { get; } = new();
@@ -202,6 +208,7 @@ public sealed class FakeOutlookSession : IOutlookSession
         cancellationToken.ThrowIfCancellationRequested();
         ObjectDisposedException.ThrowIf(IsDisposed, this);
         _owner.Rendered.Enqueue(message);
+        _owner.BeforeRender?.Invoke(message);
         if (_owner.RenderFailure is { } failure)
         {
             throw new OutlookException(failure);
@@ -228,6 +235,7 @@ public sealed class FakeOutlookSession : IOutlookSession
     {
         cancellationToken.ThrowIfCancellationRequested();
         ObjectDisposedException.ThrowIf(IsDisposed, this);
+        _owner.BeforeRead?.Invoke();
         if (_owner.ReadFailure is { } failure)
         {
             throw new OutlookException(failure);
@@ -242,6 +250,7 @@ public sealed class FakeOutlookSession : IOutlookSession
         ArgumentException.ThrowIfNullOrWhiteSpace(campaignId);
         cancellationToken.ThrowIfCancellationRequested();
         ObjectDisposedException.ThrowIf(IsDisposed, this);
+        _owner.BeforeRead?.Invoke();
         if (_owner.ReadFailure is { } failure)
         {
             throw new OutlookException(failure);

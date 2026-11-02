@@ -137,9 +137,10 @@ public sealed partial class ResponsesPageViewModel : ObservableObject
         var token = _reads.Next();
         IsLoading = true;
         SummaryText = Localizer[L.CorrespondenceResponses.Searching];
+        IOutlookSession? session = null;
         try
         {
-            var session = await Outlook.EnsureConnectedAsync(token).ConfigureAwait(true);
+            session = await Outlook.EnsureConnectedAsync(token).ConfigureAwait(true);
             if (session is null)
             {
                 SummaryText = Localizer.Format(L.CorrespondenceSend.OutlookUnavailable, Outlook.FailureText ?? Outlook.StateText);
@@ -164,7 +165,7 @@ public sealed partial class ResponsesPageViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is OutlookException or ObjectDisposedException)
         {
-            ShowFailure(ex);
+            ShowFailure(ex, session);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -192,9 +193,10 @@ public sealed partial class ResponsesPageViewModel : ObservableObject
         var token = _reads.Next();
         IsLoading = true;
         SummaryText = Localizer[L.CorrespondenceResponses.Reading];
+        IOutlookSession? session = null;
         try
         {
-            var session = await Outlook.EnsureConnectedAsync(token).ConfigureAwait(true);
+            session = await Outlook.EnsureConnectedAsync(token).ConfigureAwait(true);
             if (session is null)
             {
                 SummaryText = Localizer.Format(L.CorrespondenceSend.OutlookUnavailable, Outlook.FailureText ?? Outlook.StateText);
@@ -222,7 +224,7 @@ public sealed partial class ResponsesPageViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is OutlookException or ObjectDisposedException)
         {
-            ShowFailure(ex);
+            ShowFailure(ex, session);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -275,11 +277,12 @@ public sealed partial class ResponsesPageViewModel : ObservableObject
 
     private bool CanExport() => Rows.Count > 0;
 
-    /// <summary>A failed read: the failure's text (a released session is a lost Outlook), reported so the next read reconnects.</summary>
-    private void ShowFailure(Exception exception)
+    /// <summary>A failed read: the failure's text (a released session is a lost Outlook), reported for the session that read
+    /// – so the next read reconnects, while a session the window replaced meanwhile changes nothing.</summary>
+    private void ShowFailure(Exception exception, IOutlookSession? session)
     {
         var failure = (exception as OutlookException)?.Failure ?? CorrespondenceSender.SessionClosed;
-        Outlook.ReportFailure(failure);
+        Outlook.ReportFailure(failure, session);
         SummaryText = Localizer.Format(L.CorrespondenceResponses.ReadFailed, CorrespondenceText.FailureText(Localizer, failure));
     }
 

@@ -73,6 +73,74 @@ public sealed class MailboxOwnersReviewTests
     }
 
     [Fact]
+    public async Task Wyslij_IsTickedOnlyForAnOwnerToWriteTo_AndFollowsTheOwnerUntilTheOperatorSetsIt()
+    {
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
+        var sample = MailboxSample(scenario);
+        var withoutAddress = scenario.Harness.Builder.AddUser("Bożena", "Wróbel", scenario.Company.SalesOu);   // no address at all
+        using var window = await scenario.OpenAsync(new CorrespondenceRequest([], CorrespondenceStart.MailboxOwners));
+        var page = window.Mailboxes;
+        await UseSampleOuAsync(scenario, page, sample);
+        await page.FindOwnersCommand.ExecuteAsync(null);
+
+        // Ticked where an owner with an address was chosen; never where nothing would be sent.
+        Assert.All(page.Rows, row => Assert.True(row.Include == EmailAddressText.IsValid(row.OwnerAddress), row.MailboxName));
+        Assert.True(Row(page, sample.SekretariatIt).Include);                      // matched
+        Assert.True(Row(page, sample.Faktury).Include);                            // probable, a swapped name
+        Assert.True(Row(page, sample.Wydarzenia).Include);                         // a delegate
+        Assert.False(Row(page, sample.PomocTechniczna).Include);                   // no name
+        Assert.False(Row(page, sample.ProjektUe).Include);                         // not found
+        Assert.False(Row(page, sample.Laboratorium).Include);                      // ambiguous, nobody chosen
+        Assert.False(Row(page, sample.StaraSkrzynka).Include);                     // a disabled owner, not allowed
+        Assert.All(page.Rows, row => Assert.Equal(row.Include, row.IsReady));
+
+        // Choosing a candidate, picking a user or typing an address ticks it.
+        var laboratorium = Row(page, sample.Laboratorium);
+        laboratorium.SelectedCandidate = laboratorium.Candidates[0];
+        Assert.True(laboratorium.Include);
+        Assert.True(laboratorium.IsReady);
+        var projekt = Row(page, sample.ProjektUe);
+        scenario.Harness.Dialogs.PickedObjects.Enqueue([scenario.Company.PawelLewandowski]);
+        await page.PickOwnerCommand.ExecuteAsync(projekt);
+        Assert.True(projekt.Include);
+        var pomoc = Row(page, sample.PomocTechniczna);
+        scenario.Dialogs.Prompts.Enqueue("pomoc.it@contoso.test");
+        await page.TypeOwnerAddressCommand.ExecuteAsync(pomoc);
+        Assert.True(pomoc.Include);
+        Assert.True(pomoc.IsReady);
+
+        // Until the operator sets it, it follows the owner both ways: a person without an address clears it.
+        var sekretariat = Row(page, sample.SekretariatIt);
+        scenario.Harness.Dialogs.PickedObjects.Enqueue([withoutAddress]);
+        await page.PickOwnerCommand.ExecuteAsync(sekretariat);
+        Assert.Equal(("Bożena Wróbel", ""), (sekretariat.OwnerDisplayName, sekretariat.OwnerAddress));
+        Assert.False(sekretariat.Include);
+        scenario.Dialogs.Prompts.Enqueue("bozena.wrobel@poczta.pl");
+        await page.TypeOwnerAddressCommand.ExecuteAsync(sekretariat);
+        Assert.True(sekretariat.Include);
+
+        // A row the operator cleared stays cleared whatever owner is chosen later.
+        var archiwum = Row(page, sample.Archiwum);
+        archiwum.Include = false;
+        scenario.Harness.Dialogs.PickedObjects.Enqueue([scenario.Company.GrazynaDabrowska]);
+        await page.PickOwnerCommand.ExecuteAsync(archiwum);
+        Assert.Equal("grazyna.dabrowska@contoso.test", archiwum.OwnerAddress);
+        Assert.False(archiwum.Include);
+        Assert.False(archiwum.IsReady);
+
+        // One the operator ticked stays ticked, also before it has an owner.
+        var stara = Row(page, sample.StaraSkrzynka);
+        stara.Include = true;
+        Assert.False(stara.IsReady);
+        scenario.Harness.Dialogs.PickedObjects.Enqueue([withoutAddress]);
+        await page.PickOwnerCommand.ExecuteAsync(stara);
+        Assert.True(stara.Include);
+        stara.SelectedCandidate = stara.Candidates.Single(c => c.Person.IsDisabled);   // the operator takes the disabled owner
+        Assert.True(stara.Include);
+        Assert.True(stara.IsReady);
+    }
+
+    [Fact]
     public async Task PickOwner_AddsAnyUserAsTheOwner()
     {
         var (scenario, window, sample) = await RunAsync();
@@ -181,10 +249,12 @@ public sealed class MailboxOwnersReviewTests
         var biuro = Assert.Single(page.Rows, r => r.MailboxName == "Biuro zarządu");
         Assert.Equal(OwnerMatchStatus.OwnerWithoutAddress, biuro.Status);
         Assert.False(biuro.IsReady);
+        Assert.False(biuro.Include);
         scenario.Dialogs.Prompts.Enqueue("bozena.wrobel@poczta.pl");
         await page.TypeOwnerAddressCommand.ExecuteAsync(biuro);
         Assert.Equal(("bozena.wrobel@poczta.pl", "Bożena Wróbel"), (biuro.OwnerAddress, biuro.OwnerDisplayName));
         Assert.NotNull(biuro.Owner);
+        Assert.True(biuro.Include);
         Assert.True(biuro.IsReady);
 
         // Two of the same name: the address of one of them chooses him.
@@ -216,6 +286,7 @@ public sealed class MailboxOwnersReviewTests
         Assert.Equal(OwnerMatchLevel.Partial, projekt.Match.Best!.Level);
         Assert.Null(projekt.SelectedCandidate);
         Assert.False(projekt.IsReady);
+        Assert.False(projekt.Include);
         Assert.True(projekt.NeedsReview);
         Assert.Equal("Prawdopodobne", projekt.StatusText);
         Assert.Equal("zgodna część nazwiska · nie wybrano automatycznie", projekt.DetailText);
@@ -226,6 +297,7 @@ public sealed class MailboxOwnersReviewTests
 
         projekt.SelectedCandidate = projekt.Candidates[0];                // the operator confirms her
         Assert.Equal(MailboxOwnerRowState.Manual, projekt.RowState);
+        Assert.True(projekt.Include);
         Assert.True(projekt.IsReady);
         Assert.False(projekt.NeedsReview);
     }
@@ -271,6 +343,7 @@ public sealed class MailboxOwnersReviewTests
 
         Assert.Equal(OwnerMatchStatus.OwnerDisabled, stara.Status);
         Assert.Equal("zbigniew.kazmierczak@contoso.test", stara.OwnerAddress);
+        Assert.True(stara.Include);                                       // disabled owners are allowed
         Assert.True(stara.IsReady);
         Assert.True(stara.NeedsReview);
         Assert.Equal(MailboxRowStatusKind.Warning, stara.StatusKind);

@@ -44,12 +44,17 @@ public sealed record CandidateOption(PersonCandidate Person, string Text, bool I
 /// of the name (<see cref="OwnerMatchLevel.Partial"/> without a delegate link). Choosing another candidate (the combo box),
 /// picking any user or typing an address makes the row <see cref="MailboxOwnerRowState.Manual"/>; choosing the automatic
 /// candidate again returns it to <see cref="MailboxOwnerRowState.Automatic"/>. A cleared selection (a recycled row of the
-/// virtualized grid) is ignored.
+/// virtualized grid) is ignored. "Wyślij" (<see cref="Include"/>) is ticked only while the row has an owner to write to (a
+/// valid owner address – which the automatic choice gives a disabled owner only when disabled owners are allowed): rows
+/// without a name, not found, ambiguous, with a disabled owner or an owner without an address start cleared, and choosing
+/// a candidate, picking a user or typing an address ticks it – until the operator ticks or clears it, which is kept.
 /// </remarks>
 public sealed partial class MailboxOwnerRowViewModel : ObservableObject
 {
     private readonly ObservableCollection<CandidateOption> _candidates;
     private bool _applying;
+    private bool _followingOwner;
+    private bool _includeSetByOperator;
     private MailboxOwnerRowState _stateBeforeExclusion;
     private string? _typedAddress;
 
@@ -79,10 +84,11 @@ public sealed partial class MailboxOwnerRowViewModel : ObservableObject
     /// <summary>The owner's name as parsed, or null.</summary>
     public OwnerName? OwnerName { get; }
 
-    /// <summary>"Wyślij": the owner of this row becomes a recipient.</summary>
+    /// <summary>"Wyślij": the owner of this row becomes a recipient. Follows whether the row has an owner address until the
+    /// operator sets it (see the remarks of the type).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsReady))]
-    public partial bool Include { get; set; } = true;
+    public partial bool Include { get; set; }
 
     public string MailboxName => Mailbox.Name;
 
@@ -231,6 +237,33 @@ public sealed partial class MailboxOwnerRowViewModel : ObservableObject
     }
 
     public override string ToString() => nameof(MailboxOwnerRowViewModel);
+
+    partial void OnIncludeChanged(bool value)
+    {
+        if (!_followingOwner)
+        {
+            _includeSetByOperator = true;
+        }
+    }
+
+    /// <summary>"Wyślij" follows the owner address (none, or not valid: cleared) until the operator ticks or clears it.</summary>
+    partial void OnOwnerAddressChanged(string value)
+    {
+        if (_includeSetByOperator)
+        {
+            return;
+        }
+
+        _followingOwner = true;
+        try
+        {
+            Include = EmailAddressText.IsValid(value);
+        }
+        finally
+        {
+            _followingOwner = false;
+        }
+    }
 
     partial void OnSelectedCandidateChanged(CandidateOption? value)
     {

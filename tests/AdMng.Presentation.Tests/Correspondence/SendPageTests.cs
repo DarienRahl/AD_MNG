@@ -223,8 +223,11 @@ public sealed class SendPageTests
     public async Task SendTest_WithoutAnOwnAddress_AsksForOne()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();
-        scenario.Outlook.Profile = FakeOutlookClient.SampleProfile with { CurrentUserAddress = null };
+        // The profile's account (chosen as its default) has no address Outlook could tell, nor has the current user.
+        scenario.Outlook.Profile = FakeOutlookClient.SampleProfile with { Accounts = [new OutlookAccount("Skrzynka Exchange", "")], CurrentUserAddress = null };
         using var window = await scenario.OpenWithMessageAsync();
+        Assert.NotNull(window.Outlook.SelectedAccount);
+        Assert.Null(window.Outlook.OwnAddress);
 
         scenario.Dialogs.Prompts.Enqueue("to nie adres");
         await window.Send.SendTestCommand.ExecuteAsync(null);
@@ -286,6 +289,27 @@ public sealed class SendPageTests
             window.Send.Results.Select(r => r.Text));
         Assert.Equal("Wysyłka przerwana: udane 1, błędy 1, niewysłane 1.", window.Send.ProgressText);
         Assert.Equal(OutlookState.Failed, window.Outlook.State);
+    }
+
+    [Fact]
+    public async Task AnAccountMissingFromTheProfile_StopsTheRunAtTheFirstMessage()
+    {
+        // Every message of a run is sent from the same account: each one would fail the same way (until five in a row).
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenWithMessageAsync();
+        var offices = CorrespondencePagesScenario.Offices();
+        CorrespondencePagesScenario.AddRows(window, offices);
+        scenario.Outlook.DefaultResult = FakeOutlookClient.Failed(OutlookFailureKind.InvalidAccount, "account");
+        scenario.Ui.ConfirmAnswers.Enqueue(true);
+
+        await window.Send.SendCommand.ExecuteAsync(null);
+
+        Assert.Single(scenario.Outlook.Items);
+        Assert.Equal((RecipientStatusKind.Failed, "błąd – Wybranego konta nie ma w profilu Outlooka."), (offices[0].StatusKind, offices[0].Status));
+        Assert.All(offices[1..], row => Assert.Equal(RecipientStatusKind.None, row.StatusKind));
+        Assert.Contains("■ przerwano: Wybranego konta nie ma w profilu Outlooka.", window.Send.Results.Select(r => r.Text));
+        Assert.Equal("Wysyłka przerwana: udane 0, błędy 1, niewysłane 2.", window.Send.ProgressText);
+        Assert.Equal(OutlookState.Connected, window.Outlook.State);   // Outlook itself is fine: another account can be chosen
     }
 
     [Fact]
@@ -485,7 +509,7 @@ public sealed class SendPageTests
         Assert.Equal(("Wysyłka przez Outlooka", "51"), (title, expected));
         Assert.Equal(
             "Wysłać wiadomość do 51 odbiorców?" + NewLine + NewLine
-            + "Nadawca: konto domyślne profilu Outlooka" + NewLine
+            + "Nadawca: Jan Kowalski <jan.kowalski@contoso.test>" + NewLine
             + "Tryb: osobna wiadomość do każdego" + NewLine
             + "Pominięci (wykluczenia / już wysłane): 2" + NewLine
             + "Błędne adresy: 1" + NewLine
@@ -738,7 +762,7 @@ public sealed class SendPageTests
         Assert.Equal(
             [
                 "Do wysłania: 2    (pominięci: 1, błędne adresy: 0)",
-                "Nadawca: konto domyślne profilu Outlooka",
+                "Nadawca: Jan Kowalski <jan.kowalski@contoso.test>",
                 "W imieniu: rektorat@contoso.test",
                 "Tryb: osobna wiadomość do każdego",
                 "Temat: Zaproszenie na konferencję – {{Miejscowość}}",

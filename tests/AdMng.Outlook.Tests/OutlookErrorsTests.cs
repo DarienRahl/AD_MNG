@@ -154,6 +154,7 @@ public class OutlookErrorsTests
     [InlineData(OutlookFailureKind.SecurityDenied, true, false)]
     [InlineData(OutlookFailureKind.Disconnected, true, false)]
     [InlineData(OutlookFailureKind.NotSupported, true, false)]
+    [InlineData(OutlookFailureKind.InvalidAccount, true, false)]   // every message of a run is sent from the same account
     [InlineData(OutlookFailureKind.Busy, false, true)]
     [InlineData(OutlookFailureKind.NotResponding, false, true)]
     [InlineData(OutlookFailureKind.RecipientUnresolved, false, false)]

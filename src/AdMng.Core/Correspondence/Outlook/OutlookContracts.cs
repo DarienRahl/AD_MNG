@@ -91,9 +91,12 @@ public enum OutlookFailureKind
 /// <param name="HResult">The HRESULT, kept for the report.</param>
 public sealed record OutlookFailure(OutlookFailureKind Kind, string Code, string? Step, int? HResult)
 {
-    /// <summary>The run cannot continue: NotInstalled, Elevated, SecurityDenied, Disconnected, NotSupported.</summary>
+    /// <summary>
+    /// The run cannot continue: NotInstalled, Elevated, SecurityDenied, Disconnected, NotSupported – and InvalidAccount, since
+    /// every message of a run is sent from the same account (each one would fail the same way).
+    /// </summary>
     public bool StopsRun => Kind is OutlookFailureKind.NotInstalled or OutlookFailureKind.Elevated or OutlookFailureKind.SecurityDenied
-        or OutlookFailureKind.Disconnected or OutlookFailureKind.NotSupported;
+        or OutlookFailureKind.Disconnected or OutlookFailureKind.NotSupported or OutlookFailureKind.InvalidAccount;
 
     /// <summary>A later attempt may succeed: Busy, NotResponding.</summary>
     public bool IsTransient => Kind is OutlookFailureKind.Busy or OutlookFailureKind.NotResponding;

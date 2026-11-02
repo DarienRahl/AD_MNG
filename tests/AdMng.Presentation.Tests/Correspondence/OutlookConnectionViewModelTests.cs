@@ -36,8 +36,8 @@ public sealed class OutlookConnectionViewModelTests
         Assert.Equal("Outlook: połączono (2 konta)", outlook.StateText);
         Assert.True(outlook.IsConnected);
         Assert.Equal(["jan.kowalski@contoso.test", "sekretariat.lodz@contoso.test"], outlook.Accounts.Select(a => a.SmtpAddress));
-        Assert.Null(outlook.SelectedAccount);                    // the profile's default account
-        Assert.Null(outlook.AccountAddress);
+        Assert.Same(outlook.Accounts[0], outlook.SelectedAccount);   // the profile's default account (the current user's)
+        Assert.Equal("jan.kowalski@contoso.test", outlook.AccountAddress);
         Assert.Equal("jan.kowalski@contoso.test", outlook.OwnAddress);
         Assert.Same(session, outlook.Session);
         Assert.Equal(FakeOutlookClient.SampleProfile, outlook.Profile);
@@ -82,14 +82,53 @@ public sealed class OutlookConnectionViewModelTests
         outlook.SaveTo(saved);
         Assert.Equal(("jan.kowalski@contoso.test", "biuro@contoso.test"), (saved.AccountAddress, saved.OnBehalfOf));
 
-        // A profile without the account of the settings: the default account is used, the setting is not lost.
+        // A profile without the account of the settings: its default account is chosen, the setting is not lost.
         await using var other = Connection(scenario);
         other.LoadFrom(new CorrespondenceSettings { AccountAddress = "kadry@contoso.test" });
         await other.EnsureConnectedAsync(TestContext.Current.CancellationToken);
-        Assert.Null(other.SelectedAccount);
+        Assert.Equal("jan.kowalski@contoso.test", other.SelectedAccount!.SmtpAddress);
         var kept = new CorrespondenceSettings();
         other.SaveTo(kept);
         Assert.Equal("kadry@contoso.test", kept.AccountAddress);
+    }
+
+    [Fact]
+    public async Task WithoutASavedAccount_TheProfilesDefaultAccountIsChosen_SoWyslijJakoIsNeverEmpty()
+    {
+        // MailerWPiA selected the default account: the current user's, else the first one.
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
+        scenario.Outlook.Profile = FakeOutlookClient.SampleProfile with { CurrentUserAddress = "Sekretariat.Lodz@contoso.test" };
+        await using var outlook = Connection(scenario);
+        outlook.LoadFrom(new CorrespondenceSettings());
+
+        await outlook.EnsureConnectedAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("Outlook: połączono (2 konta)", outlook.StateText);
+        Assert.Same(outlook.Accounts[1], outlook.SelectedAccount);
+        Assert.Equal("sekretariat.lodz@contoso.test", outlook.AccountAddress);
+        var saved = new CorrespondenceSettings { AccountAddress = "stare@contoso.test" };
+        outlook.SaveTo(saved);
+        Assert.Equal(string.Empty, saved.AccountAddress);         // a default chosen for the operator is no saved choice
+
+        // The current user is none of the accounts: the first one.
+        scenario.Outlook.Profile = FakeOutlookClient.SampleProfile with { CurrentUserAddress = null };
+        await using var other = Connection(scenario);
+        await other.EnsureConnectedAsync(TestContext.Current.CancellationToken);
+        Assert.Same(other.Accounts[0], other.SelectedAccount);
+
+        // A reconnect to a profile without the chosen account chooses its default again (never a stale account).
+        other.SelectedAccount = other.Accounts[1];
+        scenario.Outlook.Profile = FakeOutlookClient.SampleProfile with
+        {
+            Accounts = [new OutlookAccount("Anna Nowak", "anna.nowak@contoso.test")],
+            CurrentUserAddress = "anna.nowak@contoso.test",
+        };
+        other.ReportFailure(FakeOutlookClient.Failure(OutlookFailureKind.Disconnected, "send"));
+        await other.EnsureConnectedAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("anna.nowak@contoso.test", other.AccountAddress);
+        var kept = new CorrespondenceSettings();
+        other.SaveTo(kept);
+        Assert.Equal("sekretariat.lodz@contoso.test", kept.AccountAddress);   // the operator's choice waits for its profile
     }
 
     [Fact]
