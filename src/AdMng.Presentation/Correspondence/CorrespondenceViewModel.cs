@@ -247,16 +247,21 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase
     }
 
     /// <summary>
-    /// The last draft of the settings (saved on close and before each send): its images are registered with the message
-    /// page first (the editor drops images it does not know), then – unless the page already holds a message – the subject,
-    /// the body, the salutation, the custom fields, the list item template and the options the draft carries. Missing or
-    /// changed image files are left out.
+    /// The last draft of the settings (saved on close and before each send): the window's font, size and line height (kept
+    /// in it), its images registered with the message page (the editor drops images it does not know), then – unless the
+    /// page already holds a message – the subject, the body, the salutation, the custom fields (text and date), the list
+    /// item template and the options the draft carries. Missing or changed image files are left out.
     /// </summary>
     private async Task LoadLastDraftAsync()
     {
         if (Correspondence.Templates.LoadLastDraft() is not { } draft)
         {
             return;
+        }
+
+        if (CorrespondenceTemplateLibrary.StyleOf(draft) is { } style)
+        {
+            Message.ApplyBaseStyle(style);
         }
 
         IReadOnlyDictionary<string, MessageImage> images;
@@ -293,7 +298,7 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase
         {
             foreach (var field in draft.CustomFields)
             {
-                Message.CustomFields.Add(new CustomFieldViewModel(field.Name, field.Value));
+                Message.CustomFields.Add(new CustomFieldViewModel(field));
             }
         }
 

@@ -103,16 +103,19 @@ public sealed class MessagePageTests
         using var scenario = await CorrespondencePagesScenario.CreateAsync();
         using var window = await scenario.OpenAsync();
         var message = window.Message;
-        Assert.Equal(["{{zwrot}}", "{{nazwa}}", "{{email}}"], message.FieldChoices);
+        Assert.Equal(["{{zwrot}}", "{{nazwa}}", "{{email}}", "{{podpis}}"], message.FieldChoices);
 
         CorrespondencePagesScenario.AddRows(window, CorrespondencePagesScenario.Row("biuro@łódź.pl", "Biuro",
-            ("Nazwa", "Biuro"), ("E-mail", "biuro@łódź.pl"), ("Miejscowość", "Łódź"), ("Kod pocztowy", "90-001")));
+            ("Nazwa", "Biuro"), ("E-mail", "biuro@łódź.pl"), ("Miejscowość", "Łódź"), ("Kod pocztowy", "90-001"), ("Podpis", "kolumna")));
         message.CustomFields.Add(new CustomFieldViewModel("Termin", "15 listopada"));
 
-        Assert.Equal(["{{zwrot}}", "{{nazwa}}", "{{email}}", "{{Termin}}", "{{Miejscowość}}", "{{Kod pocztowy}}"], message.FieldChoices);
+        // A "Podpis" column never shadows the built-in {{podpis}} (it is offered once, as the signature).
+        Assert.Equal(["{{zwrot}}", "{{nazwa}}", "{{email}}", "{{podpis}}", "{{Termin}}", "{{Miejscowość}}", "{{Kod pocztowy}}"], message.FieldChoices);
 
         message.GroupByAddress = true;
-        Assert.Equal(["{{zwrot}}", "{{nazwa}}", "{{email}}", "{{lista}}", "{{liczba}}", "{{Termin}}", "{{Miejscowość}}", "{{Kod pocztowy}}"], message.FieldChoices);
+        Assert.Equal(
+            ["{{zwrot}}", "{{nazwa}}", "{{email}}", "{{lista}}", "{{liczba}}", "{{podpis}}", "{{Termin}}", "{{Miejscowość}}", "{{Kod pocztowy}}"],
+            message.FieldChoices);
 
         message.CustomFields[0].Name = "Data spotkania";
         Assert.Contains("{{Data spotkania}}", message.FieldChoices);
@@ -496,24 +499,40 @@ public sealed class MessagePageTests
         using var scenario = await CorrespondencePagesScenario.CreateAsync();
         using var window = await scenario.OpenAsync();
         var message = window.Message;
-        var builtIn = Assert.Single(message.Templates);
-        Assert.Equal("Czy skrzynka pocztowa jest nadal potrzebna? (wbudowany)", builtIn.Text);
-        Assert.True(builtIn.IsBuiltIn);
+        Assert.Equal(
+            ["Weryfikacja skrzynki pocztowej (wiadomość na każdą skrzynkę) (wbudowany)", "Weryfikacja skrzynek pocztowych (jedna wiadomość na osobę) (wbudowany)"],
+            message.Templates.Select(t => t.Text));
+        Assert.All(message.Templates, t => Assert.True(t.IsBuiltIn));
         Assert.False(message.DeleteTemplateCommand.CanExecute(null));
         Assert.False(message.ExportTemplatesCommand.CanExecute(null));
+        message.UseVoting = true;
+        message.GroupByAddress = true;
 
-        message.SelectedTemplate = builtIn;
+        message.SelectedTemplate = message.Templates[0];
         await message.TemplateLoading!;
 
         Assert.Empty(scenario.Ui.Shown);
-        Assert.Equal("Czy skrzynka pocztowa jest nadal potrzebna?", message.Subject);
-        Assert.Contains("{{lista}}", message.BodyHtml, StringComparison.Ordinal);
-        Assert.Equal([("Termin", "")], message.CustomFields.Select(f => (f.Name, f.Value)));
-        Assert.StartsWith("{{Skrzynka}} ({{Adres skrzynki}})", message.ListItemTemplate, StringComparison.Ordinal);
-        Assert.True(message.UseVoting);
-        Assert.Equal(CorrespondenceSettings.DefaultVotingOptions, message.VotingOptions);
-        Assert.True(message.GroupByAddress);
+        Assert.Equal("Weryfikacja skrzynki pocztowej: {{Skrzynka}}", message.Subject);
+        Assert.Contains("{{Termin}}", message.BodyHtml, StringComparison.Ordinal);
+        var termin = Assert.Single(message.CustomFields);
+        Assert.Equal(("Termin", true, new DateTime(2026, 10, 27), CustomFieldFormats.DefaultDate), (termin.Name, termin.IsDate, termin.Date, termin.Format));
+        Assert.Equal("27 października 2026r.", termin.Sample);
+        Assert.Null(termin.Error);
+        Assert.Equal("{{Skrzynka}} ({{Adres skrzynki}})", message.ListItemTemplate);
+        Assert.False(message.UseVoting);
+        Assert.False(message.GroupByAddress);
+        Assert.Equal(("Aptos,sans-serif", 12d, "normal"), (message.FontFamily, message.FontSize, message.LineHeight));
+        Assert.Equal(new MessageBaseStyle("Aptos,sans-serif", 12, "normal"), message.Draft().BaseStyle);
         Assert.False(message.DeleteTemplateCommand.CanExecute(null));
+
+        // The other built-in replaces an unchanged built-in without asking.
+        message.SelectedTemplate = message.Templates[1];
+        await message.TemplateLoading!;
+
+        Assert.Empty(scenario.Ui.Shown);
+        Assert.Equal("Weryfikacja skrzynek pocztowych", message.Subject);
+        Assert.Contains("{{lista}}", message.BodyHtml, StringComparison.Ordinal);
+        Assert.True(message.GroupByAddress);
     }
 
     [Fact]
@@ -530,14 +549,14 @@ public sealed class MessagePageTests
         await message.TemplateLoading!;
 
         Assert.Equal(
-            "confirm:Zastąpić bieżącą wiadomość szablonem „Czy skrzynka pocztowa jest nadal potrzebna?”? Temat, treść i pola własne zostaną zastąpione.",
+            "confirm:Zastąpić bieżącą wiadomość szablonem „Weryfikacja skrzynki pocztowej (wiadomość na każdą skrzynkę)”? Temat, treść i pola własne zostaną zastąpione.",
             Assert.Single(scenario.Ui.Shown));
         Assert.Null(message.SelectedTemplate);
         Assert.Equal("Zaproszenie do Łodzi", message.Subject);
 
         scenario.Ui.ConfirmAnswers.Enqueue(true);
         Assert.True(await message.LoadTemplateAsync(CorrespondenceTemplateLibrary.MailboxStillNeededId));
-        Assert.Equal("Czy skrzynka pocztowa jest nadal potrzebna?", message.Subject);
+        Assert.Equal("Weryfikacja skrzynki pocztowej: {{Skrzynka}}", message.Subject);
         Assert.Equal(2, scenario.Ui.Shown.Count);
 
         // The same message again: nothing to lose, no question.
@@ -571,7 +590,7 @@ public sealed class MessagePageTests
         Assert.Equal([image.ContentId], saved.Images.Select(i => i.ContentId));
         Assert.NotNull(await scenario.Images.LoadAsync(saved.Images[0], Token, CorrespondenceLimits.MaxImageBytes));
         Assert.Equal(saved.Id, message.SelectedTemplate?.Id);
-        Assert.Equal(2, message.Templates.Count);
+        Assert.Equal(3, message.Templates.Count);   // two built-ins and the saved one
         Assert.Contains((NotificationSeverity.Success, "Zapisano szablon „Zaproszenie na konferencję”."), scenario.Harness.Notifications.Items);
         Assert.True(message.DeleteTemplateCommand.CanExecute(null));
 
@@ -582,7 +601,7 @@ public sealed class MessagePageTests
         message.TemplateName = "Przypomnienie";
         await message.SaveTemplateCommand.ExecuteAsync(null);
         Assert.Equal(["Zaproszenie na konferencję", "Przypomnienie"], scenario.Templates.Saved.Select(t => t.Name));
-        Assert.Equal(3, message.Templates.Count);
+        Assert.Equal(4, message.Templates.Count);   // two built-ins and the two saved
     }
 
     [Fact]
@@ -605,7 +624,7 @@ public sealed class MessagePageTests
         await message.DeleteTemplateCommand.ExecuteAsync(null);
         Assert.Empty(scenario.Templates.Saved);
         Assert.Null(message.SelectedTemplate);
-        Assert.Single(message.Templates);
+        Assert.Equal(2, message.Templates.Count);   // the built-ins
     }
 
     [Fact]
@@ -633,7 +652,7 @@ public sealed class MessagePageTests
         scenario.Harness.Files.NextOpenPath = file;
         await message.ImportTemplatesCommand.ExecuteAsync(null);
         Assert.Equal(["Zaproszenie – Łódź", "Zaproszenie – Łódź"], scenario.Templates.Saved.Select(t => t.Name));
-        Assert.Equal(3, message.Templates.Count);
+        Assert.Equal(4, message.Templates.Count);   // two built-ins and the two imported copies
         Assert.Contains((NotificationSeverity.Success, "Zaimportowano szablony: 1."), scenario.Harness.Notifications.Items);
 
         var other = Path.Combine(scenario.Paths.SettingsDirectory, "inny.json");

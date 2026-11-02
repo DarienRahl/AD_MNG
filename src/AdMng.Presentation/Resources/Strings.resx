@@ -11932,8 +11932,9 @@ FIELDS IN THE SUBJECT AND THE BODY
    {{email}}   – the recipient's address
    {{lista}}   – when grouping by address: the list of the recipient's rows (the item pattern is on the Message tab)
    {{liczba}}  – when grouping: the number of the recipient's rows
-   …and EVERY column of the loaded table, e.g. {{Miejscowość}}, {{Telefon}}, custom fields and fields from AD,
-   e.g. {{Imię}}, {{Pana/Panią}}, {{Zwrot osobowy}}.
+   {{podpis}}  – the Outlook signature at this place of the body (no blank line before it); without it the signature goes last
+   …and EVERY column of the loaded table, e.g. {{Miejscowość}}, {{Telefon}}, custom fields (dates too, e.g. {{Termin}})
+   and fields from AD, e.g. {{Imię}}, {{Pana/Panią}}, {{Zwrot osobowy}}.
    {{Field|text}} inserts "text" when the field is empty.
 
    A typical opening:
@@ -11951,7 +11952,7 @@ MODES
 The delay between messages protects against server limits (Microsoft 365: about 30 messages a minute, 10,000 recipients a day). After 5 failures in a row the run stops by itself.
 
 ALREADY SENT
-Every address sent to goes to the "already sent" journal and is skipped by later runs. The journal keeps only keyed hashes of the addresses (never the addresses), the date and the subject. Your own addresses to skip go to "Do not send". The recipient list is not saved – after an interruption load the file again and the addresses already sent are skipped.
+Every address sent to goes to the "already sent" journal and is skipped by later runs; a row of the mailbox owner query only for its own mailbox (the owner of three mailboxes gets three messages, and a fourth mailbox later is not skipped). The journal keeps only keyed hashes of the addresses (never the addresses), the date and the subject. Your own addresses to skip go to "Do not send". The recipient list is not saved – after an interruption load the file again and the addresses already sent are skipped.
 
 WHEN SOMETHING DOES NOT WORK
 Use "Check Outlook" – it shows the version, profile, accounts and signatures seen on this computer and tries to create a message (without sending it). Classic Outlook is required: the "new Outlook" and Outlook on the web offer no automation. At the first send Outlook may ask whether you allow a program to send messages – that is its safeguard.</value>
@@ -12802,6 +12803,18 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Correspondence.Message.CustomFieldUsesCustom" xml:space="preserve">
     <value>the value cannot use other custom fields ({0})</value>
   </data>
+  <data name="Correspondence.Message.CustomFieldDateMissing" xml:space="preserve">
+    <value>choose a date</value>
+  </data>
+  <data name="Correspondence.Message.FontSizePoints" xml:space="preserve">
+    <value>{0} pt</value>
+  </data>
+  <data name="Correspondence.Message.LineHeightSingle" xml:space="preserve">
+    <value>Single</value>
+  </data>
+  <data name="Correspondence.Message.LineHeightDouble" xml:space="preserve">
+    <value>Double</value>
+  </data>
   <data name="Correspondence.Message.ImagesOverLimit" xml:space="preserve">
     <value>The images exceed the limit of a message: {0} images, {1} (at most {2} images and {3}).</value>
   </data>
@@ -12942,6 +12955,15 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="Correspondence.Preview.EmptyListField" xml:space="preserve">
     <value>The field {0} of the list item is empty in {1} of {2} rows.</value>
+  </data>
+  <data name="Correspondence.Preview.DateInThePast" xml:space="preserve">
+    <value>The field {0} has a date in the past: {1} – the recipients will see a date that has passed.</value>
+  </data>
+  <data name="Correspondence.Preview.SignatureNotChosen" xml:space="preserve">
+    <value>The body has {{podpis}} but no signature is chosen – nothing appears at that place.</value>
+  </data>
+  <data name="Correspondence.Preview.GroupedSubjectRowField" xml:space="preserve">
+    <value>The messages are grouped by address and the subject uses {0} – the subject will have the value of the group's first row.</value>
   </data>
   <data name="Correspondence.Preview.Ok" xml:space="preserve">
     <value>Looks good – the body uses nothing that breaks in webmail.</value>
@@ -13408,6 +13430,18 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Correspondence.App.AddField" xml:space="preserve">
     <value>Add field</value>
   </data>
+  <data name="Correspondence.App.AddDateField" xml:space="preserve">
+    <value>Add date</value>
+  </data>
+  <data name="Correspondence.App.FieldDate" xml:space="preserve">
+    <value>Date of the field</value>
+  </data>
+  <data name="Correspondence.App.FieldFormat" xml:space="preserve">
+    <value>Date format</value>
+  </data>
+  <data name="Correspondence.App.FieldFormatHint" xml:space="preserve">
+    <value>How the messages write the date (a .NET date format; dd = day, MMMM = month in words, yyyy = year, 'r.' = text); the default gives "15 listopada 2026r."</value>
+  </data>
   <data name="Correspondence.App.Recipients.FromDownloads" xml:space="preserve">
     <value>Load CSV from Downloads</value>
   </data>
@@ -13709,7 +13743,19 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Own fields</value>
   </data>
   <data name="Correspondence.App.Message.CustomFieldsHint" xml:space="preserve">
-    <value>The same value for every recipient; it may use other {{fields}}.</value>
+    <value>The same value for every recipient; it may use other {{fields}}. A date field is written in the format chosen.</value>
+  </data>
+  <data name="Correspondence.App.Message.Font" xml:space="preserve">
+    <value>Font</value>
+  </data>
+  <data name="Correspondence.App.Message.FontSize" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="Correspondence.App.Message.LineHeight" xml:space="preserve">
+    <value>Line spacing</value>
+  </data>
+  <data name="Correspondence.App.Message.FontHint" xml:space="preserve">
+    <value>The font, size and line spacing of the whole message; formatting inside the body wins.</value>
   </data>
   <data name="Correspondence.App.Message.GroupByAddress" xml:space="preserve">
     <value>One message per address – its rows as {{lista}}, their number as {{liczba}}</value>

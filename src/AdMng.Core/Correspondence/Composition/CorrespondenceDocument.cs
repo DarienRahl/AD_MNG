@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 
 namespace AdMng.Core.Correspondence.Composition;
@@ -8,25 +7,28 @@ namespace AdMng.Core.Correspondence.Composition;
 /// <c>&lt;div&gt;</c> and everything else is inline (the signature is CSS-inlined when it is parsed).</remarks>
 public static class CorrespondenceDocument
 {
+    /// <summary>The font family of <see cref="MessageBaseStyle.Default"/>.</summary>
     public const string BodyFont = "Calibri,'Segoe UI',Arial,sans-serif";
 
+    /// <summary>The font size of <see cref="MessageBaseStyle.Default"/>.</summary>
     public const double BodyPoints = 11;
 
-    /// <summary>The style of the wrapping <c>div</c>.</summary>
-    public static string WrapperStyle { get; } =
-        "font-family:" + BodyFont + ";font-size:" + BodyPoints.ToString(CultureInfo.InvariantCulture) + "pt;color:#000000;line-height:1.4";
+    /// <summary>The style of the wrapping <c>div</c> with <see cref="MessageBaseStyle.Default"/>.</summary>
+    public static string WrapperStyle { get; } = MessageBaseStyle.Default.Css;
 
     /// <summary>
     /// <c>&lt;html&gt;&lt;head&gt;&lt;meta charset=utf-8&gt;&lt;/head&gt;&lt;body&gt;&lt;div
-    /// style="font-family:…;font-size:11pt;color:#000000;line-height:1.4"&gt;</c> body (+ "&lt;br&gt;" + signature)
-    /// <c>&lt;/div&gt;&lt;/body&gt;&lt;/html&gt;</c>.
+    /// style="font-family:…;font-size:…pt;color:#000000;line-height:…"&gt;</c> body (+ "&lt;br&gt;" + signature)
+    /// <c>&lt;/div&gt;&lt;/body&gt;&lt;/html&gt;</c>; the style is <paramref name="style"/>'s (null:
+    /// <see cref="MessageBaseStyle.Default"/>). A body that places the signature itself (<c>{{podpis}}</c>) is built
+    /// without a <paramref name="signature"/>.
     /// </summary>
-    public static string Build(string bodyHtml, CorrespondenceSignature? signature)
+    public static string Build(string bodyHtml, CorrespondenceSignature? signature, MessageBaseStyle? style = null)
     {
         ArgumentNullException.ThrowIfNull(bodyHtml);
         var builder = new StringBuilder(bodyHtml.Length + (signature?.BodyHtml.Length ?? 0) + 256);
         builder.Append("<html><head><meta charset=\"utf-8\"></head><body>");
-        builder.Append("<div style=\"").Append(WrapperStyle).Append("\">");
+        builder.Append("<div style=\"").Append((style ?? MessageBaseStyle.Default).Css).Append("\">");
         builder.Append(bodyHtml);
         if (!string.IsNullOrWhiteSpace(signature?.BodyHtml))
         {

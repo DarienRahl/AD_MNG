@@ -17,10 +17,17 @@ public static class BuiltInFields
     /// <summary>Grouped messages: the number of rows.</summary>
     public const string Count = "liczba";
 
+    /// <summary>
+    /// The chosen Outlook signature, where the body places it (instead of after the body); "" without a signature, in the
+    /// subject, in list items and in custom field values. Always the built-in (a column or custom field of that name never
+    /// wins).
+    /// </summary>
+    public const string Signature = "podpis";
+
     public const string DefaultSalutation = "Szanowni Państwo";
 
-    /// <summary>zwrot, nazwa, email, lista, liczba.</summary>
-    public static IReadOnlyList<string> All { get; } = [Salutation, Name, Email, List, Count];
+    /// <summary>zwrot, nazwa, email, lista, liczba, podpis.</summary>
+    public static IReadOnlyList<string> All { get; } = [Salutation, Name, Email, List, Count, Signature];
 
     /// <summary>Keys (<see cref="FieldKey"/>) that name the row's name.</summary>
     internal static IReadOnlySet<string> NameKeys { get; } = new HashSet<string>(StringComparer.Ordinal) { "nazwa", "name" };

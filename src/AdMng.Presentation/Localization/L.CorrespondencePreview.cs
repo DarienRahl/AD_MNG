@@ -28,6 +28,15 @@ public static partial class L
         public const string UnknownFields = "Correspondence.Preview.UnknownFields";
         public const string EmptyField = "Correspondence.Preview.EmptyField";
         public const string EmptyListField = "Correspondence.Preview.EmptyListField";
+
+        /// <summary>{0} = the date field ("{{Termin}}"), {1} = its date as messages show it.</summary>
+        public const string DateInThePast = "Correspondence.Preview.DateInThePast";
+
+        /// <summary>The body places the signature ({{podpis}}) but none is chosen (no format arguments).</summary>
+        public const string SignatureNotChosen = "Correspondence.Preview.SignatureNotChosen";
+
+        /// <summary>{0} = the row fields of the subject ("{{Skrzynka}}") when the messages are grouped.</summary>
+        public const string GroupedSubjectRowField = "Correspondence.Preview.GroupedSubjectRowField";
         public const string Ok = "Correspondence.Preview.Ok";
         public const string LargeAttachments = "Correspondence.Preview.LargeAttachments";
         public const string OutlookFailed = "Correspondence.Preview.OutlookFailed";

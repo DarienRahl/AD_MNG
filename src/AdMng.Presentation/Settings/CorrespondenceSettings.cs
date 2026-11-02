@@ -144,11 +144,34 @@ public sealed class CorrespondenceSettings
             .Take(CorrespondenceLimits.MaxImagesPerMessage)];
         template.CustomFields = [.. (template.CustomFields ?? [])
             .Where(f => f is not null && !string.IsNullOrWhiteSpace(f.Name))
-            .Select(f => new CustomFieldDefinition(f.Name.Trim(), f.Value ?? ""))
+            .Select(NormalizeCustomField)
             .DistinctBy(f => f.Name, StringComparer.OrdinalIgnoreCase)];
         template.Salutation = string.IsNullOrWhiteSpace(template.Salutation) ? null : template.Salutation.Trim();
         template.VotingOptions = string.IsNullOrWhiteSpace(template.VotingOptions) ? null : template.VotingOptions.Trim();
+        template.FontFamily = MessageBaseStyle.NormalizeFontFamily(template.FontFamily);
+        template.FontSize = MessageBaseStyle.NormalizeFontSize(template.FontSize);
+        template.LineHeight = MessageBaseStyle.NormalizeLineHeight(template.LineHeight);
         return template;
+    }
+
+    /// <summary>
+    /// A custom field of a settings or export file: the name trimmed; a text field (or one of an unknown kind) without a
+    /// format; a date field with its date as <c>yyyy-MM-dd</c> ("" when it does not parse – the window flags the field) and
+    /// its format trimmed (blank or longer than <see cref="CustomFieldFormats.MaxFormatLength"/> → null, the default).
+    /// </summary>
+    internal static CustomFieldDefinition NormalizeCustomField(CustomFieldDefinition field)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+        var name = field.Name?.Trim() ?? "";
+        if (field.Kind != CustomFieldKind.Date)
+        {
+            return new CustomFieldDefinition(name, field.Value ?? "");
+        }
+
+        var value = CustomFieldFormats.TryParseValue(field.Value, out var date) ? CustomFieldFormats.ValueOf(date) : "";
+        var format = field.Format?.Trim();
+        return new CustomFieldDefinition(name, value, CustomFieldKind.Date,
+            string.IsNullOrEmpty(format) || format.Length > CustomFieldFormats.MaxFormatLength ? null : format);
     }
 }
 
@@ -182,6 +205,15 @@ public sealed class CorrespondenceTemplate
     public string? VotingOptions { get; set; }
 
     public bool? GroupByAddress { get; set; }
+
+    /// <summary>The font of the message: a CSS family list ("Aptos,sans-serif"); null = the window's.</summary>
+    public string? FontFamily { get; set; }
+
+    /// <summary>The font size of the message in points; null = the window's.</summary>
+    public double? FontSize { get; set; }
+
+    /// <summary>The line height of the message: "normal" or a number such as "1.4"; null = the window's.</summary>
+    public string? LineHeight { get; set; }
 
     public override string ToString() => $"{nameof(CorrespondenceTemplate)} {Name}";
 }
@@ -274,8 +306,9 @@ public sealed class MailboxOwnerSettings
     /// <summary>Disabled persons stay candidates but never auto-match (<see cref="OwnerMatchStatus.OwnerDisabled"/>).</summary>
     public bool EnabledOwnersOnly { get; set; } = true;
 
-    /// <summary>One message per owner listing all their mailboxes.</summary>
-    public bool GroupByOwner { get; set; } = true;
+    /// <summary>One message per owner listing all their mailboxes; off (the default), one message per mailbox – the
+    /// built-in "Weryfikacja skrzynki pocztowej" names the mailbox in its subject.</summary>
+    public bool GroupByOwner { get; set; }
 
     /// <summary>The fields of mailbox rows; empty → <see cref="DirectoryFieldDefinition.MailboxDefaults"/>.</summary>
     public List<DirectoryFieldDefinition> Fields { get; set; } = [];

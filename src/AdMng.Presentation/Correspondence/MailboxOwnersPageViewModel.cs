@@ -127,8 +127,10 @@ public sealed partial class MailboxOwnersPageViewModel : ObservableObject
     [ObservableProperty]
     public partial bool EnabledOwnersOnly { get; set; } = true;
 
+    /// <summary>"Jedna wiadomość na właściciela": one message per owner with all their mailboxes; off (the default), one
+    /// message per mailbox (the built-in names the mailbox in its subject).</summary>
     [ObservableProperty]
-    public partial bool GroupByOwner { get; set; } = true;
+    public partial bool GroupByOwner { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(FindOwnersCommand), nameof(CancelCommand), nameof(AddToRecipientsCommand))]

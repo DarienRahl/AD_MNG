@@ -17,6 +17,7 @@ public sealed record CorrespondenceDraft
     /// <summary>Body images by content id.</summary>
     public IReadOnlyDictionary<string, MessageImage> Images { get; init; } = ReadOnlyDictionary<string, MessageImage>.Empty;
 
+    /// <summary>The chosen Outlook signature: where the body has <c>{{podpis}}</c>, else after the body (null: none).</summary>
     public CorrespondenceSignature? Signature { get; init; }
 
     public IReadOnlyList<CustomFieldDefinition> CustomFields { get; init; } = [];
@@ -30,6 +31,10 @@ public sealed record CorrespondenceDraft
     /// <summary>The messages are grouped by address: <c>{{lista}}</c>/<c>{{liczba}}</c> are always the built-ins; without
     /// grouping a column or custom field of that name wins (<see cref="CorrespondenceRenderer.BuiltInApplies"/>).</summary>
     public bool GroupByAddress { get; init; }
+
+    /// <summary>The font, size and line height of the message (the wrapping <c>div</c>); null →
+    /// <see cref="MessageBaseStyle.Default"/>.</summary>
+    public MessageBaseStyle? BaseStyle { get; init; }
 
     public override string ToString() => nameof(CorrespondenceDraft);
 }

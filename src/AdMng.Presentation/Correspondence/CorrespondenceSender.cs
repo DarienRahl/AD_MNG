@@ -10,7 +10,7 @@ namespace AdMng.Presentation.Correspondence;
 /// <param name="To">The visible recipients (the unit's address; the own address of a BCC message or a test).</param>
 /// <param name="Bcc">The hidden recipients of a BCC message.</param>
 /// <param name="Keys">The mailbox keys of the message (stored as <c>AdMngKeys</c> with a campaign id).</param>
-/// <param name="Addresses">The recipients the message is for (recorded in the journal after a send).</param>
+/// <param name="Addresses">The recipients the message is for.</param>
 internal sealed record CorrespondenceSendJob(
     CorrespondenceUnit Unit,
     IReadOnlyList<string> To,
@@ -18,7 +18,29 @@ internal sealed record CorrespondenceSendJob(
     IReadOnlyList<string> Keys,
     IReadOnlyList<string> Addresses)
 {
+    /// <summary>
+    /// What a send records in the journal "już wysłane": each row's address with its own scope
+    /// (<see cref="CorrespondenceRecipientViewModel.JournalScope"/>) – pairs, never the addresses of a BCC chunk crossed
+    /// with its keys. Null: every address of <see cref="Addresses"/>, unscoped.
+    /// </summary>
+    public IReadOnlyList<JournalTarget>? JournalTargets { get; init; }
+
+    /// <summary>The journal entries of a send (<see cref="JournalTargets"/>, else the addresses unscoped).</summary>
+    public IReadOnlyList<JournalTarget> JournalEntries => JournalTargets ?? [.. Addresses.Select(a => new JournalTarget(a, null))];
+
+    /// <summary>The journal entries of <paramref name="rows"/>: each row's address with its scope, each pair once.</summary>
+    public static IReadOnlyList<JournalTarget> TargetsOf(IEnumerable<CorrespondenceRecipientViewModel> rows) =>
+        [.. rows.Select(r => new JournalTarget(r.Email, r.JournalScope))
+            .DistinctBy(t => (CorrespondenceSendSet.Key(t.Address), Core.Correspondence.Journal.JournalHashing.NormalizeScope(t.Scope)))];
+
     public override string ToString() => $"{nameof(CorrespondenceSendJob)} ({To.Count} to, {Bcc.Count} bcc)";
+}
+
+/// <summary>One entry a send records in the journal: the address and the scope it was sent for (a mailbox owner row's
+/// mailbox key; null: the address alone).</summary>
+internal sealed record JournalTarget(string Address, string? Scope)
+{
+    public override string ToString() => nameof(JournalTarget);
 }
 
 /// <summary>What every message of a run shares (taken on the UI thread before the run starts).</summary>

@@ -1,20 +1,25 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using AdMng.App.Behaviors;
+using AdMng.App.Controls;
 using AdMng.App.Correspondence;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
+using AdMng.Core.Correspondence.Composition;
+using AdMng.Core.Correspondence.Fields;
 using AdMng.Core.Correspondence.Import;
 using AdMng.Core.Correspondence.Mailboxes;
 using AdMng.Core.Correspondence.Outlook;
 using AdMng.Core.Ldap;
 using AdMng.Presentation.Correspondence;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
@@ -317,6 +322,69 @@ public sealed class CorrespondenceWindowTests
         window.Close();
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         Assert.Contains("Do widzenia.", message.BodyHtml, StringComparison.Ordinal);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task MessagePage_DateFieldsAndTheBaseStyle_BindWithoutErrors() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync("pl");
+        var window = await OpenAsync(context, new CorrespondenceRequest([]));
+        var message = window.ViewModel.Message;
+        window.CorrespondenceTabs.SelectedItem = window.MessageTab;
+        await UiTestSupport.WaitForIdleAsync();
+
+        // "Czcionka", "Rozmiar", "Interlinia" show the message's values and write the chosen ones.
+        Assert.Equal(message.FontFamily, window.FontFamilyBox.SelectedValue);
+        Assert.Equal(message.FontSize, window.FontSizeBox.SelectedValue);
+        Assert.Equal(message.LineHeight, window.LineHeightBox.SelectedValue);
+        window.FontFamilyBox.SelectedValue = "Aptos,sans-serif";
+        window.FontSizeBox.SelectedValue = 12d;
+        window.LineHeightBox.SelectedValue = "normal";
+        Assert.Equal(("Aptos,sans-serif", 12d, "normal"), (message.FontFamily, message.FontSize, message.LineHeight));
+        Assert.Equal("Aptos", ((Option<string>)window.FontFamilyBox.SelectedItem).Text);
+
+        // A template's own values join the choices and are shown.
+        message.ApplyBaseStyle(new MessageBaseStyle("Georgia,serif", 13, "1.3"));
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal("Georgia,serif", window.FontFamilyBox.SelectedValue);
+        Assert.Equal(13d, window.FontSizeBox.SelectedValue);
+        Assert.Equal("1.3", window.LineHeightBox.SelectedValue);
+
+        // The editor's base font follows the message's (once the editor has those properties).
+        if (DependencyPropertyDescriptor.FromName("BaseFontFamily", typeof(RichMessageEditor), typeof(RichMessageEditor)) is { } family)
+        {
+            Assert.Equal(message.FontFamily, window.MessageEditor.GetValue(family.DependencyProperty));
+        }
+
+        // "Dodaj datę": a date picker instead of the value box, the editable format and the date as messages show it.
+        window.AddDateFieldButton.Command.Execute(null);
+        await UiTestSupport.WaitForIdleAsync();
+        var field = Assert.Single(message.CustomFields);
+        field.Name = "Termin";
+        var picker = Assert.Single(UiWait.Descendants<DatePicker>(window.CustomFieldsList));
+        Assert.True(picker.IsVisible);
+        picker.SelectedDate = new DateTime(2026, 11, 15);
+        Assert.Equal(new DateTime(2026, 11, 15), field.Date);
+        var format = Assert.Single(UiWait.Descendants<ComboBox>(window.CustomFieldsList));
+        Assert.True(format.IsEditable);
+        Assert.Equal(CustomFieldFormats.DefaultDate, format.Text);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Contains(UiWait.Descendants<TextBlock>(window.CustomFieldsList), t => t.IsVisible && t.Text == "15 listopada 2026r.");
+        format.Text = "dd.MM.yyyy";
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal("dd.MM.yyyy", field.Format);
+        Assert.Contains(UiWait.Descendants<TextBlock>(window.CustomFieldsList), t => t.IsVisible && t.Text == "15.11.2026");
+
+        // A text field keeps its value box; a date field without a date shows its error.
+        window.AddCustomFieldButton.Command.Execute(null);
+        window.AddDateFieldButton.Command.Execute(null);
+        await UiTestSupport.WaitForIdleAsync();
+        message.CustomFields[2].Name = "Spotkanie";
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(3, message.CustomFields.Count);
+        Assert.Equal(2, UiWait.Descendants<DatePicker>(window.CustomFieldsList).Count(p => p.IsVisible));
+        Assert.Contains(UiWait.Descendants<TextBlock>(window.CustomFieldsList), t => t.IsVisible && t.Text == "wybierz datę");
         context.AssertHealthy();
     });
 

@@ -16,9 +16,10 @@ public sealed record CorrespondenceJournalLoad(int Entries, int Pruned, string? 
 
 /// <summary>
 /// "Już wysłane" (application singleton, design note 6.2 and 7.6): <c>&lt;SettingsDirectory&gt;/correspondence/journal.txt</c>
-/// with one line per sent address – the keyed hash (<see cref="JournalHashing"/>), the time and the subject as typed – and
-/// <c>journal.key</c> (32 random bytes protected by <see cref="ICorrespondenceKeyProtector"/>). Never the address (rule 1
-/// as amended for U5). Each line is written and flushed at once (FileShare.ReadWrite, so other windows and AD Manager
+/// with one line per sent address – the keyed hash (<see cref="JournalHashing"/>; for a mailbox owner row of the address
+/// together with the mailbox key, so the row is "already sent" only for its mailbox), the time and the subject as typed –
+/// and <c>journal.key</c> (32 random bytes protected by <see cref="ICorrespondenceKeyProtector"/>). Never the address or the
+/// mailbox (rule 1 as amended for U5). Each line is written and flushed at once (FileShare.ReadWrite, so other windows and AD Manager
 /// processes can read and append); pruning rewrites the file atomically (temporary file + move) after reading it again.
 /// Thread-safe within a process; across instances and processes every file operation holds <c>journal.lock</c> (an empty
 /// file opened exclusively), so appends of two processes never overwrite each other and a rewrite never loses a line.
@@ -77,7 +78,8 @@ public sealed class CorrespondenceJournal
 
     public string LockPath => Path.Combine(Folder, LockFileName);
 
-    /// <summary>The key was read (or made) by <see cref="LoadAsync"/>: <see cref="Find"/> and <see cref="AppendAsync"/> work.</summary>
+    /// <summary>The key was read (or made) by <see cref="LoadAsync"/>: <see cref="Find"/> and
+    /// <see cref="AppendAsync(string, string, string, CancellationToken)"/> work.</summary>
     public bool IsLoaded
     {
         get
@@ -151,9 +153,12 @@ public sealed class CorrespondenceJournal
         }
     }
 
-    /// <summary>The latest entry of <paramref name="address"/>, or null (also before <see cref="LoadAsync"/> and for a value
-    /// that is no address).</summary>
-    public JournalEntry? Find(string address)
+    /// <summary>
+    /// The latest entry of <paramref name="address"/> within <paramref name="scope"/> (a mailbox owner row's mailbox key;
+    /// null or blank: the address alone), or null (also before <see cref="LoadAsync"/> and for a value that is no address).
+    /// A scoped entry never answers for the address alone or another scope, and an unscoped one never for a scope.
+    /// </summary>
+    public JournalEntry? Find(string address, string? scope = null)
     {
         if (string.IsNullOrWhiteSpace(address))
         {
@@ -162,7 +167,7 @@ public sealed class CorrespondenceJournal
 
         lock (_state)
         {
-            return _key is { } key && HashOf(key, address) is { } hash ? _latest.GetValueOrDefault(hash) : null;
+            return _key is { } key && HashOf(key, address, scope) is { } hash ? _latest.GetValueOrDefault(hash) : null;
         }
     }
 
@@ -171,14 +176,23 @@ public sealed class CorrespondenceJournal
     /// <exception cref="InvalidOperationException">The journal was not loaded.</exception>
     /// <exception cref="ArgumentException"><paramref name="address"/> is blank.</exception>
     /// <exception cref="IOException">The line cannot be written.</exception>
-    public async Task AppendAsync(string address, string subject, CancellationToken cancellationToken = default)
+    public Task AppendAsync(string address, string subject, CancellationToken cancellationToken = default) =>
+        AppendAsync(address, subject, scope: null, cancellationToken);
+
+    /// <summary>Records that <paramref name="address"/> was sent <paramref name="subject"/> (as typed) now for
+    /// <paramref name="scope"/> – a mailbox owner row's mailbox key (null or blank: the address alone, as
+    /// <see cref="Find"/> looks it up): the line is written and flushed before this returns.</summary>
+    /// <exception cref="InvalidOperationException">The journal was not loaded.</exception>
+    /// <exception cref="ArgumentException"><paramref name="address"/> is blank.</exception>
+    /// <exception cref="IOException">The line cannot be written.</exception>
+    public async Task AppendAsync(string address, string subject, string? scope, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(address);
         string hash;
         lock (_state)
         {
             var key = _key ?? throw new InvalidOperationException("The correspondence journal is not loaded.");
-            hash = HashOf(key, address) ?? throw new ArgumentException("Not an e-mail address.", nameof(address));
+            hash = HashOf(key, address, scope) ?? throw new ArgumentException("Not an e-mail address.", nameof(address));
         }
 
         var now = Time.GetUtcNow();
@@ -247,15 +261,15 @@ public sealed class CorrespondenceJournal
 
     public override string ToString() => nameof(CorrespondenceJournal);
 
-    private static string? HashOf(byte[] key, string address)
+    private static string? HashOf(byte[] key, string address, string? scope)
     {
         try
         {
-            return JournalHashing.Hash(key, address);
+            return JournalHashing.Hash(key, address, scope);
         }
         catch (ArgumentException)
         {
-            return null;   // blank after normalization
+            return null;   // blank after normalization (or a line break inside: no address)
         }
     }
 

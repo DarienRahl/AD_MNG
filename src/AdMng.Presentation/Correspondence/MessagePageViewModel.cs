@@ -40,6 +40,20 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
     /// <summary>The characters a custom field name cannot contain (they delimit fields).</summary>
     private const string FieldDelimiters = "{ } |";
 
+    /// <summary>The fonts of "Czcionka" (CSS family lists with fallbacks; Calibri is <see cref="MessageBaseStyle.Default"/>,
+    /// Aptos the new Outlook default).</summary>
+    private static readonly string[] FontFamilies =
+    [
+        MessageBaseStyle.Default.FontFamily, "Aptos,sans-serif", "Arial,sans-serif", "'Segoe UI',sans-serif", "Verdana,sans-serif",
+        "Tahoma,sans-serif", "'Times New Roman',serif", "Georgia,serif",
+    ];
+
+    /// <summary>The sizes of "Rozmiar" in points.</summary>
+    private static readonly double[] FontSizes = [9, 10, 10.5, 11, 12, 14, 16];
+
+    /// <summary>The line heights of "Interlinia" ("normal" is single spacing; 1.4 is <see cref="MessageBaseStyle.Default"/>).</summary>
+    private static readonly string[] LineHeights = ["normal", "1.15", "1.4", "1.5", "2"];
+
     /// <summary>MailerWPiA's time formats ("%H": a single custom specifier, not the standard format "H").</summary>
     private static readonly string[] DeliverTimeFormats = ["H:mm", "HH:mm", "%H", "HH"];
 
@@ -52,6 +66,7 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
     private string? _savedSignatureName;
     private bool _refreshingSignatures;
     private bool _changingTemplate;
+    private bool _applyingStyle;
 
     /// <param name="services">The window's services.</param>
     /// <param name="correspondence">The Korespondencja services.</param>
@@ -77,6 +92,7 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
         RefreshTemplates();
         RefreshFieldChoices();
         RefreshAttachmentsHeader();
+        RefreshFontChoices(BaseStyle);
     }
 
     /// <summary>The view inserts <c>{{field}}</c> at the caret of the editor or the subject box.</summary>
@@ -184,6 +200,34 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
     [ObservableProperty]
     public partial string ListItemTemplate { get; set; } = string.Empty;
 
+    /// <summary>"Czcionka": the font of the message, a CSS family list (<see cref="MessageBaseStyle.FontFamily"/>); the
+    /// editor shows the body in it.</summary>
+    [ObservableProperty]
+    public partial string FontFamily { get; set; } = MessageBaseStyle.Default.FontFamily;
+
+    /// <summary>"Rozmiar": the font size of the message in points.</summary>
+    [ObservableProperty]
+    public partial double FontSize { get; set; } = MessageBaseStyle.Default.FontSizePoints;
+
+    /// <summary>"Interlinia": the line height of the message ("normal" or a number such as "1.4").</summary>
+    [ObservableProperty]
+    public partial string LineHeight { get; set; } = MessageBaseStyle.Default.LineHeight;
+
+    /// <summary>The fonts offered (CSS family list → its first name), the current one included.</summary>
+    [ObservableProperty]
+    public partial IReadOnlyList<Option<string>> FontFamilyChoices { get; private set; } = [];
+
+    /// <summary>The sizes offered ("12 pkt"), the current one included.</summary>
+    [ObservableProperty]
+    public partial IReadOnlyList<Option<double>> FontSizeChoices { get; private set; } = [];
+
+    /// <summary>The line heights offered ("normal" → "Pojedyncza", "1.4" → "1,4"), the current one included.</summary>
+    [ObservableProperty]
+    public partial IReadOnlyList<Option<string>> LineHeightChoices { get; private set; } = [];
+
+    /// <summary>The base style of the message as chosen (font, size, line height).</summary>
+    public MessageBaseStyle BaseStyle => MessageBaseStyle.Of(FontFamily, FontSize, LineHeight);
+
     /// <summary>Built-ins, then the saved templates.</summary>
     [ObservableProperty]
     public partial IReadOnlyList<TemplateOption> Templates { get; private set; } = [];
@@ -224,17 +268,18 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
 
     private int AnsiCodePage => Correspondence.Platform?.AnsiCodePage ?? Services.Regional.AnsiCodePage;
 
-    /// <summary>The draft as edited (with the loaded signature).</summary>
+    /// <summary>The draft as edited (with the loaded signature and the base style).</summary>
     public CorrespondenceDraft Draft() => new()
     {
         Subject = Subject,
         BodyHtml = BodyHtml,
         Images = BodyImages,
         Signature = LoadedSignature,
-        CustomFields = [.. CustomFields.Where(f => !string.IsNullOrWhiteSpace(f.Name)).Select(f => new CustomFieldDefinition(f.Name.Trim(), f.Value ?? string.Empty))],
+        CustomFields = [.. CustomFields.Where(f => !string.IsNullOrWhiteSpace(f.Name)).Select(f => f.ToDefinition())],
         ListItemTemplate = ListItemTemplate,
         Salutation = Salutation,
         GroupByAddress = GroupByAddress,
+        BaseStyle = BaseStyle,
     };
 
     /// <summary>The draft once the chosen signature has been read (sending and the preview use it).</summary>
@@ -702,7 +747,8 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
             return;
         }
 
-        var holdsMessage = !IsBodyEmpty || !string.IsNullOrWhiteSpace(Subject);
+        // A built-in template as it was loaded is no message of the operator's: replacing it asks nothing.
+        var holdsMessage = (!IsBodyEmpty || !string.IsNullOrWhiteSpace(Subject)) && UnchangedBuiltIn() is null;
         var differs = !string.Equals(Subject?.Trim(), template.Subject?.Trim(), StringComparison.Ordinal)
                       || !string.Equals(BodyHtml?.Trim(), template.BodyHtml?.Trim(), StringComparison.Ordinal);
         if (holdsMessage && differs && !await Services.Dialogs.ConfirmAsync(
@@ -739,7 +785,10 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
         CustomFields.Clear();
         foreach (var field in template.CustomFields ?? [])
         {
-            CustomFields.Add(new CustomFieldViewModel(field.Name, field.Value));
+            if (field is not null)
+            {
+                CustomFields.Add(new CustomFieldViewModel(field));
+            }
         }
 
         if (template.VotingEnabled is { } voting)
@@ -757,8 +806,193 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
             GroupByAddress = group;
         }
 
+        // Before the body: the editor shows the body in it. A template without font values (saved before they existed)
+        // keeps the window's values – the last ones, which the window keeps in the last draft.
+        if (CorrespondenceTemplateLibrary.StyleOf(template) is { } style)
+        {
+            ApplyBaseStyle(style);
+        }
+
         TemplateName = template.Name ?? string.Empty;
         BodyHtml = template.BodyHtml ?? string.Empty;
+    }
+
+    /// <summary>
+    /// The font, size and line height of a template or the last draft (the window keeps the last ones): missing or invalid
+    /// parts are the default's; the choices are refreshed first, so the combo boxes find the values.
+    /// </summary>
+    public void ApplyBaseStyle(MessageBaseStyle style)
+    {
+        ArgumentNullException.ThrowIfNull(style);
+        var normalized = MessageBaseStyle.Of(style.FontFamily, style.FontSizePoints, style.LineHeight);
+        RefreshFontChoices(normalized);
+        _applyingStyle = true;
+        try
+        {
+            FontFamily = normalized.FontFamily;
+            FontSize = normalized.FontSizePoints;
+            LineHeight = normalized.LineHeight;
+        }
+        finally
+        {
+            _applyingStyle = false;
+        }
+    }
+
+    /// <summary>The id of the built-in template the page holds as it was loaded (its subject and body unchanged), or null.</summary>
+    internal string? UnchangedBuiltIn()
+    {
+        if (IsBodyEmpty)
+        {
+            return null;
+        }
+
+        foreach (var builtIn in Correspondence.Templates.BuiltIns)
+        {
+            if (string.Equals(Subject?.Trim(), builtIn.Subject.Trim(), StringComparison.Ordinal)
+                && string.Equals(BodyHtml?.Trim(), builtIn.BodyHtml.Trim(), StringComparison.Ordinal))
+            {
+                return builtIn.Id;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// "Dodaj do odbiorców" of the mailbox owner page: the built-in mailbox template that fits the grouping
+    /// (<see cref="CorrespondenceTemplateLibrary.MailboxTemplateId"/>) is loaded when the page holds no message of the
+    /// operator's – an empty body (asking first when there is a subject) or the other built-in as it was loaded. Switching
+    /// between the two keeps the values of the custom fields of the same name and kind (the deadline chosen); the built-in
+    /// that fits, held unchanged, stays as it is (its deadline too).
+    /// </summary>
+    internal async Task UseMailboxTemplateAsync(bool groupByOwner)
+    {
+        var id = CorrespondenceTemplateLibrary.MailboxTemplateId(groupByOwner);
+        var unchanged = UnchangedBuiltIn();
+        if ((!IsBodyEmpty && unchanged is null) || string.Equals(unchanged, id, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var kept = unchanged is null ? [] : CustomFields.Select(f => f.ToDefinition()).ToList();
+        if (!await LoadTemplateAsync(id).ConfigureAwait(true))
+        {
+            return;
+        }
+
+        foreach (var field in CustomFields)
+        {
+            if (kept.FirstOrDefault(k => FieldKey.Same(k.Name, field.Name) && k.Kind == field.Kind) is not { } old)
+            {
+                continue;
+            }
+
+            if (field.IsDate)
+            {
+                field.Date = CustomFieldFormats.TryParseValue(old.Value, out var date) ? date.ToDateTime(TimeOnly.MinValue) : null;
+                field.Format = string.IsNullOrWhiteSpace(old.Format) ? CustomFieldFormats.DefaultDate : old.Format;
+            }
+            else
+            {
+                field.Value = old.Value;
+            }
+        }
+    }
+
+    /// <summary>The choices of "Czcionka", "Rozmiar" and "Interlinia" with the values of <paramref name="style"/> among them.</summary>
+    private void RefreshFontChoices(MessageBaseStyle style)
+    {
+        var families = FontFamilies.Select(f => new Option<string>(f, FirstFamily(f))).ToList();
+        if (!families.Any(f => string.Equals(f.Value, style.FontFamily, StringComparison.Ordinal)))
+        {
+            families.Add(new Option<string>(style.FontFamily, FirstFamily(style.FontFamily)));
+        }
+
+        var sizes = FontSizes.Append(style.FontSizePoints).Distinct().Order()
+            .Select(s => new Option<double>(s, Localizer.Format(L.CorrespondenceMessage.FontSizePoints, s.ToString(Localizer.Culture))))
+            .ToList();
+        var heights = LineHeights.Select(h => new Option<string>(h, LineHeightText(h))).ToList();
+        if (!heights.Any(h => string.Equals(h.Value, style.LineHeight, StringComparison.Ordinal)))
+        {
+            heights.Add(new Option<string>(style.LineHeight, LineHeightText(style.LineHeight)));
+        }
+
+        if (!families.Select(f => f.Value).SequenceEqual(FontFamilyChoices.Select(f => f.Value), StringComparer.Ordinal))
+        {
+            FontFamilyChoices = families;
+        }
+
+        if (!sizes.Select(s => s.Value).SequenceEqual(FontSizeChoices.Select(s => s.Value)))
+        {
+            FontSizeChoices = sizes;
+        }
+
+        if (!heights.Select(h => h.Value).SequenceEqual(LineHeightChoices.Select(h => h.Value), StringComparer.Ordinal))
+        {
+            LineHeightChoices = heights;
+        }
+    }
+
+    /// <summary>The first name of a CSS family list without its quotes ("'Segoe UI',sans-serif" → "Segoe UI").</summary>
+    private static string FirstFamily(string families) => families.Split(',')[0].Trim().Trim('\'', '"');
+
+    /// <summary>"normal" → "Pojedyncza", "2" → "Podwójna", a number in the window's culture ("1,15"), else as it is.</summary>
+    private string LineHeightText(string value) => value switch
+    {
+        "normal" => Localizer[L.CorrespondenceMessage.LineHeightSingle],
+        "2" => Localizer[L.CorrespondenceMessage.LineHeightDouble],
+        _ => double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) ? number.ToString(Localizer.Culture) : value,
+    };
+
+    // A value the message cannot use (blank, invalid – e.g. a combo box without a match) goes back to the previous one; a
+    // valid one is kept as the sanitizer writes it, and the choices include it.
+    partial void OnFontFamilyChanged(string oldValue, string newValue)
+    {
+        if (MessageBaseStyle.NormalizeFontFamily(newValue) is not { } family)
+        {
+            FontFamily = MessageBaseStyle.NormalizeFontFamily(oldValue) ?? MessageBaseStyle.Default.FontFamily;
+        }
+        else if (!string.Equals(family, newValue, StringComparison.Ordinal))
+        {
+            FontFamily = family;
+        }
+        else if (!_applyingStyle)
+        {
+            RefreshFontChoices(BaseStyle);
+        }
+    }
+
+    partial void OnFontSizeChanged(double oldValue, double newValue)
+    {
+        if (MessageBaseStyle.NormalizeFontSize(newValue) is not { } size)
+        {
+            FontSize = MessageBaseStyle.NormalizeFontSize(oldValue) ?? MessageBaseStyle.Default.FontSizePoints;
+        }
+        else if (!size.Equals(newValue))
+        {
+            FontSize = size;
+        }
+        else if (!_applyingStyle)
+        {
+            RefreshFontChoices(BaseStyle);
+        }
+    }
+
+    partial void OnLineHeightChanged(string oldValue, string newValue)
+    {
+        if (MessageBaseStyle.NormalizeLineHeight(newValue) is not { } height)
+        {
+            LineHeight = MessageBaseStyle.NormalizeLineHeight(oldValue) ?? MessageBaseStyle.Default.LineHeight;
+        }
+        else if (!string.Equals(height, newValue, StringComparison.Ordinal))
+        {
+            LineHeight = height;
+        }
+        else if (!_applyingStyle)
+        {
+            RefreshFontChoices(BaseStyle);
+        }
     }
 
     private async Task LoadSignatureAsync(string? name)
@@ -864,7 +1098,7 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
 
     private void OnCustomFieldChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(CustomFieldViewModel.Name) or nameof(CustomFieldViewModel.Value))
+        if (e.PropertyName is nameof(CustomFieldViewModel.Name) or nameof(CustomFieldViewModel.Value) or nameof(CustomFieldViewModel.Date))
         {
             OnFieldsChanged();
         }
@@ -912,6 +1146,10 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
             {
                 error = Localizer[L.CorrespondenceMessage.CustomFieldColumn];
             }
+            else if (field.IsDate)
+            {
+                error = field.Date is null ? Localizer[L.CorrespondenceMessage.CustomFieldDateMissing] : null;
+            }
             else if (FieldTemplate.UsedFields(field.Value).Where(u => customKeys.Contains(FieldKey.Of(u))).ToList() is { Count: > 0 } used)
             {
                 error = Localizer.Format(L.CorrespondenceMessage.CustomFieldUsesCustom, string.Join(", ", used.Select(u => "{{" + u + "}}")));
@@ -950,6 +1188,8 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
             Add(BuiltInFields.List);
             Add(BuiltInFields.Count);
         }
+
+        Add(BuiltInFields.Signature);
 
         foreach (var field in CustomFields)
         {
@@ -1056,6 +1296,10 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
 
     [RelayCommand]
     private void AddCustomField() => CustomFields.Add(new CustomFieldViewModel());
+
+    /// <summary>"Dodaj datę": a date field (no date yet, the default format "15 listopada 2026r.").</summary>
+    [RelayCommand]
+    private void AddDateField() => CustomFields.Add(new CustomFieldViewModel(CustomFieldKind.Date));
 
     [RelayCommand]
     private void RemoveCustomField(CustomFieldViewModel? field)

@@ -90,7 +90,7 @@ public sealed class PreviewPageTests
 
         var warnings = window.Preview.Warnings;
         Assert.Equal(
-            "Nieznane pola (zostaną puste): {{Telefon}}. Dostępne: {{zwrot}}, {{nazwa}}, {{email}}, {{Termin}}, {{Miejscowość}}, {{Kod pocztowy}}.",
+            "Nieznane pola (zostaną puste): {{Telefon}}. Dostępne: {{zwrot}}, {{nazwa}}, {{email}}, {{podpis}}, {{Termin}}, {{Miejscowość}}, {{Kod pocztowy}}.",
             warnings[0]);
         Assert.Equal("Pole {{Kod pocztowy}} jest puste u 1 z 3 odbiorców – u nich zostanie pusta luka.", warnings[1]);
         Assert.Equal("Pole {{Termin}} jest puste u 3 z 3 odbiorców – u nich zostanie pusta luka.", warnings[2]);
@@ -209,7 +209,7 @@ public sealed class PreviewPageTests
         Assert.Contains("Urząd Gminy Andrespol", html, StringComparison.Ordinal);   // the signature
         Assert.Equal([scenario.Signatures.Logo.ContentId], window.Preview.Preview.Images.Keys);
         Assert.StartsWith("obrazków osadzonych: 1  •  pola: ", window.Preview.InfoText, StringComparison.Ordinal);
-        Assert.Equal(["Nieznane pola (zostaną puste): {{Miejscowość}}. Dostępne: {{zwrot}}, {{nazwa}}, {{email}}."], window.Preview.Warnings);
+        Assert.Equal(["Nieznane pola (zostaną puste): {{Miejscowość}}. Dostępne: {{zwrot}}, {{nazwa}}, {{email}}, {{podpis}}."], window.Preview.Warnings);
     }
 
     [Fact]

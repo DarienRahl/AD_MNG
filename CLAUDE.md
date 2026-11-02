@@ -11,9 +11,10 @@ commit messages and these notes are in English.
    is read live from the DC and kept in memory only while displayed. Allowed on disk: settings (UI layout, language,
    connection profiles without passwords, saved views = names + DNs + LDAP filters, the Watchdog service URL),
    diagnostic logs WITHOUT directory values, files the operator explicitly exports, and the Korespondencja journal
-   (U5, `<settings>/correspondence/`: keyed hashes of recipient addresses – HMAC-SHA-256 with a per-user key protected
-   by DPAPI – send times and the subjects as typed, its key, lock file and `journal-<date>.old` backups; no address,
-   name or other directory value). Outlook gets images and attachments as temp files that are deleted once the item is
+   (U5, `<settings>/correspondence/`: keyed hashes of recipient addresses (for mailbox owner queries: of the address
+   together with the mailbox's address or DN) – HMAC-SHA-256 with a per-user key protected by DPAPI – send times and
+   the subjects as typed, its key, lock file and `journal-<date>.old` backups; no address, name or other directory
+   value). Outlook gets images and attachments as temp files that are deleted once the item is
    saved (operator content, never directory values).
    **Only exception:** the AdMng Watchdog service host (`src/AdMng.Watchdog.Service` and the store implementations it
    hosts) stores snapshots of watched attributes, GPO settings snapshots (never `cpassword` or other secrets), events,

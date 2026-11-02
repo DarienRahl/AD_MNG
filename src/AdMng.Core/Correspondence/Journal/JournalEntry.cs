@@ -25,8 +25,20 @@ public static class JournalHashing
     public const int HashBytes = 16;
 
     /// <summary>Base64url of the first 16 bytes of HMAC-SHA-256(key, UTF-8(EmailAddressText.Normalize(address))).</summary>
-    /// <exception cref="ArgumentException">The key is not <see cref="KeyBytes"/> long, or the address is blank.</exception>
-    public static string Hash(ReadOnlySpan<byte> key, string address)
+    /// <exception cref="ArgumentException">The key is not <see cref="KeyBytes"/> long, or the address is blank or holds a
+    /// line break.</exception>
+    public static string Hash(ReadOnlySpan<byte> key, string address) => Hash(key, address, scope: null);
+
+    /// <summary>
+    /// The hash of <paramref name="address"/> within <paramref name="scope"/> – a mailbox owner row is "already sent" only
+    /// for its mailbox, so its entry is the owner's address together with the mailbox address (or DN): HMAC-SHA-256 of
+    /// <c>EmailAddressText.Normalize(address) + "\n" + scope</c> (the scope trimmed, lower-invariant), as base64url of the
+    /// first 16 bytes. A null or blank scope is the unscoped <see cref="Hash(ReadOnlySpan{byte}, string)"/>; an address never
+    /// holds a line break, so a scoped input can never equal an unscoped one or another scope's.
+    /// </summary>
+    /// <exception cref="ArgumentException">The key is not <see cref="KeyBytes"/> long, or the address is blank or holds a
+    /// line break.</exception>
+    public static string Hash(ReadOnlySpan<byte> key, string address, string? scope)
     {
         if (key.Length != KeyBytes)
         {
@@ -39,23 +51,35 @@ public static class JournalHashing
             throw new ArgumentException("The address is empty.", nameof(address));
         }
 
+        if (normalized.Contains('\n', StringComparison.Ordinal))
+        {
+            throw new ArgumentException("The address holds a line break.", nameof(address));
+        }
+
+        var scoped = NormalizeScope(scope);
+        var input = scoped.Length == 0 ? normalized : normalized + "\n" + scoped;
         Span<byte> mac = stackalloc byte[HMACSHA256.HashSizeInBytes];
-        HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(normalized), mac);
+        HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(input), mac);
         var hash = Base64Url.EncodeToString(mac[..HashBytes]);
         CryptographicOperations.ZeroMemory(mac);
         return hash;
     }
 
-    /// <summary>True for a value of the form <see cref="Hash"/> writes (22 base64url characters).</summary>
+    /// <summary>A scope as it is hashed: trimmed, lower-invariant ("" for null or blank: unscoped). A mailbox address or a
+    /// DN is compared without case, never cut (a DN may hold characters an address may not).</summary>
+    public static string NormalizeScope(string? scope) => string.IsNullOrWhiteSpace(scope) ? string.Empty : scope.Trim().ToLowerInvariant();
+
+    /// <summary>True for a value of the form <see cref="Hash(ReadOnlySpan{byte}, string, string)"/> writes (22 base64url characters).</summary>
     public static bool IsHash(string? value) =>
         value is { Length: 22 } && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_');
 }
 
 /// <summary>The journal file: a header line, then one line per sent address.</summary>
 /// <remarks>A file whose first line names another version of the format is not read (no entries); a missing header is
-/// tolerated. A line is <c>hash TAB time TAB subject</c>: the hash as <see cref="JournalHashing.Hash"/> writes it, the time
-/// in UTC to the second; lines that do not parse are skipped. Subjects longer than <see cref="MaxSubjectLength"/> are
-/// cut.</remarks>
+/// tolerated. A line is <c>hash TAB time TAB subject</c>: the hash as
+/// <see cref="JournalHashing.Hash(ReadOnlySpan{byte}, string, string)"/> writes it (scoped or not – a line does not say
+/// which), the time in UTC to the second; lines that do not parse are skipped. Subjects longer than
+/// <see cref="MaxSubjectLength"/> are cut.</remarks>
 public static class JournalFile
 {
     public const string Header = "AdMng.CorrespondenceJournal\t1";
@@ -100,7 +124,7 @@ public static class JournalFile
     }
 
     /// <summary><c>hash \t yyyy-MM-ddTHH:mm:ssZ \t subject</c> (tabs and newlines of the subject become spaces).</summary>
-    /// <exception cref="ArgumentException">The hash is not one <see cref="JournalHashing.Hash"/> writes.</exception>
+    /// <exception cref="ArgumentException">The hash is not one <see cref="JournalHashing.Hash(ReadOnlySpan{byte}, string, string)"/> writes.</exception>
     public static string Line(JournalEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry);

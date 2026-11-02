@@ -60,6 +60,7 @@ public sealed partial class CorrespondenceRecipientViewModel : ObservableObject
         IsValid = isValid;
         DistinguishedName = distinguishedName;
         MailboxKeys = mailboxKeys ?? [];
+        JournalScope = MailboxKeys.FirstOrDefault(k => !string.IsNullOrWhiteSpace(k))?.Trim();
     }
 
     /// <summary>"Wyślij": the row is sent.</summary>
@@ -109,6 +110,13 @@ public sealed partial class CorrespondenceRecipientViewModel : ObservableObject
     public IReadOnlyList<string> MailboxKeys { get; }
 
     /// <summary>
+    /// The scope of the row in the journal "już wysłane": its mailbox key – a mailbox owner row is "already sent" only for
+    /// its mailbox, so one owner of three mailboxes gets three messages and a fourth mailbox later is not skipped – or null
+    /// for every other row (the address alone).
+    /// </summary>
+    public string? JournalScope { get; }
+
+    /// <summary>
     /// The cell of <paramref name="column"/> ("" when the row has none) – the grid's dynamic columns. A column named alike
     /// (<see cref="FieldKey"/>: case, diacritics, spaces, '-' and '_' ignored) matches too.
     /// </summary>
@@ -142,7 +150,8 @@ public sealed partial class CorrespondenceRecipientViewModel : ObservableObject
     /// <summary>The text the filter box searches (address, name, source, field values), folded once.</summary>
     internal string SearchKey => _searchKey ??= TextFolding.Fold(string.Join('\u001F', new[] { Email, Name, Source }.Concat(Fields.Values)));
 
-    /// <summary>The address has a journal entry (kept to recompute <see cref="IsAlreadySent"/> when the option changes).</summary>
+    /// <summary>The address (within <see cref="JournalScope"/>) has a journal entry (kept to recompute
+    /// <see cref="IsAlreadySent"/> when the option changes).</summary>
     internal bool IsInJournal { get; set; }
 
     /// <summary>Sets <see cref="Status"/> and <see cref="StatusKind"/> together.</summary>

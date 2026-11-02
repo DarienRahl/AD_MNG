@@ -306,7 +306,7 @@ public sealed class MailboxOwnersReviewTests
     [Fact]
     public async Task AddToRecipients_OneMessagePerOwner_WithTheMailboxAndOwnerFields()
     {
-        var (scenario, window, sample) = await RunAsync();
+        var (scenario, window, sample) = await RunAsync(page => page.GroupByOwner = true);
         using var _ = scenario;
         using var __ = window;
         var page = window.Mailboxes;
@@ -357,8 +357,9 @@ public sealed class MailboxOwnersReviewTests
         Assert.Equal(["sekretariat.it@contoso.test", "lab@contoso.test"], janUnit.Keys);
         Assert.Equal(9, units.Count);   // 8 owners + the imported row
 
-        // The empty message gets the built-in template "is the mailbox still needed?".
-        Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededId, window.Message.SelectedTemplate?.Id);
+        // The empty message gets the built-in template that fits the grouping: one message per owner.
+        Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededGroupedId, window.Message.SelectedTemplate?.Id);
+        Assert.Equal("Weryfikacja skrzynek pocztowych", window.Message.Subject);
         Assert.Equal("Dodano do odbiorców: skrzynki – 9, właściciele – 8.", page.StatusText);
         Assert.Equal(page.StatusText, recipients.StatusText);
         Assert.Equal(page.StatusText, window.StatusText);
@@ -405,7 +406,8 @@ public sealed class MailboxOwnersReviewTests
         await (window.Message.TemplateLoading ?? Task.CompletedTask);
 
         Assert.StartsWith("confirm:", Assert.Single(scenario.Harness.Dialogs.Shown), StringComparison.Ordinal);
-        Assert.Contains("{{Zwrot osobowy}}", window.Message.BodyHtml, StringComparison.Ordinal);
+        Assert.Contains("wskazana w temacie tej wiadomości", window.Message.BodyHtml, StringComparison.Ordinal);
+        Assert.Equal("Weryfikacja skrzynki pocztowej: {{Skrzynka}}", window.Message.Subject);
         Assert.False(window.Message.GroupByAddress);                     // "Jedna wiadomość na właściciela" was off
         Assert.Equal(9, window.Recipients.Units(window.Message.GroupByAddress).Count);
     }
@@ -423,9 +425,64 @@ public sealed class MailboxOwnersReviewTests
 
         await window.Mailboxes.AddToRecipientsCommand.ExecuteAsync(null);
 
-        Assert.Contains("{{Zwrot osobowy}}", window.Message.BodyHtml, StringComparison.Ordinal);
-        Assert.Equal("Czy skrzynka pocztowa jest nadal potrzebna?", window.Message.Subject);
+        Assert.Contains("wskazana w temacie tej wiadomości", window.Message.BodyHtml, StringComparison.Ordinal);
+        Assert.Equal("Weryfikacja skrzynki pocztowej: {{Skrzynka}}", window.Message.Subject);
         Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededId, window.Message.SelectedTemplate?.Id);
+    }
+
+    [Fact]
+    public async Task GroupByOwner_IsOffByDefault_OneMessagePerMailboxWithItsNameInTheSubject()
+    {
+        var (scenario, window, _) = await RunAsync();
+        using var __ = scenario;
+        using var ___ = window;
+        Assert.False(window.Mailboxes.GroupByOwner);
+
+        await window.Mailboxes.AddToRecipientsCommand.ExecuteAsync(null);
+
+        Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededId, window.Message.SelectedTemplate?.Id);
+        Assert.False(window.Message.GroupByAddress);
+        Assert.False(window.Message.UseVoting);
+        var mailboxRows = window.Recipients.Items.Where(r => r.Origin == RecipientOrigin.Mailboxes).ToList();
+        Assert.Equal(mailboxRows.Count, window.Recipients.Units(window.Message.GroupByAddress).Count);
+        var draft = await window.Message.DraftAsync();
+        var first = window.Recipients.RecipientUnits(false)[0].Unit;
+        var rendered = Core.Correspondence.Composition.CorrespondenceRenderer.Render(draft, first, window.Recipients.KnownColumns);
+        Assert.Equal("Weryfikacja skrzynki pocztowej: " + first.Rows[0]["Skrzynka"], rendered.Subject);
+        Assert.Contains("<b>27 października 2026r.</b>", rendered.HtmlDocument, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AddingAgainWithTheOtherGrouping_SwitchesAnUnchangedBuiltIn_KeepingTheDeadline()
+    {
+        var (scenario, window, _) = await RunAsync();
+        using var __ = scenario;
+        using var ___ = window;
+        await window.Mailboxes.AddToRecipientsCommand.ExecuteAsync(null);
+        var termin = Assert.Single(window.Message.CustomFields);
+        termin.Date = new DateTime(2026, 12, 4);                         // the operator chose the deadline
+
+        // The same grouping again: the built-in that fits stays as it is (the deadline too).
+        await window.Mailboxes.AddToRecipientsCommand.ExecuteAsync(null);
+        Assert.Same(termin, Assert.Single(window.Message.CustomFields));
+
+        // Grouped now: the other built-in replaces the unchanged one without a question, the deadline is kept.
+        window.Mailboxes.GroupByOwner = true;
+        await window.Mailboxes.AddToRecipientsCommand.ExecuteAsync(null);
+
+        Assert.Empty(scenario.Harness.Dialogs.Shown);
+        Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededGroupedId, window.Message.SelectedTemplate?.Id);
+        Assert.Equal("Weryfikacja skrzynek pocztowych", window.Message.Subject);
+        Assert.True(window.Message.GroupByAddress);
+        Assert.Equal(new DateTime(2026, 12, 4), Assert.Single(window.Message.CustomFields).Date);
+        Assert.Equal("4 grudnia 2026r.", window.Message.CustomFields[0].Sample);
+
+        // A message of the operator's is never replaced.
+        window.Message.BodyHtml += "<p>Dopisek operatora.</p>";
+        window.Mailboxes.GroupByOwner = false;
+        await window.Mailboxes.AddToRecipientsCommand.ExecuteAsync(null);
+        Assert.Equal("Weryfikacja skrzynek pocztowych", window.Message.Subject);
+        Assert.Empty(scenario.Harness.Dialogs.Shown);
     }
 
     [Fact]

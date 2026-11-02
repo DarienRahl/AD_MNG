@@ -276,8 +276,9 @@ public sealed partial class MailboxOwnersPageViewModel
 
     /// <summary>
     /// Rows with an owner address and Include become recipient rows (replacing earlier "Skrzynki" rows); the built-in
-    /// template is loaded when the message body is empty (again when it is the selected template already), then grouping
-    /// follows <see cref="GroupByOwner"/>. The owners are read again
+    /// template that fits <see cref="GroupByOwner"/> is loaded when the message body is empty (again when it is the selected
+    /// template already) or still the other built-in as loaded (<see cref="MessagePageViewModel.UseMailboxTemplateAsync"/>),
+    /// then grouping follows <see cref="GroupByOwner"/>. The owners are read again
     /// (with the attributes of the owner fields; the mailboxes too when a mailbox field added after the query needs more
     /// attributes) from the window's session on the thread pool; the read runs like a query (<see cref="IsRunning"/>,
     /// <see cref="CancelCommand"/>, cancelled when the session ends).
@@ -355,13 +356,11 @@ public sealed partial class MailboxOwnersPageViewModel
         }
 
         var added = Recipients.ReplaceMailboxRows(recipients);
-        if (Message.IsBodyEmpty)
-        {
-            // Loaded (after the question when the page holds a subject) before the grouping is set: the template carries
-            // its own grouping, which must not override "Jedna wiadomość na właściciela".
-            await Message.LoadTemplateAsync(CorrespondenceTemplateLibrary.MailboxStillNeededId).ConfigureAwait(true);
-        }
 
+        // The built-in that fits the grouping, when the message is empty or still a built-in as loaded – before the grouping
+        // is set (after the question when the page holds a subject): the template carries its own grouping, which must not
+        // override "Jedna wiadomość na właściciela".
+        await Message.UseMailboxTemplateAsync(GroupByOwner).ConfigureAwait(true);
         Message.GroupByAddress = GroupByOwner;
         var owners = recipients.Select(r => r.Email).Distinct(StringComparer.Ordinal).Count();
         var status = Localizer.Format(L.CorrespondenceMailboxes.Added, added, owners);

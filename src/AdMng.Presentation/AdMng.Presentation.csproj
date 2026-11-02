@@ -18,4 +18,8 @@
   <ItemGroup>
     <InternalsVisibleTo Include="AdMng.Presentation.Tests" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The bodies of the built-in Korespondencja templates (operator content, read once by CorrespondenceTemplateLibrary). -->
+    <EmbeddedResource Include="Correspondence\Templates\*.html" LogicalName="AdMng.Presentation.Correspondence.Templates.%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>

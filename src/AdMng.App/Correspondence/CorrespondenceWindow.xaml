@@ -1016,6 +1016,37 @@
                 </StackPanel>
               </Grid>
 
+              <!-- The base style of the message (the wrapping div): font, size and line spacing; the editor shows the body in it -->
+              <WrapPanel x:Name="BaseStylePanel"
+                         Margin="0,10,0,0"
+                         DockPanel.Dock="Top"
+                         ToolTip="{l:Tr Correspondence.App.Message.FontHint}">
+                <TextBlock Style="{StaticResource InlineLabel}" Text="{l:Tr Correspondence.App.Message.Font}" />
+                <ComboBox x:Name="FontFamilyBox"
+                          Width="160"
+                          AutomationProperties.Name="{l:Tr Correspondence.App.Message.Font}"
+                          DisplayMemberPath="Text"
+                          ItemsSource="{Binding Message.FontFamilyChoices, Mode=OneWay}"
+                          SelectedValue="{Binding Message.FontFamily}"
+                          SelectedValuePath="Value" />
+                <TextBlock Margin="14,0,8,0" Style="{StaticResource InlineLabel}" Text="{l:Tr Correspondence.App.Message.FontSize}" />
+                <ComboBox x:Name="FontSizeBox"
+                          Width="96"
+                          AutomationProperties.Name="{l:Tr Correspondence.App.Message.FontSize}"
+                          DisplayMemberPath="Text"
+                          ItemsSource="{Binding Message.FontSizeChoices, Mode=OneWay}"
+                          SelectedValue="{Binding Message.FontSize}"
+                          SelectedValuePath="Value" />
+                <TextBlock Margin="14,0,8,0" Style="{StaticResource InlineLabel}" Text="{l:Tr Correspondence.App.Message.LineHeight}" />
+                <ComboBox x:Name="LineHeightBox"
+                          Width="120"
+                          AutomationProperties.Name="{l:Tr Correspondence.App.Message.LineHeight}"
+                          DisplayMemberPath="Text"
+                          ItemsSource="{Binding Message.LineHeightChoices, Mode=OneWay}"
+                          SelectedValue="{Binding Message.LineHeight}"
+                          SelectedValuePath="Value" />
+              </WrapPanel>
+
               <TextBlock Margin="0,12,0,4"
                          DockPanel.Dock="Top"
                          Style="{StaticResource Hint}"
@@ -1232,6 +1263,7 @@
                                 Focusable="False"
                                 ItemsSource="{Binding Message.CustomFields, Mode=OneWay}">
                     <ItemsControl.ItemTemplate>
+                      <!-- A text field: name = value; a date field: name, the date, then its format (editable) and the date as sent -->
                       <DataTemplate DataType="{x:Type cr:CustomFieldViewModel}">
                         <StackPanel Margin="0,0,0,6">
                           <Grid>
@@ -1247,7 +1279,15 @@
                             <TextBox Grid.Column="2"
                                      AutomationProperties.Name="{l:Tr Correspondence.App.FieldValue}"
                                      Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="{l:Tr Correspondence.App.FieldValue}" />
+                                     ToolTip="{l:Tr Correspondence.App.FieldValue}"
+                                     Visibility="{Binding IsDate, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+                            <DatePicker x:Name="FieldDatePicker"
+                                        Grid.Column="2"
+                                        AutomationProperties.Name="{l:Tr Correspondence.App.FieldDate}"
+                                        b:DatePickerWatermark.Text="{l:Tr Ui.SelectDate}"
+                                        SelectedDate="{Binding Date}"
+                                        ToolTip="{l:Tr Correspondence.App.FieldDate}"
+                                        Visibility="{Binding IsDate, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
                             <Button Grid.Column="3"
                                     AutomationProperties.Name="{l:Tr Common.Remove}"
                                     Command="{Binding DataContext.Message.RemoveCustomFieldCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
@@ -1256,6 +1296,23 @@
                                     Style="{StaticResource RowIconButton}"
                                     ToolTip="{l:Tr Common.Remove}" />
                           </Grid>
+                          <Grid Margin="106,4,28,0" Visibility="{Binding IsDate, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                            <Grid.RowDefinitions>
+                              <RowDefinition Height="Auto" />
+                              <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <ComboBox x:Name="FieldFormatBox"
+                                      AutomationProperties.Name="{l:Tr Correspondence.App.FieldFormat}"
+                                      IsEditable="True"
+                                      ItemsSource="{x:Static cr:CustomFieldViewModel.FormatChoices}"
+                                      Text="{Binding Format, UpdateSourceTrigger=PropertyChanged}"
+                                      ToolTip="{l:Tr Correspondence.App.FieldFormatHint}" />
+                            <TextBlock x:Name="FieldSampleText"
+                                       Grid.Row="1"
+                                       Style="{StaticResource Hint}"
+                                       Text="{Binding Sample, Mode=OneWay}"
+                                       Visibility="{Binding Sample, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+                          </Grid>
                           <TextBlock Style="{StaticResource ErrorLine}"
                                      Text="{Binding Error, Mode=OneWay}"
                                      Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
@@ -1263,11 +1320,16 @@
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
-                  <Button x:Name="AddCustomFieldButton"
-                          HorizontalAlignment="Left"
-                          Command="{Binding Message.AddCustomFieldCommand}"
-                          Content="{l:Tr Correspondence.App.AddField}"
-                          Style="{StaticResource BarButton}" />
+                  <WrapPanel>
+                    <Button x:Name="AddCustomFieldButton"
+                            Command="{Binding Message.AddCustomFieldCommand}"
+                            Content="{l:Tr Correspondence.App.AddField}"
+                            Style="{StaticResource BarButton}" />
+                    <Button x:Name="AddDateFieldButton"
+                            Command="{Binding Message.AddDateFieldCommand}"
+                            Content="{l:Tr Correspondence.App.AddDateField}"
+                            Style="{StaticResource BarButton}" />
+                  </WrapPanel>
                   <CheckBox x:Name="GroupByAddressBox"
                             Margin="0,4,0,0"
                             IsChecked="{Binding Message.GroupByAddress}">
