@@ -4,7 +4,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using AdMng.App.Correspondence;
@@ -18,8 +17,10 @@ namespace AdMng.App.Controls;
 /// <summary>
 /// The message editor of Korespondencja (design note 9.2): <see cref="Html"/> is the body as the sanitized subset (two-way,
 /// written <see cref="HtmlDelay"/> after the last change and at once when the editor loses the keyboard focus or
-/// <see cref="FlushHtml"/> is called), <see cref="Host"/> the view model's paste and image services, <see cref="FieldChoices"/>
-/// the <c>{{field}}</c> texts of "Wstaw pole".
+/// <see cref="FlushHtml"/> is called; read with its layout kept, so a body loaded and not edited is never rewritten and an
+/// edited one keeps the margins, cell borders and paddings of its HTML), <see cref="Host"/> the view model's paste and image
+/// services, <see cref="FieldChoices"/> the <c>{{field}}</c> texts of "Wstaw pole", <see cref="BaseFontFamily"/> and
+/// <see cref="BaseFontSize"/> the base font of the message (shown; text in it is written without a font of its own).
 /// </summary>
 /// <remarks>
 /// Pasting (Ctrl+V, the paste command) never takes the clipboard's own rich formats: formatted HTML goes through
@@ -39,6 +40,18 @@ public partial class RichMessageEditor : UserControl
 
     public static readonly DependencyProperty FieldChoicesProperty = DependencyProperty.Register(
         nameof(FieldChoices), typeof(IReadOnlyList<string>), typeof(RichMessageEditor), new PropertyMetadata(null, OnFieldChoicesChanged));
+
+    public static readonly DependencyProperty BaseFontFamilyProperty = DependencyProperty.Register(
+        nameof(BaseFontFamily), typeof(string), typeof(RichMessageEditor), new PropertyMetadata(DefaultBaseFontFamily, OnBaseFontChanged));
+
+    public static readonly DependencyProperty BaseFontSizeProperty = DependencyProperty.Register(
+        nameof(BaseFontSize), typeof(double), typeof(RichMessageEditor), new PropertyMetadata(DefaultBaseFontSize, OnBaseFontChanged));
+
+    /// <summary>The base font family of a message by default (the message's base style, <c>MessageBaseStyle.Default</c>).</summary>
+    public const string DefaultBaseFontFamily = "Calibri,'Segoe UI',Arial,sans-serif";
+
+    /// <summary>The base font size of a message by default, in points.</summary>
+    public const double DefaultBaseFontSize = 11;
 
     /// <summary>The data format that marks content copied from an editor of this process (pasted natively).</summary>
     internal const string CopyMarkerFormat = "AdMng.RichMessageEditor";
@@ -98,6 +111,23 @@ public partial class RichMessageEditor : UserControl
     {
         get => (IReadOnlyList<string>?)GetValue(FieldChoicesProperty);
         set => SetValue(FieldChoicesProperty, value);
+    }
+
+    /// <summary>The base font family of the message, a CSS family list (<see cref="DefaultBaseFontFamily"/>): the editor
+    /// shows the body in its first family (<see cref="FlowDocumentHtml.EditorFontFamily"/>), and text in it is written
+    /// without a font family of its own, so the base style of the message applies.</summary>
+    public string BaseFontFamily
+    {
+        get => (string)GetValue(BaseFontFamilyProperty);
+        set => SetValue(BaseFontFamilyProperty, value);
+    }
+
+    /// <summary>The base font size of the message in points (<see cref="DefaultBaseFontSize"/>): shown, and text of that
+    /// size is written without a size of its own.</summary>
+    public double BaseFontSize
+    {
+        get => (double)GetValue(BaseFontSizeProperty);
+        set => SetValue(BaseFontSizeProperty, value);
     }
 
     /// <summary>Tests: answers the link prompt instead of the dialog (null: cancelled).</summary>
@@ -332,6 +362,8 @@ public partial class RichMessageEditor : UserControl
         }
     }
 
+    private static void OnBaseFontChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) => ((RichMessageEditor)d).ApplyBaseFont();
+
     private static void OnFieldChoicesChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         var editor = (RichMessageEditor)d;
@@ -356,7 +388,10 @@ public partial class RichMessageEditor : UserControl
         _loading = true;
         try
         {
-            MessageEditorBox.Document = FlowDocumentHtml.ToDocument(html, Host?.Images ?? NoImages);
+            // The body's own layout is kept (margins, cell borders and paddings, the CSS the editor cannot show).
+            var document = FlowDocumentHtml.ToDocument(html, Host?.Images ?? NoImages, keepLayout: true);
+            ApplyBaseFont(document);
+            MessageEditorBox.Document = document;
         }
         finally
         {
@@ -367,6 +402,37 @@ public partial class RichMessageEditor : UserControl
         _lastHtml = html;
         _loadedHtml = FlowDocumentHtml.ToHtml(MessageEditorBox.Document, ContentIdFor);
         UpdateToolbar();
+    }
+
+    /// <summary>Shows the document in the base font. Not an edit: the body is not written for it, and an unchanged body is
+    /// compared against the new base from now on.</summary>
+    private void ApplyBaseFont()
+    {
+        var loading = _loading;
+        _loading = true;
+        try
+        {
+            ApplyBaseFont(MessageEditorBox.Document);
+        }
+        finally
+        {
+            _loading = loading;
+        }
+
+        if (!_dirty)
+        {
+            _loadedHtml = FlowDocumentHtml.ToHtml(MessageEditorBox.Document, ContentIdFor);
+        }
+    }
+
+    private void ApplyBaseFont(FlowDocument document)
+    {
+        var family = FlowDocumentHtml.EditorFontFamily(BaseFontFamily);
+        var points = BaseFontSize is > 0 and <= 400 ? BaseFontSize : DefaultBaseFontSize;
+        document.FontFamily = family;
+        document.FontSize = points * 96 / 72;
+        MessageEditorBox.FontFamily = family;
+        MessageEditorBox.FontSize = points * 96 / 72;
     }
 
     private void OnTextChanged(object sender, TextChangedEventArgs e)
@@ -508,7 +574,7 @@ public partial class RichMessageEditor : UserControl
         return prompt.Result;
     }
 
-    /// <summary>MailerWPiA: the selection back to the body font and size, without character formatting.</summary>
+    /// <summary>MailerWPiA: the selection back to the base font and size of the message, without character formatting.</summary>
     private void ClearFormatting()
     {
         var selection = MessageEditorBox.Selection;
@@ -519,8 +585,8 @@ public partial class RichMessageEditor : UserControl
         }
 
         selection.ClearAllProperties();
-        selection.ApplyPropertyValue(TextElement.FontFamilyProperty, new FontFamily(FlowDocumentHtml.FontFamilyName));
-        selection.ApplyPropertyValue(TextElement.FontSizeProperty, FlowDocumentHtml.DefaultFontSize);
+        selection.ApplyPropertyValue(TextElement.FontFamilyProperty, MessageEditorBox.Document.FontFamily);
+        selection.ApplyPropertyValue(TextElement.FontSizeProperty, MessageEditorBox.Document.FontSize);
         MessageEditorBox.Focus();
         UpdateToolbar();
     }

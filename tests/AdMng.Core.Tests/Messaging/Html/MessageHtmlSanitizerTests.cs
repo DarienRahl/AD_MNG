@@ -204,6 +204,77 @@ public class MessageHtmlSanitizerTests
         Assert.Contains(result.Changes, c => c.Kind == HtmlChangeKind.RemovedStyle && c.IsSecurity == security);
     }
 
+    // ---- Word's paragraph spacing (policy version 2) ---------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("mso-margin-top-alt:12.0pt", "mso-margin-top-alt:12pt")]
+    [InlineData("mso-margin-top-alt:auto", "mso-margin-top-alt:auto")]
+    [InlineData("mso-margin-top-alt:AUTO", "mso-margin-top-alt:auto")]
+    [InlineData("mso-margin-top-alt:0", "mso-margin-top-alt:0")]
+    [InlineData("mso-margin-bottom-alt:0cm", "mso-margin-bottom-alt:0cm")]
+    [InlineData("mso-margin-bottom-alt:14px", "mso-margin-bottom-alt:14px")]
+    [InlineData("mso-margin-bottom-alt:.5in", "mso-margin-bottom-alt:0.5in")]
+    public void WordParagraphSpacing_IsKept(string style, string expected)
+    {
+        var result = MessageHtmlSanitizer.Sanitize($"<p style='{style}'>Zażółć gęślą jaźń</p>", Fragment);
+        Assert.Equal($"<p style=\"{expected}\">Zażółć gęślą jaźń</p>", result.Html.TrimEnd('\n'));
+        Assert.Empty(result.Changes);
+    }
+
+    [Fact]
+    public void WordParagraphSpacing_IsWrittenBeforeTheMargin_AsWordWritesIt() =>
+        Assert.Equal(
+            "<p style=\"mso-margin-top-alt:12pt;mso-margin-bottom-alt:auto;margin:0 0 12pt 0;color:black\">x</p>\n"
+            + "<ol style=\"margin-bottom:0\"><li style=\"mso-margin-top-alt:auto;margin:0 0 3pt 0;color:black\">y</li>\n</ol>",
+            Clean("<p style='color:black;margin:0 0 12pt 0;mso-margin-bottom-alt:auto;mso-margin-top-alt:12.0pt'>x</p>"
+                + "<ol style='margin-bottom:0'><li style='color:black;mso-margin-top-alt:auto;margin:0 0 3pt 0'>y</li></ol>"));
+
+    [Theory]
+    [InlineData("mso-margin-top-alt:12pt 0", false)]
+    [InlineData("mso-margin-bottom-alt:normal", false)]
+    [InlineData("mso-margin-top-alt:var(--odstep)", false)]
+    [InlineData("mso-margin-left-alt:12pt", false)]
+    [InlineData("mso-margin-alt:12pt", false)]
+    [InlineData("mso-para-margin-top:12pt", false)]
+    [InlineData("mso-margin-top-alt:-12pt", true)]
+    [InlineData("mso-margin-bottom-alt:-1in", true)]
+    public void OtherWordSpacing_IsDropped_ANegativeOneAsAnyNegativeMargin(string style, bool security)
+    {
+        var result = MessageHtmlSanitizer.Sanitize($"<p style='{style}'>x</p>", Fragment);
+        Assert.Equal("<p>x</p>", result.Html.TrimEnd('\n'));
+        Assert.Contains(result.Changes, c => c.Kind == HtmlChangeKind.RemovedStyle && c.IsSecurity == security);
+        Assert.Equal(security, MessageHtmlSanitizer.Validate($"<p style='{style}'>x</p>", Fragment).Count > 0);
+    }
+
+    [Fact]
+    public void TheMailboxTemplate_IsKeptAsItIs_WordSpacingIncluded()
+    {
+        var template = TemplateHtmlFixture.MailboxStillNeeded;
+        var options = Fragment with { AllowFieldUrls = true };
+
+        var result = MessageHtmlSanitizer.Sanitize(template, options);
+
+        Assert.Empty(result.Changes);
+        Assert.Empty(MessageHtmlSanitizer.Validate(template, options));
+        Assert.Equal(3, Count(result.Html, "mso-margin-top-alt:12pt;margin:0 0 12pt 0"));
+        Assert.Equal(2, Count(result.Html, "<li style=\"mso-margin-top-alt:auto;"));
+        foreach (var part in new[]
+        {
+            "<td style=\"padding:10.5pt 13.5pt 10.5pt 13.5pt;border:none;border-left:3pt solid #1B365D;background-color:#F4F7FB\">",
+            "<td style=\"padding:9pt 13.5pt 9pt 13.5pt;border:none;border-left:3pt solid #D97706;background-color:#FFFBEB\">",
+            "<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse;max-width:495pt\">",
+            "<a href=\"https://hd.uni.lodz.pl\" style=\"color:blue;text-decoration:underline\">", "<b>{{Termin}}</b>", "<p>{{podpis}}</p>",
+        })
+        {
+            Assert.Contains(part, result.Html, StringComparison.Ordinal);
+        }
+
+        Assert.Equal(result.Html, MessageHtmlSanitizer.Sanitize(result.Html, options).Html);
+        Assert.Empty(UserMessageRules.FindForbiddenHtml(result.Html));
+
+        static int Count(string text, string part) => (text.Length - text.Replace(part, string.Empty, StringComparison.Ordinal).Length) / part.Length;
+    }
+
     [Theory]
     [InlineData("text-indent:-9999px", "text-indent:-1in")]
     [InlineData("text-indent:-500em", "text-indent:-1in")]

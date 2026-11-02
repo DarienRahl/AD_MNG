@@ -716,8 +716,10 @@ Profesorze” we wklejonym formatowaniu z logo osadzonym, bezpośrednio przez SM
   [opis](docs/dev/u1c-u1d-rich-html-and-salutations.md), część A): *Wklej sformatowaną treść* (Ctrl+Shift+V) bierze
   „HTML Format” ze schowka (Outlook klasyczny i nowy, Word, Edge/Chrome, Firefox) i zachowuje czcionki, rozmiary,
   kolory, łącza, tabele i listy – style klas Outlooka (`MsoNormal` …) wpisane w atrybuty `style`, komentarze
-  warunkowe, elementy `o:`/`v:`/`w:` i właściwości `mso-*` usunięte, listy Worda zamienione na `ul`/`ol`, łącza Safe
-  Links rozwinięte, pola rozcięte przez Outlooka (`{<span>sAMAccountName</span>}`) naprawione; ten sam sanitizer
+  warunkowe, elementy `o:`/`v:`/`w:` i właściwości `mso-*` usunięte (poza odstępami akapitu Worda
+  `mso-margin-top-alt`/`mso-margin-bottom-alt`, które klasyczny Outlook stosuje), listy Worda zamienione na
+  `ul`/`ol`, łącza Safe Links rozwinięte, pola rozcięte przez Outlooka (`{<span>sAMAccountName</span>}`) naprawione;
+  ten sam sanitizer
   (AngleSharp, listy dozwolonych znaczników, atrybutów i właściwości CSS, bez ukrytej treści i nakładek) sprawdza HTML
   w AD Managerze i w usłudze Watchdog. Łącza do domen spoza listy dozwolonych są w *Wynikach wklejania* z akcjami
   *Zezwól na domenę …* i *Usuń łącze*. Obrazy (`clip_image001.png` Outlooka – tylko z folderu tymczasowego, nigdy z

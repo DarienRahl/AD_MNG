@@ -20,7 +20,8 @@ internal enum CssVerdict
 /// Value rules of the allowed CSS properties (design note section 4.3): colours (<c>#hex</c>, <c>rgb()</c>/<c>rgba()</c>
 /// with numbers, CSS names; <c>windowtext</c> → <c>#000000</c>, <c>window</c> → <c>#FFFFFF</c>), lengths in
 /// <c>px pt em rem % cm mm in</c> (≥ 0 except <c>text-indent</c> and <c>letter-spacing</c>, which are clamped to −1in and
-/// −2px – further they move or squeeze text out of sight; no negative margins), keywords,
+/// −2px – further they move or squeeze text out of sight; no negative margins, Word's <c>mso-margin-top-alt</c> and
+/// <c>mso-margin-bottom-alt</c> included: one length or <c>auto</c>), keywords,
 /// font families as identifiers or strings (re-serialized with single quotes). Numbers are re-serialized invariantly
 /// (<c>12.0pt</c> → <c>12pt</c>, <c>.5in</c> → <c>0.5in</c>), keywords in lower case. Anything containing <c>url(</c>,
 /// <c>expression(</c>, <c>\</c>, <c>/*</c>, <c>@</c>, <c>&lt;</c>, <c>javascript:</c> or a control character is dropped,
@@ -149,6 +150,7 @@ internal static class CssValues
             "text-decoration-line" => Repeat(raw, 3, t => DecorationLines.Contains(t) ? t.ToLowerInvariant() : null),
             "margin" => Repeat(raw, 4, t => AutoOr(t, allowAuto: true)),
             "margin-top" or "margin-right" or "margin-bottom" or "margin-left" => AutoOr(raw, allowAuto: true),
+            "mso-margin-top-alt" or "mso-margin-bottom-alt" => AutoOr(raw, allowAuto: true),
             "padding" => Repeat(raw, 4, t => Length(t, allowNegative: false)),
             "padding-top" or "padding-right" or "padding-bottom" or "padding-left" => Length(raw, allowNegative: false),
             "border" or "border-top" or "border-right" or "border-bottom" or "border-left" => Border(raw),
@@ -347,7 +349,7 @@ internal static class CssValues
     }
 
     private static bool IsNegativeMargin(string property, string value) =>
-        property.StartsWith("margin", StringComparison.Ordinal)
+        (property.StartsWith("margin", StringComparison.Ordinal) || property.StartsWith("mso-margin-", StringComparison.Ordinal))
         && value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Any(t => t.TrimStart().StartsWith('-') && Length(t, allowNegative: true) is not null);
 
     private static bool IsZero(string value) => Length(value, allowNegative: true) is { } length && IsZeroLength(length);
