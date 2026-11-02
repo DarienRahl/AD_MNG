@@ -79,7 +79,7 @@ szkic i opcje.
 | przeciągnięcie plików na listę | jak *Z pliku* |
 | *Z katalogu: Zaznaczone obiekty* | użytkownicy, kontakty i grupy (ich członkowie) zaznaczeni w oknie połączenia |
 | *Wybierz użytkowników…* | okno wyboru obiektów: użytkownicy i kontakty |
-| *Członkowie grupy…* | członkowie wybranej grupy, także zagnieżdżeni (użytkownicy i kontakty, do 10 000) |
+| *Członkowie grupy…* | członkowie wybranej grupy, także zagnieżdżeni i konta, dla których jest grupą podstawową (np. *Domain Users*; użytkownicy i kontakty, do 10 000) |
 | *Właściciele skrzynek…* | zakładka *Skrzynki* (rozdział 8) |
 
 Powtórzone adresy są usuwane – także względem odbiorców wczytanych wcześniej. Pasek stanu podsumowuje każde
