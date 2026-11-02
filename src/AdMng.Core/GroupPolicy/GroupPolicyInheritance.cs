@@ -8,6 +8,32 @@ namespace AdMng.Core.GroupPolicy;
 /// <param name="Container">The site, domain head or OU of the link.</param>
 public sealed record AppliedGroupPolicy(Guid GpoId, GroupPolicyLink Link, GroupPolicySom Container);
 
+/// <summary>Why a link of the chain does not apply its GPO (<see cref="GroupPolicyInheritance.Explain"/>).</summary>
+public enum GroupPolicyLinkExclusion
+{
+    /// <summary>The link is disabled (<c>gPLink</c> option 1).</summary>
+    LinkDisabled,
+
+    /// <summary>A container below the link's container blocks inheritance and the link is not enforced.</summary>
+    Blocked,
+
+    /// <summary>The GPO is linked again with a higher precedence: it counts there.</summary>
+    Duplicate,
+}
+
+/// <summary>A link of the chain that does not apply its GPO.</summary>
+/// <param name="GpoId">The GPO's GUID.</param>
+/// <param name="Link">The link.</param>
+/// <param name="Container">The site, domain head or OU of the link.</param>
+/// <param name="Reason">Why it does not apply.</param>
+/// <param name="BlockedBy">For <see cref="GroupPolicyLinkExclusion.Blocked"/>: the nearest container below that blocks inheritance.</param>
+public sealed record ExcludedGroupPolicyLink(Guid GpoId, GroupPolicyLink Link, GroupPolicySom Container, GroupPolicyLinkExclusion Reason, string? BlockedBy = null);
+
+/// <summary>The links of an object's chain: the GPOs in application order (the last wins) and the links left out, with why.</summary>
+/// <param name="Applied">The GPOs that apply, in application order.</param>
+/// <param name="Excluded">The links that do not apply (chain order).</param>
+public sealed record GroupPolicyChain(IReadOnlyList<AppliedGroupPolicy> Applied, IReadOnlyList<ExcludedGroupPolicyLink> Excluded);
+
 /// <summary>
 /// Which GPOs apply to an object and in which order ([MS-GPOL] 3.2.5.1, as GPMC's Group Policy Inheritance shows it):
 /// site, domain, then the OUs from the top down to the object's parent; within a container the links from the highest link
@@ -42,7 +68,16 @@ public sealed class GroupPolicyInheritance
     /// <summary>The GPOs that apply to an object below <paramref name="parentDn"/>, in application order (the last wins).</summary>
     /// <param name="parentDn">The container of the object (its OU, CN=Computers, the domain head …).</param>
     /// <param name="siteDn">The object's site, null when unknown (then no site links apply).</param>
-    public IReadOnlyList<AppliedGroupPolicy> Resolve(string parentDn, string? siteDn)
+    public IReadOnlyList<AppliedGroupPolicy> Resolve(string parentDn, string? siteDn) => Explain(parentDn, siteDn).Applied;
+
+    /// <summary>
+    /// <see cref="Resolve"/> with the links it leaves out (K5): disabled links, links blocked by a container below that
+    /// blocks inheritance (with that container) and links of a GPO linked again with a higher precedence. Links whose
+    /// <c>cn</c> is not a GPO GUID are not reported.
+    /// </summary>
+    /// <param name="parentDn">The container of the object (its OU, CN=Computers, the domain head …).</param>
+    /// <param name="siteDn">The object's site, null when unknown (then no site links apply).</param>
+    public GroupPolicyChain Explain(string parentDn, string? siteDn)
     {
         // The chain from the top: the site, the domain head, every OU from the domain down to the parent.
         var chain = new List<GroupPolicySom>();
@@ -71,27 +106,55 @@ public sealed class GroupPolicyInheritance
             chain.AddRange(below);
         }
 
-        // A container is blocked when a container below it (in the chain) blocks inheritance.
-        var blocked = new bool[chain.Count];
-        var blocking = false;
+        // A container is blocked when a container below it (in the chain) blocks inheritance: the nearest such container.
+        var blockedBy = new string?[chain.Count];
+        string? blocking = null;
         for (var i = chain.Count - 1; i >= 0; i--)
         {
-            blocked[i] = blocking;
-            blocking |= chain[i].BlocksInheritance && chain[i].Kind != GroupPolicySomKind.Site;
-        }
-
-        var applied = new List<AppliedGroupPolicy>();
-        for (var i = 0; i < chain.Count; i++)
-        {
-            if (!blocked[i])
+            blockedBy[i] = blocking;
+            if (chain[i].BlocksInheritance && chain[i].Kind != GroupPolicySomKind.Site)
             {
-                Add(applied, chain[i], enforced: false);
+                blocking = chain[i].Dn;
             }
         }
 
+        var excluded = new List<ExcludedGroupPolicyLink>();
+        var applied = new List<AppliedGroupPolicy>();
+        for (var i = 0; i < chain.Count; i++)
+        {
+            // gPLink order: the first link has the highest link order number (lowest precedence) and is applied first.
+            foreach (var link in chain[i].Links)
+            {
+                if (link.GpoId is not { } id)
+                {
+                    continue;
+                }
+
+                if (link.Disabled)
+                {
+                    excluded.Add(new ExcludedGroupPolicyLink(id, link, chain[i], GroupPolicyLinkExclusion.LinkDisabled));
+                }
+                else if (!link.Enforced && blockedBy[i] is { } by)
+                {
+                    excluded.Add(new ExcludedGroupPolicyLink(id, link, chain[i], GroupPolicyLinkExclusion.Blocked, by));
+                }
+                else if (!link.Enforced)
+                {
+                    applied.Add(new AppliedGroupPolicy(id, link, chain[i]));
+                }
+            }
+        }
+
+        // Enforced links last, the deepest container first, so that the enforced link highest in the hierarchy wins.
         for (var i = chain.Count - 1; i >= 0; i--)
         {
-            Add(applied, chain[i], enforced: true);
+            foreach (var link in chain[i].Links)
+            {
+                if (!link.Disabled && link.Enforced && link.GpoId is { } id)
+                {
+                    applied.Add(new AppliedGroupPolicy(id, link, chain[i]));
+                }
+            }
         }
 
         // A GPO counts once, at its last (winning) position.
@@ -103,21 +166,13 @@ public sealed class GroupPolicyInheritance
             {
                 result.Add(applied[i]);
             }
+            else
+            {
+                excluded.Add(new ExcludedGroupPolicyLink(applied[i].GpoId, applied[i].Link, applied[i].Container, GroupPolicyLinkExclusion.Duplicate));
+            }
         }
 
         result.Reverse();
-        return result;
-    }
-
-    private static void Add(List<AppliedGroupPolicy> applied, GroupPolicySom container, bool enforced)
-    {
-        // gPLink order: the first link has the highest link order number (lowest precedence) and is applied first.
-        foreach (var link in container.Links)
-        {
-            if (!link.Disabled && link.Enforced == enforced && link.GpoId is { } id)
-            {
-                applied.Add(new AppliedGroupPolicy(id, link, container));
-            }
-        }
+        return new GroupPolicyChain(result, excluded);
     }
 }

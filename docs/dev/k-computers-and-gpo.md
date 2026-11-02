@@ -1331,3 +1331,91 @@ the formats were taken from the vendors' documentation and tested with prepared 
 `WinVerifyTrust` (Windows only), the WPF views (CI on Windows), and the pilot items: `Registry.pol` identical to the
 Microsoft editor's for the same settings, `gpresult /h` on a client, updates from the current Windows 11 / Server 2025,
 Microsoft 365 Apps, Edge, Chrome and Firefox packages.
+
+## 18. K5 – "co dostanie komputer" (design)
+
+Group Policy modelling in the connection window: which GPOs a computer and a user would get, in which order, which
+setting wins and why – computed from the directory and SYSVOL of the session's DC (rule 4) without connecting to the
+computer, like GPMC's *Group Policy Modeling* (not *Results*: nothing is read from the client). Read only: no plan, no
+write; everything stays in memory while the tab is open (rule 1), an export is a file the operator asks for.
+
+**Inputs** (`GroupPolicyModelRequest`, Core `AdMng.Core.GroupPolicy.Modeling`):
+
+* *Komputer*: a computer account (its parent container gives the OU chain; its token the security filtering) or a
+  container (a new computer there: OU or `CN=Computers`; token Domain Computers + well-known SIDs), or none.
+* *Użytkownik*: a user account or a container (token Domain Users + well-known SIDs), or none. At least one of the two.
+* *Lokacja*: a site or none. Default: a DC's server object's site; another computer's site through K1's
+  `ComputerSites` (DNS + subnets) when it resolves; else none (site links then do not apply – said in the report).
+  The user part uses the computer's site (the site of the logon), none without a computer.
+* *Filtry WMI*: assumed true (default; such a GPO is listed as applying *if* its filter is true) or false.
+* *Pętla zwrotna* (loopback): from the computer's settings (default), off, merge or replace (a "what if").
+
+**Token** (`ModelingToken`): for an account `tokenGroups` (base read; the DC expands nesting and the primary group) +
+its objectSid + Everyone, Authenticated Users, This Organization (+ Enterprise Domain Controllers for a writable DC);
+for a container the primary group of a new object (515 / 513) + the well-known SIDs. Shown in the report (group names
+resolved for display only).
+
+**GPO list per part** ([MS-GPOL] 3.2.5.1): `GroupPolicyInheritance` gets an explaining variant (`Explain`) that
+returns every link of the chain with its outcome instead of dropping it – *LinkDisabled*, *Blocked* (by which
+container), applied (order) – and the modeller adds, per applied link in that order: *NotFound* (no GPC), *PartDisabled*
+(`flags` bit 2 computer / bit 1 user), *Empty* (that half of `versionNumber` is 0), *SecurityDenied* (no Apply Group
+Policy for the token, or a deny), *ComputerCannotRead* (user part: since MS16-072 the computer's token must be allowed
+to read the GPO – a deny or no read access excludes it), *WmiFilterFalse* (assumed false) or *Applied* /
+*AppliedIfWmi*. Precedence 1 = applied last (wins), as GPMC numbers it. A GPO linked twice counts once, at its winning
+link (the other link listed as *Duplicate*).
+
+**Loopback** (user part only, needs a computer): the mode is the winning value of
+`HKLM\Software\Policies\Microsoft\Windows\System!UserPolicyMode` among the computer part's applied GPOs (1 merge,
+2 replace; the ADMX policy *Configure user Group Policy loopback processing mode*) unless the operator overrides it.
+Replace: the user part's chain is the computer's container chain (filtered with the user's token). Merge: the user's
+chain, then the computer's (the computer's GPOs applied after – higher precedence; a GPO in both counts at its last
+position). The report says which mode was used and why.
+
+**Settings** (per part, from the applied GPOs only, in application order):
+
+* *Szablony administracyjne*: each applied GPO's `Machine|User/Registry.pol` is read by K3's `PolicyEngine` with the
+  definitions of the editor (`PolicyDefinitionsService`; central store or this computer's templates) and the shared
+  ownership index (`PolicyOwnershipIndex`, moved out of the editor). Per policy the winner is the highest-precedence
+  GPO that configures it (state and options as in that GPO – GPMC's reporting rule); the others are *przesłonięte*.
+  Values no loaded template describes: per value (`key!name`, deletions included) the last GPO wins.
+* Other settings: the normalized `GpoSetting` keys of the Watchdog parsers (`GroupPolicyReader.Settings`) – security
+  template sections, advanced audit, GPP, event log … – per key the last GPO wins, with every overridden source kept.
+  Exceptions: scripts are cumulative (all of them run, in order: no winner); comments are not settings; unreadable files
+  are warnings of their GPO; account policy (`[System Access]` password, lockout, `[Kerberos Policy]`) for a DC comes
+  only from GPOs linked to the domain head (the domain's account policy), for other computers from all (local
+  accounts) – said in the report. GPP item-level targeting is not evaluated: items stay, marked *zależy od komputera*
+  when the parser saw targeting.
+
+**Output** (`GroupPolicyModel`): per part the GPO rows (outcome, precedence, link container, enforced, WMI filter name,
+security filter note), the policies (definition, winning setting and GPO, overridden ones) and the other settings
+(key, category, winning value and GPO, overridden), warnings (unreadable files, GPOs not readable on SYSVOL, no site,
+templates missing). Pure: the engine (`GroupPolicyModeler`) takes the read inputs; the reader
+(`GroupPolicyModelReader`) does LDAP (GPCs with versions, flags, WMI links and DACLs; domain head, OUs and sites with
+links; the targets with `tokenGroups`; WMI filter names) and SYSVOL (the folders of the GPOs that apply, at most 4 in
+parallel, within K2's limits).
+
+**UI** (`GroupPolicyDocumentKind.Modeling`, tab *Co dostanie komputer – <name>*): a bar with the computer, the user,
+the site, the WMI and loopback choices and *Przelicz*; a summary line; two tabs *Konfiguracja komputera* and
+*Konfiguracja użytkownika*, each with the GPO list (applied first, by precedence; then the excluded ones with the
+reason) and the settings grouped by area (administrative templates by category path, security, audit, services, GPP,
+scripts, extra registry values) with a details pane *Dlaczego*: the winning GPO, its link (container, enforced,
+order), and the overridden GPOs with their values; *Grupy* (the token used). Entry points: *Co dostanie komputer…* on
+computers and *Co dostanie użytkownik…* on users (object menu, Akcja, palette `gpo.model`), *Modeluj zasady…* on the
+*Zasady grupy* tab of an OU or domain and on the computer property sheet's *Stan* page. Export CSV (GPO lists and
+settings) only when the operator asks (`IFileDialogService`).
+
+**Tests.** Core: inheritance explanation (disabled links, block inheritance and enforced links, sites, duplicates),
+every exclusion reason, security filtering with allow/deny and the read check of the user part, WMI assumptions,
+loopback merge/replace and its source, settings precedence (per key, scripts cumulative, account policy on a DC),
+policies through K3's engine (winner, overridden, not configured ignored), extra registry values, warnings.
+Presentation: the document on the fake directory (`AddGroupPolicyManagementSample`, FakeSysvol, the sample templates):
+inputs, recalculation, details, entry points, export. App (Windows CI): view, entry points, smoke, UI test,
+screenshot 31. Lab (Samba): an OU chain with links (disabled, enforced, block inheritance), a GPO with its computer part
+disabled and one denied to a group of the computer – the applied set compared with `samba-tool gpo list` for the
+computer account (Samba checks read access and link flags, not the Apply right or sites: the scenario keeps to what both
+evaluate), and the settings of two GPOs on one key with the expected winner.
+
+**Not in K5:** reading the client (RSoP *Results*, `gpresult`), evaluating WMI filters or item-level targeting on the
+computer (later through K1's WinRM), slow links, the local GPO and multiple local GPOs, cross-domain users or
+computers (the session's domain only), software installation and folder redirection details (listed per GPO as
+extensions without settings).

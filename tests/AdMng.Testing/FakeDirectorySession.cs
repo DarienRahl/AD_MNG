@@ -104,6 +104,13 @@ public sealed partial class FakeDirectorySession : IDirectorySession
     public string DomainSid { get; set; } = DefaultDomainSid;
 
     /// <summary>
+    /// Base reads of a user or computer compute <c>tokenGroups</c> like AD (nested security groups and the primary group)
+    /// when no value was stored for it (<c>SetValues</c> overrides; off by default: tests of an unreadable tokenGroups
+    /// rely on it being empty).
+    /// </summary>
+    public bool ComputesTokenGroups { get; set; }
+
+    /// <summary>
     /// Distinguishes the objectGUIDs of this directory from those of another fake built the same way (0 = the default
     /// GUIDs <c>a0d10000-…</c>). Two fake domains with the same sample data otherwise give the same object the same GUID,
     /// which only two views of ONE directory may do. Set it before seeding.
@@ -1855,6 +1862,8 @@ public sealed partial class FakeDirectorySession : IDirectorySession
             case Attr.AllowedAttributesEffective:
                 var permissions = _permissions.TryGetValue(entry.Dn, out var configured) ? configured : DefaultPermissions;
                 return permissions.IsKnown ? [.. permissions.WritableAttributes] : [];
+            case Attr.TokenGroups when ComputesTokenGroups && entry.HasClass(ObjectClasses.User) && !entry.IsDeleted && !entry.Attributes.ContainsKey(Attr.TokenGroups):
+                return TokenGroupsOf(entry);
         }
 
         if (Schema.FindAttribute(name) is { IsBackLink: true, LinkId: { } linkId }
@@ -2046,6 +2055,56 @@ public sealed partial class FakeDirectorySession : IDirectorySession
     {
         var counter = ++_guidCounter;
         return new Guid($"a0d1{GuidNamespace & 0xFFFF:x4}-0000-4000-8000-{counter:x12}");
+    }
+
+    /// <summary>
+    /// tokenGroups as AD computes it: the SIDs (binary) of every security group the account is in, nested and through its
+    /// primary group; distribution groups are not in a token.
+    /// </summary>
+    private List<object> TokenGroupsOf(Entry account)
+    {
+        var groups = _entries.Values.Where(e => !e.IsDeleted && e.HasClass(ObjectClasses.Group)).ToList();
+        var found = new List<Entry>();
+        var seen = new HashSet<DistinguishedName>();
+        var queue = new Queue<Entry>();
+        void Visit(Entry group)
+        {
+            if (seen.Add(group.Dn))
+            {
+                found.Add(group);
+                queue.Enqueue(group);
+            }
+        }
+
+        if (account.First(Attr.PrimaryGroupId) is { } primary)
+        {
+            foreach (var group in groups.Where(g => RidOf(g)?.ToString(CultureInfo.InvariantCulture) == primary
+                && g.Attributes.TryGetValue(Attr.ObjectSid, out var sid) && sid is [byte[] bytes] && AdConvert.SidToString(bytes).StartsWith(DomainSid + "-", StringComparison.Ordinal)))
+            {
+                Visit(group);
+            }
+        }
+
+        bool Contains(Entry group, DistinguishedName member) => group.Attributes.TryGetValue(Attr.Member, out var members)
+            && members.OfType<string>().Any(m => DistinguishedName.TryParse(m, out var dn) && dn == member);
+        foreach (var group in groups.Where(g => Contains(g, account.Dn)))
+        {
+            Visit(group);
+        }
+
+        while (queue.TryDequeue(out var group))
+        {
+            foreach (var parent in groups.Where(g => Contains(g, group.Dn)))
+            {
+                Visit(parent);
+            }
+        }
+
+        return [.. found
+            .Where(g => g.First(Attr.GroupType) is not { } type || GroupTypes.IsSecurity(int.Parse(type, CultureInfo.InvariantCulture)))
+            .Select(g => g.Attributes.TryGetValue(Attr.ObjectSid, out var sid) && sid is [byte[] bytes] ? bytes : null)
+            .OfType<byte[]>()
+            .Select(b => (object)b)];
     }
 
     private static uint? RidOf(Entry entry) =>

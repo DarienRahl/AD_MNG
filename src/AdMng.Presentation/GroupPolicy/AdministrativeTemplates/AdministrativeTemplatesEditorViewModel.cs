@@ -3,7 +3,6 @@ using System.Globalization;
 using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.AdministrativeTemplates;
-using AdMng.Core.GroupPolicy.Content;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Localization;
@@ -37,8 +36,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     private RegistryHalf? _user;
     private PolicyDefinitionSet _set = PolicyDefinitionSet.Empty;
     private IReadOnlyDictionary<string, PolicyFileReadProblem> _fileProblems = new Dictionary<string, PolicyFileReadProblem>();
-    private Dictionary<string, HashSet<string>> _ownedNames = new(StringComparer.OrdinalIgnoreCase);
-    private HashSet<string> _listKeys = new(StringComparer.OrdinalIgnoreCase);
+    private PolicyOwnershipIndex _ownership = PolicyOwnershipIndex.Empty;
     private GpoInfo? _gpo;
     private bool _confirmingClose;
 
@@ -346,7 +344,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         DefinitionIssues = [.. _set.Issues.Select(IssueText)];
         if (definitionsChanged || Roots.Count == 0)
         {
-            IndexOwnedValues();
+            _ownership = PolicyOwnershipIndex.Build(_set);
             BuildTree();
         }
 
@@ -610,11 +608,11 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     private void UpdateRow(PolicyRowViewModel row)
     {
         var half = Half(row.Scope);
-        var state = half is null ? PolicySetting.NotConfigured : PolicyEngine.Read(row.Definition.Policy, half.Document.View, _ownedNames);
+        var state = half is null ? PolicySetting.NotConfigured : PolicyEngine.Read(row.Definition.Policy, half.Document.View, _ownership.OwnedNames);
         row.State = state.State;
         row.StateText = half is null || half.Error is not null ? Localizer[L.AdministrativeTemplates.StateUnknown] : StateText(state.State);
         row.IsChanged = half is not null && _touched.Contains((row.Scope, row.Definition.Id))
-            && !Equals(PolicyEngine.Read(row.Definition.Policy, half.OriginalDocument.View, _ownedNames), state);
+            && !Equals(PolicyEngine.Read(row.Definition.Policy, half.OriginalDocument.View, _ownership.OwnedNames), state);
     }
 
     private string StateText(PolicyState state) => Localizer[state switch
@@ -634,7 +632,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         }
 
         var half = Half(row.Scope);
-        var current = half is null ? PolicySetting.NotConfigured : PolicyEngine.Read(row.Definition.Policy, half.Document.View, _ownedNames);
+        var current = half is null ? PolicySetting.NotConfigured : PolicyEngine.Read(row.Definition.Policy, half.Document.View, _ownership.OwnedNames);
         Editor = new PolicyEditorViewModel(Localizer, row.Definition, row.Scope, current, CanEditHalf(row.Scope), Apply);
     }
 
@@ -680,7 +678,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
             return;
         }
 
-        PolicyEngine.Write(editor.Definition.Policy, setting, half.Document, _ownedNames);
+        PolicyEngine.Write(editor.Definition.Policy, setting, half.Document, _ownership.OwnedNames);
         _touched.Add((editor.Scope, editor.Definition.Id));
         if (_rows.TryGetValue((editor.Scope, editor.Definition.Id), out var row))
         {
@@ -693,45 +691,8 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
 
     // ---- Extra registry settings ---------------------------------------------------------------------------------------
 
-    /// <summary>The values every loaded policy owns, per key, and the keys of list elements.</summary>
-    private void IndexOwnedValues()
-    {
-        _ownedNames = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
-        _listKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var definition in _set.Policies)
-        {
-            foreach (var (key, names) in PolicyEngine.OwnValueNames(definition.Policy))
-            {
-                if (!_ownedNames.TryGetValue(key, out var set))
-                {
-                    set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    _ownedNames[key] = set;
-                }
-
-                set.UnionWith(names);
-            }
-
-            _listKeys.UnionWith(PolicyEngine.ListKeys(definition.Policy));
-        }
-    }
-
-    private bool IsOwned(RegistryPolEntry entry)
-    {
-        var key = RegistryPolicyDocument.NormalizeKey(entry.Key);
-        if (_listKeys.Contains(key))
-        {
-            return true;
-        }
-
-        var name = entry.ValueName;
-        name = name.StartsWith(RegistryPolicyDocument.DeletePrefix, StringComparison.OrdinalIgnoreCase) ? name[RegistryPolicyDocument.DeletePrefix.Length..]
-            : name.StartsWith(RegistryPolicyDocument.SoftPrefix, StringComparison.OrdinalIgnoreCase) ? name[RegistryPolicyDocument.SoftPrefix.Length..]
-            : name;
-        return _ownedNames.TryGetValue(key, out var names) && names.Contains(name);
-    }
-
     private List<ExtraRegistryEntryViewModel> ExtraOf(PolicyClass scope) => Half(scope) is { } half
-        ? [.. half.Document.Entries.Where(e => !IsOwned(e)).Select(e => new ExtraRegistryEntryViewModel(e, scope))]
+        ? [.. half.Document.Entries.Where(e => !_ownership.IsOwned(e)).Select(e => new ExtraRegistryEntryViewModel(e, scope))]
         : [];
 
     private void RebuildExtra()
@@ -765,7 +726,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
                 count++;
             }
             else if (_set.Find(id) is { } definition
-                && !Equals(PolicyEngine.Read(definition.Policy, half.OriginalDocument.View, _ownedNames), PolicyEngine.Read(definition.Policy, half.Document.View, _ownedNames)))
+                && !Equals(PolicyEngine.Read(definition.Policy, half.OriginalDocument.View, _ownership.OwnedNames), PolicyEngine.Read(definition.Policy, half.Document.View, _ownership.OwnedNames)))
             {
                 count++;
             }
@@ -790,8 +751,8 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     }
 
     private int CountConfigured() =>
-        _set.Policies.Sum(d => (d.Policy.AppliesTo(PolicyClass.Machine) && _machine is { } m && PolicyEngine.Read(d.Policy, m.Document.View, _ownedNames).State != PolicyState.NotConfigured ? 1 : 0)
-            + (d.Policy.AppliesTo(PolicyClass.User) && _user is { } u && PolicyEngine.Read(d.Policy, u.Document.View, _ownedNames).State != PolicyState.NotConfigured ? 1 : 0));
+        _set.Policies.Sum(d => (d.Policy.AppliesTo(PolicyClass.Machine) && _machine is { } m && PolicyEngine.Read(d.Policy, m.Document.View, _ownership.OwnedNames).State != PolicyState.NotConfigured ? 1 : 0)
+            + (d.Policy.AppliesTo(PolicyClass.User) && _user is { } u && PolicyEngine.Read(d.Policy, u.Document.View, _ownership.OwnedNames).State != PolicyState.NotConfigured ? 1 : 0));
 
     /// <summary>The extensions the configured policies of a half name (ADMX <c>clientExtension</c>).</summary>
     private IReadOnlyCollection<Guid> ClientExtensions(RegistryHalf half)
@@ -800,7 +761,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         foreach (var definition in _set.Policies.Where(d => d.Policy.AppliesTo(half.Scope)
             && (d.Policy.ClientExtension is not null || d.Policy.Elements.Any(e => e.ClientExtension is not null))))
         {
-            var setting = PolicyEngine.Read(definition.Policy, half.Document.View, _ownedNames);
+            var setting = PolicyEngine.Read(definition.Policy, half.Document.View, _ownership.OwnedNames);
             if (setting.State == PolicyState.NotConfigured)
             {
                 continue;
