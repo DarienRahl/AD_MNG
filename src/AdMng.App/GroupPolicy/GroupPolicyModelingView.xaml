@@ -1,0 +1,379 @@
+<!--
+  "Co dostanie komputer" (GroupPolicyModelingDocumentViewModel, K5, design note docs/dev/k-computers-and-gpo.md 18): the
+  inputs (computer, user, site, WMI filter assumption, loopback, "Przelicz"), the summary, and per part ("Konfiguracja
+  komputera", "Konfiguracja użytkownika") the GPO list with each outcome, the winning settings with "Dlaczego", the groups
+  of the token and the warnings. Read only; "Eksportuj do CSV…" is the only file it writes.
+-->
+<UserControl x:Class="AdMng.App.GroupPolicy.GroupPolicyModelingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:gp="clr-namespace:AdMng.App.GroupPolicy"
+             xmlns:gpm="clr-namespace:AdMng.Presentation.GroupPolicy.Modeling;assembly=AdMng.Presentation"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             AutomationProperties.Name="{Binding Title, Mode=OneWay}">
+  <UserControl.Resources>
+    <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
+    <Style x:Key="GpoRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Applies, Mode=OneWay}" Value="False">
+          <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="SettingRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+    </Style>
+    <Style x:Key="InputLabel" TargetType="TextBlock">
+      <Setter Property="Margin" Value="0,0,10,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <!-- One part of the model: its GPOs, its settings with "Dlaczego", the groups of the token and the warnings. -->
+    <DataTemplate x:Key="PartTemplate" DataType="{x:Type gpm:ModelPartViewModel}">
+      <Grid Margin="0,8,0,0">
+        <TextBlock x:Name="UnavailableText"
+                   Margin="4,8"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding UnavailableText, Mode=OneWay}"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding IsAvailable, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+        <Grid Visibility="{Binding IsAvailable, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="90" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="2*" MinHeight="140" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <DockPanel>
+            <TextBlock Margin="12,0,0,0"
+                       VerticalAlignment="Center"
+                       DockPanel.Dock="Right"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{Binding CountText, Mode=OneWay}" />
+            <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr GpModel.GposHeading}" />
+          </DockPanel>
+          <ListView x:Name="GposList"
+                    Grid.Row="1"
+                    AutomationProperties.Name="{l:Tr GpModel.GposHeading}"
+                    ItemContainerStyle="{StaticResource GpoRowStyle}"
+                    ItemsSource="{Binding Gpos, Mode=OneWay}">
+            <ListView.View>
+              <GridView AllowsColumnReorder="False">
+                <GridViewColumn Width="110" DisplayMemberBinding="{Binding PrecedenceText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnPrecedence}" />
+                <GridViewColumn Width="260" Header="{l:Tr GroupPolicy.ColumnGpo}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type gpm:ModelGpoRowViewModel}">
+                      <DockPanel>
+                        <c:ObjectIconView Margin="0,0,6,0" VerticalAlignment="Center" DockPanel.Dock="Left" Icon="GroupPolicy" Size="16" />
+                        <TextBlock VerticalAlignment="Center" Text="{Binding Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                      </DockPanel>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="220" DisplayMemberBinding="{Binding LocationText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnLocation}" />
+                <GridViewColumn Width="100" Header="{l:Tr GroupPolicy.ColumnEnforced}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type gpm:ModelGpoRowViewModel}">
+                      <StackPanel Orientation="Horizontal">
+                        <TextBlock Margin="0,0,6,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                   Style="{StaticResource Ad.GlyphText}"
+                                   Text="{x:Static c:Glyphs.Lock}"
+                                   Visibility="{Binding Enforced, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                        <TextBlock VerticalAlignment="Center" Text="{Binding EnforcedText, Mode=OneWay}" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="120" DisplayMemberBinding="{Binding LinkOrderText, Mode=OneWay}" Header="{l:Tr GpModel.ColumnLinkOrder}" />
+                <GridViewColumn Width="420" Header="{l:Tr GpModel.ColumnOutcome}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type gpm:ModelGpoRowViewModel}">
+                      <TextBlock VerticalAlignment="Center"
+                                 Text="{Binding OutcomeText, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip="{Binding OutcomeText, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+              </GridView>
+            </ListView.View>
+          </ListView>
+
+          <GridSplitter Grid.Row="2"
+                        Height="6"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Center"
+                        Background="Transparent"
+                        ResizeBehavior="PreviousAndNext" />
+          <TextBlock Grid.Row="3" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr GpModel.SettingsHeading}" />
+          <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" MinWidth="320" />
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="360" MinWidth="200" />
+            </Grid.ColumnDefinitions>
+            <ListView x:Name="SettingsList"
+                      AutomationProperties.Name="{l:Tr GpModel.SettingsHeading}"
+                      ItemContainerStyle="{StaticResource SettingRowStyle}"
+                      ItemsSource="{Binding Settings, Mode=OneWay}"
+                      SelectedItem="{Binding SelectedSetting}"
+                      VirtualizingPanel.IsVirtualizing="True">
+              <ListView.View>
+                <GridView AllowsColumnReorder="False">
+                  <GridViewColumn Width="220" Header="{l:Tr GpModel.ColumnArea}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type gpm:ModelSettingRowViewModel}">
+                        <TextBlock Text="{Binding Area, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Area, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
+                  <GridViewColumn Width="260" Header="{l:Tr GpModel.ColumnSetting}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type gpm:ModelSettingRowViewModel}">
+                        <TextBlock Text="{Binding Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
+                  <GridViewColumn Width="200" Header="{l:Tr GpModel.ColumnValue}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type gpm:ModelSettingRowViewModel}">
+                        <TextBlock Text="{Binding Value, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Value, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
+                  <GridViewColumn Width="200" DisplayMemberBinding="{Binding WinnerGpo, Mode=OneWay}" Header="{l:Tr GpModel.ColumnWinner}" />
+                  <GridViewColumn Width="100" DisplayMemberBinding="{Binding OverriddenText, Mode=OneWay}" Header="{l:Tr GpModel.ColumnOverridden}" />
+                  <GridViewColumn Width="150" DisplayMemberBinding="{Binding MarksText, Mode=OneWay}" Header="{l:Tr GpModel.ColumnMarks}" />
+                </GridView>
+              </ListView.View>
+            </ListView>
+            <GridSplitter Grid.Column="1"
+                          Width="6"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Stretch"
+                          Background="Transparent"
+                          ResizeBehavior="PreviousAndNext" />
+            <Border Grid.Column="2" Padding="12,8" Style="{StaticResource Ad.Card}">
+              <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr GpModel.DetailsHeading}" />
+                <TextBox x:Name="DetailsText"
+                         AutomationProperties.Name="{l:Tr GpModel.DetailsHeading}"
+                         Style="{StaticResource Ad.SelectableText}"
+                         Text="{Binding DetailsText, Mode=OneWay}"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto" />
+              </DockPanel>
+            </Border>
+          </Grid>
+
+          <Expander x:Name="TokenExpander"
+                    Grid.Row="5"
+                    Margin="0,8,0,0"
+                    Header="{l:Tr GpModel.GroupsHeading}">
+            <Grid MaxHeight="180">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="2*" />
+              </Grid.ColumnDefinitions>
+              <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="GroupsList" AutomationProperties.Name="{l:Tr GpModel.GroupsHeading}" ItemsSource="{Binding Groups, Mode=OneWay}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type sys:String}">
+                      <TextBlock Margin="0,1" Text="{Binding Mode=OneWay}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+              <StackPanel Grid.Column="1" Margin="16,0,0,0" Visibility="{Binding HasWarnings, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                <TextBlock FontWeight="SemiBold" Text="{l:Tr GpModel.WarningsHeading}" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                  <ItemsControl x:Name="WarningsList" AutomationProperties.Name="{l:Tr GpModel.WarningsHeading}" ItemsSource="{Binding Warnings, Mode=OneWay}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type sys:String}">
+                        <DockPanel Margin="0,2">
+                          <TextBlock Margin="0,1,8,0"
+                                     VerticalAlignment="Top"
+                                     DockPanel.Dock="Left"
+                                     Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                     Style="{StaticResource Ad.GlyphText}"
+                                     Text="{x:Static c:Glyphs.Warning}" />
+                          <TextBlock Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
+                        </DockPanel>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
+              </StackPanel>
+            </Grid>
+          </Expander>
+        </Grid>
+      </Grid>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <DockPanel Margin="8,6,8,8">
+    <!-- Title, export, refresh -->
+    <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+        <Button x:Name="ExportCsvButton" Margin="0,0,6,0" Command="{Binding ExportCsvCommand}" Content="{l:Tr GpModel.ExportCsv}" />
+        <Button x:Name="RefreshButton"
+                AutomationProperties.Name="{l:Tr GroupPolicy.RefreshCommand}"
+                Command="{Binding RefreshCommand}"
+                Content="{x:Static c:Glyphs.Refresh}"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr GroupPolicy.RefreshCommand}" />
+      </StackPanel>
+      <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+        <c:ObjectIconView Margin="0,0,8,0" VerticalAlignment="Center" Icon="{Binding Icon, Mode=OneWay}" Size="18" />
+        <TextBlock x:Name="TitleText" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding Title, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+      </StackPanel>
+    </DockPanel>
+    <gp:GroupPolicyBanners DockPanel.Dock="Top" />
+
+    <!-- Inputs -->
+    <Border Margin="0,0,0,8" Padding="12,8" DockPanel.Dock="Top" Style="{StaticResource Ad.Card}">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Style="{StaticResource InputLabel}" Text="{l:Tr GpModel.ComputerLabel}" />
+        <TextBlock x:Name="ComputerText"
+                   Grid.Column="1"
+                   VerticalAlignment="Center"
+                   Text="{Binding ComputerText, Mode=OneWay}"
+                   TextTrimming="CharacterEllipsis"
+                   ToolTip="{Binding ComputerText, Mode=OneWay}" />
+        <StackPanel Grid.Column="2" Margin="0,0,0,4" Orientation="Horizontal">
+          <Button x:Name="PickComputerButton" Margin="6,0,0,0" Command="{Binding PickComputerCommand}" Content="{l:Tr GpModel.PickComputer}" />
+          <Button x:Name="PickComputerContainerButton" Margin="6,0,0,0" Command="{Binding PickComputerContainerCommand}" Content="{l:Tr GpModel.PickContainer}" />
+          <Button x:Name="ClearComputerButton" Margin="6,0,0,0" Command="{Binding ClearComputerCommand}" Content="{l:Tr GpModel.Clear}" />
+        </StackPanel>
+
+        <TextBlock Grid.Row="1" Style="{StaticResource InputLabel}" Text="{l:Tr GpModel.UserLabel}" />
+        <TextBlock x:Name="UserText"
+                   Grid.Row="1"
+                   Grid.Column="1"
+                   VerticalAlignment="Center"
+                   Text="{Binding UserText, Mode=OneWay}"
+                   TextTrimming="CharacterEllipsis"
+                   ToolTip="{Binding UserText, Mode=OneWay}" />
+        <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,4" Orientation="Horizontal">
+          <Button x:Name="PickUserButton" Margin="6,0,0,0" Command="{Binding PickUserCommand}" Content="{l:Tr GpModel.PickUser}" />
+          <Button x:Name="PickUserContainerButton" Margin="6,0,0,0" Command="{Binding PickUserContainerCommand}" Content="{l:Tr GpModel.PickContainer}" />
+          <Button x:Name="ClearUserButton" Margin="6,0,0,0" Command="{Binding ClearUserCommand}" Content="{l:Tr GpModel.Clear}" />
+        </StackPanel>
+
+        <WrapPanel Grid.Row="2" Grid.ColumnSpan="3" Margin="0,4,0,0">
+          <StackPanel Margin="0,0,16,4" Orientation="Horizontal">
+            <TextBlock Style="{StaticResource InputLabel}" Text="{l:Tr GpModel.SiteLabel}" />
+            <ComboBox x:Name="SiteBox"
+                      MinWidth="180"
+                      AutomationProperties.Name="{l:Tr GpModel.SiteLabel}"
+                      DisplayMemberPath="Name"
+                      ItemsSource="{Binding Sites, Mode=OneWay}"
+                      SelectedItem="{Binding SelectedSite}" />
+          </StackPanel>
+          <StackPanel Margin="0,0,16,4" Orientation="Horizontal">
+            <TextBlock Style="{StaticResource InputLabel}" Text="{l:Tr GpModel.WmiLabel}" />
+            <ComboBox x:Name="WmiBox"
+                      MinWidth="200"
+                      AutomationProperties.Name="{l:Tr GpModel.WmiLabel}"
+                      DisplayMemberPath="Text"
+                      ItemsSource="{Binding WmiOptions, Mode=OneWay}"
+                      SelectedValue="{Binding WmiFilters}"
+                      SelectedValuePath="Value" />
+          </StackPanel>
+          <StackPanel Margin="0,0,16,4" Orientation="Horizontal">
+            <TextBlock Style="{StaticResource InputLabel}" Text="{l:Tr GpModel.LoopbackLabel}" />
+            <ComboBox x:Name="LoopbackBox"
+                      MinWidth="200"
+                      AutomationProperties.Name="{l:Tr GpModel.LoopbackLabel}"
+                      DisplayMemberPath="Text"
+                      ItemsSource="{Binding LoopbackOptions, Mode=OneWay}"
+                      SelectedValue="{Binding Loopback}"
+                      SelectedValuePath="Value" />
+          </StackPanel>
+          <Button x:Name="RecalculateButton"
+                  Margin="0,0,0,4"
+                  Command="{Binding RecalculateCommand}"
+                  Content="{l:Tr GpModel.Recalculate}"
+                  Style="{StaticResource AccentButtonStyle}" />
+        </WrapPanel>
+        <TextBlock x:Name="StaleText"
+                   Grid.Row="3"
+                   Grid.ColumnSpan="3"
+                   Margin="0,2,0,0"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{l:Tr GpModel.Stale}"
+                   Visibility="{Binding IsStale, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      </Grid>
+    </Border>
+
+    <!-- What the model could not use -->
+    <Border x:Name="NotesBar"
+            Margin="0,0,0,6"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.WarningBar}"
+            Visibility="{Binding HasNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <DockPanel>
+        <TextBlock Margin="0,1,10,0"
+                   VerticalAlignment="Top"
+                   DockPanel.Dock="Left"
+                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Warning}" />
+        <ItemsControl x:Name="NotesList" AutomationProperties.LiveSetting="Polite" ItemsSource="{Binding Notes, Mode=OneWay}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type sys:String}">
+              <TextBlock Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </DockPanel>
+    </Border>
+
+    <!-- Summary -->
+    <StackPanel Margin="0,0,0,4" DockPanel.Dock="Top">
+      <TextBlock x:Name="SummaryText" FontWeight="SemiBold" Text="{Binding SummaryText, Mode=OneWay}" TextWrapping="Wrap" />
+      <TextBlock x:Name="LoopbackText"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{Binding LoopbackText, Mode=OneWay}"
+                 TextWrapping="Wrap"
+                 Visibility="{Binding LoopbackText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+    </StackPanel>
+
+    <TabControl x:Name="PartTabs">
+      <TabItem x:Name="ComputerTab" Header="{l:Tr AdmTemplates.ComputerConfiguration}">
+        <ContentControl Content="{Binding ComputerPart, Mode=OneWay}" ContentTemplate="{StaticResource PartTemplate}" Focusable="False" />
+      </TabItem>
+      <TabItem x:Name="UserTab" Header="{l:Tr AdmTemplates.UserConfiguration}">
+        <ContentControl Content="{Binding UserPart, Mode=OneWay}" ContentTemplate="{StaticResource PartTemplate}" Focusable="False" />
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</UserControl>

@@ -62,7 +62,8 @@ public sealed class ComputerActions(
     IChangePlanner planner,
     ILocalToolLauncher? launcher = null,
     IPingService? ping = null,
-    IHostAddressResolver? resolver = null)
+    IHostAddressResolver? resolver = null,
+    GroupPolicy.GroupPolicyServices? groupPolicy = null)
 {
     /// <summary>Echoes of a ping.</summary>
     public const int PingCount = 4;
@@ -85,6 +86,16 @@ public sealed class ComputerActions(
     public bool CanLaunchTools => launcher is not null;
 
     public bool CanPing => ping is not null;
+
+    /// <summary>"Co dostanie komputer…" can be opened in the connection window (the Group Policy services are registered).</summary>
+    public bool CanModelGroupPolicy => groupPolicy is not null;
+
+    /// <summary>"Co dostanie komputer…" (K5): opens the Group Policy model of the computer in the window's shell.</summary>
+    public bool ModelGroupPolicy(string distinguishedName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(distinguishedName);
+        return groupPolicy?.OpenDocument(new GroupPolicy.GroupPolicyDocumentRequest(GroupPolicy.GroupPolicyDocumentKind.Modeling) { ComputerDn = distinguishedName }) == true;
+    }
 
     /// <summary>"Ustal lokację" is possible (a resolver is registered).</summary>
     public bool CanResolveSites => resolver is not null;

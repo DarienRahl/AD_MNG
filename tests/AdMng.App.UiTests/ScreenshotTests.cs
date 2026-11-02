@@ -10,6 +10,7 @@ using AdMng.App.Views.Watchdog;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
 using AdMng.Core.Directory;
+using AdMng.Core.GroupPolicy.AdministrativeTemplates;
 using AdMng.Core.Ldap;
 using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.BatchEditing;
@@ -17,6 +18,7 @@ using AdMng.Presentation.Connections;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
+using AdMng.Presentation.GroupPolicy.Modeling;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -176,6 +178,11 @@ public sealed class ScreenshotTests
         "Aktualizacja szablonów ADMX – paczka wskazana przez operatora, języki, pliki magazynu centralnego (nowe, zastąpiony, bez zmian) i kopia zapasowa przed zapisem",
         "Updating the ADMX templates – a package the operator chose, its languages, the central store's files (new, replaced, unchanged) and the backup before writing");
 
+    private static readonly ScreenshotInfo GroupPolicyModel = new(
+        "31-group-policy-model.png",
+        "Co dostanie komputer – GPO komputera z wynikiem (wymuszony, filtr WMI, łącze wyłączone), zwycięskie ustawienia i „Dlaczego” z przesłoniętym GPO",
+        "What the computer gets – the computer's GPOs with their results (enforced, WMI filter, disabled link), the winning settings and “Why” with the overridden GPO");
+
     [Fact]
     public Task Screenshot29_AdministrativeTemplates() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>
     {
@@ -208,6 +215,45 @@ public sealed class ScreenshotTests
         Assert.Equal(1, editor.ChangedCount);
         Assert.Empty(editor.Editor.Problems);
         await ScreenshotWriter.SaveAsync(window, AdministrativeTemplates, dark: false);
+    });
+
+    [Fact]
+    public Task Screenshot31_GroupPolicyModel() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>
+    {
+        // K5 (design note docs/dev/k-computers-and-gpo.md 18): the model of WAW-PC001 at the site Warszawa, with an
+        // administrative template policy configured by two GPOs, the minimum password length selected.
+        var sample = context.Directory.AddGroupPolicyManagementSample(context.Company, context.Sysvol);
+        context.Directory.Session.ComputesTokenGroups = true;
+        foreach (var (path, content) in SampleAdministrativeTemplates.Files())
+        {
+            context.Sysvol.PutPolicyDefinition(path, content);
+        }
+
+        var hidePreview = SampleAdministrativeTemplates.LoadPolish().Find(SampleAdministrativeTemplates.HidePreview)!.Policy;
+        var domain = new RegistryPolicyDocument();
+        PolicyEngine.Write(hidePreview, PolicySetting.Disabled, domain);
+        context.Sysvol.Put(sample.DefaultDomainPolicy, "Machine/Registry.pol", domain.ToBytes());
+        var workstations = new RegistryPolicyDocument();
+        PolicyEngine.Write(hidePreview, PolicySetting.Enabled(new Dictionary<string, PolicyElementValue>()), workstations);
+        context.Sysvol.Put(sample.WorkstationPasswords, "Machine/Registry.pol", workstations.ToBytes());
+
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, MainWindowWidth, MainWindowHeight);
+        var shell = window.Shell;
+        await shell.InitializeAsync();
+        var model = Assert.IsType<GroupPolicyModelingDocumentViewModel>(shell.OpenGroupPolicyDocument(
+            new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.Modeling) { ComputerDn = context.Company.Computer1, Name = "WAW-PC001" }));
+        await UiWait.UntilAsync(() => !model.IsLoading && model.HasModel, "the model of WAW-PC001");
+        model.SelectedSite = model.Sites.Single(s => s.Name == "Warszawa");
+        await model.RecalculateCommand.ExecuteAsync(null);
+        await UiWait.UntilAsync(() => !model.IsLoading && model.HasModel && !model.IsStale, "the model at the site Warszawa");
+        model.ComputerPart.SelectedSetting = model.ComputerPart.Settings.Single(s => s.Name == "Security/System Access/MinimumPasswordLength");
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        Assert.Contains(model.ComputerPart.Gpos, g => g.Name == "Lokacja Warszawa – Drukarki");
+        Assert.Contains(model.ComputerPart.Settings, s => s.OverriddenCount == 1 && s.Area.StartsWith("Szablony administracyjne", StringComparison.Ordinal));
+        await ScreenshotWriter.SaveAsync(window, GroupPolicyModel, dark: false);
     });
 
     [Fact]

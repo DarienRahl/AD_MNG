@@ -35,7 +35,7 @@ public sealed partial class ShellViewModel
     private IRelayCommand[] GroupPolicyStateCommands => _groupPolicyStateCommands ??=
     [
         OpenGroupPolicyObjectsCommand, OpenWmiFiltersCommand, OpenContainerPoliciesCommand, NewLinkedGpoCommand, LinkExistingGpoCommand,
-        ToggleBlockInheritanceCommand,
+        ToggleBlockInheritanceCommand, ModelComputerGroupPolicyCommand, ModelUserGroupPolicyCommand,
     ];
 
     /// <summary>
@@ -79,6 +79,8 @@ public sealed partial class ShellViewModel
             new("gpo.newLinked", L.GroupPolicy.NewLinkedCommand, obj, string.Empty, NewLinkedGpoCommand),
             new("gpo.linkExisting", L.GroupPolicy.LinkExistingCommand, obj, string.Empty, LinkExistingGpoCommand),
             new("gpo.blockInheritance", L.GroupPolicy.BlockInheritanceCommand, obj, string.Empty, ToggleBlockInheritanceCommand),
+            new("gpo.model", L.GroupPolicyModel.ComputerCommand, obj, string.Empty, ModelComputerGroupPolicyCommand),
+            new("gpo.modelUser", L.GroupPolicyModel.UserCommand, obj, string.Empty, ModelUserGroupPolicyCommand),
             new("view.groupPolicyNodes", L.GroupPolicy.ToggleTreeCommand, view, string.Empty, ToggleGroupPolicyNodesCommand),
         ];
     }
@@ -176,6 +178,41 @@ public sealed partial class ShellViewModel
             await factory.Actions.SetBlockInheritanceAsync(container.Dn, target.Name, !container.BlocksInheritance).ConfigureAwait(true);
         }
     }
+
+    /// <summary>
+    /// "Co dostanie komputer…" (K5): the Group Policy model of the computer given as parameter (DN), else of the one selected
+    /// computer of the list.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanModelComputer))]
+    private void ModelComputerGroupPolicy(object? parameter)
+    {
+        if (ModelTarget(parameter, ObjectKind.Computer) is { } target)
+        {
+            OpenGroupPolicyDocument(new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.Modeling) { ComputerDn = target.Dn, Name = target.Name });
+        }
+    }
+
+    /// <summary>"Co dostanie użytkownik…" (K5): the model of the user given as parameter (DN), else of the one selected user.</summary>
+    [RelayCommand(CanExecute = nameof(CanModelUser))]
+    private void ModelUserGroupPolicy(object? parameter)
+    {
+        if (ModelTarget(parameter, ObjectKind.User) is { } target)
+        {
+            OpenGroupPolicyDocument(new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.Modeling) { UserDn = target.Dn, Name = target.Name });
+        }
+    }
+
+    private bool CanModelComputer(object? parameter) => CanUseGroupPolicy() && ModelTarget(parameter, ObjectKind.Computer) is not null;
+
+    private bool CanModelUser(object? parameter) => CanUseGroupPolicy() && ModelTarget(parameter, ObjectKind.User) is not null;
+
+    /// <summary>The account a model command acts on: the parameter (a DN, or a row of that kind), else the one selected row of that kind.</summary>
+    private (string Dn, string? Name)? ModelTarget(object? parameter, ObjectKind kind) => parameter switch
+    {
+        string dn when !string.IsNullOrWhiteSpace(dn) => (dn, null),
+        ObjectRowViewModel row => row.Kind == kind ? (row.Dn, row.Name) : null,
+        _ => CurrentSelection is [var selected] && selected.Kind == kind ? (selected.Dn, selected.Name) : null,
+    };
 
     /// <summary>"Widok → Zasady grupy w drzewie".</summary>
     [RelayCommand(CanExecute = nameof(CanUseGroupPolicyAlways))]

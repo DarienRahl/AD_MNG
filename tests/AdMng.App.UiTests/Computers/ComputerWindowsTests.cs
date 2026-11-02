@@ -303,11 +303,11 @@ public sealed class ComputerWindowsTests
 
         // The submenu of "Akcja" and of the list's context menu: every item is a palette command.
         var items = main.ComputerMenuItem.Items.OfType<MenuItem>().ToList();
-        Assert.Equal(6, items.Count);
+        Assert.Equal(7, items.Count); // with "Co dostanie komputer…" (K5)
         Assert.All(items, i => Assert.NotNull(i.Command));
         Assert.Equal("Komputer", main.ComputerMenuItem.Header);
         var list = main.SelectedListView!;
-        Assert.Equal(6, list.ComputerContextMenuItem.Items.OfType<MenuItem>().Count());
+        Assert.Equal(7, list.ComputerContextMenuItem.Items.OfType<MenuItem>().Count());
         Assert.False(shell.ComputerRemoteActionsCommand.CanExecute(null));
         Assert.Equal(Visibility.Collapsed, main.ComputerRemoteActionsButton.Visibility);
 
@@ -354,6 +354,10 @@ public sealed class ComputerWindowsTests
         Assert.Contains(texts, t => t.Contains("Windows Server 2022", StringComparison.Ordinal));
         Assert.Contains(UiWait.Descendants<Button>(window), b => b.IsVisible && Equals(b.Content, context.Services.GetRequiredService<ILocalizer>()[L.Computers.RemoteActionsCommand]));
         Assert.Contains(UiWait.Descendants<Button>(window), b => b.IsVisible && Equals(b.Content, context.Services.GetRequiredService<ILocalizer>()[L.Computers.CheckAllDomainControllers]));
+
+        // K5: "Co dostanie komputer…" opens the Group Policy model of this computer in the main window.
+        Assert.True(status.CanModelGroupPolicy);
+        Assert.Contains(UiWait.Descendants<Button>(window), b => b.IsVisible && b.Name == "ComputerModelGroupPolicyButton");
         context.AssertHealthy();
     });
 

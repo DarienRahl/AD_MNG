@@ -26,7 +26,8 @@ public static class ComputersServiceCollectionExtensions
             sp.GetRequiredService<IChangePlanner>(),
             sp.GetService<ILocalToolLauncher>(),
             sp.GetService<IPingService>(),
-            sp.GetService<IHostAddressResolver>()));
+            sp.GetService<IHostAddressResolver>(),
+            sp.GetService<GroupPolicy.GroupPolicyServices>()));
         services.TryAddScoped<ComputerViewModelFactory>();
         return services;
     }

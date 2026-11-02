@@ -12,6 +12,7 @@ using AdMng.Core.GroupPolicy.Backup;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
+using AdMng.Presentation.GroupPolicy.Modeling;
 using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Views;
@@ -372,6 +373,62 @@ public sealed class GroupPolicyWindowTests
         Assert.All(radios, r => Assert.True(r.IsEnabled));
         Assert.All(radios, r => Assert.True(string.IsNullOrEmpty(r.GroupName)));
         Assert.True(Assert.Single(radios, r => r.Name == "EnabledRadio").IsChecked);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task ModelingDocument_ShowsWhatAComputerGets_WhyASettingWins_AndRecalculatesWithTheWmiAssumption() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync(language: "pl");
+        context.Directory.AddGroupPolicyManagementSample(context.Company, context.Sysvol);
+        context.Directory.Session.ComputesTokenGroups = true;
+        await context.ConnectAsync();
+        var main = context.Services.GetRequiredService<MainWindow>();
+        UiTestSupport.ShowOffScreen(main);
+        var shell = main.Shell;
+        await shell.InitializeAsync();
+
+        // K5: "Co dostanie komputer…" (Akcja → Komputer, the list's menu, palette gpo.model) for WAW-PC001.
+        Assert.Contains(shell.CommandDescriptors, d => d.Id == "gpo.model");
+        Assert.True(shell.ModelComputerGroupPolicyCommand.CanExecute(context.Company.Computer1));
+        shell.ModelComputerGroupPolicyCommand.Execute(context.Company.Computer1);
+        var model = Assert.IsType<GroupPolicyModelingDocumentViewModel>(shell.SelectedTab);
+        await UiWait.UntilAsync(() => !model.IsLoading && model.HasModel, "the model of WAW-PC001");
+        main.UpdateLayout();
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        var view = Assert.Single(UiWait.Descendants<GroupPolicyModelingView>(main));
+        Assert.Equal("Co dostanie komputer – WAW-PC001", view.TitleText.Text);
+        Assert.Same(view.ComputerTab, view.PartTabs.SelectedItem);
+        Assert.Equal(Visibility.Collapsed, view.StaleText.Visibility);
+        var gpos = Assert.Single(UiWait.Descendants<ListView>(view), l => l.Name == "GposList" && l.IsVisible);
+        Assert.Equal(model.ComputerPart.Gpos.Count, gpos.Items.Count);
+        Assert.Equal(3, model.ComputerPart.Gpos.Count(g => g.Applies));
+
+        // "Dlaczego" of the minimum password length: the workstations' GPO wins over the Default Domain Policy.
+        var settings = Assert.Single(UiWait.Descendants<ListView>(view), l => l.Name == "SettingsList" && l.IsVisible);
+        settings.SelectedItem = model.ComputerPart.Settings.Single(s => s.Name == "Security/System Access/MinimumPasswordLength");
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        var details = Assert.Single(UiWait.Descendants<TextBox>(view), t => t.Name == "DetailsText" && t.IsVisible);
+        Assert.StartsWith("Wygrywa: Stacje robocze – Zasady haseł (pierwszeństwo 2)", details.Text, StringComparison.Ordinal);
+        Assert.Contains("• Default Domain Policy (pierwszeństwo 3): 7", details.Text, StringComparison.Ordinal);
+
+        // WMI filters assumed false: "Przelicz" drops the workstations' GPO.
+        view.WmiBox.SelectedValue = Core.GroupPolicy.Modeling.WmiFilterAssumption.AssumeFalse;
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(model.IsStale);
+        Assert.Equal(Visibility.Visible, view.StaleText.Visibility);
+        Assert.True(view.RecalculateButton.IsEnabled);
+        await model.RecalculateCommand.ExecuteAsync(null);
+        await UiWait.UntilAsync(() => !model.IsLoading && !model.IsStale && model.HasModel, "the recalculated model");
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        Assert.Equal(2, model.ComputerPart.Gpos.Count(g => g.Applies));
+        Assert.Contains(model.ComputerPart.Gpos, g => g.OutcomeText == "Filtr WMI „Tylko stacje robocze” przyjęty jako niespełniony");
+        Assert.True(view.ExportCsvButton.IsEnabled);
+
+        // The user part of a computer-only model says so.
+        view.UserTab.IsSelected = true;
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        Assert.Contains(UiWait.Descendants<TextBlock>(view), t => t.Name == "UnavailableText" && t.IsVisible && t.Text == "Model nie obejmuje użytkownika.");
         context.AssertHealthy();
     });
 

@@ -14379,4 +14379,312 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Wysyłaj w imieniu adresu nadawcy podanego wyżej (konto potrzebuje uprawnienia „Wyślij w imieniu”)</value>
   </data>
   <!-- U5 app: end -->
+  <!-- K5 Group Policy modelling: start -->
+  <data name="GpModel.TitleComputer" xml:space="preserve">
+    <value>Co dostanie komputer – {0}</value>
+  </data>
+  <data name="GpModel.TitleUser" xml:space="preserve">
+    <value>Co dostanie użytkownik – {0}</value>
+  </data>
+  <data name="GpModel.TitleEmpty" xml:space="preserve">
+    <value>Modelowanie zasad grupy</value>
+  </data>
+  <data name="GpModel.ComputerCommand" xml:space="preserve">
+    <value>Co dostanie komputer…</value>
+  </data>
+  <data name="GpModel.UserCommand" xml:space="preserve">
+    <value>Co dostanie użytkownik…</value>
+  </data>
+  <data name="GpModel.ModelCommand" xml:space="preserve">
+    <value>Modeluj zasady…</value>
+  </data>
+  <data name="GpModel.ComputerLabel" xml:space="preserve">
+    <value>Komputer</value>
+  </data>
+  <data name="GpModel.UserLabel" xml:space="preserve">
+    <value>Użytkownik</value>
+  </data>
+  <data name="GpModel.SiteLabel" xml:space="preserve">
+    <value>Lokacja</value>
+  </data>
+  <data name="GpModel.WmiLabel" xml:space="preserve">
+    <value>Filtry WMI</value>
+  </data>
+  <data name="GpModel.LoopbackLabel" xml:space="preserve">
+    <value>Pętla zwrotna</value>
+  </data>
+  <data name="GpModel.PickComputer" xml:space="preserve">
+    <value>Wybierz komputer…</value>
+  </data>
+  <data name="GpModel.PickUser" xml:space="preserve">
+    <value>Wybierz użytkownika…</value>
+  </data>
+  <data name="GpModel.PickContainer" xml:space="preserve">
+    <value>Kontener…</value>
+  </data>
+  <data name="GpModel.Clear" xml:space="preserve">
+    <value>Brak</value>
+  </data>
+  <data name="GpModel.NoTarget" xml:space="preserve">
+    <value>(brak)</value>
+  </data>
+  <data name="GpModel.NewComputerIn" xml:space="preserve">
+    <value>Nowy komputer w {0}</value>
+  </data>
+  <data name="GpModel.NewUserIn" xml:space="preserve">
+    <value>Nowy użytkownik w {0}</value>
+  </data>
+  <data name="GpModel.SiteUnknown" xml:space="preserve">
+    <value>(nieznana)</value>
+  </data>
+  <data name="GpModel.WmiTrue" xml:space="preserve">
+    <value>Przyjmij jako spełnione</value>
+  </data>
+  <data name="GpModel.WmiFalse" xml:space="preserve">
+    <value>Przyjmij jako niespełnione</value>
+  </data>
+  <data name="GpModel.LoopbackFromSettings" xml:space="preserve">
+    <value>Z ustawień komputera</value>
+  </data>
+  <data name="GpModel.LoopbackOff" xml:space="preserve">
+    <value>Wyłączona</value>
+  </data>
+  <data name="GpModel.LoopbackMerge" xml:space="preserve">
+    <value>Scalanie</value>
+  </data>
+  <data name="GpModel.LoopbackReplace" xml:space="preserve">
+    <value>Zastępowanie</value>
+  </data>
+  <data name="GpModel.Recalculate" xml:space="preserve">
+    <value>Przelicz</value>
+  </data>
+  <data name="GpModel.Stale" xml:space="preserve">
+    <value>Dane wejściowe zmienione – kliknij „Przelicz”.</value>
+  </data>
+  <data name="GpModel.ExportCsv" xml:space="preserve">
+    <value>Eksportuj do CSV…</value>
+  </data>
+  <data name="GpModel.GposHeading" xml:space="preserve">
+    <value>Obiekty zasad grupy</value>
+  </data>
+  <data name="GpModel.SettingsHeading" xml:space="preserve">
+    <value>Ustawienia</value>
+  </data>
+  <data name="GpModel.DetailsHeading" xml:space="preserve">
+    <value>Dlaczego</value>
+  </data>
+  <data name="GpModel.GroupsHeading" xml:space="preserve">
+    <value>Grupy tokenu</value>
+  </data>
+  <data name="GpModel.WarningsHeading" xml:space="preserve">
+    <value>Ostrzeżenia</value>
+  </data>
+  <data name="GpModel.ColumnOutcome" xml:space="preserve">
+    <value>Wynik</value>
+  </data>
+  <data name="GpModel.ColumnLinkOrder" xml:space="preserve">
+    <value>Kolejność łącza</value>
+  </data>
+  <data name="GpModel.ColumnArea" xml:space="preserve">
+    <value>Obszar</value>
+  </data>
+  <data name="GpModel.ColumnSetting" xml:space="preserve">
+    <value>Ustawienie</value>
+  </data>
+  <data name="GpModel.ColumnValue" xml:space="preserve">
+    <value>Wartość</value>
+  </data>
+  <data name="GpModel.ColumnWinner" xml:space="preserve">
+    <value>Wygrywający GPO</value>
+  </data>
+  <data name="GpModel.ColumnOverridden" xml:space="preserve">
+    <value>Przesłonięte</value>
+  </data>
+  <data name="GpModel.ColumnMarks" xml:space="preserve">
+    <value>Uwagi</value>
+  </data>
+  <data name="GpModel.ColumnPart" xml:space="preserve">
+    <value>Część</value>
+  </data>
+  <data name="GpModel.ColumnSection" xml:space="preserve">
+    <value>Sekcja</value>
+  </data>
+  <data name="GpModel.SectionGpo" xml:space="preserve">
+    <value>GPO</value>
+  </data>
+  <data name="GpModel.SectionSetting" xml:space="preserve">
+    <value>Ustawienie</value>
+  </data>
+  <data name="GpModel.OutcomeApplied" xml:space="preserve">
+    <value>Zastosowany</value>
+  </data>
+  <data name="GpModel.OutcomeAppliedIfWmi" xml:space="preserve">
+    <value>Zastosowany, jeśli filtr WMI „{0}” jest spełniony</value>
+  </data>
+  <data name="GpModel.OutcomeLinkDisabled" xml:space="preserve">
+    <value>Łącze wyłączone</value>
+  </data>
+  <data name="GpModel.OutcomeBlocked" xml:space="preserve">
+    <value>Zablokowany przez blokowanie dziedziczenia w {0}</value>
+  </data>
+  <data name="GpModel.OutcomeDuplicate" xml:space="preserve">
+    <value>Połączony ponownie wyżej w kolejności</value>
+  </data>
+  <data name="GpModel.OutcomeNotFound" xml:space="preserve">
+    <value>GPO nie istnieje</value>
+  </data>
+  <data name="GpModel.OutcomeComputerDisabled" xml:space="preserve">
+    <value>Konfiguracja komputera wyłączona</value>
+  </data>
+  <data name="GpModel.OutcomeUserDisabled" xml:space="preserve">
+    <value>Konfiguracja użytkownika wyłączona</value>
+  </data>
+  <data name="GpModel.OutcomeEmpty" xml:space="preserve">
+    <value>Pusty (wersja 0)</value>
+  </data>
+  <data name="GpModel.OutcomeSecurityDenied" xml:space="preserve">
+    <value>Filtrowanie zabezpieczeń: brak prawa Zastosuj zasady grupy</value>
+  </data>
+  <data name="GpModel.OutcomeComputerCannotRead" xml:space="preserve">
+    <value>Komputer nie może odczytać GPO (MS16-072)</value>
+  </data>
+  <data name="GpModel.OutcomeWmiFalse" xml:space="preserve">
+    <value>Filtr WMI „{0}” przyjęty jako niespełniony</value>
+  </data>
+  <data name="GpModel.OutcomeLoopback" xml:space="preserve">
+    <value>{0} (pętla zwrotna: łącze komputera)</value>
+  </data>
+  <data name="GpModel.WmiUnknownName" xml:space="preserve">
+    <value>nieznany</value>
+  </data>
+  <data name="GpModel.MarkConditional" xml:space="preserve">
+    <value>zależy od komputera</value>
+  </data>
+  <data name="GpModel.MarkCumulative" xml:space="preserve">
+    <value>kumulatywne</value>
+  </data>
+  <data name="GpModel.ValueWithOptions" xml:space="preserve">
+    <value>{0}; {1}</value>
+  </data>
+  <data name="GpModel.OptionValue" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="GpModel.AreaTemplates" xml:space="preserve">
+    <value>Szablony administracyjne</value>
+  </data>
+  <data name="GpModel.DetailsWinner" xml:space="preserve">
+    <value>Wygrywa: {0} (pierwszeństwo {1})</value>
+  </data>
+  <data name="GpModel.DetailsLink" xml:space="preserve">
+    <value>Łącze: {0}, wymuszone: {1}, kolejność łącza: {2}</value>
+  </data>
+  <data name="GpModel.DetailsValue" xml:space="preserve">
+    <value>Wartość: {0}</value>
+  </data>
+  <data name="GpModel.DetailsOverridden" xml:space="preserve">
+    <value>Przesłonięte GPO:</value>
+  </data>
+  <data name="GpModel.DetailsItem" xml:space="preserve">
+    <value>• {0} (pierwszeństwo {1}): {2}</value>
+  </data>
+  <data name="GpModel.DetailsNoneOverridden" xml:space="preserve">
+    <value>Żaden inny zastosowany GPO nie konfiguruje tego ustawienia.</value>
+  </data>
+  <data name="GpModel.DetailsCumulative" xml:space="preserve">
+    <value>Ustawienie kumulatywne: działają wszystkie poniższe GPO, wygrywający na końcu.</value>
+  </data>
+  <data name="GpModel.DetailsAlsoApplied" xml:space="preserve">
+    <value>Stosowane także:</value>
+  </data>
+  <data name="GpModel.DetailsConditional" xml:space="preserve">
+    <value>Element preferencji z kierowaniem na poziomie elementu: stosowany tylko tam, gdzie jego filtry są spełnione (nie oceniane).</value>
+  </data>
+  <data name="GpModel.DetailsLoopback" xml:space="preserve">
+    <value>Łącze pochodzi z łańcucha komputera (pętla zwrotna).</value>
+  </data>
+  <data name="GpModel.DetailsHint" xml:space="preserve">
+    <value>Wybierz ustawienie, aby zobaczyć, dlaczego wygrywa.</value>
+  </data>
+  <data name="GpModel.GpoCount" xml:space="preserve">
+    <value>{0} GPO</value>
+  </data>
+  <data name="GpModel.SettingsOne" xml:space="preserve">
+    <value>{0} ustawienie</value>
+  </data>
+  <data name="GpModel.SettingsFew" xml:space="preserve">
+    <value>{0} ustawienia</value>
+  </data>
+  <data name="GpModel.SettingsMany" xml:space="preserve">
+    <value>{0} ustawień</value>
+  </data>
+  <data name="GpModel.SummaryPart" xml:space="preserve">
+    <value>{0}: {1}, {2}</value>
+  </data>
+  <data name="GpModel.SummaryNone" xml:space="preserve">
+    <value>Brak wyniku – wybierz komputer lub użytkownika i kliknij „Przelicz”.</value>
+  </data>
+  <data name="GpModel.LoopbackNotApplicable" xml:space="preserve">
+    <value>Pętla zwrotna: nie dotyczy (model bez komputera lub bez użytkownika).</value>
+  </data>
+  <data name="GpModel.LoopbackNotConfigured" xml:space="preserve">
+    <value>Pętla zwrotna: nieskonfigurowana w GPO komputera.</value>
+  </data>
+  <data name="GpModel.LoopbackFromGpo" xml:space="preserve">
+    <value>Pętla zwrotna: {0} – ustawiona przez GPO „{1}”.</value>
+  </data>
+  <data name="GpModel.LoopbackByOperator" xml:space="preserve">
+    <value>Pętla zwrotna: {0} – wybrana dla tego modelu.</value>
+  </data>
+  <data name="GpModel.ModeNone" xml:space="preserve">
+    <value>wyłączona</value>
+  </data>
+  <data name="GpModel.ModeMerge" xml:space="preserve">
+    <value>scalanie</value>
+  </data>
+  <data name="GpModel.ModeReplace" xml:space="preserve">
+    <value>zastępowanie</value>
+  </data>
+  <data name="GpModel.WarningNoSite" xml:space="preserve">
+    <value>Lokacja nieznana: łącza lokacji nie zostały uwzględnione.</value>
+  </data>
+  <data name="GpModel.WarningContentUnreadable" xml:space="preserve">
+    <value>Nie można odczytać folderu GPO „{0}” z SYSVOL – brak jego ustawień.</value>
+  </data>
+  <data name="GpModel.WarningFileUnreadable" xml:space="preserve">
+    <value>Nie można odczytać pliku {1} GPO „{0}”.</value>
+  </data>
+  <data name="GpModel.WarningNoDefinitions" xml:space="preserve">
+    <value>Brak szablonów ADMX: wartości Registry.pol pokazano jako wartości rejestru.</value>
+  </data>
+  <data name="GpModel.WarningAccountPolicy" xml:space="preserve">
+    <value>Kontroler domeny: zasady kont z GPO „{0}” (połączonego poniżej domeny) nie dotyczą kont domeny.</value>
+  </data>
+  <data name="GpModel.WarningTokenIncomplete" xml:space="preserve">
+    <value>Nie można odczytać tokenGroups: token bez zagnieżdżonych grup – filtrowanie zabezpieczeń może się różnić.</value>
+  </data>
+  <data name="GpModel.WarningNoComputer" xml:space="preserve">
+    <value>Bez komputera: nie sprawdzono prawa odczytu komputera (MS16-072) ani pętli zwrotnej.</value>
+  </data>
+  <data name="GpModel.NoteNoTargets" xml:space="preserve">
+    <value>Wybierz komputer lub użytkownika.</value>
+  </data>
+  <data name="GpModel.NoteAccountMissing" xml:space="preserve">
+    <value>Konto {0} nie istnieje.</value>
+  </data>
+  <data name="GpModel.NoteContainerMissing" xml:space="preserve">
+    <value>Kontener {0} nie istnieje.</value>
+  </data>
+  <data name="GpModel.NoteSysvol" xml:space="preserve">
+    <value>SYSVOL niedostępny: ustawienia GPO nie zostały odczytane; listy GPO są pełne.</value>
+  </data>
+  <data name="GpModel.PartNoComputer" xml:space="preserve">
+    <value>Model nie obejmuje komputera.</value>
+  </data>
+  <data name="GpModel.PartNoUser" xml:space="preserve">
+    <value>Model nie obejmuje użytkownika.</value>
+  </data>
+  <data name="GpModel.TrusteeThisOrganization" xml:space="preserve">
+    <value>Ta organizacja</value>
+  </data>
+  <!-- K5 Group Policy modelling: end -->
 </root>
