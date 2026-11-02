@@ -41,8 +41,8 @@ internal static class OutlookVotingOptions
     /// <summary>
     /// <c>MailItem.VotingOptions</c> for <paramref name="options"/> (separated by ';'): the options trimmed, empty ones
     /// dropped, joined with <paramref name="delimiter"/> (Outlook's, <see cref="UserListSeparator"/>; null or empty: ';'). A
-    /// delimiter inside an option becomes a look-alike – a comma <see cref="CommaLookAlike"/>, anything else a space – so
-    /// every option stays one button. Null when no option is left.
+    /// delimiter inside an option becomes a look-alike – a comma <see cref="CommaLookAlike"/>, a blank a no-break space,
+    /// anything else a space – so every option stays one button. Null when no option is left.
     /// </summary>
     public static string? ForOutlook(string? options, string? delimiter)
     {
@@ -52,7 +52,7 @@ internal static class OutlookVotingOptions
         }
 
         var outlook = string.IsNullOrEmpty(delimiter) ? Separator : delimiter;
-        var lookAlike = outlook == "," ? CommaLookAlike.ToString() : " ";
+        var lookAlike = outlook == "," ? CommaLookAlike.ToString() : string.IsNullOrWhiteSpace(outlook) ? " " : " ";
         var parts = options.Split(Separator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(option => option.Replace(outlook, lookAlike, StringComparison.Ordinal).Trim())
             .Where(option => option.Length > 0)

@@ -632,6 +632,7 @@ public class OutlookSessionSendTests
     [InlineData("Tak, nadal potrzebna;Nie, można usunąć", ",", "Tak‚ nadal potrzebna,Nie‚ można usunąć")]
     [InlineData("Tak, nadal potrzebna;Nie, można usunąć", null, "Tak, nadal potrzebna;Nie, można usunąć")]
     [InlineData("Tak | zgoda;Nie", "|", "Tak   zgoda|Nie")]
+    [InlineData("Tak, zgoda;Nie", " ", "Tak, zgoda Nie")]
     [InlineData(",;Nie", ",", "‚,Nie")]
     public void VotingOptions_ForOutlook_AreJoinedWithItsDelimiter_EachOptionStayingOneButton(string? options, string? delimiter, string? expected) =>
         Assert.Equal(expected, OutlookVotingOptions.ForOutlook(options, delimiter));
