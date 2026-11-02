@@ -906,8 +906,14 @@ them (`session.Schema.FindAttribute`).
     one; the colour of the widest visible side, the left one on a tie); cell padding (`padding` in any unit, else the
     table's `cellpadding`) → `TableCell.Padding`; cell backgrounds (white too); `cellspacing` → `Table.CellSpacing`;
     nested tables. `border="0"` is an e-mail layout: no grid and no margin or padding of the editor's own (a browser's
-    1 px padding without `cellpadding`). Any other table without cell borders keeps the grid (1 px #BFBFBF, 5 px,
-    `cellpadding="5" cellspacing="0"`, `border-collapse:collapse` written as shown).
+    1 px padding without `cellpadding`; without a margin in its CSS the table shows a margin of 0 – the default margin
+    of a WPF `Table` is auto, a line above and below it – and none is written back, `HtmlLayout.ImplicitMargin`). Any
+    other table without cell borders keeps the grid (1 px #BFBFBF, 5 px, `cellpadding="5" cellspacing="0"`,
+    `border-collapse:collapse` written as shown). WPF's defaults are not a browser's (a `Table`'s margin is auto – a
+    line above and below it –, so are a `Paragraph`'s and a `List`'s through the theme's styles; `CellSpacing` is 2 px):
+    the editor sets the margin of every table and list it reads, the cell spacing and each cell's padding and border
+    itself, and a paragraph without a margin of its own takes the editor's style (8 pt below it,
+    `RichMessageEditor.xaml`).
   - A link's own `color` and `text-decoration` stay on the hyperlink (its text without a colour takes it; no underline of
     the runs), as Outlook writes `<a style="color:blue;text-decoration:underline"><b><span style="color:#0056B3">`.
   - The CSS the editor cannot show (`mso-margin-top-alt`, `mso-margin-bottom-alt`, `line-height`, `text-indent`,
@@ -918,7 +924,8 @@ them (`session.Schema.FindAttribute`).
     border declarations with the values applied, the kept declarations and attributes) and written back by `ToHtml`
     while the editor has not changed the property (margin, padding, border); a changed one is written from the WPF
     value (an indent with Ctrl+T, a paragraph pasted from the editor itself). WPF copies the `Tag` with the other local
-    values when Enter splits a paragraph, so the new paragraph keeps the look of the one it came from.
+    values when Enter splits a paragraph or a list item (`TextContainer.SetValues` copies every local value but the
+    read-only ones), so the new one keeps the look of the one it came from.
   - Limits: a `div` with a border, padding or background of its own is still dissolved (its margins and inherited CSS
     kept, the box lost); a cell has one border colour in the editor (the HTML keeps every side's while the border is
     not changed); margins in `%` or `auto` show as 0 (written back as they were); the omitted top margin of a list
@@ -936,7 +943,10 @@ them (`session.Schema.FindAttribute`).
 - Round trip tests (UI tests, Windows): ToDocument(ToHtml(doc)) is stable for every construct (also read with the
   layout kept); the built-in mailbox template keeps its look through the editor, compared semantically
   (`HtmlLayoutFacts`: stacked margins, per-side borders, paddings, backgrounds, table attributes, list, link, bold,
-  colours); an edit of one word changes only that word; a loaded template not edited is not rewritten.
+  colours); an edit of one word changes only that word; a loaded template not edited is not rewritten; Enter gives the
+  new paragraph the margin and the stashed layout of the old one (WPF ignores `EnterParagraphBreak` without the keyboard
+  focus, which an off-screen window may not get: the test then splits with `TextPointer.InsertParagraphBreak`, the
+  same split).
 
 ### 9.3 Loopback browser preview – `Services/LoopbackBrowserPreview.cs`
 
