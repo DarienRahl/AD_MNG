@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Text.Json;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.AdministrativeTemplates;
 using AdMng.Core.GroupPolicy.Management;
@@ -46,18 +47,25 @@ public sealed class CentralStoreRowViewModel(CentralStoreFileChange change, stri
 
 /// <summary>
 /// "Zaktualizuj szablony ADMX" (K3, design note docs/dev/k-computers-and-gpo.md 6, the sources decided with the operator):
-/// a package from a file (ZIP, CAB, MSI, EXE, ADMX), a folder, the templates of this computer, or a download (Edge, Chrome,
-/// Firefox); its trust (signature, pinned address); the languages to copy; the comparison with the central store of the
-/// session's DC (new, changed, unchanged, colliding namespaces, unreadable files, the policies a template adds or drops);
-/// a backup of the store to a folder the operator picks; then one plan through the change plan preview. After an update
-/// the editors read the templates again.
+/// a package from a file (ZIP, CAB, MSI, EXE, one ADMX with its language files), a folder, the templates of this computer,
+/// or a download (Edge, Chrome, Firefox); its trust (signature, pinned address) and the files it skips; the languages to
+/// copy; the comparison with the central store of the session's DC (new, changed, unchanged, colliding namespaces,
+/// unreadable files, the policies a template adds or drops); a backup of the store to a folder the operator picks; then one
+/// plan through the change plan preview. After an update the editors read the templates again.
 /// </summary>
+/// <remarks>
+/// Comparisons are serialized: every change of the package, a language or "Zastąp stare szablony" starts a new one and
+/// cancels the one running; only the result of the latest comparison of the current package is shown and updated, and
+/// "Zaktualizuj…" waits for it. The backup runs off the UI thread while the window is busy; the window cannot be closed
+/// during the update, and nothing is planned once it was closed.
+/// </remarks>
 public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase
 {
     private readonly GroupPolicyServices _gp;
     private readonly PolicyDefinitionsService _definitions;
     private readonly PolicyTemplatePackageLoader _loader;
     private readonly SerialCancellation _work = new();
+    private readonly SerialCancellation _compare = new();
     private CentralStoreComparison? _comparison;
 
     public CentralStoreUpdateViewModel(GroupPolicyServices services, PolicyDefinitionsService definitions, PolicyTemplatePackageLoader loader)
@@ -79,9 +87,14 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase
     /// <summary>MSI, CAB and EXE packages can be unpacked here (Windows).</summary>
     public bool CanExtractInstallers => _loader.CanExtractInstallers;
 
+    /// <summary>Writes the backup of the store (folder, DC, files, time); replaced in tests.</summary>
+    internal Func<string, string, IReadOnlyDictionary<string, byte[]>, DateTimeOffset, CancellationToken, Task<string>> WriteBackup { get; init; } =
+        CentralStoreBackup.WriteAsync;
+
     /// <summary>The loaded package (null: none yet).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasPackage), nameof(PackageText), nameof(TrustText), nameof(IsUntrusted))]
+    [NotifyPropertyChangedFor(nameof(HasPackage), nameof(PackageText), nameof(TrustText), nameof(IsUntrusted), nameof(PackageIssues), nameof(HasPackageIssues),
+        nameof(PackageIssuesTitle))]
     [NotifyCanExecuteChangedFor(nameof(UpdateCommand))]
     public partial PolicyTemplatePackage? Package { get; private set; }
 
@@ -104,6 +117,17 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase
 
     /// <summary>The package is not vouched for by a signature or the vendor's address (shown as a warning).</summary>
     public bool IsUntrusted => Package is { Trust: PackageTrust.Unsigned or PackageTrust.NotChecked };
+
+    /// <summary>
+    /// The files of the package that are not used ("Archiwum/chrome.admx – szablon o tej nazwie znaleziono w paczce
+    /// wcześniej …"): a second template of a name, a file too large. Shown so a skipped copy never goes unnoticed.
+    /// </summary>
+    public IReadOnlyList<string> PackageIssues => Package is { } package ? [.. package.Issues.Select(IssueText)] : [];
+
+    public bool HasPackageIssues => Package is { Issues.Count: > 0 };
+
+    /// <summary>"Pominięte pliki paczki (2)".</summary>
+    public string PackageIssuesTitle => Localizer.Format(L.CentralStore.PackageIssues, Package?.Issues.Count ?? 0);
 
     public ObservableCollection<CultureChoiceViewModel> Cultures { get; } = [];
 
@@ -134,14 +158,34 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase
     [NotifyCanExecuteChangedFor(nameof(UpdateCommand))]
     public partial string BackupFolder { get; set; }
 
+    /// <summary>A package is being loaded or downloaded, or the store is being updated: the sources and the options wait.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsWorking), nameof(ProgressText))]
     [NotifyCanExecuteChangedFor(nameof(UpdateCommand), nameof(OpenFileCommand), nameof(OpenFolderCommand), nameof(UseLocalStoreCommand),
         nameof(DownloadEdgeCommand), nameof(DownloadChromeCommand), nameof(DownloadFirefoxCommand))]
     public partial bool IsBusy { get; private set; }
 
+    /// <summary>The package is being compared with the store: "Zaktualizuj…" waits for the result.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsWorking), nameof(ProgressText))]
+    [NotifyCanExecuteChangedFor(nameof(UpdateCommand))]
+    public partial bool IsComparing { get; private set; }
+
+    /// <summary>The backup, the plan and the preview of "Zaktualizuj…" run: the window cannot be closed.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CloseCommand))]
+    public partial bool IsUpdating { get; private set; }
+
+    /// <summary>Something runs (the progress indicator).</summary>
+    public bool IsWorking => IsBusy || IsComparing;
+
     /// <summary>"Pobieranie szablonów Microsoft Edge…" while busy.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProgressText))]
     public partial string? BusyText { get; private set; }
+
+    /// <summary>What runs now ("Pobieranie…", "Tworzenie kopii zapasowej…", "Porównywanie z magazynem centralnym…"), else null.</summary>
+    public string? ProgressText => BusyText ?? (IsComparing ? Localizer[L.CentralStore.Comparing] : null);
 
     /// <summary>The last failure (localized), null when none.</summary>
     [ObservableProperty]
@@ -214,6 +258,7 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase
         {
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, _gp.Lifetime);
             var package = await Task.Run(() => load(linked.Token), linked.Token).ConfigureAwait(true);
+            linked.Token.ThrowIfCancellationRequested(); // the window closed meanwhile
             Package = package;
             Cultures.Clear();
             var preferred = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { PolicyDefinitionLoader.DefaultCulture, Localizer.Culture.Name, Localizer.Culture.TwoLetterISOLanguageName };
@@ -233,7 +278,12 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase
         {
             Error = PackageError(ex.Error);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (JsonException)
+        {
+            // A release description that is not JSON (e.g. a proxy's block page answered with 200).
+            Error = Localizer[L.CentralStore.ErrorDownload];
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {
             Error = Localizer[L.CentralStore.ErrorExtraction];
         }
@@ -251,44 +301,85 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase
 
     // ---- Comparison and update -----------------------------------------------------------------------------------------
 
-    /// <summary>Compares the package (chosen languages) with the central store of the session's DC.</summary>
+    /// <summary>
+    /// Compares the package (chosen languages) with the central store of the session's DC. A newer comparison cancels this
+    /// one; the previous result is cleared at once (so "Zaktualizuj…" never plans a result that no longer matches the
+    /// options), and this result – or its failure, in <see cref="Error"/> – is shown only when it is still the latest for the
+    /// current package.
+    /// </summary>
     public async Task CompareAsync()
     {
+        var token = _compare.Next();
+        _comparison = null;
+        Rows = [];
+        SummaryText = string.Empty;
+        StoreNote = null;
         if (Package is not { } package || Session is not { } session)
         {
+            IsComparing = false;
+            UpdateCommand.NotifyCanExecuteChanged();
             return;
         }
 
+        var options = new CentralStoreUpdateOptions
+        {
+            Cultures = [.. Cultures.Where(c => c.IsSelected).Select(c => c.Culture)],
+            ReplaceCollidingFiles = ReplaceCollidingFiles,
+        };
+        IsComparing = true;
+        UpdateCommand.NotifyCanExecuteChanged();
         try
         {
-            var access = await _gp.OpenSysvolAsync(session, _gp.Lifetime).ConfigureAwait(true);
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, _gp.Lifetime);
+            var access = await _gp.OpenSysvolAsync(session, linked.Token).ConfigureAwait(true);
             if (access.Connection is not { } sysvol)
             {
-                Error = _gp.SysvolText(access.Reason ?? SysvolUnavailableReason.Failed, session.Info.Server);
+                if (IsLatest(token, package))
+                {
+                    Error = _gp.SysvolText(access.Reason ?? SysvolUnavailableReason.Failed, session.Info.Server);
+                }
+
                 return;
             }
 
+            CentralStoreComparison comparison;
             await using (sysvol.ConfigureAwait(true))
             {
-                var options = new CentralStoreUpdateOptions
-                {
-                    Cultures = [.. Cultures.Where(c => c.IsSelected).Select(c => c.Culture)],
-                    ReplaceCollidingFiles = ReplaceCollidingFiles,
-                };
-                _comparison = await Task.Run(() => GroupPolicyPlanner.CompareCentralStoreAsync(sysvol, package, options, _gp.Lifetime), _gp.Lifetime).ConfigureAwait(true);
+                comparison = await Task.Run(() => GroupPolicyPlanner.CompareCentralStoreAsync(sysvol, package, options, linked.Token), linked.Token)
+                    .ConfigureAwait(true);
             }
 
-            Rows = [.. _comparison.Files.Select(Row)];
-            StoreNote = _comparison.StoreExists ? null : Localizer[L.CentralStore.StoreMissing];
+            if (!IsLatest(token, package))
+            {
+                return; // superseded by a newer comparison or another package
+            }
+
+            _comparison = comparison;
+            Rows = [.. comparison.Files.Select(Row)];
+            StoreNote = comparison.StoreExists ? null : Localizer[L.CentralStore.StoreMissing];
             SummaryText = Localizer.Format(L.CentralStore.Summary, Rows.Count(r => r.IsChange), Rows.Count(r => r.Status == CentralStoreFileStatus.Unchanged),
                 Rows.Count(r => r.Status is CentralStoreFileStatus.NamespaceCollision or CentralStoreFileStatus.Unreadable));
+            Error = null;
         }
-        catch (Exception ex) when (GroupPolicyText.IsExpected(ex))
+        catch (OperationCanceledException)
         {
-            Error = GroupPolicyText.Error(Localizer, _gp.Errors, ex);
+            // Superseded, or the window closed.
+        }
+        catch (Exception ex) when (GroupPolicyText.IsExpected(ex) || ex is InvalidDataException or JsonException)
+        {
+            if (IsLatest(token, package))
+            {
+                // InvalidDataException: an entry of the archive cannot be decompressed (it is read only now, for the comparison).
+                Error = ex is InvalidDataException or JsonException ? Localizer[L.CentralStore.ErrorExtraction] : GroupPolicyText.Error(Localizer, _gp.Errors, ex);
+            }
         }
         finally
         {
+            if (_compare.IsCurrent(token))
+            {
+                IsComparing = false;
+            }
+
             UpdateCommand.NotifyCanExecuteChanged();
         }
     }
@@ -302,59 +393,119 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase
             return;
         }
 
+        var token = _work.Next();
+        IsBusy = true;
+        IsUpdating = true;
         Error = null;
-        if (MakeBackup && comparison.StoreExists)
+        ResultText = null;
+        var changed = false;
+        try
         {
-            try
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, _gp.Lifetime);
+            if (MakeBackup && comparison.StoreExists)
             {
-                var written = await CentralStoreBackup.WriteAsync(BackupFolder, session.Info.Server, comparison.StoreFiles, _gp.Time.GetUtcNow(), _gp.Lifetime)
-                    .ConfigureAwait(true);
-                await _gp.Settings.UpdateAsync(s => s.GroupPolicy.LastBackupFolder = BackupFolder).ConfigureAwait(true);
+                BusyText = Localizer[L.CentralStore.BackingUp];
+                var folder = BackupFolder.Trim();
+                var server = session.Info.Server;
+                var files = comparison.StoreFiles;
+                var time = _gp.Time.GetUtcNow();
+                var write = WriteBackup;
+                string written;
+                try
+                {
+                    // Off the UI thread: the folder may be a slow or unreachable share (CLAUDE.md rule 6).
+                    written = await Task.Run(() => write(folder, server, files, time, linked.Token), linked.Token).ConfigureAwait(true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+                {
+                    Error = Localizer[L.CentralStore.ErrorBackup];
+                    return;
+                }
+
+                linked.Token.ThrowIfCancellationRequested(); // the window closed or the session ended meanwhile: nothing planned
+                await _gp.Settings.UpdateAsync(s => s.GroupPolicy.LastBackupFolder = folder).ConfigureAwait(true);
                 ResultText = Localizer.Format(L.CentralStore.BackupWritten, written);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+
+            if (IsDisposed || Session is null || !ReferenceEquals(comparison, _comparison))
             {
-                Error = Localizer[L.CentralStore.ErrorBackup];
+                return; // closed, the session ended, or the options changed meanwhile (the new comparison is shown)
+            }
+
+            BusyText = Localizer[L.CentralStore.Updating];
+            var title = Localizer.Format(L.CentralStore.PlanTitle, session.Info.Server);
+            var plan = _gp.Planner.PlanCentralStoreUpdate(session, comparison, title);
+            if (plan.Objects.Count == 0)
+            {
                 return;
             }
+
+            if (await _gp.PreviewAsync(plan, title, session).ConfigureAwait(true))
+            {
+                changed = true;
+                ChangedStore = true;
+                _definitions.Invalidate();
+                _gp.NotifyChanged();
+                ResultText = Localizer.Format(L.CentralStore.Updated, comparison.WrittenCount);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            IsUpdating = false;
+            IsBusy = false;
+            BusyText = null;
         }
 
-        var title = Localizer.Format(L.CentralStore.PlanTitle, session.Info.Server);
-        var plan = _gp.Planner.PlanCentralStoreUpdate(session, comparison, title);
-        if (plan.Objects.Count == 0)
+        if (changed && !IsDisposed)
         {
-            return;
-        }
-
-        if (await _gp.PreviewAsync(plan, title, session).ConfigureAwait(true))
-        {
-            ChangedStore = true;
-            _definitions.Invalidate();
-            _gp.NotifyChanged();
-            ResultText = Localizer.Format(L.CentralStore.Updated, comparison.WrittenCount);
             await CompareAsync().ConfigureAwait(true);
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanClose))]
     private void Close() => RequestClose(true);
+
+    /// <summary>Not while the store is being updated (the backup, the plan and its preview); a load or download is cancelled by closing.</summary>
+    public override Task<bool> CanCloseAsync() => Task.FromResult(!IsUpdating);
+
+    protected override void OnCultureChanged()
+    {
+        base.OnCultureChanged();
+        OnPropertyChanged(nameof(TargetText));
+        OnPropertyChanged(nameof(PackageText));
+        OnPropertyChanged(nameof(TrustText));
+        OnPropertyChanged(nameof(PackageIssues));
+        OnPropertyChanged(nameof(PackageIssuesTitle));
+        OnPropertyChanged(nameof(ProgressText));
+    }
 
     protected override void Dispose(bool disposing)
     {
         _work.Cancel();
+        _compare.Cancel();
         base.Dispose(disposing);
     }
 
     protected override void OnSessionEnded()
     {
         _work.Cancel();
+        _compare.Cancel();
+        IsComparing = false;
         UpdateCommand.NotifyCanExecuteChanged();
     }
 
     private bool IsIdle() => !IsBusy;
 
-    private bool CanUpdate() => !IsBusy && !IsSessionEnded && _comparison is { HasChanges: true } && Session is not null
+    private bool CanClose() => !IsUpdating;
+
+    private bool CanUpdate() => !IsBusy && !IsComparing && !IsSessionEnded && _comparison is { HasChanges: true } && Session is not null
         && (!MakeBackup || _comparison is { StoreExists: false } || BackupFolder.Trim().Length > 0);
+
+    /// <summary>The comparison started with <paramref name="token"/> is still the latest one, for the package shown.</summary>
+    private bool IsLatest(CancellationToken token, PolicyTemplatePackage package) => _compare.IsCurrent(token) && ReferenceEquals(Package, package);
 
     private CentralStoreRowViewModel Row(CentralStoreFileChange change)
     {
@@ -376,6 +527,20 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase
             _ => string.Empty,
         };
         return new CentralStoreRowViewModel(change, status, detail);
+    }
+
+    /// <summary>
+    /// "Archiwum/chrome.admx – szablon o tej nazwie znaleziono w paczce wcześniej – użyto tamtego pliku". The package gives
+    /// an English, value-free reason; it is told in the UI language (an unknown reason as "pominięty").
+    /// </summary>
+    private string IssueText(PolicyTemplatePackageIssue issue)
+    {
+        var reason = issue.Reason;
+        var key = reason.Contains("too large", StringComparison.OrdinalIgnoreCase) ? L.CentralStore.IssueTooLarge
+            : reason.Contains("language file", StringComparison.OrdinalIgnoreCase) ? L.CentralStore.IssueDuplicateLanguage
+            : reason.Contains("found earlier", StringComparison.OrdinalIgnoreCase) ? L.CentralStore.IssueDuplicateTemplate
+            : L.CentralStore.IssueSkipped;
+        return Localizer.Format(L.CentralStore.PackageIssue, issue.Path, Localizer[key]);
     }
 
     private string PackageError(PolicyTemplatePackageError error) => Localizer[error switch

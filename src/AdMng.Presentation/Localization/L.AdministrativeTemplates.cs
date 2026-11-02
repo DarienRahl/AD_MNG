@@ -85,6 +85,8 @@ public static partial class L
         public const string ProblemInvalidCharacter = "AdmTemplates.ProblemInvalidCharacter";
         public const string ProblemNotANumber = "AdmTemplates.ProblemNotANumber";
         public const string PlanTitle = "AdmTemplates.PlanTitle";
+        public const string SaveBlocked = "AdmTemplates.SaveBlocked";
+        public const string CloseDiscard = "AdmTemplates.CloseDiscard";
     }
 }
 
@@ -152,5 +154,14 @@ public static partial class L
         public const string ErrorTooLarge = "CentralStore.ErrorTooLarge";
         public const string ErrorExtraction = "CentralStore.ErrorExtraction";
         public const string ErrorBackup = "CentralStore.ErrorBackup";
+        public const string Comparing = "CentralStore.Comparing";
+        public const string BackingUp = "CentralStore.BackingUp";
+        public const string Updating = "CentralStore.Updating";
+        public const string PackageIssues = "CentralStore.PackageIssues";
+        public const string PackageIssue = "CentralStore.PackageIssue";
+        public const string IssueTooLarge = "CentralStore.IssueTooLarge";
+        public const string IssueDuplicateTemplate = "CentralStore.IssueDuplicateTemplate";
+        public const string IssueDuplicateLanguage = "CentralStore.IssueDuplicateLanguage";
+        public const string IssueSkipped = "CentralStore.IssueSkipped";
     }
 }

@@ -216,7 +216,7 @@ public sealed class ScreenshotTests
         var files = new PreparedSaveDialog();
         return ShootAsync(ThemePreference.Light, connect: false, configure: s => s.AddSingleton<IFileDialogService>(files), shoot: async context =>
         {
-            // K3: the update window comparing a folder of templates (Polish files added, one template newer) with the store.
+            // K3: the update window comparing a package of templates (a ZIP: Polish files added, one template newer) with the store.
             context.Directory.AddGroupPolicyManagementSample(context.Company, context.Sysvol);
             foreach (var (path, content) in SampleAdministrativeTemplates.Files(polish: false))
             {
@@ -226,17 +226,19 @@ public sealed class ScreenshotTests
             var temp = System.IO.Directory.CreateTempSubdirectory("admng-k3-shot-");
             try
             {
-                var package = System.IO.Directory.CreateDirectory(Path.Combine(temp.FullName, "Szablony Contoso 1.3")).FullName;
-                foreach (var (path, content) in SampleAdministrativeTemplates.Files())
+                var package = Path.Combine(temp.FullName, "Szablony Contoso 1.3.zip");
+                using (var zip = System.IO.Compression.ZipFile.Open(package, System.IO.Compression.ZipArchiveMode.Create))
                 {
-                    var file = Path.Combine([package, .. path.Split('/')]);
-                    System.IO.Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-                    await File.WriteAllBytesAsync(file, path == "contoso.admx"
-                        ? SampleAdministrativeTemplates.Utf8(SampleAdministrativeTemplates.ContosoAdmx.Replace("revision=\"1.2\"", "revision=\"1.3\"", StringComparison.Ordinal))
-                        : content);
+                    foreach (var (path, content) in SampleAdministrativeTemplates.Files())
+                    {
+                        using var entry = zip.CreateEntry(path).Open();
+                        await entry.WriteAsync(path == "contoso.admx"
+                            ? SampleAdministrativeTemplates.Utf8(SampleAdministrativeTemplates.ContosoAdmx.Replace("revision=\"1.2\"", "revision=\"1.3\"", StringComparison.Ordinal))
+                            : content);
+                    }
                 }
 
-                files.NextOpenPath = Path.Combine(package, "contoso.admx");
+                files.NextOpenPath = package;
                 await context.ConnectAsync();
                 UiTestSupport.ShowOffScreen(context.Services.GetRequiredService<MainWindow>());
                 var factory = context.Services.GetRequiredService<GroupPolicyViewModelFactory>();
@@ -247,10 +249,11 @@ public sealed class ScreenshotTests
                 var window = (CentralStoreUpdateWindow)Windows(context).CreateWindow(update);
                 await ScreenshotWriter.ShowWithClientSizeAsync(window, 900, 680);
                 await update.OpenFileCommand.ExecuteAsync(null);
-                await UiWait.UntilAsync(() => !update.IsBusy && update.Rows.Count == 6, "the comparison");
+                await UiWait.UntilAsync(() => !update.IsWorking && update.Rows.Count == 6, "the comparison");
                 await UiTestSupport.WaitForIdleAsync(rounds: 3);
 
                 Assert.Null(update.Error);
+                Assert.Equal("Szablony Contoso 1.3.zip – szablony: 2, języki: 2", update.PackageText);
                 Assert.Equal("Do zapisania: 3, bez zmian: 3, pominięte: 0", update.SummaryText);
                 Assert.True(window.UpdateButton.IsEnabled);
                 await ScreenshotWriter.SaveAsync(window, CentralStoreUpdate, dark: false);

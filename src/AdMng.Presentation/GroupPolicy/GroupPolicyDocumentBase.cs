@@ -85,6 +85,15 @@ public abstract partial class GroupPolicyDocumentBase : ObservableObject, IShell
 
     protected bool IsDisposed => _disposed;
 
+    /// <summary>
+    /// The tab holds edits that closing it would discard (the shell then asks through <see cref="CanCloseAsync"/>; the
+    /// documents that only show what they read have none).
+    /// </summary>
+    public virtual bool HasUnsavedChanges => false;
+
+    /// <summary>Asks before unsaved edits are discarded (Ctrl+W, the tab's close button, the main window). True when the tab may close.</summary>
+    public virtual Task<bool> CanCloseAsync() => Task.FromResult(true);
+
     /// <summary>F5: reloads everything the document shows.</summary>
     [RelayCommand(AllowConcurrentExecutions = true)]
     public Task RefreshAsync() => LoadAsync();

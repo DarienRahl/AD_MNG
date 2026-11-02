@@ -79,8 +79,12 @@ public sealed partial class PolicyEditorViewModel : ObservableObject
 
     public bool HasElements => Elements.Count > 0;
 
-    /// <summary>The state can be changed.</summary>
-    public bool CanEdit { get; }
+    /// <summary>
+    /// The state and the options can be changed now: the GPO can be written (connected, SYSVOL writable, not loading or
+    /// saving), the half's Registry.pol is readable and the policy has something Registry.pol can express.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool CanEdit { get; private set; }
 
     /// <summary>A policy Registry.pol cannot express (no value, list or element): shown read-only.</summary>
     public bool IsNotWritable => !Definition.Policy.IsWritable;
@@ -143,6 +147,16 @@ public sealed partial class PolicyEditorViewModel : ObservableObject
         return PolicySetting.Enabled(values);
     }
 
+    /// <summary>
+    /// Turns editing on or off without rebuilding the editor (the document finished loading, a save started or ended):
+    /// what the operator typed stays shown.
+    /// </summary>
+    internal void SetCanEdit(bool canEdit)
+    {
+        CanEdit = canEdit && Definition.Policy.IsWritable;
+        UpdateEditable();
+    }
+
     private void Choose(bool selected, PolicyState state)
     {
         if (!selected || State == state || !CanEdit)
@@ -158,7 +172,7 @@ public sealed partial class PolicyEditorViewModel : ObservableObject
 
     private void OnElementChanged(object? sender, EventArgs e)
     {
-        if (!_showing && State == PolicyState.Enabled)
+        if (!_showing && CanEdit && State == PolicyState.Enabled)
         {
             Commit();
         }
