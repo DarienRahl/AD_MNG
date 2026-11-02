@@ -350,4 +350,9 @@ internal static partial class ComNative
 
     [LibraryImport("ole32.dll")]
     internal static partial int CoRegisterMessageFilter(nint newFilter, out nint oldFilter);
+
+    /// <summary>kernel32 GetLocaleInfoEx (<paramref name="localeName"/> null: LOCALE_NAME_USER_DEFAULT); the number of
+    /// characters written including the terminating null, 0 on failure.</summary>
+    [LibraryImport("kernel32.dll", StringMarshalling = StringMarshalling.Utf16)]
+    internal static unsafe partial int GetLocaleInfoEx(string? localeName, uint lcType, char* data, int dataLength);
 }

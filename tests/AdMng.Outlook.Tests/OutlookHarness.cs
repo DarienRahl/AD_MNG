@@ -47,11 +47,14 @@ internal sealed class OutlookHarness : IAsyncDisposable
         Provider.Clock = Time.GetUtcNow;
         TempFiles = new OutlookTempFiles(TempRoot, _ => false);
         Signatures = new FakeSignatureSource();
-        Client = new OutlookClient(Provider, Time, Signatures, TempFiles, Log.Release, () => elevated);
+        Client = new OutlookClient(Provider, Time, Signatures, TempFiles, Log.Release, () => elevated, () => ListSeparator);
     }
 
     /// <summary>A fixed +01:00 zone (no daylight saving), so local times are predictable on every machine.</summary>
     public static TimeZoneInfo Zone { get; } = TimeZoneInfo.CreateCustomTimeZone("AdMng/Test+01", TimeSpan.FromHours(1), "Test +01", "Test +01");
+
+    /// <summary>The Windows list separator (sList) of the "PC": ';' with Polish formats, ',' with English (United States).</summary>
+    public string ListSeparator { get; set; } = ";";
 
     public string Root { get; }
 

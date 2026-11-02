@@ -160,6 +160,21 @@ public class OutlookCampaignsTests
     }
 
     [Fact]
+    public async Task ReadResponsesAsync_AVoteForAnOptionWithACommaLookAlike_GetsItsCommaBack()
+    {
+        // Sent where ',' was Outlook's delimiter: the button read "Tak‚ nadal potrzebna" (U+201A) – the option of the
+        // settings is "Tak, nadal potrzebna".
+        await using var harness = new OutlookHarness();
+        Sent(harness, CampaignA, "2026-10-01 10:00", "Czy skrzynka jest nadal potrzebna?", "sekretariat.it@contoso.test",
+            Vote(harness, "anna.nowak@contoso.test", 1, "Tak‚ nadal potrzebna", "2026-10-02 08:30"));
+        var session = await harness.ConnectAsync();
+
+        var response = Assert.Single(await session.ReadResponsesAsync(CampaignA, Ct));
+
+        Assert.Equal("Tak, nadal potrzebna", response.Response);
+    }
+
+    [Fact]
     public async Task ReadResponsesAsync_InABccMessage_LeavesOutTheSendersOwnToRecipient()
     {
         await using var harness = new OutlookHarness();

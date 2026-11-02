@@ -70,17 +70,21 @@ internal sealed partial class OutlookMailBuilder
     private readonly OutlookTempFiles _tempFiles;
     private readonly TimeZoneInfo _localTimeZone;
     private readonly Action<object> _release;
+    private readonly Func<string> _listSeparator;
 
     /// <param name="application">The late-bound Outlook application.</param>
     /// <param name="tempFiles">The temp folders of inline images.</param>
     /// <param name="localTimeZone">The time zone of the PC (deferred delivery is set in local time).</param>
     /// <param name="release">Releases one COM object (tests record it).</param>
-    public OutlookMailBuilder(object application, OutlookTempFiles tempFiles, TimeZoneInfo localTimeZone, Action<object> release)
+    /// <param name="listSeparator">The Windows list separator, Outlook's delimiter of the voting options (null:
+    /// <see cref="OutlookVotingOptions.UserListSeparator"/>).</param>
+    public OutlookMailBuilder(object application, OutlookTempFiles tempFiles, TimeZoneInfo localTimeZone, Action<object> release, Func<string>? listSeparator = null)
     {
         _application = application;
         _tempFiles = tempFiles;
         _localTimeZone = localTimeZone;
         _release = release;
+        _listSeparator = listSeparator ?? OutlookVotingOptions.UserListSeparator;
     }
 
     /// <summary>Builds the item and sends it (or only saves it in <see cref="OutlookSendMode.Draft"/>). Never throws.</summary>
@@ -140,8 +144,9 @@ internal sealed partial class OutlookMailBuilder
                 item.DeferredDeliveryTime = LocalTime(deferred);
             }
 
-            if (NormalizeVoting(message.VotingOptions) is { } voting)
+            if (OutlookVotingOptions.ForOutlook(message.VotingOptions, _listSeparator()) is { } voting)
             {
+                // Outlook splits the options on the Windows list separator, not on ';'.
                 step = OutlookSteps.Voting;
                 item.VotingOptions = voting;
             }
@@ -325,18 +330,6 @@ internal sealed partial class OutlookMailBuilder
         {
             scope.Dispose();
         }
-    }
-
-    /// <summary>"Tak; Nie ;;" → "Tak;Nie"; null when no option is left.</summary>
-    internal static string? NormalizeVoting(string? options)
-    {
-        if (string.IsNullOrWhiteSpace(options))
-        {
-            return null;
-        }
-
-        var parts = options.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        return parts.Length == 0 ? null : string.Join(';', parts);
     }
 
     /// <summary>The keys joined by "\n" (line breaks inside a key become spaces, empty keys dropped), whole keys only up to

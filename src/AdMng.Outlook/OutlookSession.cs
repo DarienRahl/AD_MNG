@@ -38,7 +38,7 @@ public sealed class OutlookSession : IOutlookSession
         ArgumentNullException.ThrowIfNull(options);
         _release = options.Release;
         _signatures = options.Signatures;
-        _builder = new OutlookMailBuilder(application, options.TempFiles, options.Time.LocalTimeZone, options.Release);
+        _builder = new OutlookMailBuilder(application, options.TempFiles, options.Time.LocalTimeZone, options.Release, options.ListSeparator);
         _campaigns = new OutlookCampaigns(application, options.Time.LocalTimeZone, options.Release);
     }
 
@@ -238,5 +238,9 @@ public sealed class OutlookSession : IOutlookSession
 /// <param name="Release">Releases one COM object (<see cref="ComRelease.Release"/>; tests record it).</param>
 internal sealed record OutlookSessionOptions(OutlookTempFiles TempFiles, TimeProvider Time, IOutlookSignatureSource? Signatures, Action<object> Release)
 {
+    /// <summary>The Windows list separator, Outlook's delimiter of the voting options
+    /// (<see cref="OutlookVotingOptions.UserListSeparator"/>; tests set the one of their "PC").</summary>
+    public Func<string> ListSeparator { get; init; } = OutlookVotingOptions.UserListSeparator;
+
     public override string ToString() => nameof(OutlookSessionOptions);
 }

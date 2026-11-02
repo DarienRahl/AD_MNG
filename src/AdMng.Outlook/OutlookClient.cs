@@ -38,13 +38,16 @@ public sealed class OutlookClient : IOutlookClient
     /// <param name="tempFiles">The temp folders of inline images (null: <c>%TEMP%</c>).</param>
     /// <param name="release">Releases one COM object (null: <see cref="ComRelease.Release"/>; tests record it).</param>
     /// <param name="isElevated">Whether the process runs elevated (null: <see cref="Environment.IsPrivilegedProcess"/>).</param>
+    /// <param name="listSeparator">The Windows list separator, Outlook's delimiter of the voting options (null:
+    /// <see cref="OutlookVotingOptions.UserListSeparator"/>).</param>
     internal OutlookClient(
         IOutlookApplicationProvider? provider,
         TimeProvider? time = null,
         IOutlookSignatureSource? signatures = null,
         OutlookTempFiles? tempFiles = null,
         Action<object>? release = null,
-        Func<bool>? isElevated = null)
+        Func<bool>? isElevated = null,
+        Func<string>? listSeparator = null)
     {
         Provider = provider;
         Time = time ?? TimeProvider.System;
@@ -52,6 +55,7 @@ public sealed class OutlookClient : IOutlookClient
         TempFiles = tempFiles ?? new OutlookTempFiles();
         Release = release ?? ComRelease.Release;
         _isElevated = isElevated ?? (() => Environment.IsPrivilegedProcess);
+        ListSeparator = listSeparator ?? OutlookVotingOptions.UserListSeparator;
     }
 
     /// <summary>Whether classic Outlook is registered; with a test provider always <see cref="OutlookAvailability.Installed"/>.</summary>
@@ -67,6 +71,8 @@ public sealed class OutlookClient : IOutlookClient
     internal OutlookTempFiles TempFiles { get; }
 
     internal Action<object> Release { get; }
+
+    internal Func<string> ListSeparator { get; }
 
     /// <summary>
     /// Attaches to the running Outlook or starts it, and reads the profile: up to <see cref="Attempts"/> attempts,
@@ -106,7 +112,8 @@ public sealed class OutlookClient : IOutlookClient
                 try
                 {
                     var (application, profile) = await worker.RunAsync(() => Open(provider), cancellationToken).ConfigureAwait(false);
-                    var session = new OutlookSession(worker, application, profile, new OutlookSessionOptions(TempFiles, Time, Signatures, Release));
+                    var session = new OutlookSession(
+                        worker, application, profile, new OutlookSessionOptions(TempFiles, Time, Signatures, Release) { ListSeparator = ListSeparator });
                     handedOver = true;
                     if (cancellationToken.IsCancellationRequested)
                     {

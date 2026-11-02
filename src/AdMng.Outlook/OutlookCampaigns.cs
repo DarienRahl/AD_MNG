@@ -208,7 +208,7 @@ internal sealed class OutlookCampaigns
                 dynamic entry = recipient;
                 var address = AddressOf(recipient, recipientScope);
                 var type = OutlookProfileReader.GetInt(() => (int)entry.Type);
-                var vote = OutlookProfileReader.Get(() => (string?)entry.AutoResponse);
+                var vote = OutlookVotingOptions.RestoreVote(OutlookProfileReader.Get(() => (string?)entry.AutoResponse));
                 var response = vote.Length > 0 ? vote : null;
                 DateTimeOffset? at = null;
                 if (response is not null)
