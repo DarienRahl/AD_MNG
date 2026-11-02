@@ -175,8 +175,9 @@ są pokazywane. *Eksportuj CSV…* zapisuje porównanie tylko na żądanie. Oba 
   (`%WINDIR%\PolicyDefinitions`), tak jak edytor Microsoftu. Pasek nad drzewem mówi, z których szablonów korzysta karta i
   ile plików wczytano; *Wczytaj szablony ponownie* czyta je od nowa. Nazwy i opisy są w języku programu (polskie z plików
   `pl-PL`, brakujące z `en-US`). Problemy z szablonami – nieczytelny plik, brak pliku językowego, dwa pliki z tą samą
-  przestrzenią nazw (np. stara i nowa wersja szablonu Edge; używany jest pierwszy), nieznana kategoria – są wymienione
-  pod *Problemy z szablonami*; uszkodzony plik nie blokuje pozostałych.
+  przestrzenią nazw (np. stara i nowa wersja szablonu Edge; używany jest pierwszy), nieznana kategoria, kategorie
+  zagnieżdżone głębiej niż 32 poziomy (pokazane na najwyższym poziomie) – są wymienione pod *Problemy z szablonami*;
+  uszkodzony plik nie blokuje pozostałych, a powód jest podany w języku programu.
 - **Drzewo i lista.** *Konfiguracja komputera* i *Konfiguracja użytkownika* z kategoriami szablonów, *Wszystkie
   ustawienia* oraz *Ustawienia rejestru spoza szablonów* – wpisy `Registry.pol`, których nie opisuje żaden wczytany
   szablon (zapisane innym narzędziem albo przez szablon, którego brak w magazynie); można je tylko usunąć. Lista
@@ -187,17 +188,22 @@ są pokazywane. *Eksportuj CSV…* zapisuje porównanie tylko na żądanie. Oba 
   opis z szablonu (*Pomoc*), *Obsługiwane w*, klucz i wartości rejestru oraz plik szablonu. Błędna wartość (poza
   zakresem, puste wymagane pole, powtórzone lub puste wpisy listy, za długi tekst) jest opisana przy ustawieniu i
   blokuje zapis. Stan *Niejednoznaczne* oznacza wartości, które nie odpowiadają ani stanowi *Włączone*, ani
-  *Wyłączone* (inne narzędzie, inna wersja szablonu) – wybór stanu je zastępuje.
+  *Wyłączone* (inne narzędzie, inna wersja szablonu) – wybór stanu je zastępuje. Ustawienie z własną wartością
+  rejestru, której plik nie zawiera, jest *Nie skonfigurowano* – także wtedy, gdy inne ustawienia zapisały wartości,
+  które z nim dzieli (np. szablon strefy IE i pojedyncze akcje tej strefy).
 - **Zapis.** *Zapisz zmiany…* tworzy jeden plan dla GPO: nowy `Machine\Registry.pol` lub `User\Registry.pol` (zmieniane
   są tylko wpisy edytowanych ustawień – reszta pliku zostaje bez zmian i w tej samej kolejności), nazwy rozszerzeń w AD
   (`gPCMachineExtensionNames` / `gPCUserExtensionNames`: rozszerzenie *Rejestr* i narzędzie *Szablony
   administracyjne*, a także rozszerzenia klienta, których wymaga szablon) i podniesienie wersji zmienionej części GPO.
   Wartości są zapisywane według reguł szablonu jak w edytorze Microsoftu: *Wyłączone* zapisuje wartości wyłączenia z
-  szablonu albo polecenie usunięcia wartości (`**del.`), listy są zastępowane w całości (`**delvals.`), *Nie
-  skonfigurowano* usuwa wpisy ustawienia. Podgląd planu pokazuje pliki z różnicami ustawień i odpowiednik w PowerShell
+  szablonu (mają pierwszeństwo przed usunięciem wartości opcji, które z nimi dzielą nazwę) albo polecenie usunięcia
+  wartości (`**del.`), listy są zastępowane w całości (`**delvals.`), *Nie skonfigurowano* usuwa wpisy ustawienia.
+  Lista zmienia tylko swoje wpisy: wartości innych ustawień w tym samym kluczu (i, przy liście dopisywanej, wartości
+  inne niż tekst) zostają nietknięte. Podgląd planu pokazuje pliki z różnicami ustawień i odpowiednik w PowerShell
   (`Set-GPRegistryValue`, `Remove-GPRegistryValue`); ostrzega, gdy zmieniana część GPO jest wyłączona w stanie GPO
-  (klienci zastosują ustawienia dopiero po jej włączeniu). *Odrzuć zmiany* wraca do zapisanego stanu, *Cofnij* w
-  podglądzie – do stanu sprzed zapisu.
+  (klienci zastosują ustawienia dopiero po jej włączeniu). Na czas zapisu edytor jest tylko do odczytu. *Odrzuć
+  zmiany* wraca do zapisanego stanu, *Cofnij* w podglądzie – do stanu sprzed zapisu. Zamknięcie karty (albo okna
+  połączenia) z niezapisanymi zmianami wymaga potwierdzenia.
 - **Zmiana przez kogoś innego.** Gdy `Registry.pol` GPO zmieni się na kontrolerze od rozpoczęcia edycji, zapis jest
   odrzucany jako konflikt (plik zostaje nietknięty), a karta prosi o odrzucenie zmian, by pokazać aktualne ustawienia.
 
@@ -206,15 +212,17 @@ są pokazywane. *Eksportuj CSV…* zapisuje porównanie tylko na żądanie. Oba 
 *Zaktualizuj szablony…* otwiera okno **Aktualizacja szablonów ADMX** dla magazynu centralnego na kontrolerze okna:
 
 1. **Szablony.** *Z pliku…*: archiwum ZIP producenta (Chrome, Firefox, Edge), CAB (Edge), MSI (szablony Windows), EXE
-   (Microsoft 365 Apps) albo jeden plik ADMX z folderami językowymi obok; *Z folderu…* (rozpakowana paczka, własne
-   szablony); *Szablony tego komputera* (`%WINDIR%\PolicyDefinitions` – tak tworzy się magazyn centralny, gdy domena go
-   nie ma); **Pobierz Microsoft Edge / Google Chrome / Mozilla Firefox** – najnowsze szablony prosto od producenta.
+   (Microsoft 365 Apps) albo jeden plik ADMX – sam ten szablon z jego plikami ADML z folderów językowych obok; *Z
+   folderu…* (rozpakowana paczka, własne szablony); *Szablony tego komputera* (`%WINDIR%\PolicyDefinitions` – tak
+   tworzy się magazyn centralny, gdy domena go nie ma); **Pobierz Microsoft Edge / Google Chrome / Mozilla Firefox** –
+   najnowsze szablony prosto od producenta.
    Szablony Windows i Microsoft 365 Apps nie mają stałego adresu – pobierasz je ze strony Microsoftu i wskazujesz plik.
    Paczki MSI, CAB i EXE rozpakowuje Windows (`msiexec /a`, `/extract`, `expand`) z kopii w prywatnym folderze
    tymczasowym profilu – kopia jest otwarta tylko do odczytu, więc nikt jej nie podmieni między sprawdzeniem podpisu a
    rozpakowaniem – a folder jest usuwany zaraz po wczytaniu plików. CAB, który rozpakowałby się do ponad 512 MiB, jest
    częścią zestawu kilku plików CAB albo zawiera plik spoza swojego folderu, nie jest rozpakowywany. Paczka może mieć
-   najwyżej 512 MiB, 5000 szablonów i 512 MiB plików ADMX/ADML razem – większa jest odrzucana.
+   najwyżej 512 MiB, 5000 szablonów i 512 MiB plików ADMX/ADML razem – większa jest odrzucana. Pliki paczki, których
+   okno nie użyje (np. drugi szablon o tej samej nazwie w innym folderze, za duży plik), są wymienione osobno.
 2. **Zaufanie.** Okno mówi, skąd są pliki: *Podpisany przez …* (podpis Authenticode sprawdzony przez Windows, w oknie
    organizacja z certyfikatu podpisującego; instalator MSI lub EXE jest uruchamiany wyłącznie wtedy, gdy podpisał go
    Microsoft: łańcuch certyfikatu kończy się w głównym urzędzie certyfikacji Microsoftu, a organizacja certyfikatu to
@@ -224,15 +232,19 @@ są pokazywane. *Eksportuj CSV…* zapisuje porównanie tylko na żądanie. Oba 
    *Niepodpisany przez producenta* (np. CAB bez ważnego podpisu albo podpisany certyfikatem, który podaje się za
    Microsoft bez łańcucha Microsoftu) albo *Pliki wskazane przez Ciebie* (pochodzenia nie da
    się sprawdzić) – dwa ostatnie z ostrzeżeniem.
-3. **Języki.** Foldery językowe paczki do skopiowania; domyślnie zaznaczone `en-US` i język programu. Folder `pl`
-   paczki trafia do `pl-PL` magazynu (tak jak w szablonach Microsoftu).
+3. **Języki.** Foldery językowe paczki do skopiowania; domyślnie zaznaczone `en-US`, język programu i języki, które
+   magazyn centralny już ma (inaczej ich pliki zostałyby w starej wersji). Folder `pl` paczki trafia do `pl-PL`
+   magazynu (tak jak w szablonach Microsoftu).
 4. **Pliki magazynu centralnego.** Każdy plik z oceną: *Nowy*, *Zastąpiony* (z liczbą ustawień, które nowy szablon
    dodaje i usuwa), *Bez zmian*, *Pominięty: zajęta przestrzeń nazw* (inny plik magazynu definiuje tę samą przestrzeń
    nazw – np. stary szablon Edge pod inną nazwą; edytor Microsoftu odrzuciłby oba), *Pominięty: nieprawidłowy szablon*
    (także plik archiwum, którego nie da się rozpakować – np. spakowany metodą LZMA albo uszkodzony),
    *Usunięty* (stary plik kolizji, gdy zaznaczysz *Zastąp stare szablony z tą samą przestrzenią nazw* – razem z jego
-   plikami językowymi) i *Usunięty (pozostałość)* przerwanej aktualizacji. Pliki magazynu, których paczka nie zawiera,
-   zostają.
+   plikami językowymi), *Usunięty (pozostałość)* przerwanej aktualizacji i *Zostaje w starej wersji* (plik językowy
+   magazynu dla zastępowanego szablonu, w języku, którego aktualizacja nie zapisuje – zaznacz ten język albo usuń
+   plik). Gdy sama paczka ma dwa szablony z tą samą przestrzenią nazw (np. stary i nowy plik po aktualizacji Windows),
+   używany jest ten, który magazyn już ma, a drugi jest pominięty. Pliki magazynu, których paczka nie zawiera, zostają.
+   Porównanie odświeża się po każdej zmianie języków lub opcji, a *Zaktualizuj…* czeka na jego wynik.
 5. **Kopia zapasowa.** Przed zapisem cały magazyn centralny jest kopiowany do wskazanego folderu (podfolder
    `PolicyDefinitions-<DC>-<data-godzina>`; domyślnie włączone, folder zapamiętywany wspólnie z folderem kopii GPO).
    Gdy kopia się nie uda, nic nie jest zmieniane.
@@ -240,9 +252,11 @@ są pokazywane. *Eksportuj CSV…* zapisuje porównanie tylko na żądanie. Oba 
    rozmiarami i różnicami, a gdy domena nie ma jeszcze magazynu centralnego – informacja, że od tej chwili edytor
    każdego administratora będzie używał go zamiast szablonów z własnego komputera. Zapis jest transakcją jak przy GPO:
    pliki tymczasowe `*.admng-*.tmp` obok docelowych, sprawdzenie, że nikt nie zmienił magazynu po podglądzie (inaczej
-   konflikt i nic nie jest podmieniane), podmiana; błąd przywraca poprzednie pliki. *Cofnij*
-   przywraca poprzednie pliki (magazyn nie ma numerów wersji). Po aktualizacji otwarte edytory wczytują szablony
-   ponownie.
+   konflikt i nic nie jest podmieniane), podmiana; błąd przywraca poprzednie pliki, a foldery, które przebieg utworzył,
+   znikają. *Cofnij* przywraca poprzednie pliki (magazyn nie ma numerów wersji), a gdy aktualizacja utworzyła magazyn
+   centralny – usuwa go razem z folderami (pusty `PolicyDefinitions` odebrałby edytorom wszystkie szablony). Kopia
+   zapasowa, plan i podgląd działają w tle; w tym czasie okna nie można zamknąć. Po aktualizacji otwarte edytory
+   wczytują szablony ponownie.
 
 ## 9. Kontroler domeny, emulator PDC i SYSVOL
 
@@ -281,7 +295,9 @@ plików.
   uprawnień GPMC i format `msWMI-Parm2` filtrów WMI; GPO utworzone w AD Managerze działa jak utworzone w GPMC
   (`gpresult /h`); `Registry.pol` zapisany przez edytor szablonów jest identyczny z plikiem edytora Microsoftu dla tych
   samych ustawień, a klient stosuje je jak ustawione w GPMC; aktualizacja magazynu centralnego z bieżących paczek
-  Windows 11 / Server 2025, Microsoft 365 Apps, Edge, Chrome i Firefox.
+  Windows 11 / Server 2025, Microsoft 365 Apps, Edge, Chrome i Firefox – w tym to, że instalatory MSI i EXE Microsoftu
+  przechodzą sprawdzenie łańcucha certyfikatu Microsoftu (gdy któryś nie przejdzie: rozpakuj go ręcznie, np. `msiexec
+  /a plik.msi TARGETDIR=C:\Szablony`, i wskaż folder przez *Z folderu…*).
 - Brak: edycji ustawień zabezpieczeń (K4) i preferencji, raportu „co dostanie komputer” (K5), komentarzy do ustawień
   szablonów, filtrów edytora według platformy i słów kluczowych, starych szablonów ADM, tabel migracji i kopiowania GPO
   między domenami, GPO wzorcowych (Starter GPO), porównania GPO z innego okna połączenia, próby filtru WMI na komputerze

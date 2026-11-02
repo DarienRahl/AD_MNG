@@ -1262,6 +1262,44 @@ listed below.
   an update); `PolicyTemplatePackageLoader`, `ILocalPolicyDefinitions` and the App's `IPolicyPackageExtractor` are
   stateless singletons (`ConnectionLifetimes.Shared`, `HostTests`).
 
+**Pre-release review** (before 0.8.0: five areas, every finding checked by a second reviewer that tried to refute it;
+33 distinct findings confirmed, all fixed with tests – commits `2c018a1`, `764b2e9`, `e3e0687` and the integration
+after them):
+
+* *Registry.pol engine.* Disabled writes the policy's own `disabledValue` / `disabledList` / `enabledList` after the
+  elements' deletions, so an element sharing those values no longer turns them into `**del.` or forgets them (Citrix
+  lockdowns, the IE zone templates). Lists take only string values no loaded policy owns (`ownedByAny`, the editor's
+  map of every policy's values); an additive list keeps other policies' values and values of other types in its key
+  (WER consent). A policy with a value name whose value the file does not mention reads as not configured; element
+  deletions count for Disabled only when no element value is set (Edge redirection channels); an enum item whose
+  value list deletes the enum's own value reads back (BITS "Custom"); a value set again moves after a later
+  `**delvals.` / `**DeleteValues` / ancestor `**DeleteKeys` of another tool.
+* *Parsing.* Number boxes default to the schema's `defaultValue` 1; a repeated element id keeps the first definition
+  (BIS-F); control characters in keys and value names and NUL in string values make a template unreadable (the
+  Registry.pol writer would refuse them later); categories nest at most `MaxCategoryDepth` (32) levels
+  (`CategoryTooDeep`, no stack overflow on chains through files).
+* *Pipeline.* A cancel during a transaction's switch records, audits and undoes every step the transaction decided
+  (also GPO saves – the mechanism is K2's). The central store transaction removes the folders it created when it does
+  not commit and the folders its deletes empty, the store included
+  (`ISysvolWriteConnection.DeleteEmptyPolicyDefinitionsFolderAsync`): undoing the creation of a store removes it. The
+  PowerShell equivalent no longer removes a value it has just set when a policy toggles between Enabled and Disabled.
+  The comparison keeps the store's template when the package holds two of one namespace, lists the store's language
+  files a replaced template leaves at the old revision (`OutdatedLanguage`, counted as skipped; the window also
+  chooses the languages the store already has) and keeps no content of skipped files.
+* *Packages.* See *Trust* and *Package limits* above (Microsoft root chain policy and exact organization, a private
+  copy held open while verified and unpacked, aggregate limits, a ZIP opened once, unreadable entries as null).
+* *Editor and update window.* The selected policy stays editable after a reload; closing a tab or window with
+  unsaved edits asks (`GroupPolicyDocumentBase.HasUnsavedChanges` / `CanCloseAsync`); invalid options block the save;
+  the editor is read-only while saving and recognizes its own saved bytes after the reload (no false conflict); a
+  reload of the templates is not lost to a superseding load; a set built with failed reads is not cached and a load
+  started before `Invalidate()` does not refill the cache; template issues give localized reasons; the state radios
+  no longer group across tabs. In the update window comparisons are serialized (`IsComparing`, only the latest result
+  for the shown package counts, a failed one leaves nothing to update), the backup runs off the UI thread and the
+  window cannot be closed while it updates, one ADMX file loads only that template with its ADML from the culture
+  folders beside it, skipped package files are listed, a release description that is not JSON or a broken body is a
+  failed download, downloads use the operator's credentials for the system proxy and a per-request timeout, and a
+  package over the limits is *too large*.
+
 **Not built (follow-ups):** comments of settings (`.cmtx`), the editor's filter options (platform, keywords,
 requirements), legacy ADM templates, the vendor catalogue beyond Edge/Chrome/Firefox, a GPO's Registry.pol byte-identity
 check against the Microsoft editor (no pilot fixtures yet).
@@ -1274,13 +1312,15 @@ validation, save through the preview, conflict, discard) and the update window (
 templates, the three downloads through a fake HTTP handler – pinned hosts, redirects, hash, failures –, languages,
 comparison, backup, update through the preview) on the fake directory and `FakeSysvol`. App (Windows CI only): editor
 saved through the real preview window, the update window registered and rendered, an update from a folder through the
-real preview window, smoke test, screenshots `29-administrative-templates.png` and `30-central-store-update.png`. Lab (`AdministrativeTemplatesLabTests`, `SambaTool` collection): a GPO's `Registry.pol`
-files saved through the pipeline over smbclient, read back by our engine and by Samba's own PReg parser (`samba-tool
+real preview window, smoke test, screenshots `29-administrative-templates.png` and `30-central-store-update.png`.
+Lab (`AdministrativeTemplatesLabTests`, `SambaTool` collection): a GPO's `Registry.pol` files saved through the pipeline over smbclient, read back by our engine and by Samba's own PReg parser (`samba-tool
 gpo show`), extension names and versions checked, undone; a central store created or extended (this run's own
 namespace), read like the editor reads it, backed up, replaced and undone, the store's folders removed when the lab had
 none. Templates in all tests are the synthetic Polish samples (`SampleAdministrativeTemplates`), never vendor files.
 
-**Not verified here:** the vendor downloads against the real servers (the sandbox's proxy blocks the vendors' hosts:
+**Not verified here:** whether the current Windows ADMX MSI and Microsoft 365 Apps EXE pass the Microsoft root chain
+policy (an installer signed through another Microsoft root would be refused – the operator then unpacks it by hand and
+loads the folder); the vendor downloads against the real servers (the sandbox's proxy blocks the vendors' hosts:
 the formats were taken from the vendors' documentation and tested with prepared responses), MSI/EXE/CAB extraction and
 `WinVerifyTrust` (Windows only), the WPF views (CI on Windows), and the pilot items: `Registry.pol` identical to the
 Microsoft editor's for the same settings, `gpresult /h` on a client, updates from the current Windows 11 / Server 2025,
