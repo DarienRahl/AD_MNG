@@ -133,7 +133,9 @@ public sealed class OutlookSession : IOutlookSession
         return Observed(_worker.RunAsync(() => _campaigns.Find(since), cancellationToken));
     }
 
-    /// <summary>The voting responses of one campaign.</summary>
+    /// <summary>The voting responses of one campaign. The sender's own "Do" of a BCC message is left out: the address of any
+    /// account of the profile or its current user (a run sends from the account chosen then, which need not be the current
+    /// user's).</summary>
     /// <exception cref="ArgumentException">Not a campaign id (1–64 letters, digits or '-').</exception>
     /// <exception cref="OutlookException">The search failed (classified).</exception>
     public Task<IReadOnlyList<OutlookVoteResponse>> ReadResponsesAsync(string campaignId, CancellationToken cancellationToken)
@@ -144,7 +146,8 @@ public sealed class OutlookSession : IOutlookSession
         }
 
         ThrowIfDisposed();
-        return Observed(_worker.RunAsync(() => _campaigns.Responses(campaignId, Profile.CurrentUserAddress), cancellationToken));
+        var own = OwnAddresses(Profile);
+        return Observed(_worker.RunAsync(() => _campaigns.Responses(campaignId, own), cancellationToken));
     }
 
     /// <summary>Lets the calls already queued finish, releases the application object and ends the worker thread. Outlook
@@ -176,6 +179,14 @@ public sealed class OutlookSession : IOutlookSession
 
     private static bool HasRecipient(OutlookMessage message) =>
         message.To.Concat(message.Cc).Concat(message.Bcc).Any(address => !string.IsNullOrWhiteSpace(address));
+
+    /// <summary>The SMTP addresses of the profile's accounts and of its current user (case-insensitive).</summary>
+    private static HashSet<string> OwnAddresses(OutlookProfile profile) =>
+        new(
+            profile.Accounts.Select(account => account.SmtpAddress).Append(profile.CurrentUserAddress)
+                .Where(OutlookProfileReader.IsAddress)
+                .Select(address => address!.Trim()),
+            StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The signature names, or none: the folder never fails the diagnostics (it is listed in the background, where
     /// a failure would go unobserved).</summary>

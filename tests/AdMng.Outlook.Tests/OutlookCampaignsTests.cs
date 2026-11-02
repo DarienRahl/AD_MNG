@@ -151,6 +151,27 @@ public class OutlookCampaignsTests
     }
 
     [Fact]
+    public async Task ReadResponsesAsync_InABccMessageSentFromAnotherAccountOfTheProfile_LeavesOutItsToRecipient()
+    {
+        // The "Do" of a BCC message is the address of the account the run was sent from, not necessarily the current user.
+        await using var harness = new OutlookHarness();
+        var archive = Vote(harness, "/o=ExchangeLabs/cn=archiwum", 1, string.Empty, Never);
+        archive.Entry = new AddressEntry(harness.Application) { Exchange = new ExchangeUser { PrimarySmtpAddress = OutlookHarness.Archive } };
+        Sent(harness, CampaignA, "2026-10-01 10:00", "Komunikat sekretariatu", string.Empty,
+            Vote(harness, "SEKRETARIAT.LODZ@contoso.test", 1, string.Empty, Never),
+            Vote(harness, "anna.nowak@contoso.test", 3, "Tak", "2026-10-02 09:00"));
+        Sent(harness, CampaignA, "2026-10-01 10:01", "Komunikat archiwum", string.Empty,
+            archive,
+            Vote(harness, "jan.nowak@contoso.test", 3, string.Empty, Never));
+        var session = await harness.ConnectAsync();
+
+        var responses = await session.ReadResponsesAsync(CampaignA, Ct);
+
+        Assert.Equal(["anna.nowak@contoso.test", "jan.nowak@contoso.test"], responses.Select(response => response.Recipient));
+        Assert.Equal("Tak", responses[0].Response);
+    }
+
+    [Fact]
     public async Task ReadResponsesAsync_ExchangeRecipients_GetTheirSmtpAddress()
     {
         await using var harness = new OutlookHarness();

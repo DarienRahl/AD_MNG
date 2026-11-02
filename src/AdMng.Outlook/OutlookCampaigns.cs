@@ -80,12 +80,14 @@ internal sealed class OutlookCampaigns
     /// <summary>
     /// The responses of one campaign: per recipient of each item the vote (<c>AutoResponse</c>, null when none), when it
     /// came (<c>TrackingStatusTime</c>; null without a vote or with Outlook's "no date"), the item's <c>SentOn</c>, subject and
-    /// keys. In a Bcc message the To recipient that is the sender's own mailbox is left out.
+    /// keys. In a Bcc message a To recipient that is one of the sender's own mailboxes (<paramref name="ownAddresses"/>:
+    /// the accounts of the profile and its current user) is left out.
     /// </summary>
     /// <exception cref="ArgumentException">The id is not a campaign id.</exception>
     /// <exception cref="OutlookException">The folder or the search failed (classified, step responses).</exception>
-    public IReadOnlyList<OutlookVoteResponse> Responses(string campaignId, string? ownAddress)
+    public IReadOnlyList<OutlookVoteResponse> Responses(string campaignId, IReadOnlySet<string> ownAddresses)
     {
+        ArgumentNullException.ThrowIfNull(ownAddresses);
         if (!OutlookMailBuilder.IsCampaignId(campaignId))
         {
             throw new ArgumentException("Not a campaign id.", nameof(campaignId));
@@ -107,7 +109,7 @@ internal sealed class OutlookCampaigns
                 var subject = OutlookProfileReader.Get(() => (string?)((dynamic)item.Item).Subject);
                 IReadOnlyList<string> keys = ReadString(item.Accessor, MapiProperties.Keys)
                     .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                responses.AddRange(Recipients(item.Item, ownAddress, sentOn, subject, keys, scope));
+                responses.AddRange(Recipients(item.Item, ownAddresses, sentOn, subject, keys, scope));
             }
 
             return responses;
@@ -170,7 +172,7 @@ internal sealed class OutlookCampaigns
         return items;
     }
 
-    private List<OutlookVoteResponse> Recipients(object item, string? ownAddress, DateTimeOffset sentOn, string subject, IReadOnlyList<string> keys, ComScope scope)
+    private List<OutlookVoteResponse> Recipients(object item, IReadOnlySet<string> ownAddresses, DateTimeOffset sentOn, string subject, IReadOnlyList<string> keys, ComScope scope)
     {
         dynamic recipients = scope.Track((object)((dynamic)item).Recipients);
         var count = OutlookProfileReader.GetInt(() => (int)recipients.Count);
@@ -205,8 +207,7 @@ internal sealed class OutlookCampaigns
         return
         [
             .. rows
-                .Where(row => !(hasBcc && row.Type == OutlookConstants.OlTo && ownAddress is not null
-                    && string.Equals(row.Address, ownAddress, StringComparison.OrdinalIgnoreCase)))
+                .Where(row => !(hasBcc && row.Type == OutlookConstants.OlTo && ownAddresses.Contains(row.Address)))
                 .Select(row => new OutlookVoteResponse(row.Address, row.Response, row.At, sentOn, subject, keys)),
         ];
     }
