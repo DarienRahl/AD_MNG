@@ -150,8 +150,9 @@ public sealed class OutlookSession : IOutlookSession
         return Observed(_worker.RunAsync(() => _campaigns.Responses(campaignId, own), cancellationToken));
     }
 
-    /// <summary>Lets the calls already queued finish, releases the application object and ends the worker thread. Outlook
-    /// itself keeps running.</summary>
+    /// <summary>Lets the calls already queued finish, releases the application object and ends the worker thread. Outlook is
+    /// never quit: one the user runs goes on, one the client started is kept running by the client (see
+    /// <see cref="OutlookClient"/>).</summary>
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)

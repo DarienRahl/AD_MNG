@@ -76,8 +76,60 @@ public class OutlookClientTests
         var session = await harness.ConnectAsync();
 
         Assert.Equal(1, harness.Provider.AttachCalls);
-        Assert.Equal(1, harness.Provider.StartCalls);
+        Assert.Equal(session.Worker.ThreadId, harness.Provider.Threads[1]);
         Assert.True(session.IsConnected);
+    }
+
+    [Fact]
+    public async Task ConnectAsync_AnOutlookItStarted_IsKeptRunning_UntilTheClientIsDisposed()
+    {
+        // Started by automation, without a window, Outlook exits as soon as its last reference is released – with the items
+        // sent last still in the Outbox. The client keeps one more reference, on a thread of its own, for the life of the app.
+        await using var harness = new OutlookHarness();
+        harness.Provider.Running = false;
+
+        var session = await harness.ConnectAsync();
+        await session.DisposeAsync();
+
+        Assert.Equal(1, harness.ApplicationReferences);
+        Assert.Equal(2, harness.Provider.StartCalls);
+        Assert.NotEqual(session.Worker.ThreadId, harness.Provider.Threads[^1]);
+
+        // A later connection attaches to the Outlook kept running; the client still holds one reference.
+        var next = await harness.ConnectAsync();
+        await next.DisposeAsync();
+        Assert.Equal(2, harness.Provider.StartCalls);
+        Assert.Equal(1, harness.ApplicationReferences);
+
+        await harness.Client.DisposeAsync();
+        await harness.Client.DisposeAsync();
+        Assert.Equal(0, harness.ApplicationReferences);
+    }
+
+    [Fact]
+    public async Task ConnectAsync_StartingOutlookAgain_RenewsTheReferenceKept()
+    {
+        // Outlook was closed (the reference kept is dead) and the next connection started it again.
+        await using var harness = new OutlookHarness();
+        harness.Provider.Running = false;
+        await (await harness.ConnectAsync()).DisposeAsync();
+        harness.Provider.Running = false;
+
+        await (await harness.ConnectAsync()).DisposeAsync();
+
+        Assert.Equal(4, harness.Provider.StartCalls);
+        Assert.Equal(1, harness.ApplicationReferences);
+    }
+
+    [Fact]
+    public async Task ConnectAsync_AnOutlookTheUserRuns_IsNotKeptByTheClient()
+    {
+        await using var harness = new OutlookHarness();
+
+        await (await harness.ConnectAsync()).DisposeAsync();
+
+        Assert.Equal(0, harness.Provider.StartCalls);
+        Assert.Equal(0, harness.ApplicationReferences);
     }
 
     [Fact]

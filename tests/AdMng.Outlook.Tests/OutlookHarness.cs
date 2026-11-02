@@ -76,6 +76,11 @@ internal sealed class OutlookHarness : IAsyncDisposable
 
     public static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    /// <summary>The references to the application object AD Manager holds: handed out by the provider, not released yet. An
+    /// Outlook started by automation exits when this reaches 0.</summary>
+    public int ApplicationReferences =>
+        Provider.HandedOut - Log.Released.Count(value => ReferenceEquals(value, Application));
+
     /// <summary>A PNG of the U1c samples as a message image.</summary>
     public static MessageImage Image(byte seed = 0x40, string fileName = "logo.png") =>
         MessageImage.Create(MessageImageSamples.Png(seed: seed), fileName);
@@ -131,6 +136,7 @@ internal sealed class OutlookHarness : IAsyncDisposable
             await session.DisposeAsync();
         }
 
+        await Client.DisposeAsync();
         try
         {
             Directory.Delete(Root, recursive: true);

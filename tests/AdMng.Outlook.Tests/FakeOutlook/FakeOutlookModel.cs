@@ -736,12 +736,16 @@ internal sealed class FakeApplicationProvider(Application application) : IOutloo
 {
     private readonly Queue<Exception> _attachFailures = new();
     private readonly Queue<Exception> _startFailures = new();
+    private int _handedOut;
 
     public Application Application { get; } = application;
 
     public int AttachCalls { get; private set; }
 
     public int StartCalls { get; private set; }
+
+    /// <summary>The references to <see cref="Application"/> handed out (attach or start that succeeded).</summary>
+    public int HandedOut => Volatile.Read(ref _handedOut);
 
     public List<int> Threads { get; } = [];
 
@@ -784,9 +788,16 @@ internal sealed class FakeApplicationProvider(Application application) : IOutloo
             throw failure;
         }
 
-        return Running ? Application : throw new COMException("Operation unavailable.", unchecked((int)0x800401E3));
+        if (!Running)
+        {
+            throw new COMException("Operation unavailable.", unchecked((int)0x800401E3));
+        }
+
+        Interlocked.Increment(ref _handedOut);
+        return Application;
     }
 
+    /// <summary>Starts Outlook – or, as Outlook runs once per user, returns the running one.</summary>
     public object Start()
     {
         StartCalls++;
@@ -797,6 +808,7 @@ internal sealed class FakeApplicationProvider(Application application) : IOutloo
         }
 
         Running = true;
+        Interlocked.Increment(ref _handedOut);
         return Application;
     }
 }

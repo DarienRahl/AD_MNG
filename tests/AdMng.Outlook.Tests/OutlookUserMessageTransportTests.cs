@@ -305,6 +305,27 @@ public class OutlookUserMessageTransportTests
     }
 
     [Fact]
+    public async Task EndToEnd_AnOutlookTheRunStarted_IsStillReferencedAfterTheRun()
+    {
+        // Nobody had Outlook open: the run starts it. Released with the last session – after the run, or when the dispatcher
+        // reconnects after a rejected message – it would exit with the messages sent last still in the Outbox.
+        await using var harness = new OutlookHarness();
+        harness.Provider.Running = false;
+        harness.Application.Unresolvable.Add("zly-adres@contoso");
+        var time = new FakeTimeProvider(new DateTimeOffset(2026, 10, 28, 9, 0, 0, TimeSpan.Zero));
+        var transport = new OutlookUserMessageTransport(harness.Client);
+
+        var results = await Dispatcher(time).SendAsync(
+            transport, [Planned(0, Message()), Planned(1, Message("zly-adres@contoso")), Planned(2, Message("jan.nowak@contoso.test"))], Limiter(time), null, null, Ct);
+
+        Assert.Equal(
+            [UserMessageSendStatus.Accepted, UserMessageSendStatus.Failed, UserMessageSendStatus.Accepted],
+            results.Select(result => result.Status));
+        Assert.Equal(1, harness.ApplicationReferences);
+        Assert.Equal(2, harness.Application.Created.Count(item => item.WasSent));
+    }
+
+    [Fact]
     public void Factory_CreatesTransportsOfTheClient()
     {
         var client = new FakeOutlookClient();
