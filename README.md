@@ -217,7 +217,7 @@ flowchart TB
 | U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog, korespondencja seryjna przez klasycznego Outlooka (pliki z adresami, odbiorcy z AD, pola, podgląd, test, dziennik „już wysłane”) i zapytania do właścicieli skrzynek współdzielonych | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U1c – wiadomości sformatowane wklejone z Outlooka z obrazami osadzonymi, U1d – zwroty grzecznościowe z tytułem i płcią, U2 – przegląd stanu kont, U4 – uprawnienia kont: U4a z grup i ustawień kont z kreatorem filtrów, U4b z delegowań w ACL i U4c z uprawnień lokalnych z GPO: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U5 – Korespondencja (Outlook) i zapytania do właścicieli skrzynek: 🟡 zaimplementowane, czekają na pilotaż z klasycznym Outlookiem i Exchange; U3: ⬜) |
 | C | Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint (ścieżka równoległa) | Logowanie kontem administratora lub Czytelnika globalnego z automatycznym wykrywaniem ról (także kwalifikujących się w PIM) i dopasowaniem dostępnych funkcji; użytkownicy, grupy, licencje, MFA i logowania w Entra ID, skrzynki i uprawnienia w Exchange Online, Teams, SharePoint i OneDrive, powiązanie konta AD z kontem w Entra ID; Microsoft Graph i moduły PowerShell | ⬜ zaplanowane |
 | T | Współpraca zespołu (ścieżka równoległa) | Kilku administratorów na różnych komputerach pracuje razem przez usługę AdMng Watchdog: panel „Wspólne” z obiektami przypiętymi dla zespołu (z notatką, autorem, „Przekaż do…”) i notatki do obiektów widoczne dla wszystkich przy koncie, grupie czy komputerze, odświeżane na żywo | ⬜ zaplanowane |
-| K | Komputery i zasady grupy (GPO) (ścieżka równoległa) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer” | 🟡 (K1 – komputery i K2 – GPO w drzewie: zaimplementowane, czekają na pilotaż na Windows Server AD; K3–K5: ⬜) |
+| K | Komputery i zasady grupy (GPO) (ścieżka równoległa) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer” | 🟡 (K1 – komputery, K2 – GPO w drzewie i K3 – edytor ADMX z aktualizacją magazynu centralnego: zaimplementowane, czekają na pilotaż na Windows Server AD; K4–K5: ⬜) |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -1328,13 +1328,13 @@ Watchdog (połączenie z usługą), wielu połączeń naraz i panelu szczegół�
 
 </details>
 
-### Ścieżka K – Komputery i zasady grupy (GPO) 🟡 (K1 i K2: 🟡)
+### Ścieżka K – Komputery i zasady grupy (GPO) 🟡 (K1, K2 i K3: 🟡)
 
 **Cel:** pełna praca z komputerami w AD i z zasadami grupy bez GPMC i edytora GPO: inwentarz i raporty komputerów,
 cykl życia ich kont, zdalne akcje, a dla GPO – tworzenie i łączenie z OU, edycja ustawień z **najnowszych szablonów
 ADMX**, ustawienia zabezpieczeń i raport „co dostanie komputer”. Każda zmiana – w AD i w SYSVOL – przez podgląd planu
-zmian, z możliwością cofnięcia. Ścieżka równoległa: K1 (komputery) i K2 (GPO w drzewie) mają pierwszą wersję, K3–K5
-są zaprojektowane; zastępuje „polityki ADMX” z fazy 6. Zmiany GPO od razu widzi AdMng Watchdog (treść GPO „było → jest”).
+zmian, z możliwością cofnięcia. Ścieżka równoległa: K1 (komputery), K2 (GPO w drzewie) i K3 (edytor ADMX z magazynem
+centralnym) mają pierwszą wersję, K4–K5 są zaprojektowane; zastępuje „polityki ADMX” z fazy 6. Zmiany GPO od razu widzi AdMng Watchdog (treść GPO „było → jest”).
 
 <details>
 <summary><b>Szczegóły ścieżki K</b> – komputery, GPO w drzewie, edytor ADMX, zabezpieczenia, raport, etapy</summary>
@@ -1364,14 +1364,19 @@ są zaprojektowane; zastępuje „polityki ADMX” z fazy 6. Zmiany GPO od razu 
 
 #### Edytor szablonów administracyjnych (ADMX)
 
-- Drzewo zasad komputera i użytkownika z szablonów ADMX/ADML **po polsku i angielsku**, wyszukiwanie, filtr „tylko
-  skonfigurowane”, opis zasady, obsługiwane wersje Windows; *Włączone / Wyłączone / Nieskonfigurowane* z opcjami
-  (listy, liczby, teksty); zapis do `Registry.pol` i podbicie wersji GPO w AD i w `GPT.INI` jednym planem zmian.
-- **Najnowsze szablony:** edytor czyta magazyn centralny w SYSVOL (`PolicyDefinitions`); *Zaktualizuj szablony* pobiera
-  oficjalne paczki producentów, sprawdza podpis, pokazuje różnice (nowe, zmienione i usunięte zasady oraz pliki) i po
-  potwierdzeniu zapisuje do magazynu centralnego. Produkty: **Windows 11 / Server 2025**, **Microsoft Edge**,
-  **Microsoft 365 Apps (Office)**, **Google Chrome**, **Mozilla Firefox** oraz inne przydatne: **OneDrive**,
-  **Adobe Acrobat / Reader**, **Zoom**, **FSLogix** i **Citrix Workspace**; dowolny własny szablon ADMX z pliku.
+- Drzewo zasad komputera i użytkownika z szablonów ADMX/ADML **po polsku i angielsku**, wyszukiwanie, filtry „tylko
+  skonfigurowane” i „tylko zmienione”, opis zasady, obsługiwane wersje Windows; *Włączone / Wyłączone /
+  Nieskonfigurowane* z opcjami (listy, liczby, teksty); zapis do `Registry.pol` według reguł szablonu (jak edytor
+  Microsoftu), nazw rozszerzeń i wersji GPO w AD i w `GPT.INI` jednym planem zmian z PowerShell
+  (`Set-GPRegistryValue`) i cofnięciem; wpisy rejestru spoza szablonów widoczne osobno.
+- **Najnowsze szablony:** edytor czyta magazyn centralny w SYSVOL (`PolicyDefinitions`; bez niego – szablony tego
+  komputera). *Zaktualizuj szablony* wczytuje paczki producentów z pliku – **Windows 11 / Server 2025** (MSI),
+  **Microsoft 365 Apps** (EXE), **Microsoft Edge** (CAB/ZIP), **Google Chrome** i **Mozilla Firefox** (ZIP), dowolne
+  ADMX z folderem językowym (np. **OneDrive**, **Adobe Acrobat / Reader**, **Zoom**, **FSLogix**, **Citrix
+  Workspace**) – a szablony **Edge, Chrome i Firefox pobiera sam** z adresów producentów (HTTPS, suma kontrolna, gdy
+  producent ją publikuje). Sprawdza podpis instalatorów, pokazuje różnice (nowe, zmienione i pominięte pliki, liczba
+  dodanych i usuniętych zasad, kolizje przestrzeni nazw), robi kopię magazynu do wskazanego folderu i zapisuje przez
+  podgląd planu zmian.
 
 #### Ustawienia zabezpieczeń
 
@@ -1404,7 +1409,13 @@ są zaprojektowane; zastępuje „polityki ADMX” z fazy 6. Zmiany GPO od razu 
   zabezpieczeń i delegowanie GPO zmieniają uprawnienia tą samą akcją planu zmian (z audytem tylko tego, co naprawdę
   zmieniło listę ACL, i cofnięciem). Testy jednostkowe i laboratorium Samba przechodzą na połączonej wersji; okna WPF
   obu etapów sprawdza CI na Windows, resztę – pilotaż. Próba filtru WMI na komputerze (K2 + zdalne akcje K1) – później.
-- **K3** – edytor ADMX i aktualizacja magazynu centralnego (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne).
+- 🟡 **K3** – edytor ADMX i aktualizacja magazynu centralnego (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i
+  inne). Pierwsza wersja gotowa: karta *Szablony administracyjne* GPO (drzewo kategorii, wyszukiwanie, edycja
+  ustawień z opcjami, stan *Niejednoznaczne*, zapis `Registry.pol` z wykrywaniem konfliktu) i okno *Aktualizacja
+  szablonów ADMX* (paczki z pliku lub folderu, szablony tego komputera, pobieranie Edge, Chrome i Firefox, zaufanie,
+  języki, porównanie, kopia magazynu, zapis transakcją z cofnięciem). Sprawdzone na fałszywym katalogu i syntetycznych
+  szablonach; okna WPF – CI na Windows; paczki producentów i zgodność `Registry.pol` z edytorem Microsoftu – pilotaż.
+  Opis: [ZASADY-GRUPY.md, rozdziały 7 i 8](docs/ZASADY-GRUPY.md#7-szablony-administracyjne-admx).
 - **K4** – ustawienia zabezpieczeń.
 - **K5** – raport „co dostanie komputer”.
 
@@ -1537,9 +1548,14 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   strony, maski poziomów uprawnień GPMC, format zapytań filtrów WMI i działanie GPO utworzonego w AD Managerze na
   kliencie (`gpresult /h`) potwierdzi pilotaż. Zmiany GPO idą na kontroler okna – gdy nie jest nim emulator PDC, karty
   ostrzegają (przełączenie tylko ręczne). Uprawnienia operatora nie są sprawdzane z góry (brak prawa = błąd w wynikach
-  podglądu, pliki SYSVOL wracają do stanu sprzed zmiany). Ustawienia GPO są tylko do odczytu (edycja: K3, K4); brak tabel
-  migracji, kopiowania między domenami, GPO wzorcowych, porównania z GPO innego okna i próby filtru WMI na komputerze.
-  Szczegóły: [ZASADY-GRUPY.md, rozdział 9](docs/ZASADY-GRUPY.md#9-ograniczenia-i-pilotaż).
+  podglądu, pliki SYSVOL wracają do stanu sprzed zmiany). Ustawienia zabezpieczeń GPO są tylko do odczytu (edycja: K4);
+  brak tabel migracji, kopiowania między domenami, GPO wzorcowych, porównania z GPO innego okna i próby filtru WMI na
+  komputerze. Szczegóły: [ZASADY-GRUPY.md, rozdział 11](docs/ZASADY-GRUPY.md#11-ograniczenia-i-pilotaż).
+- **Szablony administracyjne (K3)** – sprawdzone na fałszywym katalogu i syntetycznych szablonach; pobieranie szablonów
+  Edge, Chrome i Firefox – na odpowiedziach przygotowanych według formatów producentów (bez dostępu do ich serwerów w
+  testach), rozpakowywanie MSI, EXE i CAB oraz sprawdzanie podpisu działa tylko w Windows. Zgodność `Registry.pol` z
+  plikiem edytora Microsoftu i działanie na kliencie potwierdzi pilotaż. Brak komentarzy do ustawień, filtrów według
+  platformy i słów kluczowych oraz starych szablonów ADM.
 - **Filtr „Puste grupy”** sprawdza atrybut `member` i pomija domyślne grupy podstawowe domeny (Domain Users, Domain
   Guests, Domain Computers, Domain Controllers, Read-only Domain Controllers – po SID domeny); własna grupa, która jest
   grupą podstawową (`primaryGroupID`) części kont i nie ma innych członków, nadal może być pokazywana jako pusta.

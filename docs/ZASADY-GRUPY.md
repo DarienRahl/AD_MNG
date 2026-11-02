@@ -7,11 +7,16 @@ WMI, delegowanie, kopie zapasowe zgodne z GPMC (przywracanie i import ustawień)
 
 **Każda zmiana – w AD i w SYSVOL – przechodzi przez podgląd planu zmian** (zasada 5): najpierw widać, co się zmieni
 (atrybuty, pliki z różnicami, wersje GPO, uprawnienia folderu) i odpowiednik w PowerShell, potem *Wykonaj*, wynik i
-*Cofnij*. Edycji samych ustawień (szablony ADMX, ustawienia zabezpieczeń) K2 jeszcze nie ma – to etapy K3 i K4; karta
-*Ustawienia* pokazuje je tylko do odczytu.
+*Cofnij*.
 
-Specyfikacja dla programistów (po angielsku): [dev/k-computers-and-gpo.md](dev/k-computers-and-gpo.md), rozdziały 3 i
-5 oraz *K2 as built* (15).
+Od etapu **K3** ustawienia **szablonów administracyjnych (ADMX)** edytuje się w AD Managerze – jak w *Edytorze
+zarządzania zasadami grupy* Microsoftu – a **magazyn centralny** szablonów domeny aktualizuje się z paczek producentów
+(Windows, Microsoft 365 Apps, Edge, Chrome, Firefox, własne ADMX) albo pobraniem najnowszych szablonów Edge, Chrome i
+Firefox prosto od producenta (rozdziały 7 i 8). Ustawień zabezpieczeń (K4) jeszcze nie ma – karta *Ustawienia* pokazuje
+je tylko do odczytu.
+
+Specyfikacja dla programistów (po angielsku): [dev/k-computers-and-gpo.md](dev/k-computers-and-gpo.md), rozdziały 3, 5
+i 6 oraz *K2 as built* (15) i *K3 as built* (17).
 
 ---
 
@@ -25,6 +30,8 @@ Specyfikacja dla programistów (po angielsku): [dev/k-computers-and-gpo.md](dev/
 | Menu kontekstowe domeny i OU w drzewie | te same polecenia dla klikniętego kontenera (lokacja: bez blokowania dziedziczenia) |
 | Menu kontekstowe GPO w drzewie | *Otwórz*, *Stan GPO*, *Kopia zapasowa…*, *Kopiuj…*, *Zmień nazwę*, *Usuń…* (niedostępne dla dwóch domyślnych GPO), *Porównaj z…*, *Historia w Watchdogu* |
 | Lista obiektów | przycisk **Zasady grupy** na pasku (dla domeny i OU, także dla jednej zaznaczonej OU) i pozycja w menu kontekstowym |
+| Karta *Obiekty zasad grupy* i karta GPO | **Edytuj szablony administracyjne** (pasek, menu kontekstowe listy GPO, nagłówek karty GPO i zakładka *Ustawienia*) – edytor ustawień ADMX, rozdział 7 |
+| Karta *Obiekty zasad grupy* i edytor szablonów | **Zaktualizuj szablony…** – aktualizacja magazynu centralnego szablonów ADMX, rozdział 8 |
 | Paleta poleceń (Ctrl+K) | `gpo.objects`, `gpo.wmiFilters`, `gpo.containerPolicies`, `gpo.newLinked`, `gpo.linkExisting`, `gpo.blockInheritance`, `view.groupPolicyNodes` |
 
 Każdy widok GPO otwiera się jako karta obok list obiektów (jedna karta na cel – drugie kliknięcie wraca do niej).
@@ -36,7 +43,8 @@ Każdy widok GPO otwiera się jako karta obok list obiektów (jedna karta na cel
 Wszystkie GPO domeny: nazwa, stan (włączone / wyłączona część użytkownika / komputera / wszystko), filtr WMI,
 połączenia, wersje w AD i w `GPT.INI` (znacznik przy niezgodności), właściciel, data zmiany. Wybór wielu wierszy.
 Polecenia: *Nowe…*, *Kopiuj…*, *Zmień nazwę*, *Usuń…*, *Kopia zapasowa…* (zaznaczone GPO), *Przywróć z kopii
-zapasowej…*, *Importuj ustawienia…*, *Porównaj* (dokładnie dwa zaznaczone), *Historia w Watchdogu*.
+zapasowej…*, *Importuj ustawienia…*, *Porównaj* (dokładnie dwa zaznaczone), *Historia w Watchdogu*, *Edytuj szablony
+administracyjne* (jedno zaznaczone GPO) i *Zaktualizuj szablony…*.
 
 ### Jeden obiekt GPO (pięć zakładek)
 
@@ -47,7 +55,8 @@ zapasowej…*, *Importuj ustawienia…*, *Porównaj* (dokładnie dwa zaznaczone)
   (włączone, wyłączone ustawienia użytkownika, komputera, wszystkie).
 - **Ustawienia** – ustawienia z plików GPO (szablon zabezpieczeń, `audit.csv`, `Registry.pol`, preferencje, skrypty,
   komentarz) w postaci „Komputer / Zabezpieczenia / …”, tylko do odczytu; hasła preferencji (`cpassword`) i wartości
-  rejestru wyglądające na hasła są zamaskowane.
+  rejestru wyglądające na hasła są zamaskowane. Ustawienia `Registry.pol` zmienia się w edytorze szablonów
+  administracyjnych (przycisk *Edytuj szablony administracyjne*, rozdział 7).
 - **Delegowanie** – kto ma jaki poziom uprawnień GPMC: *Odczyt*, *Odczyt (z filtrowania zabezpieczeń)*, *Edycja
   ustawień*, *Edycja ustawień, usuwanie, modyfikowanie zabezpieczeń*, *Niestandardowe*; *Dodaj…*, *Zmień poziom*,
   *Usuń*. Wpisy odziedziczone są tylko pokazywane.
@@ -156,7 +165,79 @@ podstawowe (stan, wersje, filtr WMI, filtrowanie zabezpieczeń, delegowanie, po�
 plików (takie same, różne, tylko w A, tylko w B). Domyślnie **tylko różnice**. Wartości zamaskowane (hasła) nigdy nie
 są pokazywane. *Eksportuj CSV…* zapisuje porównanie tylko na żądanie. Oba GPO pochodzą z domeny okna.
 
-## 7. Kontroler domeny, emulator PDC i SYSVOL
+## 7. Szablony administracyjne (ADMX)
+
+*Edytuj szablony administracyjne* otwiera kartę **Szablony administracyjne – <GPO>**: ustawienia z plików
+`Registry.pol` GPO opisane szablonami ADMX, jak w *Edytorze zarządzania zasadami grupy* Microsoftu.
+
+- **Skąd szablony.** Z magazynu centralnego domeny na kontrolerze okna
+  (`\\<DC>\SYSVOL\<domena>\Policies\PolicyDefinitions`). Gdy domena go nie ma – z szablonów tego komputera
+  (`%WINDIR%\PolicyDefinitions`), tak jak edytor Microsoftu. Pasek nad drzewem mówi, z których szablonów korzysta karta i
+  ile plików wczytano; *Wczytaj szablony ponownie* czyta je od nowa. Nazwy i opisy są w języku programu (polskie z plików
+  `pl-PL`, brakujące z `en-US`). Problemy z szablonami – nieczytelny plik, brak pliku językowego, dwa pliki z tą samą
+  przestrzenią nazw (np. stara i nowa wersja szablonu Edge; używany jest pierwszy), nieznana kategoria – są wymienione
+  pod *Problemy z szablonami*; uszkodzony plik nie blokuje pozostałych.
+- **Drzewo i lista.** *Konfiguracja komputera* i *Konfiguracja użytkownika* z kategoriami szablonów, *Wszystkie
+  ustawienia* oraz *Ustawienia rejestru spoza szablonów* – wpisy `Registry.pol`, których nie opisuje żaden wczytany
+  szablon (zapisane innym narzędziem albo przez szablon, którego brak w magazynie); można je tylko usunąć. Lista
+  ustawień: nazwa, stan (*Nie skonfigurowano*, *Włączone*, *Wyłączone*, *Niejednoznaczne*), kategoria; wyszukiwanie w
+  nazwach, opisach i wartościach rejestru; filtry *Tylko skonfigurowane* i *Tylko zmienione*.
+- **Edycja ustawienia.** *Nie skonfigurowano* / *Włączone* / *Wyłączone* i opcje z szablonu: pole wyboru, liczba (z
+  zakresem i przyciskami), tekst, tekst wielowierszowy, lista rozwijana, lista wartości albo par nazwa–wartość. Obok:
+  opis z szablonu (*Pomoc*), *Obsługiwane w*, klucz i wartości rejestru oraz plik szablonu. Błędna wartość (poza
+  zakresem, puste wymagane pole, powtórzone lub puste wpisy listy, za długi tekst) jest opisana przy ustawieniu i
+  blokuje zapis. Stan *Niejednoznaczne* oznacza wartości, które nie odpowiadają ani stanowi *Włączone*, ani
+  *Wyłączone* (inne narzędzie, inna wersja szablonu) – wybór stanu je zastępuje.
+- **Zapis.** *Zapisz zmiany…* tworzy jeden plan dla GPO: nowy `Machine\Registry.pol` lub `User\Registry.pol` (zmieniane
+  są tylko wpisy edytowanych ustawień – reszta pliku zostaje bez zmian i w tej samej kolejności), nazwy rozszerzeń w AD
+  (`gPCMachineExtensionNames` / `gPCUserExtensionNames`: rozszerzenie *Rejestr* i narzędzie *Szablony
+  administracyjne*, a także rozszerzenia klienta, których wymaga szablon) i podniesienie wersji zmienionej części GPO.
+  Wartości są zapisywane według reguł szablonu jak w edytorze Microsoftu: *Wyłączone* zapisuje wartości wyłączenia z
+  szablonu albo polecenie usunięcia wartości (`**del.`), listy są zastępowane w całości (`**delvals.`), *Nie
+  skonfigurowano* usuwa wpisy ustawienia. Podgląd planu pokazuje pliki z różnicami ustawień i odpowiednik w PowerShell
+  (`Set-GPRegistryValue`, `Remove-GPRegistryValue`); ostrzega, gdy zmieniana część GPO jest wyłączona w stanie GPO
+  (klienci zastosują ustawienia dopiero po jej włączeniu). *Odrzuć zmiany* wraca do zapisanego stanu, *Cofnij* w
+  podglądzie – do stanu sprzed zapisu.
+- **Zmiana przez kogoś innego.** Gdy `Registry.pol` GPO zmieni się na kontrolerze od rozpoczęcia edycji, zapis jest
+  odrzucany jako konflikt (plik zostaje nietknięty), a karta prosi o odrzucenie zmian, by pokazać aktualne ustawienia.
+
+## 8. Aktualizacja szablonów ADMX (magazyn centralny)
+
+*Zaktualizuj szablony…* otwiera okno **Aktualizacja szablonów ADMX** dla magazynu centralnego na kontrolerze okna:
+
+1. **Szablony.** *Z pliku…*: archiwum ZIP producenta (Chrome, Firefox, Edge), CAB (Edge), MSI (szablony Windows), EXE
+   (Microsoft 365 Apps) albo jeden plik ADMX z folderami językowymi obok; *Z folderu…* (rozpakowana paczka, własne
+   szablony); *Szablony tego komputera* (`%WINDIR%\PolicyDefinitions` – tak tworzy się magazyn centralny, gdy domena go
+   nie ma); **Pobierz Microsoft Edge / Google Chrome / Mozilla Firefox** – najnowsze szablony prosto od producenta.
+   Szablony Windows i Microsoft 365 Apps nie mają stałego adresu – pobierasz je ze strony Microsoftu i wskazujesz plik.
+   Paczki MSI, CAB i EXE rozpakowuje Windows (`msiexec /a`, `/extract`, `expand`) w folderze tymczasowym profilu,
+   usuwanym zaraz po wczytaniu plików.
+2. **Zaufanie.** Okno mówi, skąd są pliki: *Podpisany przez …* (podpis Authenticode sprawdzony przez Windows; instalator
+   MSI lub EXE jest uruchamiany wyłącznie wtedy, gdy podpisał go Microsoft), *Pobrany przez HTTPS z adresu producenta*
+   (tylko adresy producentów, także po przekierowaniach; suma SHA-256 i rozmiar sprawdzane, gdy producent je publikuje –
+   Edge zawsze, Firefox gdy wydanie na GitHubie podaje sumę, Chrome nie publikuje sumy; plik niezgodny jest odrzucany),
+   *Niepodpisany przez producenta* (np. CAB bez ważnego podpisu) albo *Pliki wskazane przez Ciebie* (pochodzenia nie da
+   się sprawdzić) – dwa ostatnie z ostrzeżeniem.
+3. **Języki.** Foldery językowe paczki do skopiowania; domyślnie zaznaczone `en-US` i język programu. Folder `pl`
+   paczki trafia do `pl-PL` magazynu (tak jak w szablonach Microsoftu).
+4. **Pliki magazynu centralnego.** Każdy plik z oceną: *Nowy*, *Zastąpiony* (z liczbą ustawień, które nowy szablon
+   dodaje i usuwa), *Bez zmian*, *Pominięty: zajęta przestrzeń nazw* (inny plik magazynu definiuje tę samą przestrzeń
+   nazw – np. stary szablon Edge pod inną nazwą; edytor Microsoftu odrzuciłby oba), *Pominięty: nieprawidłowy szablon*,
+   *Usunięty* (stary plik kolizji, gdy zaznaczysz *Zastąp stare szablony z tą samą przestrzenią nazw* – razem z jego
+   plikami językowymi) i *Usunięty (pozostałość)* przerwanej aktualizacji. Pliki magazynu, których paczka nie zawiera,
+   zostają.
+5. **Kopia zapasowa.** Przed zapisem cały magazyn centralny jest kopiowany do wskazanego folderu (podfolder
+   `PolicyDefinitions-<DC>-<data-godzina>`; domyślnie włączone, folder zapamiętywany wspólnie z folderem kopii GPO).
+   Gdy kopia się nie uda, nic nie jest zmieniane.
+6. **Zaktualizuj….** Plan przez podgląd: *Zapisz plik szablonu* / *Usuń plik szablonu (magazyn centralny)* z
+   rozmiarami i różnicami, a gdy domena nie ma jeszcze magazynu centralnego – informacja, że od tej chwili edytor
+   każdego administratora będzie używał go zamiast szablonów z własnego komputera. Zapis jest transakcją jak przy GPO:
+   pliki tymczasowe `*.admng-*.tmp` obok docelowych, sprawdzenie, że nikt nie zmienił magazynu po podglądzie (inaczej
+   konflikt i nic nie jest podmieniane), podmiana; błąd przywraca poprzednie pliki. *Cofnij*
+   przywraca poprzednie pliki (magazyn nie ma numerów wersji). Po aktualizacji otwarte edytory wczytują szablony
+   ponownie.
+
+## 9. Kontroler domeny, emulator PDC i SYSVOL
 
 - Okno czyta i zapisuje AD oraz SYSVOL **tylko na swoim kontrolerze domeny**. Gdy nie jest nim emulator PDC (z którego
   domyślnie korzysta GPMC), karty GPO pokazują: *Zmiany GPO wykonujesz na X, a emulatorem PDC jest Y* z przyciskiem
@@ -165,25 +246,35 @@ są pokazywane. *Eksportuj CSV…* zapisuje porównanie tylko na żądanie. Oba 
   wykonania. Gdy jest niedostępny, pasek podaje przyczynę (połączenie otwarte nazwą wyróżniającą, środowisko
   nieobsługiwane, odrzucone poświadczenia, odmowa dostępu, brak połączenia z udziałem). Wtedy wyłączone są tylko
   zmiany zapisujące SYSVOL (nowe GPO, kopia, usuwanie, filtrowanie zabezpieczeń, delegowanie, przywracanie, import,
-  wyrównanie wersji, naprawa uprawnień); połączenia, stan GPO, zmiana nazwy, filtr WMI i blokowanie dziedziczenia
-  zmieniają tylko AD i działają dalej.
+  wyrównanie wersji, naprawa uprawnień, zapis szablonów administracyjnych, aktualizacja magazynu centralnego);
+  połączenia, stan GPO, zmiana nazwy, filtr WMI i blokowanie dziedziczenia zmieniają tylko AD i działają dalej.
 
-## 8. Co AD Manager zapisuje na dysku
+## 10. Co AD Manager zapisuje na dysku
 
-Nic z katalogu ani z SYSVOL (zasada 1): GPO, połączenia, ustawienia i różnice są tylko w pamięci, dopóki są widoczne.
-Zapamiętywane są wyłącznie: widoczność węzłów GPO w drzewie, ostatni folder kopii zapasowych, szablon komentarza kopii i
-wybór *Utwórz kopię zapasową przed usunięciem*. Pliki powstają tylko tam, gdzie operator je wskaże: kopie zapasowe GPO i
-eksport porównania do CSV. Dziennik audytu zawiera przy zmianach SYSVOL ścieżki plików w folderze GPO, rozmiary i sumy
-SHA-256 – nie treść plików.
+Nic z katalogu ani z SYSVOL (zasada 1): GPO, połączenia, ustawienia, szablony ADMX i różnice są tylko w pamięci, dopóki
+są widoczne. Zapamiętywane są wyłącznie: widoczność węzłów GPO w drzewie, ostatni folder kopii zapasowych, szablon
+komentarza kopii i wybór *Utwórz kopię zapasową przed usunięciem*. Pliki powstają tylko tam, gdzie operator je wskaże:
+kopie zapasowe GPO, kopia magazynu centralnego przed aktualizacją i eksport porównania do CSV. Paczki szablonów
+producentów (pliki producentów, nie dane katalogu) są trzymane w pamięci; tylko instalatory MSI i EXE oraz archiwa CAB
+są rozpakowywane w folderze tymczasowym profilu, usuwanym zaraz po wczytaniu. Dziennik audytu zawiera przy zmianach
+SYSVOL ścieżki plików w folderze GPO lub magazynie centralnym, rozmiary i sumy SHA-256 – nie treść plików.
 
-## 9. Ograniczenia i pilotaż
+## 11. Ograniczenia i pilotaż
 
 - Sprawdzone testami na fałszywym katalogu i na laboratorium Samba 4.19 (zapis SYSVOL przez `smbclient`); zapis SYSVOL
   na Windows (`WindowsSysvolFileWriter`), okna WPF, zrzut ekranu 23 i test dymny sprawdza tylko CI na Windows.
+- Szablony administracyjne i magazyn centralny (K3) sprawdzono testami na fałszywym katalogu i syntetycznych szablonach
+  (polskie ADMX/ADML przygotowane do testów, nie pliki producentów); edytor i okno aktualizacji – CI na Windows.
+  Pobieranie szablonów Edge, Chrome i Firefox sprawdzono na odpowiedziach przygotowanych według formatów producentów
+  (środowisko testowe nie ma dostępu do ich serwerów); rozpakowywanie MSI, EXE i CAB oraz sprawdzanie podpisu działa
+  tylko w Windows i potwierdzi je pilotaż.
 - Do potwierdzenia w pilotażu (Windows Server 2025, Windows 11): GPMC odtwarza kopie AD Managera, a AD Manager kopie
   GPMC (z `gpreport.xml` i bez); GPMC nie zgłasza niespójnych uprawnień po zmianach AD Managera; maski poziomów
   uprawnień GPMC i format `msWMI-Parm2` filtrów WMI; GPO utworzone w AD Managerze działa jak utworzone w GPMC
-  (`gpresult /h`).
-- Brak: edycji ustawień (K3, K4), raportu „co dostanie komputer” (K5), tabel migracji i kopiowania GPO między
-  domenami, GPO wzorcowych (Starter GPO), porównania GPO z innego okna połączenia, próby filtru WMI na komputerze
+  (`gpresult /h`); `Registry.pol` zapisany przez edytor szablonów jest identyczny z plikiem edytora Microsoftu dla tych
+  samych ustawień, a klient stosuje je jak ustawione w GPMC; aktualizacja magazynu centralnego z bieżących paczek
+  Windows 11 / Server 2025, Microsoft 365 Apps, Edge, Chrome i Firefox.
+- Brak: edycji ustawień zabezpieczeń (K4) i preferencji, raportu „co dostanie komputer” (K5), komentarzy do ustawień
+  szablonów, filtrów edytora według platformy i słów kluczowych, starych szablonów ADM, tabel migracji i kopiowania GPO
+  między domenami, GPO wzorcowych (Starter GPO), porównania GPO z innego okna połączenia, próby filtru WMI na komputerze
   (wymaga zapytań WQL w zdalnych akcjach K1), sprawdzania uprawnień operatora przed zmianą.

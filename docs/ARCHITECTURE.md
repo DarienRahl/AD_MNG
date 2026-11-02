@@ -173,6 +173,33 @@ cztery karty (`IShellDocument`), węzły drzewa, modele okien i okno podglądu p
 porównania trafiają wyłącznie do miejsc wskazanych przez operatora (zasada 1). Opis dla użytkownika:
 [ZASADY-GRUPY.md](ZASADY-GRUPY.md); specyfikacja: [dev/k-computers-and-gpo.md](dev/k-computers-and-gpo.md).
 
+### Szablony administracyjne (K3)
+
+`AdMng.Core/GroupPolicy/AdministrativeTemplates`: parsery ADMX i ADML (`AdmxParser`, `AdmlParser`; utwardzony XML
+`GpoXml` – bez DTD i resolvera, w limitach), zbiór definicji (`PolicyDefinitionSet`, `PolicyDefinitionLoader`: język
+interfejsu, `fallbackCulture` pliku, `en-US`; kolizje przestrzeni nazw i pętle kategorii zgłaszane, nie fatalne), źródła
+szablonów (`SysvolPolicyDefinitionSource` – magazyn centralny na DC sesji, folder, paczka), `RegistryPolicyDocument`
+(minimalna edycja `Registry.pol` na `RegistryPolFile`, PReg v1: niezmienione wpisy zostają bajt w bajt i na swoich
+miejscach) oraz `PolicyEngine` (stan ustawienia z wpisów – *Włączone*, *Wyłączone*, *Nie skonfigurowano*,
+*Niejednoznaczne* – i wpisy każdego stanu według reguł ADMX: `**del.`, `**delvals.`, `**soft.`, prefiksy wartości
+list). Zapis ustawień planuje `GroupPolicyPlanner.PlanAdministrativeTemplatesAsync`: `Modify` nazw rozszerzeń
+(`GpoExtensionNames` – rozszerzenie Rejestru, narzędzie *Szablony administracyjne*, rozszerzenia klienta szablonu),
+`WriteGpoFile` `Machine|User/Registry.pol` z treścią sprzed edycji jako warunkiem (konflikt, gdy ktoś zmienił plik) i
+`SetGpoVersion` zmienionej części. Aktualizacja magazynu centralnego: `PolicyTemplatePackage` (układ paczek producentów
+sprowadzony do `nazwa.admx` + `kultura/nazwa.adml`, zaufanie paczki), `GroupPolicyPlanner.CompareCentralStoreAsync` i
+`PlanCentralStoreUpdate`, akcje planu `WritePolicyDefinitionsFile` i `DeletePolicyDefinitionsFile` wykonywane jedną
+transakcją `PolicyDefinitionsTransaction` (pliki `*.admng-<przebieg>.tmp` obok docelowych, sprawdzenie, podmiana,
+przywrócenie przy błędzie; magazyn nie ma numerów wersji), `CentralStoreBackup` (kopia do folderu operatora) i
+`VendorTemplateCatalog` (adresy Edge, Chrome i Firefox, dozwolone hosty, odczyt opisów wydań z sumą SHA-256).
+`AdMng.Presentation/GroupPolicy/AdministrativeTemplates`: `PolicyDefinitionsService` (szablony okna połączenia, Scoped,
+z zapasowymi szablonami tego komputera), edytor (`AdministrativeTemplatesEditorViewModel`, edytory opcji),
+`PolicyTemplatePackageLoader` (pliki, foldery, pobieranie HTTPS wyłącznie z hostów producentów – także po
+przekierowaniach – z limitem rozmiaru i sumą) i `CentralStoreUpdateViewModel`. `AdMng.App/GroupPolicy`: karta edytora,
+okno aktualizacji i `WindowsPolicyPackageExtractor` (podpis Authenticode przez `WinVerifyTrust`; instalatory MSI/EXE
+uruchamiane tylko z podpisem Microsoftu; `msiexec /a`, `/extract`, `expand` w folderze tymczasowym usuwanym od razu).
+Szablony i ustawienia są tylko w pamięci; kopia magazynu powstaje wyłącznie w folderze wskazanym przez operatora
+(zasada 1), a dziennik audytu zapisuje ścieżki, rozmiary i SHA-256 plików magazynu – nie ich treść.
+
 ## Interfejs użytkownika
 
 - **Okno główne:** pasek menu i narzędzi (jak ADUC), pasek adresu (DN lub ścieżka `contoso.test/Firma/IT`),

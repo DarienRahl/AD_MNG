@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.IO;
 using System.Windows;
+using AdMng.App.GroupPolicy;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
@@ -169,6 +171,11 @@ public sealed class ScreenshotTests
         "Szablony administracyjne GPO – kategorie z magazynu centralnego, włączane ustawienie z opcjami i pomocą, niezapisana zmiana",
         "Administrative templates of a GPO – the categories of the central store, a setting being enabled with its options and help, an unsaved change");
 
+    private static readonly ScreenshotInfo CentralStoreUpdate = new(
+        "30-central-store-update.png",
+        "Aktualizacja szablonów ADMX – paczka wskazana przez operatora, języki, pliki magazynu centralnego (nowe, zastąpiony, bez zmian) i kopia zapasowa przed zapisem",
+        "Updating the ADMX templates – a package the operator chose, its languages, the central store's files (new, replaced, unchanged) and the backup before writing");
+
     [Fact]
     public Task Screenshot29_AdministrativeTemplates() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>
     {
@@ -202,6 +209,58 @@ public sealed class ScreenshotTests
         Assert.Empty(editor.Editor.Problems);
         await ScreenshotWriter.SaveAsync(window, AdministrativeTemplates, dark: false);
     });
+
+    [Fact]
+    public Task Screenshot30_CentralStoreUpdate()
+    {
+        var files = new PreparedSaveDialog();
+        return ShootAsync(ThemePreference.Light, connect: false, configure: s => s.AddSingleton<IFileDialogService>(files), shoot: async context =>
+        {
+            // K3: the update window comparing a folder of templates (Polish files added, one template newer) with the store.
+            context.Directory.AddGroupPolicyManagementSample(context.Company, context.Sysvol);
+            foreach (var (path, content) in SampleAdministrativeTemplates.Files(polish: false))
+            {
+                context.Sysvol.PutPolicyDefinition(path, content);
+            }
+
+            var temp = System.IO.Directory.CreateTempSubdirectory("admng-k3-shot-");
+            try
+            {
+                var package = System.IO.Directory.CreateDirectory(Path.Combine(temp.FullName, "Szablony Contoso 1.3")).FullName;
+                foreach (var (path, content) in SampleAdministrativeTemplates.Files())
+                {
+                    var file = Path.Combine([package, .. path.Split('/')]);
+                    System.IO.Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+                    await File.WriteAllBytesAsync(file, path == "contoso.admx"
+                        ? SampleAdministrativeTemplates.Utf8(SampleAdministrativeTemplates.ContosoAdmx.Replace("revision=\"1.2\"", "revision=\"1.3\"", StringComparison.Ordinal))
+                        : content);
+                }
+
+                files.NextOpenPath = Path.Combine(package, "contoso.admx");
+                await context.ConnectAsync();
+                UiTestSupport.ShowOffScreen(context.Services.GetRequiredService<MainWindow>());
+                var factory = context.Services.GetRequiredService<GroupPolicyViewModelFactory>();
+                var update = new CentralStoreUpdateViewModel(context.Services.GetRequiredService<GroupPolicyServices>(), factory.Definitions, factory.Loader)
+                {
+                    BackupFolder = @"\\pliki\Kopie\Magazyn centralny",
+                };
+                var window = (CentralStoreUpdateWindow)Windows(context).CreateWindow(update);
+                await ScreenshotWriter.ShowWithClientSizeAsync(window, 900, 680);
+                await update.OpenFileCommand.ExecuteAsync(null);
+                await UiWait.UntilAsync(() => !update.IsBusy && update.Rows.Count == 6, "the comparison");
+                await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+                Assert.Null(update.Error);
+                Assert.Equal("Do zapisania: 3, bez zmian: 3, pominięte: 0", update.SummaryText);
+                Assert.True(window.UpdateButton.IsEnabled);
+                await ScreenshotWriter.SaveAsync(window, CentralStoreUpdate, dark: false);
+            }
+            finally
+            {
+                temp.Delete(recursive: true);
+            }
+        });
+    }
 
     [Fact]
     public Task Screenshot21_CompareObjects() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>

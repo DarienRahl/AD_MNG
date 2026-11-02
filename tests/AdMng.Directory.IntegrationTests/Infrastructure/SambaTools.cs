@@ -122,6 +122,23 @@ internal sealed partial class SambaTools : IDisposable
         }
     }
 
+    /// <summary>
+    /// Removes folders below the domain's <c>Policies</c> folder, in the order given, when they are empty (a central store a
+    /// test created); a folder that is not empty or cannot be removed is reported, not thrown.
+    /// </summary>
+    public async Task RemoveEmptyPoliciesFoldersAsync(IReadOnlyList<string> relativeFolders)
+    {
+        foreach (var folder in relativeFolders)
+        {
+            Assert.True(SysvolPaths.TryNormalize(folder, out var path));
+            var result = await SmbAsync("rmdir \"" + LabSettings.DomainDns + "/Policies/" + path + "\"", CancellationToken.None);
+            if (result.Exit != 0)
+            {
+                TestContext.Current.SendDiagnosticMessage($"smbclient rmdir {path} failed: {result.Output}{result.Error}");
+            }
+        }
+    }
+
     private Task<ProcessResult> SmbAsync(string command, CancellationToken cancellationToken) =>
         RunAsync(SmbClient, ["//" + Address + "/SYSVOL", "-U", LabSettings.AdminUser, "-m", "SMB3", "-c", command],
             new Dictionary<string, string> { ["PASSWD"] = LabSettings.AdminPassword }, cancellationToken);

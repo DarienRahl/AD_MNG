@@ -698,7 +698,7 @@ there), plus a file list (identical / different / only in A / only in B). `GpoCo
 B* with filters *tylko różnice*; masked values (passwords) are never shown; export to CSV only on demand. Both GPOs of
 the window's domain (a GPO of another connection: later, through `IConnectionHandle` as the object comparison).
 
-## 6. K3–K5 (design only)
+## 6. K3–K5 (design; K3 as built: section 17)
 
 **K3 – ADMX editor and central store.**
 
@@ -1176,3 +1176,92 @@ Windows runs found test expectations to correct (titles name the domain, control
 product defect: the container built `WindowsReleaseCatalog` through its `IEnumerable<WindowsRelease>` constructor, an
 empty catalogue (fixed with a factory registration, `ComputersRegistrationTests`). Every pilot item of 12 and of 14/15
 still stands.
+
+## 17. K3 as built
+
+Branch `claude/active-directory-manager-w9v9i8` after the 0.7.0 release, November 2026. Commits: parser, definition set
+and the `Registry.pol` engine (`299b1e5`), central store read and the save plan (`cbc37c0`), the editor's view models
+(`bdeeeb1`), its view, entry points, smoke and UI tests (`ce178c8`), the central store update core (`d0b752f`) and its
+window (`fa0085f`), then this documentation with the lab tests. Everything of section 6 (K3) is implemented unless
+listed below.
+
+**Decisions taken with the operator**
+
+* **Sources of templates: files plus the stable downloads.** Only Edge, Chrome and Firefox are downloaded – they have
+  stable, documented addresses: Edge from the release list `edgeupdates.microsoft.com/api/products?view=enterprise`
+  (product *Policy*, highest version, the ZIP artifact preferred over the CAB, its published SHA-256 and size checked),
+  Chrome from the fixed `dl.google.com/…/policy_templates.zip` (no hash published: the pinned address is the only
+  check), Firefox from the latest GitHub release of `mozilla/policy-templates` (asset `policy_templates*.zip`, the
+  `digest` checked when GitHub gives one). Windows 11 / Server 2025 (MSI), Microsoft 365 Apps (EXE) and everything else
+  (OneDrive, Adobe, Zoom, FSLogix, Citrix …) come from a file or a folder the operator chose – the vendor catalogue of
+  section 6 with per-vendor signer pins was not built. `VendorTemplateCatalog` holds the three addresses, the pinned
+  hosts (HTTPS only, also checked on the final address after redirects) and the parsing of the release descriptions;
+  `PolicyTemplatePackageLoader` does the HTTP (size limits, `User-Agent: ADManager/1.0`).
+* **Trust.** `PackageTrust`: *Signed* (Authenticode valid through `WinVerifyTrust`, signer shown), *PinnedDownload*
+  (host shown), *Unsigned*, *NotChecked* (the operator's files) – the last two with a warning. An MSI or EXE is run
+  (`msiexec /a … TARGETDIR=`, `/extract:… /quiet`) only when its signature is valid and the signer is
+  `O=Microsoft Corporation`; a CAB is only unpacked (`expand -F:*`) and may be unsigned. Edge's CAB holds a ZIP, which
+  is read in memory. Extraction uses a temporary folder of the profile (`admng-admx-*`), deleted right after; a
+  downloaded Edge CAB is the only download written to disk (temp file, deleted after extraction).
+* **Backup only to the operator's folder** (`CentralStoreBackup`, `PolicyDefinitions-<DC>-<yyyyMMdd-HHmmss>`, the
+  folder remembered as `GroupPolicySettings.LastBackupFolder`, shared with GPO backups). The alternative sibling folder
+  on SYSVOL was not built: it would replicate to every DC and is not the operator's explicit export (rule 1).
+
+**Deviations and additions**
+
+* **No central store → this computer's templates** (`WindowsLocalPolicyDefinitions`, `%WINDIR%\PolicyDefinitions`), as
+  the Microsoft editor does; the editor's banner says which source it uses (`AdmTemplates.SourceCentral|Local|
+  LocalWithoutSysvol|None`). The update window's *Szablony tego komputera* creates the store from them; the plan then
+  carries the info `IssueCodes.CentralStoreCreated`.
+* **Languages**: UI culture, the file's `fallbackCulture`, `en-US`, then any. A neutral package folder (`pl`) goes to
+  the store's matching specific folder or `CultureInfo.CreateSpecificCulture` (`pl-PL`); culture folders are recognised
+  by shape (ICU accepts nearly any name as a culture).
+* **Namespace collisions** (old and new Edge templates under different file names): loading keeps the first file and
+  reports the rest; the update skips a colliding file unless *Zastąp stare szablony* deletes the old ADMX with its
+  language files (`Removed`). Leftovers of an interrupted update (`*.admng-<run>.tmp`) are deleted (`Leftover`).
+* **Central store plan**: one `ObjectPlan` anchored on `CN=Policies,CN=System,<domain>` (no LDAP step; display name =
+  the UNC path of the store) with `WritePolicyDefinitionsFile` / `DeletePolicyDefinitionsFile`, executed by
+  `PolicyDefinitionsTransaction` (stage every write as `*.admng-<run>.tmp`, check that every target still has the content
+  the comparison read – else a conflict and nothing is switched –, switch, delete; compensation from memory on
+  failure). No version
+  numbers; the rollback writes the old bytes back or deletes the new file. PowerShell: comment lines naming the file
+  (`Copy-Item` / `Remove-Item` into the store) – there is no cmdlet. Audit: paths, sizes and SHA-256 only.
+* **`Registry.pol` writes** keep every untouched entry byte for byte and in place (`RegistryPolicyDocument`), new keys
+  in registry order; the state of a policy is read by weighing evidence (policy value and lists twice, element values
+  once) and is *Niejednoznaczne* (`PolicyState.Inconsistent`) when it fits neither enabled nor disabled. Extra entries
+  no template describes are listed (*Ustawienia rejestru spoza szablonów*) and can only be deleted.
+* **Save plan**: `Modify gPC(Machine|User)ExtensionNames` first (Registry CSE with the half's tool GUID plus the
+  `clientExtension` GUIDs of configured policies, pairs sorted as GPMC writes them), then `WriteGpoFile` with the content
+  the editor read as the compare-and-swap value (a change by someone else is a conflict, `AdmTemplates.ConflictNote`),
+  then `SetGpoVersion` per changed half. A disabled half (`flags`) gives the warnings `GpoComputerPartDisabled` /
+  `GpoUserPartDisabled`. PowerShell: `Set-GPRegistryValue` (also `-Disable` for `**del.`) and `Remove-GPRegistryValue`.
+* **Entry points**: *Edytuj szablony administracyjne* on the GPO list (toolbar, context menu) and the GPO document
+  (header, *Ustawienia* tab); *Zaktualizuj szablony…* on the GPO list and in the editor. No palette command ids were
+  added.
+* **Lifetimes**: `PolicyDefinitionsService` is per connection (cache per server, culture and source; invalidated after
+  an update); `PolicyTemplatePackageLoader`, `ILocalPolicyDefinitions` and the App's `IPolicyPackageExtractor` are
+  stateless singletons (`ConnectionLifetimes.Shared`, `HostTests`).
+
+**Not built (follow-ups):** comments of settings (`.cmtx`), the editor's filter options (platform, keywords,
+requirements), legacy ADM templates, the vendor catalogue beyond Edge/Chrome/Firefox, a GPO's Registry.pol byte-identity
+check against the Microsoft editor (no pilot fixtures yet).
+
+**Tests.** Core: ADMX/ADML parsing (hostile XML, limits), definition set (languages, collisions, loops, sorting),
+`Registry.pol` document (round trip, minimal edits, special value names), the policy engine (every element kind, enabled
+/ disabled / not configured, inconsistent reads), the save plan, the central store comparison, plan, transaction,
+rollback and backup, the vendor release descriptions. Presentation: the editor (tree, search, filters, element editors,
+validation, save through the preview, conflict, discard) and the update window (file, folder, this computer's
+templates, the three downloads through a fake HTTP handler – pinned hosts, redirects, hash, failures –, languages,
+comparison, backup, update through the preview) on the fake directory and `FakeSysvol`. App (Windows CI only): editor
+saved through the real preview window, the update window registered and rendered, an update from a folder through the
+real preview window, smoke test, screenshots `29-administrative-templates.png` and `30-central-store-update.png`. Lab (`AdministrativeTemplatesLabTests`, `SambaTool` collection): a GPO's `Registry.pol`
+files saved through the pipeline over smbclient, read back by our engine and by Samba's own PReg parser (`samba-tool
+gpo show`), extension names and versions checked, undone; a central store created or extended (this run's own
+namespace), read like the editor reads it, backed up, replaced and undone, the store's folders removed when the lab had
+none. Templates in all tests are the synthetic Polish samples (`SampleAdministrativeTemplates`), never vendor files.
+
+**Not verified here:** the vendor downloads against the real servers (the sandbox's proxy blocks the vendors' hosts:
+the formats were taken from the vendors' documentation and tested with prepared responses), MSI/EXE/CAB extraction and
+`WinVerifyTrust` (Windows only), the WPF views (CI on Windows), and the pilot items: `Registry.pol` identical to the
+Microsoft editor's for the same settings, `gpresult /h` on a client, updates from the current Windows 11 / Server 2025,
+Microsoft 365 Apps, Edge, Chrome and Firefox packages.
