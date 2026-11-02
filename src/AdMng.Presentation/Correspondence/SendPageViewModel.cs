@@ -507,7 +507,7 @@ public sealed partial class SendPageViewModel : ObservableObject
         Finish(kind, result, journal);
         IsSending = false;
         RetryFailedCommand.NotifyCanExecuteChanged();
-        RefreshSummary();
+        RefreshSummary();   // the send list reads the journal marks again: the rows' marks, texts and counts follow the run
     }
 
     /// <summary>The status of the rows of one message and its result line (once per message).</summary>
@@ -529,9 +529,12 @@ public sealed partial class SendPageViewModel : ObservableObject
                 {
                     case SendRunKind.Send:
                         SetStatus(row, RecipientStatusKind.Sent, Localizer[L.CorrespondenceSend.StatusSent]);
-                        if (journalLoaded)
+                        if (journalLoaded && Correspondence.Journal.Find(row.Email) is not null)
                         {
-                            row.IsAlreadySent = true;
+                            // Recorded before the outcome was reported: the mark is the journal's (the send list reads the
+                            // marks again, so a row is never sent twice while "Pomijaj już wysłane" is on).
+                            row.IsInJournal = true;
+                            row.IsAlreadySent = Recipients.SkipAlreadySent;
                         }
 
                         break;

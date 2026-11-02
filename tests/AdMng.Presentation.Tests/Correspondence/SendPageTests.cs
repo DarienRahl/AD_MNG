@@ -1,3 +1,4 @@
+using AdMng.Core.Correspondence.Import;
 using AdMng.Core.Correspondence.Outlook;
 using AdMng.Presentation.Correspondence;
 using AdMng.Presentation.Services;
@@ -434,7 +435,7 @@ public sealed class SendPageTests
         using var window = await scenario.OpenWithMessageAsync();
         var rows = Enumerable.Range(1, 51).Select(i => CorrespondencePagesScenario.Row($"urzad{i}@gmina.pl", "", ("Miejscowość", "Łódź"))).ToList();
         rows[0].IsExcluded = true;
-        rows[1].IsAlreadySent = true;
+        await scenario.Journal.AppendAsync(rows[1].Email, "Wcześniejsza wysyłka", Token);   // sent before: skipped
         rows.Add(new CorrespondenceRecipientViewModel("to-nie-adres", "Błędny", "kontakty.csv", new Dictionary<string, string>(), isValid: false));
         var notIncluded = CorrespondencePagesScenario.Row("pominiety@gmina.pl", "");
         notIncluded.Include = false;
@@ -472,7 +473,7 @@ public sealed class SendPageTests
         using var scenario = await CorrespondencePagesScenario.CreateAsync();
         using var window = await scenario.OpenWithMessageAsync();
         var offices = CorrespondencePagesScenario.Offices();
-        offices[2].IsAlreadySent = true;
+        await scenario.Journal.AppendAsync(offices[2].Email, "Wcześniejsza wysyłka", Token);   // sent before: skipped
         CorrespondencePagesScenario.AddRows(window, offices);
         window.Message.DeliverLater = true;
         window.Message.DeliverTime = "8:15";
@@ -490,6 +491,75 @@ public sealed class SendPageTests
         window.Recipients.SkipAlreadySent = false;
         window.Send.RefreshSummaryCommand.Execute(null);
         Assert.StartsWith("Do wysłania: 3    (pominięci: 0, błędne adresy: 0)", window.Send.SummaryText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AfterARun_UntickingAndTickingSkipAgain_StillSkipsTheAddressesJustSent()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenWithMessageAsync();
+        var page = window.Recipients;
+        page.AddRows([Contact("sekretariat@andrespol.pl", "Urząd Gminy Andrespol", "Andrespol"), Contact("ug@brojce.pl", "Urząd Gminy Brójce", "Brójce"),
+            Contact("kancelaria@zgierz.pl", "Starostwo Powiatowe w Zgierzu", "Zgierz")], "kontakty.csv");
+        scenario.Ui.ConfirmAnswers.Enqueue(true);
+        await window.Send.SendCommand.ExecuteAsync(null);
+        Assert.Equal(3, scenario.Outlook.Succeeded().Count);
+        Assert.All(page.Items, row => Assert.StartsWith("13.10.2026 · Zaproszenie", row.PreviouslySentText, StringComparison.Ordinal));
+
+        page.SkipAlreadySent = false;
+        page.SkipAlreadySent = true;
+        page.AddRows([Contact("sekretariat@koluszki.pl", "Urząd Miejski w Koluszkach", "Koluszki")], "nowe.csv");
+        Assert.Equal("Odbiorcy: 4 • do wysłania: 1 • pominięci: 3", page.CountsText);
+        scenario.Ui.ConfirmAnswers.Enqueue(true);
+        await window.Send.SendCommand.ExecuteAsync(null);
+
+        Assert.StartsWith("confirm:Wysłać wiadomość do 1 odbiorców?", scenario.Ui.Shown[^1], StringComparison.Ordinal);
+        Assert.Contains("Pominięci (wykluczenia / już wysłane): 3", scenario.Ui.Shown[^1], StringComparison.Ordinal);
+        Assert.Equal([["sekretariat@koluszki.pl"]], scenario.Outlook.Succeeded().Skip(3).Select(m => m.To));
+        Assert.Equal(3, window.Send.SkippedCount);
+    }
+
+    [Fact]
+    public async Task AnotherWindow_SkipsTheAddressesThisWindowSent()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var first = await scenario.OpenWithMessageAsync();
+        using var second = await scenario.OpenWithMessageAsync();
+        ImportedContact[] offices = [Contact("sekretariat@andrespol.pl", "Urząd Gminy Andrespol", "Andrespol"), Contact("ug@brojce.pl", "Urząd Gminy Brójce", "Brójce")];
+        first.Recipients.AddRows(offices, "kontakty.csv");
+        second.Recipients.AddRows([.. offices, Contact("kancelaria@zgierz.pl", "Starostwo Powiatowe w Zgierzu", "Zgierz")], "kontakty.csv");
+        Assert.Equal("Odbiorcy: 3 • do wysłania: 3", second.Recipients.CountsText);
+        scenario.Ui.ConfirmAnswers.Enqueue(true);
+        await first.Send.SendCommand.ExecuteAsync(null);
+
+        scenario.Ui.ConfirmAnswers.Enqueue(true);
+        await second.Send.SendCommand.ExecuteAsync(null);
+
+        Assert.StartsWith("confirm:Wysłać wiadomość do 1 odbiorców?", scenario.Ui.Shown[^1], StringComparison.Ordinal);
+        Assert.Equal([["sekretariat@andrespol.pl"], ["ug@brojce.pl"], ["kancelaria@zgierz.pl"]], scenario.Outlook.Succeeded().Select(m => m.To));
+        Assert.Equal("Odbiorcy: 3 • do wysłania: 0 • pominięci: 3", second.Recipients.CountsText);
+    }
+
+    [Fact]
+    public async Task WithoutSkipping_TheRowsJustSentAreNotCountedAsSkipped()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenWithMessageAsync();
+        var page = window.Recipients;
+        page.SkipAlreadySent = false;
+        page.AddRows([Contact("sekretariat@andrespol.pl", "Urząd Gminy Andrespol", "Andrespol"), Contact("ug@brojce.pl", "Urząd Gminy Brójce", "Brójce")], "kontakty.csv");
+        scenario.Ui.ConfirmAnswers.Enqueue(true);
+
+        await window.Send.SendCommand.ExecuteAsync(null);
+
+        Assert.All(page.Items, row =>
+        {
+            Assert.Equal(RecipientStatusKind.Sent, row.StatusKind);
+            Assert.False(row.IsAlreadySent);                  // not dimmed: the next run sends to them (skipping is off)
+            Assert.NotNull(row.PreviouslySentText);
+        });
+        Assert.Equal("Odbiorcy: 2 • do wysłania: 2", page.CountsText);
+        Assert.StartsWith("Do wysłania: 2    (pominięci: 0, błędne adresy: 0)", window.Send.SummaryText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -650,6 +720,10 @@ public sealed class SendPageTests
             "confirm:Trwa wysyłka przez Outlooka. Przerwać wysyłkę i zamknąć okno? Wiadomości, które Outlook już wysłał, nie da się wycofać.",
             scenario.Ui.Shown[^1]);
     }
+
+    /// <summary>A contact of an imported file (the rows go through the recipients page, journal marks included).</summary>
+    private static ImportedContact Contact(string email, string name, string town) =>
+        new(email, name, new Dictionary<string, string> { ["Miejscowość"] = town });
 
     private static CorrespondenceRecipientViewModel Mailbox(string owner, string name, string mailbox, string mailboxAddress) =>
         new(owner, name, "Skrzynki", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["Skrzynka"] = mailbox, ["Adres skrzynki"] = mailboxAddress },
