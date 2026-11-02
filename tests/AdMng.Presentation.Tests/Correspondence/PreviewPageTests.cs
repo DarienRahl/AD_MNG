@@ -127,6 +127,24 @@ public sealed class PreviewPageTests
     }
 
     [Fact]
+    public async Task AFieldSplitByFormatting_IsCountedAndListed_AsTheRendererMergesIt()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenAsync();
+        CorrespondencePagesScenario.AddRows(window, CorrespondencePagesScenario.Offices());
+        var message = window.Message;
+        message.Subject = "Pismo";
+        message.BodyHtml = "<p>{{zwrot}}, kod: {{<span style=\"font-weight:bold\">Kod</span> pocztowy}}.</p>";
+
+        await window.Preview.RefreshCommand.ExecuteAsync(null);
+
+        Assert.Equal(["Pole {{Kod pocztowy}} jest puste u 1 z 3 odbiorców – u nich zostanie pusta luka."], window.Preview.Warnings);
+        Assert.Equal("pola: zwrot, Kod pocztowy", window.Preview.InfoText);
+        Assert.Contains("95-020", window.Preview.Preview.Html, StringComparison.Ordinal);   // merged as sent
+        Assert.DoesNotContain("{{", window.Preview.Preview.Html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task AColumnNamedLiczba_IsTheColumnWithoutGrouping_TheRowCountWithIt_AsWstawPoleOffers()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();
