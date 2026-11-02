@@ -33,7 +33,7 @@ public sealed partial class MailboxOwnersPageViewModel
     internal static IReadOnlyList<string> MailboxAttributes(ISchemaCatalog? schema, DirectoryRowBuilder builder, OwnerNameSource source, string? attribute) =>
     [
         .. MailboxEntry.AttributesFor(schema)
-            .Concat(OwnerNameParser.AttributesFor(source, attribute))
+            .Concat(OwnerNameParser.AttributesFor(source, attribute, schema))
             .Concat(builder.AttributesFor(DirectoryFieldTarget.Mailbox))
             .Distinct(StringComparer.OrdinalIgnoreCase),
     ];
@@ -52,7 +52,7 @@ public sealed partial class MailboxOwnersPageViewModel
         RefreshSchema(session.Schema);
         var source = NameSource.Value;
         var attribute = NameAttribute?.Trim() ?? string.Empty;
-        if (source == OwnerNameSource.Attribute && !OwnerNameParser.IsUsableAttribute(attribute))
+        if (source == OwnerNameSource.Attribute && !OwnerNameParser.IsUsableAttribute(attribute, session.Schema))
         {
             Fail(Localizer.Format(L.CorrespondenceMailboxes.NameAttributeInvalid, attribute));
             return;
