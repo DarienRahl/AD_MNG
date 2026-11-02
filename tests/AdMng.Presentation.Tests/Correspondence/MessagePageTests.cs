@@ -627,7 +627,8 @@ public sealed class MessagePageTests
 
         Assert.Empty(scenario.Ui.Shown);
         Assert.Equal("Weryfikacja skrzynek pocztowych", message.Subject);
-        var termin = Assert.Single(message.CustomFields);
+        Assert.Equal(["Termin", "System zgłoszeń", "Link do systemu zgłoszeń"], message.CustomFields.Select(f => f.Name));
+        var termin = message.CustomFields[0];
         Assert.Equal((new DateTime(2026, 12, 4), "dd.MM.yyyy 'r.'", "04.12.2026 r."), (termin.Date, termin.Format, termin.Sample));
         Assert.Equal(("Aptos,sans-serif", 12d, "normal"), (message.FontFamily, message.FontSize, message.LineHeight));
 
@@ -636,7 +637,8 @@ public sealed class MessagePageTests
 
         Assert.Empty(scenario.Ui.Shown);
         Assert.Equal("Weryfikacja skrzynki pocztowej: {{Skrzynka}}", message.Subject);
-        Assert.Equal(new DateTime(2026, 12, 4), Assert.Single(message.CustomFields).Date);
+        Assert.Equal(new DateTime(2026, 12, 4), message.CustomFields[0].Date);
+        Assert.Equal(3, message.CustomFields.Count);
     }
 
     [Fact]
@@ -661,7 +663,8 @@ public sealed class MessagePageTests
             "confirm:Zastąpić bieżącą wiadomość szablonem „Zaproszenie do Łodzi”? Temat, treść i pola własne zostaną zastąpione.",
             Assert.Single(scenario.Ui.Shown));
         Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededId, message.SelectedTemplate?.Id);
-        Assert.Equal(new DateTime(2026, 12, 4), Assert.Single(message.CustomFields).Date);
+        Assert.Equal(new DateTime(2026, 12, 4), message.CustomFields[0].Date);
+        Assert.Equal(3, message.CustomFields.Count);
 
         scenario.Ui.ConfirmAnswers.Enqueue(true);
         Assert.True(await message.LoadTemplateAsync(saved.Id));
