@@ -869,9 +869,12 @@ them (`session.Schema.FindAttribute`).
 ### 9.2 Editor – `Controls/RichMessageEditor.xaml(.cs)` + `Correspondence/FlowDocumentHtml.cs`
 
 - Toolbar: B, I, U, bullets, numbering, link (prompt), clear formatting, paste plain, field combo + "Wstaw pole".
-- `RichTextBox` (`MessageEditorBox`), `AcceptsTab`, spell check (pl-PL when available), Calibri 11 pt default.
+- `RichTextBox` (`MessageEditorBox`), `AcceptsTab`, spell check (pl-PL when available), shown in the base font of the
+  message (below; Calibri 11 pt by default).
 - Dependency properties: `Html` (two-way, debounced 300 ms from the document), `Host` (`IRichEditorHost`),
-  `FieldChoices`.
+  `FieldChoices`, `BaseFontFamily` (CSS family list, default `Calibri,'Segoe UI',Arial,sans-serif` =
+  `MessageBaseStyle.Default.FontFamily`) and `BaseFontSize` (points, default 11) – the base style of the message (the
+  window binds them to the message page's font controls).
 - `IRichEditorHost` (Presentation): `Task<RichPaste?> PasteFormattedAsync()` (U1c workflow over the clipboard),
   `MessageImage? AddImage(byte[] data, string? fileName)` (validation, error text through `ReportEditorError`),
   `IReadOnlyDictionary<string, MessageImage> Images`, `void ReportEditorError(string text)`.
@@ -880,15 +883,60 @@ them (`session.Schema.FindAttribute`).
   text.
 - `FlowDocumentHtml.ToHtml(FlowDocument, Func<Image, string?> contentIdOf)`: MailerWPiA's `FromDocument` (paragraph
   margin 0 0 8pt, alignment, lists `ol`/`ul`, tables with borders, runs: bold, italic, underline/strike, colour (not
-  black), background (not white), font size (≠ 11 pt), font family (≠ Calibri), hyperlinks, line breaks, images
+  black), background (not white), font size, font family, hyperlinks, line breaks, images
   `<img src="cid:…" width height style="max-width:100%">`), output re-sanitized by the U1c sanitizer (fragment,
-  `InlineImageIds`).
+  `InlineImageIds`). The document's font is the base font: a run in its first family (a name starting with it) and
+  within 0.6 pt of its size is written without a font of its own, so the base style of the message applies.
 - `FlowDocumentHtml.ToDocument(string html, IReadOnlyDictionary<string, MessageImage> images)`: the inverse for the
   sanitized subset (`p`, `div`, `br`, `b/strong`, `i/em`, `u`, `s/strike`, `span` with the styles above, `font`
   colour/face/size, `a`, `ul/ol/li` (nested), `table/tr/td/th` (colspan/rowspan), `h1–h6` (bold, sizes), `img cid:` →
   `InlineUIContainer(Image)` tagged with the content id, `hr`); anything else → text. Parsing with AngleSharp (already
-  a Core dependency, referenced through Core).
-- Round trip tests (UI tests, Windows): ToDocument(ToHtml(doc)) is stable for every construct.
+  a Core dependency, referenced through Core). Blocks get MailerWPiA's spacing and tables its grid – what a paste gets.
+- **The body keeps its layout** (`ToDocument(html, images, keepLayout: true)`, how the editor loads its own body): a
+  template written outside the editor – the built-in mailbox template is an e-mail layout of borderless tables, boxes
+  with a coloured left border, Word's paragraph spacing – stays as its HTML writes it, also after an edit:
+  - Margins of `p`, `h1–h6`, `ul/ol`, `li` and tables → `Block.Margin` / `ListItem.Margin`. A `div` is not kept as an
+    element: its margins go to the blocks inside it as a browser stacks them (its top margin collapses with the first
+    block's, its bottom margin with the last block's – the larger wins –, left and right add up), its inherited CSS the
+    editor cannot show (`line-height` …) to each of them; a single paragraph's margins go to its list item. Sides the
+    HTML leaves out get the message's spacing (8 pt below a paragraph, a list, a grid table); a block without any
+    margin or kept CSS is read as by a paste.
+  - Tables: per-side cell borders (`border`, `border-top…`, the width/style/colour longhands; as a browser reads them)
+    → `TableCell.BorderThickness` (device-independent pixels, 1 pt = 4/3 px) and one `BorderBrush` per cell (WPF has
+    one; the colour of the widest visible side, the left one on a tie); cell padding (`padding` in any unit, else the
+    table's `cellpadding`) → `TableCell.Padding`; cell backgrounds (white too); `cellspacing` → `Table.CellSpacing`;
+    nested tables. `border="0"` is an e-mail layout: no grid and no margin or padding of the editor's own (a browser's
+    1 px padding without `cellpadding`). Any other table without cell borders keeps the grid (1 px #BFBFBF, 5 px,
+    `cellpadding="5" cellspacing="0"`, `border-collapse:collapse` written as shown).
+  - A link's own `color` and `text-decoration` stay on the hyperlink (its text without a colour takes it; no underline of
+    the runs), as Outlook writes `<a style="color:blue;text-decoration:underline"><b><span style="color:#0056B3">`.
+  - The CSS the editor cannot show (`mso-margin-top-alt`, `mso-margin-bottom-alt`, `line-height`, `text-indent`,
+    `max-width`, `width`, `border-collapse`, `border-spacing`, `table-layout`, `vertical-align` …) and the attributes of
+    tables (`border cellpadding cellspacing width align bgcolor`) and cells (`width height align valign nowrap`) are
+    kept as they were.
+  - Everything is kept in the element's `Tag` (`FlowDocumentHtml.HtmlLayout`: the margin as CSS per side, padding and
+    border declarations with the values applied, the kept declarations and attributes) and written back by `ToHtml`
+    while the editor has not changed the property (margin, padding, border); a changed one is written from the WPF
+    value (an indent with Ctrl+T, a paragraph pasted from the editor itself). WPF copies the `Tag` with the other local
+    values when Enter splits a paragraph, so the new paragraph keeps the look of the one it came from.
+  - Limits: a `div` with a border, padding or background of its own is still dissolved (its margins and inherited CSS
+    kept, the box lost); a cell has one border colour in the editor (the HTML keeps every side's while the border is
+    not changed); margins in `%` or `auto` show as 0 (written back as they were); the omitted top margin of a list
+    gets the message's 0 instead of a browser's 1em (the same look when the block before it has a bottom margin of at
+    least 1em).
+- **Base font** (`BaseFontFamily`, `BaseFontSize`): the document shows the first family of the list
+  (`FlowDocumentHtml.EditorFontFamily`: a generic family as Windows shows it – `sans-serif` → Arial –; WPF falls back to
+  Arial itself when the font is not installed) at that size; text in it is written without a font of its own; "Wyczyść
+  formatowanie" goes back to it. A base font change is no edit.
+- **Dirty logic:** loading a body (also when the host or the base font changes) computes the document's own HTML; a
+  flush (after the typing pause, on focus loss, before every button) writes `Html` only when the editor's text changed
+  and its HTML differs from that – a template loaded and not edited stays byte for byte the HTML it came with.
+- Sanitizer policy version 2 (U1c note 4.3) keeps Word's `mso-margin-top-alt` / `mso-margin-bottom-alt` (one length or
+  `auto`): browsers ignore them, classic Outlook uses them for the space before and after a paragraph.
+- Round trip tests (UI tests, Windows): ToDocument(ToHtml(doc)) is stable for every construct (also read with the
+  layout kept); the built-in mailbox template keeps its look through the editor, compared semantically
+  (`HtmlLayoutFacts`: stacked margins, per-side borders, paddings, backgrounds, table attributes, list, link, bold,
+  colours); an edit of one word changes only that word; a loaded template not edited is not rewritten.
 
 ### 9.3 Loopback browser preview – `Services/LoopbackBrowserPreview.cs`
 
