@@ -366,6 +366,12 @@ public static partial class FlowDocumentHtml
         /// <summary>The margin as read (blocks), written while the block's margin is still its thickness.</summary>
         public CssBox? Margin { get; init; }
 
+        /// <summary>The block shows a margin of 0 the HTML did not write (no <see cref="Margin"/>): a table with
+        /// <c>border="0"</c> and no margin of its own, which a browser shows without one, set to 0 because the default
+        /// margin of a WPF table is auto (<c>Thickness(NaN)</c>, a line above and below it). No margin is written while it
+        /// is still 0.</summary>
+        public bool ImplicitMargin { get; init; }
+
         /// <summary>Declarations the editor cannot show (<c>mso-margin-top-alt</c>, <c>line-height</c>, <c>max-width</c>,
         /// <c>border-spacing</c>, a link's colour …), written back as they were, in their order.</summary>
         public IReadOnlyList<KeyValuePair<string, string>> Extra { get; init; } = [];
