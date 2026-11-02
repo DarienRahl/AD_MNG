@@ -28,6 +28,8 @@ public sealed class CorrespondenceJournalTests : IDisposable
 
     public void Dispose() => _paths.Dispose();
 
+    private static IReadOnlyList<JournalEntry> ReadBackup(string path) => JournalFile.Read(new StringReader(File.ReadAllText(path)));
+
     [Fact]
     public void Constructor_NeverTouchesTheFileSystem()
     {
@@ -211,6 +213,56 @@ public sealed class CorrespondenceJournalTests : IDisposable
         File.WriteAllBytes(reopened.KeyPath, [9]);
         var again = await new CorrespondenceJournal(_paths, _protector, _time).LoadAsync(Year, Ct);
         Assert.Equal(Path.Combine(reopened.Folder, $"journal-{_time.GetLocalNow():yyyy-MM-dd}-2.old"), again.ResetBackup);
+    }
+
+    [Fact]
+    public async Task TheRetention_AppliesToTheBackupsToo()
+    {
+        await _journal.LoadAsync(Year, Ct);
+        await _journal.AppendAsync("jan.kowalski@contoso.test", "Stary temat", Ct);
+        _time.Advance(TimeSpan.FromDays(300));
+        await _journal.AppendAsync("grazyna.dabrowska@contoso.test", "Nowszy temat", Ct);
+        File.WriteAllBytes(_journal.KeyPath, [1, 2, 3, 4, 5]);
+        var backup = (await new CorrespondenceJournal(_paths, _protector, _time).LoadAsync(Year, Ct)).ResetBackup!;
+        Assert.Equal(2, ReadBackup(backup).Count);
+
+        // A backup of another format (a newer AD Manager), which this version cannot read: by the time it was written.
+        var otherFormat = Path.Combine(_journal.Folder, "journal-2025-01-02.old");
+        File.WriteAllText(otherFormat, "AdMng.CorrespondenceJournal\t2\nnieznany format\n");
+        File.SetLastWriteTimeUtc(otherFormat, _time.GetUtcNow().UtcDateTime);
+
+        _time.Advance(TimeSpan.FromDays(100));
+        await new CorrespondenceJournal(_paths, _protector, _time).LoadAsync(Year, Ct);
+
+        Assert.Equal(["Nowszy temat"], ReadBackup(backup).Select(e => e.Subject));   // the entry older than a year is gone
+        Assert.True(File.Exists(otherFormat));
+
+        _time.Advance(TimeSpan.FromDays(300));
+        var reopened = new CorrespondenceJournal(_paths, _protector, _time);
+        await reopened.LoadAsync(Year, Ct);
+        await reopened.AppendAsync("pawel.lewandowski@contoso.test", "Temat", Ct);
+        await reopened.PruneAsync(Year, Ct);
+
+        Assert.Empty(Directory.GetFiles(_journal.Folder, "*.old"));
+        Assert.Empty(Directory.GetFiles(_journal.Folder, "*.tmp"));
+        Assert.Equal(1, reopened.Count);
+    }
+
+    [Fact]
+    public async Task Clear_DeletesTheBackupsToo()
+    {
+        await _journal.LoadAsync(Year, Ct);
+        await _journal.AppendAsync("jan.kowalski@contoso.test", "Temat", Ct);
+        File.WriteAllBytes(_journal.KeyPath, [1, 2, 3, 4, 5]);
+        var reopened = new CorrespondenceJournal(_paths, _protector, _time);
+        Assert.NotNull((await reopened.LoadAsync(Year, Ct)).ResetBackup);
+        await reopened.AppendAsync("jan.kowalski@contoso.test", "Nowy klucz", Ct);
+
+        await reopened.ClearAsync(Ct);
+
+        Assert.Empty(Directory.GetFiles(reopened.Folder, "*.old"));
+        Assert.Equal([JournalFile.Header], File.ReadAllLines(reopened.FilePath));
+        Assert.True(File.Exists(reopened.KeyPath));
     }
 
     [Fact]

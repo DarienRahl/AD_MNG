@@ -17,7 +17,8 @@ namespace AdMng.Presentation.Tests.Correspondence;
 /// template library in a temporary settings folder, <see cref="FakeOutlookClient"/>, the shell scenario's recording dialogs
 /// and platform, signatures that parse (with an image), the Office clipboard images of the U1c fixtures, a recording
 /// browser preview and a delay that only moves the manual clock. Recipient rows are put on the recipients page directly
-/// (the pages read the rows' own state).
+/// (the pages read the rows' own state; the send list reads their journal marks again, so a row counts as already sent
+/// only through <see cref="Journal"/>).
 /// </summary>
 internal sealed class CorrespondencePagesScenario : IDisposable
 {

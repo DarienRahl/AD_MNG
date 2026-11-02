@@ -1,4 +1,5 @@
 using System.Globalization;
+using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Correspondence.Import;
 using AdMng.Core.Correspondence.Mailboxes;
 using AdMng.Core.Ldap;
@@ -143,14 +144,90 @@ public sealed class MailboxOwnersReviewTests
         Assert.True(pomoc.IsReady);
         Assert.Equal(MailboxRowStatusKind.Ok, pomoc.StatusKind);
 
-        // A typed address wins over the chosen person's address.
+        // The address of someone else than the chosen person (who has an address of their own): the person goes – their
+        // name, salutation and fields must not go to another address.
         var stara = Row(page, sample.StaraSkrzynka);
         stara.SelectedCandidate = stara.Candidates[0];
         scenario.Dialogs.Prompts.Enqueue("kadry@contoso.test");
         await page.TypeOwnerAddressCommand.ExecuteAsync(stara);
         Assert.Equal("kadry@contoso.test", stara.OwnerAddress);
-        Assert.Equal("Zbigniew Kaźmierczak", stara.OwnerDisplayName);
-        Assert.StartsWith("adres wpisany ręcznie · zgodne imię i nazwisko · konto właściciela jest wyłączone", stara.DetailText, StringComparison.Ordinal);
+        Assert.Null(stara.Owner);
+        Assert.Null(stara.SelectedCandidate);
+        Assert.Equal(string.Empty, stara.OwnerDisplayName);
+        Assert.Equal("adres wpisany ręcznie", stara.DetailText);
+        Assert.True(stara.IsReady);
+    }
+
+    [Fact]
+    public async Task TypeOwnerAddress_OfACandidate_ChoosesThem_AndAnOwnerWithoutAnAddressIsKept()
+    {
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
+        var sample = MailboxSample(scenario);
+        var builder = scenario.Harness.Builder;
+        builder.AddUser("Bożena", "Wróbel", scenario.Company.SalesOu);   // no address at all
+        builder.AddUser("Bożena", "Wróbel", sample.Ou, new Dictionary<string, object?>
+        {
+            [Attr.DisplayName] = "Biuro zarządu",
+            [Attr.Mail] = "biuro.zarzadu@contoso.test",
+            [MailboxTypes.RecipientTypeDetails] = FakeDirectoryBuilder.SharedMailboxType,
+            [Attr.UserAccountControl] = (int)(UserAccountControl.NormalAccount | UserAccountControl.AccountDisable),
+        });
+        using var window = await scenario.OpenAsync(new CorrespondenceRequest([], CorrespondenceStart.MailboxOwners));
+        var page = window.Mailboxes;
+        await UseSampleOuAsync(scenario, page, sample);
+        await page.FindOwnersCommand.ExecuteAsync(null);
+
+        // The owner has no address: a typed one is hers – her name and salutation go with it.
+        var biuro = Assert.Single(page.Rows, r => r.MailboxName == "Biuro zarządu");
+        Assert.Equal(OwnerMatchStatus.OwnerWithoutAddress, biuro.Status);
+        Assert.False(biuro.IsReady);
+        scenario.Dialogs.Prompts.Enqueue("bozena.wrobel@poczta.pl");
+        await page.TypeOwnerAddressCommand.ExecuteAsync(biuro);
+        Assert.Equal(("bozena.wrobel@poczta.pl", "Bożena Wróbel"), (biuro.OwnerAddress, biuro.OwnerDisplayName));
+        Assert.NotNull(biuro.Owner);
+        Assert.True(biuro.IsReady);
+
+        // Two of the same name: the address of one of them chooses him.
+        var laboratorium = Row(page, sample.Laboratorium);
+        scenario.Dialogs.Prompts.Enqueue("Jan.Nowak2@contoso.test");
+        await page.TypeOwnerAddressCommand.ExecuteAsync(laboratorium);
+        Assert.True(DistinguishedName.AreEqual(sample.JanNowakSales, laboratorium.Owner!.DistinguishedName));
+        Assert.False(laboratorium.HasTypedAddress);
+        Assert.Equal(("jan.nowak2@contoso.test", "Sprzedaż"), (laboratorium.OwnerAddress, laboratorium.OwnerDepartment));
+        Assert.Equal(MailboxOwnerRowState.Manual, laboratorium.RowState);
+    }
+
+    [Fact]
+    public async Task APartialMatch_IsNeverChosenAutomatically_TheOperatorConfirmsIt()
+    {
+        // "Karolina Malinowska" (Projekt UE) against the only "Karolina Malinowska-Wrona": maybe the owner after a change of
+        // name, maybe someone else – a match by a part of the surname is shown, never sent without the operator's choice.
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
+        var sample = MailboxSample(scenario);
+        scenario.Harness.Builder.AddUser("Karolina", "Malinowska-Wrona", scenario.Company.SalesOu,
+            new Dictionary<string, object?> { [Attr.Mail] = "karolina.malinowska-wrona@contoso.test" });
+        using var window = await scenario.OpenAsync(new CorrespondenceRequest([], CorrespondenceStart.MailboxOwners));
+        var page = window.Mailboxes;
+        await UseSampleOuAsync(scenario, page, sample);
+        await page.FindOwnersCommand.ExecuteAsync(null);
+
+        var projekt = Row(page, sample.ProjektUe);
+        Assert.Equal(OwnerMatchStatus.Probable, projekt.Status);
+        Assert.Equal(OwnerMatchLevel.Partial, projekt.Match.Best!.Level);
+        Assert.Null(projekt.SelectedCandidate);
+        Assert.False(projekt.IsReady);
+        Assert.True(projekt.NeedsReview);
+        Assert.Equal("Prawdopodobne", projekt.StatusText);
+        Assert.Equal("zgodna część nazwiska · nie wybrano automatycznie", projekt.DetailText);
+        Assert.True(Row(page, sample.Faktury).IsReady);                  // a swapped name is still chosen (design note 3.7)
+
+        await page.AddToRecipientsCommand.ExecuteAsync(null);
+        Assert.DoesNotContain(window.Recipients.Items, r => r.Email == "karolina.malinowska-wrona@contoso.test");
+
+        projekt.SelectedCandidate = projekt.Candidates[0];                // the operator confirms her
+        Assert.Equal(MailboxOwnerRowState.Manual, projekt.RowState);
+        Assert.True(projekt.IsReady);
+        Assert.False(projekt.NeedsReview);
     }
 
     [Fact]
@@ -198,6 +275,32 @@ public sealed class MailboxOwnersReviewTests
         Assert.True(stara.NeedsReview);
         Assert.Equal(MailboxRowStatusKind.Warning, stara.StatusKind);
         Assert.Equal("zgodne imię i nazwisko · konto właściciela jest wyłączone", stara.DetailText);
+    }
+
+    [Theory]
+    [InlineData(true, OwnerMatchStatus.Matched)]
+    [InlineData(false, OwnerMatchStatus.Ambiguous)]
+    public async Task TwoOwnersOfTheSameName_OneDisabled_TheEnabledOneWinsOnlyWhileDisabledOwnersAreNotAllowed(bool enabledOnly, OwnerMatchStatus expected)
+    {
+        // docs/KORESPONDENCJA.md: with several candidates the only enabled account wins with "Właścicielem może być tylko
+        // włączone konto"; otherwise the result is ambiguous (the disabled one may be the owner).
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
+        var sample = MailboxSample(scenario);
+        scenario.Harness.Builder.AddUser("Ewa", "Zielińska", scenario.Company.SalesOu, new Dictionary<string, object?>
+        {
+            [Attr.Mail] = "ewa.zielinska2@contoso.test",
+            [Attr.UserAccountControl] = (int)(UserAccountControl.NormalAccount | UserAccountControl.AccountDisable),
+        });
+        using var window = await scenario.OpenAsync(new CorrespondenceRequest([], CorrespondenceStart.MailboxOwners));
+        await UseSampleOuAsync(scenario, window.Mailboxes, sample);
+        window.Mailboxes.EnabledOwnersOnly = enabledOnly;
+
+        await window.Mailboxes.FindOwnersCommand.ExecuteAsync(null);
+
+        var kadry = Row(window.Mailboxes, sample.DzialKadr);
+        Assert.Equal(2, kadry.Candidates.Count);
+        Assert.Equal(expected, kadry.Status);
+        Assert.Equal(enabledOnly, kadry.IsReady);
     }
 
     [Fact]
@@ -282,6 +385,47 @@ public sealed class MailboxOwnersReviewTests
         Assert.False(window.Message.GroupByAddress);
         Assert.Null(window.Message.SelectedTemplate);
         Assert.Equal(9, window.Recipients.Units(window.Message.GroupByAddress).Count);
+    }
+
+    [Fact]
+    public async Task AddToRecipients_OneMessagePerMailbox_IsKept_WhenTheTemplateIsLoadedAfterAQuestion()
+    {
+        var (scenario, window, _) = await RunAsync(page => page.GroupByOwner = false);
+        using var __ = scenario;
+        using var ___ = window;
+        window.Message.Subject = "Skrzynki do przeglądu";              // a subject, an empty body: loading asks first
+        var answer = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        scenario.Harness.Dialogs.BeforeConfirmAnswer = () => answer.Task;
+        scenario.Harness.Dialogs.ConfirmAnswers.Enqueue(true);
+
+        var add = window.Mailboxes.AddToRecipientsCommand.ExecuteAsync(null);
+        await B2Harness.WaitUntilAsync(() => scenario.Harness.Dialogs.Shown.Count > 0);
+        answer.SetResult();
+        await add;
+        await (window.Message.TemplateLoading ?? Task.CompletedTask);
+
+        Assert.StartsWith("confirm:", Assert.Single(scenario.Harness.Dialogs.Shown), StringComparison.Ordinal);
+        Assert.Contains("{{Zwrot osobowy}}", window.Message.BodyHtml, StringComparison.Ordinal);
+        Assert.False(window.Message.GroupByAddress);                     // "Jedna wiadomość na właściciela" was off
+        Assert.Equal(9, window.Recipients.Units(window.Message.GroupByAddress).Count);
+    }
+
+    [Fact]
+    public async Task AddToRecipients_AgainWithAnEmptiedMessage_LoadsTheTemplateAgain()
+    {
+        var (scenario, window, _) = await RunAsync();
+        using var __ = scenario;
+        using var ___ = window;
+        await window.Mailboxes.AddToRecipientsCommand.ExecuteAsync(null);
+        Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededId, window.Message.SelectedTemplate?.Id);
+        window.Message.BodyHtml = string.Empty;                          // the operator emptied the body by hand
+        window.Message.Subject = string.Empty;
+
+        await window.Mailboxes.AddToRecipientsCommand.ExecuteAsync(null);
+
+        Assert.Contains("{{Zwrot osobowy}}", window.Message.BodyHtml, StringComparison.Ordinal);
+        Assert.Equal("Czy skrzynka pocztowa jest nadal potrzebna?", window.Message.Subject);
+        Assert.Equal(CorrespondenceTemplateLibrary.MailboxStillNeededId, window.Message.SelectedTemplate?.Id);
     }
 
     [Fact]

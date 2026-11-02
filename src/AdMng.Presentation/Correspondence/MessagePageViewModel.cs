@@ -328,8 +328,7 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
         }
 
         var local = DateTime.SpecifyKind(day.Add(time.TimeOfDay), DateTimeKind.Unspecified);
-        var zone = Services.Time.LocalTimeZone;
-        var at = new DateTimeOffset(local, zone.IsInvalidTime(local) ? zone.GetUtcOffset(local.AddHours(1)) : zone.GetUtcOffset(local));
+        var at = DeliveryInstant(local, Services.Time.LocalTimeZone);
         if (at <= now.AddMinutes(1))
         {
             DeliverError = Localizer.Format(L.CorrespondenceMessage.DeliverNotFuture, local.ToString("g", Localizer.Culture));
@@ -345,6 +344,25 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
         DeliverError = null;
         deliverAt = at;
         return true;
+    }
+
+    /// <summary>
+    /// The moment the local time <paramref name="local"/> of <paramref name="zone"/> denotes. A time in the spring-forward
+    /// gap (02:30 on the last Sunday of March in Warsaw) does not exist: it takes the offset in force before the gap, which
+    /// moves it past the gap (03:30 summer time) – never before the time typed. A repeated time (the autumn change) is the
+    /// later one, in standard time.
+    /// </summary>
+    internal static DateTimeOffset DeliveryInstant(DateTime local, TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(zone);
+        local = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
+        var before = local;
+        while (zone.IsInvalidTime(before) && before > DateTime.MinValue.AddHours(1))
+        {
+            before = before.AddMinutes(-15);
+        }
+
+        return new DateTimeOffset(local, zone.GetUtcOffset(before));
     }
 
     /// <summary>

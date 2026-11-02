@@ -3,6 +3,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Messaging;
 using AdMng.Core.Messaging.Salutations;
 using AdMng.Core.Model;
+using AdMng.Core.Schema;
 
 namespace AdMng.Core.Correspondence.Mailboxes;
 
@@ -39,8 +40,9 @@ public static class OwnerNameParser
     /// <param name="mailbox">The mailbox account, read with <see cref="AttributesFor"/>.</param>
     /// <param name="source">Where the name is.</param>
     /// <param name="attribute">The attribute of <see cref="OwnerNameSource.Attribute"/> (ignored otherwise).</param>
+    /// <param name="schema">The session's schema: an attribute it marks confidential is refused (<see cref="IsUsableAttribute"/>).</param>
     /// <returns>The name, or null when the source holds none.</returns>
-    public static OwnerName? Parse(DirectoryObject mailbox, OwnerNameSource source, string? attribute)
+    public static OwnerName? Parse(DirectoryObject mailbox, OwnerNameSource source, string? attribute, ISchemaCatalog? schema = null)
     {
         ArgumentNullException.ThrowIfNull(mailbox);
         return source switch
@@ -48,7 +50,7 @@ public static class OwnerNameParser
             OwnerNameSource.GivenNameAndSurname => FromNames(mailbox.GetString(Attr.GivenName), mailbox.GetString(Attr.Sn)),
             OwnerNameSource.DisplayName => ParseText(mailbox.GetString(Attr.DisplayName)),
             OwnerNameSource.Description => ParseText(mailbox.GetString(Attr.Description)),
-            OwnerNameSource.Attribute => IsUsableAttribute(attribute) ? ParseText(mailbox.GetString(attribute!.Trim())) : null,
+            OwnerNameSource.Attribute => IsUsableAttribute(attribute, schema) ? ParseText(mailbox.GetString(attribute!.Trim())) : null,
             _ => throw new ArgumentOutOfRangeException(nameof(source), source, null),
         };
     }
@@ -109,26 +111,28 @@ public static class OwnerNameParser
         };
     }
 
-    /// <summary>The attributes <see cref="Parse"/> reads for <paramref name="source"/>.</summary>
-    public static IReadOnlyList<string> AttributesFor(OwnerNameSource source, string? attribute) => source switch
+    /// <summary>The attributes <see cref="Parse"/> reads for <paramref name="source"/> (none for an attribute that is not
+    /// usable with <paramref name="schema"/>).</summary>
+    public static IReadOnlyList<string> AttributesFor(OwnerNameSource source, string? attribute, ISchemaCatalog? schema = null) => source switch
     {
         OwnerNameSource.GivenNameAndSurname => [Attr.GivenName, Attr.Sn],
         OwnerNameSource.DisplayName => [Attr.DisplayName],
         OwnerNameSource.Description => [Attr.Description],
-        OwnerNameSource.Attribute => IsUsableAttribute(attribute) ? [attribute!.Trim()] : [],
+        OwnerNameSource.Attribute => IsUsableAttribute(attribute, schema) ? [attribute!.Trim()] : [],
         _ => throw new ArgumentOutOfRangeException(nameof(source), source, null),
     };
 
     /// <summary>
     /// An attribute the owner's name may be read from: an LDAP attribute name (a letter, then letters, digits and hyphens, at
-    /// most 256 characters) that is no secret (<see cref="UserMessageRules.IsForbiddenAttribute"/>).
+    /// most 256 characters) that is no secret (<see cref="UserMessageRules.IsForbiddenAttribute"/>: a well-known secret, a
+    /// name like a password, or – with <paramref name="schema"/> – an attribute the schema marks confidential).
     /// </summary>
-    public static bool IsUsableAttribute(string? attribute)
+    public static bool IsUsableAttribute(string? attribute, ISchemaCatalog? schema = null)
     {
         var name = attribute?.Trim();
         return !string.IsNullOrEmpty(name) && name.Length <= 256 && char.IsAsciiLetter(name[0])
             && name.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')
-            && !UserMessageRules.IsForbiddenAttribute(name);
+            && !UserMessageRules.IsForbiddenAttribute(name, schema);
     }
 
     /// <summary>The text without "(…)" remarks (nested ones included, an unclosed "(" cuts the rest), white space collapsed.</summary>

@@ -79,7 +79,7 @@ szkic i opcje.
 | przeciągnięcie plików na listę | jak *Z pliku* |
 | *Z katalogu: Zaznaczone obiekty* | użytkownicy, kontakty i grupy (ich członkowie) zaznaczeni w oknie połączenia |
 | *Wybierz użytkowników…* | okno wyboru obiektów: użytkownicy i kontakty |
-| *Członkowie grupy…* | członkowie wybranej grupy, także zagnieżdżeni (użytkownicy i kontakty, do 10 000) |
+| *Członkowie grupy…* | członkowie wybranej grupy, także zagnieżdżeni i konta, dla których jest grupą podstawową (np. *Domain Users*; użytkownicy i kontakty, do 10 000) |
 | *Właściciele skrzynek…* | zakładka *Skrzynki* (rozdział 8) |
 
 Powtórzone adresy są usuwane – także względem odbiorców wczytanych wcześniej. Pasek stanu podsumowuje każde
@@ -168,7 +168,8 @@ pozwala usunąć wpisy starsze niż ten okres albo wyczyścić cały dziennik. D
 skróty (rozdział 11), więc nie da się z niego odczytać, do kogo wysłano; służą do tego *Elementy wysłane* Outlooka i raport
 wysyłki. Dziennik jest wspólny dla wszystkich okien AD Managera tego użytkownika Windows i należy do niego: po
 przeniesieniu profilu na inny komputer albo zalogowaniu innym kontem klucza nie da się odczytać – okno zakłada nowy
-dziennik, a poprzedni zachowuje jako `journal-<data>.old` i mówi o tym.
+dziennik, a poprzedni zachowuje jako `journal-<data>.old` i mówi o tym. Kopia podlega temu samemu okresowi
+przechowywania (starsze wpisy są z niej usuwane, pusta kopia znika), a wyczyszczenie dziennika usuwa także kopie.
 
 ## 4. Pola w temacie i treści
 
@@ -427,7 +428,7 @@ skrzynki, wygrywa zawsze (co najmniej na poziomie *częściowo*).
 |---|---|---|
 | dopasowano | jedna osoba, dokładnie lub bez polskich znaków | nic |
 | dopasowano przez pełnomocnictwo | jedyny kandydat-pełnomocnik | nic |
-| prawdopodobne | jedna osoba na niższym poziomie | sprawdź, w razie potrzeby wybierz inną |
+| prawdopodobne | jedna osoba na niższym poziomie (zgodna tylko część nazwiska – osoba nie jest wybierana automatycznie) | sprawdź, w razie potrzeby wybierz inną; przy części nazwiska wybierz osobę z listy |
 | niejednoznaczne | kilka osób na tym samym poziomie | wybierz kandydata z listy |
 | nie znaleziono | nikt nie pasuje | wybierz osobę, wpisz adres albo wyklucz skrzynkę |
 | brak imienia i nazwiska | skrzynka nie ma danych osoby | wybierz osobę albo zmień źródło imienia i nazwiska |
@@ -446,7 +447,9 @@ wykluczone: 2*.
 
 - Wybór innego kandydata z listy w kolumnie *Właściciel* zmienia wiersz na wybrany ręcznie.
 - *Wybierz właściciela…* – dowolny użytkownik z okna wyboru obiektów.
-- *Wpisz adres właściciela…* – adres wpisany ręcznie (sprawdzany).
+- *Wpisz adres właściciela…* – adres wpisany ręcznie (sprawdzany). Adres jednego z kandydatów wybiera tę osobę, osobie
+  bez adresu wpisany adres go uzupełnia, a adres kogoś innego niż wybrana osoba usuwa ją z wiersza – jej imię i zwrot nie
+  trafią pod obcy adres (pola osoby zostają puste, podgląd o tym mówi).
 - *Wyklucz* / *Przywróć* – skrzynka nie trafi do odbiorców.
 
 ### Pola skrzynek i właścicieli

@@ -33,7 +33,7 @@ public sealed partial class MailboxOwnersPageViewModel
     internal static IReadOnlyList<string> MailboxAttributes(ISchemaCatalog? schema, DirectoryRowBuilder builder, OwnerNameSource source, string? attribute) =>
     [
         .. MailboxEntry.AttributesFor(schema)
-            .Concat(OwnerNameParser.AttributesFor(source, attribute))
+            .Concat(OwnerNameParser.AttributesFor(source, attribute, schema))
             .Concat(builder.AttributesFor(DirectoryFieldTarget.Mailbox))
             .Distinct(StringComparer.OrdinalIgnoreCase),
     ];
@@ -52,7 +52,7 @@ public sealed partial class MailboxOwnersPageViewModel
         RefreshSchema(session.Schema);
         var source = NameSource.Value;
         var attribute = NameAttribute?.Trim() ?? string.Empty;
-        if (source == OwnerNameSource.Attribute && !OwnerNameParser.IsUsableAttribute(attribute))
+        if (source == OwnerNameSource.Attribute && !OwnerNameParser.IsUsableAttribute(attribute, session.Schema))
         {
             Fail(Localizer.Format(L.CorrespondenceMailboxes.NameAttributeInvalid, attribute));
             return;
@@ -145,7 +145,10 @@ public sealed partial class MailboxOwnersPageViewModel
             async () =>
             {
                 var index = new PersonIndex(persons);
-                var options = new OwnerMatchOptions();
+
+                // Several candidates of one level: the only enabled one wins only while disabled owners are not allowed
+                // (with them allowed, the disabled one may be the owner – ambiguous).
+                var options = new OwnerMatchOptions { PreferEnabled = enabledOnly };
                 var batch = new List<(MailboxRead Mailbox, OwnerMatch Match)>(RowBatchSize);
                 foreach (var mailbox in mailboxes)
                 {

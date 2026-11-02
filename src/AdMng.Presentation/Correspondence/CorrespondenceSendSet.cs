@@ -27,9 +27,11 @@ internal sealed record BccChunk(IReadOnlyList<string> Addresses, IReadOnlyList<C
 /// <summary>
 /// The send list of the recipients page at one moment, taken on the UI thread: the rows that are included, valid, not on the
 /// "Nie wysyłać" list and – when "skip already sent" is on – not in the journal (the rule of
-/// <see cref="RecipientsPageViewModel.SendList"/>, design note 6.4, applied to the rows' own state), the counts of the
-/// included rows that are skipped or invalid (MailerWPiA's <c>SendList(out skipped, out invalid)</c>) and the columns of the
-/// list. The rows are view models; their address, name and fields never change, so units and chunks can be built and
+/// <see cref="RecipientsPageViewModel.SendList"/>, design note 6.4), the counts of the included rows that are skipped or
+/// invalid (MailerWPiA's <c>SendList(out skipped, out invalid)</c>) and the columns of the list. The journal marks of the
+/// rows are read again first (<see cref="RecipientsPageViewModel.RefreshJournalMarks"/>): addresses sent since the rows were
+/// added – by an earlier run of this window or by another window – are skipped, as MailerWPiA's list read its journal set
+/// every time. The rows are view models; their address, name and fields never change, so units and chunks can be built and
 /// rendered off the UI thread. In memory only (rule 1).
 /// </summary>
 internal sealed class CorrespondenceSendSet
@@ -60,10 +62,11 @@ internal sealed class CorrespondenceSendSet
     /// <summary>The number of distinct addresses of <see cref="Rows"/>.</summary>
     public int AddressCount => Rows.Select(r => Key(r.Email)).Where(k => k.Length > 0).Distinct(StringComparer.Ordinal).Count();
 
-    /// <summary>The send list of <paramref name="recipients"/> now (call on the UI thread).</summary>
+    /// <summary>The send list of <paramref name="recipients"/> now, with the journal marks read again (call on the UI thread).</summary>
     public static CorrespondenceSendSet Of(RecipientsPageViewModel recipients)
     {
         ArgumentNullException.ThrowIfNull(recipients);
+        recipients.RefreshJournalMarks();
         var skipAlreadySent = recipients.SkipAlreadySent;
         var rows = new List<CorrespondenceRecipientViewModel>();
         int skipped = 0, invalid = 0;

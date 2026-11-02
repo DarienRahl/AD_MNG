@@ -1,5 +1,6 @@
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Correspondence.Mailboxes;
+using AdMng.Core.Schema;
 using static AdMng.Core.Tests.Correspondence.Mailboxes.MailboxTestData;
 
 namespace AdMng.Core.Tests.Correspondence.Mailboxes;
@@ -151,6 +152,24 @@ public class OwnerNameParserTests
         Assert.Null(OwnerNameParser.Parse(Account("Pusta"), OwnerNameSource.Description, null));
         Assert.Throws<ArgumentOutOfRangeException>(() => OwnerNameParser.Parse(mailbox, (OwnerNameSource)9, null));
         Assert.Throws<ArgumentNullException>(() => OwnerNameParser.Parse(null!, OwnerNameSource.DisplayName, null));
+    }
+
+    [Fact]
+    public void TheAttributeSource_RefusesAttributesTheSchemaMarksConfidential()
+    {
+        var schema = new SchemaCatalog(
+            [
+                new AttributeDefinition { LdapName = "contoso-OwnerName", Syntax = AttributeSyntax.UnicodeString, IsConfidential = true },
+                new AttributeDefinition { LdapName = "extensionAttribute1", Syntax = AttributeSyntax.UnicodeString },
+            ],
+            []);
+        var mailbox = Account("Archiwum", ("contoso-OwnerName", "Grażyna Dąbrowska"), ("extensionAttribute1", "Anna Nowak"));
+
+        Assert.False(OwnerNameParser.IsUsableAttribute("contoso-OwnerName", schema));
+        Assert.True(OwnerNameParser.IsUsableAttribute("extensionAttribute1", schema));
+        Assert.Empty(OwnerNameParser.AttributesFor(OwnerNameSource.Attribute, "contoso-OwnerName", schema));
+        Assert.Null(OwnerNameParser.Parse(mailbox, OwnerNameSource.Attribute, "contoso-OwnerName", schema));
+        AssertName(OwnerNameParser.Parse(mailbox, OwnerNameSource.Attribute, "extensionAttribute1", schema), "Anna", "Nowak", "Anna Nowak");
     }
 
     [Fact]

@@ -114,7 +114,7 @@ internal sealed class MailboxOwnerFinder
                         return (result, MailboxReadFailure.TooManyMailboxes);
                     }
 
-                    result.Add(new MailboxRead(account, MailboxEntry.From(account), OwnerNameParser.Parse(account, source, nameAttribute)));
+                    result.Add(new MailboxRead(account, MailboxEntry.From(account), OwnerNameParser.Parse(account, source, nameAttribute, Session.Schema)));
                     if (result.Count % ProgressInterval == 0)
                     {
                         await progress(result.Count).ConfigureAwait(false);

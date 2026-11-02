@@ -315,13 +315,19 @@ public sealed partial class SendPageViewModel : ObservableObject
             return;
         }
 
+        using var hold = Outlook.Hold(session);   // a reconnection meanwhile never releases the session of this run
         var bcc = Message.IsBcc;
         var group = Message.GroupByAddress;
         var chunkSize = Message.BccChunkSize;
         var own = Outlook.OwnAddress;
         var (jobs, jobRows) = await Task.Run(() => Jobs(rows, bcc, group, chunkSize, own)).ConfigureAwait(true);
         var recipients = bcc ? jobs.Sum(j => j.Bcc.Count) : jobs.Count;
-        Message.TryGetDeferredDelivery(out var deliverAt);
+        var (deferredValid, deliverAt) = await DeferredDeliveryAsync().ConfigureAwait(true);
+        if (!deferredValid)
+        {
+            return;
+        }
+
         if (retry is null && !await ConfirmAsync(kind, set, recipients, jobs.Count, deliverAt).ConfigureAwait(true))
         {
             return;
@@ -387,6 +393,7 @@ public sealed partial class SendPageViewModel : ObservableObject
             return;
         }
 
+        using var hold = Outlook.Hold(session);
         var address = Outlook.OwnAddress;
         if (string.IsNullOrWhiteSpace(address))
         {
@@ -432,7 +439,12 @@ public sealed partial class SendPageViewModel : ObservableObject
             }
         }
 
-        Message.TryGetDeferredDelivery(out var deliverAt);
+        var (deferredValid, deliverAt) = await DeferredDeliveryAsync().ConfigureAwait(true);
+        if (!deferredValid)
+        {
+            return;
+        }
+
         var draft = await Message.DraftAsync().ConfigureAwait(true);
         await SaveDraftAsync().ConfigureAwait(true);
         var job = new CorrespondenceSendJob(unit, [address], [], [], [address]);
@@ -476,7 +488,7 @@ public sealed partial class SendPageViewModel : ObservableObject
                 return;   // a late report of a run that has ended (its outcomes were applied at its end)
             }
 
-            ApplyOutcome(kind, p.Outcome, jobs, jobRows, bcc, journal.IsLoaded);
+            ApplyOutcome(kind, p.Outcome, jobs, jobRows, session, bcc, journal.IsLoaded);
             SentCount = p.Succeeded;
             FailedCount = p.Failed;
             ProgressValue = p.Done;
@@ -498,7 +510,7 @@ public sealed partial class SendPageViewModel : ObservableObject
 
         foreach (var outcome in result.Outcomes)
         {
-            ApplyOutcome(kind, outcome, jobs, jobRows, bcc, journal.IsLoaded);
+            ApplyOutcome(kind, outcome, jobs, jobRows, session, bcc, journal.IsLoaded);
         }
 
         SentCount = result.Succeeded;
@@ -507,12 +519,13 @@ public sealed partial class SendPageViewModel : ObservableObject
         Finish(kind, result, journal);
         IsSending = false;
         RetryFailedCommand.NotifyCanExecuteChanged();
-        RefreshSummary();
+        RefreshSummary();   // the send list reads the journal marks again: the rows' marks, texts and counts follow the run
     }
 
-    /// <summary>The status of the rows of one message and its result line (once per message).</summary>
+    /// <summary>The status of the rows of one message and its result line (once per message); a failure is reported for
+    /// <paramref name="session"/>, the session of the run.</summary>
     private void ApplyOutcome(SendRunKind kind, SendJobOutcome outcome, IReadOnlyList<CorrespondenceSendJob> jobs,
-        IReadOnlyList<IReadOnlyList<CorrespondenceRecipientViewModel>> jobRows, bool bcc, bool journalLoaded)
+        IReadOnlyList<IReadOnlyList<CorrespondenceRecipientViewModel>> jobRows, IOutlookSession session, bool bcc, bool journalLoaded)
     {
         if (!_applied.Add(outcome.Index))
         {
@@ -529,9 +542,12 @@ public sealed partial class SendPageViewModel : ObservableObject
                 {
                     case SendRunKind.Send:
                         SetStatus(row, RecipientStatusKind.Sent, Localizer[L.CorrespondenceSend.StatusSent]);
-                        if (journalLoaded)
+                        if (journalLoaded && Correspondence.Journal.Find(row.Email) is not null)
                         {
-                            row.IsAlreadySent = true;
+                            // Recorded before the outcome was reported: the mark is the journal's (the send list reads the
+                            // marks again, so a row is never sent twice while "Pomijaj już wysłane" is on).
+                            row.IsInJournal = true;
+                            row.IsAlreadySent = Recipients.SkipAlreadySent;
                         }
 
                         break;
@@ -549,7 +565,7 @@ public sealed partial class SendPageViewModel : ObservableObject
         }
 
         var failure = outcome.Failure!;
-        Outlook.ReportFailure(failure);
+        Outlook.ReportFailure(failure, session);
         var text = CorrespondenceText.FailureText(Localizer, failure);
         if (kind != SendRunKind.Test)
         {
@@ -670,10 +686,29 @@ public sealed partial class SendPageViewModel : ObservableObject
             return true;
         }
 
-        await Services.Dialogs.ShowErrorAsync(Title,
-            Localizer[L.CorrespondenceSend.CannotSend] + Environment.NewLine + string.Join(Environment.NewLine, errors.Select(e => "• " + e))).ConfigureAwait(true);
+        await ShowCannotSendAsync(errors).ConfigureAwait(true);
         return false;
     }
+
+    /// <summary>
+    /// The deferred delivery time of the run (null: at once), taken once Outlook is connected – starting it may take a
+    /// while: a time no longer in the future stops the run with the reason, as the validation does, and is never turned
+    /// into a run sent at once.
+    /// </summary>
+    private async Task<(bool Valid, DateTimeOffset? At)> DeferredDeliveryAsync()
+    {
+        if (Message.TryGetDeferredDelivery(out var at))
+        {
+            return (true, at);
+        }
+
+        await ShowCannotSendAsync([Message.DeliverError ?? string.Empty]).ConfigureAwait(true);
+        return (false, null);
+    }
+
+    private Task ShowCannotSendAsync(IEnumerable<string> errors) =>
+        Services.Dialogs.ShowErrorAsync(Title,
+            Localizer[L.CorrespondenceSend.CannotSend] + Environment.NewLine + string.Join(Environment.NewLine, errors.Select(e => "• " + e)));
 
     /// <summary>The Outlook session (connected now when needed); null with the reason shown.</summary>
     private async Task<IOutlookSession?> ConnectAsync()

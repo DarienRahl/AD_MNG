@@ -99,6 +99,36 @@ public sealed class RecipientsDirectoryTests
     }
 
     [Fact]
+    public async Task GroupMembers_IncludeTheAccountsWhosePrimaryGroupItIs()
+    {
+        // The primary group is not in memberOf: Domain Users (RID 513) of an ordinary user, or any group set as primary.
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
+        var builder = scenario.Harness.Builder;
+        var project = builder.AddGroup("Projekt Wisła", scenario.Company.GroupsOu, members: [scenario.Company.JanKowalski]);
+        var rid = AdConvert.GetRid(Assert.Single(builder.Session.GetValues(project, Attr.ObjectSid)));
+        builder.AddUser("Zofia", "Wiśniewska", scenario.Company.SalesOu, new Dictionary<string, object?>
+        {
+            [Attr.Mail] = "zofia.wisniewska@contoso.test",
+            [Attr.PrimaryGroupId] = rid,
+        });
+        using var window = await scenario.OpenAsync();
+        var page = window.Recipients;
+        scenario.Harness.Dialogs.PickedObjects.Enqueue([project]);
+
+        await page.AddGroupMembersCommand.ExecuteAsync(null);
+
+        Assert.Equal(["jan.kowalski@contoso.test", "zofia.wisniewska@contoso.test"], page.Items.Select(r => r.Email).Order(StringComparer.Ordinal));
+        Assert.All(page.Items, r => Assert.Equal("grupa Projekt Wisła", r.Source));
+
+        scenario.Harness.Dialogs.PickedObjects.Enqueue([builder.DomainUsersDn]);
+        await page.AddGroupMembersCommand.ExecuteAsync(null);
+
+        Assert.Contains(page.Items, r => r.Email == "bartlomiej.kozlowski@contoso.test" && r.Source == "grupa Domain Users");
+        Assert.Contains(page.Items, r => r.Email == "grazyna.dabrowska@contoso.test");
+        Assert.DoesNotContain(page.Items, r => r.Email == "zofia.wisniewska@contoso.test" && r.Source == "grupa Domain Users");
+    }
+
+    [Fact]
     public async Task ObjectsWithoutAnAddress_AreInvalidRows_AndProxyAddressesAreUsed()
     {
         using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);

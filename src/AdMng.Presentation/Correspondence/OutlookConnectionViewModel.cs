@@ -37,10 +37,21 @@ public enum OutlookState
 /// Downloads and signatures folders). Failures show the localized code text (<c>Correspondence.Outlook.Code.{code}</c>),
 /// never a modal error.
 /// </summary>
+/// <remarks>
+/// A send run holds the session it sends through (<see cref="Hold"/>): a reconnection meanwhile (another page, "Połącz")
+/// gives the window a new session and releases the held one only when the run lets it go, and failures the run reports
+/// for the replaced session no longer change the state of the new one.
+/// </remarks>
 public sealed partial class OutlookConnectionViewModel : ObservableObject, IAsyncDisposable
 {
     private readonly Lock _gate = new();
     private readonly CancellationTokenSource _lifetime = new();
+
+    /// <summary>The holds per session (under <see cref="_gate"/>).</summary>
+    private readonly Dictionary<IOutlookSession, int> _holds = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>Sessions replaced while held: released when their last hold ends (under <see cref="_gate"/>).</summary>
+    private readonly List<IOutlookSession> _retired = [];
     private Task<IOutlookSession?>? _connecting;
     private string _savedAccount = string.Empty;
     private bool _restoringAccount;
@@ -183,13 +194,38 @@ public sealed partial class OutlookConnectionViewModel : ObservableObject, IAsyn
     /// <see cref="OutlookFailureKind.NotResponding"/>, <see cref="OutlookFailureKind.Elevated"/>) shows in the state, so the
     /// next <see cref="EnsureConnectedAsync"/> connects again. Other failures concern one item and change nothing.
     /// </summary>
-    public void ReportFailure(OutlookFailure failure)
+    /// <param name="failure">The failure.</param>
+    /// <param name="session">The session that failed (null: the current one). A failure of a session the window has
+    /// replaced since – a run kept sending through it – says nothing about the current one and is ignored.</param>
+    public void ReportFailure(OutlookFailure failure, IOutlookSession? session = null)
     {
         ArgumentNullException.ThrowIfNull(failure);
         if (failure.Kind is OutlookFailureKind.Disconnected or OutlookFailureKind.NotResponding or OutlookFailureKind.Elevated)
         {
-            _ = Services.Dispatcher.RunAsync(() => SetState(OutlookState.Failed, failure));
+            _ = Services.Dispatcher.RunAsync(() =>
+            {
+                if (session is null || ReferenceEquals(session, Session))
+                {
+                    SetState(OutlookState.Failed, failure);
+                }
+            });
         }
+    }
+
+    /// <summary>
+    /// Keeps <paramref name="session"/> from being released while the returned hold is not disposed (a send run holds the
+    /// session it sends through, from connecting to its last message). A reconnection meanwhile gives the window a new
+    /// session and releases this one when its last hold ends – or when the window closes – so the run is never cut off.
+    /// </summary>
+    internal IDisposable Hold(IOutlookSession session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        lock (_gate)
+        {
+            _holds[session] = _holds.GetValueOrDefault(session) + 1;
+        }
+
+        return new SessionHold(this, session);
     }
 
     /// <summary>Takes the account and "w imieniu" of the settings (the account is applied after connect).</summary>
@@ -249,6 +285,19 @@ public sealed partial class OutlookConnectionViewModel : ObservableObject, IAsyn
         if (session is not null)
         {
             await ReleaseAsync(session).ConfigureAwait(false);
+        }
+
+        // The window closed: sessions a run still held are released too (the run was stopped).
+        IOutlookSession[] retired;
+        lock (_gate)
+        {
+            retired = [.. _retired];
+            _retired.Clear();
+        }
+
+        foreach (var old in retired)
+        {
+            await ReleaseAsync(old).ConfigureAwait(false);
         }
 
         _lifetime.Dispose();
@@ -358,12 +407,12 @@ public sealed partial class OutlookConnectionViewModel : ObservableObject, IAsyn
                 catch (OutlookException ex)
                 {
                     failure = ex.Failure;
-                    ReportFailure(ex.Failure);
+                    ReportFailure(ex.Failure, session);
                 }
                 catch (ObjectDisposedException)
                 {
                     failure = new OutlookFailure(OutlookFailureKind.Disconnected, OutlookFailureCodes.Disconnected, null, null);
-                    ReportFailure(failure);
+                    ReportFailure(failure, session);
                 }
             }
 
@@ -423,8 +472,18 @@ public sealed partial class OutlookConnectionViewModel : ObservableObject, IAsyn
         }
 
         await Services.Dispatcher.RunAsync(() => SetState(OutlookState.Connecting, null)).ConfigureAwait(false);
-        var previous = Session;
-        Session = null;
+        IOutlookSession? previous;
+        lock (_gate)
+        {
+            previous = Session;
+            Session = null;
+            if (previous is not null && _holds.ContainsKey(previous))
+            {
+                _retired.Add(previous);   // a run still sends through it: released when the run lets it go
+                previous = null;
+            }
+        }
+
         if (previous is not null)
         {
             await ReleaseAsync(previous).ConfigureAwait(false);
@@ -488,6 +547,32 @@ public sealed partial class OutlookConnectionViewModel : ObservableObject, IAsyn
     }
 
     private static OutlookFailure Failed(OutlookFailureKind kind) => new(kind, OutlookFailureCodes.Of(kind), "connect", null);
+
+    /// <summary>One hold of <paramref name="session"/> ended: a session replaced meanwhile is released with its last hold.</summary>
+    private void EndHold(IOutlookSession session)
+    {
+        lock (_gate)
+        {
+            if (!_holds.TryGetValue(session, out var count))
+            {
+                return;
+            }
+
+            if (count > 1)
+            {
+                _holds[session] = count - 1;
+                return;
+            }
+
+            _holds.Remove(session);
+            if (!_retired.Remove(session))
+            {
+                return;   // still the window's session (or released with the window)
+            }
+        }
+
+        _ = ReleaseAsync(session);
+    }
 
     private static async Task ReleaseAsync(IOutlookSession session)
     {
@@ -596,5 +681,21 @@ public sealed partial class OutlookConnectionViewModel : ObservableObject, IAsyn
         {
             return [];
         }
+    }
+
+    /// <summary>A hold of <see cref="Hold"/> (ends once).</summary>
+    private sealed class SessionHold(OutlookConnectionViewModel owner, IOutlookSession session) : IDisposable
+    {
+        private int _ended;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _ended, 1) == 0)
+            {
+                owner.EndHold(session);
+            }
+        }
+
+        public override string ToString() => nameof(SessionHold);
     }
 }
