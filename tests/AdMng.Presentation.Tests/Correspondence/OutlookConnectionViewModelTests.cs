@@ -316,6 +316,56 @@ public sealed class OutlookConnectionViewModelTests
     }
 
     [Fact]
+    public async Task AHeldSession_IsNeverReleasedByAReconnect_OnlyWhenItsLastHoldEnds()
+    {
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
+        await using var outlook = Connection(scenario);
+        var ct = TestContext.Current.CancellationToken;
+        var held = await outlook.EnsureConnectedAsync(ct);
+        Assert.NotNull(held);
+        var run = outlook.Hold(held);
+        var other = outlook.Hold(held);
+        outlook.ReportFailure(FakeOutlookClient.Failure(OutlookFailureKind.NotResponding, "send"), held);
+        Assert.Equal(OutlookState.Failed, outlook.State);
+
+        var current = await outlook.EnsureConnectedAsync(ct);
+
+        Assert.NotSame(held, current);
+        var first = scenario.Outlook.Sessions[0];
+        Assert.False(first.IsDisposed);                             // a run still sends through it
+        Assert.Equal(OutlookState.Connected, outlook.State);
+
+        // A late failure of the replaced session says nothing about the current one.
+        outlook.ReportFailure(FakeOutlookClient.Failure(OutlookFailureKind.Disconnected, "send"), held);
+        Assert.Equal(OutlookState.Connected, outlook.State);
+        Assert.Same(current, await outlook.EnsureConnectedAsync(ct));
+
+        run.Dispose();
+        Assert.False(first.IsDisposed);
+        other.Dispose();
+        other.Dispose();
+        Assert.True(first.IsDisposed);
+        Assert.False(scenario.Outlook.Sessions[1].IsDisposed);
+        Assert.Equal(2, scenario.Outlook.Connections);
+    }
+
+    [Fact]
+    public async Task Dispose_AlsoReleasesASessionStillHeld()
+    {
+        using var scenario = await CorrespondenceShellScenario.CreateAsync();
+        var outlook = Connection(scenario);
+        var ct = TestContext.Current.CancellationToken;
+        var held = await outlook.EnsureConnectedAsync(ct);
+        using var hold = outlook.Hold(held!);
+        outlook.ReportFailure(FakeOutlookClient.Failure(OutlookFailureKind.NotResponding, "send"));
+        await outlook.EnsureConnectedAsync(ct);
+
+        await outlook.DisposeAsync();
+
+        Assert.All(scenario.Outlook.Sessions, s => Assert.True(s.IsDisposed));
+    }
+
+    [Fact]
     public async Task LanguageChange_RefreshesTheTexts()
     {
         using var scenario = await CorrespondenceShellScenario.CreateAsync();

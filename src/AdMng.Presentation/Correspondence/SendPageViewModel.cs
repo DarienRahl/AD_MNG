@@ -315,6 +315,7 @@ public sealed partial class SendPageViewModel : ObservableObject
             return;
         }
 
+        using var hold = Outlook.Hold(session);   // a reconnection meanwhile never releases the session of this run
         var bcc = Message.IsBcc;
         var group = Message.GroupByAddress;
         var chunkSize = Message.BccChunkSize;
@@ -387,6 +388,7 @@ public sealed partial class SendPageViewModel : ObservableObject
             return;
         }
 
+        using var hold = Outlook.Hold(session);
         var address = Outlook.OwnAddress;
         if (string.IsNullOrWhiteSpace(address))
         {
@@ -476,7 +478,7 @@ public sealed partial class SendPageViewModel : ObservableObject
                 return;   // a late report of a run that has ended (its outcomes were applied at its end)
             }
 
-            ApplyOutcome(kind, p.Outcome, jobs, jobRows, bcc, journal.IsLoaded);
+            ApplyOutcome(kind, p.Outcome, jobs, jobRows, session, bcc, journal.IsLoaded);
             SentCount = p.Succeeded;
             FailedCount = p.Failed;
             ProgressValue = p.Done;
@@ -498,7 +500,7 @@ public sealed partial class SendPageViewModel : ObservableObject
 
         foreach (var outcome in result.Outcomes)
         {
-            ApplyOutcome(kind, outcome, jobs, jobRows, bcc, journal.IsLoaded);
+            ApplyOutcome(kind, outcome, jobs, jobRows, session, bcc, journal.IsLoaded);
         }
 
         SentCount = result.Succeeded;
@@ -510,9 +512,10 @@ public sealed partial class SendPageViewModel : ObservableObject
         RefreshSummary();   // the send list reads the journal marks again: the rows' marks, texts and counts follow the run
     }
 
-    /// <summary>The status of the rows of one message and its result line (once per message).</summary>
+    /// <summary>The status of the rows of one message and its result line (once per message); a failure is reported for
+    /// <paramref name="session"/>, the session of the run.</summary>
     private void ApplyOutcome(SendRunKind kind, SendJobOutcome outcome, IReadOnlyList<CorrespondenceSendJob> jobs,
-        IReadOnlyList<IReadOnlyList<CorrespondenceRecipientViewModel>> jobRows, bool bcc, bool journalLoaded)
+        IReadOnlyList<IReadOnlyList<CorrespondenceRecipientViewModel>> jobRows, IOutlookSession session, bool bcc, bool journalLoaded)
     {
         if (!_applied.Add(outcome.Index))
         {
@@ -552,7 +555,7 @@ public sealed partial class SendPageViewModel : ObservableObject
         }
 
         var failure = outcome.Failure!;
-        Outlook.ReportFailure(failure);
+        Outlook.ReportFailure(failure, session);
         var text = CorrespondenceText.FailureText(Localizer, failure);
         if (kind != SendRunKind.Test)
         {

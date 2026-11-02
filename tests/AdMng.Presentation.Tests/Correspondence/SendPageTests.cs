@@ -289,6 +289,38 @@ public sealed class SendPageTests
     }
 
     [Fact]
+    public async Task AReconnectDuringARun_NeverCutsTheRunOff()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenWithMessageAsync();
+        var rows = Enumerable.Range(1, 4).Select(i => CorrespondencePagesScenario.Row($"urzad{i}@gmina.pl", $"Urząd Gminy {i}", ("Miejscowość", "Łódź"))).ToArray();
+        CorrespondencePagesScenario.AddRows(window, rows);
+        scenario.Outlook.Script("urzad1@gmina.pl", FakeOutlookClient.Failed(OutlookFailureKind.NotResponding));
+        scenario.Outlook.Script("urzad3@gmina.pl", FakeOutlookClient.Failed(OutlookFailureKind.NotResponding));
+        scenario.Outlook.BeforeSend = (message, _) =>
+        {
+            if (message.To[0] == "urzad2@gmina.pl")
+            {
+                // Outlook did not answer once (a transient failure: the run goes on); the operator clicks "Połącz".
+                Assert.Equal(OutlookState.Failed, window.Outlook.State);
+                window.Outlook.ConnectCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+            }
+        };
+        scenario.Ui.ConfirmAnswers.Enqueue(true);
+
+        await window.Send.SendCommand.ExecuteAsync(null);
+
+        Assert.Equal(4, scenario.Outlook.Items.Count);
+        Assert.Equal([RecipientStatusKind.Failed, RecipientStatusKind.Sent, RecipientStatusKind.Failed, RecipientStatusKind.Sent], rows.Select(r => r.StatusKind));
+        Assert.Equal("Wysyłka zakończona: udane 2, błędy 2.", window.Send.ProgressText);
+        var (run, current) = (scenario.Outlook.Sessions[0], scenario.Outlook.Sessions[1]);
+        Assert.True(run.IsDisposed);                                // released when the run ended
+        Assert.False(current.IsDisposed);
+        Assert.Same(current, window.Outlook.Session);
+        Assert.Equal(OutlookState.Connected, window.Outlook.State);  // the late failure concerned the replaced session
+    }
+
+    [Fact]
     public async Task Stop_EndsTheRunBeforeTheNextMessage()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();
