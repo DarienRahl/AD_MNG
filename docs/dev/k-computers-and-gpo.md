@@ -1419,3 +1419,30 @@ evaluate), and the settings of two GPOs on one key with the expected winner.
 computer (later through K1's WinRM), slow links, the local GPO and multiple local GPOs, cross-domain users or
 computers (the session's domain only), software installation and folder redirection details (listed per GPO as
 extensions without settings).
+
+### 18.1 K5 as built
+
+* **Security filtering in DACL order.** `GroupPolicySecurityFilter.FromDescriptor` keeps the read/apply ACEs in the
+  DACL's order (`Aces`); `Applies` and `CanRead` let the first ACE of the token that covers the right decide, as
+  AccessCheck does (a deny written after an allow does not take it back). A filter built from the sets only (U4c's
+  callers) keeps "a denied SID wins". The modeller requires Read and Apply Group Policy for the account (Read only when
+  the filter knows the readers, `KnowsReaders`); the user part also requires the computer's Read (MS16-072). U4c's
+  tests now write canonical DACLs (denies first, as GPMC, the K1 DACL editor and Samba keep them).
+* **Entry points:** two palette commands, `gpo.model` (*Co dostanie komputer…*) and `gpo.modelUser` (*Co dostanie
+  użytkownik…*) – one command cannot carry both labels – in Akcja, the list's context menu and the palette; *Modeluj
+  zasady…* on the *Zasady grupy* tab of a domain or OU; *Co dostanie komputer…* on the computer property sheet's *Stan*
+  page (`ComputerActions` takes the per-connection `GroupPolicyServices`). One tab per set of targets.
+* **Inputs** do not recalculate by themselves (the bar says *kliknij „Przelicz”*); the default site comes from
+  `ComputerSites` for a computer account and is not overwritten once the operator picks one. A missing account or
+  container and an unavailable SYSVOL are notes, not errors (without SYSVOL the GPO lists are complete, the settings
+  empty).
+* **Lab** (`GroupPolicyModelLabTests`): the filtered GPO is set up with K2's planner as GPMC does it (Authenticated
+  Users removed, a group without the computer added) – the computer can neither read nor apply it. Findings from the
+  lab: Samba keeps DACLs canonical (`samba-tool dsacl set` puts a deny first), so a non-canonical DACL cannot be built
+  there (the order rule is covered by Core tests); `samba-tool gpo list` (4.19) checks read access with its own token for
+  the account and takes every account for a user ("GPOs for user …"), so it skips GPOs with the user configuration
+  disabled even for a computer – the test leaves the computer-disabled GPO out of the comparison when Samba says
+  "user".
+* **Deviations from the design:** the GPO row of a GPO that is blocked in the user's chain and applied from the
+  computer's chain under loopback merge appears twice in `ModeledPart.Gpos` (blocked, then applied through loopback) –
+  deliberate, both facts are true.

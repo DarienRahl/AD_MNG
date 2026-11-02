@@ -12,11 +12,12 @@ WMI, delegowanie, kopie zapasowe zgodne z GPMC (przywracanie i import ustawień)
 Od etapu **K3** ustawienia **szablonów administracyjnych (ADMX)** edytuje się w AD Managerze – jak w *Edytorze
 zarządzania zasadami grupy* Microsoftu – a **magazyn centralny** szablonów domeny aktualizuje się z paczek producentów
 (Windows, Microsoft 365 Apps, Edge, Chrome, Firefox, własne ADMX) albo pobraniem najnowszych szablonów Edge, Chrome i
-Firefox prosto od producenta (rozdziały 7 i 8). Ustawień zabezpieczeń (K4) jeszcze nie ma – karta *Ustawienia* pokazuje
-je tylko do odczytu.
+Firefox prosto od producenta (rozdziały 7 i 8). Od etapu **K5** model *„co dostanie komputer”* pokazuje, które GPO i
+ustawienia dostanie komputer i użytkownik (rozdział 9). Ustawień zabezpieczeń (K4) jeszcze nie ma – karta *Ustawienia*
+pokazuje je tylko do odczytu.
 
 Specyfikacja dla programistów (po angielsku): [dev/k-computers-and-gpo.md](dev/k-computers-and-gpo.md), rozdziały 3, 5
-i 6 oraz *K2 as built* (15) i *K3 as built* (17).
+i 6 oraz *K2 as built* (15), *K3 as built* (17) i K5 (18).
 
 ---
 
@@ -32,7 +33,8 @@ i 6 oraz *K2 as built* (15) i *K3 as built* (17).
 | Lista obiektów | przycisk **Zasady grupy** na pasku (dla domeny i OU, także dla jednej zaznaczonej OU) i pozycja w menu kontekstowym |
 | Karta *Obiekty zasad grupy* i karta GPO | **Edytuj szablony administracyjne** (pasek, menu kontekstowe listy GPO, nagłówek karty GPO i zakładka *Ustawienia*) – edytor ustawień ADMX, rozdział 7 |
 | Karta *Obiekty zasad grupy* i edytor szablonów | **Zaktualizuj szablony…** – aktualizacja magazynu centralnego szablonów ADMX, rozdział 8 |
-| Paleta poleceń (Ctrl+K) | `gpo.objects`, `gpo.wmiFilters`, `gpo.containerPolicies`, `gpo.newLinked`, `gpo.linkExisting`, `gpo.blockInheritance`, `view.groupPolicyNodes` |
+| *Akcja*, lista, karta *Zasady grupy*, strona *Stan* komputera | **Co dostanie komputer…**, **Co dostanie użytkownik…**, **Modeluj zasady…** – modelowanie, rozdział 9 |
+| Paleta poleceń (Ctrl+K) | `gpo.objects`, `gpo.wmiFilters`, `gpo.containerPolicies`, `gpo.newLinked`, `gpo.linkExisting`, `gpo.blockInheritance`, `gpo.model`, `gpo.modelUser`, `view.groupPolicyNodes` |
 
 Każdy widok GPO otwiera się jako karta obok list obiektów (jedna karta na cel – drugie kliknięcie wraca do niej).
 
@@ -261,7 +263,59 @@ są pokazywane. *Eksportuj CSV…* zapisuje porównanie tylko na żądanie. Oba 
    zapasowa, plan i podgląd działają w tle; w tym czasie okna nie można zamknąć. Po aktualizacji otwarte edytory
    wczytują szablony ponownie.
 
-## 9. Kontroler domeny, emulator PDC i SYSVOL
+## 9. Co dostanie komputer (modelowanie zasad grupy)
+
+Od etapu **K5** AD Manager odpowiada na pytanie *„które GPO i jakie ustawienia dostanie ten komputer (i ten
+użytkownik)?”* – bez logowania się na komputer i bez `gpresult`, jak *Modelowanie zasad grupy* w GPMC, ale liczone w
+programie z tego, co jest w AD i SYSVOL kontrolera okna (nic nie jest uruchamiane na kontrolerze ani na komputerze).
+
+**Gdzie:** *Akcja* i menu kontekstowe listy – **Co dostanie komputer…** (zaznaczony komputer) i **Co dostanie
+użytkownik…** (zaznaczony użytkownik); karta *Zasady grupy* domeny lub OU – **Modeluj zasady…** (nowy komputer i nowy
+użytkownik w tym kontenerze); właściwości komputera, strona *Stan* – **Co dostanie komputer…**; paleta poleceń –
+`gpo.model`, `gpo.modelUser`. Każdy model otwiera się jako karta (jedna karta na zestaw celów).
+
+**Dane wejściowe** (zmiana nie przelicza modelu sama – pasek pokazuje *kliknij „Przelicz”*):
+
+| Pole | Co daje |
+|---|---|
+| *Komputer*, *Użytkownik* | konto (*Wybierz komputer…* / *Wybierz użytkownika…*), nowe konto w kontenerze (*Kontener…*) albo *Brak* |
+| *Lokacja* | lokacje lasu albo *(nieznana)*; dla konta komputera domyślnie lokacja z jego podsieci (jak w *Przeglądzie komputerów*), wybór operatora nie jest nadpisywany |
+| *Filtry WMI* | *Przyjmij jako spełnione* albo *niespełnione* – program nie wykonuje zapytań WQL na komputerze |
+| *Pętla zwrotna* | *Z ustawień komputera* (z GPO komputera, jak klient), *Wyłączona*, *Scalanie*, *Zastępowanie* |
+
+**Jak liczy** (tak jak klient zasad grupy, [MS-GPOL]):
+
+- **lista GPO** – łącza lokacji, domeny i kolejnych OU nad kontem, kolejność łączy, **wymuszone** łącza na końcu
+  (najgłębszy kontener wygrywa wśród wymuszonych), **blokowanie dziedziczenia** (także dla łączy lokacji), łącza
+  wyłączone, to samo GPO połączone kilka razy, GPO nieistniejące, z wyłączoną częścią komputera lub użytkownika i
+  puste (wersja 0);
+- **filtrowanie zabezpieczeń** – konto musi mieć prawo *Odczyt* i *Zastosuj zasady grupy*; wpisy listy ACL są
+  oceniane w kolejności, jak w Windows (pierwszy pasujący wpis decyduje). Token: konto, jego grupy zabezpieczeń z
+  `tokenGroups` (zagnieżdżone i grupa podstawowa), *Użytkownicy uwierzytelnieni*, *Wszyscy*, *Ta organizacja*, a
+  dla kontrolera domeny *Kontrolery domeny przedsiębiorstwa*. Dla części użytkownika sprawdzane jest też, czy
+  **komputer może odczytać GPO** (MS16-072);
+- **filtr WMI** – GPO z filtrem jest *zastosowany, jeśli filtr „…” jest spełniony* albo pomijany, według wyboru;
+- **pętla zwrotna** – `UserPolicyMode` z wygrywającego GPO komputera: *scalanie* dokłada GPO z łańcucha komputera
+  (pierwszeństwo nad GPO użytkownika), *zastępowanie* używa tylko łańcucha komputera;
+- **ustawienia** – dla każdego ustawienia wygrywa GPO o najwyższym pierwszeństwie; przesłonięte GPO są pokazane w
+  *Dlaczego*. Skrypty są **kumulatywne** (działają wszystkie). Na kontrolerze domeny zasady kont (hasła, blokada,
+  Kerberos) liczą się tylko z GPO połączonych z domeną – ostrzeżenie wskazuje pozostałe. Szablony administracyjne są
+  pokazywane jako zasady z ADMX (stan i opcje), wartości `Registry.pol` bez definicji – jako wartości rejestru.
+  Elementy preferencji z kierowaniem na poziomie elementu mają uwagę *zależy od komputera*.
+
+**Wynik:** dla komputera i dla użytkownika – lista GPO z wynikiem (*Zastosowany*, *Zablokowany przez blokowanie
+dziedziczenia w …*, *Filtrowanie zabezpieczeń: brak prawa Zastosuj zasady grupy*, *Komputer nie może odczytać GPO
+(MS16-072)*, *Łącze wyłączone*, *Pusty (wersja 0)* i inne) i kolejnością, lista ustawień (obszar, ustawienie, wartość,
+wygrywający GPO, przesłonięte, uwagi) z panelem **Dlaczego**, grupy tokenu i ostrzeżenia (lokacja nieznana, folder GPO
+nieczytelny w SYSVOL, brak `tokenGroups`, brak szablonów ADMX). **Eksportuj do CSV…** zapisuje listy GPO i ustawień
+obu części do pliku wskazanego przez operatora.
+
+**Czym to nie jest:** model, nie wynik z komputera (RSoP z `gpresult`). Nie uwzględnia filtrów WMI, kierowania
+elementów preferencji, lokalnych zasad komputera, zasad z innych domen lasu (łącza do GPO innej domeny – jako *GPO nie
+istnieje*), powolnego łącza i stanu przetwarzania na kliencie. Gdy SYSVOL jest niedostępny, listy GPO są pełne, a
+ustawień brak.
+
+## 10. Kontroler domeny, emulator PDC i SYSVOL
 
 - Okno czyta i zapisuje AD oraz SYSVOL **tylko na swoim kontrolerze domeny**. Gdy nie jest nim emulator PDC (z którego
   domyślnie korzysta GPMC), karty GPO pokazują: *Zmiany GPO wykonujesz na X, a emulatorem PDC jest Y* z przyciskiem
@@ -273,19 +327,19 @@ są pokazywane. *Eksportuj CSV…* zapisuje porównanie tylko na żądanie. Oba 
   wyrównanie wersji, naprawa uprawnień, zapis szablonów administracyjnych, aktualizacja magazynu centralnego);
   połączenia, stan GPO, zmiana nazwy, filtr WMI i blokowanie dziedziczenia zmieniają tylko AD i działają dalej.
 
-## 10. Co AD Manager zapisuje na dysku
+## 11. Co AD Manager zapisuje na dysku
 
 Nic z katalogu ani z SYSVOL (zasada 1): GPO, połączenia, ustawienia, szablony ADMX i różnice są tylko w pamięci, dopóki
 są widoczne. Zapamiętywane są wyłącznie: widoczność węzłów GPO w drzewie, ostatni folder kopii zapasowych, szablon
 komentarza kopii i wybór *Utwórz kopię zapasową przed usunięciem*. Pliki powstają tylko tam, gdzie operator je wskaże:
-kopie zapasowe GPO, kopia magazynu centralnego przed aktualizacją i eksport porównania do CSV. Paczki szablonów
+kopie zapasowe GPO, kopia magazynu centralnego przed aktualizacją, eksport porównania i modelu (rozdział 9) do CSV. Paczki szablonów
 producentów (pliki producentów, nie dane katalogu) są trzymane w pamięci; tylko instalatory MSI i EXE oraz archiwa CAB
 są kopiowane do folderu tymczasowego profilu (instalatory są tam też rozpakowywane, CAB – w pamięci), usuwanego zaraz po
 wczytaniu. Dziennik audytu zawiera
 przy zmianach SYSVOL ścieżki plików w folderze GPO lub magazynie centralnym, rozmiary i sumy SHA-256 – nie treść
 plików.
 
-## 11. Ograniczenia i pilotaż
+## 12. Ograniczenia i pilotaż
 
 - Sprawdzone testami na fałszywym katalogu i na laboratorium Samba 4.19 (zapis SYSVOL przez `smbclient`); zapis SYSVOL
   na Windows (`WindowsSysvolFileWriter`), okna WPF, zrzut ekranu 23 i test dymny sprawdza tylko CI na Windows.
@@ -303,7 +357,10 @@ plików.
   Windows 11 / Server 2025, Microsoft 365 Apps, Edge, Chrome i Firefox – w tym to, że instalatory MSI i EXE Microsoftu
   przechodzą sprawdzenie łańcucha certyfikatu Microsoftu (gdy któryś nie przejdzie: rozpakuj go ręcznie, np. `msiexec
   /a plik.msi TARGETDIR=C:\Szablony`, i wskaż folder przez *Z folderu…*).
-- Brak: edycji ustawień zabezpieczeń (K4) i preferencji, raportu „co dostanie komputer” (K5), komentarzy do ustawień
+- Modelowanie (K5) sprawdzono testami na fałszywym katalogu i na laboratorium Samba (model komputera w OU z
+  blokowaniem dziedziczenia zgodny z `samba-tool gpo list`); w pilotażu – porównanie z *Modelowaniem zasad grupy* GPMC i
+  z `gpresult /h` na komputerze testowym.
+- Brak: edycji ustawień zabezpieczeń (K4) i preferencji, komentarzy do ustawień
   szablonów, filtrów edytora według platformy i słów kluczowych, starych szablonów ADM, tabel migracji i kopiowania GPO
   między domenami, GPO wzorcowych (Starter GPO), porównania GPO z innego okna połączenia, próby filtru WMI na komputerze
   (wymaga zapytań WQL w zdalnych akcjach K1), sprawdzania uprawnień operatora przed zmianą.

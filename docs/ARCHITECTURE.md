@@ -201,6 +201,23 @@ rozpakowywany w pamięci przez `cabinet.dll` – `CabinetUnpacker`).
 Szablony i ustawienia są tylko w pamięci; kopia magazynu powstaje wyłącznie w folderze wskazanym przez operatora
 (zasada 1), a dziennik audytu zapisuje ścieżki, rozmiary i SHA-256 plików magazynu – nie ich treść.
 
+### Modelowanie zasad grupy – „co dostanie komputer” (K5)
+
+`AdMng.Core/GroupPolicy/Modeling`: `GroupPolicyModelReader` czyta z DC sesji (zasada 4) GPO z flagami, wersją,
+filtrem WMI i listą DACL (jedno wyszukiwanie z kontrolką SD flags), kontenery z łączami
+(`GroupPolicyTopology.ReadContainersAsync`), konta z `tokenGroups` (grupa podstawowa także bez niego, wtedy
+`TokenIncomplete`) i foldery GPO z SYSVOL (najwyżej cztery naraz, w limitach K2). `GroupPolicyModeler` jest czystą
+funkcją: łańcuch łączy z `GroupPolicyInheritance.Explain` (kolejność, wymuszanie, blokowanie dziedziczenia, łącza
+wyłączone i powtórzone – z powodem wykluczenia), wynik każdego GPO (nie istnieje, część wyłączona, pusty, filtrowanie
+zabezpieczeń, MS16-072, filtr WMI według założenia operatora), pętla zwrotna (scalanie, zastępowanie, z GPO komputera
+albo wybrana), ustawienia z wygrywającym i przesłoniętymi GPO (skrypty kumulatywne, zasady kont kontrolera tylko z GPO
+domeny, zasady ADMX przez `PolicyOwnershipIndex` i `PolicyEngine`, elementy preferencji z kierowaniem jako warunkowe).
+`GroupPolicySecurityFilter` ocenia wpisy listy DACL w kolejności, jak `AccessCheck` (pierwszy wpis tokenu, który
+obejmuje prawo, decyduje); konto potrzebuje *Odczytu* i *Zastosuj zasady grupy*. `AdMng.Presentation/GroupPolicy/Modeling`:
+karta `GroupPolicyModelingDocumentViewModel` (dane wejściowe, *Przelicz* poza wątkiem interfejsu, wiersze i teksty w
+`GroupPolicyModelRows`, eksport CSV do pliku operatora); `AdMng.App/GroupPolicy/GroupPolicyModelingView.xaml`. Model
+jest tylko w pamięci, dopóki karta jest otwarta (zasada 1); nic nie jest zapisywane w katalogu.
+
 ## Interfejs użytkownika
 
 - **Okno główne:** pasek menu i narzędzi (jak ADUC), pasek adresu (DN lub ścieżka `contoso.test/Firma/IT`),
