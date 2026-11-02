@@ -143,5 +143,10 @@
     "file": "29-administrative-templates.png",
     "title_pl": "Szablony administracyjne GPO – kategorie z magazynu centralnego, włączane ustawienie z opcjami i pomocą, niezapisana zmiana",
     "title_en": "Administrative templates of a GPO – the categories of the central store, a setting being enabled with its options and help, an unsaved change"
+  },
+  {
+    "file": "30-central-store-update.png",
+    "title_pl": "Aktualizacja szablonów ADMX – paczka wskazana przez operatora, języki, pliki magazynu centralnego (nowe, zastąpiony, bez zmian) i kopia zapasowa przed zapisem",
+    "title_en": "Updating the ADMX templates – a package the operator chose, its languages, the central store\u0027s files (new, replaced, unchanged) and the backup before writing"
   }
 ]

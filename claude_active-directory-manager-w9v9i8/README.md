@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `claude/active-directory-manager-w9v9i8`
 
 - Gałąź: `claude/active-directory-manager-w9v9i8`
-- Commit: [`fa0085f`](https://github.com/DarienRahl/AD_MNG/commit/fa0085f5218b48efac3aa1ab58306f36f8a8f0ab) (`fa0085f5218b48efac3aa1ab58306f36f8a8f0ab`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/41471465465
+- Commit: [`fa1fa31`](https://github.com/DarienRahl/AD_MNG/commit/fa1fa3192758de6b06f831e2cad498f6ed34b299) (`fa1fa3192758de6b06f831e2cad498f6ed34b299`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/41474632411
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
@@ -119,4 +119,8 @@
 ## Szablony administracyjne GPO – kategorie z magazynu centralnego, włączane ustawienie z opcjami i pomocą, niezapisana zmiana
 
 ![Szablony administracyjne GPO – kategorie z magazynu centralnego, włączane ustawienie z opcjami i pomocą, niezapisana zmiana](29-administrative-templates.png)
+
+## Aktualizacja szablonów ADMX – paczka wskazana przez operatora, języki, pliki magazynu centralnego (nowe, zastąpiony, bez zmian) i kopia zapasowa przed zapisem
+
+![Aktualizacja szablonów ADMX – paczka wskazana przez operatora, języki, pliki magazynu centralnego (nowe, zastąpiony, bez zmian) i kopia zapasowa przed zapisem](30-central-store-update.png)
 
