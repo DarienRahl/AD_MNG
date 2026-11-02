@@ -53,7 +53,9 @@ internal static class OpenDocumentReader
                     if (paragraphDepth > 0)
                     {
                         // White space of the XML is collapsible in ODF (text:s carries the significant one).
-                        Current().Append(reader.Value.Replace('\r', ' ').Replace('\n', ' ').Replace('\t', ' '));
+                        var value = reader.Value;
+                        budget.Characters(value.Length);
+                        Current().Append(value.Replace('\r', ' ').Replace('\n', ' ').Replace('\t', ' '));
                     }
 
                     continue;
@@ -144,8 +146,9 @@ internal static class OpenDocumentReader
 
                         break;
                     case "s" when paragraphDepth > 0:
-                        var count = int.TryParse(reader.GetAttribute("c", TextNamespace), NumberStyles.None, CultureInfo.InvariantCulture, out var c) ? c : 1;
-                        Current().Append(' ', Math.Clamp(count, 1, MaxSpaces));
+                        var count = Math.Clamp(int.TryParse(reader.GetAttribute("c", TextNamespace), NumberStyles.None, CultureInfo.InvariantCulture, out var c) ? c : 1, 1, MaxSpaces);
+                        budget.Characters(count);
+                        Current().Append(' ', count);
                         break;
                     case "tab" when paragraphDepth > 0:
                         Current().Append(cell is null ? '\t' : ' ');
@@ -210,7 +213,7 @@ internal static class OpenDocumentReader
             pendingEmpty = 0;
             for (var i = 0; i < repeat && row!.Count < SpreadsheetLimits.MaxColumns; i++)
             {
-                budget.Cell();
+                budget.Cell(i == 0 ? 0 : value.Length);   // the text of the first copy was counted as it was read
                 row.Add(value);
             }
         }

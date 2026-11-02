@@ -19,7 +19,7 @@ internal static class XlsxReader
     {
         var budget = new SpreadsheetLimits.Budget();
         var relationships = Relationships(zip);
-        var shared = SharedStrings(zip, relationships);
+        var shared = SharedStrings(zip, relationships, new SpreadsheetLimits.Budget());
         var sheets = new List<IReadOnlyList<IReadOnlyList<string>>>();
         foreach (var path in SheetPaths(zip, relationships))
         {
@@ -114,7 +114,9 @@ internal static class XlsxReader
         return id;
     }
 
-    private static List<string> SharedStrings(SafeZip zip, Dictionary<string, (string Type, string Target)> relationships)
+    /// <summary>The shared strings (their characters counted in <paramref name="budget"/>: once each – a cell that references
+    /// one counts it again in the sheet's budget).</summary>
+    private static List<string> SharedStrings(SafeZip zip, Dictionary<string, (string Type, string Target)> relationships, SpreadsheetLimits.Budget budget)
     {
         var path = relationships.Values.FirstOrDefault(r => r.Type.EndsWith("/sharedStrings", StringComparison.OrdinalIgnoreCase)).Target
             ?? "xl/sharedStrings.xml";
@@ -134,15 +136,16 @@ internal static class XlsxReader
                     throw new InvalidDataException("The workbook has too many shared strings.");
                 }
 
-                strings.Add(reader.IsEmptyElement ? string.Empty : RichText(reader));
+                strings.Add(reader.IsEmptyElement ? string.Empty : RichText(reader, budget));
             }
         }
 
         return strings;
     }
 
-    /// <summary>The text of the current <c>si</c> / <c>is</c> element: every <c>t</c> outside phonetic runs, joined.</summary>
-    private static string RichText(XmlReader reader)
+    /// <summary>The text of the current <c>si</c> / <c>is</c> element: every <c>t</c> outside phonetic runs, joined (its
+    /// characters counted in <paramref name="budget"/> while it is read).</summary>
+    private static string RichText(XmlReader reader, SpreadsheetLimits.Budget budget)
     {
         var depth = reader.Depth;
         var builder = new StringBuilder();
@@ -165,7 +168,9 @@ internal static class XlsxReader
                     inText = 0;
                     break;
                 case XmlNodeType.Text or XmlNodeType.CDATA or XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace when inText > 0:
-                    builder.Append(reader.Value);
+                    var value = reader.Value;
+                    budget.Characters(value.Length);
+                    builder.Append(value);
                     break;
             }
         }
@@ -214,13 +219,13 @@ internal static class XlsxReader
 
             nextColumn = column == int.MaxValue ? column : column + 1;
             var type = reader.GetAttribute("t");
-            var value = reader.IsEmptyElement ? string.Empty : CellValue(reader, type, shared);
+            var value = reader.IsEmptyElement ? string.Empty : CellValue(reader, type, shared, budget);
             if (value.Length == 0 || column >= SpreadsheetLimits.MaxColumns)
             {
                 continue;
             }
 
-            budget.Cell();
+            budget.Cell();   // its characters were counted by CellValue
             if (row is null)
             {
                 row = [];
@@ -238,8 +243,9 @@ internal static class XlsxReader
         return rows;
     }
 
-    /// <summary>The text of the current <c>c</c> element; leaves the reader on its end tag.</summary>
-    private static string CellValue(XmlReader reader, string? type, List<string> shared)
+    /// <summary>The text of the current <c>c</c> element, its characters counted in <paramref name="budget"/> (a shared
+    /// string once per cell that references it); leaves the reader on its end tag.</summary>
+    private static string CellValue(XmlReader reader, string? type, List<string> shared, SpreadsheetLimits.Budget budget)
     {
         var depth = reader.Depth;
         string? value = null;
@@ -250,12 +256,13 @@ internal static class XlsxReader
             if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "v")
             {
                 value = reader.ReadElementContentAsString();   // moves past </v>
+                budget.Characters(value.Length);
                 continue;
             }
 
             if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "is")
             {
-                inline = reader.IsEmptyElement ? string.Empty : RichText(reader);   // RichText stops on </is>
+                inline = reader.IsEmptyElement ? string.Empty : RichText(reader, budget);   // RichText stops on </is>
             }
 
             reader.Read();
@@ -264,8 +271,13 @@ internal static class XlsxReader
         switch (type)
         {
             case "s":
-                return int.TryParse(value?.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var index)
-                    && index >= 0 && index < shared.Count ? shared[index] : string.Empty;
+                if (int.TryParse(value?.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var index) && index >= 0 && index < shared.Count)
+                {
+                    budget.Characters(shared[index].Length);
+                    return shared[index];
+                }
+
+                return string.Empty;
             case "inlineStr":
                 return inline ?? value ?? string.Empty;
             case "b":

@@ -4,8 +4,9 @@ namespace AdMng.Core.Correspondence.Import;
 
 /// <summary>
 /// Reads contacts from the bytes of one file (design note 3.1): CSV/TSV/TXT, XLSX/XLSM/XLTX, DOCX/DOTX/DOCM, ODT/ODS, RTF
-/// and HTML. Pure: the caller reads the file. Files above <see cref="MaxFileBytes"/> and zip bombs are refused
-/// (<see cref="InvalidDataException"/>); XML is read without DTDs or external resolution.
+/// and HTML. Pure: the caller reads the file. Files above <see cref="MaxFileBytes"/>, zip bombs and packages whose cells
+/// and paragraphs expand to more than <see cref="MaxFileBytes"/> characters (a shared string or a repeated cell counted
+/// each time it appears) are refused (<see cref="InvalidDataException"/>); XML is read without DTDs or external resolution.
 /// </summary>
 /// <remarks>
 /// Text files go through <see cref="ContactExtractor.FromText"/>. Workbooks (XLSX, ODS): every sheet with an e-mail column

@@ -135,6 +135,44 @@ public class XlsxImportTests
     }
 
     [Fact]
+    public void SharedStringReferencedByManyCells_ExpandingToTooMuchText_IsRefused()
+    {
+        // About 1 MB of shared strings (ASCII: under the ratio check) referenced by 1 500 cells: 1.5 billion characters.
+        var shared = "<si><t>" + new string('a', 1_000_000) + "</t></si>";
+        var rows = new StringBuilder();
+        for (var r = 1; r <= 150; r++)
+        {
+            rows.Append("<row r=\"").Append(r).Append("\">");
+            for (var c = 0; c < 10; c++)
+            {
+                rows.Append("<c r=\"").Append((char)('A' + c)).Append(r).Append("\" t=\"s\"><v>0</v></c>");
+            }
+
+            rows.Append("</row>");
+        }
+
+        var ex = Assert.Throws<InvalidDataException>(() => Read(Xlsx(shared, ("A", rows.ToString()))));
+        Assert.Contains("too much text", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedStringsCountOncePerCell_TheTableOfSharedStringsSeparately()
+    {
+        // 52 cells use a 1 000 000-character string (ASCII: under the ratio check): 52 million characters, just under the
+        // limit of 50 Mi – the string itself is counted in the shared strings' own budget.
+        var shared = "<si><t>" + new string('e', 1_000_000) + "</t></si>";
+        var rows = new StringBuilder(InlineRow(1, ("A1", "E-mail"), ("B1", "Opis")));
+        for (var r = 2; r <= 53; r++)
+        {
+            rows.Append(InlineRow(r, ("A" + r, $"urzad{r}@gmina.pl")).Replace("</row>", $"<c r=\"B{r}\" t=\"s\"><v>0</v></c></row>", StringComparison.Ordinal));
+        }
+
+        var result = Read(Xlsx(shared, ("A", rows.ToString())));
+        Assert.Equal(52, result.Contacts.Count);
+        Assert.Equal(1_000_000, result.Contacts[0].Fields["Opis"].Length);
+    }
+
+    [Fact]
     public void Dtd_IsProhibited()
     {
         var sheet = $"<?xml version=\"1.0\"?><!DOCTYPE worksheet [<!ENTITY e \"jan@urzad.pl\">]><worksheet xmlns=\"{SpreadsheetNs}\"><sheetData>"

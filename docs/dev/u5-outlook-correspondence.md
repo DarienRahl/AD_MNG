@@ -1031,8 +1031,11 @@ differs from sections 1–13 or goes beyond them.
   with no e-mail column in any sheet every cell is free text. RTF: a font's `\fcharset` wins over `\ansicpg`.
 - **Limits:** 256 columns; 4 million cells and 2 million shared strings per workbook; zip entries ≤ 200 MiB, ≤ 20 000
   entries and ≤ 512 MiB in total; the ratio check (> 100) only for entries over 1 MiB; inflated bytes are counted (a
-  forged size is caught). Unknown extension → read as text; unsupported compression or too deep HTML →
-  `InvalidDataException` (English message, never file content).
+  forged size is caught). The text of a package's cells and paragraphs ≤ 50 Mi characters (`SpreadsheetLimits.MaxCharacters`:
+  a shared string, a repeated ODF cell or a merged Word cell counted each time it appears, ODF `text:s` spaces as
+  expanded; the shared strings of a workbook have their own 50 Mi) – a few kilobytes cannot expand to gigabytes. Unknown
+  extension → read as text; unsupported compression, too much text or too deep HTML → `InvalidDataException` (English
+  message, never file content).
 - **Fields:** `FieldToken.Field`/`Fallback` are HTML-decoded and `&nbsp;` becomes a space. An empty value with a
   fallback is not reported as empty; an unknown field is always reported. HTML encoding encodes only `& < > " '` and
   turns CR/LF into `<br>`. `RepairHtml` never joins across block elements, `<br>`, comments or script/style, keeps the
