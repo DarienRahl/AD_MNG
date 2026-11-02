@@ -210,19 +210,26 @@ są pokazywane. *Eksportuj CSV…* zapisuje porównanie tylko na żądanie. Oba 
    szablony); *Szablony tego komputera* (`%WINDIR%\PolicyDefinitions` – tak tworzy się magazyn centralny, gdy domena go
    nie ma); **Pobierz Microsoft Edge / Google Chrome / Mozilla Firefox** – najnowsze szablony prosto od producenta.
    Szablony Windows i Microsoft 365 Apps nie mają stałego adresu – pobierasz je ze strony Microsoftu i wskazujesz plik.
-   Paczki MSI, CAB i EXE rozpakowuje Windows (`msiexec /a`, `/extract`, `expand`) w folderze tymczasowym profilu,
-   usuwanym zaraz po wczytaniu plików.
-2. **Zaufanie.** Okno mówi, skąd są pliki: *Podpisany przez …* (podpis Authenticode sprawdzony przez Windows; instalator
-   MSI lub EXE jest uruchamiany wyłącznie wtedy, gdy podpisał go Microsoft), *Pobrany przez HTTPS z adresu producenta*
-   (tylko adresy producentów, także po przekierowaniach; suma SHA-256 i rozmiar sprawdzane, gdy producent je publikuje –
+   Paczki MSI, CAB i EXE rozpakowuje Windows (`msiexec /a`, `/extract`, `expand`) z kopii w prywatnym folderze
+   tymczasowym profilu – kopia jest otwarta tylko do odczytu, więc nikt jej nie podmieni między sprawdzeniem podpisu a
+   rozpakowaniem – a folder jest usuwany zaraz po wczytaniu plików. CAB, który rozpakowałby się do ponad 512 MiB, jest
+   częścią zestawu kilku plików CAB albo zawiera plik spoza swojego folderu, nie jest rozpakowywany. Paczka może mieć
+   najwyżej 512 MiB, 5000 szablonów i 512 MiB plików ADMX/ADML razem – większa jest odrzucana.
+2. **Zaufanie.** Okno mówi, skąd są pliki: *Podpisany przez …* (podpis Authenticode sprawdzony przez Windows, w oknie
+   organizacja z certyfikatu podpisującego; instalator MSI lub EXE jest uruchamiany wyłącznie wtedy, gdy podpisał go
+   Microsoft: łańcuch certyfikatu kończy się w głównym urzędzie certyfikacji Microsoftu, a organizacja certyfikatu to
+   dokładnie „Microsoft Corporation”), *Pobrany przez HTTPS z adresu producenta* (tylko adresy producentów, także po
+   przekierowaniach; suma SHA-256 i rozmiar sprawdzane, gdy producent je publikuje –
    Edge zawsze, Firefox gdy wydanie na GitHubie podaje sumę, Chrome nie publikuje sumy; plik niezgodny jest odrzucany),
-   *Niepodpisany przez producenta* (np. CAB bez ważnego podpisu) albo *Pliki wskazane przez Ciebie* (pochodzenia nie da
+   *Niepodpisany przez producenta* (np. CAB bez ważnego podpisu albo podpisany certyfikatem, który podaje się za
+   Microsoft bez łańcucha Microsoftu) albo *Pliki wskazane przez Ciebie* (pochodzenia nie da
    się sprawdzić) – dwa ostatnie z ostrzeżeniem.
 3. **Języki.** Foldery językowe paczki do skopiowania; domyślnie zaznaczone `en-US` i język programu. Folder `pl`
    paczki trafia do `pl-PL` magazynu (tak jak w szablonach Microsoftu).
 4. **Pliki magazynu centralnego.** Każdy plik z oceną: *Nowy*, *Zastąpiony* (z liczbą ustawień, które nowy szablon
    dodaje i usuwa), *Bez zmian*, *Pominięty: zajęta przestrzeń nazw* (inny plik magazynu definiuje tę samą przestrzeń
-   nazw – np. stary szablon Edge pod inną nazwą; edytor Microsoftu odrzuciłby oba), *Pominięty: nieprawidłowy szablon*,
+   nazw – np. stary szablon Edge pod inną nazwą; edytor Microsoftu odrzuciłby oba), *Pominięty: nieprawidłowy szablon*
+   (także plik archiwum, którego nie da się rozpakować – np. spakowany metodą LZMA albo uszkodzony),
    *Usunięty* (stary plik kolizji, gdy zaznaczysz *Zastąp stare szablony z tą samą przestrzenią nazw* – razem z jego
    plikami językowymi) i *Usunięty (pozostałość)* przerwanej aktualizacji. Pliki magazynu, których paczka nie zawiera,
    zostają.
@@ -256,8 +263,9 @@ są widoczne. Zapamiętywane są wyłącznie: widoczność węzłów GPO w drzew
 komentarza kopii i wybór *Utwórz kopię zapasową przed usunięciem*. Pliki powstają tylko tam, gdzie operator je wskaże:
 kopie zapasowe GPO, kopia magazynu centralnego przed aktualizacją i eksport porównania do CSV. Paczki szablonów
 producentów (pliki producentów, nie dane katalogu) są trzymane w pamięci; tylko instalatory MSI i EXE oraz archiwa CAB
-są rozpakowywane w folderze tymczasowym profilu, usuwanym zaraz po wczytaniu. Dziennik audytu zawiera przy zmianach
-SYSVOL ścieżki plików w folderze GPO lub magazynie centralnym, rozmiary i sumy SHA-256 – nie treść plików.
+są kopiowane i rozpakowywane w folderze tymczasowym profilu, usuwanym zaraz po wczytaniu. Dziennik audytu zawiera
+przy zmianach SYSVOL ścieżki plików w folderze GPO lub magazynie centralnym, rozmiary i sumy SHA-256 – nie treść
+plików.
 
 ## 11. Ograniczenia i pilotaż
 

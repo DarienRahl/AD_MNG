@@ -1198,11 +1198,31 @@ listed below.
   hosts (HTTPS only, also checked on the final address after redirects) and the parsing of the release descriptions;
   `PolicyTemplatePackageLoader` does the HTTP (size limits, `User-Agent: ADManager/1.0`).
 * **Trust.** `PackageTrust`: *Signed* (Authenticode valid through `WinVerifyTrust`, signer shown), *PinnedDownload*
-  (host shown), *Unsigned*, *NotChecked* (the operator's files) – the last two with a warning. An MSI or EXE is run
-  (`msiexec /a … TARGETDIR=`, `/extract:… /quiet`) only when its signature is valid and the signer is
-  `O=Microsoft Corporation`; a CAB is only unpacked (`expand -F:*`) and may be unsigned. Edge's CAB holds a ZIP, which
-  is read in memory. Extraction uses a temporary folder of the profile (`admng-admx-*`), deleted right after; a
-  downloaded Edge CAB is the only download written to disk (temp file, deleted after extraction).
+  (host shown), *Unsigned*, *NotChecked* (the operator's files) – the last two with a warning. The package (at most
+  `MaxArchiveBytes`) is first copied into a private subfolder of a temporary folder of the profile (`admng-admx-*\package`,
+  a name of its own) and held open there read-only (`FileShare.Read`) while it is verified – through that handle,
+  `WINTRUST_FILE_INFO.hFile` – and while the tool runs on that copy with the private folder as working folder (no swap
+  after the check, no DLL planted beside the operator's file). An MSI or EXE is run (`msiexec /a … TARGETDIR="…"`,
+  `/extract:"…" /quiet`) only when Microsoft signed it (`AuthenticodeVerifier`): `WinVerifyTrust` keeps its state, the
+  signer's chain is taken from it (`WTHelperProvDataFromStateData`, `WTHelperGetProvSignerFromChain`) and must pass
+  `CertVerifyCertificateChainPolicy(CERT_CHAIN_POLICY_MICROSOFT_ROOT)` – the product roots (flight root disabled) or the
+  application root "Microsoft Root Certificate Authority 2011" –, and the leaf of that chain must be a Microsoft
+  publisher certificate (`PackageSigner`: its only `O` RDN exactly `Microsoft Corporation`, compared on the parsed name,
+  never on a formatted subject; not a Windows Hardware Compatibility Publisher certificate, whose WHQL usages mark other
+  vendors' drivers). The window shows that parsed organization (else the common name, without control or formatting
+  characters), also for a signed CAB. A CAB is only unpacked (`expand -F:*`) and may be unsigned; its header is read
+  first (`CabinetDirectory`) and a CAB that would unpack more than `MaxArchiveBytes`, belongs to a set or names a file
+  that is not a plain relative path is refused; a CAB whose certificate claims Microsoft Corporation without Microsoft's
+  chain counts as *Unsigned*. Edge's CAB holds a ZIP, which is read in memory. The temporary folder is deleted right
+  after; a downloaded Edge CAB is the only download written to disk (temp file, deleted after extraction).
+* **Package limits** (`PolicyTemplatePackage`, a crafted archive must not exhaust memory or time): at most
+  `MaxEntries` (100 000) entries looked at – a ZIP whose end of central directory (classic or ZIP64) declares more is
+  refused before its directory is read –, `MaxEntryBytes` (32 MiB) per file, `MaxTemplates` (5 000) templates and
+  `MaxPackageBytes` (512 MiB) for the ADMX/ADML files a package keeps; beyond them an `InvalidDataException` that
+  `PolicyTemplatePackage.IsTooLarge` recognizes (the extractor reports *TooLarge*). A ZIP is opened once and its entries
+  inflated one at a time under a lock, honouring the cancellation token; an entry that cannot be inflated (BZip2, LZMA,
+  PPMd, damaged data) or whose size is not the declared one reads as null and is listed as unreadable. An extracted
+  folder is read after the selection, so only the files the package keeps are read.
 * **Backup only to the operator's folder** (`CentralStoreBackup`, `PolicyDefinitions-<DC>-<yyyyMMdd-HHmmss>`, the
   folder remembered as `GroupPolicySettings.LastBackupFolder`, shared with GPO backups). The alternative sibling folder
   on SYSVOL was not built: it would replicate to every DC and is not the operator's explicit export (rule 1).
