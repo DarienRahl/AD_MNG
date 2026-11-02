@@ -29,6 +29,8 @@ public sealed record CorrespondenceJournalLoad(int Entries, int Pruned, string? 
 /// <see cref="JournalHashing.KeyBytes"/> bytes cannot hash an address the way the journal was written: a new key is made
 /// and the old journal is kept as <c>journal-&lt;date&gt;.old</c> (<see cref="CorrespondenceJournalLoad.ResetBackup"/>), so
 /// nothing is silently mixed. A protector that is missing altogether (a host without DPAPI) is an error, never a reset.
+/// The backups follow the retention as the journal does (entries older than it are dropped, an emptied backup is deleted;
+/// a backup of another format by the time it was last written), and <see cref="ClearAsync"/> deletes them.
 /// </remarks>
 public sealed class CorrespondenceJournal
 {
@@ -214,7 +216,7 @@ public sealed class CorrespondenceJournal
         }
     }
 
-    /// <summary>Removes every entry (the key stays).</summary>
+    /// <summary>Removes every entry, the backups (<c>journal-&lt;date&gt;.old</c>) included; the key stays.</summary>
     /// <exception cref="InvalidOperationException">The journal was not loaded.</exception>
     public async Task ClearAsync(CancellationToken cancellationToken = default)
     {
@@ -222,7 +224,14 @@ public sealed class CorrespondenceJournal
         await _files.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await Task.Run(() => Locked(() => Rewrite([])), cancellationToken).ConfigureAwait(false);
+            await Task.Run(() => Locked(() =>
+            {
+                Rewrite(FilePath, []);
+                foreach (var backup in Backups())
+                {
+                    File.Delete(backup);
+                }
+            }), cancellationToken).ConfigureAwait(false);
             lock (_state)
             {
                 Replace([]);
@@ -323,7 +332,7 @@ public sealed class CorrespondenceJournal
             Replace(entries);
         }
 
-        var pruned = Prune(retention);
+        var pruned = Prune(retention, keep: backup);
         return new CorrespondenceJournalLoad(Count, pruned, backup);
     }
 
@@ -409,8 +418,10 @@ public sealed class CorrespondenceJournal
         return [.. JournalFile.Read(again)];
     }
 
-    private StreamReader OpenReader() =>
-        new(new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete), Utf8, detectEncodingFromByteOrderMarks: true);
+    private StreamReader OpenReader() => OpenReader(FilePath);
+
+    private static StreamReader OpenReader(string path) =>
+        new(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete), Utf8, detectEncodingFromByteOrderMarks: true);
 
     /// <summary>Renames the journal to <c>journal-&lt;date&gt;.old</c> (a free name); returns its path, or null when there is none.</summary>
     private string? MoveAside()
@@ -450,10 +461,12 @@ public sealed class CorrespondenceJournal
     }
 
     /// <summary>Reads the file again (lines other processes appended stay), drops entries older than the retention and
-    /// rewrites the file when anything was dropped. Called with the file gate and the lock file held.</summary>
-    private int Prune(TimeSpan retention)
+    /// rewrites the file when anything was dropped; the backups follow (<see cref="PruneBackups"/>; <paramref name="keep"/>:
+    /// the one a load made just now). Called with the file gate and the lock file held.</summary>
+    private int Prune(TimeSpan retention, string? keep = null)
     {
         var cutoff = Time.GetUtcNow() - retention;
+        PruneBackups(cutoff, keep);
         var current = ReadEntries(out var otherFormat);
         if (otherFormat)
         {
@@ -464,7 +477,7 @@ public sealed class CorrespondenceJournal
         var removed = current.Count - kept.Count;
         if (removed > 0)
         {
-            Rewrite(kept);
+            Rewrite(FilePath, kept);
         }
 
         lock (_state)
@@ -475,10 +488,72 @@ public sealed class CorrespondenceJournal
         return removed;
     }
 
-    /// <summary>The header and <paramref name="entries"/> written to a temporary file that then replaces the journal.</summary>
-    private void Rewrite(IReadOnlyList<JournalEntry> entries)
+    /// <summary>
+    /// The retention of the backups (<see cref="MoveAside"/>): entries older than <paramref name="cutoff"/> are dropped and a
+    /// backup left without entries is deleted; a backup of another format (which this version cannot read) is deleted once it
+    /// was last written before the cutoff. <paramref name="keep"/> is left alone. A backup that cannot be changed now is
+    /// tried again by the next prune.
+    /// </summary>
+    private void PruneBackups(DateTimeOffset cutoff, string? keep)
     {
-        var temporary = Path.Combine(Folder, $".{FileName}.{Guid.NewGuid():N}.tmp");
+        foreach (var backup in Backups())
+        {
+            if (keep is not null && string.Equals(Path.GetFullPath(backup), Path.GetFullPath(keep), StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            try
+            {
+                if (OtherFormat(backup))
+                {
+                    if (File.GetLastWriteTimeUtc(backup) < cutoff.UtcDateTime)
+                    {
+                        File.Delete(backup);
+                    }
+
+                    continue;
+                }
+
+                IReadOnlyList<JournalEntry> entries;
+                using (var reader = OpenReader(backup))
+                {
+                    entries = JournalFile.Read(reader);
+                }
+
+                var kept = entries.Where(e => e.SentAt >= cutoff).ToList();
+                if (kept.Count == 0)
+                {
+                    File.Delete(backup);
+                }
+                else if (kept.Count < entries.Count)
+                {
+                    Rewrite(backup, kept);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // In use or protected right now: the next prune tries again.
+            }
+        }
+    }
+
+    /// <summary>The backups of <see cref="MoveAside"/> (<c>journal-&lt;date&gt;[-n].old</c>).</summary>
+    private IReadOnlyList<string> Backups() =>
+        Directory.Exists(Folder) ? [.. Directory.EnumerateFiles(Folder, "journal-*.old")] : [];
+
+    /// <summary>The file starts with the header of another version of the format.</summary>
+    private static bool OtherFormat(string path)
+    {
+        using var reader = OpenReader(path);
+        var first = reader.ReadLine()?.TrimStart('\uFEFF').TrimEnd();
+        return first is not null && first != JournalFile.Header && first.StartsWith(HeaderPrefix, StringComparison.Ordinal);
+    }
+
+    /// <summary>The header and <paramref name="entries"/> written to a temporary file that then replaces <paramref name="path"/>.</summary>
+    private void Rewrite(string path, IReadOnlyList<JournalEntry> entries)
+    {
+        var temporary = Path.Combine(Folder, $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
         try
         {
             using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
@@ -493,7 +568,7 @@ public sealed class CorrespondenceJournal
                 stream.Flush(flushToDisk: true);
             }
 
-            File.Move(temporary, FilePath, overwrite: true);
+            File.Move(temporary, path, overwrite: true);
         }
         finally
         {

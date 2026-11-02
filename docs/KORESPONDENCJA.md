@@ -168,7 +168,8 @@ pozwala usunąć wpisy starsze niż ten okres albo wyczyścić cały dziennik. D
 skróty (rozdział 11), więc nie da się z niego odczytać, do kogo wysłano; służą do tego *Elementy wysłane* Outlooka i raport
 wysyłki. Dziennik jest wspólny dla wszystkich okien AD Managera tego użytkownika Windows i należy do niego: po
 przeniesieniu profilu na inny komputer albo zalogowaniu innym kontem klucza nie da się odczytać – okno zakłada nowy
-dziennik, a poprzedni zachowuje jako `journal-<data>.old` i mówi o tym.
+dziennik, a poprzedni zachowuje jako `journal-<data>.old` i mówi o tym. Kopia podlega temu samemu okresowi
+przechowywania (starsze wpisy są z niej usuwane, pusta kopia znika), a wyczyszczenie dziennika usuwa także kopie.
 
 ## 4. Pola w temacie i treści
 
