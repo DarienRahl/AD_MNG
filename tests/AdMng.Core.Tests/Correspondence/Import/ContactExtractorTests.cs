@@ -273,6 +273,36 @@ public class ContactExtractorTests
         Assert.Equal(2, result.InvalidAddresses);
     }
 
+    [Fact]
+    public void FromText_ProseWithACommaAndEmail_IsNoHeader_NoAddressIsLost()
+    {
+        // "Dzień dobry | adresy e-mail poniżej" looked like a two-column header; its e-mail column held one address of three.
+        var result = ContactExtractor.FromText("Dzień dobry, adresy e-mail poniżej\nJan Kowalski, jan@x.pl\nanna@y.pl\nUrząd Gminy B - ug@b.pl");
+        Assert.Equal(ContactSourceFormat.Text, result.Format);
+        Assert.Empty(result.Columns);
+        Assert.Equal(["jan@x.pl", "anna@y.pl", "ug@b.pl"], result.Contacts.Select(c => c.Email));
+        Assert.Equal(0, result.InvalidAddresses);
+    }
+
+    [Fact]
+    public void FromText_LeadInEndingWithAColon_IsNoHeader()
+    {
+        // Its "e-mail column" holds two of three addresses – the colon tells it is a sentence introducing the list.
+        var result = ContactExtractor.FromText("Poniżej adresy e-mail, pod które wysyłamy:\nJan Kowalski, jan@x.pl\nanna@y.pl\nUrząd Gminy Bełchatów - ug@b.pl");
+        Assert.Empty(result.Columns);
+        Assert.Equal(["jan@x.pl", "anna@y.pl", "ug@b.pl"], result.Contacts.Select(c => c.Email));
+    }
+
+    [Theory]
+    [InlineData("Nazwa:;E-mail:\nGmina Łódź;ug@lodz.pl\n")]
+    [InlineData("Adresat, Adres e-mail\nGmina Łódź, ug@lodz.pl\nGmina Łask, ug@lask.pl\nbrak, -\n")]
+    public void FromText_TablesStayTables(string text)
+    {
+        var result = ContactExtractor.FromText(text);
+        Assert.Equal(ContactSourceFormat.Delimited, result.Format);
+        Assert.Equal("Gmina Łódź", result.Contacts[0].Name);
+    }
+
     // ---- rows ----------------------------------------------------------------------------------------------------------
 
     [Fact]
@@ -326,6 +356,40 @@ public class ContactExtractorTests
         var result = ContactExtractor.FromRows(Rows(["Nazwa", "E-mail"], ["Gmina", "g@x.pl", "", "notatka"]), ContactSourceFormat.Excel);
         Assert.Equal(["Nazwa", "E-mail", "Kolumna 4"], result.Columns);
         Assert.Equal("notatka", Assert.Single(result.Contacts).Fields["Kolumna 4"]);
+    }
+
+    [Fact]
+    public void FromRows_TitleNamingEmailAboveTheHeader_IsNotTheHeader()
+    {
+        var result = ContactExtractor.FromRows(Rows(
+            ["Wykaz adresów e-mail jednostek samorządu", "", "", ""],
+            ["Nazwa", "E-mail", "Kod pocztowy", "Miejscowość"],
+            ["Gmina Łęczyca", "ug@leczyca.pl", "99-100", "Łęczyca"],
+            ["Gmina Żychlin", "ug@zychlin.pl", "99-320", "Żychlin"]), ContactSourceFormat.Excel);
+        Assert.Equal(["Nazwa", "E-mail", "Kod pocztowy", "Miejscowość"], result.Columns);
+        Assert.Equal(["ug@leczyca.pl", "ug@zychlin.pl"], result.Contacts.Select(c => c.Email));
+        Assert.Equal("Gmina Żychlin", result.Contacts[1].Name);
+        Assert.Equal(0, result.InvalidAddresses);
+    }
+
+    [Fact]
+    public void FromRows_HeaderWithSeveralCells_WinsOverATitleWhoseColumnHoldsTheAddresses()
+    {
+        var result = ContactExtractor.FromRows(Rows(["Lista e-mail"], ["E-mail", "Nazwa"], ["sp1@gmina.pl", "Szkoła Podstawowa nr 1 w Łodzi"]), ContactSourceFormat.Word);
+        Assert.Equal(["E-mail", "Nazwa"], result.Columns);
+        Assert.Equal("Szkoła Podstawowa nr 1 w Łodzi", Assert.Single(result.Contacts).Name);
+        Assert.Equal(0, result.InvalidAddresses);
+    }
+
+    [Fact]
+    public void FromRows_EmailColumnWithoutAnyAddress_IsFreeTextWithTheInvalidCount()
+    {
+        // "Poczta" is the post office here; the addresses are under "Kontakt".
+        var result = ContactExtractor.FromRows(Rows(
+            ["Nazwa", "Poczta", "Kontakt"], ["Gmina Ślesin", "Ślesin", "ug@slesin.pl"], ["Gmina Kłodawa", "Kłodawa", "ug@klodawa.pl"]), ContactSourceFormat.Excel);
+        Assert.Empty(result.Columns);
+        Assert.Equal(["ug@slesin.pl", "ug@klodawa.pl"], result.Contacts.Select(c => c.Email));
+        Assert.Equal(2, result.InvalidAddresses);
     }
 
     [Fact]

@@ -1015,8 +1015,15 @@ differs from sections 1–13 or goes beyond them.
   `Encode`; `CorrespondenceDocument.WrapperStyle`; `CorrespondenceRenderer.ListStart`;
   `RenderedCorrespondence.ImageBytes`, `ExceedsImageLimits` (the per-message limits of 3.6); `SignatureProblemCodes`
   ("code" or "code: detail"); `MailCompatibilityLint.MaxWidthPixels`; `JournalHashing.HashBytes`, `IsHash`.
-- **Table detection (3.1):** the header is the first of the first 8 *non-blank* rows; a row holding a valid address is
-  never a header; delimited text needs 2+ header cells. E-mail column tiers: the exact names, then `poczta`, then a header
+- **Table detection (3.1):** the header is one of the first 8 *non-blank* rows; a row holding a valid address is never a
+  header; delimited text needs 2+ header cells. Every candidate row is tried: it is taken when its e-mail column gives at
+  least one address, a row with 2+ non-empty cells before a one-cell title or caption ("Wykaz adresów e-mail …" merged
+  over the columns, a Word caption row). Delimited text also refuses a lead-in sentence (last cell of 2+ words ending
+  with `:`) and a "header" whose e-mail column misses the addresses of most rows that have one (prose split at commas,
+  "Dzień dobry, adresy e-mail poniżej"). When no candidate is taken the rows are free text – a sheet or document table
+  as well as text (the invalid rows of an e-mail column without any address still count); a workbook keeps the tables
+  of the sheets that have one, takes the other e-mail-headed sheets as free text and, when no sheet has a table, reads
+  every cell as free text. E-mail column tiers: the exact names, then `poczta`, then a header
   containing `mail` – the first column of a tier with at least one valid address wins. The "contains name" rule skips
   first-name, surname, middle-name ("Middle Name", "Additional Name", "Drugie imię") and login headers (so "First name" +
   "Last name" still give the Imię+Nazwisko rule); a row whose name cell is empty (or only an address) takes Imię+Nazwisko

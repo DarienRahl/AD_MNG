@@ -29,6 +29,29 @@ public class DocumentImportTests
     }
 
     [Fact]
+    public void Docx_CaptionRowNamingEmail_IsNotTheHeader()
+    {
+        var body = Tbl(
+            Tr(Tc("Adresy e-mail gmin", "<w:gridSpan w:val=\"2\"/>")),
+            Tr(Tc("Nazwa"), Tc("E-mail")),
+            Tr(Tc("Gmina Łęki Szlacheckie"), Tc("ug@lekiszlacheckie.pl")),
+            Tr(Tc("Gmina Żarnów"), Tc("ug@zarnow.pl")));
+        var result = Read("gminy.docx", Docx(body));
+        Assert.Equal(["Nazwa", "E-mail"], result.Columns);
+        Assert.Equal(["ug@lekiszlacheckie.pl", "ug@zarnow.pl"], result.Contacts.Select(c => c.Email));
+        Assert.Equal("Gmina Żarnów", result.Contacts[1].Name);
+    }
+
+    [Fact]
+    public void Docx_LeadInSentenceWithACommaAndEmail_KeepsEveryAddress()
+    {
+        var body = P("Poniżej adresy e-mail, pod które wysyłamy:") + P("Jan Kowalski, jan@x.pl") + P("anna@y.pl") + P("Urząd Gminy Bełchatów - ug@b.pl");
+        var result = Read("lista.docx", Docx(body));
+        Assert.Empty(result.Columns);
+        Assert.Equal(["jan@x.pl", "anna@y.pl", "ug@b.pl"], result.Contacts.Select(c => c.Email));
+    }
+
+    [Fact]
     public void Docx_GridSpanAddsEmptyCells()
     {
         var body = Tbl(

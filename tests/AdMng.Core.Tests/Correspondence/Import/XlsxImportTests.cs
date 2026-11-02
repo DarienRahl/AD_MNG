@@ -78,6 +78,33 @@ public class XlsxImportTests
     }
 
     [Fact]
+    public void MergedTitleNamingEmailAboveTheHeader_IsNotTheHeader()
+    {
+        var sheet = InlineRow(1, ("A1", "Wykaz adresów e-mail jednostek samorządu"))
+            + InlineRow(2, ("A2", "Nazwa"), ("B2", "E-mail"), ("C2", "Kod pocztowy"), ("D2", "Miejscowość"))
+            + InlineRow(3, ("A3", "Gmina Łęczyca"), ("B3", "ug@leczyca.pl"), ("C3", "99-100"), ("D3", "Łęczyca"))
+            + InlineRow(4, ("A4", "Gmina Żychlin"), ("B4", "ug@zychlin.pl"), ("C4", "99-320"), ("D4", "Żychlin"))
+            + InlineRow(5, ("A5", "Gmina Śleszyn"), ("B5", "ug@sleszyn.pl"), ("C5", "99-307"), ("D5", "Śleszyn"));
+        var result = Read(Xlsx(null, ("Wykaz", sheet)));
+        Assert.Equal(["Nazwa", "E-mail", "Kod pocztowy", "Miejscowość"], result.Columns);
+        Assert.Equal(["ug@leczyca.pl", "ug@zychlin.pl", "ug@sleszyn.pl"], result.Contacts.Select(c => c.Email));
+        Assert.Equal("99-307", result.Contacts[2].Fields["Kod pocztowy"]);
+        Assert.Equal(0, result.InvalidAddresses);
+    }
+
+    [Fact]
+    public void SheetWhoseEmailColumnHoldsNoAddress_IsFreeText_NextToTheTablesOfOtherSheets()
+    {
+        var offices = InlineRow(1, ("A1", "Urząd"), ("B1", "E-mail")) + InlineRow(2, ("A2", "Urząd Gminy Ełk"), ("B2", "ug@elk.pl"));
+        var posts = InlineRow(1, ("A1", "Nazwa"), ("B1", "Poczta"), ("C1", "Kontakt"))
+            + InlineRow(2, ("A2", "Sołectwo Łoje"), ("B2", "Ełk"), ("C2", "soltys@loje.pl"));
+        var result = Read(Xlsx(null, ("Urzędy", offices), ("Sołectwa", posts)));
+        Assert.Equal(["ug@elk.pl", "soltys@loje.pl"], result.Contacts.Select(c => c.Email));
+        Assert.Equal(["Urząd", "E-mail"], result.Columns);
+        Assert.Equal(1, result.InvalidAddresses);
+    }
+
+    [Fact]
     public void HeaderTypedWithAltEnter_IsOneLineFieldName()
     {
         var sheet = InlineRow(1, ("A1", "Nazwa"), ("B1", "E-mail"), ("C1", "Kod\npocztowy"))
