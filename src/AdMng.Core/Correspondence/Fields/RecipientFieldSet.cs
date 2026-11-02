@@ -14,14 +14,17 @@ public sealed record CustomFieldDefinition(string Name, string Value);
 /// </summary>
 /// <remarks>When there are no group values (<c>list</c>/<c>count</c> null), <c>lista</c>/<c>liczba</c> fall through to
 /// custom fields and columns, so a column called "Liczba" still works in ungrouped messages; without such a column they
-/// are unknown. The first custom field of a name wins; a custom field with a blank name is ignored. Not thread-safe
-/// (custom values are merged on first use and cached).</remarks>
+/// are unknown. Inside a custom field's value <c>lista</c> is the list as text (<c>listText</c>): the value is text,
+/// encoded once by the outer merge, so the HTML list would show as escaped markup in the body and as tags in the subject.
+/// The first custom field of a name wins; a custom field with a blank name is ignored. Not thread-safe (custom values are
+/// merged on first use and cached).</remarks>
 public sealed class RecipientFieldSet
 {
     private readonly string _email;
     private readonly string _name;
     private readonly string _salutation;
     private readonly string? _list;
+    private readonly string? _listText;
     private readonly int? _count;
     private readonly Dictionary<string, string> _columns = new(StringComparer.Ordinal);
     private readonly HashSet<string> _known = new(StringComparer.Ordinal);
@@ -36,9 +39,11 @@ public sealed class RecipientFieldSet
     /// <param name="knownColumns">Every column of the recipient list (empty in this row → "").</param>
     /// <param name="list">Grouped messages: the rendered list (HTML).</param>
     /// <param name="count">Grouped messages: the number of rows.</param>
+    /// <param name="listText">Grouped messages: the list as text (its items joined by ", "), which a custom field's value
+    /// gets for <c>{{lista}}</c>; null → empty.</param>
     public RecipientFieldSet(string email, string name, IReadOnlyDictionary<string, string> columns, string salutation,
         IReadOnlyList<CustomFieldDefinition> customFields, IReadOnlyCollection<string> knownColumns,
-        string? list = null, int? count = null)
+        string? list = null, int? count = null, string? listText = null)
     {
         ArgumentNullException.ThrowIfNull(columns);
         ArgumentNullException.ThrowIfNull(customFields);
@@ -47,6 +52,7 @@ public sealed class RecipientFieldSet
         _name = name?.Trim() ?? string.Empty;
         _salutation = string.IsNullOrWhiteSpace(salutation) ? BuiltInFields.DefaultSalutation : salutation.Trim();
         _list = list;
+        _listText = listText;
         _count = count;
         foreach (var (column, value) in columns)
         {
@@ -96,7 +102,7 @@ public sealed class RecipientFieldSet
 
         if (key == BuiltInFields.List && _list is not null)
         {
-            return _list;
+            return withCustom ? _list : _listText ?? string.Empty;   // inside a custom value: text, never markup
         }
 
         if (key == BuiltInFields.Count && _count is { } count)

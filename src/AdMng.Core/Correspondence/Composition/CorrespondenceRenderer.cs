@@ -25,9 +25,9 @@ public static class CorrespondenceRenderer
     /// custom field named "Lista" or "Liczba" wins over the built-in of that name (<see cref="BuiltInApplies"/>; "Wstaw
     /// pole" offers the column then, the built-ins only with grouping). List items see the row's fields only
     /// (<c>{{lista}}</c>/<c>{{liczba}}</c> there name columns, if any); they are rendered (and their fields reported) only
-    /// when the subject or the body uses <c>{{lista}}</c>. In the subject <c>{{lista}}</c> is the text of the items joined
-    /// by ", ". A paragraph holding <c>{{lista}}</c> is split around it (a list cannot stand in a paragraph), empty halves
-    /// dropped.</para>
+    /// when the subject or the body uses <c>{{lista}}</c>, or a custom field they use does. In the subject and inside a
+    /// custom field's value <c>{{lista}}</c> is the text of the items joined by ", ". A paragraph holding <c>{{lista}}</c>
+    /// is split around it (a list cannot stand in a paragraph), empty halves dropped.</para>
     /// <para>The signature is appended as parsed (no fields). The sanitizer removes anything outside the message policy –
     /// a script or a <c>javascript:</c> link merged from a value included – and empties <c>&lt;head&gt;</c> (Outlook takes
     /// the body as a Unicode string, no charset needed). <see cref="RenderedCorrespondence.Images"/> holds the draft and
@@ -48,16 +48,17 @@ public static class CorrespondenceRenderer
         var countApplies = BuiltInApplies(BuiltInFields.Count, draft, unit, knownColumns);
         bool IsBuiltInList(string field) => listApplies && IsList(field);
 
-        // The list items (only when the message lists them).
+        // The list items (only when the message lists them – directly, or through a custom field it uses).
         var repaired = FieldTemplate.RepairHtml(draft.BodyHtml);
         var bodyTemplate = listApplies ? ListPlacement.Prepare(repaired) : repaired;
+        var customUsesList = listApplies && CustomFieldsUseList(customFields, draft.Subject, bodyTemplate);
         var subjectUsesList = listApplies && UsesList(draft.Subject);
         var listUnknown = new List<string>();
         var listEmpty = new List<string>();
         var list = string.Empty;
         var listText = string.Empty;
         var itemTemplate = FieldTemplate.TextToHtml(draft.ListItemTemplate);   // plain text, as typed in its text box
-        if (listApplies && !string.IsNullOrWhiteSpace(itemTemplate) && rows.Count > 0 && (subjectUsesList || UsesList(bodyTemplate)))
+        if (listApplies && !string.IsNullOrWhiteSpace(itemTemplate) && rows.Count > 0 && (subjectUsesList || customUsesList || UsesList(bodyTemplate)))
         {
             var builder = new StringBuilder(ListStart);
             var texts = new List<string>(rows.Count);
@@ -67,7 +68,7 @@ public static class CorrespondenceRenderer
                     customFields, knownColumns);
                 var item = FieldTemplate.Merge(itemTemplate, itemFields.Lookup, FieldEncoding.Html, listUnknown, listEmpty);
                 builder.Append("<li>").Append(item).Append("</li>");
-                if (subjectUsesList)
+                if (subjectUsesList || customUsesList)
                 {
                     texts.Add(HtmlToText.Convert(item).Trim());
                 }
@@ -78,7 +79,7 @@ public static class CorrespondenceRenderer
         }
 
         var fields = new RecipientFieldSet(unit.Email, unit.Name, first, draft.Salutation, customFields, knownColumns,
-            listApplies ? list : null, countApplies ? rows.Count : null);
+            listApplies ? list : null, countApplies ? rows.Count : null, listText);
 
         // Subject.
         var unknown = new List<string>();
@@ -147,6 +148,14 @@ public static class CorrespondenceRenderer
     private static bool IsList(string field) => FieldKey.Of(field) == BuiltInFields.List;
 
     private static bool UsesList(string? template) => FieldTemplate.Parse(template).Any(t => IsList(t.Field));
+
+    /// <summary>A custom field the subject or the body uses has <c>{{lista}}</c> in its value (it gets the list as text).</summary>
+    private static bool CustomFieldsUseList(IReadOnlyList<CustomFieldDefinition> customFields, string? subject, string body)
+    {
+        var listing = customFields.Where(f => f is not null && UsesList(f.Value)).Select(f => FieldKey.Of(f.Name)).Where(k => k.Length > 0)
+            .ToHashSet(StringComparer.Ordinal);
+        return listing.Count > 0 && FieldTemplate.Parse(subject).Concat(FieldTemplate.Parse(body)).Any(t => listing.Contains(FieldKey.Of(t.Field)));
+    }
 
     private static List<string> Distinct(IEnumerable<string> names)
     {

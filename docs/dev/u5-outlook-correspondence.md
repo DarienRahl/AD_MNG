@@ -1065,7 +1065,9 @@ differs from sections 1–13 or goes beyond them.
   fallback is not reported as empty; an unknown field is always reported. HTML encoding encodes only `& < > " '` and
   turns CR/LF into `<br>`. `RepairHtml` never joins across block elements, `<br>`, comments or script/style, keeps the
   tags inside a token (moved, not deleted) and turns `&nbsp;` into a space. Without group values (`list`/`count` null)
-  `lista`/`liczba` fall through to custom fields and columns.
+  `lista`/`liczba` fall through to custom fields and columns. Inside a custom field's value `{{lista}}` is the list as text
+  (`RecipientFieldSet(…, listText)`, the subject's ", "-joined items) – the value is text, so the HTML list showed as
+  escaped markup in the body and as tags in the subject; the renderer builds the list when a used custom field needs it.
 - **Renderer:** every unit is a group (a single row renders `{{lista}}` with one item, `{{liczba}}` = 1) – except that
   without grouping by address (`CorrespondenceDraft.GroupByAddress`, set from the message page) a column or custom field
   named "Lista"/"Liczba" wins over the built-in (`CorrespondenceRenderer.BuiltInApplies`), as "Wstaw pole" offers the

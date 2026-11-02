@@ -270,6 +270,31 @@ public class CorrespondenceRendererTests
     }
 
     [Fact]
+    public void ACustomFieldUsingTheList_GetsItsText_InTheBodyAndTheSubject()
+    {
+        var rows = new[]
+        {
+            new Dictionary<string, string> { ["Skrzynka"] = "Sekretariat <IT>" },
+            new Dictionary<string, string> { ["Skrzynka"] = "Księgowość" },
+        };
+        var draft = new CorrespondenceDraft
+        {
+            Subject = "Dotyczy: {{Wykaz}}",
+            BodyHtml = "<p>{{Wykaz}}</p>",
+            ListItemTemplate = "{{Skrzynka}}",
+            CustomFields = [new CustomFieldDefinition("Wykaz", "skrzynki {{lista}} – razem {{liczba}}")],
+            GroupByAddress = true,
+        };
+
+        var rendered = Render(draft, new CorrespondenceUnit("jan@firma.pl", "Jan Łęcki", rows), ["Skrzynka"]);
+
+        Assert.Equal("Dotyczy: skrzynki Sekretariat <IT>, Księgowość – razem 2", rendered.Subject);
+        Assert.Contains("<p>skrzynki Sekretariat &lt;IT&gt;, Księgowość – razem 2</p>", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.DoesNotContain("<ul", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.DoesNotContain("&lt;ul", rendered.HtmlDocument, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OnlyReferencedImages_InOrderOfFirstReference_SignatureImagesIncluded()
     {
         var first = Image(0x10);
