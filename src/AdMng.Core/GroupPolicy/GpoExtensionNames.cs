@@ -19,6 +19,27 @@ public static class GpoExtensionNames
     /// <summary>The administrative templates editor extension of the user configuration.</summary>
     public static readonly Guid AdministrativeTemplatesUserTool = new("0F6B957E-509E-11D1-A7CC-0000F87571E3");
 
+    /// <summary>The Security client-side extension (<c>GptTmpl.inf</c>).</summary>
+    public static readonly Guid Security = new("827D319E-6EAC-11D2-A4EA-00C04F79F83A");
+
+    /// <summary>The security settings editor extension of the computer configuration.</summary>
+    public static readonly Guid SecurityTool = new("803E14A0-B4FB-11D0-A0D0-00A0C90F574B");
+
+    /// <summary>The Audit Policy Configuration client-side extension (advanced audit policy, <c>audit.csv</c>).</summary>
+    public static readonly Guid AuditPolicy = new("F3CCC681-B74C-4060-9F26-CD84525DCA2A");
+
+    /// <summary>The advanced audit policy editor extension.</summary>
+    public static readonly Guid AuditPolicyTool = new("0F3F3735-573D-9804-99E4-AB2A69BA5FD4");
+
+    /// <summary>The Group Policy Preferences Local Users and Groups client-side extension.</summary>
+    public static readonly Guid PreferencesLocalUsersAndGroups = new("17D89FEC-5C44-4972-B12D-241CAEF74509");
+
+    /// <summary>The Local Users and Groups preference editor extension of the computer configuration.</summary>
+    public static readonly Guid PreferencesLocalUsersAndGroupsTool = new("79F92669-4224-476C-9C5C-6EFB4D87DF4A");
+
+    /// <summary>The "core" pseudo-extension under which GPMC lists every preference editor extension of a half.</summary>
+    public static readonly Guid PreferencesCore = Guid.Empty;
+
     /// <summary>The pairs of a value in order; null when it is not in the <c>[{guid}{guid}…]…</c> form.</summary>
     public static IReadOnlyList<(Guid Extension, IReadOnlyList<Guid> Tools)>? Parse(string? value)
     {

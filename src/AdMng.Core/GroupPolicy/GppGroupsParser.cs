@@ -83,14 +83,16 @@ public static class GppGroupsParser
     /// <exception cref="GpoParseException">The file is not well-formed XML or uses a prohibited feature.</exception>
     public static IReadOnlyList<GppLocalGroup> Parse(ReadOnlySpan<byte> content)
     {
-        var document = GpoXml.Load(content);
+        return Read(GpoXml.Load(content));
+    }
+
+    /// <summary>The local group items of a loaded document (<see cref="GroupElements"/> in order).</summary>
+    internal static IReadOnlyList<GppLocalGroup> Read(System.Xml.Linq.XDocument document)
+    {
         var result = new List<GppLocalGroup>();
-        foreach (var item in document.Root!.DescendantsAndSelf().Where(e => e.Name.LocalName.Equals("Group", StringComparison.OrdinalIgnoreCase)))
+        foreach (var item in GroupElements(document))
         {
-            if (GpoXml.Child(item, "Properties") is not { } properties)
-            {
-                continue;
-            }
+            var properties = GpoXml.Child(item, "Properties")!;
 
             var members = new List<GppGroupMember>();
             if (GpoXml.Child(properties, "Members") is { } list)
@@ -129,6 +131,10 @@ public static class GppGroupsParser
 
         return result;
     }
+
+    /// <summary>The <c>Group</c> elements with a <c>Properties</c> child, in document order (also inside collections).</summary>
+    internal static IEnumerable<System.Xml.Linq.XElement> GroupElements(System.Xml.Linq.XDocument document) =>
+        document.Root!.DescendantsAndSelf().Where(e => e.Name.LocalName.Equals("Group", StringComparison.OrdinalIgnoreCase) && GpoXml.Child(e, "Properties") is not null);
 
     private static GppItemAction Action(string? value) => value?.Trim().ToUpperInvariant() switch
     {

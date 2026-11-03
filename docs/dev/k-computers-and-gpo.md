@@ -1454,3 +1454,70 @@ extensions without settings).
 * **Deviations from the design:** the GPO row of a GPO that is blocked in the user's chain and applied from the
   computer's chain under loopback merge appears twice in `ModeledPart.Gpos` (blocked, then applied through loopback) –
   deliberate, both facts are true.
+
+## 19. K4 – security settings editor (design)
+
+Scope chosen with the operator (2026-11): local groups, user rights, account policies with security options, audit
+(legacy and advanced) and services. Firewall rules, file/registry ACLs (`[File Security]`, `[Registry Keys]`), event
+log settings and the user configuration's GPP groups are **not** edited: they are shown read-only in the GPO report
+(K2) and kept byte for byte by every K4 save.
+
+**Files and writers** (`AdMng.Core/GroupPolicy/Security`, pure, no I/O):
+
+| File | Document | Kept as read | Written as |
+|---|---|---|---|
+| `Machine/Microsoft/Windows NT/SecEdit/GptTmpl.inf` | `SecurityTemplateDocument` | every line it does not set: unknown sections and keys, comments, `[File Security]`, `[Registry Keys]`, event log sections | UTF-16LE + BOM, CR LF; `key = value` |
+| `Machine/Microsoft/Windows NT/Audit/audit.csv` | `AuditPolicyDocument` | the header (column order), options (`Option:…`), global SACL rows, unknown rows | the file's encoding (UTF-8, BOM kept; new file without BOM), CR LF |
+| `Machine/Preferences/Groups/Groups.xml` | `GppGroupsDocument` | `User` items, collections, `Filters` (item-level targeting), common options, unknown attributes and their spelling | UTF-8 + BOM, declaration, no indentation |
+
+*Minimal edit.* A template edit replaces the last line of its key (earlier duplicates removed: the security engine
+reads the last one), appends to the last section of that name before its trailing blank lines/comments, or removes
+the lines (a section left without entries goes). Setting the value a key already has changes nothing, so an edit and
+its undo give the bytes that were read. Keys and values with `=`/line breaks, principals with commas/quotes and GPP
+SIDs that are not SIDs are refused (`ArgumentException`) – the file is untrusted on read, the editor's input on write.
+Restricted Groups keys are matched by group (SID or name, case-insensitive) and relation, written `*SID__Members` /
+`*SID__Memberof`; principals are written `*SID` or as named; a defined empty list is `key =` ("no members", "nobody").
+GPP items are addressed by position in `GppGroupsParser`'s order (also inside collections); a changed item gets
+`changed` (local time of the editor, `yyyy-MM-dd HH:mm:ss`) and the `image` of its action (0 C, 1 R, 2 U, 3 D) as
+GPMC; new items get a new upper-case uid and are appended to the root (applied last).
+
+**Catalog** (`SecuritySettingsCatalog`, ids only, names in the resources): the 45 user rights in GPMC's order;
+account policies (`[System Access]` password and lockout, `[Kerberos Policy]`), account options (`EnableAdminAccount`,
+`NewAdministratorName` …) and 38 security options in `[Registry Values]` with their kind (number with range, boolean,
+choice, text, REG_MULTI_SZ lines); the nine legacy audit categories; the 59 advanced audit subcategories
+(`{0CCE92xx-69AE-11D9-BED3-505054503030}`, the Subcategory column is `Audit <English name>`). Settings of a GPO that
+are not in the catalog are listed as raw entries (key and value as written) that can be removed or have their raw
+value replaced – never dropped.
+
+**Plan** (`GroupPolicyPlanner.PlanSecuritySettingsAsync`, mirrors K3's 6): one `Modify` of `gPCMachineExtensionNames`
+first (pairs added only for the written files: Security `{827D319E-…}` + `{803E14A0-…}`; Audit Policy Configuration
+`{F3CCC681-B74C-4060-9F26-CD84525DCA2A}` + `{0F3F3735-573D-9804-99E4-AB2A69BA5FD4}`; Local Users and Groups
+`{17D89FEC-…}` + `{79F92669-4224-476C-9C5C-6EFB4D87DF4A}` and the preference core entry `{00000000-…}` with the same
+tool), then one `WriteGpoFile` per changed file with the bytes the editor read as `OldContent` (conflict otherwise),
+then `SetGpoVersion` (computer +1) with the "computer configuration disabled" warning. Extensions are never removed
+(GPMC keeps them too; a CSE with an empty file does nothing). PowerShell: the GroupPolicy module has no cmdlet for
+these files – the script contains `Get-GPO` with a comment saying the plan writes the files on SYSVOL.
+
+**Editor** (`SecuritySettingsEditorViewModel`, document kind `SecuritySettings`, "Edytuj ustawienia zabezpieczeń" next
+to "Edytuj szablony administracyjne" on a GPO): one document per GPO, the three files read on open and F5 with K3's
+reconcile rules (edits kept over a reload; a file changed on SYSVOL meanwhile is a conflict note; a file that holds
+what this tab last saved rebases the edits), a file that cannot be read makes its pages read-only. Pages:
+
+1. *Grupy lokalne* – Restricted Groups (group, "Członkowie" defined/not, "Członek grup") and GPP local group items
+   (action, delete all users/groups, members with add/remove, item-level targeting shown and kept) side by side, with
+   the precedence text of U4c: Restricted Groups `Members` replaces the membership at every refresh, GPP changes it in
+   item order, the CSE order between the two is not guaranteed – do not configure the same group in both.
+2. *Prawa użytkownika* – every right of the catalog with "zdefiniowane" and the holders; unknown rights of the file
+   listed after them.
+3. *Zasady kont i opcje zabezpieczeń* – grouped as GPMC (password, lockout, Kerberos, accounts, network security …),
+   each "nie zdefiniowano" or a value; account policies carry the note that for domain accounts only the GPO linked at
+   the domain root applies (fine-grained password policies are separate).
+4. *Inspekcja* – the legacy categories and the advanced subcategories, each "nie skonfigurowano" / "bez inspekcji" /
+   powodzenie / niepowodzenie / both; a note when both are set and "wymuś ustawienia podkategorii" is not enabled.
+5. *Usługi* – service name, start mode (automatic, manual, disabled), the security descriptor kept as read (SDDL shown,
+   not edited; new entries have none).
+
+Principals are picked with the object picker (users, groups, computers; the SID is written) or typed as a name
+(`KONTOSO\grupa`, written as typed, shown with a warning that it is resolved on each client). Names are resolved for
+display with `TrusteeNames`, local groups with `LocalRightsCatalog`. Save = one plan through the change plan preview
+(rule 5); nothing of the files is persisted or logged by the app (rule 1).
