@@ -71,7 +71,7 @@ public sealed record GpoSettingText
     /// <summary>"Edytuj to ustawienie": the setting or policy an editor opens at (null: none, e.g. a cut key).</summary>
     public GroupPolicySettingFocus? Focus { get; init; }
 
-    /// <summary>A secret: the value is never shown.</summary>
+    /// <summary>A secret: the value is never shown (a policy row keeps its state and the options that hold no secret).</summary>
     public bool IsMasked { get; init; }
 
     /// <summary>The file the setting came from (relative path; null when unknown).</summary>

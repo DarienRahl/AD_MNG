@@ -17803,4 +17803,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Require at least 12–14 characters (or longer passphrases), keep complexity on unless you use a banned-password list, and set a lockout threshold (for example 10 attempts).</value>
   </data>
   <!-- K6 Group Policy diagnostics (20.2): end -->
+  <!-- K6 readable GPO settings, review fixes (presenter): start -->
+  <data name="GpoSettings.LongValueHash" xml:space="preserve">
+    <value>(long value, hash {0}…)</value>
+  </data>
+  <!-- K6 readable GPO settings, review fixes (presenter): end -->
 </root>

@@ -105,7 +105,7 @@ public sealed partial class GpoSettingPresenter
             var text = setting.Kind switch
             {
                 GpoSettingKind.Masked => _l[L.GroupPolicy.MaskedValue],
-                GpoSettingKind.Hash => _l[L.GpoSettings.LongValue],
+                GpoSettingKind.Hash => LongValueText([setting.Value]),
                 _ => PropertyValue(property, setting.Elements()).Text,
             };
 
@@ -337,7 +337,11 @@ public sealed partial class GpoSettingPresenter
                     return string.Empty;
                 }
 
-                var path = RegistryHive(V("hive")) + "\\" + V("key")!.Trim('\\') + "\\" + (V("name") ?? _l[L.GpoSettings.RegistryDefaultValue]);
+                // A masked value name (SNMP communities) is hidden, not the key's default value.
+                var valueName = properties.TryGetValue("name", out var registryName) && registryName.Kind == GpoSettingKind.Masked
+                    ? _l[L.GpoSettings.RegistryHiddenNames]
+                    : V("name") ?? _l[L.GpoSettings.RegistryDefaultValue];
+                var path = RegistryHive(V("hive")) + "\\" + V("key")!.Trim('\\') + "\\" + valueName;
                 var data = properties.TryGetValue("value", out var registryValue) && registryValue.Kind == GpoSettingKind.Masked
                     ? _l[L.GroupPolicy.MaskedValue]
                     : V("value") ?? string.Empty;

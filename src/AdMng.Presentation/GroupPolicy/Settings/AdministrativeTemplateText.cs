@@ -1,4 +1,5 @@
 using AdMng.Core.GroupPolicy.AdministrativeTemplates;
+using AdMng.Core.GroupPolicy.Content;
 using AdMng.Presentation.Localization;
 
 namespace AdMng.Presentation.GroupPolicy.Settings;
@@ -23,7 +24,10 @@ public static class AdministrativeTemplateText
         }];
     }
 
-    /// <summary>"Tryb: Pobierz i zainstaluj" – the options of an enabled policy in the order of its elements (none otherwise).</summary>
+    /// <summary>
+    /// "Tryb: Pobierz i zainstaluj" – the options of an enabled policy in the order of its elements (none otherwise). An option
+    /// whose registry value the GPO content parsers mask reads "(ustawione – ukryte)" (<see cref="HasSecret"/>).
+    /// </summary>
     public static IReadOnlyList<string> Options(ILocalizer localizer, PolicyDefinition definition, PolicySetting setting)
     {
         ArgumentNullException.ThrowIfNull(localizer);
@@ -44,10 +48,41 @@ public static class AdministrativeTemplateText
 
             var control = definition.Presentation?.Controls.FirstOrDefault(c => string.Equals(c.RefId, element.Id, StringComparison.OrdinalIgnoreCase));
             var label = (control?.Label is { Length: > 0 } text ? text : element.Id).Trim().TrimEnd(':');
-            options.Add(localizer.Format(L.GroupPolicyModel.OptionValue, label, ElementValue(localizer, definition, element, value)));
+            var shown = IsSecret(definition.Policy, element, value) ? localizer[L.GroupPolicy.MaskedValue] : ElementValue(localizer, definition, element, value);
+            options.Add(localizer.Format(L.GroupPolicyModel.OptionValue, label, shown));
         }
 
         return options;
+    }
+
+    /// <summary>
+    /// An option of the enabled policy holds a value the GPO content parsers mask (<see cref="GpoSecretSettings"/>: a
+    /// password-like value name, a listed secret value, any value of a key whose value names are secret such as the SNMP
+    /// communities): <see cref="Options"/> and <see cref="Value"/> never show it. The state is never a secret.
+    /// </summary>
+    public static bool HasSecret(PolicyDefinition definition, PolicySetting setting)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        ArgumentNullException.ThrowIfNull(setting);
+        return setting.State == PolicyState.Enabled
+            && definition.Policy.Elements.Any(e => setting.ValueOf(e.Id) is { } value && IsSecret(definition.Policy, e, value));
+    }
+
+    /// <summary>The parsers mask a registry value the element writes (a list's values by their names as the policy writes them).</summary>
+    private static bool IsSecret(AdmxPolicy policy, PolicyElement element, PolicyElementValue value)
+    {
+        var key = element.KeyIn(policy);
+        bool SecretList(PolicyValueList? list) =>
+            list is not null && list.Items.Any(i => GpoSecretSettings.IsSecretRegistryValue(list.KeyOf(i, key), i.ValueName));
+        return element switch
+        {
+            ListElement list => GpoSecretSettings.HidesValueNames(key) || GpoSecretSettings.IsSecretName(list.ValuePrefix)
+                || (value is ListElementValue entries && entries.Items.Any(i =>
+                    GpoSecretSettings.IsSecretRegistryValue(key, list.ExplicitValue ? i.Name : list.ValuePrefix is null ? i.Value : null))),
+            BooleanElement boolean => GpoSecretSettings.IsSecretRegistryValue(key, element.ValueName) || SecretList(boolean.TrueList) || SecretList(boolean.FalseList),
+            EnumElement choice => GpoSecretSettings.IsSecretRegistryValue(key, element.ValueName) || choice.Items.Any(i => SecretList(i.ValueList)),
+            _ => GpoSecretSettings.IsSecretRegistryValue(key, element.ValueName),
+        };
     }
 
     /// <summary>"Włączone; Tryb: Pobierz i zainstaluj, Dzień: 3" – the state and, when enabled, the options as the GPO has them.</summary>

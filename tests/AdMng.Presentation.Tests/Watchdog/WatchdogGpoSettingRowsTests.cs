@@ -87,4 +87,21 @@ public sealed class WatchdogGpoSettingRowsTests
         Assert.Equal("(puste)", row.OldText);
         Assert.Equal("+S-1-5-21-1-2-3-1500", row.ChangeText);
     }
+
+    [Fact]
+    public void ALongValueThatChanged_ShowsTwoDifferentHashes()
+    {
+        var localizer = new Presentation.Localization.ResxLocalizer(Polish);
+        var row = WatchdogChangeRowViewModel.Create(
+            new AttributeChange
+            {
+                Attribute = @"Computer/Registry/HKLM\Software\Policies\Contoso\Baner!Tekst",
+                OldValues = ["sha256:3f2a91c0aa11bb22cc33dd44ee55ff6600112233445566778899aabbccddeeff"],
+                NewValues = ["sha256:9b1c07d4aa11bb22cc33dd44ee55ff6600112233445566778899aabbccddeeff"],
+            },
+            localizer, null, new WatchdogChangeContext(UseSchema: false, GpoSettings: true));
+
+        Assert.Equal("(długa wartość, skrót 3f2a91c0…)", row.OldText);
+        Assert.Equal("(długa wartość, skrót 9b1c07d4…)", row.NewText);
+    }
 }
