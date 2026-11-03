@@ -190,7 +190,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K5: 🟡)"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K5: 🟡)"] ~~~ EVT["⬜ E · Dzienniki zdarzeń<br/>czytnik i analiza"]
     end
     A --> B
     B ~~~ C
@@ -199,7 +199,7 @@ flowchart TB
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
     class F1,F2,W,U,K wip
-    class F3,F4,F5,F6,F7,M365,TEAM todo
+    class F3,F4,F5,F6,F7,M365,TEAM,EVT todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -220,6 +220,7 @@ flowchart TB
 | C | Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint (ścieżka równoległa) | Logowanie kontem administratora lub Czytelnika globalnego z automatycznym wykrywaniem ról (także kwalifikujących się w PIM) i dopasowaniem dostępnych funkcji; użytkownicy, grupy, licencje, MFA i logowania w Entra ID, skrzynki i uprawnienia w Exchange Online, Teams, SharePoint i OneDrive, powiązanie konta AD z kontem w Entra ID; Microsoft Graph i moduły PowerShell | ⬜ zaplanowane |
 | T | Współpraca zespołu (ścieżka równoległa) | Kilku administratorów na różnych komputerach pracuje razem przez usługę AdMng Watchdog: panel „Wspólne” z obiektami przypiętymi dla zespołu (z notatką, autorem, „Przekaż do…”) i notatki do obiektów widoczne dla wszystkich przy koncie, grupie czy komputerze, odświeżane na żywo | ⬜ zaplanowane |
 | K | Komputery i zasady grupy (GPO) (ścieżka równoległa) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer” | 🟡 (K1 – komputery, K2 – GPO w drzewie, K3 – edytor ADMX z aktualizacją magazynu centralnego K4 – ustawienia zabezpieczeń i K5 – raport „co dostanie komputer”: zaimplementowane, czekają na pilotaż na Windows Server AD) |
+| E | Dzienniki zdarzeń: czytnik i analiza (ścieżka równoległa) | Czytanie dzienników zdarzeń DC, serwerów, stacji i plików `.evtx` z poziomu programu (dowolny kanał, wspólna oś czasu wielu komputerów, objaśnione pola i obiekty AD) oraz analizy: źródło blokady konta, rozpylanie haseł, Kerberos/RC4, NTLMv1, podpisywanie LDAP („kto przestanie działać”), historia logowań, zmiany kont i grup, GPO na komputerze, zdrowie DC, integralność inspekcji; osobno od Watchdoga, bez zapisu na dysku | ⬜ |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -536,7 +537,7 @@ DC, historia zmian, LAPS i BitLocker.
 - Pola oparte o ACL: „Chroń obiekt przed przypadkowym usunięciem”, „Użytkownik nie może zmienić hasła”, „Menedżer może
   aktualizować listę członków”; karta Zabezpieczenia (podgląd), znaczniki Tier 0.
 - Ostatnie logowanie i stan blokady na **wszystkich** DC (zamiennik LockoutStatus.exe) – korzysta z nich także przegląd
-  kont ze ścieżki U.
+  kont ze ścieżki U; *skąd* blokada (zdarzenia 4740, 4771, 4776, 4625) – ścieżka E.
 - Karta Historia: kiedy i na którym DC zmieniono każdy atrybut (`msDS-ReplAttributeMetaData`) i członka grupy.
 - ✅ Odświeżanie list na żywo przez powiadomienia LDAP o zmianach (osobne połączenie do tego samego DC, odświeżane są
   tylko zmienione obiekty); ⬜ zapasowe odpytywanie USN, gdy DC odmawia powiadomień.
@@ -556,7 +557,7 @@ karty ADUC.
 - Edytor ACL, kreator „Deleguj kontrolę” i **przegląd delegacji** (niestandardowe ACE per OU) z cofaniem.
 - Wstępna kontrola uprawnień rozszerzonych (AuthZ) przed operacją.
 - Szablony ADMX (progi potwierdzeń, limity eksportu, blokada bezczynności, wymaganie PAW), kanał Dziennika zdarzeń
-  operatora (metadane zmian, bez wartości), wsparcie korelacji z audytem DC (5136/5137/5141).
+  operatora (metadane zmian, bez wartości), wsparcie korelacji z audytem DC (5136/5137/5141 – przechodzi do ścieżki E).
 - Rzadkie karty ADUC: Dial-in, Środowisko/Sesje/Zdalne sterowanie (RDS), Mapowania nazw, Opublikowane certyfikaty,
   zasady replikacji haseł RODC; wzorce operacji (FSMO), konta gMSA/dMSA.
 
@@ -1443,6 +1444,146 @@ centralnym), K4 (ustawienia zabezpieczeń) i K5 (raport „co dostanie komputer�
 
 </details>
 
+### Ścieżka E – Dzienniki zdarzeń: czytnik i analiza ⬜
+
+**Cel:** czytać dzienniki zdarzeń kontrolerów domeny, serwerów i stacji oraz pliki `.evtx` **prosto z AD Managera** i
+dostawać gotowe odpowiedzi zamiast tysięcy wierszy: *kto blokuje to konto i skąd*, *kto przestanie działać po
+wyłączeniu NTLMv1, RC4 albo niepodpisanego LDAP*, *dlaczego GPO nie zadziałało na tym komputerze*, *co się dzieje z
+replikacją i SYSVOL*. Wyniki są połączone z katalogiem: SID-y jako obiekty AD z przejściem do właściwości, znaczniki
+kont uprzywilejowanych (U4), akcje na komputerze źródłowym (K1), poprawki ustawień inspekcji przez edytory GPO (K4, K3).
+To **osobna funkcja, niezależna od AdMng Watchdog**: Watchdog to usługa, która stale zbiera wybrane zdarzenia
+zabezpieczeń kontrolerów domeny, przechowuje historię i wysyła alerty. Ścieżka E to doraźne dochodzenie w programie:
+dowolny kanał, dowolny komputer, historia sięgająca tak daleko, jak sam dziennik, bez instalowania czegokolwiek i bez
+zapisywania czegokolwiek na dysku (zasada 1). Gdy Watchdog jest podłączony, czytnik podsuwa jego dłuższą historię.
+
+<details>
+<summary><b>Szczegóły ścieżki E</b> – czytnik, analizy, technika, etapy</summary>
+
+#### Czytnik (karta „Dzienniki zdarzeń”)
+
+- **Źródła:** komputery wybrane z AD – wszystkie DC domeny (wyróżnione emulator PDC i DC, na którym zablokowano konto),
+  komputery z listy, OU albo raportu K1, jeden komputer z jego strony *Stan* (*Dziennik zdarzeń tego komputera* obok
+  dzisiejszego uruchamiania Podglądu zdarzeń) – oraz pliki `.evtx` wskazane przez operatora (kilka naraz; opisy
+  zdarzeń z folderu `LocaleMetaData`, gdy plik zapisano z informacjami wyświetlania).
+- **Kanały:** każdy dostępny na komputerze – *Zabezpieczenia*, *System*, *Aplikacja*, *Directory Service*, *DFS
+  Replication*, *DNS Server*, *GroupPolicy/Operational*, *NTLM/Operational*, kanały usług pulpitu zdalnego,
+  *PowerShell*, *Windows Defender*, *Sysmon* (jeśli jest).
+- **Kreator zapytania:** przedział czasu (domyślnie ostatnie 24 godziny, granice w UTC), identyfikatory, poziomy,
+  dostawcy, inspekcja sukcesów i niepowodzeń, pola (konto, SID, adres IP, stacja). Kreator buduje bezpieczne zapytanie
+  XPath (wartości escapowane, jak filtry LDAP – zasada 3); tryb ekspercki przyjmuje własny XPath ze sprawdzeniem
+  składni. Filtr wykonuje się na komputerze docelowym, więc przez sieć idą tylko pasujące zdarzenia.
+- **Wspólna oś czasu** z wielu komputerów (kolumna *Komputer*), od najnowszych, wczytywana strumieniowo z postępem i
+  anulowaniem osobno dla każdego komputera; limit wierszy trzymanych w pamięci, a liczniki i zestawienia liczone w
+  locie; *Odśwież – tylko nowe* i opcjonalny podgląd na żywo.
+- **Szczegóły zdarzenia:** pola po nazwach z objaśnieniami po polsku – kody stanu logowania (`0xC000006A` – złe
+  hasło, `0xC0000234` – konto zablokowane …), kody Kerberos (`0x18`, `0x25` …), typy logowania (2, 3, 10 …), typy
+  szyfrowania (RC4, AES), tokeny `%%NNNN`; SID-y i nazwy kont jako obiekty AD z przejściem do właściwości, adres IP
+  i nazwa stacji jako komputer z AD; pełny opis zdarzenia tylko dla zaznaczonego wiersza (z zapasowym widokiem pól,
+  gdy komputer nie ma opisów w danym języku).
+- **Zasięg i dostęp dla każdego komputera:** najstarsze zdarzenie, rozmiar i maksymalny rozmiar dziennika, tryb
+  (nadpisywanie, archiwizacja, zatrzymanie), ostrzeżenie *dziennik DC01 sięga tylko 6 godzin wstecz*, a przy odmowie
+  dostępu – przyczyna (grupa *Czytelnicy dziennika zdarzeń*, reguła zapory *Zdalne zarządzanie dziennikiem zdarzeń*,
+  uprawnienia kanału).
+- **Zapisane zapytania** (nazwy, kanały, identyfikatory, XPath, listy komputerów – bez wartości z dzienników) i
+  eksport do CSV lub HTML wyłącznie do pliku wskazanego przez operatora, z uwagą, że plik zawiera dane osobowe.
+
+#### Analizy wbudowane
+
+Każda analiza mówi, na jakie pytanie odpowiada, które komputery i kanały czyta i jakich ustawień inspekcji
+potrzebuje. Wymagania sprawdza **przed** wyszukiwaniem (efektywne zasady inspekcji DC z modelu K5): zamiast
+„nie znaleziono zdarzeń” pokazuje *DC01 nie rejestruje niepowodzeń uwierzytelniania Kerberos* z przyciskiem
+poprawki w edytorze ustawień zabezpieczeń GPO (K4) albo szablonów (K3), przez podgląd planu zmian. Wyniki mają układ
+diagnostyki zasad grupy (K6): ważność, obszar, szczegóły, zalecenie, *Napraw…* tam, gdzie program ma poprawkę.
+
+1. **Blokada konta – kto i skąd** (zastępuje LockoutStatus i EventCombMT, rozszerza fazę 5): na każdym DC licznik
+   złych haseł, czas ostatniego złego hasła i blokady, DC, na którym blokada powstała; zdarzenie blokady 4740 z
+   komputerem wywołującym, nieudane próby 4771, 4776 i 4625 z kodami, oś czasu złych haseł. Potem przejście do
+   komputera źródłowego przez zdalne akcje K1: usługi, zadania zaplanowane, sesje i zamapowane dyski działające na
+   tym koncie. Podpowiedzi, gdy źródłem jest pośrednik (Exchange, ADFS, NPS, Brama usług pulpitu zdalnego).
+2. **Nieudane logowania, zgadywanie i rozpylanie haseł:** wiele prób na jedno konto, wiele kont z jednego źródła
+   poniżej progu blokady, sprawdzanie istnienia kont (`0xC0000064`, Kerberos `0x6`), udane logowanie po serii
+   niepowodzeń; zastrzeżenia dla NAT i VPN.
+3. **Kerberos:** kody błędów z objaśnieniem, użycie RC4 i DES (typy szyfrowania w 4768 i 4769 oraz zdarzenia KDC
+   dodane w aktualizacjach Microsoftu wycofujących RC4) – lista *kto przestanie działać po wyłączeniu RC4*; konta bez
+   wstępnego uwierzytelniania (z odnośnikiem do flag ryzyka U4) i wzorce typowe dla kerberoastingu.
+4. **NTLM i NTLMv1:** wersja NTLM w logowaniach 4624, 4776 na DC, zdarzenia *NTLM/Operational* (inspekcja ograniczeń
+   NTLM i rozszerzona inspekcja NTLM nowszych Windows) – *kto przestanie działać po zablokowaniu NTLMv1 albo NTLM*;
+   brakujące opcje inspekcji NTLM ustawia K4.
+5. **Podpisywanie LDAP i powiązanie kanału:** zdarzenia *Directory Service* 2886–2889, 3039–3041, 3074 i 3075 – klienci
+   z niepodpisanymi i prostymi powiązaniami. Szczegółowe zdarzenie 2889 wymaga podniesienia poziomu diagnostyki na DC:
+   włączenie na określony czas przez K1 z przypomnieniem o przywróceniu.
+6. **Gdzie i kiedy logował się użytkownik, kto logował się na komputerze:** logowania 4624 z objaśnionym typem,
+   wylogowania, logowania z jawnymi poświadczeniami i administracyjne, sesje pulpitu zdalnego (4778, 4779 i kanały
+   usług pulpitu zdalnego), ślady Kerberos na DC prowadzące do stacji.
+7. **Zmiany kont i grup w dziennikach DC:** zakładanie, włączanie, wyłączanie i usuwanie kont, resety haseł, zmiany
+   członkostwa grup globalnych, lokalnych domeny i uniwersalnych, zmiany nazw, zmiany katalogu 5136–5141 i podejrzenie
+   DCSync (4662 z prawami replikacji spoza DC) – z oznaczeniem kont i grup uprzywilejowanych (U4, Tier 0). Tyle, ile
+   dziennik jeszcze pamięta; dłuższa historia – w Watchdogu. Przejmuje z fazy 6 *wsparcie korelacji z audytem DC*.
+8. **Zasady grupy na komputerze – model a rzeczywistość:** *GroupPolicy/Operational* (zastosowane i odfiltrowane GPO
+   z przyczyną, wynik i czas każdego rozszerzenia, użyty DC, przepustowość) i błędy z dziennika *System* (1058, 1085,
+   1125, 1129 …) zestawione z modelem *co dostanie komputer* (K5); błąd SceCli 1202 z nieistniejącym kontem prowadzi
+   do edytora ustawień zabezpieczeń (K4).
+9. **Zdrowie kontrolerów domeny:** replikacja (1311, 1925, 2042, 2092, 2095 – wycofanie USN, obiekty zalegające),
+   replikacja SYSVOL przez DFSR (4012, 2213, 5002), Netlogon (5719, 5722, 5805, 5807 – klienci spoza podsieci lokacji,
+   z odnośnikiem do lokacji i podsieci K1, 5827–5831), serwer DNS (4013, 4015), usługa czasu (emulator PDC bez
+   zewnętrznego źródła czasu, rozjazd zegarów).
+10. **Integralność inspekcji i ślady trwałości:** wyczyszczone dzienniki (1102, 104), zmiana zasad inspekcji (4719, z
+    autorem zmiany GPO z Watchdoga albo 5136), nowe usługi (7045, 4697), zadania zaplanowane (4698–4702), PowerShell
+    (4103, 4104 – treść skryptu ukryta do kliknięcia, bo może zawierać hasła), tworzenie procesów z wierszem poleceń
+    (4688), Microsoft Defender (wykrycia, wyłączona ochrona w czasie rzeczywistym, wykluczenia), Sysmon, jeśli jest.
+
+#### Jak to działa technicznie
+
+- **Odczyt:** `EventLogSession` (protokół MS-EVEN6 przez RPC) z Kerberosem i poświadczeniami okna (tylko w pamięci,
+  zasada 2), po pełnej nazwie DNS, bez przechodzenia na NTLM. Komputer docelowy potrzebuje grupy reguł zapory
+  *Zdalne zarządzanie dziennikiem zdarzeń* i członkostwa operatora w grupie *Czytelnicy dziennika zdarzeń* – kanał
+  *Zabezpieczenia* jest dla niej domyślnie czytelny, więc nie są potrzebne uprawnienia administratora domeny.
+  Członkostwo w grupie lokalnej ustawia K4 (grupy z ograniczeniami albo preferencje). Pliki `.evtx` czyta to samo API.
+- **Analizy nie parsują treści komunikatów:** pola zdarzeń są czytane po nazwach z XML, a kody (`%%NNNN`, stany
+  logowania, kody i typy szyfrowania Kerberos, typy logowania) – z własnych tabel; analizy znoszą różne wersje
+  zdarzeń. Opis zdarzenia w języku systemu jest tylko do wyświetlenia.
+- **Wydajność:** każde zapytanie ma przedział czasu, czyta od najnowszych i kończy się, gdy dojdzie do jego początku;
+  pobiera tylko potrzebne pola; najwyżej 4 komputery naraz (jak odczyt ze wszystkich DC w przeglądzie kont);
+  zestawienia liczone w locie, limit pamięci; anulowanie przerywa odczyt na komputerze docelowym (zasada 6).
+- **Kod:** parsery zdarzeń, budowanie XPath i dekodery z `AdMng.Watchdog.Core` przechodzą do `AdMng.Core` (jak parsery
+  GPO w K2.0) i obsługują oba programy; czytnik Windows w nowym projekcie używanym tylko przez aplikację (jak
+  `AdMng.Remote`); dokument jest per okno połączenia, a wyszukiwania w AD idą przez DC okna (zasada 4).
+- **Dane osobowe i zasada 1:** zdarzenia są tylko w pamięci, dopóki są widoczne – bez pamięci podręcznej i indeksu na
+  dysku, dziennik diagnostyczny bez treści zdarzeń, zapisane zapytania bez wartości, eksport tylko na żądanie.
+
+#### Etapy
+
+- **E1** – czytnik: źródła (DC, komputery, pliki `.evtx`), kanały, kreator zapytań i XPath, wspólna oś czasu,
+  szczegóły z objaśnionymi polami i obiektami AD, zasięg i diagnoza dostępu, zapisane zapytania, eksport; przeniesienie
+  parserów do `AdMng.Core`.
+- **E2** – konta: źródło blokady z przejściem do komputera (K1), nieudane logowania i rozpylanie haseł, historia
+  logowań, zmiany kont i grup w dziennikach DC.
+- **E3** – gotowość na utwardzenie: Kerberos i RC4, NTLM i NTLMv1, podpisywanie LDAP i powiązanie kanału – *kto
+  przestanie działać* – ze sprawdzeniem wymagań inspekcji i poprawkami przez K4 i K3.
+- **E4** – zdrowie DC, zasady grupy *model a rzeczywistość*, integralność inspekcji i ślady trwałości.
+- **Później (do decyzji):** reguły Sigma (licencja DRL 1.1 pozwala dołączyć wybrane reguły z zachowaniem autora w
+  każdym wyniku), własny parser uszkodzonych plików `.evtx`.
+
+#### Do ustalenia z zespołem
+
+- Sposób odczytu: RPC (MS-EVEN6; dodatkowa reguła zapory na komputerach) czy także WinRM, którego już wymagają zdalne
+  akcje K1 (zestawienia liczone na komputerze docelowym, mniej danych przez sieć) – albo oba z automatycznym wyborem.
+- Domyślny przedział czasu i limit zdarzeń w pamięci.
+- Czy wyszukiwanie zdarzeń konkretnej osoby ma wymagać podania powodu (RODO, monitorowanie pracowników – art. 22³
+  Kodeksu pracy; do uzgodnienia z IOD) i czy prowadzić ślad takich wyszukiwań bez wartości (wymaga uzupełnienia ADR-0003).
+- Czy grupa *Czytelnicy dziennika zdarzeń* na DC ma być osobną grupą domenową traktowaną jak Tier 0 (dzienniki DC
+  ujawniają działania administratorów), obserwowaną w Watchdogu.
+
+**Kryteria ukończenia**
+- Źródło blokady konta znalezione w niecałą minutę na wszystkich DC domeny testowej, zgodne z LockoutStatus i
+  EventCombMT.
+- Odczyt dziennika *Zabezpieczenia* zapracowanego DC z 24 godzin nie blokuje okna, można go przerwać w każdej chwili, a
+  pamięć nie przekracza limitu.
+- Każda analiza przed wyszukiwaniem mówi, czego jej brakuje, i proponuje poprawkę ustawień inspekcji przez plan zmian.
+- Żadnych danych z dzienników na dysku stacji; eksport tylko na żądanie. Działa bez Watchdoga.
+
+</details>
+
 ### Znane ograniczenia
 
 Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki i uproszczenia w tym, co już działa.
@@ -1624,6 +1765,9 @@ Pełna lista pytań: [RESEARCH.md](docs/RESEARCH.md#11-pytania-otwarte-do-zespo�
    skrzynka nadawcy (np. współdzielona skrzynka helpdesku) i adres odpowiedzi; kto może wysyłać i do ilu osób naraz;
    treść i stopka szablonów zaakceptowane przez bezpieczeństwo (ochrona przed phishingiem) i IOD (RODO); czy kopie
    zostają w Elementach wysłanych; czy automatyczne przypomnienia mają zastąpić obecne skrypty i z jakimi progami.
+10. **Dzienniki zdarzeń (ścieżka E):** odczyt przez RPC (dodatkowa reguła zapory) czy także przez WinRM; domyślny
+   przedział czasu i limit zdarzeń w pamięci; czy wyszukiwanie zdarzeń konkretnej osoby wymaga podania powodu (RODO,
+   IOD); osobna grupa *Czytelnicy dziennika zdarzeń* na DC traktowana jak Tier 0.
 
 </details>
 
