@@ -1,6 +1,16 @@
 admng-watchdog (@VERSION@) unstable; urgency=medium
 
   * No change in how the service works and no database migration.
+  * Rebuilt for AD Manager 0.11.0: readable GPO settings, editing comfort
+    and the Group Policy diagnostics are AD Manager features that do not
+    use the service; the shared GPO content parsers are unchanged (the
+    library only gains a parser of the setting keys, used by AD Manager).
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Tue, 03 Nov 2026 19:00:00 +0000
+
+admng-watchdog (0.10.0-1) unstable; urgency=medium
+
+  * No change in how the service works and no database migration.
   * Rebuilt for AD Manager 0.10.0: the GPO security settings editor (local
     groups, user rights, account policies and security options, audit,
     services) is an AD Manager feature that does not use the service; the
