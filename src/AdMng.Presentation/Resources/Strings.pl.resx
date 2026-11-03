@@ -13298,6 +13298,15 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="Correspondence.Message.VotingEmpty" xml:space="preserve">
     <value>Wpisz odpowiedzi przycisków głosowania oddzielone średnikiem.</value>
   </data>
+  <data name="Correspondence.Message.CopyInvalid" xml:space="preserve">
+    <value>DW: to nie są adresy e-mail: {0}</value>
+  </data>
+  <data name="Correspondence.Message.BlindCopyInvalid" xml:space="preserve">
+    <value>UDW: to nie są adresy e-mail: {0}</value>
+  </data>
+  <data name="Correspondence.Message.CopiesTooMany" xml:space="preserve">
+    <value>DW i UDW razem mogą mieć najwyżej {0} adresów.</value>
+  </data>
   <data name="Correspondence.Message.ImageRejected" xml:space="preserve">
     <value>Obraz odrzucony: {0}</value>
   </data>
@@ -13528,6 +13537,12 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="Correspondence.Send.SummaryOnBehalf" xml:space="preserve">
     <value>W imieniu: {0}</value>
+  </data>
+  <data name="Correspondence.Send.SummaryCopy" xml:space="preserve">
+    <value>DW każdej wiadomości: {0}</value>
+  </data>
+  <data name="Correspondence.Send.SummaryBlindCopy" xml:space="preserve">
+    <value>UDW każdej wiadomości: {0}</value>
   </data>
   <data name="Correspondence.Send.SummaryMode" xml:space="preserve">
     <value>Tryb: {0}</value>
@@ -14194,6 +14209,15 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="Correspondence.App.Message.BccChunk" xml:space="preserve">
     <value>Odbiorców w UDW na wiadomość (1–500)</value>
+  </data>
+  <data name="Correspondence.App.Message.CopyTo" xml:space="preserve">
+    <value>DW (do każdej wiadomości)</value>
+  </data>
+  <data name="Correspondence.App.Message.BlindCopyTo" xml:space="preserve">
+    <value>UDW (do każdej wiadomości)</value>
+  </data>
+  <data name="Correspondence.App.Message.CopiesHint" xml:space="preserve">
+    <value>Adresy oddzielone „;” dodawane do każdej wysłanej wiadomości i wersji roboczej (nie do wiadomości testowej), np. kopia do skrzynki działu. Nie trafiają do dziennika.</value>
   </data>
   <data name="Correspondence.App.Message.Delay" xml:space="preserve">
     <value>Odstęp między wiadomościami (s)</value>

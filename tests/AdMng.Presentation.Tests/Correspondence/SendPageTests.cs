@@ -168,6 +168,74 @@ public sealed class SendPageTests
     }
 
     [Fact]
+    public async Task CopyAndBlindCopy_GoIntoEveryMessage_ButNotTheTest_NorTheJournal()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenWithMessageAsync();
+        var offices = CorrespondencePagesScenario.Offices();
+        CorrespondencePagesScenario.AddRows(window, offices);
+        window.Message.CopyTo = "sekretariat@lodzkie.pl; Kancelaria@Lodzkie.pl";
+        window.Message.BlindCopyTo = "archiwum@lodzkie.pl, sekretariat@lodzkie.pl";
+        scenario.Ui.ConfirmAnswers.Enqueue(true);
+
+        await window.Send.SendCommand.ExecuteAsync(null);
+
+        Assert.Contains("DW każdej wiadomości: sekretariat@lodzkie.pl; kancelaria@lodzkie.pl", scenario.Ui.Shown[0], StringComparison.Ordinal);
+        Assert.Contains("UDW każdej wiadomości: archiwum@lodzkie.pl", scenario.Ui.Shown[0], StringComparison.Ordinal);
+        var sent = scenario.Outlook.Succeeded();
+        Assert.Equal(offices.Length, sent.Count);
+        Assert.All(sent, m =>
+        {
+            Assert.Equal(["sekretariat@lodzkie.pl", "kancelaria@lodzkie.pl"], m.Cc);
+            Assert.Equal(["archiwum@lodzkie.pl"], m.Bcc);   // an address in DW is not repeated in UDW
+        });
+        Assert.Null(scenario.Journal.Find("sekretariat@lodzkie.pl"));
+        Assert.Null(scenario.Journal.Find("archiwum@lodzkie.pl"));
+
+        await window.Send.SendTestCommand.ExecuteAsync(null);
+        var test = scenario.Outlook.Succeeded()[^1];
+        Assert.StartsWith("[TEST]", test.Subject, StringComparison.Ordinal);
+        Assert.Empty(test.Cc);
+        Assert.Empty(test.Bcc);
+    }
+
+    [Fact]
+    public async Task BlindCopy_InTheBccMode_IsAddedToEveryChunk_WhichLeavesRoomForIt()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenWithMessageAsync();
+        var rows = Enumerable.Range(1, 3).Select(i => CorrespondencePagesScenario.Row($"gmina{i}@lodzkie.pl", $"Gmina {i}")).ToArray();
+        CorrespondencePagesScenario.AddRows(window, rows);
+        window.Message.SendMode = window.Message.SendModeChoices.Single(m => m.Value == CorrespondenceSendMode.Bcc);
+        window.Message.BlindCopyTo = "archiwum@lodzkie.pl";
+        scenario.Ui.ConfirmAnswers.Enqueue(true);
+
+        await window.Send.SendCommand.ExecuteAsync(null);
+
+        var sent = Assert.Single(scenario.Outlook.Succeeded());
+        Assert.Equal(["gmina1@lodzkie.pl", "gmina2@lodzkie.pl", "gmina3@lodzkie.pl", "archiwum@lodzkie.pl"], sent.Bcc);
+        Assert.Null(scenario.Journal.Find("archiwum@lodzkie.pl"));
+    }
+
+    [Fact]
+    public async Task CopyAndBlindCopy_ThatAreNotAddresses_StopTheRun()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenWithMessageAsync();
+        CorrespondencePagesScenario.AddRows(window, CorrespondencePagesScenario.Offices());
+        window.Message.CopyTo = "sekretariat@lodzkie.pl; Jan Kowalski";
+
+        Assert.Equal("DW: to nie są adresy e-mail: Jan, Kowalski", window.Message.CopiesError);
+        await window.Send.SendCommand.ExecuteAsync(null);
+
+        Assert.Empty(scenario.Outlook.Succeeded());
+        Assert.Contains("DW: to nie są adresy e-mail: Jan, Kowalski", scenario.Ui.Errors[^1].Message, StringComparison.Ordinal);
+        window.Message.CopyTo = string.Empty;
+        window.Message.BlindCopyTo = string.Join(";", Enumerable.Range(1, 51).Select(i => $"kopia{i}@lodzkie.pl"));
+        Assert.Equal("DW i UDW razem mogą mieć najwyżej 50 adresów.", window.Message.CopiesError);
+    }
+
+    [Fact]
     public async Task CreateDrafts_SavesEveryMessage_WithoutTheJournalOrPauses()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();

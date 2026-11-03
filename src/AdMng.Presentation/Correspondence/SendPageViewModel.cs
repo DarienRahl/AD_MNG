@@ -127,7 +127,7 @@ public sealed partial class SendPageViewModel : ObservableObject
     {
         var set = CorrespondenceSendSet.Of(Recipients);
         var bcc = Message.IsBcc;
-        var messages = MessageCount(set, bcc, Message.GroupByAddress, Message.BccChunkSize);
+        var messages = MessageCount(set, bcc, Message.GroupByAddress, ChunkSize());
         var lines = new List<string>
         {
             Localizer.Format(L.CorrespondenceSend.SummaryCount, set.Rows.Count, set.Skipped, set.Invalid),
@@ -138,6 +138,7 @@ public sealed partial class SendPageViewModel : ObservableObject
             lines.Add(Localizer.Format(L.CorrespondenceSend.SummaryOnBehalf, onBehalf));
         }
 
+        AddCopyLines(lines);
         lines.Add(Localizer.Format(L.CorrespondenceSend.SummaryMode, ModeText()));
         if (bcc || Message.GroupByAddress)
         {
@@ -318,7 +319,7 @@ public sealed partial class SendPageViewModel : ObservableObject
         using var hold = Outlook.Hold(session);   // a reconnection meanwhile never releases the session of this run
         var bcc = Message.IsBcc;
         var group = Message.GroupByAddress;
-        var chunkSize = Message.BccChunkSize;
+        var chunkSize = ChunkSize();
         var own = Outlook.OwnAddress;
         var (jobs, jobRows) = await Task.Run(() => Jobs(rows, bcc, group, chunkSize, own)).ConfigureAwait(true);
         var recipients = bcc ? jobs.Sum(j => j.Bcc.Count) : jobs.Count;
@@ -746,6 +747,7 @@ public sealed partial class SendPageViewModel : ObservableObject
             lines.Add(Localizer.Format(L.CorrespondenceSend.SummaryOnBehalf, onBehalf));
         }
 
+        AddCopyLines(lines);
         lines.Add(Localizer.Format(L.CorrespondenceSend.SummaryMode, ModeText()));
         if (Message.Attachments.Count > 0)
         {
@@ -801,6 +803,8 @@ public sealed partial class SendPageViewModel : ObservableObject
         Attachments = [.. Message.Attachments.Select(a => new OutlookAttachment(a.Path, a.Name))],
         Account = Outlook.AccountAddress,
         OnBehalfOf = OnBehalfOf(),
+        Cc = kind == SendRunKind.Test ? [] : Message.CopyAddresses,
+        Bcc = kind == SendRunKind.Test ? [] : Message.BlindCopyAddresses,
         ReadReceipt = Message.ReadReceipt,
         DeferredDelivery = deliverAt,
         VotingOptions = Message.UseVoting ? Message.VotingOptionsText : null,
@@ -827,6 +831,25 @@ public sealed partial class SendPageViewModel : ObservableObject
     }
 
     private string SenderText() => Outlook.SelectedAccount?.ToString() ?? Localizer[L.CorrespondencePreview.DefaultAccount];
+
+    /// <summary>"DW: …" and "UDW: …" of the summary and the confirmation (when set).</summary>
+    private void AddCopyLines(List<string> lines)
+    {
+        if (Message.CopyAddresses is { Count: > 0 } copies)
+        {
+            lines.Add(Localizer.Format(L.CorrespondenceSend.SummaryCopy, string.Join("; ", copies)));
+        }
+
+        if (Message.BlindCopyAddresses is { Count: > 0 } blind)
+        {
+            lines.Add(Localizer.Format(L.CorrespondenceSend.SummaryBlindCopy, string.Join("; ", blind)));
+        }
+    }
+
+    /// <summary>The recipients of one BCC message: the operator's chunk size, less the DW and UDW added to every message
+    /// (the limit counts every recipient of a message).</summary>
+    private int ChunkSize() =>
+        Math.Max(1, Math.Min(Message.BccChunkSize, CorrespondenceLimits.MaxBccPerMessage - Message.CopyAddresses.Count - Message.BlindCopyAddresses.Count));
 
     private string? OnBehalfOf() => string.IsNullOrWhiteSpace(Outlook.OnBehalfOf) ? null : Outlook.OnBehalfOf.Trim();
 

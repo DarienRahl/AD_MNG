@@ -21,6 +21,9 @@ public static class CorrespondenceLimits
     /// <summary>Recipients of one BCC message (the Exchange Online limit).</summary>
     public const int MaxBccPerMessage = 500;
 
+    /// <summary>Most addresses in DW and in UDW together (copies added to every message of a run).</summary>
+    public const int MaxCopies = 50;
+
     public const int MaxSubjectLength = 255;
 
     /// <summary>Rows of the recipient list.</summary>

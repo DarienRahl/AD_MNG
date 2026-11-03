@@ -64,6 +64,12 @@ internal sealed record CorrespondenceSendOptions
 
     public string? OnBehalfOf { get; init; }
 
+    /// <summary>"DW" of every message (none for a test to self).</summary>
+    public IReadOnlyList<string> Cc { get; init; } = [];
+
+    /// <summary>"UDW" of every message, added to the blind copies of a BCC message (none for a test to self).</summary>
+    public IReadOnlyList<string> Bcc { get; init; } = [];
+
     public bool ReadReceipt { get; init; }
 
     public DateTimeOffset? DeferredDelivery { get; init; }
@@ -191,7 +197,8 @@ internal sealed class CorrespondenceSender
         var message = new OutlookMessage
         {
             To = job.To,
-            Bcc = job.Bcc,
+            Cc = options.Cc,
+            Bcc = [.. job.Bcc.Concat(options.Bcc).Distinct(StringComparer.OrdinalIgnoreCase)],
             Subject = options.SubjectPrefix + rendered.Subject,
             HtmlBody = rendered.HtmlDocument,
             InlineImages = rendered.Images,

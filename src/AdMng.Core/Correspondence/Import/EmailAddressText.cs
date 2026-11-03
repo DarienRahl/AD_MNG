@@ -56,6 +56,42 @@ public static partial class EmailAddressText
         return !IsJunk(domain.ToLowerInvariant());
     }
 
+    /// <summary>
+    /// The addresses of a list typed by the operator (DW and UDW of Korespondencja): separated by <c>;</c>, <c>,</c>, white
+    /// space or line breaks, each <see cref="Normalize"/>d; the valid ones in order without repeats, and the entries that are
+    /// not an address as typed.
+    /// </summary>
+    public static (IReadOnlyList<string> Valid, IReadOnlyList<string> Invalid) ParseList(string? text)
+    {
+        var valid = new List<string>();
+        var invalid = new List<string>();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return (valid, invalid);
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in text.Split([';', ',', ' ', '\t', '\r', '\n', '\u00A0'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var address = Normalize(entry);
+            if (address.Length == 0)
+            {
+                continue;
+            }
+
+            if (!IsValid(address))
+            {
+                invalid.Add(entry);
+            }
+            else if (seen.Add(address))
+            {
+                valid.Add(address);
+            }
+        }
+
+        return (valid, invalid);
+    }
+
     /// <summary>Trims "mailto:", "?…", punctuation, brackets and quotes; lower-invariant ("" for null or blank).</summary>
     public static string Normalize(string? address)
     {

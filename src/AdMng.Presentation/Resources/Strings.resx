@@ -13298,6 +13298,15 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Correspondence.Message.VotingEmpty" xml:space="preserve">
     <value>Type the voting buttons separated by semicolons.</value>
   </data>
+  <data name="Correspondence.Message.CopyInvalid" xml:space="preserve">
+    <value>CC: these are not e-mail addresses: {0}</value>
+  </data>
+  <data name="Correspondence.Message.BlindCopyInvalid" xml:space="preserve">
+    <value>BCC: these are not e-mail addresses: {0}</value>
+  </data>
+  <data name="Correspondence.Message.CopiesTooMany" xml:space="preserve">
+    <value>CC and BCC together can hold at most {0} addresses.</value>
+  </data>
   <data name="Correspondence.Message.ImageRejected" xml:space="preserve">
     <value>The image was refused: {0}</value>
   </data>
@@ -13528,6 +13537,12 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="Correspondence.Send.SummaryOnBehalf" xml:space="preserve">
     <value>On behalf of: {0}</value>
+  </data>
+  <data name="Correspondence.Send.SummaryCopy" xml:space="preserve">
+    <value>CC of every message: {0}</value>
+  </data>
+  <data name="Correspondence.Send.SummaryBlindCopy" xml:space="preserve">
+    <value>BCC of every message: {0}</value>
   </data>
   <data name="Correspondence.Send.SummaryMode" xml:space="preserve">
     <value>Mode: {0}</value>
@@ -14194,6 +14209,15 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="Correspondence.App.Message.BccChunk" xml:space="preserve">
     <value>Recipients in Bcc per message (1–500)</value>
+  </data>
+  <data name="Correspondence.App.Message.CopyTo" xml:space="preserve">
+    <value>CC (every message)</value>
+  </data>
+  <data name="Correspondence.App.Message.BlindCopyTo" xml:space="preserve">
+    <value>BCC (every message)</value>
+  </data>
+  <data name="Correspondence.App.Message.CopiesHint" xml:space="preserve">
+    <value>Addresses separated by ";" added to every message sent or saved as a draft (not to the test message), e.g. a copy for the team mailbox. They are not recorded in the journal.</value>
   </data>
   <data name="Correspondence.App.Message.Delay" xml:space="preserve">
     <value>Pause between messages (s)</value>

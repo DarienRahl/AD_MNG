@@ -1192,6 +1192,25 @@
                                Text="{l:Tr Correspondence.App.Message.BccChunk}"
                                TextWrapping="Wrap" />
                   </DockPanel>
+                  <TextBlock Margin="0,8,0,2"
+                             Style="{StaticResource InlineLabel}"
+                             Text="{l:Tr Correspondence.App.Message.CopyTo}" />
+                  <TextBox x:Name="CopyToBox"
+                           AutomationProperties.Name="{l:Tr Correspondence.App.Message.CopyTo}"
+                           Text="{Binding Message.CopyTo, UpdateSourceTrigger=PropertyChanged}"
+                           ToolTip="{l:Tr Correspondence.App.Message.CopiesHint}" />
+                  <TextBlock Margin="0,6,0,2"
+                             Style="{StaticResource InlineLabel}"
+                             Text="{l:Tr Correspondence.App.Message.BlindCopyTo}" />
+                  <TextBox x:Name="BlindCopyToBox"
+                           AutomationProperties.Name="{l:Tr Correspondence.App.Message.BlindCopyTo}"
+                           Text="{Binding Message.BlindCopyTo, UpdateSourceTrigger=PropertyChanged}"
+                           ToolTip="{l:Tr Correspondence.App.Message.CopiesHint}" />
+                  <TextBlock x:Name="CopiesErrorText"
+                             Style="{StaticResource ErrorLine}"
+                             Text="{Binding Message.CopiesError, Mode=OneWay}"
+                             Visibility="{Binding Message.CopiesError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+                  <TextBlock Style="{StaticResource Hint}" Text="{l:Tr Correspondence.App.Message.CopiesHint}" />
                   <DockPanel Margin="0,6,0,0">
                     <TextBox x:Name="DelayBox"
                              Width="70"

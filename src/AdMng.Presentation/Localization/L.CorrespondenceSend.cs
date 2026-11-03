@@ -10,6 +10,8 @@ public static partial class L
         public const string SummaryMessages = "Correspondence.Send.SummaryMessages";
         public const string SummarySender = "Correspondence.Send.SummarySender";
         public const string SummaryOnBehalf = "Correspondence.Send.SummaryOnBehalf";
+        public const string SummaryCopy = "Correspondence.Send.SummaryCopy";
+        public const string SummaryBlindCopy = "Correspondence.Send.SummaryBlindCopy";
         public const string SummaryMode = "Correspondence.Send.SummaryMode";
         public const string ModeIndividual = "Correspondence.Send.ModeIndividual";
         public const string ModeGrouped = "Correspondence.Send.ModeGrouped";

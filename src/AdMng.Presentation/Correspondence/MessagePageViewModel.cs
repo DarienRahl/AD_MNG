@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Text;
 using AdMng.Core.Correspondence.Composition;
 using AdMng.Core.Correspondence.Fields;
+using AdMng.Core.Correspondence.Import;
 using AdMng.Core.Messaging;
 using AdMng.Core.Messaging.Html;
 using AdMng.Core.Messaging.Images;
@@ -168,6 +169,52 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
 
     [ObservableProperty]
     public partial bool ReadReceipt { get; set; }
+
+    /// <summary>"DW": addresses added in copy to every message of a run (not to the test message).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CopiesError))]
+    public partial string CopyTo { get; set; } = string.Empty;
+
+    /// <summary>"UDW": addresses added in blind copy to every message of a run (not to the test message).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CopiesError))]
+    public partial string BlindCopyTo { get; set; } = string.Empty;
+
+    /// <summary>The valid addresses of <see cref="CopyTo"/>.</summary>
+    public IReadOnlyList<string> CopyAddresses => EmailAddressText.ParseList(CopyTo).Valid;
+
+    /// <summary>The valid addresses of <see cref="BlindCopyTo"/> (without those of <see cref="CopyTo"/>).</summary>
+    public IReadOnlyList<string> BlindCopyAddresses
+    {
+        get
+        {
+            var copies = CopyAddresses.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            return [.. EmailAddressText.ParseList(BlindCopyTo).Valid.Where(a => !copies.Contains(a))];
+        }
+    }
+
+    /// <summary>What is wrong with DW and UDW (entries that are not addresses, too many addresses), or null.</summary>
+    public string? CopiesError
+    {
+        get
+        {
+            var copy = EmailAddressText.ParseList(CopyTo);
+            var blind = EmailAddressText.ParseList(BlindCopyTo);
+            if (copy.Invalid.Count > 0)
+            {
+                return Localizer.Format(L.CorrespondenceMessage.CopyInvalid, string.Join(", ", copy.Invalid));
+            }
+
+            if (blind.Invalid.Count > 0)
+            {
+                return Localizer.Format(L.CorrespondenceMessage.BlindCopyInvalid, string.Join(", ", blind.Invalid));
+            }
+
+            return CopyAddresses.Count + BlindCopyAddresses.Count > CorrespondenceLimits.MaxCopies
+                ? Localizer.Format(L.CorrespondenceMessage.CopiesTooMany, CorrespondenceLimits.MaxCopies)
+                : null;
+        }
+    }
 
     [ObservableProperty]
     public partial bool DeliverLater { get; set; }
@@ -340,6 +387,11 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
             errors.Add(Localizer[L.CorrespondenceMessage.VotingEmpty]);
         }
 
+        if (CopiesError is { } copies)
+        {
+            errors.Add(copies);
+        }
+
         ValidateCustomFields();
         errors.AddRange(CustomFields.Where(f => f.Error is not null)
             .Select(f => Localizer.Format(L.CorrespondenceMessage.CustomFieldError, f.Name?.Trim() ?? string.Empty, f.Error)));
@@ -475,6 +527,8 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
         SendMode = SendModeChoices.FirstOrDefault(o => o.Value == settings.SendMode) ?? SendModeChoices[0];
         BccChunkSize = settings.BccChunkSize;
         ReadReceipt = settings.ReadReceipt;
+        CopyTo = settings.CopyTo ?? string.Empty;
+        BlindCopyTo = settings.BlindCopyTo ?? string.Empty;
         GroupByAddress = settings.GroupByAddress;
         UseVoting = settings.VotingEnabled;
         VotingOptions = string.IsNullOrWhiteSpace(settings.VotingOptions) ? CorrespondenceSettings.DefaultVotingOptions : settings.VotingOptions;
@@ -496,6 +550,8 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
         settings.SendMode = SendMode.Value;
         settings.BccChunkSize = BccChunkSize;
         settings.ReadReceipt = ReadReceipt;
+        settings.CopyTo = CopyTo?.Trim() ?? string.Empty;
+        settings.BlindCopyTo = BlindCopyTo?.Trim() ?? string.Empty;
         settings.GroupByAddress = GroupByAddress;
         settings.VotingEnabled = UseVoting;
         settings.VotingOptions = VotingOptionsText ?? CorrespondenceSettings.DefaultVotingOptions;

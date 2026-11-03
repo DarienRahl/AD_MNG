@@ -49,6 +49,12 @@ public sealed class CorrespondenceSettings
     /// <summary>"W imieniu" (SentOnBehalfOfName), or empty.</summary>
     public string OnBehalfOf { get; set; } = "";
 
+    /// <summary>"DW": addresses added in copy to every message of a run (as typed), or empty.</summary>
+    public string CopyTo { get; set; } = "";
+
+    /// <summary>"UDW": addresses added in blind copy to every message of a run (as typed), or empty.</summary>
+    public string BlindCopyTo { get; set; } = "";
+
     /// <summary>The chosen Outlook account (SMTP), applied after connect.</summary>
     public string AccountAddress { get; set; } = "";
 
@@ -105,6 +111,8 @@ public sealed class CorrespondenceSettings
         Subject = Subject ?? "";
         Salutation = string.IsNullOrWhiteSpace(Salutation) ? BuiltInFields.DefaultSalutation : Salutation.Trim();
         OnBehalfOf = OnBehalfOf?.Trim() ?? "";
+        CopyTo = CopyTo?.Trim() ?? "";
+        BlindCopyTo = BlindCopyTo?.Trim() ?? "";
         AccountAddress = AccountAddress?.Trim() ?? "";
         SignatureName = SignatureName?.Trim() ?? "";
         DelaySeconds = double.IsFinite(DelaySeconds) ? Math.Clamp(DelaySeconds, 0, MaxDelaySeconds) : 3;
