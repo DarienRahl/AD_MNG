@@ -4,6 +4,7 @@ using System.Windows;
 using AdMng.App.GroupPolicy;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
+using AdMng.App.UiTests.EventLogs;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
 using AdMng.App.Views.Watchdog;
@@ -25,6 +26,7 @@ using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Watchdog;
 using AdMng.Testing;
+using AdMng.Testing.EventLogs;
 using AdMng.Watchdog.Testing.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -182,6 +184,53 @@ public sealed class ScreenshotTests
         "31-group-policy-model.png",
         "Co dostanie komputer – GPO komputera z wynikiem (wymuszony, filtr WMI, łącze wyłączone), zwycięskie ustawienia i „Dlaczego” z przesłoniętym GPO",
         "What the computer gets – the computer's GPOs with their results (enforced, WMI filter, disabled link), the winning settings and “Why” with the overridden GPO");
+
+    private static readonly ScreenshotInfo LockoutSource = new(
+        "32-lockout-source.png",
+        "Skąd blokada konta – Jan Kowalski: stan na kontrolerach domeny, próg z zasad domeny, źródła złych haseł (stacja WAW-PC001 i jej adres) z wyjaśnionymi kodami i sprawdzony komputer źródłowy z zadaniem zaplanowanym na zapisanym haśle",
+        "Where the lockout came from – Jan Kowalski: the state on the domain controllers, the domain policy's threshold, the sources of the bad passwords (the workstation WAW-PC001 and its address) with the codes explained, and the source computer checked, with a scheduled task on a saved password");
+
+    [Fact]
+    public Task Screenshot32_EventLogs()
+    {
+        var connector = EventLogUiSupport.CreateConnector();
+        return ShootAsync(ThemePreference.Light, connect: false, configure: EventLogUiSupport.Use(connector), shoot: async context =>
+        {
+            // Track E (design note docs/dev/e-event-logs.md 4.1): Jan Kowalski locked out by an old password kept on WAW-PC001
+            // (a mapped drive and a scheduled task), the investigation over both DCs' Security logs, the workstation checked.
+            await EventLogUiSupport.AddDomainControllersAsync(context);
+            EventLogUiSupport.LockOutJan(context, connector);
+            var remote = Assert.IsType<FakeRemoteComputerClient>(context.Host.Services.GetRequiredService<Core.Computers.Remote.IRemoteComputerClient>());
+            var computer = new FakeRemoteComputer();
+            computer.Users.Add(new Core.Computers.Remote.LoggedOnUser("CONTOSO\\jan.kowalski", 2, DateTimeOffset.UtcNow.AddDays(-3), IsConsole: true));
+            computer.ScheduledTasks.Add(new Core.Computers.Remote.RemoteScheduledTask(
+                "\\Firma\\", "Synchronizacja dysku Z", "jan.kowalski@contoso.test",
+                Core.Computers.Remote.RemoteTaskLogonType.Password, Core.Computers.Remote.RemoteTaskState.Ready, true));
+            remote.Computers["waw-pc001.contoso.test"] = computer;
+
+            await context.ConnectAsync();
+            var window = context.Services.GetRequiredService<MainWindow>();
+            await ScreenshotWriter.ShowWithClientSizeAsync(window, MainWindowWidth, MainWindowHeight);
+            var shell = window.Shell;
+            await shell.InitializeAsync();
+            var document = Assert.IsType<Presentation.EventLogs.LockoutDocumentViewModel>(shell.OpenEventLogDocument(
+                new Presentation.EventLogs.EventLogDocumentRequest(Presentation.EventLogs.EventLogDocumentKind.Lockout)
+                {
+                    UserDn = context.Company.JanKowalski,
+                    Name = "Jan Kowalski",
+                }));
+            await UiWait.UntilAsync(() => !document.IsLoading && document.HasReport, "the lockout report of Jan Kowalski");
+            document.SelectedSource = document.Sources.Single(s => s.Value == EventLogSamples.WawPc001);
+            await document.PivotCommand.ExecuteAsync(null);
+            await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+            Assert.Null(document.Error);
+            Assert.True(document.IsLockedNow);
+            Assert.NotNull(document.PivotLines);
+            Assert.Contains(document.PivotLines, l => l.Contains("Synchronizacja dysku Z", StringComparison.Ordinal));
+            await ScreenshotWriter.SaveAsync(window, LockoutSource, dark: false);
+        });
+    }
 
     [Fact]
     public Task Screenshot29_AdministrativeTemplates() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>

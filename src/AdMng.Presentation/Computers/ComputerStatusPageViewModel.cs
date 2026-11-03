@@ -50,6 +50,9 @@ public sealed partial class ComputerStatusPageViewModel : PropertyPageViewModel
     /// <summary>"Co dostanie komputer…" (K5) is offered: the window has the Group Policy services.</summary>
     public bool CanModelGroupPolicy => Dialogs?.Actions.CanModelGroupPolicy == true;
 
+    /// <summary>"Dziennik zdarzeń tego komputera" (track E) is offered: the window has the event log documents.</summary>
+    public bool CanOpenEventLog => Context.EventLogs is not null;
+
     private IComputerDialogs? Dialogs => Context.Services.Dialogs as IComputerDialogs;
 
     internal override IEnumerable<string> ReadAttributes => ComputerFacts.Attributes(Context.Schema);
@@ -220,6 +223,16 @@ public sealed partial class ComputerStatusPageViewModel : PropertyPageViewModel
 
     [RelayCommand]
     private Task EventViewerAsync() => RunAsync(ComputerAction.EventViewer);
+
+    /// <summary>"Dziennik zdarzeń tego komputera": the reader of the main window preset to this computer.</summary>
+    [RelayCommand]
+    private void OpenEventLog()
+    {
+        if (_row is { } row)
+        {
+            Context.EventLogs?.OpenReader(row.DistinguishedName);
+        }
+    }
 
     [RelayCommand]
     private Task PingAsync() => RunAsync(ComputerAction.Ping);

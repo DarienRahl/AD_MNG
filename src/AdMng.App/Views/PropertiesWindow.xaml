@@ -424,6 +424,12 @@
                     Command="{Binding SendMessageCommand}"
                     Content="{l:Tr AccountReview.SendMessage}"
                     Visibility="{Binding CanSendMessages, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            <!-- Track E: "Skąd blokada konta…" opens the lockout source of this account in the main window. -->
+            <Button x:Name="FindLockoutSourceButton"
+                    Margin="6,0,0,0"
+                    Command="{Binding FindLockoutSourceCommand}"
+                    Content="{l:Tr EvtLog.LockoutCommand}"
+                    Visibility="{Binding CanFindLockoutSource, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
           </StackPanel>
           <TextBlock Grid.Row="5"
                      Grid.Column="1"
@@ -1479,6 +1485,13 @@
                   Content="{l:Tr GpModel.ComputerCommand}"
                   Style="{StaticResource SmallButton}"
                   Visibility="{Binding CanModelGroupPolicy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <!-- Track E: "Dziennik zdarzeń tego komputera" opens the reader of the main window preset to this computer. -->
+          <Button x:Name="ComputerEventLogButton"
+                  Margin="0,0,6,6"
+                  Command="{Binding OpenEventLogCommand}"
+                  Content="{l:Tr EvtLog.ComputerCommand}"
+                  Style="{StaticResource SmallButton}"
+                  Visibility="{Binding CanOpenEventLog, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
           <Button Margin="0,0,6,6"
                   Command="{Binding ReadExactLastLogonCommand}"
                   Content="{l:Tr Computers.Status.CheckAllDomainControllers}"

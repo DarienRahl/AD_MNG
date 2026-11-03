@@ -2,6 +2,7 @@ using System.Windows.Threading;
 using AdMng.App.Computers;
 using AdMng.App.Connections;
 using AdMng.App.Correspondence;
+using AdMng.App.EventLogs;
 using AdMng.App.GroupPolicy;
 using AdMng.App.Localization;
 using AdMng.App.Services;
@@ -186,6 +187,9 @@ public static class AppHost
 
         // ---- Computers, K1: review, remote actions over WinRM, local tools (opened through ToolWindows / DialogService) ----
         services.AddAdMngComputersApp();
+
+        // ---- Dzienniki zdarzeń, track E: the Windows reader (AdMng.EventLogs); the documents are tabs of the main window ----
+        services.AddAdMngEventLogsApp();
 
         // ---- Saved filters of the filter builder, README U4 (the list through ToolWindows, the editor modal) ----
         services.AddWindow<Presentation.Filters.SavedFiltersViewModel, SavedFiltersWindow>();
