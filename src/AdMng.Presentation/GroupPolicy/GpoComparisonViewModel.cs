@@ -27,6 +27,9 @@ public sealed record GpoComparisonRowViewModel(GpoComparisonRow Row, string Sect
     /// <summary>Where GPMC lists a setting ("Konfiguracja komputera › Zasady › …"); empty for the other sections.</summary>
     public string Area { get; init; } = string.Empty;
 
+    /// <summary>The end of <see cref="Area"/> for its narrow column (<see cref="GpoSettingText.ShortPath"/>).</summary>
+    public string ShortArea => GpoSettingText.ShortPath(Area);
+
     /// <summary>The key behind a setting (tool tip, CSV); empty for the other sections.</summary>
     public string Technical { get; init; } = string.Empty;
 

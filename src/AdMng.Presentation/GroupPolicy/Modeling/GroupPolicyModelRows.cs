@@ -90,6 +90,9 @@ public sealed record ModelSettingRowViewModel
     /// <summary>"Szablony administracyjne / Składniki systemu Windows / Aktualizacje", "Zasady kont".</summary>
     public required string Area { get; init; }
 
+    /// <summary>The end of <see cref="Area"/> for its narrow column (<see cref="GpoSettingText.ShortPath"/>); the tooltip is the whole area.</summary>
+    public string ShortArea => GpoSettingText.ShortPath(Area);
+
     public required string Name { get; init; }
 
     public required string Value { get; init; }

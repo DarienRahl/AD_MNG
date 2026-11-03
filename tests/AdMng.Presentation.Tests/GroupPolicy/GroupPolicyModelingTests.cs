@@ -119,6 +119,8 @@ public sealed class GroupPolicyModelingTests
         // The drive map is one row (its item's settings together), in GPMC's preference folder.
         var drive = Assert.Single(part.Settings, s => s.Area == "Preferencje › Ustawienia systemu Windows › Mapowania dysków");
         Assert.Equal(("K:", "Użytkownicy – Mapowanie dysków"), (drive.Name, drive.WinnerGpo));
+        // The narrow area column shows the end of the path (its last two segments), the tooltip the whole path.
+        Assert.Equal("… › Ustawienia systemu Windows › Mapowania dysków", drive.ShortArea);
         Assert.Contains("Księgowość", drive.Value, StringComparison.Ordinal);
         Assert.Contains("Bez komputera: nie sprawdzono prawa odczytu komputera (MS16-072) ani pętli zwrotnej.", part.Warnings);
         Assert.StartsWith("Użytkownik: 1 GPO, ", model.SummaryText, StringComparison.Ordinal);

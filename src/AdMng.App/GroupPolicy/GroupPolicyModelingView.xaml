@@ -149,7 +149,7 @@
                   <GridViewColumn Width="220" Header="{l:Tr GpModel.ColumnArea}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type gpm:ModelSettingRowViewModel}">
-                        <TextBlock Text="{Binding Area, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Area, Mode=OneWay}" />
+                        <TextBlock Text="{Binding ShortArea, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Area, Mode=OneWay}" />
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>

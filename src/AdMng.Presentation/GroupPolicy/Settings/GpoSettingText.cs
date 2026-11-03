@@ -25,6 +25,17 @@ public sealed record GpoSettingText
     /// <summary>Separator of the segments of a group path (" › ").</summary>
     public const string Separator = " › ";
 
+    /// <summary>
+    /// The end of a group path for a narrow column ("… › Zasady konta › Zasady haseł"): its last two segments, so rows of
+    /// one branch do not all read the same; a path of two segments or fewer is returned as it is.
+    /// </summary>
+    public static string ShortPath(string path)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        var segments = path.Split(Separator);
+        return segments.Length <= 2 ? path : "…" + Separator + string.Join(Separator, segments[^2..]);
+    }
+
     /// <summary>The setting key (for a row made of several settings: the first one).</summary>
     public required string Key { get; init; }
 

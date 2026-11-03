@@ -81,7 +81,7 @@
               <GridViewColumn Width="240" Header="{l:Tr GpEditing.ColumnArea}">
                 <GridViewColumn.CellTemplate>
                   <DataTemplate DataType="{x:Type gpm:GpoComparisonRowViewModel}">
-                    <TextBlock Text="{Binding Area, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Area, Mode=OneWay}" />
+                    <TextBlock Text="{Binding ShortArea, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Area, Mode=OneWay}" />
                   </DataTemplate>
                 </GridViewColumn.CellTemplate>
               </GridViewColumn>
