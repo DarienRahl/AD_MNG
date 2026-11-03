@@ -36,7 +36,7 @@ public sealed class StartupChecksTests
 
         Assert.NotNull(Record.Exception(() => factory.Services));
 
-        Assert.Equal(StartupExitCodes.Migration, factory.Terminator.ExitCode);
+        Assert.Equal(StartupExitCodes.Migration, await factory.Terminator.ExitCodeAsync());
         Assert.Contains(factory.Log.Entries, e => e.EventId.Id == EventLogIds.FatalStartupCheck && e.Message.Contains("exit code 3", StringComparison.Ordinal));
     }
 
@@ -51,7 +51,7 @@ public sealed class StartupChecksTests
 
         Assert.NotNull(Record.Exception(() => factory.Services));
 
-        Assert.Equal(StartupExitCodes.DevelopmentAuthentication, factory.Terminator.ExitCode);
+        Assert.Equal(StartupExitCodes.DevelopmentAuthentication, await factory.Terminator.ExitCodeAsync());
     }
 
     /// <summary>Plain http is allowed only on loopback listeners – for HTTP.sys as well as for Kestrel.</summary>
@@ -68,7 +68,7 @@ public sealed class StartupChecksTests
 
         Assert.NotNull(Record.Exception(() => factory.Services));
 
-        Assert.Equal(StartupExitCodes.Certificate, factory.Terminator.ExitCode);
+        Assert.Equal(StartupExitCodes.Certificate, await factory.Terminator.ExitCodeAsync());
         Assert.Contains(factory.Log.Entries, e => e.EventId.Id == EventLogIds.FatalStartupCheck && e.Message.Contains("loopback", StringComparison.Ordinal));
     }
 
@@ -88,7 +88,7 @@ public sealed class StartupChecksTests
 
         Assert.NotNull(Record.Exception(() => factory.Services));
 
-        Assert.Equal(OperatingSystem.IsLinux() ? StartupExitCodes.MissingCredential : StartupExitCodes.DataDirectory, factory.Terminator.ExitCode);
+        Assert.Equal(OperatingSystem.IsLinux() ? StartupExitCodes.MissingCredential : StartupExitCodes.DataDirectory, await factory.Terminator.ExitCodeAsync());
     }
 
     [Fact]

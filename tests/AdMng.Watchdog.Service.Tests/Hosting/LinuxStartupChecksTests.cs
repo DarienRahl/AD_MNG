@@ -131,7 +131,7 @@ public sealed class LinuxStartupChecksTests
 
         Assert.NotNull(Record.Exception(() => factory.Services));
 
-        Assert.Equal(StartupExitCodes.DataDirectory, factory.Terminator.ExitCode);
+        Assert.Equal(StartupExitCodes.DataDirectory, await factory.Terminator.ExitCodeAsync());
         Assert.Contains(factory.Log.Entries, e => e.EventId.Id == EventLogIds.StorageProblem && e.Message.Contains(":mode", StringComparison.Ordinal));
     }
 
@@ -145,7 +145,7 @@ public sealed class LinuxStartupChecksTests
 
         Assert.NotNull(Record.Exception(() => factory.Services));
 
-        Assert.Equal(StartupExitCodes.MissingCredential, factory.Terminator.ExitCode);
+        Assert.Equal(StartupExitCodes.MissingCredential, await factory.Terminator.ExitCodeAsync());
         Assert.Contains(factory.Log.Entries, e => e.EventId.Id == EventLogIds.FatalStartupCheck && e.Message.Contains("dp-key", StringComparison.Ordinal));
     }
 
@@ -196,7 +196,7 @@ public sealed class LinuxStartupChecksTests
 
         Assert.NotNull(Record.Exception(() => factory.Services));
 
-        Assert.Equal(StartupExitCodes.InvalidSettings, factory.Terminator.ExitCode);
+        Assert.Equal(StartupExitCodes.InvalidSettings, await factory.Terminator.ExitCodeAsync());
         Assert.Contains(factory.Log.Entries, e => e.Message.Contains("Replace the role group SIDs", StringComparison.Ordinal));
     }
 
