@@ -230,6 +230,33 @@ z treścią sprzed edycji jako warunkiem (konflikt) i `SetGpoVersion` części k
 `SecuritySettingsEditorViewModel` (`AdMng.Presentation/GroupPolicy/SecuritySettings`) działa jak edytor szablonów K3
 (uzgadnianie przy odświeżeniu, konflikt, zapis przez podgląd planu); pliki są tylko w pamięci karty (zasada 1).
 
+### Czytelne ustawienia, wygoda edycji i diagnostyka zasad grupy (K6)
+
+- **Klucze ustawień:** `AdMng.Core/GroupPolicy/Content/GpoSettingKey.Parse` rozkłada klucz ustawienia (gramatyka
+  wszystkich parserów treści GPO) na obszar, sekcję, nazwę, klucz i wartość rejestru, typ i identyfikator elementu
+  preferencji, fazę skryptu i powiązanie z katalogiem K4 (opcja z jednostką `SecurityValueUnit`, podkategoria
+  inspekcji); `GpoSettingValue.TryParseRegistry` czyta wartości rejestru. Dopasowanie `Registry.pol` do zasad ADMX z
+  modelu K5 jest publiczne jako `AdministrativeTemplatePolicies.Configured`. Wiersze porównania (`GpoComparisonRow.A/B`)
+  i różnic plików (`GpoDiffLine.Setting`) niosą ustawienia, z których powstały.
+- **Prezenter:** `AdMng.Presentation/GroupPolicy/Settings/GpoSettingPresenter` opisuje ustawienie w języku GPMC
+  (`GpoSettingText`: ścieżka grupy, nazwa, wartość z jednostkami, elementy, objaśnienie, klucz techniczny, cel
+  *Edytuj to ustawienie*), skleja elementy preferencji i wartości jednej zasady ADMX w jeden wiersz i zamienia SID-y na
+  nazwy (jedno `TrusteeNames.ResolveAsync` na widok). Korzystają z niego zakładka *Ustawienia* (z raportem HTML
+  `GpoSettingsReport`), model K5, porównanie, podgląd planu i wiersze zmian GPO w zakładce Watchdog; sekrety zostają
+  zamaskowane w każdej ścieżce.
+- **Wygoda edycji:** `ISaveableDocument` / `ISearchableDocument` (`Shell/DocumentCapabilities.cs`) dają Ctrl+S i
+  Ctrl+F karcie, która je obsługuje; `GroupPolicySettingFocus` i `GroupPolicyActions.EditSetting` otwierają K3 albo
+  K4 na ustawieniu (karta edytora tego GPO jest używana ponownie); `ChangePlanPreviewRequest.SettingChanges` dodaje do
+  podglądu sekcję *Zmiany ustawień*.
+- **Diagnostyka:** `AdMng.Core/GroupPolicy/Diagnostics`: `GroupPolicyDiagnosticsReader` czyta migawkę (szybko: LDAP i
+  `GPT.INI`; pełnie: także foldery SYSVOL, liczby obiektów, SID-y i modele kontenerów) z DC sesji (zasada 4), najwyżej
+  cztery odczyty SYSVOL naraz; `GroupPolicyDiagnostics.Analyze` jest czystą funkcją reguł (`GpoFindingCodes`, 49 kodów,
+  ważność, obszar, grupa reguł; `GpoFinding.ToString` bez wartości katalogu). Naprawy (`GpoQuickFix`) odpowiadają
+  jednej metodzie `GroupPolicyPlanner` (m.in. nowe `PlanRepairExtensionNamesAsync`, `PlanRemoveDuplicateLinksAsync`) i
+  idą przez podgląd planu (zasada 5, `GpoQuickFixRunner`). Karta `GroupPolicyDiagnosticsDocumentViewModel` (jedna na
+  okno połączenia) i zakładka *Stan* GPO (`GroupPolicyObjectDocumentViewModel.Health.cs`) pokazują wyniki; migawki i
+  uwagi są tylko w pamięci, eksport CSV/HTML – do pliku operatora (zasada 1).
+
 ## Interfejs użytkownika
 
 - **Okno główne:** pasek menu i narzędzi (jak ADUC), pasek adresu (DN lub ścieżka `contoso.test/Firma/IT`),
