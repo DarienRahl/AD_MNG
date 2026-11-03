@@ -72,6 +72,12 @@ public sealed record GroupPolicyDocumentRequest(GroupPolicyDocumentKind Kind)
 
     /// <summary>The tab of a GPO document to select ("Stan GPO" opens the Status tab).</summary>
     public GpoDocumentTab? Tab { get; init; }
+
+    /// <summary>
+    /// "Edytuj to ustawienie" (K6): the setting the administrative templates or security settings editor selects when it
+    /// opens – or, already open, when its tab is activated again (<see cref="IGroupPolicySettingEditor.FocusSetting"/>).
+    /// </summary>
+    public GroupPolicySettingFocus? Focus { get; init; }
 }
 
 /// <summary>
@@ -206,9 +212,11 @@ public sealed class GroupPolicyServices(
     /// <summary>
     /// Shows <paramref name="plan"/> in the change plan preview (every GPO operation, design note 3.3) and raises
     /// <see cref="Changed"/> when something was written. The preview executes only in <paramref name="session"/> (the one
-    /// the plan was made in). True when the directory or SYSVOL changed.
+    /// the plan was made in); <paramref name="settingChanges"/> is the editor's plain-language summary ("Zmiany ustawień",
+    /// K6). True when the directory or SYSVOL changed.
     /// </summary>
-    public async Task<bool> PreviewAsync(ChangePlan plan, string title, IDirectorySession session, string? confirmationText = null, string? confirmationMessage = null)
+    public async Task<bool> PreviewAsync(ChangePlan plan, string title, IDirectorySession session, string? confirmationText = null, string? confirmationMessage = null,
+        IReadOnlyList<GroupPolicySettingChange>? settingChanges = null)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(session);
@@ -223,6 +231,7 @@ public sealed class GroupPolicyServices(
             Notes = notes,
             ConfirmationText = confirmationText,
             ConfirmationMessage = confirmationMessage,
+            SettingChanges = settingChanges ?? [],
         });
         bool changed;
         try

@@ -71,6 +71,14 @@ public sealed partial class PolicyEditorViewModel : ObservableObject
     public string RegistryText => (Scope == PolicyClass.User ? "HKCU\\" : "HKLM\\") + Definition.Policy.Key
         + (Definition.Policy.ValueName is { } name ? "!" + (name.Length == 0 ? "(Default)" : name) : string.Empty);
 
+    /// <summary>The policy's key with its hive, the first of the two registry lines ("HKLM\Software\Policies\…\AU").</summary>
+    public string RegistryKeyText => (Scope == PolicyClass.User ? "HKCU\\" : "HKLM\\") + Definition.Policy.Key;
+
+    /// <summary>The second registry line, "Wartość: NoAutoUpdate" (null when the policy has no value of its own, only options).</summary>
+    public string? RegistryValueText => Definition.Policy.ValueName is { } name
+        ? _localizer.Format(L.GroupPolicyEditing.RegistryValueLine, name.Length == 0 ? "(Default)" : name)
+        : null;
+
     /// <summary>"contoso.admx".</summary>
     public string FileText => Definition.FileName;
 

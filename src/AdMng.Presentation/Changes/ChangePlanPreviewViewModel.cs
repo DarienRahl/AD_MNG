@@ -25,7 +25,20 @@ public sealed record ChangePlanPreviewRequest(ChangePlan Plan, string Title)
 
     /// <summary>The message of the typed confirmation (names the domain).</summary>
     public string? ConfirmationMessage { get; init; }
+
+    /// <summary>
+    /// "Zmiany ustawień" (K6, docs/dev/k-computers-and-gpo.md 20.3): what an editor's save changes, in the operator's
+    /// language (setting, before, after), shown above the rows. Empty for every other plan.
+    /// </summary>
+    public IReadOnlyList<GroupPolicySettingChange> SettingChanges { get; init; } = [];
 }
+
+/// <summary>One setting an editor's save changes ("Zmiany ustawień" of the change plan preview).</summary>
+/// <param name="Setting">The setting as the editor names it ("Debugowanie programów", "Konfiguruj aktualizacje automatyczne").</param>
+/// <param name="Before">The value as read ("Nie zdefiniowano", "Wyłączone"; null: none).</param>
+/// <param name="After">The value saved (null: none).</param>
+/// <param name="Group">Where it is ("Konfiguracja komputera / Składniki systemu Windows", "Prawa użytkownika"; null: none).</param>
+public sealed record GroupPolicySettingChange(string Setting, string? Before, string? After, string? Group);
 
 /// <summary>Step of the preview window.</summary>
 public enum PlanPreviewStep
@@ -58,6 +71,7 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
         _request = request ?? throw new ArgumentNullException(nameof(request));
         _plan = request.Plan ?? throw new ArgumentException("The request has no plan.", nameof(request));
         Notes = request.Notes;
+        SettingChanges = request.SettingChanges;
         Rebuild();
     }
 
@@ -72,6 +86,21 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
     public IReadOnlyList<string> Notes { get; }
 
     public bool HasNotes => Notes.Count > 0;
+
+    /// <summary>"Zmiany ustawień": what the editor's save changes, in its language (K6).</summary>
+    public IReadOnlyList<GroupPolicySettingChange> SettingChanges { get; }
+
+    /// <summary>The summary is shown: the editor gave one and the plan shown is the save (not its undo).</summary>
+    public bool HasSettingChanges => SettingChanges.Count > 0 && !IsRollbackPreview;
+
+    /// <summary>"Zmiany ustawień (3)".</summary>
+    public string SettingChangesTitle => Localizer.Format(L.GroupPolicyEditing.SettingChanges, SettingChanges.Count.ToString(Localizer.Culture));
+
+    /// <summary>A short summary is open at first; a long one starts collapsed so the plan's rows stay in view.</summary>
+    public bool AreSettingChangesExpanded => SettingChanges.Count <= MaxExpandedSettingChanges;
+
+    /// <summary>The longest summary shown expanded.</summary>
+    public const int MaxExpandedSettingChanges = 8;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsPreviewStep), nameof(IsExecutingStep), nameof(IsResultsStep))]
@@ -109,7 +138,7 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
 
     /// <summary>The undo plan is shown (Execute reverts the change).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ChangeTitle))]
+    [NotifyPropertyChangedFor(nameof(ChangeTitle), nameof(HasSettingChanges))]
     public partial bool IsRollbackPreview { get; private set; }
 
     /// <summary>The last execution's result.</summary>
@@ -277,6 +306,7 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
     protected override void OnCultureChanged()
     {
         base.OnCultureChanged();
+        OnPropertyChanged(nameof(SettingChangesTitle));
         Rebuild();
         if (Result is { } result)
         {

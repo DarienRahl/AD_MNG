@@ -150,13 +150,34 @@
   </UserControl.Resources>
 
   <DockPanel Margin="8,6,8,8">
-    <!-- Header -->
-    <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
-      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-        <Button x:Name="SaveButton" Margin="0,0,6,0" Command="{Binding SaveCommand}" Content="{l:Tr AdmTemplates.Save}" Style="{StaticResource AccentButtonStyle}" />
+    <!-- Header: the title and the changed count trimmed in their column, the buttons in their own -->
+    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <c:ObjectIconView Margin="0,0,8,0" VerticalAlignment="Center" Icon="GroupPolicy" Size="18" />
+      <StackPanel Grid.Column="1" Margin="0,0,12,0" VerticalAlignment="Center">
+        <TextBlock x:Name="TitleText"
+                   FontWeight="SemiBold"
+                   Text="{Binding Title, Mode=OneWay}"
+                   TextTrimming="CharacterEllipsis"
+                   ToolTip="{Binding Title, Mode=OneWay}" />
+        <TextBlock x:Name="ChangedText"
+                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                   Text="{Binding SelectionText, Mode=OneWay}"
+                   TextTrimming="CharacterEllipsis"
+                   ToolTip="{Binding SelectionText, Mode=OneWay}"
+                   Visibility="{Binding SelectionText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+      </StackPanel>
+      <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
+        <Button x:Name="SaveButton"
+                Margin="0,0,6,0"
+                Command="{Binding SaveCommand}"
+                Content="{l:Tr AdmTemplates.Save}"
+                Style="{StaticResource AccentButtonStyle}" />
         <Button x:Name="DiscardButton" Margin="0,0,6,0" Command="{Binding DiscardCommand}" Content="{l:Tr AdmTemplates.Discard}" />
-        <Button x:Name="UpdateTemplatesButton" Margin="0,0,6,0" Command="{Binding UpdateTemplatesCommand}" Content="{l:Tr CentralStore.Command}" />
-        <Button x:Name="ReloadDefinitionsButton" Margin="0,0,6,0" Command="{Binding ReloadDefinitionsCommand}" Content="{l:Tr AdmTemplates.ReloadDefinitions}" />
         <Button x:Name="RefreshButton"
                 AutomationProperties.Name="{l:Tr GroupPolicy.RefreshCommand}"
                 Command="{Binding RefreshCommand}"
@@ -164,16 +185,7 @@
                 Style="{StaticResource Ad.IconButton}"
                 ToolTip="{l:Tr GroupPolicy.RefreshCommand}" />
       </StackPanel>
-      <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
-        <c:ObjectIconView Margin="0,0,8,0" VerticalAlignment="Center" Icon="GroupPolicy" Size="18" />
-        <TextBlock x:Name="TitleText" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding Title, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
-        <TextBlock x:Name="ChangedText"
-                   Margin="12,0,0,0"
-                   VerticalAlignment="Center"
-                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                   Text="{Binding SelectionText, Mode=OneWay}" />
-      </StackPanel>
-    </DockPanel>
+    </Grid>
     <gp:GroupPolicyBanners DockPanel.Dock="Top" />
     <Border x:Name="ConflictBar"
             Margin="0,0,0,6"
@@ -189,21 +201,45 @@
             Visibility="{Binding FileNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
       <TextBlock Text="{Binding FileNote, Mode=OneWay}" TextWrapping="Wrap" />
     </Border>
+    <!-- Templates: where they come from (a warning without a central store), their problems, update and reload -->
     <Border x:Name="DefinitionsBar"
             Margin="0,0,0,6"
-            Padding="12,6"
+            Padding="12,4"
             DockPanel.Dock="Top"
-            Style="{StaticResource Ad.Card}"
             Visibility="{Binding DefinitionsNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <Border.Style>
+        <Style TargetType="Border" BasedOn="{StaticResource Ad.Card}">
+          <Style.Triggers>
+            <DataTrigger Binding="{Binding IsCentralStoreMissing, Mode=OneWay}" Value="True">
+              <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+            </DataTrigger>
+          </Style.Triggers>
+        </Style>
+      </Border.Style>
       <StackPanel>
         <DockPanel>
-          <TextBlock Margin="0,1,10,0"
-                     VerticalAlignment="Top"
-                     DockPanel.Dock="Left"
-                     Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                     Style="{StaticResource Ad.GlyphText}"
-                     Text="{x:Static c:Glyphs.Info}" />
-          <TextBlock x:Name="DefinitionsText" Text="{Binding DefinitionsNote, Mode=OneWay}" TextWrapping="Wrap" />
+          <TextBlock x:Name="DefinitionsGlyph"
+                     Margin="0,1,10,0"
+                     VerticalAlignment="Center"
+                     DockPanel.Dock="Left">
+            <TextBlock.Style>
+              <Style TargetType="TextBlock" BasedOn="{StaticResource Ad.GlyphText}">
+                <Setter Property="Text" Value="{x:Static c:Glyphs.Info}" />
+                <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding IsCentralStoreMissing, Mode=OneWay}" Value="True">
+                    <Setter Property="Text" Value="{x:Static c:Glyphs.Warning}" />
+                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </TextBlock.Style>
+          </TextBlock>
+          <StackPanel Margin="12,0,0,0" VerticalAlignment="Center" DockPanel.Dock="Right" Orientation="Horizontal">
+            <Button x:Name="UpdateTemplatesButton" Margin="0,0,6,0" Command="{Binding UpdateTemplatesCommand}" Content="{l:Tr CentralStore.Command}" />
+            <Button x:Name="ReloadDefinitionsButton" Command="{Binding ReloadDefinitionsCommand}" Content="{l:Tr AdmTemplates.ReloadDefinitions}" />
+          </StackPanel>
+          <TextBlock x:Name="DefinitionsText" VerticalAlignment="Center" Text="{Binding DefinitionsNote, Mode=OneWay}" TextWrapping="Wrap" />
         </DockPanel>
         <Expander x:Name="IssuesExpander"
                   Margin="0,6,0,0"
@@ -243,6 +279,7 @@
           <Style TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
             <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+            <Setter Property="gp:GroupPolicyUi.BringIntoViewWhen" Value="{Binding IsSelected, Mode=OneWay}" />
             <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
             <Setter Property="Margin" Value="0" />
             <Setter Property="Padding" Value="2" />
@@ -253,14 +290,14 @@
         </TreeView.Resources>
       </TreeView>
 
-      <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="Transparent" ResizeBehavior="PreviousAndNext" />
+      <gp:PaneSplitter Grid.Column="1" ResizeDirection="Columns" />
 
       <Grid Grid.Column="2">
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto" />
-          <RowDefinition Height="*" MinHeight="120" />
+          <RowDefinition Height="2*" MinHeight="120" />
           <RowDefinition Height="Auto" />
-          <RowDefinition Height="1.2*" MinHeight="160" />
+          <RowDefinition Height="3*" MinHeight="200" />
         </Grid.RowDefinitions>
 
         <!-- Search and filters -->
@@ -278,7 +315,11 @@
                         IsChecked="{Binding OnlyConfigured}"
                         Style="{StaticResource Ad.ChipToggleButton}" />
           <Grid>
-            <TextBox x:Name="SearchBox" AutomationProperties.Name="{l:Tr AdmTemplates.SearchPlaceholder}" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=250}" />
+            <TextBox x:Name="SearchBox"
+                     gp:GroupPolicyUi.IsDocumentSearch="True"
+                     AutomationProperties.Name="{l:Tr AdmTemplates.SearchPlaceholder}"
+                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=250}"
+                     ToolTip="{l:Tr GpEditing.SearchHint}" />
             <TextBlock Style="{StaticResource Ad.HintText}"
                        Text="{l:Tr AdmTemplates.SearchPlaceholder}"
                        Visibility="{Binding Text, ElementName=SearchBox, Converter={StaticResource Ad.EmptyToVisible}}" />
@@ -293,6 +334,8 @@
         <!-- Policies -->
         <Grid Grid.Row="1">
           <ListView x:Name="PolicyList"
+                    gp:GroupPolicyUi.EnterFocuses="{Binding ElementName=PolicyEditor}"
+                    gp:GroupPolicyUi.KeepsSelectionInView="True"
                     AutomationProperties.Name="{l:Tr AdmTemplates.ColumnSetting}"
                     ItemContainerStyle="{StaticResource RowStyle}"
                     ItemsSource="{Binding Policies, Mode=OneWay}"
@@ -301,28 +344,42 @@
                     VirtualizingPanel.VirtualizationMode="Recycling"
                     Visibility="{Binding IsExtraSelected, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}">
             <ListView.View>
-              <GridView AllowsColumnReorder="False">
-                <GridViewColumn Width="24">
+              <GridView x:Name="PolicyGrid" AllowsColumnReorder="False">
+                <GridViewColumn Width="28">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type at:PolicyRowViewModel}">
-                      <TextBlock AutomationProperties.Name="{l:Tr AdmTemplates.ChangedMark}"
-                                 Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                 Style="{StaticResource Ad.GlyphText}"
-                                 Text="{x:Static c:Glyphs.Edit}"
-                                 ToolTip="{l:Tr AdmTemplates.ChangedMark}"
-                                 Visibility="{Binding IsChanged, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                      <Grid>
+                        <TextBlock AutomationProperties.Name="{l:Tr AdmTemplates.ChangedMark}"
+                                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                   Style="{StaticResource Ad.GlyphText}"
+                                   Text="{x:Static c:Glyphs.Edit}"
+                                   ToolTip="{l:Tr AdmTemplates.ChangedMark}"
+                                   Visibility="{Binding IsChanged, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                        <TextBlock AutomationProperties.Name="{l:Tr GpEditing.InvalidMark}"
+                                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                   Style="{StaticResource Ad.GlyphText}"
+                                   Text="{x:Static c:Glyphs.Warning}"
+                                   ToolTip="{l:Tr GpEditing.InvalidMark}"
+                                   Visibility="{Binding HasProblem, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                      </Grid>
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="420" Header="{l:Tr AdmTemplates.ColumnSetting}">
+                <GridViewColumn Width="440" Header="{l:Tr AdmTemplates.ColumnSetting}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type at:PolicyRowViewModel}">
                       <TextBlock Text="{Binding Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name, Mode=OneWay}" />
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="130" DisplayMemberBinding="{Binding StateText, Mode=OneWay}" Header="{l:Tr AdmTemplates.ColumnState}" />
-                <GridViewColumn Width="300" Header="{l:Tr AdmTemplates.ColumnCategory}">
+                <GridViewColumn Width="170" Header="{l:Tr AdmTemplates.ColumnState}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type at:PolicyRowViewModel}">
+                      <TextBlock Text="{Binding StateText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding StateText, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn x:Name="CategoryColumn" Width="320" Header="{l:Tr AdmTemplates.ColumnCategory}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type at:PolicyRowViewModel}">
                       <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding CategoryPath, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding CategoryPath, Mode=OneWay}" />
@@ -350,23 +407,48 @@
                     Content="{l:Tr AdmTemplates.DeleteExtraEntry}"
                     DockPanel.Dock="Bottom" />
             <ListView x:Name="ExtraList"
+                      gp:GroupPolicyUi.KeepsSelectionInView="True"
                       AutomationProperties.Name="{l:Tr AdmTemplates.ExtraHint}"
                       ItemContainerStyle="{StaticResource RowStyle}"
                       ItemsSource="{Binding ExtraEntries, Mode=OneWay}"
                       SelectedItem="{Binding SelectedExtraEntry}">
               <ListView.View>
                 <GridView AllowsColumnReorder="False">
-                  <GridViewColumn Width="360" DisplayMemberBinding="{Binding KeyText, Mode=OneWay}" Header="{l:Tr AdmTemplates.ColumnKey}" />
-                  <GridViewColumn Width="180" DisplayMemberBinding="{Binding ValueName, Mode=OneWay}" Header="{l:Tr AdmTemplates.ColumnValueName}" />
-                  <GridViewColumn Width="120" DisplayMemberBinding="{Binding TypeText, Mode=OneWay}" Header="{l:Tr AdmTemplates.ColumnType}" />
-                  <GridViewColumn Width="240" DisplayMemberBinding="{Binding DataText, Mode=OneWay}" Header="{l:Tr AdmTemplates.ColumnData}" />
+                  <GridViewColumn Width="380" Header="{l:Tr AdmTemplates.ColumnKey}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type at:ExtraRegistryEntryViewModel}">
+                        <TextBlock Text="{Binding KeyText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding KeyText, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
+                  <GridViewColumn Width="190" Header="{l:Tr AdmTemplates.ColumnValueName}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type at:ExtraRegistryEntryViewModel}">
+                        <TextBlock Text="{Binding ValueName, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding ValueName, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
+                  <GridViewColumn Width="130" Header="{l:Tr AdmTemplates.ColumnType}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type at:ExtraRegistryEntryViewModel}">
+                        <TextBlock Text="{Binding TypeText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding TypeText, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
+                  <GridViewColumn Width="260" Header="{l:Tr AdmTemplates.ColumnData}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type at:ExtraRegistryEntryViewModel}">
+                        <TextBlock Text="{Binding DataText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding DataText, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
                 </GridView>
               </ListView.View>
             </ListView>
           </DockPanel>
         </Grid>
 
-        <GridSplitter Grid.Row="2" Height="6" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="Transparent" ResizeBehavior="PreviousAndNext" />
+        <gp:PaneSplitter Grid.Row="2" ResizeDirection="Rows" />
 
         <!-- The selected policy -->
         <Border Grid.Row="3" Padding="12,8" Style="{StaticResource Ad.Card}">
@@ -450,7 +532,11 @@
                                        Visibility="{Binding SupportedOnText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
                             <TextBox x:Name="HelpText" Margin="0,6,0,0" Style="{StaticResource Ad.SelectableText}" Text="{Binding ExplainText, Mode=OneWay}" />
                             <TextBlock Margin="0,10,0,0" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr AdmTemplates.Registry}" />
-                            <TextBox Style="{StaticResource Ad.SelectableText}" Text="{Binding RegistryText, Mode=OneWay}" />
+                            <TextBox x:Name="RegistryKeyText" Style="{StaticResource Ad.SelectableText}" Text="{Binding RegistryKeyText, Mode=OneWay}" />
+                            <TextBox x:Name="RegistryValueText"
+                                     Style="{StaticResource Ad.SelectableText}"
+                                     Text="{Binding RegistryValueText, Mode=OneWay}"
+                                     Visibility="{Binding RegistryValueText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
                             <TextBlock Margin="0,6,0,0" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr AdmTemplates.File}" />
                             <TextBox Style="{StaticResource Ad.SelectableText}" Text="{Binding FileText, Mode=OneWay}" />
                           </StackPanel>

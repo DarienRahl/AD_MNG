@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Security;
+using AdMng.Presentation.Changes;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.GroupPolicy.SecuritySettings;
 using AdMng.Presentation.Localization;
@@ -741,5 +742,190 @@ public class SecuritySettingsEditorTests
         Assert.Equal("Inspekcja logowania", polish[SecuritySettingsText.AuditSubcategoryKey("Logon")]);
         Assert.Equal("Goście", polish[SecuritySettingsText.LocalGroupNameKey("Guests")]);
         Assert.Equal("Administratorzy", polish[SecuritySettingsText.LocalGroupNameKey("Administrators")]);
+    }
+
+    // ---- K6: editing comfort (docs/dev/k-computers-and-gpo.md 20.3) ----------------------------------------------------
+
+    [Fact]
+    public async Task SearchAndFilters_NarrowEveryPage()
+    {
+        var (_, editor, _) = await OpenSampleAsync(CultureInfo.GetCultureInfo("pl-PL"));
+        Assert.False(editor.IsFiltering);
+        Assert.Equal(editor.UserRights, editor.VisibleUserRights);
+        Assert.Equal(editor.SelectedOptionGroup!.Rows, editor.Options);
+        Assert.Equal(2, editor.VisibleServices.Count);
+
+        editor.SearchText = "DEBUGOWANIE";
+        Assert.Equal(["SeDebugPrivilege"], editor.VisibleUserRights.Select(r => r.Constant));
+        Assert.Empty(editor.VisibleServices);
+        Assert.Empty(editor.VisibleRestrictedGroups);
+
+        editor.SearchText = "serwisanci"; // a holder of a right and a GPP local group
+        Assert.Equal(["SeRemoteInteractiveLogonRight"], editor.VisibleUserRights.Select(r => r.Constant));
+        Assert.Equal(["Serwisanci"], editor.VisibleGppGroups.Select(g => g.GroupName));
+
+        editor.SearchText = "poziom uwierzytelniania lan manager"; // the options list spans the groups
+        Assert.True(editor.ShowsOptionGroupColumn);
+        var option = Assert.Single(editor.Options);
+        Assert.Equal("LmCompatibilityLevel", option.Definition.Id);
+        Assert.Equal("Zabezpieczenia sieci", option.GroupName);
+
+        editor.SearchText = "spooler";
+        Assert.Equal(["Spooler"], editor.VisibleServices.Select(s => s.Name));
+
+        editor.SearchText = "inspekcja logowania";
+        var category = Assert.Single(editor.VisibleAuditCategories);
+        Assert.Contains(category.Rows, r => r.Subcategory?.Id == "Logon");
+        Assert.All(category.Rows, r => Assert.Contains("logowania", r.Name, StringComparison.OrdinalIgnoreCase));
+
+        editor.ClearSearchCommand.Execute(null);
+        Assert.False(editor.IsFiltering);
+        Assert.Equal(editor.UserRights, editor.VisibleUserRights);
+        Assert.False(editor.ShowsOptionGroupColumn);
+    }
+
+    [Fact]
+    public async Task OnlyDefinedAndOnlyChanged_KeepARowWhileItIsEdited_UntilTheFilterChanges()
+    {
+        var (_, editor, _) = await OpenSampleAsync();
+
+        editor.OnlyDefined = true;
+        Assert.Equal(["SeDebugPrivilege", "SeFutureRight", "SeRemoteInteractiveLogonRight"], editor.VisibleUserRights.Select(r => r.Constant).Order(StringComparer.Ordinal));
+        Assert.All(editor.Options, o => Assert.True(o.IsDefined));
+        Assert.Contains(editor.Options, o => o.Definition.Id == "MinimumPasswordLength");
+        Assert.Equal(["AuditLogonEvents"], editor.VisibleLegacyAudit.Select(r => r.Id));
+        Assert.Equal("Logon", Assert.Single(Assert.Single(editor.VisibleAuditCategories).Rows).Subcategory!.Id);
+
+        var debug = Right(editor, "SeDebugPrivilege");
+        debug.IsDefined = false; // edited under the filter: the row stays listed…
+        Assert.Contains(debug, editor.VisibleUserRights);
+        editor.OnlyDefined = false;
+        editor.OnlyDefined = true; // …until the filter changes
+        Assert.DoesNotContain(debug, editor.VisibleUserRights);
+
+        editor.OnlyDefined = false;
+        editor.OnlyChanged = true;
+        Assert.Equal([debug], editor.VisibleUserRights);
+        Assert.Empty(editor.VisibleServices);
+        var spooler = editor.Services.Single(s => s.Name == "Spooler");
+        spooler.SelectedMode = editor.ServiceModes.Single(m => m.Value == 3); // changed while listing only the changed: it appears
+        Assert.Equal([spooler], editor.VisibleServices);
+    }
+
+    [Fact]
+    public async Task FocusSetting_OpensThePageAndTheRowOfTheSetting()
+    {
+        var (harness, editor, _) = await OpenSampleAsync();
+        editor.SearchText = "nie ma takiego";
+
+        Assert.True(editor.FocusSetting(GroupPolicySettingFocus.ForSetting("Computer/Security/Privilege Rights/SeDebugPrivilege")));
+        Assert.Equal(string.Empty, editor.SearchText);
+        Assert.Equal(SecuritySettingsPage.Rights, editor.SelectedPage);
+        Assert.Equal(1, editor.SelectedPageIndex);
+        Assert.Equal("SeDebugPrivilege", editor.SelectedRight!.Constant);
+
+        Assert.True(editor.FocusSetting(GroupPolicySettingFocus.ForSetting("Computer/Security/System Access/MinimumPasswordLength")));
+        Assert.Equal(SecuritySettingsPage.Options, editor.SelectedPage);
+        Assert.Equal("MinimumPasswordLength", editor.SelectedOption!.Definition.Id);
+        Assert.Contains(editor.SelectedOption, editor.SelectedOptionGroup!.Rows);
+
+        Assert.True(editor.FocusSetting(GroupPolicySettingFocus.ForSetting(@"Computer/Security/Registry Values/HKLM\System\CurrentControlSet\Control\Lsa!LmCompatibilityLevel")));
+        Assert.Equal("LmCompatibilityLevel", editor.SelectedOption!.Definition.Id);
+
+        Assert.True(editor.FocusSetting(GroupPolicySettingFocus.ForSetting("Computer/Security/System Access/NieznanyKlucz")));
+        Assert.True(editor.IsRawGroupSelected);
+        Assert.Equal("NieznanyKlucz", editor.SelectedRawEntry!.Key);
+
+        Assert.True(editor.FocusSetting(GroupPolicySettingFocus.ForSetting("Computer/Security/Event Audit/AuditLogonEvents")));
+        Assert.Equal(SecuritySettingsPage.Audit, editor.SelectedPage);
+        Assert.Equal(["AuditLogonEvents"], editor.LegacyAudit.Where(r => r.IsFocused).Select(r => r.Id));
+
+        Assert.True(editor.FocusSetting(GroupPolicySettingFocus.ForSetting("Computer/Audit/{0cce9215-69ae-11d9-bed3-505054503030}")));
+        Assert.DoesNotContain(editor.LegacyAudit, r => r.IsFocused);
+        Assert.Equal("Logon", editor.AdvancedAuditCategories.SelectMany(c => c.Rows).Single(r => r.IsFocused).Subcategory!.Id);
+
+        Assert.True(editor.FocusSetting(GroupPolicySettingFocus.ForSetting("Computer/Security/Group Membership/S-1-5-32-544/Members")));
+        Assert.Equal(SecuritySettingsPage.Groups, editor.SelectedPage);
+        Assert.Equal("S-1-5-32-544", editor.SelectedRestrictedGroup!.GroupValue);
+
+        Assert.True(editor.FocusSetting(GroupPolicySettingFocus.ForSetting("Computer/Security/Services/Netlogon/StartupMode")));
+        Assert.Equal(SecuritySettingsPage.Services, editor.SelectedPage);
+        Assert.Equal("Netlogon", editor.SelectedService!.Name);
+
+        var uid = GppGroupsDocument.Parse(harness.Sysvol.Get(harness.Sample.SitePrinters, GroupsXml)).Items[1].Uid;
+        Assert.True(editor.FocusSetting(GroupPolicySettingFocus.ForSetting($"Computer/Preferences/Groups/{uid}/Properties@action")));
+        Assert.Equal(SecuritySettingsPage.Groups, editor.SelectedPage);
+        Assert.Same(editor.GppGroups[1], editor.SelectedGppGroup);
+
+        Assert.False(editor.FocusSetting(GroupPolicySettingFocus.ForSetting("Computer/Security/Privilege Rights/SeNieznanePrawo")));
+        Assert.Contains(harness.B2.Notifications.Items, n => n.Severity == NotificationSeverity.Info && n.Message.Contains("SeNieznanePrawo", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Saving_ShowsTheSettingChanges_OfEveryPage()
+    {
+        var (harness, editor, _) = await OpenSampleAsync(CultureInfo.GetCultureInfo("pl-PL"));
+        var shutdown = Right(editor, "SeShutdownPrivilege");
+        editor.SelectedRight = shutdown;
+        editor.NewRightHolderText = "Administratorzy";
+        editor.AddRightHolderByNameCommand.Execute(null);
+        Option(editor, "MinimumPasswordLength").Text = "14";
+        var logon = editor.LegacyAudit.Single(r => r.Id == "AuditLogonEvents");
+        logon.SelectedState = logon.States.Single(s => s.Value == 1);
+        var advanced = editor.AdvancedAuditCategories.SelectMany(c => c.Rows).Single(r => r.Subcategory!.Id == "Logon");
+        advanced.SelectedState = advanced.States.Single(s => s.Value == 1);
+        editor.Services.Single(s => s.Name == "Spooler").SelectedMode = editor.ServiceModes.Single(m => m.Value == 3);
+        editor.SelectedRawEntry = editor.RawEntries.Single(e => e.Key == "NieznanyKlucz");
+        editor.RemoveRawEntryCommand.Execute(null);
+        editor.SelectedRestrictedGroup = editor.RestrictedGroups.Single();
+        editor.RemoveRestrictedMemberCommand.Execute(editor.RestrictedGroups.Single().Members.Single());
+        var gpp = editor.GppGroups[0];
+        gpp.SelectedAction = gpp.Actions.Single(a => a.Action == GppItemAction.Replace);
+        IReadOnlyList<GroupPolicySettingChange> shown = [];
+        harness.Windows.BeforePreview = preview =>
+        {
+            shown = preview.SettingChanges;
+            return Task.CompletedTask;
+        };
+
+        await SaveAsync(editor);
+
+        Assert.Equal(8, shown.Count);
+        Assert.Contains(new GroupPolicySettingChange("Zamykanie systemu", "Nie zdefiniowano", "Administratorzy", "Prawa użytkownika"), shown);
+        Assert.Contains(new GroupPolicySettingChange("Minimalna długość hasła", "12", "14", "Zasady haseł"), shown);
+        Assert.Contains(new GroupPolicySettingChange("Przeprowadź inspekcję zdarzeń logowania", "Powodzenie i niepowodzenie", "Powodzenie",
+            "Zasady inspekcji (kategorie, [Event Audit])"), shown);
+        Assert.Contains(new GroupPolicySettingChange("Inspekcja logowania", "Powodzenie i niepowodzenie", "Powodzenie", "Logowanie/wylogowywanie"), shown);
+        Assert.Contains(new GroupPolicySettingChange("Spooler", "Wyłączony", "Ręczny", "Usługi"), shown);
+        Assert.Contains(shown, c => c.Setting == "[System Access] NieznanyKlucz" && c.Before == "7" && c.After == "Nie zdefiniowano");
+        Assert.Contains(new GroupPolicySettingChange("Członkowie grupy Administratorzy", @"CONTOSO\GG_IT", "Brak członków (zdefiniowano pustą listę)",
+            "Grupy z ograniczeniami (GptTmpl.inf)"), shown);
+        Assert.Contains(new GroupPolicySettingChange("Administratorzy", @"Aktualizuj; członkowie: + CONTOSO\GG_IT, − Łukasz",
+            @"Zamień; członkowie: + CONTOSO\GG_IT, − Łukasz", "Preferencje – grupy lokalne (Groups.xml)"), shown);
+    }
+
+    [Fact]
+    public async Task ASecretRegistryValueOutsideTheCatalog_IsMaskedInTheSummary()
+    {
+        var harness = await GroupPolicyHarness.CreateAsync();
+        var gpo = harness.Sample.SitePrinters;
+        harness.Sysvol.Put(gpo, GptTmpl, FakeSysvolFileReader.Utf16(FakeDirectoryBuilder.Template(
+            "[Registry Values]", @"MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\DefaultPassword=1,""Hasło-Łódź1""")));
+        var editor = await harness.SecurityAsync(gpo);
+        editor.SelectedOptionGroup = editor.OptionGroups.Single(g => g.IsRaw);
+        editor.SelectedRawEntry = Assert.Single(editor.RawEntries);
+        editor.RemoveRawEntryCommand.Execute(null);
+        IReadOnlyList<GroupPolicySettingChange> shown = [];
+        harness.Windows.BeforePreview = preview =>
+        {
+            shown = preview.SettingChanges;
+            return Task.CompletedTask;
+        };
+
+        await SaveAsync(editor);
+
+        var change = Assert.Single(shown);
+        Assert.Equal("••••••", change.Before);
+        Assert.DoesNotContain("Hasło", string.Join("|", shown.Select(c => c.Setting + c.Before + c.After)), StringComparison.Ordinal);
     }
 }

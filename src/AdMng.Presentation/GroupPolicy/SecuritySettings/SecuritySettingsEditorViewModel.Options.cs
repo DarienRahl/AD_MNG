@@ -23,11 +23,8 @@ public sealed partial class SecuritySettingsEditorViewModel
     public partial IReadOnlyList<SecurityOptionGroupViewModel> OptionGroups { get; private set; } = [];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsRawGroupSelected))]
+    [NotifyPropertyChangedFor(nameof(IsRawGroupSelected), nameof(ShowsOptionGroupColumn))]
     public partial SecurityOptionGroupViewModel? SelectedOptionGroup { get; set; }
-
-    /// <summary>The options of the selected group.</summary>
-    public IReadOnlyList<SecurityOptionRowViewModel> Options => SelectedOptionGroup?.Rows ?? [];
 
     /// <summary>The selected option (its editor is shown below the list).</summary>
     [ObservableProperty]
@@ -50,8 +47,8 @@ public sealed partial class SecuritySettingsEditorViewModel
 
     partial void OnSelectedOptionGroupChanged(SecurityOptionGroupViewModel? value)
     {
-        OnPropertyChanged(nameof(Options));
-        SelectedOption = value is not null && SelectedOption is { } selected && value.Rows.Contains(selected) ? selected : null;
+        ApplyFilters();
+        SelectedOption = value is not null && SelectedOption is { } selected && Options.Contains(selected) ? selected : null;
     }
 
     partial void OnSelectedRawEntryChanged(RawTemplateEntryViewModel? oldValue, RawTemplateEntryViewModel? newValue)
@@ -69,6 +66,7 @@ public sealed partial class SecuritySettingsEditorViewModel
         var enabled = new SecurityChoice(1, Localizer[L.SecuritySettings.Enabled]);
         var disabled = new SecurityChoice(0, Localizer[L.SecuritySettings.Disabled]);
         _optionRows = [.. SecuritySettingsCatalog.Options.Select(o => new SecurityOptionRowViewModel(this, o, Localizer[SecuritySettingsText.OptionKey(o.Id)],
+            Localizer[SecuritySettingsText.OptionGroupKey(o.Group)],
             o.Kind switch
             {
                 SecurityValueKind.Boolean => [enabled, disabled],

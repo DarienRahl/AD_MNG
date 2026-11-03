@@ -87,6 +87,10 @@ public sealed partial class PolicyRowViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsChanged { get; set; }
 
+    /// <summary>Options typed for the policy are invalid (kept in its editor, not in the GPO; the save is blocked).</summary>
+    [ObservableProperty]
+    public partial bool HasProblem { get; set; }
+
     public override string ToString() => Name;
 }
 

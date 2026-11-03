@@ -33,8 +33,27 @@
   </UserControl.Resources>
 
   <DockPanel Margin="8,6,8,8">
-    <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
-      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+    <!-- Header: the name and GUID trimmed in their column, the buttons in their own -->
+    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <c:ObjectIconView Margin="0,0,8,0" VerticalAlignment="Center" Icon="GroupPolicy" Size="18" />
+      <StackPanel Grid.Column="1" Margin="0,0,12,0" VerticalAlignment="Center">
+        <TextBlock x:Name="TitleText"
+                   FontWeight="SemiBold"
+                   Text="{Binding Title, Mode=OneWay}"
+                   TextTrimming="CharacterEllipsis"
+                   ToolTip="{Binding Title, Mode=OneWay}" />
+        <TextBlock x:Name="GuidTextBlock"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding GuidText, Mode=OneWay}"
+                   TextTrimming="CharacterEllipsis"
+                   ToolTip="{Binding GuidText, Mode=OneWay}" />
+      </StackPanel>
+      <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
         <Button x:Name="EditTemplatesButton" Margin="0,0,6,0" Command="{Binding EditTemplatesCommand}" Content="{l:Tr AdmTemplates.EditCommand}" />
         <Button x:Name="EditSecuritySettingsButton" Margin="0,0,6,0" Command="{Binding EditSecuritySettingsCommand}" Content="{l:Tr SecSettings.EditCommand}" />
         <Button x:Name="RenameButton" Margin="0,0,6,0" Command="{Binding RenameCommand}" Content="{l:Tr GroupPolicy.RenameCommand}" />
@@ -49,12 +68,7 @@
                 Style="{StaticResource Ad.IconButton}"
                 ToolTip="{l:Tr GroupPolicy.RefreshCommand}" />
       </StackPanel>
-      <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
-        <c:ObjectIconView Margin="0,0,8,0" VerticalAlignment="Center" Icon="GroupPolicy" Size="18" />
-        <TextBlock x:Name="TitleText" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding Title, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
-        <TextBlock Margin="10,0,0,0" VerticalAlignment="Center" Style="{StaticResource Ad.SecondaryText}" Text="{Binding GuidText, Mode=OneWay}" />
-      </StackPanel>
-    </DockPanel>
+    </Grid>
     <gp:GroupPolicyBanners DockPanel.Dock="Top" />
     <Border Margin="0,0,0,6"
             DockPanel.Dock="Top"
@@ -79,11 +93,41 @@
                       SelectedItem="{Binding SelectedLink}">
               <ListView.View>
                 <GridView AllowsColumnReorder="False">
-                  <GridViewColumn Width="200" DisplayMemberBinding="{Binding ContainerName, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnLocation}" />
-                  <GridViewColumn Width="260" DisplayMemberBinding="{Binding PathText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnPath}" />
-                  <GridViewColumn Width="150" DisplayMemberBinding="{Binding KindText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnKind}" />
-                  <GridViewColumn Width="110" DisplayMemberBinding="{Binding EnforcedText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnEnforced}" />
-                  <GridViewColumn Width="150" DisplayMemberBinding="{Binding EnabledText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnLinkEnabled}" />
+                  <GridViewColumn Width="210" Header="{l:Tr GroupPolicy.ColumnLocation}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type gpm:GpoLinkRowViewModel}">
+                        <TextBlock Text="{Binding ContainerName, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding ContainerName, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
+                  <GridViewColumn Width="280" Header="{l:Tr GroupPolicy.ColumnPath}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type gpm:GpoLinkRowViewModel}">
+                        <TextBlock Text="{Binding PathText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding PathText, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
+                  <GridViewColumn Width="150" Header="{l:Tr GroupPolicy.ColumnKind}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type gpm:GpoLinkRowViewModel}">
+                        <TextBlock Text="{Binding KindText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding KindText, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
+                  <GridViewColumn Width="130" Header="{l:Tr GroupPolicy.ColumnEnforced}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type gpm:GpoLinkRowViewModel}">
+                        <TextBlock Text="{Binding EnforcedText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding EnforcedText, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
+                  <GridViewColumn Width="170" Header="{l:Tr GroupPolicy.ColumnLinkEnabled}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type gpm:GpoLinkRowViewModel}">
+                        <TextBlock Text="{Binding EnabledText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding EnabledText, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
                 </GridView>
               </ListView.View>
             </ListView>
@@ -251,8 +295,20 @@
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="380" DisplayMemberBinding="{Binding LevelText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnLevel}" />
-                <GridViewColumn Width="130" DisplayMemberBinding="{Binding InheritedText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnInherited}" />
+                <GridViewColumn Width="400" Header="{l:Tr GroupPolicy.ColumnLevel}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type gpm:GpoTrusteeRowViewModel}">
+                        <TextBlock Text="{Binding LevelText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding LevelText, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
+                <GridViewColumn Width="150" Header="{l:Tr GroupPolicy.ColumnInherited}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type gpm:GpoTrusteeRowViewModel}">
+                        <TextBlock Text="{Binding InheritedText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding InheritedText, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
               </GridView>
             </ListView.View>
           </ListView>

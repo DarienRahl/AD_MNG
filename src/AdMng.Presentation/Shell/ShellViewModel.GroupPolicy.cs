@@ -35,12 +35,14 @@ public sealed partial class ShellViewModel
     private IRelayCommand[] GroupPolicyStateCommands => _groupPolicyStateCommands ??=
     [
         OpenGroupPolicyObjectsCommand, OpenWmiFiltersCommand, OpenContainerPoliciesCommand, NewLinkedGpoCommand, LinkExistingGpoCommand,
-        ToggleBlockInheritanceCommand, ModelComputerGroupPolicyCommand, ModelUserGroupPolicyCommand,
+        ToggleBlockInheritanceCommand, ModelComputerGroupPolicyCommand, ModelUserGroupPolicyCommand, SaveDocumentCommand, EditGpoTemplatesCommand,
+        EditGpoSecuritySettingsCommand,
     ];
 
     /// <summary>
     /// Opens the Group Policy document a request names, or selects it when it is open (a GPO document switches to the
-    /// requested tab). Null when the window has no Group Policy services.
+    /// requested tab; an open editor points at the request's setting again, "Edytuj to ustawienie"). Null when the window has
+    /// no Group Policy services.
     /// </summary>
     public GroupPolicyDocumentBase? OpenGroupPolicyDocument(GroupPolicyDocumentRequest request)
     {
@@ -60,6 +62,10 @@ public sealed partial class ShellViewModel
         else if (request.Tab is { } tab && document is GroupPolicyObjectDocumentViewModel gpo)
         {
             gpo.SelectedTab = tab;
+        }
+        else if (request.Focus is { } focus && document is IGroupPolicySettingEditor editor)
+        {
+            editor.FocusSetting(focus);
         }
 
         SelectedTab = document;

@@ -2,6 +2,7 @@ using System.Globalization;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.AdministrativeTemplates;
 using AdMng.Core.GroupPolicy.Content;
+using AdMng.Presentation.Changes;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.Services;
@@ -506,5 +507,205 @@ public class AdministrativeTemplatesEditorTests
         var editor = await harness.TemplatesAsync(harness.Sample.SitePrinters);
 
         Assert.Equal(["contoso.admx: the file cannot be read – its settings are missing (the file is too large)"], editor.DefinitionIssues);
+    }
+
+    // ---- K6: editing comfort (docs/dev/k-computers-and-gpo.md 20.3) ----------------------------------------------------
+
+    [Fact]
+    public async Task TheConfiguredCounter_FollowsTheEdits()
+    {
+        var (_, editor) = await OpenAsync(CultureInfo.GetCultureInfo("pl-PL"));
+        Assert.EndsWith("skonfigurowane: 0", editor.LoadedText, StringComparison.Ordinal);
+
+        Select(editor, PolicyClass.Machine, "Wyłącz okienko podglądu", "System");
+        editor.Editor!.IsEnabled = true;
+        Assert.EndsWith("skonfigurowane: 1", editor.LoadedText, StringComparison.Ordinal);
+        Assert.Equal(editor.LoadedText, editor.StatusText);
+
+        Select(editor, PolicyClass.Machine, "Tryb pracy", "System");
+        editor.Editor!.IsDisabled = true;
+        Assert.EndsWith("skonfigurowane: 2", editor.LoadedText, StringComparison.Ordinal);
+
+        editor.Editor.IsNotConfigured = true;
+        Assert.EndsWith("skonfigurowane: 1", editor.LoadedText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task LeavingAPolicyWithInvalidOptions_KeepsWhatWasTyped_WarnsAndMarksTheRow()
+    {
+        var (harness, editor) = await OpenAsync();
+        var updates = Select(editor, PolicyClass.Machine, "Configure automatic updates", "Windows Components", "Contoso Update");
+        var panel = editor.Editor!;
+        panel.IsEnabled = true;
+        var day = panel.Elements.OfType<NumberEditorViewModel>().Single();
+        day.Text = "3";
+        day.Text = "8"; // invalid: the document keeps 3
+
+        Select(editor, PolicyClass.Machine, "Turn off the preview pane", "System");
+
+        Assert.Contains(harness.B2.Notifications.Items, n => n.Severity == NotificationSeverity.Warning
+            && n.Message.Contains("“Configure automatic updates”", StringComparison.Ordinal) && n.Message.Contains("not valid", StringComparison.Ordinal));
+        Assert.True(updates.HasProblem);
+        Assert.False(editor.SaveCommand.CanExecute(null)); // the save stays blocked while a typed value is invalid
+        editor.SelectedNode = editor.Roots[0];
+        editor.OnlyChanged = true;
+        Assert.Contains(updates, editor.Policies);
+
+        // Back to the policy: what was typed is shown again, to be corrected.
+        editor.OnlyChanged = false;
+        Select(editor, PolicyClass.Machine, "Configure automatic updates", "Windows Components", "Contoso Update");
+        Assert.Same(panel, editor.Editor);
+        Assert.Equal("8", day.Text);
+        Assert.Equal(["Scheduled install day: enter a number from 0 to 7."], editor.Editor!.Problems);
+
+        day.Text = "4";
+        Assert.False(updates.HasProblem);
+        Assert.True(editor.SaveCommand.CanExecute(null));
+        Assert.Equal(new NumberElementValue(4), panel.CurrentSetting()!.ValueOf("Dzien"));
+        Assert.True(updates.IsChanged);
+    }
+
+    [Fact]
+    public async Task DiscardingTheEdits_DropsInvalidOptionsKeptInAnotherPolicy()
+    {
+        var (harness, editor) = await OpenAsync();
+        var updates = Select(editor, PolicyClass.Machine, "Configure automatic updates", "Windows Components", "Contoso Update");
+        editor.Editor!.IsEnabled = true;
+        editor.Editor.Elements.OfType<NumberEditorViewModel>().Single().Text = "abc";
+        Select(editor, PolicyClass.Machine, "Turn off the preview pane", "System");
+        Assert.True(updates.HasProblem);
+
+        harness.B2.Dialogs.ConfirmAnswers.Enqueue(true);
+        await editor.DiscardCommand.ExecuteAsync(null);
+
+        Assert.False(editor.HasChanges);
+        Assert.False(updates.HasProblem);
+        Select(editor, PolicyClass.Machine, "Configure automatic updates", "Windows Components", "Contoso Update");
+        Assert.Empty(editor.Editor!.Problems);
+        Assert.True(editor.Editor.IsNotConfigured);
+    }
+
+    [Fact]
+    public async Task FocusSetting_SelectsThePolicy_ByItsIdOrByARegistryValueItOwns()
+    {
+        var (_, editor) = await OpenAsync();
+        editor.SearchText = "nie ma takiego";
+        editor.OnlyConfigured = true;
+
+        Assert.True(editor.FocusSetting(GroupPolicySettingFocus.ForPolicy(PolicyClass.Machine, SampleAdministrativeTemplates.Updates)));
+
+        Assert.Equal(string.Empty, editor.SearchText);
+        Assert.False(editor.OnlyConfigured);
+        Assert.Equal("Contoso Update", editor.SelectedNode!.Name);
+        Assert.True(editor.SelectedNode.IsSelected);
+        Assert.True(Node(editor, PolicyClass.Machine, "Windows Components").IsExpanded);
+        Assert.Equal("Configure automatic updates", editor.SelectedPolicy!.Name);
+        Assert.Equal("Configure automatic updates", editor.Editor!.Name);
+
+        Assert.True(editor.FocusSetting(GroupPolicySettingFocus.ForSetting(@"Computer/Registry/HKLM\Software\Policies\Contoso\Eksplorator!NoPreview")));
+        Assert.Equal("System", editor.SelectedNode!.Name);
+        Assert.Equal("Turn off the preview pane", editor.SelectedPolicy!.Name);
+
+        Assert.True(editor.FocusSetting(GroupPolicySettingFocus.ForSetting(@"User/Registry/HKCU\Software\Policies\Contoso\Komunikat!Lines")));
+        Assert.Equal(PolicyClass.User, editor.SelectedPolicy!.Scope);
+        Assert.Equal("Logon message", editor.SelectedPolicy.Name);
+
+        // A list key is owned by its policy whatever the value is named.
+        Assert.True(editor.FocusSetting(GroupPolicySettingFocus.ForSetting(@"User/Registry/HKCU\Software\Policies\Contoso\Dyski\Mapy!P")));
+        Assert.Equal("Drive mappings", editor.SelectedPolicy!.Name);
+    }
+
+    [Fact]
+    public async Task FocusSetting_OfAValueNoTemplateDescribes_SelectsTheExtraEntry_AndAnUnknownPolicyIsReported()
+    {
+        var harness = await GroupPolicyHarness.CreateAsync();
+        harness.AddCentralStore();
+        harness.Sysvol.Put(harness.Sample.SitePrinters, "Machine/Registry.pol", RegistryPolFile.Write(
+        [
+            new RegistryPolEntry(@"Software\Policies\Inny\Program", "Tryb", RegistryFormat.RegSz, RegistryPolFile.StringData("łączność")),
+        ]));
+        var editor = await harness.TemplatesAsync(harness.Sample.SitePrinters);
+
+        Assert.True(editor.FocusSetting(GroupPolicySettingFocus.ForSetting(@"Computer/Registry/HKLM\Software\Policies\Inny\Program!Tryb")));
+        Assert.True(editor.IsExtraSelected);
+        Assert.Equal("Tryb", editor.SelectedExtraEntry!.ValueName);
+
+        Assert.False(editor.FocusSetting(GroupPolicySettingFocus.ForPolicy(PolicyClass.Machine, "Contoso.Policies.Aktualizacje:Nieznana")));
+        Assert.Contains(harness.B2.Notifications.Items, n => n.Severity == NotificationSeverity.Info && n.Message.Contains("Nieznana", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AFocusRequestedBeforeTheLoad_IsAppliedWhenItEnds()
+    {
+        var harness = await GroupPolicyHarness.CreateAsync();
+        harness.AddCentralStore();
+
+        var editor = await harness.OpenAsync<AdministrativeTemplatesEditorViewModel>(new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.AdministrativeTemplates)
+        {
+            GpoId = harness.Sample.SitePrinters,
+            Focus = GroupPolicySettingFocus.ForPolicy(PolicyClass.Machine, SampleAdministrativeTemplates.WorkMode),
+        });
+
+        Assert.Equal("Work mode", editor.SelectedPolicy!.Name);
+        Assert.Equal("System", editor.SelectedNode!.Name);
+    }
+
+    [Fact]
+    public async Task TheRegistryLocation_IsShownAsTheKeyAndTheValue()
+    {
+        var (_, editor) = await OpenAsync(CultureInfo.GetCultureInfo("pl-PL"));
+        Select(editor, PolicyClass.Machine, "Konfiguruj aktualizacje automatyczne", "Składniki systemu Windows", "Aktualizacje Contoso");
+        Assert.Equal(@"HKLM\" + SampleAdministrativeTemplates.UpdatesKey, editor.Editor!.RegistryKeyText);
+        Assert.Equal("Wartość: NoAutoUpdate", editor.Editor.RegistryValueText);
+
+        Select(editor, PolicyClass.Machine, "Określ lokalizację usługi aktualizacji w intranecie", "Składniki systemu Windows", "Aktualizacje Contoso");
+        Assert.Equal(@"HKLM\Software\Policies\Contoso\Aktualizacje", editor.Editor!.RegistryKeyText);
+        Assert.Null(editor.Editor.RegistryValueText); // only options: no value of its own
+    }
+
+    [Fact]
+    public async Task Saving_ShowsTheSettingChanges_InTheOperatorsLanguage()
+    {
+        var harness = await GroupPolicyHarness.CreateAsync(CultureInfo.GetCultureInfo("pl-PL"));
+        harness.AddCentralStore();
+        var existing = new RegistryPolicyDocument();
+        PolicyEngine.Write(SampleAdministrativeTemplates.LoadPolish().Find(SampleAdministrativeTemplates.HidePreview)!.Policy, PolicySetting.Disabled, existing);
+        existing.Set(@"Software\Policies\Inny\Program", "Tryb", RegistryFormat.RegSz, RegistryPolFile.StringData("łączność"));
+        harness.Sysvol.Put(harness.Sample.SitePrinters, "Machine/Registry.pol", existing.ToBytes());
+        var editor = await harness.TemplatesAsync(harness.Sample.SitePrinters);
+
+        Select(editor, PolicyClass.Machine, "Konfiguruj aktualizacje automatyczne", "Składniki systemu Windows", "Aktualizacje Contoso");
+        editor.Editor!.IsEnabled = true;
+        editor.Editor.Elements.OfType<NumberEditorViewModel>().Single().Text = "3";
+        Select(editor, PolicyClass.Machine, "Wyłącz okienko podglądu", "System");
+        editor.Editor!.IsEnabled = true;
+        Select(editor, PolicyClass.Machine, "Tryb pracy", "System");
+        editor.Editor!.IsEnabled = true;
+        editor.Editor.IsNotConfigured = true; // touched, but back as read: not a change
+        editor.SelectedNode = Node(editor, PolicyClass.Machine, "Ustawienia rejestru spoza szablonów (1)");
+        editor.SelectedExtraEntry = editor.ExtraEntries.Single();
+        editor.DeleteExtraEntryCommand.Execute(null);
+        IReadOnlyList<GroupPolicySettingChange> shown = [];
+        string? title = null;
+        harness.Windows.BeforePreview = preview =>
+        {
+            shown = preview.SettingChanges;
+            title = preview.HasSettingChanges ? preview.SettingChangesTitle : null;
+            return Task.CompletedTask;
+        };
+
+        await editor.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal("Zmiany ustawień (3)", title);
+        Assert.Equal(
+        [
+            new GroupPolicySettingChange(@"HKLM\Software\Policies\Inny\Program, wartość Tryb", "łączność", "—", "Konfiguracja komputera"),
+            new GroupPolicySettingChange("Wyłącz okienko podglądu", "Wyłączone", "Włączone", "Konfiguracja komputera / System"),
+        ], shown.Where(c => c.Setting != "Konfiguruj aktualizacje automatyczne"));
+        var updates = Assert.Single(shown, c => c.Setting == "Konfiguruj aktualizacje automatyczne");
+        Assert.Equal("Nie skonfigurowano", updates.Before);
+        Assert.StartsWith("Włączone; ", updates.After, StringComparison.Ordinal);
+        Assert.Contains("3", updates.After, StringComparison.Ordinal);
+        Assert.Equal("Konfiguracja komputera / Składniki systemu Windows / Aktualizacje Contoso", updates.Group);
     }
 }

@@ -7,6 +7,7 @@ using AdMng.Core.PrivilegedAccess;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
+using AdMng.Presentation.Shell;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -21,8 +22,10 @@ namespace AdMng.Presentation.GroupPolicy.SecuritySettings;
 /// edited becomes clean, a file holding what this tab saved rebases the later edits. A file that cannot be read makes only its
 /// pages read-only; everything is read-only while loading or saving or when SYSVOL is not writable; invalid option values
 /// block the save; closing the tab with unsaved edits asks. Nothing of the files is persisted or logged (rule 1).
+/// K6 (20.3): search and "Tylko zdefiniowane" / "Tylko zmienione" on every page, Ctrl+S and Ctrl+F, "Edytuj to
+/// ustawienie" at a page and row (<see cref="FocusSetting"/>), and "Zmiany ustawień" in the save's preview.
 /// </summary>
-public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumentBase
+public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumentBase, ISaveableDocument, ISearchableDocument, IGroupPolicySettingEditor
 {
     private const string TemplatePath = SecurityTemplate.RelativePath;
     private const string AuditPath = AuditPolicyDocument.RelativePath;
@@ -57,7 +60,10 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
 
     public Guid GpoId { get; }
 
-    public override string Title => Localizer.Format(L.SecuritySettings.Title, _gpo?.DisplayName ?? _initialName);
+    public override string Title => Localizer.Format(L.SecuritySettings.Title, GpoName);
+
+    /// <summary>The GPO's name (as read; the requested name until then).</summary>
+    public string GpoName => _gpo?.DisplayName ?? _initialName;
 
     public override ObjectIcon Icon => ObjectIcon.GroupPolicy;
 
@@ -138,6 +144,7 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
             return;
         }
 
+        var changes = SettingChanges(save);
         Remember(TemplatePath, save.Template);
         Remember(AuditPath, save.Audit);
         Remember(GroupsPath, save.Groups);
@@ -145,7 +152,7 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
         SyncCanEdit();
         try
         {
-            if (!await Actions.SaveSecuritySettingsAsync(gpo, save).ConfigureAwait(true))
+            if (!await Actions.SaveSecuritySettingsAsync(gpo, save, changes).ConfigureAwait(true))
             {
                 // Cancelled in the preview or nothing written: no content of this save may rebase edits later.
                 Forget(TemplatePath, save.Template);
@@ -274,6 +281,11 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
         cancellationToken.ThrowIfCancellationRequested();
         RebuildAll();
         LoadedText = Localizer.Format(L.SecuritySettings.Loaded, CountDefined());
+        if (_pendingFocus is { } focus)
+        {
+            _pendingFocus = null;
+            FocusSetting(focus);
+        }
     }
 
     protected override void OnNotConnected()
@@ -389,6 +401,7 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
         RebuildServices();
         SyncCanEdit();
         UpdateChanges();
+        ApplyFilters();
     }
 
     /// <summary>After an edit: the pages, the read-only state and the counter.</summary>
