@@ -25,7 +25,12 @@ public enum GpoDiffLineKind
 }
 
 /// <summary>One line of <see cref="GpoFileDiffResult"/>.</summary>
-public sealed record GpoDiffLine(GpoDiffLineKind Kind, string Text);
+public sealed record GpoDiffLine(GpoDiffLineKind Kind, string Text)
+{
+    /// <summary>The setting of a <see cref="GpoFileDiffKind.Settings"/> line (the old one of a removed line, the new one
+    /// otherwise; a masked setting carries no value); null for text lines.</summary>
+    public GpoSetting? Setting { get; init; }
+}
 
 /// <summary>The comparison of the old and new content of one GPO file (in memory, for the preview's "Pokaż różnice").</summary>
 public sealed record GpoFileDiffResult(GpoFileDiffKind Kind, IReadOnlyList<GpoDiffLine> Lines)
@@ -60,11 +65,11 @@ public static class GpoFileDiff
         var file = GpoFileClassifier.Classify(relativePath);
         if (file.IsContent && file.Role != GpoFileRole.ScriptFile && file.Role != GpoFileRole.GptIni)
         {
-            var before = Settings(file, oldContent);
-            var after = Settings(file, newContent);
+            var before = ReadSettings(file, oldContent);
+            var after = ReadSettings(file, newContent);
             if (before is not null && after is not null)
             {
-                return Build(GpoFileDiffKind.Settings, before, after);
+                return Build(GpoFileDiffKind.Settings, [.. before.Select(s => new Item(Line(s), s))], [.. after.Select(s => new Item(Line(s), s))]);
             }
         }
 
@@ -82,7 +87,7 @@ public static class GpoFileDiff
             var after = Text(newContent);
             if (before is not null && after is not null)
             {
-                return Build(GpoFileDiffKind.Text, before, after);
+                return Build(GpoFileDiffKind.Text, [.. before.Select(l => new Item(l, null))], [.. after.Select(l => new Item(l, null))]);
             }
         }
 
@@ -90,7 +95,10 @@ public static class GpoFileDiff
     }
 
     /// <summary>The settings of a file as lines <c>key = value</c> (masked values as ***), null when it cannot be parsed.</summary>
-    public static IReadOnlyList<string>? Settings(GpoFile file, byte[]? content)
+    public static IReadOnlyList<string>? Settings(GpoFile file, byte[]? content) => ReadSettings(file, content)?.Select(Line).ToList();
+
+    /// <summary>The settings of a file (missing file: none) sorted by key, null when it cannot be parsed.</summary>
+    public static IReadOnlyList<GpoSetting>? ReadSettings(GpoFile file, byte[]? content)
     {
         ArgumentNullException.ThrowIfNull(file);
         if (content is null)
@@ -108,7 +116,7 @@ public static class GpoFileDiff
             return null;
         }
 
-        return [.. sink.Settings.OrderBy(s => s.Key, StringComparer.OrdinalIgnoreCase).Select(Line)];
+        return [.. sink.Settings.OrderBy(s => s.Key, StringComparer.OrdinalIgnoreCase)];
     }
 
     /// <summary>One setting as a line; a masked setting never shows its value.</summary>
@@ -148,7 +156,10 @@ public static class GpoFileDiff
         }
     }
 
-    private static GpoFileDiffResult Build(GpoFileDiffKind kind, IReadOnlyList<string> before, IReadOnlyList<string> after)
+    /// <summary>A line and the setting it shows (null for text lines).</summary>
+    private readonly record struct Item(string Text, GpoSetting? Setting);
+
+    private static GpoFileDiffResult Build(GpoFileDiffKind kind, IReadOnlyList<Item> before, IReadOnlyList<Item> after)
     {
         var truncated = before.Count > MaxLines || after.Count > MaxLines;
         var a = before.Take(MaxLines).ToArray();
@@ -156,17 +167,18 @@ public static class GpoFileDiff
         return new GpoFileDiffResult(kind, Lcs(a, b)) { Truncated = truncated };
     }
 
-    /// <summary>A line diff by the longest common subsequence (common prefix and suffix trimmed first).</summary>
-    private static List<GpoDiffLine> Lcs(string[] a, string[] b)
+    /// <summary>A line diff by the longest common subsequence (common prefix and suffix trimmed first); unchanged lines carry
+    /// the new side's setting.</summary>
+    private static List<GpoDiffLine> Lcs(Item[] a, Item[] b)
     {
         var prefix = 0;
-        while (prefix < a.Length && prefix < b.Length && a[prefix] == b[prefix])
+        while (prefix < a.Length && prefix < b.Length && a[prefix].Text == b[prefix].Text)
         {
             prefix++;
         }
 
         var suffix = 0;
-        while (suffix < a.Length - prefix && suffix < b.Length - prefix && a[^(suffix + 1)] == b[^(suffix + 1)])
+        while (suffix < a.Length - prefix && suffix < b.Length - prefix && a[^(suffix + 1)].Text == b[^(suffix + 1)].Text)
         {
             suffix++;
         }
@@ -178,34 +190,36 @@ public static class GpoFileDiff
         {
             for (var j = y.Length - 1; j >= 0; j--)
             {
-                table[i, j] = x[i] == y[j] ? table[i + 1, j + 1] + 1 : Math.Max(table[i + 1, j], table[i, j + 1]);
+                table[i, j] = x[i].Text == y[j].Text ? table[i + 1, j + 1] + 1 : Math.Max(table[i + 1, j], table[i, j + 1]);
             }
         }
 
         var lines = new List<GpoDiffLine>(a.Length + b.Length);
-        lines.AddRange(a[..prefix].Select(l => new GpoDiffLine(GpoDiffLineKind.Unchanged, l)));
+        lines.AddRange(b[..prefix].Select(l => DiffLine(GpoDiffLineKind.Unchanged, l)));
         int p = 0, q = 0;
         while (p < x.Length && q < y.Length)
         {
-            if (x[p] == y[q])
+            if (x[p].Text == y[q].Text)
             {
-                lines.Add(new GpoDiffLine(GpoDiffLineKind.Unchanged, x[p]));
+                lines.Add(DiffLine(GpoDiffLineKind.Unchanged, y[q]));
                 p++;
                 q++;
             }
             else if (table[p + 1, q] >= table[p, q + 1])
             {
-                lines.Add(new GpoDiffLine(GpoDiffLineKind.Removed, x[p++]));
+                lines.Add(DiffLine(GpoDiffLineKind.Removed, x[p++]));
             }
             else
             {
-                lines.Add(new GpoDiffLine(GpoDiffLineKind.Added, y[q++]));
+                lines.Add(DiffLine(GpoDiffLineKind.Added, y[q++]));
             }
         }
 
-        lines.AddRange(x[p..].Select(l => new GpoDiffLine(GpoDiffLineKind.Removed, l)));
-        lines.AddRange(y[q..].Select(l => new GpoDiffLine(GpoDiffLineKind.Added, l)));
-        lines.AddRange(a[(a.Length - suffix)..].Select(l => new GpoDiffLine(GpoDiffLineKind.Unchanged, l)));
+        lines.AddRange(x[p..].Select(l => DiffLine(GpoDiffLineKind.Removed, l)));
+        lines.AddRange(y[q..].Select(l => DiffLine(GpoDiffLineKind.Added, l)));
+        lines.AddRange(b[(b.Length - suffix)..].Select(l => DiffLine(GpoDiffLineKind.Unchanged, l)));
         return lines;
     }
+
+    private static GpoDiffLine DiffLine(GpoDiffLineKind kind, Item item) => new(kind, item.Text) { Setting = item.Setting };
 }

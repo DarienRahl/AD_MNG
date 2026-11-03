@@ -40,7 +40,15 @@ public enum GpoComparisonState
 /// <param name="ValueB">Value in GPO B (null: absent).</param>
 /// <param name="State">Same, different, only in A, only in B.</param>
 /// <param name="Masked">A secret setting: only its presence is compared and shown, never a value.</param>
-public sealed record GpoComparisonRow(GpoComparisonSection Section, string Key, string? ValueA, string? ValueB, GpoComparisonState State, bool Masked = false);
+public sealed record GpoComparisonRow(GpoComparisonSection Section, string Key, string? ValueA, string? ValueB, GpoComparisonState State, bool Masked = false)
+{
+    /// <summary>The setting of GPO A a <see cref="GpoComparisonSection.Settings"/> row came from (null: absent or another section);
+    /// a masked setting carries no value.</summary>
+    public GpoSetting? A { get; init; }
+
+    /// <summary>The setting of GPO B a <see cref="GpoComparisonSection.Settings"/> row came from (null: absent or another section).</summary>
+    public GpoSetting? B { get; init; }
+}
 
 /// <summary>What one side of a comparison holds (read on the session's DC, in memory).</summary>
 /// <param name="Gpo">The container (with the GPT.INI version when read).</param>
@@ -93,7 +101,7 @@ public static class GroupPolicyComparer
                 var sa = settingsA.GetValueOrDefault(key);
                 var sb = settingsB.GetValueOrDefault(key);
                 var masked = sa?.Kind == GpoSettingKind.Masked || sb?.Kind == GpoSettingKind.Masked;
-                rows.Add(Row(GpoComparisonSection.Settings, key, SettingValue(sa), SettingValue(sb)) with { Masked = masked });
+                rows.Add(Row(GpoComparisonSection.Settings, key, SettingValue(sa), SettingValue(sb)) with { Masked = masked, A = sa, B = sb });
             }
 
             rows.AddRange(Join(GpoComparisonSection.Files, Files(contentA), Files(contentB)));

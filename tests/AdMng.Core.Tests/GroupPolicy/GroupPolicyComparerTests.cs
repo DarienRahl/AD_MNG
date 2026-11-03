@@ -1,4 +1,5 @@
 using AdMng.Core.GroupPolicy.Comparison;
+using AdMng.Core.GroupPolicy.Content;
 using AdMng.Core.GroupPolicy.Management;
 
 namespace AdMng.Core.Tests.GroupPolicy;
@@ -29,6 +30,22 @@ public class GroupPolicyComparerTests : GroupPolicyTestBed
     }
 
     [Fact]
+    public async Task Compare_SettingRows_CarryTheSettingsTheyCameFrom()
+    {
+        var rows = GroupPolicyComparer.Compare(await SideAsync(Sample.WorkstationPasswords), await SideAsync(Sample.ServerSecurity));
+
+        var length = Assert.Single(rows, r => r.Section == GpoComparisonSection.Settings && r.Key.EndsWith("MinimumPasswordLength", StringComparison.Ordinal));
+        Assert.Equal(("12", (GpoSetting?)null), (length.A!.Value, length.B));
+        Assert.All(rows.Where(r => r.Section == GpoComparisonSection.Settings), r =>
+        {
+            Assert.Equal(r.ValueA is not null, r.A is not null);
+            Assert.Equal(r.ValueB is not null, r.B is not null);
+            Assert.Equal(r.Key, (r.A ?? r.B)!.Key, ignoreCase: true);
+        });
+        Assert.All(rows.Where(r => r.Section != GpoComparisonSection.Settings), r => Assert.True(r.A is null && r.B is null));
+    }
+
+    [Fact]
     public async Task Compare_OfAGpoWithItself_IsAllSame()
     {
         var side = await SideAsync(Sample.WorkstationPasswords);
@@ -47,6 +64,7 @@ public class GroupPolicyComparerTests : GroupPolicyTestBed
         var secret = Assert.Single(rows, r => r.Key.EndsWith("cpassword", StringComparison.OrdinalIgnoreCase));
         Assert.True(secret.Masked);
         Assert.Equal(GroupPolicyComparer.MaskedValue, secret.ValueB);
+        Assert.Equal((GpoSettingKind.Masked, string.Empty), (secret.B!.Kind, secret.B.Value));
         Assert.DoesNotContain(rows, r => (r.ValueB ?? string.Empty).Contains("j1Uyj3", StringComparison.Ordinal) && r.Section == GpoComparisonSection.Settings);
     }
 }

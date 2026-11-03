@@ -19,6 +19,24 @@ public enum SecurityValueKind
     MultiText,
 }
 
+/// <summary>The unit Windows shows next to a numeric setting ("42 dni", "5 nieudanych prób logowania").</summary>
+public enum SecurityValueUnit
+{
+    /// <summary>No unit (a count, a flag, a choice or text).</summary>
+    None,
+    Days,
+    Minutes,
+    Hours,
+    Seconds,
+
+    /// <summary>Invalid logon attempts.</summary>
+    Attempts,
+    Characters,
+
+    /// <summary>Remembered passwords.</summary>
+    Passwords,
+}
+
 /// <summary>Where a setting lives in <c>GptTmpl.inf</c>.</summary>
 public enum SecurityOptionLocation
 {
@@ -66,6 +84,10 @@ public sealed record SecurityOptionDefinition(
     long Maximum = uint.MaxValue,
     IReadOnlyList<long>? Choices = null)
 {
+    /// <summary>The unit of a <see cref="SecurityValueKind.Number"/> setting as Windows shows it (days, minutes, …);
+    /// <see cref="SecurityValueUnit.None"/> for everything else.</summary>
+    public SecurityValueUnit Unit { get; init; }
+
     /// <summary>The template section of the setting.</summary>
     public string Section => Location switch
     {
@@ -155,21 +177,21 @@ public static class SecuritySettingsCatalog
     /// <summary>Account policies, account options and security options.</summary>
     public static IReadOnlyList<SecurityOptionDefinition> Options { get; } =
     [
-        Access("PasswordHistorySize", SecurityOptionGroup.PasswordPolicy, SecurityValueKind.Number, 0, 24),
-        Access("MaximumPasswordAge", SecurityOptionGroup.PasswordPolicy, SecurityValueKind.Number, -1, 999),
-        Access("MinimumPasswordAge", SecurityOptionGroup.PasswordPolicy, SecurityValueKind.Number, 0, 998),
-        Access("MinimumPasswordLength", SecurityOptionGroup.PasswordPolicy, SecurityValueKind.Number, 0, 128),
+        Access("PasswordHistorySize", SecurityOptionGroup.PasswordPolicy, SecurityValueKind.Number, 0, 24, SecurityValueUnit.Passwords),
+        Access("MaximumPasswordAge", SecurityOptionGroup.PasswordPolicy, SecurityValueKind.Number, -1, 999, SecurityValueUnit.Days),
+        Access("MinimumPasswordAge", SecurityOptionGroup.PasswordPolicy, SecurityValueKind.Number, 0, 998, SecurityValueUnit.Days),
+        Access("MinimumPasswordLength", SecurityOptionGroup.PasswordPolicy, SecurityValueKind.Number, 0, 128, SecurityValueUnit.Characters),
         Access("PasswordComplexity", SecurityOptionGroup.PasswordPolicy, SecurityValueKind.Boolean),
         Access("ClearTextPassword", SecurityOptionGroup.PasswordPolicy, SecurityValueKind.Boolean),
         Registry("RelaxMinimumPasswordLengthLimits", SecurityOptionGroup.PasswordPolicy, @"MACHINE\System\CurrentControlSet\Control\SAM\RelaxMinimumPasswordLengthLimits",
             SecurityValueKind.Boolean),
-        Access("LockoutBadCount", SecurityOptionGroup.AccountLockout, SecurityValueKind.Number, 0, 999),
-        Access("LockoutDuration", SecurityOptionGroup.AccountLockout, SecurityValueKind.Number, -1, 99999),
-        Access("ResetLockoutCount", SecurityOptionGroup.AccountLockout, SecurityValueKind.Number, 1, 99999),
-        new("MaxTicketAge", SecurityOptionGroup.Kerberos, SecurityOptionLocation.KerberosPolicy, "MaxTicketAge", SecurityValueKind.Number, Minimum: 0, Maximum: 99999),
-        new("MaxRenewAge", SecurityOptionGroup.Kerberos, SecurityOptionLocation.KerberosPolicy, "MaxRenewAge", SecurityValueKind.Number, Minimum: 0, Maximum: 99999),
-        new("MaxServiceAge", SecurityOptionGroup.Kerberos, SecurityOptionLocation.KerberosPolicy, "MaxServiceAge", SecurityValueKind.Number, Minimum: 10, Maximum: 99999),
-        new("MaxClockSkew", SecurityOptionGroup.Kerberos, SecurityOptionLocation.KerberosPolicy, "MaxClockSkew", SecurityValueKind.Number, Minimum: 0, Maximum: 99999),
+        Access("LockoutBadCount", SecurityOptionGroup.AccountLockout, SecurityValueKind.Number, 0, 999, SecurityValueUnit.Attempts),
+        Access("LockoutDuration", SecurityOptionGroup.AccountLockout, SecurityValueKind.Number, -1, 99999, SecurityValueUnit.Minutes),
+        Access("ResetLockoutCount", SecurityOptionGroup.AccountLockout, SecurityValueKind.Number, 1, 99999, SecurityValueUnit.Minutes),
+        new("MaxTicketAge", SecurityOptionGroup.Kerberos, SecurityOptionLocation.KerberosPolicy, "MaxTicketAge", SecurityValueKind.Number, Minimum: 0, Maximum: 99999) { Unit = SecurityValueUnit.Hours },
+        new("MaxRenewAge", SecurityOptionGroup.Kerberos, SecurityOptionLocation.KerberosPolicy, "MaxRenewAge", SecurityValueKind.Number, Minimum: 0, Maximum: 99999) { Unit = SecurityValueUnit.Days },
+        new("MaxServiceAge", SecurityOptionGroup.Kerberos, SecurityOptionLocation.KerberosPolicy, "MaxServiceAge", SecurityValueKind.Number, Minimum: 10, Maximum: 99999) { Unit = SecurityValueUnit.Minutes },
+        new("MaxClockSkew", SecurityOptionGroup.Kerberos, SecurityOptionLocation.KerberosPolicy, "MaxClockSkew", SecurityValueKind.Number, Minimum: 0, Maximum: 99999) { Unit = SecurityValueUnit.Minutes },
         new("TicketValidateClient", SecurityOptionGroup.Kerberos, SecurityOptionLocation.KerberosPolicy, "TicketValidateClient", SecurityValueKind.Boolean),
 
         Access("EnableAdminAccount", SecurityOptionGroup.Accounts, SecurityValueKind.Boolean),
@@ -206,11 +228,11 @@ public static class SecuritySettingsCatalog
         Registry("SignSecureChannel", SecurityOptionGroup.DomainMember, Netlogon + "SignSecureChannel", SecurityValueKind.Boolean),
         Registry("RequireStrongKey", SecurityOptionGroup.DomainMember, Netlogon + "RequireStrongKey", SecurityValueKind.Boolean),
         Registry("DisablePasswordChange", SecurityOptionGroup.DomainMember, Netlogon + "DisablePasswordChange", SecurityValueKind.Boolean),
-        Registry("MaximumPasswordAgeMachine", SecurityOptionGroup.DomainMember, Netlogon + "MaximumPasswordAge", SecurityValueKind.Number, maximum: 999),
+        Registry("MaximumPasswordAgeMachine", SecurityOptionGroup.DomainMember, Netlogon + "MaximumPasswordAge", SecurityValueKind.Number, maximum: 999, unit: SecurityValueUnit.Days),
 
         Registry("DisableCAD", SecurityOptionGroup.InteractiveLogon, PoliciesSystem + "DisableCAD", SecurityValueKind.Boolean),
         Registry("DontDisplayLastUserName", SecurityOptionGroup.InteractiveLogon, PoliciesSystem + "DontDisplayLastUserName", SecurityValueKind.Boolean),
-        Registry("InactivityTimeoutSecs", SecurityOptionGroup.InteractiveLogon, PoliciesSystem + "InactivityTimeoutSecs", SecurityValueKind.Number, maximum: 599940),
+        Registry("InactivityTimeoutSecs", SecurityOptionGroup.InteractiveLogon, PoliciesSystem + "InactivityTimeoutSecs", SecurityValueKind.Number, maximum: 599940, unit: SecurityValueUnit.Seconds),
         Registry("LegalNoticeCaption", SecurityOptionGroup.InteractiveLogon, PoliciesSystem + "LegalNoticeCaption", SecurityValueKind.Text, registryType: 1),
         Registry("LegalNoticeText", SecurityOptionGroup.InteractiveLogon, PoliciesSystem + "LegalNoticeText", SecurityValueKind.MultiText, registryType: 7),
         Registry("CachedLogonsCount", SecurityOptionGroup.InteractiveLogon, @"MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\CachedLogonsCount", SecurityValueKind.Text, registryType: 1),
@@ -334,12 +356,25 @@ public static class SecuritySettingsCatalog
     /// <summary>The subcategory of a GUID, null when not listed.</summary>
     public static AuditSubcategoryDefinition? FindSubcategory(Guid guid) => AuditSubcategories.FirstOrDefault(s => s.Guid == guid);
 
-    private static SecurityOptionDefinition Access(string key, SecurityOptionGroup group, SecurityValueKind kind, long minimum = 0, long maximum = 1) =>
-        new(key, group, SecurityOptionLocation.SystemAccess, key, kind, Minimum: minimum, Maximum: kind == SecurityValueKind.Boolean ? 1 : maximum);
+    /// <summary>
+    /// The subcategory of an audit.csv <c>Subcategory</c> column (<c>Audit Logon</c>, <see cref="AuditSubcategoryDefinition.CsvName"/>)
+    /// or of its English name (<c>Logon</c>), case-insensitive; null when not listed.
+    /// </summary>
+    public static AuditSubcategoryDefinition? FindSubcategory(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        var text = name.Trim();
+        return AuditSubcategories.FirstOrDefault(s => s.CsvName.Equals(text, StringComparison.OrdinalIgnoreCase))
+            ?? AuditSubcategories.FirstOrDefault(s => s.Name.Equals(text, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static SecurityOptionDefinition Access(string key, SecurityOptionGroup group, SecurityValueKind kind, long minimum = 0, long maximum = 1,
+        SecurityValueUnit unit = SecurityValueUnit.None) =>
+        new(key, group, SecurityOptionLocation.SystemAccess, key, kind, Minimum: minimum, Maximum: kind == SecurityValueKind.Boolean ? 1 : maximum) { Unit = unit };
 
     private static SecurityOptionDefinition Registry(string id, SecurityOptionGroup group, string path, SecurityValueKind kind,
-        IReadOnlyList<long>? choices = null, int registryType = 4, long maximum = uint.MaxValue) =>
-        new(id, group, SecurityOptionLocation.RegistryValue, path, kind, registryType, 0, kind == SecurityValueKind.Boolean ? 1 : maximum, choices);
+        IReadOnlyList<long>? choices = null, int registryType = 4, long maximum = uint.MaxValue, SecurityValueUnit unit = SecurityValueUnit.None) =>
+        new(id, group, SecurityOptionLocation.RegistryValue, path, kind, registryType, 0, kind == SecurityValueKind.Boolean ? 1 : maximum, choices) { Unit = unit };
 
     private static AuditSubcategoryDefinition Sub(string id, string category, int low, string name) =>
         new(id, category, new Guid(0x0CCE9200u + (uint)low, 0x69AE, 0x11D9, 0xBE, 0xD3, 0x50, 0x50, 0x54, 0x50, 0x30, 0x30), name);

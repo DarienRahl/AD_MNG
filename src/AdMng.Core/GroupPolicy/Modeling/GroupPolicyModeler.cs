@@ -18,7 +18,8 @@ namespace AdMng.Core.GroupPolicy.Modeling;
 /// true or false. Precedence 1 = applied last.</item>
 /// <item>Loopback (user part, with a computer): the winning <c>UserPolicyMode</c> of the computer's GPOs, or the
 /// operator's choice. Replace takes the computer's chain; merge appends it to the user's.</item>
-/// <item>Administrative template policies: each applied GPO's Registry.pol of the part read by <see cref="PolicyEngine"/>;
+/// <item>Administrative template policies: each applied GPO's Registry.pol of the part read by <see cref="PolicyEngine"/>
+/// (<see cref="AdministrativeTemplatePolicies.Configured"/>);
 /// the highest-precedence GPO that configures a policy wins (GPMC's reporting rule). Values no template describes and
 /// every other normalized setting: per key the highest precedence wins; scripts are cumulative; on a DC the account
 /// policy comes only from GPOs linked to the domain head.</item>
@@ -191,11 +192,7 @@ public static class GroupPolicyModeler
 
     private sealed class Context(GroupPolicyModelInput input, IReadOnlyDictionary<Guid, ModelingGpoContent> contents)
     {
-        private PolicyIndex? _policies;
-
         public GroupPolicyInheritance Inheritance { get; } = new(input.DomainDn, input.Containers);
-
-        private PolicyIndex Policies => _policies ??= new PolicyIndex(input.Definitions);
 
         public ModeledPart Part(ModelingPart part, PartLinks links, ModelingTarget target, IReadOnlySet<string>? computerToken, List<ModelingWarning> warnings)
         {
@@ -336,19 +333,15 @@ public static class GroupPolicyModeler
 
                 // Administrative template policies of this GPO's Registry.pol, and the values they cover: a value only a
                 // policy of the other class or an unconfigured one describes stays an extra registry value (as in GPMC).
-                var covered = new RegistryCoverage();
+                var covered = ConfiguredPolicies.None;
                 if (content.Registry(part) is { } registry)
                 {
                     if (hasDefinitions)
                     {
-                        foreach (var definition in Policies.Candidates(registry, policyClass))
+                        covered = AdministrativeTemplatePolicies.Configured(registry, input.Definitions, policyClass);
+                        foreach (var policy in covered.Policies)
                         {
-                            var setting = PolicyEngine.Read(definition.Policy, registry.View, Policies.Ownership.OwnedNames);
-                            if (setting.State != PolicyState.NotConfigured)
-                            {
-                                Add(policySources, definition.Id, new ModeledPolicySource(source, setting));
-                                covered.Add(definition.Policy);
-                            }
+                            Add(policySources, policy.Definition.Id, new ModeledPolicySource(source, policy.Setting));
                         }
                     }
                     else if (registry.Entries.Count > 0)
@@ -424,61 +417,6 @@ public static class GroupPolicyModeler
         }
     }
 
-    /// <summary>The registry values the configured policies of one GPO's <c>Registry.pol</c> own (their values and list keys).</summary>
-    private sealed class RegistryCoverage
-    {
-        private readonly Dictionary<string, HashSet<string>> _names = new(StringComparer.OrdinalIgnoreCase);
-        private readonly HashSet<string> _listKeys = new(StringComparer.OrdinalIgnoreCase);
-
-        public void Add(AdmxPolicy policy)
-        {
-            foreach (var (key, names) in PolicyEngine.OwnValueNames(policy))
-            {
-                var normalized = RegistryPolicyDocument.NormalizeKey(key);
-                if (!_names.TryGetValue(normalized, out var existing))
-                {
-                    existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    _names[normalized] = existing;
-                }
-
-                existing.UnionWith(names);
-            }
-
-            _listKeys.UnionWith(PolicyEngine.ListKeys(policy).Select(RegistryPolicyDocument.NormalizeKey));
-        }
-
-        /// <summary>
-        /// A Registry.pol setting key (<c>Computer/Registry/HKLM\key!value</c>) whose value a configured policy owns. The key
-        /// path ends at the first <c>!</c> (template key names have none; a value name may).
-        /// </summary>
-        public bool Covers(string settingKey)
-        {
-            if (_names.Count == 0 && _listKeys.Count == 0)
-            {
-                return false;
-            }
-
-            var slash = settingKey.IndexOf("/Registry/", StringComparison.OrdinalIgnoreCase);
-            var path = slash < 0 ? null : settingKey[(slash + "/Registry/".Length)..];
-            var bang = path?.IndexOf('!', StringComparison.Ordinal) ?? -1;
-            if (path is null || bang < 0)
-            {
-                return false; // a deleted key: not a value of a template
-            }
-
-            var name = path[(bang + 1)..];
-            var hiveAndKey = path[..bang];
-            var firstSlash = hiveAndKey.IndexOf('\\', StringComparison.Ordinal);
-            var key = RegistryPolicyDocument.NormalizeKey(firstSlash < 0 ? string.Empty : hiveAndKey[(firstSlash + 1)..]);
-            if (_listKeys.Contains(key))
-            {
-                return true;
-            }
-
-            return name is not ("*" or "**delvals.") && _names.TryGetValue(key, out var names) && names.Contains(name == "(Default)" ? string.Empty : name);
-        }
-    }
-
     /// <summary>The part of a preference key up to its item (<c>Computer/Preferences/Groups/{uid}</c>); null for other keys.</summary>
     private static string? PreferenceItem(string key)
     {
@@ -500,55 +438,5 @@ public static class GroupPolicyModeler
         const string Kerberos = "Computer/Security/Kerberos Policy/";
         return key.StartsWith(Kerberos, StringComparison.OrdinalIgnoreCase)
             || (key.StartsWith(SystemAccess, StringComparison.OrdinalIgnoreCase) && AccountPolicyNames.Contains(key[SystemAccess.Length..]));
-    }
-
-    /// <summary>The policies of a definition set by the registry keys they own (built once per model).</summary>
-    private sealed class PolicyIndex
-    {
-        private readonly Dictionary<string, List<PolicyDefinition>> _byKey = new(StringComparer.OrdinalIgnoreCase);
-
-        public PolicyIndex(PolicyDefinitionSet set)
-        {
-            Ownership = PolicyOwnershipIndex.Build(set);
-            foreach (var definition in set.Policies)
-            {
-                var keys = PolicyEngine.OwnValueNames(definition.Policy).Keys.Concat(PolicyEngine.ListKeys(definition.Policy))
-                    .Select(RegistryPolicyDocument.NormalizeKey)
-                    .Distinct(StringComparer.OrdinalIgnoreCase);
-                foreach (var key in keys)
-                {
-                    if (!_byKey.TryGetValue(key, out var list))
-                    {
-                        list = [];
-                        _byKey[key] = list;
-                    }
-
-                    list.Add(definition);
-                }
-            }
-        }
-
-        public PolicyOwnershipIndex Ownership { get; }
-
-        /// <summary>The policies of <paramref name="policyClass"/> that own a key of <paramref name="registry"/> (each once).</summary>
-        public IEnumerable<PolicyDefinition> Candidates(RegistryPolicyDocument registry, PolicyClass policyClass)
-        {
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var key in registry.Entries.Select(e => RegistryPolicyDocument.NormalizeKey(e.Key)).Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                if (!_byKey.TryGetValue(key, out var definitions))
-                {
-                    continue;
-                }
-
-                foreach (var definition in definitions)
-                {
-                    if (definition.Policy.AppliesTo(policyClass) && seen.Add(definition.Id))
-                    {
-                        yield return definition;
-                    }
-                }
-            }
-        }
     }
 }

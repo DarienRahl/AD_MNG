@@ -1,5 +1,6 @@
 using System.Text;
 using AdMng.Core.GroupPolicy;
+using AdMng.Core.GroupPolicy.Content;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Testing;
 
@@ -19,6 +20,39 @@ public class GpoFileDiffTests
         Assert.Contains(diff.Lines, l => l.Kind == GpoDiffLineKind.Removed && l.Text.EndsWith("= 7", StringComparison.Ordinal));
         Assert.Contains(diff.Lines, l => l.Kind == GpoDiffLineKind.Added && l.Text.EndsWith("= 12", StringComparison.Ordinal));
         Assert.Equal(2, diff.Added);
+    }
+
+    [Fact]
+    public void SettingsLines_CarryTheirSettings_TextLinesNone()
+    {
+        var before = FakeSysvolFileReader.Utf16("[Unicode]\r\nUnicode=yes\r\n[System Access]\r\nMinimumPasswordLength = 7\r\nPasswordHistorySize = 24\r\n");
+        var after = FakeSysvolFileReader.Utf16("[Unicode]\r\nUnicode=yes\r\n[System Access]\r\nMinimumPasswordLength = 12\r\nPasswordHistorySize = 24\r\n[Privilege Rights]\r\nSeDebugPrivilege = *S-1-5-32-544,*S-1-5-32-551\r\n");
+
+        var diff = GpoFileDiff.Compare(SecurityTemplate.RelativePath, before, after);
+
+        Assert.All(diff.Lines, l => Assert.Equal(GpoFileDiff.Line(l.Setting!), l.Text));
+        var removed = Assert.Single(diff.Lines, l => l.Kind == GpoDiffLineKind.Removed).Setting!;
+        Assert.Equal(("Computer/Security/System Access/MinimumPasswordLength", "7", SecurityTemplate.RelativePath), (removed.Key, removed.Value, removed.Source));
+        Assert.Contains(diff.Lines, l => l.Kind == GpoDiffLineKind.Added && l.Setting!.Value == "12");
+        var right = Assert.Single(diff.Lines, l => l.Setting!.Key.EndsWith("SeDebugPrivilege", StringComparison.Ordinal)).Setting!;
+        Assert.Equal(["S-1-5-32-544", "S-1-5-32-551"], right.Elements());
+        Assert.Equal("24", Assert.Single(diff.Lines, l => l.Kind == GpoDiffLineKind.Unchanged).Setting!.Value);
+
+        var text = GpoFileDiff.Compare("Machine/Scripts/Startup/start.cmd", Encoding.UTF8.GetBytes("@echo off\r\n"), Encoding.UTF8.GetBytes("@echo on\r\n"));
+        Assert.All(text.Lines, l => Assert.Null(l.Setting));
+    }
+
+    [Fact]
+    public void SettingsOfAFile_AreSortedByKey_AndNullWhenUnreadable()
+    {
+        var content = FakeSysvolFileReader.Utf16("[Unicode]\r\nUnicode=yes\r\n[System Access]\r\nPasswordHistorySize = 24\r\nMinimumPasswordLength = 12\r\n");
+        var file = GpoFileClassifier.Classify(SecurityTemplate.RelativePath);
+
+        Assert.Equal(["Computer/Security/System Access/MinimumPasswordLength", "Computer/Security/System Access/PasswordHistorySize"],
+            GpoFileDiff.ReadSettings(file, content)!.Select(s => s.Key));
+        Assert.Equal(GpoFileDiff.ReadSettings(file, content)!.Select(GpoFileDiff.Line), GpoFileDiff.Settings(file, content));
+        Assert.Empty(GpoFileDiff.ReadSettings(file, null)!);
+        Assert.Null(GpoFileDiff.ReadSettings(GpoFileClassifier.Classify("Machine/Preferences/Groups/Groups.xml"), Encoding.UTF8.GetBytes("<Groups><User")));
     }
 
     [Fact]
