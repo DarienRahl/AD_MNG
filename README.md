@@ -190,7 +190,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1, K2, K3, K5: 🟡;<br/>K4: ⬜)"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K5: 🟡)"]
     end
     A --> B
     B ~~~ C
@@ -219,7 +219,7 @@ flowchart TB
 | U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog, korespondencja seryjna przez klasycznego Outlooka (pliki z adresami, odbiorcy z AD, pola, podgląd, test, dziennik „już wysłane”) i zapytania do właścicieli skrzynek współdzielonych | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U1c – wiadomości sformatowane wklejone z Outlooka z obrazami osadzonymi, U1d – zwroty grzecznościowe z tytułem i płcią, U2 – przegląd stanu kont, U4 – uprawnienia kont: U4a z grup i ustawień kont z kreatorem filtrów, U4b z delegowań w ACL i U4c z uprawnień lokalnych z GPO: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U5 – Korespondencja (Outlook) i zapytania do właścicieli skrzynek: 🟡 zaimplementowane, czekają na pilotaż z klasycznym Outlookiem i Exchange; U3: ⬜) |
 | C | Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint (ścieżka równoległa) | Logowanie kontem administratora lub Czytelnika globalnego z automatycznym wykrywaniem ról (także kwalifikujących się w PIM) i dopasowaniem dostępnych funkcji; użytkownicy, grupy, licencje, MFA i logowania w Entra ID, skrzynki i uprawnienia w Exchange Online, Teams, SharePoint i OneDrive, powiązanie konta AD z kontem w Entra ID; Microsoft Graph i moduły PowerShell | ⬜ zaplanowane |
 | T | Współpraca zespołu (ścieżka równoległa) | Kilku administratorów na różnych komputerach pracuje razem przez usługę AdMng Watchdog: panel „Wspólne” z obiektami przypiętymi dla zespołu (z notatką, autorem, „Przekaż do…”) i notatki do obiektów widoczne dla wszystkich przy koncie, grupie czy komputerze, odświeżane na żywo | ⬜ zaplanowane |
-| K | Komputery i zasady grupy (GPO) (ścieżka równoległa) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer” | 🟡 (K1 – komputery, K2 – GPO w drzewie, K3 – edytor ADMX z aktualizacją magazynu centralnego i K5 – raport „co dostanie komputer”: zaimplementowane, czekają na pilotaż na Windows Server AD; K4: ⬜) |
+| K | Komputery i zasady grupy (GPO) (ścieżka równoległa) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer” | 🟡 (K1 – komputery, K2 – GPO w drzewie, K3 – edytor ADMX z aktualizacją magazynu centralnego K4 – ustawienia zabezpieczeń i K5 – raport „co dostanie komputer”: zaimplementowane, czekają na pilotaż na Windows Server AD) |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -1330,13 +1330,13 @@ Watchdog (połączenie z usługą), wielu połączeń naraz i panelu szczegół�
 
 </details>
 
-### Ścieżka K – Komputery i zasady grupy (GPO) 🟡 (K1, K2, K3 i K5: 🟡)
+### Ścieżka K – Komputery i zasady grupy (GPO) 🟡 (K1–K5: 🟡)
 
 **Cel:** pełna praca z komputerami w AD i z zasadami grupy bez GPMC i edytora GPO: inwentarz i raporty komputerów,
 cykl życia ich kont, zdalne akcje, a dla GPO – tworzenie i łączenie z OU, edycja ustawień z **najnowszych szablonów
 ADMX**, ustawienia zabezpieczeń i raport „co dostanie komputer”. Każda zmiana – w AD i w SYSVOL – przez podgląd planu
 zmian, z możliwością cofnięcia. Ścieżka równoległa: K1 (komputery), K2 (GPO w drzewie), K3 (edytor ADMX z magazynem
-centralnym) i K5 (raport „co dostanie komputer”) mają pierwszą wersję, K4 jest zaprojektowany; zastępuje „polityki ADMX” z fazy 6. Zmiany GPO od razu widzi AdMng Watchdog (treść GPO „było → jest”).
+centralnym), K4 (ustawienia zabezpieczeń) i K5 (raport „co dostanie komputer”) mają pierwszą wersję; zastępuje „polityki ADMX” z fazy 6. Zmiany GPO od razu widzi AdMng Watchdog (treść GPO „było → jest”).
 
 <details>
 <summary><b>Szczegóły ścieżki K</b> – komputery, GPO w drzewie, edytor ADMX, zabezpieczenia, raport, etapy</summary>
@@ -1418,7 +1418,14 @@ centralnym) i K5 (raport „co dostanie komputer”) mają pierwszą wersję, K4
   języki, porównanie, kopia magazynu, zapis transakcją z cofnięciem). Sprawdzone na fałszywym katalogu i syntetycznych
   szablonach; okna WPF – CI na Windows; paczki producentów i zgodność `Registry.pol` z edytorem Microsoftu – pilotaż.
   Opis: [ZASADY-GRUPY.md, rozdziały 7 i 8](docs/ZASADY-GRUPY.md#7-szablony-administracyjne-admx).
-- **K4** – ustawienia zabezpieczeń.
+- 🟡 **K4** – ustawienia zabezpieczeń. Pierwsza wersja gotowa: karta *Ustawienia zabezpieczeń* GPO z grupami
+  lokalnymi (grupy z ograniczeniami i grupy lokalne preferencji obok siebie, z opisem pierwszeństwa), prawami
+  użytkownika, zasadami kont i opcjami zabezpieczeń, inspekcją (kategorie podstawowe i podkategorie zaawansowane) i
+  usługami; zapis zmienia tylko edytowane wiersze `GptTmpl.inf`, `audit.csv` i `Groups.xml` (reszta pliku, celowanie
+  na poziomie elementu i nieznane wpisy zostają), z nazwami rozszerzeń jak GPMC i wykrywaniem konfliktu. Sprawdzone na
+  fałszywym katalogu; okno WPF – CI na Windows; zgodność z GPMC i działanie na kliencie – pilotaż. Zapora,
+  uprawnienia plików i rejestru oraz pozostałe preferencje – później. Opis:
+  [ZASADY-GRUPY.md, rozdział 10](docs/ZASADY-GRUPY.md#10-ustawienia-zabezpieczeń-grupy-lokalne-prawa-zasady-kont-inspekcja-usługi).
 - 🟡 **K5** – raport „co dostanie komputer”. Pierwsza wersja gotowa: karta modelu dla komputera, użytkownika albo
   nowych kont w kontenerze (*Co dostanie komputer…*, *Co dostanie użytkownik…*, *Modeluj zasady…*, strona *Stan*
   komputera) z lokacją, założeniem o filtrach WMI i pętlą zwrotną; lista GPO z wynikiem (blokowanie, wymuszanie,
@@ -1556,9 +1563,9 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   strony, maski poziomów uprawnień GPMC, format zapytań filtrów WMI i działanie GPO utworzonego w AD Managerze na
   kliencie (`gpresult /h`) potwierdzi pilotaż. Zmiany GPO idą na kontroler okna – gdy nie jest nim emulator PDC, karty
   ostrzegają (przełączenie tylko ręczne). Uprawnienia operatora nie są sprawdzane z góry (brak prawa = błąd w wynikach
-  podglądu, pliki SYSVOL wracają do stanu sprzed zmiany). Ustawienia zabezpieczeń GPO są tylko do odczytu (edycja: K4);
-  brak tabel migracji, kopiowania między domenami, GPO wzorcowych, porównania z GPO innego okna i próby filtru WMI na
-  komputerze. Szczegóły: [ZASADY-GRUPY.md, rozdział 12](docs/ZASADY-GRUPY.md#12-ograniczenia-i-pilotaż).
+  podglądu, pliki SYSVOL wracają do stanu sprzed zmiany). Ustawienia zabezpieczeń edytuje karta K4 (bez zapory,
+  uprawnień plików i rejestru oraz pozostałych preferencji); brak tabel migracji, kopiowania między domenami, GPO wzorcowych, porównania z GPO innego okna i próby filtru WMI na
+  komputerze. Szczegóły: [ZASADY-GRUPY.md, rozdział 13](docs/ZASADY-GRUPY.md#13-ograniczenia-i-pilotaż).
 - **Szablony administracyjne (K3)** – sprawdzone na fałszywym katalogu i syntetycznych szablonach; pobieranie szablonów
   Edge, Chrome i Firefox – na odpowiedziach przygotowanych według formatów producentów (bez dostępu do ich serwerów w
   testach), rozpakowywanie MSI, EXE i CAB oraz sprawdzanie podpisu działa tylko w Windows. Zgodność `Registry.pol` z

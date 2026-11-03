@@ -13,11 +13,12 @@ Od etapu **K3** ustawienia **szablonów administracyjnych (ADMX)** edytuje się 
 zarządzania zasadami grupy* Microsoftu – a **magazyn centralny** szablonów domeny aktualizuje się z paczek producentów
 (Windows, Microsoft 365 Apps, Edge, Chrome, Firefox, własne ADMX) albo pobraniem najnowszych szablonów Edge, Chrome i
 Firefox prosto od producenta (rozdziały 7 i 8). Od etapu **K5** model *„co dostanie komputer”* pokazuje, które GPO i
-ustawienia dostanie komputer i użytkownik (rozdział 9). Ustawień zabezpieczeń (K4) jeszcze nie ma – karta *Ustawienia*
-pokazuje je tylko do odczytu.
+ustawienia dostanie komputer i użytkownik (rozdział 9). Od etapu **K4** **ustawienia zabezpieczeń** – grupy lokalne,
+prawa użytkownika, zasady kont i opcje zabezpieczeń, inspekcję i usługi – edytuje się na karcie *Ustawienia
+zabezpieczeń* (rozdział 10).
 
 Specyfikacja dla programistów (po angielsku): [dev/k-computers-and-gpo.md](dev/k-computers-and-gpo.md), rozdziały 3, 5
-i 6 oraz *K2 as built* (15), *K3 as built* (17) i K5 (18).
+i 6 oraz *K2 as built* (15), *K3 as built* (17), K5 (18) i K4 (19).
 
 ---
 
@@ -32,6 +33,7 @@ i 6 oraz *K2 as built* (15), *K3 as built* (17) i K5 (18).
 | Menu kontekstowe GPO w drzewie | *Otwórz*, *Stan GPO*, *Kopia zapasowa…*, *Kopiuj…*, *Zmień nazwę*, *Usuń…* (niedostępne dla dwóch domyślnych GPO), *Porównaj z…*, *Historia w Watchdogu* |
 | Lista obiektów | przycisk **Zasady grupy** na pasku (dla domeny i OU, także dla jednej zaznaczonej OU) i pozycja w menu kontekstowym |
 | Karta *Obiekty zasad grupy* i karta GPO | **Edytuj szablony administracyjne** (pasek, menu kontekstowe listy GPO, nagłówek karty GPO i zakładka *Ustawienia*) – edytor ustawień ADMX, rozdział 7 |
+| Karta *Obiekty zasad grupy* i karta GPO | **Edytuj ustawienia zabezpieczeń** (obok *Edytuj szablony administracyjne*) – grupy lokalne, prawa, zasady kont, inspekcja, usługi, rozdział 10 |
 | Karta *Obiekty zasad grupy* i edytor szablonów | **Zaktualizuj szablony…** – aktualizacja magazynu centralnego szablonów ADMX, rozdział 8 |
 | *Akcja*, lista, karta *Zasady grupy*, strona *Stan* komputera | **Co dostanie komputer…**, **Co dostanie użytkownik…**, **Modeluj zasady…** – modelowanie, rozdział 9 |
 | Paleta poleceń (Ctrl+K) | `gpo.objects`, `gpo.wmiFilters`, `gpo.containerPolicies`, `gpo.newLinked`, `gpo.linkExisting`, `gpo.blockInheritance`, `gpo.model`, `gpo.modelUser`, `view.groupPolicyNodes` |
@@ -58,7 +60,8 @@ administracyjne* (jedno zaznaczone GPO) i *Zaktualizuj szablony…*.
 - **Ustawienia** – ustawienia z plików GPO (szablon zabezpieczeń, `audit.csv`, `Registry.pol`, preferencje, skrypty,
   komentarz) w postaci „Komputer / Zabezpieczenia / …”, tylko do odczytu; hasła preferencji (`cpassword`) i wartości
   rejestru wyglądające na hasła są zamaskowane. Ustawienia `Registry.pol` zmienia się w edytorze szablonów
-  administracyjnych (przycisk *Edytuj szablony administracyjne*, rozdział 7).
+  administracyjnych (przycisk *Edytuj szablony administracyjne*, rozdział 7), szablon zabezpieczeń, `audit.csv` i
+  grupy lokalne preferencji – na karcie *Ustawienia zabezpieczeń* (rozdział 10).
 - **Delegowanie** – kto ma jaki poziom uprawnień GPMC: *Odczyt*, *Odczyt (z filtrowania zabezpieczeń)*, *Edycja
   ustawień*, *Edycja ustawień, usuwanie, modyfikowanie zabezpieczeń*, *Niestandardowe*; *Dodaj…*, *Zmień poziom*,
   *Usuń*. Wpisy odziedziczone są tylko pokazywane.
@@ -318,7 +321,50 @@ wynik *GPO innej domeny (nie modelowany)* – nigdy nie jest mylone z GPO tej do
 Domain Policy*), powolnego łącza i stanu przetwarzania na kliencie. Gdy SYSVOL jest niedostępny, listy GPO są pełne, a
 ustawień brak.
 
-## 10. Kontroler domeny, emulator PDC i SYSVOL
+## 10. Ustawienia zabezpieczeń (grupy lokalne, prawa, zasady kont, inspekcja, usługi)
+
+*Edytuj ustawienia zabezpieczeń* otwiera kartę **Ustawienia zabezpieczeń – <GPO>**: część *Konfiguracja komputera →
+Ustawienia systemu Windows → Ustawienia zabezpieczeń* oraz grupy lokalne z *Preferencji*, jak w edytorze Microsoftu.
+Karta czyta trzy pliki GPO: szablon zabezpieczeń `GptTmpl.inf`, zaawansowane zasady inspekcji `audit.csv` i grupy
+lokalne preferencji `Groups.xml`. Zmienia w nich tylko wiersze edytowanych ustawień – wszystko inne (uprawnienia
+plików i rejestru, dzienniki zdarzeń, zapory, użytkownicy lokalni z preferencji, celowanie na poziomie elementu,
+nieznane wpisy) zostaje w pliku bez zmian.
+
+- **Grupy lokalne.** Obok siebie *Grupy z ograniczeniami* (szablon zabezpieczeń: *Członkowie* – dokładnie ta lista,
+  *Członek grup* – grupa dopisywana do wskazanych grup) i grupy lokalne *Preferencji* (akcja *Utwórz*, *Zastąp*,
+  *Aktualizuj*, *Usuń*, *Usuń wszystkich użytkowników / wszystkie grupy członkowskie*, członkowie dodawani i usuwani).
+  Grupę wybiera się z listy wbudowanych grup lokalnych (zapisywana z SID-em) albo wpisuje nazwę. Element preferencji z
+  celowaniem na poziomie elementu jest oznaczony – celowanie zostaje przy zapisie. **Pierwszeństwo:** *Członkowie* z
+  grup z ograniczeniami zastępują członkostwo przy każdym odświeżeniu zasad (wygrywa GPO o najwyższym priorytecie),
+  preferencje zmieniają członkostwo w kolejności elementów, a kolejność obu rozszerzeń na kliencie nie jest
+  gwarantowana – tej samej grupy nie należy ustawiać w obu miejscach. Ten sam opis ma zakładka *Uprawnienia* (U4c).
+- **Prawa użytkownika.** Wszystkie prawa z *Przypisywania praw użytkownika* (nazwa i stała, np.
+  `SeRemoteInteractiveLogonRight`), *Zdefiniowane* i lista podmiotów; zdefiniowana pusta lista znaczy „nikt”. Prawa
+  z pliku spoza listy programu są pokazane po nich.
+- **Zasady kont i opcje zabezpieczeń.** Zasady haseł, blokady konta i Kerberos, opcje kont (włączenie i nazwa konta
+  Administrator i Gość) oraz najczęściej używane opcje zabezpieczeń (LAN Manager i NTLM, podpisywanie SMB i LDAP, bezpieczny
+  kanał, logowanie interaktywne, Kontrola konta użytkownika, inspekcja), każda *Nie zdefiniowano* albo z wartością
+  (liczba z zakresem, włączone/wyłączone, lista wyboru, tekst, tekst wielowierszowy). Inne wartości z pliku są
+  pokazane jako surowe wpisy (klucz i wartość) – można je usunąć albo zmienić surową wartość. Zasady haseł i blokady
+  kont domenowych działają tylko z GPO połączonego z domeną (szczegółowe zasady haseł to osobny mechanizm); w innych
+  GPO dotyczą kont lokalnych komputerów.
+- **Inspekcja.** Kategorie podstawowe (`[Event Audit]`) i podkategorie zaawansowane (`audit.csv`), każda *Nie
+  skonfigurowano*, *Bez inspekcji*, *Powodzenie*, *Niepowodzenie* albo *Powodzenie i niepowodzenie*. Gdy GPO ma
+  jedne i drugie, a opcja *Inspekcja: wymuś ustawienia podkategorii zasad inspekcji…* nie jest włączona, karta
+  ostrzega, że kategorie podstawowe mogą nadpisać podkategorie.
+- **Usługi.** Nazwa usługi i tryb uruchamiania (*Automatyczny*, *Ręczny*, *Wyłączony*); uprawnienia usługi (SDDL) są
+  pokazane i zostają bez zmian, nowa usługa ich nie ustawia.
+
+**Podmioty** (członkowie, posiadacze praw) wybiera się w oknie wyboru obiektów – zapisywany jest SID – albo wpisuje
+nazwę (`KONTOSO\Serwisanci`), którą każdy komputer rozwiązuje sam; karta to zaznacza. **Zapis** – *Zapisz zmiany…*
+tworzy jeden plan: nazwy rozszerzeń komputera w AD (*Zabezpieczenia*, *Konfiguracja zasad inspekcji*, *Użytkownicy i
+grupy lokalne* – tylko dla zapisywanych plików), zmienione pliki i wersja komputera. Grupa PowerShell `GroupPolicy` nie
+ma poleceń dla tych plików, więc skrypt w podglądzie tylko wskazuje GPO. Zmiana pliku przez kogoś innego od
+rozpoczęcia edycji jest konfliktem (plik zostaje nietknięty), *Odrzuć zmiany* wraca do zapisanego stanu, *Cofnij* w
+podglądzie – do stanu sprzed zapisu, a zamknięcie karty z niezapisanymi zmianami wymaga potwierdzenia – jak w
+edytorze szablonów (rozdział 7). Plik, którego nie da się odczytać, blokuje tylko swoje strony.
+
+## 11. Kontroler domeny, emulator PDC i SYSVOL
 
 - Okno czyta i zapisuje AD oraz SYSVOL **tylko na swoim kontrolerze domeny**. Gdy nie jest nim emulator PDC (z którego
   domyślnie korzysta GPMC), karty GPO pokazują: *Zmiany GPO wykonujesz na X, a emulatorem PDC jest Y* z przyciskiem
@@ -330,19 +376,20 @@ ustawień brak.
   wyrównanie wersji, naprawa uprawnień, zapis szablonów administracyjnych, aktualizacja magazynu centralnego);
   połączenia, stan GPO, zmiana nazwy, filtr WMI i blokowanie dziedziczenia zmieniają tylko AD i działają dalej.
 
-## 11. Co AD Manager zapisuje na dysku
+## 12. Co AD Manager zapisuje na dysku
 
 Nic z katalogu ani z SYSVOL (zasada 1): GPO, połączenia, ustawienia, szablony ADMX i różnice są tylko w pamięci, dopóki
 są widoczne. Zapamiętywane są wyłącznie: widoczność węzłów GPO w drzewie, ostatni folder kopii zapasowych, szablon
 komentarza kopii i wybór *Utwórz kopię zapasową przed usunięciem*. Pliki powstają tylko tam, gdzie operator je wskaże:
-kopie zapasowe GPO, kopia magazynu centralnego przed aktualizacją, eksport porównania i modelu (rozdział 9) do CSV. Paczki szablonów
+kopie zapasowe GPO, kopia magazynu centralnego przed aktualizacją, eksport porównania i modelu (rozdział 9) do CSV.
+Ustawienia zabezpieczeń (rozdział 10) są tylko w pamięci karty do zapisu w SYSVOL. Paczki szablonów
 producentów (pliki producentów, nie dane katalogu) są trzymane w pamięci; tylko instalatory MSI i EXE oraz archiwa CAB
 są kopiowane do folderu tymczasowego profilu (instalatory są tam też rozpakowywane, CAB – w pamięci), usuwanego zaraz po
 wczytaniu. Dziennik audytu zawiera
 przy zmianach SYSVOL ścieżki plików w folderze GPO lub magazynie centralnym, rozmiary i sumy SHA-256 – nie treść
 plików.
 
-## 12. Ograniczenia i pilotaż
+## 13. Ograniczenia i pilotaż
 
 - Sprawdzone testami na fałszywym katalogu i na laboratorium Samba 4.19 (zapis SYSVOL przez `smbclient`); zapis SYSVOL
   na Windows (`WindowsSysvolFileWriter`), okna WPF, zrzut ekranu 23 i test dymny sprawdza tylko CI na Windows.
@@ -363,7 +410,12 @@ plików.
 - Modelowanie (K5) sprawdzono testami na fałszywym katalogu i na laboratorium Samba (model komputera w OU z
   blokowaniem dziedziczenia zgodny z `samba-tool gpo list`); w pilotażu – porównanie z *Modelowaniem zasad grupy* GPMC i
   z `gpresult /h` na komputerze testowym.
-- Brak: edycji ustawień zabezpieczeń (K4) i preferencji, komentarzy do ustawień
+- Ustawienia zabezpieczeń (K4) sprawdzono testami na fałszywym katalogu (zapis wierszy szablonu, `audit.csv` i
+  `Groups.xml` przy zachowaniu reszty pliku, plan, konflikt); w pilotażu – że GPMC pokazuje zapisane ustawienia jak
+  swoje, `secedit /analyze` i `gpresult /h` na kliencie oraz że klient stosuje zaawansowaną inspekcję i grupy
+  preferencji z nazwami rozszerzeń zapisanymi przez AD Managera.
+- Brak: edycji reguł zapory, uprawnień plików i rejestru, dzienników zdarzeń, użytkowników lokalnych i pozostałych
+  preferencji, grup lokalnych w konfiguracji użytkownika, komentarzy do ustawień
   szablonów, filtrów edytora według platformy i słów kluczowych, starych szablonów ADM, tabel migracji i kopiowania GPO
   między domenami, GPO wzorcowych (Starter GPO), porównania GPO z innego okna połączenia, próby filtru WMI na komputerze
   (wymaga zapytań WQL w zdalnych akcjach K1), sprawdzania uprawnień operatora przed zmianą.

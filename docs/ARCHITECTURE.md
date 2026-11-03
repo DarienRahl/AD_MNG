@@ -218,6 +218,18 @@ karta `GroupPolicyModelingDocumentViewModel` (dane wejściowe, *Przelicz* poza w
 `GroupPolicyModelRows`, eksport CSV do pliku operatora); `AdMng.App/GroupPolicy/GroupPolicyModelingView.xaml`. Model
 jest tylko w pamięci, dopóki karta jest otwarta (zasada 1); nic nie jest zapisywane w katalogu.
 
+### Ustawienia zabezpieczeń (K4)
+
+`AdMng.Core/GroupPolicy/Security`: dokumenty do edycji `SecurityTemplateDocument` (`GptTmpl.inf`, UTF-16LE z BOM),
+`AuditPolicyDocument` (`audit.csv`, kodowanie i kolejność kolumn pliku) i `GppGroupsDocument` (`Groups.xml`
+preferencji, utwardzony XML) – każdy zmienia tylko wiersze lub elementy ustawianych ustawień, resztę pliku zachowuje
+bajt w bajt; `SecuritySettingsCatalog` (prawa użytkownika, zasady kont, opcje zabezpieczeń, kategorie i podkategorie
+inspekcji – same identyfikatory, nazwy w zasobach). Zapis planuje `GroupPolicyPlanner.PlanSecuritySettingsAsync`:
+`Modify` nazw rozszerzeń komputera (pary GPMC tylko dla zapisywanych plików), `WriteGpoFile` każdego zmienionego pliku
+z treścią sprzed edycji jako warunkiem (konflikt) i `SetGpoVersion` części komputera. Karta
+`SecuritySettingsEditorViewModel` (`AdMng.Presentation/GroupPolicy/SecuritySettings`) działa jak edytor szablonów K3
+(uzgadnianie przy odświeżeniu, konflikt, zapis przez podgląd planu); pliki są tylko w pamięci karty (zasada 1).
+
 ## Interfejs użytkownika
 
 - **Okno główne:** pasek menu i narzędzi (jak ADUC), pasek adresu (DN lub ścieżka `contoso.test/Firma/IT`),

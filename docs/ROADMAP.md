@@ -19,7 +19,7 @@ podjęcia z zespołem. Ten plik zostaje tylko po to, żeby dawne odnośniki dale
 | 🟡 (zaimplementowane, czekają na pilotaż z klasycznym Outlookiem i Exchange; instrukcja: [KORESPONDENCJA.md](KORESPONDENCJA.md)) | [U5 – Korespondencja (Outlook) i zapytania do właścicieli skrzynek](../README.md#u5--korespondencja-outlook-i-zapytania-do-właścicieli-skrzynek-) |
 | ⬜ | [Ścieżka C – Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint](../README.md#ścieżka-c--microsoft-365-entra-id-exchange-online-teams-i-sharepoint-) |
 | ⬜ | [Ścieżka T – Współpraca zespołu](../README.md#ścieżka-t--współpraca-zespołu-) |
-| 🟡 (K1, K2, K3, K5: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; K4: ⬜) | [Ścieżka K – Komputery i zasady grupy (GPO)](../README.md#ścieżka-k--komputery-i-zasady-grupy-gpo--k1-k2-k3-i-k5-) |
+| 🟡 (K1–K5: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD) | [Ścieżka K – Komputery i zasady grupy (GPO)](../README.md#ścieżka-k--komputery-i-zasady-grupy-gpo--k1k5-) |
 
 ## Znane ograniczenia
 
