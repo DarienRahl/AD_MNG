@@ -17829,4 +17829,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Remove the basic audit policy and keep only the advanced one, or enable the option that forces the subcategory settings explicitly in this GPO.</value>
   </data>
   <!-- K6 Group Policy diagnostics, review fixes: end -->
+  <!-- K6 readable GPO settings, review fixes (presenter): start -->
+  <data name="GpoSettings.LongValueHash" xml:space="preserve">
+    <value>(long value, hash {0}…)</value>
+  </data>
+  <!-- K6 readable GPO settings, review fixes (presenter): end -->
 </root>

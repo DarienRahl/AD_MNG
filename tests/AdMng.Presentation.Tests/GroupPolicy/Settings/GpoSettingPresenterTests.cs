@@ -5,6 +5,7 @@ using AdMng.Core.GroupPolicy.AdministrativeTemplates;
 using AdMng.Core.GroupPolicy.Content;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Presentation.GroupPolicy;
+using AdMng.Presentation.GroupPolicy.Modeling;
 using AdMng.Presentation.GroupPolicy.Settings;
 using AdMng.Presentation.Localization;
 using AdMng.Testing;
@@ -22,6 +23,7 @@ public sealed class GpoSettingPresenterTests
     private const string SecuritySettings = ComputerPolicies + " › Ustawienia systemu Windows › Ustawienia zabezpieczeń";
     private const string DomainSid = "S-1-5-21-1004336348-1177238915-682003330";
     private const string Serwisanci = DomainSid + "-1105";
+    private const string SecretsNamespace = "Contoso.Policies.Sekrety";
 
     private static readonly ILocalizer Polish = new ResxLocalizer(CultureInfo.GetCultureInfo("pl-PL"));
     private static readonly ILocalizer English = new ResxLocalizer(CultureInfo.GetCultureInfo("en-US"));
@@ -382,7 +384,7 @@ public sealed class GpoSettingPresenterTests
         Assert.Equal("(ustawione – ukryte)", masked.ValueText);
         Assert.True(masked.IsMasked);
         Assert.Equal("Element {1} – Hasło", masked.Name);
-        Assert.Equal("(długa wartość – zachowano tylko jej skrót)", hashed.ValueText);
+        Assert.Equal("(długa wartość, skrót abcd…)", hashed.ValueText);
         Assert.Equal("(ustawione – ukryte)", redacted.ValueText);
         Assert.DoesNotContain(redacted.Elements, e => e.Contains("REG_DWORD", StringComparison.Ordinal));
         Assert.EndsWith(@"\(nazwy wartości ukryte)", redacted.Name, StringComparison.Ordinal);
@@ -477,6 +479,140 @@ public sealed class GpoSettingPresenterTests
     }
 
     [Fact]
+    public void PolicyRows_NeverShowWhatTheParsersMask_SnmpCommunitiesAndPasswordOptions()
+    {
+        var set = SecretTemplates();
+        var communities = set.Find(SecretsNamespace + ":Spolecznosci")!;
+        var proxy = set.Find(SecretsNamespace + ":Proxy")!;
+        var document = new RegistryPolicyDocument();
+        PolicyEngine.Write(communities.Policy, PolicySetting.Enabled(new Dictionary<string, PolicyElementValue>
+        {
+            ["Lista"] = new ListElementValue([new ListElementItem(string.Empty, "public"), new ListElementItem(string.Empty, "tajna-społeczność")]),
+        }), document);
+        PolicyEngine.Write(proxy.Policy, PolicySetting.Enabled(new Dictionary<string, PolicyElementValue>
+        {
+            ["Serwer"] = new TextElementValue("proxy.contoso.test:8080"),
+            ["Haslo"] = new TextElementValue("Zażółć-gęślą-jaźń!"),
+        }), document);
+        var content = new GpoFolderContent([], new Dictionary<string, byte[]> { ["Machine/Registry.pol"] = document.ToBytes() });
+        var (computer, user) = GpoSettingPresenter.Policies(content, set);
+        var presenter = new GpoSettingPresenter(Polish, null, set) { ComputerPolicies = computer, UserPolicies = user };
+
+        var rows = presenter.DescribeRows(GroupPolicyReader.Settings(content));
+
+        // Nothing the parsers mask reaches a row: not its value, parts, tool tip or explanation (tab, "Kopiuj", report, comparison).
+        string[] secrets = ["public", "tajna-społeczność", "Zażółć-gęślą-jaźń!"];
+        Assert.All(rows, r => Assert.DoesNotContain(secrets, s => (r.Name + r.ValueText + r.Technical + r.Explanation + string.Join("|", r.Elements)).Contains(s, StringComparison.Ordinal)));
+        var snmp = Assert.Single(rows, r => r.Name == "Określ społeczności");
+        Assert.Equal("Włączone; Społeczności: (ustawione – ukryte)", snmp.ValueText);
+        Assert.Equal(["Społeczności: (ustawione – ukryte)"], snmp.Elements);
+        Assert.True(snmp.IsMasked);
+        Assert.StartsWith("To ustawienie zawiera sekret", snmp.Explanation, StringComparison.Ordinal);
+        // Only the option holding the password is masked; the state and the other options stay readable.
+        var server = Assert.Single(rows, r => r.Name == "Serwer proxy firmy");
+        Assert.Equal("Włączone; Serwer: proxy.contoso.test:8080, Hasło: (ustawione – ukryte)", server.ValueText);
+        Assert.True(server.IsMasked);
+
+        // The model (K5) words a policy the same way.
+        var model = new GroupPolicyModelText(Polish, "contoso.test");
+        Assert.Equal(snmp.ValueText, model.PolicyValue(communities, computer.Policies.Single(p => p.Definition.Id == communities.Id).Setting));
+        Assert.Equal(server.ValueText, model.PolicyValue(proxy, computer.Policies.Single(p => p.Definition.Id == proxy.Id).Setting));
+    }
+
+    [Fact]
+    public void PolicyRows_AMaskedValueNoOptionExplains_HidesEveryOption()
+    {
+        // A list value another tool named like a password (the policy writes 1, 2, 3 …): the parsers mask it, so no option shows.
+        var set = SampleAdministrativeTemplates.LoadPolish();
+        var sites = set.Find(SampleAdministrativeTemplates.TrustedSites)!;
+        var document = new RegistryPolicyDocument();
+        PolicyEngine.Write(sites.Policy, PolicySetting.Enabled(new Dictionary<string, PolicyElementValue>
+        {
+            ["Lista"] = new ListElementValue([new ListElementItem(string.Empty, "https://intranet.contoso.test")]),
+        }), document);
+        document.Set(@"Software\Policies\Contoso\Przegladarka\ZaufaneWitryny", "Password7", RegistryFormat.RegSz, RegistryPolFile.StringData("tajne-hasło-łódź"));
+        var content = new GpoFolderContent([], new Dictionary<string, byte[]> { ["Machine/Registry.pol"] = document.ToBytes() });
+        var (computer, user) = GpoSettingPresenter.Policies(content, set);
+        var presenter = new GpoSettingPresenter(Polish, null, set) { ComputerPolicies = computer, UserPolicies = user };
+
+        var row = Assert.Single(presenter.DescribeRows(GroupPolicyReader.Settings(content)), r => r.Name == sites.DisplayName);
+
+        Assert.Equal("Włączone; (ustawione – ukryte)", row.ValueText);
+        Assert.Empty(row.Elements);
+        Assert.True(row.IsMasked);
+        Assert.DoesNotContain("tajne-hasło-łódź", row.ValueText + row.Technical + row.Explanation, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SecurityOption_MultiLineText_KeepsACommaInsideALine()
+    {
+        const string Notice = @"Computer/Security/Registry Values/HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System!LegalNoticeText";
+
+        var text = Presenter().Describe(Text(Notice, "REG_MULTI_SZ:\"Witaj, użytkowniku\",\"Druga linia\""));
+
+        Assert.Equal(["Witaj, użytkowniku", "Druga linia"], text.Elements);
+        Assert.Equal("Witaj, użytkowniku / Druga linia", text.ValueText);
+
+        // GptTmpl.inf as the security settings editor writes it (a line ending in a comma is quoted) reads as the editor shows it.
+        var template = FakeDirectoryBuilder.Template("[Registry Values]",
+            @"MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\LegalNoticeText = 7,""Dostęp tylko dla pracowników,"",wszystko jest rejestrowane");
+        var parsed = GpoFileDiff.ReadSettings(GpoFileClassifier.Classify("Machine/Microsoft/Windows NT/SecEdit/GptTmpl.inf"), Encoding.Unicode.GetBytes(template))!;
+        var notice = Presenter().Describe(parsed.Single(s => s.Key.EndsWith("!LegalNoticeText", StringComparison.Ordinal)));
+        Assert.Equal("Dostęp tylko dla pracowników, / wszystko jest rejestrowane", notice.ValueText);
+    }
+
+    [Fact]
+    public void LongValues_ShowTheStartOfTheirHash_SoTwoCanBeToldApart()
+    {
+        const string Key = @"Computer/Registry/HKLM\Software\Policies\Contoso\Baner!Tekst";
+        const string Old = "sha256:3f2a91c0aa11bb22cc33dd44ee55ff6600112233445566778899aabbccddeeff";
+        const string New = "sha256:9b1c07d4aa11bb22cc33dd44ee55ff6600112233445566778899aabbccddeeff";
+
+        var before = Presenter().Describe(Key, [Old], masked: false);
+        var after = Presenter().Describe(Key, [New], masked: false);
+
+        Assert.Equal("(długa wartość, skrót 3f2a91c0…)", before.ValueText);
+        Assert.Equal("(długa wartość, skrót 9b1c07d4…)", after.ValueText);
+        Assert.Equal([Old], before.Elements);
+        Assert.Equal("(long value, hash 3f2a91c0…)", Presenter(English).Describe(Key, [Old], masked: false).ValueText);
+
+        // A preference item's long property too.
+        var item = Presenter().DescribeRows(
+        [
+            Text("User/Preferences/ScheduledTasks/{T1}/@name", "Kopia zapasowa"),
+            new GpoSetting { Key = "User/Preferences/ScheduledTasks/{T1}/Task/Actions/Exec/Arguments", Value = New, Kind = GpoSettingKind.Hash },
+        ]);
+        Assert.Contains(Assert.Single(item).Elements, e => e.EndsWith("(długa wartość, skrót 9b1c07d4…)", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Sids_AskTheDirectoryForBuiltinGroupsWithoutALocalName()
+    {
+        // Default Domain Controllers Policy: Pre-Windows 2000 Compatible Access has no local name – AD names it (CN=Builtin).
+        var right = List("Computer/Security/Privilege Rights/SeNetworkLogonRight", "S-1-1-0", "S-1-5-11", "S-1-5-32-544", "S-1-5-32-554", "S-1-5-9");
+
+        Assert.Equal(["S-1-5-32-554"], GpoSettingPresenter.Sids([right]));
+        var named = new GpoSettingPresenter(Polish, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["S-1-5-32-554"] = "BUILTIN\\Pre-Windows 2000 Compatible Access",
+        }).Describe(right);
+        Assert.Contains("BUILTIN\\Pre-Windows 2000 Compatible Access", named.Elements);
+        Assert.Contains("Administratorzy", named.Elements);
+    }
+
+    [Fact]
+    public void Preferences_RegistryItemWithAMaskedValueName_SaysTheNameIsHidden_NotTheDefaultValue()
+    {
+        const string Registry = "<?xml version=\"1.0\" encoding=\"utf-8\"?><RegistrySettings clsid=\"{A3CCFC41-DFDB-43a5-8D26-0FE8B954DA51}\"><Registry clsid=\"{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}\" name=\"społeczność-monitoring\" status=\"społeczność-monitoring\" image=\"7\" uid=\"{C3D4E5F6-0000-4000-8000-000000000001}\"><Properties action=\"U\" displayDecimal=\"1\" default=\"0\" hive=\"HKEY_LOCAL_MACHINE\" key=\"SOFTWARE\\Policies\\SNMP\\Parameters\\ValidCommunities\" name=\"społeczność-monitoring\" type=\"REG_DWORD\" value=\"00000004\"/></Registry></RegistrySettings>";
+
+        var row = Assert.Single(Presenter().DescribeRows(Read("Machine/Preferences/Registry/Registry.xml", Registry)));
+
+        Assert.Equal(@"Aktualizuj: HKLM\SOFTWARE\Policies\SNMP\Parameters\ValidCommunities\(nazwy wartości ukryte) = (ustawione – ukryte) (REG_DWORD)", row.ValueText);
+        Assert.DoesNotContain("(Domyślna)", row.ValueText + string.Join("|", row.Elements), StringComparison.Ordinal);
+        Assert.DoesNotContain("społeczność-monitoring", row.Name + row.ValueText + row.Technical + string.Join("|", row.Elements), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DynamicKeys_ExistInBothLanguages()
     {
         var resources = new ResourceManager(ResxLocalizer.ResourceBaseName, typeof(ResxLocalizer).Assembly);
@@ -500,4 +636,67 @@ public sealed class GpoSettingPresenterTests
 
     private static IReadOnlyList<GpoSetting> Read(string path, string xml) =>
         GpoFileDiff.ReadSettings(GpoFileClassifier.Classify(path), Encoding.UTF8.GetBytes(xml)) ?? throw new InvalidOperationException("not parsed");
+
+    /// <summary>The sample store with two policies holding secrets: SNMP communities (value names secret) and a proxy password.</summary>
+    private static PolicyDefinitionSet SecretTemplates()
+    {
+        const string Admx = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <policyDefinitions revision="1.0" schemaVersion="1.0" xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
+              <policyNamespaces>
+                <target prefix="sekrety" namespace="Contoso.Policies.Sekrety" />
+                <using prefix="windows" namespace="Microsoft.Policies.Windows" />
+              </policyNamespaces>
+              <resources minRequiredRevision="1.0" />
+              <policies>
+                <policy name="Spolecznosci" class="Machine" displayName="$(string.Spolecznosci)" explainText="$(string.Spolecznosci_Help)"
+                        presentation="$(presentation.Spolecznosci)" key="Software\Policies\SNMP\Parameters">
+                  <parentCategory ref="windows:System" />
+                  <elements>
+                    <list id="Lista" key="Software\Policies\SNMP\Parameters\ValidCommunities" valuePrefix="" />
+                  </elements>
+                </policy>
+                <policy name="Proxy" class="Machine" displayName="$(string.Proxy)" explainText="$(string.Proxy_Help)"
+                        presentation="$(presentation.Proxy)" key="Software\Policies\Contoso\Proxy">
+                  <parentCategory ref="windows:System" />
+                  <elements>
+                    <text id="Serwer" valueName="ProxyServer" />
+                    <text id="Haslo" valueName="ProxyPassword" />
+                  </elements>
+                </policy>
+              </policies>
+            </policyDefinitions>
+            """;
+        const string Adml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <policyDefinitionResources revision="1.0" schemaVersion="1.0" xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
+              <displayName>Sekrety</displayName>
+              <description>Sekrety</description>
+              <resources>
+                <stringTable>
+                  <string id="Spolecznosci">Określ społeczności</string>
+                  <string id="Spolecznosci_Help">Społeczności SNMP, które mogą odpytywać usługę.</string>
+                  <string id="Proxy">Serwer proxy firmy</string>
+                  <string id="Proxy_Help">Serwer proxy i hasło konta usługi.</string>
+                </stringTable>
+                <presentationTable>
+                  <presentation id="Spolecznosci">
+                    <listBox refId="Lista">Społeczności:</listBox>
+                  </presentation>
+                  <presentation id="Proxy">
+                    <textBox refId="Serwer"><label>Serwer:</label></textBox>
+                    <textBox refId="Haslo"><label>Hasło:</label></textBox>
+                  </presentation>
+                </presentationTable>
+              </resources>
+            </policyDefinitionResources>
+            """;
+        var files = SampleAdministrativeTemplates.Files();
+        files["sekrety.admx"] = SampleAdministrativeTemplates.Utf8(Admx);
+        files["en-US/sekrety.adml"] = SampleAdministrativeTemplates.Utf8(Adml);
+        files["pl-PL/sekrety.adml"] = SampleAdministrativeTemplates.Utf8(Adml);
+        var (set, _) = PolicyDefinitionLoader.LoadAsync(new InMemoryPolicyDefinitionSource("Magazyn testowy", files), ["pl-PL", "en-US"], CancellationToken.None)
+            .GetAwaiter().GetResult();
+        return set;
+    }
 }

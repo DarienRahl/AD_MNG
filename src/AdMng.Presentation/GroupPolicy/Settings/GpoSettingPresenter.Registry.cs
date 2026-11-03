@@ -38,12 +38,20 @@ public sealed partial class GpoSettingPresenter
             RegistryPathText(info.RegistryKey ?? info.Key, info.ValueName), text, lines);
     }
 
-    /// <summary>One row for an administrative template policy: its name, state and options, its category path.</summary>
+    /// <summary>
+    /// One row for an administrative template policy: its name, state and options, its category path. The options come from
+    /// the file as it is, so what the parsers mask is masked here too: an option holding a secret reads "(ustawione – ukryte)"
+    /// (<see cref="AdministrativeTemplateText.HasSecret"/>), and a masked value no option explains hides every option.
+    /// </summary>
     private GpoSettingText DescribePolicy(ConfiguredPolicy policy, PolicyClass scope, IReadOnlyList<GpoSetting> settings)
     {
         var definition = policy.Definition;
         var first = settings.Count > 0 ? settings[0].Key : definition.Id;
         var registry = settings.Select(s => GpoSettingKey.Parse(s.Key)).Select(i => RegistryPathText(i.RegistryKey ?? i.Key, i.ValueName)).Distinct(StringComparer.OrdinalIgnoreCase);
+        var options = AdministrativeTemplateText.Options(_l, definition, policy.Setting);
+        var secret = AdministrativeTemplateText.HasSecret(definition, policy.Setting);
+        var hidden = !secret && options.Count > 0 && settings.Any(s => s.Kind == GpoSettingKind.Masked);
+        var explanation = definition.ExplainText.Length == 0 ? null : definition.ExplainText.Trim();
         return new GpoSettingText
         {
             Key = first,
@@ -56,9 +64,12 @@ public sealed partial class GpoSettingPresenter
             Groups = PolicyGroups(definition),
             Name = definition.DisplayName,
             Technical = definition.Id + " (" + string.Join("; ", registry) + ")",
-            ValueText = AdministrativeTemplateText.Value(_l, definition, policy.Setting),
-            Elements = AdministrativeTemplateText.Options(_l, definition, policy.Setting),
-            Explanation = definition.ExplainText.Length == 0 ? null : definition.ExplainText.Trim(),
+            ValueText = hidden
+                ? _l.Format(L.GroupPolicyModel.ValueWithOptions, AdministrativeTemplateText.State(_l, policy.Setting.State), _l[L.GroupPolicy.MaskedValue])
+                : AdministrativeTemplateText.Value(_l, definition, policy.Setting),
+            Elements = hidden ? [] : options,
+            IsMasked = secret || hidden,
+            Explanation = secret || hidden ? Join(_l[L.GpoSettings.ExplainMasked], explanation) : explanation,
             Focus = GroupPolicySettingFocus.ForPolicy(scope, definition.Id),
             Source = settings.Count > 0 ? settings[0].Source : null,
         };

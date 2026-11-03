@@ -64,6 +64,7 @@ public static partial class L
         public const string ExplainUnreadable = "GpoSettings.ExplainUnreadable";
         public const string ExplainScriptFile = "GpoSettings.ExplainScriptFile";
         public const string LongValue = "GpoSettings.LongValue";
+        public const string LongValueHash = "GpoSettings.LongValueHash";
 
         // Audit
         public const string AuditExclusion = "GpoSettings.AuditExclusion";

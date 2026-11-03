@@ -17829,4 +17829,9 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Usuń podstawowe zasady inspekcji i pozostaw tylko zaawansowane albo jawnie włącz w tym obiekcie GPO opcję wymuszającą ustawienia podkategorii.</value>
   </data>
   <!-- K6 Group Policy diagnostics, review fixes: end -->
+  <!-- K6 readable GPO settings, review fixes (presenter): start -->
+  <data name="GpoSettings.LongValueHash" xml:space="preserve">
+    <value>(długa wartość, skrót {0}…)</value>
+  </data>
+  <!-- K6 readable GPO settings, review fixes (presenter): end -->
 </root>

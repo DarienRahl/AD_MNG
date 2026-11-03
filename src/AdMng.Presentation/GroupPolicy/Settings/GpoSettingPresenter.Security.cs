@@ -63,7 +63,14 @@ public sealed partial class GpoSettingPresenter
                     : Text(SecuritySettingsText.OptionChoiceKey(option.Id, choice), data.Trim());
                 break;
             case SecurityValueKind.MultiText:
-                elements = [.. data.Split(GpoSetting.ListSeparator, ',').Select(l => l.Trim()).Where(l => l.Length > 0)];
+                // The lines as GpoSettingValue.TryParseRegistry decoded the REG_MULTI_SZ: a comma inside a line stays in it.
+                var lines = data.Length == 0 ? [] : data.Split(GpoSetting.ListSeparator).ToList();
+                while (lines.Count > 0 && lines[^1].Length == 0)
+                {
+                    lines.RemoveAt(lines.Count - 1);
+                }
+
+                elements = lines;
                 value = elements.Count == 0 ? _l[L.SecuritySettings.EmptyText] : string.Join(" / ", elements);
                 break;
             case SecurityValueKind.Text:

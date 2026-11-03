@@ -256,6 +256,28 @@ public sealed class GroupPolicyBackupAndCompareTests
     }
 
     [Fact]
+    public async Task Compare_APreferenceItemDifferingOutsideItsSummary_ShowsWhatDiffers()
+    {
+        // B is a copy of A's drive map (same uid) with item-level targeting and "reconnect" off: the summary "K: → path" is the same.
+        var h = await GroupPolicyHarness.CreateAsync(Polish);
+        h.Sysvol.PutText(h.Sample.SitePrinters, "User/Preferences/Drives/Drives.xml",
+            "<?xml version=\"1.0\" encoding=\"utf-8\"?><Drives clsid=\"{8FDDCC1A-0C3C-43cd-A6B4-71A6DF20DA8C}\"><Drive clsid=\"{935D1B74-9CB8-4e3c-9914-7DD559B7A417}\" name=\"K:\" uid=\"{0D1F7F22-6D1B-4A35-9D9C-0E3D9F3F0001}\"><Properties action=\"U\" path=\"\\\\fs01.contoso.test\\Księgowość\" label=\"Księgowość\" letter=\"K\" persistent=\"0\"/><Filters><FilterComputer bool=\"AND\" not=\"0\" type=\"NETBIOS\" name=\"WAW-PC001\"/></Filters></Drive></Drives>");
+        var a = (await h.Planner.Reader.ReadPolicyAsync(h.Session, h.Sample.DriveMappings, CancellationToken.None))!;
+        var b = (await h.Planner.Reader.ReadPolicyAsync(h.Session, h.Sample.SitePrinters, CancellationToken.None))!;
+        using var comparison = new GpoComparisonViewModel(h.Services, a, b);
+
+        await comparison.InitializeAsync();
+
+        var drive = Assert.Single(comparison.Rows, r => r.Row.Section == GpoComparisonSection.Settings && r.Name == "K:");
+        Assert.Equal("Różne", drive.StateText);
+        Assert.NotEqual(drive.ValueA, drive.ValueB);
+        Assert.Equal("Aktualizuj: K: → \\\\fs01.contoso.test\\Księgowość", drive.ValueA);
+        Assert.StartsWith("Aktualizuj: K: → \\\\fs01.contoso.test\\Księgowość (", drive.ValueB, StringComparison.Ordinal);
+        Assert.Contains("komputer WAW-PC001", drive.ValueB, StringComparison.Ordinal);
+        Assert.Contains("Nie", drive.ValueB, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Compare_WithoutSysvol_ComparesTheContainersOnly()
     {
         var h = await GroupPolicyHarness.CreateAsync(Polish);

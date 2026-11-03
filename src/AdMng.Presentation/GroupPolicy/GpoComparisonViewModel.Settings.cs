@@ -50,8 +50,18 @@ public sealed partial class GpoComparisonViewModel
                 : sideA.Count == 0 ? GpoComparisonState.OnlyInB
                 : sideB.Count == 0 ? GpoComparisonState.OnlyInA
                 : GpoComparisonState.Different;
+            var valueA = textA?.ValueText ?? Localizer[L.GroupPolicy.Absent];
+            var valueB = textB?.ValueText ?? Localizer[L.GroupPolicy.Absent];
+            if (state == GpoComparisonState.Different && bucket[0] == 'I' && textA is not null && textB is not null)
+            {
+                // An item's value is a short summary (a drive's letter and path …): the properties that differ are added, so a
+                // different targeting, run-as account or flag shows and "Różne" never stands next to two equal values.
+                valueA = WithDifferences(valueA, textA.Elements, textB.Elements);
+                valueB = WithDifferences(valueB, textB.Elements, textA.Elements);
+            }
+
             result.Add(new GpoComparisonRowViewModel(members[0], GroupPolicyText.Section(Localizer, GpoComparisonSection.Settings), text.Name,
-                textA?.ValueText ?? Localizer[L.GroupPolicy.Absent], textB?.ValueText ?? Localizer[L.GroupPolicy.Absent], GroupPolicyText.State(Localizer, state))
+                valueA, valueB, GroupPolicyText.State(Localizer, state))
             {
                 State = state,
                 Area = text.GroupPath,
@@ -69,6 +79,13 @@ public sealed partial class GpoComparisonViewModel
         1 => presenter.DescribeRows(settings)[0],
         _ => presenter.DescribeRows(settings) is { Count: 1 } rows ? rows[0] : Merge(presenter.DescribeRows(settings)),
     };
+
+    /// <summary>"Aktualizuj: H: → \\srv\home (Kierowanie na poziomie elementu: …)": the value and the lines only this side has.</summary>
+    private static string WithDifferences(string value, IReadOnlyList<string> own, IReadOnlyList<string> other)
+    {
+        var differences = own.Except(other, StringComparer.Ordinal).ToList();
+        return differences.Count == 0 ? value : value + " (" + string.Join("; ", differences) + ")";
+    }
 
     /// <summary>Rows that did not collapse into one (a policy one side configures differently): their values joined.</summary>
     private static GpoSettingText Merge(IReadOnlyList<GpoSettingText> rows) =>

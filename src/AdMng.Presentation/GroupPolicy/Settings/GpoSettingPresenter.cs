@@ -230,7 +230,7 @@ public sealed partial class GpoSettingPresenter
             GpoSettingKind.Masked => text with { ValueText = _l[L.GroupPolicy.MaskedValue], Elements = [], IsMasked = true, Explanation = _l[L.GpoSettings.ExplainMasked] },
             GpoSettingKind.Hash when info.Area != GpoSettingArea.ScriptFile => text with
             {
-                ValueText = _l[L.GpoSettings.LongValue],
+                ValueText = LongValueText(values),
                 Elements = [.. values.Where(v => v.StartsWith(GpoValues.HashPrefix, StringComparison.Ordinal))],
                 Explanation = _l[L.GpoSettings.ExplainLongValue],
             },
@@ -329,6 +329,16 @@ public sealed partial class GpoSettingPresenter
 
     private static string Single(IReadOnlyList<string> values) => values.Count == 0 ? string.Empty : values[0];
 
+    /// <summary>
+    /// "(długa wartość, skrót 3f2a91c0…)": a value kept only as its SHA-256 hash, with the hash's start so that two such values
+    /// (old and new in a change row, both sides of a comparison) can be told apart.
+    /// </summary>
+    private string LongValueText(IEnumerable<string> values)
+    {
+        var hex = values.FirstOrDefault(v => v.StartsWith(GpoValues.HashPrefix, StringComparison.Ordinal))?[GpoValues.HashPrefix.Length..].Trim();
+        return string.IsNullOrEmpty(hex) ? _l[L.GpoSettings.LongValue] : _l.Format(L.GpoSettings.LongValueHash, hex[..Math.Min(8, hex.Length)]);
+    }
+
     private static IReadOnlyList<string> Values(GpoSetting setting) => setting.Kind switch
     {
         GpoSettingKind.Masked or GpoSettingKind.Unreadable => [],
@@ -400,9 +410,12 @@ public sealed partial class GpoSettingPresenter
         }
     }
 
-    /// <summary>A local group or well-known principal: named without the directory.</summary>
+    /// <summary>
+    /// A local group or well-known principal the presenter names itself (<see cref="PrincipalName"/>). Other BUILTIN groups
+    /// (Pre-Windows 2000 Compatible Access …) have no local name: the directory names them (CN=Builtin).
+    /// </summary>
     private static bool IsKnownLocally(string sid) =>
-        sid.StartsWith("S-1-5-32-", StringComparison.OrdinalIgnoreCase)
+        SecuritySettingsText.LocalGroups.Any(g => g.Sid.Equals(sid, StringComparison.OrdinalIgnoreCase))
         || SecuritySettingsText.WellKnownPrincipals.Any(p => p.Sid.Equals(sid, StringComparison.OrdinalIgnoreCase))
         || sid is "S-1-3-0" or "S-1-5-18" or "S-1-1-0" or "S-1-5-11" or "S-1-5-9";
 }
