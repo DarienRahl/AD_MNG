@@ -1524,3 +1524,136 @@ Principals are picked with the object picker (users, groups, computers; the SID 
 (`KONTOSO\grupa`, written as typed, shown with a warning that it is resolved on each client). Names are resolved for
 display with `TrusteeNames`, local groups with `LocalRightsCatalog`. Save = one plan through the change plan preview
 (rule 5); nothing of the files is persisted or logged by the app (rule 1).
+
+## 20. K6 – readability, editing comfort and diagnostics (design)
+
+Scope chosen with the operator (2026-11): (A) every place that shows GPO settings speaks the operator's language,
+(B) "Sprawdź zasady grupy" finds logical errors and weak security settings, with a fix through the change plan where
+one exists, (C) editing GPOs is comfortable (layout, keyboard, "edytuj to ustawienie", a plain-language summary
+before saving). Out of scope: searching a setting across all GPOs, copying settings between GPOs, Watchdog
+notification texts (they keep the technical key; the Watchdog *tab* uses the presenter).
+
+### 20.1 Readability (A)
+
+**Core – `GpoSettingKey`** (`AdMng.Core/GroupPolicy/Content/GpoSettingKey.cs`, pure, key only – Watchdog rows carry
+only the key): `Parse(string key) → GpoSettingKeyInfo { Scope (Computer/User/Gpo), Area, Section, Name, RegistryKey,
+ValueName, PreferenceType, ItemId, Property, ScriptPhase, Index, Field, Option (SecurityOptionDefinition?), Subcategory
+(AuditSubcategoryDefinition?) }`. Areas: SystemAccess, KerberosPolicy, EventAudit, UserRight, RestrictedGroup,
+SecurityRegistryValue, Service, RegistryKeySecurity, FileSecurity, EventLog, SecuritySection, AdvancedAudit,
+AuditOption, GlobalSacl, PolicyRegistry, Preference, Script, ScriptConfig, ScriptFile, Comment, UnreadableFile, Other.
+`HKLM\…!Name` of `Registry Values` maps to the catalog's `MACHINE\…\Name`. `GpoSettingValue.TryParseRegistry(value,
+out type, out data)` reads `REG_DWORD:1` etc. The catalog gains `SecurityValueUnit` per option (days, minutes, hours,
+attempts, characters, passwords, seconds). The modeller's ADMX matching (`PolicyIndex`, `RegistryCoverage`,
+`PolicyEngine.Read`) becomes public as `AdministrativeTemplatePolicies.Configured(...)`, so the GPO tab and the
+comparison name policies the way K5 does. `GpoComparisonRow` and `GpoDiffLine` carry the `GpoSetting`s they came from.
+
+**Presentation – `GpoSettingPresenter`** (`ILocalizer`, SID names, `PolicyDefinitionSet?`): `Describe(GpoSetting)` /
+`Describe(key, values, masked)` → `GpoSettingText { GroupPath ("Konfiguracja komputera › Zasady › Ustawienia systemu
+Windows › Ustawienia zabezpieczeń › Zasady konta › Zasady haseł", GPMC's tree), Name ("Maksymalny okres ważności
+hasła"), Technical (constant or key – tooltip), ValueText ("42 dni", "Administratorzy, KONTOSO\Serwisanci",
+"Powodzenie i niepowodzenie", "Włączone"), Elements, Explanation? }`. Names come from the K4 resources (`SecRight.*`,
+`SecOption.*`, `SecAudit.*` …), ADMX display names, new resources for areas, units, GPP item types and their main
+properties, script phases. SIDs: local groups and well-known principals by name, the rest through one
+`TrusteeNames.ResolveAsync` per view (`GpoSettingPresenter.Sids(settings)`). Masked values stay masked.
+
+Consumers: the GPO document's *Ustawienia* tab (grouped like a GPMC report, search, "Edytuj to ustawienie", **Raport
+HTML…** to an operator-chosen file – rule 1 allows exports), the K5 model rows, the GPO comparison (and its CSV), the
+change plan preview's SYSVOL differences, the Watchdog tab's GPO change rows.
+
+### 20.2 Diagnostics (B)
+
+**Core – `AdMng.Core/GroupPolicy/Diagnostics`.** `GroupPolicyDiagnosticsReader.ReadAsync(session, sysvol, request
+{ GpoId? (one GPO or the domain), Depth (Quick: LDAP + GPT.INI; Full: + SYSVOL folders, folder ACLs, object counts,
+SID resolution, conflicts) }, progress, ct) → GpoDiagnosticsSnapshot` (only in memory; at most 4 SYSVOL reads at a
+time as elsewhere). `GroupPolicyDiagnostics.Analyze(snapshot) → IReadOnlyList<GpoFinding>` is a pure function.
+`GpoFinding(Code, Severity {Info, Low, Medium, High, Critical}, Area {Links, Scope, Filtering, Versions, Folder,
+Content, Conflict, Security}, GpoId?, ContainerDn?, SettingKey?, Arguments, Fix?)` – `ToString` carries no directory
+values. `GpoQuickFix` records map one-to-one to existing planner calls: `Unlink(container, gpo)`, `EnableLink`,
+`SetStatus(gpo, status)`, `GrantRead(gpo, sid)` (MS16-072: Authenticated Users *Read* via `PlanSetDelegationAsync`),
+`ClearWmiFilter(gpo)`, `DeleteWmiFilter(dn)`, `AlignVersions(gpo)`, `RepairFolderSecurity(gpo)`,
+`RemoveTrustee(gpo, sid)`, `RepairExtensionNames(gpo)` (new planner method: adds the CSE/tool pairs of the files the
+folder holds and K3/K4 know: Registry.pol, GptTmpl.inf, audit.csv, Groups.xml). The GPO document's *Stan* tab uses the
+same engine for its GPO (its checks move into Core).
+
+| Code | Sev. | Rule | Fix |
+|---|---|---|---|
+| `GpoNotLinked` | Info | no link in this domain | – |
+| `GpoLinksAllDisabled` | Low | every link disabled | EnableLink |
+| `LinkToMissingGpo` | Medium | gPLink names a GPO that does not exist | Unlink |
+| `LinkMalformed` | Low | gPLink entries that cannot be read / other domains | – |
+| `DuplicateLink` | Low | the same GPO twice in one gPLink | Unlink (one) |
+| `LinkedAllSettingsDisabled` | Medium | linked, GPO status "all settings disabled" | – |
+| `PartDisabledWithSettings` | Medium | user/computer part disabled while its version > 0 | SetStatus |
+| `PartEnabledWithoutSettings` | Info | part enabled with version 0 (processing cost) | SetStatus |
+| `EmptyGpoLinked` | Low | both versions 0, linked | – |
+| `UserSettingsWithoutUsers` | Medium | user settings, every link's subtree has no users and no loopback reaches it | – |
+| `ComputerSettingsWithoutComputers` | Medium | computer settings, every link's subtree has no computers | – |
+| `AccountPolicyBelowDomain` | Medium | password/lockout/Kerberos policy in a GPO not linked to the domain root | – |
+| `LoopbackWithoutComputers` | Low | loopback set in a GPO whose links reach no computers | – |
+| `NoApplyRight` | High | nobody has *Apply* – the GPO applies to nobody | – |
+| `Ms16072ComputersCannotRead` | High | user settings, computers cannot read the GPO | GrantRead |
+| `WmiFilterMissing` | Medium | the GPO links a WMI filter that does not exist | ClearWmiFilter |
+| `WmiFilterUnused` | Info | a WMI filter no GPO uses | DeleteWmiFilter |
+| `DenyInSecurityFiltering` | Info | deny entries in the GPO's DACL | – |
+| `OrphanedTrustee` | Low | an unresolvable domain SID in the GPO's permissions | RemoveTrustee |
+| `BroadEditRights` | High | Everyone / Authenticated Users / Domain Users can edit the GPO | – |
+| `VersionMismatch` | Medium | AD and GPT.INI versions differ | AlignVersions |
+| `SysvolFolderMissing` | High | no GPO folder on SYSVOL | – |
+| `FolderSecurityMismatch` | Medium | folder ACL differs from the GPO's permissions | RepairFolderSecurity |
+| `ExtensionNamesMissing` | Medium | files present whose client-side extension is not listed (ignored by clients) | RepairExtensionNames |
+| `UnreadableFile` | Medium | a settings file that cannot be parsed | – |
+| `Leftovers` | Low | `*.admng-*.tmp` left by an interrupted save | – |
+| `PathRedirected` | High | `gPCFileSysPath` points outside the domain's SYSVOL | – |
+| `RestrictedAndPreferenceSameGroup` | Medium | one local group in Restricted Groups and in GPP | – |
+| `RestrictedAdministratorsNoAdmins` | High | Administrators' *Members* defined without Administrator/Domain Admins | – |
+| `LegacyAndAdvancedAudit` | Medium | both audit forms without forcing subcategories | – |
+| `PasswordLengthNeedsRelax` | Medium | minimum length > 14 without the relax option | – |
+| `TypedPrincipalName` | Info | a principal written as a name, not a SID | – |
+| `UnresolvedPrincipal` | Low | a SID in rights/groups that resolves to nothing | – |
+| `DenyLogonBroadGroup` | High | a deny-logon right for Everyone/Authenticated Users/Administrators/Domain Users | – |
+| `ConflictingSetting` | Info | GPOs reaching the same container set one setting differently (winner and losers named) | – |
+| `RedundantSetting` | Info | the same value from several GPOs on one path | – |
+| `GppPassword` | Critical | `cpassword` in preferences (MS14-025, readable by every user) | – |
+| `DangerousRightBroadGroup` | High | a sensitive right (debug, backup, restore, take ownership, load driver, impersonate, act as OS, …) for a broad group | – |
+| `BroadGroupInPrivilegedLocalGroup` | High | Everyone/Authenticated Users/Domain Users made member of Administrators, Remote Desktop Users … | – |
+| `LmCompatibilityWeak` | Medium | `LmCompatibilityLevel` < 3 | – |
+| `LmHashStored` | Medium | `NoLMHash` = 0 | – |
+| `SmbSigningNotRequired` | Medium | SMB server signing not required in a GPO that reaches DCs | – |
+| `LdapSigningNotRequired` | Medium | `LDAPServerIntegrity` = 1 in a GPO that reaches DCs | – |
+| `AnonymousAccessAllowed` | Medium | anonymous SAM enumeration / name lookup / Everyone includes anonymous | – |
+| `ReversibleEncryption` | High | `ClearTextPassword` = 1 | – |
+| `GuestEnabled` | Medium | `EnableGuestAccount` = 1 | – |
+| `UacDisabled` | Medium | `EnableLUA` = 0 | – |
+| `PlainTextSmbPassword` | High | `EnablePlainTextPassword` = 1 | – |
+| `WeakDomainPasswordPolicy` | Medium | domain-root GPO: minimum length < 8, complexity off or lockout threshold 0 | – |
+
+Broad groups: Everyone, Authenticated Users, This Organization, BUILTIN\Users, Domain Users, Domain Computers. "Reaches
+DCs": linked to the domain root or the Domain Controllers OU (enforced or not blocked). Conflicts come from
+`GroupPolicyModeler.Build` per container with links (synthetic computer and user target), `Overridden` with another
+value → `ConflictingSetting`, the same value → `RedundantSetting` (one finding per container and setting).
+
+**UI.** Document **Diagnostyka zasad grupy** (domain; from the GPO list toolbar, *Akcja → Zasady grupy*, the palette
+`gpo.diagnose`; one tab per domain): *Szybka* / *Pełna* check with progress and cancel, summary chips per severity,
+filters (severity, area, GPO, text), list (severity, area, GPO, container/setting, message), details (explanation,
+recommendation, "Napraw…" → plan preview, "Otwórz GPO", "Edytuj to ustawienie", "Pokaż w modelu"), export CSV/HTML to an
+operator file. The GPO document's *Stan* tab shows the same findings for its GPO (with the existing repair buttons as
+fixes). Findings and snapshots live only in memory (rule 1).
+
+### 20.3 Editing comfort (C)
+
+- Headers: title + status trimmed with tooltip in a two-column grid next to the buttons (K3, K4, GPO, K5, scope);
+  columns star-sized or auto with `TextTrimming` and tooltips; K4 gets splitters; visible splitters everywhere.
+- K3: the configured counter follows edits; switching away from a policy with an invalid value keeps the value and
+  warns; a missing central store shows as a warning card; the category column only when the list spans categories;
+  registry location shown as `HKLM\…` key and value on two lines.
+- K4: search box and "Tylko zdefiniowane" / "Tylko zmienione" on every page.
+- Keyboard: **Ctrl+S** saves the active editor (shell descriptor, `ISaveableDocument`), **Ctrl+F** focuses the
+  document's own search when it has one (`ISearchableDocument`, else the directory Find), Esc clears it; Enter on a
+  setting focuses its editor. Palette: *Edytuj szablony administracyjne*, *Edytuj ustawienia zabezpieczeń*, *Zapisz
+  zmiany*, *Sprawdź zasady grupy*.
+- **Edytuj to ustawienie**: `GroupPolicyDocumentRequest.Focus` (`GroupPolicySettingFocus`: setting key or ADMX policy
+  id + class) opens K3 at the policy or K4 at the page and row (an open editor tab is reused and re-focused); from the
+  *Ustawienia* tab, the K5 model rows, findings and the scope view's link menu (*Edytuj…*).
+- Saving: the preview shows **Zmiany ustawień** (setting, before, after) in the presenter's language above the
+  file rows, filled by the K3 and K4 saves.
+- GPO list: a search box (name, GUID, WMI filter, link).
