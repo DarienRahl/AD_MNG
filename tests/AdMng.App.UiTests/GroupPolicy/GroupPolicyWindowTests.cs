@@ -267,6 +267,14 @@ public sealed class GroupPolicyWindowTests
         Assert.NotEmpty(gpoView.HealthPanel.ChecksList.Items);
         Assert.NotEmpty(gpoView.HealthPanel.HealthFindingsList.Items);
 
+        // Nothing selected after the check: a hint instead of the empty headings; a selected finding shows its details.
+        Assert.True(gpoView.HealthPanel.HealthDetailsEmptyText.IsVisible);
+        Assert.False(gpoView.HealthPanel.HealthDetailsScroll.IsVisible);
+        gpoDocument.SelectedHealthFinding = gpoDocument.HealthFindings[0];
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        Assert.False(gpoView.HealthPanel.HealthDetailsEmptyText.IsVisible);
+        Assert.True(gpoView.HealthPanel.HealthDetailsScroll.IsVisible);
+
         // The site opens its "Zasady grupy" document; the objects and WMI filter nodes open theirs.
         var sites = domain.Children.OfType<SitesNodeViewModel>().Single();
         await sites.EnsureChildrenLoadedAsync();

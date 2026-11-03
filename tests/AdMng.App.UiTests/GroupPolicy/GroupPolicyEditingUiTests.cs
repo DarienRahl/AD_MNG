@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using AdMng.App.Controls;
 using AdMng.App.GroupPolicy;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
@@ -80,6 +81,48 @@ public sealed class GroupPolicyEditingUiTests
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         Assert.Equal(Visibility.Visible, view.ChangedText.Visibility);
         Assert.EndsWith("skonfigurowane: 1", editor.StatusText, StringComparison.Ordinal);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task AdministrativeTemplatesEditor_ShowsTheChangedAndInvalidMarks_SideBySide() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync(language: "pl");
+        var sample = context.Directory.AddGroupPolicyManagementSample(context.Company, context.Sysvol);
+        foreach (var (path, content) in SampleAdministrativeTemplates.Files())
+        {
+            context.Sysvol.PutPolicyDefinition(path, content);
+        }
+
+        await context.ConnectAsync();
+        var main = context.Services.GetRequiredService<MainWindow>();
+        UiTestSupport.ShowOffScreen(main);
+        var shell = main.Shell;
+        await shell.InitializeAsync();
+        var editor = Assert.IsType<AdministrativeTemplatesEditorViewModel>(shell.OpenGroupPolicyDocument(
+            new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.AdministrativeTemplates) { GpoId = sample.SitePrinters, Name = "Lokacja Warszawa – Drukarki" }));
+        await UiWait.UntilAsync(() => !editor.IsLoading && editor.Roots.Count == 2, "the administrative templates");
+        main.UpdateLayout();
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        var view = Assert.Single(UiWait.Descendants<AdministrativeTemplatesEditorView>(main));
+
+        // A policy enabled (a valid change), then one of its options typed invalid: changed and invalid at once.
+        editor.FocusSetting(GroupPolicySettingFocus.ForPolicy(PolicyClass.Machine, SampleAdministrativeTemplates.Updates));
+        var panel = editor.Editor!;
+        panel.IsEnabled = true;
+        panel.Elements.OfType<NumberEditorViewModel>().Single().Text = "zażółć";
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        var row = editor.SelectedPolicy!;
+        Assert.True(row.IsChanged);
+        Assert.True(row.HasProblem);
+
+        var item = Assert.IsType<ListViewItem>(view.PolicyList.ItemContainerGenerator.ContainerFromItem(row));
+        var marks = UiWait.Descendants<TextBlock>(item).Where(t => t.Text is Glyphs.Edit or Glyphs.Warning).ToList();
+        Assert.Equal(2, marks.Count);
+        Assert.All(marks, m => Assert.True(m.IsVisible));
+        var left = marks.Min(m => m.TranslatePoint(new Point(), item).X);
+        var right = marks.Max(m => m.TranslatePoint(new Point(), item).X);
+        Assert.True(right - left >= marks.Min(m => m.ActualWidth), "the marks overlap");
         context.AssertHealthy();
     });
 

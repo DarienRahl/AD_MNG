@@ -17834,4 +17834,9 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>(długa wartość, skrót {0}…)</value>
   </data>
   <!-- K6 readable GPO settings, review fixes (presenter): end -->
+  <!-- K6 review fixes (diagnostics and editing UI): start -->
+  <data name="GpoFinding.OrphanedTrustee.RecommendationInherited" xml:space="preserve">
+    <value>Wpisy tego identyfikatora SID są dziedziczone, więc nie da się ich usunąć w obiekcie GPO: usuń je w obiekcie nadrzędnym, który je definiuje (zwykle CN=Policies,CN=System lub obiekt domeny), gdy masz pewność, że konto nie zostanie przywrócone z Kosza.</value>
+  </data>
+  <!-- K6 review fixes (diagnostics and editing UI): end -->
 </root>

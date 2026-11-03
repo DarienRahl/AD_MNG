@@ -110,7 +110,7 @@ public sealed class GpoFindingRows
             Title = title,
             Message = message,
             Explanation = _localizer[GpoFindingText.ExplanationKey(code)],
-            Recommendation = _localizer[GpoFindingText.RecommendationKey(code)],
+            Recommendation = _localizer[RecommendationKey(finding)],
             AffectedLines = affected,
             FixText = fixText,
             Focus = finding.SettingKey is { Length: > 0 } settingKey && !GpoSettingKey.IsTruncated(settingKey) ? GroupPolicySettingFocus.ForSetting(settingKey) : null,
@@ -120,6 +120,15 @@ public sealed class GpoFindingRows
             SearchText = string.Join('\n', title, message, gpoText, where, area, severity, code),
         };
     }
+
+    /// <summary>
+    /// What to do: the code's recommendation; an unknown SID whose entries are all inherited has no repair on the GPO, so its
+    /// recommendation points at the parent object that defines them.
+    /// </summary>
+    private static string RecommendationKey(GpoFinding finding) =>
+        finding is { Code: GpoFindingCodes.OrphanedTrustee, Fix: null }
+            ? L.GpoDiagnostics.OrphanedTrusteeInheritedRecommendation
+            : GpoFindingText.RecommendationKey(finding.Code);
 
     /// <summary>The identity of a finding (code, GPO, container, setting, arguments).</summary>
     public static string KeyOf(GpoFinding finding)

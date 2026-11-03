@@ -17834,4 +17834,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>(long value, hash {0}…)</value>
   </data>
   <!-- K6 readable GPO settings, review fixes (presenter): end -->
+  <!-- K6 review fixes (diagnostics and editing UI): start -->
+  <data name="GpoFinding.OrphanedTrustee.RecommendationInherited" xml:space="preserve">
+    <value>The entries of this SID are inherited, so they cannot be removed on the GPO: remove them on the parent object that defines them (usually CN=Policies,CN=System or the domain object) once you are sure the account will not be restored from the Recycle Bin.</value>
+  </data>
+  <!-- K6 review fixes (diagnostics and editing UI): end -->
 </root>

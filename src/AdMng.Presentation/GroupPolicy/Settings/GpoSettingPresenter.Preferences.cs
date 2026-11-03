@@ -157,10 +157,15 @@ public sealed partial class GpoSettingPresenter
             ValueText = valueText.Length == 0 ? ElementName(element ?? type) : valueText,
             Elements = lines,
             Explanation = Value("@disabled") == "1" ? _l[L.SecuritySettings.DisabledBadge] : null,
-            Focus = info.ItemKey is { } itemKey && !info.Truncated ? GroupPolicySettingFocus.ForSetting(itemKey) : null,
+            // A local user of Groups.xml shares the local groups' keys, but the security settings editor edits only the groups.
+            Focus = info.ItemKey is { } itemKey && !info.Truncated && !IsLocalUser(type, element) ? GroupPolicySettingFocus.ForSetting(itemKey) : null,
             Source = members[0].Setting.Source,
         };
     }
+
+    /// <summary>A <c>User</c> item of Groups.xml (a local user, not a local group).</summary>
+    private static bool IsLocalUser(string type, string? element) =>
+        type.Equals("Groups", StringComparison.OrdinalIgnoreCase) && string.Equals(element, "User", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>"Preferencje › Ustawienia panelu sterowania › Lokalni użytkownicy i grupy".</summary>
     private string[] PreferenceGroups(GpoSettingKeyInfo info)

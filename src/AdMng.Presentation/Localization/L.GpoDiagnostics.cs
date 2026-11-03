@@ -127,5 +127,8 @@ public static partial class L
         public const string ReasonQuickOnly = "GpoDiag.ReasonQuickOnly";
         public const string ReasonSysvol = "GpoDiag.ReasonSysvol";
         public const string ReasonFailed = "GpoDiag.ReasonFailed";
+
+        /// <summary>The recommendation of an unknown SID whose entries are all inherited (no repair on the GPO: the parent object).</summary>
+        public const string OrphanedTrusteeInheritedRecommendation = "GpoFinding.OrphanedTrustee.RecommendationInherited";
     }
 }

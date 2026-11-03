@@ -204,23 +204,34 @@
         <gp:PaneSplitter Grid.Column="1" ResizeDirection="Columns" />
 
         <Border Grid.Column="2" Padding="12,8" Style="{StaticResource Ad.Card}">
-          <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-            <StackPanel x:Name="HealthDetailsPanel" DataContext="{Binding SelectedHealthFinding, Mode=OneWay}">
-              <TextBlock Margin="0,0,0,6"
-                         FontWeight="SemiBold"
-                         Text="{Binding Title, Mode=OneWay}"
-                         TextWrapping="Wrap" />
-              <TextBlock Style="{StaticResource GpoDiag.DetailText}" Text="{Binding Message, Mode=OneWay}" />
-              <TextBlock Style="{StaticResource GpoDiag.DetailHeading}" Text="{l:Tr GpoDiag.WhyHeading}" />
-              <TextBlock Style="{StaticResource GpoDiag.DetailText}" Text="{Binding Explanation, Mode=OneWay}" />
-              <TextBlock Style="{StaticResource GpoDiag.DetailHeading}" Text="{l:Tr GpoDiag.WhatHeading}" />
-              <TextBlock Style="{StaticResource GpoDiag.DetailText}" Text="{Binding Recommendation, Mode=OneWay}" />
-              <TextBlock Margin="0,8,0,0"
-                         Style="{StaticResource Ad.SecondaryText}"
-                         Text="{Binding FixText, Mode=OneWay}"
-                         TextWrapping="Wrap" />
-            </StackPanel>
-          </ScrollViewer>
+          <!-- Nothing selected (the default after a check, or no findings): a hint instead of empty headings. -->
+          <Grid>
+            <TextBlock x:Name="HealthDetailsEmptyText"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr GpoDiag.DetailsEmpty}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding HasSelectedHealthFinding, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+            <ScrollViewer x:Name="HealthDetailsScroll"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding HasSelectedHealthFinding, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+              <StackPanel x:Name="HealthDetailsPanel" DataContext="{Binding SelectedHealthFinding, Mode=OneWay}">
+                <TextBlock Margin="0,0,0,6"
+                           FontWeight="SemiBold"
+                           Text="{Binding Title, Mode=OneWay}"
+                           TextWrapping="Wrap" />
+                <TextBlock Style="{StaticResource GpoDiag.DetailText}" Text="{Binding Message, Mode=OneWay}" />
+                <TextBlock Style="{StaticResource GpoDiag.DetailHeading}" Text="{l:Tr GpoDiag.WhyHeading}" />
+                <TextBlock Style="{StaticResource GpoDiag.DetailText}" Text="{Binding Explanation, Mode=OneWay}" />
+                <TextBlock Style="{StaticResource GpoDiag.DetailHeading}" Text="{l:Tr GpoDiag.WhatHeading}" />
+                <TextBlock Style="{StaticResource GpoDiag.DetailText}" Text="{Binding Recommendation, Mode=OneWay}" />
+                <TextBlock Margin="0,8,0,0"
+                           Style="{StaticResource Ad.SecondaryText}"
+                           Text="{Binding FixText, Mode=OneWay}"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
         </Border>
       </Grid>
     </Grid>

@@ -107,14 +107,22 @@ public sealed partial class SecuritySettingsEditorViewModel
         if (template.Document.GetServices().FirstOrDefault(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is { } existing)
         {
             Gp.Ui.Notifications.Show(NotificationSeverity.Info, Localizer[L.SecuritySettings.AlreadyListed]);
-            SelectedService = Services.FirstOrDefault(s => s.Name.Equals(existing.Name, StringComparison.OrdinalIgnoreCase));
+            SelectService(existing.Name);
             return;
         }
 
         template.Document.SetService(name, new ServiceStartupSetting(name, (int)(NewServiceMode ?? ServiceModes[2]).Value, string.Empty));
         NewServiceName = string.Empty;
         AfterEdit();
-        SelectedService = Services.FirstOrDefault(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        SelectService(name);
+    }
+
+    /// <summary>Selects the service's row, listed even when the search or a filter would hide it.</summary>
+    private void SelectService(string name)
+    {
+        var row = Services.FirstOrDefault(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        Reveal(row);
+        SelectedService = row;
     }
 
     /// <summary>"Usuń usługę": the service's line (its start mode is no longer set by this GPO).</summary>
