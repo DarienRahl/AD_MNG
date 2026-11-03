@@ -161,6 +161,8 @@ public static class SecuritySettingsCatalog
         Access("MinimumPasswordLength", SecurityOptionGroup.PasswordPolicy, SecurityValueKind.Number, 0, 128),
         Access("PasswordComplexity", SecurityOptionGroup.PasswordPolicy, SecurityValueKind.Boolean),
         Access("ClearTextPassword", SecurityOptionGroup.PasswordPolicy, SecurityValueKind.Boolean),
+        Registry("RelaxMinimumPasswordLengthLimits", SecurityOptionGroup.PasswordPolicy, @"MACHINE\System\CurrentControlSet\Control\SAM\RelaxMinimumPasswordLengthLimits",
+            SecurityValueKind.Boolean),
         Access("LockoutBadCount", SecurityOptionGroup.AccountLockout, SecurityValueKind.Number, 0, 999),
         Access("LockoutDuration", SecurityOptionGroup.AccountLockout, SecurityValueKind.Number, -1, 99999),
         Access("ResetLockoutCount", SecurityOptionGroup.AccountLockout, SecurityValueKind.Number, 1, 99999),
@@ -229,6 +231,12 @@ public static class SecuritySettingsCatalog
     /// the legacy categories of <c>[Event Audit]</c> (it is on by default since Windows Vista when audit.csv is applied).
     /// </summary>
     public static SecurityOptionDefinition ForceAuditSubcategories => Options.First(o => o.Id == "SCENoApplyLegacyAuditPolicy");
+
+    /// <summary>
+    /// "Złagodź limity minimalnej długości hasła": without it a minimum password length above 14 is refused by the
+    /// security engine (the length allows up to 128 only with it enabled).
+    /// </summary>
+    public static SecurityOptionDefinition RelaxMinimumPasswordLength => Options.First(o => o.Id == "RelaxMinimumPasswordLengthLimits");
 
     /// <summary>The legacy audit categories of <c>[Event Audit]</c> (values 0–3).</summary>
     public static IReadOnlyList<string> AuditCategories { get; } =

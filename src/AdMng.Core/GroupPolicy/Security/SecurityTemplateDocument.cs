@@ -13,8 +13,10 @@ public sealed record ServiceStartupSetting(string Name, int StartMode, string Se
 /// The security template <c>Machine/Microsoft/Windows NT/SecEdit/GptTmpl.inf</c> as an editable document (K4, design note
 /// docs/dev/k-computers-and-gpo.md 19): every line is kept as read, and an edit replaces, appends or removes only the
 /// lines of the settings it changes, so sections and keys this editor does not know (file and registry ACLs, event log
-/// settings, comments) survive a save unchanged. Keys are compared case-insensitively; when a key occurs more than once
-/// the last occurrence is the value (as in the security engine) and a write leaves only one line. Written as secedit
+/// settings, comments) survive a save unchanged. Keys are compared case-insensitively; sections of the same name are one
+/// section (as SetupAPI reads them). A key that occurs more than once is shown with its last occurrence (as
+/// <see cref="SecurityTemplate"/> reads it); which one a client applies is not specified, so a write leaves exactly one
+/// line in all sections of that name. Written as secedit
 /// writes it: UTF-16LE with BOM, CR LF. Content is untrusted (<see cref="GpoParseException"/> as in
 /// <see cref="SecurityTemplate.Parse"/>).
 /// </summary>
@@ -144,25 +146,8 @@ public sealed class SecurityTemplateDocument
             throw new ArgumentException("A template key must not contain '=' and neither key nor value a line break.", nameof(key));
         }
 
-        var target = Require(section);
-        var matches = target.Lines.Select((line, i) => (line, i)).Where(m => m.line.Value is not null && m.line.Key.Equals(key, StringComparison.OrdinalIgnoreCase)).ToList();
-        if (matches.Count == 1 && matches[0].line.Value == value)
-        {
-            return;
-        }
-
-        var replacement = TemplateLine.Of(key + " = " + value);
-        if (matches.Count == 0)
-        {
-            Append(target, replacement);
-            return;
-        }
-
-        target.Lines[matches[^1].i] = replacement;
-        foreach (var (_, i) in matches.Take(matches.Count - 1).OrderByDescending(m => m.i))
-        {
-            target.Lines.RemoveAt(i);
-        }
+        Replace(section, line => line.Value is not null && line.Key.Equals(key, StringComparison.OrdinalIgnoreCase),
+            TemplateLine.Of(key + " = " + value), line => line.Value == value);
     }
 
     /// <summary>Removes every line of the key (a section left without entries is removed). True when something was removed.</summary>
@@ -242,25 +227,7 @@ public sealed class SecurityTemplateDocument
 
         var key = FormatPrincipal(normalized) + "__" + (relation == RestrictedGroupRelation.Members ? "Members" : "Memberof");
         var value = FormatPrincipals(principals);
-        var target = Require(GroupMembership);
-        var matches = target.Lines.Select((line, i) => (line, i)).Where(m => Same(m.line)).ToList();
-        if (matches.Count == 1 && matches[0].line.Value == value)
-        {
-            return;
-        }
-
-        var replacement = TemplateLine.Of(key + " = " + value);
-        if (matches.Count == 0)
-        {
-            Append(target, replacement);
-            return;
-        }
-
-        target.Lines[matches[^1].i] = replacement;
-        foreach (var (_, i) in matches.Take(matches.Count - 1).OrderByDescending(m => m.i))
-        {
-            target.Lines.RemoveAt(i);
-        }
+        Replace(GroupMembership, Same, TemplateLine.Of(key + " = " + value), line => line.Value == value);
     }
 
     // ---- Registry values (security options) ---------------------------------------------------------------------------
@@ -288,9 +255,15 @@ public sealed class SecurityTemplateDocument
     /// <summary><c>1,"text"</c> (quotes doubled).</summary>
     public static string StringValue(string value) => "1," + Quote(value ?? throw new ArgumentNullException(nameof(value)));
 
-    /// <summary><c>7,line1,line2</c>: lines with a comma or a quote are quoted.</summary>
+    /// <summary>
+    /// <c>7,line1,line2</c>: a line with a comma, a quote, a semicolon (an INF comment when unquoted) or spaces at either
+    /// end is quoted.
+    /// </summary>
     public static string MultiStringValue(IEnumerable<string> lines) =>
-        "7," + string.Join(",", (lines ?? throw new ArgumentNullException(nameof(lines))).Select(l => l.Contains(',', StringComparison.Ordinal) || l.Contains('"', StringComparison.Ordinal) ? Quote(l) : l));
+        "7," + string.Join(",", (lines ?? throw new ArgumentNullException(nameof(lines))).Select(l => NeedsQuotes(l) ? Quote(l) : l));
+
+    private static bool NeedsQuotes(string value) =>
+        value.Length > 0 && (value.IndexOfAny([',', '"', ';']) >= 0 || char.IsWhiteSpace(value[0]) || char.IsWhiteSpace(value[^1]));
 
     // ---- Services -----------------------------------------------------------------------------------------------------
 
@@ -337,25 +310,7 @@ public sealed class SecurityTemplateDocument
         }
 
         var raw = Quote(setting.Name.Trim()) + "," + setting.StartMode.ToString(CultureInfo.InvariantCulture) + "," + Quote(setting.Security);
-        var target = Require(ServiceGeneralSetting);
-        var matches = target.Lines.Select((line, i) => (line, i)).Where(m => Same(m.line)).ToList();
-        if (matches.Count == 1 && ParseService(matches[0].line) == setting with { Name = setting.Name.Trim() })
-        {
-            return;
-        }
-
-        var replacement = TemplateLine.Of(raw);
-        if (matches.Count == 0)
-        {
-            Append(target, replacement);
-            return;
-        }
-
-        target.Lines[matches[^1].i] = replacement;
-        foreach (var (_, i) in matches.Take(matches.Count - 1).OrderByDescending(m => m.i))
-        {
-            target.Lines.RemoveAt(i);
-        }
+        Replace(ServiceGeneralSetting, Same, TemplateLine.Of(raw), line => ParseService(line) == setting with { Name = setting.Name.Trim() });
     }
 
     // ---- Serialization ------------------------------------------------------------------------------------------------
@@ -398,9 +353,9 @@ public sealed class SecurityTemplateDocument
     private static string FormatPrincipals(IEnumerable<string> principals)
     {
         var list = principals.Select(p => p?.Trim() ?? string.Empty).Where(p => p.Length > 0).ToList();
-        if (list.Any(p => p.Contains(',', StringComparison.Ordinal) || p.Contains('"', StringComparison.Ordinal) || HasLineBreak(p)))
+        if (list.Any(p => p.IndexOfAny([',', '"', ';', '=']) >= 0 || HasLineBreak(p)))
         {
-            throw new ArgumentException("A principal must not contain a comma, a quote or a line break.", nameof(principals));
+            throw new ArgumentException("A principal must not contain a comma, a quote, a semicolon, '=' or a line break.", nameof(principals));
         }
 
         return string.Join(",", list.Select(FormatPrincipal).Distinct(StringComparer.OrdinalIgnoreCase));
@@ -429,19 +384,67 @@ public sealed class SecurityTemplateDocument
         return _sections.Where(s => s.Name.Equals(section, StringComparison.OrdinalIgnoreCase)).SelectMany(s => s.Lines);
     }
 
+    /// <summary>
+    /// Removes the matching lines of every section of that name. Only a section this document created (not one that was
+    /// read) is removed when it is left without lines, so an edit and its undo give back the bytes that were read and the
+    /// comments of a section survive.
+    /// </summary>
     private bool RemoveWhere(string section, Func<TemplateLine, bool> match)
     {
         var removed = false;
         foreach (var target in _sections.Where(s => s.Name.Equals(section, StringComparison.OrdinalIgnoreCase)).ToList())
         {
-            removed |= target.Lines.RemoveAll(l => match(l)) > 0;
-            if (target.Lines.All(l => l.IsBlankOrComment))
+            if (target.Lines.RemoveAll(l => match(l)) == 0)
+            {
+                continue;
+            }
+
+            removed = true;
+            if (target.Created && target.Lines.All(l => l.IsBlankOrComment && l.Raw.Trim().Length == 0))
             {
                 _sections.Remove(target);
             }
         }
 
         return removed;
+    }
+
+    /// <summary>
+    /// Leaves exactly one line for the setting across every section of that name (SetupAPI merges them; which duplicate
+    /// a client applies is not specified, so none is left): the last match is replaced and the others are removed, or the
+    /// line is appended to the last section of that name. Nothing changes when the only line already is the value.
+    /// </summary>
+    private void Replace(string section, Func<TemplateLine, bool> same, TemplateLine replacement, Func<TemplateLine, bool> unchanged)
+    {
+        var matches = new List<(Section Section, int Index)>();
+        foreach (var target in _sections.Where(s => s.Name.Equals(section, StringComparison.OrdinalIgnoreCase)))
+        {
+            for (var i = 0; i < target.Lines.Count; i++)
+            {
+                if (same(target.Lines[i]))
+                {
+                    matches.Add((target, i));
+                }
+            }
+        }
+
+        if (matches.Count == 1 && unchanged(matches[0].Section.Lines[matches[0].Index]))
+        {
+            return;
+        }
+
+        if (matches.Count == 0)
+        {
+            Append(Require(section), replacement);
+            return;
+        }
+
+        var (lastSection, lastIndex) = matches[^1];
+        lastSection.Lines[lastIndex] = replacement;
+        foreach (var (target, index) in matches.Take(matches.Count - 1).Reverse())
+        {
+            target.Lines.RemoveAt(index); // reversed: a later index of the same section goes first
+        }
     }
 
     /// <summary>The last section of that name (secedit merges sections of the same name), created at the end when missing.</summary>
@@ -454,7 +457,7 @@ public sealed class SecurityTemplateDocument
             return existing;
         }
 
-        var created = new Section(section, "[" + section + "]");
+        var created = new Section(section, "[" + section + "]") { Created = true };
         _sections.Add(created);
         return created;
     }
@@ -478,6 +481,9 @@ public sealed class SecurityTemplateDocument
         public string Header { get; } = header;
 
         public List<TemplateLine> Lines { get; } = [];
+
+        /// <summary>Created by an edit (not read from the file): removed again when an edit empties it.</summary>
+        public bool Created { get; init; }
     }
 
     /// <summary>A line as read: <c>key = value</c> (Value set), a line without '=' (Key = the trimmed line), or blank/comment.</summary>

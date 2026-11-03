@@ -76,7 +76,7 @@ public class SecurityTemplateDocumentTests
         Assert.Contains("SeBackupPrivilege = *S-1-5-32-551\r\n", text, StringComparison.Ordinal);
         Assert.Contains("*S-1-5-32-544__Members = *S-1-5-21-1-2-3-512\r\n", text, StringComparison.Ordinal);
         Assert.Contains("\"Spooler\",3,\"\"\r\n\"W32Time\",2,\"D:(A;;GA;;;SY)\"\r\n; komentarz\r\n[Version]", text, StringComparison.Ordinal);
-        Assert.DoesNotContain("[Registry Values]", text, StringComparison.Ordinal); // left without entries
+        Assert.Contains("[Registry Values]\r\n[File Security]", text, StringComparison.Ordinal); // read from the file: kept
         Assert.Contains("[File Security]\r\n\"%SystemRoot%\\System32\\drivers\\etc\\hosts\",2,\"D:PAR(A;;FA;;;BA)\"\r\n", text, StringComparison.Ordinal);
         Assert.Equal(document.ToText(), SecurityTemplateDocument.Parse(document.ToBytes()).ToText());
     }
@@ -135,5 +135,51 @@ public class SecurityTemplateDocumentTests
         Assert.Equal("4,5", SecurityTemplateDocument.DwordValue(5));
         Assert.Equal("1,\"Uwaga \"\"system\"\"\"", SecurityTemplateDocument.StringValue("Uwaga \"system\""));
         Assert.Equal("7,Wiersz pierwszy,\"Drugi, z przecinkiem\"", SecurityTemplateDocument.MultiStringValue(["Wiersz pierwszy", "Drugi, z przecinkiem"]));
+    }
+
+    [Fact]
+    public void Set_OfAKeyInTwoSectionsOfTheSameName_LeavesOneLine()
+    {
+        var document = SecurityTemplateDocument.Parse(Utf16("[System Access]\nMinimumPasswordLength = 8\n[Version]\nRevision=1\n[System Access]\nLockoutBadCount = 5"));
+
+        document.Set(SecurityTemplateDocument.SystemAccess, "MinimumPasswordLength", "12");
+
+        Assert.Equal("[System Access]\r\nMinimumPasswordLength = 12\r\n[Version]\r\nRevision=1\r\n[System Access]\r\nLockoutBadCount = 5\r\n", document.ToText());
+
+        var twice = SecurityTemplateDocument.Parse(Utf16("[System Access]\nMinimumPasswordLength = 8\n[System Access]\nMinimumPasswordLength = 10"));
+        twice.Set(SecurityTemplateDocument.SystemAccess, "MinimumPasswordLength", "12");
+        Assert.Equal("[System Access]\r\n[System Access]\r\nMinimumPasswordLength = 12\r\n", twice.ToText());
+    }
+
+    [Fact]
+    public void RemoveAndDefineAgain_KeepsTheSectionAndItsComment_AndGivesTheBytesBack()
+    {
+        var bytes = Utf16("[Privilege Rights]\nSeDebugPrivilege = *S-1-5-32-544\n; zarządzane przez wzorzec v2");
+        var document = SecurityTemplateDocument.Parse(bytes);
+
+        document.SetPrivilegeRight("SeDebugPrivilege", null);
+        Assert.Equal("[Privilege Rights]\r\n; zarządzane przez wzorzec v2\r\n", document.ToText());
+        document.SetPrivilegeRight("SeDebugPrivilege", ["S-1-5-32-544"]);
+
+        Assert.Equal(bytes, document.ToBytes());
+    }
+
+    [Fact]
+    public void ASectionCreatedByAnEdit_GoesAgainWhenEmptied()
+    {
+        var bytes = Utf16(Sample);
+        var document = SecurityTemplateDocument.Parse(bytes);
+
+        document.Set(SecurityTemplateDocument.KerberosPolicy, "MaxTicketAge", "10");
+        document.Remove(SecurityTemplateDocument.KerberosPolicy, "MaxTicketAge");
+
+        Assert.Equal(bytes, document.ToBytes());
+    }
+
+    [Fact]
+    public void MultiString_QuotesSemicolonsAndOuterSpaces_AndPrincipalsRefuseThem()
+    {
+        Assert.Equal("7,\"Dostęp ograniczony; naruszenia są ścigane.\",\" wcięty\",zwykły", SecurityTemplateDocument.MultiStringValue(["Dostęp ograniczony; naruszenia są ścigane.", " wcięty", "zwykły"]));
+        Assert.Throws<ArgumentException>(() => SecurityTemplateDocument.New().SetPrivilegeRight("SeDebugPrivilege", ["KONTOSO\\a;b"]));
     }
 }

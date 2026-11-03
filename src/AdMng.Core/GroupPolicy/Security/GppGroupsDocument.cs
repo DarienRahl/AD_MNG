@@ -39,11 +39,21 @@ public sealed class GppGroupsDocument
     public const string GroupClassId = "{6D4A79E4-529C-4481-ABD0-F5BD7EA93BA7}";
 
     private readonly XDocument _document;
+
+    /// <summary>The items as read, by uid: an edit that returns an item to this state restores its element as read.</summary>
+    private readonly Dictionary<string, (XElement Element, GppLocalGroup Item)> _originals = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<GppLocalGroup>? _items;
 
     private GppGroupsDocument(XDocument document)
     {
         _document = document;
+        foreach (var (element, item) in GppGroupsParser.GroupElements(document).Zip(Items))
+        {
+            if (item.Uid is { } uid)
+            {
+                _originals.TryAdd(uid, (new XElement(element), item));
+            }
+        }
     }
 
     /// <summary>A new file without items.</summary>
@@ -70,12 +80,28 @@ public sealed class GppGroupsDocument
     /// <summary>The local group items in document order (the order the client applies them).</summary>
     public IReadOnlyList<GppLocalGroup> Items => _items ??= GppGroupsParser.Read(_document);
 
-    /// <summary>Changes the item at <paramref name="index"/> (its targeting, options and other attributes stay).</summary>
+    /// <summary>
+    /// Changes the item at <paramref name="index"/> (its targeting, options and other attributes stay). An edit that
+    /// returns an item to its state as read restores the element as read (no new <c>changed</c> time), so an edit and its
+    /// undo give back the bytes that were read.
+    /// </summary>
     public void Update(int index, GppLocalGroupEdit edit, DateTime changed)
     {
         ArgumentNullException.ThrowIfNull(edit);
         var element = Element(index);
-        if (Same(Items[index], edit))
+        var current = Items[index];
+        if (current.Uid is { } uid && _originals.TryGetValue(uid, out var original) && Same(original.Item, edit))
+        {
+            if (!XNode.DeepEquals(element, original.Element))
+            {
+                element.ReplaceWith(new XElement(original.Element));
+                _items = null;
+            }
+
+            return;
+        }
+
+        if (Same(current, edit))
         {
             return;
         }

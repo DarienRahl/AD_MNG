@@ -1470,10 +1470,13 @@ log settings and the user configuration's GPP groups are **not** edited: they ar
 | `Machine/Microsoft/Windows NT/Audit/audit.csv` | `AuditPolicyDocument` | the header (column order), options (`Option:…`), global SACL rows, unknown rows | the file's encoding (UTF-8, BOM kept; new file without BOM), CR LF |
 | `Machine/Preferences/Groups/Groups.xml` | `GppGroupsDocument` | `User` items, collections, `Filters` (item-level targeting), common options, unknown attributes and their spelling | UTF-8 + BOM, declaration, no indentation |
 
-*Minimal edit.* A template edit replaces the last line of its key (earlier duplicates removed: the security engine
-reads the last one), appends to the last section of that name before its trailing blank lines/comments, or removes
-the lines (a section left without entries goes). Setting the value a key already has changes nothing, so an edit and
-its undo give the bytes that were read. Keys and values with `=`/line breaks, principals with commas/quotes and GPP
+*Minimal edit.* Sections of the same name are one section (SetupAPI merges them). A template edit replaces the last
+line of its key in all of them and removes every other line of it (which duplicate a client applies is not specified,
+so a save leaves one), appends to the last section of that name before its trailing blank lines/comments, or removes
+the lines; only a section the edit itself created is removed again when emptied (a section read from the file keeps
+its header and comments). Setting the value a key already has changes nothing, so an edit and its undo give the bytes
+that were read; a GPP item edited back to its state as read gets its element as read back (no new `changed`).
+REG_MULTI_SZ lines with a comma, quote, semicolon (an INF comment when unquoted) or outer spaces are quoted. Keys and values with `=`/line breaks, principals with commas/quotes and GPP
 SIDs that are not SIDs are refused (`ArgumentException`) – the file is untrusted on read, the editor's input on write.
 Restricted Groups keys are matched by group (SID or name, case-insensitive) and relation, written `*SID__Members` /
 `*SID__Memberof`; principals are written `*SID` or as named; a defined empty list is `key =` ("no members", "nobody").

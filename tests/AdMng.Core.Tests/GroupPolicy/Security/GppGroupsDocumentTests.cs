@@ -95,4 +95,19 @@ public class GppGroupsDocumentTests
         Assert.Throws<ArgumentException>(() => document.Add(new GppLocalGroupEdit("X", "nie-SID", GppItemAction.Update, false, false, []), Changed));
         Assert.Throws<ArgumentOutOfRangeException>(() => document.RemoveAt(0));
     }
+
+    [Fact]
+    public void Update_AndItsUndo_GiveTheBytesBack()
+    {
+        var bytes = GppGroupsDocument.Parse(Bytes(Sample)).ToBytes();
+        var document = GppGroupsDocument.Parse(bytes);
+        var item = document.Items[0];
+        GppLocalGroupEdit Edit(bool deleteAllUsers) => new(item.GroupName!, item.GroupSid, item.Action, deleteAllUsers, item.DeleteAllGroups, item.Members);
+
+        document.Update(0, Edit(true), Changed);
+        Assert.NotEqual(bytes, document.ToBytes());
+        document.Update(0, Edit(false), Changed.AddMinutes(1));
+
+        Assert.Equal(bytes, document.ToBytes());
+    }
 }
