@@ -1454,6 +1454,46 @@ diagnostyka zasad grupy) mają pierwszą wersję; zastępuje „polityki ADMX”
   – CI na Windows; zgodność nazw z raportem GPMC – pilotaż. Opis:
   [ZASADY-GRUPY.md, rozdział 11](docs/ZASADY-GRUPY.md#11-czytelne-ustawienia-wygoda-edycji-i-diagnostyka-k6).
 
+#### Pomysły na dalszy rozwój zasad grupy (K7–K11, do wyboru)
+
+Propozycje na kolejne etapy – kolejność i zakres do ustalenia z zespołem.
+
+- ⬜ **K7 – szukanie i porządki w GPO.**
+  - **Wyszukiwarka ustawień we wszystkich GPO domeny**, np. „gdzie ustawiono minimalną długość hasła”, „które GPO
+    mapuje dysk K:”, „kto daje prawo *Logowanie przez usługi pulpitu zdalnego*”. Szuka po nazwie, wartości, kluczu
+    technicznym i koncie, w języku GPMC (K6).
+  - **Kopiowanie wybranych ustawień do innego GPO** przez plan zmian: zasady ADMX, ustawienia zabezpieczeń,
+    preferencje.
+  - **Doradca porządków:**
+    - GPO puste, niepołączone albo z jednym ustawieniem;
+    - ustawienia powtórzone w kilku GPO;
+    - propozycja scalenia dwóch GPO z podglądem i cofnięciem.
+- ⬜ **K8 – historia i bezpieczne wdrażanie.**
+  - **Historia wersji GPO** z migawek treści, które AdMng Watchdog już przechowuje: oś czasu zmian i porównanie z
+    dowolną wcześniejszą wersją. *Przywróć to ustawienie* działa przez plan zmian.
+  - **Wdrażanie etapowe**: GPO najpierw dla grupy pilotażowej (filtrowanie zabezpieczeń) albo OU testowej, potem dla
+    wszystkich. Kreator prowadzi przez kolejne kroki.
+  - **Zatwierdzanie zmian GPO przez drugą osobę** (zasada „cztery oczy” z fazy 7).
+- ⬜ **K9 – zasady grupy na prawdziwym komputerze.**
+  - **Wynik zasad grupy odczytany z komputera** (RSoP przez CIM, jak `gpresult`), zestawiony z modelem K5 i ze
+    zdarzeniami *GroupPolicy/Operational* (ścieżka E4). Odpowiada na pytanie, dlaczego ustawienie nie działa.
+  - **Zdalne `gpupdate` dla OU albo listy komputerów** z raportem wyników.
+  - **Próba filtru WMI na wybranym komputerze**: zapytanie WQL przez zdalne akcje K1.
+- ⬜ **K10 – kolejne edytory.**
+  - **Zapora Windows**: reguły i profile.
+  - **Pozostałe preferencje**: mapowania dysków, drukarki, skróty, rejestr, pliki i foldery, zadania zaplanowane,
+    użytkownicy lokalni, zmienne środowiskowe – z edytorem kierowania na poziomie elementu.
+  - **Uprawnienia plików i rejestru.**
+  - **Ustawienia dzienników zdarzeń**: rozmiar i przechowywanie, powiązane ze ścieżką E.
+  - **Skrypty** uruchamiania i logowania, z kopiowaniem plików do SYSVOL.
+  - **Komentarze do ustawień szablonów oraz filtry platformy i słów kluczowych.**
+- ⬜ **K11 – wzorce i zgodność.**
+  - **Porównanie GPO z wzorcem bezpieczeństwa** z kopii zapasowej, którą wskaże operator (np. Microsoft Security
+    Baseline albo CIS). Raport zgodności pokazuje każde ustawienie, a *Zastosuj różnice* działa przez plan zmian.
+  - **GPO wzorcowe (Starter GPO) i tabele migracji** przy kopiowaniu GPO między domenami (z okna innego połączenia).
+  - **Diagnostyka zasad grupy uruchamiana codziennie przez AdMng Watchdog**, z powiadomieniem o nowych uwagach
+    krytycznych i wysokich.
+
 **Kryteria ukończenia**
 - GPO utworzone i zmienione w AD Managerze działa na komputerze testowym (`gpresult /h`) tak samo jak zmienione w
   edytorze GPO Microsoftu; `Registry.pol` i wersje GPO zgodne z GPMC.
