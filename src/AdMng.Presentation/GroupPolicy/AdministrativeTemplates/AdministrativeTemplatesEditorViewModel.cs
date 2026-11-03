@@ -7,6 +7,7 @@ using AdMng.Core.GroupPolicy.Management;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
+using AdMng.Presentation.Shell;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -22,8 +23,11 @@ namespace AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 /// edits and the conflict note (the save is refused as a conflict), a half saved as edited becomes clean, a half saved and
 /// edited again keeps the later edits on top of what was saved. The selected policy can be edited only while the document
 /// is neither loading nor saving; invalid options block the save; closing the tab with unsaved edits asks first.
+/// K6 (20.3): the configured counter follows the edits; leaving a policy whose options are invalid keeps what was typed
+/// (with a warning and a mark on its row) until it is corrected; Ctrl+S saves, Ctrl+F focuses the search; "Edytuj to
+/// ustawienie" selects a policy (<see cref="FocusSetting"/>); the save shows "Zmiany ustawień" in the preview.
 /// </summary>
-public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicyDocumentBase
+public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicyDocumentBase, ISaveableDocument, ISearchableDocument, IGroupPolicySettingEditor
 {
     private readonly PolicyDefinitionsService _definitions;
     private readonly string _initialName;
@@ -40,6 +44,18 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     private GpoInfo? _gpo;
     private bool _confirmingClose;
 
+    /// <summary>Editors left while their options were invalid: what was typed stays until it is corrected (never lost silently).</summary>
+    private readonly Dictionary<(PolicyClass Scope, string PolicyId), PolicyEditorViewModel> _invalid = [];
+
+    /// <summary>Configured policies of both halves (the counter of the status bar, kept up to date by the edits).</summary>
+    private int _configured;
+
+    /// <summary>"Edytuj to ustawienie" asked before the templates were loaded: applied when the load ends.</summary>
+    private GroupPolicySettingFocus? _pendingFocus;
+
+    /// <summary>The shown editor is being dropped with its typed options (discard): it is not kept.</summary>
+    private bool _droppingEditor;
+
     public AdministrativeTemplatesEditorViewModel(GroupPolicyServices services, GroupPolicyActions actions, PolicyDefinitionsService definitions, Guid gpoId, string? name)
         : base(services, actions)
     {
@@ -53,7 +69,13 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     /// <summary>Opens "Zaktualizuj szablony ADMX" (set by the factory; null: not offered).</summary>
     public Func<Task<bool>>? UpdateTemplates { get; init; }
 
-    public override string Title => Localizer.Format(L.AdministrativeTemplates.Title, _gpo?.DisplayName ?? _initialName);
+    public override string Title => Localizer.Format(L.AdministrativeTemplates.Title, GpoName);
+
+    /// <summary>The GPO's name (as read; the requested name until then).</summary>
+    public string GpoName => _gpo?.DisplayName ?? _initialName;
+
+    /// <summary>Ctrl+F: the view focuses the search box.</summary>
+    public event EventHandler? SearchFocusRequested;
 
     public override ObjectIcon Icon => ObjectIcon.GroupPolicy;
 
@@ -174,7 +196,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
             return;
         }
 
-        if (Editor is { HasProblems: true } invalid)
+        if (FirstInvalid() is { } invalid)
         {
             // The document holds the last valid options, not what the editor shows: never save something else than shown.
             Gp.Ui.Notifications.Show(NotificationSeverity.Warning, Localizer.Format(L.AdministrativeTemplates.SaveBlocked, invalid.Name));
@@ -192,13 +214,14 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
             return;
         }
 
+        var changes = SettingChanges(machine is not null, user is not null);
         Remember(PolicyClass.Machine, machine);
         Remember(PolicyClass.User, user);
         IsSaving = true;
         SyncEditor();
         try
         {
-            await Actions.SaveAdministrativeTemplatesAsync(gpo, machine, user).ConfigureAwait(true);
+            await Actions.SaveAdministrativeTemplatesAsync(gpo, machine, user, changes).ConfigureAwait(true);
         }
         finally
         {
@@ -220,6 +243,18 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         _machine = _machine?.Discarded();
         _user = _user?.Discarded();
         _touched.Clear();
+        _droppingEditor = true;
+        try
+        {
+            Editor = null; // typed options are discarded with the rest: the reload shows the policy as read
+        }
+        finally
+        {
+            _droppingEditor = false;
+        }
+
+        ForgetInvalid();
+
         ConflictNote = null;
         await LoadAsync().ConfigureAwait(true);
     }
@@ -292,10 +327,22 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         UpdateChanges();
     }
 
-    /// <summary>Something to save, the GPO writable, and the shown options valid (an invalid value blocks the save).</summary>
-    private bool CanSave() => HasChanges && CanEdit && !IsLoading && Editor is not { HasProblems: true };
+    /// <summary>Something to save, the GPO writable, and every typed option valid (an invalid value blocks the save).</summary>
+    private bool CanSave() => HasChanges && CanEdit && !IsLoading && FirstInvalid() is null;
 
-    private bool CanDiscard() => HasChanges && !IsSaving;
+    /// <summary>Edits to drop: changed documents, or options typed invalid and kept.</summary>
+    private bool CanDiscard() => (HasChanges || _invalid.Count > 0) && !IsSaving;
+
+    /// <summary>The shown or a kept editor whose options are invalid (null: none).</summary>
+    private PolicyEditorViewModel? FirstInvalid() =>
+        Editor is { HasProblems: true } shown ? shown : _invalid.Values.FirstOrDefault(e => e.HasProblems);
+
+    /// <summary>Ctrl+F (<see cref="ISearchableDocument"/>).</summary>
+    public void FocusSearch() => SearchFocusRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>Esc in the search box.</summary>
+    [RelayCommand]
+    private void ClearSearch() => SearchText = string.Empty;
 
     private bool CanDeleteExtraEntry() => SelectedExtraEntry is not null && CanEdit && Half(SelectedExtraEntry.Scope) is { Error: null };
 
@@ -342,6 +389,11 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         IsCentralStoreMissing = definitions.Origin != PolicyDefinitionOrigin.CentralStore;
         _fileProblems = definitions.FileProblems;
         DefinitionIssues = [.. _set.Issues.Select(IssueText)];
+        foreach (var stale in _invalid.Keys.Where(k => _set.Find(k.PolicyId) is null).ToList())
+        {
+            _invalid.Remove(stale); // its template is gone (another language, another store): nothing to correct
+        }
+
         if (definitionsChanged || Roots.Count == 0)
         {
             _ownership = PolicyOwnershipIndex.Build(_set);
@@ -353,7 +405,13 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         RebuildExtra();
         UpdateChanges();
         ShowEditor();
-        LoadedText = Localizer.Format(L.AdministrativeTemplates.Loaded, _set.PolicyCount, CountConfigured());
+        _configured = CountConfigured();
+        UpdateLoadedText();
+        if (_pendingFocus is { } focus)
+        {
+            _pendingFocus = null;
+            FocusSetting(focus);
+        }
     }
 
     protected override void OnNotConnected()
@@ -381,6 +439,11 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         if (disposing && Editor is { } editor)
         {
             editor.PropertyChanged -= OnEditorPropertyChanged;
+        }
+
+        if (disposing)
+        {
+            ForgetInvalid();
         }
 
         base.Dispose(disposing);
@@ -556,7 +619,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
             }
 
             var row = Row(definition, node.Scope);
-            if ((OnlyConfigured && row.State == PolicyState.NotConfigured) || (OnlyChanged && !row.IsChanged))
+            if ((OnlyConfigured && row.State == PolicyState.NotConfigured) || (OnlyChanged && !row.IsChanged && !row.HasProblem))
             {
                 continue;
             }
@@ -613,6 +676,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         row.StateText = half is null || half.Error is not null ? Localizer[L.AdministrativeTemplates.StateUnknown] : StateText(state.State);
         row.IsChanged = half is not null && _touched.Contains((row.Scope, row.Definition.Id))
             && !Equals(PolicyEngine.Read(row.Definition.Policy, half.OriginalDocument.View, _ownership.OwnedNames), state);
+        row.HasProblem = HasProblem(row.Scope, row.Definition.Id);
     }
 
     private string StateText(PolicyState state) => Localizer[state switch
@@ -631,10 +695,67 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
             return;
         }
 
+        if (Editor is { HasProblems: true } shown && IsEditorOf(shown, row.Scope, row.Definition.Id))
+        {
+            // The same policy again (a reload, the list rebuilt): what was typed stays.
+            shown.SetCanEdit(CanEditHalf(row.Scope));
+            return;
+        }
+
+        if (_invalid.Remove((row.Scope, row.Definition.Id), out var kept))
+        {
+            // Back to a policy left with invalid options: the typed values are shown again, to be corrected.
+            kept.SetCanEdit(CanEditHalf(row.Scope));
+            Editor = kept;
+            DiscardCommand.NotifyCanExecuteChanged();
+            return;
+        }
+
         var half = Half(row.Scope);
         var current = half is null ? PolicySetting.NotConfigured : PolicyEngine.Read(row.Definition.Policy, half.Document.View, _ownership.OwnedNames);
         Editor = new PolicyEditorViewModel(Localizer, row.Definition, row.Scope, current, CanEditHalf(row.Scope), Apply);
     }
+
+    private static bool IsEditorOf(PolicyEditorViewModel editor, PolicyClass scope, string policyId) =>
+        editor.Scope == scope && string.Equals(editor.Definition.Id, policyId, StringComparison.Ordinal);
+
+    /// <summary>
+    /// An editor left while its options are invalid: the document still holds the last valid setting, the typed options stay
+    /// in the editor (shown again when the policy is selected), the row is marked and the save stays blocked; the operator is
+    /// told – never a silent loss of what was typed.
+    /// </summary>
+    private void Keep(PolicyEditorViewModel editor)
+    {
+        _invalid[(editor.Scope, editor.Definition.Id)] = editor;
+        MarkProblem(editor.Scope, editor.Definition.Id);
+        Gp.Ui.Notifications.Show(NotificationSeverity.Warning, Localizer.Format(L.GroupPolicyEditing.InvalidKept, editor.Name));
+        SaveCommand.NotifyCanExecuteChanged();
+        DiscardCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>Drops the kept invalid options (discard, close).</summary>
+    private void ForgetInvalid()
+    {
+        var kept = _invalid.Keys.ToList();
+        _invalid.Clear();
+        foreach (var (scope, id) in kept)
+        {
+            MarkProblem(scope, id);
+        }
+    }
+
+    /// <summary>The row's warning mark: its options are invalid (shown or kept), not in the GPO.</summary>
+    private void MarkProblem(PolicyClass scope, string policyId)
+    {
+        if (_rows.TryGetValue((scope, policyId), out var row))
+        {
+            row.HasProblem = HasProblem(scope, policyId);
+        }
+    }
+
+    private bool HasProblem(PolicyClass scope, string policyId) =>
+        (_invalid.TryGetValue((scope, policyId), out var kept) && kept.HasProblems)
+        || (Editor is { HasProblems: true } shown && IsEditorOf(shown, scope, policyId));
 
     /// <summary>The selected policy's editor follows whether the GPO can be edited now (after a load, around a save).</summary>
     private void SyncEditor()
@@ -652,11 +773,16 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         if (oldValue is not null)
         {
             oldValue.PropertyChanged -= OnEditorPropertyChanged;
+            if (oldValue.HasProblems && !_droppingEditor && !IsDisposed)
+            {
+                Keep(oldValue);
+            }
         }
 
         if (newValue is not null)
         {
             newValue.PropertyChanged += OnEditorPropertyChanged;
+            MarkProblem(newValue.Scope, newValue.Definition.Id);
         }
 
         SaveCommand.NotifyCanExecuteChanged();
@@ -666,6 +792,11 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     {
         if (e.PropertyName is nameof(PolicyEditorViewModel.HasProblems) or nameof(PolicyEditorViewModel.Problems))
         {
+            if (sender is PolicyEditorViewModel editor)
+            {
+                MarkProblem(editor.Scope, editor.Definition.Id);
+            }
+
             SaveCommand.NotifyCanExecuteChanged();
         }
     }
@@ -678,7 +809,11 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
             return;
         }
 
+        var wasConfigured = PolicyEngine.Read(editor.Definition.Policy, half.Document.View, _ownership.OwnedNames).State != PolicyState.NotConfigured;
         PolicyEngine.Write(editor.Definition.Policy, setting, half.Document, _ownership.OwnedNames);
+        var isConfigured = PolicyEngine.Read(editor.Definition.Policy, half.Document.View, _ownership.OwnedNames).State != PolicyState.NotConfigured;
+        _configured += (isConfigured ? 1 : 0) - (wasConfigured ? 1 : 0);
+        UpdateLoadedText();
         _touched.Add((editor.Scope, editor.Definition.Id));
         if (_rows.TryGetValue((editor.Scope, editor.Definition.Id), out var row))
         {
@@ -747,6 +882,15 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         if (save is not null)
         {
             _saved[scope] = save.Content;
+        }
+    }
+
+    /// <summary>"Ustawienia: N, skonfigurowane: M" (after the load and after every edit).</summary>
+    private void UpdateLoadedText()
+    {
+        if (_gpo is not null)
+        {
+            LoadedText = Localizer.Format(L.AdministrativeTemplates.Loaded, _set.PolicyCount, _configured);
         }
     }
 

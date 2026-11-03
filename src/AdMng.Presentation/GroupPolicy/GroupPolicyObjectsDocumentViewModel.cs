@@ -1,8 +1,10 @@
+using System.Globalization;
 using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Localization;
+using AdMng.Presentation.Shell;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -43,11 +45,53 @@ public sealed class GpoRowViewModel
 /// <summary>
 /// "Obiekty zasad grupy" (design note 5.2): every GPO of the domain with status, WMI filter, links, versions of AD and
 /// SYSVOL (a mismatch is marked), owner and modification time; multi-select; New, Copy, Rename, Delete, Backup, Restore,
-/// Import settings and Compare (two selected).
+/// Import settings and Compare (two selected). K6 (20.3): a search over the name, GUID, WMI filter and linked containers
+/// (Ctrl+F focuses it, Esc clears it).
 /// </summary>
 public sealed partial class GroupPolicyObjectsDocumentViewModel(GroupPolicyServices services, GroupPolicyActions actions)
-    : GroupPolicyDocumentBase(services, actions)
+    : GroupPolicyDocumentBase(services, actions), ISearchableDocument
 {
+    /// <summary>Every GPO read (<see cref="Rows"/> are those matching the search).</summary>
+    private IReadOnlyList<GpoRowViewModel> _all = [];
+
+    /// <summary>"Obiekty zasad grupy: N, z różnymi wersjami …" of the last load.</summary>
+    private string _countText = string.Empty;
+
+    /// <summary>Ctrl+F: the view focuses the search box.</summary>
+    public event EventHandler? SearchFocusRequested;
+
+    /// <summary>Search in the name, the GUID, the WMI filter and the linked containers (case and diacritics ignored).</summary>
+    [ObservableProperty]
+    public partial string SearchText { get; set; } = string.Empty;
+
+    /// <summary>"Żaden GPO nie pasuje do wyszukiwania." (null when the list has rows or nothing was read).</summary>
+    public string? ListNote => Rows.Count == 0 && _all.Count > 0 ? Localizer[L.GroupPolicyEditing.GpoNoMatches] : null;
+
+    /// <summary>Ctrl+F (<see cref="ISearchableDocument"/>).</summary>
+    public void FocusSearch() => SearchFocusRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>Esc in the search box.</summary>
+    [RelayCommand]
+    private void ClearSearch() => SearchText = string.Empty;
+
+    partial void OnSearchTextChanged(string value) => ApplySearch();
+
+    /// <summary>The rows matching the search; the selection keeps the rows still listed.</summary>
+    private void ApplySearch()
+    {
+        var search = SearchText.Trim();
+        var compare = CultureInfo.CurrentCulture.CompareInfo;
+        bool Has(string text) => compare.IndexOf(text, search, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0;
+        var focused = SelectedRow;
+        var selected = Selection;
+        Rows = search.Length == 0 ? _all
+            : [.. _all.Where(r => Has(r.Name) || Has(r.GuidText) || Has(r.Gpo.Id.ToString("D", CultureInfo.InvariantCulture)) || Has(r.WmiFilterText) || Has(r.LinksText))];
+        Selection = [.. selected.Where(Rows.Contains)];
+        SelectedRow = focused is not null && Rows.Contains(focused) ? focused : null;
+        LoadedText = search.Length == 0 ? _countText : Localizer.Format(L.GroupPolicyEditing.GposShown, Rows.Count, _all.Count);
+        OnPropertyChanged(nameof(ListNote));
+    }
+
     public override string Title => Localizer[L.GroupPolicy.ObjectsTitle];
 
     public override ObjectIcon Icon => ObjectIcon.GroupPolicy;
@@ -96,7 +140,7 @@ public sealed partial class GroupPolicyObjectsDocumentViewModel(GroupPolicyServi
         var zone = TimeZoneInfo.Local;
         var selected = Selection.Select(r => r.Gpo.Id).ToHashSet();
         var focused = SelectedRow?.Gpo.Id;
-        Rows = [.. gpos.Select(g =>
+        _all = [.. gpos.Select(g =>
         {
             var gpoLinks = links.TryGetValue(g.Id, out var list) ? list : [];
             return new GpoRowViewModel
@@ -112,15 +156,18 @@ public sealed partial class GroupPolicyObjectsDocumentViewModel(GroupPolicyServi
                 ChangedText = GroupPolicyText.Date(Localizer, g.Changed, zone),
             };
         })];
-        Selection = [.. Rows.Where(r => selected.Contains(r.Gpo.Id))];
-        SelectedRow = Rows.FirstOrDefault(r => r.Gpo.Id == focused);
-        LoadedText = Localizer.Format(L.GroupPolicy.ObjectsCount, Rows.Count, Rows.Count(r => r.HasVersionMismatch));
+        _countText = Localizer.Format(L.GroupPolicy.ObjectsCount, _all.Count, _all.Count(r => r.HasVersionMismatch));
+        Selection = [.. _all.Where(r => selected.Contains(r.Gpo.Id))];
+        SelectedRow = _all.FirstOrDefault(r => r.Gpo.Id == focused);
+        ApplySearch();
     }
 
     protected override void OnNotConnected()
     {
+        _all = [];
         Rows = [];
         Selection = [];
+        OnPropertyChanged(nameof(ListNote));
     }
 
     protected override void RefreshCommands()

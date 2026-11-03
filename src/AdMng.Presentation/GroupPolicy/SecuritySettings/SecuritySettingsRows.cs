@@ -272,11 +272,13 @@ public sealed partial class SecurityOptionRowViewModel : SecuritySettingRowBase
 {
     private readonly SecuritySettingsEditorViewModel _owner;
 
-    internal SecurityOptionRowViewModel(SecuritySettingsEditorViewModel owner, SecurityOptionDefinition definition, string name, IReadOnlyList<SecurityChoice> choices, string? rangeText)
+    internal SecurityOptionRowViewModel(SecuritySettingsEditorViewModel owner, SecurityOptionDefinition definition, string name, string groupName,
+        IReadOnlyList<SecurityChoice> choices, string? rangeText)
     {
         _owner = owner;
         Definition = definition;
         Name = name;
+        GroupName = groupName;
         Choices = choices;
         RangeText = rangeText;
     }
@@ -284,6 +286,9 @@ public sealed partial class SecurityOptionRowViewModel : SecuritySettingRowBase
     public SecurityOptionDefinition Definition { get; }
 
     public string Name { get; }
+
+    /// <summary>The group it is listed in ("Zasady haseł"; the column shown while the list spans the groups).</summary>
+    public string GroupName { get; }
 
     /// <summary>Where it is written: <c>[System Access] MinimumPasswordLength</c> or the registry path.</summary>
     public string KeyText => Definition.Location == SecurityOptionLocation.RegistryValue ? Definition.Key : $"[{Definition.Section}] {Definition.Key}";
@@ -413,6 +418,10 @@ public sealed partial class AuditRowViewModel : SecuritySettingRowBase
 
     [ObservableProperty]
     public partial AuditStateChoice? SelectedState { get; set; }
+
+    /// <summary>"Edytuj to ustawienie" points at this row (it is highlighted and scrolled into view).</summary>
+    [ObservableProperty]
+    public partial bool IsFocused { get; internal set; }
 
     partial void OnSelectedStateChanged(AuditStateChoice? value)
     {

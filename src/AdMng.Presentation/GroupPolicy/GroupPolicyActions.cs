@@ -4,6 +4,7 @@ using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Core.Model;
+using AdMng.Presentation.Changes;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 
@@ -45,13 +46,15 @@ public sealed class GroupPolicyActions(GroupPolicyServices services)
 
     /// <summary>
     /// "Zapisz zmiany…" of the administrative templates editor: Registry.pol of the changed halves, the extension names
-    /// and the versions as one plan through the preview (K3).
+    /// and the versions as one plan through the preview (K3); <paramref name="settingChanges"/> is shown above its rows.
     /// </summary>
-    public Task<bool> SaveAdministrativeTemplatesAsync(GpoInfo gpo, RegistryPolicySave? machine, RegistryPolicySave? user)
+    public Task<bool> SaveAdministrativeTemplatesAsync(GpoInfo gpo, RegistryPolicySave? machine, RegistryPolicySave? user,
+        IReadOnlyList<GroupPolicySettingChange>? settingChanges = null)
     {
         ArgumentNullException.ThrowIfNull(gpo);
         return RunAsync(Localizer.Format(L.AdministrativeTemplates.PlanTitle, gpo.DisplayName), SysvolUse.Required,
-            (session, sysvol, token) => Services.Planner.PlanAdministrativeTemplatesAsync(session, sysvol!, gpo.Id, machine, user, token));
+            (session, sysvol, token) => Services.Planner.PlanAdministrativeTemplatesAsync(session, sysvol!, gpo.Id, machine, user, token),
+            settingChanges: settingChanges);
     }
 
     /// <summary>"Edytuj ustawienia zabezpieczeń": the security settings editor of a GPO (K4).</summary>
@@ -60,15 +63,36 @@ public sealed class GroupPolicyActions(GroupPolicyServices services)
 
     /// <summary>
     /// "Zapisz zmiany…" of the security settings editor: the changed files (GptTmpl.inf, audit.csv, Groups.xml), the computer
-    /// extension names and version as one plan through the preview (K4).
+    /// extension names and version as one plan through the preview (K4); <paramref name="settingChanges"/> is shown above its rows.
     /// </summary>
-    public Task<bool> SaveSecuritySettingsAsync(GpoInfo gpo, SecuritySettingsSave save)
+    public Task<bool> SaveSecuritySettingsAsync(GpoInfo gpo, SecuritySettingsSave save, IReadOnlyList<GroupPolicySettingChange>? settingChanges = null)
     {
         ArgumentNullException.ThrowIfNull(gpo);
         ArgumentNullException.ThrowIfNull(save);
         return RunAsync(Localizer.Format(L.SecuritySettings.PlanTitle, gpo.DisplayName), SysvolUse.Required,
-            (session, sysvol, token) => Services.Planner.PlanSecuritySettingsAsync(session, sysvol!, gpo.Id, save, token));
+            (session, sysvol, token) => Services.Planner.PlanSecuritySettingsAsync(session, sysvol!, gpo.Id, save, token),
+            settingChanges: settingChanges);
     }
+
+    /// <summary>
+    /// "Edytuj to ustawienie" (K6, design note 20.3) for the GPO content's settings, the K5 model rows and the diagnostics:
+    /// opens the editor that edits <paramref name="focus"/> – the administrative templates (K3) at its category and policy, or
+    /// the security settings (K4) at its page and row (<see cref="GroupPolicySettingFocus.Editor"/>). An editor of the GPO
+    /// that is already open is activated and points at the setting again. False (nothing opened) when no editor of AD Manager
+    /// edits the setting or no shell listens; callers disable the command with <see cref="CanEditSetting"/>.
+    /// </summary>
+    /// <param name="gpoId">The GPO.</param>
+    /// <param name="name">The GPO's name (shown until the editor has loaded).</param>
+    /// <param name="focus">The setting: a GPO content key or an ADMX policy.</param>
+    public bool EditSetting(Guid gpoId, string? name, GroupPolicySettingFocus focus)
+    {
+        ArgumentNullException.ThrowIfNull(focus);
+        return focus.Editor is { } kind
+            && Services.OpenDocument(new GroupPolicyDocumentRequest(kind) { GpoId = gpoId, Name = name, Focus = focus });
+    }
+
+    /// <summary>An editor of AD Manager edits the setting ("Edytuj to ustawienie" is offered).</summary>
+    public static bool CanEditSetting(GroupPolicySettingFocus? focus) => focus?.Editor is not null;
 
     // ---- Create, copy, rename, delete ---------------------------------------------------------------------------------
 
@@ -429,7 +453,8 @@ public sealed class GroupPolicyActions(GroupPolicyServices services)
         SysvolUse sysvolUse,
         Func<IDirectorySession, ISysvolWriteConnection?, CancellationToken, Task<ChangePlan>> plan,
         string? confirmationText = null,
-        string? confirmationMessage = null)
+        string? confirmationMessage = null,
+        IReadOnlyList<GroupPolicySettingChange>? settingChanges = null)
     {
         var session = Services.Sessions.Current;
         if (session is null)
@@ -476,7 +501,7 @@ public sealed class GroupPolicyActions(GroupPolicyServices services)
             return false;
         }
 
-        return await Services.PreviewAsync(planned, title, session, confirmationText, confirmationMessage).ConfigureAwait(true);
+        return await Services.PreviewAsync(planned, title, session, confirmationText, confirmationMessage, settingChanges).ConfigureAwait(true);
     }
 
     /// <summary>

@@ -30,10 +30,24 @@ public sealed class GroupPolicyViewModelFactory(GroupPolicyServices services, Gr
         return await Services.Dialogs.ShowCentralStoreUpdateAsync(update).ConfigureAwait(true);
     }
 
-    /// <summary>The document a request names (not loaded yet: call <see cref="GroupPolicyDocumentBase.LoadAsync"/>).</summary>
+    /// <summary>
+    /// The document a request names (not loaded yet: call <see cref="GroupPolicyDocumentBase.LoadAsync"/>). An editor gets the
+    /// request's <see cref="GroupPolicyDocumentRequest.Focus"/> ("Edytuj to ustawienie"), applied when its load ends.
+    /// </summary>
     public GroupPolicyDocumentBase Create(GroupPolicyDocumentRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
+        var document = CreateDocument(request);
+        if (request.Focus is { } focus && document is IGroupPolicySettingEditor editor)
+        {
+            editor.FocusSetting(focus);
+        }
+
+        return document;
+    }
+
+    private GroupPolicyDocumentBase CreateDocument(GroupPolicyDocumentRequest request)
+    {
         return request.Kind switch
         {
             GroupPolicyDocumentKind.Object when request.GpoId is { } id =>

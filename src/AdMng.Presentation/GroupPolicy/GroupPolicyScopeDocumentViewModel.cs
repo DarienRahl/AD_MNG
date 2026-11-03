@@ -194,6 +194,9 @@ public sealed partial class GroupPolicyScopeDocumentViewModel : GroupPolicyDocum
         CreateAndLinkCommand.NotifyCanExecuteChanged();
         ToggleBlockInheritanceCommand.NotifyCanExecuteChanged();
         OpenGpoCommand.NotifyCanExecuteChanged();
+        EditGpoCommand.NotifyCanExecuteChanged();
+        EditTemplatesCommand.NotifyCanExecuteChanged();
+        EditSecuritySettingsCommand.NotifyCanExecuteChanged();
         ModelPoliciesCommand.NotifyCanExecuteChanged();
     }
 
@@ -243,6 +246,36 @@ public sealed partial class GroupPolicyScopeDocumentViewModel : GroupPolicyDocum
         if ((row ?? SelectedLink) is { Gpo: { } gpo })
         {
             Actions.OpenGpo(gpo.Id, gpo.DisplayName);
+        }
+    }
+
+    /// <summary>"Edytuj…" of a link (K6): the GPO's document on its "Ustawienia" tab (with both editors and "Edytuj to ustawienie").</summary>
+    [RelayCommand(CanExecute = nameof(CanOpenGpo))]
+    private void EditGpo(ScopeLinkRowViewModel? row)
+    {
+        if ((row ?? SelectedLink) is { Gpo: { } gpo })
+        {
+            Actions.OpenGpo(gpo.Id, gpo.DisplayName, GpoDocumentTab.Settings);
+        }
+    }
+
+    /// <summary>"Edytuj szablony administracyjne" of a link's GPO (K3).</summary>
+    [RelayCommand(CanExecute = nameof(CanOpenGpo))]
+    private void EditTemplates(ScopeLinkRowViewModel? row)
+    {
+        if ((row ?? SelectedLink) is { Gpo: { } gpo })
+        {
+            Actions.EditAdministrativeTemplates(gpo.Id, gpo.DisplayName);
+        }
+    }
+
+    /// <summary>"Edytuj ustawienia zabezpieczeń" of a link's GPO (K4).</summary>
+    [RelayCommand(CanExecute = nameof(CanOpenGpo))]
+    private void EditSecuritySettings(ScopeLinkRowViewModel? row)
+    {
+        if ((row ?? SelectedLink) is { Gpo: { } gpo })
+        {
+            Actions.EditSecuritySettings(gpo.Id, gpo.DisplayName);
         }
     }
 

@@ -73,19 +73,25 @@
                     ItemsSource="{Binding Gpos, Mode=OneWay}">
             <ListView.View>
               <GridView AllowsColumnReorder="False">
-                <GridViewColumn Width="110" DisplayMemberBinding="{Binding PrecedenceText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnPrecedence}" />
-                <GridViewColumn Width="260" Header="{l:Tr GroupPolicy.ColumnGpo}">
+                <GridViewColumn Width="130" DisplayMemberBinding="{Binding PrecedenceText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnPrecedence}" />
+                <GridViewColumn Width="280" Header="{l:Tr GroupPolicy.ColumnGpo}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type gpm:ModelGpoRowViewModel}">
-                      <DockPanel>
+                      <DockPanel ToolTip="{Binding Name, Mode=OneWay}">
                         <c:ObjectIconView Margin="0,0,6,0" VerticalAlignment="Center" DockPanel.Dock="Left" Icon="GroupPolicy" Size="16" />
                         <TextBlock VerticalAlignment="Center" Text="{Binding Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                       </DockPanel>
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="220" DisplayMemberBinding="{Binding LocationText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnLocation}" />
-                <GridViewColumn Width="100" Header="{l:Tr GroupPolicy.ColumnEnforced}">
+                <GridViewColumn Width="240" Header="{l:Tr GroupPolicy.ColumnLocation}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type gpm:ModelGpoRowViewModel}">
+                      <TextBlock VerticalAlignment="Center" Text="{Binding LocationText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding LocationText, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="130" Header="{l:Tr GroupPolicy.ColumnEnforced}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type gpm:ModelGpoRowViewModel}">
                       <StackPanel Orientation="Horizontal">
@@ -100,7 +106,7 @@
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="120" DisplayMemberBinding="{Binding LinkOrderText, Mode=OneWay}" Header="{l:Tr GpModel.ColumnLinkOrder}" />
+                <GridViewColumn Width="150" DisplayMemberBinding="{Binding LinkOrderText, Mode=OneWay}" Header="{l:Tr GpModel.ColumnLinkOrder}" />
                 <GridViewColumn Width="420" Header="{l:Tr GpModel.ColumnOutcome}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type gpm:ModelGpoRowViewModel}">
@@ -115,12 +121,7 @@
             </ListView.View>
           </ListView>
 
-          <GridSplitter Grid.Row="2"
-                        Height="6"
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Center"
-                        Background="Transparent"
-                        ResizeBehavior="PreviousAndNext" />
+          <gp:PaneSplitter Grid.Row="2" ResizeDirection="Rows" />
           <TextBlock Grid.Row="3" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr GpModel.SettingsHeading}" />
           <Grid Grid.Row="4">
             <Grid.ColumnDefinitions>
@@ -163,12 +164,7 @@
                 </GridView>
               </ListView.View>
             </ListView>
-            <GridSplitter Grid.Column="1"
-                          Width="6"
-                          HorizontalAlignment="Center"
-                          VerticalAlignment="Stretch"
-                          Background="Transparent"
-                          ResizeBehavior="PreviousAndNext" />
+            <gp:PaneSplitter Grid.Column="1" ResizeDirection="Columns" />
             <Border Grid.Column="2" Padding="12,8" Style="{StaticResource Ad.Card}">
               <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr GpModel.DetailsHeading}" />
@@ -228,9 +224,23 @@
   </UserControl.Resources>
 
   <DockPanel Margin="8,6,8,8">
-    <!-- Title, export, refresh -->
-    <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
-      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+    <!-- Title (trimmed in its column), export, refresh -->
+    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <c:ObjectIconView Margin="0,0,8,0" VerticalAlignment="Center" Icon="{Binding Icon, Mode=OneWay}" Size="18" />
+      <TextBlock x:Name="TitleText"
+                 Grid.Column="1"
+                 Margin="0,0,12,0"
+                 VerticalAlignment="Center"
+                 FontWeight="SemiBold"
+                 Text="{Binding Title, Mode=OneWay}"
+                 TextTrimming="CharacterEllipsis"
+                 ToolTip="{Binding Title, Mode=OneWay}" />
+      <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
         <Button x:Name="ExportCsvButton" Margin="0,0,6,0" Command="{Binding ExportCsvCommand}" Content="{l:Tr GpModel.ExportCsv}" />
         <Button x:Name="RefreshButton"
                 AutomationProperties.Name="{l:Tr GroupPolicy.RefreshCommand}"
@@ -239,11 +249,7 @@
                 Style="{StaticResource Ad.IconButton}"
                 ToolTip="{l:Tr GroupPolicy.RefreshCommand}" />
       </StackPanel>
-      <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
-        <c:ObjectIconView Margin="0,0,8,0" VerticalAlignment="Center" Icon="{Binding Icon, Mode=OneWay}" Size="18" />
-        <TextBlock x:Name="TitleText" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding Title, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
-      </StackPanel>
-    </DockPanel>
+    </Grid>
     <gp:GroupPolicyBanners DockPanel.Dock="Top" />
 
     <!-- Inputs -->

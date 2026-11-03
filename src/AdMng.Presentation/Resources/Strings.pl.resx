@@ -15808,4 +15808,66 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>NT VIRTUAL MACHINE\Maszyny wirtualne</value>
   </data>
   <!-- K4 security settings editor: end -->
+  <!-- K6 editing comfort of the Group Policy editors (20.3): start -->
+  <data name="CommandCategories.Document" xml:space="preserve">
+    <value>Dokument</value>
+  </data>
+  <data name="GpEditing.SaveCommand" xml:space="preserve">
+    <value>Zapisz zmiany…</value>
+  </data>
+  <data name="GpEditing.EditGpoCommand" xml:space="preserve">
+    <value>Edytuj…</value>
+  </data>
+  <data name="GpEditing.SettingChanges" xml:space="preserve">
+    <value>Zmiany ustawień ({0})</value>
+  </data>
+  <data name="GpEditing.ColumnArea" xml:space="preserve">
+    <value>Obszar</value>
+  </data>
+  <data name="GpEditing.NoValue" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="GpEditing.InvalidKept" xml:space="preserve">
+    <value>„{0}”: wpisane opcje są nieprawidłowe, więc nie trafiły do GPO. Zostają w edytorze tego ustawienia – popraw je przed zapisem.</value>
+  </data>
+  <data name="GpEditing.InvalidMark" xml:space="preserve">
+    <value>Wpisano nieprawidłowe opcje (jeszcze nie w GPO)</value>
+  </data>
+  <data name="GpEditing.RegistryValueLine" xml:space="preserve">
+    <value>Wartość: {0}</value>
+  </data>
+  <data name="GpEditing.SettingNotFound" xml:space="preserve">
+    <value>Ten edytor nie zawiera ustawienia {0}.</value>
+  </data>
+  <data name="GpEditing.ExtraValue" xml:space="preserve">
+    <value>{0}, wartość {1}</value>
+  </data>
+  <data name="GpEditing.SecuritySearchPlaceholder" xml:space="preserve">
+    <value>Szukaj ustawień (nazwa, stała, wartość, członek)</value>
+  </data>
+  <data name="GpEditing.OnlyDefined" xml:space="preserve">
+    <value>Tylko zdefiniowane</value>
+  </data>
+  <data name="GpEditing.MembersOf" xml:space="preserve">
+    <value>Członkowie grupy {0}</value>
+  </data>
+  <data name="GpEditing.MemberOfOf" xml:space="preserve">
+    <value>Grupa {0} jest członkiem</value>
+  </data>
+  <data name="GpEditing.GppItemSummary" xml:space="preserve">
+    <value>{0}; członkowie: {1}</value>
+  </data>
+  <data name="GpEditing.GpoSearchPlaceholder" xml:space="preserve">
+    <value>Szukaj GPO (nazwa, GUID, filtr WMI, łącze)</value>
+  </data>
+  <data name="GpEditing.GpoNoMatches" xml:space="preserve">
+    <value>Żaden GPO nie pasuje do wyszukiwania.</value>
+  </data>
+  <data name="GpEditing.GposShown" xml:space="preserve">
+    <value>Pokazano obiekty zasad grupy: {0} z {1}</value>
+  </data>
+  <data name="GpEditing.SearchHint" xml:space="preserve">
+    <value>Ctrl+F – szukaj, Esc – wyczyść</value>
+  </data>
+  <!-- K6 editing comfort of the Group Policy editors (20.3): end -->
 </root>
