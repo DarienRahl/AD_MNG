@@ -148,8 +148,11 @@ public partial class HtmlPreviewView : UserControl
             FallbackPanel.Visibility = Visibility.Collapsed;
             core.Navigate($"{WebView2Host.DocumentUrl}?v={++_version}");
         }
-        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException or WebView2RuntimeNotFoundException or ObjectDisposedException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
+            // An async void handler of the dispatcher must not throw: whatever WebView2 fails with while it starts
+            // (a missing runtime, COM errors, a disposed window, or a NullReferenceException inside
+            // EnsureCoreWebView2Async seen on CI runners) the preview falls back to the source.
             ShowSource(disabled: false);
         }
     }
