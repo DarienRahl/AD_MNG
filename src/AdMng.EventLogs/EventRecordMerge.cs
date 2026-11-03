@@ -4,8 +4,10 @@ namespace AdMng.EventLogs;
 
 /// <summary>
 /// The order of records read from several <c>.evtx</c> files (design note e-event-logs.md 3.1): every file is read
-/// forward (oldest first – the only direction every file kind supports), the files are merged by time, and "newest
-/// first" is applied after the read, keeping only the newest records it may return. Pure, tested on every platform.
+/// forward (oldest first – the only direction every file kind supports) and the files are merged by time. "Newest first"
+/// with a record limit is applied after the read, keeping the newest records; without a limit every record is streamed,
+/// so the caller's memory bound keeps the newest and counts what it drops – nothing is dropped here unseen. Pure,
+/// tested on every platform.
 /// </summary>
 internal static class EventRecordMerge
 {
@@ -60,9 +62,11 @@ internal static class EventRecordMerge
     }
 
     /// <summary>
-    /// The records of a file read in the requested order: oldest first streams the merge (bounded by
-    /// <paramref name="maxRecords"/>); newest first keeps the newest <paramref name="maxRecords"/> – or, without a
-    /// limit, <see cref="EventLogLimits.MaxRecordsInMemory"/> – and returns them once the files were read.
+    /// The records of a file read: newest first with a limit keeps the newest <paramref name="maxRecords"/> and returns
+    /// them, newest first, once the files were read; otherwise the merge is streamed oldest first – bounded by
+    /// <paramref name="maxRecords"/> when reading oldest first, complete when there is no limit (also for newest first:
+    /// a bounded window here would drop the older records without anyone counting them – the caller keeps the newest
+    /// and reports how many it dropped, as for a computer read in reverse).
     /// </summary>
     public static IEnumerable<EventLogRecord> Order(IReadOnlyList<IEnumerable<EventLogRecord>> sources, bool newestFirst, int? maxRecords)
     {
@@ -73,9 +77,12 @@ internal static class EventRecordMerge
         }
 
         var merged = OldestFirst(sources);
-        return newestFirst
-            ? NewestFirst(merged, maxRecords ?? EventLogLimits.MaxRecordsInMemory)
-            : maxRecords is { } max ? merged.Take(max) : merged;
+        return maxRecords switch
+        {
+            { } max when newestFirst => NewestFirst(merged, max),
+            { } max => merged.Take(max),
+            null => merged,
+        };
     }
 
     private static IEnumerable<EventLogRecord> Merge(IReadOnlyList<IEnumerable<EventLogRecord>> sources)

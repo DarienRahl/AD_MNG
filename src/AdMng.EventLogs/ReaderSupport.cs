@@ -7,7 +7,7 @@ namespace AdMng.EventLogs;
 
 /// <summary>
 /// The pure parts of the Windows readers (tested on every platform): the query text, the query of one file, the record
-/// re-read for its message, channel names, file names, log modes and times.
+/// re-read for its message and its channel, channel names, file names, log modes and times.
 /// </summary>
 internal static class ReaderSupport
 {
@@ -18,6 +18,9 @@ internal static class ReaderSupport
     public const string FileQueryChannel = "Application";
 
     private const string QueryListElement = "QueryList";
+
+    /// <summary>How far the time of a record read again may be from the time shown (<see cref="SameEvent"/>).</summary>
+    private static readonly TimeSpan SameEventTolerance = TimeSpan.FromSeconds(1);
 
     private static readonly XmlReaderSettings QuerySettings = new()
     {
@@ -89,11 +92,43 @@ internal static class ReaderSupport
         return root.ToString(SaveOptions.DisableFormatting);
     }
 
-    /// <summary>The XPath of one record by its number (numbers only, nothing typed).</summary>
-    public static string RecordQuery(long recordId)
+    /// <summary>
+    /// The XPath of one record read again for its message: its number and its time within the second
+    /// <see cref="SameEvent"/> allows (numbers and times only, nothing typed). Record numbers repeat in a collector's log
+    /// and in a file of several computers – the time narrows the matches, <see cref="SameEvent"/> picks the record.
+    /// </summary>
+    public static string RecordQuery(EventLogRecord record)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(recordId);
-        return string.Create(CultureInfo.InvariantCulture, $"*[System[(EventRecordID={recordId})]]");
+        ArgumentNullException.ThrowIfNull(record);
+        ArgumentOutOfRangeException.ThrowIfNegative(record.RecordId);
+        var time = record.TimeCreated.UtcTicks;
+        var from = Math.Max(0, time - SameEventTolerance.Ticks);
+        var to = Math.Min(DateTime.MaxValue.Ticks, time + SameEventTolerance.Ticks);
+        from -= from % TimeSpan.TicksPerMillisecond;
+        to = Math.Min(DateTime.MaxValue.Ticks, to + ((TimeSpan.TicksPerMillisecond - (to % TimeSpan.TicksPerMillisecond)) % TimeSpan.TicksPerMillisecond));
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"*[System[(EventRecordID={record.RecordId}) and TimeCreated[@SystemTime>='{SystemTime(from)}' and @SystemTime<='{SystemTime(to)}']]]");
+    }
+
+    /// <summary>
+    /// <paramref name="record"/> as read from <paramref name="channel"/> of a computer: a record whose own channel differs
+    /// (a forwarded event keeps its source's <c>Security</c> in a collector's <c>ForwardedEvents</c> or another
+    /// subscription log) keeps the channel read in <see cref="EventLogRecord.QueriedChannel"/>, so its message is read
+    /// again from there (<see cref="MessageChannel"/>).
+    /// </summary>
+    public static EventLogRecord ReadFrom(EventLogRecord record, string channel)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        ArgumentException.ThrowIfNullOrWhiteSpace(channel);
+        return string.Equals(record.Channel, channel, StringComparison.OrdinalIgnoreCase) ? record : record with { QueriedChannel = channel };
+    }
+
+    /// <summary>The channel of a computer to read <paramref name="record"/> again from: the one it was read from.</summary>
+    public static string MessageChannel(EventLogRecord record)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        return string.IsNullOrWhiteSpace(record.QueriedChannel) ? record.Channel : record.QueriedChannel;
     }
 
     /// <summary>
@@ -164,7 +199,7 @@ internal static class ReaderSupport
         return eventId == expected.EventId
             && (provider is null || expected.Provider is null || string.Equals(provider, expected.Provider, StringComparison.OrdinalIgnoreCase))
             && (computer is null || string.Equals(computer, expected.Computer, StringComparison.OrdinalIgnoreCase))
-            && time is { } found && (found - expected.TimeCreated).Duration() <= TimeSpan.FromSeconds(1);
+            && time is { } found && (found - expected.TimeCreated).Duration() <= SameEventTolerance;
     }
 
     /// <summary>The newest of two optional times.</summary>
@@ -188,4 +223,8 @@ internal static class ReaderSupport
 
         return total;
     }
+
+    /// <summary>A UTC time as the structured query compares <c>@SystemTime</c> (milliseconds, as the query builder writes it).</summary>
+    private static string SystemTime(long utcTicks) =>
+        new DateTime(utcTicks, DateTimeKind.Utc).ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
 }

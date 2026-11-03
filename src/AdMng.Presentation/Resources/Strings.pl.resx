@@ -18150,7 +18150,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Pokaż komunikat</value>
   </data>
   <data name="EvtLog.MessageUnavailable" xml:space="preserve">
-    <value>Komputer nie ma opisu tego zdarzenia (brak metadanych dostawcy w tym języku) – pola pokazują wszystko, co zapisano.</value>
+    <value>Nie udało się odczytać opisu tego zdarzenia: nie ma go już w źródle (dziennik je nadpisał) albo komputer nie ma metadanych dostawcy w tym języku – pola pokazują wszystko, co zapisano.</value>
   </data>
   <data name="EvtLog.Copied" xml:space="preserve">
     <value>Skopiowano szczegóły zdarzenia.</value>
@@ -18933,10 +18933,10 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Sprawdź nazwę (pełna nazwa DNS, np. waw-pc001.contoso.test), DNS i czy komputer jest włączony.</value>
   </data>
   <data name="EvtLog.Access.RpcUnavailable" xml:space="preserve">
-    <value>Nie można połączyć się z usługą dziennika zdarzeń komputera (RPC).</value>
+    <value>Nie można połączyć się z komputerem ani z jego usługą dziennika zdarzeń (RPC).</value>
   </data>
   <data name="EvtLog.Access.RpcUnavailable.Remedy" xml:space="preserve">
-    <value>Włącz na komputerze grupę reguł zapory „Zdalne zarządzanie dziennikiem zdarzeń” (Remote Event Log Management) – w Zaporze Windows Defender albo przez GPO.</value>
+    <value>Sprawdź, czy komputer jest włączony i osiągalny w sieci – wyłączony albo odcięty komputer daje ten sam błąd RPC; jeśli jest, włącz na nim grupę reguł zapory „Zdalne zarządzanie dziennikiem zdarzeń” (Remote Event Log Management) – w Zaporze Windows Defender albo przez GPO.</value>
   </data>
   <data name="EvtLog.Access.AccessDenied" xml:space="preserve">
     <value>Odmowa dostępu do dziennika.</value>

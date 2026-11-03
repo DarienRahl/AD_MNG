@@ -45,7 +45,11 @@ public sealed record EventLogQuery
     /// <summary>An XPath selection typed by the operator (checked before it is sent; see EventQueryXml).</summary>
     public string? RawXPath { get; init; }
 
-    /// <summary>Newest first (live logs: read in reverse and stop at <see cref="From"/>).</summary>
+    /// <summary>
+    /// Newest first (live logs: read in reverse and stop at <see cref="From"/>). Files are read forward: with
+    /// <see cref="MaxRecords"/> they return its newest records newest first, without a limit every record oldest first
+    /// (the caller orders them and counts what it does not keep).
+    /// </summary>
     public bool NewestFirst { get; init; } = true;
 
     /// <summary>Stop after this many records, null = no limit (the caller still bounds what it keeps).</summary>
@@ -102,7 +106,10 @@ public enum EventLogAccessError
     /// <summary>The host does not answer (name not resolved, no route).</summary>
     Unreachable,
 
-    /// <summary>The RPC endpoint is not reachable (firewall group "Remote Event Log Management").</summary>
+    /// <summary>
+    /// No RPC connection to the event log service (firewall group "Remote Event Log Management", service not running) –
+    /// or, with the same RPC error, a computer that is off or cut off although its name resolves.
+    /// </summary>
     RpcUnavailable,
 
     /// <summary>The account may not read the log (group "Event Log Readers", channel access).</summary>

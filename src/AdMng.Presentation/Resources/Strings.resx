@@ -18150,7 +18150,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Show message</value>
   </data>
   <data name="EvtLog.MessageUnavailable" xml:space="preserve">
-    <value>The computer has no description of this event (no publisher metadata in this language) – the fields show everything that was logged.</value>
+    <value>The description of this event could not be read: the event is no longer in the source (the log has overwritten it), or the computer has no publisher metadata for it in this language – the fields show everything that was logged.</value>
   </data>
   <data name="EvtLog.Copied" xml:space="preserve">
     <value>The event details were copied.</value>
@@ -18933,10 +18933,10 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Check the name (the full DNS name, e.g. waw-pc001.contoso.test), DNS and whether the computer is on.</value>
   </data>
   <data name="EvtLog.Access.RpcUnavailable" xml:space="preserve">
-    <value>The event log service of the computer cannot be reached (RPC).</value>
+    <value>The computer or its event log service cannot be reached (RPC).</value>
   </data>
   <data name="EvtLog.Access.RpcUnavailable.Remedy" xml:space="preserve">
-    <value>Enable the firewall rule group "Remote Event Log Management" on the computer (Windows Defender Firewall, also through a GPO).</value>
+    <value>Check that the computer is on and reachable over the network – a computer that is off or cut off gives the same RPC error; if it is, enable the firewall rule group "Remote Event Log Management" on it (Windows Defender Firewall, also through a GPO).</value>
   </data>
   <data name="EvtLog.Access.AccessDenied" xml:space="preserve">
     <value>Access to the log was denied.</value>

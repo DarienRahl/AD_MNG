@@ -80,11 +80,14 @@ internal sealed class WindowsHostEventLogReader : IEventLogReader
         return ReadCoreAsync(query, cancellationToken);
     }
 
-    /// <summary>Re-reads the record by its number in its channel and renders its message (null when that fails).</summary>
+    /// <summary>
+    /// Re-reads the record by its number and time in the channel it was read from (<see cref="ReaderSupport.MessageChannel"/>:
+    /// a forwarded event in the collector's log, not its source's channel) and renders its message (null when that fails).
+    /// </summary>
     public Task<string?> FormatMessageAsync(EventLogRecord record, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(record);
-        if (!string.Equals(record.Host, Host, StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(record.Channel) || record.RecordId < 0)
+        if (!string.Equals(record.Host, Host, StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(ReaderSupport.MessageChannel(record)) || record.RecordId < 0)
         {
             return Task.FromResult<string?>(null);
         }
@@ -127,7 +130,7 @@ internal sealed class WindowsHostEventLogReader : IEventLogReader
         {
             return await RunAsync(
                 (session, token) => NativeEventLog.FormatMessage(
-                    new WindowsEventLogQuery(record.Channel, PathType.LogName, ReaderSupport.RecordQuery(record.RecordId)) { Session = session },
+                    new WindowsEventLogQuery(ReaderSupport.MessageChannel(record), PathType.LogName, ReaderSupport.RecordQuery(record)) { Session = session },
                     record,
                     token),
                 cancellationToken).ConfigureAwait(false);
@@ -157,14 +160,14 @@ internal sealed class WindowsHostEventLogReader : IEventLogReader
         try
         {
             using var session = OpenSession();
-            using var cancelSession = cancellationToken.Register(NativeEventLog.Cancel, session);
+            using var cancelSession = NativeEventLog.RegisterCancel(cancellationToken, session);
             cancellationToken.ThrowIfCancellationRequested();
             var logQuery = new WindowsEventLogQuery(query.Channel, PathType.LogName, xml) { Session = session, ReverseDirection = query.NewestFirst };
             using var reader = new EventLogReader(logQuery) { BatchSize = EventLogLimits.BatchSize };
-            using var cancelReading = cancellationToken.Register(NativeEventLog.Cancel, reader);
+            using var cancelReading = NativeEventLog.RegisterCancel(cancellationToken, reader);
             RecordStream.Pump(
                 NativeEventLog.ReadXml(reader, cancellationToken),
-                text => EventXmlParser.TryParse(text, Host, out var record) ? record : null,
+                text => EventXmlParser.TryParse(text, Host, out var record) ? ReaderSupport.ReadFrom(record, query.Channel) : null,
                 query.MaxRecords,
                 writer,
                 cancellationToken);
@@ -191,7 +194,7 @@ internal sealed class WindowsHostEventLogReader : IEventLogReader
                 try
                 {
                     using var session = OpenSession();
-                    using var registration = token.Register(NativeEventLog.Cancel, session);
+                    using var registration = NativeEventLog.RegisterCancel(token, session);
                     token.ThrowIfCancellationRequested();
                     return call(session, token);
                 }

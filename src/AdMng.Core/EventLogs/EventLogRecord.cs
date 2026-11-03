@@ -35,6 +35,13 @@ public sealed record EventLogRecord
     /// <summary><c>System/Channel</c> (<c>Security</c>, <c>Microsoft-Windows-GroupPolicy/Operational</c>, …).</summary>
     public required string Channel { get; init; }
 
+    /// <summary>
+    /// The channel of <see cref="Host"/> the record was read from when it is not <see cref="Channel"/> – a forwarded event
+    /// keeps its source's channel in a collector's <c>ForwardedEvents</c> or another subscription log; null otherwise and
+    /// for files. The record is read from there again for its message.
+    /// </summary>
+    public string? QueriedChannel { get; init; }
+
     /// <summary><c>System/Provider/@Name</c>.</summary>
     public string? Provider { get; init; }
 

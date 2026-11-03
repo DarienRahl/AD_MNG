@@ -59,8 +59,9 @@ file name); `Computer` is `System/Computer`.
 
 `EventLogQuery { Channel, From?, To?, EventIds, Levels, Providers, Outcome (Success/Failure/null), Data (each
 `EventDataCondition(Name, Values)`: values OR-ed, conditions AND-ed), RawXPath?, NewestFirst (default true),
-MaxRecords? }`. A file reader ignores `Channel` (the file is the log) and reads forward (`NewestFirst` is applied
-after reading, bounded by `MaxRecords`).
+MaxRecords? }`. A file reader ignores `Channel` (the file is the log) and reads forward: `NewestFirst` with `MaxRecords`
+keeps the newest `MaxRecords` after reading; without a limit every record is streamed oldest first, so the runner's
+memory bound keeps the newest and counts the dropped ones (the "najnowsze N z M" note works for files too).
 
 ### 3.2 Connector (scaffold)
 
