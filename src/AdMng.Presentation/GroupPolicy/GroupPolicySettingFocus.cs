@@ -20,6 +20,18 @@ public sealed record GroupPolicySettingFocus(string? SettingKey = null, string? 
     private const string ComputerAudit = "Computer/Audit/";
     private const string ComputerGroups = "Computer/Preferences/Groups/";
 
+    /// <summary>The sections of the security template the security settings editor (K4) shows and edits.</summary>
+    private static readonly HashSet<string> SecuritySections = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Privilege Rights", "System Access", "Kerberos Policy", "Registry Values", "Event Audit", "Group Membership", "Services",
+    };
+
+    /// <summary>Properties only a local user item of Groups.xml has (K4 edits the local groups, not the users).</summary>
+    private static readonly HashSet<string> LocalUserProperties = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "userName", "fullName", "cpassword", "changeLogon", "noChange", "neverExpires", "acctDisabled", "subAuthority", "expires",
+    };
+
     /// <summary>The setting of a GPO content key.</summary>
     public static GroupPolicySettingFocus ForSetting(string settingKey)
     {
@@ -36,15 +48,17 @@ public sealed record GroupPolicySettingFocus(string? SettingKey = null, string? 
 
     /// <summary>
     /// The editor that edits the setting: the administrative templates (K3) for an ADMX policy and a Registry.pol value of
-    /// either half; the security settings (K4) for the security template (<c>Computer/Security/*</c>), the advanced audit
-    /// policy (<c>Computer/Audit/*</c>) and the computer's GPP local groups (<c>Computer/Preferences/Groups/*</c>); null for
-    /// anything else (scripts, other preferences, user GPP groups: no editor of AD Manager writes them).
+    /// either half; the security settings (K4) for the template sections it shows (<c>Computer/Security/&lt;section&gt;/*</c>:
+    /// rights, account policies, Kerberos, security options, legacy audit, Restricted Groups, services), the advanced audit
+    /// policy (<c>Computer/Audit/*</c>) and the computer's GPP local groups (<c>Computer/Preferences/Groups/*</c>, not a
+    /// property only a local user has); null for anything else (registry keys and file security, event logs, other template
+    /// sections, scripts, other preferences, user GPP groups: no editor of AD Manager writes them).
     /// </summary>
     public GroupPolicyDocumentKind? Editor =>
         PolicyId is { Length: > 0 } ? GroupPolicyDocumentKind.AdministrativeTemplates
         : SettingKey is not { Length: > 0 } key ? null
         : Starts(key, ComputerRegistry) || Starts(key, UserRegistry) ? GroupPolicyDocumentKind.AdministrativeTemplates
-        : Starts(key, ComputerSecurity) || Starts(key, ComputerAudit) || Starts(key, ComputerGroups) ? GroupPolicyDocumentKind.SecuritySettings
+        : IsSecuritySection(key) || Starts(key, ComputerAudit) || IsLocalGroupItem(key) ? GroupPolicyDocumentKind.SecuritySettings
         : null;
 
     /// <summary>
@@ -110,6 +124,27 @@ public sealed record GroupPolicySettingFocus(string? SettingKey = null, string? 
     internal static bool IsAuditArea(string area) => area == ComputerAudit;
 
     private static bool Starts(string key, string prefix) => key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary><c>Computer/Security/&lt;section&gt;/…</c> of a section K4 edits.</summary>
+    private static bool IsSecuritySection(string key)
+    {
+        if (!Starts(key, ComputerSecurity))
+        {
+            return false;
+        }
+
+        var rest = key[ComputerSecurity.Length..];
+        var slash = rest.IndexOf('/', StringComparison.Ordinal);
+        return slash > 0 && SecuritySections.Contains(rest[..slash]);
+    }
+
+    /// <summary>
+    /// <c>Computer/Preferences/Groups/&lt;uid&gt;…</c> that may be a local group: the key alone does not tell a group from a
+    /// local user (the presenter passes no focus for a user item), only a property no group has does.
+    /// </summary>
+    private static bool IsLocalGroupItem(string key) =>
+        Starts(key, ComputerGroups)
+        && !(Core.GroupPolicy.Content.GpoSettingKey.Parse(key) is { Property: { } property } && LocalUserProperties.Contains(property));
 }
 
 /// <summary>An editor that "Edytuj to ustawienie" can point at a setting (K3, K4).</summary>

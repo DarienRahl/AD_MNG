@@ -17803,4 +17803,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Require at least 12–14 characters (or longer passphrases), keep complexity on unless you use a banned-password list, and set a lockout threshold (for example 10 attempts).</value>
   </data>
   <!-- K6 Group Policy diagnostics (20.2): end -->
+  <!-- K6 review fixes (diagnostics and editing UI): start -->
+  <data name="GpoFinding.OrphanedTrustee.RecommendationInherited" xml:space="preserve">
+    <value>The entries of this SID are inherited, so they cannot be removed on the GPO: remove them on the parent object that defines them (usually CN=Policies,CN=System or the domain object) once you are sure the account will not be restored from the Recycle Bin.</value>
+  </data>
+  <!-- K6 review fixes (diagnostics and editing UI): end -->
 </root>

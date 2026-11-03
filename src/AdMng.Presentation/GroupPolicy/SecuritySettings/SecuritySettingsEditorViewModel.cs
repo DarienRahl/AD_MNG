@@ -257,8 +257,6 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        _gpo = gpo;
-        OnPropertyChanged(nameof(Title));
         _template = Reconcile(_template, TemplatePath, template, c => SecurityTemplateDocument.Parse(c), d => d.ToBytes());
         _audit = Reconcile(_audit, AuditPath, audit, c => AuditPolicyDocument.Parse(c), d => d.ToBytes());
         _groups = Reconcile(_groups, GroupsPath, groups, c => GppGroupsDocument.Parse(c), d => d.ToBytes());
@@ -279,6 +277,10 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
         }
 
         cancellationToken.ThrowIfCancellationRequested();
+
+        // The GPO is set with its rows: "Edytuj to ustawienie" waits for the first load while _gpo is null (FocusSetting).
+        _gpo = gpo;
+        OnPropertyChanged(nameof(Title));
         RebuildAll();
         LoadedText = Localizer.Format(L.SecuritySettings.Loaded, CountDefined());
         if (_pendingFocus is { } focus)

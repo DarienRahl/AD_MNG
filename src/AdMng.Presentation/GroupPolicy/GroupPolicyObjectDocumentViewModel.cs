@@ -374,6 +374,9 @@ public sealed partial class GroupPolicyObjectDocumentViewModel : GroupPolicyDocu
         HistoryCommand.NotifyCanExecuteChanged();
         EditTemplatesCommand.NotifyCanExecuteChanged();
         EditSecuritySettingsCommand.NotifyCanExecuteChanged();
+        CheckHealthCommand.NotifyCanExecuteChanged();
+        FixHealthFindingCommand.NotifyCanExecuteChanged();
+        EditHealthSettingCommand.NotifyCanExecuteChanged();
     }
 
     protected override void OnCultureChanged()

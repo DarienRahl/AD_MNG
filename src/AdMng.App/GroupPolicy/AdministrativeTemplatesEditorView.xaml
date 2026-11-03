@@ -345,23 +345,25 @@
                     Visibility="{Binding IsExtraSelected, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}">
             <ListView.View>
               <GridView x:Name="PolicyGrid" AllowsColumnReorder="False">
-                <GridViewColumn Width="28">
+                <!-- The marks side by side: a policy can be changed and hold invalid typed options at once. -->
+                <GridViewColumn Width="48">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type at:PolicyRowViewModel}">
-                      <Grid>
+                      <StackPanel Orientation="Horizontal">
                         <TextBlock AutomationProperties.Name="{l:Tr AdmTemplates.ChangedMark}"
                                    Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
                                    Style="{StaticResource Ad.GlyphText}"
                                    Text="{x:Static c:Glyphs.Edit}"
                                    ToolTip="{l:Tr AdmTemplates.ChangedMark}"
                                    Visibility="{Binding IsChanged, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-                        <TextBlock AutomationProperties.Name="{l:Tr GpEditing.InvalidMark}"
+                        <TextBlock Margin="2,0,0,0"
+                                   AutomationProperties.Name="{l:Tr GpEditing.InvalidMark}"
                                    Foreground="{DynamicResource SystemFillColorCautionBrush}"
                                    Style="{StaticResource Ad.GlyphText}"
                                    Text="{x:Static c:Glyphs.Warning}"
                                    ToolTip="{l:Tr GpEditing.InvalidMark}"
                                    Visibility="{Binding HasProblem, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-                      </Grid>
+                      </StackPanel>
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>

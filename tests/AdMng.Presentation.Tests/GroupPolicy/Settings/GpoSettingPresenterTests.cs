@@ -299,6 +299,21 @@ public sealed class GpoSettingPresenterTests
     }
 
     [Fact]
+    public void ALocalUserOfGroupsXml_OffersNoEditor_ItsLocalGroupsDo()
+    {
+        const string User = "<User clsid=\"{DF5F1855-51E5-4d24-8B1A-D9BDE98BA1D1}\" name=\"Administrator (built-in)\" image=\"2\" changed=\"2026-10-20 10:00:00\""
+            + " uid=\"{8A2B5C1D-0E3F-4A6B-9C7D-1E2F3A4B5C6D}\"><Properties action=\"U\" newName=\"Admin-Łódź\" fullName=\"\" description=\"\""
+            + " changeLogon=\"0\" noChange=\"0\" neverExpires=\"0\" acctDisabled=\"0\" userName=\"Administrator (built-in)\"/></User>";
+        var settings = Read("Machine/Preferences/Groups/Groups.xml",
+            FakeDirectoryBuilder.Groups(User, FakeDirectoryBuilder.LocalGroup("Users (built-in)", "S-1-5-32-545", [])));
+
+        var rows = Presenter().DescribeRows(settings);
+
+        Assert.Null(rows.Single(r => r.Name == "Administrator (built-in)").Focus);
+        Assert.Equal(GroupPolicyDocumentKind.SecuritySettings, rows.Single(r => r.Name == "Users (built-in)").Focus?.Editor);
+    }
+
+    [Fact]
     public void Preferences_DriveMaps_AndAPropertyOnItsOwn()
     {
         const string Drives = "<?xml version=\"1.0\" encoding=\"utf-8\"?><Drives clsid=\"{8FDDCC1A-0C3C-43cd-A6B4-71A6DF20DA8C}\"><Drive clsid=\"{935D1B74-9CB8-4e3c-9914-7DD559B7A417}\" name=\"K:\" uid=\"{0D1F7F22-6D1B-4A35-9D9C-0E3D9F3F0001}\"><Properties action=\"U\" path=\"\\\\fs01.contoso.test\\Księgowość\" label=\"Księgowość\" letter=\"K\" useLetter=\"1\"/></Drive></Drives>";

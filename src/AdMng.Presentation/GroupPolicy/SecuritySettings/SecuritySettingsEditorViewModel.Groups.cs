@@ -175,7 +175,9 @@ public sealed partial class SecuritySettingsEditorViewModel
             AfterEdit();
         }
 
-        SelectedRestrictedGroup = RestrictedGroups.FirstOrDefault(r => r.GroupValue.Equals(SecurityTemplate.Principal(group), StringComparison.OrdinalIgnoreCase));
+        var row = RestrictedGroups.FirstOrDefault(r => r.GroupValue.Equals(SecurityTemplate.Principal(group), StringComparison.OrdinalIgnoreCase));
+        Reveal(row);
+        SelectedRestrictedGroup = row;
         return true;
     }
 
@@ -396,7 +398,9 @@ public sealed partial class SecuritySettingsEditorViewModel
 
         NewGppGroupText = string.Empty;
         AfterEdit();
-        SelectedGppGroup = index < GppGroups.Count ? GppGroups[index] : null;
+        var row = index < GppGroups.Count ? GppGroups[index] : null;
+        Reveal(row);
+        SelectedGppGroup = row;
     }
 
     /// <summary>"Usuń" of the selected item.</summary>

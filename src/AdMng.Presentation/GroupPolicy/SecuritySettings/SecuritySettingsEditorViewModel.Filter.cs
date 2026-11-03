@@ -110,6 +110,18 @@ public sealed partial class SecuritySettingsEditorViewModel
 
     partial void OnOnlyChangedChanged(bool value) => Relist();
 
+    /// <summary>
+    /// A row an add created or found is listed under the search and the filters (like a row being edited) until they change,
+    /// so the add can select it.
+    /// </summary>
+    private void Reveal(SecuritySettingRowBase? row)
+    {
+        if (row is not null && IsFiltering && _listed.Add(row))
+        {
+            ApplyFilters();
+        }
+    }
+
     /// <summary>The search or a filter changed: every page lists again from scratch.</summary>
     private void Relist()
     {
@@ -160,7 +172,8 @@ public sealed partial class SecuritySettingsEditorViewModel
 
         return;
 
-        // A row matches, or was listed since the search or a filter changed; "Tylko zmienione" applies to every row.
+        // A row matches, or was listed since the search or a filter changed; "Tylko zmienione" applies to every row. An option
+        // whose typed value is invalid is always listed: it blocks the save, so it may not be hidden (K3 keeps such rows too).
         IReadOnlyList<T> Filter<T>(IReadOnlyList<T> rows, Func<T, bool> matches)
             where T : SecuritySettingRowBase
         {
@@ -172,7 +185,7 @@ public sealed partial class SecuritySettingsEditorViewModel
             var result = new List<T>();
             foreach (var row in rows)
             {
-                if (_listed.Contains(row) || ((!OnlyChanged || row.IsChanged) && matches(row)))
+                if (_listed.Contains(row) || row is SecurityOptionRowViewModel { HasProblem: true } || ((!OnlyChanged || row.IsChanged) && matches(row)))
                 {
                     result.Add(row);
                     _listed.Add(row);

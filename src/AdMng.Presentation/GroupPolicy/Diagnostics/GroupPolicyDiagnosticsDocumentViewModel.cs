@@ -103,6 +103,10 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
 
     protected override async Task LoadCoreAsync(IDirectorySession session, ISysvolWriteConnection? sysvol, CancellationToken cancellationToken)
     {
+        // A superseded load can arrive here late (its SYSVOL logon does not stop once started): it must not touch the newer
+        // check's state (its cancellation source, progress and "Anuluj").
+        cancellationToken.ThrowIfCancellationRequested();
+
         // Nothing shown yet (the first load, a reconnect after "not connected"): a quick check. Results shown and Group Policy
         // changed (another tab, another DC): they are kept but marked, a full check is not started behind the operator's back.
         var depth = _requested ?? (_check is null ? GpoDiagnosticsDepth.Quick : (GpoDiagnosticsDepth?)null);
@@ -156,12 +160,13 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
         {
             if (ReferenceEquals(_running, running))
             {
+                // The progress is this check's only while no newer check runs.
                 _running = null;
+                ProgressText = string.Empty;
+                ProgressValue = 0;
+                IsProgressIndeterminate = true;
             }
 
-            ProgressText = string.Empty;
-            ProgressValue = 0;
-            IsProgressIndeterminate = true;
             RefreshCommands();
         }
     }
@@ -176,14 +181,14 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
         UpdateSummary();
     }
 
-    /// <summary>The texts are rebuilt from the shown check in the new language (nothing is read again).</summary>
+    /// <summary>The texts are rebuilt from the shown check in the new language (nothing is read again, so stale results stay marked).</summary>
     protected override void OnCultureChanged()
     {
         OnPropertyChanged(nameof(Title));
         BuildFilterOptions();
         if (_check is { } check)
         {
-            Show(check, keepSelection: true);
+            Show(check, keepSelection: true, fresh: false);
         }
         else
         {
@@ -257,8 +262,11 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
         ProgressValue = progress.Total > 0 ? Math.Clamp(100.0 * progress.Done / progress.Total, 0, 100) : 0;
     }
 
-    /// <summary>Shows a check: rows, chips, filters, notes, the last-run line and the status text.</summary>
-    private void Show(CheckResult check, bool keepSelection = false)
+    /// <summary>
+    /// Shows a check: rows, chips, filters, notes, the last-run line and the status text. <paramref name="fresh"/>: the check
+    /// was just read (it clears "wyniki mogą być nieaktualne"); false when the shown check is only rebuilt (a language change).
+    /// </summary>
+    private void Show(CheckResult check, bool keepSelection = false, bool fresh = true)
     {
         var rows = new GpoFindingRows(Localizer, check.Snapshot, check.Names);
         var restore = keepSelection && SelectedRow is { } selected ? (selected.Key, IndexOf(Rows, selected)) : _restoreSelection;
@@ -266,7 +274,11 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
         _check = check with { Rows = rows.Rows(check.Result) };
         _all = _check.Rows;
         LastDepth = check.Depth;
-        IsStale = false;
+        if (fresh)
+        {
+            IsStale = false;
+        }
+
         LastRunText = Localizer.Format(L.GpoDiagnostics.LastRun,
             Localizer[check.Depth == GpoDiagnosticsDepth.Full ? L.GpoDiagnostics.DepthFull : L.GpoDiagnostics.DepthQuick],
             check.At.ToString("g", Localizer.Culture));

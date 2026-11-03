@@ -1,9 +1,11 @@
 using System.Collections.Concurrent;
 using System.Globalization;
+using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Diagnostics;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.GroupPolicy.Diagnostics;
+using AdMng.Presentation.Localization;
 using AdMng.Presentation.Tests.Dialogs;
 
 namespace AdMng.Presentation.Tests.GroupPolicy.Diagnostics;
@@ -381,6 +383,115 @@ public sealed class GroupPolicyDiagnosticsDocumentTests
         Assert.Equal("Fix: align the versions", mismatch.FixText);
         Assert.Equal("Any severity", document.SeverityOptions[0].Text);
         Assert.Equal(calls, h.Sysvol.Calls.Count(c => c.Operation != "Open"));
+    }
+
+    [Fact]
+    public async Task LanguageSwitch_KeepsTheStaleMark_OfResultsNotCheckedAgain()
+    {
+        var h = await GroupPolicyHarness.CreateAsync(Polish);
+        using var document = await OpenAsync(h);
+        h.Services.NotifyChanged();
+        await B2Harness.WaitUntilAsync(() => document.IsStale && !document.IsLoading);
+
+        h.B2.Localizer.SetCulture(CultureInfo.GetCultureInfo("en-US"));
+        await B2Harness.WaitUntilAsync(() => document.Title == "Group Policy diagnostics");
+
+        Assert.True(document.IsStale);
+        Assert.StartsWith("Last check: quick, ", document.LastRunText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ASupersededCheckArrivingLate_LeavesTheRunningCheckItsProgressAndCancel()
+    {
+        var h = await GroupPolicyHarness.CreateAsync(Polish);
+        var logon = new HeldSysvolLogon(h.Sysvol);
+        var services = new GroupPolicyServices(h.Ui, h.B2.Engines, h.Planner, h.Windows, logon);
+        using var document = new GroupPolicyDiagnosticsDocumentViewModel(services, new GroupPolicyActions(services));
+        using var reading = new SemaphoreSlim(0);
+        using var resume = new ManualResetEventSlim();
+        var held = 0;
+        h.Sysvol.BeforeCall = (operation, _, _) =>
+        {
+            if (operation == "Read" && Interlocked.Exchange(ref held, 1) == 0)
+            {
+                reading.Release();
+                resume.Wait(TestContext.Current.CancellationToken);
+            }
+        };
+
+        try
+        {
+            var first = document.CheckAsync(GpoDiagnosticsDepth.Quick); // its SYSVOL logon is slow
+            var second = document.CheckAsync(GpoDiagnosticsDepth.Full); // supersedes it and starts reading
+            Assert.True(await reading.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+
+            // The first logon ends now, its load cancelled: the running check keeps its progress and "Anuluj".
+            logon.Release();
+            await first;
+            Assert.True(document.IsLoading);
+            Assert.True(document.CancelCommand.CanExecute(null));
+            Assert.NotEqual(string.Empty, document.ProgressText);
+
+            resume.Set();
+            await second;
+            Assert.Equal(GpoDiagnosticsDepth.Full, document.LastDepth);
+            Assert.Equal(string.Empty, document.ProgressText);
+        }
+        finally
+        {
+            resume.Set();
+            logon.Release();
+            h.Sysvol.BeforeCall = null;
+        }
+    }
+
+    [Fact]
+    public void AnUnknownSidWithOnlyInheritedEntries_IsNotSentToFix_ButToTheParentObject()
+    {
+        var localizer = new ResxLocalizer(Polish);
+        var snapshot = new GpoDiagnosticsSnapshot
+        {
+            Depth = GpoDiagnosticsDepth.Full,
+            DomainDn = "DC=contoso,DC=test",
+            DomainDnsName = "contoso.test",
+            Gpos = [],
+            Containers = [],
+        };
+        var rows = new GpoFindingRows(localizer, snapshot, new Dictionary<string, string>());
+        var definition = GpoFindingCodes.All.Single(d => d.Code == GpoFindingCodes.OrphanedTrustee);
+        var gpo = Guid.NewGuid();
+        const string Sid = "S-1-5-21-1004336348-1177238915-682003330-4321";
+        GpoFinding Finding(GpoQuickFix? fix) => new(definition.Code, definition.Severity, definition.Area, gpo, null, null, [Sid], fix);
+
+        var inherited = rows.Row(Finding(null));
+        var explicitEntries = rows.Row(Finding(new GpoQuickFix.RemoveTrustee(gpo, Sid)));
+
+        Assert.False(inherited.HasFix);
+        Assert.Equal("Brak automatycznej naprawy – postępuj zgodnie z zaleceniem.", inherited.FixText);
+        Assert.Contains("dziedziczone", inherited.Recommendation, StringComparison.Ordinal);
+        Assert.Contains("CN=Policies,CN=System", inherited.Recommendation, StringComparison.Ordinal);
+        Assert.DoesNotContain("Napraw", inherited.Recommendation, StringComparison.Ordinal);
+        Assert.True(explicitEntries.HasFix);
+        Assert.Contains("„Napraw…”", explicitEntries.Recommendation, StringComparison.Ordinal);
+    }
+
+    /// <summary>A SYSVOL writer whose first open waits for <see cref="Release"/> and then ignores the cancellation, like the SMB logon of alternate credentials.</summary>
+    private sealed class HeldSysvolLogon(ISysvolFileWriter inner) : ISysvolFileWriter
+    {
+        private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _held;
+
+        public void Release() => _released.TrySetResult();
+
+        public async Task<ISysvolWriteConnection> OpenForWriteAsync(IDirectorySession session, CancellationToken cancellationToken)
+        {
+            if (Interlocked.Exchange(ref _held, 1) == 0)
+            {
+                await _released.Task.ConfigureAwait(false);
+            }
+
+            return await inner.OpenForWriteAsync(session, CancellationToken.None).ConfigureAwait(false);
+        }
     }
 
     [Fact]

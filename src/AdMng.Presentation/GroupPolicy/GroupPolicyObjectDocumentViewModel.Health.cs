@@ -25,6 +25,9 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
     /// <summary>The findings shown are of the last load of the document.</summary>
     private bool _healthCurrent;
 
+    /// <summary>"Stan" was selected while a load ran (possibly past its check): the check runs when the load ends.</summary>
+    private bool _healthPending;
+
     private GpoQuickFixRunner? _healthFixes;
     private HealthCheck? _health;
 
@@ -34,8 +37,12 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
     public partial IReadOnlyList<GpoFindingRowViewModel> HealthFindings { get; private set; } = [];
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSelectedHealthFinding))]
     [NotifyCanExecuteChangedFor(nameof(FixHealthFindingCommand), nameof(EditHealthSettingCommand))]
     public partial GpoFindingRowViewModel? SelectedHealthFinding { get; set; }
+
+    /// <summary>A finding is selected: the card shows its details (else the hint to select one).</summary>
+    public bool HasSelectedHealthFinding => SelectedHealthFinding is not null;
 
     /// <summary>The engine reads the GPO (the tab shows <see cref="HealthStatusText"/> as its progress).</summary>
     [ObservableProperty]
@@ -64,20 +71,46 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
     private async Task LoadHealthAsync(IDirectorySession session, ISysvolWriteConnection? sysvol, CancellationToken cancellationToken)
     {
         _healthCurrent = false;
+        _healthPending = false;
         _healthLoad.Cancel();
         if (SelectedTab == GpoDocumentTab.Status)
         {
-            await CheckHealthCoreAsync(session, sysvol, cancellationToken).ConfigureAwait(true);
+            await CheckHealthCoreAsync(session, sysvol, SysvolWarning, cancellationToken).ConfigureAwait(true);
         }
     }
 
-    /// <summary>The tab switched to "Stan": the findings of this load are read when they are not yet.</summary>
+    /// <summary>
+    /// The tab switched to "Stan": the findings of this load are read when they are not yet - at once, or when the running
+    /// load ends (it may be past its own check: disposing SYSVOL, reading the PDC note).
+    /// </summary>
     partial void OnSelectedTabChanged(GpoDocumentTab oldValue, GpoDocumentTab newValue)
     {
-        if (newValue == GpoDocumentTab.Status && !_healthCurrent && !IsLoading && !IsCheckingHealth && Gpo is not null)
+        if (newValue == GpoDocumentTab.Status && !_healthCurrent && !IsCheckingHealth && Gpo is not null)
         {
-            RefreshHealthAsync().Forget();
+            if (IsLoading)
+            {
+                _healthPending = true;
+            }
+            else
+            {
+                RefreshHealthAsync().Forget();
+            }
         }
+    }
+
+    /// <summary>A load started or ended: the commands follow it, and a check "Stan" asked for meanwhile runs now.</summary>
+    protected override void OnLoadingChanged()
+    {
+        if (!IsLoading && _healthPending)
+        {
+            _healthPending = false;
+            if (SelectedTab == GpoDocumentTab.Status && !_healthCurrent && !IsCheckingHealth && Gpo is not null && !IsDisposed)
+            {
+                RefreshHealthAsync().Forget();
+            }
+        }
+
+        RefreshCommands();
     }
 
     /// <summary>"Sprawdź ponownie".</summary>
@@ -127,9 +160,10 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
         try
         {
             var access = await Gp.OpenSysvolAsync(session, linked.Token).ConfigureAwait(true);
+            var warning = access.Connection is null ? Gp.SysvolText(access.Reason ?? SysvolUnavailableReason.Failed, session.Info.Server) : null;
             try
             {
-                await CheckHealthCoreAsync(session, access.Connection, linked.Token).ConfigureAwait(true);
+                await CheckHealthCoreAsync(session, access.Connection, warning, linked.Token).ConfigureAwait(true);
             }
             finally
             {
@@ -149,8 +183,11 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
         }
     }
 
-    /// <summary>Reads and analyses the GPO; failures are shown on the tab (never the whole document's error).</summary>
-    private async Task CheckHealthCoreAsync(IDirectorySession session, ISysvolWriteConnection? sysvol, CancellationToken cancellationToken)
+    /// <summary>
+    /// Reads and analyses the GPO; failures are shown on the tab (never the whole document's error).
+    /// <paramref name="sysvolWarning"/> says why <paramref name="sysvol"/> is null (the SYSVOL open this check made or shares).
+    /// </summary>
+    private async Task CheckHealthCoreAsync(IDirectorySession session, ISysvolWriteConnection? sysvol, string? sysvolWarning, CancellationToken cancellationToken)
     {
         var depth = sysvol is null ? GpoDiagnosticsDepth.Quick : GpoDiagnosticsDepth.Full;
         var keep = SelectedHealthFinding?.Key;
@@ -174,7 +211,7 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
             var names = await Task.Run(() => GpoFindingRows.ResolveNamesAsync(session, result, Localizer, cancellationToken), cancellationToken)
                 .ConfigureAwait(true);
             cancellationToken.ThrowIfCancellationRequested();
-            _health = new HealthCheck(snapshot, result, names, depth, Gp.Time.GetLocalNow(), sysvol is null ? SysvolWarning : null);
+            _health = new HealthCheck(snapshot, result, names, depth, Gp.Time.GetLocalNow(), sysvol is null ? sysvolWarning : null);
             ShowHealth(keep);
             _healthCurrent = true;
         }
@@ -205,7 +242,7 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
         var rows = new GpoFindingRows(Localizer, health.Snapshot, health.Names);
         HealthFindings = rows.Rows(health.Result);
         SelectedHealthFinding = keepKey is null ? null : HealthFindings.FirstOrDefault(r => string.Equals(r.Key, keepKey, StringComparison.Ordinal));
-        HasVersionMismatch = health.Result.Any(f => f.Code == GpoFindingCodes.VersionMismatch);
+        HasVersionMismatch = health.Result.Any(NeedsVersionAlignment);
         HasFolderAclMismatch = health.Result.Any(f => f.Code == GpoFindingCodes.FolderSecurityMismatch);
         Checks = AreaChecks(health);
         HealthNotes = health.Result.NotEvaluated.Contains(GpoRuleGroup.SysvolVersions) && health.SysvolWarning is { } warning
@@ -220,6 +257,14 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
         OnPropertyChanged(nameof(HasNoHealthFindings));
         RefreshCommands();
     }
+
+    /// <summary>
+    /// "Wyrównaj wersje" repairs it: AD and GPT.INI differ, or GPT.INI is missing in an existing folder (the alignment writes
+    /// it again from the AD version). A GPT.INI that cannot be parsed is not offered: the GPO transaction refuses to replace it.
+    /// </summary>
+    private static bool NeedsVersionAlignment(GpoFinding finding) =>
+        finding.Code == GpoFindingCodes.VersionMismatch
+        || (finding.Code == GpoFindingCodes.SysvolFolderMissing && finding.Arguments is ["GptIni", ..]);
 
     /// <summary>One line per area: "Bez uwag", "Uwagi: 2, najpoważniejsza: wysoka", or why it was not checked.</summary>
     private List<GpoCheckRowViewModel> AreaChecks(HealthCheck health)

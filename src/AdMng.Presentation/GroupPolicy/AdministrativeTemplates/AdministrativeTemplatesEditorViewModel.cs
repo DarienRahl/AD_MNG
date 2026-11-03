@@ -182,8 +182,8 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     /// <summary>The GPO can be edited now (connected, SYSVOL writable, loaded, not being saved).</summary>
     public bool CanEdit => IsSysvolWritable && _gpo is not null && !IsSaving;
 
-    /// <summary>Closing the tab would discard edits (the shell asks first).</summary>
-    public override bool HasUnsavedChanges => HasChanges;
+    /// <summary>Closing the tab would discard edits (the shell asks first): changed documents, or options typed invalid (shown or kept).</summary>
+    public override bool HasUnsavedChanges => HasChanges || FirstInvalid() is not null;
 
     // ---- Commands ------------------------------------------------------------------------------------------------------
 
@@ -234,7 +234,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     [RelayCommand(CanExecute = nameof(CanDiscard))]
     private async Task DiscardAsync()
     {
-        if (!await Gp.Ui.Dialogs.ConfirmAsync(Localizer[L.AdministrativeTemplates.DiscardTitle], Localizer.Format(L.AdministrativeTemplates.DiscardMessage, ChangedCount),
+        if (!await Gp.Ui.Dialogs.ConfirmAsync(Localizer[L.AdministrativeTemplates.DiscardTitle], Localizer.Format(L.AdministrativeTemplates.DiscardMessage, UnsavedCount()),
             destructive: true).ConfigureAwait(true))
         {
             return;
@@ -287,7 +287,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     /// </summary>
     public override async Task<bool> CanCloseAsync()
     {
-        if (!HasChanges || IsDisposed)
+        if (!HasUnsavedChanges || IsDisposed)
         {
             return true;
         }
@@ -301,7 +301,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         _confirmingClose = true;
         try
         {
-            return await Gp.Ui.Dialogs.ConfirmAsync(Title, Localizer.Format(L.AdministrativeTemplates.CloseDiscard, ChangedCount), destructive: true)
+            return await Gp.Ui.Dialogs.ConfirmAsync(Title, Localizer.Format(L.AdministrativeTemplates.CloseDiscard, UnsavedCount()), destructive: true)
                 .ConfigureAwait(true);
         }
         finally
@@ -336,6 +336,21 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     /// <summary>The shown or a kept editor whose options are invalid (null: none).</summary>
     private PolicyEditorViewModel? FirstInvalid() =>
         Editor is { HasProblems: true } shown ? shown : _invalid.Values.FirstOrDefault(e => e.HasProblems);
+
+    /// <summary>
+    /// The settings whose unsaved edits "Odrzuć zmiany" or closing drops: the changed ones, and the policies whose typed
+    /// options are invalid (shown or kept) without a valid change of their own.
+    /// </summary>
+    private int UnsavedCount()
+    {
+        var invalid = _invalid.Values.Where(e => e.HasProblems).ToList();
+        if (Editor is { HasProblems: true } shown && !invalid.Contains(shown))
+        {
+            invalid.Add(shown);
+        }
+
+        return ChangedCount + invalid.Count(e => !(_rows.TryGetValue((e.Scope, e.Definition.Id), out var row) && row.IsChanged));
+    }
 
     /// <summary>Ctrl+F (<see cref="ISearchableDocument"/>).</summary>
     public void FocusSearch() => SearchFocusRequested?.Invoke(this, EventArgs.Empty);
@@ -731,6 +746,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         Gp.Ui.Notifications.Show(NotificationSeverity.Warning, Localizer.Format(L.GroupPolicyEditing.InvalidKept, editor.Name));
         SaveCommand.NotifyCanExecuteChanged();
         DiscardCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(HasUnsavedChanges));
     }
 
     /// <summary>Drops the kept invalid options (discard, close).</summary>
@@ -742,6 +758,8 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         {
             MarkProblem(scope, id);
         }
+
+        OnPropertyChanged(nameof(HasUnsavedChanges));
     }
 
     /// <summary>The row's warning mark: its options are invalid (shown or kept), not in the GPO.</summary>
@@ -786,6 +804,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         }
 
         SaveCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(HasUnsavedChanges));
     }
 
     private void OnEditorPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -798,6 +817,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
             }
 
             SaveCommand.NotifyCanExecuteChanged();
+            OnPropertyChanged(nameof(HasUnsavedChanges));
         }
     }
 

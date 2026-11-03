@@ -586,6 +586,42 @@ public class AdministrativeTemplatesEditorTests
     }
 
     [Fact]
+    public async Task OptionsTypedInvalidAndKept_AreUnsavedEdits_ThatClosingAndDiscardCount()
+    {
+        var harness = await GroupPolicyHarness.CreateAsync();
+        harness.AddCentralStore();
+        using var shell = harness.CreateShell();
+        var editor = Assert.IsType<AdministrativeTemplatesEditorViewModel>(shell.OpenGroupPolicyDocument(
+            new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.AdministrativeTemplates) { GpoId = harness.Sample.SitePrinters }));
+        await editor.LoadAsync();
+        Select(editor, PolicyClass.Machine, "Configure automatic updates", "Windows Components", "Contoso Update");
+        editor.Editor!.IsEnabled = true;
+        await editor.SaveCommand.ExecuteAsync(null);
+        await editor.LoadAsync();
+        Assert.False(editor.HasUnsavedChanges);
+
+        // Only an option of the configured policy typed invalid, then another policy selected: nothing changed in the GPO.
+        var updates = Select(editor, PolicyClass.Machine, "Configure automatic updates", "Windows Components", "Contoso Update");
+        editor.Editor!.Elements.OfType<NumberEditorViewModel>().Single().Text = "zażółć";
+        Select(editor, PolicyClass.Machine, "Turn off the preview pane", "System");
+        Assert.True(updates.HasProblem);
+        Assert.False(editor.HasChanges);
+        Assert.True(editor.HasUnsavedChanges);
+        Assert.True(shell.HasUnsavedDocuments);
+
+        harness.B2.Dialogs.ConfirmAnswers.Enqueue(false);
+        await shell.CloseTabCommand.ExecuteAsync(editor);
+        Assert.Contains(editor, shell.Documents); // asked, and kept
+        Assert.Contains("confirm:Setting changes not saved yet: 1. Close the tab and discard them?", harness.B2.Dialogs.Shown);
+
+        harness.B2.Dialogs.ConfirmAnswers.Enqueue(true);
+        await editor.DiscardCommand.ExecuteAsync(null);
+        Assert.Contains("confirm:Discard the changes of 1 settings that are not saved yet?", harness.B2.Dialogs.Shown);
+        Assert.False(editor.HasUnsavedChanges);
+        Assert.False(updates.HasProblem);
+    }
+
+    [Fact]
     public async Task FocusSetting_SelectsThePolicy_ByItsIdOrByARegistryValueItOwns()
     {
         var (_, editor) = await OpenAsync();

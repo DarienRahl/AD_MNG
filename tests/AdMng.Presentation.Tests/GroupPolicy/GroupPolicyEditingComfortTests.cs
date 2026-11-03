@@ -38,6 +38,27 @@ public sealed class GroupPolicyEditingComfortTests
         Assert.Equal(expected is not null, GroupPolicyActions.CanEditSetting(focus));
     }
 
+    [Theory]
+    [InlineData("Computer/Security/Kerberos Policy/MaxTicketAge", true)]
+    [InlineData("Computer/Security/Event Audit/AuditLogonEvents", true)]
+    [InlineData("Computer/Security/Group Membership/S-1-5-32-544/Members", true)]
+    [InlineData("Computer/Security/Services/Spooler/StartupMode", true)]
+    [InlineData("Computer/Preferences/Groups/{0D1F7F22-6D1B-4A35-9D9C-0E3D9F3F0001}/groupName", true)]
+    [InlineData(@"Computer/Security/Registry Keys/MACHINE\Software\Łódź/Mode", false)]
+    [InlineData(@"Computer/Security/File Security/%SystemRoot%\Temp/Security", false)]
+    [InlineData("Computer/Security/System Log/MaximumLogSize", false)]
+    [InlineData("Computer/Security/Unicode/Unicode", false)]
+    [InlineData("Computer/Security/System Access", false)]
+    [InlineData("Computer/Preferences/Groups/{0D1F7F22-6D1B-4A35-9D9C-0E3D9F3F0001}/cpassword", false)]
+    [InlineData("Computer/Preferences/Groups/{0D1F7F22-6D1B-4A35-9D9C-0E3D9F3F0001}/userName", false)]
+    public void EditThisSetting_IsOffered_OnlyForWhatTheSecurityEditorEdits(string key, bool offered)
+    {
+        var focus = GroupPolicySettingFocus.ForSetting(key);
+
+        Assert.Equal(offered ? GroupPolicyDocumentKind.SecuritySettings : (GroupPolicyDocumentKind?)null, focus.Editor);
+        Assert.Equal(offered, GroupPolicyActions.CanEditSetting(focus));
+    }
+
     [Fact]
     public void AnAdmxPolicy_IsEditedInTheAdministrativeTemplates_AndRegistryKeysAreRead()
     {

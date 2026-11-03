@@ -862,6 +862,89 @@ public class SecuritySettingsEditorTests
     }
 
     [Fact]
+    public async Task AddsUnderASearch_ListTheNewRow_AndSelectIt()
+    {
+        var (_, editor, _) = await OpenSampleAsync();
+        editor.SearchText = "spooler"; // matches none of the rows added below
+
+        editor.NewRestrictedGroupText = "Remote Desktop Users";
+        editor.AddRestrictedGroupCommand.Execute(null);
+        var group = Assert.Single(editor.VisibleRestrictedGroups);
+        Assert.Same(group, editor.SelectedRestrictedGroup);
+        Assert.Equal("S-1-5-32-555", group.GroupValue);
+
+        editor.NewGppGroupText = "Remote Desktop Users (built-in)";
+        editor.AddGppGroupCommand.Execute(null);
+        Assert.NotNull(editor.SelectedGppGroup);
+        Assert.Contains(editor.SelectedGppGroup, editor.VisibleGppGroups);
+
+        editor.NewServiceName = "RemoteRegistry";
+        editor.AddServiceCommand.Execute(null);
+        Assert.Equal(["RemoteRegistry", "Spooler"], editor.VisibleServices.Select(s => s.Name).Order(StringComparer.Ordinal));
+        Assert.Equal("RemoteRegistry", editor.SelectedService?.Name);
+
+        // An existing service is selected instead of added: listed too.
+        editor.SearchText = "remoteregistry";
+        editor.NewServiceName = "Netlogon";
+        editor.AddServiceCommand.Execute(null);
+        Assert.Equal("Netlogon", editor.SelectedService?.Name);
+        Assert.Contains(editor.SelectedService, editor.VisibleServices);
+        Assert.Equal("remoteregistry", editor.SearchText);
+    }
+
+    [Fact]
+    public async Task AnOptionTypedInvalid_StaysListed_UnderOnlyChangedAndAnotherSearch()
+    {
+        var (_, editor, _) = await OpenSampleAsync();
+        var length = Option(editor, "MinimumPasswordLength");
+        length.Text = "dwanaście";
+        Assert.True(length.HasProblem);
+        Assert.False(length.IsChanged); // nothing was written
+        Assert.False(editor.SaveCommand.CanExecute(null));
+
+        editor.OnlyChanged = true;
+        Assert.Contains(length, editor.Options);
+        editor.OnlyChanged = false;
+        editor.SearchText = "kerberos";
+        Assert.Contains(length, editor.Options);
+
+        length.Text = "14"; // corrected: it follows the search again once the search changes
+        editor.SearchText = "kerberos ";
+        Assert.DoesNotContain(length, editor.Options);
+    }
+
+    [Fact]
+    public async Task FocusSetting_WhileTheFirstLoadNamesTheSids_WaitsForTheRows_AndTheLastRequestWins()
+    {
+        var harness = await GroupPolicyHarness.CreateAsync();
+        var gpo = harness.Sample.SitePrinters;
+        var it = harness.B2.Builder.SidOf(harness.Company.GroupIt);
+        harness.Sysvol.Put(gpo, GptTmpl, FakeSysvolFileReader.Utf16(FakeDirectoryBuilder.Template("[Privilege Rights]", $"SeDebugPrivilege = *{it}")));
+        var editor = (SecuritySettingsEditorViewModel)harness.Factory.Create(new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.SecuritySettings) { GpoId = gpo });
+        using (editor)
+        {
+            Assert.True(editor.FocusSetting(GroupPolicySettingFocus.ForSetting("Computer/Security/Privilege Rights/SeDebugPrivilege")));
+            bool? second = null;
+            harness.Session.BeforeOperation = operation =>
+            {
+                // The SIDs of the file are being named: "Edytuj to ustawienie" of another setting arrives now.
+                if (second is null && operation.Kind == FakeOperationKind.Search && operation.Search?.Filter.Contains("objectSid", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    second = editor.FocusSetting(GroupPolicySettingFocus.ForSetting("Computer/Security/Privilege Rights/SeShutdownPrivilege"));
+                }
+            };
+
+            await editor.LoadAsync();
+            harness.Session.BeforeOperation = null;
+
+            Assert.True(second);
+            Assert.Equal(SecuritySettingsPage.Rights, editor.SelectedPage);
+            Assert.Equal("SeShutdownPrivilege", editor.SelectedRight?.Constant);
+            Assert.DoesNotContain(harness.B2.Notifications.Items, n => n.Severity == NotificationSeverity.Info);
+        }
+    }
+
+    [Fact]
     public async Task Saving_ShowsTheSettingChanges_OfEveryPage()
     {
         var (harness, editor, _) = await OpenSampleAsync(CultureInfo.GetCultureInfo("pl-PL"));
