@@ -16,11 +16,43 @@ public sealed class ScopeRulesTests
         builder.Link(Ou("Firma", "Komputery"), gpo).Link(Ou("Firma", "Pracownicy"), users)
             .Objects(Ou("Firma", "Komputery"), users: 0, computers: 3)
             .Objects(Ou("Firma", "Pracownicy", "IT"), users: 2, computers: 0)
-            .Folder(gpo).Folder(users);
+            .Folder(gpo, Drives("{0A1B2C3D-0000-4000-8000-000000000001}", @"\\fs01\księgowość"))
+            .Folder(users, Drives("{0A1B2C3D-0000-4000-8000-000000000002}", @"\\fs01\księgowość"));
 
         var finding = Findings.Single(builder.Analyze(), GpoFindingCodes.UserSettingsWithoutUsers);
 
         Assert.Equal((gpo, GpoFindingSeverity.Medium, GpoFindingArea.Scope), (finding.GpoId!.Value, finding.Severity, finding.Area));
+    }
+
+    [Fact]
+    public void SettingsWithoutObjects_NotForAPartWhoseSettingsWereAllRemoved()
+    {
+        // Versions only grow: both parts had settings once (version 2), the folder holds none of them any more.
+        var builder = new DiagnosticsSnapshotBuilder();
+        var gpo = builder.Gpo("Komputery – Dawne mapowanie", user: 2, computer: 2);
+        builder.Link(Ou("Firma", "Pracownicy"), gpo)
+            .Objects(Ou("Firma", "Pracownicy"), users: 4, computers: 0)
+            .Folder(gpo, RegistryPol(user: true));
+
+        var findings = builder.Analyze();
+
+        Findings.None(findings, GpoFindingCodes.ComputerSettingsWithoutComputers);
+
+        // Without the folder the version still decides.
+        builder.FoldersRead = false;
+        Findings.Single(builder.Analyze(), GpoFindingCodes.ComputerSettingsWithoutComputers, gpo);
+    }
+
+    [Fact]
+    public void UserSettingsWithoutUsers_AFileNoParserReadsCountsAsSettings()
+    {
+        var builder = new DiagnosticsSnapshotBuilder();
+        var gpo = builder.Gpo("Komputery – Przekierowanie folderów", user: 2, computer: 0);
+        builder.Link(Ou("Firma", "Komputery"), gpo)
+            .Objects(Ou("Firma", "Komputery"), users: 0, computers: 3)
+            .Folder(gpo, ("User/Documents & Settings/fdeploy1.ini", System.Text.Encoding.Unicode.GetBytes("[FolderStatus]\r\nDocuments=11\r\n")));
+
+        Findings.Single(builder.Analyze(), GpoFindingCodes.UserSettingsWithoutUsers, gpo);
     }
 
     [Fact]

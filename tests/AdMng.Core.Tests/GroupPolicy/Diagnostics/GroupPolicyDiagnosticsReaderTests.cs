@@ -1,3 +1,4 @@
+using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Diagnostics;
@@ -60,6 +61,7 @@ public sealed class GroupPolicyDiagnosticsReaderTests : GroupPolicyTestBed
             extraAces: [new FakeAce(FakeAce.AccessAllowed, 0x02, 0x000200BF, Builder.DomainSid + "-4321"), new FakeAce(FakeAce.AccessAllowed, 0x02, 0x00020094, "S-1-5-11"),
                 new FakeAce(FakeAce.AccessAllowedObject, 0x02, 0x100, "S-1-5-11", GroupPolicySecurityFilter.ApplyGroupPolicyRight)]);
         Builder.SetGroupPolicyLinks(Company.GroupsOu, [(orphan, 0)]);
+        Sysvol.PutText(orphan, "Machine/Scripts/Startup/porzadki.cmd", "echo Zażółć gęślą jaźń"); // a computer setting
         Sysvol.SetFolderSecurity(Sample.WorkstationPasswords, GpoFolderAcl.Build([new GpoFolderAcl.FileAce("S-1-1-0", 0x03, GpoFolderAcl.ReadAndExecute)]));
         await using var sysvol = await OpenSysvolAsync();
         var progress = new RecordingProgress();
@@ -162,6 +164,57 @@ public sealed class GroupPolicyDiagnosticsReaderTests : GroupPolicyTestBed
         var finding = Findings.Single(GroupPolicyDiagnostics.Analyze(snapshot), GpoFindingCodes.SysvolFolderMissing);
 
         Assert.Equal((gpo, "Folder"), (finding.GpoId!.Value, finding.Arguments[0]));
+    }
+
+    [Fact]
+    public async Task Full_AFileThatDisappearsWhileTheFolderIsRead_IsNotRead_NotAMissingFolder()
+    {
+        // A save goes on meanwhile: a file listed with the folder is gone when it is read.
+        const string Script = "Machine/Scripts/Startup/porzadki.cmd";
+        Sysvol.PutText(Sample.ServerSecurity, Script, "echo Zażółć gęślą jaźń");
+        await using var saving = await OpenSysvolAsync();
+        var deleted = 0;
+        Sysvol.BeforeCall = (operation, gpo, path) =>
+        {
+            if (operation == "Read" && gpo == Sample.ServerSecurity && string.Equals(path, Script, StringComparison.OrdinalIgnoreCase)
+                && Interlocked.Exchange(ref deleted, 1) == 0)
+            {
+                saving.DeleteFileAsync(gpo, Script, CancellationToken.None).GetAwaiter().GetResult();
+            }
+        };
+        await using var sysvol = await OpenSysvolAsync();
+
+        var snapshot = await GroupPolicyDiagnosticsReader.ReadAsync(Session, sysvol, new GpoDiagnosticsRequest(Sample.ServerSecurity, GpoDiagnosticsDepth.Full), null, Ct);
+        var result = GroupPolicyDiagnostics.Analyze(snapshot);
+
+        Assert.Equal(1, deleted);
+        Assert.Equal(GpoFolderReadStatus.Failed, snapshot.Folders[Sample.ServerSecurity].Status);
+        Assert.Equal([Sample.ServerSecurity], result.FoldersNotRead);
+        Findings.None(result, GpoFindingCodes.SysvolFolderMissing);
+    }
+
+    [Fact]
+    public async Task Quick_ALinkedGpoTheSearchDoesNotReturn_IsInaccessible_OnlyNoSuchObjectIsMissing()
+    {
+        // A GPO whose class the session may not read: the GPO search leaves it out, but its container answers a base read.
+        var hidden = Guid.Parse("3F405162-7C8D-4E9F-A0B1-2C3D4E5F6071");
+        var denied = Guid.Parse("40516273-8D9E-4FA0-B1C2-3D4E5F607182");
+        var gone = Guid.Parse("51627384-9EAF-40B1-82D3-4E5F60718293");
+        Session.Seed(GpoDn(hidden), new Dictionary<string, object?> { [Attr.ObjectClass] = new[] { "top" } });
+        Session.FailNext(FakeOperationKind.Search, GpoDn(denied), DirectoryErrorKind.AccessDenied);
+        Builder.SetGroupPolicyLinks(Company.SalesOu, [(hidden, 0), (denied, 0), (gone, 0)]);
+
+        var snapshot = await GroupPolicyDiagnosticsReader.ReadAsync(Session, null, new GpoDiagnosticsRequest(), null, Ct);
+        var result = GroupPolicyDiagnostics.Analyze(snapshot);
+
+        Assert.Equal(new[] { hidden, denied }.Order(), snapshot.InaccessibleGpoIds.Order());
+        Assert.Equal(new[] { hidden, denied }.Order(), Findings.All(result, GpoFindingCodes.LinkToInaccessibleGpo).Select(f => f.GpoId!.Value).Order());
+        var missing = Findings.Single(result, GpoFindingCodes.LinkToMissingGpo);
+        Assert.Equal(new GpoQuickFix.Unlink(Company.SalesOu, gone), missing.Fix);
+
+        // One GPO: the links of other GPOs are not looked at.
+        var one = await GroupPolicyDiagnosticsReader.ReadAsync(Session, null, new GpoDiagnosticsRequest(Sample.DriveMappings), null, Ct);
+        Assert.Empty(one.InaccessibleGpoIds);
     }
 
     [Fact]

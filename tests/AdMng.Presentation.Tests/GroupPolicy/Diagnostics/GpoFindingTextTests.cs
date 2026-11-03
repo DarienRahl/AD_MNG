@@ -35,7 +35,7 @@ public sealed partial class GpoFindingTextTests
         }
 
         Assert.Equal([], missing);
-        Assert.Equal(49, GpoFindingCodes.All.Count);
+        Assert.Equal(51, GpoFindingCodes.All.Count);
     }
 
     [Fact]

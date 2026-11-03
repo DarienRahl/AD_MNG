@@ -105,6 +105,21 @@ internal sealed class GpoFolderView(GpoFolderContent content)
     /// <summary>The normalized settings (<see cref="GroupPolicyReader.Settings"/>), unreadable files as <c>File/&lt;path&gt;</c> markers.</summary>
     public IReadOnlyList<GpoSetting> Settings => Modeling.Settings;
 
+    /// <summary>
+    /// The user (<c>User/</c>) or computer (<c>Machine/</c>) part holds settings: a normalized setting of the part (comments
+    /// aside), a file of the part that cannot be parsed, or a file of the part no parser reads (folder redirection,
+    /// software installation …), which may hold settings.
+    /// </summary>
+    public bool HasSettings(bool user)
+    {
+        var prefix = user ? "User/" : "Computer/";
+        var folder = user ? "User/" : "Machine/";
+        return Settings.Any(s => s.Category != GpoSettingCategory.Comments
+                && (s.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) || s.Key.StartsWith("File/" + folder, StringComparison.OrdinalIgnoreCase)))
+            || Content.Files.Keys.Any(path => path.StartsWith(folder, StringComparison.OrdinalIgnoreCase)
+                && GpoFileClassifier.Classify(path).Role == GpoFileRole.Inventory);
+    }
+
     /// <summary>A file of the folder (paths compared without case, as on SYSVOL), null when absent.</summary>
     public byte[]? File(string relativePath) => Content.Files.TryGetValue(relativePath, out var bytes) ? bytes : null;
 

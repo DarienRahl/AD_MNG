@@ -49,9 +49,10 @@ public sealed class GpoQuickFixRunnerTests
         await RunAsync(h, new GpoQuickFix.RemoveDuplicateLinks(h.Company.ComputersOu, passwords), "Stacje robocze – Zasady haseł",
             "Pozostawienie jednego połączenia „Stacje robocze – Zasady haseł”");
 
-        var link = Assert.Single(await LinksAsync(h, h.Company.ComputersOu), l => l.GpoId == passwords);
-        Assert.False(link.Enforced); // the entry nearest the end (link order 1) counts
-        Assert.Contains(await LinksAsync(h, h.Company.ComputersOu), l => l.GpoId == h.Sample.WorkstationRemoteDesktop);
+        // The enforced entry counts (clients apply it after every other link), kept in its place before the other GPO.
+        Assert.Equal(
+            [(passwords, 2, true), (h.Sample.WorkstationRemoteDesktop, 1, false)],
+            (await LinksAsync(h, h.Company.ComputersOu)).Select(l => (l.GpoId, l.Order, l.Enforced)));
     }
 
     [Fact]

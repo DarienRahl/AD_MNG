@@ -108,6 +108,40 @@ public sealed class DiagnosticsRepairPlannerTests : GroupPolicyTestBed
     }
 
     [Fact]
+    public async Task RemoveDuplicateLinks_KeepsTheEnabledEntry_WhenTheLowestOrderIsDisabled()
+    {
+        // Link order 3 is enabled, 1 is disabled: clients apply the GPO through order 3, before "Drukarki" (order 2).
+        Builder.SetGroupPolicyLinks(Company.SalesOu, [(Sample.DriveMappings, 0), (Sample.SitePrinters, 0), (Sample.DriveMappings, GroupPolicyLink.DisabledOption)]);
+
+        var plan = await Planner.PlanRemoveDuplicateLinksAsync(Session, Company.SalesOu, Sample.DriveMappings, Ct);
+        var script = Script(plan);
+        await ExecuteOkAsync(plan);
+
+        var container = await Reader.ReadContainerAsync(Session, Company.SalesOu, Ct);
+        Assert.Equal(
+            [(Sample.DriveMappings, 2, true, false), (Sample.SitePrinters, 1, true, false)],
+            container!.Links.Links.Select(l => (l.GpoId, l.Order, l.Enabled, l.Enforced)));
+        Assert.Contains("-LinkEnabled 'Yes' -Enforced 'No' -Order 2", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RemoveDuplicateLinks_KeepsTheEnforcedEntry_AtAHigherOrderNumber_InItsPlace()
+    {
+        // Link order 3 is enforced: it is applied after every other link and wins, although order 1 is applied last of the rest.
+        Builder.SetGroupPolicyLinks(Company.SalesOu, [(Sample.DriveMappings, GroupPolicyLink.EnforcedOption), (Sample.SitePrinters, 0), (Sample.DriveMappings, 0)]);
+
+        var plan = await Planner.PlanRemoveDuplicateLinksAsync(Session, Company.SalesOu, Sample.DriveMappings, Ct);
+        var script = Script(plan);
+        await ExecuteOkAsync(plan);
+
+        var container = await Reader.ReadContainerAsync(Session, Company.SalesOu, Ct);
+        Assert.Equal(
+            [(Sample.DriveMappings, 2, true, true), (Sample.SitePrinters, 1, true, false)],
+            container!.Links.Links.Select(l => (l.GpoId, l.Order, l.Enabled, l.Enforced)));
+        Assert.Contains("-LinkEnabled 'Yes' -Enforced 'Yes' -Order 2", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RemoveDuplicateLinks_NothingWithoutDuplicates()
     {
         var plan = await Planner.PlanRemoveDuplicateLinksAsync(Session, Company.ComputersOu, Sample.WorkstationPasswords, Ct);

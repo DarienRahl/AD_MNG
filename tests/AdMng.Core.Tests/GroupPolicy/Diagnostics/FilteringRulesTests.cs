@@ -51,6 +51,40 @@ public sealed class FilteringRulesTests
     }
 
     [Fact]
+    public void Ms16072_AGpoLinkedOnlyToTheDomainControllers_IsJudgedWithTheirToken()
+    {
+        // Tier 0 user settings applied on the DCs (loopback): Authenticated Users removed, the DCs keep their Read.
+        var builder = new DiagnosticsSnapshotBuilder();
+        var tier0 = Descriptor(Allow(GroupSerwisanci, Read), Apply(GroupSerwisanci), Allow("S-1-5-9", Read));
+        var byEnterpriseDcs = builder.Gpo("Tier 0 – Pulpit administratorów", user: 2, computer: 1, descriptor: tier0);
+        var byDomainControllers = builder.Gpo("Tier 0 – Skróty", user: 2, computer: 1,
+            descriptor: Descriptor(Allow(GroupSerwisanci, Read), Apply(GroupSerwisanci), Allow(DomainSid + "-516", Read)));
+        var unreadable = builder.Gpo("Tier 0 – Bez odczytu", user: 2, computer: 1, descriptor: Descriptor(Allow(GroupSerwisanci, Read), Apply(GroupSerwisanci)));
+        var onServers = builder.Gpo("Serwery – Pulpit administratorów", user: 2, computer: 1, descriptor: tier0);
+        builder.Link(DomainControllersOu, byEnterpriseDcs).Link(DomainControllersOu, byDomainControllers).Link(DomainControllersOu, unreadable)
+            .Link(Ou("Serwery"), onServers);
+
+        var findings = Findings.All(builder.Analyze(), GpoFindingCodes.Ms16072ComputersCannotRead);
+
+        Assert.Equal(new[] { unreadable, onServers }.Order(), findings.Select(f => f.GpoId!.Value).Order());
+    }
+
+    [Fact]
+    public void Ms16072_NotForAUserPartWhoseSettingsWereAllRemoved()
+    {
+        // Versions only grow: the user part had settings once (version 2); the folder holds none any more.
+        var builder = new DiagnosticsSnapshotBuilder();
+        var gpo = builder.Gpo("Kadry – Zapora", user: 2, computer: 3, descriptor: Descriptor(Allow(GroupKsiegowosc, Read), Apply(GroupKsiegowosc)));
+        builder.Link(Ou("Kadry"), gpo).Folder(gpo, RegistryPol(user: true), RegistryPol(false, (@"Software\Policies\Microsoft\WindowsFirewall\DomainProfile", "EnableFirewall", 1)));
+
+        Findings.None(builder.Analyze(), GpoFindingCodes.Ms16072ComputersCannotRead);
+
+        // Quick (no folders): the version is all there is.
+        builder.Depth = GpoDiagnosticsDepth.Quick;
+        Findings.Single(builder.Analyze(), GpoFindingCodes.Ms16072ComputersCannotRead, gpo);
+    }
+
+    [Fact]
     public void WmiFilterMissing_OffersToClearTheLink_WmiFilterUnused_OffersToDeleteTheFilter()
     {
         var builder = new DiagnosticsSnapshotBuilder();

@@ -14,7 +14,8 @@ namespace AdMng.Core.GroupPolicy.Diagnostics;
 /// (rule 1); every filter through <see cref="LdapFilter"/> (rule 3), cancellation everywhere (rule 6).
 /// <list type="bullet">
 /// <item>Quick: the domain head (SID, Domain Controllers OU), the GPOs, the linking containers, the WMI filters
-/// (<see cref="GroupPolicyReader"/>) and the <c>GPT.INI</c> of each GPO in scope.</item>
+/// (<see cref="GroupPolicyReader"/>) and the <c>GPT.INI</c> of each GPO in scope; for the domain also a base read of each
+/// GPO a <c>gPLink</c> names that the GPO search did not return (missing or not readable).</item>
 /// <item>Full, in addition: the folders (<see cref="GroupPolicyReader.ReadFolderAsync"/> and the folder ACL) - for one GPO
 /// also the folders of the GPOs reaching its containers, for the conflicts; one paged search of the users and computers
 /// (the whole domain, or the subtrees of the GPO's links) counted by parent container, attributes <c>sAMAccountType</c>
@@ -64,6 +65,9 @@ public static class GroupPolicyDiagnosticsReader
 
         var containers = await reader.ReadLinkingContainersAsync(session, cancellationToken).ConfigureAwait(false);
         var wmiFilters = await reader.ReadWmiFiltersAsync(session, cancellationToken).ConfigureAwait(false);
+        var inaccessible = request.GpoId is null
+            ? await InaccessibleGposAsync(session, domainDn, gpos, containers, cancellationToken).ConfigureAwait(false)
+            : new HashSet<Guid>();
         var scope = request.GpoId is { } one ? gpos.Where(g => g.Id == one).ToList() : gpos;
 
         var versionsRead = false;
@@ -87,6 +91,7 @@ public static class GroupPolicyDiagnosticsReader
             Gpos = gpos,
             Containers = containers,
             WmiFilters = wmiFilters,
+            InaccessibleGpoIds = inaccessible,
             SysvolVersionsRead = versionsRead,
         };
         if (request.Depth == GpoDiagnosticsDepth.Quick)
@@ -113,6 +118,45 @@ public static class GroupPolicyDiagnosticsReader
             ObjectCounts = counts,
             ExistingSids = existing,
         };
+    }
+
+    /// <summary>
+    /// The GPOs of this domain a <c>gPLink</c> names that the GPO search did not return, whose container a base read does not
+    /// answer with "no such object": GPOs the session may not read (the search's filter on <c>objectClass</c> leaves out an
+    /// object whose class the session cannot read). Another error (access denied …) counts as not readable too, so that a
+    /// link is called missing only when its GPO surely is.
+    /// </summary>
+    private static async Task<IReadOnlySet<Guid>> InaccessibleGposAsync(
+        IDirectorySession session,
+        string domainDn,
+        IReadOnlyList<GpoInfo> gpos,
+        IReadOnlyList<GroupPolicyContainerInfo> containers,
+        CancellationToken cancellationToken)
+    {
+        var known = gpos.Select(g => g.Id).ToHashSet();
+        var result = new HashSet<Guid>();
+        foreach (var id in containers.SelectMany(c => c.Links.Links).Select(l => l.GpoId).Where(id => !known.Contains(id)).Distinct())
+        {
+            try
+            {
+                await foreach (var _ in session.SearchAsync(new DirectorySearch { BaseDn = GpLinkValue.GpoDn(id, domainDn), Scope = SearchScope.Base }, cancellationToken)
+                    .ConfigureAwait(false))
+                {
+                }
+
+                result.Add(id);
+            }
+            catch (DirectoryException ex) when (ex.Kind == DirectoryErrorKind.NoSuchObject)
+            {
+                // Missing: the link names nothing.
+            }
+            catch (DirectoryException)
+            {
+                result.Add(id);
+            }
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -168,7 +212,9 @@ public static class GroupPolicyDiagnosticsReader
         }
         catch (SysvolWriteException ex) when (ex.Error == SysvolWriteError.NotFound)
         {
-            return new GpoFolderState { Status = GpoFolderReadStatus.NotFound };
+            // The folder, or a file listed and gone before it was read (a save going on): only the former is missing.
+            var missing = await FolderMissingAsync(sysvol, gpoId, cancellationToken).ConfigureAwait(false);
+            return new GpoFolderState { Status = missing ? GpoFolderReadStatus.NotFound : GpoFolderReadStatus.Failed };
         }
         catch (SysvolWriteException ex) when (ex.Error is SysvolWriteError.AccessDenied or SysvolWriteError.LogonFailure)
         {
@@ -198,6 +244,19 @@ public static class GroupPolicyDiagnosticsReader
         }
 
         return GpoFolderState.Of(content, security, withSecurity);
+    }
+
+    /// <summary>After "not found" while reading a folder: the GPO's folder itself does not exist (false when that cannot be told).</summary>
+    private static async Task<bool> FolderMissingAsync(ISysvolWriteConnection sysvol, Guid gpoId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return !await sysvol.GpoFolderExistsAsync(gpoId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
     }
 
     /// <summary>
