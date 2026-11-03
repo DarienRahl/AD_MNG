@@ -38,4 +38,59 @@ public static class EventHostNames
 
         return !IPAddress.TryParse(host, out _);
     }
+
+    /// <summary>
+    /// The computer part of a name from an event: the first label of a DNS name, without leading <c>\\</c> and a
+    /// trailing <c>$</c> (computer account), in lower case (<c>WAW-PC001$</c>, <c>\\WAW-PC001</c> and
+    /// <c>waw-pc001.contoso.test</c> → <c>waw-pc001</c>); null for empty values and <c>-</c>. IP addresses are returned
+    /// whole (normalized like <see cref="EventCodes.NormalizeIpAddress"/>).
+    /// </summary>
+    public static string? ShortName(string? host)
+    {
+        var name = EventCodes.NormalizeWorkstation(host);
+        if (name is null)
+        {
+            return null;
+        }
+
+        if (EventCodes.NormalizeIpAddress(name) is { } address && IPAddress.TryParse(address, out _))
+        {
+            return address.ToLowerInvariant();
+        }
+
+        var dot = name.IndexOf('.', StringComparison.Ordinal);
+        var label = (dot > 0 ? name[..dot] : name).TrimEnd('$');
+        return label.Length == 0 ? null : label.ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// True when both names denote the same computer: equal DNS names (<see cref="AreEqual"/>), or a NetBIOS-style name
+    /// (one label, as clients supply it in 4740/4776/4625) equal to the other name's first label
+    /// (<c>WAW-PC001</c> = <c>waw-pc001.contoso.test</c>). Two different FQDNs never match by their first labels.
+    /// </summary>
+    public static bool SameComputer(string? a, string? b)
+    {
+        var left = EventCodes.NormalizeWorkstation(a);
+        var right = EventCodes.NormalizeWorkstation(b);
+        if (left is null || right is null)
+        {
+            return false;
+        }
+
+        if (AreEqual(left.TrimEnd('$'), right.TrimEnd('$')))
+        {
+            return true;
+        }
+
+        var leftIsFqdn = left.Contains('.', StringComparison.Ordinal);
+        var rightIsFqdn = right.Contains('.', StringComparison.Ordinal);
+        if (leftIsFqdn && rightIsFqdn)
+        {
+            return false;
+        }
+
+        var leftShort = ShortName(left);
+        return leftShort is not null && !IPAddress.TryParse(left, out _) && !IPAddress.TryParse(right, out _)
+            && string.Equals(leftShort, ShortName(right), StringComparison.Ordinal);
+    }
 }
