@@ -126,11 +126,12 @@ public sealed class FailedLogonAnalysisTests
             records.Add(r.Kerberos(Dc2, Start + TimeSpan.FromMinutes(5 * i) + TimeSpan.FromSeconds(30), Pracownicy[i], null, "::ffff:10.0.0.66"));
         }
 
-        records.AddRange(Times(4, Start + TimeSpan.FromMinutes(7)).Select(t => r.Kerberos(Dc2, t, "admin.kowalczyk", null, "::ffff:10.0.0.66")));
+        records.AddRange(Times(10, Start + TimeSpan.FromMinutes(7)).Select(t => r.Kerberos(Dc2, t, "admin.kowalczyk", null, "::ffff:10.0.0.66")));
 
         var report = FailedLogonAnalysis.Analyze(records, Options);
 
-        var finding = Assert.Single(report.Findings);
+        Assert.Equal("admin.kowalczyk", Assert.Single(report.Findings, f => f.Kind == FailedLogonFindingKind.BruteForce).Accounts.Single().Account);
+        var finding = Assert.Single(report.Findings, f => f.Kind == FailedLogonFindingKind.PasswordSpray);
         Assert.Equal((FailedLogonFindingKind.PasswordSpray, FailedLogonSeverity.High, new AttemptSource(AttemptSourceKind.IpAddress, "10.0.0.66"), 20),
             (finding.Kind, finding.Severity, finding.Source, finding.Count));
         Assert.Equal(Pracownicy.Take(10).Order(StringComparer.Ordinal), finding.Accounts.Select(a => a.Account));
@@ -169,6 +170,129 @@ public sealed class FailedLogonAnalysisTests
         var sprays = FailedLogonAnalysis.Analyze(records, Options).Findings.Where(f => f.Kind == FailedLogonFindingKind.PasswordSpray).ToList();
 
         Assert.Equal([(Start, 10), (Start + TimeSpan.FromHours(5), 10)], sprays.Select(f => (f.First, f.Count)));
+    }
+
+    /// <summary>
+    /// E-AN-09: "lockout threshold − 1" passwords per account, one account after another – between the old spray limit (3)
+    /// and brute force (10) – is a spray.
+    /// </summary>
+    [Fact]
+    public void PasswordSpray_FourPasswordsPerAccount_AccountAfterAccount()
+    {
+        var r = new SecurityRecords();
+        var records = new List<EventLogRecord>();
+        for (var i = 0; i < 30; i++)
+        {
+            var account = string.Create(CultureInfo.InvariantCulture, $"pracownik.łódź{i:00}");
+            records.AddRange(Enumerable.Range(0, 4).Select(k => r.Kerberos(Dc2, Start + TimeSpan.FromSeconds(20 * ((4 * i) + k)), account, null, "::ffff:10.0.0.99")));
+        }
+
+        var report = FailedLogonAnalysis.Analyze(records, Options);
+
+        var spray = Assert.Single(report.Findings);
+        Assert.Equal((FailedLogonFindingKind.PasswordSpray, "10.0.0.99", 30), (spray.Kind, spray.Source.Value, spray.Accounts.Count));
+        Assert.All(spray.Accounts, a => Assert.Equal(4, a.Count));
+        Assert.DoesNotContain(FailedLogonAnalysis.Analyze(records, Options with { BruteForceThreshold = 4 }).Findings, f => f.Kind == FailedLogonFindingKind.PasswordSpray);
+    }
+
+    /// <summary>
+    /// E-AN-10: accounts that keep crossing the per-account limit inside one window make one spray finding (a span that starts
+    /// before the previous one ended continues it), found in linear time.
+    /// </summary>
+    [Fact]
+    public void PasswordSpray_OscillatingAroundTheThreshold_OneFindingQuickly()
+    {
+        var r = new SecurityRecords();
+        var records = new List<EventLogRecord>();
+        var at = Start;
+        for (var i = 0; i < 9; i++)
+        {
+            records.Add(r.Ntlm(Dc2, at, string.Create(CultureInfo.InvariantCulture, $"stały{i}"), "PC-NIEZNANY"));
+            at += TimeSpan.FromMilliseconds(40);
+        }
+
+        for (var i = 0; i < 4_000; i++)
+        {
+            var account = string.Create(CultureInfo.InvariantCulture, $"zmienny{i:0000}");
+            for (var k = 0; k < 10; k++)
+            {
+                records.Add(r.Ntlm(Dc2, at, account, "PC-NIEZNANY"));
+                at += TimeSpan.FromMilliseconds(40);
+            }
+        }
+
+        var stopwatch = Stopwatch.StartNew();
+        var report = FailedLogonAnalysis.Analyze(records, Options);
+        stopwatch.Stop();
+
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10), $"Analyze took {stopwatch.Elapsed}.");
+        var spray = Assert.Single(report.Findings, f => f.Kind == FailedLogonFindingKind.PasswordSpray);
+        Assert.Equal((Start, 4_009), (spray.First, spray.Accounts.Count));
+        Assert.True(report.Truncated);
+    }
+
+    /// <summary>
+    /// E-AN-02: a wrong NTLM password through DC02 is retried at the PDC emulator, whose 4776 keeps the workstation – the copy
+    /// is the same attempt: five mistypes are not ten (brute force), and a spray stays a spray.
+    /// </summary>
+    [Fact]
+    public void NtlmRetriesAtThePdcEmulator_CountedOnce()
+    {
+        var r = new SecurityRecords();
+        var mistypes = new List<EventLogRecord>();
+        foreach (var t in Times(5))
+        {
+            mistypes.Add(r.Ntlm(Dc2, t, "anowak", "WS-KOŁOBRZEG-01"));
+            mistypes.Add(r.Ntlm(Pdc, t + TimeSpan.FromMilliseconds(400), "anowak", "WS-KOŁOBRZEG-01"));
+        }
+
+        var withoutPdc = FailedLogonAnalysis.Analyze(mistypes, Options);
+        var withPdc = FailedLogonAnalysis.Analyze(mistypes, Options with { PdcEmulators = ["DC01.firma.test."] });
+
+        Assert.Equal(FailedLogonFindingKind.BruteForce, Assert.Single(withoutPdc.Findings).Kind);
+        Assert.Empty(withPdc.Findings);
+        Assert.Equal(5, withPdc.FailureCount);
+        Assert.Equal([("WS-KOŁOBRZEG-01", 5, false)], withPdc.TopSources.Select(s => (s.Source.Value, s.Count, s.IsDomainController)));
+        Assert.Equal([(4776, "0xC000006A", LogonFailureKind.BadPassword, 5)], withPdc.CodeCounts.Select(c => (c.EventId, c.Code, c.Kind, c.Count)));
+
+        // Twelve accounts, two passwords each, through DC02 – every attempt copied at the PDC emulator a moment earlier.
+        var spray = new List<EventLogRecord>();
+        for (var i = 0; i < 12; i++)
+        {
+            foreach (var t in Times(2, Start + TimeSpan.FromMinutes(2 * i)))
+            {
+                spray.Add(r.Ntlm(Pdc, t - TimeSpan.FromMilliseconds(300), Pracownicy[i], "PC-NIEZNANY"));
+                spray.Add(r.Ntlm(Dc2, t, Pracownicy[i], "PC-NIEZNANY"));
+            }
+        }
+
+        var sprayed = Assert.Single(FailedLogonAnalysis.Analyze(spray, Options with { PdcEmulators = [Pdc] }).Findings);
+        Assert.Equal((FailedLogonFindingKind.PasswordSpray, 24, 12), (sprayed.Kind, sprayed.Count, sprayed.Accounts.Count));
+        Assert.All(sprayed.Accounts, a => Assert.Equal(2, a.Count));
+    }
+
+    /// <summary>
+    /// E-AN-07: the KDC answers 4768 0x12 (revoked) for a disabled, expired or locked account before any password is
+    /// checked – a disabled computer that keeps asking for tickets is counted, never a brute force.
+    /// </summary>
+    [Fact]
+    public void TgtRevoked_IsCountedButNotAPasswordAttempt()
+    {
+        var r = new SecurityRecords();
+        var records = Enumerable.Range(0, 144)
+            .Select(i => r.Tgt(Pdc, T0 + TimeSpan.FromMinutes(10 * i), "WS-OLD-01$", "::ffff:10.0.5.17", "0x12"))
+            .ToList();
+
+        var report = FailedLogonAnalysis.Analyze(records, Options);
+
+        Assert.Empty(report.Findings);
+        Assert.Empty(FailedLogonAnalysis.SuccessCandidates(records, Options));
+        Assert.Equal([(4768, "0x12", LogonFailureKind.AccountRevoked, 144)], report.CodeCounts.Select(c => (c.EventId, c.Code, c.Kind, c.Count)));
+        Assert.Equal(144, report.FailureCount);
+
+        // A 4771 0x12 (pre-authentication of a locked account) still tries a password.
+        var locked = Times(10).Select(t => r.Kerberos(Pdc, t, "anowak", NowakSid, "::ffff:10.0.5.18", "0x12")).ToList();
+        Assert.Equal(FailedLogonFindingKind.BruteForce, Assert.Single(FailedLogonAnalysis.Analyze(locked, Options).Findings).Kind);
     }
 
     [Fact]

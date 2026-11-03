@@ -52,8 +52,8 @@ public class FakeEventLogConnectorTests
         Assert.Equal(dc01.Min(r => r.TimeCreated), coverage.Oldest);
         Assert.Equal(dc01.Max(r => r.TimeCreated), coverage.Newest);
         Assert.Equal(EventLogMode.Circular, coverage.Mode);
-        Assert.True(coverage.Covers(Morning.AddHours(1)));
-        Assert.False(coverage.Covers(Morning.AddHours(-1)));
+        Assert.True(coverage.Covers(Morning.AddHours(1), Morning.AddHours(2)));
+        Assert.False(coverage.Covers(Morning.AddHours(-1), Morning.AddHours(2)));
         var empty = await reader.GetCoverageAsync(SystemChannel, Ct);
         Assert.Equal(0, empty.RecordCount);
         Assert.Null(empty.Oldest);

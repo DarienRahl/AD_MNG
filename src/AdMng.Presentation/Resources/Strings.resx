@@ -19026,7 +19026,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>No failed attempt of the account was found although a domain controller reports a wrong password or a lockout in the window – the failure audit may be off or the logs no longer reach that time.</value>
   </data>
   <data name="EventLogs.Lockout.FailuresNotSeenOnDc" xml:space="preserve">
-    <value>{0} reports a wrong password in the window and its log reaches that time, yet no failure of the account was found there – the failure audit is probably off on that DC.</value>
+    <value>{0} reports a wrong password in the window and its log reaches that time, yet no failure of the account was found there – the failure audit is probably off on that DC, or the client typed the user name in a different letter case (the event log compares names case-sensitively).</value>
   </data>
   <data name="EventLogs.Lockout.CoverageGap" xml:space="preserve">
     <value>The Security log of {0} starts at {1}, after the start of the window – earlier attempts are no longer in it.</value>
@@ -19041,7 +19041,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>The state of the account on {0} could not be read: {1}</value>
   </data>
   <data name="EventLogs.Lockout.PdcRetries" xml:space="preserve">
-    <value>Failures were read from the PDC emulator and from other domain controllers: a wrong password is retried at the PDC emulator, so the counts of the DCs overlap.</value>
+    <value>Failures were read from the PDC emulator and from other domain controllers: a wrong password is retried at the PDC emulator, so the counts of the DCs overlap (the sources count the PDC emulator's NTLM copy of another DC's failure once).</value>
   </data>
   <data name="EventLogs.Lockout.BadPasswordHistoryHint" xml:space="preserve">
     <value>A wrong password equal to one of the last two passwords of the history does not increase badPwdCount – such failures are logged but do not count toward the lockout.</value>
@@ -19104,10 +19104,10 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>seen</value>
   </data>
   <data name="EvtLog.Audit.NotSeenWhileCovered" xml:space="preserve">
-    <value>not seen although the log covers the window – probably not audited</value>
+    <value>no event of any account although the log covers the window – probably not audited</value>
   </data>
   <data name="EvtLog.Audit.Unknown" xml:space="preserve">
-    <value>unknown – the log does not cover the window</value>
+    <value>unknown – the log does not cover the window or was not read for every account</value>
   </data>
   <data name="EvtLog.SourceKind.Unknown" xml:space="preserve">
     <value>Unknown source</value>
@@ -19242,4 +19242,12 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Audit Failure</value>
   </data>
   <!-- Track E event logs (reader, lockout source, failed logons): end -->
+  <!-- Track E review fixes (lockout and failed-logon analyses): begin -->
+  <data name="EventLogs.Lockout.RecordsDropped" xml:space="preserve">
+    <value>{0} older events exceeded the memory limit and were not kept: what was logged before {1} may be missing, so missing lockouts and wrong passwords before then are not reported – shorten the window.</value>
+  </data>
+  <data name="EventLogs.Lockout.LogFullNotOverwriting" xml:space="preserve">
+    <value>The Security log of {0} is full and set not to overwrite events: what was logged after {1} was discarded, so its absence proves nothing.</value>
+  </data>
+  <!-- Track E review fixes (lockout and failed-logon analyses): end -->
 </root>

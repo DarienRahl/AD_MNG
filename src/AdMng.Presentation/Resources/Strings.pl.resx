@@ -19026,7 +19026,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Nie znaleziono nieudanych prób konta, choć kontroler domeny zgłasza złe hasło albo blokadę w przedziale – inspekcja niepowodzeń może być wyłączona albo dzienniki już nie sięgają tego czasu.</value>
   </data>
   <data name="EventLogs.Lockout.FailuresNotSeenOnDc" xml:space="preserve">
-    <value>{0} zgłasza złe hasło w przedziale i jego dziennik sięga tego czasu, a nie znaleziono tam niepowodzeń konta – inspekcja niepowodzeń jest tam prawdopodobnie wyłączona.</value>
+    <value>{0} zgłasza złe hasło w przedziale i jego dziennik sięga tego czasu, a nie znaleziono tam niepowodzeń konta – inspekcja niepowodzeń jest tam prawdopodobnie wyłączona albo klient wpisał nazwę użytkownika inną wielkością liter (dziennik zdarzeń rozróżnia wielkość liter w nazwach).</value>
   </data>
   <data name="EventLogs.Lockout.CoverageGap" xml:space="preserve">
     <value>Dziennik Zabezpieczenia na {0} zaczyna się {1}, później niż przedział – wcześniejszych prób już w nim nie ma.</value>
@@ -19041,7 +19041,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Nie udało się odczytać stanu konta na {0}: {1}</value>
   </data>
   <data name="EventLogs.Lockout.PdcRetries" xml:space="preserve">
-    <value>Niepowodzenia odczytano z emulatora PDC i z innych kontrolerów domeny: złe hasło jest ponawiane na emulatorze PDC, więc liczby z różnych DC się nakładają.</value>
+    <value>Niepowodzenia odczytano z emulatora PDC i z innych kontrolerów domeny: złe hasło jest ponawiane na emulatorze PDC, więc liczby z różnych DC się nakładają (źródła liczą raz kopię niepowodzenia NTLM innego DC na emulatorze PDC).</value>
   </data>
   <data name="EventLogs.Lockout.BadPasswordHistoryHint" xml:space="preserve">
     <value>Złe hasło równe jednemu z dwóch ostatnich haseł z historii nie zwiększa licznika badPwdCount – takie niepowodzenia są w dzienniku, ale nie liczą się do blokady.</value>
@@ -19104,10 +19104,10 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>zarejestrowane</value>
   </data>
   <data name="EvtLog.Audit.NotSeenWhileCovered" xml:space="preserve">
-    <value>brak, choć dziennik obejmuje przedział – prawdopodobnie nie jest inspekcjonowane</value>
+    <value>brak zdarzeń żadnego konta, choć dziennik obejmuje przedział – prawdopodobnie nie jest inspekcjonowane</value>
   </data>
   <data name="EvtLog.Audit.Unknown" xml:space="preserve">
-    <value>nie wiadomo – dziennik nie obejmuje przedziału</value>
+    <value>nie wiadomo – dziennik nie obejmuje przedziału albo nie odczytano go dla wszystkich kont</value>
   </data>
   <data name="EvtLog.SourceKind.Unknown" xml:space="preserve">
     <value>Nieznane źródło</value>
@@ -19242,4 +19242,12 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Inspekcja niepowodzeń</value>
   </data>
   <!-- Track E event logs (reader, lockout source, failed logons): end -->
+  <!-- Track E review fixes (lockout and failed-logon analyses): begin -->
+  <data name="EventLogs.Lockout.RecordsDropped" xml:space="preserve">
+    <value>{0} starszych zdarzeń przekroczyło limit pamięci i nie zostało zachowanych: zdarzeń sprzed {1} może brakować, więc brak blokad i złych haseł sprzed tej chwili nie jest zgłaszany – skróć przedział.</value>
+  </data>
+  <data name="EventLogs.Lockout.LogFullNotOverwriting" xml:space="preserve">
+    <value>Dziennik Zabezpieczenia na {0} jest pełny i ustawiony bez nadpisywania zdarzeń: to, co zapisano po {1}, zostało odrzucone, więc brak zdarzeń niczego tam nie dowodzi.</value>
+  </data>
+  <!-- Track E review fixes (lockout and failed-logon analyses): end -->
 </root>

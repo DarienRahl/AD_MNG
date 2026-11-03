@@ -25,11 +25,51 @@ public enum AuditEvidenceState
     /// <summary>At least one record of the event (with the outcome) was read from the host.</summary>
     Seen,
 
-    /// <summary>None was read although the host's log covers the window – the subcategory is probably not audited there.</summary>
+    /// <summary>
+    /// None was read by a read that would have seen any account's record (<see cref="AuditRead"/>) although the host's log
+    /// covers the window – the subcategory is probably not audited there.
+    /// </summary>
     NotSeenWhileCovered,
 
-    /// <summary>None was read and the log's coverage is missing, does not reach the window start or the log is disabled.</summary>
+    /// <summary>
+    /// None was read, and either no read of the host could have seen any account's record (the reads were filtered to
+    /// accounts, failed, were cut off or dropped records) or the log's coverage is missing, does not cover the window or the
+    /// log is disabled.
+    /// </summary>
     Unknown,
+}
+
+/// <summary>
+/// A read that can prove a requirement's absence on one host (design note e-event-logs.md 4.3): the events of
+/// <see cref="Requirements"/> were read from the host's log in the window <b>without an account or other data condition</b>
+/// and the read completed with nothing dropped – so when it returned no record, none of any account was logged. Reads
+/// filtered to accounts (the lockout plan, the success step of the failed logons), failed or cut-off reads never are; a
+/// completed <see cref="AuditProbe"/> is.
+/// </summary>
+/// <param name="Host">The host (compared case-insensitively without a trailing dot).</param>
+/// <param name="Requirements">The requirements whose events it read.</param>
+public sealed record AuditRead(string Host, IReadOnlyList<AuditRequirement> Requirements)
+{
+    /// <summary>Never the host.</summary>
+    public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"audit read: {Requirements.Count} requirements");
+}
+
+/// <summary>
+/// The unfiltered probe of one host (<see cref="AuditEvidence.Probes"/>): per requirement one query – its event ID and
+/// outcome in the window, no data condition, newest first, at most one record. Once every query completed on the host, add
+/// <see cref="Completed"/> to the reads and the records to the evidence (they are of any account – keep them out of an
+/// analysis that counts one account's records).
+/// </summary>
+/// <param name="Host">The host as given to <see cref="AuditEvidence.Probes"/>.</param>
+/// <param name="Requirements">The requirements probed.</param>
+/// <param name="Queries">The queries, one per requirement in the same order.</param>
+public sealed record AuditProbe(string Host, IReadOnlyList<AuditRequirement> Requirements, IReadOnlyList<EventLogQuery> Queries)
+{
+    /// <summary>What the probe proves once every query of it completed on <see cref="Host"/>.</summary>
+    public AuditRead Completed => new(Host, Requirements);
+
+    /// <summary>Never the host.</summary>
+    public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"audit probe: {Queries.Count} queries");
 }
 
 /// <summary>The evidence for one requirement on one host.</summary>
@@ -46,7 +86,9 @@ public sealed record AuditEvidenceEntry(string Host, AuditRequirement Requiremen
 /// <summary>
 /// Which required events were seen against the coverage of each host's log (design note e-event-logs.md 4.3): seen, not
 /// seen while the log covers the window (the UI offers the K5 model of the DC and the security settings of the GPO that
-/// wins on the Domain Controllers OU), or unknown.
+/// wins on the Domain Controllers OU), or unknown. Only an unfiltered, complete read (<see cref="AuditRead"/>) proves
+/// absence: a read filtered to accounts sees nothing of an account that simply did not log on there, so its records can
+/// prove that an event is audited, never that it is not – <see cref="Probes"/> plans the cheap unfiltered reads that can.
 /// </summary>
 public static class AuditEvidence
 {
@@ -81,29 +123,32 @@ public static class AuditEvidence
     /// case-insensitively without a trailing dot; a record counts when its event ID, channel and outcome match.
     /// </summary>
     /// <param name="requirements">What the analysis needs – only requirements whose queries actually ran.</param>
-    /// <param name="records">The records read (any account: one record of the event proves the audit).</param>
+    /// <param name="records">Every record read, of any account and from any read (one record of the event proves the audit).</param>
     /// <param name="coverage">The coverage of the hosts' logs.</param>
     /// <param name="from">The window start the coverage must reach.</param>
+    /// <param name="to">The window end the log must still have been recording at (<see cref="EventLogCoverage.Covers"/>).</param>
+    /// <param name="reads">
+    /// The unfiltered, complete reads (<see cref="AuditRead"/>): a requirement not seen on a host is
+    /// <see cref="AuditEvidenceState.NotSeenWhileCovered"/> only when one of them read it there and the log covers the
+    /// window, else <see cref="AuditEvidenceState.Unknown"/>.
+    /// </param>
     /// <param name="hosts">The hosts that were read, or null.</param>
     public static IReadOnlyList<AuditEvidenceEntry> Evaluate(IReadOnlyList<AuditRequirement> requirements, IEnumerable<EventLogRecord> records,
-        IReadOnlyList<EventLogCoverage> coverage, DateTimeOffset from, IReadOnlyList<string>? hosts = null)
+        IReadOnlyList<EventLogCoverage> coverage, DateTimeOffset from, DateTimeOffset to, IReadOnlyList<AuditRead> reads, IReadOnlyList<string>? hosts = null)
     {
         ArgumentNullException.ThrowIfNull(requirements);
         ArgumentNullException.ThrowIfNull(records);
         ArgumentNullException.ThrowIfNull(coverage);
+        ArgumentNullException.ThrowIfNull(reads);
 
-        var counts = new Dictionary<(string Host, int Requirement), int>();
-        var recordHosts = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var record in records)
+        var (counts, recordHosts) = Count(requirements, records);
+        var proven = new HashSet<(string Host, AuditRequirement Requirement)>();
+        foreach (var read in reads)
         {
-            var host = AnalysisValues.Host(record.Host);
-            recordHosts.Add(host);
-            for (var i = 0; i < requirements.Count; i++)
+            ArgumentNullException.ThrowIfNull(read, nameof(reads));
+            foreach (var requirement in read.Requirements ?? [])
             {
-                if (Satisfies(record, requirements[i]))
-                {
-                    counts[(host, i)] = counts.GetValueOrDefault((host, i)) + 1;
-                }
+                proven.Add((AnalysisValues.Host(read.Host), requirement));
             }
         }
 
@@ -121,7 +166,7 @@ public static class AuditEvidence
                 var count = counts.GetValueOrDefault((key, i));
                 var state = count > 0
                     ? AuditEvidenceState.Seen
-                    : CoverageOf(coverage, key, requirement.Channel) is { IsEnabled: true } log && log.Covers(from)
+                    : proven.Contains((key, requirement)) && CoverageOf(coverage, key, requirement.Channel) is { } log && log.Covers(from, to)
                         ? AuditEvidenceState.NotSeenWhileCovered
                         : AuditEvidenceState.Unknown;
                 entries.Add(new AuditEvidenceEntry(display, requirement, state, count));
@@ -129,6 +174,62 @@ public static class AuditEvidence
         }
 
         return entries;
+    }
+
+    /// <summary>
+    /// The unfiltered probes still worth running (design note 4.3): per host of <paramref name="hosts"/> (in order, each
+    /// once, spelled as given) the requirements of which no record was read from it while its log covers the window, each
+    /// with its <see cref="ProbeQuery"/>. A host with nothing to probe is left out. Cheap: a probe stops at the first record.
+    /// </summary>
+    /// <param name="requirements">The requirements.</param>
+    /// <param name="records">The records read so far (any account; a requirement seen on a host needs no probe there).</param>
+    /// <param name="coverage">The coverage of the hosts' logs.</param>
+    /// <param name="from">The window start.</param>
+    /// <param name="to">The window end.</param>
+    /// <param name="hosts">The hosts whose reads completed (a host that could not be read is not probed).</param>
+    public static IReadOnlyList<AuditProbe> Probes(IReadOnlyList<AuditRequirement> requirements, IEnumerable<EventLogRecord> records,
+        IReadOnlyList<EventLogCoverage> coverage, DateTimeOffset from, DateTimeOffset to, IEnumerable<string> hosts)
+    {
+        ArgumentNullException.ThrowIfNull(requirements);
+        ArgumentNullException.ThrowIfNull(records);
+        ArgumentNullException.ThrowIfNull(coverage);
+        ArgumentNullException.ThrowIfNull(hosts);
+        if (to < from)
+        {
+            throw new ArgumentException("The window ends before it starts.", nameof(to));
+        }
+
+        var (counts, _) = Count(requirements, records);
+        var probes = new List<AuditProbe>();
+        foreach (var host in hosts.Where(h => !string.IsNullOrWhiteSpace(h)).DistinctBy(AnalysisValues.Host))
+        {
+            var key = AnalysisValues.Host(host);
+            var needed = requirements
+                .Where((r, i) => counts.GetValueOrDefault((key, i)) == 0 && CoverageOf(coverage, key, r.Channel) is { } log && log.Covers(from, to))
+                .Distinct()
+                .ToList();
+            if (needed.Count > 0)
+            {
+                probes.Add(new AuditProbe(host.Trim(), needed, [.. needed.Select(r => ProbeQuery(r, from, to))]));
+            }
+        }
+
+        return probes;
+    }
+
+    /// <summary>The probe of <paramref name="requirement"/>: its event with its outcome in the window, no data condition, newest first, one record at most.</summary>
+    public static EventLogQuery ProbeQuery(AuditRequirement requirement, DateTimeOffset from, DateTimeOffset to)
+    {
+        ArgumentNullException.ThrowIfNull(requirement);
+        return new EventLogQuery
+        {
+            Channel = requirement.Channel,
+            From = from,
+            To = to,
+            EventIds = [requirement.EventId],
+            Outcome = requirement.Outcome,
+            MaxRecords = 1,
+        };
     }
 
     /// <summary>The record is the requirement's event with its outcome in its channel.</summary>
@@ -154,6 +255,28 @@ public static class AuditEvidence
         }
 
         return null;
+    }
+
+    /// <summary>Records per (normalized host, requirement index) and the hosts records came from.</summary>
+    private static (Dictionary<(string Host, int Requirement), int> Counts, HashSet<string> Hosts) Count(IReadOnlyList<AuditRequirement> requirements,
+        IEnumerable<EventLogRecord> records)
+    {
+        var counts = new Dictionary<(string Host, int Requirement), int>();
+        var hosts = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var record in records)
+        {
+            var host = AnalysisValues.Host(record.Host);
+            hosts.Add(host);
+            for (var i = 0; i < requirements.Count; i++)
+            {
+                if (Satisfies(record, requirements[i]))
+                {
+                    counts[(host, i)] = counts.GetValueOrDefault((host, i)) + 1;
+                }
+            }
+        }
+
+        return (counts, hosts);
     }
 
     private static AuditSubcategoryDefinition Subcategory(string id) =>

@@ -65,7 +65,7 @@ public static class FailedLogonAnalysis
         foreach (var attempt in Parse(records, options))
         {
             if (attempt.IsSuccess || attempt.Relayed || attempt.AccountKey is not { } account || attempt.Source.Kind == AttemptSourceKind.Unknown
-                || !AnalysisCodes.IsPasswordAttempt(attempt.Kind))
+                || !attempt.IsPasswordAttempt)
             {
                 continue;
             }
@@ -190,15 +190,21 @@ public static class FailedLogonAnalysis
         }
     }
 
-    /// <summary>The failures and successes among <paramref name="records"/>, without duplicates, in time order.</summary>
+    /// <summary>
+    /// The failures and successes among <paramref name="records"/>, without duplicates (also without a PDC emulator's 4776
+    /// retry of another DC's failure – <see cref="AnalysisRecords.PdcRetries"/>), in time order.
+    /// </summary>
     private static List<Attempt> Parse(IReadOnlyList<EventLogRecord> records, FailedLogonOptions options)
     {
         var domainControllers = new DomainControllerNames(options.DomainControllers ?? []);
+        var prepared = AnalysisRecords.Prepare(records);
+        var pdcHosts = (options.PdcEmulators ?? []).Where(h => !string.IsNullOrWhiteSpace(h)).Select(AnalysisValues.Host).ToHashSet(StringComparer.Ordinal);
+        var retries = AnalysisRecords.PdcRetries(prepared, pdcHosts);
         var attempts = new List<Attempt>();
-        foreach (var record in AnalysisRecords.Prepare(records))
+        foreach (var record in prepared)
         {
-            if (record.EventId is not (AnalysisCodes.LogonFailed or AnalysisCodes.PreAuthenticationFailed or AnalysisCodes.CredentialValidation
-                or AnalysisCodes.TicketGrantingTicket or AnalysisCodes.LogonSucceeded))
+            if (retries.Contains(record) || record.EventId is not (AnalysisCodes.LogonFailed or AnalysisCodes.PreAuthenticationFailed
+                or AnalysisCodes.CredentialValidation or AnalysisCodes.TicketGrantingTicket or AnalysisCodes.LogonSucceeded))
             {
                 continue;
             }
@@ -225,7 +231,7 @@ public static class FailedLogonAnalysis
         var groups = new Dictionary<(string Account, AttemptSource Source), List<Attempt>>();
         foreach (var failure in failures)
         {
-            if (failure.AccountKey is { } account && AnalysisCodes.IsPasswordAttempt(failure.Kind))
+            if (failure.AccountKey is { } account && failure.IsPasswordAttempt)
             {
                 Add(groups, (account, failure.Source), failure);
             }
@@ -249,20 +255,24 @@ public static class FailedLogonAnalysis
 
     /// <summary>
     /// Per source, a window sliding over its password failures in time order keeps the failures per account and the
-    /// number of accounts with 1..<see cref="FailedLogonOptions.SprayMaxPerAccount"/> of them; while that number reaches
-    /// <see cref="FailedLogonOptions.SprayAccounts"/> the window belongs to a spray span – one finding per span.
+    /// number of accounts with 1..<see cref="FailedLogonOptions.SprayMaxPerAccount"/> of them (at least
+    /// <see cref="FailedLogonOptions.BruteForceThreshold"/> − 1, so that every count below brute force can be a spray);
+    /// while that number reaches <see cref="FailedLogonOptions.SprayAccounts"/> the window belongs to a spray span. A span
+    /// that starts before the previous one ended continues it – one finding per contiguous period, and every record is
+    /// scanned for the findings once.
     /// </summary>
     private static HashSet<AttemptSource> Spray(List<Attempt> failures, FailedLogonOptions options, List<FailedLogonFinding> findings)
     {
         var bySource = new Dictionary<AttemptSource, List<Attempt>>();
         foreach (var failure in failures)
         {
-            if (failure.AccountKey is not null && failure.Source.Kind != AttemptSourceKind.Unknown && AnalysisCodes.IsPasswordAttempt(failure.Kind))
+            if (failure.AccountKey is not null && failure.Source.Kind != AttemptSourceKind.Unknown && failure.IsPasswordAttempt)
             {
                 Add(bySource, failure.Source, failure);
             }
         }
 
+        var maxPerAccount = Math.Max(options.SprayMaxPerAccount, options.BruteForceThreshold - 1);
         var found = new HashSet<AttemptSource>();
         foreach (var (source, list) in bySource)
         {
@@ -274,13 +284,14 @@ public static class FailedLogonAnalysis
             var counts = new Dictionary<string, int>(StringComparer.Ordinal);
             var low = new HashSet<string>(StringComparer.Ordinal);
             HashSet<string>? spanAccounts = null;
+            var open = false;
             int left = 0, spanStart = 0, spanEnd = 0;
             for (var right = 0; right < list.Count; right++)
             {
                 var account = list[right].AccountKey!;
                 var count = counts.GetValueOrDefault(account) + 1;
                 counts[account] = count;
-                Track(low, account, count, options.SprayMaxPerAccount);
+                Track(low, account, count, maxPerAccount);
                 var windowStart = list[right].Record.TimeCreated - options.SprayWindow;
                 while (list[left].Record.TimeCreated < windowStart)
                 {
@@ -295,29 +306,41 @@ public static class FailedLogonAnalysis
                         counts[leaving] = remaining;
                     }
 
-                    Track(low, leaving, remaining, options.SprayMaxPerAccount);
+                    Track(low, leaving, remaining, maxPerAccount);
                     left++;
                 }
 
                 if (low.Count >= options.SprayAccounts)
                 {
+                    if (!open && spanAccounts is not null && left > spanEnd)
+                    {
+                        // The window moved past the previous span: that one is complete.
+                        findings.Add(SprayFinding(source, list, spanStart, spanEnd, spanAccounts, options));
+                        found.Add(source);
+                        spanAccounts = null;
+                    }
+
                     if (spanAccounts is null)
                     {
                         spanAccounts = new HashSet<string>(low, StringComparer.Ordinal);
                         spanStart = left;
+                    }
+                    else if (!open)
+                    {
+                        // Starts before the previous span ended: the same period continues.
+                        spanAccounts.UnionWith(low);
                     }
                     else if (low.Contains(account))
                     {
                         spanAccounts.Add(account);
                     }
 
+                    open = true;
                     spanEnd = right;
                 }
-                else if (spanAccounts is not null)
+                else
                 {
-                    findings.Add(SprayFinding(source, list, spanStart, spanEnd, spanAccounts, options));
-                    found.Add(source);
-                    spanAccounts = null;
+                    open = false;
                 }
             }
 
@@ -396,7 +419,7 @@ public static class FailedLogonAnalysis
 
             if (!attempt.IsSuccess)
             {
-                if (attempt.Source.Kind != AttemptSourceKind.Unknown && AnalysisCodes.IsPasswordAttempt(attempt.Kind))
+                if (attempt.Source.Kind != AttemptSourceKind.Unknown && attempt.IsPasswordAttempt)
                 {
                     Add(sequences, (account, attempt.Source), attempt);
                 }
@@ -606,6 +629,9 @@ public static class FailedLogonAnalysis
     private sealed record Attempt(EventLogRecord Record, string? AccountKey, string? AccountDisplay, AttemptSource Source, string? Address,
         string? Workstation, LogonFailureKind Kind, string? Code, bool IsSuccess, bool Relayed)
     {
+        /// <summary>A failure that tried a password (<see cref="AnalysisCodes.IsPasswordAttempt(int, LogonFailureKind)"/>).</summary>
+        public bool IsPasswordAttempt => !IsSuccess && AnalysisCodes.IsPasswordAttempt(Record.EventId, Kind);
+
         public override string ToString() => Record.ToString();
     }
 }

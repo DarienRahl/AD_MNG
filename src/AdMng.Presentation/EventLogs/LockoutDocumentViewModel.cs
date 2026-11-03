@@ -212,17 +212,36 @@ public sealed partial class LockoutDocumentViewModel : EventLogDocumentBase
             Policy = policy,
             From = from,
             To = to,
+            Now = now,
             Records = result.Records,
+            DroppedRecords = result.Dropped,
+            KeptFrom = result.Dropped > 0 && result.Records.Count > 0 ? result.Records[^1].TimeCreated : null,
             Coverage = result.Coverage,
             ReadFailures = result.Failures,
         };
+
+        // Step 2: the unfiltered audit probes and every account's failures from the top sources (design note 4.1, 4.3).
+        var followUps = LockoutInvestigation.FollowUpQueries(input);
+        if (followUps.Count > 0)
+        {
+            var second = await Task.Run(() => Services.CreateRunner().RunAsync(session, [.. followUps.Select(f => new EventLogTarget(f.Host, f.Queries))], null, token),
+                CancellationToken.None).ConfigureAwait(true);
+            token.ThrowIfCancellationRequested();
+            var completed = second.Hosts.Where(h => h.State == EventLogHostState.Done).Select(h => h.Host).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            input = input with
+            {
+                Records = [.. result.Records, .. second.Records],
+                AuditReads = [.. followUps.Where(f => completed.Contains(f.Host)).Select(f => f.Completed)],
+            };
+        }
+
         var report = await Task.Run(() => LockoutInvestigation.Analyze(input), token).ConfigureAwait(true);
         foreach (var host in result.Hosts)
         {
             Hosts.FirstOrDefault(h => string.Equals(h.Host, host.Host, StringComparison.OrdinalIgnoreCase))?.Update(host, from, now);
         }
 
-        _records = result.Records;
+        _records = input.Records;
         Show(report, policy, policySource, result);
     }
 
@@ -256,7 +275,7 @@ public sealed partial class LockoutDocumentViewModel : EventLogDocumentBase
 
         var zone = Zone;
         var lockedOn = report.DomainControllers
-            .Where(r => r.State?.LockoutTime is { } time && IsStillLocked(time, policy, report.To))
+            .Where(r => r.State?.LockoutTime is { } time && IsStillLocked(time, policy, report.Now))
             .Select(r => EventHostNames.ShortName(r.Host) ?? r.Host)
             .ToList();
         IsLockedNow = report.IsLockedNow;

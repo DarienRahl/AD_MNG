@@ -89,8 +89,15 @@ the coverage of every DC.
 
 **Query plan** (`Queries(account, from, to)`): on **every DC** `Security` 4740 (TargetUserName = account) and 4771,
 4776, 4625 (TargetUserName = account, failures); the PDC emulator and the originating DC first. Data values compare
-case-sensitively in the event log: the plan uses the sAMAccountName as stored in AD and the UI also matches
-case-insensitively in memory.
+case-sensitively in the event log: the plan uses the sAMAccountName as stored in AD (with its lower-case, upper-case and
+capitalized forms, `Jan.Kowalski`) and the UI also matches case-insensitively in memory. **Step 2**
+(`FollowUpQueries`, after step 1 was read): on every DC whose read completed, the unfiltered audit probes of §4.3 and
+the failures of *every* account from the `ProxyCheckSources` sources with most of the account's failures (by the
+workstation names and addresses as logged, `ProxyCheckRecords` per query) – so that "many accounts failing from it" can
+mark a proxy. "Locked now" is judged at the current time (`Now`), never at the window end. A PDC emulator's 4776 copy of
+another DC's NTLM failure (same account, workstation and status within 5 s) is counted once. When the run dropped its
+oldest records (memory limit) the report says so (`RecordsDropped`) and concludes nothing from what is missing before
+the oldest kept record.
 
 **Report:** lockouts (time, DC, caller computer from 4740 `TargetDomainName`), **sources** ranked by failures – caller
 computer, IP (4771 `IpAddress`, `::ffff:` stripped), workstation (4776 `Workstation`, 4625 `WorkstationName`/`IpAddress`)
@@ -111,7 +118,11 @@ for one account from one source), **password spraying** (≥ `SprayAccounts` dis
 `SprayWindow`, each with ≤ `SprayMaxPerAccount` failures), **account enumeration** (≥ `EnumerationThreshold` unknown-user
 failures – `0xC0000064`, Kerberos `0x6` – from one source), **success after failures** (a success for the same account
 from the same source after ≥ `SuccessAfterFailures` failures). Summaries: top accounts, top sources, counts per code.
-Caveats in the texts: NAT/VPN/proxies merge users, the 4776 workstation is client-supplied.
+Caveats in the texts: NAT/VPN/proxies merge users, the 4776 workstation is client-supplied. A spray counts accounts with
+up to `max(SprayMaxPerAccount, BruteForceThreshold − 1)` failures (no count falls between spraying and brute force); a
+span that starts before the previous one ended continues it (one finding per source and period, linear time). The PDC
+emulator's 4776 copies of another DC's NTLM failures (`PdcEmulators`) are counted once; 4768 `0x12` (revoked: disabled,
+expired, locked – no password checked) is counted but is not a password attempt.
 
 ### 4.3 Audit evidence (`AuditEvidence`)
 
@@ -120,7 +131,12 @@ success; 4771 – *Kerberos Authentication Service* failure; 4776 – *Credentia
 failure; 4624 – *Logon* success). After a read, per DC: **seen** (at least one record), **not seen while the log covers
 the window** (the subcategory is probably not audited – the UI offers *Pokaż w modelu* for the DC and *Edytuj
 ustawienia zabezpieczeń* of the GPO that wins on the Domain Controllers OU), **unknown** (coverage missing). Never stated
-as certain.
+as certain. *Not seen* needs a read that would have seen any account's record (`AuditRead`): a read filtered to accounts
+(the lockout plan, the success step of the failed logons) proves an event audited, never not audited, so the analyses
+run unfiltered probes (`AuditEvidence.Probes`: the event ID with its outcome in the window, one record at most) for the
+requirements not seen on a DC; hosts whose read failed or dropped records stay unknown. A log covers the window
+(`EventLogCoverage.Covers(from, to)`) when it is enabled, starts at or before `from` and did not stop recording before
+`to` (full and set not to overwrite – note `LogFullNotOverwriting`).
 
 ## 5. Presentation
 

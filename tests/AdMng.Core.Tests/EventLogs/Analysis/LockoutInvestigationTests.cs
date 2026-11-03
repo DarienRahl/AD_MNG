@@ -30,7 +30,10 @@ public sealed class LockoutInvestigationTests
         Assert.Equal(EventAuditOutcome.Failure, queries[1].Outcome);
         var names = Assert.Single(queries[1].Data);
         Assert.Equal("TargetUserName", names.Name);
-        Assert.Equal(["JKowalski", "jkowalski", "JKOWALSKI", "jan.kowalski@firma.test"], names.Values);
+        // E-AN-03: also the capitalized forms a user or a device types ("Jan.Kowalski").
+        Assert.Equal(["JKowalski", "jkowalski", "JKOWALSKI", "Jkowalski", "jan.kowalski@firma.test", "Jan.Kowalski@firma.test"], names.Values);
+        var dotted = LockoutInvestigation.Queries(new LockoutAccount("jan.kowalski-nowak", KowalskiSid), T0, to);
+        Assert.Equal(["jan.kowalski-nowak", "JAN.KOWALSKI-NOWAK", "Jan.Kowalski-Nowak"], dotted[1].Data[0].Values);
     }
 
     [Fact]
@@ -44,8 +47,8 @@ public sealed class LockoutInvestigationTests
         Assert.Equal([KowalskiSid], lowerSid[0].Data[0].Values);
         Assert.Equal(2, queries.Count);
         Assert.Equal("TargetUserName", queries[0].Data[0].Name);
-        Assert.Equal(["o'brien", "O'BRIEN"], queries[0].Data[0].Values);
-        Assert.Equal(["o'brien", "O'BRIEN"], queries[1].Data[0].Values);
+        Assert.Equal(["o'brien", "O'BRIEN", "O'Brien"], queries[0].Data[0].Values);
+        Assert.Equal(["o'brien", "O'BRIEN", "O'Brien"], queries[1].Data[0].Values);
         Assert.Throws<ArgumentException>(() => LockoutInvestigation.Queries(Kowalski, T0, T0 - TimeSpan.FromMinutes(1)));
         Assert.Throws<ArgumentException>(() => LockoutInvestigation.Queries(new LockoutAccount(" "), T0, T0));
     }
@@ -77,21 +80,22 @@ public sealed class LockoutInvestigationTests
 
         var report = LockoutInvestigation.Analyze(Input(records));
 
+        // E-AN-02: the PDC emulator's 4776 copies of DC02's failures (the retries) are the same five attempts – counted once.
         Assert.Equal(
-            [(Dc2, "WS-KRAKOW-07", LockedAt, 10), (Pdc, "WS-KRAKOW-07", LockedAt + TimeSpan.FromSeconds(1), 10)],
+            [(Dc2, "WS-KRAKOW-07", LockedAt, 5), (Pdc, "WS-KRAKOW-07", LockedAt + TimeSpan.FromSeconds(1), 5)],
             report.Lockouts.Select(l => (l.DomainController, l.CallerComputer, l.Time, l.BadPasswordsBefore)));
         var source = Assert.Single(report.Sources);
         Assert.Equal(new AttemptSource(AttemptSourceKind.Workstation, "WS-KRAKOW-07"), source.Source);
-        Assert.Equal((13, 11, 10, 2, 2), (source.FailureCount, source.BadPasswordCount, source.ContributingCount, source.LockoutCount, source.WhileLockedCount));
+        Assert.Equal((8, 6, 5, 2, 2), (source.FailureCount, source.BadPasswordCount, source.ContributingCount, source.LockoutCount, source.WhileLockedCount));
         Assert.Equal([Pdc, Dc2], source.DomainControllers);
         Assert.Equal(
-            [(4776, "0xC000006A", LogonFailureKind.BadPassword, 11), (4776, "0xC0000234", LogonFailureKind.AccountLocked, 2)],
+            [(4776, "0xC000006A", LogonFailureKind.BadPassword, 6), (4776, "0xC0000234", LogonFailureKind.AccountLocked, 2)],
             source.Codes.Select(c => (c.EventId, c.Code, c.Kind, c.Count)));
         Assert.Equal((T0 + TimeSpan.FromHours(1), LockedAt + TimeSpan.FromMinutes(10)), (source.First, source.Last));
         Assert.False(source.LikelyProxy);
         Assert.False(source.IsDomainController);
 
-        Assert.Equal((13, 11, true), (report.FailureCount, report.BadPasswordCount, report.IsLockedNow));
+        Assert.Equal((8, 6, true), (report.FailureCount, report.BadPasswordCount, report.IsLockedNow));
         Assert.Equal(LockedAt + TimeSpan.FromSeconds(1), report.LastLockout);
         Assert.Equal(15, report.Timeline.Count);
         Assert.Equal(report.Timeline.OrderBy(t => t.Time).Select(t => t.Record), report.Timeline.Select(t => t.Record));
@@ -108,19 +112,112 @@ public sealed class LockoutInvestigationTests
         Assert.Equal(["WS-KRAKOW-07", "2"], report.Notes.Single(n => n.Key == LockoutNoteKeys.FailuresWhileLocked).Arguments.Skip(1));
     }
 
+    /// <summary>
+    /// E-AN-01/E-PRES-02: the plan reads one account, so a DC where the account simply did not use Kerberos is not "probably
+    /// not audited"; only the follow-up's unfiltered probes can say that (here: Kerberos failures of another account on the
+    /// PDC emulator, no 4625 of anyone).
+    /// </summary>
     [Fact]
-    public void LockoutFromOneWorkstation_AuditEvidencePerDc()
+    public void LockoutFromOneWorkstation_AuditEvidencePerDc_OnlyProbesProveAbsence()
     {
-        var report = LockoutInvestigation.Analyze(Input(OneWorkstationScenario()));
+        var records = OneWorkstationScenario();
+        var input = Input(records);
+
+        var filteredOnly = LockoutInvestigation.Analyze(input);
 
         Assert.Equal(
             [
-                (Pdc, 4740, AuditEvidenceState.Seen), (Pdc, 4771, AuditEvidenceState.NotSeenWhileCovered),
+                (Pdc, 4740, AuditEvidenceState.Seen), (Pdc, 4771, AuditEvidenceState.Unknown),
+                (Pdc, 4776, AuditEvidenceState.Seen), (Pdc, 4625, AuditEvidenceState.Unknown),
+                (Dc2, 4740, AuditEvidenceState.Seen), (Dc2, 4771, AuditEvidenceState.Unknown),
+                (Dc2, 4776, AuditEvidenceState.Seen), (Dc2, 4625, AuditEvidenceState.Unknown),
+            ],
+            filteredOnly.AuditEvidence.Select(e => (e.Host, e.Requirement.EventId, e.State)));
+
+        var followUps = LockoutInvestigation.FollowUpQueries(input);
+        Assert.Equal([Pdc, Dc2], followUps.Select(f => f.Host));
+        Assert.All(followUps, f => Assert.Equal([4771, 4625], f.Probed.Select(r => r.EventId)));
+        var r = new SecurityRecords();
+        var probed = LockoutInvestigation.Analyze(input with
+        {
+            Records = [.. records, r.Kerberos(Pdc, Start, "anowak", NowakSid, "::ffff:10.0.4.21")],
+            AuditReads = [followUps[0].Completed, followUps[1].Completed],
+        });
+
+        Assert.Equal(
+            [
+                (Pdc, 4740, AuditEvidenceState.Seen), (Pdc, 4771, AuditEvidenceState.Seen),
                 (Pdc, 4776, AuditEvidenceState.Seen), (Pdc, 4625, AuditEvidenceState.NotSeenWhileCovered),
                 (Dc2, 4740, AuditEvidenceState.Seen), (Dc2, 4771, AuditEvidenceState.NotSeenWhileCovered),
                 (Dc2, 4776, AuditEvidenceState.Seen), (Dc2, 4625, AuditEvidenceState.NotSeenWhileCovered),
             ],
-            report.AuditEvidence.Select(e => (e.Host, e.Requirement.EventId, e.State)));
+            probed.AuditEvidence.Select(e => (e.Host, e.Requirement.EventId, e.State)));
+        Assert.Equal(8, probed.FailureCount);
+    }
+
+    /// <summary>
+    /// E-AN-01/E-AN-08: the follow-up probes what no record showed on the DCs that were read, and reads every account's
+    /// failures from the top sources by their names and addresses as logged.
+    /// </summary>
+    [Fact]
+    public void FollowUpQueries_ProbesAndEveryAccountsFailuresFromTheTopSources()
+    {
+        var r = new SecurityRecords();
+        EventLogRecord[] records =
+        [
+            r.Lockout(Pdc, LockedAt, "jkowalski", KowalskiSid, "WS-GDAŃSK-03"),
+            r.Ntlm(Pdc, Start, "jkowalski", @"\\ws-gdańsk-03"),
+            r.Kerberos(Pdc, Start, "jkowalski", KowalskiSid, "::ffff:10.0.6.31"),
+            r.Kerberos(Pdc, Start + TimeSpan.FromMinutes(1), "jkowalski", KowalskiSid, "::ffff:10.0.6.31"),
+            r.LogonFailure(Pdc, Start, "jkowalski", "10.0.6.32", null),
+            r.Kerberos(Pdc, Start, "jkowalski", KowalskiSid, "::ffff:10.0.0.12"),
+        ];
+        var input = Input(records,
+            new AccountLockoutState(Pdc, true, 5, LockedAt, LockedAt),
+            new AccountLockoutState(Dc2, false, 0) { Addresses = ["10.0.0.12"] },
+            new AccountLockoutState(Dc3, false, 0)) with
+        {
+            Coverage = [Covered(Pdc, T0), Covered(Dc2, T0), Covered(Dc3, T0)],
+            ReadFailures = new Dictionary<string, EventLogAccessError> { [Dc3] = EventLogAccessError.RpcUnavailable },
+            Options = LockoutInvestigationOptions.Default with { ProxyCheckSources = 2 },
+        };
+
+        var followUps = LockoutInvestigation.FollowUpQueries(input);
+
+        Assert.Equal([Pdc, Dc2], followUps.Select(f => f.Host));
+        Assert.Empty(followUps[0].Probed);
+        Assert.Equal([4740, 4771, 4776, 4625], followUps[1].Probed.Select(p => p.EventId));
+        var proxy = followUps[0].Queries.Where(q => q.Data.Count > 0).ToList();
+        Assert.Equal(proxy, followUps[1].Queries.Where(q => q.Data.Count > 0));
+        Assert.All(proxy, q => Assert.Equal((EventAuditOutcome?)EventAuditOutcome.Failure, q.Outcome));
+        Assert.All(proxy, q => Assert.Equal(LockoutInvestigation.ProxyCheckRecords, q.MaxRecords));
+        // The two top sources: 10.0.6.31 (two failures) and WS-GDAŃSK-03 (one failure and the caller); not the DC address.
+        Assert.Equal(
+            [
+                ("4776", "Workstation", @"WS-GDAŃSK-03|\\ws-gdańsk-03"),
+                ("4625", "WorkstationName", @"WS-GDAŃSK-03|\\ws-gdańsk-03"),
+                ("4771,4625", "IpAddress", "10.0.6.31|::ffff:10.0.6.31"),
+            ],
+            proxy.Select(q => (string.Join(',', q.EventIds), q.Data[0].Name, string.Join('|', q.Data[0].Values))));
+        var probesOnly = LockoutInvestigation.FollowUpQueries(input with { Options = LockoutInvestigationOptions.Default with { ProxyCheckSources = 0 } });
+        Assert.Equal([Dc2], probesOnly.Select(f => f.Host));
+        Assert.DoesNotContain(probesOnly[0].Queries, q => q.Data.Count > 0);
+    }
+
+    /// <summary>E-AN-08: with the follow-up's records of other accounts, a front end through which many users fail is a likely proxy.</summary>
+    [Fact]
+    public void ManyAccountsFailingFromASource_FromTheFollowUpRecords_LikelyProxy()
+    {
+        var r = new SecurityRecords();
+        var plan = Enumerable.Range(0, 5).Select(i => r.Ntlm(Dc2, Start + TimeSpan.FromMinutes(i), "jkowalski", "SRV-APP01")).ToList();
+        var input = Input(plan, new AccountLockoutState(Pdc, true, 5, LockedAt, LockedAt), new AccountLockoutState(Dc2, false, 5, LockedAt));
+        Assert.False(Assert.Single(LockoutInvestigation.Analyze(input).Sources).LikelyProxy);
+
+        var followUp = new[] { "anowak", "mzając", "łwiśniewski" }.Select(a => r.Ntlm(Dc2, Start, a, "SRV-APP01"));
+        var report = LockoutInvestigation.Analyze(input with { Records = [.. plan, .. followUp] });
+
+        var source = Assert.Single(report.Sources);
+        Assert.Equal((5, 3, true, ProxyReasonKeys.ManyAccounts), (source.FailureCount, source.OtherAccountCount, source.LikelyProxy, source.ProxyReasonKey));
     }
 
     [Fact]
@@ -275,8 +372,8 @@ public sealed class LockoutInvestigationTests
         EventLogRecord[] records = [r.Lockout(Dc2, LockedAt, "jkowalski", KowalskiSid, "WS-KIELCE-01")];
         var policy = Policy with { Duration = TimeSpan.FromMinutes(30) };
 
-        var locked = LockoutInvestigation.Analyze(Input(records, states) with { Policy = policy, To = LockedAt + TimeSpan.FromMinutes(20) });
-        var expired = LockoutInvestigation.Analyze(Input(records, states) with { Policy = policy, To = LockedAt + TimeSpan.FromMinutes(31) });
+        var locked = LockoutInvestigation.Analyze(Input(records, states) with { Policy = policy, Now = LockedAt + TimeSpan.FromMinutes(20) });
+        var expired = LockoutInvestigation.Analyze(Input(records, states) with { Policy = policy, Now = LockedAt + TimeSpan.FromMinutes(31) });
         var never = LockoutInvestigation.Analyze(Input(records, [new(Pdc, true), new(Dc2)]));
 
         Assert.Equal(
@@ -289,6 +386,104 @@ public sealed class LockoutInvestigationTests
         Assert.Contains(expired.Notes, n => n.Key == LockoutNoteKeys.AccountNotLockedNow);
         Assert.False(never.IsLockedNow);
         Assert.Contains(never.Notes, n => n.Key == LockoutNoteKeys.AccountNotLockedNow);
+    }
+
+    /// <summary>E-AN-12: "locked now" is judged at the current time, not at the end of a window that ends earlier or later.</summary>
+    [Fact]
+    public void LockedNow_JudgedAtNow_NotAtTheWindowEnd()
+    {
+        var r = new SecurityRecords();
+        AccountLockoutState[] states = [new(Pdc, true, 5, LockedAt, LockedAt)];
+        EventLogRecord[] records = [r.Lockout(Pdc, LockedAt, "jkowalski", KowalskiSid, "WS-SŁUPSK-04")];
+        var policy = Policy with { Duration = TimeSpan.FromMinutes(30) };
+
+        // A window ending 10 minutes after the lockout, looked at a day later: the lockout expired long ago.
+        var past = LockoutInvestigation.Analyze(Input(records, states) with
+        {
+            Policy = policy, To = LockedAt + TimeSpan.FromMinutes(10), Now = LockedAt + TimeSpan.FromDays(1),
+        });
+        // A window ending tomorrow, looked at 5 minutes after the lockout: still locked.
+        var future = LockoutInvestigation.Analyze(Input(records, states) with
+        {
+            Policy = policy, To = LockedAt + TimeSpan.FromDays(1), Now = LockedAt + TimeSpan.FromMinutes(5),
+        });
+
+        Assert.False(past.IsLockedNow);
+        Assert.Equal(LockedAt + TimeSpan.FromDays(1), past.Now);
+        Assert.Contains(past.Notes, n => n.Key == LockoutNoteKeys.AccountNotLockedNow);
+        Assert.True(future.IsLockedNow);
+        Assert.DoesNotContain(future.Notes, n => n.Key == LockoutNoteKeys.AccountNotLockedNow);
+    }
+
+    /// <summary>
+    /// E-AN-05: when the run dropped its oldest records, the report says so and does not conclude from what is missing
+    /// before the oldest kept record.
+    /// </summary>
+    [Fact]
+    public void RecordsDropped_Noted_AndNothingConcludedFromWhatIsMissingBeforeTheOldestKept()
+    {
+        var r = new SecurityRecords();
+        var keptFrom = LockedAt + TimeSpan.FromHours(2);
+        var kept = Enumerable.Range(0, 3)
+            .Select(i => r.Ntlm(Dc2, keptFrom + TimeSpan.FromMinutes(i), "jkowalski", "SRV-IIS02", "0xc0000234"))
+            .Append(r.Lockout(Pdc, keptFrom - TimeSpan.FromDays(1), "anowak", NowakSid, "WS-01"))
+            .ToList();
+        var states = new[] { new AccountLockoutState(Pdc, true, 5, LockedAt, LockedAt), new AccountLockoutState(Dc2, false, 5, LockedAt, LockedAt) };
+
+        var complete = LockoutInvestigation.Analyze(Input(kept, states));
+        var dropped = LockoutInvestigation.Analyze(Input(kept, states) with { DroppedRecords = 49_997, KeptFrom = keptFrom });
+
+        Assert.Equal(AnalysisNoteSeverity.Warning, Note(complete, LockoutNoteKeys.NoLockoutEventSeen).Severity);
+        Assert.Contains(complete.Notes, n => n.Key == LockoutNoteKeys.FailuresNotSeenOnDc);
+        Assert.DoesNotContain(complete.Notes, n => n.Key == LockoutNoteKeys.RecordsDropped);
+
+        var note = Note(dropped, LockoutNoteKeys.RecordsDropped);
+        Assert.Equal((AnalysisNoteSeverity.Warning, "49997", "2026-11-03T10:04:01.0000000+00:00"), (note.Severity, note.Arguments[0], note.Arguments[1]));
+        Assert.DoesNotContain(dropped.Notes, n => n.Key is LockoutNoteKeys.NoLockoutEventSeen or LockoutNoteKeys.FailuresNotSeenOnDc or LockoutNoteKeys.NoFailuresSeen);
+        Assert.Equal(AnalysisNoteSeverity.Warning, dropped.Notes[0].Severity);
+    }
+
+    /// <summary>E-AN-11: a full Security log that does not overwrite stopped recording – it does not cover the window, and the note says why.</summary>
+    [Fact]
+    public void FullLogThatDoesNotOverwrite_DoesNotCoverTheWindow_AndIsNoted()
+    {
+        var r = new SecurityRecords();
+        var full = Covered(Dc2, T0) with { Mode = EventLogMode.Retain, IsFull = true, Newest = Start - TimeSpan.FromHours(3) };
+        var input = Input([r.Lockout(Pdc, LockedAt, "jkowalski", KowalskiSid, "WS-OPOLE-05")],
+            new AccountLockoutState(Pdc, true, 5, LockedAt, LockedAt), new AccountLockoutState(Dc2, false, 3, LockedAt - TimeSpan.FromMinutes(2))) with
+        {
+            Coverage = [Covered(Pdc, T0), full],
+            AuditReads = [new AuditRead(Dc2, AuditEvidence.LockoutRequirements)],
+        };
+
+        var report = LockoutInvestigation.Analyze(input);
+
+        Assert.Equal([(Pdc, (bool?)true), (Dc2, false)], report.DomainControllers.Select(d => (d.Host, d.CoversWindow)));
+        Assert.Equal([Dc2, "2026-11-03T05:00:00.0000000+00:00"], Note(report, LockoutNoteKeys.LogFullNotOverwriting).Arguments);
+        Assert.DoesNotContain(report.Notes, n => n.Key == LockoutNoteKeys.CoverageGap);
+        Assert.Equal([Pdc], report.Notes.Where(n => n.Key == LockoutNoteKeys.FailuresNotSeenOnDc).Select(n => n.Arguments[0]));
+        Assert.All(report.AuditEvidence.Where(e => e.Host == Dc2), e => Assert.Equal(AuditEvidenceState.Unknown, e.State));
+        Assert.DoesNotContain(LockoutInvestigation.FollowUpQueries(input), f => f.Host == Dc2 && f.Probed.Count > 0);
+    }
+
+    /// <summary>E-AN-02: an NTLM failure made at the PDC emulator itself (no other DC logged it) is a real attempt and stays counted.</summary>
+    [Fact]
+    public void PdcRetries_OnlyCopiesOfAnotherDcsFailure_AreCountedOnce()
+    {
+        var r = new SecurityRecords();
+        EventLogRecord[] records =
+        [
+            r.Ntlm(Dc2, Start, "jkowalski", "WS-TARNÓW-08"),
+            r.Ntlm(Pdc, Start + TimeSpan.FromSeconds(1), "jkowalski", "WS-TARNÓW-08"),
+            r.Ntlm(Pdc, Start + TimeSpan.FromMinutes(5), "jkowalski", "WS-TARNÓW-08"),
+            r.Ntlm(Pdc, Start + TimeSpan.FromMinutes(6), "jkowalski", "WS-TARNÓW-08", "0xc0000234"),
+        ];
+
+        var report = LockoutInvestigation.Analyze(Input(records));
+
+        Assert.Equal((3, 2), (report.FailureCount, report.BadPasswordCount));
+        Assert.Equal(4, report.Timeline.Count);
+        Assert.Equal([(Pdc, 3), (Dc2, 1)], report.DomainControllers.Select(d => (d.Host, d.FailuresSeen)));
     }
 
     [Fact]
@@ -502,6 +697,7 @@ public sealed class LockoutInvestigationTests
         Policy = Policy,
         From = T0,
         To = T0 + TimeSpan.FromHours(24),
+        Now = T0 + TimeSpan.FromHours(24),
         Records = records,
         Coverage = [Covered(Pdc, T0), Covered(Dc2, T0)],
     };

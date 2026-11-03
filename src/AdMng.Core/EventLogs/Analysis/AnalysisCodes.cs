@@ -157,6 +157,14 @@ internal static class AnalysisCodes
     public static bool IsPasswordAttempt(LogonFailureKind kind) =>
         kind is LogonFailureKind.BadPassword or LogonFailureKind.AccountLocked or LogonFailureKind.AccountRevoked;
 
+    /// <summary>
+    /// <see cref="IsPasswordAttempt(LogonFailureKind)"/> for a record of <paramref name="eventId"/>, except a 4768 revoked
+    /// (Kerberos <c>0x12</c>): the KDC answers it for a disabled, expired or locked account before any password is checked –
+    /// a disabled computer that keeps asking for tickets is not guessing.
+    /// </summary>
+    public static bool IsPasswordAttempt(int eventId, LogonFailureKind kind) =>
+        IsPasswordAttempt(kind) && !(eventId == TicketGrantingTicket && kind == LogonFailureKind.AccountRevoked);
+
     /// <summary>The answer says the account is locked (NTLM) or revoked (Kerberos – locked, disabled or expired).</summary>
     public static bool IsWhileLocked(LogonFailureKind kind) => kind is LogonFailureKind.AccountLocked or LogonFailureKind.AccountRevoked;
 }

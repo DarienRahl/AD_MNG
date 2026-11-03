@@ -10,7 +10,9 @@ public enum FailedLogonFindingKind
 
     /// <summary>
     /// At least <see cref="FailedLogonOptions.SprayAccounts"/> accounts from one source within
-    /// <see cref="FailedLogonOptions.SprayWindow"/>, each with at most <see cref="FailedLogonOptions.SprayMaxPerAccount"/> failures.
+    /// <see cref="FailedLogonOptions.SprayWindow"/>, each with at most <see cref="FailedLogonOptions.SprayMaxPerAccount"/>
+    /// failures (at least <see cref="FailedLogonOptions.BruteForceThreshold"/> − 1); one finding per source and
+    /// contiguous period.
     /// </summary>
     PasswordSpray,
 
@@ -42,6 +44,10 @@ public sealed record FailedLogonOptions
     /// <summary>The sliding window of a spray (inclusive: attempts exactly this far apart are in one window).</summary>
     public TimeSpan SprayWindow { get; init; } = TimeSpan.FromHours(1);
 
+    /// <summary>
+    /// Failures per account of a spray; raised to <see cref="BruteForceThreshold"/> − 1 when lower, so that no number of
+    /// attempts per account falls between spraying and brute force (an attacker tries "lockout threshold − 1").
+    /// </summary>
     public int SprayMaxPerAccount { get; init; } = 3;
 
     public int EnumerationThreshold { get; init; } = 10;
@@ -62,6 +68,12 @@ public sealed record FailedLogonOptions
     /// retried at the PDC emulator, which then sees the DC as the client): they are counted, not made findings.
     /// </summary>
     public IReadOnlyList<string> DomainControllers { get; init; } = [];
+
+    /// <summary>
+    /// Host names of the PDC emulator(s), as the records name their host. Another DC retries a wrong NTLM password there,
+    /// and the PDC emulator's 4776 keeps the client's workstation: such a copy is the same attempt and is counted once.
+    /// </summary>
+    public IReadOnlyList<string> PdcEmulators { get; init; } = [];
 
     public override string ToString() => "failed logon options";
 }
@@ -167,7 +179,7 @@ public sealed record FailedLogonReport
     /// <summary>Failures per event ID and code (by count).</summary>
     public IReadOnlyList<EventCodeCount> CodeCounts { get; init; } = [];
 
-    /// <summary>Failures read (without duplicates).</summary>
+    /// <summary>Failures read (without duplicates; a PDC emulator's 4776 retry of another DC's failure is one).</summary>
     public int FailureCount { get; init; }
 
     /// <summary>Successes read (4624, 4768 success).</summary>

@@ -64,6 +64,12 @@ public sealed record LockoutInvestigationOptions
     /// <summary>Other accounts failing from one source (in the records given) that mark it as a likely proxy.</summary>
     public int ProxyAccountThreshold { get; init; } = 3;
 
+    /// <summary>
+    /// Sources of the account's failures (the most failures first) whose failures of every account
+    /// <see cref="LockoutInvestigation.FollowUpQueries"/> reads, so that <see cref="ProxyAccountThreshold"/> can apply.
+    /// </summary>
+    public int ProxyCheckSources { get; init; } = 3;
+
     /// <summary>The observation window used when the policy does not say.</summary>
     public TimeSpan DefaultObservationWindow { get; init; } = TimeSpan.FromMinutes(30);
 
@@ -87,14 +93,40 @@ public sealed record LockoutInvestigationInput
     /// <summary>The window start (UTC).</summary>
     public required DateTimeOffset From { get; init; }
 
-    /// <summary>The window end (UTC); also the moment "locked now" is judged at.</summary>
+    /// <summary>The window end (UTC).</summary>
     public required DateTimeOffset To { get; init; }
 
     /// <summary>
-    /// The records read with <see cref="LockoutInvestigation.Queries"/> from every DC. Records of other accounts may be
-    /// included (from a broader read): they only count as other accounts failing from a source (likely proxy).
+    /// The current time (UTC): "locked now" is judged at it – the DCs' <c>lockoutTime</c> is read now, whatever window
+    /// was chosen.
+    /// </summary>
+    public required DateTimeOffset Now { get; init; }
+
+    /// <summary>
+    /// The records read with <see cref="LockoutInvestigation.Queries"/> from every DC, and those of
+    /// <see cref="LockoutInvestigation.FollowUpQueries"/>. Records of other accounts may be included (from a broader
+    /// read): they only count as other accounts failing from a source (likely proxy) and as audit evidence.
     /// </summary>
     public IReadOnlyList<EventLogRecord> Records { get; init; } = [];
+
+    /// <summary>
+    /// Records read but not kept (the run's memory limit keeps the newest): what was logged before the oldest kept record
+    /// may be missing, and the report says so instead of concluding from its absence.
+    /// </summary>
+    public int DroppedRecords { get; init; }
+
+    /// <summary>
+    /// With <see cref="DroppedRecords"/>: the time of the oldest record the run kept (what was logged before it may be
+    /// missing); null = the oldest of <see cref="Records"/>. Pass it when <see cref="Records"/> also holds the follow-up's
+    /// records, which may be older.
+    /// </summary>
+    public DateTimeOffset? KeptFrom { get; init; }
+
+    /// <summary>
+    /// The unfiltered, complete reads: <see cref="LockoutFollowUp.Completed"/> of every follow-up that completed. The plan's
+    /// reads are filtered to the account, so without them no event is ever "probably not audited".
+    /// </summary>
+    public IReadOnlyList<AuditRead> AuditReads { get; init; } = [];
 
     /// <summary>The coverage of the DCs' Security logs.</summary>
     public IReadOnlyList<EventLogCoverage> Coverage { get; init; } = [];
@@ -107,6 +139,22 @@ public sealed record LockoutInvestigationInput
     public override string ToString() => "lockout investigation input";
 }
 
+/// <summary>
+/// The second read of one DC (<see cref="LockoutInvestigation.FollowUpQueries"/>): the unfiltered audit probes of
+/// <see cref="Probed"/> and the reads of every account's failures from the account's top sources.
+/// </summary>
+/// <param name="Host">The DC as <see cref="LockoutInvestigation.OrderHosts"/> spells it.</param>
+/// <param name="Queries">The queries to run on its Security log, in order.</param>
+/// <param name="Probed">The requirements its probes read without an account condition.</param>
+public sealed record LockoutFollowUp(string Host, IReadOnlyList<EventLogQuery> Queries, IReadOnlyList<AuditRequirement> Probed)
+{
+    /// <summary>What it proves once every query completed on <see cref="Host"/> (for <see cref="LockoutInvestigationInput.AuditReads"/>).</summary>
+    public AuditRead Completed => new(Host, Probed);
+
+    /// <summary>Never the host.</summary>
+    public override string ToString() => System.FormattableString.Invariant($"lockout follow-up: {Queries.Count} queries");
+}
+
 /// <summary>One lockout (4740) of the account.</summary>
 /// <param name="Time">When the DC logged it.</param>
 /// <param name="DomainController">The DC that logged it (normalized host).</param>
@@ -114,7 +162,7 @@ public sealed record LockoutInvestigationInput
 /// <param name="Record">The record.</param>
 public sealed record LockoutEventEntry(DateTimeOffset Time, string DomainController, string? CallerComputer, EventRecordRef Record)
 {
-    /// <summary>Bad passwords read within the observation window before it.</summary>
+    /// <summary>Bad passwords read within the observation window before it (a PDC emulator's NTLM retry of another DC's failure counted once).</summary>
     public int BadPasswordsBefore { get; init; }
 
     /// <summary>The caller computer is a domain controller (the real client is in that DC's log).</summary>
@@ -145,7 +193,7 @@ public sealed record LockoutSource
     /// </summary>
     public required AttemptSource Source { get; init; }
 
-    /// <summary>Failed attempts for the account from it.</summary>
+    /// <summary>Failed attempts for the account from it (a PDC emulator's 4776 retry of another DC's failure counted once).</summary>
     public int FailureCount { get; init; }
 
     /// <summary>Of them, wrong passwords (what increments <c>badPwdCount</c>).</summary>
@@ -242,7 +290,10 @@ public sealed record LockoutDcRow(string Host)
     /// <summary>The coverage of its Security log, null when not read.</summary>
     public EventLogCoverage? Coverage { get; init; }
 
-    /// <summary>The log reaches the window start (false when it starts later or is disabled, null when unknown).</summary>
+    /// <summary>
+    /// The log covers the window (<see cref="EventLogCoverage.Covers"/>; false when it starts later, is disabled or stopped
+    /// recording because it is full and does not overwrite; null when unknown).
+    /// </summary>
     public bool? CoversWindow { get; init; }
 
     /// <summary>Why its log could not be read, null when it was.</summary>
@@ -264,7 +315,7 @@ public static class LockoutNoteKeys
     /// <summary>The policy threshold is 0 – the policy never locks accounts (a PSO or another domain may). Arguments: none.</summary>
     public const string LockoutPolicyDisabled = nameof(LockoutPolicyDisabled);
 
-    /// <summary>No DC reports the account locked at the window end (<c>lockoutTime</c> 0 or the duration passed). Arguments: none.</summary>
+    /// <summary>No DC reports the account locked now (<c>lockoutTime</c> 0 or the duration passed by <see cref="LockoutInvestigationInput.Now"/>). Arguments: none.</summary>
     public const string AccountNotLockedNow = nameof(AccountNotLockedNow);
 
     /// <summary>No 4740 of the account was read. A warning when a DC reports a lockout inside the window. Arguments: none.</summary>
@@ -297,6 +348,18 @@ public static class LockoutNoteKeys
     /// <summary>A DC's Security log starts after the window start (or is disabled). Arguments: DC, oldest record time (empty when unknown).</summary>
     public const string CoverageGap = nameof(CoverageGap);
 
+    /// <summary>
+    /// A DC's Security log is full and set not to overwrite: it discarded what was logged after its newest record, before
+    /// the window end. Arguments: DC, newest record time (empty when unknown).
+    /// </summary>
+    public const string LogFullNotOverwriting = nameof(LogFullNotOverwriting);
+
+    /// <summary>
+    /// The run kept only the newest records (memory limit): older lockouts and bad passwords may be missing, and nothing
+    /// is concluded from their absence before the oldest kept record. Arguments: records dropped, oldest kept record time.
+    /// </summary>
+    public const string RecordsDropped = nameof(RecordsDropped);
+
     /// <summary>The coverage of a DC's Security log is not known. Arguments: DC.</summary>
     public const string CoverageUnknown = nameof(CoverageUnknown);
 
@@ -308,7 +371,8 @@ public static class LockoutNoteKeys
 
     /// <summary>
     /// Failures were read from the PDC emulator and from other DCs: a bad password is retried at the PDC emulator, so the
-    /// counts of the DCs overlap. Arguments: none.
+    /// counts of the DCs overlap (the PDC emulator's 4776 copy of another DC's failure is counted once in the sources).
+    /// Arguments: none.
     /// </summary>
     public const string PdcRetries = nameof(PdcRetries);
 
@@ -331,6 +395,9 @@ public sealed record LockoutReport
 
     public DateTimeOffset To { get; init; }
 
+    /// <summary>The moment <see cref="IsLockedNow"/> was judged at (<see cref="LockoutInvestigationInput.Now"/>).</summary>
+    public DateTimeOffset Now { get; init; }
+
     /// <summary>The lockouts read (4740 of every DC – the PDC emulator logs them too), oldest first.</summary>
     public IReadOnlyList<LockoutEventEntry> Lockouts { get; init; } = [];
 
@@ -349,13 +416,13 @@ public sealed record LockoutReport
     /// <summary>Which required events were seen per DC (<see cref="AuditEvidence.LockoutRequirements"/>).</summary>
     public IReadOnlyList<AuditEvidenceEntry> AuditEvidence { get; init; } = [];
 
-    /// <summary>A DC reports the account locked at <see cref="To"/>.</summary>
+    /// <summary>A DC reports the account locked at <see cref="Now"/>.</summary>
     public bool IsLockedNow { get; init; }
 
     /// <summary>The latest lockout: of the records, else of the DCs' <c>lockoutTime</c>.</summary>
     public DateTimeOffset? LastLockout { get; init; }
 
-    /// <summary>Failures of the account read.</summary>
+    /// <summary>Failures of the account read (a PDC emulator's 4776 retry of another DC's failure counted once).</summary>
     public int FailureCount { get; init; }
 
     /// <summary>Of them, wrong passwords.</summary>

@@ -87,8 +87,19 @@ public sealed record EventLogCoverage
 
     public bool IsFull { get; init; }
 
-    /// <summary>The log holds records from <paramref name="from"/> on (false when it starts later or is unknown).</summary>
-    public bool Covers(DateTimeOffset from) => Oldest is { } oldest && oldest <= from;
+    /// <summary>
+    /// The log holds what was logged from <paramref name="from"/> to <paramref name="to"/>: it is enabled, its oldest record
+    /// is not after <paramref name="from"/> (false when unknown), and it did not stop recording before <paramref name="to"/>
+    /// (<see cref="StoppedBefore"/>).
+    /// </summary>
+    public bool Covers(DateTimeOffset from, DateTimeOffset to) =>
+        IsEnabled && Oldest is { } oldest && oldest <= from && !StoppedBefore(to);
+
+    /// <summary>
+    /// The log is full and set not to overwrite (<see cref="EventLogMode.Retain"/>): it discards new events, and its newest
+    /// record is before <paramref name="time"/> (or unknown) – what was logged after it is lost.
+    /// </summary>
+    public bool StoppedBefore(DateTimeOffset time) => IsFull && Mode == EventLogMode.Retain && (Newest is not { } newest || newest < time);
 
     public override string ToString() => $"{Channel} coverage";
 }

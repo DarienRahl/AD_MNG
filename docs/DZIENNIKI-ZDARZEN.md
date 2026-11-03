@@ -75,7 +75,9 @@ Każda karta należy do swojego okna połączenia i korzysta z jego poświadcze�
    złego hasła i ostatniego logowania; wskazuje DC, na którym zapisano blokadę (metadane replikacji `lockoutTime`).
 3. Czyta dzienniki *Zabezpieczenia* wszystkich DC (najpierw emulator PDC i DC, na którym zapisano blokadę): blokady
    4740, odblokowania 4767, nieudane próby 4771, 4776 i 4625 tego konta w przedziale (domyślnie 24 godziny przed
-   ostatnią blokadą).
+   ostatnią blokadą). Potem na każdym odczytanym DC sprawdza krótko (jedno zdarzenie dowolnego konta), czy wymagane
+   zdarzenia, których nie było w odczycie, w ogóle są w dzienniku, i czyta nieudane próby wszystkich kont z kilku
+   najczęstszych źródeł (rozpoznanie serwera pośredniczącego).
 4. Pokazuje:
    - **Podsumowanie** – czy konto jest teraz zablokowane i na których DC, ostatnia blokada, próg i okno blokady.
    - **Źródła prób** w kolejności od najważniejszego: komputer wywołujący z 4740, adres IP z 4771, stacja z 4776 i
@@ -83,11 +85,14 @@ Każda karta należy do swojego okna połączenia i korzysta z jego poświadcze�
      *prawdopodobnie serwer pośredniczący* (Exchange, ADFS, NPS, brama usług pulpitu zdalnego – po nazwie albo po
      wielu kontach z tego samego źródła), *kontroler domeny – tylko przekazał próbę*.
    - **Oś czasu**, tabelę **kontrolerów domeny** (stan konta i zasięg dziennika) i **uwagi**: brak komputera
-     wywołującego, luki w zasięgu dzienników, próby mimo blokady (*najpewniej zapisane hasło – usługa, zadanie
-     zaplanowane, zamapowany dysk, telefon*), różnica czasu, próg 0.
-   - **Inspekcję na kontrolerach domeny**: dla każdego DC i wymaganego zdarzenia – *zarejestrowane*, *brak, choć
-     dziennik obejmuje przedział – prawdopodobnie nie jest inspekcjonowane* albo *nie wiadomo*; z przejściem do
-     modelu zasad grupy DC (*Pokaż w modelu*) i do *Diagnostyki zasad grupy*.
+     wywołującego, luki w zasięgu dzienników, pełny dziennik bez nadpisywania, pominięte najstarsze zdarzenia (limit
+     pamięci), próby mimo blokady (*najpewniej zapisane hasło – usługa, zadanie zaplanowane, zamapowany dysk,
+     telefon*), różnica czasu, próg 0. Kopia niepowodzenia NTLM, które inny DC ponowił na emulatorze PDC, liczy się
+     raz. *Teraz zablokowane* oznacza stan w chwili sprawdzenia, także dla przedziału własnego.
+   - **Inspekcję na kontrolerach domeny**: dla każdego DC i wymaganego zdarzenia – *zarejestrowane*, *brak zdarzeń
+     żadnego konta, choć dziennik obejmuje przedział – prawdopodobnie nie jest inspekcjonowane* (tylko po sprawdzeniu
+     bez filtra konta) albo *nie wiadomo*; z przejściem do modelu zasad grupy DC (*Pokaż w modelu*) i do *Diagnostyki
+     zasad grupy*.
 5. **Sprawdź komputer źródłowy** (dla komputera albo adresu IP – nazwa ustalana przez DNS): przez zdalne akcje
    ([KOMPUTERY.md](KOMPUTERY.md)) pokazuje **sesje** tego konta, **usługi** i **zadania zaplanowane** działające jako to
    konto (z oznaczeniem zadań z zapisanym hasłem); *Otwórz zdalne akcje* otwiera okno komputera.
@@ -101,15 +106,18 @@ Dla wybranego przedziału (*Ostatnia godzina*, *Ostatnie 24 godziny*, *Ostatnie 
 4625, 4771, 4776 i 4768 ze wszystkich DC, a potem udane logowania tylko kont, które mogły zostać odgadnięte. Ustalenia:
 
 - **Zgadywanie hasła** – wiele złych haseł jednego konta z jednego źródła;
-- **Rozpylanie haseł** – wiele kont z jednego źródła w krótkim czasie, po kilka prób na konto (poniżej progu
-  blokady);
+- **Rozpylanie haseł** – wiele kont z jednego źródła w krótkim czasie, po kilka prób na konto (mniej niż próg
+  zgadywania hasła, więc także „próg blokady − 1”); jedno ustalenie na źródło i ciągły okres;
 - **Sprawdzanie istnienia kont** – wiele nieistniejących nazw z jednego źródła; nazwy nieistniejących kont są ukryte,
   dopóki nie klikniesz *Pokaż* (bywają hasłami wpisanymi w pole nazwy);
 - **Sukces po serii niepowodzeń** – udane logowanie z tego samego źródła po serii prób.
 
 Każde ustalenie ma ważność, objaśnienie, konta, liczby, czasy, kody i listę zdarzeń; liczniki ważności filtrują listę,
 są też filtry rodzaju i tekstu, *Najczęstsze konta*, *Najczęstsze źródła* i *Kody niepowodzeń*. **Progi** (rozwijane)
-zmieniają czułość. Adresy kontrolerów domeny są liczone, ale nie są ustaleniami (DC tylko przekazują próby). Zastrzeżenia:
+zmieniają czułość. Adresy kontrolerów domeny są liczone, ale nie są ustaleniami (DC tylko przekazują próby); kopia
+niepowodzenia NTLM ponowionego na emulatorze PDC liczy się raz, a odmowa biletu dla konta wyłączonego, wygasłego albo
+zablokowanego (4768 `0x12`) jest liczona, ale nie jest próbą hasła. Inspekcję udanych logowań sprawdza się osobno, bez
+filtra konta (jedno zdarzenie na DC). Zastrzeżenia:
 NAT, VPN i serwery pośredniczące łączą wielu użytkowników pod jednym adresem, a nazwę stacji w 4776 podaje klient.
 
 ## 6. Co AD Manager zapisuje na dysku

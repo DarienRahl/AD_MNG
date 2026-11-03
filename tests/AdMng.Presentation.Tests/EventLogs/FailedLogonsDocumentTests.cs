@@ -120,6 +120,62 @@ public class FailedLogonsDocumentTests
         Assert.Equal(TimeSpan.FromMinutes(1), document.Options([]).SprayWindow);
     }
 
+    /// <summary>
+    /// E-AN-04/E-PRES-02: step 2 reads the candidates' successes only, so the success audit evidence comes from unfiltered
+    /// one-record probes: another account's logon on DC01 proves the Logon success audit there.
+    /// </summary>
+    [Fact]
+    public async Task SuccessAuditEvidence_ComesFromUnfilteredProbes()
+    {
+        var harness = await EventLogHarness.CreateAsync();
+        harness.Connector.Add(EventLogSamples.FailedLogonScenario());
+        harness.Connector.Add(EventLogSamples.LogonSucceeded(EventLogSamples.Dc01, 21_000, EventLogSamples.Morning.AddMinutes(90),
+            EventLogSamples.LukaszWisniewski, "10.10.1.30", "WAW-PC009"));
+        var now = harness.B2.Time.GetUtcNow();
+        foreach (var host in new[] { EventLogHarness.Dc01, EventLogHarness.Dc02 })
+        {
+            harness.Connector.SetCoverage(host, "Security",
+                new EventLogCoverage { Host = host, Channel = "Security", Oldest = now.AddDays(-2), Mode = EventLogMode.Circular });
+        }
+
+        var document = harness.Services.CreateFailedLogons();
+        await document.RunAsync();
+
+        var probes = harness.Connector.Reads.Where(r => r.Query.MaxRecords == 1).ToList();
+        Assert.Equal(3, probes.Count);
+        Assert.All(probes, p => Assert.Equal((0, (EventAuditOutcome?)EventAuditOutcome.Success), (p.Query.Data.Count, p.Query.Outcome)));
+        var states = document.AuditRows
+            .Where(a => a.Entry.Requirement.Outcome == EventAuditOutcome.Success)
+            .ToDictionary(a => (a.Host.ToLowerInvariant(), a.Entry.Requirement.EventId), a => a.State);
+        Assert.Equal(AuditEvidenceState.Seen, states[(EventLogHarness.Dc01, 4624)]);
+        Assert.Equal(AuditEvidenceState.NotSeenWhileCovered, states[(EventLogHarness.Dc01, 4768)]);
+        Assert.Equal(AuditEvidenceState.Seen, states[(EventLogHarness.Dc02, 4768)]);
+        Assert.Equal(AuditEvidenceState.NotSeenWhileCovered, states[(EventLogHarness.Dc02, 4624)]);
+        // The probe's record is evidence only, not a success of the analysis.
+        Assert.Equal(1, document.Report!.SuccessCount);
+    }
+
+    /// <summary>E-AN-02: dc01 is the PDC emulator – its 4776 copies of dc02's NTLM failures are the same attempts, not a brute force.</summary>
+    [Fact]
+    public async Task NtlmRetriesAtThePdcEmulator_AreNotABruteForce()
+    {
+        var harness = await EventLogHarness.CreateAsync();
+        for (var i = 0; i < 6; i++)
+        {
+            var at = EventLogSamples.Morning.AddHours(2).AddMinutes(i);
+            harness.Connector.Add(
+                EventLogSamples.CredentialValidation(EventLogSamples.Dc02, 30_000 + i, at, EventLogSamples.MalgorzataWojcik, "WAW-PC009"),
+                EventLogSamples.CredentialValidation(EventLogSamples.Dc01, 31_000 + i, at.AddSeconds(1), EventLogSamples.MalgorzataWojcik, "WAW-PC009"));
+        }
+
+        var retried = harness.Services.CreateFailedLogons();
+        await retried.RunAsync();
+
+        Assert.True(retried.HasReport);
+        Assert.DoesNotContain(retried.Findings, f => f.Kind == FailedLogonFindingKind.BruteForce);
+        Assert.Equal(6, retried.Report!.FailureCount);
+    }
+
     [Fact]
     public async Task Export_WritesTheFindings_WithThePersonalDataNote_AndMaskedNames()
     {

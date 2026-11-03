@@ -18,10 +18,13 @@ public static class LockoutInvestigation
     /// <c>TargetUserName</c>;</item>
     /// <item>4776 and 4625 failures by <c>TargetUserName</c> (4776 has no SID, 4625 failures carry the NULL SID).</item>
     /// </list>
-    /// The event log compares data case-sensitively, so the names are the sAMAccountName as stored, its lower- and
-    /// upper-case forms (NTLM logs the name as typed) and the UPN as stored and in lower case; values a query literal
-    /// cannot hold are left out (CLAUDE.md rule 3). <see cref="Analyze"/> matches case-insensitively in memory. Run the
-    /// PDC emulator and the originating DC first (<see cref="OrderHosts"/>).
+    /// The event log compares data case-sensitively, so the names are the sAMAccountName as stored, its lower-case,
+    /// upper-case and capitalized forms (NTLM logs the name as typed; capitalized: the first letter of every part between
+    /// dots, hyphens and the like upper case, as in <c>Jan.Kowalski</c>) and the UPN as stored, in lower case and with the
+    /// part before <c>@</c> capitalized; values a query literal cannot hold are left out (CLAUDE.md rule 3). Other
+    /// spellings are not read by these queries (the follow-up reads every account's failures of the top sources).
+    /// <see cref="Analyze"/> matches case-insensitively in memory. Run the PDC emulator and the originating DC first
+    /// (<see cref="OrderHosts"/>), then <see cref="FollowUpQueries"/>.
     /// </summary>
     public static IReadOnlyList<EventLogQuery> Queries(LockoutAccount account, DateTimeOffset from, DateTimeOffset to)
     {
@@ -103,6 +106,130 @@ public static class LockoutInvestigation
         return (anchor - EventLogLimits.DefaultWindow, now);
     }
 
+    /// <summary>Records each follow-up query of the top sources returns at most.</summary>
+    public const int ProxyCheckRecords = 1_000;
+
+    /// <summary>
+    /// Step 2 of the plan, once <see cref="Queries"/> were read (<paramref name="input"/> holds their records, the coverage
+    /// and the read failures): per DC whose read completed, in the order of <see cref="OrderHosts"/>,
+    /// <list type="bullet">
+    /// <item>the unfiltered audit probes (<see cref="AuditEvidence.Probes"/>) of the requirements no record showed there –
+    /// the plan's reads are filtered to the account, so they can show that an event is audited, never that it is not;</item>
+    /// <item>the failures of <b>every</b> account from the <see cref="LockoutInvestigationOptions.ProxyCheckSources"/>
+    /// sources with the most failures of the account (not DCs) – by the workstation names and addresses as logged, at most
+    /// <see cref="ProxyCheckRecords"/> per query – so that many accounts failing from one source mark it as a likely
+    /// proxy.</item>
+    /// </list>
+    /// Run them; add their records to <see cref="LockoutInvestigationInput.Records"/> and the
+    /// <see cref="LockoutFollowUp.Completed"/> of every DC whose follow-up completed to
+    /// <see cref="LockoutInvestigationInput.AuditReads"/>, then <see cref="Analyze"/>. A DC with nothing to read is left out.
+    /// </summary>
+    public static IReadOnlyList<LockoutFollowUp> FollowUpQueries(LockoutInvestigationInput input)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(input.Account, nameof(input));
+        ArgumentException.ThrowIfNullOrWhiteSpace(input.Account.SamAccountName, nameof(input));
+        if (input.To < input.From)
+        {
+            throw new ArgumentException("The window ends before it starts.", nameof(input));
+        }
+
+        var options = input.Options ?? LockoutInvestigationOptions.Default;
+        var states = input.DomainControllers ?? [];
+        var records = AnalysisRecords.Prepare(input.Records ?? []);
+        var failed = (input.ReadFailures ?? new Dictionary<string, EventLogAccessError>()).Keys.Select(AnalysisValues.Host).ToHashSet(StringComparer.Ordinal);
+        var hosts = OrderHosts(states, input.OriginatingDc).Where(h => !failed.Contains(AnalysisValues.Host(h))).ToList();
+        var probes = AuditEvidence.Probes(AuditEvidence.LockoutRequirements, records, input.Coverage ?? [], input.From, input.To, hosts)
+            .ToDictionary(p => AnalysisValues.Host(p.Host), StringComparer.Ordinal);
+        var proxy = ProxyQueries(input, records, states, options);
+
+        var followUps = new List<LockoutFollowUp>();
+        foreach (var host in hosts)
+        {
+            var probe = probes.GetValueOrDefault(AnalysisValues.Host(host));
+            if (probe is null && proxy.Count == 0)
+            {
+                continue;
+            }
+
+            followUps.Add(new LockoutFollowUp(host, [.. probe?.Queries ?? [], .. proxy], probe?.Requirements ?? []));
+        }
+
+        return followUps;
+    }
+
+    /// <summary>The reads of every account's failures from the account's top sources (see <see cref="FollowUpQueries"/>).</summary>
+    private static List<EventLogQuery> ProxyQueries(LockoutInvestigationInput input, List<EventLogRecord> records, IReadOnlyList<AccountLockoutState> states,
+        LockoutInvestigationOptions options)
+    {
+        if (options.ProxyCheckSources <= 0 || options.ProxyAccountThreshold <= 0)
+        {
+            return [];
+        }
+
+        var matcher = new AccountMatcher(input.Account);
+        var dcNames = new DomainControllerNames(states.SelectMany(s => s.Addresses.Prepend(s.Server)));
+        var sources = new Dictionary<SourceKey, (int Failures, List<string> Logged)>();
+        void Seen(AttemptSource source, int failures, params string?[] logged)
+        {
+            if (source.Kind is AttemptSourceKind.Unknown or AttemptSourceKind.Local || dcNames.Contains(source))
+            {
+                return;
+            }
+
+            var key = SourceKey.Of(source);
+            var current = sources.TryGetValue(key, out var found) ? found : (0, [source.Value]);
+            current.Logged.AddRange(logged.Select(v => v?.Trim()).OfType<string>().Where(v => v.Length > 0));
+            sources[key] = (current.Failures + failures, current.Logged);
+        }
+
+        foreach (var record in records)
+        {
+            if (!matcher.Matches(record))
+            {
+                continue;
+            }
+
+            var source = ParsedSource.Of(record).Source;
+            switch (record.EventId)
+            {
+                case AnalysisCodes.AccountLockedOut:
+                    Seen(source, 0, record.Get("TargetDomainName"));
+                    break;
+                case AnalysisCodes.PreAuthenticationFailed or AnalysisCodes.CredentialValidation or AnalysisCodes.LogonFailed when AnalysisCodes.IsFailure(record):
+                    Seen(source, 1, source.Kind == AttemptSourceKind.IpAddress
+                        ? record.Get("IpAddress")
+                        : record.Get(record.EventId == AnalysisCodes.CredentialValidation ? "Workstation" : "WorkstationName"));
+                    break;
+            }
+        }
+
+        var top = sources.OrderByDescending(s => s.Value.Failures).ThenBy(s => s.Key.Group).ThenBy(s => s.Key.Value, StringComparer.Ordinal)
+            .Take(options.ProxyCheckSources).ToList();
+        var computers = Values(top.Where(s => s.Key.Group == 0).SelectMany(s => s.Value.Logged));
+        var addresses = Values(top.Where(s => s.Key.Group == 1).SelectMany(s => s.Value.Logged)
+            .SelectMany(a => System.Net.IPAddress.TryParse(a, out var ip) && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? [a, "::ffff:" + a] : new[] { a }));
+        var queries = new List<EventLogQuery>();
+        if (computers.Count > 0)
+        {
+            queries.Add(ProxyQuery([AnalysisCodes.CredentialValidation], new EventDataCondition("Workstation", computers), input));
+            queries.Add(ProxyQuery([AnalysisCodes.LogonFailed], new EventDataCondition("WorkstationName", computers), input));
+        }
+
+        if (addresses.Count > 0)
+        {
+            queries.Add(ProxyQuery([AnalysisCodes.PreAuthenticationFailed, AnalysisCodes.LogonFailed], new EventDataCondition("IpAddress", addresses), input));
+        }
+
+        return queries;
+
+        static List<string> Values(IEnumerable<string> values) =>
+            [.. values.Where(AnalysisValues.IsQueryable).Distinct(StringComparer.Ordinal).Take(FailedLogonAnalysis.MaxAccountsPerQuery)];
+    }
+
+    private static EventLogQuery ProxyQuery(IReadOnlyList<int> eventIds, EventDataCondition condition, LockoutInvestigationInput input) =>
+        Query(eventIds, EventAuditOutcome.Failure, condition, input.From, input.To) with { MaxRecords = ProxyCheckRecords };
+
     /// <summary>The report of <paramref name="input"/> (pure; deterministic for the same input in any record order).</summary>
     public static LockoutReport Analyze(LockoutInvestigationInput input)
     {
@@ -166,9 +293,12 @@ public static class LockoutInvestigation
         var lockoutTimes = lockouts.Count > 0
             ? lockouts.ConvertAll(l => l.Record.TimeCreated)
             : [.. states.Select(s => s.LockoutTime).OfType<DateTimeOffset>().Distinct().Order()];
-        var badPasswordTimes = failures.Where(f => f.Kind == LogonFailureKind.BadPassword).Select(f => f.Record.TimeCreated).ToList();
+        // A PDC emulator's 4776 copy of another DC's failure (the retry) is one attempt: counted once, kept on the timeline.
+        var retries = AnalysisRecords.PdcRetries(failures.Select(f => f.Record), pdcHosts);
+        var counted = failures.Where(f => !retries.Contains(f.Record)).ToList();
+        var badPasswordTimes = counted.Where(f => f.Kind == LogonFailureKind.BadPassword).Select(f => f.Record.TimeCreated).ToList();
 
-        var sources = BuildSources(lockouts, failures, otherAccounts, lockoutTimes, observation, options, dcNames);
+        var sources = BuildSources(lockouts, counted, otherAccounts, lockoutTimes, observation, options, dcNames);
         var rows = BuildRows(input, states, records, lockouts, unlocks, failures);
         var lockoutEntries = lockouts.ConvertAll(l => new LockoutEventEntry(l.Record.TimeCreated, AnalysisValues.Host(l.Record.Host),
             l.Source.Source.Kind == AttemptSourceKind.CallerComputer ? l.Source.Source.Value : null, new EventRecordRef(l.Record.Host, l.Record.RecordId))
@@ -179,7 +309,7 @@ public static class LockoutInvestigation
         });
 
         var isLockedNow = states.Any(s => s.LockoutTime is { } locked
-            && (input.Policy.Duration is not { } duration || duration <= TimeSpan.Zero || locked + duration > input.To));
+            && (input.Policy.Duration is not { } duration || duration <= TimeSpan.Zero || locked + duration > input.Now));
         var lastLockout = lockouts.Count > 0
             ? lockouts.Max(l => l.Record.TimeCreated)
             : states.Select(s => s.LockoutTime).Where(t => t is not null).Max();
@@ -189,16 +319,17 @@ public static class LockoutInvestigation
             Account = input.Account,
             From = input.From,
             To = input.To,
+            Now = input.Now,
             Lockouts = lockoutEntries,
             Sources = sources,
             Timeline = BuildTimeline(lockouts, unlocks, failures),
             DomainControllers = rows,
-            Notes = BuildNotes(input, states, lockouts, failures, sources, rows, isLockedNow, pdcHosts),
-            AuditEvidence = AuditEvidence.Evaluate(AuditEvidence.LockoutRequirements, records, input.Coverage ?? [], input.From,
-                [.. rows.Select(r => r.Host)]),
+            Notes = BuildNotes(input, states, records, lockouts, failures, sources, rows, isLockedNow, pdcHosts),
+            AuditEvidence = AuditEvidence.Evaluate(AuditEvidence.LockoutRequirements, records, input.Coverage ?? [], input.From, input.To,
+                input.AuditReads ?? [], [.. rows.Select(r => r.Host)]),
             IsLockedNow = isLockedNow,
             LastLockout = lastLockout,
-            FailureCount = failures.Count,
+            FailureCount = counted.Count,
             BadPasswordCount = badPasswordTimes.Count,
         };
     }
@@ -229,9 +360,33 @@ public static class LockoutInvestigation
         Add(sam);
         Add(sam.ToLowerInvariant());
         Add(sam.ToUpperInvariant());
+        Add(Capitalized(sam));
         Add(account.UserPrincipalName);
         Add(account.UserPrincipalName?.Trim().ToLowerInvariant());
+        if (account.UserPrincipalName?.Trim() is { } upn && upn.IndexOf('@', StringComparison.Ordinal) is > 0 and var at)
+        {
+            Add(Capitalized(upn[..at]) + upn[at..]);
+        }
+
         return names;
+    }
+
+    /// <summary>Lower case with the first letter of every part between non-alphanumeric characters upper case ("Jan.Kowalski").</summary>
+    private static string Capitalized(string name)
+    {
+        var chars = name.ToLowerInvariant().ToCharArray();
+        var start = true;
+        for (var i = 0; i < chars.Length; i++)
+        {
+            if (start && char.IsLetter(chars[i]))
+            {
+                chars[i] = char.ToUpperInvariant(chars[i]);
+            }
+
+            start = !char.IsLetterOrDigit(chars[i]);
+        }
+
+        return new string(chars);
     }
 
     private static List<LockoutSource> BuildSources(List<(EventLogRecord Record, ParsedSource Source)> lockouts, List<Failure> failures,
@@ -432,7 +587,7 @@ public static class LockoutInvestigation
                 IsPdcEmulator = state?.IsPdcEmulator == true,
                 IsOriginating = host == originating,
                 Coverage = log,
-                CoversWindow = log is null ? null : log.IsEnabled && log.Covers(input.From),
+                CoversWindow = log?.Covers(input.From, input.To),
                 ReadError = readFailures.TryGetValue(host, out var error) ? error : null,
                 RecordsSeen = lockoutCount + unlockCounts.GetValueOrDefault(host) + failureCount,
                 LockoutsSeen = lockoutCount,
@@ -443,13 +598,22 @@ public static class LockoutInvestigation
         return rows;
     }
 
-    private static List<AnalysisNote> BuildNotes(LockoutInvestigationInput input, IReadOnlyList<AccountLockoutState> states,
+    private static List<AnalysisNote> BuildNotes(LockoutInvestigationInput input, IReadOnlyList<AccountLockoutState> states, List<EventLogRecord> records,
         List<(EventLogRecord Record, ParsedSource Source)> lockouts, List<Failure> failures, List<LockoutSource> sources, List<LockoutDcRow> rows,
         bool isLockedNow, HashSet<string> pdcHosts)
     {
         var notes = new List<AnalysisNote>();
         void Add(string key, AnalysisNoteSeverity severity, params string[] arguments) => notes.Add(new AnalysisNote(key, arguments, severity));
         bool InWindow(DateTimeOffset? time) => time is { } t && t >= input.From && t <= input.To;
+
+        // The run kept the newest records only: before the oldest kept one, a missing record proves nothing.
+        var dropped = input.DroppedRecords > 0;
+        DateTimeOffset? keptFrom = dropped ? input.KeptFrom ?? (records.Count > 0 ? records[0].TimeCreated : input.To) : null;
+        bool Complete(DateTimeOffset? time) => InWindow(time) && (keptFrom is not { } kept || time >= kept);
+        if (dropped)
+        {
+            Add(LockoutNoteKeys.RecordsDropped, AnalysisNoteSeverity.Warning, AnalysisValues.Number(input.DroppedRecords), AnalysisValues.Time(keptFrom!.Value));
+        }
 
         if (input.Policy.Threshold <= 0)
         {
@@ -461,8 +625,8 @@ public static class LockoutInvestigation
             Add(LockoutNoteKeys.AccountNotLockedNow, AnalysisNoteSeverity.Info);
         }
 
-        var lockoutInWindow = states.Any(s => InWindow(s.LockoutTime));
-        if (lockouts.Count == 0)
+        var lockoutInWindow = states.Any(s => Complete(s.LockoutTime));
+        if (lockouts.Count == 0 && (!dropped || lockoutInWindow))
         {
             Add(LockoutNoteKeys.NoLockoutEventSeen, lockoutInWindow ? AnalysisNoteSeverity.Warning : AnalysisNoteSeverity.Info);
         }
@@ -473,7 +637,7 @@ public static class LockoutInvestigation
         }
 
         var failuresExpected = lockouts.Count > 0 || lockoutInWindow || states.Any(s => s.BadPasswordCount > 0 && InWindow(s.BadPasswordTime));
-        if (failures.Count == 0 && failuresExpected)
+        if (failures.Count == 0 && failuresExpected && !dropped)
         {
             Add(LockoutNoteKeys.NoFailuresSeen, AnalysisNoteSeverity.Warning);
         }
@@ -520,8 +684,17 @@ public static class LockoutInvestigation
             }
             else if (row.CoversWindow == false)
             {
-                Add(LockoutNoteKeys.CoverageGap, AnalysisNoteSeverity.Warning, row.Host,
-                    row.Coverage.Oldest is { } oldest ? AnalysisValues.Time(oldest) : string.Empty);
+                if (!row.Coverage.IsEnabled || row.Coverage.Oldest is not { } start || start > input.From)
+                {
+                    Add(LockoutNoteKeys.CoverageGap, AnalysisNoteSeverity.Warning, row.Host,
+                        row.Coverage.Oldest is { } oldest ? AnalysisValues.Time(oldest) : string.Empty);
+                }
+
+                if (row.Coverage.IsEnabled && row.Coverage.StoppedBefore(input.To))
+                {
+                    Add(LockoutNoteKeys.LogFullNotOverwriting, AnalysisNoteSeverity.Warning, row.Host,
+                        row.Coverage.Newest is { } newest ? AnalysisValues.Time(newest) : string.Empty);
+                }
             }
 
             if (row.State?.ErrorKey is { Length: > 0 } errorKey)
@@ -529,8 +702,8 @@ public static class LockoutInvestigation
                 Add(LockoutNoteKeys.DcStateUnavailable, AnalysisNoteSeverity.Info, row.Host, errorKey);
             }
 
-            if (row is { ReadError: null, FailuresSeen: 0, State: { BadPasswordCount: > 0, BadPasswordTime: { } badPasswordTime }, Coverage: { IsEnabled: true, Oldest: { } logStart } }
-                && InWindow(badPasswordTime) && logStart <= badPasswordTime)
+            if (row is { ReadError: null, FailuresSeen: 0, State: { BadPasswordCount: > 0, BadPasswordTime: { } badPasswordTime }, Coverage: { IsEnabled: true, Oldest: { } logStart } log }
+                && Complete(badPasswordTime) && logStart <= badPasswordTime && !log.StoppedBefore(badPasswordTime))
             {
                 Add(LockoutNoteKeys.FailuresNotSeenOnDc, AnalysisNoteSeverity.Warning, row.Host);
             }

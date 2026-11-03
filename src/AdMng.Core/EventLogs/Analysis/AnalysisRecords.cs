@@ -36,6 +36,67 @@ internal static class AnalysisRecords
         return keyed.ConvertAll(k => k.Record);
     }
 
+    /// <summary>How far apart in time a PDC emulator's retry of another DC's NTLM failure and that failure may be logged.</summary>
+    public static readonly TimeSpan PdcRetryTolerance = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// The 4776 failures a PDC emulator logged when another DC retried a wrong password there (NTLM pass-through keeps the
+    /// client's workstation, so the copy looks like a second attempt of the same source): a 4776 failure on a host of
+    /// <paramref name="pdcHosts"/> with the same account, workstation and status as a 4776 failure on another host within
+    /// <see cref="PdcRetryTolerance"/> either way. Each failure of another DC pairs with one PDC record at most (earliest
+    /// first), so attempts made at the PDC emulator itself are kept. <paramref name="records"/> must be in
+    /// <see cref="Prepare"/> order (the result is then the same for any input order).
+    /// </summary>
+    public static HashSet<EventLogRecord> PdcRetries(IEnumerable<EventLogRecord> records, IReadOnlySet<string> pdcHosts)
+    {
+        ArgumentNullException.ThrowIfNull(records);
+        ArgumentNullException.ThrowIfNull(pdcHosts);
+        var retries = new HashSet<EventLogRecord>(ReferenceEqualityComparer.Instance);
+        if (pdcHosts.Count == 0)
+        {
+            return retries;
+        }
+
+        var groups = new Dictionary<(string Account, string Workstation, uint? Code), (List<EventLogRecord> Pdc, List<EventLogRecord> Others)>();
+        foreach (var record in records)
+        {
+            if (record.EventId != AnalysisCodes.CredentialValidation || !AnalysisCodes.IsFailure(record)
+                || AnalysisValues.AccountKey(record.Get("TargetUserName")) is not { } account
+                || AnalysisValues.Computer(record.Get("Workstation")) is not { } workstation)
+            {
+                continue;
+            }
+
+            var key = (account, workstation, AnalysisCodes.EffectiveCode(record));
+            if (!groups.TryGetValue(key, out var group))
+            {
+                groups[key] = group = ([], []);
+            }
+
+            (pdcHosts.Contains(AnalysisValues.Host(record.Host)) ? group.Pdc : group.Others).Add(record);
+        }
+
+        foreach (var (pdc, others) in groups.Values)
+        {
+            var next = 0;
+            foreach (var copy in pdc)
+            {
+                while (next < others.Count && others[next].TimeCreated < copy.TimeCreated - PdcRetryTolerance)
+                {
+                    next++;
+                }
+
+                if (next < others.Count && others[next].TimeCreated <= copy.TimeCreated + PdcRetryTolerance)
+                {
+                    retries.Add(copy);
+                    next++;
+                }
+            }
+        }
+
+        return retries;
+    }
+
     /// <summary>Code counts ordered by count (descending), event ID, code.</summary>
     public static IReadOnlyList<EventCodeCount> CodeCounts(Dictionary<(int EventId, string? Code), (LogonFailureKind Kind, int Count)> counts) =>
     [

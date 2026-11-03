@@ -66,7 +66,7 @@ public class LockoutDocumentTests
         Assert.Equal("Nieudane próby: 5, w tym złe hasła: 5.", document.CountsText);
 
         Assert.Equal([EventLogHarness.Dc01, EventLogHarness.Dc02], document.Hosts.Select(h => h.Host));
-        Assert.Equal(2, harness.Connector.OpenedHosts.Count);
+        Assert.Equal(2, harness.Connector.OpenedHosts.Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.All(harness.Connector.Reads, r => Assert.Equal("Security", r.Query.Channel));
         Assert.Contains(harness.Connector.Reads, r => r.Query.EventIds.Contains(4740));
         var dc01 = document.DomainControllerRows.Single(r => r.Host == EventLogHarness.Dc01);
@@ -110,7 +110,7 @@ public class LockoutDocumentTests
 
         var notAudited = Assert.Single(document.AuditRows, a => a.Host == EventLogHarness.Dc02 && a.Entry.Requirement.EventId == 4740);
         Assert.Equal(AuditEvidenceState.NotSeenWhileCovered, notAudited.State);
-        Assert.Equal("brak, choć dziennik obejmuje przedział – prawdopodobnie nie jest inspekcjonowane", notAudited.StateText);
+        Assert.Equal("brak zdarzeń żadnego konta, choć dziennik obejmuje przedział – prawdopodobnie nie jest inspekcjonowane", notAudited.StateText);
         Assert.True(notAudited.IsProbablyNotAudited);
         Assert.Equal("4740 (sukces)", notAudited.EventText);
         Assert.Equal(harness.B2.Localizer[Presentation.GroupPolicy.SecuritySettings.SecuritySettingsText.AuditSubcategoryKey("UserAccountManagement")], notAudited.SubcategoryText);
@@ -123,6 +123,56 @@ public class LockoutDocumentTests
 
         document.OpenGroupPolicyDiagnosticsCommand.Execute(notAudited);
         Assert.Equal(GroupPolicyDocumentKind.Diagnostics, harness.GroupPolicyRequests[^1].Kind);
+    }
+
+    /// <summary>
+    /// E-PRES-02/E-AN-01: the plan reads Jan's records only, so the audit evidence comes from unfiltered one-record probes –
+    /// another account's 4625 on DC02 proves the Logon audit there, although Jan never logged on at DC02.
+    /// </summary>
+    [Fact]
+    public async Task AuditEvidence_ComesFromUnfilteredProbes_NotFromTheAccountsRecords()
+    {
+        var (harness, document) = await InvestigateAsync(arrange: h => h.Connector.Add(EventLogSamples.LogonFailed(EventLogSamples.Dc02, 5_100,
+            EventLogSamples.Morning.AddMinutes(40), EventLogSamples.LukaszWisniewski, "10.10.1.30", "WAW-PC009")));
+
+        var probes = harness.Connector.Reads.Where(r => r.Query.MaxRecords == 1 && r.Query.Data.Count == 0).ToList();
+        Assert.All(probes, p => Assert.Equal(EventLogHarness.Dc02, p.Host, ignoreCase: true));
+        Assert.Equal([4625, 4740], probes.Select(p => p.Query.EventIds.Single()).Order());
+        var dc02 = document.AuditRows.Where(a => a.Host == EventLogHarness.Dc02).ToDictionary(a => a.Entry.Requirement.EventId, a => a.State);
+        Assert.Equal(AuditEvidenceState.Seen, dc02[4625]);
+        Assert.Equal(AuditEvidenceState.NotSeenWhileCovered, dc02[4740]);
+        Assert.DoesNotContain(document.AuditRows, a => a.Host == EventLogHarness.Dc01 && a.State == AuditEvidenceState.NotSeenWhileCovered);
+        // The probe's record of another account is evidence only: Jan's counts and sources stay his.
+        Assert.Equal("Nieudane próby: 5, w tym złe hasła: 5.", document.CountsText);
+        Assert.DoesNotContain(document.Sources, s => s.Value == "10.10.1.30");
+    }
+
+    /// <summary>
+    /// E-PRES-06/E-AN-12: a custom window that ends before the lockout would have expired does not make an expired lockout
+    /// "locked now" – the state is judged at the current time.
+    /// </summary>
+    [Fact]
+    public async Task CustomWindowEndingInThePast_LockStateJudgedNow()
+    {
+        var harness = await EventLogHarness.CreateAsync();
+        var jan = harness.Company.JanKowalski;
+        var lockedAt = EventLogSamples.Morning.AddMinutes(34);
+        harness.Session.SetValues(jan, Attr.LockoutTime, EventLogHarness.FileTime(lockedAt));
+        harness.Dc02Values[jan] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [Attr.LockoutTime] = EventLogHarness.FileTime(lockedAt) };
+        harness.Connector.Add(EventLogSamples.LockoutScenario());
+        var document = harness.Services.CreateLockout(jan, "Jan Kowalski");
+        var zone = harness.Services.Zone;
+        document.SelectedTimePreset = document.TimePresetOptions.Single(o => o.Value == EventLogTimePreset.Custom);
+        document.CustomFrom = TimeZoneInfo.ConvertTime(lockedAt.AddHours(-2), zone).DateTime;
+        document.CustomTo = TimeZoneInfo.ConvertTime(lockedAt.AddMinutes(10), zone).DateTime;
+
+        await document.RunAsync();
+
+        Assert.Null(document.Error);
+        Assert.Equal(lockedAt.AddMinutes(10), document.Report!.To);
+        Assert.False(document.IsLockedNow);
+        Assert.Equal(harness.B2.Localizer[L.EventLogsLockout.NotLockedNow], document.LockStateText);
+        Assert.False(document.UnlockCommand.CanExecute(null));
     }
 
     [Fact]

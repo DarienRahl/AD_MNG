@@ -164,7 +164,7 @@ public sealed partial class FailedLogonsDocumentViewModel : EventLogDocumentBase
     private bool CanRun() => IsSupported && HasSession && !IsLoading;
 
     /// <summary>The thresholds as the analysis takes them (values clamped to 1–10 000).</summary>
-    public FailedLogonOptions Options(IReadOnlyList<string> domainControllers) => new()
+    public FailedLogonOptions Options(IReadOnlyList<string> domainControllers, IReadOnlyList<string>? pdcEmulators = null) => new()
     {
         BruteForceThreshold = Clamp(BruteForceThreshold),
         SprayAccounts = Clamp(SprayAccounts),
@@ -173,6 +173,7 @@ public sealed partial class FailedLogonsDocumentViewModel : EventLogDocumentBase
         EnumerationThreshold = Clamp(EnumerationThreshold),
         SuccessAfterFailures = Clamp(SuccessAfterFailures),
         DomainControllers = domainControllers,
+        PdcEmulators = pdcEmulators ?? [],
     };
 
     private static int Clamp(int value) => Math.Clamp(value, 1, 10_000);
@@ -184,7 +185,7 @@ public sealed partial class FailedLogonsDocumentViewModel : EventLogDocumentBase
         var controllers = await Task.Run(() => Services.ReadDomainControllersAsync(session, token), token).ConfigureAwait(true);
         var hosts = controllers.Select(c => c.Host).ToList();
         var addresses = await Task.Run(() => Services.ResolveAddressesAsync(hosts, token), token).ConfigureAwait(true);
-        var options = Options([.. hosts, .. addresses.Values.SelectMany(a => a)]);
+        var options = Options([.. hosts, .. addresses.Values.SelectMany(a => a)], [.. controllers.Where(c => c.IsPdcEmulator).Select(c => c.Host)]);
         ResetHosts(controllers.Select(c => (c.Host, Localizer[c.IsPdcEmulator ? L.EventLogs.KindPdc : L.EventLogs.KindDomainController])));
 
         // Step 1: the failures.
@@ -213,9 +214,25 @@ public sealed partial class FailedLogonsDocumentViewModel : EventLogDocumentBase
             _successesRead = step2.Hosts.Any(h => h.State == EventLogHostState.Done);
         }
 
+        // Audit evidence: step 1 read every account's failures, so a DC whose read completed with nothing dropped proves
+        // absence; step 2 read a few accounts' successes only, so they are probed without an account condition.
         ProgressText = Localizer[L.EventLogsFailedLogons.StageAnalysis];
+        var completed = step1.Hosts.Where(h => h.State == EventLogHostState.Done).Select(h => h.Host).ToList();
+        var reads = step1.Dropped == 0 ? completed.ConvertAll(h => new AuditRead(h, AuditEvidence.FailedLogonRequirements)) : [];
+        IReadOnlyList<EventLogRecord> evidenceRecords = records;
+        var probes = _successesRead ? AuditEvidence.Probes(AuditEvidence.SuccessRequirements, records, step1.Coverage, _from, _to, completed) : [];
+        if (probes.Count > 0)
+        {
+            var probed = await Task.Run(() => Services.CreateRunner().RunAsync(session, [.. probes.Select(p => new EventLogTarget(p.Host, p.Queries))], null, token),
+                CancellationToken.None).ConfigureAwait(true);
+            token.ThrowIfCancellationRequested();
+            var answered = probed.Hosts.Where(h => h.State == EventLogHostState.Done).Select(h => h.Host).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            reads.AddRange(probes.Where(p => answered.Contains(p.Host)).Select(p => p.Completed));
+            evidenceRecords = [.. records, .. probed.Records];
+        }
+
         var report = await Task.Run(() => FailedLogonAnalysis.Analyze(records, options), token).ConfigureAwait(true);
-        var evidence = AuditEvidence.Evaluate(FailedLogonAnalysis.Requirements(_successesRead), records, step1.Coverage, _from, hosts);
+        var evidence = AuditEvidence.Evaluate(FailedLogonAnalysis.Requirements(_successesRead), evidenceRecords, step1.Coverage, _from, _to, reads, hosts);
         foreach (var host in step1.Hosts)
         {
             Hosts.FirstOrDefault(h => string.Equals(h.Host, host.Host, StringComparison.OrdinalIgnoreCase))?.Update(host, _from, now);
