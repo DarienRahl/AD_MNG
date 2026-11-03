@@ -6,6 +6,7 @@ using AdMng.Presentation.Dialogs;
 using AdMng.Core.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
+using AdMng.Presentation.GroupPolicy.SecuritySettings;
 using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Shell;
 using AdMng.Presentation.Tests.Dialogs;
@@ -75,6 +76,9 @@ internal sealed class GroupPolicyHarness
 
     public Task<AdministrativeTemplatesEditorViewModel> TemplatesAsync(Guid id) =>
         OpenAsync<AdministrativeTemplatesEditorViewModel>(new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.AdministrativeTemplates) { GpoId = id });
+
+    public Task<SecuritySettingsEditorViewModel> SecurityAsync(Guid id) =>
+        OpenAsync<SecuritySettingsEditorViewModel>(new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.SecuritySettings) { GpoId = id });
 
     public FakeDirectorySession Session => B2.Session;
 

@@ -136,6 +136,7 @@ public sealed partial class GroupPolicyObjectsDocumentViewModel(GroupPolicyServi
         OpenCommand.NotifyCanExecuteChanged();
         HistoryCommand.NotifyCanExecuteChanged();
         EditTemplatesCommand.NotifyCanExecuteChanged();
+        EditSecuritySettingsCommand.NotifyCanExecuteChanged();
         UpdateTemplatesCommand.NotifyCanExecuteChanged();
     }
 
@@ -194,6 +195,16 @@ public sealed partial class GroupPolicyObjectsDocumentViewModel(GroupPolicyServi
         if (Single is { } gpo)
         {
             Actions.EditAdministrativeTemplates(gpo.Id, gpo.DisplayName);
+        }
+    }
+
+    /// <summary>"Edytuj ustawienia zabezpieczeń" (K4): the security settings editor of the selected GPO.</summary>
+    [RelayCommand(CanExecute = nameof(CanSingle))]
+    private void EditSecuritySettings()
+    {
+        if (Single is { } gpo)
+        {
+            Actions.EditSecuritySettings(gpo.Id, gpo.DisplayName);
         }
     }
 

@@ -14744,4 +14744,1062 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Ta organizacja</value>
   </data>
   <!-- K5 Group Policy modelling: end -->
+  <!-- K4 security settings editor: start -->
+  <data name="SecSettings.Title" xml:space="preserve">
+    <value>Ustawienia zabezpieczeń – {0}</value>
+  </data>
+  <data name="SecSettings.EditCommand" xml:space="preserve">
+    <value>Edytuj ustawienia zabezpieczeń</value>
+  </data>
+  <data name="SecSettings.PlanTitle" xml:space="preserve">
+    <value>Ustawienia zabezpieczeń GPO {0}</value>
+  </data>
+  <data name="SecSettings.Save" xml:space="preserve">
+    <value>Zapisz zmiany…</value>
+  </data>
+  <data name="SecSettings.Discard" xml:space="preserve">
+    <value>Odrzuć zmiany</value>
+  </data>
+  <data name="SecSettings.DiscardTitle" xml:space="preserve">
+    <value>Odrzuć zmiany</value>
+  </data>
+  <data name="SecSettings.DiscardMessage" xml:space="preserve">
+    <value>Odrzucić niezapisane zmiany ustawień (liczba: {0})?</value>
+  </data>
+  <data name="SecSettings.CloseDiscard" xml:space="preserve">
+    <value>Zmiany ustawień (liczba: {0}) nie zostały zapisane. Zamknąć kartę i odrzucić je?</value>
+  </data>
+  <data name="SecSettings.SaveBlocked" xml:space="preserve">
+    <value>„{0}” ma nieprawidłową wartość: popraw ją lub cofnij przed zapisem.</value>
+  </data>
+  <data name="SecSettings.ChangedCount" xml:space="preserve">
+    <value>Zmienione ustawienia: {0} (niezapisane)</value>
+  </data>
+  <data name="SecSettings.ChangedMark" xml:space="preserve">
+    <value>Zmienione (niezapisane)</value>
+  </data>
+  <data name="SecSettings.Loaded" xml:space="preserve">
+    <value>Ustawienia zabezpieczeń: zdefiniowane {0}</value>
+  </data>
+  <data name="SecSettings.ConflictNote" xml:space="preserve">
+    <value>Ustawienia zabezpieczeń tego GPO zmieniły się na {0} od rozpoczęcia edycji. Zapis zostanie odrzucony jako konflikt: odrzuć swoje zmiany, aby zobaczyć aktualne ustawienia.</value>
+  </data>
+  <data name="SecSettings.FileUnreadable" xml:space="preserve">
+    <value>Nie można odczytać {0} ({1}): jego ustawień nie można edytować.</value>
+  </data>
+  <data name="SecSettings.TypedNameHint" xml:space="preserve">
+    <value>Nazwa, nie SID: każdy klient rozpoznaje ją przy stosowaniu zasad (nierozpoznana nazwa jest pomijana).</value>
+  </data>
+  <data name="SecSettings.NameRequired" xml:space="preserve">
+    <value>Wpisz nazwę lub wybierz ją z listy.</value>
+  </data>
+  <data name="SecSettings.NameInvalid" xml:space="preserve">
+    <value>Nie można zapisać „{0}” w pliku: nazwa nie może zawierać przecinka, cudzysłowu, znaku „=” ani podziału wiersza.</value>
+  </data>
+  <data name="SecSettings.EditRefused" xml:space="preserve">
+    <value>Tej wartości nie można zapisać w pliku (przecinek, cudzysłów lub podział wiersza w miejscu, w którym plik ich nie dopuszcza).</value>
+  </data>
+  <data name="SecSettings.AlreadyListed" xml:space="preserve">
+    <value>Już jest na liście.</value>
+  </data>
+  <data name="SecSettings.NotDefined" xml:space="preserve">
+    <value>Nie zdefiniowano</value>
+  </data>
+  <data name="SecSettings.Nobody" xml:space="preserve">
+    <value>Nikt (zdefiniowano pustą listę)</value>
+  </data>
+  <data name="SecSettings.PrincipalPlaceholder" xml:space="preserve">
+    <value>DOMENA\konto lub podmiot z listy</value>
+  </data>
+  <data name="SecSettings.GroupPlaceholder" xml:space="preserve">
+    <value>Grupa lokalna z listy lub nazwa grupy</value>
+  </data>
+  <data name="SecSettings.AddByName" xml:space="preserve">
+    <value>Dodaj</value>
+  </data>
+  <data name="SecSettings.AddFromDirectory" xml:space="preserve">
+    <value>Dodaj z katalogu…</value>
+  </data>
+  <data name="SecSettings.Remove" xml:space="preserve">
+    <value>Usuń</value>
+  </data>
+  <data name="SecSettings.TabGroups" xml:space="preserve">
+    <value>Grupy lokalne</value>
+  </data>
+  <data name="SecSettings.TabRights" xml:space="preserve">
+    <value>Prawa użytkownika</value>
+  </data>
+  <data name="SecSettings.TabOptions" xml:space="preserve">
+    <value>Zasady kont i opcje zabezpieczeń</value>
+  </data>
+  <data name="SecSettings.TabAudit" xml:space="preserve">
+    <value>Inspekcja</value>
+  </data>
+  <data name="SecSettings.TabServices" xml:space="preserve">
+    <value>Usługi</value>
+  </data>
+  <data name="SecSettings.PrecedenceNote" xml:space="preserve">
+    <value>„Członkowie” w grupach z ograniczeniami zastępuje członkostwo grupy przy każdym odświeżeniu zasad; preferencje zasad grupy zmieniają je element po elemencie w ich kolejności. Kolejność obu rozszerzeń po stronie klienta nie jest gwarantowana – nie konfiguruj tej samej grupy w obu miejscach.</value>
+  </data>
+  <data name="SecSettings.RestrictedGroupsHeader" xml:space="preserve">
+    <value>Grupy z ograniczeniami (GptTmpl.inf)</value>
+  </data>
+  <data name="SecSettings.GppGroupsHeader" xml:space="preserve">
+    <value>Preferencje – grupy lokalne (Groups.xml)</value>
+  </data>
+  <data name="SecSettings.ColumnGroup" xml:space="preserve">
+    <value>Grupa</value>
+  </data>
+  <data name="SecSettings.ColumnMembers" xml:space="preserve">
+    <value>Członkowie</value>
+  </data>
+  <data name="SecSettings.ColumnMemberOf" xml:space="preserve">
+    <value>Członek grup</value>
+  </data>
+  <data name="SecSettings.ColumnAction" xml:space="preserve">
+    <value>Akcja</value>
+  </data>
+  <data name="SecSettings.ColumnMemberChanges" xml:space="preserve">
+    <value>Zmiany członków</value>
+  </data>
+  <data name="SecSettings.AddGroup" xml:space="preserve">
+    <value>Dodaj grupę</value>
+  </data>
+  <data name="SecSettings.PickGroup" xml:space="preserve">
+    <value>Grupa domeny…</value>
+  </data>
+  <data name="SecSettings.RemoveGroup" xml:space="preserve">
+    <value>Usuń grupę</value>
+  </data>
+  <data name="SecSettings.MembersDefined" xml:space="preserve">
+    <value>Zdefiniuj członków tej grupy</value>
+  </data>
+  <data name="SecSettings.MembersHeader" xml:space="preserve">
+    <value>Członkowie tej grupy</value>
+  </data>
+  <data name="SecSettings.MemberOfHeader" xml:space="preserve">
+    <value>Ta grupa jest członkiem</value>
+  </data>
+  <data name="SecSettings.NoMembers" xml:space="preserve">
+    <value>Brak członków (zdefiniowano pustą listę)</value>
+  </data>
+  <data name="SecSettings.NoMembersWarning" xml:space="preserve">
+    <value>Zdefiniowano bez członków: przy każdym odświeżeniu zasad wszyscy członkowie są usuwani.</value>
+  </data>
+  <data name="SecSettings.NoMemberChanges" xml:space="preserve">
+    <value>Bez zmian członków</value>
+  </data>
+  <data name="SecSettings.SelectRestrictedGroup" xml:space="preserve">
+    <value>Wybierz grupę, aby edytować jej członków.</value>
+  </data>
+  <data name="SecSettings.SelectGppGroup" xml:space="preserve">
+    <value>Wybierz element, aby go edytować.</value>
+  </data>
+  <data name="SecSettings.GppActionCreate" xml:space="preserve">
+    <value>Utwórz</value>
+  </data>
+  <data name="SecSettings.GppActionReplace" xml:space="preserve">
+    <value>Zamień</value>
+  </data>
+  <data name="SecSettings.GppActionUpdate" xml:space="preserve">
+    <value>Aktualizuj</value>
+  </data>
+  <data name="SecSettings.GppActionDelete" xml:space="preserve">
+    <value>Usuń</value>
+  </data>
+  <data name="SecSettings.GppMemberAdd" xml:space="preserve">
+    <value>Dodaj</value>
+  </data>
+  <data name="SecSettings.GppMemberRemove" xml:space="preserve">
+    <value>Usuń</value>
+  </data>
+  <data name="SecSettings.GppNewMemberRemoves" xml:space="preserve">
+    <value>Usuń z tej grupy (zamiast dodać)</value>
+  </data>
+  <data name="SecSettings.DeleteAllUsers" xml:space="preserve">
+    <value>Usuń wszystkich użytkowników członkowskich</value>
+  </data>
+  <data name="SecSettings.DeleteAllGroups" xml:space="preserve">
+    <value>Usuń wszystkie grupy członkowskie</value>
+  </data>
+  <data name="SecSettings.TargetingBadge" xml:space="preserve">
+    <value>Celowanie na poziomie elementu – zachowane</value>
+  </data>
+  <data name="SecSettings.DisabledBadge" xml:space="preserve">
+    <value>Wyłączony – klienci go pomijają</value>
+  </data>
+  <data name="SecSettings.ColumnRight" xml:space="preserve">
+    <value>Zasada</value>
+  </data>
+  <data name="SecSettings.ColumnConstant" xml:space="preserve">
+    <value>Stała</value>
+  </data>
+  <data name="SecSettings.ColumnHolders" xml:space="preserve">
+    <value>Ustawienie zasad</value>
+  </data>
+  <data name="SecSettings.DefineRight" xml:space="preserve">
+    <value>Zdefiniuj te ustawienia zasad</value>
+  </data>
+  <data name="SecSettings.HoldersHeader" xml:space="preserve">
+    <value>Użytkownicy i grupy</value>
+  </data>
+  <data name="SecSettings.SelectRight" xml:space="preserve">
+    <value>Wybierz prawo, aby je edytować.</value>
+  </data>
+  <data name="SecSettings.UnknownRight" xml:space="preserve">
+    <value>Spoza katalogu: pokazane ze swoją stałą.</value>
+  </data>
+  <data name="SecSettings.ColumnSetting" xml:space="preserve">
+    <value>Zasada</value>
+  </data>
+  <data name="SecSettings.ColumnValue" xml:space="preserve">
+    <value>Ustawienie zasad</value>
+  </data>
+  <data name="SecSettings.ColumnSection" xml:space="preserve">
+    <value>Sekcja</value>
+  </data>
+  <data name="SecSettings.ColumnKey" xml:space="preserve">
+    <value>Klucz</value>
+  </data>
+  <data name="SecSettings.DefineOption" xml:space="preserve">
+    <value>Zdefiniuj następujące ustawienie zasad</value>
+  </data>
+  <data name="SecSettings.SelectOption" xml:space="preserve">
+    <value>Wybierz ustawienie, aby je edytować.</value>
+  </data>
+  <data name="SecSettings.Enabled" xml:space="preserve">
+    <value>Włączone</value>
+  </data>
+  <data name="SecSettings.Disabled" xml:space="preserve">
+    <value>Wyłączone</value>
+  </data>
+  <data name="SecSettings.Range" xml:space="preserve">
+    <value>od {0} do {1}</value>
+  </data>
+  <data name="SecSettings.NotANumber" xml:space="preserve">
+    <value>To nie jest liczba całkowita.</value>
+  </data>
+  <data name="SecSettings.OutOfRange" xml:space="preserve">
+    <value>Wpisz liczbę od {0} do {1}.</value>
+  </data>
+  <data name="SecSettings.ChoiceRequired" xml:space="preserve">
+    <value>Wybierz wartość.</value>
+  </data>
+  <data name="SecSettings.TextRequired" xml:space="preserve">
+    <value>Wartość jest wymagana.</value>
+  </data>
+  <data name="SecSettings.TextInvalid" xml:space="preserve">
+    <value>Tekst nie może zawierać cudzysłowu ani podziału wiersza.</value>
+  </data>
+  <data name="SecSettings.EmptyText" xml:space="preserve">
+    <value>(pusty)</value>
+  </data>
+  <data name="SecSettings.MultiTextHint" xml:space="preserve">
+    <value>Jeden wiersz na wpis.</value>
+  </data>
+  <data name="SecSettings.DomainAccountPolicyNote" xml:space="preserve">
+    <value>Dla kont domeny te ustawienia stosuje tylko GPO połączony z katalogiem głównym domeny (szczegółowe zasady haseł są osobne); w innych miejscach dotyczą kont lokalnych komputerów.</value>
+  </data>
+  <data name="SecSettings.RawGroup" xml:space="preserve">
+    <value>Inne wpisy szablonu</value>
+  </data>
+  <data name="SecSettings.RawHint" xml:space="preserve">
+    <value>Klucze sekcji [System Access], [Kerberos Policy] i [Registry Values], których ten edytor nie wymienia, w postaci zapisanej: każdy zapis je zachowuje; można je usunąć lub zastąpić surową wartość.</value>
+  </data>
+  <data name="SecSettings.RemoveRawEntry" xml:space="preserve">
+    <value>Usuń wpis</value>
+  </data>
+  <data name="SecSettings.ReplaceRawValue" xml:space="preserve">
+    <value>Zastąp wartość</value>
+  </data>
+  <data name="SecSettings.LegacyAuditHeader" xml:space="preserve">
+    <value>Zasady inspekcji (kategorie, [Event Audit])</value>
+  </data>
+  <data name="SecSettings.AdvancedAuditHeader" xml:space="preserve">
+    <value>Zaawansowana konfiguracja zasad inspekcji (audit.csv)</value>
+  </data>
+  <data name="SecSettings.AuditNotConfigured" xml:space="preserve">
+    <value>Nie skonfigurowano</value>
+  </data>
+  <data name="SecSettings.AuditNone" xml:space="preserve">
+    <value>Bez inspekcji</value>
+  </data>
+  <data name="SecSettings.AuditSuccess" xml:space="preserve">
+    <value>Powodzenie</value>
+  </data>
+  <data name="SecSettings.AuditFailure" xml:space="preserve">
+    <value>Niepowodzenie</value>
+  </data>
+  <data name="SecSettings.AuditBoth" xml:space="preserve">
+    <value>Powodzenie i niepowodzenie</value>
+  </data>
+  <data name="SecSettings.AuditBothNote" xml:space="preserve">
+    <value>Skonfigurowano zarówno kategorie inspekcji, jak i zaawansowane podkategorie, ale ustawienie „Inspekcja: wymuszaj ustawienia podkategorii zasad inspekcji…” nie jest włączone w tym GPO: to, które z nich obowiązuje, zależy od klienta (od Windows Vista domyślnie wygrywają podkategorie).</value>
+  </data>
+  <data name="SecSettings.ColumnService" xml:space="preserve">
+    <value>Usługa</value>
+  </data>
+  <data name="SecSettings.ColumnStartMode" xml:space="preserve">
+    <value>Tryb uruchomienia</value>
+  </data>
+  <data name="SecSettings.ColumnSecurity" xml:space="preserve">
+    <value>Uprawnienia (SDDL)</value>
+  </data>
+  <data name="SecSettings.ServiceAutomatic" xml:space="preserve">
+    <value>Automatyczny</value>
+  </data>
+  <data name="SecSettings.ServiceManual" xml:space="preserve">
+    <value>Ręczny</value>
+  </data>
+  <data name="SecSettings.ServiceDisabled" xml:space="preserve">
+    <value>Wyłączony</value>
+  </data>
+  <data name="SecSettings.ServiceModeOther" xml:space="preserve">
+    <value>Tryb {0} (zachowany bez zmian)</value>
+  </data>
+  <data name="SecSettings.NoSecurityDescriptor" xml:space="preserve">
+    <value>brak</value>
+  </data>
+  <data name="SecSettings.ServiceNamePlaceholder" xml:space="preserve">
+    <value>Nazwa usługi (np. Spooler)</value>
+  </data>
+  <data name="SecSettings.ServiceNameInvalid" xml:space="preserve">
+    <value>Wpisz krótką nazwę usługi (bez cudzysłowów, przecinków i podziałów wiersza).</value>
+  </data>
+  <data name="SecSettings.ServiceSecurityNote" xml:space="preserve">
+    <value>Uprawnienia usługi są zachowywane bez zmian; nowe usługi ich nie mają.</value>
+  </data>
+  <data name="SecSettings.AddService" xml:space="preserve">
+    <value>Dodaj usługę</value>
+  </data>
+  <data name="SecSettings.RemoveService" xml:space="preserve">
+    <value>Usuń usługę</value>
+  </data>
+  <data name="SecRight.SeTrustedCredManAccessPrivilege" xml:space="preserve">
+    <value>Uzyskiwanie dostępu do Menedżera poświadczeń jako zaufany obiekt wywołujący</value>
+  </data>
+  <data name="SecRight.SeNetworkLogonRight" xml:space="preserve">
+    <value>Uzyskiwanie dostępu do tego komputera z sieci</value>
+  </data>
+  <data name="SecRight.SeTcbPrivilege" xml:space="preserve">
+    <value>Działanie jako część systemu operacyjnego</value>
+  </data>
+  <data name="SecRight.SeMachineAccountPrivilege" xml:space="preserve">
+    <value>Dodawanie stacji roboczych do domeny</value>
+  </data>
+  <data name="SecRight.SeIncreaseQuotaPrivilege" xml:space="preserve">
+    <value>Dopasowywanie przydziałów pamięci dla procesu</value>
+  </data>
+  <data name="SecRight.SeInteractiveLogonRight" xml:space="preserve">
+    <value>Zezwalaj na logowanie lokalne</value>
+  </data>
+  <data name="SecRight.SeRemoteInteractiveLogonRight" xml:space="preserve">
+    <value>Zezwalaj na logowanie za pomocą usług pulpitu zdalnego</value>
+  </data>
+  <data name="SecRight.SeBackupPrivilege" xml:space="preserve">
+    <value>Wykonywanie kopii zapasowych plików i katalogów</value>
+  </data>
+  <data name="SecRight.SeChangeNotifyPrivilege" xml:space="preserve">
+    <value>Pomijanie sprawdzania przy przechodzeniu</value>
+  </data>
+  <data name="SecRight.SeSystemtimePrivilege" xml:space="preserve">
+    <value>Zmiana czasu systemowego</value>
+  </data>
+  <data name="SecRight.SeTimeZonePrivilege" xml:space="preserve">
+    <value>Zmiana strefy czasowej</value>
+  </data>
+  <data name="SecRight.SeCreatePagefilePrivilege" xml:space="preserve">
+    <value>Tworzenie pliku stronicowania</value>
+  </data>
+  <data name="SecRight.SeCreateTokenPrivilege" xml:space="preserve">
+    <value>Tworzenie obiektu tokenu</value>
+  </data>
+  <data name="SecRight.SeCreateGlobalPrivilege" xml:space="preserve">
+    <value>Tworzenie obiektów globalnych</value>
+  </data>
+  <data name="SecRight.SeCreatePermanentPrivilege" xml:space="preserve">
+    <value>Tworzenie trwałych obiektów udostępnionych</value>
+  </data>
+  <data name="SecRight.SeCreateSymbolicLinkPrivilege" xml:space="preserve">
+    <value>Tworzenie łączy symbolicznych</value>
+  </data>
+  <data name="SecRight.SeDebugPrivilege" xml:space="preserve">
+    <value>Debugowanie programów</value>
+  </data>
+  <data name="SecRight.SeDenyNetworkLogonRight" xml:space="preserve">
+    <value>Odmowa dostępu do tego komputera z sieci</value>
+  </data>
+  <data name="SecRight.SeDenyBatchLogonRight" xml:space="preserve">
+    <value>Odmowa logowania w trybie wsadowym</value>
+  </data>
+  <data name="SecRight.SeDenyServiceLogonRight" xml:space="preserve">
+    <value>Odmowa logowania w trybie usługi</value>
+  </data>
+  <data name="SecRight.SeDenyInteractiveLogonRight" xml:space="preserve">
+    <value>Odmowa logowania lokalnego</value>
+  </data>
+  <data name="SecRight.SeDenyRemoteInteractiveLogonRight" xml:space="preserve">
+    <value>Odmowa logowania za pomocą usług pulpitu zdalnego</value>
+  </data>
+  <data name="SecRight.SeEnableDelegationPrivilege" xml:space="preserve">
+    <value>Włączanie zaufania do kont komputerów i użytkowników w zakresie delegowania</value>
+  </data>
+  <data name="SecRight.SeRemoteShutdownPrivilege" xml:space="preserve">
+    <value>Wymuszanie zamknięcia z systemu zdalnego</value>
+  </data>
+  <data name="SecRight.SeAuditPrivilege" xml:space="preserve">
+    <value>Generowanie inspekcji zabezpieczeń</value>
+  </data>
+  <data name="SecRight.SeImpersonatePrivilege" xml:space="preserve">
+    <value>Personifikacja klienta po uwierzytelnieniu</value>
+  </data>
+  <data name="SecRight.SeIncreaseWorkingSetPrivilege" xml:space="preserve">
+    <value>Zwiększanie zestawu roboczego procesu</value>
+  </data>
+  <data name="SecRight.SeIncreaseBasePriorityPrivilege" xml:space="preserve">
+    <value>Zwiększanie priorytetu planowania</value>
+  </data>
+  <data name="SecRight.SeLoadDriverPrivilege" xml:space="preserve">
+    <value>Ładowanie i zwalnianie sterowników urządzeń</value>
+  </data>
+  <data name="SecRight.SeLockMemoryPrivilege" xml:space="preserve">
+    <value>Blokowanie stron w pamięci</value>
+  </data>
+  <data name="SecRight.SeBatchLogonRight" xml:space="preserve">
+    <value>Logowanie w trybie wsadowym</value>
+  </data>
+  <data name="SecRight.SeServiceLogonRight" xml:space="preserve">
+    <value>Logowanie w trybie usługi</value>
+  </data>
+  <data name="SecRight.SeSecurityPrivilege" xml:space="preserve">
+    <value>Zarządzanie dziennikami inspekcji i zabezpieczeń</value>
+  </data>
+  <data name="SecRight.SeRelabelPrivilege" xml:space="preserve">
+    <value>Modyfikowanie etykiety obiektu</value>
+  </data>
+  <data name="SecRight.SeSystemEnvironmentPrivilege" xml:space="preserve">
+    <value>Modyfikowanie wartości środowiskowych oprogramowania układowego</value>
+  </data>
+  <data name="SecRight.SeDelegateSessionUserImpersonatePrivilege" xml:space="preserve">
+    <value>Uzyskiwanie tokenu personifikacji dla innego użytkownika w tej samej sesji</value>
+  </data>
+  <data name="SecRight.SeManageVolumePrivilege" xml:space="preserve">
+    <value>Wykonywanie zadań konserwacji woluminów</value>
+  </data>
+  <data name="SecRight.SeProfileSingleProcessPrivilege" xml:space="preserve">
+    <value>Profilowanie pojedynczego procesu</value>
+  </data>
+  <data name="SecRight.SeSystemProfilePrivilege" xml:space="preserve">
+    <value>Profilowanie wydajności systemu</value>
+  </data>
+  <data name="SecRight.SeAssignPrimaryTokenPrivilege" xml:space="preserve">
+    <value>Zastępowanie tokenu na poziomie procesu</value>
+  </data>
+  <data name="SecRight.SeRestorePrivilege" xml:space="preserve">
+    <value>Przywracanie plików i katalogów</value>
+  </data>
+  <data name="SecRight.SeShutdownPrivilege" xml:space="preserve">
+    <value>Zamykanie systemu</value>
+  </data>
+  <data name="SecRight.SeSyncAgentPrivilege" xml:space="preserve">
+    <value>Synchronizowanie danych usługi katalogowej</value>
+  </data>
+  <data name="SecRight.SeTakeOwnershipPrivilege" xml:space="preserve">
+    <value>Przejmowanie na własność plików lub innych obiektów</value>
+  </data>
+  <data name="SecRight.SeUndockPrivilege" xml:space="preserve">
+    <value>Usuwanie komputera ze stacji dokującej</value>
+  </data>
+  <data name="SecOption.PasswordHistorySize" xml:space="preserve">
+    <value>Wymuszaj tworzenie historii haseł</value>
+  </data>
+  <data name="SecOption.MaximumPasswordAge" xml:space="preserve">
+    <value>Maksymalny okres ważności hasła</value>
+  </data>
+  <data name="SecOption.MinimumPasswordAge" xml:space="preserve">
+    <value>Minimalny okres ważności hasła</value>
+  </data>
+  <data name="SecOption.MinimumPasswordLength" xml:space="preserve">
+    <value>Minimalna długość hasła</value>
+  </data>
+  <data name="SecOption.PasswordComplexity" xml:space="preserve">
+    <value>Hasło musi spełniać wymagania co do złożoności</value>
+  </data>
+  <data name="SecOption.ClearTextPassword" xml:space="preserve">
+    <value>Zapisz hasła przy użyciu szyfrowania odwracalnego</value>
+  </data>
+  <data name="SecOption.LockoutBadCount" xml:space="preserve">
+    <value>Próg blokady konta</value>
+  </data>
+  <data name="SecOption.LockoutDuration" xml:space="preserve">
+    <value>Czas trwania blokady konta</value>
+  </data>
+  <data name="SecOption.ResetLockoutCount" xml:space="preserve">
+    <value>Wyzeruj licznik blokady konta po</value>
+  </data>
+  <data name="SecOption.MaxTicketAge" xml:space="preserve">
+    <value>Maksymalny okres istnienia biletu użytkownika</value>
+  </data>
+  <data name="SecOption.MaxRenewAge" xml:space="preserve">
+    <value>Maksymalny okres istnienia odnowienia biletu użytkownika</value>
+  </data>
+  <data name="SecOption.MaxServiceAge" xml:space="preserve">
+    <value>Maksymalny okres istnienia biletu usługi</value>
+  </data>
+  <data name="SecOption.MaxClockSkew" xml:space="preserve">
+    <value>Maksymalna tolerancja synchronizacji zegara komputera</value>
+  </data>
+  <data name="SecOption.TicketValidateClient" xml:space="preserve">
+    <value>Wymuszaj ograniczenia logowania użytkowników</value>
+  </data>
+  <data name="SecOption.EnableAdminAccount" xml:space="preserve">
+    <value>Konta: Stan konta administratora</value>
+  </data>
+  <data name="SecOption.EnableGuestAccount" xml:space="preserve">
+    <value>Konta: Stan konta gościa</value>
+  </data>
+  <data name="SecOption.NewAdministratorName" xml:space="preserve">
+    <value>Konta: Zmień nazwę konta administratora</value>
+  </data>
+  <data name="SecOption.NewGuestName" xml:space="preserve">
+    <value>Konta: Zmień nazwę konta gościa</value>
+  </data>
+  <data name="SecOption.LimitBlankPasswordUse" xml:space="preserve">
+    <value>Konta: Ogranicz używanie pustych haseł przez konta lokalne tylko do logowania do konsoli</value>
+  </data>
+  <data name="SecOption.LSAAnonymousNameLookup" xml:space="preserve">
+    <value>Dostęp sieciowy: Zezwalaj na anonimową translację identyfikatorów SID/nazw</value>
+  </data>
+  <data name="SecOption.ForceLogoffWhenHourExpire" xml:space="preserve">
+    <value>Zabezpieczenia sieci: Wymuszaj wylogowanie po upływie godzin logowania</value>
+  </data>
+  <data name="SecOption.LmCompatibilityLevel" xml:space="preserve">
+    <value>Zabezpieczenia sieci: Poziom uwierzytelniania LAN Manager</value>
+  </data>
+  <data name="SecOption.LmCompatibilityLevel.0" xml:space="preserve">
+    <value>Wyślij odpowiedzi LM i NTLM</value>
+  </data>
+  <data name="SecOption.LmCompatibilityLevel.1" xml:space="preserve">
+    <value>Wyślij odpowiedzi LM i NTLM - użyj zabezpieczeń sesji NTLMv2, jeśli zostały wynegocjowane</value>
+  </data>
+  <data name="SecOption.LmCompatibilityLevel.2" xml:space="preserve">
+    <value>Wyślij tylko odpowiedź NTLM</value>
+  </data>
+  <data name="SecOption.LmCompatibilityLevel.3" xml:space="preserve">
+    <value>Wyślij tylko odpowiedź NTLMv2</value>
+  </data>
+  <data name="SecOption.LmCompatibilityLevel.4" xml:space="preserve">
+    <value>Wyślij tylko odpowiedź NTLMv2. Odmów LM</value>
+  </data>
+  <data name="SecOption.LmCompatibilityLevel.5" xml:space="preserve">
+    <value>Wyślij tylko odpowiedź NTLMv2. Odmów LM i NTLM</value>
+  </data>
+  <data name="SecOption.NoLMHash" xml:space="preserve">
+    <value>Zabezpieczenia sieci: Nie przechowuj wartości skrótu LAN Manager przy następnej zmianie hasła</value>
+  </data>
+  <data name="SecOption.NTLMMinClientSec" xml:space="preserve">
+    <value>Zabezpieczenia sieci: Minimalne zabezpieczenia sesji dla klientów korzystających z NTLM SSP (łącznie z bezpiecznym wywołaniem RPC)</value>
+  </data>
+  <data name="SecOption.NTLMMinClientSec.0" xml:space="preserve">
+    <value>Bez minimum</value>
+  </data>
+  <data name="SecOption.NTLMMinClientSec.524288" xml:space="preserve">
+    <value>Wymagaj zabezpieczeń sesji NTLMv2</value>
+  </data>
+  <data name="SecOption.NTLMMinClientSec.536870912" xml:space="preserve">
+    <value>Wymagaj szyfrowania 128-bitowego</value>
+  </data>
+  <data name="SecOption.NTLMMinClientSec.537395200" xml:space="preserve">
+    <value>Wymagaj zabezpieczeń sesji NTLMv2 i szyfrowania 128-bitowego</value>
+  </data>
+  <data name="SecOption.NTLMMinServerSec" xml:space="preserve">
+    <value>Zabezpieczenia sieci: Minimalne zabezpieczenia sesji dla serwerów korzystających z NTLM SSP (łącznie z bezpiecznym wywołaniem RPC)</value>
+  </data>
+  <data name="SecOption.NTLMMinServerSec.0" xml:space="preserve">
+    <value>Bez minimum</value>
+  </data>
+  <data name="SecOption.NTLMMinServerSec.524288" xml:space="preserve">
+    <value>Wymagaj zabezpieczeń sesji NTLMv2</value>
+  </data>
+  <data name="SecOption.NTLMMinServerSec.536870912" xml:space="preserve">
+    <value>Wymagaj szyfrowania 128-bitowego</value>
+  </data>
+  <data name="SecOption.NTLMMinServerSec.537395200" xml:space="preserve">
+    <value>Wymagaj zabezpieczeń sesji NTLMv2 i szyfrowania 128-bitowego</value>
+  </data>
+  <data name="SecOption.RestrictSendingNTLMTraffic" xml:space="preserve">
+    <value>Zabezpieczenia sieci: Ograniczanie NTLM: Wychodzący ruch NTLM do serwerów zdalnych</value>
+  </data>
+  <data name="SecOption.RestrictSendingNTLMTraffic.0" xml:space="preserve">
+    <value>Zezwalaj na wszystko</value>
+  </data>
+  <data name="SecOption.RestrictSendingNTLMTraffic.1" xml:space="preserve">
+    <value>Przeprowadź inspekcję wszystkiego</value>
+  </data>
+  <data name="SecOption.RestrictSendingNTLMTraffic.2" xml:space="preserve">
+    <value>Odmawiaj wszystkiego</value>
+  </data>
+  <data name="SecOption.SupportedEncryptionTypes" xml:space="preserve">
+    <value>Zabezpieczenia sieci: Konfiguruj typy szyfrowania dozwolone dla protokołu Kerberos</value>
+  </data>
+  <data name="SecOption.LDAPClientIntegrity" xml:space="preserve">
+    <value>Zabezpieczenia sieci: Wymagania podpisywania klienta LDAP</value>
+  </data>
+  <data name="SecOption.LDAPClientIntegrity.0" xml:space="preserve">
+    <value>Brak</value>
+  </data>
+  <data name="SecOption.LDAPClientIntegrity.1" xml:space="preserve">
+    <value>Negocjuj podpisywanie</value>
+  </data>
+  <data name="SecOption.LDAPClientIntegrity.2" xml:space="preserve">
+    <value>Wymagaj podpisywania</value>
+  </data>
+  <data name="SecOption.RestrictAnonymousSAM" xml:space="preserve">
+    <value>Dostęp sieciowy: Nie zezwalaj na anonimowe wyliczanie kont SAM</value>
+  </data>
+  <data name="SecOption.RestrictAnonymous" xml:space="preserve">
+    <value>Dostęp sieciowy: Nie zezwalaj na anonimowe wyliczanie kont SAM i udziałów</value>
+  </data>
+  <data name="SecOption.EveryoneIncludesAnonymous" xml:space="preserve">
+    <value>Dostęp sieciowy: Zezwalaj na stosowanie uprawnień Wszyscy do użytkowników anonimowych</value>
+  </data>
+  <data name="SecOption.DisableDomainCreds" xml:space="preserve">
+    <value>Dostęp sieciowy: Nie zezwalaj na przechowywanie haseł i poświadczeń do uwierzytelniania sieciowego</value>
+  </data>
+  <data name="SecOption.ServerRequireSecuritySignature" xml:space="preserve">
+    <value>Serwer sieci Microsoft: Podpisuj cyfrowo komunikację (zawsze)</value>
+  </data>
+  <data name="SecOption.ServerEnableSecuritySignature" xml:space="preserve">
+    <value>Serwer sieci Microsoft: Podpisuj cyfrowo komunikację (jeśli klient się zgodzi)</value>
+  </data>
+  <data name="SecOption.WorkstationRequireSecuritySignature" xml:space="preserve">
+    <value>Klient sieci Microsoft: Podpisuj cyfrowo komunikację (zawsze)</value>
+  </data>
+  <data name="SecOption.WorkstationEnablePlainTextPassword" xml:space="preserve">
+    <value>Klient sieci Microsoft: Wyślij niezaszyfrowane hasło do serwerów SMB innych firm</value>
+  </data>
+  <data name="SecOption.LDAPServerIntegrity" xml:space="preserve">
+    <value>Kontroler domeny: Wymagania podpisywania serwera LDAP</value>
+  </data>
+  <data name="SecOption.LDAPServerIntegrity.1" xml:space="preserve">
+    <value>Brak</value>
+  </data>
+  <data name="SecOption.LDAPServerIntegrity.2" xml:space="preserve">
+    <value>Wymagaj podpisywania</value>
+  </data>
+  <data name="SecOption.RefusePasswordChange" xml:space="preserve">
+    <value>Kontroler domeny: Odmawiaj zmian hasła konta komputera</value>
+  </data>
+  <data name="SecOption.RequireSignOrSeal" xml:space="preserve">
+    <value>Członek domeny: Cyfrowo szyfruj lub podpisuj dane bezpiecznego kanału (zawsze)</value>
+  </data>
+  <data name="SecOption.SealSecureChannel" xml:space="preserve">
+    <value>Członek domeny: Cyfrowo szyfruj dane bezpiecznego kanału (gdy to możliwe)</value>
+  </data>
+  <data name="SecOption.SignSecureChannel" xml:space="preserve">
+    <value>Członek domeny: Cyfrowo podpisuj dane bezpiecznego kanału (gdy to możliwe)</value>
+  </data>
+  <data name="SecOption.RequireStrongKey" xml:space="preserve">
+    <value>Członek domeny: Wymagaj silnego klucza sesji (Windows 2000 lub nowszy)</value>
+  </data>
+  <data name="SecOption.DisablePasswordChange" xml:space="preserve">
+    <value>Członek domeny: Wyłącz zmiany hasła konta komputera</value>
+  </data>
+  <data name="SecOption.MaximumPasswordAgeMachine" xml:space="preserve">
+    <value>Członek domeny: Maksymalny wiek hasła konta komputera</value>
+  </data>
+  <data name="SecOption.DisableCAD" xml:space="preserve">
+    <value>Logowanie interakcyjne: Nie wymagaj naciśnięcia klawiszy CTRL+ALT+DEL</value>
+  </data>
+  <data name="SecOption.DontDisplayLastUserName" xml:space="preserve">
+    <value>Logowanie interakcyjne: Nie wyświetlaj ostatnio zalogowanego</value>
+  </data>
+  <data name="SecOption.InactivityTimeoutSecs" xml:space="preserve">
+    <value>Logowanie interakcyjne: Limit braku aktywności komputera</value>
+  </data>
+  <data name="SecOption.LegalNoticeCaption" xml:space="preserve">
+    <value>Logowanie interakcyjne: Tytuł komunikatu dla użytkowników próbujących się zalogować</value>
+  </data>
+  <data name="SecOption.LegalNoticeText" xml:space="preserve">
+    <value>Logowanie interakcyjne: Tekst komunikatu dla użytkowników próbujących się zalogować</value>
+  </data>
+  <data name="SecOption.CachedLogonsCount" xml:space="preserve">
+    <value>Logowanie interakcyjne: Liczba poprzednich zalogowań do zbuforowania (w przypadku niedostępności kontrolera domeny)</value>
+  </data>
+  <data name="SecOption.EnableLUA" xml:space="preserve">
+    <value>Kontrola konta użytkownika: Uruchamiaj wszystkich administratorów w trybie zatwierdzania przez administratora</value>
+  </data>
+  <data name="SecOption.ConsentPromptBehaviorAdmin" xml:space="preserve">
+    <value>Kontrola konta użytkownika: Zachowanie monitu o podniesienie uprawnień dla administratorów w trybie zatwierdzania przez administratora</value>
+  </data>
+  <data name="SecOption.ConsentPromptBehaviorAdmin.0" xml:space="preserve">
+    <value>Podnieś bez monitowania</value>
+  </data>
+  <data name="SecOption.ConsentPromptBehaviorAdmin.1" xml:space="preserve">
+    <value>Monituj o poświadczenia na bezpiecznym pulpicie</value>
+  </data>
+  <data name="SecOption.ConsentPromptBehaviorAdmin.2" xml:space="preserve">
+    <value>Monituj o zgodę na bezpiecznym pulpicie</value>
+  </data>
+  <data name="SecOption.ConsentPromptBehaviorAdmin.3" xml:space="preserve">
+    <value>Monituj o poświadczenia</value>
+  </data>
+  <data name="SecOption.ConsentPromptBehaviorAdmin.4" xml:space="preserve">
+    <value>Monituj o zgodę</value>
+  </data>
+  <data name="SecOption.ConsentPromptBehaviorAdmin.5" xml:space="preserve">
+    <value>Monituj o zgodę dla plików binarnych innych niż systemu Windows</value>
+  </data>
+  <data name="SecOption.ConsentPromptBehaviorUser" xml:space="preserve">
+    <value>Kontrola konta użytkownika: Zachowanie monitu o podniesienie uprawnień dla użytkowników standardowych</value>
+  </data>
+  <data name="SecOption.ConsentPromptBehaviorUser.0" xml:space="preserve">
+    <value>Automatycznie odrzucaj żądania podniesienia uprawnień</value>
+  </data>
+  <data name="SecOption.ConsentPromptBehaviorUser.1" xml:space="preserve">
+    <value>Monituj o poświadczenia na bezpiecznym pulpicie</value>
+  </data>
+  <data name="SecOption.ConsentPromptBehaviorUser.3" xml:space="preserve">
+    <value>Monituj o poświadczenia</value>
+  </data>
+  <data name="SecOption.FilterAdministratorToken" xml:space="preserve">
+    <value>Kontrola konta użytkownika: Tryb zatwierdzania przez administratora dla wbudowanego konta Administrator</value>
+  </data>
+  <data name="SecOption.PromptOnSecureDesktop" xml:space="preserve">
+    <value>Kontrola konta użytkownika: Przełącz na bezpieczny pulpit przy monitowaniu o podniesienie uprawnień</value>
+  </data>
+  <data name="SecOption.EnableInstallerDetection" xml:space="preserve">
+    <value>Kontrola konta użytkownika: Wykrywaj instalacje aplikacji i monituj o podniesienie uprawnień</value>
+  </data>
+  <data name="SecOption.SCENoApplyLegacyAuditPolicy" xml:space="preserve">
+    <value>Inspekcja: Wymuszaj ustawienia podkategorii zasad inspekcji (system Windows Vista lub nowszy), aby zastępowały ustawienia kategorii zasad inspekcji</value>
+  </data>
+  <data name="SecOption.CrashOnAuditFail" xml:space="preserve">
+    <value>Inspekcja: Wyłącz system natychmiast, jeśli nie można rejestrować inspekcji zabezpieczeń</value>
+  </data>
+  <data name="SecOptionGroup.PasswordPolicy" xml:space="preserve">
+    <value>Zasady haseł</value>
+  </data>
+  <data name="SecOptionGroup.AccountLockout" xml:space="preserve">
+    <value>Zasady blokady konta</value>
+  </data>
+  <data name="SecOptionGroup.Kerberos" xml:space="preserve">
+    <value>Zasady protokołu Kerberos</value>
+  </data>
+  <data name="SecOptionGroup.Accounts" xml:space="preserve">
+    <value>Konta</value>
+  </data>
+  <data name="SecOptionGroup.NetworkSecurity" xml:space="preserve">
+    <value>Zabezpieczenia sieci</value>
+  </data>
+  <data name="SecOptionGroup.NetworkAccess" xml:space="preserve">
+    <value>Dostęp sieciowy</value>
+  </data>
+  <data name="SecOptionGroup.MicrosoftNetwork" xml:space="preserve">
+    <value>Klient i serwer sieci Microsoft</value>
+  </data>
+  <data name="SecOptionGroup.DomainController" xml:space="preserve">
+    <value>Kontroler domeny</value>
+  </data>
+  <data name="SecOptionGroup.DomainMember" xml:space="preserve">
+    <value>Członek domeny</value>
+  </data>
+  <data name="SecOptionGroup.InteractiveLogon" xml:space="preserve">
+    <value>Logowanie interakcyjne</value>
+  </data>
+  <data name="SecOptionGroup.UserAccountControl" xml:space="preserve">
+    <value>Kontrola konta użytkownika</value>
+  </data>
+  <data name="SecOptionGroup.Audit" xml:space="preserve">
+    <value>Inspekcja</value>
+  </data>
+  <data name="SecEventAudit.AuditAccountLogon" xml:space="preserve">
+    <value>Przeprowadź inspekcję zdarzeń logowania na kontach</value>
+  </data>
+  <data name="SecEventAudit.AuditAccountManage" xml:space="preserve">
+    <value>Przeprowadź inspekcję zarządzania kontami</value>
+  </data>
+  <data name="SecEventAudit.AuditDSAccess" xml:space="preserve">
+    <value>Przeprowadź inspekcję dostępu do usługi katalogowej</value>
+  </data>
+  <data name="SecEventAudit.AuditLogonEvents" xml:space="preserve">
+    <value>Przeprowadź inspekcję zdarzeń logowania</value>
+  </data>
+  <data name="SecEventAudit.AuditObjectAccess" xml:space="preserve">
+    <value>Przeprowadź inspekcję dostępu do obiektów</value>
+  </data>
+  <data name="SecEventAudit.AuditPolicyChange" xml:space="preserve">
+    <value>Przeprowadź inspekcję zmian zasad</value>
+  </data>
+  <data name="SecEventAudit.AuditPrivilegeUse" xml:space="preserve">
+    <value>Przeprowadź inspekcję użycia uprawnień</value>
+  </data>
+  <data name="SecEventAudit.AuditProcessTracking" xml:space="preserve">
+    <value>Przeprowadź inspekcję śledzenia procesów</value>
+  </data>
+  <data name="SecEventAudit.AuditSystemEvents" xml:space="preserve">
+    <value>Przeprowadź inspekcję zdarzeń systemowych</value>
+  </data>
+  <data name="SecAuditCategory.AccountLogon" xml:space="preserve">
+    <value>Logowanie na kontach</value>
+  </data>
+  <data name="SecAuditCategory.AccountManagement" xml:space="preserve">
+    <value>Zarządzanie kontami</value>
+  </data>
+  <data name="SecAuditCategory.DetailedTracking" xml:space="preserve">
+    <value>Śledzenie szczegółowe</value>
+  </data>
+  <data name="SecAuditCategory.DsAccess" xml:space="preserve">
+    <value>Dostęp do usług katalogowych</value>
+  </data>
+  <data name="SecAuditCategory.LogonLogoff" xml:space="preserve">
+    <value>Logowanie/wylogowywanie</value>
+  </data>
+  <data name="SecAuditCategory.ObjectAccess" xml:space="preserve">
+    <value>Dostęp do obiektów</value>
+  </data>
+  <data name="SecAuditCategory.PolicyChange" xml:space="preserve">
+    <value>Zmiana zasad</value>
+  </data>
+  <data name="SecAuditCategory.PrivilegeUse" xml:space="preserve">
+    <value>Użycie uprawnień</value>
+  </data>
+  <data name="SecAuditCategory.System" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="SecAuditCategory.GlobalObjectAccess" xml:space="preserve">
+    <value>Inspekcja globalnego dostępu do obiektów</value>
+  </data>
+  <data name="SecAudit.CredentialValidation" xml:space="preserve">
+    <value>Inspekcja weryfikacji poświadczeń</value>
+  </data>
+  <data name="SecAudit.KerberosAuthenticationService" xml:space="preserve">
+    <value>Inspekcja usługi uwierzytelniania Kerberos</value>
+  </data>
+  <data name="SecAudit.KerberosServiceTicketOperations" xml:space="preserve">
+    <value>Inspekcja operacji biletów usługi Kerberos</value>
+  </data>
+  <data name="SecAudit.OtherAccountLogonEvents" xml:space="preserve">
+    <value>Inspekcja innych zdarzeń logowania na kontach</value>
+  </data>
+  <data name="SecAudit.ApplicationGroupManagement" xml:space="preserve">
+    <value>Inspekcja zarządzania grupami aplikacji</value>
+  </data>
+  <data name="SecAudit.ComputerAccountManagement" xml:space="preserve">
+    <value>Inspekcja zarządzania kontami komputerów</value>
+  </data>
+  <data name="SecAudit.DistributionGroupManagement" xml:space="preserve">
+    <value>Inspekcja zarządzania grupami dystrybucyjnymi</value>
+  </data>
+  <data name="SecAudit.OtherAccountManagementEvents" xml:space="preserve">
+    <value>Inspekcja innych zdarzeń zarządzania kontami</value>
+  </data>
+  <data name="SecAudit.SecurityGroupManagement" xml:space="preserve">
+    <value>Inspekcja zarządzania grupami zabezpieczeń</value>
+  </data>
+  <data name="SecAudit.UserAccountManagement" xml:space="preserve">
+    <value>Inspekcja zarządzania kontami użytkowników</value>
+  </data>
+  <data name="SecAudit.DpapiActivity" xml:space="preserve">
+    <value>Inspekcja działania interfejsu DPAPI</value>
+  </data>
+  <data name="SecAudit.PlugAndPlayEvents" xml:space="preserve">
+    <value>Inspekcja działania PNP</value>
+  </data>
+  <data name="SecAudit.ProcessCreation" xml:space="preserve">
+    <value>Inspekcja tworzenia procesów</value>
+  </data>
+  <data name="SecAudit.ProcessTermination" xml:space="preserve">
+    <value>Inspekcja kończenia procesów</value>
+  </data>
+  <data name="SecAudit.RpcEvents" xml:space="preserve">
+    <value>Inspekcja zdarzeń RPC</value>
+  </data>
+  <data name="SecAudit.TokenRightAdjusted" xml:space="preserve">
+    <value>Inspekcja dostosowania praw tokenu</value>
+  </data>
+  <data name="SecAudit.DetailedDirectoryServiceReplication" xml:space="preserve">
+    <value>Inspekcja szczegółowej replikacji usługi katalogowej</value>
+  </data>
+  <data name="SecAudit.DirectoryServiceAccess" xml:space="preserve">
+    <value>Inspekcja dostępu do usługi katalogowej</value>
+  </data>
+  <data name="SecAudit.DirectoryServiceChanges" xml:space="preserve">
+    <value>Inspekcja zmian w usłudze katalogowej</value>
+  </data>
+  <data name="SecAudit.DirectoryServiceReplication" xml:space="preserve">
+    <value>Inspekcja replikacji usługi katalogowej</value>
+  </data>
+  <data name="SecAudit.AccountLockout" xml:space="preserve">
+    <value>Inspekcja blokady konta</value>
+  </data>
+  <data name="SecAudit.UserDeviceClaims" xml:space="preserve">
+    <value>Inspekcja oświadczeń użytkownika/urządzenia</value>
+  </data>
+  <data name="SecAudit.GroupMembership" xml:space="preserve">
+    <value>Inspekcja członkostwa w grupach</value>
+  </data>
+  <data name="SecAudit.IpsecExtendedMode" xml:space="preserve">
+    <value>Inspekcja trybu rozszerzonego IPsec</value>
+  </data>
+  <data name="SecAudit.IpsecMainMode" xml:space="preserve">
+    <value>Inspekcja trybu głównego IPsec</value>
+  </data>
+  <data name="SecAudit.IpsecQuickMode" xml:space="preserve">
+    <value>Inspekcja trybu szybkiego IPsec</value>
+  </data>
+  <data name="SecAudit.Logoff" xml:space="preserve">
+    <value>Inspekcja wylogowywania</value>
+  </data>
+  <data name="SecAudit.Logon" xml:space="preserve">
+    <value>Inspekcja logowania</value>
+  </data>
+  <data name="SecAudit.NetworkPolicyServer" xml:space="preserve">
+    <value>Inspekcja serwera zasad sieciowych</value>
+  </data>
+  <data name="SecAudit.OtherLogonLogoffEvents" xml:space="preserve">
+    <value>Inspekcja innych zdarzeń logowania/wylogowywania</value>
+  </data>
+  <data name="SecAudit.SpecialLogon" xml:space="preserve">
+    <value>Inspekcja logowania specjalnego</value>
+  </data>
+  <data name="SecAudit.ApplicationGenerated" xml:space="preserve">
+    <value>Inspekcja zdarzeń generowanych przez aplikacje</value>
+  </data>
+  <data name="SecAudit.CertificationServices" xml:space="preserve">
+    <value>Inspekcja usług certyfikacji</value>
+  </data>
+  <data name="SecAudit.DetailedFileShare" xml:space="preserve">
+    <value>Inspekcja szczegółowego udziału plików</value>
+  </data>
+  <data name="SecAudit.FileShare" xml:space="preserve">
+    <value>Inspekcja udziału plików</value>
+  </data>
+  <data name="SecAudit.FileSystem" xml:space="preserve">
+    <value>Inspekcja systemu plików</value>
+  </data>
+  <data name="SecAudit.FilteringPlatformConnection" xml:space="preserve">
+    <value>Inspekcja połączeń platformy filtrowania</value>
+  </data>
+  <data name="SecAudit.FilteringPlatformPacketDrop" xml:space="preserve">
+    <value>Inspekcja porzucania pakietów przez platformę filtrowania</value>
+  </data>
+  <data name="SecAudit.HandleManipulation" xml:space="preserve">
+    <value>Inspekcja manipulowania dojściami</value>
+  </data>
+  <data name="SecAudit.KernelObject" xml:space="preserve">
+    <value>Inspekcja obiektów jądra</value>
+  </data>
+  <data name="SecAudit.OtherObjectAccessEvents" xml:space="preserve">
+    <value>Inspekcja innych zdarzeń dostępu do obiektów</value>
+  </data>
+  <data name="SecAudit.Registry" xml:space="preserve">
+    <value>Inspekcja rejestru</value>
+  </data>
+  <data name="SecAudit.RemovableStorage" xml:space="preserve">
+    <value>Inspekcja magazynu wymiennego</value>
+  </data>
+  <data name="SecAudit.Sam" xml:space="preserve">
+    <value>Inspekcja SAM</value>
+  </data>
+  <data name="SecAudit.CentralAccessPolicyStaging" xml:space="preserve">
+    <value>Inspekcja przemieszczania centralnych zasad dostępu</value>
+  </data>
+  <data name="SecAudit.AuditPolicyChange" xml:space="preserve">
+    <value>Inspekcja zmian zasad inspekcji</value>
+  </data>
+  <data name="SecAudit.AuthenticationPolicyChange" xml:space="preserve">
+    <value>Inspekcja zmian zasad uwierzytelniania</value>
+  </data>
+  <data name="SecAudit.AuthorizationPolicyChange" xml:space="preserve">
+    <value>Inspekcja zmian zasad autoryzacji</value>
+  </data>
+  <data name="SecAudit.FilteringPlatformPolicyChange" xml:space="preserve">
+    <value>Inspekcja zmian zasad platformy filtrowania</value>
+  </data>
+  <data name="SecAudit.MpssvcRuleLevelPolicyChange" xml:space="preserve">
+    <value>Inspekcja zmian zasad na poziomie reguł usługi MPSSVC</value>
+  </data>
+  <data name="SecAudit.OtherPolicyChangeEvents" xml:space="preserve">
+    <value>Inspekcja innych zdarzeń zmian zasad</value>
+  </data>
+  <data name="SecAudit.NonSensitivePrivilegeUse" xml:space="preserve">
+    <value>Inspekcja użycia uprawnień niewymagających specjalnej ochrony</value>
+  </data>
+  <data name="SecAudit.OtherPrivilegeUseEvents" xml:space="preserve">
+    <value>Inspekcja innych zdarzeń użycia uprawnień</value>
+  </data>
+  <data name="SecAudit.SensitivePrivilegeUse" xml:space="preserve">
+    <value>Inspekcja użycia uprawnień wymagających specjalnej ochrony</value>
+  </data>
+  <data name="SecAudit.IpsecDriver" xml:space="preserve">
+    <value>Inspekcja sterownika IPsec</value>
+  </data>
+  <data name="SecAudit.OtherSystemEvents" xml:space="preserve">
+    <value>Inspekcja innych zdarzeń systemowych</value>
+  </data>
+  <data name="SecAudit.SecurityStateChange" xml:space="preserve">
+    <value>Inspekcja zmian stanu zabezpieczeń</value>
+  </data>
+  <data name="SecAudit.SecuritySystemExtension" xml:space="preserve">
+    <value>Inspekcja rozszerzeń systemu zabezpieczeń</value>
+  </data>
+  <data name="SecAudit.SystemIntegrity" xml:space="preserve">
+    <value>Inspekcja integralności systemu</value>
+  </data>
+  <data name="SecLocalGroup.Users" xml:space="preserve">
+    <value>Użytkownicy</value>
+  </data>
+  <data name="SecLocalGroup.Guests" xml:space="preserve">
+    <value>Goście</value>
+  </data>
+  <data name="SecPrincipal.Everyone" xml:space="preserve">
+    <value>Wszyscy</value>
+  </data>
+  <data name="SecPrincipal.AuthenticatedUsers" xml:space="preserve">
+    <value>Użytkownicy uwierzytelnieni</value>
+  </data>
+  <data name="SecPrincipal.LocalSystem" xml:space="preserve">
+    <value>SYSTEM</value>
+  </data>
+  <data name="SecPrincipal.LocalService" xml:space="preserve">
+    <value>USŁUGA LOKALNA</value>
+  </data>
+  <data name="SecPrincipal.NetworkService" xml:space="preserve">
+    <value>USŁUGA SIECIOWA</value>
+  </data>
+  <data name="SecPrincipal.Service" xml:space="preserve">
+    <value>USŁUGA</value>
+  </data>
+  <data name="SecPrincipal.Interactive" xml:space="preserve">
+    <value>INTERAKTYWNA</value>
+  </data>
+  <data name="SecPrincipal.Network" xml:space="preserve">
+    <value>SIEĆ</value>
+  </data>
+  <data name="SecPrincipal.Batch" xml:space="preserve">
+    <value>PARTIA</value>
+  </data>
+  <data name="SecPrincipal.AnonymousLogon" xml:space="preserve">
+    <value>LOGOWANIE ANONIMOWE</value>
+  </data>
+  <data name="SecPrincipal.EnterpriseDomainControllers" xml:space="preserve">
+    <value>KONTROLERY DOMENY PRZEDSIĘBIORSTWA</value>
+  </data>
+  <data name="SecPrincipal.LocalAccount" xml:space="preserve">
+    <value>Konto lokalne</value>
+  </data>
+  <data name="SecPrincipal.LocalAccountAndAdministrator" xml:space="preserve">
+    <value>Konto lokalne i członek grupy Administratorzy</value>
+  </data>
+  <data name="SecPrincipal.AllServices" xml:space="preserve">
+    <value>WSZYSTKIE USŁUGI</value>
+  </data>
+  <data name="SecPrincipal.WindowManagerGroup" xml:space="preserve">
+    <value>Menedżer okien\Grupa Menedżera okien</value>
+  </data>
+  <data name="SecPrincipal.VirtualMachines" xml:space="preserve">
+    <value>NT VIRTUAL MACHINE\Maszyny wirtualne</value>
+  </data>
+  <!-- K4 security settings editor: end -->
 </root>

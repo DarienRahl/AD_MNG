@@ -9,10 +9,12 @@ using AdMng.App.Views;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Backup;
+using AdMng.Core.GroupPolicy.Security;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.GroupPolicy.Modeling;
+using AdMng.Presentation.GroupPolicy.SecuritySettings;
 using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Views;
@@ -373,6 +375,89 @@ public sealed class GroupPolicyWindowTests
         Assert.All(radios, r => Assert.True(r.IsEnabled));
         Assert.All(radios, r => Assert.True(string.IsNullOrEmpty(r.GroupName)));
         Assert.True(Assert.Single(radios, r => r.Name == "EnabledRadio").IsChecked);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task SecuritySettingsEditor_ShowsEveryPage_AndSavesARightThroughThePreviewWindow() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync(language: "pl");
+        var sample = context.Directory.AddGroupPolicyManagementSample(context.Company, context.Sysvol);
+        context.Sysvol.Put(sample.SitePrinters, SecurityTemplate.RelativePath, FakeSysvolFileReader.Utf16(FakeDirectoryBuilder.Template(
+            "[System Access]", "MinimumPasswordLength = 12", "NieznanyKlucz = 1",
+            "[Privilege Rights]", "SeDebugPrivilege = *S-1-5-32-544",
+            "[Group Membership]", "*S-1-5-32-544__Members = *S-1-5-32-544",
+            "[Service General Setting]", "\"Spooler\",4,\"\"")));
+        context.Sysvol.PutText(sample.SitePrinters, "Machine/Microsoft/Windows NT/Audit/audit.csv",
+            "Machine Name,Policy Target,Subcategory,Subcategory GUID,Inclusion Setting,Exclusion Setting,Setting Value\r\n,System,Audit Logon,{0cce9215-69ae-11d9-bed3-505054503030},Success,,1\r\n");
+        context.Sysvol.PutText(sample.SitePrinters, GppGroupsParser.RelativePath, FakeDirectoryBuilder.Groups(
+            FakeDirectoryBuilder.LocalGroup("Administrators (built-in)", "S-1-5-32-544", [("Łukasz", null, "ADD")], targeted: true)));
+
+        await context.ConnectAsync();
+        var main = context.Services.GetRequiredService<MainWindow>();
+        UiTestSupport.ShowOffScreen(main);
+        var shell = main.Shell;
+        await shell.InitializeAsync();
+
+        var editor = Assert.IsType<SecuritySettingsEditorViewModel>(shell.OpenGroupPolicyDocument(
+            new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.SecuritySettings) { GpoId = sample.SitePrinters, Name = "Lokacja Warszawa – Drukarki" }));
+        await UiWait.UntilAsync(() => !editor.IsLoading && editor.UserRights.Count > 0, "the security settings");
+        main.UpdateLayout();
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        var view = Assert.Single(UiWait.Descendants<SecuritySettingsEditorView>(main));
+        Assert.Equal(5, view.Pages.Items.Count);
+        Assert.False(view.SaveButton.IsEnabled);
+        Assert.Single(view.RestrictedGroupList.Items);
+        Assert.Single(view.GppGroupList.Items);
+
+        // Every page renders (the binding listener checks each one).
+        foreach (var page in new[] { view.RightsTab, view.OptionsTab, view.AuditTab, view.ServicesTab, view.GroupsTab })
+        {
+            view.Pages.SelectedItem = page;
+            await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        }
+
+        editor.SelectedRestrictedGroup = editor.RestrictedGroups[0];
+        editor.SelectedGppGroup = editor.GppGroups[0];
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        view.Pages.SelectedItem = view.OptionsTab;
+        editor.SelectedOptionGroup = editor.OptionGroups[0];
+        editor.SelectedOption = editor.Options.Single(o => o.Definition.Id == "MinimumPasswordLength");
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        Assert.Contains("Minimalna długość hasła", UiWait.Descendants<TextBlock>(view).Select(t => t.Text));
+        editor.SelectedOptionGroup = editor.OptionGroups[^1];
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        Assert.Single(view.RawList.Items);
+        Assert.Equal(9, view.LegacyAuditList.Items.Count);
+        Assert.Single(view.ServiceList.Items);
+
+        view.Pages.SelectedItem = view.RightsTab;
+        editor.SelectedRight = editor.UserRights.Single(r => r.Constant == "SeShutdownPrivilege");
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        editor.SelectedRight!.IsDefined = true;
+        editor.NewRightHolderText = "Administratorzy";
+        editor.AddRightHolderByNameCommand.Execute(null);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        Assert.Single(UiWait.Descendants<ListBox>(view).Single(l => l.Name == "RightHoldersList").Items);
+        Assert.True(view.SaveButton.IsEnabled);
+
+        var drive = UiWait.DriveModalAsync<ChangePlanPreviewWindow>(async w =>
+        {
+            await UiTestSupport.WaitForIdleAsync(rounds: 2);
+            Assert.Contains("Get-GPO", w.ViewModel.PowerShellScript, StringComparison.Ordinal);
+            await w.ViewModel.ExecuteCommand.ExecuteAsync(null);
+            await UiWait.UntilAsync(() => w.ViewModel.Step == PlanPreviewStep.Results, "the results");
+            Assert.False(w.ViewModel.ResultHasFailures);
+            w.ViewModel.CloseCommand.Execute(null);
+        });
+        await editor.SaveCommand.ExecuteAsync(null);
+        await drive;
+
+        await UiWait.UntilAsync(() => !editor.IsLoading && !editor.HasChanges, "the saved security settings");
+        var written = SecurityTemplateDocument.Parse(context.Sysvol.Get(sample.SitePrinters, SecurityTemplate.RelativePath));
+        Assert.Equal(["S-1-5-32-544"], written.GetPrivilegeRights()["SeShutdownPrivilege"]);
+        Assert.Equal("1", written.Get(SecurityTemplateDocument.SystemAccess, "NieznanyKlucz"));
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
         context.AssertHealthy();
     });
 

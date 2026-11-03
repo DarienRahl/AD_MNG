@@ -54,6 +54,22 @@ public sealed class GroupPolicyActions(GroupPolicyServices services)
             (session, sysvol, token) => Services.Planner.PlanAdministrativeTemplatesAsync(session, sysvol!, gpo.Id, machine, user, token));
     }
 
+    /// <summary>"Edytuj ustawienia zabezpieczeń": the security settings editor of a GPO (K4).</summary>
+    public void EditSecuritySettings(Guid gpoId, string name) =>
+        Services.OpenDocument(new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.SecuritySettings) { GpoId = gpoId, Name = name });
+
+    /// <summary>
+    /// "Zapisz zmiany…" of the security settings editor: the changed files (GptTmpl.inf, audit.csv, Groups.xml), the computer
+    /// extension names and version as one plan through the preview (K4).
+    /// </summary>
+    public Task<bool> SaveSecuritySettingsAsync(GpoInfo gpo, SecuritySettingsSave save)
+    {
+        ArgumentNullException.ThrowIfNull(gpo);
+        ArgumentNullException.ThrowIfNull(save);
+        return RunAsync(Localizer.Format(L.SecuritySettings.PlanTitle, gpo.DisplayName), SysvolUse.Required,
+            (session, sysvol, token) => Services.Planner.PlanSecuritySettingsAsync(session, sysvol!, gpo.Id, save, token));
+    }
+
     // ---- Create, copy, rename, delete ---------------------------------------------------------------------------------
 
     /// <summary>"Nowe…" / "Utwórz GPO w tej domenie i połącz je tutaj…": the name, then the create plan (and the link).</summary>
@@ -463,8 +479,11 @@ public sealed class GroupPolicyActions(GroupPolicyServices services)
         return await Services.PreviewAsync(planned, title, session, confirmationText, confirmationMessage).ConfigureAwait(true);
     }
 
-    /// <summary>The object picker for a trustee (user, group or computer) and its SID; null when cancelled or unreadable.</summary>
-    private async Task<(string Sid, string Name)?> PickTrusteeAsync()
+    /// <summary>
+    /// The object picker for a trustee (user, group or computer, or the <paramref name="kinds"/> given) and its SID with its
+    /// account name; null when cancelled or unreadable.
+    /// </summary>
+    internal async Task<(string Sid, string Name)?> PickTrusteeAsync(IReadOnlyList<ObjectKind>? kinds = null)
     {
         var session = Services.Sessions.Current;
         if (session is null)
@@ -472,7 +491,7 @@ public sealed class GroupPolicyActions(GroupPolicyServices services)
             return null;
         }
 
-        var picked = await Services.Ui.Dialogs.PickObjectsAsync(session, [ObjectKind.User, ObjectKind.Group, ObjectKind.Computer], multiSelect: false).ConfigureAwait(true);
+        var picked = await Services.Ui.Dialogs.PickObjectsAsync(session, kinds ?? [ObjectKind.User, ObjectKind.Group, ObjectKind.Computer], multiSelect: false).ConfigureAwait(true);
         if (picked is not [var dn, ..])
         {
             return null;

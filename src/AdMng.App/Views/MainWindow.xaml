@@ -19,6 +19,7 @@
         xmlns:gpd="clr-namespace:AdMng.Presentation.GroupPolicy;assembly=AdMng.Presentation"
         xmlns:gpat="clr-namespace:AdMng.Presentation.GroupPolicy.AdministrativeTemplates;assembly=AdMng.Presentation"
         xmlns:gpmod="clr-namespace:AdMng.Presentation.GroupPolicy.Modeling;assembly=AdMng.Presentation"
+        xmlns:gpsec="clr-namespace:AdMng.Presentation.GroupPolicy.SecuritySettings;assembly=AdMng.Presentation"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1360"
         Height="840"
@@ -890,6 +891,10 @@
             <!-- Administrative templates (K3). -->
             <DataTemplate DataType="{x:Type gpat:AdministrativeTemplatesEditorViewModel}">
               <gpv:AdministrativeTemplatesEditorView />
+            </DataTemplate>
+            <!-- Security settings (K4). -->
+            <DataTemplate DataType="{x:Type gpsec:SecuritySettingsEditorViewModel}">
+              <gpv:SecuritySettingsEditorView />
             </DataTemplate>
             <!-- Group Policy modelling, "co dostanie komputer" (K5). -->
             <DataTemplate DataType="{x:Type gpmod:GroupPolicyModelingDocumentViewModel}">

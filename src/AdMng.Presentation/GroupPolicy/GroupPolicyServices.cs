@@ -37,6 +37,9 @@ public enum GroupPolicyDocumentKind
     /// <summary>"Szablony administracyjne" of one GPO (K3, <see cref="GroupPolicyDocumentRequest.GpoId"/>).</summary>
     AdministrativeTemplates,
 
+    /// <summary>"Ustawienia zabezpieczeń" of one GPO (K4, <see cref="GroupPolicyDocumentRequest.GpoId"/>).</summary>
+    SecuritySettings,
+
     /// <summary>
     /// "Co dostanie komputer" (K5): a Group Policy model of <see cref="GroupPolicyDocumentRequest.ComputerDn"/> and/or
     /// <see cref="GroupPolicyDocumentRequest.UserDn"/>, or of a new computer and user in

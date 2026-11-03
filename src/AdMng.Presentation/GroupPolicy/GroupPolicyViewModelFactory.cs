@@ -2,6 +2,7 @@ using AdMng.Core.Computers.Remote;
 using AdMng.Core.Csv;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.GroupPolicy.Modeling;
+using AdMng.Presentation.GroupPolicy.SecuritySettings;
 
 namespace AdMng.Presentation.GroupPolicy;
 
@@ -42,6 +43,8 @@ public sealed class GroupPolicyViewModelFactory(GroupPolicyServices services, Gr
             GroupPolicyDocumentKind.WmiFilters => new WmiFiltersDocumentViewModel(Services, Actions),
             GroupPolicyDocumentKind.AdministrativeTemplates when request.GpoId is { } templatesId =>
                 new AdministrativeTemplatesEditorViewModel(Services, Actions, Definitions, templatesId, request.Name) { UpdateTemplates = UpdateTemplatesAsync },
+            GroupPolicyDocumentKind.SecuritySettings when request.GpoId is { } securityId =>
+                new SecuritySettingsEditorViewModel(Services, Actions, securityId, request.Name),
             GroupPolicyDocumentKind.Objects => new GroupPolicyObjectsDocumentViewModel(Services, Actions) { UpdateTemplates = UpdateTemplatesAsync },
             GroupPolicyDocumentKind.Modeling => new GroupPolicyModelingDocumentViewModel(Services, Actions, Definitions, request, resolver, csv),
             _ => throw new ArgumentException("The request names no GPO or container.", nameof(request)),
@@ -59,6 +62,7 @@ public sealed class GroupPolicyViewModelFactory(GroupPolicyServices services, Gr
             (WmiFiltersDocumentViewModel, GroupPolicyDocumentKind.WmiFilters) => true,
             (GroupPolicyObjectDocumentViewModel gpo, GroupPolicyDocumentKind.Object) => gpo.GpoId == request.GpoId,
             (AdministrativeTemplatesEditorViewModel editor, GroupPolicyDocumentKind.AdministrativeTemplates) => editor.GpoId == request.GpoId,
+            (SecuritySettingsEditorViewModel editor, GroupPolicyDocumentKind.SecuritySettings) => editor.GpoId == request.GpoId,
             (GroupPolicyModelingDocumentViewModel model, GroupPolicyDocumentKind.Modeling) => model.Matches(request),
             (GroupPolicyScopeDocumentViewModel scope, GroupPolicyDocumentKind.Scope) =>
                 request.ContainerDn is { } dn && Core.Ldap.DistinguishedName.AreEqual(scope.ContainerDn, dn),
