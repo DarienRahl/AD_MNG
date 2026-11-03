@@ -1,0 +1,228 @@
+<!--
+  The "Stan" tab of a GPO (GroupPolicyObjectDocumentViewModel.Health.cs, K6, design note 20.2): the diagnostics engine for
+  this GPO - one line per area (no findings, the findings and the most serious one, or why it was not checked), then the
+  findings with the same row as "Diagnostyka zasad grupy" and the details of the selected one; "Napraw…" and "Edytuj to
+  ustawienie" of the finding, the existing "Wyrównaj wersje" and "Napraw uprawnienia folderu", "Sprawdź ponownie".
+-->
+<UserControl x:Class="AdMng.App.GroupPolicy.GroupPolicyHealthPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:gp="clr-namespace:AdMng.App.GroupPolicy"
+             xmlns:gpm="clr-namespace:AdMng.Presentation.GroupPolicy;assembly=AdMng.Presentation"
+             xmlns:gpd="clr-namespace:AdMng.Presentation.GroupPolicy.Diagnostics;assembly=AdMng.Presentation"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             Focusable="False">
+  <UserControl.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/AdMng;component/GroupPolicy/GroupPolicyDiagnosticsResources.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+      <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
+      <Style x:Key="HealthRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+        <Setter Property="Height" Value="28" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Padding" Value="2,0" />
+      </Style>
+    </ResourceDictionary>
+  </UserControl.Resources>
+
+  <DockPanel Margin="4,8,4,4">
+    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <StackPanel Margin="0,0,12,0">
+        <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr GpoDiag.HealthHint}" TextWrapping="Wrap" />
+        <DockPanel Margin="0,4,0,0">
+          <ProgressBar x:Name="HealthProgress"
+                       Width="160"
+                       Height="4"
+                       Margin="0,0,10,0"
+                       VerticalAlignment="Center"
+                       AutomationProperties.Name="{Binding HealthStatusText, Mode=OneWay}"
+                       DockPanel.Dock="Left"
+                       IsIndeterminate="True"
+                       Visibility="{Binding IsCheckingHealth, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <TextBlock x:Name="HealthStatusText"
+                     AutomationProperties.LiveSetting="Polite"
+                     Text="{Binding HealthStatusText, Mode=OneWay}"
+                     TextTrimming="CharacterEllipsis"
+                     ToolTip="{Binding HealthStatusText, Mode=OneWay}" />
+        </DockPanel>
+      </StackPanel>
+      <Button x:Name="CheckHealthButton"
+              Grid.Column="1"
+              VerticalAlignment="Top"
+              Command="{Binding CheckHealthCommand}"
+              Content="{l:Tr GpoDiag.CheckAgain}" />
+    </Grid>
+
+    <Border x:Name="HealthNotesBar"
+            Margin="0,0,0,6"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.WarningBar}"
+            Visibility="{Binding HasHealthNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <DockPanel>
+        <TextBlock Margin="0,1,10,0"
+                   VerticalAlignment="Top"
+                   DockPanel.Dock="Left"
+                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Warning}" />
+        <ItemsControl AutomationProperties.LiveSetting="Polite" Focusable="False" ItemsSource="{Binding HealthNotes, Mode=OneWay}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type sys:String}">
+              <TextBlock Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </DockPanel>
+    </Border>
+
+    <WrapPanel Margin="0,6,0,0" DockPanel.Dock="Bottom">
+      <Button x:Name="FixHealthButton"
+              Margin="0,0,6,4"
+              Command="{Binding FixHealthFindingCommand}"
+              Content="{l:Tr GpoDiag.Fix}"
+              Style="{StaticResource AccentButtonStyle}" />
+      <Button x:Name="EditHealthSettingButton" Margin="0,0,18,4" Command="{Binding EditHealthSettingCommand}" Content="{l:Tr GpoDiag.EditSetting}" />
+      <Button x:Name="AlignVersionsButton" Margin="0,0,6,4" Command="{Binding AlignVersionsCommand}" Content="{l:Tr GroupPolicy.AlignVersions}" />
+      <Button x:Name="RepairFolderButton" Margin="0,0,6,4" Command="{Binding RepairFolderSecurityCommand}" Content="{l:Tr GroupPolicy.RepairFolder}" />
+    </WrapPanel>
+
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" MinHeight="120" />
+      </Grid.RowDefinitions>
+
+      <!-- One line per area -->
+      <ListView x:Name="ChecksList"
+                MaxHeight="260"
+                AutomationProperties.Name="{l:Tr GroupPolicy.TabStatus}"
+                ItemContainerStyle="{StaticResource HealthRowStyle}"
+                ItemsSource="{Binding Checks, Mode=OneWay}">
+        <ListView.View>
+          <GridView AllowsColumnReorder="False">
+            <GridViewColumn Width="36">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type gpm:GpoCheckRowViewModel}">
+                  <TextBlock x:Name="CheckGlyph"
+                             Foreground="{DynamicResource SystemFillColorSuccessBrush}"
+                             Style="{StaticResource Ad.GlyphText}"
+                             Text="{x:Static c:Glyphs.Completed}" />
+                  <DataTemplate.Triggers>
+                    <DataTrigger Binding="{Binding IsOk, Mode=OneWay}" Value="False">
+                      <Setter TargetName="CheckGlyph" Property="Text" Value="{x:Static c:Glyphs.Warning}" />
+                      <Setter TargetName="CheckGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                    </DataTrigger>
+                  </DataTemplate.Triggers>
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="200" DisplayMemberBinding="{Binding Text, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnCheck}" />
+            <GridViewColumn Width="520" Header="{l:Tr GroupPolicy.ColumnResult}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type gpm:GpoCheckRowViewModel}">
+                  <TextBlock Text="{Binding Detail, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Detail, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+          </GridView>
+        </ListView.View>
+      </ListView>
+
+      <TextBlock x:Name="HealthNoneText"
+                 Grid.Row="1"
+                 Margin="2,10,0,0"
+                 Text="{l:Tr GpoDiag.HealthNone}"
+                 TextWrapping="Wrap"
+                 Visibility="{Binding HasNoHealthFindings, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+
+      <!-- The findings and the details of the selected one -->
+      <Grid Grid.Row="2" Margin="0,8,0,0">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" MinWidth="320" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="340" MinWidth="220" />
+        </Grid.ColumnDefinitions>
+        <ListView x:Name="HealthFindingsList"
+                  gp:GroupPolicyUi.KeepsSelectionInView="True"
+                  AutomationProperties.Name="{l:Tr GpoDiag.Title}"
+                  ItemContainerStyle="{StaticResource HealthRowStyle}"
+                  ItemsSource="{Binding HealthFindings, Mode=OneWay}"
+                  SelectedItem="{Binding SelectedHealthFinding}"
+                  SelectionMode="Single"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling">
+          <ListView.View>
+            <GridView AllowsColumnReorder="False">
+              <GridViewColumn Width="130" Header="{l:Tr GpoDiag.ColumnSeverity}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type gpd:GpoFindingRowViewModel}">
+                    <StackPanel Orientation="Horizontal">
+                      <Ellipse Style="{StaticResource GpoDiag.SeverityDot}" Tag="{Binding Severity, Mode=OneWay}" />
+                      <TextBlock Style="{StaticResource GpoDiag.SeverityText}" Tag="{Binding Severity, Mode=OneWay}" Text="{Binding SeverityText, Mode=OneWay}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="140" Header="{l:Tr GpoDiag.ColumnArea}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type gpd:GpoFindingRowViewModel}">
+                    <TextBlock Text="{Binding AreaText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="220" Header="{l:Tr GpoDiag.ColumnWhere}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type gpd:GpoFindingRowViewModel}">
+                    <TextBlock Text="{Binding WhereText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding WhereText, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="440" Header="{l:Tr GpoDiag.ColumnFinding}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type gpd:GpoFindingRowViewModel}">
+                    <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding Message, Mode=OneWay}">
+                      <Run FontWeight="SemiBold" Text="{Binding Title, Mode=OneWay}" />
+                      <Run Text=" – " />
+                      <Run Text="{Binding Message, Mode=OneWay}" />
+                    </TextBlock>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+            </GridView>
+          </ListView.View>
+        </ListView>
+
+        <gp:PaneSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+        <Border Grid.Column="2" Padding="12,8" Style="{StaticResource Ad.Card}">
+          <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="HealthDetailsPanel" DataContext="{Binding SelectedHealthFinding, Mode=OneWay}">
+              <TextBlock Margin="0,0,0,6"
+                         FontWeight="SemiBold"
+                         Text="{Binding Title, Mode=OneWay}"
+                         TextWrapping="Wrap" />
+              <TextBlock Style="{StaticResource GpoDiag.DetailText}" Text="{Binding Message, Mode=OneWay}" />
+              <TextBlock Style="{StaticResource GpoDiag.DetailHeading}" Text="{l:Tr GpoDiag.WhyHeading}" />
+              <TextBlock Style="{StaticResource GpoDiag.DetailText}" Text="{Binding Explanation, Mode=OneWay}" />
+              <TextBlock Style="{StaticResource GpoDiag.DetailHeading}" Text="{l:Tr GpoDiag.WhatHeading}" />
+              <TextBlock Style="{StaticResource GpoDiag.DetailText}" Text="{Binding Recommendation, Mode=OneWay}" />
+              <TextBlock Margin="0,8,0,0"
+                         Style="{StaticResource Ad.SecondaryText}"
+                         Text="{Binding FixText, Mode=OneWay}"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </ScrollViewer>
+        </Border>
+      </Grid>
+    </Grid>
+  </DockPanel>
+</UserControl>

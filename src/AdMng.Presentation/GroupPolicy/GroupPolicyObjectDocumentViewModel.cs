@@ -1,6 +1,5 @@
 using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
-using AdMng.Core.GroupPolicy.Content;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Localization;
@@ -269,7 +268,6 @@ public sealed partial class GroupPolicyObjectDocumentViewModel : GroupPolicyDocu
 
         GpoFolderContent? content = null;
         string? contentNote = null;
-        byte[]? folderSecurity = null;
         var folderExists = false;
         if (sysvol is not null)
         {
@@ -279,7 +277,6 @@ public sealed partial class GroupPolicyObjectDocumentViewModel : GroupPolicyDocu
                 try
                 {
                     content = await GroupPolicyReader.ReadFolderAsync(sysvol, GpoId, cancellationToken).ConfigureAwait(true);
-                    folderSecurity = await sysvol.GetGpoFolderSecurityAsync(GpoId, cancellationToken).ConfigureAwait(true);
                 }
                 catch (Exception ex) when (ex is GpoTooLargeException or SysvolWriteException)
                 {
@@ -352,8 +349,8 @@ public sealed partial class GroupPolicyObjectDocumentViewModel : GroupPolicyDocu
         Delegation = rows;
         SelectedTrustee = rows.FirstOrDefault(r => string.Equals(r.Sid, selectedSid, StringComparison.OrdinalIgnoreCase));
 
-        // Stan.
-        Checks = BuildChecks(gpo, sysvol is not null, folderExists, content, folderSecurity);
+        // Stan: the diagnostics engine for this GPO (GroupPolicyObjectDocumentViewModel.Health.cs).
+        await LoadHealthAsync(session, sysvol, cancellationToken).ConfigureAwait(true);
         LoadedText = Localizer.Format(L.GroupPolicy.ObjectLoaded, Links.Count, Settings.Count);
     }
 
@@ -557,55 +554,8 @@ public sealed partial class GroupPolicyObjectDocumentViewModel : GroupPolicyDocu
         Checks = [];
         HasVersionMismatch = false;
         HasFolderAclMismatch = false;
+        ClearHealth();
     }
-
-    private IReadOnlyList<GpoCheckRowViewModel> BuildChecks(GpoInfo gpo, bool sysvolOpen, bool folderExists, GpoFolderContent? content, byte[]? folderSecurity)
-    {
-        var checks = new List<GpoCheckRowViewModel>();
-        if (!sysvolOpen)
-        {
-            HasVersionMismatch = false;
-            HasFolderAclMismatch = false;
-            checks.Add(new GpoCheckRowViewModel(Localizer[L.GroupPolicy.CheckSysvol], SysvolWarning ?? string.Empty, false));
-            return checks;
-        }
-
-        checks.Add(new GpoCheckRowViewModel(Localizer[L.GroupPolicy.CheckFolder],
-            Localizer[folderExists ? L.GroupPolicy.CheckFolderOk : L.GroupPolicy.FolderMissing], folderExists));
-
-        // Versions (design note 3.4): GPT.INI behind AD = SYSVOL replication pending; ahead = a failed write or AD lag.
-        var directory = gpo.DirectoryVersion ?? GpoVersion.Zero;
-        HasVersionMismatch = gpo.SysvolVersion is not { } sysvol || sysvol != directory;
-        var versionDetail = gpo.SysvolVersion is not { } gpt
-            ? Localizer[L.GroupPolicy.GptIniMissing]
-            : gpt == directory ? Localizer.Format(L.GroupPolicy.CheckVersionsOk, GroupPolicyText.Version(Localizer, directory))
-            : directory.IsBehind(gpt) && !gpt.IsBehind(directory) ? Localizer.Format(L.GroupPolicy.CheckVersionsAhead, GroupPolicyText.Version(Localizer, directory), GroupPolicyText.Version(Localizer, gpt))
-            : Localizer.Format(L.GroupPolicy.CheckVersionsBehind, GroupPolicyText.Version(Localizer, directory), GroupPolicyText.Version(Localizer, gpt));
-        checks.Add(new GpoCheckRowViewModel(Localizer[L.GroupPolicy.CheckVersions], versionDetail, !HasVersionMismatch));
-
-        // Folder permissions against the container's DACL (the mapping samba-tool gpo / GPMC use).
-        HasFolderAclMismatch = folderExists && folderSecurity is not null && !GpoFolderAcl.IsConsistent(folderSecurity, gpo.SecurityDescriptor);
-        checks.Add(new GpoCheckRowViewModel(Localizer[L.GroupPolicy.CheckFolderAcl],
-            Localizer[!folderExists || folderSecurity is null ? L.GroupPolicy.CheckUnknown : HasFolderAclMismatch ? L.GroupPolicy.CheckFolderAclMismatch : L.GroupPolicy.CheckFolderAclOk],
-            !HasFolderAclMismatch));
-
-        if (content is not null)
-        {
-            var machineFiles = content.Files.Keys.Any(k => k.StartsWith("Machine/", StringComparison.OrdinalIgnoreCase) && !IsMarker(k));
-            var userFiles = content.Files.Keys.Any(k => k.StartsWith("User/", StringComparison.OrdinalIgnoreCase) && !IsMarker(k));
-            var extensionsOk = machineFiles == !string.IsNullOrWhiteSpace(gpo.MachineExtensionNames) && userFiles == !string.IsNullOrWhiteSpace(gpo.UserExtensionNames);
-            checks.Add(new GpoCheckRowViewModel(Localizer[L.GroupPolicy.CheckExtensions],
-                Localizer[extensionsOk ? L.GroupPolicy.CheckExtensionsOk : L.GroupPolicy.CheckExtensionsMismatch], extensionsOk));
-            checks.Add(new GpoCheckRowViewModel(Localizer[L.GroupPolicy.CheckLeftovers],
-                content.Leftovers.Count == 0 ? Localizer[L.GroupPolicy.CheckLeftoversNone] : Localizer.Format(L.GroupPolicy.CheckLeftoversFound, content.Leftovers.Count),
-                content.Leftovers.Count == 0));
-        }
-
-        return checks;
-    }
-
-    /// <summary>Files that exist in every GPO and carry no settings of a client-side extension.</summary>
-    private static bool IsMarker(string path) => GpoFileClassifier.Classify(path) is { IsContent: false };
 
     private static string Half(int? value) => value?.ToString(System.Globalization.CultureInfo.CurrentCulture) ?? "–";
 }

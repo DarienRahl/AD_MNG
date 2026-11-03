@@ -72,6 +72,7 @@ internal static class TreeMenu
                 items.Add(Item(L.GroupPolicy.OpenCommand, shell.OpenGroupPolicyObjectsCommand));
                 items.Add(Item(L.GroupPolicy.NewCommand, new AsyncRelayCommand(() => gpoRoot.GroupPolicy.Actions.NewAsync())));
                 items.Add(Item(L.GroupPolicy.RestoreCommand, new AsyncRelayCommand(gpoRoot.GroupPolicy.Actions.RestoreAsync)));
+                items.Add(Item(L.GpoDiagnostics.Command, shell.OpenGroupPolicyDiagnosticsCommand));
                 items.Add(new Separator());
                 items.Add(Item(L.GroupPolicy.RefreshCommand, gpoRoot.RefreshCommand));
                 break;

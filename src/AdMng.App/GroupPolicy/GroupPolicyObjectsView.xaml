@@ -70,6 +70,11 @@
       <Button x:Name="ImportButton" Margin="0,0,6,4" Command="{Binding ImportCommand}" Content="{l:Tr GroupPolicy.ImportCommand}" />
       <Button x:Name="CompareButton" Margin="12,0,6,4" Command="{Binding CompareCommand}" Content="{l:Tr GroupPolicy.CompareCommand}" />
       <Button x:Name="HistoryButton" Margin="0,0,6,4" Command="{Binding HistoryCommand}" Content="{l:Tr GroupPolicy.HistoryCommand}" />
+      <Button x:Name="DiagnoseButton"
+              Margin="12,0,6,4"
+              Command="{Binding DiagnoseCommand}"
+              Content="{l:Tr GpoDiag.ToolbarCommand}"
+              ToolTip="{l:Tr GpoDiag.Title}" />
       <Button x:Name="RefreshButton"
               Margin="12,0,0,4"
               AutomationProperties.Name="{l:Tr GroupPolicy.RefreshCommand}"

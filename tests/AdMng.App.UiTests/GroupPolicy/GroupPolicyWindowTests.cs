@@ -261,8 +261,11 @@ public sealed class GroupPolicyWindowTests
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         Assert.NotEmpty(gpoView.SettingsList.Items);
         gpoView.GpoTabs.SelectedItem = gpoView.StatusTab;
+        var gpoDocument = (GroupPolicyObjectDocumentViewModel)gpoView.DataContext;
+        await UiWait.UntilAsync(() => gpoDocument.Checks.Count > 0 && !gpoDocument.IsCheckingHealth, "the Stan tab's check");
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
-        Assert.NotEmpty(gpoView.ChecksList.Items);
+        Assert.NotEmpty(gpoView.HealthPanel.ChecksList.Items);
+        Assert.NotEmpty(gpoView.HealthPanel.HealthFindingsList.Items);
 
         // The site opens its "Zasady grupy" document; the objects and WMI filter nodes open theirs.
         var sites = domain.Children.OfType<SitesNodeViewModel>().Single();

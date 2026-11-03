@@ -19,6 +19,7 @@
         xmlns:gpd="clr-namespace:AdMng.Presentation.GroupPolicy;assembly=AdMng.Presentation"
         xmlns:gpat="clr-namespace:AdMng.Presentation.GroupPolicy.AdministrativeTemplates;assembly=AdMng.Presentation"
         xmlns:gpmod="clr-namespace:AdMng.Presentation.GroupPolicy.Modeling;assembly=AdMng.Presentation"
+        xmlns:gpdiag="clr-namespace:AdMng.Presentation.GroupPolicy.Diagnostics;assembly=AdMng.Presentation"
         xmlns:gpsec="clr-namespace:AdMng.Presentation.GroupPolicy.SecuritySettings;assembly=AdMng.Presentation"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1360"
@@ -424,6 +425,7 @@
           <Separator />
           <MenuItem b:CommandMenu.Id="gpo.objects" />
           <MenuItem b:CommandMenu.Id="gpo.wmiFilters" />
+          <MenuItem b:CommandMenu.Id="gpo.diagnose" />
         </MenuItem>
         <MenuItem b:CommandMenu.Id="object.delete" />
         <MenuItem b:CommandMenu.Id="object.rename" />
@@ -899,6 +901,10 @@
             <!-- Group Policy modelling, "co dostanie komputer" (K5). -->
             <DataTemplate DataType="{x:Type gpmod:GroupPolicyModelingDocumentViewModel}">
               <gpv:GroupPolicyModelingView />
+            </DataTemplate>
+            <!-- Group Policy diagnostics (K6). -->
+            <DataTemplate DataType="{x:Type gpdiag:GroupPolicyDiagnosticsDocumentViewModel}">
+              <gpv:GroupPolicyDiagnosticsView />
             </DataTemplate>
           </ItemsControl.Resources>
         </ItemsControl>
