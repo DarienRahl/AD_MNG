@@ -271,6 +271,7 @@ public sealed class SendPageTests
         CorrespondencePagesScenario.AddRows(window, offices);
         await window.Preview.RefreshCommand.ExecuteAsync(null);
         window.Preview.SelectedRecipient = window.Preview.PreviewRecipients[1];
+        await window.Preview.Refreshing!;   // the choice refreshes the preview (debounced); the test sends what it shows
 
         await window.Send.SendTestCommand.ExecuteAsync(null);
 
