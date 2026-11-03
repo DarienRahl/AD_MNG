@@ -250,7 +250,7 @@ z treścią sprzed edycji jako warunkiem (konflikt) i `SetGpoVersion` części k
   podglądu sekcję *Zmiany ustawień*.
 - **Diagnostyka:** `AdMng.Core/GroupPolicy/Diagnostics`: `GroupPolicyDiagnosticsReader` czyta migawkę (szybko: LDAP i
   `GPT.INI`; pełnie: także foldery SYSVOL, liczby obiektów, SID-y i modele kontenerów) z DC sesji (zasada 4), najwyżej
-  cztery odczyty SYSVOL naraz; `GroupPolicyDiagnostics.Analyze` jest czystą funkcją reguł (`GpoFindingCodes`, 49 kodów,
+  cztery odczyty SYSVOL naraz; `GroupPolicyDiagnostics.Analyze` jest czystą funkcją reguł (`GpoFindingCodes`, 51 kodów,
   ważność, obszar, grupa reguł; `GpoFinding.ToString` bez wartości katalogu). Naprawy (`GpoQuickFix`) odpowiadają
   jednej metodzie `GroupPolicyPlanner` (m.in. nowe `PlanRepairExtensionNamesAsync`, `PlanRemoveDuplicateLinksAsync`) i
   idą przez podgląd planu (zasada 5, `GpoQuickFixRunner`). Karta `GroupPolicyDiagnosticsDocumentViewModel` (jedna na

@@ -456,7 +456,7 @@ spójności i słabych ustawień zabezpieczeń we wszystkich GPO domeny okna.
 **Co jest sprawdzane** (ważność w nawiasie; ✚ – z naprawą w programie):
 
 - **Połączenia:** GPO niepołączony (informacja); wszystkie połączenia wyłączone (niska ✚); połączenie z nieistniejącym GPO
-  (średnia ✚); nieczytelne lub obce wpisy połączeń (niska); GPO połączony kilka razy z tym samym kontenerem (niska ✚);
+  (średnia ✚) – a z GPO, którego to konto nie może odczytać, tylko informacja, bez usuwania połączenia; nieczytelne lub obce wpisy połączeń (niska); GPO połączony kilka razy z tym samym kontenerem (niska ✚);
   połączony GPO z wyłączonymi wszystkimi ustawieniami (średnia); połączony pusty GPO (niska).
 - **Zakres:** wyłączona część z ustawieniami (średnia ✚); włączona pusta część (informacja ✚); ustawienia użytkownika
   bez użytkowników i ustawienia komputera bez komputerów pod połączeniami (średnia); zasady konta poza poziomem domeny
@@ -468,8 +468,9 @@ spójności i słabych ustawień zabezpieczeń we wszystkich GPO domeny okna.
   różne od uprawnień GPO (średnia ✚); pliki ustawień pomijane przez klientów, bo brakuje nazw rozszerzeń (średnia ✚);
   nieczytelny plik ustawień (średnia); pozostałości przerwanego zapisu (niska); folder GPO poza SYSVOL domeny (wysoka).
 - **Ustawienia:** ta sama grupa w *Grupach z ograniczeniami* i w preferencjach (średnia); *Administratorzy* zdefiniowani
-  bez administratorów (wysoka); podstawowa i zaawansowana inspekcja jednocześnie (średnia); minimalna długość hasła
-  powyżej 14 bez opcji zezwalającej (średnia); podmiot zapisany nazwą (informacja); nieznany SID (niska); odmowa
+  bez administratorów (wysoka); podstawowa i zaawansowana inspekcja jednocześnie (średnia, gdy wymuszanie podkategorii jest
+  wyłączone; niska, gdy nie jest zdefiniowane – wtedy domyślnie działa wymuszanie); minimalna długość hasła
+  powyżej 14 bez opcji zezwalającej tam, gdzie działa (średnia); podmiot zapisany nazwą (informacja); nieznany SID (niska); odmowa
   logowania dla szerokiej grupy (wysoka).
 - **Konflikty:** GPO działające na ten sam kontener ustawiają jedno ustawienie różnie (wygrywający i przegrywający
   wymienieni z nazwy) albo tak samo (powtórzenie) – informacja.
@@ -479,7 +480,8 @@ spójności i słabych ustawień zabezpieczeń we wszystkich GPO domeny okna.
   (wysoka); hasła z odwracalnym szyfrowaniem i niezaszyfrowane hasła do serwerów SMB (wysoka); słaby poziom
   uwierzytelniania LAN Manager, przechowywane skróty LM, podpisywanie SMB lub LDAP niewymagane na kontrolerach domeny,
   dostęp anonimowy, włączone konto Gość, wyłączona kontrola konta użytkownika, słabe zasady haseł domeny (średnia).
-  Reguły kontrolerów domeny i zasad haseł domeny oceniają ustawienie, które na nich faktycznie wygrywa.
+  Reguły kontrolerów domeny i zasad haseł domeny oceniają ustawienie, które na nich faktycznie wygrywa (pierwszeństwo
+  GPO, wyłączona część komputera), a „część ma ustawienia” – przy pełnym sprawdzeniu – według plików, nie numeru wersji.
 
 Kontrole działają na danych z jednego kontrolera domeny (zasada 4) i niczego nie zmieniają; każda zmiana idzie przez
 *Napraw…* i podgląd planu. Część reguł zakłada, że filtry WMI są spełnione, a sprzężenie zwrotne jest wyłączone (jak w

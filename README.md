@@ -1447,7 +1447,7 @@ diagnostyka zasad grupy) mają pierwszą wersję; zastępuje „polityki ADMX”
   porównanie GPO, podgląd planu zmian, zakładka Watchdog) – nazwy, wartości z jednostkami i objaśnieniami, konta zamiast
   SID-ów, zasady ADMX zamiast wartości rejestru; wygoda edycji (Ctrl+S, Ctrl+F, *Edytuj to ustawienie* otwiera edytor
   na ustawieniu, *Zmiany ustawień* przed zapisem, wyszukiwanie i filtry w edytorach i na liście GPO, nagłówki bez
-  ucinania); karta **Diagnostyka zasad grupy** (szybkie i pełne sprawdzenie wszystkich GPO domeny, 49 reguł w obszarach
+  ucinania); karta **Diagnostyka zasad grupy** (szybkie i pełne sprawdzenie wszystkich GPO domeny, 51 reguł w obszarach
   połączenia, zakres, filtrowanie, wersje, folder SYSVOL, ustawienia, konflikty między GPO i bezpieczeństwo – m.in.
   `cpassword`, MS16-072, wrażliwe prawa dla szerokich grup, NTLM/LM, podpisywanie SMB i LDAP na DC – z *Napraw…* przez
   podgląd planu zmian i eksportem); zakładka *Stan* GPO na tym samym silniku. Sprawdzone na fałszywym katalogu; okna

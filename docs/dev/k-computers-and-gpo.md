@@ -1579,9 +1579,10 @@ same engine for its GPO (its checks move into Core).
 |---|---|---|---|
 | `GpoNotLinked` | Info | no link in this domain | – |
 | `GpoLinksAllDisabled` | Low | every link disabled | EnableLink |
-| `LinkToMissingGpo` | Medium | gPLink names a GPO that does not exist | Unlink |
+| `LinkToMissingGpo` | Medium | gPLink names a GPO that does not exist (base read: no such object) | Unlink |
+| `LinkToInaccessibleGpo` | Info | gPLink names a GPO the session cannot read (exists, search did not return it) | – |
 | `LinkMalformed` | Low | gPLink entries that cannot be read / other domains | – |
-| `DuplicateLink` | Low | the same GPO twice in one gPLink | Unlink (one) |
+| `DuplicateLink` | Low | the same GPO twice in one gPLink | RemoveDuplicateLinks (keeps the entry that applies) |
 | `LinkedAllSettingsDisabled` | Medium | linked, GPO status "all settings disabled" | – |
 | `PartDisabledWithSettings` | Medium | user/computer part disabled while its version > 0 | SetStatus |
 | `PartEnabledWithoutSettings` | Info | part enabled with version 0 (processing cost) | SetStatus |
@@ -1591,7 +1592,7 @@ same engine for its GPO (its checks move into Core).
 | `AccountPolicyBelowDomain` | Medium | password/lockout/Kerberos policy in a GPO not linked to the domain root | – |
 | `LoopbackWithoutComputers` | Low | loopback set in a GPO whose links reach no computers | – |
 | `NoApplyRight` | High | nobody has *Apply* – the GPO applies to nobody | – |
-| `Ms16072ComputersCannotRead` | High | user settings, computers cannot read the GPO | GrantRead |
+| `Ms16072ComputersCannotRead` | High | user settings, computers cannot read the GPO (DC token when every link is in the DC OU) | GrantRead |
 | `WmiFilterMissing` | Medium | the GPO links a WMI filter that does not exist | ClearWmiFilter |
 | `WmiFilterUnused` | Info | a WMI filter no GPO uses | DeleteWmiFilter |
 | `DenyInSecurityFiltering` | Info | deny entries in the GPO's DACL | – |
@@ -1606,8 +1607,9 @@ same engine for its GPO (its checks move into Core).
 | `PathRedirected` | High | `gPCFileSysPath` points outside the domain's SYSVOL | – |
 | `RestrictedAndPreferenceSameGroup` | Medium | one local group in Restricted Groups and in GPP | – |
 | `RestrictedAdministratorsNoAdmins` | High | Administrators' *Members* defined without Administrator/Domain Admins | – |
-| `LegacyAndAdvancedAudit` | Medium | both audit forms without forcing subcategories | – |
-| `PasswordLengthNeedsRelax` | Medium | minimum length > 14 without the relax option | – |
+| `LegacyAndAdvancedAudit` | Medium | both audit forms, forcing subcategories explicitly off | – |
+| `LegacyAndAdvancedAuditByDefault` | Low | both audit forms, forcing subcategories not defined (on by default) | – |
+| `PasswordLengthNeedsRelax` | Medium | minimum length > 14 and the winning relax option is not 1 where the length applies | – |
 | `TypedPrincipalName` | Info | a principal written as a name, not a SID | – |
 | `UnresolvedPrincipal` | Low | a SID in rights/groups that resolves to nothing | – |
 | `DenyLogonBroadGroup` | High | a deny-logon right for Everyone/Authenticated Users/Administrators/Domain Users | – |
@@ -1618,14 +1620,14 @@ same engine for its GPO (its checks move into Core).
 | `BroadGroupInPrivilegedLocalGroup` | High | Everyone/Authenticated Users/Domain Users made member of Administrators, Remote Desktop Users … | – |
 | `LmCompatibilityWeak` | Medium | `LmCompatibilityLevel` < 3 | – |
 | `LmHashStored` | Medium | `NoLMHash` = 0 | – |
-| `SmbSigningNotRequired` | Medium | SMB server signing not required in a GPO that reaches DCs | – |
-| `LdapSigningNotRequired` | Medium | `LDAPServerIntegrity` = 1 in a GPO that reaches DCs | – |
+| `SmbSigningNotRequired` | Medium | SMB server signing not required by the GPO whose value wins on the DCs | – |
+| `LdapSigningNotRequired` | Medium | `LDAPServerIntegrity` ≤ 1 from the GPO whose value wins on the DCs | – |
 | `AnonymousAccessAllowed` | Medium | anonymous SAM enumeration / name lookup / Everyone includes anonymous | – |
 | `ReversibleEncryption` | High | `ClearTextPassword` = 1 | – |
 | `GuestEnabled` | Medium | `EnableGuestAccount` = 1 | – |
 | `UacDisabled` | Medium | `EnableLUA` = 0 | – |
 | `PlainTextSmbPassword` | High | `EnablePlainTextPassword` = 1 | – |
-| `WeakDomainPasswordPolicy` | Medium | domain-root GPO: minimum length < 8, complexity off or lockout threshold 0 | – |
+| `WeakDomainPasswordPolicy` | Medium | the winning domain-root value per option: minimum length < 8, complexity off or lockout threshold 0 | – |
 
 Broad groups: Everyone, Authenticated Users, This Organization, BUILTIN\Users, Domain Users, Domain Computers. "Reaches
 DCs": linked to the domain root or the Domain Controllers OU (enforced or not blocked). Conflicts come from
@@ -1657,3 +1659,39 @@ fixes). Findings and snapshots live only in memory (rule 1).
 - Saving: the preview shows **Zmiany ustawień** (setting, before, after) in the presenter's language above the
   file rows, filled by the K3 and K4 saves.
 - GPO list: a search box (name, GUID, WMI filter, link).
+
+### 20.4 K6 as built
+
+- **Keys (C1).** Preference item attributes keep their `@` in `Property` (`@name`), properties and child paths do not
+  (`groupSid`, `Members`, `Task/Settings/Enabled`); `ValueName` is `""` for `(Default)`, `*` for hidden names, null for
+  a key without value; `Section` is the template section (`Service General Setting`); audit.csv rows without a GUID map
+  to `AdvancedAudit` by name (Policy Target `System` or a known subcategory name), else `GlobalSacl`; truncated keys
+  are parsed from their kept part, end with `…` and link to nothing; unreadable-file markers take the scope of their
+  folder. `TryParseRegistry` returns false for `DELETE*`/`CREATE_KEY` (the overload with `GpoRegistryAction` reads
+  them). The ADMX key index of `AdministrativeTemplatePolicies` is cached per definition set; the modeller uses it.
+- **Presenter (P1).** Preference properties of one item, the values of one ADMX policy, one service and one script
+  collapse into one row; options whose registry value the parsers mask show "(ustawione – ukryte)" (a masked value no
+  option explains hides every option); hashed values show the start of their hash so two can be told apart. Kerberos
+  ticket and machine-password ages have no special text for 0. `GroupPolicyText.SettingPath/SettingValue` delegate to
+  the presenter. ADMX names arrive after the rows (definitions loaded in the background, failure → registry names and
+  a note). K5 rows also offer *Edytuj to ustawienie*.
+- **Diagnostics (C2 + review).** 51 codes (the two added in review: `LinkToInaccessibleGpo`,
+  `LegacyAndAdvancedAuditByDefault`). Conflicts are compared without ADMX definitions (value by value), one preference
+  item = one setting, items with item-level targeting and masked values are not compared, a conflict is reported once
+  at the topmost container; models assume loopback off and WMI filters true. Domain SIDs with a RID below 1000 count
+  as existing. `NoApplyRight`, `Ms16072ComputersCannotRead`, `PartEnabledWithoutSettings`, `EmptyGpoLinked` fire only
+  for GPOs with an enabled link; `PartDisabledWithSettings` only when exactly one part is disabled; "a half has
+  settings" uses the parsed folder at Full depth (version > 0 otherwise); GPOs with a site link are skipped by the
+  "no users/computers" rules; `RestrictedAndPreferenceSameGroup` checks the Members form within one GPO;
+  `BroadEditRights` uses the full broad-group set; `RestrictedAdministratorsNoAdmins` accepts Enterprise Admins; the DC
+  signing and domain password rules judge the winning value (precedence, computer part enabled); a file that
+  disappears while a folder is read makes the folder "not read", not missing. For one GPO the container and WMI filter
+  rules are left out. The duplicate-link repair keeps the entry clients apply (enabled and enforced, then enabled) at
+  its place among the other links.
+- **UI (P2 + E1).** A change made elsewhere marks the diagnostics results stale instead of re-running a check; the
+  *Stan* tab checks when it is shown (also when it was selected during a load) and keeps one line per area above the
+  findings; *Wyrównaj wersje* is offered for a missing `GPT.INI` (not for an unparseable one, which the transaction
+  refuses). Ctrl+S is the palette entry `document.save` (category *Dokument*); K4 has one search/filter bar over its
+  five pages, keeps rows being edited, rows just added and options with invalid typed values listed; K3 keeps invalid
+  typed options per policy (they count as unsaved changes and block the save); *Edytuj to ustawienie* is offered only
+  for what K3/K4 edit (the seven template sections K4 knows, Groups.xml groups – not local users).
