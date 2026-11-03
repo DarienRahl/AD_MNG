@@ -229,6 +229,7 @@
             <MenuItem b:CommandMenu.Id="object.disable" />
             <MenuItem b:CommandMenu.Id="object.enable" />
             <MenuItem b:CommandMenu.Id="object.unlock" />
+            <MenuItem b:CommandMenu.Id="events.lockout" />
             <MenuItem b:CommandMenu.Id="object.resetPassword" />
             <!-- Computers (K1). -->
             <MenuItem x:Name="ComputerContextMenuItem" Header="{l:Tr Computers.ComputerMenu}">
@@ -236,6 +237,7 @@
               <MenuItem b:CommandMenu.Id="computer.remoteDesktop" />
               <MenuItem b:CommandMenu.Id="computer.manage" />
               <MenuItem b:CommandMenu.Id="computer.eventViewer" />
+              <MenuItem b:CommandMenu.Id="events.computer" />
               <MenuItem b:CommandMenu.Id="computer.ping" />
               <MenuItem b:CommandMenu.Id="gpo.model" />
               <Separator />

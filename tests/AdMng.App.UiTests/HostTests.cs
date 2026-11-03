@@ -1,6 +1,7 @@
 using System.Windows;
 using AdMng.App.Connections;
 using AdMng.App.Correspondence;
+using AdMng.App.EventLogs;
 using AdMng.App.Infrastructure;
 using AdMng.App.Localization;
 using AdMng.App.Services;
@@ -159,7 +160,25 @@ public sealed class HostTests
         typeof(Presentation.Correspondence.IBrowserPreview),
         typeof(Presentation.Correspondence.ICorrespondenceKeyProtector),
         typeof(Presentation.Correspondence.ICorrespondencePlatform),
+        typeof(Core.EventLogs.IEventLogConnector),
     ];
+
+    /// <summary>
+    /// Dzienniki zdarzeń (track E): the App registers the Windows reader of AdMng.EventLogs, application-wide and without
+    /// touching a log in its constructor (the UI tests replace it with the in-memory fake).
+    /// </summary>
+    [Fact]
+    public void EventLogRegistration_UsesTheWindowsReader()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Runs with the Windows test suite.");
+        var services = new ServiceCollection();
+        services.AddAdMngEventLogsApp();
+        using var provider = services.BuildServiceProvider();
+
+        var connector = Assert.IsType<AdMng.EventLogs.WindowsEventLogConnector>(provider.GetRequiredService<Core.EventLogs.IEventLogConnector>());
+        Assert.True(connector.IsSupported);
+        Assert.Same(connector, provider.GetRequiredService<Core.EventLogs.IEventLogConnector>());
+    }
 
     /// <summary>
     /// Korespondencja (U5): the App registers AdMng.Outlook – the signatures, the client that lists them and the U1 Outlook

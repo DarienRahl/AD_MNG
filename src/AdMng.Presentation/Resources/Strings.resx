@@ -17839,4 +17839,1407 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>The entries of this SID are inherited, so they cannot be removed on the GPO: remove them on the parent object that defines them (usually CN=Policies,CN=System or the domain object) once you are sure the account will not be restored from the Recycle Bin.</value>
   </data>
   <!-- K6 review fixes (diagnostics and editing UI): end -->
+  <!-- Track E event logs (reader, lockout source, failed logons): start -->
+  <data name="EvtLog.Title" xml:space="preserve">
+    <value>Event logs</value>
+  </data>
+  <data name="EvtLog.Command" xml:space="preserve">
+    <value>Event logs…</value>
+  </data>
+  <data name="EvtLog.ComputerCommand" xml:space="preserve">
+    <value>Event log of this computer</value>
+  </data>
+  <data name="EvtLog.LockoutCommand" xml:space="preserve">
+    <value>Find the lockout source…</value>
+  </data>
+  <data name="EvtLog.FailedLogonsCommand" xml:space="preserve">
+    <value>Failed logons…</value>
+  </data>
+  <data name="EvtLog.NotSupported" xml:space="preserve">
+    <value>Event logs can be read only in AD Manager running on Windows.</value>
+  </data>
+  <data name="EvtLog.NotSupportedSimpleBind" xml:space="preserve">
+    <value>This window is connected with a simple bind (distinguished name and password) – reading event logs needs a Windows logon (Kerberos). Connect with the current account or with DOMAIN\user or a UPN.</value>
+  </data>
+  <data name="EvtLog.PersonalDataNote" xml:space="preserve">
+    <value>This file contains personal data from event logs (accounts, addresses, computer names). Keep and share it according to your data protection rules.</value>
+  </data>
+  <data name="EvtLog.ExportCsv" xml:space="preserve">
+    <value>Export to CSV…</value>
+  </data>
+  <data name="EvtLog.ExportHtml" xml:space="preserve">
+    <value>Export to HTML…</value>
+  </data>
+  <data name="EvtLog.HtmlFilter" xml:space="preserve">
+    <value>HTML page (*.html)</value>
+  </data>
+  <data name="EvtLog.Run" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="EvtLog.Cancelled" xml:space="preserve">
+    <value>Cancelled.</value>
+  </data>
+  <data name="EvtLog.NeverRun" xml:space="preserve">
+    <value>Choose the sources and the query, then click Search.</value>
+  </data>
+  <data name="EvtLog.StatusReading" xml:space="preserve">
+    <value>Reading: {0} of {1} sources, {2} events</value>
+  </data>
+  <data name="EvtLog.StatusDone" xml:space="preserve">
+    <value>{0} events from {1} sources</value>
+  </data>
+  <data name="EvtLog.StatusDoneWithFailures" xml:space="preserve">
+    <value>{0} events from {1} sources, {2} could not be read</value>
+  </data>
+  <data name="EvtLog.StatusCancelled" xml:space="preserve">
+    <value>Cancelled after {0} events – the events read until then are shown.</value>
+  </data>
+  <data name="EvtLog.RecordsDropped" xml:space="preserve">
+    <value>The newest {0} of {1} events are shown – the rest exceed the memory limit. Narrow the query.</value>
+  </data>
+  <data name="EvtLog.NoRecords" xml:space="preserve">
+    <value>No event matches the query.</value>
+  </data>
+  <data name="EvtLog.NoMatches" xml:space="preserve">
+    <value>No loaded event contains this text.</value>
+  </data>
+  <data name="EvtLog.NoSourceSelected" xml:space="preserve">
+    <value>Select at least one source.</value>
+  </data>
+  <data name="EvtLog.SourcesHeading" xml:space="preserve">
+    <value>Sources</value>
+  </data>
+  <data name="EvtLog.AddComputer" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="EvtLog.ComputerPlaceholder" xml:space="preserve">
+    <value>Full DNS name, e.g. waw-pc001.contoso.test</value>
+  </data>
+  <data name="EvtLog.PickComputers" xml:space="preserve">
+    <value>Pick from AD…</value>
+  </data>
+  <data name="EvtLog.OpenFiles" xml:space="preserve">
+    <value>Open .evtx file…</value>
+  </data>
+  <data name="EvtLog.EvtxFilter" xml:space="preserve">
+    <value>Event log files (*.evtx)</value>
+  </data>
+  <data name="EvtLog.RemoveSource" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="EvtLog.KindDomainController" xml:space="preserve">
+    <value>domain controller</value>
+  </data>
+  <data name="EvtLog.KindPdc" xml:space="preserve">
+    <value>PDC emulator</value>
+  </data>
+  <data name="EvtLog.KindComputer" xml:space="preserve">
+    <value>computer</value>
+  </data>
+  <data name="EvtLog.KindFiles" xml:space="preserve">
+    <value>.evtx file</value>
+  </data>
+  <data name="EvtLog.NoDomainControllers" xml:space="preserve">
+    <value>The domain controllers could not be listed: {0}</value>
+  </data>
+  <data name="EvtLog.InvalidHost" xml:space="preserve">
+    <value>"{0}" is not the full DNS name of a computer – Kerberos needs the name with the domain (e.g. waw-pc001.contoso.test).</value>
+  </data>
+  <data name="EvtLog.ComputerNoDns" xml:space="preserve">
+    <value>The computer {0} has no DNS name in AD.</value>
+  </data>
+  <data name="EvtLog.QueryHeading" xml:space="preserve">
+    <value>Query</value>
+  </data>
+  <data name="EvtLog.ChannelLabel" xml:space="preserve">
+    <value>Channel</value>
+  </data>
+  <data name="EvtLog.LoadChannels" xml:space="preserve">
+    <value>Load channels</value>
+  </data>
+  <data name="EvtLog.LoadingChannels" xml:space="preserve">
+    <value>Loading the channels of {0}…</value>
+  </data>
+  <data name="EvtLog.ChannelsLoaded" xml:space="preserve">
+    <value>{0}: {1} channels loaded.</value>
+  </data>
+  <data name="EvtLog.InvalidChannel" xml:space="preserve">
+    <value>A channel name may contain only letters, digits, spaces and . _ - /.</value>
+  </data>
+  <data name="EvtLog.TimeLabel" xml:space="preserve">
+    <value>Time</value>
+  </data>
+  <data name="EvtLog.FromLabel" xml:space="preserve">
+    <value>From</value>
+  </data>
+  <data name="EvtLog.ToLabel" xml:space="preserve">
+    <value>To</value>
+  </data>
+  <data name="EvtLog.InvalidRange" xml:space="preserve">
+    <value>The start of the window must be before its end.</value>
+  </data>
+  <data name="EvtLog.EventIdsLabel" xml:space="preserve">
+    <value>Event IDs</value>
+  </data>
+  <data name="EvtLog.EventIdsPlaceholder" xml:space="preserve">
+    <value>e.g. 4625, 4740, 4768-4771</value>
+  </data>
+  <data name="EvtLog.InvalidEventIds" xml:space="preserve">
+    <value>Type IDs separated by commas or ranges (e.g. 4768-4771) from 0 to 65535, at most {0}.</value>
+  </data>
+  <data name="EvtLog.LevelsLabel" xml:space="preserve">
+    <value>Levels</value>
+  </data>
+  <data name="EvtLog.ProvidersLabel" xml:space="preserve">
+    <value>Providers</value>
+  </data>
+  <data name="EvtLog.ProvidersPlaceholder" xml:space="preserve">
+    <value>e.g. Microsoft-Windows-Security-Auditing</value>
+  </data>
+  <data name="EvtLog.OutcomeLabel" xml:space="preserve">
+    <value>Audit</value>
+  </data>
+  <data name="EvtLog.AccountLabel" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="EvtLog.SidLabel" xml:space="preserve">
+    <value>SID</value>
+  </data>
+  <data name="EvtLog.IpLabel" xml:space="preserve">
+    <value>IP address</value>
+  </data>
+  <data name="EvtLog.WorkstationLabel" xml:space="preserve">
+    <value>Workstation</value>
+  </data>
+  <data name="EvtLog.FieldLabel" xml:space="preserve">
+    <value>in field</value>
+  </data>
+  <data name="EvtLog.FieldsOnlySecurity" xml:space="preserve">
+    <value>The account, SID, IP address and workstation fields apply to the Security channel; for other channels use the XPath mode.</value>
+  </data>
+  <data name="EvtLog.InvalidValue" xml:space="preserve">
+    <value>The value of "{0}" contains characters that cannot be used in a query.</value>
+  </data>
+  <data name="EvtLog.QueryRejected" xml:space="preserve">
+    <value>The query cannot be built from these values – simplify it.</value>
+  </data>
+  <data name="EvtLog.RawMode" xml:space="preserve">
+    <value>XPath mode (expert)</value>
+  </data>
+  <data name="EvtLog.RawPlaceholder" xml:space="preserve">
+    <value>*[System[(EventID=4740)]]</value>
+  </data>
+  <data name="EvtLog.RawValid" xml:space="preserve">
+    <value>The expression passes the check; the computer checks the rest.</value>
+  </data>
+  <data name="EvtLog.RawTimeNote" xml:space="preserve">
+    <value>In XPath mode the time window, IDs, levels, providers and fields are not added – limit the time in the expression itself, e.g. *[System[TimeCreated[timediff(@SystemTime) &lt;= 86400000]]].</value>
+  </data>
+  <data name="EvtLog.SavedQueriesLabel" xml:space="preserve">
+    <value>Saved queries</value>
+  </data>
+  <data name="EvtLog.SaveQuery" xml:space="preserve">
+    <value>Save query</value>
+  </data>
+  <data name="EvtLog.SaveQueryName" xml:space="preserve">
+    <value>Name of the query</value>
+  </data>
+  <data name="EvtLog.LoadQuery" xml:space="preserve">
+    <value>Load</value>
+  </data>
+  <data name="EvtLog.DeleteQuery" xml:space="preserve">
+    <value>Delete saved query</value>
+  </data>
+  <data name="EvtLog.DeleteQueryConfirm" xml:space="preserve">
+    <value>Delete the saved query "{0}"?</value>
+  </data>
+  <data name="EvtLog.QuerySaved" xml:space="preserve">
+    <value>The query "{0}" was saved.</value>
+  </data>
+  <data name="EvtLog.QueryNameRequired" xml:space="preserve">
+    <value>Type a name for the query.</value>
+  </data>
+  <data name="EvtLog.SearchPlaceholder" xml:space="preserve">
+    <value>Filter the loaded events (Ctrl+F)</value>
+  </data>
+  <data name="EvtLog.HostsHeading" xml:space="preserve">
+    <value>Coverage and access</value>
+  </data>
+  <data name="EvtLog.ColumnTime" xml:space="preserve">
+    <value>Time</value>
+  </data>
+  <data name="EvtLog.ColumnHost" xml:space="preserve">
+    <value>Computer</value>
+  </data>
+  <data name="EvtLog.ColumnChannel" xml:space="preserve">
+    <value>Channel</value>
+  </data>
+  <data name="EvtLog.ColumnId" xml:space="preserve">
+    <value>Event ID</value>
+  </data>
+  <data name="EvtLog.ColumnLevel" xml:space="preserve">
+    <value>Level</value>
+  </data>
+  <data name="EvtLog.ColumnProvider" xml:space="preserve">
+    <value>Provider</value>
+  </data>
+  <data name="EvtLog.ColumnSummary" xml:space="preserve">
+    <value>Summary</value>
+  </data>
+  <data name="EvtLog.ColumnData" xml:space="preserve">
+    <value>Fields</value>
+  </data>
+  <data name="EvtLog.ColumnState" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="EvtLog.ColumnRecords" xml:space="preserve">
+    <value>Events</value>
+  </data>
+  <data name="EvtLog.ColumnCoverage" xml:space="preserve">
+    <value>Log coverage</value>
+  </data>
+  <data name="EvtLog.ColumnKind" xml:space="preserve">
+    <value>Kind</value>
+  </data>
+  <data name="EvtLog.CoverageOldest" xml:space="preserve">
+    <value>oldest {0}</value>
+  </data>
+  <data name="EvtLog.CoverageEmpty" xml:space="preserve">
+    <value>empty</value>
+  </data>
+  <data name="EvtLog.CoverageRecords" xml:space="preserve">
+    <value>{0} events</value>
+  </data>
+  <data name="EvtLog.CoverageSize" xml:space="preserve">
+    <value>{0} of {1}</value>
+  </data>
+  <data name="EvtLog.CoverageFull" xml:space="preserve">
+    <value>full</value>
+  </data>
+  <data name="EvtLog.CoverageDisabled" xml:space="preserve">
+    <value>the log is disabled</value>
+  </data>
+  <data name="EvtLog.CoverageUnknown" xml:space="preserve">
+    <value>coverage unknown</value>
+  </data>
+  <data name="EvtLog.CoverageShort" xml:space="preserve">
+    <value>{0} only reaches back {1} (since {2}).</value>
+  </data>
+  <data name="EvtLog.DurationMinutes" xml:space="preserve">
+    <value>{0} min</value>
+  </data>
+  <data name="EvtLog.DurationHours" xml:space="preserve">
+    <value>{0} h</value>
+  </data>
+  <data name="EvtLog.DurationDays" xml:space="preserve">
+    <value>{0} days</value>
+  </data>
+  <data name="EvtLog.Megabytes" xml:space="preserve">
+    <value>{0} MB</value>
+  </data>
+  <data name="EvtLog.WithErrorCode" xml:space="preserve">
+    <value>{0} (error {1})</value>
+  </data>
+  <data name="EvtLog.DetailsHeading" xml:space="preserve">
+    <value>Event details</value>
+  </data>
+  <data name="EvtLog.DetailsEmpty" xml:space="preserve">
+    <value>Select an event to see its fields.</value>
+  </data>
+  <data name="EvtLog.ShowMessage" xml:space="preserve">
+    <value>Show message</value>
+  </data>
+  <data name="EvtLog.MessageUnavailable" xml:space="preserve">
+    <value>The computer has no description of this event (no publisher metadata in this language) – the fields show everything that was logged.</value>
+  </data>
+  <data name="EvtLog.Copied" xml:space="preserve">
+    <value>The event details were copied.</value>
+  </data>
+  <data name="EvtLog.FieldTime" xml:space="preserve">
+    <value>Time</value>
+  </data>
+  <data name="EvtLog.FieldHost" xml:space="preserve">
+    <value>Read from</value>
+  </data>
+  <data name="EvtLog.FieldComputer" xml:space="preserve">
+    <value>Computer</value>
+  </data>
+  <data name="EvtLog.FieldChannel" xml:space="preserve">
+    <value>Channel</value>
+  </data>
+  <data name="EvtLog.FieldProvider" xml:space="preserve">
+    <value>Provider</value>
+  </data>
+  <data name="EvtLog.FieldEventId" xml:space="preserve">
+    <value>Event ID</value>
+  </data>
+  <data name="EvtLog.FieldLevel" xml:space="preserve">
+    <value>Level</value>
+  </data>
+  <data name="EvtLog.FieldRecordId" xml:space="preserve">
+    <value>Record number</value>
+  </data>
+  <data name="EvtLog.FieldUser" xml:space="preserve">
+    <value>User (SID)</value>
+  </data>
+  <data name="EvtLog.UnknownCode" xml:space="preserve">
+    <value>unknown code</value>
+  </data>
+  <data name="EvtLog.NoCode" xml:space="preserve">
+    <value>no code</value>
+  </data>
+  <data name="EvtLog.CodeWithMeaning" xml:space="preserve">
+    <value>{0} – {1}</value>
+  </data>
+  <data name="EvtLog.CodeCountLine" xml:space="preserve">
+    <value>{0} · {1}: {2}</value>
+  </data>
+  <data name="EvtLog.LogonTypeShort" xml:space="preserve">
+    <value>logon type {0} ({1})</value>
+  </data>
+  <data name="EvtLog.SourceWithKind" xml:space="preserve">
+    <value>{0} {1}</value>
+  </data>
+  <data name="EvtLog.AuditEventLine" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="EvtLog.AuditSuccess" xml:space="preserve">
+    <value>success</value>
+  </data>
+  <data name="EvtLog.AuditFailure" xml:space="preserve">
+    <value>failure</value>
+  </data>
+  <data name="EvtLog.ReportTitle" xml:space="preserve">
+    <value>Event logs – {0}</value>
+  </data>
+  <data name="EvtLock.Title" xml:space="preserve">
+    <value>Lockout source – {0}</value>
+  </data>
+  <data name="EvtLock.NeverRun" xml:space="preserve">
+    <value>Click Check to read the state of the account on every domain controller and their Security logs.</value>
+  </data>
+  <data name="EvtLock.Run" xml:space="preserve">
+    <value>Check</value>
+  </data>
+  <data name="EvtLock.WindowLabel" xml:space="preserve">
+    <value>Window</value>
+  </data>
+  <data name="EvtLock.StageAccount" xml:space="preserve">
+    <value>Reading the account and its lockout policy…</value>
+  </data>
+  <data name="EvtLock.StageDomainControllers" xml:space="preserve">
+    <value>Reading the state of the account on the domain controllers…</value>
+  </data>
+  <data name="EvtLock.StageLogs" xml:space="preserve">
+    <value>Security logs – {0}</value>
+  </data>
+  <data name="EvtLock.StageAnalysis" xml:space="preserve">
+    <value>Analysing…</value>
+  </data>
+  <data name="EvtLock.StatusDone" xml:space="preserve">
+    <value>{0} sources, {1} lockouts, {2} events read</value>
+  </data>
+  <data name="EvtLock.AccountNotFound" xml:space="preserve">
+    <value>The account no longer exists.</value>
+  </data>
+  <data name="EvtLock.NotAUser" xml:space="preserve">
+    <value>The object is not a user account.</value>
+  </data>
+  <data name="EvtLock.AccountNotOnDc" xml:space="preserve">
+    <value>the account is not on this domain controller (not replicated yet)</value>
+  </data>
+  <data name="EvtLock.SummaryHeading" xml:space="preserve">
+    <value>Summary</value>
+  </data>
+  <data name="EvtLock.LockedNow" xml:space="preserve">
+    <value>The account is locked now on: {0}</value>
+  </data>
+  <data name="EvtLock.NotLockedNow" xml:space="preserve">
+    <value>The account is not locked now.</value>
+  </data>
+  <data name="EvtLock.LastLockout" xml:space="preserve">
+    <value>Last lockout: {0} on {1}</value>
+  </data>
+  <data name="EvtLock.LastLockoutState" xml:space="preserve">
+    <value>Last lockout (lockoutTime): {0} – no event 4740 was read</value>
+  </data>
+  <data name="EvtLock.NoLockout" xml:space="preserve">
+    <value>No lockout in the window.</value>
+  </data>
+  <data name="EvtLock.Policy" xml:space="preserve">
+    <value>Lockout threshold: {0} bad passwords within {1}; locked for {2} ({3}).</value>
+  </data>
+  <data name="EvtLock.PolicyNever" xml:space="preserve">
+    <value>The policy never locks the account (threshold 0).</value>
+  </data>
+  <data name="EvtLock.PolicyDomain" xml:space="preserve">
+    <value>domain policy</value>
+  </data>
+  <data name="EvtLock.PolicyPso" xml:space="preserve">
+    <value>fine-grained password policy {0}</value>
+  </data>
+  <data name="EvtLock.UntilUnlocked" xml:space="preserve">
+    <value>until an administrator unlocks it</value>
+  </data>
+  <data name="EvtLock.Counts" xml:space="preserve">
+    <value>Failed attempts: {0}, of them wrong passwords: {1}.</value>
+  </data>
+  <data name="EvtLock.Window" xml:space="preserve">
+    <value>Window: {0} – {1}</value>
+  </data>
+  <data name="EvtLock.SourcesHeading" xml:space="preserve">
+    <value>Sources of the attempts</value>
+  </data>
+  <data name="EvtLock.NoSources" xml:space="preserve">
+    <value>No source of failed attempts was found in the window.</value>
+  </data>
+  <data name="EvtLock.ProxyHint" xml:space="preserve">
+    <value>Probably a front-end server: {0}.</value>
+  </data>
+  <data name="EvtLock.SourceIsDomainController" xml:space="preserve">
+    <value>A domain controller – it only relayed the attempt; the real client is in its log.</value>
+  </data>
+  <data name="EvtLock.RelatedNames" xml:space="preserve">
+    <value>Workstation names seen with this address: {0}</value>
+  </data>
+  <data name="EvtLock.TimelineHeading" xml:space="preserve">
+    <value>Timeline</value>
+  </data>
+  <data name="EvtLock.DomainControllersHeading" xml:space="preserve">
+    <value>Domain controllers</value>
+  </data>
+  <data name="EvtLock.NotesHeading" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="EvtLock.AuditHeading" xml:space="preserve">
+    <value>Auditing on the domain controllers</value>
+  </data>
+  <data name="EvtLock.AuditHint" xml:space="preserve">
+    <value>"Probably not audited" means that no event was found although the log covers the window – check the subcategory in the Group Policy model of that DC.</value>
+  </data>
+  <data name="EvtLock.Originating" xml:space="preserve">
+    <value>lockout written here</value>
+  </data>
+  <data name="EvtLock.NotLocked" xml:space="preserve">
+    <value>no</value>
+  </data>
+  <data name="EvtLock.DcRecords" xml:space="preserve">
+    <value>lockouts: {0}, failures: {1}</value>
+  </data>
+  <data name="EvtLock.ColumnRank" xml:space="preserve">
+    <value>#</value>
+  </data>
+  <data name="EvtLock.ColumnKind" xml:space="preserve">
+    <value>Kind</value>
+  </data>
+  <data name="EvtLock.ColumnSource" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="EvtLock.ColumnFailures" xml:space="preserve">
+    <value>Failures</value>
+  </data>
+  <data name="EvtLock.ColumnBadPasswords" xml:space="preserve">
+    <value>Wrong passwords</value>
+  </data>
+  <data name="EvtLock.ColumnContributing" xml:space="preserve">
+    <value>Before a lockout</value>
+  </data>
+  <data name="EvtLock.ColumnLockouts" xml:space="preserve">
+    <value>Lockouts</value>
+  </data>
+  <data name="EvtLock.ColumnFirst" xml:space="preserve">
+    <value>First</value>
+  </data>
+  <data name="EvtLock.ColumnLast" xml:space="preserve">
+    <value>Last</value>
+  </data>
+  <data name="EvtLock.ColumnDcs" xml:space="preserve">
+    <value>Domain controllers</value>
+  </data>
+  <data name="EvtLock.ColumnCodes" xml:space="preserve">
+    <value>Codes</value>
+  </data>
+  <data name="EvtLock.ColumnHint" xml:space="preserve">
+    <value>Hint</value>
+  </data>
+  <data name="EvtLock.ColumnDc" xml:space="preserve">
+    <value>Domain controller</value>
+  </data>
+  <data name="EvtLock.ColumnRoles" xml:space="preserve">
+    <value>Role</value>
+  </data>
+  <data name="EvtLock.ColumnLocked" xml:space="preserve">
+    <value>Locked</value>
+  </data>
+  <data name="EvtLock.ColumnBadPwdCount" xml:space="preserve">
+    <value>Bad passwords (counter)</value>
+  </data>
+  <data name="EvtLock.ColumnBadPasswordTime" xml:space="preserve">
+    <value>Last bad password</value>
+  </data>
+  <data name="EvtLock.ColumnLastLogon" xml:space="preserve">
+    <value>Last logon</value>
+  </data>
+  <data name="EvtLock.ColumnSubcategory" xml:space="preserve">
+    <value>Audit subcategory</value>
+  </data>
+  <data name="EvtLock.ColumnRecords" xml:space="preserve">
+    <value>Events of the account</value>
+  </data>
+  <data name="EvtLock.Pivot" xml:space="preserve">
+    <value>Check the source computer</value>
+  </data>
+  <data name="EvtLock.PivotHeadingLabel" xml:space="preserve">
+    <value>Source computer</value>
+  </data>
+  <data name="EvtLock.PivotResolving" xml:space="preserve">
+    <value>Looking for the computer of {0}…</value>
+  </data>
+  <data name="EvtLock.PivotResolvedFromIp" xml:space="preserve">
+    <value>The address {0} is {1} (DNS).</value>
+  </data>
+  <data name="EvtLock.PivotNotFound" xml:space="preserve">
+    <value>No computer for "{0}" was found in AD.</value>
+  </data>
+  <data name="EvtLock.PivotNotFoundHint" xml:space="preserve">
+    <value>The source may be outside the domain (a phone, a VPN client, a computer of another forest) – check the devices of the user or the front-end server in front of it.</value>
+  </data>
+  <data name="EvtLock.PivotComputer" xml:space="preserve">
+    <value>Source computer: {0} ({1})</value>
+  </data>
+  <data name="EvtLock.PivotNotAvailable" xml:space="preserve">
+    <value>Remote actions are not available in this window – open the properties of the computer or check it on site.</value>
+  </data>
+  <data name="EvtLock.PivotSessions" xml:space="preserve">
+    <value>Sessions of the account: {0}</value>
+  </data>
+  <data name="EvtLock.PivotConsole" xml:space="preserve">
+    <value>{0} (console)</value>
+  </data>
+  <data name="EvtLock.PivotNoSessions" xml:space="preserve">
+    <value>The account is not logged on to this computer.</value>
+  </data>
+  <data name="EvtLock.PivotServices" xml:space="preserve">
+    <value>Services running as the account: {0}</value>
+  </data>
+  <data name="EvtLock.PivotNoServices" xml:space="preserve">
+    <value>No service runs as the account.</value>
+  </data>
+  <data name="EvtLock.PivotTasks" xml:space="preserve">
+    <value>Scheduled tasks running as the account: {0}</value>
+  </data>
+  <data name="EvtLock.PivotTaskStoresPassword" xml:space="preserve">
+    <value>{0} (stored password)</value>
+  </data>
+  <data name="EvtLock.PivotNoTasks" xml:space="preserve">
+    <value>No scheduled task runs as the account.</value>
+  </data>
+  <data name="EvtLock.PivotFailed" xml:space="preserve">
+    <value>Not read: {0}</value>
+  </data>
+  <data name="EvtLock.OpenRemote" xml:space="preserve">
+    <value>Open remote actions</value>
+  </data>
+  <data name="EvtLock.ShowInModel" xml:space="preserve">
+    <value>Show in model</value>
+  </data>
+  <data name="EvtLock.GroupPolicyDiagnostics" xml:space="preserve">
+    <value>Group Policy diagnostics</value>
+  </data>
+  <data name="EvtLock.WatchdogHistory" xml:space="preserve">
+    <value>History in Watchdog</value>
+  </data>
+  <data name="EvtFail.Title" xml:space="preserve">
+    <value>Failed logons</value>
+  </data>
+  <data name="EvtFail.NeverRun" xml:space="preserve">
+    <value>Choose the window and click Check to read the failed logons of every domain controller.</value>
+  </data>
+  <data name="EvtFail.Run" xml:space="preserve">
+    <value>Check</value>
+  </data>
+  <data name="EvtFail.WindowLabel" xml:space="preserve">
+    <value>Window</value>
+  </data>
+  <data name="EvtFail.ThresholdsHeading" xml:space="preserve">
+    <value>Thresholds</value>
+  </data>
+  <data name="EvtFail.BruteForceLabel" xml:space="preserve">
+    <value>Password guessing: failures of one account from one source</value>
+  </data>
+  <data name="EvtFail.SprayAccountsLabel" xml:space="preserve">
+    <value>Password spraying: accounts from one source</value>
+  </data>
+  <data name="EvtFail.SprayWindowLabel" xml:space="preserve">
+    <value>Spraying window (minutes)</value>
+  </data>
+  <data name="EvtFail.SprayMaxLabel" xml:space="preserve">
+    <value>Spraying: at most failures per account</value>
+  </data>
+  <data name="EvtFail.EnumerationLabel" xml:space="preserve">
+    <value>Account enumeration: unknown names from one source</value>
+  </data>
+  <data name="EvtFail.SuccessAfterLabel" xml:space="preserve">
+    <value>Success after failures: at least failures</value>
+  </data>
+  <data name="EvtFail.StageFailures" xml:space="preserve">
+    <value>Failures – {0}</value>
+  </data>
+  <data name="EvtFail.StageSuccesses" xml:space="preserve">
+    <value>Successful logons of {0} accounts…</value>
+  </data>
+  <data name="EvtFail.StageAnalysis" xml:space="preserve">
+    <value>Analysing…</value>
+  </data>
+  <data name="EvtFail.Summary" xml:space="preserve">
+    <value>{0} failures, {1} successful logons, {2} findings · {3} – {4}</value>
+  </data>
+  <data name="EvtFail.RecordsDropped" xml:space="preserve">
+    <value>{0} events exceeded the memory limit and were not analysed – shorten the window.</value>
+  </data>
+  <data name="EvtFail.Chip" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="EvtFail.All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="EvtFail.FilterSeverity" xml:space="preserve">
+    <value>Severity</value>
+  </data>
+  <data name="EvtFail.FilterKind" xml:space="preserve">
+    <value>Kind</value>
+  </data>
+  <data name="EvtFail.SearchPlaceholder" xml:space="preserve">
+    <value>Filter the findings (Ctrl+F)</value>
+  </data>
+  <data name="EvtFail.ClearFilters" xml:space="preserve">
+    <value>Clear filters</value>
+  </data>
+  <data name="EvtFail.NoFindings" xml:space="preserve">
+    <value>No findings in this window.</value>
+  </data>
+  <data name="EvtFail.NoMatches" xml:space="preserve">
+    <value>No finding passes the filters.</value>
+  </data>
+  <data name="EvtFail.FindingsHeading" xml:space="preserve">
+    <value>Findings</value>
+  </data>
+  <data name="EvtFail.ColumnSeverity" xml:space="preserve">
+    <value>Severity</value>
+  </data>
+  <data name="EvtFail.ColumnKind" xml:space="preserve">
+    <value>Kind</value>
+  </data>
+  <data name="EvtFail.ColumnAccounts" xml:space="preserve">
+    <value>Accounts</value>
+  </data>
+  <data name="EvtFail.ColumnCount" xml:space="preserve">
+    <value>Attempts</value>
+  </data>
+  <data name="EvtFail.FindingTitle" xml:space="preserve">
+    <value>{0} – {1}</value>
+  </data>
+  <data name="EvtFail.DetailsHeading" xml:space="preserve">
+    <value>Finding details</value>
+  </data>
+  <data name="EvtFail.DetailsEmpty" xml:space="preserve">
+    <value>Select a finding to see its details and events.</value>
+  </data>
+  <data name="EvtFail.ExplanationHeading" xml:space="preserve">
+    <value>What it means</value>
+  </data>
+  <data name="EvtFail.AccountsHeading" xml:space="preserve">
+    <value>Accounts</value>
+  </data>
+  <data name="EvtFail.Reveal" xml:space="preserve">
+    <value>Show</value>
+  </data>
+  <data name="EvtFail.MaskedAccount" xml:space="preserve">
+    <value>•••••• (unknown name, hidden)</value>
+  </data>
+  <data name="EvtFail.AccountCount" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="EvtFail.MoreAccounts" xml:space="preserve">
+    <value> and {0} more</value>
+  </data>
+  <data name="EvtFail.CodesHeading" xml:space="preserve">
+    <value>Failure codes</value>
+  </data>
+  <data name="EvtFail.RecordsHeading" xml:space="preserve">
+    <value>Events ({0})</value>
+  </data>
+  <data name="EvtFail.RecordsTruncated" xml:space="preserve">
+    <value>Events (first {0})</value>
+  </data>
+  <data name="EvtFail.TopAccountsHeading" xml:space="preserve">
+    <value>Top accounts</value>
+  </data>
+  <data name="EvtFail.TopSourcesHeading" xml:space="preserve">
+    <value>Top sources</value>
+  </data>
+  <data name="EvtFail.TopSource" xml:space="preserve">
+    <value>{0}: {1} failures, {2} accounts</value>
+  </data>
+  <data name="EvtFail.TopSourceRelayed" xml:space="preserve">
+    <value>{0}: {1} failures, {2} accounts (relayed by a DC)</value>
+  </data>
+  <data name="EvtFail.SummaryHeading" xml:space="preserve">
+    <value>Summary</value>
+  </data>
+  <data name="EventCode.NtStatus.00000000" xml:space="preserve">
+    <value>success</value>
+  </data>
+  <data name="EventCode.NtStatus.C000005E" xml:space="preserve">
+    <value>no logon server is available</value>
+  </data>
+  <data name="EventCode.NtStatus.C0000064" xml:space="preserve">
+    <value>the account does not exist</value>
+  </data>
+  <data name="EventCode.NtStatus.C000006A" xml:space="preserve">
+    <value>wrong password</value>
+  </data>
+  <data name="EventCode.NtStatus.C000006D" xml:space="preserve">
+    <value>logon failure (unknown user name or wrong password)</value>
+  </data>
+  <data name="EventCode.NtStatus.C000006E" xml:space="preserve">
+    <value>account restriction</value>
+  </data>
+  <data name="EventCode.NtStatus.C000006F" xml:space="preserve">
+    <value>outside the allowed logon hours</value>
+  </data>
+  <data name="EventCode.NtStatus.C0000070" xml:space="preserve">
+    <value>logon from this workstation is not allowed</value>
+  </data>
+  <data name="EventCode.NtStatus.C0000071" xml:space="preserve">
+    <value>the password expired</value>
+  </data>
+  <data name="EventCode.NtStatus.C0000072" xml:space="preserve">
+    <value>the account is disabled</value>
+  </data>
+  <data name="EventCode.NtStatus.C00000DC" xml:space="preserve">
+    <value>the SAM server is in the wrong state</value>
+  </data>
+  <data name="EventCode.NtStatus.C0000133" xml:space="preserve">
+    <value>the clocks of the computer and the domain controller differ too much</value>
+  </data>
+  <data name="EventCode.NtStatus.C000015B" xml:space="preserve">
+    <value>the logon type is not granted on this computer</value>
+  </data>
+  <data name="EventCode.NtStatus.C000018C" xml:space="preserve">
+    <value>the trust between the domains failed</value>
+  </data>
+  <data name="EventCode.NtStatus.C000018D" xml:space="preserve">
+    <value>the trust of the computer failed (secure channel)</value>
+  </data>
+  <data name="EventCode.NtStatus.C0000192" xml:space="preserve">
+    <value>the Netlogon service is not running</value>
+  </data>
+  <data name="EventCode.NtStatus.C0000193" xml:space="preserve">
+    <value>the account expired</value>
+  </data>
+  <data name="EventCode.NtStatus.C0000224" xml:space="preserve">
+    <value>the password must be changed at the next logon</value>
+  </data>
+  <data name="EventCode.NtStatus.C0000225" xml:space="preserve">
+    <value>not found (a Windows defect, no risk)</value>
+  </data>
+  <data name="EventCode.NtStatus.C0000234" xml:space="preserve">
+    <value>the account is locked out</value>
+  </data>
+  <data name="EventCode.NtStatus.C00002EE" xml:space="preserve">
+    <value>an error occurred during the logon</value>
+  </data>
+  <data name="EventCode.NtStatus.C0000371" xml:space="preserve">
+    <value>the local account store has no secret for this account</value>
+  </data>
+  <data name="EventCode.NtStatus.C0000380" xml:space="preserve">
+    <value>smart card: wrong PIN</value>
+  </data>
+  <data name="EventCode.NtStatus.C0000413" xml:space="preserve">
+    <value>the authentication firewall refused the logon (selective authentication)</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x0" xml:space="preserve">
+    <value>success</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x1" xml:space="preserve">
+    <value>the client's entry expired</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x2" xml:space="preserve">
+    <value>the server's entry expired</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x3" xml:space="preserve">
+    <value>the protocol version is not supported</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x6" xml:space="preserve">
+    <value>the client is not in the Kerberos database (the account does not exist)</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x7" xml:space="preserve">
+    <value>the server is not in the Kerberos database (unknown SPN)</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x8" xml:space="preserve">
+    <value>the principal is not unique (duplicate SPN)</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x9" xml:space="preserve">
+    <value>no key for the principal</value>
+  </data>
+  <data name="EventCode.KerberosResult.0xC" xml:space="preserve">
+    <value>a KDC policy rejects the request (logon hours, workstation, Protected Users, silo)</value>
+  </data>
+  <data name="EventCode.KerberosResult.0xD" xml:space="preserve">
+    <value>the KDC cannot provide the requested option (delegation)</value>
+  </data>
+  <data name="EventCode.KerberosResult.0xE" xml:space="preserve">
+    <value>the encryption type is not supported</value>
+  </data>
+  <data name="EventCode.KerberosResult.0xF" xml:space="preserve">
+    <value>the checksum type is not supported</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x10" xml:space="preserve">
+    <value>the pre-authentication data type is not supported</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x12" xml:space="preserve">
+    <value>the credentials were revoked: the account is disabled, expired or locked out</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x17" xml:space="preserve">
+    <value>the password expired</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x18" xml:space="preserve">
+    <value>pre-authentication failed (wrong password)</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x19" xml:space="preserve">
+    <value>pre-authentication is required</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x1B" xml:space="preserve">
+    <value>the server requires user-to-user authentication</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x1F" xml:space="preserve">
+    <value>the integrity check failed</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x20" xml:space="preserve">
+    <value>the ticket expired</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x25" xml:space="preserve">
+    <value>the clocks differ too much</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x29" xml:space="preserve">
+    <value>the message was modified</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x3C" xml:space="preserve">
+    <value>generic error</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x3E" xml:space="preserve">
+    <value>the client certificate is not trusted</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x3F" xml:space="preserve">
+    <value>the KDC certificate is not trusted</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x40" xml:space="preserve">
+    <value>invalid signature</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x41" xml:space="preserve">
+    <value>the key is too weak</value>
+  </data>
+  <data name="EventCode.KerberosResult.0x44" xml:space="preserve">
+    <value>wrong realm</value>
+  </data>
+  <data name="EventCode.EncryptionType.0x1" xml:space="preserve">
+    <value>DES-CBC-CRC – weak, disabled by default</value>
+  </data>
+  <data name="EventCode.EncryptionType.0x3" xml:space="preserve">
+    <value>DES-CBC-MD5 – weak, disabled by default</value>
+  </data>
+  <data name="EventCode.EncryptionType.0x11" xml:space="preserve">
+    <value>AES128-CTS-HMAC-SHA1-96</value>
+  </data>
+  <data name="EventCode.EncryptionType.0x12" xml:space="preserve">
+    <value>AES256-CTS-HMAC-SHA1-96</value>
+  </data>
+  <data name="EventCode.EncryptionType.0x17" xml:space="preserve">
+    <value>RC4-HMAC – weak, being retired</value>
+  </data>
+  <data name="EventCode.EncryptionType.0x18" xml:space="preserve">
+    <value>RC4-HMAC-EXP – weak, being retired</value>
+  </data>
+  <data name="EventCode.EncryptionType.0xFFFFFFFF" xml:space="preserve">
+    <value>no ticket was issued (the request failed)</value>
+  </data>
+  <data name="EventCode.PreAuthType.0" xml:space="preserve">
+    <value>none – a ticket without pre-authentication (open to AS-REP roasting)</value>
+  </data>
+  <data name="EventCode.PreAuthType.2" xml:space="preserve">
+    <value>PA-ENC-TIMESTAMP (password)</value>
+  </data>
+  <data name="EventCode.PreAuthType.11" xml:space="preserve">
+    <value>PA-ETYPE-INFO</value>
+  </data>
+  <data name="EventCode.PreAuthType.15" xml:space="preserve">
+    <value>PA-PK-AS-REP_OLD (smart card)</value>
+  </data>
+  <data name="EventCode.PreAuthType.16" xml:space="preserve">
+    <value>PA-PK-AS-REQ (smart card)</value>
+  </data>
+  <data name="EventCode.PreAuthType.17" xml:space="preserve">
+    <value>PA-PK-AS-REP (smart card)</value>
+  </data>
+  <data name="EventCode.PreAuthType.19" xml:space="preserve">
+    <value>PA-ETYPE-INFO2</value>
+  </data>
+  <data name="EventCode.PreAuthType.20" xml:space="preserve">
+    <value>PA-SVR-REFERRAL-INFO</value>
+  </data>
+  <data name="EventCode.PreAuthType.138" xml:space="preserve">
+    <value>PA-ENCRYPTED-CHALLENGE (FAST, Kerberos armoring)</value>
+  </data>
+  <data name="EventCode.LogonType.2" xml:space="preserve">
+    <value>interactive (at the keyboard)</value>
+  </data>
+  <data name="EventCode.LogonType.3" xml:space="preserve">
+    <value>network (shared folder, IIS …)</value>
+  </data>
+  <data name="EventCode.LogonType.4" xml:space="preserve">
+    <value>batch (scheduled task)</value>
+  </data>
+  <data name="EventCode.LogonType.5" xml:space="preserve">
+    <value>service</value>
+  </data>
+  <data name="EventCode.LogonType.7" xml:space="preserve">
+    <value>unlock of the workstation</value>
+  </data>
+  <data name="EventCode.LogonType.8" xml:space="preserve">
+    <value>network with a cleartext password (e.g. IIS Basic)</value>
+  </data>
+  <data name="EventCode.LogonType.9" xml:space="preserve">
+    <value>new credentials (runas /netonly)</value>
+  </data>
+  <data name="EventCode.LogonType.10" xml:space="preserve">
+    <value>remote interactive (Remote Desktop)</value>
+  </data>
+  <data name="EventCode.LogonType.11" xml:space="preserve">
+    <value>cached interactive (without a DC)</value>
+  </data>
+  <data name="EventCode.LogonType.12" xml:space="preserve">
+    <value>cached remote interactive</value>
+  </data>
+  <data name="EventCode.LogonType.13" xml:space="preserve">
+    <value>cached unlock</value>
+  </data>
+  <data name="EventCode.FailureReason.2304" xml:space="preserve">
+    <value>an error occurred during the logon</value>
+  </data>
+  <data name="EventCode.FailureReason.2305" xml:space="preserve">
+    <value>the account expired</value>
+  </data>
+  <data name="EventCode.FailureReason.2306" xml:space="preserve">
+    <value>the Netlogon service is not active</value>
+  </data>
+  <data name="EventCode.FailureReason.2307" xml:space="preserve">
+    <value>the account is locked out</value>
+  </data>
+  <data name="EventCode.FailureReason.2308" xml:space="preserve">
+    <value>the logon type is not granted</value>
+  </data>
+  <data name="EventCode.FailureReason.2309" xml:space="preserve">
+    <value>the password expired</value>
+  </data>
+  <data name="EventCode.FailureReason.2310" xml:space="preserve">
+    <value>the account is disabled</value>
+  </data>
+  <data name="EventCode.FailureReason.2311" xml:space="preserve">
+    <value>outside the allowed logon hours</value>
+  </data>
+  <data name="EventCode.FailureReason.2312" xml:space="preserve">
+    <value>logon from this workstation is not allowed</value>
+  </data>
+  <data name="EventCode.FailureReason.2313" xml:space="preserve">
+    <value>unknown user name or wrong password</value>
+  </data>
+  <data name="EvtLog.Level.0" xml:space="preserve">
+    <value>Information</value>
+  </data>
+  <data name="EvtLog.Level.1" xml:space="preserve">
+    <value>Critical</value>
+  </data>
+  <data name="EvtLog.Level.2" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="EvtLog.Level.3" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="EvtLog.Level.4" xml:space="preserve">
+    <value>Information</value>
+  </data>
+  <data name="EvtLog.Level.5" xml:space="preserve">
+    <value>Verbose</value>
+  </data>
+  <data name="EvtLog.Channel.Security" xml:space="preserve">
+    <value>Security</value>
+  </data>
+  <data name="EvtLog.Channel.System" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="EvtLog.Channel.Application" xml:space="preserve">
+    <value>Application</value>
+  </data>
+  <data name="EvtLog.Channel.DirectoryService" xml:space="preserve">
+    <value>Directory Service</value>
+  </data>
+  <data name="EvtLog.Channel.DfsReplication" xml:space="preserve">
+    <value>DFS Replication</value>
+  </data>
+  <data name="EvtLog.Channel.DnsServer" xml:space="preserve">
+    <value>DNS Server</value>
+  </data>
+  <data name="EvtLog.Channel.GroupPolicy" xml:space="preserve">
+    <value>Group Policy (Operational)</value>
+  </data>
+  <data name="EvtLog.Channel.Ntlm" xml:space="preserve">
+    <value>NTLM (Operational)</value>
+  </data>
+  <data name="EvtLog.Channel.RdsLocalSessions" xml:space="preserve">
+    <value>Remote Desktop – local sessions</value>
+  </data>
+  <data name="EvtLog.Channel.RdsConnections" xml:space="preserve">
+    <value>Remote Desktop – connections</value>
+  </data>
+  <data name="EvtLog.Channel.PowerShell" xml:space="preserve">
+    <value>PowerShell (Operational)</value>
+  </data>
+  <data name="EvtLog.Channel.WindowsPowerShell" xml:space="preserve">
+    <value>Windows PowerShell</value>
+  </data>
+  <data name="EvtLog.Channel.Defender" xml:space="preserve">
+    <value>Microsoft Defender (Operational)</value>
+  </data>
+  <data name="EvtLog.Channel.TaskScheduler" xml:space="preserve">
+    <value>Task Scheduler (Operational)</value>
+  </data>
+  <data name="EvtLog.Channel.Sysmon" xml:space="preserve">
+    <value>Sysmon (Operational)</value>
+  </data>
+  <data name="EvtLog.Channel.ForwardedEvents" xml:space="preserve">
+    <value>Forwarded Events</value>
+  </data>
+  <data name="EvtLog.Access.NotSupported" xml:space="preserve">
+    <value>Event logs cannot be read here.</value>
+  </data>
+  <data name="EvtLog.Access.NotSupported.Remedy" xml:space="preserve">
+    <value>Reading needs AD Manager on Windows and a window connected with a Windows logon (the current account or DOMAIN\user) – Kerberos, by the full DNS name of the computer.</value>
+  </data>
+  <data name="EvtLog.Access.Unreachable" xml:space="preserve">
+    <value>The computer does not answer.</value>
+  </data>
+  <data name="EvtLog.Access.Unreachable.Remedy" xml:space="preserve">
+    <value>Check the name (the full DNS name, e.g. waw-pc001.contoso.test), DNS and whether the computer is on.</value>
+  </data>
+  <data name="EvtLog.Access.RpcUnavailable" xml:space="preserve">
+    <value>The event log service of the computer cannot be reached (RPC).</value>
+  </data>
+  <data name="EvtLog.Access.RpcUnavailable.Remedy" xml:space="preserve">
+    <value>Enable the firewall rule group "Remote Event Log Management" on the computer (Windows Defender Firewall, also through a GPO).</value>
+  </data>
+  <data name="EvtLog.Access.AccessDenied" xml:space="preserve">
+    <value>Access to the log was denied.</value>
+  </data>
+  <data name="EvtLog.Access.AccessDenied.Remedy" xml:space="preserve">
+    <value>Add the account to the group "Event Log Readers" of the computer (on domain controllers: the domain local group Builtin\Event Log Readers) or grant it access to the channel; the logon must be Kerberos.</value>
+  </data>
+  <data name="EvtLog.Access.ChannelNotFound" xml:space="preserve">
+    <value>The channel does not exist on this computer.</value>
+  </data>
+  <data name="EvtLog.Access.ChannelNotFound.Remedy" xml:space="preserve">
+    <value>Choose a channel from the list loaded from the computer ("Load channels"); the computer may not have that role or feature.</value>
+  </data>
+  <data name="EvtLog.Access.InvalidQuery" xml:space="preserve">
+    <value>The computer rejected the query.</value>
+  </data>
+  <data name="EvtLog.Access.InvalidQuery.Remedy" xml:space="preserve">
+    <value>Simplify the query (fewer IDs or values) or correct the XPath expression.</value>
+  </data>
+  <data name="EvtLog.Access.FileUnreadable" xml:space="preserve">
+    <value>The file cannot be read.</value>
+  </data>
+  <data name="EvtLog.Access.FileUnreadable.Remedy" xml:space="preserve">
+    <value>Check that it is an .evtx file, that it is not damaged and that you may read it.</value>
+  </data>
+  <data name="EvtLog.Access.Failed" xml:space="preserve">
+    <value>The log could not be read.</value>
+  </data>
+  <data name="EvtLog.Access.Failed.Remedy" xml:space="preserve">
+    <value>Try again; for Kerberos errors check the time of the computer and its SPN (HOST/full name).</value>
+  </data>
+  <data name="EventLogs.RawXPath.Empty" xml:space="preserve">
+    <value>Type an XPath expression.</value>
+  </data>
+  <data name="EventLogs.RawXPath.TooLong" xml:space="preserve">
+    <value>The expression is too long (at most 4096 characters).</value>
+  </data>
+  <data name="EventLogs.RawXPath.InvalidCharacter" xml:space="preserve">
+    <value>The expression contains a character that is not allowed.</value>
+  </data>
+  <data name="EventLogs.RawXPath.UnterminatedLiteral" xml:space="preserve">
+    <value>A text in quotes is not closed.</value>
+  </data>
+  <data name="EventLogs.RawXPath.Unbalanced" xml:space="preserve">
+    <value>Brackets or parentheses do not match.</value>
+  </data>
+  <data name="EventLogs.RawXPath.TooDeep" xml:space="preserve">
+    <value>The expression is nested too deeply.</value>
+  </data>
+  <data name="EventLogs.RawXPath.UnsupportedFunction" xml:space="preserve">
+    <value>Only the functions band(), timediff() and not() are allowed.</value>
+  </data>
+  <data name="EventLogs.RawXPath.UnsupportedPath" xml:space="preserve">
+    <value>Only child steps of an event are allowed (System, EventData, UserData, Data, @Name …) – no //, axes or |.</value>
+  </data>
+  <data name="EventLogs.RawXPath.NotAnEventSelection" xml:space="preserve">
+    <value>The expression must select events: *[…] or Event[…].</value>
+  </data>
+  <data name="EventLogs.RawXPath.Syntax" xml:space="preserve">
+    <value>The expression is not valid XPath.</value>
+  </data>
+  <data name="EventLogs.Lockout.LockoutPolicyDisabled" xml:space="preserve">
+    <value>The lockout threshold is 0: this policy never locks accounts – the lockout may come from a fine-grained password policy or from another domain.</value>
+  </data>
+  <data name="EventLogs.Lockout.AccountNotLockedNow" xml:space="preserve">
+    <value>No domain controller reports the account as locked now (lockoutTime is 0 or the lockout duration has passed).</value>
+  </data>
+  <data name="EventLogs.Lockout.NoLockoutEventSeen" xml:space="preserve">
+    <value>No lockout event 4740 of the account was found in the window.</value>
+  </data>
+  <data name="EventLogs.Lockout.EmptyCaller" xml:space="preserve">
+    <value>The lockout on {0} at {1} names no caller computer – the client did not give its name (often Kerberos or remote access); look at the failures just before it.</value>
+  </data>
+  <data name="EventLogs.Lockout.LikelyProxy" xml:space="preserve">
+    <value>{0} {1} looks like a front-end server that authenticates on behalf of users ({2}) – the real client is behind it: check its own logs (Exchange, ADFS, NPS, RD Gateway, IIS).</value>
+  </data>
+  <data name="EventLogs.Lockout.DomainControllerSource" xml:space="preserve">
+    <value>{0} {1} is a domain controller: it only relayed the attempt (wrong passwords are retried at the PDC emulator) – the real client is in the log of that DC.</value>
+  </data>
+  <data name="EventLogs.Lockout.ClockSkewSuspected" xml:space="preserve">
+    <value>{2} failures from {0} {1} come from clock skew – check the time synchronization of that computer.</value>
+  </data>
+  <data name="EventLogs.Lockout.FailuresWhileLocked" xml:space="preserve">
+    <value>{0} {1} keeps trying while the account is locked ({2} attempts) – a saved password (service, scheduled task, mapped drive, phone) is the likely cause.</value>
+  </data>
+  <data name="EventLogs.Lockout.NoFailuresSeen" xml:space="preserve">
+    <value>No failed attempt of the account was found although a domain controller reports a wrong password or a lockout in the window – the failure audit may be off or the logs no longer reach that time.</value>
+  </data>
+  <data name="EventLogs.Lockout.FailuresNotSeenOnDc" xml:space="preserve">
+    <value>{0} reports a wrong password in the window and its log reaches that time, yet no failure of the account was found there – the failure audit is probably off on that DC.</value>
+  </data>
+  <data name="EventLogs.Lockout.CoverageGap" xml:space="preserve">
+    <value>The Security log of {0} starts at {1}, after the start of the window – earlier attempts are no longer in it.</value>
+  </data>
+  <data name="EventLogs.Lockout.CoverageUnknown" xml:space="preserve">
+    <value>How far back the Security log of {0} reaches is not known.</value>
+  </data>
+  <data name="EventLogs.Lockout.LogReadFailed" xml:space="preserve">
+    <value>The log of {0} could not be read: {1}</value>
+  </data>
+  <data name="EventLogs.Lockout.DcStateUnavailable" xml:space="preserve">
+    <value>The state of the account on {0} could not be read: {1}</value>
+  </data>
+  <data name="EventLogs.Lockout.PdcRetries" xml:space="preserve">
+    <value>Failures were read from the PDC emulator and from other domain controllers: a wrong password is retried at the PDC emulator, so the counts of the DCs overlap.</value>
+  </data>
+  <data name="EventLogs.Lockout.BadPasswordHistoryHint" xml:space="preserve">
+    <value>A wrong password equal to one of the last two passwords of the history does not increase badPwdCount – such failures are logged but do not count toward the lockout.</value>
+  </data>
+  <data name="EventLogs.FailedLogons.NoSuccessRecords" xml:space="preserve">
+    <value>No successful logon was read: "success after failures" could not be checked.</value>
+  </data>
+  <data name="EventLogs.FailedLogons.SharedSourceCaveat" xml:space="preserve">
+    <value>Findings by address: NAT, VPN concentrators and proxies put many users behind one address – check who is behind it before you act.</value>
+  </data>
+  <data name="EventLogs.FailedLogons.ClientSuppliedWorkstation" xml:space="preserve">
+    <value>Findings by workstation name: the client supplies the name (4776), so it may be wrong or forged.</value>
+  </data>
+  <data name="EventLogs.FailedLogons.DomainControllerRelays" xml:space="preserve">
+    <value>{0} failures came from addresses of domain controllers (relayed attempts): they are counted but are not findings.</value>
+  </data>
+  <data name="EventLogs.FailedLogons.FindingsTruncated" xml:space="preserve">
+    <value>{0} findings were found; the {1} most severe are shown.</value>
+  </data>
+  <data name="EventLogs.FailedLogons.UnknownAccountNames" xml:space="preserve">
+    <value>Names of accounts that do not exist may be passwords typed into the user name field – they stay hidden until you click "Show".</value>
+  </data>
+  <data name="EvtLog.ProxyReason.NamePattern" xml:space="preserve">
+    <value>its name suggests a front-end server</value>
+  </data>
+  <data name="EvtLog.ProxyReason.ManyAccounts" xml:space="preserve">
+    <value>logons of many other accounts fail from it</value>
+  </data>
+  <data name="EvtLog.HostState.Waiting" xml:space="preserve">
+    <value>Waiting</value>
+  </data>
+  <data name="EvtLog.HostState.Opening" xml:space="preserve">
+    <value>Connecting…</value>
+  </data>
+  <data name="EvtLog.HostState.Reading" xml:space="preserve">
+    <value>Reading…</value>
+  </data>
+  <data name="EvtLog.HostState.Done" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="EvtLog.HostState.Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="EvtLog.HostState.Cancelled" xml:space="preserve">
+    <value>Cancelled</value>
+  </data>
+  <data name="EvtLog.Mode.Unknown" xml:space="preserve">
+    <value>mode unknown</value>
+  </data>
+  <data name="EvtLog.Mode.Circular" xml:space="preserve">
+    <value>overwrites as needed</value>
+  </data>
+  <data name="EvtLog.Mode.AutoBackup" xml:space="preserve">
+    <value>archives when full</value>
+  </data>
+  <data name="EvtLog.Mode.Retain" xml:space="preserve">
+    <value>does not overwrite</value>
+  </data>
+  <data name="EvtLog.Audit.Seen" xml:space="preserve">
+    <value>seen</value>
+  </data>
+  <data name="EvtLog.Audit.NotSeenWhileCovered" xml:space="preserve">
+    <value>not seen although the log covers the window – probably not audited</value>
+  </data>
+  <data name="EvtLog.Audit.Unknown" xml:space="preserve">
+    <value>unknown – the log does not cover the window</value>
+  </data>
+  <data name="EvtLog.SourceKind.Unknown" xml:space="preserve">
+    <value>Unknown source</value>
+  </data>
+  <data name="EvtLog.SourceKind.CallerComputer" xml:space="preserve">
+    <value>Caller computer</value>
+  </data>
+  <data name="EvtLog.SourceKind.Workstation" xml:space="preserve">
+    <value>Workstation</value>
+  </data>
+  <data name="EvtLog.SourceKind.IpAddress" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="EvtLog.SourceKind.Local" xml:space="preserve">
+    <value>The DC itself</value>
+  </data>
+  <data name="EvtLog.FailureKind.None" xml:space="preserve">
+    <value>no failure</value>
+  </data>
+  <data name="EvtLog.FailureKind.BadPassword" xml:space="preserve">
+    <value>wrong password</value>
+  </data>
+  <data name="EvtLog.FailureKind.UnknownAccount" xml:space="preserve">
+    <value>unknown account</value>
+  </data>
+  <data name="EvtLog.FailureKind.AccountLocked" xml:space="preserve">
+    <value>account locked out</value>
+  </data>
+  <data name="EvtLog.FailureKind.AccountRevoked" xml:space="preserve">
+    <value>account disabled, expired or locked out</value>
+  </data>
+  <data name="EvtLog.FailureKind.AccountDisabled" xml:space="preserve">
+    <value>account disabled</value>
+  </data>
+  <data name="EvtLog.FailureKind.AccountExpired" xml:space="preserve">
+    <value>account expired</value>
+  </data>
+  <data name="EvtLog.FailureKind.PasswordExpired" xml:space="preserve">
+    <value>password expired</value>
+  </data>
+  <data name="EvtLog.FailureKind.PasswordMustChange" xml:space="preserve">
+    <value>password must be changed</value>
+  </data>
+  <data name="EvtLog.FailureKind.LogonHours" xml:space="preserve">
+    <value>outside the logon hours</value>
+  </data>
+  <data name="EvtLog.FailureKind.WorkstationRestriction" xml:space="preserve">
+    <value>workstation not allowed</value>
+  </data>
+  <data name="EvtLog.FailureKind.LogonTypeNotGranted" xml:space="preserve">
+    <value>logon type not granted</value>
+  </data>
+  <data name="EvtLog.FailureKind.ClockSkew" xml:space="preserve">
+    <value>clock skew</value>
+  </data>
+  <data name="EvtLog.FailureKind.AuthenticationFirewall" xml:space="preserve">
+    <value>authentication firewall</value>
+  </data>
+  <data name="EvtLog.FailureKind.Policy" xml:space="preserve">
+    <value>KDC policy</value>
+  </data>
+  <data name="EvtLog.FailureKind.Other" xml:space="preserve">
+    <value>other failure</value>
+  </data>
+  <data name="EvtFail.Kind.BruteForce" xml:space="preserve">
+    <value>Password guessing</value>
+  </data>
+  <data name="EvtFail.Kind.BruteForce.Explanation" xml:space="preserve">
+    <value>Many wrong passwords for one account from one source – an attack, or a device that still uses an old password.</value>
+  </data>
+  <data name="EvtFail.Kind.PasswordSpray" xml:space="preserve">
+    <value>Password spraying</value>
+  </data>
+  <data name="EvtFail.Kind.PasswordSpray.Explanation" xml:space="preserve">
+    <value>Many accounts from one source within the spraying window, each with few failures – deliberately below the lockout threshold.</value>
+  </data>
+  <data name="EvtFail.Kind.AccountEnumeration" xml:space="preserve">
+    <value>Account enumeration</value>
+  </data>
+  <data name="EvtFail.Kind.AccountEnumeration.Explanation" xml:space="preserve">
+    <value>Many names that do not exist (0xC0000064, Kerberos 0x6) from one source – someone checks which accounts exist.</value>
+  </data>
+  <data name="EvtFail.Kind.SuccessAfterFailures" xml:space="preserve">
+    <value>Success after failures</value>
+  </data>
+  <data name="EvtFail.Kind.SuccessAfterFailures.Explanation" xml:space="preserve">
+    <value>A successful logon from the same source after a series of failures – the password may have been guessed.</value>
+  </data>
+  <data name="EvtFail.Severity.Low" xml:space="preserve">
+    <value>Low</value>
+  </data>
+  <data name="EvtFail.Severity.Medium" xml:space="preserve">
+    <value>Medium</value>
+  </data>
+  <data name="EvtFail.Severity.High" xml:space="preserve">
+    <value>High</value>
+  </data>
+  <data name="EvtFail.Severity.Critical" xml:space="preserve">
+    <value>Critical</value>
+  </data>
+  <data name="EvtLock.Timeline.Lockout" xml:space="preserve">
+    <value>Lockout</value>
+  </data>
+  <data name="EvtLock.Timeline.Unlock" xml:space="preserve">
+    <value>Unlock</value>
+  </data>
+  <data name="EvtLock.Timeline.Failure" xml:space="preserve">
+    <value>Failure</value>
+  </data>
+  <data name="EvtLog.TimePreset.LastHour" xml:space="preserve">
+    <value>Last hour</value>
+  </data>
+  <data name="EvtLog.TimePreset.Last24Hours" xml:space="preserve">
+    <value>Last 24 hours</value>
+  </data>
+  <data name="EvtLog.TimePreset.Last7Days" xml:space="preserve">
+    <value>Last 7 days</value>
+  </data>
+  <data name="EvtLog.TimePreset.Custom" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="EvtLog.TimePreset.BeforeLastLockout" xml:space="preserve">
+    <value>24 hours before the last lockout</value>
+  </data>
+  <data name="EvtLog.Outcome.Any" xml:space="preserve">
+    <value>Any</value>
+  </data>
+  <data name="EvtLog.Outcome.Success" xml:space="preserve">
+    <value>Audit Success</value>
+  </data>
+  <data name="EvtLog.Outcome.Failure" xml:space="preserve">
+    <value>Audit Failure</value>
+  </data>
+  <!-- Track E event logs (reader, lockout source, failed logons): end -->
 </root>

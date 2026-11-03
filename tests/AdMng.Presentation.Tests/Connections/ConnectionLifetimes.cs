@@ -46,6 +46,8 @@ internal static class ConnectionLifetimes
         typeof(WatchdogObjectHistoryLauncher),
         typeof(Presentation.Computers.ComputerViewModelFactory),
         typeof(Presentation.Computers.ComputerActions),
+        typeof(Presentation.EventLogs.EventLogLauncher),
+        typeof(Presentation.EventLogs.EventLogServices),
         typeof(Func<WatchdogDocumentViewModel>),
         typeof(ConnectionContext),
         typeof(ShellViewModel),
@@ -70,5 +72,6 @@ internal static class ConnectionLifetimes
         typeof(Core.Computers.WindowsReleaseCatalog),
         typeof(Presentation.GroupPolicy.AdministrativeTemplates.ILocalPolicyDefinitions),
         typeof(Presentation.GroupPolicy.AdministrativeTemplates.PolicyTemplatePackageLoader),
+        typeof(Presentation.EventLogs.IHostNameLookup),
     ];
 }

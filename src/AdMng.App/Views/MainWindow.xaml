@@ -21,6 +21,8 @@
         xmlns:gpmod="clr-namespace:AdMng.Presentation.GroupPolicy.Modeling;assembly=AdMng.Presentation"
         xmlns:gpdiag="clr-namespace:AdMng.Presentation.GroupPolicy.Diagnostics;assembly=AdMng.Presentation"
         xmlns:gpsec="clr-namespace:AdMng.Presentation.GroupPolicy.SecuritySettings;assembly=AdMng.Presentation"
+        xmlns:evt="clr-namespace:AdMng.Presentation.EventLogs;assembly=AdMng.Presentation"
+        xmlns:evtv="clr-namespace:AdMng.App.EventLogs"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1360"
         Height="840"
@@ -379,6 +381,7 @@
         <MenuItem b:CommandMenu.Id="object.disable" />
         <MenuItem b:CommandMenu.Id="object.enable" />
         <MenuItem b:CommandMenu.Id="object.unlock" />
+        <MenuItem b:CommandMenu.Id="events.lockout" />
         <MenuItem b:CommandMenu.Id="object.resetPassword" />
         <!-- Computers (K1): remote actions and tools for the selected computer, Reset Account. -->
         <MenuItem x:Name="ComputerMenuItem" Header="{l:Tr Computers.ComputerMenu}">
@@ -386,6 +389,7 @@
           <MenuItem b:CommandMenu.Id="computer.remoteDesktop" />
           <MenuItem b:CommandMenu.Id="computer.manage" />
           <MenuItem b:CommandMenu.Id="computer.eventViewer" />
+          <MenuItem b:CommandMenu.Id="events.computer" />
           <MenuItem b:CommandMenu.Id="computer.ping" />
           <MenuItem b:CommandMenu.Id="gpo.model" />
           <Separator />
@@ -488,6 +492,8 @@
         <MenuItem b:CommandMenu.Id="tools.computerReview" />
         <MenuItem b:CommandMenu.Id="tools.savedFilters" />
         <MenuItem b:CommandMenu.Id="tools.watchdog" />
+        <MenuItem b:CommandMenu.Id="events.open" />
+        <MenuItem b:CommandMenu.Id="events.failedLogons" />
         <Separator />
         <MenuItem b:CommandMenu.Id="tools.sessionLog" />
         <MenuItem x:Name="PowerShellHistoryMenuItem"
@@ -810,6 +816,32 @@
                         ToolTip="{l:Tr Commands.CloseTab}" />
               </StackPanel>
             </DataTemplate>
+            <!-- Event log documents (track E). -->
+            <DataTemplate DataType="{x:Type evt:EventLogDocumentBase}">
+              <StackPanel Orientation="Horizontal" ToolTip="{Binding Title, Mode=OneWay}">
+                <c:ObjectIconView Margin="0,0,6,0"
+                                  VerticalAlignment="Center"
+                                  Icon="{Binding Icon, Mode=OneWay}"
+                                  Size="14" />
+                <TextBlock MaxWidth="220"
+                           VerticalAlignment="Center"
+                           Text="{Binding Title, Mode=OneWay}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Margin="4,0,0,0"
+                           FontSize="10"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{x:Static c:Glyphs.Refresh}"
+                           Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <Button Margin="6,0,0,0"
+                        AutomationProperties.Name="{l:Tr Commands.CloseTab}"
+                        Click="OnCloseTabClick"
+                        Content="{x:Static c:Glyphs.Close}"
+                        Focusable="False"
+                        Style="{StaticResource Ad.SmallIconButton}"
+                        ToolTip="{l:Tr Commands.CloseTab}" />
+              </StackPanel>
+            </DataTemplate>
             <!-- Group Policy documents (K2). -->
             <DataTemplate DataType="{x:Type gpd:GroupPolicyDocumentBase}">
               <StackPanel Orientation="Horizontal" ToolTip="{Binding Title, Mode=OneWay}">
@@ -905,6 +937,16 @@
             <!-- Group Policy diagnostics (K6). -->
             <DataTemplate DataType="{x:Type gpdiag:GroupPolicyDiagnosticsDocumentViewModel}">
               <gpv:GroupPolicyDiagnosticsView />
+            </DataTemplate>
+            <!-- Event logs (track E): the reader, the lockout source, the failed logons. -->
+            <DataTemplate DataType="{x:Type evt:EventLogReaderDocumentViewModel}">
+              <evtv:EventLogReaderView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type evt:LockoutDocumentViewModel}">
+              <evtv:LockoutView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type evt:FailedLogonsDocumentViewModel}">
+              <evtv:FailedLogonsView />
             </DataTemplate>
           </ItemsControl.Resources>
         </ItemsControl>

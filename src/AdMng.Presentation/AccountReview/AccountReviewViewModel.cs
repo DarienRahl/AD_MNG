@@ -293,6 +293,12 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
 
     public bool ShowUnlock => SelectedCheck is AccountCheck.Locked;
 
+    /// <summary>"Skąd blokada konta…" (track E) for a locked row: shown with "Odblokuj" when the window has the event log documents.</summary>
+    public bool ShowLockoutSource => ShowUnlock && EventLogs is not null;
+
+    /// <summary>The event log documents of the window (set by the factory), null without them.</summary>
+    public EventLogs.EventLogLauncher? EventLogs { get; init; }
+
     public bool ShowRequirePasswordChange => SelectedCheck is AccountCheck.PasswordExpired or AccountCheck.PasswordExpiring
         or AccountCheck.PasswordNotRequired or AccountCheck.ReversibleEncryption or AccountCheck.PasswordOld;
 
@@ -500,6 +506,18 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
             await Services.Dialogs.ShowErrorAsync(title, Errors.Translate(ex)).ConfigureAwait(true);
         }
     }
+
+    /// <summary>"Skąd blokada konta…" of the selected locked account (the document opens in the main window).</summary>
+    [RelayCommand(CanExecute = nameof(CanFindLockoutSource))]
+    private void FindLockoutSource()
+    {
+        if (SelectedItem is { } row)
+        {
+            EventLogs?.OpenLockout(row.Dn, row.Name);
+        }
+    }
+
+    private bool CanFindLockoutSource() => EventLogs is not null && SelectedItem is not null && !IsSessionEnded;
 
     [RelayCommand(CanExecute = nameof(HasSelectionForChange))]
     private Task UnlockAsync() => ApplyAsync(Selection, new UnlockAccountOperation(), Localizer[L.Commands.Unlock]);
@@ -775,6 +793,7 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         ListHint = value is null ? string.Empty : Localizer[AccountReviewFormatter.CheckHintKey(value.Check)];
         OnPropertyChanged(nameof(SelectedCheck));
         OnPropertyChanged(nameof(ShowUnlock));
+        OnPropertyChanged(nameof(ShowLockoutSource));
         OnPropertyChanged(nameof(ShowRequirePasswordChange));
         OnPropertyChanged(nameof(ShowExtend));
         OnPropertyChanged(nameof(ShowDisable));
@@ -1484,6 +1503,7 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         BatchEditCommand.NotifyCanExecuteChanged();
         ExportCsvCommand.NotifyCanExecuteChanged();
         UnlockCommand.NotifyCanExecuteChanged();
+        FindLockoutSourceCommand.NotifyCanExecuteChanged();
         RequirePasswordChangeCommand.NotifyCanExecuteChanged();
         DisableCommand.NotifyCanExecuteChanged();
         ExtendCommand.NotifyCanExecuteChanged();

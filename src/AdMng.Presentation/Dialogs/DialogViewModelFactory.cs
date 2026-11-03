@@ -104,7 +104,8 @@ public sealed class DialogViewModelFactory(
     Filters.FilterLibrary? filters = null,
     IEnumerable<Core.PrivilegedAccess.IPrivilegeGrantSource>? grantSources = null,
     Connections.ConnectionRegistry? connections = null,
-    Comparison.IObjectComparisonLauncher? comparison = null) : IDialogViewModelFactory
+    Comparison.IObjectComparisonLauncher? comparison = null,
+    EventLogs.EventLogLauncher? eventLogs = null) : IDialogViewModelFactory
 {
     private readonly AccountReview.DomainControllerReader _domainControllers = new(connector, services.Errors);
     private readonly Filters.FilterLibrary _filters = filters ?? new Filters.FilterLibrary(services.Settings);
@@ -117,6 +118,7 @@ public sealed class DialogViewModelFactory(
             DomainControllers = _domainControllers,
             MessageLauncher = messages,
             ComparisonLauncher = comparison,
+            EventLogLauncher = eventLogs,
         };
 
     public BatchEditorViewModel CreateBatchEditor(BatchEditorRequest request) => new(services, engines, request);
@@ -143,7 +145,7 @@ public sealed class DialogViewModelFactory(
     public RecycleBinViewModel CreateRecycleBin() => new(services);
 
     public AccountReview.AccountReviewViewModel CreateAccountReview() =>
-        new(services, views, engines.Csv, _domainControllers, messages, _filters, _grantSources);
+        new(services, views, engines.Csv, _domainControllers, messages, _filters, _grantSources) { EventLogs = eventLogs };
 
     public Filters.SavedFiltersViewModel CreateSavedFilters() => new(services, _filters);
 

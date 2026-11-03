@@ -14,6 +14,7 @@ using AdMng.Presentation.Connections;
 using AdMng.Presentation.Correspondence;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Errors;
+using AdMng.Presentation.EventLogs;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
@@ -117,6 +118,10 @@ public static class ServiceCollectionExtensions
         // Korespondencja (U5): the template library and the journal (application-wide), the window's services and factory
         // (per connection window). The host adds Outlook, the key protector, the platform, the dialogs and the launcher.
         services.AddAdMngCorrespondence();
+
+        // Dzienniki zdarzeń (track E): the launcher and the documents' services per connection window; the host adds the
+        // reader (IEventLogConnector, Windows only).
+        services.AddAdMngEventLogs();
         services.TryAddScoped<IDialogViewModelFactory, DialogViewModelFactory>();
 
         // View models (one per window / dialog). The shell is per connection window: the window, its tools and the

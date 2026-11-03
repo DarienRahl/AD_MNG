@@ -13,6 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\AdMng.Core\AdMng.Core.csproj" />
     <ProjectReference Include="..\AdMng.Directory\AdMng.Directory.csproj" />
+    <ProjectReference Include="..\AdMng.EventLogs\AdMng.EventLogs.csproj" />
     <ProjectReference Include="..\AdMng.Mail\AdMng.Mail.csproj" />
     <ProjectReference Include="..\AdMng.Outlook\AdMng.Outlook.csproj" />
     <ProjectReference Include="..\AdMng.Presentation\AdMng.Presentation.csproj" />

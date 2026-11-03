@@ -114,6 +114,10 @@ internal sealed class UiTestContext : IAsyncDisposable
             UseFake<Core.Computers.Remote.IPingService>(services, new FakePingService());
             UseFake<Core.Computers.Remote.IHostAddressResolver>(services, new FakeHostAddressResolver());
 
+            // Dzienniki zdarzeń (track E): no test reads a real event log - an empty in-memory reader, unless the test
+            // registered its own instance above.
+            UseFake<Core.EventLogs.IEventLogConnector>(services, new Testing.EventLogs.FakeEventLogConnector());
+
             // Korespondencja (U5): no test starts or attaches to Outlook or reads the operator's signatures - an in-memory
             // Outlook (sample profile, every item recorded), one Polish signature and the U1 Outlook transport fake, unless
             // the test registered its own instance above.

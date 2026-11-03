@@ -172,6 +172,7 @@ internal static class SmokeTest
         await main.Shell.InitializeAsync().ConfigureAwait(true);
         await RenderWatchdogTabAsync(main).ConfigureAwait(true);
         await RenderGroupPolicyAsync(main, services).ConfigureAwait(true);
+        await RenderEventLogsAsync(main).ConfigureAwait(true);
         main.Shell.CommandPalette.OpenCommand.Execute(null);
 
         // A second connection window (its own scope, disconnected: grey strip, "Nie połączono") and the connect window of
@@ -328,6 +329,30 @@ internal static class SmokeTest
     /// picker, the backup window in every mode, the comparison, the WMI filter editor (new, edit) and the change plan
     /// preview with SYSVOL rows (a sample plan; nothing is executed). No DC and no SYSVOL share is contacted.
     /// </summary>
+    /// <summary>
+    /// Track E: the reader, the lockout source of an account and the failed logons as tabs of the (disconnected) main window –
+    /// every view with its "not connected" or "not supported" state.
+    /// </summary>
+    private static async Task RenderEventLogsAsync(MainWindow main)
+    {
+        var shell = main.Shell;
+        if (!shell.IsEventLogsAvailable)
+        {
+            throw new InvalidOperationException("The main window has no event log services.");
+        }
+
+        foreach (var request in new Presentation.EventLogs.EventLogDocumentRequest[]
+        {
+            new(Presentation.EventLogs.EventLogDocumentKind.Reader),
+            new(Presentation.EventLogs.EventLogDocumentKind.Lockout) { UserDn = "CN=Jan Kowalski,OU=IT,OU=Pracownicy,OU=Firma," + GroupPolicySamples.DomainDn, Name = "Jan Kowalski" },
+            new(Presentation.EventLogs.EventLogDocumentKind.FailedLogons),
+        })
+        {
+            _ = shell.OpenEventLogDocument(request) ?? throw new InvalidOperationException("An event log document did not open.");
+            await UiTestSupport.WaitForIdleAsync().ConfigureAwait(true);
+        }
+    }
+
     private static async Task RenderGroupPolicyAsync(MainWindow main, IServiceProvider services)
     {
         var shell = main.Shell;

@@ -303,11 +303,11 @@ public sealed class ComputerWindowsTests
 
         // The submenu of "Akcja" and of the list's context menu: every item is a palette command.
         var items = main.ComputerMenuItem.Items.OfType<MenuItem>().ToList();
-        Assert.Equal(7, items.Count); // with "Co dostanie komputer…" (K5)
+        Assert.Equal(8, items.Count); // with "Co dostanie komputer…" (K5) and "Dziennik zdarzeń tego komputera" (E)
         Assert.All(items, i => Assert.NotNull(i.Command));
         Assert.Equal("Komputer", main.ComputerMenuItem.Header);
         var list = main.SelectedListView!;
-        Assert.Equal(7, list.ComputerContextMenuItem.Items.OfType<MenuItem>().Count());
+        Assert.Equal(8, list.ComputerContextMenuItem.Items.OfType<MenuItem>().Count());
         Assert.False(shell.ComputerRemoteActionsCommand.CanExecute(null));
         Assert.Equal(Visibility.Collapsed, main.ComputerRemoteActionsButton.Visibility);
 

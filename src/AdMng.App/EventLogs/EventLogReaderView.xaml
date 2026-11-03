@@ -1,0 +1,507 @@
+<!--
+  "Dzienniki zdarzeń" (EventLogReaderDocumentViewModel, track E1, docs/dev/e-event-logs.md 5): the sources and the query at
+  the left (DCs with the PDC emulator marked, computers typed or picked, .evtx files; channel, time, IDs, levels, providers,
+  outcome, account/SID/IP/workstation or a raw XPath checked live; saved queries), the merged virtualized timeline with the
+  search box (Ctrl+F) and the coverage and access of every source in the middle, the details of the selected record behind a
+  splitter at the right. The "not supported" banner replaces nothing: the builder stays usable for saved queries.
+-->
+<UserControl x:Class="AdMng.App.EventLogs.EventLogReaderView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:gp="clr-namespace:AdMng.App.GroupPolicy"
+             xmlns:evt="clr-namespace:AdMng.Presentation.EventLogs;assembly=AdMng.Presentation"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             AutomationProperties.Name="{Binding Title, Mode=OneWay}">
+  <UserControl.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/AdMng;component/EventLogs/EventLogResources.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </UserControl.Resources>
+
+  <DockPanel Margin="8,6,8,8">
+    <!-- Header: the title trimmed in its column, the run and the exports in their own -->
+    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <c:ObjectIconView Margin="0,0,8,0" VerticalAlignment="Center" Icon="{Binding Icon, Mode=OneWay}" Size="18" />
+      <TextBlock x:Name="TitleText"
+                 Grid.Column="1"
+                 Margin="0,0,12,0"
+                 VerticalAlignment="Center"
+                 FontWeight="SemiBold"
+                 Text="{Binding Title, Mode=OneWay}"
+                 TextTrimming="CharacterEllipsis" />
+      <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
+        <Button x:Name="RunButton"
+                Margin="0,0,6,0"
+                Command="{Binding RunCommand}"
+                Content="{l:Tr EvtLog.Run}"
+                Style="{StaticResource AccentButtonStyle}" />
+        <Button x:Name="CancelButton" Margin="0,0,12,0" Command="{Binding CancelCommand}" Content="{l:Tr Common.Cancel}" />
+        <Button x:Name="ExportCsvButton" Margin="0,0,6,0" Command="{Binding ExportCsvCommand}" Content="{l:Tr EvtLog.ExportCsv}" />
+        <Button x:Name="ExportHtmlButton" Command="{Binding ExportHtmlCommand}" Content="{l:Tr EvtLog.ExportHtml}" />
+      </StackPanel>
+    </Grid>
+
+    <!-- Not available in this window (not Windows, a simple bind) -->
+    <Border x:Name="NotSupportedBar"
+            Margin="0,0,0,6"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.WarningBar}"
+            Visibility="{Binding IsNotSupported, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <DockPanel>
+        <TextBlock Margin="0,1,10,0"
+                   VerticalAlignment="Center"
+                   DockPanel.Dock="Left"
+                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Warning}" />
+        <TextBlock x:Name="NotSupportedText" VerticalAlignment="Center" Text="{Binding NotSupportedText, Mode=OneWay}" TextWrapping="Wrap" />
+      </DockPanel>
+    </Border>
+
+    <!-- The status of the last run, or the progress of the running one -->
+    <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+      <ProgressBar x:Name="RunProgress"
+                   Width="220"
+                   Height="4"
+                   Margin="0,0,10,0"
+                   VerticalAlignment="Center"
+                   AutomationProperties.Name="{Binding StatusText, Mode=OneWay}"
+                   DockPanel.Dock="Left"
+                   IsIndeterminate="True"
+                   Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      <TextBlock x:Name="StatusLine"
+                 VerticalAlignment="Center"
+                 AutomationProperties.LiveSetting="Polite"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{Binding StatusText, Mode=OneWay}"
+                 TextTrimming="CharacterEllipsis" />
+    </DockPanel>
+
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="320" MinWidth="260" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" MinWidth="360" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="380" MinWidth="260" />
+      </Grid.ColumnDefinitions>
+
+      <!-- ===== Sources and query ===== -->
+      <ScrollViewer x:Name="QueryScroll" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,8,0">
+          <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr EvtLog.SourcesHeading}" />
+          <ItemsControl x:Name="SourcesList" Focusable="False" ItemsSource="{Binding Sources, Mode=OneWay}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="{x:Type evt:EventLogSourceViewModel}">
+                <DockPanel Margin="0,1">
+                  <Button Margin="6,0,0,0"
+                          AutomationProperties.Name="{l:Tr EvtLog.RemoveSource}"
+                          Command="{Binding DataContext.RemoveSourceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                          CommandParameter="{Binding Mode=OneWay}"
+                          Content="{x:Static c:Glyphs.Close}"
+                          DockPanel.Dock="Right"
+                          Style="{StaticResource Ad.SmallIconButton}"
+                          ToolTip="{l:Tr EvtLog.RemoveSource}" />
+                  <CheckBox AutomationProperties.Name="{Binding AutomationName, Mode=OneWay}" IsChecked="{Binding IsSelected}">
+                    <TextBlock TextTrimming="CharacterEllipsis">
+                      <Run Text="{Binding Host, Mode=OneWay}" />
+                      <Run Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding KindText, Mode=OneWay}" />
+                    </TextBlock>
+                  </CheckBox>
+                </DockPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <DockPanel Margin="0,6,0,0">
+            <Button x:Name="AddComputerButton"
+                    Margin="6,0,0,0"
+                    Command="{Binding AddComputerCommand}"
+                    Content="{l:Tr EvtLog.AddComputer}"
+                    DockPanel.Dock="Right" />
+            <Grid>
+              <TextBox x:Name="ComputerBox" AutomationProperties.Name="{l:Tr EvtLog.ComputerPlaceholder}" Text="{Binding ComputerText, UpdateSourceTrigger=PropertyChanged}" />
+              <TextBlock Style="{StaticResource Ad.HintText}"
+                         Text="{l:Tr EvtLog.ComputerPlaceholder}"
+                         Visibility="{Binding Text, ElementName=ComputerBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+            </Grid>
+          </DockPanel>
+          <WrapPanel Margin="0,6,0,0">
+            <Button x:Name="PickComputersButton" Margin="0,0,6,4" Command="{Binding PickComputersCommand}" Content="{l:Tr EvtLog.PickComputers}" />
+            <Button x:Name="OpenFilesButton" Margin="0,0,6,4" Command="{Binding OpenFilesCommand}" Content="{l:Tr EvtLog.OpenFiles}" />
+          </WrapPanel>
+          <TextBlock x:Name="SourceErrorText"
+                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                     Text="{Binding SourceError, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding HasSourceError, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+
+          <TextBlock Margin="0,12,0,0" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr EvtLog.QueryHeading}" />
+          <TextBlock Style="{StaticResource EventLog.Label}" Text="{l:Tr EvtLog.ChannelLabel}" />
+          <DockPanel>
+            <Button x:Name="LoadChannelsButton"
+                    Margin="6,0,0,0"
+                    Command="{Binding LoadChannelsCommand}"
+                    Content="{l:Tr EvtLog.LoadChannels}"
+                    DockPanel.Dock="Right" />
+            <ComboBox x:Name="ChannelBox"
+                      AutomationProperties.Name="{l:Tr EvtLog.ChannelLabel}"
+                      IsEditable="True"
+                      ItemsSource="{Binding ChannelOptions, Mode=OneWay}"
+                      Text="{Binding Channel, UpdateSourceTrigger=PropertyChanged}" />
+          </DockPanel>
+          <TextBlock Style="{StaticResource EventLog.Label}" Text="{l:Tr EvtLog.TimeLabel}" />
+          <ComboBox x:Name="TimePresetBox"
+                    AutomationProperties.Name="{l:Tr EvtLog.TimeLabel}"
+                    DisplayMemberPath="Text"
+                    ItemsSource="{Binding TimePresetOptions, Mode=OneWay}"
+                    SelectedItem="{Binding SelectedTimePreset}" />
+          <Grid Margin="0,4,0,0" Visibility="{Binding IsCustomTime, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Text="{l:Tr EvtLog.FromLabel}" />
+            <DatePicker x:Name="FromPicker" Grid.Column="1" AutomationProperties.Name="{l:Tr EvtLog.FromLabel}" SelectedDate="{Binding CustomFrom}" />
+            <TextBlock Grid.Row="1" Margin="0,4,8,0" VerticalAlignment="Center" Text="{l:Tr EvtLog.ToLabel}" />
+            <DatePicker x:Name="ToPicker"
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Margin="0,4,0,0"
+                        AutomationProperties.Name="{l:Tr EvtLog.ToLabel}"
+                        SelectedDate="{Binding CustomTo}" />
+          </Grid>
+          <TextBlock Style="{StaticResource EventLog.Label}" Text="{l:Tr EvtLog.EventIdsLabel}" />
+          <Grid>
+            <TextBox x:Name="EventIdsBox" AutomationProperties.Name="{l:Tr EvtLog.EventIdsLabel}" Text="{Binding EventIdsText, UpdateSourceTrigger=PropertyChanged, Delay=250}" />
+            <TextBlock Style="{StaticResource Ad.HintText}"
+                       Text="{l:Tr EvtLog.EventIdsPlaceholder}"
+                       Visibility="{Binding Text, ElementName=EventIdsBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+          </Grid>
+          <TextBlock Style="{StaticResource EventLog.Label}" Text="{l:Tr EvtLog.LevelsLabel}" />
+          <ItemsControl x:Name="LevelsList" Focusable="False" ItemsSource="{Binding LevelOptions, Mode=OneWay}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="{x:Type evt:EventLogLevelOption}">
+                <CheckBox Margin="0,0,12,0" Content="{Binding Text, Mode=OneWay}" IsChecked="{Binding IsSelected}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Style="{StaticResource EventLog.Label}" Text="{l:Tr EvtLog.ProvidersLabel}" />
+          <Grid>
+            <TextBox x:Name="ProvidersBox" AutomationProperties.Name="{l:Tr EvtLog.ProvidersLabel}" Text="{Binding ProvidersText, UpdateSourceTrigger=PropertyChanged, Delay=250}" />
+            <TextBlock Style="{StaticResource Ad.HintText}"
+                       Text="{l:Tr EvtLog.ProvidersPlaceholder}"
+                       Visibility="{Binding Text, ElementName=ProvidersBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+          </Grid>
+          <TextBlock Style="{StaticResource EventLog.Label}" Text="{l:Tr EvtLog.OutcomeLabel}" />
+          <ComboBox x:Name="OutcomeBox"
+                    AutomationProperties.Name="{l:Tr EvtLog.OutcomeLabel}"
+                    DisplayMemberPath="Text"
+                    ItemsSource="{Binding OutcomeOptions, Mode=OneWay}"
+                    SelectedItem="{Binding SelectedOutcome}" />
+
+          <!-- Data conditions of the Security channel -->
+          <TextBlock Style="{StaticResource EventLog.Label}" Text="{l:Tr EvtLog.AccountLabel}" />
+          <DockPanel>
+            <ComboBox Width="140"
+                      Margin="6,0,0,0"
+                      AutomationProperties.Name="{l:Tr EvtLog.FieldLabel}"
+                      DockPanel.Dock="Right"
+                      ItemsSource="{x:Static evt:EventLogReaderDocumentViewModel.AccountFields}"
+                      SelectedItem="{Binding AccountField}" />
+            <TextBox x:Name="AccountBox" AutomationProperties.Name="{l:Tr EvtLog.AccountLabel}" Text="{Binding AccountText, UpdateSourceTrigger=PropertyChanged, Delay=250}" />
+          </DockPanel>
+          <TextBlock Style="{StaticResource EventLog.Label}" Text="{l:Tr EvtLog.SidLabel}" />
+          <DockPanel>
+            <ComboBox Width="140"
+                      Margin="6,0,0,0"
+                      AutomationProperties.Name="{l:Tr EvtLog.FieldLabel}"
+                      DockPanel.Dock="Right"
+                      ItemsSource="{x:Static evt:EventLogReaderDocumentViewModel.SidFields}"
+                      SelectedItem="{Binding SidField}" />
+            <TextBox x:Name="SidBox" AutomationProperties.Name="{l:Tr EvtLog.SidLabel}" Text="{Binding SidText, UpdateSourceTrigger=PropertyChanged, Delay=250}" />
+          </DockPanel>
+          <TextBlock Style="{StaticResource EventLog.Label}" Text="{l:Tr EvtLog.IpLabel}" />
+          <TextBox x:Name="IpBox" AutomationProperties.Name="{l:Tr EvtLog.IpLabel}" Text="{Binding IpText, UpdateSourceTrigger=PropertyChanged, Delay=250}" />
+          <TextBlock Style="{StaticResource EventLog.Label}" Text="{l:Tr EvtLog.WorkstationLabel}" />
+          <DockPanel>
+            <ComboBox Width="140"
+                      Margin="6,0,0,0"
+                      AutomationProperties.Name="{l:Tr EvtLog.FieldLabel}"
+                      DockPanel.Dock="Right"
+                      ItemsSource="{x:Static evt:EventLogReaderDocumentViewModel.WorkstationFields}"
+                      SelectedItem="{Binding WorkstationField}" />
+            <TextBox x:Name="WorkstationBox" AutomationProperties.Name="{l:Tr EvtLog.WorkstationLabel}" Text="{Binding WorkstationText, UpdateSourceTrigger=PropertyChanged, Delay=250}" />
+          </DockPanel>
+          <TextBlock Margin="0,4,0,0"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding FieldsNote, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding FieldsNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+
+          <!-- Raw XPath (expert) -->
+          <CheckBox x:Name="RawModeBox" Margin="0,10,0,0" Content="{l:Tr EvtLog.RawMode}" IsChecked="{Binding IsRawMode}" />
+          <StackPanel Visibility="{Binding IsRawMode, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <Grid Margin="0,4,0,0">
+              <TextBox x:Name="RawXPathBox"
+                       MinHeight="60"
+                       AcceptsReturn="True"
+                       AutomationProperties.Name="{l:Tr EvtLog.RawMode}"
+                       FontFamily="Consolas"
+                       Text="{Binding RawXPath, UpdateSourceTrigger=PropertyChanged, Delay=250}"
+                       TextWrapping="Wrap" />
+              <TextBlock Style="{StaticResource Ad.HintText}"
+                         Text="{l:Tr EvtLog.RawPlaceholder}"
+                         Visibility="{Binding Text, ElementName=RawXPathBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+            </Grid>
+            <TextBlock x:Name="RawXPathErrorText"
+                       Margin="0,4,0,0"
+                       AutomationProperties.LiveSetting="Polite"
+                       Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                       Text="{Binding RawXPathError, Mode=OneWay}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding RawXPathError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+            <TextBlock x:Name="RawXPathValidText"
+                       Margin="0,4,0,0"
+                       Foreground="{DynamicResource SystemFillColorSuccessBrush}"
+                       Text="{l:Tr EvtLog.RawValid}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding IsRawXPathValid, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            <TextBlock Margin="0,4,0,0" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr EvtLog.RawTimeNote}" TextWrapping="Wrap" />
+          </StackPanel>
+          <TextBlock x:Name="QueryErrorText"
+                     Margin="0,6,0,0"
+                     AutomationProperties.LiveSetting="Polite"
+                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                     Text="{Binding QueryError, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding HasQueryError, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+
+          <!-- Saved queries (settings without values read from a log) -->
+          <TextBlock Margin="0,12,0,0" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr EvtLog.SavedQueriesLabel}" />
+          <DockPanel>
+            <Button x:Name="DeleteQueryButton"
+                    Margin="6,0,0,0"
+                    AutomationProperties.Name="{l:Tr EvtLog.DeleteQuery}"
+                    Command="{Binding DeleteQueryCommand}"
+                    Content="{x:Static c:Glyphs.Delete}"
+                    DockPanel.Dock="Right"
+                    Style="{StaticResource Ad.IconButton}"
+                    ToolTip="{l:Tr EvtLog.DeleteQuery}" />
+            <Button x:Name="LoadQueryButton"
+                    Margin="6,0,0,0"
+                    Command="{Binding LoadQueryCommand}"
+                    Content="{l:Tr EvtLog.LoadQuery}"
+                    DockPanel.Dock="Right" />
+            <ComboBox x:Name="SavedQueriesBox"
+                      AutomationProperties.Name="{l:Tr EvtLog.SavedQueriesLabel}"
+                      ItemsSource="{Binding SavedQueries, Mode=OneWay}"
+                      SelectedItem="{Binding SelectedSavedQuery}" />
+          </DockPanel>
+          <DockPanel Margin="0,6,0,0">
+            <Button x:Name="SaveQueryButton"
+                    Margin="6,0,0,0"
+                    Command="{Binding SaveQueryCommand}"
+                    Content="{l:Tr EvtLog.SaveQuery}"
+                    DockPanel.Dock="Right" />
+            <Grid>
+              <TextBox x:Name="SavedQueryNameBox" AutomationProperties.Name="{l:Tr EvtLog.SaveQueryName}" Text="{Binding SavedQueryName, UpdateSourceTrigger=PropertyChanged}" />
+              <TextBlock Style="{StaticResource Ad.HintText}"
+                         Text="{l:Tr EvtLog.SaveQueryName}"
+                         Visibility="{Binding Text, ElementName=SavedQueryNameBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+            </Grid>
+          </DockPanel>
+        </StackPanel>
+      </ScrollViewer>
+
+      <gp:PaneSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+      <!-- ===== Timeline, search, coverage and access ===== -->
+      <Grid Grid.Column="2" Margin="4,0">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid Margin="0,0,0,6">
+          <TextBox x:Name="SearchBox"
+                   gp:GroupPolicyUi.IsDocumentSearch="True"
+                   AutomationProperties.Name="{l:Tr EvtLog.SearchPlaceholder}"
+                   Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=250}" />
+          <TextBlock Style="{StaticResource Ad.HintText}"
+                     Text="{l:Tr EvtLog.SearchPlaceholder}"
+                     Visibility="{Binding Text, ElementName=SearchBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+        </Grid>
+        <TextBlock x:Name="DroppedNoteText"
+                   Grid.Row="1"
+                   Margin="0,0,0,6"
+                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   Text="{Binding DroppedNote, Mode=OneWay}"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding HasDroppedNote, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <ListView x:Name="RecordsList"
+                  Grid.Row="2"
+                  gp:GroupPolicyUi.KeepsSelectionInView="True"
+                  AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                  ItemContainerStyle="{StaticResource EventLog.Row}"
+                  ItemsSource="{Binding Rows, Mode=OneWay}"
+                  ScrollViewer.CanContentScroll="True"
+                  SelectedItem="{Binding SelectedRow}"
+                  SelectionMode="Single"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling">
+          <ListView.View>
+            <GridView AllowsColumnReorder="False">
+              <GridViewColumn Width="150" Header="{l:Tr EvtLog.ColumnTime}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type evt:EventLogRecordRow}">
+                    <TextBlock Text="{Binding TimeText, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="110" Header="{l:Tr EvtLog.ColumnHost}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type evt:EventLogRecordRow}">
+                    <TextBlock Text="{Binding HostText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="130" Header="{l:Tr EvtLog.ColumnChannel}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type evt:EventLogRecordRow}">
+                    <TextBlock Text="{Binding ChannelText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="110" Header="{l:Tr EvtLog.ColumnId}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type evt:EventLogRecordRow}">
+                    <TextBlock Text="{Binding EventIdText, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="170" Header="{l:Tr EvtLog.ColumnLevel}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type evt:EventLogRecordRow}">
+                    <TextBlock Text="{Binding LevelText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="190" Header="{l:Tr EvtLog.ColumnProvider}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type evt:EventLogRecordRow}">
+                    <TextBlock Text="{Binding Provider, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="520" Header="{l:Tr EvtLog.ColumnSummary}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type evt:EventLogRecordRow}">
+                    <TextBlock Text="{Binding Summary, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Summary, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+            </GridView>
+          </ListView.View>
+        </ListView>
+        <TextBlock x:Name="ListNoteText"
+                   Grid.Row="2"
+                   Margin="16,48,16,0"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Top"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding ListNote, Mode=OneWay}"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding ListNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        <Expander x:Name="HostsExpander"
+                  Grid.Row="3"
+                  Margin="0,6,0,0"
+                  Header="{l:Tr EvtLog.HostsHeading}"
+                  IsExpanded="{Binding HasHostProblems, Mode=OneWay}">
+          <ScrollViewer MaxHeight="220" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="HostsList"
+                          Focusable="False"
+                          ItemTemplate="{StaticResource EventLog.HostTemplate}"
+                          ItemsSource="{Binding Hosts, Mode=OneWay}" />
+          </ScrollViewer>
+        </Expander>
+      </Grid>
+
+      <gp:PaneSplitter Grid.Column="3" ResizeDirection="Columns" />
+
+      <!-- ===== Details of the selected record ===== -->
+      <Border Grid.Column="4" Padding="12,8" Style="{StaticResource Ad.Card}">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr EvtLog.DetailsHeading}" />
+          <WrapPanel Margin="0,8,0,0" DockPanel.Dock="Bottom">
+            <Button x:Name="ShowMessageButton" Margin="0,0,6,4" Command="{Binding ShowMessageCommand}" Content="{l:Tr EvtLog.ShowMessage}" />
+            <Button x:Name="CopyDetailsButton" Margin="0,0,6,4" Command="{Binding CopyDetailsCommand}" Content="{l:Tr Common.Copy}" />
+          </WrapPanel>
+          <Grid>
+            <TextBlock x:Name="DetailsEmptyText"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr EvtLog.DetailsEmpty}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding HasSelection, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+            <ScrollViewer x:Name="DetailsScroll"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding HasSelection, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+              <StackPanel>
+                <TextBox x:Name="MessageBox"
+                         Margin="0,0,0,8"
+                         AutomationProperties.Name="{l:Tr EvtLog.ShowMessage}"
+                         Style="{StaticResource Ad.SelectableText}"
+                         Text="{Binding MessageText, Mode=OneWay}"
+                         TextWrapping="Wrap"
+                         Visibility="{Binding HasMessage, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <ItemsControl x:Name="FieldsList" Focusable="False" ItemsSource="{Binding Fields, Mode=OneWay}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type evt:EventLogFieldRow}">
+                      <StackPanel Margin="0,0,0,6">
+                        <TextBlock FontSize="12" Style="{StaticResource Ad.SecondaryText}" Text="{Binding Name, Mode=OneWay}" />
+                        <TextBox AutomationProperties.Name="{Binding Name, Mode=OneWay}"
+                                 Style="{StaticResource Ad.SelectableText}"
+                                 Text="{Binding Value, Mode=OneWay}"
+                                 TextWrapping="Wrap" />
+                        <TextBlock Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                   Text="{Binding Explanation, Mode=OneWay}"
+                                   TextWrapping="Wrap"
+                                   Visibility="{Binding HasExplanation, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                        <DockPanel Visibility="{Binding HasObject, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                          <Button Margin="8,0,0,0"
+                                  Command="{Binding DataContext.OpenObjectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                  CommandParameter="{Binding Mode=OneWay}"
+                                  Content="{l:Tr Commands.Properties}"
+                                  DockPanel.Dock="Right" />
+                          <TextBlock VerticalAlignment="Center" Text="{Binding ObjectName, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+                      </StackPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </DockPanel>
+      </Border>
+    </Grid>
+  </DockPanel>
+</UserControl>

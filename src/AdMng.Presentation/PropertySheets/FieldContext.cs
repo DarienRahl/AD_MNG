@@ -31,6 +31,9 @@ internal sealed class FieldContext(DialogServices services, IDirectorySession se
     /// <summary>"Wyślij wiadomość…" (U1); null when the host registered no message launcher.</summary>
     public AccountReview.IUserMessageLauncher? Messages { get; init; }
 
+    /// <summary>The event log documents of the window (track E): lockout source, a computer's event log; null without them.</summary>
+    public EventLogs.EventLogLauncher? EventLogs { get; init; }
+
     public ILocalizer Localizer => Services.Localizer;
 
     public ISchemaCatalog Schema => Session.Schema;
