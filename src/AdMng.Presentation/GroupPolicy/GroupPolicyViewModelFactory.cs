@@ -1,6 +1,7 @@
 using AdMng.Core.Computers.Remote;
 using AdMng.Core.Csv;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
+using AdMng.Presentation.GroupPolicy.Diagnostics;
 using AdMng.Presentation.GroupPolicy.Modeling;
 using AdMng.Presentation.GroupPolicy.SecuritySettings;
 
@@ -61,6 +62,7 @@ public sealed class GroupPolicyViewModelFactory(GroupPolicyServices services, Gr
                 new SecuritySettingsEditorViewModel(Services, Actions, securityId, request.Name),
             GroupPolicyDocumentKind.Objects => new GroupPolicyObjectsDocumentViewModel(Services, Actions) { UpdateTemplates = UpdateTemplatesAsync },
             GroupPolicyDocumentKind.Modeling => new GroupPolicyModelingDocumentViewModel(Services, Actions, Definitions, request, resolver, csv),
+            GroupPolicyDocumentKind.Diagnostics => new GroupPolicyDiagnosticsDocumentViewModel(Services, Actions, csv),
             _ => throw new ArgumentException("The request names no GPO or container.", nameof(request)),
         };
     }
@@ -78,6 +80,7 @@ public sealed class GroupPolicyViewModelFactory(GroupPolicyServices services, Gr
             (AdministrativeTemplatesEditorViewModel editor, GroupPolicyDocumentKind.AdministrativeTemplates) => editor.GpoId == request.GpoId,
             (SecuritySettingsEditorViewModel editor, GroupPolicyDocumentKind.SecuritySettings) => editor.GpoId == request.GpoId,
             (GroupPolicyModelingDocumentViewModel model, GroupPolicyDocumentKind.Modeling) => model.Matches(request),
+            (GroupPolicyDiagnosticsDocumentViewModel, GroupPolicyDocumentKind.Diagnostics) => true,
             (GroupPolicyScopeDocumentViewModel scope, GroupPolicyDocumentKind.Scope) =>
                 request.ContainerDn is { } dn && Core.Ldap.DistinguishedName.AreEqual(scope.ContainerDn, dn),
             _ => false,

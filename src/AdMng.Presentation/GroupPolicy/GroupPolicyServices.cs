@@ -47,6 +47,9 @@ public enum GroupPolicyDocumentKind
     /// <see cref="GroupPolicyDocumentRequest.ContainerDn"/>; one tab per target set.
     /// </summary>
     Modeling,
+
+    /// <summary>"Diagnostyka zasad grupy" (K6) of the window's domain: one tab per connection window.</summary>
+    Diagnostics,
 }
 
 /// <summary>A request to open a Group Policy document in the connection window's shell.</summary>

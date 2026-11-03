@@ -1,7 +1,8 @@
 <!--
   One GPO (GroupPolicyObjectDocumentViewModel), GPMC's tabs: Zakres (links, security filtering, WMI filter), Szczegóły
-  (domain, owner, dates, versions of AD and SYSVOL, GUID, GPO status), Ustawienia (the settings in GPMC's words, grouped like
-  GPMC's report, search, "Edytuj to ustawienie", "Raport HTML…"; read-only, secrets never shown), Delegowanie (GPMC levels) and Stan (AD/SYSVOL consistency with "Wyrównaj wersje" and "Napraw
+  (domain, owner, dates, versions of AD and SYSVOL, GUID, GPO status), Ustawienia (the settings in GPMC's words, grouped
+  like GPMC's report, search, "Edytuj to ustawienie", "Raport HTML…"; read-only, secrets never shown), Delegowanie (GPMC
+  levels) and Stan (the GPO diagnostics, GroupPolicyHealthPanel, with "Napraw…", "Wyrównaj wersje" and "Napraw
   uprawnienia folderu"). Every change opens the change plan preview.
 -->
 <UserControl x:Class="AdMng.App.GroupPolicy.GroupPolicyObjectView"
@@ -503,47 +504,9 @@
         </DockPanel>
       </TabItem>
 
-      <!-- Stan -->
+      <!-- Stan: the diagnostics engine for this GPO (GroupPolicyHealthPanel.xaml) -->
       <TabItem x:Name="StatusTab" Header="{l:Tr GroupPolicy.TabStatus}">
-        <DockPanel Margin="4,8,4,4">
-          <TextBlock Margin="0,0,0,6" DockPanel.Dock="Top" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr GroupPolicy.StatusHint}" TextWrapping="Wrap" />
-          <WrapPanel Margin="0,6,0,0" DockPanel.Dock="Bottom">
-            <Button x:Name="AlignVersionsButton" Margin="0,0,6,4" Command="{Binding AlignVersionsCommand}" Content="{l:Tr GroupPolicy.AlignVersions}" />
-            <Button x:Name="RepairFolderButton" Margin="0,0,6,4" Command="{Binding RepairFolderSecurityCommand}" Content="{l:Tr GroupPolicy.RepairFolder}" />
-          </WrapPanel>
-          <ListView x:Name="ChecksList"
-                    AutomationProperties.Name="{l:Tr GroupPolicy.TabStatus}"
-                    ItemsSource="{Binding Checks, Mode=OneWay}">
-            <ListView.View>
-              <GridView AllowsColumnReorder="False">
-                <GridViewColumn Width="36">
-                  <GridViewColumn.CellTemplate>
-                    <DataTemplate DataType="{x:Type gpm:GpoCheckRowViewModel}">
-                      <TextBlock x:Name="CheckGlyph"
-                                 Foreground="{DynamicResource SystemFillColorSuccessBrush}"
-                                 Style="{StaticResource Ad.GlyphText}"
-                                 Text="{x:Static c:Glyphs.Completed}" />
-                      <DataTemplate.Triggers>
-                        <DataTrigger Binding="{Binding IsOk, Mode=OneWay}" Value="False">
-                          <Setter TargetName="CheckGlyph" Property="Text" Value="{x:Static c:Glyphs.Warning}" />
-                          <Setter TargetName="CheckGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
-                        </DataTrigger>
-                      </DataTemplate.Triggers>
-                    </DataTemplate>
-                  </GridViewColumn.CellTemplate>
-                </GridViewColumn>
-                <GridViewColumn Width="240" DisplayMemberBinding="{Binding Text, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnCheck}" />
-                <GridViewColumn Width="620" Header="{l:Tr GroupPolicy.ColumnResult}">
-                  <GridViewColumn.CellTemplate>
-                    <DataTemplate DataType="{x:Type gpm:GpoCheckRowViewModel}">
-                      <TextBlock Text="{Binding Detail, Mode=OneWay}" TextWrapping="Wrap" />
-                    </DataTemplate>
-                  </GridViewColumn.CellTemplate>
-                </GridViewColumn>
-              </GridView>
-            </ListView.View>
-          </ListView>
-        </DockPanel>
+        <gp:GroupPolicyHealthPanel x:Name="HealthPanel" />
       </TabItem>
     </TabControl>
   </DockPanel>

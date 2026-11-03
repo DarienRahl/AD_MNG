@@ -16829,4 +16829,978 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Klucz techniczny</value>
   </data>
   <!-- K6 readable GPO settings (20.1): end -->
+  <!-- K6 Group Policy diagnostics (20.2): begin -->
+  <data name="GpoDiag.Title" xml:space="preserve">
+    <value>Diagnostyka zasad grupy</value>
+  </data>
+  <data name="GpoDiag.Command" xml:space="preserve">
+    <value>Diagnostyka zasad grupy…</value>
+  </data>
+  <data name="GpoDiag.ToolbarCommand" xml:space="preserve">
+    <value>Diagnostyka…</value>
+  </data>
+  <data name="GpoDiag.QuickCheck" xml:space="preserve">
+    <value>Szybkie sprawdzenie</value>
+  </data>
+  <data name="GpoDiag.QuickCheckHint" xml:space="preserve">
+    <value>Odczytuje z Active Directory obiekty GPO, połączenia, uprawnienia i filtry WMI oraz wersję GPT.INI każdego obiektu – zwykle kilka sekund.</value>
+  </data>
+  <data name="GpoDiag.FullCheck" xml:space="preserve">
+    <value>Pełne sprawdzenie</value>
+  </data>
+  <data name="GpoDiag.FullCheckHint" xml:space="preserve">
+    <value>Dodatkowo odczytuje folder SYSVOL, ustawienia i uprawnienia folderu każdego obiektu GPO, liczy użytkowników i komputery pod połączeniami, rozwiązuje identyfikatory SID i porównuje ustawienia obiektów GPO działających w tym samym kontenerze. W dużej domenie może to potrwać kilka minut.</value>
+  </data>
+  <data name="GpoDiag.CheckAgain" xml:space="preserve">
+    <value>Sprawdź ponownie</value>
+  </data>
+  <data name="GpoDiag.LastRun" xml:space="preserve">
+    <value>Ostatnie sprawdzenie: {0}, {1}</value>
+  </data>
+  <data name="GpoDiag.DepthQuick" xml:space="preserve">
+    <value>szybkie</value>
+  </data>
+  <data name="GpoDiag.DepthFull" xml:space="preserve">
+    <value>pełne</value>
+  </data>
+  <data name="GpoDiag.NeverRun" xml:space="preserve">
+    <value>Jeszcze nie sprawdzono.</value>
+  </data>
+  <data name="GpoDiag.Stale" xml:space="preserve">
+    <value>Zasady grupy zmieniły się od ostatniego sprawdzenia – wyniki mogą być nieaktualne.</value>
+  </data>
+  <data name="GpoDiag.Cancelled" xml:space="preserve">
+    <value>Sprawdzanie anulowano.</value>
+  </data>
+  <data name="GpoDiag.FindingsOne" xml:space="preserve">
+    <value>{0} uwaga</value>
+  </data>
+  <data name="GpoDiag.FindingsFew" xml:space="preserve">
+    <value>{0} uwagi</value>
+  </data>
+  <data name="GpoDiag.FindingsMany" xml:space="preserve">
+    <value>{0} uwag</value>
+  </data>
+  <data name="GpoDiag.FindingsShown" xml:space="preserve">
+    <value>Pokazano uwagi: {0} z {1}</value>
+  </data>
+  <data name="GpoDiag.NoFindings" xml:space="preserve">
+    <value>Nie znaleziono problemów.</value>
+  </data>
+  <data name="GpoDiag.NoMatches" xml:space="preserve">
+    <value>Żadna uwaga nie pasuje do filtrów.</value>
+  </data>
+  <data name="GpoDiag.NamesStage" xml:space="preserve">
+    <value>Odczyt nazw podmiotów zabezpieczeń…</value>
+  </data>
+  <data name="GpoDiag.ColumnSeverity" xml:space="preserve">
+    <value>Ważność</value>
+  </data>
+  <data name="GpoDiag.ColumnArea" xml:space="preserve">
+    <value>Obszar</value>
+  </data>
+  <data name="GpoDiag.ColumnWhere" xml:space="preserve">
+    <value>Kontener lub ustawienie</value>
+  </data>
+  <data name="GpoDiag.ColumnFinding" xml:space="preserve">
+    <value>Uwaga</value>
+  </data>
+  <data name="GpoDiag.FilterSeverity" xml:space="preserve">
+    <value>Ważność</value>
+  </data>
+  <data name="GpoDiag.FilterArea" xml:space="preserve">
+    <value>Obszar</value>
+  </data>
+  <data name="GpoDiag.FilterGpo" xml:space="preserve">
+    <value>Obiekt GPO</value>
+  </data>
+  <data name="GpoDiag.AllSeverities" xml:space="preserve">
+    <value>Każda ważność</value>
+  </data>
+  <data name="GpoDiag.AllAreas" xml:space="preserve">
+    <value>Każdy obszar</value>
+  </data>
+  <data name="GpoDiag.AllGpos" xml:space="preserve">
+    <value>Każdy obiekt GPO</value>
+  </data>
+  <data name="GpoDiag.SearchPlaceholder" xml:space="preserve">
+    <value>Szukaj w uwagach (tytuł, GPO, kontener, ustawienie)</value>
+  </data>
+  <data name="GpoDiag.ClearFilters" xml:space="preserve">
+    <value>Wyczyść filtry</value>
+  </data>
+  <data name="GpoDiag.SummaryLabel" xml:space="preserve">
+    <value>Podsumowanie</value>
+  </data>
+  <data name="GpoDiag.DetailsHeading" xml:space="preserve">
+    <value>Szczegóły</value>
+  </data>
+  <data name="GpoDiag.DetailsEmpty" xml:space="preserve">
+    <value>Wybierz uwagę, aby zobaczyć, dlaczego jest ważna i co zrobić.</value>
+  </data>
+  <data name="GpoDiag.WhyHeading" xml:space="preserve">
+    <value>Dlaczego to ważne</value>
+  </data>
+  <data name="GpoDiag.WhatHeading" xml:space="preserve">
+    <value>Co zrobić</value>
+  </data>
+  <data name="GpoDiag.AffectedHeading" xml:space="preserve">
+    <value>Czego dotyczy</value>
+  </data>
+  <data name="GpoDiag.AffectedGpo" xml:space="preserve">
+    <value>Obiekt GPO: {0}</value>
+  </data>
+  <data name="GpoDiag.AffectedContainer" xml:space="preserve">
+    <value>Kontener: {0}</value>
+  </data>
+  <data name="GpoDiag.AffectedRelated" xml:space="preserve">
+    <value>Pozostałe obiekty GPO: {0}</value>
+  </data>
+  <data name="GpoDiag.AffectedSetting" xml:space="preserve">
+    <value>Ustawienie: {0}</value>
+  </data>
+  <data name="GpoDiag.AffectedSettingKey" xml:space="preserve">
+    <value>Klucz: {0}</value>
+  </data>
+  <data name="GpoDiag.AffectedWmiFilter" xml:space="preserve">
+    <value>Filtr WMI: {0}</value>
+  </data>
+  <data name="GpoDiag.FixLine" xml:space="preserve">
+    <value>Naprawa: {0}</value>
+  </data>
+  <data name="GpoDiag.NoFix" xml:space="preserve">
+    <value>Brak automatycznej naprawy – postępuj zgodnie z zaleceniem.</value>
+  </data>
+  <data name="GpoDiag.Fix" xml:space="preserve">
+    <value>Napraw…</value>
+  </data>
+  <data name="GpoDiag.OpenGpo" xml:space="preserve">
+    <value>Otwórz GPO</value>
+  </data>
+  <data name="GpoDiag.EditSetting" xml:space="preserve">
+    <value>Edytuj to ustawienie</value>
+  </data>
+  <data name="GpoDiag.ShowInModel" xml:space="preserve">
+    <value>Pokaż w modelu</value>
+  </data>
+  <data name="GpoDiag.Copied" xml:space="preserve">
+    <value>Skopiowano uwagę do schowka.</value>
+  </data>
+  <data name="GpoDiag.ExportCsv" xml:space="preserve">
+    <value>Eksportuj do CSV…</value>
+  </data>
+  <data name="GpoDiag.ExportHtml" xml:space="preserve">
+    <value>Eksportuj do HTML…</value>
+  </data>
+  <data name="GpoDiag.HtmlFilter" xml:space="preserve">
+    <value>Pliki HTML (*.html)</value>
+  </data>
+  <data name="GpoDiag.ReportTitle" xml:space="preserve">
+    <value>Diagnostyka zasad grupy – {0}</value>
+  </data>
+  <data name="GpoDiag.ReportSubtitle" xml:space="preserve">
+    <value>Kontroler domeny: {0} · sprawdzenie: {1}</value>
+  </data>
+  <data name="GpoDiag.ReportFilters" xml:space="preserve">
+    <value>Po filtrowaniu: {0} z {1} uwag.</value>
+  </data>
+  <data name="GpoDiag.ReportPrivacy" xml:space="preserve">
+    <value>Raport zawiera nazwy obiektów Twojego katalogu. Przechowuj i udostępniaj go jak każdy inny dokument administracyjny.</value>
+  </data>
+  <data name="GpoDiag.TitleRemoveDuplicateLinks" xml:space="preserve">
+    <value>Pozostawienie jednego połączenia „{0}”</value>
+  </data>
+  <data name="GpoDiag.TitleRepairExtensions" xml:space="preserve">
+    <value>Naprawa nazw rozszerzeń „{0}”</value>
+  </data>
+  <data name="GpoDiag.NoteQuick" xml:space="preserve">
+    <value>Szybkie sprawdzenie nie obejmuje: {0}. Uruchom pełne sprawdzenie, aby je uwzględnić – odczytuje ono także foldery SYSVOL i może potrwać dłużej.</value>
+  </data>
+  <data name="GpoDiag.NoteSysvol" xml:space="preserve">
+    <value>Nie sprawdzono z powodu niedostępności SYSVOL: {0}. {1}</value>
+  </data>
+  <data name="GpoDiag.NoteFailed" xml:space="preserve">
+    <value>Nie sprawdzono, bo nie udało się odczytać danych: {0}.</value>
+  </data>
+  <data name="GpoDiag.NoteFoldersNotRead" xml:space="preserve">
+    <value>Nie udało się odczytać folderów tych obiektów GPO, więc pominięto ich reguły folderu i ustawień: {0}.</value>
+  </data>
+  <data name="GpoDiag.FolderAccessDenied" xml:space="preserve">
+    <value>odmowa dostępu</value>
+  </data>
+  <data name="GpoDiag.FolderTooLarge" xml:space="preserve">
+    <value>za duży</value>
+  </data>
+  <data name="GpoDiag.FolderFailed" xml:space="preserve">
+    <value>błąd odczytu</value>
+  </data>
+  <data name="GpoDiag.PartUser" xml:space="preserve">
+    <value>użytkownika</value>
+  </data>
+  <data name="GpoDiag.PartComputer" xml:space="preserve">
+    <value>komputera</value>
+  </data>
+  <data name="GpoDiag.MissingFolder" xml:space="preserve">
+    <value>folder obiektu GPO</value>
+  </data>
+  <data name="GpoDiag.MissingGptIni" xml:space="preserve">
+    <value>plik GPT.INI</value>
+  </data>
+  <data name="GpoDiag.PreferenceItem" xml:space="preserve">
+    <value>własne właściwości elementu</value>
+  </data>
+  <data name="GpoDiag.SettingRestrictedGroup" xml:space="preserve">
+    <value>Grupy z ograniczeniami – {0}</value>
+  </data>
+  <data name="GpoDiag.SettingLocalGroups" xml:space="preserve">
+    <value>Lokalni użytkownicy i grupy (preferencje)</value>
+  </data>
+  <data name="GpoDiag.SettingFile" xml:space="preserve">
+    <value>Plik {0}</value>
+  </data>
+  <data name="GpoDiag.HealthHint" xml:space="preserve">
+    <value>Wyniki diagnostyki zasad grupy dla tego obiektu GPO: połączenia, zakres, uprawnienia, wersje, folder SYSVOL i ustawienia, odczytane z tego kontrolera domeny.</value>
+  </data>
+  <data name="GpoDiag.HealthNone" xml:space="preserve">
+    <value>Nie wykryto problemów w tym obiekcie GPO.</value>
+  </data>
+  <data name="GpoDiag.HealthChecking" xml:space="preserve">
+    <value>Sprawdzanie obiektu GPO…</value>
+  </data>
+  <data name="GpoDiag.AreaOk" xml:space="preserve">
+    <value>Bez uwag</value>
+  </data>
+  <data name="GpoDiag.AreaInfo" xml:space="preserve">
+    <value>Tylko informacje: {0}</value>
+  </data>
+  <data name="GpoDiag.AreaFindings" xml:space="preserve">
+    <value>Uwagi: {0}, najpoważniejsza: {1}</value>
+  </data>
+  <data name="GpoDiag.AreaNotChecked" xml:space="preserve">
+    <value>Nie sprawdzono – {0}</value>
+  </data>
+  <data name="GpoDiag.AreaPartly" xml:space="preserve">
+    <value>{0} (sprawdzono częściowo – {1})</value>
+  </data>
+  <data name="GpoDiag.ReasonQuickOnly" xml:space="preserve">
+    <value>tylko w pełnym sprawdzeniu</value>
+  </data>
+  <data name="GpoDiag.ReasonSysvol" xml:space="preserve">
+    <value>SYSVOL jest niedostępny</value>
+  </data>
+  <data name="GpoDiag.ReasonFailed" xml:space="preserve">
+    <value>nie udało się odczytać danych</value>
+  </data>
+  <data name="GpoDiag.Severity.Critical" xml:space="preserve">
+    <value>Krytyczna</value>
+  </data>
+  <data name="GpoDiag.Chip.Critical" xml:space="preserve">
+    <value>Krytyczne: {0}</value>
+  </data>
+  <data name="GpoDiag.Severity.High" xml:space="preserve">
+    <value>Wysoka</value>
+  </data>
+  <data name="GpoDiag.Chip.High" xml:space="preserve">
+    <value>Wysokie: {0}</value>
+  </data>
+  <data name="GpoDiag.Severity.Medium" xml:space="preserve">
+    <value>Średnia</value>
+  </data>
+  <data name="GpoDiag.Chip.Medium" xml:space="preserve">
+    <value>Średnie: {0}</value>
+  </data>
+  <data name="GpoDiag.Severity.Low" xml:space="preserve">
+    <value>Niska</value>
+  </data>
+  <data name="GpoDiag.Chip.Low" xml:space="preserve">
+    <value>Niskie: {0}</value>
+  </data>
+  <data name="GpoDiag.Severity.Info" xml:space="preserve">
+    <value>Informacja</value>
+  </data>
+  <data name="GpoDiag.Chip.Info" xml:space="preserve">
+    <value>Informacje: {0}</value>
+  </data>
+  <data name="GpoDiag.Area.Links" xml:space="preserve">
+    <value>Połączenia</value>
+  </data>
+  <data name="GpoDiag.Area.Scope" xml:space="preserve">
+    <value>Zakres</value>
+  </data>
+  <data name="GpoDiag.Area.Filtering" xml:space="preserve">
+    <value>Filtrowanie</value>
+  </data>
+  <data name="GpoDiag.Area.Versions" xml:space="preserve">
+    <value>Wersje</value>
+  </data>
+  <data name="GpoDiag.Area.Folder" xml:space="preserve">
+    <value>Folder SYSVOL</value>
+  </data>
+  <data name="GpoDiag.Area.Content" xml:space="preserve">
+    <value>Ustawienia</value>
+  </data>
+  <data name="GpoDiag.Area.Conflict" xml:space="preserve">
+    <value>Konflikty</value>
+  </data>
+  <data name="GpoDiag.Area.Security" xml:space="preserve">
+    <value>Bezpieczeństwo</value>
+  </data>
+  <data name="GpoDiag.Group.Directory" xml:space="preserve">
+    <value>połączenia, uprawnienia i filtry WMI</value>
+  </data>
+  <data name="GpoDiag.Group.SysvolVersions" xml:space="preserve">
+    <value>wersje GPT.INI</value>
+  </data>
+  <data name="GpoDiag.Group.Folders" xml:space="preserve">
+    <value>foldery SYSVOL i ustawienia obiektów GPO</value>
+  </data>
+  <data name="GpoDiag.Group.ObjectCounts" xml:space="preserve">
+    <value>użytkownicy i komputery pod połączeniami</value>
+  </data>
+  <data name="GpoDiag.Group.Principals" xml:space="preserve">
+    <value>identyfikatory SID w uprawnieniach i ustawieniach</value>
+  </data>
+  <data name="GpoDiag.Group.Conflicts" xml:space="preserve">
+    <value>konflikty między obiektami GPO</value>
+  </data>
+  <data name="GpoDiag.Stage.Directory" xml:space="preserve">
+    <value>Odczyt obiektów GPO, połączeń i filtrów WMI…</value>
+  </data>
+  <data name="GpoDiag.Stage.Versions" xml:space="preserve">
+    <value>Odczyt wersji GPT.INI…</value>
+  </data>
+  <data name="GpoDiag.Stage.Folders" xml:space="preserve">
+    <value>Odczyt folderów SYSVOL: {0} z {1}</value>
+  </data>
+  <data name="GpoDiag.Stage.Objects" xml:space="preserve">
+    <value>Liczenie użytkowników i komputerów: {0}</value>
+  </data>
+  <data name="GpoDiag.Stage.Principals" xml:space="preserve">
+    <value>Sprawdzanie identyfikatorów SID: {0} z {1}</value>
+  </data>
+  <data name="GpoDiag.Stage.Completed" xml:space="preserve">
+    <value>Analiza wyników…</value>
+  </data>
+  <data name="GpoDiag.FixKind.Unlink" xml:space="preserve">
+    <value>usuń połączenie</value>
+  </data>
+  <data name="GpoDiag.FixKind.EnableLink" xml:space="preserve">
+    <value>włącz połączenie</value>
+  </data>
+  <data name="GpoDiag.FixKind.RemoveDuplicateLinks" xml:space="preserve">
+    <value>pozostaw jedno połączenie (to, które obowiązuje)</value>
+  </data>
+  <data name="GpoDiag.FixKind.SetStatus" xml:space="preserve">
+    <value>ustaw stan obiektu GPO na „{0}”</value>
+  </data>
+  <data name="GpoDiag.FixKind.GrantRead" xml:space="preserve">
+    <value>nadaj uprawnienie „Odczyt” dla: {0}</value>
+  </data>
+  <data name="GpoDiag.FixKind.ClearWmiFilter" xml:space="preserve">
+    <value>usuń przypisanie filtru WMI</value>
+  </data>
+  <data name="GpoDiag.FixKind.DeleteWmiFilter" xml:space="preserve">
+    <value>usuń filtr WMI</value>
+  </data>
+  <data name="GpoDiag.FixKind.AlignVersions" xml:space="preserve">
+    <value>wyrównaj wersje</value>
+  </data>
+  <data name="GpoDiag.FixKind.RepairFolderSecurity" xml:space="preserve">
+    <value>napraw uprawnienia folderu</value>
+  </data>
+  <data name="GpoDiag.FixKind.RemoveTrustee" xml:space="preserve">
+    <value>usuń {0} z uprawnień</value>
+  </data>
+  <data name="GpoDiag.FixKind.RepairExtensionNames" xml:space="preserve">
+    <value>dodaj brakujące nazwy rozszerzeń</value>
+  </data>
+  <data name="GpoFinding.GpoNotLinked.Title" xml:space="preserve">
+    <value>Obiekt GPO nie jest połączony</value>
+  </data>
+  <data name="GpoFinding.GpoNotLinked.Message" xml:space="preserve">
+    <value>Obiekt GPO nie jest połączony z domeną, jednostką organizacyjną ani lokacją, więc do nikogo nie trafia.</value>
+  </data>
+  <data name="GpoFinding.GpoNotLinked.Explanation" xml:space="preserve">
+    <value>Niepołączony obiekt GPO nie jest przetwarzany przez żaden komputer ani użytkownika. Może to być pozostałość, wersja robocza albo obiekt odłożony na później – nie spowalnia logowania, ale zaśmieca listę, a o jego ustawieniach łatwo zapomnieć.</value>
+  </data>
+  <data name="GpoFinding.GpoNotLinked.Recommendation" xml:space="preserve">
+    <value>Połącz go tam, gdzie ma działać, albo – jeśli nikt go nie potrzebuje – utwórz kopię zapasową i usuń go.</value>
+  </data>
+  <data name="GpoFinding.GpoLinksAllDisabled.Title" xml:space="preserve">
+    <value>Wszystkie połączenia są wyłączone</value>
+  </data>
+  <data name="GpoFinding.GpoLinksAllDisabled.Message" xml:space="preserve">
+    <value>Wszystkie połączenia obiektu GPO są wyłączone (liczba połączeń: {0}), więc nigdzie nie działa.</value>
+  </data>
+  <data name="GpoFinding.GpoLinksAllDisabled.Explanation" xml:space="preserve">
+    <value>Wyłączone połączenie zachowuje miejsce i kolejność, ale klienci je pomijają. Gdy wszystkie połączenia są wyłączone, obiekt GPO działa jak niepołączony – często po teście lub tymczasowym wyłączeniu, którego nikt nie cofnął.</value>
+  </data>
+  <data name="GpoFinding.GpoLinksAllDisabled.Recommendation" xml:space="preserve">
+    <value>Włącz połączenie tam, gdzie obiekt GPO ma działać – „Napraw…” włącza pierwsze z nich – albo usuń połączenia, jeśli obiekt nie jest już potrzebny.</value>
+  </data>
+  <data name="GpoFinding.LinkToMissingGpo.Title" xml:space="preserve">
+    <value>Połączenie z nieistniejącym obiektem GPO</value>
+  </data>
+  <data name="GpoFinding.LinkToMissingGpo.Message" xml:space="preserve">
+    <value>Kontener jest połączony z obiektem GPO {0}, który nie istnieje w tej domenie.</value>
+  </data>
+  <data name="GpoFinding.LinkToMissingGpo.Explanation" xml:space="preserve">
+    <value>Obiekt GPO usunięto bez jego połączeń albo samo połączenie zostało przywrócone. Klienci szukają go przy każdym odświeżeniu zasad i zapisują błąd w dzienniku zdarzeń; konsola GPMC pokazuje takie połączenie jako nieznalezione.</value>
+  </data>
+  <data name="GpoFinding.LinkToMissingGpo.Recommendation" xml:space="preserve">
+    <value>Usuń połączenie („Napraw…”). Jeśli obiekt GPO usunięto przez pomyłkę, zamiast tego przywróć go z kopii zapasowej – połączenie znów zacznie działać.</value>
+  </data>
+  <data name="GpoFinding.LinkMalformed.Title" xml:space="preserve">
+    <value>Nieczytelne lub obce wpisy połączeń</value>
+  </data>
+  <data name="GpoFinding.LinkMalformed.Message" xml:space="preserve">
+    <value>Atrybut gPLink kontenera zawiera nieczytelne wpisy ({0}) oraz połączenia z obiektami GPO innych domen ({1}).</value>
+  </data>
+  <data name="GpoFinding.LinkMalformed.Explanation" xml:space="preserve">
+    <value>Każdy wpis atrybutu gPLink powinien wskazywać obiekt GPO tej domeny. Wpisy, których nie da się odczytać, klienci pomijają; połączenia z obiektami GPO innej domeny działają, ale uzależniają przetwarzanie od kontrolerów tamtej domeny i łatwo je przeoczyć.</value>
+  </data>
+  <data name="GpoFinding.LinkMalformed.Recommendation" xml:space="preserve">
+    <value>Przejrzyj połączenia kontenera w konsoli GPMC: usuń lub utwórz ponownie błędne wpisy, a połączenia z innymi domenami w miarę możliwości zastąp obiektem GPO tej domeny.</value>
+  </data>
+  <data name="GpoFinding.DuplicateLink.Title" xml:space="preserve">
+    <value>Obiekt GPO połączony kilka razy</value>
+  </data>
+  <data name="GpoFinding.DuplicateLink.Message" xml:space="preserve">
+    <value>Obiekt GPO jest kilkakrotnie połączony z tym samym kontenerem (liczba wpisów: {0}).</value>
+  </data>
+  <data name="GpoFinding.DuplicateLink.Explanation" xml:space="preserve">
+    <value>W jednym kontenerze liczy się tylko jedno połączenie danego obiektu GPO – to o najwyższym pierwszeństwie. Duplikaty zwykle pochodzą ze skryptów lub z przywracania kopii i zaciemniają kolejność łączy oraz opcje „Wymuszone” i „Połączenie włączone”.</value>
+  </data>
+  <data name="GpoFinding.DuplicateLink.Recommendation" xml:space="preserve">
+    <value>Pozostaw jedno połączenie – „Napraw…” zostawia to, które obowiązuje, wraz z jego opcjami – a potem sprawdź kolejność łączy.</value>
+  </data>
+  <data name="GpoFinding.LinkedAllSettingsDisabled.Title" xml:space="preserve">
+    <value>Połączony obiekt GPO ma wyłączone wszystkie ustawienia</value>
+  </data>
+  <data name="GpoFinding.LinkedAllSettingsDisabled.Message" xml:space="preserve">
+    <value>Obiekt GPO jest połączony, ale ma stan „Wszystkie ustawienia wyłączone”.</value>
+  </data>
+  <data name="GpoFinding.LinkedAllSettingsDisabled.Explanation" xml:space="preserve">
+    <value>Przy takim stanie klienci pomijają obiekt GPO we wszystkich miejscach, w których jest połączony. To częsty sposób na chwilowe wyłączenie obiektu – i na zapomnienie, że jest wyłączony.</value>
+  </data>
+  <data name="GpoFinding.LinkedAllSettingsDisabled.Recommendation" xml:space="preserve">
+    <value>Jeśli obiekt GPO ma działać, ustaw na karcie „Szczegóły” stan „Włączone”; jeśli został wycofany, usuń jego połączenia, aby zamiar był jasny.</value>
+  </data>
+  <data name="GpoFinding.PartDisabledWithSettings.Title" xml:space="preserve">
+    <value>Wyłączona część konfiguracji zawiera ustawienia</value>
+  </data>
+  <data name="GpoFinding.PartDisabledWithSettings.Message" xml:space="preserve">
+    <value>Konfiguracja {0} w obiekcie GPO jest wyłączona, choć zawiera ustawienia (wersja {1}).</value>
+  </data>
+  <data name="GpoFinding.PartDisabledWithSettings.Explanation" xml:space="preserve">
+    <value>Stan obiektu GPO wyłącza całą część konfiguracji: jej ustawienia nigdy nie są stosowane, niezależnie od tego, co zawierają. Zwykle tę część wyłączono dla przyspieszenia przetwarzania, zanim ktoś dodał do niej ustawienia.</value>
+  </data>
+  <data name="GpoFinding.PartDisabledWithSettings.Recommendation" xml:space="preserve">
+    <value>Włącz obie części („Napraw…”), jeśli te ustawienia mają działać, albo usuń ustawienia z wyłączonej części.</value>
+  </data>
+  <data name="GpoFinding.PartEnabledWithoutSettings.Title" xml:space="preserve">
+    <value>Włączona pusta część konfiguracji</value>
+  </data>
+  <data name="GpoFinding.PartEnabledWithoutSettings.Message" xml:space="preserve">
+    <value>Konfiguracja {0} w obiekcie GPO jest włączona, ale pusta, a druga część zawiera ustawienia.</value>
+  </data>
+  <data name="GpoFinding.PartEnabledWithoutSettings.Explanation" xml:space="preserve">
+    <value>Klienci przetwarzają włączoną część konfiguracji, nawet pustą. Wyłączanie nieużywanej części to typowa praktyka w konsoli GPMC: przeznaczenie obiektu GPO widać od razu, a przetwarzanie jest odrobinę krótsze.</value>
+  </data>
+  <data name="GpoFinding.PartEnabledWithoutSettings.Recommendation" xml:space="preserve">
+    <value>Wyłącz pustą część („Napraw…”). Dla klientów nic się dziś nie zmieni; włącz ją ponownie, zanim dodasz do niej ustawienia.</value>
+  </data>
+  <data name="GpoFinding.EmptyGpoLinked.Title" xml:space="preserve">
+    <value>Połączony pusty obiekt GPO</value>
+  </data>
+  <data name="GpoFinding.EmptyGpoLinked.Message" xml:space="preserve">
+    <value>Obiekt GPO jest połączony, ale nie zawiera ustawień (obie wersje wynoszą 0).</value>
+  </data>
+  <data name="GpoFinding.EmptyGpoLinked.Explanation" xml:space="preserve">
+    <value>Pusty obiekt GPO niczego nie zmienia, a mimo to każdy klient w jego zakresie odczytuje go przy każdym odświeżeniu. Często to obiekt utworzony i połączony „na zapas”, do którego nigdy nie dodano ustawień.</value>
+  </data>
+  <data name="GpoFinding.EmptyGpoLinked.Recommendation" xml:space="preserve">
+    <value>Dodaj zamierzone ustawienia albo usuń połączenia (i sam obiekt), jeśli nie jest potrzebny.</value>
+  </data>
+  <data name="GpoFinding.UserSettingsWithoutUsers.Title" xml:space="preserve">
+    <value>Ustawienia użytkownika nie trafiają do żadnego użytkownika</value>
+  </data>
+  <data name="GpoFinding.UserSettingsWithoutUsers.Message" xml:space="preserve">
+    <value>Obiekt GPO zawiera ustawienia użytkownika, ale pod jego połączeniami nie ma kont użytkowników i żadne sprzężenie zwrotne nie przenosi go na użytkowników.</value>
+  </data>
+  <data name="GpoFinding.UserSettingsWithoutUsers.Explanation" xml:space="preserve">
+    <value>Ustawienia użytkownika dotyczą kont użytkowników znajdujących się pod połączeniami. Obiekt GPO z ustawieniami użytkownika połączony tylko tam, gdzie są komputery, działa jedynie wtedy, gdy te komputery mają włączone przetwarzanie sprzężenia zwrotnego zasad grupy użytkownika.</value>
+  </data>
+  <data name="GpoFinding.UserSettingsWithoutUsers.Recommendation" xml:space="preserve">
+    <value>Połącz obiekt GPO z jednostką, w której są użytkownicy, włącz sprzężenie zwrotne dla tych komputerów albo przenieś ustawienia do konfiguracji komputera, jeśli dotyczą maszyn.</value>
+  </data>
+  <data name="GpoFinding.ComputerSettingsWithoutComputers.Title" xml:space="preserve">
+    <value>Ustawienia komputera nie trafiają do żadnego komputera</value>
+  </data>
+  <data name="GpoFinding.ComputerSettingsWithoutComputers.Message" xml:space="preserve">
+    <value>Obiekt GPO zawiera ustawienia komputera, ale pod jego połączeniami nie ma kont komputerów.</value>
+  </data>
+  <data name="GpoFinding.ComputerSettingsWithoutComputers.Explanation" xml:space="preserve">
+    <value>Ustawienia komputera dotyczą wyłącznie kont komputerów znajdujących się pod połączeniami. Połączone z jednostką zawierającą użytkowników nigdy nie są stosowane – to częsty błąd przy łączeniu obiektu GPO z jednostką użytkowników.</value>
+  </data>
+  <data name="GpoFinding.ComputerSettingsWithoutComputers.Recommendation" xml:space="preserve">
+    <value>Połącz obiekt GPO z jednostką komputerów, dla których jest przeznaczony, albo usuń ustawienia komputera, jeśli nie są potrzebne.</value>
+  </data>
+  <data name="GpoFinding.AccountPolicyBelowDomain.Title" xml:space="preserve">
+    <value>Zasady konta poza poziomem domeny</value>
+  </data>
+  <data name="GpoFinding.AccountPolicyBelowDomain.Message" xml:space="preserve">
+    <value>Obiekt GPO ustawia zasady haseł, blokady konta lub protokołu Kerberos, ale nie jest połączony z domeną.</value>
+  </data>
+  <data name="GpoFinding.AccountPolicyBelowDomain.Explanation" xml:space="preserve">
+    <value>Konta domenowe biorą zasady haseł, blokady konta i protokołu Kerberos wyłącznie z obiektów GPO połączonych z samą domeną i stosowanych przez kontrolery domeny. Połączone z jednostką organizacyjną zmieniają tylko konta lokalne komputerów w tej jednostce. Do różnych reguł dla wybranych grup służą szczegółowe zasady haseł.</value>
+  </data>
+  <data name="GpoFinding.AccountPolicyBelowDomain.Recommendation" xml:space="preserve">
+    <value>Przenieś zasady konta do obiektu GPO połączonego z domeną (zwykle Default Domain Policy); dla reguł dotyczących wybranych grup użyj szczegółowych zasad haseł.</value>
+  </data>
+  <data name="GpoFinding.LoopbackWithoutComputers.Title" xml:space="preserve">
+    <value>Sprzężenie zwrotne w obiekcie GPO bez komputerów</value>
+  </data>
+  <data name="GpoFinding.LoopbackWithoutComputers.Message" xml:space="preserve">
+    <value>Obiekt GPO włącza przetwarzanie sprzężenia zwrotnego (tryb: {0}), ale pod jego połączeniami nie ma kont komputerów.</value>
+  </data>
+  <data name="GpoFinding.LoopbackWithoutComputers.Explanation" xml:space="preserve">
+    <value>Sprzężenie zwrotne to ustawienie komputera: zmienia, które ustawienia użytkownika obowiązują na komputerach, do których trafia. Połączone tylko tam, gdzie nie ma komputerów, nigdy nie zadziała.</value>
+  </data>
+  <data name="GpoFinding.LoopbackWithoutComputers.Recommendation" xml:space="preserve">
+    <value>Połącz obiekt GPO z jednostką komputerów, dla których jest przeznaczony (np. serwerów terminali lub kiosków), albo usuń ustawienie sprzężenia zwrotnego.</value>
+  </data>
+  <data name="GpoFinding.NoApplyRight.Title" xml:space="preserve">
+    <value>Nikt nie może zastosować obiektu GPO</value>
+  </data>
+  <data name="GpoFinding.NoApplyRight.Message" xml:space="preserve">
+    <value>Obiekt GPO jest połączony, ale żaden użytkownik, grupa ani komputer nie ma uprawnienia „Zastosuj zasady grupy”.</value>
+  </data>
+  <data name="GpoFinding.NoApplyRight.Explanation" xml:space="preserve">
+    <value>Filtrowanie zabezpieczeń decyduje, kto przetwarza obiekt GPO: tylko podmioty z uprawnieniami „Odczyt” i „Zastosuj zasady grupy”, bez odmowy. Gdy nie ma żadnego takiego podmiotu, obiekt nie działa na nikogo – zwykle po usunięciu grupy Użytkownicy uwierzytelnieni bez dodania właściwej grupy.</value>
+  </data>
+  <data name="GpoFinding.NoApplyRight.Recommendation" xml:space="preserve">
+    <value>Na karcie „Zakres”, w sekcji „Filtrowanie zabezpieczeń”, dodaj użytkowników, grupy lub komputery, dla których obiekt GPO jest przeznaczony.</value>
+  </data>
+  <data name="GpoFinding.Ms16072ComputersCannotRead.Title" xml:space="preserve">
+    <value>Komputery nie mogą odczytać obiektu GPO (MS16-072)</value>
+  </data>
+  <data name="GpoFinding.Ms16072ComputersCannotRead.Message" xml:space="preserve">
+    <value>Obiekt GPO zawiera ustawienia użytkownika, ale ani Użytkownicy uwierzytelnieni, ani Komputery domeny nie mają do niego uprawnienia „Odczyt”.</value>
+  </data>
+  <data name="GpoFinding.Ms16072ComputersCannotRead.Explanation" xml:space="preserve">
+    <value>Od aktualizacji MS16-072 (2016) system Windows odczytuje obiekty GPO użytkownika kontem komputera. Jeśli komputer nie może odczytać obiektu, ustawienia użytkownika są pomijane bez żadnego komunikatu – zwykle po zawężeniu filtrowania zabezpieczeń do grupy użytkowników i całkowitym usunięciu grupy Użytkownicy uwierzytelnieni.</value>
+  </data>
+  <data name="GpoFinding.Ms16072ComputersCannotRead.Recommendation" xml:space="preserve">
+    <value>Nadaj grupie Użytkownicy uwierzytelnieni uprawnienie „Odczyt” bez „Zastosuj zasady grupy” („Napraw…”) – filtrowanie zabezpieczeń pozostanie bez zmian.</value>
+  </data>
+  <data name="GpoFinding.WmiFilterMissing.Title" xml:space="preserve">
+    <value>Przypisany filtr WMI nie istnieje</value>
+  </data>
+  <data name="GpoFinding.WmiFilterMissing.Message" xml:space="preserve">
+    <value>Obiekt GPO korzysta z filtru WMI {0}, który nie istnieje.</value>
+  </data>
+  <data name="GpoFinding.WmiFilterMissing.Explanation" xml:space="preserve">
+    <value>Filtr usunięto, choć obiekt GPO nadal się do niego odwołuje. Konsola GPMC zgłasza brak filtru, a warunek, który wyrażał – system operacyjny, typ sprzętu – nie jest już sprawdzany tak, jak zaplanowano.</value>
+  </data>
+  <data name="GpoFinding.WmiFilterMissing.Recommendation" xml:space="preserve">
+    <value>Wybierz istniejący filtr WMI na karcie „Zakres” albo usuń przypisanie („Napraw…”), jeśli obiekt GPO ma działać bez filtru.</value>
+  </data>
+  <data name="GpoFinding.WmiFilterUnused.Title" xml:space="preserve">
+    <value>Filtr WMI nieużywany przez żaden obiekt GPO</value>
+  </data>
+  <data name="GpoFinding.WmiFilterUnused.Message" xml:space="preserve">
+    <value>Filtr WMI „{0}” ({1}) nie jest przypisany do żadnego obiektu GPO.</value>
+  </data>
+  <data name="GpoFinding.WmiFilterUnused.Explanation" xml:space="preserve">
+    <value>Nieużywany filtr niczego nie psuje, ale może wskazywać obiekt GPO, który utracił filtr, albo filtr, którego nigdy nie zastosowano. Nieużywane filtry utrudniają też przeglądanie listy.</value>
+  </data>
+  <data name="GpoFinding.WmiFilterUnused.Recommendation" xml:space="preserve">
+    <value>Przypisz filtr tam, gdzie ma być używany, albo usuń go („Napraw…”), jeśli nikt go nie potrzebuje.</value>
+  </data>
+  <data name="GpoFinding.DenyInSecurityFiltering.Title" xml:space="preserve">
+    <value>Wpis odmowy w uprawnieniach obiektu GPO</value>
+  </data>
+  <data name="GpoFinding.DenyInSecurityFiltering.Message" xml:space="preserve">
+    <value>Uprawnienia obiektu GPO odmawiają dostępu podmiotowi {0}.</value>
+  </data>
+  <data name="GpoFinding.DenyInSecurityFiltering.Explanation" xml:space="preserve">
+    <value>Wpis odmowy ma pierwszeństwo przed każdym zezwoleniem, także uzyskanym przez członkostwo w grupie, a konsola GPMC nie pokazuje go na karcie „Zakres”. Odmowa to dozwolony sposób wykluczenia grupy, ale łatwo ją przeoczyć, gdy ktoś szuka przyczyny, dla której obiekt GPO nie działa.</value>
+  </data>
+  <data name="GpoFinding.DenyInSecurityFiltering.Recommendation" xml:space="preserve">
+    <value>Sprawdź, czy wykluczenie jest zamierzone i opisane. Gdzie to możliwe, zawęź filtrowanie zabezpieczeń do właściwej grupy zamiast odmawiać dostępu.</value>
+  </data>
+  <data name="GpoFinding.OrphanedTrustee.Title" xml:space="preserve">
+    <value>Nieznane konto w uprawnieniach obiektu GPO</value>
+  </data>
+  <data name="GpoFinding.OrphanedTrustee.Message" xml:space="preserve">
+    <value>Uprawnienia obiektu GPO wymieniają identyfikator SID {0}, który nie odpowiada już żadnemu kontu w domenie.</value>
+  </data>
+  <data name="GpoFinding.OrphanedTrustee.Explanation" xml:space="preserve">
+    <value>Konto lub grupę usunięto, ale jej wpisy uprawnień pozostały. Same w sobie nie szkodzą, lecz utrudniają odczytanie delegowania, a żadne nowe konto ich nie przejmie.</value>
+  </data>
+  <data name="GpoFinding.OrphanedTrustee.Recommendation" xml:space="preserve">
+    <value>Usuń wpisy tego identyfikatora SID („Napraw…”), gdy masz pewność, że konto nie zostanie przywrócone z Kosza.</value>
+  </data>
+  <data name="GpoFinding.BroadEditRights.Title" xml:space="preserve">
+    <value>Szeroka grupa może edytować obiekt GPO</value>
+  </data>
+  <data name="GpoFinding.BroadEditRights.Message" xml:space="preserve">
+    <value>Podmiot {0} ma prawo zapisu do obiektu GPO (może zmieniać jego ustawienia lub uprawnienia).</value>
+  </data>
+  <data name="GpoFinding.BroadEditRights.Explanation" xml:space="preserve">
+    <value>Kto może edytować obiekt GPO, ten może uruchomić kod na każdym komputerze w jego zakresie – często z uprawnieniami konta SYSTEM. Nadanie tej możliwości grupom Wszyscy, Użytkownicy uwierzytelnieni lub Użytkownicy domeny czyni z każdego konta drogę do tych komputerów, także do kontrolerów domeny.</value>
+  </data>
+  <data name="GpoFinding.BroadEditRights.Recommendation" xml:space="preserve">
+    <value>Na karcie „Delegowanie” obniż uprawnienia tej grupy do „Odczyt”, a „Edycję ustawień” nadaj tylko wydzielonej grupie administratorów.</value>
+  </data>
+  <data name="GpoFinding.VersionMismatch.Title" xml:space="preserve">
+    <value>Wersje w AD i SYSVOL różnią się</value>
+  </data>
+  <data name="GpoFinding.VersionMismatch.Message" xml:space="preserve">
+    <value>Wersja w Active Directory (użytkownik {0}, komputer {1}) różni się od wersji w pliku GPT.INI (użytkownik {2}, komputer {3}).</value>
+  </data>
+  <data name="GpoFinding.VersionMismatch.Explanation" xml:space="preserve">
+    <value>Dwie części obiektu GPO – obiekt w AD i folder w SYSVOL – replikują się osobno. Krótka różnica tuż po zmianie jest normalna; trwała oznacza zatrzymaną replikację SYSVOL lub przerwany zapis, a klienci mogą przetwarzać stary lub niepełny obiekt.</value>
+  </data>
+  <data name="GpoFinding.VersionMismatch.Recommendation" xml:space="preserve">
+    <value>Poczekaj na replikację i sprawdź ponownie. Jeśli różnica nie znika, sprawdź replikację SYSVOL (DFSR) na kontrolerach domeny; wersje wyrównaj („Napraw…”), gdy pliki są już właściwe.</value>
+  </data>
+  <data name="GpoFinding.SysvolFolderMissing.Title" xml:space="preserve">
+    <value>Brak folderu obiektu GPO w SYSVOL</value>
+  </data>
+  <data name="GpoFinding.SysvolFolderMissing.Message" xml:space="preserve">
+    <value>W SYSVOL tego kontrolera domeny nie znaleziono: {0}.</value>
+  </data>
+  <data name="GpoFinding.SysvolFolderMissing.Explanation" xml:space="preserve">
+    <value>Bez folderu obiekt GPO nie ma na tym kontrolerze żadnych ustawień: klienci, którzy z niego korzystają, nie mogą go przetworzyć i zapisują błędy w dzienniku zdarzeń. Zdarza się to, gdy SYSVOL jeszcze się nie zreplikował, po nieudanym przywracaniu albo po ręcznym usunięciu folderu.</value>
+  </data>
+  <data name="GpoFinding.SysvolFolderMissing.Recommendation" xml:space="preserve">
+    <value>Sprawdź replikację SYSVOL i folder na pozostałych kontrolerach domeny. Jeśli folder zaginął wszędzie, przywróć obiekt GPO z kopii zapasowej.</value>
+  </data>
+  <data name="GpoFinding.FolderSecurityMismatch.Title" xml:space="preserve">
+    <value>Uprawnienia folderu różnią się od uprawnień obiektu GPO</value>
+  </data>
+  <data name="GpoFinding.FolderSecurityMismatch.Message" xml:space="preserve">
+    <value>Uprawnienia folderu obiektu GPO w SYSVOL nie odpowiadają uprawnieniom tego obiektu w Active Directory.</value>
+  </data>
+  <data name="GpoFinding.FolderSecurityMismatch.Explanation" xml:space="preserve">
+    <value>Klienci odczytują ustawienia z folderu, więc to jego uprawnienia decydują, kto może je czytać i zmieniać. Gdy rozjadą się z uprawnieniami obiektu GPO, filtrowanie zabezpieczeń i delegowanie przestają działać tak, jak pokazuje je konsola GPMC – sama konsola zgłasza wtedy niespójność uprawnień w folderze SYSVOL.</value>
+  </data>
+  <data name="GpoFinding.FolderSecurityMismatch.Recommendation" xml:space="preserve">
+    <value>Odwzoruj ponownie uprawnienia folderu na podstawie uprawnień obiektu GPO („Napraw…”).</value>
+  </data>
+  <data name="GpoFinding.ExtensionNamesMissing.Title" xml:space="preserve">
+    <value>Pliki ustawień pomijane przez klientów</value>
+  </data>
+  <data name="GpoFinding.ExtensionNamesMissing.Message" xml:space="preserve">
+    <value>Obiekt GPO zawiera pliki ustawień, których rozszerzenie po stronie klienta nie jest w nim zarejestrowane: {0}.</value>
+  </data>
+  <data name="GpoFinding.ExtensionNamesMissing.Explanation" xml:space="preserve">
+    <value>Klienci przetwarzają tylko te rozszerzenia po stronie klienta, które obiekt GPO wymienia. Plik ustawień, którego rozszerzenia brakuje na tej liście, jest pomijany – zwykle po ręcznym skopiowaniu plików do folderu albo po zapisie narzędziem, które nie aktualizuje listy.</value>
+  </data>
+  <data name="GpoFinding.ExtensionNamesMissing.Recommendation" xml:space="preserve">
+    <value>Dodaj brakujące nazwy rozszerzeń („Napraw…”); wersja obiektu GPO wzrośnie, więc klienci przetworzą go ponownie.</value>
+  </data>
+  <data name="GpoFinding.UnreadableFile.Title" xml:space="preserve">
+    <value>Nie można odczytać pliku ustawień</value>
+  </data>
+  <data name="GpoFinding.UnreadableFile.Message" xml:space="preserve">
+    <value>Pliku ustawień {0} tego obiektu GPO nie da się odczytać albo jest uszkodzony.</value>
+  </data>
+  <data name="GpoFinding.UnreadableFile.Explanation" xml:space="preserve">
+    <value>Klienci nie zastosują ustawień z uszkodzonego pliku i zapisują błędy przetwarzania; edytory, takie jak GPMC, mogą odmówić jego otwarcia. Typowe przyczyny to przerwane kopiowanie, ręczna edycja lub zmiana kodowania.</value>
+  </data>
+  <data name="GpoFinding.UnreadableFile.Recommendation" xml:space="preserve">
+    <value>Przywróć plik z kopii zapasowej obiektu GPO albo odtwórz ustawienia w edytorze i zapisz je ponownie.</value>
+  </data>
+  <data name="GpoFinding.Leftovers.Title" xml:space="preserve">
+    <value>Pozostałości przerwanego zapisu</value>
+  </data>
+  <data name="GpoFinding.Leftovers.Message" xml:space="preserve">
+    <value>Folder obiektu GPO zawiera pliki tymczasowe przerwanego zapisu (liczba plików: {0}).</value>
+  </data>
+  <data name="GpoFinding.Leftovers.Explanation" xml:space="preserve">
+    <value>AD Manager zapisuje pliki obiektu GPO przez pliki tymczasowe i zmienia ich nazwy po zakończeniu zapisu. Pozostałości oznaczają, że zapis został przerwany; bieżące ustawienia są nienaruszone, ale pliki zajmują miejsce i replikują się na każdy kontroler domeny.</value>
+  </data>
+  <data name="GpoFinding.Leftovers.Recommendation" xml:space="preserve">
+    <value>Nic pilnego: następna zmiana tego obiektu GPO w AD Manager je usunie. Sprawdź, czy ostatnia zmiana obiektu jest kompletna.</value>
+  </data>
+  <data name="GpoFinding.PathRedirected.Title" xml:space="preserve">
+    <value>Folder obiektu GPO wskazuje poza SYSVOL</value>
+  </data>
+  <data name="GpoFinding.PathRedirected.Message" xml:space="preserve">
+    <value>Ścieżka systemu plików obiektu GPO wskazuje poza SYSVOL domeny: {0}.</value>
+  </data>
+  <data name="GpoFinding.PathRedirected.Explanation" xml:space="preserve">
+    <value>Klienci odczytują ustawienia z miejsca, które wskazuje atrybut gPCFileSysPath. Ścieżka poza SYSVOL nie replikuje się razem z nim, a kto kontroluje ten udział, ten decyduje o działaniu obiektu GPO – to technika wykorzystywana przez atakujących.</value>
+  </data>
+  <data name="GpoFinding.PathRedirected.Recommendation" xml:space="preserve">
+    <value>Traktuj to jako incydent bezpieczeństwa, dopóki nie zostanie wyjaśnione: przywróć obiekt GPO z zaufanej kopii zapasowej i sprawdź, kto i kiedy go zmienił.</value>
+  </data>
+  <data name="GpoFinding.RestrictedAndPreferenceSameGroup.Title" xml:space="preserve">
+    <value>Grupa ustawiana jednocześnie przez Grupy z ograniczeniami i preferencje</value>
+  </data>
+  <data name="GpoFinding.RestrictedAndPreferenceSameGroup.Message" xml:space="preserve">
+    <value>Grupą lokalną {0} zarządzają w tym obiekcie GPO jednocześnie Grupy z ograniczeniami i preferencje Lokalni użytkownicy i grupy.</value>
+  </data>
+  <data name="GpoFinding.RestrictedAndPreferenceSameGroup.Explanation" xml:space="preserve">
+    <value>Grupy z ograniczeniami zastępują całe członkostwo, a preferencje następnie dodają lub usuwają członków – wynik zależy od kolejności przetwarzania i zmienia się przy każdym odświeżeniu. Członkostwo wydaje się „skakać”.</value>
+  </data>
+  <data name="GpoFinding.RestrictedAndPreferenceSameGroup.Recommendation" xml:space="preserve">
+    <value>Zarządzaj grupą w jednym miejscu: albo przez Grupy z ograniczeniami (stała lista), albo przez preferencje (dodawanie i usuwanie członków).</value>
+  </data>
+  <data name="GpoFinding.RestrictedAdministratorsNoAdmins.Title" xml:space="preserve">
+    <value>Grupa Administratorzy zdefiniowana bez administratorów</value>
+  </data>
+  <data name="GpoFinding.RestrictedAdministratorsNoAdmins.Message" xml:space="preserve">
+    <value>Grupy z ograniczeniami ustalają członków lokalnej grupy Administratorzy, ale nie ma wśród nich ani konta Administrator, ani grupy Administratorzy domeny.</value>
+  </data>
+  <data name="GpoFinding.RestrictedAdministratorsNoAdmins.Explanation" xml:space="preserve">
+    <value>Grupy z ograniczeniami zastępują całe członkostwo. Bez wbudowanego konta Administrator i grupy Administratorzy domeny komputery w zakresie tracą zwykły sposób administrowania – wsparcie techniczne może stracić do nich dostęp.</value>
+  </data>
+  <data name="GpoFinding.RestrictedAdministratorsNoAdmins.Recommendation" xml:space="preserve">
+    <value>Dodaj do członków konto Administrator i grupę Administratorzy domeny (albo własną grupę administratorów danej warstwy) lub użyj preferencji, aby dodawać członków bez zastępowania listy.</value>
+  </data>
+  <data name="GpoFinding.LegacyAndAdvancedAudit.Title" xml:space="preserve">
+    <value>Podstawowe i zaawansowane zasady inspekcji jednocześnie</value>
+  </data>
+  <data name="GpoFinding.LegacyAndAdvancedAudit.Message" xml:space="preserve">
+    <value>Obiekt GPO ustawia zarówno podstawowe, jak i zaawansowane zasady inspekcji, ale nie wymusza ustawień podkategorii.</value>
+  </data>
+  <data name="GpoFinding.LegacyAndAdvancedAudit.Explanation" xml:space="preserve">
+    <value>Gdy ustawione są obie formy, system Windows stosuje podstawowe kategorie zamiast zaawansowanych podkategorii, chyba że włączono opcję „Inspekcja: Wymuszaj ustawienia podkategorii zasad inspekcji…”. Wynikowa inspekcja nie jest wtedy tą, którą skonfigurowano.</value>
+  </data>
+  <data name="GpoFinding.LegacyAndAdvancedAudit.Recommendation" xml:space="preserve">
+    <value>Włącz opcję wymuszającą ustawienia podkategorii albo usuń podstawowe zasady inspekcji i pozostaw tylko zaawansowane.</value>
+  </data>
+  <data name="GpoFinding.PasswordLengthNeedsRelax.Title" xml:space="preserve">
+    <value>Minimalna długość hasła powyżej 14</value>
+  </data>
+  <data name="GpoFinding.PasswordLengthNeedsRelax.Message" xml:space="preserve">
+    <value>Minimalna długość hasła wynosi {0}, ale nie włączono opcji znoszącej dawny limit 14 znaków.</value>
+  </data>
+  <data name="GpoFinding.PasswordLengthNeedsRelax.Explanation" xml:space="preserve">
+    <value>Bez opcji „Złagodź limity minimalnej długości hasła” system Windows przyjmuje dla minimalnej długości co najwyżej 14; większa wartość może zostać pominięta lub odrzucona, zależnie od wersji systemu.</value>
+  </data>
+  <data name="GpoFinding.PasswordLengthNeedsRelax.Recommendation" xml:space="preserve">
+    <value>Włącz w tym samym obiekcie GPO opcję „Złagodź limity minimalnej długości hasła” albo pozostaw minimalną długość na poziomie 14 lub mniej.</value>
+  </data>
+  <data name="GpoFinding.TypedPrincipalName.Title" xml:space="preserve">
+    <value>Podmiot zapisany jako nazwa</value>
+  </data>
+  <data name="GpoFinding.TypedPrincipalName.Message" xml:space="preserve">
+    <value>Podmiot zabezpieczeń zapisano jako nazwę {0} zamiast identyfikatora SID.</value>
+  </data>
+  <data name="GpoFinding.TypedPrincipalName.Explanation" xml:space="preserve">
+    <value>Nazwy rozwiązuje każdy klient przy każdym odświeżeniu. Zmiana nazwy lub usunięcie konta, nazwa w innym języku albo literówka psują ustawienie bez ostrzeżenia; identyfikator SID pozostaje ważny.</value>
+  </data>
+  <data name="GpoFinding.TypedPrincipalName.Recommendation" xml:space="preserve">
+    <value>Wybierz konto ponownie w edytorze, aby zapisać jego identyfikator SID.</value>
+  </data>
+  <data name="GpoFinding.UnresolvedPrincipal.Title" xml:space="preserve">
+    <value>Nieznany identyfikator SID w ustawieniu</value>
+  </data>
+  <data name="GpoFinding.UnresolvedPrincipal.Message" xml:space="preserve">
+    <value>Ustawienie wymienia identyfikator SID {0}, który nie odpowiada już żadnemu kontu w domenie.</value>
+  </data>
+  <data name="GpoFinding.UnresolvedPrincipal.Explanation" xml:space="preserve">
+    <value>Konto lub grupę usunięto. Ustawienie nadal je wymienia, więc prawo użytkownika lub członkostwo w grupie nie trafia do nikogo – a jeśli to odmowa, niczego już nie chroni.</value>
+  </data>
+  <data name="GpoFinding.UnresolvedPrincipal.Recommendation" xml:space="preserve">
+    <value>Usuń identyfikator SID z ustawienia albo zastąp go grupą, która powinna mieć to prawo.</value>
+  </data>
+  <data name="GpoFinding.DenyLogonBroadGroup.Title" xml:space="preserve">
+    <value>Odmowa logowania dla szerokiej grupy</value>
+  </data>
+  <data name="GpoFinding.DenyLogonBroadGroup.Message" xml:space="preserve">
+    <value>Prawo użytkownika odmawiające logowania nadano podmiotowi {0}.</value>
+  </data>
+  <data name="GpoFinding.DenyLogonBroadGroup.Explanation" xml:space="preserve">
+    <value>Prawa odmowy mają pierwszeństwo przed każdym zezwoleniem. Nadane grupom Wszyscy, Użytkownicy uwierzytelnieni, Administratorzy lub Użytkownicy domeny mogą odciąć od komputerów w zakresie niemal wszystkich – często także administratorów, którzy mieliby to naprawić.</value>
+  </data>
+  <data name="GpoFinding.DenyLogonBroadGroup.Recommendation" xml:space="preserve">
+    <value>Nadawaj prawo odmowy tylko konkretnym kontom lub grupom, które nie mogą się logować (np. gościom albo kontom uprzywilejowanym na stacjach roboczych).</value>
+  </data>
+  <data name="GpoFinding.ConflictingSetting.Title" xml:space="preserve">
+    <value>Konflikt ustawień</value>
+  </data>
+  <data name="GpoFinding.ConflictingSetting.Message" xml:space="preserve">
+    <value>„{0}” ustawia {2}, a „{1}” – {3}; obowiązuje „{0}”.</value>
+  </data>
+  <data name="GpoFinding.ConflictingSetting.Explanation" xml:space="preserve">
+    <value>Kilka obiektów GPO działających w tym samym kontenerze ustawia to ustawienie inaczej; liczy się tylko obiekt o najwyższym pierwszeństwie. Przegrywające wartości są martwe i wprowadzają w błąd każdego, kto przegląda tylko jeden z tych obiektów.</value>
+  </data>
+  <data name="GpoFinding.ConflictingSetting.Recommendation" xml:space="preserve">
+    <value>Zdecyduj, która wartość jest zamierzona, i usuń ustawienie z pozostałych obiektów GPO albo zmień kolejność łączy, jeśli wygrywa niewłaściwy obiekt.</value>
+  </data>
+  <data name="GpoFinding.RedundantSetting.Title" xml:space="preserve">
+    <value>Ustawienie powtórzone w kilku obiektach GPO</value>
+  </data>
+  <data name="GpoFinding.RedundantSetting.Message" xml:space="preserve">
+    <value>„{0}” i „{1}” ustawiają tę samą wartość: {2}.</value>
+  </data>
+  <data name="GpoFinding.RedundantSetting.Explanation" xml:space="preserve">
+    <value>Ta sama wartość pochodzi z kilku obiektów GPO na jednej ścieżce. Działa, ale późniejsza zmiana w jednym z nich nie przyniesie skutku albo przyniesie inny niż oczekiwany, a każdy z obiektów jest przetwarzany niepotrzebnie.</value>
+  </data>
+  <data name="GpoFinding.RedundantSetting.Recommendation" xml:space="preserve">
+    <value>Pozostaw ustawienie w jednym obiekcie GPO – zwykle najbardziej ogólnym – i usuń je z pozostałych.</value>
+  </data>
+  <data name="GpoFinding.GppPassword.Title" xml:space="preserve">
+    <value>Hasło zapisane w preferencjach (MS14-025)</value>
+  </data>
+  <data name="GpoFinding.GppPassword.Message" xml:space="preserve">
+    <value>Element preferencji obiektu GPO przechowuje hasło (cpassword) w pliku {0}.</value>
+  </data>
+  <data name="GpoFinding.GppPassword.Explanation" xml:space="preserve">
+    <value>Hasła w preferencjach zasad grupy są szyfrowane kluczem opublikowanym przez Microsoft w 2012 roku: każdy użytkownik domeny może odczytać plik z SYSVOL i odszyfrować hasło w kilka sekund. Konto, do którego należy, trzeba uznać za ujawnione.</value>
+  </data>
+  <data name="GpoFinding.GppPassword.Recommendation" xml:space="preserve">
+    <value>Usuń hasło z elementu preferencji (albo cały element), natychmiast zmień hasło tego konta, a do haseł lokalnych administratorów używaj Windows LAPS.</value>
+  </data>
+  <data name="GpoFinding.DangerousRightBroadGroup.Title" xml:space="preserve">
+    <value>Wrażliwe prawo użytkownika dla szerokiej grupy</value>
+  </data>
+  <data name="GpoFinding.DangerousRightBroadGroup.Message" xml:space="preserve">
+    <value>Wrażliwe prawo użytkownika (np. debugowanie programów, wykonywanie kopii zapasowych lub przywracanie plików, przejmowanie na własność, ładowanie sterowników albo działanie jako część systemu operacyjnego) nadano podmiotowi {0}.</value>
+  </data>
+  <data name="GpoFinding.DangerousRightBroadGroup.Explanation" xml:space="preserve">
+    <value>Te prawa pozwalają obejść zabezpieczenia systemu i przejąć pełną kontrolę nad komputerem. Nadane szerokiej grupie czynią w praktyce każdego jej członka lokalnym administratorem.</value>
+  </data>
+  <data name="GpoFinding.DangerousRightBroadGroup.Recommendation" xml:space="preserve">
+    <value>Nadaj prawo tylko kontom, które go naprawdę potrzebują (zwykle administratorom lub wydzielonemu kontu usługi), i usuń szeroką grupę.</value>
+  </data>
+  <data name="GpoFinding.BroadGroupInPrivilegedLocalGroup.Title" xml:space="preserve">
+    <value>Szeroka grupa w uprzywilejowanej grupie lokalnej</value>
+  </data>
+  <data name="GpoFinding.BroadGroupInPrivilegedLocalGroup.Message" xml:space="preserve">
+    <value>Podmiot {0} dodano do lokalnej grupy {1}.</value>
+  </data>
+  <data name="GpoFinding.BroadGroupInPrivilegedLocalGroup.Explanation" xml:space="preserve">
+    <value>Członkowie uprzywilejowanych grup lokalnych, takich jak Administratorzy, Użytkownicy pulpitu zdalnego czy Operatorzy kopii zapasowych, mogą logować się do komputera lub przejąć nad nim kontrolę. Dodanie grup Wszyscy, Użytkownicy uwierzytelnieni lub Użytkownicy domeny daje to każdemu kontu w domenie.</value>
+  </data>
+  <data name="GpoFinding.BroadGroupInPrivilegedLocalGroup.Recommendation" xml:space="preserve">
+    <value>Dodaj wydzieloną grupę zawierającą tylko osoby, które potrzebują dostępu, i usuń szeroką grupę z członkostwa.</value>
+  </data>
+  <data name="GpoFinding.LmCompatibilityWeak.Title" xml:space="preserve">
+    <value>Słaby poziom uwierzytelniania LAN Manager</value>
+  </data>
+  <data name="GpoFinding.LmCompatibilityWeak.Message" xml:space="preserve">
+    <value>Poziom uwierzytelniania LAN Manager ustawiono na: {0}.</value>
+  </data>
+  <data name="GpoFinding.LmCompatibilityWeak.Explanation" xml:space="preserve">
+    <value>Poniżej poziomu 3 klienci mogą nadal wysyłać odpowiedzi LM i NTLMv1, które łatwo złamać lub przekazać dalej. Systemy, które ich wymagają, od wielu lat nie są wspierane.</value>
+  </data>
+  <data name="GpoFinding.LmCompatibilityWeak.Recommendation" xml:space="preserve">
+    <value>Ustaw opcję „Zabezpieczenia sieci: Poziom uwierzytelniania LAN Manager” na „Wyślij tylko odpowiedź NTLMv2. Odmów LM i NTLM” (5), a co najmniej na poziom 3.</value>
+  </data>
+  <data name="GpoFinding.LmHashStored.Title" xml:space="preserve">
+    <value>Przechowywane skróty LM haseł</value>
+  </data>
+  <data name="GpoFinding.LmHashStored.Message" xml:space="preserve">
+    <value>Obiekt GPO pozwala przechowywać skróty LAN Manager haseł.</value>
+  </data>
+  <data name="GpoFinding.LmHashStored.Explanation" xml:space="preserve">
+    <value>Skrót LM dzieli hasło na dwie siedmioznakowe części pisane wielkimi literami i daje się złamać w kilka minut. Kto odczyta bazę kont, ten niemal od razu pozna hasła.</value>
+  </data>
+  <data name="GpoFinding.LmHashStored.Recommendation" xml:space="preserve">
+    <value>Włącz opcję „Zabezpieczenia sieci: Nie przechowuj wartości skrótu LAN Manager przy następnej zmianie hasła”; skróty znikną wraz ze zmianą haseł.</value>
+  </data>
+  <data name="GpoFinding.SmbSigningNotRequired.Title" xml:space="preserve">
+    <value>Podpisywanie SMB niewymagane na kontrolerach domeny</value>
+  </data>
+  <data name="GpoFinding.SmbSigningNotRequired.Message" xml:space="preserve">
+    <value>Obiekt GPO obejmuje kontrolery domeny, ale nie wymaga podpisywania komunikacji przez serwer SMB.</value>
+  </data>
+  <data name="GpoFinding.SmbSigningNotRequired.Explanation" xml:space="preserve">
+    <value>Bez wymaganego podpisywania sesje SMB do kontrolerów domeny można przekazać dalej lub zmodyfikować – także ruch SYSVOL, z którego każdy klient odczytuje zasady grupy.</value>
+  </data>
+  <data name="GpoFinding.SmbSigningNotRequired.Recommendation" xml:space="preserve">
+    <value>Włącz dla kontrolerów domeny opcję „Serwer sieci Microsoft: Podpisuj cyfrowo komunikację (zawsze)” (ustawia ją Default Domain Controllers Policy).</value>
+  </data>
+  <data name="GpoFinding.LdapSigningNotRequired.Title" xml:space="preserve">
+    <value>Podpisywanie LDAP niewymagane na kontrolerach domeny</value>
+  </data>
+  <data name="GpoFinding.LdapSigningNotRequired.Message" xml:space="preserve">
+    <value>Obiekt GPO obejmuje kontrolery domeny i ustawia ich wymagania podpisywania serwera LDAP na: {0}.</value>
+  </data>
+  <data name="GpoFinding.LdapSigningNotRequired.Explanation" xml:space="preserve">
+    <value>Kontrolery domeny, które nie wymagają podpisywania, przyjmują niepodpisane powiązania LDAP, które można przekazać dalej w celu zmiany katalogu – to częsty krok ataków przekazywania NTLM.</value>
+  </data>
+  <data name="GpoFinding.LdapSigningNotRequired.Recommendation" xml:space="preserve">
+    <value>Ustaw opcję „Kontroler domeny: Wymagania podpisywania serwera LDAP” na „Wymagaj podpisywania”, gdy dziennik zdarzeń (zdarzenie 2889) nie pokazuje już niepodpisanych powiązań.</value>
+  </data>
+  <data name="GpoFinding.AnonymousAccessAllowed.Title" xml:space="preserve">
+    <value>Dozwolony dostęp anonimowy</value>
+  </data>
+  <data name="GpoFinding.AnonymousAccessAllowed.Message" xml:space="preserve">
+    <value>Obiekt GPO zezwala na dostęp anonimowy: {0}.</value>
+  </data>
+  <data name="GpoFinding.AnonymousAccessAllowed.Explanation" xml:space="preserve">
+    <value>Anonimowe wyliczanie kont i udziałów, anonimowe tłumaczenie nazw lub traktowanie użytkowników anonimowych jak grupy Wszyscy dają atakującemu bez żadnego konta listę celów i więcej.</value>
+  </data>
+  <data name="GpoFinding.AnonymousAccessAllowed.Recommendation" xml:space="preserve">
+    <value>Przywróć bezpieczną wartość domyślną tej opcji (domyślne ustawienia systemu Windows na to nie pozwalają).</value>
+  </data>
+  <data name="GpoFinding.ReversibleEncryption.Title" xml:space="preserve">
+    <value>Hasła przechowywane z odwracalnym szyfrowaniem</value>
+  </data>
+  <data name="GpoFinding.ReversibleEncryption.Message" xml:space="preserve">
+    <value>Obiekt GPO przechowuje hasła przy użyciu szyfrowania odwracalnego.</value>
+  </data>
+  <data name="GpoFinding.ReversibleEncryption.Explanation" xml:space="preserve">
+    <value>Przy tej opcji kontrolery domeny przechowują możliwą do odszyfrowania kopię każdego hasła zmienionego później – w praktyce jawny tekst dla każdego, kto odczyta bazę katalogu lub jej kopię zapasową.</value>
+  </data>
+  <data name="GpoFinding.ReversibleEncryption.Recommendation" xml:space="preserve">
+    <value>Wyłącz opcję „Zapisz hasła przy użyciu szyfrowania odwracalnego” i poproś właścicieli kont, których to dotyczy, o zmianę haseł; potrzebowały jej tylko nieliczne stare protokoły (CHAP, Digest).</value>
+  </data>
+  <data name="GpoFinding.GuestEnabled.Title" xml:space="preserve">
+    <value>Włączone konto Gość</value>
+  </data>
+  <data name="GpoFinding.GuestEnabled.Message" xml:space="preserve">
+    <value>Obiekt GPO włącza wbudowane konto Gość.</value>
+  </data>
+  <data name="GpoFinding.GuestEnabled.Explanation" xml:space="preserve">
+    <value>Konto Gość nie wymaga hasła i daje każdemu dostęp do komputerów w zakresie – także przez sieć, do udziałów, które zezwalają grupie Wszyscy.</value>
+  </data>
+  <data name="GpoFinding.GuestEnabled.Recommendation" xml:space="preserve">
+    <value>Wyłącz opcję „Konta: Stan konta gościa” (ustawienie domyślne systemu Windows).</value>
+  </data>
+  <data name="GpoFinding.UacDisabled.Title" xml:space="preserve">
+    <value>Wyłączona kontrola konta użytkownika</value>
+  </data>
+  <data name="GpoFinding.UacDisabled.Message" xml:space="preserve">
+    <value>Obiekt GPO wyłącza kontrolę konta użytkownika (tryb zatwierdzania przez administratora dla wszystkich administratorów).</value>
+  </data>
+  <data name="GpoFinding.UacDisabled.Explanation" xml:space="preserve">
+    <value>Bez funkcji UAC każdy program uruchomiony przez administratora działa z pełnymi uprawnieniami, więc jeden złośliwy dokument lub pobrany plik wystarczy, by przejąć komputer. Przestają też działać nowoczesne aplikacje (Microsoft Store, Edge).</value>
+  </data>
+  <data name="GpoFinding.UacDisabled.Recommendation" xml:space="preserve">
+    <value>Włącz opcję „Kontrola konta użytkownika: Uruchamiaj wszystkich administratorów w trybie zatwierdzania przez administratora”, a przyczynę jej wyłączenia rozwiąż osobno.</value>
+  </data>
+  <data name="GpoFinding.PlainTextSmbPassword.Title" xml:space="preserve">
+    <value>Niezaszyfrowane hasła wysyłane do serwerów SMB</value>
+  </data>
+  <data name="GpoFinding.PlainTextSmbPassword.Message" xml:space="preserve">
+    <value>Obiekt GPO pozwala klientowi SMB wysyłać niezaszyfrowane hasła do serwerów SMB innych firm.</value>
+  </data>
+  <data name="GpoFinding.PlainTextSmbPassword.Explanation" xml:space="preserve">
+    <value>Przy tej opcji serwer, który nie obsługuje szyfrowania haseł, otrzymuje hasło jawnym tekstem, czytelnym dla każdego na drodze sieciowej.</value>
+  </data>
+  <data name="GpoFinding.PlainTextSmbPassword.Recommendation" xml:space="preserve">
+    <value>Wyłącz opcję „Klient sieci Microsoft: Wyślij niezaszyfrowane hasło do serwerów SMB innych firm” i wymień serwery, które tego wymagają.</value>
+  </data>
+  <data name="GpoFinding.WeakDomainPasswordPolicy.Title" xml:space="preserve">
+    <value>Słabe zasady haseł domeny</value>
+  </data>
+  <data name="GpoFinding.WeakDomainPasswordPolicy.Message" xml:space="preserve">
+    <value>Zasady haseł domeny są słabe: ustawienie „{0}” ma wartość {1}.</value>
+  </data>
+  <data name="GpoFinding.WeakDomainPasswordPolicy.Explanation" xml:space="preserve">
+    <value>Obiekt GPO połączony z domeną ustala zasady haseł i blokady wszystkich kont domenowych. Krótkie hasła, hasła bez złożoności lub brak blokady konta sprawiają, że ataki zgadywania i rozpylania haseł stają się skuteczne.</value>
+  </data>
+  <data name="GpoFinding.WeakDomainPasswordPolicy.Recommendation" xml:space="preserve">
+    <value>Wymagaj co najmniej 12–14 znaków (albo dłuższych fraz), pozostaw wymóg złożoności, chyba że używasz listy zakazanych haseł, i ustaw próg blokady konta (np. 10 prób).</value>
+  </data>
+  <!-- K6 Group Policy diagnostics (20.2): end -->
 </root>

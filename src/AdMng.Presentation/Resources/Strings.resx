@@ -16829,4 +16829,978 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Technical key</value>
   </data>
   <!-- K6 readable GPO settings (20.1): end -->
+  <!-- K6 Group Policy diagnostics (20.2): begin -->
+  <data name="GpoDiag.Title" xml:space="preserve">
+    <value>Group Policy diagnostics</value>
+  </data>
+  <data name="GpoDiag.Command" xml:space="preserve">
+    <value>Group Policy diagnostics…</value>
+  </data>
+  <data name="GpoDiag.ToolbarCommand" xml:space="preserve">
+    <value>Diagnostics…</value>
+  </data>
+  <data name="GpoDiag.QuickCheck" xml:space="preserve">
+    <value>Quick check</value>
+  </data>
+  <data name="GpoDiag.QuickCheckHint" xml:space="preserve">
+    <value>Reads the GPOs, links, permissions and WMI filters from Active Directory and the GPT.INI version of every GPO – usually a few seconds.</value>
+  </data>
+  <data name="GpoDiag.FullCheck" xml:space="preserve">
+    <value>Full check</value>
+  </data>
+  <data name="GpoDiag.FullCheckHint" xml:space="preserve">
+    <value>Also reads the SYSVOL folder, settings and folder permissions of every GPO, counts the users and computers below the links, resolves the SIDs and compares the settings of GPOs that meet in one container. In a large domain it may take a few minutes.</value>
+  </data>
+  <data name="GpoDiag.CheckAgain" xml:space="preserve">
+    <value>Check again</value>
+  </data>
+  <data name="GpoDiag.LastRun" xml:space="preserve">
+    <value>Last check: {0}, {1}</value>
+  </data>
+  <data name="GpoDiag.DepthQuick" xml:space="preserve">
+    <value>quick</value>
+  </data>
+  <data name="GpoDiag.DepthFull" xml:space="preserve">
+    <value>full</value>
+  </data>
+  <data name="GpoDiag.NeverRun" xml:space="preserve">
+    <value>Not checked yet.</value>
+  </data>
+  <data name="GpoDiag.Stale" xml:space="preserve">
+    <value>Group Policy has changed since the last check – the results may be out of date.</value>
+  </data>
+  <data name="GpoDiag.Cancelled" xml:space="preserve">
+    <value>The check was cancelled.</value>
+  </data>
+  <data name="GpoDiag.FindingsOne" xml:space="preserve">
+    <value>{0} finding</value>
+  </data>
+  <data name="GpoDiag.FindingsFew" xml:space="preserve">
+    <value>{0} findings</value>
+  </data>
+  <data name="GpoDiag.FindingsMany" xml:space="preserve">
+    <value>{0} findings</value>
+  </data>
+  <data name="GpoDiag.FindingsShown" xml:space="preserve">
+    <value>{0} of {1} findings shown</value>
+  </data>
+  <data name="GpoDiag.NoFindings" xml:space="preserve">
+    <value>No problems found.</value>
+  </data>
+  <data name="GpoDiag.NoMatches" xml:space="preserve">
+    <value>No finding matches the filters.</value>
+  </data>
+  <data name="GpoDiag.NamesStage" xml:space="preserve">
+    <value>Reading the names of the principals…</value>
+  </data>
+  <data name="GpoDiag.ColumnSeverity" xml:space="preserve">
+    <value>Severity</value>
+  </data>
+  <data name="GpoDiag.ColumnArea" xml:space="preserve">
+    <value>Area</value>
+  </data>
+  <data name="GpoDiag.ColumnWhere" xml:space="preserve">
+    <value>Container or setting</value>
+  </data>
+  <data name="GpoDiag.ColumnFinding" xml:space="preserve">
+    <value>Finding</value>
+  </data>
+  <data name="GpoDiag.FilterSeverity" xml:space="preserve">
+    <value>Severity</value>
+  </data>
+  <data name="GpoDiag.FilterArea" xml:space="preserve">
+    <value>Area</value>
+  </data>
+  <data name="GpoDiag.FilterGpo" xml:space="preserve">
+    <value>GPO</value>
+  </data>
+  <data name="GpoDiag.AllSeverities" xml:space="preserve">
+    <value>Any severity</value>
+  </data>
+  <data name="GpoDiag.AllAreas" xml:space="preserve">
+    <value>Any area</value>
+  </data>
+  <data name="GpoDiag.AllGpos" xml:space="preserve">
+    <value>Any GPO</value>
+  </data>
+  <data name="GpoDiag.SearchPlaceholder" xml:space="preserve">
+    <value>Search findings (title, GPO, container, setting)</value>
+  </data>
+  <data name="GpoDiag.ClearFilters" xml:space="preserve">
+    <value>Clear filters</value>
+  </data>
+  <data name="GpoDiag.SummaryLabel" xml:space="preserve">
+    <value>Summary</value>
+  </data>
+  <data name="GpoDiag.DetailsHeading" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="GpoDiag.DetailsEmpty" xml:space="preserve">
+    <value>Select a finding to see why it matters and what to do.</value>
+  </data>
+  <data name="GpoDiag.WhyHeading" xml:space="preserve">
+    <value>Why it matters</value>
+  </data>
+  <data name="GpoDiag.WhatHeading" xml:space="preserve">
+    <value>What to do</value>
+  </data>
+  <data name="GpoDiag.AffectedHeading" xml:space="preserve">
+    <value>What it is about</value>
+  </data>
+  <data name="GpoDiag.AffectedGpo" xml:space="preserve">
+    <value>GPO: {0}</value>
+  </data>
+  <data name="GpoDiag.AffectedContainer" xml:space="preserve">
+    <value>Container: {0}</value>
+  </data>
+  <data name="GpoDiag.AffectedRelated" xml:space="preserve">
+    <value>Other GPOs: {0}</value>
+  </data>
+  <data name="GpoDiag.AffectedSetting" xml:space="preserve">
+    <value>Setting: {0}</value>
+  </data>
+  <data name="GpoDiag.AffectedSettingKey" xml:space="preserve">
+    <value>Key: {0}</value>
+  </data>
+  <data name="GpoDiag.AffectedWmiFilter" xml:space="preserve">
+    <value>WMI filter: {0}</value>
+  </data>
+  <data name="GpoDiag.FixLine" xml:space="preserve">
+    <value>Fix: {0}</value>
+  </data>
+  <data name="GpoDiag.NoFix" xml:space="preserve">
+    <value>No automatic fix – follow the recommendation.</value>
+  </data>
+  <data name="GpoDiag.Fix" xml:space="preserve">
+    <value>Fix…</value>
+  </data>
+  <data name="GpoDiag.OpenGpo" xml:space="preserve">
+    <value>Open GPO</value>
+  </data>
+  <data name="GpoDiag.EditSetting" xml:space="preserve">
+    <value>Edit this setting</value>
+  </data>
+  <data name="GpoDiag.ShowInModel" xml:space="preserve">
+    <value>Show in model</value>
+  </data>
+  <data name="GpoDiag.Copied" xml:space="preserve">
+    <value>The finding was copied to the clipboard.</value>
+  </data>
+  <data name="GpoDiag.ExportCsv" xml:space="preserve">
+    <value>Export to CSV…</value>
+  </data>
+  <data name="GpoDiag.ExportHtml" xml:space="preserve">
+    <value>Export to HTML…</value>
+  </data>
+  <data name="GpoDiag.HtmlFilter" xml:space="preserve">
+    <value>HTML files (*.html)</value>
+  </data>
+  <data name="GpoDiag.ReportTitle" xml:space="preserve">
+    <value>Group Policy diagnostics – {0}</value>
+  </data>
+  <data name="GpoDiag.ReportSubtitle" xml:space="preserve">
+    <value>Domain controller: {0} · check: {1}</value>
+  </data>
+  <data name="GpoDiag.ReportFilters" xml:space="preserve">
+    <value>Filtered: {0} of {1} findings.</value>
+  </data>
+  <data name="GpoDiag.ReportPrivacy" xml:space="preserve">
+    <value>This report holds names of objects of your directory. Store and share it like any other administrative document.</value>
+  </data>
+  <data name="GpoDiag.TitleRemoveDuplicateLinks" xml:space="preserve">
+    <value>Keep one link of „{0}”</value>
+  </data>
+  <data name="GpoDiag.TitleRepairExtensions" xml:space="preserve">
+    <value>Repair the extension names of „{0}”</value>
+  </data>
+  <data name="GpoDiag.NoteQuick" xml:space="preserve">
+    <value>A quick check does not cover: {0}. Run a full check to include them – it reads the SYSVOL folders too and may take longer.</value>
+  </data>
+  <data name="GpoDiag.NoteSysvol" xml:space="preserve">
+    <value>Not checked because SYSVOL is unavailable: {0}. {1}</value>
+  </data>
+  <data name="GpoDiag.NoteFailed" xml:space="preserve">
+    <value>Not checked because the data could not be read: {0}.</value>
+  </data>
+  <data name="GpoDiag.NoteFoldersNotRead" xml:space="preserve">
+    <value>The folders of these GPOs could not be read, so their folder and settings rules were skipped: {0}.</value>
+  </data>
+  <data name="GpoDiag.FolderAccessDenied" xml:space="preserve">
+    <value>access denied</value>
+  </data>
+  <data name="GpoDiag.FolderTooLarge" xml:space="preserve">
+    <value>too large</value>
+  </data>
+  <data name="GpoDiag.FolderFailed" xml:space="preserve">
+    <value>read error</value>
+  </data>
+  <data name="GpoDiag.PartUser" xml:space="preserve">
+    <value>user</value>
+  </data>
+  <data name="GpoDiag.PartComputer" xml:space="preserve">
+    <value>computer</value>
+  </data>
+  <data name="GpoDiag.MissingFolder" xml:space="preserve">
+    <value>the GPO folder</value>
+  </data>
+  <data name="GpoDiag.MissingGptIni" xml:space="preserve">
+    <value>the GPT.INI file</value>
+  </data>
+  <data name="GpoDiag.PreferenceItem" xml:space="preserve">
+    <value>its own item properties</value>
+  </data>
+  <data name="GpoDiag.SettingRestrictedGroup" xml:space="preserve">
+    <value>Restricted Groups – {0}</value>
+  </data>
+  <data name="GpoDiag.SettingLocalGroups" xml:space="preserve">
+    <value>Local Users and Groups (preferences)</value>
+  </data>
+  <data name="GpoDiag.SettingFile" xml:space="preserve">
+    <value>File {0}</value>
+  </data>
+  <data name="GpoDiag.HealthHint" xml:space="preserve">
+    <value>The findings of Group Policy diagnostics for this GPO: links, scope, permissions, versions, the SYSVOL folder and the settings, read on this domain controller.</value>
+  </data>
+  <data name="GpoDiag.HealthNone" xml:space="preserve">
+    <value>No problems found in this GPO.</value>
+  </data>
+  <data name="GpoDiag.HealthChecking" xml:space="preserve">
+    <value>Checking the GPO…</value>
+  </data>
+  <data name="GpoDiag.AreaOk" xml:space="preserve">
+    <value>No findings</value>
+  </data>
+  <data name="GpoDiag.AreaInfo" xml:space="preserve">
+    <value>Information only: {0}</value>
+  </data>
+  <data name="GpoDiag.AreaFindings" xml:space="preserve">
+    <value>Findings: {0}, most serious: {1}</value>
+  </data>
+  <data name="GpoDiag.AreaNotChecked" xml:space="preserve">
+    <value>Not checked – {0}</value>
+  </data>
+  <data name="GpoDiag.AreaPartly" xml:space="preserve">
+    <value>{0} (partly checked – {1})</value>
+  </data>
+  <data name="GpoDiag.ReasonQuickOnly" xml:space="preserve">
+    <value>only in the full check</value>
+  </data>
+  <data name="GpoDiag.ReasonSysvol" xml:space="preserve">
+    <value>SYSVOL is unavailable</value>
+  </data>
+  <data name="GpoDiag.ReasonFailed" xml:space="preserve">
+    <value>the data could not be read</value>
+  </data>
+  <data name="GpoDiag.Severity.Critical" xml:space="preserve">
+    <value>Critical</value>
+  </data>
+  <data name="GpoDiag.Chip.Critical" xml:space="preserve">
+    <value>Critical: {0}</value>
+  </data>
+  <data name="GpoDiag.Severity.High" xml:space="preserve">
+    <value>High</value>
+  </data>
+  <data name="GpoDiag.Chip.High" xml:space="preserve">
+    <value>High: {0}</value>
+  </data>
+  <data name="GpoDiag.Severity.Medium" xml:space="preserve">
+    <value>Medium</value>
+  </data>
+  <data name="GpoDiag.Chip.Medium" xml:space="preserve">
+    <value>Medium: {0}</value>
+  </data>
+  <data name="GpoDiag.Severity.Low" xml:space="preserve">
+    <value>Low</value>
+  </data>
+  <data name="GpoDiag.Chip.Low" xml:space="preserve">
+    <value>Low: {0}</value>
+  </data>
+  <data name="GpoDiag.Severity.Info" xml:space="preserve">
+    <value>Information</value>
+  </data>
+  <data name="GpoDiag.Chip.Info" xml:space="preserve">
+    <value>Information: {0}</value>
+  </data>
+  <data name="GpoDiag.Area.Links" xml:space="preserve">
+    <value>Links</value>
+  </data>
+  <data name="GpoDiag.Area.Scope" xml:space="preserve">
+    <value>Scope</value>
+  </data>
+  <data name="GpoDiag.Area.Filtering" xml:space="preserve">
+    <value>Filtering</value>
+  </data>
+  <data name="GpoDiag.Area.Versions" xml:space="preserve">
+    <value>Versions</value>
+  </data>
+  <data name="GpoDiag.Area.Folder" xml:space="preserve">
+    <value>SYSVOL folder</value>
+  </data>
+  <data name="GpoDiag.Area.Content" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="GpoDiag.Area.Conflict" xml:space="preserve">
+    <value>Conflicts</value>
+  </data>
+  <data name="GpoDiag.Area.Security" xml:space="preserve">
+    <value>Security</value>
+  </data>
+  <data name="GpoDiag.Group.Directory" xml:space="preserve">
+    <value>links, permissions and WMI filters</value>
+  </data>
+  <data name="GpoDiag.Group.SysvolVersions" xml:space="preserve">
+    <value>GPT.INI versions</value>
+  </data>
+  <data name="GpoDiag.Group.Folders" xml:space="preserve">
+    <value>SYSVOL folders and the settings of the GPOs</value>
+  </data>
+  <data name="GpoDiag.Group.ObjectCounts" xml:space="preserve">
+    <value>users and computers below the links</value>
+  </data>
+  <data name="GpoDiag.Group.Principals" xml:space="preserve">
+    <value>SIDs in permissions and settings</value>
+  </data>
+  <data name="GpoDiag.Group.Conflicts" xml:space="preserve">
+    <value>conflicts between GPOs</value>
+  </data>
+  <data name="GpoDiag.Stage.Directory" xml:space="preserve">
+    <value>Reading the GPOs, links and WMI filters…</value>
+  </data>
+  <data name="GpoDiag.Stage.Versions" xml:space="preserve">
+    <value>Reading the GPT.INI versions…</value>
+  </data>
+  <data name="GpoDiag.Stage.Folders" xml:space="preserve">
+    <value>Reading SYSVOL folders: {0} of {1}</value>
+  </data>
+  <data name="GpoDiag.Stage.Objects" xml:space="preserve">
+    <value>Counting users and computers: {0}</value>
+  </data>
+  <data name="GpoDiag.Stage.Principals" xml:space="preserve">
+    <value>Checking SIDs: {0} of {1}</value>
+  </data>
+  <data name="GpoDiag.Stage.Completed" xml:space="preserve">
+    <value>Analysing the results…</value>
+  </data>
+  <data name="GpoDiag.FixKind.Unlink" xml:space="preserve">
+    <value>remove the link</value>
+  </data>
+  <data name="GpoDiag.FixKind.EnableLink" xml:space="preserve">
+    <value>enable the link</value>
+  </data>
+  <data name="GpoDiag.FixKind.RemoveDuplicateLinks" xml:space="preserve">
+    <value>keep one link (the one that counts)</value>
+  </data>
+  <data name="GpoDiag.FixKind.SetStatus" xml:space="preserve">
+    <value>set the GPO status to „{0}”</value>
+  </data>
+  <data name="GpoDiag.FixKind.GrantRead" xml:space="preserve">
+    <value>give {0} the Read permission</value>
+  </data>
+  <data name="GpoDiag.FixKind.ClearWmiFilter" xml:space="preserve">
+    <value>clear the WMI filter</value>
+  </data>
+  <data name="GpoDiag.FixKind.DeleteWmiFilter" xml:space="preserve">
+    <value>delete the WMI filter</value>
+  </data>
+  <data name="GpoDiag.FixKind.AlignVersions" xml:space="preserve">
+    <value>align the versions</value>
+  </data>
+  <data name="GpoDiag.FixKind.RepairFolderSecurity" xml:space="preserve">
+    <value>repair the folder permissions</value>
+  </data>
+  <data name="GpoDiag.FixKind.RemoveTrustee" xml:space="preserve">
+    <value>remove {0} from the permissions</value>
+  </data>
+  <data name="GpoDiag.FixKind.RepairExtensionNames" xml:space="preserve">
+    <value>add the missing extension names</value>
+  </data>
+  <data name="GpoFinding.GpoNotLinked.Title" xml:space="preserve">
+    <value>GPO not linked</value>
+  </data>
+  <data name="GpoFinding.GpoNotLinked.Message" xml:space="preserve">
+    <value>The GPO is not linked to the domain, an OU or a site, so it applies to nobody.</value>
+  </data>
+  <data name="GpoFinding.GpoNotLinked.Explanation" xml:space="preserve">
+    <value>An unlinked GPO is not processed by any computer or user. It may be a leftover, a draft or a GPO set aside for later; it does not slow logons down, but it clutters the list and its settings are easy to forget.</value>
+  </data>
+  <data name="GpoFinding.GpoNotLinked.Recommendation" xml:space="preserve">
+    <value>Link it where it should apply, or – if nobody needs it – back it up and delete it.</value>
+  </data>
+  <data name="GpoFinding.GpoLinksAllDisabled.Title" xml:space="preserve">
+    <value>All links disabled</value>
+  </data>
+  <data name="GpoFinding.GpoLinksAllDisabled.Message" xml:space="preserve">
+    <value>Every link of the GPO is disabled (links: {0}), so it applies nowhere.</value>
+  </data>
+  <data name="GpoFinding.GpoLinksAllDisabled.Explanation" xml:space="preserve">
+    <value>A disabled link keeps its place and order, but clients skip it. When every link is disabled the GPO works like an unlinked one – often after a test or a temporary switch-off that nobody undid.</value>
+  </data>
+  <data name="GpoFinding.GpoLinksAllDisabled.Recommendation" xml:space="preserve">
+    <value>Enable the link where the GPO should apply – Fix… enables the first one – or remove the links if the GPO is no longer needed.</value>
+  </data>
+  <data name="GpoFinding.LinkToMissingGpo.Title" xml:space="preserve">
+    <value>Link to a GPO that does not exist</value>
+  </data>
+  <data name="GpoFinding.LinkToMissingGpo.Message" xml:space="preserve">
+    <value>The container is linked to the GPO {0}, which does not exist in this domain.</value>
+  </data>
+  <data name="GpoFinding.LinkToMissingGpo.Explanation" xml:space="preserve">
+    <value>The GPO was deleted without its links, or a link was restored on its own. Clients look for it at every refresh and log an error; GPMC shows such a link as "not found".</value>
+  </data>
+  <data name="GpoFinding.LinkToMissingGpo.Recommendation" xml:space="preserve">
+    <value>Remove the link (Fix…). If the GPO was deleted by mistake, restore it from a backup instead – the link then works again.</value>
+  </data>
+  <data name="GpoFinding.LinkMalformed.Title" xml:space="preserve">
+    <value>Unreadable or foreign link entries</value>
+  </data>
+  <data name="GpoFinding.LinkMalformed.Message" xml:space="preserve">
+    <value>The gPLink attribute of the container holds unreadable entries ({0}) and links to GPOs of other domains ({1}).</value>
+  </data>
+  <data name="GpoFinding.LinkMalformed.Explanation" xml:space="preserve">
+    <value>Every gPLink entry should name a GPO of this domain. Clients skip entries they cannot parse; links to GPOs of another domain work, but processing then depends on that domain's controllers and such links are easy to overlook.</value>
+  </data>
+  <data name="GpoFinding.LinkMalformed.Recommendation" xml:space="preserve">
+    <value>Review the links of the container in GPMC: remove or recreate the broken entries, and where possible replace links to other domains with a GPO of this domain.</value>
+  </data>
+  <data name="GpoFinding.DuplicateLink.Title" xml:space="preserve">
+    <value>GPO linked more than once</value>
+  </data>
+  <data name="GpoFinding.DuplicateLink.Message" xml:space="preserve">
+    <value>The GPO is linked to the same container more than once (entries: {0}).</value>
+  </data>
+  <data name="GpoFinding.DuplicateLink.Explanation" xml:space="preserve">
+    <value>Only one link of a GPO counts in a container – the one with the highest precedence. Duplicates usually come from scripts or restores and make the link order and the options (Enforced, Link Enabled) confusing.</value>
+  </data>
+  <data name="GpoFinding.DuplicateLink.Recommendation" xml:space="preserve">
+    <value>Keep one link – Fix… keeps the one that counts, with its options – and check the link order afterwards.</value>
+  </data>
+  <data name="GpoFinding.LinkedAllSettingsDisabled.Title" xml:space="preserve">
+    <value>Linked GPO with all settings disabled</value>
+  </data>
+  <data name="GpoFinding.LinkedAllSettingsDisabled.Message" xml:space="preserve">
+    <value>The GPO is linked, but its status is "All settings disabled".</value>
+  </data>
+  <data name="GpoFinding.LinkedAllSettingsDisabled.Explanation" xml:space="preserve">
+    <value>With this status clients skip the GPO wherever it is linked. It is a common way to switch a GPO off for a while – and to forget that it is off.</value>
+  </data>
+  <data name="GpoFinding.LinkedAllSettingsDisabled.Recommendation" xml:space="preserve">
+    <value>If the GPO should apply, set its status to "Enabled" on the Details tab; if it is retired, remove its links so that the intent is clear.</value>
+  </data>
+  <data name="GpoFinding.PartDisabledWithSettings.Title" xml:space="preserve">
+    <value>Disabled configuration part holds settings</value>
+  </data>
+  <data name="GpoFinding.PartDisabledWithSettings.Message" xml:space="preserve">
+    <value>The {0} configuration of the GPO is disabled, but it holds settings (version {1}).</value>
+  </data>
+  <data name="GpoFinding.PartDisabledWithSettings.Explanation" xml:space="preserve">
+    <value>The GPO status switches a configuration part off as a whole: its settings are never applied, whatever they are. Usually the part was disabled to speed up processing before someone added settings to it.</value>
+  </data>
+  <data name="GpoFinding.PartDisabledWithSettings.Recommendation" xml:space="preserve">
+    <value>Enable both parts (Fix…) if these settings should apply, or remove the settings of the disabled part.</value>
+  </data>
+  <data name="GpoFinding.PartEnabledWithoutSettings.Title" xml:space="preserve">
+    <value>Empty configuration part enabled</value>
+  </data>
+  <data name="GpoFinding.PartEnabledWithoutSettings.Message" xml:space="preserve">
+    <value>The {0} configuration of the GPO is enabled but empty, while the other part holds settings.</value>
+  </data>
+  <data name="GpoFinding.PartEnabledWithoutSettings.Explanation" xml:space="preserve">
+    <value>Clients still process an enabled part, even an empty one. Disabling the unused part is common GPMC practice: the purpose of the GPO is obvious at a glance and processing is a little shorter.</value>
+  </data>
+  <data name="GpoFinding.PartEnabledWithoutSettings.Recommendation" xml:space="preserve">
+    <value>Disable the empty part (Fix…). Nothing changes for clients today; enable it again before you add settings to it.</value>
+  </data>
+  <data name="GpoFinding.EmptyGpoLinked.Title" xml:space="preserve">
+    <value>Empty GPO linked</value>
+  </data>
+  <data name="GpoFinding.EmptyGpoLinked.Message" xml:space="preserve">
+    <value>The GPO is linked but holds no settings (both versions are 0).</value>
+  </data>
+  <data name="GpoFinding.EmptyGpoLinked.Explanation" xml:space="preserve">
+    <value>An empty GPO does nothing, yet every client in its scope looks it up at each refresh. Often it is a GPO created and linked in advance whose settings were never added.</value>
+  </data>
+  <data name="GpoFinding.EmptyGpoLinked.Recommendation" xml:space="preserve">
+    <value>Add the intended settings, or remove the links (and the GPO) if it is not needed.</value>
+  </data>
+  <data name="GpoFinding.UserSettingsWithoutUsers.Title" xml:space="preserve">
+    <value>User settings reach no users</value>
+  </data>
+  <data name="GpoFinding.UserSettingsWithoutUsers.Message" xml:space="preserve">
+    <value>The GPO holds user settings, but there are no user accounts below its links and no loopback processing brings it to users.</value>
+  </data>
+  <data name="GpoFinding.UserSettingsWithoutUsers.Explanation" xml:space="preserve">
+    <value>User settings apply to the user accounts below the links. A GPO with user settings linked only where there are computers works only when those computers use loopback processing of user Group Policy.</value>
+  </data>
+  <data name="GpoFinding.UserSettingsWithoutUsers.Recommendation" xml:space="preserve">
+    <value>Link the GPO where the users are, turn on loopback processing for these computers, or move the settings to the computer configuration if they are meant for the machines.</value>
+  </data>
+  <data name="GpoFinding.ComputerSettingsWithoutComputers.Title" xml:space="preserve">
+    <value>Computer settings reach no computers</value>
+  </data>
+  <data name="GpoFinding.ComputerSettingsWithoutComputers.Message" xml:space="preserve">
+    <value>The GPO holds computer settings, but there are no computer accounts below its links.</value>
+  </data>
+  <data name="GpoFinding.ComputerSettingsWithoutComputers.Explanation" xml:space="preserve">
+    <value>Computer settings apply only to the computer accounts below the links. Linked to an OU of users, they are never applied – a frequent mistake when a GPO is linked to the users' OU.</value>
+  </data>
+  <data name="GpoFinding.ComputerSettingsWithoutComputers.Recommendation" xml:space="preserve">
+    <value>Link the GPO to the OU of the computers it is meant for, or remove the computer settings if they are not needed.</value>
+  </data>
+  <data name="GpoFinding.AccountPolicyBelowDomain.Title" xml:space="preserve">
+    <value>Account policy outside the domain level</value>
+  </data>
+  <data name="GpoFinding.AccountPolicyBelowDomain.Message" xml:space="preserve">
+    <value>The GPO sets password, account lockout or Kerberos policy, but it is not linked to the domain.</value>
+  </data>
+  <data name="GpoFinding.AccountPolicyBelowDomain.Explanation" xml:space="preserve">
+    <value>Domain accounts take their password, lockout and Kerberos policy only from GPOs linked to the domain itself and applied by the domain controllers. Linked to an OU, these settings change only the local accounts of the computers there. Different rules for chosen groups are what fine-grained password policies are for.</value>
+  </data>
+  <data name="GpoFinding.AccountPolicyBelowDomain.Recommendation" xml:space="preserve">
+    <value>Move the account policy to a GPO linked to the domain (usually Default Domain Policy); for rules that apply to selected groups use a fine-grained password policy.</value>
+  </data>
+  <data name="GpoFinding.LoopbackWithoutComputers.Title" xml:space="preserve">
+    <value>Loopback in a GPO that reaches no computers</value>
+  </data>
+  <data name="GpoFinding.LoopbackWithoutComputers.Message" xml:space="preserve">
+    <value>The GPO turns on loopback processing (mode: {0}), but there are no computer accounts below its links.</value>
+  </data>
+  <data name="GpoFinding.LoopbackWithoutComputers.Explanation" xml:space="preserve">
+    <value>Loopback processing is a computer setting: it changes which user settings apply on the computers that receive it. Linked only where there are no computers, it never takes effect.</value>
+  </data>
+  <data name="GpoFinding.LoopbackWithoutComputers.Recommendation" xml:space="preserve">
+    <value>Link the GPO to the OU of the computers it is meant for (for example terminal servers or kiosks), or remove the loopback setting.</value>
+  </data>
+  <data name="GpoFinding.NoApplyRight.Title" xml:space="preserve">
+    <value>Nobody may apply the GPO</value>
+  </data>
+  <data name="GpoFinding.NoApplyRight.Message" xml:space="preserve">
+    <value>The GPO is linked, but no user, group or computer has the Apply group policy permission.</value>
+  </data>
+  <data name="GpoFinding.NoApplyRight.Explanation" xml:space="preserve">
+    <value>Security filtering decides who processes a GPO: only principals allowed Read and Apply group policy, and not denied. With nobody left, the GPO applies to no one – usually after Authenticated Users was removed without adding the intended group.</value>
+  </data>
+  <data name="GpoFinding.NoApplyRight.Recommendation" xml:space="preserve">
+    <value>On the Scope tab, add the users, groups or computers the GPO is meant for to its security filtering.</value>
+  </data>
+  <data name="GpoFinding.Ms16072ComputersCannotRead.Title" xml:space="preserve">
+    <value>Computers cannot read the GPO (MS16-072)</value>
+  </data>
+  <data name="GpoFinding.Ms16072ComputersCannotRead.Message" xml:space="preserve">
+    <value>The GPO holds user settings, but neither Authenticated Users nor Domain Computers may read it.</value>
+  </data>
+  <data name="GpoFinding.Ms16072ComputersCannotRead.Explanation" xml:space="preserve">
+    <value>Since update MS16-072 (2016) Windows reads the GPOs of a user with the computer's account. When the computer cannot read the GPO, the user settings are skipped without a message – typically after security filtering was narrowed to a user group and Authenticated Users was removed entirely.</value>
+  </data>
+  <data name="GpoFinding.Ms16072ComputersCannotRead.Recommendation" xml:space="preserve">
+    <value>Give Authenticated Users the Read permission without Apply group policy (Fix…) – the security filtering stays as it is.</value>
+  </data>
+  <data name="GpoFinding.WmiFilterMissing.Title" xml:space="preserve">
+    <value>Assigned WMI filter does not exist</value>
+  </data>
+  <data name="GpoFinding.WmiFilterMissing.Message" xml:space="preserve">
+    <value>The GPO uses the WMI filter {0}, which does not exist.</value>
+  </data>
+  <data name="GpoFinding.WmiFilterMissing.Explanation" xml:space="preserve">
+    <value>The filter was deleted while the GPO still refers to it. GPMC reports the filter as missing, and the condition it expressed – an operating system, a hardware type – is no longer checked the way it was designed.</value>
+  </data>
+  <data name="GpoFinding.WmiFilterMissing.Recommendation" xml:space="preserve">
+    <value>Choose an existing WMI filter on the Scope tab, or clear the reference (Fix…) if the GPO should apply without a filter.</value>
+  </data>
+  <data name="GpoFinding.WmiFilterUnused.Title" xml:space="preserve">
+    <value>WMI filter not used by any GPO</value>
+  </data>
+  <data name="GpoFinding.WmiFilterUnused.Message" xml:space="preserve">
+    <value>The WMI filter „{0}” ({1}) is not assigned to any GPO.</value>
+  </data>
+  <data name="GpoFinding.WmiFilterUnused.Explanation" xml:space="preserve">
+    <value>An unused filter does no harm, but it suggests a GPO that lost its filter or a filter that was never put to use. Unused filters make the list harder to read.</value>
+  </data>
+  <data name="GpoFinding.WmiFilterUnused.Recommendation" xml:space="preserve">
+    <value>Assign the filter where it is meant to be used, or delete it (Fix…) if nobody needs it.</value>
+  </data>
+  <data name="GpoFinding.DenyInSecurityFiltering.Title" xml:space="preserve">
+    <value>Deny entry in the GPO's permissions</value>
+  </data>
+  <data name="GpoFinding.DenyInSecurityFiltering.Message" xml:space="preserve">
+    <value>The permissions of the GPO deny access to {0}.</value>
+  </data>
+  <data name="GpoFinding.DenyInSecurityFiltering.Explanation" xml:space="preserve">
+    <value>A deny entry overrides every allow, including those inherited through group membership, and GPMC does not show it on the Scope tab. Denies are a legitimate way to exclude a group, but they are easy to overlook when someone wonders why the GPO does not apply.</value>
+  </data>
+  <data name="GpoFinding.DenyInSecurityFiltering.Recommendation" xml:space="preserve">
+    <value>Check that the exclusion is intended and documented. Where you can, narrow the security filtering to the right group instead of denying access.</value>
+  </data>
+  <data name="GpoFinding.OrphanedTrustee.Title" xml:space="preserve">
+    <value>Unknown account in the GPO's permissions</value>
+  </data>
+  <data name="GpoFinding.OrphanedTrustee.Message" xml:space="preserve">
+    <value>The permissions of the GPO name the SID {0}, which no longer matches any account of the domain.</value>
+  </data>
+  <data name="GpoFinding.OrphanedTrustee.Explanation" xml:space="preserve">
+    <value>The account or group was deleted, but its permission entries stayed. They do no harm by themselves, yet they make the delegation hard to read and a new account can never inherit them.</value>
+  </data>
+  <data name="GpoFinding.OrphanedTrustee.Recommendation" xml:space="preserve">
+    <value>Remove the entries of this SID (Fix…) once you are sure the account will not be restored from the Recycle Bin.</value>
+  </data>
+  <data name="GpoFinding.BroadEditRights.Title" xml:space="preserve">
+    <value>Broad group can edit the GPO</value>
+  </data>
+  <data name="GpoFinding.BroadEditRights.Message" xml:space="preserve">
+    <value>{0} has write access to the GPO (it can change its settings or permissions).</value>
+  </data>
+  <data name="GpoFinding.BroadEditRights.Explanation" xml:space="preserve">
+    <value>Whoever can edit a GPO can run code on every computer it reaches – often with SYSTEM rights. Giving that power to Everyone, Authenticated Users or Domain Users makes every account a path to the computers in scope, including the domain controllers.</value>
+  </data>
+  <data name="GpoFinding.BroadEditRights.Recommendation" xml:space="preserve">
+    <value>On the Delegation tab, lower the group to Read, and give Edit settings only to a dedicated administrators' group.</value>
+  </data>
+  <data name="GpoFinding.VersionMismatch.Title" xml:space="preserve">
+    <value>AD and SYSVOL versions differ</value>
+  </data>
+  <data name="GpoFinding.VersionMismatch.Message" xml:space="preserve">
+    <value>The version in Active Directory (user {0}, computer {1}) differs from the version in GPT.INI (user {2}, computer {3}).</value>
+  </data>
+  <data name="GpoFinding.VersionMismatch.Explanation" xml:space="preserve">
+    <value>The two halves of a GPO – the object in AD and the folder in SYSVOL – replicate separately. A short difference after a change is normal; a lasting one means SYSVOL replication is stuck or a write was interrupted, and clients may process an old or incomplete GPO.</value>
+  </data>
+  <data name="GpoFinding.VersionMismatch.Recommendation" xml:space="preserve">
+    <value>Wait for replication and check again. If the difference stays, check SYSVOL replication (DFSR) on the domain controllers; align the versions (Fix…) once the files are right.</value>
+  </data>
+  <data name="GpoFinding.SysvolFolderMissing.Title" xml:space="preserve">
+    <value>GPO folder missing on SYSVOL</value>
+  </data>
+  <data name="GpoFinding.SysvolFolderMissing.Message" xml:space="preserve">
+    <value>Not found on SYSVOL of this domain controller: {0}.</value>
+  </data>
+  <data name="GpoFinding.SysvolFolderMissing.Explanation" xml:space="preserve">
+    <value>Without its folder a GPO has no settings on this domain controller: clients that use it fail to process the GPO and log errors. It happens when SYSVOL has not replicated yet, after a failed restore, or when the folder was deleted by hand.</value>
+  </data>
+  <data name="GpoFinding.SysvolFolderMissing.Recommendation" xml:space="preserve">
+    <value>Check SYSVOL replication and the folder on the other domain controllers. If the folder is lost everywhere, restore the GPO from a backup.</value>
+  </data>
+  <data name="GpoFinding.FolderSecurityMismatch.Title" xml:space="preserve">
+    <value>Folder permissions differ from the GPO's</value>
+  </data>
+  <data name="GpoFinding.FolderSecurityMismatch.Message" xml:space="preserve">
+    <value>The permissions of the GPO folder on SYSVOL do not match the permissions of the GPO in Active Directory.</value>
+  </data>
+  <data name="GpoFinding.FolderSecurityMismatch.Explanation" xml:space="preserve">
+    <value>Clients read the settings from the folder, so its permissions decide who can read and change them. When they drift from the GPO's permissions, security filtering and delegation stop working as GPMC shows them – GPMC itself reports "the permissions for this GPO in the SYSVOL folder are inconsistent".</value>
+  </data>
+  <data name="GpoFinding.FolderSecurityMismatch.Recommendation" xml:space="preserve">
+    <value>Map the folder permissions from the GPO's permissions again (Fix…).</value>
+  </data>
+  <data name="GpoFinding.ExtensionNamesMissing.Title" xml:space="preserve">
+    <value>Settings files the clients ignore</value>
+  </data>
+  <data name="GpoFinding.ExtensionNamesMissing.Message" xml:space="preserve">
+    <value>The GPO holds settings files whose client-side extension is not registered in the GPO: {0}.</value>
+  </data>
+  <data name="GpoFinding.ExtensionNamesMissing.Explanation" xml:space="preserve">
+    <value>Clients process only the client-side extensions the GPO lists. A settings file whose extension is missing from that list is skipped – typically after files were copied into the folder by hand or written by a tool that does not update the list.</value>
+  </data>
+  <data name="GpoFinding.ExtensionNamesMissing.Recommendation" xml:space="preserve">
+    <value>Add the missing extension names (Fix…); the GPO version goes up so that clients process it again.</value>
+  </data>
+  <data name="GpoFinding.UnreadableFile.Title" xml:space="preserve">
+    <value>Settings file cannot be read</value>
+  </data>
+  <data name="GpoFinding.UnreadableFile.Message" xml:space="preserve">
+    <value>The settings file {0} of the GPO cannot be read or is damaged.</value>
+  </data>
+  <data name="GpoFinding.UnreadableFile.Explanation" xml:space="preserve">
+    <value>Clients cannot apply settings from a damaged file and log processing errors; editors such as GPMC may refuse to open it. Typical causes are an interrupted copy, a manual edit or an encoding change.</value>
+  </data>
+  <data name="GpoFinding.UnreadableFile.Recommendation" xml:space="preserve">
+    <value>Restore the file from a backup of the GPO, or recreate the settings in the editor and save them again.</value>
+  </data>
+  <data name="GpoFinding.Leftovers.Title" xml:space="preserve">
+    <value>Leftovers of an interrupted save</value>
+  </data>
+  <data name="GpoFinding.Leftovers.Message" xml:space="preserve">
+    <value>The GPO folder holds temporary files of an interrupted save (files: {0}).</value>
+  </data>
+  <data name="GpoFinding.Leftovers.Explanation" xml:space="preserve">
+    <value>AD Manager writes GPO files through temporary files and renames them when the save completes. Leftovers mean a save was interrupted; the current settings are intact, but the files take space and replicate to every domain controller.</value>
+  </data>
+  <data name="GpoFinding.Leftovers.Recommendation" xml:space="preserve">
+    <value>Nothing urgent: the next change of this GPO in AD Manager deletes them. Check that the last change of the GPO is complete.</value>
+  </data>
+  <data name="GpoFinding.PathRedirected.Title" xml:space="preserve">
+    <value>GPO folder points outside SYSVOL</value>
+  </data>
+  <data name="GpoFinding.PathRedirected.Message" xml:space="preserve">
+    <value>The GPO's file system path points outside the domain's SYSVOL: {0}.</value>
+  </data>
+  <data name="GpoFinding.PathRedirected.Explanation" xml:space="preserve">
+    <value>Clients read the settings from wherever gPCFileSysPath points. A path outside SYSVOL is not replicated with it, and whoever controls that share controls what the GPO does – a technique used by attackers.</value>
+  </data>
+  <data name="GpoFinding.PathRedirected.Recommendation" xml:space="preserve">
+    <value>Treat it as a security incident until explained: restore the GPO from a known-good backup, and review who changed the GPO and when.</value>
+  </data>
+  <data name="GpoFinding.RestrictedAndPreferenceSameGroup.Title" xml:space="preserve">
+    <value>Group set both by Restricted Groups and by preferences</value>
+  </data>
+  <data name="GpoFinding.RestrictedAndPreferenceSameGroup.Message" xml:space="preserve">
+    <value>The local group {0} is managed both in Restricted Groups and in the Local Users and Groups preferences of the GPO.</value>
+  </data>
+  <data name="GpoFinding.RestrictedAndPreferenceSameGroup.Explanation" xml:space="preserve">
+    <value>Restricted Groups replace the whole membership, preferences then add or remove members – the result depends on the processing order and changes at every refresh. Membership seems to jump back and forth.</value>
+  </data>
+  <data name="GpoFinding.RestrictedAndPreferenceSameGroup.Recommendation" xml:space="preserve">
+    <value>Manage the group in one place: either Restricted Groups (a fixed list) or preferences (add and remove members).</value>
+  </data>
+  <data name="GpoFinding.RestrictedAdministratorsNoAdmins.Title" xml:space="preserve">
+    <value>Administrators group defined without administrators</value>
+  </data>
+  <data name="GpoFinding.RestrictedAdministratorsNoAdmins.Message" xml:space="preserve">
+    <value>Restricted Groups set the members of the local Administrators group, but neither the Administrator account nor Domain Admins is among them.</value>
+  </data>
+  <data name="GpoFinding.RestrictedAdministratorsNoAdmins.Explanation" xml:space="preserve">
+    <value>Restricted Groups replace the whole membership. Without the built-in Administrator and Domain Admins, the computers in scope lose their usual way of administration – support may be locked out of them.</value>
+  </data>
+  <data name="GpoFinding.RestrictedAdministratorsNoAdmins.Recommendation" xml:space="preserve">
+    <value>Add the Administrator account and Domain Admins (or your own tiered administrators' group) to the members, or use preferences to add members without replacing the list.</value>
+  </data>
+  <data name="GpoFinding.LegacyAndAdvancedAudit.Title" xml:space="preserve">
+    <value>Basic and advanced audit policy together</value>
+  </data>
+  <data name="GpoFinding.LegacyAndAdvancedAudit.Message" xml:space="preserve">
+    <value>The GPO sets both the basic audit policy and the advanced audit policy, but does not force the advanced subcategories.</value>
+  </data>
+  <data name="GpoFinding.LegacyAndAdvancedAudit.Explanation" xml:space="preserve">
+    <value>When both forms are set, Windows applies the basic categories over the advanced subcategories unless "Audit: Force audit policy subcategory settings … to override audit policy category settings" is enabled. The audit that results is not the one configured.</value>
+  </data>
+  <data name="GpoFinding.LegacyAndAdvancedAudit.Recommendation" xml:space="preserve">
+    <value>Enable the option that forces the subcategory settings, or remove the basic audit policy and keep only the advanced one.</value>
+  </data>
+  <data name="GpoFinding.PasswordLengthNeedsRelax.Title" xml:space="preserve">
+    <value>Minimum password length above 14</value>
+  </data>
+  <data name="GpoFinding.PasswordLengthNeedsRelax.Message" xml:space="preserve">
+    <value>The minimum password length is {0}, but the option that relaxes the legacy 14-character limit is not enabled.</value>
+  </data>
+  <data name="GpoFinding.PasswordLengthNeedsRelax.Explanation" xml:space="preserve">
+    <value>Without "Relax minimum password length limits" Windows accepts at most 14 for the minimum length; a larger value may be ignored or rejected, depending on the system version.</value>
+  </data>
+  <data name="GpoFinding.PasswordLengthNeedsRelax.Recommendation" xml:space="preserve">
+    <value>Enable "Relax minimum password length limits" in the same GPO, or keep the minimum length at 14 or less.</value>
+  </data>
+  <data name="GpoFinding.TypedPrincipalName.Title" xml:space="preserve">
+    <value>Principal written as a name</value>
+  </data>
+  <data name="GpoFinding.TypedPrincipalName.Message" xml:space="preserve">
+    <value>A principal is written as the name {0} instead of a SID.</value>
+  </data>
+  <data name="GpoFinding.TypedPrincipalName.Explanation" xml:space="preserve">
+    <value>Names are resolved by every client at every refresh. A renamed or deleted account, a name in another language or a typo breaks the setting without notice; a SID stays valid.</value>
+  </data>
+  <data name="GpoFinding.TypedPrincipalName.Recommendation" xml:space="preserve">
+    <value>Pick the account again in the editor so that its SID is stored.</value>
+  </data>
+  <data name="GpoFinding.UnresolvedPrincipal.Title" xml:space="preserve">
+    <value>Unknown SID in a setting</value>
+  </data>
+  <data name="GpoFinding.UnresolvedPrincipal.Message" xml:space="preserve">
+    <value>The setting names the SID {0}, which no longer matches any account of the domain.</value>
+  </data>
+  <data name="GpoFinding.UnresolvedPrincipal.Explanation" xml:space="preserve">
+    <value>The account or group was deleted. The setting still names it, so a user right or a group membership is granted to nobody – or, if it is a deny, protects nothing any more.</value>
+  </data>
+  <data name="GpoFinding.UnresolvedPrincipal.Recommendation" xml:space="preserve">
+    <value>Remove the SID from the setting, or replace it with the group that should hold the right.</value>
+  </data>
+  <data name="GpoFinding.DenyLogonBroadGroup.Title" xml:space="preserve">
+    <value>Logon denied to a broad group</value>
+  </data>
+  <data name="GpoFinding.DenyLogonBroadGroup.Message" xml:space="preserve">
+    <value>A "Deny log on" user right is given to {0}.</value>
+  </data>
+  <data name="GpoFinding.DenyLogonBroadGroup.Explanation" xml:space="preserve">
+    <value>Deny rights take precedence over every allow. Given to Everyone, Authenticated Users, Administrators or Domain Users, they can lock out almost everyone from the computers in scope – often including the administrators who would fix it.</value>
+  </data>
+  <data name="GpoFinding.DenyLogonBroadGroup.Recommendation" xml:space="preserve">
+    <value>Give the deny right only to the specific accounts or groups that must not log on (for example guests or privileged accounts on workstations).</value>
+  </data>
+  <data name="GpoFinding.ConflictingSetting.Title" xml:space="preserve">
+    <value>Conflicting setting</value>
+  </data>
+  <data name="GpoFinding.ConflictingSetting.Message" xml:space="preserve">
+    <value>„{0}” sets {2}, but „{1}” sets {3} – „{0}” wins.</value>
+  </data>
+  <data name="GpoFinding.ConflictingSetting.Explanation" xml:space="preserve">
+    <value>Several GPOs reaching the same container set this setting differently; only the one with the highest precedence counts. The losing values are dead weight and mislead anyone who reads only that GPO.</value>
+  </data>
+  <data name="GpoFinding.ConflictingSetting.Recommendation" xml:space="preserve">
+    <value>Decide which value is intended and remove the setting from the other GPOs, or change the link order if the wrong GPO wins.</value>
+  </data>
+  <data name="GpoFinding.RedundantSetting.Title" xml:space="preserve">
+    <value>Setting repeated in several GPOs</value>
+  </data>
+  <data name="GpoFinding.RedundantSetting.Message" xml:space="preserve">
+    <value>„{0}” and „{1}” set the same value: {2}.</value>
+  </data>
+  <data name="GpoFinding.RedundantSetting.Explanation" xml:space="preserve">
+    <value>The same value comes from several GPOs on one path. It works, but a later change in one GPO either has no effect or has a different effect than expected, and every GPO is processed for nothing.</value>
+  </data>
+  <data name="GpoFinding.RedundantSetting.Recommendation" xml:space="preserve">
+    <value>Keep the setting in one GPO – usually the most general one – and remove it from the others.</value>
+  </data>
+  <data name="GpoFinding.GppPassword.Title" xml:space="preserve">
+    <value>Password stored in preferences (MS14-025)</value>
+  </data>
+  <data name="GpoFinding.GppPassword.Message" xml:space="preserve">
+    <value>A preference item of the GPO stores a password (cpassword) in the file {0}.</value>
+  </data>
+  <data name="GpoFinding.GppPassword.Explanation" xml:space="preserve">
+    <value>Passwords in Group Policy preferences are encrypted with a key Microsoft published in 2012: any domain user can read the file on SYSVOL and decrypt the password in seconds. The account it belongs to must be considered known.</value>
+  </data>
+  <data name="GpoFinding.GppPassword.Recommendation" xml:space="preserve">
+    <value>Remove the password from the preference item (or delete the item), change the password of that account at once, and use Windows LAPS for local administrator passwords.</value>
+  </data>
+  <data name="GpoFinding.DangerousRightBroadGroup.Title" xml:space="preserve">
+    <value>Sensitive user right for a broad group</value>
+  </data>
+  <data name="GpoFinding.DangerousRightBroadGroup.Message" xml:space="preserve">
+    <value>A sensitive user right (for example debug programs, back up or restore files, take ownership, load drivers or act as part of the operating system) is given to {0}.</value>
+  </data>
+  <data name="GpoFinding.DangerousRightBroadGroup.Explanation" xml:space="preserve">
+    <value>These rights let an account bypass the system's protection and take full control of the computer. Given to a broad group, they make every member a local administrator in effect.</value>
+  </data>
+  <data name="GpoFinding.DangerousRightBroadGroup.Recommendation" xml:space="preserve">
+    <value>Give the right only to the accounts that really need it (usually administrators or a dedicated service account) and remove the broad group.</value>
+  </data>
+  <data name="GpoFinding.BroadGroupInPrivilegedLocalGroup.Title" xml:space="preserve">
+    <value>Broad group in a privileged local group</value>
+  </data>
+  <data name="GpoFinding.BroadGroupInPrivilegedLocalGroup.Message" xml:space="preserve">
+    <value>{0} is made a member of the local group {1}.</value>
+  </data>
+  <data name="GpoFinding.BroadGroupInPrivilegedLocalGroup.Explanation" xml:space="preserve">
+    <value>Members of privileged local groups such as Administrators, Remote Desktop Users or Backup Operators can log on to or take control of the computer. Adding Everyone, Authenticated Users or Domain Users grants this to every account of the domain.</value>
+  </data>
+  <data name="GpoFinding.BroadGroupInPrivilegedLocalGroup.Recommendation" xml:space="preserve">
+    <value>Add a dedicated group with only the people who need the access, and remove the broad group from the membership.</value>
+  </data>
+  <data name="GpoFinding.LmCompatibilityWeak.Title" xml:space="preserve">
+    <value>Weak LAN Manager authentication level</value>
+  </data>
+  <data name="GpoFinding.LmCompatibilityWeak.Message" xml:space="preserve">
+    <value>The LAN Manager authentication level is set to: {0}.</value>
+  </data>
+  <data name="GpoFinding.LmCompatibilityWeak.Explanation" xml:space="preserve">
+    <value>Below level 3 clients may still send LM and NTLMv1 responses, which can be cracked or relayed easily. Systems that need them have been out of support for many years.</value>
+  </data>
+  <data name="GpoFinding.LmCompatibilityWeak.Recommendation" xml:space="preserve">
+    <value>Set "Network security: LAN Manager authentication level" to "Send NTLMv2 response only. Refuse LM &amp; NTLM" (5), or at least to level 3.</value>
+  </data>
+  <data name="GpoFinding.LmHashStored.Title" xml:space="preserve">
+    <value>LM hash of passwords stored</value>
+  </data>
+  <data name="GpoFinding.LmHashStored.Message" xml:space="preserve">
+    <value>The GPO allows LAN Manager hashes of passwords to be stored.</value>
+  </data>
+  <data name="GpoFinding.LmHashStored.Explanation" xml:space="preserve">
+    <value>LM hashes split the password into two upper-case parts of seven characters and can be cracked in minutes. Whoever reads the account database gets the passwords almost for free.</value>
+  </data>
+  <data name="GpoFinding.LmHashStored.Recommendation" xml:space="preserve">
+    <value>Enable "Network security: Do not store LAN Manager hash value on next password change"; the hashes disappear as passwords change.</value>
+  </data>
+  <data name="GpoFinding.SmbSigningNotRequired.Title" xml:space="preserve">
+    <value>SMB signing not required on domain controllers</value>
+  </data>
+  <data name="GpoFinding.SmbSigningNotRequired.Message" xml:space="preserve">
+    <value>The GPO reaches the domain controllers but does not require SMB server signing.</value>
+  </data>
+  <data name="GpoFinding.SmbSigningNotRequired.Explanation" xml:space="preserve">
+    <value>Without required signing, SMB sessions to the domain controllers can be relayed or tampered with – including the SYSVOL traffic every client uses to read Group Policy.</value>
+  </data>
+  <data name="GpoFinding.SmbSigningNotRequired.Recommendation" xml:space="preserve">
+    <value>Enable "Microsoft network server: Digitally sign communications (always)" for the domain controllers (the Default Domain Controllers Policy sets it).</value>
+  </data>
+  <data name="GpoFinding.LdapSigningNotRequired.Title" xml:space="preserve">
+    <value>LDAP signing not required on domain controllers</value>
+  </data>
+  <data name="GpoFinding.LdapSigningNotRequired.Message" xml:space="preserve">
+    <value>The GPO reaches the domain controllers and sets their LDAP server signing requirement to: {0}.</value>
+  </data>
+  <data name="GpoFinding.LdapSigningNotRequired.Explanation" xml:space="preserve">
+    <value>Domain controllers that do not require signing accept unsigned LDAP binds, which can be relayed to change the directory – a common step of NTLM relay attacks.</value>
+  </data>
+  <data name="GpoFinding.LdapSigningNotRequired.Recommendation" xml:space="preserve">
+    <value>Set "Domain controller: LDAP server signing requirements" to "Require signing" once the event log (event 2889) shows no unsigned binds.</value>
+  </data>
+  <data name="GpoFinding.AnonymousAccessAllowed.Title" xml:space="preserve">
+    <value>Anonymous access allowed</value>
+  </data>
+  <data name="GpoFinding.AnonymousAccessAllowed.Message" xml:space="preserve">
+    <value>The GPO allows anonymous access: {0}.</value>
+  </data>
+  <data name="GpoFinding.AnonymousAccessAllowed.Explanation" xml:space="preserve">
+    <value>Anonymous enumeration of accounts and shares, anonymous name lookup or treating anonymous users like Everyone give an attacker without any account a list of targets and more.</value>
+  </data>
+  <data name="GpoFinding.AnonymousAccessAllowed.Recommendation" xml:space="preserve">
+    <value>Restore the secure default of this option (Windows defaults do not allow it).</value>
+  </data>
+  <data name="GpoFinding.ReversibleEncryption.Title" xml:space="preserve">
+    <value>Passwords stored with reversible encryption</value>
+  </data>
+  <data name="GpoFinding.ReversibleEncryption.Message" xml:space="preserve">
+    <value>The GPO stores passwords using reversible encryption.</value>
+  </data>
+  <data name="GpoFinding.ReversibleEncryption.Explanation" xml:space="preserve">
+    <value>With this option the domain controllers keep a decryptable copy of each password changed afterwards – practically plain text for anyone who reads the directory database or its backup.</value>
+  </data>
+  <data name="GpoFinding.ReversibleEncryption.Recommendation" xml:space="preserve">
+    <value>Disable "Store passwords using reversible encryption" and have the affected accounts change their passwords; only a few legacy protocols (CHAP, Digest) ever needed it.</value>
+  </data>
+  <data name="GpoFinding.GuestEnabled.Title" xml:space="preserve">
+    <value>Guest account enabled</value>
+  </data>
+  <data name="GpoFinding.GuestEnabled.Message" xml:space="preserve">
+    <value>The GPO enables the built-in Guest account.</value>
+  </data>
+  <data name="GpoFinding.GuestEnabled.Explanation" xml:space="preserve">
+    <value>The Guest account needs no password and gives anyone access to the computers in scope – also over the network, to shares that allow Everyone.</value>
+  </data>
+  <data name="GpoFinding.GuestEnabled.Recommendation" xml:space="preserve">
+    <value>Set "Accounts: Guest account status" to Disabled (the Windows default).</value>
+  </data>
+  <data name="GpoFinding.UacDisabled.Title" xml:space="preserve">
+    <value>User Account Control disabled</value>
+  </data>
+  <data name="GpoFinding.UacDisabled.Message" xml:space="preserve">
+    <value>The GPO turns off User Account Control (Admin Approval Mode for all administrators).</value>
+  </data>
+  <data name="GpoFinding.UacDisabled.Explanation" xml:space="preserve">
+    <value>Without UAC every program an administrator starts runs with full rights, so one malicious document or download is enough to take over the computer. Modern applications (Microsoft Store, Edge) also stop working.</value>
+  </data>
+  <data name="GpoFinding.UacDisabled.Recommendation" xml:space="preserve">
+    <value>Enable "User Account Control: Run all administrators in Admin Approval Mode" and address the reason it was turned off separately.</value>
+  </data>
+  <data name="GpoFinding.PlainTextSmbPassword.Title" xml:space="preserve">
+    <value>Unencrypted passwords sent to SMB servers</value>
+  </data>
+  <data name="GpoFinding.PlainTextSmbPassword.Message" xml:space="preserve">
+    <value>The GPO allows the SMB client to send unencrypted passwords to third-party SMB servers.</value>
+  </data>
+  <data name="GpoFinding.PlainTextSmbPassword.Explanation" xml:space="preserve">
+    <value>With this option a server that does not support password encryption receives the password in plain text, readable by anyone on the network path.</value>
+  </data>
+  <data name="GpoFinding.PlainTextSmbPassword.Recommendation" xml:space="preserve">
+    <value>Disable "Microsoft network client: Send unencrypted password to third-party SMB servers" and replace the servers that require it.</value>
+  </data>
+  <data name="GpoFinding.WeakDomainPasswordPolicy.Title" xml:space="preserve">
+    <value>Weak domain password policy</value>
+  </data>
+  <data name="GpoFinding.WeakDomainPasswordPolicy.Message" xml:space="preserve">
+    <value>The domain password policy is weak: {0} is set to {1}.</value>
+  </data>
+  <data name="GpoFinding.WeakDomainPasswordPolicy.Explanation" xml:space="preserve">
+    <value>The GPO linked to the domain sets the password and lockout policy of every domain account. Short passwords, passwords without complexity or no lockout make guessing and spraying attacks practical.</value>
+  </data>
+  <data name="GpoFinding.WeakDomainPasswordPolicy.Recommendation" xml:space="preserve">
+    <value>Require at least 12–14 characters (or longer passphrases), keep complexity on unless you use a banned-password list, and set a lockout threshold (for example 10 attempts).</value>
+  </data>
+  <!-- K6 Group Policy diagnostics (20.2): end -->
 </root>

@@ -73,8 +73,14 @@ public sealed class GroupPolicyDocumentTests
 
         Assert.Contains(document.Settings, s => s.Configuration == "Konfiguracja komputera" && s.Name == "CONTOSO\\GG_IT – jest członkiem grup"
             && s.Value == "Użytkownicy pulpitu zdalnego");
-        Assert.Contains(document.Checks, c => c.Text == "Folder GPO" && c.IsOk);
+
+        // Stan (the diagnostics engine, read when the tab is shown): the folder is there and the versions agree; the
+        // extension names lack the security template's pair.
+        document.SelectedTab = GpoDocumentTab.Status;
+        await B2Harness.WaitUntilAsync(() => document.Checks.Count > 0 && !document.IsCheckingHealth);
         Assert.Contains(document.Checks, c => c.Text == "Wersje" && c.IsOk);
+        Assert.DoesNotContain(document.HealthFindings, f => f.Code == Core.GroupPolicy.Diagnostics.GpoFindingCodes.SysvolFolderMissing);
+        Assert.Contains(document.HealthFindings, f => f.Code == Core.GroupPolicy.Diagnostics.GpoFindingCodes.ExtensionNamesMissing);
         Assert.False(document.HasVersionMismatch);
     }
 
@@ -122,7 +128,8 @@ public sealed class GroupPolicyDocumentTests
         Assert.True(document.HasVersionMismatch);
         var versions = Assert.Single(document.Checks, c => c.Text == "Wersje");
         Assert.False(versions.IsOk);
-        Assert.Contains("replikacja SYSVOL", versions.Detail, StringComparison.Ordinal);
+        var mismatch = Assert.Single(document.HealthFindings, f => f.Code == Core.GroupPolicy.Diagnostics.GpoFindingCodes.VersionMismatch);
+        Assert.Contains("replikację SYSVOL", mismatch.Explanation, StringComparison.Ordinal);
         Assert.True(document.AlignVersionsCommand.CanExecute(null));
         Assert.Contains(document.Settings, s => s.Value.Contains("Księgowość", StringComparison.Ordinal));
     }
@@ -223,7 +230,10 @@ public sealed class GroupPolicyDocumentTests
 
         Assert.Contains("not supported", document.SysvolWarning, StringComparison.Ordinal);
         Assert.False(document.AddSecurityFilterCommand.CanExecute(null));
-        Assert.Contains(document.Checks, c => c.Text == "SYSVOL" && !c.IsOk);
+        document.SelectedTab = GpoDocumentTab.Status;
+        await B2Harness.WaitUntilAsync(() => document.Checks.Count > 0 && !document.IsCheckingHealth);
+        Assert.Equal([document.SysvolWarning!], document.HealthNotes);
+        Assert.Contains(document.Checks, c => c.Text == "Versions" && !c.IsOk && c.Detail == "Not checked – SYSVOL is unavailable");
         Assert.Empty(document.Settings);
         Assert.Equal(document.SysvolWarning, document.SettingsNote);
     }
