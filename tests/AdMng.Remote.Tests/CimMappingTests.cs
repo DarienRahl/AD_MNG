@@ -85,6 +85,79 @@ public class CimMappingTests
     }
 
     [Fact]
+    public void ScheduledTask_MapsThePrincipalStateAndSettings()
+    {
+        var task = CimMapping.ScheduledTask(Bag(
+            ("TaskPath", @"\Księgowość\"),
+            ("TaskName", "Eksport faktur – Łódź"),
+            ("State", 3u),
+            ("Principal", Bag(("UserId", @"CONTOSO\svc.ksiegowosc"), ("LogonType", 1u))),
+            ("Settings", Bag(("Enabled", true)))));
+
+        Assert.Equal(new RemoteScheduledTask(@"\Księgowość\", "Eksport faktur – Łódź", @"CONTOSO\svc.ksiegowosc", RemoteTaskLogonType.Password, RemoteTaskState.Ready, true), task);
+        Assert.Equal(@"\Księgowość\Eksport faktur – Łódź", task.FullName);
+        Assert.True(task.StoresPassword);
+        Assert.DoesNotContain("svc.ksiegowosc", task.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Eksport", task.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ScheduledTask_AGroupPrincipal_NoSettings_EnabledFromTheState()
+    {
+        var disabled = CimMapping.ScheduledTask(Bag(
+            ("taskpath", @"\Microsoft\Windows\Defrag\"),
+            ("taskname", "ScheduledDefrag"),
+            ("state", 1u),
+            ("principal", Bag(("UserId", " "), ("LogonType", 4u)))));
+        var running = CimMapping.ScheduledTask(Bag(("TaskName", "Kopia zapasowa"), ("State", "Running"), ("Principal", Bag(("UserId", "SYSTEM"), ("LogonType", 5)))));
+
+        Assert.Null(disabled.UserId);
+        Assert.Equal(RemoteTaskLogonType.Group, disabled.LogonType);
+        Assert.Equal(RemoteTaskState.Disabled, disabled.State);
+        Assert.False(disabled.Enabled);
+        Assert.Equal(@"\Microsoft\Windows\Defrag\ScheduledDefrag", disabled.FullName);
+        Assert.False(disabled.StoresPassword);
+
+        Assert.Equal(@"\", running.Path);
+        Assert.Equal(@"\Kopia zapasowa", running.FullName);
+        Assert.Equal("SYSTEM", running.UserId);
+        Assert.Equal(RemoteTaskLogonType.ServiceAccount, running.LogonType);
+        Assert.Equal(RemoteTaskState.Running, running.State);
+        Assert.True(running.Enabled);
+    }
+
+    [Fact]
+    public void ScheduledTask_UnknownValues_AreNull()
+    {
+        var task = CimMapping.ScheduledTask(Bag(("TaskPath", @"\"), ("TaskName", "Raport"), ("State", 42u), ("Principal", null)));
+
+        Assert.Null(task.UserId);
+        Assert.Null(task.LogonType);
+        Assert.Null(task.State);
+        Assert.Null(task.Enabled);
+    }
+
+    [Theory]
+    [InlineData(6u, RemoteTaskLogonType.InteractiveOrPassword)]
+    [InlineData("S4U", RemoteTaskLogonType.S4U)]
+    [InlineData("interactive", RemoteTaskLogonType.Interactive)]
+    [InlineData("3", RemoteTaskLogonType.Interactive)]
+    [InlineData(7u, null)]
+    [InlineData("Password, Group", null)]
+    [InlineData("99999999999", null)]
+    [InlineData("", null)]
+    public void EnumValue_NumbersAndNames(object value, RemoteTaskLogonType? expected) =>
+        Assert.Equal(expected, CimMapping.EnumValue<RemoteTaskLogonType>(value));
+
+    [Fact]
+    public void ScheduledTaskProperties_NeverCopyActionsOrTriggers()
+    {
+        Assert.DoesNotContain("Actions", RemoteCommands.ScheduledTaskProperties.Keys, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Triggers", RemoteCommands.ScheduledTaskProperties.Keys, StringComparer.OrdinalIgnoreCase);
+        Assert.Equal(["UserId", "LogonType"], RemoteCommands.ScheduledTaskProperties["Principal"]!);
+    }
+
+    [Fact]
     public void GroupPolicyEnd_IsTheFileTimeOfBothHalves()
     {
         var end = new DateTimeOffset(2026, 10, 27, 9, 1, 0, TimeSpan.Zero);

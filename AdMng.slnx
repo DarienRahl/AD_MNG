@@ -3,6 +3,7 @@
     <Project Path="src/AdMng.App/AdMng.App.csproj" />
     <Project Path="src/AdMng.Core/AdMng.Core.csproj" />
     <Project Path="src/AdMng.Directory/AdMng.Directory.csproj" />
+    <Project Path="src/AdMng.EventLogs/AdMng.EventLogs.csproj" />
     <Project Path="src/AdMng.Mail/AdMng.Mail.csproj" />
     <Project Path="src/AdMng.Outlook/AdMng.Outlook.csproj" />
     <Project Path="src/AdMng.Presentation/AdMng.Presentation.csproj" />
@@ -17,6 +18,7 @@
     <Project Path="tests/AdMng.App.UiTests/AdMng.App.UiTests.csproj" />
     <Project Path="tests/AdMng.Core.Tests/AdMng.Core.Tests.csproj" />
     <Project Path="tests/AdMng.Directory.IntegrationTests/AdMng.Directory.IntegrationTests.csproj" />
+    <Project Path="tests/AdMng.EventLogs.Tests/AdMng.EventLogs.Tests.csproj" />
     <Project Path="tests/AdMng.Mail.Tests/AdMng.Mail.Tests.csproj" />
     <Project Path="tests/AdMng.Outlook.Tests/AdMng.Outlook.Tests.csproj" />
     <Project Path="tests/AdMng.Presentation.Tests/AdMng.Presentation.Tests.csproj" />

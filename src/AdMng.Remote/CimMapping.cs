@@ -72,6 +72,47 @@ internal static class CimMapping
             Text(service, "StartName"));
     }
 
+    /// <summary>
+    /// MSFT_ScheduledTask (TaskPath, TaskName, State) with its embedded <c>Principal</c> (UserId, LogonType) and
+    /// <c>Settings</c> (Enabled) as nested property bags. An empty UserId (a group principal) is null; a missing
+    /// <c>Settings.Enabled</c> is taken from the state (Disabled → false, a known other state → true).
+    /// </summary>
+    public static RemoteScheduledTask ScheduledTask(IReadOnlyDictionary<string, object?> task)
+    {
+        ArgumentNullException.ThrowIfNull(task);
+        var principal = Value(task, "Principal") as IReadOnlyDictionary<string, object?>;
+        var settings = Value(task, "Settings") as IReadOnlyDictionary<string, object?>;
+        var state = EnumValue<RemoteTaskState>(Value(task, "State"));
+        var enabled = settings is not null && Value(settings, "Enabled") is bool flag
+            ? flag
+            : state is null or RemoteTaskState.Unknown ? (bool?)null : state != RemoteTaskState.Disabled;
+        var path = Text(task, "TaskPath")?.Trim();
+        return new RemoteScheduledTask(
+            string.IsNullOrEmpty(path) ? "\\" : path,
+            Text(task, "TaskName")?.Trim() ?? string.Empty,
+            principal is not null && Text(principal, "UserId")?.Trim() is { Length: > 0 } user ? user : null,
+            principal is null ? null : EnumValue<RemoteTaskLogonType>(Value(principal, "LogonType")),
+            state,
+            enabled);
+    }
+
+    /// <summary>A CIM enumeration value (a number, or its name) → a defined member of <typeparamref name="TEnum"/>; null otherwise.</summary>
+    public static TEnum? EnumValue<TEnum>(object? value)
+        where TEnum : struct, Enum
+    {
+        if (ToInt(value) is { } number)
+        {
+            var member = (TEnum)Enum.ToObject(typeof(TEnum), number);
+            return Enum.IsDefined(member) ? member : null;
+        }
+
+        // One member name only: Enum.TryParse would also take numbers and combine "A, B" into a different member.
+        return value is string text && text.Trim() is { Length: > 0 } name && char.IsAsciiLetter(name[0]) && name.All(char.IsAsciiLetterOrDigit)
+            && Enum.TryParse<TEnum>(name, ignoreCase: true, out var parsed) && Enum.IsDefined(parsed)
+            ? parsed
+            : null;
+    }
+
     /// <summary>The end of the last computer policy processing: EndTimeHi/EndTimeLo of the Group Policy state (FILETIME, UTC).</summary>
     public static DateTimeOffset? GroupPolicyEnd(object? endTimeHigh, object? endTimeLow)
     {

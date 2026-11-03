@@ -154,6 +154,64 @@ public sealed record RemoteService(string Name, string? DisplayName, string? Sta
         string.Equals(StartMode, "Auto", StringComparison.OrdinalIgnoreCase) && !string.Equals(State, "Running", StringComparison.OrdinalIgnoreCase);
 }
 
+/// <summary>The state of a scheduled task (<c>MSFT_ScheduledTask.State</c>; the values are the CIM ones).</summary>
+public enum RemoteTaskState
+{
+    Unknown = 0,
+    Disabled = 1,
+    Queued = 2,
+    Ready = 3,
+    Running = 4,
+}
+
+/// <summary>How a scheduled task logs on (<c>MSFT_TaskPrincipal.LogonType</c>; the values are the CIM ones).</summary>
+public enum RemoteTaskLogonType
+{
+    None = 0,
+
+    /// <summary>The password is stored with the task ("Run whether user is logged on or not").</summary>
+    Password = 1,
+
+    /// <summary>Service for User: no password stored, no network access.</summary>
+    S4U = 2,
+
+    /// <summary>Only while the user is logged on.</summary>
+    Interactive = 3,
+
+    Group = 4,
+
+    /// <summary>SYSTEM, LOCAL SERVICE, NETWORK SERVICE.</summary>
+    ServiceAccount = 5,
+
+    /// <summary>The password is stored and the interactive token is used when the user is logged on.</summary>
+    InteractiveOrPassword = 6,
+}
+
+/// <summary>
+/// A scheduled task of the computer (read only; the lockout pivot looks for tasks that run as the locked account – a
+/// task with a stored password keeps failing after the password changed). <see cref="ToString"/> carries no value.
+/// </summary>
+/// <param name="Path">The task folder as the scheduler reports it (<c>TaskPath</c>): <c>\</c>, <c>\Microsoft\Windows\Defrag\</c>.</param>
+/// <param name="Name">The task name (<c>TaskName</c>).</param>
+/// <param name="UserId">
+/// <c>Principal.UserId</c> as the scheduler stores it (<c>CONTOSO\jan.kowalski</c>, a UPN, <c>SYSTEM</c>, a SID); null for a
+/// group principal or when the principal could not be read.
+/// </param>
+/// <param name="LogonType"><c>Principal.LogonType</c>, null when unknown.</param>
+/// <param name="State">The task state, null when unknown.</param>
+/// <param name="Enabled"><c>Settings.Enabled</c> (or the state when the settings are missing), null when unknown.</param>
+public sealed record RemoteScheduledTask(string Path, string Name, string? UserId, RemoteTaskLogonType? LogonType, RemoteTaskState? State, bool? Enabled)
+{
+    /// <summary>The folder and the name: <c>\Microsoft\Windows\Defrag\ScheduledDefrag</c>.</summary>
+    public string FullName => Path.EndsWith('\\') ? Path + Name : Path + "\\" + Name;
+
+    /// <summary>The task keeps the account's password (<see cref="RemoteTaskLogonType.Password"/> or <see cref="RemoteTaskLogonType.InteractiveOrPassword"/>).</summary>
+    public bool StoresPassword => LogonType is RemoteTaskLogonType.Password or RemoteTaskLogonType.InteractiveOrPassword;
+
+    /// <summary>Never the task name or the account.</summary>
+    public override string ToString() => "Scheduled task";
+}
+
 /// <summary>What "Odśwież zasady grupy" refreshes.</summary>
 public enum GroupPolicyRefreshTarget
 {
@@ -214,6 +272,12 @@ public interface IRemoteComputerSession : IAsyncDisposable
     Task<IReadOnlyList<LoggedOnUser>> GetLoggedOnUsersAsync(CancellationToken cancellationToken);
 
     Task<IReadOnlyList<RemoteService>> GetServicesAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The scheduled tasks of every folder (CIM <c>MSFT_ScheduledTask</c> in <c>root/Microsoft/Windows/TaskScheduler</c>):
+    /// path, name, principal account and logon type, state. Actions and triggers are not read.
+    /// </summary>
+    Task<IReadOnlyList<RemoteScheduledTask>> GetScheduledTasksAsync(CancellationToken cancellationToken);
 
     /// <summary>Runs <c>gpupdate /force</c> for the computer (and schedules the users' refresh when enabled) and waits up to 10 minutes.</summary>
     Task<GroupPolicyRefreshResult> RefreshGroupPolicyAsync(GroupPolicyRefreshTarget target, CancellationToken cancellationToken);
