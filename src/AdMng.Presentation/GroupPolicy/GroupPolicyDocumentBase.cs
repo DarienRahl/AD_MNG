@@ -198,6 +198,14 @@ public abstract partial class GroupPolicyDocumentBase : ObservableObject, IShell
     {
     }
 
+    /// <summary>
+    /// <see cref="IsLoading"/> changed (a load started or ended): documents that edit what they show become read-only while
+    /// a load runs (<see cref="IsSysvolWritable"/> is false meanwhile) and re-evaluate their commands here.
+    /// </summary>
+    protected virtual void OnLoadingChanged()
+    {
+    }
+
     /// <summary>The UI language changed: texts built while loading are rebuilt by reloading.</summary>
     protected virtual void OnCultureChanged()
     {
@@ -215,6 +223,12 @@ public abstract partial class GroupPolicyDocumentBase : ObservableObject, IShell
         ArgumentNullException.ThrowIfNull(operation);
         await operation().ConfigureAwait(true);
         RefreshCommands();
+    }
+
+    partial void OnIsLoadingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsSysvolWritable));
+        OnLoadingChanged();
     }
 
     private void OnGroupPolicyChanged(object? sender, EventArgs e) => _ = Gp.Dispatcher.RunAsync(() => LoadAsync().Forget());

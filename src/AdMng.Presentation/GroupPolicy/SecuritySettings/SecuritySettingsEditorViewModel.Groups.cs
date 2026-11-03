@@ -329,7 +329,7 @@ public sealed partial class SecuritySettingsEditorViewModel
                 row.HasTargeting = item.HasItemLevelTargeting;
                 row.IsDisabled = item.Disabled;
             });
-            row.IsChanged = i >= original.Count || !SameItem(original[i], item);
+            row.IsChanged = OriginalOf(original, item, i) is not { } before || !SameItem(before, item);
         }
 
         if (!_gppRows.SequenceEqual(GppGroups))
@@ -339,6 +339,15 @@ public sealed partial class SecuritySettingsEditorViewModel
             SelectedGppGroup = selected is not null && _gppRows.Contains(selected) ? selected : null;
         }
     }
+
+    /// <summary>The item as read with the same uid (an item without uid: the one read at its position, also without uid).</summary>
+    private static GppLocalGroup? OriginalOf(IReadOnlyList<GppLocalGroup> original, GppLocalGroup item, int index) =>
+        item.Uid is { } uid ? original.FirstOrDefault(o => string.Equals(o.Uid, uid, StringComparison.OrdinalIgnoreCase))
+        : index < original.Count && original[index].Uid is null ? original[index]
+        : null;
+
+    /// <summary>The key of an item for the change counter: its uid, else its position.</summary>
+    private static string GppKey(GppLocalGroup item, int index) => item.Uid?.ToUpperInvariant() ?? "#" + index.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>A built-in group by its localized name, else the name as written.</summary>
     private string GppGroupName(GppLocalGroup item) =>
@@ -458,21 +467,24 @@ public sealed partial class SecuritySettingsEditorViewModel
     /// <summary>Writes a changed item (its targeting, options and other attributes stay; it gets a new "changed" time).</summary>
     private bool ChangeGpp(GppGroupItemViewModel row, Func<GppLocalGroupEdit, GppLocalGroupEdit> change)
     {
-        if (CanEditGroups && _groups is { } groups && row.Index < groups.Document.Items.Count)
+        if (!CanEditGroups || _groups is not { } groups || row.Index >= groups.Document.Items.Count)
         {
-            var item = groups.Document.Items[row.Index];
-            var edit = new GppLocalGroupEdit(item.GroupName ?? item.Name ?? item.GroupSid ?? string.Empty, item.GroupSid, item.Action,
-                item.DeleteAllUsers, item.DeleteAllGroups, item.Members);
-            try
-            {
-                groups.Document.Update(row.Index, change(edit), Now());
-            }
-            catch (ArgumentException)
-            {
-                ShowRefused();
-                AfterEdit();
-                return false;
-            }
+            AfterEdit(); // the row shows the file again
+            return false;
+        }
+
+        var item = groups.Document.Items[row.Index];
+        var edit = new GppLocalGroupEdit(item.GroupName ?? item.Name ?? item.GroupSid ?? string.Empty, item.GroupSid, item.Action,
+            item.DeleteAllUsers, item.DeleteAllGroups, item.Members);
+        try
+        {
+            groups.Document.Update(row.Index, change(edit), Now());
+        }
+        catch (ArgumentException)
+        {
+            ShowRefused();
+            AfterEdit();
+            return false;
         }
 
         AfterEdit();

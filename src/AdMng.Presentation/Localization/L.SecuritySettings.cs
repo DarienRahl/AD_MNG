@@ -100,6 +100,7 @@ public static partial class L
         public const string TextInvalid = "SecSettings.TextInvalid";
         public const string EmptyText = "SecSettings.EmptyText";
         public const string MultiTextHint = "SecSettings.MultiTextHint";
+        public const string PasswordLengthNeedsRelax = "SecSettings.PasswordLengthNeedsRelax";
         public const string DomainAccountPolicyNote = "SecSettings.DomainAccountPolicyNote";
         public const string RawGroup = "SecSettings.RawGroup";
         public const string RawHint = "SecSettings.RawHint";

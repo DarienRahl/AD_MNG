@@ -550,6 +550,12 @@
                                      Text="{Binding Problem, Mode=OneWay}"
                                      TextWrapping="Wrap"
                                      Visibility="{Binding Problem, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+                          <TextBlock x:Name="OptionWarning"
+                                     Margin="0,6,0,0"
+                                     Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                     Text="{Binding Warning, Mode=OneWay}"
+                                     TextWrapping="Wrap"
+                                     Visibility="{Binding Warning, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
                         </StackPanel>
                       </DataTemplate>
                     </ContentControl.ContentTemplate>

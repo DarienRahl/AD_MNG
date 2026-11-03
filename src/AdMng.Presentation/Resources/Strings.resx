@@ -14794,7 +14794,10 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Type a name or choose one from the list.</value>
   </data>
   <data name="SecSettings.NameInvalid" xml:space="preserve">
-    <value>“{0}” cannot be written to the file: a name must not contain a comma, a quote, '=' or a line break.</value>
+    <value>“{0}” cannot be written to the file: a name must not contain a comma, a semicolon, a quote, '=' or a line break.</value>
+  </data>
+  <data name="SecSettings.PasswordLengthNeedsRelax" xml:space="preserve">
+    <value>Above 14 characters clients apply this length only when “Relax minimum password length limits” is enabled (here or in another GPO that applies).</value>
   </data>
   <data name="SecSettings.EditRefused" xml:space="preserve">
     <value>The value cannot be written to the file (a comma, a quote or a line break where the file cannot hold one).</value>
@@ -15227,6 +15230,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="SecOption.ClearTextPassword" xml:space="preserve">
     <value>Store passwords using reversible encryption</value>
+  </data>
+  <data name="SecOption.RelaxMinimumPasswordLengthLimits" xml:space="preserve">
+    <value>Relax minimum password length limits</value>
   </data>
   <data name="SecOption.LockoutBadCount" xml:space="preserve">
     <value>Account lockout threshold</value>

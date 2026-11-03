@@ -432,6 +432,193 @@ public class SecuritySettingsEditorTests
     }
 
     [Fact]
+    public async Task ASaveSeenLanding_NeverRebasesLaterEdits_OverARestoredFile()
+    {
+        var (harness, editor, gpo) = await OpenSampleAsync();
+        Right(editor, "SeBackupPrivilege").IsDefined = true;
+        await SaveAsync(editor); // S1 written, and the reload has seen it
+        var saved = harness.Sysvol.Get(gpo, GptTmpl)!;
+        Assert.False(editor.HasChanges);
+
+        harness.Sysvol.Put(gpo, GptTmpl, FakeSysvolFileReader.Utf16(FakeDirectoryBuilder.Template("[Privilege Rights]", "SeShutdownPrivilege = *S-1-5-32-544")));
+        await editor.LoadAsync(); // F5: another administrator's file
+        Right(editor, "SeDebugPrivilege").IsDefined = true;
+        harness.Sysvol.Put(gpo, GptTmpl, saved); // S1 restored (a backup, an undo)
+        await editor.LoadAsync();
+
+        Assert.NotNull(editor.ConflictNote);
+        Assert.True(editor.HasChanges);
+        Assert.True(Right(editor, "SeDebugPrivilege").IsDefined);
+        Assert.True(Right(editor, "SeShutdownPrivilege").IsDefined); // still the edits on the other administrator's file
+    }
+
+    [Fact]
+    public async Task ACancelledSave_IsForgotten()
+    {
+        var (harness, editor, gpo) = await OpenSampleAsync();
+        Right(editor, "SeBackupPrivilege").IsDefined = true;
+        harness.Windows.ExecutePreviews = false;
+        await editor.SaveCommand.ExecuteAsync(null);
+        harness.Windows.ExecutePreviews = true;
+
+        Assert.True(editor.HasChanges);
+        Assert.False(editor.IsSaving);
+        Assert.Single(harness.Windows.Previews);
+        await SaveAsync(editor);
+        Assert.Contains("SeBackupPrivilege = \r\n", Text(harness, gpo, GptTmpl), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task WhileLoading_TheEditorIsReadOnly_AndEditsAreRefused()
+    {
+        var (harness, editor, _) = await OpenSampleAsync();
+        using var entered = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var armed = 1;
+        harness.Sysvol.BeforeCall = (operation, _, path) =>
+        {
+            if (operation == "Read" && path?.EndsWith("GptTmpl.inf", StringComparison.Ordinal) == true && Interlocked.Exchange(ref armed, 0) == 1)
+            {
+                entered.Release();
+                release.Wait(TimeSpan.FromSeconds(30));
+            }
+        };
+
+        var load = editor.LoadAsync();
+        Assert.True(await entered.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        try
+        {
+            Assert.True(editor.IsLoading);
+            Assert.False(editor.CanEditTemplate);
+            Assert.False(editor.CanEditGroups);
+            Assert.False(Right(editor, "SeBackupPrivilege").CanEdit);
+            Assert.False(editor.GppGroups[0].CanEdit);
+            Assert.False(editor.AddServiceCommand.CanExecute(null));
+            Assert.False(editor.AddGppGroupCommand.CanExecute(null));
+
+            Right(editor, "SeBackupPrivilege").IsDefined = true; // a click that slipped through: refused
+            editor.GppGroups[0].DeleteAllUsers = true;
+            Assert.False(Right(editor, "SeBackupPrivilege").IsDefined);
+            Assert.False(editor.GppGroups[0].DeleteAllUsers);
+            Assert.False(editor.HasChanges);
+        }
+        finally
+        {
+            release.Set();
+            await load;
+            harness.Sysvol.BeforeCall = null;
+        }
+
+        Assert.True(editor.CanEditTemplate);
+        Assert.True(Right(editor, "SeBackupPrivilege").CanEdit);
+        Assert.True(editor.AddServiceCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task GppChanges_AreCountedByItem_AndAnUndoneEditLeavesNoChange()
+    {
+        var harness = await GroupPolicyHarness.CreateAsync();
+        var gpo = harness.Sample.SitePrinters;
+        harness.Sysvol.PutText(gpo, GroupsXml, FakeDirectoryBuilder.Groups(
+            FakeDirectoryBuilder.LocalGroup("Administrators (built-in)", "S-1-5-32-544", [("Łukasz", null, "ADD")], targeted: true),
+            FakeDirectoryBuilder.LocalGroup("Serwisanci", null, []),
+            FakeDirectoryBuilder.LocalGroup("Księgowość", null, [])));
+        var editor = await harness.SecurityAsync(gpo);
+        var first = editor.GppGroups[0];
+
+        first.DeleteAllUsers = true;
+        Assert.True(editor.HasChanges);
+        Assert.Equal(1, editor.ChangedCount);
+        first.DeleteAllUsers = false; // undone: the item as read again, no new "changed" time
+
+        Assert.False(editor.HasChanges);
+        Assert.Equal(0, editor.ChangedCount);
+        Assert.False(first.IsChanged);
+        Assert.True(await editor.CanCloseAsync());
+        Assert.DoesNotContain(harness.B2.Dialogs.Shown, s => s.StartsWith("confirm:", StringComparison.Ordinal));
+
+        editor.SelectedGppGroup = first;
+        editor.RemoveGppGroupCommand.Execute(null); // [A, B, C] → [B, C]: one change
+        Assert.Equal(1, editor.ChangedCount);
+        Assert.Equal(["Serwisanci", "Księgowość"], editor.GppGroups.Select(g => g.GroupName));
+        Assert.All(editor.GppGroups, g => Assert.False(g.IsChanged));
+    }
+
+    [Fact]
+    public async Task AComboBoxClearingItsSelection_IsNotAnEdit()
+    {
+        var (_, editor, _) = await OpenSampleAsync();
+        var level = Option(editor, "LmCompatibilityLevel");
+        var anonymous = Option(editor, "LSAAnonymousNameLookup");
+        var gpp = editor.GppGroups[0];
+
+        // What the shared editor's combo box does while it switches from one row to the next.
+        level.SelectedChoice = null;
+        anonymous.SelectedChoice = null;
+        gpp.SelectedAction = null;
+
+        Assert.Equal(4, level.SelectedChoice!.Value);
+        Assert.Equal(0, anonymous.SelectedChoice!.Value);
+        Assert.Equal(GppItemAction.Update, gpp.SelectedAction!.Action);
+        Assert.Null(level.Problem);
+        Assert.False(editor.HasProblems);
+        Assert.False(editor.HasChanges);
+    }
+
+    [Fact]
+    public async Task TheTypedRawValue_SurvivesARefresh_AndIsResetForAnotherEntry()
+    {
+        var (_, editor, _) = await OpenSampleAsync();
+        var entry = editor.RawEntries.Single(e => e.Key == "NieznanyKlucz");
+        editor.SelectedRawEntry = entry;
+        editor.RawValueText = "9";
+
+        Right(editor, "SeBackupPrivilege").IsDefined = true; // any edit refreshes every page
+
+        Assert.Same(entry, editor.SelectedRawEntry);
+        Assert.Equal("9", editor.RawValueText);
+        editor.ReplaceRawValueCommand.Execute(null);
+        Assert.Equal("9", editor.SelectedRawEntry!.Value);
+        Assert.Equal("9", editor.RawValueText);
+
+        editor.SelectedRawEntry = editor.RawEntries.Single(e => e.Section == "Registry Values");
+        Assert.Equal("1,\"zażółć\"", editor.RawValueText);
+    }
+
+    [Fact]
+    public async Task APasswordLengthAbove14_WarnsUnlessTheLimitsAreRelaxed_WithoutBlockingTheSave()
+    {
+        var (_, editor, _) = await OpenSampleAsync(CultureInfo.GetCultureInfo("pl-PL"));
+        var length = Option(editor, "MinimumPasswordLength");
+        Assert.Null(length.Warning); // 12
+
+        length.Text = "20";
+        Assert.Contains("Złagodź limity minimalnej długości hasła", length.Warning, StringComparison.Ordinal);
+        Assert.Null(length.Problem);
+        Assert.True(editor.SaveCommand.CanExecute(null));
+
+        var relax = Option(editor, "RelaxMinimumPasswordLengthLimits");
+        Assert.Equal("Złagodź limity minimalnej długości hasła", relax.Name);
+        relax.IsDefined = true;
+        relax.SelectedChoice = relax.Choices.Single(c => c.Value == 1);
+        Assert.Null(length.Warning);
+    }
+
+    [Fact]
+    public async Task ATypedNameWithASemicolon_IsRefused()
+    {
+        var (harness, editor, _) = await OpenSampleAsync();
+        editor.SelectedRight = Right(editor, "SeBackupPrivilege");
+        editor.NewRightHolderText = @"KONTOSO\Serwis;anci";
+
+        editor.AddRightHolderByNameCommand.Execute(null);
+
+        Assert.False(Right(editor, "SeBackupPrivilege").IsDefined);
+        Assert.False(editor.HasChanges);
+        Assert.Contains(harness.B2.Notifications.Items, n => n.Severity == NotificationSeverity.Warning && n.Message.Contains("semicolon", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task AFileThatCannotBeRead_MakesOnlyItsPagesReadOnly()
     {
         var harness = await GroupPolicyHarness.CreateAsync();

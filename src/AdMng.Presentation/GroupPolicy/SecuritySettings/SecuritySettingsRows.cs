@@ -218,12 +218,21 @@ public sealed partial class GppGroupItemViewModel : SecuritySettingRowBase
     [ObservableProperty]
     public partial bool IsDisabled { get; internal set; }
 
-    partial void OnSelectedActionChanged(GppActionChoice? value)
+    partial void OnSelectedActionChanged(GppActionChoice? oldValue, GppActionChoice? newValue)
     {
-        if (!IsUpdating)
+        if (IsUpdating)
         {
-            _owner.OnGppItemEdited(this);
+            return;
         }
+
+        if (newValue is null)
+        {
+            // The shared action box clears its selection while it switches to another item: not an edit.
+            Update(() => SelectedAction = oldValue);
+            return;
+        }
+
+        _owner.OnGppItemEdited(this);
     }
 
     partial void OnDeleteAllUsersChanged(bool value)
@@ -315,6 +324,10 @@ public sealed partial class SecurityOptionRowViewModel : SecuritySettingRowBase
 
     public bool HasProblem => Problem is not null;
 
+    /// <summary>A note on the value that does not block the save (a minimum password length that needs the relaxed limits).</summary>
+    [ObservableProperty]
+    public partial string? Warning { get; internal set; }
+
     partial void OnIsDefinedChanged(bool value)
     {
         if (!IsUpdating)
@@ -331,12 +344,22 @@ public sealed partial class SecurityOptionRowViewModel : SecuritySettingRowBase
         }
     }
 
-    partial void OnSelectedChoiceChanged(SecurityChoice? value)
+    partial void OnSelectedChoiceChanged(SecurityChoice? oldValue, SecurityChoice? newValue)
     {
-        if (!IsUpdating)
+        if (IsUpdating)
         {
-            _owner.OnOptionEdited(this, definedChanged: false);
+            return;
         }
+
+        if (newValue is null && IsDefined && UsesChoice)
+        {
+            // A combo box shared between rows clears its selection while it switches to another row: never a choice of the
+            // operator (a defined option always has one), so the row keeps its value.
+            Update(() => SelectedChoice = oldValue);
+            return;
+        }
+
+        _owner.OnOptionEdited(this, definedChanged: false);
     }
 
     public override string ToString() => Name;

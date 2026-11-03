@@ -12,6 +12,9 @@ public sealed partial class SecuritySettingsEditorViewModel
 {
     private List<SecurityOptionRowViewModel> _optionRows = [];
 
+    /// <summary>The raw entry rows by section, key and value (reused, so a selection and the typed raw value survive a refresh).</summary>
+    private readonly Dictionary<(string Section, string Key, string Value), RawTemplateEntryViewModel> _rawRows = [];
+
     /// <summary>The row whose input is being applied (its text is not overwritten by the refresh that follows).</summary>
     private SecurityOptionRowViewModel? _editingOption;
 
@@ -51,7 +54,15 @@ public sealed partial class SecuritySettingsEditorViewModel
         SelectedOption = value is not null && SelectedOption is { } selected && value.Rows.Contains(selected) ? selected : null;
     }
 
-    partial void OnSelectedRawEntryChanged(RawTemplateEntryViewModel? value) => RawValueText = value?.Value ?? string.Empty;
+    partial void OnSelectedRawEntryChanged(RawTemplateEntryViewModel? oldValue, RawTemplateEntryViewModel? newValue)
+    {
+        // The same entry again (its row was rebuilt after its value was replaced): the typed value stays.
+        if (newValue is null || oldValue is null || !oldValue.Section.Equals(newValue.Section, StringComparison.OrdinalIgnoreCase)
+            || !oldValue.Key.Equals(newValue.Key, StringComparison.OrdinalIgnoreCase))
+        {
+            RawValueText = newValue?.Value ?? string.Empty;
+        }
+    }
 
     private void BuildOptionRows()
     {
@@ -102,6 +113,16 @@ public sealed partial class SecuritySettingsEditorViewModel
             });
         }
 
+        // Above 14 characters the security engine needs "Złagodź limity minimalnej długości hasła" (here or in another GPO):
+        // a warning, not a save blocker.
+        if (_optionRows.FirstOrDefault(r => r.Definition.Id == "MinimumPasswordLength") is { } length)
+        {
+            var relax = SecuritySettingsCatalog.RelaxMinimumPasswordLength;
+            var value = document?.Get(length.Definition.Section, length.Definition.Key) is { } raw ? Number(length.Definition, raw) : null;
+            var relaxed = document?.Get(relax.Section, relax.Key) is { } relaxRaw && Number(relax, relaxRaw) == 1;
+            length.Warning = value > 14 && !relaxed ? Localizer[L.SecuritySettings.PasswordLengthNeedsRelax] : null;
+        }
+
         var entries = new List<RawTemplateEntryViewModel>();
         foreach (var section in new[] { SecurityTemplateDocument.SystemAccess, SecurityTemplateDocument.KerberosPolicy, SecurityTemplateDocument.RegistryValues })
         {
@@ -110,14 +131,30 @@ public sealed partial class SecuritySettingsEditorViewModel
             {
                 if (SecuritySettingsCatalog.FindOption(section, key) is null)
                 {
-                    entries.Add(new RawTemplateEntryViewModel(section, key, value) { IsChanged = !SameValue(before.GetValueOrDefault(key), value) });
+                    if (!_rawRows.TryGetValue((section, key, value), out var entry))
+                    {
+                        entry = new RawTemplateEntryViewModel(section, key, value);
+                        _rawRows[(section, key, value)] = entry;
+                    }
+
+                    entry.IsChanged = !SameValue(before.GetValueOrDefault(key), value);
+                    entries.Add(entry);
                 }
             }
         }
 
-        var selected = SelectedRawEntry;
-        RawEntries = entries;
-        SelectedRawEntry = selected is null ? null : entries.FirstOrDefault(e => e.Section == selected.Section && e.Key.Equals(selected.Key, StringComparison.OrdinalIgnoreCase));
+        foreach (var stale in _rawRows.Where(r => !entries.Contains(r.Value)).Select(r => r.Key).ToList())
+        {
+            _rawRows.Remove(stale);
+        }
+
+        if (!entries.SequenceEqual(RawEntries))
+        {
+            var selected = SelectedRawEntry;
+            RawEntries = entries;
+            SelectedRawEntry = selected is null ? null
+                : entries.FirstOrDefault(e => e.Section == selected.Section && e.Key.Equals(selected.Key, StringComparison.OrdinalIgnoreCase));
+        }
         OnPropertyChanged(nameof(HasProblems));
     }
 
@@ -141,6 +178,11 @@ public sealed partial class SecuritySettingsEditorViewModel
             if (definedChanged && template.Document.Get(definition.Section, definition.Key) is null)
             {
                 row.Update(() => SetDefault(row));
+            }
+
+            if (!definedChanged && row.UsesChoice && row.SelectedChoice is null)
+            {
+                return; // a cleared combo box is not a value (the document keeps the last one)
             }
 
             var (value, problem) = Format(row);

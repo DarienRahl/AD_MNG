@@ -14794,7 +14794,10 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Wpisz nazwę lub wybierz ją z listy.</value>
   </data>
   <data name="SecSettings.NameInvalid" xml:space="preserve">
-    <value>Nie można zapisać „{0}” w pliku: nazwa nie może zawierać przecinka, cudzysłowu, znaku „=” ani podziału wiersza.</value>
+    <value>Nie można zapisać „{0}” w pliku: nazwa nie może zawierać przecinka, średnika, cudzysłowu, znaku „=” ani podziału wiersza.</value>
+  </data>
+  <data name="SecSettings.PasswordLengthNeedsRelax" xml:space="preserve">
+    <value>Powyżej 14 znaków klienci stosują tę długość tylko wtedy, gdy włączone jest ustawienie „Złagodź limity minimalnej długości hasła” (tutaj lub w innym obowiązującym GPO).</value>
   </data>
   <data name="SecSettings.EditRefused" xml:space="preserve">
     <value>Tej wartości nie można zapisać w pliku (przecinek, cudzysłów lub podział wiersza w miejscu, w którym plik ich nie dopuszcza).</value>
@@ -15227,6 +15230,9 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="SecOption.ClearTextPassword" xml:space="preserve">
     <value>Zapisz hasła przy użyciu szyfrowania odwracalnego</value>
+  </data>
+  <data name="SecOption.RelaxMinimumPasswordLengthLimits" xml:space="preserve">
+    <value>Złagodź limity minimalnej długości hasła</value>
   </data>
   <data name="SecOption.LockoutBadCount" xml:space="preserve">
     <value>Próg blokady konta</value>

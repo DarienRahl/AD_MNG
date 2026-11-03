@@ -30,8 +30,12 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
 
     private readonly string _initialName;
 
-    /// <summary>What the last save asked to write per file: a reload that finds it on SYSVOL knows the save landed.</summary>
-    private readonly Dictionary<string, byte[]> _saved = new(StringComparer.Ordinal);
+    /// <summary>
+    /// What the last save asked to write per file and the content it was planned on: a reload that finds it on SYSVOL while
+    /// the edits still sit on that content knows the save landed. Forgotten once a reload has seen it land, and when the save
+    /// was not executed.
+    /// </summary>
+    private readonly Dictionary<string, (byte[]? Base, byte[] Content)> _saved = new(StringComparer.Ordinal);
 
     /// <summary>Names of domain SIDs (resolved on the session's DC or picked), memory only.</summary>
     private readonly Dictionary<string, string> _names = new(StringComparer.OrdinalIgnoreCase);
@@ -141,7 +145,13 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
         SyncCanEdit();
         try
         {
-            await Actions.SaveSecuritySettingsAsync(gpo, save).ConfigureAwait(true);
+            if (!await Actions.SaveSecuritySettingsAsync(gpo, save).ConfigureAwait(true))
+            {
+                // Cancelled in the preview or nothing written: no content of this save may rebase edits later.
+                Forget(TemplatePath, save.Template);
+                Forget(AuditPath, save.Audit);
+                Forget(GroupsPath, save.Groups);
+            }
         }
         finally
         {
@@ -204,7 +214,15 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
     {
         if (save is not null)
         {
-            _saved[path] = save.Content;
+            _saved[path] = (save.Original, save.Content);
+        }
+    }
+
+    private void Forget(string path, GpoFileSave? save)
+    {
+        if (save is not null && _saved.TryGetValue(path, out var saved) && ReferenceEquals(saved.Content, save.Content))
+        {
+            _saved.Remove(path);
         }
     }
 
@@ -264,6 +282,14 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
         RebuildAll();
     }
 
+    /// <summary>A load started or ended: read-only while it runs, editable again after it.</summary>
+    protected override void OnLoadingChanged()
+    {
+        SaveCommand.NotifyCanExecuteChanged();
+        DiscardCommand.NotifyCanExecuteChanged();
+        SyncCanEdit();
+    }
+
     protected override void RefreshCommands()
     {
         SaveCommand.NotifyCanExecuteChanged();
@@ -293,8 +319,9 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
 
     /// <summary>
     /// The file after a read (null: SYSVOL unavailable – nothing to edit): without edits it is the file; with edits it stays
-    /// edited unless the file now equals the edits (they were saved); a file that holds what the last save of this tab wrote
-    /// rebases the edits made since onto it; any other file that changed under the edits marks a conflict and keeps the old
+    /// edited unless the file now equals the edits (they were saved); a file that holds what the last save of this tab wrote,
+    /// while the edits still sit on the content that save was planned on, rebases the edits made since onto it (once: the
+    /// save is forgotten when a reload has seen it); any other file that changed under the edits marks a conflict and keeps the old
     /// original (the save's compare-and-swap refuses it).
     /// </summary>
     private SecurityFile<T>? Reconcile<T>(SecurityFile<T>? file, string path, (byte[]? Content, string? Error)? read, Func<byte[]?, T> parse, Func<T, byte[]> serialize)
@@ -308,6 +335,12 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
         if (result.Error is not null)
         {
             return file is { IsChanged: true } ? file : SecurityFile<T>.Unreadable(path, Localizer.Format(L.SecuritySettings.FileUnreadable, path, result.Error), parse, serialize);
+        }
+
+        var landed = _saved.TryGetValue(path, out var saved) && SecurityFile<T>.SameContent(result.Content, saved.Content);
+        if (landed)
+        {
+            _saved.Remove(path); // seen on SYSVOL: it never rebases a later read again
         }
 
         try
@@ -325,7 +358,7 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
                     return file;
                 }
 
-                if (_saved.TryGetValue(path, out var saved) && SecurityFile<T>.SameContent(result.Content, saved))
+                if (landed && SecurityFile<T>.SameContent(file.Original, saved.Base))
                 {
                     // Our save landed, and the editor holds edits made after it (e.g. after a reload that could not read the
                     // file): those edits stay, on top of the saved file.
@@ -445,15 +478,13 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
 
         if (_groups is { Error: null } groups)
         {
-            var before = groups.OriginalDocument.Items;
-            var after = groups.Document.Items;
-            for (var i = 0; i < Math.Max(before.Count, after.Count); i++)
-            {
-                if (i >= before.Count || i >= after.Count || !SameItem(before[i], after[i]))
-                {
-                    count++;
-                }
-            }
+            // By uid: removing the first of three items is one change, not three (new items get fresh uids).
+            var before = groups.OriginalDocument.Items.Select((item, i) => (Key: GppKey(item, i), Item: item)).ToList();
+            var after = groups.Document.Items.Select((item, i) => (Key: GppKey(item, i), Item: item)).ToList();
+            var beforeByKey = before.GroupBy(b => b.Key).ToDictionary(g => g.Key, g => g.First().Item);
+            var afterByKey = after.GroupBy(a => a.Key).ToDictionary(g => g.Key, g => g.First().Item);
+            count += beforeByKey.Keys.Count(k => !afterByKey.ContainsKey(k));
+            count += afterByKey.Count(a => !beforeByKey.TryGetValue(a.Key, out var old) || !SameItem(old, a.Value));
         }
 
         ChangedCount = HasChanges ? Math.Max(count, 1) : 0;
@@ -581,7 +612,7 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
             return principal;
         }
 
-        if (principal.IndexOfAny([',', '"', '=', '\r', '\n']) >= 0 || principal.Length == 0)
+        if (principal.IndexOfAny([',', '"', ';', '=', '\r', '\n']) >= 0 || principal.Length == 0)
         {
             Gp.Ui.Notifications.Show(NotificationSeverity.Warning, Localizer.Format(L.SecuritySettings.NameInvalid, value));
             return null;
