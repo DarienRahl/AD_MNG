@@ -257,6 +257,26 @@ z treścią sprzed edycji jako warunkiem (konflikt) i `SetGpoVersion` części k
   okno połączenia) i zakładka *Stan* GPO (`GroupPolicyObjectDocumentViewModel.Health.cs`) pokazują wyniki; migawki i
   uwagi są tylko w pamięci, eksport CSV/HTML – do pliku operatora (zasada 1).
 
+### Dzienniki zdarzeń (ścieżka E)
+
+- `AdMng.Core/EventLogs`: model `EventLogRecord`, zapytanie `EventLogQuery`, zasięg `EventLogCoverage`, kontrakty
+  `IEventLogConnector`/`IEventLogReader` i błędy `EventLogAccessException`; `EventXmlParser` (XML zdarzenia → rekord,
+  utwardzony XML), `EventQueryXml` (zapytanie strukturalne z bezpiecznym `XPathLiteral`, kontrola XPath operatora –
+  zasada 3), `EventCodes` (kody NTSTATUS, Kerberos, typy szyfrowania i logowania – klucze, teksty w zasobach),
+  `EventLogMatcher`; `InsertionStringDecoder`, `XPathLiteral` i `EventHostNames` przeniesione z Watchdoga i wspólne.
+  `Analysis`: `LockoutInvestigation`, `FailedLogonAnalysis` i `AuditEvidence` – plany zapytań i czyste funkcje
+  analizy.
+- `AdMng.EventLogs` (tylko aplikacja, Windows w czasie działania – jak `AdMng.Remote`): `WindowsEventLogConnector` –
+  `EventLogSession` (MS-EVEN6/RPC) z Kerberosem i poświadczeniem okna (`SessionLogons`, hasło tylko w pamięci),
+  osobna sesja na operację, odczyt partiami na osobnym wątku, anulowanie przez `CancelCurrentOperations`, zasięg z
+  `GetLogInformation`/`EventLogConfiguration`, pliki `.evtx`, klasyfikacja błędów.
+- `AdMng.Presentation/EventLogs`: `EventLogHostRunner` (najwyżej 4 komputery naraz, limit 50 000 zdarzeń w pamięci),
+  karty *Dzienniki zdarzeń*, *Skąd blokada konta* (stan konta na każdym DC przez `DomainControllerReader` – zasada 4,
+  metadane replikacji `lockoutTime`, PSO, komputer źródłowy przez zdalne akcje K1) i *Nieudane logowania*; zapisane
+  zapytania w ustawieniach (bez wartości z dzienników). Zdarzenia i wyniki są tylko w pamięci; eksport CSV/HTML – do
+  pliku operatora z uwagą o danych osobowych (zasada 1). Opis: [DZIENNIKI-ZDARZEN.md](DZIENNIKI-ZDARZEN.md),
+  projekt: [dev/e-event-logs.md](dev/e-event-logs.md).
+
 ## Interfejs użytkownika
 
 - **Okno główne:** pasek menu i narzędzi (jak ADUC), pasek adresu (DN lub ścieżka `contoso.test/Firma/IT`),

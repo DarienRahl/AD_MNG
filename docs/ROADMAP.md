@@ -20,7 +20,7 @@ podjęcia z zespołem. Ten plik zostaje tylko po to, żeby dawne odnośniki dale
 | ⬜ | [Ścieżka C – Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint](../README.md#ścieżka-c--microsoft-365-entra-id-exchange-online-teams-i-sharepoint-) |
 | ⬜ | [Ścieżka T – Współpraca zespołu](../README.md#ścieżka-t--współpraca-zespołu-) |
 | 🟡 (K1–K6: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD) | [Ścieżka K – Komputery i zasady grupy (GPO)](../README.md#ścieżka-k--komputery-i-zasady-grupy-gpo--k1k6-) |
-| ⬜ | [Ścieżka E – Dzienniki zdarzeń: czytnik i analiza](../README.md#ścieżka-e--dzienniki-zdarzeń-czytnik-i-analiza-) |
+| 🟡 (E1 i część E2: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD) | [Ścieżka E – Dzienniki zdarzeń: czytnik i analiza](../README.md#ścieżka-e--dzienniki-zdarzeń-czytnik-i-analiza--e1-i-część-e2-) |
 
 ## Znane ograniczenia
 

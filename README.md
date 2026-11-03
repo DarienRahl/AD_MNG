@@ -118,6 +118,7 @@ Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV
 | **Wygląd** | rozmyty na wysokim DPI, bez trybu ciemnego | Fluent, motyw jasny i ciemny, PL / EN bez restartu |
 | **Instalacja** | RSAT | jeden plik `AdMng.exe` – bez .NET i RSAT |
 | **Kto co zmienił** | brak | AdMng Watchdog: wykonawca, stara → nowa wartość, powiadomienia |
+| **Blokady kont** | LockoutStatus i EventCombMT osobno, Podgląd zdarzeń komputer po komputerze | *Skąd blokada konta*: stan na wszystkich DC i ich dzienniki naraz, źródła prób z objaśnieniem kodów, sprawdzenie komputera źródłowego (sesje, usługi, zadania zaplanowane) |
 
 ## 📸 Zrzuty ekranu
 
@@ -190,7 +191,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K6: 🟡)"] ~~~ EVT["⬜ E · Dzienniki zdarzeń<br/>czytnik i analiza"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K6: 🟡)"] ~~~ EVT["🟡 E · Dzienniki zdarzeń<br/>czytnik i analiza<br/>(E1, część E2: 🟡)"]
     end
     A --> B
     B ~~~ C
@@ -198,8 +199,8 @@ flowchart TB
     classDef wip fill:#fff8c5,stroke:#9a6700,color:#3b2300
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
-    class F1,F2,W,U,K wip
-    class F3,F4,F5,F6,F7,M365,TEAM,EVT todo
+    class F1,F2,W,U,K,EVT wip
+    class F3,F4,F5,F6,F7,M365,TEAM todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -220,7 +221,7 @@ flowchart TB
 | C | Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint (ścieżka równoległa) | Logowanie kontem administratora lub Czytelnika globalnego z automatycznym wykrywaniem ról (także kwalifikujących się w PIM) i dopasowaniem dostępnych funkcji; użytkownicy, grupy, licencje, MFA i logowania w Entra ID, skrzynki i uprawnienia w Exchange Online, Teams, SharePoint i OneDrive, powiązanie konta AD z kontem w Entra ID; Microsoft Graph i moduły PowerShell | ⬜ zaplanowane |
 | T | Współpraca zespołu (ścieżka równoległa) | Kilku administratorów na różnych komputerach pracuje razem przez usługę AdMng Watchdog: panel „Wspólne” z obiektami przypiętymi dla zespołu (z notatką, autorem, „Przekaż do…”) i notatki do obiektów widoczne dla wszystkich przy koncie, grupie czy komputerze, odświeżane na żywo | ⬜ zaplanowane |
 | K | Komputery i zasady grupy (GPO) (ścieżka równoległa) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer”, czytelne ustawienia i diagnostyka zasad grupy | 🟡 (K1 – komputery, K2 – GPO w drzewie, K3 – edytor ADMX z aktualizacją magazynu centralnego, K4 – ustawienia zabezpieczeń, K5 – raport „co dostanie komputer” i K6 – czytelność, wygoda edycji i diagnostyka: zaimplementowane, czekają na pilotaż na Windows Server AD) |
-| E | Dzienniki zdarzeń: czytnik i analiza (ścieżka równoległa) | Czytanie dzienników zdarzeń DC, serwerów, stacji i plików `.evtx` z poziomu programu (dowolny kanał, wspólna oś czasu wielu komputerów, objaśnione pola i obiekty AD) oraz analizy: źródło blokady konta, rozpylanie haseł, Kerberos/RC4, NTLMv1, podpisywanie LDAP („kto przestanie działać”), historia logowań, zmiany kont i grup, GPO na komputerze, zdrowie DC, integralność inspekcji; osobno od Watchdoga, bez zapisu na dysku | ⬜ |
+| E | Dzienniki zdarzeń: czytnik i analiza (ścieżka równoległa) | Czytanie dzienników zdarzeń DC, serwerów, stacji i plików `.evtx` z poziomu programu (dowolny kanał, wspólna oś czasu wielu komputerów, objaśnione pola i obiekty AD) oraz analizy: źródło blokady konta, rozpylanie haseł, Kerberos/RC4, NTLMv1, podpisywanie LDAP („kto przestanie działać”), historia logowań, zmiany kont i grup, GPO na komputerze, zdrowie DC, integralność inspekcji; osobno od Watchdoga, bez zapisu na dysku | 🟡 (E1 – czytnik oraz z E2 źródło blokady konta i nieudane logowania: zaimplementowane, czekają na pilotaż na Windows Server AD) |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -1503,7 +1504,7 @@ Propozycje na kolejne etapy – kolejność i zakres do ustalenia z zespołem.
 
 </details>
 
-### Ścieżka E – Dzienniki zdarzeń: czytnik i analiza ⬜
+### Ścieżka E – Dzienniki zdarzeń: czytnik i analiza 🟡 (E1 i część E2: 🟡)
 
 **Cel:** czytać dzienniki zdarzeń kontrolerów domeny, serwerów i stacji oraz pliki `.evtx` **prosto z AD Managera** i
 dostawać gotowe odpowiedzi zamiast tysięcy wierszy: *kto blokuje to konto i skąd*, *kto przestanie działać po
@@ -1612,11 +1613,13 @@ diagnostyki zasad grupy (K6): ważność, obszar, szczegóły, zalecenie, *Napra
 
 #### Etapy
 
-- **E1** – czytnik: źródła (DC, komputery, pliki `.evtx`), kanały, kreator zapytań i XPath, wspólna oś czasu,
+- 🟡 **E1** – czytnik: źródła (DC, komputery, pliki `.evtx`), kanały, kreator zapytań i XPath, wspólna oś czasu,
   szczegóły z objaśnionymi polami i obiektami AD, zasięg i diagnoza dostępu, zapisane zapytania, eksport; przeniesienie
-  parserów do `AdMng.Core`.
-- **E2** – konta: źródło blokady z przejściem do komputera (K1), nieudane logowania i rozpylanie haseł, historia
-  logowań, zmiany kont i grup w dziennikach DC.
+  parserów do `AdMng.Core`. Pierwsza wersja gotowa (odczyt przez RPC; WinRM – później).
+- 🟡 **E2** – konta: źródło blokady z przejściem do komputera (K1), nieudane logowania i rozpylanie haseł – pierwsza
+  wersja gotowa; ⬜ historia logowań, zmiany kont i grup w dziennikach DC. Opis:
+  [DZIENNIKI-ZDARZEN.md](docs/DZIENNIKI-ZDARZEN.md). Sprawdzone na fałszywych dziennikach i w testach interfejsu na
+  Windows; odczyt z prawdziwych DC i porównanie z LockoutStatus i EventCombMT – pilotaż.
 - **E3** – gotowość na utwardzenie: Kerberos i RC4, NTLM i NTLMv1, podpisywanie LDAP i powiązanie kanału – *kto
   przestanie działać* – ze sprawdzeniem wymagań inspekcji i poprawkami przez K4 i K3.
 - **E4** – zdrowie DC, zasady grupy *model a rzeczywistość*, integralność inspekcji i ślady trwałości.
@@ -1980,6 +1983,7 @@ Lokalnie (Windows): `$env:ADMNG_SCREENSHOTS_DIR = "$PWD\zrzuty"; dotnet test tes
 | 🛡 [AdMng Watchdog](docs/WATCHDOG.md) | funkcje i konfiguracja usługi monitorującej |
 | 🐧 [AdMng Watchdog na Linuksie](docs/WATCHDOG-LINUX.md) | wdrożenie krok po kroku: AD, kontrolery, serwer Debian, pakiety, pilotaż, wycofanie |
 | 🖥 [Komputery](docs/KOMPUTERY.md) | przegląd komputerów i raporty, cykl życia kont, zdalne akcje przez WinRM, WinRM zasadą grupy |
+| 📋 [Dzienniki zdarzeń](docs/DZIENNIKI-ZDARZEN.md) | czytnik dzienników zdarzeń DC, serwerów, stacji i plików `.evtx`, skąd blokada konta, nieudane logowania; wymagania (zapora, grupa, inspekcja) |
 | 📜 [Zasady grupy](docs/ZASADY-GRUPY.md) | obiekty zasad grupy w drzewie, karta *Zasady grupy*, operacje na GPO, filtrowanie zabezpieczeń, filtry WMI, delegowanie, kopie zapasowe, porównanie, edytory ustawień, model „co dostanie komputer”, diagnostyka zasad grupy |
 | 📨 [Korespondencja](docs/KORESPONDENCJA.md) | okno *Korespondencja (Outlook)*: odbiorcy z plików i z AD, pola, wiadomość, podgląd, wysyłka przez Outlooka, dziennik „już wysłane”, zapytania do właścicieli skrzynek, odpowiedzi, rozwiązywanie problemów, pilotaż |
 | 🧪 [Laboratorium testowe](tools/testlab/README.md) | Samba AD DC z danymi „polskiej firmy”; [Watchdog w laboratorium](tools/testlab/watchdog/README.md) |
