@@ -1,6 +1,17 @@
 admng-watchdog (@VERSION@) unstable; urgency=medium
 
   * No change in how the service works and no database migration.
+  * Rebuilt for AD Manager 0.10.0: the GPO security settings editor (local
+    groups, user rights, account policies and security options, audit,
+    services) is an AD Manager feature that does not use the service; the
+    GptTmpl.inf, audit.csv and Groups.xml parsers of the GPO settings
+    snapshots are unchanged.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Tue, 03 Nov 2026 13:00:00 +0000
+
+admng-watchdog (0.9.1-1) unstable; urgency=medium
+
+  * No change in how the service works and no database migration.
   * Rebuilt for AD Manager 0.9.1: the fixes of Korespondencja (images,
     DW and UDW, the operator's built-in templates) are AD Manager features
     that do not use the service.
