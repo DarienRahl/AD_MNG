@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `claude/active-directory-manager-w9v9i8`
 
 - Gałąź: `claude/active-directory-manager-w9v9i8`
-- Commit: [`dd94175`](https://github.com/DarienRahl/AD_MNG/commit/dd94175659b77650f3b0faf57bd26b6047343a60) (`dd94175659b77650f3b0faf57bd26b6047343a60`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/41726500727
+- Commit: [`dbba288`](https://github.com/DarienRahl/AD_MNG/commit/dbba288b8721a9e6a9eebc470985365da54ea4ac) (`dbba288b8721a9e6a9eebc470985365da54ea4ac`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/41733358208
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
@@ -127,4 +127,8 @@
 ## Co dostanie komputer – GPO komputera z wynikiem (wymuszony, filtr WMI, łącze wyłączone), zwycięskie ustawienia i „Dlaczego” z przesłoniętym GPO
 
 ![Co dostanie komputer – GPO komputera z wynikiem (wymuszony, filtr WMI, łącze wyłączone), zwycięskie ustawienia i „Dlaczego” z przesłoniętym GPO](31-group-policy-model.png)
+
+## Skąd blokada konta – Jan Kowalski: stan na kontrolerach domeny, próg z zasad domeny, źródła złych haseł (stacja WAW-PC001 i jej adres) z wyjaśnionymi kodami i sprawdzony komputer źródłowy z zadaniem zaplanowanym na zapisanym haśle
+
+![Skąd blokada konta – Jan Kowalski: stan na kontrolerach domeny, próg z zasad domeny, źródła złych haseł (stacja WAW-PC001 i jej adres) z wyjaśnionymi kodami i sprawdzony komputer źródłowy z zadaniem zaplanowanym na zapisanym haśle](32-lockout-source.png)
 

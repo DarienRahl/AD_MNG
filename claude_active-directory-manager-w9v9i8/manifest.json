@@ -153,5 +153,10 @@
     "file": "31-group-policy-model.png",
     "title_pl": "Co dostanie komputer – GPO komputera z wynikiem (wymuszony, filtr WMI, łącze wyłączone), zwycięskie ustawienia i „Dlaczego” z przesłoniętym GPO",
     "title_en": "What the computer gets – the computer\u0027s GPOs with their results (enforced, WMI filter, disabled link), the winning settings and “Why” with the overridden GPO"
+  },
+  {
+    "file": "32-lockout-source.png",
+    "title_pl": "Skąd blokada konta – Jan Kowalski: stan na kontrolerach domeny, próg z zasad domeny, źródła złych haseł (stacja WAW-PC001 i jej adres) z wyjaśnionymi kodami i sprawdzony komputer źródłowy z zadaniem zaplanowanym na zapisanym haśle",
+    "title_en": "Where the lockout came from – Jan Kowalski: the state on the domain controllers, the domain policy\u0027s threshold, the sources of the bad passwords (the workstation WAW-PC001 and its address) with the codes explained, and the source computer checked, with a scheduled task on a saved password"
   }
 ]
