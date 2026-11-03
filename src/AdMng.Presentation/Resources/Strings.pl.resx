@@ -17386,7 +17386,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Komputery nie mogą odczytać obiektu GPO (MS16-072)</value>
   </data>
   <data name="GpoFinding.Ms16072ComputersCannotRead.Message" xml:space="preserve">
-    <value>Obiekt GPO zawiera ustawienia użytkownika, ale ani Użytkownicy uwierzytelnieni, ani Komputery domeny nie mają do niego uprawnienia „Odczyt”.</value>
+    <value>Obiekt GPO zawiera ustawienia użytkownika, ale komputery, do których się odnosi, nie mogą go odczytać: ani Użytkownicy uwierzytelnieni, ani Komputery domeny (w obiekcie połączonym tylko z kontrolerami domeny: ani KONTROLERY DOMENY PRZEDSIĘBIORSTWA, ani Kontrolery domeny) nie mają uprawnienia „Odczyt”.</value>
   </data>
   <data name="GpoFinding.Ms16072ComputersCannotRead.Explanation" xml:space="preserve">
     <value>Od aktualizacji MS16-072 (2016) system Windows odczytuje obiekty GPO użytkownika kontem komputera. Jeśli komputer nie może odczytać obiektu, ustawienia użytkownika są pomijane bez żadnego komunikatu – zwykle po zawężeniu filtrowania zabezpieczeń do grupy użytkowników i całkowitym usunięciu grupy Użytkownicy uwierzytelnieni.</value>
@@ -17566,10 +17566,10 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Podstawowe i zaawansowane zasady inspekcji jednocześnie</value>
   </data>
   <data name="GpoFinding.LegacyAndAdvancedAudit.Message" xml:space="preserve">
-    <value>Obiekt GPO ustawia zarówno podstawowe, jak i zaawansowane zasady inspekcji, ale nie wymusza ustawień podkategorii.</value>
+    <value>Obiekt GPO ustawia zarówno podstawowe, jak i zaawansowane zasady inspekcji, a opcję wymuszającą ustawienia podkategorii wyłącza.</value>
   </data>
   <data name="GpoFinding.LegacyAndAdvancedAudit.Explanation" xml:space="preserve">
-    <value>Gdy ustawione są obie formy, system Windows stosuje podstawowe kategorie zamiast zaawansowanych podkategorii, chyba że włączono opcję „Inspekcja: Wymuszaj ustawienia podkategorii zasad inspekcji…”. Wynikowa inspekcja nie jest wtedy tą, którą skonfigurowano.</value>
+    <value>Gdy opcja „Inspekcja: Wymuszaj ustawienia podkategorii zasad inspekcji…” jest wyłączona, system Windows stosuje podstawowe kategorie zamiast zaawansowanych podkategorii. Wynikowa inspekcja nie jest wtedy tą, którą skonfigurowano.</value>
   </data>
   <data name="GpoFinding.LegacyAndAdvancedAudit.Recommendation" xml:space="preserve">
     <value>Włącz opcję wymuszającą ustawienia podkategorii albo usuń podstawowe zasady inspekcji i pozostaw tylko zaawansowane.</value>
@@ -17578,13 +17578,13 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Minimalna długość hasła powyżej 14</value>
   </data>
   <data name="GpoFinding.PasswordLengthNeedsRelax.Message" xml:space="preserve">
-    <value>Minimalna długość hasła wynosi {0}, ale nie włączono opcji znoszącej dawny limit 14 znaków.</value>
+    <value>Minimalna długość hasła wynosi {0}, ale tam, gdzie ta długość obowiązuje, nie działa opcja znosząca dawny limit 14 znaków.</value>
   </data>
   <data name="GpoFinding.PasswordLengthNeedsRelax.Explanation" xml:space="preserve">
     <value>Bez opcji „Złagodź limity minimalnej długości hasła” system Windows przyjmuje dla minimalnej długości co najwyżej 14; większa wartość może zostać pominięta lub odrzucona, zależnie od wersji systemu.</value>
   </data>
   <data name="GpoFinding.PasswordLengthNeedsRelax.Recommendation" xml:space="preserve">
-    <value>Włącz w tym samym obiekcie GPO opcję „Złagodź limity minimalnej długości hasła” albo pozostaw minimalną długość na poziomie 14 lub mniej.</value>
+    <value>Włącz opcję „Złagodź limity minimalnej długości hasła” tam, gdzie ta długość obowiązuje – dla zasad haseł domeny na kontrolerach domeny (w tym obiekcie GPO albo np. w Default Domain Controllers Policy) – albo pozostaw minimalną długość na poziomie 14 lub mniej.</value>
   </data>
   <data name="GpoFinding.TypedPrincipalName.Title" xml:space="preserve">
     <value>Podmiot zapisany jako nazwa</value>
@@ -17803,4 +17803,30 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Wymagaj co najmniej 12–14 znaków (albo dłuższych fraz), pozostaw wymóg złożoności, chyba że używasz listy zakazanych haseł, i ustaw próg blokady konta (np. 10 prób).</value>
   </data>
   <!-- K6 Group Policy diagnostics (20.2): end -->
+  <!-- K6 Group Policy diagnostics, review fixes: begin -->
+  <data name="GpoFinding.LinkToInaccessibleGpo.Title" xml:space="preserve">
+    <value>Połączenie z obiektem GPO, którego nie można odczytać</value>
+  </data>
+  <data name="GpoFinding.LinkToInaccessibleGpo.Message" xml:space="preserve">
+    <value>Kontener jest połączony z obiektem GPO {0}, który istnieje, ale nie można go odczytać przy tym połączeniu.</value>
+  </data>
+  <data name="GpoFinding.LinkToInaccessibleGpo.Explanation" xml:space="preserve">
+    <value>Uprawnienia obiektu GPO nie pozwalają temu kontu go odczytać – zwykle po zawężeniu filtrowania zabezpieczeń do wybranych grup i usunięciu grupy Użytkownicy uwierzytelnieni. Konsola GPMC pokazuje takie połączenie jako niedostępne. Połączenie może nadal działać dla komputerów i użytkowników, którzy mogą odczytać obiekt GPO, dlatego nie jest zgłaszane jako połączenie z nieistniejącym obiektem GPO.</value>
+  </data>
+  <data name="GpoFinding.LinkToInaccessibleGpo.Recommendation" xml:space="preserve">
+    <value>Sprawdź obiekt GPO kontem, które może go odczytać (np. kontem administratora domeny). Nie usuwaj połączenia tylko dlatego, że tutaj nie można go odczytać.</value>
+  </data>
+  <data name="GpoFinding.LegacyAndAdvancedAuditByDefault.Title" xml:space="preserve">
+    <value>Podstawowe zasady inspekcji obok zaawansowanych</value>
+  </data>
+  <data name="GpoFinding.LegacyAndAdvancedAuditByDefault.Message" xml:space="preserve">
+    <value>Obiekt GPO ustawia zarówno podstawowe, jak i zaawansowane zasady inspekcji, a opcji wymuszającej ustawienia podkategorii nie definiuje.</value>
+  </data>
+  <data name="GpoFinding.LegacyAndAdvancedAuditByDefault.Explanation" xml:space="preserve">
+    <value>System Windows stosuje zaawansowane podkategorie i pomija podstawowe kategorie, dopóki włączona jest opcja „Inspekcja: Wymuszaj ustawienia podkategorii zasad inspekcji…” – domyślnie jest włączona od systemu Windows Vista. Podstawowe ustawienia tego obiektu GPO niczego więc nie zmieniają, a obiekt GPO lub zasady lokalne, które wyłączą tę opcję, sprawią, że wezmą one górę nad podkategoriami.</value>
+  </data>
+  <data name="GpoFinding.LegacyAndAdvancedAuditByDefault.Recommendation" xml:space="preserve">
+    <value>Usuń podstawowe zasady inspekcji i pozostaw tylko zaawansowane albo jawnie włącz w tym obiekcie GPO opcję wymuszającą ustawienia podkategorii.</value>
+  </data>
+  <!-- K6 Group Policy diagnostics, review fixes: end -->
 </root>

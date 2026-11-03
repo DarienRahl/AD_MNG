@@ -1,4 +1,5 @@
 using AdMng.Core.GroupPolicy.Diagnostics;
+using AdMng.Core.GroupPolicy.Management;
 using static AdMng.Core.Tests.GroupPolicy.Diagnostics.DiagnosticsSnapshotBuilder;
 
 namespace AdMng.Core.Tests.GroupPolicy.Diagnostics;
@@ -87,6 +88,76 @@ public sealed class SecurityOptionRulesTests
 
             Assert.Equal(enforced, findings.Count == 1);
         }
+    }
+
+    [Fact]
+    public void SmbAndLdapSigning_OnlyTheValueTheDomainControllersGet_AHigherPrecedenceGpoOverridesIt()
+    {
+        const string Ldap = @"MACHINE\System\CurrentControlSet\Services\NTDS\Parameters\LDAPServerIntegrity=";
+        const string Smb = @"MACHINE\System\CurrentControlSet\Services\LanManServer\Parameters\RequireSecuritySignature=";
+        foreach (var hardeningWins in new[] { true, false })
+        {
+            // Default Domain Controllers Policy keeps its defaults (LDAP 1); "DC – Utwardzenie" requires signing (LDAP 2, SMB 1).
+            var builder = new DiagnosticsSnapshotBuilder();
+            var defaults = builder.Gpo("Default Domain Controllers Policy", computer: 3);
+            var hardening = builder.Gpo("DC – Utwardzenie", computer: 2);
+            var domain = builder.Gpo("Domena – Stacje robocze", computer: 2);
+            builder.Link(DomainDn, domain);
+            if (hardeningWins)
+            {
+                builder.Link(DomainControllersOu, defaults).Link(DomainControllersOu, hardening); // the last link has link order 1
+            }
+            else
+            {
+                builder.Link(DomainControllersOu, hardening).Link(DomainControllersOu, defaults);
+            }
+
+            builder.Folder(defaults, Template("[Registry Values]", Ldap + "4,1"))
+                .Folder(hardening, Template("[Registry Values]", Ldap + "4,2", Smb + "4,1"))
+                .Folder(domain, Template("[Registry Values]", Smb + "4,0"));
+
+            var findings = builder.Analyze();
+
+            // The domain head's link is applied before the OU's links: the hardening GPO's SMB value wins either way.
+            Findings.None(findings, GpoFindingCodes.SmbSigningNotRequired);
+            var ldap = Findings.All(findings, GpoFindingCodes.LdapSigningNotRequired);
+            Assert.Equal(hardeningWins ? Array.Empty<Guid>() : [defaults], ldap.Select(f => f.GpoId!.Value));
+        }
+    }
+
+    [Fact]
+    public void SmbAndLdapSigning_AGpoWhoseComputerPartIsDisabled_DoesNotCount()
+    {
+        string[] lines =
+        [
+            "[Registry Values]",
+            @"MACHINE\System\CurrentControlSet\Services\LanManServer\Parameters\RequireSecuritySignature=4,0",
+            @"MACHINE\System\CurrentControlSet\Services\NTDS\Parameters\LDAPServerIntegrity=4,1",
+        ];
+        var builder = new DiagnosticsSnapshotBuilder();
+        var gpo = builder.Gpo("DC – Stary szkic", computer: 2, status: GpoStatus.ComputerSettingsDisabled);
+        builder.Link(DomainControllersOu, gpo).Folder(gpo, Template(lines));
+
+        var findings = builder.Analyze();
+
+        Findings.None(findings, GpoFindingCodes.SmbSigningNotRequired);
+        Findings.None(findings, GpoFindingCodes.LdapSigningNotRequired);
+    }
+
+    [Fact]
+    public void WeakDomainPasswordPolicy_OnlyTheValueThatWinsOnTheDomainHead_PerOption()
+    {
+        // Default Domain Policy keeps 7 characters and no lockout; "Domena – Hasła" (link order 1) requires 14 characters.
+        var builder = new DiagnosticsSnapshotBuilder();
+        var defaults = builder.Gpo("Default Domain Policy", computer: 3);
+        var passwords = builder.Gpo("Domena – Hasła", computer: 2);
+        builder.Link(DomainDn, defaults).Link(DomainDn, passwords)
+            .Folder(defaults, Template("[System Access]", "MinimumPasswordLength = 7", "PasswordComplexity = 1", "LockoutBadCount = 0"))
+            .Folder(passwords, Template("[System Access]", "MinimumPasswordLength = 14"));
+
+        var finding = Findings.Single(builder.Analyze(), GpoFindingCodes.WeakDomainPasswordPolicy);
+
+        Assert.Equal((defaults, "LockoutBadCount", "0"), (finding.GpoId!.Value, finding.Arguments[0], finding.Arguments[1]));
     }
 
     [Fact]

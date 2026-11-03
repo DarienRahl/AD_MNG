@@ -140,9 +140,11 @@ public sealed partial class GroupPolicyPlanner
 
     /// <summary>
     /// "Usuń zduplikowane łącza" (finding <c>DuplicateLink</c>): a GPO linked more than once in one <c>gPLink</c> keeps only
-    /// the link that counts - the one with the highest precedence (link order), with its options; the other entries of the
-    /// value stay as they are (compare-and-swap on the whole value). PowerShell: <c>Remove-GPLink</c>, then <c>New-GPLink</c>
-    /// with the kept link's order and options. A plan without objects when the GPO is linked at most once.
+    /// the link that counts, as <see cref="GroupPolicyInheritance"/> applies it - an enabled enforced entry (applied in the
+    /// enforced pass), else the enabled entry applied last (the lowest link order), else (every entry disabled) the lowest
+    /// link order - with its options and its place among the other links; the other entries of the value stay as they are
+    /// (compare-and-swap on the whole value). PowerShell: <c>Remove-GPLink</c>, then <c>New-GPLink</c> with the kept link's
+    /// order and options. A plan without objects when the GPO is linked at most once.
     /// </summary>
     public async Task<ChangePlan> PlanRemoveDuplicateLinksAsync(IDirectorySession session, string containerDn, Guid gpoId, CancellationToken cancellationToken)
     {
@@ -156,9 +158,15 @@ public sealed partial class GroupPolicyPlanner
             return Plan(session, [], Title);
         }
 
-        // The entry nearest the end of the value has the lowest link order: it is applied last and counts (GroupPolicyInheritance).
-        var kept = links.MinBy(l => l.Order)!;
-        var after = container.Links.Remove(gpoId).Insert(gpoId, kept.Options, kept.Order);
+        // The entry clients apply (GroupPolicyInheritance): disabled entries apply nothing, enforced ones are applied after
+        // all others, and within a pass the entry nearest the end of the value (the lowest link order) is applied last.
+        var kept = links.Where(l => l.Enabled && l.Enforced).MinBy(l => l.Order)
+            ?? links.Where(l => l.Enabled).MinBy(l => l.Order)
+            ?? links.MinBy(l => l.Order)!;
+
+        // Its link order once the GPO's other entries are gone: those after it in the value no longer count.
+        var order = kept.Order - links.Count(l => l.Order < kept.Order);
+        var after = container.Links.Remove(gpoId).Insert(gpoId, kept.Options, order);
         PowerShellParameter[] target = [GuidParameter(gpoId), PowerShellParameter.Literal("Target", container.Dn)];
         return Plan(session, [ContainerObject(container, [Modify(GpLinkChange(container, after))], new PowerShellEquivalent(
         [
@@ -168,7 +176,7 @@ public sealed partial class GroupPolicyPlanner
                 .. target,
                 PowerShellParameter.Literal("LinkEnabled", kept.Enabled ? "Yes" : "No"),
                 PowerShellParameter.Literal("Enforced", kept.Enforced ? "Yes" : "No"),
-                PowerShellParameter.Number("Order", kept.Order),
+                PowerShellParameter.Number("Order", order),
                 Domain(session),
                 PowerShellParameter.Server,
             ]),

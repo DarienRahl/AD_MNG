@@ -43,10 +43,21 @@ public static partial class GroupPolicyDiagnostics
             UserRightsRules(c, gpo, template, principals);
             RestrictedGroupsRules(c, gpo, template, principals);
             SecurityOptionRules(c, gpo, template);
-            if (template.Values(SecurityTemplateDocument.EventAudit).Count > 0 && view.Audit?.GetSubcategories().Count > 0
-                && OptionValue(template, "SCENoApplyLegacyAuditPolicy") != 1)
+            if (template.Values(SecurityTemplateDocument.EventAudit).Count > 0 && view.Audit?.GetSubcategories().Count > 0)
             {
-                c.Add(GpoFindingCodes.LegacyAndAdvancedAudit, gpo.Id, settingKey: OptionKey(SecuritySettingsCatalog.ForceAuditSubcategories));
+                // Forcing the subcategories is on by default (Windows Vista and later): only an explicit 0 lets the basic
+                // categories win; left undefined, the subcategories win as long as no other policy turns the option off.
+                var force = OptionValue(template, "SCENoApplyLegacyAuditPolicy");
+                var code = force switch
+                {
+                    0 => GpoFindingCodes.LegacyAndAdvancedAudit,
+                    null => GpoFindingCodes.LegacyAndAdvancedAuditByDefault,
+                    _ => null,
+                };
+                if (code is not null)
+                {
+                    c.Add(code, gpo.Id, settingKey: OptionKey(SecuritySettingsCatalog.ForceAuditSubcategories));
+                }
             }
 
             RestrictedAndPreferenceRule(c, gpo, template, view.LocalGroups);
@@ -199,6 +210,10 @@ public static partial class GroupPolicyDiagnostics
         void Flag(string code, string optionId, params string[] arguments) =>
             c.Add(code, gpo.Id, settingKey: OptionKey(Option(optionId)), arguments: arguments);
 
+        // This GPO's value is the one the domain controllers get / the one of the domain's account policy.
+        bool WinsOnDomainControllers(string optionId) => WinningOption(c, c.DomainControllersChain, optionId)?.GpoId == gpo.Id;
+        bool WinsForTheDomain(string optionId) => WinningOption(c, c.DomainHeadChain, optionId)?.GpoId == gpo.Id;
+
         if (OptionValue(template, "LmCompatibilityLevel") is { } lm && lm < 3)
         {
             Flag(GpoFindingCodes.LmCompatibilityWeak, "LmCompatibilityLevel", Number(lm));
@@ -209,12 +224,12 @@ public static partial class GroupPolicyDiagnostics
             Flag(GpoFindingCodes.LmHashStored, "NoLMHash");
         }
 
-        if (OptionValue(template, "ServerRequireSecuritySignature") == 0 && c.ReachesDomainControllers(gpo.Id))
+        if (OptionValue(template, "ServerRequireSecuritySignature") == 0 && WinsOnDomainControllers("ServerRequireSecuritySignature"))
         {
             Flag(GpoFindingCodes.SmbSigningNotRequired, "ServerRequireSecuritySignature");
         }
 
-        if (OptionValue(template, "LDAPServerIntegrity") is { } ldap && ldap <= 1 && c.ReachesDomainControllers(gpo.Id))
+        if (OptionValue(template, "LDAPServerIntegrity") is { } ldap && ldap <= 1 && WinsOnDomainControllers("LDAPServerIntegrity"))
         {
             Flag(GpoFindingCodes.LdapSigningNotRequired, "LDAPServerIntegrity", Number(ldap));
         }
@@ -248,28 +263,62 @@ public static partial class GroupPolicyDiagnostics
         }
 
         var length = OptionValue(template, "MinimumPasswordLength");
-        if (length is > 14 && OptionValue(template, SecuritySettingsCatalog.RelaxMinimumPasswordLength.Id) != 1)
+        if (length is > 14 && OptionValue(template, SecuritySettingsCatalog.RelaxMinimumPasswordLength.Id) != 1 && !RelaxedWhereTheLengthApplies(c, gpo.Id))
         {
             Flag(GpoFindingCodes.PasswordLengthNeedsRelax, "MinimumPasswordLength", Number(length.Value));
         }
 
-        if (c.IsLinkedToDomainHead(gpo.Id))
+        if (length is < 8 && WinsForTheDomain("MinimumPasswordLength"))
         {
-            if (length is < 8)
-            {
-                Flag(GpoFindingCodes.WeakDomainPasswordPolicy, "MinimumPasswordLength", "MinimumPasswordLength", Number(length.Value));
-            }
+            Flag(GpoFindingCodes.WeakDomainPasswordPolicy, "MinimumPasswordLength", "MinimumPasswordLength", Number(length.Value));
+        }
 
-            if (OptionValue(template, "PasswordComplexity") == 0)
-            {
-                Flag(GpoFindingCodes.WeakDomainPasswordPolicy, "PasswordComplexity", "PasswordComplexity", "0");
-            }
+        if (OptionValue(template, "PasswordComplexity") == 0 && WinsForTheDomain("PasswordComplexity"))
+        {
+            Flag(GpoFindingCodes.WeakDomainPasswordPolicy, "PasswordComplexity", "PasswordComplexity", "0");
+        }
 
-            if (OptionValue(template, "LockoutBadCount") == 0)
+        if (OptionValue(template, "LockoutBadCount") == 0 && WinsForTheDomain("LockoutBadCount"))
+        {
+            Flag(GpoFindingCodes.WeakDomainPasswordPolicy, "LockoutBadCount", "LockoutBadCount", "0");
+        }
+    }
+
+    /// <summary>
+    /// The GPO whose value of a security option wins in <paramref name="chain"/> and that value: the GPO with the highest
+    /// precedence (the last applied) whose computer configuration is enabled and whose security template sets the option.
+    /// WMI filters and security filtering are assumed to let every GPO apply (as for the conflicts); a GPO whose folder was
+    /// not read counts as not setting the option. Null when no GPO of the chain sets it.
+    /// </summary>
+    private static (Guid GpoId, long Value)? WinningOption(Context c, IReadOnlyList<AppliedGroupPolicy> chain, string optionId)
+    {
+        for (var i = chain.Count - 1; i >= 0; i--)
+        {
+            if (c.Gpo(chain[i].GpoId) is { } gpo && ComputerEnabled(gpo) && c.View(gpo.Id)?.Template is { } template
+                && OptionValue(template, optionId) is { } value)
             {
-                Flag(GpoFindingCodes.WeakDomainPasswordPolicy, "LockoutBadCount", "LockoutBadCount", "0");
+                return (gpo.Id, value);
             }
         }
+
+        return null;
+    }
+
+    /// <summary>
+    /// "Relax minimum password length limits" (a setting of the computer that checks the password) is in effect wherever the
+    /// GPO's minimum length applies: on the domain controllers for a GPO linked to the domain head - they enforce the
+    /// domain's account policy - else on the computers of every container whose chain applies the GPO. False when the GPO
+    /// applies nowhere.
+    /// </summary>
+    private static bool RelaxedWhereTheLengthApplies(Context c, Guid gpoId)
+    {
+        var relax = SecuritySettingsCatalog.RelaxMinimumPasswordLength.Id;
+        List<IReadOnlyList<AppliedGroupPolicy>> chains = c.IsLinkedToDomainHead(gpoId)
+            ? [c.DomainControllersChain]
+            : [.. c.Snapshot.Containers.Where(x => x.Kind != GroupPolicySomKind.Site)
+                .Select(x => c.Inheritance.Resolve(x.Dn, siteDn: null))
+                .Where(chain => chain.Any(a => a.GpoId == gpoId))];
+        return chains.Count > 0 && chains.All(chain => WinningOption(c, chain, relax) is { Value: 1 });
     }
 
     /// <summary>The Administrator account (any domain's RID 500), Domain Admins or Enterprise Admins, by SID or by name.</summary>

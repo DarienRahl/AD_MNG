@@ -17386,7 +17386,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Computers cannot read the GPO (MS16-072)</value>
   </data>
   <data name="GpoFinding.Ms16072ComputersCannotRead.Message" xml:space="preserve">
-    <value>The GPO holds user settings, but neither Authenticated Users nor Domain Computers may read it.</value>
+    <value>The GPO holds user settings, but the computers it applies to may not read it: neither Authenticated Users nor Domain Computers (for a GPO linked only to the domain controllers: neither ENTERPRISE DOMAIN CONTROLLERS nor Domain Controllers) have Read.</value>
   </data>
   <data name="GpoFinding.Ms16072ComputersCannotRead.Explanation" xml:space="preserve">
     <value>Since update MS16-072 (2016) Windows reads the GPOs of a user with the computer's account. When the computer cannot read the GPO, the user settings are skipped without a message – typically after security filtering was narrowed to a user group and Authenticated Users was removed entirely.</value>
@@ -17566,10 +17566,10 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Basic and advanced audit policy together</value>
   </data>
   <data name="GpoFinding.LegacyAndAdvancedAudit.Message" xml:space="preserve">
-    <value>The GPO sets both the basic audit policy and the advanced audit policy, but does not force the advanced subcategories.</value>
+    <value>The GPO sets both the basic audit policy and the advanced audit policy, and turns off the option that forces the advanced subcategories.</value>
   </data>
   <data name="GpoFinding.LegacyAndAdvancedAudit.Explanation" xml:space="preserve">
-    <value>When both forms are set, Windows applies the basic categories over the advanced subcategories unless "Audit: Force audit policy subcategory settings … to override audit policy category settings" is enabled. The audit that results is not the one configured.</value>
+    <value>With "Audit: Force audit policy subcategory settings … to override audit policy category settings" disabled, Windows applies the basic categories instead of the advanced subcategories. The audit that results is not the one configured.</value>
   </data>
   <data name="GpoFinding.LegacyAndAdvancedAudit.Recommendation" xml:space="preserve">
     <value>Enable the option that forces the subcategory settings, or remove the basic audit policy and keep only the advanced one.</value>
@@ -17578,13 +17578,13 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Minimum password length above 14</value>
   </data>
   <data name="GpoFinding.PasswordLengthNeedsRelax.Message" xml:space="preserve">
-    <value>The minimum password length is {0}, but the option that relaxes the legacy 14-character limit is not enabled.</value>
+    <value>The minimum password length is {0}, but the option that relaxes the legacy 14-character limit is not in effect where this length applies.</value>
   </data>
   <data name="GpoFinding.PasswordLengthNeedsRelax.Explanation" xml:space="preserve">
     <value>Without "Relax minimum password length limits" Windows accepts at most 14 for the minimum length; a larger value may be ignored or rejected, depending on the system version.</value>
   </data>
   <data name="GpoFinding.PasswordLengthNeedsRelax.Recommendation" xml:space="preserve">
-    <value>Enable "Relax minimum password length limits" in the same GPO, or keep the minimum length at 14 or less.</value>
+    <value>Enable "Relax minimum password length limits" where the length applies – for the domain password policy on the domain controllers (in this GPO or, for example, in the Default Domain Controllers Policy) – or keep the minimum length at 14 or less.</value>
   </data>
   <data name="GpoFinding.TypedPrincipalName.Title" xml:space="preserve">
     <value>Principal written as a name</value>
@@ -17803,4 +17803,30 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Require at least 12–14 characters (or longer passphrases), keep complexity on unless you use a banned-password list, and set a lockout threshold (for example 10 attempts).</value>
   </data>
   <!-- K6 Group Policy diagnostics (20.2): end -->
+  <!-- K6 Group Policy diagnostics, review fixes: begin -->
+  <data name="GpoFinding.LinkToInaccessibleGpo.Title" xml:space="preserve">
+    <value>Link to a GPO that cannot be read</value>
+  </data>
+  <data name="GpoFinding.LinkToInaccessibleGpo.Message" xml:space="preserve">
+    <value>The container is linked to the GPO {0}, which exists but cannot be read with this connection.</value>
+  </data>
+  <data name="GpoFinding.LinkToInaccessibleGpo.Explanation" xml:space="preserve">
+    <value>The permissions of the GPO do not let this account read it – typically security filtering narrowed to chosen groups with Authenticated Users removed. GPMC shows such a link as "Inaccessible". The link may still work for the computers and users that can read the GPO, so it is not reported as a link to a missing GPO.</value>
+  </data>
+  <data name="GpoFinding.LinkToInaccessibleGpo.Recommendation" xml:space="preserve">
+    <value>Check the GPO with an account that may read it (for example a domain administrator). Do not remove the link only because it cannot be read here.</value>
+  </data>
+  <data name="GpoFinding.LegacyAndAdvancedAuditByDefault.Title" xml:space="preserve">
+    <value>Basic audit policy beside the advanced one</value>
+  </data>
+  <data name="GpoFinding.LegacyAndAdvancedAuditByDefault.Message" xml:space="preserve">
+    <value>The GPO sets both the basic audit policy and the advanced audit policy, and leaves the option that forces the advanced subcategories undefined.</value>
+  </data>
+  <data name="GpoFinding.LegacyAndAdvancedAuditByDefault.Explanation" xml:space="preserve">
+    <value>Windows applies the advanced subcategories and ignores the basic categories while "Audit: Force audit policy subcategory settings … to override audit policy category settings" is enabled – its default since Windows Vista. The basic settings of this GPO therefore change nothing, and a GPO or local policy that disables the option would make them win over the subcategories.</value>
+  </data>
+  <data name="GpoFinding.LegacyAndAdvancedAuditByDefault.Recommendation" xml:space="preserve">
+    <value>Remove the basic audit policy and keep only the advanced one, or enable the option that forces the subcategory settings explicitly in this GPO.</value>
+  </data>
+  <!-- K6 Group Policy diagnostics, review fixes: end -->
 </root>

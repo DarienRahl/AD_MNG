@@ -79,6 +79,13 @@ public sealed record GpoDiagnosticsSnapshot
 
     public IReadOnlyList<WmiFilterInfo> WmiFilters { get; init; } = [];
 
+    /// <summary>
+    /// GPOs of this domain that a <c>gPLink</c> names and the GPO search did not return, although a base read of their
+    /// container does not answer "no such object" (the domain check): GPOs the session may not read - GPMC shows such a
+    /// link as inaccessible - not missing ones.
+    /// </summary>
+    public IReadOnlySet<Guid> InaccessibleGpoIds { get; init; } = new HashSet<Guid>();
+
     /// <summary>The GPT.INI versions of the GPOs in scope were read (<see cref="GpoInfo.SysvolVersion"/>, <see cref="GpoInfo.SysvolStatus"/>).</summary>
     public bool SysvolVersionsRead { get; init; }
 

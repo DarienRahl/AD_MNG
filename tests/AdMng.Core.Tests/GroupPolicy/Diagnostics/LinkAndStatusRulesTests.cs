@@ -58,6 +58,42 @@ public sealed class LinkAndStatusRulesTests
     }
 
     [Fact]
+    public void LinkToInaccessibleGpo_AGpoTheSessionCannotRead_IsNotMissing_AndOffersNoUnlink()
+    {
+        var builder = new DiagnosticsSnapshotBuilder();
+        var hidden = Guid.Parse("2E3F4051-6B7C-4D8E-9FA0-1B2C3D4E5F60");
+        builder.Link(Ou("Zarząd"), hidden).Link(Ou("Zarząd", "Sekretariat"), hidden);
+        builder.Inaccessible.Add(hidden);
+
+        var findings = builder.Analyze();
+
+        var inaccessible = Findings.All(findings, GpoFindingCodes.LinkToInaccessibleGpo, hidden);
+        Assert.Equal([Ou("Zarząd", "Sekretariat"), Ou("Zarząd")], inaccessible.Select(f => f.ContainerDn!).Order(StringComparer.Ordinal));
+        Assert.All(inaccessible, f => Assert.Equal(("{2E3F4051-6B7C-4D8E-9FA0-1B2C3D4E5F60}", GpoFindingSeverity.Info, (GpoQuickFix?)null), (f.Arguments[0], f.Severity, f.Fix)));
+        Findings.None(findings, GpoFindingCodes.LinkToMissingGpo);
+    }
+
+    [Fact]
+    public void PartDisabledWithSettings_NotForAPartWhoseSettingsWereAllRemoved()
+    {
+        // Versions only grow: the user part had settings once (version 2); the folder holds no user setting any more.
+        var builder = new DiagnosticsSnapshotBuilder();
+        var emptied = builder.Gpo("Komputery – Zapora (wyczyszczona)", user: 2, computer: 3, status: GpoStatus.UserSettingsDisabled);
+        var filled = builder.Gpo("Komputery – Pulpit (wyłączony)", user: 2, computer: 3, status: GpoStatus.UserSettingsDisabled);
+        builder.Link(Ou("Komputery"), emptied).Link(Ou("Komputery"), filled)
+            .Folder(emptied, RegistryPol(user: true), Template("[System Access]", "LockoutBadCount = 5"))
+            .Folder(filled, Drives("{0A1B2C3D-0000-4000-8000-000000000003}", @"\\fs01\pulpit"));
+
+        var findings = builder.Analyze();
+
+        Assert.Equal(filled, Findings.Single(findings, GpoFindingCodes.PartDisabledWithSettings).GpoId);
+
+        // Quick (no folders): the version is all there is.
+        builder.Depth = GpoDiagnosticsDepth.Quick;
+        Assert.Equal(new[] { emptied, filled }.Order(), Findings.All(builder.Analyze(), GpoFindingCodes.PartDisabledWithSettings).Select(f => f.GpoId!.Value).Order());
+    }
+
+    [Fact]
     public void LinkMalformed_CountsUnreadableAndForeignEntries_ASiteMayLinkOtherDomains()
     {
         var builder = new DiagnosticsSnapshotBuilder();
@@ -188,7 +224,7 @@ public sealed class LinkAndStatusRulesTests
         var constants = typeof(GpoFindingCodes).GetFields().Where(f => f.IsLiteral).Select(f => (string)f.GetRawConstantValue()!).Order().ToList();
 
         Assert.Equal(constants, GpoFindingCodes.All.Select(d => d.Code).Order());
-        Assert.Equal(49, constants.Count);
+        Assert.Equal(51, constants.Count);
         Assert.Equal(GpoFindingSeverity.Critical, GpoFindingCodes.Find(GpoFindingCodes.GppPassword).Severity);
         Assert.Throws<KeyNotFoundException>(() => GpoFindingCodes.Find("Nieznany"));
     }

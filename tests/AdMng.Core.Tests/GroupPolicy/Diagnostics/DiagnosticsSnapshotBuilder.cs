@@ -54,6 +54,9 @@ internal sealed class DiagnosticsSnapshotBuilder
 
     public bool FoldersRead { get; set; } = true;
 
+    /// <summary>GPOs a gPLink names that exist but the session may not read (<see cref="GpoDiagnosticsSnapshot.InaccessibleGpoIds"/>).</summary>
+    public HashSet<Guid> Inaccessible { get; } = [];
+
     /// <summary>The default DACL GPMC gives a GPO (Authenticated Users read + apply).</summary>
     public static byte[] DefaultDescriptor(params FakeAce[] extra) => FakeSecurityDescriptor.Build(DomainAdmins, DomainAdmins,
     [
@@ -204,6 +207,7 @@ internal sealed class DiagnosticsSnapshotBuilder
             return new GroupPolicyContainerInfo(c.Key, c.Value.Kind, c.Value.Name, GpLinkValue.Parse(raw, DomainDn), raw, c.Value.Blocks ? "1" : null);
         })],
         WmiFilters = _wmiFilters,
+        InaccessibleGpoIds = Inaccessible,
         SysvolVersionsRead = SysvolVersionsRead,
         FoldersRead = FoldersRead,
         Folders = _folders,

@@ -39,13 +39,13 @@ public static partial class GroupPolicyDiagnostics
             var links = c.LinksOf(gpo.Id).Where(l => l.Enabled).ToList();
 
             // A site link reaches the objects of the site's computers, which no container count tells.
-            if (links.Count == 0 || links.Any(l => l.Kind == GroupPolicySomKind.Site) || c.VersionOf(gpo) is not { } version)
+            if (links.Count == 0 || links.Any(l => l.Kind == GroupPolicySomKind.Site) || c.VersionOf(gpo) is null)
             {
                 continue;
             }
 
             var reachesComputers = computers.GetValueOrDefault(gpo.Id) > 0;
-            if (ComputerEnabled(gpo) && version.Computer > 0 && !reachesComputers)
+            if (ComputerEnabled(gpo) && c.HasSettings(gpo, user: false) && !reachesComputers)
             {
                 c.Add(GpoFindingCodes.ComputerSettingsWithoutComputers, gpo.Id);
             }
@@ -55,7 +55,7 @@ public static partial class GroupPolicyDiagnostics
                 continue;
             }
 
-            if (UserEnabled(gpo) && version.User > 0 && users.GetValueOrDefault(gpo.Id) == 0 && !loopbackReached.Contains(gpo.Id))
+            if (UserEnabled(gpo) && c.HasSettings(gpo, user: true) && users.GetValueOrDefault(gpo.Id) == 0 && !loopbackReached.Contains(gpo.Id))
             {
                 c.Add(GpoFindingCodes.UserSettingsWithoutUsers, gpo.Id);
             }

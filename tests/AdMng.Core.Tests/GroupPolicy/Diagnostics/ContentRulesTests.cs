@@ -9,6 +9,7 @@ public sealed class ContentRulesTests
 {
     private const string Administrators = "S-1-5-32-544";
     private const string RemoteDesktopUsers = "S-1-5-32-555";
+    private const string Relax = @"MACHINE\System\CurrentControlSet\Control\SAM\RelaxMinimumPasswordLengthLimits=";
 
     private static Guid OneGpo(DiagnosticsSnapshotBuilder builder, params (string, byte[])[] files)
     {
@@ -53,10 +54,10 @@ public sealed class ContentRulesTests
     }
 
     [Theory]
-    [InlineData(null, true)]
-    [InlineData("4,0", true)]
-    [InlineData("4,1", false)]
-    public void LegacyAndAdvancedAudit_BothFormsWithoutForcingSubcategories(string? force, bool expected)
+    [InlineData("4,0", GpoFindingCodes.LegacyAndAdvancedAudit, GpoFindingSeverity.Medium)]
+    [InlineData(null, GpoFindingCodes.LegacyAndAdvancedAuditByDefault, GpoFindingSeverity.Low)]
+    [InlineData("4,1", null, GpoFindingSeverity.Info)]
+    public void LegacyAndAdvancedAudit_TheBasicCategoriesWinOnlyWhenForcingIsOff_UndefinedForcingIsOnByDefault(string? force, string? expected, GpoFindingSeverity severity)
     {
         var builder = new DiagnosticsSnapshotBuilder();
         string[] lines = force is null
@@ -64,12 +65,13 @@ public sealed class ContentRulesTests
             : ["[Event Audit]", "AuditLogonEvents = 3", "[Registry Values]", @"MACHINE\System\CurrentControlSet\Control\Lsa\SCENoApplyLegacyAuditPolicy=" + force];
         var gpo = OneGpo(builder, Template(lines), AuditCsv());
 
-        var findings = Findings.All(builder.Analyze(), GpoFindingCodes.LegacyAndAdvancedAudit);
+        var findings = builder.Analyze()
+            .Where(f => f.Code is GpoFindingCodes.LegacyAndAdvancedAudit or GpoFindingCodes.LegacyAndAdvancedAuditByDefault).ToList();
 
-        Assert.Equal(expected, findings.Count == 1);
+        Assert.Equal(expected is null ? Array.Empty<string>() : [expected], findings.Select(f => f.Code));
         Assert.All(findings, f => Assert.Equal(
-            (gpo, @"Computer/Security/Registry Values/HKLM\System\CurrentControlSet\Control\Lsa!SCENoApplyLegacyAuditPolicy"),
-            (f.GpoId!.Value, f.SettingKey!)));
+            (gpo, @"Computer/Security/Registry Values/HKLM\System\CurrentControlSet\Control\Lsa!SCENoApplyLegacyAuditPolicy", severity),
+            (f.GpoId!.Value, f.SettingKey!, f.Severity)));
     }
 
     [Fact]
@@ -78,7 +80,10 @@ public sealed class ContentRulesTests
         var builder = new DiagnosticsSnapshotBuilder();
         OneGpo(builder, Template("[Event Audit]", "AuditLogonEvents = 3"));
 
-        Findings.None(builder.Analyze(), GpoFindingCodes.LegacyAndAdvancedAudit);
+        var findings = builder.Analyze();
+
+        Findings.None(findings, GpoFindingCodes.LegacyAndAdvancedAudit);
+        Findings.None(findings, GpoFindingCodes.LegacyAndAdvancedAuditByDefault);
     }
 
     [Theory]
@@ -97,6 +102,45 @@ public sealed class ContentRulesTests
 
         Assert.Equal(expected, findings.Count == 1);
         Assert.All(findings, f => Assert.Equal(("15", "Computer/Security/System Access/MinimumPasswordLength"), (f.Arguments[0], f.SettingKey!)));
+    }
+
+    [Theory]
+    [InlineData("4,1", false)]
+    [InlineData("4,0", true)]
+    [InlineData(null, true)]
+    public void PasswordLengthNeedsRelax_ADomainPolicy_TheRelaxOptionOfTheDomainControllersCounts(string? relaxOnDcs, bool expected)
+    {
+        // Default Domain Policy requires 16 characters; the relax option is a setting of the DCs that check domain passwords.
+        var builder = new DiagnosticsSnapshotBuilder();
+        var domain = builder.Gpo("Default Domain Policy", computer: 3);
+        var controllers = builder.Gpo("Default Domain Controllers Policy", computer: 3);
+        builder.Link(DomainDn, domain).Link(DomainControllersOu, controllers)
+            .Folder(domain, Template("[System Access]", "MinimumPasswordLength = 16"))
+            .Folder(controllers, relaxOnDcs is null
+                ? Template("[System Access]", "LockoutBadCount = 5")
+                : Template("[Registry Values]", Relax + relaxOnDcs));
+
+        var findings = Findings.All(builder.Analyze(), GpoFindingCodes.PasswordLengthNeedsRelax);
+
+        Assert.Equal(expected ? [domain] : Array.Empty<Guid>(), findings.Select(f => f.GpoId!.Value));
+    }
+
+    [Fact]
+    public void PasswordLengthNeedsRelax_AnOuPolicy_EveryChainThatAppliesItNeedsTheRelaxOption()
+    {
+        // "Serwery – Hasła lokalne" requires 15 characters for local accounts; a domain-wide GPO enables the relax option.
+        // Linked also to OU=Magazyn, which blocks inheritance, the GPO applies there without the relax option.
+        var builder = new DiagnosticsSnapshotBuilder();
+        var local = builder.Gpo("Serwery – Hasła lokalne", computer: 2);
+        var relax = builder.Gpo("Domena – Długie hasła", computer: 2);
+        builder.Link(DomainDn, relax).Link(Ou("Serwery"), local)
+            .Folder(local, Template("[System Access]", "MinimumPasswordLength = 15"))
+            .Folder(relax, Template("[Registry Values]", Relax + "4,1"));
+
+        Findings.None(builder.Analyze(), GpoFindingCodes.PasswordLengthNeedsRelax);
+
+        builder.Link(Ou("Magazyn"), local).Container(Ou("Magazyn"), blocksInheritance: true);
+        Assert.Equal(local, Findings.Single(builder.Analyze(), GpoFindingCodes.PasswordLengthNeedsRelax).GpoId);
     }
 
     [Fact]

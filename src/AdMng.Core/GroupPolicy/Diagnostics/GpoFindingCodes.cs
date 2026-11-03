@@ -19,8 +19,17 @@ public static class GpoFindingCodes
     /// <summary>Every link disabled; the container is the first link, the fix enables it. Arguments: number of links.</summary>
     public const string GpoLinksAllDisabled = nameof(GpoLinksAllDisabled);
 
-    /// <summary>A gPLink names a GPO of this domain that does not exist (GpoId: that GUID). Arguments: the GUID in braces.</summary>
+    /// <summary>
+    /// A gPLink names a GPO of this domain that does not exist - a base read of its container answers "no such object"
+    /// (GpoId: that GUID). Arguments: the GUID in braces.
+    /// </summary>
     public const string LinkToMissingGpo = nameof(LinkToMissingGpo);
+
+    /// <summary>
+    /// A gPLink names a GPO of this domain the session may not read: the GPO search does not return it, but its container
+    /// exists (<see cref="GpoDiagnosticsSnapshot.InaccessibleGpoIds"/>; GpoId: that GUID). No repair. Arguments: the GUID in braces.
+    /// </summary>
+    public const string LinkToInaccessibleGpo = nameof(LinkToInaccessibleGpo);
 
     /// <summary>gPLink entries that cannot be read or name GPOs of other domains. Arguments: unreadable entries, other domains' entries.</summary>
     public const string LinkMalformed = nameof(LinkMalformed);
@@ -31,7 +40,10 @@ public static class GpoFindingCodes
     /// <summary>Linked (an enabled link) with the status "all settings disabled". Arguments: none.</summary>
     public const string LinkedAllSettingsDisabled = nameof(LinkedAllSettingsDisabled);
 
-    /// <summary>One part disabled while its version is above 0. Arguments: part (<c>User</c>/<c>Computer</c>), its version.</summary>
+    /// <summary>
+    /// One part disabled while it holds settings (with the folder read: a setting or an unparsed file of the part, else its
+    /// version above 0). Arguments: part (<c>User</c>/<c>Computer</c>), its version.
+    /// </summary>
     public const string PartDisabledWithSettings = nameof(PartDisabledWithSettings);
 
     /// <summary>A linked GPO's part enabled with version 0 while the other part has settings. Arguments: part (<c>User</c>/<c>Computer</c>).</summary>
@@ -40,10 +52,10 @@ public static class GpoFindingCodes
     /// <summary>Both versions 0, linked. Arguments: none.</summary>
     public const string EmptyGpoLinked = nameof(EmptyGpoLinked);
 
-    /// <summary>User settings, the links reach no users and no loopback reaches the GPO. Arguments: none.</summary>
+    /// <summary>User settings (as for <see cref="PartDisabledWithSettings"/>), the links reach no users and no loopback reaches the GPO. Arguments: none.</summary>
     public const string UserSettingsWithoutUsers = nameof(UserSettingsWithoutUsers);
 
-    /// <summary>Computer settings, the links reach no computers. Arguments: none.</summary>
+    /// <summary>Computer settings (as for <see cref="PartDisabledWithSettings"/>), the links reach no computers. Arguments: none.</summary>
     public const string ComputerSettingsWithoutComputers = nameof(ComputerSettingsWithoutComputers);
 
     /// <summary>Password, lockout or Kerberos policy in a GPO without an enabled link to the domain head. Arguments: none (SettingKey: the first such key).</summary>
@@ -55,7 +67,11 @@ public static class GpoFindingCodes
     /// <summary>A linked GPO nobody may apply (no Apply Group Policy left). Arguments: none.</summary>
     public const string NoApplyRight = nameof(NoApplyRight);
 
-    /// <summary>User settings of a linked GPO that computers cannot read (MS16-072). Arguments: none.</summary>
+    /// <summary>
+    /// User settings (as for <see cref="PartDisabledWithSettings"/>) of a linked GPO that the computers it applies to cannot
+    /// read (MS16-072): a writable domain controller (Enterprise Domain Controllers, Domain Controllers) when every enabled
+    /// link is in the Domain Controllers OU, else a member computer (Domain Computers). Arguments: none.
+    /// </summary>
     public const string Ms16072ComputersCannotRead = nameof(Ms16072ComputersCannotRead);
 
     /// <summary>The GPO links a WMI filter that does not exist. Arguments: the filter id.</summary>
@@ -100,10 +116,23 @@ public static class GpoFindingCodes
     /// <summary>Administrators' Members defined without Administrator or Domain Admins. Arguments: none.</summary>
     public const string RestrictedAdministratorsNoAdmins = nameof(RestrictedAdministratorsNoAdmins);
 
-    /// <summary>[Event Audit] and audit.csv in one GPO without forcing the subcategories. Arguments: none.</summary>
+    /// <summary>
+    /// [Event Audit] and audit.csv in one GPO that turns forcing the subcategories off (<c>SCENoApplyLegacyAuditPolicy</c> =
+    /// 0): the basic categories win. Arguments: none.
+    /// </summary>
     public const string LegacyAndAdvancedAudit = nameof(LegacyAndAdvancedAudit);
 
-    /// <summary>Minimum password length above 14 without the relax option. Arguments: the length.</summary>
+    /// <summary>
+    /// [Event Audit] and audit.csv in one GPO that leaves forcing the subcategories undefined: the subcategories win only by
+    /// the Windows default (on since Windows Vista). Arguments: none.
+    /// </summary>
+    public const string LegacyAndAdvancedAuditByDefault = nameof(LegacyAndAdvancedAuditByDefault);
+
+    /// <summary>
+    /// Minimum password length above 14 while the relax option is not in effect where the length applies: neither in the GPO
+    /// nor as the winning value on the domain controllers (a GPO linked to the domain head) or, for another GPO, in every
+    /// chain that applies it. Arguments: the length.
+    /// </summary>
     public const string PasswordLengthNeedsRelax = nameof(PasswordLengthNeedsRelax);
 
     /// <summary>A principal written as a name, not a SID. Arguments: the name.</summary>
@@ -143,10 +172,16 @@ public static class GpoFindingCodes
     /// <summary><c>NoLMHash</c> = 0. Arguments: none.</summary>
     public const string LmHashStored = nameof(LmHashStored);
 
-    /// <summary>SMB server signing not required in a GPO that reaches the DCs. Arguments: none.</summary>
+    /// <summary>
+    /// SMB server signing not required by the GPO whose value the DCs get: the highest-precedence GPO with its computer
+    /// configuration enabled that sets the option in the chain of the Domain Controllers OU. Arguments: none.
+    /// </summary>
     public const string SmbSigningNotRequired = nameof(SmbSigningNotRequired);
 
-    /// <summary><c>LDAPServerIntegrity</c> = 1 (or 0) in a GPO that reaches the DCs. Arguments: the value.</summary>
+    /// <summary>
+    /// <c>LDAPServerIntegrity</c> = 1 (or 0) in the GPO whose value the DCs get (as for <see cref="SmbSigningNotRequired"/>).
+    /// Arguments: the value.
+    /// </summary>
     public const string LdapSigningNotRequired = nameof(LdapSigningNotRequired);
 
     /// <summary>Anonymous SAM enumeration, anonymous name lookup or Everyone includes anonymous. Arguments: the option id (<c>RestrictAnonymousSAM</c>, <c>LSAAnonymousNameLookup</c>, <c>EveryoneIncludesAnonymous</c>).</summary>
@@ -164,7 +199,11 @@ public static class GpoFindingCodes
     /// <summary><c>EnablePlainTextPassword</c> = 1 (SMB client). Arguments: none.</summary>
     public const string PlainTextSmbPassword = nameof(PlainTextSmbPassword);
 
-    /// <summary>A GPO linked to the domain head: minimum length below 8, complexity off or lockout threshold 0. Arguments: the option id, the value.</summary>
+    /// <summary>
+    /// The domain's account policy is weak - minimum length below 8, complexity off or lockout threshold 0 - in the GPO whose
+    /// value wins among those linked to the domain head (the highest precedence with its computer configuration enabled that
+    /// sets the option). Arguments: the option id, the value.
+    /// </summary>
     public const string WeakDomainPasswordPolicy = nameof(WeakDomainPasswordPolicy);
 
     /// <summary>Every code with its severity, area and rule group, in the order of the design note's table.</summary>
@@ -173,6 +212,7 @@ public static class GpoFindingCodes
         new(GpoNotLinked, GpoFindingSeverity.Info, GpoFindingArea.Links, GpoRuleGroup.Directory),
         new(GpoLinksAllDisabled, GpoFindingSeverity.Low, GpoFindingArea.Links, GpoRuleGroup.Directory),
         new(LinkToMissingGpo, GpoFindingSeverity.Medium, GpoFindingArea.Links, GpoRuleGroup.Directory),
+        new(LinkToInaccessibleGpo, GpoFindingSeverity.Info, GpoFindingArea.Links, GpoRuleGroup.Directory),
         new(LinkMalformed, GpoFindingSeverity.Low, GpoFindingArea.Links, GpoRuleGroup.Directory),
         new(DuplicateLink, GpoFindingSeverity.Low, GpoFindingArea.Links, GpoRuleGroup.Directory),
         new(LinkedAllSettingsDisabled, GpoFindingSeverity.Medium, GpoFindingArea.Links, GpoRuleGroup.Directory),
@@ -200,6 +240,7 @@ public static class GpoFindingCodes
         new(RestrictedAndPreferenceSameGroup, GpoFindingSeverity.Medium, GpoFindingArea.Content, GpoRuleGroup.Folders),
         new(RestrictedAdministratorsNoAdmins, GpoFindingSeverity.High, GpoFindingArea.Content, GpoRuleGroup.Folders),
         new(LegacyAndAdvancedAudit, GpoFindingSeverity.Medium, GpoFindingArea.Content, GpoRuleGroup.Folders),
+        new(LegacyAndAdvancedAuditByDefault, GpoFindingSeverity.Low, GpoFindingArea.Content, GpoRuleGroup.Folders),
         new(PasswordLengthNeedsRelax, GpoFindingSeverity.Medium, GpoFindingArea.Content, GpoRuleGroup.Folders),
         new(TypedPrincipalName, GpoFindingSeverity.Info, GpoFindingArea.Content, GpoRuleGroup.Folders),
         new(UnresolvedPrincipal, GpoFindingSeverity.Low, GpoFindingArea.Content, GpoRuleGroup.Principals),

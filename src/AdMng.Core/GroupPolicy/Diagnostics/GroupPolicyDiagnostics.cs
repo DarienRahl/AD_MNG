@@ -1,4 +1,5 @@
 using System.Globalization;
+using AdMng.Core.ActiveDirectory;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Core.Ldap;
 using AdMng.Core.Security;
@@ -12,7 +13,8 @@ namespace AdMng.Core.GroupPolicy.Diagnostics;
 /// snapshot does not hold (Quick depth, no SYSVOL, a failed lookup) is skipped and its group reported in
 /// <see cref="GpoDiagnosticsResult.NotEvaluated"/>. For one GPO (<see cref="GpoDiagnosticsSnapshot.GpoId"/>) only the
 /// findings about that GPO are returned (conflicts: as winner or loser); the container and WMI filter findings
-/// (<c>LinkToMissingGpo</c>, <c>LinkMalformed</c>, <c>WmiFilterUnused</c>) belong to the domain check.
+/// (<c>LinkToMissingGpo</c>, <c>LinkToInaccessibleGpo</c>, <c>LinkMalformed</c>, <c>WmiFilterUnused</c>) belong to the domain
+/// check.
 /// </summary>
 public static partial class GroupPolicyDiagnostics
 {
@@ -102,8 +104,16 @@ public static partial class GroupPolicyDiagnostics
 
             foreach (var missing in own.Select(l => l.GpoId).Distinct().Where(id => !c.Exists(id)))
             {
-                c.Add(GpoFindingCodes.LinkToMissingGpo, missing, container.Dn, arguments: [SysvolPaths.FolderName(missing)],
-                    fix: new GpoQuickFix.Unlink(container.Dn, missing));
+                // A GPO the session cannot read is not missing: removing its link would stop it everywhere below.
+                if (c.Snapshot.InaccessibleGpoIds.Contains(missing))
+                {
+                    c.Add(GpoFindingCodes.LinkToInaccessibleGpo, missing, container.Dn, arguments: [SysvolPaths.FolderName(missing)]);
+                }
+                else
+                {
+                    c.Add(GpoFindingCodes.LinkToMissingGpo, missing, container.Dn, arguments: [SysvolPaths.FolderName(missing)],
+                        fix: new GpoQuickFix.Unlink(container.Dn, missing));
+                }
             }
 
             // Entries that are not links of this domain: GPOs of other domains (normal for a site) or text that cannot be read.
@@ -136,12 +146,12 @@ public static partial class GroupPolicyDiagnostics
             }
 
             var status = gpo.Status;
-            if (status == GpoStatus.UserSettingsDisabled && version.User > 0)
+            if (status == GpoStatus.UserSettingsDisabled && c.HasSettings(gpo, user: true))
             {
                 c.Add(GpoFindingCodes.PartDisabledWithSettings, gpo.Id, arguments: ["User", Number(version.User)],
                     fix: new GpoQuickFix.SetStatus(gpo.Id, GpoStatus.AllSettingsEnabled));
             }
-            else if (status == GpoStatus.ComputerSettingsDisabled && version.Computer > 0)
+            else if (status == GpoStatus.ComputerSettingsDisabled && c.HasSettings(gpo, user: false))
             {
                 c.Add(GpoFindingCodes.PartDisabledWithSettings, gpo.Id, arguments: ["Computer", Number(version.Computer)],
                     fix: new GpoQuickFix.SetStatus(gpo.Id, GpoStatus.AllSettingsEnabled));
@@ -171,6 +181,7 @@ public static partial class GroupPolicyDiagnostics
     private static void FilteringRules(Context c)
     {
         var computerToken = Modeling.GroupPolicyModelReader.ContainerTarget(c.DomainDn, Modeling.ModelingPart.Computer, c.DomainSid).Token;
+        var domainControllerToken = DomainControllerToken(c.DomainSid);
         var broad = GpoPrincipals.BroadSids(c.DomainSid);
         foreach (var gpo in c.InScope)
         {
@@ -182,7 +193,9 @@ public static partial class GroupPolicyDiagnostics
                     c.Add(GpoFindingCodes.NoApplyRight, gpo.Id);
                 }
 
-                if (linked && filter.KnowsReaders && UserEnabled(gpo) && c.VersionOf(gpo) is { User: > 0 } && !filter.CanRead(computerToken))
+                // The computers the GPO applies to must read it: the domain controllers when every enabled link is in their OU.
+                if (linked && filter.KnowsReaders && UserEnabled(gpo) && c.HasSettings(gpo, user: true)
+                    && !filter.CanRead(c.AppliesToDomainControllersOnly(gpo.Id) ? domainControllerToken : computerToken))
                 {
                     c.Add(GpoFindingCodes.Ms16072ComputersCannotRead, gpo.Id,
                         fix: new GpoQuickFix.GrantRead(gpo.Id, GpoPrincipals.AuthenticatedUsers));
@@ -232,6 +245,25 @@ public static partial class GroupPolicyDiagnostics
                 c.Add(GpoFindingCodes.WmiFilterUnused, null, arguments: [filter.Name, filter.Id], fix: new GpoQuickFix.DeleteWmiFilter(filter.Dn));
             }
         }
+    }
+
+    /// <summary>
+    /// A writable domain controller's token as far as a GPO's DACL is concerned: Everyone, Authenticated Users, This
+    /// Organization, Enterprise Domain Controllers and the domain's Domain Controllers (a DC is not in Domain Computers).
+    /// </summary>
+    private static HashSet<string> DomainControllerToken(string? domainSid)
+    {
+        var token = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            GroupPolicySecurityFilter.EveryoneSid, GroupPolicySecurityFilter.AuthenticatedUsersSid, GroupPolicySecurityFilter.ThisOrganizationSid,
+            GroupPolicySecurityFilter.EnterpriseDomainControllersSid,
+        };
+        if (domainSid is not null)
+        {
+            token.Add(string.Create(CultureInfo.InvariantCulture, $"{domainSid}-{(int)WellKnownRids.DomainControllers}"));
+        }
+
+        return token;
     }
 
     /// <summary>Write property (any), write DACL or write owner on the container: enough to change what the GPO does.</summary>
@@ -303,7 +335,8 @@ public static partial class GroupPolicyDiagnostics
         private readonly List<GpoFinding> _findings = [];
         private readonly HashSet<string> _seen = new(StringComparer.Ordinal);
         private GroupPolicyInheritance? _inheritance;
-        private HashSet<Guid>? _reachingDomainControllers;
+        private IReadOnlyList<AppliedGroupPolicy>? _domainControllersChain;
+        private IReadOnlyList<AppliedGroupPolicy>? _domainHeadChain;
 
         public Context(GpoDiagnosticsSnapshot snapshot)
         {
@@ -380,11 +413,38 @@ public static partial class GroupPolicyDiagnostics
         public bool IsLinkedToDomainHead(Guid id) => LinksOf(id).Any(l => l.Enabled && l.Kind == GroupPolicySomKind.Domain);
 
         /// <summary>
-        /// The GPO reaches the domain controllers: it is in the chain of the Domain Controllers OU (linked there, or to the
-        /// domain head and enforced or not blocked).
+        /// The GPOs the domain controllers apply, in application order (the last wins): the chain of the Domain Controllers
+        /// OU - linked there, or to the domain head and enforced or not blocked (site links aside).
         /// </summary>
-        public bool ReachesDomainControllers(Guid id) =>
-            (_reachingDomainControllers ??= [.. Inheritance.Resolve(DomainControllersDn, siteDn: null).Select(a => a.GpoId)]).Contains(id);
+        public IReadOnlyList<AppliedGroupPolicy> DomainControllersChain =>
+            _domainControllersChain ??= Inheritance.Resolve(DomainControllersDn, siteDn: null);
+
+        /// <summary>The GPOs with an enabled link on the domain head, in application order (the last wins).</summary>
+        public IReadOnlyList<AppliedGroupPolicy> DomainHeadChain => _domainHeadChain ??= Inheritance.Resolve(DomainDn, siteDn: null);
+
+        /// <summary>Every enabled link of the GPO is on the Domain Controllers OU or an OU below it (no site, no domain head).</summary>
+        public bool AppliesToDomainControllersOnly(Guid id)
+        {
+            var links = LinksOf(id).Where(l => l.Enabled).ToList();
+            return links.Count > 0 && DistinguishedName.TryParse(DomainControllersDn, out var controllers) && links.All(l =>
+                l.Kind == GroupPolicySomKind.OrganizationalUnit && DistinguishedName.TryParse(l.ContainerDn, out var dn)
+                && (dn == controllers || dn.IsDescendantOf(controllers)));
+        }
+
+        /// <summary>
+        /// A part of the GPO holds settings. With its folder read (Full): a setting of the part in its files - comments do not
+        /// count, a file of the part that cannot be parsed or that no parser reads (folder redirection, software installation
+        /// …) does. Otherwise its version is above 0 - versions only grow, so a part whose settings were all removed keeps it.
+        /// </summary>
+        public bool HasSettings(GpoInfo gpo, bool user)
+        {
+            if (Evaluates(GpoRuleGroup.Folders) && View(gpo.Id) is { } view)
+            {
+                return view.HasSettings(user);
+            }
+
+            return VersionOf(gpo) is { } version && (user ? version.User : version.Computer) > 0;
+        }
 
         /// <summary>
         /// The version the GPO's clients see: the higher half of AD and GPT.INI (only AD when GPT.INI was not read); null when
