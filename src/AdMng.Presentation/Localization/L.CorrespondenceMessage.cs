@@ -68,6 +68,11 @@ public static partial class L
         public const string LineHeightDouble = "Correspondence.Message.LineHeightDouble";
         public const string ImagesOverLimit = "Correspondence.Message.ImagesOverLimit";
         public const string VotingEmpty = "Correspondence.Message.VotingEmpty";
+        public const string BuiltInTemplateCustomized = "Correspondence.Message.BuiltInTemplateCustomized";
+        public const string SaveBuiltInConfirm = "Correspondence.Message.SaveBuiltInConfirm";
+        public const string BuiltInSaved = "Correspondence.Message.BuiltInSaved";
+        public const string RestoreBuiltInConfirm = "Correspondence.Message.RestoreBuiltInConfirm";
+        public const string BuiltInRestored = "Correspondence.Message.BuiltInRestored";
         public const string CopyInvalid = "Correspondence.Message.CopyInvalid";
         public const string BlindCopyInvalid = "Correspondence.Message.BlindCopyInvalid";
         public const string CopiesTooMany = "Correspondence.Message.CopiesTooMany";

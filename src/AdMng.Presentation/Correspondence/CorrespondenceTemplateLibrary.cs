@@ -76,7 +76,7 @@ public sealed class CorrespondenceTemplateLibrary
 
     /// <summary>The built-in templates: the mailbox query per mailbox, then grouped by owner (new instances on each call,
     /// the deadline counted from today; never stored).</summary>
-    public IReadOnlyList<CorrespondenceTemplate> BuiltIns => [MailboxStillNeeded(), MailboxStillNeededGrouped()];
+    public IReadOnlyList<CorrespondenceTemplate> BuiltIns => [BuiltIn(MailboxStillNeededId), BuiltIn(MailboxStillNeededGroupedId)];
 
     /// <summary>The operator's templates (settings, in the order they were saved). Treat them as read-only: change a
     /// template through <see cref="SaveAsync"/>.</summary>
@@ -99,14 +99,9 @@ public sealed class CorrespondenceTemplateLibrary
             return null;
         }
 
-        if (string.Equals(id, MailboxStillNeededId, StringComparison.Ordinal))
+        if (IsBuiltIn(id))
         {
-            return MailboxStillNeeded();
-        }
-
-        if (string.Equals(id, MailboxStillNeededGroupedId, StringComparison.Ordinal))
-        {
-            return MailboxStillNeededGrouped();
+            return BuiltIn(id);
         }
 
         return Saved.FirstOrDefault(t => string.Equals(t.Id, id, StringComparison.Ordinal)) is { } saved ? Copy(saved) : null;
@@ -148,6 +143,50 @@ public sealed class CorrespondenceTemplateLibrary
         CollectGarbage();
         OnChanged();
         return stored;
+    }
+
+    /// <summary>The operator saved a version of the built-in <paramref name="id"/> ("Zapisz jako szablon wbudowany").</summary>
+    public bool IsCustomized(string? id) =>
+        IsBuiltIn(id) && _settings.Current.Correspondence.BuiltInOverrides.TryGetValue(id!, out var custom) && custom is not null;
+
+    /// <summary>
+    /// Saves <paramref name="template"/> as the operator's version of the built-in <paramref name="id"/> (with the images its
+    /// body references): from now on the built-in – in the template list and on the mailbox owner page – is this one. The
+    /// built-in keeps its id, name and grouping; its date fields named like the default's (the deadline) still count from
+    /// the day it is loaded. Returns the built-in as it is now loaded.
+    /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is no built-in.</exception>
+    public async Task<CorrespondenceTemplate> SaveBuiltInAsync(string id, CorrespondenceTemplate template, IEnumerable<MessageImage>? images = null)
+    {
+        ArgumentNullException.ThrowIfNull(template);
+        if (!IsBuiltIn(id))
+        {
+            throw new ArgumentException("The id names no built-in template.", nameof(id));
+        }
+
+        var standard = Standard(id);
+        var stored = WithImages(template, id, images, out var bytes);
+        stored.Name = standard.Name;
+        stored.GroupByAddress = standard.GroupByAddress;
+        await StoreImagesAsync(bytes).ConfigureAwait(true);
+        await _settings.UpdateAsync(s => s.Correspondence.BuiltInOverrides[id] = Copy(stored)).ConfigureAwait(true);
+        CollectGarbage();
+        OnChanged();
+        return BuiltIn(id);
+    }
+
+    /// <summary>"Przywróć domyślny": the built-in <paramref name="id"/> is the default one again (nothing when it is not
+    /// customized).</summary>
+    public async Task RestoreBuiltInAsync(string id)
+    {
+        if (!IsCustomized(id))
+        {
+            return;
+        }
+
+        await _settings.UpdateAsync(s => s.Correspondence.BuiltInOverrides.Remove(id)).ConfigureAwait(true);
+        CollectGarbage();
+        OnChanged();
     }
 
     /// <summary>Deletes a saved template (built-ins cannot be deleted; an unknown id does nothing).</summary>
@@ -488,6 +527,31 @@ public sealed class CorrespondenceTemplateLibrary
     /// <see cref="CustomFieldFormats.DefaultDate"/>, <c>{{podpis}}</c> where the signature goes, Aptos 12 pt with a single
     /// line height, no voting buttons.
     /// </summary>
+    /// <summary>The built-in <paramref name="id"/>: the operator's version when there is one (its date fields named like a
+    /// date field of the default get the default's value – the deadline counted from today), else the default.</summary>
+    private CorrespondenceTemplate BuiltIn(string id)
+    {
+        var standard = Standard(id);
+        if (!_settings.Current.Correspondence.BuiltInOverrides.TryGetValue(id, out var custom) || custom is null)
+        {
+            return standard;
+        }
+
+        var copy = Copy(custom, id);
+        copy.Name = standard.Name;
+        copy.GroupByAddress = standard.GroupByAddress;
+        var defaults = (standard.CustomFields ?? []).Where(f => f.Kind == CustomFieldKind.Date).ToList();
+        copy.CustomFields = [.. (copy.CustomFields ?? []).Select(f => f.Kind == CustomFieldKind.Date
+            && defaults.FirstOrDefault(d => FieldKey.Same(d.Name, f.Name)) is { } deadline
+                ? f with { Value = deadline.Value }
+                : f)];
+        return copy;
+    }
+
+    /// <summary>The default version of the built-in <paramref name="id"/>.</summary>
+    private CorrespondenceTemplate Standard(string id) =>
+        string.Equals(id, MailboxStillNeededGroupedId, StringComparison.Ordinal) ? MailboxStillNeededGrouped() : MailboxStillNeeded();
+
     private CorrespondenceTemplate MailboxStillNeeded() => MailboxTemplate(
         MailboxStillNeededId,
         "Weryfikacja skrzynki pocztowej (wiadomość na każdą skrzynkę)",

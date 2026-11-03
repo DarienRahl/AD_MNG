@@ -12524,6 +12524,9 @@ Use "Check Outlook" – it shows the version, profile, accounts and signatures s
   <data name="Correspondence.Outlook.Code.outlook.tooLarge" xml:space="preserve">
     <value>The message is too large for the mailbox or the server.</value>
   </data>
+  <data name="Correspondence.Outlook.Code.outlook.images" xml:space="preserve">
+    <value>Outlook did not embed the images of the message (the body points to images the item does not carry); the message was not sent – it is in Drafts.</value>
+  </data>
   <data name="Correspondence.Outlook.Code.outlook.cancelled" xml:space="preserve">
     <value>Cancelled.</value>
   </data>
@@ -12658,6 +12661,9 @@ Use "Check Outlook" – it shows the version, profile, accounts and signatures s
   </data>
   <data name="UserMessages.Code.outlook.tooLarge" xml:space="preserve">
     <value>The message is too large for Outlook.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.images" xml:space="preserve">
+    <value>Outlook did not embed the images of the message; it was not sent (it is in Drafts).</value>
   </data>
   <data name="UserMessages.Code.outlook.cancelled" xml:space="preserve">
     <value>Cancelled.</value>
@@ -13327,6 +13333,21 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="Correspondence.Message.BuiltInTemplate" xml:space="preserve">
     <value>{0} (built-in)</value>
+  </data>
+  <data name="Correspondence.Message.BuiltInTemplateCustomized" xml:space="preserve">
+    <value>{0} (built-in, changed)</value>
+  </data>
+  <data name="Correspondence.Message.SaveBuiltInConfirm" xml:space="preserve">
+    <value>Replace the built-in template "{0}" with the message on this page (subject, body, images, fields, list item, voting, font)? The mailbox owner page will load this version. "Restore default" brings back the original.</value>
+  </data>
+  <data name="Correspondence.Message.BuiltInSaved" xml:space="preserve">
+    <value>The built-in template "{0}" was saved.</value>
+  </data>
+  <data name="Correspondence.Message.RestoreBuiltInConfirm" xml:space="preserve">
+    <value>Restore the default version of the built-in template "{0}"? Your version is deleted.</value>
+  </data>
+  <data name="Correspondence.Message.BuiltInRestored" xml:space="preserve">
+    <value>The built-in template "{0}" is the default one again.</value>
   </data>
   <data name="Correspondence.Message.TemplatesTitle" xml:space="preserve">
     <value>Correspondence templates</value>
@@ -14209,6 +14230,15 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="Correspondence.App.Message.BccChunk" xml:space="preserve">
     <value>Recipients in Bcc per message (1–500)</value>
+  </data>
+  <data name="Correspondence.App.Message.SaveBuiltIn" xml:space="preserve">
+    <value>Save as the built-in template</value>
+  </data>
+  <data name="Correspondence.App.Message.SaveBuiltInHint" xml:space="preserve">
+    <value>Choose a built-in template above, change it and save: your version replaces the built-in (also for the mailbox owner page); the deadline still counts from the day it is loaded.</value>
+  </data>
+  <data name="Correspondence.App.Message.RestoreBuiltIn" xml:space="preserve">
+    <value>Restore default</value>
   </data>
   <data name="Correspondence.App.Message.CopyTo" xml:space="preserve">
     <value>CC (every message)</value>

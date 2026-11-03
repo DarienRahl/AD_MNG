@@ -129,6 +129,14 @@ internal sealed partial class OutlookMailBuilder
             step = OutlookSteps.Subject;
             item.Subject = message.Subject ?? string.Empty;
 
+            // The images first, with their content ids, then the body that references them: set before, Outlook's editor
+            // takes the HTML while its cid: images do not exist yet.
+            if (message.InlineImages.Count > 0)
+            {
+                step = OutlookSteps.Images;
+                AddImages(mail, message.InlineImages, message.Attachments, images, scope);
+            }
+
             step = OutlookSteps.Body;
             item.HTMLBody = message.HtmlBody ?? string.Empty;
 
@@ -160,12 +168,6 @@ internal sealed partial class OutlookMailBuilder
             step = OutlookSteps.Properties;
             SetProperties(mail, message, scope);
 
-            if (message.InlineImages.Count > 0)
-            {
-                step = OutlookSteps.Images;
-                AddImages(mail, message.InlineImages, message.Attachments, images, scope);
-            }
-
             if (message.Attachments.Count > 0)
             {
                 step = OutlookSteps.Attachments;
@@ -183,6 +185,7 @@ internal sealed partial class OutlookMailBuilder
                 step = OutlookSteps.Inline;
                 MarkInlineImages(mail, images, scope);
                 item.Save();
+                EnsureInlineImages(mail, message.HtmlBody ?? string.Empty, images, scope);
             }
 
             if (mode == OutlookSendMode.Send)
@@ -240,14 +243,14 @@ internal sealed partial class OutlookMailBuilder
             step = OutlookSteps.Subject;
             item.Subject = message.Subject ?? string.Empty;
 
-            step = OutlookSteps.Body;
-            item.HTMLBody = message.HtmlBody ?? string.Empty;
-
             if (message.InlineImages.Count > 0)
             {
                 step = OutlookSteps.Images;
                 AddImages(mail, message.InlineImages, message.Attachments, images, scope);
             }
+
+            step = OutlookSteps.Body;
+            item.HTMLBody = message.HtmlBody ?? string.Empty;
 
             if (message.Attachments.Count > 0)
             {
@@ -660,6 +663,75 @@ internal sealed partial class OutlookMailBuilder
         }
     }
 
+    /// <summary>
+    /// After the saves: every image the message references must be an attachment of the item with the content id the saved
+    /// HTML references. When Outlook lost the link (the HTML no longer points to the images, or the attachments have no
+    /// content id), the body is set once more – the attachments now carry their content ids – and the images marked again;
+    /// a link still lost stops the message (<see cref="OutlookFailureKind.ImagesNotEmbedded"/>) instead of sending it
+    /// without its images. Nothing is checked when the content ids cannot be read (the object model guard).
+    /// </summary>
+    private void EnsureInlineImages(object mail, string html, ImageFiles images, ComScope scope)
+    {
+        // The images the message's HTML references (the others are sent as they are, never checked).
+        var expected = CidReference().Matches(html).Select(m => Uri.UnescapeDataString(m.Groups[1].Value))
+            .Where(images.HasContentId).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+        if (expected == 0 || MissingImages(mail, expected, scope) is not > 0)
+        {
+            return;
+        }
+
+        dynamic item = mail;
+        item.HTMLBody = html;
+        item.Save();
+        MarkInlineImages(mail, images, scope);
+        item.Save();
+        if (MissingImages(mail, expected, scope) is > 0)
+        {
+            throw new OutlookErrors.OutlookStepException(OutlookFailureKind.ImagesNotEmbedded, OutlookSteps.Inline);
+        }
+    }
+
+    /// <summary>The images of the message (<paramref name="expected"/>) the saved item does not show: the <c>cid:</c>
+    /// references of its HTML that no attachment's content id answers count as found only when one does; null when no
+    /// content id can be read.</summary>
+    private static int? MissingImages(object mail, int expected, ComScope scope)
+    {
+        var html = OutlookProfileReader.Get(() => (string?)((dynamic)mail).HTMLBody) ?? string.Empty;
+        dynamic attachments = scope.Track((object)((dynamic)mail).Attachments);
+        var count = OutlookProfileReader.GetInt(() => (int)attachments.Count);
+        var contentIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var readable = false;
+        for (var index = 1; index <= count; index++)
+        {
+            try
+            {
+                object attachment = scope.Track((object)attachments[index]);
+                object accessor = scope.Track((object)((dynamic)attachment).PropertyAccessor);
+                readable = true;
+                if (((dynamic)accessor).GetProperty(MapiProperties.AttachContentId) is string id && id.Length > 0)
+                {
+                    contentIds.Add(id.Trim('<', '>'));
+                }
+            }
+            catch (Exception)
+            {
+                // No content id (a plain attachment), or a property the guard does not let us read.
+            }
+        }
+
+        if (!readable)
+        {
+            return null;
+        }
+
+        var found = CidReference().Matches(html)
+            .Select(m => Uri.UnescapeDataString(m.Groups[1].Value))
+            .Where(contentIds.Contains)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+        return Math.Max(0, expected - found);
+    }
+
     /// <summary>An attachment with a content id saved to the temp folder, read into memory and deleted; null otherwise.</summary>
     private OutlookRenderedImage? ReadImage(object attachment, ImageFiles files, ComScope scope)
     {
@@ -737,6 +809,10 @@ internal sealed partial class OutlookMailBuilder
     [GeneratedRegex(@"[\u0000-\u001F\u007F]+", RegexOptions.CultureInvariant)]
     private static partial Regex ControlCharacters();
 
+    /// <summary>A <c>cid:</c> reference of the HTML (its content id in group 1).</summary>
+    [GeneratedRegex(@"cid:([^""'\s>)]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex CidReference();
+
     [GeneratedRegex("^[A-Za-z0-9-]{1,76}$", RegexOptions.CultureInvariant)]
     private static partial Regex HeaderName();
 
@@ -759,6 +835,10 @@ internal sealed partial class OutlookMailBuilder
         public void Add(string fileName, MessageImage image) => _byFileName[fileName] = image;
 
         public bool TryGet(string fileName, out MessageImage image) => _byFileName.TryGetValue(fileName, out image!);
+
+        /// <summary>One of the images has the content id <paramref name="contentId"/>.</summary>
+        public bool HasContentId(string contentId) =>
+            _byFileName.Values.Any(i => string.Equals(i.ContentId, contentId, StringComparison.OrdinalIgnoreCase));
 
         public void Dispose() => _folder?.Dispose();
     }

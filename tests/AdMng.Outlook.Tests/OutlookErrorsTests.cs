@@ -140,7 +140,7 @@ public class OutlookErrorsTests
         Assert.Equal(
             ["outlook.notSupported", "outlook.notInstalled", "outlook.elevated", "outlook.busy", "outlook.notResponding", "outlook.denied",
              "outlook.disconnected", "outlook.recipient", "outlook.attachment", "outlook.account", "outlook.tooLarge", "outlook.cancelled",
-             "outlook.error"],
+             "outlook.error", "outlook.images"],
             OutlookErrors.AllCodes);
         foreach (var kind in Enum.GetValues<OutlookFailureKind>())
         {

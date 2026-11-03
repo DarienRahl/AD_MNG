@@ -306,6 +306,12 @@ wysłanych* – przy dużych plikach lepiej wysłać łącze.
   w UDW* – w polu *Do* jest Twój adres, a odbiorcy w ukrytej kopii, najwyżej *Odbiorców w UDW na wiadomość* (1–500,
   domyślnie 500 – limit Exchange Online). Wiadomość w UDW jest jedna dla wszystkich, więc pola kolumn są w niej puste
   (`{{nazwa}}` daje zwrot grzecznościowy); taka wiadomość częściej trafia do spamu.
+- **DW (do każdej wiadomości)** i **UDW (do każdej wiadomości)** – adresy oddzielone `;` (także przecinkiem lub
+  spacją), dodawane w kopii i w ukrytej kopii do każdej wysłanej wiadomości i każdej wersji roboczej, np. kopia do
+  skrzynki działu albo archiwum. Nie trafiają do wiadomości testowej ani do dziennika „już wysłane”; adres wpisany w DW
+  nie jest powtarzany w UDW. Wpis, który nie jest adresem, i więcej niż 50 adresów razem blokują wysyłkę. W trybie UDW
+  adresy z pola UDW dochodzą do każdej porcji, która jest o tyle mniejsza (limit 500 odbiorców na wiadomość). Pola są
+  zapamiętywane jak *W imieniu*.
 - **Odstęp między wiadomościami (s)** – 0–300, domyślnie 3 s (rozdział 7).
 - **Poproś o potwierdzenie przeczytania.**
 - **Dostarcz dopiero o wskazanej porze** – dzień i godzina (np. `8:00`, `08:00` albo `8`); co najmniej minutę od teraz
@@ -342,9 +348,14 @@ wysłanych* – przy dużych plikach lepiej wysłać łącze.
   temat, treść i pola własne).
 - Szablon zawiera temat, treść z obrazkami, pola własne (z datami i formatami pól daty), element listy, zwrot
   grzecznościowy, przyciski głosowania, grupowanie oraz czcionkę, rozmiar i interlinię – nie zawiera odbiorców,
-  załączników ani nadawcy. Wbudowanego szablonu nie da się zmienić; *Zapisz* pod nową nazwą tworzy kopię. Szablon
+  załączników ani nadawcy. *Zapisz* pod nową nazwą tworzy kopię szablonu wbudowanego. Szablon
   zapisany we wcześniejszej wersji nie ma czcionki – po wczytaniu zostają czcionka, rozmiar i interlinia ustawione w
   oknie.
+- **Zapisz jako szablon wbudowany** (od 0.9.1) – wybierz szablon wbudowany, zmień go (temat, treść z obrazkami, pola
+  własne, element listy, głosowanie, czcionka) i zapisz: Twoja wersja zastępuje szablon wbudowany na liście (*wbudowany,
+  zmieniony*) i na stronie *Skrzynki* (*Dodaj do odbiorców*). Szablon zachowuje nazwę i grupowanie, a data w polu
+  *Termin* nadal liczy się od dnia wczytania (dziś + 14 dni). **Przywróć domyślny** usuwa Twoją wersję. Wersje szablonów
+  wbudowanych nie trafiają do eksportu.
 - *Eksportuj…* / *Importuj…* – plik JSON z szablonami i ich obrazkami (do 20 MB) dla zespołu; import dodaje kopie i
   ponownie sprawdza treść oraz obrazki.
 - **Ostatni szkic** (temat, treść, obrazki, pola własne, element listy, zwrot, głosowanie, grupowanie, czcionka) zapisuje
@@ -385,8 +396,8 @@ Podgląd pokazuje wiadomość dokładnie tak, jak zobaczy ją wybrany odbiorca: 
 
 ## 7. Krok 4 – Wysyłka
 
-**Podsumowanie** (*Odśwież*): liczba wiadomości z pominiętymi i błędnymi adresami, nadawca, *w imieniu*, sposób
-wysyłki, temat, podpis, załączniki, dostarczenie później, głosowanie i szacowany czas.
+**Podsumowanie** (*Odśwież*): liczba wiadomości z pominiętymi i błędnymi adresami, nadawca, *w imieniu*, DW i UDW
+każdej wiadomości, sposób wysyłki, temat, podpis, załączniki, dostarczenie później, głosowanie i szacowany czas.
 
 | Przycisk | Co robi |
 |---|---|
@@ -398,7 +409,7 @@ wysyłki, temat, podpis, załączniki, dostarczenie później, głosowanie i sza
 | *Zapisz raport…* | raport tekstowy (data, temat, wynik każdego odbiorcy) we wskazanym pliku |
 | *Dziennik „już wysłane”…* | jak na zakładce *Odbiorcy* |
 
-**Potwierdzenie** wymienia liczbę wiadomości, nadawcę, *w imieniu*, sposób wysyłki, załączniki, pominiętych i błędne
+**Potwierdzenie** wymienia liczbę wiadomości, nadawcę, *w imieniu*, DW i UDW, sposób wysyłki, załączniki, pominiętych i błędne
 adresy oraz porę dostarczenia, ostrzega przy odstępie poniżej 2 s i ponad 50 wiadomościach i przypomina, że wysyłki nie
 da się cofnąć. Powyżej 20 wiadomości trzeba wpisać ich liczbę.
 
@@ -411,6 +422,11 @@ osobnym wątkiem, więc *Zatrzymaj*, przewijanie i zakładki działają normalni
   zostaje w *Wersjach roboczych* (status mówi „zapisana w Wersjach roboczych”) – nic nie ginie, a raport podaje, na
   którym kroku był błąd. Gdy błąd wystąpi przed zapisem, niedokończona wiadomość jest porzucana.
 - Adres, którego Outlook nie rozpozna, kończy wiadomość błędem zamiast wysyłki.
+- **Obrazki** (z treści, wklejone, z szablonu i z podpisu) są dołączane do wiadomości przed jej treścią, każdy ze swoim
+  identyfikatorem (`cid:`), a po zapisie AD Manager sprawdza w zapisanej wiadomości, czy każdy obrazek, który wskazuje
+  treść, jest w niej osadzony. Gdy Outlook zgubił to powiązanie, treść jest ustawiana jeszcze raz; gdy i to nie pomoże,
+  wiadomość **nie jest wysyłana bez obrazków** – zostaje w *Wersjach roboczych* z błędem „Outlook nie osadził obrazów
+  wiadomości” (od 0.9.1; wcześniej obrazki mogły dojść jako czerwony X albo zwykły załącznik).
 - **Po 5 błędach z rzędu wysyłka zatrzymuje się sama** – zwykle znaczy to, że Outlook został zamknięty albo padło
   połączenie; po naprawieniu użyj *Ponów nieudane*. Błędy, po których dalsza wysyłka nie ma sensu (Outlook zamknięty,
   odmowa zabezpieczenia Outlooka, różne poziomy uprawnień, konto *Wyślij jako*, którego nie ma w profilu – z niego

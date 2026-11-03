@@ -100,6 +100,10 @@ public sealed class CorrespondenceSettings
     /// <summary>The operator's templates (built-ins are not stored).</summary>
     public List<CorrespondenceTemplate> Templates { get; set; } = [];
 
+    /// <summary>The operator's versions of the built-in templates by built-in id ("Zapisz jako szablon wbudowany"); a
+    /// built-in without an entry is the default one.</summary>
+    public Dictionary<string, CorrespondenceTemplate> BuiltInOverrides { get; set; } = [];
+
     /// <summary>The AD fields of recipients read from the directory; empty → <see cref="DirectoryFieldDefinition.Defaults"/>.</summary>
     public List<DirectoryFieldDefinition> DirectoryFields { get; set; } = [];
 
@@ -135,6 +139,9 @@ public sealed class CorrespondenceSettings
             .Select(NormalizeTemplate)
             .DistinctBy(t => t.Id, StringComparer.Ordinal)
             .Take(MaxTemplates)];
+        BuiltInOverrides = (BuiltInOverrides ?? [])
+            .Where(p => p.Value is not null && Correspondence.CorrespondenceTemplateLibrary.IsBuiltIn(p.Key))
+            .ToDictionary(p => p.Key, p => NormalizeTemplate(p.Value), StringComparer.Ordinal);
         DirectoryFields = DirectoryFieldDefinition.Normalize(DirectoryFields);
         Mailboxes ??= new();
         Mailboxes.Normalize();

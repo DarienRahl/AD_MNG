@@ -1394,6 +1394,18 @@
                              Text="{Binding Message.TemplateName, UpdateSourceTrigger=PropertyChanged}" />
                   </DockPanel>
                   <WrapPanel Margin="0,8,0,0">
+                    <Button x:Name="SaveBuiltInTemplateButton"
+                            Command="{Binding Message.SaveBuiltInTemplateCommand}"
+                            Content="{l:Tr Correspondence.App.Message.SaveBuiltIn}"
+                            Style="{StaticResource BarButton}"
+                            ToolTip="{l:Tr Correspondence.App.Message.SaveBuiltInHint}" />
+                    <Button x:Name="RestoreBuiltInTemplateButton"
+                            Command="{Binding Message.RestoreBuiltInTemplateCommand}"
+                            Content="{l:Tr Correspondence.App.Message.RestoreBuiltIn}"
+                            Style="{StaticResource BarButton}" />
+                  </WrapPanel>
+                  <TextBlock Style="{StaticResource Hint}" Text="{l:Tr Correspondence.App.Message.SaveBuiltInHint}" />
+                  <WrapPanel Margin="0,8,0,0">
                     <Button x:Name="NewMessageButton"
                             Command="{Binding Message.NewMessageCommand}"
                             Content="{l:Tr Correspondence.App.Message.NewMessage}"

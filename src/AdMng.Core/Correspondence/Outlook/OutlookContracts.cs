@@ -80,6 +80,10 @@ public enum OutlookFailureKind
     ItemTooLarge,
     Cancelled,
     Unknown,
+
+    /// <summary>After the save, the HTML referenced images (<c>cid:</c>) no attachment of the item carries: the message is
+    /// not sent without its images.</summary>
+    ImagesNotEmbedded,
 }
 
 /// <summary>
@@ -145,6 +149,9 @@ public static class OutlookFailureCodes
     /// <summary><see cref="OutlookFailureKind.Cancelled"/>.</summary>
     public const string Cancelled = "outlook.cancelled";
 
+    /// <summary><see cref="OutlookFailureKind.ImagesNotEmbedded"/>.</summary>
+    public const string ImagesNotEmbedded = "outlook.images";
+
     /// <summary><see cref="OutlookFailureKind.Unknown"/> (the HRESULT is kept for the report).</summary>
     public const string Unknown = "outlook.error";
 
@@ -172,6 +179,7 @@ public static class OutlookFailureCodes
         OutlookFailureKind.InvalidAccount => InvalidAccount,
         OutlookFailureKind.ItemTooLarge => ItemTooLarge,
         OutlookFailureKind.Cancelled => Cancelled,
+        OutlookFailureKind.ImagesNotEmbedded => ImagesNotEmbedded,
         _ => Unknown,
     };
 

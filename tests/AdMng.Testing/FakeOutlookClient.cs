@@ -119,6 +119,7 @@ public sealed class FakeOutlookClient : IOutlookClient
         OutlookFailureKind.InvalidAccount => "outlook.account",
         OutlookFailureKind.ItemTooLarge => "outlook.tooLarge",
         OutlookFailureKind.Cancelled => "outlook.cancelled",
+        OutlookFailureKind.ImagesNotEmbedded => "outlook.images",
         _ => "outlook.error",
     };
 

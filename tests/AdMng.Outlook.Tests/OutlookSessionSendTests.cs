@@ -59,6 +59,9 @@ public class OutlookSessionSendTests
                 "Recipients.ResolveAll()",
                 "ReplyRecipients.Add(sekretariat.lodz@contoso.test)",
                 "MailItem.Subject=Czy skrzynka „Sekretariat IT” jest nadal potrzebna?",
+                "Attachments.Add(logo.png,1,0,logo.png)",
+                "Attachment.PropertyAccessor.SetProperty(" + MapiProperties.AttachContentId + ")",
+                "Attachment.PropertyAccessor.SetProperty(" + MapiProperties.AttachmentHidden + ")",
                 "MailItem.HTMLBody=",
                 "MailItem.ReadReceiptRequested=True",
                 "MailItem.DeferredDeliveryTime=2026-10-29 08:00",
@@ -67,9 +70,6 @@ public class OutlookSessionSendTests
                 "MailItem.PropertyAccessor.SetProperty(" + MapiProperties.Campaign + ")",
                 "MailItem.PropertyAccessor.SetProperty(" + MapiProperties.Keys + ")",
                 "MailItem.PropertyAccessor.SetProperty(" + MapiProperties.Header("Auto-Submitted") + ")",
-                "Attachments.Add(logo.png,1,0,logo.png)",
-                "Attachment.PropertyAccessor.SetProperty(" + MapiProperties.AttachContentId + ")",
-                "Attachment.PropertyAccessor.SetProperty(" + MapiProperties.AttachmentHidden + ")",
                 "Attachments.Add(umowa.pdf,-,-,-)",
                 "MailItem.Save()",
                 "Attachments[1]",
@@ -126,6 +126,44 @@ public class OutlookSessionSendTests
         // Content id and hidden flag are set when the image is added and again after the save (MailerWPiA).
         Assert.Equal(6, harness.Log.CallsOf("Attachment.PropertyAccessor.SetProperty(" + MapiProperties.AttachContentId).Count);
         Assert.Equal(2, mail.SaveCount);
+        Assert.Empty(harness.TempFolders());
+    }
+
+    [Fact]
+    public async Task SendAsync_TheImagesAreAttachedBeforeTheBody_AndTheSavedItemStillShowsThem()
+    {
+        await using var harness = new OutlookHarness();
+        var session = await harness.ConnectAsync();
+        var logo = OutlookHarness.Image(0x40, "logo.png");
+        var message = OutlookHarness.Message() with { HtmlBody = $"<p>Logo: <img src=\"cid:{logo.ContentId}\"></p>", InlineImages = [logo] };
+
+        var result = await session.SendAsync(message, OutlookSendMode.Send, Ct);
+
+        Assert.True(result.Succeeded);
+        var calls = harness.Log.CallsOf("Attachments.Add", "MailItem.HTMLBody=");
+        Assert.Equal(["Attachments.Add(logo.png,1,0,logo.png)", "MailItem.HTMLBody="], calls);
+        Assert.True(Assert.Single(harness.Application.Created).WasSent);
+    }
+
+    [Fact]
+    public async Task SendAsync_ImagesOutlookDroppedFromTheSavedBody_AreSetAgainOnce_ThenTheMessageIsNotSentWithoutThem()
+    {
+        await using var harness = new OutlookHarness();
+        var session = await harness.ConnectAsync();
+        var logo = OutlookHarness.Image(0x50, "logo.png");
+        // This Outlook keeps rewriting the saved HTML without the image.
+        harness.Application.ConfigureItem = mail => mail.RenderedHtml = "<html><body><p>Logo:</p></body></html>";
+        var message = OutlookHarness.Message() with { HtmlBody = $"<p>Logo: <img src=\"cid:{logo.ContentId}\"></p>", InlineImages = [logo] };
+
+        var result = await session.SendAsync(message, OutlookSendMode.Send, Ct);
+
+        Assert.False(result.Succeeded);
+        Assert.True(result.SavedAsDraft);
+        Assert.Equal((OutlookFailureKind.ImagesNotEmbedded, "outlook.images", "inline"), (result.Failure!.Kind, result.Failure.Code, result.Failure.Step));
+        var mail = Assert.Single(harness.Application.Created);
+        Assert.False(mail.WasSent);
+        Assert.Equal(2, harness.Log.CallsOf("MailItem.HTMLBody=").Count);   // the body was set once more before giving up
+        Assert.Equal(4, mail.SaveCount);
         Assert.Empty(harness.TempFolders());
     }
 

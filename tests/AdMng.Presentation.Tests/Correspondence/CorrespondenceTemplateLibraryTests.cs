@@ -223,6 +223,41 @@ public sealed class CorrespondenceTemplateLibraryTests : IDisposable
     }
 
     [Fact]
+    public async Task BuiltIn_TheOperatorsVersion_ReplacesIt_KeepsItsImagesAndDeadline_UntilRestored()
+    {
+        var id = CorrespondenceTemplateLibrary.MailboxStillNeededId;
+        var standard = _library.Find(id)!;
+        Assert.False(_library.IsCustomized(id));
+        var mine = CorrespondenceTemplateLibrary.Copy(standard);
+        mine.Name = "Inna nazwa";
+        mine.Subject = "Czy skrzynka {{Skrzynka}} jest nadal potrzebna? – Dział IT";
+        mine.BodyHtml = standard.BodyHtml + $"<p><img src=\"cid:{Logo.ContentId}\" alt=\"herb\"></p>";
+        mine.GroupByAddress = true;
+        mine.CustomFields = [.. mine.CustomFields!.Select(f => f.Kind == CustomFieldKind.Date ? f with { Value = "2020-01-01" } : f)];
+
+        var saved = await _library.SaveBuiltInAsync(id, mine, [Logo]);
+
+        Assert.True(_library.IsCustomized(id));
+        Assert.Equal((id, standard.Name, false), (saved.Id, saved.Name, saved.GroupByAddress));   // the built-in's id, name and grouping
+        Assert.Equal(mine.Subject, _library.Find(id)!.Subject);
+        Assert.Equal(mine.Subject, _library.BuiltIns.Single(t => t.Id == id).Subject);
+        Assert.Empty(_library.Saved);
+        // The deadline still counts from the day it is loaded, not the day it was saved.
+        Assert.Equal(standard.CustomFields!.Single(f => f.Kind == CustomFieldKind.Date).Value,
+            _library.Find(id)!.CustomFields!.Single(f => f.Kind == CustomFieldKind.Date).Value);
+        var images = await _library.LoadImagesAsync(_library.Find(id)!, TestContext.Current.CancellationToken);
+        Assert.Equal(Logo.Data, images[Logo.ContentId].Data);
+        Assert.Contains(MessageImageStore.ReferencedImages(_settings.Current), i => i.ContentId == Logo.ContentId);   // never collected
+        Assert.False(_library.IsCustomized(CorrespondenceTemplateLibrary.MailboxStillNeededGroupedId));   // the other built-in is untouched
+        Assert.Equal("Weryfikacja skrzynek pocztowych", _library.Find(CorrespondenceTemplateLibrary.MailboxStillNeededGroupedId)!.Subject);
+
+        await _library.RestoreBuiltInAsync(id);
+        Assert.False(_library.IsCustomized(id));
+        Assert.Equal(standard.Subject, _library.Find(id)!.Subject);
+        await Assert.ThrowsAsync<ArgumentException>(() => _library.SaveBuiltInAsync("nieznany", mine));
+    }
+
+    [Fact]
     public async Task Save_RefusesTemplatesBeyondTheLimit()
     {
         await _settings.UpdateAsync(s => s.Correspondence.Templates.AddRange(

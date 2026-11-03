@@ -163,13 +163,14 @@ public sealed class MessageImageStore
     }
 
     /// <summary>Every image the settings reference: the templates of messages to users (U1c), the templates of
-    /// Korespondencja and its last draft (U5).</summary>
+    /// Korespondencja, its versions of the built-ins and its last draft (U5).</summary>
     public static IEnumerable<MessageTemplateImage> ReferencedImages(AppSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
         var userMessages = (settings.UserMessages?.Templates ?? []).Where(t => t is not null).SelectMany(t => t.Images ?? []);
         var correspondence = settings.Correspondence is { } c
-            ? (c.Templates ?? []).Append(c.LastDraft).Where(t => t is not null).SelectMany(t => t!.Images ?? [])
+            ? (c.Templates ?? []).Append(c.LastDraft).Concat((c.BuiltInOverrides ?? []).Values)
+                .Where(t => t is not null).SelectMany(t => t!.Images ?? [])
             : [];
         return userMessages.Concat(correspondence).Where(i => i is not null);
     }

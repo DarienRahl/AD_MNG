@@ -68,6 +68,7 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
     private bool _refreshingSignatures;
     private bool _changingTemplate;
     private bool _applyingStyle;
+    private bool _replaceWithoutAsking;
 
     /// <param name="services">The window's services.</param>
     /// <param name="correspondence">The Korespondencja services.</param>
@@ -282,7 +283,7 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
     /// <summary>Loading asks first when the page holds a message the template would replace – not over a built-in as it was
     /// loaded (<see cref="HeldBuiltIn"/>), whose deadline chosen the other built-in keeps.</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(DeleteTemplateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeleteTemplateCommand), nameof(SaveBuiltInTemplateCommand), nameof(RestoreBuiltInTemplateCommand))]
     public partial TemplateOption? SelectedTemplate { get; set; }
 
     [ObservableProperty]
@@ -707,7 +708,10 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
         Templates = [.. Correspondence.Templates.All.Select(t =>
         {
             var builtIn = CorrespondenceTemplateLibrary.IsBuiltIn(t.Id);
-            return new TemplateOption(t.Id, builtIn ? Localizer.Format(L.CorrespondenceMessage.BuiltInTemplate, t.Name) : t.Name, builtIn);
+            var text = !builtIn ? t.Name
+                : Correspondence.Templates.IsCustomized(t.Id) ? Localizer.Format(L.CorrespondenceMessage.BuiltInTemplateCustomized, t.Name)
+                : Localizer.Format(L.CorrespondenceMessage.BuiltInTemplate, t.Name);
+            return new TemplateOption(t.Id, text, builtIn);
         })];
         ChangeSelectedTemplate(Templates.FirstOrDefault(t => t.Id == selected));
         ExportTemplatesCommand.NotifyCanExecuteChanged();
@@ -813,7 +817,7 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
         var holdsMessage = (!IsBodyEmpty || !string.IsNullOrWhiteSpace(Subject)) && (held is null || (valuesChanged && !keepValues));
         var differs = !SameText(Subject, template.Subject) || !SameText(BodyHtml, template.BodyHtml)
                       || !SameText(ListItemTemplate, template.ListItemTemplate) || !SameFields(kept, AsLoaded(template.CustomFields), values: true);
-        if (holdsMessage && differs && !await Services.Dialogs.ConfirmAsync(
+        if (holdsMessage && differs && !_replaceWithoutAsking && !await Services.Dialogs.ConfirmAsync(
                 Localizer[L.CorrespondenceMessage.TemplatesTitle],
                 Localizer.Format(L.CorrespondenceMessage.ReplaceMessage, template.Name),
                 destructive: false).ConfigureAwait(true))
@@ -1496,6 +1500,80 @@ public sealed partial class MessagePageViewModel : ObservableObject, IRichEditor
     }
 
     private bool CanDeleteTemplate() => SelectedTemplate is { IsBuiltIn: false };
+
+    private bool CanSaveBuiltInTemplate() => SelectedTemplate is { IsBuiltIn: true };
+
+    /// <summary>"Zapisz jako szablon wbudowany": the message on the page replaces the chosen built-in (asking first).</summary>
+    [RelayCommand(CanExecute = nameof(CanSaveBuiltInTemplate))]
+    private async Task SaveBuiltInTemplateAsync()
+    {
+        if (SelectedTemplate is not { IsBuiltIn: true } selected || Correspondence.Templates.Find(selected.Id) is not { } builtIn)
+        {
+            return;
+        }
+
+        var title = Localizer[L.CorrespondenceMessage.TemplatesTitle];
+        if (!await Services.Dialogs.ConfirmAsync(title, Localizer.Format(L.CorrespondenceMessage.SaveBuiltInConfirm, builtIn.Name), destructive: false).ConfigureAwait(true))
+        {
+            return;
+        }
+
+        try
+        {
+            await Correspondence.Templates.SaveBuiltInAsync(selected.Id, ToTemplate(builtIn.Name), BodyImages.Values).ConfigureAwait(true);
+            RefreshTemplates();
+            ChangeSelectedTemplate(Templates.FirstOrDefault(t => t.Id == selected.Id));
+            RestoreBuiltInTemplateCommand.NotifyCanExecuteChanged();
+            Services.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.CorrespondenceMessage.BuiltInSaved, builtIn.Name));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            await Services.Dialogs.ShowErrorAsync(title, Localizer.Format(L.CorrespondenceMessage.FileFailed, Services.Errors.Translate(ex))).ConfigureAwait(true);
+        }
+    }
+
+    private bool CanRestoreBuiltInTemplate() => SelectedTemplate is { IsBuiltIn: true } selected && Correspondence.Templates.IsCustomized(selected.Id);
+
+    /// <summary>"Przywróć domyślny": the chosen built-in is the default one again and is loaded (asking first).</summary>
+    [RelayCommand(CanExecute = nameof(CanRestoreBuiltInTemplate))]
+    private async Task RestoreBuiltInTemplateAsync()
+    {
+        if (SelectedTemplate is not { IsBuiltIn: true } selected || Correspondence.Templates.Find(selected.Id) is not { } builtIn)
+        {
+            return;
+        }
+
+        var title = Localizer[L.CorrespondenceMessage.TemplatesTitle];
+        if (!await Services.Dialogs.ConfirmAsync(title, Localizer.Format(L.CorrespondenceMessage.RestoreBuiltInConfirm, builtIn.Name), destructive: true).ConfigureAwait(true))
+        {
+            return;
+        }
+
+        try
+        {
+            // The page holding the operator's version as it was saved: the default replaces it without a second question.
+            var heldVersion = string.Equals(HeldBuiltIn(out _), selected.Id, StringComparison.Ordinal);
+            await Correspondence.Templates.RestoreBuiltInAsync(selected.Id).ConfigureAwait(true);
+            RefreshTemplates();
+            ChangeSelectedTemplate(null);
+            _replaceWithoutAsking = heldVersion;
+            try
+            {
+                await LoadTemplateAsync(selected.Id).ConfigureAwait(true);
+            }
+            finally
+            {
+                _replaceWithoutAsking = false;
+            }
+
+            RestoreBuiltInTemplateCommand.NotifyCanExecuteChanged();
+            Services.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.CorrespondenceMessage.BuiltInRestored, builtIn.Name));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            await Services.Dialogs.ShowErrorAsync(title, Localizer.Format(L.CorrespondenceMessage.FileFailed, Services.Errors.Translate(ex))).ConfigureAwait(true);
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanDeleteTemplate))]
     private async Task DeleteTemplateAsync()

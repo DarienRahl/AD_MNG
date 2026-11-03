@@ -12524,6 +12524,9 @@ Użyj przycisku „Sprawdź Outlooka” – pokaże wersję, profil, konta i pod
   <data name="Correspondence.Outlook.Code.outlook.tooLarge" xml:space="preserve">
     <value>Wiadomość jest za duża dla skrzynki lub serwera.</value>
   </data>
+  <data name="Correspondence.Outlook.Code.outlook.images" xml:space="preserve">
+    <value>Outlook nie osadził obrazów wiadomości (treść wskazuje obrazy, których element nie zawiera); wiadomości nie wysłano – jest w Wersjach roboczych.</value>
+  </data>
   <data name="Correspondence.Outlook.Code.outlook.cancelled" xml:space="preserve">
     <value>Przerwano.</value>
   </data>
@@ -12658,6 +12661,9 @@ Użyj przycisku „Sprawdź Outlooka” – pokaże wersję, profil, konta i pod
   </data>
   <data name="UserMessages.Code.outlook.tooLarge" xml:space="preserve">
     <value>Wiadomość jest za duża dla Outlooka.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.images" xml:space="preserve">
+    <value>Outlook nie osadził obrazów wiadomości; nie wysłano jej (jest w Wersjach roboczych).</value>
   </data>
   <data name="UserMessages.Code.outlook.cancelled" xml:space="preserve">
     <value>Przerwano.</value>
@@ -13327,6 +13333,21 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="Correspondence.Message.BuiltInTemplate" xml:space="preserve">
     <value>{0} (wbudowany)</value>
+  </data>
+  <data name="Correspondence.Message.BuiltInTemplateCustomized" xml:space="preserve">
+    <value>{0} (wbudowany, zmieniony)</value>
+  </data>
+  <data name="Correspondence.Message.SaveBuiltInConfirm" xml:space="preserve">
+    <value>Zastąpić szablon wbudowany „{0}” wiadomością z tej strony (temat, treść, obrazy, pola, element listy, głosowanie, czcionka)? Strona właścicieli skrzynek będzie wczytywać tę wersję. „Przywróć domyślny” przywraca oryginał.</value>
+  </data>
+  <data name="Correspondence.Message.BuiltInSaved" xml:space="preserve">
+    <value>Zapisano szablon wbudowany „{0}”.</value>
+  </data>
+  <data name="Correspondence.Message.RestoreBuiltInConfirm" xml:space="preserve">
+    <value>Przywrócić domyślną wersję szablonu wbudowanego „{0}”? Twoja wersja zostanie usunięta.</value>
+  </data>
+  <data name="Correspondence.Message.BuiltInRestored" xml:space="preserve">
+    <value>Szablon wbudowany „{0}” jest znowu domyślny.</value>
   </data>
   <data name="Correspondence.Message.TemplatesTitle" xml:space="preserve">
     <value>Szablony korespondencji</value>
@@ -14209,6 +14230,15 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="Correspondence.App.Message.BccChunk" xml:space="preserve">
     <value>Odbiorców w UDW na wiadomość (1–500)</value>
+  </data>
+  <data name="Correspondence.App.Message.SaveBuiltIn" xml:space="preserve">
+    <value>Zapisz jako szablon wbudowany</value>
+  </data>
+  <data name="Correspondence.App.Message.SaveBuiltInHint" xml:space="preserve">
+    <value>Wybierz powyżej szablon wbudowany, zmień go i zapisz: Twoja wersja zastąpi wbudowany (także na stronie właścicieli skrzynek); termin nadal liczy się od dnia wczytania.</value>
+  </data>
+  <data name="Correspondence.App.Message.RestoreBuiltIn" xml:space="preserve">
+    <value>Przywróć domyślny</value>
   </data>
   <data name="Correspondence.App.Message.CopyTo" xml:space="preserve">
     <value>DW (do każdej wiadomości)</value>

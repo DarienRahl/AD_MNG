@@ -180,6 +180,9 @@ public static partial class L
         public const string MessageSendMode = "Correspondence.App.Message.SendMode";
         public const string MessageSendModeHint = "Correspondence.App.Message.SendModeHint";
         public const string MessageBccChunk = "Correspondence.App.Message.BccChunk";
+        public const string MessageSaveBuiltIn = "Correspondence.App.Message.SaveBuiltIn";
+        public const string MessageSaveBuiltInHint = "Correspondence.App.Message.SaveBuiltInHint";
+        public const string MessageRestoreBuiltIn = "Correspondence.App.Message.RestoreBuiltIn";
         public const string MessageCopyTo = "Correspondence.App.Message.CopyTo";
         public const string MessageBlindCopyTo = "Correspondence.App.Message.BlindCopyTo";
         public const string MessageCopiesHint = "Correspondence.App.Message.CopiesHint";

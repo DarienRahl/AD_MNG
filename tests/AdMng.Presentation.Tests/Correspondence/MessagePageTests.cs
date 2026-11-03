@@ -613,6 +613,38 @@ public sealed class MessagePageTests
     }
 
     [Fact]
+    public async Task Templates_ABuiltInChanged_AndSavedAsTheBuiltIn_IsWhatTheMailboxPageLoads_UntilRestored()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var window = await scenario.OpenAsync();
+        var message = window.Message;
+        Assert.True(await message.LoadTemplateAsync(CorrespondenceTemplateLibrary.MailboxStillNeededId));
+        Assert.True(message.SaveBuiltInTemplateCommand.CanExecute(null));
+        Assert.False(message.RestoreBuiltInTemplateCommand.CanExecute(null));
+        message.Subject = "Skrzynka {{Skrzynka}} – prosimy o decyzję do {{Termin}}";
+
+        scenario.Ui.ConfirmAnswers.Enqueue(true);
+        await message.SaveBuiltInTemplateCommand.ExecuteAsync(null);
+
+        Assert.StartsWith("confirm:Zastąpić szablon wbudowany „Weryfikacja skrzynki pocztowej (wiadomość na każdą skrzynkę)”", scenario.Ui.Shown[^1], StringComparison.Ordinal);
+        Assert.Equal("Weryfikacja skrzynki pocztowej (wiadomość na każdą skrzynkę) (wbudowany, zmieniony)", message.SelectedTemplate?.Text);
+        Assert.True(message.RestoreBuiltInTemplateCommand.CanExecute(null));
+        Assert.Empty(scenario.Templates.Saved);
+
+        // The mailbox owner page now loads the operator's version.
+        scenario.Ui.ConfirmAnswers.Enqueue(true);
+        await message.NewMessageCommand.ExecuteAsync(null);
+        await message.UseMailboxTemplateAsync(groupByOwner: false);
+        Assert.Equal("Skrzynka {{Skrzynka}} – prosimy o decyzję do {{Termin}}", message.Subject);
+
+        scenario.Ui.ConfirmAnswers.Enqueue(true);
+        await message.RestoreBuiltInTemplateCommand.ExecuteAsync(null);
+        Assert.Equal("Weryfikacja skrzynki pocztowej: {{Skrzynka}}", message.Subject);
+        Assert.Equal("Weryfikacja skrzynki pocztowej (wiadomość na każdą skrzynkę) (wbudowany)", message.SelectedTemplate?.Text);
+        Assert.False(message.RestoreBuiltInTemplateCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task Templates_TheOtherBuiltIn_KeepsTheDeadlineChosen_WithoutAQuestion()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();

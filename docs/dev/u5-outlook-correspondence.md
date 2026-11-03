@@ -1426,3 +1426,22 @@ differs from sections 1–13 or goes beyond them.
   missing.
 - The hints `Correspondence.App.Recipients.DirectoryFieldsHint` and `Correspondence.App.Mailboxes.FieldsHint` show the
   example expressions with double braces (`{{givenName}}`); field expressions use the U1 syntax with single braces.
+
+## 0.9.1 – images, DW/UDW, the operator's built-ins
+
+* **Images.** The operator reported images (signature, pasted, from a template) not arriving. Every code path from the
+  editor, the signature parser and the template store to `OutlookMessage.InlineImages` keeps the content ids (checked
+  hypothesis by hypothesis); the one difference from the documented Outlook recipe was the order: the body was set before
+  the images it references existed. `OutlookMailBuilder.Send` and `Render` now add the images (content id, hidden) first
+  and set `HTMLBody` after them. After the saves `EnsureInlineImages` reads the saved HTML and the attachments' content
+  ids: when an image the original HTML references is no longer shown, the body is set once more and the images marked
+  again; still lost, the message fails with `OutlookFailureKind.ImagesNotEmbedded` (`outlook.images`, step `inline`) and
+  stays a draft – it is never sent without its images. Unreadable content ids (the object model guard) skip the check.
+* **DW and UDW** of every message: `CorrespondenceSendOptions.Cc`/`Bcc`, from two fields of the message page
+  (`EmailAddressText.ParseList`, at most `CorrespondenceLimits.MaxCopies` together), remembered with the options; not for
+  the test to self, not in the journal; in the BCC mode the chunk shrinks by the UDW addresses.
+* **The operator's built-ins.** `CorrespondenceSettings.BuiltInOverrides` (by built-in id) holds the operator's version of
+  a built-in ("Zapisz jako szablon wbudowany"); the library returns it for the built-in's id – name and grouping the
+  built-in's, date fields named like the default's (the deadline) with today's default – so the mailbox owner page loads
+  it. "Przywróć domyślny" removes it. Its images count for the image store's garbage collection; it is not exported.
+
