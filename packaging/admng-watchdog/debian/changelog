@@ -1,6 +1,15 @@
 admng-watchdog (@VERSION@) unstable; urgency=medium
 
   * No change in how the service works and no database migration.
+  * Rebuilt for AD Manager 0.9.0: the Group Policy modelling ("what will
+    the computer get") is an AD Manager feature that does not use the
+    service; the gPLink parser the service shares with it is unchanged.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Tue, 03 Nov 2026 09:00:00 +0000
+
+admng-watchdog (0.8.0-1) unstable; urgency=medium
+
+  * No change in how the service works and no database migration.
   * The Registry.pol reader of the GPO settings snapshots is now shared
     with AD Manager's administrative templates editor (the same checks:
     PReg signature and version, terminated strings, data within the file);
