@@ -4,8 +4,9 @@ using AdMng.Core.Directory;
 namespace AdMng.Testing;
 
 /// <summary>
-/// In-memory <see cref="IRemoteComputerClient"/> (K1): per host a scripted computer (system, users, services) or a failure,
-/// and the record of every call with the host, the session's DC and identity and the arguments (restart message verbatim).
+/// In-memory <see cref="IRemoteComputerClient"/> (K1): per host a scripted computer (system, users, services, scheduled
+/// tasks) or a failure, and the record of every call with the host, the session's DC and identity and the arguments
+/// (restart message verbatim).
 /// </summary>
 public sealed class FakeRemoteComputerClient : IRemoteComputerClient
 {
@@ -86,6 +87,12 @@ public sealed class FakeRemoteComputerClient : IRemoteComputerClient
             return computer.Services;
         }
 
+        public async Task<IReadOnlyList<RemoteScheduledTask>> GetScheduledTasksAsync(CancellationToken cancellationToken)
+        {
+            await StepAsync("ScheduledTasks", null, cancellationToken).ConfigureAwait(false);
+            return [.. computer.ScheduledTasks];
+        }
+
         public async Task<GroupPolicyRefreshResult> RefreshGroupPolicyAsync(GroupPolicyRefreshTarget target, CancellationToken cancellationToken)
         {
             await StepAsync("RefreshGroupPolicy", target.ToString(), cancellationToken).ConfigureAwait(false);
@@ -139,6 +146,8 @@ public sealed class FakeRemoteComputer
     public List<LoggedOnUser> Users { get; } = [];
 
     public List<RemoteService> Services { get; } = [];
+
+    public List<RemoteScheduledTask> ScheduledTasks { get; } = [];
 
     public GroupPolicyRefreshResult PolicyResult { get; set; } = new(true, new DateTimeOffset(2026, 10, 27, 9, 1, 0, TimeSpan.Zero), 0, false);
 

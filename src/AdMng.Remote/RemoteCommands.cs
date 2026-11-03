@@ -17,6 +17,22 @@ internal static class RemoteCommands
 
     public const string TaskSchedulerNamespace = "root/Microsoft/Windows/TaskScheduler";
 
+    /// <summary>The scheduled tasks of the Task Scheduler CIM provider (Windows 8 / Server 2012 and later).</summary>
+    public const string ScheduledTaskClass = "MSFT_ScheduledTask";
+
+    /// <summary>
+    /// What is copied of a MSFT_ScheduledTask: plain values (null) and the properties of the embedded principal and
+    /// settings – never Actions (command lines and arguments may carry secrets) or Triggers.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string[]?> ScheduledTaskProperties = new Dictionary<string, string[]?>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["TaskPath"] = null,
+        ["TaskName"] = null,
+        ["State"] = null,
+        ["Principal"] = ["UserId", "LogonType"],
+        ["Settings"] = ["Enabled"],
+    };
+
     /// <summary>
     /// Win32_Process.Create of the computer policy refresh. gpupdate returns at once (no wait) and the Group Policy state
     /// is polled for a new end time; the process itself ends before the processing does.

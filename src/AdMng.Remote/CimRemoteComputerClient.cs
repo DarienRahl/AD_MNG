@@ -111,6 +111,24 @@ internal sealed class CimRemoteSession(CimSession cim, SessionLogon logon, Remot
     });
 
     /// <summary>
+    /// Every MSFT_ScheduledTask (all folders) through the Task Scheduler CIM provider; only the path, name, state, principal
+    /// and the Enabled setting are copied (never actions or arguments, which may carry secrets).
+    /// </summary>
+    public Task<IReadOnlyList<RemoteScheduledTask>> GetScheduledTasksAsync(CancellationToken cancellationToken) => RunAsync<IReadOnlyList<RemoteScheduledTask>>(cancellationToken, operation =>
+    {
+        var tasks = new List<RemoteScheduledTask>();
+        foreach (var instance in cim.EnumerateInstances(RemoteCommands.TaskSchedulerNamespace, RemoteCommands.ScheduledTaskClass, operation))
+        {
+            using (instance)
+            {
+                tasks.Add(CimMapping.ScheduledTask(CimCalls.Select(instance, RemoteCommands.ScheduledTaskProperties)));
+            }
+        }
+
+        return tasks;
+    });
+
+    /// <summary>
     /// gpupdate /wait:0 returns at once while the Group Policy service keeps processing, so the end time of the computer
     /// policy processing is read before the launch and polled until a later one appears (<see cref="PolicyRefreshWatch"/>).
     /// The default /wait is not used: gpupdate could block on a restart/logoff prompt nobody answers in session 0.
@@ -288,6 +306,32 @@ internal static class CimCalls
         foreach (var property in instance.CimInstanceProperties)
         {
             bag[property.Name] = property.Value;
+        }
+
+        return bag;
+    }
+
+    /// <summary>
+    /// The named properties of <paramref name="instance"/> (name → names of the embedded instance's properties to copy, or
+    /// null for a plain value); an embedded instance becomes a nested property bag and is disposed.
+    /// </summary>
+    public static IReadOnlyDictionary<string, object?> Select(CimInstance instance, IReadOnlyDictionary<string, string[]?> properties)
+    {
+        var bag = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, embedded) in properties)
+        {
+            var value = instance.CimInstanceProperties[name]?.Value;
+            if (value is CimInstance nested)
+            {
+                using (nested)
+                {
+                    bag[name] = embedded is null ? null : Select(nested, embedded.ToDictionary(n => n, _ => (string[]?)null, StringComparer.OrdinalIgnoreCase));
+                }
+            }
+            else
+            {
+                bag[name] = embedded is null ? value : null;
+            }
         }
 
         return bag;

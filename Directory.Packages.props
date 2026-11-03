@@ -36,4 +36,8 @@
   <ItemGroup Label="AD Manager – computers (K1)">
     <PackageVersion Include="Microsoft.Management.Infrastructure" Version="3.0.0" />
   </ItemGroup>
+  <ItemGroup Label="AD Manager – event logs (E)">
+    <!-- System.Diagnostics.Eventing.Reader (EventLogSession, MS-EVEN6) for AdMng.EventLogs; Windows only at run time. -->
+    <PackageVersion Include="System.Diagnostics.EventLog" Version="10.0.13" />
+  </ItemGroup>
 </Project>
