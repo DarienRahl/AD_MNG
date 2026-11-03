@@ -37,13 +37,13 @@ public sealed class LongPollShutdownTests
             ["Watchdog:Directory:Disabled"] = "true",
             ["Watchdog:Authorization:ViewerSids:0"] = TestRoles.ViewerGroup,
         };
-        await using var app = WatchdogHost.Build(["--environment", "Development"], builder =>
+        await using var app = HostBuildLock.Build(() => WatchdogHost.Build(["--environment", "Development"], builder =>
         {
             builder.Configuration.AddInMemoryCollection(settings);
             builder.Services.AddSingleton<TimeProvider>(clock);
             builder.Services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
             builder.Services.AddAuthentication().AddScheme<TestAuthenticationOptions, TestAuthenticationHandler>(AuthenticationSetup.TestScheme, null);
-        });
+        }));
         await app.StartAsync(Ct);
         var address = new Uri(app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.First());
         var first = await app.Services.GetRequiredService<SqliteWatchdogStore>().AppendAsync(TestData.Event(WatchEventKind.UserCreated, TestData.User("Zofia Żak")), Ct);
