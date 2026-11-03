@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Contracts;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Attribution;
@@ -116,7 +117,7 @@ internal static class CollectorReplay
             {
                 Settings = configuration.Attribution,
                 Reduction = await h.Reductions.CreateAsync(configuration, cancellationToken),
-                IsKnownDomainController = c => HostNames.AreEqual(c, Dc1) || HostNames.AreEqual(c, Dc2),
+                IsKnownDomainController = c => EventHostNames.AreEqual(c, Dc1) || EventHostNames.AreEqual(c, Dc2),
                 Domain = "contoso.test",
             },
             Identity = Identity(),

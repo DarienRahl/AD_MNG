@@ -1,3 +1,4 @@
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Model;
 using EventAttribution = AdMng.Watchdog.Contracts.Events.Attribution;
@@ -32,7 +33,7 @@ public sealed class EventLogOnlyDetector(ActorResolver actors, TimeProvider time
 
         var now = timeProvider.GetUtcNow();
         var id = RecordEventIds.Create(record, detected.ToString());   // the same record always yields the same event
-        var host = HostNames.Normalize(record.Computer);
+        var host = EventHostNames.Normalize(record.Computer);
         var watchEvent = new WatchEvent
         {
             EventId = id,

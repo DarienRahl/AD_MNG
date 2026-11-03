@@ -1,4 +1,5 @@
 using System.Net;
+using AdMng.Core.EventLogs;
 
 namespace AdMng.Watchdog.Core.Attribution;
 
@@ -61,7 +62,7 @@ public sealed class CollectorIdentityPolicy
         Realm = realm.Trim().TrimEnd('.').ToUpperInvariant();
         foreach (var dc in domainControllers)
         {
-            _byAccount[dc.AccountName.Trim() + "@" + Realm] = dc with { HostName = HostNames.Normalize(dc.HostName), Addresses = [.. dc.Addresses.Select(Canonical)] };
+            _byAccount[dc.AccountName.Trim() + "@" + Realm] = dc with { HostName = EventHostNames.Normalize(dc.HostName), Addresses = [.. dc.Addresses.Select(Canonical)] };
         }
 
         _additional = [.. additionalAddresses.Select(Canonical)];
@@ -123,13 +124,13 @@ public sealed class CollectorIdentityPolicy
     {
         ArgumentNullException.ThrowIfNull(record);
         ArgumentNullException.ThrowIfNull(dc);
-        if (!HostNames.AreEqual(record.Event.Computer, dc.HostName))
+        if (!EventHostNames.AreEqual(record.Event.Computer, dc.HostName))
         {
             return CollectorRejection.Computer;
         }
 
         return string.Equals(record.Channel, SecurityChannel, StringComparison.OrdinalIgnoreCase)
-            && EventSourceGuard.Accept(record, computer => HostNames.AreEqual(computer, dc.HostName))
+            && EventSourceGuard.Accept(record, computer => EventHostNames.AreEqual(computer, dc.HostName))
             ? CollectorRejection.None
             : CollectorRejection.Channel;
     }

@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using System.Security;
 using AdMng.Watchdog.Core.Abstractions;
-using AdMng.Watchdog.Core.Attribution;
+using EventHostNames = AdMng.Core.EventLogs.EventHostNames;
 
 namespace AdMng.Watchdog.Service.Attribution;
 
@@ -29,7 +29,7 @@ public sealed class WindowsSecurityEventSource : ISecurityEventSource
     public static EventLogSession OpenSession(string host)
     {
         ArgumentException.ThrowIfNullOrEmpty(host);
-        if (!HostNames.IsHostName(HostNames.Normalize(host)))
+        if (!EventHostNames.IsHostName(EventHostNames.Normalize(host)))
         {
             throw new SecurityLogAccessException(host, InvalidHostNameError, "The event log host must be a DNS host name.");
         }

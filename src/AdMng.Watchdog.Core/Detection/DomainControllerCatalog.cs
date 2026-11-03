@@ -1,4 +1,5 @@
 using AdMng.Core.Directory;
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Attribution;
 
@@ -72,7 +73,7 @@ public sealed class DomainControllerCatalog : IDomainControllerCatalog
     {
         if (_directory.ResolveHost(invocationId) is { } host)
         {
-            return HostNames.Normalize(host);
+            return EventHostNames.Normalize(host);
         }
 
         var refreshedAt = _directory.RefreshedAt;
@@ -81,7 +82,7 @@ public sealed class DomainControllerCatalog : IDomainControllerCatalog
             await EnsureReadAsync(force: true, cancellationToken).ConfigureAwait(false);
         }
 
-        return _directory.ResolveHost(invocationId) is { } refreshed ? HostNames.Normalize(refreshed) : null;
+        return _directory.ResolveHost(invocationId) is { } refreshed ? EventHostNames.Normalize(refreshed) : null;
     }
 
     /// <inheritdoc/>
@@ -90,14 +91,14 @@ public sealed class DomainControllerCatalog : IDomainControllerCatalog
         await EnsureReadAsync(force: false, cancellationToken).ConfigureAwait(false);
         if (_directory.PdcHostName is { } pdc)
         {
-            return HostNames.Normalize(pdc);
+            return EventHostNames.Normalize(pdc);
         }
 
         return IsAuthoritative ? null : await _fallback.GetPdcHostAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static List<string> Hosts(IEnumerable<KnownDomainController> controllers) =>
-        [.. controllers.Where(d => d.HostName is not null).Select(d => HostNames.Normalize(d.HostName!)).Distinct(StringComparer.Ordinal)];
+        [.. controllers.Where(d => d.HostName is not null).Select(d => EventHostNames.Normalize(d.HostName!)).Distinct(StringComparer.Ordinal)];
 
     /// <summary>Reads the DC list when it was never read or is older than <see cref="DomainControllerDirectory.RefreshInterval"/>
     /// (<paramref name="force"/>: now). Directory errors keep the last known list (the detection cycle reports them).</summary>

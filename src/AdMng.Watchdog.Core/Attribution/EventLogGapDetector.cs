@@ -1,3 +1,4 @@
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Model;
@@ -77,7 +78,7 @@ public sealed class EventLogGapDetector(TimeProvider timeProvider)
         ArgumentException.ThrowIfNullOrWhiteSpace(host);
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
         var now = timeProvider.GetUtcNow();
-        var key = (HostNames.Normalize(host), reason);
+        var key = (EventHostNames.Normalize(host), reason);
         lock (_gate)
         {
             if (_raised.TryGetValue(key, out var last) && now - last < RepeatAfter)

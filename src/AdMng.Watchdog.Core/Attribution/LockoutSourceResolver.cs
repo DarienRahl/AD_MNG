@@ -1,3 +1,4 @@
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
@@ -93,7 +94,7 @@ public sealed class LockoutSourceResolver(ISecurityEventStore store, ISecurityEv
 
         var dcs = await domainControllers.GetKnownDomainControllersAsync(cancellationToken).ConfigureAwait(false);
         return dcs.Any(dc => string.Equals(dc.Split('.')[0], caller.Trim().TrimEnd('$'), StringComparison.OrdinalIgnoreCase)
-            || HostNames.AreEqual(dc, caller));
+            || EventHostNames.AreEqual(dc, caller));
     }
 
     private async Task<(List<SecurityEvent> Failures, bool Finished)> QueryFailuresAsync(SecurityEvent? lockoutRecord, string sam, DateTimeOffset from, DateTimeOffset to,
@@ -102,12 +103,12 @@ public sealed class LockoutSourceResolver(ISecurityEventStore store, ISecurityEv
         var dcs = new List<string>();
         if (await domainControllers.GetPdcHostAsync(cancellationToken).ConfigureAwait(false) is { } pdc)
         {
-            dcs.Add(HostNames.Normalize(pdc));
+            dcs.Add(EventHostNames.Normalize(pdc));
         }
 
-        if (lockoutRecord is not null && !dcs.Contains(HostNames.Normalize(lockoutRecord.Computer)))
+        if (lockoutRecord is not null && !dcs.Contains(EventHostNames.Normalize(lockoutRecord.Computer)))
         {
-            dcs.Add(HostNames.Normalize(lockoutRecord.Computer));
+            dcs.Add(EventHostNames.Normalize(lockoutRecord.Computer));
         }
 
         if (settings.Source == AttributionSourceKind.OpenWec && lookup is { IsAvailable: true })
@@ -134,7 +135,7 @@ public sealed class LockoutSourceResolver(ISecurityEventStore store, ISecurityEv
             var result = await gate.RunAsync(host, settings.SourceQueryTimeout, token => ReadAsync(host, query, token), cancellationToken).ConfigureAwait(false);
             if (result.Completed && result.Value is { } records)
             {
-                failures.AddRange(records.Where(r => !forwarded || dcs.Any(dc => HostNames.AreEqual(dc, r.Computer))));
+                failures.AddRange(records.Where(r => !forwarded || dcs.Any(dc => EventHostNames.AreEqual(dc, r.Computer))));
             }
             else
             {

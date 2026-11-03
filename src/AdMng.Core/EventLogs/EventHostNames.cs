@@ -1,9 +1,13 @@
 using System.Net;
 
-namespace AdMng.Watchdog.Core.Attribution;
+namespace AdMng.Core.EventLogs;
 
-/// <summary>DNS host names as attribution compares them: trimmed, lower-case, without a trailing dot.</summary>
-public static class HostNames
+/// <summary>
+/// DNS host names as event records and their readers compare them (<c>System/Computer</c>, DCs, collectors): trimmed,
+/// lower-case, without a trailing dot. Moved from the Watchdog's attribution, which uses it unchanged. Not to be confused
+/// with <see cref="Computers.Remote.HostNames"/> (the strict validation of remote-action targets).
+/// </summary>
+public static class EventHostNames
 {
     /// <summary>The normalized form of <paramref name="host"/>.</summary>
     public static string Normalize(string host)
@@ -21,7 +25,7 @@ public static class HostNames
     /// most 253 letters, digits, <c>.</c>, <c>-</c> or <c>_</c> with at least one letter, and not an IP literal in any
     /// form <see cref="IPAddress.TryParse(string?, out IPAddress?)"/> accepts (<c>10.0.0.5</c>, <c>0x7f000001</c>,
     /// <c>2130706433</c>, IPv6). Kerberos needs a host name (SPN); an IP literal would let the session fall back to NTLM
-    /// towards an arbitrary host (section 11.1).
+    /// towards an arbitrary host (Watchdog specification 11.1).
     /// </summary>
     public static bool IsHostName(string? host)
     {

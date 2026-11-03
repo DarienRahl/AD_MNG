@@ -1,3 +1,4 @@
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Contracts.Api;
 
 namespace AdMng.Watchdog.Core.Attribution;
@@ -217,7 +218,7 @@ public sealed class DcLogHealthTracker(TimeProvider timeProvider)
         return coverage < MinimumCoverage && state.Outcomes.Count >= MinimumCoverageSamples ? HealthState.Warning : HealthState.Ok;
     }
 
-    private static string Key(string host) => HostNames.Normalize(host);
+    private static string Key(string host) => EventHostNames.Normalize(host);
 
     private DcLogState State(string host)
     {

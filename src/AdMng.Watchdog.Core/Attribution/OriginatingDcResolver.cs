@@ -1,3 +1,4 @@
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 
@@ -26,7 +27,7 @@ public sealed class OriginatingDcResolver(IDomainControllerCatalog domainControl
         ArgumentNullException.ThrowIfNull(watchEvent);
         ArgumentNullException.ThrowIfNull(sources);
         ArgumentNullException.ThrowIfNull(settings);
-        var originatingDc = string.IsNullOrWhiteSpace(watchEvent.OriginatingDc) ? null : HostNames.Normalize(watchEvent.OriginatingDc);
+        var originatingDc = string.IsNullOrWhiteSpace(watchEvent.OriginatingDc) ? null : EventHostNames.Normalize(watchEvent.OriginatingDc);
         if (watchEvent.OriginatingTime is { } originating)
         {
             var single = originatingDc is not null && sources.Contains(originatingDc, StringComparer.OrdinalIgnoreCase);

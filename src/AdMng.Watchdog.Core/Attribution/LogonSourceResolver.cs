@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Globalization;
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
@@ -64,7 +65,7 @@ public sealed class LogonSourceResolver(ISecurityEventSource source, SourceQuery
             return null;
         }
 
-        var key = (HostNames.Normalize(host), HostNames.Normalize(evidence.Computer), logonId);
+        var key = (EventHostNames.Normalize(host), EventHostNames.Normalize(evidence.Computer), logonId);
         var now = timeProvider.GetUtcNow();
         if (_cache.TryGetValue(key, out var cached) && now - cached.At < CacheDuration && Covers(cached, evidence, settings))
         {
@@ -109,7 +110,7 @@ public sealed class LogonSourceResolver(ISecurityEventSource source, SourceQuery
             return null;
         }
 
-        var host = HostNames.Normalize(evidence.Computer);
+        var host = EventHostNames.Normalize(evidence.Computer);
         var key = (host, host, logonId);
         var now = timeProvider.GetUtcNow();
         if (_cache.TryGetValue(key, out var cached) && now - cached.At < CacheDuration && Covers(cached, evidence, settings))
@@ -154,7 +155,7 @@ public sealed class LogonSourceResolver(ISecurityEventSource source, SourceQuery
         }
 
         return at >= logonTime && at <= logonTime + settings.LogonLookback
-            && !(tracker?.LastShutdown(HostNames.Normalize(evidence.Computer)) > logonTime);
+            && !(tracker?.LastShutdown(EventHostNames.Normalize(evidence.Computer)) > logonTime);
     }
 
     /// <summary>One cached 4624 lookup: the source, when it was looked up, the logon time of a found session, and the
@@ -166,7 +167,7 @@ public sealed class LogonSourceResolver(ISecurityEventSource source, SourceQuery
         var parser = new SecurityEventParser();
         await foreach (var xml in source.ReadAsync(host, query, cancellationToken).ConfigureAwait(false))
         {
-            if (parser.Parse(xml, host) is { Event: var logon } && HostNames.AreEqual(logon.Computer, computer))
+            if (parser.Parse(xml, host) is { Event: var logon } && EventHostNames.AreEqual(logon.Computer, computer))
             {
                 return logon;
             }

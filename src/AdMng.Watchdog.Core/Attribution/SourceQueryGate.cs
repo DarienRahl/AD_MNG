@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Globalization;
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Core.Abstractions;
 
 namespace AdMng.Watchdog.Core.Attribution;
@@ -20,7 +21,7 @@ public sealed class SourceQueryGate(DcLogHealthTracker tracker, TimeProvider tim
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(host);
         ArgumentNullException.ThrowIfNull(query);
-        var gate = _gates.GetOrAdd(HostNames.Normalize(host), static _ => new SemaphoreSlim(1, 1));
+        var gate = _gates.GetOrAdd(EventHostNames.Normalize(host), static _ => new SemaphoreSlim(1, 1));
         using var timeoutSource = new CancellationTokenSource(timeout, timeProvider);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutSource.Token);
         var started = timeProvider.GetTimestamp();

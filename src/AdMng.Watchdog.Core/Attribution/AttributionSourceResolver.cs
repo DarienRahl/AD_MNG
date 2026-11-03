@@ -1,3 +1,4 @@
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 
@@ -9,7 +10,7 @@ namespace AdMng.Watchdog.Core.Attribution;
 /// <c>Attribution.DomainControllers</c> – every entry must be a writable DC of this domain known to the DC directory,
 /// unknown hosts are skipped with health Error <c>eventlog.&lt;host&gt;</c> "notADomainController" – or, when empty, the
 /// directory's attribution sources. Also reports <c>attribution.dcDirectory</c> (Warning while only the degraded
-/// fallback catalog is available). A collector or DC that is not a host name (<see cref="HostNames.IsHostName"/>: IP
+/// fallback catalog is available). A collector or DC that is not a host name (<see cref="EventHostNames.IsHostName"/>: IP
 /// literals) is never read – the session would offer the service identity's credentials without Kerberos.
 /// </summary>
 public sealed class AttributionSourceResolver(IDomainControllerCatalog domainControllers, Abstractions.IHealthRegistry health, TimeProvider timeProvider,
@@ -47,8 +48,8 @@ public sealed class AttributionSourceResolver(IDomainControllerCatalog domainCon
                 return [];
             }
 
-            var collector = HostNames.Normalize(settings.Collector);
-            if (!HostNames.IsHostName(collector))
+            var collector = EventHostNames.Normalize(settings.Collector);
+            if (!EventHostNames.IsHostName(collector))
             {
                 health.Report(new HealthCheckDto { Code = "attribution.collector", State = HealthState.Error, Detail = InvalidHostName, CheckedAt = now });
                 return [];
@@ -58,8 +59,8 @@ public sealed class AttributionSourceResolver(IDomainControllerCatalog domainCon
         }
 
         var writable = (await domainControllers.GetAttributionSourcesAsync(cancellationToken).ConfigureAwait(false))
-            .Select(HostNames.Normalize).Where(HostNames.IsHostName).Distinct(StringComparer.Ordinal).ToList();
-        var configured = (settings.DomainControllers ?? []).Where(h => !string.IsNullOrWhiteSpace(h)).Select(HostNames.Normalize).Distinct(StringComparer.Ordinal).ToList();
+            .Select(EventHostNames.Normalize).Where(EventHostNames.IsHostName).Distinct(StringComparer.Ordinal).ToList();
+        var configured = (settings.DomainControllers ?? []).Where(h => !string.IsNullOrWhiteSpace(h)).Select(EventHostNames.Normalize).Distinct(StringComparer.Ordinal).ToList();
         if (configured.Count == 0)
         {
             return [.. writable.Select(h => new IngestionSource(h, "Security"))];
@@ -74,7 +75,7 @@ public sealed class AttributionSourceResolver(IDomainControllerCatalog domainCon
             }
             else
             {
-                var reason = HostNames.IsHostName(host) ? NotADomainController : InvalidHostName;
+                var reason = EventHostNames.IsHostName(host) ? NotADomainController : InvalidHostName;
                 health.Report(new HealthCheckDto
                 {
                     Code = "eventlog." + host,
@@ -102,6 +103,6 @@ public sealed class AttributionSourceResolver(IDomainControllerCatalog domainCon
         }
 
         return [.. (await domainControllers.GetAttributionSourcesAsync(cancellationToken).ConfigureAwait(false))
-            .Select(HostNames.Normalize).Where(HostNames.IsHostName).Distinct(StringComparer.Ordinal)];
+            .Select(EventHostNames.Normalize).Where(EventHostNames.IsHostName).Distinct(StringComparer.Ordinal)];
     }
 }

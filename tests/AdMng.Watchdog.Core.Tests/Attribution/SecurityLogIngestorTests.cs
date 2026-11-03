@@ -1,3 +1,4 @@
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
@@ -40,7 +41,7 @@ public class SecurityLogIngestorTests
     {
         Settings = settings ?? new AttributionSettings(),
         Reduction = new SecurityEventReduction { WatchedAttributes = new AdMng.Watchdog.Core.Detection.WatchedAttributeCatalog(new FakeConfigProvider(new WatchdogConfiguration())) },
-        IsKnownDomainController = computer => HostNames.AreEqual(computer, Dc1) || HostNames.AreEqual(computer, Dc2),
+        IsKnownDomainController = computer => EventHostNames.AreEqual(computer, Dc1) || EventHostNames.AreEqual(computer, Dc2),
         Domain = "contoso.test",
         DisabledKinds = disabledKinds ?? [],
     };

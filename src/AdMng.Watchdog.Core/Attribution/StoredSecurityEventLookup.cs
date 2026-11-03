@@ -1,3 +1,4 @@
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Model;
 
@@ -30,13 +31,13 @@ public sealed class StoredSecurityEventLookup(ISecurityEventStore store, ISecuri
         var found = await store.FindAsync(new SecurityEventCriteria
         {
             EventCodes = [SecurityEventCatalog.LogonSucceeded],
-            Computer = HostNames.Normalize(dc),
+            Computer = EventHostNames.Normalize(dc),
             LogonId = normalized,
             From = from,
             To = to,
             Limit = MaxLogonRows,
         }, cancellationToken).ConfigureAwait(false);
-        return found.Where(e => HostNames.AreEqual(e.Computer, dc)).OrderBy(e => e.TimeCreated).ThenBy(e => e.RecordId).LastOrDefault();
+        return found.Where(e => EventHostNames.AreEqual(e.Computer, dc)).OrderBy(e => e.TimeCreated).ThenBy(e => e.RecordId).LastOrDefault();
     }
 
     /// <inheritdoc/>
@@ -46,7 +47,7 @@ public sealed class StoredSecurityEventLookup(ISecurityEventStore store, ISecuri
         ArgumentException.ThrowIfNullOrWhiteSpace(accountName);
         ArgumentNullException.ThrowIfNull(codes);
         ArgumentNullException.ThrowIfNull(dcs);
-        IReadOnlyList<string?> computers = dcs.Count == 0 ? [null] : [.. dcs.Select(HostNames.Normalize).Distinct(StringComparer.Ordinal)];
+        IReadOnlyList<string?> computers = dcs.Count == 0 ? [null] : [.. dcs.Select(EventHostNames.Normalize).Distinct(StringComparer.Ordinal)];
         var records = new List<SecurityEvent>();
         foreach (var computer in computers)
         {
@@ -72,7 +73,7 @@ public sealed class StoredSecurityEventLookup(ISecurityEventStore store, ISecuri
         return store.FindAsync(new SecurityEventCriteria
         {
             EventCodes = codes,
-            Computer = dc is null ? null : HostNames.Normalize(dc),
+            Computer = dc is null ? null : EventHostNames.Normalize(dc),
             From = from,
             To = to,
             Limit = limit,
@@ -83,7 +84,7 @@ public sealed class StoredSecurityEventLookup(ISecurityEventStore store, ISecuri
     public Task<DateTimeOffset?> LastSeenAsync(string dc, int eventCode, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dc);
-        return store.GetLastSeenAsync(HostNames.Normalize(dc), eventCode, cancellationToken);
+        return store.GetLastSeenAsync(EventHostNames.Normalize(dc), eventCode, cancellationToken);
     }
 }
 

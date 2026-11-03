@@ -1,4 +1,5 @@
 using System.Globalization;
+using AdMng.Core.EventLogs;
 using AdMng.Core.Ldap;
 using AdMng.Core.Schema;
 using AdMng.Watchdog.Contracts.Events;

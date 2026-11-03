@@ -2,10 +2,11 @@ using System.Collections.Frozen;
 using System.Globalization;
 using System.Text;
 
-namespace AdMng.Watchdog.Core.Attribution;
+namespace AdMng.Core.EventLogs;
 
 /// <summary>
-/// Decodes the documented <c>%%NNNN</c> insertion strings of Security events (section 11.3): 1792
+/// Decodes the documented <c>%%NNNN</c> insertion strings of Security events (Watchdog specification 11.3; shared with
+/// the event log reader, design note e-event-logs.md 3): 1792
 /// <c>&lt;value changed, but not displayed&gt;</c>, 1793 <c>&lt;value not set&gt;</c>, 1794 <c>&lt;never&gt;</c>, 1797
 /// <c>All</c>, 14676 <c>AD DS</c>, 14677 <c>AD LDS</c>, 14678 <c>Yes</c>, 14679 <c>No</c>; the 5136 operation types
 /// 14674/14675/14680/14681/14688 become the tokens <see cref="ValueAdded"/>, <see cref="ValueDeleted"/>, …. Unknown

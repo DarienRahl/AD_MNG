@@ -1,4 +1,5 @@
 using AdMng.Core.Directory;
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Core.Abstractions;
 
 namespace AdMng.Watchdog.Core.Attribution;
@@ -22,7 +23,7 @@ public sealed class SessionDomainControllerCatalog(IWatchdogConfigProvider confi
         var configured = configProvider.Current.Configuration.Attribution?.DomainControllers ?? [];
         if (configured.Count > 0)
         {
-            return [.. configured.Where(h => !string.IsNullOrWhiteSpace(h)).Select(HostNames.Normalize).Distinct(StringComparer.OrdinalIgnoreCase)];
+            return [.. configured.Where(h => !string.IsNullOrWhiteSpace(h)).Select(EventHostNames.Normalize).Distinct(StringComparer.OrdinalIgnoreCase)];
         }
 
         return await CurrentServerAsync(cancellationToken).ConfigureAwait(false) is { } server ? [server] : [];
@@ -50,13 +51,13 @@ public sealed class SessionDomainControllerCatalog(IWatchdogConfigProvider confi
     {
         if (sessions.CurrentServer is { Length: > 0 } current)
         {
-            return HostNames.Normalize(current);
+            return EventHostNames.Normalize(current);
         }
 
         try
         {
             var session = await sessions.GetSessionAsync(cancellationToken).ConfigureAwait(false);
-            return HostNames.Normalize(session.Info.Server);
+            return EventHostNames.Normalize(session.Info.Server);
         }
         catch (DirectoryException)
         {

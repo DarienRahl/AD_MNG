@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Core.Model;
 
 namespace AdMng.Watchdog.Core.Attribution;
@@ -22,7 +23,7 @@ public static class RecordEventIds
     {
         ArgumentNullException.ThrowIfNull(record);
         ArgumentException.ThrowIfNullOrWhiteSpace(what);
-        var key = string.Join('|', what, HostNames.Normalize(record.Computer), record.RecordId.ToString(CultureInfo.InvariantCulture),
+        var key = string.Join('|', what, EventHostNames.Normalize(record.Computer), record.RecordId.ToString(CultureInfo.InvariantCulture),
             record.TimeCreated.UtcTicks.ToString(CultureInfo.InvariantCulture), record.EventCode.ToString(CultureInfo.InvariantCulture));
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(key));
 

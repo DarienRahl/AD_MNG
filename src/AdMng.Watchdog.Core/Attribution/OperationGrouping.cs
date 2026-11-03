@@ -1,3 +1,5 @@
+using AdMng.Core.EventLogs;
+
 namespace AdMng.Watchdog.Core.Attribution;
 
 /// <summary>
@@ -32,7 +34,7 @@ public static class OperationGrouping
             foreach (var ambiguous in group.Where(p => p.Outcome?.Status == CorrelationStatus.Ambiguous))
             {
                 var candidate = ambiguous.Outcome!.Candidates.FirstOrDefault(c => operations.Any(op =>
-                    HostNames.AreEqual(op.Computer, c.Event.Computer)
+                    EventHostNames.AreEqual(op.Computer, c.Event.Computer)
                     && string.Equals(op.SubjectLogonId, c.Event.SubjectLogonId, StringComparison.Ordinal)
                     && (op.TimeCreated - c.Event.TimeCreated).Duration() <= Window));
                 if (candidate is not null)
