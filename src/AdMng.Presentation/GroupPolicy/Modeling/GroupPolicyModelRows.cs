@@ -2,8 +2,10 @@ using System.Globalization;
 using System.Text;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.AdministrativeTemplates;
+using AdMng.Core.GroupPolicy.Content;
 using AdMng.Core.GroupPolicy.Modeling;
 using AdMng.Presentation.Correspondence;
+using AdMng.Presentation.GroupPolicy.Settings;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -108,6 +110,18 @@ public sealed record ModelSettingRowViewModel
 
     /// <summary>"Dlaczego": the winner, its link and the overridden GPOs with their values.</summary>
     public required string Details { get; init; }
+
+    /// <summary>The key or policy behind the row (tool tip); empty for a policy.</summary>
+    public string Technical { get; init; } = string.Empty;
+
+    /// <summary>"Edytuj to ustawienie": the setting or policy in the winning GPO (null: no editor of AD Manager edits it).</summary>
+    public GroupPolicySettingFocus? Focus { get; init; }
+
+    /// <summary>The GPO whose value wins (the one "Edytuj to ustawienie" opens).</summary>
+    public Guid GpoId { get; init; }
+
+    /// <summary>An editor of AD Manager edits the setting.</summary>
+    public bool CanEdit => GroupPolicyActions.CanEditSetting(Focus);
 }
 
 /// <summary>"Konfiguracja komputera" or "Konfiguracja użytkownika" of the model.</summary>
@@ -195,8 +209,13 @@ public sealed partial class ModelPartViewModel : ObservableObject
 }
 
 /// <summary>The texts of a model (outcomes, values, details, warnings) in the window's language.</summary>
-internal sealed class GroupPolicyModelText(ILocalizer localizer, string domainDnsName)
+/// <param name="localizer">The window's language.</param>
+/// <param name="domainDnsName">The domain (the location of a domain link).</param>
+/// <param name="sidNames">Names of the domain SIDs the settings name (resolved once per model).</param>
+internal sealed class GroupPolicyModelText(ILocalizer localizer, string domainDnsName, IReadOnlyDictionary<string, string>? sidNames = null)
 {
+    private readonly IReadOnlyDictionary<string, string>? _sidNames = sidNames;
+
     private ILocalizer L10n { get; } = localizer ?? throw new ArgumentNullException(nameof(localizer));
 
     /// <summary>The domain head, a site (its name) or an OU (its canonical path).</summary>
@@ -298,36 +317,55 @@ internal sealed class GroupPolicyModelText(ILocalizer localizer, string domainDn
                 OverriddenCount = policy.Overridden.Count,
                 MarksText = string.Empty,
                 Details = details,
+                Focus = GroupPolicySettingFocus.ForPolicy(part.Part == ModelingPart.User ? PolicyClass.User : PolicyClass.Machine, policy.Definition.Id),
+                GpoId = policy.Winner.Source.GpoId,
             });
         }
 
-        foreach (var setting in part.Settings)
+        // The other settings in the presenter's words; the settings of one preference item from one GPO are one row.
+        var presenter = new GpoSettingPresenter(L10n, _sidNames)
         {
-            var winnerValue = GroupPolicyText.SettingValue(L10n, setting.Winner.Setting);
-            var conditional = setting.Winner.Conditional;
+            ItemNames = GpoSettingPresenter.ItemNamesOf(part.Settings.SelectMany(s => s.Overridden.Select(o => o.Setting).Prepend(s.Winner.Setting))),
+        };
+        foreach (var group in part.Settings.GroupBy(ItemOf))
+        {
+            var members = group.ToList();
+            var winners = members.Select(m => m.Winner.Setting).ToList();
+            var text = members.Count == 1 ? presenter.Describe(winners[0]) : presenter.DescribeRows(winners)[0];
+            var others = members.SelectMany(m => m.Overridden).GroupBy(o => o.Source.GpoId).Select(g =>
+            {
+                var settings = g.Select(o => o.Setting).ToList();
+                var value = settings.Count == 1 ? presenter.Describe(settings[0]).ValueText : presenter.DescribeRows(settings)[0].ValueText;
+                return (g.First().Source, value);
+            }).ToList();
+            var conditional = members.Any(m => m.Winner.Conditional);
+            var cumulative = members.Any(m => m.Cumulative);
             var marks = new List<string>();
             if (conditional)
             {
                 marks.Add(L10n[L.GroupPolicyModel.MarkConditional]);
             }
 
-            if (setting.Cumulative)
+            if (cumulative)
             {
                 marks.Add(L10n[L.GroupPolicyModel.MarkCumulative]);
             }
 
+            var winner = members[0].Winner.Source;
             rows.Add(new ModelSettingRowViewModel
             {
-                Area = GroupPolicyText.Category(L10n, setting.Category),
-                Name = GroupPolicyText.SettingName(setting.Winner.Setting),
-                Value = winnerValue,
-                WinnerGpo = setting.Winner.Source.GpoName,
-                OverriddenCount = setting.Overridden.Count,
+                Area = SettingArea(text),
+                Name = text.Name,
+                Value = text.ValueText,
+                WinnerGpo = winner.GpoName,
+                OverriddenCount = others.Count,
                 IsConditional = conditional,
-                IsCumulative = setting.Cumulative,
+                IsCumulative = cumulative,
                 MarksText = string.Join(", ", marks),
-                Details = Details(links, setting.Winner.Source, winnerValue,
-                    [.. setting.Overridden.Select(o => (o.Source, GroupPolicyText.SettingValue(L10n, o.Setting)))], setting.Cumulative, conditional),
+                Details = Details(links, winner, text.ValueText, others, cumulative, conditional),
+                Technical = text.Technical,
+                Focus = text.Focus,
+                GpoId = winner.GpoId,
             });
         }
 
@@ -335,59 +373,31 @@ internal sealed class GroupPolicyModelText(ILocalizer localizer, string domainDn
         return [.. rows.OrderBy(r => r.Area, compare).ThenBy(r => r.Name, compare)];
     }
 
-    /// <summary>"Szablony administracyjne / Składniki systemu Windows / Aktualizacje".</summary>
+    /// <summary>The settings of one preference item that one GPO wins are one row; every other setting is a row of its own.</summary>
+    private static string ItemOf(ModeledSetting setting) =>
+        GpoSettingKey.Parse(setting.Key) is { Area: GpoSettingArea.Preference, ItemKey: { } item, Truncated: false }
+            ? "I|" + item + "|" + setting.Winner.Source.GpoId.ToString("N", CultureInfo.InvariantCulture)
+            : "K|" + setting.Key;
+
+    /// <summary>
+    /// The area of a setting below its configuration (the model's part says which one): "Ustawienia systemu Windows › … › Zasady
+    /// haseł" for a policy setting, "Preferencje › Ustawienia panelu sterowania › …" for a preference.
+    /// </summary>
+    public static string SettingArea(GpoSettingText text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return text.Branch == GpoSettingBranch.Policies ? string.Join(GpoSettingText.Separator, text.Groups) : text.Path;
+    }
+
+    /// <summary>"Szablony administracyjne › Składniki systemu Windows › Aktualizacje".</summary>
     public string PolicyArea(PolicyDefinition definition)
     {
         ArgumentNullException.ThrowIfNull(definition);
-        var root = L10n[L.GroupPolicyModel.AreaTemplates];
-        return definition.Category is { } category ? root + " / " + string.Join(" / ", category.PathNames()) : root;
+        return string.Join(GpoSettingText.Separator, [L10n[L.GroupPolicyModel.AreaTemplates], .. AdministrativeTemplateText.CategoryPath(definition)]);
     }
 
     /// <summary>"Włączone; Tryb: Pobierz i zainstaluj, Dzień: 3" – the state and, when enabled, the options as the GPO has them.</summary>
-    public string PolicyValue(PolicyDefinition definition, PolicySetting setting)
-    {
-        ArgumentNullException.ThrowIfNull(definition);
-        ArgumentNullException.ThrowIfNull(setting);
-        var state = L10n[setting.State switch
-        {
-            PolicyState.Enabled => L.AdministrativeTemplates.StateEnabled,
-            PolicyState.Disabled => L.AdministrativeTemplates.StateDisabled,
-            PolicyState.Inconsistent => L.AdministrativeTemplates.StateInconsistent,
-            _ => L.AdministrativeTemplates.StateNotConfigured,
-        }];
-        if (setting.State != PolicyState.Enabled || setting.Values.Count == 0)
-        {
-            return state;
-        }
-
-        var options = new List<string>();
-        foreach (var element in definition.Policy.Elements)
-        {
-            if (setting.ValueOf(element.Id) is not { } value)
-            {
-                continue;
-            }
-
-            var control = definition.Presentation?.Controls.FirstOrDefault(c => string.Equals(c.RefId, element.Id, StringComparison.OrdinalIgnoreCase));
-            var label = (control?.Label is { Length: > 0 } text ? text : element.Id).Trim().TrimEnd(':');
-            options.Add(L10n.Format(L.GroupPolicyModel.OptionValue, label, ElementValue(definition, element, value)));
-        }
-
-        return options.Count == 0 ? state : L10n.Format(L.GroupPolicyModel.ValueWithOptions, state, string.Join(", ", options));
-    }
-
-    private string ElementValue(PolicyDefinition definition, PolicyElement element, PolicyElementValue value) => value switch
-    {
-        BooleanElementValue boolean => GroupPolicyText.YesNo(L10n, boolean.Value),
-        NumberElementValue number => number.Value.ToString(L10n.Culture),
-        TextElementValue text => text.Value,
-        MultiTextElementValue lines => string.Join(" | ", lines.Lines),
-        EnumElementValue choice when element is EnumElement list && choice.Index >= 0 && choice.Index < list.Items.Count =>
-            definition.Text(list.Items[choice.Index].DisplayName),
-        EnumElementValue choice => choice.Index.ToString(L10n.Culture),
-        ListElementValue list => string.Join(" | ", list.Items.Select(i => i.Name.Length == 0 ? i.Value : i.Name + "=" + i.Value)),
-        _ => string.Empty,
-    };
+    public string PolicyValue(PolicyDefinition definition, PolicySetting setting) => AdministrativeTemplateText.Value(L10n, definition, setting);
 
     /// <summary>"Dlaczego": the winner with its link, then the overridden (or, cumulative, the also applied) GPOs with their values.</summary>
     private string Details(IReadOnlyDictionary<Guid, ModeledGpo> links, ModeledSource winner, string value,

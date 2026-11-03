@@ -134,7 +134,16 @@
                       ItemContainerStyle="{StaticResource SettingRowStyle}"
                       ItemsSource="{Binding Settings, Mode=OneWay}"
                       SelectedItem="{Binding SelectedSetting}"
+                      Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
                       VirtualizingPanel.IsVirtualizing="True">
+              <ListView.ContextMenu>
+                <ContextMenu>
+                  <MenuItem x:Name="EditModelSettingMenuItem"
+                            Command="{Binding PlacementTarget.Tag.EditModelSettingCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                            CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                            Header="{l:Tr GpoSettings.EditSetting}" />
+                </ContextMenu>
+              </ListView.ContextMenu>
               <ListView.View>
                 <GridView AllowsColumnReorder="False">
                   <GridViewColumn Width="220" Header="{l:Tr GpModel.ColumnArea}">
@@ -167,7 +176,16 @@
             <gp:PaneSplitter Grid.Column="1" ResizeDirection="Columns" />
             <Border Grid.Column="2" Padding="12,8" Style="{StaticResource Ad.Card}">
               <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr GpModel.DetailsHeading}" />
+                <DockPanel DockPanel.Dock="Top">
+                  <Button x:Name="EditModelSettingButton"
+                          Margin="8,0,0,4"
+                          VerticalAlignment="Center"
+                          Command="{Binding DataContext.EditModelSettingCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                          CommandParameter="{Binding SelectedSetting, Mode=OneWay}"
+                          Content="{l:Tr GpoSettings.EditSetting}"
+                          DockPanel.Dock="Right" />
+                  <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr GpModel.DetailsHeading}" TextTrimming="CharacterEllipsis" />
+                </DockPanel>
                 <TextBox x:Name="DetailsText"
                          AutomationProperties.Name="{l:Tr GpModel.DetailsHeading}"
                          Style="{StaticResource Ad.SelectableText}"

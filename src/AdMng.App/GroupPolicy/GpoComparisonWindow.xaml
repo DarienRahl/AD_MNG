@@ -77,11 +77,18 @@
                   VirtualizingPanel.IsVirtualizing="True">
           <ListView.View>
             <GridView AllowsColumnReorder="False">
-              <GridViewColumn Width="120" DisplayMemberBinding="{Binding SectionText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnSection}" />
-              <GridViewColumn Width="340" Header="{l:Tr GroupPolicy.ColumnSetting}">
+              <GridViewColumn Width="110" DisplayMemberBinding="{Binding SectionText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnSection}" />
+              <GridViewColumn Width="240" Header="{l:Tr GpEditing.ColumnArea}">
                 <GridViewColumn.CellTemplate>
                   <DataTemplate DataType="{x:Type gpm:GpoComparisonRowViewModel}">
-                    <TextBlock Text="{Binding Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name, Mode=OneWay}" />
+                    <TextBlock Text="{Binding Area, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Area, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="300" Header="{l:Tr GroupPolicy.ColumnSetting}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type gpm:GpoComparisonRowViewModel}">
+                    <TextBlock Text="{Binding Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding NameToolTip, Mode=OneWay}" />
                   </DataTemplate>
                 </GridViewColumn.CellTemplate>
               </GridViewColumn>

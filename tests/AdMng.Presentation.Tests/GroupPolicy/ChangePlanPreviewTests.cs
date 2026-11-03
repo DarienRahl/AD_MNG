@@ -27,8 +27,12 @@ public sealed class ChangePlanPreviewTests
         Assert.Contains(preview.Rows, r => r.Attribute == "Folder GPO (SYSVOL)");
         Assert.NotNull(preview.SelectedRow?.Sysvol);
         preview.SelectedRow = preview.Rows.Single(r => r.Attribute == SecurityTemplate.RelativePath);
-        await Dialogs.B2Harness.WaitUntilAsync(() => preview.DiffLines.Any(l => l.Text.Contains("MinimumPasswordLength", StringComparison.Ordinal)));
-        Assert.Contains("MinimumPasswordLength", string.Join("\n", preview.DiffLines.Select(l => l.Text)), StringComparison.Ordinal);
+        // The settings of the file in the operator's language, the technical line as tool tip (K6).
+        await Dialogs.B2Harness.WaitUntilAsync(() => preview.DiffLines.Any(l => l.Text == "Minimalna długość hasła: 12 znaków"));
+        var length = preview.DiffLines.Single(l => l.Text == "Minimalna długość hasła: 12 znaków");
+        Assert.Equal(PreviewDiffKind.Added, length.Kind);
+        Assert.Contains("Computer/Security/System Access/MinimumPasswordLength = 12", length.ToolTip, StringComparison.Ordinal);
+        Assert.Contains("Zasady konta › Zasady haseł", length.ToolTip, StringComparison.Ordinal);
 
         Assert.Contains("Copy-GPO", preview.PowerShellScript, StringComparison.Ordinal);
         Assert.Contains("#Requires -Modules GroupPolicy", preview.PowerShellScript, StringComparison.Ordinal);

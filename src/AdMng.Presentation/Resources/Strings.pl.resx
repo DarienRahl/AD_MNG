@@ -15870,4 +15870,963 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Ctrl+F – szukaj, Esc – wyczyść</value>
   </data>
   <!-- K6 editing comfort of the Group Policy editors (20.3): end -->
+  <!-- K6 readable GPO settings (20.1): start -->
+  <data name="GpoSettings.ComputerConfiguration" xml:space="preserve">
+    <value>Konfiguracja komputera</value>
+  </data>
+  <data name="GpoSettings.UserConfiguration" xml:space="preserve">
+    <value>Konfiguracja użytkownika</value>
+  </data>
+  <data name="GpoSettings.GpoLevel" xml:space="preserve">
+    <value>Obiekt zasad grupy</value>
+  </data>
+  <data name="GpoSettings.Policies" xml:space="preserve">
+    <value>Zasady</value>
+  </data>
+  <data name="GpoSettings.Preferences" xml:space="preserve">
+    <value>Preferencje</value>
+  </data>
+  <data name="GpoSettings.WindowsSettings" xml:space="preserve">
+    <value>Ustawienia systemu Windows</value>
+  </data>
+  <data name="GpoSettings.ControlPanelSettings" xml:space="preserve">
+    <value>Ustawienia panelu sterowania</value>
+  </data>
+  <data name="GpoSettings.SecuritySettings" xml:space="preserve">
+    <value>Ustawienia zabezpieczeń</value>
+  </data>
+  <data name="GpoSettings.AccountPolicies" xml:space="preserve">
+    <value>Zasady konta</value>
+  </data>
+  <data name="GpoSettings.LocalPolicies" xml:space="preserve">
+    <value>Zasady lokalne</value>
+  </data>
+  <data name="GpoSettings.AuditPolicy" xml:space="preserve">
+    <value>Zasady inspekcji</value>
+  </data>
+  <data name="GpoSettings.UserRightsAssignment" xml:space="preserve">
+    <value>Przypisywanie praw użytkownika</value>
+  </data>
+  <data name="GpoSettings.SecurityOptions" xml:space="preserve">
+    <value>Opcje zabezpieczeń</value>
+  </data>
+  <data name="GpoSettings.EventLog" xml:space="preserve">
+    <value>Dziennik zdarzeń</value>
+  </data>
+  <data name="GpoSettings.RestrictedGroups" xml:space="preserve">
+    <value>Grupy z ograniczeniami</value>
+  </data>
+  <data name="GpoSettings.SystemServices" xml:space="preserve">
+    <value>Usługi systemowe</value>
+  </data>
+  <data name="GpoSettings.Registry" xml:space="preserve">
+    <value>Rejestr</value>
+  </data>
+  <data name="GpoSettings.FileSystem" xml:space="preserve">
+    <value>System plików</value>
+  </data>
+  <data name="GpoSettings.AdvancedAudit" xml:space="preserve">
+    <value>Konfiguracja zaawansowanych zasad inspekcji</value>
+  </data>
+  <data name="GpoSettings.AuditOptions" xml:space="preserve">
+    <value>Opcje inspekcji</value>
+  </data>
+  <data name="GpoSettings.ExtraRegistry" xml:space="preserve">
+    <value>Dodatkowe ustawienia rejestru</value>
+  </data>
+  <data name="GpoSettings.PolicyComments" xml:space="preserve">
+    <value>Komentarze do zasad</value>
+  </data>
+  <data name="GpoSettings.ScriptsComputer" xml:space="preserve">
+    <value>Skrypty (uruchamianie/zamykanie)</value>
+  </data>
+  <data name="GpoSettings.ScriptsUser" xml:space="preserve">
+    <value>Skrypty (logowanie/wylogowanie)</value>
+  </data>
+  <data name="GpoSettings.ScriptFiles" xml:space="preserve">
+    <value>Pliki skryptów</value>
+  </data>
+  <data name="GpoSettings.UnreadableFiles" xml:space="preserve">
+    <value>Pliki, których nie udało się odczytać</value>
+  </data>
+  <data name="GpoSettings.Other" xml:space="preserve">
+    <value>Inne</value>
+  </data>
+  <data name="GpoSettings.NamePart" xml:space="preserve">
+    <value>{0} – {1}</value>
+  </data>
+  <data name="GpoSettings.LabelValue" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="GpoSettings.Bytes" xml:space="preserve">
+    <value>{0} B</value>
+  </data>
+  <data name="GpoSettings.Kilobytes" xml:space="preserve">
+    <value>{0} KB</value>
+  </data>
+  <data name="GpoSettings.Megabytes" xml:space="preserve">
+    <value>{0} MB</value>
+  </data>
+  <data name="GpoSettings.Unit.Days.One" xml:space="preserve">
+    <value>{0} dzień</value>
+  </data>
+  <data name="GpoSettings.Unit.Days.Few" xml:space="preserve">
+    <value>{0} dni</value>
+  </data>
+  <data name="GpoSettings.Unit.Days.Many" xml:space="preserve">
+    <value>{0} dni</value>
+  </data>
+  <data name="GpoSettings.Unit.Minutes.One" xml:space="preserve">
+    <value>{0} minuta</value>
+  </data>
+  <data name="GpoSettings.Unit.Minutes.Few" xml:space="preserve">
+    <value>{0} minuty</value>
+  </data>
+  <data name="GpoSettings.Unit.Minutes.Many" xml:space="preserve">
+    <value>{0} minut</value>
+  </data>
+  <data name="GpoSettings.Unit.Hours.One" xml:space="preserve">
+    <value>{0} godzina</value>
+  </data>
+  <data name="GpoSettings.Unit.Hours.Few" xml:space="preserve">
+    <value>{0} godziny</value>
+  </data>
+  <data name="GpoSettings.Unit.Hours.Many" xml:space="preserve">
+    <value>{0} godzin</value>
+  </data>
+  <data name="GpoSettings.Unit.Seconds.One" xml:space="preserve">
+    <value>{0} sekunda</value>
+  </data>
+  <data name="GpoSettings.Unit.Seconds.Few" xml:space="preserve">
+    <value>{0} sekundy</value>
+  </data>
+  <data name="GpoSettings.Unit.Seconds.Many" xml:space="preserve">
+    <value>{0} sekund</value>
+  </data>
+  <data name="GpoSettings.Unit.Attempts.One" xml:space="preserve">
+    <value>{0} nieudana próba logowania</value>
+  </data>
+  <data name="GpoSettings.Unit.Attempts.Few" xml:space="preserve">
+    <value>{0} nieudane próby logowania</value>
+  </data>
+  <data name="GpoSettings.Unit.Attempts.Many" xml:space="preserve">
+    <value>{0} nieudanych prób logowania</value>
+  </data>
+  <data name="GpoSettings.Unit.Characters.One" xml:space="preserve">
+    <value>{0} znak</value>
+  </data>
+  <data name="GpoSettings.Unit.Characters.Few" xml:space="preserve">
+    <value>{0} znaki</value>
+  </data>
+  <data name="GpoSettings.Unit.Characters.Many" xml:space="preserve">
+    <value>{0} znaków</value>
+  </data>
+  <data name="GpoSettings.Unit.Passwords.One" xml:space="preserve">
+    <value>{0} zapamiętane hasło</value>
+  </data>
+  <data name="GpoSettings.Unit.Passwords.Few" xml:space="preserve">
+    <value>{0} zapamiętane hasła</value>
+  </data>
+  <data name="GpoSettings.Unit.Passwords.Many" xml:space="preserve">
+    <value>{0} zapamiętanych haseł</value>
+  </data>
+  <data name="GpoSettings.PasswordNeverExpires" xml:space="preserve">
+    <value>Hasło nie wygasa</value>
+  </data>
+  <data name="GpoSettings.PasswordChangeImmediately" xml:space="preserve">
+    <value>Hasło można zmienić od razu</value>
+  </data>
+  <data name="GpoSettings.NoPasswordRequired" xml:space="preserve">
+    <value>Hasło nie jest wymagane</value>
+  </data>
+  <data name="GpoSettings.NoPasswordHistory" xml:space="preserve">
+    <value>Historia haseł nie jest przechowywana</value>
+  </data>
+  <data name="GpoSettings.AccountNeverLocked" xml:space="preserve">
+    <value>Konto nie jest blokowane</value>
+  </data>
+  <data name="GpoSettings.LockedUntilAdmin" xml:space="preserve">
+    <value>Do odblokowania przez administratora</value>
+  </data>
+  <data name="GpoSettings.InactivityLimitOff" xml:space="preserve">
+    <value>Wyłączony (bez limitu braku aktywności)</value>
+  </data>
+  <data name="GpoSettings.EncryptionFuture" xml:space="preserve">
+    <value>Przyszłe typy szyfrowania</value>
+  </data>
+  <data name="GpoSettings.ExplainMaxClockSkew" xml:space="preserve">
+    <value>Największa dopuszczalna różnica między zegarem klienta a zegarem kontrolera domeny; przy większej uwierzytelnianie Kerberos się nie powiedzie.</value>
+  </data>
+  <data name="GpoSettings.ExplainMasked" xml:space="preserve">
+    <value>To ustawienie zawiera sekret (hasło lub podobną wartość): AD Manager nigdy go nie pokazuje.</value>
+  </data>
+  <data name="GpoSettings.ExplainLongValue" xml:space="preserve">
+    <value>Wartość ma ponad 200 znaków: przechowywany i porównywany jest tylko jej skrót SHA-256.</value>
+  </data>
+  <data name="GpoSettings.ExplainTruncated" xml:space="preserve">
+    <value>Klucz tego ustawienia był za długi i został skrócony; nie można stąd otworzyć go w edytorze.</value>
+  </data>
+  <data name="GpoSettings.ExplainUnreadable" xml:space="preserve">
+    <value>Pliku ustawień nie udało się odczytać ani przeanalizować, więc jego ustawienia nie są pokazane.</value>
+  </data>
+  <data name="GpoSettings.ExplainScriptFile" xml:space="preserve">
+    <value>Zawartość pliku jest porównywana na podstawie skrótu SHA-256.</value>
+  </data>
+  <data name="GpoSettings.LongValue" xml:space="preserve">
+    <value>(długa wartość – zachowano tylko jej skrót)</value>
+  </data>
+  <data name="GpoSettings.AuditExclusion" xml:space="preserve">
+    <value>Wykluczenie: {0}</value>
+  </data>
+  <data name="GpoSettings.SaclDefined" xml:space="preserve">
+    <value>Zdefiniowano wpisy inspekcji (SACL)</value>
+  </data>
+  <data name="GpoSettings.AuditOption.CrashOnAuditFail" xml:space="preserve">
+    <value>Inspekcja: Wyłącz system natychmiast, jeśli nie można rejestrować inspekcji zabezpieczeń</value>
+  </data>
+  <data name="GpoSettings.AuditOption.FullPrivilegeAuditing" xml:space="preserve">
+    <value>Inspekcja: Przeprowadź inspekcję użycia uprawnienia do wykonywania kopii zapasowych i przywracania</value>
+  </data>
+  <data name="GpoSettings.AuditOption.AuditBaseObjects" xml:space="preserve">
+    <value>Inspekcja: Przeprowadź inspekcję dostępu do globalnych obiektów systemowych</value>
+  </data>
+  <data name="GpoSettings.AuditOption.AuditBaseDirectories" xml:space="preserve">
+    <value>Inspekcja: Przeprowadź inspekcję dostępu do globalnych katalogów systemowych</value>
+  </data>
+  <data name="GpoSettings.RestrictedMembers" xml:space="preserve">
+    <value>{0} – członkowie</value>
+  </data>
+  <data name="GpoSettings.RestrictedMemberOf" xml:space="preserve">
+    <value>{0} – jest członkiem grup</value>
+  </data>
+  <data name="GpoSettings.NoGroups" xml:space="preserve">
+    <value>Żadnych grup (zdefiniowano pustą listę)</value>
+  </data>
+  <data name="GpoSettings.ServiceBoot" xml:space="preserve">
+    <value>Rozruch</value>
+  </data>
+  <data name="GpoSettings.ServiceSystem" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="GpoSettings.StartupMode" xml:space="preserve">
+    <value>Tryb uruchamiania</value>
+  </data>
+  <data name="GpoSettings.Inheritance" xml:space="preserve">
+    <value>Dziedziczenie</value>
+  </data>
+  <data name="GpoSettings.Permissions" xml:space="preserve">
+    <value>Uprawnienia</value>
+  </data>
+  <data name="GpoSettings.PermissionsDefined" xml:space="preserve">
+    <value>Zdefiniowano uprawnienia</value>
+  </data>
+  <data name="GpoSettings.ModePropagate" xml:space="preserve">
+    <value>Propaguj dziedziczone uprawnienia do wszystkich obiektów podrzędnych</value>
+  </data>
+  <data name="GpoSettings.ModeReplace" xml:space="preserve">
+    <value>Zastąp istniejące uprawnienia obiektów podrzędnych uprawnieniami dziedziczonymi</value>
+  </data>
+  <data name="GpoSettings.ModeDoNotReplace" xml:space="preserve">
+    <value>Nie zezwalaj na zastępowanie uprawnień tego obiektu</value>
+  </data>
+  <data name="GpoSettings.LogSystem" xml:space="preserve">
+    <value>systemu</value>
+  </data>
+  <data name="GpoSettings.LogSecurity" xml:space="preserve">
+    <value>zabezpieczeń</value>
+  </data>
+  <data name="GpoSettings.LogApplication" xml:space="preserve">
+    <value>aplikacji</value>
+  </data>
+  <data name="GpoSettings.LogMaximumSize" xml:space="preserve">
+    <value>Maksymalny rozmiar dziennika {0}</value>
+  </data>
+  <data name="GpoSettings.LogRetentionMethod" xml:space="preserve">
+    <value>Metoda przechowywania dziennika {0}</value>
+  </data>
+  <data name="GpoSettings.LogRetentionDays" xml:space="preserve">
+    <value>Przechowuj dziennik {0}</value>
+  </data>
+  <data name="GpoSettings.LogRestrictGuests" xml:space="preserve">
+    <value>Uniemożliwiaj lokalnej grupie gości dostęp do dziennika {0}</value>
+  </data>
+  <data name="GpoSettings.RetentionAsNeeded" xml:space="preserve">
+    <value>Zastępuj zdarzenia w razie potrzeby</value>
+  </data>
+  <data name="GpoSettings.RetentionByDays" xml:space="preserve">
+    <value>Zastępuj zdarzenia według dni</value>
+  </data>
+  <data name="GpoSettings.RetentionManual" xml:space="preserve">
+    <value>Nie zastępuj zdarzeń (czyść dziennik ręcznie)</value>
+  </data>
+  <data name="GpoSettings.RegistryValue" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="GpoSettings.RegistryDefaultValue" xml:space="preserve">
+    <value>(Domyślna)</value>
+  </data>
+  <data name="GpoSettings.RegistryHiddenNames" xml:space="preserve">
+    <value>(nazwy wartości ukryte)</value>
+  </data>
+  <data name="GpoSettings.RegistryDeleteValue" xml:space="preserve">
+    <value>Usuń wartość</value>
+  </data>
+  <data name="GpoSettings.RegistryDeleteAllValues" xml:space="preserve">
+    <value>Usuń wszystkie wartości klucza</value>
+  </data>
+  <data name="GpoSettings.RegistryCreateKey" xml:space="preserve">
+    <value>Utwórz klucz</value>
+  </data>
+  <data name="GpoSettings.RegistryDeleteKey" xml:space="preserve">
+    <value>Usuń klucz</value>
+  </data>
+  <data name="GpoSettings.RegistrySetIfMissing" xml:space="preserve">
+    <value>{0} – tylko gdy wartość jeszcze nie istnieje</value>
+  </data>
+  <data name="GpoSettings.Script" xml:space="preserve">
+    <value>Skrypt {0}</value>
+  </data>
+  <data name="GpoSettings.PowerShellScript" xml:space="preserve">
+    <value>Skrypt programu PowerShell {0}</value>
+  </data>
+  <data name="GpoSettings.ScriptCommand" xml:space="preserve">
+    <value>Skrypt</value>
+  </data>
+  <data name="GpoSettings.ScriptParameters" xml:space="preserve">
+    <value>Parametry</value>
+  </data>
+  <data name="GpoSettings.NoParameters" xml:space="preserve">
+    <value>(bez parametrów)</value>
+  </data>
+  <data name="GpoSettings.PowerShellFirst" xml:space="preserve">
+    <value>{0}: najpierw uruchamiaj skrypty programu Windows PowerShell</value>
+  </data>
+  <data name="GpoSettings.PhaseStartup" xml:space="preserve">
+    <value>Uruchamianie</value>
+  </data>
+  <data name="GpoSettings.PhaseShutdown" xml:space="preserve">
+    <value>Zamykanie</value>
+  </data>
+  <data name="GpoSettings.PhaseLogon" xml:space="preserve">
+    <value>Logowanie</value>
+  </data>
+  <data name="GpoSettings.PhaseLogoff" xml:space="preserve">
+    <value>Wylogowanie</value>
+  </data>
+  <data name="GpoSettings.GpoComment" xml:space="preserve">
+    <value>Komentarz do obiektu GPO</value>
+  </data>
+  <data name="GpoSettings.PolicyComment" xml:space="preserve">
+    <value>Komentarz: {0}</value>
+  </data>
+  <data name="GpoSettings.PrefItem" xml:space="preserve">
+    <value>Element {0}</value>
+  </data>
+  <data name="GpoSettings.PrefItemType" xml:space="preserve">
+    <value>Typ elementu</value>
+  </data>
+  <data name="GpoSettings.PrefName" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="GpoSettings.PrefAction" xml:space="preserve">
+    <value>Akcja</value>
+  </data>
+  <data name="GpoSettings.PrefDisabled" xml:space="preserve">
+    <value>Element wyłączony</value>
+  </data>
+  <data name="GpoSettings.PrefRemovePolicy" xml:space="preserve">
+    <value>Usuń ten element, gdy przestanie być stosowany</value>
+  </data>
+  <data name="GpoSettings.PrefUserContext" xml:space="preserve">
+    <value>Uruchom w kontekście zabezpieczeń zalogowanego użytkownika</value>
+  </data>
+  <data name="GpoSettings.PrefBypassErrors" xml:space="preserve">
+    <value>Błędy tego elementu nie przerywają przetwarzania</value>
+  </data>
+  <data name="GpoSettings.PrefDescription" xml:space="preserve">
+    <value>Opis</value>
+  </data>
+  <data name="GpoSettings.PrefChanged" xml:space="preserve">
+    <value>Zmieniono</value>
+  </data>
+  <data name="GpoSettings.PrefMembers" xml:space="preserve">
+    <value>Członkowie</value>
+  </data>
+  <data name="GpoSettings.PrefTargeting" xml:space="preserve">
+    <value>Kierowanie na poziomie elementu: {0}</value>
+  </data>
+  <data name="GpoSettings.PrefTargetingLabel" xml:space="preserve">
+    <value>Kierowanie na poziomie elementu</value>
+  </data>
+  <data name="GpoSettings.PrefAnd" xml:space="preserve">
+    <value> i </value>
+  </data>
+  <data name="GpoSettings.PrefOr" xml:space="preserve">
+    <value> lub </value>
+  </data>
+  <data name="GpoSettings.PrefNot" xml:space="preserve">
+    <value>nie </value>
+  </data>
+  <data name="GpoSettings.PrefNoChange" xml:space="preserve">
+    <value>Bez zmian</value>
+  </data>
+  <data name="GpoSettings.PrefServiceStart" xml:space="preserve">
+    <value>Uruchom usługę</value>
+  </data>
+  <data name="GpoSettings.PrefServiceStop" xml:space="preserve">
+    <value>Zatrzymaj usługę</value>
+  </data>
+  <data name="GpoSettings.PrefServiceRestart" xml:space="preserve">
+    <value>Uruchom ponownie usługę</value>
+  </data>
+  <data name="GpoSettings.TargetFileSystem" xml:space="preserve">
+    <value>Obiekt systemu plików</value>
+  </data>
+  <data name="GpoSettings.TargetUrl" xml:space="preserve">
+    <value>Adres URL</value>
+  </data>
+  <data name="GpoSettings.TargetShell" xml:space="preserve">
+    <value>Obiekt powłoki</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.Applications" xml:space="preserve">
+    <value>Aplikacje</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.Drives" xml:space="preserve">
+    <value>Mapowania dysków</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.EnvironmentVariables" xml:space="preserve">
+    <value>Środowisko</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.Files" xml:space="preserve">
+    <value>Pliki</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.Folders" xml:space="preserve">
+    <value>Foldery</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.IniFiles" xml:space="preserve">
+    <value>Pliki INI</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.Registry" xml:space="preserve">
+    <value>Rejestr</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.NetworkShares" xml:space="preserve">
+    <value>Udziały sieciowe</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.Shortcuts" xml:space="preserve">
+    <value>Skróty</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.DataSources" xml:space="preserve">
+    <value>Źródła danych</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.Devices" xml:space="preserve">
+    <value>Urządzenia</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.FolderOptions" xml:space="preserve">
+    <value>Opcje folderów</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.InternetSettings" xml:space="preserve">
+    <value>Ustawienia internetowe</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.Groups" xml:space="preserve">
+    <value>Lokalni użytkownicy i grupy</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.NetworkOptions" xml:space="preserve">
+    <value>Opcje sieciowe</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.PowerOptions" xml:space="preserve">
+    <value>Opcje zasilania</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.Printers" xml:space="preserve">
+    <value>Drukarki</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.RegionalOptions" xml:space="preserve">
+    <value>Opcje regionalne</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.ScheduledTasks" xml:space="preserve">
+    <value>Zaplanowane zadania</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.Services" xml:space="preserve">
+    <value>Usługi</value>
+  </data>
+  <data name="GpoSettings.Pref.Type.StartMenuTaskbar" xml:space="preserve">
+    <value>Menu Start</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.Group" xml:space="preserve">
+    <value>Grupa lokalna</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.User" xml:space="preserve">
+    <value>Użytkownik lokalny</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.Drive" xml:space="preserve">
+    <value>Mapowanie dysku</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.File" xml:space="preserve">
+    <value>Plik</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.Folder" xml:space="preserve">
+    <value>Folder</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.Registry" xml:space="preserve">
+    <value>Element rejestru</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.Collection" xml:space="preserve">
+    <value>Kolekcja rejestru</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.Shortcut" xml:space="preserve">
+    <value>Skrót</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.Task" xml:space="preserve">
+    <value>Zaplanowane zadanie (Windows XP)</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.TaskV2" xml:space="preserve">
+    <value>Zaplanowane zadanie</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.ImmediateTask" xml:space="preserve">
+    <value>Zadanie natychmiastowe (Windows XP)</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.ImmediateTaskV2" xml:space="preserve">
+    <value>Zadanie natychmiastowe</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.NTService" xml:space="preserve">
+    <value>Usługa</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.EnvironmentVariable" xml:space="preserve">
+    <value>Zmienna środowiskowa</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.Ini" xml:space="preserve">
+    <value>Plik INI</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.DataSource" xml:space="preserve">
+    <value>Źródło danych</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.SharedPrinter" xml:space="preserve">
+    <value>Drukarka udostępniona</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.LocalPrinter" xml:space="preserve">
+    <value>Drukarka lokalna</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.PortPrinter" xml:space="preserve">
+    <value>Drukarka TCP/IP</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.NetShare" xml:space="preserve">
+    <value>Udział sieciowy</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.PowerScheme" xml:space="preserve">
+    <value>Schemat zasilania</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.PowerPlan" xml:space="preserve">
+    <value>Plan zasilania</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.GlobalPowerOptions" xml:space="preserve">
+    <value>Opcje zasilania</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.GlobalPowerOptionsV2" xml:space="preserve">
+    <value>Opcje zasilania</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.GlobalFolderOptions" xml:space="preserve">
+    <value>Opcje folderów</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.GlobalFolderOptionsVista" xml:space="preserve">
+    <value>Opcje folderów</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.OpenWith" xml:space="preserve">
+    <value>Otwórz za pomocą</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.FileType" xml:space="preserve">
+    <value>Typ pliku</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.DeviceClass" xml:space="preserve">
+    <value>Urządzenie</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.DUN" xml:space="preserve">
+    <value>Połączenie telefoniczne</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.VPN" xml:space="preserve">
+    <value>Połączenie VPN</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.Regional" xml:space="preserve">
+    <value>Opcje regionalne</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.StartMenu" xml:space="preserve">
+    <value>Menu Start</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.StartMenuVista" xml:space="preserve">
+    <value>Menu Start</value>
+  </data>
+  <data name="GpoSettings.Pref.Element.Internet" xml:space="preserve">
+    <value>Ustawienia internetowe</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.groupName" xml:space="preserve">
+    <value>Nazwa grupy</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.groupSid" xml:space="preserve">
+    <value>Grupa (SID)</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.newName" xml:space="preserve">
+    <value>Zmień nazwę na</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.description" xml:space="preserve">
+    <value>Opis</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.deleteAllUsers" xml:space="preserve">
+    <value>Usuń wszystkich użytkowników członkowskich</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.deleteAllGroups" xml:space="preserve">
+    <value>Usuń wszystkie grupy członkowskie</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.removeAccounts" xml:space="preserve">
+    <value>Usuń konta</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.userName" xml:space="preserve">
+    <value>Nazwa użytkownika</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.fullName" xml:space="preserve">
+    <value>Pełna nazwa</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.changeLogon" xml:space="preserve">
+    <value>Użytkownik musi zmienić hasło przy następnym logowaniu</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.noChange" xml:space="preserve">
+    <value>Użytkownik nie może zmienić hasła</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.neverExpires" xml:space="preserve">
+    <value>Hasło nigdy nie wygasa</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.acctDisabled" xml:space="preserve">
+    <value>Konto jest wyłączone</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.expires" xml:space="preserve">
+    <value>Konto wygasa</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.cpassword" xml:space="preserve">
+    <value>Hasło</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.path" xml:space="preserve">
+    <value>Ścieżka</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.label" xml:space="preserve">
+    <value>Etykieta</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.letter" xml:space="preserve">
+    <value>Litera dysku</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.persistent" xml:space="preserve">
+    <value>Połącz ponownie</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.useLetter" xml:space="preserve">
+    <value>Użyj tej litery dysku</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.thisDrive" xml:space="preserve">
+    <value>Ukryj/pokaż ten dysk</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.allDrives" xml:space="preserve">
+    <value>Ukryj/pokaż wszystkie dyski</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.fromPath" xml:space="preserve">
+    <value>Pliki źródłowe</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.targetPath" xml:space="preserve">
+    <value>Ścieżka docelowa</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.readOnly" xml:space="preserve">
+    <value>Tylko do odczytu</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.archive" xml:space="preserve">
+    <value>Archiwalny</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.hidden" xml:space="preserve">
+    <value>Ukryty</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.suppress" xml:space="preserve">
+    <value>Pomijaj błędy dla poszczególnych plików</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.deleteFolder" xml:space="preserve">
+    <value>Usuń ten folder</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.deleteSubFolders" xml:space="preserve">
+    <value>Usuń rekursywnie wszystkie podfoldery</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.deleteFiles" xml:space="preserve">
+    <value>Usuń wszystkie pliki w folderze</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.deleteReadOnly" xml:space="preserve">
+    <value>Zezwalaj na usuwanie plików i folderów tylko do odczytu</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.deleteIgnoreErrors" xml:space="preserve">
+    <value>Ignoruj błędy plików i folderów, których nie można usunąć</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.hive" xml:space="preserve">
+    <value>Gałąź</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.key" xml:space="preserve">
+    <value>Ścieżka klucza</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.name" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.type" xml:space="preserve">
+    <value>Typ</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.value" xml:space="preserve">
+    <value>Wartość</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.default" xml:space="preserve">
+    <value>Domyślna</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.displayDecimal" xml:space="preserve">
+    <value>Wyświetlana dziesiętnie</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.shortcutPath" xml:space="preserve">
+    <value>Lokalizacja skrótu</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.targetType" xml:space="preserve">
+    <value>Typ elementu docelowego</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.arguments" xml:space="preserve">
+    <value>Argumenty</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.startIn" xml:space="preserve">
+    <value>Rozpocznij w</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.iconPath" xml:space="preserve">
+    <value>Ścieżka pliku ikony</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.window" xml:space="preserve">
+    <value>Uruchom</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.comment" xml:space="preserve">
+    <value>Komentarz</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.runAs" xml:space="preserve">
+    <value>Uruchom jako</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.logonType" xml:space="preserve">
+    <value>Typ logowania</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.appName" xml:space="preserve">
+    <value>Program</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.args" xml:space="preserve">
+    <value>Argumenty</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.enabled" xml:space="preserve">
+    <value>Włączone</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.serviceName" xml:space="preserve">
+    <value>Nazwa usługi</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.startupType" xml:space="preserve">
+    <value>Uruchamianie</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.serviceAction" xml:space="preserve">
+    <value>Akcja usługi</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.accountName" xml:space="preserve">
+    <value>Logowanie jako</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.timeout" xml:space="preserve">
+    <value>Limit czasu oczekiwania</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.user" xml:space="preserve">
+    <value>Zmienna użytkownika</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.partial" xml:space="preserve">
+    <value>Częściowa</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.section" xml:space="preserve">
+    <value>Sekcja</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.property" xml:space="preserve">
+    <value>Właściwość</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.dsn" xml:space="preserve">
+    <value>Nazwa źródła danych</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.driver" xml:space="preserve">
+    <value>Sterownik</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.userDSN" xml:space="preserve">
+    <value>Źródło danych użytkownika</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.location" xml:space="preserve">
+    <value>Lokalizacja</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.port" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.ipAddress" xml:space="preserve">
+    <value>Adres IP</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.localName" xml:space="preserve">
+    <value>Nazwa lokalna</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.Command" xml:space="preserve">
+    <value>Program</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.WorkingDirectory" xml:space="preserve">
+    <value>Rozpocznij w</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.UserId" xml:space="preserve">
+    <value>Uruchom jako</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.Author" xml:space="preserve">
+    <value>Autor</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.RunLevel" xml:space="preserve">
+    <value>Poziom uprawnień</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.shortcutKey" xml:space="preserve">
+    <value>Klawisz skrótu</value>
+  </data>
+  <data name="GpoSettings.Pref.Prop.iconIndex" xml:space="preserve">
+    <value>Indeks ikony</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterComputer" xml:space="preserve">
+    <value>komputer</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterGroup" xml:space="preserve">
+    <value>grupa zabezpieczeń</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterUser" xml:space="preserve">
+    <value>użytkownik</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterOrgUnit" xml:space="preserve">
+    <value>jednostka organizacyjna</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterSite" xml:space="preserve">
+    <value>lokacja</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterDomain" xml:space="preserve">
+    <value>domena</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterOs" xml:space="preserve">
+    <value>system operacyjny</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterWmi" xml:space="preserve">
+    <value>zapytanie WMI</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterRegistry" xml:space="preserve">
+    <value>dopasowanie rejestru</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterFile" xml:space="preserve">
+    <value>dopasowanie pliku</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterIpRange" xml:space="preserve">
+    <value>zakres adresów IP</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterLanguage" xml:space="preserve">
+    <value>język</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterCollection" xml:space="preserve">
+    <value>kolekcja kierowania</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterVariable" xml:space="preserve">
+    <value>zmienna środowiskowa</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterBattery" xml:space="preserve">
+    <value>obecność baterii</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterCpu" xml:space="preserve">
+    <value>szybkość procesora</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterDate" xml:space="preserve">
+    <value>dopasowanie daty</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterDisk" xml:space="preserve">
+    <value>miejsce na dysku</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterDun" xml:space="preserve">
+    <value>połączenie telefoniczne</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterLdap" xml:space="preserve">
+    <value>zapytanie LDAP</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterMacRange" xml:space="preserve">
+    <value>zakres adresów MAC</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterMsi" xml:space="preserve">
+    <value>zapytanie MSI</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterPcmcia" xml:space="preserve">
+    <value>obecność PCMCIA</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterPortable" xml:space="preserve">
+    <value>komputer przenośny</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterProcMode" xml:space="preserve">
+    <value>tryb przetwarzania</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterRam" xml:space="preserve">
+    <value>pamięć RAM</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterTerminal" xml:space="preserve">
+    <value>sesja terminalowa</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterTime" xml:space="preserve">
+    <value>zakres czasu</value>
+  </data>
+  <data name="GpoSettings.Pref.Filter.FilterVpn" xml:space="preserve">
+    <value>połączenie VPN</value>
+  </data>
+  <data name="GpoSettings.SearchPlaceholder" xml:space="preserve">
+    <value>Szukaj ustawień (nazwa, wartość, klucz techniczny)</value>
+  </data>
+  <data name="GpoSettings.EditSetting" xml:space="preserve">
+    <value>Edytuj to ustawienie</value>
+  </data>
+  <data name="GpoSettings.CopySetting" xml:space="preserve">
+    <value>Kopiuj</value>
+  </data>
+  <data name="GpoSettings.Copied" xml:space="preserve">
+    <value>Ustawienie skopiowano do schowka.</value>
+  </data>
+  <data name="GpoSettings.HtmlReport" xml:space="preserve">
+    <value>Raport HTML…</value>
+  </data>
+  <data name="GpoSettings.HtmlFilter" xml:space="preserve">
+    <value>Strony HTML (*.html)</value>
+  </data>
+  <data name="GpoSettings.ReportExported" xml:space="preserve">
+    <value>Zapisano raport HTML: {1} (ustawienia: {0}).</value>
+  </data>
+  <data name="GpoSettings.ReportTitle" xml:space="preserve">
+    <value>Ustawienia obiektu GPO „{0}”</value>
+  </data>
+  <data name="GpoSettings.ReportMeta" xml:space="preserve">
+    <value>Domena {0} · GUID {1} · odczytano z SYSVOL kontrolera {2} · {3}</value>
+  </data>
+  <data name="GpoSettings.ReportNote" xml:space="preserve">
+    <value>Raport zapisany przez AD Manager. Sekrety (hasła i podobne wartości) nigdy nie są dołączane.</value>
+  </data>
+  <data name="GpoSettings.ReportFailed" xml:space="preserve">
+    <value>Nie udało się zapisać raportu: {0}</value>
+  </data>
+  <data name="GpoSettings.ColumnTechnical" xml:space="preserve">
+    <value>Klucz techniczny</value>
+  </data>
+  <data name="GpoSettings.DefinitionsLoading" xml:space="preserve">
+    <value>Wczytywanie szablonów administracyjnych, aby nazwać zasady…</value>
+  </data>
+  <data name="GpoSettings.DefinitionsFailed" xml:space="preserve">
+    <value>Nie udało się wczytać szablonów administracyjnych: wartości z Registry.pol są pokazane jako wartości rejestru.</value>
+  </data>
+  <data name="GpoSettings.DefinitionsNone" xml:space="preserve">
+    <value>Brak szablonów administracyjnych (ani magazynu centralnego, ani szablonów lokalnych): wartości z Registry.pol są pokazane jako wartości rejestru.</value>
+  </data>
+  <data name="GpoSettings.Shown" xml:space="preserve">
+    <value>Pokazano ustawienia: {0} z {1}</value>
+  </data>
+  <data name="GpoSettings.NoMatches" xml:space="preserve">
+    <value>Żadne ustawienie nie pasuje do wyszukiwania.</value>
+  </data>
+  <data name="GpoSettings.DetailsHint" xml:space="preserve">
+    <value>Zaznacz ustawienie, aby zobaczyć, gdzie GPMC je pokazuje, pełną wartość i klucz techniczny.</value>
+  </data>
+  <data name="GpoSettings.DetailsWhere" xml:space="preserve">
+    <value>Gdzie</value>
+  </data>
+  <data name="GpoSettings.DetailsTechnical" xml:space="preserve">
+    <value>Klucz techniczny</value>
+  </data>
+  <!-- K6 readable GPO settings (20.1): end -->
 </root>

@@ -214,7 +214,10 @@ public sealed class GroupPolicyBackupAndCompareTests
         Assert.All(comparison.Rows, r => Assert.True(r.IsDifferent));
         Assert.Contains(comparison.Rows, r => r.Row.Section == GpoComparisonSection.Core && r.Name == "Filtr WMI" && (r.ValueA == "Tylko stacje robocze" || r.ValueB == "Tylko stacje robocze"));
         Assert.Contains(comparison.Rows, r => r.Row.Section == GpoComparisonSection.Permissions && r.Name == "CONTOSO\\GG_IT");
-        Assert.Contains(comparison.Rows, r => r.Row.Section == GpoComparisonSection.Settings && r.Name.EndsWith("MinimumPasswordLength", StringComparison.Ordinal));
+        var length = Assert.Single(comparison.Rows, r => r.Row.Section == GpoComparisonSection.Settings && r.Name == "Minimalna długość hasła");
+        Assert.Equal(["(brak)", "12 znaków"], new[] { length.ValueA, length.ValueB }.Order(StringComparer.Ordinal));
+        Assert.Equal("Konfiguracja komputera › Zasady › Ustawienia systemu Windows › Ustawienia zabezpieczeń › Zasady konta › Zasady haseł", length.Area);
+        Assert.Equal("Computer/Security/System Access/MinimumPasswordLength", length.Technical);
         Assert.Contains(comparison.Rows, r => r.Row.Section == GpoComparisonSection.Files);
         Assert.Contains(comparison.Rows, r => r.Row.Section == GpoComparisonSection.Links && (r.ValueA + r.ValueB).Contains("włączone: Nie", StringComparison.Ordinal));
         var all = comparison.Rows.Count;
@@ -228,6 +231,8 @@ public sealed class GroupPolicyBackupAndCompareTests
         var text = await File.ReadAllTextAsync(csv, TestContext.Current.CancellationToken);
         Assert.Contains("Stacje robocze – Zasady haseł", text, StringComparison.Ordinal);
         Assert.Contains("Tylko stacje robocze", text, StringComparison.Ordinal);
+        Assert.Contains("Minimalna długość hasła", text, StringComparison.Ordinal);
+        Assert.Contains("Computer/Security/System Access/MinimumPasswordLength", text, StringComparison.Ordinal); // the technical key column
     }
 
     [Fact]
@@ -243,8 +248,11 @@ public sealed class GroupPolicyBackupAndCompareTests
         await comparison.InitializeAsync();
         comparison.OnlyDifferences = false;
 
-        Assert.DoesNotContain(comparison.Rows, r => r.ValueA.Contains("j1Uyj3Vx8TY9LtLZil2uAuZkFQA", StringComparison.Ordinal));
-        Assert.Contains(comparison.Rows, r => r.ValueA == "(ustawione – ukryte)");
+        Assert.DoesNotContain(comparison.Rows, r => (r.Name + r.ValueA + r.ValueB + r.Area + r.Technical).Contains("j1Uyj3Vx8TY9LtLZil2uAuZkFQA", StringComparison.Ordinal));
+        // The local user is one row; that a password is set shows, the password never does.
+        var user = Assert.Single(comparison.Rows, r => r.Name == "Administrator (wbudowany)");
+        Assert.Equal("Aktualizuj: hasło (ustawione – ukryte)", user.ValueA);
+        Assert.Equal("(brak)", user.ValueB);
     }
 
     [Fact]

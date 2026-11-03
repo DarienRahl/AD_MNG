@@ -1,7 +1,7 @@
 <!--
   One GPO (GroupPolicyObjectDocumentViewModel), GPMC's tabs: Zakres (links, security filtering, WMI filter), Szczegóły
-  (domain, owner, dates, versions of AD and SYSVOL, GUID, GPO status), Ustawienia (the normalized settings, read-only,
-  secrets never shown), Delegowanie (GPMC levels) and Stan (AD/SYSVOL consistency with "Wyrównaj wersje" and "Napraw
+  (domain, owner, dates, versions of AD and SYSVOL, GUID, GPO status), Ustawienia (the settings in GPMC's words, grouped like
+  GPMC's report, search, "Edytuj to ustawienie", "Raport HTML…"; read-only, secrets never shown), Delegowanie (GPMC levels) and Stan (AD/SYSVOL consistency with "Wyrównaj wersje" and "Napraw
   uprawnienia folderu"). Every change opens the change plan preview.
 -->
 <UserControl x:Class="AdMng.App.GroupPolicy.GroupPolicyObjectView"
@@ -211,10 +211,19 @@
         </Grid>
       </TabItem>
 
-      <!-- Ustawienia -->
+      <!-- Ustawienia: the settings in GPMC's words (K6 20.1), grouped like GPMC's settings report -->
       <TabItem x:Name="SettingsTab" Header="{l:Tr GroupPolicy.TabSettings}">
         <DockPanel Margin="4,8,4,4">
-          <DockPanel Margin="0,0,0,4" DockPanel.Dock="Top">
+          <DockPanel.Resources>
+            <Style x:Key="SettingRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+              <Setter Property="MinHeight" Value="28" />
+              <Setter Property="Margin" Value="0" />
+              <Setter Property="Padding" Value="2,0" />
+              <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+              <Setter Property="gp:GpoSettingsUi.DoubleClickCommand" Value="{Binding DataContext.EditSettingCommand, RelativeSource={RelativeSource AncestorType=ListView}}" />
+            </Style>
+          </DockPanel.Resources>
+          <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
             <Button x:Name="SettingsEditSecuritySettingsButton"
                     Margin="6,0,0,0"
                     VerticalAlignment="Top"
@@ -229,38 +238,217 @@
                     DockPanel.Dock="Right" />
             <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr GroupPolicy.SettingsHint}" TextWrapping="Wrap" />
           </DockPanel>
+          <!-- Search and the row commands -->
+          <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+              <Button x:Name="EditSettingButton" Margin="6,0,0,0" Command="{Binding EditSettingCommand}" Content="{l:Tr GpoSettings.EditSetting}" />
+              <Button x:Name="CopySettingButton" Margin="6,0,0,0" Command="{Binding CopySettingCommand}" Content="{l:Tr GpoSettings.CopySetting}" />
+              <Button x:Name="SettingsReportButton" Margin="6,0,0,0" Command="{Binding HtmlReportCommand}" Content="{l:Tr GpoSettings.HtmlReport}" />
+            </StackPanel>
+            <Grid>
+              <TextBox x:Name="SettingsSearchBox"
+                       gp:GpoSettingsUi.FocusWhenRequested="True"
+                       gp:GroupPolicyUi.IsDocumentSearch="True"
+                       AutomationProperties.Name="{l:Tr GpoSettings.SearchPlaceholder}"
+                       Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=250}"
+                       ToolTip="{l:Tr GpEditing.SearchHint}" />
+              <TextBlock Style="{StaticResource Ad.HintText}"
+                         Text="{l:Tr GpoSettings.SearchPlaceholder}"
+                         Visibility="{Binding Text, ElementName=SettingsSearchBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+            </Grid>
+          </DockPanel>
           <TextBlock x:Name="SettingsNote"
                      Margin="0,0,0,6"
                      DockPanel.Dock="Top"
                      Text="{Binding SettingsNote, Mode=OneWay}"
                      TextWrapping="Wrap"
                      Visibility="{Binding SettingsNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-          <ListView x:Name="SettingsList"
-                    AutomationProperties.Name="{l:Tr GroupPolicy.TabSettings}"
-                    ItemContainerStyle="{StaticResource RowStyle}"
-                    ItemsSource="{Binding Settings, Mode=OneWay}"
-                    VirtualizingPanel.IsVirtualizing="True">
-            <ListView.View>
-              <GridView AllowsColumnReorder="False">
-                <GridViewColumn Width="230" DisplayMemberBinding="{Binding PathText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnPath}" />
-                <GridViewColumn Width="360" Header="{l:Tr GroupPolicy.ColumnSetting}">
-                  <GridViewColumn.CellTemplate>
-                    <DataTemplate DataType="{x:Type gpm:GpoSettingRowViewModel}">
-                      <TextBlock Text="{Binding Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name, Mode=OneWay}" />
-                    </DataTemplate>
-                  </GridViewColumn.CellTemplate>
-                </GridViewColumn>
-                <GridViewColumn Width="260" Header="{l:Tr GroupPolicy.ColumnValue}">
-                  <GridViewColumn.CellTemplate>
-                    <DataTemplate DataType="{x:Type gpm:GpoSettingRowViewModel}">
-                      <TextBlock Text="{Binding Value, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Value, Mode=OneWay}" />
-                    </DataTemplate>
-                  </GridViewColumn.CellTemplate>
-                </GridViewColumn>
-                <GridViewColumn Width="240" DisplayMemberBinding="{Binding Source, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnSource}" />
-              </GridView>
-            </ListView.View>
-          </ListView>
+          <TextBlock x:Name="DefinitionsNoteText"
+                     Margin="0,0,0,6"
+                     DockPanel.Dock="Top"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding DefinitionsNote, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding DefinitionsNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+          <TextBlock x:Name="SettingsSummaryText"
+                     Margin="0,0,0,6"
+                     DockPanel.Dock="Top"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding SettingsSummary, Mode=OneWay}"
+                     Visibility="{Binding SettingsSummary, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="*" MinHeight="140" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="170" MinHeight="70" />
+            </Grid.RowDefinitions>
+            <ListView x:Name="SettingsList"
+                      gp:GroupPolicyUi.KeepsSelectionInView="True"
+                      AutomationProperties.Name="{l:Tr GroupPolicy.TabSettings}"
+                      ItemContainerStyle="{StaticResource SettingRowStyle}"
+                      gp:GpoSettingsUi.GroupBy="Configuration,Group"
+                      gp:GpoSettingsUi.GroupedItemsSource="{Binding Settings, Mode=OneWay}"
+                      IsSynchronizedWithCurrentItem="False"
+                      ScrollViewer.CanContentScroll="True"
+                      SelectedItem="{Binding SelectedSetting}"
+                      SelectionMode="Single"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                      VirtualizingPanel.ScrollUnit="Pixel"
+                      VirtualizingPanel.VirtualizationMode="Recycling">
+              <ListView.InputBindings>
+                <KeyBinding Key="Enter" Command="{Binding EditSettingCommand}" />
+                <KeyBinding Key="C" Command="{Binding CopySettingCommand}" Modifiers="Control" />
+              </ListView.InputBindings>
+              <ListView.ContextMenu>
+                <ContextMenu>
+                  <MenuItem x:Name="EditSettingMenuItem" Command="{Binding EditSettingCommand}" Header="{l:Tr GpoSettings.EditSetting}" InputGestureText="Enter" />
+                  <MenuItem x:Name="CopySettingMenuItem" Command="{Binding CopySettingCommand}" Header="{l:Tr GpoSettings.CopySetting}" InputGestureText="Ctrl+C" />
+                  <Separator />
+                  <MenuItem x:Name="SettingsReportMenuItem" Command="{Binding HtmlReportCommand}" Header="{l:Tr GpoSettings.HtmlReport}" />
+                </ContextMenu>
+              </ListView.ContextMenu>
+              <ListView.GroupStyle>
+                <!-- Konfiguracja komputera / Konfiguracja użytkownika -->
+                <GroupStyle>
+                  <GroupStyle.ContainerStyle>
+                    <Style TargetType="{x:Type GroupItem}">
+                      <Setter Property="Template">
+                        <Setter.Value>
+                          <ControlTemplate TargetType="{x:Type GroupItem}">
+                            <Expander Margin="0,6,0,0" IsExpanded="True">
+                              <Expander.Header>
+                                <TextBlock FontSize="15"
+                                           FontWeight="SemiBold"
+                                           Text="{Binding Name, Mode=OneWay}"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Name, Mode=OneWay}" />
+                              </Expander.Header>
+                              <ItemsPresenter />
+                            </Expander>
+                          </ControlTemplate>
+                        </Setter.Value>
+                      </Setter>
+                    </Style>
+                  </GroupStyle.ContainerStyle>
+                </GroupStyle>
+                <!-- GPMC's folder path below the configuration -->
+                <GroupStyle>
+                  <GroupStyle.ContainerStyle>
+                    <Style TargetType="{x:Type GroupItem}">
+                      <Setter Property="Template">
+                        <Setter.Value>
+                          <ControlTemplate TargetType="{x:Type GroupItem}">
+                            <Expander Margin="14,2,0,2" IsExpanded="True">
+                              <Expander.Header>
+                                <TextBlock FontWeight="SemiBold"
+                                           Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Name, Mode=OneWay}">
+                                  <Run Text="{Binding Name, Mode=OneWay}" /><Run Text=" (" /><Run Text="{Binding ItemCount, Mode=OneWay}" /><Run Text=")" />
+                                </TextBlock>
+                              </Expander.Header>
+                              <ItemsPresenter />
+                            </Expander>
+                          </ControlTemplate>
+                        </Setter.Value>
+                      </Setter>
+                    </Style>
+                  </GroupStyle.ContainerStyle>
+                </GroupStyle>
+              </ListView.GroupStyle>
+              <ListView.View>
+                <GridView AllowsColumnReorder="False">
+                  <GridViewColumn Width="380" Header="{l:Tr GroupPolicy.ColumnSetting}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type gpm:GpoSettingRowViewModel}">
+                        <TextBlock Text="{Binding Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Technical, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
+                  <GridViewColumn Width="400" Header="{l:Tr GroupPolicy.ColumnValue}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type gpm:GpoSettingRowViewModel}">
+                        <TextBlock Text="{Binding Value, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Value, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
+                  <GridViewColumn Width="220" Header="{l:Tr GroupPolicy.ColumnSource}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type gpm:GpoSettingRowViewModel}">
+                        <TextBlock Text="{Binding Source, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Source, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
+                </GridView>
+              </ListView.View>
+            </ListView>
+            <gp:PaneSplitter Grid.Row="1" ResizeDirection="Rows" />
+            <!-- The selected setting in full: where GPMC lists it, its value and parts, the note and the technical key -->
+            <Border x:Name="SettingDetails" Grid.Row="2" Padding="12,8" Style="{StaticResource Ad.Card}">
+              <Grid>
+                <TextBlock x:Name="SettingDetailsHint"
+                           Style="{StaticResource Ad.SecondaryText}"
+                           Text="{l:Tr GpoSettings.DetailsHint}"
+                           TextWrapping="Wrap"
+                           Visibility="{Binding SelectedSetting, Mode=OneWay, Converter={StaticResource Ad.EmptyToVisible}}" />
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding SelectedSetting, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+                  <StackPanel DataContext="{Binding SelectedSetting, Mode=OneWay}">
+                    <TextBox x:Name="SettingDetailsName"
+                             AutomationProperties.Name="{l:Tr GroupPolicy.ColumnSetting}"
+                             FontWeight="SemiBold"
+                             Style="{StaticResource Ad.SelectableText}"
+                             Text="{Binding Name, Mode=OneWay}"
+                             TextWrapping="Wrap" />
+                    <TextBox x:Name="SettingDetailsPath"
+                             AutomationProperties.Name="{l:Tr GpoSettings.DetailsWhere}"
+                             Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                             Style="{StaticResource Ad.SelectableText}"
+                             Text="{Binding GroupPath, Mode=OneWay}"
+                             TextWrapping="Wrap" />
+                    <TextBox x:Name="SettingDetailsValue"
+                             Margin="0,6,0,0"
+                             AutomationProperties.Name="{l:Tr GroupPolicy.ColumnValue}"
+                             Style="{StaticResource Ad.SelectableText}"
+                             Text="{Binding Value, Mode=OneWay}"
+                             TextWrapping="Wrap" />
+                    <ItemsControl x:Name="SettingDetailsElements"
+                                  Margin="12,2,0,0"
+                                  Focusable="False"
+                                  ItemsSource="{Binding Elements, Mode=OneWay}"
+                                  Visibility="{Binding HasElements, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <TextBox Style="{StaticResource Ad.SelectableText}" Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock x:Name="SettingDetailsExplanation"
+                               Margin="0,6,0,0"
+                               Style="{StaticResource Ad.SecondaryText}"
+                               Text="{Binding Explanation, Mode=OneWay}"
+                               TextWrapping="Wrap"
+                               Visibility="{Binding HasExplanation, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                    <DockPanel Margin="0,6,0,0">
+                      <TextBlock Margin="0,0,8,0"
+                                 VerticalAlignment="Center"
+                                 Style="{StaticResource Ad.SecondaryText}"
+                                 Text="{l:Tr GpoSettings.DetailsTechnical}" />
+                      <TextBox x:Name="SettingDetailsTechnical"
+                               AutomationProperties.Name="{l:Tr GpoSettings.DetailsTechnical}"
+                               FontFamily="Consolas"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Style="{StaticResource Ad.SelectableText}"
+                               Text="{Binding Technical, Mode=OneWay}"
+                               TextWrapping="Wrap" />
+                    </DockPanel>
+                  </StackPanel>
+                </ScrollViewer>
+              </Grid>
+            </Border>
+          </Grid>
         </DockPanel>
       </TabItem>
 

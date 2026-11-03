@@ -132,9 +132,9 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
     [ObservableProperty]
     public partial string DiffHeader { get; private set; } = string.Empty;
 
-    /// <summary>The lines of the differences of the selected file row.</summary>
+    /// <summary>The lines of the differences of the selected file row (settings in the operator's language, K6).</summary>
     [ObservableProperty]
-    public partial IReadOnlyList<GpoDiffLine> DiffLines { get; private set; } = [];
+    public partial IReadOnlyList<PreviewDiffLineViewModel> DiffLines { get; private set; } = [];
 
     /// <summary>The undo plan is shown (Execute reverts the change).</summary>
     [ObservableProperty]
@@ -394,8 +394,23 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
             GpoFileDiffKind.Settings => Localizer.Format(L.PlanPreview.DiffSettings, diff.Added, diff.Removed),
             _ => Localizer.Format(L.PlanPreview.DiffText, diff.Added, diff.Removed),
         };
+        IReadOnlyList<PreviewDiffLineViewModel> lines;
+        try
+        {
+            lines = await DiffLinesAsync(diff.Lines, Localizer, Session, token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (token.IsCancellationRequested)
+        {
+            return;
+        }
+
         DiffHeader = diff.Truncated ? header + " " + Localizer[L.PlanPreview.DiffTruncated] : header;
-        DiffLines = diff.Lines;
+        DiffLines = lines;
     }
 
     private string Size(byte[]? content) => content is null

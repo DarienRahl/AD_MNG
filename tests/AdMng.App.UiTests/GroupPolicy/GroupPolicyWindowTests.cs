@@ -491,11 +491,12 @@ public sealed class GroupPolicyWindowTests
 
         // "Dlaczego" of the minimum password length: the workstations' GPO wins over the Default Domain Policy.
         var settings = Assert.Single(UiWait.Descendants<ListView>(view), l => l.Name == "SettingsList" && l.IsVisible);
-        settings.SelectedItem = model.ComputerPart.Settings.Single(s => s.Name == "Security/System Access/MinimumPasswordLength");
+        settings.SelectedItem = model.ComputerPart.Settings.Single(s => s.Name == "Minimalna długość hasła");
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         var details = Assert.Single(UiWait.Descendants<TextBox>(view), t => t.Name == "DetailsText" && t.IsVisible);
         Assert.StartsWith("Wygrywa: Stacje robocze – Zasady haseł (pierwszeństwo 2)", details.Text, StringComparison.Ordinal);
-        Assert.Contains("• Default Domain Policy (pierwszeństwo 3): 7", details.Text, StringComparison.Ordinal);
+        Assert.Contains("• Default Domain Policy (pierwszeństwo 3): 7 znaków", details.Text, StringComparison.Ordinal);
+        Assert.True(Assert.Single(UiWait.Descendants<Button>(view), b => b.Name == "EditModelSettingButton" && b.IsVisible).IsEnabled); // "Edytuj to ustawienie" (K6)
 
         // WMI filters assumed false: "Przelicz" drops the workstations' GPO.
         view.WmiBox.SelectedValue = Core.GroupPolicy.Modeling.WmiFilterAssumption.AssumeFalse;

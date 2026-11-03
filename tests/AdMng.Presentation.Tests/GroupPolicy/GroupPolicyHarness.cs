@@ -32,9 +32,9 @@ internal sealed class GroupPolicyHarness
         Ui = new DialogServices(b2.Sessions, b2.Localizer, b2.Dispatcher, b2.Settings, b2.Errors, b2.Changes, b2.Time, b2.Dialogs, b2.Files, b2.Clipboard,
             b2.Notifications, Coordinator, b2.Activities, b2.Lists, b2.Regional);
         Planner = new GroupPolicyPlanner(new GroupPolicyReader(), b2.Time);
-        Services = new GroupPolicyServices(Ui, b2.Engines, Planner, Windows, withWriter ? Sysvol : null);
-        Actions = new GroupPolicyActions(Services);
         Definitions = new PolicyDefinitionsService(Local);
+        Services = new GroupPolicyServices(Ui, b2.Engines, Planner, Windows, withWriter ? Sysvol : null, definitions: Definitions);
+        Actions = new GroupPolicyActions(Services);
         Factory = new GroupPolicyViewModelFactory(Services, Actions, Definitions);
     }
 

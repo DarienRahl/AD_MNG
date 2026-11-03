@@ -1,9 +1,11 @@
 using System.Globalization;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Comparison;
+using AdMng.Core.GroupPolicy.Content;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Core.Ldap;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.GroupPolicy.Settings;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
@@ -13,15 +15,31 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace AdMng.Presentation.GroupPolicy;
 
-/// <summary>One row of <see cref="GpoComparisonViewModel"/> (localized; masked values never shown).</summary>
+/// <summary>
+/// One row of <see cref="GpoComparisonViewModel"/> (localized; masked values never shown). A settings row may stand for a
+/// preference item or an administrative template policy made of several setting rows (<see cref="Row"/> is the first).
+/// </summary>
 public sealed record GpoComparisonRowViewModel(GpoComparisonRow Row, string SectionText, string Name, string ValueA, string ValueB, string StateText)
 {
-    public bool IsDifferent => Row.State != GpoComparisonState.Same;
+    /// <summary>Same, different, only in A, only in B (of every setting the row stands for).</summary>
+    public GpoComparisonState State { get; init; } = Row.State;
+
+    /// <summary>Where GPMC lists a setting ("Konfiguracja komputera › Zasady › …"); empty for the other sections.</summary>
+    public string Area { get; init; } = string.Empty;
+
+    /// <summary>The key behind a setting (tool tip, CSV); empty for the other sections.</summary>
+    public string Technical { get; init; } = string.Empty;
+
+    /// <summary>The name's tool tip: the name and, for a setting, its technical key.</summary>
+    public string NameToolTip => Technical.Length == 0 ? Name : Name + Environment.NewLine + Technical;
+
+    public bool IsDifferent => State != GpoComparisonState.Same;
 }
 
 /// <summary>
 /// "Porównaj" two GPOs of the window's domain (design note 5.6, <c>GpoComparisonWindow</c>): status, versions, WMI filter,
-/// extension names, security filtering and delegation, links, the normalized settings of both folders and their files,
+/// extension names, security filtering and delegation, links, the settings of both folders in the operator's language (K6:
+/// <see cref="GpoSettingPresenter"/>, preference items and administrative template policies as one row each) and their files,
 /// read on the session's DC into memory. "Tylko różnice" filters the rows; masked settings (passwords) show only that they
 /// are set. CSV only when the operator chooses a file (rule 1).
 /// </summary>
@@ -120,20 +138,42 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase
                 Warning = _gp.SysvolText(access.Reason ?? SysvolUnavailableReason.Failed, session.Info.Server) + " " + Localizer[L.GroupPolicy.CompareWithoutContent];
             }
 
-            var sids = GpoPermissionLevels.Read(gpoA.SecurityDescriptor).Concat(GpoPermissionLevels.Read(gpoB.SecurityDescriptor)).Select(p => p.Sid);
+            var rows = await Task.Run(
+                () => GroupPolicyComparer.Compare(new GpoComparisonSide(gpoA, contentA, linksA), new GpoComparisonSide(gpoB, contentB, linksB)), token)
+                .ConfigureAwait(true);
+
+            // One directory search for every name: the trustees of both GPOs and the principals their settings name.
+            var settingSids = GpoSettingPresenter.Sids(rows.SelectMany(r => new[] { r.A, r.B }).OfType<GpoSetting>());
+            var sids = GpoPermissionLevels.Read(gpoA.SecurityDescriptor).Concat(GpoPermissionLevels.Read(gpoB.SecurityDescriptor)).Select(p => p.Sid).Concat(settingSids);
             var names = await TrusteeNames.ResolveAsync(session, sids, Localizer, token).ConfigureAwait(true);
             if (token.IsCancellationRequested)
             {
                 return;
             }
 
-            var rows = await Task.Run(
-                () => GroupPolicyComparer.Compare(new GpoComparisonSide(gpoA, contentA, linksA), new GpoComparisonSide(gpoB, contentB, linksB)), token)
-                .ConfigureAwait(true);
             var filterNames = filters.ToDictionary(f => f.Id, f => f.Name, StringComparer.OrdinalIgnoreCase);
             var linkMap = linksA.Concat(linksB).GroupBy(l => l.ContainerDn, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First().ContainerName, StringComparer.OrdinalIgnoreCase);
-            _all = [.. rows.Select(r => ToRow(r, names, filterNames, linkMap, linksA, linksB))];
-            ApplyFilter();
+            var other = rows.Where(r => r.Section != GpoComparisonSection.Settings).Select(r => ToRow(r, names, filterNames, linkMap, linksA, linksB)).ToList();
+            var (presenterA, presenterB) = Presenters(Localizer, names, rows, contentA, contentB, null);
+            ShowRows(other, SettingRows(rows, presenterA, presenterB));
+
+            // The rows are shown with registry names; the administrative templates then name the policies.
+            IsLoading = false;
+            if (await DefinitionsAsync(session, rows, token).ConfigureAwait(true) is { } definitions && !token.IsCancellationRequested)
+            {
+                var localizer = Localizer;
+                var named = await Task.Run(
+                    () =>
+                    {
+                        var (a, b) = Presenters(localizer, names, rows, contentA, contentB, definitions);
+                        return SettingRows(rows, a, b);
+                    },
+                    token).ConfigureAwait(true);
+                if (!token.IsCancellationRequested)
+                {
+                    ShowRows(other, named);
+                }
+            }
         }
         catch (OperationCanceledException)
         {
@@ -171,11 +211,13 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase
             {
                 writer.WriteLine(string.Join(separator, new[]
                 {
-                    Localizer[L.GroupPolicy.ColumnSection], Localizer[L.GroupPolicy.ColumnSetting], NameA, NameB, Localizer[L.GroupPolicy.ColumnState],
+                    Localizer[L.GroupPolicy.ColumnSection], Localizer[L.GroupPolicyEditing.ColumnArea], Localizer[L.GroupPolicy.ColumnSetting], NameA, NameB,
+                    Localizer[L.GroupPolicy.ColumnState], Localizer[L.GpoSettings.ColumnTechnical],
                 }.Select(v => Csv(v, separator))));
                 foreach (var row in rows)
                 {
-                    writer.WriteLine(string.Join(separator, new[] { row.SectionText, row.Name, row.ValueA, row.ValueB, row.StateText }.Select(v => Csv(v, separator))));
+                    writer.WriteLine(string.Join(separator, new[] { row.SectionText, row.Area, row.Name, row.ValueA, row.ValueB, row.StateText, row.Technical }
+                        .Select(v => Csv(v, separator))));
                 }
             }).ConfigureAwait(true);
             Services.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.GroupPolicy.CompareExported, rows.Count));
@@ -199,6 +241,13 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase
         }
 
         base.Dispose(disposing);
+    }
+
+    /// <summary>The rows in the comparer's section order: core, permissions, links, settings, files.</summary>
+    private void ShowRows(IReadOnlyList<GpoComparisonRowViewModel> other, IReadOnlyList<GpoComparisonRowViewModel> settings)
+    {
+        _all = [.. other.Where(r => r.Row.Section < GpoComparisonSection.Settings), .. settings, .. other.Where(r => r.Row.Section > GpoComparisonSection.Settings)];
+        ApplyFilter();
     }
 
     private void ApplyFilter()
@@ -235,11 +284,6 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase
                 a = LinkText(linksA.FirstOrDefault(l => DistinguishedName.AreEqual(l.ContainerDn, row.Key)));
                 b = LinkText(linksB.FirstOrDefault(l => DistinguishedName.AreEqual(l.ContainerDn, row.Key)));
                 break;
-            case GpoComparisonSection.Settings:
-                name = row.Key;
-                a = Setting(row.ValueA, row.Masked);
-                b = Setting(row.ValueB, row.Masked);
-                break;
             default:
                 name = row.Key;
                 a = row.ValueA ?? Localizer[L.GroupPolicy.Absent];
@@ -274,14 +318,16 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase
         : Localizer.Format(L.GroupPolicy.LinkSummary, link.Order.ToString(CultureInfo.CurrentCulture),
             GroupPolicyText.YesNo(Localizer, link.Enforced), GroupPolicyText.YesNo(Localizer, link.Enabled));
 
-    private string Setting(string? value, bool masked) => value is null
-        ? Localizer[L.GroupPolicy.Absent]
-        : masked ? Localizer[L.GroupPolicy.MaskedValue]
-        : string.Equals(value, GroupPolicyComparer.GpoSettingsUnreadable, StringComparison.Ordinal) ? Localizer[L.GroupPolicy.UnreadableValue]
-        : value;
+    /// <summary>A CSV field: quoted when needed; text a spreadsheet would run as a formula (=, +, -, @) is prefixed with an apostrophe.</summary>
+    private static string Csv(string value, string separator)
+    {
+        if (value.Length > 0 && value[0] is '=' or '+' or '-' or '@' or '\t' or '\r')
+        {
+            value = "'" + value;
+        }
 
-    private static string Csv(string value, string separator) =>
-        value.Contains(separator, StringComparison.Ordinal) || value.Contains('"', StringComparison.Ordinal) || value.Contains('\n', StringComparison.Ordinal)
+        return value.Contains(separator, StringComparison.Ordinal) || value.Contains('"', StringComparison.Ordinal) || value.Contains('\n', StringComparison.Ordinal)
             ? "\"" + value.Replace("\"", "\"\"", StringComparison.Ordinal) + "\""
             : value;
+    }
 }

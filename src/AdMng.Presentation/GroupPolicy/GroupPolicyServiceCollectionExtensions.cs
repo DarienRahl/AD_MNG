@@ -35,7 +35,8 @@ public static class GroupPolicyServiceCollectionExtensions
             sp.GetRequiredService<GroupPolicyPlanner>(),
             sp.GetRequiredService<IGroupPolicyDialogs>(),
             sp.GetService<ISysvolFileWriter>(),
-            sp.GetService<WatchdogObjectHistoryLauncher>()));
+            sp.GetService<WatchdogObjectHistoryLauncher>(),
+            sp.GetService<PolicyDefinitionsService>()));
         services.TryAddScoped<GroupPolicyActions>();
         services.TryAddSingleton<ILocalPolicyDefinitions, WindowsLocalPolicyDefinitions>();
         services.TryAddScoped(sp => new PolicyDefinitionsService(sp.GetService<ILocalPolicyDefinitions>()));

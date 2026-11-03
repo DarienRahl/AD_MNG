@@ -74,9 +74,6 @@ public sealed class GpoTrusteeRowViewModel
     public bool IsCustom => Level == GpoPermissionLevel.Custom;
 }
 
-/// <summary>A normalized setting (Ustawienia tab).</summary>
-public sealed record GpoSettingRowViewModel(string PathText, string Name, string Value, string Source);
-
 /// <summary>A consistency check (Stan tab).</summary>
 public sealed record GpoCheckRowViewModel(string Text, string Detail, bool IsOk);
 
@@ -342,10 +339,8 @@ public sealed partial class GroupPolicyObjectDocumentViewModel : GroupPolicyDocu
         ComputerVersionText = Localizer.Format(L.GroupPolicy.VersionPair, Half(gpo.DirectoryVersion?.Computer), sysvol is null ? "–" : Half(gpo.SysvolVersion?.Computer));
         SelectedStatus = StatusOptions.FirstOrDefault(o => o.Value == gpo.Status);
 
-        // Ustawienia.
-        Settings = [.. settings.Select(s => new GpoSettingRowViewModel(GroupPolicyText.SettingPath(Localizer, s), GroupPolicyText.SettingName(s),
-            GroupPolicyText.SettingValue(Localizer, s), s.Source ?? string.Empty))];
-        SettingsNote = contentNote ?? (Settings.Count == 0 ? Localizer[L.GroupPolicy.NoSettings] : null);
+        // Ustawienia (GroupPolicyObjectDocumentViewModel.Settings.cs).
+        await ShowSettingsAsync(session, content, settings, contentNote, cancellationToken).ConfigureAwait(true);
 
         // Delegowanie.
         var selectedSid = SelectedTrustee?.Sid;
@@ -354,7 +349,7 @@ public sealed partial class GroupPolicyObjectDocumentViewModel : GroupPolicyDocu
 
         // Stan.
         Checks = BuildChecks(gpo, sysvol is not null, folderExists, content, folderSecurity);
-        LoadedText = Localizer.Format(L.GroupPolicy.ObjectLoaded, Links.Count, Settings.Count);
+        LoadedText = Localizer.Format(L.GroupPolicy.ObjectLoaded, Links.Count, SettingCount);
     }
 
     protected override void OnNotConnected() => Clear();
@@ -552,7 +547,7 @@ public sealed partial class GroupPolicyObjectDocumentViewModel : GroupPolicyDocu
         Links = [];
         SecurityFilter = [];
         WmiFilters = [];
-        Settings = [];
+        ClearSettings();
         Delegation = [];
         Checks = [];
         HasVersionMismatch = false;

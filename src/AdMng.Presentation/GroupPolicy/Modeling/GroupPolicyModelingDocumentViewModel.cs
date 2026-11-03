@@ -11,6 +11,7 @@ using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Presentation.Computers;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
+using AdMng.Presentation.GroupPolicy.Settings;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
@@ -289,6 +290,18 @@ public sealed partial class GroupPolicyModelingDocumentViewModel : GroupPolicyDo
 
     private bool CanPick() => HasSession;
 
+    /// <summary>"Edytuj to ustawienie" (K6): the editor of the setting or policy in the GPO whose value wins.</summary>
+    [RelayCommand(CanExecute = nameof(CanEditModelSetting))]
+    private void EditModelSetting(ModelSettingRowViewModel? row)
+    {
+        if (row is { CanEdit: true, Focus: { } focus })
+        {
+            Actions.EditSetting(row.GpoId, row.WinnerGpo, focus);
+        }
+    }
+
+    private bool CanEditModelSetting(ModelSettingRowViewModel? row) => row is { CanEdit: true } && HasSession;
+
     /// <summary>A model of the current inputs is shown (not one of earlier inputs).</summary>
     private bool CanExport() => HasModel && !IsStale;
 
@@ -374,7 +387,7 @@ public sealed partial class GroupPolicyModelingDocumentViewModel : GroupPolicyDo
             return;
         }
 
-        var text = new GroupPolicyModelText(Localizer, session.Info.DomainDnsName);
+        var text = new GroupPolicyModelText(Localizer, session.Info.DomainDnsName, result.Names);
         _export.Clear();
         var summary = new List<string>();
         ShowPart(ComputerPart, model.Computer, result.ComputerTarget, result.Names, text, sysvolUnavailable, L.GroupPolicyModel.PartNoComputer, summary);
@@ -492,7 +505,11 @@ public sealed partial class GroupPolicyModelingDocumentViewModel : GroupPolicyDo
             ? new Dictionary<Guid, ModelingGpoContent>()
             : await GroupPolicyModelReader.ReadContentsAsync(sysvol, GroupPolicyModeler.GposToRead(input), cancellationToken).ConfigureAwait(false);
         var model = GroupPolicyModeler.Build(input, contents);
-        var sids = (computer?.Token ?? Enumerable.Empty<string>()).Concat(user?.Token ?? Enumerable.Empty<string>()).ToList();
+        // One directory search for every name the model shows: the tokens and the principals its settings name.
+        var settings = new[] { model.Computer, model.User }.Where(p => p is not null)
+            .SelectMany(p => p!.Settings.SelectMany(s => s.Overridden.Select(o => o.Setting).Prepend(s.Winner.Setting)));
+        var sids = (computer?.Token ?? Enumerable.Empty<string>()).Concat(user?.Token ?? Enumerable.Empty<string>())
+            .Concat(GpoSettingPresenter.Sids(settings)).ToList();
         var names = await TrusteeNames.ResolveAsync(session, sids, localizer, cancellationToken).ConfigureAwait(false);
         return new CalculationResult(sites, siteDn, notes, model, computer, user, names);
     }

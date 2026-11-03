@@ -6,6 +6,7 @@ using AdMng.Core.GroupPolicy.Comparison;
 using AdMng.Core.GroupPolicy.Content;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Presentation.Errors;
+using AdMng.Presentation.GroupPolicy.Settings;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Session;
 
@@ -65,12 +66,15 @@ public static class GroupPolicyText
         return localizer[value ? L.GroupPolicy.Yes : L.GroupPolicy.No];
     }
 
-    /// <summary>"Komputer / Zabezpieczenia" for a setting.</summary>
+    /// <summary>
+    /// Where GPMC lists a setting ("Konfiguracja komputera › Zasady › … › Zasady haseł") – the presenter's group path (K6);
+    /// views of many settings use <see cref="GpoSettingPresenter"/> directly (SIDs named once, items and policies as one row).
+    /// </summary>
     public static string SettingPath(ILocalizer localizer, GpoSetting setting)
     {
         ArgumentNullException.ThrowIfNull(localizer);
         ArgumentNullException.ThrowIfNull(setting);
-        return Scope(localizer, setting) + " / " + Category(localizer, setting.Category);
+        return new GpoSettingPresenter(localizer).Describe(setting).GroupPath;
     }
 
     /// <summary>"Komputer", "Użytkownik" or "GPO" from the first segment of the setting's key.</summary>
@@ -84,7 +88,10 @@ public static class GroupPolicyText
             : L.GroupPolicy.ScopeGpo];
     }
 
-    /// <summary>The key without its scope segment ("Security/System Access/MinimumPasswordLength").</summary>
+    /// <summary>
+    /// The technical key without its scope segment ("Security/System Access/MinimumPasswordLength"); the readable name is the
+    /// presenter's (<see cref="GpoSettingPresenter.Describe(GpoSetting)"/>).
+    /// </summary>
     public static string SettingName(GpoSetting setting)
     {
         ArgumentNullException.ThrowIfNull(setting);
@@ -100,18 +107,12 @@ public static class GroupPolicyText
         return string.Equals(text, key, StringComparison.Ordinal) ? category.ToString() : text;
     }
 
-    /// <summary>The value shown for a setting (masked values never).</summary>
+    /// <summary>The value shown for a setting in the operator's language (masked values never) – the presenter's (K6).</summary>
     public static string SettingValue(ILocalizer localizer, GpoSetting setting)
     {
         ArgumentNullException.ThrowIfNull(localizer);
         ArgumentNullException.ThrowIfNull(setting);
-        return setting.Kind switch
-        {
-            GpoSettingKind.Masked => localizer[L.GroupPolicy.MaskedValue],
-            GpoSettingKind.Unreadable => localizer[L.GroupPolicy.UnreadableValue],
-            _ when setting.IsList => string.Join(", ", setting.Elements()),
-            _ => setting.Value ?? string.Empty,
-        };
+        return new GpoSettingPresenter(localizer).Describe(setting).ValueText;
     }
 
     /// <summary>The section name of a comparison row.</summary>

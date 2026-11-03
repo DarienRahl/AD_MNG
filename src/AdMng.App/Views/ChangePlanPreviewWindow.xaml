@@ -11,7 +11,6 @@
         xmlns:batch="clr-namespace:AdMng.Presentation.BatchEditing;assembly=AdMng.Presentation"
         xmlns:changes="clr-namespace:AdMng.Presentation.Changes;assembly=AdMng.Presentation"
         xmlns:conv="clr-namespace:AdMng.App.Converters"
-        xmlns:gpo="clr-namespace:AdMng.Core.GroupPolicy.Management;assembly=AdMng.Core"
         xmlns:l="clr-namespace:AdMng.App.Localization"
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
@@ -39,17 +38,21 @@
       <Setter Property="Padding" Value="2,0" />
       <Setter Property="AutomationProperties.Name" Value="{Binding Setting, Mode=OneWay}" />
     </Style>
-    <DataTemplate x:Key="DiffLineTemplate" DataType="{x:Type gpo:GpoDiffLine}">
-      <TextBlock x:Name="LineText" FontFamily="Consolas" Text="{Binding Text, Mode=OneWay}" />
+    <!-- A setting in the operator's language (its technical line as tool tip, K6), or a text line of the file -->
+    <DataTemplate x:Key="DiffLineTemplate" DataType="{x:Type changes:PreviewDiffLineViewModel}">
+      <TextBlock x:Name="LineText" FontFamily="Consolas" Text="{Binding Text, Mode=OneWay}" ToolTip="{Binding ToolTip, Mode=OneWay}" />
       <DataTemplate.Triggers>
-        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static gpo:GpoDiffLineKind.Added}">
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static changes:PreviewDiffKind.Added}">
           <Setter TargetName="LineText" Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
         </DataTrigger>
-        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static gpo:GpoDiffLineKind.Removed}">
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static changes:PreviewDiffKind.Removed}">
           <Setter TargetName="LineText" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
           <Setter TargetName="LineText" Property="TextDecorations" Value="Strikethrough" />
         </DataTrigger>
-        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static gpo:GpoDiffLineKind.Unchanged}">
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static changes:PreviewDiffKind.Changed}">
+          <Setter TargetName="LineText" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static changes:PreviewDiffKind.Unchanged}">
           <Setter TargetName="LineText" Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
         </DataTrigger>
       </DataTemplate.Triggers>

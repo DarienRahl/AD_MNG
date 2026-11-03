@@ -184,14 +184,19 @@ public sealed class WatchdogStageBTests
             Assert.Equal("Zmieniono ustawienia GPO", details.Title);
             Assert.Equal(h.Ad.Localizer.TagName(EventTags.GppPassword), details.TagsText);
             var rows = details.Changes;
-            Assert.Equal("Computer › Security › Privilege Rights › SeDebugPrivilege", rows[0].Attribute);
+            // GPMC's path and the setting's name, readable values; the key stays the tool tip (K6).
+            Assert.Equal("Konfiguracja komputera › Zasady › Ustawienia systemu Windows › Ustawienia zabezpieczeń › Zasady lokalne › Przypisywanie praw użytkownika › Debugowanie programów",
+                rows[0].Attribute);
             Assert.Equal("Computer/Security/Privilege Rights/SeDebugPrivilege", rows[0].LdapName);
-            Assert.Equal("*S-1-5-32-544", rows[0].OldText);
-            Assert.Equal("+*S-1-5-21-1004336348-1177238915-682003330-1180", rows[0].ChangeText);
-            Assert.Equal(@"Computer › Registry › HKLM\Software\Policies\Microsoft\Windows\WinRM\Service › AllowBasic", rows[1].Attribute);
-            Assert.Equal("REG_DWORD:0", rows[1].OldText);
-            Assert.Equal("REG_DWORD:1", rows[1].NewText);
+            Assert.Equal("Administratorzy", rows[0].OldText);
+            Assert.StartsWith("Administratorzy, ", rows[0].NewText, StringComparison.Ordinal);
+            Assert.Equal("+S-1-5-21-1004336348-1177238915-682003330-1180", rows[0].ChangeText);
+            Assert.Equal(@"Konfiguracja komputera › Zasady › Szablony administracyjne › Dodatkowe ustawienia rejestru › HKLM\Software\Policies\Microsoft\Windows\WinRM\Service\AllowBasic",
+                rows[1].Attribute);
+            Assert.Equal("0 (REG_DWORD)", rows[1].OldText);
+            Assert.Equal("1 (REG_DWORD)", rows[1].NewText);
             Assert.True(rows[2].IsRedacted);
+            Assert.EndsWith("Lokalni użytkownicy i grupy › Element {6F0C2B4D-1A2B-4C3D-8E9F-0A1B2C3D4E5F} – Hasło", rows[2].Attribute, StringComparison.Ordinal);
             Assert.Equal("nie udało się odczytać", rows[3].NewText);
             Assert.Equal("Pozostałe ustawienia", rows[4].Attribute);
             Assert.Equal("nie pokazano 12 z 211 zmienionych ustawień", rows[4].NewText);

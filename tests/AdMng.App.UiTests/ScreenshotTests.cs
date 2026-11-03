@@ -248,7 +248,7 @@ public sealed class ScreenshotTests
         model.SelectedSite = model.Sites.Single(s => s.Name == "Warszawa");
         await model.RecalculateCommand.ExecuteAsync(null);
         await UiWait.UntilAsync(() => !model.IsLoading && model.HasModel && !model.IsStale, "the model at the site Warszawa");
-        model.ComputerPart.SelectedSetting = model.ComputerPart.Settings.Single(s => s.Name == "Security/System Access/MinimumPasswordLength");
+        model.ComputerPart.SelectedSetting = model.ComputerPart.Settings.Single(s => s.Name == "Minimalna długość hasła");
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
 
         Assert.Contains(model.ComputerPart.Gpos, g => g.Name == "Lokacja Warszawa – Drukarki");

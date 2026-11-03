@@ -6,6 +6,7 @@ using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Errors;
+using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Session;
@@ -93,7 +94,8 @@ public sealed class GroupPolicyServices(
     GroupPolicyPlanner planner,
     IGroupPolicyDialogs dialogs,
     ISysvolFileWriter? writer = null,
-    WatchdogObjectHistoryLauncher? history = null)
+    WatchdogObjectHistoryLauncher? history = null,
+    PolicyDefinitionsService? definitions = null)
 {
     /// <summary>Session, dialogs, files, clipboard, notifications and the change pipeline of the connection window.</summary>
     public DialogServices Ui { get; } = ui ?? throw new ArgumentNullException(nameof(ui));
@@ -111,6 +113,12 @@ public sealed class GroupPolicyServices(
 
     /// <summary>"Historia w Watchdogu" (null when the host has no Watchdog).</summary>
     public WatchdogObjectHistoryLauncher? History { get; } = history;
+
+    /// <summary>
+    /// The window's administrative templates (K6: the "Ustawienia" tab and the comparison name Registry.pol values by their
+    /// policies); null: Registry.pol values are shown as registry values.
+    /// </summary>
+    public PolicyDefinitionsService? Definitions { get; } = definitions;
 
     public ILocalizer Localizer => Ui.Localizer;
 

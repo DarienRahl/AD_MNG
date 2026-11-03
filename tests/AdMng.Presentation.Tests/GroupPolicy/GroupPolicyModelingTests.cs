@@ -62,9 +62,11 @@ public sealed class GroupPolicyModelingTests
         Assert.DoesNotContain(part.Gpos, g => g.Name == "Lokacja Warszawa – Drukarki"); // no site: site links do not apply
         Assert.Contains("Lokacja nieznana: łącza lokacji nie zostały uwzględnione.", part.Warnings);
 
-        var length = Assert.Single(part.Settings, s => s.Name == "Security/System Access/MinimumPasswordLength");
-        Assert.Equal(("12", "Stacje robocze – Zasady haseł", 1), (length.Value, length.WinnerGpo, length.OverriddenCount));
-        Assert.Equal(GroupPolicyText.Category(h.B2.Localizer, Core.GroupPolicy.Content.GpoSettingCategory.AccountPolicy), length.Area);
+        var length = Assert.Single(part.Settings, s => s.Name == "Minimalna długość hasła");
+        Assert.Equal(("12 znaków", "Stacje robocze – Zasady haseł", 1), (length.Value, length.WinnerGpo, length.OverriddenCount));
+        Assert.Equal("Ustawienia systemu Windows › Ustawienia zabezpieczeń › Zasady konta › Zasady haseł", length.Area);
+        Assert.Equal(h.Sample.WorkstationPasswords, length.GpoId);
+        Assert.True(length.CanEdit);
         Assert.Equal(["CONTOSO\\Domain Computers", "CONTOSO\\WAW-PC001$", "Ta organizacja", "Użytkownicy uwierzytelnieni", "Wszyscy"], part.Groups);
 
         Assert.False(model.UserPart.IsAvailable);
@@ -83,22 +85,22 @@ public sealed class GroupPolicyModelingTests
         var part = model.ComputerPart;
         Assert.Equal("Wybierz ustawienie, aby zobaczyć, dlaczego wygrywa.", part.DetailsText);
 
-        part.SelectedSetting = part.Settings.Single(s => s.Name == "Security/System Access/MinimumPasswordLength");
+        part.SelectedSetting = part.Settings.Single(s => s.Name == "Minimalna długość hasła");
 
         var lines = part.DetailsText.Split(Environment.NewLine);
         Assert.Equal("Wygrywa: Stacje robocze – Zasady haseł (pierwszeństwo 2)", lines[0]);
         Assert.Equal("Łącze: contoso.test/Firma/Komputery, wymuszone: Nie, kolejność łącza: 1", lines[1]);
-        Assert.Equal("Wartość: 12", lines[2]);
+        Assert.Equal("Wartość: 12 znaków", lines[2]);
         Assert.Contains("Przesłonięte GPO:", lines);
-        Assert.Equal("• Default Domain Policy (pierwszeństwo 3): 7", lines[^1]);
+        Assert.Equal("• Default Domain Policy (pierwszeństwo 3): 7 znaków", lines[^1]);
 
-        part.SelectedSetting = part.Settings.Single(s => s.Name == "Security/Privilege Rights/SeDebugPrivilege");
+        part.SelectedSetting = part.Settings.Single(s => s.Name == "Debugowanie programów");
         Assert.Contains("wymuszone: Tak", part.DetailsText, StringComparison.Ordinal);
         Assert.EndsWith("Żaden inny zastosowany GPO nie konfiguruje tego ustawienia.", part.DetailsText, StringComparison.Ordinal);
 
         // A recalculation keeps the selected setting.
         await model.RecalculateCommand.ExecuteAsync(null);
-        Assert.Equal("Security/Privilege Rights/SeDebugPrivilege", model.ComputerPart.SelectedSetting?.Name);
+        Assert.Equal("Debugowanie programów", model.ComputerPart.SelectedSetting?.Name);
     }
 
     [Fact]
@@ -114,7 +116,10 @@ public sealed class GroupPolicyModelingTests
         Assert.Equal(["Użytkownicy – Mapowanie dysków"], part.Gpos.Where(g => g.Applies).Select(g => g.Name));
         Assert.Equal("Konfiguracja użytkownika wyłączona", Gpo(part, "Serwery – Zabezpieczenia").OutcomeText);
         Assert.Equal("Zablokowany przez blokowanie dziedziczenia w contoso.test/Firma/Pracownicy", Gpo(part, "Default Domain Policy").OutcomeText);
-        Assert.Contains(part.Settings, s => s.Name.StartsWith("Preferences/Drives/", StringComparison.Ordinal) && s.WinnerGpo == "Użytkownicy – Mapowanie dysków");
+        // The drive map is one row (its item's settings together), in GPMC's preference folder.
+        var drive = Assert.Single(part.Settings, s => s.Area == "Preferencje › Ustawienia systemu Windows › Mapowania dysków");
+        Assert.Equal(("K:", "Użytkownicy – Mapowanie dysków"), (drive.Name, drive.WinnerGpo));
+        Assert.Contains("Księgowość", drive.Value, StringComparison.Ordinal);
         Assert.Contains("Bez komputera: nie sprawdzono prawa odczytu komputera (MS16-072) ani pętli zwrotnej.", part.Warnings);
         Assert.StartsWith("Użytkownik: 1 GPO, ", model.SummaryText, StringComparison.Ordinal);
     }
@@ -195,7 +200,7 @@ public sealed class GroupPolicyModelingTests
         var part = model.ComputerPart;
         var preview = Assert.Single(part.Settings, s => s.Name == hidePreview.DisplayName);
         Assert.Equal(("Wyłączone", "Stacje robocze – Zasady haseł", 1), (preview.Value, preview.WinnerGpo, preview.OverriddenCount));
-        Assert.StartsWith("Szablony administracyjne / ", preview.Area, StringComparison.Ordinal);
+        Assert.StartsWith("Szablony administracyjne › ", preview.Area, StringComparison.Ordinal);
         part.SelectedSetting = preview;
         Assert.EndsWith("• Default Domain Policy (pierwszeństwo 3): Włączone", part.DetailsText, StringComparison.Ordinal);
 
@@ -203,8 +208,9 @@ public sealed class GroupPolicyModelingTests
         Assert.StartsWith("Włączone; ", update.Value, StringComparison.Ordinal);
         Assert.Contains(": 3", update.Value, StringComparison.Ordinal);
         Assert.Contains(updates.Text(((EnumElement)updates.Policy.Elements.Single(e => e.Id == "Tryb")).Items[1].DisplayName), update.Value, StringComparison.Ordinal);
-        Assert.Equal("Szablony administracyjne / " + string.Join(" / ", updates.Category!.PathNames()), update.Area);
-        Assert.DoesNotContain(part.Settings, s => s.Name.StartsWith("Registry/", StringComparison.Ordinal)); // described values are policies
+        Assert.Equal("Szablony administracyjne › " + string.Join(" › ", updates.Category!.PathNames()), update.Area);
+        Assert.DoesNotContain(part.Settings, s => s.Name.StartsWith(@"HKLM\Software\Policies\Contoso", StringComparison.Ordinal)); // described values are policies
+        Assert.Equal(GroupPolicySettingFocus.ForPolicy(PolicyClass.Machine, updates.Id), update.Focus);
     }
 
     [Fact]
@@ -342,7 +348,7 @@ public sealed class GroupPolicyModelingTests
                 "Ustawienie", "Wartość", "Przesłonięte", "Uwagi"), lines[0]);
             Assert.Contains(string.Join(separator, "Komputer", "GPO", "1", "Serwery – Zabezpieczenia", "contoso.test", "Tak", model.ComputerPart.Gpos[0].LinkOrderText, "Zastosowany", "", "", "", ""), lines);
             Assert.Contains(lines, l => l.StartsWith(string.Join(separator, "Komputer", "Ustawienie", "", "Stacje robocze – Zasady haseł"), StringComparison.Ordinal)
-                && l.Contains("MinimumPasswordLength" + separator + "12" + separator + "1", StringComparison.Ordinal));
+                && l.Contains("Minimalna długość hasła" + separator + "12 znaków" + separator + "1", StringComparison.Ordinal));
             Assert.Contains(lines, l => l.StartsWith(string.Join(separator, "Użytkownik", "GPO", "1", "Użytkownicy – Mapowanie dysków"), StringComparison.Ordinal));
             Assert.Contains(lines, l => l.StartsWith(string.Join(separator, "Użytkownik", "Ustawienie"), StringComparison.Ordinal));
             Assert.Contains(h.B2.Notifications.Items, n => n.Message.Contains(Path.GetFileName(path), StringComparison.Ordinal));

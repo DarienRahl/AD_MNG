@@ -71,7 +71,8 @@ public sealed class GroupPolicyDocumentTests
         Assert.Equal(GpoStatus.AllSettingsEnabled, document.SelectedStatus?.Value);
         Assert.Equal(GroupPolicyText.Guid(h.Sample.WorkstationRemoteDesktop), document.GuidText);
 
-        Assert.Contains(document.Settings, s => s.PathText.StartsWith("Komputer", StringComparison.Ordinal) && s.Name.Contains("Group Membership", StringComparison.Ordinal));
+        Assert.Contains(document.Settings, s => s.Configuration == "Konfiguracja komputera" && s.Name == "CONTOSO\\GG_IT – jest członkiem grup"
+            && s.Value == "Użytkownicy pulpitu zdalnego");
         Assert.Contains(document.Checks, c => c.Text == "Folder GPO" && c.IsOk);
         Assert.Contains(document.Checks, c => c.Text == "Wersje" && c.IsOk);
         Assert.False(document.HasVersionMismatch);
@@ -108,7 +109,7 @@ public sealed class GroupPolicyDocumentTests
         Assert.Equal(GpoPermissionLevel.Edit, lukasz.Level);
         Assert.Equal("Edycja ustawień", lukasz.LevelText);
         Assert.Equal("Tylko stacje robocze", document.SelectedWmiFilter?.Text);
-        Assert.Contains(document.Settings, s => s.Name.EndsWith("MinimumPasswordLength", StringComparison.Ordinal) && s.Value == "12");
+        Assert.Contains(document.Settings, s => s.Name == "Minimalna długość hasła" && s.Value == "12 znaków");
         Assert.Contains(document.Settings, s => s.Value.Contains("Łukaszem Wiśniewskim", StringComparison.Ordinal));
     }
 
