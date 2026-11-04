@@ -176,18 +176,40 @@ internal sealed class B2Harness
 
     public string? Value(string dn, string attribute) => Session.GetValues(dn, attribute).FirstOrDefault();
 
-    /// <summary>Waits until a condition holds (background work started fire-and-forget by view models).</summary>
+    /// <summary>
+    /// Waits until a condition holds (background work started fire-and-forget by view models). Work that does not run on
+    /// the test's UI thread (pool threads, the inline test dispatcher) may change a collection while the condition
+    /// enumerates it: that read counts as "not yet". After the time limit the condition is evaluated once more without
+    /// that allowance, so a condition that always throws reports its own exception.
+    /// </summary>
     public static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs = 5000)
     {
         var started = Environment.TickCount64;
-        while (!condition())
+        while (!Evaluate(condition))
         {
             if (Environment.TickCount64 - started > timeoutMs)
             {
+                if (condition())
+                {
+                    return;
+                }
+
                 throw new TimeoutException("The condition was not met in time.");
             }
 
             await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+    }
+
+    private static bool Evaluate(Func<bool> condition)
+    {
+        try
+        {
+            return condition();
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
         }
     }
 

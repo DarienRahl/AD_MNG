@@ -28,12 +28,31 @@ public sealed class FakeSysvol : ISysvolFileReader, ISysvolFileWriter
     private readonly List<(string Operation, string? PathPart, SysvolWriteError Error, int Remaining)> _failures = [];
     private int _open;
     private byte[]? _policiesSecurity;
+    private FakeSysvolHold? _hold;
 
     /// <summary>When set, opening fails with this reason.</summary>
     public SysvolUnavailableReason? Unavailable { get; set; }
 
     /// <summary>Runs before every call (operation, GPO, path) - e.g. to change a file or the version behind the plan's back.</summary>
     public Action<string, Guid, string?>? BeforeCall { get; set; }
+
+    /// <summary>
+    /// Holds the next call of <paramref name="operation"/> (<c>Read</c>, <c>ListDefinitions</c>) whose path matches until
+    /// <see cref="FakeSysvolHold.Release"/>, without blocking the calling thread: the call's task stays incomplete, like a
+    /// call on the network. A wait inside <see cref="BeforeCall"/> blocks the thread that called – in a test on its UI
+    /// thread, the test itself.
+    /// </summary>
+    public FakeSysvolHold HoldNext(string operation, Func<string?, bool>? path = null)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(operation);
+        var hold = new FakeSysvolHold(operation, path ?? (_ => true));
+        lock (_gate)
+        {
+            _hold = hold;
+        }
+
+        return hold;
+    }
 
     /// <summary>Last write time reported by listings.</summary>
     public DateTimeOffset Now { get; set; } = new(2026, 10, 27, 9, 0, 0, TimeSpan.Zero);
@@ -265,6 +284,20 @@ public sealed class FakeSysvol : ISysvolFileReader, ISysvolFileWriter
         }
     }
 
+    private FakeSysvolHold? TakeHold(string operation, string? path)
+    {
+        lock (_gate)
+        {
+            if (_hold is { } hold && hold.Operation == operation && hold.Matches(path))
+            {
+                _hold = null;
+                return hold;
+            }
+
+            return null;
+        }
+    }
+
     private void Enter(string server, string operation, Guid gpoId, string? path)
     {
         BeforeCall?.Invoke(operation, gpoId, path);
@@ -300,6 +333,13 @@ public sealed class FakeSysvol : ISysvolFileReader, ISysvolFileWriter
         public Task<SysvolFileResult> ReadGpoFileAsync(Guid gpoId, string relativePath, long maxBytes, CancellationToken cancellationToken)
         {
             Check(cancellationToken);
+            return owner.TakeHold("Read", relativePath) is { } hold
+                ? HeldAsync(hold, () => ReadGpoFile(gpoId, relativePath, maxBytes))
+                : ReadGpoFile(gpoId, relativePath, maxBytes);
+        }
+
+        private Task<SysvolFileResult> ReadGpoFile(Guid gpoId, string relativePath, long maxBytes)
+        {
             var key = Key(gpoId, relativePath);
             try
             {
@@ -319,6 +359,13 @@ public sealed class FakeSysvol : ISysvolFileReader, ISysvolFileWriter
 
                 return Task.FromResult(content.Length > maxBytes ? SysvolFileResult.TooLarge : SysvolFileResult.Of([.. content]));
             }
+        }
+
+        /// <summary>Like the blocking wait it replaces, a held call ignores cancellation: it goes on once released.</summary>
+        private static async Task<T> HeldAsync<T>(FakeSysvolHold hold, Func<Task<T>> call)
+        {
+            await hold.EnterAsync().ConfigureAwait(false);
+            return await call().ConfigureAwait(false);
         }
 
         public Task<IReadOnlyList<SysvolEntry>> ListGpoFolderAsync(Guid gpoId, SysvolListOptions options, CancellationToken cancellationToken)
@@ -518,6 +565,13 @@ public sealed class FakeSysvol : ISysvolFileReader, ISysvolFileWriter
         public Task<IReadOnlyList<SysvolEntry>?> ListPolicyDefinitionsAsync(int maxEntries, CancellationToken cancellationToken)
         {
             Check(cancellationToken);
+            return owner.TakeHold("ListDefinitions", null) is { } hold
+                ? HeldAsync(hold, () => ListPolicyDefinitions(maxEntries))
+                : ListPolicyDefinitions(maxEntries);
+        }
+
+        private Task<IReadOnlyList<SysvolEntry>?> ListPolicyDefinitions(int maxEntries)
+        {
             owner.Enter(Server, "ListDefinitions", Guid.Empty, null);
             lock (owner._gate)
             {
@@ -655,5 +709,35 @@ public sealed class FakeSysvol : ISysvolFileReader, ISysvolFileWriter
             cancellationToken.ThrowIfCancellationRequested();
             ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
         }
+    }
+}
+
+/// <summary>A call held by <see cref="FakeSysvol.HoldNext"/>.</summary>
+public sealed class FakeSysvolHold
+{
+    private readonly TaskCompletionSource _reached = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    internal FakeSysvolHold(string operation, Func<string?, bool> matches)
+    {
+        Operation = operation;
+        Matches = matches;
+    }
+
+    /// <summary>Completes when the held call has started.</summary>
+    public Task Reached => _reached.Task;
+
+    internal string Operation { get; }
+
+    internal Func<string?, bool> Matches { get; }
+
+    /// <summary>Lets the held call continue.</summary>
+    public void Release() => _released.TrySetResult();
+
+    /// <summary>Waits for <see cref="Release"/>, at most 30 s (then the call goes on, like the blocking waits before).</summary>
+    internal Task EnterAsync()
+    {
+        _reached.TrySetResult();
+        return Task.WhenAny(_released.Task, Task.Delay(TimeSpan.FromSeconds(30)));
     }
 }

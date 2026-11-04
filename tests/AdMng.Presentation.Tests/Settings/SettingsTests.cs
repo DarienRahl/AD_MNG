@@ -129,13 +129,17 @@ public sealed class SettingsTests : IDisposable
         store.WriteFile = (_, _, _) => Task.CompletedTask;
         var before = store.Current;
         using var stop = new CancellationTokenSource();
+        var reading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        // Window A's address bar enumerates the recent containers while window B adds 1 000 of them from the pool.
+        // Window A's address bar enumerates the recent containers while window B adds 1 000 of them from the pool. The
+        // writer starts once the reader runs: on a busy machine the pool may start the reader only after a writer that
+        // did not wait has finished.
         var reader = Task.Run(() =>
         {
             var reads = 0;
             while (!stop.IsCancellationRequested)
             {
+                reading.TrySetResult();
                 var snapshot = store.Current;
                 var count = snapshot.RecentContainers.Select(dn => dn.Length).Count();
                 Assert.InRange(count, 0, AppSettings.MaxRecentContainers);
@@ -146,6 +150,7 @@ public sealed class SettingsTests : IDisposable
         }, TestContext.Current.CancellationToken);
         var writer = Task.Run(async () =>
         {
+            await reading.Task.WaitAsync(TestContext.Current.CancellationToken);
             for (var i = 0; i < 1000; i++)
             {
                 await store.UpdateAsync(s => s.AddRecentContainer($"OU=Dział {i},DC=fabrikam,DC=test"), TestContext.Current.CancellationToken);

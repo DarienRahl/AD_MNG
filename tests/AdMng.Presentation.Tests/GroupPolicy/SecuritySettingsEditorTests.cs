@@ -56,6 +56,9 @@ public class SecuritySettingsEditorTests
     {
         Assert.True(editor.SaveCommand.CanExecute(null));
         await editor.SaveCommand.ExecuteAsync(null);
+
+        // The save reloads the document by itself (GroupPolicyServices.Changed): one load after the other, never two at once.
+        await ObjectListViewModelTests.WaitUntilAsync(() => !editor.IsLoading);
         await editor.LoadAsync();
     }
 
@@ -394,6 +397,10 @@ public class SecuritySettingsEditorTests
         Assert.True(Right(editor, "SeBackupPrivilege").IsDefined);
 
         await editor.SaveCommand.ExecuteAsync(null); // the compare-and-swap refuses it
+
+        // The executed preview reloads the document (GroupPolicyServices.Changed). Without a UI thread that reload's
+        // continuations would run alongside the discard below and could bring back the conflict it clears: wait for it.
+        await ObjectListViewModelTests.WaitUntilAsync(() => !editor.IsLoading);
         Assert.Equal("SeShutdownPrivilege = *S-1-5-32-544", Text(harness, gpo, GptTmpl).Split("\r\n")[^2]);
 
         harness.B2.Dialogs.ConfirmAnswers.Enqueue(true);
@@ -473,20 +480,12 @@ public class SecuritySettingsEditorTests
     public async Task WhileLoading_TheEditorIsReadOnly_AndEditsAreRefused()
     {
         var (harness, editor, _) = await OpenSampleAsync();
-        using var entered = new SemaphoreSlim(0);
-        using var release = new ManualResetEventSlim();
-        var armed = 1;
-        harness.Sysvol.BeforeCall = (operation, _, path) =>
-        {
-            if (operation == "Read" && path?.EndsWith("GptTmpl.inf", StringComparison.Ordinal) == true && Interlocked.Exchange(ref armed, 0) == 1)
-            {
-                entered.Release();
-                release.Wait(TimeSpan.FromSeconds(30));
-            }
-        };
+
+        // Held without blocking the reading thread: the test runs on the same (UI) thread as the editor's load.
+        var hold = harness.Sysvol.HoldNext("Read", path => path?.EndsWith("GptTmpl.inf", StringComparison.Ordinal) == true);
 
         var load = editor.LoadAsync();
-        Assert.True(await entered.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        await hold.Reached.WaitAsync(TimeSpan.FromSeconds(30), Ct);
         try
         {
             Assert.True(editor.IsLoading);
@@ -505,9 +504,8 @@ public class SecuritySettingsEditorTests
         }
         finally
         {
-            release.Set();
+            hold.Release();
             await load;
-            harness.Sysvol.BeforeCall = null;
         }
 
         Assert.True(editor.CanEditTemplate);

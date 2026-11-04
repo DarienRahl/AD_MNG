@@ -705,9 +705,16 @@ public sealed class WatchdogLateMatchTests
     /// <summary>
     /// Advances the clock to the next status round of the visible tab and waits until its refresh completed; with
     /// <paramref name="untilDone"/> the clock keeps moving in status intervals until one did (a poller backing off).
+    /// The clock moves only while the poller waits in its long-poll: after a status round the poller requests the next
+    /// long-poll on its own thread, and a deadline counted from a clock already moved on would never be reached.
     /// </summary>
     private static async Task NextStatusRoundAsync(WatchdogHarness h, WatchdogEventsViewModel feed, bool untilDone = false)
     {
+        if (!untilDone)
+        {
+            await WatchdogTestWait.LongPollAsync(h);
+        }
+
         var rounds = feed.CompletedLateRefreshes;
         h.Time.Advance(WatchdogPoller.VisibleStatusInterval);
         if (untilDone)

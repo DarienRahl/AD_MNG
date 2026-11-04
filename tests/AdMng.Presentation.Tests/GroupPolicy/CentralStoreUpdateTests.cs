@@ -417,21 +417,11 @@ public class CentralStoreUpdateTests
             Assert.Contains(update.Rows, r => r.Path == "pl-PL/contoso.adml");
 
             // The next comparison is held while it reads the store (a slow SMB read).
-            using var entered = new SemaphoreSlim(0);
-            using var release = new ManualResetEventSlim();
-            var lists = 0;
-            harness.Sysvol.BeforeCall = (operation, _, _) =>
-            {
-                if (operation == "ListDefinitions" && Interlocked.Increment(ref lists) == 1)
-                {
-                    entered.Release();
-                    release.Wait(TimeSpan.FromSeconds(30));
-                }
-            };
+            var hold = harness.Sysvol.HoldNext("ListDefinitions");
 
             var polish = update.Cultures.Single(c => c.Culture == "pl");
             polish.IsSelected = false; // comparison A, held
-            Assert.True(await entered.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+            await hold.Reached.WaitAsync(TimeSpan.FromSeconds(30), Ct);
             Assert.True(update.IsComparing);
             Assert.True(update.IsWorking);
             Assert.Empty(update.Rows); // what the previous options showed is gone at once
@@ -440,9 +430,8 @@ public class CentralStoreUpdateTests
 
             polish.IsSelected = true; // comparison B supersedes A
             await ObjectListViewModelTests.WaitUntilAsync(() => !update.IsComparing && update.Rows.Count > 0);
-            release.Set(); // A ends after B: never shown
+            hold.Release(); // A ends after B: never shown
             await ObjectListViewModelTests.WaitUntilAsync(() => harness.Sysvol.OpenConnections == 0);
-            harness.Sysvol.BeforeCall = null;
 
             Assert.False(update.IsComparing);
             Assert.Equal(["contoso.admx", "en-US/contoso.adml", "pl-PL/contoso.adml"], update.Rows.Select(r => r.Path));

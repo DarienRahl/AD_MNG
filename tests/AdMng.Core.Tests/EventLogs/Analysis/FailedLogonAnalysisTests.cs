@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Globalization;
 using AdMng.Core.EventLogs;
 using AdMng.Core.EventLogs.Analysis;
@@ -202,30 +201,33 @@ public sealed class FailedLogonAnalysisTests
     [Fact]
     public void PasswordSpray_OscillatingAroundTheThreshold_OneFindingQuickly()
     {
-        var r = new SecurityRecords();
-        var records = new List<EventLogRecord>();
-        var at = Start;
-        for (var i = 0; i < 9; i++)
+        static List<EventLogRecord> Records(int accounts)
         {
-            records.Add(r.Ntlm(Dc2, at, string.Create(CultureInfo.InvariantCulture, $"stały{i}"), "PC-NIEZNANY"));
-            at += TimeSpan.FromMilliseconds(40);
-        }
-
-        for (var i = 0; i < 4_000; i++)
-        {
-            var account = string.Create(CultureInfo.InvariantCulture, $"zmienny{i:0000}");
-            for (var k = 0; k < 10; k++)
+            var r = new SecurityRecords();
+            var records = new List<EventLogRecord>();
+            var at = Start;
+            for (var i = 0; i < 9; i++)
             {
-                records.Add(r.Ntlm(Dc2, at, account, "PC-NIEZNANY"));
+                records.Add(r.Ntlm(Dc2, at, string.Create(CultureInfo.InvariantCulture, $"stały{i}"), "PC-NIEZNANY"));
                 at += TimeSpan.FromMilliseconds(40);
             }
+
+            for (var i = 0; i < accounts; i++)
+            {
+                var account = string.Create(CultureInfo.InvariantCulture, $"zmienny{i:0000}");
+                for (var k = 0; k < 10; k++)
+                {
+                    records.Add(r.Ntlm(Dc2, at, account, "PC-NIEZNANY"));
+                    at += TimeSpan.FromMilliseconds(40);
+                }
+            }
+
+            return records;
         }
 
-        var stopwatch = Stopwatch.StartNew();
-        var report = FailedLogonAnalysis.Analyze(records, Options);
-        stopwatch.Stop();
+        // Linear growth against the same analysis of an eighth of the accounts, not against a clock.
+        var report = LinearWork.Assert(Records(4_000 / LinearWork.Factor), Records(4_000), records => FailedLogonAnalysis.Analyze(records, Options));
 
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10), $"Analyze took {stopwatch.Elapsed}.");
         var spray = Assert.Single(report.Findings, f => f.Kind == FailedLogonFindingKind.PasswordSpray);
         Assert.Equal((Start, 4_009), (spray.First, spray.Accounts.Count));
         Assert.True(report.Truncated);
@@ -475,33 +477,37 @@ public sealed class FailedLogonAnalysisTests
     [Fact]
     public void FiftyThousandRecords_AnalyzedQuickly()
     {
-        var r = new SecurityRecords();
-        var random = new Random(50_000);
-        var records = new List<EventLogRecord>(EventLogLimits.MaxRecordsInMemory);
-        for (var i = 0; i < 300; i++)
+        static List<EventLogRecord> Records(int count)
         {
-            records.Add(r.Kerberos(Dc2, Start + TimeSpan.FromSeconds(6 * i), string.Create(CultureInfo.InvariantCulture, $"pracownik{i:000}"), null, "::ffff:10.9.9.9"));
-        }
-
-        while (records.Count < EventLogLimits.MaxRecordsInMemory)
-        {
-            var account = string.Create(CultureInfo.InvariantCulture, $"użytkownik{random.Next(2_000):0000}");
-            var source = string.Create(CultureInfo.InvariantCulture, $"10.2.{random.Next(2)}.{random.Next(200)}");
-            var time = T0 + TimeSpan.FromSeconds(random.Next(86_400));
-            records.Add((records.Count % 4) switch
+            var r = new SecurityRecords();
+            var random = new Random(50_000);
+            var records = new List<EventLogRecord>(count);
+            for (var i = 0; i < 300; i++)
             {
-                0 => r.Kerberos(Pdc, time, account, null, "::ffff:" + source),
-                1 => r.Ntlm(Dc2, time, account, "WS-" + source.Replace('.', '-')),
-                2 => r.LogonFailure(Dc3, time, account, source, null, subStatus: random.Next(10) == 0 ? "0xc0000064" : "0xc000006a"),
-                _ => r.Tgt(Pdc, time, account, "::ffff:" + source, random.Next(3) == 0 ? "0x0" : "0x6"),
-            });
+                records.Add(r.Kerberos(Dc2, Start + TimeSpan.FromSeconds(6 * i), string.Create(CultureInfo.InvariantCulture, $"pracownik{i:000}"), null, "::ffff:10.9.9.9"));
+            }
+
+            while (records.Count < count)
+            {
+                var account = string.Create(CultureInfo.InvariantCulture, $"użytkownik{random.Next(2_000):0000}");
+                var source = string.Create(CultureInfo.InvariantCulture, $"10.2.{random.Next(2)}.{random.Next(200)}");
+                var time = T0 + TimeSpan.FromSeconds(random.Next(86_400));
+                records.Add((records.Count % 4) switch
+                {
+                    0 => r.Kerberos(Pdc, time, account, null, "::ffff:" + source),
+                    1 => r.Ntlm(Dc2, time, account, "WS-" + source.Replace('.', '-')),
+                    2 => r.LogonFailure(Dc3, time, account, source, null, subStatus: random.Next(10) == 0 ? "0xc0000064" : "0xc000006a"),
+                    _ => r.Tgt(Pdc, time, account, "::ffff:" + source, random.Next(3) == 0 ? "0x0" : "0x6"),
+                });
+            }
+
+            return records;
         }
 
-        var stopwatch = Stopwatch.StartNew();
-        var report = FailedLogonAnalysis.Analyze(records, Options);
-        stopwatch.Stop();
+        // Linear growth against the same analysis of an eighth of the records, not against a clock.
+        var report = LinearWork.Assert(
+            Records(EventLogLimits.MaxRecordsInMemory / LinearWork.Factor), Records(EventLogLimits.MaxRecordsInMemory), records => FailedLogonAnalysis.Analyze(records, Options));
 
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10), $"Analyze took {stopwatch.Elapsed}.");
         Assert.Contains(report.Findings, f => f.Kind == FailedLogonFindingKind.PasswordSpray && f.Source.Value == "10.9.9.9");
         Assert.True(report.FailureCount + report.SuccessCount == EventLogLimits.MaxRecordsInMemory);
     }

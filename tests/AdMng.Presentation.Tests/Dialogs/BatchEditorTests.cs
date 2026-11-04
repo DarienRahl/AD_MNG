@@ -8,6 +8,7 @@ using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
+using AdMng.Presentation.Tests.Lists;
 using AdMng.Testing;
 
 namespace AdMng.Presentation.Tests.Dialogs;
@@ -210,6 +211,11 @@ public class BatchEditorTests
             Operations = [new FindReplaceOperation(Attr.Company, "Contoso", "Contoso Polska"), new AddToGroupsOperation([harness.Company.GroupSales])],
         });
         await editor.InitializeAsync();
+
+        // The group editor looks up the names of the requested groups in the background and then replaces its items; without
+        // a UI thread that would run while the preview below reads the list ("collection was modified"): wait for it.
+        var groups = Assert.IsType<GroupsEditorViewModel>(editor.Operations[1]);
+        await ObjectListViewModelTests.WaitUntilAsync(() => groups.Groups.All(g => g.IsResolved));
         harness.Session.FailNext(FakeOperationKind.Modify, harness.Company.GroupSales, DirectoryErrorKind.AccessDenied);
         await editor.PreviewCommand.ExecuteAsync(null);
         await editor.ExecuteCommand.ExecuteAsync(null);

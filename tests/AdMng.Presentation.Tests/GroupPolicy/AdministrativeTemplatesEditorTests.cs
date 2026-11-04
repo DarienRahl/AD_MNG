@@ -452,24 +452,13 @@ public class AdministrativeTemplatesEditorTests
         var (harness, editor) = await OpenAsync();
         harness.Sysvol.PutPolicyDefinition("en-US/contoso.adml", SampleAdministrativeTemplates.Utf8(
             SampleAdministrativeTemplates.ContosoAdmlEn.Replace("Configure automatic updates", "Configure automatic updates (2026)", StringComparison.Ordinal)));
-        using var entered = new SemaphoreSlim(0);
-        using var release = new ManualResetEventSlim();
-        var lists = 0;
-        harness.Sysvol.BeforeCall = (operation, _, _) =>
-        {
-            if (operation == "ListDefinitions" && Interlocked.Increment(ref lists) == 1)
-            {
-                entered.Release();
-                release.Wait(TimeSpan.FromSeconds(30));
-            }
-        };
+        var hold = harness.Sysvol.HoldNext("ListDefinitions");
 
         var reload = editor.ReloadDefinitionsCommand.ExecuteAsync(null); // reads the store…
-        Assert.True(await entered.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        await hold.Reached.WaitAsync(TimeSpan.FromSeconds(30), Ct);
         var refresh = editor.LoadAsync(); // …and F5 (or a change elsewhere) supersedes it
-        release.Set();
+        hold.Release();
         await Task.WhenAll(reload, refresh);
-        harness.Sysvol.BeforeCall = null;
 
         Select(editor, PolicyClass.Machine, "Configure automatic updates (2026)", "Windows Components", "Contoso Update");
     }

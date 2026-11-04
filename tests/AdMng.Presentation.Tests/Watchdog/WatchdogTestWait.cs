@@ -17,6 +17,16 @@ internal static class WatchdogTestWait
         return calls.WaitForAsync(method, count, TestContext.Current.CancellationToken).WaitAsync(Limit, TestContext.Current.CancellationToken);
     }
 
+    /// <summary>
+    /// Completes when the poller of a visible tab waits in its long-poll (<see cref="FakeWatchdogClient.WaitingLongPolls"/>).
+    /// The poll's deadline counts from its request: move the clock to the next status round only after this.
+    /// </summary>
+    public static Task LongPollAsync(WatchdogHarness harness)
+    {
+        ArgumentNullException.ThrowIfNull(harness);
+        return UntilAsync(harness.Ui, () => harness.Client.WaitingLongPolls > 0, "the poller's long-poll");
+    }
+
     /// <summary>Completes when <paramref name="condition"/> (evaluated on the UI thread) holds.</summary>
     public static Task UntilAsync(WatchdogHarness harness, Func<bool> condition, string? what = null)
     {

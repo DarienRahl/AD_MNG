@@ -435,7 +435,9 @@ public class PropertySheetTests
         Assert.Empty(editor.Rows);
 
         sheet.SelectedPage = editor;
-        await B2Harness.WaitUntilAsync(() => editor.Rows.Count > 0);
+
+        // The load fills the rows one by one at its end: the first row is no sign that it is over.
+        await B2Harness.WaitUntilAsync(() => !editor.IsLoading && editor.Rows.Count > 0);
 
         var department = Assert.Single(editor.Rows, r => r.Attribute == Attr.Department);
         Assert.Equal("IT", department.ValueText);

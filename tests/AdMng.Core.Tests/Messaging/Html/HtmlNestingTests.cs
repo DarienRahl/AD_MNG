@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using AdMng.Core.Messaging.Html;
 
 namespace AdMng.Core.Tests.Messaging.Html;
@@ -33,26 +32,45 @@ public class HtmlNestingTests
     [Fact]
     public void EightyThousandLevels_AreRefusedWithoutTheQuadraticParse()
     {
-        // The parse alone took about a minute; the 400 000-character limit of the service allows this much.
+        // The parse alone took about a minute; the 400 000-character limit of the service allows this much. The estimate on
+        // the text refuses it before any parse (HtmlNesting.ParseDocument): checked as such, not with a clock – a busy
+        // runner is slow, not wrong.
         var html = Repeat("<div>", 80_000);
-        var watch = Stopwatch.StartNew();
+        Assert.True(HtmlNesting.IsTextTooDeep(html));
         var result = SmallStack.Run(() => MessageHtmlSanitizer.Sanitize(html, new HtmlSanitizeOptions { Mode = HtmlSanitizeMode.Document }));
         Assert.Contains(result.Changes, c => c.Kind == HtmlChangeKind.TooDeep && c.IsSecurity);
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(20), $"{watch.Elapsed}");
     }
+
+    /// <summary>A document with a style sheet of <paramref name="rules"/> rules and <paramref name="paragraphs"/> styled
+    /// paragraphs: the inliner would match every rule against <c>html</c>, <c>head</c>, <c>body</c> and each paragraph.</summary>
+    private static string StyledDocument(int rules, int paragraphs) =>
+        "<html><head><style>" + string.Concat(Enumerable.Range(0, rules).Select(i => $".c{i}{{color:red}}")) + "</style></head><body>"
+        + Repeat("<p class=\"c1\">Łódź</p>", paragraphs) + "</body></html>";
+
+    private const int BudgetRules = 2_000;
+
+    /// <summary>Paragraphs that bring <see cref="BudgetRules"/> rules exactly to <see cref="MessageHtmlLimits.MaxStyleRuleMatches"/>.</summary>
+    private static int ParagraphsAtTheBudget => (int)(MessageHtmlLimits.MaxStyleRuleMatches / BudgetRules) - 3;
 
     [Fact]
     public void AStyleSheetOverTheRuleBudget_IsDropped_NotInlined()
     {
-        // The review's case: 7 000 rules × 34 000 elements took 40 s of CPU per request in the service.
-        var css = string.Concat(Enumerable.Range(0, 7_000).Select(i => $".c{i}{{color:red}}"));
-        var html = "<html><head><style>" + css + "</style></head><body>" + Repeat("<i class=\"c1\">x</i>", 34_000) + "</body></html>";
-        var watch = Stopwatch.StartNew();
+        // The review's case – 7 000 rules × 34 000 elements – took 40 s of CPU per request in the service. The budget
+        // counts rule matches (rules × elements), not time: one paragraph more than the budget allows drops the style
+        // sheet on any machine, and a clock would only measure the runner.
+        var html = StyledDocument(BudgetRules, ParagraphsAtTheBudget + 1);
         var result = MessageHtmlSanitizer.Sanitize(html, new HtmlSanitizeOptions { Mode = HtmlSanitizeMode.Document });
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(20), $"{watch.Elapsed}");
         Assert.DoesNotContain("color", result.Html, StringComparison.Ordinal);
         Assert.Contains(result.Changes, c => c.Kind == HtmlChangeKind.RemovedElement && c.Detail == "style" && !c.IsSecurity);
         Assert.DoesNotContain(result.Changes, c => c.IsSecurity);
+    }
+
+    [Fact]
+    public void AStyleSheetAtTheRuleBudget_IsStillInlined()
+    {
+        var html = StyledDocument(BudgetRules, ParagraphsAtTheBudget);
+        var result = MessageHtmlSanitizer.Sanitize(html, new HtmlSanitizeOptions { Mode = HtmlSanitizeMode.Document });
+        Assert.Contains("<p style=\"color:red\">Łódź</p>", result.Html, StringComparison.Ordinal);
     }
 
     [Fact]

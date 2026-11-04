@@ -932,7 +932,10 @@ public class ShellViewModelTests
     public async Task DetailsPane_ReadsTheSelectedObjectLive_AfterTheSelectionSettles()
     {
         var (shell, harness) = await CreateShellAsync(It);
-        var reads = harness.Directory.GetCount;
+
+        // Only the reads of the selected object: the shell checks the bound account's privileges in the background
+        // (fire-and-forget at connect), and on a busy machine that read can land after this point.
+        var reads = harness.Directory.Reads.Count(dn => string.Equals(dn, Jan, StringComparison.OrdinalIgnoreCase));
 
         Select(shell, "Jan Nowak");
         Assert.Null(shell.SelectedObject);
@@ -943,7 +946,7 @@ public class ShellViewModelTests
         Assert.Equal("Jan Nowak", summary.Name);
         Assert.True(summary.IsLocked);
         Assert.Contains(summary.Fields, f => f.Label == "Status" && f.Value == "Locked out");
-        Assert.Equal(reads + 1, harness.Directory.GetCount);
+        Assert.Equal(reads + 1, harness.Directory.Reads.Count(dn => string.Equals(dn, Jan, StringComparison.OrdinalIgnoreCase)));
 
         SelectMany(shell, "Jan Nowak", "WS-001");
         Assert.Equal("2 objects selected", shell.SelectedObject!.Name);
