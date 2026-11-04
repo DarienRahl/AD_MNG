@@ -619,7 +619,8 @@ specyfikacje [dev/watchdog-spec.md](docs/dev/watchdog-spec.md) i
   uruchamiane także w CI, testy instalacji pakietów w kontenerach Debian 12 i 13.
 
 **Do zrobienia przed wersją stabilną (0.12.0 jest wersją zapoznawczą):** pilotaż na laboratorium Windows Server 2025
-z Debianem 13 i stacją administratora, potem w domenie testowej z kontrolerami 2025 i 2022 – lista kontrolna
+z Debianem 13 i stacją administratora, potem w domenie testowej z kontrolerami 2025 i 2022 – wspólna lista kontrolna
+[PILOTAZ.md](docs/PILOTAZ.md) (AD Manager, zasady grupy, dzienniki zdarzeń) i lista usługi
 [WATCHDOG-LINUX.md, rozdział 7](docs/WATCHDOG-LINUX.md#7-pilotaż--lista-kontrolna) (przekazywanie zdarzeń z prawdziwych
 DC do OpenWEC i atrybucja „kto i skąd”, zmiana hasła konta komputera przy wpisie odmowy dla SELF, pierwsza
 automatyczna zmiana po 30 dniach, podpisywanie LDAP na Windows Server 2025 z GSSAPI, `tokenGroups` po nadaniu praw,
@@ -1986,6 +1987,7 @@ Lokalnie (Windows): `$env:ADMNG_SCREENSHOTS_DIR = "$PWD\zrzuty"; dotnet test tes
 | 📋 [Dzienniki zdarzeń](docs/DZIENNIKI-ZDARZEN.md) | czytnik dzienników zdarzeń DC, serwerów, stacji i plików `.evtx`, skąd blokada konta, nieudane logowania; wymagania (zapora, grupa, inspekcja) |
 | 📜 [Zasady grupy](docs/ZASADY-GRUPY.md) | obiekty zasad grupy w drzewie, karta *Zasady grupy*, operacje na GPO, filtrowanie zabezpieczeń, filtry WMI, delegowanie, kopie zapasowe, porównanie, edytory ustawień, model „co dostanie komputer”, diagnostyka zasad grupy |
 | 📨 [Korespondencja](docs/KORESPONDENCJA.md) | okno *Korespondencja (Outlook)*: odbiorcy z plików i z AD, pola, wiadomość, podgląd, wysyłka przez Outlooka, dziennik „już wysłane”, zapytania do właścicieli skrzynek, odpowiedzi, rozwiązywanie problemów, pilotaż |
+| ✅ [Pilotaż](docs/PILOTAZ.md) | lista kontrolna pilotażu na Windows Server AD: środowisko, sprawdzenie gotowości, scenariusze z narzędziem Microsoftu do porównania, zgłaszanie problemów, wyniki |
 | 🧪 [Laboratorium testowe](tools/testlab/README.md) | Samba AD DC z danymi „polskiej firmy”; [Watchdog w laboratorium](tools/testlab/watchdog/README.md) |
 | 🧑‍💻 [Notatki dla deweloperów](CLAUDE.md) | zasady, układ projektów, polecenia, konwencje |
 
