@@ -870,7 +870,7 @@ Pakiety Debiana buduje `tools/packaging/build-deb.sh` (`admng-watchdog`) i `tool
 czystym kontenerze Debian 12 lub 13.
 
 CI (`.github/workflows/ci.yml`): na Windows wszystkie projekty testów (także testy tylko-Windows), aplikacja AD Manager
-i zrzuty ekranu (także zakładki Watchdog – gałąź `screenshots`); na Ubuntu z Samba DC – testy silnika i usługi, testy
+i – na żądanie (*Run workflow*) – zrzuty ekranu, także zakładek Watchdog; na Ubuntu z Samba DC – testy silnika i usługi, testy
 integracyjne z Mailpit i skrypty laboratorium (`lab-scenario.sh --verify`); zadania `openwec-package` (Debian 12 i 13,
 źródła GPL-3.0) i `linux-package` (pakiet `admng-watchdog`, test instalacji na Debianie 12 i 13, lintian). Wydanie
 (`.github/workflows/release.yml`) publikuje te pakiety razem z AD Managerem.
