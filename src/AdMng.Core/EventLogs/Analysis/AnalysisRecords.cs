@@ -57,7 +57,7 @@ internal static class AnalysisRecords
             return retries;
         }
 
-        var groups = new Dictionary<(string Account, string Workstation, uint? Code), (List<EventLogRecord> Pdc, List<EventLogRecord> Others)>();
+        var groups = new Dictionary<(string Account, string Workstation, long? Code), (List<EventLogRecord> Pdc, List<EventLogRecord> Others)>();
         foreach (var record in records)
         {
             if (record.EventId != AnalysisCodes.CredentialValidation || !AnalysisCodes.IsFailure(record)
@@ -67,7 +67,7 @@ internal static class AnalysisRecords
                 continue;
             }
 
-            var key = (account, workstation, AnalysisCodes.EffectiveCode(record));
+            var key = (account, workstation, EventCodes.ResultOf(record)?.Value);
             if (!groups.TryGetValue(key, out var group))
             {
                 groups[key] = group = ([], []);

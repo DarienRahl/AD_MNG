@@ -505,6 +505,7 @@
       </MenuItem>
       <MenuItem Header="{l:Tr Shell.MenuHelp}">
         <MenuItem b:CommandMenu.Id="tools.palette" />
+        <MenuItem x:Name="ReportProblemMenuItem" b:CommandMenu.Id="help.reportProblem" />
         <Separator />
         <MenuItem Click="OnAboutClick" Header="{l:Tr Ui.About}" />
       </MenuItem>

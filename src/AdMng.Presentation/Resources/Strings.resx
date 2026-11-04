@@ -19258,4 +19258,114 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Lockout threshold unknown: the account is covered by the fine-grained password policy {0}, which your account cannot read (by default only Domain Admins can). Its threshold, observation window and lockout duration may differ from the domain policy.</value>
   </data>
   <!-- Track E review fixes (reader, lockout source): end -->
+  <!-- Stage S problem report (Pomoc → Zgłoś problem…): begin -->
+  <data name="ProblemReport.Command" xml:space="preserve">
+    <value>Report a problem…</value>
+  </data>
+  <data name="ProblemReport.WindowTitle" xml:space="preserve">
+    <value>Report a problem</value>
+  </data>
+  <data name="ProblemReport.Intro" xml:space="preserve">
+    <value>Attach this report to your problem description. It names no server, domain or account and holds no directory value: only versions, the logon type and protection of this window's connection, the optional components, the readiness check codes and the last diagnostic messages as templates. It stays in memory – it is written to disk only if you save it.</value>
+  </data>
+  <data name="ProblemReport.SaveAs" xml:space="preserve">
+    <value>Save as…</value>
+  </data>
+  <data name="ProblemReport.Copied" xml:space="preserve">
+    <value>The problem report was copied to the clipboard.</value>
+  </data>
+  <data name="ProblemReport.SaveTitle" xml:space="preserve">
+    <value>Save the problem report</value>
+  </data>
+  <data name="ProblemReport.FileFilter" xml:space="preserve">
+    <value>Text file (*.txt)</value>
+  </data>
+  <data name="ProblemReport.Saved" xml:space="preserve">
+    <value>The problem report was saved: {0}</value>
+  </data>
+  <data name="ProblemReport.Heading" xml:space="preserve">
+    <value>AD Manager – problem report</value>
+  </data>
+  <data name="ProblemReport.Created" xml:space="preserve">
+    <value>Created (UTC): {0}</value>
+  </data>
+  <data name="ProblemReport.ValueFree" xml:space="preserve">
+    <value>No server, domain or account names and no directory values; log messages as templates without their values.</value>
+  </data>
+  <data name="ProblemReport.SectionEnvironment" xml:space="preserve">
+    <value>Program and computer</value>
+  </data>
+  <data name="ProblemReport.Version" xml:space="preserve">
+    <value>AD Manager version: {0}</value>
+  </data>
+  <data name="ProblemReport.OperatingSystem" xml:space="preserve">
+    <value>Operating system: {0} ({1})</value>
+  </data>
+  <data name="ProblemReport.Runtime" xml:space="preserve">
+    <value>.NET runtime: {0} ({1} process)</value>
+  </data>
+  <data name="ProblemReport.Culture" xml:space="preserve">
+    <value>UI language: {0}; formats: {1}</value>
+  </data>
+  <data name="ProblemReport.SectionConnection" xml:space="preserve">
+    <value>Connection of this window</value>
+  </data>
+  <data name="ProblemReport.NotConnected" xml:space="preserve">
+    <value>Not connected.</value>
+  </data>
+  <data name="ProblemReport.Logon" xml:space="preserve">
+    <value>Logon: {0} [{1}]</value>
+  </data>
+  <data name="ProblemReport.Mechanism" xml:space="preserve">
+    <value>Authentication: {0}</value>
+  </data>
+  <data name="ProblemReport.MechanismNegotiate" xml:space="preserve">
+    <value>Negotiate (Kerberos or NTLM)</value>
+  </data>
+  <data name="ProblemReport.MechanismSimpleBind" xml:space="preserve">
+    <value>LDAP simple bind</value>
+  </data>
+  <data name="ProblemReport.Protection" xml:space="preserve">
+    <value>Channel protection: {0} [{1}]</value>
+  </data>
+  <data name="ProblemReport.Flags" xml:space="preserve">
+    <value>Signing: {0} · Sealing: {1} · LDAPS: {2} · StartTLS: {3}</value>
+  </data>
+  <data name="ProblemReport.GlobalCatalog" xml:space="preserve">
+    <value>Global catalog: {0}</value>
+  </data>
+  <data name="ProblemReport.SecurityStrength" xml:space="preserve">
+    <value>SASL security strength factor: {0}</value>
+  </data>
+  <data name="ProblemReport.SectionFeatures" xml:space="preserve">
+    <value>Optional components</value>
+  </data>
+  <data name="ProblemReport.Outlook" xml:space="preserve">
+    <value>Classic Outlook installed: {0}</value>
+  </data>
+  <data name="ProblemReport.WebView2" xml:space="preserve">
+    <value>WebView2 runtime available (formatted previews): {0}</value>
+  </data>
+  <data name="ProblemReport.Watchdog" xml:space="preserve">
+    <value>AdMng Watchdog service configured: {0}</value>
+  </data>
+  <data name="ProblemReport.FeatureDisabled" xml:space="preserve">
+    <value>No (switched off)</value>
+  </data>
+  <data name="ProblemReport.FeatureUnknown" xml:space="preserve">
+    <value>Not checked</value>
+  </data>
+  <data name="ProblemReport.SectionReadiness" xml:space="preserve">
+    <value>Readiness check (last results of this window)</value>
+  </data>
+  <data name="ProblemReport.ReadinessNone" xml:space="preserve">
+    <value>No results – run the readiness check in this window first.</value>
+  </data>
+  <data name="ProblemReport.SectionLog" xml:space="preserve">
+    <value>Diagnostic log (last {0} of {1} entries; templates only, without values)</value>
+  </data>
+  <data name="ProblemReport.LogEmpty" xml:space="preserve">
+    <value>No entries.</value>
+  </data>
+  <!-- Stage S problem report (Pomoc → Zgłoś problem…): end -->
 </root>

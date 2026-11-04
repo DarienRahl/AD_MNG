@@ -101,6 +101,7 @@ public sealed partial class ShellViewModel
             new("view.advanced", L.Commands.ToggleAdvancedFeatures, view, string.Empty, ToggleAdvancedFeaturesCommand),
             new("view.details", L.Commands.ToggleDetailsPane, view, "Ctrl+D", ToggleDetailsPaneCommand),
             new("tools.palette", L.Commands.CommandPalette, tools, "Ctrl+K", CommandPalette.OpenCommand),
+            new("help.reportProblem", L.ProblemReport.Command, tools, string.Empty, ShowProblemReportCommand),
             new("tools.importCsv", L.Commands.ImportCsv, tools, string.Empty, ImportCsvCommand),
             new("tools.sessionLog", L.Commands.SessionLog, tools, "Ctrl+Shift+L", ShowSessionLogCommand),
             new("tools.recycleBin", L.Commands.RecycleBin, tools, "Ctrl+Shift+R", ShowRecycleBinCommand),

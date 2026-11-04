@@ -156,6 +156,8 @@ internal sealed class ComputerAwareDialogs(ScriptedDialogService inner) : IDialo
 
     public Task ShowSessionLogAsync() => Inner.ShowSessionLogAsync();
 
+    public Task ShowProblemReportAsync() => Inner.ShowProblemReportAsync();
+
     public Task ShowRecycleBinAsync(Guid? select = null) => Inner.ShowRecycleBinAsync(select);
 
     public Task ShowAccountReviewAsync() => Inner.ShowAccountReviewAsync();

@@ -93,7 +93,7 @@ public enum LogonFailureKind
 
 /// <summary>How many records of one event ID carried one failure code.</summary>
 /// <param name="EventId">The event ID.</param>
-/// <param name="Code">The code as <c>0x</c> + upper-case hex (4625: the sub-status behind the generic codes), null when the record had none.</param>
+/// <param name="Code">The code as <see cref="EventCode.Display"/> writes it (<c>0xC000006A</c>, <c>0x18</c>; 4625: the sub-status behind the generic codes), null when the record had none.</param>
 /// <param name="Kind">What the code means.</param>
 /// <param name="Count">The number of records.</param>
 public sealed record EventCodeCount(int EventId, string? Code, LogonFailureKind Kind, int Count)

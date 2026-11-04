@@ -11,9 +11,10 @@ namespace AdMng.App.Services;
 /// Windows Server jump hosts – then <see cref="GetEnvironmentAsync"/> answers null and the views show the HTML source), a user
 /// data folder <c>%TEMP%\AdMng-WebView2-{pid}-{random}</c> deleted when the application exits (stale ones of ended processes
 /// at the next start) and a browser without background networking, component updates, sync, pings or crash reporting.
-/// <c>ADMNG_UI_NO_WEBVIEW2=1</c> forces the fallback (UI tests). Application-wide (singleton).
+/// <c>ADMNG_UI_NO_WEBVIEW2=1</c> forces the fallback (UI tests). Application-wide (singleton). The problem report asks it
+/// whether the runtime is there (<see cref="Availability"/>) without creating the environment.
 /// </summary>
-public sealed class WebView2Host(ILogger<WebView2Host> logger) : IDisposable
+public sealed class WebView2Host(ILogger<WebView2Host> logger) : IDisposable, Presentation.Diagnostics.IWebView2Runtime
 {
     /// <summary>The origin of the preview (a reserved name that never resolves); everything is answered from memory.</summary>
     public const string Origin = "https://preview.admng.invalid";
@@ -44,6 +45,32 @@ public sealed class WebView2Host(ILogger<WebView2Host> logger) : IDisposable
     /// <summary>No WebView2 at all: the views show the HTML source (default: <see cref="IsDisabledByEnvironment"/>; the UI
     /// tests set it for the fallback test).</summary>
     public bool IsDisabled { get; init; } = IsDisabledByEnvironment;
+
+    /// <summary>
+    /// Whether the runtime can be used: switched off (<see cref="IsDisabled"/>), installed, or missing – asked of the WebView2
+    /// loader without starting a browser or creating a folder.
+    /// </summary>
+    public Presentation.Diagnostics.OptionalFeatureState Availability
+    {
+        get
+        {
+            if (IsDisabled)
+            {
+                return Presentation.Diagnostics.OptionalFeatureState.Disabled;
+            }
+
+            try
+            {
+                return string.IsNullOrEmpty(CoreWebView2Environment.GetAvailableBrowserVersionString())
+                    ? Presentation.Diagnostics.OptionalFeatureState.NotAvailable
+                    : Presentation.Diagnostics.OptionalFeatureState.Available;
+            }
+            catch (Exception ex) when (ex is WebView2RuntimeNotFoundException or DllNotFoundException or BadImageFormatException)
+            {
+                return Presentation.Diagnostics.OptionalFeatureState.NotAvailable;
+            }
+        }
+    }
 
     /// <summary>The user data folder of this process while WebView2 runs (UI tests check that it is deleted).</summary>
     public string? UserDataFolder => _userDataFolder;

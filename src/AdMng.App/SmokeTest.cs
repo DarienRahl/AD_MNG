@@ -431,7 +431,7 @@ internal static class SmokeTest
     // ---- C2b: batch and tool windows ----------------------------------------------------------------------------
 
     /// <summary>
-    /// Settings (both tabs), session log, PowerShell history, the AD Recycle Bin, the account review (both tabs), the saved
+    /// Settings (both tabs), session log, PowerShell history, the problem report, the AD Recycle Bin, the account review (both tabs), the saved
     /// filters and the filter builder, the message window, the comparison window, the CSV import with a parsed table and the
     /// batch editor with every operation editor. None of them needs a directory: without a session the batch
     /// editor and the Recycle Bin show "not connected", the account review cannot run.
@@ -453,6 +453,9 @@ internal static class SmokeTest
         settings.UpdateLayout();
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateSessionLog()));
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreatePowerShellHistory()));
+
+        // Problem report (Pomoc → Zgłoś problem…), disconnected: "not connected", the optional components, the log templates.
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateProblemReport()));
 
         // AD Recycle Bin, disconnected: the banner and the error say "not connected", the commands are disabled.
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateRecycleBin()));

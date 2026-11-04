@@ -74,3 +74,30 @@ of NT status and Kerberos codes).
 ## 6. As built
 
 (Filled in when the stage is done.)
+
+**As built – problem report and codes.** *Pomoc → Zgłoś problem…* (palette `help.reportProblem`, category Tools) opens
+`ProblemReportWindow` / `ProblemReportViewModel` (`AdMng.Presentation.Diagnostics`), one per connection window
+(`ToolWindows.ProblemReportKey`; reopening activates it and refreshes the text). The read-only text (labels localized,
+values invariant) lists: version (`AppVersion.Display`), OS description and architecture, .NET runtime and process
+architecture, UI and format culture; the logon type and channel of the window's current session from `SessionInfo`
+only (`Authentication`, `Security` → signing / sealing / LDAPS / StartTLS, SASL SSF where reported, global catalog –
+never server, domain, account or naming context); classic Outlook installed (`IOutlookClient.Availability`, no start),
+WebView2 runtime available (`IWebView2Runtime`, implemented by `WebView2Host` without creating the environment),
+Watchdog configured yes/no (never the address); the readiness results as `Code: Status` from `IReadinessResults.Last`
+(`AdMng.Presentation.Readiness`; the Presentation registers an empty scoped default with `TryAddScoped` as the last
+registration of `AddAdMngPresentation`, so the readiness check's own registration wins); and the diagnostic buffer.
+Buttons Refresh, Copy, *Zapisz jako…* (UTF-8 `.txt` to an operator-chosen file – the only way it reaches a disk), Close.
+`DiagnosticLogBuffer` is an application-wide singleton ring buffer (200 entries) fed by `DiagnosticLoggerProvider`,
+registered in `AppHost.Build` next to `AddDebug`: per log call it keeps time, level, category, event id and name, the
+`{OriginalFormat}` template (only that pair of the state is read; the formatter is never called, unstructured states keep
+no template, scopes are ignored) and, per exception and up to three inner ones, the type name and HResult – never a
+message, a stack trace or an argument value. Tests log DNs, account names and passwords as arguments, inside exception
+messages and in scopes and prove that none reaches the buffer or the report. Codes (section 5): the internal
+`AnalysisCodes` keeps only the event IDs and the record predicates; the classification is `EventCode.FailureKind` of the
+public catalog (the category with logon hours, workstation, logon type, authentication firewall and KDC policy told
+apart; trust failures and other restrictions → `Other`), the code of a record `EventCodes.ResultOf` / `EventCode.Display`,
+and the address and computer normalization `EventCodes.NormalizeIpAddress`, `NormalizeWorkstation`, `IsLocalAddress` and
+the new `IsUnspecifiedAddress`. Deliberate differences for records Windows does not write that way: Kerberos `0x1`
+(catalog category "account expired") now counts as `AccountExpired` instead of `Other`; a 4625 without a parsable
+`Status` uses its sub-status; status texts of digits only parse as decimal; a workstation name with a trailing dot
+compares without it.
