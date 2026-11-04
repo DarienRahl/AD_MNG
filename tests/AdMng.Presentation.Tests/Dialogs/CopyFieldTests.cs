@@ -278,8 +278,9 @@ public class CopyFieldTests
         await bin.InitializeAsync();
         bin.SelectedItem = bin.Items.Single(r => r.Name == "Sprzedaż");
 
-        // Selected last: the change above reloads the editor's rows.
-        await B2Harness.WaitUntilAsync(() => editor.Rows.Any(r => r.Attribute == Attr.Title && r.ValueText == "Analityk"));
+        // Selected last: the change above reloads the sheet, and with it the editor's rows (replaced at the end of the
+        // reload). The rows are read only after the reload, never while it replaces them.
+        await B2Harness.WaitUntilAsync(() => !sheet.IsLoading && editor.Rows.Any(r => r.Attribute == Attr.Title && r.ValueText == "Analityk"));
         editor.SelectedRow = Assert.Single(editor.Rows, r => r.Attribute == Attr.Department);
 
         void CopyAll()

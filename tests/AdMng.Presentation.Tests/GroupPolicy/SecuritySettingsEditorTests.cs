@@ -56,6 +56,9 @@ public class SecuritySettingsEditorTests
     {
         Assert.True(editor.SaveCommand.CanExecute(null));
         await editor.SaveCommand.ExecuteAsync(null);
+
+        // The save reloads the document by itself (GroupPolicyServices.Changed): one load after the other, never two at once.
+        await ObjectListViewModelTests.WaitUntilAsync(() => !editor.IsLoading);
         await editor.LoadAsync();
     }
 
@@ -394,6 +397,10 @@ public class SecuritySettingsEditorTests
         Assert.True(Right(editor, "SeBackupPrivilege").IsDefined);
 
         await editor.SaveCommand.ExecuteAsync(null); // the compare-and-swap refuses it
+
+        // The executed preview reloads the document (GroupPolicyServices.Changed). Without a UI thread that reload's
+        // continuations would run alongside the discard below and could bring back the conflict it clears: wait for it.
+        await ObjectListViewModelTests.WaitUntilAsync(() => !editor.IsLoading);
         Assert.Equal("SeShutdownPrivilege = *S-1-5-32-544", Text(harness, gpo, GptTmpl).Split("\r\n")[^2]);
 
         harness.B2.Dialogs.ConfirmAnswers.Enqueue(true);
