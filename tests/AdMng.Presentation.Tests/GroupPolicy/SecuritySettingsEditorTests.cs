@@ -480,20 +480,12 @@ public class SecuritySettingsEditorTests
     public async Task WhileLoading_TheEditorIsReadOnly_AndEditsAreRefused()
     {
         var (harness, editor, _) = await OpenSampleAsync();
-        using var entered = new SemaphoreSlim(0);
-        using var release = new ManualResetEventSlim();
-        var armed = 1;
-        harness.Sysvol.BeforeCall = (operation, _, path) =>
-        {
-            if (operation == "Read" && path?.EndsWith("GptTmpl.inf", StringComparison.Ordinal) == true && Interlocked.Exchange(ref armed, 0) == 1)
-            {
-                entered.Release();
-                release.Wait(TimeSpan.FromSeconds(30));
-            }
-        };
+
+        // Held without blocking the reading thread: the test runs on the same (UI) thread as the editor's load.
+        var hold = harness.Sysvol.HoldNext("Read", path => path?.EndsWith("GptTmpl.inf", StringComparison.Ordinal) == true);
 
         var load = editor.LoadAsync();
-        Assert.True(await entered.WaitAsync(TimeSpan.FromSeconds(30), Ct));
+        await hold.Reached.WaitAsync(TimeSpan.FromSeconds(30), Ct);
         try
         {
             Assert.True(editor.IsLoading);
@@ -512,9 +504,8 @@ public class SecuritySettingsEditorTests
         }
         finally
         {
-            release.Set();
+            hold.Release();
             await load;
-            harness.Sysvol.BeforeCall = null;
         }
 
         Assert.True(editor.CanEditTemplate);

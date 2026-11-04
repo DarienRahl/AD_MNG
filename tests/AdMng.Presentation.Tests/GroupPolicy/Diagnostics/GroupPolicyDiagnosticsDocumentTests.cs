@@ -407,23 +407,13 @@ public sealed class GroupPolicyDiagnosticsDocumentTests
         var logon = new HeldSysvolLogon(h.Sysvol);
         var services = new GroupPolicyServices(h.Ui, h.B2.Engines, h.Planner, h.Windows, logon);
         using var document = new GroupPolicyDiagnosticsDocumentViewModel(services, new GroupPolicyActions(services));
-        using var reading = new SemaphoreSlim(0);
-        using var resume = new ManualResetEventSlim();
-        var held = 0;
-        h.Sysvol.BeforeCall = (operation, _, _) =>
-        {
-            if (operation == "Read" && Interlocked.Exchange(ref held, 1) == 0)
-            {
-                reading.Release();
-                resume.Wait(TestContext.Current.CancellationToken);
-            }
-        };
+        var reading = h.Sysvol.HoldNext("Read");
 
         try
         {
             var first = document.CheckAsync(GpoDiagnosticsDepth.Quick); // its SYSVOL logon is slow
             var second = document.CheckAsync(GpoDiagnosticsDepth.Full); // supersedes it and starts reading
-            Assert.True(await reading.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+            await reading.Reached.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
             // The first logon ends now, its load cancelled: the running check keeps its progress and "Anuluj".
             logon.Release();
@@ -432,16 +422,15 @@ public sealed class GroupPolicyDiagnosticsDocumentTests
             Assert.True(document.CancelCommand.CanExecute(null));
             Assert.NotEqual(string.Empty, document.ProgressText);
 
-            resume.Set();
+            reading.Release();
             await second;
             Assert.Equal(GpoDiagnosticsDepth.Full, document.LastDepth);
             Assert.Equal(string.Empty, document.ProgressText);
         }
         finally
         {
-            resume.Set();
+            reading.Release();
             logon.Release();
-            h.Sysvol.BeforeCall = null;
         }
     }
 
