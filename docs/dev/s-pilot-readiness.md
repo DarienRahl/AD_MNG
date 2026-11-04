@@ -74,3 +74,40 @@ of NT status and Kerberos codes).
 ## 6. As built
 
 (Filled in when the stage is done.)
+
+**As built – test reliability.** Flakes were surfaced with 55 full runs of `AdMng.Presentation.Tests` and 46 of
+`AdMng.Core.Tests` (plain, two processes at once, with busy loops, pinned to one or two cores); the Watchdog.Core,
+EventLogs and Remote tests never failed. Every test that failed, its cause and its fix:
+`ShellViewModelTests.DetailsPane_ReadsTheSelectedObjectLive_AfterTheSelectionSettles` – the shell's privilege check (a
+fire-and-forget base read at connect) could land after the test had counted all reads (reproduced by delaying it); the
+in-memory session records the DN of each read and the test counts the selected object's.
+`CopyFieldTests.CopyCommands_OfOtherWindows_AreNotConfirmed_WhenTheClipboardIsBusy`,
+`BatchEditorTests.RetryFailed_RunsOnlyTheStepsThatFailedOrDidNotRun`,
+`SecuritySettingsEditorTests.AFileChangedBehindTheEdits_KeepsThem_WithAConflictNote_AndDiscardShowsTheNewFile` and
+`EventLogEntryPointTests.Shell_RegistersThePaletteCommands_AndOpensEachDocumentOnce` – the test read a list while the
+view model's own background work replaced it ("Collection was modified"; the batch editor's group lookup replaced its
+item while the preview built the operations) or interleaved with it (the reload after a refused save brought the
+conflict note back after "Discard"); the tests wait for the real completion (the sheet's reload, the resolved groups,
+the save's reload) and the polling helpers count a read during a change as "not yet".
+`SettingsTests.AReader_NeverSeesAListBeingChanged` – the reader task could start only after the writer had finished; the
+writer waits for it. `WatchdogLateMatchTests.NoFilterOnLateFields_NoExtraReads` – the clock moved before the poller's
+next long-poll had set its deadline; tests move it only while the poller waits in a long-poll
+(`FakeWatchdogClient.WaitingLongPolls`). `HtmlNestingTests.AStyleSheetOverTheRuleBudget_IsDropped_NotInlined` (21–26 s)
+and `SecurityTemplateTests.LargeTemplate_ManyKeysAndDuplicates_IsParsedInLinearTime_LaterDuplicateStillWins` (10.5 s) –
+wall-clock budgets: the style-rule budget is checked at its logical boundary (2 000 rules × 1 000 elements are inlined,
+one element more is dropped), the deep-nesting case by the text estimate that runs before any parse, and the parse and
+the event log analyses (also `FailedLogonAnalysisTests`, `LockoutInvestigationTests`) assert linear growth of the
+thread's CPU time against an input eight times smaller (`LinearWork`: 6.5× to 14× measured, bound 32×, a quadratic probe
+66×). Systemic: the Presentation tests run on a single-threaded UI synchronization context (`UiThreadAttribute`,
+assembly-wide), so after a test's first await that yields, the test and the view models' `ConfigureAwait(true)`
+continuations take turns on one thread as in WPF. Apart from four SYSVOL holds (below) no test changed for it; the
+original versions of five flaky tests (GPO scope inheritance, security settings discard, batch editor retry, copy
+commands, correspondence test send), three processes at once with busy loops, failed in 11 of 360 runs without it and in
+none of 360 with it, and the suite takes the same time. It does not cover work on pool threads (`Task.Run`, the inline
+test dispatcher called from there) or a test's code before its first yielding await, and a blocking wait in a test
+double that view model code reaches on the UI thread blocks the test: SYSVOL holds use `FakeSysvol.HoldNext` (one
+blocking hold had stalled a test for 30 s); directory doubles are reached through `Task.Run`. After the fixes every
+fixed test ran 50 times (half of them with two processes at once) and the full suites ran 14 times each (six plain, four
+with busy loops, four as two processes at once) plus once through `dotnet test`, all green. Not changed: the HTML
+sanitizer merges adjacent identical inline elements in quadratic time (34 000 `<i>` siblings take about 2.5 s, outside
+the style budget).
