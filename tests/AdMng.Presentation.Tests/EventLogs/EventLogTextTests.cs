@@ -85,6 +85,29 @@ public class EventLogTextTests
     }
 
     [Fact]
+    public void RpcUnavailable_NamesAComputerThatIsOff_BeforeTheFirewall()
+    {
+        // E-EVTLOG-03: 1722 is also what a computer that is off (its A record still resolving) or cut off by a WAN outage gives.
+        var polish = EventLogText.AccessError(Polish, EventLogAccessError.RpcUnavailable, 1722);
+        var english = EventLogText.AccessError(English, EventLogAccessError.RpcUnavailable, 1722);
+
+        var polishOn = polish.IndexOf("jest włączony", StringComparison.Ordinal);
+        var englishOn = english.IndexOf("is on", StringComparison.Ordinal);
+
+        Assert.InRange(polishOn, 0, polish.IndexOf("Zdalne zarządzanie dziennikiem zdarzeń", StringComparison.Ordinal));
+        Assert.InRange(englishOn, 0, english.IndexOf("Remote Event Log Management", StringComparison.Ordinal));
+        Assert.EndsWith("(błąd 1722)", polish, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MessageUnavailable_NamesAnEventGoneFromTheSource_NotOnlyMissingMetadata()
+    {
+        // E-EVTLOG-02: the re-read finds nothing when the log has overwritten the event since it was read.
+        Assert.Contains("nie ma go już w źródle", Polish[L.EventLogs.MessageUnavailable], StringComparison.Ordinal);
+        Assert.Contains("no longer in the source", English[L.EventLogs.MessageUnavailable], StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Notes_FillTheirArguments_InTheUiLanguage()
     {
         var zone = TimeZoneInfo.Utc;

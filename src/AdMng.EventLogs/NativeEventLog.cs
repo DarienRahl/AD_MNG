@@ -77,12 +77,19 @@ internal static class NativeEventLog
         }
     }
 
-    /// <summary>Cancels what runs on <paramref name="state"/> (an <see cref="EventLogSession"/> or <see cref="EventLogReader"/>).</summary>
-    public static void Cancel(object? state)
-    {
-        try
+    /// <summary>
+    /// Cancels what runs on <paramref name="target"/> (an <see cref="EventLogSession"/> or <see cref="EventLogReader"/>)
+    /// once <paramref name="cancellationToken"/> is cancelled – on the thread pool, never on the thread that cancels
+    /// (<see cref="NativeCancellation"/>: a remote <c>EvtCancel</c> is a call to the target).
+    /// </summary>
+    public static CancellationTokenRegistration RegisterCancel(CancellationToken cancellationToken, object target) =>
+        NativeCancellation.Register(cancellationToken, Cancel, target);
+
+    /// <summary>Cancels what runs on <paramref name="state"/> (an <see cref="EventLogSession"/> or <see cref="EventLogReader"/>); never throws.</summary>
+    public static void Cancel(object? state) => NativeCancellation.Invoke(
+        static target =>
         {
-            switch (state)
+            switch (target)
             {
                 case EventLogSession session:
                     session.CancelCurrentOperations();
@@ -91,30 +98,34 @@ internal static class NativeEventLog
                     reader.CancelReading();
                     break;
             }
-        }
-        catch (Exception ex) when (ex is EventLogException or ObjectDisposedException or InvalidOperationException)
-        {
-            // Already finished or disposed.
-        }
-    }
+        },
+        state);
 
     /// <summary>
-    /// The message of the record <paramref name="query"/> finds (one record by its number), when it is the
-    /// <paramref name="expected"/> event; null when it is gone, another event, or cannot be rendered.
+    /// The message of the <paramref name="expected"/> event among the records <paramref name="query"/> finds (by its
+    /// number and time, <see cref="ReaderSupport.RecordQuery"/>); null when it is gone or cannot be rendered. Every match
+    /// is checked, not only the first: in a collector's log or a file of several computers, record numbers repeat.
     /// </summary>
     public static string? FormatMessage(WindowsEventLogQuery query, EventLogRecord expected, CancellationToken cancellationToken)
     {
         try
         {
-            using var reader = new EventLogReader(query) { BatchSize = 1 };
-            using var registration = cancellationToken.Register(Cancel, reader);
-            using var found = reader.ReadEvent();
-            if (found is null || !ReaderSupport.SameEvent(found.Id, found.ProviderName, found.MachineName, ReaderSupport.ToUtc(found.TimeCreated), expected))
+            using var reader = new EventLogReader(query) { BatchSize = 8 };
+            using var registration = RegisterCancel(cancellationToken, reader);
+            while (true)
             {
-                return null;
-            }
+                cancellationToken.ThrowIfCancellationRequested();
+                using var found = reader.ReadEvent();
+                if (found is null)
+                {
+                    return null;
+                }
 
-            return Describe(found);
+                if (ReaderSupport.SameEvent(found.Id, found.ProviderName, found.MachineName, ReaderSupport.ToUtc(found.TimeCreated), expected))
+                {
+                    return Describe(found);
+                }
+            }
         }
         catch (Exception) when (cancellationToken.IsCancellationRequested)
         {

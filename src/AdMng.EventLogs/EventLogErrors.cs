@@ -62,7 +62,12 @@ internal static class EventLogErrors
         1909, // ERROR_ACCOUNT_LOCKED_OUT
     ];
 
-    /// <summary>The host answers, but the event log RPC endpoint does not (firewall group "Remote Event Log Management").</summary>
+    /// <summary>
+    /// No RPC connection to the event log service: the endpoint is blocked (firewall group "Remote Event Log Management")
+    /// or not registered (service not running). RPC_S_SERVER_UNAVAILABLE (1722) is also all a computer that is off or cut
+    /// off gives once its name resolved (the only check before the connection) – a probe of port 135 could not tell it
+    /// from a firewall that drops, so the text of this kind names both causes.
+    /// </summary>
     private static readonly HashSet<int> RpcUnavailable =
     [
         1225, // ERROR_CONNECTION_REFUSED

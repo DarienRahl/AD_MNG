@@ -82,7 +82,22 @@ public class EventRecordMergeTests
         var sources = new List<IEnumerable<EventLogRecord>> { Samples.File("DC01.evtx", 0, 4, 8), Samples.File("DC02.evtx", 2, 6) };
 
         Assert.Equal([8, 6], EventRecordMerge.Order(sources, newestFirst: true, maxRecords: 2).Select(r => (int)(r.TimeCreated - Samples.Morning).TotalMinutes));
-        Assert.Equal([8, 6, 4, 2, 0], EventRecordMerge.Order(sources, newestFirst: true, maxRecords: null).Select(r => (int)(r.TimeCreated - Samples.Morning).TotalMinutes));
+        Assert.Empty(EventRecordMerge.Order(sources, newestFirst: true, maxRecords: 0));
+    }
+
+    [Fact]
+    public void Order_NewestFirst_WithoutALimit_StreamsEveryRecord_SoTheCallerCountsWhatItDrops()
+    {
+        // E-EVTLOG-01: the reader asks newest first without a limit; a window of the newest 50 000 here dropped the rest
+        // of a large exported Security.evtx without anyone counting them (the runner saw 50 000 and reported nothing).
+        var minutes = Enumerable.Range(0, EventLogLimits.MaxRecordsInMemory + 7).ToArray();
+        var dc01 = Samples.File("DC01-Security.evtx", [.. minutes.Where(m => m % 2 == 0)]);
+        var dc02 = Samples.File("DC02-Zabezpieczenia.evtx", [.. minutes.Where(m => m % 2 == 1)]);
+
+        var records = EventRecordMerge.Order([dc01, dc02], newestFirst: true, maxRecords: null).ToList();
+
+        Assert.Equal(minutes.Length, records.Count);
+        Assert.Equal(minutes, records.Select(r => (int)(r.TimeCreated - Samples.Morning).TotalMinutes));
     }
 
     [Fact]

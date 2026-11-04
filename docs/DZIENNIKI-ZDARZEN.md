@@ -34,8 +34,9 @@ Każda karta należy do swojego okna połączenia i korzysta z jego poświadcze�
     *Zabezpieczenia*, uprawnienia administratora domeny nie są potrzebne. Na DC warto użyć osobnej grupy domenowej
     zagnieżdżonej w *Czytelnicy dziennika zdarzeń* i traktować ją jak Tier 0 (dzienniki DC pokazują działania
     administratorów).
-- Gdy czegoś brakuje, karta mówi, czego: komputer nie odpowiada, brak połączenia RPC (zapora), odmowa dostępu (grupa,
-  uprawnienia kanału), nie ma takiego kanału, komputer odrzucił zapytanie – zawsze z podpowiedzią, co zrobić.
+- Gdy czegoś brakuje, karta mówi, czego: komputer nie odpowiada, brak połączenia RPC (zapora albo wyłączony komputer),
+  odmowa dostępu (grupa, uprawnienia kanału), nie ma takiego kanału, komputer odrzucił zapytanie – zawsze z podpowiedzią,
+  co zrobić.
 - **Analizy potrzebują inspekcji na DC**: blokady 4740 – *Zarządzanie kontami użytkowników* (sukces); 4771 – *Usługa
   uwierzytelniania Kerberos* (niepowodzenie); 4776 – *Weryfikacja poświadczeń* (niepowodzenie); 4625 – *Logowanie*
   (niepowodzenie); 4624 – *Logowanie* (sukces). Karty pokazują, czy te zdarzenia w ogóle są rejestrowane (rozdział 4).

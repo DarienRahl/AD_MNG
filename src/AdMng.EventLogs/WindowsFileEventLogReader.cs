@@ -13,8 +13,10 @@ namespace AdMng.EventLogs;
 /// <c>.evtx</c> files the operator chose (design note e-event-logs.md 3.1), read in place as the process identity – no
 /// copy, nothing cached. Each file is queried with the structured query pointed at it (<see cref="ReaderSupport.ForFile"/>)
 /// and read forward, the only direction every file kind supports; the files are merged by time and "newest first" is
-/// applied after the read (<see cref="EventRecordMerge"/>). The host of a record is its file name, its channel the one
-/// the record names. Messages come from this computer's publisher metadata (or the file's <c>LocaleMetaData</c>).
+/// applied after the read only with <see cref="EventLogQuery.MaxRecords"/> – without it every record is streamed oldest
+/// first, so the caller's memory bound counts what it drops (<see cref="EventRecordMerge.Order"/>). The host of a record is
+/// its file name, its channel the one the record names. Messages come from this computer's publisher metadata (or the
+/// file's <c>LocaleMetaData</c>).
 /// </summary>
 [SupportedOSPlatform("windows")]
 internal sealed class WindowsFileEventLogReader : IEventLogReader
@@ -45,7 +47,7 @@ internal sealed class WindowsFileEventLogReader : IEventLogReader
             foreach (var path in _paths)
             {
                 using var reader = new EventLogReader(new WindowsEventLogQuery(path, PathType.FilePath)) { BatchSize = 1 };
-                using var registration = token.Register(NativeEventLog.Cancel, reader);
+                using var registration = NativeEventLog.RegisterCancel(token, reader);
                 using var record = reader.ReadEvent();
                 names.Add(record?.LogName);
             }
@@ -99,7 +101,7 @@ internal sealed class WindowsFileEventLogReader : IEventLogReader
         return ReadCoreAsync(query, cancellationToken);
     }
 
-    /// <summary>Re-reads the record by its number in the file(s) of its name and renders its message (null when that fails).</summary>
+    /// <summary>Re-reads the record by its number and time in the file(s) of its name and renders its message (null when that fails).</summary>
     public async Task<string?> FormatMessageAsync(EventLogRecord record, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(record);
@@ -121,7 +123,7 @@ internal sealed class WindowsFileEventLogReader : IEventLogReader
                 {
                     foreach (var path in candidates)
                     {
-                        var message = NativeEventLog.FormatMessage(new WindowsEventLogQuery(path, PathType.FilePath, ReaderSupport.RecordQuery(record.RecordId)), record, token);
+                        var message = NativeEventLog.FormatMessage(new WindowsEventLogQuery(path, PathType.FilePath, ReaderSupport.RecordQuery(record)), record, token);
                         if (message is not null)
                         {
                             return message;
@@ -152,7 +154,7 @@ internal sealed class WindowsFileEventLogReader : IEventLogReader
     private static IEnumerable<EventLogRecord> ReadFile(string path, string xml, string host, CancellationToken cancellationToken)
     {
         using var reader = new EventLogReader(new WindowsEventLogQuery(path, PathType.FilePath, xml)) { BatchSize = EventLogLimits.BatchSize };
-        using var registration = cancellationToken.Register(NativeEventLog.Cancel, reader);
+        using var registration = NativeEventLog.RegisterCancel(cancellationToken, reader);
         foreach (var text in NativeEventLog.ReadXml(reader, cancellationToken))
         {
             if (EventXmlParser.TryParse(text, host, out var record))

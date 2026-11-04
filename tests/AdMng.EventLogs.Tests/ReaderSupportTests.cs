@@ -54,10 +54,41 @@ public class ReaderSupportTests
     }
 
     [Fact]
-    public void RecordQuery_IsNumbersOnly()
+    public void RecordQuery_IsTheNumberAndTheTimeWithinASecond_NumbersOnly()
     {
-        Assert.Equal("*[System[(EventRecordID=4740123)]]", ReaderSupport.RecordQuery(4740123));
-        Assert.Throws<ArgumentOutOfRangeException>(() => ReaderSupport.RecordQuery(-1));
+        // E-EVTLOG-02: record numbers repeat in a collector's log and in a file of several computers – the time narrows them.
+        var record = Samples.Record("wec01.contoso.test", 4740123, Samples.Morning.AddTicks(1_234_567), account: "o'neill.żak");
+
+        Assert.Equal(
+            "*[System[(EventRecordID=4740123) and TimeCreated[@SystemTime>='2026-11-03T07:29:59.123Z' and @SystemTime<='2026-11-03T07:30:01.124Z']]]",
+            ReaderSupport.RecordQuery(record));
+        Assert.Equal(
+            "*[System[(EventRecordID=1) and TimeCreated[@SystemTime>='2026-11-03T07:29:59.000Z' and @SystemTime<='2026-11-03T07:30:01.000Z']]]",
+            ReaderSupport.RecordQuery(record with { RecordId = 1, TimeCreated = Samples.Morning }));
+        Assert.Contains("@SystemTime>='0001-01-01T00:00:00.000Z'", ReaderSupport.RecordQuery(record with { TimeCreated = DateTimeOffset.MinValue }), StringComparison.Ordinal);
+        Assert.Throws<ArgumentOutOfRangeException>(() => ReaderSupport.RecordQuery(record with { RecordId = -1 }));
+    }
+
+    [Fact]
+    public void ReadFrom_AForwardedEvent_KeepsTheCollectorsChannel_ForItsMessage()
+    {
+        // E-EVTLOG-02: a 4740 forwarded from dc02 says Security, but lives in ForwardedEvents of wec01.
+        var forwarded = Samples.Record("wec01.contoso.test", 912, Samples.Morning, account: "żaneta.wiśniewska") with { Computer = "DC02.contoso.test" };
+
+        var read = ReaderSupport.ReadFrom(forwarded, "ForwardedEvents");
+
+        Assert.Equal(("Security", "ForwardedEvents"), (read.Channel, read.QueriedChannel));
+        Assert.Equal("ForwardedEvents", ReaderSupport.MessageChannel(read));
+    }
+
+    [Fact]
+    public void ReadFrom_ItsOwnChannel_LeavesTheRecordAsItIs()
+    {
+        var local = Samples.Record("dc01.contoso.test", 913, Samples.Morning, account: "łucja.ńczyk");
+
+        Assert.Same(local, ReaderSupport.ReadFrom(local, "security"));
+        Assert.Null(local.QueriedChannel);
+        Assert.Equal("Security", ReaderSupport.MessageChannel(local));
     }
 
     [Fact]
