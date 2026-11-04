@@ -190,7 +190,8 @@ public sealed class GroupPolicyOperationTests
         await scope.ToggleBlockInheritanceCommand.ExecuteAsync(null);
         Assert.Equal("1", h.Value(h.Company.ComputersOu, GroupPolicyAttributes.GpOptions));
         Assert.Contains("Set-GPInheritance", h.Windows.Previews[^1].PowerShell, StringComparison.Ordinal);
-        await B2Harness.WaitUntilAsync(() => scope.BlocksInheritance);
+        // The reload sets the flag before it rebuilds the inherited list: wait for the whole reload.
+        await B2Harness.WaitUntilAsync(() => scope.BlocksInheritance && !scope.IsLoading);
         Assert.Equal(["Serwery – Zabezpieczenia", "Stacje robocze – Zasady haseł"], scope.Inheritance.Select(i => i.GpoName));
 
         await scope.ToggleBlockInheritanceCommand.ExecuteAsync(null);
