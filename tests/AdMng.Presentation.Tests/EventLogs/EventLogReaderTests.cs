@@ -215,11 +215,12 @@ public class EventLogReaderTests
         reader.FocusSearch();
         reader.SearchText = "zofia";
         Assert.Equal(1, focused);
+        await EventLogHarness.WaitAsync(() => reader.Rows.Count == 1);
         Assert.Equal(EventLogSamples.ZofiaZak, Assert.Single(reader.Rows).Record.Get("TargetUserName"));
 
         reader.SearchText = "nie ma takiego tekstu";
+        await EventLogHarness.WaitAsync(() => reader.ListNote == "Żadne wczytane zdarzenie nie zawiera tego tekstu.");
         Assert.Empty(reader.Rows);
-        Assert.Equal("Żadne wczytane zdarzenie nie zawiera tego tekstu.", reader.ListNote);
         reader.SearchText = string.Empty;
         Assert.Equal(7, reader.Rows.Count);
         Assert.Equal(reads, harness.Connector.Reads.Count);

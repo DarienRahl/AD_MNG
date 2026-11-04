@@ -342,16 +342,17 @@ public static class EventLogText
 
     /// <summary>
     /// A short summary of a record from its key fields: the account, the source (address, workstation, caller), the result
-    /// code with its meaning and the logon type – or the first values when it has none of them.
+    /// code with its meaning and the logon type – or the first values when it has none of them. <paramref name="accountText"/>
+    /// replaces a logged target account (a masked unknown name).
     /// </summary>
-    public static string Summary(ILocalizer localizer, EventLogRecord record)
+    public static string Summary(ILocalizer localizer, EventLogRecord record, string? accountText = null)
     {
         ArgumentNullException.ThrowIfNull(localizer);
         ArgumentNullException.ThrowIfNull(record);
         var parts = new List<string>();
         if (Account(record.Get("TargetUserName"), record.Get("TargetDomainName"), record.EventId) is { } target)
         {
-            parts.Add(target);
+            parts.Add(accountText ?? target);
         }
         else if (Account(record.Get("SubjectUserName"), record.Get("SubjectDomainName"), record.EventId) is { } subject)
         {

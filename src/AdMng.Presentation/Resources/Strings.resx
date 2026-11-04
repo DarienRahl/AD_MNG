@@ -19250,4 +19250,12 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>The Security log of {0} is full and set not to overwrite events: what was logged after {1} was discarded, so its absence proves nothing.</value>
   </data>
   <!-- Track E review fixes (lockout and failed-logon analyses): end -->
+  <!-- Track E review fixes (reader, lockout source): start -->
+  <data name="EvtLog.SavedQueriesFull" xml:space="preserve">
+    <value>{0} queries are saved already – that is the limit. Delete one, or save under the name of an existing query to replace it.</value>
+  </data>
+  <data name="EvtLock.PolicyPsoUnreadable" xml:space="preserve">
+    <value>Lockout threshold unknown: the account is covered by the fine-grained password policy {0}, which your account cannot read (by default only Domain Admins can). Its threshold, observation window and lockout duration may differ from the domain policy.</value>
+  </data>
+  <!-- Track E review fixes (reader, lockout source): end -->
 </root>

@@ -128,7 +128,7 @@ public sealed partial class FailedLogonsDocumentViewModel : EventLogDocumentBase
     [ObservableProperty]
     public partial IReadOnlyList<FailedLogonAccountRow> SelectedAccounts { get; private set; } = [];
 
-    /// <summary>The records of the selected finding (drill-down), newest first.</summary>
+    /// <summary>The records of the selected finding (drill-down), newest first; unknown account names masked like <see cref="SelectedAccounts"/>.</summary>
     [ObservableProperty]
     public partial IReadOnlyList<EventLogRecordRow> SelectedRecords { get; private set; } = [];
 
@@ -394,23 +394,51 @@ public sealed partial class FailedLogonsDocumentViewModel : EventLogDocumentBase
         }
 
         SelectedAccounts = [.. value.Finding.Accounts.Select(a => new FailedLogonAccountRow(a, Localizer))];
-        var index = _records.ToLookup(r => (EventHostNames.Normalize(r.Host), r.RecordId));
-        SelectedRecords = [.. value.Finding.Records
-            .SelectMany(r => index[(EventHostNames.Normalize(r.Host), r.RecordId)].Take(1))
-            .OrderByDescending(r => r.TimeCreated)
-            .Select(r => new EventLogRecordRow(r, Localizer, Zone))];
+        ShowSelectedRecords(value);
         RecordsHeading = value.Finding.RecordsTruncated
             ? Localizer.Format(L.EventLogsFailedLogons.RecordsTruncated, SelectedRecords.Count)
             : Localizer.Format(L.EventLogsFailedLogons.RecordsHeading, SelectedRecords.Count);
     }
 
+    /// <summary>
+    /// The records of <paramref name="finding"/> (drill-down). A failure that says "no such account" (0xC0000064, Kerberos
+    /// 0x6) shows its account masked, as the accounts list does – the name may be a password typed into the user name
+    /// field – until that account is revealed there ("Pokaż").
+    /// </summary>
+    private void ShowSelectedRecords(FailedLogonFindingRow finding)
+    {
+        var revealed = SelectedAccounts.Where(a => a.IsRevealed).Select(a => AccountKey(a.Account.Account)).ToHashSet(StringComparer.Ordinal);
+        var masked = Localizer[L.EventLogsFailedLogons.MaskedAccount];
+        var index = _records.ToLookup(r => (EventHostNames.Normalize(r.Host), r.RecordId));
+        SelectedRecords = [.. finding.Finding.Records
+            .SelectMany(r => index[(EventHostNames.Normalize(r.Host), r.RecordId)].Take(1))
+            .OrderByDescending(r => r.TimeCreated)
+            .Select(r => new EventLogRecordRow(r, Localizer, Zone,
+                accountText: IsUnknownAccount(r) && !revealed.Contains(AccountKey(r.Get("TargetUserName"))) ? masked : null))];
+    }
+
+    /// <summary>The failure says the account does not exist (the name as typed may be a password).</summary>
+    private static bool IsUnknownAccount(EventLogRecord record) =>
+        EventCodes.ResultOf(record) is { Category: EventCodeCategory.UnknownAccount };
+
+    /// <summary>An account name without a <c>DOMAIN\</c> prefix, trimmed, lower case (as the analysis groups names).</summary>
+    private static string AccountKey(string? name)
+    {
+        var text = name?.Trim() ?? string.Empty;
+        return text[(text.LastIndexOf('\\') + 1)..].Trim().ToLowerInvariant();
+    }
+
     /// <summary>"Pokaż" of a masked account name (a password typed into the user name field may be revealed on purpose only).</summary>
     [RelayCommand]
-    private static void RevealAccount(FailedLogonAccountRow? row)
+    private void RevealAccount(FailedLogonAccountRow? row)
     {
         if (row is not null)
         {
             row.IsRevealed = true;
+            if (SelectedFinding is { } finding)
+            {
+                ShowSelectedRecords(finding);
+            }
         }
     }
 

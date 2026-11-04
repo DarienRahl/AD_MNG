@@ -82,9 +82,7 @@
           <TextBlock FontWeight="SemiBold" Text="{Binding Host, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
         </DockPanel>
         <TextBlock Style="{StaticResource Ad.SecondaryText}" TextWrapping="Wrap">
-          <Run Text="{Binding KindText, Mode=OneWay}" />
-          <Run Text=" · " />
-          <Run Text="{Binding StateText, Mode=OneWay}" />
+          <Run Text="{Binding KindText, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding StateText, Mode=OneWay}" />
         </TextBlock>
         <TextBlock Style="{StaticResource Ad.SecondaryText}"
                    Text="{Binding CoverageText, Mode=OneWay}"

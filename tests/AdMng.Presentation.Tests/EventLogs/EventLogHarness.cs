@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Runtime.CompilerServices;
 using AdMng.Core.ActiveDirectory;
+using AdMng.Core.Computers.Remote;
 using AdMng.Core.Csv;
 using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy.Management;
@@ -27,7 +28,7 @@ internal sealed class EventLogHarness
     public const string Dc01 = "dc01.contoso.test";
     public const string Dc02 = "dc02.contoso.test";
 
-    private EventLogHarness(B2Harness b2, bool withGroupPolicy, bool withRemote)
+    private EventLogHarness(B2Harness b2, bool withGroupPolicy, bool withRemote, IHostAddressResolver? resolver)
     {
         B2 = b2;
         b2.Builder.AddWatchdogInfrastructure();
@@ -43,7 +44,7 @@ internal sealed class EventLogHarness
         }
 
         Services = new EventLogServices(b2.Services, new CsvCodec(), Launcher, Connector, new ServerConnector(b2), GroupPolicy,
-            remote: withRemote ? Remote : null, nameLookup: Lookup);
+            remote: withRemote ? Remote : null, resolver: resolver, nameLookup: Lookup);
         Launcher.Requested += (_, request) => Requests.Add(request);
     }
 
@@ -72,9 +73,10 @@ internal sealed class EventLogHarness
 
     public FakeDirectorySession Session => B2.Session;
 
-    public static async Task<EventLogHarness> CreateAsync(string culture = "pl-PL", bool withGroupPolicy = true, bool withRemote = true)
+    public static async Task<EventLogHarness> CreateAsync(string culture = "pl-PL", bool withGroupPolicy = true, bool withRemote = true,
+        IHostAddressResolver? resolver = null)
     {
-        var harness = new EventLogHarness(await B2Harness.CreateAsync(CultureInfo.GetCultureInfo(culture)), withGroupPolicy, withRemote);
+        var harness = new EventLogHarness(await B2Harness.CreateAsync(CultureInfo.GetCultureInfo(culture)), withGroupPolicy, withRemote, resolver);
         await harness.UseSampleSidAsync(harness.Company.JanKowalski, EventLogSamples.JanKowalski);
         return harness;
     }
@@ -114,6 +116,19 @@ internal sealed class EventLogHarness
 
     private IReadOnlyDictionary<string, Dictionary<string, string>> DcValues(string server) =>
         string.Equals(server, Dc02, StringComparison.OrdinalIgnoreCase) ? Dc02Values : new Dictionary<string, Dictionary<string, string>>();
+}
+
+/// <summary>A forward DNS double: host → addresses, or the failure the resolver throws for it.</summary>
+internal sealed class FakeAddressResolver : IHostAddressResolver
+{
+    public Dictionary<string, IReadOnlyList<IPAddress>> Addresses { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public Dictionary<string, Exception> Failures { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public Task<IReadOnlyList<IPAddress>> ResolveAsync(string host, CancellationToken cancellationToken) =>
+        Failures.TryGetValue(host, out var failure)
+            ? Task.FromException<IReadOnlyList<IPAddress>>(failure)
+            : Task.FromResult(Addresses.TryGetValue(host, out var addresses) ? addresses : (IReadOnlyList<IPAddress>)[]);
 }
 
 /// <summary>A reverse DNS double: address → name.</summary>

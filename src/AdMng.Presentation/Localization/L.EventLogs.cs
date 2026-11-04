@@ -282,5 +282,8 @@ public static partial class L
 
         /// <summary>{0} = the domain.</summary>
         public const string ReportTitle = "EvtLog.ReportTitle";
+
+        /// <summary>"Zapisz zapytanie" with a new name when the limit is reached; {0} = the limit.</summary>
+        public const string SavedQueriesFull = "EvtLog.SavedQueriesFull";
     }
 }

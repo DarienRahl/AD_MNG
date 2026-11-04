@@ -176,7 +176,7 @@ public sealed partial class LockoutDocumentViewModel : EventLogDocumentBase
         AccountGuid = account.ObjectGuid;
         WatchdogHistoryCommand.NotifyCanExecuteChanged();
         var lockoutAccount = new LockoutAccount(sam, SidOf(account), account.GetString(Attr.UserPrincipalName), account.DistinguishedName);
-        var (policy, policySource) = await Task.Run(() => ReadPolicyAsync(session, account.GetString(ResultantPsoAttribute), token), token).ConfigureAwait(true);
+        var (policy, policySource, psoUnreadable) = await Task.Run(() => ReadPolicyAsync(session, account.GetString(ResultantPsoAttribute), token), token).ConfigureAwait(true);
 
         ProgressText = Localizer[L.EventLogsLockout.StageDomainControllers];
         var controllers = await Task.Run(() => Services.ReadDomainControllersAsync(session, token), token).ConfigureAwait(true);
@@ -236,6 +236,13 @@ public sealed partial class LockoutDocumentViewModel : EventLogDocumentBase
         }
 
         var report = await Task.Run(() => LockoutInvestigation.Analyze(input), token).ConfigureAwait(true);
+        if (psoUnreadable)
+        {
+            // The threshold 0 of an unreadable PSO stands for "unknown", not "lockout switched off".
+            report = report with { Notes = [.. report.Notes.Where(n => n.Key != LockoutNoteKeys.LockoutPolicyDisabled)] };
+        }
+
+        _psoUnreadable = psoUnreadable;
         foreach (var host in result.Hosts)
         {
             Hosts.FirstOrDefault(h => string.Equals(h.Host, host.Host, StringComparison.OrdinalIgnoreCase))?.Update(host, from, now);
@@ -249,6 +256,7 @@ public sealed partial class LockoutDocumentViewModel : EventLogDocumentBase
 
     private string? _policySource;
     private LockoutPolicy? _policy;
+    private bool _psoUnreadable;
     private EventLogRunResult? _run;
 
     /// <summary>Shows a report: summary, sources, timeline, DCs, notes, audit evidence.</summary>
@@ -307,6 +315,11 @@ public sealed partial class LockoutDocumentViewModel : EventLogDocumentBase
 
     private string PolicyLine(LockoutPolicy policy, string? source)
     {
+        if (_psoUnreadable)
+        {
+            return Localizer.Format(L.EventLogsLockout.PolicyPsoUnreadable, source ?? "–");
+        }
+
         if (policy.Threshold <= 0)
         {
             return Localizer[L.EventLogsLockout.PolicyNever];
@@ -372,35 +385,49 @@ public sealed partial class LockoutDocumentViewModel : EventLogDocumentBase
         }
     }
 
-    /// <summary>The lockout policy: the resultant PSO's when the account has one, else the domain's (with its observation window).</summary>
-    private async Task<(LockoutPolicy Policy, string? Source)> ReadPolicyAsync(IDirectorySession session, string? psoDn, CancellationToken token)
+    /// <summary>
+    /// The lockout policy: the resultant PSO's when the account has one, else the domain's (with its observation window).
+    /// A PSO the operator cannot read (by default only Domain Admins read msDS-PasswordSettings objects; the read then
+    /// returns nothing or no msDS-LockoutThreshold) gives an unknown policy – threshold 0, no window, no duration, flagged
+    /// <c>PsoUnreadable</c> – never the domain policy labelled as effective.
+    /// </summary>
+    private async Task<(LockoutPolicy Policy, string? Source, bool PsoUnreadable)> ReadPolicyAsync(IDirectorySession session, string? psoDn, CancellationToken token)
     {
         if (!string.IsNullOrWhiteSpace(psoDn))
         {
             var pso = await session.GetAsync(psoDn, ["msDS-LockoutThreshold", "msDS-LockoutObservationWindow", "msDS-LockoutDuration", Attr.Name], token).ConfigureAwait(false);
-            if (pso is not null)
+            if (pso?.GetInt32("msDS-LockoutThreshold") is { } threshold)
             {
                 return (new LockoutPolicy(
-                    pso.GetInt32("msDS-LockoutThreshold") ?? 0,
+                    threshold,
                     Interval(pso.GetInt64("msDS-LockoutObservationWindow")),
-                    Interval(pso.GetInt64("msDS-LockoutDuration"))), pso.Name);
+                    Interval(pso.GetInt64("msDS-LockoutDuration"))), pso.Name, false);
             }
+
+            var name = pso?.Name is { Length: > 0 } read ? read
+                : Core.Ldap.DistinguishedName.TryParse(psoDn, out var dn) && !dn.IsRoot ? dn.Name : psoDn;
+            return (new LockoutPolicy(0), name, true);
         }
 
         var domain = await Services.Ui.Sessions.GetDomainPolicyAsync(token).ConfigureAwait(false);
         var head = await session.GetAsync(session.Info.DefaultNamingContext, [ObservationWindowAttribute], token).ConfigureAwait(false);
-        return (new LockoutPolicy(domain.LockoutThreshold, Interval(head?.GetInt64(ObservationWindowAttribute)), domain.LockoutDuration), null);
+        return (new LockoutPolicy(domain.LockoutThreshold, Interval(head?.GetInt64(ObservationWindowAttribute)), domain.LockoutDuration), null, false);
 
         static TimeSpan? Interval(long? value) => value is { } v ? AdConvert.FromInterval(v) : null;
     }
 
-    /// <summary>The DC whose NTDS Settings object wrote lockoutTime last (msDS-ReplAttributeMetaData), null when not known.</summary>
+    /// <summary>
+    /// The DC whose NTDS Settings object wrote lockoutTime last (msDS-ReplAttributeMetaData), null when not known – and null
+    /// when lockoutTime is 0 on the window's DC: that last write was an unlock (by an administrator or after the lockout
+    /// ended), not the lockout. Value and metadata come from the same DC, so they always describe the same write.
+    /// </summary>
     private async Task<string?> OriginatingDcAsync(IDirectorySession session, CancellationToken token)
     {
         try
         {
-            var user = await session.GetAsync(UserDn, [AttributeReplicationMetadata.AttributeName], token).ConfigureAwait(false);
-            if (user is null || AttributeReplicationMetadata.Find(user.GetStrings(AttributeReplicationMetadata.AttributeName), Attr.LockoutTime) is not { OriginatingServerDn: { } serverDn })
+            var user = await session.GetAsync(UserDn, [AttributeReplicationMetadata.AttributeName, Attr.LockoutTime], token).ConfigureAwait(false);
+            if (user is null || user.GetFileTime(Attr.LockoutTime) is null
+                || AttributeReplicationMetadata.Find(user.GetStrings(AttributeReplicationMetadata.AttributeName), Attr.LockoutTime) is not { OriginatingServerDn: { } serverDn })
             {
                 return null;
             }
@@ -450,15 +477,10 @@ public sealed partial class LockoutDocumentViewModel : EventLogDocumentBase
             return window;
         }
 
-        var to = CustomTo is { } t ? Local(t) : now;
-        var from = CustomFrom is { } f ? Local(f) : to - EventLogLimits.DefaultWindow;
-        return from > to ? null : (from, to);
-    }
-
-    private DateTimeOffset Local(DateTime value)
-    {
-        var unspecified = DateTime.SpecifyKind(value, DateTimeKind.Unspecified);
-        return new DateTimeOffset(unspecified, Zone.GetUtcOffset(unspecified)).ToUniversalTime();
+        // "Do" is a date: its whole day is read (up to now); "Od" = "Do" is that one day.
+        var to = CustomTo is { } t ? EventLogTimeWindows.CustomEnd(t, Zone, now) : now;
+        var from = CustomFrom is { } f ? EventLogTimeWindows.FromLocal(f, Zone) : to - EventLogLimits.DefaultWindow;
+        return from >= to ? null : (from, to);
     }
 
     private string KindText(string host, IReadOnlyList<AccountLockoutState> states, string? originating)

@@ -22,7 +22,9 @@ namespace AdMng.Presentation.EventLogs;
 public sealed partial class EventLogReaderDocumentViewModel : EventLogDocumentBase, ISearchableDocument
 {
     private readonly SerialCancellation _details = new();
+    private readonly SerialCancellation _filter = new();
     private IReadOnlyList<EventLogRecordRow> _all = [];
+    private IReadOnlyDictionary<string, string> _hostTexts = new Dictionary<string, string>();
     private EventLogRunResult? _result;
     private DateTimeOffset? _lastFrom;
     private Task? _initialization;
@@ -106,7 +108,7 @@ public sealed partial class EventLogReaderDocumentViewModel : EventLogDocumentBa
 
     public void FocusSearch() => SearchFocusRequested?.Invoke(this, EventArgs.Empty);
 
-    partial void OnSearchTextChanged(string value) => ApplyFilter();
+    partial void OnSearchTextChanged(string value) => ApplyFilterAsync().Forget();
 
     // ---- Lifecycle --------------------------------------------------------------------------------------------------------
 
@@ -157,7 +159,8 @@ public sealed partial class EventLogReaderDocumentViewModel : EventLogDocumentBa
         var progress = HostProgress(_lastFrom, () => ProgressText = ReadingProgress());
         ProgressText = ReadingProgress();
         var result = await Task.Run(() => Services.CreateRunner(MaxRecords).RunAsync(session, targets, progress, token), CancellationToken.None).ConfigureAwait(true);
-        var rows = await Task.Run(() => result.Records.Select(r => new EventLogRecordRow(r, Localizer, Zone)).ToList(), CancellationToken.None).ConfigureAwait(true);
+        var hostTexts = HostTexts(sources);
+        var rows = await Task.Run(() => RowsOf(result.Records, hostTexts), CancellationToken.None).ConfigureAwait(true);
         if (IsDisposed)
         {
             return;
@@ -171,8 +174,9 @@ public sealed partial class EventLogReaderDocumentViewModel : EventLogDocumentBa
 
         OnPropertyChanged(nameof(HasHostProblems));
         _result = result;
+        _hostTexts = hostTexts;
         _all = rows;
-        ApplyFilter();
+        await ApplyFilterAsync().ConfigureAwait(true);
         var failed = result.Hosts.Count(h => h.State == EventLogHostState.Failed);
         DroppedNote = result.Dropped > 0
             ? Localizer.Format(L.EventLogs.RecordsDropped, result.Records.Count.ToString("N0", Localizer.Culture), result.Total.ToString("N0", Localizer.Culture))
@@ -189,10 +193,79 @@ public sealed partial class EventLogReaderDocumentViewModel : EventLogDocumentBa
     /// <summary>Records kept in memory by a run (tests lower it; default <see cref="EventLogLimits.MaxRecordsInMemory"/>).</summary>
     public int MaxRecords { get; set; } = EventLogLimits.MaxRecordsInMemory;
 
-    private void ApplyFilter()
+    /// <summary>
+    /// The host column of the timeline per source host: a file source's name as it is, a computer's first label – its full
+    /// name when another source of the run shares that first label (<c>dc01.contoso.test</c>, <c>dc01.eu.contoso.test</c>).
+    /// </summary>
+    private static Dictionary<string, string> HostTexts(IReadOnlyList<EventLogSourceViewModel> sources)
+    {
+        var texts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var computers = sources.Where(s => !s.IsFiles).Select(s => (s.Host, Short: EventHostNames.ShortName(s.Host))).ToList();
+        foreach (var source in sources)
+        {
+            var shortName = source.IsFiles ? null : EventHostNames.ShortName(source.Host);
+            texts[source.Host] = shortName is null || computers.Any(c => !EventHostNames.AreEqual(c.Host, source.Host) && string.Equals(c.Short, shortName, StringComparison.Ordinal))
+                ? source.Host
+                : shortName;
+        }
+
+        return texts;
+    }
+
+    private List<EventLogRecordRow> RowsOf(IReadOnlyList<EventLogRecord> records, IReadOnlyDictionary<string, string> hostTexts) =>
+        [.. records.Select(r => new EventLogRecordRow(r, Localizer, Zone, hostTexts.TryGetValue(r.Host, out var text) ? text : null))];
+
+    /// <summary>
+    /// Ctrl+F over the records read (rule 6): off the UI thread, ordinal case-insensitive; a newer search (or run) cancels an
+    /// older one and only the newest result is shown. An empty search shows every record at once.
+    /// </summary>
+    private async Task ApplyFilterAsync()
+    {
+        var token = _filter.Next();
+        var all = _all;
+        var term = SearchText?.Trim() ?? string.Empty;
+        IReadOnlyList<EventLogRecordRow> rows = all;
+        if (term.Length > 0)
+        {
+            try
+            {
+                rows = await Task.Run(() => Filter(all, term, token), token).ConfigureAwait(true);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+        }
+
+        if (_filter.IsCurrent(token) && !IsDisposed)
+        {
+            ShowRows(rows);
+        }
+    }
+
+    private static List<EventLogRecordRow> Filter(IReadOnlyList<EventLogRecordRow> rows, string term, CancellationToken token)
+    {
+        var matches = new List<EventLogRecordRow>();
+        for (var i = 0; i < rows.Count; i++)
+        {
+            if (i % 1024 == 0)
+            {
+                token.ThrowIfCancellationRequested();
+            }
+
+            if (rows[i].Matches(term))
+            {
+                matches.Add(rows[i]);
+            }
+        }
+
+        return matches;
+    }
+
+    private void ShowRows(IReadOnlyList<EventLogRecordRow> rows)
     {
         var selected = SelectedRow;
-        Rows = string.IsNullOrWhiteSpace(SearchText) ? _all : [.. _all.Where(r => r.Matches(SearchText))];
+        Rows = rows;
         ListNote = _result is null
             ? string.Empty
             : _all.Count == 0
@@ -240,8 +313,8 @@ public sealed partial class EventLogReaderDocumentViewModel : EventLogDocumentBa
         SelectedOutcome = OutcomeOptions.First(o => o.Value == outcome);
         if (_result is { } result)
         {
-            _all = [.. result.Records.Select(r => new EventLogRecordRow(r, Localizer, Zone))];
-            ApplyFilter();
+            _all = RowsOf(result.Records, _hostTexts);
+            ApplyFilterAsync().Forget();
         }
 
         ValidateQuery();
@@ -252,6 +325,7 @@ public sealed partial class EventLogReaderDocumentViewModel : EventLogDocumentBa
         if (disposing)
         {
             _details.Cancel();
+            _filter.Cancel();
             _all = [];
             _result = null;
             Rows = [];

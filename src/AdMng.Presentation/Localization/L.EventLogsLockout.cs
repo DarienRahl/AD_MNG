@@ -180,5 +180,8 @@ public static partial class L
         public const string GroupPolicyDiagnostics = "EvtLock.GroupPolicyDiagnostics";
 
         public const string WatchdogHistory = "EvtLock.WatchdogHistory";
+
+        /// <summary>The policy line when the account's PSO cannot be read; {0} = the PSO's name.</summary>
+        public const string PolicyPsoUnreadable = "EvtLock.PolicyPsoUnreadable";
     }
 }

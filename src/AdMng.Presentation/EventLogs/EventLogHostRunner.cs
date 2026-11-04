@@ -18,7 +18,7 @@ public enum EventLogHostState
 /// One source of a run: a computer (<see cref="Host"/> = its FQDN) or operator-chosen <c>.evtx</c> files (<see cref="Files"/>;
 /// <see cref="Host"/> = their display name), and the queries to run on it in order.
 /// </summary>
-/// <param name="Host">The FQDN, or the display name of the files.</param>
+/// <param name="Host">The FQDN, or the display name of the files (for one file also the host of its records).</param>
 /// <param name="Queries">The queries (each one read of the source).</param>
 public sealed record EventLogTarget(string Host, IReadOnlyList<EventLogQuery> Queries)
 {
@@ -185,11 +185,15 @@ public sealed class EventLogHostRunner(IEventLogConnector connector)
 
             state = state with { State = EventLogHostState.Reading, Coverage = coverage };
             progress?.Report(state);
+
+            // The records of one file carry the source's host (unique among the sources), not the bare file name the reader
+            // stamps: two files of the same name stay apart in the timeline and in "Pokaż komunikat".
+            var fileHost = target.Files is { Count: 1 } ? target.Host : null;
             foreach (var query in target.Queries)
             {
                 await foreach (var record in reader.ReadAsync(query, cancellationToken).ConfigureAwait(false))
                 {
-                    buffer.Add(record);
+                    buffer.Add(fileHost is null || string.Equals(record.Host, fileHost, StringComparison.Ordinal) ? record : record with { Host = fileHost });
                     if (++count % ProgressEvery == 0)
                     {
                         progress?.Report(state with { Records = count });
