@@ -76,6 +76,17 @@ jobs:
               exit 0
             fi
             if [ "${#changed[@]}" -gt 1 ]; then
+              # Merging the release branch into main brings the notes of releases that already have their tags:
+              # nothing to release then. New notes still need a push of their own.
+              new=()
+              for changed_notes in "${changed[@]}"; do
+                git rev-parse -q --verify "refs/tags/$(basename "$changed_notes" .md)" >/dev/null || new+=("$changed_notes")
+              done
+              if [ "${#new[@]}" -eq 0 ]; then
+                echo "Only notes of existing releases changed together (${changed[*]}), e.g. a merge of the release branch: nothing to release."
+                echo "mode=skip" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
               echo "::error::One release per push: ${changed[*]} changed together."
               exit 1
             fi

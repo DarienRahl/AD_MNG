@@ -12,6 +12,7 @@
 
 [![CI](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml/badge.svg)](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml)
 [![Wersja](https://img.shields.io/badge/wersja-0.13.0-2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
+[![Pobrania](https://img.shields.io/github/downloads/DarienRahl/AD_MNG/total?label=pobrania&color=2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
 ![WPF Fluent](https://img.shields.io/badge/WPF-Fluent-0078D4)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011%20%7C%20Server%202019%2B-0078D4)
