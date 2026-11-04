@@ -232,6 +232,39 @@ public sealed class ScreenshotTests
         });
     }
 
+    private static readonly ScreenshotInfo Readiness = new(
+        "33-readiness.png",
+        "Gotowość środowiska – pełne sprawdzenie z komputerem testowym: połączenie, katalog, SYSVOL i zasady grupy, zdalne akcje, dzienniki zdarzeń każdego kontrolera, Watchdog, Outlook i ten komputer; każdy punkt z objaśnieniem, podpowiedzią i rozdziałem instrukcji",
+        "Environment readiness – the full check with a test computer: connection, directory, SYSVOL and Group Policy, remote actions, every domain controller's event logs, Watchdog, Outlook and this computer; every check with its explanation, remedy and documentation chapter");
+
+    [Fact]
+    public Task Screenshot33_Readiness()
+    {
+        var connector = EventLogUiSupport.CreateConnector();
+        return ShootAsync(ThemePreference.Light, connect: false, configure: EventLogUiSupport.Use(connector), shoot: async context =>
+        {
+            // Stage S (design note docs/dev/s-pilot-readiness.md 2): the full check over the in-memory directory with two DCs
+            // and the test computer WAW-PC001, read only.
+            await EventLogUiSupport.AddDomainControllersAsync(context);
+            await context.ConnectAsync();
+            var window = context.Services.GetRequiredService<MainWindow>();
+            await ScreenshotWriter.ShowWithClientSizeAsync(window, MainWindowWidth, MainWindowHeight);
+            var shell = window.Shell;
+            await shell.InitializeAsync();
+            shell.ShowReadinessCommand.Execute(null);
+            var document = Assert.IsType<Presentation.Readiness.ReadinessDocumentViewModel>(shell.SelectedTab);
+            await UiWait.UntilAsync(() => !document.IsLoading && document.HasResult, "the quick check");
+            document.TestComputerText = "WAW-PC001";
+            await document.FullCheckCommand.ExecuteAsync(null);
+            await UiWait.UntilAsync(() => !document.IsLoading, "the full check");
+            await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+            Assert.Equal(Presentation.Readiness.ReadinessDepth.Full, document.LastDepth);
+            Assert.Empty(context.Sysvol.Writes);
+            await ScreenshotWriter.SaveAsync(window, Readiness, dark: false);
+        });
+    }
+
     [Fact]
     public Task Screenshot29_AdministrativeTemplates() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>
     {

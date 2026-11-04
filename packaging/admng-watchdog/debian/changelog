@@ -1,6 +1,17 @@
 admng-watchdog (@VERSION@) unstable; urgency=medium
 
   * No change in how the service works and no database migration.
+  * Rebuilt for AD Manager 0.13.0 (stabilization and pilot readiness: the
+    environment readiness check and the problem report are AD Manager
+    features; the readiness check reads the existing /me and /status
+    endpoints). The shared event code catalog only gains a logon failure
+    kind per code, used by AD Manager's analyses.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Wed, 04 Nov 2026 08:00:00 +0000
+
+admng-watchdog (0.12.0-1) unstable; urgency=medium
+
+  * No change in how the service works and no database migration.
   * Rebuilt for AD Manager 0.12.0 (event log reader, lockout source and
     failed logons – AD Manager features that do not use the service). The
     %% insertion string decoder, the XPath literal rule and the host name
