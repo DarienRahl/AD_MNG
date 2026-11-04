@@ -158,5 +158,10 @@
     "file": "32-lockout-source.png",
     "title_pl": "Skąd blokada konta – Jan Kowalski: stan na kontrolerach domeny, próg z zasad domeny, źródła złych haseł (stacja WAW-PC001 i jej adres) z wyjaśnionymi kodami i sprawdzony komputer źródłowy z zadaniem zaplanowanym na zapisanym haśle",
     "title_en": "Where the lockout came from – Jan Kowalski: the state on the domain controllers, the domain policy\u0027s threshold, the sources of the bad passwords (the workstation WAW-PC001 and its address) with the codes explained, and the source computer checked, with a scheduled task on a saved password"
+  },
+  {
+    "file": "33-readiness.png",
+    "title_pl": "Gotowość środowiska – pełne sprawdzenie z komputerem testowym: połączenie, katalog, SYSVOL i zasady grupy, zdalne akcje, dzienniki zdarzeń każdego kontrolera, Watchdog, Outlook i ten komputer; każdy punkt z objaśnieniem, podpowiedzią i rozdziałem instrukcji",
+    "title_en": "Environment readiness – the full check with a test computer: connection, directory, SYSVOL and Group Policy, remote actions, every domain controller\u0027s event logs, Watchdog, Outlook and this computer; every check with its explanation, remedy and documentation chapter"
   }
 ]

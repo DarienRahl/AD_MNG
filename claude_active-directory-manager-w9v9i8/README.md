@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `claude/active-directory-manager-w9v9i8`
 
 - Gałąź: `claude/active-directory-manager-w9v9i8`
-- Commit: [`828ab2f`](https://github.com/DarienRahl/AD_MNG/commit/828ab2f21fba18f4ee0e2ae10fde17cdb3c728a8) (`828ab2f21fba18f4ee0e2ae10fde17cdb3c728a8`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/41791580766
+- Commit: [`286cdc8`](https://github.com/DarienRahl/AD_MNG/commit/286cdc8eb4b741bec4147ac0a33d1e9a04e793ca) (`286cdc8eb4b741bec4147ac0a33d1e9a04e793ca`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/41795869988
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
@@ -131,4 +131,8 @@
 ## Skąd blokada konta – Jan Kowalski: stan na kontrolerach domeny, próg z zasad domeny, źródła złych haseł (stacja WAW-PC001 i jej adres) z wyjaśnionymi kodami i sprawdzony komputer źródłowy z zadaniem zaplanowanym na zapisanym haśle
 
 ![Skąd blokada konta – Jan Kowalski: stan na kontrolerach domeny, próg z zasad domeny, źródła złych haseł (stacja WAW-PC001 i jej adres) z wyjaśnionymi kodami i sprawdzony komputer źródłowy z zadaniem zaplanowanym na zapisanym haśle](32-lockout-source.png)
+
+## Gotowość środowiska – pełne sprawdzenie z komputerem testowym: połączenie, katalog, SYSVOL i zasady grupy, zdalne akcje, dzienniki zdarzeń każdego kontrolera, Watchdog, Outlook i ten komputer; każdy punkt z objaśnieniem, podpowiedzią i rozdziałem instrukcji
+
+![Gotowość środowiska – pełne sprawdzenie z komputerem testowym: połączenie, katalog, SYSVOL i zasady grupy, zdalne akcje, dzienniki zdarzeń każdego kontrolera, Watchdog, Outlook i ten komputer; każdy punkt z objaśnieniem, podpowiedzią i rozdziałem instrukcji](33-readiness.png)
 
