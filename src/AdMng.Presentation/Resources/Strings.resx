@@ -19258,4 +19258,756 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Lockout threshold unknown: the account is covered by the fine-grained password policy {0}, which your account cannot read (by default only Domain Admins can). Its threshold, observation window and lockout duration may differ from the domain policy.</value>
   </data>
   <!-- Track E review fixes (reader, lockout source): end -->
+  <!-- Stage S readiness check (Gotowość środowiska): begin -->
+  <data name="Readiness.Title" xml:space="preserve">
+    <value>Environment readiness</value>
+  </data>
+  <data name="Readiness.Command" xml:space="preserve">
+    <value>Check environment readiness…</value>
+  </data>
+  <data name="Readiness.QuickCheck" xml:space="preserve">
+    <value>Quick check</value>
+  </data>
+  <data name="Readiness.QuickCheckHint" xml:space="preserve">
+    <value>The connection, the directory and this computer (LDAP only, a few seconds).</value>
+  </data>
+  <data name="Readiness.FullCheck" xml:space="preserve">
+    <value>Full check</value>
+  </data>
+  <data name="Readiness.FullCheckHint" xml:space="preserve">
+    <value>Also SYSVOL, the event log of every DC, the test computer, the Watchdog and the Outlook profile (connects to Outlook and starts it when it is not running).</value>
+  </data>
+  <data name="Readiness.TestComputerLabel" xml:space="preserve">
+    <value>Test computer:</value>
+  </data>
+  <data name="Readiness.TestComputerPlaceholder" xml:space="preserve">
+    <value>Computer name or DNS name</value>
+  </data>
+  <data name="Readiness.PickTestComputer" xml:space="preserve">
+    <value>Choose…</value>
+  </data>
+  <data name="Readiness.TestComputerHint" xml:space="preserve">
+    <value>The full check opens a WinRM session and the System log of this computer. Nothing is changed on it.</value>
+  </data>
+  <data name="Readiness.ExportHtml" xml:space="preserve">
+    <value>Export to HTML…</value>
+  </data>
+  <data name="Readiness.ExportCsv" xml:space="preserve">
+    <value>Export to CSV…</value>
+  </data>
+  <data name="Readiness.HtmlFilter" xml:space="preserve">
+    <value>HTML report (*.html)</value>
+  </data>
+  <data name="Readiness.ExportNote" xml:space="preserve">
+    <value>The export names the domain, the domain controllers and the test computer – keep it like other inventory documents.</value>
+  </data>
+  <data name="Readiness.ReadOnlyNote" xml:space="preserve">
+    <value>Read only: nothing is written to AD, SYSVOL or the computers. The results stay in memory while the tab is open.</value>
+  </data>
+  <data name="Readiness.NeverRun" xml:space="preserve">
+    <value>Not checked yet. Start with the quick check.</value>
+  </data>
+  <data name="Readiness.LastRun" xml:space="preserve">
+    <value>Last check: {0}, {1}, on {2}</value>
+  </data>
+  <data name="Readiness.DepthQuick" xml:space="preserve">
+    <value>quick</value>
+  </data>
+  <data name="Readiness.DepthFull" xml:space="preserve">
+    <value>full</value>
+  </data>
+  <data name="Readiness.Cancelled" xml:space="preserve">
+    <value>The check was cancelled; the checks it did not reach are not checked.</value>
+  </data>
+  <data name="Readiness.Progress" xml:space="preserve">
+    <value>Checking: {0} ({1} of {2})</value>
+  </data>
+  <data name="Readiness.Summary" xml:space="preserve">
+    <value>OK: {0} · Warnings: {1} · Errors: {2} · Not checked: {3}</value>
+  </data>
+  <data name="Readiness.Status.Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Readiness.Status.Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="Readiness.Status.Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Readiness.Status.NotChecked" xml:space="preserve">
+    <value>Not checked</value>
+  </data>
+  <data name="Readiness.RemedyHeading" xml:space="preserve">
+    <value>What to do:</value>
+  </data>
+  <data name="Readiness.DocumentationHeading" xml:space="preserve">
+    <value>Read:</value>
+  </data>
+  <data name="Readiness.ColumnArea" xml:space="preserve">
+    <value>Area</value>
+  </data>
+  <data name="Readiness.ColumnCheck" xml:space="preserve">
+    <value>Check</value>
+  </data>
+  <data name="Readiness.ColumnStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Readiness.ColumnHost" xml:space="preserve">
+    <value>Host</value>
+  </data>
+  <data name="Readiness.ColumnResult" xml:space="preserve">
+    <value>Result</value>
+  </data>
+  <data name="Readiness.ColumnRemedy" xml:space="preserve">
+    <value>What to do</value>
+  </data>
+  <data name="Readiness.ColumnDocumentation" xml:space="preserve">
+    <value>Documentation</value>
+  </data>
+  <data name="Readiness.ReportTitle" xml:space="preserve">
+    <value>Environment readiness – {0}</value>
+  </data>
+  <data name="Readiness.ReportSubtitle" xml:space="preserve">
+    <value>Check: {0} · DC: {1} · {2}</value>
+  </data>
+  <data name="Readiness.Copied" xml:space="preserve">
+    <value>The results were copied.</value>
+  </data>
+  <data name="Readiness.Copy" xml:space="preserve">
+    <value>Copy results</value>
+  </data>
+  <data name="Readiness.Stale" xml:space="preserve">
+    <value>The connection of the window changed after this check – check again.</value>
+  </data>
+  <data name="Readiness.CheckAgain" xml:space="preserve">
+    <value>Check again</value>
+  </data>
+  <data name="Readiness.CountOk" xml:space="preserve">
+    <value>OK: {0}</value>
+  </data>
+  <data name="Readiness.CountWarning" xml:space="preserve">
+    <value>Warnings: {0}</value>
+  </data>
+  <data name="Readiness.CountError" xml:space="preserve">
+    <value>Errors: {0}</value>
+  </data>
+  <data name="Readiness.CountNotChecked" xml:space="preserve">
+    <value>Not checked: {0}</value>
+  </data>
+  <data name="Readiness.Area.Connection" xml:space="preserve">
+    <value>Connection</value>
+  </data>
+  <data name="Readiness.Area.Directory" xml:space="preserve">
+    <value>Directory</value>
+  </data>
+  <data name="Readiness.Area.Sysvol" xml:space="preserve">
+    <value>SYSVOL and Group Policy (K2–K6)</value>
+  </data>
+  <data name="Readiness.Area.RemoteActions" xml:space="preserve">
+    <value>Remote actions (K1)</value>
+  </data>
+  <data name="Readiness.Area.EventLogs" xml:space="preserve">
+    <value>Event logs (E)</value>
+  </data>
+  <data name="Readiness.Area.Watchdog" xml:space="preserve">
+    <value>Watchdog</value>
+  </data>
+  <data name="Readiness.Area.Correspondence" xml:space="preserve">
+    <value>Korespondencja (U5)</value>
+  </data>
+  <data name="Readiness.Area.ThisComputer" xml:space="preserve">
+    <value>This computer</value>
+  </data>
+  <data name="Readiness.NotCheckedQuick" xml:space="preserve">
+    <value>Checked by the full check only.</value>
+  </data>
+  <data name="Readiness.NotCheckedCancelled" xml:space="preserve">
+    <value>Not reached: the check was cancelled.</value>
+  </data>
+  <data name="Readiness.NotCheckedNoTestComputer" xml:space="preserve">
+    <value>No test computer was chosen.</value>
+  </data>
+  <data name="Readiness.RemedyChooseTestComputer" xml:space="preserve">
+    <value>Type a computer name or use Choose…, then run the full check again.</value>
+  </data>
+  <data name="Readiness.NotAvailable" xml:space="preserve">
+    <value>Not available in this environment (the application runs without this component).</value>
+  </data>
+  <data name="Readiness.CheckFailed" xml:space="preserve">
+    <value>The check failed: {0}</value>
+  </data>
+  <data name="Readiness.Doc.ComputersRemote" xml:space="preserve">
+    <value>KOMPUTERY.md, chapter 4 “Zdalne akcje (WinRM, Kerberos)”</value>
+  </data>
+  <data name="Readiness.Doc.ComputersWinRm" xml:space="preserve">
+    <value>KOMPUTERY.md, chapter 5 “Włączenie WinRM na komputerach zasadą grupy”</value>
+  </data>
+  <data name="Readiness.Doc.ComputersProperties" xml:space="preserve">
+    <value>KOMPUTERY.md, chapter 2 “Właściwości komputera”</value>
+  </data>
+  <data name="Readiness.Doc.EventLogsRequirements" xml:space="preserve">
+    <value>DZIENNIKI-ZDARZEN.md, chapter 2 “Wymagania”</value>
+  </data>
+  <data name="Readiness.Doc.EventLogsLockout" xml:space="preserve">
+    <value>DZIENNIKI-ZDARZEN.md, chapter 4 “Skąd blokada konta”</value>
+  </data>
+  <data name="Readiness.Doc.GpoDc" xml:space="preserve">
+    <value>ZASADY-GRUPY.md, chapter 12 “Kontroler domeny, emulator PDC i SYSVOL”</value>
+  </data>
+  <data name="Readiness.Doc.GpoCentralStore" xml:space="preserve">
+    <value>ZASADY-GRUPY.md, chapter 8 “Aktualizacja szablonów ADMX (magazyn centralny)”</value>
+  </data>
+  <data name="Readiness.Doc.GpoOperations" xml:space="preserve">
+    <value>ZASADY-GRUPY.md, chapter 3 “Operacje”</value>
+  </data>
+  <data name="Readiness.Doc.GpoBackup" xml:space="preserve">
+    <value>ZASADY-GRUPY.md, chapter 5 “Kopie zapasowe, przywracanie i import”</value>
+  </data>
+  <data name="Readiness.Doc.WatchdogTime" xml:space="preserve">
+    <value>WATCHDOG-LINUX.md, chapter 1.4 “Czas w domenie”</value>
+  </data>
+  <data name="Readiness.Doc.WatchdogForest" xml:space="preserve">
+    <value>WATCHDOG-LINUX.md, chapter 1.2 “DC01 – nowy las contoso.com”</value>
+  </data>
+  <data name="Readiness.Doc.WatchdogAudit" xml:space="preserve">
+    <value>WATCHDOG-LINUX.md, chapter 2.10 “Zasady inspekcji na kontrolerach i rozmiar dziennika Security”</value>
+  </data>
+  <data name="Readiness.Doc.WatchdogRoles" xml:space="preserve">
+    <value>WATCHDOG-LINUX.md, chapter 2.3 “Grupy ról AdMng-Watchdog-Admins i AdMng-Watchdog-Viewers”</value>
+  </data>
+  <data name="Readiness.Doc.WatchdogDns" xml:space="preserve">
+    <value>WATCHDOG-LINUX.md, chapter 2.4 “Rekord DNS A (i PTR) dla serwera Watchdog”</value>
+  </data>
+  <data name="Readiness.Doc.WatchdogTls" xml:space="preserve">
+    <value>WATCHDOG-LINUX.md, chapter 3.8 “Certyfikat TLS dla API”</value>
+  </data>
+  <data name="Readiness.Doc.WatchdogOrder" xml:space="preserve">
+    <value>WATCHDOG-LINUX.md, chapter 0.4 “Kolejność prac”</value>
+  </data>
+  <data name="Readiness.Doc.CorrespondenceRequirements" xml:space="preserve">
+    <value>KORESPONDENCJA.md, chapter 1 “Wymagania”</value>
+  </data>
+  <data name="Readiness.Doc.CorrespondenceTroubleshooting" xml:space="preserve">
+    <value>KORESPONDENCJA.md, chapter 13 “Gdy coś nie działa”</value>
+  </data>
+  <data name="Readiness.Doc.ArchitectureSecurity" xml:space="preserve">
+    <value>ARCHITECTURE.md, chapter “Bezpieczeństwo”</value>
+  </data>
+  <data name="Readiness.Doc.ArchitectureSession" xml:space="preserve">
+    <value>ARCHITECTURE.md, chapter “Sesja katalogu”</value>
+  </data>
+  <data name="Readiness.Doc.ReadmeRun" xml:space="preserve">
+    <value>README.md, chapter “Pobierz i uruchom”</value>
+  </data>
+  <data name="Readiness.Title.Logon" xml:space="preserve">
+    <value>Logon of the window</value>
+  </data>
+  <data name="Readiness.LogonCurrentUser" xml:space="preserve">
+    <value>The window uses the Windows account of this process: Negotiate (Kerberos) for LDAP, SYSVOL, the event logs and WinRM.</value>
+  </data>
+  <data name="Readiness.LogonCredentials" xml:space="preserve">
+    <value>The window uses the credentials typed when connecting: Negotiate (Kerberos, NTLM only as a fallback); the remote features use a copy of the password kept in memory.</value>
+  </data>
+  <data name="Readiness.LogonSimpleBind" xml:space="preserve">
+    <value>The window is bound with an LDAP simple bind (a distinguished name): the directory works, but SYSVOL, the event logs and the remote actions need a Windows logon (Kerberos).</value>
+  </data>
+  <data name="Readiness.RemedyWindowsLogon" xml:space="preserve">
+    <value>Connect the window with your Windows account or with domain credentials (DOMAIN\account).</value>
+  </data>
+  <data name="Readiness.Title.Transport" xml:space="preserve">
+    <value>Protection of the LDAP channel</value>
+  </data>
+  <data name="Readiness.TransportSealed" xml:space="preserve">
+    <value>Kerberos signing and sealing on port {0}.</value>
+  </data>
+  <data name="Readiness.TransportNotSealed" xml:space="preserve">
+    <value>Signing and sealing were requested, but the connection reports no encryption layer (security strength {0}).</value>
+  </data>
+  <data name="Readiness.TransportTls" xml:space="preserve">
+    <value>LDAPS (TLS) on port {0}.</value>
+  </data>
+  <data name="Readiness.TransportStartTls" xml:space="preserve">
+    <value>StartTLS on port {0}.</value>
+  </data>
+  <data name="Readiness.TransportNone" xml:space="preserve">
+    <value>The LDAP channel is not protected: the traffic can be read, and AD refuses password changes.</value>
+  </data>
+  <data name="Readiness.RemedyTransport" xml:space="preserve">
+    <value>Connect with signing and sealing (the default) or with LDAPS.</value>
+  </data>
+  <data name="Readiness.Title.ClockSkew" xml:space="preserve">
+    <value>Clock difference to the DC</value>
+  </data>
+  <data name="Readiness.ClockOk" xml:space="preserve">
+    <value>The clock of this computer agrees with {0} (difference {1} s).</value>
+  </data>
+  <data name="Readiness.ClockWarning" xml:space="preserve">
+    <value>The clock of this computer differs from {0} by {1} s; Kerberos fails at 5 minutes.</value>
+  </data>
+  <data name="Readiness.ClockError" xml:space="preserve">
+    <value>The clock of this computer differs from {0} by {1} s – more than Kerberos accepts (5 minutes): SYSVOL, the event logs, WinRM and the Watchdog fail.</value>
+  </data>
+  <data name="Readiness.ClockUnknown" xml:space="preserve">
+    <value>The DC did not report its time (RootDSE currentTime).</value>
+  </data>
+  <data name="Readiness.RemedyClock" xml:space="preserve">
+    <value>Synchronize the clock of this computer with the domain (w32tm /resync) and check the time source of the PDC emulator.</value>
+  </data>
+  <data name="Readiness.Title.Pdc" xml:space="preserve">
+    <value>PDC emulator</value>
+  </data>
+  <data name="Readiness.PdcOk" xml:space="preserve">
+    <value>The window works on the PDC emulator {0}: Group Policy is edited where GPMC edits it.</value>
+  </data>
+  <data name="Readiness.PdcOther" xml:space="preserve">
+    <value>The window works on {0}; the PDC emulator is {1}. GPMC edits Group Policy on the PDC emulator by default; changes made here reach it by replication.</value>
+  </data>
+  <data name="Readiness.RemedyPdc" xml:space="preserve">
+    <value>Before editing Group Policy, use “Change domain controller…” and choose {0}.</value>
+  </data>
+  <data name="Readiness.PdcUnknown" xml:space="preserve">
+    <value>The PDC emulator could not be read (fSMORoleOwner of the domain).</value>
+  </data>
+  <data name="Readiness.Title.ReadOnlyDc" xml:space="preserve">
+    <value>Writable domain controller</value>
+  </data>
+  <data name="Readiness.RodcOk" xml:space="preserve">
+    <value>{0} is a writable domain controller.</value>
+  </data>
+  <data name="Readiness.RodcError" xml:space="preserve">
+    <value>{0} is a read-only domain controller (RODC): every change is refused.</value>
+  </data>
+  <data name="Readiness.RemedyRodc" xml:space="preserve">
+    <value>Use “Change domain controller…” and choose a writable domain controller.</value>
+  </data>
+  <data name="Readiness.DcNotListed" xml:space="preserve">
+    <value>{0} is not listed in the sites of the configuration partition, so its role cannot be told.</value>
+  </data>
+  <data name="Readiness.Title.GlobalCatalog" xml:space="preserve">
+    <value>Global catalog</value>
+  </data>
+  <data name="Readiness.GcOk" xml:space="preserve">
+    <value>{0} is a global catalog server.</value>
+  </data>
+  <data name="Readiness.GcNo" xml:space="preserve">
+    <value>{0} is not a global catalog server: group memberships from other domains of the forest (universal groups) can be incomplete.</value>
+  </data>
+  <data name="Readiness.RemedyGc" xml:space="preserve">
+    <value>Use a domain controller that is a global catalog (“Change domain controller…” shows which ones are).</value>
+  </data>
+  <data name="Readiness.Title.DomainLevel" xml:space="preserve">
+    <value>Domain functional level</value>
+  </data>
+  <data name="Readiness.Title.ForestLevel" xml:space="preserve">
+    <value>Forest functional level</value>
+  </data>
+  <data name="Readiness.LevelOk" xml:space="preserve">
+    <value>{0} (level {1}).</value>
+  </data>
+  <data name="Readiness.LevelOld" xml:space="preserve">
+    <value>{0} (level {1}): AD Manager works, but Windows Server 2025 domain controllers need Windows Server 2016 or later.</value>
+  </data>
+  <data name="Readiness.LevelTooOld" xml:space="preserve">
+    <value>{0} (level {1}): below Windows Server 2008 – no fine-grained password policies, SYSVOL replicated by FRS.</value>
+  </data>
+  <data name="Readiness.LevelNumber" xml:space="preserve">
+    <value>Level {0}</value>
+  </data>
+  <data name="Readiness.RemedyLevel" xml:space="preserve">
+    <value>Raise the functional level once every domain controller runs Windows Server 2016 or later (Active Directory Domains and Trusts).</value>
+  </data>
+  <data name="Readiness.Title.RecycleBin" xml:space="preserve">
+    <value>AD Recycle Bin</value>
+  </data>
+  <data name="Readiness.RecycleBinOn" xml:space="preserve">
+    <value>Enabled: deleted objects keep their attributes and links and can be restored in full.</value>
+  </data>
+  <data name="Readiness.RecycleBinOff" xml:space="preserve">
+    <value>Not enabled: deleted objects lose most attributes and their group memberships; only tombstones can be restored.</value>
+  </data>
+  <data name="Readiness.RemedyRecycleBin" xml:space="preserve">
+    <value>Enable it in Active Directory Administrative Center or with Enable-ADOptionalFeature “Recycle Bin Feature” (irreversible; forest level Windows Server 2008 R2 or later).</value>
+  </data>
+  <data name="Readiness.Title.PasswordSettings" xml:space="preserve">
+    <value>Fine-grained password policies (PSO)</value>
+  </data>
+  <data name="Readiness.PsoVisible" xml:space="preserve">
+    <value>The Password Settings Container is readable; password settings objects visible: {0}.</value>
+  </data>
+  <data name="Readiness.PsoNoneVisible" xml:space="preserve">
+    <value>The Password Settings Container is readable, but no password settings object is visible: there are none, or only Domain Admins may read them (the default).</value>
+  </data>
+  <data name="Readiness.PsoNotReadable" xml:space="preserve">
+    <value>The Password Settings Container cannot be read (it is missing or the account may not see it): the lockout analyses cannot use the thresholds of fine-grained policies.</value>
+  </data>
+  <data name="Readiness.RemedyPso" xml:space="preserve">
+    <value>Delegate read access to the Password Settings Container (and its objects) to the administrators who investigate lockouts.</value>
+  </data>
+  <data name="Readiness.Title.WindowsLaps" xml:space="preserve">
+    <value>Windows LAPS schema</value>
+  </data>
+  <data name="Readiness.LapsWindows" xml:space="preserve">
+    <value>The schema has Windows LAPS (msLAPS-Password).</value>
+  </data>
+  <data name="Readiness.LapsLegacy" xml:space="preserve">
+    <value>The schema has legacy LAPS only (ms-Mcs-AdmPwd); Windows LAPS (msLAPS-Password), which later features of AD Manager will use, is missing.</value>
+  </data>
+  <data name="Readiness.LapsNone" xml:space="preserve">
+    <value>The schema has no LAPS attributes; later features of AD Manager will use Windows LAPS (msLAPS-Password).</value>
+  </data>
+  <data name="Readiness.RemedyLaps" xml:space="preserve">
+    <value>Extend the schema with Update-LapsADSchema (Windows LAPS module) when Windows LAPS is introduced.</value>
+  </data>
+  <data name="Readiness.Title.SysvolReachable" xml:space="preserve">
+    <value>SYSVOL reachable with the window's logon</value>
+  </data>
+  <data name="Readiness.SysvolOpen" xml:space="preserve">
+    <value>SYSVOL of {0} was opened with the window's logon.</value>
+  </data>
+  <data name="Readiness.RemedySysvol.DistinguishedNameLogon" xml:space="preserve">
+    <value>Connect the window with a Windows account or with domain credentials.</value>
+  </data>
+  <data name="Readiness.RemedySysvol.LogonFailure" xml:space="preserve">
+    <value>Check the credentials of the window: the DC refused them for the share.</value>
+  </data>
+  <data name="Readiness.RemedySysvol.AccessDenied" xml:space="preserve">
+    <value>The account needs read access to the SYSVOL share of the DC (Authenticated Users by default).</value>
+  </data>
+  <data name="Readiness.RemedySysvol.Unreachable" xml:space="preserve">
+    <value>Check that the DC answers on SMB (TCP 445) from this computer and that it shares SYSVOL.</value>
+  </data>
+  <data name="Readiness.RemedySysvol.NotSupported" xml:space="preserve">
+    <value>SYSVOL is read through Windows file sharing: run AD Manager on Windows.</value>
+  </data>
+  <data name="Readiness.RemedySysvol.Failed" xml:space="preserve">
+    <value>Try again; “Diagnostyka zasad grupy” shows the same reason.</value>
+  </data>
+  <data name="Readiness.SysvolSkipped" xml:space="preserve">
+    <value>Not checked: SYSVOL is not available.</value>
+  </data>
+  <data name="Readiness.Title.PoliciesWrite" xml:space="preserve">
+    <value>Write permission on Policies (from its ACL)</value>
+  </data>
+  <data name="Readiness.PoliciesWriteGranted" xml:space="preserve">
+    <value>The ACL of Policies lets the window's account create GPO folders and files (judged from the ACL – nothing was written).</value>
+  </data>
+  <data name="Readiness.PoliciesWriteDenied" xml:space="preserve">
+    <value>The ACL of Policies does not let the window's account create folders and files: new GPOs, copies, imports and the central store update fail; existing GPOs follow the permissions of their own folders.</value>
+  </data>
+  <data name="Readiness.RemedyPoliciesWrite" xml:space="preserve">
+    <value>Create GPOs with an account of Group Policy Creator Owners or Domain Admins.</value>
+  </data>
+  <data name="Readiness.PoliciesWriteUnknown" xml:space="preserve">
+    <value>The permissions of Policies could not be read or evaluated.</value>
+  </data>
+  <data name="Readiness.PoliciesWriteNoToken" xml:space="preserve">
+    <value>The groups of the window's account could not be read (tokenGroups).</value>
+  </data>
+  <data name="Readiness.Title.CentralStore" xml:space="preserve">
+    <value>Central store of administrative templates</value>
+  </data>
+  <data name="Readiness.CentralStoreOk" xml:space="preserve">
+    <value>{0} ADMX files; languages: {1}.</value>
+  </data>
+  <data name="Readiness.CentralStoreNoLanguage" xml:space="preserve">
+    <value>{0} ADMX files, but no language folder: the editors cannot show the names of the policies.</value>
+  </data>
+  <data name="Readiness.CentralStoreEmpty" xml:space="preserve">
+    <value>The central store exists but has no ADMX files: every editor shows only the registry values.</value>
+  </data>
+  <data name="Readiness.CentralStoreMissing" xml:space="preserve">
+    <value>There is no central store (Policies\PolicyDefinitions): the template editor uses the ADMX files of each administrator's computer.</value>
+  </data>
+  <data name="Readiness.CentralStoreFailed" xml:space="preserve">
+    <value>The central store could not be listed.</value>
+  </data>
+  <data name="Readiness.RemedyCentralStore" xml:space="preserve">
+    <value>Create or update it with “Aktualizuj szablony ADMX” in “Obiekty zasad grupy” (templates of a current Windows, en-US and pl-PL).</value>
+  </data>
+  <data name="Readiness.Title.DefaultGpos" xml:space="preserve">
+    <value>Default GPOs</value>
+  </data>
+  <data name="Readiness.DefaultGposOk" xml:space="preserve">
+    <value>Default Domain Policy and Default Domain Controllers Policy exist in AD and in SYSVOL.</value>
+  </data>
+  <data name="Readiness.DefaultGposAdOnly" xml:space="preserve">
+    <value>Default Domain Policy and Default Domain Controllers Policy exist in AD; their SYSVOL folders were not checked (SYSVOL is not available).</value>
+  </data>
+  <data name="Readiness.DefaultGposMissing" xml:space="preserve">
+    <value>Missing: {0}.</value>
+  </data>
+  <data name="Readiness.DefaultGpoInAd" xml:space="preserve">
+    <value>{0} in AD</value>
+  </data>
+  <data name="Readiness.DefaultGpoInSysvol" xml:space="preserve">
+    <value>{0} in SYSVOL (GPT.INI)</value>
+  </data>
+  <data name="Readiness.RemedyDefaultGpos" xml:space="preserve">
+    <value>Restore the GPO from a backup (GPMC or “Kopie zapasowe” in AD Manager); dcgpofix recreates the default GPOs but resets their settings.</value>
+  </data>
+  <data name="Readiness.Title.Replication" xml:space="preserve">
+    <value>SYSVOL replication (DFSR, not FRS)</value>
+  </data>
+  <data name="Readiness.ReplicationDfsr" xml:space="preserve">
+    <value>SYSVOL is replicated by DFSR.</value>
+  </data>
+  <data name="Readiness.ReplicationRedirected" xml:space="preserve">
+    <value>The migration to DFSR is in the “Redirected” state: DFSR serves SYSVOL, FRS still replicates the old copy.</value>
+  </data>
+  <data name="Readiness.ReplicationMigrating" xml:space="preserve">
+    <value>The migration to DFSR was started (state “{0}”), but FRS still serves SYSVOL.</value>
+  </data>
+  <data name="Readiness.ReplicationFrs" xml:space="preserve">
+    <value>SYSVOL is replicated by FRS: Windows Server no longer supports FRS, and a Windows Server 2019 or later domain controller cannot join the domain.</value>
+  </data>
+  <data name="Readiness.ReplicationUnknown" xml:space="preserve">
+    <value>How SYSVOL is replicated cannot be told from the directory (no DFSR or FRS objects – e.g. a Samba domain – or they cannot be read).</value>
+  </data>
+  <data name="Readiness.RemedyReplicationFinish" xml:space="preserve">
+    <value>Finish the migration: dfsrmig /setglobalstate 3 (Eliminated), then dfsrmig /getmigrationstate.</value>
+  </data>
+  <data name="Readiness.RemedyReplicationMigrate" xml:space="preserve">
+    <value>Migrate SYSVOL to DFSR with dfsrmig (Prepared, Redirected, Eliminated) before adding new domain controllers.</value>
+  </data>
+  <data name="Readiness.Title.NameResolves" xml:space="preserve">
+    <value>The test computer's name resolves</value>
+  </data>
+  <data name="Readiness.Title.CimSession" xml:space="preserve">
+    <value>WinRM (CIM) session with Kerberos</value>
+  </data>
+  <data name="Readiness.TargetNotFound" xml:space="preserve">
+    <value>No computer named {0} was found in the domain.</value>
+  </data>
+  <data name="Readiness.RemedyTargetNotFound" xml:space="preserve">
+    <value>Check the name, or choose the computer with the Choose… button.</value>
+  </data>
+  <data name="Readiness.TargetNoDns" xml:space="preserve">
+    <value>{0} has no DNS name (dNSHostName) in AD, which Kerberos needs.</value>
+  </data>
+  <data name="Readiness.RemedyTargetNoDns" xml:space="preserve">
+    <value>Check that the computer is joined to the domain and has registered its DNS name.</value>
+  </data>
+  <data name="Readiness.NameResolves" xml:space="preserve">
+    <value>{0} resolves to {1}.</value>
+  </data>
+  <data name="Readiness.NameNotResolved" xml:space="preserve">
+    <value>{0} does not resolve in DNS from this computer.</value>
+  </data>
+  <data name="Readiness.RemedyNameNotResolved" xml:space="preserve">
+    <value>Check the computer's A record and the DNS servers of this computer.</value>
+  </data>
+  <data name="Readiness.CimOk" xml:space="preserve">
+    <value>WinRM answered with Kerberos; {0} runs {1}.</value>
+  </data>
+  <data name="Readiness.TargetSkipped" xml:space="preserve">
+    <value>Not checked: the test computer has no usable DNS name.</value>
+  </data>
+  <data name="Readiness.Title.EventLogSession" xml:space="preserve">
+    <value>RPC connection to the event log</value>
+  </data>
+  <data name="Readiness.Title.EventLogSecurity" xml:space="preserve">
+    <value>Security log readable</value>
+  </data>
+  <data name="Readiness.Title.EventLogCoverage" xml:space="preserve">
+    <value>How far back the Security log reaches</value>
+  </data>
+  <data name="Readiness.Title.AuditLockout" xml:space="preserve">
+    <value>Audit of account lockouts (4740, 4771, 4776, 4625)</value>
+  </data>
+  <data name="Readiness.Title.AuditFailedLogons" xml:space="preserve">
+    <value>Audit of failed logons (4625, 4771, 4776, 4768)</value>
+  </data>
+  <data name="Readiness.Title.TestComputerLog" xml:space="preserve">
+    <value>System log of the test computer</value>
+  </data>
+  <data name="Readiness.EventLogSessionOk" xml:space="preserve">
+    <value>The event log service of {0} answers (RPC, Kerberos).</value>
+  </data>
+  <data name="Readiness.EventLogNotOpened" xml:space="preserve">
+    <value>Not checked: the event log of {0} could not be opened.</value>
+  </data>
+  <data name="Readiness.SecurityReadable" xml:space="preserve">
+    <value>The Security log of {0} is readable.</value>
+  </data>
+  <data name="Readiness.SecurityDisabled" xml:space="preserve">
+    <value>The Security log of {0} is disabled.</value>
+  </data>
+  <data name="Readiness.SecurityNotRead" xml:space="preserve">
+    <value>Not checked: the Security log of {0} could not be read.</value>
+  </data>
+  <data name="Readiness.CoverageReach" xml:space="preserve">
+    <value>The Security log of {0} reaches {1} back (since {2}).</value>
+  </data>
+  <data name="Readiness.CoverageSize" xml:space="preserve">
+    <value>Size {0} of {1}; {2}.</value>
+  </data>
+  <data name="Readiness.CoverageShort" xml:space="preserve">
+    <value>Older lockouts and failed logons cannot be analysed: {0} days are recommended.</value>
+  </data>
+  <data name="Readiness.CoverageStopped" xml:space="preserve">
+    <value>The log is full and set not to overwrite: new events are lost.</value>
+  </data>
+  <data name="Readiness.CoverageUnknown" xml:space="preserve">
+    <value>How far the Security log of {0} reaches is not known.</value>
+  </data>
+  <data name="Readiness.RemedyCoverage" xml:space="preserve">
+    <value>Enlarge the Security log of the domain controllers with Group Policy (Event Log: maximum security log size, e.g. 1–4 GB; overwrite events as needed).</value>
+  </data>
+  <data name="Readiness.AuditSeen" xml:space="preserve">
+    <value>{0} logs every event the analysis needs ({1}).</value>
+  </data>
+  <data name="Readiness.AuditMissing" xml:space="preserve">
+    <value>{0}: no {1} in the last {2}, although the log reaches that far – the audit subcategory is probably off, or no such event occurred.</value>
+  </data>
+  <data name="Readiness.AuditUnknown" xml:space="preserve">
+    <value>{0}: whether the events are logged cannot be told (the reach of the log is unknown or a read failed).</value>
+  </data>
+  <data name="Readiness.AuditRequirement" xml:space="preserve">
+    <value>{0} ({1}, {2})</value>
+  </data>
+  <data name="Readiness.RemedyAudit" xml:space="preserve">
+    <value>Turn on the advanced audit subcategories in the GPO linked to the Domain Controllers OU (Security settings → Advanced audit policy).</value>
+  </data>
+  <data name="Readiness.TestComputerLogOk" xml:space="preserve">
+    <value>The System log of {0} is readable; it reaches {1} back.</value>
+  </data>
+  <data name="Readiness.TestComputerLogReadable" xml:space="preserve">
+    <value>The System log of {0} is readable.</value>
+  </data>
+  <data name="Readiness.TestComputerLogDisabled" xml:space="preserve">
+    <value>The System log of {0} is disabled.</value>
+  </data>
+  <data name="Readiness.Title.WatchdogConfigured" xml:space="preserve">
+    <value>Watchdog address</value>
+  </data>
+  <data name="Readiness.Title.WatchdogReachable" xml:space="preserve">
+    <value>Watchdog answers</value>
+  </data>
+  <data name="Readiness.Title.WatchdogAuthentication" xml:space="preserve">
+    <value>Kerberos authentication to the Watchdog</value>
+  </data>
+  <data name="Readiness.Title.WatchdogRole" xml:space="preserve">
+    <value>Role in the Watchdog</value>
+  </data>
+  <data name="Readiness.Title.WatchdogHealth" xml:space="preserve">
+    <value>Health of the Watchdog</value>
+  </data>
+  <data name="Readiness.WatchdogNotConfigured" xml:space="preserve">
+    <value>No Watchdog address is set. Skip this area when the Watchdog is not used.</value>
+  </data>
+  <data name="Readiness.RemedyWatchdogAddress" xml:space="preserve">
+    <value>Enter the address of the service in Tools → Watchdog (https://name:port).</value>
+  </data>
+  <data name="Readiness.WatchdogAddress" xml:space="preserve">
+    <value>The Watchdog address is {0}.</value>
+  </data>
+  <data name="Readiness.WatchdogSkipped" xml:space="preserve">
+    <value>Not checked: the Watchdog did not answer.</value>
+  </data>
+  <data name="Readiness.WatchdogNoAddress" xml:space="preserve">
+    <value>Not checked: no Watchdog address.</value>
+  </data>
+  <data name="Readiness.WatchdogAnswered" xml:space="preserve">
+    <value>The Watchdog service on {0} answered.</value>
+  </data>
+  <data name="Readiness.RemedyWatchdogUnreachable" xml:space="preserve">
+    <value>Check the DNS record of the service, the firewall (the API port) and that admng-watchdog.service runs.</value>
+  </data>
+  <data name="Readiness.RemedyWatchdogCertificate" xml:space="preserve">
+    <value>Open Tools → Watchdog to confirm the certificate, or install a certificate this computer trusts.</value>
+  </data>
+  <data name="Readiness.RemedyWatchdogVersion" xml:space="preserve">
+    <value>Update AD Manager or the Watchdog to versions that speak the same API.</value>
+  </data>
+  <data name="Readiness.RemedyWatchdogKerberos" xml:space="preserve">
+    <value>Check the HTTP service principal name of the service account, the DNS A record of the service and the clocks (Kerberos).</value>
+  </data>
+  <data name="Readiness.RemedyWatchdogRole" xml:space="preserve">
+    <value>Add the account to AdMng-Watchdog-Admins or AdMng-Watchdog-Viewers.</value>
+  </data>
+  <data name="Readiness.WatchdogKerberosOk" xml:space="preserve">
+    <value>The service accepted the window's Windows logon (Kerberos).</value>
+  </data>
+  <data name="Readiness.WatchdogRoleOk" xml:space="preserve">
+    <value>Role: {0}.</value>
+  </data>
+  <data name="Readiness.WatchdogRoleViewer" xml:space="preserve">
+    <value>Role: {0} – the configuration is read-only for this account.</value>
+  </data>
+  <data name="Readiness.WatchdogRoleNone" xml:space="preserve">
+    <value>The account has no role in the Watchdog.</value>
+  </data>
+  <data name="Readiness.WatchdogHealthOk" xml:space="preserve">
+    <value>Watchdog {0}: every health check is OK.</value>
+  </data>
+  <data name="Readiness.WatchdogHealthIssues" xml:space="preserve">
+    <value>Watchdog {0}: {1}.</value>
+  </data>
+  <data name="Readiness.WatchdogOtherDomain" xml:space="preserve">
+    <value>The Watchdog watches {0}, but the window is connected to {1}.</value>
+  </data>
+  <data name="Readiness.RemedyWatchdogHealth" xml:space="preserve">
+    <value>Open Tools → Watchdog, tab “Stan”, for the details and remedies of each check.</value>
+  </data>
+  <data name="Readiness.Title.Outlook" xml:space="preserve">
+    <value>Classic Outlook</value>
+  </data>
+  <data name="Readiness.Title.OutlookProfile" xml:space="preserve">
+    <value>Outlook profile</value>
+  </data>
+  <data name="Readiness.OutlookInstalled" xml:space="preserve">
+    <value>Classic Outlook is installed.</value>
+  </data>
+  <data name="Readiness.OutlookNotInstalled" xml:space="preserve">
+    <value>No classic Outlook (the new Outlook and Outlook on the web have no automation): Korespondencja cannot send.</value>
+  </data>
+  <data name="Readiness.RemedyOutlook" xml:space="preserve">
+    <value>Install classic Outlook (Microsoft 365 Apps) on the computers that send correspondence.</value>
+  </data>
+  <data name="Readiness.OutlookProfileOk" xml:space="preserve">
+    <value>Outlook {0}, profile {1}, accounts: {2}.</value>
+  </data>
+  <data name="Readiness.OutlookSkipped" xml:space="preserve">
+    <value>Not checked: no classic Outlook.</value>
+  </data>
+  <data name="Readiness.RemedyOutlookProfile" xml:space="preserve">
+    <value>Look up the message in the table of the documentation and connect again from Korespondencja (“Sprawdź Outlooka”).</value>
+  </data>
+  <data name="Readiness.Title.Windows" xml:space="preserve">
+    <value>Windows</value>
+  </data>
+  <data name="Readiness.WindowsSupported" xml:space="preserve">
+    <value>{0} (build {1}), supported until {2}.</value>
+  </data>
+  <data name="Readiness.WindowsEndingSoon" xml:space="preserve">
+    <value>{0} (build {1}): support ends on {2}.</value>
+  </data>
+  <data name="Readiness.WindowsEnded" xml:space="preserve">
+    <value>{0} (build {1}): support ended on {2}.</value>
+  </data>
+  <data name="Readiness.WindowsUnknownRelease" xml:space="preserve">
+    <value>{0} (build {1}); the end of its support is not known to AD Manager.</value>
+  </data>
+  <data name="Readiness.WindowsNotWindows" xml:space="preserve">
+    <value>AD Manager runs on Windows only; this computer runs {0}.</value>
+  </data>
+  <data name="Readiness.RemedyWindows" xml:space="preserve">
+    <value>Upgrade this computer to a supported Windows release.</value>
+  </data>
+  <data name="Readiness.Title.WebView2" xml:space="preserve">
+    <value>WebView2 runtime (previews)</value>
+  </data>
+  <data name="Readiness.WebView2Ok" xml:space="preserve">
+    <value>WebView2 Runtime {0} is installed: the previews of messages are rendered.</value>
+  </data>
+  <data name="Readiness.WebView2Missing" xml:space="preserve">
+    <value>No WebView2 Runtime: the previews show the HTML source (“Otwórz w przeglądarce” works).</value>
+  </data>
+  <data name="Readiness.WebView2Disabled" xml:space="preserve">
+    <value>WebView2 is switched off for this process (ADMNG_UI_NO_WEBVIEW2=1).</value>
+  </data>
+  <data name="Readiness.RemedyWebView2" xml:space="preserve">
+    <value>Install the Microsoft Edge WebView2 Runtime (Evergreen).</value>
+  </data>
+  <!-- Stage S readiness check (Gotowość środowiska): end -->
 </root>

@@ -266,6 +266,9 @@ internal static partial class WindowsSysvol
             return folder + @"\" + normalized.Replace('/', '\\');
         }
 
+        /// <summary>The UNC path of <c>&lt;domain&gt;\Policies</c> (the folder of the GPO folders and the central store).</summary>
+        protected string PoliciesPath => share + @"\" + domain + @"\Policies";
+
         /// <summary>Runs a blocking file call as the run's logon session (or the process identity).</summary>
         protected T AsLogon<T>(Func<T> call) => Token is null ? call() : WindowsIdentity.RunImpersonated(Token, call);
 

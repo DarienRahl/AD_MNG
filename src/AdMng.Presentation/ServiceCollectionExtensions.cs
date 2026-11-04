@@ -19,6 +19,7 @@ using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
+using AdMng.Presentation.Readiness;
 using AdMng.Presentation.Session;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Shell;
@@ -122,6 +123,11 @@ public static class ServiceCollectionExtensions
         // Dzienniki zdarzeń (track E): the launcher and the documents' services per connection window; the host adds the
         // reader (IEventLogConnector, Windows only).
         services.AddAdMngEventLogs();
+
+        // Gotowość środowiska (stage S): the results store (read by the problem report), the services and the tab factory
+        // per connection window; everything the checks read comes from the features registered above.
+        services.AddAdMngReadiness();
+
         services.TryAddScoped<IDialogViewModelFactory, DialogViewModelFactory>();
 
         // View models (one per window / dialog). The shell is per connection window: the window, its tools and the

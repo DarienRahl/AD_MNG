@@ -48,6 +48,22 @@ public sealed class WebView2Host(ILogger<WebView2Host> logger) : IDisposable
     /// <summary>The user data folder of this process while WebView2 runs (UI tests check that it is deleted).</summary>
     public string? UserDataFolder => _userDataFolder;
 
+    /// <summary>
+    /// The version of the installed WebView2 runtime, or null when there is none – the probe of <see cref="GetEnvironmentAsync"/>
+    /// without creating an environment or starting a browser (the readiness check, "Ten komputer").
+    /// </summary>
+    public static string? ProbeRuntimeVersion()
+    {
+        try
+        {
+            return CoreWebView2Environment.GetAvailableBrowserVersionString();
+        }
+        catch (Exception ex) when (ex is WebView2RuntimeNotFoundException or DllNotFoundException or BadImageFormatException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>The environment, or null when WebView2 cannot be used (runtime missing, forced off, creation failed).
     /// Call on the UI thread.</summary>
     public Task<CoreWebView2Environment?> GetEnvironmentAsync()
@@ -65,11 +81,7 @@ public sealed class WebView2Host(ILogger<WebView2Host> logger) : IDisposable
             return null;
         }
 
-        try
-        {
-            _ = CoreWebView2Environment.GetAvailableBrowserVersionString();
-        }
-        catch (Exception ex) when (ex is WebView2RuntimeNotFoundException or DllNotFoundException or BadImageFormatException)
+        if (ProbeRuntimeVersion() is null)
         {
             logger.LogInformation("The WebView2 runtime is not available; the message preview shows the HTML source.");
             return null;

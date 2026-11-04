@@ -29,6 +29,9 @@ internal sealed class ThrottledSysvolConnection(ISysvolWriteConnection inner, in
     public Task<byte[]?> GetGpoFolderSecurityAsync(Guid gpoId, CancellationToken cancellationToken) =>
         RunAsync(() => inner.GetGpoFolderSecurityAsync(gpoId, cancellationToken), cancellationToken);
 
+    public Task<byte[]?> GetPoliciesFolderSecurityAsync(CancellationToken cancellationToken) =>
+        RunAsync(() => inner.GetPoliciesFolderSecurityAsync(cancellationToken), cancellationToken);
+
     public Task CreateGpoFolderAsync(Guid gpoId, CancellationToken cancellationToken) =>
         RunAsync(() => inner.CreateGpoFolderAsync(gpoId, cancellationToken), cancellationToken);
 

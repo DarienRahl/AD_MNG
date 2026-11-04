@@ -27,6 +27,7 @@ public sealed class FakeSysvol : ISysvolFileReader, ISysvolFileWriter
     private readonly List<FakeSysvolCall> _calls = [];
     private readonly List<(string Operation, string? PathPart, SysvolWriteError Error, int Remaining)> _failures = [];
     private int _open;
+    private byte[]? _policiesSecurity;
 
     /// <summary>When set, opening fails with this reason.</summary>
     public SysvolUnavailableReason? Unavailable { get; set; }
@@ -57,7 +58,30 @@ public sealed class FakeSysvol : ISysvolFileReader, ISysvolFileWriter
 
     /// <summary>The write calls (everything but Open, Read, List, Exists, GetSecurity and the central store's reads).</summary>
     public IReadOnlyList<FakeSysvolCall> Writes =>
-        [.. Calls.Where(c => c.Operation is not ("Open" or "Read" or "List" or "Exists" or "GetSecurity" or "ReadDefinitions" or "ListDefinitions"))];
+        [.. Calls.Where(c => c.Operation is not ("Open" or "Read" or "List" or "Exists" or "GetSecurity" or "GetPoliciesSecurity" or "ReadDefinitions" or "ListDefinitions"))];
+
+    /// <summary>
+    /// The security descriptor of <c>&lt;domain&gt;\Policies</c> (binary form) that
+    /// <see cref="ISysvolWriteConnection.GetPoliciesFolderSecurityAsync"/> returns; null: not readable.
+    /// </summary>
+    public byte[]? PoliciesSecurity
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _policiesSecurity is { } sd ? [.. sd] : null;
+            }
+        }
+
+        set
+        {
+            lock (_gate)
+            {
+                _policiesSecurity = value is null ? null : [.. value];
+            }
+        }
+    }
 
     /// <summary>Creates a GPO folder as <c>samba-tool gpo create</c> does: Machine, User and GPT.INI version 0.</summary>
     public void AddGpoFolder(Guid gpoId, int version = 0)
@@ -465,6 +489,16 @@ public sealed class FakeSysvol : ISysvolFileReader, ISysvolFileWriter
             Check(cancellationToken);
             owner.Enter(Server, "GetSecurity", gpoId, null);
             return Task.FromResult(owner.FolderSecurity(gpoId));
+        }
+
+        public Task<byte[]?> GetPoliciesFolderSecurityAsync(CancellationToken cancellationToken)
+        {
+            Check(cancellationToken);
+            owner.Enter(Server, "GetPoliciesSecurity", Guid.Empty, null);
+            lock (owner._gate)
+            {
+                return Task.FromResult(owner._policiesSecurity is { } sd ? (byte[]?)[.. sd] : null);
+            }
         }
 
         public Task SetGpoFolderSecurityAsync(Guid gpoId, byte[] descriptor, CancellationToken cancellationToken)

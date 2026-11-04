@@ -48,6 +48,10 @@ internal static class ConnectionLifetimes
         typeof(Presentation.Computers.ComputerActions),
         typeof(Presentation.EventLogs.EventLogLauncher),
         typeof(Presentation.EventLogs.EventLogServices),
+        typeof(Presentation.Readiness.ReadinessResults),
+        typeof(Presentation.Readiness.IReadinessResults),
+        typeof(Presentation.Readiness.ReadinessServices),
+        typeof(Func<Presentation.Readiness.ReadinessDocumentViewModel>),
         typeof(Func<WatchdogDocumentViewModel>),
         typeof(ConnectionContext),
         typeof(ShellViewModel),
@@ -73,5 +77,6 @@ internal static class ConnectionLifetimes
         typeof(Presentation.GroupPolicy.AdministrativeTemplates.ILocalPolicyDefinitions),
         typeof(Presentation.GroupPolicy.AdministrativeTemplates.PolicyTemplatePackageLoader),
         typeof(Presentation.EventLogs.IHostNameLookup),
+        typeof(Presentation.Readiness.ILocalComputerInfo),
     ];
 }

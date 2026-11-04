@@ -173,6 +173,7 @@ internal static class SmokeTest
         await RenderWatchdogTabAsync(main).ConfigureAwait(true);
         await RenderGroupPolicyAsync(main, services).ConfigureAwait(true);
         await RenderEventLogsAsync(main).ConfigureAwait(true);
+        await RenderReadinessAsync(main).ConfigureAwait(true);
         main.Shell.CommandPalette.OpenCommand.Execute(null);
 
         // A second connection window (its own scope, disconnected: grey strip, "Nie połączono") and the connect window of
@@ -350,6 +351,28 @@ internal static class SmokeTest
         {
             _ = shell.OpenEventLogDocument(request) ?? throw new InvalidOperationException("An event log document did not open.");
             await UiTestSupport.WaitForIdleAsync().ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Stage S: "Gotowość środowiska" as a tab of the (disconnected) main window – no check runs without a session, so the view
+    /// shows its notes and "not connected"; a check over the fake directory is covered by the UI tests.
+    /// </summary>
+    private static async Task RenderReadinessAsync(MainWindow main)
+    {
+        var shell = main.Shell;
+        if (!shell.IsReadinessAvailable || !shell.ShowReadinessCommand.CanExecute(null))
+        {
+            throw new InvalidOperationException("Tools → Check environment readiness is not available.");
+        }
+
+        shell.ShowReadinessCommand.Execute(null);
+        var readiness = shell.Documents.OfType<Presentation.Readiness.ReadinessDocumentViewModel>().SingleOrDefault()
+            ?? throw new InvalidOperationException("The readiness check did not open as a tab.");
+        await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
+        if (readiness.IsLoading || readiness.QuickCheckCommand.CanExecute(null))
+        {
+            throw new InvalidOperationException("The readiness check of a disconnected window should wait for a connection.");
         }
     }
 
