@@ -2095,6 +2095,10 @@ process and is not linked with AdMng Watchdog, so the GPL does not cover the AD_
 Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by
 [SignPath Foundation](https://signpath.org/).
 
+> [!NOTE]
+> **Status:** code signing through SignPath Foundation is being set up; the releases published so far are not
+> signed.
+
 Only files built in GitHub Actions from the source code of this repository are signed, and every signing of a release
 is approved manually by a member of the *Approvers* role.
 

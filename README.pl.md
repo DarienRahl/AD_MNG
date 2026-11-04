@@ -2045,6 +2045,9 @@ jest linkowany z AdMng Watchdog, więc licencja GPL nie obejmuje kodu AD_MNG.
 Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by
 [SignPath Foundation](https://signpath.org/).
 
+> [!NOTE]
+> **Stan:** podpisywanie przez SignPath Foundation jest w przygotowaniu; dotychczasowe wydania nie są podpisane.
+
 Bezpłatne podpisywanie kodu zapewnia SignPath.io, a certyfikat wystawia SignPath Foundation. Podpisywane są wyłącznie
 pliki zbudowane w GitHub Actions z kodu źródłowego tego repozytorium, a każde podpisanie wydania ręcznie zatwierdza
 osoba z roli *Approvers*.
