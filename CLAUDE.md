@@ -1,8 +1,9 @@
 # AD_MNG – developer notes
 
 Modern, fast replacement for ADUC (dsa.msc). WPF on .NET 10 with the Fluent theme, live LDAP via
-System.DirectoryServices.Protocols. Product docs are in Polish (`README.md`, `docs/`); code, comments,
-commit messages and these notes are in English.
+System.DirectoryServices.Protocols. The main page `README.md` is in English and `README.pl.md` is its Polish version –
+keep both in sync (same sections and order; Polish docs link to `README.pl.md`). The other product docs (`docs/`) are in
+Polish; code, comments, commit messages and these notes are in English.
 
 ## Non-negotiable rules
 
