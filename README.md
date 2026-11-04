@@ -440,7 +440,7 @@ A value is copied with one click or a shortcut – without selecting text in the
 
 | Operation | Details |
 |---|---|
-| Set attribute | Fixed value or template: `{givenName|nodiacritics|lower}.{sn|nodiacritics|lower}@firma.pl` |
+| Set attribute | Fixed value or template: `{givenName\|nodiacritics\|lower}.{sn\|nodiacritics\|lower}@firma.pl` |
 | Clear attribute | With a check of mandatory attributes |
 | Add / remove values | Multi-valued attributes (e.g. `proxyAddresses`, `otherTelephone`) – idempotently |
 | Find and replace | Text or regular expression |

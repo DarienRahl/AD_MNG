@@ -434,7 +434,7 @@ Wartość kopiuje się jednym kliknięciem albo skrótem – bez zaznaczania tek
 
 | Operacja | Szczegóły |
 |---|---|
-| Ustaw atrybut | Wartość stała lub szablon: `{givenName|nodiacritics|lower}.{sn|nodiacritics|lower}@firma.pl` |
+| Ustaw atrybut | Wartość stała lub szablon: `{givenName\|nodiacritics\|lower}.{sn\|nodiacritics\|lower}@firma.pl` |
 | Wyczyść atrybut | Z kontrolą atrybutów obowiązkowych |
 | Dodaj / usuń wartości | Atrybuty wielowartościowe (np. `proxyAddresses`, `otherTelephone`) – idempotentnie |
 | Znajdź i zamień | Tekst lub wyrażenie regularne |
