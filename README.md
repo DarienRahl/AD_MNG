@@ -15,9 +15,11 @@
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011%20%7C%20Server%202019%2B-0078D4)
 ![LDAP](https://img.shields.io/badge/LDAP-S.DS.Protocols-57606a)
 ![Interfejs](https://img.shields.io/badge/interfejs-PL%20%7C%20EN-dc143c)
+[![Licencja](https://img.shields.io/badge/licencja-Apache--2.0-blue)](LICENSE)
 
 **[Funkcje](#-funkcje)** · **[Zrzuty ekranu](#-zrzuty-ekranu)** · **[Roadmapa](#-roadmapa)** ·
-**[Pobierz](#-pobierz-i-uruchom)** · **[Budowanie](#-budowanie-i-testy)** · **[Dokumentacja](#-dokumentacja)**
+**[Pobierz](#-pobierz-i-uruchom)** · **[Budowanie](#-budowanie-i-testy)** · **[Dokumentacja](#-dokumentacja)** ·
+**[Licencja](#-licencja)** · **[Code signing policy](#-code-signing-policy)**
 
 </div>
 
@@ -1885,12 +1887,13 @@ Pełna lista pytań: [RESEARCH.md](docs/RESEARCH.md#11-pytania-otwarte-do-zespo�
 
 Wydania są w zakładce **Releases** repozytorium: archiwum `AdMng-<wersja>-win-x64.zip` z `AdMng.exe`
 i jego bibliotekami natywnymi (WPF `*_cor3.dll`, `WebView2Loader.dll`,
-`microsoft.management.infrastructure.native.unmanaged.dll`; win-x64, self-contained – bez instalacji, .NET i RSAT),
-sumy SHA-256 i zrzuty ekranu.
+`microsoft.management.infrastructure.native.unmanaged.dll`; win-x64, self-contained – bez instalacji, .NET i RSAT)
+oraz plikami `LICENSE` i `NOTICE`, sumy SHA-256 i zrzuty ekranu.
 Rozpakuj całe archiwum do jednego folderu i uruchom `AdMng.exe`.
 
 > [!NOTE]
 > Plik nie jest jeszcze podpisany (podpis i MSI – faza 7), więc SmartScreen lub AppLocker/WDAC mogą go zablokować.
+> Podpisywanie przygotowujemy z SignPath Foundation – zob. [Code signing policy](#-code-signing-policy).
 
 Wersje rozwojowe między wydaniami: każdy przebieg CI publikuje artefakt **AdMng-win-x64** (zakładka **Actions** →
 workflow **CI** → najnowszy zielony przebieg → *Artifacts*; przechowywany 14 dni).
@@ -2024,6 +2027,41 @@ Lokalnie (Windows): `$env:ADMNG_SCREENSHOTS_DIR = "$PWD\zrzuty"; dotnet test tes
 | ✅ [Pilotaż](docs/PILOTAZ.md) | lista kontrolna pilotażu na Windows Server AD: środowisko, sprawdzenie gotowości, scenariusze z narzędziem Microsoftu do porównania, zgłaszanie problemów, wyniki |
 | 🧪 [Laboratorium testowe](tools/testlab/README.md) | Samba AD DC z danymi „polskiej firmy”; [Watchdog w laboratorium](tools/testlab/watchdog/README.md) |
 | 🧑‍💻 [Notatki dla deweloperów](CLAUDE.md) | zasady, układ projektów, polecenia, konwencje |
+
+## 📄 Licencja
+
+AD Manager i AdMng Watchdog są udostępniane na licencji [Apache 2.0](LICENSE) – © 2025–2026 AD_MNG contributors,
+zob. też [NOTICE](NOTICE).
+
+Wyjątek: pliki pakietu `admng-openwec` w [`packaging/admng-openwec`](packaging/admng-openwec) są, tak jak sam OpenWEC,
+na licencji GPL-3.0 ([szczegóły](packaging/admng-openwec/debian/copyright)). OpenWEC działa jako osobny proces i nie
+jest linkowany z AdMng Watchdog, więc licencja GPL nie obejmuje kodu AD_MNG.
+
+## 🔏 Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by
+[SignPath Foundation](https://signpath.org/).
+
+Bezpłatne podpisywanie kodu zapewnia SignPath.io, a certyfikat wystawia SignPath Foundation. Podpisywane są wyłącznie
+pliki zbudowane w GitHub Actions z kodu źródłowego tego repozytorium, a każde podpisanie wydania ręcznie zatwierdza
+osoba z roli *Approvers*.
+
+Role w zespole (team roles):
+
+- Committers and reviewers: [DarienRahl](https://github.com/DarienRahl)
+- Approvers: [DarienRahl](https://github.com/DarienRahl)
+
+### Privacy policy
+
+This program will not transfer any information to other networked systems unless specifically requested by the user
+or the person installing or operating it.
+
+Program nie przesyła żadnych informacji do innych systemów w sieci, chyba że wyraźnie zażąda tego użytkownik albo
+osoba, która go instaluje lub obsługuje. AD Manager łączy się wyłącznie z kontrolerami domeny i serwerami wskazanymi
+przez operatora (LDAP, WinRM, dzienniki zdarzeń, usługa AdMng Watchdog, poczta). Jedyne połączenie z internetem to
+pobranie szablonów ADMX przeglądarek Edge, Chrome i Firefox, gdy operator sam o to poprosi (*Zaktualizuj szablony*).
+Program nie ma telemetrii ani automatycznych aktualizacji, a podgląd wiadomości HTML nie pobiera zdalnych obrazów ani
+innych zasobów. AdMng Watchdog wysyła powiadomienia tylko do kanałów skonfigurowanych przez administratora usługi.
 
 ---
 

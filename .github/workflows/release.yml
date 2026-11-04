@@ -196,8 +196,9 @@ jobs:
         run: |
           $version = $env:VERSION
           New-Item -ItemType Directory -Path dist | Out-Null
-          # Symbols are not shipped in the zip. SHA256SUMS.txt of all release files is written by the release job.
-          $files = Get-ChildItem -Path publish -File | Where-Object { $_.Extension -ne '.pdb' }
+          # Symbols are not shipped in the zip; LICENSE and NOTICE are (Apache-2.0, section 4).
+          # SHA256SUMS.txt of all release files is written by the release job.
+          $files = @(Get-ChildItem -Path publish -File | Where-Object { $_.Extension -ne '.pdb' }) + @(Get-Item LICENSE, NOTICE)
           Compress-Archive -Path $files.FullName -DestinationPath "dist/AdMng-$version-win-x64.zip"
           Get-ChildItem screenshots -Filter *.png | ForEach-Object {
             Copy-Item $_.FullName "dist/AdMng-$version-$($_.Name)"

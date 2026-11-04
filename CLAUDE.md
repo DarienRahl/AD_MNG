@@ -127,5 +127,8 @@ that subscribes to an application-wide event must unsubscribe in `Dispose`. Add 
 - Public APIs get XML doc comments when the behaviour is not obvious.
 - Tests: xUnit v3 `Assert`, no FluentAssertions. Fakes over mocking libraries.
 - Polish test data with diacritics (ą ć ę ł ń ó ś ź ż) is intentional – keep it.
+- License: Apache-2.0 (`LICENSE`, `NOTICE`); only `packaging/admng-openwec` is GPL-3.0, like OpenWEC itself. New
+  dependencies need an OSI-approved license compatible with Apache-2.0 (signing through SignPath Foundation requires
+  every component to be open source).
 - User-visible strings only via localization resources (`AdMng.Presentation/Resources/Strings*.resx`; watchdog
   notifications: `AdMng.Watchdog.Core/Resources/NotificationStrings*.resx`), both `en` and `pl` entries required.
