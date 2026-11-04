@@ -50,7 +50,7 @@ public sealed partial class EventLogReaderDocumentViewModel
     [ObservableProperty]
     public partial DateTime? CustomFrom { get; set; }
 
-    /// <summary>"Własny": the end in local time (null: now).</summary>
+    /// <summary>"Własny": the last day in local time, included (null: now).</summary>
     [ObservableProperty]
     public partial DateTime? CustomTo { get; set; }
 
@@ -146,6 +146,15 @@ public sealed partial class EventLogReaderDocumentViewModel
             return;
         }
 
+        // A new name beyond the limit would be dropped by Normalize (it keeps the first MaxSavedQueries): say so instead.
+        var existing = Services.Ui.Settings.Current.EventLogs.SavedQueries;
+        if (existing.Count >= EventLogSettings.MaxSavedQueries
+            && !existing.Any(q => string.Equals(q.Name, name, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            Services.Ui.Notifications.Show(NotificationSeverity.Warning, Localizer.Format(L.EventLogs.SavedQueriesFull, EventLogSettings.MaxSavedQueries));
+            return;
+        }
+
         var saved = CurrentQuery(name);
         await Services.Ui.Settings.UpdateAsync(s =>
         {
@@ -154,8 +163,15 @@ public sealed partial class EventLogReaderDocumentViewModel
             s.EventLogs.Normalize();
         }).ConfigureAwait(true);
         LoadSavedQueryNames();
-        SelectedSavedQuery = SavedQueries.FirstOrDefault(n => string.Equals(n, name, StringComparison.CurrentCultureIgnoreCase));
-        Services.Ui.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.EventLogs.QuerySaved, name));
+        SelectedSavedQuery = SavedQueries.FirstOrDefault(n => string.Equals(n, saved.Name, StringComparison.CurrentCultureIgnoreCase));
+        if (SelectedSavedQuery is null)
+        {
+            // Not kept after all (the settings changed meanwhile): never report it saved.
+            Services.Ui.Notifications.Show(NotificationSeverity.Warning, Localizer.Format(L.EventLogs.SavedQueriesFull, EventLogSettings.MaxSavedQueries));
+            return;
+        }
+
+        Services.Ui.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.EventLogs.QuerySaved, SelectedSavedQuery));
     }
 
     private bool CanSaveQuery() => !string.IsNullOrWhiteSpace(SavedQueryName);
@@ -371,22 +387,16 @@ public sealed partial class EventLogReaderDocumentViewModel
             return true;
         }
 
-        from = CustomFrom is { } f ? Local(f) : null;
-        to = CustomTo is { } t ? Local(t) : null;
-        if (from is { } a && to is { } b && a > b)
+        // "Do" is a date: its whole day is read (up to now); "Od" = "Do" is that one day.
+        from = CustomFrom is { } f ? EventLogTimeWindows.FromLocal(f, Zone) : null;
+        to = CustomTo is { } t ? EventLogTimeWindows.CustomEnd(t, Zone, now) : null;
+        if (from is { } a && to is { } b && a >= b)
         {
             error = Localizer[L.EventLogs.InvalidRange];
             return false;
         }
 
         return true;
-    }
-
-    private DateTimeOffset Local(DateTime value)
-    {
-        var zone = Zone;
-        var unspecified = DateTime.SpecifyKind(value, DateTimeKind.Unspecified);
-        return new DateTimeOffset(unspecified, zone.GetUtcOffset(unspecified)).ToUniversalTime();
     }
 
     /// <summary>"4625, 4740 4768-4771": numbers and ranges separated by commas, semicolons or spaces.</summary>

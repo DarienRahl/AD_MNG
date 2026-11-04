@@ -371,13 +371,8 @@
                              Text="{Binding Title, Mode=OneWay}"
                              TextWrapping="Wrap" />
                   <TextBlock Style="{StaticResource EventLog.Text}">
-                    <Run Text="{l:Tr EvtFail.ColumnCount}" />
-                    <Run Text=": " />
-                    <Run Text="{Binding CountText, Mode=OneWay}" />
-                    <Run Text=" · " />
-                    <Run Text="{Binding FirstText, Mode=OneWay}" />
-                    <Run Text=" – " />
-                    <Run Text="{Binding LastText, Mode=OneWay}" />
+                    <Run Text="{l:Tr EvtFail.ColumnCount}" /><Run Text=": " /><Run Text="{Binding CountText, Mode=OneWay}" /><Run Text=" · " /><Run
+                      Text="{Binding FirstText, Mode=OneWay}" /><Run Text=" – " /><Run Text="{Binding LastText, Mode=OneWay}" />
                   </TextBlock>
                   <TextBlock Style="{StaticResource EventLog.Heading}" Text="{l:Tr EvtFail.ExplanationHeading}" />
                   <TextBlock x:Name="DetailsExplanation" Style="{StaticResource EventLog.Text}" Text="{Binding Explanation, Mode=OneWay}" />

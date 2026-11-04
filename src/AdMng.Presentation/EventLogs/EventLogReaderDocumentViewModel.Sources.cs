@@ -179,14 +179,46 @@ public sealed partial class EventLogReaderDocumentViewModel
             return;
         }
 
-        var name = Path.GetFileName(path);
         if (Sources.FirstOrDefault(s => s.IsFiles && s.Files.Contains(path, StringComparer.OrdinalIgnoreCase)) is { } existing)
         {
             existing.IsSelected = true;
             return;
         }
 
-        AddSource(new EventLogSourceViewModel(EventLogSourceKind.Files, name, Localizer[L.EventLogs.KindFiles], [path]));
+        AddSource(new EventLogSourceViewModel(EventLogSourceKind.Files, FileSourceHost(path), Localizer[L.EventLogs.KindFiles], [path]));
+    }
+
+    /// <summary>
+    /// The host of a file source – the target's host, the host stamped on its records (<see cref="EventLogHostRunner"/>) and
+    /// the key of its row in "Zasięg i dostęp" – unique among the sources: the file name, else its folder and name
+    /// (<c>DC02\Security.evtx</c>), else the name with a number (<c>Security.evtx (2)</c>), so two files of the same name
+    /// never share a row, a record host or "Pokaż komunikat".
+    /// </summary>
+    private string FileSourceHost(string path)
+    {
+        var name = Path.GetFileName(path);
+        if (!IsTaken(name))
+        {
+            return name;
+        }
+
+        var folder = Path.GetFileName(Path.GetDirectoryName(path));
+        var withFolder = string.IsNullOrEmpty(folder) ? name : Path.Combine(folder, name);
+        if (!IsTaken(withFolder))
+        {
+            return withFolder;
+        }
+
+        for (var number = 2; ; number++)
+        {
+            var numbered = string.Create(CultureInfo.InvariantCulture, $"{name} ({number})");
+            if (!IsTaken(numbered))
+            {
+                return numbered;
+            }
+        }
+
+        bool IsTaken(string host) => Sources.Any(s => string.Equals(s.Host, host, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>"Usuń" of a computer or file source (the domain's DCs stay; they are only unselected).</summary>
@@ -250,7 +282,7 @@ public sealed partial class EventLogReaderDocumentViewModel
         }
 
         Fields = FieldsOf(value.Record);
-        ResolveObjectsAsync(Fields).Forget();
+        ResolveObjectsAsync(value.Record, Fields).Forget();
         RefreshCommands();
     }
 
@@ -290,8 +322,12 @@ public sealed partial class EventLogReaderDocumentViewModel
         return fields;
     }
 
-    /// <summary>SIDs and account names of the fields resolved to AD objects through the window's DC (best effort, a few per record).</summary>
-    private async Task ResolveObjectsAsync(IReadOnlyList<EventLogFieldRow> fields)
+    /// <summary>
+    /// SIDs and account names of the fields resolved to AD objects through the window's DC (best effort, a few per record). A
+    /// name is resolved only when the record's matching <c>…DomainName</c> field names the window's domain (or is empty):
+    /// a local or foreign account is never linked to a same-named account of this domain.
+    /// </summary>
+    private async Task ResolveObjectsAsync(EventLogRecord record, IReadOnlyList<EventLogFieldRow> fields)
     {
         if (Session is not { } session)
         {
@@ -308,7 +344,8 @@ public sealed partial class EventLogReaderDocumentViewModel
             try
             {
                 var isSid = IsSid(field.Value);
-                var found = await Task.Run(() => Services.ResolveObjectAsync(session, field.Value, isSid, token), token).ConfigureAwait(true);
+                var domain = isSid ? null : DomainOf(record, field.Name);
+                var found = await Task.Run(() => Services.ResolveObjectAsync(session, field.Value, isSid, domain, token), token).ConfigureAwait(true);
                 if (token.IsCancellationRequested)
                 {
                     return;
@@ -334,6 +371,18 @@ public sealed partial class EventLogReaderDocumentViewModel
     private static bool IsSid(string value) => value.StartsWith("S-1-5-21-", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsAccountField(string name) => name is "TargetUserName" or "SubjectUserName" or "TargetOutboundUserName" or "MemberName";
+
+    /// <summary>
+    /// The domain logged with an account field (<c>TargetUserName</c> → <c>TargetDomainName</c> …), null when the event has
+    /// none. 4740 writes the caller computer into <c>TargetDomainName</c>, not the account's domain.
+    /// </summary>
+    private static string? DomainOf(EventLogRecord record, string field) => field switch
+    {
+        "TargetUserName" when record.EventId != 4740 => record.Get("TargetDomainName"),
+        "SubjectUserName" => record.Get("SubjectDomainName"),
+        "TargetOutboundUserName" => record.Get("TargetOutboundDomainName"),
+        _ => null,
+    };
 
     /// <summary>"Właściwości" of the AD object a field names.</summary>
     [RelayCommand]

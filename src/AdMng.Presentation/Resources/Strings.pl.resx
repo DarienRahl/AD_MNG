@@ -19242,4 +19242,12 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Inspekcja niepowodzeń</value>
   </data>
   <!-- Track E event logs (reader, lockout source, failed logons): end -->
+  <!-- Track E review fixes (reader, lockout source): start -->
+  <data name="EvtLog.SavedQueriesFull" xml:space="preserve">
+    <value>Zapisano już {0} zapytań – to limit. Usuń jedno z nich albo zapisz pod nazwą istniejącego zapytania, aby je zastąpić.</value>
+  </data>
+  <data name="EvtLock.PolicyPsoUnreadable" xml:space="preserve">
+    <value>Próg blokady nieznany: konto podlega szczegółowym zasadom haseł {0}, których Twoje konto nie może odczytać (domyślnie mogą tylko Administratorzy domeny). Ich próg, okres obserwacji i czas blokady mogą się różnić od zasad domeny.</value>
+  </data>
+  <!-- Track E review fixes (reader, lockout source): end -->
 </root>

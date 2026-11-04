@@ -169,9 +169,9 @@ public sealed class EventLogServices(
                 var addresses = await Resolver.ResolveAsync(host, cancellationToken).ConfigureAwait(false);
                 result[host] = [.. addresses.Select(a => a.ToString())];
             }
-            catch (Exception ex) when (ex is System.Net.Sockets.SocketException or ArgumentException or InvalidOperationException)
+            catch (Exception ex) when (ex is System.Net.Sockets.SocketException or RemoteActionException or ArgumentException or InvalidOperationException)
             {
-                // Best effort: a DC whose address is unknown is still read.
+                // Best effort: a DC whose address is unknown (no answer, or none within the resolver's timeout) is still read.
             }
         }
 
@@ -179,10 +179,14 @@ public sealed class EventLogServices(
     }
 
     /// <summary>
-    /// The AD object a value of an event names: a SID (<c>objectSid</c>) or an account name (<c>sAMAccountName</c>, the
-    /// <c>DOMAIN\</c> prefix and a UPN suffix ignored), searched through the window's DC. Null when nothing matches.
+    /// The AD object a value of an event names: a SID (<c>objectSid</c>) or an account name (<c>sAMAccountName</c>, or the UPN),
+    /// searched through the window's DC. A name is resolved only when its domain – <paramref name="domain"/> (the record's
+    /// <c>…DomainName</c> field) and a <c>DOMAIN\</c> prefix – is empty or the window's domain (<see cref="IsWindowDomain"/>):
+    /// a local account (<c>SRV-APP01\Administrator</c>, <c>.\svc</c>), <c>NT AUTHORITY</c> or another domain never links to a
+    /// same-named account of this domain. <c>sam@realm</c> matches the sAMAccountName only for the window's DNS domain (the
+    /// UPN itself always). Null when nothing matches.
     /// </summary>
-    public async Task<(string Dn, string Name)?> ResolveObjectAsync(IDirectorySession session, string value, bool isSid, CancellationToken cancellationToken)
+    public async Task<(string Dn, string Name)?> ResolveObjectAsync(IDirectorySession session, string value, bool isSid, string? domain, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
         string filter;
@@ -201,17 +205,25 @@ public sealed class EventLogServices(
             var slash = name.LastIndexOf('\\');
             if (slash >= 0)
             {
+                if (!IsWindowDomain(session.Info, name[..slash]))
+                {
+                    return null;
+                }
+
                 name = name[(slash + 1)..];
             }
 
-            if (name.Length == 0 || name == "-" || name.Length > 256)
+            if (name.Length == 0 || name == "-" || name.Length > 256 || !IsWindowDomain(session.Info, domain))
             {
                 return null;
             }
 
-            filter = name.Contains('@', StringComparison.Ordinal)
-                ? LdapFilter.Or([LdapFilter.Equal(Attr.UserPrincipalName, name), LdapFilter.Equal(Attr.SamAccountName, name[..name.IndexOf('@', StringComparison.Ordinal)])])
-                : LdapFilter.Equal(Attr.SamAccountName, name);
+            var at = name.IndexOf('@', StringComparison.Ordinal);
+            filter = at < 0
+                ? LdapFilter.Equal(Attr.SamAccountName, name)
+                : string.Equals(name[(at + 1)..], session.Info.DomainDnsName, StringComparison.OrdinalIgnoreCase)
+                    ? LdapFilter.Or([LdapFilter.Equal(Attr.UserPrincipalName, name), LdapFilter.Equal(Attr.SamAccountName, name[..at])])
+                    : LdapFilter.Equal(Attr.UserPrincipalName, name);
         }
 
         var search = new DirectorySearch
@@ -228,6 +240,26 @@ public sealed class EventLogServices(
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// The domain part of an account name as an event or a remote computer writes it (<c>DOMAIN\</c>, <c>TargetDomainName</c>)
+    /// names the window's domain: its NetBIOS name (the first label of the DNS name when the NetBIOS name is not known) or
+    /// its DNS name, case-insensitive. Empty, null and <c>-</c> (not logged) count as the window's domain; <c>.</c> (the
+    /// local computer), a computer name, <c>NT AUTHORITY</c> and other domains do not.
+    /// </summary>
+    internal static bool IsWindowDomain(SessionInfo info, string? domain)
+    {
+        ArgumentNullException.ThrowIfNull(info);
+        var text = domain?.Trim();
+        if (string.IsNullOrEmpty(text) || text == "-")
+        {
+            return true;
+        }
+
+        var dns = info.DomainDnsName.Trim().TrimEnd('.');
+        var netBios = string.IsNullOrWhiteSpace(info.DomainNetBiosName) ? dns.Split('.')[0] : info.DomainNetBiosName.Trim();
+        return string.Equals(text.TrimEnd('.'), dns, StringComparison.OrdinalIgnoreCase) || string.Equals(text, netBios, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>The computer object of a host name (dNSHostName, else the NetBIOS name as sAMAccountName), null when none.</summary>

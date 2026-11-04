@@ -116,9 +116,7 @@
         <TextBlock x:Name="LastLockoutText" Text="{Binding LastLockoutText, Mode=OneWay}" TextWrapping="Wrap" />
         <TextBlock x:Name="PolicyText" Text="{Binding PolicyText, Mode=OneWay}" TextWrapping="Wrap" />
         <TextBlock Style="{StaticResource Ad.SecondaryText}" TextWrapping="Wrap">
-          <Run Text="{Binding CountsText, Mode=OneWay}" />
-          <Run Text=" " />
-          <Run Text="{Binding WindowText, Mode=OneWay}" />
+          <Run Text="{Binding CountsText, Mode=OneWay}" /><Run Text=" " /><Run Text="{Binding WindowText, Mode=OneWay}" />
         </TextBlock>
       </StackPanel>
     </Border>
@@ -439,18 +437,11 @@
                        Text="{Binding Value, Mode=OneWay}"
                        TextWrapping="Wrap" />
             <TextBlock Style="{StaticResource EventLog.Text}">
-              <Run Text="{l:Tr EvtLock.ColumnFailures}" />
-              <Run Text=": " />
-              <Run Text="{Binding FailuresText, Mode=OneWay}" />
-              <Run Text=" · " />
-              <Run Text="{l:Tr EvtLock.ColumnBadPasswords}" />
-              <Run Text=": " />
-              <Run Text="{Binding BadPasswordsText, Mode=OneWay}" />
+              <Run Text="{l:Tr EvtLock.ColumnFailures}" /><Run Text=": " /><Run Text="{Binding FailuresText, Mode=OneWay}" /><Run Text=" · " /><Run
+                Text="{l:Tr EvtLock.ColumnBadPasswords}" /><Run Text=": " /><Run Text="{Binding BadPasswordsText, Mode=OneWay}" />
             </TextBlock>
             <TextBlock Style="{StaticResource EventLog.Text}">
-              <Run Text="{Binding FirstText, Mode=OneWay}" />
-              <Run Text=" – " />
-              <Run Text="{Binding LastText, Mode=OneWay}" />
+              <Run Text="{Binding FirstText, Mode=OneWay}" /><Run Text=" – " /><Run Text="{Binding LastText, Mode=OneWay}" />
             </TextBlock>
             <TextBlock Foreground="{DynamicResource SystemFillColorCautionBrush}"
                        Style="{StaticResource EventLog.Text}"

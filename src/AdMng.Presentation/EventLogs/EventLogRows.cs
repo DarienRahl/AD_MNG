@@ -38,23 +38,51 @@ public static class EventLogTimeWindows
         EventLogTimePreset.Last7Days => (now.AddDays(-7), now),
         _ => null,
     };
+
+    /// <summary>A local date and time (a date picker's value, kind ignored) in <paramref name="zone"/> as an instant.</summary>
+    public static DateTimeOffset FromLocal(DateTime value, TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(zone);
+        var unspecified = DateTime.SpecifyKind(value, DateTimeKind.Unspecified);
+        return new DateTimeOffset(unspecified, zone.GetUtcOffset(unspecified)).ToUniversalTime();
+    }
+
+    /// <summary>
+    /// The end of a "Własny" window whose "Do" is a date (date pickers give the local midnight): the whole day is included –
+    /// the end is the next local midnight – but never later than <paramref name="now"/>.
+    /// </summary>
+    public static DateTimeOffset CustomEnd(DateTime to, TimeZoneInfo zone, DateTimeOffset now)
+    {
+        var end = FromLocal(to.Date.AddDays(1), zone);
+        return end > now ? now : end;
+    }
 }
 
 /// <summary>One record of a merged timeline (the reader, the lockout timeline, a drill-down). Shown only while the tab is open.</summary>
 public sealed class EventLogRecordRow
 {
-    public EventLogRecordRow(EventLogRecord record, ILocalizer localizer, TimeZoneInfo zone)
+    /// <param name="record">The record.</param>
+    /// <param name="localizer">The texts.</param>
+    /// <param name="zone">The time zone of the times shown.</param>
+    /// <param name="hostText">
+    /// The host column when the caller knows better than the first label (a file source's name, a host whose first label
+    /// another source shares); null: the first label of the record's host.
+    /// </param>
+    /// <param name="accountText">Replaces the account in <see cref="Summary"/> (a masked unknown name); null: as logged.</param>
+    public EventLogRecordRow(EventLogRecord record, ILocalizer localizer, TimeZoneInfo zone, string? hostText = null, string? accountText = null)
     {
         ArgumentNullException.ThrowIfNull(record);
         ArgumentNullException.ThrowIfNull(localizer);
         Record = record;
         TimeText = EventLogText.Moment(localizer, record.TimeCreated, zone);
-        HostText = EventHostNames.ShortName(record.Host) is { Length: > 0 } shortName ? shortName : record.Host;
+        HostText = !string.IsNullOrEmpty(hostText)
+            ? hostText
+            : EventHostNames.ShortName(record.Host) is { Length: > 0 } shortName ? shortName : record.Host;
         ChannelText = EventLogText.Channel(localizer, record.Channel);
         LevelText = record.IsAuditFailure
             ? EventLogText.Outcome(localizer, EventAuditOutcome.Failure)
             : record.IsAuditSuccess ? EventLogText.Outcome(localizer, EventAuditOutcome.Success) : EventLogText.Level(localizer, record.Level);
-        Summary = EventLogText.Summary(localizer, record);
+        Summary = EventLogText.Summary(localizer, record, accountText);
     }
 
     public EventLogRecord Record { get; }
@@ -62,7 +90,7 @@ public sealed class EventLogRecordRow
     /// <summary>Local time.</summary>
     public string TimeText { get; }
 
-    /// <summary>The first label of the host the record was read from.</summary>
+    /// <summary>The first label of the host the record was read from (or the text the reader passed: a file name, a full name).</summary>
     public string HostText { get; }
 
     public string ChannelText { get; }
@@ -84,7 +112,10 @@ public sealed class EventLogRecordRow
     /// <summary>For screen readers: the columns in one line.</summary>
     public string AutomationName => $"{TimeText}, {HostText}, {EventIdText}, {LevelText}, {Summary}";
 
-    /// <summary>Ctrl+F: the text is in a shown column or in a value of the record (case-insensitive).</summary>
+    /// <summary>
+    /// Ctrl+F: the text is in a shown column or in a value of the record (case-insensitive, ordinal: a pass over 50 000 rows
+    /// must stay cheap – the reader runs it off the UI thread).
+    /// </summary>
     public bool Matches(string text)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -100,7 +131,7 @@ public sealed class EventLogRecordRow
     /// <summary>No value (the row is shown, never logged).</summary>
     public override string ToString() => "event row";
 
-    private static bool Contains(string? value, string term) => value?.Contains(term, StringComparison.CurrentCultureIgnoreCase) == true;
+    private static bool Contains(string? value, string term) => value?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
 }
 
 /// <summary>One field of the selected record in the details: its name, value, the meaning of a code and the AD object it names.</summary>

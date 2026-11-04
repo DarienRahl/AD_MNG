@@ -22,6 +22,7 @@ public sealed partial class LockoutDocumentViewModel
     private readonly SerialCancellation _pivot = new();
     private string? _pivotComputer;
     private LockoutAccount? _pivotAccount;
+    private SessionInfo? _pivotDomain;
 
     /// <summary>The findings of the pivot, one line each (null before it ran).</summary>
     [ObservableProperty]
@@ -54,6 +55,7 @@ public sealed partial class LockoutDocumentViewModel
         }
 
         _pivotAccount = report.Account;
+        _pivotDomain = session.Info;
         var token = _pivot.Next();
         IsPivotRunning = true;
         _pivotComputer = null;
@@ -212,12 +214,15 @@ public sealed partial class LockoutDocumentViewModel
     });
 
     /// <summary>
-    /// A value names the investigated account: its SID, <c>DOMAIN\sam</c> or <c>sam</c> (case-insensitive), the UPN, or
-    /// <c>sam@realm</c>.
+    /// A value names the investigated account: its SID, its UPN, <c>sam</c> (bare – a task's user ID may be),
+    /// <c>DOMAIN\sam</c> only when DOMAIN is the window's domain (NetBIOS or DNS name), <c>sam@realm</c> only when the realm
+    /// is the domain's DNS name or the account's UPN suffix; case-insensitive. <c>.\sam</c> and <c>COMPUTER\sam</c> are
+    /// local accounts of the computer (they authenticate against its SAM and never lock the domain account), and
+    /// <c>NT AUTHORITY\…</c> or another domain's <c>sam</c> is another account.
     /// </summary>
     internal bool MatchesAccount(string? value)
     {
-        if (_pivotAccount is not { } account || string.IsNullOrWhiteSpace(value))
+        if (_pivotAccount is not { } account || _pivotDomain is not { } domain || string.IsNullOrWhiteSpace(value))
         {
             return false;
         }
@@ -236,12 +241,26 @@ public sealed partial class LockoutDocumentViewModel
         var slash = text.LastIndexOf('\\');
         if (slash >= 0)
         {
+            if (slash == 0 || !EventLogServices.IsWindowDomain(domain, text[..slash]))
+            {
+                return false;
+            }
+
             text = text[(slash + 1)..];
         }
 
         var at = text.IndexOf('@', StringComparison.Ordinal);
         if (at > 0)
         {
+            var realm = text[(at + 1)..].TrimEnd('.');
+            var principal = account.UserPrincipalName ?? string.Empty;
+            var upnSuffix = principal.Contains('@', StringComparison.Ordinal) ? principal[(principal.LastIndexOf('@') + 1)..] : null;
+            if (!string.Equals(realm, domain.DomainDnsName.TrimEnd('.'), StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(realm, upnSuffix, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
             text = text[..at];
         }
 
