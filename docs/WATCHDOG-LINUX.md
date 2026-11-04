@@ -1,3 +1,5 @@
+[English](en/WATCHDOG-LINUX.md) · **Polski**
+
 # AdMng Watchdog na Linuksie – wdrożenie krok po kroku (Debian + systemd)
 
 Ta instrukcja prowadzi przez całe wdrożenie linuksowej wersji AdMng Watchdog: od domeny testowej, przez przygotowanie

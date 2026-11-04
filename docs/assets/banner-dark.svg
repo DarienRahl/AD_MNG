@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-labelledby="title desc">
   <title id="title">AD Manager</title>
-  <desc id="desc">Nowoczesna konsola Active Directory: edycja zbiorcza, Kosz AD, AdMng Watchdog, interfejs PL i EN.</desc>
+  <desc id="desc">A modern Active Directory console: bulk editing, AD Recycle Bin, AdMng Watchdog, English and Polish UI.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#0f1b2d"/>
@@ -33,16 +33,16 @@
 
   <g font-family="'Segoe UI Variable Display','Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif">
     <text x="288" y="146" font-size="72" font-weight="700" fill="#e6edf3">AD Manager</text>
-    <text x="290" y="194" font-size="28" fill="#9198a1">Nowoczesna konsola Active Directory</text>
+    <text x="290" y="194" font-size="28" fill="#9198a1">A modern Active Directory console</text>
     <g font-size="18" font-weight="600" text-anchor="middle">
-      <rect x="290" y="222" width="190" height="40" rx="20" fill="#0c2d6b" stroke="#1f6feb"/>
-      <text x="385" y="248" fill="#79c0ff">Edycja zbiorcza</text>
-      <rect x="494" y="222" width="120" height="40" rx="20" fill="#04260f" stroke="#238636"/>
-      <text x="554" y="248" fill="#56d364">Kosz AD</text>
-      <rect x="628" y="222" width="190" height="40" rx="20" fill="#271052" stroke="#8957e5"/>
-      <text x="723" y="248" fill="#d2a8ff">AdMng Watchdog</text>
-      <rect x="832" y="222" width="100" height="40" rx="20" fill="#341a00" stroke="#9e6a03"/>
-      <text x="882" y="248" fill="#e3b341">PL · EN</text>
+      <rect x="290" y="222" width="160" height="40" rx="20" fill="#0c2d6b" stroke="#1f6feb"/>
+      <text x="370" y="248" fill="#79c0ff">Bulk editing</text>
+      <rect x="464" y="222" width="176" height="40" rx="20" fill="#04260f" stroke="#238636"/>
+      <text x="552" y="248" fill="#56d364">AD Recycle Bin</text>
+      <rect x="654" y="222" width="190" height="40" rx="20" fill="#271052" stroke="#8957e5"/>
+      <text x="749" y="248" fill="#d2a8ff">AdMng Watchdog</text>
+      <rect x="858" y="222" width="100" height="40" rx="20" fill="#341a00" stroke="#9e6a03"/>
+      <text x="908" y="248" fill="#e3b341">EN · PL</text>
     </g>
   </g>
 </svg>

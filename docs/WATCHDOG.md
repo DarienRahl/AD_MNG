@@ -1,3 +1,5 @@
+[English](en/WATCHDOG.md) · **Polski**
+
 # AdMng Watchdog – monitor zmian w Active Directory
 
 AdMng Watchdog to osobna usługa, która przez całą dobę obserwuje domenę Active Directory, zapisuje historię zmian
@@ -830,7 +832,7 @@ nie jest w ten sposób ograniczane.
 ## 11. Środowisko testowe
 
 Usługę można uruchomić na Linuksie przeciw laboratorium Samba AD DC z `tools/testlab` – skrypty i opis:
-[`tools/testlab/watchdog/README.md`](../tools/testlab/watchdog/README.md).
+[`tools/testlab/watchdog/README.md`](../tools/testlab/watchdog/README.pl.md).
 
 ```bash
 tools/testlab/watchdog/run-watchdog-lab.sh --reset --background   # usługa (profil Lab), Mailpit, odbiornik webhooków
@@ -870,7 +872,7 @@ Pakiety Debiana buduje `tools/packaging/build-deb.sh` (`admng-watchdog`) i `tool
 czystym kontenerze Debian 12 lub 13.
 
 CI (`.github/workflows/ci.yml`): na Windows wszystkie projekty testów (także testy tylko-Windows), aplikacja AD Manager
-i zrzuty ekranu (także zakładki Watchdog – gałąź `screenshots`); na Ubuntu z Samba DC – testy silnika i usługi, testy
+i – na żądanie (*Run workflow*) – zrzuty ekranu, także zakładek Watchdog; na Ubuntu z Samba DC – testy silnika i usługi, testy
 integracyjne z Mailpit i skrypty laboratorium (`lab-scenario.sh --verify`); zadania `openwec-package` (Debian 12 i 13,
 źródła GPL-3.0) i `linux-package` (pakiet `admng-watchdog`, test instalacji na Debianie 12 i 13, lintian). Wydanie
 (`.github/workflows/release.yml`) publikuje te pakiety razem z AD Managerem.

@@ -33,7 +33,7 @@ public sealed class ScreenshotTestsSalutations
         ScreenshotWriter.RequireOutputDirectory();
         return WpfTestHost.RunAsync(async () =>
         {
-            var (context, _) = await TestDialogService.CreateContextAsync("pl", services =>
+            var (context, _) = await TestDialogService.CreateContextAsync(ScreenshotWriter.Language, services =>
                 services.Replace(ServiceDescriptor.Singleton<IDirectSmtpTransportFactory>(new FakeUserMessageTransport())));
             await using var _ = context;
             var sample = context.Directory.AddSalutationSamples(context.Company);

@@ -209,6 +209,7 @@ jobs:
         env:
           ADMNG_UI_TESTS: "1"
           ADMNG_SCREENSHOTS_DIR: ${{ github.workspace }}/screenshots
+          ADMNG_SCREENSHOTS_LANGUAGE: en
       - name: Package
         shell: pwsh
         env:

@@ -20,7 +20,7 @@ internal sealed record ScreenshotInfo(
     [property: JsonPropertyName("title_en")] string TitleEn);
 
 /// <summary>
-/// Writes the release screenshots (CI step "Screenshots" in .github/workflows/ci.yml): the client area of a window
+/// Writes the screenshots (CI step "Screenshots" in .github/workflows/ci.yml and release.yml): the client area of a window
 /// rendered over an opaque theme background into a 96 DPI PNG, plus <c>manifest.json</c> with the captions of every
 /// picture written so far. Only active when <see cref="DirectoryVariable"/> names the output folder; the pictures show
 /// the in-memory sample company of the UI tests, never a real directory. UI-thread members.
@@ -29,6 +29,9 @@ internal static class ScreenshotWriter
 {
     /// <summary>Environment variable with the output folder; the screenshot tests skip themselves without it.</summary>
     public const string DirectoryVariable = "ADMNG_SCREENSHOTS_DIR";
+
+    /// <summary>Environment variable with the UI language of the screenshots: "en" (default) or "pl".</summary>
+    public const string LanguageVariable = "ADMNG_SCREENSHOTS_LANGUAGE";
 
     public const string ManifestFileName = "manifest.json";
 
@@ -56,6 +59,10 @@ internal static class ScreenshotWriter
         WriteIndented = true,
         Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
     };
+
+    /// <summary>The UI language of the screenshots (<see cref="LanguageVariable"/>): "pl" when asked for, else "en".</summary>
+    public static string Language =>
+        string.Equals(Environment.GetEnvironmentVariable(LanguageVariable)?.Trim(), "pl", StringComparison.OrdinalIgnoreCase) ? "pl" : "en";
 
     /// <summary>The output folder, or null when no screenshots were requested.</summary>
     public static string? OutputDirectory =>

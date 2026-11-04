@@ -18,7 +18,7 @@ namespace AdMng.App.UiTests;
 /// <summary>
 /// Release screenshots of Korespondencja (U5, design note 9.5): 26 the recipients imported from a CSV file after a run
 /// (field columns, statuses, a journal mark), 27 the message (editor with formatting and a field, the Outlook signature,
-/// attachments, options) and 28 the mailbox owners of the sample after matching. Polish UI, light theme, the in-memory
+/// attachments, options) and 28 the mailbox owners of the sample after matching. UI in the screenshot language, light theme, the in-memory
 /// Outlook and directory; the files the pictures need are written to a temporary folder and deleted afterwards. Like
 /// <see cref="ScreenshotTests"/> they run only when <see cref="ScreenshotWriter.DirectoryVariable"/> is set; the class name
 /// starts with "ScreenshotTests" so the CI step "Screenshots" takes it too.
@@ -155,7 +155,7 @@ public sealed class ScreenshotTestsCorrespondence
         return WpfTestHost.RunAsync(async () =>
         {
             var (created, dialogs) = await TestDialogService.CreateContextAsync(
-                "pl", services => services.Replace(ServiceDescriptor.Singleton<IOutlookClient>(outlook)));
+                ScreenshotWriter.Language, services => services.Replace(ServiceDescriptor.Singleton<IOutlookClient>(outlook)));
             await using var context = created;
             using var files = new TemporaryFiles();
             dialogs.ConfirmAnswer = true;

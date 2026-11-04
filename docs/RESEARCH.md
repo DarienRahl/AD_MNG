@@ -1,3 +1,5 @@
+[English](en/RESEARCH.md) · **Polski**
+
 # Raport z badań – AD_MNG
 
 Nowoczesny następca konsoli „Użytkownicy i komputery usługi Active Directory” (ADUC, `dsa.msc`) w WPF/.NET 10.
@@ -873,7 +875,7 @@ Tożsamość związanego podmiotu pobieramy operacją WhoAmI. Alternatywnie `tok
 
 ### 6.15 Pomiary prototypu
 
-Prototyp S.DS.P uruchomiono na laboratorium [`tools/testlab`](../tools/testlab/README.md): Samba 4.19 AD DC, klient na
+Prototyp S.DS.P uruchomiono na laboratorium [`tools/testlab`](../tools/testlab/README.pl.md): Samba 4.19 AD DC, klient na
 Linuksie, połączenie w obrębie jednej maszyny, wiązanie laboratoryjne (aplikacja produkcyjnie go nie używa).
 
 | Bind | Pierwsza strona (100 obiektów) | 428 obiektów | 20 równoległych zapytań na 1 połączeniu | VLV + sortowanie | ASQ | `allowedAttributesEffective` |

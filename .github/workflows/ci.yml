@@ -11,6 +11,15 @@ on:
         description: "Render the screenshots (artifact 'screenshots')"
         type: boolean
         default: false
+      screenshots_language:
+        description: "UI language of the screenshots"
+        type: choice
+        options: [en, pl]
+        default: en
+      update_readme_screenshots:
+        description: "Also commit the README pictures (docs/assets/screenshots) to this branch"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -81,10 +90,10 @@ jobs:
           path: publish-watchdog/
           retention-days: 14
       - name: Screenshots
-        # Renders the Polish UI over the sample company (tests/AdMng.App.UiTests/ScreenshotTests.cs) into PNG files and
-        # manifest.json. Only on request (Run workflow with "screenshots"), not on every push: the pictures are large.
-        # Releases render their own for major versions (release.yml).
-        if: github.event_name == 'workflow_dispatch' && inputs.screenshots
+        # Renders the UI (English by default) over the sample company (tests/AdMng.App.UiTests/ScreenshotTests.cs) into
+        # PNG files and manifest.json. Only on request (Run workflow with "screenshots" or "update_readme_screenshots"),
+        # not on every push: the pictures are large. Releases render their own for major versions (release.yml).
+        if: github.event_name == 'workflow_dispatch' && (inputs.screenshots || inputs.update_readme_screenshots)
         shell: pwsh
         run: |
           dotnet test tests/AdMng.App.UiTests -c Release --no-build --filter "FullyQualifiedName~AdMng.App.UiTests.ScreenshotTests" --logger "console;verbosity=normal"
@@ -97,9 +106,10 @@ jobs:
         env:
           ADMNG_UI_TESTS: "1"
           ADMNG_SCREENSHOTS_DIR: ${{ github.workspace }}/screenshots
+          ADMNG_SCREENSHOTS_LANGUAGE: ${{ inputs.screenshots_language || 'en' }}
       - uses: actions/upload-artifact@v4
         # Also after a failed screenshot test: the pictures written so far help to see what went wrong.
-        if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.screenshots && hashFiles('screenshots/*.png') != '' }}
+        if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && (inputs.screenshots || inputs.update_readme_screenshots) && hashFiles('screenshots/*.png') != '' }}
         with:
           name: screenshots
           path: screenshots/
@@ -174,6 +184,62 @@ jobs:
         run: |
           tools/testlab/watchdog/lab-scenario.sh --cleanup || true
           tools/testlab/watchdog/run-watchdog-lab.sh --stop
+
+  readme-screenshots:
+    name: Update the README screenshots
+    needs: windows
+    # Also when another screenshot (or test) of the Windows job failed: the step below still requires every README
+    # picture to be there.
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.update_readme_screenshots }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # Only on request: copies the pictures README.md and README.pl.md show from this run's screenshots into
+    # docs/assets/screenshots, compresses them losslessly and commits them to the branch the workflow ran on.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - name: Download screenshots
+        uses: actions/download-artifact@v4
+        with:
+          name: screenshots
+          path: ${{ runner.temp }}/screenshots
+      - name: Commit the README pictures
+        shell: bash
+        env:
+          SCREENSHOTS_DIR: ${{ runner.temp }}/screenshots
+          SCREENSHOTS_LANGUAGE: ${{ inputs.screenshots_language }}
+          BRANCH: ${{ github.ref_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # The pictures README.md and README.pl.md show; keep this list in step with them.
+          files=(01-main-window.png 02-main-window-dark.png 05-batch-editor-preview.png 06-recycle-bin.png 07-find.png
+                 10-watchdog-event-details.png 17-account-review.png 19-privileged-access.png 22-computers.png
+                 23-group-policy.png 29-administrative-templates.png 32-lockout-source.png)
+          sudo apt-get install -y -qq optipng > /dev/null
+          target=docs/assets/screenshots
+          mkdir -p "$target"
+          for f in "${files[@]}"; do
+            if [ ! -f "$SCREENSHOTS_DIR/$f" ]; then
+              echo "::error::$f is missing from the screenshots of this run."
+              exit 1
+            fi
+            cp -- "$SCREENSHOTS_DIR/$f" "$target/$f"
+            optipng -quiet -o2 -strip all "$target/$f"
+          done
+          ls -l "$target"
+          git add -- "$target"
+          if git diff --cached --quiet; then
+            echo "The README pictures did not change."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "README screenshots ($SCREENSHOTS_LANGUAGE UI) from CI" -m "$RUN_URL"
+          git push -q origin "HEAD:refs/heads/$BRANCH"
+          echo "Committed the README pictures to $BRANCH as $(git rev-parse --short HEAD)."
 
   openwec-package:
     # admng-openwec (docs/dev/watchdog-linux-design.md 7.1, 13.2, 21 B4): OpenWEC from the pinned upstream commit, built in

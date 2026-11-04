@@ -1,3 +1,5 @@
+[English](../en/adr/0001-wpf-net10-fluent.md) · **Polski**
+
 # ADR-0001: WPF na .NET 10 z motywem Fluent
 
 - Status: przyjęta

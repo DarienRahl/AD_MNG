@@ -228,7 +228,7 @@ public class RemoteComputerViewModelTests
 
     [Theory]
     [InlineData(RemoteErrorKind.Unreachable, "en-US", "The computer does not answer. Check that the computer is on, that its DNS name resolves and that the firewall lets you in.")]
-    [InlineData(RemoteErrorKind.WinRmNotAvailable, "en-US", "WinRM is not available on the computer. Enable WinRM by Group Policy (service, listener, firewall rule) – see docs/KOMPUTERY.md.")]
+    [InlineData(RemoteErrorKind.WinRmNotAvailable, "en-US", "WinRM is not available on the computer. Enable WinRM by Group Policy (service, listener, firewall rule) – see docs/en/COMPUTERS.md.")]
     [InlineData(RemoteErrorKind.AuthenticationFailed, "en-US", "Kerberos authentication failed. Check the computer's SPN (HTTP/ or WSMAN/), the clocks and that the account is a domain account; NTLM is never used.")]
     [InlineData(RemoteErrorKind.AccessDenied, "en-US", "Access denied. The account of this window must be a local administrator of the computer (Domain Admins on domain controllers).")]
     [InlineData(RemoteErrorKind.Timeout, "en-US", "The computer did not answer in time. Raise the timeout in the settings (Computers) or try again.")]
