@@ -169,7 +169,9 @@ public class LockoutDocumentTests
         await document.RunAsync();
 
         Assert.Null(document.Error);
-        Assert.Equal(lockedAt.AddMinutes(10), document.Report!.To);
+        // "Do" is a date: the window takes the whole chosen day, capped at now (the lockout has expired by then).
+        Assert.True(document.Report!.To >= lockedAt.AddMinutes(10));
+        Assert.True(document.Report.To <= document.Report.Now);
         Assert.False(document.IsLockedNow);
         Assert.Equal(harness.B2.Localizer[L.EventLogsLockout.NotLockedNow], document.LockStateText);
         Assert.False(document.UnlockCommand.CanExecute(null));

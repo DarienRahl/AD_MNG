@@ -162,4 +162,38 @@ Presentation: documents against `FakeEventLogConnector` + `FakeDirectorySession`
 
 ## 7. As built
 
-(Filled in when the stage is done.)
+- **Core (wave B1).** `EventXmlParser` mirrors the Watchdog parser's hardening (DTD prohibited, invalid XML characters
+  replaced, depth limit 32); a missing `Computer`/`Channel` becomes an empty string. `EventQueryXml` accepts channel
+  names `[A-Za-z0-9 ._-/]` (Operational channels need `/`; `:` and `\` stay excluded, so no `file://` or UNC path can
+  be passed as a channel); a raw XPath replaces the whole generated selection including the time bounds.
+  `InsertionStringDecoder`, `XPathLiteral` and the host-name helpers (`EventHostNames`, renamed from `HostNames`
+  to avoid a clash with `Computers.Remote.HostNames`) moved from Watchdog.Core – behaviour unchanged.
+  `EventLogMatcher` matches data conditions against `UserData`/unnamed values too (the service would not); it serves
+  the fake only.
+- **Analyses (B2 + review).** The failed-logon plan has two steps: failures from all DCs in one query, then
+  successes only for `SuccessCandidates` (16 names per query) – successes for the whole domain would push failures out
+  of the memory cap. Lockout queries filter 4740/4767/4771 by `TargetSid` and 4776/4625 by the stored, lower-,
+  upper- and capitalized `sAMAccountName` and the UPN (NTLM logs the name as typed); a follow-up reads all accounts'
+  failures from the top 3 sources for the proxy rule and one-record **audit probes**. Audit evidence: records of
+  account-filtered reads can prove an event is audited, never that it is not; *not seen while covered* needs a
+  complete, unfiltered read (a probe) on a DC whose log covers the window (`Covers(from, to)` also requires an enabled
+  log that did not stop recording). NTLM failures the PDC emulator logs again (4776 with the same account, workstation
+  and status within ±5 s) count once. "Locked now" is judged at the current time. A spray counts accounts with up to
+  `max(SprayMaxPerAccount, BruteForceThreshold − 1)` failures, so 4–9 tries per account are no longer missed; 4768
+  `0x12` is not a password attempt. Classification lives in the internal `AnalysisCodes` (to be unified with the
+  public `EventCodes`).
+- **Windows reader (B3 + review).** Every operation opens its own `EventLogSession` (cancelling one read must not
+  cancel others); hosts must be FQDNs (IP literals and short names are refused before any connection); Kerberos
+  failures map to `AccessDenied` or `Failed` with the native code. File queries are built with a placeholder channel
+  whose `Path` attributes are rewritten to `file://<file>`; files are read forward and merged; an unlimited
+  newest-first read streams everything and the runner keeps the newest 50 000 with a dropped count. Forwarded events
+  carry `QueriedChannel` so *Pokaż komunikat* re-reads them from the collector's channel, matched on ID, provider,
+  computer and time. Native cancels are queued to the thread pool so *Anuluj* never blocks the UI thread.
+  `System.Diagnostics.EventLog` is referenced centrally (plain net10.0 does not ship `Eventing.Reader`).
+- **Presentation (C + review).** One reader tab per window; file sources get unique names; the host column shows full
+  names for files and for hosts that share a first label; Ctrl+F filters off the UI thread. The custom window uses
+  dates (*Do* includes its whole day, capped at now). An unreadable PSO is shown as unknown policy, never silently
+  replaced by the domain policy; the originating DC is shown only while `lockoutTime` is set. The pivot matches
+  `DOMAIN\user` only for the window's domain, `user@realm` for its DNS name or the account's UPN suffix, and never
+  local (`.\user`, `COMPUTER\user`) or other-domain accounts. Unknown-account names stay masked in drill-down records
+  until revealed. Saved queries keep host names, never file paths; the CSV export starts with the personal-data note.
