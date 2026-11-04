@@ -188,7 +188,9 @@ jobs:
   readme-screenshots:
     name: Update the README screenshots
     needs: windows
-    if: github.event_name == 'workflow_dispatch' && inputs.update_readme_screenshots
+    # Also when another screenshot (or test) of the Windows job failed: the step below still requires every README
+    # picture to be there.
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.update_readme_screenshots }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     # Only on request: copies the pictures README.md and README.pl.md show from this run's screenshots into

@@ -377,6 +377,14 @@ public sealed class ScreenshotTests
                 var window = (CentralStoreUpdateWindow)Windows(context).CreateWindow(update);
                 await ScreenshotWriter.ShowWithClientSizeAsync(window, 900, 680);
                 await update.OpenFileCommand.ExecuteAsync(null);
+
+                // The window preselects English and the UI language: choose the Polish files of the package in every UI
+                // language, so the picture shows them added (each choice starts a new comparison).
+                foreach (var culture in update.Cultures)
+                {
+                    culture.IsSelected = true;
+                }
+
                 await UiWait.UntilAsync(() => !update.IsWorking && update.Rows.Count == 6, "the comparison");
                 await UiTestSupport.WaitForIdleAsync(rounds: 3);
 
