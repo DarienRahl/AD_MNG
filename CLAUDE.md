@@ -131,5 +131,8 @@ that subscribes to an application-wide event must unsubscribe in `Dispose`. Add 
 - License: Apache-2.0 (`LICENSE`, `NOTICE`); only `packaging/admng-openwec` is GPL-3.0, like OpenWEC itself. New
   dependencies need an OSI-approved license compatible with Apache-2.0 (signing through SignPath Foundation requires
   every component to be open source).
+- README pictures (`docs/assets/screenshots`) are English UI screenshots rendered by `tests/AdMng.App.UiTests`
+  (`ScreenshotTests*`, language from `ADMNG_SCREENSHOTS_LANGUAGE`) and committed by the CI job `readme-screenshots`
+  (*Run workflow* with "Also commit the README pictures"); its file list must match the pictures both READMEs show.
 - User-visible strings only via localization resources (`AdMng.Presentation/Resources/Strings*.resx`; watchdog
   notifications: `AdMng.Watchdog.Core/Resources/NotificationStrings*.resx`), both `en` and `pl` entries required.

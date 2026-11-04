@@ -41,7 +41,7 @@ public sealed class ScreenshotTestsRichHtml
             clip.Add("clip_image002.png", MessageImageSamples.Png(200, 100, seed: 0x32));
             clip.Add("clip_image003.jpg", MessageImageSamples.Jpeg(160, 90));
             var clipboard = new ContentClipboard(new ClipboardContent(CfHtmlFixture.Build(clip.OutlookHtml()), null, null, null));
-            var (context, dialogs) = await TestDialogService.CreateContextAsync("pl", services =>
+            var (context, dialogs) = await TestDialogService.CreateContextAsync(ScreenshotWriter.Language, services =>
             {
                 services.Replace(ServiceDescriptor.Singleton<IDirectSmtpTransportFactory>(new FakeUserMessageTransport()));
                 services.Replace(ServiceDescriptor.Scoped<IClipboardService>(_ => clipboard));

@@ -34,15 +34,15 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace AdMng.App.UiTests;
 
 /// <summary>
-/// Screenshots of the program for every release (CI step "Screenshots", published to the "screenshots" branch): the
-/// Polish UI over the sample company, one test per picture, each with its own host. They run only when
-/// <see cref="ScreenshotWriter.DirectoryVariable"/> names the output folder and skip themselves otherwise, so the
-/// normal UI test run is unaffected.
+/// Screenshots of the program (CI step "Screenshots" on request and for major releases): the UI in the language of
+/// <see cref="ScreenshotWriter.LanguageVariable"/> (English by default) over the Polish sample company, one test per
+/// picture, each with its own host. They run only when <see cref="ScreenshotWriter.DirectoryVariable"/> names the output
+/// folder and skip themselves otherwise, so the normal UI test run is unaffected.
 /// </summary>
 [Collection(UiTestCollection.Name)]
 public sealed class ScreenshotTests
 {
-    private const string Language = "pl";
+    private static string Language => ScreenshotWriter.Language;
     private const double MainWindowWidth = 1440;
     private const double MainWindowHeight = 900;
 
@@ -283,12 +283,12 @@ public sealed class ScreenshotTests
         var editor = Assert.IsType<AdministrativeTemplatesEditorViewModel>(shell.OpenGroupPolicyDocument(
             new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.AdministrativeTemplates) { GpoId = sample.WorkstationPasswords, Name = "Stacje robocze – Zasady haseł" }));
         await UiWait.UntilAsync(() => !editor.IsLoading && editor.Roots.Count == 2, "the administrative templates");
-        var windowsComponents = editor.Roots[0].Children.Single(c => c.Name == "Składniki systemu Windows");
+        var windowsComponents = editor.Roots[0].Children.Single(c => c.Name == InLanguage("Składniki systemu Windows", "Windows Components"));
         windowsComponents.IsExpanded = true;
         var updates = windowsComponents.Children.Single();
         updates.IsSelected = true;
         editor.SelectedNode = updates;
-        editor.SelectedPolicy = editor.Policies.Single(p => p.Name == "Konfiguruj aktualizacje automatyczne");
+        editor.SelectedPolicy = editor.Policies.Single(p => p.Name == InLanguage("Konfiguruj aktualizacje automatyczne", "Configure automatic updates"));
         editor.Editor!.IsEnabled = true;
         editor.Editor.Elements.OfType<DropDownEditorViewModel>().Single().SelectedIndex = 2;
         editor.Editor.Elements.OfType<NumberEditorViewModel>().Single().Text = "3";
@@ -330,11 +330,11 @@ public sealed class ScreenshotTests
         model.SelectedSite = model.Sites.Single(s => s.Name == "Warszawa");
         await model.RecalculateCommand.ExecuteAsync(null);
         await UiWait.UntilAsync(() => !model.IsLoading && model.HasModel && !model.IsStale, "the model at the site Warszawa");
-        model.ComputerPart.SelectedSetting = model.ComputerPart.Settings.Single(s => s.Name == "Minimalna długość hasła");
+        model.ComputerPart.SelectedSetting = model.ComputerPart.Settings.Single(s => s.Name == InLanguage("Minimalna długość hasła", "Minimum password length"));
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
 
         Assert.Contains(model.ComputerPart.Gpos, g => g.Name == "Lokacja Warszawa – Drukarki");
-        Assert.Contains(model.ComputerPart.Settings, s => s.OverriddenCount == 1 && s.Area.StartsWith("Szablony administracyjne", StringComparison.Ordinal));
+        Assert.Contains(model.ComputerPart.Settings, s => s.OverriddenCount == 1 && s.Area.StartsWith(InLanguage("Szablony administracyjne", "Administrative templates"), StringComparison.Ordinal));
         await ScreenshotWriter.SaveAsync(window, GroupPolicyModel, dark: false);
     });
 
@@ -381,8 +381,8 @@ public sealed class ScreenshotTests
                 await UiTestSupport.WaitForIdleAsync(rounds: 3);
 
                 Assert.Null(update.Error);
-                Assert.Equal("Szablony Contoso 1.3.zip – szablony: 2, języki: 2", update.PackageText);
-                Assert.Equal("Do zapisania: 3, bez zmian: 3, pominięte: 0", update.SummaryText);
+                Assert.Equal(InLanguage("Szablony Contoso 1.3.zip – szablony: 2, języki: 2", "Szablony Contoso 1.3.zip – templates: 2, languages: 2"), update.PackageText);
+                Assert.Equal(InLanguage("Do zapisania: 3, bez zmian: 3, pominięte: 0", "To write: 3, unchanged: 3, skipped: 0"), update.SummaryText);
                 Assert.True(window.UpdateButton.IsEnabled);
                 await ScreenshotWriter.SaveAsync(window, CentralStoreUpdate, dark: false);
             }
@@ -418,8 +418,8 @@ public sealed class ScreenshotTests
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
 
         Assert.Equal([Attr.City, Attr.Title], comparison.AttributeRows.Select(r => r.LdapName).Order(StringComparer.Ordinal));
-        Assert.Equal("Członkostwo (2)", comparison.MembershipTabHeader);
-        Assert.StartsWith("Porównanie: Łukasz Wiśniewski – contoso.test ↔ fabrikam.test", window.Title, StringComparison.Ordinal);
+        Assert.Equal(InLanguage("Członkostwo (2)", "Membership (2)"), comparison.MembershipTabHeader);
+        Assert.StartsWith(InLanguage("Porównanie: ", "Comparison: ") + "Łukasz Wiśniewski – contoso.test ↔ fabrikam.test", window.Title, StringComparison.Ordinal);
         await ScreenshotWriter.SaveAsync(window, CompareObjects, dark: false);
     });
 
@@ -447,7 +447,7 @@ public sealed class ScreenshotTests
 
         Assert.Equal(7, gpoRoot.Children.Count);
         Assert.Contains(scope.Links, l => !l.Enabled);
-        Assert.Contains(scope.Inheritance, r => r.GpoName == "Serwery – Zabezpieczenia" && r.EnforcedText == "Tak");
+        Assert.Contains(scope.Inheritance, r => r.GpoName == "Serwery – Zabezpieczenia" && r.EnforcedText == InLanguage("Tak", "Yes"));
         await ScreenshotWriter.SaveAsync(window, GroupPolicy, dark: false);
     });
 
@@ -540,7 +540,7 @@ public sealed class ScreenshotTests
         var dialog = new LogonHoursViewModel(context.Services.GetRequiredService<ILocalizer>(), hours, warsaw, winter, "Jan Kowalski");
         dialog.BeginSelection(dialog.Days[0].Cells[7], extend: false);
         dialog.ExtendSelection(dialog.Days[4].Cells[17]);
-        Assert.Equal("pon–pt 7–18; sob 8–13", dialog.Summary);
+        Assert.Equal(InLanguage("pon–pt 7–18; sob 8–13", "Mon–Fri 7–18; Sat 8–13"), dialog.Summary);
 
         var window = (LogonHoursWindow)Windows(context).CreateWindow(dialog);
         await ScreenshotWriter.ShowAsync(window);
@@ -922,6 +922,9 @@ public sealed class ScreenshotTests
     private static IDialogViewModelFactory Factory(UiTestContext context) => context.Services.GetRequiredService<IDialogViewModelFactory>();
 
     private static IWindowService Windows(UiTestContext context) => context.Services.GetRequiredService<IWindowService>();
+
+    /// <summary>The Polish or the English text, by the language of the screenshots.</summary>
+    private static string InLanguage(string polish, string english) => Language == "pl" ? polish : english;
 
     private sealed record ItPerson(string GivenName, string Surname, string Title, string City, string Mailbox, bool Disabled = false);
 }
