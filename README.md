@@ -89,6 +89,11 @@ podglądem zmian, raportem i cofaniem.
   pierwotnego lub wskazanego miejsca, całe poddrzewo OU jednym planem w kolejności rodzic → dzieci.
 - 🔎 **Przejrzystość** – dziennik sesji, historia równoważnych poleceń PowerShell, centrum aktywności z postępem i
   anulowaniem, komunikaty błędów AD po polsku.
+- 🩺 **Gotowość środowiska i zgłaszanie problemów** – *Narzędzia → Sprawdź gotowość środowiska…* sprawdza tylko
+  odczytem, czy domena i ten komputer są gotowe na funkcje programu (połączenie, katalog, SYSVOL i zasady grupy, zdalne
+  akcje, dzienniki zdarzeń, Watchdog, Outlook, ten komputer) – każdy punkt z objaśnieniem, podpowiedzią i rozdziałem
+  instrukcji; *Pomoc → Zgłoś problem…* składa opis do zgłoszenia bez danych katalogu (wersje, sposób połączenia, kody
+  wyników sprawdzenia, szablony ostatnich komunikatów diagnostycznych). Pilotaż: [docs/PILOTAZ.md](docs/PILOTAZ.md).
 - 🛡 **AdMng Watchdog – monitor zmian w AD** – osobna usługa (24/7) na serwerze **Debian 12/13** poza domeną (od 0.3.0;
   pakiety `.deb`, systemd, konto komputera tylko do odczytu z keytabem i hasłem zmienianym co 30 dni) wykrywa nowe i
   usunięte obiekty, zmiany atrybutów (stara → nowa wartość), blokady, wygasające konta, zmiany członkostwa i
@@ -1644,6 +1649,35 @@ diagnostyki zasad grupy (K6): ważność, obszar, szczegóły, zalecenie, *Napra
   pamięć nie przekracza limitu.
 - Każda analiza przed wyszukiwaniem mówi, czego jej brakuje, i proponuje poprawkę ustawień inspekcji przez plan zmian.
 - Żadnych danych z dzienników na dysku stacji; eksport tylko na żądanie. Działa bez Watchdoga.
+
+</details>
+
+### Etap S – stabilizacja i gotowość do pilotażu 🟡
+
+**Cel:** zanim przybędzie funkcji – wiarygodne testy, sprawdzenie gotowości środowiska w programie, zgłoszenia problemów
+bez danych katalogu i jedna lista kontrolna pilotażu na Windows Server AD ([PILOTAZ.md](docs/PILOTAZ.md)).
+
+<details>
+<summary><b>Szczegóły etapu S</b> – testy, gotowość środowiska, zgłoś problem, pilotaż</summary>
+
+- **Wiarygodne testy:** testy modeli widoku działają w jednym wątku interfejsu, tak jak w WPF, więc widzą tę samą
+  kolejność zdarzeń co program; testy, które czasem nie przechodziły pod obciążeniem, mają usunięte przyczyny (żaden nie
+  został pominięty ani powtarzany); limity czasu zastąpiono sprawdzeniem granic logicznych i liniowego wzrostu pracy.
+- **Gotowość środowiska** (*Narzędzia → Sprawdź gotowość środowiska…*, także w *Pomocy* i palecie poleceń; karta na
+  okno połączenia): *Szybkie* (połączenie, katalog, ten komputer) i *Pełne* (także SYSVOL, dziennik zdarzeń każdego DC,
+  wskazany komputer testowy, Watchdog, Outlook). Stan: OK, ostrzeżenie, błąd albo „nie sprawdzono”; objaśnienie,
+  podpowiedź i rozdział instrukcji. Nic nie jest zapisywane – prawo zapisu do `Policies` w SYSVOL wynika z listy
+  uprawnień folderu. Wyniki tylko w pamięci; eksport HTML/CSV na żądanie (zawiera nazwy hostów – program o tym mówi).
+- **Zgłoś problem** (*Pomoc → Zgłoś problem…*): tekst do skopiowania albo zapisania – wersja programu i systemu, sposób
+  połączenia (bez nazw serwerów i kont), dostępność Outlooka, WebView2 i Watchdoga, kody wyników sprawdzenia gotowości i
+  ostatnie wpisy dziennika diagnostycznego jako szablony komunikatów (bez wartości, tylko w pamięci).
+- **Jedna klasyfikacja kodów** NTSTATUS i Kerberos w analizach dzienników zdarzeń i w ich opisach.
+- Opis techniczny: [docs/dev/s-pilot-readiness.md](docs/dev/s-pilot-readiness.md).
+
+**Kryteria ukończenia**
+- Pełne przebiegi testów pod obciążeniem bez ani jednego przypadkowego błędu.
+- Pilotaż według [PILOTAZ.md](docs/PILOTAZ.md) zaczyna się od raportu gotowości, a każde zgłoszenie ma dołączony opis z
+  *Zgłoś problem…*.
 
 </details>
 

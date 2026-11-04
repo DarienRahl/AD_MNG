@@ -483,11 +483,26 @@ Zasady, które odróżniają usługę od reszty rozwiązania:
 - **Dzienniki diagnostyczne bez wartości z katalogu** – wyjątki tylko przez `SafeExceptionLog` (typ, kody, stos –
   nigdy `Message`), filtr redakcji na dostawcach logów.
 
+## Gotowość środowiska i zgłaszanie problemów (etap S)
+
+- **Gotowość środowiska** (`AdMng.Presentation.Readiness`): dokument powłoki na okno połączenia. `ReadinessChecker`
+  sprawdza obszary po kolei przez istniejące usługi okna (sesja, katalog kontrolerów, SYSVOL, zdalne akcje, dzienniki
+  zdarzeń, Watchdog, Outlook) i `ILocalComputerInfo` z App; każdy wynik ma stały kod (`ReadinessCodes`), stan,
+  objaśnienie, podpowiedź i rozdział instrukcji. Tylko odczyt: prawo zapisu do `Policies` ocenia
+  `Core.Readiness.FolderWriteAccess` z listy DACL folderu i `tokenGroups` konta, bez próby zapisu. Czytanie dzienników
+  zdarzeń idzie do każdego DC, LDAP zostaje przy kontrolerze okna (zasada 4).
+- **Wyniki** trafiają do `IReadinessResults` okna (scoped) jako pary kod–stan bez nazw – czyta je raport problemu.
+- **Zgłoś problem** (`AdMng.Presentation.Diagnostics`): `DiagnosticLoggerProvider` zapisuje w `DiagnosticLogBuffer`
+  (singleton, 200 wpisów w pamięci) tylko poziom, kategorię, identyfikator zdarzenia, **szablon** komunikatu i typ +
+  HResult wyjątku – nigdy sformatowanych argumentów, treści wyjątków ani zakresów, więc żadna wartość z katalogu nie
+  może do niego trafić (zasada 1). `ProblemReportViewModel` składa z tego, z faktów sesji (rodzaj logowania i ochrona
+  kanału, bez nazw) i z wyników gotowości tekst, który operator kopiuje albo zapisuje.
+
 ## Testy i jakość
 
 | Poziom | Gdzie | Jak |
 |---|---|---|
-| Jednostkowe | `AdMng.Core.Tests`, `AdMng.Presentation.Tests` | xUnit v3, `FakeDirectorySession` |
+| Jednostkowe | `AdMng.Core.Tests`, `AdMng.Presentation.Tests` | xUnit v3, `FakeDirectorySession`; testy modeli widoku w jednym wątku interfejsu (`UiThreadAttribute`), jak w WPF; limity czasu jako granice logiczne i liniowy wzrost pracy (`LinearWork`), nie czas zegarowy |
 | Integracyjne | `AdMng.Directory.IntegrationTests` | Samba AD DC z `tools/testlab` (lokalnie i w CI na Ubuntu) |
 | Outlook (U5) | `AdMng.Outlook.Tests` | fałszywy model obiektowy Outlooka w CLR: kolejność kroków budowania wiadomości, obrazki `cid:`, klasyfikacja błędów, wątek STA, pliki tymczasowe, głosy, transport U1 (Linux i Windows); prawdziwy Outlook – tylko pilotaż |
 | Dymne UI | CI Windows | `AdMng.exe --smoke-test` tworzy wszystkie widoki z danymi testowymi |
