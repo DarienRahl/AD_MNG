@@ -34,26 +34,82 @@
 
 ## ✨ Funkcje
 
-Nowoczesna, szybka konsola do zarządzania Active Directory – następca przystawki **Użytkownicy i komputery usługi
-Active Directory** (`dsa.msc`). Wygląda i działa znajomo (drzewo domeny i jednostek organizacyjnych, lista obiektów,
-karty właściwości, te same skróty klawiszowe), ale jest zbudowana według dzisiejszych standardów: Windows 11 Fluent,
-tryb ciemny, PL/EN, okna niemodalne, wyszukiwanie w trakcie pisania i – przede wszystkim – **edycja zbiorcza** z
-podglądem zmian, raportem i cofaniem.
+AD Manager to konsola Windows dla administratorów lokalnej usługi Active Directory. Zastępuje przystawkę **Użytkownicy
+i komputery usługi Active Directory** (`dsa.msc`) szybką, nowoczesną aplikacją – i łączy w niej zadania, do których dziś
+potrzeba kilku osobnych narzędzi: zmiany wielu obiektów naraz, przywracanie usuniętych obiektów, przegląd kont
+i uprawnień, zasady grupy, dzienniki zdarzeń i wiadomości do użytkowników. Osobna usługa, **AdMng Watchdog**, całą dobę
+zapisuje każdą zmianę w katalogu.
+
+<table>
+  <tr>
+    <td width="33%" valign="top"><b>🗂 Codzienna administracja</b><br>Drzewo domeny, szybkie listy bez limitu 2000 obiektów, wyszukiwanie w trakcie pisania, znajome karty właściwości i akcje helpdesku.</td>
+    <td width="33%" valign="top"><b>🧰 Edycja zbiorcza</b><br>Zmiana setek użytkowników, komputerów, grup lub kontaktów naraz – z podglądem przed → po, walidacją, raportem i cofaniem.</td>
+    <td width="33%" valign="top"><b>♻ Kosz AD</b><br>Przeglądanie i przywracanie usuniętych obiektów – pojedynczych albo całych poddrzew OU – bez ADAC i PowerShella.</td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top"><b>🔐 Przegląd kont i uprawnień</b><br>Konta zablokowane, z wygasającym hasłem i nieaktywne w jednym przebiegu; każde konto z większymi prawami niż zwykły użytkownik i skąd te prawa pochodzą.</td>
+    <td width="33%" valign="top"><b>🖥 Komputery i zasady grupy</b><br>Inwentaryzacja komputerów i zdalne akcje; tworzenie i łączenie GPO, ustawienia z najnowszych szablonów ADMX, podgląd „co dostanie komputer”.</td>
+    <td width="33%" valign="top"><b>📋 Dzienniki zdarzeń</b><br>Kto blokuje konto i skąd, nieudane logowania i rozpylanie haseł – ze wszystkich kontrolerów domeny naraz.</td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top"><b>✉ Wiadomości do użytkowników</b><br>E-maile z szablonów z danymi konta („hasło wygasa …”) przez SMTP, usługę Watchdog albo klasycznego Outlooka.</td>
+    <td width="33%" valign="top"><b>🛡 AdMng Watchdog</b><br>Całodobowy monitor zmian na Linuksie: co się zmieniło (stara → nowa wartość), kto i z którego komputera – z powiadomieniami e-mail, w Teams lub webhookiem.</td>
+    <td width="33%" valign="top"><b>🔒 Bezpieczeństwo od podstaw</b><br>Kerberos z podpisywaniem i szyfrowaniem, jeden DC na sesję, zero danych katalogu na dysku, bez telemetrii, każda zmiana przez plan do przejrzenia.</td>
+  </tr>
+</table>
+
+### Jak to działa
+
+```mermaid
+flowchart LR
+    subgraph WS["Stacja administratora (Windows)"]
+        APP["AD Manager<br/>WPF · .NET 10"]
+    end
+    subgraph AD["Active Directory"]
+        DC["Kontrolery domeny"]
+        PC["Serwery i stacje robocze"]
+    end
+    subgraph SRV["Serwer Debian (opcjonalnie)"]
+        WEC["OpenWEC<br/>odbiornik zdarzeń"]
+        WD["AdMng Watchdog<br/>monitor zmian"]
+    end
+    APP -->|"LDAP · Kerberos, podpisane i szyfrowane"| DC
+    APP -.->|"WinRM, dzienniki zdarzeń – na żądanie"| PC
+    DC -->|"Windows Event Forwarding"| WEC
+    WEC --> WD
+    WD -->|"LDAP, tylko odczyt"| DC
+    APP -->|"HTTPS · Kerberos"| WD
+    WD -->|"e-mail · Teams · webhook"| ALERT["Alerty i raporty"]
+```
+
+- **AD Manager** pracuje tylko na danych na żywo: każde okno rozmawia z jednym kontrolerem domeny z Twoimi
+  poświadczeniami i trzyma dane katalogu w pamięci tylko wtedy, gdy są wyświetlane. Każda zmiana przechodzi przez plan
+  zmian, który widzisz przed wykonaniem.
+- **AdMng Watchdog** jest opcjonalny. Jako jedyny element przechowuje dane – historię zmian – we własnym, chronionym
+  folderze na serwerze.
+
+### 🗂 Codzienna administracja
 
 - ⚡ **Płynność zamiast przystawki MMC** – zapytania LDAP asynchroniczne i strumieniowane stronami, pobierane są tylko
   potrzebne atrybuty, brak limitu 2000 obiektów w folderze, wirtualizowane listy, karty (Ctrl+T), paleta poleceń
   (Ctrl+K), listy odświeżane na żywo przez powiadomienia LDAP – zmienione obiekty, a nie cały folder. Kontenery
   powyżej 5000 obiektów przechodzą w **listę wirtualną (VLV)**: kontroler sortuje, strony są czytane w trakcie
   przewijania, a pamięć nie rośnie z liczbą obiektów.
-- 🔒 **Zero lokalnych danych** – nic z katalogu nie jest zapisywane na dysku (brak bazy, cache, snapshotów); każde
-  odświeżenie pyta kontroler domeny na żywo. Na dysku (`%APPDATA%\AdMng`) są tylko ustawienia interfejsu, profile
-  połączeń bez haseł i definicje widoków. Hasła nigdy nie trafiają do dzienników; do pliku – tylko w eksporcie wyników
-  resetu haseł, o który operator wyraźnie poprosi.
-- 🔑 **Różne poświadczenia** – logowanie bieżącym kontem Windows albo innym (helpdesk, administrator); Kerberos z
-  podpisywaniem i szyfrowaniem, LDAPS lub StartTLS; cała sesja pracuje z jednym kontrolerem domeny, który można zmienić
-  w trakcie pracy (**„Zmień kontroler domeny…”** – lista DC z lokacją, GC i RODC, bez ponownego wpisywania hasła, otwarte
-  karty zostają). Interfejs pokazuje, co dane konto może zmienić, a czego nie (`allowedAttributesEffective`), i wyróżnia
-  konta uprzywilejowane.
+- 🪪 **Znajome karty właściwości** – użytkownik, komputer, grupa, kontakt, OU: Ogólne, Adres, Konto (z **godzinami
+  logowania** – siatka tygodnia jak w ADUC), Profil, Telefony, Organizacja, Członek grup (bezpośrednio i w pełni, z
+  zagnieżdżeniem), Członkowie, Zarządzany przez, Obiekt, Edytor atrybutów; akcje helpdesk (reset hasła, odblokowanie,
+  włącz/wyłącz, dodaj do grupy), tworzenie, przenoszenie (także przeciągnij-upuść), zmiana nazwy (F2), usuwanie. Kontenery
+  dobrze znane (`Users`, `Computers` – także przekierowane) są rozpoznawane po WKGUID: drzewo je oznacza, a nowe konta
+  bez wskazanego kontenera trafiają tam, gdzie wskazuje domena.
+- 📋 **Szybkie kopiowanie** – przycisk „Kopiuj” przy adresie e-mail, UPN, loginie (także `DOMENA\login`), telefonach i
+  innych wartościach w panelu szczegółów i na kartach właściwości; Ctrl+C kopiuje zaznaczone wiersze listy (do Excela,
+  Teams, zgłoszeń); „Kopiuj jako…” dla wielu obiektów naraz – np. adresy e-mail jako lista gotowa do pola „Do” w
+  Outlooku (Ctrl+Shift+M). Wartości poufne nie trafiają do schowka bez jawnego odsłonięcia.
+- 🗂 **Widoki dopasowane do Waszego AD** – przypinanie OU (np. *Pracownicy*, *Komputery*), zapisane zapytania LDAP z
+  kolumnami, gotowe szybkie filtry (zablokowane, wyłączone, nieaktywne > N dni, hasło nigdy nie wygasa…), eksport/import
+  widoków dla zespołu.
+- 📧 **Poczta (Exchange)** – karta *Adresy e-mail*: `proxyAddresses` z dokładnie jednym głównym adresem SMTP, `mail`,
+  `mailNickname`, `targetAddress`, ukrycie w książce adresowej; atrybuty poczty edytowalne też zbiorczo.
 - 🪟 **Wiele połączeń jednocześnie** – *Plik → Nowe połączenie w nowym oknie…* (Ctrl+Shift+N) otwiera kolejne okno
   główne z własnym połączeniem: inna domena albo ta sama domena z innym kontem, każde okno z osobnym hasłem (tylko w
   pamięci), drzewem, kartami, oknami właściwości, narzędziami, operacjami w tle i dziennikiem sesji. Okna łatwo
@@ -70,28 +126,6 @@ podglądem zmian, raportem i cofaniem.
   (bezpośrednie, podstawowe i zagnieżdżone; grupy wbudowane według RID lub SID, więc *Domain Users* = *Użytkownicy
   domeny*) i – dla grup – członków. Tylko do odczytu: każda strona czyta przez sesję swojego okna (z jej kontrolerem,
   kontem i formatowaniem), nic nie jest kopiowane ani zapisywane; CSV powstaje tylko na żądanie.
-- 🪪 **Znajome karty właściwości** – użytkownik, komputer, grupa, kontakt, OU: Ogólne, Adres, Konto (z **godzinami
-  logowania** – siatka tygodnia jak w ADUC), Profil, Telefony, Organizacja, Członek grup (bezpośrednio i w pełni, z
-  zagnieżdżeniem), Członkowie, Zarządzany przez, Obiekt, Edytor atrybutów; akcje helpdesk (reset hasła, odblokowanie,
-  włącz/wyłącz, dodaj do grupy), tworzenie, przenoszenie (także przeciągnij-upuść), zmiana nazwy (F2), usuwanie. Kontenery
-  dobrze znane (`Users`, `Computers` – także przekierowane) są rozpoznawane po WKGUID: drzewo je oznacza, a nowe konta
-  bez wskazanego kontenera trafiają tam, gdzie wskazuje domena.
-- 📋 **Szybkie kopiowanie** – przycisk „Kopiuj” przy adresie e-mail, UPN, loginie (także `DOMENA\login`), telefonach i
-  innych wartościach w panelu szczegółów i na kartach właściwości; Ctrl+C kopiuje zaznaczone wiersze listy (do Excela,
-  Teams, zgłoszeń); „Kopiuj jako…” dla wielu obiektów naraz – np. adresy e-mail jako lista gotowa do pola „Do” w
-  Outlooku (Ctrl+Shift+M). Wartości poufne nie trafiają do schowka bez jawnego odsłonięcia.
-- 🧰 **Edycja zbiorcza** użytkowników, komputerów, grup i kontaktów: ustawianie/czyszczenie atrybutów, szablony
-  (`{givenName|nodiacritics|lower}.{sn|nodiacritics|lower}`), znajdź i zamień, włącz/wyłącz, odblokuj, reset haseł,
-  przenoszenie, zmiana nazwy, członkostwo w grupach, usuwanie, import CSV (także `;` i cp1250 z polskiego Excela) –
-  zawsze z podglądem różnic, walidacją, ochroną przed nadpisaniem cudzych zmian, raportem, eksportem do CSV/PowerShell i
-  możliwością cofnięcia.
-- 🗂 **Widoki dopasowane do Waszego AD** – przypinanie OU (np. *Pracownicy*, *Komputery*), zapisane zapytania LDAP z
-  kolumnami, gotowe szybkie filtry (zablokowane, wyłączone, nieaktywne > N dni, hasło nigdy nie wygasa…), eksport/import
-  widoków dla zespołu.
-- 📧 **Poczta (Exchange)** – karta *Adresy e-mail*: `proxyAddresses` z dokładnie jednym głównym adresem SMTP, `mail`,
-  `mailNickname`, `targetAddress`, ukrycie w książce adresowej; atrybuty poczty edytowalne też zbiorczo.
-- ♻ **Kosz AD** – okno *Kosz Active Directory* (Ctrl+Shift+R): usunięte obiekty czytane na żywo, filtry, przywracanie do
-  pierwotnego lub wskazanego miejsca, całe poddrzewo OU jednym planem w kolejności rodzic → dzieci.
 - 🔎 **Przejrzystość** – dziennik sesji, historia równoważnych poleceń PowerShell, centrum aktywności z postępem i
   anulowaniem, komunikaty błędów AD po polsku.
 - 🩺 **Gotowość środowiska i zgłaszanie problemów** – *Narzędzia → Sprawdź gotowość środowiska…* sprawdza tylko
@@ -99,6 +133,74 @@ podglądem zmian, raportem i cofaniem.
   akcje, dzienniki zdarzeń, Watchdog, Outlook, ten komputer) – każdy punkt z objaśnieniem, podpowiedzią i rozdziałem
   instrukcji; *Pomoc → Zgłoś problem…* składa opis do zgłoszenia bez danych katalogu (wersje, sposób połączenia, kody
   wyników sprawdzenia, szablony ostatnich komunikatów diagnostycznych). Pilotaż: [docs/PILOTAZ.md](docs/PILOTAZ.md).
+
+### 🧰 Edycja zbiorcza i Kosz AD
+
+- 🧰 **Edycja zbiorcza** użytkowników, komputerów, grup i kontaktów: ustawianie/czyszczenie atrybutów, szablony
+  (`{givenName|nodiacritics|lower}.{sn|nodiacritics|lower}`), znajdź i zamień, włącz/wyłącz, odblokuj, reset haseł,
+  przenoszenie, zmiana nazwy, członkostwo w grupach, usuwanie, import CSV (także `;` i cp1250 z polskiego Excela) –
+  zawsze z podglądem różnic, walidacją, ochroną przed nadpisaniem cudzych zmian, raportem, eksportem do CSV/PowerShell i
+  możliwością cofnięcia.
+- ♻ **Kosz AD** – okno *Kosz Active Directory* (Ctrl+Shift+R): usunięte obiekty czytane na żywo, filtry, przywracanie do
+  pierwotnego lub wskazanego miejsca, całe poddrzewo OU jednym planem w kolejności rodzic → dzieci.
+
+### 🔐 Przegląd kont i uprawnień
+
+- 📊 **Przegląd kont** – *Narzędzia → Przegląd kont…* sprawdza w jednym przebiegu całą domenę, OU albo zapisany widok:
+  konta zablokowane (także stan na wszystkich DC), wygasłe i wygasające hasła i konta, konta nieaktywne i nigdy
+  nieużywane, higienę haseł – jako kafelki z licznikami. Z każdej listy można przejść do właściwości, edycji zbiorczej,
+  eksportu CSV albo wiadomości do użytkowników.
+- 🔐 **Uprawnienia** – zakładka *Uprawnienia* pokazuje każde konto z jakimikolwiek prawami ponad zwykłego użytkownika
+  domeny: z grup (także zagnieżdżonych), ryzykownych ustawień konta, delegowań w ACL i praw lokalnych nadanych przez GPO –
+  z poziomem (Tier 0 / wysoki / podwyższony / drobny) i ścieżką, skąd uprawnienie pochodzi (konto → grupa A → grupa B →
+  Operatorzy kont).
+
+Szczegóły: [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u1c-u1d-u2-u4-i-u5-).
+
+### 🖥 Komputery i zasady grupy
+
+- 🖥 **Komputery** – *Przegląd komputerów…*: system i kompilacja, ostatnie logowanie (także dokładne ze wszystkich DC),
+  lokacja, właściciel i kto dołączył komputer; gotowe raporty (systemy po końcu wsparcia, komputery nieaktywne, serwery
+  bez właściciela, komputery w niewłaściwych OU); przygotowanie, reset, przenoszenie, wyłączanie i usuwanie kont
+  komputerów; zdalne akcje przez WinRM z poświadczeniami okna – kto jest zalogowany, `gpupdate /force`, restart, usługi –
+  oraz Pulpit zdalny, *Zarządzanie komputerem* i *Podgląd zdarzeń* dla zaznaczonego komputera.
+- 📜 **Zasady grupy** – GPO w drzewie domeny i karta *Zasady grupy* na domenie, OU i lokacjach (połączenia, kolejność,
+  wymuszanie, dziedziczenie); tworzenie, kopiowanie i łączenie GPO, filtrowanie zabezpieczeń i WMI, delegowanie, kopie
+  zapasowe i przywracanie, porównanie dwóch GPO; edytor szablonów administracyjnych z najnowszych plików ADMX (Windows,
+  Edge, Microsoft 365 Apps, Chrome, Firefox …) z aktualizacją magazynu centralnego; ustawienia zabezpieczeń; raport „co
+  dostanie komputer” i diagnostyka zasad grupy. Każda zmiana w AD i SYSVOL przechodzi przez plan zmian, z cofaniem.
+
+Szczegóły: [ścieżka K](#ścieżka-k--komputery-i-zasady-grupy-gpo--k1k6-), [docs/KOMPUTERY.md](docs/KOMPUTERY.md) i
+[docs/ZASADY-GRUPY.md](docs/ZASADY-GRUPY.md).
+
+### 📋 Dzienniki zdarzeń i diagnostyka
+
+- 📋 **Czytnik dzienników zdarzeń** – dzienniki kontrolerów domeny, serwerów, stacji i pliki `.evtx` prosto z AD
+  Managera: dowolny kanał, wspólna oś czasu z wielu komputerów, pola i kody objaśnione po ludzku, SID-y i komputery
+  połączone z obiektami AD; nic nie jest zapisywane na dysku.
+- 🔓 **Źródło blokady konta i nieudane logowania** – *Skąd blokada konta…* pokazuje stan na wszystkich DC i ich
+  dzienniki naraz, skąd przyszły złe hasła (z objaśnionymi kodami) i sprawdza komputer źródłowy (sesje, usługi, zadania
+  zaplanowane); osobna analiza znajduje nieudane logowania i rozpylanie haseł. W planach: gotowość na wyłączenie RC4,
+  NTLMv1 i niepodpisanego LDAP („kto przestanie działać”), zdrowie DC.
+
+Szczegóły: [ścieżka E](#ścieżka-e--dzienniki-zdarzeń-czytnik-i-analiza--e1-i-część-e2-),
+[docs/DZIENNIKI-ZDARZEN.md](docs/DZIENNIKI-ZDARZEN.md).
+
+### ✉ Wiadomości do użytkowników
+
+- ✉ **Wiadomości e-mail do użytkowników** – z szablonów z danymi konta (np. „hasło wygasa …”), do jednej osoby z okna
+  właściwości albo do setek z zaznaczenia lub wyniku przeglądu; wysyłane bezpośrednio przez SMTP albo przez usługę
+  Watchdog, z podglądem, wiadomością testową do siebie i raportem; sformatowane wiadomości wklejone z Outlooka razem
+  z obrazami, zwroty grzecznościowe z tytułem i płcią.
+- 📨 **Korespondencja (Outlook)** – korespondencja seryjna przez klasycznego Outlooka: odbiorcy z plików albo prosto
+  z AD, pola, podpis, załączniki, dziennik „już wysłane” – oraz zapytania do właścicieli skrzynek współdzielonych, czy
+  skrzynka jest jeszcze potrzebna.
+
+Szczegóły: [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u1c-u1d-u2-u4-i-u5-),
+[docs/KORESPONDENCJA.md](docs/KORESPONDENCJA.md).
+
+### 🛡 AdMng Watchdog – monitorowanie zmian
+
 - 🛡 **AdMng Watchdog – monitor zmian w AD** – osobna usługa (24/7) na serwerze **Debian 12/13** poza domeną (od 0.3.0;
   pakiety `.deb`, systemd, konto komputera tylko do odczytu z keytabem i hasłem zmienianym co 30 dni) wykrywa nowe i
   usunięte obiekty, zmiany atrybutów (stara → nowa wartość), blokady, wygasające konta, zmiany członkostwa i
@@ -110,6 +212,20 @@ podglądem zmian, raportem i cofaniem.
   chronionym folderze ([ADR-0008](docs/adr/0008-watchdog-dane-w-osobnym-folderze.md),
   [ADR-0009](docs/adr/0009-watchdog-na-linuksie.md)). Funkcje: [docs/WATCHDOG.md](docs/WATCHDOG.md), wdrożenie:
   [docs/WATCHDOG-LINUX.md](docs/WATCHDOG-LINUX.md).
+
+### 🔒 Bezpieczeństwo i prywatność
+
+- 🔒 **Zero lokalnych danych** – nic z katalogu nie jest zapisywane na dysku (brak bazy, cache, snapshotów); każde
+  odświeżenie pyta kontroler domeny na żywo. Na dysku (`%APPDATA%\AdMng`) są tylko ustawienia interfejsu, profile
+  połączeń bez haseł i definicje widoków. Hasła nigdy nie trafiają do dzienników; do pliku – tylko w eksporcie wyników
+  resetu haseł, o który operator wyraźnie poprosi.
+- 🔑 **Różne poświadczenia** – logowanie bieżącym kontem Windows albo innym (helpdesk, administrator); Kerberos z
+  podpisywaniem i szyfrowaniem, LDAPS lub StartTLS; cała sesja pracuje z jednym kontrolerem domeny, który można zmienić
+  w trakcie pracy (**„Zmień kontroler domeny…”** – lista DC z lokacją, GC i RODC, bez ponownego wpisywania hasła, otwarte
+  karty zostają). Interfejs pokazuje, co dane konto może zmienić, a czego nie (`allowedAttributesEffective`), i wyróżnia
+  konta uprzywilejowane.
+- 🕵 **Bez telemetrii i automatycznych aktualizacji** – jedyne połączenie z internetem to pobranie szablonów ADMX
+  przeglądarek, gdy sam o to poprosisz; zob. [politykę prywatności](#privacy-policy).
 
 Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV, „Kopiuj użytkownika”): zob.
 [znane ograniczenia](#znane-ograniczenia).
@@ -138,8 +254,7 @@ Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV
   <img alt="Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika" src="docs/assets/screenshots/01-main-window.png">
 </picture>
 
-<p align="center"><sub>Okno główne – jednostka organizacyjna IT ze szczegółami zaznaczonego użytkownika
-(motyw jasny lub ciemny, jak Twój GitHub)</sub></p>
+<p align="center"><sub>Okno główne – jednostka organizacyjna IT ze szczegółami zaznaczonego użytkownika (motyw jasny lub ciemny, jak Twój GitHub)</sub></p>
 
 <table>
   <tr>
@@ -148,8 +263,38 @@ Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV
       <br><sub><b>Edytor zbiorczy</b> – podgląd zmian (przed → po) przed wykonaniem</sub>
     </td>
     <td width="50%" valign="top">
-      <img alt="Kosz Active Directory – usunięte obiekty do przywrócenia" src="docs/assets/screenshots/06-recycle-bin.png">
-      <br><sub><b>Kosz Active Directory</b> – usunięte obiekty do przywrócenia</sub>
+      <img alt="Kosz AD – usunięte obiekty do przywrócenia" src="docs/assets/screenshots/06-recycle-bin.png">
+      <br><sub><b>Kosz AD</b> – usunięte obiekty do przywrócenia</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img alt="Przegląd kont – kafelki sprawdzeń i konta z wygasającym hasłem" src="docs/assets/screenshots/17-account-review.png">
+      <br><sub><b>Przegląd kont</b> – kafelki sprawdzeń i konta, którym wkrótce wygaśnie hasło</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img alt="Uprawnienia – konta z prawami ponad zwykłego użytkownika" src="docs/assets/screenshots/19-privileged-access.png">
+      <br><sub><b>Uprawnienia</b> – konta z prawami ponad zwykłego użytkownika, poziomy i ścieżka uprawnienia</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img alt="Przegląd komputerów – systemy po końcu wsparcia" src="docs/assets/screenshots/22-computers.png">
+      <br><sub><b>Przegląd komputerów</b> – systemy po końcu wsparcia, kafelki wersji i porządku</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img alt="Zasady grupy jednostki organizacyjnej" src="docs/assets/screenshots/23-group-policy.png">
+      <br><sub><b>Zasady grupy</b> OU – połączone GPO, dziedziczenie, obiekty zasad grupy w drzewie</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img alt="Edytor szablonów administracyjnych GPO" src="docs/assets/screenshots/29-administrative-templates.png">
+      <br><sub><b>Szablony administracyjne</b> – ustawienie z magazynu centralnego z opcjami i pomocą</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img alt="Skąd blokada konta – stan na DC i źródła złych haseł" src="docs/assets/screenshots/32-lockout-source.png">
+      <br><sub><b>Skąd blokada konta</b> – stan na DC, źródła złych haseł, sprawdzony komputer źródłowy</sub>
     </td>
   </tr>
   <tr>
@@ -164,15 +309,9 @@ Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV
   </tr>
 </table>
 
-<sub>Zrzuty pochodzą z wersji 0.2.0 (polski interfejs, przykładowa firma z testów); zrzuty wersji 0.13.0 – także okno
-*Przegląd komputerów*, karta *Zasady grupy* jednostki organizacyjnej, wiadomość wklejona z Outlooka z obrazami
-osadzonymi, zwroty grzecznościowe w podglądzie wiadomości, *Przegląd kont* (z zakładką *Uprawnienia*), dwa okna połączeń
-obok siebie, porównanie obiektów między nimi, potwierdzenie certyfikatu Watchdoga i podzakładka „Źródła i retencja” – są
-dołączone do wydania. Okno *Korespondencja* (U5) pokazują zrzuty 26–28: odbiorcy wczytani z pliku z kolumnami pól,
-wiadomość w edytorze z podpisem i załącznikami oraz właściciele skrzynek po dopasowaniu; szablony administracyjne GPO
-(K3) – zrzuty 29 i 30: edytor ustawień ADMX i aktualizacja magazynu centralnego; model „co dostanie komputer” (K5) –
-zrzut 31; skąd blokada konta (E) – zrzut 32; gotowość środowiska (etap S) – zrzut 33. Nowe zrzuty powstają
-przy dużych wydaniach i na żądanie – zob. [Zrzuty ekranu z CI](#zrzuty-ekranu-z-ci).</sub>
+<sub>Interfejs w wersji angielskiej na przykładowej firmie z testów (polskie nazwiska i dane). Więcej zrzutów – karty
+właściwości, godziny logowania, zakładki Watchdoga, korespondencja, gotowość środowiska i inne – powstaje przy dużych
+wydaniach i na żądanie, zob. [Zrzuty ekranu z CI](#zrzuty-ekranu-z-ci).</sub>
 
 ## 🧭 Roadmapa
 
@@ -2003,12 +2142,14 @@ $env:ADMNG_UI_TESTS = "1"; dotnet test tests/AdMng.App.UiTests
 
 #### Zrzuty ekranu z CI
 
-Zrzuty ekranu (polski interfejs na przykładowej firmie z testów, PNG + `manifest.json` z opisami) nie powstają już przy
-każdym pushu, żeby repozytorium i miejsce na artefakty CI nie rosły. Powstają:
+Zrzuty ekranu (angielski interfejs na przykładowej firmie z testów, PNG + `manifest.json` z opisami) nie powstają już
+przy każdym pushu, żeby repozytorium i miejsce na artefakty CI nie rosły. Powstają:
 
 - przy dużych wydaniach (`X.0.0`) i wydaniach, których opis zawiera `<!-- screenshots -->` – dołączone do wydania;
-- na żądanie: **Actions** → **CI** → **Run workflow** z zaznaczonym *Render the screenshots* – jako artefakt
-  `screenshots` tego przebiegu (przechowywany 7 dni).
+- na żądanie: **Actions** → **CI** → **Run workflow** z zaznaczonym *Render the screenshots* (język interfejsu:
+  domyślnie angielski albo polski) – jako artefakt `screenshots` tego przebiegu (przechowywany 7 dni). Z zaznaczonym
+  *Also commit the README pictures* przebieg commituje też obrazki tej strony do `docs/assets/screenshots` na tej
+  gałęzi, skompresowane bezstratnie.
 
 Gałąź `screenshots` zawiera zrzuty z wcześniejszych przebiegów CI i nie jest już aktualizowana.
 

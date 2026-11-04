@@ -34,26 +34,81 @@
 
 ## ✨ Features
 
-A modern, fast console for managing Active Directory – a successor to the **Active Directory Users and Computers**
-snap-in (`dsa.msc`). It looks and works in a familiar way (domain and organizational unit tree, object list, property
-pages, the same keyboard shortcuts), but it is built to today's standards: Windows 11 Fluent, dark mode, EN/PL,
-modeless windows, search as you type and – above all – **bulk editing** with a preview of the changes, a report and
-undo.
+AD Manager is a Windows desktop console for administrators of on-premises Active Directory. It replaces the
+**Active Directory Users and Computers** snap-in (`dsa.msc`) with a fast, modern application – and brings in the jobs
+that today need several separate tools: changing many objects at once, restoring deleted objects, reviewing accounts and
+privileges, Group Policy, event logs and messages to users. A separate service, **AdMng Watchdog**, records every change
+in the directory around the clock.
+
+<table>
+  <tr>
+    <td width="33%" valign="top"><b>🗂 Everyday administration</b><br>Domain tree, fast lists without the 2000-object limit, search as you type, the familiar property pages and helpdesk actions.</td>
+    <td width="33%" valign="top"><b>🧰 Bulk editing</b><br>Change hundreds of users, computers, groups or contacts at once – with a before → after preview, validation, a report and undo.</td>
+    <td width="33%" valign="top"><b>♻ AD Recycle Bin</b><br>Browse deleted objects and restore them – single objects or whole OU subtrees – without ADAC or PowerShell.</td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top"><b>🔐 Account and privilege review</b><br>Locked-out, expiring and inactive accounts in one pass; every account with more rights than an ordinary user, and where those rights come from.</td>
+    <td width="33%" valign="top"><b>🖥 Computers and Group Policy</b><br>Computer inventory and remote actions; create and link GPOs, edit settings from the latest ADMX templates, see what a computer will get.</td>
+    <td width="33%" valign="top"><b>📋 Event logs</b><br>Find who locks out an account and from where, failed logons and password spraying – across all domain controllers at once.</td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top"><b>✉ Messages to users</b><br>E-mails from templates with account data ("your password expires on …") via SMTP, the Watchdog service or classic Outlook.</td>
+    <td width="33%" valign="top"><b>🛡 AdMng Watchdog</b><br>A 24/7 change monitor on Linux: what changed (old → new value), who did it and from which computer – with alerts by e-mail, Teams or webhook.</td>
+    <td width="33%" valign="top"><b>🔒 Secure by design</b><br>Kerberos with signing and encryption, one DC per session, no directory data on disk, no telemetry, every change through a plan you review first.</td>
+  </tr>
+</table>
+
+### How it works
+
+```mermaid
+flowchart LR
+    subgraph WS["Administrator's workstation (Windows)"]
+        APP["AD Manager<br/>WPF · .NET 10"]
+    end
+    subgraph AD["Active Directory"]
+        DC["Domain controllers"]
+        PC["Servers and workstations"]
+    end
+    subgraph SRV["Debian server (optional)"]
+        WEC["OpenWEC<br/>event receiver"]
+        WD["AdMng Watchdog<br/>change monitor"]
+    end
+    APP -->|"LDAP · Kerberos, signed and encrypted"| DC
+    APP -.->|"WinRM, event logs – on request"| PC
+    DC -->|"Windows Event Forwarding"| WEC
+    WEC --> WD
+    WD -->|"LDAP, read-only"| DC
+    APP -->|"HTTPS · Kerberos"| WD
+    WD -->|"e-mail · Teams · webhook"| ALERT["Alerts and reports"]
+```
+
+- **AD Manager** works only with live data: each window talks to one domain controller with your credentials and keeps
+  directory data in memory only while it is shown. Every change goes through a change plan that you see before it runs.
+- **AdMng Watchdog** is optional. It is the only component that stores data – the history of changes – in its own
+  protected folder on the server.
+
+### 🗂 Everyday administration
 
 - ⚡ **Smooth instead of an MMC snap-in** – asynchronous LDAP queries streamed page by page, only the attributes that
   are needed are fetched, no 2000-object limit per folder, virtualized lists, tabs (Ctrl+T), a command palette
   (Ctrl+K), lists refreshed live through LDAP notifications – the changed objects, not the whole folder. Containers
   with more than 5000 objects switch to a **virtual list (VLV)**: the domain controller sorts, pages are read while you
   scroll, and memory does not grow with the number of objects.
-- 🔒 **Zero local data** – nothing from the directory is written to disk (no database, cache or snapshots); every
-  refresh asks the domain controller live. On disk (`%APPDATA%\AdMng`) there are only UI settings, connection profiles
-  without passwords and view definitions. Passwords never end up in logs; they go to a file only in an export of
-  password reset results that the operator explicitly asks for.
-- 🔑 **Different credentials** – sign in with the current Windows account or another one (helpdesk, administrator);
-  Kerberos with signing and encryption, LDAPS or StartTLS; the whole session works with one domain controller, which
-  can be changed while you work (**"Change Domain Controller..."** – a list of DCs with site, GC and RODC, without
-  re-entering the password, open tabs stay). The UI shows what a given account can and cannot change
-  (`allowedAttributesEffective`) and highlights privileged accounts.
+- 🪪 **Familiar property pages** – user, computer, group, contact, OU: General, Address, Account (with **logon
+  hours** – a weekly grid as in ADUC), Profile, Telephones, Organization, Member Of (direct and full, with nesting),
+  Members, Managed By, Object, Attribute Editor; helpdesk actions (password reset, unlock, enable/disable, add to
+  group), creating, moving (also drag and drop), renaming (F2), deleting. Well-known containers (`Users`,
+  `Computers` – also redirected ones) are recognized by their WKGUID: the tree marks them, and new accounts created
+  without a specified container go where the domain points.
+- 📋 **Quick copying** – a "Copy" button next to the e-mail address, UPN, logon name (also `DOMAIN\login`), phone
+  numbers and other values in the details pane and on property pages; Ctrl+C copies the selected list rows (to Excel,
+  Teams, tickets); "Copy as…" for many objects at once – e.g. e-mail addresses as a list ready for the "To" field in
+  Outlook (Ctrl+Shift+M). Confidential values do not reach the clipboard without being explicitly revealed.
+- 🗂 **Views tailored to your AD** – pinning OUs (e.g. *Pracownicy*, *Komputery*), saved LDAP queries with columns,
+  ready-made quick filters (locked out, disabled, inactive > N days, password never expires…), export/import of views
+  for the team.
+- 📧 **Mail (Exchange)** – the *E-mail Addresses* page: `proxyAddresses` with exactly one primary SMTP address, `mail`,
+  `mailNickname`, `targetAddress`, hiding from the address book; mail attributes can also be edited in bulk.
 - 🪟 **Several connections at once** – *File → New connection in a new window…* (Ctrl+Shift+N) opens another main
   window with its own connection: a different domain, or the same domain with a different account, each window with
   its own password (in memory only), tree, tabs, property windows, tools, background operations and session log. The
@@ -71,28 +126,6 @@ undo.
   membership by name (direct, primary and nested; built-in groups by RID or SID, so *Domain Users* = *Użytkownicy
   domeny*) and – for groups – the members. Read-only: each side reads through its own window's session (with its
   domain controller, account and formatting), nothing is copied or saved; a CSV is created only on request.
-- 🪪 **Familiar property pages** – user, computer, group, contact, OU: General, Address, Account (with **logon
-  hours** – a weekly grid as in ADUC), Profile, Telephones, Organization, Member Of (direct and full, with nesting),
-  Members, Managed By, Object, Attribute Editor; helpdesk actions (password reset, unlock, enable/disable, add to
-  group), creating, moving (also drag and drop), renaming (F2), deleting. Well-known containers (`Users`,
-  `Computers` – also redirected ones) are recognized by their WKGUID: the tree marks them, and new accounts created
-  without a specified container go where the domain points.
-- 📋 **Quick copying** – a "Copy" button next to the e-mail address, UPN, logon name (also `DOMAIN\login`), phone
-  numbers and other values in the details pane and on property pages; Ctrl+C copies the selected list rows (to Excel,
-  Teams, tickets); "Copy as…" for many objects at once – e.g. e-mail addresses as a list ready for the "To" field in
-  Outlook (Ctrl+Shift+M). Confidential values do not reach the clipboard without being explicitly revealed.
-- 🧰 **Bulk editing** of users, computers, groups and contacts: setting/clearing attributes, templates
-  (`{givenName|nodiacritics|lower}.{sn|nodiacritics|lower}`), find and replace, enable/disable, unlock, password
-  resets, moving, renaming, group membership, deleting, CSV import (also `;` and cp1250 from a Polish Excel) – always
-  with a preview of the differences, validation, protection against overwriting other people's changes, a report,
-  export to CSV/PowerShell and the option to undo.
-- 🗂 **Views tailored to your AD** – pinning OUs (e.g. *Pracownicy*, *Komputery*), saved LDAP queries with columns,
-  ready-made quick filters (locked out, disabled, inactive > N days, password never expires…), export/import of views
-  for the team.
-- 📧 **Mail (Exchange)** – the *E-mail Addresses* page: `proxyAddresses` with exactly one primary SMTP address, `mail`,
-  `mailNickname`, `targetAddress`, hiding from the address book; mail attributes can also be edited in bulk.
-- ♻ **AD Recycle Bin** – the *AD Recycle Bin* window (Ctrl+Shift+R): deleted objects read live, filters, restoring to
-  the original or a chosen location, a whole OU subtree in one plan in parent → children order.
 - 🔎 **Transparency** – session log, history of the equivalent PowerShell commands, an activity center with progress
   and cancellation, AD error messages in plain language (in English or Polish).
 - 🩺 **Environment readiness and problem reports** – *Tools → Check environment readiness…* checks, read-only, whether
@@ -101,6 +134,74 @@ undo.
   of the instructions; *Help → Report a problem…* puts together a description for a ticket without directory data
   (versions, connection method, codes of the check results, templates of the latest diagnostic messages). Pilot:
   [docs/PILOTAZ.md](docs/PILOTAZ.md).
+
+### 🧰 Bulk editing and the AD Recycle Bin
+
+- 🧰 **Bulk editing** of users, computers, groups and contacts: setting/clearing attributes, templates
+  (`{givenName|nodiacritics|lower}.{sn|nodiacritics|lower}`), find and replace, enable/disable, unlock, password
+  resets, moving, renaming, group membership, deleting, CSV import (also `;` and cp1250 from a Polish Excel) – always
+  with a preview of the differences, validation, protection against overwriting other people's changes, a report,
+  export to CSV/PowerShell and the option to undo.
+- ♻ **AD Recycle Bin** – the *AD Recycle Bin* window (Ctrl+Shift+R): deleted objects read live, filters, restoring to
+  the original or a chosen location, a whole OU subtree in one plan in parent → children order.
+
+### 🔐 Account and privilege review
+
+- 📊 **Account review** – *Tools → Account review…* checks the whole domain, an OU or a saved view in one pass:
+  locked-out accounts (also the state on all DCs), expired and expiring passwords and accounts, inactive and never-used
+  accounts, password hygiene – as tiles with counters. Every list leads on to the properties, bulk editing, a CSV export
+  or a message to the users.
+- 🔐 **Privileged access** – the *Privileges* tab lists every account with any rights beyond those of an ordinary domain
+  user: from groups (also nested), risky account settings, delegations in ACLs and local rights granted by GPOs – with
+  the level (Tier 0 / high / elevated / minor) and the path the right comes from (account → group A → group B → Account
+  Operators).
+
+Details: [Track U](#track-u--account-review-and-messages-to-users--u1a-u1b-u1c-u1d-u2-u4-and-u5-).
+
+### 🖥 Computers and Group Policy
+
+- 🖥 **Computers** – *Computer review…*: operating system and build, last logon (also the exact one from all DCs), site,
+  owner and who joined the computer; ready-made reports (systems past their end of support, inactive computers, servers
+  without an owner, computers in the wrong OUs); preparing, resetting, moving, disabling and deleting computer accounts;
+  remote actions over WinRM with the window's credentials – who is logged on, `gpupdate /force`, restart, services –
+  plus Remote Desktop, *Computer Management* and *Event Viewer* for the selected computer.
+- 📜 **Group Policy** – GPOs in the domain tree and a *Group Policy* tab on the domain, OUs and sites (links, order,
+  enforcement, inheritance); creating, copying and linking GPOs, security and WMI filtering, delegation, backup and
+  restore, comparing two GPOs; an Administrative Templates editor based on the latest ADMX files (Windows, Edge,
+  Microsoft 365 Apps, Chrome, Firefox …) with central store updates; security settings; the "what will the computer
+  get" report and Group Policy diagnostics. Every change in AD and SYSVOL goes through the change plan, with rollback.
+
+Details: [Track K](#track-k--computers-and-group-policy-gpo--k1k6-), [docs/KOMPUTERY.md](docs/KOMPUTERY.md) and
+[docs/ZASADY-GRUPY.md](docs/ZASADY-GRUPY.md) (Polish).
+
+### 📋 Event logs and troubleshooting
+
+- 📋 **Event log reader** – the logs of domain controllers, servers, workstations and `.evtx` files straight from AD
+  Manager: any channel, one timeline across several computers, fields and codes explained in plain language, SIDs and
+  computers linked to their AD objects; nothing is written to disk.
+- 🔓 **Lockout source and failed logons** – *Find the lockout source…* shows the state on all DCs and their logs at
+  once, where the bad passwords came from (with the codes explained) and checks the source computer (sessions,
+  services, scheduled tasks); another analysis finds failed logons and password spraying. Planned: readiness for
+  disabling RC4, NTLMv1 and unsigned LDAP ("who will stop working"), DC health.
+
+Details: [Track E](#track-e--event-logs-reader-and-analysis--e1-and-part-of-e2-),
+[docs/DZIENNIKI-ZDARZEN.md](docs/DZIENNIKI-ZDARZEN.md) (Polish).
+
+### ✉ Messages to users
+
+- ✉ **E-mail messages to users** – from templates with account data (e.g. "your password expires on …"), to one user
+  from the properties window or to hundreds from a selection or a review result; sent directly over SMTP or through the
+  Watchdog service, with a preview, a test message to yourself and a report; formatted messages pasted from Outlook with
+  their images, salutations with title and gender.
+- 📨 **Correspondence (Outlook)** – mail merge through classic Outlook: recipients from files or straight from AD,
+  fields, signature, attachments, an "already sent" journal – and queries asking the owners of shared mailboxes whether
+  the mailbox is still needed.
+
+Details: [Track U](#track-u--account-review-and-messages-to-users--u1a-u1b-u1c-u1d-u2-u4-and-u5-),
+[docs/KORESPONDENCJA.md](docs/KORESPONDENCJA.md) (Polish).
+
+### 🛡 AdMng Watchdog – change monitoring
+
 - 🛡 **AdMng Watchdog – AD change monitor** – a separate service (24/7) on a **Debian 12/13** server outside the domain
   (since 0.3.0; `.deb` packages, systemd, a read-only computer account with a keytab and a password changed every 30
   days) detects new and deleted objects, attribute changes (old → new value), lockouts, expiring accounts, changes of
@@ -112,6 +213,20 @@ undo.
   of the solution that stores data – in its own protected folder
   ([ADR-0008](docs/adr/0008-watchdog-dane-w-osobnym-folderze.md), [ADR-0009](docs/adr/0009-watchdog-na-linuksie.md)).
   Features: [docs/WATCHDOG.md](docs/WATCHDOG.md), deployment: [docs/WATCHDOG-LINUX.md](docs/WATCHDOG-LINUX.md).
+
+### 🔒 Security and privacy
+
+- 🔒 **Zero local data** – nothing from the directory is written to disk (no database, cache or snapshots); every
+  refresh asks the domain controller live. On disk (`%APPDATA%\AdMng`) there are only UI settings, connection profiles
+  without passwords and view definitions. Passwords never end up in logs; they go to a file only in an export of
+  password reset results that the operator explicitly asks for.
+- 🔑 **Different credentials** – sign in with the current Windows account or another one (helpdesk, administrator);
+  Kerberos with signing and encryption, LDAPS or StartTLS; the whole session works with one domain controller, which
+  can be changed while you work (**"Change Domain Controller..."** – a list of DCs with site, GC and RODC, without
+  re-entering the password, open tabs stay). The UI shows what a given account can and cannot change
+  (`allowedAttributesEffective`) and highlights privileged accounts.
+- 🕵 **No telemetry, no automatic updates** – the only connection to the internet is downloading browser ADMX templates
+  when you ask for it; see the [privacy policy](#privacy-policy).
 
 What is still missing (among others LAPS, BitLocker, an ACL editor, creating accounts from CSV, "Copy user"): see
 [known limitations](#known-limitations).
@@ -140,8 +255,7 @@ What is still missing (among others LAPS, BitLocker, an ACL editor, creating acc
   <img alt="Main window – the IT organizational unit, details of the selected user" src="docs/assets/screenshots/01-main-window.png">
 </picture>
 
-<p align="center"><sub>Main window – the IT organizational unit with details of the selected user
-(light or dark theme, like your GitHub)</sub></p>
+<p align="center"><sub>Main window – the IT organizational unit with details of the selected user (light or dark theme, like your GitHub)</sub></p>
 
 <table>
   <tr>
@@ -156,8 +270,38 @@ What is still missing (among others LAPS, BitLocker, an ACL editor, creating acc
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <img alt="Search – users from Warsaw" src="docs/assets/screenshots/07-find.png">
-      <br><sub><b>Search</b> – advanced conditions and a ready LDAP filter</sub>
+      <img alt="Account review – check tiles and accounts whose password expires soon" src="docs/assets/screenshots/17-account-review.png">
+      <br><sub><b>Account review</b> – check tiles and the accounts whose password expires soon</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img alt="Privileges – accounts with rights beyond an ordinary user" src="docs/assets/screenshots/19-privileged-access.png">
+      <br><sub><b>Privileges</b> – accounts with rights beyond an ordinary user, levels and the path of a right</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img alt="Computer review – systems past the end of support" src="docs/assets/screenshots/22-computers.png">
+      <br><sub><b>Computer review</b> – systems past the end of support, version and housekeeping tiles</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img alt="Group Policy of an organizational unit" src="docs/assets/screenshots/23-group-policy.png">
+      <br><sub><b>Group Policy</b> of an OU – linked GPOs, inheritance, the GPOs in the tree</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img alt="Administrative Templates editor of a GPO" src="docs/assets/screenshots/29-administrative-templates.png">
+      <br><sub><b>Administrative Templates</b> – a setting from the central store with its options and help</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img alt="Lockout source – state on the DCs and sources of the bad passwords" src="docs/assets/screenshots/32-lockout-source.png">
+      <br><sub><b>Lockout source</b> – state on the DCs, sources of the bad passwords, the source computer checked</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img alt="Find – users in Warsaw" src="docs/assets/screenshots/07-find.png">
+      <br><sub><b>Find</b> – advanced conditions and a ready LDAP filter</sub>
     </td>
     <td width="50%" valign="top">
       <img alt="AdMng Watchdog – event details" src="docs/assets/screenshots/10-watchdog-event-details.png">
@@ -166,16 +310,9 @@ What is still missing (among others LAPS, BitLocker, an ACL editor, creating acc
   </tr>
 </table>
 
-<sub>The screenshots come from version 0.2.0 (Polish UI, the sample company from the tests); the screenshots of version
-0.13.0 – also the *Computer review* window, the *Group Policy* tab of an organizational unit, a message pasted from
-Outlook with embedded images, salutations in the message preview, *Account review* (with the *Privileges* tab), two
-connection windows side by side, a comparison of objects between them, the Watchdog certificate confirmation and the
-"Sources and retention" sub-tab – are attached to the release. The *Correspondence* window (U5) is shown in
-screenshots 26–28: recipients loaded from a file with field columns, a message in the editor with a signature and
-attachments, and mailbox owners after matching; GPO Administrative Templates (K3) – screenshots 29 and 30: the ADMX
-settings editor and the central store update; the "what will the computer get" model (K5) – screenshot 31; lockout
-source (E) – screenshot 32; environment readiness (stage S) – screenshot 33. New screenshots are made for major
-releases and on request – see [Screenshots from CI](#screenshots-from-ci).</sub>
+<sub>English UI over the sample company from the tests (Polish names and data). More pictures – properties, logon
+hours, the Watchdog tabs, correspondence, environment readiness and others – are rendered for major releases and on
+request, see [Screenshots from CI](#screenshots-from-ci).</sub>
 
 ## 🧭 Roadmap
 
@@ -2052,12 +2189,14 @@ $env:ADMNG_UI_TESTS = "1"; dotnet test tests/AdMng.App.UiTests
 
 #### Screenshots from CI
 
-Screenshots (the Polish UI on the sample company from the tests, PNG + `manifest.json` with descriptions) are no longer
-taken on every push, so that the repository and the CI storage do not grow. They are made:
+Screenshots (the English UI on the sample company from the tests, PNG + `manifest.json` with descriptions) are no
+longer taken on every push, so that the repository and the CI storage do not grow. They are made:
 
 - for major releases (`X.0.0`) and for releases whose notes contain `<!-- screenshots -->` – attached to the release;
-- on request: **Actions** → **CI** → **Run workflow** with *Render the screenshots* ticked – as the `screenshots`
-  artifact of that run (kept for 7 days).
+- on request: **Actions** → **CI** → **Run workflow** with *Render the screenshots* ticked (UI language: English by
+  default, or Polish) – as the `screenshots` artifact of that run (kept for 7 days). With *Also commit the README
+  pictures* the run also commits the pictures this page shows to `docs/assets/screenshots` on that branch, losslessly
+  compressed.
 
 The `screenshots` branch holds the pictures of earlier CI runs and is no longer updated.
 
