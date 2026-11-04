@@ -6,10 +6,11 @@ name: Release
 #    branch history). The workflow creates the tag on that commit and the GitHub release. Changing the notes of a tag
 #    that already exists only updates the release description;
 #  - push a tag v<major>.<minor>.<patch>[-suffix] (notes from docs/releases/<tag>.md at that commit).
-# The build job builds, tests and publishes AdMng.exe on Windows and renders screenshots of exactly that commit; the
+# The build job builds, tests and publishes AdMng.exe on Windows and – only for a major release X.0.0 (X >= 1) or when
+# the notes contain <!-- screenshots --> – renders screenshots of exactly that commit (they are large); the
 # openwec-package and linux-package jobs build the Debian packages of AdMng Watchdog from the same commit exactly like
 # the CI jobs of the same names (admng-openwec for Debian 12 and 13 with its GPL-3.0 source tarball, admng-watchdog with
-# the install test on Debian 12 and 13 and lintian). The release gets the AD Manager zip, the screenshots, the three
+# the install test on Debian 12 and 13 and lintian). The release gets the AD Manager zip, the screenshots if any, the three
 # .deb packages, the OpenWEC source tarball and SHA256SUMS.txt of all of them. From 0.3.0 the Watchdog service is
 # Linux-only (docs/dev/watchdog-linux-design.md L1): no Windows Watchdog zip is published any more. Tags v0.* and tags
 # with a suffix are pre-releases.
@@ -44,6 +45,7 @@ jobs:
       version: ${{ steps.plan.outputs.version }}
       sha: ${{ steps.plan.outputs.sha }}
       notes: ${{ steps.plan.outputs.notes }}
+      screenshots: ${{ steps.plan.outputs.screenshots }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -131,14 +133,20 @@ jobs:
             fi
             mode=notes
           fi
+          # Screenshots are large: only a major release (X.0.0, X >= 1) or notes asking for them with <!-- screenshots -->.
+          screenshots=false
+          if [[ "$version" =~ ^[1-9][0-9]*\.0\.0$ ]] || grep -qE '<!-- *screenshots *-->' "$notes"; then
+            screenshots=true
+          fi
           {
             echo "mode=$mode"
             echo "tag=$tag"
             echo "version=$version"
             echo "sha=$target"
             echo "notes=$notes"
+            echo "screenshots=$screenshots"
           } >> "$GITHUB_OUTPUT"
-          echo "Release $tag ($version) of $target, notes $notes, mode $mode."
+          echo "Release $tag ($version) of $target, notes $notes, mode $mode, screenshots $screenshots."
 
   build:
     name: Build, test and package (Windows)
@@ -191,6 +199,7 @@ jobs:
             "::warning::AdMng.exe reports product version '$($info.ProductVersion)', expected $($env:VERSION)."
           }
       - name: Screenshots
+        if: needs.plan.outputs.screenshots == 'true'
         shell: pwsh
         run: |
           dotnet test tests/AdMng.App.UiTests -c Release --no-build --filter "FullyQualifiedName~AdMng.App.UiTests.ScreenshotTests"
@@ -211,8 +220,10 @@ jobs:
           # SHA256SUMS.txt of all release files is written by the release job.
           $files = @(Get-ChildItem -Path publish -File | Where-Object { $_.Extension -ne '.pdb' }) + @(Get-Item LICENSE, NOTICE)
           Compress-Archive -Path $files.FullName -DestinationPath "dist/AdMng-$version-win-x64.zip"
-          Get-ChildItem screenshots -Filter *.png | ForEach-Object {
-            Copy-Item $_.FullName "dist/AdMng-$version-$($_.Name)"
+          if (Test-Path screenshots) {
+            Get-ChildItem screenshots -Filter *.png | ForEach-Object {
+              Copy-Item $_.FullName "dist/AdMng-$version-$($_.Name)"
+            }
           }
           Get-ChildItem dist | ForEach-Object { "{0}  ({1:N0} bytes)" -f $_.Name, $_.Length }
       - uses: actions/upload-artifact@v4

@@ -174,8 +174,8 @@ connection windows side by side, a comparison of objects between them, the Watch
 screenshots 26–28: recipients loaded from a file with field columns, a message in the editor with a signature and
 attachments, and mailbox owners after matching; GPO Administrative Templates (K3) – screenshots 29 and 30: the ADMX
 settings editor and the central store update; the "what will the computer get" model (K5) – screenshot 31; lockout
-source (E) – screenshot 32; environment readiness (stage S) – screenshot 33. CI publishes the current set on every push
-to the `screenshots` branch – see [Screenshots from CI](#screenshots-from-ci).</sub>
+source (E) – screenshot 32; environment readiness (stage S) – screenshot 33. New screenshots are made for major
+releases and on request – see [Screenshots from CI](#screenshots-from-ci).</sub>
 
 ## 🧭 Roadmap
 
@@ -1938,7 +1938,7 @@ next phases:
 Releases are on the repository's **Releases** tab: the archive `AdMng-<version>-win-x64.zip` with `AdMng.exe`
 and its native libraries (WPF `*_cor3.dll`, `WebView2Loader.dll`,
 `microsoft.management.infrastructure.native.unmanaged.dll`; win-x64, self-contained – no installation, .NET or RSAT)
-plus the `LICENSE` and `NOTICE` files, SHA-256 checksums and screenshots.
+plus the `LICENSE` and `NOTICE` files, SHA-256 checksums and – for major releases – screenshots.
 Extract the whole archive into one folder and run `AdMng.exe`.
 
 > [!NOTE]
@@ -1982,9 +1982,10 @@ only in release 0.2.0 and will not be developed further.
 A release is created by the `.github/workflows/release.yml` workflow when a new description
 `docs/releases/v<version>.md` reaches a release branch (its first line may name the commit:
 `<!-- release-commit: <sha> -->`) or when a `v<version>` tag is pushed. The workflow builds and tests that commit on
-Windows (AD Manager, screenshots) and on Linux (Debian packages of the Watchdog and OpenWEC with an installation test on
+Windows (AD Manager; screenshots only for a major release `X.0.0` or when the notes contain
+`<!-- screenshots -->`) and on Linux (Debian packages of the Watchdog and OpenWEC with an installation test on
 Debian 12 and 13), creates the tag and the release with the application archive, the packages, the OpenWEC sources,
-the screenshots and SHA-256 checksums; a later change of the description only updates the release description.
+the screenshots (if any) and SHA-256 checksums; a later change of the description only updates the release description.
 
 </details>
 
@@ -2051,14 +2052,14 @@ $env:ADMNG_UI_TESTS = "1"; dotnet test tests/AdMng.App.UiTests
 
 #### Screenshots from CI
 
-Screenshots (the Polish UI on the sample company from the tests, PNG + `manifest.json` with descriptions) are taken on
-every push: the CI step **Screenshots** saves them as the `screenshots` artifact, and the **publish-screenshots** job
-commits them to the `screenshots` branch – a folder named after the source branch (`/` replaced with `_`), with a
-`README.md` (commit, CI run, image descriptions). To download them without switching branches:
+Screenshots (the Polish UI on the sample company from the tests, PNG + `manifest.json` with descriptions) are no longer
+taken on every push, so that the repository and the CI storage do not grow. They are made:
 
-```bash
-git fetch origin screenshots && mkdir -p zrzuty && git archive origin/screenshots main | tar -x -C zrzuty
-```
+- for major releases (`X.0.0`) and for releases whose notes contain `<!-- screenshots -->` – attached to the release;
+- on request: **Actions** → **CI** → **Run workflow** with *Render the screenshots* ticked – as the `screenshots`
+  artifact of that run (kept for 7 days).
+
+The `screenshots` branch holds the pictures of earlier CI runs and is no longer updated.
 
 Locally (Windows): `$env:ADMNG_SCREENSHOTS_DIR = "$PWD\zrzuty"; dotnet test tests/AdMng.App.UiTests --filter "FullyQualifiedName~ScreenshotTests"`.
 

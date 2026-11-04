@@ -171,8 +171,8 @@ obok siebie, porównanie obiektów między nimi, potwierdzenie certyfikatu Watch
 dołączone do wydania. Okno *Korespondencja* (U5) pokazują zrzuty 26–28: odbiorcy wczytani z pliku z kolumnami pól,
 wiadomość w edytorze z podpisem i załącznikami oraz właściciele skrzynek po dopasowaniu; szablony administracyjne GPO
 (K3) – zrzuty 29 i 30: edytor ustawień ADMX i aktualizacja magazynu centralnego; model „co dostanie komputer” (K5) –
-zrzut 31; skąd blokada konta (E) – zrzut 32; gotowość środowiska (etap S) – zrzut 33. Aktualny komplet CI
-publikuje przy każdym pushu na gałęzi `screenshots` – zob. [Zrzuty ekranu z CI](#zrzuty-ekranu-z-ci).</sub>
+zrzut 31; skąd blokada konta (E) – zrzut 32; gotowość środowiska (etap S) – zrzut 33. Nowe zrzuty powstają
+przy dużych wydaniach i na żądanie – zob. [Zrzuty ekranu z CI](#zrzuty-ekranu-z-ci).</sub>
 
 ## 🧭 Roadmapa
 
@@ -1891,7 +1891,7 @@ Pełna lista pytań: [RESEARCH.md](docs/RESEARCH.md#11-pytania-otwarte-do-zespo�
 Wydania są w zakładce **Releases** repozytorium: archiwum `AdMng-<wersja>-win-x64.zip` z `AdMng.exe`
 i jego bibliotekami natywnymi (WPF `*_cor3.dll`, `WebView2Loader.dll`,
 `microsoft.management.infrastructure.native.unmanaged.dll`; win-x64, self-contained – bez instalacji, .NET i RSAT)
-oraz plikami `LICENSE` i `NOTICE`, sumy SHA-256 i zrzuty ekranu.
+oraz plikami `LICENSE` i `NOTICE`, sumy SHA-256 i – przy dużych wydaniach – zrzuty ekranu.
 Rozpakuj całe archiwum do jednego folderu i uruchom `AdMng.exe`.
 
 > [!NOTE]
@@ -1933,9 +1933,9 @@ tylko w wydaniu 0.2.0 i nie będzie rozwijana.
 
 Wydanie tworzy workflow `.github/workflows/release.yml`, gdy na gałąź wydań trafi nowy opis
 `docs/releases/v<wersja>.md` (pierwsza linia może wskazać commit: `<!-- release-commit: <sha> -->`) albo gdy zostanie
-wypchnięty tag `v<wersja>`. Workflow buduje i testuje wskazany commit na Windows (AD Manager, zrzuty ekranu) i na
-Linuksie (pakiety Debian Watchdoga i OpenWEC z testem instalacji na Debianie 12 i 13), tworzy tag oraz wydanie
-z archiwum aplikacji, pakietami, źródłami OpenWEC, zrzutami ekranu i sumami SHA-256; późniejsza zmiana opisu
+wypchnięty tag `v<wersja>`. Workflow buduje i testuje wskazany commit na Windows (AD Manager; zrzuty ekranu tylko przy dużym
+wydaniu `X.0.0` albo gdy opis zawiera `<!-- screenshots -->`) i na Linuksie (pakiety Debian Watchdoga i OpenWEC z testem instalacji na Debianie 12 i 13), tworzy tag oraz wydanie
+z archiwum aplikacji, pakietami, źródłami OpenWEC, zrzutami ekranu (jeśli są) i sumami SHA-256; późniejsza zmiana opisu
 aktualizuje tylko opis wydania.
 
 </details>
@@ -2003,14 +2003,14 @@ $env:ADMNG_UI_TESTS = "1"; dotnet test tests/AdMng.App.UiTests
 
 #### Zrzuty ekranu z CI
 
-Zrzuty ekranu (polski interfejs na przykładowej firmie z testów, PNG + `manifest.json` z opisami) powstają przy każdym
-pushu: krok CI **Screenshots** zapisuje je jako artefakt `screenshots`, a zadanie **publish-screenshots** commituje je do
-gałęzi `screenshots` – folder o nazwie gałęzi źródłowej (`/` zamienione na `_`), z `README.md` (commit, przebieg CI,
-opisy obrazów). Pobranie bez przełączania gałęzi:
+Zrzuty ekranu (polski interfejs na przykładowej firmie z testów, PNG + `manifest.json` z opisami) nie powstają już przy
+każdym pushu, żeby repozytorium i miejsce na artefakty CI nie rosły. Powstają:
 
-```bash
-git fetch origin screenshots && mkdir -p zrzuty && git archive origin/screenshots main | tar -x -C zrzuty
-```
+- przy dużych wydaniach (`X.0.0`) i wydaniach, których opis zawiera `<!-- screenshots -->` – dołączone do wydania;
+- na żądanie: **Actions** → **CI** → **Run workflow** z zaznaczonym *Render the screenshots* – jako artefakt
+  `screenshots` tego przebiegu (przechowywany 7 dni).
+
+Gałąź `screenshots` zawiera zrzuty z wcześniejszych przebiegów CI i nie jest już aktualizowana.
 
 Lokalnie (Windows): `$env:ADMNG_SCREENSHOTS_DIR = "$PWD\zrzuty"; dotnet test tests/AdMng.App.UiTests --filter "FullyQualifiedName~ScreenshotTests"`.
 
