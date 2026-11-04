@@ -44,6 +44,7 @@ public sealed class FakeWatchdogClient : IWatchdogClient
     private WatchdogClientOptions? _options;
     private ConfigEnvelope _config;
     private long _nextId;
+    private int _waitingLongPolls;
 
     /// <param name="timeProvider">Clock of the long-poll waits and of acknowledgements (default: system clock).</param>
     /// <param name="sampleData">Fill with the Polish sample data (default) or start empty.</param>
@@ -223,6 +224,14 @@ public sealed class FakeWatchdogClient : IWatchdogClient
     }
 
     public IReadOnlyList<EventQuery> EventQueries => Snapshot(_eventQueries);
+
+    /// <summary>
+    /// Long-polls (<see cref="GetEventsAsync"/> with <c>After</c> and a wait) that wait for a newer event or for their
+    /// deadline, the deadline's timer already set. The deadline counts from the request: a test that moves the clock to the
+    /// next status round of a visible tab first waits until the poller is back in its long-poll – moved earlier, the poll
+    /// would wait for a time the test never reaches.
+    /// </summary>
+    public int WaitingLongPolls => Volatile.Read(ref _waitingLongPolls);
 
     public IReadOnlyList<(long Id, AcknowledgeRequest Request)> Acknowledgements => Snapshot(_acknowledgements);
 
@@ -956,7 +965,17 @@ public sealed class FakeWatchdogClient : IWatchdogClient
             return;
         }
 
-        var winner = await Task.WhenAny(signal, delay).ConfigureAwait(false);
+        Task winner;
+        Interlocked.Increment(ref _waitingLongPolls);
+        try
+        {
+            winner = await Task.WhenAny(signal, delay).ConfigureAwait(false);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _waitingLongPolls);
+        }
+
         await timeout.CancelAsync().ConfigureAwait(false);
         if (cancellationToken.IsCancellationRequested || (winner == delay && delay.IsCanceled))
         {
