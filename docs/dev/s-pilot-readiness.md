@@ -84,8 +84,7 @@ only (`Authentication`, `Security` → signing / sealing / LDAPS / StartTLS, SAS
 never server, domain, account or naming context); classic Outlook installed (`IOutlookClient.Availability`, no start),
 WebView2 runtime available (`IWebView2Runtime`, implemented by `WebView2Host` without creating the environment),
 Watchdog configured yes/no (never the address); the readiness results as `Code: Status` from `IReadinessResults.Last`
-(`AdMng.Presentation.Readiness`; the Presentation registers an empty scoped default with `TryAddScoped` as the last
-registration of `AddAdMngPresentation`, so the readiness check's own registration wins); and the diagnostic buffer.
+(`AdMng.Presentation.Readiness`, with `LastRunAt`, `LastDepth` and `LastCancelled` as one "last run" line), and the diagnostic buffer.
 Buttons Refresh, Copy, *Zapisz jako…* (UTF-8 `.txt` to an operator-chosen file – the only way it reaches a disk), Close.
 `DiagnosticLogBuffer` is an application-wide singleton ring buffer (200 entries) fed by `DiagnosticLoggerProvider`,
 registered in `AppHost.Build` next to `AddDebug`: per log call it keeps time, level, category, event id and name, the
@@ -101,3 +100,29 @@ the new `IsUnspecifiedAddress`. Deliberate differences for records Windows does 
 (catalog category "account expired") now counts as `AccountExpired` instead of `Other`; a 4625 without a parsable
 `Status` uses its sub-status; status texts of digits only parse as decimal; a workstation name with a trailing dot
 compares without it.
+
+### As built – readiness check
+
+*Gotowość środowiska* is a shell document (`ReadinessDocumentViewModel`, view `AdMng.App/Readiness/ReadinessView`), one
+tab per connection window, opened by *Narzędzia → Sprawdź gotowość środowiska…*, the same entry in *Pomoc* and the
+palette entry `tools.readiness`; a new tab of a connected window runs the quick check. `ReadinessChecker` runs the areas in
+order through the existing services (`ReadinessServices`, scoped): the session's facts, RootDSE `currentTime`,
+`DomainControllerCatalog` and `GroupPolicyReader.ReadPdcEmulatorAsync` (PDC, RODC, GC), `msDS-Behavior-Version` of the
+domain head and `CN=Partitions`, `msDS-EnabledFeature`, the PSO container, `msLAPS-Password`/`ms-Mcs-AdmPwd` in the schema;
+`GroupPolicyServices.OpenSysvolAsync` with the new read-only `ISysvolWriteConnection.GetPoliciesFolderSecurityAsync`
+(default `null`; Windows reads the DACL of `Policies`) judged for the account's `tokenGroups` by
+`Core.Readiness.FolderWriteAccess` (never by writing), `ListPolicyDefinitionsAsync` (ADMX count, ADML languages), both
+default GPOs in AD and `GPT.INI`, `Core.Readiness.SysvolReplication` (`msDFSR-Flags` of `CN=DFSR-GlobalSettings`, the DFSR
+group `Domain System Volume` and the FRS replica set – "unknown" without them, e.g. Samba); the test computer (typed or
+picked) through `IHostAddressResolver` and `IRemoteComputerClient` (OS read); every DC's log through `EventLogServices`
+(open, Security coverage, `AuditEvidence.Probes` over the covered part of the last week for the lockout and failed-logon
+requirements, `EventLogText` errors and remedies) and the test computer's `System` log; `WatchdogConnectionService`
+(`/me`, `/status`); `IOutlookClient` (availability; the full check connects and reads `DiagnoseAsync` without a test
+item); `ILocalComputerInfo` (App: registry and `WebView2Host.ProbeRuntimeVersion`) against `WindowsReleaseCatalog`. Every
+check has a stable code (`ReadinessCodes`, e.g. `Connection.ClockSkew`), a status (OK, Ostrzeżenie, Błąd, Nie sprawdzono),
+an explanation, a remedy and the product documentation chapter; a failed check is its own error, cancel marks the unreached
+checks "not checked". Results stay in memory; *Kopiuj wyniki* goes to the clipboard and the CSV/HTML exports to an
+operator-chosen file – the tab, the HTML report and the confirmation say that the export names hosts. Each finished run is published to `IReadinessResults` (scoped): `Last` = one value-free
+`(Code, Status)` pair per code (worst status of a per-host check), `LastRunAt`, `LastDepth`, `LastCancelled`, `Changed` –
+for the problem report. Tests: `tests/AdMng.Core.Tests/Readiness`, `tests/AdMng.Presentation.Tests/Readiness`, UI test
+`ReadinessUiTests` and the smoke test.

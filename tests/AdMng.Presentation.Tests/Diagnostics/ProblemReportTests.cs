@@ -59,8 +59,9 @@ public sealed class ProblemReportTests
         Assert.Contains("Classic Outlook installed: No", text, StringComparison.Ordinal);
         Assert.Contains("WebView2 runtime available (formatted previews): No (switched off)", text, StringComparison.Ordinal);
         Assert.Contains("AdMng Watchdog service configured: Yes", text, StringComparison.Ordinal);
-        Assert.Contains("Connection.Sealing: Ok", text, StringComparison.Ordinal);
-        Assert.Contains("EventLogs.SecurityReadable: Error", text, StringComparison.Ordinal);
+        Assert.Contains("Connection.Transport: Ok", text, StringComparison.Ordinal);
+        Assert.Contains("EventLogs.Security: Error", text, StringComparison.Ordinal);
+        Assert.Contains("Last run: Full, ended 2026-11-04T09:30:00.000Z, cancelled: No", text, StringComparison.Ordinal);
 
         var names = new[]
         {
@@ -139,13 +140,17 @@ public sealed class ProblemReportTests
         var text = ProblemReportBuilder.Build(Content() with
         {
             Connection = new ProblemReportConnection(AuthenticationMode.CurrentUser, TransportSecurity.StartTls, null, IsGlobalCatalog: false),
-            Readiness = [new ReadinessResultCode("Sysvol.WritePermission", "Warning")],
+            Readiness = [(ReadinessCodes.SysvolPoliciesWrite, ReadinessStatus.Warning)],
+            ReadinessRunAt = new DateTimeOffset(2026, 11, 4, 9, 30, 0, TimeSpan.Zero),
+            ReadinessDepth = ReadinessDepth.Quick,
+            ReadinessCancelled = true,
         }, new ResxLocalizer(CultureInfo.GetCultureInfo("pl-PL")));
 
         Assert.Contains("AD Manager – raport problemu", text, StringComparison.Ordinal);
         Assert.Contains("Podpisywanie: Nie · Szyfrowanie (sealing): Nie · LDAPS: Nie · StartTLS: Tak", text, StringComparison.Ordinal);
         Assert.Contains("[StartTls]", text, StringComparison.Ordinal);
-        Assert.Contains("Sysvol.WritePermission: Warning", text, StringComparison.Ordinal);
+        Assert.Contains("Sysvol.PoliciesWrite: Warning", text, StringComparison.Ordinal);
+        Assert.Contains("Ostatnie sprawdzenie: Quick, zakończone 2026-11-04T09:30:00.000Z, przerwane: Tak", text, StringComparison.Ordinal);
         Assert.Contains("Klasyczny Outlook zainstalowany: Nie sprawdzono", text, StringComparison.Ordinal);
     }
 
@@ -221,11 +226,12 @@ public sealed class ProblemReportTests
     }
 
     [Fact]
-    public async Task Registration_DefaultsToNoReadinessResults_AndAHostRegistrationWins()
+    public async Task Registration_ReadsTheReadinessResultsOfTheWindow_AndAHostRegistrationWins()
     {
         await using var host = new ConnectionScopeHost();
         await using var window = host.CreateConnection();
         Assert.Empty(window.Get<IReadinessResults>().Last);
+        Assert.Same(window.Get<ReadinessResults>(), window.Get<ProblemReportServices>().Readiness);
         Assert.Same(host.Provider.GetRequiredService<DiagnosticLogBuffer>(), window.Get<ProblemReportServices>().Log);
 
         var services = new ServiceCollection();
@@ -263,11 +269,23 @@ public sealed class ProblemReportTests
 
     private sealed class FakeReadinessResults : IReadinessResults
     {
-        public IReadOnlyList<ReadinessResultCode> Last { get; } =
+        public IReadOnlyList<(string Code, ReadinessStatus Status)> Last { get; } =
         [
-            new("Connection.Sealing", "Ok"),
-            new("EventLogs.SecurityReadable", "Error"),
+            (ReadinessCodes.ConnectionTransport, ReadinessStatus.Ok),
+            (ReadinessCodes.EventLogsSecurity, ReadinessStatus.Error),
         ];
+
+        public DateTimeOffset? LastRunAt => new DateTimeOffset(2026, 11, 4, 9, 30, 0, TimeSpan.Zero);
+
+        public ReadinessDepth? LastDepth => ReadinessDepth.Full;
+
+        public bool LastCancelled => false;
+
+        public event EventHandler? Changed
+        {
+            add { }
+            remove { }
+        }
     }
 
     private sealed class FakeWebView2Runtime(OptionalFeatureState availability) : IWebView2Runtime

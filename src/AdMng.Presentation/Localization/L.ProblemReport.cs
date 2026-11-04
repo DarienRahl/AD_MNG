@@ -75,6 +75,9 @@ public static partial class L
         public const string SectionReadiness = "ProblemReport.SectionReadiness";
         public const string ReadinessNone = "ProblemReport.ReadinessNone";
 
+        /// <summary>{0} = Quick/Full, {1} = when it ended (UTC), {2} = cancelled yes/no.</summary>
+        public const string ReadinessRun = "ProblemReport.ReadinessRun";
+
         /// <summary>{0} = entries shown, {1} = entries logged since the start.</summary>
         public const string SectionLog = "ProblemReport.SectionLog";
         public const string LogEmpty = "ProblemReport.LogEmpty";

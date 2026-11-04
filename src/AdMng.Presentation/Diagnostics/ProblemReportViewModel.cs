@@ -54,6 +54,9 @@ public sealed partial class ProblemReportViewModel : WindowViewModelBase
         WebView2 = _report.WebView2Feature,
         WatchdogConfigured = WatchdogConnectionService.TryParseAddress(Services.Settings.Current.Watchdog.ServiceUrl, out _),
         Readiness = [.. _report.Readiness.Last],
+        ReadinessRunAt = _report.Readiness.LastRunAt,
+        ReadinessDepth = _report.Readiness.LastDepth,
+        ReadinessCancelled = _report.Readiness.LastCancelled,
         Log = _report.Log.Snapshot(),
         LogTotal = _report.Log.Total,
     };

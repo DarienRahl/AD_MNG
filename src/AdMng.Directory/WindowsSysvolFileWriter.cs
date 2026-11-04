@@ -233,6 +233,14 @@ internal static partial class WindowsSysvol
                 new DirectoryInfo(root).GetAccessControl(AccessControlSections.Access).GetSecurityDescriptorBinaryForm(), cancellationToken);
         }
 
+        public Task<byte[]?> GetPoliciesFolderSecurityAsync(CancellationToken cancellationToken)
+        {
+            // Read only (the readiness check judges the write permission from the ACL; nothing is written to find out).
+            var policies = PoliciesPath;
+            return RunAsync<byte[]?>("Reading the Policies folder permissions", () =>
+                new DirectoryInfo(policies).GetAccessControl(AccessControlSections.Access).GetSecurityDescriptorBinaryForm(), cancellationToken);
+        }
+
         public Task SetGpoFolderSecurityAsync(Guid gpoId, byte[] descriptor, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(descriptor);

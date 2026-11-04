@@ -60,6 +60,13 @@ public interface ISysvolWriteConnection : ISysvolConnection
     Task SetGpoFolderSecurityAsync(Guid gpoId, byte[] descriptor, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The security descriptor (self-relative, DACL only) of <c>&lt;domain&gt;\Policies</c> itself – read, never written: the
+    /// readiness check judges from it whether the window's logon may create GPO folders (design note
+    /// docs/dev/s-pilot-readiness.md 2). Null when it cannot be read or the connection cannot tell (the default).
+    /// </summary>
+    Task<byte[]?> GetPoliciesFolderSecurityAsync(CancellationToken cancellationToken) => Task.FromResult<byte[]?>(null);
+
+    /// <summary>
     /// Writes a new file (it must not exist) of the central store <c>&lt;domain&gt;\Policies\PolicyDefinitions</c>, flushed to the
     /// server; missing folders - the central store itself included - are created. Stages content before
     /// <see cref="ReplacePolicyDefinitionsFileAsync"/> (K3, "Zaktualizuj szablony").

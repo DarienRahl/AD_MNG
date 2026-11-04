@@ -71,7 +71,15 @@ public sealed record ProblemReportContent
     /// <summary>A Watchdog service address is set (the address itself is not shown: it names a host).</summary>
     public bool WatchdogConfigured { get; init; }
 
-    public IReadOnlyList<ReadinessResultCode> Readiness { get; init; } = [];
+    /// <summary>The last readiness check of the window: one code and status per check (<see cref="IReadinessResults.Last"/>).</summary>
+    public IReadOnlyList<(string Code, ReadinessStatus Status)> Readiness { get; init; } = [];
+
+    /// <summary>When the last readiness check ended, null before the first one.</summary>
+    public DateTimeOffset? ReadinessRunAt { get; init; }
+
+    public ReadinessDepth? ReadinessDepth { get; init; }
+
+    public bool ReadinessCancelled { get; init; }
 
     /// <summary>The diagnostic buffer, oldest first.</summary>
     public IReadOnlyList<DiagnosticLogEntry> Log { get; init; } = [];
@@ -133,6 +141,11 @@ public static class ProblemReportBuilder
         if (content.Readiness.Count == 0)
         {
             Line(text, localizer[L.ProblemReport.ReadinessNone]);
+        }
+        else if (content.ReadinessRunAt is { } runAt)
+        {
+            Line(text, localizer.Format(L.ProblemReport.ReadinessRun, content.ReadinessDepth?.ToString() ?? "-", Time(runAt),
+                YesNo(localizer, content.ReadinessCancelled)));
         }
 
         foreach (var result in content.Readiness)

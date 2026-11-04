@@ -48,6 +48,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private readonly Comparison.IObjectComparisonLauncher? _comparison;
     private readonly Correspondence.ICorrespondenceLauncher? _correspondence;
     private readonly EventLogs.EventLogServices? _eventLogs;
+    private readonly Func<Readiness.ReadinessDocumentViewModel>? _readinessFactory;
     private ObjectListViewModel? _observedDocument;
     private IShellDocument? _observedTab;
     private IDirectorySession? _initializedFor;
@@ -76,7 +77,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         ConnectionContext? connection = null,
         Comparison.IObjectComparisonLauncher? comparison = null,
         Correspondence.ICorrespondenceLauncher? correspondence = null,
-        EventLogs.EventLogServices? eventLogs = null)
+        EventLogs.EventLogServices? eventLogs = null,
+        Func<Readiness.ReadinessDocumentViewModel>? readinessFactory = null)
     {
         _lists = lists ?? throw new ArgumentNullException(nameof(lists));
         Tree = tree ?? throw new ArgumentNullException(nameof(tree));
@@ -97,6 +99,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _comparison = comparison;
         _correspondence = correspondence;
         _eventLogs = eventLogs;
+        _readinessFactory = readinessFactory;
         _searchDebouncer = new Debouncer(lists.Time, SearchDelay);
         _detailsDebouncer = new Debouncer(lists.Time, DetailsDelay);
         CommandPalette = new CommandPaletteViewModel(lists.Localizer);

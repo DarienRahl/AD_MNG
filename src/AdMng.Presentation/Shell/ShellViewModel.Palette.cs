@@ -112,6 +112,7 @@ public sealed partial class ShellViewModel
             .. DocumentCommandDescriptors(),
             .. GroupPolicyDiagnosticsCommandDescriptors(),
             .. EventLogCommandDescriptors(),
+            .. ReadinessCommandDescriptors(),
             new("tools.settings", L.Commands.Settings, tools, "Ctrl+OemComma", ShowSettingsCommand),
             new("session.newWindow", L.Commands.NewConnectionWindow, session, "Ctrl+Shift+N", NewConnectionWindowCommand),
             new("session.changeDc", L.Commands.ChangeDomainController, session, string.Empty, ChangeDomainControllerCommand),

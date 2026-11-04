@@ -5,6 +5,7 @@ using AdMng.App.Correspondence;
 using AdMng.App.EventLogs;
 using AdMng.App.GroupPolicy;
 using AdMng.App.Localization;
+using AdMng.App.Readiness;
 using AdMng.App.Services;
 using AdMng.App.Views;
 using AdMng.App.Views.Watchdog;
@@ -219,6 +220,9 @@ public static class AppHost
         // ---- Comparison of objects between connections (design note docs/dev/multi-window.md 8), opened by DialogService ----
         services.AddScoped<IObjectComparisonLauncher>(sp => sp.GetRequiredService<DialogService>());
         services.AddWindow<ObjectComparisonViewModel, CompareObjectsWindow>();
+
+        // ---- Gotowość środowiska (stage S): the facts of this computer (registry, WebView2 probe); the tab is a document ----
+        services.AddAdMngReadinessApp();
 
         // ---- Watchdog: certificate confirmation on first connection (stage B design 18 item 1) ----
         services.AddWindow<WatchdogCertificateTrustViewModel, WatchdogCertificateTrustWindow>();

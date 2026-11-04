@@ -23,6 +23,8 @@
         xmlns:gpsec="clr-namespace:AdMng.Presentation.GroupPolicy.SecuritySettings;assembly=AdMng.Presentation"
         xmlns:evt="clr-namespace:AdMng.Presentation.EventLogs;assembly=AdMng.Presentation"
         xmlns:evtv="clr-namespace:AdMng.App.EventLogs"
+        xmlns:rd="clr-namespace:AdMng.Presentation.Readiness;assembly=AdMng.Presentation"
+        xmlns:rdv="clr-namespace:AdMng.App.Readiness"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1360"
         Height="840"
@@ -494,6 +496,7 @@
         <MenuItem b:CommandMenu.Id="tools.watchdog" />
         <MenuItem b:CommandMenu.Id="events.open" />
         <MenuItem b:CommandMenu.Id="events.failedLogons" />
+        <MenuItem b:CommandMenu.Id="tools.readiness" />
         <Separator />
         <MenuItem b:CommandMenu.Id="tools.sessionLog" />
         <MenuItem x:Name="PowerShellHistoryMenuItem"
@@ -505,6 +508,7 @@
       </MenuItem>
       <MenuItem Header="{l:Tr Shell.MenuHelp}">
         <MenuItem b:CommandMenu.Id="tools.palette" />
+        <MenuItem b:CommandMenu.Id="tools.readiness" />
         <MenuItem x:Name="ReportProblemMenuItem" b:CommandMenu.Id="help.reportProblem" />
         <Separator />
         <MenuItem Click="OnAboutClick" Header="{l:Tr Ui.About}" />
@@ -843,6 +847,32 @@
                         ToolTip="{l:Tr Commands.CloseTab}" />
               </StackPanel>
             </DataTemplate>
+            <!-- Gotowość środowiska (stage S). -->
+            <DataTemplate DataType="{x:Type rd:ReadinessDocumentViewModel}">
+              <StackPanel Orientation="Horizontal" ToolTip="{Binding Title, Mode=OneWay}">
+                <c:ObjectIconView Margin="0,0,6,0"
+                                  VerticalAlignment="Center"
+                                  Icon="{Binding Icon, Mode=OneWay}"
+                                  Size="14" />
+                <TextBlock MaxWidth="220"
+                           VerticalAlignment="Center"
+                           Text="{Binding Title, Mode=OneWay}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Margin="4,0,0,0"
+                           FontSize="10"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{x:Static c:Glyphs.Refresh}"
+                           Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <Button Margin="6,0,0,0"
+                        AutomationProperties.Name="{l:Tr Commands.CloseTab}"
+                        Click="OnCloseTabClick"
+                        Content="{x:Static c:Glyphs.Close}"
+                        Focusable="False"
+                        Style="{StaticResource Ad.SmallIconButton}"
+                        ToolTip="{l:Tr Commands.CloseTab}" />
+              </StackPanel>
+            </DataTemplate>
             <!-- Group Policy documents (K2). -->
             <DataTemplate DataType="{x:Type gpd:GroupPolicyDocumentBase}">
               <StackPanel Orientation="Horizontal" ToolTip="{Binding Title, Mode=OneWay}">
@@ -948,6 +978,10 @@
             </DataTemplate>
             <DataTemplate DataType="{x:Type evt:FailedLogonsDocumentViewModel}">
               <evtv:FailedLogonsView />
+            </DataTemplate>
+            <!-- Gotowość środowiska (stage S). -->
+            <DataTemplate DataType="{x:Type rd:ReadinessDocumentViewModel}">
+              <rdv:ReadinessView />
             </DataTemplate>
           </ItemsControl.Resources>
         </ItemsControl>

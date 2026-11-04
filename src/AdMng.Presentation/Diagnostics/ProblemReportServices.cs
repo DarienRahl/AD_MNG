@@ -58,11 +58,3 @@ public sealed class ProblemReportServices(
     /// <summary>Whether the WebView2 runtime can be used.</summary>
     public OptionalFeatureState WebView2Feature => WebView2?.Availability ?? OptionalFeatureState.Unknown;
 }
-
-/// <summary>
-/// The default <see cref="IReadinessResults"/> (no readiness check registered, or not run yet in this window): no results.
-/// </summary>
-internal sealed class EmptyReadinessResults : IReadinessResults
-{
-    public IReadOnlyList<ReadinessResultCode> Last => [];
-}
