@@ -1,6 +1,8 @@
 using AdMng.Watchdog.Contracts;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Service.Auth;
+using AdMng.Watchdog.Service.Hosting;
+using Microsoft.AspNetCore.Http.Features;
 using AdMng.Watchdog.Service.UserMessages;
 
 namespace AdMng.Watchdog.Service.Api;
@@ -22,7 +24,14 @@ public static class UserMessageEndpoints
 
     private static async Task<IResult> SendAsync(HttpContext context, UserMessageService messages, CancellationToken cancellationToken)
     {
-        var (request, error) = await ApiResults.ReadJsonAsync<UserMessageRequest>(context.Request, allowEmpty: false, cancellationToken).ConfigureAwait(false);
+        // U1c: this route alone takes up to 6 MiB (inline images); the server's limit (1 MB) is raised before the body is read.
+        if (context.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+        {
+            limit.MaxRequestBodySize = ApiLimits.MaxUserMessageBodyBytes;
+        }
+
+        var (request, error) = await ApiResults.ReadJsonAsync<UserMessageRequest>(context.Request, allowEmpty: false, ApiLimits.MaxUserMessageBodyBytes, cancellationToken)
+            .ConfigureAwait(false);
         return error ?? await messages.SubmitAsync(request!, context.User, cancellationToken).ConfigureAwait(false);
     }
 }

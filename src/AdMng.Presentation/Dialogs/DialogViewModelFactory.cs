@@ -49,6 +49,13 @@ public interface IDialogViewModelFactory
     /// <summary>PowerShell of the changes executed in this session (Tools menu; modeless).</summary>
     PowerShellHistoryViewModel CreatePowerShellHistory();
 
+    /// <summary>
+    /// For <see cref="IDialogService.ShowProblemReportAsync"/> (modeless, one window): the value-free problem report of this
+    /// connection window. Throws <see cref="InvalidOperationException"/> when the host registered no
+    /// <see cref="Diagnostics.ProblemReportServices"/>.
+    /// </summary>
+    Diagnostics.ProblemReportViewModel CreateProblemReport();
+
     /// <summary>For <see cref="IDialogService.ShowRecycleBinAsync"/> (modeless): deleted objects of the current session's domain.</summary>
     RecycleBinViewModel CreateRecycleBin();
 
@@ -104,7 +111,9 @@ public sealed class DialogViewModelFactory(
     Filters.FilterLibrary? filters = null,
     IEnumerable<Core.PrivilegedAccess.IPrivilegeGrantSource>? grantSources = null,
     Connections.ConnectionRegistry? connections = null,
-    Comparison.IObjectComparisonLauncher? comparison = null) : IDialogViewModelFactory
+    Comparison.IObjectComparisonLauncher? comparison = null,
+    EventLogs.EventLogLauncher? eventLogs = null,
+    Diagnostics.ProblemReportServices? problemReport = null) : IDialogViewModelFactory
 {
     private readonly AccountReview.DomainControllerReader _domainControllers = new(connector, services.Errors);
     private readonly Filters.FilterLibrary _filters = filters ?? new Filters.FilterLibrary(services.Settings);
@@ -117,6 +126,7 @@ public sealed class DialogViewModelFactory(
             DomainControllers = _domainControllers,
             MessageLauncher = messages,
             ComparisonLauncher = comparison,
+            EventLogLauncher = eventLogs,
         };
 
     public BatchEditorViewModel CreateBatchEditor(BatchEditorRequest request) => new(services, engines, request);
@@ -140,10 +150,13 @@ public sealed class DialogViewModelFactory(
 
     public PowerShellHistoryViewModel CreatePowerShellHistory() => new(services, powerShellHistory);
 
+    public Diagnostics.ProblemReportViewModel CreateProblemReport() =>
+        new(services, problemReport ?? throw new InvalidOperationException("The problem report services are not registered."));
+
     public RecycleBinViewModel CreateRecycleBin() => new(services);
 
     public AccountReview.AccountReviewViewModel CreateAccountReview() =>
-        new(services, views, engines.Csv, _domainControllers, messages, _filters, _grantSources);
+        new(services, views, engines.Csv, _domainControllers, messages, _filters, _grantSources) { EventLogs = eventLogs };
 
     public Filters.SavedFiltersViewModel CreateSavedFilters() => new(services, _filters);
 

@@ -38,9 +38,9 @@ internal static class OutboxRows
             transaction,
             """
             INSERT INTO outbox (message_id, channel_type, channel_id, kind, rule_id, severity, status, attempts, created_at,
-              next_attempt_at, subject, recipient_count, recipients, target_key, sent_with_pending, payload)
+              next_attempt_at, subject, recipient_count, recipients, target_key, sent_with_pending, payload, image_bytes)
             VALUES ($messageId, $channelType, $channelId, $kind, $rule, $severity, $status, $attempts, $created, $next, $subject,
-              $recipientCount, $recipients, $targetKey, $pendingAttribution, $payload)
+              $recipientCount, $recipients, $targetKey, $pendingAttribution, $payload, $imageBytes)
             RETURNING id;
             """,
             ("$messageId", message.MessageId),
@@ -62,7 +62,8 @@ internal static class OutboxRows
                 : JsonSerializer.Serialize([.. message.Recipients], WatchdogStorageJsonContext.Default.ListString)),
             ("$targetKey", SqliteValues.OrNull(message.TargetKey)),
             ("$pendingAttribution", message.SentWithPendingAttribution ? 1 : 0),
-            ("$payload", message.Email is null && message.Http is null ? DBNull.Value : BlobCodec.EncodeOutbox(message.Email, message.Http)));
+            ("$payload", message.Email is null && message.Http is null ? DBNull.Value : BlobCodec.EncodeOutbox(message.Email, message.Http)),
+            ("$imageBytes", ImageBytes(message)));
         var id = (long)command.ExecuteScalar()!;
 
         using var link = SqliteValues.Command(
@@ -84,6 +85,10 @@ internal static class OutboxRows
 
         return id;
     }
+
+    /// <summary>Bytes of the inline images in the payload of a message (U1c; 0 for every other message).</summary>
+    public static long ImageBytes(OutboxMessage message) =>
+        message.Email?.InlineImages is { Count: > 0 } images ? images.Sum(i => (long)i.Data.Length) : 0;
 
     /// <summary>Maps a row selected with <see cref="MessageColumns"/>.</summary>
     public static OutboxMessage ReadMessage(SqliteDataReader reader)

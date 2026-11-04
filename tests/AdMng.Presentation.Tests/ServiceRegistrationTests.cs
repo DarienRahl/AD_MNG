@@ -74,6 +74,17 @@ public sealed class ServiceRegistrationTests
         using var first = watchdogFactory();
         using var second = watchdogFactory();
         Assert.NotSame(first, second);
+
+        // K1: the computer windows come from the connection's factory; without the Windows host (no remote client,
+        // launcher or IComputerDialogs) the review still works and offers no remote actions.
+        var computers = services.GetRequiredService<Presentation.Computers.ComputerViewModelFactory>();
+        Assert.Same(services.GetRequiredService<Presentation.Computers.ComputerActions>(), computers.Actions);
+        using var review = computers.CreateReview();
+        Assert.False(review.CanUseRemote);
+        Assert.False(review.CanUseTools);
+        Assert.False(review.CanResolveSites);
+        using var remote = computers.CreateRemote(Jan);
+        Assert.False(remote.CanUseRemote);
     }
 
     [Fact]

@@ -1,6 +1,11 @@
 using System.Windows.Threading;
+using AdMng.App.Computers;
 using AdMng.App.Connections;
+using AdMng.App.Correspondence;
+using AdMng.App.EventLogs;
+using AdMng.App.GroupPolicy;
 using AdMng.App.Localization;
+using AdMng.App.Readiness;
 using AdMng.App.Services;
 using AdMng.App.Views;
 using AdMng.App.Views.Watchdog;
@@ -11,6 +16,7 @@ using AdMng.Core.Directory;
 using AdMng.Core.Formatting;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.Messaging;
+using AdMng.Core.Messaging.Html;
 using AdMng.Core.PrivilegedAccess;
 using AdMng.Core.Security;
 using AdMng.Core.Templates;
@@ -21,6 +27,7 @@ using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Comparison;
 using AdMng.Presentation.Connections;
+using AdMng.Presentation.Diagnostics;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
@@ -32,6 +39,7 @@ using AdMng.Presentation.Views;
 using AdMng.Presentation.Watchdog;
 using AdMng.Watchdog.Client;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -62,9 +70,12 @@ public static class AppHost
             DisableDefaults = true,
         });
 
-        // Diagnostics go to the debugger output only - never to files, and never with directory values.
+        // Diagnostics go to the debugger output and to the in-memory buffer of the problem report (Pomoc → Zgłoś problem…,
+        // DiagnosticLogBuffer: level, category, event id, message template, exception type and HResult - never the values)
+        // - never to files, and never with directory values.
         builder.Logging.ClearProviders();
         builder.Logging.AddDebug();
+        builder.Logging.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, DiagnosticLoggerProvider>());
         builder.Logging.SetMinimumLevel(LogLevel.Information);
 
         builder.Services.AddAdMngApp(options, Dispatcher.CurrentDispatcher);
@@ -107,6 +118,9 @@ public static class AppHost
         // SYSVOL is opened on that session's DC with that session's credential (never another window's).
         services.AddSingleton<ISysvolFileReader, WindowsSysvolFileReader>();
         services.AddSingleton<IPrivilegeGrantSource>(sp => new GroupPolicyGrantSource(sp.GetRequiredService<ISysvolFileReader>()));
+
+        // Group Policy (K2): the SYSVOL writer of the session's DC and the GPO windows.
+        services.AddAdMngGroupPolicyApp();
 
         // AdMng Watchdog service (HTTPS + Kerberos; configured from the settings by WatchdogConnectionService).
         services.AddSingleton<IWatchdogClient, WatchdogHttpClient>();
@@ -176,6 +190,12 @@ public static class AppHost
         // ---- Account review, README U2 and U4 (opened through ToolWindows) ----
         services.AddWindow<AccountReviewViewModel, AccountReviewWindow>();
 
+        // ---- Computers, K1: review, remote actions over WinRM, local tools (opened through ToolWindows / DialogService) ----
+        services.AddAdMngComputersApp();
+
+        // ---- Dzienniki zdarzeń, track E: the Windows reader (AdMng.EventLogs); the documents are tabs of the main window ----
+        services.AddAdMngEventLogsApp();
+
         // ---- Saved filters of the filter builder, README U4 (the list through ToolWindows, the editor modal) ----
         services.AddWindow<Presentation.Filters.SavedFiltersViewModel, SavedFiltersWindow>();
         services.AddWindow<Presentation.Filters.FilterEditorViewModel, FilterEditorWindow>();
@@ -185,12 +205,30 @@ public static class AppHost
         services.AddScoped<IUserMessageLauncher>(sp => sp.GetRequiredService<DialogService>());
         services.AddWindow<UserMessageComposerViewModel, UserMessagesWindow>();
 
+        // ---- U1c: formatted messages (design note docs/dev/u1c-u1d-rich-html-and-salutations.md) – application-wide and
+        // without per-connection state: the one WebView2 environment of the rendered previews (its temp folder is deleted at
+        // exit) and the reader of Outlook's clipboard images that expands 8.3 names of the temp folder. ----
+        services.AddSingleton<WebView2Host>();
+        services.AddSingleton<IWebView2Runtime>(sp => sp.GetRequiredService<WebView2Host>());
+        services.Replace(ServiceDescriptor.Singleton<IPastedImageSource>(_ => new PastedImageFileSource(expandShortNames: ShortPathNames.Expand)));
+
+        // ---- Korespondencja, README U5 (design note docs/dev/u5-outlook-correspondence.md 9.1): Outlook (AdMng.Outlook), the
+        // journal key protector, the platform and the browser preview (application-wide), the window's dialogs and launcher
+        // (DialogService, scoped) and the windows. After AddAdMngPresentation. ----
+        services.AddAdMngCorrespondenceApp();
+
         // ---- Comparison of objects between connections (design note docs/dev/multi-window.md 8), opened by DialogService ----
         services.AddScoped<IObjectComparisonLauncher>(sp => sp.GetRequiredService<DialogService>());
         services.AddWindow<ObjectComparisonViewModel, CompareObjectsWindow>();
 
+        // ---- Gotowość środowiska (stage S): the facts of this computer (registry, WebView2 probe); the tab is a document ----
+        services.AddAdMngReadinessApp();
+
         // ---- Watchdog: certificate confirmation on first connection (stage B design 18 item 1) ----
         services.AddWindow<WatchdogCertificateTrustViewModel, WatchdogCertificateTrustWindow>();
+
+        // ---- Problem report, Pomoc → Zgłoś problem… (design note s-pilot-readiness.md 3; opened through ToolWindows) ----
+        services.AddWindow<ProblemReportViewModel, ProblemReportWindow>();
         return services;
     }
 

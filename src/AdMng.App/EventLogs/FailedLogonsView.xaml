@@ -1,0 +1,441 @@
+<!--
+  "Nieudane logowania" (FailedLogonsDocumentViewModel, track E2, docs/dev/e-event-logs.md 4.2) in the K6 diagnostics layout:
+  the window and the thresholds, the summary and the notes, the severity chips and the filters (severity, kind, text - Ctrl+F),
+  the virtualized list of findings and, behind a splitter, the details of the selected one with its accounts (unknown names
+  masked until "Pokaż") and its records (drill-down); the top accounts, sources, codes and the audit evidence below.
+-->
+<UserControl x:Class="AdMng.App.EventLogs.FailedLogonsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:gp="clr-namespace:AdMng.App.GroupPolicy"
+             xmlns:evt="clr-namespace:AdMng.Presentation.EventLogs;assembly=AdMng.Presentation"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             AutomationProperties.Name="{Binding Title, Mode=OneWay}">
+  <UserControl.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/AdMng;component/EventLogs/EventLogResources.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+      <DataTemplate x:Key="EventLog.LineTemplate" DataType="{x:Type sys:String}">
+        <TextBlock Margin="0,1" Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
+      </DataTemplate>
+    </ResourceDictionary>
+  </UserControl.Resources>
+
+  <DockPanel Margin="8,6,8,8">
+    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <c:ObjectIconView Margin="0,0,8,0" VerticalAlignment="Center" Icon="{Binding Icon, Mode=OneWay}" Size="18" />
+      <TextBlock x:Name="TitleText"
+                 Grid.Column="1"
+                 Margin="0,0,12,0"
+                 VerticalAlignment="Center"
+                 FontWeight="SemiBold"
+                 Text="{Binding Title, Mode=OneWay}"
+                 TextTrimming="CharacterEllipsis" />
+      <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
+        <Button x:Name="RunButton"
+                Margin="0,0,6,0"
+                Command="{Binding RunCommand}"
+                Content="{l:Tr EvtFail.Run}"
+                Style="{StaticResource AccentButtonStyle}" />
+        <Button x:Name="CancelButton" Margin="0,0,12,0" Command="{Binding CancelCommand}" Content="{l:Tr Common.Cancel}" />
+        <Button x:Name="ExportCsvButton" Margin="0,0,6,0" Command="{Binding ExportCsvCommand}" Content="{l:Tr EvtLog.ExportCsv}" />
+        <Button x:Name="ExportHtmlButton" Command="{Binding ExportHtmlCommand}" Content="{l:Tr EvtLog.ExportHtml}" />
+      </StackPanel>
+    </Grid>
+
+    <Border x:Name="NotSupportedBar"
+            Margin="0,0,0,6"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.WarningBar}"
+            Visibility="{Binding IsNotSupported, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <DockPanel>
+        <TextBlock Margin="0,1,10,0"
+                   VerticalAlignment="Center"
+                   DockPanel.Dock="Left"
+                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Warning}" />
+        <TextBlock x:Name="NotSupportedText" VerticalAlignment="Center" Text="{Binding NotSupportedText, Mode=OneWay}" TextWrapping="Wrap" />
+      </DockPanel>
+    </Border>
+
+    <!-- The window, the thresholds and the status -->
+    <WrapPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+      <TextBlock Margin="0,0,6,0" VerticalAlignment="Center" Text="{l:Tr EvtFail.WindowLabel}" />
+      <ComboBox x:Name="WindowBox"
+                MinWidth="180"
+                Margin="0,0,12,0"
+                AutomationProperties.Name="{l:Tr EvtFail.WindowLabel}"
+                DisplayMemberPath="Text"
+                ItemsSource="{Binding TimePresetOptions, Mode=OneWay}"
+                SelectedItem="{Binding SelectedTimePreset}" />
+      <ProgressBar x:Name="RunProgress"
+                   Width="180"
+                   Height="4"
+                   Margin="0,0,10,0"
+                   VerticalAlignment="Center"
+                   AutomationProperties.Name="{Binding StatusText, Mode=OneWay}"
+                   IsIndeterminate="True"
+                   Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      <TextBlock x:Name="StatusLine"
+                 VerticalAlignment="Center"
+                 AutomationProperties.LiveSetting="Polite"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{Binding StatusText, Mode=OneWay}" />
+    </WrapPanel>
+    <Expander x:Name="ThresholdsExpander" Margin="0,0,0,6" DockPanel.Dock="Top" Header="{l:Tr EvtFail.ThresholdsHeading}">
+      <Grid Margin="0,4,0,0">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="90" />
+          <ColumnDefinition Width="24" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="90" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock Margin="0,0,8,4" VerticalAlignment="Center" Text="{l:Tr EvtFail.BruteForceLabel}" />
+        <TextBox x:Name="BruteForceBox" Grid.Column="1" Margin="0,0,0,4" AutomationProperties.Name="{l:Tr EvtFail.BruteForceLabel}" Text="{Binding BruteForceThreshold}" />
+        <TextBlock Grid.Column="3" Margin="0,0,8,4" VerticalAlignment="Center" Text="{l:Tr EvtFail.SprayAccountsLabel}" />
+        <TextBox Grid.Column="4" Margin="0,0,0,4" AutomationProperties.Name="{l:Tr EvtFail.SprayAccountsLabel}" Text="{Binding SprayAccounts}" />
+        <TextBlock Grid.Row="1" Margin="0,0,8,4" VerticalAlignment="Center" Text="{l:Tr EvtFail.SprayWindowLabel}" />
+        <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,4" AutomationProperties.Name="{l:Tr EvtFail.SprayWindowLabel}" Text="{Binding SprayWindowMinutes}" />
+        <TextBlock Grid.Row="1" Grid.Column="3" Margin="0,0,8,4" VerticalAlignment="Center" Text="{l:Tr EvtFail.SprayMaxLabel}" />
+        <TextBox Grid.Row="1" Grid.Column="4" Margin="0,0,0,4" AutomationProperties.Name="{l:Tr EvtFail.SprayMaxLabel}" Text="{Binding SprayMaxPerAccount}" />
+        <TextBlock Grid.Row="2" Margin="0,0,8,4" VerticalAlignment="Center" Text="{l:Tr EvtFail.EnumerationLabel}" />
+        <TextBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,4" AutomationProperties.Name="{l:Tr EvtFail.EnumerationLabel}" Text="{Binding EnumerationThreshold}" />
+        <TextBlock Grid.Row="2" Grid.Column="3" Margin="0,0,8,4" VerticalAlignment="Center" Text="{l:Tr EvtFail.SuccessAfterLabel}" />
+        <TextBox Grid.Row="2" Grid.Column="4" Margin="0,0,0,4" AutomationProperties.Name="{l:Tr EvtFail.SuccessAfterLabel}" Text="{Binding SuccessAfterFailures}" />
+      </Grid>
+    </Expander>
+
+    <Expander x:Name="NotesExpander"
+              Margin="0,0,0,6"
+              DockPanel.Dock="Top"
+              Header="{l:Tr EvtLock.NotesHeading}"
+              IsExpanded="True"
+              Visibility="{Binding HasNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <ScrollViewer MaxHeight="130" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <ItemsControl x:Name="NotesList"
+                      Focusable="False"
+                      ItemTemplate="{StaticResource EventLog.NoteTemplate}"
+                      ItemsSource="{Binding Notes, Mode=OneWay}" />
+      </ScrollViewer>
+    </Expander>
+
+    <!-- Summary chips (click: only that severity) -->
+    <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+      <Button x:Name="ClearFiltersButton"
+              Margin="12,0,0,0"
+              VerticalAlignment="Center"
+              Command="{Binding ClearFiltersCommand}"
+              Content="{l:Tr EvtFail.ClearFilters}"
+              DockPanel.Dock="Right"
+              Visibility="{Binding IsFiltered, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      <ItemsControl x:Name="ChipsList" AutomationProperties.Name="{l:Tr EvtFail.FilterSeverity}" Focusable="False" ItemsSource="{Binding Chips, Mode=OneWay}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type evt:FailedLogonSeverityChip}">
+            <ToggleButton Margin="0,0,6,4"
+                          Padding="10,3"
+                          AutomationProperties.Name="{Binding Text, Mode=OneWay}"
+                          IsChecked="{Binding IsSelected}"
+                          IsEnabled="{Binding HasFindings, Mode=OneWay}">
+              <StackPanel Orientation="Horizontal">
+                <Ellipse Style="{StaticResource EventLog.SeverityDot}" />
+                <TextBlock VerticalAlignment="Center" Text="{Binding Text, Mode=OneWay}" />
+              </StackPanel>
+            </ToggleButton>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </DockPanel>
+
+    <!-- Filters: severity, kind, text (Ctrl+F) -->
+    <WrapPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+      <TextBlock Margin="0,0,6,0" VerticalAlignment="Center" Text="{l:Tr EvtFail.FilterSeverity}" />
+      <ComboBox x:Name="SeverityBox"
+                MinWidth="140"
+                Margin="0,0,16,4"
+                AutomationProperties.Name="{l:Tr EvtFail.FilterSeverity}"
+                DisplayMemberPath="Text"
+                ItemsSource="{Binding SeverityOptions, Mode=OneWay}"
+                SelectedItem="{Binding SelectedSeverity}" />
+      <TextBlock Margin="0,0,6,0" VerticalAlignment="Center" Text="{l:Tr EvtFail.FilterKind}" />
+      <ComboBox x:Name="KindBox"
+                MinWidth="200"
+                Margin="0,0,16,4"
+                AutomationProperties.Name="{l:Tr EvtFail.FilterKind}"
+                DisplayMemberPath="Text"
+                ItemsSource="{Binding KindOptions, Mode=OneWay}"
+                SelectedItem="{Binding SelectedKind}" />
+      <Grid Width="320" Margin="0,0,0,4">
+        <TextBox x:Name="SearchBox"
+                 gp:GroupPolicyUi.IsDocumentSearch="True"
+                 AutomationProperties.Name="{l:Tr EvtFail.SearchPlaceholder}"
+                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=250}" />
+        <TextBlock Style="{StaticResource Ad.HintText}"
+                   Text="{l:Tr EvtFail.SearchPlaceholder}"
+                   Visibility="{Binding Text, ElementName=SearchBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+      </Grid>
+    </WrapPanel>
+
+    <!-- Top accounts, sources, codes and the audit evidence -->
+    <Expander x:Name="SummaryExpander" Margin="0,6,0,0" DockPanel.Dock="Bottom" Header="{l:Tr EvtFail.SummaryHeading}">
+      <Grid MaxHeight="240">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="1.4*" />
+        </Grid.ColumnDefinitions>
+        <DockPanel Margin="0,0,8,0">
+          <TextBlock DockPanel.Dock="Top" Style="{StaticResource EventLog.Heading}" Text="{l:Tr EvtFail.TopAccountsHeading}" />
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="TopAccountsList" Focusable="False" ItemTemplate="{StaticResource EventLog.LineTemplate}" ItemsSource="{Binding TopAccounts, Mode=OneWay}" />
+          </ScrollViewer>
+        </DockPanel>
+        <DockPanel Grid.Column="1" Margin="0,0,8,0">
+          <TextBlock DockPanel.Dock="Top" Style="{StaticResource EventLog.Heading}" Text="{l:Tr EvtFail.TopSourcesHeading}" />
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="TopSourcesList" Focusable="False" ItemTemplate="{StaticResource EventLog.LineTemplate}" ItemsSource="{Binding TopSources, Mode=OneWay}" />
+          </ScrollViewer>
+        </DockPanel>
+        <DockPanel Grid.Column="2" Margin="0,0,8,0">
+          <TextBlock DockPanel.Dock="Top" Style="{StaticResource EventLog.Heading}" Text="{l:Tr EvtFail.CodesHeading}" />
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="CodesList" Focusable="False" ItemTemplate="{StaticResource EventLog.LineTemplate}" ItemsSource="{Binding CodeCounts, Mode=OneWay}" />
+          </ScrollViewer>
+        </DockPanel>
+        <DockPanel Grid.Column="3">
+          <TextBlock DockPanel.Dock="Top" Style="{StaticResource EventLog.Heading}" Text="{l:Tr EvtLock.AuditHeading}" />
+          <ListView x:Name="AuditList" AutomationProperties.Name="{l:Tr EvtLock.AuditHeading}" ItemsSource="{Binding AuditRows, Mode=OneWay}">
+            <ListView.View>
+              <GridView AllowsColumnReorder="False">
+                <GridViewColumn Width="80" Header="{l:Tr EvtLock.ColumnDc}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type evt:AuditEvidenceRow}">
+                      <TextBlock Text="{Binding HostText, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="130" Header="{l:Tr EvtLog.ColumnId}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type evt:AuditEvidenceRow}">
+                      <TextBlock Text="{Binding EventText, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="220" Header="{l:Tr EvtLog.ColumnState}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type evt:AuditEvidenceRow}">
+                      <TextBlock Text="{Binding StateText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SubcategoryText, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="140">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type evt:AuditEvidenceRow}">
+                      <Button Command="{Binding DataContext.ShowInModelCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                              CommandParameter="{Binding Mode=OneWay}"
+                              Content="{l:Tr EvtLock.ShowInModel}"
+                              Visibility="{Binding IsProbablyNotAudited, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+              </GridView>
+            </ListView.View>
+          </ListView>
+        </DockPanel>
+      </Grid>
+    </Expander>
+
+    <!-- The findings and, behind the splitter, the details of the selected one -->
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" MinWidth="360" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="400" MinWidth="260" />
+      </Grid.ColumnDefinitions>
+      <Grid>
+        <ListView x:Name="FindingsList"
+                  gp:GroupPolicyUi.KeepsSelectionInView="True"
+                  AutomationProperties.Name="{l:Tr EvtFail.FindingsHeading}"
+                  ItemContainerStyle="{StaticResource EventLog.Row}"
+                  ItemsSource="{Binding Findings, Mode=OneWay}"
+                  ScrollViewer.CanContentScroll="True"
+                  SelectedItem="{Binding SelectedFinding}"
+                  SelectionMode="Single"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling">
+          <ListView.View>
+            <GridView AllowsColumnReorder="False">
+              <GridViewColumn Width="120" Header="{l:Tr EvtFail.ColumnSeverity}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type evt:FailedLogonFindingRow}">
+                    <StackPanel Orientation="Horizontal">
+                      <Ellipse Style="{StaticResource EventLog.SeverityDot}" />
+                      <TextBlock Text="{Binding SeverityText, Mode=OneWay}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="210" Header="{l:Tr EvtFail.ColumnKind}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type evt:FailedLogonFindingRow}">
+                    <TextBlock FontWeight="SemiBold" Text="{Binding KindText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="190" Header="{l:Tr EvtLock.ColumnSource}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type evt:FailedLogonFindingRow}">
+                    <TextBlock Text="{Binding SourceText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="80" Header="{l:Tr EvtFail.ColumnCount}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type evt:FailedLogonFindingRow}">
+                    <TextBlock Text="{Binding CountText, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="300" Header="{l:Tr EvtFail.ColumnAccounts}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type evt:FailedLogonFindingRow}">
+                    <TextBlock Text="{Binding AccountsText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="150" Header="{l:Tr EvtLock.ColumnLast}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type evt:FailedLogonFindingRow}">
+                    <TextBlock Text="{Binding LastText, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+            </GridView>
+          </ListView.View>
+        </ListView>
+        <TextBlock x:Name="ListNoteText"
+                   Margin="16,48,16,0"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Top"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding ListNote, Mode=OneWay}"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding ListNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+      </Grid>
+
+      <gp:PaneSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+      <Border Grid.Column="2" Padding="12,8" Style="{StaticResource Ad.Card}">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr EvtFail.DetailsHeading}" />
+          <Grid>
+            <TextBlock x:Name="DetailsEmptyText"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr EvtFail.DetailsEmpty}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding HasSelection, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+            <ScrollViewer x:Name="DetailsScroll"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding HasSelection, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+              <StackPanel>
+                <StackPanel DataContext="{Binding SelectedFinding, Mode=OneWay}">
+                  <StackPanel Margin="0,0,0,4" Orientation="Horizontal">
+                    <Ellipse Style="{StaticResource EventLog.SeverityDot}" />
+                    <TextBlock Text="{Binding SeverityText, Mode=OneWay}" />
+                  </StackPanel>
+                  <TextBlock x:Name="DetailsTitle"
+                             Margin="0,0,0,6"
+                             FontSize="15"
+                             FontWeight="SemiBold"
+                             Text="{Binding Title, Mode=OneWay}"
+                             TextWrapping="Wrap" />
+                  <TextBlock Style="{StaticResource EventLog.Text}">
+                    <Run Text="{l:Tr EvtFail.ColumnCount}" /><Run Text=": " /><Run Text="{Binding CountText, Mode=OneWay}" /><Run Text=" · " /><Run
+                      Text="{Binding FirstText, Mode=OneWay}" /><Run Text=" – " /><Run Text="{Binding LastText, Mode=OneWay}" />
+                  </TextBlock>
+                  <TextBlock Style="{StaticResource EventLog.Heading}" Text="{l:Tr EvtFail.ExplanationHeading}" />
+                  <TextBlock x:Name="DetailsExplanation" Style="{StaticResource EventLog.Text}" Text="{Binding Explanation, Mode=OneWay}" />
+                  <TextBlock Style="{StaticResource EventLog.Text}"
+                             Text="{Binding RelatedText, Mode=OneWay}"
+                             Visibility="{Binding RelatedText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+                  <TextBlock Style="{StaticResource EventLog.Heading}" Text="{l:Tr EvtFail.CodesHeading}" />
+                  <TextBlock Style="{StaticResource EventLog.Text}" Text="{Binding CodesText, Mode=OneWay}" />
+                </StackPanel>
+                <TextBlock Style="{StaticResource EventLog.Heading}" Text="{l:Tr EvtFail.AccountsHeading}" />
+                <ItemsControl x:Name="AccountsList" Focusable="False" ItemsSource="{Binding SelectedAccounts, Mode=OneWay}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type evt:FailedLogonAccountRow}">
+                      <DockPanel Margin="0,1">
+                        <Button Margin="8,0,0,0"
+                                Command="{Binding DataContext.RevealAccountCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding Mode=OneWay}"
+                                Content="{l:Tr EvtFail.Reveal}"
+                                DockPanel.Dock="Right"
+                                Visibility="{Binding CanReveal, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                        <TextBlock VerticalAlignment="Center" Text="{Binding Text, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                      </DockPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Style="{StaticResource EventLog.Heading}" Text="{Binding RecordsHeading, Mode=OneWay}" />
+                <ListView x:Name="RecordsList"
+                          MaxHeight="260"
+                          AutomationProperties.Name="{Binding RecordsHeading, Mode=OneWay}"
+                          ItemContainerStyle="{StaticResource EventLog.Row}"
+                          ItemsSource="{Binding SelectedRecords, Mode=OneWay}"
+                          VirtualizingPanel.IsVirtualizing="True">
+                  <ListView.View>
+                    <GridView AllowsColumnReorder="False">
+                      <GridViewColumn Width="140" Header="{l:Tr EvtLog.ColumnTime}">
+                        <GridViewColumn.CellTemplate>
+                          <DataTemplate DataType="{x:Type evt:EventLogRecordRow}">
+                            <TextBlock Text="{Binding TimeText, Mode=OneWay}" />
+                          </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                      </GridViewColumn>
+                      <GridViewColumn Width="90" Header="{l:Tr EvtLog.ColumnHost}">
+                        <GridViewColumn.CellTemplate>
+                          <DataTemplate DataType="{x:Type evt:EventLogRecordRow}">
+                            <TextBlock Text="{Binding HostText, Mode=OneWay}" />
+                          </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                      </GridViewColumn>
+                      <GridViewColumn Width="300" Header="{l:Tr EvtLog.ColumnSummary}">
+                        <GridViewColumn.CellTemplate>
+                          <DataTemplate DataType="{x:Type evt:EventLogRecordRow}">
+                            <TextBlock Text="{Binding Summary, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Summary, Mode=OneWay}" />
+                          </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                      </GridViewColumn>
+                    </GridView>
+                  </ListView.View>
+                </ListView>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </DockPanel>
+      </Border>
+    </Grid>
+  </DockPanel>
+</UserControl>

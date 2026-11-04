@@ -46,6 +46,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private readonly IConnectionWindows? _windows;
     private readonly ConnectionContext? _connection;
     private readonly Comparison.IObjectComparisonLauncher? _comparison;
+    private readonly Correspondence.ICorrespondenceLauncher? _correspondence;
+    private readonly EventLogs.EventLogServices? _eventLogs;
+    private readonly Func<Readiness.ReadinessDocumentViewModel>? _readinessFactory;
     private ObjectListViewModel? _observedDocument;
     private IShellDocument? _observedTab;
     private IDirectorySession? _initializedFor;
@@ -72,7 +75,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         AccountReview.IUserMessageLauncher? messages = null,
         IConnectionWindows? windows = null,
         ConnectionContext? connection = null,
-        Comparison.IObjectComparisonLauncher? comparison = null)
+        Comparison.IObjectComparisonLauncher? comparison = null,
+        Correspondence.ICorrespondenceLauncher? correspondence = null,
+        EventLogs.EventLogServices? eventLogs = null,
+        Func<Readiness.ReadinessDocumentViewModel>? readinessFactory = null)
     {
         _lists = lists ?? throw new ArgumentNullException(nameof(lists));
         Tree = tree ?? throw new ArgumentNullException(nameof(tree));
@@ -91,6 +97,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _windows = windows;
         _connection = connection;
         _comparison = comparison;
+        _correspondence = correspondence;
+        _eventLogs = eventLogs;
+        _readinessFactory = readinessFactory;
         _searchDebouncer = new Debouncer(lists.Time, SearchDelay);
         _detailsDebouncer = new Debouncer(lists.Time, DetailsDelay);
         CommandPalette = new CommandPaletteViewModel(lists.Localizer);
@@ -101,6 +110,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _advancedFeaturesApplied = Settings.Current.ShowAdvancedFeatures ? 1 : 0;
         Tree.NodeActivated += OnNodeActivated;
         Tree.PropertyChanged += OnTreePropertyChanged;
+        AttachGroupPolicy();
+        AttachEventLogs();
         Sessions.SessionChanged += OnSessionChanged;
         Settings.Changed += OnSettingsChanged;
         Localizer.CultureChanged += OnCultureChanged;
@@ -512,6 +523,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         Tree.NodeActivated -= OnNodeActivated;
         Tree.PropertyChanged -= OnTreePropertyChanged;
+        DetachGroupPolicy();
+        DetachEventLogs();
         _activities.PropertyChanged -= OnActivitiesChanged;
         _views.Changed -= OnViewsChanged;
         Sessions.SessionChanged -= OnSessionChanged;
@@ -792,6 +805,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     {
         var session = Sessions.Current;
         if (session is null)
+        {
+            return;
+        }
+
+        if (TryActivateGroupPolicyNode(node))
         {
             return;
         }

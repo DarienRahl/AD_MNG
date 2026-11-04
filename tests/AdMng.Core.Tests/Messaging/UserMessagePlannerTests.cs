@@ -209,7 +209,7 @@ public class UserMessagePlannerTests
         Assert.Equal("Dla Łukasz  Bcc: ofiara@example.com", message.Subject);
         Assert.DoesNotContain('\n', message.Subject);
         Assert.Equal("Łukasz  Bcc: ofiara@example.com", message.To[0].DisplayName);
-        Assert.Contains("<b>&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt; &amp; Co</b>", message.HtmlBody, StringComparison.Ordinal);
+        Assert.Contains("<b>&lt;script&gt;alert('x')&lt;/script&gt; &amp; Co</b>", message.HtmlBody, StringComparison.Ordinal);
         Assert.Contains("<p style=\"color:#333\">", message.HtmlBody, StringComparison.Ordinal);
         Assert.StartsWith("Dział: <script>alert('x')</script> & Co", message.TextBody, StringComparison.Ordinal);
     }

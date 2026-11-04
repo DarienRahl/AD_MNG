@@ -1,5 +1,5 @@
 using AdMng.Core.GroupPolicy;
-using AdMng.Watchdog.Core.Gpo.Parsers;
+using AdMng.Core.GroupPolicy.Content;
 
 namespace AdMng.Watchdog.Core.Gpo;
 
@@ -100,7 +100,7 @@ public static class GpoSnapshotBuilder
                 }
                 else
                 {
-                    Parse(file, read.Content, sink);
+                    GpoContentParser.Parse(file, read.Content, sink);
                 }
             }
             catch (GpoParseException)
@@ -181,46 +181,7 @@ public static class GpoSnapshotBuilder
     }
 
     /// <summary>Key of a script file: <c>Computer/Scripts/Files/&lt;path below Scripts/&gt;</c>.</summary>
-    public static string ScriptKey(GpoFile file)
-    {
-        ArgumentNullException.ThrowIfNull(file);
-        var parts = file.Path.Split('/');
-        return GpoValues.Key((file.Scope == GpoScope.User ? "User" : "Computer") + "/Scripts/Files/" + string.Join('/', parts.Skip(2)));
-    }
-
-    private static void Parse(GpoFile file, byte[] content, GpoSettingSink sink)
-    {
-        switch (file.Role)
-        {
-            case GpoFileRole.SecurityTemplate:
-                GptTmplParser.Parse(content, sink);
-                break;
-            case GpoFileRole.AuditCsv:
-                AuditCsvParser.Parse(content, sink);
-                break;
-            case GpoFileRole.RegistryPol:
-                RegistryPolParser.Parse(content, file.Scope, sink);
-                break;
-            case GpoFileRole.Preferences:
-                GppXmlParser.Parse(content, file.Scope, file.PreferenceType ?? "Preferences", sink);
-                break;
-            case GpoFileRole.ScriptsIni:
-                ScriptsIniParser.Parse(content, file.Scope, powerShell: false, sink);
-                break;
-            case GpoFileRole.PsScriptsIni:
-                ScriptsIniParser.Parse(content, file.Scope, powerShell: true, sink);
-                break;
-            case GpoFileRole.ScriptFile:
-                sink.Hash(ScriptKey(file), GpoValues.Hash(content) + " size:" + GpoValues.Number(content.LongLength), GpoSettingCategory.Scripts);
-                break;
-            case GpoFileRole.Comment:
-                PolicyCommentParser.ParseCmtx(content, file.Scope, sink);
-                break;
-            case GpoFileRole.GpoComment:
-                PolicyCommentParser.ParseGpoComment(content, sink);
-                break;
-        }
-    }
+    public static string ScriptKey(GpoFile file) => GpoContentParser.ScriptKey(file);
 
     private static void AddProblem(List<string> problems, string problem)
     {

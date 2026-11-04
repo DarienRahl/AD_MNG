@@ -10,12 +10,62 @@ public enum UserMessageTransportKind
 
     /// <summary>Through the AdMng Watchdog service (README U1b).</summary>
     Watchdog,
+
+    /// <summary>Through classic Outlook on this computer (U5, AdMng.Outlook, design note docs/dev/u5-outlook-correspondence.md 5).</summary>
+    Outlook,
+}
+
+/// <summary>
+/// What a transport accepts (U1c, design note section 9.6): inline images and their limits, the longest HTML body and, for
+/// the AdMng Watchdog, how many bytes of images its outbox may still hold. Direct SMTP has the Core limits; an AdMng
+/// Watchdog without the U1c contract has <see cref="Legacy"/>.
+/// </summary>
+public sealed record UserMessageTransportCapabilities
+{
+    public bool InlineImages { get; init; }
+
+    public int MaxInlineImages { get; init; }
+
+    public long MaxInlineImageBytes { get; init; }
+
+    public long MaxInlineImagesTotalBytes { get; init; }
+
+    public int MaxHtmlLength { get; init; } = Html.MessageHtmlLimits.LegacyMaxHtmlLength;
+
+    /// <summary>Bytes of images the service's outbox may still take (null: no such limit, e.g. direct SMTP).</summary>
+    public long? ImageStorageAvailableBytes { get; init; }
+
+    /// <summary>Direct SMTP: the Core limits.</summary>
+    public static UserMessageTransportCapabilities Direct { get; } = new()
+    {
+        InlineImages = true,
+        MaxInlineImages = Images.MessageImageLimits.MaxImagesPerMessage,
+        MaxInlineImageBytes = Images.MessageImageLimits.MaxImageBytes,
+        MaxInlineImagesTotalBytes = Images.MessageImageLimits.MaxImagesBytesPerMessage,
+        MaxHtmlLength = Html.MessageHtmlLimits.MaxHtmlLength,
+    };
+
+    /// <summary>An AdMng Watchdog without the U1c contract: no images, HTML up to 100 000 characters.</summary>
+    public static UserMessageTransportCapabilities Legacy { get; } = new();
+
+    /// <summary>Classic Outlook (U5): the Korespondencja image limits, HTML up to 2 000 000 characters.</summary>
+    public static UserMessageTransportCapabilities Outlook { get; } = new()
+    {
+        InlineImages = true,
+        MaxInlineImages = Correspondence.Composition.CorrespondenceLimits.MaxImagesPerMessage,
+        MaxInlineImageBytes = Correspondence.Composition.CorrespondenceLimits.MaxImageBytes,
+        MaxInlineImagesTotalBytes = Correspondence.Composition.CorrespondenceLimits.MaxImagesBytesPerMessage,
+        MaxHtmlLength = 2_000_000,
+    };
 }
 
 /// <summary>Whether a transport can be used now; <see cref="Reason"/> is a code (localization key suffix) when not.</summary>
 public sealed record UserMessageTransportStatus(bool IsAvailable, string? Reason = null)
 {
     public static UserMessageTransportStatus Available { get; } = new(true);
+
+    /// <summary>What the transport accepts (U1c); direct SMTP by default.</summary>
+    public UserMessageTransportCapabilities Capabilities { get; init; } = UserMessageTransportCapabilities.Direct;
 
     public const string NotConfigured = "notConfigured";
     public const string NotSupported = "notSupported";
@@ -103,6 +153,19 @@ public interface IUserMessageConnection : IAsyncDisposable
     /// <summary>Sends one message. Failures are returned as a classified <see cref="UserMessageDelivery"/>, not thrown
     /// (except cancellation).</summary>
     Task<UserMessageDelivery> SendAsync(OutgoingUserMessage message, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Creates the Outlook transport of messages to users (U5, design note docs/dev/u5-outlook-correspondence.md 5): implemented
+/// by AdMng.Outlook (<c>OutlookUserMessageTransportFactory</c>) and registered by the app, so Presentation, which does not
+/// reference AdMng.Outlook, can build the transport of the choice Outlook.
+/// </summary>
+public interface IOutlookUserMessageTransportFactory
+{
+    /// <param name="account">The SMTP address of the Outlook profile account to send from; null or blank: the profile's
+    /// default account.</param>
+    /// <param name="onBehalfOfSender">Put the message's From address into "w imieniu" (SentOnBehalfOfName).</param>
+    IUserMessageTransport Create(string? account, bool onBehalfOfSender);
 }
 
 /// <summary>TLS of the direct SMTP connection.</summary>

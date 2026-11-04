@@ -188,6 +188,12 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
 
     public WatchdogEventsViewModel Events { get; }
 
+    /// <summary>
+    /// The live updates' loop (<see cref="WatchdogPoller.Completion"/>): completes once polling has stopped, e.g. after
+    /// <see cref="Dispose"/> – a request the loop had already begun is then made (and cancelled). Tests await it.
+    /// </summary>
+    internal Task PollingCompletion => _poller.Completion;
+
     public WatchdogConfigSession Config { get; }
 
     public WatchdogRulesViewModel Rules { get; }

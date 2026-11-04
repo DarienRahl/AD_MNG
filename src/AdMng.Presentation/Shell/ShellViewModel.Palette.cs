@@ -61,6 +61,8 @@ public sealed partial class ShellViewModel
             {
                 DisabledReason = _ => CompareBlockedReason(),
             },
+            .. ComputerCommandDescriptors(),
+            .. CorrespondenceCommandDescriptors(),
             new("new.user", L.Commands.NewUser, create, "Ctrl+Shift+U", NewUserCommand)
             {
                 DisabledReason = p => CreateBlockedReason(ObjectKind.User, p as string),
@@ -99,12 +101,18 @@ public sealed partial class ShellViewModel
             new("view.advanced", L.Commands.ToggleAdvancedFeatures, view, string.Empty, ToggleAdvancedFeaturesCommand),
             new("view.details", L.Commands.ToggleDetailsPane, view, "Ctrl+D", ToggleDetailsPaneCommand),
             new("tools.palette", L.Commands.CommandPalette, tools, "Ctrl+K", CommandPalette.OpenCommand),
+            new("help.reportProblem", L.ProblemReport.Command, tools, string.Empty, ShowProblemReportCommand),
             new("tools.importCsv", L.Commands.ImportCsv, tools, string.Empty, ImportCsvCommand),
             new("tools.sessionLog", L.Commands.SessionLog, tools, "Ctrl+Shift+L", ShowSessionLogCommand),
             new("tools.recycleBin", L.Commands.RecycleBin, tools, "Ctrl+Shift+R", ShowRecycleBinCommand),
             new("tools.accountReview", L.Commands.AccountReview, tools, string.Empty, ShowAccountReviewCommand),
             new("tools.savedFilters", L.Commands.SavedFilters, tools, string.Empty, ShowSavedFiltersCommand),
             new("tools.watchdog", L.Commands.Watchdog, tools, "Ctrl+Shift+A", ShowWatchdogCommand),
+            .. GroupPolicyCommandDescriptors(),
+            .. DocumentCommandDescriptors(),
+            .. GroupPolicyDiagnosticsCommandDescriptors(),
+            .. EventLogCommandDescriptors(),
+            .. ReadinessCommandDescriptors(),
             new("tools.settings", L.Commands.Settings, tools, "Ctrl+OemComma", ShowSettingsCommand),
             new("session.newWindow", L.Commands.NewConnectionWindow, session, "Ctrl+Shift+N", NewConnectionWindowCommand),
             new("session.changeDc", L.Commands.ChangeDomainController, session, string.Empty, ChangeDomainControllerCommand),

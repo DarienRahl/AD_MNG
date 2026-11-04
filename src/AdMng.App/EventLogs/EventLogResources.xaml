@@ -1,0 +1,102 @@
+<!--
+  Shared resources of the event log documents (track E): the row and label styles, the source and host panels used by the
+  reader, the lockout source and the failed logons.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:c="clr-namespace:AdMng.App.Controls"
+                    xmlns:an="clr-namespace:AdMng.Core.EventLogs.Analysis;assembly=AdMng.Core"
+                    xmlns:evt="clr-namespace:AdMng.Presentation.EventLogs;assembly=AdMng.Presentation"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+  <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
+
+  <Style x:Key="EventLog.Row" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+    <Setter Property="Height" Value="28" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="Padding" Value="2,0" />
+  </Style>
+
+  <Style x:Key="EventLog.Label" TargetType="TextBlock">
+    <Setter Property="Margin" Value="0,8,0,2" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+  </Style>
+
+  <Style x:Key="EventLog.Heading" TargetType="TextBlock">
+    <Setter Property="Margin" Value="0,10,0,4" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style x:Key="EventLog.Text" TargetType="TextBlock">
+    <Setter Property="Margin" Value="0,1" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <!-- A severity of the failed logons (FailedLogonSeverity): a dot in the severity's colour. -->
+  <Style x:Key="EventLog.SeverityDot" TargetType="Ellipse">
+    <Setter Property="Width" Value="9" />
+    <Setter Property="Height" Value="9" />
+    <Setter Property="Margin" Value="0,0,6,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Fill" Value="{DynamicResource SystemFillColorAttentionBrush}" />
+    <Style.Triggers>
+      <DataTrigger Binding="{Binding Severity, Mode=OneWay}" Value="{x:Static an:FailedLogonSeverity.Critical}">
+        <Setter Property="Fill" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding Severity, Mode=OneWay}" Value="{x:Static an:FailedLogonSeverity.High}">
+        <Setter Property="Fill" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding Severity, Mode=OneWay}" Value="{x:Static an:FailedLogonSeverity.Medium}">
+        <Setter Property="Fill" Value="{DynamicResource SystemFillColorCautionBrush}" />
+      </DataTrigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- A note of an analysis: the warning glyph for warnings, the info glyph otherwise. -->
+  <DataTemplate x:Key="EventLog.NoteTemplate" DataType="{x:Type evt:AnalysisNoteRow}">
+    <DockPanel Margin="0,2">
+      <TextBlock x:Name="Glyph"
+                 Margin="0,1,8,0"
+                 VerticalAlignment="Top"
+                 DockPanel.Dock="Left"
+                 Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                 Style="{StaticResource Ad.GlyphText}"
+                 Text="{x:Static c:Glyphs.Info}" />
+      <TextBlock Text="{Binding Text, Mode=OneWay}" TextWrapping="Wrap" />
+    </DockPanel>
+    <DataTemplate.Triggers>
+      <DataTrigger Binding="{Binding IsWarning, Mode=OneWay}" Value="True">
+        <Setter TargetName="Glyph" Property="Text" Value="{x:Static c:Glyphs.Warning}" />
+        <Setter TargetName="Glyph" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+      </DataTrigger>
+    </DataTemplate.Triggers>
+  </DataTemplate>
+
+  <!-- A source of a run in the "Zasięg i dostęp" panel: state, events, coverage, the warning and the error with its remedy. -->
+  <DataTemplate x:Key="EventLog.HostTemplate" DataType="{x:Type evt:EventLogHostRow}">
+    <Border Margin="0,0,0,6" Padding="8,4" AutomationProperties.Name="{Binding AutomationName, Mode=OneWay}" Style="{StaticResource Ad.Card}">
+      <StackPanel>
+        <DockPanel>
+          <TextBlock Margin="12,0,0,0" DockPanel.Dock="Right" Style="{StaticResource Ad.SecondaryText}" Text="{Binding RecordsText, Mode=OneWay}" />
+          <TextBlock FontWeight="SemiBold" Text="{Binding Host, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+        </DockPanel>
+        <TextBlock Style="{StaticResource Ad.SecondaryText}" TextWrapping="Wrap">
+          <Run Text="{Binding KindText, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding StateText, Mode=OneWay}" />
+        </TextBlock>
+        <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding CoverageText, Mode=OneWay}"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding CoverageText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        <TextBlock Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   Text="{Binding Warning, Mode=OneWay}"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding HasWarning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <TextBlock Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                   Text="{Binding ErrorText, Mode=OneWay}"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding HasError, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      </StackPanel>
+    </Border>
+  </DataTemplate>
+</ResourceDictionary>

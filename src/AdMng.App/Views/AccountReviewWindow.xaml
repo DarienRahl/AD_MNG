@@ -511,6 +511,12 @@
                       Content="{l:Tr Commands.Unlock}"
                       Style="{StaticResource ActionButton}"
                       Visibility="{Binding ShowUnlock, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <!-- Track E: "Skąd blokada konta…" of the selected locked account (opens in the main window). -->
+              <Button x:Name="LockoutSourceButton"
+                      Command="{Binding FindLockoutSourceCommand}"
+                      Content="{l:Tr EvtLog.LockoutCommand}"
+                      Style="{StaticResource ActionButton}"
+                      Visibility="{Binding ShowLockoutSource, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
               <Button x:Name="RequirePasswordChangeButton"
                       Command="{Binding RequirePasswordChangeCommand}"
                       Content="{l:Tr AccountReview.RequirePasswordChange}"

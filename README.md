@@ -9,15 +9,17 @@
 **Szybki, nowoczesny następca przystawki `dsa.msc` – z edycją zbiorczą, Koszem AD i monitorem zmian w katalogu**
 
 [![CI](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml/badge.svg)](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml)
-[![Wersja](https://img.shields.io/badge/wersja-0.5.0-2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
+[![Wersja](https://img.shields.io/badge/wersja-0.13.0-2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
 ![WPF Fluent](https://img.shields.io/badge/WPF-Fluent-0078D4)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011%20%7C%20Server%202019%2B-0078D4)
 ![LDAP](https://img.shields.io/badge/LDAP-S.DS.Protocols-57606a)
 ![Interfejs](https://img.shields.io/badge/interfejs-PL%20%7C%20EN-dc143c)
+[![Licencja](https://img.shields.io/badge/licencja-Apache--2.0-blue)](LICENSE)
 
 **[Funkcje](#-funkcje)** · **[Zrzuty ekranu](#-zrzuty-ekranu)** · **[Roadmapa](#-roadmapa)** ·
-**[Pobierz](#-pobierz-i-uruchom)** · **[Budowanie](#-budowanie-i-testy)** · **[Dokumentacja](#-dokumentacja)**
+**[Pobierz](#-pobierz-i-uruchom)** · **[Budowanie](#-budowanie-i-testy)** · **[Dokumentacja](#-dokumentacja)** ·
+**[Licencja](#-licencja)** · **[Code signing policy](#-code-signing-policy)**
 
 </div>
 
@@ -89,6 +91,11 @@ podglądem zmian, raportem i cofaniem.
   pierwotnego lub wskazanego miejsca, całe poddrzewo OU jednym planem w kolejności rodzic → dzieci.
 - 🔎 **Przejrzystość** – dziennik sesji, historia równoważnych poleceń PowerShell, centrum aktywności z postępem i
   anulowaniem, komunikaty błędów AD po polsku.
+- 🩺 **Gotowość środowiska i zgłaszanie problemów** – *Narzędzia → Sprawdź gotowość środowiska…* sprawdza tylko
+  odczytem, czy domena i ten komputer są gotowe na funkcje programu (połączenie, katalog, SYSVOL i zasady grupy, zdalne
+  akcje, dzienniki zdarzeń, Watchdog, Outlook, ten komputer) – każdy punkt z objaśnieniem, podpowiedzią i rozdziałem
+  instrukcji; *Pomoc → Zgłoś problem…* składa opis do zgłoszenia bez danych katalogu (wersje, sposób połączenia, kody
+  wyników sprawdzenia, szablony ostatnich komunikatów diagnostycznych). Pilotaż: [docs/PILOTAZ.md](docs/PILOTAZ.md).
 - 🛡 **AdMng Watchdog – monitor zmian w AD** – osobna usługa (24/7) na serwerze **Debian 12/13** poza domeną (od 0.3.0;
   pakiety `.deb`, systemd, konto komputera tylko do odczytu z keytabem i hasłem zmienianym co 30 dni) wykrywa nowe i
   usunięte obiekty, zmiany atrybutów (stara → nowa wartość), blokady, wygasające konta, zmiany członkostwa i
@@ -118,6 +125,7 @@ Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV
 | **Wygląd** | rozmyty na wysokim DPI, bez trybu ciemnego | Fluent, motyw jasny i ciemny, PL / EN bez restartu |
 | **Instalacja** | RSAT | jeden plik `AdMng.exe` – bez .NET i RSAT |
 | **Kto co zmienił** | brak | AdMng Watchdog: wykonawca, stara → nowa wartość, powiadomienia |
+| **Blokady kont** | LockoutStatus i EventCombMT osobno, Podgląd zdarzeń komputer po komputerze | *Skąd blokada konta*: stan na wszystkich DC i ich dzienniki naraz, źródła prób z objaśnieniem kodów, sprawdzenie komputera źródłowego (sesje, usługi, zadania zaplanowane) |
 
 ## 📸 Zrzuty ekranu
 
@@ -153,10 +161,14 @@ Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV
   </tr>
 </table>
 
-<sub>Zrzuty pochodzą z wersji 0.2.0 (polski interfejs, przykładowa firma z testów); zrzuty wersji 0.5.0 – także okna
-*Przegląd kont* (z zakładką *Uprawnienia*) i *Wiadomości do użytkowników*, dwa okna połączeń obok siebie, porównanie
-obiektów między nimi, potwierdzenie certyfikatu Watchdoga i podzakładka „Źródła i retencja” – są dołączone do wydania.
-Aktualny komplet CI
+<sub>Zrzuty pochodzą z wersji 0.2.0 (polski interfejs, przykładowa firma z testów); zrzuty wersji 0.13.0 – także okno
+*Przegląd komputerów*, karta *Zasady grupy* jednostki organizacyjnej, wiadomość wklejona z Outlooka z obrazami
+osadzonymi, zwroty grzecznościowe w podglądzie wiadomości, *Przegląd kont* (z zakładką *Uprawnienia*), dwa okna połączeń
+obok siebie, porównanie obiektów między nimi, potwierdzenie certyfikatu Watchdoga i podzakładka „Źródła i retencja” – są
+dołączone do wydania. Okno *Korespondencja* (U5) pokazują zrzuty 26–28: odbiorcy wczytani z pliku z kolumnami pól,
+wiadomość w edytorze z podpisem i załącznikami oraz właściciele skrzynek po dopasowaniu; szablony administracyjne GPO
+(K3) – zrzuty 29 i 30: edytor ustawień ADMX i aktualizacja magazynu centralnego; model „co dostanie komputer” (K5) –
+zrzut 31; skąd blokada konta (E) – zrzut 32; gotowość środowiska (etap S) – zrzut 33. Aktualny komplet CI
 publikuje przy każdym pushu na gałęzi `screenshots` – zob. [Zrzuty ekranu z CI](#zrzuty-ekranu-z-ci).</sub>
 
 ## 🧭 Roadmapa
@@ -186,7 +198,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a, U1b, U2, U4: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K6: 🟡)"] ~~~ EVT["🟡 E · Dzienniki zdarzeń<br/>czytnik i analiza<br/>(E1, część E2: 🟡)"]
     end
     A --> B
     B ~~~ C
@@ -194,8 +206,8 @@ flowchart TB
     classDef wip fill:#fff8c5,stroke:#9a6700,color:#3b2300
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
-    class F1,F2,W,U wip
-    class F3,F4,F5,F6,F7,M365 todo
+    class F1,F2,W,U,K,EVT wip
+    class F3,F4,F5,F6,F7,M365,TEAM todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -212,8 +224,11 @@ flowchart TB
 | 6 | Delegacja i zarządzanie | Edytor ACL, kreator delegowania i przegląd delegacji, polityki ADMX, dziennik zdarzeń operatora, rzadkie karty ADUC | ⬜ |
 | 7 | Wdrożenie i dodatki | Podpisany MSI, WDAC/AppLocker, zatwierdzanie „cztery oczy”, członkostwo czasowe (PAM) | ⬜ |
 | W | AdMng Watchdog – monitor zmian (ścieżka równoległa) | Usługa na Linuksie (Debian, systemd) wykrywająca zmiany w AD z ustaleniem wykonawcy i źródła (WEF), treść GPO, historia 3 lata, powiadomienia e-mail / raport dzienny / Teams / webhook, zakładka Watchdog w AD_MNG | 🟡 wersja zapoznawcza (pakiety Debian od 0.3.0), czeka na pilotaż na kontrolerach Windows Server |
-| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U2 – przegląd stanu kont, U4 – uprawnienia kont: U4a z grup i ustawień kont z kreatorem filtrów, U4b z delegowań w ACL i U4c z uprawnień lokalnych z GPO: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U3: ⬜) |
+| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog, korespondencja seryjna przez klasycznego Outlooka (pliki z adresami, odbiorcy z AD, pola, podgląd, test, dziennik „już wysłane”) i zapytania do właścicieli skrzynek współdzielonych | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U1c – wiadomości sformatowane wklejone z Outlooka z obrazami osadzonymi, U1d – zwroty grzecznościowe z tytułem i płcią, U2 – przegląd stanu kont, U4 – uprawnienia kont: U4a z grup i ustawień kont z kreatorem filtrów, U4b z delegowań w ACL i U4c z uprawnień lokalnych z GPO: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U5 – Korespondencja (Outlook) i zapytania do właścicieli skrzynek: 🟡 zaimplementowane, czekają na pilotaż z klasycznym Outlookiem i Exchange; U3: ⬜) |
 | C | Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint (ścieżka równoległa) | Logowanie kontem administratora lub Czytelnika globalnego z automatycznym wykrywaniem ról (także kwalifikujących się w PIM) i dopasowaniem dostępnych funkcji; użytkownicy, grupy, licencje, MFA i logowania w Entra ID, skrzynki i uprawnienia w Exchange Online, Teams, SharePoint i OneDrive, powiązanie konta AD z kontem w Entra ID; Microsoft Graph i moduły PowerShell | ⬜ zaplanowane |
+| T | Współpraca zespołu (ścieżka równoległa) | Kilku administratorów na różnych komputerach pracuje razem przez usługę AdMng Watchdog: panel „Wspólne” z obiektami przypiętymi dla zespołu (z notatką, autorem, „Przekaż do…”) i notatki do obiektów widoczne dla wszystkich przy koncie, grupie czy komputerze, odświeżane na żywo | ⬜ zaplanowane |
+| K | Komputery i zasady grupy (GPO) (ścieżka równoległa) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer”, czytelne ustawienia i diagnostyka zasad grupy | 🟡 (K1 – komputery, K2 – GPO w drzewie, K3 – edytor ADMX z aktualizacją magazynu centralnego, K4 – ustawienia zabezpieczeń, K5 – raport „co dostanie komputer” i K6 – czytelność, wygoda edycji i diagnostyka: zaimplementowane, czekają na pilotaż na Windows Server AD) |
+| E | Dzienniki zdarzeń: czytnik i analiza (ścieżka równoległa) | Czytanie dzienników zdarzeń DC, serwerów, stacji i plików `.evtx` z poziomu programu (dowolny kanał, wspólna oś czasu wielu komputerów, objaśnione pola i obiekty AD) oraz analizy: źródło blokady konta, rozpylanie haseł, Kerberos/RC4, NTLMv1, podpisywanie LDAP („kto przestanie działać”), historia logowań, zmiany kont i grup, GPO na komputerze, zdrowie DC, integralność inspekcji; osobno od Watchdoga, bez zapisu na dysku | 🟡 (E1 – czytnik oraz z E2 źródło blokady konta i nieudane logowania: zaimplementowane, czekają na pilotaż na Windows Server AD) |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -505,7 +520,7 @@ na żywo i wiele domen.
 - Raporty na żywo: bezpieczeństwo (PASSWD_NOTREQD, brak preautentykacji Kerberos, delegowanie nieograniczone, adminCount,
   konta z SPN), inwentaryzacja (systemy operacyjne, puste i duże grupy, liczności OU); każdy wynik można przekazać do edycji zbiorczej.
   Przegląd stanu kont użytkowników (zablokowane, terminy haseł i kont, nieaktywne) –
-  [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u2-i-u4-); konta z uprawnieniami
+  [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u1c-u1d-u2-u4-i-u5-); konta z uprawnieniami
   ponad zwykłego użytkownika (grupy, delegowanie Kerberos, SPN, adminCount, brak preautentykacji, delegowania w ACL,
   uprawnienia lokalne z GPO) – zakładka *Uprawnienia* tego okna ([U4](#u4--uprawnienia-kont--u4a-u4b-i-u4c-)).
 - ✅ Członkostwo bezpośrednie vs pełne (zagnieżdżone) na kartach *Członek grup* i *Członkowie*
@@ -530,7 +545,7 @@ DC, historia zmian, LAPS i BitLocker.
 - Pola oparte o ACL: „Chroń obiekt przed przypadkowym usunięciem”, „Użytkownik nie może zmienić hasła”, „Menedżer może
   aktualizować listę członków”; karta Zabezpieczenia (podgląd), znaczniki Tier 0.
 - Ostatnie logowanie i stan blokady na **wszystkich** DC (zamiennik LockoutStatus.exe) – korzysta z nich także przegląd
-  kont ze ścieżki U.
+  kont ze ścieżki U; *skąd* blokada (zdarzenia 4740, 4771, 4776, 4625) – ścieżka E.
 - Karta Historia: kiedy i na którym DC zmieniono każdy atrybut (`msDS-ReplAttributeMetaData`) i członka grupy.
 - ✅ Odświeżanie list na żywo przez powiadomienia LDAP o zmianach (osobne połączenie do tego samego DC, odświeżane są
   tylko zmienione obiekty); ⬜ zapasowe odpytywanie USN, gdy DC odmawia powiadomień.
@@ -550,7 +565,7 @@ karty ADUC.
 - Edytor ACL, kreator „Deleguj kontrolę” i **przegląd delegacji** (niestandardowe ACE per OU) z cofaniem.
 - Wstępna kontrola uprawnień rozszerzonych (AuthZ) przed operacją.
 - Szablony ADMX (progi potwierdzeń, limity eksportu, blokada bezczynności, wymaganie PAW), kanał Dziennika zdarzeń
-  operatora (metadane zmian, bez wartości), wsparcie korelacji z audytem DC (5136/5137/5141).
+  operatora (metadane zmian, bez wartości), wsparcie korelacji z audytem DC (5136/5137/5141 – przechodzi do ścieżki E).
 - Rzadkie karty ADUC: Dial-in, Środowisko/Sesje/Zdalne sterowanie (RDS), Mapowania nazw, Opublikowane certyfikaty,
   zasady replikacji haseł RODC; wzorce operacji (FSMO), konta gMSA/dMSA.
 
@@ -610,8 +625,9 @@ specyfikacje [dev/watchdog-spec.md](docs/dev/watchdog-spec.md) i
   LDAP przez GSSAPI, API z Negotiate i rolami, OpenWEC, SYSVOL), skrypty laboratoryjne (`tools/testlab/watchdog`)
   uruchamiane także w CI, testy instalacji pakietów w kontenerach Debian 12 i 13.
 
-**Do zrobienia przed wersją stabilną (0.5.0 jest wersją zapoznawczą):** pilotaż na laboratorium Windows Server 2025
-z Debianem 13 i stacją administratora, potem w domenie testowej z kontrolerami 2025 i 2022 – lista kontrolna
+**Do zrobienia przed wersją stabilną (0.13.0 jest wersją zapoznawczą):** pilotaż na laboratorium Windows Server 2025
+z Debianem 13 i stacją administratora, potem w domenie testowej z kontrolerami 2025 i 2022 – wspólna lista kontrolna
+[PILOTAZ.md](docs/PILOTAZ.md) (AD Manager, zasady grupy, dzienniki zdarzeń) i lista usługi
 [WATCHDOG-LINUX.md, rozdział 7](docs/WATCHDOG-LINUX.md#7-pilotaż--lista-kontrolna) (przekazywanie zdarzeń z prawdziwych
 DC do OpenWEC i atrybucja „kto i skąd”, zmiana hasła konta komputera przy wpisie odmowy dla SELF, pierwsza
 automatyczna zmiana po 30 dniach, podpisywanie LDAP na Windows Server 2025 z GSSAPI, `tokenGroups` po nadaniu praw,
@@ -624,35 +640,63 @@ w jednej instancji, wartości czasowe członkostwa (PAM TTL), podpisane pakiety 
 
 </details>
 
-### Ścieżka U – Przegląd kont i wiadomości do użytkowników 🟡 (U1a, U1b, U2 i U4: 🟡)
+### Ścieżka U – Przegląd kont i wiadomości do użytkowników 🟡 (U1a, U1b, U1c, U1d, U2, U4 i U5: 🟡)
 
 **Cel:** helpdesk jednym przebiegiem sprawdza wszystkie konta (zablokowane, wygasające hasła i konta, nieaktywne …)
 i od razu powiadamia właściwe osoby e-mailem – jedną osobę z okna właściwości albo setki z zaznaczenia lub z wyniku
 przeglądu – z takim samym podglądem, raportem i zabezpieczeniami jak w edycji zbiorczej. Ścieżka równoległa: korzysta
 z chipów filtrów (faza 1), silnika szablonów (faza 2) i transportu SMTP Watchdoga ([WATCHDOG.md](docs/WATCHDOG.md#52-smtp)).
 U1 i U2 można realizować niezależnie; U3 wymaga szablonów z U1 i usługi Watchdog; U4 (uprawnienia kont) to druga
-zakładka okna przeglądu z U2.
+zakładka okna przeglądu z U2; U5 przenosi do AD Managera program *Korespondencja WPiA* (korespondencja seryjna przez
+klasycznego Outlooka) i dodaje zapytania do właścicieli skrzynek współdzielonych.
 
 <details>
-<summary><b>Szczegóły ścieżki U</b> – wiadomości e-mail (SMTP), przegląd stanu kont, automatyczne przypomnienia, uprawnienia kont i kreator filtrów</summary>
+<summary><b>Szczegóły ścieżki U</b> – wiadomości e-mail (SMTP, Watchdog, Outlook), przegląd stanu kont, automatyczne przypomnienia, uprawnienia kont i kreator filtrów, korespondencja przez Outlooka i zapytania do właścicieli skrzynek</summary>
 
 #### U1 – Wiadomości e-mail do użytkowników (SMTP) 🟡
 
-**Stan realizacji – U1a (strona AD Managera z wysyłką bezpośrednio przez SMTP) i U1b (wysyłka przez usługę Watchdog)
-gotowe; czeka na pilotaż.** Opis techniczny: [docs/dev/u1-user-messages.md](docs/dev/u1-user-messages.md), po stronie
-usługi: [WATCHDOG.md, rozdz. 5.8](docs/WATCHDOG.md#58-wiadomości-do-użytkowników-z-ad-managera).
+**Stan realizacji – U1a (strona AD Managera z wysyłką bezpośrednio przez SMTP), U1b (wysyłka przez usługę Watchdog),
+U1c (wiadomość sformatowana wklejona z Outlooka z obrazami osadzonymi) i U1d (zwroty grzecznościowe z tytułem i płcią)
+gotowe; czeka na pilotaż.** Pola zwrotów działają także we wklejonej treści HTML (wspólny test: wiadomość z Outlooka
+z polami `{$salutation}`, `{$honorific}` i `{$byGender:…}` rozciętymi przez Outlooka i z logo – „Szanowny Panie
+Profesorze” we wklejonym formatowaniu z logo osadzonym, bezpośrednio przez SMTP i przez Watchdoga). Opis techniczny:
+[docs/dev/u1-user-messages.md](docs/dev/u1-user-messages.md), U1c i U1d:
+[docs/dev/u1c-u1d-rich-html-and-salutations.md](docs/dev/u1c-u1d-rich-html-and-salutations.md), po stronie usługi:
+[WATCHDOG.md, rozdz. 5.8](docs/WATCHDOG.md#58-wiadomości-do-użytkowników-z-ad-managera).
 
 - ✅ Okno *Wyślij wiadomość…* z okna właściwości (karta Konto), z menu kontekstowego listy i menu Obiekt, z palety
   poleceń (`object.sendMessage`) i z każdej listy przeglądu kont (U2) – z szablonem pasującym do sprawdzenia i jego
   N dni; odbiorców można dopisać oknem wyboru obiektów albo usunąć. Zawsze jedna wiadomość na konto.
 - ✅ Szablony: wersje PL/EN wybierane wg `preferredLanguage` (domyślny język w ustawieniach), tekst i opcjonalny HTML,
   pola edycji zbiorczej oraz `{$passwordExpires:…}`, `{$passwordExpiresInDays}`, `{$accountExpires:…}`,
-  `{$accountExpiresInDays}`, `{$lastLogon:…}`, `{$lockedSince:…}`, `{$today:…}`, `{$manager:atrybut}`, `{$input:nazwa}` –
+  `{$accountExpiresInDays}`, `{$lastLogon:…}`, `{$lockedSince:…}`, `{$created:…}` (data utworzenia konta, od U5),
+  `{$today:…}`, `{$manager:atrybut}`, `{$input:nazwa}` –
   daty w języku wiadomości i strefie Europe/Warsaw (z `AccountStatus` z U2, FGPP przez
   `msDS-UserPasswordExpiryTimeComputed`). 9 szablonów wbudowanych (hasło wygasa / wygasło, konto wygasa / wygasło,
   zablokowane / odblokowane, musi zmienić hasło, konto zostanie wyłączone, wiadomość dowolna), warunek wysyłki z N,
   tryb adresatów (użytkownik, przełożony, użytkownik + przełożony w DW, użytkownik albo przełożony). Biblioteka
   szablonów w ustawieniach (zapis kopii, usuwanie, eksport i import JSON – sam tekst).
+- ✅ Zwroty grzecznościowe z tytułem i płcią (U1d, [opis](docs/dev/u1c-u1d-rich-html-and-salutations.md), część B):
+  pola `{$salutation}` („Szanowny Panie Profesorze”, „Szanowna Pani Doktor”, „Szanowny Księże”, „Szanowny Panie”; EN
+  „Dear Professor Kowalski”, „Dear Dr Nowak”, „Dear Ms Kowalska”; warianty `noTitle`, `vocative`, `vocativeNoTitle`),
+  `{$title}` (`prof. dr hab.`, `{$title:highest}`), `{$titledName}`, `{$honorific:dopełniacz}` (Pan / Pana / Panu …
+  w siedmiu przypadkach), `{$byGender:zmienił/zmieniła}`, ich odpowiedniki dla przełożonego (`{$managerSalutation}` …)
+  i funkcja `capitalize`. Tytuł z `personalTitle` (atrybut do zmiany w ustawieniach), a gdy go brak – z nazwy
+  wyświetlanej („prof. dr hab. Jan Kowalski”, „…, prof. UW”, „…, prof. IChF PAN”); płeć z atrybutu wybranego
+  w ustawieniach, ze słowa „Pan” / „Pani” na początku atrybutu tytułu (nie „PAN” – Polska Akademia Nauk), z listy imion
+  w ustawieniach, z imienia (polskie reguły z listami wyjątków: Kuba, Barnaba, Beatrycze, Noemi, Jennifer, Ilya …;
+  w wiadomościach angielskich reguła „-a” rozstrzyga tylko dla imion polskich – z polską literą albo z wbudowanej
+  listy – a dla pozostałych jedynie blokuje sprzeczne nazwisko), z nazwiska (-ska / -ski, także w drugim członie:
+  Nowak-Kowalska) i z tytułu tylko dla jednej płci („ks.”); przy nieznanej płci zwrot neutralny z tytułem („Szanowna Pani Profesor /
+  Szanowny Panie Profesorze”). Sekcja *Zwroty grzecznościowe* w ustawieniach: tabela
+  tytułów (ranga, wołacz dla Pana i Pani, forma EN; *Przywróć domyślne*), lista imion, zwroty neutralne, zachowanie
+  przy nieznanej płci i pole *Sprawdź*; w szablonie *Używaj tytułów* i *Gdy płeć nieznana*. Podgląd: kolumna *Zwrot*
+  z ≈ (zgadnięte) i ⚠ (zwrot neutralny lub zastępczy), *Pola wyliczone*, filtr *Zgadnięte zwroty* i wybór płci jednej
+  wiadomości (osobno dla konta i dla przełożonego) tylko na tę wysyłkę (bez zapisu – żadna wartość z katalogu nie trafia
+  do ustawień). Ostrzeżenia tylko dla pól, których szablon używa (nieznana płeć ostrzega także wtedy, gdy zastąpiono ją
+  płcią domyślną); w liście *Wstaw pole* `{title}` (stanowisko) i `{$title}` (tytuł naukowy) są opisane; szablony
+  wbudowane bez zmian. Testy jednostkowe (tytuły, płeć, zwroty, pola, plan), modelu
+  okna i ustawień na fałszywym DC, test UI i zrzut `25-user-messages-salutations.png` (Windows).
 - ✅ Potok: plan (świeży odczyt kont i przełożonych z przypiętego DC) → walidacja → podgląd każdej wiadomości (filtr,
   wykluczanie, wiadomość testowa do siebie) → wysyłka w tle (postęp, przerwanie, limit tempa i dobowy limit odbiorców,
   ponawianie błędów 4xx na nowym połączeniu, zatrzymanie przy błędzie uwierzytelnienia lub TLS, potwierdzenie przez
@@ -680,8 +724,41 @@ usługi: [WATCHDOG.md, rozdz. 5.8](docs/WATCHDOG.md#58-wiadomości-do-użytkowni
   adresów), a treść usuwa zaraz po wysłaniu. AD Manager dostaje wynik pierwszej próby (przyjęta / odrzucona z kodem
   SMTP / błąd kanału zatrzymujący przebieg) albo „w kolejce usługi” (liczone jako przyjęta – usługa dokończy wysyłkę).
   Audyt w usłudze: kto, kiedy, liczba odbiorców i skrót SHA-256 adresów – bez treści.
+- ✅ Wiadomość sformatowana wklejona z Outlooka z obrazami osadzonymi w treści (U1c,
+  [opis](docs/dev/u1c-u1d-rich-html-and-salutations.md), część A): *Wklej sformatowaną treść* (Ctrl+Shift+V) bierze
+  „HTML Format” ze schowka (Outlook klasyczny i nowy, Word, Edge/Chrome, Firefox) i zachowuje czcionki, rozmiary,
+  kolory, łącza, tabele i listy – style klas Outlooka (`MsoNormal` …) wpisane w atrybuty `style`, komentarze
+  warunkowe, elementy `o:`/`v:`/`w:` i właściwości `mso-*` usunięte (poza odstępami akapitu Worda
+  `mso-margin-top-alt`/`mso-margin-bottom-alt`, które klasyczny Outlook stosuje), listy Worda zamienione na
+  `ul`/`ol`, łącza Safe Links rozwinięte, pola rozcięte przez Outlooka (`{<span>sAMAccountName</span>}`) naprawione;
+  ten sam sanitizer
+  (AngleSharp, listy dozwolonych znaczników, atrybutów i właściwości CSS, bez ukrytej treści i nakładek) sprawdza HTML
+  w AD Managerze i w usłudze Watchdog. Łącza do domen spoza listy dozwolonych są w *Wynikach wklejania* z akcjami
+  *Zezwól na domenę …* i *Usuń łącze*. Obrazy (`clip_image001.png` Outlooka – tylko z folderu tymczasowego, nigdy z
+  udziału sieciowego; `data:` z przeglądarek; *Wklej obraz* ze schowka) są wczytywane raz, sprawdzane (PNG, JPEG, GIF
+  po zawartości, do 1 MB i 4096 px, do 10 w wiadomości i 2 MB razem), oczyszczane z metadanych (EXIF z GPS) i wysyłane
+  jako obrazy osadzone (`multipart/related`, `Content-ID`, `cid:`), nie jako załączniki; obrazy z internetu nigdy nie są
+  pobierane (usuwane z ostrzeżeniem). Szablon z obrazami: obrazy w folderze `message-images` obok ustawień (to
+  ustawienia operatora, nie dane katalogu), eksport szablonów w wersji 2 z obrazami (wersja 1 nadal się importuje).
+  Podgląd: *Podgląd formatowania* w edytorze i karta *Widok* każdej wiadomości – WebView2 bez skryptów, nawigacji i
+  sieci (treść i obrazy tylko z pamięci, folder tymczasowy usuwany przy zamknięciu), a bez środowiska WebView2 albo po
+  wyłączeniu w ustawieniach (`UserMessages.RenderedPreview`) – źródło HTML. Watchdog przyjmuje obrazy (możliwość
+  `inlineImages` w `GET /api/v1/user-messages/status`, przełącznik `userMessages.allowInlineImages`, limit miejsca
+  `userMessages.maxStoredImageMb`, trasa do 6 MiB; obrazy tylko w treści wiadomości w kolejce, usuwane po wysłaniu); przy
+  starszej usłudze AD Manager zatrzymuje wysyłkę i proponuje *Wyślij bezpośrednio przez SMTP* albo *Wyślij bez obrazów*
+  – nigdy nie gubi obrazów po cichu. Testy jednostkowe (CF_HTML, CSS, sanitizer z próbkami złośliwymi, import próbek z
+  Outlooka, Worda i przeglądarek, obrazy, plan), MIME obu nadawców, Mailpit (dwa obrazy jako części *inline* o tych
+  samych bajtach), kontrakt i API usługi, migracja 0007, test laboratoryjny przez usługę, modelu okna, testy UI i zrzut
+  `24-user-messages-rich-html.png` (Windows).
+- ✅ Wysyłka przez Outlooka (trzeci sposób wysyłki, z etapu U5): *Ustawienia → Wiadomości e-mail → Sposób wysyłki →
+  Przez Outlooka* wysyła wiadomości klasycznym Outlookiem na komputerze operatora – z konta wybranego w sekcji *Outlook*
+  (*Pobierz konta z Outlooka*; puste – konto domyślne profilu), opcjonalnie *w imieniu* adresu nadawcy z ustawień.
+  Szablony, stopka, brak załączników, lista dozwolonych domen, podgląd, raport i „Ponów nieudane” bez zmian; okno
+  wysyłki pokazuje *Wysyłka przez Outlooka: …*, a raport kody `outlook.*` z podpowiedzią. Tryb automatyczny nadal wybiera
+  Watchdoga albo SMTP, nigdy Outlooka. Wymagania (klasyczny Outlook, ten sam poziom uprawnień co AD Manager,
+  zabezpieczenie Outlooka przed programami): [KORESPONDENCJA.md, rozdz. 10](docs/KORESPONDENCJA.md#10-wiadomości-do-użytkowników-u1-przez-outlooka).
 - ⬜ XOAUTH2 (Exchange Online) w wysyłce bezpośredniej – nie pasuje do istniejącego kodu MSAL (poufny klient usługi
-  Watchdog); Exchange Online z OAuth2 – przez Watchdoga (U1b, ✅).
+  Watchdog); Exchange Online z OAuth2 – przez Watchdoga (U1b, ✅) albo przez Outlooka (U5, ✅).
 - ✅ Testy: jednostkowe (pola i daty z polskimi znakami w obu językach i strefie Europe/Warsaw, reguły bezpieczeństwa,
   wstrzykiwanie nagłówków, plan i podgląd, limit tempa, ponawianie, zatrzymanie, raport CSV), modelu okna na fałszywym
   DC z polską firmą przykładową, transportu SMTP na serwerach SMTP w procesie (STARTTLS z przypiętym certyfikatem,
@@ -690,7 +767,28 @@ usługi: [WATCHDOG.md, rozdz. 5.8](docs/WATCHDOG.md#58-wiadomości-do-użytkowni
   administrator / obserwator / brak / odmowa, walidacja, idempotencja, limity, przełącznik, odbiornik SMTP, odrzucenie,
   „w kolejce”), magazyn audytu, klient HTTPS, transport AD Managera na fałszywym kliencie, test laboratoryjny z Mailpit.
 - 🟡 Do weryfikacji na Windows i Exchange: uwierzytelnianie bieżącym kontem Windows (GSSAPI/NTLM) wobec Exchange
-  on-premises, wysyłka do ≥ 500 odbiorców z zaznaczenia, test „żadnych danych katalogu na dysku” po wysyłce.
+  on-premises, wysyłka do ≥ 500 odbiorców z zaznaczenia, test „żadnych danych katalogu na dysku” po wysyłce; U1c:
+  wklejanie z prawdziwego schowka Outlooka, Worda i przeglądarek, podgląd WebView2 i jego zastępczy widok źródła, wygląd
+  wysłanej wiadomości w Outlooku, Gmailu i telefonach; U1d: zwroty dla prawdziwych danych `personalTitle` i nazw
+  wyświetlanych (testy UI i zrzuty `24-…` i `25-…` działają tylko w CI na Windows); wysyłka przez Outlooka – z
+  prawdziwym klasycznym Outlookiem (pilotaż U5).
+- ⚠ Znane ograniczenia U1c i U1d:
+  - *Wstaw pole* dopisuje pole do treści tekstowej; w treści HTML pole (np. `{$salutation}`) wpisuje się w Outlooku
+    przed skopiowaniem albo w źródle HTML – pola rozcięte przez Outlooka są naprawiane przy wklejaniu.
+  - Obrazy z internetu (`http(s)`) nigdy nie są pobierane – są usuwane z ostrzeżeniem; obraz trzeba wkleić z treścią
+    albo *Wklej obraz*. Szablon U1b z takim obrazem pokazuje błąd do czasu jego usunięcia (zasada U1c).
+  - Starsza usługa Watchdog (U1b) nie przyjmuje obrazów (AD Manager proponuje SMTP albo wysyłkę bez obrazów) i nadal
+    stosuje dawną, ostrzejszą kontrolę HTML do całej treści, więc może odrzucić wiadomość, którą nowa usługa przyjmie.
+  - Na Windows zamiana bitmapy ze schowka na PNG (gdy schowek nie ma formatu PNG) działa jeszcze w wątku interfejsu –
+    przy bardzo dużym obrazie okno chwilę nie odpowiada; wpisywanie stylów z arkusza przy wklejaniu nie ma górnego
+    limitu czasu (działa w tle, tylko na komputerze operatora).
+  - *Zezwól na domenę …* zna wybraną listę domen współdzielonych (Microsoft 365, Google, GitHub, hostingi, skracacze
+    adresów) – dla nich proponuje pełną nazwę hosta; pełnej listy sufiksów publicznych (PSL) nie ma.
+  - Płeć z imienia to reguły polskie z listami wyjątków: w wiadomościach angielskich reguła „-a” rozstrzyga tylko dla
+    imion polskich (polska litera albo lista wbudowana – „Jan” daje „Mr”); inne imiona spoza list dają zwrot
+    neutralny z ostrzeżeniem – pewną płeć daje atrybut płci albo lista imion w ustawieniach.
+  - Tytuł w atrybucie, którego ostatniej części po przecinku nie rozpoznano, może dać niepełny `{$title}`
+    (`prof. dr hab., czł. koresp. PAN` → „prof. dr hab. czł.”); zwrot i płeć są poprawne.
 
 **Zakres (specyfikacja):**
 
@@ -735,7 +833,8 @@ usługi: [WATCHDOG.md, rozdz. 5.8](docs/WATCHDOG.md#58-wiadomości-do-użytkowni
   jest wyłączane), sekrety zaszyfrowane po stronie usługi, kolejka z ponawianiem, dziennik wysyłek i nowa rola
   „Wysyłający” wg grupy AD. Wariant bez usługi: wysyłka bezpośrednio z AD_MNG przez przekaźnik bez logowania albo
   z logowaniem bieżącym kontem Windows; hasło SMTP, jeśli jest potrzebne, tylko w pamięci na czas sesji (zasada
-  „nigdy nie zapisujemy haseł”).
+  „nigdy nie zapisujemy haseł”). Trzecia możliwość (od U5): wysyłka przez klasycznego Outlooka operatora – z jego konta
+  i profilu, bez konfiguracji SMTP w AD Managerze.
 - **Bezpieczeństwo i RODO:** w szablonie nie da się umieścić hasła (nie ma takiego pola – wysyłanie nowego hasła
   e-mailem jest zablokowane); łącza tylko do domen z listy dozwolonych, stała stopka „nigdy nie prosimy o podanie
   hasła”, bez załączników; wartości z AD są kodowane w HTML, a z tematu i nagłówków usuwane są znaki nowej linii
@@ -969,6 +1068,67 @@ zabezpieczeń GPO i usłudze Watchdog. Sprawdzone testem obu źródeł naraz na 
 testem UI (oba źródła w zakładce; uruchamiany na Windows w CI) i testami na laboratorium Samba obu źródeł w jednym przebiegu (każdy tylko we własnej
 OU). Szczegóły: [docs/dev/u4-privileged-access.md, 6.3](docs/dev/u4-privileged-access.md#63-u4b-and-u4c-together-as-built).
 
+#### U5 – Korespondencja (Outlook) i zapytania do właścicieli skrzynek 🟡
+
+**Cel:** program *Korespondencja WPiA* (`MailerWPiA.exe`, masowa wysyłka tej samej wiadomości przez klasycznego
+Outlooka – osobna wiadomość do każdego, z kopią w *Elementach wysłanych*, z kontem i podpisem operatora) ze wszystkimi
+funkcjami w AD Managerze, a do tego **odbiorcy prosto z AD** i **zapytania do właścicieli skrzynek**: konto skrzynki
+współdzielonej z imieniem i nazwiskiem osoby, której ją przypisano, prowadzi do jej własnego konta, a osoba dostaje
+wiadomość z pytaniem, czy skrzynka jest nadal potrzebna.
+
+**Stan realizacji – zaimplementowane, czeka na pilotaż z klasycznym Outlookiem i Exchange.** Instrukcja dla
+użytkownika: [docs/KORESPONDENCJA.md](docs/KORESPONDENCJA.md); opis techniczny:
+[docs/dev/u5-outlook-correspondence.md](docs/dev/u5-outlook-correspondence.md).
+
+- ✅ Okno *Korespondencja* (okno połączenia): *Narzędzia → Korespondencja (Outlook)…* (`tools.correspondence`),
+  *Akcja → Wyślij korespondencję…* (`object.correspondence`, zaznaczeni użytkownicy, kontakty i członkowie grup) i
+  *Akcja → Zapytaj właścicieli skrzynek…* (`object.mailboxOwners`), także z menu kontekstowego listy i palety poleceń.
+  Zakładki: *Skrzynki*, *1 · Odbiorcy*, *2 · Wiadomość*, *3 · Podgląd*, *4 · Wysyłka*, *5 · Odpowiedzi*.
+- ✅ Odbiorcy: najnowszy plik kontaktów z *Pobranych*, pliki CSV/TSV/TXT, Excel (XLSX/XLSM/XLTX – według adresów
+  komórek, każdy arkusz z własnym nagłówkiem), Word (DOCX/DOTX/DOCM), OpenDocument (ODT/ODS), RTF i HTML (tabele z
+  kolumnami), schowek, tekst wpisany, przeciągnięte pliki; z AD – zaznaczone obiekty, okno wyboru, członkowie grupy
+  (zagnieżdżeni). Każda kolumna to pole `{{Kolumna}}`; pola z AD to **wyrażenia wiadomości do użytkowników** (`{givenName}`,
+  `{$salutation}`, `{$honorific:biernik}`, `{$lastLogon:d MMMM yyyy}` …) liczone na żywo z kontrolera okna. Lista *Nie
+  wysyłać*, filtr, eksport CSV na żądanie.
+- ✅ Pola `{{zwrot}}`, `{{nazwa}}`, `{{email}}`, `{{Pole|tekst gdy puste}}`, pola własne, pola daty (kalendarz i format,
+  np. „15 listopada 2026r.”), `{{podpis}}` (podpis Outlooka w wybranym miejscu treści), grupowanie po adresie
+  (`{{lista}}`, `{{liczba}}`); pola rozcięte formatowaniem Worda są sklejane.
+- ✅ Wiadomość: edytor WYSIWYG (pogrubienie, kursywa, podkreślenie, listy, odsyłacze, wklejanie z Worda i Outlooka z
+  obrazkami osadzonymi), podpisy Outlooka z obrazkami, załączniki, *Wyślij jako*, *W imieniu*, dostarczenie o wskazanej
+  porze, potwierdzenie przeczytania, przyciski głosowania, osobna wiadomość do każdego albo UDW (do 500 adresatów na
+  wiadomość), odstęp między wiadomościami, czcionka, rozmiar i interlinia wiadomości, szablony z eksportem i importem,
+  ostatni szkic.
+- ✅ Podgląd jak u odbiorcy (700 px, 380 px, pełna szerokość), *Podgląd z Outlooka*, *Otwórz w przeglądarce* (z pamięci,
+  pod adresem 127.0.0.1, 15 minut), *Zapisz jako .html*, ostrzeżenia (nieznane i puste pola, data z przeszłości,
+  `{{podpis}}` bez podpisu, pole wiersza w temacie wiadomości grupowanej, rzeczy psujące się w poczcie, rozmiar).
+- ✅ Wysyłka przez Outlooka na osobnym wątku (okno odpowiada): *Test do siebie*, *Utwórz wersje robocze*, *Wyślij* z
+  potwierdzeniem (powyżej 20 wiadomości – wpisanie liczby), *Zatrzymaj*, *Ponów nieudane*, zatrzymanie po 5 błędach z
+  rzędu, czas do końca, raport na żądanie; wiadomość najpierw zapisana, a przy błędzie zostaje w *Wersjach roboczych*.
+  Dziennik „już wysłane” pomija adresy, do których wysłano wcześniej – przechowuje tylko **skróty adresów** (HMAC z
+  kluczem użytkownika chronionym DPAPI), czas i temat – przy zapytaniach o skrzynki osobno dla każdej skrzynki; lista
+  odbiorców nie jest zapisywana.
+- ✅ Zakładka *Skrzynki*: skrzynki współdzielone, sale i sprzęt albo wszystkie skrzynki (`msExchRecipientTypeDetails`,
+  także zdalne), a bez schematu Exchange – wszystkie konta w zakresie; imię i nazwisko właściciela z `givenName`/`sn`,
+  nazwy wyświetlanej, opisu albo atrybutu (bez tytułów i uwag); dopasowanie w pamięci bez względu na polskie znaki,
+  kolejność imienia i nazwiska, tytuły w nazwie wyświetlanej i nazwiska dwuczłonowe, potwierdzone pełnomocnictwem
+  (`msExchDelegateListLink`, `publicDelegates`); statusy do przeglądu, ręczny wybór osoby lub adresu, wykluczenie;
+  właściciele trafiają do odbiorców z polami skrzynki i właściciela – jedna wiadomość na skrzynkę albo na właściciela z
+  listą jego skrzynek – z dwoma wbudowanymi szablonami *Weryfikacja skrzynki pocztowej* (nazwa skrzynki w temacie,
+  termin jako pole daty, podpis w treści) i wersją z listą skrzynek.
+- ✅ Zakładka *Odpowiedzi*: głosy z *Elementów wysłanych* Outlooka przypisane do skrzynek, podsumowanie i eksport CSV.
+- ✅ Wiadomości do użytkowników (U1) mają trzeci sposób wysyłki – *Przez Outlooka* (rozdział U1 wyżej); nowe pole U1
+  `{$created:…}`.
+- ✅ Testy: jednostkowe (czytniki wszystkich formatów plików z polskimi znakami i stroną kodową 1250, ochrona przed
+  bombami zip, pola i ich naprawa, kompozycja z podpisem i obrazkami, zgodność z pocztą, dziennik, dopasowanie
+  właścicieli na próbce 14 skrzynek z polskimi nazwiskami), silnik Outlooka na fałszywym modelu obiektowym (kolejność
+  kroków, obrazki `cid:`, wersja robocza po błędzie, klasyfikacja błędów, wątek STA, odczyt głosów), modele okna na
+  fałszywym DC i fałszywym Outlooku, testy UI, test dymny i zrzuty `26-…`–`28-…` (Windows).
+- 🟡 Do weryfikacji w pilotażu: lista kontrolna w
+  [KORESPONDENCJA.md, rozdz. 14](docs/KORESPONDENCJA.md#14-lista-kontrolna-pilotażu) – m.in. Microsoft 365 Apps 32- i
+  64-bitowy, Exchange Online i w firmie, *W imieniu*, obrazki w Outlooku, w przeglądarce i w Gmailu, przyciski głosowania i
+  odczyt głosów, zabezpieczenie Outlooka przed programami, AD Manager uruchomiony jako administrator, 300 wiadomości z
+  odstępem 3 s, prawdziwe wartości `msExchRecipientTypeDetails` w środowisku hybrydowym.
+
 **Kryteria ukończenia**
 - Wiadomość do jednego użytkownika z okna właściwości i do ≥ 500 użytkowników z zaznaczenia: podgląd każdej
   wiadomości, raport per odbiorca, „ponów nieudane”; testy automatyczne z Mailpit na laboratorium Samba (polskie znaki
@@ -985,6 +1145,10 @@ OU). Szczegóły: [docs/dev/u4-privileged-access.md, 6.3](docs/dev/u4-privileged
   z poprawnym poziomem i ścieżką; uprawnienia lokalne z GPO (U4c) zgodne z `gpresult /scope computer` komputerów
   w OU z blokadą dziedziczenia i wymuszonymi połączeniami, także dla sesji z innymi poświadczeniami niż konto Windows;
   test „żadnych danych katalogu na dysku” zaliczony po przeglądzie uprawnień.
+- Korespondencja (U5): 300 wiadomości przez klasycznego Outlooka z odstępem 3 s bez zamrożeń okna i bez odrzuceń,
+  obrazki osadzone widoczne w Outlooku, w przeglądarce i w Gmailu, głosy odczytane na zakładce *Odpowiedzi*; zapytanie
+  do właścicieli skrzynek na prawdziwym katalogu z Exchange (także hybrydowym) bez fałszywych dopasowań; test „żadnych
+  danych katalogu na dysku” zaliczony po wysyłce (na dysku tylko dziennik skrótów).
 
 </details>
 
@@ -1112,6 +1276,413 @@ raporty, etapy</summary>
 
 </details>
 
+### Ścieżka T – Współpraca zespołu ⬜
+
+**Cel:** kilku administratorów pracuje razem z różnych komputerów – widzi te same **przypięte obiekty** i **notatki
+do obiektów** („czeka na zgodę kierownika – nie odblokowywać”), bez maili i karteczek. Wymiana idzie **przez usługę
+AdMng Watchdog**, która już działa w sieci (Kerberos, role, baza, dostęp tylko z podsieci administratorów) – bez połączeń
+stacja–stacja i bez otwierania portów na stacjach; działa też przez VPN. Ścieżka równoległa; korzysta z zakładki
+Watchdog (połączenie z usługą), wielu połączeń naraz i panelu szczegółów.
+
+<details>
+<summary><b>Szczegóły ścieżki T</b> – panel „Wspólne”, notatki do obiektów, technika, etapy</summary>
+
+#### Panel „Wspólne” (przypięte obiekty zespołu)
+
+- Nowy panel po lewej stronie okna głównego, obok *Widoków* w drzewie: konta, grupy, komputery, kontakty, OU, zapisane
+  widoki i zapisane filtry **przypięte dla zespołu** – każde z notatką, autorem i datą; foldery zespołu (np. „Do
+  wyjaśnienia”, „Nowi pracownicy”, „Odejścia w tym miesiącu”).
+- *Przypnij dla zespołu…* z menu kontekstowego listy, panelu szczegółów, okna właściwości i palety poleceń; kliknięcie
+  przypięcia otwiera obiekt (przejście do OU, właściwości).
+- *Przekaż do…* – przypięcie z adresatem z zespołu: u adresata wyróżnione jako „dla Ciebie”, z możliwością oznaczenia
+  „zrobione”; odpięcie przez autora lub administratora Watchdoga.
+- Przy kilku połączeniach naraz okno pokazuje przypięcia swojej domeny (domena widoczna przy każdym przypięciu).
+
+#### Notatki do obiektów
+
+- Komentarz przy koncie, grupie, komputerze lub OU widoczny dla zespołu: w panelu szczegółów, w oknie właściwości
+  (sekcja *Notatki zespołu*) i jako znacznik na liście obiektów; autor, data, edycja i usunięcie przez autora, historia
+  zmian notatki.
+- Notatka **ważna** jest pokazywana przed zmianą obiektu (np. przed odblokowaniem albo resetem hasła) – jako
+  ostrzeżenie w podglądzie planu zmian, bez blokowania.
+- Notatki i przypięcia innych osób pojawiają się **na żywo** (jak zdarzenia w zakładce Watchdog), bez odświeżania.
+
+#### Jak to działa technicznie
+
+- Nowe API usługi AdMng Watchdog (HTTPS + Kerberos, role z grup AD): czytają i dodają administratorzy i obserwatorzy
+  Watchdoga, autor edytuje swoje wpisy, administratorzy moderują; `DeniedSids` wygrywa jak wszędzie.
+- Obiekty rozpoznawane po `objectGUID` (z DN do wyświetlenia), więc przeniesienie lub zmiana nazwy obiektu nie gubi
+  notatki ani przypięcia; usunięty obiekt – notatka oznaczona jako „obiekt usunięty”.
+- Dane współpracy (przypięcia, notatki, autorzy, daty) w bazie usługi – wymaga uzupełnienia ADR-0008/0009 (dane
+  zespołu, a nie kopia katalogu; retencja i uprawnienia jak dla zdarzeń). AD Manager nadal **niczego nie zapisuje
+  lokalnie** (zasada 1): bez połączenia z usługą panel „Wspólne” i notatki są niedostępne z wyjaśnieniem.
+- Każda zmiana przypięć i notatek trafia do dziennika usługi (kto, co, kiedy) – bez treści w dzienniku diagnostycznym.
+
+#### Etapy
+
+- **T1** – API i magazyn usługi, notatki do obiektów (panel szczegółów, okno właściwości, znacznik na liście),
+  przypięcia dla zespołu w panelu „Wspólne”.
+- **T2** – *Przekaż do…*, foldery zespołu, notatki ważne w podglądzie planu zmian, odświeżanie na żywo.
+- **Później (zgłoszone, niewybrane na teraz):** „kto nad czym pracuje” (obecność i ostrzeżenie o równoczesnej zmianie
+  tego samego obiektu) oraz zadania zespołu z przypisaniem i stanem.
+
+#### Do ustalenia z zespołem
+
+- Retencja notatek (np. bezterminowo, dopóki obiekt istnieje, albo N dni po usunięciu obiektu).
+- Czy notatki mają być widoczne dla wszystkich obserwatorów Watchdoga, czy tylko dla wybranej grupy.
+
+**Kryteria ukończenia**
+- Notatka dodana na jednej stacji pojawia się na drugiej w ciągu kilku sekund, także w drugim oknie innej domeny tylko
+  wtedy, gdy dotyczy tej domeny.
+- Przeniesienie i zmiana nazwy obiektu nie gubią notatki ani przypięcia.
+- Bez połączenia z usługą AD Manager działa jak dziś, a panel „Wspólne” wyjaśnia, czego brakuje; żadnych danych
+  współpracy na dysku stacji.
+
+</details>
+
+### Ścieżka K – Komputery i zasady grupy (GPO) 🟡 (K1–K6: 🟡)
+
+**Cel:** pełna praca z komputerami w AD i z zasadami grupy bez GPMC i edytora GPO: inwentarz i raporty komputerów,
+cykl życia ich kont, zdalne akcje, a dla GPO – tworzenie i łączenie z OU, edycja ustawień z **najnowszych szablonów
+ADMX**, ustawienia zabezpieczeń i raport „co dostanie komputer”. Każda zmiana – w AD i w SYSVOL – przez podgląd planu
+zmian, z możliwością cofnięcia. Ścieżka równoległa: K1 (komputery), K2 (GPO w drzewie), K3 (edytor ADMX z magazynem
+centralnym), K4 (ustawienia zabezpieczeń), K5 (raport „co dostanie komputer”) i K6 (czytelne ustawienia, wygoda edycji,
+diagnostyka zasad grupy) mają pierwszą wersję; zastępuje „polityki ADMX” z fazy 6. Zmiany GPO od razu widzi AdMng Watchdog (treść GPO „było → jest”).
+
+<details>
+<summary><b>Szczegóły ścieżki K</b> – komputery, GPO w drzewie, edytor ADMX, zabezpieczenia, raport, etapy</summary>
+
+#### Komputery
+
+- **Inwentarz i raporty:** system i wersja z numerem kompilacji (`operatingSystem`, `operatingSystemVersion`),
+  ostatnie logowanie (także dokładne ze wszystkich DC), lokacja i podsieć, kto dołączył komputer
+  (`ms-DS-CreatorSID`), właściciel (`managedBy`), opis i lokalizacja, typ (stacja / serwer / kontroler domeny);
+  gotowe raporty: Windows 10 i inne systemy po końcu wsparcia, wersje Windows 11 / Server według kompilacji, komputery
+  nieaktywne od N dni, serwery bez właściciela, komputery w niewłaściwych OU; eksport CSV na żądanie.
+- **Cykl życia kont komputerów:** przygotowanie konta przed dołączeniem (z prawem dołączenia dla wskazanej osoby lub
+  grupy), reset konta komputera, przenoszenie, wyłączanie i usuwanie – przez silnik zmian z podglądem. Nieaktywne
+  komputery: **tylko raport** (lista z eksportem i przekazaniem do edycji zbiorczej), bez automatycznego wyłączania.
+- **Zdalne akcje** przez WinRM (WS-Management, Kerberos) **z poświadczeniami danego okna**: kto jest zalogowany,
+  `gpupdate /force`, restart z potwierdzeniem, opóźnieniem i komunikatem dla użytkownika, stan usług; do tego ping,
+  pulpit zdalny (mstsc), *Zarządzanie komputerem* i *Podgląd zdarzeń* uruchamiane dla wybranego komputera. Wymaga
+  włączonego WinRM na komputerach – instrukcja z GPO w dokumentacji. Hasła okna tylko w pamięci (zasada 2).
+
+#### GPO w drzewie okna głównego
+
+- Węzeł **„Obiekty zasad grupy”** w drzewie domeny (jak w GPMC) i karta **„Zasady grupy”** przy domenie, OU i
+  lokacjach: połączone GPO, kolejność, wymuszanie, wyłączenie połączenia, blokowanie dziedziczenia, dziedziczone GPO.
+- Nowe GPO, kopia, zmiana nazwy, usunięcie, podłączanie i odłączanie, wyłączanie części komputera / użytkownika,
+  filtrowanie zabezpieczeń i filtry WMI, delegowanie edycji GPO, kopia zapasowa i przywracanie (pliki tylko na żądanie
+  operatora), porównanie dwóch GPO.
+
+#### Edytor szablonów administracyjnych (ADMX)
+
+- Drzewo zasad komputera i użytkownika z szablonów ADMX/ADML **po polsku i angielsku**, wyszukiwanie, filtry „tylko
+  skonfigurowane” i „tylko zmienione”, opis zasady, obsługiwane wersje Windows; *Włączone / Wyłączone /
+  Nieskonfigurowane* z opcjami (listy, liczby, teksty); zapis do `Registry.pol` według reguł szablonu (jak edytor
+  Microsoftu), nazw rozszerzeń i wersji GPO w AD i w `GPT.INI` jednym planem zmian z PowerShell
+  (`Set-GPRegistryValue`) i cofnięciem; wpisy rejestru spoza szablonów widoczne osobno.
+- **Najnowsze szablony:** edytor czyta magazyn centralny w SYSVOL (`PolicyDefinitions`; bez niego – szablony tego
+  komputera). *Zaktualizuj szablony* wczytuje paczki producentów z pliku – **Windows 11 / Server 2025** (MSI),
+  **Microsoft 365 Apps** (EXE), **Microsoft Edge** (CAB/ZIP), **Google Chrome** i **Mozilla Firefox** (ZIP), dowolne
+  ADMX z folderem językowym (np. **OneDrive**, **Adobe Acrobat / Reader**, **Zoom**, **FSLogix**, **Citrix
+  Workspace**) – a szablony **Edge, Chrome i Firefox pobiera sam** z adresów producentów (HTTPS, suma kontrolna, gdy
+  producent ją publikuje). Sprawdza podpis instalatorów, pokazuje różnice (nowe, zmienione i pominięte pliki, liczba
+  dodanych i usuniętych zasad, kolizje przestrzeni nazw), robi kopię magazynu do wskazanego folderu i zapisuje przez
+  podgląd planu zmian.
+
+#### Ustawienia zabezpieczeń
+
+- Grupy lokalne (Administratorzy, Użytkownicy pulpitu zdalnego …) przez grupy z ograniczeniami i preferencje GPO,
+  prawa użytkownika, zasady inspekcji (zaawansowane), usługi systemowe i zapora Windows – edycja `GptTmpl.inf`,
+  `Groups.xml`, `audit.csv` i ustawień zapory; wspólne parsery z zakładką *Uprawnienia* (U4c) i z Watchdogiem.
+
+#### Raport „co dostanie komputer”
+
+- Dla wybranego komputera lub OU: które GPO się zastosują, w jakiej kolejności, które ustawienie wygrywa i dlaczego
+  (łącza, wymuszanie, blokowanie dziedziczenia, filtrowanie zabezpieczeń, pętla zwrotna); filtry WMI i warunki
+  preferencji pokazane jako „zależy od komputera” – modelowanie bez łączenia się z komputerem.
+
+#### Czytelność, wygoda edycji i diagnostyka
+
+- Ustawienia GPO wszędzie w języku GPMC zamiast kluczy z plików; edycja z klawiatury i „Edytuj to ustawienie” prosto
+  z widoku ustawień, modelu i diagnostyki; podsumowanie zmian przed zapisem.
+- *Diagnostyka zasad grupy*: błędy logiczne (połączenia, zakres, filtrowanie, wersje, SYSVOL, konflikty między GPO) i
+  słabe ustawienia zabezpieczeń we wszystkich GPO domeny, z naprawą przez podgląd planu zmian.
+
+#### Etapy
+
+- 🟡 **K1** – komputery: inwentarz i raporty, cykl życia kont, zdalne akcje przez WinRM. Pierwsza wersja gotowa:
+  *Przegląd komputerów* (8 raportów, katalog wersji Windows z datami końca wsparcia, dokładne ostatnie logowanie, lokacja
+  z podsieci, CSV), karta *Stan* we właściwościach, przygotowanie konta z prawem dołączenia, *Resetuj konto*, okno
+  *Zdalne akcje* (CIM przez WinRM, tylko Kerberos) i narzędzia (ping, mstsc, *Zarządzanie komputerem*, *Podgląd
+  zdarzeń*); opis: [KOMPUTERY.md](docs/KOMPUTERY.md). Czeka na pilotaż na Windows Server 2025 i Windows 11.
+- 🟡 **K2** – GPO w drzewie: węzeł GPO, karta „Zasady grupy”, tworzenie, łączenie, kolejność, filtrowanie, kopie
+  zapasowe. Pierwsza wersja gotowa: węzły *Obiekty zasad grupy*, *Filtry WMI* i *Lokacje*, karty GPO (zakres, szczegóły,
+  ustawienia do odczytu, delegowanie, stan AD/SYSVOL) i *Zasady grupy* domeny, OU i lokacji; nowe GPO, kopia, zmiana
+  nazwy, usunięcie, łączenie, kolejność, wymuszanie, wyłączanie połączeń, blokowanie dziedziczenia, stan GPO,
+  filtrowanie zabezpieczeń (MS16-072), filtry WMI, delegowanie, kopie zapasowe w formacie GPMC (przywracanie, import
+  ustawień), porównanie dwóch GPO; każda zmiana AD i SYSVOL przez podgląd planu zmian z różnicami plików, PowerShell i
+  cofnięciem. Sprawdzone na fałszywym katalogu i laboratorium Samba; okna WPF i zgodność z GPMC – CI na Windows i
+  pilotaż. Opis: [ZASADY-GRUPY.md](docs/ZASADY-GRUPY.md).
+- 🟡 **K1 + K2 razem:** oba etapy działają w jednej wersji programu – prawo dołączenia komputera, filtrowanie
+  zabezpieczeń i delegowanie GPO zmieniają uprawnienia tą samą akcją planu zmian (z audytem tylko tego, co naprawdę
+  zmieniło listę ACL, i cofnięciem). Testy jednostkowe i laboratorium Samba przechodzą na połączonej wersji; okna WPF
+  obu etapów sprawdza CI na Windows, resztę – pilotaż. Próba filtru WMI na komputerze (K2 + zdalne akcje K1) – później.
+- 🟡 **K3** – edytor ADMX i aktualizacja magazynu centralnego (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i
+  inne). Pierwsza wersja gotowa: karta *Szablony administracyjne* GPO (drzewo kategorii, wyszukiwanie, edycja
+  ustawień z opcjami, stan *Niejednoznaczne*, zapis `Registry.pol` z wykrywaniem konfliktu) i okno *Aktualizacja
+  szablonów ADMX* (paczki z pliku lub folderu, szablony tego komputera, pobieranie Edge, Chrome i Firefox, zaufanie,
+  języki, porównanie, kopia magazynu, zapis transakcją z cofnięciem). Sprawdzone na fałszywym katalogu i syntetycznych
+  szablonach; okna WPF – CI na Windows; paczki producentów i zgodność `Registry.pol` z edytorem Microsoftu – pilotaż.
+  Opis: [ZASADY-GRUPY.md, rozdziały 7 i 8](docs/ZASADY-GRUPY.md#7-szablony-administracyjne-admx).
+- 🟡 **K4** – ustawienia zabezpieczeń. Pierwsza wersja gotowa: karta *Ustawienia zabezpieczeń* GPO z grupami
+  lokalnymi (grupy z ograniczeniami i grupy lokalne preferencji obok siebie, z opisem pierwszeństwa), prawami
+  użytkownika, zasadami kont i opcjami zabezpieczeń, inspekcją (kategorie podstawowe i podkategorie zaawansowane) i
+  usługami; zapis zmienia tylko edytowane wiersze `GptTmpl.inf`, `audit.csv` i `Groups.xml` (reszta pliku, celowanie
+  na poziomie elementu i nieznane wpisy zostają), z nazwami rozszerzeń jak GPMC i wykrywaniem konfliktu. Sprawdzone na
+  fałszywym katalogu; okno WPF – CI na Windows; zgodność z GPMC i działanie na kliencie – pilotaż. Zapora,
+  uprawnienia plików i rejestru oraz pozostałe preferencje – później. Opis:
+  [ZASADY-GRUPY.md, rozdział 10](docs/ZASADY-GRUPY.md#10-ustawienia-zabezpieczeń-grupy-lokalne-prawa-zasady-kont-inspekcja-usługi).
+- 🟡 **K5** – raport „co dostanie komputer”. Pierwsza wersja gotowa: karta modelu dla komputera, użytkownika albo
+  nowych kont w kontenerze (*Co dostanie komputer…*, *Co dostanie użytkownik…*, *Modeluj zasady…*, strona *Stan*
+  komputera) z lokacją, założeniem o filtrach WMI i pętlą zwrotną; lista GPO z wynikiem (blokowanie, wymuszanie,
+  filtrowanie zabezpieczeń z oceną wpisów ACL w kolejności jak w Windows, MS16-072, części wyłączone, puste GPO),
+  ustawienia z wygrywającym GPO i panelem *Dlaczego*, grupy tokenu, eksport do CSV. Sprawdzone na fałszywym katalogu i
+  laboratorium Samba (zgodność z `samba-tool gpo list`); okno WPF – CI na Windows; porównanie z GPMC i `gpresult` –
+  pilotaż. Opis: [ZASADY-GRUPY.md, rozdział 9](docs/ZASADY-GRUPY.md#9-co-dostanie-komputer-modelowanie-zasad-grupy).
+- 🟡 **K6** – czytelność, wygoda edycji i diagnostyka GPO. Pierwsza wersja gotowa: ustawienia wszędzie w języku GPMC
+  (zakładka *Ustawienia* pogrupowana jak raport GPMC, z wyszukiwaniem, *Edytuj to ustawienie* i *Raport HTML…*; model K5,
+  porównanie GPO, podgląd planu zmian, zakładka Watchdog) – nazwy, wartości z jednostkami i objaśnieniami, konta zamiast
+  SID-ów, zasady ADMX zamiast wartości rejestru; wygoda edycji (Ctrl+S, Ctrl+F, *Edytuj to ustawienie* otwiera edytor
+  na ustawieniu, *Zmiany ustawień* przed zapisem, wyszukiwanie i filtry w edytorach i na liście GPO, nagłówki bez
+  ucinania); karta **Diagnostyka zasad grupy** (szybkie i pełne sprawdzenie wszystkich GPO domeny, 51 reguł w obszarach
+  połączenia, zakres, filtrowanie, wersje, folder SYSVOL, ustawienia, konflikty między GPO i bezpieczeństwo – m.in.
+  `cpassword`, MS16-072, wrażliwe prawa dla szerokich grup, NTLM/LM, podpisywanie SMB i LDAP na DC – z *Napraw…* przez
+  podgląd planu zmian i eksportem); zakładka *Stan* GPO na tym samym silniku. Sprawdzone na fałszywym katalogu; okna
+  – CI na Windows; zgodność nazw z raportem GPMC – pilotaż. Opis:
+  [ZASADY-GRUPY.md, rozdział 11](docs/ZASADY-GRUPY.md#11-czytelne-ustawienia-wygoda-edycji-i-diagnostyka-k6).
+
+#### Pomysły na dalszy rozwój zasad grupy (K7–K11, do wyboru)
+
+Propozycje na kolejne etapy – kolejność i zakres do ustalenia z zespołem.
+
+- ⬜ **K7 – szukanie i porządki w GPO.**
+  - **Wyszukiwarka ustawień we wszystkich GPO domeny**, np. „gdzie ustawiono minimalną długość hasła”, „które GPO
+    mapuje dysk K:”, „kto daje prawo *Logowanie przez usługi pulpitu zdalnego*”. Szuka po nazwie, wartości, kluczu
+    technicznym i koncie, w języku GPMC (K6).
+  - **Kopiowanie wybranych ustawień do innego GPO** przez plan zmian: zasady ADMX, ustawienia zabezpieczeń,
+    preferencje.
+  - **Doradca porządków:**
+    - GPO puste, niepołączone albo z jednym ustawieniem;
+    - ustawienia powtórzone w kilku GPO;
+    - propozycja scalenia dwóch GPO z podglądem i cofnięciem.
+- ⬜ **K8 – historia i bezpieczne wdrażanie.**
+  - **Historia wersji GPO** z migawek treści, które AdMng Watchdog już przechowuje: oś czasu zmian i porównanie z
+    dowolną wcześniejszą wersją. *Przywróć to ustawienie* działa przez plan zmian.
+  - **Wdrażanie etapowe**: GPO najpierw dla grupy pilotażowej (filtrowanie zabezpieczeń) albo OU testowej, potem dla
+    wszystkich. Kreator prowadzi przez kolejne kroki.
+  - **Zatwierdzanie zmian GPO przez drugą osobę** (zasada „cztery oczy” z fazy 7).
+- ⬜ **K9 – zasady grupy na prawdziwym komputerze.**
+  - **Wynik zasad grupy odczytany z komputera** (RSoP przez CIM, jak `gpresult`), zestawiony z modelem K5 i ze
+    zdarzeniami *GroupPolicy/Operational* (ścieżka E4). Odpowiada na pytanie, dlaczego ustawienie nie działa.
+  - **Zdalne `gpupdate` dla OU albo listy komputerów** z raportem wyników.
+  - **Próba filtru WMI na wybranym komputerze**: zapytanie WQL przez zdalne akcje K1.
+- ⬜ **K10 – kolejne edytory.**
+  - **Zapora Windows**: reguły i profile.
+  - **Pozostałe preferencje**: mapowania dysków, drukarki, skróty, rejestr, pliki i foldery, zadania zaplanowane,
+    użytkownicy lokalni, zmienne środowiskowe – z edytorem kierowania na poziomie elementu.
+  - **Uprawnienia plików i rejestru.**
+  - **Ustawienia dzienników zdarzeń**: rozmiar i przechowywanie, powiązane ze ścieżką E.
+  - **Skrypty** uruchamiania i logowania, z kopiowaniem plików do SYSVOL.
+  - **Komentarze do ustawień szablonów oraz filtry platformy i słów kluczowych.**
+- ⬜ **K11 – wzorce i zgodność.**
+  - **Porównanie GPO z wzorcem bezpieczeństwa** z kopii zapasowej, którą wskaże operator (np. Microsoft Security
+    Baseline albo CIS). Raport zgodności pokazuje każde ustawienie, a *Zastosuj różnice* działa przez plan zmian.
+  - **GPO wzorcowe (Starter GPO) i tabele migracji** przy kopiowaniu GPO między domenami (z okna innego połączenia).
+  - **Diagnostyka zasad grupy uruchamiana codziennie przez AdMng Watchdog**, z powiadomieniem o nowych uwagach
+    krytycznych i wysokich.
+
+**Kryteria ukończenia**
+- GPO utworzone i zmienione w AD Managerze działa na komputerze testowym (`gpresult /h`) tak samo jak zmienione w
+  edytorze GPO Microsoftu; `Registry.pol` i wersje GPO zgodne z GPMC.
+- Aktualizacja magazynu centralnego pokazuje różnice przed zapisem i zostawia kopię poprzedniej wersji.
+- Zdalne akcje działają na Windows 11 i Server 2025 z kontem okna (także innym niż konto Windows), bez zapisywania
+  haseł; inwentarz zgodny z `Get-ADComputer`.
+
+</details>
+
+### Ścieżka E – Dzienniki zdarzeń: czytnik i analiza 🟡 (E1 i część E2: 🟡)
+
+**Cel:** czytać dzienniki zdarzeń kontrolerów domeny, serwerów i stacji oraz pliki `.evtx` **prosto z AD Managera** i
+dostawać gotowe odpowiedzi zamiast tysięcy wierszy: *kto blokuje to konto i skąd*, *kto przestanie działać po
+wyłączeniu NTLMv1, RC4 albo niepodpisanego LDAP*, *dlaczego GPO nie zadziałało na tym komputerze*, *co się dzieje z
+replikacją i SYSVOL*. Wyniki są połączone z katalogiem: SID-y jako obiekty AD z przejściem do właściwości, znaczniki
+kont uprzywilejowanych (U4), akcje na komputerze źródłowym (K1), poprawki ustawień inspekcji przez edytory GPO (K4, K3).
+To **osobna funkcja, niezależna od AdMng Watchdog**: Watchdog to usługa, która stale zbiera wybrane zdarzenia
+zabezpieczeń kontrolerów domeny, przechowuje historię i wysyła alerty. Ścieżka E to doraźne dochodzenie w programie:
+dowolny kanał, dowolny komputer, historia sięgająca tak daleko, jak sam dziennik, bez instalowania czegokolwiek i bez
+zapisywania czegokolwiek na dysku (zasada 1). Gdy Watchdog jest podłączony, czytnik podsuwa jego dłuższą historię.
+
+<details>
+<summary><b>Szczegóły ścieżki E</b> – czytnik, analizy, technika, etapy</summary>
+
+#### Czytnik (karta „Dzienniki zdarzeń”)
+
+- **Źródła:** komputery wybrane z AD – wszystkie DC domeny (wyróżnione emulator PDC i DC, na którym zablokowano konto),
+  komputery z listy, OU albo raportu K1, jeden komputer z jego strony *Stan* (*Dziennik zdarzeń tego komputera* obok
+  dzisiejszego uruchamiania Podglądu zdarzeń) – oraz pliki `.evtx` wskazane przez operatora (kilka naraz; opisy
+  zdarzeń z folderu `LocaleMetaData`, gdy plik zapisano z informacjami wyświetlania).
+- **Kanały:** każdy dostępny na komputerze – *Zabezpieczenia*, *System*, *Aplikacja*, *Directory Service*, *DFS
+  Replication*, *DNS Server*, *GroupPolicy/Operational*, *NTLM/Operational*, kanały usług pulpitu zdalnego,
+  *PowerShell*, *Windows Defender*, *Sysmon* (jeśli jest).
+- **Kreator zapytania:** przedział czasu (domyślnie ostatnie 24 godziny, granice w UTC), identyfikatory, poziomy,
+  dostawcy, inspekcja sukcesów i niepowodzeń, pola (konto, SID, adres IP, stacja). Kreator buduje bezpieczne zapytanie
+  XPath (wartości escapowane, jak filtry LDAP – zasada 3); tryb ekspercki przyjmuje własny XPath ze sprawdzeniem
+  składni. Filtr wykonuje się na komputerze docelowym, więc przez sieć idą tylko pasujące zdarzenia.
+- **Wspólna oś czasu** z wielu komputerów (kolumna *Komputer*), od najnowszych, wczytywana strumieniowo z postępem i
+  anulowaniem osobno dla każdego komputera; limit wierszy trzymanych w pamięci, a liczniki i zestawienia liczone w
+  locie; *Odśwież – tylko nowe* i opcjonalny podgląd na żywo.
+- **Szczegóły zdarzenia:** pola po nazwach z objaśnieniami po polsku – kody stanu logowania (`0xC000006A` – złe
+  hasło, `0xC0000234` – konto zablokowane …), kody Kerberos (`0x18`, `0x25` …), typy logowania (2, 3, 10 …), typy
+  szyfrowania (RC4, AES), tokeny `%%NNNN`; SID-y i nazwy kont jako obiekty AD z przejściem do właściwości, adres IP
+  i nazwa stacji jako komputer z AD; pełny opis zdarzenia tylko dla zaznaczonego wiersza (z zapasowym widokiem pól,
+  gdy komputer nie ma opisów w danym języku).
+- **Zasięg i dostęp dla każdego komputera:** najstarsze zdarzenie, rozmiar i maksymalny rozmiar dziennika, tryb
+  (nadpisywanie, archiwizacja, zatrzymanie), ostrzeżenie *dziennik DC01 sięga tylko 6 godzin wstecz*, a przy odmowie
+  dostępu – przyczyna (grupa *Czytelnicy dziennika zdarzeń*, reguła zapory *Zdalne zarządzanie dziennikiem zdarzeń*,
+  uprawnienia kanału).
+- **Zapisane zapytania** (nazwy, kanały, identyfikatory, XPath, listy komputerów – bez wartości z dzienników) i
+  eksport do CSV lub HTML wyłącznie do pliku wskazanego przez operatora, z uwagą, że plik zawiera dane osobowe.
+
+#### Analizy wbudowane
+
+Każda analiza mówi, na jakie pytanie odpowiada, które komputery i kanały czyta i jakich ustawień inspekcji
+potrzebuje. Wymagania sprawdza **przed** wyszukiwaniem (efektywne zasady inspekcji DC z modelu K5): zamiast
+„nie znaleziono zdarzeń” pokazuje *DC01 nie rejestruje niepowodzeń uwierzytelniania Kerberos* z przyciskiem
+poprawki w edytorze ustawień zabezpieczeń GPO (K4) albo szablonów (K3), przez podgląd planu zmian. Wyniki mają układ
+diagnostyki zasad grupy (K6): ważność, obszar, szczegóły, zalecenie, *Napraw…* tam, gdzie program ma poprawkę.
+
+1. **Blokada konta – kto i skąd** (zastępuje LockoutStatus i EventCombMT, rozszerza fazę 5): na każdym DC licznik
+   złych haseł, czas ostatniego złego hasła i blokady, DC, na którym blokada powstała; zdarzenie blokady 4740 z
+   komputerem wywołującym, nieudane próby 4771, 4776 i 4625 z kodami, oś czasu złych haseł. Potem przejście do
+   komputera źródłowego przez zdalne akcje K1: usługi, zadania zaplanowane, sesje i zamapowane dyski działające na
+   tym koncie. Podpowiedzi, gdy źródłem jest pośrednik (Exchange, ADFS, NPS, Brama usług pulpitu zdalnego).
+2. **Nieudane logowania, zgadywanie i rozpylanie haseł:** wiele prób na jedno konto, wiele kont z jednego źródła
+   poniżej progu blokady, sprawdzanie istnienia kont (`0xC0000064`, Kerberos `0x6`), udane logowanie po serii
+   niepowodzeń; zastrzeżenia dla NAT i VPN.
+3. **Kerberos:** kody błędów z objaśnieniem, użycie RC4 i DES (typy szyfrowania w 4768 i 4769 oraz zdarzenia KDC
+   dodane w aktualizacjach Microsoftu wycofujących RC4) – lista *kto przestanie działać po wyłączeniu RC4*; konta bez
+   wstępnego uwierzytelniania (z odnośnikiem do flag ryzyka U4) i wzorce typowe dla kerberoastingu.
+4. **NTLM i NTLMv1:** wersja NTLM w logowaniach 4624, 4776 na DC, zdarzenia *NTLM/Operational* (inspekcja ograniczeń
+   NTLM i rozszerzona inspekcja NTLM nowszych Windows) – *kto przestanie działać po zablokowaniu NTLMv1 albo NTLM*;
+   brakujące opcje inspekcji NTLM ustawia K4.
+5. **Podpisywanie LDAP i powiązanie kanału:** zdarzenia *Directory Service* 2886–2889, 3039–3041, 3074 i 3075 – klienci
+   z niepodpisanymi i prostymi powiązaniami. Szczegółowe zdarzenie 2889 wymaga podniesienia poziomu diagnostyki na DC:
+   włączenie na określony czas przez K1 z przypomnieniem o przywróceniu.
+6. **Gdzie i kiedy logował się użytkownik, kto logował się na komputerze:** logowania 4624 z objaśnionym typem,
+   wylogowania, logowania z jawnymi poświadczeniami i administracyjne, sesje pulpitu zdalnego (4778, 4779 i kanały
+   usług pulpitu zdalnego), ślady Kerberos na DC prowadzące do stacji.
+7. **Zmiany kont i grup w dziennikach DC:** zakładanie, włączanie, wyłączanie i usuwanie kont, resety haseł, zmiany
+   członkostwa grup globalnych, lokalnych domeny i uniwersalnych, zmiany nazw, zmiany katalogu 5136–5141 i podejrzenie
+   DCSync (4662 z prawami replikacji spoza DC) – z oznaczeniem kont i grup uprzywilejowanych (U4, Tier 0). Tyle, ile
+   dziennik jeszcze pamięta; dłuższa historia – w Watchdogu. Przejmuje z fazy 6 *wsparcie korelacji z audytem DC*.
+8. **Zasady grupy na komputerze – model a rzeczywistość:** *GroupPolicy/Operational* (zastosowane i odfiltrowane GPO
+   z przyczyną, wynik i czas każdego rozszerzenia, użyty DC, przepustowość) i błędy z dziennika *System* (1058, 1085,
+   1125, 1129 …) zestawione z modelem *co dostanie komputer* (K5); błąd SceCli 1202 z nieistniejącym kontem prowadzi
+   do edytora ustawień zabezpieczeń (K4).
+9. **Zdrowie kontrolerów domeny:** replikacja (1311, 1925, 2042, 2092, 2095 – wycofanie USN, obiekty zalegające),
+   replikacja SYSVOL przez DFSR (4012, 2213, 5002), Netlogon (5719, 5722, 5805, 5807 – klienci spoza podsieci lokacji,
+   z odnośnikiem do lokacji i podsieci K1, 5827–5831), serwer DNS (4013, 4015), usługa czasu (emulator PDC bez
+   zewnętrznego źródła czasu, rozjazd zegarów).
+10. **Integralność inspekcji i ślady trwałości:** wyczyszczone dzienniki (1102, 104), zmiana zasad inspekcji (4719, z
+    autorem zmiany GPO z Watchdoga albo 5136), nowe usługi (7045, 4697), zadania zaplanowane (4698–4702), PowerShell
+    (4103, 4104 – treść skryptu ukryta do kliknięcia, bo może zawierać hasła), tworzenie procesów z wierszem poleceń
+    (4688), Microsoft Defender (wykrycia, wyłączona ochrona w czasie rzeczywistym, wykluczenia), Sysmon, jeśli jest.
+
+#### Jak to działa technicznie
+
+- **Odczyt:** `EventLogSession` (protokół MS-EVEN6 przez RPC) z Kerberosem i poświadczeniami okna (tylko w pamięci,
+  zasada 2), po pełnej nazwie DNS, bez przechodzenia na NTLM. Komputer docelowy potrzebuje grupy reguł zapory
+  *Zdalne zarządzanie dziennikiem zdarzeń* i członkostwa operatora w grupie *Czytelnicy dziennika zdarzeń* – kanał
+  *Zabezpieczenia* jest dla niej domyślnie czytelny, więc nie są potrzebne uprawnienia administratora domeny.
+  Członkostwo w grupie lokalnej ustawia K4 (grupy z ograniczeniami albo preferencje). Pliki `.evtx` czyta to samo API.
+- **Analizy nie parsują treści komunikatów:** pola zdarzeń są czytane po nazwach z XML, a kody (`%%NNNN`, stany
+  logowania, kody i typy szyfrowania Kerberos, typy logowania) – z własnych tabel; analizy znoszą różne wersje
+  zdarzeń. Opis zdarzenia w języku systemu jest tylko do wyświetlenia.
+- **Wydajność:** każde zapytanie ma przedział czasu, czyta od najnowszych i kończy się, gdy dojdzie do jego początku;
+  pobiera tylko potrzebne pola; najwyżej 4 komputery naraz (jak odczyt ze wszystkich DC w przeglądzie kont);
+  zestawienia liczone w locie, limit pamięci; anulowanie przerywa odczyt na komputerze docelowym (zasada 6).
+- **Kod:** parsery zdarzeń, budowanie XPath i dekodery z `AdMng.Watchdog.Core` przechodzą do `AdMng.Core` (jak parsery
+  GPO w K2.0) i obsługują oba programy; czytnik Windows w nowym projekcie używanym tylko przez aplikację (jak
+  `AdMng.Remote`); dokument jest per okno połączenia, a wyszukiwania w AD idą przez DC okna (zasada 4).
+- **Dane osobowe i zasada 1:** zdarzenia są tylko w pamięci, dopóki są widoczne – bez pamięci podręcznej i indeksu na
+  dysku, dziennik diagnostyczny bez treści zdarzeń, zapisane zapytania bez wartości, eksport tylko na żądanie.
+
+#### Etapy
+
+- 🟡 **E1** – czytnik: źródła (DC, komputery, pliki `.evtx`), kanały, kreator zapytań i XPath, wspólna oś czasu,
+  szczegóły z objaśnionymi polami i obiektami AD, zasięg i diagnoza dostępu, zapisane zapytania, eksport; przeniesienie
+  parserów do `AdMng.Core`. Pierwsza wersja gotowa (odczyt przez RPC; WinRM – później).
+- 🟡 **E2** – konta: źródło blokady z przejściem do komputera (K1), nieudane logowania i rozpylanie haseł – pierwsza
+  wersja gotowa; ⬜ historia logowań, zmiany kont i grup w dziennikach DC. Opis:
+  [DZIENNIKI-ZDARZEN.md](docs/DZIENNIKI-ZDARZEN.md). Sprawdzone na fałszywych dziennikach i w testach interfejsu na
+  Windows; odczyt z prawdziwych DC i porównanie z LockoutStatus i EventCombMT – pilotaż.
+- **E3** – gotowość na utwardzenie: Kerberos i RC4, NTLM i NTLMv1, podpisywanie LDAP i powiązanie kanału – *kto
+  przestanie działać* – ze sprawdzeniem wymagań inspekcji i poprawkami przez K4 i K3.
+- **E4** – zdrowie DC, zasady grupy *model a rzeczywistość*, integralność inspekcji i ślady trwałości.
+- **Później (do decyzji):** reguły Sigma (licencja DRL 1.1 pozwala dołączyć wybrane reguły z zachowaniem autora w
+  każdym wyniku), własny parser uszkodzonych plików `.evtx`.
+
+#### Do ustalenia z zespołem
+
+- Sposób odczytu: RPC (MS-EVEN6; dodatkowa reguła zapory na komputerach) czy także WinRM, którego już wymagają zdalne
+  akcje K1 (zestawienia liczone na komputerze docelowym, mniej danych przez sieć) – albo oba z automatycznym wyborem.
+- Domyślny przedział czasu i limit zdarzeń w pamięci.
+- Czy wyszukiwanie zdarzeń konkretnej osoby ma wymagać podania powodu (RODO, monitorowanie pracowników – art. 22³
+  Kodeksu pracy; do uzgodnienia z IOD) i czy prowadzić ślad takich wyszukiwań bez wartości (wymaga uzupełnienia ADR-0003).
+- Czy grupa *Czytelnicy dziennika zdarzeń* na DC ma być osobną grupą domenową traktowaną jak Tier 0 (dzienniki DC
+  ujawniają działania administratorów), obserwowaną w Watchdogu.
+
+**Kryteria ukończenia**
+- Źródło blokady konta znalezione w niecałą minutę na wszystkich DC domeny testowej, zgodne z LockoutStatus i
+  EventCombMT.
+- Odczyt dziennika *Zabezpieczenia* zapracowanego DC z 24 godzin nie blokuje okna, można go przerwać w każdej chwili, a
+  pamięć nie przekracza limitu.
+- Każda analiza przed wyszukiwaniem mówi, czego jej brakuje, i proponuje poprawkę ustawień inspekcji przez plan zmian.
+- Żadnych danych z dzienników na dysku stacji; eksport tylko na żądanie. Działa bez Watchdoga.
+
+</details>
+
+### Etap S – stabilizacja i gotowość do pilotażu 🟡
+
+**Cel:** zanim przybędzie funkcji – wiarygodne testy, sprawdzenie gotowości środowiska w programie, zgłoszenia problemów
+bez danych katalogu i jedna lista kontrolna pilotażu na Windows Server AD ([PILOTAZ.md](docs/PILOTAZ.md)).
+
+<details>
+<summary><b>Szczegóły etapu S</b> – testy, gotowość środowiska, zgłoś problem, pilotaż</summary>
+
+- **Wiarygodne testy:** testy modeli widoku działają w jednym wątku interfejsu, tak jak w WPF, więc widzą tę samą
+  kolejność zdarzeń co program; testy, które czasem nie przechodziły pod obciążeniem, mają usunięte przyczyny (żaden nie
+  został pominięty ani powtarzany); limity czasu zastąpiono sprawdzeniem granic logicznych i liniowego wzrostu pracy.
+- **Gotowość środowiska** (*Narzędzia → Sprawdź gotowość środowiska…*, także w *Pomocy* i palecie poleceń; karta na
+  okno połączenia): *Szybkie* (połączenie, katalog, ten komputer) i *Pełne* (także SYSVOL, dziennik zdarzeń każdego DC,
+  wskazany komputer testowy, Watchdog, Outlook). Stan: OK, ostrzeżenie, błąd albo „nie sprawdzono”; objaśnienie,
+  podpowiedź i rozdział instrukcji. Nic nie jest zapisywane – prawo zapisu do `Policies` w SYSVOL wynika z listy
+  uprawnień folderu. Wyniki tylko w pamięci; eksport HTML/CSV na żądanie (zawiera nazwy hostów – program o tym mówi).
+- **Zgłoś problem** (*Pomoc → Zgłoś problem…*): tekst do skopiowania albo zapisania – wersja programu i systemu, sposób
+  połączenia (bez nazw serwerów i kont), dostępność Outlooka, WebView2 i Watchdoga, kody wyników sprawdzenia gotowości i
+  ostatnie wpisy dziennika diagnostycznego jako szablony komunikatów (bez wartości, tylko w pamięci).
+- **Jedna klasyfikacja kodów** NTSTATUS i Kerberos w analizach dzienników zdarzeń i w ich opisach.
+- Opis techniczny: [docs/dev/s-pilot-readiness.md](docs/dev/s-pilot-readiness.md).
+
+**Kryteria ukończenia**
+- Pełne przebiegi testów pod obciążeniem bez ani jednego przypadkowego błędu.
+- Pilotaż według [PILOTAZ.md](docs/PILOTAZ.md) zaczyna się od raportu gotowości, a każde zgłoszenie ma dołączony opis z
+  *Zgłoś problem…*.
+
+</details>
+
 ### Znane ograniczenia
 
 Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki i uproszczenia w tym, co już działa.
@@ -1157,6 +1728,13 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   „Ładowanie…” są pomijane, a komunikat mówi, ile ich było), a całego kontenera nie da się zaznaczyć – do tego służy
   Znajdź albo zapisany widok.
 - **LAPS i BitLocker** – brak kart; hasła LAPS są traktowane jako atrybuty poufne (maskowane w dzienniku).
+- **Komputery (K1) – zdalne akcje nie sprawdzone na Windows.** CIM przez WinRM (tylko Kerberos, poświadczenia okna),
+  restart z komunikatem (`Win32ShutdownTracker`), uruchamianie *Zarządzania komputerem* i *Podglądu zdarzeń* z innym
+  kontem (`runas /netonly`) i reguły KB5020276 przy przygotowanych kontach potwierdzi dopiero pilotaż; odświeżanie zasad
+  zalogowanych użytkowników jest do tego czasu wyłączone w ustawieniach. Usługi są tylko do odczytu (bez uruchamiania i
+  zatrzymywania). Lokacja komputera jest ustalana przez DNS stacji operatora, nie kontrolera domeny. Daty końca wsparcia
+  pochodzą z wbudowanego katalogu (data katalogu w oknie, własne daty w ustawieniach). Nieaktywne komputery są tylko
+  raportem – nic nie jest wyłączane automatycznie.
 - **Zakładanie kont** tylko formularzem (bez szablonów per OU, CSV i „Kopiuj użytkownika”) – faza 3.
 - **Przegląd kont (U2)** – sprawdzenia problemów (blokada, hasła, wygaśnięcia, nieaktywność, higiena haseł,
   gotowość do powiadomień) dotyczą tylko włączonych kont; „Wyłączone” i pozostałości – tylko wyłączonych (bez kont
@@ -1181,16 +1759,32 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   (U4c): filtry WMI i określanie elementów docelowych nie są oceniane (ustalenia „warunkowe”), lokacje komputerów
   członkowskich też nie; lokalne konta i grupy samych komputerów są poza zasięgiem (tylko to, co nadają GPO); SYSVOL
   tylko na Windows. Z domeny podrzędnej nie są widoczne Enterprise / Schema Admins domeny głównej lasu.
-- **Wiadomości do użytkowników (U1)** – wysyła AD Manager bezpośrednio przez SMTP albo usługa Watchdog (U1b: kolejka,
-  sekrety po stronie usługi, OAuth2 Exchange Online); XOAUTH2 w wysyłce bezpośredniej nie jest obsługiwany – bez
-  Watchdoga dla Exchange Online zostaje przekaźnik albo konto z włączonym SMTP AUTH. Przez Watchdoga usługa nie zna listy
+- **Wiadomości do użytkowników (U1)** – wysyła AD Manager bezpośrednio przez SMTP, usługa Watchdog (U1b: kolejka,
+  sekrety po stronie usługi, OAuth2 Exchange Online) albo – od U5 – klasyczny Outlook operatora; XOAUTH2 w wysyłce
+  bezpośredniej nie jest obsługiwany – bez Watchdoga dla Exchange Online zostaje przekaźnik, konto z włączonym SMTP AUTH
+  albo Outlook. Przez Watchdoga usługa nie zna listy
   dozwolonych domen łączy AD Managera (sprawdza ją AD Manager), a wiadomość „w kolejce usługi” raport pokazuje jako
   przyjętą – ostateczny wynik jest w dzienniku wysyłek Watchdoga. Hasło SMTP trzeba wpisać raz na
   sesję (nie jest zapisywane). Limit tempa i dobowy limit odbiorców liczy tylko ta instancja AD Managera (w pamięci,
   od uruchomienia) – inne komputery i skrzynka nadawcy w innych programach nie są wliczane. Pola `{$input:…}` mają jedną
-  wartość dla wszystkich odbiorców. Edytor HTML to zwykłe pole tekstowe (bez podglądu renderowanego HTML – w podglądzie
-  widać tekst i źródło HTML). Wiadomości mają stałą stopkę i nie mają załączników. Uwierzytelnianie bieżącym kontem
+  wartość dla wszystkich odbiorców. Treść HTML wkleja się z Outlooka, Worda lub przeglądarki albo edytuje jako źródło
+  HTML (bez edytora wizualnego); podgląd renderowany (WebView2) wymaga środowiska WebView2 Runtime – bez niego widać
+  źródło HTML. Wiadomości mają stałą stopkę i nie mają załączników (obrazy osadzone w treści nie są załącznikami).
+  Uwierzytelnianie bieżącym kontem
   Windows sprawdzono tylko testem negocjacji mechanizmów (bez Exchange).
+- **Korespondencja (U5) – nie sprawdzona z prawdziwym Outlookiem.** Silnik Outlooka jest testowany na fałszywym modelu
+  obiektowym (CI nie ma Outlooka); połączenie z prawdziwym Outlookiem, zwalnianie obiektów COM, zabezpieczenie Outlooka
+  przed programami, *W imieniu*, dostarczenie o wskazanej porze, przyciski głosowania i ich odczyt (filtr daty
+  *Elementów wysłanych*), edytor na Windows i wartości `msExchRecipientTypeDetails` w środowisku hybrydowym potwierdzi
+  dopiero pilotaż ([lista](docs/KORESPONDENCJA.md#14-lista-kontrolna-pilotażu)). Działa tylko klasyczny Outlook (nie
+  „nowy Outlook” ani Outlook w przeglądarce) na tym samym poziomie uprawnień co AD Manager. Lista odbiorców nie jest
+  zapisywana (po przerwaniu wczytuje się plik ponownie, a dziennik „już wysłane” pomija wysłane adresy); dziennik zna
+  tylko skróty adresów, jest osobny dla każdego użytkownika Windows i nie przejmuje dziennika `wyslane.csv`
+  Korespondencji WPiA. Lista *Nie wysyłać* i załączniki nie są zapamiętywane. W trybie UDW pola kolumn są puste (jedna
+  wiadomość dla wszystkich). *Odpowiedzi* czytają tylko *Elementy wysłane* domyślnej skrzynki profilu, a głosy zlicza
+  Outlook nadawcy. Zapytanie do właścicieli skrzynek dopasowuje osoby po imieniu i nazwisku zapisanym na koncie
+  skrzynki – bez tych danych (albo bez schematu Exchange i pełnomocnictw) wynik wymaga ręcznego przeglądu; *Ostatnie
+  logowanie* konta skrzynki nie mówi, czy skrzynka jest używana.
 - **Wiele połączeń i porównanie obiektów** – okno modalne jednego połączenia (potwierdzenie, *Resetuj hasło*, *Nowy
   obiekt*, ustawienia) na chwilę blokuje wszystkie okna programu (jeden wątek interfejsu); dwa okna tej samej domeny
   nie widzą natychmiast swoich zmian (pomaga odświeżanie na żywo albo F5), jak dwie konsole ADUC. Porównanie jest tylko
@@ -1204,6 +1798,19 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   *Zapisane filtry* są osobne w każdym oknie połączenia, ale zapisane filtry i ustawienia zakładki *Uprawnienia* są
   wspólne: zmiana w jednym oknie przebudowuje listy ustawień zakładki w pozostałych (ostatni zapis wygrywa, gdy dwa
   okna zmieniają to samo pole jednocześnie).
+- **Zasady grupy (K2)** – sprawdzone na fałszywym katalogu i na laboratorium Samba 4.19 (SYSVOL przez `smbclient`);
+  zapis SYSVOL na Windows, okna WPF i zrzut 23 sprawdza tylko CI na Windows. Zgodność kopii zapasowych z GPMC w obie
+  strony, maski poziomów uprawnień GPMC, format zapytań filtrów WMI i działanie GPO utworzonego w AD Managerze na
+  kliencie (`gpresult /h`) potwierdzi pilotaż. Zmiany GPO idą na kontroler okna – gdy nie jest nim emulator PDC, karty
+  ostrzegają (przełączenie tylko ręczne). Uprawnienia operatora nie są sprawdzane z góry (brak prawa = błąd w wynikach
+  podglądu, pliki SYSVOL wracają do stanu sprzed zmiany). Ustawienia zabezpieczeń edytuje karta K4 (bez zapory,
+  uprawnień plików i rejestru oraz pozostałych preferencji); brak tabel migracji, kopiowania między domenami, GPO wzorcowych, porównania z GPO innego okna i próby filtru WMI na
+  komputerze. Szczegóły: [ZASADY-GRUPY.md, rozdział 14](docs/ZASADY-GRUPY.md#14-ograniczenia-i-pilotaż).
+- **Szablony administracyjne (K3)** – sprawdzone na fałszywym katalogu i syntetycznych szablonach; pobieranie szablonów
+  Edge, Chrome i Firefox – na odpowiedziach przygotowanych według formatów producentów (bez dostępu do ich serwerów w
+  testach), rozpakowywanie MSI, EXE i CAB oraz sprawdzanie podpisu działa tylko w Windows. Zgodność `Registry.pol` z
+  plikiem edytora Microsoftu i działanie na kliencie potwierdzi pilotaż. Brak komentarzy do ustawień, filtrów według
+  platformy i słów kluczowych oraz starych szablonów ADM.
 - **Filtr „Puste grupy”** sprawdza atrybut `member` i pomija domyślne grupy podstawowe domeny (Domain Users, Domain
   Guests, Domain Computers, Domain Controllers, Read-only Domain Controllers – po SID domeny); własna grupa, która jest
   grupą podstawową (`primaryGroupID`) części kont i nie ma innych członków, nadal może być pokazywana jako pusta.
@@ -1228,6 +1835,8 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
 | Delegacja, ACL | F5–F6 | F5–F6 | F5–F6 | F5–F6 | F6 |
 | Przegląd stanu kont | U | – | – | – | – |
 | Wiadomości e-mail do użytkowników | U | – | U (członkowie jako odbiorcy) | – | – |
+| Korespondencja przez Outlooka | U5 | – | U5 (członkowie jako odbiorcy) | U5 | – |
+| Zapytania do właścicieli skrzynek | U5 (skrzynki i ich właściciele) | – | – | – | U5 (zakres) |
 
 </details>
 
@@ -1255,6 +1864,9 @@ Pełna lista pytań: [RESEARCH.md](docs/RESEARCH.md#11-pytania-otwarte-do-zespo�
    skrzynka nadawcy (np. współdzielona skrzynka helpdesku) i adres odpowiedzi; kto może wysyłać i do ilu osób naraz;
    treść i stopka szablonów zaakceptowane przez bezpieczeństwo (ochrona przed phishingiem) i IOD (RODO); czy kopie
    zostają w Elementach wysłanych; czy automatyczne przypomnienia mają zastąpić obecne skrypty i z jakimi progami.
+10. **Dzienniki zdarzeń (ścieżka E):** odczyt przez RPC (dodatkowa reguła zapory) czy także przez WinRM; domyślny
+   przedział czasu i limit zdarzeń w pamięci; czy wyszukiwanie zdarzeń konkretnej osoby wymaga podania powodu (RODO,
+   IOD); osobna grupa *Czytelnicy dziennika zdarzeń* na DC traktowana jak Tier 0.
 
 </details>
 
@@ -1264,16 +1876,24 @@ Pełna lista pytań: [RESEARCH.md](docs/RESEARCH.md#11-pytania-otwarte-do-zespo�
 
 - Windows 10 22H2 / Windows 11 / Windows Server 2019+ (stacja w domenie lub z dostępem sieciowym do DC).
 - Do uruchomienia wersji self-contained nie jest potrzebny .NET ani RSAT.
+- Podgląd renderowany wiadomości korzysta z Microsoft Edge WebView2 Runtime (jest w Windows 11 i aktualnym Windows 10,
+  na Windows Server 2019 i 2022 często go nie ma); bez niego okno pokazuje źródło HTML.
+- Okno *Korespondencja* (U5) i wysyłka wiadomości do użytkowników przez Outlooka wymagają **klasycznego Outlooka**
+  (Microsoft 365 Apps albo Office 2016+) z profilem pocztowym na tym samym komputerze, uruchomionego na tym samym
+  poziomie uprawnień co AD Manager (oba bez *Uruchom jako administrator*) – zob. [KORESPONDENCJA.md](docs/KORESPONDENCJA.md#1-wymagania).
 - Do budowania: .NET SDK 10.0.
 
 **Gotowa wersja**
 
 Wydania są w zakładce **Releases** repozytorium: archiwum `AdMng-<wersja>-win-x64.zip` z `AdMng.exe`
-i jego bibliotekami natywnymi WPF (win-x64, self-contained – bez instalacji, .NET i RSAT), sumy SHA-256 i zrzuty ekranu.
+i jego bibliotekami natywnymi (WPF `*_cor3.dll`, `WebView2Loader.dll`,
+`microsoft.management.infrastructure.native.unmanaged.dll`; win-x64, self-contained – bez instalacji, .NET i RSAT)
+oraz plikami `LICENSE` i `NOTICE`, sumy SHA-256 i zrzuty ekranu.
 Rozpakuj całe archiwum do jednego folderu i uruchom `AdMng.exe`.
 
 > [!NOTE]
 > Plik nie jest jeszcze podpisany (podpis i MSI – faza 7), więc SmartScreen lub AppLocker/WDAC mogą go zablokować.
+> Podpisywanie przygotowujemy z SignPath Foundation – zob. [Code signing policy](#-code-signing-policy).
 
 Wersje rozwojowe między wydaniami: każdy przebieg CI publikuje artefakt **AdMng-win-x64** (zakładka **Actions** →
 workflow **CI** → najnowszy zielony przebieg → *Artifacts*; przechowywany 14 dni).
@@ -1400,8 +2020,48 @@ Lokalnie (Windows): `$env:ADMNG_SCREENSHOTS_DIR = "$PWD\zrzuty"; dotnet test tes
 | 🔬 [Wyniki analizy](docs/RESEARCH.md) | `dsa.msc`, ADAC, produkty konkurencyjne, techniki LDAP |
 | 🛡 [AdMng Watchdog](docs/WATCHDOG.md) | funkcje i konfiguracja usługi monitorującej |
 | 🐧 [AdMng Watchdog na Linuksie](docs/WATCHDOG-LINUX.md) | wdrożenie krok po kroku: AD, kontrolery, serwer Debian, pakiety, pilotaż, wycofanie |
+| 🖥 [Komputery](docs/KOMPUTERY.md) | przegląd komputerów i raporty, cykl życia kont, zdalne akcje przez WinRM, WinRM zasadą grupy |
+| 📋 [Dzienniki zdarzeń](docs/DZIENNIKI-ZDARZEN.md) | czytnik dzienników zdarzeń DC, serwerów, stacji i plików `.evtx`, skąd blokada konta, nieudane logowania; wymagania (zapora, grupa, inspekcja) |
+| 📜 [Zasady grupy](docs/ZASADY-GRUPY.md) | obiekty zasad grupy w drzewie, karta *Zasady grupy*, operacje na GPO, filtrowanie zabezpieczeń, filtry WMI, delegowanie, kopie zapasowe, porównanie, edytory ustawień, model „co dostanie komputer”, diagnostyka zasad grupy |
+| 📨 [Korespondencja](docs/KORESPONDENCJA.md) | okno *Korespondencja (Outlook)*: odbiorcy z plików i z AD, pola, wiadomość, podgląd, wysyłka przez Outlooka, dziennik „już wysłane”, zapytania do właścicieli skrzynek, odpowiedzi, rozwiązywanie problemów, pilotaż |
+| ✅ [Pilotaż](docs/PILOTAZ.md) | lista kontrolna pilotażu na Windows Server AD: środowisko, sprawdzenie gotowości, scenariusze z narzędziem Microsoftu do porównania, zgłaszanie problemów, wyniki |
 | 🧪 [Laboratorium testowe](tools/testlab/README.md) | Samba AD DC z danymi „polskiej firmy”; [Watchdog w laboratorium](tools/testlab/watchdog/README.md) |
 | 🧑‍💻 [Notatki dla deweloperów](CLAUDE.md) | zasady, układ projektów, polecenia, konwencje |
+
+## 📄 Licencja
+
+AD Manager i AdMng Watchdog są udostępniane na licencji [Apache 2.0](LICENSE) – © 2025–2026 AD_MNG contributors,
+zob. też [NOTICE](NOTICE).
+
+Wyjątek: pliki pakietu `admng-openwec` w [`packaging/admng-openwec`](packaging/admng-openwec) są, tak jak sam OpenWEC,
+na licencji GPL-3.0 ([szczegóły](packaging/admng-openwec/debian/copyright)). OpenWEC działa jako osobny proces i nie
+jest linkowany z AdMng Watchdog, więc licencja GPL nie obejmuje kodu AD_MNG.
+
+## 🔏 Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by
+[SignPath Foundation](https://signpath.org/).
+
+Bezpłatne podpisywanie kodu zapewnia SignPath.io, a certyfikat wystawia SignPath Foundation. Podpisywane są wyłącznie
+pliki zbudowane w GitHub Actions z kodu źródłowego tego repozytorium, a każde podpisanie wydania ręcznie zatwierdza
+osoba z roli *Approvers*.
+
+Role w zespole (team roles):
+
+- Committers and reviewers: [DarienRahl](https://github.com/DarienRahl)
+- Approvers: [DarienRahl](https://github.com/DarienRahl)
+
+### Privacy policy
+
+This program will not transfer any information to other networked systems unless specifically requested by the user
+or the person installing or operating it.
+
+Program nie przesyła żadnych informacji do innych systemów w sieci, chyba że wyraźnie zażąda tego użytkownik albo
+osoba, która go instaluje lub obsługuje. AD Manager łączy się wyłącznie z kontrolerami domeny i serwerami wskazanymi
+przez operatora (LDAP, WinRM, dzienniki zdarzeń, usługa AdMng Watchdog, poczta). Jedyne połączenie z internetem to
+pobranie szablonów ADMX przeglądarek Edge, Chrome i Firefox, gdy operator sam o to poprosi (*Zaktualizuj szablony*).
+Program nie ma telemetrii ani automatycznych aktualizacji, a podgląd wiadomości HTML nie pobiera zdalnych obrazów ani
+innych zasobów. AdMng Watchdog wysyła powiadomienia tylko do kanałów skonfigurowanych przez administratora usługi.
 
 ---
 

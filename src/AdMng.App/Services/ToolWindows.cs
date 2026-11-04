@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AdMng.App.Services;
 
 /// <summary>
-/// Opens the batch editor, the CSV import, the session log, the PowerShell history, the AD Recycle Bin, the account review, the saved filters and the settings dialog: creates the
+/// Opens the batch editor, the CSV import, the session log, the PowerShell history, the AD Recycle Bin, the account review, the saved filters, the problem report and the settings dialog: creates the
 /// view model through <see cref="IDialogViewModelFactory"/> and shows it with <see cref="IWindowService"/> (the windows
 /// host it with <see cref="Infrastructure.WindowViewModelLifecycle"/>). Used by <see cref="DialogService"/> and by the
 /// main window's Tools menu (PowerShell history has no <see cref="IDialogService"/> entry). UI thread only.
@@ -16,7 +16,7 @@ namespace AdMng.App.Services;
 /// The factory is resolved on first use: it depends on <see cref="IDialogService"/> (through DialogServices), which
 /// depends on this class. One per connection window (scoped): the "one window" tool keys mean one per connection.
 /// </remarks>
-public sealed class ToolWindows(IServiceProvider services, IWindowService windows, Presentation.Connections.ConnectionContext? connection = null)
+public sealed partial class ToolWindows(IServiceProvider services, IWindowService windows, Presentation.Connections.ConnectionContext? connection = null)
 {
     /// <summary>Singleton key of the session log window (one per connection window).</summary>
     public const string SessionLogKey = "tools:session-log";
@@ -35,6 +35,9 @@ public sealed class ToolWindows(IServiceProvider services, IWindowService window
     /// builder picks attributes and groups and tests a filter through this connection's session).
     /// </summary>
     public const string SavedFiltersKey = "tools:saved-filters";
+
+    /// <summary>Singleton key of the problem report window (one per connection window: it reports that window's connection).</summary>
+    public const string ProblemReportKey = "tools:problem-report";
 
     private readonly IServiceProvider _services = services ?? throw new ArgumentNullException(nameof(services));
     private readonly IWindowService _windows = windows ?? throw new ArgumentNullException(nameof(windows));
@@ -91,6 +94,18 @@ public sealed class ToolWindows(IServiceProvider services, IWindowService window
 
     /// <summary>The saved filters of the filter builder (modeless; an open one is activated).</summary>
     public Window ShowSavedFilters() => ShowSingleton(SavedFiltersKey, () => Factory.CreateSavedFilters());
+
+    /// <summary>The problem report (modeless; an open one is activated and shows the report as it is now).</summary>
+    public Window ShowProblemReport()
+    {
+        var window = ShowSingleton(ProblemReportKey, () => Factory.CreateProblemReport());
+        if (window is ProblemReportWindow { ViewModel: { IsDisposed: false } report })
+        {
+            report.RefreshCommand.Execute(null);
+        }
+
+        return window;
+    }
 
     /// <summary>
     /// The settings dialog (modal). The settings are shared by all connection windows; every window's shell applies a

@@ -1,0 +1,285 @@
+<!--
+  "Zdalne akcje" of one computer (RemoteComputerViewModel, modeless, one per computer per connection window, K1 design
+  note 4.5 and 4.7): the connection line (WinRM, Kerberos, the window's account), status (ping, WinRM, the system as the
+  computer reports it), logged-on users, services (read only), the actions (Group Policy refresh, restart with
+  confirmation, cancel a scheduled restart), the local tools and the window's action log. Every call goes over WinRM with
+  the window's credential; nothing is stored.
+-->
+<Window x:Class="AdMng.App.Computers.RemoteComputerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:cv="clr-namespace:AdMng.Presentation.Computers;assembly=AdMng.Presentation"
+        xmlns:l="clr-namespace:AdMng.App.Localization"
+        xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        Title="{Binding WindowTitle, Mode=OneWay}"
+        Width="1040"
+        Height="780"
+        MinWidth="760"
+        MinHeight="520"
+        WindowStartupLocation="CenterOwner">
+  <Window.Resources>
+    <sys:Double x:Key="TextControlThemeMinHeight">30</sys:Double>
+    <Thickness x:Key="TextControlThemePadding">10,4,6,5</Thickness>
+    <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
+
+    <Style x:Key="ActionButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Margin" Value="0,0,6,6" />
+      <Setter Property="Padding" Value="10,3" />
+    </Style>
+
+    <Style x:Key="CompactRow" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="26" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+    </Style>
+
+    <Style x:Key="StatusLabel" TargetType="TextBlock" BasedOn="{StaticResource Ad.SecondaryText}">
+      <Setter Property="Margin" Value="0,0,12,4" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+    </Style>
+  </Window.Resources>
+
+  <Window.InputBindings>
+    <KeyBinding Key="F5" Command="{Binding RefreshStatusCommand}" />
+  </Window.InputBindings>
+
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
+      <DockPanel>
+        <Button x:Name="CloseButton"
+                Command="{Binding CloseCommand}"
+                Content="{l:Tr Common.Close}"
+                DockPanel.Dock="Right"
+                IsCancel="True"
+                Style="{StaticResource Ad.DialogButton}" />
+        <Button x:Name="StopButton"
+                Margin="0,0,8,0"
+                Command="{Binding StopCommand}"
+                Content="{l:Tr Common.Stop}"
+                DockPanel.Dock="Right"
+                Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
+        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+          <ProgressBar Width="60"
+                       Margin="0,0,8,0"
+                       VerticalAlignment="Center"
+                       IsIndeterminate="True"
+                       Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <TextBlock x:Name="ConnectionText"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding ConnectionText, Mode=OneWay}"
+                     TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- Header: the computer and its DNS name. -->
+    <StackPanel Margin="16,12,16,0" DockPanel.Dock="Top">
+      <TextBlock Style="{StaticResource Ad.Title}" Text="{Binding Name, Mode=OneWay}" />
+      <TextBlock x:Name="HostText"
+                 Margin="0,2,0,0"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{Binding Target.DnsHostName, Mode=OneWay, FallbackValue=''}" />
+    </StackPanel>
+
+    <Border x:Name="SessionEndedBar"
+            Margin="16,10,16,0"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.WarningBar}"
+            Visibility="{Binding SessionEndedMessage, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <TextBlock Text="{Binding SessionEndedMessage, Mode=OneWay}" TextWrapping="Wrap" />
+    </Border>
+    <Border x:Name="ErrorBar"
+            Margin="16,10,16,0"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.ErrorBar}"
+            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <TextBlock x:Name="ErrorText"
+                 AutomationProperties.LiveSetting="Assertive"
+                 Text="{Binding Error, Mode=OneWay}"
+                 TextWrapping="Wrap" />
+    </Border>
+
+    <!-- Actions and tools. -->
+    <StackPanel Margin="16,10,16,0" DockPanel.Dock="Top">
+      <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr RemoteActions.Actions}" />
+      <WrapPanel>
+        <Button x:Name="RefreshPolicyButton"
+                Command="{Binding RefreshPolicyCommand}"
+                Content="{l:Tr RemoteActions.Action.RefreshPolicy}"
+                Style="{StaticResource ActionButton}" />
+        <Button x:Name="RestartButton"
+                Command="{Binding RestartCommand}"
+                Content="{l:Tr RemoteActions.Action.Restart}"
+                Style="{StaticResource ActionButton}" />
+        <Button x:Name="AbortRestartButton"
+                Command="{Binding AbortRestartCommand}"
+                Content="{l:Tr RemoteActions.Action.AbortRestart}"
+                Style="{StaticResource ActionButton}" />
+        <Border Width="1"
+                Margin="6,2,12,8"
+                Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+        <Button x:Name="RemoteDesktopButton"
+                Command="{Binding RemoteDesktopCommand}"
+                Content="{l:Tr Computers.RemoteDesktop}"
+                Style="{StaticResource ActionButton}" />
+        <Button x:Name="ComputerManagementButton"
+                Command="{Binding ComputerManagementCommand}"
+                Content="{l:Tr Computers.ComputerManagement}"
+                Style="{StaticResource ActionButton}" />
+        <Button x:Name="EventViewerButton"
+                Command="{Binding EventViewerCommand}"
+                Content="{l:Tr Computers.EventViewer}"
+                Style="{StaticResource ActionButton}" />
+      </WrapPanel>
+    </StackPanel>
+
+    <Grid Margin="16,6,16,12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="12" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+        <RowDefinition Height="12" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <!-- Status: ping, WinRM, system, last boot. -->
+      <Border Style="{StaticResource Ad.Card}">
+        <DockPanel>
+          <DockPanel DockPanel.Dock="Top">
+            <Button x:Name="RefreshStatusButton"
+                    Command="{Binding RefreshStatusCommand}"
+                    Content="{l:Tr RemoteActions.RefreshStatus}"
+                    DockPanel.Dock="Right" />
+            <TextBlock VerticalAlignment="Center" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr RemoteActions.Status}" />
+          </DockPanel>
+          <Grid Margin="0,8,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Style="{StaticResource StatusLabel}" Text="{l:Tr RemoteActions.PingLabel}" />
+            <TextBlock x:Name="PingText" Grid.Column="1" Text="{Binding PingText, Mode=OneWay}" TextWrapping="Wrap" />
+            <TextBlock Grid.Row="1" Style="{StaticResource StatusLabel}" Text="{l:Tr RemoteActions.WinRmLabel}" />
+            <TextBlock x:Name="WinRmText" Grid.Row="1" Grid.Column="1" Text="{Binding WinRmText, Mode=OneWay}" TextWrapping="Wrap" />
+            <TextBlock Grid.Row="2" Style="{StaticResource StatusLabel}" Text="{l:Tr RemoteActions.SystemLabel}" />
+            <TextBlock x:Name="SystemText" Grid.Row="2" Grid.Column="1" Text="{Binding SystemText, Mode=OneWay}" TextWrapping="Wrap" />
+            <TextBlock Grid.Row="3" Style="{StaticResource StatusLabel}" Text="{l:Tr RemoteActions.LastBootLabel}" />
+            <TextBlock x:Name="LastBootText" Grid.Row="3" Grid.Column="1" Text="{Binding LastBootText, Mode=OneWay}" TextWrapping="Wrap" />
+          </Grid>
+        </DockPanel>
+      </Border>
+
+      <!-- Action log of this window (in memory only). -->
+      <Border Grid.Column="2" Style="{StaticResource Ad.Card}">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr RemoteActions.Log}" />
+          <ListBox x:Name="LogList"
+                   MaxHeight="150"
+                   Margin="0,6,0,0"
+                   AutomationProperties.Name="{l:Tr RemoteActions.Log}"
+                   ItemsSource="{Binding Log, Mode=OneWay}"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="{x:Type cv:RemoteLogEntry}">
+                <DockPanel>
+                  <TextBlock Margin="0,0,8,0"
+                             DockPanel.Dock="Left"
+                             Style="{StaticResource Ad.SecondaryText}"
+                             Text="{Binding TimeText, Mode=OneWay}" />
+                  <TextBlock x:Name="LogText" Text="{Binding Text, Mode=OneWay}" TextWrapping="Wrap" />
+                </DockPanel>
+                <DataTemplate.Triggers>
+                  <DataTrigger Binding="{Binding IsError, Mode=OneWay}" Value="True">
+                    <Setter TargetName="LogText" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                  </DataTrigger>
+                </DataTemplate.Triggers>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </DockPanel>
+      </Border>
+
+      <!-- Logged-on users. -->
+      <DockPanel Grid.Row="1" Grid.ColumnSpan="3" Margin="0,12,0,0">
+        <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+          <Button x:Name="LoadUsersButton"
+                  Command="{Binding LoadUsersCommand}"
+                  Content="{l:Tr RemoteActions.LoadUsers}"
+                  DockPanel.Dock="Right" />
+          <StackPanel>
+            <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr RemoteActions.Users}" />
+            <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding UsersNote, Mode=OneWay}" TextWrapping="Wrap" />
+          </StackPanel>
+        </DockPanel>
+        <ListView x:Name="UsersList"
+                  AutomationProperties.Name="{l:Tr RemoteActions.Users}"
+                  ItemContainerStyle="{StaticResource CompactRow}"
+                  ItemsSource="{Binding LoggedOnUsers, Mode=OneWay}">
+          <ListView.View>
+            <GridView AllowsColumnReorder="False">
+              <GridViewColumn Width="300" DisplayMemberBinding="{Binding Account, Mode=OneWay}" Header="{l:Tr RemoteActions.Column.Account}" />
+              <GridViewColumn Width="160" DisplayMemberBinding="{Binding Session, Mode=OneWay}" Header="{l:Tr RemoteActions.Column.Session}" />
+              <GridViewColumn Width="200" DisplayMemberBinding="{Binding Since, Mode=OneWay}" Header="{l:Tr RemoteActions.Column.Since}" />
+            </GridView>
+          </ListView.View>
+        </ListView>
+      </DockPanel>
+
+      <!-- Services (read only). -->
+      <DockPanel Grid.Row="3" Grid.ColumnSpan="3">
+        <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+          <Button x:Name="LoadServicesButton"
+                  Command="{Binding LoadServicesCommand}"
+                  Content="{l:Tr RemoteActions.LoadServices}"
+                  DockPanel.Dock="Right" />
+          <CheckBox x:Name="OnlyStoppedAutomaticBox"
+                    Margin="0,0,12,0"
+                    Content="{l:Tr RemoteActions.OnlyStoppedAutomatic}"
+                    DockPanel.Dock="Right"
+                    IsChecked="{Binding ShowOnlyStoppedAutomatic}" />
+          <TextBlock VerticalAlignment="Center" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr RemoteActions.Services}" />
+        </DockPanel>
+        <ListView x:Name="ServicesList"
+                  AutomationProperties.Name="{l:Tr RemoteActions.Services}"
+                  ItemContainerStyle="{StaticResource CompactRow}"
+                  ItemsSource="{Binding ServiceRows, Mode=OneWay}"
+                  VirtualizingPanel.IsVirtualizing="True">
+          <ListView.View>
+            <GridView AllowsColumnReorder="False">
+              <GridViewColumn Width="300" Header="{l:Tr RemoteActions.Column.Service}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type cv:RemoteServiceRow}">
+                    <TextBlock x:Name="ServiceName"
+                               Text="{Binding DisplayName, Mode=OneWay}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding Name, Mode=OneWay}" />
+                    <DataTemplate.Triggers>
+                      <DataTrigger Binding="{Binding IsAutomaticAndStopped, Mode=OneWay}" Value="True">
+                        <Setter TargetName="ServiceName" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                        <Setter TargetName="ServiceName" Property="FontWeight" Value="SemiBold" />
+                      </DataTrigger>
+                    </DataTemplate.Triggers>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="110" DisplayMemberBinding="{Binding State, Mode=OneWay}" Header="{l:Tr RemoteActions.Column.State}" />
+              <GridViewColumn Width="150" DisplayMemberBinding="{Binding StartMode, Mode=OneWay}" Header="{l:Tr RemoteActions.Column.StartMode}" />
+              <GridViewColumn Width="220" DisplayMemberBinding="{Binding Account, Mode=OneWay}" Header="{l:Tr RemoteActions.Column.LogOnAs}" />
+            </GridView>
+          </ListView.View>
+        </ListView>
+      </DockPanel>
+    </Grid>
+  </DockPanel>
+</Window>

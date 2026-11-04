@@ -1,7 +1,8 @@
 namespace AdMng.Watchdog.Core.Rules.Validation;
 
 /// <summary>
-/// Section <c>userMessages</c> (README U1b): <c>range</c> of the hourly (1–10 000) and daily (1–100 000) limits,
+/// Section <c>userMessages</c> (README U1b, U1c): <c>range</c> of the hourly (1–10 000) and daily (1–100 000) limits and
+/// of <c>maxStoredImageMb</c> (16–4096),
 /// <c>required</c> / <c>invalidAddress</c> for every allowed sender (a whole address or <c>@domain</c>) and the warning
 /// <c>smtpDisabledButUsed</c> when messages to users are enabled while e-mail (SMTP) is disabled.
 /// </summary>
@@ -12,6 +13,7 @@ internal static class UserMessagingValidator
         var settings = run.Configuration.UserMessages;
         RangeCheck.Check(run, "userMessages.maxMessagesPerHour", settings.MaxMessagesPerHour, 1, 10_000);
         RangeCheck.Check(run, "userMessages.maxMessagesPerDay", settings.MaxMessagesPerDay, 1, 100_000);
+        RangeCheck.Check(run, "userMessages.maxStoredImageMb", settings.MaxStoredImageMb, 16, 4096);
         for (var i = 0; i < settings.AllowedSenders.Count; i++)
         {
             var path = $"userMessages.allowedSenders[{i}]";

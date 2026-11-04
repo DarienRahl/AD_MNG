@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Xml;
 using System.Xml.Linq;
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Core.Model;
 
 namespace AdMng.Watchdog.Core.Attribution;

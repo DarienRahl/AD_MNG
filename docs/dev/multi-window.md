@@ -1277,7 +1277,8 @@ differs from the text above:
 * **GC test.** `AClosedConnectionScope_IsCollected` collects up to 20 times with 20 ms pauses: a pool thread may hold
   the last work item it ran (a bind, a close) for a moment. A deliberately leaked subscription makes it fail.
 * **Smoke test.** Dialog headers in every colour and theme, but the strip and header of a child window once per theme,
-  to stay well inside the 30 s fail-safe.
+  to stay well inside the fail-safe (30 s then; 120 s since 0.7.0, when Korespondencja brought a run to about 25 s and
+  a slow agent past 30 s – each language pass now prints its time).
 * **Tests not written.** A UI test of the refused cross-connection drop (WPF's `DragEventArgs` cannot be constructed);
   the badge contrast UI test (replaced by the Presentation test).
 * **Not verified here.** The App and the UI tests compile on Linux only; the UI tests, the smoke test and the

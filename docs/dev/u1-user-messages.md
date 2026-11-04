@@ -9,12 +9,17 @@ DNs through `LdapFilter`/`DistinguishedName` (rule 3); the plan reads only from 
 is written to the directory (rule 5 does not apply – a message is not a directory change); every directory call and
 every send is async with cancellation (rule 6).
 
+Extensions: **U1c** (a formatted message pasted from Outlook, inline images, rendered preview, Watchdog contract v2) and
+**U1d** (title-aware salutations) – [u1c-u1d-rich-html-and-salutations.md](u1c-u1d-rich-html-and-salutations.md).
+**U5** adds a third transport, *through Outlook* (section 7), and the field `{$created}` (section 2) –
+[u5-outlook-correspondence.md](u5-outlook-correspondence.md).
+
 ## 1. Pieces
 
 | Piece | Project | Purpose |
 |---|---|---|
 | `TemplateEngine` (extension tokens) | Core (`Templates/`) | The batch editor's engine gains *extension tokens* (`$name` / `$name:argument`) evaluated by the caller and a value encoder applied to every token value (HTML encoding, header-safe text). The batch editor keeps the default instance without extensions. |
-| `UserMessageFields` | Core (`Messaging/`) | The message flavour of the engine: `{$passwordExpires:d MMMM yyyy}`, `{$passwordExpiresInDays}`, `{$accountExpires:…}`, `{$accountExpiresInDays}`, `{$lastLogon:…}`, `{$lockedSince:…}`, `{$manager:displayName}`, `{$input:termin}` + all batch-editor tokens and functions. Dates in the message language (pl-PL / en-US) and the message time zone (Europe/Warsaw). Values come from `AccountStatus` (U2). |
+| `UserMessageFields` | Core (`Messaging/`) | The message flavour of the engine: `{$passwordExpires:d MMMM yyyy}`, `{$passwordExpiresInDays}`, `{$accountExpires:…}`, `{$accountExpiresInDays}`, `{$lastLogon:…}`, `{$lockedSince:…}`, `{$created:…}` (U5), `{$manager:displayName}`, `{$input:termin}` + all batch-editor tokens and functions. Dates in the message language (pl-PL / en-US) and the message time zone (Europe/Warsaw). Values come from `AccountStatus` (U2). |
 | `MessageTemplate`, `BuiltInMessageTemplates` | Core | Template = name, PL and EN text (subject, text body, optional HTML body), send condition with a day parameter, recipient mode. Built-in texts in `Messaging/Resources/MessageTemplates(.pl).resx`. |
 | `UserMessageRules` | Core | Security: forbidden fields (secrets, anything with "password"/"pwd", inputs named like a password), link allow-list, HTML restrictions, header sanitizing, subject length. |
 | `UserMessagePlanner` | Core | Pure: accounts (+ managers) already read → one `PlannedUserMessage` per account with status, issues and the rendered `OutgoingUserMessage`. |
@@ -28,6 +33,11 @@ every send is async with cancellation (rule 6).
 | `UserMessageComposerViewModel` + `UserMessagesWindow` | Presentation / App | The window: compose → preview → send → report. |
 | `UserMessageSettingsViewModel` | Presentation | The "Wiadomości e-mail" tab of the settings window with *Testuj połączenie* and *Wyślij wiadomość testową do mnie*. |
 | `IUserMessageLauncher` (U2 hook) | App (`DialogService`) | Opens the window: property sheet (Account tab), list context menu / palette `object.sendMessage`, account review lists (template matching the check). |
+
+U1c adds the HTML sanitizer and importer (`Messaging/Html`, AngleSharp), inline images (`Messaging/Images`), the shared
+MIME body (`AdMng.Mail/UserMessageMimeBody`), the image store, paste workflow and transport fit (Presentation) and the
+clipboard reader and WebView2 preview (App) – [u1c-u1d-rich-html-and-salutations.md](u1c-u1d-rich-html-and-salutations.md)
+section 1.
 
 ## 2. Templates and fields
 
@@ -46,7 +56,12 @@ every send is async with cancellation (rule 6).
   instant in the message time zone, formatted with the message culture (pl-PL genitive month names: "5 listopada 2026").
   `{$passwordExpiresInDays}` = `AccountStatus.PasswordDaysLeft` (calendar days, 0 = today). Password expiry always from
   `msDS-UserPasswordExpiryTimeComputed` (FGPP); "never expires" and "must change" are separate states – the fields are
-  empty then and the condition decides who is skipped.
+  empty then and the condition decides who is skipped. `{$created[:format]}` (U5) is the account's `whenCreated`
+  (`AccountStatus.Created`), a date token like `{$lastLogon}`; empty (and reported as an empty field) when not readable.
+* **Salutations (U1d):** `{$salutation}`, `{$title}`, `{$titledName}`, `{$honorific:case}`, `{$byGender:masc/fem}` and
+  their `manager…` twins (title from `personalTitle` or the display name, gender from the attribute or the names, title
+  table and given names in the settings) – [u1c-u1d-rich-html-and-salutations.md](u1c-u1d-rich-html-and-salutations.md)
+  Part B.
 * Inputs `{$input:name}` are typed by the operator in the window (one value for all recipients). An empty input is a
   plan error.
 * **No password field:** a template that references a secret attribute (`SecretAttributes.IsSecret`), any attribute whose
@@ -104,6 +119,10 @@ domain). **No attachments** – the transport contract has no attachment field. 
 plus the AD DNS domain and the sender's domain; a host matches a domain or its subdomain; mailto: links are allowed.
 No protocol logger is attached to the SMTP client (it would log content).
 
+U1c: the HTML part becomes `multipart/related` with inline images (`Content-ID`, `cid:` references, inline disposition –
+still never an attachment), the HTML is checked by the shared sanitizer and may be up to 400 000 characters –
+[u1c-u1d-rich-html-and-salutations.md](u1c-u1d-rich-html-and-salutations.md) sections 4, 7 and 8.
+
 ## 6. Direct SMTP (AdMng.Mail)
 
 * TLS: **STARTTLS required** (default; the server must offer it, else the connection fails with the hint "server does
@@ -126,7 +145,7 @@ No protocol logger is attached to the SMTP client (it would log content).
 ```csharp
 public interface IUserMessageTransport
 {
-    UserMessageTransportKind Kind { get; }                          // DirectSmtp | Watchdog
+    UserMessageTransportKind Kind { get; }                          // DirectSmtp | Watchdog | Outlook (U5)
     string Description { get; }                                     // "smtp.contoso.com:587" / "AdMng Watchdog (https://…)"
     Task<UserMessageTransportStatus> GetStatusAsync(CancellationToken cancellationToken);
     Task<IUserMessageConnection> ConnectAsync(CancellationToken cancellationToken);
@@ -149,6 +168,19 @@ available, else direct SMTP. U1a registered `WatchdogUserMessageTransport` as a 
 status from `GET /api/v1/user-messages/status`, send through `POST /api/v1/user-messages` with the rendered message (the
 service applies its own sender, queue, retries and log). An unavailable Watchdog is shown with its reason
 (`UserMessages.Problem.Watchdog{NotConfigured,Disabled,Forbidden,Unreachable,NotSupported}`).
+
+U1c: `OutgoingUserMessage.InlineImages` and `UserMessageTransportStatus.Capabilities` (images, their limits, the HTML
+length, the room left in the service's outbox); the window checks the planned messages against them before sending
+(`TransportFit`) and never switches transport or drops images silently –
+[u1c-u1d-rich-html-and-salutations.md](u1c-u1d-rich-html-and-salutations.md) sections 7.3 and 9.6.
+
+U5: a third choice, *through Outlook* (`UserMessageTransportKind.Outlook`, `UserMessageTransportChoice.Outlook`): the
+operator's classic Outlook sends the rendered message (`OutlookUserMessageTransport` in `AdMng.Outlook`, created by
+`IOutlookUserMessageTransportFactory`), from the account in `UserMessageSettings.OutlookAccount` (empty – the profile's
+default account) and, with `OutlookOnBehalfOfSender`, on behalf of the configured sender. Automatic never picks it.
+Problems `OutlookNotSupported` / `OutlookNotInstalled`; delivery codes `outlook.sent` and the `outlook.*` failure codes;
+capabilities `UserMessageTransportCapabilities.Outlook` (inline images) –
+[u5-outlook-correspondence.md section 5](u5-outlook-correspondence.md#5-u1-outlook-transport).
 
 ## 8. UI
 
@@ -186,6 +218,11 @@ threshold, allowed domains, transport choice, SMTP host/port/TLS/certificate/aut
 Binding rules for the service side: CLAUDE.md rules 1–2 with the ADR-0008/0009 exceptions – the service may keep the
 rendered message in its outbox payload until it is sent (ADR-0008, "Uzupełnienie: wiadomości do użytkowników (U1b)"),
 everything else stays value-free.
+
+U1c (contract v2): `inlineImages` in the request, the `inlineImages` capability and limits in the status, HTML up to
+400 000 characters, a 6 MiB body limit for this route only, `userMessages.allowInlineImages` / `maxStoredImageMb`,
+migration 0007 (`outbox.image_bytes`) – [u1c-u1d-rich-html-and-salutations.md](u1c-u1d-rich-html-and-salutations.md)
+section 9; ADR-0008 "Uzupełnienie: obrazy w treści wiadomości do użytkowników (U1c)". The limits below are U1b's.
 
 **Contract** (`AdMng.Watchdog.Contracts`, `Api/UserMessageDtos.cs`, routes `WatchdogRoutes.UserMessages` /
 `UserMessagesStatus`):

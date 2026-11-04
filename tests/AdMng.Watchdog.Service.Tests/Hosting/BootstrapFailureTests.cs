@@ -20,7 +20,7 @@ public sealed class BootstrapFailureTests
         var reported = new List<string>();
 
         var exitCode = WatchdogHost.TryBuild(
-            () => WatchdogHost.Build(["--environment", "Development"], builder => builder.Configuration.AddJsonFile(file, optional: false)),
+            () => HostBuildLock.Build(() => WatchdogHost.Build(["--environment", "Development"], builder => builder.Configuration.AddJsonFile(file, optional: false))),
             reported.Add,
             out var app);
 
@@ -38,7 +38,7 @@ public sealed class BootstrapFailureTests
         var reported = new List<string>();
 
         var exitCode = WatchdogHost.TryBuild(
-            () => WatchdogHost.Build(["--environment", "Development", "--Watchdog:DataDirectory", directory.Path, "--Watchdog:Hosting:Server", "IIS"]),
+            () => HostBuildLock.Build(() => WatchdogHost.Build(["--environment", "Development", "--Watchdog:DataDirectory", directory.Path, "--Watchdog:Hosting:Server", "IIS"])),
             reported.Add,
             out var app);
 

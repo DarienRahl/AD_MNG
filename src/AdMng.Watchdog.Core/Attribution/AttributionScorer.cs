@@ -1,3 +1,4 @@
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Model;
 
@@ -42,7 +43,7 @@ public static class AttributionScorer
             score += ConfirmedScore;
         }
 
-        if (plan.OriginatingDc is { } dc && HostNames.AreEqual(dc, candidate.Computer))
+        if (plan.OriginatingDc is { } dc && EventHostNames.AreEqual(dc, candidate.Computer))
         {
             score += OriginatingDcScore;
         }

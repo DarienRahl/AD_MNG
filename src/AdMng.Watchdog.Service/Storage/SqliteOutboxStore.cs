@@ -76,7 +76,7 @@ public sealed class SqliteOutboxStore : IOutboxStore
             (c, t) => SqliteValues.Execute(
                 c,
                 t,
-                "UPDATE outbox SET status = $sent, sent_at = $at, lease_until = NULL, attempts = attempts + 1, payload = NULL WHERE id = $id;",
+                "UPDATE outbox SET status = $sent, sent_at = $at, lease_until = NULL, attempts = attempts + 1, payload = NULL, image_bytes = 0 WHERE id = $id;",
                 ("$sent", (int)OutboxStatus.Sent),
                 ("$at", SqliteValues.ToUnixMs(at)),
                 ("$id", id)),

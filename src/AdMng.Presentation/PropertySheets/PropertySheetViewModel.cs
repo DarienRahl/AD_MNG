@@ -88,6 +88,9 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
     /// <summary>"Porównaj z obiektem w innym połączeniu…" (set by the factory when the app registers the comparison window).</summary>
     public Comparison.IObjectComparisonLauncher? ComparisonLauncher { get; init; }
 
+    /// <summary>"Skąd blokada konta…" and "Dziennik zdarzeń tego komputera" (track E; set by the factory when the window has the event log documents).</summary>
+    public EventLogs.EventLogLauncher? EventLogLauncher { get; init; }
+
     /// <summary>The sheet offers "Porównaj z obiektem w innym połączeniu…" (a user, group, computer or contact).</summary>
     public bool IsComparisonAvailable => ComparisonLauncher is not null && Comparison.ObjectMatcher.CanCompare(Kind);
 
@@ -426,7 +429,7 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
         {
             if (_context is null || !ReferenceEquals(_context.Session, session))
             {
-                _context = new FieldContext(Services, session) { DomainControllers = DomainControllers, Messages = MessageLauncher };
+                _context = new FieldContext(Services, session) { DomainControllers = DomainControllers, Messages = MessageLauncher, EventLogs = EventLogLauncher };
                 ReplacePages([]);
             }
 

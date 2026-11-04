@@ -1,3 +1,4 @@
+using AdMng.Core.EventLogs;
 using AdMng.Core.Ldap;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
@@ -157,12 +158,12 @@ public sealed partial class AttributionEngine(
         }
 
         var known = (await domainControllers.GetKnownDomainControllersAsync(cancellationToken).ConfigureAwait(false))
-            .Select(HostNames.Normalize).ToHashSet(StringComparer.Ordinal);
+            .Select(EventHostNames.Normalize).ToHashSet(StringComparer.Ordinal);
         var context = new IngestionContext
         {
             Settings = settings,
             Reduction = await reductionFactory.CreateAsync(configuration, cancellationToken).ConfigureAwait(false),
-            IsKnownDomainController = computer => known.Contains(HostNames.Normalize(computer)),
+            IsKnownDomainController = computer => known.Contains(EventHostNames.Normalize(computer)),
             Domain = domain,
             DisabledKinds = configuration.Directory?.DisabledKinds ?? [],
         };

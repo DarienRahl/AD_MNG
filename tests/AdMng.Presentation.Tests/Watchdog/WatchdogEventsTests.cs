@@ -584,6 +584,7 @@ public sealed class WatchdogEventsTests
             h.Client.UpdateEvent(SampleEvents.PendingAttributionId, e => e with { Attribution = resolved });
 
             // The next status round of the visible tab re-reads the rows still waiting for attribution.
+            await WatchdogTestWait.LongPollAsync(h);
             h.Time.Advance(WatchdogPoller.VisibleStatusInterval);
             await WatchdogTestWait.UntilAsync(h, () => !row.IsActorPending, "the late attribution");
 

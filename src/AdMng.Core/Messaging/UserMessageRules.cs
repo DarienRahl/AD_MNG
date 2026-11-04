@@ -104,7 +104,8 @@ public static partial class UserMessageRules
     }
 
     /// <summary>
-    /// Links in a text or HTML: <c>http(s)://</c>, <c>ftp://</c>, <c>www.</c> and every <c>href</c>/<c>src</c> value.
+    /// Links in a text or HTML: <c>http(s)://</c>, <c>ftp://</c>, <c>www.</c> and every <c>href</c>/<c>src</c> value except
+    /// inline images (<c>cid:</c>).
     /// </summary>
     public static IReadOnlyList<string> FindLinks(string? content)
     {
@@ -121,7 +122,12 @@ public static partial class UserMessageRules
 
         foreach (Match match in AttributeUrlPattern().Matches(content))
         {
-            links.Add(WebUtility.HtmlDecode(match.Groups["url"].Value).Trim());
+            // An inline image (cid:, U1c) is part of the message, not a link.
+            var value = WebUtility.HtmlDecode(match.Groups["url"].Value).Trim();
+            if (!value.StartsWith("cid:", StringComparison.OrdinalIgnoreCase))
+            {
+                links.Add(value);
+            }
         }
 
         return [.. links.Distinct(StringComparer.Ordinal)];
@@ -189,16 +195,25 @@ public static partial class UserMessageRules
     /// What an operator's HTML body must not contain: active elements (<c>script</c>, <c>iframe</c>, <c>object</c>,
     /// <c>embed</c>, <c>form</c>, <c>input</c>, <c>link</c>, <c>meta</c>, <c>base</c>), <c>on…=</c> event handlers and
     /// <c>javascript:</c>/<c>vbscript:</c>/<c>data:</c>/<c>file:</c> URLs. Returns the offending constructs (empty = fine).
-    /// A scheme counts where a URL can start (see <see cref="StartsUrl"/>), so a word of the text such as "Data:" (Polish
-    /// "date") or "Profile:" is not one.
+    /// Handlers and schemes are looked for in the markup only – tags (comments and conditional comments included) and the
+    /// CSS of <c>&lt;style&gt;</c> – never in the text: "Termin (data: 5.11.2026)", "Kliknij "Plik: Zapisz"" or
+    /// "Status online = tak" are words of a message. Within the markup a scheme counts where a URL can start (see
+    /// <see cref="StartsUrl"/>) and a handler is an attribute name (quoted values are not names).
     /// </summary>
-    public static IReadOnlyList<string> FindForbiddenHtml(string? html)
-    {
-        if (string.IsNullOrWhiteSpace(html))
-        {
-            return [];
-        }
+    public static IReadOnlyList<string> FindForbiddenHtml(string? html) =>
+        string.IsNullOrWhiteSpace(html) ? [] : Find(html, MarkupRegions(html), quotedValuesAreText: true);
 
+    /// <summary>The constructs of <see cref="FindForbiddenHtml"/> anywhere in a text that becomes an attribute value (a
+    /// tooltip, an image's alternative text): stricter than the markup check – a value that only looks like a handler, an
+    /// element or a script URL is refused too (the sanitizer drops it).</summary>
+    internal static IReadOnlyList<string> FindForbiddenAttributeText(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return Find(text, [text, "=" + text], quotedValuesAreText: false);
+    }
+
+    private static List<string> Find(string html, IReadOnlyList<string> markup, bool quotedValuesAreText)
+    {
         var found = new List<string>();
         foreach (Match match in ElementPattern().Matches(html))
         {
@@ -209,18 +224,91 @@ public static partial class UserMessageRules
             }
         }
 
-        foreach (Match match in EventHandlerPattern().Matches(html))
+        foreach (var region in markup)
         {
-            found.Add(match.Groups["name"].Value.ToLowerInvariant() + "=");
+            foreach (Match match in EventHandlerPattern().Matches(quotedValuesAreText ? QuotedValuePattern().Replace(region, "=\"\"") : region))
+            {
+                found.Add(match.Groups["name"].Value.ToLowerInvariant() + "=");
+            }
         }
 
-        var compact = string.Concat(WebUtility.HtmlDecode(html).Where(c => !char.IsWhiteSpace(c) && !char.IsControl(c)));
-        found.AddRange(ForbiddenSchemes.Where(s => StartsUrl(compact, s)));
+        var compact = markup.Select(r => string.Concat(WebUtility.HtmlDecode(r).Where(c => !char.IsWhiteSpace(c) && !char.IsControl(c)))).ToList();
+        found.AddRange(ForbiddenSchemes.Where(s => compact.Any(r => StartsUrl(r, s))));
         return [.. found.Distinct(StringComparer.Ordinal)];
     }
 
     /// <summary>
-    /// True when <paramref name="scheme"/> occurs in the decoded HTML without white space and control characters
+    /// The markup of <paramref name="html"/> as the HTML tokenizer sees it, conservatively: every tag from <c>&lt;</c> + a
+    /// letter, <c>/</c>, <c>!</c> or <c>?</c> to its <c>&gt;</c> outside a quoted attribute value (a comment ends at its first
+    /// <c>&gt;</c>, so markup inside a conditional comment is markup too), and the content of <c>&lt;style&gt;</c>.
+    /// </summary>
+    private static List<string> MarkupRegions(string html)
+    {
+        var regions = new List<string>();
+        for (var i = html.IndexOf('<', StringComparison.Ordinal); i >= 0 && i + 1 < html.Length; i = html.IndexOf('<', i))
+        {
+            if (!(char.IsAsciiLetter(html[i + 1]) || html[i + 1] is '/' or '!' or '?'))
+            {
+                i++;
+                continue;
+            }
+
+            var end = TagEnd(html, i + 1);
+            var tag = html[i..end];
+            regions.Add(tag);
+            i = end;
+            if (StyleStartPattern().IsMatch(tag))
+            {
+                var close = html.IndexOf("</style", i, StringComparison.OrdinalIgnoreCase);
+                var stop = close < 0 ? html.Length : close;
+                regions.Add(html[i..stop]);
+                i = stop;
+            }
+        }
+
+        return regions;
+    }
+
+    /// <summary>The index after the <c>&gt;</c> that ends the tag starting before <paramref name="start"/> (a quote opens a
+    /// value only after <c>=</c>), or the end of the text.</summary>
+    internal static int TagEnd(string html, int start)
+    {
+        char? quote = null;
+        var afterEquals = false;
+        for (var j = start; j < html.Length; j++)
+        {
+            var c = html[j];
+            if (quote is { } open)
+            {
+                if (c == open)
+                {
+                    quote = null;
+                }
+            }
+            else if (c == '>')
+            {
+                return j + 1;
+            }
+            else if (afterEquals && c is '"' or '\'')
+            {
+                quote = c;
+                afterEquals = false;
+            }
+            else if (c == '=')
+            {
+                afterEquals = true;
+            }
+            else if (!char.IsWhiteSpace(c))
+            {
+                afterEquals = false;
+            }
+        }
+
+        return html.Length;
+    }
+
+    /// <summary>
+    /// True when <paramref name="scheme"/> occurs in the decoded markup without white space and control characters
     /// (<paramref name="compact"/>) where a URL starts: at the beginning, after <c>=</c>, a quote or a backtick (attribute
     /// values, quoted or not) or after <c>(</c> (CSS <c>url(…)</c>). Browsers ignore leading white space and control
     /// characters of a URL, which are already removed.
@@ -295,4 +383,10 @@ public static partial class UserMessageRules
 
     [GeneratedRegex(@"[\s""'/](?<name>on[a-zA-Z]+)\s*=", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex EventHandlerPattern();
+
+    [GeneratedRegex(@"=\s*(?:""[^""]*""|'[^']*')", RegexOptions.CultureInvariant)]
+    private static partial Regex QuotedValuePattern();
+
+    [GeneratedRegex(@"^<style[\s/>]", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex StyleStartPattern();
 }

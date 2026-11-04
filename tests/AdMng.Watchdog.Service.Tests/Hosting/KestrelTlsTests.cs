@@ -32,13 +32,13 @@ public sealed class KestrelTlsTests
             ["Watchdog:Hosting:Certificate:Thumbprint"] = TestCertificates.Localhost.Thumbprint,
             ["Watchdog:Directory:Disabled"] = "true",
         };
-        await using var app = WatchdogHost.Build(["--environment", "Development"], builder =>
+        await using var app = HostBuildLock.Build(() => WatchdogHost.Build(["--environment", "Development"], builder =>
         {
             builder.Configuration.AddInMemoryCollection(settings);
             builder.Services.AddSingleton<ICertificateStore>(new SingleCertificateStore(TestCertificates.Localhost));
             builder.Services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
             builder.Services.AddAuthentication().AddScheme<TestAuthenticationOptions, TestAuthenticationHandler>(AuthenticationSetup.TestScheme, null);
-        });
+        }));
         await app.StartAsync(Ct);
         try
         {

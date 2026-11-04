@@ -403,6 +403,7 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
             token.ThrowIfCancellationRequested();
             Event = details.Event;
             Fill(details.Event, details);
+            await NameGpoSettingsAsync(details.Event, token).ConfigureAwait(true);
             await CheckLockAsync(details.Event, token).ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException && token.IsCancellationRequested)
@@ -519,7 +520,8 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
 
         var schema = _services.Sessions.Current?.Schema;
         var context = WatchdogChangeContext.Of(e);
-        Replace(Changes, e.Changes.Select(c => WatchdogChangeRowViewModel.Create(c, localizer, schema, context)));
+        var presenter = context.GpoSettings ? GpoPresenter(e, null) : null;
+        Replace(Changes, e.Changes.Select(c => WatchdogChangeRowViewModel.Create(c, localizer, schema, context, presenter)));
         FillAttribution(e.Attribution ?? EventAttribution.Pending);
         FillLockout(e.Lockout);
         if (details is not null)

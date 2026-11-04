@@ -10,7 +10,12 @@ commit messages and these notes are in English.
    (objects, attribute values, search results, schema dumps, snapshots) to disk, registry, temp files or logs. Everything
    is read live from the DC and kept in memory only while displayed. Allowed on disk: settings (UI layout, language,
    connection profiles without passwords, saved views = names + DNs + LDAP filters, the Watchdog service URL),
-   diagnostic logs WITHOUT directory values, and files the operator explicitly exports.
+   diagnostic logs WITHOUT directory values, files the operator explicitly exports, and the Korespondencja journal
+   (U5, `<settings>/correspondence/`: keyed hashes of recipient addresses (for mailbox owner queries: of the address
+   together with the mailbox's address or DN) – HMAC-SHA-256 with a per-user key protected by DPAPI – send times and
+   the subjects as typed, its key, lock file and `journal-<date>.old` backups; no address, name or other directory
+   value). Outlook gets images and attachments as temp files that are deleted once the item is
+   saved (operator content, never directory values).
    **Only exception:** the AdMng Watchdog service host (`src/AdMng.Watchdog.Service` and the store implementations it
    hosts) stores snapshots of watched attributes, GPO settings snapshots (never `cpassword` or other secrets), events,
    normalized DC log records (logon records 48 h), its outbox (alerts and, when switched on, AD Manager's user messages –
@@ -49,6 +54,12 @@ commit messages and these notes are in English.
 | `src/AdMng.Directory` | net10.0 | S.DS.P implementation of `IDirectoryConnector`/`IDirectorySession` |
 | `src/AdMng.Presentation` | net10.0 | View models (CommunityToolkit.Mvvm), UI service interfaces, localization (resx en + pl), settings. **No WPF types.** |
 | `src/AdMng.App` | net10.0-windows | WPF views (XAML), Generic Host/DI, Windows-only services |
+| `src/AdMng.Remote` | net10.0 | Remote actions on computers (K1): CIM over WinRM (`Microsoft.Management.Infrastructure`, Kerberos with the window's credentials, never stored), ping, local tools (mstsc, Computer Management, Event Viewer); used by the App only, never shipped in the Watchdog package |
+| `tests/AdMng.Remote.Tests` | net10.0 | Remote action tests (CIM mapping, error classification, host name checks, command lines) |
+| `src/AdMng.EventLogs` | net10.0 | Event log reader (track E, `docs/dev/e-event-logs.md`): computers over MS-EVEN6 (`EventLogSession`, Kerberos with the window's credentials, never stored; FQDN only), `.evtx` files the operator chose; structured query, streamed batches, coverage, messages on demand, error classification; Windows only at run time, used by the App only |
+| `tests/AdMng.EventLogs.Tests` | net10.0 | Event log reader tests (error classification, host checks, file queries, merge order, streaming pipeline, platform guards) |
+| `src/AdMng.Outlook` | net10.0 | Classic Outlook through COM late binding (U5, `docs/dev/u5-outlook-correspondence.md`): one STA thread per session with a COM message filter, send / save as draft with inline images, attachments, send-as, on behalf, deferred delivery, voting, the preview Outlook builds, diagnostics, campaigns and votes from Sent Items, signature files, the U1 Outlook transport; Windows only at run time, used by the App only |
+| `tests/AdMng.Outlook.Tests` | net10.0 | Outlook engine tests against a CLR fake of the object model (the code uses `dynamic`), error classification, STA worker, temp files, signatures |
 | `src/AdMng.Mail` | net10.0 | Direct SMTP transport of user messages (U1, MailKit): TLS modes, certificate policy, authentication, failure classification; the SMTP password lives only in memory |
 | `tests/AdMng.Mail.Tests` | net10.0 | SMTP transport tests (in-process test servers; Mailpit with `ADMNG_TEST_SMTP_*`) |
 | `tests/AdMng.Testing` | net10.0 | Shared test library: `FakeDirectorySession` (in-memory directory with real LDAP modify semantics), `FakeDirectoryBuilder.AddSampleCompany()` |
@@ -116,5 +127,8 @@ that subscribes to an application-wide event must unsubscribe in `Dispose`. Add 
 - Public APIs get XML doc comments when the behaviour is not obvious.
 - Tests: xUnit v3 `Assert`, no FluentAssertions. Fakes over mocking libraries.
 - Polish test data with diacritics (ą ć ę ł ń ó ś ź ż) is intentional – keep it.
+- License: Apache-2.0 (`LICENSE`, `NOTICE`); only `packaging/admng-openwec` is GPL-3.0, like OpenWEC itself. New
+  dependencies need an OSI-approved license compatible with Apache-2.0 (signing through SignPath Foundation requires
+  every component to be open source).
 - User-visible strings only via localization resources (`AdMng.Presentation/Resources/Strings*.resx`; watchdog
   notifications: `AdMng.Watchdog.Core/Resources/NotificationStrings*.resx`), both `en` and `pl` entries required.

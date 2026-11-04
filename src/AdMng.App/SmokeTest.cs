@@ -3,14 +3,20 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using AdMng.App.Connections;
+using AdMng.App.Correspondence;
+using AdMng.App.GroupPolicy;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.App.Views;
 using AdMng.Core.Csv;
 using AdMng.Core.Model;
 using AdMng.Presentation.BatchEditing;
+using AdMng.Presentation.Changes;
 using AdMng.Presentation.Connections;
+using AdMng.Presentation.Correspondence;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.GroupPolicy;
+using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -26,10 +32,12 @@ namespace AdMng.App;
 
 /// <summary>
 /// <c>AdMng.exe --smoke-test</c> (CI on Windows): builds the real host with every service, renders the connect window,
-/// the main window (disconnected) with the Watchdog tab (not configured), the Watchdog certificate confirmation and the
-/// dialogs of this release off-screen in English and Polish, and fails on any exception or WPF binding error. Exit codes: 0 = passed, 1 = failures (printed
-/// to stderr), 2 = did not finish within 30 seconds. Settings go to a temporary folder that is deleted afterwards;
-/// nothing touches a directory or a watchdog service.
+/// the main window (disconnected) with the Watchdog tab (not configured), the Watchdog certificate confirmation, the
+/// computer windows (K1), Korespondencja with every tab (U5) and the dialogs of this release off-screen in English and
+/// Polish, and fails on any exception or WPF binding error. Exit codes: 0 = passed, 1 = failures (printed to stderr), 2 =
+/// did not finish within <see cref="FailSafe"/> (a hang, not a slow run: each language pass prints its time). Settings go
+/// to a temporary folder that is deleted afterwards; nothing touches a
+/// directory, a watchdog service or Outlook (<see cref="OfflineOutlook"/>).
 /// </summary>
 /// <remarks>
 /// Every language pass works in two fresh connection scopes (design note docs/dev/multi-window.md 10.4): two main windows,
@@ -45,7 +53,10 @@ internal static class SmokeTest
 
     private const int AttachParentProcess = -1;
     private const int StdErrorHandle = -12;
-    private static readonly TimeSpan FailSafe = TimeSpan.FromSeconds(30);
+
+    /// <summary>The limit of a run that hangs. Rendering every window twice takes about 25 s on the CI agents, so the limit
+    /// leaves room for a slow agent: it stops a hang, it is no performance budget.</summary>
+    private static readonly TimeSpan FailSafe = TimeSpan.FromSeconds(120);
 
     // Rooted here: a timer referenced only by the (possibly stuck) async state machine could be collected and never fire.
     private static Timer? _failSafe;
@@ -65,7 +76,7 @@ internal static class SmokeTest
         var failSafe = _failSafe = new Timer(
             static _ =>
             {
-                Console.Error.WriteLine("SMOKE TEST TIMED OUT after 30 s.");
+                Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture, $"SMOKE TEST TIMED OUT after {FailSafe.TotalSeconds:0} s."));
                 Environment.Exit(TimedOut);
             },
             null,
@@ -83,7 +94,9 @@ internal static class SmokeTest
         GlobalExceptionHandler? exceptions = null;
         try
         {
-            host = AppHost.Build(options with { SettingsDirectory = settingsDirectory });
+            // Never Outlook (CI agents have none, and the smoke test must not start one): Korespondencja runs over an Outlook
+            // that is not installed.
+            host = AppHost.Build(options with { SettingsDirectory = settingsDirectory }, OfflineOutlook.Use);
             exceptions = host.Services.GetRequiredService<GlobalExceptionHandler>();
             exceptions.Recorder = ex => failures.Add($"Unhandled exception: {ex}");
             exceptions.Attach(app);
@@ -92,10 +105,16 @@ internal static class SmokeTest
             var localizer = host.Services.GetRequiredService<ILocalizer>();
             foreach (var language in (string[])["en", "pl"])
             {
+                var pass = System.Diagnostics.Stopwatch.StartNew();
                 localizer.SetCulture(ResxLocalizer.ResolveCulture(language));
-                await using var first = host.Services.CreateAsyncScope();
-                await using var second = host.Services.CreateAsyncScope();
-                await RenderWindowsAsync(first.ServiceProvider, second.ServiceProvider, localizer).ConfigureAwait(true);
+                await using (var first = host.Services.CreateAsyncScope())
+                await using (var second = host.Services.CreateAsyncScope())
+                {
+                    await RenderWindowsAsync(first.ServiceProvider, second.ServiceProvider, localizer).ConfigureAwait(true);
+                }
+
+                // Where the time goes when a run comes near the fail-safe (printed at once: a run that hangs never reports).
+                Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture, $"smoke test: the {language} pass took {pass.Elapsed.TotalSeconds:0.0} s"));
             }
         }
         catch (Exception ex)
@@ -152,6 +171,9 @@ internal static class SmokeTest
         UiTestSupport.ShowOffScreen(main);
         await main.Shell.InitializeAsync().ConfigureAwait(true);
         await RenderWatchdogTabAsync(main).ConfigureAwait(true);
+        await RenderGroupPolicyAsync(main, services).ConfigureAwait(true);
+        await RenderEventLogsAsync(main).ConfigureAwait(true);
+        await RenderReadinessAsync(main).ConfigureAwait(true);
         main.Shell.CommandPalette.OpenCommand.Execute(null);
 
         // A second connection window (its own scope, disconnected: grey strip, "Nie połączono") and the connect window of
@@ -180,8 +202,10 @@ internal static class SmokeTest
 
         // ---- C2a: object dialogs in the disconnected state the factory produces without a DC (the property sheet and
         // Reset Password show "not connected"). The object and container pickers need a session: UI tests cover them.
+        RenderComputerWindows(services, windows);
         RenderObjectDialogs(windows, services.GetRequiredService<IDialogViewModelFactory>());
         RenderToolWindows(services, windows); // C2b
+        await RenderCorrespondenceAsync(services, windows, localizer).ConfigureAwait(true);
 
         await UiTestSupport.WaitForIdleAsync().ConfigureAwait(true);
         main.Shell.CommandPalette.CloseCommand.Execute(null);
@@ -300,6 +324,109 @@ internal static class SmokeTest
         await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
     }
 
+    /// <summary>
+    /// Group Policy (K2, K3, K4, K5, K6), disconnected: the eight documents ("not connected"; the administrative templates editor, the
+    /// security settings editor, the model of a computer and the Group Policy diagnostics too), the name dialog (new, copy, rename), the GPO
+    /// picker, the backup window in every mode, the comparison, the WMI filter editor (new, edit) and the change plan
+    /// preview with SYSVOL rows (a sample plan; nothing is executed). No DC and no SYSVOL share is contacted.
+    /// </summary>
+    /// <summary>
+    /// Track E: the reader, the lockout source of an account and the failed logons as tabs of the (disconnected) main window –
+    /// every view with its "not connected" or "not supported" state.
+    /// </summary>
+    private static async Task RenderEventLogsAsync(MainWindow main)
+    {
+        var shell = main.Shell;
+        if (!shell.IsEventLogsAvailable)
+        {
+            throw new InvalidOperationException("The main window has no event log services.");
+        }
+
+        foreach (var request in new Presentation.EventLogs.EventLogDocumentRequest[]
+        {
+            new(Presentation.EventLogs.EventLogDocumentKind.Reader),
+            new(Presentation.EventLogs.EventLogDocumentKind.Lockout) { UserDn = "CN=Jan Kowalski,OU=IT,OU=Pracownicy,OU=Firma," + GroupPolicySamples.DomainDn, Name = "Jan Kowalski" },
+            new(Presentation.EventLogs.EventLogDocumentKind.FailedLogons),
+        })
+        {
+            _ = shell.OpenEventLogDocument(request) ?? throw new InvalidOperationException("An event log document did not open.");
+            await UiTestSupport.WaitForIdleAsync().ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Stage S: "Gotowość środowiska" as a tab of the (disconnected) main window – no check runs without a session, so the view
+    /// shows its notes and "not connected"; a check over the fake directory is covered by the UI tests.
+    /// </summary>
+    private static async Task RenderReadinessAsync(MainWindow main)
+    {
+        var shell = main.Shell;
+        if (!shell.IsReadinessAvailable || !shell.ShowReadinessCommand.CanExecute(null))
+        {
+            throw new InvalidOperationException("Tools → Check environment readiness is not available.");
+        }
+
+        shell.ShowReadinessCommand.Execute(null);
+        var readiness = shell.Documents.OfType<Presentation.Readiness.ReadinessDocumentViewModel>().SingleOrDefault()
+            ?? throw new InvalidOperationException("The readiness check did not open as a tab.");
+        await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
+        if (readiness.IsLoading || readiness.QuickCheckCommand.CanExecute(null))
+        {
+            throw new InvalidOperationException("The readiness check of a disconnected window should wait for a connection.");
+        }
+    }
+
+    private static async Task RenderGroupPolicyAsync(MainWindow main, IServiceProvider services)
+    {
+        var shell = main.Shell;
+        if (!shell.IsGroupPolicyAvailable)
+        {
+            throw new InvalidOperationException("The main window has no Group Policy services.");
+        }
+
+        foreach (var request in new GroupPolicyDocumentRequest[]
+        {
+            new(GroupPolicyDocumentKind.Objects),
+            new(GroupPolicyDocumentKind.Object) { GpoId = GroupPolicySamples.PasswordsId, Name = "Stacje robocze – Zasady haseł", Tab = GpoDocumentTab.Status },
+            new(GroupPolicyDocumentKind.Scope) { ContainerDn = "OU=Komputery,OU=Firma," + GroupPolicySamples.DomainDn, Name = "Komputery" },
+            new(GroupPolicyDocumentKind.WmiFilters),
+            new(GroupPolicyDocumentKind.AdministrativeTemplates) { GpoId = GroupPolicySamples.PasswordsId, Name = "Stacje robocze – Zasady haseł" },
+            new(GroupPolicyDocumentKind.SecuritySettings) { GpoId = GroupPolicySamples.PasswordsId, Name = "Stacje robocze – Zasady haseł" },
+            new(GroupPolicyDocumentKind.Modeling) { ComputerDn = "CN=WAW-PC001,OU=Komputery,OU=Firma," + GroupPolicySamples.DomainDn, Name = "WAW-PC001" },
+            new(GroupPolicyDocumentKind.Diagnostics),
+        })
+        {
+            var document = shell.OpenGroupPolicyDocument(request) ?? throw new InvalidOperationException("A Group Policy document did not open.");
+            await document.LoadAsync().ConfigureAwait(true);
+            await UiTestSupport.WaitForIdleAsync().ConfigureAwait(true);
+        }
+
+        var windows = services.GetRequiredService<IWindowService>();
+        var gp = services.GetRequiredService<GroupPolicyServices>();
+        var passwords = GroupPolicySamples.Gpo(GroupPolicySamples.PasswordsId, "Stacje robocze – Zasady haseł");
+        var remoteDesktop = GroupPolicySamples.Gpo(GroupPolicySamples.RemoteDesktopId, "Stacje robocze – Pulpit zdalny");
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new NewGpoViewModel(gp.Ui, NewGpoMode.New, "Nowy obiekt zasad grupy", "Komputery")));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new NewGpoViewModel(gp.Ui, NewGpoMode.Copy, "Kopia Stacje robocze – Zasady haseł", null, passwords.DisplayName)));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new NewGpoViewModel(gp.Ui, NewGpoMode.Rename, passwords.DisplayName, null, passwords.DisplayName)));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new GpoPickerViewModel(gp.Ui, gp.Reader, "Połącz istniejący GPO z Komputery", multiSelect: false, [])));
+        foreach (var mode in Enum.GetValues<GpoBackupMode>())
+        {
+            UiTestSupport.ShowOffScreen(windows.CreateWindow(new GpoBackupViewModel(gp, mode, mode == GpoBackupMode.Restore ? [] : [passwords])));
+        }
+
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new GpoComparisonViewModel(gp, passwords, remoteDesktop)));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new WmiFilterEditorViewModel(gp.Ui, null)));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new WmiFilterEditorViewModel(gp.Ui, GroupPolicySamples.Filter())));
+        var templates = services.GetRequiredService<GroupPolicyViewModelFactory>();
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new CentralStoreUpdateViewModel(gp, templates.Definitions, templates.Loader)));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new ChangePlanPreviewViewModel(gp.Ui, gp.Engines,
+            new ChangePlanPreviewRequest(GroupPolicySamples.Plan("dc01.contoso.test"), "Import ustawień")
+            {
+                Notes = [gp.Localizer.Format(L.GroupPolicy.PdcNote, "dc01.contoso.test", "dc02.contoso.test")],
+            })));
+        await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
+    }
+
     /// <summary>C2a: property sheet, New Object (every kind), Reset Password (one and many accounts), Find and Change Domain Controller.</summary>
     private static void RenderObjectDialogs(IWindowService windows, IDialogViewModelFactory factory)
     {
@@ -327,7 +454,7 @@ internal static class SmokeTest
     // ---- C2b: batch and tool windows ----------------------------------------------------------------------------
 
     /// <summary>
-    /// Settings (both tabs), session log, PowerShell history, the AD Recycle Bin, the account review (both tabs), the saved
+    /// Settings (both tabs), session log, PowerShell history, the problem report, the AD Recycle Bin, the account review (both tabs), the saved
     /// filters and the filter builder, the message window, the comparison window, the CSV import with a parsed table and the
     /// batch editor with every operation editor. None of them needs a directory: without a session the batch
     /// editor and the Recycle Bin show "not connected", the account review cannot run.
@@ -335,12 +462,23 @@ internal static class SmokeTest
     private static void RenderToolWindows(IServiceProvider services, IWindowService windows)
     {
         var factory = services.GetRequiredService<IDialogViewModelFactory>();
-        var settings = (SettingsWindow)windows.CreateWindow(factory.CreateSettings());
+        var settingsViewModel = factory.CreateSettings();
+        var settings = (SettingsWindow)windows.CreateWindow(settingsViewModel);
         UiTestSupport.ShowOffScreen(settings);
         settings.SettingsTabs.SelectedItem = settings.MessagesTab;
+
+        // U5: the transport "Przez Outlooka" shows its account box and "w imieniu" (not saved: the window is never applied).
+        if (settingsViewModel.Messages is { } messageSettings)
+        {
+            messageSettings.Transport = messageSettings.TransportChoices.First(c => c.Value == UserMessageTransportChoice.Outlook);
+        }
+
         settings.UpdateLayout();
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateSessionLog()));
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreatePowerShellHistory()));
+
+        // Problem report (Pomoc → Zgłoś problem…), disconnected: "not connected", the optional components, the log templates.
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateProblemReport()));
 
         // AD Recycle Bin, disconnected: the banner and the error say "not connected", the commands are disabled.
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateRecycleBin()));
@@ -363,9 +501,17 @@ internal static class SmokeTest
         editor.AddGroupCommand.Execute(null);
         UiTestSupport.ShowOffScreen(windows.CreateWindow(editor));
 
-        // Messages to users (U1), disconnected: the editor with a built-in template; "Przygotuj podgląd" is disabled.
-        UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateUserMessageComposer(
-            new UserMessageRequest(["CN=Jan Kowalski,OU=IT,DC=contoso,DC=test"], Core.Messaging.BuiltInMessageTemplates.PasswordExpiring))));
+        // Messages to users (U1), disconnected: the editor with a built-in template; "Przygotuj podgląd" is disabled. U1c: the
+        // formatted-content section expanded with the formatting preview of an HTML body (WebView2, or the HTML source where
+        // the runtime is missing).
+        var composer = factory.CreateUserMessageComposer(
+            new UserMessageRequest(["CN=Jan Kowalski,OU=IT,DC=contoso,DC=test"], Core.Messaging.BuiltInMessageTemplates.PasswordExpiring));
+        composer.Html = "<p style=\"font-family:'Aptos',sans-serif\">Dzień dobry <b>{givenName}</b>,</p>\n<p>hasło wygaśnie {$passwordExpires:d MMMM yyyy}.</p>\n";
+        composer.ShowHtmlPreview = true;
+        var messages = (UserMessagesWindow)windows.CreateWindow(composer);
+        UiTestSupport.ShowOffScreen(messages);
+        messages.HtmlExpander.IsExpanded = true;
+        messages.UpdateLayout();
 
         // Comparison of objects between connections, in its initial state: no other connection is open, so the window
         // says how to open one (the published app has no directory; the UI tests render a finished comparison).
@@ -429,4 +575,66 @@ internal static class SmokeTest
 
     [DllImport("kernel32.dll")]
     private static extern nint GetStdHandle(int standardHandle);
+
+    /// <summary>
+    /// Korespondencja (U5), disconnected and over an Outlook that is not installed (<see cref="OfflineOutlook"/>): the window
+    /// of Tools → Korespondencja with the "Skrzynki" tab shown and every tab selected once (the mailbox owners, the recipient
+    /// grid, the editor, the preview, sending and responses), then its text prompt (one line and multiline) and its report
+    /// window. Nothing is read from a directory, no Outlook is started.
+    /// </summary>
+    private static async Task RenderCorrespondenceAsync(IServiceProvider services, IWindowService windows, ILocalizer localizer)
+    {
+        var correspondence = services.GetRequiredService<CorrespondenceViewModelFactory>().Create(new CorrespondenceRequest([]));
+        var window = (CorrespondenceWindow)windows.CreateWindow(correspondence);
+        UiTestSupport.ShowOffScreen(window);
+        correspondence.ShowMailboxesCommand.Execute(null);
+        window.UpdateLayout();
+        if (window.MailboxesTab.Visibility != System.Windows.Visibility.Visible)
+        {
+            throw new InvalidOperationException("The \"Skrzynki\" tab of Korespondencja is not shown.");
+        }
+
+        foreach (var tab in window.CorrespondenceTabs.Items.OfType<System.Windows.Controls.TabItem>().ToList())
+        {
+            window.CorrespondenceTabs.SelectedItem = tab;
+            window.UpdateLayout();
+            await UiTestSupport.WaitForIdleAsync(rounds: 1).ConfigureAwait(true);
+            if (!Equals(correspondence.SelectedTab, tab.Tag))
+            {
+                throw new InvalidOperationException($"Korespondencja shows the tab {tab.Tag}, its view model {correspondence.SelectedTab}.");
+            }
+        }
+
+        // The dialogs of the window (modal there, shown modeless here): the link prompt of the editor, the multiline prompt
+        // of typed addresses and a report.
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new TextPromptViewModel(
+            localizer[L.CorrespondenceApp.LinkTitle], localizer[L.CorrespondenceApp.LinkMessage], "https://www.contoso.pl", multiline: false)));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new TextPromptViewModel(
+            localizer[L.CorrespondenceApp.TabRecipients], string.Empty, "anna.zielinska@contoso.pl\nŁukasz Wiśniewski <lukasz.wisniewski@contoso.pl>", multiline: true)));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new ReportViewModel(
+            localizer[L.CorrespondenceApp.CheckOutlook],
+            "Outlook: nie jest zainstalowany\nFolder podpisów: –\nDziennik „już wysłane”: 0 wpisów",
+            services.GetRequiredService<IClipboardService>())));
+    }
+
+    /// <summary>
+    /// Computers (K1), disconnected: the computer review (scope, parameters, reports; "Sprawdź" disabled), the remote actions
+    /// of a computer ("not connected", every action disabled), the restart dialog of a server (typed name) and of a
+    /// workstation, and the "Komputery" tab of the settings. No computer, DC or DNS server is contacted.
+    /// </summary>
+    private static void RenderComputerWindows(IServiceProvider services, IWindowService windows)
+    {
+        var computers = services.GetRequiredService<Presentation.Computers.ComputerViewModelFactory>();
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(computers.CreateReview()));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(computers.CreateRemote("CN=WAW-PC001,OU=Komputery,OU=Firma,DC=contoso,DC=test")));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(computers.CreateRestart(new Core.Computers.Remote.RemoteTarget(
+            "CN=SRV-PLIKI01,OU=Serwery,OU=Firma,DC=contoso,DC=test", "SRV-PLIKI01", "srv-pliki01.contoso.test", Core.Computers.ComputerType.Server))));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(computers.CreateRestart(new Core.Computers.Remote.RemoteTarget(
+            "CN=WAW-PC001,OU=Komputery,OU=Firma,DC=contoso,DC=test", "WAW-PC001", "waw-pc001.contoso.test", Core.Computers.ComputerType.Workstation))));
+
+        var settings = (SettingsWindow)windows.CreateWindow(services.GetRequiredService<IDialogViewModelFactory>().CreateSettings());
+        UiTestSupport.ShowOffScreen(settings);
+        settings.SettingsTabs.SelectedItem = settings.ComputersTab;
+        settings.UpdateLayout();
+    }
 }

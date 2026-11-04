@@ -75,6 +75,9 @@ public sealed class AppSettings
     /// <summary>The account review: N-day parameters, enabled checks, scope and named check sets (never results).</summary>
     public AccountReviewSettings AccountReview { get; set; } = new();
 
+    /// <summary>Computers (K1): review parameters, placement rules, catalogue overrides, remote options (never computer names or results).</summary>
+    public ComputerSettings Computers { get; set; } = new();
+
     /// <summary>Messages to users (U1): sender, limits, SMTP connection without a password, operator templates (never messages).</summary>
     public UserMessageSettings UserMessages { get; set; } = new();
 
@@ -86,6 +89,18 @@ public sealed class AppSettings
 
     /// <summary>The comparison of objects between connections: the match rule per object kind and the switches (never values).</summary>
     public ComparisonSettings Comparison { get; set; } = new();
+
+    /// <summary>Group Policy (K2): tree visibility and backup defaults (a folder path, never GPO data).</summary>
+    public GroupPolicySettings GroupPolicy { get; set; } = new();
+
+    /// <summary>
+    /// Korespondencja (U5): options, operator templates, the last draft, field definitions and mailbox options (names,
+    /// LDAP filters and portable DNs) - never recipients or directory values.
+    /// </summary>
+    public CorrespondenceSettings Correspondence { get; set; } = new();
+
+    /// <summary>Dzienniki zdarzeń (track E): the saved queries – the builder as typed and the computers, never values read from a log.</summary>
+    public EventLogSettings EventLogs { get; set; } = new();
 
     /// <summary>Puts <paramref name="distinguishedName"/> first in <see cref="RecentContainers"/> (deduplicated, max <see cref="MaxRecentContainers"/>).</summary>
     public void AddRecentContainer(string distinguishedName)
@@ -112,6 +127,8 @@ public sealed class AppSettings
         Watchdog.Normalize();
         AccountReview ??= new();
         AccountReview.Normalize();
+        Computers ??= new();
+        Computers.Normalize();
         UserMessages ??= new();
         UserMessages.Normalize();
         SavedFilters = [.. (SavedFilters ?? []).Select(Filters.FilterLibrary.Normalize).OfType<Filters.SavedFilter>()
@@ -127,6 +144,12 @@ public sealed class AppSettings
 
         Comparison ??= new();
         Comparison.Normalize();
+        GroupPolicy ??= new();
+        GroupPolicy.Normalize();
+        Correspondence ??= new();
+        Correspondence.Normalize();
+        EventLogs ??= new();
+        EventLogs.Normalize();
         ConnectionProfiles.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.Name));
         SavedViews.RemoveAll(v => v is null || string.IsNullOrWhiteSpace(v.Id));
         PinnedContainers.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.DistinguishedName));

@@ -22,6 +22,9 @@ public enum UserMessagePreviewFilter
     Errors,
     Skipped,
     Excluded,
+
+    /// <summary>Messages whose salutation is guessed or a fallback (U1d).</summary>
+    Guessed,
 }
 
 /// <summary>An account to message (before the plan: its DN and RDN only).</summary>

@@ -84,7 +84,8 @@ public sealed class BatchReportExporter
     public static bool ContainsSecrets(BatchResult result, ISchemaCatalog? schema = null)
     {
         ArgumentNullException.ThrowIfNull(result);
-        return result.Objects.Any(o => o.Changes.Any(c => c.Succeeded && c.Change.Action == ChangeAction.ResetPassword && c.Change.Password is not null))
+        return result.Objects.Any(o => o.Plan.Kind != Model.ObjectKind.Computer
+                && o.Changes.Any(c => c.Succeeded && c.Change.Action == ChangeAction.ResetPassword && c.Change.Password is not null))
             || result.Plan.Objects.SelectMany(o => o.Changes).Any(c => HasSecretValues(c, schema));
     }
 
@@ -195,7 +196,9 @@ public sealed class BatchReportExporter
                 yield return Row(includePasswords, status, name, dn, action, null, objectPlan.DistinguishedName, change.TargetDn, message, null);
                 break;
             case ChangeAction.ResetPassword:
-                yield return Row(includePasswords, status, name, dn, action, null, null, null, message, passwordSet ? change.Password : null);
+                // K1: the machine password of a reset computer account is never written to a report.
+                yield return Row(includePasswords, status, name, dn, action, null, null, null, message,
+                    passwordSet && objectPlan.Kind != Model.ObjectKind.Computer ? change.Password : null);
                 break;
             default:
                 yield return Row(includePasswords, status, name, dn, action, null, null, null, message, null);

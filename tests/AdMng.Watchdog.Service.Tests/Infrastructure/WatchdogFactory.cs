@@ -112,7 +112,7 @@ public sealed class WatchdogFactory : WebApplicationFactory<Program>
     protected override IHost CreateHost(IHostBuilder builder)
     {
         builder.ConfigureHostConfiguration(configuration => configuration.AddInMemoryCollection(_settings));
-        return base.CreateHost(builder);
+        return HostBuildLock.Build(() => base.CreateHost(builder));
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

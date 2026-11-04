@@ -31,14 +31,17 @@ internal static class ComparisonFixture
     }
 }
 
-/// <summary>A save dialog that answers with a prepared path (null = cancelled) and records the suggested file name.</summary>
+/// <summary>A file dialog that answers with prepared paths (null = cancelled) and records the suggested file name.</summary>
 internal sealed class PreparedSaveDialog : IFileDialogService
 {
     public string? NextSavePath { get; set; }
 
+    /// <summary>What "Otwórz" answers (null = cancelled).</summary>
+    public string? NextOpenPath { get; set; }
+
     public string? LastSuggestedName { get; private set; }
 
-    public Task<string?> OpenFileAsync(string title, IReadOnlyList<FileFilter> filters) => Task.FromResult<string?>(null);
+    public Task<string?> OpenFileAsync(string title, IReadOnlyList<FileFilter> filters) => Task.FromResult(NextOpenPath);
 
     public Task<string?> SaveFileAsync(string title, string defaultFileName, IReadOnlyList<FileFilter> filters)
     {

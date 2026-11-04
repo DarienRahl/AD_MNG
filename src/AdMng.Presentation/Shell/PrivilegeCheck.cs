@@ -17,7 +17,25 @@ public static class PrivilegeCheck
     private static readonly uint[] PrivilegedDomainRids =
         [WellKnownRids.DomainAdmins, WellKnownRids.SchemaAdmins, WellKnownRids.EnterpriseAdmins];
 
-    public static bool IsPrivilegedSid(string? sid)
+    /// <summary>The domain groups KB5020276 trusts as the owner of a reused computer account (not Schema Admins).</summary>
+    private static readonly uint[] JoinOwnerDomainRids = [WellKnownRids.DomainAdmins, WellKnownRids.EnterpriseAdmins];
+
+    public static bool IsPrivilegedSid(string? sid) => IsAdministratorSid(sid, PrivilegedDomainRids);
+
+    /// <summary>
+    /// Domain Admins, Enterprise Admins or BUILTIN\Administrators: the owners the domain join hardening of KB5020276 trusts
+    /// when a join reuses an existing computer account.
+    /// </summary>
+    public static bool IsJoinOwnerSid(string? sid) => IsAdministratorSid(sid, JoinOwnerDomainRids);
+
+    public static Task<bool> IsPrivilegedAsync(IDirectorySession session, string userDn, CancellationToken cancellationToken) =>
+        HasGroupAsync(session, userDn, IsPrivilegedSid, cancellationToken);
+
+    /// <summary>Whether the account is a member of a group <see cref="IsJoinOwnerSid"/> accepts (prestaged accounts).</summary>
+    public static Task<bool> IsJoinOwnerAsync(IDirectorySession session, string userDn, CancellationToken cancellationToken) =>
+        HasGroupAsync(session, userDn, IsJoinOwnerSid, cancellationToken);
+
+    private static bool IsAdministratorSid(string? sid, uint[] domainRids)
     {
         if (string.IsNullOrEmpty(sid))
         {
@@ -31,17 +49,17 @@ public static class PrivilegeCheck
 
         return sid.StartsWith("S-1-5-21-", StringComparison.OrdinalIgnoreCase)
             && AdConvert.GetRid(sid) is { } rid
-            && PrivilegedDomainRids.Contains(rid);
+            && domainRids.Contains(rid);
     }
 
-    public static async Task<bool> IsPrivilegedAsync(IDirectorySession session, string userDn, CancellationToken cancellationToken)
+    private static async Task<bool> HasGroupAsync(IDirectorySession session, string userDn, Func<string?, bool> matches, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentException.ThrowIfNullOrWhiteSpace(userDn);
         var user = await session.GetAsync(userDn, [Attr.TokenGroups], cancellationToken).ConfigureAwait(false);
         if (user is not null && user.TryGet(Attr.TokenGroups, out var tokenGroups) && tokenGroups.Count > 0)
         {
-            return tokenGroups.OfType<byte[]>().Any(b => b.Length >= 8 && IsPrivilegedSid(AdConvert.SidToString(b)));
+            return tokenGroups.OfType<byte[]>().Any(b => b.Length >= 8 && matches(AdConvert.SidToString(b)));
         }
 
         var search = new DirectorySearch
@@ -53,7 +71,7 @@ public static class PrivilegeCheck
         };
         await foreach (var group in session.SearchAsync(search, cancellationToken).ConfigureAwait(false))
         {
-            if (IsPrivilegedSid(group.ObjectSid))
+            if (matches(group.ObjectSid))
             {
                 return true;
             }

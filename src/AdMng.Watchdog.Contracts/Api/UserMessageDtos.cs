@@ -11,12 +11,34 @@ public sealed record UserMessageAddressDto
 }
 
 /// <summary>
+/// An inline image of a message to a user (U1c, design note <c>docs/dev/u1c-u1d-rich-html-and-salutations.md</c> section
+/// 9): referenced by <c>cid:</c> from the HTML body and sent as an inline part of <c>multipart/related</c> – never an
+/// attachment. The service checks the bytes (PNG / JPEG / GIF by magic bytes, structure, dimensions, size) and that
+/// <see cref="ContentId"/> is derived from their SHA-256. Unknown members are rejected like in the request.
+/// <see cref="ToString"/> shows the id only.
+/// </summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record UserMessageImageDto
+{
+    /// <summary><c>img-&lt;first 16 hex digits of the SHA-256 of Data&gt;@admng</c>.</summary>
+    public required string ContentId { get; init; }
+    /// <summary>image/png | image/jpeg | image/gif.</summary>
+    public required string MediaType { get; init; }
+    /// <summary>The image (base64 in JSON).</summary>
+    public required byte[] Data { get; init; }
+    /// <summary>File name of the MIME part (<c>[A-Za-z0-9._-]{1,64}</c>); never a path.</summary>
+    public string? FileName { get; init; }
+    public override string ToString() => $"UserMessageImageDto({ContentId})";
+}
+
+/// <summary>
 /// <c>POST /api/v1/user-messages</c> (Viewer): ONE message to the recipients of one account, already rendered and checked
 /// by AD Manager (design note <c>docs/dev/u1-user-messages.md</c>, section 7). Idempotent by <see cref="Id"/>: the same id
 /// with the same content from the same caller returns the state of the first submission. There is deliberately no
-/// attachment field and unknown members are rejected (400 <c>invalidJson</c>). The service re-validates everything
-/// (<see cref="UserMessageLimits"/>, <see cref="UserMessageIssueCodes"/>) and chooses the envelope sender itself.
-/// <see cref="ToString"/> never shows the content.
+/// attachment field and unknown members are rejected (400 <c>invalidJson</c>) – an older service rejects
+/// <see cref="InlineImages"/> the same way, so AD Manager sends it only with the <see cref="UserMessagingCapabilities.InlineImages"/>
+/// capability. The service re-validates everything (<see cref="UserMessageLimits"/>, <see cref="UserMessageIssueCodes"/>)
+/// and chooses the envelope sender itself. <see cref="ToString"/> never shows the content.
 /// </summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record UserMessageRequest
@@ -36,6 +58,10 @@ public sealed record UserMessageRequest
     public string? HtmlBody { get; init; }
     /// <summary>"pl" / "en".</summary>
     public string Language { get; init; } = "pl";
+    /// <summary>Images referenced by <c>cid:</c> from <see cref="HtmlBody"/> (U1c); empty = none, and then the member is not
+    /// written at all, so a message without images is still accepted by an older service.</summary>
+    [JsonOmitWhenEmpty]
+    public IReadOnlyList<UserMessageImageDto> InlineImages { get; init; } = [];
     public override string ToString() => $"UserMessageRequest({Id:N})";
 }
 
@@ -104,6 +130,26 @@ public sealed record UserMessagingStatusDto
     public int SubmittedLastHour { get; init; }
     public int SubmittedLastDay { get; init; }
     public int MaxRecipients { get; init; } = UserMessageLimits.MaxRecipients;
+    /// <summary>What the service accepts beyond U1b (<see cref="UserMessagingCapabilities"/>); an older service sends none.</summary>
+    public IReadOnlyList<string> Capabilities { get; init; } = [];
+    /// <summary>Inline images per message (0 = no images).</summary>
+    public int MaxInlineImages { get; init; }
+    public long MaxInlineImageBytes { get; init; }
+    public long MaxInlineImagesTotalBytes { get; init; }
+    /// <summary>Characters of the HTML body (U1b's 100 000 when an older service does not send it).</summary>
+    public int MaxHtmlLength { get; init; } = 100_000;
+    /// <summary>Bytes of images the outbox holds now (messages not sent yet or given up) and the cap
+    /// (<c>userMessages.maxStoredImageMb</c>).</summary>
+    public long StoredImageBytes { get; init; }
+    public long MaxStoredImageBytes { get; init; }
+}
+
+/// <summary>Capabilities of <see cref="UserMessagingStatusDto.Capabilities"/>.</summary>
+public static class UserMessagingCapabilities
+{
+    /// <summary>The service accepts <see cref="UserMessageRequest.InlineImages"/> (and <c>userMessages.allowInlineImages</c>
+    /// is on).</summary>
+    public const string InlineImages = "inlineImages";
 }
 
 /// <summary>Fixed limits of <c>POST /api/v1/user-messages</c> (the service checks them again).</summary>
@@ -117,11 +163,17 @@ public static class UserMessageLimits
     public const int MaxSubjectLength = 250;
     public const int MaxDisplayNameLength = 200;
     public const int MaxAddressLength = 320;
-    /// <summary>Characters of the text body (with the HTML body the request stays below the API's 1 MB body limit even
-    /// when every character is JSON-escaped).</summary>
+    /// <summary>Characters of the text body.</summary>
     public const int MaxTextLength = 50_000;
-    /// <summary>Characters of the HTML body.</summary>
-    public const int MaxHtmlLength = 100_000;
+    /// <summary>Characters of the HTML body (U1c: Outlook HTML is verbose once its styles are inlined; equal to AD Manager's
+    /// MessageHtmlLimits.MaxHtmlLength).</summary>
+    public const int MaxHtmlLength = 400_000;
+    /// <summary>Inline images of one message (as AD Manager's MessageImageLimits).</summary>
+    public const int MaxInlineImages = 10;
+    /// <summary>Bytes of one inline image (1 MiB).</summary>
+    public const long MaxInlineImageBytes = 1024 * 1024;
+    /// <summary>Bytes of all inline images of one message (2 MiB).</summary>
+    public const long MaxInlineImagesTotalBytes = 2L * 1024 * 1024;
 }
 
 /// <summary>Issue codes of a rejected message (400, <c>extensions.issues</c>) and of 409/429 answers.</summary>
@@ -146,4 +198,19 @@ public static class UserMessageIssueCodes
     public const string HourlyLimit = "hourlyLimit";
     /// <summary>429: <c>userMessages.maxMessagesPerDay</c> reached.</summary>
     public const string DailyLimit = "dailyLimit";
+    /// <summary>An inline image is not a valid PNG / JPEG / GIF within the limits, or its id is used twice.</summary>
+    public const string InvalidImage = "invalidImage";
+    /// <summary>The HTML references a <c>cid:</c> without an image.</summary>
+    public const string MissingImage = "missingImage";
+    /// <summary>An image the HTML does not reference.</summary>
+    public const string UnreferencedImage = "unreferencedImage";
+    /// <summary>The content id is not the one derived from the SHA-256 of the image.</summary>
+    public const string ImageIdMismatch = "imageIdMismatch";
+    /// <summary>Too many images or too many bytes.</summary>
+    public const string TooLarge = "tooLarge";
+    /// <summary>Images while <c>userMessages.allowInlineImages</c> is off.</summary>
+    public const string ImagesDisabled = "imagesDisabled";
+    /// <summary>429: the images in the outbox reached <c>userMessages.maxStoredImageMb</c> (messages without images are not
+    /// affected).</summary>
+    public const string ImageStorageFull = "imageStorageFull";
 }

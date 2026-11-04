@@ -1,5 +1,127 @@
 admng-watchdog (@VERSION@) unstable; urgency=medium
 
+  * No change in how the service works and no database migration.
+  * Rebuilt for AD Manager 0.13.0 (stabilization and pilot readiness: the
+    environment readiness check and the problem report are AD Manager
+    features; the readiness check reads the existing /me and /status
+    endpoints). The shared event code catalog only gains a logon failure
+    kind per code, used by AD Manager's analyses.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Wed, 04 Nov 2026 08:00:00 +0000
+
+admng-watchdog (0.12.0-1) unstable; urgency=medium
+
+  * No change in how the service works and no database migration.
+  * Rebuilt for AD Manager 0.12.0 (event log reader, lockout source and
+    failed logons – AD Manager features that do not use the service). The
+    %% insertion string decoder, the XPath literal rule and the host name
+    helpers moved into the shared library; the service uses them unchanged.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Wed, 04 Nov 2026 00:10:00 +0000
+
+admng-watchdog (0.11.0-1) unstable; urgency=medium
+
+  * No change in how the service works and no database migration.
+  * Rebuilt for AD Manager 0.11.0: readable GPO settings, editing comfort
+    and the Group Policy diagnostics are AD Manager features that do not
+    use the service; the shared GPO content parsers are unchanged (the
+    library only gains a parser of the setting keys, used by AD Manager).
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Tue, 03 Nov 2026 19:00:00 +0000
+
+admng-watchdog (0.10.0-1) unstable; urgency=medium
+
+  * No change in how the service works and no database migration.
+  * Rebuilt for AD Manager 0.10.0: the GPO security settings editor (local
+    groups, user rights, account policies and security options, audit,
+    services) is an AD Manager feature that does not use the service; the
+    GptTmpl.inf, audit.csv and Groups.xml parsers of the GPO settings
+    snapshots are unchanged.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Tue, 03 Nov 2026 13:00:00 +0000
+
+admng-watchdog (0.9.1-1) unstable; urgency=medium
+
+  * No change in how the service works and no database migration.
+  * Rebuilt for AD Manager 0.9.1: the fixes of Korespondencja (images,
+    DW and UDW, the operator's built-in templates) are AD Manager features
+    that do not use the service.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Tue, 03 Nov 2026 12:00:00 +0000
+
+admng-watchdog (0.9.0-1) unstable; urgency=medium
+
+  * No change in how the service works and no database migration.
+  * Rebuilt for AD Manager 0.9.0: the Group Policy modelling ("what will
+    the computer get") is an AD Manager feature that does not use the
+    service; the gPLink parser the service shares with it is unchanged.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Tue, 03 Nov 2026 09:00:00 +0000
+
+admng-watchdog (0.8.0-1) unstable; urgency=medium
+
+  * No change in how the service works and no database migration.
+  * The Registry.pol reader of the GPO settings snapshots is now shared
+    with AD Manager's administrative templates editor (the same checks:
+    PReg signature and version, terminated strings, data within the file);
+    the snapshots and their events are unchanged.
+  * Rebuilt for AD Manager 0.8.0: the administrative templates (ADMX)
+    editor and the central store update are AD Manager features that do
+    not use the service.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Mon, 02 Nov 2026 17:00:00 +0000
+
+admng-watchdog (0.7.0-1) unstable; urgency=medium
+
+  * No change in how the service works and no database migration.
+  * Messages to users go through the message sanitizer shared with AD
+    Manager, which now keeps Word's paragraph spacing hints
+    mso-margin-top-alt and mso-margin-bottom-alt (one length or auto; inert
+    in browsers, honoured by classic Outlook) and still drops every other
+    mso-* property.
+  * Rebuilt for AD Manager 0.7.0: Korespondencja (messages through classic
+    Outlook) and the mailbox owner queries are AD Manager features that do
+    not use the service.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Mon, 02 Nov 2026 12:30:00 +0000
+
+admng-watchdog (0.6.0-1) unstable; urgency=medium
+
+  * Inline images in messages to users (AdMng 0.6.0, contract v2):
+    POST /api/v1/user-messages accepts inlineImages (PNG, JPEG or GIF
+    checked by content, at most 4096 x 4096 px, 10 images, 1 MiB each and
+    2 MiB together, Content-ID derived from the SHA-256 of the bytes, every
+    image referenced by the HTML); metadata is stripped and the images are
+    sent as inline parts of multipart/related through the MIME builder
+    shared with AD Manager. GET /api/v1/user-messages/status reports the
+    inlineImages capability and the limits.
+  * New settings userMessages.allowInlineImages (default on, off = 400
+    imagesDisabled) and userMessages.maxStoredImageMb (default 256, range
+    16-4096): images held in the outbox (unsent and given-up messages) are
+    capped, over the cap 429 imageStorageFull with Retry-After 1 h;
+    messages without images are not affected. Images live only in the
+    outbox payload, are deleted once sent (a given-up message keeps them
+    until the outbox retention, 90 days by default) and never reach the
+    audit, the delivery log or the diagnostic log. Migration 0007 adds
+    outbox.image_bytes. AD Manager 0.6.0 does not edit the two settings
+    yet; they are changed through PUT /api/v1/config.
+  * POST /api/v1/user-messages alone accepts a request body of up to 6 MiB
+    (every other route keeps 1 MB); the HTML body limit is 400,000
+    characters (was 100,000). The HTML is checked by the message sanitizer
+    shared with AD Manager (AngleSharp) and the sanitized document is sent;
+    a message without images is refused only for what 0.4.0 refused and for
+    nesting deeper than 256 levels, so AD Manager 0.4.0 and 0.5.0 keep
+    working.
+  * New delivery hint smtp.messageTooLarge for 5.3.4, 5.2.3 and a bare 552.
+  * The remaining GPO content parsers (security template, audit.csv,
+    Registry.pol, preferences, scripts, comments, GPT.INI), the setting
+    model and the secret rules moved to AdMng.Core (shared with AD
+    Manager's Group Policy views); no change of the service's behaviour.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Tue, 27 Oct 2026 23:30:00 +0000
+
+admng-watchdog (0.5.0-1) unstable; urgency=medium
+
   * AdMng 0.5.0: no functional change of the service. The privileged group
     catalogue, the security descriptor parser and the GPO file parsers moved
     to AdMng.Core (shared with AD Manager's privileged access review); the

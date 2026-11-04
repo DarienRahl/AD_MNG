@@ -48,12 +48,13 @@ public sealed partial class ShellViewModel
     private IRelayCommand[] StateCommands => _stateCommands ??=
     [
         ChangeDomainControllerCommand,
+        .. GroupPolicyStateCommands, OpenGroupPolicyDiagnosticsCommand,
         RefreshCommand, PropertiesCommand, DeleteCommand, BeginRenameCommand, MoveCommand, EnableCommand, DisableCommand,
         UnlockCommand, ResetPasswordCommand, AddToGroupCommand, BatchEditCommand, NewUserCommand, NewGroupCommand,
         NewOrganizationalUnitCommand, NewComputerCommand, NewContactCommand, FindCommand, ExportListCommand, CopyDnCommand, .. CopyStateCommands,
         OpenInNewTabCommand, PinContainerCommand, SaveAsViewCommand, ChooseColumnsCommand, GoBackCommand, GoForwardCommand,
         GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand, ShowRecycleBinCommand, ShowAccountReviewCommand, ShowWatchdogHistoryCommand,
-        SendMessageCommand, CompareWithConnectionCommand,
+        SendMessageCommand, CompareWithConnectionCommand, .. ComputerStateCommands, .. CorrespondenceStateCommands, .. EventLogStateCommands,
     ];
 
     /// <summary>Re-evaluates CanExecute of all selection dependent commands.</summary>
@@ -442,8 +443,23 @@ public sealed partial class ShellViewModel
         }
     }
 
-    [RelayCommand(CanExecute = nameof(IsConnected))]
-    private Task FindAsync() => _dialogs.ShowFindAsync(SelectedDocument?.Location is { Kind: ListLocationKind.Container } ? CurrentContainerDn : null);
+    /// <summary>
+    /// Ctrl+F: the active document's own search when it has one (GPO editors, "Obiekty zasad grupy" – K6), else the directory
+    /// Find dialog.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanFind))]
+    private Task FindAsync()
+    {
+        if (SelectedTab is ISearchableDocument searchable)
+        {
+            searchable.FocusSearch();
+            return Task.CompletedTask;
+        }
+
+        return _dialogs.ShowFindAsync(SelectedDocument?.Location is { Kind: ListLocationKind.Container } ? CurrentContainerDn : null);
+    }
+
+    private bool CanFind() => IsConnected || SelectedTab is ISearchableDocument;
 
     [RelayCommand(CanExecute = nameof(CanExport))]
     private async Task ExportListAsync()

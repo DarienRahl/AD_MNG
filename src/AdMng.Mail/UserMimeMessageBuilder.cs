@@ -6,7 +6,8 @@ namespace AdMng.Mail;
 
 /// <summary>
 /// <see cref="OutgoingUserMessage"/> → MIME: <c>multipart/alternative</c> (text/plain + text/html, UTF-8; MimeKit picks
-/// quoted-printable/base64 and encodes the subject and display names per RFC 2047), <c>Message-ID</c>, <c>Date</c>,
+/// quoted-printable/base64 and encodes the subject and display names per RFC 2047) – with inline images the HTML and its
+/// images in <c>multipart/related</c> (<see cref="UserMessageMimeBody"/>, U1c) – <c>Message-ID</c>, <c>Date</c>,
 /// <c>Auto-Submitted: auto-generated</c>, <c>X-Auto-Response-Suppress: All</c>, <c>X-AdMng-Message: user-notification</c>.
 /// CR/LF and control characters never reach a header. There are no attachments.
 /// </summary>
@@ -45,7 +46,7 @@ public static class UserMimeMessageBuilder
         mime.Headers.Add("Auto-Submitted", "auto-generated");
         mime.Headers.Add("X-Auto-Response-Suppress", "All");
         mime.Headers.Add("X-AdMng-Message", MessageKind);
-        mime.Body = new BodyBuilder { TextBody = message.TextBody, HtmlBody = message.HtmlBody }.ToMessageBody();
+        mime.Body = UserMessageMimeBody.Create(message.TextBody, message.HtmlBody, message.InlineImages);
         return mime;
     }
 

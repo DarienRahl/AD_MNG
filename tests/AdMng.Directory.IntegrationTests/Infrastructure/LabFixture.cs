@@ -100,11 +100,37 @@ public sealed class LabFixture : IAsyncLifetime
         CancellationToken cancellationToken = default) =>
         new LdapDirectoryConnector(logs, timeProvider).ConnectAsync(options, LabSettings.Password(password), cancellationToken);
 
+    /// <summary>
+    /// Adds a test object. The lab DC (one Samba LDAP server shared by every test class) sometimes drops a connection
+    /// under parallel writes (LDAP 81); the session never re-sends a write that may have reached the server, so the
+    /// fixture does it for its own objects: after a dropped connection it looks the object up and adds it again only when
+    /// it is not there.
+    /// </summary>
+    private async Task AddCheckedAsync(string dn, IReadOnlyDictionary<string, IReadOnlyList<object>> attributes, CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await Admin.AddAsync(dn, attributes, cancellationToken);
+                return;
+            }
+            catch (DirectoryException ex) when (attempt < 4 && ex.Kind is DirectoryErrorKind.ServerUnavailable or DirectoryErrorKind.Busy or DirectoryErrorKind.Timeout)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(200 * attempt), cancellationToken);
+                if (await Admin.GetAsync(dn, [Attr.ObjectClass], cancellationToken) is not null)
+                {
+                    return; // the first add reached the DC
+                }
+            }
+        }
+    }
+
     /// <summary>Creates an OU below the test OU (or below <paramref name="parentDn"/>) and returns its DN.</summary>
     public async Task<string> CreateOuAsync(string name, string? parentDn = null)
     {
         var dn = DistinguishedName.Parse(parentDn ?? TestOu).Child("OU", name).ToString();
-        await Admin.AddAsync(
+        await AddCheckedAsync(
             dn,
             new Dictionary<string, IReadOnlyList<object>> { [Attr.ObjectClass] = ["top", ObjectClasses.OrganizationalUnit] },
             TestContext.Current.CancellationToken);
@@ -125,7 +151,7 @@ public sealed class LabFixture : IAsyncLifetime
             attributes[name] = [value];
         }
 
-        await Admin.AddAsync(dn, attributes, TestContext.Current.CancellationToken);
+        await AddCheckedAsync(dn, attributes, TestContext.Current.CancellationToken);
         return dn;
     }
 
@@ -133,7 +159,7 @@ public sealed class LabFixture : IAsyncLifetime
     public async Task<string> CreateContactAsync(string parentDn, string cn)
     {
         var dn = DistinguishedName.Parse(parentDn).Child("CN", cn).ToString();
-        await Admin.AddAsync(
+        await AddCheckedAsync(
             dn,
             new Dictionary<string, IReadOnlyList<object>>
             {

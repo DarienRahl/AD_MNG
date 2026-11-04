@@ -1,3 +1,4 @@
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Model;
@@ -126,7 +127,7 @@ public sealed class AttributionCorrelator(ISecurityEventStore store)
         store.FindAsync(criteria, cancellationToken);
 
     private static List<SecurityEvent> OnPlannedDcs(List<SecurityEvent> found, AttributionSearchPlan plan) =>
-        [.. found.Where(e => plan.DomainControllers.Any(dc => HostNames.AreEqual(dc, e.Computer)))];
+        [.. found.Where(e => plan.DomainControllers.Any(dc => EventHostNames.AreEqual(dc, e.Computer)))];
 
     private static List<ScoredCandidate> Score(List<SecurityEvent> found, WatchEvent watchEvent, AttributionSearchPlan plan, bool strongKey) =>
         [.. found.Select(e => AttributionScorer.Score(e, watchEvent, strongKey, plan)).OfType<ScoredCandidate>()];

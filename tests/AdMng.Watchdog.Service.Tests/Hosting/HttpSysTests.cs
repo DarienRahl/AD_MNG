@@ -82,11 +82,11 @@ public sealed class HttpSysTests
             ["Watchdog:Directory:Disabled"] = "true",
             ["Watchdog:Authorization:ViewerSids:0"] = AuthenticatedUsers,
         };
-        var app = WatchdogHost.Build(["--environment", "Development"], builder =>
+        var app = HostBuildLock.Build(() => WatchdogHost.Build(["--environment", "Development"], builder =>
         {
             builder.Configuration.AddInMemoryCollection(settings);
             builder.Services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
-        });
+        }));
         try
         {
             await app.StartAsync(Ct);

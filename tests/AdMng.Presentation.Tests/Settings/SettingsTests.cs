@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.Json;
 using AdMng.Core.Directory;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Settings;
@@ -128,13 +129,17 @@ public sealed class SettingsTests : IDisposable
         store.WriteFile = (_, _, _) => Task.CompletedTask;
         var before = store.Current;
         using var stop = new CancellationTokenSource();
+        var reading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        // Window A's address bar enumerates the recent containers while window B adds 1 000 of them from the pool.
+        // Window A's address bar enumerates the recent containers while window B adds 1 000 of them from the pool. The
+        // writer starts once the reader runs: on a busy machine the pool may start the reader only after a writer that
+        // did not wait has finished.
         var reader = Task.Run(() =>
         {
             var reads = 0;
             while (!stop.IsCancellationRequested)
             {
+                reading.TrySetResult();
                 var snapshot = store.Current;
                 var count = snapshot.RecentContainers.Select(dn => dn.Length).Count();
                 Assert.InRange(count, 0, AppSettings.MaxRecentContainers);
@@ -145,6 +150,7 @@ public sealed class SettingsTests : IDisposable
         }, TestContext.Current.CancellationToken);
         var writer = Task.Run(async () =>
         {
+            await reading.Task.WaitAsync(TestContext.Current.CancellationToken);
             for (var i = 0; i < 1000; i++)
             {
                 await store.UpdateAsync(s => s.AddRecentContainer($"OU=Dział {i},DC=fabrikam,DC=test"), TestContext.Current.CancellationToken);
@@ -287,6 +293,45 @@ public sealed class SettingsTests : IDisposable
         Assert.Equal(1, settings.ConfirmationThreshold);
         Assert.Equal(1, settings.InactiveDays);
         Assert.Equal(string.Empty, settings.Language);
+    }
+
+    [Fact]
+    public void Computers_NormalizeRepairsHandEditedValues_AndRoundTrip()
+    {
+        var settings = new AppSettings();
+        settings.Computers.Parameters = new Core.Computers.ComputerReportParameters { InactiveDays = 0, EndingSoonDays = 100_000 };
+        settings.Computers.DisabledReports = [Core.Computers.ComputerReport.Releases, Core.Computers.ComputerReport.Releases, (Core.Computers.ComputerReport)99];
+        settings.Computers.PlacementRules =
+        [
+            new ComputerPlacementSetting { Type = Core.Computers.ComputerType.Server, Containers = [" OU=Serwery,{domain} ", "ou=serwery,{domain}", ""] },
+            new ComputerPlacementSetting { Type = Core.Computers.ComputerType.Server, Containers = ["OU=Inne,{domain}"] },
+            new ComputerPlacementSetting { Type = Core.Computers.ComputerType.Workstation, Containers = [] },
+        ];
+        settings.Computers.ReleaseOverrides =
+        [
+            new ComputerReleaseOverrideSetting { Build = 26100, Edition = Core.Computers.EditionClass.EnterpriseEducation, EndOfSupport = new DateOnly(2027, 10, 12) },
+            new ComputerReleaseOverrideSetting { Build = 26100, Edition = Core.Computers.EditionClass.EnterpriseEducation, EndOfSupport = new DateOnly(2030, 1, 1) },
+            new ComputerReleaseOverrideSetting { Build = 0, Edition = Core.Computers.EditionClass.EnterpriseEducation },
+        ];
+        settings.Computers.RemoteTimeoutSeconds = 100_000;
+        settings.Computers.RemotePort = 70_000;
+        settings.Computers.RestartDelayMinutes = -3;
+        settings.Computers.RestartMessage = new string('ż', 600);
+
+        settings.Normalize();
+        var computers = JsonSerializer.Deserialize<AppSettings>(JsonSettingsStore.Serialize(settings), JsonSettingsStore.SerializerOptions)!.Computers;
+
+        Assert.Equal(1, computers.Parameters.InactiveDays);
+        Assert.Equal(Core.Computers.ComputerReportParameters.MaxDays, computers.Parameters.EndingSoonDays);
+        Assert.Equal([Core.Computers.ComputerReport.Releases], computers.DisabledReports);
+        var rule = Assert.Single(computers.PlacementRules);
+        Assert.Equal(["OU=Serwery,{domain}"], rule.Containers);
+        var release = Assert.Single(computers.ReleaseOverrides);
+        Assert.Equal(new DateOnly(2027, 10, 12), release.EndOfSupport);
+        Assert.Equal(Core.Computers.Remote.RemoteOptions.MaxTimeoutSeconds, computers.RemoteTimeoutSeconds);
+        Assert.Null(computers.RemotePort);
+        Assert.Equal(0, computers.RestartDelayMinutes);
+        Assert.Equal(ComputerSettings.MaxRestartMessageLength, computers.RestartMessage!.Length);
     }
 
     private sealed class BlockedAppPaths(string directory) : Services.IAppPaths

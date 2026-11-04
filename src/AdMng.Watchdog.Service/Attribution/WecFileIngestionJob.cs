@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Runtime.Versioning;
+using AdMng.Core.EventLogs;
 using AdMng.Core.Ldap;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
@@ -167,7 +168,7 @@ public sealed partial class WecFileIngestionJob : IWatchdogJob, ISecurityEventCo
             {
                 Settings = settings,
                 Reduction = await _reductions.CreateAsync(configuration, cancellationToken).ConfigureAwait(false),
-                IsKnownDomainController = computer => domainControllers.Any(d => HostNames.AreEqual(d.HostName, computer)),
+                IsKnownDomainController = computer => domainControllers.Any(d => EventHostNames.AreEqual(d.HostName, computer)),
                 Domain = domain,
                 DisabledKinds = configuration.Directory?.DisabledKinds ?? [],
             },

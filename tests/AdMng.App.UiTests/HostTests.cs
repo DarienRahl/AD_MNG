@@ -1,15 +1,20 @@
 using System.Windows;
 using AdMng.App.Connections;
+using AdMng.App.Correspondence;
+using AdMng.App.EventLogs;
 using AdMng.App.Infrastructure;
 using AdMng.App.Localization;
 using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
 using AdMng.Core.Batch;
+using AdMng.Core.Correspondence.Outlook;
 using AdMng.Core.Csv;
 using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
+using AdMng.Core.Messaging;
 using AdMng.Core.PrivilegedAccess;
+using AdMng.Outlook;
 using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.Comparison;
 using AdMng.Presentation.Lists;
@@ -55,6 +60,11 @@ public sealed class HostTests
         Assert.True(windows.IsRegistered(typeof(Presentation.Filters.FilterEditorViewModel)));
         Assert.Same(services.GetRequiredService<DialogService>(), services.GetRequiredService<IObjectComparisonLauncher>());
         Assert.Same(services.GetRequiredService<ILocalizer>(), TranslationSource.Localizer);
+
+        // U1c: the App's reader of Outlook's clipboard images (8.3 names expanded) replaces the Presentation default; one
+        // WebView2 environment for the whole application.
+        Assert.IsType<Presentation.UserMessages.PastedImageFileSource>(services.GetRequiredService<Core.Messaging.Html.IPastedImageSource>());
+        Assert.Same(services.GetRequiredService<WebView2Host>(), context.CreateConnection().GetRequiredService<WebView2Host>());
         context.AssertHealthy();
     });
 
@@ -72,6 +82,9 @@ public sealed class HostTests
         typeof(ConnectionNavigator),
         typeof(IUserMessageLauncher),
         typeof(IObjectComparisonLauncher),
+        typeof(Presentation.GroupPolicy.IGroupPolicyDialogs),
+        typeof(Presentation.Correspondence.ICorrespondenceDialogs),
+        typeof(Presentation.Correspondence.ICorrespondenceLauncher),
     ];
 
     [Fact]
@@ -132,9 +145,87 @@ public sealed class HostTests
     private static readonly Type[] SharedApp =
     [
         typeof(ConnectionWindowManager),
+        typeof(Core.Computers.Remote.IRemoteComputerClient),
+        typeof(Core.Computers.Remote.ILocalToolLauncher),
+        typeof(Core.Computers.Remote.IPingService),
+        typeof(Core.Computers.Remote.IHostAddressResolver),
         typeof(AppearanceService),
         typeof(ISysvolFileReader),
+        typeof(WebView2Host),
+        typeof(Presentation.Diagnostics.IWebView2Runtime),
+        typeof(ISysvolFileWriter),
+        typeof(Presentation.GroupPolicy.AdministrativeTemplates.IPolicyPackageExtractor),
+        typeof(Core.Correspondence.Outlook.IOutlookClient),
+        typeof(Core.Correspondence.Outlook.IOutlookSignatureSource),
+        typeof(Core.Messaging.IOutlookUserMessageTransportFactory),
+        typeof(Presentation.Correspondence.IBrowserPreview),
+        typeof(Presentation.Correspondence.ICorrespondenceKeyProtector),
+        typeof(Presentation.Correspondence.ICorrespondencePlatform),
+        typeof(Core.EventLogs.IEventLogConnector),
     ];
+
+    /// <summary>
+    /// Dzienniki zdarzeń (track E): the App registers the Windows reader of AdMng.EventLogs, application-wide and without
+    /// touching a log in its constructor (the UI tests replace it with the in-memory fake).
+    /// </summary>
+    [Fact]
+    public void EventLogRegistration_UsesTheWindowsReader()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Runs with the Windows test suite.");
+        var services = new ServiceCollection();
+        services.AddAdMngEventLogsApp();
+        using var provider = services.BuildServiceProvider();
+
+        var connector = Assert.IsType<AdMng.EventLogs.WindowsEventLogConnector>(provider.GetRequiredService<Core.EventLogs.IEventLogConnector>());
+        Assert.True(connector.IsSupported);
+        Assert.Same(connector, provider.GetRequiredService<Core.EventLogs.IEventLogConnector>());
+    }
+
+    /// <summary>
+    /// Korespondencja (U5): the App registers AdMng.Outlook – the signatures, the client that lists them and the U1 Outlook
+    /// transport over that same client – and no constructor touches Outlook (the UI tests replace them with fakes).
+    /// </summary>
+    [Fact]
+    public void CorrespondenceRegistration_UsesAdMngOutlook_OverOneClient()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Runs with the Windows test suite.");
+        var services = new ServiceCollection();
+        services.AddSingleton(TimeProvider.System);
+        services.AddAdMngCorrespondenceApp();
+        using var provider = services.BuildServiceProvider();
+
+        var client = Assert.IsType<OutlookClient>(provider.GetRequiredService<IOutlookClient>());
+        Assert.IsType<OutlookSignatureFiles>(provider.GetRequiredService<IOutlookSignatureSource>());
+        var factory = Assert.IsType<OutlookUserMessageTransportFactory>(provider.GetRequiredService<IOutlookUserMessageTransportFactory>());
+        Assert.Same(client, factory.Client);
+        Assert.Single(services, d => d.ServiceType == typeof(IOutlookUserMessageTransportFactory));
+        Assert.Same(factory, provider.GetRequiredService<IOutlookUserMessageTransportFactory>());
+    }
+
+    /// <summary>The Outlook of the smoke test (<see cref="OfflineOutlook"/>): not installed, never connects, no signatures.</summary>
+    [Fact]
+    public async Task OfflineOutlook_ReportsNotInstalled_AndHasNoSignatures()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Runs with the Windows test suite.");
+        var services = new ServiceCollection();
+        services.AddSingleton(TimeProvider.System);
+        services.AddAdMngCorrespondenceApp();
+        OfflineOutlook.Use(services);
+        using var provider = services.BuildServiceProvider();
+
+        var client = provider.GetRequiredService<IOutlookClient>();
+        Assert.Equal(OutlookAvailability.NotInstalled, client.Availability);
+        var connect = await client.ConnectAsync(TestContext.Current.CancellationToken);
+        Assert.Null(connect.Session);
+        Assert.Equal(OutlookFailureKind.NotInstalled, connect.Failure?.Kind);
+        Assert.Equal(OfflineOutlook.NotInstalledCode, connect.Failure?.Code);
+        Assert.True(connect.Failure!.StopsRun);
+        var signatures = provider.GetRequiredService<IOutlookSignatureSource>();
+        Assert.Empty(signatures.List());
+        Assert.Null(signatures.Folder);
+        var factory = Assert.IsType<OutlookUserMessageTransportFactory>(provider.GetRequiredService<IOutlookUserMessageTransportFactory>());
+        Assert.Same(client, factory.Client);
+    }
 
     [Fact]
     public Task NotificationService_ShowsAtMostFourToasts_FromAnyThread() => WpfTestHost.RunAsync(async () =>

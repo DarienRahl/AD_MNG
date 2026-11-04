@@ -3,7 +3,9 @@ using System.Windows;
 using AdMng.App.Connections;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
+using AdMng.Core.Correspondence.Outlook;
 using AdMng.Core.Directory;
+using AdMng.Core.Messaging;
 using AdMng.Presentation.Connections;
 using AdMng.Presentation.Session;
 using AdMng.Testing;
@@ -16,8 +18,10 @@ namespace AdMng.App.UiTests.Infrastructure;
 /// <summary>
 /// The real application host for one UI test: every service as in production except the directory connector (the
 /// in-memory sample company of <see cref="FakeDirectoryBuilder"/>), SYSVOL (an empty <see cref="FakeSysvolFileReader"/>,
-/// so that no test reaches \\dc01.contoso.test over the network; a test replaces it with its own) and the settings folder
-/// (a temporary directory). Unhandled UI exceptions are recorded instead of shown. Create and dispose it on the UI thread.
+/// so that no test reaches \\dc01.contoso.test over the network; a test replaces it with its own; the Group Policy views
+/// write to <see cref="Sysvol"/>) and the settings folder (a temporary directory); the computer remote client, tool
+/// launcher, ping and DNS resolver are fakes (K1), so are Outlook, its signatures and the U1 Outlook transport (U5).
+/// Unhandled UI exceptions are recorded instead of shown. Create and dispose it on the UI thread.
 /// </summary>
 /// <remarks>
 /// Per-connection services live in a connection scope (design note docs/dev/multi-window.md 10.3): <see cref="Services"/>
@@ -39,9 +43,11 @@ internal sealed class UiTestContext : IAsyncDisposable
         SampleCompany company,
         FakeDirectoryConnector connector,
         RecordingShutdown shutdown,
-        string settingsDirectory)
+        string settingsDirectory,
+        FakeSysvol sysvol)
     {
         Host = host;
+        Sysvol = sysvol;
         Shutdown = shutdown;
         Directory = directory;
         Company = company;
@@ -64,6 +70,12 @@ internal sealed class UiTestContext : IAsyncDisposable
 
     public FakeDirectoryBuilder Directory { get; }
 
+    /// <summary>
+    /// The writable SYSVOL of the Group Policy views (K2): the GPO folders of the fake domain controller (empty until a
+    /// test adds them, e.g. with <see cref="FakeDirectoryBuilder.AddGroupPolicyManagementSample"/>).
+    /// </summary>
+    public FakeSysvol Sysvol { get; }
+
     public SampleCompany Company { get; }
 
     public FakeDirectoryConnector Connector { get; }
@@ -73,6 +85,9 @@ internal sealed class UiTestContext : IAsyncDisposable
 
     public IReadOnlyList<Exception> Exceptions => _exceptions;
 
+    /// <summary>The in-memory Outlook of Korespondencja (U5), unless the test registered another client.</summary>
+    public FakeOutlookClient? Outlook => Host.Services.GetService<IOutlookClient>() as FakeOutlookClient;
+
     /// <param name="language">UI language ("en" / "pl").</param>
     /// <param name="configure">Further replacements of services (e.g. a scripted dialog service).</param>
     public static async Task<UiTestContext> CreateAsync(string language = "en", Action<IServiceCollection>? configure = null)
@@ -81,6 +96,7 @@ internal sealed class UiTestContext : IAsyncDisposable
         var company = directory.AddSampleCompany();
         var connector = new FakeDirectoryConnector(directory.Build());
         var shutdown = new RecordingShutdown();
+        var sysvol = new FakeSysvol();
         var settingsDirectory = Path.Combine(Path.GetTempPath(), "AdMng-uitests-" + Guid.NewGuid().ToString("N"));
         var options = new StartupOptions(Language: language, SettingsDirectory: settingsDirectory);
         var host = AppHost.Build(options, services =>
@@ -88,12 +104,41 @@ internal sealed class UiTestContext : IAsyncDisposable
             services.Replace(ServiceDescriptor.Singleton<IDirectoryConnector>(connector));
             services.Replace(ServiceDescriptor.Singleton<IAppShutdown>(shutdown));
             services.Replace(ServiceDescriptor.Singleton<Core.GroupPolicy.ISysvolFileReader>(new FakeSysvolFileReader()));
+            services.Replace(ServiceDescriptor.Singleton<Core.GroupPolicy.ISysvolFileWriter>(sysvol));
             configure?.Invoke(services);
+
+            // Computers (K1): no test reaches a computer over WinRM, DNS or ICMP or starts mstsc/mmc - fakes, unless the
+            // test registered its own instance above.
+            UseFake<Core.Computers.Remote.IRemoteComputerClient>(services, new FakeRemoteComputerClient());
+            UseFake<Core.Computers.Remote.ILocalToolLauncher>(services, new FakeLocalToolLauncher());
+            UseFake<Core.Computers.Remote.IPingService>(services, new FakePingService());
+            UseFake<Core.Computers.Remote.IHostAddressResolver>(services, new FakeHostAddressResolver());
+
+            // Dzienniki zdarzeń (track E): no test reads a real event log - an empty in-memory reader, unless the test
+            // registered its own instance above.
+            UseFake<Core.EventLogs.IEventLogConnector>(services, new Testing.EventLogs.FakeEventLogConnector());
+
+            // Korespondencja (U5): no test starts or attaches to Outlook or reads the operator's signatures - an in-memory
+            // Outlook (sample profile, every item recorded), one Polish signature and the U1 Outlook transport fake, unless
+            // the test registered its own instance above.
+            UseFake<IOutlookClient>(services, new FakeOutlookClient());
+            UseFake<IOutlookSignatureSource>(services, new FakeOutlookSignatureSource());
+            UseFake<IOutlookUserMessageTransportFactory>(services, new FakeOutlookUserMessageTransportFactory());
         });
-        var context = new UiTestContext(host, directory, company, connector, shutdown, settingsDirectory);
+        var context = new UiTestContext(host, directory, company, connector, shutdown, settingsDirectory, sysvol);
         await AppHost.InitializeAsync(host.Services, options);
         WpfTestHost.Bindings.Clear();
         return context;
+    }
+
+    /// <summary>Replaces the application's registration of <typeparamref name="T"/> with <paramref name="fake"/> unless a test registered an instance.</summary>
+    private static void UseFake<T>(IServiceCollection services, T fake)
+        where T : class
+    {
+        if (services.LastOrDefault(d => d.ServiceType == typeof(T)) is not { ImplementationInstance: not null })
+        {
+            services.Replace(ServiceDescriptor.Singleton(fake));
+        }
     }
 
     /// <summary>Connects the session manager to the sample company (as the connect window would).</summary>

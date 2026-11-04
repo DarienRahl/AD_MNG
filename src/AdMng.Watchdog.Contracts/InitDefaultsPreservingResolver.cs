@@ -22,8 +22,27 @@ internal sealed class InitDefaultsPreservingResolver(IJsonTypeInfoResolver gener
     public JsonTypeInfo? GetTypeInfo(Type type, JsonSerializerOptions options)
     {
         var info = generated.GetTypeInfo(type, options);
-        return info is { Kind: JsonTypeInfoKind.Object } && type.GetConstructor(Type.EmptyTypes) is not null
+        info = info is { Kind: JsonTypeInfoKind.Object } && type.GetConstructor(Type.EmptyTypes) is not null
             ? _reflection.GetTypeInfo(type, options)
             : info;
+        OmitWhenEmpty(info);
+        return info;
+    }
+
+    /// <summary>Properties marked <see cref="JsonOmitWhenEmptyAttribute"/> are written only when they hold an item.</summary>
+    private static void OmitWhenEmpty(JsonTypeInfo? info)
+    {
+        if (info is not { Kind: JsonTypeInfoKind.Object })
+        {
+            return;
+        }
+
+        foreach (var property in info.Properties)
+        {
+            if (property.AttributeProvider?.IsDefined(typeof(JsonOmitWhenEmptyAttribute), inherit: false) == true)
+            {
+                property.ShouldSerialize = static (_, value) => value is not System.Collections.ICollection { Count: 0 };
+            }
+        }
     }
 }

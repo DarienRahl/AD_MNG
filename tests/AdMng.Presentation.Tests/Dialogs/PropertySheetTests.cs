@@ -359,7 +359,7 @@ public class PropertySheetTests
         var (sheet, harness) = await OpenAsync(c => c.Computer1);
 
         Assert.Equal(
-            [L.Pages.General, L.Pages.OperatingSystem, L.Pages.MemberOf, L.Pages.Delegation, L.Pages.Location, L.Pages.ManagedBy,
+            [L.Pages.General, L.Pages.OperatingSystem, L.Computers.StatusPage, L.Pages.MemberOf, L.Pages.Delegation, L.Pages.Location, L.Pages.ManagedBy,
              L.Pages.Object, L.Pages.AttributeEditor],
             sheet.Pages.Select(p => p.Key));
         var general = Page(sheet, L.Pages.General);
@@ -435,7 +435,9 @@ public class PropertySheetTests
         Assert.Empty(editor.Rows);
 
         sheet.SelectedPage = editor;
-        await B2Harness.WaitUntilAsync(() => editor.Rows.Count > 0);
+
+        // The load fills the rows one by one at its end: the first row is no sign that it is over.
+        await B2Harness.WaitUntilAsync(() => !editor.IsLoading && editor.Rows.Count > 0);
 
         var department = Assert.Single(editor.Rows, r => r.Attribute == Attr.Department);
         Assert.Equal("IT", department.ValueText);

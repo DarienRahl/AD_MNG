@@ -1,3 +1,4 @@
+using AdMng.Core.GroupPolicy.Content;
 using AdMng.Watchdog.Contracts.Events;
 
 namespace AdMng.Watchdog.Core.Gpo;

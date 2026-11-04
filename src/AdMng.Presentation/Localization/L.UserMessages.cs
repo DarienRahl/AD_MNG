@@ -42,6 +42,9 @@ public static partial class L
         public const string SessionLogAction = "UserMessages.SessionLogAction";
         public const string ViaWatchdog = "UserMessages.ViaWatchdog";
         public const string ViaSmtp = "UserMessages.ViaSmtp";
+
+        /// <summary>"Wysyłka przez Outlooka: {0}" ({0} = the account, or the profile's default account) – U5, design note 5.</summary>
+        public const string ViaOutlook = "UserMessages.ViaOutlook";
         public const string PasswordRequired = "UserMessages.PasswordRequired";
         public const string CopyName = "UserMessages.CopyName";
         public const string CopiesRejected = "UserMessages.CopiesRejected";

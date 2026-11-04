@@ -15,6 +15,15 @@ public static class GroupPolicyAttributes
     public const string MachineExtensionNames = "gPCMachineExtensionNames";
     public const string WqlFilter = "gPCWQLFilter";
     public const string ServerReference = "serverReference";
+    public const string VersionNumber = "versionNumber";
+    public const string UserExtensionNames = "gPCUserExtensionNames";
+    public const string FunctionalityVersion = "gPCFunctionalityVersion";
+
+    /// <summary>objectClass of a group policy container.</summary>
+    public const string ContainerClass = "groupPolicyContainer";
+
+    /// <summary>objectClass of a WMI filter (<c>CN=SOM,CN=WMIPolicy,CN=System</c>).</summary>
+    public const string WmiFilterClass = "msWMI-Som";
 }
 
 /// <summary>A group policy container (GPC) of <c>CN=Policies,CN=System</c>.</summary>
@@ -229,43 +238,8 @@ public sealed class GroupPolicyTopology
             // No CN=Policies container: no GPOs.
         }
 
-        var containers = new List<GroupPolicySom>();
-        if (await session.GetAsync(domainDn, [Attr.GpLink, GroupPolicyAttributes.GpOptions], cancellationToken).ConfigureAwait(false) is { } head)
-        {
-            containers.Add(ToSom(head, GroupPolicySomKind.Domain));
-        }
-
-        await foreach (var ou in session.SearchAsync(new DirectorySearch
-        {
-            BaseDn = domainDn,
-            Scope = SearchScope.Subtree,
-            Filter = OrganizationalUnitFilter,
-            Attributes = [Attr.GpLink, GroupPolicyAttributes.GpOptions],
-            PageSize = pageSize,
-        }, cancellationToken).ConfigureAwait(false))
-        {
-            containers.Add(ToSom(ou, GroupPolicySomKind.OrganizationalUnit));
-        }
-
-        var sitesDn = DistinguishedName.Parse(session.Info.ConfigurationNamingContext).Child("CN", "Sites").ToString();
-        try
-        {
-            await foreach (var site in session.SearchAsync(new DirectorySearch
-            {
-                BaseDn = sitesDn,
-                Scope = SearchScope.OneLevel,
-                Filter = LdapFilter.And(LdapFilter.Equal(Attr.ObjectClass, "site"), LdapFilter.Present(Attr.GpLink)),
-                Attributes = [Attr.GpLink, GroupPolicyAttributes.GpOptions],
-                PageSize = pageSize,
-            }, cancellationToken).ConfigureAwait(false))
-            {
-                containers.Add(ToSom(site, GroupPolicySomKind.Site));
-            }
-        }
-        catch (DirectoryException ex) when (ex.Kind == DirectoryErrorKind.NoSuchObject)
-        {
-            // No CN=Sites (not a real AD): no site links.
-        }
+        var containers = await ReadContainersAsync(session, pageSize, cancellationToken).ConfigureAwait(false);
+        var sitesDn = SitesDn(session);
 
         // The sites of the DCs, only when a site links a GPO: server objects name their computer account.
         var dcSites = new Dictionary<DistinguishedName, string>();
@@ -318,6 +292,57 @@ public sealed class GroupPolicyTopology
 
         return new GroupPolicyTopology(domainDn, policies, containers, computers);
     }
+
+    /// <summary>
+    /// The containers GPOs are linked to: the domain head, the OUs with <c>gPLink</c> or <c>gPOptions</c> (one paged
+    /// search) and the sites with links (one search of the configuration NC; none when there is no <c>CN=Sites</c>).
+    /// </summary>
+    public static async Task<List<GroupPolicySom>> ReadContainersAsync(IDirectorySession session, int pageSize, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        var domainDn = session.Info.DefaultNamingContext;
+        var containers = new List<GroupPolicySom>();
+        if (await session.GetAsync(domainDn, [Attr.GpLink, GroupPolicyAttributes.GpOptions], cancellationToken).ConfigureAwait(false) is { } head)
+        {
+            containers.Add(ToSom(head, GroupPolicySomKind.Domain));
+        }
+
+        await foreach (var ou in session.SearchAsync(new DirectorySearch
+        {
+            BaseDn = domainDn,
+            Scope = SearchScope.Subtree,
+            Filter = OrganizationalUnitFilter,
+            Attributes = [Attr.GpLink, GroupPolicyAttributes.GpOptions],
+            PageSize = pageSize,
+        }, cancellationToken).ConfigureAwait(false))
+        {
+            containers.Add(ToSom(ou, GroupPolicySomKind.OrganizationalUnit));
+        }
+
+        try
+        {
+            await foreach (var site in session.SearchAsync(new DirectorySearch
+            {
+                BaseDn = SitesDn(session),
+                Scope = SearchScope.OneLevel,
+                Filter = LdapFilter.And(LdapFilter.Equal(Attr.ObjectClass, "site"), LdapFilter.Present(Attr.GpLink)),
+                Attributes = [Attr.GpLink, GroupPolicyAttributes.GpOptions],
+                PageSize = pageSize,
+            }, cancellationToken).ConfigureAwait(false))
+            {
+                containers.Add(ToSom(site, GroupPolicySomKind.Site));
+            }
+        }
+        catch (DirectoryException ex) when (ex.Kind == DirectoryErrorKind.NoSuchObject)
+        {
+            // No CN=Sites (not a real AD): no site links.
+        }
+
+        return containers;
+    }
+
+    private static string SitesDn(IDirectorySession session) =>
+        DistinguishedName.Parse(session.Info.ConfigurationNamingContext).Child("CN", "Sites").ToString();
 
     /// <summary>DC (server trust account or RODC), server (operatingSystem contains "Server") or workstation.</summary>
     public static ComputerRole RoleOf(DirectoryObject computer)

@@ -104,6 +104,11 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
             mime = MimeMessageFactory.CreateUserMessage(email, envelope, message.MessageId, localDomain, _timeProvider.GetUtcNow());
             sender = new MailboxAddress(null, MimeMessageFactory.ParseMailbox(smtp.From ?? string.Empty).Address);
         }
+        catch (AdMng.Core.Messaging.Images.MessageImageException)
+        {
+            // Checked when it was submitted; a payload that no longer passes is never sent (U1c).
+            return SmtpAttempt.Failed(ClassifiedDelivery.Failure(DeliveryOutcome.Permanent, "smtp.invalidImage"));
+        }
         catch (FormatException)
         {
             return SmtpAttempt.Failed(ClassifiedDelivery.Failure(DeliveryOutcome.Permanent, "smtp.invalidAddress"));

@@ -5,6 +5,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Audit;
 using AdMng.Core.Directory;
 using AdMng.Core.Messaging;
+using AdMng.Core.Messaging.Html;
 using AdMng.Core.Model;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Infrastructure;
@@ -29,11 +30,19 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
     /// <summary>Session log action of a send (<see cref="AuditEntry.Action"/>).</summary>
     public const string SessionLogAction = "SendUserMessages";
 
+    /// <summary>The pause in editing after which the HTML part of the template check runs (off the UI thread).</summary>
+    public static readonly TimeSpan HtmlCheckDelay = TimeSpan.FromMilliseconds(300);
+
     private readonly UserMessageServices _messages;
     private readonly SerialCancellation _plans = new();
     private readonly List<UserMessageItemViewModel> _items = [];
     private MessageTemplate _working;
     private bool _loading;
+    private IReadOnlyList<MessageIssue> _syntaxIssues = [];
+    private IReadOnlyList<MessageIssue> _htmlIssues = [];
+    private HtmlCheckKey? _htmlIssuesKey;
+    private HtmlCheckKey? _htmlCheckPending;
+    private Debouncer? _htmlCheck;
     private CancellationTokenSource? _sending;
     private IUserMessageTransport? _transport;
     private Task _currentRun = Task.CompletedTask;
@@ -253,6 +262,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
     protected override void Dispose(bool disposing)
     {
         _messages.Templates.Changed -= OnTemplatesChanged;
+        _htmlCheck?.Cancel();
         _plans.Cancel();
         _sending?.Cancel();
         base.Dispose(disposing);
@@ -327,9 +337,10 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
             Name = name,
             ConditionDays = ConditionDays,
         };
-        var stored = await _messages.Templates.SaveAsync(template).ConfigureAwait(true);
+        var stored = await _messages.Templates.SaveAsync(template, _images.Values).ConfigureAwait(true);
         SelectTemplate(stored.Id);
         Services.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.UserMessages.TemplateSaved, stored.Name));
+        await WarnWhenImageFolderIsLargeAsync().ConfigureAwait(true);
     }
 
     private bool CanSaveTemplate() => !string.IsNullOrWhiteSpace(TemplateName);
@@ -367,7 +378,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
 
         try
         {
-            var json = _messages.Templates.ExportJson();
+            var json = await _messages.Templates.ExportJsonAsync().ConfigureAwait(true);
             await File.WriteAllTextAsync(path, json).ConfigureAwait(true);
             Services.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.Files.Exported, _messages.Templates.Custom.Count, Path.GetFileName(path)));
         }
@@ -389,7 +400,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
 
         try
         {
-            var count = await _messages.Templates.ImportAsync(await File.ReadAllTextAsync(path).ConfigureAwait(true)).ConfigureAwait(true);
+            var count = await ImportTemplatesWithImagesAsync(await File.ReadAllTextAsync(path).ConfigureAwait(true)).ConfigureAwait(true);
             Services.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.UserMessages.TemplatesImported, count));
         }
         catch (Exception ex) when (ex is JsonException or FormatException)
@@ -436,7 +447,8 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
             return;
         }
 
-        if (await EnsureTransportAsync().ConfigureAwait(true) is not { } transport)
+        if (await EnsureTransportAsync().ConfigureAwait(true) is not { } transport
+            || !await FitsTransportAsync(transport, [planned], test: true).ConfigureAwait(true))
         {
             return;
         }
@@ -477,7 +489,8 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
     private async Task SendAsync()
     {
         var items = _items.Where(i => i.CanInclude && i.IsIncluded).ToList();
-        if (items.Count == 0 || await EnsureTransportAsync().ConfigureAwait(true) is not { } transport)
+        if (items.Count == 0 || await EnsureTransportAsync().ConfigureAwait(true) is not { } transport
+            || !await FitsTransportAsync(transport, [.. items.Select(i => i.Planned)], test: false).ConfigureAwait(true))
         {
             return;
         }
@@ -485,9 +498,10 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         var count = items.Count;
         var title = Localizer[L.UserMessages.Send];
         var threshold = Services.Settings.Current.UserMessages.ConfirmationThreshold;
+        var via = ConfirmationTransport(transport);
         var confirmed = count > threshold
-            ? await Services.Dialogs.ConfirmTypedAsync(title, Localizer.Format(L.UserMessages.ConfirmTyped, count, transport.Description, ConfirmationDomain), count.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(true)
-            : await Services.Dialogs.ConfirmAsync(title, Localizer.Format(L.UserMessages.Confirm, count, transport.Description, ConfirmationDomain), destructive: false).ConfigureAwait(true);
+            ? await Services.Dialogs.ConfirmTypedAsync(title, Localizer.Format(L.UserMessages.ConfirmTyped, count, via, ConfirmationDomain), count.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(true)
+            : await Services.Dialogs.ConfirmAsync(title, Localizer.Format(L.UserMessages.Confirm, count, via, ConfirmationDomain), destructive: false).ConfigureAwait(true);
         if (!confirmed)
         {
             return;
@@ -558,18 +572,18 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
             var planner = _messages.Planner;
             var template = _working with { ConditionDays = ConditionDays };
             var inputs = Inputs.ToDictionary(i => i.Name, i => i.Value, StringComparer.OrdinalIgnoreCase);
-            var templateIssues = planner.CheckTemplate(template, inputs, session.Schema);
+            var templateIssues = await Task.Run(() => planner.CheckTemplate(template, inputs, session.Schema), token).ConfigureAwait(true);
             if (templateIssues.Any(i => i.Severity == MessageIssueSeverity.Error))
             {
                 Error = string.Join(Environment.NewLine, templateIssues.Select(i => UserMessageText.Issue(Localizer, i)));
                 return;
             }
 
-            var accounts = await Task.Run(() => DirectoryLookup.ReadManyAsync(session, distinguishedNames, planner.AccountAttributesFor(template), token), token).ConfigureAwait(true);
+            var accounts = await Task.Run(() => DirectoryLookup.ReadManyAsync(session, distinguishedNames, planner.AccountAttributesFor(template, SalutationOptions), token), token).ConfigureAwait(true);
             var managerDns = accounts.Values.Select(a => a.GetString(Attr.Manager)).OfType<string>().Where(m => m.Length > 0).ToList();
             var managers = managerDns.Count == 0
                 ? []
-                : await Task.Run(() => DirectoryLookup.ReadManyAsync(session, managerDns, planner.ManagerAttributesFor(template), token), token).ConfigureAwait(true);
+                : await Task.Run(() => DirectoryLookup.ReadManyAsync(session, managerDns, planner.ManagerAttributesFor(template, SalutationOptions), token), token).ConfigureAwait(true);
             var policy = await ReadPolicyAsync(token).ConfigureAwait(true);
             var now = Services.Time.GetUtcNow();
             var request = new UserMessagePlanRequest
@@ -578,6 +592,8 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
                 Recipients = RecipientMode.Value,
                 ConditionDays = ConditionDays,
                 Inputs = inputs,
+                Images = await PlanImagesAsync().ConfigureAwait(true),
+                OmitImages = _omitImages,
                 Sender = UserMessageSenders.From(Services.Settings.Current.UserMessages, session.Info.DomainDnsName),
                 Accounts = [.. distinguishedNames.Select(dn =>
                 {
@@ -604,6 +620,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
             }
 
             ShowPlan(plan);
+            KeepForReplan(request);
             Stage = UserMessageStage.Preview;
             await RefreshTransportAsync().ConfigureAwait(true);
         }
@@ -690,6 +707,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         UserMessagePreviewFilter.Errors => item.Status == PlannedMessageStatus.Error,
         UserMessagePreviewFilter.Skipped => item.Status == PlannedMessageStatus.Skipped,
         UserMessagePreviewFilter.Excluded => item.IsExcluded,
+        UserMessagePreviewFilter.Guessed => item.HasGuessedSalutation,
         _ => true,
     };
 
@@ -724,7 +742,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         ProgressText = Localizer.Format(L.UserMessages.Progress, 0, items.Count, 0, 0);
         var operatorName = Session?.Info.BoundIdentity ?? string.Empty;
         var domainNc = Session?.Info.DefaultNamingContext ?? string.Empty;
-        var templateName = SelectedTemplate?.Text ?? string.Empty;
+        var templateName = WithRunNote(SelectedTemplate?.Text ?? string.Empty);
         ApplyRateSettings();
         var progress = Services.Dispatcher.CreateProgress<UserMessageProgress>(p =>
         {
@@ -809,7 +827,12 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
             _transport = choice.Transport;
             NeedsSmtpPassword = choice.NeedsPassword;
             TransportText = choice.Transport is { } transport
-                ? Localizer.Format(transport.Kind == UserMessageTransportKind.Watchdog ? L.UserMessages.ViaWatchdog : L.UserMessages.ViaSmtp, transport.Description)
+                ? transport.Kind switch
+                {
+                    UserMessageTransportKind.Watchdog => Localizer.Format(L.UserMessages.ViaWatchdog, transport.Description),
+                    UserMessageTransportKind.Outlook => Localizer.Format(L.UserMessages.ViaOutlook, OutlookAccountText()),
+                    _ => Localizer.Format(L.UserMessages.ViaSmtp, transport.Description),
+                }
                 : Localizer[UserMessageText.ProblemKey(choice.Problem ?? UserMessageTransportChoiceResult.SmtpNotConfigured)];
         }
         catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or TimeoutException)
@@ -818,6 +841,17 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
             TransportText = Errors.Translate(ex);
         }
     }
+
+    /// <summary>The Outlook account of the settings, or "konto domyślne profilu" (U5).</summary>
+    private string OutlookAccountText() =>
+        Services.Settings.Current.UserMessages.OutlookAccount is { Length: > 0 } account ? account : Localizer[L.UserMessagesOutlook.DefaultAccount];
+
+    /// <summary>Where the messages go, as the send confirmation names it: the transport's description (a server, a service),
+    /// for Outlook "Outlooka (konto domyślne profilu)" in the UI language – its description is a technical value (U5).</summary>
+    private string ConfirmationTransport(IUserMessageTransport transport) =>
+        transport.Kind == UserMessageTransportKind.Outlook
+            ? Localizer.Format(L.UserMessagesOutlook.Description, OutlookAccountText())
+            : transport.Description;
 
     /// <summary>The transport for a send; asks the SMTP password from the window's box when needed (kept in memory only).</summary>
     private async Task<IUserMessageTransport?> EnsureTransportAsync()
@@ -894,6 +928,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         try
         {
             _working = template;
+            OnTemplateLoaded(template);
             TemplateName = UserMessageTemplateLibrary.IsBuiltIn(template.Id) ? Localizer.Format(L.UserMessages.CopyName, template.Name) : template.Name;
             Condition = Conditions.First(c => c.Value == template.Condition);
             ConditionDays = conditionDays ?? template.ConditionDays;
@@ -938,10 +973,38 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         RefreshTemplateCheck();
     }
 
+    /// <summary>The template check while editing (rule 6): syntax, fields and inputs at once; the HTML part – the
+    /// sanitizer over both languages, up to a few hundred milliseconds for a pasted Outlook message – off the UI thread
+    /// after a pause in typing, once per HTML (editing the subject or the text does not run it again).</summary>
     private void RefreshTemplateCheck()
     {
-        var issues = _messages.Planner.CheckTemplate(_working, null, OpenedSessionSchema);
-        TemplateErrors = issues.Count == 0 ? null : string.Join(Environment.NewLine, issues.Select(i => UserMessageText.Issue(Localizer, i)));
+        _syntaxIssues = _messages.Planner.CheckTemplate(_working, null, OpenedSessionSchema, checkHtml: false);
+        var key = HtmlCheckKey.Of(_working);
+        if (key == _htmlIssuesKey)
+        {
+            _htmlCheckPending = null;
+            _htmlCheck?.Cancel();
+        }
+        else if (key != _htmlCheckPending)
+        {
+            _htmlIssues = [];
+            _htmlIssuesKey = null;
+            _htmlCheckPending = key;
+            var template = _working;
+            _ = (_htmlCheck ??= new Debouncer(Services.Time, HtmlCheckDelay)).RunAsync(async token =>
+            {
+                var issues = await Task.Run(() => MessageHtmlChecks.CheckTemplate(template), token).ConfigureAwait(true);
+                if (!token.IsCancellationRequested && !IsDisposed && key == _htmlCheckPending)
+                {
+                    _htmlIssues = issues;
+                    _htmlIssuesKey = key;
+                    _htmlCheckPending = null;
+                    ShowTemplateErrors();
+                }
+            });
+        }
+
+        ShowTemplateErrors();
         var names = _messages.Planner.InputsOf(_working).Where(n => !UserMessageRules.IsForbiddenInputName(n)).ToList();
         var keep = Inputs.ToDictionary(i => i.Name, i => i.Value, StringComparer.OrdinalIgnoreCase);
         if (!names.SequenceEqual(Inputs.Select(i => i.Name), StringComparer.OrdinalIgnoreCase))
@@ -954,6 +1017,23 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
 
             OnPropertyChanged(nameof(HasInputs));
         }
+    }
+
+    private void ShowTemplateErrors()
+    {
+        var issues = _syntaxIssues.Concat(_htmlIssues).Distinct().ToList();
+        TemplateErrors = issues.Count == 0 ? null : string.Join(Environment.NewLine, issues.Select(i => UserMessageText.Issue(Localizer, i)));
+    }
+
+    /// <summary>What the HTML part of the template check depends on: both HTML bodies and the template's images.</summary>
+    private sealed record HtmlCheckKey(string? Polish, string? English, string Images)
+    {
+        public static HtmlCheckKey Of(MessageTemplate template) => new(
+            template.Polish.Html,
+            template.English.Html,
+            string.Join(",", (template.Images ?? []).Select(i => i.ContentId)));
+
+        public override string ToString() => $"HtmlCheckKey({Polish?.Length ?? 0}, {English?.Length ?? 0})";
     }
 
     private IReadOnlyList<Option<string>> CreateTemplateOptions() =>

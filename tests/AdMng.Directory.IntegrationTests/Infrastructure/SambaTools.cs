@@ -68,6 +68,39 @@ internal sealed partial class SambaTools : IDisposable
         Assert.True(result.Exit == 0, "samba-tool dsacl set failed: " + result.Output + result.Error);
     }
 
+    /// <summary>
+    /// A read-only <c>samba-tool gpo</c> verb (README K2 lab tests: <c>show</c>, <c>getlink</c>, <c>getinheritance</c>);
+    /// returns its output, asserting success.
+    /// </summary>
+    public async Task<string> GpoQueryAsync(string verb, string argument, CancellationToken cancellationToken)
+    {
+        Assert.Contains(verb, new[] { "show", "getlink", "getinheritance" });
+        var result = await SambaToolAsync(["gpo", verb, argument], cancellationToken);
+        Assert.True(result.Exit == 0, $"samba-tool gpo {verb} failed: " + result.Output + result.Error);
+        return result.Output;
+    }
+
+    /// <summary>
+    /// <c>samba-tool gpo list &lt;account&gt;</c> (K5): the GPOs Samba lists for a user or computer account (its OU chain,
+    /// disabled links, block inheritance and enforced links, read access of the account's token, the GPO's flags – not the
+    /// Apply Group Policy right, sites or the order of precedence). <c>AsComputer</c>: Samba took the account for a computer
+    /// (its header says "GPOs for computer"; some versions say "user" for every account and then skip the GPOs with the user
+    /// configuration disabled instead of the computer one).
+    /// </summary>
+    public async Task<(bool AsComputer, IReadOnlySet<Guid> Gpos)> GpoListAsync(string accountName, CancellationToken cancellationToken)
+    {
+        var result = await SambaToolAsync(["gpo", "list", accountName], cancellationToken);
+        Assert.True(result.Exit == 0, "samba-tool gpo list failed: " + result.Output + result.Error);
+        var lines = result.Output.Split('\n');
+        var asComputer = lines.Any(line => line.StartsWith("GPOs for computer ", StringComparison.Ordinal));
+        return (asComputer, lines
+            .Where(line => line.StartsWith("    ", StringComparison.Ordinal))
+            .Select(line => GpoName().Match(line))
+            .Where(match => match.Success)
+            .Select(match => Guid.Parse(match.Groups[1].Value))
+            .ToHashSet());
+    }
+
     /// <summary><c>samba-tool gpo del</c> (removes the links, the container and the SYSVOL folder; best effort).</summary>
     public async Task DeleteGpoAsync(Guid gpo)
     {
@@ -107,6 +140,23 @@ internal sealed partial class SambaTools : IDisposable
         finally
         {
             File.Delete(local);
+        }
+    }
+
+    /// <summary>
+    /// Removes folders below the domain's <c>Policies</c> folder, in the order given, when they are empty (a central store a
+    /// test created); a folder that is not empty or cannot be removed is reported, not thrown.
+    /// </summary>
+    public async Task RemoveEmptyPoliciesFoldersAsync(IReadOnlyList<string> relativeFolders)
+    {
+        foreach (var folder in relativeFolders)
+        {
+            Assert.True(SysvolPaths.TryNormalize(folder, out var path));
+            var result = await SmbAsync("rmdir \"" + LabSettings.DomainDns + "/Policies/" + path + "\"", CancellationToken.None);
+            if (result.Exit != 0)
+            {
+                TestContext.Current.SendDiagnosticMessage($"smbclient rmdir {path} failed: {result.Output}{result.Error}");
+            }
         }
     }
 
@@ -207,6 +257,10 @@ internal sealed partial class SambaTools : IDisposable
     [GeneratedRegex(@"created as (\{[0-9A-Fa-f-]{36}\})", RegexOptions.CultureInvariant)]
     private static partial Regex GpoCreated();
 
+    /// <summary>The <c>{GUID}</c> name at the end of a line of <c>samba-tool gpo list</c>.</summary>
+    [GeneratedRegex(@"(\{[0-9A-Fa-f-]{36}\})\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex GpoName();
+
     internal sealed record ProcessResult(int Exit, byte[] Bytes, string Error)
     {
         public string Output => Encoding.UTF8.GetString(Bytes);
@@ -247,14 +301,24 @@ internal sealed class SmbClientSysvolFileReader(string address, string userName,
     {
         public string Server { get; } = server;
 
-        public async Task<SysvolFileResult> ReadGpoFileAsync(Guid gpoId, string relativePath, long maxBytes, CancellationToken cancellationToken)
+        public Task<SysvolFileResult> ReadGpoFileAsync(Guid gpoId, string relativePath, long maxBytes, CancellationToken cancellationToken) =>
+            ReadAsync(SysvolPaths.FolderName(gpoId), relativePath, maxBytes, cancellationToken);
+
+        public Task<SysvolFileResult> ReadPolicyDefinitionsFileAsync(string relativePath, long maxBytes, CancellationToken cancellationToken) =>
+            ReadAsync(SysvolPaths.PolicyDefinitionsFolder, relativePath, maxBytes, cancellationToken);
+
+        /// <summary>The read-only lab reader does not list; the K3 lab tests use <see cref="SmbClientSysvolFileWriter"/>.</summary>
+        public Task<IReadOnlyList<SysvolEntry>?> ListPolicyDefinitionsAsync(int maxEntries, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("The read-only lab reader does not list the central store.");
+
+        private async Task<SysvolFileResult> ReadAsync(string folder, string relativePath, long maxBytes, CancellationToken cancellationToken)
         {
             if (!SysvolPaths.TryNormalize(relativePath, out var path))
             {
                 throw new ArgumentException("Invalid relative path.", nameof(relativePath));
             }
 
-            var remote = domain + "/Policies/" + SysvolPaths.FolderName(gpoId) + "/" + path;
+            var remote = domain + "/Policies/" + folder + "/" + path;
             var result = await SambaTools.RunAsync(
                 "/usr/bin/smbclient",
                 ["//" + Server + "/SYSVOL", "-I", address, "-U", userName, "-m", "SMB3", "-c", "get \"" + remote + "\" -"],

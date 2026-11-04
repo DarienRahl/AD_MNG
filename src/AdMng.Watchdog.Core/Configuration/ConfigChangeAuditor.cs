@@ -433,6 +433,7 @@ public sealed class ConfigChangeAuditor
                     return property is "enabled" or "recipientGroupIds" or "channelIds" ? Severity.High : Severity.Medium;
                 case "userMessages":
                     // Who may send in the name of the IT department (README U1b): switching it on or widening the senders.
+                    // allowInlineImages and maxStoredImageMb (U1c) are Medium.
                     return property is "enabled" or "allowedSenders" ? Severity.High : Severity.Medium;
                 case "retention":
                     return Decreased(oldNode, newNode) ? Severity.Critical : Severity.Medium;

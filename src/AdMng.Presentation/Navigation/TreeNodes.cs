@@ -252,7 +252,7 @@ public sealed partial class ContainerNodeViewModel : TreeNodeViewModel
                     _tree.Unregister(child);
                 }
 
-                Children.ReplaceAll([]);
+                Children.ReplaceAll([.. VirtualChildren()]);
                 ChildrenLoaded = false;
             }).ConfigureAwait(true);
         }
@@ -290,7 +290,12 @@ public sealed partial class ContainerNodeViewModel : TreeNodeViewModel
             _tree.Unregister(removed);
         }
 
-        Children.ReplaceAll(next);
+        // The virtual nodes of the domain (Group Policy, K2) stay at the top, before the containers.
+        Children.ReplaceAll([.. VirtualChildren(), .. next]);
         ChildrenLoaded = true;
     }
+
+    /// <summary>The children that are not directory containers (the Group Policy nodes under the domain).</summary>
+    private List<TreeNodeViewModel> VirtualChildren() =>
+        [.. Children.Where(c => c is not ContainerNodeViewModel and not PlaceholderNodeViewModel)];
 }

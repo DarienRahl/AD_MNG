@@ -19,6 +19,7 @@ internal sealed class InMemoryDirectorySession : IDirectorySession
 {
     private readonly ConcurrentDictionary<string, DirectoryObject> _objects = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentQueue<DirectorySearch> _searches = new();
+    private readonly ConcurrentQueue<string> _reads = new();
     private readonly List<(string Container, Action<string> Callback)> _watchers = [];
     private int _getCount;
 
@@ -271,10 +272,15 @@ internal sealed class InMemoryDirectorySession : IDirectorySession
     /// <summary>Number of base reads (<see cref="GetAsync"/>).</summary>
     public int GetCount => _getCount;
 
+    /// <summary>DNs of the base reads (<see cref="GetAsync"/>), in order. Background reads a view model starts on its own
+    /// (the privilege check of the bound account) may land at any time: count the reads of the DN a test is about.</summary>
+    public IReadOnlyList<string> Reads => [.. _reads];
+
     public Task<DirectoryObject?> GetAsync(string distinguishedName, IReadOnlyList<string> attributes, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         Interlocked.Increment(ref _getCount);
+        _reads.Enqueue(distinguishedName);
         var obj = Find(distinguishedName);
         return Task.FromResult(obj is null ? null : Project(obj, attributes));
     }

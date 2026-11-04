@@ -58,7 +58,7 @@ public static class WatchdogDisplay
         DeliveryHints.BasicAuthDisabled, DeliveryHints.SmtpAuthDisabledForMailbox, DeliveryHints.DirectSendRejected,
         DeliveryHints.CertificateUntrusted, DeliveryHints.RevocationUnavailable, DeliveryHints.StartTlsMissing,
         DeliveryHints.RetiredTeamsUrl, DeliveryHints.AcceptedNotDelivered, DeliveryHints.TeamsAuthMismatch,
-        DeliveryHints.WebhookGone, DeliveryHints.SecretRebindRequired,
+        DeliveryHints.WebhookGone, DeliveryHints.SecretRebindRequired, DeliveryHints.MessageTooLarge,
     ];
 
     /// <summary>Validation codes of section 8.3 (errors and warnings).</summary>

@@ -51,6 +51,12 @@ public interface IDialogService
     Task ShowSessionLogAsync();
 
     /// <summary>
+    /// "Pomoc → Zgłoś problem…": the value-free problem report of this connection window (modeless, one per connection
+    /// window; an open one is activated).
+    /// </summary>
+    Task ShowProblemReportAsync();
+
+    /// <summary>
     /// Opens the AD Recycle Bin window (modeless, one per application; an open one is activated). With
     /// <paramref name="select"/> the deleted object with that objectGUID is selected once the list is loaded (the
     /// Watchdog tab opens a deleted object this way).

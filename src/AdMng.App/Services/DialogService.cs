@@ -36,7 +36,7 @@ namespace AdMng.App.Services;
 /// the window closed (<see cref="MarkClosed"/>) leftover background work of the connection can no longer show anything:
 /// messages are dropped and confirmations answer "no" (logged by type only).
 /// </remarks>
-public sealed class DialogService : IDialogService, IUserMessageLauncher, IObjectComparisonLauncher
+public sealed partial class DialogService : IDialogService, IUserMessageLauncher, IObjectComparisonLauncher
 {
     private readonly IWindowService _windows;
     private readonly ILocalizer _localizer;
@@ -261,6 +261,13 @@ public sealed class DialogService : IDialogService, IUserMessageLauncher, IObjec
     });
 
     public Task ShowSettingsAsync() => OnUiThreadAsync(_tools.ShowSettings);
+
+    // ---- Problem report, Pomoc → Zgłoś problem… (modeless, one window) ----
+    public Task ShowProblemReportAsync() => OnUiThreadAsync(() =>
+    {
+        _tools.ShowProblemReport();
+        return true;
+    });
 
     // ---- AD Recycle Bin (modeless, one window) ----
     public Task ShowRecycleBinAsync(Guid? select = null) => OnUiThreadAsync(() =>

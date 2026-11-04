@@ -1,3 +1,4 @@
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Core.Attribution;
 using AdMng.Watchdog.Testing.Fixtures.SecurityEvents;
 

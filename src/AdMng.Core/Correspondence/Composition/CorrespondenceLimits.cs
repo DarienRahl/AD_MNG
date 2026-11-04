@@ -1,0 +1,36 @@
+namespace AdMng.Core.Correspondence.Composition;
+
+/// <summary>Limits of Korespondencja messages (design note 3.3; the per-message ones are checked by the renderer).</summary>
+public static class CorrespondenceLimits
+{
+    /// <summary>Inline images of one message.</summary>
+    public const int MaxImagesPerMessage = 50;
+
+    /// <summary>Bytes of one image after metadata stripping (10 MiB).</summary>
+    public const int MaxImageBytes = 10 * 1024 * 1024;
+
+    /// <summary>Bytes of all inline images of one message (25 MiB).</summary>
+    public const long MaxImagesBytesPerMessage = 25L * 1024 * 1024;
+
+    /// <summary>Attachments above this size are warned about (MailerWPiA's warning, 15 MiB).</summary>
+    public const long AttachmentWarningBytes = 15L * 1024 * 1024;
+
+    /// <summary>Images and attachments of one message above this size are warned about (20 MiB).</summary>
+    public const long MessageWarningBytes = 20L * 1024 * 1024;
+
+    /// <summary>Recipients of one BCC message (the Exchange Online limit).</summary>
+    public const int MaxBccPerMessage = 500;
+
+    /// <summary>Most addresses in DW and in UDW together (copies added to every message of a run).</summary>
+    public const int MaxCopies = 50;
+
+    public const int MaxSubjectLength = 255;
+
+    /// <summary>Rows of the recipient list.</summary>
+    public const int MaxRecipients = 100_000;
+
+    /// <summary>The image limits of formatted content pasted into the message (one body, so the "template" limits are the
+    /// message's): the paste importer otherwise applies those of messages to users (1 MiB, 10 images, 2 MiB).</summary>
+    public static Messaging.Html.HtmlImageLimits PastedImages { get; } =
+        new(MaxImageBytes, MaxImagesPerMessage, MaxImagesBytesPerMessage, MaxImagesPerMessage, MaxImagesBytesPerMessage);
+}

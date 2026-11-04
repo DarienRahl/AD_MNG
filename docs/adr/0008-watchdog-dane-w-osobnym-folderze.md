@@ -127,3 +127,26 @@ mieszczą się w nich tak:
   skrótów i treści.
 - Funkcja jest domyślnie wyłączona (`userMessages.enabled`), a strona AD Managera pozostaje pod pełnym zakazem ADR-0003:
   wiadomości i raport istnieją w procesie WPF tylko w pamięci.
+
+## Uzupełnienie: obrazy w treści wiadomości do użytkowników (U1c)
+
+Od U1c wiadomość do użytkownika może mieć obrazy osadzone w treści (logo, zrzut ekranu z instrukcji – wklejone w AD
+Managerze z Outlooka, docs/dev/u1c-u1d-rich-html-and-salutations.md rozdz. 9, docs/WATCHDOG.md rozdz. 5.8). Warunki
+tej decyzji i uzupełnienia U1b obowiązują bez zmian; obrazy mieszczą się w nich tak:
+
+- **Tylko w treści wiadomości w kolejce.** Obrazy (PNG, JPEG, GIF – sprawdzone przez usługę, z usuniętymi metadanymi)
+  są częścią kolumny `payload` wiadomości w `outbox` i znikają z nią: zaraz po wysłaniu, a nieudane po `OutboxDeadDays`.
+  Nie ma osobnej tabeli ani deduplikacji obrazów między wiadomościami; nie ma ich w audycie (`user_messages` – skrót
+  treści do kontroli idempotencji obejmuje obrazy, ale nie przechowuje ich), w dzienniku wysyłek ani w dziennikach
+  diagnostycznych (tylko liczby i kody).
+- **Ograniczona ilość** (schemat 7): kolumna `outbox.image_bytes` zapisuje rozmiar obrazów wiadomości, która jeszcze nie
+  została wysłana albo została porzucona (po wysłaniu 0); suma jest ograniczona przez `userMessages.maxStoredImageMb`
+  (domyślnie 256, 16–4096) – powyżej usługa odpowiada 429 `imageStorageFull` (`Retry-After` 1 h) dla wiadomości z
+  obrazami, nie wstrzymując wiadomości bez obrazów ani alarmów. Tylko trasa `POST /api/v1/user-messages` przyjmuje
+  treść żądania do 6 MiB.
+- **Wyłączalne:** `userMessages.allowInlineImages` (domyślnie włączone; zmiana o ważności „średnia” w audycie
+  konfiguracji) – wyłączone: wiadomości z obrazami są odrzucane (`imagesDisabled`), a status nie zgłasza możliwości
+  `inlineImages`.
+- Obrazy nigdy nie pochodzą z katalogu (`thumbnailPhoto`/`jpegPhoto` nie są polami szablonów) – to stałe elementy
+  szablonu operatora, takie same dla każdego odbiorcy. Strona AD Managera pozostaje pod pełnym zakazem ADR-0003 (patrz
+  uzupełnienie ADR-0003 o szablonach).

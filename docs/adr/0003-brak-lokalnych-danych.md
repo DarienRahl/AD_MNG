@@ -25,3 +25,31 @@ do lokalnej bazy, co tworzy kopię danych osobowych i ryzyko wycieku.
   VLV dla ogromnych kontenerów, równoległe zapytania, odświeżanie pojedynczego obiektu po zmianie, powiadomienia o zmianach.
 - Raporty (np. nieaktywne konta) są zapytaniami LDAP wykonywanymi na bieżąco, a nie analizą lokalnej bazy.
 - Testy i code review pilnują, by żadne logowanie nie zawierało wartości atrybutów.
+
+## Uzupełnienie: szablony wiadomości do użytkowników (U1a, U1c)
+
+Szablony wiadomości do użytkowników – temat, tekst, HTML (także wklejony z Outlooka) i **ich obrazy** (logo, zrzuty
+ekranu z instrukcji) – są **ustawieniami operatora**, jak zapisane widoki, a nie danymi katalogu: mogą być zapisane w
+folderze ustawień (`settings.json`, obrazy w `message-images\{sha256}.png|jpg|gif` obok) i w pliku eksportu szablonów,
+który operator zapisuje sam. Warunek: nic, co pochodzi z katalogu, nie trafia do szablonu ani do ustawień – pola
+`{givenName}` itp. są wypełniane dopiero w pamięci przy planie, żaden atrybut (np. `thumbnailPhoto`) nie jest źródłem
+obrazu, a wybór płci w podglądzie (U1d) działa tylko na bieżącą wysyłkę. Wygenerowane wiadomości, podgląd (także w
+WebView2 – treść i obrazy podawane z pamięci, folder tymczasowy przeglądarki usuwany przy zamknięciu) i raport istnieją
+tylko w pamięci.
+
+## Uzupełnienie: dziennik „już wysłane” Korespondencji (U5)
+
+Okno *Korespondencja* (wysyłka przez Outlooka, [KORESPONDENCJA.md](../KORESPONDENCJA.md)) pomija adresy, do których już
+wysłano, także po przerwaniu wysyłki i ponownym uruchomieniu programu. Dlatego w folderze ustawień
+(`correspondence\journal.txt`) może leżeć dziennik wysyłek – ale **bez adresów**: każdy wiersz to skrót z kluczem
+(HMAC-SHA-256 z losowym kluczem użytkownika, pierwsze 16 bajtów), czas wysyłki i temat tak, jak go wpisał operator (bez
+wypełnionych pól). Skrót obejmuje adres odbiorcy, a dla wierszy zapytania o skrzynki (zakładka *Skrzynki*) – adres
+właściciela **razem z adresem skrzynki**, a gdy skrzynka nie ma adresu, z jej DN (znormalizowany adres, znak nowego
+wiersza i adres lub DN skrzynki małymi literami): taki wiersz jest „już wysłany” tylko w sprawie tej skrzynki. Klucz
+(`journal.key`) jest zaszyfrowany DPAPI dla bieżącego użytkownika Windows, `journal.lock` to pusty plik blokady, a gdy
+klucza nie da się odczytać (inny komputer albo konto) albo dziennik ma nieznany format, poprzedni dziennik zostaje jako
+`journal-<data>.old` – z tymi samymi skrótami i w tym samym okresie przechowywania. Żaden adres, nazwa ani adres czy DN
+skrzynki nie trafia do tych plików jawnym tekstem. Z dziennika nie da się odczytać listy adresów ani skrzynek, a jedynie
+sprawdzić, czy do znanego adresu (dla wierszy skrzynek: w sprawie znanej skrzynki – znanej pary adres i skrzynka) już
+wysłano. Lista odbiorców, wartości pól z AD, podgląd, raport i dopasowania właścicieli skrzynek istnieją tylko w
+pamięci; szablony Korespondencji i ostatni szkic wiadomości to ustawienia operatora, jak szablony U1.

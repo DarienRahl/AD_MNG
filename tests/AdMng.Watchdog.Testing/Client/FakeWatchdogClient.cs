@@ -44,6 +44,7 @@ public sealed class FakeWatchdogClient : IWatchdogClient
     private WatchdogClientOptions? _options;
     private ConfigEnvelope _config;
     private long _nextId;
+    private int _waitingLongPolls;
 
     /// <param name="timeProvider">Clock of the long-poll waits and of acknowledgements (default: system clock).</param>
     /// <param name="sampleData">Fill with the Polish sample data (default) or start empty.</param>
@@ -116,7 +117,8 @@ public sealed class FakeWatchdogClient : IWatchdogClient
     public Func<string, TestChannelRequest, DeliveryTestResult>? ChannelTestHandler { get; set; }
 
     /// <summary>Result of <c>GET /user-messages/status</c> (default: like a fresh service – the SMTP channel
-    /// smtp.contoso.com:587 is configured, messages to users are switched off).</summary>
+    /// smtp.contoso.com:587 is configured, messages to users are switched off; inline images (U1c) are supported with the
+    /// service's limits, see <see cref="WithoutInlineImages"/> for an older service).</summary>
     public UserMessagingStatusDto UserMessagingStatus { get; set; } = new()
     {
         Enabled = false,
@@ -125,7 +127,35 @@ public sealed class FakeWatchdogClient : IWatchdogClient
         Sender = "watchdog@contoso.com",
         MaxMessagesPerHour = 300,
         MaxMessagesPerDay = 2000,
+        Capabilities = [UserMessagingCapabilities.InlineImages],
+        MaxInlineImages = UserMessageLimits.MaxInlineImages,
+        MaxInlineImageBytes = UserMessageLimits.MaxInlineImageBytes,
+        MaxInlineImagesTotalBytes = UserMessageLimits.MaxInlineImagesTotalBytes,
+        MaxHtmlLength = UserMessageLimits.MaxHtmlLength,
+        MaxStoredImageBytes = 256L * 1024 * 1024,
     };
+
+    /// <summary>The status of an older (U1b) service, or one with <c>userMessages.allowInlineImages</c> off: no
+    /// capabilities, no image limits, HTML up to 100 000 characters.</summary>
+    public static UserMessagingStatusDto WithoutInlineImages(UserMessagingStatusDto status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        return status with
+        {
+            Capabilities = [],
+            MaxInlineImages = 0,
+            MaxInlineImageBytes = 0,
+            MaxInlineImagesTotalBytes = 0,
+            MaxHtmlLength = 100_000,
+            StoredImageBytes = 0,
+            MaxStoredImageBytes = 0,
+        };
+    }
+
+    /// <summary>How the fake answers a message with images while <see cref="UserMessagingStatus"/> lacks the
+    /// <c>inlineImages</c> capability: true (default) = like an older service (400 <c>invalidJson</c>, the member is
+    /// unknown), false = like a new service with images switched off (400 <c>imagesDisabled</c>).</summary>
+    public bool RejectImagesAsOlderService { get; set; } = true;
 
     /// <summary>Result of <c>POST /user-messages</c> per request (default: Delivered, 250). A repeated id answers the first
     /// result with <see cref="UserMessageResult.Duplicate"/> like the service.</summary>
@@ -194,6 +224,14 @@ public sealed class FakeWatchdogClient : IWatchdogClient
     }
 
     public IReadOnlyList<EventQuery> EventQueries => Snapshot(_eventQueries);
+
+    /// <summary>
+    /// Long-polls (<see cref="GetEventsAsync"/> with <c>After</c> and a wait) that wait for a newer event or for their
+    /// deadline, the deadline's timer already set. The deadline counts from the request: a test that moves the clock to the
+    /// next status round of a visible tab first waits until the poller is back in its long-poll – moved earlier, the poll
+    /// would wait for a time the test never reaches.
+    /// </summary>
+    public int WaitingLongPolls => Volatile.Read(ref _waitingLongPolls);
 
     public IReadOnlyList<(long Id, AcknowledgeRequest Request)> Acknowledgements => Snapshot(_acknowledgements);
 
@@ -747,6 +785,17 @@ public sealed class FakeWatchdogClient : IWatchdogClient
                 };
             }
 
+            if (request.InlineImages.Count > 0 && !UserMessagingStatus.Capabilities.Contains(UserMessagingCapabilities.InlineImages))
+            {
+                var (path, code) = RejectImagesAsOlderService ? ("$", "invalidJson") : ("inlineImages", UserMessageIssueCodes.ImagesDisabled);
+                throw new WatchdogClientException(WatchdogClientErrorKind.Validation, "The request was rejected.")
+                {
+                    StatusCode = 400,
+                    ProblemType = ApiProblem.Validation,
+                    Issues = [new ConfigIssue { Path = path, Code = code, Severity = IssueSeverity.Error, Message = code }],
+                };
+            }
+
             var result = UserMessageHandler?.Invoke(request)
                          ?? new UserMessageResult { Id = request.Id, State = UserMessageState.Delivered, Code = "ok", SmtpStatus = 250 };
             return repeated ? result with { Duplicate = true } : result;
@@ -916,7 +965,17 @@ public sealed class FakeWatchdogClient : IWatchdogClient
             return;
         }
 
-        var winner = await Task.WhenAny(signal, delay).ConfigureAwait(false);
+        Task winner;
+        Interlocked.Increment(ref _waitingLongPolls);
+        try
+        {
+            winner = await Task.WhenAny(signal, delay).ConfigureAwait(false);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _waitingLongPolls);
+        }
+
         await timeout.CancelAsync().ConfigureAwait(false);
         if (cancellationToken.IsCancellationRequested || (winner == delay && delay.IsCanceled))
         {

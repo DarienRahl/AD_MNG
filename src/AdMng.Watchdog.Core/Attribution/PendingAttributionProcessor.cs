@@ -1,3 +1,4 @@
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
@@ -101,7 +102,7 @@ public sealed class PendingAttributionProcessor(
             Evidence = [Evidence(candidate.Event)],
             ResolvedAt = timeProvider.GetUtcNow(),
         };
-        tracker.RecordOutcome(HostNames.Normalize(candidate.Event.Computer), attributed: true);
+        tracker.RecordOutcome(EventHostNames.Normalize(candidate.Event.Computer), attributed: true);
         return Final(watchEvent, attribution, actor.AddedTags) with { Plan = plan };
     }
 

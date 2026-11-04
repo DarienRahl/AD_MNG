@@ -75,7 +75,10 @@ internal sealed class TestUiThread : IUiDispatcher, IDisposable
     {
         ArgumentNullException.ThrowIfNull(body);
         T result = default!;
-        await RunAsync(async () => result = await body());
+
+        // A block body: an expression lambda ("result = await body()") is a Func<Task<T>> too, and that overload is the
+        // better match – this method would call itself.
+        await RunAsync(async () => { result = await body(); });
         return result;
     }
 

@@ -15,6 +15,16 @@
         xmlns:shell="clr-namespace:AdMng.Presentation.Shell;assembly=AdMng.Presentation"
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         xmlns:wd="clr-namespace:AdMng.Presentation.Watchdog;assembly=AdMng.Presentation"
+        xmlns:gpv="clr-namespace:AdMng.App.GroupPolicy"
+        xmlns:gpd="clr-namespace:AdMng.Presentation.GroupPolicy;assembly=AdMng.Presentation"
+        xmlns:gpat="clr-namespace:AdMng.Presentation.GroupPolicy.AdministrativeTemplates;assembly=AdMng.Presentation"
+        xmlns:gpmod="clr-namespace:AdMng.Presentation.GroupPolicy.Modeling;assembly=AdMng.Presentation"
+        xmlns:gpdiag="clr-namespace:AdMng.Presentation.GroupPolicy.Diagnostics;assembly=AdMng.Presentation"
+        xmlns:gpsec="clr-namespace:AdMng.Presentation.GroupPolicy.SecuritySettings;assembly=AdMng.Presentation"
+        xmlns:evt="clr-namespace:AdMng.Presentation.EventLogs;assembly=AdMng.Presentation"
+        xmlns:evtv="clr-namespace:AdMng.App.EventLogs"
+        xmlns:rd="clr-namespace:AdMng.Presentation.Readiness;assembly=AdMng.Presentation"
+        xmlns:rdv="clr-namespace:AdMng.App.Readiness"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1360"
         Height="840"
@@ -91,6 +101,30 @@
                  Style="{StaticResource Ad.SecondaryText}"
                  Text="{Binding Name, Mode=OneWay}" />
     </DataTemplate>
+
+    <!-- Group Policy nodes under the domain (K2): Obiekty zasad grupy with its GPOs, Filtry WMI, Lokacje with the sites. -->
+    <HierarchicalDataTemplate DataType="{x:Type nav:GroupPolicyNodeViewModel}" ItemsSource="{Binding Children}">
+      <StackPanel Orientation="Horizontal" ToolTip="{Binding HelpText, Mode=OneWay}">
+        <c:ObjectIconView Margin="0,0,6,0"
+                          VerticalAlignment="Center"
+                          Icon="{Binding Icon, Mode=OneWay}"
+                          Size="16" />
+        <TextBlock VerticalAlignment="Center" Text="{Binding Name, Mode=OneWay}" />
+        <TextBlock Margin="6,0,0,0"
+                   FontSize="10"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Refresh}"
+                   Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <TextBlock Margin="6,0,0,0"
+                   FontSize="12"
+                   Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Error}"
+                   ToolTip="{Binding LoadError, Mode=OneWay}"
+                   Visibility="{Binding LoadError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+      </StackPanel>
+    </HierarchicalDataTemplate>
 
     <!-- Document tabs: header only; the documents are hosted below so every tab keeps its list, scroll and selection. -->
     <Style x:Key="TabStripStyle" TargetType="TabControl" BasedOn="{StaticResource {x:Type TabControl}}">
@@ -349,8 +383,23 @@
         <MenuItem b:CommandMenu.Id="object.disable" />
         <MenuItem b:CommandMenu.Id="object.enable" />
         <MenuItem b:CommandMenu.Id="object.unlock" />
+        <MenuItem b:CommandMenu.Id="events.lockout" />
         <MenuItem b:CommandMenu.Id="object.resetPassword" />
+        <!-- Computers (K1): remote actions and tools for the selected computer, Reset Account. -->
+        <MenuItem x:Name="ComputerMenuItem" Header="{l:Tr Computers.ComputerMenu}">
+          <MenuItem b:CommandMenu.Id="computer.remote" />
+          <MenuItem b:CommandMenu.Id="computer.remoteDesktop" />
+          <MenuItem b:CommandMenu.Id="computer.manage" />
+          <MenuItem b:CommandMenu.Id="computer.eventViewer" />
+          <MenuItem b:CommandMenu.Id="events.computer" />
+          <MenuItem b:CommandMenu.Id="computer.ping" />
+          <MenuItem b:CommandMenu.Id="gpo.model" />
+          <Separator />
+          <MenuItem b:CommandMenu.Id="computer.reset" />
+        </MenuItem>
         <MenuItem b:CommandMenu.Id="object.sendMessage" />
+        <MenuItem b:CommandMenu.Id="object.correspondence" />
+        <MenuItem b:CommandMenu.Id="object.mailboxOwners" />
         <MenuItem b:CommandMenu.Id="object.move" />
         <MenuItem b:CommandMenu.Id="object.batchEdit" />
         <Separator />
@@ -370,6 +419,20 @@
         </MenuItem>
         <MenuItem b:CommandMenu.Id="object.watchdogHistory" />
         <MenuItem b:CommandMenu.Id="object.compareWithConnection" />
+        <!-- Group Policy (K2): the container's Group Policy, links, block inheritance and the GPO documents. -->
+        <MenuItem x:Name="GroupPolicyMenuItem" Header="{l:Tr GroupPolicy.ContainerPoliciesCommand}">
+          <MenuItem b:CommandMenu.Id="gpo.containerPolicies" />
+          <MenuItem b:CommandMenu.Id="gpo.newLinked" />
+          <MenuItem b:CommandMenu.Id="gpo.linkExisting" />
+          <MenuItem b:CommandMenu.Id="gpo.blockInheritance" />
+          <Separator />
+          <MenuItem b:CommandMenu.Id="gpo.model" />
+          <MenuItem b:CommandMenu.Id="gpo.modelUser" />
+          <Separator />
+          <MenuItem b:CommandMenu.Id="gpo.objects" />
+          <MenuItem b:CommandMenu.Id="gpo.wmiFilters" />
+          <MenuItem b:CommandMenu.Id="gpo.diagnose" />
+        </MenuItem>
         <MenuItem b:CommandMenu.Id="object.delete" />
         <MenuItem b:CommandMenu.Id="object.rename" />
         <Separator />
@@ -378,6 +441,7 @@
       <MenuItem Header="{l:Tr Shell.MenuView}">
         <MenuItem b:CommandMenu.Id="view.advanced" IsChecked="{Binding ShowAdvancedFeatures, Mode=OneWay}" />
         <MenuItem b:CommandMenu.Id="view.details" IsChecked="{Binding IsDetailsPaneVisible, Mode=OneWay}" />
+        <MenuItem x:Name="GroupPolicyNodesMenuItem" b:CommandMenu.Id="view.groupPolicyNodes" IsChecked="{Binding Tree.IsGroupPolicyShown, Mode=OneWay}" />
         <MenuItem x:Name="FiltersMenuItem"
                   Click="OnFiltersMenuClick"
                   Header="{l:Tr Ui.ShowFilters}" />
@@ -426,8 +490,13 @@
         <Separator />
         <MenuItem b:CommandMenu.Id="tools.recycleBin" />
         <MenuItem b:CommandMenu.Id="tools.accountReview" />
+        <MenuItem b:CommandMenu.Id="tools.correspondence" />
+        <MenuItem b:CommandMenu.Id="tools.computerReview" />
         <MenuItem b:CommandMenu.Id="tools.savedFilters" />
         <MenuItem b:CommandMenu.Id="tools.watchdog" />
+        <MenuItem b:CommandMenu.Id="events.open" />
+        <MenuItem b:CommandMenu.Id="events.failedLogons" />
+        <MenuItem b:CommandMenu.Id="tools.readiness" />
         <Separator />
         <MenuItem b:CommandMenu.Id="tools.sessionLog" />
         <MenuItem x:Name="PowerShellHistoryMenuItem"
@@ -439,6 +508,8 @@
       </MenuItem>
       <MenuItem Header="{l:Tr Shell.MenuHelp}">
         <MenuItem b:CommandMenu.Id="tools.palette" />
+        <MenuItem b:CommandMenu.Id="tools.readiness" />
+        <MenuItem x:Name="ReportProblemMenuItem" b:CommandMenu.Id="help.reportProblem" />
         <Separator />
         <MenuItem Click="OnAboutClick" Header="{l:Tr Ui.About}" />
       </MenuItem>
@@ -750,6 +821,84 @@
                         ToolTip="{l:Tr Commands.CloseTab}" />
               </StackPanel>
             </DataTemplate>
+            <!-- Event log documents (track E). -->
+            <DataTemplate DataType="{x:Type evt:EventLogDocumentBase}">
+              <StackPanel Orientation="Horizontal" ToolTip="{Binding Title, Mode=OneWay}">
+                <c:ObjectIconView Margin="0,0,6,0"
+                                  VerticalAlignment="Center"
+                                  Icon="{Binding Icon, Mode=OneWay}"
+                                  Size="14" />
+                <TextBlock MaxWidth="220"
+                           VerticalAlignment="Center"
+                           Text="{Binding Title, Mode=OneWay}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Margin="4,0,0,0"
+                           FontSize="10"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{x:Static c:Glyphs.Refresh}"
+                           Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <Button Margin="6,0,0,0"
+                        AutomationProperties.Name="{l:Tr Commands.CloseTab}"
+                        Click="OnCloseTabClick"
+                        Content="{x:Static c:Glyphs.Close}"
+                        Focusable="False"
+                        Style="{StaticResource Ad.SmallIconButton}"
+                        ToolTip="{l:Tr Commands.CloseTab}" />
+              </StackPanel>
+            </DataTemplate>
+            <!-- Gotowość środowiska (stage S). -->
+            <DataTemplate DataType="{x:Type rd:ReadinessDocumentViewModel}">
+              <StackPanel Orientation="Horizontal" ToolTip="{Binding Title, Mode=OneWay}">
+                <c:ObjectIconView Margin="0,0,6,0"
+                                  VerticalAlignment="Center"
+                                  Icon="{Binding Icon, Mode=OneWay}"
+                                  Size="14" />
+                <TextBlock MaxWidth="220"
+                           VerticalAlignment="Center"
+                           Text="{Binding Title, Mode=OneWay}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Margin="4,0,0,0"
+                           FontSize="10"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{x:Static c:Glyphs.Refresh}"
+                           Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <Button Margin="6,0,0,0"
+                        AutomationProperties.Name="{l:Tr Commands.CloseTab}"
+                        Click="OnCloseTabClick"
+                        Content="{x:Static c:Glyphs.Close}"
+                        Focusable="False"
+                        Style="{StaticResource Ad.SmallIconButton}"
+                        ToolTip="{l:Tr Commands.CloseTab}" />
+              </StackPanel>
+            </DataTemplate>
+            <!-- Group Policy documents (K2). -->
+            <DataTemplate DataType="{x:Type gpd:GroupPolicyDocumentBase}">
+              <StackPanel Orientation="Horizontal" ToolTip="{Binding Title, Mode=OneWay}">
+                <c:ObjectIconView Margin="0,0,6,0"
+                                  VerticalAlignment="Center"
+                                  Icon="{Binding Icon, Mode=OneWay}"
+                                  Size="14" />
+                <TextBlock MaxWidth="220"
+                           VerticalAlignment="Center"
+                           Text="{Binding Title, Mode=OneWay}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Margin="4,0,0,0"
+                           FontSize="10"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{x:Static c:Glyphs.Refresh}"
+                           Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <Button Margin="6,0,0,0"
+                        AutomationProperties.Name="{l:Tr Commands.CloseTab}"
+                        Click="OnCloseTabClick"
+                        Content="{x:Static c:Glyphs.Close}"
+                        Focusable="False"
+                        Style="{StaticResource Ad.SmallIconButton}"
+                        ToolTip="{l:Tr Commands.CloseTab}" />
+              </StackPanel>
+            </DataTemplate>
           </TabControl.Resources>
           <TabControl.ItemContainerStyle>
             <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
@@ -790,6 +939,49 @@
             </DataTemplate>
             <DataTemplate DataType="{x:Type wd:WatchdogDocumentViewModel}">
               <wdv:WatchdogView />
+            </DataTemplate>
+            <!-- Group Policy documents (K2). -->
+            <DataTemplate DataType="{x:Type gpd:GroupPolicyObjectsDocumentViewModel}">
+              <gpv:GroupPolicyObjectsView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type gpd:GroupPolicyObjectDocumentViewModel}">
+              <gpv:GroupPolicyObjectView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type gpd:GroupPolicyScopeDocumentViewModel}">
+              <gpv:GroupPolicyScopeView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type gpd:WmiFiltersDocumentViewModel}">
+              <gpv:WmiFiltersView />
+            </DataTemplate>
+            <!-- Administrative templates (K3). -->
+            <DataTemplate DataType="{x:Type gpat:AdministrativeTemplatesEditorViewModel}">
+              <gpv:AdministrativeTemplatesEditorView />
+            </DataTemplate>
+            <!-- Security settings (K4). -->
+            <DataTemplate DataType="{x:Type gpsec:SecuritySettingsEditorViewModel}">
+              <gpv:SecuritySettingsEditorView />
+            </DataTemplate>
+            <!-- Group Policy modelling, "co dostanie komputer" (K5). -->
+            <DataTemplate DataType="{x:Type gpmod:GroupPolicyModelingDocumentViewModel}">
+              <gpv:GroupPolicyModelingView />
+            </DataTemplate>
+            <!-- Group Policy diagnostics (K6). -->
+            <DataTemplate DataType="{x:Type gpdiag:GroupPolicyDiagnosticsDocumentViewModel}">
+              <gpv:GroupPolicyDiagnosticsView />
+            </DataTemplate>
+            <!-- Event logs (track E): the reader, the lockout source, the failed logons. -->
+            <DataTemplate DataType="{x:Type evt:EventLogReaderDocumentViewModel}">
+              <evtv:EventLogReaderView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type evt:LockoutDocumentViewModel}">
+              <evtv:LockoutView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type evt:FailedLogonsDocumentViewModel}">
+              <evtv:FailedLogonsView />
+            </DataTemplate>
+            <!-- Gotowość środowiska (stage S). -->
+            <DataTemplate DataType="{x:Type rd:ReadinessDocumentViewModel}">
+              <rdv:ReadinessView />
             </DataTemplate>
           </ItemsControl.Resources>
         </ItemsControl>
@@ -976,6 +1168,22 @@
                   <Button Margin="0,0,6,6"
                           b:CommandMenu.Id="object.move"
                           Content="{l:Tr Commands.Move}" />
+                  <!-- Computers (K1): the remote actions window of the selected computer. -->
+                  <Button x:Name="ComputerRemoteActionsButton"
+                          Margin="0,0,6,6"
+                          b:CommandMenu.Id="computer.remote"
+                          Content="{l:Tr Computers.RemoteActionsCommand}">
+                    <Button.Style>
+                      <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="Computer">
+                            <Setter Property="Visibility" Value="Visible" />
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Button.Style>
+                  </Button>
                   <!-- "What happened to this account?" – only offered when a watchdog service is configured. -->
                   <Button x:Name="WatchdogHistoryButton"
                           Margin="0,0,6,6"

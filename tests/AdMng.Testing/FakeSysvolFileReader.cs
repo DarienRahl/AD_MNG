@@ -39,6 +39,10 @@ public sealed class FakeSysvolFileReader : ISysvolFileReader
     /// <summary>Stores Groups.xml (UTF-8 with BOM - as the GPP editor writes it).</summary>
     public void PutGroups(Guid gpo, string xml) => Put(gpo, GppGroupsParser.RelativePath, [0xEF, 0xBB, 0xBF, .. Encoding.UTF8.GetBytes(xml)]);
 
+    /// <summary>Stores a file of the central store <c>PolicyDefinitions</c> (K3).</summary>
+    public void PutPolicyDefinition(string relativePath, byte[] content) =>
+        _files[SysvolPaths.PolicyDefinitionsFolder + "/" + (SysvolPaths.TryNormalize(relativePath, out var path) ? path : relativePath)] = content;
+
     /// <summary>The read of this file fails with <paramref name="status"/>.</summary>
     public void Fail(Guid gpo, string relativePath, SysvolFileStatus status) => _failures[Key(gpo, relativePath)] = status;
 
@@ -90,6 +94,28 @@ public sealed class FakeSysvolFileReader : ISysvolFileReader
             }
 
             return Task.FromResult(content.Length > maxBytes ? SysvolFileResult.TooLarge : SysvolFileResult.Of([.. content]));
+        }
+
+        public Task<IReadOnlyList<SysvolEntry>?> ListPolicyDefinitionsAsync(int maxEntries, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            const string Prefix = SysvolPaths.PolicyDefinitionsFolder + "/";
+            var files = owner._files.Where(f => f.Key.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)).ToList();
+            return Task.FromResult<IReadOnlyList<SysvolEntry>?>(files.Count == 0
+                ? null
+                : [.. files.Select(f => new SysvolEntry(f.Key[Prefix.Length..], false, f.Value.Length, DateTimeOffset.UnixEpoch))
+                    .OrderBy(e => e.RelativePath, StringComparer.OrdinalIgnoreCase).Take(maxEntries)]);
+        }
+
+        public Task<SysvolFileResult> ReadPolicyDefinitionsFileAsync(string relativePath, long maxBytes, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var key = SysvolPaths.PolicyDefinitionsFolder + "/" + (SysvolPaths.TryNormalize(relativePath, out var path) ? path
+                : throw new ArgumentException("Invalid relative path.", nameof(relativePath)));
+            owner._reads.Enqueue(key);
+            return Task.FromResult(!owner._files.TryGetValue(key, out var content) ? SysvolFileResult.NotFound
+                : content.Length > maxBytes ? SysvolFileResult.TooLarge
+                : SysvolFileResult.Of([.. content]));
         }
 
         public ValueTask DisposeAsync()

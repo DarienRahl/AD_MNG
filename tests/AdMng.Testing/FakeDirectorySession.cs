@@ -104,6 +104,13 @@ public sealed partial class FakeDirectorySession : IDirectorySession
     public string DomainSid { get; set; } = DefaultDomainSid;
 
     /// <summary>
+    /// Base reads of a user or computer compute <c>tokenGroups</c> like AD (nested security groups and the primary group)
+    /// when no value was stored for it (<c>SetValues</c> overrides; off by default: tests of an unreadable tokenGroups
+    /// rely on it being empty).
+    /// </summary>
+    public bool ComputesTokenGroups { get; set; }
+
+    /// <summary>
     /// Distinguishes the objectGUIDs of this directory from those of another fake built the same way (0 = the default
     /// GUIDs <c>a0d10000-…</c>). Two fake domains with the same sample data otherwise give the same object the same GUID,
     /// which only two views of ONE directory may do. Set it before seeding.
@@ -115,6 +122,12 @@ public sealed partial class FakeDirectorySession : IDirectorySession
 
     /// <summary>Highest number of calls that were in progress at the same time.</summary>
     public int MaxObservedConcurrency => Volatile.Read(ref _maxObservedConcurrency);
+
+    /// <summary>
+    /// Opt-in: the nTSecurityDescriptor an object created through <see cref="AddAsync"/> gets when the request carries none
+    /// (argument: the new DN; null result = no descriptor). Unset (the default), created objects have no descriptor.
+    /// </summary>
+    public Func<string, byte[]?>? NewObjectSecurityDescriptor { get; set; }
 
     /// <summary>Permissions returned for objects without <see cref="SetPermissions"/> (default: unknown).</summary>
     public EffectivePermissions DefaultPermissions { get; set; } = EffectivePermissions.Unknown;
@@ -547,7 +560,10 @@ public sealed partial class FakeDirectorySession : IDirectorySession
             Modifications = [.. modifications],
             ModifyOptions = options,
         };
-        var dn = await RunAsync(operation, cancellationToken, () => ApplyModify(distinguishedName, modifications, options?.Permissive == true)).ConfigureAwait(false);
+        var dn = await RunAsync(
+            operation,
+            cancellationToken,
+            () => ApplyModify(distinguishedName, modifications, options?.Permissive == true, options?.SecurityDescriptorFlags ?? SecurityDescriptorRights.None)).ConfigureAwait(false);
         Notify(dn);
     }
 
@@ -1035,7 +1051,11 @@ public sealed partial class FakeDirectorySession : IDirectorySession
 
     // ---------------------------------------------------------------- writes
 
-    private DistinguishedName ApplyModify(string distinguishedName, IReadOnlyList<AttributeModification> modifications, bool permissive)
+    private DistinguishedName ApplyModify(
+        string distinguishedName,
+        IReadOnlyList<AttributeModification> modifications,
+        bool permissive,
+        SecurityDescriptorRights securityDescriptorFlags = SecurityDescriptorRights.None)
     {
         var entry = FindExisting(distinguishedName);
         var work = entry.CloneAttributes();
@@ -1055,6 +1075,21 @@ public sealed partial class FakeDirectorySession : IDirectorySession
             if (string.Equals(name, Attr.PwdLastSet, StringComparison.OrdinalIgnoreCase))
             {
                 work[name] = [PwdLastSetValue(modification, values, distinguishedName)];
+                touched.Add(name);
+                continue;
+            }
+
+            if (securityDescriptorFlags != SecurityDescriptorRights.None && string.Equals(name, Attr.NtSecurityDescriptor, StringComparison.OrdinalIgnoreCase))
+            {
+                // SD flags control: only the named parts of the written descriptor replace the stored ones (as AD does).
+                if (modification.Operation != ModificationOperation.Replace || values is not [byte[] written])
+                {
+                    throw Error(53, "nTSecurityDescriptor with the SD flags control takes one replaced value.", distinguishedName);
+                }
+
+                var stored = work.TryGetValue(name, out var storedValues) && storedValues is [byte[] storedBytes] ? storedBytes : null;
+                work[name] = [FakeSecurityDescriptor.Merge(stored, written, securityDescriptorFlags)
+                    ?? throw Error(21, "The written security descriptor is malformed.", distinguishedName)];
                 touched.Add(name);
                 continue;
             }
@@ -1407,6 +1442,13 @@ public sealed partial class FakeDirectorySession : IDirectorySession
 
         var classes = ExpandClasses(requestedClasses.OfType<string>());
         work[Attr.ObjectClass] = [.. classes];
+        if (NewObjectSecurityDescriptor is { } securityFactory && !work.ContainsKey(Attr.NtSecurityDescriptor)
+            && securityFactory(distinguishedName) is { } descriptor)
+        {
+            // AD gives every new object a descriptor (owner = the creator, DACL from the class default and the parent).
+            work[Attr.NtSecurityDescriptor] = [descriptor];
+        }
+
         var rdnAttribute = Canonical(dn.Leaf.Type);
         if (work.TryGetValue(rdnAttribute, out var rdnValues) && !(rdnValues is [string rdnValue] && rdnValue.Equals(dn.Name, StringComparison.OrdinalIgnoreCase)))
         {
@@ -1820,6 +1862,8 @@ public sealed partial class FakeDirectorySession : IDirectorySession
             case Attr.AllowedAttributesEffective:
                 var permissions = _permissions.TryGetValue(entry.Dn, out var configured) ? configured : DefaultPermissions;
                 return permissions.IsKnown ? [.. permissions.WritableAttributes] : [];
+            case Attr.TokenGroups when ComputesTokenGroups && entry.HasClass(ObjectClasses.User) && !entry.IsDeleted && !entry.Attributes.ContainsKey(Attr.TokenGroups):
+                return TokenGroupsOf(entry);
         }
 
         if (Schema.FindAttribute(name) is { IsBackLink: true, LinkId: { } linkId }
@@ -2011,6 +2055,56 @@ public sealed partial class FakeDirectorySession : IDirectorySession
     {
         var counter = ++_guidCounter;
         return new Guid($"a0d1{GuidNamespace & 0xFFFF:x4}-0000-4000-8000-{counter:x12}");
+    }
+
+    /// <summary>
+    /// tokenGroups as AD computes it: the SIDs (binary) of every security group the account is in, nested and through its
+    /// primary group; distribution groups are not in a token.
+    /// </summary>
+    private List<object> TokenGroupsOf(Entry account)
+    {
+        var groups = _entries.Values.Where(e => !e.IsDeleted && e.HasClass(ObjectClasses.Group)).ToList();
+        var found = new List<Entry>();
+        var seen = new HashSet<DistinguishedName>();
+        var queue = new Queue<Entry>();
+        void Visit(Entry group)
+        {
+            if (seen.Add(group.Dn))
+            {
+                found.Add(group);
+                queue.Enqueue(group);
+            }
+        }
+
+        if (account.First(Attr.PrimaryGroupId) is { } primary)
+        {
+            foreach (var group in groups.Where(g => RidOf(g)?.ToString(CultureInfo.InvariantCulture) == primary
+                && g.Attributes.TryGetValue(Attr.ObjectSid, out var sid) && sid is [byte[] bytes] && AdConvert.SidToString(bytes).StartsWith(DomainSid + "-", StringComparison.Ordinal)))
+            {
+                Visit(group);
+            }
+        }
+
+        bool Contains(Entry group, DistinguishedName member) => group.Attributes.TryGetValue(Attr.Member, out var members)
+            && members.OfType<string>().Any(m => DistinguishedName.TryParse(m, out var dn) && dn == member);
+        foreach (var group in groups.Where(g => Contains(g, account.Dn)))
+        {
+            Visit(group);
+        }
+
+        while (queue.TryDequeue(out var group))
+        {
+            foreach (var parent in groups.Where(g => Contains(g, group.Dn)))
+            {
+                Visit(parent);
+            }
+        }
+
+        return [.. found
+            .Where(g => g.First(Attr.GroupType) is not { } type || GroupTypes.IsSecurity(int.Parse(type, CultureInfo.InvariantCulture)))
+            .Select(g => g.Attributes.TryGetValue(Attr.ObjectSid, out var sid) && sid is [byte[] bytes] ? bytes : null)
+            .OfType<byte[]>()
+            .Select(b => (object)b)];
     }
 
     private static uint? RidOf(Entry entry) =>

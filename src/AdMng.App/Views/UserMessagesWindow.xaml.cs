@@ -7,17 +7,22 @@ namespace AdMng.App.Views;
 
 /// <summary>
 /// Messages to users (<see cref="UserMessageComposerViewModel"/>, README U1). The SMTP password box is handed to the view
-/// model as an <see cref="PasswordBoxInput"/> (read only when sending, then cleared); F5 prepares the preview.
+/// model as an <see cref="PasswordBoxInput"/> (read only when sending, then cleared); F5 prepares the preview,
+/// Ctrl+Shift+V pastes formatted content (U1c). Both HTML previews render through the application's
+/// <see cref="WebView2Host"/> (null: the HTML source is shown).
 /// </summary>
 public partial class UserMessagesWindow : Window, IDialogResultWindow
 {
     private readonly WindowViewModelLifecycle _lifecycle;
 
-    public UserMessagesWindow(UserMessageComposerViewModel viewModel)
+    public UserMessagesWindow(UserMessageComposerViewModel viewModel, WebView2Host? previewHost = null)
     {
         ViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         InitializeComponent();
         UiLanguage.ApplyTo(this);
+        ComposePreviewView.Host = previewHost;
+        MessagePreviewView.Host = previewHost;
+        TrackHtmlCaret(viewModel);
         DataContext = viewModel;
         viewModel.SmtpPasswordInput = new PasswordBoxInput(SmtpPasswordBox);
         _lifecycle = new WindowViewModelLifecycle(this, viewModel);
@@ -31,4 +36,24 @@ public partial class UserMessagesWindow : Window, IDialogResultWindow
 
     /// <summary>Completes when the view model finished initializing.</summary>
     public Task Initialization => _lifecycle.Initialization;
+
+    /// <summary>"Wklej obraz" inserts at the caret of the HTML source: the caret the operator placed there (while the box has
+    /// the keyboard focus); a text set by the view model (template, paste) forgets it, so the image goes to the end.</summary>
+    private void TrackHtmlCaret(UserMessageComposerViewModel viewModel)
+    {
+        HtmlBox.SelectionChanged += (_, _) =>
+        {
+            if (HtmlBox.IsKeyboardFocused)
+            {
+                viewModel.HtmlCaretIndex = HtmlBox.CaretIndex;
+            }
+        };
+        HtmlBox.TextChanged += (_, _) =>
+        {
+            if (!HtmlBox.IsKeyboardFocused)
+            {
+                viewModel.HtmlCaretIndex = -1;
+            }
+        };
+    }
 }

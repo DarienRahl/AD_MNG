@@ -260,13 +260,13 @@ public class GroupPolicyGrantSourceTests
         // Linked at the domain head, filtered to "Serwery SQL" and denied to the DCs: local admins on one SQL server, not Tier 0.
         var sql = builder.AddGroupPolicyObject("Admini SQL");
         sysvol.PutSecurityTemplate(sql, FakeDirectoryBuilder.Template("[Group Membership]", $"*{builder.SidOf(sqlAdmins)}__Memberof = *S-1-5-32-544"));
-        SetAcl(builder, sql, read, FakeAce.ExtendedRight(builder.SidOf(sqlServers), apply),
-            new FakeAce(FakeAce.AccessDeniedObject, 0, 0x100, domainControllers, apply));
+        SetAcl(builder, sql, new FakeAce(FakeAce.AccessDeniedObject, 0, 0x100, domainControllers, apply), read,
+            FakeAce.ExtendedRight(builder.SidOf(sqlServers), apply));
 
         // Applied by Authenticated Users but denied to Enterprise Domain Controllers: every member computer, no DC.
         var debug = AddDefaultAclGpo(builder, sysvol, "Debugowanie poza kontrolerami", $"SeDebugPrivilege = *{builder.SidOf(company.ZbigniewKazmierczak)}");
-        SetAcl(builder, debug, read, FakeAce.ExtendedRight(PrivilegedGroupCatalog.AuthenticatedUsersSid, apply),
-            new FakeAce(FakeAce.AccessDeniedObject, 0, 0x100, GroupPolicySecurityFilter.EnterpriseDomainControllersSid, apply));
+        SetAcl(builder, debug, new FakeAce(FakeAce.AccessDeniedObject, 0, 0x100, GroupPolicySecurityFilter.EnterpriseDomainControllersSid, apply),
+            read, FakeAce.ExtendedRight(PrivilegedGroupCatalog.AuthenticatedUsersSid, apply));
         builder.SetGroupPolicyLinks(builder.DomainDn, [(sql, 0), (debug, 0)]);
 
         // On OU=Komputery, applied by the laptop's computer account only (an inherit-only Apply ACE does not count).
@@ -293,11 +293,11 @@ public class GroupPolicyGrantSourceTests
     {
         var apply = GroupPolicySecurityFilter.ApplyGroupPolicyRight;
         var descriptor = FakeSecurityDescriptor.Build("S-1-5-21-1-2-3-512", null,
+            new FakeAce(FakeAce.AccessDeniedObject, 0, 0x100, "S-1-5-21-1-2-3-516", apply),
             FakeAce.FullControl("S-1-5-18"),
             new FakeAce(FakeAce.AccessAllowed, 0, 0xF00FF, "S-1-5-21-1-2-3-512"),
             FakeAce.ExtendedRight("S-1-5-21-1-2-3-1105", apply),
             FakeAce.ExtendedRight("S-1-5-21-1-2-3-1106", new Guid("1131f6aa-9c07-11d1-f79f-00c04fc2dcd2")),
-            new FakeAce(FakeAce.AccessDeniedObject, 0, 0x100, "S-1-5-21-1-2-3-516", apply),
             new FakeAce(FakeAce.AccessAllowedObject, 0x0A, 0x100, "S-1-5-11", apply));
 
         var filter = GroupPolicySecurityFilter.FromDescriptor(descriptor)!;

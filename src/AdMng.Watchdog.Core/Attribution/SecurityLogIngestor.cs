@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Xml.Linq;
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
@@ -335,7 +336,7 @@ public sealed partial class SecurityLogIngestor(
                 continue;
             }
 
-            tracker.RecordComputerName(HostNames.Normalize(record.Event.Computer), record.Event.Computer);
+            tracker.RecordComputerName(EventHostNames.Normalize(record.Event.Computer), record.Event.Computer);
             foreach (var detected in await DetectAsync(record.Event, context, cancellationToken).ConfigureAwait(false))
             {
                 await AddAsync(pass, detected, cancellationToken).ConfigureAwait(false);
@@ -365,7 +366,7 @@ public sealed partial class SecurityLogIngestor(
     internal async Task<IReadOnlyList<WatchEvent>> DetectAsync(SecurityEvent record, IngestionContext context, CancellationToken cancellationToken)
     {
         var detections = new List<WatchEvent>(1);
-        var computer = HostNames.Normalize(record.Computer);
+        var computer = EventHostNames.Normalize(record.Computer);
         if (EventLogGapDetector.ReasonOf(record) is { } reason)
         {
             if (reason is EventLogGapDetector.LogCleared or EventLogGapDetector.LogFull)

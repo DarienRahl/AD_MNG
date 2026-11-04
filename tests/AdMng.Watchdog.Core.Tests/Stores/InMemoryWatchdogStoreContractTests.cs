@@ -6,4 +6,6 @@ namespace AdMng.Watchdog.Core.Tests.Stores;
 public sealed class InMemoryWatchdogStoreContractTests : WatchdogStoreContractTests<InMemoryWatchdogStore>
 {
     protected override Task<InMemoryWatchdogStore> CreateStoreAsync() => Task.FromResult(new InMemoryWatchdogStore(Clock));
+
+    protected override Task<long> StoredImageBytesAsync(InMemoryWatchdogStore store) => Task.FromResult(store.StoredImageBytes());
 }

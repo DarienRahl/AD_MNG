@@ -4,6 +4,7 @@ using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Errors;
+using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
@@ -27,6 +28,7 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
     private readonly Dictionary<string, ContainerNodeViewModel> _index = new(StringComparer.Ordinal);
     private bool _suppressActivation;
     private int _viewsInactiveDays;
+    private bool _groupPolicyShown;
 
     public NavigationTreeViewModel(
         ISessionManager sessions,
@@ -35,7 +37,8 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         IUiDispatcher dispatcher,
         ErrorTranslator errors,
         ViewLibrary views,
-        IDirectoryChangeNotifier changes)
+        IDirectoryChangeNotifier changes,
+        GroupPolicyViewModelFactory? groupPolicy = null)
     {
         Sessions = sessions ?? throw new ArgumentNullException(nameof(sessions));
         Settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -44,11 +47,16 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         Errors = errors ?? throw new ArgumentNullException(nameof(errors));
         _views = views ?? throw new ArgumentNullException(nameof(views));
         _changes = changes ?? throw new ArgumentNullException(nameof(changes));
+        GroupPolicy = groupPolicy;
         ViewsNode = new FolderNodeViewModel(this, null, localizer[L.Tree.Views], ObjectIcon.Query) { IsExpanded = true };
         _views.Changed += OnViewsChanged;
         _changes.Changed += OnDirectoryChanged;
         Localizer.CultureChanged += OnCultureChanged;
         Settings.Changed += OnSettingsChanged;
+        if (GroupPolicy is not null)
+        {
+            GroupPolicy.Services.Changed += OnGroupPolicyChanged;
+        }
     }
 
     /// <summary>Raised when the operator selects a node (not for programmatic selection via <see cref="ExpandToAsync"/>).</summary>
@@ -58,6 +66,15 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
 
     /// <summary>"Views" root node.</summary>
     public FolderNodeViewModel ViewsNode { get; }
+
+    /// <summary>
+    /// The Group Policy documents and operations of the connection window (K2), null in hosts without them: the domain
+    /// node then has no "Obiekty zasad grupy", "Filtry WMI" and "Lokacje" nodes.
+    /// </summary>
+    public GroupPolicyViewModelFactory? GroupPolicy { get; }
+
+    /// <summary>The Group Policy nodes are shown under the domain ("Widok → Zasady grupy w drzewie").</summary>
+    public bool IsGroupPolicyShown => _groupPolicyShown;
 
     /// <summary>The domain root node (null while disconnected).</summary>
     [ObservableProperty]
@@ -102,6 +119,8 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         var domain = new ContainerNodeViewModel(this, null, session.Info.DefaultNamingContext, session.Info.DomainDnsName, ObjectKind.Domain);
         Register(domain);
         DomainNode = domain;
+        _groupPolicyShown = false;
+        ShowGroupPolicyNodes(Settings.Current.GroupPolicy.ShowInTree);
         Roots.Add(domain);
         domain.IsExpanded = true;
         return Task.WhenAll(domain.EnsureChildrenLoadedAsync(), LoadWellKnownAsync(session));
@@ -280,7 +299,57 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         _changes.Changed -= OnDirectoryChanged;
         Localizer.CultureChanged -= OnCultureChanged;
         Settings.Changed -= OnSettingsChanged;
+        if (GroupPolicy is not null)
+        {
+            GroupPolicy.Services.Changed -= OnGroupPolicyChanged;
+        }
     }
+
+    /// <summary>
+    /// Adds or removes the Group Policy nodes at the top of the domain node (design note 5.2: kept there by
+    /// <see cref="ContainerNodeViewModel"/>'s merge). No-op without <see cref="GroupPolicy"/> or a domain node.
+    /// </summary>
+    public void ShowGroupPolicyNodes(bool show)
+    {
+        if (DomainNode is not { } domain || GroupPolicy is not { } groupPolicy)
+        {
+            _groupPolicyShown = false;
+            return;
+        }
+
+        var existing = domain.Children.OfType<GroupPolicyNodeViewModel>().ToList();
+        if (show && existing.Count == 0)
+        {
+            TreeNodeViewModel[] nodes =
+            [
+                new GroupPolicyObjectsNodeViewModel(this, domain, groupPolicy),
+                new WmiFiltersNodeViewModel(this, domain, groupPolicy),
+                new SitesNodeViewModel(this, domain, groupPolicy),
+            ];
+            for (var i = 0; i < nodes.Length; i++)
+            {
+                domain.Children.Insert(i, nodes[i]);
+            }
+        }
+        else if (!show)
+        {
+            if (SelectedNode is GroupPolicyNodeViewModel selected && (existing.Contains(selected) || selected.Parent is GroupPolicyNodeViewModel))
+            {
+                SelectSilently(domain);
+            }
+
+            foreach (var node in existing)
+            {
+                domain.Children.Remove(node);
+            }
+        }
+
+        _groupPolicyShown = show;
+        OnPropertyChanged(nameof(IsGroupPolicyShown));
+    }
+
+    /// <summary>The "Obiekty zasad grupy" node (null when not shown).</summary>
+    public GroupPolicyObjectsNodeViewModel? GroupPolicyObjectsNode => DomainNode?.Children.OfType<GroupPolicyObjectsNodeViewModel>().FirstOrDefault();
 
     internal void Register(ContainerNodeViewModel node) => _index[DnKey.For(node.Dn)] = node;
 
@@ -337,6 +406,21 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         {
             RebuildViews();
         }
+
+        // "Widok → Zasady grupy w drzewie" (shared by all windows: every tree follows it).
+        if (GroupPolicy is not null && DomainNode is not null && Settings.Current.GroupPolicy.ShowInTree != _groupPolicyShown)
+        {
+            ShowGroupPolicyNodes(Settings.Current.GroupPolicy.ShowInTree);
+        }
+    });
+
+    /// <summary>A GPO operation was executed in this window: the loaded GPO list of the tree is read again.</summary>
+    private void OnGroupPolicyChanged(object? sender, EventArgs e) => _ = Dispatcher.RunAsync(() =>
+    {
+        if (GroupPolicyObjectsNode is { ChildrenLoaded: true } node)
+        {
+            node.RefreshAsync().Forget();
+        }
     });
 
     private void OnCultureChanged(object? sender, EventArgs e)
@@ -344,6 +428,14 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         ViewsNode.Name = Localizer[L.Tree.Views];
         RebuildViews();
         ApplyWellKnown();
+        foreach (var node in DomainNode?.Children.OfType<GroupPolicyNodeViewModel>().ToList() ?? [])
+        {
+            node.Relocalize();
+            foreach (var child in node.Children.OfType<GroupPolicyNodeViewModel>())
+            {
+                child.Relocalize();
+            }
+        }
     }
 
     private void OnDirectoryChanged(object? sender, DirectoryChangesEventArgs e) => _ = Dispatcher.RunAsync(() =>

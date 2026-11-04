@@ -91,6 +91,9 @@ public sealed record PlannedUserMessage
     /// <summary>The rendered message (also for skipped accounts, for the preview); null when it could not be built.</summary>
     public OutgoingUserMessage? Message { get; init; }
 
+    /// <summary>Title, gender and salutation derived for the salutation fields the template uses (U1d preview).</summary>
+    public IReadOnlyList<Salutations.DerivedFieldValue> Derived { get; init; } = [];
+
     /// <summary>Ready or with warnings, and rendered.</summary>
     public bool CanSend => Message is not null && Status is PlannedMessageStatus.Ready or PlannedMessageStatus.Warning;
 
@@ -127,6 +130,9 @@ public sealed record UserMessageSender
     public MessageLanguage DefaultLanguage { get; init; } = MessageLanguage.Polish;
 
     public required TimeZoneInfo TimeZone { get; init; }
+
+    /// <summary>Salutation settings (U1d: title and gender attributes, title table, neutral texts).</summary>
+    public Salutations.SalutationOptions Salutations { get; init; } = Messaging.Salutations.SalutationOptions.Default;
 }
 
 /// <summary>An account to message, as read from the DC (null <see cref="Account"/>: not found any more).</summary>
@@ -146,6 +152,12 @@ public sealed record UserMessagePlanRequest
     /// <summary>Values of <c>{$input:name}</c>.</summary>
     public IReadOnlyDictionary<string, string> Inputs { get; init; } = new Dictionary<string, string>();
 
+    /// <summary>The template's images by content id (U1c; loaded by the composer before planning).</summary>
+    public IReadOnlyDictionary<string, Images.MessageImage> Images { get; init; } = new Dictionary<string, Images.MessageImage>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>"Send without images" (U1c): every image becomes its alternative text; the preview shows exactly that.</summary>
+    public bool OmitImages { get; init; }
+
     public required UserMessageSender Sender { get; init; }
 
     public required IReadOnlyList<UserMessageAccount> Accounts { get; init; }
@@ -163,6 +175,15 @@ public sealed record UserMessagePlanRequest
 
     /// <summary>Schema of the session (confidential attributes are forbidden fields too).</summary>
     public ISchemaCatalog? Schema { get; init; }
+
+    /// <summary>Gender chosen in the preview for this run by account DN (U1d; <c>Unknown</c> = neutral on purpose).</summary>
+    public IReadOnlyDictionary<string, Salutations.Gender> GenderOverrides { get; init; } = new Dictionary<string, Salutations.Gender>();
+
+    /// <summary>
+    /// Gender of the manager chosen in the preview of one message, by the account DN of that message (U1d, the manager
+    /// fields such as <c>{$managerSalutation}</c>; <c>Unknown</c> = neutral on purpose).
+    /// </summary>
+    public IReadOnlyDictionary<string, Salutations.Gender> ManagerGenderOverrides { get; init; } = new Dictionary<string, Salutations.Gender>();
 }
 
 /// <summary>
@@ -199,17 +220,26 @@ public sealed class UserMessagePlanner
     public IReadOnlyList<string> InputsOf(MessageTemplate template) =>
         [.. TokenArguments(template, UserMessageFields.Input).Distinct(StringComparer.OrdinalIgnoreCase)];
 
-    /// <summary>Attributes to read for the accounts of <paramref name="template"/>.</summary>
-    public IReadOnlyList<string> AccountAttributesFor(MessageTemplate template) =>
+    /// <summary>Attributes to read for the accounts of <paramref name="template"/> (with the salutation attributes of <paramref name="salutations"/> when used).</summary>
+    public IReadOnlyList<string> AccountAttributesFor(MessageTemplate template, Salutations.SalutationOptions? salutations = null) =>
         [.. BaseAccountAttributes.Concat(Parts(template).SelectMany(p => _fields.Engine.Parse(p).ReferencedAttributes))
+            .Concat(Salutations.SalutationFields.AccountAttributes(Parts(template).SelectMany(p => _fields.Engine.Parse(p).SpecialTokens), salutations))
             .Distinct(StringComparer.OrdinalIgnoreCase)];
 
-    /// <summary>Attributes to read for the managers.</summary>
-    public IReadOnlyList<string> ManagerAttributesFor(MessageTemplate template) =>
-        [.. BaseManagerAttributes.Concat(TokenArguments(template, UserMessageFields.Manager)).Distinct(StringComparer.OrdinalIgnoreCase)];
+    /// <summary>Attributes to read for the managers (with the salutation attributes of <paramref name="salutations"/> when used).</summary>
+    public IReadOnlyList<string> ManagerAttributesFor(MessageTemplate template, Salutations.SalutationOptions? salutations = null) =>
+        [.. BaseManagerAttributes.Concat(TokenArguments(template, UserMessageFields.Manager))
+            .Concat(Salutations.SalutationFields.ManagerAttributes(Parts(template).SelectMany(p => _fields.Engine.Parse(p).SpecialTokens), salutations))
+            .Distinct(StringComparer.OrdinalIgnoreCase)];
 
-    /// <summary>Template level validation: syntax, forbidden fields and inputs, disallowed HTML, missing input values.</summary>
-    public IReadOnlyList<MessageIssue> CheckTemplate(MessageTemplate template, IReadOnlyDictionary<string, string>? inputs = null, ISchemaCatalog? schema = null)
+    /// <summary>Template level validation: syntax, forbidden fields and inputs, disallowed HTML, missing input values.
+    /// <paramref name="checkHtml"/> false leaves out the HTML part (<see cref="Html.MessageHtmlChecks.CheckTemplate"/>,
+    /// sanitizer runs over both languages – CPU work an editor runs off the UI thread).</summary>
+    public IReadOnlyList<MessageIssue> CheckTemplate(
+        MessageTemplate template,
+        IReadOnlyDictionary<string, string>? inputs = null,
+        ISchemaCatalog? schema = null,
+        bool checkHtml = true)
     {
         ArgumentNullException.ThrowIfNull(template);
         var issues = new List<MessageIssue>();
@@ -233,10 +263,10 @@ public sealed class UserMessagePlanner
             }
         }
 
-        foreach (var text in template.Texts())
+        // U1c: the restricted HTML (first gate + the sanitizer's findings), images, length, link texts, normalization.
+        if (checkHtml)
         {
-            issues.AddRange(UserMessageRules.FindForbiddenHtml(text.Html)
-                .Select(h => new MessageIssue(MessageIssueCodes.HtmlNotAllowed, MessageIssueSeverity.Error, h)));
+            issues.AddRange(Html.MessageHtmlChecks.CheckTemplate(template));
         }
 
         if (inputs is not null)
@@ -299,6 +329,23 @@ public sealed class UserMessagePlanner
         return new UserMessagePlan(templateIssues, messages);
     }
 
+    /// <summary>
+    /// Plans the message at <paramref name="index"/> of the plan of <paramref name="request"/> again (U1d: a gender chosen in
+    /// the preview, <see cref="UserMessagePlanRequest.GenderOverrides"/>); a duplicate-address warning of
+    /// <paramref name="previous"/> is kept. The template must have passed <see cref="Plan"/>.
+    /// </summary>
+    public PlannedUserMessage Replan(UserMessagePlanRequest request, int index, PlannedUserMessage? previous = null)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var accounts = request.Accounts.DistinctBy(a => a.DistinguishedName, StringComparer.OrdinalIgnoreCase).ToList();
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, accounts.Count);
+        var planned = PlanOne(request, accounts[index], index, AllowedDomains(request), new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+        return previous?.Issues.FirstOrDefault(i => i.Code == MessageIssueCodes.DuplicateAddress) is { } duplicate && planned.Recipient == previous.Recipient
+            ? WithIssue(planned, duplicate)
+            : planned;
+    }
+
     private PlannedUserMessage PlanOne(
         UserMessagePlanRequest request,
         UserMessageAccount entry,
@@ -354,6 +401,7 @@ public sealed class UserMessagePlanner
             TimeZone = sender.TimeZone,
             Inputs = request.Inputs,
             Domain = request.Domain,
+            Salutation = Salutations.MessageSalutations.For(request, account, entry.Manager, issues, language),
         };
         var text = template.Text(language);
         var empty = new List<string>();
@@ -370,6 +418,9 @@ public sealed class UserMessagePlanner
         var htmlBody = string.IsNullOrWhiteSpace(text.Html)
             ? UserMessageRules.TextToHtml(body)
             : _fields.Render(text.Html, data, WebUtility.HtmlEncode, Empty);
+
+        // U1c: images (or "send without images"), the text part from the HTML, the whole document checked again.
+        var rich = Html.MessageHtmlChecks.Message(request, text, language, ref htmlBody, ref body, issues);
         if (empty.Count > 0)
         {
             issues.Add(new MessageIssue(MessageIssueCodes.EmptyField, MessageIssueSeverity.Warning, string.Join(", ", empty)));
@@ -405,7 +456,8 @@ public sealed class UserMessagePlanner
                 ReplyTo = sender.ReplyTo,
                 Subject = subject,
                 TextBody = UserMessageRules.TextDocument(body, footer),
-                HtmlBody = UserMessageRules.HtmlDocument(htmlBody, footer, language),
+                HtmlBody = rich.HtmlDocument ?? UserMessageRules.HtmlDocument(htmlBody, footer, language),
+                InlineImages = rich.InlineImages,
                 Language = language,
             };
         return new PlannedUserMessage
@@ -418,6 +470,7 @@ public sealed class UserMessagePlanner
             Status = StatusOf(issues),
             Issues = [.. issues.Distinct()],
             Message = message,
+            Derived = data.Salutation?.Derived() ?? [],
         };
     }
 

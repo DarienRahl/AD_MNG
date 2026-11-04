@@ -8,13 +8,18 @@ using AdMng.Core.Security;
 using AdMng.Core.Templates;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Changes;
+using AdMng.Presentation.Computers;
 using AdMng.Presentation.Connection;
 using AdMng.Presentation.Connections;
+using AdMng.Presentation.Correspondence;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Errors;
+using AdMng.Presentation.EventLogs;
+using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
+using AdMng.Presentation.Readiness;
 using AdMng.Presentation.Session;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Shell;
@@ -61,11 +66,13 @@ public static class ServiceCollectionExtensions
 
         // Saved filters (U4) are shared settings like saved views: one library for every connection window.
         services.TryAddSingleton<Filters.FilterLibrary>();
+        services.AddAdMngComputers();
 
         // Grant sources of the privileged access review beyond the groups and settings (README U4b: ACL delegations).
         // Application-wide and stateless: a source reads only through the session of the scan context, i.e. the session of
         // the connection window that runs the review.
         services.TryAddEnumerable(ServiceDescriptor.Singleton<Core.PrivilegedAccess.IPrivilegeGrantSource, Core.PrivilegedAccess.DirectoryAclGrantSource>());
+        services.AddAdMngGroupPolicy();
 
         // One connection window = one DI scope (design note docs/dev/multi-window.md 2.2): its session, change bus, audit
         // log, executor, activities and everything built on them. Never resolved from the root provider. A host that
@@ -102,8 +109,30 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<UserMessages.WatchdogUserMessageTransport>();
         services.TryAddSingleton<UserMessages.UserMessageTransportSelector>();
         services.TryAddSingleton<UserMessages.UserMessageTemplateLibrary>();
+        // U1c: the image files of saved templates (next to the settings) and the reader of pasted Outlook images (the App
+        // registers one that expands 8.3 names).
+        services.TryAddSingleton<UserMessages.MessageImageStore>();
+        services.TryAddSingleton<Core.Messaging.Html.IPastedImageSource>(_ => new UserMessages.PastedImageFileSource());
         services.TryAddSingleton(sp => new MessageRateLimiter(sp.GetRequiredService<TimeProvider>()));
         services.TryAddScoped<UserMessages.UserMessageServices>();
+
+        // Korespondencja (U5): the template library and the journal (application-wide), the window's services and factory
+        // (per connection window). The host adds Outlook, the key protector, the platform, the dialogs and the launcher.
+        services.AddAdMngCorrespondence();
+
+        // Dzienniki zdarzeń (track E): the launcher and the documents' services per connection window; the host adds the
+        // reader (IEventLogConnector, Windows only).
+        services.AddAdMngEventLogs();
+
+        // Problem report (Pomoc → Zgłoś problem…, design note s-pilot-readiness.md 3): the diagnostic buffer is one for the
+        // application (log templates, no directory values; the App feeds it from its logging); the report's services are
+        // per connection window (with the readiness results of the window, registered next).
+        services.TryAddSingleton<Diagnostics.DiagnosticLogBuffer>();
+        services.TryAddScoped<Diagnostics.ProblemReportServices>();
+        // Gotowość środowiska (stage S): the results store (read by the problem report), the services and the tab factory
+        // per connection window; everything the checks read comes from the features registered above.
+        services.AddAdMngReadiness();
+
         services.TryAddScoped<IDialogViewModelFactory, DialogViewModelFactory>();
 
         // View models (one per window / dialog). The shell is per connection window: the window, its tools and the

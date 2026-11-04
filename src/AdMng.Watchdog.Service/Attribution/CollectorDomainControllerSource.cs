@@ -1,6 +1,7 @@
 using System.Net;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
+using AdMng.Core.EventLogs;
 using AdMng.Core.Ldap;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Attribution;
@@ -90,7 +91,7 @@ public sealed class DirectoryCollectorDcSource(
             var result = new List<CollectorDomainController>();
             foreach (var dc in directory.AttributionSources)
             {
-                var host = HostNames.Normalize(dc.HostName!);
+                var host = EventHostNames.Normalize(dc.HostName!);
                 var account = accounts?.GetValueOrDefault(host) ?? await AccountNameAsync(dc, cancellationToken).ConfigureAwait(false);
                 var addresses = await resolver.ResolveAsync(host, cancellationToken).ConfigureAwait(false);
                 if (addresses.Count == 0 && _current.FirstOrDefault(c => c.HostName == host) is { } previous)

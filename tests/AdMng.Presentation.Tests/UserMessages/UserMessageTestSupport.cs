@@ -22,7 +22,7 @@ internal sealed class MessageScenario
         var harness = review.Harness;
         Services = new UserMessageServices(
             new UserMessageTemplateLibrary(harness.Settings, harness.Localizer),
-            new UserMessageTransportSelector(harness.Settings, Credentials, new WatchdogUserMessageTransport(Watchdog), Transport),
+            new UserMessageTransportSelector(harness.Settings, Credentials, new WatchdogUserMessageTransport(Watchdog), Transport, Outlook, OutlookTransports),
             new CsvCodec(),
             harness.AuditLog,
             harness.Time,
@@ -47,6 +47,12 @@ internal sealed class MessageScenario
     public FakeUserMessageTransport Transport { get; } = new();
 
     public SmtpCredentialCache Credentials { get; } = new();
+
+    /// <summary>Classic Outlook of the "computer" (U5): installed, the sample profile; used only with the choice Outlook.</summary>
+    public FakeOutlookClient Outlook { get; } = new();
+
+    /// <summary>The Outlook transport (U5): records the account and "w imieniu" of each transport created.</summary>
+    public FakeOutlookUserMessageTransportFactory OutlookTransports { get; } = new();
 
     /// <summary>Configured with the sample address; <c>Configure(null)</c> makes it "not configured".</summary>
     public FakeWatchdogClient Watchdog { get; } = new(TimeProvider.System);

@@ -1,3 +1,4 @@
+using AdMng.Core.GroupPolicy.Content;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Core.Gpo;
 using AdMng.Watchdog.Testing.Gpo;

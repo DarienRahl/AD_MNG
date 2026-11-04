@@ -1,4 +1,5 @@
 using AdMng.Core.Schema;
+using AdMng.Presentation.GroupPolicy.Settings;
 using AdMng.Presentation.Localization;
 using AdMng.Watchdog.Contracts.Events;
 
@@ -28,9 +29,10 @@ public sealed record WatchdogChangeContext(bool UseSchema = true, bool GpoSettin
 /// <summary>
 /// One changed attribute in the event details: display name (from the session schema when connected, else the LDAP
 /// name), old → new values, values or flags added and removed; secret values are shown as "wartość ukryta". GPO settings
-/// read "ustawienie: było → jest" with the key split into a readable path ("Computer › Security › Privilege Rights ›
-/// SeDebugPrivilege"), an unreadable file as „nie udało się odczytać” and the summary row of a long diff as "nie pokazano
-/// N z M zmienionych ustawień".
+/// speak the operator's language (K6, <see cref="GpoSettingPresenter"/>): GPMC's path and the setting's name ("Konfiguracja
+/// komputera › … › Przypisywanie praw użytkownika › Debugowanie programów"), readable values ("Administratorzy",
+/// "1 (REG_DWORD)"), the key as tool tip; an unreadable file reads „nie udało się odczytać” and the summary row of a long
+/// diff "nie pokazano N z M zmienionych ustawień".
 /// </summary>
 public sealed class WatchdogChangeRowViewModel
 {
@@ -79,7 +81,16 @@ public sealed class WatchdogChangeRowViewModel
     /// <param name="localizer">UI texts.</param>
     /// <param name="schema">Schema of the open AD session (display names), or null.</param>
     /// <param name="context">How the event's rows are read (<see cref="WatchdogChangeContext.Of"/>).</param>
-    public static WatchdogChangeRowViewModel Create(AttributeChange change, ILocalizer localizer, ISchemaCatalog? schema, WatchdogChangeContext context)
+    public static WatchdogChangeRowViewModel Create(AttributeChange change, ILocalizer localizer, ISchemaCatalog? schema, WatchdogChangeContext context) =>
+        Create(change, localizer, schema, context, null);
+
+    /// <param name="change">The change as recorded by the service.</param>
+    /// <param name="localizer">UI texts.</param>
+    /// <param name="schema">Schema of the open AD session (display names), or null.</param>
+    /// <param name="context">How the event's rows are read (<see cref="WatchdogChangeContext.Of"/>).</param>
+    /// <param name="presenter">GPO settings in the operator's language (SID and item names of the event); null: one without them.</param>
+    public static WatchdogChangeRowViewModel Create(AttributeChange change, ILocalizer localizer, ISchemaCatalog? schema, WatchdogChangeContext context,
+        GpoSettingPresenter? presenter)
     {
         ArgumentNullException.ThrowIfNull(change);
         ArgumentNullException.ThrowIfNull(localizer);
@@ -91,6 +102,11 @@ public sealed class WatchdogChangeRowViewModel
                 NewText = localizer.Format(L.WatchdogLinux.ValueGpoMoreChanges, change.OldCount, change.NewCount),
                 IsTruncated = true,
             };
+        }
+
+        if (context.GpoSettings && !string.IsNullOrEmpty(change.Attribute))
+        {
+            return GpoSetting(change, localizer, presenter ?? new GpoSettingPresenter(localizer));
         }
 
         var name = context.GpoSettings
@@ -122,6 +138,37 @@ public sealed class WatchdogChangeRowViewModel
         {
             OldText = Join(change.OldValues, localizer, unreadableFile) + (change.OldValues.Count > 0 ? truncated : string.Empty),
             NewText = Join(change.NewValues, localizer, unreadableFile) + (change.NewValues.Count > 0 ? truncated : string.Empty),
+            ChangeText = string.Join(", ", changes),
+            IsTruncated = change.Truncated,
+        };
+    }
+
+    /// <summary>A GPO setting's row: GPMC's path and name, the values and the list changes in the operator's language.</summary>
+    private static WatchdogChangeRowViewModel GpoSetting(AttributeChange change, ILocalizer localizer, GpoSettingPresenter presenter)
+    {
+        var key = change.Attribute;
+        var text = presenter.Describe(key, change.NewValues.Count > 0 ? change.NewValues : change.OldValues, change.Redacted);
+        var name = text.GroupPath + PathSeparator + text.Name;
+        if (change.Redacted)
+        {
+            var hidden = localizer[L.Watchdog.ValueHidden];
+            return new WatchdogChangeRowViewModel(name, key) { OldText = hidden, NewText = hidden, IsRedacted = true };
+        }
+
+        var unreadableFile = key.StartsWith("File/", StringComparison.OrdinalIgnoreCase);
+        var truncated = change.Truncated ? " " + localizer[L.Watchdog.ValueTruncated] : string.Empty;
+        string Values(IReadOnlyList<string> values) => values.Count == 0 ? localizer[L.Watchdog.ValueEmpty]
+            : unreadableFile ? Join(values, localizer, unreadableFile: true)
+            : presenter.Describe(key, values, masked: false).ValueText;
+        IEnumerable<string> changes =
+        [
+            .. change.Added.Select(v => "+" + presenter.DescribeElement(key, v, signed: false)),
+            .. change.Removed.Select(v => "−" + presenter.DescribeElement(key, v, signed: false)),
+        ];
+        return new WatchdogChangeRowViewModel(name, key)
+        {
+            OldText = Values(change.OldValues) + (change.OldValues.Count > 0 ? truncated : string.Empty),
+            NewText = Values(change.NewValues) + (change.NewValues.Count > 0 ? truncated : string.Empty),
             ChangeText = string.Join(", ", changes),
             IsTruncated = change.Truncated,
         };

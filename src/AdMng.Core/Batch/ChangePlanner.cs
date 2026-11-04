@@ -176,6 +176,12 @@ public sealed class ChangePlanner : IChangePlanner
         {
             draft.Issues.Add(PlanValidation.ProtectedAccountError());
         }
+
+        // K1: the account of a domain controller is never disabled, deleted or reset - the role is demoted instead.
+        if ((analysis.DeletesOrDisables || analysis.ResetsComputers) && PlanValidation.IsDomainControllerAccount(current))
+        {
+            draft.Issues.Add(PlanValidation.DomainControllerAccountError());
+        }
     }
 
     private static async Task PlanDeleteAsync(PlanningContext context, ObjectPlanDraft draft, DeleteOperation delete)
@@ -184,6 +190,7 @@ public sealed class ChangePlanner : IChangePlanner
         draft.Delete = step;
         if (delete.IncludeSubtree)
         {
+            await PlanValidation.WarnAboutComputerChildrenAsync(context, draft, step).ConfigureAwait(false);
             return;
         }
 
@@ -250,6 +257,9 @@ public sealed class ChangePlanner : IChangePlanner
 
         public bool DeletesOrDisables { get; private set; }
 
+        /// <summary>The request resets computer accounts (refused for domain controllers).</summary>
+        public bool ResetsComputers { get; private set; }
+
         public MoveTarget? Move { get; private set; }
 
         public static RequestAnalysis Create(BatchRequest request, ITemplateEngine templates)
@@ -261,7 +271,12 @@ public sealed class ChangePlanner : IChangePlanner
                 analysis.RequestErrors.Add(PlanValidation.Error(IssueCodes.InvalidCombination, "Delete cannot be combined with other operations."));
             }
 
-            foreach (var (type, name) in new[] { (typeof(MoveOperation), "move"), (typeof(RenameOperation), "rename"), (typeof(ResetPasswordOperation), "password reset") })
+            if (operations.Count(o => o is ResetPasswordOperation or ResetComputerAccountOperation) > 1)
+            {
+                analysis.RequestErrors.Add(PlanValidation.Error(IssueCodes.InvalidCombination, "Only one password reset operation is allowed per batch."));
+            }
+
+            foreach (var (type, name) in new[] { (typeof(MoveOperation), "move"), (typeof(RenameOperation), "rename") })
             {
                 if (operations.Count(o => o?.GetType() == type) > 1)
                 {
@@ -353,6 +368,10 @@ public sealed class ChangePlanner : IChangePlanner
                     break;
                 case ResetPasswordOperation:
                     AddAttributes(Attr.SamAccountName, Attr.GivenName, Attr.Sn);
+                    break;
+                case ResetComputerAccountOperation:
+                    ResetsComputers = true;
+                    AddAttributes(Attr.SamAccountName, Attr.PrimaryGroupId);
                     break;
                 case SetLogonHoursOperation logonHours:
                     AddAttributes(Attr.LogonHours);
@@ -591,6 +610,9 @@ public sealed class ChangePlanner : IChangePlanner
                     break;
                 case ResetPasswordOperation reset:
                     ApplyResetPassword(reset);
+                    break;
+                case ResetComputerAccountOperation:
+                    ApplyResetComputerAccount();
                     break;
                 case RenameOperation rename:
                     ApplyRename(rename);
@@ -932,6 +954,28 @@ public sealed class ChangePlanner : IChangePlanner
             }
         }
 
+        /// <summary>
+        /// The machine account reset: a random password of <see cref="ResetComputerAccountOperation.GeneratedLength"/>
+        /// characters (never shown; the preview masks it); the computer loses its trust relationship. Domain controllers are
+        /// refused by the object checks.
+        /// </summary>
+        private void ApplyResetComputerAccount()
+        {
+            if (!RequireKind(kind => kind == ObjectKind.Computer, "Reset computer account"))
+            {
+                return;
+            }
+
+            var step = new StepDraft(ChangeAction.ResetPassword)
+            {
+                Password = _owner._passwords.Generate(ResetComputerAccountOperation.GeneratedLength, ForbiddenPasswordTokens()),
+            };
+            step.Issues.Add(PlanValidation.Warning(IssueCodes.ComputerTrustLost,
+                "The computer loses its trust relationship with the domain: join it again or repair the secure channel (Test-ComputerSecureChannel -Repair)."));
+            step.Issues.Add(PlanValidation.Info(IssueCodes.NotReversible, "The previous machine password cannot be restored."));
+            _draft.PasswordReset = step;
+        }
+
         /// <summary>AD complexity rejects passwords containing the account name or parts (3+ chars) of the display name.</summary>
         private IEnumerable<string> ForbiddenPasswordTokens()
         {
@@ -1002,6 +1046,7 @@ public sealed class ChangePlanner : IChangePlanner
             }
 
             var step = new StepDraft(ChangeAction.Move) { TargetDn = target.Object.DistinguishedName };
+            PlanValidation.WarnAboutDomainControllerMove(_context, _current, targetDn, step);
             if (targetDn == objectDn || targetDn.IsDescendantOf(objectDn))
             {
                 step.Issues.Add(PlanValidation.Error(IssueCodes.InvalidValue, "An object cannot be moved into itself or into its own subtree."));

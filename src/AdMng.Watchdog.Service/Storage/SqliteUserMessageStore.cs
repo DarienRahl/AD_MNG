@@ -20,7 +20,13 @@ public sealed class SqliteUserMessageStore : IUserMessageStore
         _database = database;
     }
 
-    public Task<UserMessageSubmission> SubmitAsync(UserMessageAuditRecord record, OutboxMessage message, int maxPerHour, int maxPerDay, CancellationToken cancellationToken)
+    public Task<UserMessageSubmission> SubmitAsync(
+        UserMessageAuditRecord record,
+        OutboxMessage message,
+        int maxPerHour,
+        int maxPerDay,
+        long maxStoredImageBytes,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(record);
         ArgumentNullException.ThrowIfNull(message);
@@ -55,6 +61,13 @@ public sealed class SqliteUserMessageStore : IUserMessageStore
                 return new UserMessageSubmission(UserMessageSubmitOutcome.DailyLimit, RetryAfter: daily);
             }
 
+            // U1c: the images held in outbox payloads are capped; a message without images is never refused here.
+            var imageBytes = OutboxRows.ImageBytes(message);
+            if (imageBytes > 0 && StoredImageBytes(connection, transaction) + imageBytes > maxStoredImageBytes)
+            {
+                return new UserMessageSubmission(UserMessageSubmitOutcome.ImageStorageFull, RetryAfter: TimeSpan.FromHours(1));
+            }
+
             var outboxId = OutboxRows.Insert(connection, transaction, message);
             SqliteValues.Execute(
                 connection,
@@ -75,8 +88,18 @@ public sealed class SqliteUserMessageStore : IUserMessageStore
         }, cancellationToken);
     }
 
+    /// <summary>Without an image cap (messages without images).</summary>
+    public Task<UserMessageSubmission> SubmitAsync(UserMessageAuditRecord record, OutboxMessage message, int maxPerHour, int maxPerDay, CancellationToken cancellationToken) =>
+        SubmitAsync(record, message, maxPerHour, maxPerDay, long.MaxValue, cancellationToken);
+
     public Task<(int LastHour, int LastDay)> CountAsync(DateTimeOffset now, CancellationToken cancellationToken) =>
         Task.FromResult(_database.Read(c => (Count(c, null, now - Hour), Count(c, null, now - Day))));
+
+    public Task<long> StoredImageBytesAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(_database.Read(c => StoredImageBytes(c, null)));
+
+    private static long StoredImageBytes(SqliteConnection connection, SqliteTransaction? transaction) =>
+        SqliteValues.Scalar<long>(connection, transaction, "SELECT coalesce(sum(image_bytes), 0) FROM outbox WHERE image_bytes > 0;");
 
     /// <summary>The wait until the oldest submission of the window leaves it, when the window is full; else null.</summary>
     private static TimeSpan? Limit(SqliteConnection connection, SqliteTransaction transaction, DateTimeOffset now, TimeSpan window, int max)

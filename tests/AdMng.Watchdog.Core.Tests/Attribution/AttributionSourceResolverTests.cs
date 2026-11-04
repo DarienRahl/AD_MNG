@@ -1,3 +1,4 @@
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Core.Attribution;
@@ -100,7 +101,7 @@ public class AttributionSourceResolverTests
     [InlineData("dc01.contoso.test\r\n", false)]
     [InlineData("", false)]
     public void HostNames_IsHostName_RejectsIpLiterals(string host, bool expected) =>
-        Assert.Equal(expected, HostNames.IsHostName(host));
+        Assert.Equal(expected, EventHostNames.IsHostName(host));
 
     [Fact]
     public async Task AFallbackDcCatalog_IsAWarning()

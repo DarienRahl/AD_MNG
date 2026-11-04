@@ -142,6 +142,9 @@ internal sealed class HookedSession(IDirectorySession inner, string? server = nu
     /// <summary>After this many objects of the review query (user filter with attributes) the search waits until cancelled.</summary>
     public int? HoldAfter { get; set; }
 
+    /// <summary>The text of the review query's filter that <see cref="HoldAfter"/> applies to (users: sAMAccountType 805306368).</summary>
+    public string HoldMarker { get; set; } = "805306368";
+
     /// <summary>Completed when a search started to wait (<see cref="HoldAfter"/>).</summary>
     public TaskCompletionSource Held { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -157,7 +160,7 @@ internal sealed class HookedSession(IDirectorySession inner, string? server = nu
         var count = 0;
         await foreach (var obj in inner.SearchAsync(search, cancellationToken).ConfigureAwait(false))
         {
-            if (HoldAfter is { } limit && count++ >= limit && search.Attributes.Count > 0 && search.Filter.Contains("805306368", StringComparison.Ordinal))
+            if (HoldAfter is { } limit && count++ >= limit && search.Attributes.Count > 0 && search.Filter.Contains(HoldMarker, StringComparison.Ordinal))
             {
                 Held.TrySetResult();
                 await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);

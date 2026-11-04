@@ -1,24 +1,32 @@
 using System.Globalization;
+using System.IO;
 using System.Windows;
+using AdMng.App.GroupPolicy;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
+using AdMng.App.UiTests.EventLogs;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
 using AdMng.App.Views.Watchdog;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
 using AdMng.Core.Directory;
+using AdMng.Core.GroupPolicy.AdministrativeTemplates;
 using AdMng.Core.Ldap;
 using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Connections;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.GroupPolicy;
+using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
+using AdMng.Presentation.GroupPolicy.Modeling;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Watchdog;
 using AdMng.Testing;
+using AdMng.Testing.EventLogs;
 using AdMng.Watchdog.Testing.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -147,10 +155,243 @@ public sealed class ScreenshotTests
         "Dwa połączenia jednocześnie – contoso.test i fabrikam.test w osobnych oknach, każde z własnym kolorem i kontem",
         "Two connections at once – contoso.test and fabrikam.test in separate windows, each with its own colour and account");
 
+    private static readonly ScreenshotInfo ComputerReview = new(
+        "22-computers.png",
+        "Przegląd komputerów – systemy po końcu wsparcia, kafelki wersji Windows i porządku, szczegóły zaznaczonego komputera",
+        "Computer review – systems past the end of support, the release and housekeeping tiles, the details of the selected computer");
+
     private static readonly ScreenshotInfo CompareObjects = new(
         "21-compare-objects.png",
         "Porównanie obiektów między połączeniami – Łukasz Wiśniewski w contoso.test i fabrikam.test, tylko różnice (stanowisko, miasto)",
         "Comparing objects between connections – Łukasz Wiśniewski in contoso.test and fabrikam.test, differences only (title, city)");
+
+    private static readonly ScreenshotInfo GroupPolicy = new(
+        "23-group-policy.png",
+        "Zasady grupy jednostki Komputery – połączone GPO (jedno wyłączone), dziedziczenie z wymuszonym GPO domeny, obiekty zasad grupy w drzewie",
+        "Group Policy of the Komputery unit – linked GPOs (one disabled), inheritance with the domain's enforced GPO, the Group Policy Objects in the tree");
+
+    private static readonly ScreenshotInfo AdministrativeTemplates = new(
+        "29-administrative-templates.png",
+        "Szablony administracyjne GPO – kategorie z magazynu centralnego, włączane ustawienie z opcjami i pomocą, niezapisana zmiana",
+        "Administrative templates of a GPO – the categories of the central store, a setting being enabled with its options and help, an unsaved change");
+
+    private static readonly ScreenshotInfo CentralStoreUpdate = new(
+        "30-central-store-update.png",
+        "Aktualizacja szablonów ADMX – paczka wskazana przez operatora, języki, pliki magazynu centralnego (nowe, zastąpiony, bez zmian) i kopia zapasowa przed zapisem",
+        "Updating the ADMX templates – a package the operator chose, its languages, the central store's files (new, replaced, unchanged) and the backup before writing");
+
+    private static readonly ScreenshotInfo GroupPolicyModel = new(
+        "31-group-policy-model.png",
+        "Co dostanie komputer – GPO komputera z wynikiem (wymuszony, filtr WMI, łącze wyłączone), zwycięskie ustawienia i „Dlaczego” z przesłoniętym GPO",
+        "What the computer gets – the computer's GPOs with their results (enforced, WMI filter, disabled link), the winning settings and “Why” with the overridden GPO");
+
+    private static readonly ScreenshotInfo LockoutSource = new(
+        "32-lockout-source.png",
+        "Skąd blokada konta – Jan Kowalski: stan na kontrolerach domeny, próg z zasad domeny, źródła złych haseł (stacja WAW-PC001 i jej adres) z wyjaśnionymi kodami i sprawdzony komputer źródłowy z zadaniem zaplanowanym na zapisanym haśle",
+        "Where the lockout came from – Jan Kowalski: the state on the domain controllers, the domain policy's threshold, the sources of the bad passwords (the workstation WAW-PC001 and its address) with the codes explained, and the source computer checked, with a scheduled task on a saved password");
+
+    [Fact]
+    public Task Screenshot32_EventLogs()
+    {
+        var connector = EventLogUiSupport.CreateConnector();
+        return ShootAsync(ThemePreference.Light, connect: false, configure: EventLogUiSupport.Use(connector), shoot: async context =>
+        {
+            // Track E (design note docs/dev/e-event-logs.md 4.1): Jan Kowalski locked out by an old password kept on WAW-PC001
+            // (a mapped drive and a scheduled task), the investigation over both DCs' Security logs, the workstation checked.
+            await EventLogUiSupport.AddDomainControllersAsync(context);
+            EventLogUiSupport.LockOutJan(context, connector);
+            var remote = Assert.IsType<FakeRemoteComputerClient>(context.Host.Services.GetRequiredService<Core.Computers.Remote.IRemoteComputerClient>());
+            var computer = new FakeRemoteComputer();
+            computer.Users.Add(new Core.Computers.Remote.LoggedOnUser("CONTOSO\\jan.kowalski", 2, DateTimeOffset.UtcNow.AddDays(-3), IsConsole: true));
+            computer.ScheduledTasks.Add(new Core.Computers.Remote.RemoteScheduledTask(
+                "\\Firma\\", "Synchronizacja dysku Z", "jan.kowalski@contoso.test",
+                Core.Computers.Remote.RemoteTaskLogonType.Password, Core.Computers.Remote.RemoteTaskState.Ready, true));
+            remote.Computers["waw-pc001.contoso.test"] = computer;
+
+            await context.ConnectAsync();
+            var window = context.Services.GetRequiredService<MainWindow>();
+            await ScreenshotWriter.ShowWithClientSizeAsync(window, MainWindowWidth, MainWindowHeight);
+            var shell = window.Shell;
+            await shell.InitializeAsync();
+            var document = Assert.IsType<Presentation.EventLogs.LockoutDocumentViewModel>(shell.OpenEventLogDocument(
+                new Presentation.EventLogs.EventLogDocumentRequest(Presentation.EventLogs.EventLogDocumentKind.Lockout)
+                {
+                    UserDn = context.Company.JanKowalski,
+                    Name = "Jan Kowalski",
+                }));
+            await UiWait.UntilAsync(() => !document.IsLoading && document.HasReport, "the lockout report of Jan Kowalski");
+            document.SelectedSource = document.Sources.Single(s => s.Value == EventLogSamples.WawPc001);
+            await document.PivotCommand.ExecuteAsync(null);
+            await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+            Assert.Null(document.Error);
+            Assert.True(document.IsLockedNow);
+            Assert.NotNull(document.PivotLines);
+            Assert.Contains(document.PivotLines, l => l.Contains("Synchronizacja dysku Z", StringComparison.Ordinal));
+            await ScreenshotWriter.SaveAsync(window, LockoutSource, dark: false);
+        });
+    }
+
+    private static readonly ScreenshotInfo Readiness = new(
+        "33-readiness.png",
+        "Gotowość środowiska – pełne sprawdzenie z komputerem testowym: połączenie, katalog, SYSVOL i zasady grupy, zdalne akcje, dzienniki zdarzeń każdego kontrolera, Watchdog, Outlook i ten komputer; każdy punkt z objaśnieniem, podpowiedzią i rozdziałem instrukcji",
+        "Environment readiness – the full check with a test computer: connection, directory, SYSVOL and Group Policy, remote actions, every domain controller's event logs, Watchdog, Outlook and this computer; every check with its explanation, remedy and documentation chapter");
+
+    [Fact]
+    public Task Screenshot33_Readiness()
+    {
+        var connector = EventLogUiSupport.CreateConnector();
+        return ShootAsync(ThemePreference.Light, connect: false, configure: EventLogUiSupport.Use(connector), shoot: async context =>
+        {
+            // Stage S (design note docs/dev/s-pilot-readiness.md 2): the full check over the in-memory directory with two DCs
+            // and the test computer WAW-PC001, read only.
+            await EventLogUiSupport.AddDomainControllersAsync(context);
+            await context.ConnectAsync();
+            var window = context.Services.GetRequiredService<MainWindow>();
+            await ScreenshotWriter.ShowWithClientSizeAsync(window, MainWindowWidth, MainWindowHeight);
+            var shell = window.Shell;
+            await shell.InitializeAsync();
+            shell.ShowReadinessCommand.Execute(null);
+            var document = Assert.IsType<Presentation.Readiness.ReadinessDocumentViewModel>(shell.SelectedTab);
+            await UiWait.UntilAsync(() => !document.IsLoading && document.HasResult, "the quick check");
+            document.TestComputerText = "WAW-PC001";
+            await document.FullCheckCommand.ExecuteAsync(null);
+            await UiWait.UntilAsync(() => !document.IsLoading, "the full check");
+            await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+            Assert.Equal(Presentation.Readiness.ReadinessDepth.Full, document.LastDepth);
+            Assert.Empty(context.Sysvol.Writes);
+            await ScreenshotWriter.SaveAsync(window, Readiness, dark: false);
+        });
+    }
+
+    [Fact]
+    public Task Screenshot29_AdministrativeTemplates() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>
+    {
+        // K3 (design note docs/dev/k-computers-and-gpo.md 6): the editor of a GPO over the sample templates in the central store.
+        var sample = context.Directory.AddGroupPolicyManagementSample(context.Company, context.Sysvol);
+        foreach (var (path, content) in SampleAdministrativeTemplates.Files())
+        {
+            context.Sysvol.PutPolicyDefinition(path, content);
+        }
+
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, MainWindowWidth, MainWindowHeight);
+        var shell = window.Shell;
+        await shell.InitializeAsync();
+        var editor = Assert.IsType<AdministrativeTemplatesEditorViewModel>(shell.OpenGroupPolicyDocument(
+            new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.AdministrativeTemplates) { GpoId = sample.WorkstationPasswords, Name = "Stacje robocze – Zasady haseł" }));
+        await UiWait.UntilAsync(() => !editor.IsLoading && editor.Roots.Count == 2, "the administrative templates");
+        var windowsComponents = editor.Roots[0].Children.Single(c => c.Name == "Składniki systemu Windows");
+        windowsComponents.IsExpanded = true;
+        var updates = windowsComponents.Children.Single();
+        updates.IsSelected = true;
+        editor.SelectedNode = updates;
+        editor.SelectedPolicy = editor.Policies.Single(p => p.Name == "Konfiguruj aktualizacje automatyczne");
+        editor.Editor!.IsEnabled = true;
+        editor.Editor.Elements.OfType<DropDownEditorViewModel>().Single().SelectedIndex = 2;
+        editor.Editor.Elements.OfType<NumberEditorViewModel>().Single().Text = "3";
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        Assert.Equal(1, editor.ChangedCount);
+        Assert.Empty(editor.Editor.Problems);
+        await ScreenshotWriter.SaveAsync(window, AdministrativeTemplates, dark: false);
+    });
+
+    [Fact]
+    public Task Screenshot31_GroupPolicyModel() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>
+    {
+        // K5 (design note docs/dev/k-computers-and-gpo.md 18): the model of WAW-PC001 at the site Warszawa, with an
+        // administrative template policy configured by two GPOs, the minimum password length selected.
+        var sample = context.Directory.AddGroupPolicyManagementSample(context.Company, context.Sysvol);
+        context.Directory.Session.ComputesTokenGroups = true;
+        foreach (var (path, content) in SampleAdministrativeTemplates.Files())
+        {
+            context.Sysvol.PutPolicyDefinition(path, content);
+        }
+
+        var hidePreview = SampleAdministrativeTemplates.LoadPolish().Find(SampleAdministrativeTemplates.HidePreview)!.Policy;
+        var domain = new RegistryPolicyDocument();
+        PolicyEngine.Write(hidePreview, PolicySetting.Disabled, domain);
+        context.Sysvol.Put(sample.DefaultDomainPolicy, "Machine/Registry.pol", domain.ToBytes());
+        var workstations = new RegistryPolicyDocument();
+        PolicyEngine.Write(hidePreview, PolicySetting.Enabled(new Dictionary<string, PolicyElementValue>()), workstations);
+        context.Sysvol.Put(sample.WorkstationPasswords, "Machine/Registry.pol", workstations.ToBytes());
+
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, MainWindowWidth, MainWindowHeight);
+        var shell = window.Shell;
+        await shell.InitializeAsync();
+        var model = Assert.IsType<GroupPolicyModelingDocumentViewModel>(shell.OpenGroupPolicyDocument(
+            new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.Modeling) { ComputerDn = context.Company.Computer1, Name = "WAW-PC001" }));
+        await UiWait.UntilAsync(() => !model.IsLoading && model.HasModel, "the model of WAW-PC001");
+        model.SelectedSite = model.Sites.Single(s => s.Name == "Warszawa");
+        await model.RecalculateCommand.ExecuteAsync(null);
+        await UiWait.UntilAsync(() => !model.IsLoading && model.HasModel && !model.IsStale, "the model at the site Warszawa");
+        model.ComputerPart.SelectedSetting = model.ComputerPart.Settings.Single(s => s.Name == "Minimalna długość hasła");
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        Assert.Contains(model.ComputerPart.Gpos, g => g.Name == "Lokacja Warszawa – Drukarki");
+        Assert.Contains(model.ComputerPart.Settings, s => s.OverriddenCount == 1 && s.Area.StartsWith("Szablony administracyjne", StringComparison.Ordinal));
+        await ScreenshotWriter.SaveAsync(window, GroupPolicyModel, dark: false);
+    });
+
+    [Fact]
+    public Task Screenshot30_CentralStoreUpdate()
+    {
+        var files = new PreparedSaveDialog();
+        return ShootAsync(ThemePreference.Light, connect: false, configure: s => s.AddSingleton<IFileDialogService>(files), shoot: async context =>
+        {
+            // K3: the update window comparing a package of templates (a ZIP: Polish files added, one template newer) with the store.
+            context.Directory.AddGroupPolicyManagementSample(context.Company, context.Sysvol);
+            foreach (var (path, content) in SampleAdministrativeTemplates.Files(polish: false))
+            {
+                context.Sysvol.PutPolicyDefinition(path, content);
+            }
+
+            var temp = System.IO.Directory.CreateTempSubdirectory("admng-k3-shot-");
+            try
+            {
+                var package = Path.Combine(temp.FullName, "Szablony Contoso 1.3.zip");
+                using (var zip = System.IO.Compression.ZipFile.Open(package, System.IO.Compression.ZipArchiveMode.Create))
+                {
+                    foreach (var (path, content) in SampleAdministrativeTemplates.Files())
+                    {
+                        using var entry = zip.CreateEntry(path).Open();
+                        await entry.WriteAsync(path == "contoso.admx"
+                            ? SampleAdministrativeTemplates.Utf8(SampleAdministrativeTemplates.ContosoAdmx.Replace("revision=\"1.2\"", "revision=\"1.3\"", StringComparison.Ordinal))
+                            : content);
+                    }
+                }
+
+                files.NextOpenPath = package;
+                await context.ConnectAsync();
+                UiTestSupport.ShowOffScreen(context.Services.GetRequiredService<MainWindow>());
+                var factory = context.Services.GetRequiredService<GroupPolicyViewModelFactory>();
+                var update = new CentralStoreUpdateViewModel(context.Services.GetRequiredService<GroupPolicyServices>(), factory.Definitions, factory.Loader)
+                {
+                    BackupFolder = @"\\pliki\Kopie\Magazyn centralny",
+                };
+                var window = (CentralStoreUpdateWindow)Windows(context).CreateWindow(update);
+                await ScreenshotWriter.ShowWithClientSizeAsync(window, 900, 680);
+                await update.OpenFileCommand.ExecuteAsync(null);
+                await UiWait.UntilAsync(() => !update.IsWorking && update.Rows.Count == 6, "the comparison");
+                await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+                Assert.Null(update.Error);
+                Assert.Equal("Szablony Contoso 1.3.zip – szablony: 2, języki: 2", update.PackageText);
+                Assert.Equal("Do zapisania: 3, bez zmian: 3, pominięte: 0", update.SummaryText);
+                Assert.True(window.UpdateButton.IsEnabled);
+                await ScreenshotWriter.SaveAsync(window, CentralStoreUpdate, dark: false);
+            }
+            finally
+            {
+                temp.Delete(recursive: true);
+            }
+        });
+    }
 
     [Fact]
     public Task Screenshot21_CompareObjects() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>
@@ -180,6 +421,34 @@ public sealed class ScreenshotTests
         Assert.Equal("Członkostwo (2)", comparison.MembershipTabHeader);
         Assert.StartsWith("Porównanie: Łukasz Wiśniewski – contoso.test ↔ fabrikam.test", window.Title, StringComparison.Ordinal);
         await ScreenshotWriter.SaveAsync(window, CompareObjects, dark: false);
+    });
+
+    [Fact]
+    public Task Screenshot23_GroupPolicy() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>
+    {
+        // K2 (design note docs/dev/k-computers-and-gpo.md 10): "Zasady grupy" of OU=Komputery, the GPO node expanded.
+        var sample = context.Directory.AddGroupPolicyManagementSample(context.Company, context.Sysvol);
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, MainWindowWidth, MainWindowHeight);
+        var shell = window.Shell;
+        await shell.InitializeAsync();
+        await shell.NavigateAsync(ListLocation.ForContainer(context.Company.ComputersOu));
+        await shell.Tree.ExpandToAsync(context.Company.ComputersOu);
+        var gpoRoot = shell.Tree.GroupPolicyObjectsNode!;
+        gpoRoot.IsExpanded = true;
+        await gpoRoot.EnsureChildrenLoadedAsync();
+
+        shell.OpenContainerPoliciesCommand.Execute(context.Company.ComputersOu);
+        var scope = Assert.IsType<GroupPolicyScopeDocumentViewModel>(shell.SelectedTab);
+        await UiWait.UntilAsync(() => !scope.IsLoading && scope.Links.Count == 2 && scope.Inheritance.Count > 0, "the Group Policy of OU=Komputery");
+        scope.SelectedLink = scope.Links.Single(l => l.Link.GpoId == sample.WorkstationPasswords);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        Assert.Equal(7, gpoRoot.Children.Count);
+        Assert.Contains(scope.Links, l => !l.Enabled);
+        Assert.Contains(scope.Inheritance, r => r.GpoName == "Serwery – Zabezpieczenia" && r.EnforcedText == "Tak");
+        await ScreenshotWriter.SaveAsync(window, GroupPolicy, dark: false);
     });
 
     [Fact]
@@ -218,6 +487,28 @@ public sealed class ScreenshotTests
         Assert.StartsWith(@"contoso.test – CONTOSO\jan.kowalski", left.Title, StringComparison.Ordinal);
         Assert.StartsWith(@"fabrikam.test – FABRIKAM\anna.zielinska", right.Title, StringComparison.Ordinal);
         await ScreenshotWriter.SaveComposedAsync(left, right, TwoConnections, dark: false);
+    });
+
+    [Fact]
+    public Task Screenshot22_Computers() => ShootAsync(ThemePreference.Light, async context =>
+    {
+        // The computer inventory sample (K1): DCs, servers with and without owners, workstations of every catalogue row.
+        var sample = context.Directory.AddComputerInventorySample(context.Company);
+        var factory = Computers.ComputerUiSupport.FactoryWithComputerDialogs(context.Services);
+        var window = (AdMng.App.Computers.ComputerReviewWindow)Windows(context).CreateWindow(factory.CreateReview());
+        await ScreenshotWriter.ShowAsync(window);
+        await UiWait.InitializedAsync(window.Initialization);
+        var review = window.ViewModel;
+        await review.RunCommand.ExecuteAsync(null);
+        await UiWait.UntilAsync(() => !review.IsBusy, "the computer review");
+        window.ParametersExpander.IsExpanded = false;
+        window.TilesList.SelectedItem = review.Tiles.Single(t => t.Report == Core.Computers.ComputerReport.EndOfSupport);
+        await UiWait.UntilAsync(() => window.ItemsList.Items.Count > 0, "the computers past the end of support");
+        window.ItemsList.SelectedItem = review.Items.Single(r => r.Dn == sample.Windows7);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        Assert.Contains(review.Items, r => r.Name == "SRV-STARY04");
+        await ScreenshotWriter.SaveAsync(window, ComputerReview, dark: false);
     });
 
     [Fact]
@@ -384,6 +675,8 @@ public sealed class ScreenshotTests
         await UiWait.UntilAsync(() => window.ItemsList.Items.Count == 5, "the five planned messages");
         window.ItemsList.SelectedItem = window.ViewModel.AllItems.First(i => i.Name == "Łukasz Wiśniewski");
 
+        // U1c: "Widok" (WebView2, a native window a WPF render cannot capture) is the first tab – the picture shows the text.
+        window.MessageTabs.SelectedItem = window.MessageTextTab;
         await ScreenshotWriter.SaveAsync(window, UserMessages, dark: false);
     }, configure: services => services.Replace(ServiceDescriptor.Singleton<Core.Messaging.IDirectSmtpTransportFactory>(new AdMng.Testing.FakeUserMessageTransport())));
 

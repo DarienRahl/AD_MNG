@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Track E reader (AdMng.EventLogs): error classification, host checks, file query, merge order, the streaming pipeline
+       and the platform guards. Runs on Linux and Windows; nothing here contacts a computer (Windows-only checks skip
+       elsewhere). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AdMng.EventLogs\AdMng.EventLogs.csproj" />
+    <ProjectReference Include="..\AdMng.Testing\AdMng.Testing.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>

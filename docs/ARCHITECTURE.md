@@ -41,6 +41,18 @@ Dokument opisuje budowę aplikacji i zasady, które ją kształtują. Decyzje z 
 Zależności idą wyłącznie w dół. `AdMng.Core` nie zależy od żadnej biblioteki LDAP, więc cała logika domenowa jest
 testowana jednostkowo z użyciem `FakeDirectorySession` (katalog w pamięci, tylko w testach).
 
+**Wiadomości do użytkowników (U1, U1c).** `AdMng.Mail` (net10.0, MailKit) wysyła wiadomości bezpośrednio przez SMTP i
+buduje treść MIME (`UserMessageMimeBody`: `multipart/alternative` tekstu i HTML, a z obrazami osadzonymi
+`multipart/related` z `Content-ID`) – tej samej klasy używa usługa Watchdog (`AdMng.Watchdog.Service` odwołuje się do
+`AdMng.Mail`), więc oba sposoby wysyłki dają tę samą strukturę wiadomości. `AdMng.Core` korzysta z **AngleSharp**
+(parser HTML5, czysto zarządzany, działa na Linuksie) w sanitizerze HTML wiadomości (`Messaging/Html`), wspólnym dla AD
+Managera i walidatora usługi; CSS (parser i wpisywanie reguł w `style`) to własny, mały kod. `AdMng.App` jako jedyny
+używa **WebView2** (`Microsoft.Web.WebView2`, środowisko Evergreen) do podglądu sformatowanej wiadomości – bez skryptów,
+nawigacji i sieci, z treścią i obrazami z pamięci, a bez środowiska WebView2 pokazuje źródło HTML
+([docs/dev/u1c-u1d-rich-html-and-salutations.md](dev/u1c-u1d-rich-html-and-salutations.md) rozdz. 4 i 10). Od U5
+trzecim sposobem wysyłki jest klasyczny Outlook operatora (`OutlookUserMessageTransport` w `AdMng.Outlook`, rozdział
+[Korespondencja (U5)](#korespondencja-u5)).
+
 ## Sesja katalogu
 
 - `IDirectoryConnector.ConnectAsync` lokalizuje DC (DsGetDcName z uwzględnieniem lokacji albo DC wskazany ręcznie),
@@ -138,6 +150,133 @@ Wartości w planie są tekstem; atrybutów binarnych nie edytuje się zbiorczo �
 logowania”), który w planie, dzienniku i cofnięciu jest zapisem szesnastkowym, a do DC trafia jako 21 bajtów
 (`PipelineValues`).
 
+**SYSVOL w potoku zmian (zasada 5 obejmuje także pliki GPO).** Od K2 plan może zawierać kroki SYSVOL obok kroków LDAP:
+`CreateGpoFolder`, `WriteGpoFile`, `DeleteGpoFile`, `SyncGpoFolderSecurity`, `SetGpoFolderSecurity`, `SetGpoVersion`,
+`DeleteGpoFolder` (`PlannedChange.Sysvol`, `.GpoVersion`), a plan GPO jest sekwencyjny (`ChangePlan.Sequential`) i niesie
+semantyczne odpowiedniki PowerShell (`ObjectPlan.PowerShell`: `New-GPO`, `Set-GPLink`, `Restore-GPO` …). Wykonawca
+otwiera jedno połączenie SYSVOL na przebieg – na kontrolerze sesji, poświadczeniami okna (`ISysvolFileWriter`, zasady 2
+i 4) – a pliki jednego GPO zapisuje transakcją `GpoTransaction`: pliki tymczasowe obok docelowych, sprawdzenie,
+podmiana, na końcu wersja w `GPT.INI` i porównanie-z-zamianą `versionNumber` w AD; błąd lub zmiana GPO przez kogoś
+innego przywraca pliki z pamięci. Wersje tylko rosną (także przy cofaniu), plan cofnięcia odwraca kolejność obiektów.
+Dziennik audytu zapisuje ścieżki, rozmiary i SHA-256 plików – nigdy treść. Nic poza potokiem nie pisze do SYSVOL.
+
+### Zasady grupy (K2)
+
+`AdMng.Core/GroupPolicy`: `GroupPolicyReader` (GPO, połączenia, dziedziczenie, filtry WMI, lokacje, emulator PDC,
+foldery GPO wczytywane do pamięci w limitach), `GroupPolicyPlanner` (plan każdej operacji – tworzenie, kopia, zmiana
+nazwy, usunięcie, `gPLink`/`gPOptions`, stan, filtry WMI, filtrowanie zabezpieczeń i delegowanie przez `ModifySecurity`
+K1 z poziomami GPMC, wyrównanie wersji, uprawnienia folderu, przywracanie i import), `GpmcBackupFormat` (kopie w
+układzie GPMC + `admng.json`, odczyt jak niezaufanych danych), `GroupPolicyComparer` oraz parsery treści GPO wspólne z
+Watchdogiem (`GroupPolicy/Content`). `AdMng.Presentation/GroupPolicy`: usługi i akcje na okno połączenia (Scoped),
+cztery karty (`IShellDocument`), węzły drzewa, modele okien i okno podglądu planu (`ChangePlanPreviewViewModel`).
+`AdMng.App/GroupPolicy`: widoki WPF, okna i `WindowsSysvolFileWriter` (`AdMng.Directory`). Kopie zapasowe i eksport
+porównania trafiają wyłącznie do miejsc wskazanych przez operatora (zasada 1). Opis dla użytkownika:
+[ZASADY-GRUPY.md](ZASADY-GRUPY.md); specyfikacja: [dev/k-computers-and-gpo.md](dev/k-computers-and-gpo.md).
+
+### Szablony administracyjne (K3)
+
+`AdMng.Core/GroupPolicy/AdministrativeTemplates`: parsery ADMX i ADML (`AdmxParser`, `AdmlParser`; utwardzony XML
+`GpoXml` – bez DTD i resolvera, w limitach), zbiór definicji (`PolicyDefinitionSet`, `PolicyDefinitionLoader`: język
+interfejsu, `fallbackCulture` pliku, `en-US`; kolizje przestrzeni nazw i pętle kategorii zgłaszane, nie fatalne), źródła
+szablonów (`SysvolPolicyDefinitionSource` – magazyn centralny na DC sesji, folder, paczka), `RegistryPolicyDocument`
+(minimalna edycja `Registry.pol` na `RegistryPolFile`, PReg v1: niezmienione wpisy zostają bajt w bajt i na swoich
+miejscach) oraz `PolicyEngine` (stan ustawienia z wpisów – *Włączone*, *Wyłączone*, *Nie skonfigurowano*,
+*Niejednoznaczne* – i wpisy każdego stanu według reguł ADMX: `**del.`, `**delvals.`, `**soft.`, prefiksy wartości
+list). Zapis ustawień planuje `GroupPolicyPlanner.PlanAdministrativeTemplatesAsync`: `Modify` nazw rozszerzeń
+(`GpoExtensionNames` – rozszerzenie Rejestru, narzędzie *Szablony administracyjne*, rozszerzenia klienta szablonu),
+`WriteGpoFile` `Machine|User/Registry.pol` z treścią sprzed edycji jako warunkiem (konflikt, gdy ktoś zmienił plik) i
+`SetGpoVersion` zmienionej części. Aktualizacja magazynu centralnego: `PolicyTemplatePackage` (układ paczek producentów
+sprowadzony do `nazwa.admx` + `kultura/nazwa.adml`, zaufanie paczki), `GroupPolicyPlanner.CompareCentralStoreAsync` i
+`PlanCentralStoreUpdate`, akcje planu `WritePolicyDefinitionsFile` i `DeletePolicyDefinitionsFile` wykonywane jedną
+transakcją `PolicyDefinitionsTransaction` (pliki `*.admng-<przebieg>.tmp` obok docelowych, sprawdzenie, podmiana,
+przywrócenie przy błędzie; magazyn nie ma numerów wersji), `CentralStoreBackup` (kopia do folderu operatora) i
+`VendorTemplateCatalog` (adresy Edge, Chrome i Firefox, dozwolone hosty, odczyt opisów wydań z sumą SHA-256).
+`AdMng.Presentation/GroupPolicy/AdministrativeTemplates`: `PolicyDefinitionsService` (szablony okna połączenia, Scoped,
+z zapasowymi szablonami tego komputera), edytor (`AdministrativeTemplatesEditorViewModel`, edytory opcji),
+`PolicyTemplatePackageLoader` (pliki, foldery, pobieranie HTTPS wyłącznie z hostów producentów – także po
+przekierowaniach – z limitem rozmiaru i sumą) i `CentralStoreUpdateViewModel`. `AdMng.App/GroupPolicy`: karta edytora,
+okno aktualizacji i `WindowsPolicyPackageExtractor` (podpis Authenticode przez `WinVerifyTrust`; instalatory MSI/EXE
+uruchamiane tylko z podpisem Microsoftu – `msiexec /a`, `/extract` w folderze tymczasowym usuwanym od razu; CAB
+rozpakowywany w pamięci przez `cabinet.dll` – `CabinetUnpacker`).
+Szablony i ustawienia są tylko w pamięci; kopia magazynu powstaje wyłącznie w folderze wskazanym przez operatora
+(zasada 1), a dziennik audytu zapisuje ścieżki, rozmiary i SHA-256 plików magazynu – nie ich treść.
+
+### Modelowanie zasad grupy – „co dostanie komputer” (K5)
+
+`AdMng.Core/GroupPolicy/Modeling`: `GroupPolicyModelReader` czyta z DC sesji (zasada 4) GPO z flagami, wersją,
+filtrem WMI i listą DACL (jedno wyszukiwanie z kontrolką SD flags), kontenery z łączami
+(`GroupPolicyTopology.ReadContainersAsync`), konta z `tokenGroups` (grupa podstawowa także bez niego, wtedy
+`TokenIncomplete`) i foldery GPO z SYSVOL (najwyżej cztery naraz, w limitach K2). `GroupPolicyModeler` jest czystą
+funkcją: łańcuch łączy z `GroupPolicyInheritance.Explain` (kolejność, wymuszanie, blokowanie dziedziczenia, łącza
+wyłączone i powtórzone – z powodem wykluczenia), wynik każdego GPO (nie istnieje, część wyłączona, pusty, filtrowanie
+zabezpieczeń, MS16-072, filtr WMI według założenia operatora), pętla zwrotna (scalanie, zastępowanie, z GPO komputera
+albo wybrana), ustawienia z wygrywającym i przesłoniętymi GPO (skrypty kumulatywne, zasady kont kontrolera tylko z GPO
+domeny, zasady ADMX przez `PolicyOwnershipIndex` i `PolicyEngine`, elementy preferencji z kierowaniem jako warunkowe).
+`GroupPolicySecurityFilter` ocenia wpisy listy DACL w kolejności, jak `AccessCheck` (pierwszy wpis tokenu, który
+obejmuje prawo, decyduje); konto potrzebuje *Odczytu* i *Zastosuj zasady grupy*. `AdMng.Presentation/GroupPolicy/Modeling`:
+karta `GroupPolicyModelingDocumentViewModel` (dane wejściowe, *Przelicz* poza wątkiem interfejsu, wiersze i teksty w
+`GroupPolicyModelRows`, eksport CSV do pliku operatora); `AdMng.App/GroupPolicy/GroupPolicyModelingView.xaml`. Model
+jest tylko w pamięci, dopóki karta jest otwarta (zasada 1); nic nie jest zapisywane w katalogu.
+
+### Ustawienia zabezpieczeń (K4)
+
+`AdMng.Core/GroupPolicy/Security`: dokumenty do edycji `SecurityTemplateDocument` (`GptTmpl.inf`, UTF-16LE z BOM),
+`AuditPolicyDocument` (`audit.csv`, kodowanie i kolejność kolumn pliku) i `GppGroupsDocument` (`Groups.xml`
+preferencji, utwardzony XML) – każdy zmienia tylko wiersze lub elementy ustawianych ustawień, resztę pliku zachowuje
+bajt w bajt; `SecuritySettingsCatalog` (prawa użytkownika, zasady kont, opcje zabezpieczeń, kategorie i podkategorie
+inspekcji – same identyfikatory, nazwy w zasobach). Zapis planuje `GroupPolicyPlanner.PlanSecuritySettingsAsync`:
+`Modify` nazw rozszerzeń komputera (pary GPMC tylko dla zapisywanych plików), `WriteGpoFile` każdego zmienionego pliku
+z treścią sprzed edycji jako warunkiem (konflikt) i `SetGpoVersion` części komputera. Karta
+`SecuritySettingsEditorViewModel` (`AdMng.Presentation/GroupPolicy/SecuritySettings`) działa jak edytor szablonów K3
+(uzgadnianie przy odświeżeniu, konflikt, zapis przez podgląd planu); pliki są tylko w pamięci karty (zasada 1).
+
+### Czytelne ustawienia, wygoda edycji i diagnostyka zasad grupy (K6)
+
+- **Klucze ustawień:** `AdMng.Core/GroupPolicy/Content/GpoSettingKey.Parse` rozkłada klucz ustawienia (gramatyka
+  wszystkich parserów treści GPO) na obszar, sekcję, nazwę, klucz i wartość rejestru, typ i identyfikator elementu
+  preferencji, fazę skryptu i powiązanie z katalogiem K4 (opcja z jednostką `SecurityValueUnit`, podkategoria
+  inspekcji); `GpoSettingValue.TryParseRegistry` czyta wartości rejestru. Dopasowanie `Registry.pol` do zasad ADMX z
+  modelu K5 jest publiczne jako `AdministrativeTemplatePolicies.Configured`. Wiersze porównania (`GpoComparisonRow.A/B`)
+  i różnic plików (`GpoDiffLine.Setting`) niosą ustawienia, z których powstały.
+- **Prezenter:** `AdMng.Presentation/GroupPolicy/Settings/GpoSettingPresenter` opisuje ustawienie w języku GPMC
+  (`GpoSettingText`: ścieżka grupy, nazwa, wartość z jednostkami, elementy, objaśnienie, klucz techniczny, cel
+  *Edytuj to ustawienie*), skleja elementy preferencji i wartości jednej zasady ADMX w jeden wiersz i zamienia SID-y na
+  nazwy (jedno `TrusteeNames.ResolveAsync` na widok). Korzystają z niego zakładka *Ustawienia* (z raportem HTML
+  `GpoSettingsReport`), model K5, porównanie, podgląd planu i wiersze zmian GPO w zakładce Watchdog; sekrety zostają
+  zamaskowane w każdej ścieżce.
+- **Wygoda edycji:** `ISaveableDocument` / `ISearchableDocument` (`Shell/DocumentCapabilities.cs`) dają Ctrl+S i
+  Ctrl+F karcie, która je obsługuje; `GroupPolicySettingFocus` i `GroupPolicyActions.EditSetting` otwierają K3 albo
+  K4 na ustawieniu (karta edytora tego GPO jest używana ponownie); `ChangePlanPreviewRequest.SettingChanges` dodaje do
+  podglądu sekcję *Zmiany ustawień*.
+- **Diagnostyka:** `AdMng.Core/GroupPolicy/Diagnostics`: `GroupPolicyDiagnosticsReader` czyta migawkę (szybko: LDAP i
+  `GPT.INI`; pełnie: także foldery SYSVOL, liczby obiektów, SID-y i modele kontenerów) z DC sesji (zasada 4), najwyżej
+  cztery odczyty SYSVOL naraz; `GroupPolicyDiagnostics.Analyze` jest czystą funkcją reguł (`GpoFindingCodes`, 51 kodów,
+  ważność, obszar, grupa reguł; `GpoFinding.ToString` bez wartości katalogu). Naprawy (`GpoQuickFix`) odpowiadają
+  jednej metodzie `GroupPolicyPlanner` (m.in. nowe `PlanRepairExtensionNamesAsync`, `PlanRemoveDuplicateLinksAsync`) i
+  idą przez podgląd planu (zasada 5, `GpoQuickFixRunner`). Karta `GroupPolicyDiagnosticsDocumentViewModel` (jedna na
+  okno połączenia) i zakładka *Stan* GPO (`GroupPolicyObjectDocumentViewModel.Health.cs`) pokazują wyniki; migawki i
+  uwagi są tylko w pamięci, eksport CSV/HTML – do pliku operatora (zasada 1).
+
+### Dzienniki zdarzeń (ścieżka E)
+
+- `AdMng.Core/EventLogs`: model `EventLogRecord`, zapytanie `EventLogQuery`, zasięg `EventLogCoverage`, kontrakty
+  `IEventLogConnector`/`IEventLogReader` i błędy `EventLogAccessException`; `EventXmlParser` (XML zdarzenia → rekord,
+  utwardzony XML), `EventQueryXml` (zapytanie strukturalne z bezpiecznym `XPathLiteral`, kontrola XPath operatora –
+  zasada 3), `EventCodes` (kody NTSTATUS, Kerberos, typy szyfrowania i logowania – klucze, teksty w zasobach),
+  `EventLogMatcher`; `InsertionStringDecoder`, `XPathLiteral` i `EventHostNames` przeniesione z Watchdoga i wspólne.
+  `Analysis`: `LockoutInvestigation`, `FailedLogonAnalysis` i `AuditEvidence` – plany zapytań i czyste funkcje
+  analizy.
+- `AdMng.EventLogs` (tylko aplikacja, Windows w czasie działania – jak `AdMng.Remote`): `WindowsEventLogConnector` –
+  `EventLogSession` (MS-EVEN6/RPC) z Kerberosem i poświadczeniem okna (`SessionLogons`, hasło tylko w pamięci),
+  osobna sesja na operację, odczyt partiami na osobnym wątku, anulowanie przez `CancelCurrentOperations`, zasięg z
+  `GetLogInformation`/`EventLogConfiguration`, pliki `.evtx`, klasyfikacja błędów.
+- `AdMng.Presentation/EventLogs`: `EventLogHostRunner` (najwyżej 4 komputery naraz, limit 50 000 zdarzeń w pamięci),
+  karty *Dzienniki zdarzeń*, *Skąd blokada konta* (stan konta na każdym DC przez `DomainControllerReader` – zasada 4,
+  metadane replikacji `lockoutTime`, PSO, komputer źródłowy przez zdalne akcje K1) i *Nieudane logowania*; zapisane
+  zapytania w ustawieniach (bez wartości z dzienników). Zdarzenia i wyniki są tylko w pamięci; eksport CSV/HTML – do
+  pliku operatora z uwagą o danych osobowych (zasada 1). Opis: [DZIENNIKI-ZDARZEN.md](DZIENNIKI-ZDARZEN.md),
+  projekt: [dev/e-event-logs.md](dev/e-event-logs.md).
+
 ## Interfejs użytkownika
 
 - **Okno główne:** pasek menu i narzędzi (jak ADUC), pasek adresu (DN lub ścieżka `contoso.test/Firma/IT`),
@@ -162,6 +301,102 @@ logowania”), który w planie, dzienniku i cofnięciu jest zapisem szesnastkowy
 - **Edytor zbiorczy:** kreator operacje → podgląd → wykonanie → wyniki → cofnięcie; import CSV z mapowaniem kolumn.
 - **Lokalizacja:** zasoby `Strings.resx` (en) i `Strings.pl.resx`; nazwy atrybutów z display specifiers AD (jak w
   polskim ADUC), przełączanie języka bez restartu.
+
+## Komputery (K1)
+
+Projekt: [dev/k-computers-and-gpo.md](dev/k-computers-and-gpo.md), rozdz. 3.1 i 4; opis dla administratora:
+[KOMPUTERY.md](KOMPUTERY.md).
+
+- **Core/Computers** – czysta logika bez LDAP: `ComputerFacts` (fakty z jednego wyniku wyszukiwania), `ComputerClassifier`
+  (stacja / serwer / DC / RODC z `userAccountControl`, grupy podstawowej i `operatingSystem`), `WindowsReleaseCatalog`
+  (kompilacja + klasa wydania → data końca wsparcia, nadpisania z ustawień), `ComputerInventory.Evaluate` (stan
+  komputera dla raportów), `ComputerReports` (filtry LDAP raportów przez `LdapFilter`), `PlacementRules`, `SubnetMap` i
+  `SiteTopology` (lokacje i podsieci z konfiguracji DC sesji), `ComputerJoinRights` (cztery ACE prawa dołączenia).
+- **Zapisy uprawnień (K1.1)** – akcja `ChangeAction.ModifySecurity` w potoku zmian: `AclChange` to delta ACE, którą
+  wykonawca nakłada na świeżo odczytany DACL (`DaclEditor`) i zapisuje z kontrolką SD flags `DACL_SECURITY_INFORMATION`
+  (`ModifyOptions.SecurityDescriptorFlags`) – właściciel, grupa i SACL nie są zapisywane. Cofnięcie to delta odwrotna,
+  eksport PowerShell – `Get-Acl`/`Set-Acl` na dysku `AD:` przypiętym do DC planu. Wynik kroku
+  (`ChangeResult.AppliedAcl`) to ta część delty, która naprawdę zmieniła DACL – z niej korzystają dziennik audytu i
+  cofnięcie, więc ACE dodany w międzyczasie przez kogoś innego nie jest ani przypisywany planowi, ani usuwany. Z tej akcji
+  korzysta też K2 (filtrowanie zabezpieczeń, delegowanie GPO); kopia GPO z uprawnieniami i przywrócenie usuniętego GPO
+  używają delty „dokładnej” (`AclChange.ReplacesExplicit`), która usuwa też jawne ACE, których nie ma w źródle.
+- **Cykl życia** – przygotowanie konta w kreatorze „Nowy → Komputer” (krok tworzenia + `ModifySecurity` w jednym planie),
+  `ResetComputerAccountOperation` (losowe 120 znaków, tylko w pamięci planu) i reguły `PlanValidation` dla kont DC.
+- **AdMng.Remote** (osobny projekt, `net10.0`, wywołania Windows chronione) – `CimRemoteComputerClient`
+  (`Microsoft.Management.Infrastructure`: CIM przez WS-Management, tylko Kerberos, poświadczenia okna z
+  `SessionLogons` w AdMng.Directory jako `SecureString` usuwany z sesją CIM), `WindowsLocalToolLauncher` (mstsc bez
+  poświadczeń; `compmgmt.msc`/`eventvwr` przez `CreateProcessWithLogonW(LOGON_NETCREDENTIALS_ONLY)`), DNS i ping. Odwołuje
+  się do niego tylko `AdMng.App`, więc pakiet CIM nie trafia do usługi Watchdog na Linuksie.
+- **Presentation/Computers** – `ComputerReviewViewModel` (strumień jak w przeglądzie kont, kafelki, kolumny raportu,
+  odczyt na żądanie z wszystkich DC i lokacji), `RemoteComputerViewModel` i `RestartComputerViewModel`, `ComputerActions`
+  (cel zdalny, narzędzia, ping, reset konta), karta „Stan” właściwości i karta „Komputery” ustawień.
+  `ComputerViewModelFactory` i `ComputerActions` są **Scoped** (okno połączenia); klient CIM, narzędzia, ping i resolver
+  DNS są singletonami bez stanu – każde wywołanie dostaje sesję (poświadczenie) okna, które pyta.
+- **Dane** – wyniki przeglądu, adresy, lokacje i wyniki zdalnych akcji są tylko w pamięci okna; dziennik sesji zapisuje
+  akcje zdalne bez treści komunikatu restartu, a logi diagnostyczne nie zawierają nazw komputerów.
+
+## Korespondencja (U5)
+
+Projekt: [dev/u5-outlook-correspondence.md](dev/u5-outlook-correspondence.md); opis dla użytkownika:
+[KORESPONDENCJA.md](KORESPONDENCJA.md). Okno *Korespondencja* to program *Korespondencja WPiA* (masowa wysyłka przez
+klasycznego Outlooka) przeniesiony do AD Managera, z odbiorcami z AD i zapytaniami do właścicieli skrzynek. Niczego nie
+zapisuje w katalogu (zasada 5 nie ma zastosowania – wiadomość nie jest zmianą AD); wszystkie odczyty idą przez sesję
+okna połączenia (zasada 4).
+
+```text
+AdMng.App/Correspondence ── okno WPF, edytor RichMessageEditor + FlowDocumentHtml, DPAPI, folder Pobrane, podgląd 127.0.0.1
+        │
+AdMng.Presentation/Correspondence ── CorrespondenceViewModel + strony, dziennik, szablony, połączenie z Outlookiem
+        │                                    │
+AdMng.Core/Correspondence                 AdMng.Outlook ── COM (dynamic) na wątku STA ──► classic Outlook (outlook.exe)
+  Import, Fields, Composition,              (tylko App; nigdy w pakiecie Watchdoga)
+  Journal, Mailboxes, Outlook (kontrakty)
+```
+
+- **AdMng.Outlook** (osobny projekt, `net10.0`, działa tylko na Windows, kompiluje się wszędzie – jak `AdMng.Remote`):
+  klasyczny Outlook przez **późne wiązanie COM** (`dynamic`, bez bibliotek PIA), każde wywołanie na jednym wątku STA
+  sesji (`StaWorker`) z filtrem komunikatów COM (ponawianie przy „Outlook zajęty” do 60 s). `OutlookClient` dołącza do
+  uruchomionego Outlooka albo go uruchamia (3 próby); `OutlookSession` wysyła lub zapisuje wersję roboczą
+  (`OutlookMailBuilder` – kolejność kroków jak w Korespondencji WPiA: konto, *w imieniu*, adresaci z rozpoznaniem,
+  temat, HTML, potwierdzenie, dostarczenie później, głosowanie, właściwości nazwane, obrazki `cid:` jako ukryte
+  załączniki, załączniki, zapis, wysyłka), buduje podgląd w Outlooku, diagnozuje środowisko i czyta głosy z *Elementów
+  wysłanych* (`OutlookCampaigns`, właściwości nazwane `AdMngCampaign`/`AdMngKeys`). `OutlookErrors` zamienia HRESULT i
+  krok na kod `outlook.*` – treść wyjątku nigdy nie jest zachowywana (może zawierać adresy). Obrazki dla Outlooka trafiają
+  do prywatnego folderu tymczasowego usuwanego zaraz po zapisie wiadomości (`OutlookTempFiles`). Tu są też podpisy
+  Outlooka (`OutlookSignatureFiles`) i transport U1 `OutlookUserMessageTransport`. Odwołuje się do niego tylko
+  `AdMng.App`.
+- **Core/Correspondence** – czysta logika: `Import` (adresy, wyłuskiwanie z tekstu i tabel, czytniki CSV, XLSX, DOCX,
+  ODT/ODS, RTF i HTML z limitami i ochroną przed bombami zip), `Fields` (pola `{{Pole}}`/`{{Pole|tekst}}`, naprawa pól
+  rozciętych znacznikami, zbiór pól odbiorcy), `Composition` (dokument wiadomości, renderer z `{{lista}}`, parser
+  podpisów Outlooka, kontrola zgodności z pocztą, grupowanie), `Journal` (skróty HMAC-SHA-256 i format pliku dziennika),
+  `Mailboxes` (rodzaje skrzynek z `msExchRecipientTypeDetails`, imię i nazwisko właściciela, indeks osób ze składaniem
+  polskich znaków, dopasowanie z poziomami i pełnomocnictwami) oraz kontrakty Outlooka (`IOutlookClient`,
+  `IOutlookSession`, `OutlookMessage`, `OutlookFailureCodes`). Pola z AD to wyrażenia `UserMessageFields` (U1, U1d,
+  nowe `{$created}`).
+- **Presentation/Correspondence** – `CorrespondenceViewModel` (okno, `WindowViewModelBase`) i strony:
+  `OutlookConnectionViewModel`, `MailboxOwnersPageViewModel`, `RecipientsPageViewModel`, `MessagePageViewModel`,
+  `PreviewPageViewModel`, `SendPageViewModel`, `ResponsesPageViewModel`. Singletony aplikacji: `CorrespondenceJournal`
+  (plik dziennika z blokadą `journal.lock` między oknami i procesami), `CorrespondenceTemplateLibrary` (szablony
+  wbudowane i operatora, eksport/import, ostatni szkic; obrazki we wspólnym `MessageImageStore`) i
+  `LoopbackPreviewServer` (podgląd w przeglądarce z pamięci na `127.0.0.1` pod losowym tokenem, 15 minut).
+  **Scoped** (okno połączenia): `CorrespondenceServices`, `CorrespondenceViewModelFactory`, dialogi i launcher
+  (`ICorrespondenceDialogs`, `ICorrespondenceLauncher` w `DialogService` App). Polecenia powłoki `tools.correspondence`,
+  `object.correspondence`, `object.mailboxOwners`. Ustawienia: `CorrespondenceSettings` w `settings.json` (opcje,
+  szablony, ostatni szkic, definicje pól, opcje skrzynek – nazwy, filtry LDAP i DN przenośne, nigdy wartości z katalogu).
+- **App/Correspondence** – `CorrespondenceWindow` (zakładki, siatki z kolumnami pól), `RichMessageEditor` (WPF
+  `RichTextBox`, wklejanie przez potok U1c) z konwerterem `FlowDocumentHtml` (dokument ↔ ograniczony, oczyszczony HTML),
+  `DpapiKeyProtector` (klucz dziennika, DPAPI bieżącego użytkownika), `WindowsCorrespondencePlatform` (folder *Pobrane*),
+  `LoopbackBrowserPreview` i rejestracja `AddAdMngCorrespondenceApp()` (klient Outlooka i transport U1 jako singletony).
+  Test dymny i testy UI podmieniają Outlooka na fałszywy – nigdy go nie uruchamiają.
+- **Dane** (zasada 1) – lista odbiorców, wartości z AD, podgląd, wyniki, dopasowania skrzynek i odpowiedzi są tylko w
+  pamięci okna. Jedyny wyjątek to dziennik „już wysłane” (`correspondence/journal.txt` obok ustawień): skróty adresów
+  (HMAC-SHA-256 z kluczem użytkownika chronionym DPAPI), czas i temat, bez adresów
+  ([ADR-0003](adr/0003-brak-lokalnych-danych.md), uzupełnienie). Dziennik sesji dostaje jeden wpis na wysyłkę bez
+  adresów i tematu.
+- **Testy** – `AdMng.Core.Tests/Correspondence` (czytniki plików, pola, kompozycja, dziennik, dopasowanie skrzynek na
+  próbce `AddMailboxOwnerSample`), `AdMng.Outlook.Tests` (fałszywy model obiektowy Outlooka w CLR, Linux i Windows),
+  `AdMng.Presentation.Tests/Correspondence` (z `FakeOutlookClient` z `AdMng.Testing`), testy UI i zrzuty 26–28 na
+  Windows. Prawdziwy Outlook – tylko pilotaż.
 
 ## Bezpieczeństwo
 
@@ -210,7 +445,7 @@ serwer Debian 12/13 poza domeną (Tier 0), konto komputera CONTOSO\ADMNG-WD$ z k
 |---|---|
 | `AdMng.Watchdog.Contracts` | model zdarzenia, DTO API, konfiguracja, trasy, JSON (bez zależności) |
 | `AdMng.Watchdog.Core` | cała logika (wykrywanie, migawki, atrybucja, reguły, planowanie powiadomień, formatery e-mail/Teams/webhook, raport dzienny) – testowana na Linuksie z `FakeDirectorySession` i zarejestrowanymi zdarzeniami; rejestracja `AddWatchdogCore()` |
-| `AdMng.Watchdog.Service` | host: API, autoryzacja (role z `tokenGroups`), magazyn SQLite, Data Protection (klucz w poświadczeniu systemd), transporty (MailKit, `HttpClient`), odczyt plików OpenWEC, czytnik SYSVOL (smbclient), samokontrola konta usługi, hosty zadań; do usunięcia po 0.3.0 – hosting Windows, HTTP.sys, DPAPI-NG, czytnik dzienników przez RPC, skrypty instalacyjne |
+| `AdMng.Watchdog.Service` | host: API, autoryzacja (role z `tokenGroups`), magazyn SQLite, Data Protection (klucz w poświadczeniu systemd), transporty (MailKit, `HttpClient`; treść MIME wiadomości do użytkowników z `AdMng.Mail`), odczyt plików OpenWEC, czytnik SYSVOL (smbclient), samokontrola konta usługi, hosty zadań; do usunięcia po 0.3.0 – hosting Windows, HTTP.sys, DPAPI-NG, czytnik dzienników przez RPC, skrypty instalacyjne |
 | `AdMng.Watchdog.Keytab` | narzędzie `admng-watchdog-keytab`: zmiana hasła konta `ADMNG-WD$` i keytab (MIT libkrb5) |
 | `packaging/`, `tools/packaging` | pakiety Debiana `admng-watchdog` i `admng-openwec`: jednostki systemd, skrypty instalacyjne, budowanie i test instalacji |
 | `AdMng.Watchdog.Client` | klient HTTPS/Kerberos API (`IWatchdogClient`) używany przez AD_MNG |
@@ -248,12 +483,28 @@ Zasady, które odróżniają usługę od reszty rozwiązania:
 - **Dzienniki diagnostyczne bez wartości z katalogu** – wyjątki tylko przez `SafeExceptionLog` (typ, kody, stos –
   nigdy `Message`), filtr redakcji na dostawcach logów.
 
+## Gotowość środowiska i zgłaszanie problemów (etap S)
+
+- **Gotowość środowiska** (`AdMng.Presentation.Readiness`): dokument powłoki na okno połączenia. `ReadinessChecker`
+  sprawdza obszary po kolei przez istniejące usługi okna (sesja, katalog kontrolerów, SYSVOL, zdalne akcje, dzienniki
+  zdarzeń, Watchdog, Outlook) i `ILocalComputerInfo` z App; każdy wynik ma stały kod (`ReadinessCodes`), stan,
+  objaśnienie, podpowiedź i rozdział instrukcji. Tylko odczyt: prawo zapisu do `Policies` ocenia
+  `Core.Readiness.FolderWriteAccess` z listy DACL folderu i `tokenGroups` konta, bez próby zapisu. Czytanie dzienników
+  zdarzeń idzie do każdego DC, LDAP zostaje przy kontrolerze okna (zasada 4).
+- **Wyniki** trafiają do `IReadinessResults` okna (scoped) jako pary kod–stan bez nazw – czyta je raport problemu.
+- **Zgłoś problem** (`AdMng.Presentation.Diagnostics`): `DiagnosticLoggerProvider` zapisuje w `DiagnosticLogBuffer`
+  (singleton, 200 wpisów w pamięci) tylko poziom, kategorię, identyfikator zdarzenia, **szablon** komunikatu i typ +
+  HResult wyjątku – nigdy sformatowanych argumentów, treści wyjątków ani zakresów, więc żadna wartość z katalogu nie
+  może do niego trafić (zasada 1). `ProblemReportViewModel` składa z tego, z faktów sesji (rodzaj logowania i ochrona
+  kanału, bez nazw) i z wyników gotowości tekst, który operator kopiuje albo zapisuje.
+
 ## Testy i jakość
 
 | Poziom | Gdzie | Jak |
 |---|---|---|
-| Jednostkowe | `AdMng.Core.Tests`, `AdMng.Presentation.Tests` | xUnit v3, `FakeDirectorySession` |
+| Jednostkowe | `AdMng.Core.Tests`, `AdMng.Presentation.Tests` | xUnit v3, `FakeDirectorySession`; testy modeli widoku w jednym wątku interfejsu (`UiThreadAttribute`), jak w WPF; limity czasu jako granice logiczne i liniowy wzrost pracy (`LinearWork`), nie czas zegarowy |
 | Integracyjne | `AdMng.Directory.IntegrationTests` | Samba AD DC z `tools/testlab` (lokalnie i w CI na Ubuntu) |
+| Outlook (U5) | `AdMng.Outlook.Tests` | fałszywy model obiektowy Outlooka w CLR: kolejność kroków budowania wiadomości, obrazki `cid:`, klasyfikacja błędów, wątek STA, pliki tymczasowe, głosy, transport U1 (Linux i Windows); prawdziwy Outlook – tylko pilotaż |
 | Dymne UI | CI Windows | `AdMng.exe --smoke-test` tworzy wszystkie widoki z danymi testowymi |
 | Watchdog – silnik | `AdMng.Watchdog.Core.Tests` | `FakeDirectorySession` z emulacją USN, metadanych i kontrolera; zarejestrowane zdarzenia 47xx/5136; fałszywy zegar |
 | Watchdog – usługa | `AdMng.Watchdog.Service.Tests` | host w procesie (`WebApplicationFactory`), SQLite w folderze tymczasowym, odbiorniki SMTP/HTTP, testy higieny dzienników, odczyt plików OpenWEC z awarią na każdym kroku, rozbiór listingu smbclient, role z `tokenGroups`; testy tylko-Windows w CI Windows |

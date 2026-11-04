@@ -1,3 +1,4 @@
+using AdMng.Core.EventLogs;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Model;
@@ -91,7 +92,7 @@ public sealed class CollectorLogonBudget(int maxPerDcPerMinute)
     {
         ArgumentNullException.ThrowIfNull(dc);
         var minute = timeCreated.ToUnixTimeSeconds() / 60;
-        var key = (HostNames.Normalize(dc), minute);
+        var key = (EventHostNames.Normalize(dc), minute);
         lock (_gate)
         {
             var used = _used.GetValueOrDefault(key);

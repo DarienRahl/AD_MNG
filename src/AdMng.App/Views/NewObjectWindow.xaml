@@ -287,12 +287,69 @@
                  AutomationProperties.Name="{l:Tr Labels.ComputerName}"
                  CharacterCasing="Upper"
                  Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+
+        <!-- K1 prestage: who may join, managed by, location -->
+        <TextBlock Style="{StaticResource Label}" Text="{l:Tr Computers.Prestage.Joiner}" />
+        <DockPanel>
+          <Button x:Name="ClearJoinerButton"
+                  Margin="6,0,0,0"
+                  Command="{Binding ClearJoinerCommand}"
+                  Content="{l:Tr Computers.Prestage.Clear}"
+                  DockPanel.Dock="Right"
+                  Style="{StaticResource Ad.DialogButton}"
+                  Visibility="{Binding HasJoiner, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <Button x:Name="ChangeJoinerButton"
+                  Margin="8,0,0,0"
+                  AutomationProperties.Name="{l:Tr Computers.Prestage.Joiner}"
+                  Command="{Binding ChangeJoinerCommand}"
+                  Content="{l:Tr Computers.Prestage.Change}"
+                  DockPanel.Dock="Right"
+                  Style="{StaticResource Ad.DialogButton}" />
+          <TextBlock x:Name="JoinerText"
+                     VerticalAlignment="Center"
+                     Text="{Binding JoinerText, Mode=OneWay}"
+                     TextTrimming="CharacterEllipsis" />
+        </DockPanel>
+        <TextBlock Style="{StaticResource Label}" Text="{l:Tr Computers.Prestage.ManagedBy}" />
+        <DockPanel>
+          <Button Margin="6,0,0,0"
+                  Command="{Binding ClearManagedByCommand}"
+                  Content="{l:Tr Computers.Prestage.Clear}"
+                  DockPanel.Dock="Right"
+                  Style="{StaticResource Ad.DialogButton}"
+                  Visibility="{Binding HasManagedBy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <Button Margin="8,0,0,0"
+                  AutomationProperties.Name="{l:Tr Computers.Prestage.ManagedBy}"
+                  Command="{Binding ChangeManagedByCommand}"
+                  Content="{l:Tr Computers.Prestage.Change}"
+                  DockPanel.Dock="Right"
+                  Style="{StaticResource Ad.DialogButton}" />
+          <TextBlock VerticalAlignment="Center"
+                     Text="{Binding ManagedByText, Mode=OneWay}"
+                     TextTrimming="CharacterEllipsis" />
+        </DockPanel>
+        <TextBlock Style="{StaticResource Label}" Text="{l:Tr Computers.Prestage.Location}" />
+        <TextBox x:Name="LocationBox"
+                 AutomationProperties.Name="{l:Tr Computers.Prestage.Location}"
+                 Text="{Binding Location, UpdateSourceTrigger=PropertyChanged}" />
       </StackPanel>
 
       <!-- Description: groups, OUs, computers -->
       <StackPanel x:Name="DescriptionSection">
         <TextBlock Style="{StaticResource Label}" Text="{l:Tr Common.Description}" />
         <TextBox AutomationProperties.Name="{l:Tr Common.Description}" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" />
+      </StackPanel>
+
+      <!-- K1 prestage: the KB5020276 join hardening and the missing pre-Windows 2000 option -->
+      <StackPanel Margin="0,12,0,0" Visibility="{Binding IsComputer, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <TextBlock x:Name="JoinSummaryText"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding JoinSummary, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+        <TextBlock Margin="0,6,0,0"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding PreWindows2000Note, Mode=OneWay}"
+                   TextWrapping="Wrap" />
       </StackPanel>
 
       <!-- Validation / creation error -->

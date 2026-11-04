@@ -62,6 +62,9 @@ public sealed partial class AccountStatusFieldViewModel : PropertyFieldViewModel
     /// <summary>U1 hook: "Wyślij wiadomość…" only when a message launcher is registered.</summary>
     public bool CanSendMessages => Context.Messages is not null;
 
+    /// <summary>"Skąd blokada konta…" (track E) is offered: the window has the event log documents.</summary>
+    public bool CanFindLockoutSource => Context.EventLogs is not null;
+
     internal override IReadOnlyList<string> ReadAttributes => AccountStatus.Attributes;
 
     internal override IReadOnlyList<string> WrittenAttributes => [];
@@ -111,6 +114,18 @@ public sealed partial class AccountStatusFieldViewModel : PropertyFieldViewModel
 
     private bool CanCheckDomainControllers() => !IsCheckingDomainControllers && _loaded is not null;
 
+    /// <summary>"Skąd blokada konta…": the lockout source document of this account in the main window.</summary>
+    [RelayCommand(CanExecute = nameof(CanOpenLockoutSource))]
+    private void FindLockoutSource()
+    {
+        if (_loaded is { } account)
+        {
+            Context.EventLogs?.OpenLockout(account.DistinguishedName, account.Name);
+        }
+    }
+
+    private bool CanOpenLockoutSource() => _loaded is not null && Context.EventLogs is not null;
+
     [RelayCommand]
     private Task SendMessageAsync() =>
         Context.Messages is { } messages && _loaded is { } account ? messages.ShowComposerAsync([account.DistinguishedName], null) : Task.CompletedTask;
@@ -122,6 +137,7 @@ public sealed partial class AccountStatusFieldViewModel : PropertyFieldViewModel
         DomainControllersText = string.Empty;
         Recompute();
         CheckDomainControllersCommand.NotifyCanExecuteChanged();
+        FindLockoutSourceCommand.NotifyCanExecuteChanged();
     }
 
     protected override void RevertCore()
