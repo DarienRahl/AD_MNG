@@ -261,7 +261,7 @@ public class CopyFieldTests
         await sheet.InitializeAsync();
         var editor = Assert.IsType<AttributeEditorPageViewModel>(sheet.Pages[^1]);
         sheet.SelectedPage = editor;
-        await B2Harness.WaitUntilAsync(() => editor.Rows.Count > 0);
+        await B2Harness.WaitUntilAsync(() => !editor.IsLoading && editor.Rows.Count > 0);
 
         // Session log (Ctrl+Shift+C) and PowerShell history.
         using var log = harness.Factory.CreateSessionLog();

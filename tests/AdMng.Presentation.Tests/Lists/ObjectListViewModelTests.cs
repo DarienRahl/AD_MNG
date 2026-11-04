@@ -602,17 +602,23 @@ public class ObjectListViewModelTests
     }
 
     /// <summary>
-    /// Polls a condition. Tests have no single UI thread (the test dispatcher runs work inline on pool threads), so a
-    /// collection may change while the condition enumerates it - that read simply counts as "not yet".
+    /// Polls a condition. Work that does not run on the test's UI thread (pool threads, the inline test dispatcher) may
+    /// change a collection while the condition enumerates it - that read simply counts as "not yet". The last evaluation
+    /// lets an exception of the condition through.
     /// </summary>
     internal static async Task WaitUntilAsync(Func<bool> condition)
     {
-        for (var i = 0; i < 500 && !Evaluate(condition); i++)
+        for (var i = 0; i < 500; i++)
         {
+            if (Evaluate(condition))
+            {
+                return;
+            }
+
             await Task.Delay(10, TestContext.Current.CancellationToken);
         }
 
-        Assert.True(Evaluate(condition));
+        Assert.True(condition());
     }
 
     private static bool Evaluate(Func<bool> condition)
