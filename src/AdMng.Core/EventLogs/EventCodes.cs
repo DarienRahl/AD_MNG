@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Net;
+using AdMng.Core.EventLogs.Analysis;
 
 namespace AdMng.Core.EventLogs;
 
@@ -92,6 +93,15 @@ public sealed record EventCode(EventCodeKind Kind, long Value, EventCodeCategory
     public bool IsFailure => (Kind is EventCodeKind.NtStatus or EventCodeKind.KerberosResult or EventCodeKind.FailureReason)
         && Category != EventCodeCategory.Success;
 
+    /// <summary>
+    /// What the code means for the logon analyses (<see cref="LockoutInvestigation"/>, <see cref="FailedLogonAnalysis"/>): the
+    /// <see cref="Category"/> with the logon restrictions told apart (logon hours, workstation, logon type, authentication
+    /// firewall, KDC policy) and every other restriction, trust failure or unclassified code as
+    /// <see cref="LogonFailureKind.Other"/>; <see cref="LogonFailureKind.None"/> for success and for the type catalogs
+    /// (encryption, pre-authentication and logon types). Set by the catalog (also for codes outside it).
+    /// </summary>
+    public LogonFailureKind FailureKind { get; init; }
+
     public override string ToString() => Key;
 }
 
@@ -158,13 +168,13 @@ public static class EventCodes
             Code(EventCodeKind.NtStatus, StatusWrongPassword, EventCodeCategory.BadPassword),
             Code(EventCodeKind.NtStatus, StatusLogonFailure, EventCodeCategory.Other),
             Code(EventCodeKind.NtStatus, StatusAccountRestriction, EventCodeCategory.LogonRestriction),
-            Code(EventCodeKind.NtStatus, StatusInvalidLogonHours, EventCodeCategory.LogonRestriction),
-            Code(EventCodeKind.NtStatus, StatusInvalidWorkstation, EventCodeCategory.LogonRestriction),
+            Code(EventCodeKind.NtStatus, StatusInvalidLogonHours, EventCodeCategory.LogonRestriction, LogonFailureKind.LogonHours),
+            Code(EventCodeKind.NtStatus, StatusInvalidWorkstation, EventCodeCategory.LogonRestriction, LogonFailureKind.WorkstationRestriction),
             Code(EventCodeKind.NtStatus, StatusPasswordExpired, EventCodeCategory.PasswordExpired),
             Code(EventCodeKind.NtStatus, StatusAccountDisabled, EventCodeCategory.AccountDisabled),
             Code(EventCodeKind.NtStatus, 0xC00000DC, EventCodeCategory.Other),               // SAM server in the wrong state
             Code(EventCodeKind.NtStatus, StatusTimeDifferenceAtDc, EventCodeCategory.ClockSkew),
-            Code(EventCodeKind.NtStatus, StatusLogonTypeNotGranted, EventCodeCategory.LogonRestriction),
+            Code(EventCodeKind.NtStatus, StatusLogonTypeNotGranted, EventCodeCategory.LogonRestriction, LogonFailureKind.LogonTypeNotGranted),
             Code(EventCodeKind.NtStatus, 0xC000018C, EventCodeCategory.TrustFailure),         // trust between domains failed
             Code(EventCodeKind.NtStatus, 0xC000018D, EventCodeCategory.TrustFailure),         // computer's secure channel failed
             Code(EventCodeKind.NtStatus, 0xC0000192, EventCodeCategory.TrustFailure),         // Netlogon not started
@@ -175,7 +185,7 @@ public static class EventCodes
             Code(EventCodeKind.NtStatus, 0xC00002EE, EventCodeCategory.Other),               // an error occurred during logon
             Code(EventCodeKind.NtStatus, 0xC0000371, EventCodeCategory.Other),               // local store has no secret for the account
             Code(EventCodeKind.NtStatus, 0xC0000380, EventCodeCategory.Other),               // smart card: wrong PIN
-            Code(EventCodeKind.NtStatus, StatusAuthenticationFirewallFailed, EventCodeCategory.LogonRestriction),
+            Code(EventCodeKind.NtStatus, StatusAuthenticationFirewallFailed, EventCodeCategory.LogonRestriction, LogonFailureKind.AuthenticationFirewall),
         ];
         KerberosResults =
         [
@@ -187,7 +197,7 @@ public static class EventCodes
             Code(EventCodeKind.KerberosResult, KerberosServerUnknown, EventCodeCategory.Other),
             Code(EventCodeKind.KerberosResult, 0x8, EventCodeCategory.Other),                 // principal not unique (duplicate SPN)
             Code(EventCodeKind.KerberosResult, 0x9, EventCodeCategory.Other),                 // no key for the principal
-            Code(EventCodeKind.KerberosResult, KerberosPolicy, EventCodeCategory.LogonRestriction),
+            Code(EventCodeKind.KerberosResult, KerberosPolicy, EventCodeCategory.LogonRestriction, LogonFailureKind.Policy),
             Code(EventCodeKind.KerberosResult, 0xD, EventCodeCategory.Other),                 // bad option (delegation)
             Code(EventCodeKind.KerberosResult, KerberosEncryptionTypeNotSupported, EventCodeCategory.Other),
             Code(EventCodeKind.KerberosResult, 0xF, EventCodeCategory.Other),                 // checksum type not supported
@@ -250,11 +260,11 @@ public static class EventCodes
             Code(EventCodeKind.FailureReason, 2305, EventCodeCategory.AccountExpired),
             Code(EventCodeKind.FailureReason, 2306, EventCodeCategory.TrustFailure),        // Netlogon not active
             Code(EventCodeKind.FailureReason, 2307, EventCodeCategory.AccountLockedOut),
-            Code(EventCodeKind.FailureReason, 2308, EventCodeCategory.LogonRestriction),    // logon type not granted
+            Code(EventCodeKind.FailureReason, 2308, EventCodeCategory.LogonRestriction, LogonFailureKind.LogonTypeNotGranted),
             Code(EventCodeKind.FailureReason, 2309, EventCodeCategory.PasswordExpired),
             Code(EventCodeKind.FailureReason, 2310, EventCodeCategory.AccountDisabled),
-            Code(EventCodeKind.FailureReason, 2311, EventCodeCategory.LogonRestriction),    // logon hours
-            Code(EventCodeKind.FailureReason, 2312, EventCodeCategory.LogonRestriction),    // workstation
+            Code(EventCodeKind.FailureReason, 2311, EventCodeCategory.LogonRestriction, LogonFailureKind.LogonHours),
+            Code(EventCodeKind.FailureReason, 2312, EventCodeCategory.LogonRestriction, LogonFailureKind.WorkstationRestriction),
             Code(EventCodeKind.FailureReason, 2313, EventCodeCategory.Other),               // unknown user name or bad password
         ];
 
@@ -303,7 +313,7 @@ public static class EventCodes
     /// <summary>The catalog entry of <paramref name="value"/>, or an entry with <see cref="EventCode.IsKnown"/> false
     /// (category <see cref="EventCodeCategory.Other"/> for result codes, <see cref="EventCodeCategory.None"/> for types).</summary>
     public static EventCode Describe(EventCodeKind kind, long value) =>
-        Find(kind, value) ?? new EventCode(kind, value, IsResultKind(kind) ? EventCodeCategory.Other : EventCodeCategory.None) { IsKnown = false };
+        Find(kind, value) ?? Code(kind, value, IsResultKind(kind) ? EventCodeCategory.Other : EventCodeCategory.None) with { IsKnown = false };
 
     /// <summary><see cref="Describe(EventCodeKind, long)"/> of a code as an event writes it; null when it cannot be parsed.</summary>
     public static EventCode? Describe(EventCodeKind kind, string? value) =>
@@ -415,6 +425,12 @@ public static class EventCodes
     public static bool IsLocalAddress(string? value) =>
         NormalizeIpAddress(value) is { } address && IPAddress.TryParse(address, out var ip) && IPAddress.IsLoopback(ip);
 
+    /// <summary>True for the unspecified address (<c>0.0.0.0</c>, <c>::</c>, also IPv4-mapped): the event names no client
+    /// address (the analyses then attribute the attempt to the logging computer, like a loopback address).</summary>
+    public static bool IsUnspecifiedAddress(string? value) =>
+        NormalizeIpAddress(value) is { } address && IPAddress.TryParse(address, out var ip)
+        && (ip.Equals(IPAddress.Any) || ip.Equals(IPAddress.IPv6Any));
+
     /// <summary>
     /// A computer name the client supplied (4776 <c>Workstation</c>, 4625 <c>WorkstationName</c>, the 4740 caller in
     /// <c>TargetDomainName</c>): trimmed, without leading <c>\\</c> and a trailing dot; null for empty values and
@@ -429,7 +445,31 @@ public static class EventCodes
     private static bool IsResultKind(EventCodeKind kind) =>
         kind is EventCodeKind.NtStatus or EventCodeKind.KerberosResult or EventCodeKind.FailureReason;
 
-    private static EventCode Code(EventCodeKind kind, long value, EventCodeCategory category) => new(kind, value, category);
+    /// <summary>A catalog entry; <paramref name="failureKind"/> refines the category for the analyses (else derived from it).</summary>
+    private static EventCode Code(EventCodeKind kind, long value, EventCodeCategory category, LogonFailureKind? failureKind = null) =>
+        new(kind, value, category) { FailureKind = failureKind ?? FailureKindOf(kind, category) };
+
+    /// <summary>
+    /// The <see cref="EventCode.FailureKind"/> a category implies: the account and password findings, clock skew and success
+    /// map one to one; logon restrictions without a finer kind, trust failures and everything else are
+    /// <see cref="LogonFailureKind.Other"/>; the type catalogs carry no failure.
+    /// </summary>
+    private static LogonFailureKind FailureKindOf(EventCodeKind kind, EventCodeCategory category) => !IsResultKind(kind)
+        ? LogonFailureKind.None
+        : category switch
+        {
+            EventCodeCategory.Success => LogonFailureKind.None,
+            EventCodeCategory.UnknownAccount => LogonFailureKind.UnknownAccount,
+            EventCodeCategory.BadPassword => LogonFailureKind.BadPassword,
+            EventCodeCategory.AccountLockedOut => LogonFailureKind.AccountLocked,
+            EventCodeCategory.AccountDisabled => LogonFailureKind.AccountDisabled,
+            EventCodeCategory.AccountExpired => LogonFailureKind.AccountExpired,
+            EventCodeCategory.AccountRevoked => LogonFailureKind.AccountRevoked,
+            EventCodeCategory.PasswordExpired => LogonFailureKind.PasswordExpired,
+            EventCodeCategory.PasswordMustChange => LogonFailureKind.PasswordMustChange,
+            EventCodeCategory.ClockSkew => LogonFailureKind.ClockSkew,
+            _ => LogonFailureKind.Other,
+        };
 
     private static bool TryParseHex(ReadOnlySpan<char> digits, out long code)
     {

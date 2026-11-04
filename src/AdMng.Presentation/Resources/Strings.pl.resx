@@ -19258,4 +19258,114 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Próg blokady nieznany: konto podlega szczegółowym zasadom haseł {0}, których Twoje konto nie może odczytać (domyślnie mogą tylko Administratorzy domeny). Ich próg, okres obserwacji i czas blokady mogą się różnić od zasad domeny.</value>
   </data>
   <!-- Track E review fixes (reader, lockout source): end -->
+  <!-- Stage S problem report (Pomoc → Zgłoś problem…): begin -->
+  <data name="ProblemReport.Command" xml:space="preserve">
+    <value>Zgłoś problem…</value>
+  </data>
+  <data name="ProblemReport.WindowTitle" xml:space="preserve">
+    <value>Zgłoś problem</value>
+  </data>
+  <data name="ProblemReport.Intro" xml:space="preserve">
+    <value>Dołącz ten raport do opisu problemu. Nie zawiera nazw serwerów, domen ani kont ani żadnych wartości z katalogu: tylko wersje, sposób logowania i ochronę połączenia tego okna, komponenty opcjonalne, kody sprawdzenia gotowości i ostatnie komunikaty diagnostyczne jako szablony. Raport jest tylko w pamięci – trafia na dysk wyłącznie wtedy, gdy go zapiszesz.</value>
+  </data>
+  <data name="ProblemReport.SaveAs" xml:space="preserve">
+    <value>Zapisz jako…</value>
+  </data>
+  <data name="ProblemReport.Copied" xml:space="preserve">
+    <value>Raport problemu skopiowano do schowka.</value>
+  </data>
+  <data name="ProblemReport.SaveTitle" xml:space="preserve">
+    <value>Zapisz raport problemu</value>
+  </data>
+  <data name="ProblemReport.FileFilter" xml:space="preserve">
+    <value>Plik tekstowy (*.txt)</value>
+  </data>
+  <data name="ProblemReport.Saved" xml:space="preserve">
+    <value>Zapisano raport problemu: {0}</value>
+  </data>
+  <data name="ProblemReport.Heading" xml:space="preserve">
+    <value>AD Manager – raport problemu</value>
+  </data>
+  <data name="ProblemReport.Created" xml:space="preserve">
+    <value>Utworzono (UTC): {0}</value>
+  </data>
+  <data name="ProblemReport.ValueFree" xml:space="preserve">
+    <value>Bez nazw serwerów, domen i kont oraz bez wartości z katalogu; komunikaty dziennika jako szablony bez wartości.</value>
+  </data>
+  <data name="ProblemReport.SectionEnvironment" xml:space="preserve">
+    <value>Program i komputer</value>
+  </data>
+  <data name="ProblemReport.Version" xml:space="preserve">
+    <value>Wersja AD Managera: {0}</value>
+  </data>
+  <data name="ProblemReport.OperatingSystem" xml:space="preserve">
+    <value>System operacyjny: {0} ({1})</value>
+  </data>
+  <data name="ProblemReport.Runtime" xml:space="preserve">
+    <value>Środowisko .NET: {0} (proces {1})</value>
+  </data>
+  <data name="ProblemReport.Culture" xml:space="preserve">
+    <value>Język interfejsu: {0}; formaty: {1}</value>
+  </data>
+  <data name="ProblemReport.SectionConnection" xml:space="preserve">
+    <value>Połączenie tego okna</value>
+  </data>
+  <data name="ProblemReport.NotConnected" xml:space="preserve">
+    <value>Brak połączenia.</value>
+  </data>
+  <data name="ProblemReport.Logon" xml:space="preserve">
+    <value>Logowanie: {0} [{1}]</value>
+  </data>
+  <data name="ProblemReport.Mechanism" xml:space="preserve">
+    <value>Uwierzytelnianie: {0}</value>
+  </data>
+  <data name="ProblemReport.MechanismNegotiate" xml:space="preserve">
+    <value>Negotiate (Kerberos lub NTLM)</value>
+  </data>
+  <data name="ProblemReport.MechanismSimpleBind" xml:space="preserve">
+    <value>Proste powiązanie LDAP (simple bind)</value>
+  </data>
+  <data name="ProblemReport.Protection" xml:space="preserve">
+    <value>Ochrona kanału: {0} [{1}]</value>
+  </data>
+  <data name="ProblemReport.Flags" xml:space="preserve">
+    <value>Podpisywanie: {0} · Szyfrowanie (sealing): {1} · LDAPS: {2} · StartTLS: {3}</value>
+  </data>
+  <data name="ProblemReport.GlobalCatalog" xml:space="preserve">
+    <value>Wykaz globalny: {0}</value>
+  </data>
+  <data name="ProblemReport.SecurityStrength" xml:space="preserve">
+    <value>Siła zabezpieczeń SASL (SSF): {0}</value>
+  </data>
+  <data name="ProblemReport.SectionFeatures" xml:space="preserve">
+    <value>Komponenty opcjonalne</value>
+  </data>
+  <data name="ProblemReport.Outlook" xml:space="preserve">
+    <value>Klasyczny Outlook zainstalowany: {0}</value>
+  </data>
+  <data name="ProblemReport.WebView2" xml:space="preserve">
+    <value>Środowisko WebView2 dostępne (podglądy sformatowane): {0}</value>
+  </data>
+  <data name="ProblemReport.Watchdog" xml:space="preserve">
+    <value>Usługa AdMng Watchdog skonfigurowana: {0}</value>
+  </data>
+  <data name="ProblemReport.FeatureDisabled" xml:space="preserve">
+    <value>Nie (wyłączone)</value>
+  </data>
+  <data name="ProblemReport.FeatureUnknown" xml:space="preserve">
+    <value>Nie sprawdzono</value>
+  </data>
+  <data name="ProblemReport.SectionReadiness" xml:space="preserve">
+    <value>Sprawdzenie gotowości (ostatnie wyniki w tym oknie)</value>
+  </data>
+  <data name="ProblemReport.ReadinessNone" xml:space="preserve">
+    <value>Brak wyników – najpierw uruchom sprawdzenie gotowości w tym oknie.</value>
+  </data>
+  <data name="ProblemReport.SectionLog" xml:space="preserve">
+    <value>Dziennik diagnostyczny (ostatnie {0} z {1} wpisów; tylko szablony, bez wartości)</value>
+  </data>
+  <data name="ProblemReport.LogEmpty" xml:space="preserve">
+    <value>Brak wpisów.</value>
+  </data>
+  <!-- Stage S problem report (Pomoc → Zgłoś problem…): end -->
 </root>

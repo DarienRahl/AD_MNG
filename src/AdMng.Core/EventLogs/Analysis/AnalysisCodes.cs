@@ -4,9 +4,9 @@ using System.Net;
 namespace AdMng.Core.EventLogs.Analysis;
 
 /// <summary>
-/// The event IDs and failure codes the analyses need, and their classification (design note e-event-logs.md 4).
-/// Internal on purpose: the public code catalog of the reader (<c>EventCodes</c>, NTSTATUS / Kerberos texts by key) is
-/// built in parallel; the two are unified after the merge.
+/// The event IDs the analyses read and the classification of a record (design note e-event-logs.md 4), on top of the
+/// public code catalog: the result code of a record is <see cref="EventCodes.ResultOf"/> and what it means is
+/// <see cref="EventCode.FailureKind"/> – one classification of NTSTATUS and Kerberos codes for the reader and the analyses.
 /// </summary>
 internal static class AnalysisCodes
 {
@@ -23,98 +23,12 @@ internal static class AnalysisCodes
     /// <summary>The NULL SID 4625 carries as <c>TargetUserSid</c> on failures.</summary>
     public const string NullSid = "S-1-0-0";
 
-    public const uint StatusNoSuchUser = 0xC0000064;
-    public const uint StatusWrongPassword = 0xC000006A;
-    public const uint StatusLogonFailure = 0xC000006D;
-    public const uint StatusAccountRestriction = 0xC000006E;
-    public const uint StatusInvalidLogonHours = 0xC000006F;
-    public const uint StatusInvalidWorkstation = 0xC0000070;
-    public const uint StatusPasswordExpired = 0xC0000071;
-    public const uint StatusAccountDisabled = 0xC0000072;
-    public const uint StatusTimeDifference = 0xC0000133;
-    public const uint StatusLogonTypeNotGranted = 0xC000015B;
-    public const uint StatusAccountExpired = 0xC0000193;
-    public const uint StatusPasswordMustChange = 0xC0000224;
-    public const uint StatusAccountLockedOut = 0xC0000234;
-    public const uint StatusAuthenticationFirewall = 0xC0000413;
-
-    public const uint KerberosPrincipalUnknown = 0x6;
-    public const uint KerberosPolicy = 0xC;
-    public const uint KerberosClientRevoked = 0x12;
-    public const uint KerberosKeyExpired = 0x17;
-    public const uint KerberosPreAuthFailed = 0x18;
-    public const uint KerberosClockSkew = 0x25;
-
-    /// <summary>Parses <c>0x18</c>, <c>0xc000006a</c> or a plain hex number; null when absent or not a number.</summary>
-    public static uint? ParseCode(string? value)
-    {
-        var text = value?.Trim();
-        if (string.IsNullOrEmpty(text))
-        {
-            return null;
-        }
-
-        if (text.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-        {
-            text = text[2..];
-        }
-
-        return uint.TryParse(text, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var code) ? code : null;
-    }
-
-    /// <summary><c>0x</c> + upper-case hex without leading zeros (<c>0x18</c>, <c>0xC000006A</c>).</summary>
-    public static string FormatCode(uint code) => "0x" + code.ToString("X", CultureInfo.InvariantCulture);
-
-    /// <summary>The event carries a Kerberos result code (4768, 4769, 4771) rather than an NTSTATUS.</summary>
-    public static bool IsKerberos(int eventId) => eventId is TicketGrantingTicket or 4769 or PreAuthenticationFailed;
-
-    public static LogonFailureKind ClassifyNtStatus(uint status) => status switch
-    {
-        0 => LogonFailureKind.None,
-        StatusWrongPassword => LogonFailureKind.BadPassword,
-        StatusNoSuchUser => LogonFailureKind.UnknownAccount,
-        StatusAccountLockedOut => LogonFailureKind.AccountLocked,
-        StatusAccountDisabled => LogonFailureKind.AccountDisabled,
-        StatusAccountExpired => LogonFailureKind.AccountExpired,
-        StatusPasswordExpired => LogonFailureKind.PasswordExpired,
-        StatusPasswordMustChange => LogonFailureKind.PasswordMustChange,
-        StatusInvalidLogonHours => LogonFailureKind.LogonHours,
-        StatusInvalidWorkstation => LogonFailureKind.WorkstationRestriction,
-        StatusLogonTypeNotGranted => LogonFailureKind.LogonTypeNotGranted,
-        StatusTimeDifference => LogonFailureKind.ClockSkew,
-        StatusAuthenticationFirewall => LogonFailureKind.AuthenticationFirewall,
-        _ => LogonFailureKind.Other,
-    };
-
-    public static LogonFailureKind ClassifyKerberos(uint code) => code switch
-    {
-        0 => LogonFailureKind.None,
-        KerberosPreAuthFailed => LogonFailureKind.BadPassword,
-        KerberosPrincipalUnknown => LogonFailureKind.UnknownAccount,
-        KerberosClientRevoked => LogonFailureKind.AccountRevoked,
-        KerberosKeyExpired => LogonFailureKind.PasswordExpired,
-        KerberosClockSkew => LogonFailureKind.ClockSkew,
-        KerberosPolicy => LogonFailureKind.Policy,
-        _ => LogonFailureKind.Other,
-    };
-
     /// <summary>
-    /// The failure code of <paramref name="record"/>: <c>Status</c>; for 4625 the <c>SubStatus</c> when <c>Status</c> is
-    /// the generic <c>0xC000006D</c> / <c>0xC000006E</c> and the sub-status names something.
+    /// The failure kind and the code of <paramref name="record"/> (<see cref="LogonFailureKind.None"/> and null for a
+    /// success): the result of <see cref="EventCodes.ResultOf"/> – for 4625 the sub-status behind the generic
+    /// <c>0xC000006D</c> / <c>0xC000006E</c> – with its <see cref="EventCode.FailureKind"/> (a failure whose code says
+    /// success counts as <see cref="LogonFailureKind.Other"/>) and its <see cref="EventCode.Display"/>.
     /// </summary>
-    public static uint? EffectiveCode(EventLogRecord record)
-    {
-        var status = ParseCode(record.Get("Status"));
-        if (record.EventId == LogonFailed && status is StatusLogonFailure or StatusAccountRestriction
-            && ParseCode(record.Get("SubStatus")) is { } subStatus and not 0)
-        {
-            return subStatus;
-        }
-
-        return status;
-    }
-
-    /// <summary>The failure kind and the formatted code of <paramref name="record"/> (<see cref="LogonFailureKind.None"/> for a success).</summary>
     public static (LogonFailureKind Kind, string? Code) Classify(EventLogRecord record)
     {
         if (!IsFailure(record))
@@ -122,13 +36,12 @@ internal static class AnalysisCodes
             return (LogonFailureKind.None, null);
         }
 
-        if (EffectiveCode(record) is not { } code)
+        if (EventCodes.ResultOf(record) is not { } result)
         {
             return (LogonFailureKind.Other, null);
         }
 
-        var kind = IsKerberos(record.EventId) ? ClassifyKerberos(code) : ClassifyNtStatus(code);
-        return (kind == LogonFailureKind.None ? LogonFailureKind.Other : kind, FormatCode(code));
+        return (result.FailureKind == LogonFailureKind.None ? LogonFailureKind.Other : result.FailureKind, result.Display);
     }
 
     /// <summary>
@@ -140,7 +53,7 @@ internal static class AnalysisCodes
         LogonFailed or PreAuthenticationFailed => true,
         LogonSucceeded => false,
         TicketGrantingTicket or CredentialValidation => record.IsAuditFailure
-            || (!record.IsAuditSuccess && ParseCode(record.Get("Status")) is { } status and not 0),
+            || (!record.IsAuditSuccess && EventCodes.ResultOf(record) is { IsFailure: true }),
         _ => record.IsAuditFailure,
     };
 
@@ -172,40 +85,18 @@ internal static class AnalysisCodes
 /// <summary>Normalization of the values the analyses compare (accounts, computers, addresses, hosts).</summary>
 internal static class AnalysisValues
 {
-    /// <summary>An address as compared: trimmed, lower case, the IPv4-mapped prefix stripped; null for none or <c>-</c>.</summary>
-    public static string? Address(string? value)
-    {
-        var text = value?.Trim();
-        if (string.IsNullOrEmpty(text) || text == "-")
-        {
-            return null;
-        }
+    /// <summary>An address as compared: <see cref="EventCodes.NormalizeIpAddress"/> (trimmed, the IPv4-mapped prefix
+    /// stripped; null for none or <c>-</c>) in lower case.</summary>
+    public static string? Address(string? value) => EventCodes.NormalizeIpAddress(value)?.ToLowerInvariant();
 
-        if (text.StartsWith("::ffff:", StringComparison.OrdinalIgnoreCase) && IPAddress.TryParse(text[7..], out var mapped)
-            && mapped.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-        {
-            return text[7..];
-        }
+    /// <summary>A loopback or unspecified address (<c>::1</c>, <c>127.0.0.1</c>, <c>::</c>, <c>0.0.0.0</c>): the attempt
+    /// came from the logging computer (<see cref="EventCodes.IsLocalAddress"/>, <see cref="EventCodes.IsUnspecifiedAddress"/>).</summary>
+    public static bool IsLocalAddress(string address) => EventCodes.IsLocalAddress(address) || EventCodes.IsUnspecifiedAddress(address);
 
-        return text.ToLowerInvariant();
-    }
-
-    /// <summary>A loopback or unspecified address (<c>::1</c>, <c>127.0.0.1</c>, <c>::</c>, <c>0.0.0.0</c>).</summary>
-    public static bool IsLocalAddress(string address) =>
-        IPAddress.TryParse(address, out var ip) && (IPAddress.IsLoopback(ip) || ip.Equals(IPAddress.Any) || ip.Equals(IPAddress.IPv6Any));
-
-    /// <summary>A computer name as compared: trimmed, without leading backslashes and a trailing <c>$</c>, upper case; null for none or <c>-</c>.</summary>
-    public static string? Computer(string? value)
-    {
-        var text = value?.Trim().TrimStart('\\').Trim();
-        if (string.IsNullOrEmpty(text) || text == "-")
-        {
-            return null;
-        }
-
-        text = text.TrimEnd('$');
-        return text.Length == 0 ? null : text.ToUpperInvariant();
-    }
+    /// <summary>A computer name as compared: <see cref="EventCodes.NormalizeWorkstation"/> (trimmed, without leading
+    /// backslashes and a trailing dot) without a trailing <c>$</c>, upper case; null for none or <c>-</c>.</summary>
+    public static string? Computer(string? value) =>
+        EventCodes.NormalizeWorkstation(value)?.TrimEnd('$') is { Length: > 0 } name ? name.ToUpperInvariant() : null;
 
     /// <summary>The first label of a computer or host name.</summary>
     public static string ShortName(string name)

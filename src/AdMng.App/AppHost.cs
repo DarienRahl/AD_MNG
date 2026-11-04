@@ -26,6 +26,7 @@ using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Comparison;
 using AdMng.Presentation.Connections;
+using AdMng.Presentation.Diagnostics;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
@@ -68,9 +69,12 @@ public static class AppHost
             DisableDefaults = true,
         });
 
-        // Diagnostics go to the debugger output only - never to files, and never with directory values.
+        // Diagnostics go to the debugger output and to the in-memory buffer of the problem report (Pomoc → Zgłoś problem…,
+        // DiagnosticLogBuffer: level, category, event id, message template, exception type and HResult - never the values)
+        // - never to files, and never with directory values.
         builder.Logging.ClearProviders();
         builder.Logging.AddDebug();
+        builder.Logging.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, DiagnosticLoggerProvider>());
         builder.Logging.SetMinimumLevel(LogLevel.Information);
 
         builder.Services.AddAdMngApp(options, Dispatcher.CurrentDispatcher);
@@ -204,6 +208,7 @@ public static class AppHost
         // without per-connection state: the one WebView2 environment of the rendered previews (its temp folder is deleted at
         // exit) and the reader of Outlook's clipboard images that expands 8.3 names of the temp folder. ----
         services.AddSingleton<WebView2Host>();
+        services.AddSingleton<IWebView2Runtime>(sp => sp.GetRequiredService<WebView2Host>());
         services.Replace(ServiceDescriptor.Singleton<IPastedImageSource>(_ => new PastedImageFileSource(expandShortNames: ShortPathNames.Expand)));
 
         // ---- Korespondencja, README U5 (design note docs/dev/u5-outlook-correspondence.md 9.1): Outlook (AdMng.Outlook), the
@@ -217,6 +222,9 @@ public static class AppHost
 
         // ---- Watchdog: certificate confirmation on first connection (stage B design 18 item 1) ----
         services.AddWindow<WatchdogCertificateTrustViewModel, WatchdogCertificateTrustWindow>();
+
+        // ---- Problem report, Pomoc → Zgłoś problem… (design note s-pilot-readiness.md 3; opened through ToolWindows) ----
+        services.AddWindow<ProblemReportViewModel, ProblemReportWindow>();
         return services;
     }
 

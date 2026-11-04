@@ -152,6 +152,7 @@ public sealed class HostTests
         typeof(AppearanceService),
         typeof(ISysvolFileReader),
         typeof(WebView2Host),
+        typeof(Presentation.Diagnostics.IWebView2Runtime),
         typeof(ISysvolFileWriter),
         typeof(Presentation.GroupPolicy.AdministrativeTemplates.IPolicyPackageExtractor),
         typeof(Core.Correspondence.Outlook.IOutlookClient),

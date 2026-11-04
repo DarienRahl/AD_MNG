@@ -7,56 +7,66 @@ namespace AdMng.Core.Tests.EventLogs.Analysis;
 /// <summary>The internal code classification and value normalization of the analyses.</summary>
 public sealed class AnalysisCodesTests
 {
+    /// <summary>The analyses classify with the catalog: the kinds the internal tables had, now from <see cref="EventCode.FailureKind"/>.</summary>
     [Theory]
-    [InlineData("0x18", 0x18u)]
-    [InlineData("0xc000006a", 0xC000006Au)]
-    [InlineData(" 0XC0000234 ", 0xC0000234u)]
-    [InlineData("c0000064", 0xC0000064u)]
-    [InlineData("0x0", 0u)]
-    public void ParseCode_ReadsHexInAnyCase(string text, uint expected) => Assert.Equal(expected, AnalysisCodes.ParseCode(text));
+    [InlineData(0xC000006AL, LogonFailureKind.BadPassword)]
+    [InlineData(0xC0000064L, LogonFailureKind.UnknownAccount)]
+    [InlineData(0xC0000234L, LogonFailureKind.AccountLocked)]
+    [InlineData(0xC0000072L, LogonFailureKind.AccountDisabled)]
+    [InlineData(0xC0000193L, LogonFailureKind.AccountExpired)]
+    [InlineData(0xC0000071L, LogonFailureKind.PasswordExpired)]
+    [InlineData(0xC0000224L, LogonFailureKind.PasswordMustChange)]
+    [InlineData(0xC000006FL, LogonFailureKind.LogonHours)]
+    [InlineData(0xC0000070L, LogonFailureKind.WorkstationRestriction)]
+    [InlineData(0xC000015BL, LogonFailureKind.LogonTypeNotGranted)]
+    [InlineData(0xC0000133L, LogonFailureKind.ClockSkew)]
+    [InlineData(0xC0000413L, LogonFailureKind.AuthenticationFirewall)]
+    [InlineData(0xC000006DL, LogonFailureKind.Other)]
+    [InlineData(0xC000006EL, LogonFailureKind.Other)]
+    [InlineData(0xC000018DL, LogonFailureKind.Other)]
+    [InlineData(0xC0001234L, LogonFailureKind.Other)]
+    [InlineData(0L, LogonFailureKind.None)]
+    public void NtStatus_FailureKind(long status, LogonFailureKind expected) =>
+        Assert.Equal(expected, EventCodes.Describe(EventCodeKind.NtStatus, status).FailureKind);
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("%%2313")]
-    [InlineData("0xZZ")]
-    public void ParseCode_NullForNoNumber(string? text) => Assert.Null(AnalysisCodes.ParseCode(text));
+    [InlineData(0x18L, LogonFailureKind.BadPassword)]
+    [InlineData(0x6L, LogonFailureKind.UnknownAccount)]
+    [InlineData(0x12L, LogonFailureKind.AccountRevoked)]
+    [InlineData(0x17L, LogonFailureKind.PasswordExpired)]
+    [InlineData(0x25L, LogonFailureKind.ClockSkew)]
+    [InlineData(0xCL, LogonFailureKind.Policy)]
+    [InlineData(0x1L, LogonFailureKind.AccountExpired)]
+    [InlineData(0x1FL, LogonFailureKind.Other)]
+    [InlineData(0x99L, LogonFailureKind.Other)]
+    [InlineData(0L, LogonFailureKind.None)]
+    public void KerberosResult_FailureKind(long code, LogonFailureKind expected) =>
+        Assert.Equal(expected, EventCodes.Describe(EventCodeKind.KerberosResult, code).FailureKind);
 
     [Fact]
-    public void FormatCode_UpperHexWithoutLeadingZeros()
+    public void FailureKind_FollowsTheCategory_AndTypesCarryNone()
     {
-        Assert.Equal("0x18", AnalysisCodes.FormatCode(0x18));
-        Assert.Equal("0xC000006A", AnalysisCodes.FormatCode(0xC000006A));
-        Assert.Equal("0x0", AnalysisCodes.FormatCode(0));
+        Assert.All(EventCodes.All.Where(c => c.Kind is EventCodeKind.KerberosEncryptionType or EventCodeKind.KerberosPreAuthType or EventCodeKind.LogonType),
+            c => Assert.Equal(LogonFailureKind.None, c.FailureKind));
+        Assert.All(EventCodes.All.Where(c => c.IsFailure), c => Assert.NotEqual(LogonFailureKind.None, c.FailureKind));
+        Assert.All(EventCodes.All.Where(c => c.Category == EventCodeCategory.LogonRestriction && c.FailureKind != LogonFailureKind.Other),
+            c => Assert.Contains(c.FailureKind, new[]
+            {
+                LogonFailureKind.LogonHours, LogonFailureKind.WorkstationRestriction, LogonFailureKind.LogonTypeNotGranted,
+                LogonFailureKind.AuthenticationFirewall, LogonFailureKind.Policy,
+            }));
+        Assert.Equal(LogonFailureKind.LogonHours, EventCodes.Describe(EventCodeKind.FailureReason, 2311).FailureKind);
+        Assert.Equal(LogonFailureKind.AccountLocked, EventCodes.Describe(EventCodeKind.FailureReason, 2307).FailureKind);
+        Assert.Equal(LogonFailureKind.None, EventCodes.Describe(EventCodeKind.LogonType, 99).FailureKind);
     }
 
-    [Theory]
-    [InlineData(0xC000006Au, LogonFailureKind.BadPassword)]
-    [InlineData(0xC0000064u, LogonFailureKind.UnknownAccount)]
-    [InlineData(0xC0000234u, LogonFailureKind.AccountLocked)]
-    [InlineData(0xC0000072u, LogonFailureKind.AccountDisabled)]
-    [InlineData(0xC0000193u, LogonFailureKind.AccountExpired)]
-    [InlineData(0xC0000071u, LogonFailureKind.PasswordExpired)]
-    [InlineData(0xC0000224u, LogonFailureKind.PasswordMustChange)]
-    [InlineData(0xC000006Fu, LogonFailureKind.LogonHours)]
-    [InlineData(0xC0000070u, LogonFailureKind.WorkstationRestriction)]
-    [InlineData(0xC000015Bu, LogonFailureKind.LogonTypeNotGranted)]
-    [InlineData(0xC0000133u, LogonFailureKind.ClockSkew)]
-    [InlineData(0xC0000413u, LogonFailureKind.AuthenticationFirewall)]
-    [InlineData(0xC000006Du, LogonFailureKind.Other)]
-    [InlineData(0u, LogonFailureKind.None)]
-    public void ClassifyNtStatus(uint status, LogonFailureKind expected) => Assert.Equal(expected, AnalysisCodes.ClassifyNtStatus(status));
-
-    [Theory]
-    [InlineData(0x18u, LogonFailureKind.BadPassword)]
-    [InlineData(0x6u, LogonFailureKind.UnknownAccount)]
-    [InlineData(0x12u, LogonFailureKind.AccountRevoked)]
-    [InlineData(0x17u, LogonFailureKind.PasswordExpired)]
-    [InlineData(0x25u, LogonFailureKind.ClockSkew)]
-    [InlineData(0xCu, LogonFailureKind.Policy)]
-    [InlineData(0x1Fu, LogonFailureKind.Other)]
-    [InlineData(0u, LogonFailureKind.None)]
-    public void ClassifyKerberos(uint code, LogonFailureKind expected) => Assert.Equal(expected, AnalysisCodes.ClassifyKerberos(code));
+    [Fact]
+    public void ResultCodes_DisplayInUpperHex()
+    {
+        Assert.Equal("0x18", EventCodes.Describe(EventCodeKind.KerberosResult, "0x18")!.Display);
+        Assert.Equal("0xC000006A", EventCodes.Describe(EventCodeKind.NtStatus, "0xc000006a")!.Display);
+        Assert.Equal("0xC0000234", EventCodes.Describe(EventCodeKind.NtStatus, " 0XC0000234 ")!.Display);
+    }
 
     [Fact]
     public void Classify_4625UsesTheSubStatusBehindTheGenericCodes()
@@ -120,12 +130,14 @@ public sealed class AnalysisCodesTests
     [InlineData("0.0.0.0", true)]
     [InlineData("::", true)]
     [InlineData("10.0.0.1", false)]
+    [InlineData("fe80::1", false)]
     public void IsLocalAddress(string address, bool expected) => Assert.Equal(expected, AnalysisValues.IsLocalAddress(address));
 
     [Theory]
     [InlineData(@"\\ws-krakow-07", "WS-KRAKOW-07")]
     [InlineData("księgowość-01$", "KSIĘGOWOŚĆ-01")]
     [InlineData(" ws01.firma.test ", "WS01.FIRMA.TEST")]
+    [InlineData("ws01.firma.test.", "WS01.FIRMA.TEST")]
     [InlineData("-", null)]
     [InlineData(@"\\", null)]
     [InlineData("$", null)]

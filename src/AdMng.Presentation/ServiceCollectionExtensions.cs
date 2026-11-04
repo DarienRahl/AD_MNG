@@ -122,6 +122,12 @@ public static class ServiceCollectionExtensions
         // Dzienniki zdarzeń (track E): the launcher and the documents' services per connection window; the host adds the
         // reader (IEventLogConnector, Windows only).
         services.AddAdMngEventLogs();
+
+        // Problem report (Pomoc → Zgłoś problem…, design note s-pilot-readiness.md 3): the diagnostic buffer is one for the
+        // application (log templates, no directory values; the App feeds it from its logging); the report's services are
+        // per connection window (its readiness results).
+        services.TryAddSingleton<Diagnostics.DiagnosticLogBuffer>();
+        services.TryAddScoped<Diagnostics.ProblemReportServices>();
         services.TryAddScoped<IDialogViewModelFactory, DialogViewModelFactory>();
 
         // View models (one per window / dialog). The shell is per connection window: the window, its tools and the
@@ -149,6 +155,10 @@ public static class ServiceCollectionExtensions
             var watchdog = sp.GetRequiredService<WatchdogServices>();
             return () => new WatchdogDocumentViewModel(watchdog);
         });
+
+        // The readiness results of a connection window for the problem report: empty until the readiness check registers
+        // its own (TryAdd as the last registration: any registration of the check made before this point wins).
+        services.TryAddScoped<Readiness.IReadinessResults, Diagnostics.EmptyReadinessResults>();
         return services;
     }
 

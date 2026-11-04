@@ -226,6 +226,12 @@ internal sealed class ScriptedDialogService : IDialogService
         return Task.CompletedTask;
     }
 
+    public Task ShowProblemReportAsync()
+    {
+        Shown.Add("problemReport");
+        return Task.CompletedTask;
+    }
+
     public Task ShowRecycleBinAsync(Guid? select = null)
     {
         Shown.Add(select is { } guid ? $"recycleBin:{guid:D}" : "recycleBin");

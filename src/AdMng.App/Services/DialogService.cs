@@ -262,6 +262,13 @@ public sealed partial class DialogService : IDialogService, IUserMessageLauncher
 
     public Task ShowSettingsAsync() => OnUiThreadAsync(_tools.ShowSettings);
 
+    // ---- Problem report, Pomoc → Zgłoś problem… (modeless, one window) ----
+    public Task ShowProblemReportAsync() => OnUiThreadAsync(() =>
+    {
+        _tools.ShowProblemReport();
+        return true;
+    });
+
     // ---- AD Recycle Bin (modeless, one window) ----
     public Task ShowRecycleBinAsync(Guid? select = null) => OnUiThreadAsync(() =>
     {
