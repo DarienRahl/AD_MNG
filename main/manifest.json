@@ -103,5 +103,65 @@
     "file": "21-compare-objects.png",
     "title_pl": "Porównanie obiektów między połączeniami – Łukasz Wiśniewski w contoso.test i fabrikam.test, tylko różnice (stanowisko, miasto)",
     "title_en": "Comparing objects between connections – Łukasz Wiśniewski in contoso.test and fabrikam.test, differences only (title, city)"
+  },
+  {
+    "file": "22-computers.png",
+    "title_pl": "Przegląd komputerów – systemy po końcu wsparcia, kafelki wersji Windows i porządku, szczegóły zaznaczonego komputera",
+    "title_en": "Computer review – systems past the end of support, the release and housekeeping tiles, the details of the selected computer"
+  },
+  {
+    "file": "23-group-policy.png",
+    "title_pl": "Zasady grupy jednostki Komputery – połączone GPO (jedno wyłączone), dziedziczenie z wymuszonym GPO domeny, obiekty zasad grupy w drzewie",
+    "title_en": "Group Policy of the Komputery unit – linked GPOs (one disabled), inheritance with the domain\u0027s enforced GPO, the Group Policy Objects in the tree"
+  },
+  {
+    "file": "24-user-messages-rich-html.png",
+    "title_pl": "Wiadomości do użytkowników – wiadomość wklejona z Outlooka: treść HTML, osadzone obrazy i wyniki wklejania z akcją „Zezwól na domenę”",
+    "title_en": "Messages to users – a message pasted from Outlook: the HTML content, the embedded images and the paste results with \u0022Allow domain\u0022"
+  },
+  {
+    "file": "25-user-messages-salutations.png",
+    "title_pl": "Wiadomości do użytkowników – zwroty grzecznościowe z tytułem i płcią: kolumna „Zwrot” (≈ zgadnięte, ⚠ zwrot neutralny) i pola wyliczone zaznaczonej wiadomości",
+    "title_en": "Messages to users – title-aware salutations: the \u0022Salutation\u0022 column (≈ guessed, ⚠ neutral fallback) and the derived fields of the selected message"
+  },
+  {
+    "file": "26-correspondence-recipients.png",
+    "title_pl": "Korespondencja – odbiorcy wczytani z pliku CSV: kolumny pól, statusy wysyłki przez Outlooka i adres pominięty jako „już wysłany”",
+    "title_en": "Correspondence – recipients loaded from a CSV file: field columns, the statuses of a run through Outlook and an address skipped as \u0022already sent\u0022"
+  },
+  {
+    "file": "27-correspondence-message.png",
+    "title_pl": "Korespondencja – wiadomość: edytor z formatowaniem i polem {{Miejscowość}}, podpis z Outlooka, załączniki, przyciski głosowania i dostarczenie o wskazanej porze",
+    "title_en": "Correspondence – the message: the editor with formatting and the field {{Miejscowość}}, the Outlook signature, attachments, voting buttons and deferred delivery"
+  },
+  {
+    "file": "28-correspondence-mailbox-owners.png",
+    "title_pl": "Korespondencja – właściciele skrzynek: dopasowani, potwierdzeni przez pełnomocnictwo, niejednoznaczni z kandydatami do wyboru i nieznalezieni",
+    "title_en": "Correspondence – mailbox owners: matched, confirmed by a delegate link, ambiguous with candidates to choose from, and not found"
+  },
+  {
+    "file": "29-administrative-templates.png",
+    "title_pl": "Szablony administracyjne GPO – kategorie z magazynu centralnego, włączane ustawienie z opcjami i pomocą, niezapisana zmiana",
+    "title_en": "Administrative templates of a GPO – the categories of the central store, a setting being enabled with its options and help, an unsaved change"
+  },
+  {
+    "file": "30-central-store-update.png",
+    "title_pl": "Aktualizacja szablonów ADMX – paczka wskazana przez operatora, języki, pliki magazynu centralnego (nowe, zastąpiony, bez zmian) i kopia zapasowa przed zapisem",
+    "title_en": "Updating the ADMX templates – a package the operator chose, its languages, the central store\u0027s files (new, replaced, unchanged) and the backup before writing"
+  },
+  {
+    "file": "31-group-policy-model.png",
+    "title_pl": "Co dostanie komputer – GPO komputera z wynikiem (wymuszony, filtr WMI, łącze wyłączone), zwycięskie ustawienia i „Dlaczego” z przesłoniętym GPO",
+    "title_en": "What the computer gets – the computer\u0027s GPOs with their results (enforced, WMI filter, disabled link), the winning settings and “Why” with the overridden GPO"
+  },
+  {
+    "file": "32-lockout-source.png",
+    "title_pl": "Skąd blokada konta – Jan Kowalski: stan na kontrolerach domeny, próg z zasad domeny, źródła złych haseł (stacja WAW-PC001 i jej adres) z wyjaśnionymi kodami i sprawdzony komputer źródłowy z zadaniem zaplanowanym na zapisanym haśle",
+    "title_en": "Where the lockout came from – Jan Kowalski: the state on the domain controllers, the domain policy\u0027s threshold, the sources of the bad passwords (the workstation WAW-PC001 and its address) with the codes explained, and the source computer checked, with a scheduled task on a saved password"
+  },
+  {
+    "file": "33-readiness.png",
+    "title_pl": "Gotowość środowiska – pełne sprawdzenie z komputerem testowym: połączenie, katalog, SYSVOL i zasady grupy, zdalne akcje, dzienniki zdarzeń każdego kontrolera, Watchdog, Outlook i ten komputer; każdy punkt z objaśnieniem, podpowiedzią i rozdziałem instrukcji",
+    "title_en": "Environment readiness – the full check with a test computer: connection, directory, SYSVOL and Group Policy, remote actions, every domain controller\u0027s event logs, Watchdog, Outlook and this computer; every check with its explanation, remedy and documentation chapter"
   }
 ]
