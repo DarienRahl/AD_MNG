@@ -77,7 +77,7 @@ public sealed class ReadinessQuickCheckTests
             Assert.Contains(".md, chapter ", r.Documentation, StringComparison.Ordinal);
         });
         Assert.Equal("Clock difference to the DC", report.Single(ReadinessCodes.ConnectionClockSkew).Title);
-        Assert.Equal("WATCHDOG-LINUX.md, chapter 1.4 “Czas w domenie”", report.Single(ReadinessCodes.ConnectionClockSkew).Documentation);
+        Assert.Equal("docs/en/WATCHDOG-LINUX.md, chapter 1.4 “Time in the domain”", report.Single(ReadinessCodes.ConnectionClockSkew).Documentation);
     }
 
     [Fact]
