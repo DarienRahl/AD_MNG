@@ -606,34 +606,36 @@ public sealed class LockoutInvestigationTests
     [Fact]
     public void FiftyThousandRecords_AnalyzedQuickly()
     {
-        var r = new SecurityRecords();
-        var random = new Random(4740);
-        var records = new List<EventLogRecord>(EventLogLimits.MaxRecordsInMemory);
-        while (records.Count < EventLogLimits.MaxRecordsInMemory)
+        static LockoutInvestigationInput Records(int count)
         {
-            var mine = records.Count % 10 == 0;
-            var account = mine ? "jkowalski" : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"użytkownik{random.Next(3_000):0000}");
-            var time = T0 + TimeSpan.FromSeconds(random.Next(86_400));
-            var host = (records.Count % 3) switch { 0 => Pdc, 1 => Dc2, _ => Dc3 };
-            records.Add((records.Count % 4) switch
+            var r = new SecurityRecords();
+            var random = new Random(4740);
+            var records = new List<EventLogRecord>(count);
+            while (records.Count < count)
             {
-                0 => r.Kerberos(host, time, account, mine ? KowalskiSid : null, "::ffff:10.3.0." + random.Next(250).ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                1 => r.Ntlm(host, time, account, "WS-" + random.Next(400).ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                2 => r.LogonFailure(host, time, account, "10.3.1." + random.Next(250).ToString(System.Globalization.CultureInfo.InvariantCulture), null),
-                _ => r.Lockout(host, time, account, mine ? KowalskiSid : null, "WS-" + random.Next(400).ToString(System.Globalization.CultureInfo.InvariantCulture)),
-            });
+                var mine = records.Count % 10 == 0;
+                var account = mine ? "jkowalski" : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"użytkownik{random.Next(3_000):0000}");
+                var time = T0 + TimeSpan.FromSeconds(random.Next(86_400));
+                var host = (records.Count % 3) switch { 0 => Pdc, 1 => Dc2, _ => Dc3 };
+                records.Add((records.Count % 4) switch
+                {
+                    0 => r.Kerberos(host, time, account, mine ? KowalskiSid : null, "::ffff:10.3.0." + random.Next(250).ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                    1 => r.Ntlm(host, time, account, "WS-" + random.Next(400).ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                    2 => r.LogonFailure(host, time, account, "10.3.1." + random.Next(250).ToString(System.Globalization.CultureInfo.InvariantCulture), null),
+                    _ => r.Lockout(host, time, account, mine ? KowalskiSid : null, "WS-" + random.Next(400).ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                });
+            }
+
+            return Input(records, new AccountLockoutState(Pdc, true, 5, LockedAt, LockedAt), new AccountLockoutState(Dc2), new AccountLockoutState(Dc3)) with
+            {
+                Coverage = [Covered(Pdc, T0), Covered(Dc2, T0), Covered(Dc3, T0)],
+            };
         }
 
-        var input = Input(records, new AccountLockoutState(Pdc, true, 5, LockedAt, LockedAt), new AccountLockoutState(Dc2), new AccountLockoutState(Dc3)) with
-        {
-            Coverage = [Covered(Pdc, T0), Covered(Dc2, T0), Covered(Dc3, T0)],
-        };
+        // Linear growth against the same analysis of an eighth of the records, not against a clock.
+        var report = LinearWork.Assert(
+            Records(EventLogLimits.MaxRecordsInMemory / LinearWork.Factor), Records(EventLogLimits.MaxRecordsInMemory), LockoutInvestigation.Analyze);
 
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        var report = LockoutInvestigation.Analyze(input);
-        stopwatch.Stop();
-
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10), $"Analyze took {stopwatch.Elapsed}.");
         Assert.Equal(EventLogLimits.MaxRecordsInMemory / 10, report.Timeline.Count);
         Assert.Equal(report.Timeline.Count, report.Lockouts.Count + report.FailureCount);
         Assert.Equal(3, report.DomainControllers.Count);
