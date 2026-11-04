@@ -180,8 +180,8 @@ Presentation: documents against `FakeEventLogConnector` + `FakeDirectorySession`
   log that did not stop recording). NTLM failures the PDC emulator logs again (4776 with the same account, workstation
   and status within ±5 s) count once. "Locked now" is judged at the current time. A spray counts accounts with up to
   `max(SprayMaxPerAccount, BruteForceThreshold − 1)` failures, so 4–9 tries per account are no longer missed; 4768
-  `0x12` is not a password attempt. Classification lives in the internal `AnalysisCodes` (to be unified with the
-  public `EventCodes`).
+  `0x12` is not a password attempt. Classification comes from the public `EventCodes` catalog (`EventCode.FailureKind`; stage S, see
+  `s-pilot-readiness.md` 6); the internal `AnalysisCodes` keeps only event IDs and record predicates.
 - **Windows reader (B3 + review).** Every operation opens its own `EventLogSession` (cancelling one read must not
   cancel others); hosts must be FQDNs (IP literals and short names are refused before any connection); Kerberos
   failures map to `AccessDenied` or `Failed` with the native code. File queries are built with a placeholder channel
