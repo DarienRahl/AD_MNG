@@ -484,7 +484,7 @@ dowodach atrybucji pokazywane jako „�” – rekord nie jest z tego powodu o
 ### 5.8 Wiadomości do użytkowników (z AD Managera)
 
 AD Manager może wysyłać wiadomości do użytkowników z szablonów („hasło wygasa 5 listopada”, „konto zostanie
-wyłączone” …, [README, U1](../README.md#u1--wiadomości-e-mail-do-użytkowników-smtp-)) bezpośrednio przez SMTP albo
+wyłączone” …, [README, U1](../README.pl.md#u1--wiadomości-e-mail-do-użytkowników-smtp-)) bezpośrednio przez SMTP albo
 **przez tę usługę** – wtedy korzysta z jej kanału SMTP (także Exchange Online z OAuth2), sekretów, kolejki z
 ponawianiem i dziennika wysyłek. Funkcja jest **domyślnie wyłączona**.
 
@@ -533,7 +533,7 @@ wygrywa jak wszędzie. Konfigurację zmienia tylko administrator.
   FROM) jest zawsze `smtp.from`. Usługa nie zna listy dozwolonych domen łączy AD Managera – tę sprawdza AD Manager.
 
 **Obrazy w treści (U1c).** Wiadomość wklejona w AD Managerze z Outlooka może mieć obrazy osadzone w treści (pole
-`inlineImages`, [README, U1c](../README.md#u1--wiadomości-e-mail-do-użytkowników-smtp-)). Usługa nie ufa klientowi i przy
+`inlineImages`, [README, U1c](../README.pl.md#u1--wiadomości-e-mail-do-użytkowników-smtp-)). Usługa nie ufa klientowi i przy
 każdej wiadomości sprawdza:
 
 - tylko **PNG, JPEG i GIF** – rozpoznawane po zawartości (sygnatura, struktura pliku do znacznika końca, wymiary

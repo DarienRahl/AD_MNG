@@ -1,5 +1,7 @@
 <div align="center">
 
+[English](README.md) · **Polski**
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/assets/banner-light.svg">
