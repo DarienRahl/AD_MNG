@@ -1,3 +1,5 @@
+[English](en/ROADMAP.md) · **Polski**
+
 # Roadmapa AD Manager
 
 Roadmapa jest na stronie głównej projektu – w sekcji [Roadmapa w README](../README.pl.md#-roadmapa): diagram i przegląd

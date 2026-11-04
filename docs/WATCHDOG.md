@@ -1,3 +1,5 @@
+[English](en/WATCHDOG.md) · **Polski**
+
 # AdMng Watchdog – monitor zmian w Active Directory
 
 AdMng Watchdog to osobna usługa, która przez całą dobę obserwuje domenę Active Directory, zapisuje historię zmian
@@ -830,7 +832,7 @@ nie jest w ten sposób ograniczane.
 ## 11. Środowisko testowe
 
 Usługę można uruchomić na Linuksie przeciw laboratorium Samba AD DC z `tools/testlab` – skrypty i opis:
-[`tools/testlab/watchdog/README.md`](../tools/testlab/watchdog/README.md).
+[`tools/testlab/watchdog/README.md`](../tools/testlab/watchdog/README.pl.md).
 
 ```bash
 tools/testlab/watchdog/run-watchdog-lab.sh --reset --background   # usługa (profil Lab), Mailpit, odbiornik webhooków

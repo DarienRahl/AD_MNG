@@ -1,3 +1,5 @@
+[English](en/EVENT-LOGS.md) · **Polski**
+
 # Dzienniki zdarzeń w AD Managerze
 
 Od ścieżki **E** AD Manager czyta dzienniki zdarzeń kontrolerów domeny, serwerów i stacji oraz pliki `.evtx` – bez

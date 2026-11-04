@@ -1,3 +1,5 @@
+[English](../en/adr/0003-no-local-data.md) · **Polski**
+
 # ADR-0003: Żadnych lokalnych kopii danych katalogu
 
 - Status: przyjęta; częściowo zmieniona przez [ADR-0008](0008-watchdog-dane-w-osobnym-folderze.md) (tylko usługa AdMng

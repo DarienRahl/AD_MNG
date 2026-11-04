@@ -1,3 +1,5 @@
+[English](en/CORRESPONDENCE.md) · **Polski**
+
 # Korespondencja (Outlook) w AD Managerze (etap U5)
 
 Okno **Korespondencja** to program *Korespondencja WPiA* (`MailerWPiA.exe`) wbudowany w AD Managera: ta sama wiadomość

@@ -1,3 +1,5 @@
+[English](../en/adr/0007-samba-lab.md) · **Polski**
+
 # ADR-0007: Laboratorium testowe na Samba AD DC
 
 - Status: przyjęta

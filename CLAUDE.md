@@ -2,8 +2,12 @@
 
 Modern, fast replacement for ADUC (dsa.msc). WPF on .NET 10 with the Fluent theme, live LDAP via
 System.DirectoryServices.Protocols. The main page `README.md` is in English and `README.pl.md` is its Polish version –
-keep both in sync (same sections and order; Polish docs link to `README.pl.md`). The other product docs (`docs/`) are in
-Polish; code, comments, commit messages and these notes are in English.
+keep both in sync (same sections and order; Polish docs link to `README.pl.md`). The product docs are in Polish in
+`docs/` and in English in `docs/en/` (same headings, numbering and order – update both; English file names:
+`COMPUTERS.md` = `KOMPUTERY.md`, `EVENT-LOGS.md` = `DZIENNIKI-ZDARZEN.md`, `GROUP-POLICY.md` = `ZASADY-GRUPY.md`,
+`CORRESPONDENCE.md` = `KORESPONDENCJA.md`, `PILOT.md` = `PILOTAZ.md`, ADRs under `docs/en/adr/`); the test lab READMEs
+are `README.md` (English) and `README.pl.md`. The English UI points to `docs/en/` (`Readiness.Doc.*` in `Strings.resx`).
+Code, comments, commit messages and these notes are in English.
 
 ## Non-negotiable rules
 
@@ -80,7 +84,7 @@ Polish; code, comments, commit messages and these notes are in English.
 
 The watchdog is specified in `docs/dev/watchdog-spec.md` (v1) and, for everything the Linux service does,
 `docs/dev/watchdog-linux-design.md` (stage B; it wins where they disagree). Product docs: `docs/WATCHDOG.md` (features)
-and `docs/WATCHDOG-LINUX.md` (deployment), both Polish.
+and `docs/WATCHDOG-LINUX.md` (deployment), in Polish, with English versions in `docs/en/`.
 
 ## Commands
 

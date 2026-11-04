@@ -133,7 +133,7 @@ flowchart LR
   remote actions, event logs, Watchdog, Outlook, this computer) – each item with an explanation, a hint and a chapter
   of the instructions; *Help → Report a problem…* puts together a description for a ticket without directory data
   (versions, connection method, codes of the check results, templates of the latest diagnostic messages). Pilot:
-  [docs/PILOTAZ.md](docs/PILOTAZ.md).
+  [docs/en/PILOT.md](docs/en/PILOT.md).
 
 ### 🧰 Bulk editing and the AD Recycle Bin
 
@@ -171,8 +171,8 @@ Details: [Track U](#track-u--account-review-and-messages-to-users--u1a-u1b-u1c-u
   Microsoft 365 Apps, Chrome, Firefox …) with central store updates; security settings; the "what will the computer
   get" report and Group Policy diagnostics. Every change in AD and SYSVOL goes through the change plan, with rollback.
 
-Details: [Track K](#track-k--computers-and-group-policy-gpo--k1k6-), [docs/KOMPUTERY.md](docs/KOMPUTERY.md) and
-[docs/ZASADY-GRUPY.md](docs/ZASADY-GRUPY.md) (Polish).
+Details: [Track K](#track-k--computers-and-group-policy-gpo--k1k6-), [docs/en/COMPUTERS.md](docs/en/COMPUTERS.md) and
+[docs/en/GROUP-POLICY.md](docs/en/GROUP-POLICY.md).
 
 ### 📋 Event logs and troubleshooting
 
@@ -185,7 +185,7 @@ Details: [Track K](#track-k--computers-and-group-policy-gpo--k1k6-), [docs/KOMPU
   disabling RC4, NTLMv1 and unsigned LDAP ("who will stop working"), DC health.
 
 Details: [Track E](#track-e--event-logs-reader-and-analysis--e1-and-part-of-e2-),
-[docs/DZIENNIKI-ZDARZEN.md](docs/DZIENNIKI-ZDARZEN.md) (Polish).
+[docs/en/EVENT-LOGS.md](docs/en/EVENT-LOGS.md).
 
 ### ✉ Messages to users
 
@@ -198,7 +198,7 @@ Details: [Track E](#track-e--event-logs-reader-and-analysis--e1-and-part-of-e2-)
   the mailbox is still needed.
 
 Details: [Track U](#track-u--account-review-and-messages-to-users--u1a-u1b-u1c-u1d-u2-u4-and-u5-),
-[docs/KORESPONDENCJA.md](docs/KORESPONDENCJA.md) (Polish).
+[docs/en/CORRESPONDENCE.md](docs/en/CORRESPONDENCE.md).
 
 ### 🛡 AdMng Watchdog – change monitoring
 
@@ -211,8 +211,8 @@ Details: [Track U](#track-u--account-review-and-messages-to-users--u1a-u1b-u1c-u
   (immediately and in a daily report), in Microsoft Teams (Workflows) and through a signed webhook (SIEM). In AD_MNG the
   **Watchdog** tab (Tools → Watchdog) shows events, rules, channels and the service status. The service is the only part
   of the solution that stores data – in its own protected folder
-  ([ADR-0008](docs/adr/0008-watchdog-dane-w-osobnym-folderze.md), [ADR-0009](docs/adr/0009-watchdog-na-linuksie.md)).
-  Features: [docs/WATCHDOG.md](docs/WATCHDOG.md), deployment: [docs/WATCHDOG-LINUX.md](docs/WATCHDOG-LINUX.md).
+  ([ADR-0008](docs/en/adr/0008-watchdog-data-in-separate-folder.md), [ADR-0009](docs/en/adr/0009-watchdog-on-linux.md)).
+  Features: [docs/en/WATCHDOG.md](docs/en/WATCHDOG.md), deployment: [docs/en/WATCHDOG-LINUX.md](docs/en/WATCHDOG-LINUX.md).
 
 ### 🔒 Security and privacy
 
@@ -319,13 +319,13 @@ request, see [Screenshots from CI](#screenshots-from-ci).</sub>
 The work plan is divided into phases. Each phase ends with a version that can actually be used and has measurable
 completion criteria. The order follows what was agreed with the team:
 
-- **technology:** WPF .NET 10 + Fluent ([ADR-0001](docs/adr/0001-wpf-net10-fluent.md));
+- **technology:** WPF .NET 10 + Fluent ([ADR-0001](docs/en/adr/0001-wpf-net10-fluent.md));
 - **interface:** PL + EN, switchable on the fly;
 - **priorities beyond `dsa.msc`:** AD Recycle Bin (restore) and mail/Exchange attributes;
 - **AD divisions** (employees, computers, …) handled by **configurable views** rather than hard-coded;
 - **bulk editing** is key, so the change engine is built already in Phase 1 and the full UI in Phase 2.
 
-Technical details and rationale: [ARCHITECTURE.md](docs/ARCHITECTURE.md), [RESEARCH.md](docs/RESEARCH.md).
+Technical details and rationale: [ARCHITECTURE.md](docs/en/ARCHITECTURE.md), [RESEARCH.md](docs/en/RESEARCH.md).
 
 Status legend: ✅ done · 🟡 first version ready, needs refinement/verification on Windows AD · ⬜ planned
 
@@ -737,8 +737,8 @@ ADUC tabs.
 
 **Goal:** know within minutes what changed in the directory, who did it and from where – without reading DC logs and
 without alerts about routine work. A separate service – since version 0.3.0 on Linux only (Debian 12/13, systemd;
-[WATCHDOG.md](docs/WATCHDOG.md), deployment [WATCHDOG-LINUX.md](docs/WATCHDOG-LINUX.md),
-[ADR-0008](docs/adr/0008-watchdog-dane-w-osobnym-folderze.md), [ADR-0009](docs/adr/0009-watchdog-na-linuksie.md),
+[WATCHDOG.md](docs/en/WATCHDOG.md), deployment [WATCHDOG-LINUX.md](docs/en/WATCHDOG-LINUX.md),
+[ADR-0008](docs/en/adr/0008-watchdog-data-in-separate-folder.md), [ADR-0009](docs/en/adr/0009-watchdog-on-linux.md),
 specifications [dev/watchdog-spec.md](docs/dev/watchdog-spec.md) and
 [dev/watchdog-linux-design.md](docs/dev/watchdog-linux-design.md)); AD_MNG has a Watchdog tab.
 
@@ -778,8 +778,8 @@ specifications [dev/watchdog-spec.md](docs/dev/watchdog-spec.md) and
 
 **To do before the stable release (0.13.0 is a preview release):** a pilot in a Windows Server 2025 lab
 with Debian 13 and an admin workstation, then in a test domain with 2025 and 2022 domain controllers – the shared
-checklist [PILOTAZ.md](docs/PILOTAZ.md) (AD Manager, Group Policy, event logs) and the service checklist
-[WATCHDOG-LINUX.md, section 7](docs/WATCHDOG-LINUX.md#7-pilotaż--lista-kontrolna) (forwarding events from real
+checklist [PILOTAZ.md](docs/en/PILOT.md) (AD Manager, Group Policy, event logs) and the service checklist
+[WATCHDOG-LINUX.md, section 7](docs/en/WATCHDOG-LINUX.md#7-pilot--checklist) (forwarding events from real
 DCs to OpenWEC and "who and from where" attribution, computer account password change with a deny entry for SELF, the
 first automatic change after 30 days, LDAP signing on Windows Server 2025 with GSSAPI, `tokenGroups` after granting
 rights, real GPO content, SACL change, vTPM backup and restore); checking Teams Workflows on a live tenant;
@@ -798,7 +798,7 @@ domains in one instance, time-bound membership values (PAM TTL), signed packages
 and immediately notifies the right people by e-mail – one person from the properties window or hundreds from a selection
 or from a review result – with the same preview, report and safeguards as in bulk editing. A parallel track: it uses
 the filter chips (Phase 1), the template engine (Phase 2) and the Watchdog SMTP transport
-([WATCHDOG.md](docs/WATCHDOG.md#52-smtp)). U1 and U2 can be implemented independently; U3 needs the templates from U1
+([WATCHDOG.md](docs/en/WATCHDOG.md#52-smtp)). U1 and U2 can be implemented independently; U3 needs the templates from U1
 and the Watchdog service; U4 (account privileges) is the second tab of the U2 review window; U5 brings the
 *Korespondencja WPiA* program (mail merge through classic Outlook) into AD Manager and adds queries to owners of shared
 mailboxes.
@@ -815,7 +815,7 @@ with the fields `{$salutation}`, `{$honorific}` and `{$byGender:…}` split by O
 Profesorze" in the pasted formatting with the logo embedded, directly through SMTP and through Watchdog). Technical
 description: [docs/dev/u1-user-messages.md](docs/dev/u1-user-messages.md), U1c and U1d:
 [docs/dev/u1c-u1d-rich-html-and-salutations.md](docs/dev/u1c-u1d-rich-html-and-salutations.md), on the service side:
-[WATCHDOG.md, section 5.8](docs/WATCHDOG.md#58-wiadomości-do-użytkowników-z-ad-managera).
+[WATCHDOG.md, section 5.8](docs/en/WATCHDOG.md#58-messages-to-users-from-ad-manager).
 
 - ✅ The *Send message…* window from the properties window (Account tab), from the list context menu and the Object
   menu, from the command palette (`object.sendMessage`) and from every account review list (U2) – with the template
@@ -914,7 +914,7 @@ description: [docs/dev/u1-user-messages.md](docs/dev/u1-user-messages.md), U1c a
   "Retry failed" unchanged; the sending window shows *Sending through Outlook: …*, and the report shows `outlook.*` codes
   with a hint. Automatic mode still picks Watchdog or SMTP, never Outlook. Requirements (classic Outlook, the same
   privilege level as AD Manager, Outlook's programmatic access security):
-  [KORESPONDENCJA.md, section 10](docs/KORESPONDENCJA.md#10-wiadomości-do-użytkowników-u1-przez-outlooka).
+  [KORESPONDENCJA.md, section 10](docs/en/CORRESPONDENCE.md#10-messages-to-users-u1-through-outlook).
 - ⬜ XOAUTH2 (Exchange Online) in direct sending – does not fit the existing MSAL code (the Watchdog service's
   confidential client); Exchange Online with OAuth2 – through Watchdog (U1b, ✅) or through Outlook (U5, ✅).
 - ✅ Tests: unit (fields and dates with Polish characters in both languages and the Europe/Warsaw time zone, security
@@ -1068,7 +1068,7 @@ tiles with counters, and clicking a tile opens a list of accounts with the colum
 - **Single account:** on the Account tab of the properties window, a state summary – lockout (also on other DCs),
   password expiry date and the number of days until it, account expiry, last logon – with a *Send message…* button.
 - Constructed attributes cannot be used in a filter, so the review pre-filters on the server where possible (like
-  the Phase 1 chips, [RESEARCH.md 4.5](docs/RESEARCH.md#45-szybkie-filtry-w-stylu-search-adaccount)), and computes the
+  the Phase 1 chips, [RESEARCH.md 4.5](docs/en/RESEARCH.md#45-search-adaccount-style-quick-filters)), and computes the
   rest on the client side; results exist only in memory.
 
 #### U3 – Automatic reminders (Watchdog service)
@@ -1082,7 +1082,7 @@ tiles with counters, and clicking a tile opens a list of accounts with the colum
 - The first 7 days in dry-run mode (report only: who would have received a message) – like the rollout mode of rules.
 - Rationale: the Windows prompt at logon does not reach people working over VPN, in OWA or on mobile devices;
   reminders replace scripts with the obsolete `Send-MailMessage` run from Task Scheduler.
-- Requires an amendment to [ADR-0008](docs/adr/0008-watchdog-dane-w-osobnym-folderze.md): the service's send queue
+- Requires an amendment to [ADR-0008](docs/en/adr/0008-watchdog-data-in-separate-folder.md): the service's send queue
   then also stores messages to users (retention, ACL).
 
 #### U4 – Account privileges 🟡 (U4a, U4b and U4c: 🟡)
@@ -1241,7 +1241,7 @@ mailbox account bearing the first and last name of the person it was assigned to
 and the person receives a message asking whether the mailbox is still needed.
 
 **Implementation status – implemented, awaiting a pilot with classic Outlook and Exchange.** User guide:
-[docs/KORESPONDENCJA.md](docs/KORESPONDENCJA.md); technical description:
+[docs/en/CORRESPONDENCE.md](docs/en/CORRESPONDENCE.md); technical description:
 [docs/dev/u5-outlook-correspondence.md](docs/dev/u5-outlook-correspondence.md).
 
 - ✅ The *Correspondence* window (a connection window): *Tools → Correspondence (Outlook)…* (`tools.correspondence`),
@@ -1289,7 +1289,7 @@ and the person receives a message asking whether the mailbox is still needed.
   `cid:` images, draft after an error, error classification, STA thread, reading votes), window models on a fake DC and
   a fake Outlook, UI tests, smoke test and screenshots `26-…`–`28-…` (Windows).
 - 🟡 To verify in the pilot: the checklist in
-  [KORESPONDENCJA.md, ch. 14](docs/KORESPONDENCJA.md#14-lista-kontrolna-pilotażu) – among others Microsoft 365 Apps 32-
+  [KORESPONDENCJA.md, ch. 14](docs/en/CORRESPONDENCE.md#14-pilot-checklist) – among others Microsoft 365 Apps 32-
   and 64-bit, Exchange Online and on-premises, *On behalf of*, images in Outlook, in the browser and in Gmail, voting
   buttons and reading votes, Outlook's programmatic access security, AD Manager run as administrator, 300 messages with
   a 3 s interval, real `msExchRecipientTypeDetails` values in a hybrid environment.
@@ -1584,7 +1584,7 @@ Phase 6. AdMng Watchdog sees GPO changes right away (GPO content "before → aft
   *Computer review* (8 reports, a catalog of Windows versions with end-of-support dates, exact last logon, site from the
   subnet, CSV), the *Status* tab in properties, account preparation with the join right, *Reset Account*, the *Remote
   actions* window (CIM over WinRM, Kerberos only) and tools (ping, mstsc, *Computer Management*, *Event
-  Viewer*); description: [KOMPUTERY.md](docs/KOMPUTERY.md). Awaiting a pilot on Windows Server 2025 and Windows 11.
+  Viewer*); description: [KOMPUTERY.md](docs/en/COMPUTERS.md). Awaiting a pilot on Windows Server 2025 and Windows 11.
 - 🟡 **K2** – GPOs in the tree: GPO node, "Group Policy" tab, creating, linking, order, filtering, backups. First
   version ready: the *Group Policy Objects*, *WMI Filters* and *Sites* nodes, GPO tabs (scope, details, read-only
   settings, delegation, AD/SYSVOL status) and the *Group Policy* tab of the domain, OUs and sites; new GPO, copy,
@@ -1592,7 +1592,7 @@ Phase 6. AdMng Watchdog sees GPO changes right away (GPO content "before → aft
   (MS16-072), WMI filters, delegation, backups in GPMC format (restore, import settings), comparison of two GPOs; every
   AD and SYSVOL change goes through the change plan preview with file diffs, PowerShell and rollback. Verified on the
   fake directory and the Samba lab; WPF windows and GPMC compatibility – Windows CI and the pilot. Description:
-  [ZASADY-GRUPY.md](docs/ZASADY-GRUPY.md).
+  [ZASADY-GRUPY.md](docs/en/GROUP-POLICY.md).
 - 🟡 **K1 + K2 together:** both stages work in one version of the program – the computer join right, security filtering
   and GPO delegation change permissions with the same change plan action (with an audit of only what really changed the
   ACL, and rollback). Unit tests and the Samba lab pass on the combined version; the WPF windows of both stages are
@@ -1603,7 +1603,7 @@ Phase 6. AdMng Watchdog sees GPO changes right away (GPO content "before → aft
   a file or folder, templates of this computer, downloading Edge, Chrome and Firefox, trust, languages, comparison,
   store copy, transactional save with rollback). Verified on the fake directory and synthetic templates; WPF windows –
   Windows CI; vendor packages and `Registry.pol` compatibility with Microsoft's editor – pilot.
-  Description: [ZASADY-GRUPY.md, chapters 7 and 8](docs/ZASADY-GRUPY.md#7-szablony-administracyjne-admx).
+  Description: [ZASADY-GRUPY.md, chapters 7 and 8](docs/en/GROUP-POLICY.md#7-administrative-templates-admx).
 - 🟡 **K4** – security settings. First version ready: the GPO *Security settings* tab with local groups (Restricted
   Groups and preference local groups side by side, with a description of precedence), user rights, account policies and
   security options, auditing (basic categories and advanced subcategories) and services; saving changes only the edited
@@ -1611,14 +1611,14 @@ Phase 6. AdMng Watchdog sees GPO changes right away (GPO content "before → aft
   stay), with extension names as in GPMC and conflict detection. Verified on the fake directory; WPF window – Windows CI;
   GPMC compatibility and behavior on the client – pilot. Firewall, file and registry permissions and the remaining
   preferences – later. Description:
-  [ZASADY-GRUPY.md, chapter 10](docs/ZASADY-GRUPY.md#10-ustawienia-zabezpieczeń-grupy-lokalne-prawa-zasady-kont-inspekcja-usługi).
+  [ZASADY-GRUPY.md, chapter 10](docs/en/GROUP-POLICY.md#10-security-settings-local-groups-rights-account-policies-auditing-services).
 - 🟡 **K5** – "what will the computer get" report. First version ready: a model tab for a computer, a user or new
   accounts in a container (*What will the computer get…*, *What will the user get…*, *Model Group Policy…*, the
   computer's *Status* page) with the site, an assumption about WMI filters and loopback; a list of GPOs with the outcome
   (blocking, enforcement, security filtering with ACL entries evaluated in the same order as Windows, MS16-072, disabled
   parts, empty GPOs), settings with the winning GPO and a *Why* panel, token groups, CSV export. Verified on the fake
   directory and the Samba lab (consistent with `samba-tool gpo list`); WPF window – Windows CI; comparison with GPMC and
-  `gpresult` – pilot. Description: [ZASADY-GRUPY.md, chapter 9](docs/ZASADY-GRUPY.md#9-co-dostanie-komputer-modelowanie-zasad-grupy).
+  `gpresult` – pilot. Description: [ZASADY-GRUPY.md, chapter 9](docs/en/GROUP-POLICY.md#9-what-the-computer-will-get-group-policy-modeling).
 - 🟡 **K6** – GPO readability, editing convenience and diagnostics. First version ready: settings everywhere in GPMC
   language (the *Settings* tab grouped like the GPMC report, with search, *Edit this setting* and *HTML report…*; the K5
   model, GPO comparison, change plan preview, Watchdog tab) – names, values with units and explanations, accounts instead
@@ -1629,7 +1629,7 @@ Phase 6. AdMng Watchdog sees GPO changes right away (GPO content "before → aft
   others `cpassword`, MS16-072, sensitive rights for broad groups, NTLM/LM, SMB and LDAP signing on DCs – with *Fix…*
   through the change plan preview, and export); the GPO *Status* tab on the same engine. Verified on the fake directory;
   windows – Windows CI; name compatibility with the GPMC report – pilot. Description:
-  [ZASADY-GRUPY.md, chapter 11](docs/ZASADY-GRUPY.md#11-czytelne-ustawienia-wygoda-edycji-i-diagnostyka-k6).
+  [ZASADY-GRUPY.md, chapter 11](docs/en/GROUP-POLICY.md#11-readable-settings-editing-comfort-and-diagnostics-k6).
 
 #### Ideas for further development of Group Policy (K7–K11, to choose from)
 
@@ -1798,7 +1798,7 @@ application has a fix.
   parsers to `AdMng.Core`. First version ready (reading over RPC; WinRM – later).
 - 🟡 **E2** – accounts: lockout source with a jump to the computer (K1), failed logons and password spraying – first
   version ready; ⬜ logon history, account and group changes in DC logs. Description:
-  [DZIENNIKI-ZDARZEN.md](docs/DZIENNIKI-ZDARZEN.md). Verified on fake logs and in UI tests on Windows; reading from
+  [DZIENNIKI-ZDARZEN.md](docs/en/EVENT-LOGS.md). Verified on fake logs and in UI tests on Windows; reading from
   real DCs and a comparison with LockoutStatus and EventCombMT – pilot.
 - **E3** – hardening readiness: Kerberos and RC4, NTLM and NTLMv1, LDAP signing and channel binding – *who will stop
   working* – with a check of the audit requirements and fixes through K4 and K3.
@@ -1832,7 +1832,7 @@ application has a fix.
 ### Stage S – stabilization and pilot readiness 🟡
 
 **Goal:** before more features arrive – reliable tests, an environment readiness check in the application, problem
-reports without directory data and a single pilot checklist for Windows Server AD ([PILOTAZ.md](docs/PILOTAZ.md)).
+reports without directory data and a single pilot checklist for Windows Server AD ([PILOTAZ.md](docs/en/PILOT.md)).
 
 <details>
 <summary><b>Stage S details</b> – tests, environment readiness, report a problem, pilot</summary>
@@ -1854,7 +1854,7 @@ reports without directory data and a single pilot checklist for Windows Server A
 
 **Completion criteria**
 - Full test runs under load without a single random failure.
-- The pilot according to [PILOTAZ.md](docs/PILOTAZ.md) starts with a readiness report, and every issue report comes with
+- The pilot according to [PILOTAZ.md](docs/en/PILOT.md) starts with a readiness report, and every issue report comes with
   the description from *Report a problem…* attached.
 
 </details>
@@ -1879,10 +1879,10 @@ what already works.
   tests on Debian 12 and 13 and tests against the Samba lab, but event forwarding from real domain controllers (WEF →
   OpenWEC), the computer account password change with a deny entry for SELF, encryption of secrets with a vTPM
   (systemd) and the GPO content of a real domain will only be confirmed by the pilot (list:
-  [WATCHDOG-LINUX.md, 7.4](docs/WATCHDOG-LINUX.md#74-co-pilotaż-ma-rozstrzygnąć)). AD Manager does not yet have an
+  [WATCHDOG-LINUX.md, 7.4](docs/en/WATCHDOG-LINUX.md#74-what-the-pilot-is-to-settle)). AD Manager does not yet have an
   editor for event retention and the database size limit; Exchange Online OAuth2 works on Linux only with a client
   secret; notifications that the service stopped because of a configuration error go only to the system journal.
-  Details: [WATCHDOG.md, chapter 9](docs/WATCHDOG.md#9-ograniczenia).
+  Details: [WATCHDOG.md, chapter 9](docs/en/WATCHDOG.md#9-limitations).
 - **Well-known containers** – the default container from `wellKnownObjects` applies to "New" commands without a given
   container (domain tab, search results, views); organizational units have no default container. When the attribute
   cannot be read, the tree shows no markers and objects are created in the current container (names are not guessed).
@@ -1956,7 +1956,7 @@ what already works.
   (CI has no Outlook); the connection to a real Outlook, releasing COM objects, the Outlook object model guard,
   *On behalf of*, delivery at a set time, voting buttons and reading them (the date filter of *Sent Items*), the editor
   on Windows and the `msExchRecipientTypeDetails` values in a hybrid environment will only be confirmed by the pilot
-  ([list](docs/KORESPONDENCJA.md#14-lista-kontrolna-pilotażu)). Only classic Outlook works (not the "new Outlook" or
+  ([list](docs/en/CORRESPONDENCE.md#14-pilot-checklist)). Only classic Outlook works (not the "new Outlook" or
   Outlook on the web), at the same privilege level as AD Manager. The recipient list is not saved (after an
   interruption the file is loaded again, and the "already sent" journal skips the addresses already sent to); the
   journal knows only hashes of the addresses, is separate for each Windows user and does not take over the `wyslane.csv`
@@ -1988,7 +1988,7 @@ what already works.
   the change). Security settings are edited on the K4 tab (without the firewall, file and registry permissions and the
   remaining preferences); there are no migration tables, no copying between domains, no Starter GPOs, no comparison with
   a GPO of another window and no WMI filter test on a computer. Details:
-  [ZASADY-GRUPY.md, chapter 14](docs/ZASADY-GRUPY.md#14-ograniczenia-i-pilotaż).
+  [ZASADY-GRUPY.md, chapter 14](docs/en/GROUP-POLICY.md#14-limitations-and-pilot).
 - **Administrative Templates (K3)** – verified on a fake directory and synthetic templates; downloading the Edge,
   Chrome and Firefox templates – against responses prepared according to the vendors' formats (no access to their
   servers in tests); unpacking MSI, EXE and CAB and checking signatures work only on Windows. Compatibility of
@@ -2029,7 +2029,7 @@ what already works.
 <details>
 <summary><b>Key questions</b> for the next phases</summary>
 
-Full list of questions: [RESEARCH.md](docs/RESEARCH.md#11-pytania-otwarte-do-zespołu). The most important ones for the
+Full list of questions: [RESEARCH.md](docs/en/RESEARCH.md#11-open-questions-for-the-team). The most important ones for the
 next phases:
 
 1. **Scale and topology:** number of domains/forests and trusts, number of objects, the largest OU and group (affects
@@ -2067,7 +2067,7 @@ next phases:
   10, often missing on Windows Server 2019 and 2022); without it the window shows the HTML source.
 - The *Correspondence* window (U5) and sending messages to users through Outlook require **classic Outlook**
   (Microsoft 365 Apps or Office 2016+) with a mail profile on the same computer, running at the same privilege level as
-  AD Manager (both without *Run as administrator*) – see [KORESPONDENCJA.md](docs/KORESPONDENCJA.md#1-wymagania).
+  AD Manager (both without *Run as administrator*) – see [KORESPONDENCJA.md](docs/en/CORRESPONDENCE.md#1-requirements).
 - To build: .NET SDK 10.0.
 
 **Ready-made version**
@@ -2110,7 +2110,7 @@ are modal for the whole program (they briefly block the other windows too). Deta
 attached as `admng-openwec-…-source.tar.xz`), and between releases as the CI artifacts **admng-watchdog-deb** and
 **admng-openwec-deb12/13**. The service requires ASP.NET Core Runtime ≥ 10.0.13 from the packages.microsoft.com
 repository. Step-by-step installation (service account and keytab, permissions, auditing, WEF, certificate, pilot):
-[docs/WATCHDOG-LINUX.md](docs/WATCHDOG-LINUX.md). The Windows service (archive `AdMng-Watchdog-0.2.0-win-x64.zip`) is
+[docs/en/WATCHDOG-LINUX.md](docs/en/WATCHDOG-LINUX.md). The Windows service (archive `AdMng-Watchdog-0.2.0-win-x64.zip`) is
 only in release 0.2.0 and will not be developed further.
 
 <details>
@@ -2204,20 +2204,20 @@ Locally (Windows): `$env:ADMNG_SCREENSHOTS_DIR = "$PWD\zrzuty"; dotnet test test
 
 ## 📚 Documentation
 
-The detailed documentation is in Polish.
+Every document is available in English (`docs/en/`) and Polish (`docs/`).
 
 | Document | About |
 |---|---|
-| 🏗 [Architecture](docs/ARCHITECTURE.md) | layers, directory session, change pipeline, UI, security, AdMng Watchdog, tests |
-| 📐 [Architecture decision records (ADR)](docs/adr/) | why WPF .NET 10, S.DS.P, no local data, one change pipeline, a session pinned to a DC … |
-| 🔬 [Research findings](docs/RESEARCH.md) | `dsa.msc`, ADAC, competing products, LDAP techniques |
-| 🛡 [AdMng Watchdog](docs/WATCHDOG.md) | features and configuration of the monitoring service |
-| 🐧 [AdMng Watchdog on Linux](docs/WATCHDOG-LINUX.md) | step-by-step deployment: AD, domain controllers, Debian server, packages, pilot, rollback |
-| 🖥 [Computers](docs/KOMPUTERY.md) | computer review and reports, account life cycle, remote actions over WinRM, WinRM through Group Policy |
-| 📋 [Event logs](docs/DZIENNIKI-ZDARZEN.md) | event log reader for DCs, servers, workstations and `.evtx` files, lockout source, failed logons; requirements (firewall, group, auditing) |
-| 📜 [Group Policy](docs/ZASADY-GRUPY.md) | Group Policy Objects in the tree, the *Group Policy* tab, GPO operations, security filtering, WMI filters, delegation, backups, comparison, settings editors, the "what will the computer get" model, Group Policy diagnostics |
-| 📨 [Correspondence](docs/KORESPONDENCJA.md) | the *Correspondence (Outlook)* window: recipients from files and from AD, fields, message, preview, sending through Outlook, the "already sent" journal, queries to mailbox owners, replies, troubleshooting, pilot |
-| ✅ [Pilot](docs/PILOTAZ.md) | pilot checklist for Windows Server AD: environment, readiness check, scenarios with a Microsoft tool for comparison, reporting problems, results |
+| 🏗 [Architecture](docs/en/ARCHITECTURE.md) | layers, directory session, change pipeline, UI, security, AdMng Watchdog, tests |
+| 📐 [Architecture decision records (ADR)](docs/en/adr/) | why WPF .NET 10, S.DS.P, no local data, one change pipeline, a session pinned to a DC … |
+| 🔬 [Research findings](docs/en/RESEARCH.md) | `dsa.msc`, ADAC, competing products, LDAP techniques |
+| 🛡 [AdMng Watchdog](docs/en/WATCHDOG.md) | features and configuration of the monitoring service |
+| 🐧 [AdMng Watchdog on Linux](docs/en/WATCHDOG-LINUX.md) | step-by-step deployment: AD, domain controllers, Debian server, packages, pilot, rollback |
+| 🖥 [Computers](docs/en/COMPUTERS.md) | computer review and reports, account life cycle, remote actions over WinRM, WinRM through Group Policy |
+| 📋 [Event logs](docs/en/EVENT-LOGS.md) | event log reader for DCs, servers, workstations and `.evtx` files, lockout source, failed logons; requirements (firewall, group, auditing) |
+| 📜 [Group Policy](docs/en/GROUP-POLICY.md) | Group Policy Objects in the tree, the *Group Policy* tab, GPO operations, security filtering, WMI filters, delegation, backups, comparison, settings editors, the "what will the computer get" model, Group Policy diagnostics |
+| 📨 [Correspondence](docs/en/CORRESPONDENCE.md) | the *Correspondence (Outlook)* window: recipients from files and from AD, fields, message, preview, sending through Outlook, the "already sent" journal, queries to mailbox owners, replies, troubleshooting, pilot |
+| ✅ [Pilot](docs/en/PILOT.md) | pilot checklist for Windows Server AD: environment, readiness check, scenarios with a Microsoft tool for comparison, reporting problems, results |
 | 🧪 [Test lab](tools/testlab/README.md) | Samba AD DC with "Polish company" data; [Watchdog in the lab](tools/testlab/watchdog/README.md) |
 | 🧑‍💻 [Developer notes](CLAUDE.md) | rules, project layout, commands, conventions (English) |
 
