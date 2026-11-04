@@ -17,7 +17,7 @@ public sealed class TrBinding : Binding
     public TrBinding()
     {
         Mode = BindingMode.OneWay;
-        Source = TranslationSource.Localizer;
+        Source = TranslationSource.Texts;
     }
 
     public TrBinding(string key)
