@@ -1983,7 +1983,8 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   potwierdzenia są też Exchange, LAPS i komputery dołączone w ramach `ms-DS-MachineAccountQuota`, a czytnik SYSVOL dla
   Windows nie był jeszcze uruchomiony. Delegowania w ACL (U4b): odmowy (deny) nie są oceniane, nie są czytane
   kontenery inne niż `CN=Users` / `CN=Computers` (np. `CN=Managed Service Accounts`, `CN=System`) ani partycja
-  konfiguracji (lokacje, PKI – PKI w planie ścieżki P), właściciele zwykłych użytkowników, grup i komputerów nie są pokazywani, edycja GPO jest
+  konfiguracji (lokacje, PKI – PKI w planie ścieżki P), właściciele zwykłych użytkowników, grup i komputerów nie są
+  pokazywani, edycja GPO jest
   oceniana po ACL obiektu GPO w AD (nie po uprawnieniach plików w SYSVOL), deskryptor, którego nie da się odczytać,
   jest pomijany bez komunikatu; pojedyncze konta i grupy tylko z *Głębokim skanowaniem*. Uprawnienia lokalne z GPO
   (U4c): filtry WMI i określanie elementów docelowych nie są oceniane (ustalenia „warunkowe”), lokacje komputerów
