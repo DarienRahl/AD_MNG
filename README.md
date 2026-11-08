@@ -196,7 +196,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K6: 🟡)"] ~~~ EVT["🟡 E · Dzienniki zdarzeń<br/>czytnik i analiza<br/>(E1, część E2: 🟡)"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K6: 🟡)"] ~~~ EVT["🟡 E · Dzienniki zdarzeń<br/>czytnik i analiza<br/>(E1, część E2: 🟡)"] ~~~ PKI["⬜ P · Urząd certyfikacji<br/>(AD CS) i certyfikaty"]
     end
     A --> B
     B ~~~ C
@@ -205,7 +205,7 @@ flowchart TB
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
     class F1,F2,W,U,K,EVT wip
-    class F3,F4,F5,F6,F7,M365,TEAM todo
+    class F3,F4,F5,F6,F7,M365,TEAM,PKI todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -227,6 +227,7 @@ flowchart TB
 | T | Współpraca zespołu (ścieżka równoległa) | Kilku administratorów na różnych komputerach pracuje razem przez usługę AdMng Watchdog: panel „Wspólne” z obiektami przypiętymi dla zespołu (z notatką, autorem, „Przekaż do…”) i notatki do obiektów widoczne dla wszystkich przy koncie, grupie czy komputerze, odświeżane na żywo | ⬜ zaplanowane |
 | K | Komputery i zasady grupy (GPO) (ścieżka równoległa) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer”, czytelne ustawienia i diagnostyka zasad grupy | 🟡 (K1 – komputery, K2 – GPO w drzewie, K3 – edytor ADMX z aktualizacją magazynu centralnego, K4 – ustawienia zabezpieczeń, K5 – raport „co dostanie komputer” i K6 – czytelność, wygoda edycji i diagnostyka: zaimplementowane, czekają na pilotaż na Windows Server AD) |
 | E | Dzienniki zdarzeń: czytnik i analiza (ścieżka równoległa) | Czytanie dzienników zdarzeń DC, serwerów, stacji i plików `.evtx` z poziomu programu (dowolny kanał, wspólna oś czasu wielu komputerów, objaśnione pola i obiekty AD) oraz analizy: źródło blokady konta, rozpylanie haseł, Kerberos/RC4, NTLMv1, podpisywanie LDAP („kto przestanie działać”), historia logowań, zmiany kont i grup, GPO na komputerze, zdrowie DC, integralność inspekcji; osobno od Watchdoga, bez zapisu na dysku | 🟡 (E1 – czytnik oraz z E2 źródło blokady konta i nieudane logowania: zaimplementowane, czekają na pilotaż na Windows Server AD) |
+| P | Urząd certyfikacji (AD CS) i certyfikaty (ścieżka równoległa) | Przegląd PKI lasu na żywo z LDAP (urzędy, szablony z odczytanymi flagami i tym, kto może się zarejestrować, NTAuth, AIA, listy CRL, OID) ze zdrowiem w stylu `pkiview.msc`; przegląd bezpieczeństwa ESC1–ESC17 z naprawą w AD przez plan zmian z cofnięciem; karty *Opublikowane certyfikaty*, *Mapowania nazw* (silne mapowanie, KB5014754) i *Poświadczenia kluczy*, certyfikaty LDAPS/KDC na DC; praca z urzędem przez DCOM z kontem okna (wystawione, oczekujące, odwołane, zatwierdzanie, odwołanie, publikacja CRL); powiązania z Watchdogiem, dziennikami zdarzeń, GPO i powiadomieniami | ⬜ zaplanowane |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -564,8 +565,9 @@ karty ADUC.
 - Wstępna kontrola uprawnień rozszerzonych (AuthZ) przed operacją.
 - Szablony ADMX (progi potwierdzeń, limity eksportu, blokada bezczynności, wymaganie PAW), kanał Dziennika zdarzeń
   operatora (metadane zmian, bez wartości), wsparcie korelacji z audytem DC (5136/5137/5141 – przechodzi do ścieżki E).
-- Rzadkie karty ADUC: Dial-in, Środowisko/Sesje/Zdalne sterowanie (RDS), Mapowania nazw, Opublikowane certyfikaty,
-  zasady replikacji haseł RODC; wzorce operacji (FSMO), konta gMSA/dMSA.
+- Rzadkie karty ADUC: Dial-in, Środowisko/Sesje/Zdalne sterowanie (RDS), zasady replikacji haseł RODC (karty
+  *Mapowania nazw* i *Opublikowane certyfikaty* przeszły do
+  [ścieżki P](#ścieżka-p--urząd-certyfikacji-ad-cs-i-certyfikaty-)); wzorce operacji (FSMO), konta gMSA/dMSA.
 
 </details>
 
@@ -1652,6 +1654,236 @@ diagnostyki zasad grupy (K6): ważność, obszar, szczegóły, zalecenie, *Napra
 
 </details>
 
+### Ścieżka P – Urząd certyfikacji (AD CS) i certyfikaty ⬜
+
+**Cel:** infrastruktura kluczy publicznych lasu w jednym miejscu, zamiast konsol *Urząd certyfikacji* (`certsrv.msc`),
+*Szablony certyfikatów* (`certtmpl.msc`), *PKI przedsiębiorstwa* (`pkiview.msc`), *Edytor ADSI* (`adsiedit.msc`) i
+`certutil`. Program pokazuje wszystkie urzędy lasu, szablony z odczytanymi flagami i z tym, **kto naprawdę może się
+zarejestrować**, oraz magazyn NTAuth, listy CRL i terminy ważności. Ocenia bezpieczeństwo według katalogu **ESC1–ESC17**
+(numeracja Certipy; Locksmith i Microsoft Defender for Identity obejmują część klas) i każdą poprawkę w AD proponuje
+jako **plan zmian z podglądem i cofnięciem**. Obsługuje też certyfikaty na kontach i DC (*Opublikowane certyfikaty*,
+*Mapowania nazw* z oceną pod kątem silnego mapowania (KB5014754), certyfikaty KDC i LDAPS) oraz pracę z samym urzędem:
+wystawione, oczekujące i odwołane certyfikaty, zatwierdzanie i odwoływanie przez DCOM z kontem okna. Ścieżka równoległa;
+przejmuje karty *Mapowania nazw* i *Opublikowane certyfikaty* z fazy 6 i znosi część ograniczenia U4b dotyczącą
+kontenerów PKI w partycji konfiguracji (lokacje nadal pomijane). Korzysta z silnika uprawnień U4, zapisu uprawnień akcją
+`ModifySecurity` (K1/K2), zdalnych akcji (K1) i czytnika dzienników (E).
+
+<details>
+<summary><b>Szczegóły ścieżki P</b> – przegląd PKI, szablony, ESC, certyfikaty kont i DC, urząd, etapy</summary>
+
+#### Przegląd PKI i zdrowie
+
+- Węzeł **„Usługi kluczy publicznych”** w drzewie (jak węzeł GPO), czytany na żywo z
+  `CN=Public Key Services,CN=Services,CN=Configuration,…`:
+  - **urzędy przedsiębiorstwa** (`pKIEnrollmentService`): host, certyfikat urzędu z łańcuchem i ważnością, *szablony
+    certyfikatów do wystawienia* (`certificateTemplates`), adresy usługi rejestracji w sieci Web (CES,
+    `msPKI-Enrollment-Servers`);
+  - **zaufane urzędy główne i pośrednie** (`CN=Certification Authorities`, `CN=AIA`) i **magazyn NTAuth**
+    (`CN=NTAuthCertificates`) z odciskiem, podmiotem, ważnością i dopasowaniem do urzędów przedsiębiorstwa; ostrzeżenie,
+    gdy urząd wystawiający certyfikaty logowania nie jest w NTAuth (logowanie kartą i certyfikatem tego wymaga; od
+    KB5057784, CVE-2025-26647, także przy mapowaniu przez SKI w `altSecurityIdentities`);
+  - **listy CRL** opublikowane w AD (`CN=CDP`, podstawowa i różnicowa): numer, `thisUpdate` / `nextUpdate`, liczba
+    odwołanych certyfikatów;
+  - **agenci odzyskiwania kluczy** (`CN=KRA`) i **identyfikatory OID** (`CN=OID`): zasady wystawiania powiązane z grupą
+    (`msDS-OIDToGroupLink`).
+- **Zdrowie w stylu `pkiview.msc`** dla wszystkich urzędów naraz: certyfikat urzędu, lokalizacje AIA i CDP, lista
+  różnicowa – stan OK / wygasa / wygasła / niedostępna, próg „wygasa” do ustawienia. Adresy HTTP z certyfikatów (AIA,
+  CDP, OCSP) program sprawdza tylko wtedy, gdy operator to wybierze; odpowiedzi trzyma w pamięci.
+- Z każdego miejsca przejście do hosta urzędu w zdalnych akcjach (K1) i do jego obiektu komputera.
+
+#### Szablony i uprawnienia do rejestracji
+
+- Lista szablonów z kolumnami: nazwa wyświetlana i nazwa dla urzędu (`cn`), wersja schematu (1–4), wersja szablonu,
+  przeznaczenie (EKU i zasady aplikacji), okres ważności i odnowienia, minimalna długość klucza i dostawca, źródło
+  podmiotu (*Dostarcz w żądaniu* albo z AD), zatwierdzenie przez menedżera certyfikatów, liczba wymaganych podpisów,
+  publikowanie w AD, zastępowane szablony, zasady wystawiania. Dodatkowo: urzędy, które wystawiają dany szablon, i
+  szablony niewystawiane przez żaden urząd.
+- Flagi `msPKI-Certificate-Name-Flag`, `msPKI-Enrollment-Flag`, `msPKI-Private-Key-Flag` i `flags` pokazane jako
+  czytelne zdania po polsku i angielsku, z nazwą techniczną bitu w podpowiedzi; okresy z `pKIExpirationPeriod` /
+  `pKIOverlapPeriod` w dniach, tygodniach i latach.
+- **Kto może się zarejestrować:** uprawnienia *Rejestruj* i *Autorejestracja* z listy ACL szablonu (także *Pełna
+  kontrola* i *Wszystkie prawa rozszerzone*) rozwinięte przez członkostwo w grupach silnikiem U4 – z liczbą kont i
+  przejściem do nich. Osobno: kto może **zmienić** szablon (zapis atrybutów, ACL, właściciel).
+- Porównanie dwóch szablonów (np. kopii z oryginałem) i eksport listy na żądanie.
+
+#### Bezpieczeństwo ESC z naprawą przez plan zmian
+
+- **Przegląd bezpieczeństwa AD CS** w stylu sprawdzenia gotowości (etap S) i diagnostyki zasad grupy (K6): każde
+  ustalenie ma poziom, numer ESC zgodny z Certipy oraz odpowiednik w Locksmith i ocenie Microsoft Defender for Identity,
+  gdy istnieje, opis warunku i ścieżki ataku, obiekt, którego dotyczy, konta i grupy z nadmiernymi prawami oraz przycisk
+  *Napraw…*.
+- **Tylko z LDAP** (od P1): ESC1 (podmiot dostarczany w żądaniu + EKU uwierzytelniania + rejestracja dla szerokich grup
+  + brak zatwierdzenia i podpisów), ESC2 (dowolne przeznaczenie albo brak EKU), ESC3 (agent rejestracji i szablony,
+  które pozwalają rejestrować w imieniu innych), ESC4 (prawa zapisu i właściciel szablonu), ESC5 (ACL kontenerów PKI,
+  NTAuth, OID, usługi rejestracji i obiektu komputera urzędu), ESC9 (`CT_FLAG_NO_SECURITY_EXTENSION`), ESC13 (zasada
+  wystawiania powiązana z grupą uprzywilejowaną), ESC14 (słabe `altSecurityIdentities` i prawo ich zapisu), ESC15
+  (szablon w wersji 1 z podmiotem z żądania – CVE-2024-49019; w P1 oznaczone jako zależne od poprawki urzędu z listopada
+  2024, potwierdzane w P3 z poprawek hosta urzędu), ESC17 (podmiot z żądania przy EKU uwierzytelniania serwera). Do
+  czasu odczytu zabezpieczeń urzędu (P3) wynik zakłada domyślne prawo rejestracji w urzędzie dla *Użytkowników
+  uwierzytelnionych* i mówi o tym.
+- **Wymagają urzędu albo DC** (od P3, wcześniej oznaczone „do sprawdzenia na urzędzie”): ESC6 (`EditFlags` z
+  `EDITF_ATTRIBUTESUBJECTALTNAME2`), ESC7 (*Zarządzanie urzędem certyfikacji* i *Wystawianie certyfikatów i zarządzanie
+  nimi* dla kont spoza Tier 0), ESC11 (`InterfaceFlags` bez `IF_ENFORCEENCRYPTICERTREQUEST`), ESC16 (rozszerzenie SID w
+  `DisableExtensionList`), ESC8 (rejestracja przez HTTP bez HTTPS i rozszerzonej ochrony uwierzytelniania – sprawdzenie
+  adresów tylko za zgodą operatora), ESC10 (słabe mapowanie na DC: `StrongCertificateBindingEnforcement` tylko na DC bez
+  aktualizacji z września 2025, która go ignoruje, oraz bit UPN w `CertificateMappingMethods` Schannel – przez K1 albo z
+  GPO, które je ustawia), ponowne sprawdzenie ESC15. ESC12 (klucz urzędu w YubiHSM z hasłem zapisanym w rejestrze
+  urzędu; wymaga dostępu do powłoki urzędu) jest poza zakresem programu. Katalog jest otwarty na kolejne numery.
+- **Naprawa w AD przez plan zmian** (od P2): wyłączenie *Dostarcz w żądaniu* albo `CT_FLAG_NO_SECURITY_EXTENSION`,
+  wymaganie zatwierdzenia przez menedżera certyfikatów albo podpisu upoważnionego, zawężenie EKU, usunięcie wpisu
+  *Rejestruj* dla *Użytkowników domeny* (akcja `ModifySecurity`), poprawka właściciela, zdjęcie szablonu z urzędu,
+  usunięcie `msDS-OIDToGroupLink`, usunięcie obcego certyfikatu z NTAuth, zamiana słabego mapowania na silne. Każda
+  naprawa ma podgląd różnic, ostrzeżenie o skutkach (kto przestanie dostawać certyfikat) i cofnięcie.
+- Naprawy po stronie urzędu (ESC6, ESC7, ESC11, ESC16): w P3 program tylko je wykrywa i opisuje poprawkę; czy wykona je
+  sam, czy wygeneruje skrypt `certutil` – do decyzji (zob. „Później” i „Do ustalenia z zespołem”).
+
+#### Certyfikaty na kontach i DC
+
+- **Opublikowane certyfikaty** (karta jak w ADUC, z fazy 6) przy użytkowniku, komputerze i kontakcie: `userCertificate`
+  i `userSMIMECertificate` z kolumnami *Wystawiony dla*, *Wystawiony przez*, przeznaczenie, ważność, szablon, odcisk;
+  dodanie z pliku, usunięcie, *Kopiuj do pliku…* (zapis tylko po kliknięciu); zbiorczo – usunięcie wygasłych
+  certyfikatów z zaznaczonych kont przez edycję zbiorczą (faza 2).
+- **Mapowania nazw** (karta jak w ADUC, która tworzy tylko formy słabe): `altSecurityIdentities` z oceną siły według
+  KB5014754. Formy słabe (`X509:<I>…<S>…`, `X509:<S>…`, `X509:<RFC822>…`) są oznaczone, a nowe mapowanie program buduje
+  z wybranego pliku `.cer` tylko w formach silnych (`X509:<I>…<SR>…` z odwróconym numerem seryjnym, `X509:<SKI>…`,
+  `X509:<SHA1-PUKEY>…`); nazwy Kerberos osobno. Raport kont ze słabymi mapowaniami i zbiorcza zamiana na silne.
+- **Poświadczenia kluczy** (`msDS-KeyCredentialLink` – Windows Hello dla firm, FIDO, *Shadow Credentials*): lista kluczy
+  z identyfikatorem urządzenia, źródłem (AD / Entra ID), datą utworzenia i ostatniego użycia; usunięcie nieaktualnego
+  klucza przez plan zmian; historia z Watchdoga, gdy jest podłączony.
+- **Certyfikaty DC:** dla każdego DC połączenie TLS na porcie 636 (i 3269) bez logowania – certyfikat LDAPS z podmiotem
+  i SAN (pełna nazwa DC i domeny), EKU, wystawcą, ważnością i łańcuchem; gotowość KDC do logowania kartą inteligentną i
+  Windows Hello (EKU *Uwierzytelnianie KDC*, wystawca w NTAuth). Ustawienia mapowania na DC przez zdalne akcje K1:
+  `StrongCertificateBindingEnforcement` (od aktualizacji z września 2025 ignorowane – ważne tylko na DC bez niej, więc
+  K1 odczytuje też zainstalowane poprawki) i `CertificateMappingMethods` Schannel.
+- **Gotowość na silne mapowanie i NTAuth:** jeden raport z kontami ze słabymi mapowaniami, szablonami uwierzytelniania
+  bez rozszerzenia SID, urzędami spoza NTAuth i – przez ścieżkę E – zdarzeniami KDC 39, 40 i 41 (KB5014754) oraz 45 i 21
+  (KB5057784, NTAuth) z DC. Odpowiada na pytanie, kto nie zaloguje się certyfikatem.
+
+#### Praca z urzędem
+
+- **Widoki bazy urzędu** jak w `certsrv.msc`, ale dla wielu urzędów i z filtrami po stronie urzędu: *Wystawione
+  certyfikaty*, *Żądania oczekujące*, *Żądania nieudane*, *Odwołane certyfikaty*. Filtry: szablon, zgłaszający, podmiot,
+  okres wygasania, data żądania. Wiersze przychodzą strumieniowo i są wirtualizowane (zasada 6).
+- **Widok anomalii** (jak PSPKIAudit): zgłaszający inny niż podmiot albo SAN, SAN z kontem uprzywilejowanym lub nazwą
+  DC, certyfikaty z szablonów z ustaleniami ESC, certyfikaty wystawione dla konta usługi Watchdoga `ADMNG-WD$` (dziś
+  ręczne `certutil -view` z [WATCHDOG-LINUX.md, 2.5](docs/WATCHDOG-LINUX.md#25-konto-usługi-admng-wd)).
+- **Akcje:** zatwierdzenie i odrzucenie żądania oczekującego, odwołanie z powodem, cofnięcie wstrzymania
+  (`certificateHold`), publikacja listy CRL (podstawowej albo różnicowej). Program pyta urząd o role operatora i włącza
+  tylko akcje, do których operator ma prawo.
+- **Konfiguracja urzędu do odczytu:** `EditFlags`, `InterfaceFlags`, `DisableExtensionList`, filtr inspekcji
+  (`AuditFilter`), ograniczenia menedżerów certyfikatów i agentów rejestracji, limit ważności, harmonogram list CRL,
+  adresy CDP i AIA, role urzędu z kontami (ESC6, ESC7, ESC11, ESC16), wersja systemu i zainstalowane poprawki hosta
+  urzędu (przez K1).
+
+#### Powiązania z innymi ścieżkami
+
+- **W – Watchdog:** obserwowanie atrybutów szablonów, których dziś brakuje (`msPKI-Private-Key-Flag`,
+  `msPKI-Certificate-Policy`, wersja schematu, okres ważności), obiektów `CN=OID` z `msDS-OIDToGroupLink`, `CN=KRA`,
+  `CN=CDP` / `CN=AIA` i ACL kontenera usług kluczy publicznych; alert, gdy zmiana **czyni szablon podatnym** (ocena ESC
+  przy każdej zmianie szablonu), a nie tylko zmienia atrybut; przypomnienia o wygasających certyfikatach urzędów,
+  listach CRL i certyfikatach LDAPS; opcjonalnie zdarzenia urzędu (4886, 4887, 4888, 4870, 4882, 4885, 4899, 4900) z
+  hostów urzędów przez OpenWEC jako źródło Tier 0 – wymaga uzupełnienia ADR-0008/ADR-0009 (nowe źródło: dziennik
+  Security urzędów, zakres pól, retencja, subskrypcja WEF) i WATCHDOG-LINUX.md.
+- **E – Dzienniki zdarzeń:** analiza *AD CS* na urzędach (żądania z SAN w atrybutach, zmiany szablonów, uprawnień i
+  filtra inspekcji, usunięte wiersze bazy) ze sprawdzeniem, czy inspekcja urzędu jest włączona; analiza *logowanie
+  certyfikatem* na DC (zdarzenia KDC 39/40/41 i 45/21 oraz pola certyfikatu w 4768) – kto przestanie się logować.
+- **K – Komputery i GPO:** czytelny edytor *Klient usług certyfikatów – automatyczna rejestracja* (`AEPolicy`) i
+  certyfikatów rozsyłanych przez *Zasady kluczy publicznych* na infrastrukturze `Registry.pol` (K3); reguły diagnostyki
+  K6 (np. szablon z autorejestracją, a zasada wyłączona); wiersz w modelu K5; inspekcja *Usługi certyfikacji* przez K4.
+- **U – Konta i wiadomości:** powiadomienia o wygasających certyfikatach z `userCertificate` do właścicieli kont przez
+  szablony U1 (pole „certyfikat wygasa dnia …”), automatycznie w U3; hosty urzędów i konta z rolami urzędu jako Tier 0 w
+  uprawnieniach kont (U4).
+- **Etap S – sprawdzenie gotowości:** ostrzeżenie o wygasającym certyfikacie urzędu, liście CRL albo certyfikacie LDAPS
+  DC.
+
+#### Jak to działa technicznie
+
+- **Dwa źródła danych.** Wszystko, co jest w AD (szablony, urzędy, NTAuth, AIA, CDP, KRA, OID, certyfikaty i mapowania
+  na kontach), program czyta przez LDAP sesji okna – z jednego DC (zasada 4); partycja konfiguracji jest replikowana w
+  całym lesie, więc wystarcza zwykły odczyt. Stan samego urzędu (baza, konfiguracja, role) jest dostępny tylko na hoście
+  urzędu: przez MS-CSRA (DCOM/RPC) albo rejestr przez CIM jak w K1. Te wywołania, podobnie jak zdalne akcje K1, czytnik
+  E i sprawdzenie TLS na portach 636/3269 każdego DC, idą poza sesję LDAP okna; wszystkie odczyty i zapisy w AD (także
+  dopasowanie zgłaszającego czy hosta urzędu do obiektu AD) idą przez DC okna. Kerberos z poświadczeniami okna,
+  szyfrowanie pakietów, hasła tylko w pamięci (zasada 2); kod Windows w nowym projekcie używanym tylko przez aplikację
+  (jak `AdMng.Remote`). Dekodery flag szablonów, ocena ESC z danych LDAP i budowanie silnych mapowań są w `AdMng.Core`
+  (bez typów Windows), wspólne z AdMng Watchdog – jak parsery GPO i deskryptorów zabezpieczeń.
+- **Niczego na dysku (zasada 1):** certyfikaty, listy CRL, wiersze bazy urzędu, konfiguracja urzędu i ustalenia ESC są w
+  pamięci tylko wtedy, gdy są widoczne. Plik `.cer`, `.crl` albo CSV powstaje tylko na wyraźne żądanie operatora;
+  dziennik diagnostyczny bez wartości.
+- **Klucze prywatne – nigdy:** program nie pokazuje, nie kopiuje i nie zapisuje `userPKCS12`, poświadczeń mobilnych
+  (`msPKIAccountCredentials`, `msPKIDPAPIMasterKeys`) ani kluczy zarchiwizowanych w urzędzie (`userPKCS12` trafia do
+  `SecretAttributes` obok już obecnych `msPKIAccountCredentials` i `msPKIDPAPIMasterKeys`, więc jest maskowany wszędzie,
+  także w edytorze atrybutów, audycie i eksporcie); odzyskiwania kluczy przez agenta odzyskiwania kluczy (KRA) nie ma w
+  zakresie.
+- **Zmiany w AD przez plan zmian (zasada 5):** flagi i właściwości szablonów, ukierunkowane zmiany ACL akcją
+  `ModifySecurity`, wystawianie szablonu na urzędzie (`certificateTemplates`), NTAuth, `msDS-OIDToGroupLink`,
+  `userCertificate`, `altSecurityIdentities`, `msDS-KeyCredentialLink` – z podglądem, audytem i cofnięciem (stara
+  wartość albo stary deskryptor). Kopia szablonu to dwa nowe obiekty – szablon i obiekt OID z nowym identyfikatorem pod
+  korzeniem OID lasu – jak robi to `certtmpl.msc`. DN-y przez `DistinguishedName.Child`, filtry przez `LdapFilter`
+  (zasada 3). Urząd widzi zmianę szablonu dopiero po replikacji i odświeżeniu swojej pamięci podręcznej (minuty) –
+  podgląd o tym mówi.
+- **Zmiany po stronie urzędu** (zatwierdzenie, odrzucenie, odwołanie, publikacja CRL; flagi konfiguracji – jeśli zespół
+  tak zdecyduje) to nowy rodzaj akcji planu zmian, jak zapis SYSVOL w K2: podgląd, potwierdzenie i wpis w audycie.
+  **Odwołania nie da się cofnąć** – poza powodem *wstrzymanie certyfikatu* – i podgląd mówi to wprost; publikacji CRL
+  też nie. Zmiana flagi urzędu zapamiętuje starą wartość do cofnięcia i wymaga restartu usługi certyfikatów – podgląd
+  pokazuje to jako osobny krok.
+- **Testy:** Samba nie obsługuje AD CS, więc funkcje LDAP sprawdzają obiekty PKI w `FakeDirectoryBuilder` (urzędy i
+  szablony z polskimi nazwami, celowo podatne szablony dla każdego ESC z listy LDAP); operacje na urzędzie – urząd
+  Windows w CI na Windows albo w laboratorium ([WATCHDOG-LINUX.md,
+  1.7](docs/WATCHDOG-LINUX.md#17-urząd-certyfikacji-w-laboratorium-opcjonalnie)), testy pomijane bez zmiennych
+  `ADMNG_TEST_CA_*`.
+
+#### Etapy
+
+- **P1** – przegląd tylko do odczytu, tylko LDAP: węzeł „Usługi kluczy publicznych”, urzędy, szablony z flagami i
+  rozwiniętymi uprawnieniami do rejestracji, NTAuth, AIA, CDP z listami CRL, KRA, OID; zdrowie w stylu `pkiview.msc`;
+  przegląd bezpieczeństwa ESC z LDAP (ESC1–5, 9, 13–15, 17); certyfikaty LDAPS DC; odczyt kart *Opublikowane
+  certyfikaty*, *Mapowania nazw* i *Poświadczenia kluczy*; raport gotowości na silne mapowanie i NTAuth. Silnik ACL U4b
+  czyta kontenery PKI w partycji konfiguracji (lokacje nadal pomijane).
+- **P2** – bezpieczne zmiany w AD przez plan zmian: *Napraw…* dla ustaleń z P1, edycja właściwości szablonu i
+  ukierunkowane zmiany ACL (wpisy *Rejestruj*, *Autorejestracja*, prawa zapisu, właściciel) akcją `ModifySecurity` –
+  pełny edytor ACL z fazy 6, kopia szablonu (np. z wersji 1 na nowszą dla ESC15), wystawianie i zdejmowanie szablonów na
+  urzędach, NTAuth, `msDS-OIDToGroupLink`, edycja *Opublikowanych certyfikatów*, *Mapowań nazw* (tylko formy silne) i
+  usuwanie kluczy z `msDS-KeyCredentialLink`; operacje zbiorcze (wygasłe certyfikaty, słabe mapowania).
+- **P3** – praca z urzędem: odczyt konfiguracji, ról i wersji hosta (ESC6, ESC7, ESC11, ESC16, ESC8 za zgodą operatora,
+  ESC10 z DC), widoki bazy z filtrami i widokiem anomalii, potem akcje – zatwierdzanie, odrzucanie, odwołanie, cofnięcie
+  wstrzymania, publikacja CRL.
+- **P4** – powiązania: reguły i przypomnienia Watchdoga, analizy w czytniku dzienników (E), autorejestracja i *Zasady
+  kluczy publicznych* w GPO (K3, K5, K6), powiadomienia o wygasających certyfikatach (U1, U3), ostrzeżenia w sprawdzeniu
+  gotowości (S).
+- **Później (do decyzji):** zmiany konfiguracji urzędu z programu (flagi, role, ograniczenia agentów rejestracji),
+  gotowość na kryptografię postkwantową (algorytm podpisu urzędów i szablonów, mieszane łańcuchy), przegląd podpisów
+  SHA-1 i kluczy RSA-1024.
+
+#### Do ustalenia z zespołem
+
+- Odczyt konfiguracji i ról urzędu: rejestr przez WinRM/CIM (jak K1) czy MS-CSRA przez DCOM – albo oba z automatycznym
+  wyborem; widoki bazy i akcje wymagają MS-CSRA (DCOM, dynamiczne porty RPC) niezależnie od tego wyboru.
+- Czy zmiany konfiguracji urzędu (ESC6, ESC7, ESC11, ESC16) robić w programie, czy tylko generować sprawdzony skrypt
+  `certutil` do uruchomienia przez administratora urzędu.
+- Kto może przeglądać bazę urzędu i czy wyszukiwanie certyfikatów konkretnej osoby ma wymagać podania powodu (jak w
+  ścieżce E).
+- Domyślny próg „wygasa” dla certyfikatów urzędów, list CRL i certyfikatów LDAPS.
+- Czy program może sam wysyłać zapytania HTTP do adresów AIA, CDP, OCSP i rejestracji w sieci Web (ESC8), czy tylko na
+  żądanie operatora.
+- Urząd Windows do testów w CI na Windows i w pilotażu (laboratorium Samba go nie zapewni).
+
+**Kryteria ukończenia**
+- W domenie testowej z co najmniej dwoma urzędami stan zdrowia zgadza się z `pkiview.msc`, a właściwości i uprawnienia
+  każdego szablonu – z `certtmpl.msc`.
+- Na celowo podatnych szablonach przegląd znajduje wszystko, co znajdują `certipy find -vulnerable` i Locksmith dla ESC
+  z listy LDAP; każda różnica jest wyjaśniona w dokumentacji.
+- Każda naprawa w AD wykonana i cofnięta przez plan zmian przywraca identyczne atrybuty i deskryptor zabezpieczeń.
+- Widoki bazy zgadzają się z `certsrv.msc` i `certutil -view`; baza ze 100 000 wierszy nie blokuje okna, a odczyt można
+  przerwać w każdej chwili. Podgląd odwołania mówi, że nie da się go cofnąć; nowa lista CRL jest widoczna w CDP.
+- Silne mapowanie zbudowane z pliku `.cer` ma dokładnie format z KB5014754 (`X509:<I>…<SR>…`, `X509:<SKI>…`,
+  `X509:<SHA1-PUKEY>…`), a logowanie tym certyfikatem działa przy pełnym wymuszaniu na DC; mapowanie z karty ADUC
+  program rozpoznaje jako słabe.
+- Żadnych certyfikatów, list CRL ani wierszy bazy urzędu na dysku stacji poza jawnym eksportem; klucze prywatne nigdy
+  nie są odczytywane.
+
+</details>
+
 ### Etap S – stabilizacja i gotowość do pilotażu 🟡
 
 **Cel:** zanim przybędzie funkcji – wiarygodne testy, sprawdzenie gotowości środowiska w programie, zgłoszenia problemów
@@ -1751,7 +1983,7 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   potwierdzenia są też Exchange, LAPS i komputery dołączone w ramach `ms-DS-MachineAccountQuota`, a czytnik SYSVOL dla
   Windows nie był jeszcze uruchomiony. Delegowania w ACL (U4b): odmowy (deny) nie są oceniane, nie są czytane
   kontenery inne niż `CN=Users` / `CN=Computers` (np. `CN=Managed Service Accounts`, `CN=System`) ani partycja
-  konfiguracji (lokacje, PKI), właściciele zwykłych użytkowników, grup i komputerów nie są pokazywani, edycja GPO jest
+  konfiguracji (lokacje, PKI – PKI w planie ścieżki P), właściciele zwykłych użytkowników, grup i komputerów nie są pokazywani, edycja GPO jest
   oceniana po ACL obiektu GPO w AD (nie po uprawnieniach plików w SYSVOL), deskryptor, którego nie da się odczytać,
   jest pomijany bez komunikatu; pojedyncze konta i grupy tylko z *Głębokim skanowaniem*. Uprawnienia lokalne z GPO
   (U4c): filtry WMI i określanie elementów docelowych nie są oceniane (ustalenia „warunkowe”), lokacje komputerów
@@ -1857,7 +2089,7 @@ Pełna lista pytań: [RESEARCH.md](docs/RESEARCH.md#11-pytania-otwarte-do-zespo�
    różnice między OU.
 6. **Źródło danych CSV** (system kadrowy?): format, kodowanie, unikalność `employeeID`.
 7. **Exchange:** lokalny, hybrydowy czy tylko Entra/Exchange Online; czy zmiany adresów mają iść przez AD.
-8. **Używane rzadkie karty ADUC** (RDS, Dial-in, certyfikaty) – decyduje o zakresie fazy 6.
+8. **Używane rzadkie karty ADUC** (RDS, Dial-in) – decyduje o zakresie fazy 6; certyfikaty – ścieżka P.
 9. **Wiadomości do użytkowników (ścieżka U):** wysyłka przez usługę Watchdog (zalecane) czy bezpośrednio z AD_MNG;
    skrzynka nadawcy (np. współdzielona skrzynka helpdesku) i adres odpowiedzi; kto może wysyłać i do ilu osób naraz;
    treść i stopka szablonów zaakceptowane przez bezpieczeństwo (ochrona przed phishingiem) i IOD (RODO); czy kopie
