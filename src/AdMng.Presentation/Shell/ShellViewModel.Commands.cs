@@ -56,6 +56,7 @@ public sealed partial class ShellViewModel
         GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand, ShowRecycleBinCommand, ShowAccountReviewCommand, ShowWatchdogHistoryCommand,
         SendMessageCommand, CompareWithConnectionCommand, .. ComputerStateCommands, .. CorrespondenceStateCommands, .. EventLogStateCommands,
         .. PkiStateCommands,
+        .. BulkCreateStateCommands,
     ];
 
     /// <summary>Re-evaluates CanExecute of all selection dependent commands.</summary>

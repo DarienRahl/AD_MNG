@@ -1,0 +1,9 @@
+<!--
+  Step 1 "Dane": paste, file, typed rows, header choice, warnings (docs/dev/phase3-bulk-create.md 2.6).
+  Contract placeholder: B3 replaces this view.
+-->
+<UserControl x:Class="AdMng.App.BulkCreate.BulkSourceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid />
+</UserControl>

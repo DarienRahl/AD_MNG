@@ -1,0 +1,9 @@
+<!--
+  Step 2 "Kolumny": column → target, attribute, name order, case, notes (2.6).
+  Contract placeholder: B3 replaces this view.
+-->
+<UserControl x:Class="AdMng.App.BulkCreate.BulkColumnsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid />
+</UserControl>

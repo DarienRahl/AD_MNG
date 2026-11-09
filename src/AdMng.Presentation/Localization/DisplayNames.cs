@@ -149,6 +149,20 @@ public static partial class DisplayNames
             return issue.Message;
         }
 
+        // F3 (docs/dev/phase3-bulk-create.md 2.5): {0} = the attribute's display name, {1}… = the arguments; missing
+        // arguments render empty (no text of 2.9 has more than 8 placeholders).
+        if (Core.Batch.Creation.BulkCreateIssueCodes.AttributeAndArguments.Contains(issue.Code))
+        {
+            var arguments = new object?[Math.Max(9, issue.Arguments.Count + 1)];
+            arguments[0] = issue.Attribute is null ? string.Empty : localizer.AttributeName(issue.Attribute, schema);
+            for (var i = 1; i < arguments.Length; i++)
+            {
+                arguments[i] = i - 1 < issue.Arguments.Count ? issue.Arguments[i - 1] : string.Empty;
+            }
+
+            return localizer.Format(key, arguments);
+        }
+
         var template = localizer[key];
         if (issue.Arguments.Count > 0 && template.Contains("{0}", StringComparison.Ordinal))
         {

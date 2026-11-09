@@ -63,6 +63,7 @@ public sealed partial class ShellViewModel
             },
             .. ComputerCommandDescriptors(),
             .. CorrespondenceCommandDescriptors(),
+            .. BulkCreateCommandDescriptors(),
             new("new.user", L.Commands.NewUser, create, "Ctrl+Shift+U", NewUserCommand)
             {
                 DisabledReason = p => CreateBlockedReason(ObjectKind.User, p as string),

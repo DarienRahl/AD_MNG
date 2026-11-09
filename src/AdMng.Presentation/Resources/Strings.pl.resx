@@ -21351,4 +21351,460 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <!-- P1 strong mapping and NTAuth readiness (2.5): end -->
   <!-- P1 certificates on accounts (2.6): begin -->
   <!-- P1 certificates on accounts (2.6): end -->
+  <!-- F3 contract – bulk creation shared names (2.9): begin -->
+  <data name="BulkCreate.Command" xml:space="preserve">
+    <value>Wiele kont…</value>
+  </data>
+  <data name="BulkCreate.TitleInContainer" xml:space="preserve">
+    <value>{0} – {1}</value>
+  </data>
+  <data name="BulkCreate.StepSource" xml:space="preserve">
+    <value>Dane</value>
+  </data>
+  <data name="BulkCreate.StepColumns" xml:space="preserve">
+    <value>Kolumny</value>
+  </data>
+  <data name="BulkCreate.StepRules" xml:space="preserve">
+    <value>Nazwy i opcje</value>
+  </data>
+  <data name="BulkCreate.StepCheck" xml:space="preserve">
+    <value>Sprawdzenie</value>
+  </data>
+  <data name="BulkCreate.Kind" xml:space="preserve">
+    <value>Rodzaj obiektów</value>
+  </data>
+  <data name="BulkCreate.Container" xml:space="preserve">
+    <value>Kontener docelowy</value>
+  </data>
+  <data name="BulkCreate.NoContainer" xml:space="preserve">
+    <value>Nie wybrano kontenera</value>
+  </data>
+  <data name="BulkCreate.ConfirmKindChange" xml:space="preserve">
+    <value>Reguły nazewnictwa zostały zmienione. Zastąpić je domyślnym profilem nowego rodzaju obiektów?</value>
+  </data>
+  <data name="BulkCreate.PatternSuggestion" xml:space="preserve">
+    <value>Czy chodziło o {0}?</value>
+  </data>
+  <data name="BulkCreate.Title.User" xml:space="preserve">
+    <value>Zakładanie wielu kont</value>
+  </data>
+  <data name="BulkCreate.Kind.User" xml:space="preserve">
+    <value>Użytkownicy</value>
+  </data>
+  <data name="BulkCreate.Title.Contact" xml:space="preserve">
+    <value>Zakładanie wielu kontaktów</value>
+  </data>
+  <data name="BulkCreate.Kind.Contact" xml:space="preserve">
+    <value>Kontakty</value>
+  </data>
+  <data name="BulkCreate.Title.Group" xml:space="preserve">
+    <value>Zakładanie wielu grup</value>
+  </data>
+  <data name="BulkCreate.Kind.Group" xml:space="preserve">
+    <value>Grupy</value>
+  </data>
+  <data name="BulkCreate.Title.Computer" xml:space="preserve">
+    <value>Zakładanie wielu komputerów</value>
+  </data>
+  <data name="BulkCreate.Kind.Computer" xml:space="preserve">
+    <value>Komputery</value>
+  </data>
+  <data name="BulkCreate.Target.Ignore" xml:space="preserve">
+    <value>Pomiń</value>
+  </data>
+  <data name="BulkCreate.Target.Attribute" xml:space="preserve">
+    <value>Atrybut</value>
+  </data>
+  <data name="BulkCreate.Target.PatternOnly" xml:space="preserve">
+    <value>Tylko we wzorcach</value>
+  </data>
+  <data name="BulkCreate.Target.FullName" xml:space="preserve">
+    <value>Imię i nazwisko</value>
+  </data>
+  <data name="BulkCreate.Target.Manager" xml:space="preserve">
+    <value>Menedżer (przełożony)</value>
+  </data>
+  <data name="BulkCreate.Target.Groups" xml:space="preserve">
+    <value>Grupy</value>
+  </data>
+  <data name="BulkCreate.Target.Country" xml:space="preserve">
+    <value>Kraj/region</value>
+  </data>
+  <data name="BulkCreate.Target.ExpiresAt" xml:space="preserve">
+    <value>Konto wygasa</value>
+  </data>
+  <data name="BulkCreate.HeaderMode.Auto" xml:space="preserve">
+    <value>Automatycznie</value>
+  </data>
+  <data name="BulkCreate.HeaderMode.FirstRowIsHeader" xml:space="preserve">
+    <value>Tak</value>
+  </data>
+  <data name="BulkCreate.HeaderMode.NoHeader" xml:space="preserve">
+    <value>Nie</value>
+  </data>
+  <data name="BulkCreate.NameOrder.GivenNameFirst" xml:space="preserve">
+    <value>Imię Nazwisko</value>
+  </data>
+  <data name="BulkCreate.NameOrder.SurnameFirst" xml:space="preserve">
+    <value>Nazwisko Imię</value>
+  </data>
+  <data name="BulkCreate.Case.AsIs" xml:space="preserve">
+    <value>Bez zmian</value>
+  </data>
+  <data name="BulkCreate.Case.Title" xml:space="preserve">
+    <value>Jak W Nazwie</value>
+  </data>
+  <data name="BulkCreate.Case.Lower" xml:space="preserve">
+    <value>małe litery</value>
+  </data>
+  <data name="BulkCreate.Case.Upper" xml:space="preserve">
+    <value>WIELKIE LITERY</value>
+  </data>
+  <data name="BulkCreate.SuggestionNote.MobileNumbersDetected" xml:space="preserve">
+    <value>rozpoznano numery komórkowe</value>
+  </data>
+  <data name="BulkCreate.SuggestionNote.PhonesWithoutPlus" xml:space="preserve">
+    <value>numery bez +48 – format międzynarodowy je uzupełni</value>
+  </data>
+  <data name="BulkCreate.SuggestionNote.ContentBased" xml:space="preserve">
+    <value>rozpoznano po zawartości</value>
+  </data>
+  <data name="BulkCreate.Warning.ScientificNotation" xml:space="preserve">
+    <value>Wiersz {0}, kolumna {1}: liczba w zapisie naukowym (np. 4,86E+11) – Excel skrócił wartość; sformatuj kolumnę jako tekst i skopiuj ponownie.</value>
+  </data>
+  <data name="BulkCreate.Warning.RecoveredFromHtml" xml:space="preserve">
+    <value>Wiersz {0}, kolumna {1}: pełną liczbę odczytano z formatu HTML schowka.</value>
+  </data>
+  <data name="BulkCreate.Warning.EmptyRowsSkipped" xml:space="preserve">
+    <value>Pominięte puste wiersze: {2}</value>
+  </data>
+  <data name="BulkCreate.Warning.RaggedRows" xml:space="preserve">
+    <value>Kolumny bez nagłówka dodane przez dłuższe wiersze: {2}</value>
+  </data>
+  <data name="BulkCreate.Warning.DuplicateHeader" xml:space="preserve">
+    <value>Kolumna {1}: powtórzony nagłówek – druga kolumna dostała dopisek (2).</value>
+  </data>
+  <data name="BulkCreate.Warning.MergedCells" xml:space="preserve">
+    <value>Wiersz {0}: scalone komórki rozdzielono; dodatkowe komórki są puste.</value>
+  </data>
+  <data name="BulkCreate.Warning.TooManyRows" xml:space="preserve">
+    <value>Za dużo wierszy – wczytano pierwsze 10 000; pominięte wiersze: {2}</value>
+  </data>
+  <data name="BulkCreate.Warning.TooManyColumns" xml:space="preserve">
+    <value>Za dużo kolumn – pominięte kolumny: {2}</value>
+  </data>
+  <data name="BulkCreate.Warning.CellTooLong" xml:space="preserve">
+    <value>Wiersz {0}, kolumna {1}: komórka była za długa i została skrócona.</value>
+  </data>
+  <data name="BulkCreate.Warning.PasswordLikeColumn" xml:space="preserve">
+    <value>Kolumna {1} wygląda na hasła: nie zostanie użyta, a jej komórki są ukryte.</value>
+  </data>
+  <data name="BulkCreate.Warning.OtherSheetsIgnored" xml:space="preserve">
+    <value>Wczytano tylko pierwszy arkusz; pozostałe niepuste arkusze: {2}</value>
+  </data>
+  <data name="BulkCreate.Warning.HiddenRowsIgnored" xml:space="preserve">
+    <value>Pominięte ukryte wiersze arkusza: {2}</value>
+  </data>
+  <data name="BulkCreate.Warning.FormulaError" xml:space="preserve">
+    <value>Wiersz {0}, kolumna {1}: wartość błędu Excela (np. #N/D!) – komórka pozostaje pusta.</value>
+  </data>
+  <data name="BulkCreate.Warning.TitleRowsSkipped" xml:space="preserve">
+    <value>Pominięte wiersze nad nagłówkiem (tytuł, puste wiersze): {2}</value>
+  </data>
+  <data name="BulkCreate.PatternError.Syntax" xml:space="preserve">
+    <value>Pozycja {0}: błąd we wzorcu ({1}).</value>
+  </data>
+  <data name="BulkCreate.PatternError.UnknownColumn" xml:space="preserve">
+    <value>Pozycja {0}: nie ma kolumny {1}.</value>
+  </data>
+  <data name="BulkCreate.PatternError.InvalidCounter" xml:space="preserve">
+    <value>Pozycja {0}: nieprawidłowy licznik {1} – użyj {{$nr:początek[:cyfry[:krok]]}}.</value>
+  </data>
+  <data name="BulkCreate.PatternError.CounterMismatch" xml:space="preserve">
+    <value>Pozycja {0}: licznik {1} ma inny początek lub krok niż pozostałe – ustaw numerację w panelu Numeracja.</value>
+  </data>
+  <data name="BulkCreate.PatternError.ForbiddenToken" xml:space="preserve">
+    <value>Pozycja {0}: pola {1} nie można użyć przy zakładaniu obiektów (licznik to {{$nr}}).</value>
+  </data>
+  <data name="BulkCreate.PatternError.UnknownAttribute" xml:space="preserve">
+    <value>Pozycja {0}: nieznany atrybut {1} – pole pozostanie puste.</value>
+  </data>
+  <data name="BulkCreate.PatternError.BlockedAttribute" xml:space="preserve">
+    <value>Tego atrybutu nie można ustawić regułą.</value>
+  </data>
+  <data name="BulkCreate.PatternError.DuplicateRule" xml:space="preserve">
+    <value>Ten atrybut ma już regułę.</value>
+  </data>
+  <data name="BulkCreate.PatternError.Cycle" xml:space="preserve">
+    <value>Reguły odwołują się do siebie nawzajem ({1}).</value>
+  </data>
+  <data name="BulkCreate.PatternError.InvariantDateNames" xml:space="preserve">
+    <value>Pozycja {0}: nazwy miesięcy i dni w {1} będą po angielsku – użyj formatu liczbowego (yyyy-MM-dd).</value>
+  </data>
+  <data name="BulkCreate.PatternError.SamInAddress" xml:space="preserve">
+    <value>Pozycja {0}: funkcja sam skraca każde pole do 20 znaków – w adresach użyj nodiacritics|nospaces|lower.</value>
+  </data>
+  <data name="BulkCreate.Function.lower" xml:space="preserve">
+    <value>małe litery</value>
+  </data>
+  <data name="BulkCreate.Function.upper" xml:space="preserve">
+    <value>WIELKIE LITERY</value>
+  </data>
+  <data name="BulkCreate.Function.title" xml:space="preserve">
+    <value>Każde Słowo Wielką Literą</value>
+  </data>
+  <data name="BulkCreate.Function.capitalize" xml:space="preserve">
+    <value>Pierwsza litera wielka</value>
+  </data>
+  <data name="BulkCreate.Function.trim" xml:space="preserve">
+    <value>bez spacji na początku i końcu</value>
+  </data>
+  <data name="BulkCreate.Function.nodiacritics" xml:space="preserve">
+    <value>bez polskich znaków (ą→a, ł→l)</value>
+  </data>
+  <data name="BulkCreate.Function.nospaces" xml:space="preserve">
+    <value>bez spacji</value>
+  </data>
+  <data name="BulkCreate.Function.alnum" xml:space="preserve">
+    <value>tylko litery i cyfry</value>
+  </data>
+  <data name="BulkCreate.Function.sam" xml:space="preserve">
+    <value>jak nazwa logowania (bez polskich i niedozwolonych znaków), maks. 20 znaków w każdym polu</value>
+  </data>
+  <data name="BulkCreate.Function.first" xml:space="preserve">
+    <value>pierwsze N znaków</value>
+  </data>
+  <data name="BulkCreate.Function.last" xml:space="preserve">
+    <value>ostatnie N znaków</value>
+  </data>
+  <data name="BulkCreate.Function.replace" xml:space="preserve">
+    <value>zamień „a” na „b”</value>
+  </data>
+  <data name="BulkCreate.Function.default" xml:space="preserve">
+    <value>„tekst”, gdy pole jest puste</value>
+  </data>
+  <data name="BulkCreate.CounterMode.FillGaps" xml:space="preserve">
+    <value>Najniższy wolny numer (uzupełnia luki)</value>
+  </data>
+  <data name="BulkCreate.CounterMode.AfterHighest" xml:space="preserve">
+    <value>Kolejny po najwyższym istniejącym</value>
+  </data>
+  <data name="BulkCreate.Collision.AppendNumber" xml:space="preserve">
+    <value>Dopisz numer</value>
+  </data>
+  <data name="BulkCreate.Collision.MarkError" xml:space="preserve">
+    <value>Oznacz jako błąd</value>
+  </data>
+  <data name="BulkCreate.InitialMode.Generate" xml:space="preserve">
+    <value>Generuj osobne hasło dla każdego konta</value>
+  </data>
+  <data name="BulkCreate.InitialMode.SameForAll" xml:space="preserve">
+    <value>Jedno hasło dla wszystkich kont</value>
+  </data>
+  <data name="BulkCreate.InitialMode.None" xml:space="preserve">
+    <value>Bez hasła – konto wyłączone</value>
+  </data>
+  <data name="BulkCreate.Phones.AsIs" xml:space="preserve">
+    <value>Bez zmian</value>
+  </data>
+  <data name="BulkCreate.Phones.International" xml:space="preserve">
+    <value>Format międzynarodowy (+48 600 100 200)</value>
+  </data>
+  <data name="BulkCheck.Status.Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="BulkCheck.Status.Warning" xml:space="preserve">
+    <value>Ostrzeżenie</value>
+  </data>
+  <data name="BulkCheck.Status.Error" xml:space="preserve">
+    <value>Błąd</value>
+  </data>
+  <data name="BulkCheck.Status.Excluded" xml:space="preserve">
+    <value>Wykluczony</value>
+  </data>
+  <data name="BulkCheck.Status.Created" xml:space="preserve">
+    <value>Utworzony</value>
+  </data>
+  <data name="BulkCheck.Source.Column" xml:space="preserve">
+    <value>z kolumny</value>
+  </data>
+  <data name="BulkCheck.Source.Edited" xml:space="preserve">
+    <value>edytowano</value>
+  </data>
+  <data name="BulkCheck.Source.Pattern" xml:space="preserve">
+    <value>ze wzorca</value>
+  </data>
+  <data name="BulkCheck.Source.Fixed" xml:space="preserve">
+    <value>stała wartość</value>
+  </data>
+  <data name="BulkCheck.Source.Option" xml:space="preserve">
+    <value>z opcji</value>
+  </data>
+  <data name="BulkCheck.Source.Frozen" xml:space="preserve">
+    <value>jak przy sprawdzeniu</value>
+  </data>
+  <data name="BulkCheck.Scope.Domain" xml:space="preserve">
+    <value>sprawdzone tylko w domenie</value>
+  </data>
+  <data name="BulkCheck.Scope.ForestSingleDomain" xml:space="preserve">
+    <value>cały las (jedna domena)</value>
+  </data>
+  <data name="BulkCheck.Scope.Forest" xml:space="preserve">
+    <value>cały las (wykaz globalny na {0})</value>
+  </data>
+  <data name="BulkCheck.Filter.All" xml:space="preserve">
+    <value>Wszystkie</value>
+  </data>
+  <data name="BulkCheck.Filter.Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="BulkCheck.Filter.Warnings" xml:space="preserve">
+    <value>Ostrzeżenia</value>
+  </data>
+  <data name="BulkCheck.Filter.Errors" xml:space="preserve">
+    <value>Błędy</value>
+  </data>
+  <data name="BulkCheck.Filter.PossibleDuplicates" xml:space="preserve">
+    <value>Możliwe duplikaty</value>
+  </data>
+  <data name="BulkCheck.Filter.Excluded" xml:space="preserve">
+    <value>Wykluczone</value>
+  </data>
+  <data name="BulkCheck.Filter.Created" xml:space="preserve">
+    <value>Utworzone</value>
+  </data>
+  <data name="Issue.CounterExhausted" xml:space="preserve">
+    <value>Nie znaleziono wolnego numeru licznika (sprawdzono ponad 100 000 numerów lub przekroczono 999 999 999).</value>
+  </data>
+  <data name="Issue.CounterTooLong" xml:space="preserve">
+    <value>{0}: prefiks i numer nie mieszczą się w {1} znakach – wartości z licznikiem nie są skracane.</value>
+  </data>
+  <data name="Issue.Disambiguated" xml:space="preserve">
+    <value>{0}: wartość była zajęta – dopisano numer.</value>
+  </data>
+  <data name="Issue.DuplicateInDirectory" xml:space="preserve">
+    <value>{0}: ta wartość jest już używana przez „{1}”.</value>
+  </data>
+  <data name="Issue.DuplicateRow" xml:space="preserve">
+    <value>{0}: ta sama wartość jest w wierszu {1}.</value>
+  </data>
+  <data name="Issue.ImplicitUpnClash" xml:space="preserve">
+    <value>{0}: koliduje z nazwą logowania „{1}” (nazwa@domena) – Kerberos wskazałby inne konto.</value>
+  </data>
+  <data name="Issue.EmptyToken" xml:space="preserve">
+    <value>{0}: pole {1} jest puste w tym wierszu.</value>
+  </data>
+  <data name="Issue.NameInRecycleBin" xml:space="preserve">
+    <value>{0}: obiekt o tej nazwie jest w Koszu AD – jego przywrócenie będzie wymagało zmiany nazwy.</value>
+  </data>
+  <data name="Issue.UpnSuffixNotInForest" xml:space="preserve">
+    <value>Sufiks UPN nie jest domeną lasu ani jednym z jego sufiksów UPN.</value>
+  </data>
+  <data name="Issue.MailDomainNotInForest" xml:space="preserve">
+    <value>Domena adresu e-mail nie jest domeną lasu ani sufiksem UPN (adres prywatny?).</value>
+  </data>
+  <data name="Issue.NonRoutableMailDomain" xml:space="preserve">
+    <value>Domena adresu e-mail nie odbierze poczty z internetu (.local, .lan, .internal, .localdomain, .corp).</value>
+  </data>
+  <data name="Issue.PossibleExistingAccount" xml:space="preserve">
+    <value>Możliwe istniejące konto tej osoby: „{1}” (ten sam atrybut {0}).</value>
+  </data>
+  <data name="Issue.DuplicateSourceRow" xml:space="preserve">
+    <value>Wiersz {1} opisuje tę samą osobę (ten sam atrybut {0}).</value>
+  </data>
+  <data name="Issue.ScientificNotation" xml:space="preserve">
+    <value>{0}: liczba w zapisie naukowym (np. 4,86E+11) – Excel skrócił wartość.</value>
+  </data>
+  <data name="Issue.InvalidPhone" xml:space="preserve">
+    <value>{0}: numeru telefonu nie udało się zapisać w formacie międzynarodowym.</value>
+  </data>
+  <data name="Issue.LineBreakInValue" xml:space="preserve">
+    <value>{0}: wartość zawiera podział wiersza lub inny znak sterujący (Alt+Enter w Excelu?).</value>
+  </data>
+  <data name="Issue.AllCapsName" xml:space="preserve">
+    <value>{0}: zapisano wielkimi literami – wybierz dla kolumny „Jak W Nazwie”.</value>
+  </data>
+  <data name="Issue.TrailingDollar" xml:space="preserve">
+    <value>Nieprawidłowy znak $ na końcu nazwy logowania (sprzed systemu Windows 2000): nazwa użytkownika nie może kończyć się na $, nazwa komputera musi mieć dokładnie jeden $ na końcu.</value>
+  </data>
+  <data name="Issue.CountryNotFound" xml:space="preserve">
+    <value>Nieznany kraj/region – nic nie zostanie zapisane.</value>
+  </data>
+  <data name="Issue.InvalidDate" xml:space="preserve">
+    <value>Konto wygasa: nieobsługiwany format daty – użyj dd.MM.rrrr lub rrrr-MM-dd.</value>
+  </data>
+  <data name="Issue.ManagerNotFound" xml:space="preserve">
+    <value>Nie znaleziono menedżera – konto zostanie utworzone bez menedżera.</value>
+  </data>
+  <data name="Issue.ManagerAmbiguous" xml:space="preserve">
+    <value>Niejednoznaczny menedżer – pasujące konta: {0}; wybierz jedno w komórce.</value>
+  </data>
+  <data name="Issue.ManagerInBatch" xml:space="preserve">
+    <value>Menedżer jest zakładany w tej samej partii – ustaw go później w edycji zbiorczej.</value>
+  </data>
+  <data name="Issue.GroupNotFound" xml:space="preserve">
+    <value>Nie znaleziono grupy {0} – rozdziel grupy średnikiem.</value>
+  </data>
+  <data name="Issue.GroupAmbiguous" xml:space="preserve">
+    <value>Nazwa grupy {0} jest niejednoznaczna – podaj nazwę wyróżniającą grupy.</value>
+  </data>
+  <data name="Issue.GroupsSplitOnCommas" xml:space="preserve">
+    <value>Grupy rozdzielono przecinkami – rozdzielaj je średnikami.</value>
+  </data>
+  <data name="Issue.GroupScopeNotAllowed" xml:space="preserve">
+    <value>Tworzona grupa nie może być członkiem grupy {0} (zakres grupy).</value>
+  </data>
+  <data name="Issue.PrimaryGroupSkipped" xml:space="preserve">
+    <value>{0} to grupa podstawowa konta – pominięto ją.</value>
+  </data>
+  <data name="Issue.GroupPasswordPolicy" xml:space="preserve">
+    <value>Hasło początkowe sprawdza polityka domeny; zasady haseł grupy „{0}” obowiązują dopiero po dodaniu do grupy – przy zmianie hasła przy logowaniu.</value>
+  </data>
+  <data name="Issue.EnabledWithoutPassword" xml:space="preserve">
+    <value>Włączone konta wymagają hasła – wybierz sposób nadania hasła albo utwórz konta wyłączone.</value>
+  </data>
+  <data name="Issue.PasswordsNeedEncryptedChannel" xml:space="preserve">
+    <value>Hasła można ustawić tylko przez szyfrowane połączenie (Kerberos z szyfrowaniem, LDAPS lub StartTLS) – połącz się ponownie z szyfrowaniem.</value>
+  </data>
+  <data name="Issue.PasswordTooShortForDomain" xml:space="preserve">
+    <value>Hasło jest krótsze, niż wymaga domena – minimum domeny: {0}</value>
+  </data>
+  <data name="Issue.PasswordNotComplex" xml:space="preserve">
+    <value>Hasło nie spełnia wymagań złożoności domeny (trzy z: wielka litera, mała litera, cyfra, znak specjalny).</value>
+  </data>
+  <data name="Issue.PasswordContainsName" xml:space="preserve">
+    <value>Hasło zawiera nazwę logowania lub część nazwy wyświetlanej – domena może je odrzucić.</value>
+  </data>
+  <data name="Issue.CheckedInDomainOnly" xml:space="preserve">
+    <value>Unikalność UPN i adresów sprawdzono tylko w domenie (brak wykazu globalnego).</value>
+  </data>
+  <data name="Issue.SchemaUnavailable" xml:space="preserve">
+    <value>Schemat nie jest wczytany – można użyć tylko typowych atrybutów.</value>
+  </data>
+  <data name="Issue.ComputerNameNotDnsSafe" xml:space="preserve">
+    <value>Nazwa komputera zawiera znak _, niedozwolony w nazwach DNS.</value>
+  </data>
+  <data name="Issue.JoinOwnerNotTrusted" xml:space="preserve">
+    <value>Od wzmocnienia dołączania do domeny z KB5020276 dołączenie, które ponownie używa konta, udaje się tylko wtedy, gdy dołączający utworzył konto, jest członkiem Domain Admins lub Enterprise Admins albo wbudowanym Administratorem, gdy właściciel konta należy do tych grup, albo gdy zasada „Domain controller: Allow computer account re-use during domain join” ufa właścicielowi. Właścicielem kont będzie {0}.</value>
+  </data>
+  <data name="Issue.RidPoolLow" xml:space="preserve">
+    <value>Kontroler ma mniej wolnych identyfikatorów RID niż wierszy i poprosi o nową pulę – jeśli wzorzec RID jest niedostępny, tworzenie zatrzyma się po wyczerpaniu puli.</value>
+  </data>
+  <data name="Issue.ValueTakenSinceCheck" xml:space="preserve">
+    <value>Wartość została zajęta od sprawdzenia – obiekt nie zostanie ponowiony; wróć do Sprawdzenia.</value>
+  </data>
+  <data name="Issue.UndoObjectReplaced" xml:space="preserve">
+    <value>Utworzonego obiektu już nie ma albo jego nazwę ma inny obiekt – cofnięcie go pominie.</value>
+  </data>
+  <data name="Issue.UndoAccountInUse" xml:space="preserve">
+    <value>Konto było używane od utworzenia (logowanie lub zmiana hasła).</value>
+  </data>
+  <data name="Issue.UndoHasChildren" xml:space="preserve">
+    <value>Obiekt ma obiekty podrzędne – jego usunięcie się nie powiedzie.</value>
+  </data>
+  <!-- F3 contract – bulk creation shared names (2.9): end -->
+  <!-- F3 data, columns and naming rules (2.6): begin -->
+  <!-- F3 data, columns and naming rules (2.6): end -->
+  <!-- F3 check, plan and results (2.7): begin -->
+  <!-- F3 check, plan and results (2.7): end -->
 </root>

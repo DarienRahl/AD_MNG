@@ -1,0 +1,9 @@
+<!--
+  Step 3 "Nazwy i opcje": numbering, rules with samples, account options, groups, profiles (2.6).
+  Contract placeholder: B3 replaces this view.
+-->
+<UserControl x:Class="AdMng.App.BulkCreate.BulkRulesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid />
+</UserControl>

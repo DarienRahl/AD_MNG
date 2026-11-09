@@ -99,6 +99,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IRollbackPlanner, RollbackPlanner>();
         services.TryAddSingleton<IPowerShellExporter, PowerShellExporter>();
         services.TryAddSingleton<ICsvImportPlanner, CsvImportPlanner>();
+        services.TryAddSingleton<Core.Batch.Creation.IBulkCreatePlanner, Core.Batch.Creation.BulkCreatePlanner>();
         services.TryAddSingleton<BatchReportExporter>();
         services.TryAddSingleton<AuditLogExporter>();
 

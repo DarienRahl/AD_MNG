@@ -21351,4 +21351,460 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <!-- P1 strong mapping and NTAuth readiness (2.5): end -->
   <!-- P1 certificates on accounts (2.6): begin -->
   <!-- P1 certificates on accounts (2.6): end -->
+  <!-- F3 contract – bulk creation shared names (2.9): begin -->
+  <data name="BulkCreate.Command" xml:space="preserve">
+    <value>Multiple accounts…</value>
+  </data>
+  <data name="BulkCreate.TitleInContainer" xml:space="preserve">
+    <value>{0} – {1}</value>
+  </data>
+  <data name="BulkCreate.StepSource" xml:space="preserve">
+    <value>Data</value>
+  </data>
+  <data name="BulkCreate.StepColumns" xml:space="preserve">
+    <value>Columns</value>
+  </data>
+  <data name="BulkCreate.StepRules" xml:space="preserve">
+    <value>Names and options</value>
+  </data>
+  <data name="BulkCreate.StepCheck" xml:space="preserve">
+    <value>Check</value>
+  </data>
+  <data name="BulkCreate.Kind" xml:space="preserve">
+    <value>Object kind</value>
+  </data>
+  <data name="BulkCreate.Container" xml:space="preserve">
+    <value>Target container</value>
+  </data>
+  <data name="BulkCreate.NoContainer" xml:space="preserve">
+    <value>No container chosen</value>
+  </data>
+  <data name="BulkCreate.ConfirmKindChange" xml:space="preserve">
+    <value>The naming rules were changed. Replace them with the default profile of the new object kind?</value>
+  </data>
+  <data name="BulkCreate.PatternSuggestion" xml:space="preserve">
+    <value>Did you mean {0}?</value>
+  </data>
+  <data name="BulkCreate.Title.User" xml:space="preserve">
+    <value>Create multiple accounts</value>
+  </data>
+  <data name="BulkCreate.Kind.User" xml:space="preserve">
+    <value>Users</value>
+  </data>
+  <data name="BulkCreate.Title.Contact" xml:space="preserve">
+    <value>Create multiple contacts</value>
+  </data>
+  <data name="BulkCreate.Kind.Contact" xml:space="preserve">
+    <value>Contacts</value>
+  </data>
+  <data name="BulkCreate.Title.Group" xml:space="preserve">
+    <value>Create multiple groups</value>
+  </data>
+  <data name="BulkCreate.Kind.Group" xml:space="preserve">
+    <value>Groups</value>
+  </data>
+  <data name="BulkCreate.Title.Computer" xml:space="preserve">
+    <value>Create multiple computers</value>
+  </data>
+  <data name="BulkCreate.Kind.Computer" xml:space="preserve">
+    <value>Computers</value>
+  </data>
+  <data name="BulkCreate.Target.Ignore" xml:space="preserve">
+    <value>Ignore</value>
+  </data>
+  <data name="BulkCreate.Target.Attribute" xml:space="preserve">
+    <value>Attribute</value>
+  </data>
+  <data name="BulkCreate.Target.PatternOnly" xml:space="preserve">
+    <value>Pattern only</value>
+  </data>
+  <data name="BulkCreate.Target.FullName" xml:space="preserve">
+    <value>Full name</value>
+  </data>
+  <data name="BulkCreate.Target.Manager" xml:space="preserve">
+    <value>Manager</value>
+  </data>
+  <data name="BulkCreate.Target.Groups" xml:space="preserve">
+    <value>Groups</value>
+  </data>
+  <data name="BulkCreate.Target.Country" xml:space="preserve">
+    <value>Country/region</value>
+  </data>
+  <data name="BulkCreate.Target.ExpiresAt" xml:space="preserve">
+    <value>Account expires</value>
+  </data>
+  <data name="BulkCreate.HeaderMode.Auto" xml:space="preserve">
+    <value>Automatically</value>
+  </data>
+  <data name="BulkCreate.HeaderMode.FirstRowIsHeader" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="BulkCreate.HeaderMode.NoHeader" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="BulkCreate.NameOrder.GivenNameFirst" xml:space="preserve">
+    <value>First name Last name</value>
+  </data>
+  <data name="BulkCreate.NameOrder.SurnameFirst" xml:space="preserve">
+    <value>Last name First name</value>
+  </data>
+  <data name="BulkCreate.Case.AsIs" xml:space="preserve">
+    <value>Unchanged</value>
+  </data>
+  <data name="BulkCreate.Case.Title" xml:space="preserve">
+    <value>Like A Name</value>
+  </data>
+  <data name="BulkCreate.Case.Lower" xml:space="preserve">
+    <value>lower case</value>
+  </data>
+  <data name="BulkCreate.Case.Upper" xml:space="preserve">
+    <value>UPPER CASE</value>
+  </data>
+  <data name="BulkCreate.SuggestionNote.MobileNumbersDetected" xml:space="preserve">
+    <value>mobile numbers detected</value>
+  </data>
+  <data name="BulkCreate.SuggestionNote.PhonesWithoutPlus" xml:space="preserve">
+    <value>numbers without +48 – the international format adds it</value>
+  </data>
+  <data name="BulkCreate.SuggestionNote.ContentBased" xml:space="preserve">
+    <value>recognized by the content</value>
+  </data>
+  <data name="BulkCreate.Warning.ScientificNotation" xml:space="preserve">
+    <value>Row {0}, column {1}: a number in scientific notation (e.g. 4.86E+11) – Excel shortened it; format the column as text and copy again.</value>
+  </data>
+  <data name="BulkCreate.Warning.RecoveredFromHtml" xml:space="preserve">
+    <value>Row {0}, column {1}: the full number was read from the HTML format of the clipboard.</value>
+  </data>
+  <data name="BulkCreate.Warning.EmptyRowsSkipped" xml:space="preserve">
+    <value>Empty rows skipped: {2}</value>
+  </data>
+  <data name="BulkCreate.Warning.RaggedRows" xml:space="preserve">
+    <value>Columns without a header added by longer rows: {2}</value>
+  </data>
+  <data name="BulkCreate.Warning.DuplicateHeader" xml:space="preserve">
+    <value>Column {1}: the header repeats – the second column got the suffix (2).</value>
+  </data>
+  <data name="BulkCreate.Warning.MergedCells" xml:space="preserve">
+    <value>Row {0}: merged cells were split; the extra cells are empty.</value>
+  </data>
+  <data name="BulkCreate.Warning.TooManyRows" xml:space="preserve">
+    <value>Too many rows – the first 10,000 were read; rows skipped: {2}</value>
+  </data>
+  <data name="BulkCreate.Warning.TooManyColumns" xml:space="preserve">
+    <value>Too many columns – columns skipped: {2}</value>
+  </data>
+  <data name="BulkCreate.Warning.CellTooLong" xml:space="preserve">
+    <value>Row {0}, column {1}: the cell was too long and was shortened.</value>
+  </data>
+  <data name="BulkCreate.Warning.PasswordLikeColumn" xml:space="preserve">
+    <value>Column {1} looks like passwords: it is never used and its cells are hidden.</value>
+  </data>
+  <data name="BulkCreate.Warning.OtherSheetsIgnored" xml:space="preserve">
+    <value>Only the first sheet was read; other non-empty sheets: {2}</value>
+  </data>
+  <data name="BulkCreate.Warning.HiddenRowsIgnored" xml:space="preserve">
+    <value>Hidden rows of the sheet skipped: {2}</value>
+  </data>
+  <data name="BulkCreate.Warning.FormulaError" xml:space="preserve">
+    <value>Row {0}, column {1}: an Excel error value (e.g. #N/A) – the cell is left empty.</value>
+  </data>
+  <data name="BulkCreate.Warning.TitleRowsSkipped" xml:space="preserve">
+    <value>Lines above the header skipped (title, empty lines): {2}</value>
+  </data>
+  <data name="BulkCreate.PatternError.Syntax" xml:space="preserve">
+    <value>Position {0}: the pattern is not valid ({1}).</value>
+  </data>
+  <data name="BulkCreate.PatternError.UnknownColumn" xml:space="preserve">
+    <value>Position {0}: there is no column {1}.</value>
+  </data>
+  <data name="BulkCreate.PatternError.InvalidCounter" xml:space="preserve">
+    <value>Position {0}: invalid counter {1} – use {{$nr:start[:digits[:step]]}}.</value>
+  </data>
+  <data name="BulkCreate.PatternError.CounterMismatch" xml:space="preserve">
+    <value>Position {0}: the counter {1} has another start or step than the other counters – set the numbering in the Numbering panel.</value>
+  </data>
+  <data name="BulkCreate.PatternError.ForbiddenToken" xml:space="preserve">
+    <value>Position {0}: {1} cannot be used when objects are created (the counter is {{$nr}}).</value>
+  </data>
+  <data name="BulkCreate.PatternError.UnknownAttribute" xml:space="preserve">
+    <value>Position {0}: unknown attribute {1} – the field stays empty.</value>
+  </data>
+  <data name="BulkCreate.PatternError.BlockedAttribute" xml:space="preserve">
+    <value>This attribute cannot be set by a rule.</value>
+  </data>
+  <data name="BulkCreate.PatternError.DuplicateRule" xml:space="preserve">
+    <value>The attribute already has a rule.</value>
+  </data>
+  <data name="BulkCreate.PatternError.Cycle" xml:space="preserve">
+    <value>The rules refer to each other ({1}).</value>
+  </data>
+  <data name="BulkCreate.PatternError.InvariantDateNames" xml:space="preserve">
+    <value>Position {0}: month and day names in {1} are written in English – use a numeric format (yyyy-MM-dd).</value>
+  </data>
+  <data name="BulkCreate.PatternError.SamInAddress" xml:space="preserve">
+    <value>Position {0}: the function sam cuts every field to 20 characters – in addresses use nodiacritics|nospaces|lower.</value>
+  </data>
+  <data name="BulkCreate.Function.lower" xml:space="preserve">
+    <value>lower case</value>
+  </data>
+  <data name="BulkCreate.Function.upper" xml:space="preserve">
+    <value>UPPER CASE</value>
+  </data>
+  <data name="BulkCreate.Function.title" xml:space="preserve">
+    <value>Every Word Capitalized</value>
+  </data>
+  <data name="BulkCreate.Function.capitalize" xml:space="preserve">
+    <value>First letter capitalized</value>
+  </data>
+  <data name="BulkCreate.Function.trim" xml:space="preserve">
+    <value>without spaces at the start and the end</value>
+  </data>
+  <data name="BulkCreate.Function.nodiacritics" xml:space="preserve">
+    <value>without diacritics (ą→a, ł→l)</value>
+  </data>
+  <data name="BulkCreate.Function.nospaces" xml:space="preserve">
+    <value>without spaces</value>
+  </data>
+  <data name="BulkCreate.Function.alnum" xml:space="preserve">
+    <value>letters and digits only</value>
+  </data>
+  <data name="BulkCreate.Function.sam" xml:space="preserve">
+    <value>like a logon name (no diacritics or disallowed characters), at most 20 characters per field</value>
+  </data>
+  <data name="BulkCreate.Function.first" xml:space="preserve">
+    <value>the first N characters</value>
+  </data>
+  <data name="BulkCreate.Function.last" xml:space="preserve">
+    <value>the last N characters</value>
+  </data>
+  <data name="BulkCreate.Function.replace" xml:space="preserve">
+    <value>replace “a” with “b”</value>
+  </data>
+  <data name="BulkCreate.Function.default" xml:space="preserve">
+    <value>“text” when the field is empty</value>
+  </data>
+  <data name="BulkCreate.CounterMode.FillGaps" xml:space="preserve">
+    <value>Lowest free number (fills gaps)</value>
+  </data>
+  <data name="BulkCreate.CounterMode.AfterHighest" xml:space="preserve">
+    <value>Next after the highest</value>
+  </data>
+  <data name="BulkCreate.Collision.AppendNumber" xml:space="preserve">
+    <value>Append a number</value>
+  </data>
+  <data name="BulkCreate.Collision.MarkError" xml:space="preserve">
+    <value>Mark as an error</value>
+  </data>
+  <data name="BulkCreate.InitialMode.Generate" xml:space="preserve">
+    <value>Generate a separate password for every account</value>
+  </data>
+  <data name="BulkCreate.InitialMode.SameForAll" xml:space="preserve">
+    <value>One password for all accounts</value>
+  </data>
+  <data name="BulkCreate.InitialMode.None" xml:space="preserve">
+    <value>No password – the account is disabled</value>
+  </data>
+  <data name="BulkCreate.Phones.AsIs" xml:space="preserve">
+    <value>Unchanged</value>
+  </data>
+  <data name="BulkCreate.Phones.International" xml:space="preserve">
+    <value>International format (+48 600 100 200)</value>
+  </data>
+  <data name="BulkCheck.Status.Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="BulkCheck.Status.Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="BulkCheck.Status.Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="BulkCheck.Status.Excluded" xml:space="preserve">
+    <value>Excluded</value>
+  </data>
+  <data name="BulkCheck.Status.Created" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="BulkCheck.Source.Column" xml:space="preserve">
+    <value>from the column</value>
+  </data>
+  <data name="BulkCheck.Source.Edited" xml:space="preserve">
+    <value>edited</value>
+  </data>
+  <data name="BulkCheck.Source.Pattern" xml:space="preserve">
+    <value>from the pattern</value>
+  </data>
+  <data name="BulkCheck.Source.Fixed" xml:space="preserve">
+    <value>fixed value</value>
+  </data>
+  <data name="BulkCheck.Source.Option" xml:space="preserve">
+    <value>from the options</value>
+  </data>
+  <data name="BulkCheck.Source.Frozen" xml:space="preserve">
+    <value>as checked</value>
+  </data>
+  <data name="BulkCheck.Scope.Domain" xml:space="preserve">
+    <value>checked in the domain only</value>
+  </data>
+  <data name="BulkCheck.Scope.ForestSingleDomain" xml:space="preserve">
+    <value>the whole forest (one domain)</value>
+  </data>
+  <data name="BulkCheck.Scope.Forest" xml:space="preserve">
+    <value>the whole forest (global catalog on {0})</value>
+  </data>
+  <data name="BulkCheck.Filter.All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="BulkCheck.Filter.Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="BulkCheck.Filter.Warnings" xml:space="preserve">
+    <value>Warnings</value>
+  </data>
+  <data name="BulkCheck.Filter.Errors" xml:space="preserve">
+    <value>Errors</value>
+  </data>
+  <data name="BulkCheck.Filter.PossibleDuplicates" xml:space="preserve">
+    <value>Possible duplicates</value>
+  </data>
+  <data name="BulkCheck.Filter.Excluded" xml:space="preserve">
+    <value>Excluded</value>
+  </data>
+  <data name="BulkCheck.Filter.Created" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="Issue.CounterExhausted" xml:space="preserve">
+    <value>No free number was found for the counter (more than 100,000 numbers checked or above 999,999,999).</value>
+  </data>
+  <data name="Issue.CounterTooLong" xml:space="preserve">
+    <value>{0}: the prefix and the number do not fit in {1} characters – values with a counter are never shortened.</value>
+  </data>
+  <data name="Issue.Disambiguated" xml:space="preserve">
+    <value>{0}: the value was taken – a number was appended.</value>
+  </data>
+  <data name="Issue.DuplicateInDirectory" xml:space="preserve">
+    <value>{0}: the value is already used by “{1}”.</value>
+  </data>
+  <data name="Issue.DuplicateRow" xml:space="preserve">
+    <value>{0}: row {1} has the same value.</value>
+  </data>
+  <data name="Issue.ImplicitUpnClash" xml:space="preserve">
+    <value>{0}: clashes with the logon name of “{1}” (name@domain) – Kerberos would resolve it to the other account.</value>
+  </data>
+  <data name="Issue.EmptyToken" xml:space="preserve">
+    <value>{0}: the field {1} is empty in this row.</value>
+  </data>
+  <data name="Issue.NameInRecycleBin" xml:space="preserve">
+    <value>{0}: an object with this name is in the AD Recycle Bin – restoring it later will need a rename.</value>
+  </data>
+  <data name="Issue.UpnSuffixNotInForest" xml:space="preserve">
+    <value>The UPN suffix is neither a domain of the forest nor one of its UPN suffixes.</value>
+  </data>
+  <data name="Issue.MailDomainNotInForest" xml:space="preserve">
+    <value>The e-mail domain is neither a domain of the forest nor a UPN suffix (a private address?).</value>
+  </data>
+  <data name="Issue.NonRoutableMailDomain" xml:space="preserve">
+    <value>The e-mail domain cannot receive mail from the internet (.local, .lan, .internal, .localdomain, .corp).</value>
+  </data>
+  <data name="Issue.PossibleExistingAccount" xml:space="preserve">
+    <value>Possibly an existing account of this person: “{1}” (the same {0}).</value>
+  </data>
+  <data name="Issue.DuplicateSourceRow" xml:space="preserve">
+    <value>Row {1} describes the same person (the same {0}).</value>
+  </data>
+  <data name="Issue.ScientificNotation" xml:space="preserve">
+    <value>{0}: a number in scientific notation (e.g. 4.86E+11) – Excel shortened the value.</value>
+  </data>
+  <data name="Issue.InvalidPhone" xml:space="preserve">
+    <value>{0}: the phone number could not be written in the international format.</value>
+  </data>
+  <data name="Issue.LineBreakInValue" xml:space="preserve">
+    <value>{0}: the value contains a line break or another control character (Alt+Enter in Excel?).</value>
+  </data>
+  <data name="Issue.AllCapsName" xml:space="preserve">
+    <value>{0}: written in capitals – choose “Like A Name” for the column.</value>
+  </data>
+  <data name="Issue.TrailingDollar" xml:space="preserve">
+    <value>Wrong $ at the end of the logon name (pre-Windows 2000): a user's must not end with $, a computer's needs exactly one $ at the end.</value>
+  </data>
+  <data name="Issue.CountryNotFound" xml:space="preserve">
+    <value>Unknown country or region – nothing is written.</value>
+  </data>
+  <data name="Issue.InvalidDate" xml:space="preserve">
+    <value>Account expires: unsupported date – use dd.MM.yyyy or yyyy-MM-dd.</value>
+  </data>
+  <data name="Issue.ManagerNotFound" xml:space="preserve">
+    <value>The manager was not found – the account is created without a manager.</value>
+  </data>
+  <data name="Issue.ManagerAmbiguous" xml:space="preserve">
+    <value>Ambiguous manager – matching accounts: {0}; choose one in the cell.</value>
+  </data>
+  <data name="Issue.ManagerInBatch" xml:space="preserve">
+    <value>The manager is created in this batch – set the manager later in the batch editor.</value>
+  </data>
+  <data name="Issue.GroupNotFound" xml:space="preserve">
+    <value>Group {0} was not found – separate groups with a semicolon.</value>
+  </data>
+  <data name="Issue.GroupAmbiguous" xml:space="preserve">
+    <value>The group name {0} is ambiguous – use the group's distinguished name.</value>
+  </data>
+  <data name="Issue.GroupsSplitOnCommas" xml:space="preserve">
+    <value>The groups were separated with commas – separate them with semicolons.</value>
+  </data>
+  <data name="Issue.GroupScopeNotAllowed" xml:space="preserve">
+    <value>The created group cannot be a member of {0} (group scope).</value>
+  </data>
+  <data name="Issue.PrimaryGroupSkipped" xml:space="preserve">
+    <value>{0} is the primary group of the account – it is left out.</value>
+  </data>
+  <data name="Issue.GroupPasswordPolicy" xml:space="preserve">
+    <value>The domain policy checks the initial password; the password settings of the group “{0}” apply only after the account joins it – at the password change at logon.</value>
+  </data>
+  <data name="Issue.EnabledWithoutPassword" xml:space="preserve">
+    <value>Enabled accounts need a password – choose how the password is set or create the accounts disabled.</value>
+  </data>
+  <data name="Issue.PasswordsNeedEncryptedChannel" xml:space="preserve">
+    <value>Passwords can only be set over an encrypted connection (Kerberos with encryption, LDAPS or StartTLS) – connect again with encryption.</value>
+  </data>
+  <data name="Issue.PasswordTooShortForDomain" xml:space="preserve">
+    <value>The password is shorter than the domain requires – domain minimum: {0}</value>
+  </data>
+  <data name="Issue.PasswordNotComplex" xml:space="preserve">
+    <value>The password does not meet the domain's complexity rule (three of: upper case, lower case, digit, special character).</value>
+  </data>
+  <data name="Issue.PasswordContainsName" xml:space="preserve">
+    <value>The password contains the logon name or a part of the display name – the domain may reject it.</value>
+  </data>
+  <data name="Issue.CheckedInDomainOnly" xml:space="preserve">
+    <value>The uniqueness of UPNs and addresses was checked in the domain only (no global catalog).</value>
+  </data>
+  <data name="Issue.SchemaUnavailable" xml:space="preserve">
+    <value>The schema is not loaded – only the common attributes can be used.</value>
+  </data>
+  <data name="Issue.ComputerNameNotDnsSafe" xml:space="preserve">
+    <value>The computer name contains _, which is not valid in a DNS name.</value>
+  </data>
+  <data name="Issue.JoinOwnerNotTrusted" xml:space="preserve">
+    <value>Since the domain join hardening of KB5020276 a join that reuses the account succeeds only when the joiner created it, is a Domain Admin, Enterprise Admin or the built-in Administrator, when the owner is a member of those groups, or when the policy "Domain controller: Allow computer account re-use during domain join" trusts the owner. The owner of the accounts will be {0}.</value>
+  </data>
+  <data name="Issue.RidPoolLow" xml:space="preserve">
+    <value>The domain controller has fewer free RIDs than rows; it will ask the RID master for a new pool – if the RID master is unavailable, creating stops when the pool is used up.</value>
+  </data>
+  <data name="Issue.ValueTakenSinceCheck" xml:space="preserve">
+    <value>A value was taken since the check – the object is not retried; go back to Check.</value>
+  </data>
+  <data name="Issue.UndoObjectReplaced" xml:space="preserve">
+    <value>The created object is gone or another object holds its name – the undo leaves it.</value>
+  </data>
+  <data name="Issue.UndoAccountInUse" xml:space="preserve">
+    <value>The account was used since it was created (logon or password change).</value>
+  </data>
+  <data name="Issue.UndoHasChildren" xml:space="preserve">
+    <value>The object has child objects – deleting it will fail.</value>
+  </data>
+  <!-- F3 contract – bulk creation shared names (2.9): end -->
+  <!-- F3 data, columns and naming rules (2.6): begin -->
+  <!-- F3 data, columns and naming rules (2.6): end -->
+  <!-- F3 check, plan and results (2.7): begin -->
+  <!-- F3 check, plan and results (2.7): end -->
 </root>

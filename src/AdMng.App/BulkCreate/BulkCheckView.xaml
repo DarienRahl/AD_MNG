@@ -1,0 +1,9 @@
+<!--
+  Step 4 "Sprawdzenie": the check grid with columns generated in code-behind (2.7).
+  Contract placeholder: B4 replaces this view.
+-->
+<UserControl x:Class="AdMng.App.BulkCreate.BulkCheckView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid />
+</UserControl>

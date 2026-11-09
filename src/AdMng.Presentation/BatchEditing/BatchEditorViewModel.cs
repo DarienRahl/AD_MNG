@@ -7,6 +7,7 @@ using AdMng.Core.Batch;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
 using AdMng.Core.Templates;
+using AdMng.Presentation.BulkCreate;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Infrastructure;
@@ -42,6 +43,12 @@ public enum BatchSourceMode
 
     /// <summary>Rows of a CSV file mapped to attributes.</summary>
     Csv,
+
+    /// <summary>
+    /// The bulk creation wizard <em>Zakładanie wielu kont</em> (<see cref="BatchEditorRequest.Create"/>,
+    /// docs/dev/phase3-bulk-create.md 2.6): pasted or loaded rows create new objects in one container.
+    /// </summary>
+    Create,
 }
 
 /// <summary>
@@ -52,8 +59,9 @@ public enum BatchSourceMode
 /// </summary>
 /// <remarks>
 /// Opened with <see cref="BatchEditorRequest"/>: an empty <see cref="BatchEditorRequest.TargetDns"/> starts the CSV
-/// import mode. With <see cref="BatchEditorRequest.OpenPreview"/> the pre-filled operations are planned right after
-/// <see cref="InitializeAsync"/>.
+/// import mode, <see cref="BatchEditorRequest.Create"/> the create mode (the bulk creation wizard,
+/// <see cref="BulkCreateViewModel"/>). With <see cref="BatchEditorRequest.OpenPreview"/> the pre-filled operations are
+/// planned right after <see cref="InitializeAsync"/>.
 /// </remarks>
 public sealed partial class BatchEditorViewModel : WindowViewModelBase
 {
@@ -81,18 +89,32 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     // operations change with Undo, Back + Preview or Retry while Result still holds the generated passwords.
     private bool _resultHasGeneratedPasswords;
 
-    public BatchEditorViewModel(DialogServices services, BatchEngines engines, BatchEditorRequest request)
+    /// <param name="services">The dialog services of the connection window.</param>
+    /// <param name="engines">The Core engines.</param>
+    /// <param name="request">Targets and operations, a CSV import (no targets) or the bulk creation wizard (<see cref="BatchEditorRequest.Create"/>).</param>
+    /// <param name="connector">
+    /// The connector of the wizard's read-only global-catalog session in a multi-domain forest (docs/dev/phase3-bulk-create.md
+    /// 2.2); null = uniqueness checked in the domain only there.
+    /// </param>
+    public BatchEditorViewModel(DialogServices services, BatchEngines engines, BatchEditorRequest request, IDirectoryConnector? connector = null)
         : base(services)
     {
         _engines = engines ?? throw new ArgumentNullException(nameof(engines));
         _request = request ?? throw new ArgumentNullException(nameof(request));
         _editorContext = new OperationEditorContext(services, engines.Templates, RenderSampleAsync, () => Session);
-        Mode = request.TargetDns.Count == 0 ? BatchSourceMode.Csv : BatchSourceMode.Objects;
+        Mode = request.Create is not null ? BatchSourceMode.Create
+            : request.TargetDns.Count == 0 ? BatchSourceMode.Csv
+            : BatchSourceMode.Objects;
         OperationTypes = [.. Enum.GetValues<OperationType>().Select(t => new OperationTypeOption(
             t, Localizer[DisplayNames.OperationTypeKey(t)], Localizer.Format(DisplayNames.OperationDescriptionKey(t))))];
         PreviewFilters = [.. Enum.GetValues<PreviewFilter>().Select(f => new Option<PreviewFilter>(f, Localizer[DisplayNames.PreviewFilterKey(f)]))];
         ResultFilters = [.. Enum.GetValues<ResultFilter>().Select(f => new Option<ResultFilter>(f, Localizer[DisplayNames.ResultFilterKey(f)]))];
-        if (Mode == BatchSourceMode.Csv)
+        if (Mode == BatchSourceMode.Create)
+        {
+            BulkCreate = new BulkCreateViewModel(services, engines, request.Create!, () => Session, connector);
+            BulkCreate.Changed += OnBulkCreateChanged;
+        }
+        else if (Mode == BatchSourceMode.Csv)
         {
             CsvImport = new CsvImportViewModel(services, engines, () => Session);
             CsvImport.Changed += OnCsvImportChanged;
@@ -129,6 +151,12 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     public BatchSourceMode Mode { get; }
 
     public bool IsCsvMode => Mode == BatchSourceMode.Csv;
+
+    /// <summary>Selected objects with operations (the operations panel).</summary>
+    public bool IsObjectsMode => Mode == BatchSourceMode.Objects;
+
+    /// <summary>The bulk creation wizard (docs/dev/phase3-bulk-create.md 2.6).</summary>
+    public bool IsCreateMode => Mode == BatchSourceMode.Create;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEditStep), nameof(IsPreviewStep), nameof(IsExecutingStep), nameof(IsResultsStep))]
@@ -175,6 +203,20 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
 
     /// <summary>The CSV import (CSV mode only).</summary>
     public CsvImportViewModel? CsvImport { get; }
+
+    /// <summary>The bulk creation wizard (create mode only).</summary>
+    public BulkCreateViewModel? BulkCreate { get; }
+
+    /// <summary>
+    /// Create mode: the created accounts of every execution of the window with their initial passwords (masked; B4,
+    /// docs/dev/phase3-bulk-create.md 2.7). Empty in the other modes.
+    /// </summary>
+    public BulkObservableCollection<CreatedAccountViewModel> CreatedAccounts { get; } = [];
+
+    /// <summary>
+    /// Create mode: <em>Cofnięcie usunie obiekty (114) utworzone w tym oknie …</em> above the undo preview (B4); null otherwise.
+    /// </summary>
+    public string? UndoNote => null;
 
     // ---- Planning / errors -------------------------------------------------------------------------------
 
@@ -264,6 +306,10 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             if (Mode == BatchSourceMode.Objects)
             {
                 await LoadTargetsAsync().ConfigureAwait(true);
+            }
+            else if (Mode == BatchSourceMode.Create)
+            {
+                await BulkCreate!.InitializeAsync().ConfigureAwait(true);
             }
 
             foreach (var editor in Operations)
@@ -606,6 +652,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     protected override void OnSessionEnded()
     {
         _planning.Cancel();
+        BulkCreate?.OnSessionEnded();
         Error = SessionEndedMessage;
         PreviewCommand.NotifyCanExecuteChanged();
         ExecuteCommand.NotifyCanExecuteChanged();
@@ -628,6 +675,12 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
                 CsvImport.Changed -= OnCsvImportChanged;
             }
 
+            if (BulkCreate is not null)
+            {
+                BulkCreate.Changed -= OnBulkCreateChanged;
+                BulkCreate.Dispose();
+            }
+
             foreach (var obj in _previewObjects)
             {
                 obj.PropertyChanged -= OnPreviewObjectChanged;
@@ -643,6 +696,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             _previewObjects.Clear();
             _previewRows.Clear();
             _resultRows.Clear();
+            CreatedAccounts.Clear();
             _sampleTarget = null;
         }
     }
@@ -963,6 +1017,14 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         PreviewCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(ChangeTitle));
     }
+
+    private void OnBulkCreateChanged(object? sender, EventArgs e) => PreviewCommand.NotifyCanExecuteChanged();
+
+    /// <summary>
+    /// Create mode: marks every created account as handed out (<em>Kopiuj tabelę z hasłami</em>, <em>Kopiuj bez haseł</em>,
+    /// the export with passwords), which clears the close guard (B4, docs/dev/phase3-bulk-create.md 2.7).
+    /// </summary>
+    internal void MarkPasswordsHandedOut() => throw new NotImplementedException("F3 B4: BatchEditorViewModel.MarkPasswordsHandedOut (2.7).");
 
     private string? ValidateOperations()
     {

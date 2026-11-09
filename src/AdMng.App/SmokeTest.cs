@@ -176,6 +176,7 @@ internal static partial class SmokeTest
         await RenderReadinessAsync(main).ConfigureAwait(true);
         await RenderPkiAsync(main, services).ConfigureAwait(true);
         await RenderPkiSecurityAsync(main, services).ConfigureAwait(true);
+        await RenderBulkCreateAsync(main, services).ConfigureAwait(true);
         main.Shell.CommandPalette.OpenCommand.Execute(null);
 
         // A second connection window (its own scope, disconnected: grey strip, "Nie połączono") and the connect window of

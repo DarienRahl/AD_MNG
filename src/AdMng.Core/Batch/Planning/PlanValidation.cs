@@ -468,7 +468,7 @@ internal static class PlanValidation
         int.TryParse(value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out result);
 
     /// <summary>Validates one wire value (string form) against the attribute's syntax and range.</summary>
-    private static ValidationIssue? ValidateValue(AttributeDefinition definition, string value)
+    public static ValidationIssue? ValidateValue(AttributeDefinition definition, string value)
     {
         var attribute = definition.LdapName;
         if (value.Length == 0)

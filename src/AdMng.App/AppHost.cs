@@ -107,6 +107,7 @@ public static class AppHost
         services.AddSingleton<IRollbackPlanner, RollbackPlanner>();
         services.AddSingleton<IPowerShellExporter, PowerShellExporter>();
         services.AddSingleton<ICsvImportPlanner, CsvImportPlanner>();
+        services.AddSingleton<AdMng.Core.Batch.Creation.IBulkCreatePlanner, AdMng.Core.Batch.Creation.BulkCreatePlanner>();
         services.AddSingleton<BatchReportExporter>();
         services.AddSingleton<AuditLogExporter>();
 

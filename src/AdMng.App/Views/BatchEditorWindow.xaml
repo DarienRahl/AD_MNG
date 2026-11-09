@@ -1,7 +1,8 @@
 <!--
   Batch editor and CSV import (BatchEditorViewModel): Edit (operations or file + column mapping) → Preview (diff with
   include check boxes) → Executing (progress of the background activity) → Results (export, retry, undo).
-  Operation editors are implicit DataTemplates keyed by the editor view model type.
+  Operation editors are implicit DataTemplates keyed by the editor view model type. In create mode the Edit step is the
+  bulk creation wizard (BulkCreateView, docs/dev/phase3-bulk-create.md 2.6).
 -->
 <Window x:Class="AdMng.App.Views.BatchEditorWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -11,6 +12,7 @@
         xmlns:conv="clr-namespace:AdMng.App.Converters"
         xmlns:l="clr-namespace:AdMng.App.Localization"
         xmlns:batch="clr-namespace:AdMng.Presentation.BatchEditing;assembly=AdMng.Presentation"
+        xmlns:bulk="clr-namespace:AdMng.App.BulkCreate"
         xmlns:corebatch="clr-namespace:AdMng.Core.Batch;assembly=AdMng.Core"
         xmlns:dialogs="clr-namespace:AdMng.Presentation.Dialogs;assembly=AdMng.Presentation"
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
@@ -589,8 +591,9 @@
           <Border Style="{StaticResource StepStyle}" Tag="{Binding IsEditStep, Mode=OneWay}">
             <StackPanel Orientation="Horizontal">
               <TextBlock Style="{StaticResource StepNumber}" Text="1" />
-              <TextBlock Text="{l:Tr Batch.StepOperations}" Visibility="{Binding IsCsvMode, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+              <TextBlock Text="{l:Tr Batch.StepOperations}" Visibility="{Binding IsObjectsMode, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
               <TextBlock Text="{l:Tr BatchUi.StepCsv}" Visibility="{Binding IsCsvMode, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <!-- F3 step labels (B4) -->
             </StackPanel>
           </Border>
           <TextBlock Style="{StaticResource StepChevron}" />
@@ -694,7 +697,7 @@
               <MultiDataTrigger>
                 <MultiDataTrigger.Conditions>
                   <Condition Binding="{Binding IsEditStep, Mode=OneWay}" Value="True" />
-                  <Condition Binding="{Binding IsCsvMode, Mode=OneWay}" Value="False" />
+                  <Condition Binding="{Binding IsObjectsMode, Mode=OneWay}" Value="True" />
                 </MultiDataTrigger.Conditions>
                 <Setter Property="Visibility" Value="Visible" />
               </MultiDataTrigger>
@@ -1094,8 +1097,34 @@
         </Grid>
       </Border>
 
+      <!-- ===== 1. Edit: bulk creation wizard (create mode, docs/dev/phase3-bulk-create.md 2.6) ===== -->
+      <ContentControl x:Name="BulkCreateEditPanel"
+                      Content="{Binding BulkCreate, Mode=OneWay}"
+                      Focusable="False">
+        <ContentControl.ContentTemplate>
+          <DataTemplate>
+            <bulk:BulkCreateView />
+          </DataTemplate>
+        </ContentControl.ContentTemplate>
+        <ContentControl.Style>
+          <Style TargetType="ContentControl">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+              <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                  <Condition Binding="{Binding IsEditStep, Mode=OneWay}" Value="True" />
+                  <Condition Binding="{Binding IsCreateMode, Mode=OneWay}" Value="True" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Visibility" Value="Visible" />
+              </MultiDataTrigger>
+            </Style.Triggers>
+          </Style>
+        </ContentControl.Style>
+      </ContentControl>
+
       <!-- ===== 2. Preview ===== -->
       <DockPanel x:Name="PreviewPanel" Visibility="{Binding IsPreviewStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <!-- F3 undo note (B4) -->
         <Border x:Name="RollbackBanner"
                 Margin="0,0,0,8"
                 DockPanel.Dock="Top"
@@ -1317,6 +1346,7 @@
 
       <!-- ===== 4. Results ===== -->
       <DockPanel x:Name="ResultsPanel" Visibility="{Binding IsResultsStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <!-- F3 bulk create results (B4) -->
         <DockPanel Margin="0,0,0,8" DockPanel.Dock="Top">
           <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
             <Button Margin="8,0,0,0"

@@ -1,0 +1,9 @@
+<!--
+  The created accounts with their initial passwords in the batch editor's results (2.7).
+  Contract placeholder: B4 replaces this view.
+-->
+<UserControl x:Class="AdMng.App.BulkCreate.BulkResultsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid />
+</UserControl>

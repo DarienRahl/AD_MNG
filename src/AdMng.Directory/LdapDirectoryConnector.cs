@@ -236,6 +236,7 @@ public sealed class LdapDirectoryConnector : IDirectoryConnector
 
         var pool = new LdapConnectionPool(pinned, settings.Options.MaxConnections, sessionLogger, _timeProvider);
         pool.Add(connection);
+        var encrypted = pinned.IsEncrypted(connection);
         var info = new SessionInfo
         {
             Server = rootDse.DnsHostName ?? pinned.Host,
@@ -250,13 +251,15 @@ public sealed class LdapDirectoryConnector : IDirectoryConnector
             Security = settings.Options.Security,
             SecurityStrengthFactor = factory.SecurityStrengthFactor(connection),
             IsGlobalCatalog = settings.Options.GlobalCatalog,
+            IsChannelEncrypted = encrypted,
+            IsGlobalCatalogReady = rootDse.IsGlobalCatalogReady,
             DomainFunctionality = rootDse.DomainFunctionality,
             ForestFunctionality = rootDse.ForestFunctionality,
             SupportedControls = rootDse.SupportedControls,
             ConnectedAt = _timeProvider.GetUtcNow(),
         };
 
-        var session = new LdapDirectorySession(info, pool, pinned.IsEncrypted(connection), sessionLogger, _timeProvider);
+        var session = new LdapDirectorySession(info, pool, encrypted, sessionLogger, _timeProvider);
         try
         {
             // Independent reads run concurrently - the pool opens more connections in the background while the
