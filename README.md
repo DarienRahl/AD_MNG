@@ -197,7 +197,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K7: 🟡)"] ~~~ EVT["🟡 E · Dzienniki zdarzeń<br/>czytnik i analiza<br/>(E1, część E2: 🟡)"] ~~~ PKI["⬜ P · Urząd certyfikacji<br/>(AD CS) i certyfikaty"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K7: 🟡)"] ~~~ EVT["🟡 E · Dzienniki zdarzeń<br/>czytnik i analiza<br/>(E1, część E2: 🟡)"] ~~~ PKI["⬜ P · Urząd certyfikacji<br/>(AD CS) i certyfikaty"] ~~~ NET["⬜ N · DNS i DHCP<br/>strefy, rekordy, zakresy"]
     end
     A --> B
     B ~~~ C
@@ -206,7 +206,7 @@ flowchart TB
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
     class F1,F2,W,U,K,EVT wip
-    class F3,F4,F5,F6,F7,M365,TEAM,PKI todo
+    class F3,F4,F5,F6,F7,M365,TEAM,PKI,NET todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -229,6 +229,7 @@ flowchart TB
 | K | Komputery i zasady grupy (GPO) (ścieżka równoległa) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer”, czytelne ustawienia i diagnostyka zasad grupy, wyszukiwanie ustawień we wszystkich GPO, kopiowanie ustawień i porządki w GPO | 🟡 (K1 – komputery, K2 – GPO w drzewie, K3 – edytor ADMX z aktualizacją magazynu centralnego, K4 – ustawienia zabezpieczeń, K5 – raport „co dostanie komputer”, K6 – czytelność, wygoda edycji i diagnostyka i K7 – wyszukiwanie, kopiowanie ustawień i porządki w GPO: zaimplementowane, czekają na pilotaż na Windows Server AD) |
 | E | Dzienniki zdarzeń: czytnik i analiza (ścieżka równoległa) | Czytanie dzienników zdarzeń DC, serwerów, stacji i plików `.evtx` z poziomu programu (dowolny kanał, wspólna oś czasu wielu komputerów, objaśnione pola i obiekty AD) oraz analizy: źródło blokady konta, rozpylanie haseł, Kerberos/RC4, NTLMv1, podpisywanie LDAP („kto przestanie działać”), historia logowań, zmiany kont i grup, GPO na komputerze, zdrowie DC, integralność inspekcji; osobno od Watchdoga, bez zapisu na dysku | 🟡 (E1 – czytnik oraz z E2 źródło blokady konta i nieudane logowania: zaimplementowane, czekają na pilotaż na Windows Server AD) |
 | P | Urząd certyfikacji (AD CS) i certyfikaty (ścieżka równoległa) | Przegląd PKI lasu na żywo z LDAP (urzędy, szablony z odczytanymi flagami i tym, kto może się zarejestrować, NTAuth, AIA, listy CRL, OID) ze zdrowiem w stylu `pkiview.msc`; przegląd bezpieczeństwa ESC1–ESC17 z naprawą w AD przez plan zmian z cofnięciem; karty *Opublikowane certyfikaty*, *Mapowania nazw* (silne mapowanie, KB5014754) i *Poświadczenia kluczy*, certyfikaty LDAPS/KDC na DC; praca z urzędem przez DCOM z kontem okna (wystawione, oczekujące, odwołane, zatwierdzanie, odwołanie, publikacja CRL); powiązania z Watchdogiem, dziennikami zdarzeń, GPO i powiadomieniami | ⬜ zaplanowane |
+| N | DNS i DHCP (ścieżka równoległa) | Strefy i rekordy DNS na żywo z AD (wszystkie partycje, rekordy zdekodowane z `dnsRecord`, starzenie i rekordy nieaktualne, warunkowe usługi przesyłania dalej, rekordy lokatora DC), od komputera do jego rekordów, dzierżawy i rezerwacji; ustawienia serwerów DNS oraz zakresy, dzierżawy, rezerwacje, opcje, zasady i praca awaryjna DHCP przez WinRM/CIM z kontem okna; przegląd bezpieczeństwa i zdrowia (kto może tworzyć rekordy, DnsAdmins, DnsUpdateProxy, niezabezpieczone aktualizacje dynamiczne, DHCP na DC, poświadczenia DNS, ochrona nazw, wyczerpane zakresy) z naprawą w AD przez plan zmian z cofnięciem; powiązania z komputerami, lokacjami i podsieciami, Koszem AD, dziennikami zdarzeń i Watchdogiem | ⬜ zaplanowane |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -510,7 +511,8 @@ na żywo i wiele domen.
   ostrzega i pozwala odtworzyć obiekt z tombstone (bez większości atrybutów) po dodatkowym potwierdzeniu. Sprawdzone
   testami jednostkowymi, testami UI i na laboratorium Samba (odtworzenie poddrzewa z tombstone).
   Do zrobienia: weryfikacja na Windows Server z włączonym Koszem i z uprawnieniami delegowanymi do `CN=Deleted Objects`,
-  ostrzeżenie w oknie usuwania, gdy Kosz jest wyłączony, przywracanie w partycjach Configuration i stref DNS.
+  ostrzeżenie w oknie usuwania, gdy Kosz jest wyłączony, przywracanie w partycjach Configuration i stref DNS
+  (zob. [ścieżkę N](#ścieżka-n--dns-i-dhcp-)).
 - 🟡 **Widoki dla działów:** ✅ przypinanie OU, zapisane widoki (zapytanie LDAP + kontener + kolumny), gotowe widoki
   wbudowane i eksport/import widoków dla zespołu; ⬜ przestrzenie robocze (np. *Pracownicy*, *Komputery*,
   *Kontrahenci*) łączące widoki z szablonami, osobne dla helpdesku i administratorów.
@@ -1904,6 +1906,267 @@ kontenerów PKI w partycji konfiguracji (lokacje nadal pomijane). Korzysta z sil
 
 </details>
 
+### Ścieżka N – DNS i DHCP ⬜
+
+**Cel:** DNS i DHCP domeny w jednym miejscu, zamiast konsol *DNS* (`dnsmgmt.msc`) i *DHCP* (`dhcpmgmt.msc`), części
+IPAM (który w Windows Server korzysta z wycofywanej bazy WID), *Edytora ADSI* (`adsiedit.msc`) dla partycji DNS i
+poleceń `dnscmd` / `Get-DnsServer*` / `Get-DhcpServer*`. Program czyta strefy i rekordy na żywo z AD – ze znacznikami
+starzenia, rekordami usuniętymi przez serwer i warunkowymi usługami przesyłania dalej – pokazuje, **kto może tworzyć i
+zmieniać rekordy**, przechodzi od komputera do jego rekordów, dzierżawy i rezerwacji, a z samych serwerów DNS i DHCP
+czyta ustawienia, zakresy, dzierżawy, opcje i stan pracy awaryjnej. Ocenia bezpieczeństwo i zdrowie (DnsAdmins,
+DnsUpdateProxy, niezabezpieczone aktualizacje dynamiczne, rekordy lokatora DC, DHCP na DC, poświadczenia DNS serwerów
+DHCP, ochrona nazw, wyczerpane zakresy) i każdą poprawkę w AD proponuje jako **plan zmian z podglądem i cofnięciem**.
+Ścieżka równoległa. Korzysta z silnika uprawnień U4, zapisu uprawnień akcją `ModifySecurity` (K1/K2), zdalnych akcji
+przez WinRM/CIM z poświadczeniami okna (K1), lokacji i podsieci (K1), czytnika dzienników (E) i Watchdoga (W).
+
+<details>
+<summary><b>Szczegóły ścieżki N</b> – strefy i rekordy, serwer DNS, DHCP, bezpieczeństwo, zmiany, etapy</summary>
+
+#### Strefy i rekordy DNS z AD (LDAP)
+
+- Węzeł **„DNS”** w drzewie (jak węzeł GPO), czytany na żywo przez LDAP: strefy domeny
+  (`CN=MicrosoftDNS,DC=DomainDnsZones,…`), strefy lasu (`CN=MicrosoftDNS,DC=ForestDnsZones,…`, m.in. `_msdcs`),
+  starsze strefy zgodne z Windows 2000 (`CN=MicrosoftDNS,CN=System,…`) i strefy we własnych partycjach aplikacji;
+  strefy wyszukiwania do przodu i wstecznego, wskazówki serwerów głównych (`RootDNSServers`) i **warunkowe usługi
+  przesyłania dalej** zapisane w AD (z adresami serwerów).
+- **Rekordy** zdekodowane z `dnsRecord` (format MS-DNSP): A, AAAA, CNAME, PTR, MX, SRV, NS, SOA, TXT i pozostałe typy
+  z MS-DNSP (m.in. DNAME, DHCID, TLSA, rekordy DNSSEC); typ, którego program nie zna, pokazuje jako bajty. Kolumny:
+  nazwa, typ, dane, TTL, **znacznik starzenia** (data ostatniego odświeżenia albo *statyczny*), właściciel węzła (przy
+  bezpiecznej aktualizacji dynamicznej – konto, które zarejestrowało rekord). Lista strumieniowa i wirtualizowana
+  (zasada 6).
+- **Rekordy nieaktualne** – dynamiczne, których znacznik jest starszy niż interwały *bez odświeżania* i *odświeżania*
+  strefy – z datą, od której oczyszczanie może je usunąć; **rekordy usunięte przez serwer DNS** (węzeł z
+  `dNSTombstoned` i rekordem typu 0 z czasem usunięcia) osobno, do przeglądu i przywrócenia.
+- **Właściwości strefy** z `dnsProperty`: typ, aktualizacje dynamiczne (*brak*, *niezabezpieczone i zabezpieczone*,
+  *tylko zabezpieczone*), starzenie z interwałami, serwery oczyszczające, serwery główne warunkowych usług przesyłania
+  dalej; do tego partycja, ACL i właściciel strefy.
+- **Wyszukiwanie we wszystkich strefach** po nazwie, adresie IP i typie rekordu. Nazwę filtruje LDAP; adres jest w
+  danych binarnych, więc program dekoduje rekordy strumieniowo, z możliwością przerwania.
+- **Od komputera do rekordów i z powrotem:** przy komputerze rekordy A/AAAA dla `dNSHostName` i PTR dla ich adresów z
+  niezgodnościami (brak PTR, PTR do innej nazwy, kilka adresów, węzeł należący do innego konta); z rekordu przejście do
+  obiektu komputera.
+- **Lokator DC:** dla każdego DC rekordy, które powinien mieć (SRV `_ldap`, `_kerberos`, `_kpasswd` i `_gc` w strefie
+  domeny i w `_msdcs`, rekordy lokacji, CNAME `<GUID DSA>._msdcs`, A/AAAA), wyliczone z obiektów DC, lokacji i ról GC
+  i porównane z rekordami w strefach: OK / brak / nadmiarowy (np. DC, którego już nie ma) – w stylu zdrowia
+  `pkiview.msc` ze ścieżki P.
+- **Strefy odwrotne a podsieci K1:** podsieci lokacji bez strefy odwrotnej i strefy odwrotne bez żadnej podsieci.
+
+#### Serwer DNS (poza LDAP)
+
+- **Serwery DNS** z rekordów NS stref i z listy DC, a także serwery wskazane przez operatora. Ustawienia każdego z nich:
+  usługi przesyłania dalej i wskazówki serwerów głównych, rekursja, oczyszczanie (interwał, ostatni przebieg),
+  domyślne starzenie nowych stref, **lista zablokowanych zapytań globalnych**, pula gniazd, zasady rozwiązywania
+  zapytań i zakresy stref, ograniczanie szybkości odpowiedzi, stan DNSSEC (strefy podpisane, kotwice zaufania),
+  `ServerLevelPluginDll`, poziom dziennika zdarzeń, statystyki; DNS over HTTPS – jeśli wersja serwera go obsługuje (do
+  potwierdzenia).
+- **Strefy spoza AD** (oparte na pliku, pomocnicze, skrótowe) z rekordami czytanymi z serwera.
+- **Transfery stref i powiadomienia** (do dowolnego serwera, tylko do serwerów z rekordów NS, tylko z listy,
+  wyłączone): tych ustawień nie ma w `dnsProperty`, więc każdy serwer strefy może mieć inne – program pokazuje różnice
+  (miejsce ich przechowywania do potwierdzenia na Windows Server).
+- Odczyt przez CIM i WinRM jak w K1 (dostawca WMI modułu `DnsServer`) albo przez MS-DNSP (RPC, `\pipe\dnsserver` albo
+  TCP) – zob. „Do ustalenia z zespołem”; z poświadczeniami okna, najpierw tylko odczyt.
+
+#### DHCP
+
+- **Autoryzowane serwery** z AD (LDAP, obiekty `dHCPClass` w `CN=NetServices,CN=Services,CN=Configuration,…`): nazwa
+  i adres, dopasowanie do obiektu komputera, autoryzacje nieaktualne (komputera już nie ma albo nie działa na nim
+  DHCP – takie wpisy zostają na liście, np. po wycofanych DC). Format wartości `dhcpServers` – do potwierdzenia z
+  MS-DHCPE na laboratorium.
+- **Serwery DHCP** (CIM w przestrzeni `root/Microsoft/Windows/DHCP` dostawcy modułu `DhcpServer` albo MS-DHCPM):
+  zakresy IPv4 i IPv6, superzakresy, zakresy multiemisji, wykluczenia, powiązania, statystyki i **wykorzystanie**
+  zakresów, wolne adresy; **dzierżawy** (aktywne, na żądanie także oferowane, odrzucone, wygasłe i złe) z adresem,
+  adresem sprzętowym, nazwą, terminem i stanem; **rezerwacje**; opcje serwera, zakresu, rezerwacji i zasady z ich
+  definicjami, klasy dostawcy i użytkownika; **zasady** z warunkami i zakresami adresów; filtry MAC *Zezwalaj* i
+  *Odmawiaj*; wykrywanie konfliktów (0–5 prób, domyślnie 0).
+- **Praca awaryjna** (tylko IPv4, partnerzy od Windows Server 2016): tryb (równoważenie obciążenia, domyślnie 50%,
+  albo rezerwa, domyślnie 5%), MCLT, automatyczne przejście stanu, uwierzytelnianie wiadomości wspólnym kluczem, stan
+  relacji (NORMAL, COMMUNICATION_INT, PARTNER_DOWN, …) i **porównanie konfiguracji zakresów u obu partnerów** –
+  konfiguracja nie synchronizuje się sama.
+- **Aktualizacje DNS przez DHCP** na każdym poziomie (serwer, zakres, zasada, rezerwacja): *zawsze*, *nigdy*, *na
+  żądanie klienta*, usuwanie rekordów po wygaśnięciu dzierżawy, rekordy dla starszych klientów, PTR, **ochrona nazw**
+  (rekordy DHCID; domyślnie wyłączona, wymaga bezpiecznych aktualizacji), sufiks DNS; **poświadczenia DNS** – tylko
+  konto i domena (interfejs DHCP nie zwraca hasła), z oceną konta w U4.
+- **Dziennik inspekcji:** włączony (domyślnie tak), ścieżka, rozmiar plików i minimalne wolne miejsce, poniżej którego
+  zapis staje.
+- **Od komputera do dzierżawy i rezerwacji:** po adresach z rekordów A komputera – serwer, zakres, termin dzierżawy i
+  adres sprzętowy.
+
+#### Bezpieczeństwo i zdrowie
+
+- **Przegląd bezpieczeństwa i zdrowia DNS i DHCP** w stylu sprawdzenia gotowości (etap S), diagnostyki zasad grupy
+  (K6) i przeglądu ESC (ścieżka P): każde ustalenie ma poziom, opis warunku i skutku, obiekt, którego dotyczy, konta i
+  grupy z nadmiernymi prawami, odpowiednik w BlueTuxedo albo Invoke-DHCPCheckup, gdy istnieje, oraz przycisk
+  *Napraw…*, gdy poprawka jest zmianą w AD.
+- **Tylko z LDAP** (DNS od N1, DHCP od N4):
+  - kto może tworzyć i zmieniać rekordy w każdej strefie (ACL strefy i węzłów rozwinięte przez członkostwo silnikiem
+    U4); domyślne *Utwórz wszystkie obiekty podrzędne* dla *Użytkowników uwierzytelnionych* program pokazuje jako
+    znane ustawienie domyślne, nie jako błąd (zob. „Do ustalenia z zespołem”); ACL i właściciel strefy inne niż
+    domyślne;
+  - brak rekordów ochronnych dla nazw `*` i `wpad` (BlueTuxedo sprawdza, czy istnieją i mają właściwy typ), strefy z
+    niezabezpieczonymi aktualizacjami dynamicznymi, strefy w starszym `CN=MicrosoftDNS,CN=System`;
+  - członkowie DnsAdmins (Tier 0 w U4 – mogą uruchomić kod na DC) i DnsUpdateProxy (rekordy rejestrowane przez
+    członków nie są zabezpieczone, a właścicielem zostaje następny rejestrujący; Microsoft odradza tę grupę w strefach
+    tylko z bezpiecznymi aktualizacjami bez dodatkowych kroków); rekordy należące do serwerów DHCP i rekordy, które
+    mogą nadpisać *Użytkownicy uwierzytelnieni* (jak Invoke-DHCPCheckup);
+  - starzenie wyłączone w strefie z wieloma nieaktualnymi rekordami, rekordy usunięte przez serwer, które wciąż są w
+    strefie (BlueTuxedo), brakujące albo nadmiarowe rekordy lokatora DC, CNAME i delegacje wskazujące nazwy, których
+    nie ma w strefach (nazwy spoza nich – zapytaniem DNS tylko za zgodą operatora, jak adresy HTTP w ścieżce P), SPN
+    bez rekordu dla nazwy hosta (BlueTuxedo);
+  - autoryzacje DHCP bez obiektu komputera, serwery DHCP na DC.
+- **Wymagają serwera DNS albo DHCP** (od N3 i N4, wcześniej oznaczone „do sprawdzenia na serwerze”):
+  - DNS: ustawione `ServerLevelPluginDll`, transfer stref do dowolnego serwera, lista zablokowanych zapytań
+    globalnych wyłączona albo bez `wpad` i `isatap`, oczyszczanie wyłączone na wszystkich serwerach przy starzeniu
+    włączonym w strefach, pula gniazd mniejsza od największej, strefy spoza AD, zasady rozwiązywania zapytań i
+    zakresy stref (rzadkie i łatwe do przeoczenia – do przeglądu), różne ustawienia tej samej strefy na serwerach;
+  - DHCP na DC bez poświadczeń DNS (zdarzenie 1056 dla IPv4, 10017 dla IPv6) – usługa działa wtedy z prawami DC i
+    może zmienić każdy rekord w strefach zabezpieczonych; poświadczenia DNS konta uprzywilejowanego albo ich brak przy
+    włączonych aktualizacjach DNS (nie ma ich w kopii zapasowej bazy DHCP – po odtworzeniu trzeba je ustawić
+    ponownie); ochrona nazw wyłączona domyślnie albo w zakresie; serwer DHCP w DnsUpdateProxy; aktualizacje DNS
+    włączone bez potrzeby – zalecenia Akamai po badaniu DDSpoof (2023), sprawdzane też przez Invoke-DHCPCheckup;
+  - zakresy bliskie wyczerpania (próg do ustawienia), praca awaryjna w stanie innym niż NORMAL, rozjazd zegarów
+    partnerów ponad minutę, relacja bez wspólnego klucza, różna konfiguracja zakresów u partnerów, wyłączony dziennik
+    inspekcji, rezerwacje dla nazw i adresów sprzętowych bez obiektu komputera, serwer w domenie nieautoryzowany
+    (zdarzenie 1046) albo bez kontaktu z katalogiem (1059) – ze ścieżki E.
+- **Naprawa w AD przez plan zmian** (DNS od N2, DHCP od N5): rekordy ochronne `*` i `wpad`, *tylko zabezpieczone*
+  aktualizacje dynamiczne i starzenie w strefie (`dnsProperty`), zawężenie ACL strefy akcją `ModifySecurity`, usunięcie
+  członków DnsAdmins i DnsUpdateProxy (zwykła zmiana członkostwa), usunięcie nieaktualnych rekordów i rekordów DC,
+  którego już nie ma, usunięcie nieaktualnej autoryzacji DHCP. Każda naprawa ma podgląd różnic, ostrzeżenie o skutkach
+  (np. kto przestanie sam rejestrować swoją nazwę) i cofnięcie. Brakujących rekordów lokatora DC program nie tworzy
+  ręcznie – opisuje ponowną rejestrację przez usługę Netlogon na DC.
+- Naprawy po stronie serwera (lista zablokowanych zapytań, transfery stref, oczyszczanie, ustawienia DNS serwera DHCP)
+  idą przez nowy rodzaj akcji planu (zob. „Zmiany przez plan zmian”); `ServerLevelPluginDll` program tylko wykrywa i
+  opisuje poprawkę (wymaga restartu usługi DNS na DC).
+
+#### Zmiany przez plan zmian
+
+- **Rekordy w strefach AD** jako zapisy LDAP przez DC okna: nowy rekord to nowy węzeł `dnsNode` albo nowa wartość
+  `dnsRecord`, zmiana – zamiana jednej wartości, usunięcie – tak jak robi to serwer DNS: `dNSTombstoned` = `TRUE` i
+  jeden rekord typu 0 z czasem usunięcia zamiast usunięcia obiektu (węzeł usuwają potem same serwery DNS). Numer
+  seryjny rekordu (`dwSerial`) i strefy (SOA) – zgodnie z MS-DNSP, do potwierdzenia na Windows Server. Cofnięcie
+  przywraca identyczne bajty `dnsRecord`. DN-y przez `DistinguishedName.Child` (także nazwy `_ldap._tcp` i `*`), filtry
+  przez `LdapFilter` (zasada 3). Serwery DNS widzą zmianę po replikacji i odczycie katalogu (`DsPollingInterval`) –
+  podgląd o tym mówi.
+- **Strefy:** właściwości w `dnsProperty` (aktualizacje dynamiczne, starzenie, interwały), warunkowe usługi przesyłania
+  dalej w AD, ACL strefy i węzłów akcją `ModifySecurity` ze starym deskryptorem do cofnięcia.
+- **Autoryzacja DHCP w AD** jako zapis LDAP w partycji konfiguracji (domyślnie wymaga Enterprise Admins albo
+  delegowania na `CN=NetServices`): dodanie i usunięcie obiektu `dHCPClass`; czy przy usunięciu zmienia się też
+  `dhcpServers` w `CN=DhcpRoot` – do potwierdzenia.
+- **Zmiany po stronie serwera** – ustawienia serwera DNS, strefy spoza AD, transfery stref, przeniesienie starszej
+  strefy do partycji DNS; zakresy, wykluczenia, rezerwacje, opcje, zasady, filtry, ustawienia DNS i replikacja pracy
+  awaryjnej DHCP – to nowy rodzaj akcji planu zmian wykonywany przez WinRM/CIM (albo RPC), jak zapis SYSVOL w K2:
+  podgląd, potwierdzenie i wpis w audycie; stara wartość zapamiętana do cofnięcia. Serwer DHCP nie blokuje zapisów
+  (MS-DHCPM), więc program czyta stan tuż przed zapisem i zatrzymuje się, gdy ktoś zmienił go w międzyczasie. **Nie da
+  się cofnąć** usunięcia dzierżawy ani replikacji pracy awaryjnej (nadpisuje konfigurację partnera) – podgląd mówi to
+  wprost i przed replikacją pokazuje różnice u partnera.
+
+#### Powiązania z innymi ścieżkami
+
+- **K – Komputery i GPO:** rekordy DNS, dzierżawa i rezerwacja przy komputerze (K1); lokacje i podsieci K1 a strefy
+  odwrotne i zakresy DHCP (podsieć bez zakresu, zakres bez podsieci); porządki w nieaktywnych komputerach K1
+  **proponują** też usunięcie ich rekordów i rezerwacji – osobny krok planu, nigdy automatycznie; ustawienia klienta
+  DNS z GPO (sufiksy, rejestracja, DNS over HTTPS) tylko jako odnośnik do K5 i K6.
+- **Faza 4 – Kosz AD:** przywracanie usuniętych stref i węzłów `dnsNode` z partycji DNS (dziś w „Do zrobienia” fazy 4)
+  silnikiem Kosza; rekord usunięty przez serwer DNS (`dNSTombstoned`) nie trafia do Kosza – wraca przez plan zmian
+  zapisem starej wartości.
+- **U – Konta i wiadomości:** DnsAdmins (Tier 0), DnsUpdateProxy, *Administratorzy DHCP*, *Użytkownicy DHCP* i konta
+  poświadczeń DNS serwerów DHCP w uprawnieniach kont (U4); prawa w strefach DNS w delegowaniach U4b.
+- **E – Dzienniki zdarzeń:** kanał *DNS Server* i kanały serwera DHCP (m.in. zmiany stanu pracy awaryjnej w
+  `Microsoft-Windows-DHCP Server Events/Admin`, autoryzacja 1046 i 1059, poświadczenia 1056) w czytniku i w analizie
+  zdrowia DC (dziś serwer DNS: 4013, 4015).
+- **W – Watchdog:** alerty, gdy powstaje, zmienia się albo znika rekord `*` lub `wpad`, zmienia się ACL strefy albo jej
+  `dnsProperty` (np. wyłączenie bezpiecznych aktualizacji), zmienia się członkostwo DnsAdmins (już dziś jako grupa
+  uprzywilejowana) albo pojawia się nowa autoryzacja DHCP – wymaga rozszerzenia zakresu wykrywania o partycje DNS (dziś
+  poza nim, specyfikacja 10.9) i uzupełnienia WATCHDOG-LINUX.md (opcjonalna odmowa `CC` dla `ADMNG-WD$` w strefach
+  zostaje).
+- **Etap S – sprawdzenie gotowości:** rekordy lokatora DC i to, czy DC sesji hostuje partycje DNS.
+
+#### Jak to działa technicznie
+
+- **Część LDAP przez DC okna (zasada 4).** Strefy, rekordy, właściwości, ACL i autoryzacje DHCP program czyta i
+  zapisuje przez sesję LDAP okna. `DomainDnsZones` i `ForestDnsZones` to partycje aplikacji replikowane tylko do DC,
+  które je hostują (`msDS-NC-Replica-Locations` w `CN=Partitions`); gdy DC sesji którejś nie ma, program to objaśnia
+  i proponuje *Zmień kontroler domeny…* – sam nie przełącza DC i nie podąża za odwołaniami (`ReferralChasing = None`,
+  [RESEARCH.md, 6.3](docs/RESEARCH.md#63-połączenia-i-ich-konfiguracja)).
+- **Część serwerowa poza sesją LDAP**, jak zdalne akcje K1 i czytnik E: serwery DNS przez MS-DNSP (`\pipe\dnsserver`
+  albo TCP) albo CIM przez WinRM; serwery DHCP przez CIM w `root/Microsoft/Windows/DHCP` (wymaga WinRM na serwerze,
+  bez serwerów 2008/R2) albo MS-DHCPM przez `dhcpsapi.dll` (działa jak konsola, ale jako tożsamość wątku, więc konto
+  okna wymaga personifikacji). Kerberos z poświadczeniami okna, szyfrowanie pakietów, hasła tylko w pamięci (zasada 2);
+  kod Windows w nowym projekcie używanym tylko przez aplikację (jak `AdMng.Remote`, z którym dzieli stos CIM). Do
+  odczytu DHCP wystarcza grupa *Użytkownicy DHCP*, zmiany wymagają *Administratorów DHCP*; czy przez CIM potrzebny jest
+  też dostęp do WinRM i WMI – do potwierdzenia.
+- **Dekodery w `AdMng.Core`:** `dnsRecord` (nagłówek z typem, wersją, rangą, numerem seryjnym, TTL i znacznikiem
+  starzenia w godzinach od 1601 r., 0 – rekord statyczny; dane według typu) i `dnsProperty` – czyste, bez typów
+  Windows, później wspólne z AdMng Watchdog (jak parsery GPO i deskryptorów zabezpieczeń). Nieznane typy i właściwości
+  przechodzą bajt w bajt; nietypowe wartości spotykane w praktyce (właściwość o zerowej długości z niektórych serwerów
+  Windows, węzeł bez rekordów i bez `dNSTombstoned`) są tolerowane tak jak w Sambie.
+- **Niczego na dysku (zasada 1):** strefy, rekordy, dzierżawy z adresami MAC i nazwami hostów, rezerwacje, statystyki
+  i ustalenia są w pamięci tylko wtedy, gdy są widoczne; plik CSV powstaje tylko na wyraźne żądanie operatora;
+  dziennik diagnostyczny bez wartości.
+- **Hasła – nigdy:** poświadczenia DNS serwera DHCP program pokazuje tylko jako konto i domenę; nowe hasło wpisane przez
+  operatora jest tylko w pamięci akcji planu – nigdy w podglądzie, audycie, historii PowerShell ani w `ToString()` (jak
+  `PlannedChange.Password`); wspólny klucz pracy awaryjnej tak samo – program mówi tylko, czy jest ustawiony.
+- **Testy:** wewnętrzny serwer DNS Samby trzyma strefy w tym samym formacie LDAP (te same partycje, `dnsNode`,
+  `dnsRecord`, `dnsProperty`, usuwanie przez `dNSTombstoned`) i obsługuje MS-DNSP (interfejs `dnsserver`, którego używa
+  `samba-tool dns`), więc część LDAP i strefy przez RPC sprawdzają testy na laboratorium. `FakeDirectoryBuilder`
+  dostaje przykładowe strefy z polskimi nazwami (także IDN, np. `xn--krakw-3ta` = `kraków`), komputery i podsieci K1
+  oraz celowo słabe ustawienia dla każdego ustalenia z LDAP. Serwery Windows DNS i DHCP – w CI na Windows: obie role
+  instalują się na maszynach GitHub bez restartu, ale te maszyny nie są w domenie, więc strefy AD i autoryzacja DHCP
+  zostają na laboratorium (czy schemat Samby ma `dHCPClass` – do potwierdzenia). Testy pomijane bez zmiennych
+  `ADMNG_TEST_DNS_*` i `ADMNG_TEST_DHCP_*`.
+
+#### Etapy
+
+- **N1** – DNS tylko do odczytu, tylko LDAP: węzeł „DNS” ze strefami ze wszystkich partycji, rekordy zdekodowane z
+  `dnsRecord`, starzenie, rekordy nieaktualne i usunięte przez serwer, warunkowe usługi przesyłania dalej, właściwości
+  stref, wyszukiwanie, rekordy przy komputerze, lokator DC, strefy odwrotne a podsieci K1; przegląd bezpieczeństwa DNS
+  z LDAP. Silnik ACL U4b czyta strefy DNS (partycje DNS i `CN=MicrosoftDNS,CN=System`).
+- **N2** – zmiany DNS w AD przez plan zmian: rekordy (dodanie, zmiana, usunięcie jak serwer DNS, przywrócenie rekordu
+  usuniętego przez serwer), właściwości stref, ACL strefy i węzłów akcją `ModifySecurity`, *Napraw…* dla ustaleń z N1,
+  usunięcie rekordów nieaktywnych komputerów proponowane w porządkach K1.
+- **N3** – serwer DNS: odczyt ustawień, stref spoza AD, transferów stref i statystyk, ustalenia po stronie serwera,
+  kanał *DNS Server* w analizach E; potem zmiany – ustawienia serwera, strefy spoza AD, transfery, przeniesienie
+  starszych stref do partycji DNS.
+- **N4** – DHCP do odczytu: autoryzacje z LDAP, serwery przez CIM (zakresy, wykorzystanie, dzierżawy, rezerwacje,
+  opcje, zasady, filtry, praca awaryjna, ustawienia DNS i inspekcji), dzierżawa i rezerwacja przy komputerze,
+  ustalenia DHCP, kanały serwera DHCP w analizach E.
+- **N5** – zmiany DHCP: autoryzacja w AD przez plan zmian, zakresy, wykluczenia, rezerwacje, opcje, zasady, filtry,
+  ustawienia DNS (także poświadczenia DNS), replikacja pracy awaryjnej.
+- **Później (do decyzji):** przegląd adresów IP jak w IPAM (podsieci K1, zakresy, rekordy i dzierżawy razem), reguły
+  Watchdoga dla partycji DNS, zarządzanie DNSSEC i DNS over HTTPS na serwerze. Serwery DNS i DHCP spoza Windows (BIND,
+  Kea, Infoblox) są poza zakresem.
+
+#### Do ustalenia z zespołem
+
+- Odczyt i zmiany na serwerach: CIM przez WinRM (jak K1; serwery DHCP 2008/R2 odpadają) czy RPC – MS-DNSP i MS-DHCPM
+  (dynamiczne porty RPC, dla DHCP personifikacja konta okna) – albo oba z automatycznym wyborem.
+- Rekordy w strefach AD: zapis przez LDAP (domyślnie – plan zmian, cofnięcie i audyt jak dla innych obiektów) czy przez
+  MS-DNSP do serwera DNS na DC sesji (numer seryjny i właściciela rekordu prowadzi wtedy sam serwer).
+- Kto może przeglądać dzierżawy DHCP (adresy MAC i nazwy hostów wskazują urządzenia konkretnych osób) i czy
+  wyszukiwanie dzierżaw konkretnej osoby ma wymagać podania powodu (jak w ścieżce E).
+- Domyślne prawo *Utwórz wszystkie obiekty podrzędne* dla *Użytkowników uwierzytelnionych* w strefach: zawężenie
+  zamyka rejestrowanie dowolnych nazw przez każde konto, ale nowe komputery przestają same rejestrować swoje nazwy –
+  zostaje rejestracja przez DHCP w ich imieniu (poświadczenia DNS, ochrona nazw) albo prawo dla wybranej grupy; czy
+  program ma to proponować jako naprawę, czy tylko opisywać.
+- Domyślne starzenie i oczyszczanie proponowane w naprawie (w Windows 7 dni *bez odświeżania* i 7 dni *odświeżania*),
+  próg „wiele nieaktualnych rekordów” i próg wykorzystania zakresu DHCP.
+- Serwery do testów: Windows DNS i DHCP w CI na Windows; w pilotażu domena Windows z DNS zintegrowanym z AD i dwa
+  serwery DHCP w pracy awaryjnej (laboratorium Samba nie zapewni serwera DHCP Windows ani pracy awaryjnej).
+
+**Kryteria ukończenia**
+- Strefy, rekordy (z TTL i znacznikiem starzenia) i właściwości stref testowych zgadzają się z `dnsmgmt.msc` i
+  `Get-DnsServerResourceRecord`, a oczekiwane rekordy lokatora DC – z `netlogon.dns` na każdym DC.
+- Na celowo słabych strefach i serwerach przegląd znajduje wszystko, co znajdują BlueTuxedo i Invoke-DHCPCheckup;
+  każda różnica jest wyjaśniona w dokumentacji.
+- Rekord utworzony, zmieniony i usunięty przez plan zmian, a potem cofnięty, ma identyczne bajty `dnsRecord`, a ACL
+  strefy po cofnięciu – identyczny deskryptor zabezpieczeń; serwer DNS odpowiada zgodnie ze zmianą po replikacji.
+- Dane DHCP zgadzają się z `dhcpmgmt.msc`, `Get-DhcpServerv4Scope` i `Get-DhcpServerv4Lease`, stan pracy awaryjnej – z
+  `Get-DhcpServerv4Failover`.
+- 100 000 rekordów albo dzierżaw nie blokuje okna, a odczyt można przerwać w każdej chwili.
+- Żadnych stref, rekordów, dzierżaw ani adresów MAC na dysku stacji poza jawnym eksportem; hasło poświadczeń DNS nigdy
+  nie jest pokazywane ani zapisywane.
+
+</details>
+
 ### Etap S – stabilizacja i gotowość do pilotażu 🟡
 
 **Cel:** zanim przybędzie funkcji – wiarygodne testy, sprawdzenie gotowości środowiska w programie, zgłoszenia problemów
@@ -2002,9 +2265,9 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   Server AD: domyślne ACL świeżej domeny Windows różnią się od Samby (możliwe fałszywe ustalenia delegowań), do
   potwierdzenia są też Exchange, LAPS i komputery dołączone w ramach `ms-DS-MachineAccountQuota`, a czytnik SYSVOL dla
   Windows nie był jeszcze uruchomiony. Delegowania w ACL (U4b): odmowy (deny) nie są oceniane, nie są czytane
-  kontenery inne niż `CN=Users` / `CN=Computers` (np. `CN=Managed Service Accounts`, `CN=System`) ani partycja
-  konfiguracji (lokacje, PKI – PKI w planie ścieżki P), właściciele zwykłych użytkowników, grup i komputerów nie są
-  pokazywani, edycja GPO jest
+  kontenery inne niż `CN=Users` / `CN=Computers` (np. `CN=Managed Service Accounts`, `CN=System`), partycja
+  konfiguracji (lokacje, PKI – PKI w planie ścieżki P) ani partycje stref DNS (w planie ścieżki N), właściciele
+  zwykłych użytkowników, grup i komputerów nie są pokazywani, edycja GPO jest
   oceniana po ACL obiektu GPO w AD (nie po uprawnieniach plików w SYSVOL), deskryptor, którego nie da się odczytać,
   jest pomijany bez komunikatu; pojedyncze konta i grupy tylko z *Głębokim skanowaniem*. Uprawnienia lokalne z GPO
   (U4c): filtry WMI i określanie elementów docelowych nie są oceniane (ustalenia „warunkowe”), lokacje komputerów
@@ -2122,6 +2385,10 @@ Pełna lista pytań: [RESEARCH.md](docs/RESEARCH.md#11-pytania-otwarte-do-zespo�
 10. **Dzienniki zdarzeń (ścieżka E):** odczyt przez RPC (dodatkowa reguła zapory) czy także przez WinRM; domyślny
    przedział czasu i limit zdarzeń w pamięci; czy wyszukiwanie zdarzeń konkretnej osoby wymaga podania powodu (RODO,
    IOD); osobna grupa *Czytelnicy dziennika zdarzeń* na DC traktowana jak Tier 0.
+11. **DNS i DHCP (ścieżka N):** odczyt i zmiany na serwerach przez WinRM/CIM czy RPC (MS-DNSP, MS-DHCPM); rekordy w
+   strefach AD zapisywane przez LDAP czy przez serwer DNS; kto może przeglądać dzierżawy DHCP (adresy MAC, nazwy
+   hostów) i czy wymaga to podania powodu; czy zawężać domyślne prawo tworzenia rekordów w strefach dla
+   *Użytkowników uwierzytelnionych*.
 
 </details>
 
