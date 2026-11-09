@@ -96,6 +96,7 @@ public sealed partial class GroupPolicyPlanner
         var ambiguous = found.Where(f => f.Unit is not null).GroupBy(f => f.Unit!.BaseId, StringComparer.OrdinalIgnoreCase)
             .Where(g => g.Select(f => f.Selection.GpoId).Distinct().Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var outcomes = new List<GpoUnitOutcome>();
+        work.Planned.UnionWith(found.Where(f => f.Unit is not null).Select(f => HandledKey(f.Unit!)));
         foreach (var (selection, unit) in found)
         {
             outcomes.Add(CopyOne(work, selection, unit, ambiguous, request.ConflictByUnit.TryGetValue(unit?.BaseId ?? string.Empty, out var mode) ? mode : request.Conflict,
@@ -261,6 +262,7 @@ public sealed partial class GroupPolicyPlanner
         // B's object: every unit of A that counts as a setting (units of A's disabled halves are left out).
         var outcomes = new List<GpoUnitOutcome>();
         var refused = 0;
+        work.Planned.UnionWith(active.Where(u => u.CountsAsSetting && !u.BlocksMerge).Select(HandledKey));
         foreach (var unit in source.Units.Where(u => u.CountsAsSetting))
         {
             var selection = new GpoUnitSelection(a.Id, unit.Id, unit.ItemId, unit.ValueFingerprint);
@@ -582,26 +584,36 @@ public sealed partial class GroupPolicyPlanner
             mode = GpoCopyConflictMode.Replace;
         }
 
-        var first = work.Handled.Add(unit.BaseId);
+        // Preference variants with other item-level targeting are separate settings (21.5): a source variant deals only with
+        // the target variants of its own targeting, and a second source variant of another targeting is handled on its own.
+        var preference = unit.Kind == GpoSettingUnitKind.Preference;
+        var first = work.Handled.Add(HandledKey(unit));
         var occurrences = work.TargetUnits.Where(u => u.BaseId.Equals(unit.BaseId, StringComparison.OrdinalIgnoreCase)).ToList();
-        if (occurrences.Count > 0 && mode == GpoCopyConflictMode.Skip)
+        var variants = preference
+            ? occurrences.Where(o => string.Equals(o.FiltersFingerprint, unit.FiltersFingerprint, StringComparison.Ordinal)).ToList()
+            : occurrences;
+
+        // A merge keeps both GPP local-group items that only add members: clients apply every GPO's additions.
+        var cumulative = merge && IsCumulativeGroup(unit) && occurrences.All(IsCumulativeGroup);
+
+        // Skip keeps the target's value only where it applies: a disabled item, or one of a disabled or scoped collection, does not.
+        var skipping = preference ? variants.Where(o => !o.Disabled && o.Refusal is null).ToList() : occurrences;
+        if (skipping.Count > 0 && mode == GpoCopyConflictMode.Skip && !cumulative)
         {
             work.Info(IssueCodes.GpoSettingSkipped, "The target already sets the setting; it is kept.", target.DisplayName, key);
             return Outcome(GpoUnitOutcomeKind.Skipped, IssueCodes.GpoSettingSkipped);
         }
 
-        if (first && occurrences.Count == 1 && work.SameValue(unit, occurrences[0]))
+        if (first && variants.Count == 1 && work.SameValue(unit, variants[0]))
         {
             return Outcome(GpoUnitOutcomeKind.Unchanged);
         }
 
         var removed = 0;
         var kept = 0;
-        if (mode == GpoCopyConflictMode.Replace && first)
+        if (mode == GpoCopyConflictMode.Replace && first && !cumulative)
         {
-            var replaced = unit.Kind == GpoSettingUnitKind.Preference
-                ? occurrences.Where(o => string.Equals(o.FiltersFingerprint, unit.FiltersFingerprint, StringComparison.Ordinal)).ToList()
-                : occurrences;
+            var replaced = variants;
             if (replaced.Any(o => o.Refusal is not null || work.Writer.CheckRemove(o) is not null))
             {
                 work.Warn(IssueCodes.GpoSettingUnsupported, "The target's setting cannot be replaced by AD Manager.", target.DisplayName, key);
@@ -616,10 +628,11 @@ public sealed partial class GroupPolicyPlanner
                 }
 
                 work.Writer.Remove(occurrence);
+                work.Removed.Add(occurrence.Id);
                 removed++;
             }
 
-            kept = occurrences.Count - replaced.Count;
+            kept = occurrences.Count(o => !replaced.Contains(o) && !work.Removed.Contains(o.Id) && !work.Planned.Contains(HandledKey(o)));
             if (kept > 0)
             {
                 work.Info(IssueCodes.GpoSettingConditionalKept, "Variants with other item-level targeting are kept.", target.DisplayName, key);
@@ -770,6 +783,37 @@ public sealed partial class GroupPolicyPlanner
             : unit;
     }
 
+    /// <summary>What <see cref="SettingsWork.Handled"/> keys a unit by: the base id, for preference items with the targeting.</summary>
+    private static string HandledKey(GpoSettingUnit unit) =>
+        unit.Kind == GpoSettingUnitKind.Preference ? unit.BaseId + "\n" + unit.FiltersFingerprint : unit.BaseId;
+
+    /// <summary>
+    /// A GPP local group item (<c>Group</c>) that only adds or removes the members it names: action Update, no rename and no
+    /// "delete all member users/groups" or "remove accounts" flag, and no member it removes (its order to another GPO's item
+    /// would matter). Such items of several GPOs all apply, so a merge appends one next to the other.
+    /// </summary>
+    private static bool IsCumulativeGroup(GpoSettingUnit unit)
+    {
+        if (unit.Kind != GpoSettingUnitKind.Preference || !string.Equals(unit.PreferenceType, "Groups", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var properties = unit.Settings.Select(s => (Info: GpoSettingKey.Parse(s.Key), Setting: s)).Where(p => p.Info.Property is not null).ToList();
+        string Property(string name) =>
+            properties.FirstOrDefault(p => p.Info.Property!.Equals(name, StringComparison.OrdinalIgnoreCase)).Setting?.Value.Trim() ?? string.Empty;
+        var removesMembers = properties
+            .Where(p => p.Info.Property!.Equals("Members", StringComparison.OrdinalIgnoreCase) || p.Info.Property!.EndsWith("/Members", StringComparison.OrdinalIgnoreCase))
+            .SelectMany(p => p.Setting.Elements())
+            .Any(m => GpoSettingUnits.CanonicalAttributes(m).GetValueOrDefault("action") is { } action && !action.Equals("ADD", StringComparison.OrdinalIgnoreCase));
+        return Property("@element").Equals("Group", StringComparison.OrdinalIgnoreCase)
+            && Property("action").Equals("U", StringComparison.OrdinalIgnoreCase)
+            && Property("newName").Length == 0
+            && Property("deleteAllUsers") != "1" && Property("deleteAllGroups") != "1" && Property("removeAccounts") != "1"
+            && !removesMembers
+            && unit.Settings.All(s => s.Kind == GpoSettingKind.Text);
+    }
+
     /// <summary>A unit id of an administrative template (<c>P|Machine|…</c>, <c>P|User|…</c>): without a definition set such units do not exist.</summary>
     private static bool IsPolicyId(string unitId) => unitId.StartsWith("P|", StringComparison.OrdinalIgnoreCase);
 
@@ -873,7 +917,14 @@ public sealed partial class GroupPolicyPlanner
         public Dictionary<Guid, SourceRead> Sources { get; } = [];
 
         /// <summary>Base ids whose target occurrences were dealt with (a second occurrence from the same source only adds).</summary>
+        /// <remarks>Preference units are keyed by base id and targeting: each variant of other item-level targeting is its own.</remarks>
         public HashSet<string> Handled { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary><see cref="HandledKey"/>s of every unit the plan copies (a target variant one of them replaces later is not "kept").</summary>
+        public HashSet<string> Planned { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Ids of the target's units a replace removed (not "kept" for a later variant).</summary>
+        public HashSet<string> Removed { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         public List<(bool User, Guid Extension, Guid Tool)> Pairs { get; } = [];
 

@@ -206,6 +206,98 @@ public class MergePlanTests : CopySettingsTestBed
         Assert.Contains(IssuesOf(wmi.Plan), i => i.Code == IssueCodes.GpoMergeWmiFilterDiffers);
     }
 
+    private const string KadryFilter = "<Filters><FilterGroup bool=\"AND\" not=\"0\" name=\"CONTOSO\\GG_Kadry\" sid=\"S-1-5-21-1000-2000-3000-1301\" userContext=\"1\" primaryGroup=\"0\" localGroup=\"0\"/></Filters>";
+
+    private static System.Xml.Linq.XDocument XDocumentOf(byte[] bytes) => GpoXml.Load(bytes);
+
+    private List<string?> DrivePaths(Guid gpo) =>
+        [.. XDocumentOf(Sysvol.Get(gpo, DrivesPath)!).Root!.Elements().Select(e => (string?)e.Element("Properties")!.Attribute("path"))];
+
+    [Fact]
+    public async Task Merge_OfTwoTargetingVariants_ReplacesEachTargetVariantOfTheSameTargeting()
+    {
+        // A precedes B (Replace): each of A's K: variants replaces B's variant of the same targeting, none of B's stays.
+        var a = AddGpo("Dyski – A", user: 1, userNames: DrivesPairs);
+        PutDrives(a, Drive(@"\\fs01.contoso.test\Wspólne"), Drive(@"\\fs01.contoso.test\Kadry – nowe", filters: KadryFilter));
+        var b = AddGpo("Dyski – B", user: 1, userNames: DrivesPairs);
+        PutDrives(b, Drive(@"\\fs01.contoso.test\Stare"), Drive(@"\\fs01.contoso.test\Kadry – stare", filters: KadryFilter));
+        Builder.SetGroupPolicyLinks(Company.ItOu, [(b, 0), (a, 0)]);
+
+        var plan = await MergeAsync(a, b);
+
+        Assert.Equal(0, plan.Plan.ErrorCount);
+        Assert.Equal([GpoUnitOutcomeKind.Replaced, GpoUnitOutcomeKind.Replaced], plan.Outcomes.Select(o => o.Kind));
+        await ExecuteOkAsync(plan.Plan);
+        Assert.Equal([@"\\fs01.contoso.test\Wspólne", @"\\fs01.contoso.test\Kadry – nowe"], DrivePaths(b));
+    }
+
+    [Fact]
+    public async Task Merge_InSkipMode_CopiesAnItemTheTargetOnlyHasDisabledOrWithOtherTargeting()
+    {
+        // B precedes A (Skip), but B's K: does not apply to the users A's K: reaches: A's item is carried over.
+        var a = AddGpo("Dyski – A", user: 1, userNames: DrivesPairs);
+        PutDrives(a, Drive(@"\\fs01.contoso.test\Wspólne"));
+        var disabled = AddGpo("Dyski – B wyłączony", user: 1, userNames: DrivesPairs);
+        PutDrives(disabled, Drive(@"\\fs01.contoso.test\Stare", itemAttributes: " disabled=\"1\""));
+        var targeted = AddGpo("Dyski – B Kadry", user: 1, userNames: DrivesPairs);
+        PutDrives(targeted, Drive(@"\\fs01.contoso.test\Kadry", filters: KadryFilter));
+        var applying = AddGpo("Dyski – B wszyscy", user: 1, userNames: DrivesPairs);
+        PutDrives(applying, Drive(@"\\fs01.contoso.test\Inne"));
+        Builder.SetGroupPolicyLinks(Company.ItOu, [(a, 0), (disabled, 0)]);
+        Builder.SetGroupPolicyLinks(Company.SalesOu, [(a, 0), (targeted, 0)]);
+        Builder.SetGroupPolicyLinks(Builder.DomainDn, [(a, 0), (applying, 0)]);
+
+        var intoDisabled = await MergeAsync(a, disabled);
+        var intoTargeted = await MergeAsync(a, targeted);
+        var intoApplying = await MergeAsync(a, applying);
+
+        Assert.Equal(GpoUnitOutcomeKind.Added, Assert.Single(intoDisabled.Outcomes).Kind);
+        Assert.Equal(GpoUnitOutcomeKind.Added, Assert.Single(intoTargeted.Outcomes).Kind);
+        Assert.Equal(GpoUnitOutcomeKind.Skipped, Assert.Single(intoApplying.Outcomes).Kind);
+        await ExecuteOkAsync(intoTargeted.Plan);
+        Assert.Equal([@"\\fs01.contoso.test\Kadry", @"\\fs01.contoso.test\Wspólne"], DrivePaths(targeted));
+    }
+
+    private const string MachineGroupsPath = "Machine/Preferences/Groups/Groups.xml";
+
+    private static string AdministratorsGroup(string member, string memberSid, string properties = "") =>
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?><Groups clsid=\"{3125E937-EB16-4b4c-9934-544FC6D24D26}\">"
+        + $"<Group clsid=\"{GppGroupsDocument.GroupClassId}\" name=\"Administrators (built-in)\" image=\"2\" changed=\"2026-10-01 08:00:00\" uid=\"{Guid.NewGuid().ToString("B").ToUpperInvariant()}\">"
+        + $"<Properties action=\"U\" newName=\"\" description=\"\" deleteAllUsers=\"0\" deleteAllGroups=\"0\" removeAccounts=\"0\" groupSid=\"S-1-5-32-544\" groupName=\"Administrators (built-in)\"{properties}>"
+        + $"<Members><Member name=\"{member}\" action=\"ADD\" sid=\"{memberSid}\"/></Members></Properties></Group></Groups>";
+
+    private List<string> GroupMembers(Guid gpo) =>
+        [.. XDocumentOf(Sysvol.Get(gpo, MachineGroupsPath)!).Descendants("Member").Select(m => (string)m.Attribute("name")!)];
+
+    [Fact]
+    public async Task Merge_KeepsBothLocalGroupItemsThatOnlyAddMembers_InEitherMode()
+    {
+        Guid Gpo(string name, string member, string sid, string properties = "")
+        {
+            var gpo = AddGpo(name, computer: 1);
+            Sysvol.PutText(gpo, MachineGroupsPath, AdministratorsGroup(member, sid, properties));
+            return gpo;
+        }
+
+        var replaceA = Gpo("Administratorzy – A", @"CONTOSO\GG_IT", "S-1-5-21-1000-2000-3000-1105");
+        var replaceB = Gpo("Administratorzy – B", @"CONTOSO\GG_Helpdesk", "S-1-5-21-1000-2000-3000-1106");
+        Builder.SetGroupPolicyLinks(Company.ItOu, [(replaceB, 0), (replaceA, 0)]);
+        var skipA = Gpo("Administratorzy – Łódź A", @"CONTOSO\GG_IT", "S-1-5-21-1000-2000-3000-1105");
+        var skipB = Gpo("Administratorzy – Łódź B", @"CONTOSO\GG_Helpdesk", "S-1-5-21-1000-2000-3000-1106");
+        Builder.SetGroupPolicyLinks(Company.SalesOu, [(skipA, 0), (skipB, 0)]);
+        var resetB = Gpo("Administratorzy – reset B", @"CONTOSO\GG_Helpdesk", "S-1-5-21-1000-2000-3000-1106", " deleteAllUsers=\"1\"".Replace("1\"", "1\" x=\"\"", StringComparison.Ordinal));
+
+        var replace = await MergeAsync(replaceA, replaceB);
+        var skip = await MergeAsync(skipA, skipB);
+
+        Assert.Equal(GpoUnitOutcomeKind.Added, Assert.Single(replace.Outcomes).Kind);
+        Assert.Equal(GpoUnitOutcomeKind.Added, Assert.Single(skip.Outcomes).Kind);
+        await ExecuteOkAsync(replace.Plan);
+        await ExecuteOkAsync(skip.Plan);
+        Assert.Equal([@"CONTOSO\GG_Helpdesk", @"CONTOSO\GG_IT"], GroupMembers(replaceB));
+        Assert.Equal([@"CONTOSO\GG_Helpdesk", @"CONTOSO\GG_IT"], GroupMembers(skipB));
+    }
+
     [Fact]
     public async Task Merge_OfADefaultGpo_OrIntoItself_IsAnError()
     {
