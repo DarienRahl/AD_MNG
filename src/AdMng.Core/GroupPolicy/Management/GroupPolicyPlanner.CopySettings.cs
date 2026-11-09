@@ -116,6 +116,13 @@ public sealed partial class GroupPolicyPlanner
         foreach (var selection in units)
         {
             var unit = selection.GpoId == gpoId ? FindUnit(work.TargetUnits, selection) : null;
+            if (unit is null && definitions is null && selection.GpoId == gpoId && IsPolicyId(selection.UnitId))
+            {
+                work.Warn(IssueCodes.GpoSettingNoDefinitions, "The administrative template needs the ADMX templates.", gpo.DisplayName, selection.UnitId);
+                outcomes.Add(new GpoUnitOutcome(selection, GpoUnitOutcomeKind.Refused, IssueCodes.GpoSettingNoDefinitions));
+                continue;
+            }
+
             if (unit is null)
             {
                 work.Warn(IssueCodes.GpoSettingNotFound, "The setting is no longer in the GPO as it was found.", gpo.DisplayName, selection.UnitId);
@@ -499,6 +506,12 @@ public sealed partial class GroupPolicyPlanner
             return Outcome(GpoUnitOutcomeKind.Refused, IssueCodes.GpoSettingIncomplete);
         }
 
+        if (unit is null && work.Definitions is null && IsPolicyId(selection.UnitId))
+        {
+            work.Warn(IssueCodes.GpoSettingNoDefinitions, "The administrative template needs the ADMX templates.", sourceName, selection.UnitId);
+            return Outcome(GpoUnitOutcomeKind.Refused, IssueCodes.GpoSettingNoDefinitions);
+        }
+
         if (unit is null)
         {
             work.Warn(IssueCodes.GpoSettingNotFound, "The setting is no longer in the source GPO as it was found.", sourceName, selection.UnitId);
@@ -736,6 +749,9 @@ public sealed partial class GroupPolicyPlanner
             ? null
             : unit;
     }
+
+    /// <summary>A unit id of an administrative template (<c>P|Machine|…</c>, <c>P|User|…</c>): without a definition set such units do not exist.</summary>
+    private static bool IsPolicyId(string unitId) => unitId.StartsWith("P|", StringComparison.OrdinalIgnoreCase);
 
     private static string? RefusalCode(GpoSettingUnit unit) => unit.Refusal switch
     {
