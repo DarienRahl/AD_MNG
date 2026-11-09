@@ -2461,3 +2461,28 @@ The design review of 21 (2026-11) was applied in 21.1–21.12. Points taken only
   skipped – the operator chose the unit; only the merge skips them.
 * *Separate code for directory settings in a merge*: the existing `IssueCodes.GpoDirectorySettings` is reused at severity
   `Error` (one text, already translated).
+
+### 21.14 K7 as built
+
+**W3 as built** (cleanup analyzer, cleanup sample). `GpoCleanupAnalyzer` lives in `src/AdMng.Core/GroupPolicy/Cleanup/`
+(`GpoCleanupAnalyzer{,.Context,.Settings,.Merge}.cs`; the stub left `GpoCleanupModel.cs`, no contract signature changed).
+It reads only the index's records – not W1's `GpoSettingsIndex.Find`/`Occurrences` or `GpoSettingUnits.SameValue` (a
+private copy of the 21.2 rule) – so it is a pure function of hand-built records. Additions to 21.6, all on the safe side:
+GPO-level kinds (`UnlinkedGpo`, `AllLinksDisabled`, `GpoDisabled`) are evaluated for every entry, content kinds only for
+`Read`; `Disable` is not offered for a GPO already all-disabled; the note `DefaultGpo` accompanies every withheld Delete.
+Default GPOs never get `SingleSettingGpo` and never take part in a merge group (neither source nor target); merge groups
+and merge targets also skip all-disabled GPOs, GPOs without an enabled link and GPOs without counted units; a
+single-setting GPO with an unreadable marker is not proposed; the `SingleSettingGpo` merge target needs the same security
+and WMI filter too (like `MergeCandidate`). `DuplicateSetting`: coverage also requires the keeper's security filter to
+reach everyone the covered GPO's does (same sets, or Authenticated Users/Everyone with no deny) and its WMI filter to be
+none or the same; positions are (domain head/OU × site) pairs resolved with `GroupPolicyInheritance`; GPOs are ranked
+(default GPO, more counted units, name) and a GPO is proposed only when a higher-ranked one covers it (`RelatedGpoIds` =
+every such keeper), so executing every proposal never removes the last copy; an applying occurrence in an `Incomplete`
+GPO, a non-comparable one or a second occurrence in one GPO blocks the base id; for account policy only domain-head GPOs
+are candidates but applying occurrences anywhere block; comments and script files never count. `LinkOrderDiffers` = in a
+shared container the source has the lower link order. A covered unit with a refusal (audit option, object security) is
+reported without `RemoveSetting`, with `NonCopyableUnits`. Sample: `AddGroupPolicyCleanupSample` adds `OU=Kadry` below
+`OU=Pracownicy` (the company has no HR OU) and appends links to existing `gPLink` values, so it combines with the
+management sample; the two drive items are identical apart from their uids; "Pulpit zdalny"/"Inspekcja" are linked to
+`OU=IT`, "Szablony (oddział)" to `OU=Komputery`, "Wyłączony" to `OU=Sprzedaż`. The end-to-end sample tests are skipped
+with `Skip = "K7 wave 1 merge"`.
