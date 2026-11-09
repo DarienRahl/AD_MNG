@@ -1640,3 +1640,80 @@ Taken in part or rejected:
     `IBulkCreatePlanner` (HostTests qualifies `Presentation.BatchEditing.BatchEngines`; no using changed).
 * **Not done here.** The line for P1's as-built section (p-certificate-services.md 2.14, `ShellViewModel.Palette.cs`) is
   left to the lead: that note was not to be touched by this commit.
+
+**B1 as built.** Bodies of `TableTextReader`, `CellText`, `ColumnSynonyms`, `CreationNames` (B1 members), `CreationValues`,
+`BulkCreatePowerShell`; new `SpreadsheetText.cs`, `HtmlTableReader.cs`; the exporter cases; `ConnectGlobalCatalogAsync`.
+No new record type (internal helpers are classes), so `BulkCreateRecordSamples.Value` is unchanged. Deviations and
+additions:
+
+* **Added members.** `CreationValues.Validate(kind, attribute, values, schema, PhoneFormat phones, TextCase? columnCase)`:
+  `InvalidPhone` needs the run's phone format and `AllCapsName` the column's case, which the four-parameter contract
+  member does not have (it is the overload with `AsIs` and *not from a column*; B2 calls the new one with `Rules.Phones`
+  and, for a value from a mapped column, the mapping's `Case`). `ConnectionSettings.ForGlobalCatalog()` (Directory,
+  internal, next to `ForServer`; not an anchor of 2.13 – one method, no other change). Internal helpers:
+  `SpreadsheetText.HasTabInFirstLines` / `ContainsScientificCell`, the `HtmlTable` class, `CellText.TryFormatInternational`
+  / `PolishNationalNumber` / `IsPolishNumberWithoutPlus` / `LooksLikeDate` / `LooksLikeNumber`, `ColumnSynonyms.IsKnownHeader`
+  / `AttributeAppliesTo`, `CreationNames.IsIdentifier` / `Cut`.
+* **GC session host.** Not `current.Info.Server` (2.2) but the host the window's connections are pinned to
+  (`LdapConnectionFactory.Host` of its pool): `Info.Server` is the DC's `dnsHostName`, which need not resolve on the client
+  – the lab connects by address and the first version failed with `HostNotFound`. It is the same DC. Pinned on Samba 4.19
+  (`GlobalCatalogSessionLabTests`, run against the lab): RootDSE `isGlobalCatalogReady: TRUE`, ports 3268 / 3269, and a
+  subtree search with base `""` on the GC port finds a seeded user's UPN – the fallback to `RootDomainNamingContext` is not
+  needed there (kept for Windows servers that refuse it, as 2.2 says).
+* **Header detection.** A candidate needs known headers for at least a third of its non-empty cells, and a frequent Polish
+  given name (`GivenNameLists.Polish`) counts as data: a headerless HR sheet whose job titles and departments are header
+  words (*Kierownik*, *Biuro*) stays data. `FindHeaderRow`'s index is into its argument (empty lines skipped; the reader
+  passes the first ten non-empty lines). `FirstRowIsHeader` in a read is the first non-empty line.
+* **Normalisation.** Every Unicode space separator becomes a space (a superset of NBSP, U+2007, U+202F), each line of a
+  multi-line cell is trimmed, U+2028 / U+2029 become CRLF. The error-value list also has `#N/D` (without `!`),
+  `#ROZLANIE!`, `#GETTING_DATA`, `#BLOCKED!`, `#CONNECT!`, `#FIELD!`, `#UNKNOWN!`, `#BUSY!`, `#EXTERNAL!`.
+  `LooksLikePhone` is 7–15 digits and rejects dates. `NormalizePhone(International)` writes Polish fixed lines with the
+  two-digit area code (`+48 22 555 01 01`) and mobiles 3-3-3; a 10-digit number without a country is left unchanged.
+* **Table shape and warnings.** HTML `rowspan` is a grid: the covered cells of the rows below are empty, so the later cells
+  keep their columns (the *MergedAndNested* sample); `MergedCells` is on the row of the merged cell. Warning positions:
+  `Row` = `TableRow.Number`, null for a header-line cell; `RaggedRows` – the first longer row, `Column` = the header width,
+  `Count` = the added columns; `DuplicateHeader` and `PasswordLikeColumn` – `Column` only; the counted ones – `Count` only.
+  Leading empty lines of a headerless table are dropped silently; empty lines between the header and the data count as
+  `EmptyRowsSkipped`. `ReadClipboard` uses the HTML table only when the text is empty or not tabular and the table has a
+  non-empty cell; recovery needs the same shape and a read below the row limit; an unreadable HTML format is ignored.
+  `ReadXlsx`: `HiddenRowsIgnored` counts what the U5 reader reports for the visible sheets (`XlsxReader` unchanged – in the
+  usual one-sheet workbook the sheet's own); hidden sheets are not `OtherSheetsIgnored`.
+* **Reinterpret / Append.** The line space of `Reinterpret` is `TitleRows`, the header line, the rows (rows skipped while
+  reading are not counted: a re-detected header can move up a line); `NoHeader` makes title rows data; the `" (n)"` of a
+  renamed duplicate header is removed when the header becomes data; cell warnings move with their cells. `Append`: a header
+  of the added table that the existing one cannot use (it has none) becomes the first appended row; warnings of an added
+  column that matched an existing one are dropped. `CountRepeatedRows` compares as `Append` places the cells (ordinal).
+* **Synonyms.** Kind applicability (users: all but the computers' `location`; contacts: no account attributes; groups:
+  `cn`, `sAMAccountName`, `mail`, `displayName`, `description`, `info`, `wWWHomePage`; computers: `cn`, `sAMAccountName`,
+  `displayName`, `description`, `location`; every kind `Manager`, `Groups`, *Tylko we wzorcach*); with `attributeNames` an
+  attribute target must be in it. *Komórka* without samples is `department`. `PhonesWithoutPlus` when any sample is
+  `48xxxxxxxxx`; `MobileNumbersDetected` wins when the content changed the target. Identifier headers: exact folded names
+  (`pesel`, `nip`, `nrdowodu`, `dataurodzenia`, `ssn`, `iban` …) and the substrings `pesel`, `dataurodzenia`, `birthdate`.
+* **Names.** `SanitizeIdentifier`: a UPN or `mail` part also loses leading dots and runs of dots; a group's logon name loses
+  only the forbidden characters (spaces collapsed, ends trimmed). `AppendDisambiguator`: `maxLength` limits the part
+  before the first `@` (20 for a login, 64 for a `mail` local part); attributes other than the three identifiers get
+  `" (n)"`; impossible limits throw; the caller never passes a computer's names.
+* **Finish.** Every single-line rule value has runs of spaces collapsed and is trimmed; `cn` collapses all white space.
+  The computer rules apply whatever the options say (B2 may pass a computer's column value with `SanitizeIdentifiers` and
+  `TruncateNames` off): `cn` upper case; `sAMAccountName` upper case and `$` when missing, the name cut to 15 before the
+  `$` – **except a `IsCounterValue` part, which gets no `$`** (a prefix finished alone would become `PC$`): B2 finishes the
+  assembled computer value again or derives it from `cn` as `BuildPlan` does (`Validate` reports a missing `$` as
+  `TrailingDollar`, so nothing slips through). A UPN or `mail` without `@` is sanitized as a local part. `homeDrive` upper case.
+* **Validate.** Each code once per attribute; messages are value-free (the schema checks of `PlanValidation.ValidateValue`
+  are re-worded without the value); an empty value list gives nothing (mandatory attributes are B2's, 2.5); other control
+  characters of a multi-line attribute → `InvalidValue`; `homeDrive` accepts a lower-case letter; UPN suffix and mail
+  domain are checked syntactically (the forest checks are B2's, 2.4).
+* **Blocked attributes.** *No schema* = the schema lacks the structural class of the kind; then the synonym targets and the
+  names of 2.2's table that the kind can have (the synonym applicability). DN syntaxes: distinguished name, DN with binary
+  or string, OR name, access point; an attribute unknown to the schema is blocked. The allowed sets are cached per schema
+  instance and kind (`ConditionalWeakTable`).
+* **PowerShell.** `accountExpires` goes to `-OtherAttributes` as its FILETIME (not `-AccountExpirationDate`, which the script
+  machine's time zone would shift); one value of an attribute with a cmdlet parameter → the parameter, several →
+  `-OtherAttributes`; `-GroupScope` / `-GroupCategory` are quoted literals; a group without a readable `groupType` and any
+  step `BuildPlan` does not make → null (generic lines). The exporter's call site passes the object plan and the schema
+  to `WriteEquivalent` (the arguments `Entry` needs, 2.13).
+* **Tests.** The exporter cases are in `BulkCreatePowerShellTests` (`PowerShellExporterTests` is not a B1 file); the
+  `IsValidUpnPrefix` parity test is the new `tests/AdMng.Presentation.Tests/BulkCreate/CreationNamesUpnParityTests.cs`
+  next to the contract's `CreationNamesParityTests` (left untouched); the settings unit tests of the GC session are
+  `GlobalCatalogSettingsTests` in `GlobalCatalogSessionLabTests.cs`; `BulkCreatePowerShellTests.OperatorScenario_…` (table
+  → synonyms → planner → exporter) is `[Fact(Skip = "F3 wave 1 merge")]`.
