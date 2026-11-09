@@ -2601,3 +2601,19 @@ and the WPF UI tests compile here and run on Windows CI only. For the lead: conf
 anchors W4 also uses (Palette, Commands `StateCommands`, Documents `ActiveGpo`, factory `CreateDocument`/`Matches`,
 MainWindow xmlns/templates/menu, TreeMenu, the GPO list toolbar, SmokeTest requests; W4's lines first) and in this
 section.
+
+**K7 review fixes** (behaviour changes). Copy and merge: preference occurrences are handled per base id *and* targeting
+(`FiltersFingerprint`), so each source variant replaces, or is `Unchanged` against, only the target variants of its own
+targeting; `Skip` keeps the target's value only when a target variant of the same targeting applies (not disabled, not in
+a disabled or scoped collection), otherwise the item is copied; a merge keeps both GPP local-group `Update` items that only
+add members (no rename, no delete-all/remove flags, no removed member) and appends A's. Inconsistent administrative
+templates compare by their raw entries too (fingerprint and `SameValue`). `GpoExpectedState` also carries the GPO status
+and each link's enabled/enforced state (`GpoExpectedState.Of`, `Matches`), so the guarded delete refuses a GPO that was
+re-enabled or got an enabled link since the analysis. Cleanup analyzer: no `DuplicateSetting` for a raw Registry.pol value
+when a key-level entry (`**delvals.`, `DELETE_KEY`, a `**`-named value) of any applying GPO sits on its key or a parent
+key; a GPO of another domain linked to a container counts as unknown content; the new note `LinkedBetween` (merge
+candidates and single-setting merges, which now also get `LinkOrderDiffers`) when a GPO linked between source and target
+applies a setting the source sets or has unknown content, and the planner warns `GpoMergeLinkedBetween` for any enabled
+link between A and B. "Porządki w GPO" disables its content actions (all but the delete) while the analysis is stale. The
+index service joins a running build with `IfMissing` only when it was started for the requested culture. The "Zmiany
+ustawień" builder parses and describes on the thread pool.
