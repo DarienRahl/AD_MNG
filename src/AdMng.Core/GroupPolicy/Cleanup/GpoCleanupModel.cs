@@ -60,7 +60,7 @@ public enum GpoCleanupNote
     /// <summary>The GPO holds files no parser reads: no Merge.</summary>
     OtherFiles,
 
-    /// <summary>A disabled half of the GPO holds settings: no Merge.</summary>
+    /// <summary>A disabled half of the GPO holds settings, or the merge target's disabled half would take some: no Merge.</summary>
     PartDisabled,
 
     /// <summary>Account policy: only GPOs linked to the domain head are compared.</summary>

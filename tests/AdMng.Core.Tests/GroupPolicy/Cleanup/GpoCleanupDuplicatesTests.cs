@@ -1,5 +1,6 @@
 using AdMng.Core.GroupPolicy.AdministrativeTemplates;
 using AdMng.Core.GroupPolicy.Cleanup;
+using AdMng.Core.GroupPolicy.Content;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Core.GroupPolicy.Search;
 using static AdMng.Core.Tests.GroupPolicy.Cleanup.CleanupIndex;
@@ -367,5 +368,81 @@ public sealed class GpoCleanupDuplicatesTests
         index.Link(Domain, head).Link(Ksiegowosc, ou);
 
         Assert.Empty(Of(index.Analyze(), GpoCleanupKind.DuplicateSetting));
+    }
+
+    [Fact]
+    public void Duplicate_UnknownSecurityFilter_NoCoverage()
+    {
+        var (index, head, ou) = HeadAndOu();
+        head.SecurityDescriptor = null;
+        ou.SecurityDescriptor = null;
+
+        Assert.Empty(Of(index.Analyze(), GpoCleanupKind.DuplicateSetting));
+    }
+
+    [Fact]
+    public void Duplicate_ASiteLinkInAForestWithOtherDomains_NoCoverage()
+    {
+        // The site GPO also reaches objects of the other domain in that site, where the domain head GPO does not apply.
+        var index = new CleanupIndex();
+        var head = index.Gpo("Firma – Pulpit", Units.Registry("firma.jpg"));
+        var site = index.Gpo("Lokacja Warszawa – Pulpit", Units.Registry("firma.jpg"));
+        index.Link(Domain, head).Link(Warszawa, site);
+        index.OtherDomains.Add("oddzial.contoso.test");
+
+        Assert.Empty(Of(index.Analyze(), GpoCleanupKind.DuplicateSetting));
+    }
+
+    [Fact]
+    public void Duplicate_KeyLevelRegistryEntries_AreNeverRemoved()
+    {
+        // **delvals. clears every value of the key in processing order: the later copy also deletes values the earlier GPO
+        // set, so removing it changes the result even though both copies are equal.
+        const string DelVals = @"K|User/Registry/Software\Policies\Contoso\Lista!**delvals.";
+        var index = new CleanupIndex();
+        var head = index.Gpo("Firma – Lista", Units.Value(DelVals, "=**delvals.", GpoScope.User, GpoSettingUnitKind.RegistryKey));
+        var ou = index.Gpo("Księgowość – Lista", Units.Value(DelVals, "=**delvals.", GpoScope.User, GpoSettingUnitKind.RegistryKey));
+        index.Link(Domain, head).Link(Ksiegowosc, ou);
+
+        Assert.Empty(Of(index.Analyze(), GpoCleanupKind.DuplicateSetting));
+    }
+
+    [Theory]
+    [InlineData(GpoIndexStatus.TooLarge)]
+    [InlineData(GpoIndexStatus.AccessDenied)]
+    [InlineData(GpoIndexStatus.Failed)]
+    [InlineData(GpoIndexStatus.NotRead)]
+    [InlineData(GpoIndexStatus.Incomplete)]
+    public void Duplicate_AGpoOfUnknownContentAppliesWhereTheCoveredGpoDoes_NoProposal(GpoIndexStatus status)
+    {
+        // "Księgowość – Nieznany" could hold another wallpaper between the two copies in precedence.
+        var (index, _, _) = HeadAndOu();
+        var unknown = index.Gpo("Księgowość – Nieznany");
+        unknown.Status = status;
+        index.Link(Ksiegowosc, unknown);
+
+        Assert.Empty(Of(index.Analyze(), GpoCleanupKind.DuplicateSetting));
+    }
+
+    [Fact]
+    public void Duplicate_AGpoOfUnknownContentElsewhere_OrWithoutContent_DoesNotBlock()
+    {
+        var (elsewhere, _, ou) = HeadAndOu();
+        var failed = elsewhere.Gpo("Serwery – Nieznany");
+        failed.Status = GpoIndexStatus.Failed;
+        elsewhere.Link(Serwery, failed);
+        Assert.Equal(ou.Id, Assert.Single(Of(elsewhere.Analyze(), GpoCleanupKind.DuplicateSetting)).GpoId);
+
+        // No folder (nothing to apply), a disabled link, or all settings disabled: it cannot hold an applying value.
+        var (inactive, _, _) = HeadAndOu();
+        var missing = inactive.Gpo("Księgowość – Bez folderu");
+        missing.Status = GpoIndexStatus.NotFound;
+        var linkOff = inactive.Gpo("Księgowość – Wyłączone połączenie");
+        linkOff.Status = GpoIndexStatus.Failed;
+        var off = inactive.Gpo("Księgowość – Wyłączony");
+        off.Status = GpoIndexStatus.Failed;
+        off.GpoStatus = GpoStatus.AllSettingsDisabled;
+        inactive.Link(Ksiegowosc, missing).Link(Ksiegowosc, linkOff, disabled: true).Link(Ksiegowosc, off);
+        Assert.Single(Of(inactive.Analyze(), GpoCleanupKind.DuplicateSetting));
     }
 }

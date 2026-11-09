@@ -171,4 +171,51 @@ public sealed class GpoCleanupMergeTests
         Assert.Empty(Merges(linkless.Analyze()));
         Assert.Single(Merges(index.Analyze()));
     }
+
+    [Fact]
+    public void Merge_TheTargetsDisabledHalfWouldTakeTheSettings_AFullyEnabledTargetIsChosen()
+    {
+        // "Duży" has the most units (user part) but its computer part is disabled: the computer settings of the others
+        // would go dormant there, so "Inspekcja" (all enabled) is the target and "Duży" merges into it.
+        var (index, remote, audit) = Pair();
+        var big = index.Gpo("Porządki – Duży", Units.Registry("a.jpg"), Units.Registry("b.jpg") with { Id = "K|b", BaseId = "K|b" },
+            Units.Registry("c.jpg") with { Id = "K|c", BaseId = "K|c" });
+        big.GpoStatus = GpoStatus.ComputerSettingsDisabled;
+        index.Link(Serwery, big);
+
+        var merges = Merges(index.Analyze());
+
+        Assert.Equal(2, merges.Count);
+        Assert.All(merges, m => Assert.Equal([audit.Id], m.RelatedGpoIds));
+        Assert.All(merges, m => Assert.Equal([GpoCleanupAction.Merge], m.Actions));
+        Assert.Equal(new[] { big.Id, remote.Id }.Order(), merges.Select(m => m.GpoId).Order());
+    }
+
+    [Fact]
+    public void Merge_EveryCandidateIsPartDisabled_ASourceWhoseSettingsTheTargetWouldDisable_HasNoMerge()
+    {
+        var index = new CleanupIndex();
+        var remote = index.Gpo("Porządki – Pulpit zdalny", Units.Value(Units.RemoteDesktopRight, "S-1-5-32-555", kind: GpoSettingUnitKind.UserRight));
+        remote.GpoStatus = GpoStatus.UserSettingsDisabled;
+        var big = index.Gpo("Porządki – Duży", Units.Registry("a.jpg"), Units.Registry("b.jpg") with { Id = "K|b", BaseId = "K|b" });
+        big.GpoStatus = GpoStatus.ComputerSettingsDisabled;
+        index.Link(Serwery, big).Link(Serwery, remote);
+
+        var proposal = Assert.Single(Merges(index.Analyze()));
+
+        Assert.Equal(remote.Id, proposal.GpoId);
+        Assert.Equal([big.Id], proposal.RelatedGpoIds);
+        Assert.Empty(proposal.Actions);
+        Assert.Equal([GpoCleanupNote.PartDisabled], proposal.Notes);
+    }
+
+    [Fact]
+    public void Merge_UnknownSecurityFilters_AreNeverTheSame()
+    {
+        var (index, remote, audit) = Pair();
+        remote.SecurityDescriptor = null;
+        audit.SecurityDescriptor = null;
+
+        Assert.Empty(Merges(index.Analyze()));
+    }
 }

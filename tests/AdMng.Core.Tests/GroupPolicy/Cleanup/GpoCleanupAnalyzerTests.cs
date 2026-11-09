@@ -183,6 +183,21 @@ public sealed class GpoCleanupAnalyzerTests
     }
 
     [Fact]
+    public void SingleSetting_NoMergeIntoATargetWhoseHalfOfTheSettingIsDisabled()
+    {
+        var index = new CleanupIndex();
+        var single = index.Gpo("Porządki – Pulpit zdalny", Units.Value(Units.RemoteDesktopRight, "S-1-5-32-555", kind: GpoSettingUnitKind.UserRight));
+        var userOnly = index.Gpo("Serwery – Tapety", Units.Registry("a.jpg"), Units.Registry("b.jpg") with { Id = "K|b", BaseId = "K|b" });
+        userOnly.GpoStatus = GpoStatus.ComputerSettingsDisabled;
+        index.Link(Serwery, single).Link(Serwery, userOnly);
+
+        var proposal = Single(index.Analyze(), GpoCleanupKind.SingleSettingGpo, single.Id);
+
+        Assert.Equal([GpoCleanupAction.CopyTo, GpoCleanupAction.Disable], proposal.Actions);
+        Assert.Empty(proposal.RelatedGpoIds);
+    }
+
+    [Fact]
     public void SingleSetting_WithoutAGpoOfTheSameLinksOrFilters_HasNoMerge()
     {
         var index = new CleanupIndex();
@@ -276,5 +291,28 @@ public sealed class GpoCleanupAnalyzerTests
             result.Proposals.Select(p => (p.Kind, p.GpoId)));
         Assert.Equal("EmptyGpo " + SysvolPaths.FolderName(anin.Id), result.Proposals[0].ToString());
         Assert.Equal("6 proposals, 0 not evaluated", result.ToString());
+    }
+
+    [Fact]
+    public void FiveHundredGpos_SharingSettings_AnalyzeQuickly()
+    {
+        // 500 GPOs × 20 units, ten of them equal in every GPO: coverage is evaluated once per GPO pair, not per setting.
+        string[] containers = [Domain, Firma, Ksiegowosc, Kadry, Serwery];
+        var index = new CleanupIndex();
+        for (var i = 0; i < 500; i++)
+        {
+            var units = Enumerable.Range(0, 20).Select(u => u < 10
+                ? Units.Value("K|Computer/Security/Registry Values/Wspólne" + u, "1")
+                : Units.Value(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"K|Computer/Security/Registry Values/Własne{i}-{u}"), "1"));
+            index.Link(containers[i % containers.Length], index.Gpo(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Oddział {i:D3} – zasady"), [.. units]));
+        }
+
+        var built = index.Build();
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var result = GpoCleanupAnalyzer.Analyze(built);
+        watch.Stop();
+
+        Assert.NotEmpty(result.Proposals);
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), watch.Elapsed.ToString());
     }
 }

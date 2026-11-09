@@ -169,7 +169,7 @@ public static partial class GpoCleanupAnalyzer
         {
             var blockers = MergeBlockers(entry);
             notes.AddRange(blockers.Notes);
-            related = MergeTargets(context, entry);
+            related = MergeTargets(context, entry, unit);
             if (blockers.Notes.Count == 0 && related.Count > 0)
             {
                 actions.Add(GpoCleanupAction.Merge);
@@ -189,8 +189,11 @@ public static partial class GpoCleanupAnalyzer
         });
     }
 
-    /// <summary>The GPOs a single-setting GPO can be merged into: same link set, same filters, read, not default, not disabled.</summary>
-    private static IReadOnlyList<Guid> MergeTargets(AnalysisContext context, GpoIndexEntry entry)
+    /// <summary>
+    /// The GPOs a single-setting GPO can be merged into: same link set, same filters, read, not default, not disabled, and
+    /// the half the unit belongs to not disabled (the setting would go dormant there).
+    /// </summary>
+    private static IReadOnlyList<Guid> MergeTargets(AnalysisContext context, GpoIndexEntry entry, GpoSettingUnit unit)
     {
         if (!entry.Links.Any(l => l.Enabled))
         {
@@ -199,7 +202,7 @@ public static partial class GpoCleanupAnalyzer
 
         var key = context.ScopeKey(entry);
         return context.Entries
-            .Where(e => e.Gpo.Id != entry.Gpo.Id && IsMergeTarget(e) && context.ScopeKey(e) == key)
+            .Where(e => e.Gpo.Id != entry.Gpo.Id && IsMergeTarget(e) && !HalfDisabled(e.Gpo.Status, unit.Scope) && context.ScopeKey(e) == key)
             .OrderByDescending(e => e.Units.Count(u => u.CountsAsSetting))
             .ThenBy(e => e.Gpo.DisplayName, NameOrder)
             .ThenBy(e => e.Gpo.Id)

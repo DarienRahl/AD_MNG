@@ -91,14 +91,23 @@ public static partial class GpoCleanupAnalyzer
 
     /// <summary>
     /// Equal values in GPOs where one covers the other: RemoveSetting from the covered GPO. Nothing is proposed for a base
-    /// id with another applying value, a value that cannot be compared, an incompletely read GPO that applies it, or a GPO
-    /// that holds it twice. Each GPO is ranked (default GPO, more settings, name) and only proposed for removal when a
+    /// id with another applying value, a value that cannot be compared, an incompletely read GPO that applies it, a GPO
+    /// that holds it twice, or a key-level Registry.pol entry; nor for a covered GPO where a GPO of unknown content applies
+    /// too. Each GPO is ranked (default GPO, more settings, name) and only proposed for removal when a
     /// higher-ranked GPO covers it – so mutually covering GPOs never both lose the setting, and executing every proposal
     /// keeps each container's value (coverage is transitive, the highest-ranked keeper is never removed).
     /// </summary>
     private static void Duplicates(AnalysisContext context, string baseId, bool accountPolicy, List<Occurrence> applying,
         List<Occurrence> participants, List<List<Occurrence>> classes, List<GpoCleanupProposal> proposals)
     {
+        // Key-level Registry.pol entries (**delvals., **DeleteKeys …) act on every value of the key in processing order: a
+        // copy in the GPO applied later also deletes values an earlier GPO set under the key (other units), so removing it
+        // is never shown to be neutral.
+        if (applying.Any(o => o.Unit.Kind == GpoSettingUnitKind.RegistryKey))
+        {
+            return;
+        }
+
         // No other value: every applying occurrence (any GPO, also below the domain head for account policy) must be
         // read completely, comparable, alone in its GPO and of one value.
         if (applying.Any(o => o.Entry.Status != GpoIndexStatus.Read || o.Unit.Comparability != GpoUnitComparability.Comparable)
@@ -119,7 +128,10 @@ public static partial class GpoCleanupAnalyzer
         {
             var covered = ranked[i];
             var keepers = ranked.Take(i).Where(k => context.Covers(k.Entry, covered.Entry)).Select(k => k.Entry.Gpo.Id).ToList();
-            if (keepers.Count == 0)
+
+            // A GPO whose content is unknown and that applies where the covered GPO does may hold a third value between
+            // the two copies in precedence: removing the covered copy could let it win.
+            if (keepers.Count == 0 || context.OverlapsUnknownContent(covered.Entry))
             {
                 continue;
             }

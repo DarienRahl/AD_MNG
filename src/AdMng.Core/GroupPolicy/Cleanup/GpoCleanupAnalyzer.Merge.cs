@@ -1,3 +1,4 @@
+using AdMng.Core.GroupPolicy.Management;
 using AdMng.Core.GroupPolicy.Search;
 using AdMng.Core.Ldap;
 
@@ -7,9 +8,11 @@ public static partial class GpoCleanupAnalyzer
 {
     /// <summary>
     /// <see cref="GpoCleanupKind.MergeCandidate"/>: read GPOs with settings and the same links (container, enabled,
-    /// enforced), security filter and WMI filter; each is proposed into the one with the most counted units. Default GPOs
-    /// and disabled GPOs never take part. A GPO that cannot be merged gets the proposal without
-    /// <see cref="GpoCleanupAction.Merge"/> and the notes that say why.
+    /// enforced), security filter and WMI filter; each is proposed into the one with the most counted units, preferring a
+    /// GPO with no disabled half (a source's settings would go dormant in the target's disabled half). Default GPOs and
+    /// disabled GPOs never take part. A GPO that cannot be merged gets the proposal without
+    /// <see cref="GpoCleanupAction.Merge"/> and the notes that say why (<see cref="GpoCleanupNote.PartDisabled"/> also when
+    /// the target's disabled half would take some of its settings).
     /// </summary>
     private static void MergeCandidates(AnalysisContext context, List<GpoCleanupProposal> proposals)
     {
@@ -24,10 +27,15 @@ public static partial class GpoCleanupAnalyzer
                 .ThenBy(e => e.Gpo.DisplayName, NameOrder)
                 .ThenBy(e => e.Gpo.Id)
                 .ToList();
-            var target = members[0];
-            foreach (var source in members.Skip(1))
+            var target = members.FirstOrDefault(e => e.Gpo.Status == GpoStatus.AllSettingsEnabled) ?? members[0];
+            foreach (var source in members.Where(e => e.Gpo.Id != target.Gpo.Id))
             {
                 var (notes, blocking) = MergeBlockers(source);
+                if (source.Units.Any(u => u.CountsAsSetting && HalfDisabled(target.Gpo.Status, u.Scope)))
+                {
+                    notes.Add(GpoCleanupNote.PartDisabled);
+                }
+
                 IReadOnlyList<GpoCleanupAction> actions = notes.Count == 0 ? [GpoCleanupAction.Merge] : [];
                 if (RanksAbove(source, target))
                 {

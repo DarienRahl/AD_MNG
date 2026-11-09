@@ -134,7 +134,8 @@ internal sealed class CleanupIndex
 
         public int DirectorySettings { get; set; }
 
-        public byte[]? SecurityDescriptor { get; set; }
+        /// <summary>The GPO's descriptor (default: Authenticated Users may apply it; null: not readable, filter unknown).</summary>
+        public byte[]? SecurityDescriptor { get; set; } = AuthenticatedUsers;
 
         public string? WmiFilterId { get; set; }
 
