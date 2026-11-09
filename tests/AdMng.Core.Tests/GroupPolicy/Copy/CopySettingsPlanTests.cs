@@ -212,6 +212,20 @@ public class CopySettingsPlanTests : CopySettingsTestBed
     }
 
     [Fact]
+    public async Task Preference_RemovingAnItemWithRemovePolicy_Warns_AndASelectedTwiceItemIsCopiedOnce()
+    {
+        var gpo = AddGpo("Dyski – usuwanie", user: 1, userNames: DrivesPairs);
+        PutDrives(gpo, Drive(@"\\fs01.contoso.test\Stare", itemAttributes: " removePolicy=\"1\""));
+        var selection = await SelectAsync(gpo, u => u.Kind == GpoSettingUnitKind.Preference);
+
+        var removed = await RemoveAsync(gpo, [selection]);
+        var copied = await CopyAsync(AddGpo("Dyski – cel"), [selection, selection]);
+
+        Assert.Contains(Target(removed).Issues, i => i.Code == IssueCodes.GpoSettingRemovePolicy && i.Arguments[0] == "Dyski – usuwanie");
+        Assert.Equal(GpoUnitOutcomeKind.Added, Assert.Single(copied.Outcomes).Kind);
+    }
+
+    [Fact]
     public async Task Preference_OfAScopedCollection_IsRefused_AndOfAPlainCollection_IsCopiedToTheRoot()
     {
         var source = AddGpo("Dyski – kolekcje", user: 1, userNames: DrivesPairs);

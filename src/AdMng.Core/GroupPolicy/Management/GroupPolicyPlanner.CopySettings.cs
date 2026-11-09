@@ -92,7 +92,7 @@ public sealed partial class GroupPolicyPlanner
         }
 
         // The same setting from two source GPOs: neither (no silent "last wins").
-        var found = request.Units.Select(u => (Selection: u, Unit: work.Find(u))).ToList();
+        var found = request.Units.DistinctBy(u => (u.GpoId, u.UnitId.ToUpperInvariant())).Select(u => (Selection: u, Unit: work.Find(u))).ToList();
         var ambiguous = found.Where(f => f.Unit is not null).GroupBy(f => f.Unit!.BaseId, StringComparer.OrdinalIgnoreCase)
             .Where(g => g.Select(f => f.Selection.GpoId).Distinct().Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var outcomes = new List<GpoUnitOutcome>();
