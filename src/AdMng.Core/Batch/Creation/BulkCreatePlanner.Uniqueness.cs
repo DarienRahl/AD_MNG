@@ -21,6 +21,9 @@ public sealed partial class BulkCreatePlanner
 
     private sealed partial class ComputeRun
     {
+        /// <summary>Disambiguation levels looked up together: the 2–6 of a value held in AD, and the window of a deeper collision (2.4).</summary>
+        private const int DisambiguationWindow = 5;
+
         private readonly Dictionary<string, List<int>> _operatorReserved = new(StringComparer.Ordinal);
         private readonly Dictionary<string, int> _assigned = new(StringComparer.Ordinal);
         private readonly Dictionary<string, Namespace?> _namespaces = new(StringComparer.OrdinalIgnoreCase);
@@ -482,25 +485,59 @@ public sealed partial class BulkCreatePlanner
             var rows = _rows.Where(r => r.Fixed is null).ToList();
             await EnsureKnownAsync(rows.SelectMany(r => Keys(r.Values, _ => true))).ConfigureAwait(false);
             _cancellationToken.ThrowIfCancellationRequested();
-
-            // The disambiguated candidates (2–6) of every collided value in one more batched pass.
-            var prefetch = new List<UniqueKey>();
-            foreach (var state in rows.Where(CanDisambiguate))
-            {
-                var roots = FindCollisions(state, state.Values, null).SelectMany(c => Roots(state.Values, c.Attribute)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-                for (var level = 2; level <= 6 && roots.Count > 0; level++)
-                {
-                    var bumps = roots.ToDictionary(r => r, _ => level, StringComparer.OrdinalIgnoreCase);
-                    prefetch.AddRange(Keys(Evaluate(state, NumberOf(state), bumps, null), d => !d.IsCounter));
-                }
-            }
-
-            await EnsureKnownAsync(prefetch).ConfigureAwait(false);
+            await PrefetchDisambiguatedAsync(rows).ConfigureAwait(false);
             foreach (var state in rows)
             {
                 _cancellationToken.ThrowIfCancellationRequested();
                 await ResolveRowAsync(state).ConfigureAwait(false);
             }
+        }
+
+        /// <summary>
+        /// The disambiguated candidates of every value that will collide, in one more batched pass (2.4): a root value held in
+        /// AD gets the levels 2–6, a root value that <c>n</c> rows of the batch share the levels 2…n+5 – the rows of one value
+        /// collide with each other, each one level deeper. One representative row per (root, value) renders them, so 5 000
+        /// rows of a few common names stay a few lookups instead of one per row and level.
+        /// </summary>
+        private async Task PrefetchDisambiguatedAsync(List<RowState> rows)
+        {
+            var groups = new Dictionary<string, RootGroup>(StringComparer.Ordinal);
+            foreach (var state in rows.Where(CanDisambiguate))
+            {
+                var colliding = FindCollisions(state, state.Values, null)
+                    .SelectMany(c => CanBump(state.Values, c.Attribute) ? Roots(state.Values, c.Attribute) : [])
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                foreach (var root in UniqueAttributes.Where(a => Roots(state.Values, a) is [var only] && Is(only, a)))
+                {
+                    var key = root.ToUpperInvariant() + "\u0001" + state.Values[root].First.ToUpperInvariant();
+                    if (!groups.TryGetValue(key, out var group))
+                    {
+                        groups[key] = group = new RootGroup(state, root);
+                    }
+
+                    group.Rows++;
+                    group.HeldInDirectory |= colliding.Contains(root);
+                }
+            }
+
+            var prefetch = new List<UniqueKey>();
+            foreach (var group in groups.Values)
+            {
+                var depth = group.Rows + (group.HeldInDirectory ? 1 : 0);
+                if (depth < 2)
+                {
+                    continue;
+                }
+
+                var deepest = Math.Min(MaxDisambiguator, depth + DisambiguationWindow - 1);
+                for (var level = 2; level <= deepest; level++)
+                {
+                    var bumps = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { [group.Root] = level };
+                    prefetch.AddRange(Keys(Evaluate(group.Representative, NumberOf(group.Representative), bumps, null), d => !d.IsCounter));
+                }
+            }
+
+            await EnsureKnownAsync(prefetch).ConfigureAwait(false);
         }
 
         private bool CanDisambiguate(RowState state) =>
@@ -537,13 +574,30 @@ public sealed partial class BulkCreatePlanner
                     break;
                 }
 
-                foreach (var root in roots.SelectMany(r => r.Roots).Distinct(StringComparer.OrdinalIgnoreCase))
+                var bumped = roots.SelectMany(r => r.Roots).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                foreach (var root in bumped)
                 {
                     bumps[root] = bumps.GetValueOrDefault(root, 1) + 1;
                 }
 
                 values = Evaluate(state, NumberOf(state), bumps, null);
-                await EnsureKnownAsync(Keys(values, _ => true)).ConfigureAwait(false);
+                var keys = Keys(values, _ => true).ToList();
+                if (keys.Any(k => !_lookups.Index(k.Namespace.Key).IsKnown(k.Value)))
+                {
+                    // A collision deeper than the prefetch: the next levels of the bumped roots in the same lookup (2.4: windows).
+                    for (var ahead = 1; ahead < DisambiguationWindow; ahead++)
+                    {
+                        var further = new Dictionary<string, int>(bumps, StringComparer.OrdinalIgnoreCase);
+                        foreach (var root in bumped)
+                        {
+                            further[root] = Math.Min(MaxDisambiguator, bumps[root] + ahead);
+                        }
+
+                        keys.AddRange(Keys(Evaluate(state, NumberOf(state), further, null), d => !d.IsCounter));
+                    }
+
+                    await EnsureKnownAsync(keys).ConfigureAwait(false);
+                }
             }
 
             foreach (var attribute in recycled)
@@ -650,6 +704,22 @@ public sealed partial class BulkCreatePlanner
         public string Composite => Namespace.Key + "\u0001" + Value.ToUpperInvariant();
 
         public override string ToString() => $"Key {Namespace.Kind} of {Attribute}";
+    }
+
+    /// <summary>The rows of the batch that share one value of one root (the prefetch of the disambiguated candidates, 2.4).</summary>
+    private sealed class RootGroup(RowState representative, string root)
+    {
+        /// <summary>The first such row: it renders the candidates for all of them.</summary>
+        public RowState Representative { get; } = representative;
+
+        public string Root { get; } = root;
+
+        public int Rows { get; set; }
+
+        /// <summary>An object in AD (or a reserved value of the batch) already holds the value.</summary>
+        public bool HeldInDirectory { get; set; }
+
+        public override string ToString() => $"Root group of {Root} ({Rows} rows, held={HeldInDirectory})";
     }
 
     /// <summary>A collision of a value: its code and the argument of the issue (owner's name or row number).</summary>

@@ -290,6 +290,40 @@ public sealed class CollisionTests
         Assert.Equal(nonRoutable, BulkCreateTestBed.IssueOf(row, BulkCreateIssueCodes.NonRoutableMailDomain, Attr.Mail) is not null);
     }
 
+    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    public async Task ManyRowsWithTheSameNames_AreDisambiguated_InAFewLookups_NotOnePerRow()
+    {
+        string[] givenNames = ["Anna", "Jan", "Piotr", "Ewa", "Marek", "Ola", "Kasia", "Tomasz", "Adam", "Zofia"];
+        var people = Enumerable.Range(0, 200).Select(i => (givenNames[i % givenNames.Length], "Nowak")).ToArray();
+
+        var computation = await _bed.ComputeAsync(_bed.Input(BulkCreateTestBed.People(people), StandardWithMail));
+
+        Assert.DoesNotContain(computation.Rows, r => r.Status == BulkRowStatus.Error);
+        Assert.Equal(200, computation.Rows.Select(r => r.Value(Attr.SamAccountName)).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Equal(["anna.nowak", "anna.nowak2", "anna.nowak20"], new[] { 0, 10, 190 }.Select(i => computation.Rows[i].Value(Attr.SamAccountName)));
+        Assert.Equal("anna.nowak20@contoso.com", computation.Rows[190].Value(Attr.Mail));
+        Assert.Equal("Anna Nowak (20)", computation.Rows[190].Value(Attr.Cn));
+
+        // 2.4: 5 × ⌈rows / 50⌉ + 2 lookups plus the collision passes – before, every repeated row asked again per namespace.
+        Assert.True(_bed.Searches.Count <= (5 * 4) + 2 + 16, $"{_bed.Searches.Count} searches");
+    }
+
+    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    public async Task ACollisionDeeperThanThePrefetch_LooksUpTheNextLevelsTogether()
+    {
+        foreach (var suffix in new[] { string.Empty, "2", "3", "4", "5", "6", "7", "8", "9" })
+        {
+            _bed.AddUser("Ewa", "Bąk" + suffix, new Dictionary<string, object?> { [Attr.SamAccountName] = "ewa.bak" + suffix });
+        }
+
+        _bed.Session.ClearOperations();
+        var computation = await _bed.ComputeAsync(_bed.Input(BulkCreateTestBed.People(("Ewa", "Bąk")), StandardWithMail));
+
+        Assert.Equal("ewa.bak10", Assert.Single(computation.Rows).Value(Attr.SamAccountName));
+        var samLookups = _bed.Searches.Count(s => s.Search!.Filter.Contains("(sAMAccountName=ewa.bak", StringComparison.Ordinal));
+        Assert.True(samLookups <= 3, $"{samLookups} sAMAccountName lookups: the value, the levels 2–6 and one window for 7–11");
+    }
+
     [Fact]
     public async Task NameBasedLookups_AreBatchedBy50()
     {

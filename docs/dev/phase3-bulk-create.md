@@ -1689,8 +1689,8 @@ does not need them), so `BulkCreateRecordSamples.Value` is unchanged. Deviations
   draft.ColumnCase)` – needed for `InvalidPhone` and `AllCapsName`. B1's `Finish` gives a computer's counter part no `$`;
   the planner re-applies the computer rules to the joined value, so nothing changes there.
 * **Tests.** The shared fixture is `tests/AdMng.Core.Tests/Batch/Creation/BulkCreateTestBed.cs` (headerless tables, so
-  the B1 stubs are not reached). 15 tests that need B1's bodies are `[Fact(Skip = BulkCreateTestBed.Wave1)]` (the
-  constant is `"F3 wave 1 merge"`): 3 in `CreationPatternTests`, 2 in `CounterAllocationTests`, 4 in `CollisionTests`, 5 in
+  the B1 stubs are not reached). 17 tests that need B1's bodies are `[Fact(Skip = BulkCreateTestBed.Wave1)]` (the
+  constant is `"F3 wave 1 merge"`): 3 in `CreationPatternTests`, 2 in `CounterAllocationTests`, 6 in `CollisionTests`, 5 in
   `BulkCreatePlannerTests`, 1 in `BulkCreatePerformanceTests`. With B1's branch laid over this one they all pass (339 in
   `Batch.Creation`). `BulkCreateLabTests` (Samba): 20 users `kd<run>01…` with a pre-created number skipped, attributes,
   UAC 512, `pwdLastSet` 0 and the group, then the undo; a value taken after the computation; a group, a contact and a
@@ -1699,3 +1699,7 @@ does not need them), so `BulkCreateRecordSamples.Value` is unchanged. Deviations
 * **For B4.** Call `BulkCreateLookups.Refresh()` before the plan step's final compute (2.7); created rows must be passed as
   created so their values stay reserved; computers never appear in `CreatedAccounts`; the edit keys are the attribute
   names plus `ManagerEditKey` / `GroupsEditKey`.
+* **Review (B2).** The disambiguated candidates are prefetched per (root, value) of the batch, not only per collision with
+  AD: a root value that `n` rows share gets the levels 2…n+5 in the one prefetch pass (rendered once, by the first such
+  row), and a collision deeper than the prefetch looks up the next five levels together. Before, every repeated name
+  asked again per namespace and level (200 rows of 10 names: 577 searches; now 22).
