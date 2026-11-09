@@ -2486,3 +2486,13 @@ reported without `RemoveSetting`, with `NonCopyableUnits`. Sample: `AddGroupPoli
 management sample; the two drive items are identical apart from their uids; "Pulpit zdalny"/"Inspekcja" are linked to
 `OU=IT`, "Szablony (oddział)" to `OU=Komputery`, "Wyłączony" to `OU=Sprzedaż`. The end-to-end sample tests are skipped
 with `Skip = "K7 wave 1 merge"`.
+
+**W3 review** (fixes on the W3 branch, all on the safe side): `MergeCandidate` picks as target the best-ranked GPO with
+no disabled half (falls back to the largest), and a source whose counted units the target's disabled half would take
+gets no Merge (note `PartDisabled`); `SingleSettingGpo` merge targets must not disable the unit's half; an unknown
+security filter (descriptor not readable) is never equal in a merge group and never shows coverage. `DuplicateSetting` is
+not proposed for `RegistryKey` units (key-level `**delvals.`/delete entries act in processing order on values of other
+units), for a covered GPO in whose positions a GPO of unknown content applies (status other than `Read`/`NotFound`, an
+enabled link, not all disabled – it could hold a third value between the two copies), or when the covered GPO has a site
+link and the forest has other domains (the site link reaches their objects too). Coverage and filters are cached per
+analysis.
