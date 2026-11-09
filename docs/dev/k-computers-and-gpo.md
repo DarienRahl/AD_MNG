@@ -2602,6 +2602,21 @@ anchors W4 also uses (Palette, Commands `StateCommands`, Documents `ActiveGpo`, 
 MainWindow xmlns/templates/menu, TreeMenu, the GPO list toolbar, SmokeTest requests; W4's lines first) and in this
 section.
 
+**Integration.** Wave 1 and wave 2 merged at the anchors of 21.12 (W4's lines first); the notes above stay as each wave
+wrote them, this paragraph records what changed at integration. The cleanup analyzer now calls
+`GpoSettingUnits.SameValue` (W3's private copy of the comparison was removed) and the end-to-end tests skipped with
+`"K7 wave 1 merge"` run. The search's *Kopiuj do innego GPO…* calls
+`CopySettingsAsync(items, definitions: view.Index.Definitions)`, so ADMX units are copied with the definition set they
+were built with (no `GpoSettingNoDefinitions` from the search); *Pokaż w wyszukiwarce* reaches W4's `CreateDocument`
+case. A culture build of `GpoSettingsIndexService` (names and definitions re-resolved, no folder read) keeps the stale
+mark of the view it replaces – it re-renders the old data, so an earlier GPO change must still show the stale bar. Docs:
+user chapter `docs/ZASADY-GRUPY.md` 12 (old 12–14 renumbered to 13–15, the readiness entry quoting chapter 13 and its
+test updated), README K7, `docs/PILOTAZ.md` G10–G13, `docs/ARCHITECTURE.md`. Known and accepted: the merge window counts
+the refused settings of a half the source GPO has disabled as blocking (and keeps *Scal* disabled), although the planner
+skips that half (21.13) – stricter than the planner, and the advisor never offers such a merge (note `PartDisabled`), so
+the UI never shows it; every document load of the search and cleanup tabs still opens one extra SYSVOL connection (one
+SMB logon) for the shared base's banner besides the index service's own build connection (W4 note).
+
 **K7 review fixes** (behaviour changes). Copy and merge: preference occurrences are handled per base id *and* targeting
 (`FiltersFingerprint`), so each source variant replaces, or is `Unchanged` against, only the target variants of its own
 targeting; `Skip` keeps the target's value only when a target variant of the same targeting applies (not disabled, not in
