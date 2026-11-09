@@ -356,6 +356,7 @@ internal sealed class DirectoryAclScan
 
         var pki = configuration.Child("CN", "Services").Child("CN", "Public Key Services");
         var ntAuth = pki.Child("CN", "NTAuthCertificates");
+        var oidContainer = pki.Child("CN", "OID");
         var cdp = pki.Child("CN", "CDP");
         DistinguishedName[] certPublisherScopes =
         [
@@ -370,7 +371,7 @@ internal sealed class DirectoryAclScan
             await foreach (var obj in SearchAsync(pki.ToString(), SearchScope.Subtree, filter,
                 [.. SdAttributes, Attr.DnsHostName, PkiAttributes.CaCertificate, PkiAttributes.OidToGroupLink], cancellationToken).ConfigureAwait(false))
             {
-                var kind = PublicKeyKindOf(obj, ntAuth);
+                var kind = PublicKeyKindOf(obj, ntAuth, oidContainer);
                 var target = Read(obj, AclTargetKind.PublicKey);
                 if (kind == PkiAclTargetKind.EnrollmentService)
                 {
@@ -385,10 +386,12 @@ internal sealed class DirectoryAclScan
                 target.IsTier0 = true;
                 target.Tier0Subtree = true;
                 target.PkiKind = kind;
-                // Owners: containers (not the KRA agents, which the typed output also calls Container), templates,
-                // enrollment services, NTAuth and OID objects with a group link (CN=OID can hold thousands of objects).
+                // Owners: containers (not the KRA agents, which the typed output also calls Container; CN=OID, itself an
+                // msPKI-Enterprise-Oid object, is one), templates, enrollment services, NTAuth and OID objects with a group
+                // link (CN=OID can hold thousands of objects).
                 target.ReportOwner = kind is PkiAclTargetKind.Template or PkiAclTargetKind.EnrollmentService or PkiAclTargetKind.NtAuth
-                    || (kind == PkiAclTargetKind.Container && string.Equals(target.StructuralClass, PkiClasses.Container, StringComparison.OrdinalIgnoreCase))
+                    || (kind == PkiAclTargetKind.Container
+                        && (string.Equals(target.StructuralClass, PkiClasses.Container, StringComparison.OrdinalIgnoreCase) || target.Parsed.Equals(oidContainer)))
                     || (kind == PkiAclTargetKind.Oid && obj.GetString(PkiAttributes.OidToGroupLink) is { Length: > 0 });
                 if (certPublisherScopes.Any(s => target.Parsed.Equals(s) || target.Parsed.IsDescendantOf(s)))
                 {
@@ -508,7 +511,7 @@ internal sealed class DirectoryAclScan
     /// <summary>
     /// The Tier 0 accounts of the PKI mode (ESC14): AdminSDHolder (its DACL is stamped on every protected account), the
     /// domain controllers, Administrator, krbtgt and the direct members of every group that is Tier 0 by decision 4 (the
-    /// classifier's graph closure: nested members are direct members of a group of the closure).
+    /// classifier's graph closure: nested members are direct members of a group of the closure), also by primary group.
     /// </summary>
     private async Task ReadTier0AccountsAsync(CancellationToken cancellationToken)
     {
@@ -532,9 +535,17 @@ internal sealed class DirectoryAclScan
 
         foreach (var node in _context.Groups.Nodes.Where(n => !n.IsImplicit && n.Sid is not null).OrderBy(n => n.Dn, StringComparer.OrdinalIgnoreCase))
         {
-            if (classifier.Classify(node.Sid!) == PrincipalClass.Tier0)
+            var sid = node.Sid!;
+            if (classifier.Classify(sid) == PrincipalClass.Tier0)
             {
                 parts.Add(LdapFilter.Equal(Attr.MemberOf, node.Dn));
+
+                // Primary group membership is not in memberOf: primaryGroupID = 512 makes a Domain Admin no memberOf shows.
+                if (_options.DomainSid is { } own && sid.LastIndexOf('-') is var separator and > 0
+                    && string.Equals(sid[..separator], own, StringComparison.OrdinalIgnoreCase) && AdConvert.GetRid(sid) is { } rid)
+                {
+                    parts.Add(LdapFilter.Equal(Attr.PrimaryGroupId, rid.ToString(CultureInfo.InvariantCulture)));
+                }
             }
         }
 
@@ -551,17 +562,20 @@ internal sealed class DirectoryAclScan
         }
     }
 
-    /// <summary>What a PKI object is in the typed output (the KRA agents and anything else of the subtree: container).</summary>
-    private static PkiAclTargetKind PublicKeyKindOf(DirectoryObject obj, DistinguishedName ntAuth)
+    /// <summary>
+    /// What a PKI object is in the typed output (the KRA agents, <c>CN=OID</c> – in AD an <c>msPKI-Enterprise-Oid</c> object
+    /// holding the others – and anything else of the subtree: container).
+    /// </summary>
+    private static PkiAclTargetKind PublicKeyKindOf(DirectoryObject obj, DistinguishedName ntAuth, DistinguishedName oidContainer)
     {
         var classes = obj.GetStrings(Attr.ObjectClass);
         bool Is(string name) => classes.Contains(name, StringComparer.OrdinalIgnoreCase);
+        var dn = DistinguishedName.TryParse(obj.DistinguishedName, out var parsed) ? parsed : DistinguishedName.Root;
         return Is(PkiClasses.CertificateTemplate) ? PkiAclTargetKind.Template
             : Is(PkiClasses.EnrollmentService) ? PkiAclTargetKind.EnrollmentService
             : Is(PkiClasses.CrlDistributionPoint) ? PkiAclTargetKind.CrlDistributionPoint
-            : Is(PkiClasses.EnterpriseOid) ? PkiAclTargetKind.Oid
-            : Is(PkiClasses.CertificationAuthority)
-                ? (DistinguishedName.TryParse(obj.DistinguishedName, out var dn) && dn.Equals(ntAuth) ? PkiAclTargetKind.NtAuth : PkiAclTargetKind.CertificationAuthority)
+            : Is(PkiClasses.EnterpriseOid) && !dn.Equals(oidContainer) ? PkiAclTargetKind.Oid
+            : Is(PkiClasses.CertificationAuthority) ? (dn.Equals(ntAuth) ? PkiAclTargetKind.NtAuth : PkiAclTargetKind.CertificationAuthority)
             : PkiAclTargetKind.Container;
     }
 

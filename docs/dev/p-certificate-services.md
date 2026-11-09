@@ -1162,3 +1162,8 @@ read, its private copy removed, behaviour-neutral). No public member renamed or 
   `tests/AdMng.Core.Tests/PrivilegedAccess/DirectoryAclPublicKeyTests.cs`; `DirectoryAclGrantSourceTests` unchanged. The
   trustee level of `AddPublicKeySample` runs now (identity part of `CertificateTemplate.Of`); the expansion of the sample
   (`TheExpansionOfTheSample_…`) needs C4's `AltSecurityIdentity.Parse` and is `[Fact(Skip = "P1 wave 1 merge")]`.
+* *C3 review.* `CN=OID` is itself an `msPKI-Enterprise-Oid` object in AD (the sample seeds a `container`): it is typed
+  `PkiAclTargetKind.Container` and its owner is reported (its owner controls every OID object – ESC5/ESC13); the other
+  OID objects keep `Oid` and the group-link rule. The Tier 0 accounts of `CollectPublicKeyAsync` also include the
+  accounts whose `primaryGroupID` is a Tier 0 group of the window's domain (primary group membership is not in
+  `memberOf`).

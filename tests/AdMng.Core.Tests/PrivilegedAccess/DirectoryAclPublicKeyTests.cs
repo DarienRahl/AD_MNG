@@ -252,6 +252,39 @@ public class DirectoryAclPublicKeyTests
     }
 
     [Fact]
+    public async Task CollectPublicKey_TheTier0Accounts_IncludeAccountsWhosePrimaryGroupIsTier0()
+    {
+        // primaryGroupID = Domain Admins: the account is a Domain Admin, yet memberOf does not show it.
+        var scenario = Scenario.Create();
+        var builder = scenario.Builder;
+        var sales = builder.SidOf(scenario.Company.GroupSales);
+        var altSecurity = builder.Session.Schema.FindAttribute(AclObjectTypes.AltSecurityIdentities)!.SchemaIdGuid;
+        var hidden = builder.AddUser("Konrad", "Ukryty", scenario.Company.ItOu, new Dictionary<string, object?> { [Attr.PrimaryGroupId] = WellKnownRids.DomainAdmins });
+        builder.SetSecurityDescriptor(hidden, scenario.DomainAdmins, FakeAce.FullControl(scenario.DomainAdmins), new FakeAce(FakeAce.AccessAllowedObject, 0, 0x20, sales, altSecurity));
+
+        var grants = await scenario.CollectPublicKeyAsync([scenario.Acl.IssuingCaComputer]);
+
+        var grant = Assert.Single(grants, g => g.TargetDn == hidden);
+        Assert.Equal((PkiAclTargetKind.Tier0Account, sales, AclRight.WriteAltSecurityIdentities), (grant.TargetKind, grant.TrusteeSid, grant.Right));
+    }
+
+    [Fact]
+    public async Task TheOidContainer_AnMsPkiEnterpriseOidObject_HasItsOwnerReported_AsAContainer()
+    {
+        // In AD, CN=OID itself is of class msPKI-Enterprise-Oid (the fake seeds a container): its owner controls every OID.
+        var scenario = Scenario.Create();
+        var builder = scenario.Builder;
+        var sales = builder.SidOf(scenario.Company.GroupSales);
+        var oid = scenario.Acl.Pki.OidContainer;
+        builder.Session.SetValues(oid, Attr.ObjectClass, "top", "msPKI-Enterprise-Oid");
+        builder.SetSecurityDescriptor(oid, sales, OwnerOnly(scenario));
+
+        Assert.Contains($"{oid} | GG_Sprzedaz | Tier0 | Owner", Render(scenario, await scenario.CollectAsync()));
+        var grant = Assert.Single(await scenario.CollectPublicKeyAsync([scenario.Acl.IssuingCaComputer]), g => g.TargetDn == oid);
+        Assert.Equal((PkiAclTargetKind.Container, sales, AclRight.Owner), (grant.TargetKind, grant.TrusteeSid, grant.Right));
+    }
+
+    [Fact]
     public async Task WithoutAdCs_ThePkiPass_FindsNothing_AndFailsNothing()
     {
         // The Samba lab: empty PKI containers without descriptors (AddWatchdogInfrastructure), or no PKI at all.
