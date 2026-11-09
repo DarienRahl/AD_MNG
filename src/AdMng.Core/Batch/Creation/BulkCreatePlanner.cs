@@ -32,7 +32,7 @@ public sealed partial class BulkCreatePlanner(PasswordGenerator passwords, TimeP
     /// More unknown values of one namespace than this are read with one paged search of the whole namespace
     /// (<c>(sAMAccountName=*)</c> …) instead of batched equality lookups (2.4: the budget is an upper bound; rule 6).
     /// </summary>
-    public const int FullListingThreshold = 1000;
+    public const int FullListingThreshold = 250;
 
     /// <summary>Manager values per search (each value is 2–3 clauses: at most 50 clauses, 2.5).</summary>
     public const int ManagerBatchSize = 12;

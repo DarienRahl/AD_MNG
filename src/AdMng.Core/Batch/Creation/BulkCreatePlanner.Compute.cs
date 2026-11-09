@@ -556,9 +556,12 @@ public sealed partial class BulkCreatePlanner
                 }
             }
 
-            foreach (var state in _rows.Where(r => r.Fixed is null))
+            // The operator's values of every row, and every value of the rows this window created: they hold their names even
+            // when the cached lookups predate their creation.
+            foreach (var state in _rows.Where(r => r.Fixed is null or BulkRowStatus.Created))
             {
-                foreach (var key in Keys(state.Values, d => d.IsOperatorValue))
+                var created = state.Fixed == BulkRowStatus.Created;
+                foreach (var key in Keys(state.Values, d => created || d.IsOperatorValue))
                 {
                     ReserveOperator(key, state.Number);
                 }
