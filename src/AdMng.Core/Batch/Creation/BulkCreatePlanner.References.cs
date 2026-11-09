@@ -58,7 +58,7 @@ public sealed partial class BulkCreatePlanner
             const string message = "The group has a fine-grained password policy that applies after the account joins it.";
             try
             {
-                var pso = await _lookups.ReadOnceAsync("pso\u0001" + Key(group.PasswordSettings[0]),
+                var pso = await ReadOnceAsync("pso\u0001" + Key(group.PasswordSettings[0]),
                     () => _session.GetAsync(group.PasswordSettings[0], [PsoMinimumLength, PsoComplexity], _cancellationToken)).ConfigureAwait(false);
                 if (pso?.GetInt32(PsoMinimumLength) is { } minimum)
                 {
@@ -80,7 +80,7 @@ public sealed partial class BulkCreatePlanner
             DirectoryObject? entry;
             try
             {
-                entry = await _lookups.ReadOnceAsync("group\u0001" + Key(dn),
+                entry = await ReadOnceAsync("group\u0001" + Key(dn),
                     () => _session.GetAsync(dn, [Attr.ObjectClass, Attr.GroupType, Attr.ObjectSid, Attr.Name, Attr.SamAccountName, PsoApplied], _cancellationToken))
                     .ConfigureAwait(false);
             }
@@ -109,7 +109,7 @@ public sealed partial class BulkCreatePlanner
 
             try
             {
-                var server = await _lookups.ReadOnceAsync("dc", () => FirstAsync(new DirectorySearch
+                var server = await ReadOnceAsync("dc", () => FirstAsync(new DirectorySearch
                 {
                     BaseDn = _session.Info.DefaultNamingContext,
                     Filter = LdapFilter.And(LdapFilter.Equal(Attr.ObjectClass, ObjectClasses.Computer), LdapFilter.Equal(Attr.DnsHostName, _session.Info.Server)),
@@ -121,7 +121,7 @@ public sealed partial class BulkCreatePlanner
                     return;
                 }
 
-                var ridSet = await _lookups.ReadOnceAsync("ridset",
+                var ridSet = await ReadOnceAsync("ridset",
                     () => _session.GetAsync(ridSetDn, ["rIDAllocationPool", "rIDNextRID"], _cancellationToken)).ConfigureAwait(false);
                 if (ridSet?.GetInt64("rIDAllocationPool") is not { } pool || ridSet.GetInt64("rIDNextRID") is not { } next)
                 {
@@ -137,7 +137,7 @@ public sealed partial class BulkCreatePlanner
                 }
 
                 var managerDn = Ldap.DistinguishedName.Parse(_session.Info.DefaultNamingContext).Child("CN", "System").Child("CN", "RID Manager$").ToString();
-                var manager = await _lookups.ReadOnceAsync("ridmanager",
+                var manager = await ReadOnceAsync("ridmanager",
                     () => _session.GetAsync(managerDn, ["fSMORoleOwner"], _cancellationToken)).ConfigureAwait(false);
                 if (IsThisServer(manager?.GetString("fSMORoleOwner")) == false)
                 {
@@ -163,7 +163,7 @@ public sealed partial class BulkCreatePlanner
             {
                 try
                 {
-                    trusted = await _lookups.ReadOnceAsync("joinowner", () => IsJoinOwnerAsync(ownerDn)).ConfigureAwait(false);
+                    trusted = await ReadOnceAsync("joinowner", () => IsJoinOwnerAsync(ownerDn)).ConfigureAwait(false);
                 }
                 catch (DirectoryException)
                 {
@@ -245,7 +245,7 @@ public sealed partial class BulkCreatePlanner
             var unknown = texts.Where(t => !index.IsKnown(t)).ToList();
             foreach (var dn in unknown.Where(IsDn))
             {
-                var entry = await _lookups.ReadOnceAsync("managerdn\u0001" + Key(dn),
+                var entry = await ReadOnceAsync("managerdn\u0001" + Key(dn),
                     () => _session.GetAsync(dn, [Attr.ObjectClass, Attr.SamAccountType, Attr.Name], _cancellationToken)).ConfigureAwait(false);
                 var found = entry is not null && IsManagerKind(entry) ? new[] { (dn, new LookupOwner(entry.DistinguishedName, entry.Dn.Name, false, false)) } : [];
                 index.Record([dn], found);

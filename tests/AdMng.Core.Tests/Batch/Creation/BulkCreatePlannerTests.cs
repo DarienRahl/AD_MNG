@@ -571,6 +571,24 @@ public sealed class BulkCreatePlannerTests
             _bed.Planner.ComputeAsync(_bed.Session, _bed.Input(BulkCreateTestBed.GeneratedRows(10)), _bed.Lookups, null, cancelled.Token));
     }
 
+    [Fact]
+    public async Task AComputationCancelledWhileItReads_DoesNotFailTheNextOne_OnTheSameLookups()
+    {
+        // An edit cancels the running computation and starts the next one at once; both use the lookups of the window, and
+        // the next one joins the run read the cancelled one started.
+        _bed.Session.Latency = TimeSpan.FromSeconds(30);
+        using var first = new CancellationTokenSource();
+        var cancelled = _bed.Planner.ComputeAsync(_bed.Session, _bed.Input(BulkCreateTestBed.People(TwoPeople)), _bed.Lookups, null, first.Token);
+        var next = _bed.Planner.ComputeAsync(_bed.Session, _bed.Input(BulkCreateTestBed.People(TwoPeople)), _bed.Lookups, null, BulkCreateTestBed.Ct);
+        _bed.Session.Latency = TimeSpan.Zero;
+        await first.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelled);
+        var computation = await next;
+        Assert.False(computation.HasRunErrors);
+        Assert.Equal(["kd202", "kd204"], BulkCreateTestBed.Values(computation, Attr.SamAccountName));
+    }
+
     // ------------------------------------------------------------------ the change plan
 
     [Fact]

@@ -57,20 +57,30 @@ public sealed class BulkCreateLookups(IDirectoryReader? forestReader = null)
 
     /// <summary>
     /// The cached result of a run read (<paramref name="key"/>: a constant plus DNs or names, never printed), computed once per
-    /// generation; a failed or cancelled read is forgotten, so the next call reads again.
+    /// generation; a failed or cancelled read is forgotten, so the next call reads again. A caller that joined the read of
+    /// another computation which was cancelled (the wizard cancels a computation and starts the next one at once, both on
+    /// these lookups) reads again itself instead of failing with that computation's cancellation.
     /// </summary>
-    internal async Task<T> ReadOnceAsync<T>(string key, Func<Task<T>> read)
+    internal async Task<T> ReadOnceAsync<T>(string key, Func<Task<T>> read, CancellationToken cancellationToken = default)
     {
-        var reads = Reads;
-        var lazy = (Lazy<Task<T>>)reads.GetOrAdd(key, _ => new Lazy<Task<T>>(() => CountedAsync(read)));
-        try
+        while (true)
         {
-            return await lazy.Value.ConfigureAwait(false);
-        }
-        catch
-        {
-            reads.TryRemove(new KeyValuePair<string, object>(key, lazy));
-            throw;
+            var reads = Reads;
+            var own = new Lazy<Task<T>>(() => CountedAsync(read));
+            var lazy = (Lazy<Task<T>>)reads.GetOrAdd(key, own);
+            try
+            {
+                return await lazy.Value.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!ReferenceEquals(lazy, own) && !cancellationToken.IsCancellationRequested)
+            {
+                reads.TryRemove(new KeyValuePair<string, object>(key, lazy));
+            }
+            catch
+            {
+                reads.TryRemove(new KeyValuePair<string, object>(key, lazy));
+                throw;
+            }
         }
     }
 

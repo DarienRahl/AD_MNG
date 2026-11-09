@@ -64,6 +64,9 @@ public sealed partial class BulkCreatePlanner
 
         private int Parallelism => Math.Clamp(_input.MaxParallelLookups, 1, 16);
 
+        /// <summary>A cached run read of the lookups; this run's token tells its own cancellation from another run's.</summary>
+        private Task<T> ReadOnceAsync<T>(string key, Func<Task<T>> read) => _lookups.ReadOnceAsync(key, read, _cancellationToken);
+
         public async Task<BulkCreateComputation> ExecuteAsync(IProgress<int>? progress)
         {
             await RunChecksAsync().ConfigureAwait(false);
@@ -103,7 +106,7 @@ public sealed partial class BulkCreatePlanner
             }
             else
             {
-                var container = await _lookups.ReadOnceAsync("container\u0001" + _containerDn,
+                var container = await ReadOnceAsync("container\u0001" + _containerDn,
                     () => _session.GetAsync(_containerDn, [Attr.ObjectClass], _cancellationToken)).ConfigureAwait(false);
                 if (container is null)
                 {
@@ -160,7 +163,7 @@ public sealed partial class BulkCreatePlanner
             ForestInfo? forest;
             try
             {
-                forest = await _lookups.ReadOnceAsync("forest", () => ForestScope.ReadAsync(_session, _cancellationToken)).ConfigureAwait(false);
+                forest = await ReadOnceAsync("forest", () => ForestScope.ReadAsync(_session, _cancellationToken)).ConfigureAwait(false);
             }
             catch (DirectoryException)
             {
@@ -191,7 +194,7 @@ public sealed partial class BulkCreatePlanner
             DirectoryObject? domain;
             try
             {
-                domain = await _lookups.ReadOnceAsync("domain",
+                domain = await ReadOnceAsync("domain",
                     () => _session.GetAsync(domainNc, ["minPwdLength", "pwdProperties", "fSMORoleOwner"], _cancellationToken)).ConfigureAwait(false);
             }
             catch (DirectoryException)
@@ -230,7 +233,7 @@ public sealed partial class BulkCreatePlanner
         {
             try
             {
-                return await _lookups.ReadOnceAsync("permissions\u0001" + Key(dn),
+                return await ReadOnceAsync("permissions\u0001" + Key(dn),
                     () => _session.GetEffectivePermissionsAsync(dn, _cancellationToken)).ConfigureAwait(false);
             }
             catch (DirectoryException)

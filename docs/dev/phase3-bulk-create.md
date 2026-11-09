@@ -1707,3 +1707,6 @@ does not need them), so `BulkCreateRecordSamples.Value` is unchanged. Deviations
   pipe could not be entered at all). An expiry cell is an Excel serial only with at least five whole digits: `31.12`
   (Excel's `dd.MM`, the xlsx built-in format 16) or `12.2026` was serial 31 / 12 – January 1900, an account that expired
   before it was created – and is now `InvalidDate`.
+  A computation that joins a run read (`ReadOnceAsync`) another computation started on the same lookups reads again when
+  that one is cancelled, instead of failing with its cancellation (an edit cancels a computation and starts the next at
+  once).
