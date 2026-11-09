@@ -109,13 +109,16 @@ public sealed class GpoSettingsIndexService : IGpoSettingsIndexService, IDisposa
                 return _view;
             }
 
-            if (_running is { IsCancelled: false } running && ReferenceEquals(running.Session, session) && refresh == GpoIndexRefresh.IfMissing)
+            // Join only a build made for this culture: one started before a language switch renders the old names.
+            if (_running is { IsCancelled: false } running && ReferenceEquals(running.Session, session) && refresh == GpoIndexRefresh.IfMissing
+                && Equals(running.Culture, culture))
             {
                 build = running;
             }
             else if (_running is not null)
             {
-                // A follow-up of the running build (or of a cancelled one still winding down, or of another session's):
+                // A follow-up of the running build (or of a cancelled one still winding down, of another session's, or of one
+                // made for the culture before a switch):
                 // exactly one, the stronger request. IfMissing becomes Incremental – it reuses the view only when it fits.
                 var kind = refresh == GpoIndexRefresh.IfMissing ? GpoIndexRefresh.Incremental : refresh;
                 _queued ??= new Build(kind, session, _services.Lifetime);
@@ -229,6 +232,7 @@ public sealed class GpoSettingsIndexService : IGpoSettingsIndexService, IDisposa
     {
         build.Generation = ++_generation;
         build.ChangesAtStart = _changes;
+        build.Culture = _services.Localizer.Culture;
         build.Previous = _view is not null && Fits(build.Session) ? _view : null;
         _running = build;
         _progress = new GpoIndexProgress(GpoIndexStage.Directory);
@@ -309,7 +313,7 @@ public sealed class GpoSettingsIndexService : IGpoSettingsIndexService, IDisposa
         var token = build.Token;
         var session = build.Session;
         var localizer = _services.Localizer;
-        var culture = localizer.Culture;
+        var culture = build.Culture!;
         var access = await _services.OpenSysvolAsync(session, token).ConfigureAwait(false);
         await using var sysvol = access.Connection;
 
@@ -468,6 +472,9 @@ public sealed class GpoSettingsIndexService : IGpoSettingsIndexService, IDisposa
 
         /// <summary>The service's count of <see cref="GroupPolicyServices.Changed"/> when the build started.</summary>
         public long ChangesAtStart { get; set; }
+
+        /// <summary>The window's culture when the build started (its definitions and names are of this culture).</summary>
+        public CultureInfo? Culture { get; set; }
 
         public int Waiters { get; set; }
 

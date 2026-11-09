@@ -142,6 +142,27 @@ public sealed class GpoSettingsIndexServiceTests
     }
 
     [Fact]
+    public async Task IfMissingAfterACultureSwitch_NeverJoinsTheBuildOfTheOldCulture()
+    {
+        // The cleanup tab's first read is running (Polish); the language switches and the search tab asks again.
+        var harness = await IndexHarness.CreateAsync();
+        harness.AddCentralStore();
+        using var service = new GpoSettingsIndexService(harness.Services);
+        var hold = harness.Sysvol.HoldNext("Read");
+
+        var polishRead = service.GetAsync(GpoIndexRefresh.IfMissing, Ct);
+        await hold.Reached.WaitAsync(TimeSpan.FromSeconds(30), Ct);
+        harness.B2.Localizer.SetCulture(CultureInfo.GetCultureInfo("en-US"));
+        var afterSwitch = service.GetAsync(GpoIndexRefresh.IfMissing, Ct);
+        hold.Release();
+
+        Assert.Equal("pl-PL", (await polishRead).Culture.Name);
+        var english = await afterSwitch;
+        Assert.Equal("en-US", english.Culture.Name);
+        Assert.Same(english, service.Current);
+    }
+
+    [Fact]
     public async Task ACultureSwitch_OnAStaleView_KeepsItStale()
     {
         var harness = await IndexHarness.CreateAsync();
