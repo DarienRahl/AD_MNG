@@ -21804,6 +21804,525 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <!-- F3 contract – bulk creation shared names (2.9): end -->
   <!-- F3 data, columns and naming rules (2.6): begin -->
+  <data name="BulkCreate.SourceHint" xml:space="preserve">
+    <value>Copy a range in Excel (with or without a header row) and press Ctrl+V or click Paste. You can also load an .xlsx or .csv file or type the data in the table. Excel copies hidden columns too, but not rows hidden by a filter.</value>
+  </data>
+  <data name="BulkCreate.Paste" xml:space="preserve">
+    <value>Paste</value>
+  </data>
+  <data name="BulkCreate.PasteToolTip" xml:space="preserve">
+    <value>Appends the rows from the clipboard (Ctrl+V); an empty table is filled</value>
+  </data>
+  <data name="BulkCreate.ReplaceWithPaste" xml:space="preserve">
+    <value>Paste and replace</value>
+  </data>
+  <data name="BulkCreate.ReplaceWithPasteToolTip" xml:space="preserve">
+    <value>Replaces the whole table with the rows from the clipboard</value>
+  </data>
+  <data name="BulkCreate.LoadFile" xml:space="preserve">
+    <value>Load file…</value>
+  </data>
+  <data name="BulkCreate.AddRow" xml:space="preserve">
+    <value>Add row</value>
+  </data>
+  <data name="BulkCreate.AddColumn" xml:space="preserve">
+    <value>Add column</value>
+  </data>
+  <data name="BulkCreate.NewColumnHeader" xml:space="preserve">
+    <value>Header of the new column</value>
+  </data>
+  <data name="BulkCreate.RemoveRows" xml:space="preserve">
+    <value>Remove selected rows</value>
+  </data>
+  <data name="BulkCreate.HeaderModeLabel" xml:space="preserve">
+    <value>First row contains headers</value>
+  </data>
+  <data name="BulkCreate.HeaderLineLabel" xml:space="preserve">
+    <value>Header row</value>
+  </data>
+  <data name="BulkCreate.ExcelRowOffsetLabel" xml:space="preserve">
+    <value>First data row in Excel</value>
+  </data>
+  <data name="BulkCreate.ExcelRowColumn" xml:space="preserve">
+    <value>Row</value>
+  </data>
+  <data name="BulkCreate.Reading" xml:space="preserve">
+    <value>Reading the data…</value>
+  </data>
+  <data name="BulkCreate.AppendRepeated" xml:space="preserve">
+    <value>Append anyway</value>
+  </data>
+  <data name="BulkCreate.ReplaceWithRepeated" xml:space="preserve">
+    <value>Replace</value>
+  </data>
+  <data name="BulkCreate.ClipboardEmpty" xml:space="preserve">
+    <value>The clipboard holds no table. Copy a range of cells in Excel and try again.</value>
+  </data>
+  <data name="BulkCreate.NoRowsRead" xml:space="preserve">
+    <value>No data rows were found.</value>
+  </data>
+  <data name="BulkCreate.FileTooLarge" xml:space="preserve">
+    <value>The file is larger than 50 MB and was not loaded.</value>
+  </data>
+  <data name="BulkCreate.InvalidFile" xml:space="preserve">
+    <value>The file could not be read as a spreadsheet or a CSV file.</value>
+  </data>
+  <data name="BulkCreate.OpenFileTitle" xml:space="preserve">
+    <value>Load data for the new accounts</value>
+  </data>
+  <data name="BulkCreate.FileFilter" xml:space="preserve">
+    <value>Spreadsheets and CSV files (*.xlsx;*.csv;*.txt)</value>
+  </data>
+  <data name="BulkCreate.LoadFileTitle" xml:space="preserve">
+    <value>Load file</value>
+  </data>
+  <data name="BulkCreate.ConfirmReplaceWithFile" xml:space="preserve">
+    <value>The file replaces the loaded data (rows: {0}). Continue?</value>
+  </data>
+  <data name="BulkCreate.ClearTitle" xml:space="preserve">
+    <value>Clear the table</value>
+  </data>
+  <data name="BulkCreate.ConfirmClear" xml:space="preserve">
+    <value>Remove all loaded data (rows: {0})? The edits of the check step are dropped too.</value>
+  </data>
+  <data name="BulkCreate.TooManyColumns" xml:space="preserve">
+    <value>The table cannot have more columns (limit: {0}).</value>
+  </data>
+  <data name="BulkCreate.HeaderLineOutOfRange" xml:space="preserve">
+    <value>Row {0} is not in the pasted range (rows: {1}).</value>
+  </data>
+  <data name="BulkCreate.SummaryNoHeader" xml:space="preserve">
+    <value>Rows: {0}, columns: {1} – no header row (columns are named by their letters)</value>
+  </data>
+  <data name="BulkCreate.SummaryHeaderDetected" xml:space="preserve">
+    <value>Rows: {0}, columns: {1} – headers recognized</value>
+  </data>
+  <data name="BulkCreate.SummaryHeader" xml:space="preserve">
+    <value>Rows: {0}, columns: {1} – with a header row</value>
+  </data>
+  <data name="BulkCreate.MoreWarnings" xml:space="preserve">
+    <value>More warnings: {0}</value>
+  </data>
+  <data name="BulkCreate.RepeatedPaste" xml:space="preserve">
+    <value>These rows are already pasted (repeated: {0} of {1}). Append them anyway, replace the table or cancel?</value>
+  </data>
+  <data name="BulkCreate.StarterHeaders" xml:space="preserve">
+    <value>Given name|Surname|E-mail|Mobile|Department</value>
+  </data>
+  <data name="BulkCreate.MaskedColumnToolTip" xml:space="preserve">
+    <value>This column looks like passwords: it is hidden and not used</value>
+  </data>
+  <data name="BulkCreate.ColumnsHint" xml:space="preserve">
+    <value>Each column of the sheet goes to an attribute, is used only in patterns or is skipped. The columns were recognized by their headers and contents – check and correct them.</value>
+  </data>
+  <data name="BulkCreate.ColumnHeader" xml:space="preserve">
+    <value>Column</value>
+  </data>
+  <data name="BulkCreate.SamplesHeader" xml:space="preserve">
+    <value>Samples</value>
+  </data>
+  <data name="BulkCreate.TargetHeader" xml:space="preserve">
+    <value>Use as</value>
+  </data>
+  <data name="BulkCreate.AttributeHeader" xml:space="preserve">
+    <value>Attribute</value>
+  </data>
+  <data name="BulkCreate.OrderHeader" xml:space="preserve">
+    <value>Name order</value>
+  </data>
+  <data name="BulkCreate.CaseHeader" xml:space="preserve">
+    <value>Case</value>
+  </data>
+  <data name="BulkCreate.NoteHeader" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="BulkCreate.AutoMap" xml:space="preserve">
+    <value>Recognize again</value>
+  </data>
+  <data name="BulkCreate.UseInternationalPhones" xml:space="preserve">
+    <value>International format</value>
+  </data>
+  <data name="BulkCreate.PasswordColumnNote" xml:space="preserve">
+    <value>looks like passwords – never used</value>
+  </data>
+  <data name="BulkCreate.ProfileMappingNote" xml:space="preserve">
+    <value>as remembered in the profile</value>
+  </data>
+  <data name="BulkCreate.PersonalIdentifierNote" xml:space="preserve">
+    <value>personal identifier – skipped (map it only if really needed)</value>
+  </data>
+  <data name="BulkCreate.DuplicateTargetNote" xml:space="preserve">
+    <value>another column already has this target – skipped</value>
+  </data>
+  <data name="BulkCreate.NoColumns" xml:space="preserve">
+    <value>The table has no columns.</value>
+  </data>
+  <data name="BulkCreate.ChooseAttribute" xml:space="preserve">
+    <value>Column „{0}”: choose the attribute.</value>
+  </data>
+  <data name="BulkCreate.AttributeNotSettable" xml:space="preserve">
+    <value>Column „{0}”: the attribute {1} cannot be set when creating objects.</value>
+  </data>
+  <data name="BulkCreate.TargetNotForKind" xml:space="preserve">
+    <value>Column „{0}”: „{1}” is not available for this kind of objects.</value>
+  </data>
+  <data name="BulkCreate.DuplicateTarget" xml:space="preserve">
+    <value>Columns „{0}” and „{1}” have the same target – skip one of them.</value>
+  </data>
+  <data name="BulkCreate.NothingMapped" xml:space="preserve">
+    <value>Every column is skipped – map at least one column.</value>
+  </data>
+  <data name="BulkCreate.SectionNames" xml:space="preserve">
+    <value>Names</value>
+  </data>
+  <data name="BulkCreate.SectionAccount" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="BulkCreate.SectionGroups" xml:space="preserve">
+    <value>Groups</value>
+  </data>
+  <data name="BulkCreate.SectionAdvanced" xml:space="preserve">
+    <value>Advanced</value>
+  </data>
+  <data name="BulkCreate.ProfileLabel" xml:space="preserve">
+    <value>Naming profile</value>
+  </data>
+  <data name="BulkCreate.ProfileTitle" xml:space="preserve">
+    <value>Naming profile</value>
+  </data>
+  <data name="BulkCreate.ProfileStandard" xml:space="preserve">
+    <value>Standard</value>
+  </data>
+  <data name="BulkCreate.ProfileNumbered" xml:space="preserve">
+    <value>Numbered accounts (kd201…)</value>
+  </data>
+  <data name="BulkCreate.ProfileModified" xml:space="preserve">
+    <value>(changed)</value>
+  </data>
+  <data name="BulkCreate.SaveProfile" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="BulkCreate.SaveProfileAs" xml:space="preserve">
+    <value>Save as…</value>
+  </data>
+  <data name="BulkCreate.DeleteProfile" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="BulkCreate.DefaultForContainer" xml:space="preserve">
+    <value>Default for this container</value>
+  </data>
+  <data name="BulkCreate.NewProfileNameLabel" xml:space="preserve">
+    <value>Profile name</value>
+  </data>
+  <data name="BulkCreate.ProfileCopyName" xml:space="preserve">
+    <value>{0} (copy)</value>
+  </data>
+  <data name="BulkCreate.SaveHeaders" xml:space="preserve">
+    <value>The profile also remembers the mapping of the columns: {0}.</value>
+  </data>
+  <data name="BulkCreate.SaveNoHeaders" xml:space="preserve">
+    <value>The profile saves the patterns and options only (no column headers to remember).</value>
+  </data>
+  <data name="BulkCreate.ProfileSaved" xml:space="preserve">
+    <value>Profile „{0}” saved.</value>
+  </data>
+  <data name="BulkCreate.ProfileSavedWithHeaders" xml:space="preserve">
+    <value>Profile „{0}” saved. Remembered columns: {1}.</value>
+  </data>
+  <data name="BulkCreate.ProfileNameRequired" xml:space="preserve">
+    <value>Type a name for the profile.</value>
+  </data>
+  <data name="BulkCreate.ProfileNameTaken" xml:space="preserve">
+    <value>A profile named „{0}” already exists.</value>
+  </data>
+  <data name="BulkCreate.TooManyProfiles" xml:space="preserve">
+    <value>No more profiles can be saved (limit: {0}). Delete a profile you no longer need.</value>
+  </data>
+  <data name="BulkCreate.DeleteProfileTitle" xml:space="preserve">
+    <value>Delete profile</value>
+  </data>
+  <data name="BulkCreate.ConfirmDeleteProfile" xml:space="preserve">
+    <value>Delete the naming profile „{0}”? Objects that were already created are not changed.</value>
+  </data>
+  <data name="BulkCreate.ProfileDeleted" xml:space="preserve">
+    <value>Profile „{0}” deleted.</value>
+  </data>
+  <data name="BulkCreate.DefaultNeedsSavedProfile" xml:space="preserve">
+    <value>A built-in profile cannot be a container's default – save it under a new name first.</value>
+  </data>
+  <data name="BulkCreate.ProfileIsDefault" xml:space="preserve">
+    <value>„{0}” is now the default profile of this container.</value>
+  </data>
+  <data name="BulkCreate.ProfileNotDefault" xml:space="preserve">
+    <value>„{0}” is no longer the default profile of this container.</value>
+  </data>
+  <data name="BulkCreate.ConfirmDiscardProfileChanges" xml:space="preserve">
+    <value>The changes of profile „{0}” are not saved. Discard them and switch the profile?</value>
+  </data>
+  <data name="BulkCreate.UpnSuffixMissing" xml:space="preserve">
+    <value>The profile's UPN suffix {0} is not in this forest – {1} is used.</value>
+  </data>
+  <data name="BulkCreate.GroupsFromOtherDomain" xml:space="preserve">
+    <value>The profile's groups (count: {0}) were chosen in the domain {1} and are not used here – choose the groups again.</value>
+  </data>
+  <data name="BulkCreate.HomeFoldersNote" xml:space="preserve">
+    <value>Home folders are not created – only the homeDirectory and homeDrive attributes can be set.</value>
+  </data>
+  <data name="BulkCreate.Numbering" xml:space="preserve">
+    <value>Numbering</value>
+  </data>
+  <data name="BulkCreate.CounterPrefixLabel" xml:space="preserve">
+    <value>Prefix</value>
+  </data>
+  <data name="BulkCreate.CounterStartLabel" xml:space="preserve">
+    <value>First number</value>
+  </data>
+  <data name="BulkCreate.CounterWidthLabel" xml:space="preserve">
+    <value>Digits (leading zeros)</value>
+  </data>
+  <data name="BulkCreate.CounterStepLabel" xml:space="preserve">
+    <value>Step</value>
+  </data>
+  <data name="BulkCreate.NoCounterHint" xml:space="preserve">
+    <value>The patterns use no counter. To number the accounts insert {{$nr:201}} (Insert field → Next number), e.g. kd{{$nr:201}}.</value>
+  </data>
+  <data name="BulkCreate.FirstNumberUnchecked" xml:space="preserve">
+    <value>First number: {0} (not checked in AD)</value>
+  </data>
+  <data name="BulkCreate.FirstFree" xml:space="preserve">
+    <value>First free number: {0}</value>
+  </data>
+  <data name="BulkCreate.FirstFreeWithHighest" xml:space="preserve">
+    <value>First free number: {0} (highest existing: {1})</value>
+  </data>
+  <data name="BulkCreate.RuleAttributeHeader" xml:space="preserve">
+    <value>Attribute</value>
+  </data>
+  <data name="BulkCreate.RulePatternHeader" xml:space="preserve">
+    <value>Pattern</value>
+  </data>
+  <data name="BulkCreate.RuleSampleHeader" xml:space="preserve">
+    <value>Sample</value>
+  </data>
+  <data name="BulkCreate.AddRule" xml:space="preserve">
+    <value>Add rule</value>
+  </data>
+  <data name="BulkCreate.RemoveRule" xml:space="preserve">
+    <value>Remove rule</value>
+  </data>
+  <data name="BulkCreate.InsertField" xml:space="preserve">
+    <value>Insert field</value>
+  </data>
+  <data name="BulkCreate.OverridesColumn" xml:space="preserve">
+    <value>Rule replaces the column</value>
+  </data>
+  <data name="BulkCreate.ApplyCounterFix" xml:space="preserve">
+    <value>Number them</value>
+  </data>
+  <data name="BulkCreate.UseMailAsUpn" xml:space="preserve">
+    <value>UPN = e-mail address</value>
+  </data>
+  <data name="BulkCreate.UpnSuffixLabel" xml:space="preserve">
+    <value>UPN suffix</value>
+  </data>
+  <data name="BulkCreate.UpnFromPattern" xml:space="preserve">
+    <value>from the pattern</value>
+  </data>
+  <data name="BulkCreate.MailDomainLabel" xml:space="preserve">
+    <value>E-mail domain</value>
+  </data>
+  <data name="BulkCreate.MailDomainNotRoutable" xml:space="preserve">
+    <value>The domain {0} does not receive mail from the internet – check the e-mail domain.</value>
+  </data>
+  <data name="BulkCreate.ChooseUpnSuffix" xml:space="preserve">
+    <value>Choose the UPN suffix.</value>
+  </data>
+  <data name="BulkCreate.ChooseRuleAttribute" xml:space="preserve">
+    <value>Choose the attribute of the rule.</value>
+  </data>
+  <data name="BulkCreate.CounterFixQuestion" xml:space="preserve">
+    <value>Number them from {0}? → {1}</value>
+  </data>
+  <data name="BulkCreate.ColumnPrecedenceNote" xml:space="preserve">
+    <value>Column „{0}” takes precedence – the rule applies to empty cells only</value>
+  </data>
+  <data name="BulkCreate.RuleOverridesColumnNote" xml:space="preserve">
+    <value>The rule replaces column „{0}”</value>
+  </data>
+  <data name="BulkCreate.ValueFromColumnHint" xml:space="preserve">
+    <value>no rule – the value comes from column „{0}”</value>
+  </data>
+  <data name="BulkCreate.NoRuleHint" xml:space="preserve">
+    <value>no rule – left empty</value>
+  </data>
+  <data name="BulkCreate.RuleProblem" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="BulkCreate.NameSourceMissing" xml:space="preserve">
+    <value>{0}: there is neither a rule nor a column – add a pattern or map a column.</value>
+  </data>
+  <data name="BulkCreate.SampleSanitized" xml:space="preserve">
+    <value>(characters changed)</value>
+  </data>
+  <data name="BulkCreate.SampleTruncated" xml:space="preserve">
+    <value>(shortened)</value>
+  </data>
+  <data name="BulkCreate.SampleLongest" xml:space="preserve">
+    <value>longest: {0}</value>
+  </data>
+  <data name="BulkCreate.TokenGroupFields" xml:space="preserve">
+    <value>Fields</value>
+  </data>
+  <data name="BulkCreate.TokenGroupColumns" xml:space="preserve">
+    <value>Columns</value>
+  </data>
+  <data name="BulkCreate.TokenGroupSpecial" xml:space="preserve">
+    <value>Special</value>
+  </data>
+  <data name="BulkCreate.TokenGroupFunctions" xml:space="preserve">
+    <value>Functions</value>
+  </data>
+  <data name="BulkCreate.TokenColumn" xml:space="preserve">
+    <value>Column „{0}”</value>
+  </data>
+  <data name="BulkCreate.TokenCounter" xml:space="preserve">
+    <value>Next number</value>
+  </data>
+  <data name="BulkCreate.TokenSuffix" xml:space="preserve">
+    <value>UPN suffix</value>
+  </data>
+  <data name="BulkCreate.TokenMailDomain" xml:space="preserve">
+    <value>E-mail domain</value>
+  </data>
+  <data name="BulkCreate.TokenDomain" xml:space="preserve">
+    <value>Domain (DNS name)</value>
+  </data>
+  <data name="BulkCreate.TokenParentName" xml:space="preserve">
+    <value>Container name</value>
+  </data>
+  <data name="BulkCreate.TokenDateIso" xml:space="preserve">
+    <value>Today's date (2026-11-09)</value>
+  </data>
+  <data name="BulkCreate.TokenDatePolish" xml:space="preserve">
+    <value>Today's date (09.11.2026)</value>
+  </data>
+  <data name="BulkCreate.TokenDefaultText" xml:space="preserve">
+    <value>text</value>
+  </data>
+  <data name="BulkCreate.PasswordModeLabel" xml:space="preserve">
+    <value>Initial password</value>
+  </data>
+  <data name="BulkCreate.GeneratedLengthLabel" xml:space="preserve">
+    <value>Password length</value>
+  </data>
+  <data name="BulkCreate.DomainMinimum" xml:space="preserve">
+    <value>domain minimum: {0}</value>
+  </data>
+  <data name="BulkCreate.SharedPasswordLabel" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="BulkCreate.ConfirmPasswordLabel" xml:space="preserve">
+    <value>Confirm password</value>
+  </data>
+  <data name="BulkCreate.SharedPasswordEnabledNote" xml:space="preserve">
+    <value>Everybody who knows this password can sign in to every account until its first password change.</value>
+  </data>
+  <data name="BulkCreate.MustChangeAtLogon" xml:space="preserve">
+    <value>User must change password at next logon</value>
+  </data>
+  <data name="BulkCreate.Enabled" xml:space="preserve">
+    <value>Account is enabled</value>
+  </data>
+  <data name="BulkCreate.HasExpiry" xml:space="preserve">
+    <value>Account expires: end of</value>
+  </data>
+  <data name="BulkCreate.LengthBelowDomain" xml:space="preserve">
+    <value>The domain requires passwords of at least this length: {0}.</value>
+  </data>
+  <data name="BulkCreate.ExpiryDateRequired" xml:space="preserve">
+    <value>Choose the expiry date.</value>
+  </data>
+  <data name="BulkCreate.ExpiryInPast" xml:space="preserve">
+    <value>The expiry date is in the past.</value>
+  </data>
+  <data name="BulkCreate.GroupScopeLabel" xml:space="preserve">
+    <value>Group scope</value>
+  </data>
+  <data name="BulkCreate.SecurityGroup" xml:space="preserve">
+    <value>Security group (otherwise distribution)</value>
+  </data>
+  <data name="BulkCreate.JoinerLabel" xml:space="preserve">
+    <value>User or group that can join the computers to the domain</value>
+  </data>
+  <data name="BulkCreate.NoJoiner" xml:space="preserve">
+    <value>(not chosen – Domain Admins)</value>
+  </data>
+  <data name="BulkCreate.JoinerNotFound" xml:space="preserve">
+    <value>The chosen user or group could not be read.</value>
+  </data>
+  <data name="BulkCreate.ContactNoAccount" xml:space="preserve">
+    <value>Contacts have no account and no password.</value>
+  </data>
+  <data name="BulkCreate.GroupsHint" xml:space="preserve">
+    <value>Every created object is added to these groups.</value>
+  </data>
+  <data name="BulkCreate.AddGroups" xml:space="preserve">
+    <value>Add groups…</value>
+  </data>
+  <data name="BulkCreate.NoGroups" xml:space="preserve">
+    <value>No groups chosen.</value>
+  </data>
+  <data name="BulkCreate.CounterModeLabel" xml:space="preserve">
+    <value>Counter</value>
+  </data>
+  <data name="BulkCreate.AvoidRecycleBin" xml:space="preserve">
+    <value>Do not reuse numbers of accounts in the AD Recycle Bin</value>
+  </data>
+  <data name="BulkCreate.CollisionsLabel" xml:space="preserve">
+    <value>When a name is taken</value>
+  </data>
+  <data name="BulkCreate.SanitizeIdentifiers" xml:space="preserve">
+    <value>Fix disallowed characters in identifiers (ą→a, spaces)</value>
+  </data>
+  <data name="BulkCreate.TruncateNames" xml:space="preserve">
+    <value>Shorten names that are too long (logon name 20, cn 64 characters)</value>
+  </data>
+  <data name="BulkCreate.AddPrimarySmtp" xml:space="preserve">
+    <value>Add the primary SMTP address to proxyAddresses (Microsoft 365 / Exchange)</value>
+  </data>
+  <data name="BulkCreate.PhonesLabel" xml:space="preserve">
+    <value>Phone numbers</value>
+  </data>
+  <data name="BulkCreate.MatchExisting" xml:space="preserve">
+    <value>Look for existing accounts of the same person</value>
+  </data>
+  <data name="BulkCreate.SummaryNoRecycleBin" xml:space="preserve">
+    <value>no numbers from the AD Recycle Bin</value>
+  </data>
+  <data name="BulkCreate.SummaryCollisions" xml:space="preserve">
+    <value>taken name: {0}</value>
+  </data>
+  <data name="BulkCreate.SummaryNoSanitize" xml:space="preserve">
+    <value>characters not fixed</value>
+  </data>
+  <data name="BulkCreate.SummaryNoTruncate" xml:space="preserve">
+    <value>names not shortened</value>
+  </data>
+  <data name="BulkCreate.SummaryPrimarySmtp" xml:space="preserve">
+    <value>SMTP address in proxyAddresses</value>
+  </data>
+  <data name="BulkCreate.SummaryInternationalPhones" xml:space="preserve">
+    <value>phones in international format</value>
+  </data>
+  <data name="BulkCreate.SummaryNoMatching" xml:space="preserve">
+    <value>no search for existing accounts</value>
+  </data>
+  <data name="BulkCreate.SeveralAtOnce" xml:space="preserve">
+    <value>Several at once…</value>
+  </data>
+  <data name="BulkCreate.SeveralAtOnceToolTip" xml:space="preserve">
+    <value>Opens the wizard that creates many objects of this kind from a sheet pasted from Excel</value>
+  </data>
   <!-- F3 data, columns and naming rules (2.6): end -->
   <!-- F3 check, plan and results (2.7): begin -->
   <!-- F3 check, plan and results (2.7): end -->

@@ -21804,6 +21804,525 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <!-- F3 contract – bulk creation shared names (2.9): end -->
   <!-- F3 data, columns and naming rules (2.6): begin -->
+  <data name="BulkCreate.SourceHint" xml:space="preserve">
+    <value>Skopiuj zakres w Excelu (z wierszem nagłówków lub bez) i naciśnij Ctrl+V albo kliknij Wklej. Możesz też wczytać plik .xlsx lub .csv albo wpisać dane w tabeli. Excel kopiuje także ukryte kolumny, ale nie wiersze ukryte filtrem.</value>
+  </data>
+  <data name="BulkCreate.Paste" xml:space="preserve">
+    <value>Wklej</value>
+  </data>
+  <data name="BulkCreate.PasteToolTip" xml:space="preserve">
+    <value>Dołącza wiersze ze schowka (Ctrl+V); pusta tabela zostanie wypełniona</value>
+  </data>
+  <data name="BulkCreate.ReplaceWithPaste" xml:space="preserve">
+    <value>Wklej i zastąp</value>
+  </data>
+  <data name="BulkCreate.ReplaceWithPasteToolTip" xml:space="preserve">
+    <value>Zastępuje całą tabelę wierszami ze schowka</value>
+  </data>
+  <data name="BulkCreate.LoadFile" xml:space="preserve">
+    <value>Wczytaj plik…</value>
+  </data>
+  <data name="BulkCreate.AddRow" xml:space="preserve">
+    <value>Dodaj wiersz</value>
+  </data>
+  <data name="BulkCreate.AddColumn" xml:space="preserve">
+    <value>Dodaj kolumnę</value>
+  </data>
+  <data name="BulkCreate.NewColumnHeader" xml:space="preserve">
+    <value>Nagłówek nowej kolumny</value>
+  </data>
+  <data name="BulkCreate.RemoveRows" xml:space="preserve">
+    <value>Usuń zaznaczone wiersze</value>
+  </data>
+  <data name="BulkCreate.HeaderModeLabel" xml:space="preserve">
+    <value>Pierwszy wiersz zawiera nagłówki</value>
+  </data>
+  <data name="BulkCreate.HeaderLineLabel" xml:space="preserve">
+    <value>Wiersz nagłówków</value>
+  </data>
+  <data name="BulkCreate.ExcelRowOffsetLabel" xml:space="preserve">
+    <value>Pierwszy wiersz danych w Excelu</value>
+  </data>
+  <data name="BulkCreate.ExcelRowColumn" xml:space="preserve">
+    <value>Wiersz</value>
+  </data>
+  <data name="BulkCreate.Reading" xml:space="preserve">
+    <value>Wczytywanie danych…</value>
+  </data>
+  <data name="BulkCreate.AppendRepeated" xml:space="preserve">
+    <value>Dołącz mimo to</value>
+  </data>
+  <data name="BulkCreate.ReplaceWithRepeated" xml:space="preserve">
+    <value>Zastąp</value>
+  </data>
+  <data name="BulkCreate.ClipboardEmpty" xml:space="preserve">
+    <value>Schowek nie zawiera tabeli. Skopiuj zakres komórek w Excelu i spróbuj ponownie.</value>
+  </data>
+  <data name="BulkCreate.NoRowsRead" xml:space="preserve">
+    <value>Nie znaleziono żadnych wierszy danych.</value>
+  </data>
+  <data name="BulkCreate.FileTooLarge" xml:space="preserve">
+    <value>Plik jest większy niż 50 MB i nie został wczytany.</value>
+  </data>
+  <data name="BulkCreate.InvalidFile" xml:space="preserve">
+    <value>Nie udało się odczytać pliku jako arkusza ani pliku CSV.</value>
+  </data>
+  <data name="BulkCreate.OpenFileTitle" xml:space="preserve">
+    <value>Wczytaj dane nowych kont</value>
+  </data>
+  <data name="BulkCreate.FileFilter" xml:space="preserve">
+    <value>Arkusze i pliki CSV (*.xlsx;*.csv;*.txt)</value>
+  </data>
+  <data name="BulkCreate.LoadFileTitle" xml:space="preserve">
+    <value>Wczytaj plik</value>
+  </data>
+  <data name="BulkCreate.ConfirmReplaceWithFile" xml:space="preserve">
+    <value>Plik zastąpi wczytane dane (wiersze: {0}). Kontynuować?</value>
+  </data>
+  <data name="BulkCreate.ClearTitle" xml:space="preserve">
+    <value>Wyczyść tabelę</value>
+  </data>
+  <data name="BulkCreate.ConfirmClear" xml:space="preserve">
+    <value>Usunąć wszystkie wczytane dane (wiersze: {0})? Poprawki z kroku Sprawdzenie również zostaną usunięte.</value>
+  </data>
+  <data name="BulkCreate.TooManyColumns" xml:space="preserve">
+    <value>Tabela nie może mieć więcej kolumn (limit: {0}).</value>
+  </data>
+  <data name="BulkCreate.HeaderLineOutOfRange" xml:space="preserve">
+    <value>Wiersz {0} nie należy do wklejonego zakresu (wiersze: {1}).</value>
+  </data>
+  <data name="BulkCreate.SummaryNoHeader" xml:space="preserve">
+    <value>Wiersze: {0}, kolumny: {1} – bez wiersza nagłówków (kolumny oznaczone literami)</value>
+  </data>
+  <data name="BulkCreate.SummaryHeaderDetected" xml:space="preserve">
+    <value>Wiersze: {0}, kolumny: {1} – nagłówki rozpoznane</value>
+  </data>
+  <data name="BulkCreate.SummaryHeader" xml:space="preserve">
+    <value>Wiersze: {0}, kolumny: {1} – z wierszem nagłówków</value>
+  </data>
+  <data name="BulkCreate.MoreWarnings" xml:space="preserve">
+    <value>Pozostałe ostrzeżenia: {0}</value>
+  </data>
+  <data name="BulkCreate.RepeatedPaste" xml:space="preserve">
+    <value>Te wiersze są już wklejone (powtórzone: {0} z {1}). Dołączyć je mimo to, zastąpić tabelę czy anulować?</value>
+  </data>
+  <data name="BulkCreate.StarterHeaders" xml:space="preserve">
+    <value>Imię|Nazwisko|E-mail|Telefon komórkowy|Dział</value>
+  </data>
+  <data name="BulkCreate.MaskedColumnToolTip" xml:space="preserve">
+    <value>Ta kolumna wygląda na hasła: jest ukryta i nie zostanie użyta</value>
+  </data>
+  <data name="BulkCreate.ColumnsHint" xml:space="preserve">
+    <value>Każda kolumna arkusza trafia do atrybutu, jest używana tylko we wzorcach albo zostaje pominięta. Kolumny rozpoznano po nagłówkach i zawartości – sprawdź je i w razie potrzeby popraw.</value>
+  </data>
+  <data name="BulkCreate.ColumnHeader" xml:space="preserve">
+    <value>Kolumna</value>
+  </data>
+  <data name="BulkCreate.SamplesHeader" xml:space="preserve">
+    <value>Przykłady</value>
+  </data>
+  <data name="BulkCreate.TargetHeader" xml:space="preserve">
+    <value>Przeznaczenie</value>
+  </data>
+  <data name="BulkCreate.AttributeHeader" xml:space="preserve">
+    <value>Atrybut</value>
+  </data>
+  <data name="BulkCreate.OrderHeader" xml:space="preserve">
+    <value>Kolejność</value>
+  </data>
+  <data name="BulkCreate.CaseHeader" xml:space="preserve">
+    <value>Wielkość liter</value>
+  </data>
+  <data name="BulkCreate.NoteHeader" xml:space="preserve">
+    <value>Uwagi</value>
+  </data>
+  <data name="BulkCreate.AutoMap" xml:space="preserve">
+    <value>Rozpoznaj ponownie</value>
+  </data>
+  <data name="BulkCreate.UseInternationalPhones" xml:space="preserve">
+    <value>Format międzynarodowy</value>
+  </data>
+  <data name="BulkCreate.PasswordColumnNote" xml:space="preserve">
+    <value>wygląda na hasła – nigdy nie jest używana</value>
+  </data>
+  <data name="BulkCreate.ProfileMappingNote" xml:space="preserve">
+    <value>jak zapamiętano w profilu</value>
+  </data>
+  <data name="BulkCreate.PersonalIdentifierNote" xml:space="preserve">
+    <value>identyfikator osobowy – pominięto (mapuj tylko, gdy to konieczne)</value>
+  </data>
+  <data name="BulkCreate.DuplicateTargetNote" xml:space="preserve">
+    <value>inna kolumna ma już to przeznaczenie – pominięto</value>
+  </data>
+  <data name="BulkCreate.NoColumns" xml:space="preserve">
+    <value>Tabela nie ma kolumn.</value>
+  </data>
+  <data name="BulkCreate.ChooseAttribute" xml:space="preserve">
+    <value>Kolumna „{0}”: wybierz atrybut.</value>
+  </data>
+  <data name="BulkCreate.AttributeNotSettable" xml:space="preserve">
+    <value>Kolumna „{0}”: atrybutu {1} nie można ustawić przy zakładaniu obiektów.</value>
+  </data>
+  <data name="BulkCreate.TargetNotForKind" xml:space="preserve">
+    <value>Kolumna „{0}”: „{1}” nie jest dostępne dla tego rodzaju obiektów.</value>
+  </data>
+  <data name="BulkCreate.DuplicateTarget" xml:space="preserve">
+    <value>Kolumny „{0}” i „{1}” mają to samo przeznaczenie – pomiń jedną z nich.</value>
+  </data>
+  <data name="BulkCreate.NothingMapped" xml:space="preserve">
+    <value>Wszystkie kolumny są pominięte – przypisz co najmniej jedną kolumnę.</value>
+  </data>
+  <data name="BulkCreate.SectionNames" xml:space="preserve">
+    <value>Nazwy</value>
+  </data>
+  <data name="BulkCreate.SectionAccount" xml:space="preserve">
+    <value>Konto</value>
+  </data>
+  <data name="BulkCreate.SectionGroups" xml:space="preserve">
+    <value>Grupy</value>
+  </data>
+  <data name="BulkCreate.SectionAdvanced" xml:space="preserve">
+    <value>Zaawansowane</value>
+  </data>
+  <data name="BulkCreate.ProfileLabel" xml:space="preserve">
+    <value>Profil nazewnictwa</value>
+  </data>
+  <data name="BulkCreate.ProfileTitle" xml:space="preserve">
+    <value>Profil nazewnictwa</value>
+  </data>
+  <data name="BulkCreate.ProfileStandard" xml:space="preserve">
+    <value>Standardowy</value>
+  </data>
+  <data name="BulkCreate.ProfileNumbered" xml:space="preserve">
+    <value>Konta numerowane (kd201…)</value>
+  </data>
+  <data name="BulkCreate.ProfileModified" xml:space="preserve">
+    <value>(zmieniony)</value>
+  </data>
+  <data name="BulkCreate.SaveProfile" xml:space="preserve">
+    <value>Zapisz</value>
+  </data>
+  <data name="BulkCreate.SaveProfileAs" xml:space="preserve">
+    <value>Zapisz jako…</value>
+  </data>
+  <data name="BulkCreate.DeleteProfile" xml:space="preserve">
+    <value>Usuń</value>
+  </data>
+  <data name="BulkCreate.DefaultForContainer" xml:space="preserve">
+    <value>Domyślny dla tego kontenera</value>
+  </data>
+  <data name="BulkCreate.NewProfileNameLabel" xml:space="preserve">
+    <value>Nazwa profilu</value>
+  </data>
+  <data name="BulkCreate.ProfileCopyName" xml:space="preserve">
+    <value>{0} (kopia)</value>
+  </data>
+  <data name="BulkCreate.SaveHeaders" xml:space="preserve">
+    <value>Profil zapamięta też przypisanie kolumn: {0}.</value>
+  </data>
+  <data name="BulkCreate.SaveNoHeaders" xml:space="preserve">
+    <value>Profil zapisze tylko wzorce i opcje (brak nagłówków kolumn do zapamiętania).</value>
+  </data>
+  <data name="BulkCreate.ProfileSaved" xml:space="preserve">
+    <value>Zapisano profil „{0}”.</value>
+  </data>
+  <data name="BulkCreate.ProfileSavedWithHeaders" xml:space="preserve">
+    <value>Zapisano profil „{0}”. Zapamiętane kolumny: {1}.</value>
+  </data>
+  <data name="BulkCreate.ProfileNameRequired" xml:space="preserve">
+    <value>Wpisz nazwę profilu.</value>
+  </data>
+  <data name="BulkCreate.ProfileNameTaken" xml:space="preserve">
+    <value>Profil o nazwie „{0}” już istnieje.</value>
+  </data>
+  <data name="BulkCreate.TooManyProfiles" xml:space="preserve">
+    <value>Nie można zapisać więcej profili (limit: {0}). Usuń profil, który nie jest już potrzebny.</value>
+  </data>
+  <data name="BulkCreate.DeleteProfileTitle" xml:space="preserve">
+    <value>Usuń profil</value>
+  </data>
+  <data name="BulkCreate.ConfirmDeleteProfile" xml:space="preserve">
+    <value>Usunąć profil nazewnictwa „{0}”? Utworzone już obiekty nie zostaną zmienione.</value>
+  </data>
+  <data name="BulkCreate.ProfileDeleted" xml:space="preserve">
+    <value>Usunięto profil „{0}”.</value>
+  </data>
+  <data name="BulkCreate.DefaultNeedsSavedProfile" xml:space="preserve">
+    <value>Profil wbudowany nie może być domyślny dla kontenera – najpierw zapisz go pod nową nazwą.</value>
+  </data>
+  <data name="BulkCreate.ProfileIsDefault" xml:space="preserve">
+    <value>„{0}” jest teraz domyślnym profilem tego kontenera.</value>
+  </data>
+  <data name="BulkCreate.ProfileNotDefault" xml:space="preserve">
+    <value>„{0}” nie jest już domyślnym profilem tego kontenera.</value>
+  </data>
+  <data name="BulkCreate.ConfirmDiscardProfileChanges" xml:space="preserve">
+    <value>Zmiany profilu „{0}” nie zostały zapisane. Odrzucić je i zmienić profil?</value>
+  </data>
+  <data name="BulkCreate.UpnSuffixMissing" xml:space="preserve">
+    <value>Sufiksu UPN z profilu ({0}) nie ma w tym lesie – użyto {1}.</value>
+  </data>
+  <data name="BulkCreate.GroupsFromOtherDomain" xml:space="preserve">
+    <value>Grupy z profilu (liczba: {0}) wybrano w domenie {1} i nie zostaną tu użyte – wybierz grupy ponownie.</value>
+  </data>
+  <data name="BulkCreate.HomeFoldersNote" xml:space="preserve">
+    <value>Foldery macierzyste nie są tworzone – można ustawić tylko atrybuty homeDirectory i homeDrive.</value>
+  </data>
+  <data name="BulkCreate.Numbering" xml:space="preserve">
+    <value>Numeracja</value>
+  </data>
+  <data name="BulkCreate.CounterPrefixLabel" xml:space="preserve">
+    <value>Prefiks</value>
+  </data>
+  <data name="BulkCreate.CounterStartLabel" xml:space="preserve">
+    <value>Pierwszy numer</value>
+  </data>
+  <data name="BulkCreate.CounterWidthLabel" xml:space="preserve">
+    <value>Liczba cyfr (zera z przodu)</value>
+  </data>
+  <data name="BulkCreate.CounterStepLabel" xml:space="preserve">
+    <value>Krok</value>
+  </data>
+  <data name="BulkCreate.NoCounterHint" xml:space="preserve">
+    <value>Wzorce nie używają licznika. Aby numerować konta, wstaw {{$nr:201}} (Wstaw pole → Kolejny numer), np. kd{{$nr:201}}.</value>
+  </data>
+  <data name="BulkCreate.FirstNumberUnchecked" xml:space="preserve">
+    <value>Pierwszy numer: {0} (bez sprawdzenia w AD)</value>
+  </data>
+  <data name="BulkCreate.FirstFree" xml:space="preserve">
+    <value>Pierwszy wolny numer: {0}</value>
+  </data>
+  <data name="BulkCreate.FirstFreeWithHighest" xml:space="preserve">
+    <value>Pierwszy wolny numer: {0} (najwyższy istniejący: {1})</value>
+  </data>
+  <data name="BulkCreate.RuleAttributeHeader" xml:space="preserve">
+    <value>Atrybut</value>
+  </data>
+  <data name="BulkCreate.RulePatternHeader" xml:space="preserve">
+    <value>Wzorzec</value>
+  </data>
+  <data name="BulkCreate.RuleSampleHeader" xml:space="preserve">
+    <value>Przykład</value>
+  </data>
+  <data name="BulkCreate.AddRule" xml:space="preserve">
+    <value>Dodaj regułę</value>
+  </data>
+  <data name="BulkCreate.RemoveRule" xml:space="preserve">
+    <value>Usuń regułę</value>
+  </data>
+  <data name="BulkCreate.InsertField" xml:space="preserve">
+    <value>Wstaw pole</value>
+  </data>
+  <data name="BulkCreate.OverridesColumn" xml:space="preserve">
+    <value>Reguła zastępuje kolumnę</value>
+  </data>
+  <data name="BulkCreate.ApplyCounterFix" xml:space="preserve">
+    <value>Numeruj</value>
+  </data>
+  <data name="BulkCreate.UseMailAsUpn" xml:space="preserve">
+    <value>UPN = adres e-mail</value>
+  </data>
+  <data name="BulkCreate.UpnSuffixLabel" xml:space="preserve">
+    <value>Sufiks UPN</value>
+  </data>
+  <data name="BulkCreate.UpnFromPattern" xml:space="preserve">
+    <value>z wzorca</value>
+  </data>
+  <data name="BulkCreate.MailDomainLabel" xml:space="preserve">
+    <value>Domena adresów e-mail</value>
+  </data>
+  <data name="BulkCreate.MailDomainNotRoutable" xml:space="preserve">
+    <value>Domena {0} nie odbiera poczty z internetu – sprawdź domenę adresów e-mail.</value>
+  </data>
+  <data name="BulkCreate.ChooseUpnSuffix" xml:space="preserve">
+    <value>Wybierz sufiks UPN.</value>
+  </data>
+  <data name="BulkCreate.ChooseRuleAttribute" xml:space="preserve">
+    <value>Wybierz atrybut reguły.</value>
+  </data>
+  <data name="BulkCreate.CounterFixQuestion" xml:space="preserve">
+    <value>Numerować kolejno od {0}? → {1}</value>
+  </data>
+  <data name="BulkCreate.ColumnPrecedenceNote" xml:space="preserve">
+    <value>Kolumna „{0}” ma pierwszeństwo – reguła działa tylko dla pustych komórek</value>
+  </data>
+  <data name="BulkCreate.RuleOverridesColumnNote" xml:space="preserve">
+    <value>Reguła zastępuje kolumnę „{0}”</value>
+  </data>
+  <data name="BulkCreate.ValueFromColumnHint" xml:space="preserve">
+    <value>bez reguły – wartość z kolumny „{0}”</value>
+  </data>
+  <data name="BulkCreate.NoRuleHint" xml:space="preserve">
+    <value>bez reguły – pole pozostanie puste</value>
+  </data>
+  <data name="BulkCreate.RuleProblem" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="BulkCreate.NameSourceMissing" xml:space="preserve">
+    <value>{0}: brak reguły i kolumny – dodaj wzorzec albo przypisz kolumnę.</value>
+  </data>
+  <data name="BulkCreate.SampleSanitized" xml:space="preserve">
+    <value>(zmieniono znaki)</value>
+  </data>
+  <data name="BulkCreate.SampleTruncated" xml:space="preserve">
+    <value>(skrócono)</value>
+  </data>
+  <data name="BulkCreate.SampleLongest" xml:space="preserve">
+    <value>najdłuższy: {0}</value>
+  </data>
+  <data name="BulkCreate.TokenGroupFields" xml:space="preserve">
+    <value>Pola</value>
+  </data>
+  <data name="BulkCreate.TokenGroupColumns" xml:space="preserve">
+    <value>Kolumny</value>
+  </data>
+  <data name="BulkCreate.TokenGroupSpecial" xml:space="preserve">
+    <value>Specjalne</value>
+  </data>
+  <data name="BulkCreate.TokenGroupFunctions" xml:space="preserve">
+    <value>Funkcje</value>
+  </data>
+  <data name="BulkCreate.TokenColumn" xml:space="preserve">
+    <value>Kolumna „{0}”</value>
+  </data>
+  <data name="BulkCreate.TokenCounter" xml:space="preserve">
+    <value>Kolejny numer</value>
+  </data>
+  <data name="BulkCreate.TokenSuffix" xml:space="preserve">
+    <value>Sufiks UPN</value>
+  </data>
+  <data name="BulkCreate.TokenMailDomain" xml:space="preserve">
+    <value>Domena adresów e-mail</value>
+  </data>
+  <data name="BulkCreate.TokenDomain" xml:space="preserve">
+    <value>Domena (nazwa DNS)</value>
+  </data>
+  <data name="BulkCreate.TokenParentName" xml:space="preserve">
+    <value>Nazwa kontenera</value>
+  </data>
+  <data name="BulkCreate.TokenDateIso" xml:space="preserve">
+    <value>Dzisiejsza data (2026-11-09)</value>
+  </data>
+  <data name="BulkCreate.TokenDatePolish" xml:space="preserve">
+    <value>Dzisiejsza data (09.11.2026)</value>
+  </data>
+  <data name="BulkCreate.TokenDefaultText" xml:space="preserve">
+    <value>tekst</value>
+  </data>
+  <data name="BulkCreate.PasswordModeLabel" xml:space="preserve">
+    <value>Hasło początkowe</value>
+  </data>
+  <data name="BulkCreate.GeneratedLengthLabel" xml:space="preserve">
+    <value>Długość hasła</value>
+  </data>
+  <data name="BulkCreate.DomainMinimum" xml:space="preserve">
+    <value>minimum domeny: {0}</value>
+  </data>
+  <data name="BulkCreate.SharedPasswordLabel" xml:space="preserve">
+    <value>Hasło</value>
+  </data>
+  <data name="BulkCreate.ConfirmPasswordLabel" xml:space="preserve">
+    <value>Potwierdź hasło</value>
+  </data>
+  <data name="BulkCreate.SharedPasswordEnabledNote" xml:space="preserve">
+    <value>Wszyscy będą znać hasło każdego konta do pierwszej zmiany hasła.</value>
+  </data>
+  <data name="BulkCreate.MustChangeAtLogon" xml:space="preserve">
+    <value>Użytkownik musi zmienić hasło przy następnym logowaniu</value>
+  </data>
+  <data name="BulkCreate.Enabled" xml:space="preserve">
+    <value>Konto włączone</value>
+  </data>
+  <data name="BulkCreate.HasExpiry" xml:space="preserve">
+    <value>Konto wygasa: koniec dnia</value>
+  </data>
+  <data name="BulkCreate.LengthBelowDomain" xml:space="preserve">
+    <value>Domena wymaga haseł o długości co najmniej: {0}.</value>
+  </data>
+  <data name="BulkCreate.ExpiryDateRequired" xml:space="preserve">
+    <value>Wybierz datę wygaśnięcia.</value>
+  </data>
+  <data name="BulkCreate.ExpiryInPast" xml:space="preserve">
+    <value>Data wygaśnięcia jest w przeszłości.</value>
+  </data>
+  <data name="BulkCreate.GroupScopeLabel" xml:space="preserve">
+    <value>Zakres grupy</value>
+  </data>
+  <data name="BulkCreate.SecurityGroup" xml:space="preserve">
+    <value>Grupa zabezpieczeń (w przeciwnym razie dystrybucyjna)</value>
+  </data>
+  <data name="BulkCreate.JoinerLabel" xml:space="preserve">
+    <value>Użytkownik lub grupa, która może dołączyć komputery do domeny</value>
+  </data>
+  <data name="BulkCreate.NoJoiner" xml:space="preserve">
+    <value>(nie wybrano – Administratorzy domeny)</value>
+  </data>
+  <data name="BulkCreate.JoinerNotFound" xml:space="preserve">
+    <value>Nie udało się odczytać wybranego użytkownika lub grupy.</value>
+  </data>
+  <data name="BulkCreate.ContactNoAccount" xml:space="preserve">
+    <value>Kontakty nie mają konta ani hasła.</value>
+  </data>
+  <data name="BulkCreate.GroupsHint" xml:space="preserve">
+    <value>Każdy utworzony obiekt zostanie dodany do tych grup.</value>
+  </data>
+  <data name="BulkCreate.AddGroups" xml:space="preserve">
+    <value>Dodaj grupy…</value>
+  </data>
+  <data name="BulkCreate.NoGroups" xml:space="preserve">
+    <value>Nie wybrano grup.</value>
+  </data>
+  <data name="BulkCreate.CounterModeLabel" xml:space="preserve">
+    <value>Licznik</value>
+  </data>
+  <data name="BulkCreate.AvoidRecycleBin" xml:space="preserve">
+    <value>Nie używaj ponownie numerów z Kosza AD</value>
+  </data>
+  <data name="BulkCreate.CollisionsLabel" xml:space="preserve">
+    <value>Gdy nazwa jest zajęta</value>
+  </data>
+  <data name="BulkCreate.SanitizeIdentifiers" xml:space="preserve">
+    <value>Poprawiaj niedozwolone znaki w identyfikatorach (ą→a, spacje)</value>
+  </data>
+  <data name="BulkCreate.TruncateNames" xml:space="preserve">
+    <value>Skracaj za długie nazwy (nazwa logowania 20, cn 64 znaki)</value>
+  </data>
+  <data name="BulkCreate.AddPrimarySmtp" xml:space="preserve">
+    <value>Dodaj główny adres SMTP do proxyAddresses (Microsoft 365 / Exchange)</value>
+  </data>
+  <data name="BulkCreate.PhonesLabel" xml:space="preserve">
+    <value>Numery telefonów</value>
+  </data>
+  <data name="BulkCreate.MatchExisting" xml:space="preserve">
+    <value>Szukaj istniejących kont tej osoby</value>
+  </data>
+  <data name="BulkCreate.SummaryNoRecycleBin" xml:space="preserve">
+    <value>bez numerów z Kosza AD</value>
+  </data>
+  <data name="BulkCreate.SummaryCollisions" xml:space="preserve">
+    <value>zajęta nazwa: {0}</value>
+  </data>
+  <data name="BulkCreate.SummaryNoSanitize" xml:space="preserve">
+    <value>bez poprawiania znaków</value>
+  </data>
+  <data name="BulkCreate.SummaryNoTruncate" xml:space="preserve">
+    <value>bez skracania nazw</value>
+  </data>
+  <data name="BulkCreate.SummaryPrimarySmtp" xml:space="preserve">
+    <value>adres SMTP w proxyAddresses</value>
+  </data>
+  <data name="BulkCreate.SummaryInternationalPhones" xml:space="preserve">
+    <value>telefony w formacie międzynarodowym</value>
+  </data>
+  <data name="BulkCreate.SummaryNoMatching" xml:space="preserve">
+    <value>bez szukania istniejących kont</value>
+  </data>
+  <data name="BulkCreate.SeveralAtOnce" xml:space="preserve">
+    <value>Wiele naraz…</value>
+  </data>
+  <data name="BulkCreate.SeveralAtOnceToolTip" xml:space="preserve">
+    <value>Otwiera kreator zakładania wielu obiektów tego rodzaju z arkusza wklejonego z Excela</value>
+  </data>
   <!-- F3 data, columns and naming rules (2.6): end -->
   <!-- F3 check, plan and results (2.7): begin -->
   <!-- F3 check, plan and results (2.7): end -->
