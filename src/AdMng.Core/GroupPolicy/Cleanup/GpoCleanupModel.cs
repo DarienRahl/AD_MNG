@@ -68,6 +68,12 @@ public enum GpoCleanupNote
 
     /// <summary>The preference item has removePolicy="1": clients undo it when it disappears from the GPO.</summary>
     RemovePolicy,
+
+    /// <summary>
+    /// Merge: in a container that links both, a GPO linked between the two sets a setting this GPO sets (or its content is
+    /// unknown): after the merge the settings take the target's position and pass it in precedence.
+    /// </summary>
+    LinkedBetween,
 }
 
 /// <summary>One proposal of the cleanup advisor (in memory only; no directory values in <see cref="ToString"/>).</summary>

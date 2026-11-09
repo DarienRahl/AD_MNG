@@ -54,6 +54,31 @@ public sealed class GpoCleanupMergeTests
         Assert.Equal([GpoCleanupNote.LinkOrderDiffers], proposal.Notes);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Merge_AGpoLinkedBetweenTheSourceAndAHigherTarget_SettingTheSameSetting_IsNoted(bool sameSetting)
+    {
+        // OU=Serwery: Inspekcja (order 1, the target), IT – Zabezpieczenia (order 2), Pulpit zdalny (order 3, the source).
+        // Today the middle GPO's value of the right beats the source's; after the merge it would lose to it.
+        var index = new CleanupIndex();
+        var audit = index.Gpo("Porządki – Inspekcja", Audit("0CCE9215-69AE-11D9-BED3-505054503030", "3"), Audit("0CCE923F-69AE-11D9-BED3-505054503030", "1"));
+        var middle = index.Gpo("IT – Zabezpieczenia", sameSetting
+            ? Units.Value(Units.RemoteDesktopRight, "S-1-5-32-544", kind: GpoSettingUnitKind.UserRight)
+            : Units.Value("O|Computer/Security/Services/Spooler", "StartupMode=4", kind: GpoSettingUnitKind.Service));
+        var remote = index.Gpo("Porządki – Pulpit zdalny", Units.Value(Units.RemoteDesktopRight, "S-1-5-32-555", kind: GpoSettingUnitKind.UserRight));
+        audit.SecurityDescriptor = AuthenticatedUsers;
+        remote.SecurityDescriptor = AuthenticatedUsers;
+        middle.SecurityDescriptor = Filter([AccountingGroupSid]); // not in the merge group
+        index.Link(Serwery, audit).Link(Serwery, middle).Link(Serwery, remote);
+
+        var proposal = Assert.Single(Merges(index.Analyze()));
+
+        Assert.Equal((remote.Id, audit.Id), (proposal.GpoId, Assert.Single(proposal.RelatedGpoIds)));
+        Assert.Equal([GpoCleanupAction.Merge], proposal.Actions);
+        Assert.Equal(sameSetting ? [GpoCleanupNote.LinkedBetween] : [], proposal.Notes);
+    }
+
     [Fact]
     public void Merge_ThreeGpos_EachIntoTheLargest()
     {

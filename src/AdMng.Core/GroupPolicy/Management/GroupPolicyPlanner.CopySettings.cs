@@ -319,6 +319,13 @@ public sealed partial class GroupPolicyPlanner
                     a.DisplayName, b.DisplayName, container.Name);
             }
 
+            // A GPO linked between the two: A's settings pass it in precedence (up or down) once they sit in B.
+            if (linkB is not null && container.Links.Links.Any(l => l.Enabled && l.Order > Math.Min(linkA.Order, linkB.Order) && l.Order < Math.Max(linkA.Order, linkB.Order)))
+            {
+                Add(warnings, IssueSeverity.Warning, IssueCodes.GpoMergeLinkedBetween, "In this container other GPOs are linked between the merged GPO and the target.",
+                    a.DisplayName, b.DisplayName, container.Name);
+            }
+
             var commands = new List<PowerShellCommand>();
             if (linkB is null)
             {

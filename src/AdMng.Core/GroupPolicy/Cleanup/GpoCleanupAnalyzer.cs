@@ -174,6 +174,18 @@ public static partial class GpoCleanupAnalyzer
             {
                 actions.Add(GpoCleanupAction.Merge);
             }
+
+            // The same link-order remarks as a merge candidate's, for any of the targets.
+            var targets = related.Select(context.Find).OfType<GpoIndexEntry>().ToList();
+            if (targets.Any(t => RanksAbove(entry, t)))
+            {
+                notes.Add(GpoCleanupNote.LinkOrderDiffers);
+            }
+
+            if (targets.Any(t => LinkedBetween(context, entry, t)))
+            {
+                notes.Add(GpoCleanupNote.LinkedBetween);
+            }
         }
 
         if (unit.RemovePolicy)

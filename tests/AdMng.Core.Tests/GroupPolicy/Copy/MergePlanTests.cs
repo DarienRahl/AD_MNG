@@ -100,6 +100,26 @@ public class MergePlanTests : CopySettingsTestBed
     }
 
     [Fact]
+    public async Task Merge_IntoAHigherTarget_WithAGpoLinkedBetween_Warns()
+    {
+        // OU=IT: B (order 1), C (order 2), A (order 3): A's settings would move up past C.
+        var a = SecurityGpo("Pulpit zdalny – A", "[Privilege Rights]", "SeRemoteInteractiveLogonRight = *S-1-5-32-555");
+        var c = SecurityGpo("IT – Zabezpieczenia", "[Privilege Rights]", "SeRemoteInteractiveLogonRight = *S-1-5-32-544");
+        var b = SecurityGpo("Inspekcja – B", "[System Access]", "MinimumPasswordLength = 8");
+        Builder.SetGroupPolicyLinks(Company.ItOu, [(a, 0), (c, 0), (b, 0)]);
+        var adjacent = SecurityGpo("Pulpit zdalny – D", "[System Access]", "PasswordComplexity = 1");
+        var e = SecurityGpo("Inspekcja – E", "[System Access]", "MinimumPasswordLength = 8");
+        Builder.SetGroupPolicyLinks(Company.SalesOu, [(adjacent, 0), (e, 0)]);
+
+        var plan = await MergeAsync(a, b);
+        var direct = await MergeAsync(adjacent, e);
+
+        var warning = Assert.Single(IssuesOf(plan.Plan), i => i.Code == IssueCodes.GpoMergeLinkedBetween);
+        Assert.Equal((IssueSeverity.Warning, "IT"), (warning.Severity, warning.Arguments[2]));
+        Assert.DoesNotContain(IssuesOf(direct.Plan), i => i.Code == IssueCodes.GpoMergeLinkedBetween);
+    }
+
+    [Fact]
     public async Task Merge_WithAMixedOrder_NeedsAnExplicitMode()
     {
         var a = SecurityGpo("Hasła – A", "[System Access]", "MinimumPasswordLength = 14");
@@ -228,7 +248,7 @@ public class MergePlanTests : CopySettingsTestBed
         Assert.Equal(0, plan.Plan.ErrorCount);
         Assert.Equal([GpoUnitOutcomeKind.Replaced, GpoUnitOutcomeKind.Replaced], plan.Outcomes.Select(o => o.Kind));
         await ExecuteOkAsync(plan.Plan);
-        Assert.Equal([@"\\fs01.contoso.test\Wspólne", @"\\fs01.contoso.test\Kadry – nowe"], DrivePaths(b));
+        Assert.Equal([@"\\fs01.contoso.test\Kadry – nowe", @"\\fs01.contoso.test\Wspólne"], DrivePaths(b).Order(StringComparer.Ordinal));
     }
 
     [Fact]

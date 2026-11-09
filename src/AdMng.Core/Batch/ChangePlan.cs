@@ -370,6 +370,9 @@ public static class IssueCodes
 
     /// <summary>Merge (K7): GPOs {0} and {1} have different WMI filters.</summary>
     public const string GpoMergeWmiFilterDiffers = "GpoMergeWmiFilterDiffers";
+
+    /// <summary>Merge (K7): in {2}, other GPOs are linked between GPO {0} and GPO {1}: {0}'s settings take {1}'s position there and pass them in precedence.</summary>
+    public const string GpoMergeLinkedBetween = "GpoMergeLinkedBetween";
 }
 
 /// <summary>One step for one object. Steps of an object run sequentially in list order.</summary>

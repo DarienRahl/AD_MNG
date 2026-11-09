@@ -169,7 +169,7 @@ public sealed class GpoCleanupAnalyzerTests
             Units.Value("A|{0CCE923F-69AE-11D9-BED3-505054503030}", "1", kind: GpoSettingUnitKind.AuditSubcategory));
         var otherLinks = index.Gpo("Serwery – Hasła", Units.Value(Units.MinimumPasswordLength, "12"), Units.Value("K|Computer/Security/System Access/PasswordComplexity", "1"));
         var enforced = index.Gpo("Serwery – Wymuszone", Units.Value("K|Computer/Security/Event Audit/AuditLogonEvents", "3"), Units.Value("K|Computer/Security/Event Audit/AuditPrivilegeUse", "2"));
-        index.Link(Serwery, single).Link(Serwery, bigger).Link(Serwery, otherLinks).Link(Firma, otherLinks).Link(Serwery, enforced, enforced: true);
+        index.Link(Serwery, bigger).Link(Serwery, single).Link(Serwery, otherLinks).Link(Firma, otherLinks).Link(Serwery, enforced, enforced: true);
 
         var result = index.Analyze();
 
@@ -180,6 +180,34 @@ public sealed class GpoCleanupAnalyzerTests
         Assert.Equal([Serwery], proposal.ContainerDns);
         Assert.Empty(proposal.Notes);
         Assert.Empty(proposal.BlockingUnitIds);
+    }
+
+    [Fact]
+    public void SingleSetting_MergeTargets_GetTheLinkOrderNotes()
+    {
+        // OU=Serwery: Pulpit zdalny (1), Inspekcja (2) – the single setting ranks above its target; and Inspekcja (1),
+        // IT – Zabezpieczenia (2, same right), Pulpit zdalny B (3) – a GPO between sets the setting.
+        var index = new CleanupIndex();
+        var above = index.Gpo("Porządki – Pulpit zdalny", Units.Value(Units.RemoteDesktopRight, "S-1-5-32-555", kind: GpoSettingUnitKind.UserRight));
+        var target = index.Gpo("Serwery – Inspekcja", Units.Value(Units.LogonAudit, "3", kind: GpoSettingUnitKind.AuditSubcategory),
+            Units.Value("A|{0CCE923F-69AE-11D9-BED3-505054503030}", "1", kind: GpoSettingUnitKind.AuditSubcategory));
+        index.Link(Serwery, above).Link(Serwery, target);
+        var second = new CleanupIndex();
+        var targetB = second.Gpo("Serwery – Inspekcja", Units.Value(Units.LogonAudit, "3", kind: GpoSettingUnitKind.AuditSubcategory),
+            Units.Value("A|{0CCE923F-69AE-11D9-BED3-505054503030}", "1", kind: GpoSettingUnitKind.AuditSubcategory));
+        var middle = second.Gpo("IT – Zabezpieczenia", Units.Value(Units.RemoteDesktopRight, "S-1-5-32-544", kind: GpoSettingUnitKind.UserRight),
+            Units.Value(Units.MinimumPasswordLength, "12"));
+        middle.SecurityDescriptor = Filter([AccountingGroupSid]);
+        var below = second.Gpo("Porządki – Pulpit zdalny B", Units.Value(Units.RemoteDesktopRight, "S-1-5-32-555", kind: GpoSettingUnitKind.UserRight));
+        second.Link(Serwery, targetB).Link(Serwery, middle).Link(Serwery, below);
+
+        var ranksAbove = Single(index.Analyze(), GpoCleanupKind.SingleSettingGpo, above.Id);
+        var linkedBetween = Single(second.Analyze(), GpoCleanupKind.SingleSettingGpo, below.Id);
+
+        Assert.Contains(GpoCleanupAction.Merge, ranksAbove.Actions);
+        Assert.Equal([GpoCleanupNote.LinkOrderDiffers], ranksAbove.Notes);
+        Assert.Equal([targetB.Id], linkedBetween.RelatedGpoIds);
+        Assert.Equal([GpoCleanupNote.LinkedBetween], linkedBetween.Notes);
     }
 
     [Fact]
@@ -241,7 +269,7 @@ public sealed class GpoCleanupAnalyzerTests
         var single = index.Gpo("Użytkownicy – Tapeta (wyłączona część)", Units.Registry("a.jpg"));
         single.GpoStatus = GpoStatus.UserSettingsDisabled;
         var target = index.Gpo("Użytkownicy – Inne", Units.Registry("b.jpg") with { Id = "K|y", BaseId = "K|y" }, Units.Drive(@"\\fs01\Wspólne", "{W}"));
-        index.Link(Firma, single).Link(Firma, target);
+        index.Link(Firma, target).Link(Firma, single);
 
         var proposal = Single(index.Analyze(), GpoCleanupKind.SingleSettingGpo, single.Id);
 

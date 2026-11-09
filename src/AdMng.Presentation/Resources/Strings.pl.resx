@@ -12206,6 +12206,9 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Issue.GpoMergeWmiFilterDiffers" xml:space="preserve">
     <value>{0} i {1} mają różne filtry WMI.</value>
   </data>
+  <data name="Issue.GpoMergeLinkedBetween" xml:space="preserve">
+    <value>W {2} między {0} a {1} są połączone inne obiekty GPO: po scaleniu ustawienia {0} zajmą pozycję {1} i miną te obiekty w kolejności pierwszeństwa, więc wynik zmieni się wszędzie tam, gdzie któryś z nich ustawia to samo ustawienie.</value>
+  </data>
   <!-- K7 copy issues (21.5): end -->
   <!-- K7 copy refusals (21.5): start -->
   <data name="GpoCopy.Refusal.Secret" xml:space="preserve">
@@ -12680,6 +12683,9 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   </data>
   <data name="GpoCleanup.Note.RemovePolicy" xml:space="preserve">
     <value>Element preferencji ma opcję „Usuń ten element, gdy nie jest już stosowany”: klienci cofną go, gdy zniknie z tego obiektu GPO.</value>
+  </data>
+  <data name="GpoCleanup.Note.LinkedBetween" xml:space="preserve">
+    <value>We wspólnym miejscu między tym obiektem GPO a docelowym jest połączony inny obiekt GPO, który ustawia te same ustawienia (lub jego zawartość jest nieznana): po scaleniu miną go w kolejności pierwszeństwa i wynik może się zmienić.</value>
   </data>
   <!-- K7 copy and cleanup (21.5, 21.6): end -->
   <data name="CentralStore.Title" xml:space="preserve">

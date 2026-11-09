@@ -42,6 +42,11 @@ public static partial class GpoCleanupAnalyzer
                     notes.Add(GpoCleanupNote.LinkOrderDiffers);
                 }
 
+                if (LinkedBetween(context, source, target))
+                {
+                    notes.Add(GpoCleanupNote.LinkedBetween);
+                }
+
                 if (source.Units.Any(u => u.CountsAsSetting && u.RemovePolicy))
                 {
                     notes.Add(GpoCleanupNote.RemovePolicy);
@@ -67,4 +72,34 @@ public static partial class GpoCleanupAnalyzer
     /// </summary>
     private static bool RanksAbove(GpoIndexEntry source, GpoIndexEntry target) =>
         source.Links.Any(s => target.Links.Any(t => DistinguishedName.AreEqual(s.ContainerDn, t.ContainerDn) && s.Order < t.Order));
+
+    /// <summary>
+    /// In a container that links both, an enabled link between the two (in either direction) is to a GPO that applies a
+    /// setting the source sets, or whose content is unknown (not read, or not in the index): after the merge the source's
+    /// settings take the target's position and pass that GPO – a setting it won over may now win over it, or the reverse.
+    /// GPOs from other containers never sit between two GPOs with the same link set.
+    /// </summary>
+    private static bool LinkedBetween(AnalysisContext context, GpoIndexEntry source, GpoIndexEntry target)
+    {
+        var baseIds = source.Units.Where(u => u.CountsAsSetting).Select(u => u.BaseId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var container in context.Index.Containers)
+        {
+            if (container.Links.Find(source.Gpo.Id) is not { } s || container.Links.Find(target.Gpo.Id) is not { } t)
+            {
+                continue;
+            }
+
+            var (low, high) = (Math.Min(s.Order, t.Order), Math.Max(s.Order, t.Order));
+            foreach (var link in container.Links.Links.Where(l => l.Enabled && l.Order > low && l.Order < high))
+            {
+                if (context.Find(link.GpoId) is not { } other || other.Status != GpoIndexStatus.Read
+                    || other.Units.Any(u => u.CountsAsSetting && baseIds.Contains(u.BaseId) && Applies(other, u)))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 }

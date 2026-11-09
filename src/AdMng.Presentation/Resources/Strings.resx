@@ -12206,6 +12206,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Issue.GpoMergeWmiFilterDiffers" xml:space="preserve">
     <value>{0} and {1} have different WMI filters.</value>
   </data>
+  <data name="Issue.GpoMergeLinkedBetween" xml:space="preserve">
+    <value>In {2}, other GPOs are linked between {0} and {1}: after the merge the settings of {0} take the position of {1} and pass those GPOs in precedence, so the result changes wherever one of them sets the same setting.</value>
+  </data>
   <!-- K7 copy issues (21.5): end -->
   <!-- K7 copy refusals (21.5): start -->
   <data name="GpoCopy.Refusal.Secret" xml:space="preserve">
@@ -12680,6 +12683,9 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="GpoCleanup.Note.RemovePolicy" xml:space="preserve">
     <value>The preference item has "Remove this item when it is no longer applied": clients undo it when it disappears from this GPO.</value>
+  </data>
+  <data name="GpoCleanup.Note.LinkedBetween" xml:space="preserve">
+    <value>In a shared place another GPO is linked between this GPO and the merge target and sets the same settings (or its content is unknown): after the merge they pass it in precedence and the result can change.</value>
   </data>
   <!-- K7 copy and cleanup (21.5, 21.6): end -->
   <data name="CentralStore.Title" xml:space="preserve">
