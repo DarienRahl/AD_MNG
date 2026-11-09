@@ -62,8 +62,9 @@ public static partial class TableTextReader
     /// </summary>
     /// <remarks>
     /// Text that is empty or not tabular is replaced by the HTML table when there is one (<see cref="TableSource.ClipboardHtml"/>);
-    /// otherwise it is read as one column. The HTML format recovers a cell only when its table has the same shape as the text
-    /// (lines × columns after the trailing empty ones are dropped). An unreadable HTML format is ignored.
+    /// otherwise it is read as one column. The HTML format recovers a cell of the text only when its table has the same shape
+    /// as the text (lines × columns after the trailing empty ones are dropped); a table read from the HTML alone recovers its
+    /// own cells (a single column copied from Excel). An unreadable HTML format is ignored.
     /// </remarks>
     public static InputTable ReadClipboard(string? text, byte[]? cfHtml, string? cfHtmlText, HeaderMode header)
     {
@@ -524,10 +525,17 @@ public static partial class TableTextReader
 
     private static InputTable EmptyTable(TableSource source) => new([], [], false, source, []);
 
+    /// <summary>
+    /// The HTML table alone (no usable text): its cells, and the full value of a scientific-notation cell from Excel's
+    /// <c>x:num</c> of the same cell – a single column of phone numbers copied from Excel has no tab, so the HTML is the source.
+    /// </summary>
     private static InputTable FromHtml(HtmlTable table, HeaderMode header)
     {
         var read = Prepare(table.Rows, TableSource.ClipboardHtml, table.MergedRows);
         read.ExtraColumns = Math.Max(read.ExtraColumns, table.DroppedColumns);
+
+        // The prepared lines are the table's rows, index for index (Prepare stops adding lines at the row limit).
+        ApplyNumbers(read, table);
         return Assemble(read, header, headerIndex: null, TableSource.ClipboardHtml);
     }
 
@@ -710,9 +718,15 @@ public static partial class TableTextReader
             return;
         }
 
-        for (var i = 0; i < text.Lines.Count; i++)
+        ApplyNumbers(text, html);
+    }
+
+    /// <summary>Replaces each scientific-notation cell of <paramref name="read"/> by the <c>x:num</c> integer of the same cell of <paramref name="html"/>.</summary>
+    private static void ApplyNumbers(PreparedRead read, HtmlTable html)
+    {
+        for (var i = 0; i < read.Lines.Count; i++)
         {
-            var line = text.Lines[i];
+            var line = read.Lines[i];
             if (line.Flags is null || i >= html.Numbers.Count)
             {
                 continue;

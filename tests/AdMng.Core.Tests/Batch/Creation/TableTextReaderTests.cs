@@ -192,6 +192,28 @@ public sealed class TableTextReaderTests
     }
 
     [Fact]
+    public void ScientificNotation_InASingleColumnCopy_IsRecoveredFromTheHtmlTable()
+    {
+        // One column of mobile numbers copied from Excel: the text has no tab, so the HTML table is the source – its
+        // x:num carries the full value of the cell Excel shows as 4,86E+11 (review of B1).
+        const string text = "Telefon komórkowy\r\n4,86E+11\r\n+48 600 100 202\r\n";
+        var html = CfHtmlFixture.Build(
+            "<html xmlns:x=\"urn:schemas-microsoft-com:office:excel\"><body><table><!--StartFragment-->"
+            + "<tr><td>Telefon komórkowy</td></tr>"
+            + "<tr><td align=right x:num=\"" + ExcelSamples.ScientificFullValue + "\">4,86E+11</td></tr>"
+            + "<tr><td x:str>+48 600 100 202</td></tr>"
+            + "<!--EndFragment--></table></body></html>");
+
+        var table = TableTextReader.ReadClipboard(text, html, null, HeaderMode.Auto);
+
+        Assert.Equal(TableSource.ClipboardHtml, table.Source);
+        Assert.Equal(["Telefon komórkowy"], Headers(table));
+        Assert.Equal(ExcelSamples.ScientificFullValue, table.Cell(0, 0));
+        Assert.Equal("+48 600 100 202", table.Cell(1, 0));
+        Assert.Equal(new TableWarning(TableWarningCode.RecoveredFromHtml, 1, 0), Assert.Single(table.Warnings));
+    }
+
+    [Fact]
     public void TheHtmlFormat_IsIgnored_WhenTheTextIsEnough()
     {
         var html = CfHtmlFixture.Build("<table><tr><td>Inne</td></tr><tr><td>dane</td></tr></table>");
