@@ -94,7 +94,7 @@ public sealed class CounterAllocationTests
         Assert.Equal(["kd202", "kd250"], Sam(computation));
     }
 
-    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    [Fact]
     public async Task Pins_AreKeptAfterAnEdit()
     {
         var first = await _bed.ComputeAsync(_bed.Input(BulkCreateTestBed.People(FourPeople[..3])));
@@ -147,7 +147,7 @@ public sealed class CounterAllocationTests
         Assert.Equal("kd202@contoso.com", computation.Rows[1].Value(Attr.UserPrincipalName));
     }
 
-    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    [Fact]
     public async Task EditedValues_AreReservedBeforeAnyNumberIsGiven()
     {
         var edits = new Dictionary<int, IReadOnlyDictionary<string, string>> { [3] = new Dictionary<string, string> { [Attr.SamAccountName] = "kd202" } };

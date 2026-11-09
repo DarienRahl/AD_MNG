@@ -358,7 +358,7 @@ public sealed class CreationPatternTests
         Assert.Equal((PatternErrorCode.UnknownColumn, 1, token), (error.Code, error.Position, error.Token));
     }
 
-    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    [Fact]
     public void Column_ByHeader_WithColonsDiacriticsAndEscapes()
     {
         var columns = new[]
@@ -382,7 +382,7 @@ public sealed class CreationPatternTests
         Assert.Equal("Konto utworzone 2026-10-13 – zlecenie", set.Render(Attr.Info, Row(cells: cells)));
     }
 
-    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    [Fact]
     public void Column_PasswordLike_IsUnreachable_ByHeaderAndByLetter()
     {
         var columns = new[] { new TableColumn(0, "A", "Imię"), new TableColumn(1, "B", "Hasło startowe") };
@@ -520,7 +520,7 @@ public sealed class CreationPatternTests
         Assert.Equal(["{initials}"], empty);
     }
 
-    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    [Fact]
     public void UnknownAttribute_RendersEmpty_WithADidYouMeanFromTheSynonyms()
     {
         var set = Compile([new(Attr.Cn, "{imie} {sn}"), new(Attr.Description, "{dzial}")], [new TableColumn(0, "A", "Imię")]);

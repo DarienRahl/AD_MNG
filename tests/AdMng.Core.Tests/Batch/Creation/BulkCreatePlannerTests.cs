@@ -41,7 +41,7 @@ public sealed class BulkCreatePlannerTests
         Assert.Equal(_bed.Time.GetUtcNow(), computation.ComputedAt);
     }
 
-    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    [Fact]
     public async Task Examples_TheFinishingOfRuleValues()
     {
         var rules = new AttributeRule[]
@@ -88,7 +88,7 @@ public sealed class BulkCreatePlannerTests
         Assert.Equal(["Dział IT | Kraków"], _bed.Session.GetValues(row.DistinguishedName!, Attr.Description));
     }
 
-    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    [Fact]
     public async Task Precedence_AnEditWinsOverEverything_AndDependentRulesFollow()
     {
         var edits = new Dictionary<int, IReadOnlyDictionary<string, string>> { [1] = new Dictionary<string, string> { [Attr.SamAccountName] = "l.zak" } };
@@ -133,7 +133,7 @@ public sealed class BulkCreatePlannerTests
         Assert.Null(row.DistinguishedName);
     }
 
-    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    [Fact]
     public async Task UnknownAttribute_InARule_IsARunWarning()
     {
         var rules = BulkCreateTestBed.NumberedRules.Append(new AttributeRule(Attr.Description, "{imie}")).ToList();
@@ -173,7 +173,7 @@ public sealed class BulkCreatePlannerTests
         Assert.Equal(BulkRowStatus.Ok, row.Status);
     }
 
-    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    [Fact]
     public async Task Country_Unknown_WritesNothing_AndWarns()
     {
         var input = _bed.Input(BulkCreateTestBed.Table(["Łucja", "Żak", "Atlantyda"]), mappings: NamesAnd(2, ColumnTargetKind.Country));
@@ -351,7 +351,7 @@ public sealed class BulkCreatePlannerTests
         Assert.NotEqual(BulkRowStatus.Error, row.Status);
     }
 
-    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    [Fact]
     public async Task GroupsColumn_NamesAndDns_TheCommaFallback_AndUnknownNames()
     {
         var table = BulkCreateTestBed.Table(

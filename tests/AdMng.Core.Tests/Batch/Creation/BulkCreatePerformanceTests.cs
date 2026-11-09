@@ -95,7 +95,7 @@ public sealed class BulkCreatePerformanceTests
         Assert.True(_bed.Session.Operations.Count <= (5 * ((Rows + 49) / 50)) + 2 + 16, $"{_bed.Session.Operations.Count} reads");
     }
 
-    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    [Fact]
     public async Task NameBasedProfile_WithDisambiguation_5000Rows_WithinTheBudget()
     {
         var rules = new List<AttributeRule>(BulkCreateTestBed.StandardRules) { new(Attr.Mail, "{sAMAccountName}@{$mailDomain}") };

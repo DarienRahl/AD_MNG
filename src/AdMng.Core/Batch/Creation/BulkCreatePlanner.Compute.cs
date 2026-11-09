@@ -793,9 +793,7 @@ public sealed partial class BulkCreatePlanner
 
             foreach (var draft in state.Values.Values.Where(d => d.HasValue))
             {
-                // Wave-1 merge (2.15, B2 as built): switch to B1's overload
-                // CreationValues.Validate(_kind, draft.Attribute, draft.Values, _schema, _rules.Phones, draft.ColumnCase).
-                foreach (var issue in CreationValues.Validate(_kind, draft.Attribute, draft.Values, _schema))
+                foreach (var issue in CreationValues.Validate(_kind, draft.Attribute, draft.Values, _schema, _rules.Phones, draft.ColumnCase))
                 {
                     state.Add(issue.Attribute is null ? issue with { Attribute = draft.Attribute } : issue);
                 }

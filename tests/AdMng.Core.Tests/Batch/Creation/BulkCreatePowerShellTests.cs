@@ -349,7 +349,7 @@ public sealed class BulkCreatePowerShellTests
     /// The operator scenario end to end (B1 reader and synonyms, B2 planner, B1 equivalent and exporter): the plan of five
     /// numbered accounts exports as five <c>New-ADUser</c> commands with a password prompt and without any password.
     /// </summary>
-    [Fact(Skip = "F3 wave 1 merge")]
+    [Fact]
     public async Task OperatorScenario_ThePlannersPlan_ExportsAsNewADUser()
     {
         var builder = new FakeDirectoryBuilder(schema: FakeSchema.Create(bulkCreate: true));

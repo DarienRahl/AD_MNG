@@ -21,7 +21,7 @@ public sealed class CollisionTests
     private static List<ColumnMapping> NamesAnd(int column, string attribute) =>
         [.. BulkCreateTestBed.NameMappings, new ColumnMapping(column, ColumnTargetKind.Attribute, attribute)];
 
-    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    [Fact]
     public async Task ATakenLogin_GetsANumber_TheUpnAndTheMailFollow()
     {
         var computation = await _bed.ComputeAsync(_bed.Input(BulkCreateTestBed.People(("Jan", "Kowalski")), StandardWithMail));
@@ -36,7 +36,7 @@ public sealed class CollisionTests
         Assert.False(row.Values.Single(v => v.Attribute == Attr.DisplayName).Adjusted);
     }
 
-    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    [Fact]
     public async Task AContactsAddress_BumpsTheLoginRoot_SoLoginAndAddressStayEqual()
     {
         _bed.Builder.AddContact("Anna", "Nowak (zewnętrzna)", _bed.Company.CompanyOu, new Dictionary<string, object?> { [Attr.Mail] = "anna.nowak@contoso.com" });
@@ -47,7 +47,7 @@ public sealed class CollisionTests
         Assert.Equal(("anna.nowak2", "anna.nowak2@contoso.com"), (row.Value(Attr.SamAccountName), row.Value(Attr.Mail)));
     }
 
-    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    [Fact]
     public async Task TheSameNameTwice_TheSecondCnGetsTheNumber_TheDisplayNameStays()
     {
         var computation = await _bed.ComputeAsync(_bed.Input(BulkCreateTestBed.People(("Łucja", "Żak"), ("Łucja", "Żak"))));
@@ -157,7 +157,7 @@ public sealed class CollisionTests
         Assert.DoesNotContain(row.Values, v => v.Adjusted);
     }
 
-    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    [Fact]
     public async Task AnEditedValue_IsNeverChanged_ATakenOneIsAnError()
     {
         var edits = new Dictionary<int, IReadOnlyDictionary<string, string>> { [1] = new Dictionary<string, string> { [Attr.SamAccountName] = " jan.kowalski " } };
@@ -290,7 +290,7 @@ public sealed class CollisionTests
         Assert.Equal(nonRoutable, BulkCreateTestBed.IssueOf(row, BulkCreateIssueCodes.NonRoutableMailDomain, Attr.Mail) is not null);
     }
 
-    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    [Fact]
     public async Task ManyRowsWithTheSameNames_AreDisambiguated_InAFewLookups_NotOnePerRow()
     {
         string[] givenNames = ["Anna", "Jan", "Piotr", "Ewa", "Marek", "Ola", "Kasia", "Tomasz", "Adam", "Zofia"];
@@ -308,7 +308,7 @@ public sealed class CollisionTests
         Assert.True(_bed.Searches.Count <= (5 * 4) + 2 + 16, $"{_bed.Searches.Count} searches");
     }
 
-    [Fact(Skip = BulkCreateTestBed.Wave1)]
+    [Fact]
     public async Task ACollisionDeeperThanThePrefetch_LooksUpTheNextLevelsTogether()
     {
         foreach (var suffix in new[] { string.Empty, "2", "3", "4", "5", "6", "7", "8", "9" })
