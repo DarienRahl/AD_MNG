@@ -17909,6 +17909,74 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Require at least 12–14 characters (or longer passphrases), keep complexity on unless you use a banned-password list, and set a lockout threshold (for example 10 attempts).</value>
   </data>
   <!-- K6 Group Policy diagnostics (20.2): end -->
+  <!-- K7 settings index (21.3): begin -->
+  <data name="GpoIndex.Progress" xml:space="preserve">
+    <value>{0}: {1} of {2}</value>
+  </data>
+  <data name="GpoIndex.Summary" xml:space="preserve">
+    <value>Settings of {0} GPOs read</value>
+  </data>
+  <data name="GpoIndex.Note.NotRead" xml:space="preserve">
+    <value>Folders not read: {0} GPOs (their SYSVOL settings are not searched)</value>
+  </data>
+  <data name="GpoIndex.Note.Incomplete" xml:space="preserve">
+    <value>Not all settings read: {0} GPOs (a file was too large or held too many settings)</value>
+  </data>
+  <data name="GpoIndex.Note.NoSysvol" xml:space="preserve">
+    <value>SYSVOL is not available ({0}): only directory data was read</value>
+  </data>
+  <data name="GpoIndex.Note.NoDefinitions" xml:space="preserve">
+    <value>Administrative templates are not loaded: Registry.pol values are shown as registry values</value>
+  </data>
+  <data name="GpoIndex.Note.DefinitionsFailed" xml:space="preserve">
+    <value>Administrative templates could not be loaded: Registry.pol values are shown as registry values</value>
+  </data>
+  <data name="GpoIndex.Note.OtherDomains" xml:space="preserve">
+    <value>Links from other domains of the forest are not shown ({0})</value>
+  </data>
+  <data name="GpoIndex.Note.Stale" xml:space="preserve">
+    <value>GPOs were changed in this window since the settings were read – refresh to read them again</value>
+  </data>
+  <data name="GpoIndex.Stage.Directory" xml:space="preserve">
+    <value>Reading GPOs and links</value>
+  </data>
+  <data name="GpoIndex.Stage.Versions" xml:space="preserve">
+    <value>Reading GPT.INI versions</value>
+  </data>
+  <data name="GpoIndex.Stage.Folders" xml:space="preserve">
+    <value>Reading GPO folders</value>
+  </data>
+  <data name="GpoIndex.Stage.Principals" xml:space="preserve">
+    <value>Resolving account names</value>
+  </data>
+  <data name="GpoIndex.Stage.Units" xml:space="preserve">
+    <value>Grouping settings</value>
+  </data>
+  <data name="GpoIndex.Stage.Completed" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="GpoIndex.Status.Read" xml:space="preserve">
+    <value>Read</value>
+  </data>
+  <data name="GpoIndex.Status.Incomplete" xml:space="preserve">
+    <value>Not all settings read</value>
+  </data>
+  <data name="GpoIndex.Status.NotFound" xml:space="preserve">
+    <value>Folder not found on SYSVOL</value>
+  </data>
+  <data name="GpoIndex.Status.AccessDenied" xml:space="preserve">
+    <value>Access denied</value>
+  </data>
+  <data name="GpoIndex.Status.TooLarge" xml:space="preserve">
+    <value>Folder too large</value>
+  </data>
+  <data name="GpoIndex.Status.Failed" xml:space="preserve">
+    <value>Could not be read</value>
+  </data>
+  <data name="GpoIndex.Status.NotRead" xml:space="preserve">
+    <value>Not read</value>
+  </data>
+  <!-- K7 settings index (21.3): end -->
   <!-- K6 Group Policy diagnostics, review fixes: begin -->
   <data name="GpoFinding.LinkToInaccessibleGpo.Title" xml:space="preserve">
     <value>Link to a GPO that cannot be read</value>

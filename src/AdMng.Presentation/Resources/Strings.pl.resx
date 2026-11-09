@@ -17909,6 +17909,74 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Wymagaj co najmniej 12–14 znaków (albo dłuższych fraz), pozostaw wymóg złożoności, chyba że używasz listy zakazanych haseł, i ustaw próg blokady konta (np. 10 prób).</value>
   </data>
   <!-- K6 Group Policy diagnostics (20.2): end -->
+  <!-- K7 settings index (21.3): begin -->
+  <data name="GpoIndex.Progress" xml:space="preserve">
+    <value>{0}: {1} z {2}</value>
+  </data>
+  <data name="GpoIndex.Summary" xml:space="preserve">
+    <value>Odczytano ustawienia {0} obiektów GPO</value>
+  </data>
+  <data name="GpoIndex.Note.NotRead" xml:space="preserve">
+    <value>Nie odczytano folderów: {0} obiektów GPO (ich ustawienia z SYSVOL nie są przeszukiwane)</value>
+  </data>
+  <data name="GpoIndex.Note.Incomplete" xml:space="preserve">
+    <value>Nie wszystkie ustawienia odczytane: {0} obiektów GPO (plik był za duży lub miał zbyt wiele ustawień)</value>
+  </data>
+  <data name="GpoIndex.Note.NoSysvol" xml:space="preserve">
+    <value>SYSVOL jest niedostępny ({0}): odczytano tylko dane z katalogu</value>
+  </data>
+  <data name="GpoIndex.Note.NoDefinitions" xml:space="preserve">
+    <value>Szablony administracyjne nie są wczytane: wartości Registry.pol są pokazane jako wartości rejestru</value>
+  </data>
+  <data name="GpoIndex.Note.DefinitionsFailed" xml:space="preserve">
+    <value>Nie udało się wczytać szablonów administracyjnych: wartości Registry.pol są pokazane jako wartości rejestru</value>
+  </data>
+  <data name="GpoIndex.Note.OtherDomains" xml:space="preserve">
+    <value>Połączenia z innych domen lasu nie są pokazane ({0})</value>
+  </data>
+  <data name="GpoIndex.Note.Stale" xml:space="preserve">
+    <value>Obiekty GPO zmieniono w tym oknie po odczycie ustawień – odśwież, aby odczytać je ponownie</value>
+  </data>
+  <data name="GpoIndex.Stage.Directory" xml:space="preserve">
+    <value>Odczyt obiektów GPO i połączeń</value>
+  </data>
+  <data name="GpoIndex.Stage.Versions" xml:space="preserve">
+    <value>Odczyt wersji GPT.INI</value>
+  </data>
+  <data name="GpoIndex.Stage.Folders" xml:space="preserve">
+    <value>Odczyt folderów GPO</value>
+  </data>
+  <data name="GpoIndex.Stage.Principals" xml:space="preserve">
+    <value>Rozpoznawanie nazw kont</value>
+  </data>
+  <data name="GpoIndex.Stage.Units" xml:space="preserve">
+    <value>Grupowanie ustawień</value>
+  </data>
+  <data name="GpoIndex.Stage.Completed" xml:space="preserve">
+    <value>Gotowe</value>
+  </data>
+  <data name="GpoIndex.Status.Read" xml:space="preserve">
+    <value>Odczytano</value>
+  </data>
+  <data name="GpoIndex.Status.Incomplete" xml:space="preserve">
+    <value>Nie wszystkie ustawienia odczytane</value>
+  </data>
+  <data name="GpoIndex.Status.NotFound" xml:space="preserve">
+    <value>Nie znaleziono folderu w SYSVOL</value>
+  </data>
+  <data name="GpoIndex.Status.AccessDenied" xml:space="preserve">
+    <value>Odmowa dostępu</value>
+  </data>
+  <data name="GpoIndex.Status.TooLarge" xml:space="preserve">
+    <value>Folder jest za duży</value>
+  </data>
+  <data name="GpoIndex.Status.Failed" xml:space="preserve">
+    <value>Nie udało się odczytać</value>
+  </data>
+  <data name="GpoIndex.Status.NotRead" xml:space="preserve">
+    <value>Nie odczytano</value>
+  </data>
+  <!-- K7 settings index (21.3): end -->
   <!-- K6 Group Policy diagnostics, review fixes: begin -->
   <data name="GpoFinding.LinkToInaccessibleGpo.Title" xml:space="preserve">
     <value>Połączenie z obiektem GPO, którego nie można odczytać</value>

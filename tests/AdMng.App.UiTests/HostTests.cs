@@ -133,6 +133,12 @@ public sealed class HostTests
             Assert.Same(first.GetRequiredService(type), second.GetRequiredService(type));
         }
 
+        // K7 (21.3): the Group Policy factory of a window uses that window's scoped settings index, not a fallback of its own.
+        Assert.Same(first.GetRequiredService<Presentation.GroupPolicy.Search.IGpoSettingsIndexService>(),
+            first.GetRequiredService<Presentation.GroupPolicy.GroupPolicyViewModelFactory>().Index);
+        Assert.Same(first.GetRequiredService<Presentation.GroupPolicy.Search.GpoSettingsIndexService>(),
+            first.GetRequiredService<Presentation.GroupPolicy.Search.IGpoSettingsIndexService>());
+
         // README U4: the grant sources (ACL delegations, local rights from GPOs) are stateless engines of the application;
         // a run reads through the session of the window that runs the review, never through a session of their own.
         Assert.All(registrations!.Where(d => d.ServiceType == typeof(IPrivilegeGrantSource)), d => Assert.Equal(ServiceLifetime.Singleton, d.Lifetime));
