@@ -1150,3 +1150,48 @@ of 2.1–2.6):
 * *Tests* (`tests/AdMng.Core.Tests/Pki/`): `CertificateSummaryTests` (17), `CrlSummaryTests` (15), `PkiOverviewReaderTests`
   (25, incl. `RecordingReader`, which drops `nTSecurityDescriptor` from a search without the SD flag as a DC does),
   `DcCertificateEvaluationTests` (24), `KdcCertificateEvaluationTests` (9). No wave-1 end-to-end test needed a skip.
+
+**C2 as built.** `PkiFlags`, `PkiPeriod` and `CertificateTemplate.Of` are complete; no member of 2.1–2.6 renamed or removed.
+* *Flag tables* (`PkiFlags.Table`, ascending bit order): 16 name, 18 enrollment, 13 private-key and 11 general bits – the
+  2.2 lists, with one correction from the check 2.2 asked for: `0x80` `CT_FLAG_DOMAIN_AUTHENTICATION_NOT_REQUIRED` and
+  `0x200` `CT_FLAG_ADD_TEMPLATE_NAME` are not in MS-CRTD 2.26 (Certipy's `EnrollmentFlag` took them from the SDK's
+  `X509EnrollmentFlags`, `EnrollFlagDomainAuthenticationNotRequired` / `EnrollFlagAddTemplateName` – note their odd
+  spelling there), so they are dropped and decode as the unknown bits `0x80` / `0x200`; adding them later is one table line
+  and two `PkiTpl.Flag.*` texts. Only the general `0x2` / `0x8` / `0x10` are `IsReserved`. Not re-checked against the
+  live spec (learn.microsoft.com was not reachable from the wave session), so kept as 2.2 lists them: the name-flag bits
+  `0x2` `CT_FLAG_ADD_EMAIL`, `0x4` `CT_FLAG_ADD_OBJ_GUID`, `0x100` `CT_FLAG_ADD_DIRECTORY_PATH` (Certipy; the v1
+  general-flag positions) and `0x800000` `CT_FLAG_SUBJECT_ALT_REQUIRE_SPN` (also the SDK's
+  `SubjectAlternativeNameRequireSPN`). The SDK's private-key `0x100000` (`PrivateKeyHelloKspKey`, neither in 2.27 nor in
+  Certipy) decodes as unknown.
+* *Fields and decoding.* `PkiFlags.MinimumCaVersion` (`0x000F0000`, shift 16) and `MinimumClientVersion` (`0x0F000000`,
+  shift 24) are the two `PrivateKeyFields`; new `PkiFlags.Fields(attribute)` (empty but for the private-key flag).
+  `Decode` uses the low 32 bits only (the negative `Integer` AD returns and its `uint` decode alike), always lists both
+  fields – also when 0 (schema 1: the UI may hide them) – and field bits never count as unknown. Additions:
+  `PkiDecodedFlags.UnknownBitNames` (each unknown bit as `0x…`, ascending) and `PkiFlags.BitName(long)` (the `FlagNames`
+  format); `Select` throws `ArgumentException` for a bit outside the table (a programming error). `KnownEku` also names
+  18 purposes of the default templates (Code Signing, Secure Email, the three IPsec, Time Stamping, OCSP Signing, IKE
+  intermediate, Trust List Signing, EFS, File Recovery, Key Recovery, Document / Lifetime Signing, Private Key Archival,
+  Key Recovery Agent, DS Email Replication, Remote Desktop Authentication – the English names Windows shows). The
+  predicates trim each OID and compare ordinally.
+* *Periods.* `PkiPeriod.Decode` also returns null for a positive stored value (an absolute time, not an interval) and for
+  `long.MinValue`; 0 decodes to a zero period. **Correction of 2.2:** the display units include **months** – new
+  `PkiPeriodUnit` (`Hours`, `Days`, `Weeks`, `Months`, `Years`) and `PkiPeriod.Unit` / `Count`, the largest unit that
+  divides the length exactly in the order years (365 days), months (30 days), weeks, days, hours: `certtmpl.msc` offers
+  months and Certipy's `span_to_str` uses the same units (the default 1 year is `00 40 39 87 2E E1 FE FF` = 365 days,
+  6 weeks `00 80 A6 0A FF DE FF FF`); `Unit` is null when no whole number of hours fits (the UI then shows `Duration`).
+* *`CertificateTemplate.Of`* reads every member of 2.2. Multi-valued strings are trimmed, empty and repeated (ordinal)
+  values dropped, server order kept; a schema version below 1 or unparseable is 1, other malformed numbers read as absent
+  (0 / null), a period that is not 8 bytes is null. `CryptoProviders` holds the provider **names in priority order** (the
+  `<n>,` prefix of `pKIDefaultCSPs` removed – LDAP keeps no value order; values without a number after the numbered ones).
+  `msPKI-RA-Application-Policies` is parsed by content, not by schema version (a value with a backquote is the triple
+  list): every `msPKI-RA-Application-Policies` triple – and every comma-separated OID inside one – is collected, every other
+  name goes to `CryptoSettings` (first value wins, case-insensitive keys), an incomplete trailing triple is ignored; the
+  parser is public as `CertificateTemplate.ParseRaApplicationPolicies(IEnumerable<string>)`. New computed members (no new
+  init property): `Mask(PkiFlagAttribute)`, `DecodeFlags(PkiFlagAttribute)`, `MinimumCaVersion`, `MinimumClientVersion`.
+* *Watchdog.* `FlagNamesCertificateGoldenTests` (82 cases: 2 × 32 single bits, the mixed values, `Diff`, bits above 32, no
+  other template attribute is a flag attribute) was committed before the delegation; `FlagNames` builds its two certificate
+  tables with `PkiFlags.Select` and today's bit lists (plus `using AdMng.Core.Pki;`), `TableOf` unchanged; both Watchdog
+  test projects pass unchanged.
+* *Tests.* `PkiFlagsTests`, `PkiPeriodTests`, `CertificateTemplateTests` (sample templates and hand-built objects) and one
+  `[Fact(Skip = "P1 wave 1 merge")]` end-to-end test on C1's `PkiOverviewReader.ReadAsync`
+  (`CertificateTemplateTests.TheOverviewReader_FillsEveryTemplateMember`).
