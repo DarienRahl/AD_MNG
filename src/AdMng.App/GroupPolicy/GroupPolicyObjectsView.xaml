@@ -75,6 +75,11 @@
               Command="{Binding DiagnoseCommand}"
               Content="{l:Tr GpoDiag.ToolbarCommand}"
               ToolTip="{l:Tr GpoDiag.Title}" />
+      <Button x:Name="CleanupButton"
+              Margin="0,0,6,4"
+              Command="{Binding CleanupCommand}"
+              Content="{l:Tr GpoCleanup.ToolbarCommand}"
+              ToolTip="{l:Tr GpoCleanup.Title}" />
       <Button x:Name="RefreshButton"
               Margin="12,0,0,4"
               AutomationProperties.Name="{l:Tr GroupPolicy.RefreshCommand}"

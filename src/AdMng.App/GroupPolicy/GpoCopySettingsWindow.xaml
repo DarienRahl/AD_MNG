@@ -1,0 +1,232 @@
+<!--
+  "Kopiuj ustawienia" / "Scal obiekty GPO" (GpoCopySettingsViewModel, modal; K7, design note docs/dev/k-computers-and-gpo.md
+  21.5): the target or the two GPOs of a merge, the settings offered (a setting that cannot be copied is shown disabled with
+  the reason – the MS14-025 refusal included), the conflict mode with its hint, the source limit, and in merge mode what the
+  link order says, the settings that block the merge and the differences of filtering, WMI filter and links. Nothing is
+  written here: OK plans and shows the change plan preview.
+-->
+<Window x:Class="AdMng.App.GroupPolicy.GpoCopySettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:AdMng.App.Controls"
+        xmlns:gpc="clr-namespace:AdMng.Presentation.GroupPolicy.Copy;assembly=AdMng.Presentation"
+        xmlns:l="clr-namespace:AdMng.App.Localization"
+        xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        Title="{Binding WindowTitle, Mode=OneWay}"
+        Width="860"
+        Height="600"
+        MinWidth="560"
+        MinHeight="420"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+  <Window.Resources>
+    <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
+    <Style x:Key="CopyRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+    </Style>
+  </Window.Resources>
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+          <Button x:Name="OkButton"
+                  Command="{Binding OkCommand}"
+                  Content="{Binding OkText, Mode=OneWay}"
+                  IsDefault="True"
+                  Style="{StaticResource Ad.AccentDialogButton}" />
+          <Button x:Name="CancelButton"
+                  Command="{Binding CancelCommand}"
+                  Content="{l:Tr Common.Cancel}"
+                  IsCancel="True"
+                  Style="{StaticResource Ad.DialogButton}" />
+        </StackPanel>
+        <TextBlock x:Name="CountTextBlock"
+                   VerticalAlignment="Center"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding CountText, Mode=OneWay}"
+                   TextTrimming="CharacterEllipsis" />
+      </DockPanel>
+    </Border>
+    <Grid Margin="16,12,16,8">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
+
+      <!-- What happens: the target (copy) or the merge -->
+      <StackPanel>
+        <TextBlock Style="{StaticResource Ad.Title}" Text="{Binding WindowTitle, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+        <TextBlock x:Name="IntroTextBlock" Margin="0,6,0,0" Text="{Binding IntroText, Mode=OneWay}" TextWrapping="Wrap" />
+        <TextBlock x:Name="OrderTextBlock"
+                   Margin="0,6,0,0"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding OrderText, Mode=OneWay}"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding IsMerge, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      </StackPanel>
+
+      <!-- Too many source GPOs -->
+      <Border x:Name="TooManySourcesBar"
+              Grid.Row="1"
+              Margin="0,8,0,0"
+              Style="{StaticResource Ad.ErrorBar}"
+              Visibility="{Binding HasTooManySources, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <TextBlock Text="{Binding TooManySourcesText, Mode=OneWay}" TextWrapping="Wrap" />
+      </Border>
+
+      <!-- Merge: the settings that block it, the differences to check -->
+      <StackPanel Grid.Row="2" Visibility="{Binding IsMerge, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <Border x:Name="BlockingBar"
+                Margin="0,8,0,0"
+                Style="{StaticResource Ad.ErrorBar}"
+                Visibility="{Binding HasBlocking, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <StackPanel>
+            <TextBlock FontWeight="SemiBold" Text="{l:Tr GpoCopy.MergeBlockingHeading}" TextWrapping="Wrap" />
+            <ItemsControl x:Name="BlockingList" Focusable="False" ItemsSource="{Binding BlockingItems, Mode=OneWay}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type gpc:GpoCopyItemViewModel}">
+                  <TextBlock Margin="0,2,0,0" TextWrapping="Wrap">
+                    <Run Text="{Binding Name, Mode=OneWay}" />
+                    <Run Text=" – " />
+                    <Run Text="{Binding RefusalText, Mode=OneWay}" />
+                  </TextBlock>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+        <Border x:Name="WarningsBar"
+                Margin="0,8,0,0"
+                Style="{StaticResource Ad.WarningBar}"
+                Visibility="{Binding HasWarnings, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <DockPanel>
+            <TextBlock Margin="0,1,10,0"
+                       VerticalAlignment="Top"
+                       DockPanel.Dock="Left"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Warning}" />
+            <StackPanel>
+              <TextBlock FontWeight="SemiBold" Text="{l:Tr GpoCopy.MergeWarningsHeading}" />
+              <ItemsControl x:Name="WarningsList" Focusable="False" ItemsSource="{Binding Warnings, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="{x:Type sys:String}">
+                    <TextBlock Margin="0,2,0,0" Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </DockPanel>
+        </Border>
+      </StackPanel>
+
+      <!-- Settings that cannot be copied -->
+      <TextBlock x:Name="RefusedTextBlock"
+                 Grid.Row="3"
+                 Margin="0,8,0,0"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{Binding RefusedText, Mode=OneWay}"
+                 TextWrapping="Wrap"
+                 Visibility="{Binding HasRefused, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+
+      <!-- The settings -->
+      <ListView x:Name="ItemsList"
+                Grid.Row="4"
+                Margin="0,8,0,0"
+                AutomationProperties.Name="{Binding WindowTitle, Mode=OneWay}"
+                ItemContainerStyle="{StaticResource CopyRowStyle}"
+                ItemsSource="{Binding Items, Mode=OneWay}"
+                ScrollViewer.CanContentScroll="True"
+                SelectionMode="Single"
+                VirtualizingPanel.IsVirtualizing="True"
+                VirtualizingPanel.VirtualizationMode="Recycling">
+        <ListView.View>
+          <GridView AllowsColumnReorder="False">
+            <GridViewColumn Width="44">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type gpc:GpoCopyItemViewModel}">
+                  <CheckBox MinWidth="0"
+                            MinHeight="0"
+                            Padding="0"
+                            AutomationProperties.Name="{Binding Name, Mode=OneWay}"
+                            IsChecked="{Binding IsChecked}"
+                            IsEnabled="{Binding CanCopy, Mode=OneWay}"
+                            Visibility="{Binding DataContext.IsCopy, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Ad.BoolToVisibility}}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="250" Header="{l:Tr GpoCopy.ColumnSetting}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type gpc:GpoCopyItemViewModel}">
+                  <TextBlock Text="{Binding Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding GroupPath, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="190" Header="{l:Tr GpoCopy.ColumnValue}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type gpc:GpoCopyItemViewModel}">
+                  <TextBlock Text="{Binding ValueText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding ValueText, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="190" Header="{l:Tr GpoCopy.ColumnSource}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type gpc:GpoCopyItemViewModel}">
+                  <TextBlock Text="{Binding SourceGpoName, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceGpoName, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="260" Header="{l:Tr GpoCopy.ColumnRemark}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type gpc:GpoCopyItemViewModel}">
+                  <TextBlock Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                             Text="{Binding RefusalText, Mode=OneWay}"
+                             TextTrimming="CharacterEllipsis"
+                             ToolTip="{Binding RefusalText, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+          </GridView>
+        </ListView.View>
+      </ListView>
+
+      <!-- Check all / none (copy) and the conflict mode -->
+      <Grid Grid.Row="5" Margin="0,10,0,0">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Margin="0,0,16,0"
+                    VerticalAlignment="Top"
+                    Orientation="Horizontal"
+                    Visibility="{Binding IsCopy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <Button x:Name="CheckAllButton" Margin="0,0,6,0" Command="{Binding CheckAllCommand}" Content="{l:Tr GpoCopy.CheckAll}" />
+          <Button x:Name="CheckNoneButton" Command="{Binding CheckNoneCommand}" Content="{l:Tr GpoCopy.CheckNone}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1">
+          <TextBlock Margin="0,0,0,4" Text="{l:Tr GpoCopy.ConflictLabel}" />
+          <ComboBox x:Name="ConflictBox"
+                    MinWidth="260"
+                    HorizontalAlignment="Left"
+                    AutomationProperties.Name="{l:Tr GpoCopy.ConflictLabel}"
+                    DisplayMemberPath="Text"
+                    ItemsSource="{Binding ConflictOptions, Mode=OneWay}"
+                    SelectedItem="{Binding SelectedConflict}" />
+          <TextBlock x:Name="ConflictHintText"
+                     Margin="0,4,0,0"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding ConflictHint, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Grid>
+    </Grid>
+  </DockPanel>
+</Window>

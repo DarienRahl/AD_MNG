@@ -21,6 +21,7 @@
         xmlns:gpmod="clr-namespace:AdMng.Presentation.GroupPolicy.Modeling;assembly=AdMng.Presentation"
         xmlns:gpdiag="clr-namespace:AdMng.Presentation.GroupPolicy.Diagnostics;assembly=AdMng.Presentation"
         xmlns:gpsec="clr-namespace:AdMng.Presentation.GroupPolicy.SecuritySettings;assembly=AdMng.Presentation"
+        xmlns:gpclean="clr-namespace:AdMng.Presentation.GroupPolicy.Cleanup;assembly=AdMng.Presentation"
         xmlns:evt="clr-namespace:AdMng.Presentation.EventLogs;assembly=AdMng.Presentation"
         xmlns:evtv="clr-namespace:AdMng.App.EventLogs"
         xmlns:rd="clr-namespace:AdMng.Presentation.Readiness;assembly=AdMng.Presentation"
@@ -432,6 +433,7 @@
           <MenuItem b:CommandMenu.Id="gpo.objects" />
           <MenuItem b:CommandMenu.Id="gpo.wmiFilters" />
           <MenuItem b:CommandMenu.Id="gpo.diagnose" />
+          <MenuItem b:CommandMenu.Id="gpo.cleanup" />
         </MenuItem>
         <MenuItem b:CommandMenu.Id="object.delete" />
         <MenuItem b:CommandMenu.Id="object.rename" />
@@ -968,6 +970,10 @@
             <!-- Group Policy diagnostics (K6). -->
             <DataTemplate DataType="{x:Type gpdiag:GroupPolicyDiagnosticsDocumentViewModel}">
               <gpv:GroupPolicyDiagnosticsView />
+            </DataTemplate>
+            <!-- GPO cleanup advisor, "Porządki w GPO" (K7). -->
+            <DataTemplate DataType="{x:Type gpclean:GpoCleanupDocumentViewModel}">
+              <gpv:GpoCleanupView />
             </DataTemplate>
             <!-- Event logs (track E): the reader, the lockout source, the failed logons. -->
             <DataTemplate DataType="{x:Type evt:EventLogReaderDocumentViewModel}">

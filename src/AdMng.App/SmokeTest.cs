@@ -394,6 +394,7 @@ internal static class SmokeTest
             new(GroupPolicyDocumentKind.SecuritySettings) { GpoId = GroupPolicySamples.PasswordsId, Name = "Stacje robocze – Zasady haseł" },
             new(GroupPolicyDocumentKind.Modeling) { ComputerDn = "CN=WAW-PC001,OU=Komputery,OU=Firma," + GroupPolicySamples.DomainDn, Name = "WAW-PC001" },
             new(GroupPolicyDocumentKind.Diagnostics),
+            new(GroupPolicyDocumentKind.Cleanup),
         })
         {
             var document = shell.OpenGroupPolicyDocument(request) ?? throw new InvalidOperationException("A Group Policy document did not open.");
@@ -419,6 +420,19 @@ internal static class SmokeTest
         UiTestSupport.ShowOffScreen(windows.CreateWindow(new WmiFilterEditorViewModel(gp.Ui, GroupPolicySamples.Filter())));
         var templates = services.GetRequiredService<GroupPolicyViewModelFactory>();
         UiTestSupport.ShowOffScreen(windows.CreateWindow(new CentralStoreUpdateViewModel(gp, templates.Definitions, templates.Loader)));
+
+        // K7: "Kopiuj ustawienia" in copy mode (one refused setting) and in merge mode.
+        IReadOnlyList<Presentation.GroupPolicy.Copy.GpoCopyItem> copyItems =
+        [
+            new(new(passwords.Id, "S|Computer|System Access|MinimumPasswordLength"), passwords.DisplayName, "Minimalna długość hasła",
+                "Konfiguracja komputera › Zasady › Ustawienia systemu Windows › Ustawienia zabezpieczeń › Zasady konta › Zasady haseł", "12 znaków", null),
+            new(new(passwords.Id, "I|Computer|Groups|User|serwis_łódź", "{7A1B2C3D-4E5F-4061-8273-94A5B6C7D8E9}"), passwords.DisplayName, "serwis_łódź",
+                "Konfiguracja komputera › Preferencje › Ustawienia panelu sterowania › Użytkownicy i grupy lokalne", "(ustawione – ukryte)",
+                Core.GroupPolicy.Search.GpoUnitRefusal.Secret),
+        ];
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new Presentation.GroupPolicy.Copy.GpoCopySettingsViewModel(gp.Ui, copyItems, remoteDesktop.DisplayName)));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new Presentation.GroupPolicy.Copy.GpoCopySettingsViewModel(gp.Ui, copyItems,
+            new Presentation.GroupPolicy.Copy.GpoMergeInfo(passwords.DisplayName, remoteDesktop.DisplayName, null, true, true, ["Obiekty GPO mają różne filtry WMI."]))));
         UiTestSupport.ShowOffScreen(windows.CreateWindow(new ChangePlanPreviewViewModel(gp.Ui, gp.Engines,
             new ChangePlanPreviewRequest(GroupPolicySamples.Plan("dc01.contoso.test"), "Import ustawień")
             {
