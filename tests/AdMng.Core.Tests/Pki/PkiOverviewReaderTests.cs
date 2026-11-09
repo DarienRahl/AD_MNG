@@ -234,6 +234,22 @@ public sealed class PkiOverviewReaderTests
     }
 
     [Fact]
+    public async Task AMalformedBaseCrl_StillLinksTheListToItsCa_ThroughTheDelta()
+    {
+        // The issuer comes from the first CRL that parses: a damaged base must not hide the CA of a valid delta.
+        var (builder, _, sample) = Create();
+        builder.Session.SetValues(sample.IssuingCdp, "certificateRevocationList", PkiSamples.MalformedDer);
+
+        var snapshot = await PkiOverviewReader.ReadAsync(builder.Session, Options(), null, Ct);
+
+        var crl = snapshot.CrlLists.Single(l => l.HostName == PkiSamples.IssuingCaComputer);
+        Assert.Null(crl.Base!.Summary);
+        Assert.True(crl.Delta!.Summary!.IsDelta);
+        Assert.Equal(GuidOf(builder, sample.IssuingCa), crl.IssuerCaGuid);
+        Assert.Equal(PkiReadNoticeCode.CrlMalformed, Assert.Single(snapshot.Notices).Code);
+    }
+
+    [Fact]
     public async Task ThePlaceholderByte_OfAnEmptyStore_IsNoCertificate()
     {
         var (builder, _, sample) = Create();

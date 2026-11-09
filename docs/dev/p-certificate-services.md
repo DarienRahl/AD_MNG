@@ -1093,7 +1093,7 @@ of 2.1–2.6):
 * *Additions.* `CrlSummary.Version` (1 when the TBS `version` field is absent, 2 for v2 – AD CS writes v2; a hand-built
   instance defaults to 2). `PkiCrlList.Authority` (`authorityRevocationList` of the CDP object – `certutil -dspublish`
   writes a root CA's CRL there as well; parsed like `Base`, a malformed one is `CrlMalformed`, used for `IssuerCaGuid` when
-  there is neither base nor delta). Internal only: `PkiDer` and `GeneralNameLists` in `CertificateSummary.cs` (the
+  neither base nor delta parses). Internal only: `PkiDer` and `GeneralNameLists` in `CertificateSummary.cs` (the
   `System.Formats.Asn1` readers both parsers, the reader and the TLS checks share) and `Tls/CertificateChecks.cs` (names,
   chain, NTAuth match).
 * *AD facts the note did not state (the reader handles them).* `CN=OID` is itself an `msPKI-Enterprise-Oid` object in AD:
@@ -1109,9 +1109,10 @@ of 2.1–2.6):
   propagates – a transient outage is never shown as *brak AD CS*. `TrustMaterial` lists are deduplicated by SHA-256;
   `Intermediates` = AIA `cACertificate` + every cross certificate + the enterprise CA certificates. `IssuerCaGuid`: CRL
   issuer = CA certificate subject (both formatted by `X500DistinguishedName.Name`, so text equality is an encoding-level
-  match) and CRL AKI = certificate SKI; a CRL without AKI matches by subject only when exactly one CA has it. Order: CAs,
-  stores and KRA by name, CDP by host then name, OIDs by display name, templates by cn (all `OrdinalIgnoreCase`), DCs by
-  host name. Progress every `PageSize` objects and once at the end. `ReadDomainControllersAsync` pages by 1000.
+  match) and CRL AKI = certificate SKI; a CRL without AKI matches by subject only when exactly one CA has it; the first
+  of base, delta and ARL that parses decides (a malformed base does not hide the delta's CA). Order: CAs, stores and KRA
+  by name, CDP by host then name, OIDs by display name, templates by cn (all `OrdinalIgnoreCase`), DCs by host name.
+  Progress every `PageSize` objects and once at the end. `ReadDomainControllersAsync` pages by 1000.
 * *CA computer lookup (deviation from 2.1).* A host whose domain part (after the first label) is the window's domain is
   looked up by `(|(dNSHostName=host)(sAMAccountName=label$))` (label cut to 15 characters); the `dNSHostName` match wins and
   the `sAMAccountName` fallback is taken only when it is the one match – not found → `CaComputerUnresolved`. Any **other**

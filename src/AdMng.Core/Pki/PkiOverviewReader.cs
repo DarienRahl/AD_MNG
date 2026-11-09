@@ -387,11 +387,11 @@ public static class PkiOverviewReader
         /// <summary>
         /// The enterprise CA whose certificate subject and Subject Key Identifier equal the CRL's issuer and Authority Key
         /// Identifier (never the cn, which certutil sanitizes); without an AKI in the CRL, the subject alone when exactly one
-        /// CA has it.
+        /// CA has it. The first CRL of the list that parses decides (a malformed base does not hide a valid delta or ARL).
         /// </summary>
         private static Guid? IssuerOf(PkiCrlList list, IReadOnlyList<PkiEnrollmentService> cas)
         {
-            if ((list.Base ?? list.Delta ?? list.Authority)?.Summary is not { } crl)
+            if ((list.Base?.Summary ?? list.Delta?.Summary ?? list.Authority?.Summary) is not { } crl)
             {
                 return null;
             }
