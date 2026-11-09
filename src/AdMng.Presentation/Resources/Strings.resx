@@ -20185,7 +20185,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>DZIENNIKI-ZDARZEN.md, chapter 4 “Skąd blokada konta”</value>
   </data>
   <data name="Readiness.Doc.GpoDc" xml:space="preserve">
-    <value>ZASADY-GRUPY.md, chapter 12 “Kontroler domeny, emulator PDC i SYSVOL”</value>
+    <value>ZASADY-GRUPY.md, chapter 13 “Kontroler domeny, emulator PDC i SYSVOL”</value>
   </data>
   <data name="Readiness.Doc.GpoCentralStore" xml:space="preserve">
     <value>ZASADY-GRUPY.md, chapter 8 “Aktualizacja szablonów ADMX (magazyn centralny)”</value>

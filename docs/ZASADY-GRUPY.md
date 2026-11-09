@@ -18,10 +18,12 @@ prawa użytkownika, zasady kont i opcje zabezpieczeń, inspekcję i usługi – 
 zabezpieczeń* (rozdział 10). Od etapu **K6** ustawienia wszędzie mówią językiem GPMC (nazwy, wartości z jednostkami,
 grupy i konta zamiast SID-ów), edycja ma skróty klawiszowe, *Edytuj to ustawienie* i podsumowanie zmian przed zapisem,
 a **Diagnostyka zasad grupy** wyszukuje błędy logiczne i słabe ustawienia zabezpieczeń we wszystkich GPO domeny
-(rozdział 11).
+(rozdział 11). Od etapu **K7** **Wyszukiwarka ustawień GPO** pokazuje, które GPO domeny ustawiają dane ustawienie,
+wartość albo konto, wybrane ustawienia można **skopiować do innego GPO**, a **Porządki w GPO** proponują usunięcie
+pustych i nieużywanych GPO, duplikatów ustawień oraz scalenie GPO o tym samym zasięgu (rozdział 12).
 
 Specyfikacja dla programistów (po angielsku): [dev/k-computers-and-gpo.md](dev/k-computers-and-gpo.md), rozdziały 3, 5
-i 6 oraz *K2 as built* (15), *K3 as built* (17), K5 (18), K4 (19) i K6 (20).
+i 6 oraz *K2 as built* (15), *K3 as built* (17), K5 (18), K4 (19), K6 (20) i K7 (21).
 
 ---
 
@@ -40,8 +42,9 @@ i 6 oraz *K2 as built* (15), *K3 as built* (17), K5 (18), K4 (19) i K6 (20).
 | Karta *Obiekty zasad grupy* i edytor szablonów | **Zaktualizuj szablony…** – aktualizacja magazynu centralnego szablonów ADMX, rozdział 8 |
 | *Akcja*, lista, karta *Zasady grupy*, strona *Stan* komputera | **Co dostanie komputer…**, **Co dostanie użytkownik…**, **Modeluj zasady…** – modelowanie, rozdział 9 |
 | Karta *Obiekty zasad grupy*, *Akcja → Zasady grupy*, menu węzła *Obiekty zasad grupy* | **Diagnostyka zasad grupy…** – błędy logiczne, spójność i bezpieczeństwo wszystkich GPO domeny, rozdział 11 |
+| Karta *Obiekty zasad grupy*, *Akcja → Zasady grupy*, menu węzła *Obiekty zasad grupy*, zakładka *Ustawienia* GPO | **Wyszukaj ustawienie we wszystkich GPO…** (na pasku: *Wyszukaj ustawienia…*, na zakładce: *Znajdź we wszystkich GPO*) i **Porządki w GPO…** (na pasku: *Porządki…*) – rozdział 12 |
 | Klawiatura | **Ctrl+S** – zapisz zmiany aktywnego edytora, **Ctrl+F** – wyszukiwanie karty, **Esc** – wyczyść wyszukiwanie (rozdział 11) |
-| Paleta poleceń (Ctrl+K) | `gpo.objects`, `gpo.wmiFilters`, `gpo.containerPolicies`, `gpo.newLinked`, `gpo.linkExisting`, `gpo.blockInheritance`, `gpo.model`, `gpo.modelUser`, `gpo.diagnose`, `gpo.editTemplates`, `gpo.editSecurity`, `document.save`, `view.groupPolicyNodes` |
+| Paleta poleceń (Ctrl+K) | `gpo.objects`, `gpo.wmiFilters`, `gpo.containerPolicies`, `gpo.newLinked`, `gpo.linkExisting`, `gpo.blockInheritance`, `gpo.model`, `gpo.modelUser`, `gpo.diagnose`, `gpo.searchSettings`, `gpo.cleanup`, `gpo.editTemplates`, `gpo.editSecurity`, `document.save`, `view.groupPolicyNodes` |
 
 Każdy widok GPO otwiera się jako karta obok list obiektów (jedna karta na cel – drugie kliknięcie wraca do niej).
 
@@ -487,7 +490,248 @@ Kontrole działają na danych z jednego kontrolera domeny (zasada 4) i niczego n
 *Napraw…* i podgląd planu. Część reguł zakłada, że filtry WMI są spełnione, a sprzężenie zwrotne jest wyłączone (jak w
 modelu K5) – szczegóły w opisie każdej uwagi.
 
-## 12. Kontroler domeny, emulator PDC i SYSVOL
+## 12. Wyszukiwanie, kopiowanie ustawień i porządki w GPO (K7)
+
+Trzy narzędzia dla wszystkich GPO domeny okna: **Wyszukiwarka ustawień GPO** odpowiada na pytania „gdzie ustawiono
+minimalną długość hasła?”, „które GPO mapuje dysk K:?”, „kto daje prawo logowania przez usługi pulpitu zdalnego?”;
+**kopiowanie ustawień** przenosi wybrane ustawienia z jednego lub kilku GPO do innego GPO; **Porządki w GPO** wskazują
+puste, nieużywane i wyłączone GPO, powtórzone ustawienia i GPO, które można scalić. Ustawienia są opisane językiem GPMC
+(rozdział 11). Każda zmiana – kopiowanie, usunięcie ustawienia, scalenie, odłączenie, wyłączenie, usunięcie GPO – idzie
+przez podgląd planu zmian (rozdział 4) na kontrolerze domeny okna (rozdział 13); każdą poza usunięciem GPO można cofnąć.
+
+### Gdzie to jest
+
+| Miejsce | Wyszukiwarka | Porządki |
+|---|---|---|
+| Paleta poleceń (Ctrl+K) | `gpo.searchSettings` – *Wyszukaj ustawienie we wszystkich GPO…* | `gpo.cleanup` – *Porządki w GPO…* |
+| *Akcja → Zasady grupy* | *Wyszukaj ustawienie we wszystkich GPO…* | *Porządki w GPO…* |
+| Menu węzła *Obiekty zasad grupy* w drzewie | *Wyszukaj ustawienie we wszystkich GPO…* | *Porządki w GPO…* |
+| Pasek karty *Obiekty zasad grupy* | przycisk **Wyszukaj ustawienia…** | przycisk **Porządki…** |
+| Zakładka *Ustawienia* karty GPO | **Znajdź we wszystkich GPO** – szuka tekstu z pola wyszukiwania zakładki (a gdy jest puste – nazwy zaznaczonego ustawienia) | – |
+| Karta *Porządki w GPO* | *Pokaż w wyszukiwarce* – otwiera wyszukiwarkę z nazwą ustawienia propozycji | – |
+
+Obie karty są jedne na okno połączenia: drugie wywołanie wraca do otwartej karty (wyszukiwarka dostaje nowy tekst).
+
+### Odczyt ustawień wszystkich GPO
+
+Pierwsze otwarcie wyszukiwarki albo porządków czyta z kontrolera domeny okna obiekty GPO, połączenia (domena, OU,
+lokacje), wersje `GPT.INI` i foldery wszystkich GPO w SYSVOL – najwyżej cztery odczyty naraz – rozpoznaje nazwy kont
+i grupuje ustawienia. Postęp pokazuje etapy *Odczyt obiektów GPO i połączeń*, *Odczyt wersji GPT.INI*, *Odczyt
+folderów GPO*, *Rozpoznawanie nazw kont*, *Grupowanie ustawień*; **Anuluj** kończy czekanie tej karty (poprzednie
+wyniki zostają). Obie karty korzystają z **jednego odczytu** w oknie: otwarcie drugiej nie czyta folderów jeszcze raz.
+
+- **Odśwież** (F5) czyta ponownie tylko GPO zmienione od ostatniego odczytu (inna wersja w AD lub `GPT.INI`), usunięte
+  znikają, połączenia są zawsze świeże. **Odczytaj wszystko ponownie** czyta foldery wszystkich GPO.
+- Gdy zasady grupy zmienią się w tym oknie (także przez kopiowanie lub porządki), karta pokazuje pasek *Zmieniono zasady
+  grupy w tym oknie – wyniki mogą być nieaktualne.* z przyciskiem *Odśwież* – nie odczytuje sama od nowa. Po wykonaniu
+  akcji z tych kart odświeżenie (tylko zmienionych GPO) rusza samo.
+- Zmiana kontrolera domeny, ponowne połączenie i rozłączenie usuwają odczyt (pokazane wyniki zostają z paskiem
+  nieaktualności); zmiana języka tylko przepisuje teksty (bez ponownego czytania folderów).
+- **Limity:** plik ustawień większy niż 16 MiB albo ustawienia GPO ponad 64 MiB nie są czytane (GPO ma stan *Nie
+  wszystkie ustawienia odczytane*, tak samo jak przy pliku `Registry.pol` z ponad 10 000 wpisów); po 1 GiB odczytu
+  pozostałe GPO mają stan *Nie odczytano*. Inne stany: *Nie znaleziono folderu w SYSVOL*, *Odmowa dostępu*, *Folder jest
+  za duży*, *Nie udało się odczytać*. GPO, których konto okna nie może odczytać w AD, w ogóle nie są widoczne – nagłówek
+  karty podaje liczbę przeszukiwanych GPO i czas odczytu (*Przeszukiwane obiekty GPO: N · odczyt …*).
+- Bez dostępu do SYSVOL karta ma tylko dane z katalogu (pasek *SYSVOL jest niedostępny (…): odczytano tylko dane z
+  katalogu*); ustawień z plików nie da się wtedy przeszukać ani ocenić.
+
+### Wyszukiwarka ustawień GPO
+
+**Pole wyszukiwania** (*Ustawienie, wartość, klucz lub konto (co najmniej 2 znaki)*, Ctrl+F, Esc czyści) szuka w trakcie
+pisania (Enter – od razu). Wielkość liter i polskie znaki nie mają znaczenia: „dlugosc” znajdzie „długość”.
+
+| Filtr | Wybory |
+|---|---|
+| **Szukaj w** | *Wszystko*, *Nazwa* (nazwa ustawienia jak w GPMC), *Wartość*, *Klucz techniczny* (np. `MinimumPasswordLength`, `HKLM\Software\Policies\…`), *Konto* |
+| **Konfiguracja** | *Komputera i użytkownika*, *Komputera*, *Użytkownika* |
+| **Obszar** | *Każdy obszar*, *Szablony administracyjne* (także wartości rejestru spoza szablonów), *Ustawienia zabezpieczeń*, *Zaawansowane zasady inspekcji*, *Preferencje – typ* (osobno każdy typ preferencji występujący w domenie, np. mapowania dysków), *Skrypty*, *Inne* |
+| **Tylko różne wartości** | tylko ustawienia, którym GPO nadają różne wartości |
+
+*Wyczyść filtry* wraca do ustawień domyślnych. **Konto** przyjmuje nazwę (`KONTOSO\Serwisanci`, `serwis@kontoso.pl`,
+*Administratorzy*) albo SID i znajduje ustawienia, w których konto jest zapisane SID-em lub nazwą (prawa użytkownika,
+grupy z ograniczeniami, grupy lokalne preferencji, kierowanie na poziomie elementu), a także konta, których nazwa
+zawiera wpisany tekst. **Wartości ukryte** (hasła, community SNMP …) nigdy nie są przeszukiwane – tylko ich nazwy i
+klucze.
+
+**Krótkie zapytanie** (pusty tekst albo jeden znak) pokazuje tylko podsumowanie: dla każdego obszaru liczbę ustawień,
+wystąpień i GPO, a na końcu razem – nigdy całej listy wszystkich ustawień domeny.
+
+**Wyniki** są pogrupowane według ustawienia. Nagłówek grupy to nazwa ustawienia, ścieżka w konsoli GPMC i podsumowanie:
+*ustawione w N GPO – wartości zgodne*, *– wartości różne* albo *– wartości nieporównywalne* (np. wartość ukryta,
+element z kierowaniem na poziomie elementu, skrypty; elementy wyłączone nie są liczone; gdy ustawienie działa tylko z
+jednego GPO – samo *ustawione w N GPO*). Pod nagłówkiem jest **każde** GPO, które ustawia to ustawienie, także z inną
+wartością, z kolumnami *Obiekt zasad grupy*, *Wartość*, *Połączenia* (wyłączone połączenie z dopiskiem *(wyłączone)*) i
+*Uwagi*: *warunkowe (kierowanie na poziomie elementu)*, *element wyłączony*, *wartość ukryta*, *GPO odczytany
+częściowo*. Wiersz nad listą: *Znalezione ustawienia: N (wystąpienia: M)*. Gdy grup jest więcej niż **2 000**, karta
+pokazuje pierwsze 2 000 i informację *Zawęź wyszukiwanie – pokazano 2 000 z N grup*.
+
+**Pasek uwag** nad wynikami mówi, czego nie przeszukano: GPO, których folderów nie odczytano albo odczytano częściowo
+(liczba, nazwy i stany w podpowiedzi), niewczytane szablony administracyjne (zasady są wtedy pokazane jako wartości
+rejestru i nie można ich wyszukać po nazwie), liczba wartości ukrytych, niedostępny SYSVOL, połączenia z innych domen
+lasu (niewidoczne z tego kontrolera domeny).
+
+**Szczegóły** zaznaczonego wiersza: nazwa, GPO, pełna wartość z elementami, *Miejsce w konsoli GPMC*, *Połączenia*,
+*Klucz techniczny*, uwagi i – gdy ustawienia nie da się skopiować – *Nie można skopiować: powód*.
+
+**Działania** (przyciski w szczegółach i menu kontekstowe wiersza):
+
+- **Otwórz GPO** (Enter, dwuklik) – karta GPO na zakładce *Ustawienia*;
+- **Edytuj to ustawienie** – edytor szablonów (K3) albo ustawień zabezpieczeń (K4) od razu na tym ustawieniu (gdy
+  ustawienie ma edytor, rozdział 11);
+- **Porównaj GPO** – dwa zaznaczone wiersze: porównanie ich GPO; jeden wiersz: porównanie jego GPO z wybranym (rozdział
+  6);
+- **Kopiuj do innego GPO…** – zaznaczone wiersze (także z różnych GPO) do wybranego GPO, poniżej;
+- **Kopiuj** (Ctrl+C) – tekst zaznaczonych wierszy do schowka (wartości ukryte zostają ukryte);
+- **Eksportuj do CSV…** i **Eksportuj do HTML…** – bieżące wyniki do pliku wskazanego przez operatora (CSV z ochroną
+  przed formułami; raport HTML z kontrolerem domeny, zapytaniem i czasem odczytu).
+
+### Kopiowanie ustawień do innego GPO
+
+**Kopiuj do innego GPO…** (w wyszukiwarce i w porządkach) najpierw pyta o **docelowy obiekt GPO** (*Kopiuj ustawienia –
+wybierz docelowy obiekt GPO*; jeden GPO, bez GPO źródłowych), potem otwiera okno **Kopiuj ustawienia do …**: lista
+ustawień z kolumnami *Ustawienie*, *Wartość*, *Źródłowy obiekt GPO* i *Uwaga*, pola wyboru (*Zaznacz wszystkie*,
+*Odznacz wszystkie*, licznik *Zaznaczono: X z Y*) i wybór **Gdy docelowy obiekt GPO ma już to ustawienie:**
+
+| Tryb | Skutek |
+|---|---|
+| **Zastąp** (domyślnie) | wartość w docelowym GPO zostaje zastąpiona kopiowaną; gdy docelowy GPO ma już tę samą wartość, nic nie jest zapisywane (*docelowy obiekt GPO ma już tę samą wartość*); elementy preferencji z innym kierowaniem na poziomie elementu (np. kilka mapowań dysku K: dla różnych grup) zostają, a kopia jest dodana za nimi |
+| **Pomiń** | docelowy GPO zachowuje swoją wartość, ustawienie nie jest kopiowane |
+| **Połącz listy** | przypisania praw użytkownika i grupy z ograniczeniami dostają konta z obu list (to samo konto zapisane nazwą i SID-em liczy się raz); pozostałe ustawienia są zastępowane |
+
+Jedno kopiowanie obejmuje ustawienia z **najwyżej 10** GPO źródłowych (okno mówi, gdy zaznaczono więcej). Ustawienie
+wybrane jednocześnie z dwóch GPO nie jest kopiowane wcale – trzeba je wybrać z jednego.
+
+**Czego nie da się skopiować.** Ustawienia odrzucone są w oknie wyszarzone, z powodem w kolumnie *Uwaga*, i nie
+zatrzymują kopiowania pozostałych:
+
+| Ustawienie | Powód w oknie |
+|---|---|
+| hasła w preferencjach (`cpassword`, **MS14-025**), `DefaultPassword`, community SNMP i inne wartości ukryte | *Zawiera wartość tajną lub ukrytą (np. hasło GPP, MS14-025) – nigdy nie jest kopiowane.* |
+| skrypty uruchamiania, zamykania, logowania i wylogowania oraz ich pliki | *Skrypty i pliki skryptów nie są kopiowane – dodaj je w GPMC.* |
+| uprawnienia rejestru i systemu plików (*Rejestr*, *System plików* w ustawieniach zabezpieczeń) | *Uprawnienia rejestru i systemu plików nie są kopiowane – ustaw je w GPMC.* |
+| opcje inspekcji i globalna inspekcja dostępu do obiektów | *Opcje inspekcji i globalna inspekcja dostępu do obiektów nie są kopiowane – ustaw je w GPMC.* |
+| komentarze GPO i ustawień | *Komentarze nie są kopiowane.* |
+| ustawienie z pliku, którego nie udało się odczytać; ustawienie o zbyt długiej nazwie | *Nie udało się odczytać pliku.* / *Nazwa ustawienia jest zbyt długa, aby je jednoznacznie rozpoznać.* |
+| element preferencji, którego program nie umie jednoznacznie rozpoznać, i ustawienia innych rodzajów | *AD Manager nie kopiuje ustawień tego rodzaju – zmień je w GPMC.* |
+| element preferencji w kolekcji z kierowaniem na poziomie elementu albo w wyłączonej kolekcji (skopiowany poza kolekcję straciłby jej warunki) | *Element jest w kolekcji z określaniem docelowym lub w wyłączonej kolekcji – skopiuj go w GPMC.* |
+
+Odrzucane są też, z komunikatem w podglądzie planu: zasada ADMX, gdy szablony administracyjne nie są wczytane;
+wartość rejestru, która w docelowym GPO należy do skonfigurowanej zasady ADMX; preferencja, której rozszerzenia
+przetwarzającego (CSE) nie ma ani w GPO źródłowym, ani w docelowym (klienci by ją pominęli); wszystkie ustawienia GPO
+odczytanego częściowo. **Nigdy nie są kopiowane** ustawienia przechowywane w katalogu (instalacja oprogramowania, zasady
+sieci przewodowej i bezprzewodowej) – podgląd o tym ostrzega, jak przy kopii GPO (rozdział 3).
+
+**Ostrzeżenia w podglądzie** (kopiowanie idzie dalej): wartość zmieniła się od wyszukania (kopiowana jest wartość
+odczytana teraz); ustawienie pochodzi z wyłączonej części GPO źródłowego (tam nie działa, w docelowym zacznie działać);
+zasady haseł i blokady kont w GPO niepołączonym z domeną (działają tylko dla kont lokalnych komputerów), zasady Kerberos
+w takim GPO (bez skutku); element preferencji z opcją *Usuń ten element, gdy nie jest już stosowany* (klienci najpierw
+go cofną – odłączą dysk, usuną i ponownie utworzą użytkownika lub grupę – zanim zadziała nowy element).
+
+**Podgląd planu** to jeden plan dla docelowego GPO: nazwy rozszerzeń (tylko gdy się zmieniają), każdy zmieniony plik
+(`Registry.pol`, `GptTmpl.inf`, `audit.csv`, pliki preferencji – z *Pokaż różnice*) i jedno podniesienie wersji. Sekcja
+**Zmiany ustawień (N)** pokazuje każde ustawienie z wartością przed i po (grupa: *nazwa GPO › obszar*; wartości ukryte
+zostają ukryte). Wszystkie bajty pochodzą z plików odczytanych w chwili planowania, nie z wyników wyszukiwania; nowy
+element preferencji dostaje nowy identyfikator i trafia na koniec listy docelowego GPO (stosowany jako ostatni).
+Zakładka *PowerShell* podaje `Set-GPRegistryValue` dla wartości rejestru i komentarz, że pozostałe pliki zapisuje plan
+(moduł `GroupPolicy` nie ma na nie poleceń). Gdy nic by się nie zmieniło (każde ustawienie odrzucone, pominięte albo
+już takie samo), zamiast podglądu jest okno błędu *Nic nie zmieniłoby się w …* z każdym ustawieniem i powodem – odmowa
+MS14-025 nigdy nie znika bez słowa. **Cofnij** w oknie podglądu przywraca pliki docelowego GPO (z kolejnym podniesieniem
+wersji).
+
+### Usuwanie ustawienia
+
+**Usuń duplikat z tego GPO** (porządki, propozycja *Zduplikowane ustawienie*) usuwa ustawienie z jednego GPO: zasadę
+ADMX ustawia na *Nie skonfigurowano*, usuwa wiersze `GptTmpl.inf` i `audit.csv`, wpisy `Registry.pol` i elementy
+preferencji (pusta kolekcja zostaje, jak w GPMC). Ten sam podgląd, te same odmowy i to samo ostrzeżenie o opcji *Usuń
+ten element, gdy nie jest już stosowany*; *Cofnij* przywraca ustawienie.
+
+### Scalanie dwóch GPO
+
+**Scal z…** (porządki, propozycje *Kandydat do scalenia* i *Obiekt GPO z jednym ustawieniem*) otwiera okno
+**Scal A z B** i jednym planem z podglądem i *Cofnij*:
+
+1. **kopiuje** do B wszystkie ustawienia A (bez ustawień wyłączonej części A – tam nie działały; komentarze i nieużywane
+   pliki skryptów nie są przenoszone, podgląd to mówi);
+2. **zastępuje połączenia**: w każdym kontenerze domeny i lokacji, z którym połączony jest A, B zajmuje miejsce A z jego
+   opcjami (kolejność, wymuszenie, włączenie); gdy B jest tam już połączony, połączenie A jest tylko usuwane (połączenie
+   B zostaje);
+3. **wyłącza A** (stan *Wszystkie ustawienia wyłączone*). Usunięcie A to osobny krok (*Usuń GPO…* z propozycji, z
+   kopią zapasową) – usunięcia nie da się cofnąć.
+
+**Które wartości wygrywają**, gdy oba GPO ustawiają to samo – okno podpowiada według kolejności połączeń
+(*Według kolejności połączeń: Zastąp* albo *Pomiń*): gdy B ma wyższe pierwszeństwo wszędzie tam, gdzie oba są połączone,
+wartości B zostają; gdy A – wartości A zastępują wartości B; gdy nie mają wspólnego kontenera – wartości A zastępują
+wartości B. Gdy kolejność jest różna w różnych miejscach, trzeba wybrać samemu (*Zastąp*, *Pomiń*, *Połącz listy*).
+
+**Sprawdź przed scaleniem** – okno i podgląd ostrzegają, gdy: GPO są stosowane do różnych użytkowników, grup lub
+komputerów (filtrowanie zabezpieczeń) albo mają różne filtry WMI; są połączone w różnych miejscach (*Tylko A jest
+połączony z: … – po scaleniu te miejsca dostaną też pozostałe ustawienia B* i odwrotnie); A ma we wspólnym kontenerze
+wyższe pierwszeństwo, wymuszenie lub włączone połączenie, gdy B nie (ustawienia A zajmą słabszą pozycję B – B nie jest
+przesuwany); las ma inne domeny (ich połączenia z A nie są zastępowane); część B wyłączona tam, gdzie A ma ustawienia;
+elementy preferencji A z opcją *Usuń ten element, gdy nie jest już stosowany*.
+
+**Scalenie jest odmawiane**, gdy A ma ustawienia, których nie da się skopiować (lista *Tych ustawień nie można
+skopiować, więc obiektów GPO nie można scalić:* z powodami), ustawienia przechowywane w katalogu, pliki, których AD
+Manager nie odczytuje (np. przekierowanie folderów, instalacja oprogramowania), gdy A lub B odczytano częściowo, gdy A
+jest jednym z dwóch domyślnych GPO albo gdy A i B to ten sam GPO. **Cofnij** przywraca pliki B, połączenia i stan A.
+
+### Porządki w GPO
+
+Karta **Porządki w GPO** analizuje odczyt wszystkich GPO (ten sam co wyszukiwarka) i pokazuje propozycje: liczniki
+według rodzaju nad listą (kliknięcie filtruje), filtry *Rodzaj:* i *Obiekt GPO:*, wyszukiwanie w propozycjach (Ctrl+F),
+lista z kolumnami *Rodzaj*, *Obiekt zasad grupy*, *Propozycja* i *Działania*, a w szczegółach: **Co znaleziono**, **Co
+zrobić**, **Obiekty GPO** (z połączeniami), **Ustawienie** (w języku GPMC) i **Uwagi**. *Odśwież* (F5), *Odczytaj
+wszystko ponownie*, *Anuluj*, pasek *Zasady grupy zmieniono po analizie – propozycje mogą być nieaktualne.* i eksport
+(*Eksportuj do CSV…*, *Eksportuj do HTML…* – do pliku operatora) działają jak w wyszukiwarce. Treść GPO oceniana jest
+tylko dla GPO odczytanych w całości; pozostałe mają ocenione tylko połączenia i stan (pasek *Nie odczytano wszystkich
+ustawień N obiektów GPO …*).
+
+| Rodzaj | Kiedy | Działania | Uwagi |
+|---|---|---|---|
+| **Pusty obiekt GPO** | GPO nie ma żadnych ustawień – także w katalogu i w plikach, których program nie odczytuje; wyłączony element preferencji to też ustawienie (uśpiona treść to nie „pusty GPO”) | *Usuń GPO…*, *Odłącz wszędzie…* (gdy połączony) | połączony GPO: usunięcie usunie też połączenia; domyślne GPO – bez usuwania |
+| **Obiekt GPO bez połączeń** | brak połączenia z domeną, OU i lokacją tej domeny – nie jest stosowany do nikogo | *Usuń GPO…*, *Wyłącz GPO* | las z innymi domenami: ich połączeń nie widać z tego kontrolera |
+| **Wszystkie połączenia wyłączone** | każde połączenie GPO jest wyłączone | *Odłącz wszędzie…*, *Wyłącz GPO*, *Usuń GPO…* | |
+| **Obiekt GPO wyłączony** | wyłączone obie części (komputera i użytkownika) | *Usuń GPO…*, *Odłącz wszędzie…* (gdy połączony) | |
+| **Obiekt GPO z jednym ustawieniem** | dokładnie jedno ustawienie, bez ustawień w katalogu i nieodczytywanych plików | *Kopiuj do innego GPO…* (potem osobno *Wyłącz GPO*); *Scal z…*, gdy istnieje GPO połączony w tych samych miejscach (kontener, włączenie, wymuszenie), z tym samym filtrowaniem zabezpieczeń i filtrem WMI | ustawienia nie da się skopiować – bez kopiowania i scalania |
+| **Zduplikowane ustawienie** | ustawienie ma tę samą wartość w innym GPO, który jest stosowany wszędzie tam, gdzie ten (opis niżej) | *Usuń duplikat z tego GPO* | opcja *Usuń ten element, gdy nie jest już stosowany*; zasady konta tylko w GPO połączonych z domeną |
+| **Różne wartości jednego ustawienia** | to samo ustawienie ma różne wartości w różnych GPO, które działają | tylko informacja: *Otwórz GPO*, *Porównaj*, *Pokaż w wyszukiwarce* | |
+| **Kandydat do scalenia** | dwa lub więcej GPO połączonych w tych samych miejscach, z tym samym filtrowaniem zabezpieczeń i filtrem WMI; każdy jest proponowany do scalenia z tym, który ma najwięcej ustawień | *Scal z…* | kolejność połączeń różna; opcja *Usuń ten element…*; bez scalania, gdy GPO ma ustawienia, których nie da się skopiować, ustawienia w katalogu, nieodczytywane pliki albo wyłączoną część z ustawieniami |
+
+**Zduplikowane ustawienie** jest ostrożne, bo ta sama wartość w dwóch GPO nie zawsze czyni jedną z nich zbędną (prawa
+użytkownika i grupy z ograniczeniami zastępują się w całości, preferencje działają po kolei, zasięgi mogą się nie
+pokrywać). Usunięcie z GPO X jest proponowane tylko, gdy: oba GPO działają (mają włączone połączenie, część z
+ustawieniem nie jest wyłączona, wartość jest porównywalna – nie ukryta, nie warunkowa, nie skrypt); żadne inne
+działające GPO nie ustawia tu innej wartości (wtedy jest *Różne wartości jednego ustawienia*); drugi GPO Y jest
+stosowany **wszędzie** tam, gdzie X – w każdej domenie, OU i lokacji (z blokowaniem dziedziczenia i wymuszeniem), do
+tych samych użytkowników i komputerów (filtrowanie zabezpieczeń) i z tym samym filtrem WMI albo bez filtru. Dwa GPO z
+tym samym mapowaniem dysku na rozłącznych OU nie dają propozycji – pokaże je wyszukiwarka. GPO są uszeregowane, więc
+wykonanie wszystkich propozycji nigdy nie usuwa ostatniej kopii ustawienia. Zasady konta (hasła, blokada, Kerberos) są
+oceniane tylko w GPO połączonych z domeną; wpisy usuwające cały klucz rejestru (`**delvals.`) nie są proponowane.
+
+**Działania** – każde przez podgląd planu (z *Cofnij* – poza usunięciem GPO), a po wykonaniu karta odświeża odczyt i
+analizuje ponownie:
+
+- **Usuń GPO…** – najpierw program sprawdza, czy GPO nie zmienił się od analizy (wersja i połączenia): gdy w innym oknie
+  lub przez innego administratora dostał ustawienia albo połączenia, usunięcie jest odmawiane (*… zmienił się
+  (ustawienia lub połączenia) od analizy, więc nie zostanie usunięty*), a lista jest odczytywana ponownie. Potem zwykłe
+  usuwanie z rozdziału 3: propozycja kopii zapasowej (*Utwórz kopię zapasową przed usunięciem*) i przepisanie nazwy GPO;
+  plan sprawdza stan jeszcze raz aż do wykonania. Usunięcia GPO **nie da się cofnąć** – dlatego kopia zapasowa.
+- **Odłącz wszędzie…** – usuwa połączenia GPO ze wszystkich kontenerów domeny i lokacji (ostrzeżenie, gdy las ma inne
+  domeny); **Wyłącz GPO** – stan *Wszystkie ustawienia wyłączone*;
+- **Kopiuj do innego GPO…**, **Usuń duplikat z tego GPO**, **Scal z…** – jak wyżej;
+- **Otwórz GPO**, **Porównaj** (z powiązanym GPO), **Pokaż w wyszukiwarce**, **Kopiuj** (tekst propozycji).
+
+Domyślnych GPO (*Default Domain Policy*, *Default Domain Controllers Policy*) porządki nigdy nie proponują usunąć ani
+scalić.
+
+### Co zostaje tylko w pamięci
+
+Odczyt ustawień wszystkich GPO, nazwy kont, wyniki wyszukiwania i propozycje porządków są tylko w pamięci okna
+połączenia – znikają przy zmianie kontrolera, rozłączeniu i zamknięciu okna. Program nie zapamiętuje historii
+wyszukiwania; dziennik diagnostyczny zawiera tylko liczby i czasy. Pliki powstają wyłącznie przy eksporcie do CSV lub
+HTML – tam, gdzie wskaże operator (rozdział 14).
+
+## 13. Kontroler domeny, emulator PDC i SYSVOL
 
 - Okno czyta i zapisuje AD oraz SYSVOL **tylko na swoim kontrolerze domeny**. Gdy nie jest nim emulator PDC (z którego
   domyślnie korzysta GPMC), karty GPO pokazują: *Zmiany GPO wykonujesz na X, a emulatorem PDC jest Y* z przyciskiem
@@ -496,17 +740,20 @@ modelu K5) – szczegóły w opisie każdej uwagi.
   wykonania. Gdy jest niedostępny, pasek podaje przyczynę (połączenie otwarte nazwą wyróżniającą, środowisko
   nieobsługiwane, odrzucone poświadczenia, odmowa dostępu, brak połączenia z udziałem). Wtedy wyłączone są tylko
   zmiany zapisujące SYSVOL (nowe GPO, kopia, usuwanie, filtrowanie zabezpieczeń, delegowanie, przywracanie, import,
-  wyrównanie wersji, naprawa uprawnień, zapis szablonów administracyjnych, aktualizacja magazynu centralnego);
-  połączenia, stan GPO, zmiana nazwy, filtr WMI i blokowanie dziedziczenia zmieniają tylko AD i działają dalej.
+  wyrównanie wersji, naprawa uprawnień, zapis szablonów administracyjnych, aktualizacja magazynu centralnego,
+  kopiowanie i usuwanie ustawień, scalanie GPO); połączenia, stan GPO, zmiana nazwy, filtr WMI i blokowanie
+  dziedziczenia zmieniają tylko AD i działają dalej. Wyszukiwarka i porządki (rozdział 12) mają wtedy tylko dane z
+  katalogu.
 
-## 13. Co AD Manager zapisuje na dysku
+## 14. Co AD Manager zapisuje na dysku
 
 Nic z katalogu ani z SYSVOL (zasada 1): GPO, połączenia, ustawienia, szablony ADMX i różnice są tylko w pamięci, dopóki
 są widoczne. Zapamiętywane są wyłącznie: widoczność węzłów GPO w drzewie, ostatni folder kopii zapasowych, szablon
 komentarza kopii i wybór *Utwórz kopię zapasową przed usunięciem*. Pliki powstają tylko tam, gdzie operator je wskaże:
 kopie zapasowe GPO, kopia magazynu centralnego przed aktualizacją, eksport porównania i modelu (rozdział 9) do CSV,
-raport HTML ustawień GPO i eksport diagnostyki do CSV lub HTML (rozdział 11). Wyniki diagnostyki są tylko w pamięci
-karty.
+raport HTML ustawień GPO, eksport diagnostyki (rozdział 11), wyników wyszukiwania ustawień i propozycji porządków
+(rozdział 12) do CSV lub HTML. Wyniki diagnostyki są tylko w pamięci karty, a odczyt ustawień wszystkich GPO, wyniki
+wyszukiwania i propozycje porządków – tylko w pamięci okna połączenia (bez historii wyszukiwania).
 Ustawienia zabezpieczeń (rozdział 10) są tylko w pamięci karty do zapisu w SYSVOL. Paczki szablonów
 producentów (pliki producentów, nie dane katalogu) są trzymane w pamięci; tylko instalatory MSI i EXE oraz archiwa CAB
 są kopiowane do folderu tymczasowego profilu (instalatory są tam też rozpakowywane, CAB – w pamięci), usuwanego zaraz po
@@ -514,7 +761,7 @@ wczytaniu. Dziennik audytu zawiera
 przy zmianach SYSVOL ścieżki plików w folderze GPO lub magazynie centralnym, rozmiary i sumy SHA-256 – nie treść
 plików.
 
-## 14. Ograniczenia i pilotaż
+## 15. Ograniczenia i pilotaż
 
 - Sprawdzone testami na fałszywym katalogu i na laboratorium Samba 4.19 (zapis SYSVOL przez `smbclient`); zapis SYSVOL
   na Windows (`WindowsSysvolFileWriter`), okna WPF, zrzut ekranu 23 i test dymny sprawdza tylko CI na Windows.
@@ -542,6 +789,15 @@ plików.
 - Czytelne ustawienia, wygodę edycji i diagnostykę (K6) sprawdzono testami na fałszywym katalogu (każda reguła
   diagnostyki na przykładach z polskimi danymi, teksty wszystkich uwag w obu językach); okna – CI na Windows; w
   pilotażu – porównanie nazw ustawień z raportem GPMC (`Get-GPOReport`) i uwag diagnostyki z wiedzą o domenie.
+- Wyszukiwanie, kopiowanie ustawień i porządki (K7) sprawdzono testami na fałszywym katalogu (przykładowa firma i GPO
+  *Porządki – …* z polskimi danymi: kopiowanie i usuwanie każdego rodzaju ustawienia z wykonaniem i cofnięciem, odmowy z
+  MS14-025 włącznie, scalanie z zastąpieniem połączeń, każdy rodzaj propozycji razem z przypadkami, w których propozycji
+  być nie może); okna i zrzuty 34 i 35 – CI na Windows; **nie sprawdzono na prawdziwej domenie Windows**. W pilotażu:
+  wyniki wyszukiwania wobec *Znajdź* w edytorze GPMC i `gpresult /h`, skopiowane ustawienia w GPMC i `gpresult /h` na
+  komputerze testowym, scalenie dwóch testowych GPO, propozycje porządków wobec obrazu w GPMC. Nie są kopiowane ani
+  scalane: skrypty, uprawnienia plików i rejestru, opcje inspekcji, komentarze, wartości ukryte (hasła GPP – MS14-025),
+  elementy kolekcji z kierowaniem lub wyłączonych, ustawienia w katalogu; brak kopiowania do nowego GPO i między
+  domenami; scalenie nie przesuwa połączenia B na pozycję A.
 - Brak: edycji reguł zapory, uprawnień plików i rejestru, dzienników zdarzeń, użytkowników lokalnych i pozostałych
   preferencji, grup lokalnych w konfiguracji użytkownika, komentarzy do ustawień
   szablonów, filtrów edytora według platformy i słów kluczowych, starych szablonów ADM, tabel migracji i kopiowania GPO

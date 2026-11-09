@@ -257,6 +257,37 @@ z treścią sprzed edycji jako warunkiem (konflikt) i `SetGpoVersion` części k
   okno połączenia) i zakładka *Stan* GPO (`GroupPolicyObjectDocumentViewModel.Health.cs`) pokazują wyniki; migawki i
   uwagi są tylko w pamięci, eksport CSV/HTML – do pliku operatora (zasada 1).
 
+### Wyszukiwanie, kopiowanie ustawień i porządki w GPO (K7)
+
+- **Indeks ustawień:** `AdMng.Core/GroupPolicy/Search`: `GpoSettingsIndexBuilder` czyta z DC sesji (zasada 4) GPO,
+  połączenia, wersje `GPT.INI` i foldery wszystkich GPO strumieniowo przez `GpoFolderReader` (tryb `ContentOnly`,
+  najwyżej cztery odczyty SYSVOL naraz, limity na plik, GPO i cały przebieg; bajty jednego GPO są parsowane i od razu
+  porzucane), nazwy kont rozpoznaje jednym przebiegiem `GpoPrincipalResolver` (filtry `LdapFilter`, 50 nazw na
+  zapytanie) i grupuje ustawienia w **jednostki** (`GpoSettingUnits.Of`): to, co GPMC pokazuje jako jeden wiersz, z
+  identyfikatorem wspólnym dla wszystkich GPO (zasada ADMX po identyfikatorze, element preferencji po naturalnej
+  tożsamości – litera dysku, nazwa grupy, ścieżka – a nie po `uid`), odciskiem wartości, porównywalnością (ukryte,
+  warunkowe, skumulowane) i powodem odmowy kopiowania. Odświeżenie przyrostowe czyta tylko GPO ze zmienioną wersją.
+- **Usługa indeksu na okno:** `GpoSettingsIndexService` (`AdMng.Presentation/GroupPolicy/Search`, Scoped – jedna na okno
+  połączenia) jest właścicielem każdego przebiegu: własne połączenie SYSVOL i własny token powiązany z czasem życia
+  usług GPO, jeden przebieg naraz z co najwyżej jednym przebiegiem w kolejce, widok związany z instancją sesji i
+  serwerem, znacznik nieaktualności po zmianach GPO, porzucenie przy zmianie sesji. Wyszukiwarka
+  (`GpoSettingsSearchDocumentViewModel`, dopasowanie `GpoSettingsMatcher` w tle) i porządki
+  (`GpoCleanupDocumentViewModel`) czytają ten sam widok; teksty GPMC liczy raz na widok `GpoIndexTexts`.
+- **Zapis przez plan zmian:** `GroupPolicyPlanner.PlanCopySettingsAsync`, `PlanRemoveSettingsAsync`, `PlanMergeAsync`,
+  `PlanUnlinkAllAsync` i `PlanDeleteAsync` z oczekiwanym stanem czytają źródło i cel **od nowa** w chwili planowania
+  (nigdy wartości z indeksu), a wewnętrzny `GpoSettingsWriter` zmienia `Registry.pol`, `GptTmpl.inf`, `audit.csv` i
+  pliki preferencji (`GppPreferenceDocument`) minimalną edycją. Wynik to jeden `ObjectPlan` na docelowy GPO (nazwy
+  rozszerzeń, `WriteGpoFile`, jedno podniesienie wersji – jedna transakcja `GpoTransaction`), przy scaleniu także
+  `gPLink` kontenerów i stan scalanego GPO; podgląd, audyt i cofnięcie jak każdy plan (zasada 5). Akcje
+  `GpoSettingsActions` (`AdMng.Presentation/GroupPolicy/Copy`) przekazują zbiór definicji ADMX indeksu i budują sekcję
+  *Zmiany ustawień* (`GpoSettingChangesBuilder`).
+- **Doradca porządków:** `GpoCleanupAnalyzer.Analyze(index, options)` (`AdMng.Core/GroupPolicy/Cleanup`) jest czystą
+  funkcją rekordów indeksu (wartości porównuje `GpoSettingUnits.SameValue`, zasięg – `GroupPolicyInheritance`);
+  propozycje i ich działania są tylko danymi, a każde działanie idzie przez planistę i podgląd. Indeks, wyniki i
+  propozycje są tylko w pamięci okna, eksport – do pliku operatora (zasada 1). Opis:
+  [ZASADY-GRUPY.md, rozdział 12](ZASADY-GRUPY.md#12-wyszukiwanie-kopiowanie-ustawień-i-porządki-w-gpo-k7); specyfikacja:
+  [dev/k-computers-and-gpo.md](dev/k-computers-and-gpo.md), rozdział 21.
+
 ### Dzienniki zdarzeń (ścieżka E)
 
 - `AdMng.Core/EventLogs`: model `EventLogRecord`, zapytanie `EventLogQuery`, zasięg `EventLogCoverage`, kontrakty

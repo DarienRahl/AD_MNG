@@ -58,7 +58,7 @@ Wpisujcie wynik w tabeli z rozdziału 5. *Porównaj z* – narzędzie Microsoftu
 ponowne uruchomienie z komunikatem, odświeżenie zasad użytkowników, uruchamianie narzędzi (`mmc`, Podgląd zdarzeń),
 przygotowanie konta komputera i dołączenie do domeny (KB5020276), inwentarz zgodny z `Get-ADComputer`.
 
-### 3.3 Zasady grupy (K2–K6)
+### 3.3 Zasady grupy (K2–K7)
 
 | # | Scenariusz | Oczekiwany wynik | Porównaj z |
 |---|---|---|---|
@@ -71,8 +71,12 @@ przygotowanie konta komputera i dołączenie do domeny (KB5020276), inwentarz zg
 | G7 | Model „co dostanie komputer” dla komputera testowego | lista GPO i wygrywające ustawienia jak w *Modelowaniu zasad grupy* i `gpresult` | GPMC, `gpresult` |
 | G8 | Zakładka *Ustawienia* i *Raport HTML…* | nazwy i wartości jak w raporcie GPMC (`Get-GPOReport`) | `Get-GPOReport` |
 | G9 | Diagnostyka zasad grupy (pełna) | uwagi trafne; *Napraw…* działa przez podgląd planu | wiedza o domenie |
+| G10 | *Wyszukiwarka ustawień GPO*: ustawienie (np. minimalna długość hasła), wartość, klucz techniczny, konto (nazwa i SID) | te same GPO i wartości co *Znajdź* w edytorze GPMC; wygrywająca wartość zgodna z `gpresult /h` | GPMC (*Znajdź*), `gpresult` |
+| G11 | *Kopiuj do innego GPO…*: zasada ADMX, prawo użytkownika, ustawienie zabezpieczeń, mapowanie dysku do testowego GPO; potem *Cofnij* | GPMC pokazuje skopiowane ustawienia jak swoje; `gpresult /h` na komputerze testowym je stosuje; po cofnięciu znikają; hasło GPP odrzucone z powodem | GPMC, `gpresult` |
+| G12 | *Scal z…* dwóch testowych GPO połączonych z tą samą OU | ustawienia w docelowym GPO, połączenie scalanego zastąpione, scalany wyłączony; `gpresult /h` bez zmian w działaniu; *Cofnij* przywraca stan | GPMC, `gpresult` |
+| G13 | *Porządki w GPO*: każda propozycja (puste, bez połączeń, wyłączone, z jednym ustawieniem, duplikaty, kandydaci do scalenia) | propozycje zgodne z obrazem w GPMC; *Usuń GPO…* proponuje kopię zapasową i odmawia, gdy GPO zmieniono od analizy | GPMC |
 
-Ograniczenia i szczegóły: [ZASADY-GRUPY.md, rozdział 14](ZASADY-GRUPY.md#14-ograniczenia-i-pilotaż).
+Ograniczenia i szczegóły: [ZASADY-GRUPY.md, rozdział 15](ZASADY-GRUPY.md#15-ograniczenia-i-pilotaż).
 
 ### 3.4 Dzienniki zdarzeń (E)
 
