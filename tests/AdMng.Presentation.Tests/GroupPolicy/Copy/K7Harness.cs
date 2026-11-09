@@ -5,6 +5,7 @@ using AdMng.Core.GroupPolicy.Search;
 using AdMng.Presentation.GroupPolicy.Cleanup;
 using AdMng.Presentation.GroupPolicy.Copy;
 using AdMng.Presentation.GroupPolicy.Search;
+using AdMng.Presentation.Tests.Dialogs;
 using AdMng.Testing;
 
 namespace AdMng.Presentation.Tests.GroupPolicy.Copy;
@@ -42,6 +43,18 @@ internal sealed class K7Harness
 
         arrange?.Invoke(harness);
         return harness;
+    }
+
+    /// <summary>
+    /// The harness connected to a domain controller session over the in-memory directory (<see cref="B2Harness.CreateOnDomainControllerAsync"/>),
+    /// so that "Zmień kontroler domeny" can close it without closing the directory.
+    /// </summary>
+    public static async Task<K7Harness> CreateOnDomainControllerAsync()
+    {
+        var b2 = await B2Harness.CreateOnDomainControllerAsync("dc01.contoso.test", Polish);
+        var gp = (GroupPolicyHarness)Activator.CreateInstance(typeof(GroupPolicyHarness), System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+            null, [b2, true], CultureInfo.InvariantCulture)!;
+        return new K7Harness(gp);
     }
 
     public Task<GpoIndexView> IndexAsync(GpoIndexRefresh refresh = GpoIndexRefresh.IfMissing) => Index.GetAsync(refresh, Ct);

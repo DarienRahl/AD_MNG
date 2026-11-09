@@ -112,6 +112,13 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
         // A superseded load can arrive late (its SYSVOL logon does not stop once started): it must not touch the newer one.
         cancellationToken.ThrowIfCancellationRequested();
 
+        // The analysis of another session (another DC, a reconnect) is dropped with the index (21.7): it is never shown,
+        // nor acted on, as this session's.
+        if (_shown is { } previous && !ReferenceEquals(previous.Session, session))
+        {
+            DropAnalysis();
+        }
+
         // Nothing shown yet: the index as it is (built when missing). Results shown and Group Policy changed elsewhere: they
         // are kept but marked, the GPOs are not read again behind the operator's back.
         var refresh = _requested ?? (_shown is null ? GpoIndexRefresh.IfMissing : (GpoIndexRefresh?)null);
@@ -135,7 +142,7 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
             var result = await Task.Run(() => GpoCleanupAnalyzer.Analyze(view.Index), token).ConfigureAwait(true);
             token.ThrowIfCancellationRequested();
             _requested = null;
-            Show(new Analysis(view, result));
+            Show(new Analysis(view, result) { Session = session });
         }
         catch (OperationCanceledException) when (_cancelRequested && !cancellationToken.IsCancellationRequested)
         {
@@ -164,16 +171,25 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
         }
     }
 
-    protected override void OnNotConnected()
+    protected override void OnNotConnected() => DropAnalysis();
+
+    /// <summary>Forgets the shown analysis (disconnected, or made on another session).</summary>
+    private void DropAnalysis()
     {
         _shown = null;
         _all = [];
+        _restoreSelection = null;
         IsStale = false;
         Notes = [];
+        LastRunText = Localizer[L.GpoCleanup.NeverRun];
         ApplyFilters();
         UpdateSummary();
+        BuildGpoOptions();
         OnPropertyChanged(nameof(HasResult));
         OnPropertyChanged(nameof(TotalCount));
+        OnPropertyChanged(nameof(View));
+        OnPropertyChanged(nameof(Result));
+        RefreshCommands();
     }
 
     /// <summary>The texts are made again in the new language from the index (no GPO folder is read again).</summary>
@@ -349,6 +365,9 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
     private sealed record Analysis(GpoIndexView View, GpoCleanupResult Result)
     {
         public IReadOnlyList<GpoCleanupRowViewModel> Rows { get; init; } = [];
+
+        /// <summary>The session the index was read on (another one drops the analysis).</summary>
+        public IDirectorySession? Session { get; init; }
 
         /// <summary>For diagnostics: counts only.</summary>
         public override string ToString() => Result.ToString();

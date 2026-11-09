@@ -234,6 +234,25 @@ public sealed class GpoCleanupDocumentTests
     }
 
     [Fact]
+    public async Task AnotherDomainController_DropsTheProposalsOfTheOldSession_AndAnalysesAgain()
+    {
+        var k = await K7Harness.CreateOnDomainControllerAsync();
+        using var document = await k.CleanupAsync();
+        var first = document.View!;
+        Assert.Equal("dc01.contoso.test", first.Index.Server);
+
+        // 21.7: the proposals are dropped on SessionChanged – never shown (and acted on) as if they were of the new session.
+        await k.H.B2.Sessions.SwitchDomainControllerAsync("dc02.contoso.test", null, K7Harness.Ct);
+        await B2Harness.WaitUntilAsync(() => !document.IsLoading && document.View is { } view && !ReferenceEquals(view, first));
+
+        Assert.Equal("dc02.contoso.test", document.View!.Index.Server);
+        Assert.Null(document.Error);
+        Assert.True(document.HasResult);
+        Assert.False(document.IsStale);
+        Assert.Contains(document.Rows, r => r.Kind == GpoCleanupKind.EmptyGpo && r.GpoId == k.Cleanup.EmptyGpo);
+    }
+
+    [Fact]
     public async Task EntryPoints_OpenOneTab_FromThePaletteTheGpoListAndTheActions()
     {
         var k = await K7Harness.CreateAsync(centralStore: false);
