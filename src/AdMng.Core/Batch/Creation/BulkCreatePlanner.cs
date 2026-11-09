@@ -140,6 +140,9 @@ public sealed partial class BulkCreatePlanner(PasswordGenerator passwords, TimeP
         /// <summary>The value depends on the counter number in this row.</summary>
         public bool IsCounter { get; init; }
 
+        /// <summary>The case the column mapping applied (column values only; the B1 validation checks it, e.g. <c>AllCapsName</c>).</summary>
+        public TextCase? ColumnCase { get; init; }
+
         public string First => Values.Count > 0 ? Values[0] : string.Empty;
 
         public bool HasValue => Values.Count > 0 && Values[0].Length > 0;

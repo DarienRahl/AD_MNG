@@ -458,7 +458,10 @@ public sealed partial class BulkCreatePlanner
             IReadOnlyList<string> values = value.Contains('|', StringComparison.Ordinal) && _schema.FindAttribute(attribute) is { IsSingleValued: false }
                 ? CellText.SplitValues(value)
                 : [value];
-            state.Base[attribute] = new Draft(attribute, [.. values.Select(v => ApplyComputerRules(attribute, v))], source);
+            state.Base[attribute] = new Draft(attribute, [.. values.Select(v => ApplyComputerRules(attribute, v))], source)
+            {
+                ColumnCase = source == BulkValueSource.Column ? textCase : null,
+            };
         }
 
         /// <summary>The <c>Country</c> target (2.5): <c>c</c>, <c>co</c> and <c>countryCode</c> from a name or a code.</summary>
@@ -781,6 +784,8 @@ public sealed partial class BulkCreatePlanner
 
             foreach (var draft in state.Values.Values.Where(d => d.HasValue))
             {
+                // Wave-1 merge (2.15, B2 as built): switch to B1's overload
+                // CreationValues.Validate(_kind, draft.Attribute, draft.Values, _schema, _rules.Phones, draft.ColumnCase).
                 foreach (var issue in CreationValues.Validate(_kind, draft.Attribute, draft.Values, _schema))
                 {
                     state.Add(issue.Attribute is null ? issue with { Attribute = draft.Attribute } : issue);
