@@ -81,6 +81,16 @@ public sealed partial class GroupPolicyPlanner
             work.Error(IssueCodes.GpoSettingIncomplete, "Not every setting of the target GPO could be read.", target.DisplayName);
         }
 
+        // Settings kept as directory objects below CN=Machine / CN=User are never units: say that they are not copied.
+        foreach (var source in work.Sources.Values.Where(s => s.Info is not null && request.Units.Any(u => u.GpoId == s.Info.Id)))
+        {
+            if (await _reader.CountDirectorySettingsAsync(session, source.Info!.Id, cancellationToken).ConfigureAwait(false) is > 0 and var count)
+            {
+                work.Warn(IssueCodes.GpoDirectorySettings, string.Create(CultureInfo.InvariantCulture,
+                    $"{count} settings objects kept in the directory (software installation, wireless or wired network policies) are not copied."));
+            }
+        }
+
         // The same setting from two source GPOs: neither (no silent "last wins").
         var found = request.Units.Select(u => (Selection: u, Unit: work.Find(u))).ToList();
         var ambiguous = found.Where(f => f.Unit is not null).GroupBy(f => f.Unit!.BaseId, StringComparer.OrdinalIgnoreCase)

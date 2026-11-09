@@ -139,6 +139,27 @@ public abstract class CopySettingsTestBed : GroupPolicyTestBed
 
     protected GpoVersion GptVersion(Guid gpo) => GpoVersion.FromInt32(GptIni.ReadVersion(Sysvol.Get(gpo, GptIni.RelativePath)!)!.Value);
 
+    /// <summary>A second domain of the forest (kraków.contoso.test): its links are not visible from this DC.</summary>
+    protected void AddOtherDomain()
+    {
+        var partitions = "CN=Partitions," + Session.Info.ConfigurationNamingContext;
+        if (!Session.Exists(partitions))
+        {
+            Session.Seed(partitions, new Dictionary<string, object?> { [AdMng.Core.ActiveDirectory.Attr.ObjectClass] = new[] { "top", "crossRefContainer" } });
+        }
+
+        foreach (var (name, nc, dns) in new[] { ("CONTOSO", Builder.DomainDn, "contoso.test"), ("KRAKOW", "DC=krakow,DC=contoso,DC=test", "kraków.contoso.test") })
+        {
+            Session.Seed($"CN={name},{partitions}", new Dictionary<string, object?>
+            {
+                [AdMng.Core.ActiveDirectory.Attr.ObjectClass] = new[] { "top", "crossRef" },
+                ["nCName"] = nc,
+                ["dnsRoot"] = dns,
+                ["systemFlags"] = 3,
+            });
+        }
+    }
+
     protected static IReadOnlyList<ValidationIssue> IssuesOf(ChangePlan plan) =>
         [.. plan.Objects.SelectMany(o => o.Issues.Concat(o.Changes.SelectMany(c => c.Issues)))];
 

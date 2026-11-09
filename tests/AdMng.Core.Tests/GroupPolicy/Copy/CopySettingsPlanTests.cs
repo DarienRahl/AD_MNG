@@ -319,6 +319,21 @@ public class CopySettingsPlanTests : CopySettingsTestBed
     }
 
     [Fact]
+    public async Task Policy_WithAClientExtension_AddsItsPairWithTheAdministrativeTemplatesTool()
+    {
+        var set = GpoSettingsWriterTests.WithClientExtension();
+        var source = AddGpo("Szablony – podgląd", computer: 1, machineNames: MachineRegistryPair);
+        PutRegistry(source, false, Dword(@"Software\Policies\Contoso\Eksplorator", "NoPreview", 1));
+        var target = AddGpo("Szablony – cel", machineNames: SecurityPair);
+
+        var plan = await CopyAsync(target, [await SelectAsync(source, u => u.Kind == GpoSettingUnitKind.AdministrativeTemplate, set)], definitions: set);
+
+        Assert.Equal(MachineRegistryPair + SecurityPair + "[{D02B1F72-3407-48AE-BA88-E8213C6761F1}{0F6B957D-509E-11D1-A7CC-0000F87571E3}]",
+            Target(plan).Changes[0].Attributes.Single().NewValues.Single());
+        Assert.Contains(plan.Plan.Objects[0].PowerShell!.Commands, c => c.Cmdlet == "Set-GPRegistryValue");
+    }
+
+    [Fact]
     public async Task Preference_OfAnUnknownType_IsRefused()
     {
         var source = AddGpo("Aplikacje – źródło", user: 1, userNames: DrivesPairs);
@@ -489,6 +504,19 @@ public class CopySettingsPlanTests : CopySettingsTestBed
         Assert.DoesNotContain(Target(guest).Issues, i => i.Code is IssueCodes.GpoAccountPolicyBelowDomain or IssueCodes.GpoKerberosPolicyBelowDomain);
         Assert.Contains(Target(kerberos).Issues, i => i.Code == IssueCodes.GpoKerberosPolicyBelowDomain);
         Assert.DoesNotContain(Target(atDomain).Issues, i => i.Code is IssueCodes.GpoAccountPolicyBelowDomain or IssueCodes.GpoKerberosPolicyBelowDomain);
+    }
+
+    [Fact]
+    public async Task SourceWithDirectorySettings_WarnsThatTheyAreNotCopied()
+    {
+        var source = SecurityGpo("Instalacja – źródło", "[System Access]", "MinimumPasswordLength = 14");
+        Session.Seed($"CN=Class Store,CN=Machine,{GpoDn(source)}", new Dictionary<string, object?> { [AdMng.Core.ActiveDirectory.Attr.ObjectClass] = new[] { "top", "classStore" } });
+        var target = AddGpo("Instalacja – cel");
+
+        var plan = await CopyAsync(target, [await SelectAsync(source, Key("MinimumPasswordLength"))]);
+
+        Assert.Contains(Target(plan).Issues, i => i.Code == IssueCodes.GpoDirectorySettings && i.Severity == IssueSeverity.Warning);
+        Assert.Equal(GpoUnitOutcomeKind.Added, Assert.Single(plan.Outcomes).Kind);
     }
 
     [Fact]
