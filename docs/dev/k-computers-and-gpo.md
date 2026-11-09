@@ -2461,3 +2461,25 @@ The design review of 21 (2026-11) was applied in 21.1–21.12. Points taken only
   skipped – the operator chose the unit; only the merge skips them.
 * *Separate code for directory settings in a merge*: the existing `IssueCodes.GpoDirectorySettings` is reused at severity
   `Error` (one text, already translated).
+
+### 21.14 K7 as built
+
+**W1 as built.** Folder reader, units, resolver, index and index service as in 21.1–21.3, with these additions and
+choices (contract signatures unchanged; members added only): `GpoFolderReadResult` of a GPO skipped by the run budget has
+`Skipped = true` and `Status = Failed`; the GPO budget is predictive (a file that would cross `MaxGpoBytes` and every later
+file go to `NotRead`). The new `CountDirectorySettingsAsync(session, ct)` overload sits after the per-GPO method (the
+contract commit had split that method's summary). `GppXmlParser.Canonical` became `internal` and `GppXmlParser.IsCollection`
+public. The normalized keys do not show `Collection` elements, so the chains travel as `GpoPreferenceScope` records:
+`GpoSettingUnits.PreferenceScopes(content)`, `GpoUnitContext.PreferenceScopes` and `GpoIndexEntry.PreferenceScopes` (kept for
+`WithDefinitions`); `Of(settings, …)` without them takes every item as being at its file's root, `Of(content, …)` reads them.
+`GpoIndexEntry.HasContent` = `Read` or `Incomplete`. Occurrence numbers follow the order of the settings (key order of
+`ReadSettings`), not file order; collection pseudo-items make no unit; a cut (truncated) preference key is a unit of its own
+and marks its item `Truncated`; an identity that falls back to the item id is written `(id)`; a base id that would end like
+`#n` gets a closing `|`, so `BaseIdOf(Id) == BaseId` always. Policies also get a `ValueFingerprint` (state and element values,
+canonical) next to `PolicySetting` equality; `SameValue` also requires the same kind and base id. `PrincipalSids` holds SIDs
+only (an unresolved name stays in `Principals`). `GpoPrincipalResolver.ResolveAsync` returns `KONTOSO\Domain Admins` (another
+domain) as `Unresolved` although `KnownSid` maps the bare name to this domain's RID 512. An incremental index build keeps the
+`SidsByName` of names it resolved before (same domain SID). The service's `GetAsync` throws `InvalidOperationException` when
+disconnected and `ObjectDisposedException` after disposal; waiters of a build that `Invalidate` or `CancelBuild` stopped get
+`OperationCanceledException`. `GpoIndexTexts.For(localizer, view)` returns the one instance per view (the service warms it
+on its build thread); `PresenterOf(entry)` and `Warm()` are public, `Describe` is cached per GPO and unit id.
