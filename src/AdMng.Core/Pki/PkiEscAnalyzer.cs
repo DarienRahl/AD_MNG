@@ -44,11 +44,8 @@ public static partial class PkiEscAnalyzer
             Esc13(run);
             Esc15(run);
             Esc17(run);
-        }
 
-        // ESC4 reads the template rights (the snapshot's descriptors), not the PKI ACL pass.
-        if (!run.Skips(PkiRuleGroup.Enrollment))
-        {
+            // ESC4 reads the template rights (the snapshot's descriptors) like the enrollment rules, not the PKI ACL pass.
             Esc4(run);
         }
 
