@@ -5,7 +5,10 @@ implementation design of stage **P1** (read-only overview of the forest PKI, LDA
 implementers: the public types of 2.11 are the contract, each heading of 2.1–2.6 names its owner, and 2.12 fixes which
 files each agent may touch. P2 (safe changes through the change plan) and P3 (work with the CA host) get their own
 top-level sections later, the way the K note grew from §14 to §21; do not renumber 2.x after the P1 contract commit (XML
-docs and `PkiFindingCodes` will quote these section numbers).
+docs and `PkiFindingCodes` will quote these section numbers). Revised after the P1 design review (2.13). Later stages
+are numbered as in README at this note's base commit (a772ac1): P2 repairs through the change plan, P3 work with the CA
+host, P4 links (Watchdog, E, K, U, S). A README change in progress inserts P2 *wystawianie certyfikatów* and shifts them
+to P3 / P4 / P5; when it is committed the lead renumbers these references (no P1 content depends on it).
 
 ## 1. Decisions (operator, 2026-11)
 
@@ -14,403 +17,695 @@ rule 5: nothing is written), LDAP only (rule 4: everything through the window se
 
 1. **Scope** = README track P, stage P1 (read-only, LDAP). The only traffic outside the window's LDAP session:
    (a) a **TLS handshake probe** of a DC's LDAPS / GC-LDAPS certificate (port 636, and 3269 only for a DC with the GC
-   flag) – no LDAP bind, no credential, no byte written, run only on explicit navigation or a button, at most 4 in
-   parallel, 5 s timeout each; (b) **HTTP checks of the AIA / CDP / OCSP URLs** read from certificates, run **only** when
-   the operator presses *Sprawdź adresy HTTP* – responses kept in memory, a size cap and a timeout, never fetched
-   automatically. Chain building never downloads (`DisableCertificateDownloads = true`, `RevocationMode = NoCheck`,
-   `TrustMode = CustomRootTrust` with the roots read from AD).
+   flag) – no LDAP bind, no client certificate, no application data (only the TLS handshake records), run only on
+   explicit navigation or a button, at most 4 in parallel, 5 s timeout each; (b) **HTTP checks of the AIA / CDP / OCSP
+   URLs** read from certificates, run **only** when the operator presses *Sprawdź adresy HTTP* – `http`/`https` only
+   (never `file:`, UNC or an `ldap://host` URL), no credentials sent to the target, at most 3 redirects (each target
+   checked again), 15 s per URL including the body, 20 MB cap, responses parsed in memory and kept only in the window's
+   snapshot service, never fetched automatically. Chain building never downloads (`DisableCertificateDownloads = true`,
+   `RevocationMode = NoCheck`, `TrustMode = CustomRootTrust` with the roots read from AD) – also inside the probe's
+   `SslStream` and the HTTPS client (`CertificateChainPolicy`), so neither can reach an AIA URL on its own.
 2. **Expiry thresholds** (settings, allowed on disk – no directory data): one setting *Próg ostrzeżenia o wygasaniu
    certyfikatów* (default **30 days**) for end-entity certificates (DC LDAPS, KRA, published certificates) and a separate
    default **180 days** for CA certificates (renewing a CA has to be planned). A CRL *wygasa* when less than
-   `max(1 day, 20 % of its validity)` is left. Stored in `AppSettings` like the other UI settings.
+   `max(1 day, 20 % of (nextUpdate − thisUpdate))` is left; a CRL without `nextUpdate` is *nieznany*, never *wygasła*.
+   Stored in `AppSettings.Pki` like the other UI settings and editable in the Settings window. Health states are computed
+   **when shown** from the snapshot, the current settings and the clock – never cached with the snapshot.
 3. **CA-enrollment assumption.** Until P3 reads the CA's own security, the ESC review assumes every CA grants *Enroll* to
-   *Authenticated Users* (the Windows default) and every affected finding says so. A template **no enterprise CA
-   publishes** is reported at a lower level with the note *szablon nie jest wystawiany* – exploitable only once it is
-   published.
-4. **Principal classes for ESC** (decides a finding's severity, decision shared with 2.3's rights evaluator):
-   *Tier 0 / privileged* = `PrivilegedGroupCatalog` Tier 0 members, SYSTEM, Enterprise Domain Controllers (S-1-5-9),
-   Domain Controllers, Administrators and the CA's own computer account → **no finding**. *Broad* = Everyone,
-   Authenticated Users, Anonymous, Domain Users, Domain Computers, Domain Guests, Guests, BUILTIN\Users, This
-   Organization (S-1-5-15), Interactive, Network → **High / Critical**. Any **other** principal → **Medium**
-   (*konto lub grupa spoza Tier 0*) with the account count.
+   *Authenticated Users* (the Windows default) and every enrollment-based finding says so (`AssumesCaEnroll`). A template
+   **no enterprise CA publishes** is reported one level lower with the note *szablon nie jest wystawiany* (`NotPublished`)
+   – exploitable only once it is published. A default, patched CA adds the SID extension (`szOID_NTDS_CA_SECURITY_EXT`)
+   to certificates whose subject is built from AD, so a default forest raises neither ESC9 (template flag clear) nor ESC16
+   (CA `DisableExtensionList` – P3); the review says that a default build is not vulnerable.
+4. **Principal classes for ESC** (decide a finding's severity; one `PrincipalClassifier` shared by 2.3 and 2.4). SIDs of
+   the form `S-1-5-21-<domain>-<RID>` are classified **by RID for any domain of the forest**, not only the window's:
+   * *Tier 0 / infrastructure* → **no finding**: `PrivilegedGroupCatalog` Tier 0 groups and every account or group that
+     reaches one through `GroupGraph`, SYSTEM (S-1-5-18), Enterprise Domain Controllers (S-1-5-9), PRINCIPAL SELF
+     (S-1-5-10), CREATOR OWNER (S-1-3-0), Administrators (S-1-5-32-544), the RIDs 500 (Administrator), 512 (Domain
+     Admins), 516 (Domain Controllers), 517 (Cert Publishers), 518 (Schema Admins), 519 (Enterprise Admins), 521 (RODCs),
+     498 (Enterprise RODCs), 526 (Key Admins), 527 (Enterprise Key Admins), and the CA's own computer account (resolved in
+     2.1). This is Locksmith's `SafeUsers` set plus the catalogue, so a default Windows PKI yields no ESC noise.
+   * *Broad* → **High / Critical**: Everyone (S-1-1-0), Authenticated Users (S-1-5-11), Anonymous (S-1-5-7), This
+     Organization (S-1-5-15), Interactive (S-1-5-4), Network (S-1-5-2), BUILTIN\Users (S-1-5-32-545), Guests
+     (S-1-5-32-546) and the RIDs 513 (Domain Users), 514 (Domain Guests), 515 (Domain Computers) of any domain.
+   * Any **other** principal → **Medium** (*konto lub grupa spoza Tier 0*) with the account count; a trustee of another
+     domain that the window cannot expand is *Other* with the count *nieznana* (`TemplateTrustee.IsResolved = false`).
 5. **"Kto może się zarejestrować / zmienić"** is a **separate pure Core evaluator** (not U4b): AccessCheck semantics over
-   the template DACL (deny ACEs honoured, ACE order, inherit-only skipped, GENERIC_ALL normalized), rights *Enroll*,
-   *AutoEnroll*, *FullControl*, *WriteDacl*, *WriteOwner*, *WriteProperty* (all properties or named template attributes),
-   *Owner*. Trustee level first (immediate), concrete accounts through `GroupGraph` + **one** streamed account pass per
-   analysis (counts + first N names, disabled accounts kept apart, cancellable, progress); trustees from other forest
-   domains are reported unresolved.
+   the template DACL – each right decided by the first ACE in DACL order that applies to the token and covers that right
+   (deny ACEs honoured), inherit-only ACEs and ACEs whose `InheritedObjectType` is not `pKICertificateTemplate` skipped,
+   GENERIC_* normalized – for the rights *Enroll*, *AutoEnroll*, *FullControl*, *WriteDacl*, *WriteOwner*,
+   *WriteProperty* (all properties, a sensitive template attribute, or another attribute) and *Owner*. Trustee level
+   first (immediate), concrete accounts through `GroupGraph` + **one** streamed account pass per window (counts + the first
+   20 names, disabled accounts kept apart, cancellable, progress, decisions memoised per distinct token), which also
+   collects the accounts' `altSecurityIdentities` for ESC14 and the readiness report; trustees from other forest domains
+   are reported unresolved. A template whose security descriptor was not returned is *nieoceniony*, never "safe".
 6. **U4b** (`DirectoryAclGrantSource`) additionally reads the PKI containers of the configuration partition (sites still
-   skipped) with provisioning trustees (Cert Publishers on AIA / CDP / Certification Authorities / NTAuth, the CA
-   computer on its enrollment service and CDP objects) so a default Windows PKI yields no false findings; a **separate
-   sample** keeps the existing exact-set tests unchanged.
-7. **userPKCS12** goes into `SecretAttributes.WellKnownNames` **and** the attribute editor masks secret values in its
-   `ValueText` and editors (README promises masking *wszędzie, także w edytorze atrybutów*).
-8. **Shared Core.** Template flag tables, period decoding, certificate / CRL summaries, the `msDS-KeyCredentialLink` and
-   `altSecurityIdentities` parsers, the rights evaluator and the ESC analyzer all live in `AdMng.Core/Pki` (no Windows
-   types) so the Watchdog can reuse them (P4). The Watchdog's `FlagNames` decoder delegates to the Core flag tables in a
-   **separate, behaviour-neutral** commit (its output is unchanged; `tests/AdMng.Watchdog.Core.Tests` and
-   `tests/AdMng.Watchdog.Service.Tests` pass unchanged).
-9. **UI.** A tree node *Usługi kluczy publicznych* under the domain node on its own base (a `PkiNodeViewModel`, not the
-   GPO base; a *Widok* toggle like the GPO nodes); documents on an LDAP-only `PkiDocumentBase` (no SYSVOL, no PDC note);
-   a **scoped per-window** `PkiSnapshotService` caching the PKI read and the enrollment expansion (dropped on session
-   change, F5 rebuilds). Documents: **przegląd** (urzędy przedsiębiorstwa with the CA chain/validity/templates/CES,
-   zaufane urzędy główne i pośrednie, NTAuth matched to enterprise CAs, CDP lists with CRL numbers/dates/counts, KRA, OID
-   with group links, a *pkiview*-style health tab, a DC-LDAPS tab), **szablony** (the README columns, decoded flags as
-   Polish/English sentences with the technical bit name in a tooltip, periods in days/weeks/years, issuing CAs,
-   unpublished templates, expanded enrollment rights, who can modify, compare two templates, export on demand), **przegląd
-   bezpieczeństwa AD CS** (K6-diagnostics-style: severity chips, filters, rows with the ESC number, Certipy / Locksmith /
-   MDI ids, condition, attack path, affected object, principals with counts – no *Napraw* in P1, only *Otwórz
-   szablon/urząd* navigation; export CSV/HTML on demand), **gotowość na silne mapowanie i NTAuth** (accounts with weak
-   `altSecurityIdentities`, authentication templates without the SID extension, logon-capable CAs not in NTAuth, DC LDAPS
-   certificates without a proper SAN/EKU; a link opening the event-log reader for KDC events 39/40/41/45/21 **if** the
-   reader supports a preset query – otherwise listed as P4). Read-only property-sheet tabs *Opublikowane certyfikaty*
-   (user, computer, contact), *Mapowania nazw* (user, computer) with KB5014754 strength and *Poświadczenia kluczy* (user,
-   computer) with key id, device id, source, created / last-logon, usage – read lazily, no writes. From a CA to its
-   computer object and to the K1 remote actions.
-10. **Screenshots 36–39** (overview/health, templates with enrollment rights, security review, readiness/a card). The
-    user doc `docs/CERTYFIKATY.md` (Polish) is written in the integration step.
+   skipped). Provisioning trustees on PKI objects: the forest root's Domain Admins (`<root>-512`, owners of the default
+   templates and containers), Cert Publishers (`-517` of **any** forest domain) on AIA / CDP / Certification Authorities /
+   NTAuth / KRA and the enrollment services, the CA computer on its enrollment service and its CDP / AIA objects – so a
+   default Windows PKI yields no false findings. Owners are reported only for containers, templates, enrollment services,
+   NTAuth and OID objects that carry `msDS-OIDToGroupLink`. A typed entry point (`CollectPublicKeyAsync`) serves ESC5 and
+   ESC14 (writes of `altSecurityIdentities` on Tier 0 accounts, a new `AclRight.WriteAltSecurityIdentities`). A **separate
+   sample** keeps the existing exact-set tests unchanged; UI tests seed the PKI sample only where they need it.
+7. **userPKCS12** goes into `SecretAttributes.WellKnownNames`, and a new `SecretAttributes.IsNeverShown` (key material:
+   `userPKCS12`, the roaming credentials, BitLocker key packages, managed and encrypted passwords – every secret that is
+   binary or in that list) is **masked everywhere, also in the attribute editor**: `ValueText` shows the mask, the row is
+   read-only (no value editor, nothing staged) and cannot be copied (README promises masking *wszędzie, także w edytorze
+   atrybutów* for these). Operator-readable secrets (LAPS clear-text password, BitLocker recovery password, confidential
+   text attributes) keep today's display and secure copy – changing that is an operator question (2.13). The Watchdog
+   consequence (it can never watch `userPKCS12`) is stated and tested.
+8. **Shared Core.** Template flag tables, period decoding, certificate / CRL summaries, the health rules, the
+   `msDS-KeyCredentialLink` and `altSecurityIdentities` parsers, the rights evaluator and the ESC analyzer all live in
+   `AdMng.Core/Pki` (no Windows types) so the Watchdog can reuse them (P4). The Watchdog's `FlagNames` takes the names of
+   its two certificate tables from `PkiFlags` in a **separate, behaviour-neutral** commit: `PkiFlags.Select` keeps
+   exactly today's bits in today's order (no `SUBJECT_ALT_REQUIRE_SPN`, none of `0x2000`–`0x40000`; unknown bits still
+   `0x…`; `TableOf` unchanged), pinned by a golden test committed **before** it. `userPKCS12` becoming secret is the only
+   other Watchdog-visible change.
+9. **UI.** A tree node *Usługi kluczy publicznych* under the domain node on its own base (`PkiNodeViewModel`, not the GPO
+   base; a *Widok* toggle like the GPO nodes; inserted after the GPO nodes); documents on an LDAP-only `PkiDocumentBase`
+   (no SYSVOL, no PDC note); a **scoped per-window** `PkiSnapshotService` caching the PKI read, the enrollment expansion,
+   the DC certificate probes and the HTTP results (dropped on session change, F5 rebuilds). Documents: **przegląd**
+   (urzędy przedsiębiorstwa with the CA chain/validity/templates/CES, zaufane urzędy główne i pośrednie, NTAuth matched to
+   enterprise CAs, CDP lists with CRL numbers/dates/counts, KRA, OID with group links, a *pkiview*-style health tab, a
+   DC-LDAPS tab), **szablony** (the README columns, decoded flags as Polish/English sentences with the technical bit name
+   in a tooltip, periods in days/weeks/years, issuing CAs, unpublished templates, expanded enrollment rights with the
+   account count and navigation to the accounts and groups, who can modify, a compare-two pane, export on demand),
+   **przegląd bezpieczeństwa AD CS** (K6-diagnostics-style: severity chips, filters, rows with the ESC number, Certipy /
+   Locksmith / MDI ids, condition, attack path, affected object, principals with counts – no *Napraw* in P1, only
+   *Otwórz szablon/urząd* navigation; export CSV/HTML on demand), **gotowość na silne mapowanie i NTAuth** (accounts with
+   weak `altSecurityIdentities`, authentication templates without the SID extension, logon-capable CAs not in NTAuth, DC
+   LDAPS certificates without a proper SAN/EKU, KDC certificates published on the DC objects). `EventLogLauncher` has no
+   preset query, so the KDC events 39/40/41/45/21 row says *P4* and no track-E file changes. Read-only property-sheet tabs
+   *Opublikowane certyfikaty* (user, computer, contact), *Mapowania nazw* (user, computer) with KB5014754 strength and
+   *Poświadczenia kluczy* (user, computer) with key id, device id, source, created / last-logon, usage – read lazily, no
+   writes. From a CA to its computer object and to the K1 remote actions (by the computer DN resolved in 2.1).
+10. **Screenshots 36–39**: 36 overview/health, 37 templates with enrollment rights, 38 security review, 39 readiness
+    report. The user doc `docs/CERTYFIKATY.md` (Polish) is written in the integration step; it explains every difference
+    from `certipy find -vulnerable` and Locksmith (README completion criterion; 2.4 lists them).
 11. **Tests.** A fake-directory sample `AddPublicKeySample` with Polish names (urzędy *Kontoso Główny CA*, *Kontoso
     Wystawiający CA*, szablony with diacritics, one deliberately vulnerable template per LDAP ESC and a safe look-alike
     that must **not** be flagged); certificates / CRLs generated in tests with fixed dates around the fake clock
-    (2026-10-13); TLS-probe tests against an in-process TLS server on `localhost`; HTTP-fetch tests with a fake handler.
-    Samba has no AD CS (lab: only the empty PKI containers + an LDAPS probe of the lab DC).
+    (2026-10-13); TLS-probe tests against an in-process TLS server on `localhost` (server certificate PFX-round-tripped so
+    SChannel accepts it on Windows CI); HTTP-check tests with a fake handler. Samba has no AD CS (lab: only the empty PKI
+    containers + an LDAPS probe of the lab DC at `localhost`).
 
 ## 2. P1 – read-only overview
 
 P1 reads the forest PKI once per window into an in-memory snapshot and shows it in four documents, a tree node and three
-property-sheet tabs; a pure Core layer decodes the templates, parses the certificates and evaluates both the enrollment
-rights (who can get a certificate / change a template) and the ESC findings. The snapshot is held by the scoped
-`PkiSnapshotService` and the open documents only; nothing is written (rule 5) and nothing but an operator export touches
-disk (rule 1). The four Core waves (C1–C4) produce the snapshot, the decoders, the rights evaluator and the ESC analyzer
+property-sheet tabs; a pure Core layer decodes the templates, parses the certificates, evaluates the health rules (at
+display time) and evaluates both the enrollment rights (who can get a certificate / change a template) and the ESC
+findings. The snapshot, the enrollment expansion, the probe and HTTP results are held by the scoped `PkiSnapshotService`
+and the open documents only; nothing is written (rule 5) and nothing but an operator export touches disk (rule 1). The
+four Core waves (C1–C4) produce the snapshot and parsers, the template decoders, the rights evaluator and the ESC analyzer
 against the contract of 2.11; the three Presentation/App waves (W5–W7) build the node, the documents, the property tabs,
-the TLS probe implementation and CA-host navigation on the merged Core.
+the attribute-editor mask and the TLS probe implementation on the merged Core.
 
-### 2.1 Core – the PKI overview reader and the TLS-probe contract (C1)
+### 2.1 Core – the PKI overview reader, the certificate/CRL parsers and the TLS-probe contract (C1)
 
-**`PkiOverviewReader.ReadAsync(session, options, progress, ct)`** (`src/AdMng.Core/Pki/PkiOverviewReader.cs`) runs one
-paged subtree search of `CN=Public Key Services,CN=Services,<config>` (DN built with
+**`PkiOverviewReader.ReadAsync(IDirectoryReader reader, PkiReadOptions options, IProgress<PkiReadProgress>? progress,
+CancellationToken ct)`** (`src/AdMng.Core/Pki/PkiOverviewReader.cs`, pure except for the LDAP reads) runs one paged
+subtree search of `CN=Public Key Services,CN=Services,<config>` (DN built with
 `DistinguishedName.Parse(configDn).Child("CN","Services").Child("CN","Public Key Services")`, rule 3), filter
-`LdapFilter.Or` over `PkiClasses.All` (`pKIEnrollmentService`, `pKICertificateTemplate`, `certificationAuthority`,
-`cRLDistributionPoint`, `msPKI-Enterprise-Oid`, `msPKI-PrivateKeyRecoveryAgent`, `container`), attributes
-`PkiAttributes.OverviewAttributes`, `ReadSecurityDescriptor = true`, `ExtendedDn = true`, `PageSize = 1000` – the exact
-options `ConfigurationPartitionWatcher.PublicKeyInfrastructureAsync` already uses, so one DC answers the whole forest PKI
-(rule 4). It catches `DirectoryException` of kind `NoSuchObject` or `AccessDenied` per container and records an
-`PkiReadNotice` (*niedostępne*) instead of throwing, so an unreadable subtree becomes a visible "not evaluated" state (as
-K6 does), never a crash. Multi-valued binary attributes (`cACertificate`, `crossCertificatePair`,
-`certificateRevocationList`, `deltaRevocationList`, `authorityRevocationList`, `userCertificate` on KRA) are read with
-`obj.TryGet(name, out var v) && v.OfType<byte[]>()` (never `GetAllValuesAsync`, which decodes UTF-8).
+`LdapFilter.Or` of `objectClass=` each of `PkiClasses.All` (`pKIEnrollmentService`, `pKICertificateTemplate`,
+`certificationAuthority`, `cRLDistributionPoint`, `msPKI-Enterprise-Oid`, `msPKI-PrivateKeyRecoveryAgent`,
+`container`), attributes `PkiAttributes.OverviewAttributes`, `ReadSecurityDescriptor = true`, `ExtendedDn = true`,
+`PageSize = options.PageSize` (1000) – the search flags `ConfigurationPartitionWatcher.PublicKeyInfrastructureAsync`
+uses (the watcher searches only three of these classes), so one DC answers the whole forest PKI (rule 4). Multi-valued
+binary attributes (`cACertificate`, `crossCertificatePair`, `certificateRevocationList`, `deltaRevocationList`,
+`authorityRevocationList`, `userCertificate` on KRA) are read with `obj.TryGet(name, out var v) && v.OfType<byte[]>()`
+(never `GetAllValuesAsync`, which decodes UTF-8).
 
-The result is the immutable **`PkiSnapshot`** record (every nested record has a value-free `ToString`, rule 1): the
-enterprise CAs (`PkiEnrollmentService`: host from `dNSHostName`, the CA certificate chain from `cACertificate`, the
-published template names from `certificateTemplates`, the CES addresses from `msPKI-Enrollment-Servers`), the trusted
-root and intermediate CAs (`CN=Certification Authorities`, `CN=AIA` – `certificationAuthority`: `cACertificate`,
-`crossCertificatePair`), the NTAuth store (`CN=NTAuthCertificates`: `cACertificate`, each matched to an enterprise CA),
-the CDP lists (`cRLDistributionPoint`: `certificateRevocationList`, `deltaRevocationList`), the KRA agents
-(`msPKI-PrivateKeyRecoveryAgent`: `userCertificate`), the OID objects (`msPKI-Enterprise-Oid`: `msPKI-Cert-Template-OID`,
-`flags`, `msDS-OIDToGroupLink`) and the raw templates (handed to 2.2). It also carries the health rows (per CA: the CA
-certificate, each AIA and CDP location, the base and delta CRL – `Ok` / `Wygasa` / `Wygasła` / `Niedostępna` by the
-decision-2 thresholds against `options.Now`) and the read notices. `PkiOverviewReader` is pure except for the LDAP read;
-the HTTP checks of AIA/CDP/OCSP are a separate, operator-triggered method (`PkiHealthProbe`, 2.5) that never runs during
-the base read.
+**Read notices** (`PkiReadNotice(PkiReadNoticeCode Code, string? ObjectDn, Guid? ObjectGuid)`, the code set is fixed by
+the contract commit): one subtree search cannot fail per container, and AD silently omits objects the caller may not
+list, so the reader reports what it can observe – the base search failing with `NoSuchObject` → `BaseNotFound` (an empty
+snapshot: no AD CS, the Samba lab) or `AccessDenied` → `BaseAccessDenied` (as K6, a visible "not evaluated" state, never a
+crash); after the search every expected well-known object that did not come back (`CN=NTAuthCertificates`,
+`CN=Enrollment Services`, `CN=Certificate Templates`, `CN=Certification Authorities`, `CN=AIA`, `CN=CDP`, `CN=OID`,
+`CN=KRA`) → `ContainerMissing` (*niewidoczny – brak obiektu albo brak prawa odczytu*); a template returned without
+`nTSecurityDescriptor` (no READ_CONTROL) → `SecurityDescriptorUnreadable` – its rights are *nieocenione* in 2.3 and it is
+never treated as "nobody can enroll"; malformed DER → `CertificateMalformed` / `CrlMalformed` (the row stays, its summary
+is null); the CA computer lookups below → `CaComputerUnresolved` / `CaComputerInOtherDomain`; 2.3 adds
+`TrusteeUnresolved` to the same enum (already in the contract).
 
-**TLS probe contract** (`src/AdMng.Core/Pki/Tls/`, no Windows types, implemented by W7 in `AdMng.Directory`):
-`IDomainControllerTlsProbe.ProbeAsync(host, port, timeout, ct)` opens TCP to `host:port` (636 / 3269), does the TLS
-handshake only – no LDAP bind, no credential, no data sent, the stream closed without a write – and returns
-`TlsProbeResult(Host, Port, TlsProbeOutcome, SslProtocols?, IReadOnlyList<byte[]> PresentedChain /* DER, leaf first */,
-SslPolicyErrors?)` whose `ToString() => $"{Port}: {Outcome}"` carries no values. `TlsProbeOutcome` is
-`Ok | NameNotResolved | PortClosed | HandshakeFailed | Timeout | InvalidHost` (AD DS accepting TCP on 636 with no usable
-certificate and resetting mid-handshake is `HandshakeFailed`, reported as *DC bez certyfikatu LDAPS*, not *unreachable*).
-`DcCertificateEvaluation.Evaluate(chain, dcFqdn, domainDns, ntAuthRoots)` is pure: SAN/subject carry the DC FQDN and the
-domain, EKU Server Authentication (1.3.6.1.5.2.3.5 KDC Authentication for the KDC readiness), validity against
-`options.Now`, and "chains to an AD root" with `X509ChainPolicy.TrustMode = CustomRootTrust`, `CustomTrustStore` filled
-from the snapshot's roots, `RevocationMode = NoCheck`, `DisableCertificateDownloads = true`. `HostNames.IsValid` /
-`Normalize` (`AdMng.Core/Computers/Remote/HostNames.cs`) guard the probe target (IP addresses refused; SNI and name
-checks need a name).
+**`PkiSnapshot`** (immutable record; every record of `AdMng.Core.Pki` has a hand-written value-free `ToString`, 2.7):
+`ConfigurationDn`, `ReadAt`; the enterprise CAs (`PkiEnrollmentService`: `Dn`, `ObjectGuid`, `Name` (cn), `DisplayName`,
+`HostName` from `dNSHostName`, `ComputerDn` / `ComputerSid` (resolved below, null when unresolved), `Certificates` from
+`cACertificate` – renewals included, newest first –, `PublishedTemplates` (the `certificateTemplates` cn values),
+`EnrollmentServers` (the CES URIs of `msPKI-Enrollment-Servers`), `InNtAuth`); the trusted roots
+(`CN=Certification Authorities`) and the AIA objects (`CN=AIA` – intermediates and cross certificates) as `PkiCaObject`
+(`Dn`, `ObjectGuid`, `Name`, `Store`, `Certificates`, `CrossCertificates`); the NTAuth store (`CN=NTAuthCertificates`:
+`cACertificate`, `PkiCaObject` with `Store = NtAuth`); the CDP lists (`PkiCrlList`: `Dn`, `ObjectGuid`, `Name`,
+`HostName` (the parent container), `Base` / `Delta` as `PkiCrl(byte[] Der, CrlSummary? Summary)`, `IssuerCaGuid` – the
+enterprise CA whose certificate subject and Subject Key Identifier equal the CRL issuer and Authority Key Identifier;
+never matched by RDN text, CA names in `CN=CDP` / `CN=AIA` are certutil-sanitized); the KRA agents (`PkiKraAgent`:
+`userCertificate`); the OID objects (`PkiOidObject`: `Dn`, `ObjectGuid`, `Oid` = `msPKI-Cert-Template-OID`,
+`DisplayName`, `Flags`, `GroupLinkDn` = `msDS-OIDToGroupLink`); the templates (`CertificateTemplate.Of`, 2.2); the
+notices; and `TrustMaterial` (`PkiTrustMaterial(Roots, Intermediates, NtAuth)` – raw DER lists for chain building).
+Every certificate is a `PkiCertificate(byte[] Der, CertificateSummary? Summary)`. `InNtAuth` is true when any NTAuth
+certificate has the SHA-256 of any of the CA's certificates. Health rows are **not** part of the snapshot (2.4,
+`PkiHealth.Evaluate`, computed at display time).
+
+**CA computer resolution** (decision 4, ESC5, navigation): for each `pKIEnrollmentService` whose `dNSHostName` lies in the
+window's domain (`SessionInfo.DomainDnsName` suffix) the reader runs one search of the default naming context,
+`LdapFilter.And(ObjectKind.Computer.ToLdapFilter(), LdapFilter.Or(LdapFilter.Equal("dNSHostName", host),
+LdapFilter.Equal("sAMAccountName", label + "$")))` (rule 3; on the session's DC), and stores `ComputerDn` / `ComputerSid`;
+no match → `CaComputerUnresolved`; a host of another domain → `CaComputerInOtherDomain` (its SID stays unknown: the CA
+computer is then *Other*, not Tier 0, and the finding says so). `PkiReadOptions.ResolveCaComputers` (default true) turns
+it off for the Watchdog later.
+
+**Domain controllers.** `PkiOverviewReader.ReadDomainControllersAsync(IDirectoryReader reader, CancellationToken ct)`
+reads the window domain's DCs (`PrivilegedAccessScanner.DomainControllerFilter`; `dNSHostName`, `objectSid`,
+`userAccountControl`, `userCertificate`) into `PkiDomainController(Dn, HostName, IsReadOnly, Certificates)` – the
+published certificates feed the KDC indicator below; the GC flag comes from `DomainControllerCatalog.ReadAsync` (W5).
+
+**Parsers** (`src/AdMng.Core/Pki/`, pure, null on malformed input):
+* `CertificateSummary.Of(ReadOnlySpan<byte> der)` – via `X509CertificateLoader.LoadCertificate` (never
+  `new X509Certificate2(byte[])`, SYSLIB0057; the `X509Certificate2` is disposed after the fields are copied): `Subject`,
+  `Issuer`, `SerialNumber`, `NotBefore` / `NotAfter`, SAN DNS / UPN / email / URI (incl. the
+  `tag:microsoft.com,2022-09-14:sid:` URL), `Ekus`, `ApplicationPolicies` (`1.3.6.1.4.1.311.21.10`), key algorithm and
+  size, signature algorithm, `Thumbprint` (SHA-1) and `Sha256`, `SubjectKeyIdentifier`, `AuthorityKeyIdentifier`,
+  `IsCa` + path length, `AiaCaIssuers`, `AiaOcsp`, `CrlDistributionPoints` (URLs), `TemplateName` (v1 template extension
+  `1.3.6.1.4.1.311.20.2`), `TemplateOid` + major/minor version (`1.3.6.1.4.1.311.21.7`), `SidExtension`
+  (`1.3.6.1.4.1.311.25.2`), `IsSelfSigned`. Modelled on `WatchdogServerCertificate.From`.
+* `CrlSummary.Of(ReadOnlySpan<byte> der)` – .NET 10 has no CRL reader, so parse with `System.Formats.Asn1.AsnReader`:
+  `Issuer`, `AuthorityKeyIdentifier`, `CrlNumber` (non-critical extension `2.5.29.20`), `IsDelta` + `BaseCrlNumber`
+  (Delta CRL Indicator `2.5.29.27`), `ThisUpdate`, `NextUpdate` (nullable), `RevokedCount`. Never the individual revoked
+  serials in P1 (rule 1 – export only). `authorityRevocationList` is parsed the same way.
+
+**TLS probe contract** (`src/AdMng.Core/Pki/Tls/`, no Windows types, implemented by W7 in `AdMng.Directory`, 2.6):
+`IDomainControllerTlsProbe.ProbeAsync(string host, int port, TimeSpan timeout, CancellationToken ct)` opens TCP to
+`host:port` (636 / 3269), does the TLS handshake only – no LDAP bind, no client certificate, no application data – and
+returns `TlsProbeResult(Host, Port, TlsProbeOutcome Outcome, SslProtocols? Protocol, IReadOnlyList<byte[]> PresentedChain
+/* DER, leaf first, as presented */, SslPolicyErrors? PolicyErrors)` whose `ToString() => $"{Port}: {Outcome}"`.
+`TlsProbeOutcome` = `Ok | NameNotResolved | PortClosed | HandshakeFailed | Timeout | InvalidHost` (AD DS accepting TCP on
+636 with no usable certificate and resetting mid-handshake is `HandshakeFailed`, reported as *DC bez certyfikatu LDAPS*,
+not *unreachable*). `HostNames.IsValid` / `Normalize` (`AdMng.Core/Computers/Remote/HostNames.cs`) guard the target (IP
+addresses refused; SNI and the name check need a name).
+
+**`DcCertificateEvaluation.Evaluate(IReadOnlyList<byte[]> presentedChain, string dcFqdn, string domainDns,
+PkiTrustMaterial trust, DateTimeOffset now) → DcCertificateInfo`** is pure and judges the **LDAPS** certificate only:
+`NameMatchesDc` (a SAN DNS entry, else the subject CN, equals the DC FQDN), `NameMatchesDomain` (the domain DNS name –
+needed for `ldaps://<domain>`; a warning, not an error), `HasServerAuth` (EKU Server Authentication `1.3.6.1.5.5.7.3.1`,
+or no EKU), `IsTimeValid` + `DaysLeft` against `now`, `ChainsToAdRoot` (`X509Chain` with `TrustMode = CustomRootTrust`,
+`CustomTrustStore` = `trust.Roots`, `ExtraStore` = the presented intermediates + `trust.Intermediates`, `RevocationMode =
+NoCheck`, `DisableCertificateDownloads = true`, `VerificationTime = now.UtcDateTime` – tests on the 2026-10-13 fake clock
+do not depend on the real one), `IssuerInNtAuth` (separately, against `trust.NtAuth`) and the chain status names.
+`DcTlsCheck(Host, Port, Outcome, DcCertificateInfo? Certificate)` is the row W5 and W6 show.
+
+**KDC indicator.** The LDAPS certificate is not necessarily the KDC's, so KDC readiness is **not** derived from the probe.
+`KdcCertificateEvaluation.Evaluate(IReadOnlyList<byte[]> publishedCertificates, string dcFqdn, PkiTrustMaterial trust,
+DateTimeOffset now) → KdcCertificateInfo(KdcReadinessState State, CertificateSummary? Best)` looks at the certificates
+the DC object publishes in `userCertificate`: `Ready` (time-valid, EKU KDC Authentication `1.3.6.1.5.2.3.5` – or the
+Smart-Card Logon + Server Authentication pair of the legacy *Domain Controller* template – and the issuer's certificate in
+NTAuth), `NoKdcEku`, `IssuerNotInNtAuth`, `Expired`, or `NoPublishedCertificate` (publishing is optional: *nieznany*,
+not a failure). It is labelled *z certyfikatów opublikowanych w AD*; the authoritative check of the KDC's own store is
+P3/K1.
 
 ### 2.2 Core – certificate templates: model, flag tables and period decoders (C2)
 
-**`CertificateTemplate.Of(DirectoryObject)`** (`src/AdMng.Core/Pki/CertificateTemplate.cs`, pure) builds the template
-record from one `pKICertificateTemplate` object: `Cn`, `DisplayName`, `SchemaVersion` (`msPKI-Template-Schema-Version`;
-1–4), `Revision` + `MinorRevision` (`revision`, `msPKI-Template-Minor-Revision`), `Oid` (`msPKI-Cert-Template-OID`), the
-EKU set (`pKIExtendedKeyUsage`), the application policies (`msPKI-Certificate-Application-Policy`), `KeyUsage`
-(`pKIKeyUsage`), the four flag masks (`msPKI-Certificate-Name-Flag`, `msPKI-Enrollment-Flag`, `msPKI-Private-Key-Flag`,
-`flags` – read with `GetInt32` cast to `uint`, so the negative `msPKI-*` masks parse), `msPKI-RA-Signature` (required
-authorized signatures) with `msPKI-RA-Application-Policies` and `msPKI-RA-Policies`, `msPKI-Certificate-Policy` (issuance
-policies), the validity / renewal periods (`pKIExpirationPeriod`, `pKIOverlapPeriod`), `msPKI-Minimal-Key-Size`,
-`pKIDefaultCSPs`, `msPKI-Supersede-Templates` and the security descriptor (passed to 2.3).
+**`CertificateTemplate.Of(DirectoryObject obj)`** (`src/AdMng.Core/Pki/CertificateTemplate.cs`, pure) builds the
+template record from one `pKICertificateTemplate` object. The contract commit implements the identity members (`Dn`,
+`ObjectGuid`, `Cn`, `DisplayName`, `SecurityDescriptor`) so C1 can test its reader in wave 1; C2 fills the rest:
+`SchemaVersion` (`msPKI-Template-Schema-Version`, 1–4, **absent = 1**), `Revision` + `MinorRevision` (`revision`,
+`msPKI-Template-Minor-Revision`), `Oid` (`msPKI-Cert-Template-OID`), `Ekus` (`pKIExtendedKeyUsage`),
+`ApplicationPolicies` (`msPKI-Certificate-Application-Policy`), `EffectiveEku` (= `ApplicationPolicies` when
+`SchemaVersion ≥ 2` and it is non-empty – the CA issues v2+ templates from it –, else `Ekus`), `KeyUsage`
+(`pKIKeyUsage`), the four flag masks `NameFlag`, `EnrollmentFlag`, `PrivateKeyFlag`, `GeneralFlag`
+(`msPKI-Certificate-Name-Flag`, `msPKI-Enrollment-Flag`, `msPKI-Private-Key-Flag`, `flags` – read with `GetInt32` cast to
+`uint`, so the negative `msPKI-*` masks parse; absent = 0), `RaSignatures` (`msPKI-RA-Signature`, **absent = 0**),
+`RaApplicationPolicies` and `CryptoSettings` (`msPKI-RA-Application-Policies`: on schema-4 templates a backquote-delimited
+list of `name`type`value` triples – the `msPKI-RA-Application-Policies` triples are OIDs, `msPKI-Asymmetric-Algorithm`,
+`msPKI-Hash-Algorithm`, `msPKI-Key-Usage`, `msPKI-Symmetric-Algorithm` … go to `CryptoSettings`; older templates hold
+plain OIDs), `RaIssuancePolicies` (`msPKI-RA-Policies`), `IssuancePolicies` (`msPKI-Certificate-Policy`), `Validity` /
+`RenewalOverlap` (`pKIExpirationPeriod`, `pKIOverlapPeriod`), `MinimalKeySize` (`msPKI-Minimal-Key-Size`),
+`CryptoProviders` (`pKIDefaultCSPs`), `SupersededTemplates` (`msPKI-Supersede-Templates`) and `SecurityDescriptor` (raw
+bytes, null when not returned – 2.1). Derived: `EnrolleeSuppliesSubject` (name flag `0x1`), `RequiresManagerApproval`
+(enrollment flag `0x2`), `NoSecurityExtension` (enrollment flag `0x80000`), `RequiresAuthorizedSignature`
+(`RaSignatures ≥ 1`).
 
-**`PkiFlags`** (`src/AdMng.Core/Pki/PkiFlags.cs`) holds the four flag tables as `(long Bit, string Name)[]` with **every**
-`CT_FLAG_*` constant and the general `flags` bits, plus the EKU OID catalogue. The Watchdog's `FlagNames` delegates here
-(decision 8). The tables, with their exact values:
+**`PkiFlags`** (`src/AdMng.Core/Pki/PkiFlags.cs`) holds the four tables as `IReadOnlyList<PkiFlagEntry>`
+(`PkiFlagEntry(long Mask, string Name, bool IsReserved)`), keyed by `PkiFlagAttribute` (`NameFlag`, `EnrollmentFlag`,
+`PrivateKeyFlag`, `GeneralFlag` – the general `flags` table is chosen by the template class, never by attribute name:
+`groupPolicyContainer` also has `flags`), the multi-bit fields `PrivateKeyFields` (`PkiFlagField(long Mask, int Shift,
+string Name)`), `Decode(PkiFlagAttribute attribute, long value) → PkiDecodedFlags(Set, UnknownBits, Fields)` (unknown bits
+as `0x…`, fields as numbers – *wersja klienta: n*), `Select(PkiFlagAttribute attribute, IReadOnlyList<long> bits)` (the
+Watchdog subset, decision 8), and the EKU catalogue with the predicates below. Values checked against Certipy
+`certipy/lib/constants.py` (commit 3ae3442; `TemplateFlag`, `EnrollmentFlag`, `PrivateKeyFlag`, `CertificateNameFlag`,
+which cite MS-CRTD 2.4, 2.26, 2.27, 2.28) and the Watchdog's `FlagNames`:
 
-* **`msPKI-Certificate-Name-Flag`**: `0x1` `CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT`, `0x8`
-  `CT_FLAG_OLD_CERT_SUPPLIES_SUBJECT_AND_ALT_NAME`, `0x10000` `CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT_ALT_NAME`, `0x400000`
+* **`msPKI-Certificate-Name-Flag`** (MS-CRTD 2.28): `0x1` `CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT`, `0x2` `CT_FLAG_ADD_EMAIL`,
+  `0x4` `CT_FLAG_ADD_OBJ_GUID`, `0x8` `CT_FLAG_OLD_CERT_SUPPLIES_SUBJECT_AND_ALT_NAME`, `0x100`
+  `CT_FLAG_ADD_DIRECTORY_PATH`, `0x10000` `CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT_ALT_NAME`, `0x400000`
   `CT_FLAG_SUBJECT_ALT_REQUIRE_DOMAIN_DNS`, `0x800000` `CT_FLAG_SUBJECT_ALT_REQUIRE_SPN`, `0x1000000`
   `CT_FLAG_SUBJECT_ALT_REQUIRE_DIRECTORY_GUID`, `0x2000000` `CT_FLAG_SUBJECT_ALT_REQUIRE_UPN`, `0x4000000`
   `CT_FLAG_SUBJECT_ALT_REQUIRE_EMAIL`, `0x8000000` `CT_FLAG_SUBJECT_ALT_REQUIRE_DNS`, `0x10000000`
   `CT_FLAG_SUBJECT_REQUIRE_DNS_AS_CN`, `0x20000000` `CT_FLAG_SUBJECT_REQUIRE_EMAIL`, `0x40000000`
   `CT_FLAG_SUBJECT_REQUIRE_COMMON_NAME`, `0x80000000` `CT_FLAG_SUBJECT_REQUIRE_DIRECTORY_PATH`.
-* **`msPKI-Enrollment-Flag`**: `0x1` `CT_FLAG_INCLUDE_SYMMETRIC_ALGORITHMS`, `0x2` `CT_FLAG_PEND_ALL_REQUESTS`
-  (CA-manager approval), `0x4` `CT_FLAG_PUBLISH_TO_KRA_CONTAINER`, `0x8` `CT_FLAG_PUBLISH_TO_DS`, `0x10`
-  `CT_FLAG_AUTO_ENROLLMENT_CHECK_USER_DS_CERTIFICATE`, `0x20` `CT_FLAG_AUTO_ENROLLMENT`, `0x40`
-  `CT_FLAG_PREVIOUS_APPROVAL_VALIDATE_REENROLLMENT`, `0x100` `CT_FLAG_USER_INTERACTION_REQUIRED`, `0x400`
+* **`msPKI-Enrollment-Flag`** (MS-CRTD 2.26): `0x1` `CT_FLAG_INCLUDE_SYMMETRIC_ALGORITHMS`, `0x2`
+  `CT_FLAG_PEND_ALL_REQUESTS` (CA-manager approval), `0x4` `CT_FLAG_PUBLISH_TO_KRA_CONTAINER`, `0x8`
+  `CT_FLAG_PUBLISH_TO_DS`, `0x10` `CT_FLAG_AUTO_ENROLLMENT_CHECK_USER_DS_CERTIFICATE`, `0x20` `CT_FLAG_AUTO_ENROLLMENT`,
+  `0x40` `CT_FLAG_PREVIOUS_APPROVAL_VALIDATE_REENROLLMENT`, `0x80` `CT_FLAG_DOMAIN_AUTHENTICATION_NOT_REQUIRED`, `0x100`
+  `CT_FLAG_USER_INTERACTION_REQUIRED`, `0x200` `CT_FLAG_ADD_TEMPLATE_NAME`, `0x400`
   `CT_FLAG_REMOVE_INVALID_CERTIFICATE_FROM_PERSONAL_STORE`, `0x800` `CT_FLAG_ALLOW_ENROLL_ON_BEHALF_OF`, `0x1000`
-  `CT_FLAG_ADD_OCSP_NOCHECK`, `0x2000` `CT_FLAG_NOREVOCATIONINFOINISSUEDCERTS`, `0x4000`
-  `CT_FLAG_INCLUDE_BASIC_CONSTRAINTS_FOR_EE_CERTS`, `0x8000` `CT_FLAG_ALLOW_PREVIOUS_APPROVAL_KEYBASEDRENEWAL_VALIDATE_REENROLLMENT`,
-  `0x10000` `CT_FLAG_ISSUANCE_POLICIES_FROM_REQUEST`, `0x20000` `CT_FLAG_SKIP_AUTO_RENEWAL`, `0x40000`
-  `CT_FLAG_NO_SECURITY_EXTENSION` (ESC9).
-* **`msPKI-Private-Key-Flag`**: `0x1` `CT_FLAG_REQUIRE_PRIVATE_KEY_ARCHIVAL`, `0x10` `CT_FLAG_EXPORTABLE_KEY`, `0x20`
-  `CT_FLAG_STRONG_KEY_PROTECTION_REQUIRED`, `0x40` `CT_FLAG_REQUIRE_ALTERNATE_SIGNATURE_ALGORITHM`, `0x80`
-  `CT_FLAG_REQUIRE_SAME_KEY_RENEWAL`, `0x100` `CT_FLAG_USE_LEGACY_PROVIDER`, `0x200`
-  `CT_FLAG_ATTEST_NONE` region markers, `0x400` `CT_FLAG_ATTEST_REQUIRED`, `0x800` `CT_FLAG_ATTEST_PREFERRED`, `0x1000`
-  `CT_FLAG_ATTESTATION_WITHOUT_POLICY`, `0x00FF0000` the EK/attestation client-compatibility nibbles, `0x01000000`
-  `CT_FLAG_HELLO_LOGON_KEY`; unknown bits as `0x…`.
-* **general `flags`** (keyed by the template class, never by name – `groupPolicyContainer` also uses `flags`, decision 8):
-  `0x20` `CT_FLAG_AUTO_ENROLLMENT` legacy, `0x40` `CT_FLAG_MACHINE_TYPE`, `0x80` `CT_FLAG_IS_CA`, `0x200`
-  `CT_FLAG_ADD_TEMPLATE_NAME`, `0x800` `CT_FLAG_IS_CROSS_CA`, `0x10000` `CT_FLAG_IS_DEFAULT`, `0x20000`
-  `CT_FLAG_IS_MODIFIED`, `0x400` `CT_FLAG_DONOTPERSISTINDB`, `0x4000` `CT_FLAG_ADD_EMAIL`, `0x8000`
-  `CT_FLAG_PUBLISH_TO_DS` legacy, `0x2000` `CT_FLAG_EXPORTABLE_KEY` legacy.
+  `CT_FLAG_ADD_OCSP_NOCHECK`, `0x2000` `CT_FLAG_ENABLE_KEY_REUSE_ON_NT_TOKEN_KEYSET_STORAGE_FULL`, `0x4000`
+  `CT_FLAG_NOREVOCATIONINFOINISSUEDCERTS`, `0x8000` `CT_FLAG_INCLUDE_BASIC_CONSTRAINTS_FOR_EE_CERTS`, `0x10000`
+  `CT_FLAG_ALLOW_PREVIOUS_APPROVAL_KEYBASEDRENEWAL_VALIDATE_REENROLLMENT`, `0x20000`
+  `CT_FLAG_ISSUANCE_POLICIES_FROM_REQUEST`, `0x40000` `CT_FLAG_SKIP_AUTO_RENEWAL`, `0x80000`
+  `CT_FLAG_NO_SECURITY_EXTENSION` (ESC9; Locksmith `Find-ESC9` tests `-band 0x80000`, the Watchdog uses `0x80000`). `0x80`
+  and `0x200` are taken from Certipy's `EnrollmentFlag`; C2 checks them against MS-CRTD 2.26 and drops a bit the spec does
+  not list (it then decodes as `0x…`).
+* **`msPKI-Private-Key-Flag`** (MS-CRTD 2.27): `0x1` `CT_FLAG_REQUIRE_PRIVATE_KEY_ARCHIVAL`, `0x10`
+  `CT_FLAG_EXPORTABLE_KEY`, `0x20` `CT_FLAG_STRONG_KEY_PROTECTION_REQUIRED`, `0x40`
+  `CT_FLAG_REQUIRE_ALTERNATE_SIGNATURE_ALGORITHM`, `0x80` `CT_FLAG_REQUIRE_SAME_KEY_RENEWAL`, `0x100`
+  `CT_FLAG_USE_LEGACY_PROVIDER`, `0x200` `CT_FLAG_EK_TRUST_ON_USE`, `0x400` `CT_FLAG_EK_VALIDATE_CERT`, `0x800`
+  `CT_FLAG_EK_VALIDATE_KEY`, `0x1000` `CT_FLAG_ATTEST_PREFERRED`, `0x2000` `CT_FLAG_ATTEST_REQUIRED`, `0x4000`
+  `CT_FLAG_ATTESTATION_WITHOUT_POLICY`, `0x200000` `CT_FLAG_HELLO_LOGON_KEY`. `CT_FLAG_ATTEST_NONE` is `0` (no bit: the
+  sentence *bez zaświadczania klucza* when neither `0x1000` nor `0x2000` is set). Two **fields**, decoded as numbers, not
+  flags: `0x000F0000` (shift 16) the minimum CA version and `0x0F000000` (shift 24) the minimum client version
+  (`CTPRIVATEKEY_FLAG_SERVERVERSION_MASK` / `CLIENTVERSION_MASK`).
+* **general `flags`** (MS-CRTD 2.4): `0x2` `CT_FLAG_ADD_EMAIL`, `0x8` `CT_FLAG_PUBLISH_TO_DS` and `0x10`
+  `CT_FLAG_EXPORTABLE_KEY` are reserved and ignored by every protocol (`IsReserved`, shown as *przestarzała, ignorowana*),
+  `0x20` `CT_FLAG_AUTO_ENROLLMENT`, `0x40` `CT_FLAG_MACHINE_TYPE`, `0x80` `CT_FLAG_IS_CA`, `0x200`
+  `CT_FLAG_ADD_TEMPLATE_NAME`, `0x800` `CT_FLAG_IS_CROSS_CA`, `0x1000` `CT_FLAG_DONOTPERSISTINDB` (the old `0x400` was a
+  spec error corrected in 2022), `0x10000` `CT_FLAG_IS_DEFAULT`, `0x20000` `CT_FLAG_IS_MODIFIED`.
 
 **EKU OIDs** (`PkiFlags.KnownEku`): Client Authentication `1.3.6.1.5.5.7.3.2`, Server Authentication
 `1.3.6.1.5.5.7.3.1`, Smart-Card Logon `1.3.6.1.4.1.311.20.2.2`, PKINIT Client Authentication `1.3.6.1.5.2.3.4`, KDC
 Authentication `1.3.6.1.5.2.3.5`, Certificate Request Agent (Enrollment Agent) `1.3.6.1.4.1.311.20.2.1`, Any Purpose
-`2.5.29.37.0`, and an empty EKU set (= Any Purpose for ESC2). The six "client-auth" OIDs (Client Auth, Smart-Card Logon,
-PKINIT, Any Purpose, and the SubCA/Any via an empty EKU) drive the ESC1/ESC9/ESC13 "authentication" predicate.
+`2.5.29.37.0`. **Predicates** (each takes one OID set; an **empty set means Any Purpose**, as Certipy):
+`IsAnyPurpose` (Any Purpose or empty), `IsClientAuth` (Client Auth, Smart-Card Logon, PKINIT or `IsAnyPurpose`),
+`IsServerAuth` (Server Auth or `IsAnyPurpose`), `IsEnrollmentAgent` (Certificate Request Agent or `IsAnyPurpose`). The ESC
+rules evaluate a predicate on `EffectiveEku` **and** on `Ekus` and fire when either is true: Certipy and Locksmith read
+only `pKIExtendedKeyUsage`, the CA issues v2+ templates from the application policies, so evaluating both finds
+everything both tools find; a finding where the two sets disagree carries `EkuSourcesDiffer`.
 
-**Periods** (`PkiPeriod.Decode(byte[])`, `src/AdMng.Core/Pki/PkiPeriod.cs`): `pKIExpirationPeriod` and `pKIOverlapPeriod`
-are an 8-byte little-endian **negative** 100-ns interval; decode to a `TimeSpan`/`PkiPeriod` and render in days, weeks,
-months or years (the UI picks the unit; no new converter in `AdMng.Core/ActiveDirectory` is added for display – the Core
-type carries the ticks, the Presentation formats them).
+**Periods** (`PkiPeriod.Decode(ReadOnlySpan<byte> value) → PkiPeriod?`, `src/AdMng.Core/Pki/PkiPeriod.cs`):
+`pKIExpirationPeriod` and `pKIOverlapPeriod` are an 8-byte little-endian **negative** 100-ns interval; null when the
+value is not 8 bytes. `PkiPeriod` carries the ticks and `Duration`; the Presentation renders it in the largest unit that
+divides it exactly (years, weeks, days, hours – as `certtmpl.msc`); no new converter in `AdMng.Core/ActiveDirectory`.
 
 ### 2.3 Core – the enrollment-rights / template-modify evaluator and U4b PKI containers (C3)
 
 This is the decision-5 evaluator – a **separate pure Core evaluator**, not U4b (U4b drops default trustees such as DA/EA
 and evaluates no denies, so it is wrong for "who can enroll"). `src/AdMng.Core/Pki/TemplateRightsEvaluator.cs`:
 
-**AccessCheck.** `TemplateRightsEvaluator.Evaluate(securityDescriptorBytes, types)` parses with
-`SecurityDescriptorSummary.TryParse`, then per ACE that applies to the object (skip `IsInheritOnly`), with
-`m = DirectoryAccessMask.Normalize(ace.Mask)`:
-* **Enroll** = `(m & ControlAccess) != 0 && (ObjectType is null || IsRight(ot, "Certificate-Enrollment"))`; **AutoEnroll**
-  the same with the AutoEnroll GUID. The two extended-right GUIDs are added to `AclObjectTypes` (`Certificate-Enrollment`
-  `0e10c968-78fb-11d2-90d4-00c04f79dc55`, `Certificate-AutoEnrollment` `a05b8cc2-17bc-4802-a710-e7c15ab866a2`) and to
-  `ExtendedRightIds` (for P2's `ModifySecurity`).
-* **FullControl** = `ObjectType is null && (m & FullControl) == FullControl`; **WriteDacl**, **WriteOwner**.
-* **WriteProperty** = `(m & WriteProperty) != 0`, with `ObjectType` null (all properties) or a named template attribute
-  through `types.Covers` (`msPKI-Certificate-Name-Flag`, `pKIExtendedKeyUsage`, `msPKI-Enrollment-Flag`,
-  `msPKI-RA-Signature`, `msPKI-Certificate-Application-Policy`, `msPKI-Certificate-Policy`).
-* **Owner** = `summary.Owner`.
+**ACL decoding.** `TemplateRightsEvaluator.Evaluate(ReadOnlySpan<byte> securityDescriptor, AclObjectTypes types) →
+TemplateAcl(string? Owner, IReadOnlyList<TemplateAce> Aces, bool IsEvaluated)` parses with
+`SecurityDescriptorSummary.TryParse` (unparseable → `IsEvaluated = false`), skips `IsInheritOnly` ACEs and ACEs whose
+`InheritedObjectType` is set and is not the `pKICertificateTemplate` class (`types.IsClass`), and expands each remaining
+ACE, in DACL order, into one `TemplateAce(string Sid, TemplateRight Right, bool IsDeny, string? Attribute)` per atomic
+right it grants, with `m = DirectoryAccessMask.Normalize(ace.Mask)`:
+* **Enroll** = `(m & ControlAccess) != 0 && (ObjectType is null || types.IsRight(ot, "Certificate-Enrollment"))`;
+  **AutoEnroll** the same with `Certificate-AutoEnrollment`. The extended-right GUIDs are in `AclObjectTypes`
+  (`Certificate-Enrollment` `0e10c968-78fb-11d2-90d4-00c04f79dc55`, `Certificate-AutoEnrollment`
+  `a05b8cc2-17bc-4802-a710-e7c15ab866a2` – the GUIDs Locksmith's `SafeObjectTypes` uses) and in `ExtendedRightIds`
+  (for P2's `ModifySecurity`).
+* **FullControl** = `ObjectType is null && (m & FullControl) == FullControl` – it also yields Enroll, AutoEnroll,
+  WriteDacl, WriteOwner and WriteAllProperties; **WriteDacl**, **WriteOwner** from the mask bits.
+* **WriteAllProperties** = `(m & WriteProperty) != 0 && ObjectType is null` (GENERIC_WRITE normalizes into it).
+* **WriteSensitiveProperty** = WriteProperty on an attribute (or property set) that `types.Covers` one of
+  `PkiAttributes.SensitiveTemplateAttributes` – the **one** list used by 2.3, 2.4 and U4b: `msPKI-Certificate-Name-Flag`,
+  `msPKI-Enrollment-Flag`, `pKIExtendedKeyUsage`, `msPKI-Certificate-Application-Policy`, `msPKI-RA-Signature`,
+  `msPKI-RA-Application-Policies`, `msPKI-RA-Policies`, `msPKI-Certificate-Policy`, `msPKI-Template-Schema-Version`
+  (`Attribute` = the name). An object-type GUID neither the schema, the extended rights nor `AclObjectTypes.Fallbacks`
+  can name counts as sensitive with `Attribute` = the GUID (conservative: no ESC4 false negative); C3 adds the
+  schemaIDGUIDs of the nine attributes and of `altSecurityIdentities` to `Fallbacks`, each checked against the published
+  MS-ADA attribute page and pinned by a test.
+* **WriteOtherProperty** = WriteProperty on any other named attribute (Locksmith flags it; 2.4 reports it Low).
+* **Owner** = `summary.Owner` (the owner's implicit READ_CONTROL | WRITE_DAC; an `OWNER RIGHTS` S-1-3-4 ACE replaces
+  them, as in Windows).
 
-The decision follows AccessCheck order (first matching ACE of the token wins), modelled on
+**Decision.** `TemplateRightsEvaluator.Decide(IReadOnlySet<string> tokenSids, TemplateAcl acl, TemplateRight right) →
+bool`: AccessCheck decides **each right on its own** – the first ACE in DACL order whose SID is in the token and whose
+`Right` is that right decides it (deny → false, allow → true); no such ACE → false. Modelled on
 `GroupPolicySecurityFilter.Decide` but **without** its raw `ace.Mask & ControlAccess` (it misses a bare GENERIC_ALL bit –
-use the normalized mask). Deny ACEs are honoured.
+the normalized mask is used).
 
-**Trustee level first, accounts on demand.** `TemplateRightsEvaluator.Resolve(templates, session, groups, progress, ct)`:
-(1) read `GroupGraph.ReadAsync` once; (2) stream accounts once (`PrivilegedAccessScanner.AccountFilter`, the memberOf
-completion made `internal`/shared), building each token with `Reach` plus Everyone / Authenticated Users / This Org / own
-SID / primary group / S-1-5-9 for DCs; (3) per template evaluate the decision table and bucket the account DNs per right,
-with `PathTo` for the path and `IsDisabled` separated; (4) a trustee of another forest domain that does not resolve is
-reported unresolved (`PkiReadNotice`, resource `Pki.Notice.<Code>`). The result (`TemplateRights`: per template, per
-right, the trustee SIDs/names with a count, the first N account names, the disabled set apart, the broad/other/Tier-0
-class per decision 4) feeds both the templates document (2.5) and the ESC analyzer (2.4). The streamed pass is cancellable
-and reports progress (rule 6); the lists stay in memory (rule 1).
+**Classes.** `PrincipalClassifier(string? domainSid, string? rootDomainSid, PrivilegedAccessOptions options, GroupGraph?
+groups, IReadOnlyCollection<string> caComputerSids)` with `Classify(string sid) → PrincipalClass` (`Tier0`, `Broad`,
+`Other`) implements decision 4 exactly (RID rules for any `S-1-5-21-*` prefix; catalogue and graph reach through
+`PrivilegedGroupCatalog.Match` + `options.LevelOf`). Without a graph (`groups` null – the immediate trustee view before
+the expansion has read it) it uses the SID and RID rules only, and trustee names stay empty until the graph is there.
+Shared by 2.3, 2.4 and the ESC5/ESC14 trustees.
 
-**U4b PKI containers** (decision 6; `src/AdMng.Core/PrivilegedAccess/DirectoryAclGrantSource.cs`, the one shared Core file
-C3 edits – at the anchor after the GPO block in `RunAsync`): one paged subtree search of
-`CN=Public Key Services,CN=Services,<config>` (`DistinguishedName.Child`, rule 3) over `pKICertificateTemplate`,
-`pKIEnrollmentService`, `certificationAuthority`, `msPKI-Enterprise-Oid`, `cRLDistributionPoint`, `container` with
-`SdAttributes`, each `Read` into a new `AclTargetKind` value (`PublicKey`) with `IsTier0 = true`, `Tier0Subtree = true`,
-`ReportOwner = true`; `ReadDefaultsAsync` then picks up the new classes. Provisioning trustees are seeded before
-`Evaluate`: Cert Publishers (`{domain}-517`) on AIA / CDP / Certification Authorities / NTAuth, the CA computer SID on its
-own enrollment service and CDP objects. ESC4 writes surface as a new `AclRight` (`WriteTemplateProperty` with the attribute
-as detail, mirroring the `WriteGpoProperty` branch); its resx entries are added in both languages
-(`PrivilegedAccess.AclRight.WriteTemplateProperty`). A separate ACL sample (`AddPublicKeyAclSample`) keeps the exact-set
+**Trustee level first, accounts once.** `TemplateRightsEvaluator.TrusteeLevel(IReadOnlyList<CertificateTemplate>
+templates, AclObjectTypes types, PrincipalClassifier classifier) → IReadOnlyList<TemplateRights>` is synchronous and
+immediate: per template, per right, the trustees that hold it – a trustee holds a right when `Decide({trustee SID},
+acl, right)` is true, so a deny naming the trustee is honoured – (`TemplateTrustee(Sid, Name, Class, Right,
+AccountCount = -1 until expanded, …)`), with a template whose descriptor is missing or unparseable marked
+`IsEvaluated = false`. The ESC rules use this trustee level (as Certipy and Locksmith, per SID); the account-level counts
+of the expansion are what the documents show.
+`TemplateRightsEvaluator.ExpandAsync(IDirectorySession session, IReadOnlyList<CertificateTemplate> templates,
+PkiExpansionContext context, IProgress<PkiExpansionProgress>? progress, CancellationToken ct) → PkiEnrollmentExpansion`
+then (1) uses the `GroupGraph` the context carries (the caller reads it once with `GroupGraph.ReadAsync`), (2) streams the
+accounts **once** (`PrivilegedAccessScanner.AccountFilter`; `objectSid`, `primaryGroupID`, `memberOf`,
+`userAccountControl`, `sAMAccountName`, `name`, `altSecurityIdentities`; ranged `memberOf` completed with
+`PrivilegedAccessScanner.CompleteMemberOfAsync`, made `internal static` by the contract commit), building each token with
+`GroupGraph.Reach(…, includeImplicit: true)` plus the account SID, the primary group, Everyone / Authenticated Users / This
+Organization and S-1-5-9 for DCs; (3) **memoises** the decisions per distinct key = the token ∩ the SIDs any template ACE
+names (100 000 accounts collapse to a few hundred keys); (4) keeps per template and right only the counts (enabled /
+disabled apart), the highest class and the **first 20** accounts (`PkiAccountRef(Dn, Name, IsDisabled)`) – the path
+(`GroupGraph.PathTo`) is computed by the UI only for a name it shows; (5) keeps every account that carries
+`altSecurityIdentities` as `PkiAccountFact(Dn, Name, Sid, IsDisabled, IsTier0, Mappings)` (parsed with 2.4's
+`AltSecurityIdentity.Parse`) for ESC14 and the readiness report; (6) reports a trustee of another forest domain that the
+graph does not hold as unresolved (`TemplateTrustee.IsResolved = false`, notice `TrusteeUnresolved`, resource
+`Pki.Notice.TrusteeUnresolved`). The result `PkiEnrollmentExpansion(Templates /* by cn, OrdinalIgnoreCase */,
+MappedAccounts, AccountsScanned, Groups, Options, Notices)` feeds the templates document (2.5), the ESC reader (2.4) and
+the readiness report; it is cancellable, reports progress every 500 accounts (rule 6) and lives in memory only (rule 1).
+`AclObjectTypes.ReadAsync(IDirectoryReader reader, int pageSize, CancellationToken ct)` (stub in the contract, body by
+C3 – the `CN=Extended-Rights` read `DirectoryAclScan` already does, moved) builds the `types` for all callers.
+
+**U4b PKI containers** (decision 6; `src/AdMng.Core/PrivilegedAccess/DirectoryAclGrantSource.cs`, the shared Core file C3
+edits – at the anchor after the GPO block in `RunAsync`): one paged subtree search of
+`CN=Public Key Services,CN=Services,<config>` (`DistinguishedName.Child`, rule 3) over `PkiClasses.All` with
+`SdAttributes`, each `Read` into a new `AclTargetKind.PublicKey` with `IsTier0 = true`, `Tier0Subtree = true`, and
+`ReportOwner = true` only for containers, templates, enrollment services, the NTAuth object and OID objects with
+`msDS-OIDToGroupLink` (`CN=OID` can hold thousands of objects); `ReadDefaultsAsync` then picks up the new classes. For
+`PublicKey` targets `IsDefaultTrustee` also accepts the provisioning trustees of decision 6 (`<RootDomainSid>-512`, `-517`
+of any domain SID, the CA computer SIDs on their own enrollment service and CDP / AIA objects; Enterprise Admins are
+already default by `DefaultTrusteeRootRids` when `RootDomainSid` is known). On templates, WriteProperty on a
+`PkiAttributes.SensitiveTemplateAttributes` attribute surfaces as `AclRight.WriteTemplateProperty` with the attribute as
+detail (mirroring the `WriteGpoProperty` branch). New in `RightsOf` for every target: WriteProperty covering
+`altSecurityIdentities` → `AclRight.WriteAltSecurityIdentities` (a deliberate U4 output change with its own tests; both
+`AclRight` values and their resx entries are in the contract commit).
+
+**Typed entry for ESC5 / ESC14.** `DirectoryAclGrantSource.CollectPublicKeyAsync(PrivilegeScanContext context,
+IReadOnlyList<string> caComputerDns, CancellationToken ct) → Task<IReadOnlyList<PkiAclGrant>>` (public; stub in the
+contract commit) runs one `DirectoryAclScan` in a PKI mode – the PKI subtree, the CA computer objects (`GetAsync` by DN;
+only those of the window's domain), the Tier 0 accounts (`Tier0Filter`), the class defaults and the extended rights; no
+OUs, GPOs, RBCD or deep scan – with the same evaluation rules and returns typed `PkiAclGrant(TargetDn, PkiAclTargetKind
+TargetKind, TrusteeSid, AclRight Right, string? Detail)` (`PkiAclTargetKind` = `Container | NtAuth | Oid |
+EnrollmentService | CertificationAuthority | CrlDistributionPoint | Template | CaComputer | Tier0Account`) instead of
+formatted `PrivilegeGrant` values. `RunAsync` and `CollectPublicKeyAsync` share the PKI pass (an internal method of
+`DirectoryAclScan`), so U4b and ESC5 cannot drift. `IPrivilegeGrantSource` count unchanged (`HostTests`
+`Assert.Equal(2, …)` stays). A separate ACL sample (`AddPublicKeyAclSample`) keeps the exact-set
 `DirectoryAclGrantSourceTests` unchanged.
 
-### 2.4 Core – the ESC analyzer, finding codes and the certificate parsers (C4)
+### 2.4 Core – the ESC analyzer, finding codes, health rules and the account parsers (C4)
 
 **Parsers** (`src/AdMng.Core/Pki/`, pure, value-free `ToString`):
-* `CertificateSummary.Of(byte[])` – via `X509CertificateLoader.LoadCertificate` (never `new X509Certificate2(byte[])`,
-  SYSLIB0057; the `X509Certificate2` is disposed after the display fields are copied): subject, issuer, serial, SAN DNS /
-  UPN / email, NotBefore/NotAfter, EKU OIDs, key algorithm + size, SHA-1 thumbprint and SHA-256. Modelled on
-  `WatchdogServerCertificate.From`.
-* `CrlSummary.Of(byte[])` – .NET 10 has no CRL reader, so parse with `System.Formats.Asn1.AsnReader`: CRL number
-  (extension `2.5.29.20`), delta indicator (`2.5.29.27`), `thisUpdate` / `nextUpdate`, the revoked-entry count. Never the
-  individual revoked serials in P1 (rule 1 – export only).
-* `KeyCredentialLink.Parse(string)` – `msDS-KeyCredentialLink` is DN-Binary and in `AlwaysBinary`, so the real DC delivers
-  UTF-8 bytes of `B:<hexlen>:<hex>:<dn>`; read with `GetStrings`, split with `WellKnownObjects.TryParseValue`, then parse
-  the KEYCREDENTIALLINK_BLOB (version `0x0200`, TLV entries: `0x01` KeyID, `0x02` KeyHash, `0x03` KeyMaterial, `0x04`
-  KeyUsage, `0x05` KeySource, `0x06` DeviceId, `0x07` CustomKeyInformation, `0x08` KeyApproximateLastLogonTimeStamp, `0x09`
-  KeyCreationTime). Exposes key id, device id, source (AD / Entra), created / last-logon, usage – never the key material
-  bytes beyond the id.
-* `AltSecurityIdentity.Parse(string)` + `.Strength` (KB5014754): **strong** `X509:<I>…<SR>…` (issuer + **reversed**
-  serial-number byte order), `X509:<SKI>…`, `X509:<SHA1-PUKEY>…`; **weak** `X509:<I>…<S>…`, `X509:<S>…`,
-  `X509:<RFC822>…`; `Kerberos:…` shown separately.
+* `KeyCredentialLink.Parse(IEnumerable<string> values) → IReadOnlyList<KeyCredentialLink>` – `msDS-KeyCredentialLink` is
+  DN-Binary and in `AlwaysBinary`, so the real DC delivers UTF-8 bytes of `B:<hexlen>:<hex>:<dn>`; the caller reads it
+  with `GetStrings`, the parser splits each value with `WellKnownObjects.TryParseValue` (`AdMng.Core.Directory`) and
+  parses the KEYCREDENTIALLINK_BLOB (version `0x0200`, TLV entries: `0x01` KeyID, `0x02` KeyHash, `0x03` KeyMaterial,
+  `0x04` KeyUsage, `0x05` KeySource, `0x06` DeviceId, `0x07` CustomKeyInformation, `0x08`
+  KeyApproximateLastLogonTimeStamp, `0x09` KeyCreationTime). Exposes `KeyId`, `DeviceId`, `Source`
+  (`KeyCredentialSource` AD / Entra ID), `Usage` (`KeyCredentialUsage`), `Created`, `LastLogon`, `IsMalformed` – never
+  the key material bytes beyond the id.
+* `AltSecurityIdentity.Parse(string value)` with `Kind` (`AltSecurityIdentityKind`) and `Strength` (`MappingStrength`,
+  KB5014754): **strong** `X509IssuerSerial` = `X509:<I>…<SR>…` (issuer **and** serial number in **reversed** byte order;
+  `<SR>` without `<I>` is not a defined mapping → `Invalid`), `X509Ski` = `X509:<SKI>…`, `X509Sha1PublicKey` =
+  `X509:<SHA1-PUKEY>…`; **weak** `X509IssuerSubject` = `X509:<I>…<S>…`, `X509SubjectOnly` = `X509:<S>…`, `X509Rfc822` =
+  `X509:<RFC822>…`; `Kerberos:…` is `NotCertificate` (shown separately); anything else `Invalid`.
 
-**The analyzer** is split like K6 (reader → pure `Analyze`): `PkiEscReader.ReadAsync(session, snapshot, options, progress,
-ct)` collects the `PkiEscSnapshot` (the templates, their rights from 2.3, the OID→group links, the NTAuth set, the DC
-cert evaluations when probed, the U4b-style PKI container ACL grants, and `options.CaGrantsAuthenticatedUsersEnroll` =
-decision 3) and `PkiEscAnalyzer.Analyze(snapshot)` (pure, `static partial`: `.Esc1.cs`, `.Esc4.cs`, `.Esc9.cs`,
-`.Esc13.cs`, `.Esc14.cs`) runs the LDAP-only ESC rules. Each finding is `PkiFinding(Code, Severity, Area, ObjectKind,
-ObjectId, Arguments, Fix=null)` with a **value-free `ToString`** (code, severity, area, the object GUID via
-`SysvolPaths.FolderName`-style braces – never a name, DN, subject or value); `RelatedObjectIds` names the CAs/OID objects.
-`PkiFindingCodes` (`src/AdMng.Core/Pki/PkiFindingCodes.cs`) copies `GpoFindingCodes`: `public const string X = nameof(X)`,
-`static IReadOnlyList<PkiFindingDefinition> All` with `(Code, EscNumber, Severity, Area, Group)`, and a definition record
-`PkiFindingDefinition(string Code, string Esc, PkiFindingSeverity Severity, PkiFindingArea Area, PkiRuleGroup Group,
-string? Locksmith, string? Mdi)` – the README requires the ESC number, a Locksmith id and an MDI assessment per finding;
-**MDI ids are not invented** – `Mdi` is `null` ("none") wherever the lead is unsure. `PkiFindingSeverity` =
-`Info | Low | Medium | High | Critical`.
+**Health rules.** `PkiHealth.Evaluate(PkiSnapshot snapshot, PkiHealthThresholds thresholds, DateTimeOffset now,
+IReadOnlyList<PkiHttpCheckResult>? http) → IReadOnlyList<PkiHealthRow>` (`src/AdMng.Core/Pki/PkiHealth.cs`, pure, called
+by the Presentation at display time – decision 2): per enterprise CA a row for its certificate (CA threshold), each AIA and
+CDP URL of that certificate (the locations of its issuer's certificate and CRL, as `pkiview.msc`) and its own base and
+delta CRL from `CN=CDP` (matched by `IssuerCaGuid`); rows for KRA and NTAuth certificates (end-entity / CA thresholds).
+`PkiHealthStatus` = `Ok | Expiring | Expired | Unavailable | Unknown`: a certificate is `Expired` after `NotAfter`,
+`Expiring` within the threshold, `Unknown` before `NotBefore`; a CRL is `Expired` after `NextUpdate`, `Expiring` when less
+than `max(1 day, 20 % × (NextUpdate − ThisUpdate))` is left, `Unknown` without `NextUpdate`; a missing or unparseable
+object is `Unavailable`. URLs: `ldap:///…` (no host) is resolved against the snapshot by its DN part
+(`DistinguishedName.TryParse`) – found → the object's state, not found → `Unavailable`; `ldap://host/…`, `file:` and UNC
+→ `Unknown` (*nie sprawdzono*); `http(s)` → `Unknown` until an HTTP result for it is passed. `PkiHealth.HttpUrls(snapshot)
+→ IReadOnlyList<PkiUrl>` lists the `http`/`https` URLs (AIA CA Issuers, CDP, delta CDP, OCSP) for the probe (2.5).
+`PkiHealthRow(Guid? CaGuid, PkiHealthItem Item, int Index, PkiHealthStatus Status, DateTimeOffset? ValidUntil, string?
+Url)`.
 
-**The LDAP-only ESC rules** (severity by decision 4 from the enrollee/writer class; a template no CA publishes drops a
-level with the note `NotPublished`, decision 3; a template requiring CA-manager approval `CT_FLAG_PEND_ALL_REQUESTS`, or
-requiring an authorized signature `msPKI-RA-Signature ≥ 1`, is not a finding unless the ESC explicitly bypasses it):
+**The analyzer** is split like K6 (reader → pure `Analyze`):
+`PkiEscReader.ReadAsync(PrivilegeScanContext context, PkiSnapshot snapshot, PkiEnrollmentExpansion expansion,
+PkiEscReadOptions options, IProgress<PkiEscProgress>? progress, CancellationToken ct) → PkiEscSnapshot` takes the
+precomputed expansion (no second account pass), calls `DirectoryAclGrantSource.CollectPublicKeyAsync` with the snapshot's
+CA computer DNs, classifies every grant trustee with `PrincipalClassifier`, resolves each OID group link against
+`context.Groups` (`PkiLinkedGroup(Dn, Name, PrivilegeLevel Level)` – a link to an object that is not a group of the graph
+gives no ESC13 finding and a `TrusteeUnresolved` notice), and sets `CaGrantsAuthenticatedUsersEnroll` from
+`options` (decision 3, default true). `PkiEscSnapshot(Templates, Rights, EnterpriseCas, Oids, LinkedGroups, AclGrants,
+TrusteeClasses, MappedAccounts, CaGrantsAuthenticatedUsersEnroll)`. `PkiEscAnalyzer.Analyze(PkiEscSnapshot snapshot) →
+PkiEscResult` (pure, `static partial`: `.Esc1.cs` … `.Esc17.cs`) runs the LDAP-only rules.
 
-| Code | ESC | Condition | Severity |
-|---|---|---|---|
-| `EnrolleeSuppliesSubjectClientAuth` | ESC1 | `CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT` **and** a client-auth EKU (Client Auth / Smart-Card Logon / PKINIT / Any Purpose / empty) **and** enroll by a broad/other principal **and** no manager approval **and** `msPKI-RA-Signature = 0` | broad → Critical, other → Medium |
-| `AnyPurposeOrNoEku` | ESC2 | EKU is Any Purpose (`2.5.29.37.0`) **or** empty (SubCA-equivalent) **and** enrollable by a broad/other principal **and** no approval/signatures | broad → Critical, other → Medium |
-| `EnrollmentAgentTemplate` | ESC3 | (a) a template whose EKU is Certificate Request Agent and enrollable by broad/other; **or** (b) a template with `msPKI-RA-Signature = 1`, `msPKI-RA-Application-Policies` = Certificate Request Agent **and** schema v1, enrollable by broad/other and with a client-auth EKU | broad → Critical, other → Medium |
-| `TemplateWriteable` | ESC4 | a broad/other principal holds `WriteDacl`, `WriteOwner`, `FullControl`, owner, or `WriteProperty` on a sensitive template attribute (name-flag, enrollment-flag, EKU, application policy, RA-signature) | broad → Critical, other → Medium |
-| `PkiObjectWriteable` | ESC5 | a broad/other principal holds write/owner on a PKI container, NTAuth, an OID object, an enrollment service or the CA's computer object (from the U4b PKI pass of 2.3) | broad → Critical, other → Medium |
-| `NoSecurityExtensionClientAuth` | ESC9 | `CT_FLAG_NO_SECURITY_EXTENSION` set **and** a client-auth EKU **and** enrollable by broad/other (DC-side enforcement enforced in P3; P1 reports the template condition only) | broad → High, other → Medium |
-| `IssuancePolicyLinkedToGroup` | ESC13 | the template carries an issuance policy OID (`msPKI-Certificate-Policy`) whose OID object has `msDS-OIDToGroupLink` to a group, **and** a client-auth EKU, **and** enrollable by broad/other (the linked group's privilege read through U4) | High (Critical when the linked group is Tier 0) |
-| `WeakExplicitMapping` | ESC14 | an account carries a **weak** explicit `altSecurityIdentities` mapping, **or** a broad/other principal can write `altSecurityIdentities` on a privileged (Tier 0) account (scope: the accounts streamed in 2.3; the write right from the U4/U4b grants) | High (Tier 0 target) / Medium |
-| `SchemaV1EnrolleeSuppliesSubject` | ESC15 | schema **v1** template **and** `CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT`, enrollable by broad/other (CVE-2024-49019); P1 marks it *zależne od poprawki urzędu z listopada 2024* (Low/Info pending, confirmed in P3) | Medium (pending) |
-| `EnrolleeSuppliesSubjectServerAuth` | ESC17 | `CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT` **and** a Server Authentication EKU, enrollable by broad/other (per README track P) | broad → High, other → Medium |
+Each finding is `PkiFinding(string Code, PkiFindingSeverity Severity, PkiFindingArea Area, Guid? ObjectId,
+IReadOnlyList<string> Arguments)` with init members `ObjectDn`, `Principals` (`IReadOnlyList<PkiPrincipal>` – the
+accounts and groups with their counts, README: `PkiPrincipal(string Sid, string? Name, PrincipalClass Class, int
+AccountCount, bool IsResolved, string? Right)`, built from a `TemplateTrustee` or a `PkiAclGrant` trustee), `Notes` (`[Flags] PkiFindingNotes`: `NotPublished`, `AssumesCaEnroll`,
+`PendingCaPatch`, `ApprovalRequired`, `EkuSourcesDiffer`, `UnknownAttribute`, `TargetOnly`) and `RelatedObjectIds` (the
+CAs, OID objects, target templates). Its `ToString` is value-free (code, severity, area, the object GUID in braces –
+never a name, DN, subject or argument). `PkiFindingCodes` (`src/AdMng.Core/Pki/PkiFindingCodes.cs`) copies
+`GpoFindingCodes`: `public const string X = nameof(X)`, `static IReadOnlyList<PkiFindingDefinition> All`, `Find(code)`,
+and `PkiFindingDefinition(string Code, string Esc, PkiFindingSeverity Severity /* the highest it can get */,
+PkiFindingArea Area, PkiRuleGroup Group, PkiApprovalEffect Approval, string? Locksmith, string? Mdi)`. `Locksmith` is the
+`Technique` string of the Locksmith rule (commit 8b555bd: `Find-ESC1/2/3C1/3C2/4/5/9/13/15/17.ps1`); `Mdi` stays `null`
+until a real MDI assessment id is confirmed (never invented). `PkiFindingSeverity` = `Info | Low | Medium | High |
+Critical`.
 
-Certipy's ESC numbers are the `Esc` field; Locksmith ids are its `ESCx` rule names where they exist (`Esc1`…`Esc15`;
-ESC17 has no Locksmith rule → `null`). All ten are LDAP-only; ESC6/7/8/10/11/16 and ESC12 are P3/out-of-scope and not in
-`PkiFindingCodes`.
+**Common rules.** *Enrollable* = an effective **Enroll** (2.3; FullControl and all extended rights included – AutoEnroll
+alone does not enroll) held by a *Broad* or *Other* trustee; the severity follows the highest such class. A template no
+enterprise CA publishes drops one level with `NotPublished` (decision 3; never below Info). Every enrollment-based finding
+carries `AssumesCaEnroll`. **Approval** = `RequiresManagerApproval` or `RequiresAuthorizedSignature`; its effect is the
+`Approval` column: *suppresses* (no finding – Certipy and Locksmith agree), *lowers* (one level lower + `ApprovalRequired`
+– Certipy 3ae3442 suppresses these, Locksmith reports them, so the review reports them at a lower level) or *never*
+(the attacker rewrites the template or the account, approval does not protect).
 
-### 2.5 Presentation/App – the PKI node, the snapshot service and the overview, templates and security documents (W5, W6)
+| Code | ESC (Certipy) | Locksmith | Condition | Approval | Severity |
+|---|---|---|---|---|---|
+| `EnrolleeSuppliesSubjectClientAuth` | ESC1 | `ESC1` | `EnrolleeSuppliesSubject` **and** `IsClientAuth` **and** enrollable | suppresses | broad → Critical, other → Medium |
+| `AnyPurposeOrNoEku` | ESC2 | `ESC2` | `IsAnyPurpose` (Any Purpose `2.5.29.37.0` or no EKU – a template is not a SubCA because its EKU set is empty) **and** enrollable | suppresses | broad → Critical, other → Medium |
+| `EnrollmentAgentTemplate` | ESC3 | `ESC3` (C1) | `IsEnrollmentAgent` **and** enrollable; the targets (`RelatedObjectIds`) are the `EnrollmentAgentTargetTemplate` templates and the schema-v1 `IsClientAuth` templates enrollable by anyone (Certipy's *ESC3 Target Template*) | suppresses | broad → Critical, other → Medium |
+| `EnrollmentAgentTargetTemplate` | ESC3 | `ESC3` (C2) | `SchemaVersion ≥ 2` **and** `RaSignatures ≥ 1` **and** `RaApplicationPolicies` contains Certificate Request Agent **and** `IsClientAuth` **and** enrollable; a schema-v1 target is never a finding of its own (it would flag the default *User* template) | manager approval suppresses (the signature is the condition) | High with a broad `EnrollmentAgentTemplate` finding, Medium with an other one, else Low + `TargetOnly` |
+| `TemplateWriteable` | ESC4 | `ESC4` | a broad/other trustee holds FullControl, WriteDacl, WriteOwner, WriteAllProperties, Owner or WriteSensitiveProperty; WriteOtherProperty → Low (Certipy flags only all-properties writes, Locksmith every write but Enroll/AutoEnroll – the graded model finds both); an unknown attribute GUID → the full level + `UnknownAttribute` | never | broad → Critical, other → Medium |
+| `PkiObjectWriteable` | ESC5 | `ESC5` | a broad/other trustee holds GenericAll, WriteDacl, WriteOwner, WriteAllProperties, Owner, CreateChild or a write of a named attribute on a PKI container, NTAuth, an OID object, an enrollment service, a CA / AIA / CDP object or the CA's computer object (`PkiAclGrant`, templates excluded – they are ESC4), with the decision-4 safe set and the decision-6 provisioning trustees | never | broad → Critical, other → Medium |
+| `NoSecurityExtensionClientAuth` | ESC9 | `ESC9` | `NoSecurityExtension` (`0x80000`) **and** `IsClientAuth` **and** enrollable (the DC-side enforcement is P3/K1; P1 reports the template) | lowers | broad → High, other → Medium |
+| `IssuancePolicyLinkedToGroup` | ESC13 | `ESC13` | a value of `msPKI-Certificate-Policy` **equals** the `msPKI-Cert-Template-OID` of an `msPKI-Enterprise-Oid` object (join by the OID string, never by DN) whose `msDS-OIDToGroupLink` resolves to a group of the graph (normally an empty universal group – its membership comes from the certificate; members the graph shows are listed too), **and** `IsClientAuth` **and** enrollable | lowers | linked group Tier 0 → Critical, else High |
+| `WeakExplicitMapping` | ESC14 | – | (a) a Tier 0 account carries a weak `altSecurityIdentities` mapping (`PkiAccountFact`) → High; weak mappings on other accounts → one aggregated Low finding with the count (the readiness report lists them); (b) a broad/other trustee holds `WriteAltSecurityIdentities` or `WriteAllProperties` on a Tier 0 account (`PkiAclGrant.TargetKind = Tier0Account`; full control of a Tier 0 object is already U4) → broad Critical, other Medium. Full enforcement (Sept. 2025 update) rejects weak mappings – the DC state is P3/K1 | never | as given |
+| `SchemaV1EnrolleeSuppliesSubject` | ESC15 | `ESC15/EKUwu` | `SchemaVersion = 1` **and** `EnrolleeSuppliesSubject` **and** enrollable, no EKU condition (CVE-2024-49019; Locksmith flags every enrollable v1 template, Certipy only with ESS – the difference is documented), note `PendingCaPatch` (*zależne od poprawki urzędu z listopada 2024*, confirmed in P3) | lowers | Medium |
+| `EnrolleeSuppliesSubjectServerAuth` | ESC17 | `ESC17` | `EnrolleeSuppliesSubject` **and** `IsServerAuth` **and** enrollable (Certipy `server_authentication` includes Any Purpose; Locksmith only `1.3.6.1.5.5.7.3.1`) | suppresses | broad → High, other → Medium |
 
-**Tree node and snapshot service.** A `PkiNodeViewModel : TreeNodeViewModel` base (own base, not the GPO node base –
-decision 9; subclassing `GroupPolicyNodeViewModel` would make the GPO toggle remove it and `TryActivateGroupPolicyNode`
-swallow it). `NavigationTreeViewModel` gets a `PkiViewModelFactory? Pki` constructor parameter, a `ShowPkiNodes(bool)`
-inserting *Usługi kluczy publicznych* under the domain node, a relocalize loop in `OnCultureChanged`, and a
-*Widok → Usługi kluczy publicznych w drzewie* toggle bound to a new `AppSettings.Pki.ShowInTree` (default on). The
-documents hang off a new **`PkiDocumentBase : ObservableObject, IShellDocument`** copied from `GroupPolicyDocumentBase`
-but LDAP-only: it keeps `SerialCancellation`, the window `Lifetime`, the `SessionChanged` / `CultureChanged`
-subscriptions (unsubscribed in `Dispose`) and `Error` / `LoadedText`, and **drops** SYSVOL, the PDC note and the `Changed`
-event; `LoadCoreAsync(IDirectorySession, CancellationToken)` is enough. A scoped **`PkiSnapshotService`**
-(`src/AdMng.Presentation/Pki/PkiSnapshotService.cs`, one per window, modelled on `GpoSettingsIndexService` but far
-simpler) caches the `PkiSnapshot` and the template-rights expansion keyed on the `IDirectorySession` instance **and**
-`session.Info.Server`; `ISessionManager.SessionChanged` drops it, F5 rebuilds; the build runs on `Task.Run` with a
-`CancellationTokenSource` linked to `GroupPolicyServices`-style `Lifetime`; it is dropped in `Dispose`.
+Certipy also reports ESC1 and ESC2 (and ESC3, ESC17) together on an enrollee-supplies-subject Any-Purpose template; the
+review does the same and groups the rows by template. All eleven codes are LDAP-only; ESC6/7/8/10/11/16 are P3 and ESC12
+is out of scope – none is in `PkiFindingCodes`.
+
+### 2.5 Presentation/App – the PKI node, snapshot service, settings and the overview, templates, security and readiness documents (W5, W6)
+
+**Tree node** (W5). A `PkiNodeViewModel : TreeNodeViewModel` base (own base, not the GPO node base – decision 9;
+subclassing `GroupPolicyNodeViewModel` would make the GPO toggle remove it and `TryActivateGroupPolicyNode` swallow it)
+and the concrete `PublicKeyServicesNodeViewModel`. `NavigationTreeViewModel` gets a `PkiViewModelFactory? pki`
+constructor parameter, `ShowPkiNodes(bool)` inserting *Usługi kluczy publicznych* under the domain node **at the index
+after the last `GroupPolicyNodeViewModel` child** (0 when the GPO nodes are hidden; `GroupPolicyTreeAndShellTests`
+asserts `Children[0]` is the GPO objects node), called in `InitializeAsync` after `ShowGroupPolicyNodes` and in
+`OnSettingsChanged`, a relocalize loop in `OnCultureChanged`, and a *Widok → Usługi kluczy publicznych w drzewie* toggle
+bound to `AppSettings.Pki.ShowInTree` (default on – every existing tree screenshot changes once; the integration step
+regenerates them).
+
+**Services** (contract commit, complete). `PkiServices(DialogServices ui, ICsvCodec csv, IPkiSnapshotService snapshot,
+IDomainControllerTlsProbe? tlsProbe, IPkiHealthProbe? healthProbe)` (scoped) carries `Ui`, `Csv`, `Snapshot`,
+`TlsProbe`, `HealthProbe`, the shortcuts `Localizer` / `Dispatcher` / `Sessions` / `Settings` / `Errors` / `Time`,
+`Lifetime` (`Ui.Connection?.Lifetime`), `event EventHandler<PkiDocumentRequest>? DocumentRequested` +
+`RequestDocument(request)`, and the CA-host navigation `CanOpenRemoteActions => Ui.Dialogs is IComputerDialogs`,
+`OpenComputerAsync(string computerDn)` (`Ui.Dialogs.ShowPropertiesAsync`) and `OpenRemoteActionsAsync(string computerDn)`
+(`IComputerDialogs.ShowRemoteActionsAsync`) – both by the `ComputerDn` of 2.1, so no computer lookup is needed; a CA host
+in another domain shows a note, not an error. The probes come from `sp.GetService<…>()` (null → the LDAPS tab and the
+HTTP button say *niedostępne*), the way `EventLogServices` takes `IEventLogConnector`; `PkiSnapshotService` gets them the
+same way (`new PkiSnapshotService(sp.GetRequiredService<DialogServices>(), sp.GetService<IDomainControllerTlsProbe>(),
+sp.GetService<IPkiHealthProbe>())`), so `PkiServices` → `IPkiSnapshotService` has no cycle. **`PkiDocumentBase :
+ObservableObject, IShellDocument`** (contract commit, complete – copied from `GroupPolicyDocumentBase` but LDAP-only):
+`protected PkiDocumentBase(PkiServices pki)`, `Pki`, `SerialCancellation`, `LoadCoreAsync(IDirectorySession,
+CancellationToken)`, `Error`, `LoadedText`, the `SessionChanged` / `CultureChanged` / `Settings.Changed` subscriptions
+(virtual `OnSettingsChanged`, all unsubscribed in `Dispose`); **drops** SYSVOL, the PDC note and the `Changed` event.
+
+**Snapshot service** (W5). `PkiSnapshotService : IPkiSnapshotService, IDisposable`
+(`src/AdMng.Presentation/Pki/PkiSnapshotService.cs`, scoped, one per window, modelled on `GpoSettingsIndexService`)
+caches, keyed on the `IDirectorySession` instance **and** `session.Info.Server`: the `PkiSnapshot` (`GetAsync(refresh,
+progress, ct)`), the enrollment expansion (`GetExpansionAsync(refresh, progress, ct)` – reads `GroupGraph` once, then
+`TemplateRightsEvaluator.ExpandAsync`; started lazily by the templates, security and readiness documents **after** the
+trustee-level view is on screen), the domain controllers (`GetDomainControllersAsync(refresh, ct)` –
+`PkiOverviewReader.ReadDomainControllersAsync`, LDAP only, for the KDC indicator), the DC certificate checks
+(`GetDcCertificatesAsync(refresh, ct)` – DCs from `DomainControllerCatalog.ReadAsync` joined with those, each probed with
+`IDomainControllerTlsProbe` at most 4 in parallel via a `SemaphoreSlim`, the current DC first, 3269 only for GCs; only on
+explicit navigation or button – decision 1) and the HTTP results (`CheckHttpAsync(progress, ct)` on the operator's button
+→ `HttpResults`). One build per item is shared by all callers; a caller's token ends only that caller's wait (as
+`GpoSettingsIndexService`), the build runs on `Task.Run` under the service's own `CancellationTokenSource` linked to
+`PkiServices.Lifetime`; `ISessionManager.SessionChanged` and `Invalidate()` (F5) cancel and drop everything; `Changed`
+fires after each replacement; `Dispose` unsubscribes `SessionChanged` and cancels. `ReadAt` replaces the old `IsStale`.
+
+**HTTP checks** (W5). `PkiHealthProbe : IPkiHealthProbe` (`src/AdMng.Presentation/Pki/PkiHealthProbe.cs`, singleton,
+modelled on `PolicyTemplatePackageLoader` with a `Func<HttpMessageHandler>?` for tests): `CheckAsync(IReadOnlyList<PkiUrl>
+urls, IProgress<int>? progress, CancellationToken ct) → IReadOnlyList<PkiHttpCheckResult>`. Only absolute `http`/`https`
+URLs are contacted; anything else is `NotChecked` without a connection (`file:`, UNC – would send NTLM to an
+attacker-chosen host –, `ldap://host` – another DC, rule 4). Default handler: `SocketsHttpHandler { AllowAutoRedirect =
+false, Credentials = null, DefaultProxyCredentials = CredentialCache.DefaultCredentials /* proxy only */,
+ConnectTimeout = 5 s, SslOptions.CertificateChainPolicy = { DisableCertificateDownloads = true, RevocationMode = NoCheck }
+}`; the probe follows at most 3 redirects itself, applying the same scheme rule to each target; 15 s per URL including
+the body; the body read to at most 20 MB (`TooLarge`); 4 URLs in parallel. AIA bodies parse as a DER or PEM certificate
+(`CertificateSummary`), CDP bodies as a CRL (`CrlSummary`), anything else `InvalidContent`; **OCSP is reachability only**
+(any HTTP response = `Ok` with its status code; no OCSP request is built in P1). `PkiHttpOutcome` = `Ok | NotFound |
+HttpError | Timeout | TooLarge | InvalidContent | TlsError | NameNotResolved | ConnectFailed | NotChecked`. Bodies are
+dropped after parsing; the results live in the snapshot service until F5.
+
+**Settings** (W5). `AppSettings.Pki` (`PkiSettings`: `ShowInTree` = true, `CertificateExpiryWarningDays` = 30,
+`CaCertificateExpiryWarningDays` = 180, `Normalize` clamps to 1–3650; contract commit) gets a `PkiSettingsViewModel`
+(`src/AdMng.Presentation/Pki/PkiSettingsViewModel.cs`, the K1 `ComputerSettingsViewModel` pattern) wired into
+`SettingsViewModel` (constructor, property, `Error` chain, `Apply`) and a section *Certyfikaty* at the end of the
+*Ogólne* tab of `SettingsWindow.xaml`.
 
 **W5 documents.** *Przegląd PKI* (`PkiOverviewDocumentViewModel`, tab *Usługi kluczy publicznych*) with the sub-views of
-decision 9 (enterprise CAs, roots/intermediates, NTAuth with the enterprise-CA match, CDP lists, KRA, OID with group
-links) and a *Zdrowie* tab (`pkiview`-style rows OK / Wygasa / Wygasła / Niedostępna, a *Sprawdź adresy HTTP* button that
-calls `PkiHealthProbe` on `Task.Run`) and a *Certyfikaty LDAPS* tab (per DC, from `DomainControllerCatalog.ReadAsync`,
-each probed with `IDomainControllerTlsProbe` – at most 4 in parallel via a `SemaphoreSlim`, the current DC first, 3269
-only for GCs). *Szablony certyfikatów* (`PkiTemplatesDocumentViewModel`) with the README columns, the decoded flags as
-Polish/English sentences (technical bit name in the tooltip), the periods in days/weeks/years, the issuing CAs,
-unpublished templates, the expanded enrollment rights and *kto może zmienić* from `PkiSnapshotService`, a compare-two and
-an export (CSV/HTML to an operator-chosen file through `Gp.Ui.Files` + `ICsvCodec` `protectFormulas: true`).
+decision 9 (enterprise CAs with *Otwórz komputer* / *Zdalne akcje* by `ComputerDn`, roots/intermediates, NTAuth with the
+enterprise-CA match, CDP lists, KRA, OID with group links), a *Zdrowie* tab (`PkiHealth.Evaluate` over the snapshot with
+the current thresholds and `Pki.Time` – re-evaluated on activation, F5 and `OnSettingsChanged`; a *Sprawdź adresy HTTP*
+button → `Snapshot.CheckHttpAsync`) and a *Certyfikaty LDAPS* tab (`Snapshot.GetDcCertificatesAsync` on the tab's first
+activation or its button; `DcCertificateEvaluation` per row). *Szablony certyfikatów* (`PkiTemplatesDocumentViewModel`)
+with the README columns, the decoded flags as Polish/English sentences (technical bit name in the tooltip), the periods,
+the issuing CAs, unpublished templates, the trustee-level rights at once and the expanded counts when
+`GetExpansionAsync` completes; account names open the property sheet (`Ui.Dialogs.ShowPropertiesAsync`), a group trustee
+opens the group (its *Członkowie* tab – all members, not only the first 20), a broad trustee shows the count only; *kto
+może zmienić* from the same expansion; a **compare pane** inside the document (two templates side by side, differing
+rows marked; no new window); export CSV/HTML to an operator-chosen file through `Pki.Ui.Files` + `Pki.Csv`
+(`protectFormulas: true`).
 
 **W6 documents.** *Przegląd bezpieczeństwa AD CS* (`PkiSecurityReviewDocumentViewModel` + `.Filters.cs` + `.Actions.cs`),
-modelled on `GroupPolicyDiagnosticsDocumentViewModel`: `LoadCoreAsync` runs `Task.Run(PkiEscReader.ReadAsync + Analyze)`
-with progress, name resolution, then `Show`; severity chips, filters (`SelectedSeverity` / `SelectedEsc` / `SelectedArea`
-/ `SearchText`, `ISearchableDocument`), rows with the ESC number, the Certipy/Locksmith/MDI ids, the condition, the attack
-path, the affected object and the principals with counts. **No `Napraw` in P1** – the only row action is *Otwórz
-szablon/urząd* through the shell (`DocumentRequested`), plus *Kopiuj*, *Eksportuj CSV / HTML* (self-contained HTML page,
-CSP `default-src 'none'`, every value through `E()`, a privacy footer). The *gotowość na silne mapowanie i NTAuth* report
-(`PkiReadinessDocumentViewModel`, W6) is a **separate document** in the PKI area (not the stage-S readiness check – README
-puts PKI readiness rows in P4): status-per-check rows (accounts with weak `altSecurityIdentities`, auth templates without
-the SID extension, logon-capable CAs not in NTAuth, DC LDAPS certs without a proper SAN/EKU) with a link that opens the
-event-log reader for KDC 39/40/41/45/21 **only if** `EventLogLauncher` supports a preset query – otherwise the row says
-*P4*. Texts of the findings are dynamic resx keys in `PkiFindingText` (2.8).
+modelled on `GroupPolicyDiagnosticsDocumentViewModel`: `LoadCoreAsync` gets the snapshot and the expansion from the
+service, builds the `PrivilegeScanContext` from the session and `expansion.Groups` / `expansion.Options`, runs
+`Task.Run(PkiEscReader.ReadAsync + PkiEscAnalyzer.Analyze)` with progress, resolves names, then `Show`; severity chips,
+filters (`SelectedSeverity` / `SelectedEsc` / `SelectedArea` / `SearchText`, `ISearchableDocument`), rows
+(`PkiFindingRowViewModel`) grouped by object with the ESC number, the Certipy / Locksmith / MDI ids, the condition, the
+attack path, the affected object, the principals with counts and the notes. **No `Napraw` in P1** – the row actions are
+*Otwórz szablon/urząd* through `Pki.RequestDocument` (`PkiDocumentRequest` with `TemplateCn` / `CaDn`), *Kopiuj*,
+*Eksportuj CSV / HTML* (self-contained HTML page, CSP `default-src 'none'`, every value through `E()`, a privacy footer).
+*Gotowość na silne mapowanie i NTAuth* (`PkiReadinessDocumentViewModel`) is a **separate document** in the PKI area (not
+the stage-S readiness check – README puts stage-S PKI rows in P4) with status rows (`Ok` / *ostrzeżenie* / *problem* /
+*nie sprawdzono*): accounts with weak `altSecurityIdentities` (`expansion.MappedAccounts`, Tier 0 first), authentication
+templates without the SID extension (published `IsClientAuth` templates with `NoSecurityExtension`, and those with
+`EnrolleeSuppliesSubject`, whose certificates carry no SID and need a strong explicit mapping), logon-capable enterprise
+CAs not in NTAuth (publishing an `IsClientAuth` template, `InNtAuth = false`), DC LDAPS certificates without a proper
+SAN/EKU (`GetDcCertificatesAsync` on the document's own button, or the cached results), KDC certificates
+(`KdcCertificateEvaluation` over the certificates `GetDomainControllersAsync` returns), and a KDC events 39/40/41/45/21
+row that says *P4*.
+Finding texts are the dynamic resx keys of `PkiFindingText` (2.8).
 
-Shell wiring (`src/AdMng.Presentation/Shell/ShellViewModel.Pki.cs` – a new partial, so
-`XamlSourceTests.EveryCommandIdUsedInXaml_IsAShellCommand`, which scans `Shell/ShellViewModel*.cs`, sees the `pki.*`
-descriptors): `OpenPkiDocument(request)`, a `PkiDocuments` filter, the `pki.overview` / `pki.templates` / `pki.security` /
-`pki.readiness` descriptors, `AttachPki` / `DetachPki`, `TryActivatePkiNode`, and `PkiStateCommands` added to
-`StateCommands`. `GroupPolicyDocumentKind`-style the requests go through a `PkiDocumentRequest(PkiDocumentKind Kind)`
-record with `TemplateCn`, `CaDn`, `FindingCode` init props and a value-free `ToString`.
+**Shell wiring.** The contract commit pre-wires the call sites to stubs in `src/AdMng.Presentation/Shell/ShellViewModel.Pki.cs`
+(a new partial, so `XamlSourceTests.EveryCommandIdUsedInXaml_IsAShellCommand`, which scans `Shell/ShellViewModel*.cs`,
+sees the `pki.*` descriptors): `AttachPki()` / `DetachPki()` (constructor / `Dispose`), `if (TryActivatePkiNode(node))
+return;` in `OnNodeActivated`, `.. PkiCommandDescriptors(),` in the palette, `.. PkiStateCommands,` in `StateCommands`, an
+`ActivePki()` arm in `.Documents.cs`. W5 fills the partial: `OpenPkiDocument(request)`, the `PkiDocuments` filter, all
+four descriptors `pki.overview` / `pki.templates` / `pki.security` / `pki.readiness` (kind-generic – they need no W6
+type), `AttachPki` subscribing `PkiServices.DocumentRequested`. Requests are `PkiDocumentRequest(PkiDocumentKind Kind)`
+(`Overview | Templates | SecurityReview | Readiness`) with `TemplateCn`, `CaDn`, `FindingCode` init props and a value-free
+`ToString`. After the contract commit only W5 touches the shell files.
 
-### 2.6 Presentation/App – the read-only property tabs, the TLS-probe implementation and CA-host navigation (W7)
+### 2.6 Presentation/App – the read-only property tabs, the attribute-editor mask and the TLS-probe implementation (W7)
 
 **Property-sheet tabs** (`src/AdMng.Presentation/Pki/` property pages; each `public sealed partial class … :
-PropertyPageViewModel`, read-only – `GetOperations() => []`, both `Compute*` false, `Revert()` empty, rule 5): *Opublikowane
-certyfikaty* (`PublishedCertificatesPageViewModel`, user / computer / contact, columns *Wystawiony dla*, *Wystawiony
-przez*, przeznaczenie, ważność, szablon, odcisk – from `userCertificate` and `userSMIMECertificate` via
-`CertificateSummary`), *Mapowania nazw* (`NameMappingsPageViewModel`, user / computer – `altSecurityIdentities` with the
-KB5014754 strength from `AltSecurityIdentity`) and *Poświadczenia kluczy* (`KeyCredentialsPageViewModel`, user / computer –
+PropertyPageViewModel`, read-only – `GetOperations() => []`, both `Compute*` false, `Revert()` empty, rule 5):
+*Opublikowane certyfikaty* (`PublishedCertificatesPageViewModel`, user / computer / contact, columns *Wystawiony dla*,
+*Wystawiony przez*, przeznaczenie, ważność, szablon (`CertificateSummary.TemplateName` / `TemplateOid` resolved against
+the snapshot's templates when loaded), odcisk – from `userCertificate` and `userSMIMECertificate`), *Mapowania nazw*
+(`NameMappingsPageViewModel`, user / computer – `altSecurityIdentities` with the KB5014754 strength from
+`AltSecurityIdentity`) and *Poświadczenia kluczy* (`KeyCredentialsPageViewModel`, user / computer –
 `msDS-KeyCredentialLink` via `KeyCredentialLink`, key id / device id / source / created / last-logon / usage). They are
-added to the `PropertyPageFactory` lists (a new `PageIf(attr, factory)` helper, since `Known<T>` only accepts fields),
-after Organization and before `MemberOfPageViewModel` (ADUC order); the exact-tab-order tests in `PropertySheetTests`
-(user `:38`, group `:317`, computer `:361`, OU `:381`) are updated. The certificates are large binary values, so they are
-read **lazily** (the Attribute-Editor `ActivateAsync` / `LoadDetailsAsync` pattern with the page's own
-`SerialCancellation`); `altSecurityIdentities` is small and goes in `ReadAttributes`. No temp `.cer` files – *Kopiuj do
-pliku…* is an operator-chosen export only (rule 1). `userPKCS12` is added to `SecretAttributes.WellKnownNames` and the
-attribute editor masks secret `ValueText` / `EditableValues` / the value editor with
-`SecretAttributes.IsSecret(Attribute, _context.Schema) ? SecretAttributes.Mask : …` (decision 7).
+added by a private `PageIf(string attribute, Func<PropertyPageViewModel> create)` helper in `PropertyPageFactory` (added
+only when `context.IsKnown(attribute)`; the lists filter nulls out – `Known<T>` only accepts fields): `User(obj)` and
+`Contact(obj)` after `OrganizationPage()` and before `MemberOfPageViewModel` (ADUC order; in the order *Opublikowane
+certyfikaty*, *Mapowania nazw*, *Poświadczenia kluczy*; contact: *Opublikowane certyfikaty* only), `Computer()` after
+`ComputerStatusPageViewModel` and before `MemberOfPageViewModel`. Page titles are
+`L.Certificates.PublishedCertificatesPage` / `NameMappingsPage` / `KeyCredentialsPage` (as K1's
+`L.Computers.StatusPage`; `L.Pages` lives in `L.cs`, which nobody changes). The tab-order tests in
+`tests/AdMng.Presentation.Tests/Dialogs/PropertySheetTests.cs` change for user (`:38`) and computer (`:361`); a contact
+tab-order test is added; group (`:317`) and OU (`:381`) stay. The certificates and key credentials are read **lazily**
+(the Attribute-Editor `ActivateAsync` / `LoadDetailsAsync` pattern with the page's own `SerialCancellation`), parsed on
+`Task.Run`; `altSecurityIdentities` is small and goes in `ReadAttributes`. No temp `.cer` files – *Kopiuj do pliku…* is an
+operator-chosen export only (rule 1).
 
-**TLS probe implementation** (`src/AdMng.Directory/Pki/SslStreamTlsProbe.cs`, implements the 2.1 contract; Directory is
-cross-platform and already TCP/LDAP-flavoured, and the Watchdog references it for P4 LDAPS-expiry reminders): `TcpClient`
-+ `SslStream`, capturing `RawData` of the presented chain in the validation callback (`CertificateRevocationCheckMode =
-NoCheck`, no credential sent), the `LdapConnectionFactory.ProbeAsync` timeout pattern; no `OperatingSystem.IsWindows()`
-guard (SslStream works on both). Registered App-side (`AddAdMngPkiApp`, called from `AppHost` after `AddAdMngPresentation`)
-as `TryAddSingleton<IDomainControllerTlsProbe, SslStreamTlsProbe>()`; added to `HostTests` `SharedApp` and faked in
-`UiTestContext` with `FakeDomainControllerTlsProbe`.
+**Attribute-editor mask** (decision 7; `src/AdMng.Presentation/PropertySheets/AttributeEditorPage.cs`).
+`SecretAttributes.IsNeverShown(attribute, schema)` (contract) = `IsSecret` **and** (the schema gives the attribute a binary
+syntax, or it is one of `userPKCS12`, `msPKIAccountCredentials`, `msPKIDPAPIMasterKeys`, `msFVE-KeyPackage`,
+`msDS-ManagedPassword`, `supplementalCredentials`, `msLAPS-EncryptedPassword`, `msLAPS-EncryptedPasswordHistory`,
+`msLAPS-EncryptedDSRMPassword`, `msLAPS-EncryptedDSRMPasswordHistory`). For a row where it is true – `ValueText` is `SecretAttributes.Mask`, the row is read-only
+(`ReadOnlyReason` = *wartość poufna*; `Edit` cannot execute, `CloseEditor` never stages anything for it, the binary value
+editor never opens) and `CopyValue` cannot execute. Rows of other secret attributes (LAPS, BitLocker recovery password,
+confidential text) are unchanged: shown, copied through `ClipboardCopy.Secret`. `Fields.cs` is untouched (standard pages
+never show secrets).
 
-**CA-host navigation.** From a CA row to its computer object and the K1 remote actions through a shared
-`ComputerLookup.FindByHostAsync` (extracted from the two private copies in `EventLogServices` / `ReadinessChecker`) and
-`IComputerDialogs.ShowRemoteActionsAsync` (the `LockoutDocumentViewModel.Pivot` pattern: `CanOpenRemoteActions =>
-Services.Ui.Dialogs is IComputerDialogs`). A CA host in another forest domain that does not resolve shows a note, not an
-error.
+**TLS probe implementation** (`src/AdMng.Directory/Pki/SslStreamTlsProbe.cs`, implements 2.1; Directory is cross-platform
+and already TCP/LDAP-flavoured, and the Watchdog service references it for P4 LDAPS-expiry reminders): `HostNames.IsValid`
+(else `InvalidHost`; ports other than 636 / 3269 refused), `TcpClient` + `SslStream` with the `LdapConnectionFactory.ProbeAsync`
+timeout pattern (a linked CTS; the probe's own timeout → `Timeout`, the caller's cancellation propagates).
+`AuthenticateAsClientAsync(new SslClientAuthenticationOptions { TargetHost = host, ClientCertificates = [] /* empty */,
+LocalCertificateSelectionCallback = (…) => null! /* AD LDAPS sends a CertificateRequest; no certificate is offered */,
+CertificateRevocationCheckMode = NoCheck, CertificateChainPolicy = new X509ChainPolicy { DisableCertificateDownloads =
+true, RevocationMode = X509RevocationMode.NoCheck } /* the platform chain build cannot fetch AIA */,
+RemoteCertificateValidationCallback = capture })`. The callback copies the leaf from `certificate` and the presented
+intermediates from `chain.ChainPolicy.ExtraStore` (not `ChainElements`, which is the locally built chain), records
+`sslPolicyErrors` and **returns `true`** (returning false would make every presented certificate `HandshakeFailed`; the
+stream is closed right after, no application data is ever written). An `AuthenticationException`, an `IOException` or a
+`SocketException` (connection reset – which one depends on the OS) during the handshake → `HandshakeFailed`; refused
+connect → `PortClosed`; host not found → `NameNotResolved`. No `OperatingSystem.IsWindows()` guard. Registered App-side by
+`AddAdMngPkiApp()` (`src/AdMng.App/Pki/PkiAppRegistration.cs`, called from `AppHost` after `AddAdMngPresentation()`) as
+`services.AddSingleton<IDomainControllerTlsProbe, SslStreamTlsProbe>()` – a plain `AddSingleton`, since Presentation
+registers no fallback (it consumes the probe through `GetService`).
 
 ### 2.7 Data handling (rules 1–6)
 
-* **Rule 1.** The `PkiSnapshot` (CAs, templates, certificates, CRLs, OID links), the ESC findings, the template-rights
-  expansion and the probed DC certificates live in the scoped `PkiSnapshotService` and the open documents only; dropped on
-  `SessionChanged`, disconnect and window close (scope disposal). Nothing in settings (no PKI data; only the two expiry
-  thresholds and the node toggle), temp files or logs; diagnostic logs carry counts and durations only – never a subject,
-  thumbprint, DN or serial. Every new record's `ToString()` prints kinds, severities, GUIDs and counts, never a value.
-  Exports (`.cer`, `.crl`, CSV, HTML) go only to a file the operator picks.
-* **Rule 2.** No password or private key is read: `userPKCS12`, `msPKIAccountCredentials`, `msPKIDPAPIMasterKeys` are in
-  `SecretAttributes` and never shown, copied or exported; KRA key recovery is out of scope. `KeyCredentialLink` exposes
-  only the id/metadata, never the key material.
+* **Rule 1.** The `PkiSnapshot` (CAs, templates, certificates, CRLs, OID links), the enrollment expansion (counts, the
+  first 20 names, the mapped accounts), the ESC findings, the probed DC certificates and the HTTP results live in the
+  scoped `PkiSnapshotService` and the open documents only; dropped on `SessionChanged`, disconnect and window close
+  (scope disposal). Nothing in settings (no PKI data; only the two expiry thresholds and the node toggle), temp files or
+  logs; diagnostic logs carry counts and durations only – never a subject, thumbprint, DN, URL or serial. Every record of
+  `AdMng.Core.Pki` and `AdMng.Presentation.Pki` declares its own `ToString` printing kinds, severities, GUIDs and counts,
+  never a value (`PkiContractTests`, 2.10); exception messages and log templates in PKI code carry no values. Exports
+  (`.cer`, `.crl`, CSV, HTML) go only to a file the operator picks.
+* **Rule 2.** No password or private key is read for display: `userPKCS12`, `msPKIAccountCredentials`,
+  `msPKIDPAPIMasterKeys` are in `SecretAttributes`, `IsNeverShown` masks them in the attribute editor, and they are never
+  copied or exported; KRA key recovery is out of scope. `KeyCredentialLink` exposes only the id/metadata, never the key
+  material.
 * **Rule 3.** Every PKI DN is built with `DistinguishedName.Child` (`Child("CN","Services").Child("CN","Public Key
-  Services")`); CA names in `CN=CDP` / `CN=AIA` are certutil-sanitized, so match by attribute, not RDN text. Every filter
-  is `LdapFilter.Equal/Or/And`; typed host/account text is never concatenated into a filter.
-* **Rule 4.** One DC: the snapshot reader, the rights evaluator, U4b and the property tabs read on the window session's DC;
-  the configuration partition is forest-replicated, so no other DC is opened. The only traffic that leaves the session is
-  the 636/3269 TLS probe and, on the operator's button, the AIA/CDP/OCSP HTTP check (decision 1).
+  Services")`); CA names in `CN=CDP` / `CN=AIA` are certutil-sanitized, so objects are matched by attribute (certificate
+  hash, subject + key identifier, the OID string), not RDN text. Every filter is `LdapFilter.Equal/Or/And`; host names
+  from `dNSHostName` are never concatenated into a filter.
+* **Rule 4.** One DC: the snapshot reader, the CA computer lookup, the rights evaluator, U4b and the property tabs read on
+  the window session's DC; the configuration partition is forest-replicated, so no other DC is opened. The only traffic
+  that leaves the session is the 636/3269 TLS probe and, on the operator's button, the AIA/CDP/OCSP HTTP check (decision
+  1); `ldap://host` URLs are never followed.
 * **Rule 5.** P1 writes nothing: the documents and property tabs are read-only, `GetOperations()` returns `[]`, the ESC
-  review offers navigation only (no `Napraw`). P2 adds the change-plan repairs.
-* **Rule 6.** The snapshot build, the rights streaming pass and the TLS probes are async, cancellable and report progress;
-  at most 4 TLS probes and 4-wide fan-out at a time; long template and finding lists virtualize; the ESC analysis runs on
-  `Task.Run`.
+  review offers navigation only (no `Napraw`), the masked editor rows stage nothing. P2 adds the change-plan repairs.
+* **Rule 6.** The snapshot build, the account pass, the ESC read and the TLS / HTTP checks are async, cancellable and
+  report progress; at most 4 TLS probes and 4 HTTP checks at a time; long template and finding lists virtualize; the
+  ESC analysis and the property-tab parsing run on `Task.Run`.
 
 ### 2.8 Localization
 
-Both `Strings.resx` and `Strings.pl.resx`, one block per owner between comment markers (the exact anchors are in 2.12),
-constants in new `L.*.cs` files; dynamic families get an `AllKeys()` helper tested like `GpoFindingText.AllKeys()`. The
-prefix may differ from the class name (as `L.EventLogs` → `EvtLog.`). New classes (no `Pki`/`Cert` prefix exists yet):
+Both `Strings.resx` and `Strings.pl.resx`, one block per owner between comment markers (2.12); constants in new nested
+classes of the partial `L` (`EveryKeyOfL_ExistsInBothLanguages` only finds constants of nested types of `L`); dynamic
+families get an `AllKeys()` helper tested like `GpoFindingText.AllKeys()`. No format string has more than 8 placeholders
+(`FormatPlaceholders_MatchBetweenLanguages` formats every value with 8 arguments; `PkiFindingText.ArgumentCounts` ≤ 8,
+asserted). The prefix may differ from the class name (as `L.EventLogs` → `EvtLog.`):
 
-| File | Class | Prefix | Owner |
-|---|---|---|---|
-| `L.Pki.cs` | node, overview, health (`Pki.Health.<Status>`), read notes (`Pki.Notice.<Code>`) | `Pki.` | W5 |
-| `L.PkiTemplates.cs` | template list, columns, flag sentences (`PkiTpl.Flag.<Attr>.<Bit>`), period units, enrollment rights | `PkiTpl.` | W5 |
-| `L.PkiSecurity.cs` | the ESC review document (chips, filters, row labels; finding texts live in `PkiFindingText`) | `PkiEsc.` | W6 |
-| `L.Certificates.cs` | the three read-only property tabs, DC LDAPS, mapping strength (`Cert.Mapping.<Strength>`); page titles stay `Pages.*` | `Cert.` | W7 |
-| `L.PkiReadiness.cs` | the strong-mapping / NTAuth report | `PkiReady.` | W6 |
+| File | Class | Prefix | Contents | Owner |
+|---|---|---|---|---|
+| `L.Pki.cs` | `L.Pki` | `Pki.` | node, overview, health items (`Pki.HealthItem.<PkiHealthItem>`), read notes (`Pki.Notice.<PkiReadNoticeCode>`), HTTP outcomes (`Pki.Http.<PkiHttpOutcome>`), DC LDAPS tab, settings section | W5 |
+| `L.PkiTemplates.cs` | `L.PkiTemplates` | `PkiTpl.` | template list, columns, flag sentences, period units, enrollment rights, compare pane | W5 |
+| `L.PkiSecurity.cs` | `L.PkiSecurity` | `PkiEsc.` | the ESC review document (filters, row labels; finding texts live in `PkiFindingText`) | W6 |
+| `L.PkiReadiness.cs` | `L.PkiReadiness` | `PkiReady.` | the strong-mapping / NTAuth report | W6 |
+| `L.Certificates.cs` | `L.Certificates` | `Cert.` | the three property tabs and their page titles, key sources / usages (`Cert.KeySource.<KeyCredentialSource>`, `Cert.KeyUsage.<KeyCredentialUsage>`), mapping kinds (`Cert.MappingKind.<AltSecurityIdentityKind>`), the masked-row reason | W7 |
 
 **Dynamic key families** (each with `AllKeys()` and a completeness test, modelled on `GpoFindingTextTests`):
-* `PkiTpl.Flag.<Attr>.<Bit>` – one entry per flag bit of 2.2 (owner W5, `L.PkiTemplates.cs`); the helper enumerates
-  `PkiFlags`' tables. Test: every bit has en + pl.
-* `Pki.Health.<PkiHealthStatus>`, `Pki.Notice.<PkiReadNoticeCode>`, `Cert.Mapping.<MappingStrength>` – one entry per enum
-  value, enumerated by `Enum.GetValues` (owner W5/W7). Tests enumerate the enum.
-* **`PkiFindingText`** (`src/AdMng.Presentation/Pki/PkiFindingText.cs`, owner **C4**, in the P1 contract commit so
+* `PkiTpl.Flag.<PkiFlagAttribute>.<Name>` – one entry per **bit** of 2.2 (reserved bits included), and
+  `PkiTpl.Field.<Name>` – one per multi-bit field (keyed by the field, never per bit); the helper enumerates `PkiFlags`
+  (owner W5). Test: every entry has en + pl.
+* Enum families used by more than one wave live in the contract class **`PkiTextKeys`**
+  (`src/AdMng.Presentation/Pki/PkiTextKeys.cs`) and the contract resx block: `Pki.Class.<PrincipalClass>`,
+  `PkiTpl.Right.<TemplateRight>`, `Cert.Mapping.<MappingStrength>`, `Pki.Tls.<TlsProbeOutcome>`,
+  `Pki.Kdc.<KdcReadinessState>`, `Pki.Health.<PkiHealthStatus>`, `PkiEsc.Note.<PkiFindingNotes>` (one per flag),
+  `PkiEsc.Severity.<PkiFindingSeverity>`, `PkiEsc.Chip.<PkiFindingSeverity>`, `PkiEsc.Area.<PkiFindingArea>`. The
+  single-wave families (`Pki.HealthItem`, `Pki.Notice`, `Pki.Http`, `Cert.KeySource`, `Cert.KeyUsage`, `Cert.MappingKind`)
+  are owned by the class of the table above. Tests enumerate the enums.
+* **`PkiFindingText`** (`src/AdMng.Presentation/Pki/PkiFindingText.cs`, written by the lead in the contract commit so
   `LocalizationTests` stay green from the start – modelled on `GpoFindingText`): `ArgumentCounts`, `TitleKey` /
   `MessageKey` / `ExplanationKey` / `RecommendationKey` = `PkiFinding.<Code>.Title|Message|Explanation|Recommendation`,
-  `Severities`, `AllKeys()`, plus `PkiEsc.Severity.<sev>`, `PkiEsc.Chip.<sev>`, `PkiEsc.Area.<area>`. The block **P1
-  contract – AD CS finding texts (2.4)** carries all ten codes' four texts in en + pl in the contract commit (W6 may
-  refine the wording). A `PkiFindingTextTests` asserts all four texts exist in both languages, the argument counts match
-  and a hard-coded `Assert.Equal(10, …)` on the code count.
+  `Severities`, `AllKeys()`. The block **P1 contract – AD CS finding texts and shared names (2.4, 2.8)** carries all
+  eleven codes' four texts and the `PkiTextKeys` families in en + pl. C4 may change `ArgumentCounts` together with the
+  texts of that block in wave 1; W6 may only reword. `PkiFindingTextTests` (contract) asserts all four texts exist in both
+  languages, the argument counts match and are ≤ 8, and a hard-coded `Assert.Equal(11, PkiFindingCodes.All.Count)`.
 
-Terminology (EN / PL, from the Polish `certtmpl.msc` / `pkiview.msc` / `certsrv.msc` UI), added as a table here and used
-across the resx:
+Terminology (EN / PL, from the Polish `certtmpl.msc` / `pkiview.msc` / `certsrv.msc` UI), used across the resx:
 
 | English | Polish |
 |---|---|
@@ -432,7 +727,7 @@ across the resx:
 | Name Mappings | Mapowania nazw |
 | Published Certificates | Opublikowane certyfikaty |
 | Key Credentials | Poświadczenia kluczy |
-| health: OK / Expiring / Expired / Unavailable | Stan: OK / Wygasa / Wygasła / Niedostępna |
+| health: OK / Expiring / Expired / Unavailable / Unknown | Stan: OK / Wygasa / Wygasła / Niedostępna / Nieznany |
 
 Polish UI wording as in the consoles' Polish editions; test data with diacritics (decision 11).
 
@@ -440,177 +735,292 @@ Polish UI wording as in the consoles' Polish editions; test data with diacritics
 
 P2 repairs (`Napraw…`, template-property edits, `ModifySecurity` ACL writes, template copy, NTAuth / `msDS-OIDToGroupLink`
 edits, `userCertificate` / `altSecurityIdentities` / `msDS-KeyCredentialLink` edits, bulk actions); P3 CA-host reads and
-actions (ESC6/7/8/10/11/16, the database views, approval/revocation/CRL publication); ESC12 (YubiHSM) is out of program
-scope. The DC-side enforcement of ESC9 / ESC10 (`StrongCertificateBindingEnforcement`, Schannel
-`CertificateMappingMethods`) and the September-2025 patch read are P3/K1. Moving PKI ESC evaluation into the Watchdog
-(P4 / track W) needs a user decision and an ADR-0008/0009 amendment (Q24, 2026-10-20). The KDC-event preset of the
-readiness report is P4 unless the event-log reader already offers one. An MDI assessment id is filled in only when a real
-one is known.
+actions (ESC6/7/8/10/11/16, the CA's own enrollment security replacing the decision-3 assumption, the database views,
+approval/revocation/CRL publication, the KDC's own certificate store); ESC12 (YubiHSM) is out of program scope. The
+DC-side enforcement of ESC9 / ESC10 / ESC14 (`StrongCertificateBindingEnforcement`, Schannel `CertificateMappingMethods`)
+and the September-2025 patch read are P3/K1. Moving PKI ESC evaluation into the Watchdog (P4 / track W) needs a user
+decision and an ADR-0008/0009 amendment (Q24, 2026-10-20). P4: the KDC-event analysis of the readiness report (needs a
+preset query in the event-log reader, track E), the Watchdog history on *Poświadczenia kluczy* (README: *historia z
+Watchdoga, gdy jest podłączony*), the stage-S PKI rows. OCSP requests (beyond reachability) and PKCS#7 AIA bundles are
+later options. An MDI assessment id is filled in only when a real one is known.
 
 ### 2.10 Test plan
 
-**Core (C1, `tests/AdMng.Core.Tests/Pki/`):** `PkiOverviewReader` – the exact search options (classes, SD flags,
-extended DN), per-container `NoSuchObject`/`AccessDenied` → a notice not a throw, binary multi-values read as `byte[]`, the
-health rows at the decision-2 thresholds against a fixed `Now`; `DcCertificateEvaluation` – SAN/EKU/validity/chain-to-root
-with a hand-built chain; `CertificateSummary`/`CrlSummary` on fixed DER and a `CertificateRevocationListBuilder` CRL.
-**Core (C2, `tests/AdMng.Core.Tests/Pki/`):** `PkiFlags.Decode` for each of the four tables (every bit, unknown bits as
-`0x…`), the EKU catalogue, `PkiPeriod.Decode` on the negative little-endian 100-ns periods (one year, six weeks),
-`CertificateTemplate.Of` on a seeded template; a golden test that `FlagNames` (Watchdog) delegating to `PkiFlags` produces
-byte-for-byte the same names (run `tests/AdMng.Watchdog.Core.Tests` and `tests/AdMng.Watchdog.Service.Tests` unchanged).
-**Core (C3, `tests/AdMng.Core.Tests/Pki/`):** `TemplateRightsEvaluator` – the AccessCheck decision table (deny wins, ACE
-order, GENERIC_ALL normalized, inherit-only skipped, Enroll by the extended-right GUID and by GENERIC_ALL), trustee-level
-first then streamed accounts with counts / paths / disabled-apart / cancellation / progress, an other-domain trustee
-unresolved; the U4b PKI pass on `AddPublicKeyAclSample` (a default Windows PKI → **no** findings thanks to the provisioning
-trustees; `DirectoryAclGrantSourceTests`' existing exact-set unchanged because the PKI objects are in the separate sample).
-**Core (C4, `tests/AdMng.Core.Tests/Pki/`):** `KeyCredentialLink.Parse` on a hand-built KEYCREDENTIALLINK_BLOB,
-`AltSecurityIdentity.Strength` on each strong/weak form (incl. the reversed `<SR>`), `PkiEscAnalyzer.Analyze` – one test
-per ESC on **hand-built** `PkiEscSnapshot` records (C4 does not wait for C1-C3's readers): the vulnerable template flagged
-at the decision-4 severity **and** its safe look-alike **not** flagged (manager approval, an authorized RA signature, no
-broad enrollment, or unpublished → `NotPublished` lower level), the `ToString` value-free (a Polish-values-absent
-contract test like `GpoK7ContractTests`).
+**Core (C1, `tests/AdMng.Core.Tests/Pki/`):** `PkiOverviewReader` – the exact search options (classes, SD flag, extended
+DN), base `NoSuchObject` / `AccessDenied` → a notice not a throw, a missing well-known container → `ContainerMissing`, a
+template without descriptor → `SecurityDescriptorUnreadable`, binary multi-values read as `byte[]`, the NTAuth and CDP
+matches, the CA computer resolution (match, unresolved, other domain); runs in wave 1 because the contract implements the
+identity part of `CertificateTemplate.Of`; `ReadDomainControllersAsync`; `CertificateSummary` / `CrlSummary` on
+`PkiSamples` DER and a `CertificateRevocationListBuilder` CRL (extensions, AIA/CDP/OCSP URLs, SKI/AKI, SID extension,
+delta indicator, missing `nextUpdate`); `DcCertificateEvaluation` and `KdcCertificateEvaluation` with hand-built chains
+at the fixed `now`.
+**Core (C2, `tests/AdMng.Core.Tests/Pki/`):** `PkiFlags.Decode` for each table (every bit, reserved bits, unknown bits
+as `0x…`, the two private-key fields as numbers; the vector `0x80000 → CT_FLAG_NO_SECURITY_EXTENSION`), the EKU
+predicates (empty set = Any Purpose; `EffectiveEku` vs `Ekus`), `PkiPeriod.Decode` (one year, six weeks, a wrong length →
+null), `CertificateTemplate.Of` on a seeded template (absent `msPKI-RA-Signature` = 0, absent schema version = 1, the
+schema-4 backquote `msPKI-RA-Application-Policies`). **Watchdog** (`tests/AdMng.Watchdog.Core.Tests/Detection/
+FlagNamesCertificateGoldenTests.cs`, C2, committed **before** the delegation commit): pins today's `FlagNames.Decode`
+output for each of the 32 single bits and two mixed values of `msPKI-Certificate-Name-Flag` and `msPKI-Enrollment-Flag`,
+and that `TableOf` knows no other certificate attribute; both Watchdog test projects then pass unchanged.
+**Core (C3, `tests/AdMng.Core.Tests/Pki/`):** `TemplateRightsEvaluator` – the per-right decision table (deny first wins,
+allow then deny, ACE order per right, GENERIC_ALL normalized, inherit-only and foreign `InheritedObjectType` skipped,
+Enroll by the extended-right GUID and by GENERIC_ALL, an unknown attribute GUID counted sensitive, OWNER RIGHTS),
+`PrincipalClassifier` (every decision-4 SID, `CHILD\Domain Users` broad, root `-512` Tier 0, the CA computer), the
+trustee level then the expansion (counts, first 20, disabled apart, memoisation, mapped accounts, cancellation,
+progress, other-domain trustee unresolved, 100 000 generated accounts within a time budget); `AclObjectTypes.ReadAsync`;
+the U4b PKI pass on `AddPublicKeyAclSample` (a default Windows PKI → **no** findings, also from a child-domain window;
+owners only where 2.3 says; `WriteTemplateProperty`; `WriteAltSecurityIdentities` on an account) and
+`CollectPublicKeyAsync` (typed grants on containers, NTAuth, OID, enrollment service, CA computer, Tier 0 account) in
+`tests/AdMng.Core.Tests/PrivilegedAccess/DirectoryAclPublicKeyTests.cs`; the existing `DirectoryAclGrantSourceTests`
+unchanged.
+**Core (C4, `tests/AdMng.Core.Tests/Pki/`):** `KeyCredentialLink.Parse` on a hand-built KEYCREDENTIALLINK_BLOB (and a
+malformed one), `AltSecurityIdentity` on each strong/weak form (incl. the reversed `<SR>` with `<I>`, a bare `<SR>` →
+`Invalid`, `Kerberos:`), `PkiHealth.Evaluate` at each threshold edge (CA 180 d, end entity 30 d, CRL `max(1 d, 20 %)`, no
+`nextUpdate`, `ldap:///` found / not found, `ldap://host`, http with and without results) with hand-built
+`CertificateSummary` / `CrlSummary` records, `PkiEscAnalyzer.Analyze` – one test per code on **hand-built**
+`PkiEscSnapshot` records (C4 does not wait for C1–C3's readers): the vulnerable template flagged at the decision-4
+severity **and** its safe look-alikes **not** flagged (Tier 0 enrollee only; for *suppresses* rules manager approval and
+an authorized signature; schema-v1 client-auth template not an ESC3 target finding), the *lowers* rules one level lower
+with `ApprovalRequired`, `NotPublished` one level lower, `AssumesCaEnroll` on every enrollment finding,
+`EkuSourcesDiffer`, ESC1+ESC2 together on an Any-Purpose ESS template, the default-forest snapshot → no findings.
+**Contract (`tests/AdMng.Core.Tests/Pki/PkiContractTests.cs` and `tests/AdMng.Presentation.Tests/Pki/PkiContractTests.cs`,
+lead):** reflection over every record and record struct of `AdMng.Core.Pki` and `AdMng.Presentation.Pki` – `ToString`
+is declared by the type itself and is not the compiler-generated one (no `PrintMembers`) – then a populated instance of
+each (Polish sample values from `PkiSamples`) asserted not to contain any of them (like `GpoK7ContractTests`); new records
+an implementer adds are covered automatically.
 **Sample (shared, `tests/AdMng.Testing/FakeDirectoryBuilder.PublicKey.cs` + `FakeSchema.PublicKey.cs`):**
 `AddPublicKeySample(SampleCompany) → PublicKeySample` seeds (calling `AddWatchdogInfrastructure()` first when the config
 NC is empty) `CN=AIA`, `CN=CDP/<host>/<CA>` (`cRLDistributionPoint`), `CN=KRA`, `CN=OID` (`msPKI-Enterprise-Oid` +
 `msDS-OIDToGroupLink`), the CA certificates and the NTAuth `cACertificate`, the two enterprise CAs *Kontoso Główny CA* /
-*Kontoso Wystawiający CA*, Polish-named templates with diacritics, **one deliberately vulnerable template per LDAP ESC and
-a safe look-alike** (e.g. *Użytkownik-VPN-Podatny* with `CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT` + client-auth EKU + Domain
-Users enroll for ESC1, beside *Użytkownik-VPN-Bezpieczny* with the same EKU but manager approval), and a sample record
-exposing the ids by role. `FakeSchema.PublicKey.cs` adds the missing attributes (`msPKI-Private-Key-Flag`,
-`msPKI-Template-Schema-Version`, `msPKI-Template-Minor-Revision`, `revision`, `pKIExpirationPeriod`, `pKIOverlapPeriod`,
-`msPKI-Minimal-Key-Size`, `msPKI-Cert-Template-OID`, `msPKI-Certificate-Policy`, `msPKI-RA-Policies`,
-`msPKI-RA-Application-Policies`, `msPKI-Supersede-Templates`, `pKIDefaultCSPs`, `pKIKeyUsage`, `msPKI-Enrollment-Servers`,
-`certificateRevocationList`, `deltaRevocationList`, `authorityRevocationList`, `crossCertificatePair`,
-`msDS-OIDToGroupLink`, `userSMIMECertificate`, `userPKCS12`) and the classes `cRLDistributionPoint`,
-`msPKI-Enterprise-Oid`, `msPKI-PrivateKeyRecoveryAgent`, wired into `FakeSchema.CreateCore`. A `PkiSamples` helper in
-`AdMng.Testing` builds CA + issued certificates (`CertificateRequest.Create(issuer, …)`) and CRLs
-(`CertificateRevocationListBuilder`) with **fixed dates around 2026-10-13**, Polish diacritics in the subjects. Enroll /
-AutoEnroll GUIDs added to `FakeDirectoryBuilder.Acl.cs` `AclGuids` and `Certificate-Enrollment`/`AutoEnrollment` (validAccesses `0x100`) to its `ControlAccessRights`.
-**Presentation (pl-PL, a new `PkiHarness` copied from `GroupPolicyHarness`, `tests/AdMng.Presentation.Tests/Pki/`):** the
-snapshot service (one build, reuse, dropped on `SessionChanged`, a reconnect to the same server not reused); the overview /
-health / templates documents on `AddPublicKeySample`; the security review (the vulnerable template appears with its ESC
-number and severity, the look-alike does not, filters, chips, *Otwórz szablon* through `DocumentRequested`, export); the
-readiness report rows; the property tabs via `harness.Factory.CreatePropertySheet(dn)` + `ActivateAsync`
-(`PublishedCertificates`, `NameMappings` with KB5014754 strength, `KeyCredentials`); the `userPKCS12` masking in the
-attribute editor; the shell palette `pki.*`; `HostTests` that the node factory is scoped; `ProbeTests` of
-`SslStreamTlsProbe` on a `TcpListener(IPAddress.Loopback, 0)` + `SslStream.AuthenticateAsServerAsync` (closed port,
-accept-then-reset, hang→timeout, expired leaf, wrong SAN – host `"localhost"`); HTTP health with a fake
-`HttpMessageHandler`. End-to-end tests that need the merged Core readers are `[Fact(Skip = "P1 wave 1 merge")]` until the
-lead merges wave 1.
-**App (Windows CI):** the documents in `MainWindow` templates, `SmokeTest.RenderPkiAsync`, UI tests (binding errors, the
-node, the tabs via `VisitAllPagesAsync`), screenshots **36** `36-pki-overview.png`, **37** `37-pki-templates.png`, **38**
-`38-pki-security.png`, **39** `39-pki-readiness.png` in `tests/AdMng.App.UiTests/ScreenshotTestsPki.cs` (the name starts
-`ScreenshotTests` so CI picks it up). Lab: Samba has only empty PKI containers, so the integration project seeds nothing
-and only tests the empty-PKI path and an LDAPS probe of the lab DC; AD CS tests are skipped without `ADMNG_TEST_CA_*`.
+*Kontoso Wystawiający CA* (with CA computer objects in the sample domain), Polish-named templates with diacritics,
+**one deliberately vulnerable template per code and a safe look-alike** (e.g. *Użytkownik-VPN-Podatny* with
+`CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT` + client-auth EKU + Domain Users enroll for ESC1, beside *Użytkownik-VPN-Bezpieczny*
+with the same EKU but manager approval), default-PKI ACLs (root Domain Admins, Enterprise Admins, Cert Publishers, the
+CA computer) that must yield no finding, a few accounts with strong and weak `altSecurityIdentities`, DC `userCertificate`
+values, and a sample record exposing the ids by role. `FakeSchema.PublicKey.cs` (`ExtendForPublicKey`, the
+`ExtendForGroupPolicy` pattern) extends `MayContain` of the existing `pKICertificateTemplate`, `pKIEnrollmentService`
+and `certificationAuthority` classes of `FakeSchema.Watchdog.cs` and of `user` / `computer` / `contact`
+(`userSMIMECertificate`, `userPKCS12`, `altSecurityIdentities`, `msDS-KeyCredentialLink`), adds the missing attributes
+(`msPKI-Private-Key-Flag`, `msPKI-Template-Schema-Version`, `msPKI-Template-Minor-Revision`, `revision`,
+`pKIExpirationPeriod`, `pKIOverlapPeriod`, `msPKI-Minimal-Key-Size`, `msPKI-Cert-Template-OID`, `msPKI-Certificate-Policy`,
+`msPKI-RA-Policies`, `msPKI-RA-Application-Policies`, `msPKI-Supersede-Templates`, `pKIDefaultCSPs`, `pKIKeyUsage`,
+`msPKI-Enrollment-Servers`, `certificateRevocationList`, `deltaRevocationList`, `authorityRevocationList`,
+`crossCertificatePair`, `msDS-OIDToGroupLink`, `userSMIMECertificate`, `userPKCS12`) – binary ones with `OctetString`
+syntax, every one with its schemaIDGUID – and the classes `cRLDistributionPoint`, `msPKI-Enterprise-Oid`,
+`msPKI-PrivateKeyRecoveryAgent` with `PossibleSuperiors`, wired into `FakeSchema.CreateCore`. `PkiSamples`
+(`tests/AdMng.Testing/Pki/PkiSamples.cs`) builds CA + issued certificates (`CertificateRequest.Create(issuer, …)`, AIA /
+CDP / OCSP / SID / template extensions) and CRLs (`CertificateRevocationListBuilder`) with **fixed dates around
+2026-10-13** and Polish diacritics in the subjects, and `ServerCertificate(…)` returning a TLS server certificate
+PFX-round-tripped with `X509CertificateLoader.LoadPkcs12(cert.Export(X509ContentType.Pfx), null,
+X509KeyStorageFlags.Exportable)` (as `tests/AdMng.Watchdog.Testing/Certificates/TestCertificates.cs`; SChannel rejects an
+ephemeral key). Enroll / AutoEnroll GUIDs added to `FakeDirectoryBuilder.Acl.cs` `AclGuids` and
+`Certificate-Enrollment` / `Certificate-AutoEnrollment` (validAccesses `0x100`) to its `ControlAccessRights`.
+**Presentation (pl-PL, `PkiHarness` copied from `GroupPolicyHarness`, `tests/AdMng.Presentation.Tests/Pki/`):** the
+snapshot service (one build per item, reuse, a caller's cancellation ends only its wait, dropped on `SessionChanged`, a
+reconnect to the same server not reused, `Dispose` unsubscribes); the HTTP probe with a fake `HttpMessageHandler`
+(schemes refused without a request, redirects re-checked and capped at 3, 20 MB cap, timeout including the body, no
+credentials, AIA/CDP parsing, OCSP reachability); the settings section; the overview / health (re-evaluated after a
+threshold change and a clock move) / LDAPS tab (fake probe) / templates documents on `AddPublicKeySample` (compare pane,
+navigation to accounts and groups, export); the security review (the vulnerable template appears with its ESC number
+and severity, the look-alike does not, filters, chips, *Otwórz szablon* through `DocumentRequested`, export); the
+readiness rows; the property tabs via `harness.Factory.CreatePropertySheet(dn)` + `ActivateAsync`
+(`PublishedCertificates`, `NameMappings` with KB5014754 strength, `KeyCredentials`); the attribute-editor mask
+(`userPKCS12` row shows the mask, cannot be edited or copied, no `SetValuesOperation` carrying the mask can be produced;
+a LAPS row unchanged); the shell palette `pki.*`; the tree index after the GPO nodes; `ConnectionLifetimes`. End-to-end
+tests that need the merged Core readers are `[Fact(Skip = "P1 wave 1 merge")]` until the lead merges wave 1.
+**Directory (`tests/AdMng.Directory.IntegrationTests/Pki/SslStreamTlsProbeTests.cs`, W7; runs on Linux and Windows CI):**
+`SslStreamTlsProbe` on a `TcpListener(IPAddress.Loopback, 0)` + `SslStream.AuthenticateAsServerAsync` with
+`PkiSamples.ServerCertificate` (closed port, accept-then-reset, hang → timeout, expired leaf, wrong SAN, a presented
+intermediate captured from `ExtraStore`, an IP host refused – host `"localhost"`); lab: a probe of `localhost:636` when
+`ADMNG_TEST_LDAP_*` is set (`127.0.0.1` would be refused by `HostNames.IsValid`; the Samba certificate is self-signed, so
+`Ok` with `ChainsToAdRoot = false`).
+**Watchdog (contract commit, `tests/AdMng.Watchdog.Core.Tests/Rules/SecretUserPkcs12Tests.cs`):** a configuration
+watching `userPKCS12` fails validation with `ConfigValidationCodes.InvalidAttribute`, and `WatchedAttributes` drops it.
+**App (Windows CI):** the documents in `MainWindow` templates, `SmokeTest.RenderPkiAsync` (W5) and
+`RenderPkiSecurityAsync` (W6), UI tests (binding errors, the node, the settings section, the tabs via
+`VisitAllPagesAsync` and `tests/AdMng.App.UiTests/Pki/CertificateTabsUiTests.cs` rendering the three `PropertiesWindow`
+templates), `HostTests` (`IDomainControllerTlsProbe` → `SslStreamTlsProbe` in `SharedApp`; `Assert.Same` of
+`IPkiSnapshotService` and `PkiSnapshotService` in one window scope, like the K7 index check). UI tests that need PKI data
+call `context.Directory.AddPublicKeySample(context.Company)` themselves – `UiTestContext` does **not** seed it for every
+test (it would change the U4 and GPO tests and screenshots). Screenshots **36** `36-pki-overview.png`, **37**
+`37-pki-templates.png` in `tests/AdMng.App.UiTests/ScreenshotTestsPki.cs` (W5) and **38** `38-pki-security.png`,
+**39** `39-pki-readiness.png` in `tests/AdMng.App.UiTests/ScreenshotTestsPkiSecurity.cs` (W6) – both in namespace
+`AdMng.App.UiTests` with class names starting `ScreenshotTests` (CI filters
+`FullyQualifiedName~AdMng.App.UiTests.ScreenshotTests`). Lab: Samba has only empty PKI containers, so the integration
+project seeds nothing and only tests the empty-PKI path and the LDAPS probe; AD CS tests are skipped without
+`ADMNG_TEST_CA_*`.
 
 ### 2.11 Contracts (in the code since the P1 contract commit)
 
 The public types that cross agent boundaries are committed by the lead **before wave 1** as compilable stubs with XML doc
-comments (bodies `throw new NotImplementedException("P1 Cn: …")`, except trivial pass-throughs and the already-implemented
-text/code tables); **the code is authoritative**, this table is the map. An implementer may add members, never rename or
-remove these without writing the change into 2.14. The value-free `ToString` rules of 2.7 are implemented in the stubs and
-pinned by `PkiContractTests` (Polish values asserted absent).
+comments (bodies `throw new NotImplementedException("P1 Cn: …")`), except the trivial pass-throughs and the items marked
+*done* or *complete*; **the code is authoritative**, this table is the map, and each member has exactly the signature
+given in 2.1–2.6. An implementer may add members and records, never rename or remove these without writing the change
+into 2.14. The value-free `ToString` of every record is in the stubs and pinned by `PkiContractTests`.
 
 | File | Types and members | Implemented by |
 |---|---|---|
-| `src/AdMng.Core/Pki/PkiAttributes.cs` | `static class PkiAttributes` – the PKI attribute-name constants and `OverviewAttributes` / `TemplateAttributes` lists (Core must not depend on `Watchdog.Core`) | done (contract) |
-| `src/AdMng.Core/Pki/PkiClasses.cs` | `static class PkiClasses` – `CertificateTemplate`, `EnrollmentService`, `CertificationAuthority`, `CrlDistributionPoint`, `EnterpriseOid`, `KeyRecoveryAgent`; `All` | done (contract) |
-| `src/AdMng.Core/Pki/PkiFlags.cs` | `static class PkiFlags` – `NameFlag`, `EnrollmentFlag`, `PrivateKeyFlag`, `GeneralFlag` tables; `KnownEku`; `Decode(table, long)`, `IsClientAuth(ekus)` | C2 |
-| `src/AdMng.Core/Pki/PkiPeriod.cs` | `readonly record struct PkiPeriod`; `static PkiPeriod Decode(ReadOnlySpan<byte>)` | C2 |
-| `src/AdMng.Core/Pki/CertificateTemplate.cs` | `sealed record CertificateTemplate` (+ `ToString`); `static CertificateTemplate Of(DirectoryObject, AclObjectTypes?)` | C2 |
-| `src/AdMng.Core/Pki/CertificateSummary.cs`, `CrlSummary.cs` | `sealed record CertificateSummary` / `CrlSummary` (+ value-free `ToString`); `static … Of(ReadOnlySpan<byte>)` | C4 |
-| `src/AdMng.Core/Pki/KeyCredentialLink.cs`, `AltSecurityIdentity.cs` | `sealed record KeyCredentialLink` + `static IReadOnlyList<KeyCredentialLink> Parse(IEnumerable<string>)`; `sealed record AltSecurityIdentity`, `enum MappingStrength`, `static AltSecurityIdentity Parse(string)` | C4 |
-| `src/AdMng.Core/Pki/PkiSnapshot.cs` | `sealed record PkiSnapshot` and its nested records (`PkiEnrollmentService`, `PkiCertificateAuthority`, `PkiCrlList`, `PkiKraAgent`, `PkiOidObject`, `PkiHealthRow`, `enum PkiHealthStatus`, `PkiReadNotice`, `enum PkiReadNoticeCode`); all value-free `ToString` | C1 |
-| `src/AdMng.Core/Pki/PkiOverviewReader.cs` | `sealed record PkiReadOptions` (`Now`, the two expiry thresholds); `static Task<PkiSnapshot> ReadAsync(IDirectoryReader, PkiReadOptions, IProgress<PkiReadProgress>?, CancellationToken)`; `PkiReadProgress` | C1 |
-| `src/AdMng.Core/Pki/Tls/IDomainControllerTlsProbe.cs` | `interface IDomainControllerTlsProbe`, `sealed record TlsProbeResult` (+ `ToString`), `enum TlsProbeOutcome`, `static class DcCertificateEvaluation` (`Evaluate(chain, dcFqdn, domainDns, roots) → DcCertificateInfo`) | C1 (impl W7) |
-| `src/AdMng.Core/Pki/TemplateRights.cs` | `sealed record TemplateRights`, `enum TemplateRight`, `enum PrincipalClass` (`Tier0`, `Broad`, `Other`), `sealed record TemplateTrustee` | C3 |
-| `src/AdMng.Core/Pki/TemplateRightsEvaluator.cs` | `static IReadOnlyList<(TemplateRight, PrincipalClass)> Evaluate(ReadOnlySpan<byte> sd, AclObjectTypes)`; `static Task<IReadOnlyDictionary<string, TemplateRights>> ResolveAsync(IReadOnlyList<CertificateTemplate>, IDirectorySession, GroupGraph, IProgress<…>?, CancellationToken)` | C3 |
-| `src/AdMng.Core/Pki/PkiEscModel.cs` | `enum PkiFindingSeverity`, `enum PkiFindingArea`, `enum PkiRuleGroup`, `sealed record PkiFinding` (+ value-free `ToString`, `RelatedObjectIds`), `sealed record PkiEscSnapshot`, `sealed record PkiEscResult : IReadOnlyList<PkiFinding>` (`NotEvaluated`) | C4 |
-| `src/AdMng.Core/Pki/PkiFindingCodes.cs` | `const string` codes (10), `sealed record PkiFindingDefinition(Code, Esc, Severity, Area, Group, Locksmith, Mdi)`, `static IReadOnlyList<PkiFindingDefinition> All`, `Find(code)` | done (contract) |
-| `src/AdMng.Core/Pki/PkiEscAnalyzer.cs` | `static PkiEscResult Analyze(PkiEscSnapshot)` (C4 may split into `.Esc*.cs`); `PkiEscReader.ReadAsync` | C4 |
-| `src/AdMng.Core/PrivilegedAccess/AclObjectTypes.cs` + `ExtendedRightIds.cs` | `CertificateEnrollment` / `CertificateAutoEnrollment` constants + `Fallbacks` GUIDs; `ExtendedRightIds.CertificateEnrollment` / `…AutoEnrollment` | done (contract) |
-| `src/AdMng.Core/PrivilegedAccess/AclRight.cs` + both resx | `AclRight.WriteTemplateProperty` + `PrivilegedAccess.AclRight.WriteTemplateProperty` (en + pl) | done (contract) |
-| `src/AdMng.Core/Schema/SecretAttributes.cs` | `"userPKCS12"` in `WellKnownNames` | done (contract) |
-| `src/AdMng.Presentation/Pki/PkiFindingText.cs` + both resx (`P1 contract – AD CS finding texts (2.4)` block) | `ArgumentCounts`, `TitleKey`/`MessageKey`/`ExplanationKey`/`RecommendationKey`, `Severities`, `AllKeys`, the 10 codes' texts en + pl | done (W6 may reword) |
-| `src/AdMng.Presentation/Pki/PkiDocumentBase.cs` | `abstract partial class PkiDocumentBase : ObservableObject, IShellDocument` (LDAP-only; no SYSVOL/PDC) | W5 |
-| `src/AdMng.Presentation/Pki/IPkiServices.cs`, `PkiSnapshotService.cs` | `PkiDocumentKind`, `PkiDocumentRequest`, `interface IPkiSnapshotService` (`Current`, `IsStale`, `IsBuilding`, `GetAsync(refresh, ct)`, `Invalidate`), the scoped service | W5 |
-| `src/AdMng.Presentation/Pki/PkiViewModelFactory.cs` | `Create(request)`, `static bool Matches(document, request)` (refuses each kind until its wave adds the case) | W5 |
-| `src/AdMng.Presentation/Pki/PkiServiceCollectionExtensions.cs` | `AddAdMngPki()` – `TryAddScoped` service + factory; both in `ConnectionLifetimes` | done (contract) |
-| `src/AdMng.Presentation/Navigation/PkiNodes.cs` | `abstract PkiNodeViewModel : TreeNodeViewModel`, the concrete node | W5 |
-| `src/AdMng.Presentation/PropertySheets/…` | `PageIf(string attr, Func<PropertyPageViewModel>)` helper; the three page classes live in `src/AdMng.Presentation/Pki/` | W7 |
-
-Still to be added by their owners (not in the contract commit, because they need types only the owner writes): the
-concrete document view models, the XAML, `L.Pki.cs` / `L.PkiTemplates.cs` (W5), `L.PkiSecurity.cs` / `L.PkiReadiness.cs`
-(W6), `L.Certificates.cs` (W7), `SslStreamTlsProbe` and `FakeDomainControllerTlsProbe` (W7).
+| `src/AdMng.Core/Pki/PkiAttributes.cs` | `static class PkiAttributes` – the attribute-name constants; `OverviewAttributes`, `TemplateAttributes`, `SensitiveTemplateAttributes` (the nine of 2.3), `AccountAttributes`, `DomainControllerAttributes` (Core must not depend on `Watchdog.Core`) | done |
+| `src/AdMng.Core/Pki/PkiClasses.cs` | `static class PkiClasses` – `CertificateTemplate`, `EnrollmentService`, `CertificationAuthority`, `CrlDistributionPoint`, `EnterpriseOid`, `KeyRecoveryAgent`, `Container`; `All` (the seven) | done |
+| `src/AdMng.Core/Pki/PkiFlags.cs` | `enum PkiFlagAttribute`, `readonly record struct PkiFlagEntry(Mask, Name, IsReserved)`, `PkiFlagField(Mask, Shift, Name)`, `PkiDecodedFlags(Set, UnknownBits, Fields)`; `static class PkiFlags` – `Table(attribute)`, `PrivateKeyFields`, `KnownEku`, `Decode(PkiFlagAttribute, long)`, `Select(PkiFlagAttribute, IReadOnlyList<long>)`, `IsAnyPurpose` / `IsClientAuth` / `IsServerAuth` / `IsEnrollmentAgent(IReadOnlyCollection<string>)` | C2 |
+| `src/AdMng.Core/Pki/PkiPeriod.cs` | `readonly record struct PkiPeriod(long Ticks)` + `Duration`; `static PkiPeriod? Decode(ReadOnlySpan<byte>)` | C2 |
+| `src/AdMng.Core/Pki/CertificateTemplate.cs` | `sealed record CertificateTemplate` (members of 2.2); `static CertificateTemplate Of(DirectoryObject)` – identity members done | C2 |
+| `src/AdMng.Core/Pki/CertificateSummary.cs`, `CrlSummary.cs` | `sealed record CertificateSummary` / `CrlSummary` (members of 2.1); `static … ? Of(ReadOnlySpan<byte>)` | C1 |
+| `src/AdMng.Core/Pki/PkiSnapshot.cs` | `PkiSnapshot`, `PkiCertificate`, `PkiCrl`, `PkiCaObject` + `enum PkiCaStore` (`RootCa`, `Aia`, `NtAuth`), `PkiEnrollmentService`, `PkiCrlList`, `PkiKraAgent`, `PkiOidObject`, `PkiTrustMaterial`, `PkiDomainController`, `PkiReadNotice`, `enum PkiReadNoticeCode` (`BaseNotFound`, `BaseAccessDenied`, `ContainerMissing`, `SecurityDescriptorUnreadable`, `CertificateMalformed`, `CrlMalformed`, `CaComputerUnresolved`, `CaComputerInOtherDomain`, `TrusteeUnresolved` – fixed) | C1 |
+| `src/AdMng.Core/Pki/PkiOverviewReader.cs` | `sealed record PkiReadOptions` (`PageSize` = 1000, `ResolveCaComputers` = true, `Time`); `PkiReadProgress(int Objects)`; `static Task<PkiSnapshot> ReadAsync(IDirectoryReader, PkiReadOptions, IProgress<PkiReadProgress>?, CancellationToken)`; `static Task<IReadOnlyList<PkiDomainController>> ReadDomainControllersAsync(IDirectoryReader, CancellationToken)` | C1 |
+| `src/AdMng.Core/Pki/Tls/IDomainControllerTlsProbe.cs` | `interface IDomainControllerTlsProbe` (`ProbeAsync(string, int, TimeSpan, CancellationToken)`), `TlsProbeResult`, `enum TlsProbeOutcome`, `DcCertificateInfo`, `DcTlsCheck`, `static class DcCertificateEvaluation` (`Evaluate(IReadOnlyList<byte[]>, string dcFqdn, string domainDns, PkiTrustMaterial, DateTimeOffset now)`), `KdcCertificateInfo`, `enum KdcReadinessState`, `static class KdcCertificateEvaluation` (`Evaluate(IReadOnlyList<byte[]>, string dcFqdn, PkiTrustMaterial, DateTimeOffset now)`) | C1 (probe impl W7) |
+| `src/AdMng.Core/Pki/PkiHttpCheck.cs` | `PkiUrl(string Url, PkiUrlKind Kind)`, `enum PkiUrlKind` (`AiaCaIssuers`, `Cdp`, `DeltaCdp`, `Ocsp`), `enum PkiHttpOutcome` (2.5), `PkiHttpCheckResult(Url, Kind, Outcome, int? StatusCode, CertificateSummary? Certificate, CrlSummary? Crl)` | done |
+| `src/AdMng.Core/Pki/PkiHealth.cs` | `PkiHealthThresholds(int EndEntityWarningDays, int CaWarningDays)`, `enum PkiHealthStatus`, `enum PkiHealthItem` (`CaCertificate`, `AiaLocation`, `CdpLocation`, `BaseCrl`, `DeltaCrl`, `KraCertificate`, `NtAuthCertificate`), `PkiHealthRow`; `static class PkiHealth` – `Evaluate(PkiSnapshot, PkiHealthThresholds, DateTimeOffset now, IReadOnlyList<PkiHttpCheckResult>?)`, `HttpUrls(PkiSnapshot)` | C4 |
+| `src/AdMng.Core/Pki/TemplateRights.cs` | `enum TemplateRight` (`Enroll`, `AutoEnroll`, `FullControl`, `WriteDacl`, `WriteOwner`, `WriteAllProperties`, `WriteSensitiveProperty`, `WriteOtherProperty`, `Owner`), `enum PrincipalClass` (`Tier0`, `Broad`, `Other`), `TemplateAce`, `TemplateAcl`, `TemplateTrustee(Sid, Name, Class, Right, AccountCount, DisabledCount, FirstAccounts, IsResolved, Attribute)`, `TemplateRightTotal(Right, HighestClass, AccountCount, DisabledCount, FirstAccounts)`, `TemplateRights(TemplateCn, TemplateGuid, IsEvaluated, Trustees, Totals)`, `PkiAccountRef`, `PkiAccountFact`, `PkiEnrollmentExpansion`, `PkiExpansionContext(Groups, Types, Classifier, Options, FirstAccounts = 20)`, `PkiExpansionProgress(int Accounts)`, `sealed class PrincipalClassifier` | C3 |
+| `src/AdMng.Core/Pki/TemplateRightsEvaluator.cs` | `static TemplateAcl Evaluate(ReadOnlySpan<byte>, AclObjectTypes)`; `static bool Decide(IReadOnlySet<string>, TemplateAcl, TemplateRight)`; `static IReadOnlyList<TemplateRights> TrusteeLevel(IReadOnlyList<CertificateTemplate>, AclObjectTypes, PrincipalClassifier)`; `static Task<PkiEnrollmentExpansion> ExpandAsync(IDirectorySession, IReadOnlyList<CertificateTemplate>, PkiExpansionContext, IProgress<PkiExpansionProgress>?, CancellationToken)` | C3 |
+| `src/AdMng.Core/Pki/PkiAclGrant.cs` | `enum PkiAclTargetKind`, `PkiAclGrant(TargetDn, TargetKind, TrusteeSid, Right, Detail)` | done |
+| `src/AdMng.Core/Pki/KeyCredentialLink.cs`, `AltSecurityIdentity.cs` | `sealed record KeyCredentialLink`, `enum KeyCredentialSource`, `enum KeyCredentialUsage`, `static IReadOnlyList<KeyCredentialLink> Parse(IEnumerable<string>)`; `sealed record AltSecurityIdentity`, `enum AltSecurityIdentityKind`, `enum MappingStrength` (`Strong`, `Weak`, `NotCertificate`, `Invalid`), `static AltSecurityIdentity Parse(string)` | C4 |
+| `src/AdMng.Core/Pki/PkiEscModel.cs` | `enum PkiFindingSeverity`, `enum PkiFindingArea` (`Template`, `CertificationAuthority`, `PkiObject`, `Account`), `enum PkiRuleGroup` (`Enrollment`, `AccessControl`, `Mapping`), `[Flags] enum PkiFindingNotes`, `enum PkiApprovalEffect` (`Suppresses`, `Lowers`, `Never`), `sealed record PkiFinding` (2.4), `PkiPrincipal`, `PkiLinkedGroup`, `sealed record PkiEscSnapshot`, `PkiEscReadOptions(bool CaGrantsAuthenticatedUsersEnroll = true)`, `PkiEscProgress`, `sealed record PkiEscResult : IReadOnlyList<PkiFinding>` (`IsEvaluated`, `Notices`, `NotEvaluated`) | C4 |
+| `src/AdMng.Core/Pki/PkiFindingCodes.cs` | the 11 `const string` codes, `sealed record PkiFindingDefinition(Code, Esc, Severity, Area, Group, Approval, Locksmith, Mdi)`, `All`, `Find(code)` | done |
+| `src/AdMng.Core/Pki/PkiEscAnalyzer.cs`, `PkiEscReader.cs` | `static PkiEscResult PkiEscAnalyzer.Analyze(PkiEscSnapshot)` (C4 may split into `.Esc*.cs`); `static Task<PkiEscSnapshot> PkiEscReader.ReadAsync(PrivilegeScanContext, PkiSnapshot, PkiEnrollmentExpansion, PkiEscReadOptions, IProgress<PkiEscProgress>?, CancellationToken)` | C4 |
+| `src/AdMng.Core/PrivilegedAccess/AclObjectTypes.cs` | `CertificateEnrollment` / `CertificateAutoEnrollment` / `AltSecurityIdentities` constants + the two extended-right GUIDs in `Fallbacks` (done); `static Task<AclObjectTypes> ReadAsync(IDirectoryReader, int pageSize, CancellationToken)` (stub) | done / C3 |
+| `src/AdMng.Core/Security/ExtendedRightIds.cs` | `CertificateEnrollment`, `CertificateAutoEnrollment` | done |
+| `src/AdMng.Core/PrivilegedAccess/AclRight.cs` + both resx | `AclRight.WriteTemplateProperty`, `AclRight.WriteAltSecurityIdentities` + `PrivilegedAccess.AclRight.*` (en + pl) | done |
+| `src/AdMng.Core/PrivilegedAccess/DirectoryAclGrantSource.cs` | `public Task<IReadOnlyList<PkiAclGrant>> CollectPublicKeyAsync(PrivilegeScanContext, IReadOnlyList<string> caComputerDns, CancellationToken)` (stub) | C3 |
+| `src/AdMng.Core/PrivilegedAccess/PrivilegedAccessScanner.cs` | `CompleteMemberOfAsync` made `internal static (IDirectoryReader, DirectoryObject, CancellationToken)` (behaviour-neutral) | done |
+| `src/AdMng.Core/Schema/SecretAttributes.cs` | `"userPKCS12"` in `WellKnownNames`; `static bool IsNeverShown(string attribute, ISchemaCatalog? schema)` | done |
+| `src/AdMng.Presentation/Pki/IPkiSnapshotService.cs` | `enum PkiDocumentKind`, `sealed record PkiDocumentRequest`; `interface IPkiSnapshotService` – `Current`, `ReadAt`, `IsBuilding`, `event Changed`, `GetAsync(bool refresh, IProgress<PkiReadProgress>?, CancellationToken)`, `GetExpansionAsync(bool refresh, IProgress<PkiExpansionProgress>?, CancellationToken)`, `GetDomainControllersAsync(bool refresh, CancellationToken)`, `GetDcCertificatesAsync(bool refresh, CancellationToken)`, `CheckHttpAsync(IProgress<int>?, CancellationToken)`, `HttpResults`, `Invalidate()` | done (impl W5) |
+| `src/AdMng.Presentation/Pki/IPkiHealthProbe.cs` | `interface IPkiHealthProbe` (`CheckAsync`) | done (impl W5) |
+| `src/AdMng.Presentation/Pki/PkiServices.cs`, `PkiDocumentBase.cs` | 2.5 | complete (lead) |
+| `src/AdMng.Presentation/Pki/PkiSnapshotService.cs`, `PkiHealthProbe.cs` | stubs | W5 |
+| `src/AdMng.Presentation/Pki/PkiViewModelFactory.cs` | `Create(PkiDocumentRequest)`, `static bool Matches(IShellDocument, PkiDocumentRequest)`, `Pki` (the `PkiServices` the node and the tree use); calls the partial below | W5 |
+| `src/AdMng.Presentation/Pki/PkiViewModelFactory.Security.cs` | `CreateSecurity(request)`, `CreateReadiness(request)`, `MatchesSecurity(document, request)` (stubs) | W6 |
+| `src/AdMng.Presentation/Pki/PkiServiceCollectionExtensions.cs` | `AddAdMngPki()` – `TryAddScoped(sp => new PkiSnapshotService(…))` (2.5) + `TryAddScoped<IPkiSnapshotService>(sp => sp.GetRequiredService<PkiSnapshotService>())`, `TryAddScoped<PkiServices>` (probes through `GetService`), `TryAddScoped<PkiViewModelFactory>`, `TryAddSingleton<IPkiHealthProbe, PkiHealthProbe>` | done |
+| `src/AdMng.Presentation/Pki/PkiFindingText.cs`, `PkiTextKeys.cs` + the contract resx block | 2.8 | done (C4: counts + texts; W6: wording) |
+| `src/AdMng.Presentation/Shell/ShellViewModel.Pki.cs` | the stub members of 2.5 and their call sites | W5 |
+| `src/AdMng.Presentation/Settings/PkiSettings.cs` + `AppSettings.Pki` | 2.5 | done |
+| `src/AdMng.Presentation/Icons/ObjectIcons.cs`, `src/AdMng.App/Controls/Glyphs.cs` | `ObjectIcon.Certificate` + its glyph/tone | done |
+| `src/AdMng.App/SmokeTest.cs` → `static partial` + `SmokeTest.Pki.cs` / `SmokeTest.PkiSecurity.cs` | `RenderPkiAsync` (stub, W5), `RenderPkiSecurityAsync` (stub, W6), both called from `RenderWindowsAsync` | W5 / W6 |
 
 ### 2.12 Work split and file ownership
 
-**Waves.** Wave 1 (parallel worktrees from the branch with this section's contract commit): **C1** overview reader +
-snapshot + TLS-probe contract; **C2** template model + flag/period decoders; **C3** rights evaluator + U4b PKI
-containers; **C4** certificate/CRL/KeyCredentialLink/altSecurityIdentities parsers + ESC analyzer + finding texts. Wave 2
-(parallel, from the merged wave 1): **W5** node, snapshot service, overview/health/templates documents; **W6** security
-review + readiness report; **W7** property tabs, TLS-probe implementation, CA-host navigation. Docs
-(`docs/CERTYFIKATY.md`, README/ROADMAP/ARCHITECTURE/PILOTAZ edits, screenshots) are the integration step after wave 2
-(lead), from the as-built notes.
+**Waves.** Wave 1 (parallel worktrees from the branch with the contract commit): **C1** overview reader, snapshot,
+certificate/CRL parsers, CA computer resolution, TLS-probe contract, DC/KDC certificate evaluation; **C2** template model
++ flag/period decoders + the `FlagNames` golden test and delegation; **C3** rights evaluator, classifier, account pass,
+U4b PKI containers + `CollectPublicKeyAsync`; **C4** account parsers, health rules, ESC reader + analyzer. Wave 2
+(parallel, from the merged wave 1): **W5** node, snapshot service, HTTP probe, settings section, overview/health/
+templates documents, shell; **W6** security review + readiness report; **W7** property tabs, attribute-editor mask, TLS
+probe implementation. Docs (`docs/CERTYFIKATY.md`, README/ROADMAP/ARCHITECTURE/PILOTAZ edits, the CLAUDE.md layout row of
+`AdMng.Directory` and the rule-1/4 notes on the probe and the HTTP check, regenerated screenshots) are the integration
+step after wave 2 (lead), from the as-built notes.
 
-**Dependencies.** The lead's **P1 contract commit** (2.11) is in the branch before wave 1 so the four Core agents and the
-three Presentation agents compile against the same stubs from the first minute. C4's analyzer tests build `PkiEscSnapshot`
-by hand and do not need C1-C3; only the end-to-end reader tests (C3's `TemplateRightsEvaluator.ResolveAsync`, C1's
-`PkiOverviewReader`, the W5-W7 documents on the real readers) need the merge – they are written against the stubs and
-marked `[Fact(Skip = "P1 wave 1 merge")]` until the lead removes the skip while merging. Wave 2 needs nothing from the
-other wave-2 agents: `PkiDocumentKind`, `PkiDocumentRequest`, the factory signatures, the `PageIf` helper and the
-`IDomainControllerTlsProbe` contract are in the contract commit.
+**The contract commit (lead)** holds everything marked *done* / *complete* in 2.11 and every stub, plus: the shared test
+files below, `tests/AdMng.Presentation.Tests/Pki/PkiHarness.cs` (with a `DirectPkiSnapshotService` test double that runs
+the Core readers without caching, so W6/W7 tests do not need W5's service), `PkiFindingTextTests.cs`, both
+`PkiContractTests.cs`, `SecretUserPkcs12Tests.cs`, `tests/AdMng.Testing/Pki/{FakeDomainControllerTlsProbe,
+FakePkiHealthProbe}.cs`, `UseFake<IDomainControllerTlsProbe>` and `UseFake<IPkiHealthProbe>` in `UiTestContext`, the
+`ConnectionLifetimes` entries (`PkiServices`, `PkiSnapshotService`, `IPkiSnapshotService`, `PkiViewModelFactory`), the
+shell call sites, two comment anchors in `MainWindow.xaml` (`<!-- P1 PKI (W5) -->`, `<!-- P1 PKI security (W6) -->`), the
+`SmokeTest` calls, and **all six resx marker pairs** in both files, in this order after
+`<!-- K7 settings search (21.4): end -->`: `P1 contract – AD CS finding texts and shared names (2.4, 2.8)` (filled),
+`P1 PKI overview, health and settings (2.1, 2.5)` (W5), `P1 certificate templates and enrollment rights (2.2, 2.3, 2.5)`
+(W5), `P1 AD CS security review (2.4, 2.5)` (W6), `P1 strong mapping and NTAuth readiness (2.5)` (W6), `P1 certificates on
+accounts (2.6)` (W7) – each agent inserts only between its own markers. C4's analyzer tests build `PkiEscSnapshot` by
+hand; only the end-to-end reader tests (C3's `ExpandAsync` on the sample, the W5–W7 documents on the real readers) need
+the merge – written against the stubs and marked `[Fact(Skip = "P1 wave 1 merge")]` until the lead removes the skip.
 
-**New files (exclusive).**
+**New files (exclusive).** A file the contract commit created as a stub belongs to the named agent from then on (marked
+*bodies*); the agent keeps its public signatures.
 
 | Owner | Files |
 |---|---|
-| C1 | `src/AdMng.Core/Pki/{PkiSnapshot,PkiOverviewReader}.cs`; `src/AdMng.Core/Pki/Tls/**`; `tests/AdMng.Core.Tests/Pki/{PkiOverviewReaderTests,DcCertificateEvaluationTests}.cs` |
-| C2 | `src/AdMng.Core/Pki/{PkiFlags,PkiPeriod,CertificateTemplate}.cs`; `tests/AdMng.Core.Tests/Pki/{PkiFlagsTests,PkiPeriodTests,CertificateTemplateTests}.cs` |
-| C3 | `src/AdMng.Core/Pki/{TemplateRights,TemplateRightsEvaluator}.cs`; `tests/AdMng.Core.Tests/Pki/TemplateRightsEvaluatorTests.cs`; `tests/AdMng.Core.Tests/PrivilegedAccess/DirectoryAclPublicKeyTests.cs` |
-| C4 | `src/AdMng.Core/Pki/{CertificateSummary,CrlSummary,KeyCredentialLink,AltSecurityIdentity,PkiEscModel,PkiEscAnalyzer}.cs` (+ `PkiEscAnalyzer.Esc*.cs`); `src/AdMng.Presentation/Pki/PkiFindingText.cs`; `tests/AdMng.Core.Tests/Pki/{CertificateSummaryTests,CrlSummaryTests,KeyCredentialLinkTests,AltSecurityIdentityTests,PkiEscAnalyzerTests}.cs`; `tests/AdMng.Presentation.Tests/Pki/PkiFindingTextTests.cs` |
-| W5 | `src/AdMng.Presentation/Pki/{PkiDocumentBase,PkiSnapshotService,PkiViewModelFactory,PkiOverviewDocumentViewModel*,PkiTemplatesDocumentViewModel*}.cs`; `src/AdMng.Presentation/Navigation/PkiNodes.cs`; `src/AdMng.Presentation/Shell/ShellViewModel.Pki.cs`; `src/AdMng.Presentation/Localization/{L.Pki,L.PkiTemplates}.cs`; `src/AdMng.App/Pki/{PkiOverviewView,PkiTemplatesView}.xaml(.cs)`; `tests/AdMng.Presentation.Tests/Pki/{PkiHarness,PkiSnapshotServiceTests,PkiTreeAndShellTests,PkiTemplatesTests}.cs`; `tests/AdMng.App.UiTests/Pki/PkiOverviewUiTests.cs`; `tests/AdMng.App.UiTests/ScreenshotTestsPki.cs` (36, 37) |
-| W6 | `src/AdMng.Presentation/Pki/{PkiSecurityReviewDocumentViewModel*,PkiReadinessDocumentViewModel*,PkiFindingRowViewModel}.cs`; `src/AdMng.Presentation/Localization/{L.PkiSecurity,L.PkiReadiness}.cs`; `src/AdMng.App/Pki/{PkiSecurityReviewView,PkiReadinessView}.xaml(.cs)`; `tests/AdMng.Presentation.Tests/Pki/{PkiSecurityReviewTests,PkiReadinessTests}.cs`; `tests/AdMng.App.UiTests/Pki/PkiSecurityUiTests.cs` (screenshots 38, 39 appended to `ScreenshotTestsPki.cs`, W5-owned, at an anchor) |
-| W7 | `src/AdMng.Presentation/Pki/{PublishedCertificatesPageViewModel,NameMappingsPageViewModel,KeyCredentialsPageViewModel}.cs`; `src/AdMng.Presentation/Localization/L.Certificates.cs`; `src/AdMng.Directory/Pki/SslStreamTlsProbe.cs`; `src/AdMng.App/Pki/PkiAppRegistration.cs`; `tests/AdMng.Testing/FakeDomainControllerTlsProbe.cs`; `tests/AdMng.Directory.IntegrationTests/Pki/SslStreamTlsProbeTests.cs`; `tests/AdMng.Presentation.Tests/Pki/CertificateTabsTests.cs` |
+| C1 | `src/AdMng.Core/Pki/{PkiSnapshot,PkiOverviewReader,CertificateSummary,CrlSummary}.cs` (bodies); `src/AdMng.Core/Pki/Tls/**` (bodies); `tests/AdMng.Core.Tests/Pki/{PkiOverviewReaderTests,CertificateSummaryTests,CrlSummaryTests,DcCertificateEvaluationTests,KdcCertificateEvaluationTests}.cs` |
+| C2 | `src/AdMng.Core/Pki/{PkiFlags,PkiPeriod,CertificateTemplate}.cs` (bodies); `tests/AdMng.Core.Tests/Pki/{PkiFlagsTests,PkiPeriodTests,CertificateTemplateTests}.cs`; `tests/AdMng.Watchdog.Core.Tests/Detection/FlagNamesCertificateGoldenTests.cs` |
+| C3 | `src/AdMng.Core/Pki/{TemplateRights,TemplateRightsEvaluator}.cs` (bodies); `tests/AdMng.Core.Tests/Pki/{TemplateRightsEvaluatorTests,PrincipalClassifierTests,TemplateExpansionTests}.cs`; `tests/AdMng.Core.Tests/PrivilegedAccess/DirectoryAclPublicKeyTests.cs` |
+| C4 | `src/AdMng.Core/Pki/{KeyCredentialLink,AltSecurityIdentity,PkiHealth,PkiEscModel,PkiEscAnalyzer,PkiEscReader}.cs` (bodies; + `PkiEscAnalyzer.Esc*.cs`); `tests/AdMng.Core.Tests/Pki/{KeyCredentialLinkTests,AltSecurityIdentityTests,PkiHealthTests,PkiEscAnalyzerTests}.cs` |
+| W5 | `src/AdMng.Presentation/Pki/{PkiSnapshotService,PkiHealthProbe,PkiViewModelFactory}.cs` (bodies); `src/AdMng.Presentation/Pki/{PkiSettingsViewModel,PkiOverviewDocumentViewModel*,PkiTemplatesDocumentViewModel*}.cs`; `src/AdMng.Presentation/Navigation/PkiNodes.cs`; `src/AdMng.Presentation/Shell/ShellViewModel.Pki.cs` (body); `src/AdMng.Presentation/Localization/{L.Pki,L.PkiTemplates}.cs`; `src/AdMng.App/Pki/{PkiOverviewView,PkiTemplatesView}.xaml(.cs)`; `src/AdMng.App/SmokeTest.Pki.cs` (body); `tests/AdMng.Presentation.Tests/Pki/{PkiSnapshotServiceTests,PkiHealthProbeTests,PkiSettingsTests,PkiTreeAndShellTests,PkiOverviewTests,PkiTemplatesTests}.cs`; `tests/AdMng.App.UiTests/Pki/PkiOverviewUiTests.cs`; `tests/AdMng.App.UiTests/ScreenshotTestsPki.cs` (36, 37) |
+| W6 | `src/AdMng.Presentation/Pki/PkiViewModelFactory.Security.cs` (body); `src/AdMng.Presentation/Pki/{PkiSecurityReviewDocumentViewModel*,PkiReadinessDocumentViewModel*,PkiFindingRowViewModel}.cs`; `src/AdMng.Presentation/Localization/{L.PkiSecurity,L.PkiReadiness}.cs`; `src/AdMng.App/Pki/{PkiSecurityReviewView,PkiReadinessView}.xaml(.cs)`; `src/AdMng.App/SmokeTest.PkiSecurity.cs` (body); `tests/AdMng.Presentation.Tests/Pki/{PkiSecurityReviewTests,PkiReadinessTests}.cs`; `tests/AdMng.App.UiTests/Pki/PkiSecurityUiTests.cs`; `tests/AdMng.App.UiTests/ScreenshotTestsPkiSecurity.cs` (38, 39) |
+| W7 | `src/AdMng.Presentation/Pki/{PublishedCertificatesPageViewModel,NameMappingsPageViewModel,KeyCredentialsPageViewModel}.cs`; `src/AdMng.Presentation/Localization/L.Certificates.cs`; `src/AdMng.Directory/Pki/SslStreamTlsProbe.cs`; `src/AdMng.App/Pki/PkiAppRegistration.cs`; `tests/AdMng.Directory.IntegrationTests/Pki/SslStreamTlsProbeTests.cs`; `tests/AdMng.Presentation.Tests/Pki/{CertificateTabsTests,AttributeEditorMaskTests}.cs`; `tests/AdMng.App.UiTests/Pki/CertificateTabsUiTests.cs` |
 
-Shared: `tests/AdMng.Testing/{FakeDirectoryBuilder.PublicKey,FakeSchema.PublicKey,PkiSamples}.cs` and
-`FakeDirectoryBuilder.Acl.cs` (the Enroll/AutoEnroll GUID additions) are written by the **lead in the contract commit**
-(C1–C4 and W5–W7 all read the sample), with `AddPublicKeyAclSample` for C3.
+Shared test files written by the **lead in the contract commit** (C1–C4 and W5–W7 all read them):
+`tests/AdMng.Testing/{FakeDirectoryBuilder.PublicKey,FakeSchema.PublicKey}.cs` (`AddPublicKeySample`,
+`AddPublicKeyAclSample`), `tests/AdMng.Testing/Pki/PkiSamples.cs`, and the Enroll/AutoEnroll additions to
+`FakeDirectoryBuilder.Acl.cs`.
 
 **Shared files – changes only at these anchors** (both sides kept when two owners insert at the same anchor; Core waves
 before Presentation):
 
 | File | Owner: change at anchor |
 |---|---|
-| `src/AdMng.Core/PrivilegedAccess/DirectoryAclGrantSource.cs` | C3: the PKI-container subtree pass after the `CN=Policies` GPO block in `RunAsync`; `AclTargetKind.PublicKey`; the provisioning trustees |
-| `src/AdMng.Core/PrivilegedAccess/AclObjectTypes.cs`, `ExtendedRightIds.cs`, `AclRight.cs` | done by the contract commit (Enroll/AutoEnroll GUIDs, `WriteTemplateProperty`); C3 may only use them |
-| `src/AdMng.Watchdog.Core/Detection/FlagNames.cs` | C2: `TableOf` / the certificate tables delegate to `PkiFlags` (a separate behaviour-neutral commit; Watchdog output unchanged, its tests pass unchanged) |
-| `src/AdMng.Presentation/Resources/Strings.resx`, `Strings.pl.resx` | done: block `P1 contract – AD CS finding texts (2.4)` after `<!-- K7 settings search (21.4): end -->`; C3: `PrivilegedAccess.AclRight.WriteTemplateProperty` in the U4b block; W5: block `P1 PKI overview and health (2.1): begin/end` then `P1 certificate templates and enrollment rights (2.2, 2.3): begin/end`; W6: `P1 AD CS security review (2.4): begin/end` then `P1 strong mapping and NTAuth readiness (2.6): begin/end`; W7: `P1 certificates on accounts and DCs (2.5, 2.6): begin/end` (each anchored after the previous block's end marker, in this order) |
-| `src/AdMng.Presentation/ServiceCollectionExtensions.cs` | done by the contract commit: `AddAdMngPki()` before the scoped block; W7's `AddAdMngPkiApp` is App-side |
-| `src/AdMng.Presentation/Navigation/NavigationTreeViewModel.cs` | W5: the `Pki` constructor parameter, `ShowPkiNodes`, the `OnCultureChanged` relocalize loop, the `OnSettingsChanged` toggle (after the GPO lines) |
-| `src/AdMng.Presentation/Settings/AppSettings.cs` + a new `PkiSettings.cs` | done by the contract commit: `Pki` property (`ShowInTree`, `CertificateExpiryWarningDays` = 30, `CaCertificateExpiryWarningDays` = 180) + `Normalize` |
-| `src/AdMng.Presentation/PropertySheets/PropertyPageFactory.cs` | W7: the `PageIf` helper and the three tabs in `User(obj)` / `Contact(obj)` / `Computer(obj)` before `MemberOfPageViewModel` |
-| `src/AdMng.Presentation/PropertySheets/AttributeEditorPage.cs`, `Fields.cs` | W7: `ValueText` / `EditableValues` / the value editor mask `SecretAttributes.IsSecret` values |
-| `src/AdMng.Presentation/Shell/ShellViewModel.cs`, `.Palette.cs`, `.Commands.cs`, `.Documents.cs` | W5/W6: `AttachPki`/`DetachPki` (ctor/Dispose), `if (TryActivatePkiNode(node)) return;` in `OnNodeActivated`, `.. PkiCommandDescriptors(),` in the palette, `.. PkiStateCommands,` in `StateCommands`, an `ActivePki()` arm in `.Documents.cs` (W5's lines first) |
+| `src/AdMng.Core/PrivilegedAccess/DirectoryAclGrantSource.cs` | C3: the PKI pass after the `CN=Policies` GPO block in `RunAsync`; `AclTargetKind.PublicKey`; the provisioning trustees in `IsDefaultTrustee`; the `WriteTemplateProperty` / `WriteAltSecurityIdentities` branches in `RightsOf`; the body of `CollectPublicKeyAsync` |
+| `src/AdMng.Core/PrivilegedAccess/AclObjectTypes.cs` | C3: the template-attribute and `altSecurityIdentities` GUIDs in `Fallbacks`; the body of `ReadAsync` |
+| `src/AdMng.Core/Security/ExtendedRightIds.cs`, `AclRight.cs`, `SecretAttributes.cs`, `PrivilegedAccessScanner.cs` | done by the contract commit; agents only use them |
+| `src/AdMng.Watchdog.Core/Detection/FlagNames.cs` | C2: the two certificate tables become `PkiFlags.Select(…, <today's bits in today's order>)` – a separate commit after the golden test; nothing else in the file |
+| `src/AdMng.Presentation/Resources/Strings.resx`, `Strings.pl.resx` | each owner only between its own marker pair (above); C4 may edit the contract block's finding texts and `ArgumentCounts`-bound placeholders |
+| `src/AdMng.Presentation/ServiceCollectionExtensions.cs` | done by the contract commit: `AddAdMngPki()` before the scoped block |
+| `src/AdMng.Presentation/Navigation/NavigationTreeViewModel.cs` | W5: the `pki` constructor parameter, `ShowPkiNodes` (index after the GPO nodes), `ShowPkiNodes(Settings.Current.Pki.ShowInTree)` after the GPO line in `InitializeAsync`, the `OnCultureChanged` relocalize loop, the `OnSettingsChanged` toggle (after the GPO lines) |
+| `src/AdMng.Presentation/Settings/SettingsViewModel.cs`, `src/AdMng.App/Views/SettingsWindow.xaml` | W5: the `Pki` sub view model after the `Computers` block (constructor, property, `Error` chain, `Apply`); the *Certyfikaty* section at the end of the *Ogólne* tab |
+| `src/AdMng.Presentation/PropertySheets/PropertyPageFactory.cs` | W7: the `PageIf` helper and the tabs in `User(obj)` / `Contact(obj)` / `Computer()` (2.6) |
+| `src/AdMng.Presentation/PropertySheets/AttributeEditorPage.cs` | W7: the `IsNeverShown` mask of 2.6 (`ValueText`, `ReadOnlyReason`, `Edit` / `CopyValue` can-execute, `CloseEditor`) |
+| `tests/AdMng.Presentation.Tests/Dialogs/PropertySheetTests.cs` | W7: the user (`:38`) and computer (`:361`) orders; a new contact order test |
+| `src/AdMng.Presentation/Shell/ShellViewModel.cs`, `.Palette.cs`, `.Commands.cs`, `.Documents.cs` | done by the contract commit (call sites); nobody else |
 | `src/AdMng.App/AppHost.cs` | W7: `AddAdMngPkiApp()` after `AddAdMngPresentation()` |
-| `src/AdMng.App/Views/MainWindow.xaml` | W5/W6: the `pki:`/`pkiv:` xmlns, the `PkiNodeViewModel` tree template, the document content templates, the `pki.*` menu items (W5's lines first) |
+| `src/AdMng.App/Views/MainWindow.xaml` | W5: the `pki:`/`pkiv:` xmlns, the `PkiNodeViewModel` tree template, its document templates and the `pki.*` menu items at `<!-- P1 PKI (W5) -->`; W6: its document templates at `<!-- P1 PKI security (W6) -->` |
 | `src/AdMng.App/Views/TreeMenu.cs` | W5: a `case PkiNodeViewModel:` block |
 | `src/AdMng.App/Views/PropertiesWindow.xaml` | W7: the three `DataTemplate`s next to the "Stan" template; the `pk:` xmlns |
-| `src/AdMng.App/SmokeTest.cs` | W5/W6: `RenderPkiAsync` with the four requests on a disconnected window |
-| `src/AdMng.Presentation/Icons/ObjectIcons.cs`, `src/AdMng.App/Controls/Glyphs.cs` | done by the contract commit: `ObjectIcon.Certificate` + its glyph/tone |
-| `tests/AdMng.Presentation.Tests/Connections/ConnectionLifetimes.cs` | done: both PKI service types after `PolicyDefinitionsService` |
-| `tests/AdMng.App.UiTests/HostTests.cs` | C3: `Assert.Equal(2, …IPrivilegeGrantSource)` unchanged (the PKI pass is inside `DirectoryAclGrantSource`, not a new source); W7: `IDomainControllerTlsProbe` in `SharedApp`; `tests/AdMng.Presentation.Tests/ServiceRegistrationTests.cs` likewise unchanged for the source count |
-| `tests/AdMng.App.UiTests/Infrastructure/UiTestContext.cs` | W7: `UseFake<IDomainControllerTlsProbe>` + `AddPublicKeySample` |
+| `tests/AdMng.App.UiTests/HostTests.cs` | W7: `IDomainControllerTlsProbe` in `SharedApp`; W5: the `Assert.Same(IPkiSnapshotService, PkiSnapshotService)` check; `Assert.Equal(2, …IPrivilegeGrantSource)` unchanged (also in `ServiceRegistrationTests`) |
+| `tests/AdMng.App.UiTests/Infrastructure/UiTestContext.cs` | done by the contract commit (the two `UseFake` lines); no sample is seeded globally |
 | `tests/AdMng.Testing/FakeSchema.cs` | lead (contract commit): `attributes.AddRange(CreatePublicKeyAttributes()); ExtendForPublicKey(classes, schemaNc);` in `CreateCore` |
 
-**Files nobody changes in P1:** `L.cs`, `CLAUDE.md`, `Directory.Packages.props`, `AdMng.slnx`, the Watchdog projects
-other than the one `FlagNames.cs` delegation, `AddSampleCompany`, `AddWatchdogInfrastructure`, and the stage-S
-`ReadinessChecker` / `ReadinessCodes` (the PKI readiness report is a PKI-area document, not a stage-S area – README puts
-stage-S PKI rows in P4). Any other change to a file another owner holds needs the lead's agreement and a line in 2.14; a
-merge conflict outside the anchors above means a rule of this section was broken.
+**Files nobody changes in P1:** `L.cs`, `Directory.Packages.props`, `AdMng.slnx`, the Watchdog projects other than the
+`FlagNames.cs` delegation and the two new Watchdog test files, `AddSampleCompany`, `AddWatchdogInfrastructure`,
+`Fields.cs`, `EventLogServices.cs` / `EventLogLauncher.cs` (track E), the stage-S `ReadinessChecker` / `ReadinessCodes`
+(the PKI readiness report is a PKI-area document – README puts stage-S PKI rows in P4), and `CLAUDE.md` during the waves
+(the lead updates it in the integration step). Any other change to a file another owner holds needs the lead's agreement
+and a line in 2.14; a merge conflict outside the anchors above means a rule of this section was broken.
 
 ### 2.13 Review notes
 
-*(empty – filled after the P1 design review.)*
+Design review of the first draft (three reviewers: `adcs`, `architecture`, `workplan`), 2026-11-09. Every finding was
+checked against the code and against Certipy (commit 3ae3442) and Locksmith (commit 8b555bd); findings taken in full are
+fixed in 1–2.12 without a note. Taken in part or rejected:
+
+* adcs-6 (approval gates only ESC1/2/3/17) – in part: Certipy 3ae3442 checks ESC9, ESC13, ESC15 and ESC17 inside its
+  `if not requires_approval` block too, only Locksmith reports ESC9/13/15 regardless; the table now has an *Approval*
+  column – *suppresses* for ESC1/2/3/17, *lowers* (one level + `ApprovalRequired`) for ESC9/13/15, *never* for 4/5/14.
+* adcs-7, adcs-13 – no separate change; both resolved by the *Approval* column (adcs-6).
+* adcs-9 (report an empty-EKU template as ESC2 only) – rejected: Certipy's `client_authentication` includes Any Purpose,
+  so it reports ESC1 and ESC2 on such a template, and README's completion criterion requires finding everything Certipy
+  finds; the rows are grouped by template instead, Any Purpose / no EKU stay in the predicates.
+* adcs-11 (safe SIDs) – taken, with a correction: `-498`, `-521`, `-526`, `-527` are already U4b default trustees by RID;
+  only Cert Publishers (`-517`) and the root's Domain Admins in child windows were missing.
+* adcs-12 (WriteProperty model) – in part: a graded model instead of Certipy's all-properties-only rule (Certipy flags
+  only all-properties writes, Locksmith every write but Enroll/AutoEnroll – the graded model finds both); the attribute
+  list is unified in `PkiAttributes.SensitiveTemplateAttributes`.
+* adcs-17 (standalone `X509:<SR>`) – in part: the draft had no standalone `<SR>` form; the rule "`<SR>` without `<I>` →
+  `Invalid`" is added.
+* adcs-19 (CRL extension OIDs) – no change: confirmation only (`2.5.29.20`, `2.5.29.27` correct).
+* architecture-1 (`FlagNames` keeps its own arrays) – in part: correct tables and the golden test taken; decision 8 keeps
+  the delegation, made neutral by `PkiFlags.Select` with today's bits in today's order.
+* architecture-2, workplan-31 (masking) – in part: masking is limited to key material and binary secrets
+  (`SecretAttributes.IsNeverShown`), which needs no raw-value formatter; LAPS / BitLocker recovery / confidential text
+  keep today's display and secure copy – whether to mask them too is an operator question (below).
+* architecture-12, workplan-24 (KDC readiness) – in part: the evaluation is labelled LDAPS-only and gets `now`, roots,
+  intermediates and NTAuth separately; KDC readiness is shown as an indicator from the DCs' published `userCertificate`
+  (workplan-24) instead of moving it wholly to P3/K1 (architecture-12); the KDC's own store stays P3/K1.
+* architecture-16, workplan-32 (CA-host navigation) – in part: no `ComputerLookup` and no `PkiHostNavigator`; C1 resolves
+  the CA computer DN/SID (workplan-18) and W5 navigates by DN through `PkiServices`, so no track-E or stage-S file changes.
+* workplan-8 (freeze the `PkiDocumentBase` surface) – in part: the lead writes `PkiServices` and `PkiDocumentBase`
+  complete in the contract commit, not as stubs W5 fills, so W6's documents run in W6's worktree.
+* workplan-11 (`CreateAsync(publicKey: true)`) – in part: architecture-7's form taken – tests that need PKI data call
+  `AddPublicKeySample` themselves, as the GPO tests do with `AddGroupPolicyManagementSample`.
+* workplan-13 (C1 cannot test its reader) – in part: the certificate/CRL parsers move to C1, the contract implements the
+  identity part of `CertificateTemplate.Of`, health becomes C4's `PkiHealth.Evaluate`.
+* workplan-17 (`CollectPublicKeyAsync` returning `PrivilegeGrant`) – in part: it returns typed `PkiAclGrant` values
+  (architecture-8), since `PrivilegeGrant.Values` are formatted strings.
+* workplan-21 (`EffectiveEku` only) – in part: `EffectiveEku` is defined, but the rules evaluate it **and**
+  `pKIExtendedKeyUsage` (Certipy and Locksmith read only the latter), marking disagreements `EkuSourcesDiffer`.
+* Author's open questions, settled: ESC17 = Certipy's definition (ESS + server-auth incl. Any Purpose; Locksmith only the
+  Server Auth OID); Locksmith ids are the `Technique` strings (ESC14 has none; ESC16/17 exist but ESC16 is P3), MDI ids
+  stay null; ESC14 covers weak mappings and `altSecurityIdentities` writes, no issuer cross-check in P1; the TLS probe
+  stays in `AdMng.Directory`; the PKI pass stays inside `DirectoryAclGrantSource` (source count 2).
+* Operator question (open): should the attribute editor also mask the LAPS clear-text password, the BitLocker recovery
+  password and confidential text attributes (today shown and copied securely; P1 keeps that)?
 
 ### 2.14 P1 as built
 
