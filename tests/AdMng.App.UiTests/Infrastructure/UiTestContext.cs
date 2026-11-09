@@ -124,6 +124,11 @@ internal sealed class UiTestContext : IAsyncDisposable
             UseFake<IOutlookClient>(services, new FakeOutlookClient());
             UseFake<IOutlookSignatureSource>(services, new FakeOutlookSignatureSource());
             UseFake<IOutlookUserMessageTransportFactory>(services, new FakeOutlookUserMessageTransportFactory());
+
+            // AD CS (P1): no test opens a TLS connection to a DC or fetches an AIA / CDP / OCSP URL - fakes, unless the test
+            // registered its own instance above. No PKI sample is seeded here (tests that need one call AddPublicKeySample).
+            UseFake<Core.Pki.Tls.IDomainControllerTlsProbe>(services, new Testing.Pki.FakeDomainControllerTlsProbe());
+            UseFake<Presentation.Pki.IPkiHealthProbe>(services, new Testing.Pki.FakePkiHealthProbe());
         });
         var context = new UiTestContext(host, directory, company, connector, shutdown, settingsDirectory, sysvol);
         await AppHost.InitializeAsync(host.Services, options);

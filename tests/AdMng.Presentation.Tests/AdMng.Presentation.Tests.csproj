@@ -19,4 +19,8 @@
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- P1: the HTTP probe fake of AdMng.Testing (a Presentation interface; that library references Core only). -->
+    <Compile Include="..\AdMng.Testing\Pki\FakePkiHealthProbe.cs" Link="Pki\FakePkiHealthProbe.cs" />
+  </ItemGroup>
 </Project>

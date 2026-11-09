@@ -1027,3 +1027,41 @@ fixed in 1–2.12 without a note. Taken in part or rejected:
 
 *(empty – each wave agent appends its as-built note here: `**C1 as built.**` … `**C4 as built.**`, `**W5 as built.**` …
 `**W7 as built.**`, `**Integration.**`, `**P1 review fixes**`.)*
+
+**Contract commit.** Everything of 2.11/2.12 is in the code; deviations and additions (none renames or removes a member
+of 2.1–2.6):
+* *Shapes.* `CertificateSummary` and `CrlSummary` are records of init properties with defaults (hand-built test
+  instances set only what they need); `CertificateSummary.SanSid` added; CRL numbers are `BigInteger?`. `PkiCrlList.Base`
+  / `Delta` are one `PkiCrl?` each (the first value). The object GUIDs of the snapshot records are `Guid`;
+  `PkiDomainController.HostName` is nullable and its `Certificates` raw DER (what `KdcCertificateEvaluation` takes).
+  `TemplateRightTotal.HighestClass` is `PrincipalClass?` (null: nobody). `PkiDecodedFlags.Fields` holds
+  `PkiFlagFieldValue` records (bindable). `PkiEscProgress(PkiEscStage Stage, int Done)` with a new `PkiEscStage`;
+  `PkiEscSnapshot.Notices` (init); `PkiEscResult.Notices` / `NotEvaluated` are `PkiReadNotice` / `PkiRuleGroup` lists.
+  `PkiFindingNotes` has `None = 0` (`PkiTextKeys.NoteFlags` leaves it out). Records cross agent boundaries positionally:
+  **add members as init properties, never as new positional parameters** (C4 builds `PkiSnapshot` / `PkiEscSnapshot` by hand).
+* *Additions.* `PkiSnapshot.Empty`, `PkiTrustMaterial.Empty`, `PkiHealthThresholds.Default`, `PkiFlags` EKU constants
+  (`KnownEku` maps OID → name), `PkiSettings.Thresholds()`, `IPkiSnapshotService.Expansion` and `DcCertificates` (the
+  cached results; the readiness report shows them without probing), `PkiDocumentBase.IsRefresh` (F5 → pass it as
+  `refresh`), `PkiFindingText.Message/Severity/Area`, `PkiTextKeys.Notes`. Implemented already (pure): the derived members
+  of `CertificateTemplate` and its identity part of `Of`; `PrincipalClassifier`'s constructor (properties).
+  `ArgumentCounts`: 3 per code, 4 for `IssuancePolicyLinkedToGroup` ({3} the group); the ESC14 message is generic – C4
+  rewords it per variant.
+* *Stubs that never throw* (the window scope, the app start-up and the existing tests run them): `PkiSnapshotService`
+  (nothing cached, `Invalidate`/`Dispose` no-ops), `AttachPki`/`DetachPki`, `TryActivatePkiNode` (false),
+  `PkiCommandDescriptors`/`PkiStateCommands` (empty), the two `SmokeTest` renders. `ActivePki()` lives in
+  `ShellViewModel.Documents.cs` (a switch with a `PkiDocumentBase` arm W5 extends); `PkiDocuments` is implemented.
+* *Shared files beyond 2.12.* `MainWindow.xaml` also gets the `pki:`/`pkiv:` xmlns and one tab-header template for
+  `PkiDocumentBase` (W5 and W6 would both add them); `pkiv:` needs a type in `AdMng.App.Pki`, so
+  `src/AdMng.App/Pki/PkiAppRegistration.cs` exists as a stub (W7 writes its body) and `AppHost` already calls
+  `AddAdMngPkiApp()` – W7 no longer touches `AppHost`. `ConnectionLifetimes.Shared` lists `IPkiHealthProbe`. The
+  `AclRight` texts sit with the other `PrivilegedAccess.AclRight.*` entries. `AddAclDefinitions` is idempotent (the PKI
+  samples call it). `FakePkiHealthProbe` lives in `tests/AdMng.Testing/Pki` but is compiled by the Presentation and UI
+  test projects (linked; `AdMng.Testing` references Core only and the Watchdog tests use it). New shared helper
+  `tests/AdMng.Testing/Pki/PkiRecordSamples.cs` (the reflection checks of both `PkiContractTests`).
+* *Samples.* `PkiSamples.Now` = 2026-10-13 12:00 UTC (`ManualTimeProvider`'s default). The fake schema gives the new
+  attributes `Def`'s deterministic schemaIDGUIDs (samples read them from the session schema, as U4 does) and the six PKI
+  classes their real ones (`AclGuids.PkiCertificateTemplate` …); C3 still adds the real attribute GUIDs to `Fallbacks`.
+  `msDS-OIDToGroupLink` is a plain DN attribute (no back link). `PublicKeyTemplates` names every template by role
+  (defaults, `Vulnerable`, `Safe`, the publishing CA); the root CA (not in NTAuth) publishes `SubCA` and
+  `Logowanie-Kartą`, the issuing CA everything else but `Użytkownik-VPN-Niewystawiany`. `AddPublicKeySample` and
+  `AddPublicKeyAclSample` (default PKI + one delegation per target kind) are alternatives – call one per builder.

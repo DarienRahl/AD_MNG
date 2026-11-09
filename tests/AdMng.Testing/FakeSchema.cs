@@ -19,9 +19,11 @@ public static partial class FakeSchema
         var attributes = CreateAttributes();
         attributes.AddRange(CreateWatchdogAttributes());
         attributes.AddRange(CreateGroupPolicyAttributes());
+        attributes.AddRange(CreatePublicKeyAttributes());
         var classes = CreateClasses(schemaNamingContext);
         ExtendForWatchdog(classes, schemaNamingContext);
         ExtendForGroupPolicy(classes, schemaNamingContext);
+        ExtendForPublicKey(classes, schemaNamingContext);
         if (mailboxes)
         {
             attributes.AddRange(CreateMailboxAttributes());
