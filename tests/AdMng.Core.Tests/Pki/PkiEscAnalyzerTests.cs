@@ -440,6 +440,29 @@ public sealed class PkiEscAnalyzerTests
         Assert.Equal((PrincipalClass.Other, false, -1, "Owner"), (principal.Class, principal.IsResolved, principal.AccountCount, principal.Right));
     }
 
+    [Fact]
+    public void Esc5_OnEveryOidObjectOfALargeForest_StaysWithinATimeBudget()
+    {
+        // CN=OID can hold thousands of objects; a non-Tier 0 template administrator who created them all holds an explicit
+        // grant on each – one ESC5 finding per object, each named from the snapshot.
+        var oids = Enumerable.Range(0, 3_000)
+            .Select(i => new PkiOidObject($"CN={i}.0F1E2D3C4B5A6978,CN=OID," + PkiSamples.PublicKeyServicesDn, GuidOf("OID " + i), $"{PkiSamples.ForestOid}.{i}", $"Zasada wystawiania {i:D4}", 2, null))
+            .ToList();
+        var esc = new Esc { Oids = oids };
+        foreach (var oid in oids)
+        {
+            esc.Grant(oid.Dn, PkiAclTargetKind.Oid, GgIt, AclRight.GenericAll, PrincipalClass.Other, "GG_IT");
+        }
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var result = esc.Analyze();
+        stopwatch.Stop();
+
+        Assert.Equal(3_000, result.Count);
+        Assert.Contains(result, f => f.ObjectId == oids[1_234].ObjectGuid && f.Arguments[0] == "Zasada wystawiania 1234");
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(3), $"ESC5 took {stopwatch.Elapsed}.");
+    }
+
     // ---------------------------------------------------------------- ESC9
 
     [Fact]

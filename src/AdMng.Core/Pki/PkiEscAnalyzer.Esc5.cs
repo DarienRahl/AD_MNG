@@ -34,7 +34,15 @@ public static partial class PkiEscAnalyzer
             .Where(g => g.TargetKind is not (PkiAclTargetKind.Template or PkiAclTargetKind.Tier0Account)
                 && Esc5Rights.Contains(g.Right)
                 && (g.TargetKind == PkiAclTargetKind.CaComputer || !ComputerOnlyRights.Contains(g.Right))
-                && run.ClassOf(g.TrusteeSid) != PrincipalClass.Tier0);
+                && run.ClassOf(g.TrusteeSid) != PrincipalClass.Tier0)
+            .ToList();
+        if (grants.Count == 0)
+        {
+            return;
+        }
+
+        // The snapshot's objects keyed once: CN=OID can hold thousands of objects, and parsing each DN per target was quadratic.
+        var names = new ObjectNames(run.Snapshot);
         foreach (var target in grants.GroupBy(g => Key(g.TargetDn)))
         {
             var first = target.First();
@@ -45,7 +53,7 @@ public static partial class PkiEscAnalyzer
             var principals = shown.Select(g => run.GrantPrincipal(g.TrusteeSid, g.Right.ToString())).ToList();
             var severity = principals.Aggregate(PkiFindingSeverity.Info,
                 (max, p) => Max(max, ClassSeverity(p.Class, PkiFindingSeverity.Critical, PkiFindingSeverity.Medium)));
-            var (objectId, name, related) = Describe(run.Snapshot, first);
+            var (objectId, name, related) = names.Describe(target.Key, first);
             run.Add(new PkiFinding(
                 PkiFindingCodes.PkiObjectWriteable,
                 severity,
@@ -67,26 +75,55 @@ public static partial class PkiEscAnalyzer
     /// <summary>The comparable key of a DN (parsed, upper case; the text when it does not parse).</summary>
     private static string Key(string dn) => (DistinguishedName.TryParse(dn, out var parsed) ? parsed.ToString() : dn).ToUpperInvariant();
 
-    /// <summary>The object GUID the snapshot knows for the target, its name and the related CAs.</summary>
-    private static (Guid? ObjectId, string Name, IReadOnlyList<Guid> Related) Describe(PkiEscSnapshot snapshot, PkiAclGrant grant)
+    /// <summary>The enrollment services, OID objects and CA computers of the snapshot by their DN keys (<see cref="Key"/>).</summary>
+    private sealed class ObjectNames
     {
-        var key = Key(grant.TargetDn);
-        if (snapshot.EnterpriseCas.FirstOrDefault(ca => Key(ca.Dn) == key) is { } service)
+        private readonly Dictionary<string, PkiEnrollmentService> _services = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, PkiOidObject> _oids = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, List<Guid>> _computers = new(StringComparer.Ordinal);
+
+        public ObjectNames(PkiEscSnapshot snapshot)
         {
-            return (service.ObjectGuid, string.IsNullOrWhiteSpace(service.DisplayName) ? service.Name : service.DisplayName, []);
+            foreach (var ca in snapshot.EnterpriseCas)
+            {
+                _services.TryAdd(Key(ca.Dn), ca);
+                if (ca.ComputerDn is { } computer)
+                {
+                    var key = Key(computer);
+                    if (!_computers.TryGetValue(key, out var cas))
+                    {
+                        _computers[key] = cas = [];
+                    }
+
+                    cas.Add(ca.ObjectGuid);
+                }
+            }
+
+            foreach (var oid in snapshot.Oids)
+            {
+                _oids.TryAdd(Key(oid.Dn), oid);
+            }
         }
 
-        if (snapshot.Oids.FirstOrDefault(o => Key(o.Dn) == key) is { } oid)
+        /// <summary>The object GUID the snapshot knows for the target (<paramref name="key"/> = its DN key), its name and the related CAs.</summary>
+        public (Guid? ObjectId, string Name, IReadOnlyList<Guid> Related) Describe(string key, PkiAclGrant grant)
         {
-            return (oid.ObjectGuid, string.IsNullOrWhiteSpace(oid.DisplayName) ? LeafName(oid.Dn) : oid.DisplayName, []);
-        }
+            if (_services.TryGetValue(key, out var service))
+            {
+                return (service.ObjectGuid, string.IsNullOrWhiteSpace(service.DisplayName) ? service.Name : service.DisplayName, []);
+            }
 
-        if (grant.TargetKind == PkiAclTargetKind.CaComputer)
-        {
-            var cas = snapshot.EnterpriseCas.Where(ca => ca.ComputerDn is { } computer && Key(computer) == key).Select(ca => ca.ObjectGuid).ToList();
-            return (null, LeafName(grant.TargetDn), cas);
-        }
+            if (_oids.TryGetValue(key, out var oid))
+            {
+                return (oid.ObjectGuid, string.IsNullOrWhiteSpace(oid.DisplayName) ? LeafName(oid.Dn) : oid.DisplayName, []);
+            }
 
-        return (null, LeafName(grant.TargetDn), []);
+            if (grant.TargetKind == PkiAclTargetKind.CaComputer)
+            {
+                return (null, LeafName(grant.TargetDn), _computers.TryGetValue(key, out var cas) ? cas : []);
+            }
+
+            return (null, LeafName(grant.TargetDn), []);
+        }
     }
 }
