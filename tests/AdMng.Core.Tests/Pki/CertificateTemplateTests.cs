@@ -320,6 +320,30 @@ public sealed class CertificateTemplateTests
     [Fact]
     public void Of_RefusesNull() => Assert.Throws<ArgumentNullException>(() => CertificateTemplate.Of(null!));
 
+    [Fact(Skip = "P1 wave 1 merge")]
+    public async Task TheOverviewReader_FillsEveryTemplateMember()
+    {
+        // End to end with C1's reader: the overview search's attributes carry everything Of reads.
+        var sample = Sample.Create();
+
+        var snapshot = await PkiOverviewReader.ReadAsync(sample.Builder.Session, new PkiReadOptions(), null, CancellationToken.None);
+
+        Assert.Equal(PublicKeyTemplates.All.Order(StringComparer.Ordinal), snapshot.Templates.Select(t => t.Cn).Order(StringComparer.Ordinal));
+        var user = Assert.Single(snapshot.Templates, t => t.Cn == PublicKeyTemplates.User);
+        Assert.Equal(1, user.SchemaVersion);
+        Assert.Equal(0xA6000000u, user.NameFlag);
+        Assert.Equal(0x1023Au, user.GeneralFlag);
+        Assert.Equal(PkiPeriodUnit.Years, user.Validity?.Unit);
+        Assert.Equal(["Microsoft Enhanced Cryptographic Provider v1.0"], user.CryptoProviders);
+        var schema4 = Assert.Single(snapshot.Templates, t => t.Cn == PublicKeyTemplates.Esc3TargetSafe);
+        Assert.Equal(4, schema4.SchemaVersion);
+        Assert.Equal([PkiSamples.CertificateRequestAgent], schema4.RaApplicationPolicies);
+        Assert.Equal("SHA256", schema4.CryptoSettings["msPKI-Hash-Algorithm"]);
+        var esc13 = Assert.Single(snapshot.Templates, t => t.Cn == PublicKeyTemplates.Esc13);
+        Assert.Equal([PkiSamples.ForestOid + ".500"], esc13.IssuancePolicies);
+        Assert.All(snapshot.Templates, t => Assert.NotNull(t.SecurityDescriptor));
+    }
+
     private static async Task<(CertificateTemplate Template, DirectoryObject Object)> ReadAsync(string cn)
     {
         var sample = Shared.Value;
