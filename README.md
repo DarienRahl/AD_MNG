@@ -197,7 +197,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K7: 🟡)"] ~~~ EVT["🟡 E · Dzienniki zdarzeń<br/>czytnik i analiza<br/>(E1, część E2: 🟡)"] ~~~ PKI["⬜ P · Urząd certyfikacji<br/>(AD CS) i certyfikaty"] ~~~ NET["⬜ N · DNS i DHCP<br/>strefy, rekordy, zakresy"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K7: 🟡)"] ~~~ EVT["🟡 E · Dzienniki zdarzeń<br/>czytnik i analiza<br/>(E1, część E2: 🟡)"] ~~~ PKI["⬜ P · Urząd certyfikacji<br/>(AD CS) i certyfikaty"] ~~~ NET["⬜ N · DNS i DHCP<br/>strefy, rekordy, zakresy"] ~~~ PWSH["⬜ R · Okno PowerShell<br/>zapytania i skrypty,<br/>zapis przez plan zmian"]
     end
     A --> B
     B ~~~ C
@@ -206,7 +206,7 @@ flowchart TB
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
     class F1,F2,W,U,K,EVT wip
-    class F3,F4,F5,F6,F7,M365,TEAM,PKI,NET todo
+    class F3,F4,F5,F6,F7,M365,TEAM,PKI,NET,PWSH todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -228,8 +228,9 @@ flowchart TB
 | T | Współpraca zespołu (ścieżka równoległa) | Kilku administratorów na różnych komputerach pracuje razem przez usługę AdMng Watchdog: panel „Wspólne” z obiektami przypiętymi dla zespołu (z notatką, autorem, „Przekaż do…”) i notatki do obiektów widoczne dla wszystkich przy koncie, grupie czy komputerze, odświeżane na żywo | ⬜ zaplanowane |
 | K | Komputery i zasady grupy (GPO) (ścieżka równoległa) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer”, czytelne ustawienia i diagnostyka zasad grupy, wyszukiwanie ustawień we wszystkich GPO, kopiowanie ustawień i porządki w GPO | 🟡 (K1 – komputery, K2 – GPO w drzewie, K3 – edytor ADMX z aktualizacją magazynu centralnego, K4 – ustawienia zabezpieczeń, K5 – raport „co dostanie komputer”, K6 – czytelność, wygoda edycji i diagnostyka i K7 – wyszukiwanie, kopiowanie ustawień i porządki w GPO: zaimplementowane, czekają na pilotaż na Windows Server AD) |
 | E | Dzienniki zdarzeń: czytnik i analiza (ścieżka równoległa) | Czytanie dzienników zdarzeń DC, serwerów, stacji i plików `.evtx` z poziomu programu (dowolny kanał, wspólna oś czasu wielu komputerów, objaśnione pola i obiekty AD) oraz analizy: źródło blokady konta, rozpylanie haseł, Kerberos/RC4, NTLMv1, podpisywanie LDAP („kto przestanie działać”), historia logowań, zmiany kont i grup, GPO na komputerze, zdrowie DC, integralność inspekcji; osobno od Watchdoga, bez zapisu na dysku | 🟡 (E1 – czytnik oraz z E2 źródło blokady konta i nieudane logowania: zaimplementowane, czekają na pilotaż na Windows Server AD) |
-| P | Urząd certyfikacji (AD CS) i certyfikaty (ścieżka równoległa) | Przegląd PKI lasu na żywo z LDAP (urzędy, szablony z odczytanymi flagami i tym, kto może się zarejestrować, NTAuth, AIA, listy CRL, OID) ze zdrowiem w stylu `pkiview.msc`; przegląd bezpieczeństwa ESC1–ESC17 z naprawą w AD przez plan zmian z cofnięciem; karty *Opublikowane certyfikaty*, *Mapowania nazw* (silne mapowanie, KB5014754) i *Poświadczenia kluczy*, certyfikaty LDAPS/KDC na DC; praca z urzędem przez DCOM z kontem okna (wystawione, oczekujące, odwołane, zatwierdzanie, odwołanie, publikacja CRL); powiązania z Watchdogiem, dziennikami zdarzeń, GPO i powiadomieniami | ⬜ zaplanowane |
+| P | Urząd certyfikacji (AD CS) i certyfikaty (ścieżka równoległa) | Przegląd PKI lasu na żywo z LDAP (urzędy, szablony z odczytanymi flagami i tym, kto może się zarejestrować, NTAuth, AIA, listy CRL, OID) ze zdrowiem w stylu `pkiview.msc`; przegląd bezpieczeństwa ESC1–ESC17 z naprawą w AD przez plan zmian z cofnięciem; karty *Opublikowane certyfikaty*, *Mapowania nazw* (silne mapowanie, KB5014754) i *Poświadczenia kluczy*, certyfikaty LDAPS/KDC na DC; wystawianie certyfikatów z szablonów urzędu z objaśnionymi wymaganiami szablonu (użytkownicy, komputery, serwery WWW z SAN, DC, wnioski PKCS#10 z dowolnego systemu, w imieniu innych przez agenta rejestracji, odnowienie, wnioski oczekujące) – także certyfikat HTTPS usługi Watchdog z wniosku hosta i certyfikat podpisywania kodu dla AD Managera – jako akcja planu zmian z podglądem i audytem; praca z urzędem przez DCOM z kontem okna (wystawione, oczekujące, odwołane, zatwierdzanie, odwołanie, publikacja CRL); powiązania z Watchdogiem, dziennikami zdarzeń, GPO i powiadomieniami | ⬜ zaplanowane |
 | N | DNS i DHCP (ścieżka równoległa) | Strefy i rekordy DNS na żywo z AD (wszystkie partycje, rekordy zdekodowane z `dnsRecord`, starzenie i rekordy nieaktualne, warunkowe usługi przesyłania dalej, rekordy lokalizatora DC), przejście od komputera do jego rekordów, dzierżawy i rezerwacji; ustawienia serwerów DNS oraz zakresy, dzierżawy, rezerwacje, opcje, zasady i praca awaryjna DHCP przez WinRM/CIM albo RPC z kontem okna; przegląd bezpieczeństwa i zdrowia (kto może tworzyć rekordy, DnsAdmins, DnsUpdateProxy, niezabezpieczone aktualizacje dynamiczne, DHCP na DC, poświadczenia DNS, ochrona nazw, zakresy bliskie wyczerpania) z naprawą w AD przez plan zmian z cofnięciem; powiązania z komputerami, lokacjami i podsieciami, Koszem AD, dziennikami zdarzeń i Watchdogiem | ⬜ zaplanowane |
+| R | Okno PowerShell (ścieżka równoległa) | Konsola PowerShell 7 w każdym oknie połączenia do doraźnych zapytań, zrzutów danych z AD i skryptów: wbudowane polecenia odczytu na sesji okna (ten sam DC, poświadczenia tylko w pamięci, bez RSAT) z bezpiecznie budowanymi filtrami LDAP, wyniki jako obiekty z widokiem siatki i przejściem do obiektu w programie, eksport tylko do pliku wskazanego przez operatora; zapisy (własne polecenia i rozpoznane polecenia RSAT) nigdy wprost do AD – trafiają do oczekującego planu zmian z podglądem, audytem i cofnięciem; moduły RSAT `ActiveDirectory` i `GroupPolicy` ustawione na DC i poświadczenia okna; bez historii poleceń i transkrypcji na dysku | ⬜ zaplanowane |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -581,7 +582,9 @@ karty ADUC.
 <details>
 <summary><b>Szczegóły fazy 7</b> – instalator MSI, WDAC/AppLocker, „cztery oczy”, PAM</summary>
 
-- Podpisany instalator MSI (certyfikat z firmowego AD CS), reguły WDAC/AppLocker, dystrybucja przez Intune/ConfigMgr/GPO.
+- Podpisany instalator MSI (certyfikat z firmowego AD CS – certyfikat podpisywania kodu wystawia sam AD Manager, zob.
+  [ścieżka P, etap P2](#ścieżka-p--urząd-certyfikacji-ad-cs-i-certyfikaty-)), reguły WDAC/AppLocker, dystrybucja przez
+  Intune/ConfigMgr/GPO.
 - Zatwierdzanie „cztery oczy”: operator A eksportuje podpisany plan zmian, operator B weryfikuje go na żywo i wykonuje.
 - Członkostwo czasowe (PAM/TTL), polityki i silosy uwierzytelniania (podgląd), logowanie kartą inteligentną.
 
@@ -1236,7 +1239,8 @@ raporty, etapy</summary>
 - **Microsoft Graph** wszędzie, gdzie wystarcza (Entra ID, grupy, licencje, metody uwierzytelniania, dzienniki, Teams,
   SharePoint); **moduły PowerShell** tam, gdzie Graph nie sięga: `ExchangeOnlineManagement`, `MicrosoftTeams`,
   `PnP.PowerShell` – w osadzonym PowerShell 7 w procesie AD Managera, z tokenem z tego samego logowania (bez drugiego
-  logowania). Każda operacja ma równoważne polecenie PowerShell w historii, jak dziś dla AD.
+  logowania). Każda operacja ma równoważne polecenie PowerShell w historii, jak dziś dla AD. Ten sam osadzony
+  PowerShell obsługuje okno PowerShell ([ścieżka R](#ścieżka-r--okno-powershell-)).
 - Wyłącznie **uprawnienia delegowane**: AD Manager działa zawsze w imieniu zalogowanej osoby i nigdy z własnymi
   uprawnieniami aplikacji – nie da więcej, niż pozwalają role tej osoby.
 - Domyślnie tylko odczyt; zmiany przez ten sam potok co w AD (plan → walidacja → podgląd → wykonanie → raport) z
@@ -1684,14 +1688,18 @@ diagnostyki zasad grupy (K6): ważność, obszar, szczegóły, zalecenie, *Napra
 zarejestrować**, oraz magazyn NTAuth, listy CRL i terminy ważności. Ocenia bezpieczeństwo według katalogu **ESC1–ESC17**
 (numeracja Certipy; Locksmith i Microsoft Defender for Identity obejmują część klas) i każdą poprawkę w AD proponuje
 jako **plan zmian z podglądem i cofnięciem**. Obsługuje też certyfikaty na kontach i DC (*Opublikowane certyfikaty*,
-*Mapowania nazw* z oceną pod kątem silnego mapowania (KB5014754), certyfikaty KDC i LDAPS) oraz pracę z samym urzędem:
-wystawione, oczekujące i odwołane certyfikaty, zatwierdzanie i odwoływanie przez DCOM z kontem okna. Ścieżka równoległa;
-przejmuje karty *Mapowania nazw* i *Opublikowane certyfikaty* z fazy 6 i znosi część ograniczenia U4b dotyczącą
-kontenerów PKI w partycji konfiguracji (lokacje nadal pomijane). Korzysta z silnika uprawnień U4, zapisu uprawnień akcją
+*Mapowania nazw* z oceną pod kątem silnego mapowania (KB5014754), certyfikaty KDC i LDAPS), **wystawianie
+certyfikatów** z szablonów urzędu zamiast `certreq` i kreatora rejestracji w przystawce *Certyfikaty* – dla
+użytkowników, komputerów, serwerów i DC, z wniosku z dowolnego systemu, w imieniu innych, także dla samego AD Managera
+(podpisywanie kodu) i usługi Watchdog (certyfikat HTTPS z wniosku hosta) – oraz pracę z samym urzędem: wystawione,
+oczekujące i odwołane certyfikaty, zatwierdzanie i odwoływanie przez DCOM z kontem okna. Ścieżka równoległa; przejmuje
+karty *Mapowania nazw* i *Opublikowane certyfikaty* z fazy 6 i znosi część ograniczenia U4b dotyczącą kontenerów PKI w
+partycji konfiguracji (lokacje nadal pomijane). Korzysta z silnika uprawnień U4, zapisu uprawnień akcją
 `ModifySecurity` (K1/K2), zdalnych akcji (K1) i czytnika dzienników (E).
 
 <details>
-<summary><b>Szczegóły ścieżki P</b> – przegląd PKI, szablony, ESC, certyfikaty kont i DC, urząd, etapy</summary>
+<summary><b>Szczegóły ścieżki P</b> – przegląd PKI, szablony, ESC, certyfikaty kont i DC, wystawianie, urząd,
+etapy</summary>
 
 #### Przegląd PKI i zdrowie
 
@@ -1740,10 +1748,10 @@ kontenerów PKI w partycji konfiguracji (lokacje nadal pomijane). Korzysta z sil
   NTAuth, OID, usługi rejestracji i obiektu komputera urzędu), ESC9 (`CT_FLAG_NO_SECURITY_EXTENSION`), ESC13 (zasada
   wystawiania powiązana z grupą uprzywilejowaną), ESC14 (słabe `altSecurityIdentities` i prawo ich zapisu), ESC15
   (szablon w wersji 1 z podmiotem z żądania – CVE-2024-49019; w P1 oznaczone jako zależne od poprawki urzędu z listopada
-  2024, potwierdzane w P3 z poprawek hosta urzędu), ESC17 (podmiot z żądania przy EKU uwierzytelniania serwera). Do
-  czasu odczytu zabezpieczeń urzędu (P3) wynik zakłada domyślne prawo rejestracji w urzędzie dla *Użytkowników
+  2024, potwierdzane w P4 z poprawek hosta urzędu), ESC17 (podmiot z żądania przy EKU uwierzytelniania serwera). Do
+  czasu odczytu zabezpieczeń urzędu (P4) wynik zakłada domyślne prawo rejestracji w urzędzie dla *Użytkowników
   uwierzytelnionych* i mówi o tym.
-- **Wymagają urzędu albo DC** (od P3, wcześniej oznaczone „do sprawdzenia na urzędzie”): ESC6 (`EditFlags` z
+- **Wymagają urzędu albo DC** (od P4, wcześniej oznaczone „do sprawdzenia na urzędzie”): ESC6 (`EditFlags` z
   `EDITF_ATTRIBUTESUBJECTALTNAME2`), ESC7 (*Zarządzanie urzędem certyfikacji* i *Wystawianie certyfikatów i zarządzanie
   nimi* dla kont spoza Tier 0), ESC11 (`InterfaceFlags` bez `IF_ENFORCEENCRYPTICERTREQUEST`), ESC16 (rozszerzenie SID w
   `DisableExtensionList`), ESC8 (rejestracja przez HTTP bez HTTPS i rozszerzonej ochrony uwierzytelniania – sprawdzenie
@@ -1751,12 +1759,12 @@ kontenerów PKI w partycji konfiguracji (lokacje nadal pomijane). Korzysta z sil
   aktualizacji z września 2025, która go ignoruje, oraz bit UPN w `CertificateMappingMethods` Schannel – przez K1 albo z
   GPO, które je ustawia), ponowne sprawdzenie ESC15. ESC12 (klucz urzędu w YubiHSM z hasłem zapisanym w rejestrze
   urzędu; wymaga dostępu do powłoki urzędu) jest poza zakresem programu. Katalog jest otwarty na kolejne numery.
-- **Naprawa w AD przez plan zmian** (od P2): wyłączenie *Dostarcz w żądaniu* albo `CT_FLAG_NO_SECURITY_EXTENSION`,
+- **Naprawa w AD przez plan zmian** (od P3): wyłączenie *Dostarcz w żądaniu* albo `CT_FLAG_NO_SECURITY_EXTENSION`,
   wymaganie zatwierdzenia przez menedżera certyfikatów albo podpisu upoważnionego, zawężenie EKU, usunięcie wpisu
   *Rejestruj* dla *Użytkowników domeny* (akcja `ModifySecurity`), poprawka właściciela, zdjęcie szablonu z urzędu,
   usunięcie `msDS-OIDToGroupLink`, usunięcie obcego certyfikatu z NTAuth, zamiana słabego mapowania na silne. Każda
   naprawa ma podgląd różnic, ostrzeżenie o skutkach (kto przestanie dostawać certyfikat) i cofnięcie.
-- Naprawy po stronie urzędu (ESC6, ESC7, ESC11, ESC16): w P3 program tylko je wykrywa i opisuje poprawkę; czy wykona je
+- Naprawy po stronie urzędu (ESC6, ESC7, ESC11, ESC16): w P4 program tylko je wykrywa i opisuje poprawkę; czy wykona je
   sam, czy wygeneruje skrypt `certutil` – do decyzji (zob. „Później” i „Do ustalenia z zespołem”).
 
 #### Certyfikaty na kontach i DC
@@ -1780,6 +1788,70 @@ kontenerów PKI w partycji konfiguracji (lokacje nadal pomijane). Korzysta z sil
 - **Gotowość na silne mapowanie i NTAuth:** jeden raport z kontami ze słabymi mapowaniami, szablonami uwierzytelniania
   bez rozszerzenia SID, urzędami spoza NTAuth i – przez ścieżkę E – zdarzeniami KDC 39, 40 i 41 (KB5014754) oraz 45 i 21
   (KB5057784, NTAuth) z DC. Odpowiada na pytanie, kto nie zaloguje się certyfikatem.
+
+#### Wystawianie certyfikatów
+
+- **Kreator *Wystaw certyfikat…*** z węzła urzędu, z szablonu, z konta użytkownika albo komputera, z DC i z palety
+  poleceń: wybór urzędu i szablonu spośród tych, które urząd wystawia i do których operator ma prawo *Rejestruj*
+  (silnik z „Kto może się zarejestrować”); pozostałe szablony są widoczne z wyjaśnieniem, dlaczego nie są dostępne
+  (brak prawa, szablon niewystawiany przez żaden urząd, rodzaj wniosku, którego program nie obsługuje).
+- **Wymagania szablonu objaśnione przed wysłaniem:**
+  - skąd pochodzi podmiot: *Dostarcz w żądaniu* – operator wpisuje podmiot i nazwy SAN; podmiot z AD – urząd buduje go
+    z konta, które wysyła wniosek, a podmiot z wniosku pomija (certyfikat dla innej osoby wymaga wtedy agenta
+    rejestracji);
+  - klucz: algorytm i minimalna długość, dostawca (`msPKI-Minimal-Key-Size`, `pKIDefaultCSPs`; dostawcy CNG tylko w
+    szablonach zgodnych co najmniej z Windows Server 2008), czy klucz może być eksportowalny, silna ochrona klucza,
+    atestacja TPM (wymagana albo preferowana), ten sam klucz przy odnowieniu;
+  - zatwierdzenie przez menedżera certyfikatów (wniosek trafi do oczekujących), liczba podpisów upoważnionych i
+    wymagana zasada aplikacji (zwykle *Agent żądania certyfikatu*), okres ważności i odnowienia;
+  - ustalenia ESC szablonu (np. ESC1, ESC2, ESC15 dla wersji 1 z podmiotem z żądania) – kreator pokazuje je przy
+    szablonie, a nie dopiero w przeglądzie bezpieczeństwa.
+- **Rodzaje wniosków:**
+  - **dla siebie albo dla tego komputera** – klucz powstaje w magazynie kluczy Windows (CNG: dostawca programowy, karta
+    inteligentna albo TPM przez *Microsoft Platform Crypto Provider*), domyślnie nieeksportowalny; wniosek dla komputera
+    (magazyn `LocalMachine`) wymaga programu uruchomionego z podniesionymi uprawnieniami, a czy urząd uwierzytelnia
+    wtedy komputer, czy operatora (od tego zależy podmiot z AD) – do potwierdzenia na Windows Server;
+  - **z wniosku PKCS#10 (CSR) z dowolnego systemu** (Linux, urządzenia sieciowe, inne serwery; z pliku albo schowka):
+    program pokazuje, co jest we wniosku (podmiot, SAN, algorytm i długość klucza, EKU, inne rozszerzenia i atrybuty),
+    sprawdza jego podpis i mówi, czego urząd według szablonu z wniosku nie weźmie; klucz zostaje tam, gdzie powstał;
+  - **w imieniu innej osoby** przez agenta rejestracji (wniosek CMC z `RequesterName`, podpisany certyfikatem z EKU
+    *Agent żądania certyfikatu*), np. karty inteligentne dla użytkowników – z informacją, czy ograniczenia agentów
+    rejestracji na urzędzie (według szablonów i grup, nie OU) pozwalają temu agentowi na ten szablon i tę osobę, i z
+    ostrzeżeniem ESC3, gdy urząd ich nie ma;
+  - **odnowienie** istniejącego certyfikatu tym samym albo nowym kluczem (zgodnie z flagą szablonu), także z raportu
+    wygasających certyfikatów;
+  - **certyfikat z podpisem własnym** do laboratorium i testów (bez urzędu; podgląd mówi, że stacje mu nie ufają).
+- **Certyfikaty dla tej aplikacji:**
+  - **HTTPS usługi AdMng Watchdog na Debianie:** klucz i wniosek tworzy na hoście nowe polecenie `admng-watchdog` (obok
+    `cert-fingerprint` i `cert-renew-self-signed`; nazwa do ustalenia), AD Manager wysyła wniosek do urzędu (szablon z
+    EKU *Uwierzytelnianie serwera*, SAN z nazwą usługi, np. `admng-wd.contoso.com`) i oddaje wystawiony certyfikat z
+    łańcuchem; **klucz nigdy nie opuszcza hosta**. Zastępuje ręczne `certreq` i `certutil` z
+    [WATCHDOG-LINUX.md, 3.8](docs/WATCHDOG-LINUX.md#38-certyfikat-tls-dla-api), także przy odnowieniu (nowa para obok
+    działającej, podmiana dopiero po sprawdzeniu, że klucz pasuje do certyfikatu).
+  - **Podpisywanie kodu** `AdMng.exe` i instalatora MSI ([faza 7](#faza-7--wdrożenie-i-dodatki-)): szablon z EKU
+    *Podpisywanie kodu*, klucz nieeksportowalny – najlepiej na tokenie, karcie inteligentnej albo w TPM z atestacją
+    (tak jak zasady CA/Browser Forum wymagają tego od certyfikatów publicznych) – zatwierdzenie przez menedżera
+    certyfikatów, wąskie prawo *Rejestruj* i krótki okres ważności. Podpis ze znacznikiem czasu RFC 3161
+    (`signtool sign /tr <adres> /td sha256`) pozostaje ważny po wygaśnięciu certyfikatu; AD CS nie ma własnego urzędu
+    znacznika czasu, więc program proponuje publiczny (dostaje tylko skrót pliku) albo firmowy.
+- **Inne typowe certyfikaty:** serwer WWW z wieloma nazwami SAN (DNS i adresy IP), użytkownicy (S/MIME, logowanie
+  kartą inteligentną, szyfrowanie plików), komputery, DC (LDAPS i *Uwierzytelnianie KDC*, z kontrolą nazw jak w
+  „Certyfikaty DC”). Przy certyfikatach do logowania program sprawdza silne mapowanie (KB5014754): rozszerzenie SID
+  dodane przez urząd albo SAN `tag:microsoft.com,2022-09-14:sid:<SID>`; czy urząd przy szablonach *Dostarcz w żądaniu*
+  dodaje rozszerzenie SID sam, czy przepisuje je z wniosku – do potwierdzenia na Windows Server.
+- **Wnioski oczekujące:** numer żądania i stan (*oczekuje*, *wystawiony*, *odrzucony*) w panelu wniosków okna; po
+  zatwierdzeniu program pobiera certyfikat (jak `certreq -retrieve`) i kończy instalację albo zapis. Klucz wniosku
+  oczekującego czeka w magazynie *Żądania rejestracji certyfikatów* systemu Windows (jak przy `certreq`); program nie
+  zapisuje własnej listy wniosków – po ponownym uruchomieniu odnajduje je w tym magazynie albo po numerze żądania.
+- **Odbiór certyfikatu:** instalacja w magazynie Windows (bieżący użytkownik albo komputer) z łańcuchem albo zapis do
+  pliku, który wskaże operator: `.cer` (DER albo Base64), `.p7b` z łańcuchem; `.pfx` z kluczem tylko wtedy, gdy klucz
+  jest eksportowalny i operator o to poprosi – hasło pliku istnieje tylko w pamięci (nigdy w audycie, dzienniku ani
+  `ToString()`), a program ostrzega, że plik z kluczem jest sekretem.
+- **Każde wystawienie to akcja planu zmian:** podgląd mówi dokładnie, o co program poprosi – urząd, szablon, podmiot,
+  SAN, klucz (algorytm, długość, dostawca, eksportowalność), EKU i zasady aplikacji – oraz co urząd według szablonu
+  doda albo zastąpi (podmiot z AD, rozszerzenie SID, okres ważności), czy wniosek trafi do zatwierdzenia i gdzie trafią
+  certyfikat i klucz. Po potwierdzeniu wpis w audycie (bez klucza i hasła). **Wystawienia nie da się cofnąć** –
+  wycofaniem jest odwołanie certyfikatu w urzędzie (P4) – i podgląd mówi to wprost.
 
 #### Praca z urzędem
 
@@ -1805,7 +1877,8 @@ kontenerów PKI w partycji konfiguracji (lokacje nadal pomijane). Korzysta z sil
   przy każdej zmianie szablonu), a nie tylko zmienia atrybut; przypomnienia o wygasających certyfikatach urzędów,
   listach CRL i certyfikatach LDAPS; opcjonalnie zdarzenia urzędu (4886, 4887, 4888, 4870, 4882, 4885, 4899, 4900) z
   hostów urzędów przez OpenWEC jako źródło Tier 0 – wymaga uzupełnienia ADR-0008/ADR-0009 (nowe źródło: dziennik
-  Security urzędów, zakres pól, retencja, subskrypcja WEF) i WATCHDOG-LINUX.md.
+  Security urzędów, zakres pól, retencja, subskrypcja WEF) i WATCHDOG-LINUX.md. Certyfikat HTTPS samej usługi
+  wystawia AD Manager z wniosku hosta (P2, zob. „Wystawianie certyfikatów”).
 - **E – Dzienniki zdarzeń:** analiza *AD CS* na urzędach (żądania z SAN w atrybutach, zmiany szablonów, uprawnień i
   filtra inspekcji, usunięte wiersze bazy) ze sprawdzeniem, czy inspekcja urzędu jest włączona; analiza *logowanie
   certyfikatem* na DC (zdarzenia KDC 39/40/41 i 45/21 oraz pola certyfikatu w 4768) – kto przestanie się logować.
@@ -1817,6 +1890,9 @@ kontenerów PKI w partycji konfiguracji (lokacje nadal pomijane). Korzysta z sil
   uprawnieniach kont (U4).
 - **Etap S – sprawdzenie gotowości:** ostrzeżenie o wygasającym certyfikacie urzędu, liście CRL albo certyfikacie LDAPS
   DC.
+- **Faza 7 – wdrożenie:** certyfikat podpisywania kodu dla `AdMng.exe` i instalatora MSI z P2.
+- **R – Okno PowerShell:** obiekty PKI, szablony z odczytanymi flagami i ustalenia ESC dostępne także jako polecenia
+  odczytu w oknie PowerShell; R1 jest w kolejce przed P2.
 
 #### Jak to działa technicznie
 
@@ -1832,11 +1908,12 @@ kontenerów PKI w partycji konfiguracji (lokacje nadal pomijane). Korzysta z sil
 - **Niczego na dysku (zasada 1):** certyfikaty, listy CRL, wiersze bazy urzędu, konfiguracja urzędu i ustalenia ESC są w
   pamięci tylko wtedy, gdy są widoczne. Plik `.cer`, `.crl` albo CSV powstaje tylko na wyraźne żądanie operatora;
   dziennik diagnostyczny bez wartości.
-- **Klucze prywatne – nigdy:** program nie pokazuje, nie kopiuje i nie zapisuje `userPKCS12`, poświadczeń mobilnych
-  (`msPKIAccountCredentials`, `msPKIDPAPIMasterKeys`) ani kluczy zarchiwizowanych w urzędzie (`userPKCS12` trafia do
-  `SecretAttributes` obok już obecnych `msPKIAccountCredentials` i `msPKIDPAPIMasterKeys`, więc jest maskowany wszędzie,
-  także w edytorze atrybutów, audycie i eksporcie); odzyskiwania kluczy przez agenta odzyskiwania kluczy (KRA) nie ma w
-  zakresie.
+- **Klucze prywatne z AD i urzędu – nigdy:** program nie pokazuje, nie kopiuje i nie zapisuje `userPKCS12`, poświadczeń
+  mobilnych (`msPKIAccountCredentials`, `msPKIDPAPIMasterKeys`) ani kluczy zarchiwizowanych w urzędzie (`userPKCS12`
+  trafia do `SecretAttributes` obok już obecnych `msPKIAccountCredentials` i `msPKIDPAPIMasterKeys`, więc jest maskowany
+  wszędzie, także w edytorze atrybutów, audycie i eksporcie); odzyskiwania kluczy przez agenta odzyskiwania kluczy
+  (KRA) nie ma w zakresie. Klucze nowych certyfikatów (P2) powstają tylko w magazynie kluczy Windows, na tokenie albo
+  na hoście, który wysłał wniosek.
 - **Zmiany w AD przez plan zmian (zasada 5):** flagi i właściwości szablonów, ukierunkowane zmiany ACL akcją
   `ModifySecurity`, wystawianie szablonu na urzędzie (`certificateTemplates`), NTAuth, `msDS-OIDToGroupLink`,
   `userCertificate`, `altSecurityIdentities`, `msDS-KeyCredentialLink` – z podglądem, audytem i cofnięciem (stara
@@ -1844,6 +1921,19 @@ kontenerów PKI w partycji konfiguracji (lokacje nadal pomijane). Korzysta z sil
   korzeniem OID lasu – jak robi to `certtmpl.msc`. DN-y przez `DistinguishedName.Child`, filtry przez `LdapFilter`
   (zasada 3). Urząd widzi zmianę szablonu dopiero po replikacji i odświeżeniu swojej pamięci podręcznej (minuty) –
   podgląd o tym mówi.
+- **Wystawianie (P2)** idzie poza sesję LDAP okna, prosto do hosta urzędu: MS-WCCE przez DCOM (interfejs
+  `ICertRequestD2`, uwierzytelnianie Negotiate z poświadczeniami okna, szyfrowanie pakietów; port 135 i dynamiczne
+  porty RPC) przez klienta `certcli` i CertEnroll systemu Windows, a gdy DCOM nie przechodzi – usługi rejestracji w
+  sieci Web CEP/CES (MS-XCEP, MS-WSTEP przez HTTPS), jeśli są wdrożone (zob. „Do ustalenia z zespołem”); nigdy przez
+  stronę rejestracji w sieci Web `certsrv` (HTTP, ESC8). Urząd i szablon program czyta z AD przez DC okna. Wniosek
+  PKCS#10 buduje .NET (`CertificateRequest`, nazwa szablonu w atrybutach wniosku), a CertEnroll – gdy potrzebny jest
+  wniosek CMC (agent rejestracji) albo atestacja TPM. Obiekty COM program woła późnym wiązaniem na osobnym wątku (jak
+  `AdMng.Outlook`), bez `COMReference`, żeby rozwiązanie dalej budowało się na Linuksie. Wywołania DCOM nie da się
+  przerwać w trakcie, więc okno na nie nie czeka (zasada 6), a anulowanie porzuca tylko oczekiwanie – program mówi
+  wtedy, że urząd mógł mimo to przyjąć wniosek. Wystawienie to nowy rodzaj akcji planu zmian (jak akcje urzędu niżej):
+  podgląd, potwierdzenie, wpis w audycie, bez cofnięcia. Certyfikaty i klucze to treść operatora (zasada 1): klucz
+  prywatny zostaje w magazynie kluczy Windows, na tokenie albo w pliku, który wskaże operator; hasło `.pfx` jest tylko
+  w pamięci (zasada 2).
 - **Zmiany po stronie urzędu** (zatwierdzenie, odrzucenie, odwołanie, publikacja CRL; flagi konfiguracji – jeśli zespół
   tak zdecyduje) to nowy rodzaj akcji planu zmian, jak zapis SYSVOL w K2: podgląd, potwierdzenie i wpis w audycie.
   **Odwołania nie da się cofnąć** – poza powodem *wstrzymanie certyfikatu* – i podgląd mówi to wprost; publikacji CRL
@@ -1853,7 +1943,9 @@ kontenerów PKI w partycji konfiguracji (lokacje nadal pomijane). Korzysta z sil
   szablony z polskimi nazwami, celowo podatne szablony dla każdego ESC z listy LDAP); operacje na urzędzie – urząd
   Windows w CI na Windows albo w laboratorium ([WATCHDOG-LINUX.md,
   1.7](docs/WATCHDOG-LINUX.md#17-urząd-certyfikacji-w-laboratorium-opcjonalnie)), testy pomijane bez zmiennych
-  `ADMNG_TEST_CA_*`.
+  `ADMNG_TEST_CA_*`; tam też wystawianie (szablony testowe z zatwierdzeniem przez menedżera, z agentem rejestracji,
+  podpisywanie kodu). Budowanie i odczyt wniosków PKCS#10 oraz podgląd wystawienia sprawdzają testy jednostkowe, także
+  na Linuksie.
 
 #### Etapy
 
@@ -1862,19 +1954,27 @@ kontenerów PKI w partycji konfiguracji (lokacje nadal pomijane). Korzysta z sil
   przegląd bezpieczeństwa ESC z LDAP (ESC1–5, 9, 13–15, 17); certyfikaty LDAPS DC; odczyt kart *Opublikowane
   certyfikaty*, *Mapowania nazw* i *Poświadczenia kluczy*; raport gotowości na silne mapowanie i NTAuth. Silnik ACL U4b
   czyta kontenery PKI w partycji konfiguracji (lokacje nadal pomijane).
-- **P2** – bezpieczne zmiany w AD przez plan zmian: *Napraw…* dla ustaleń z P1, edycja właściwości szablonu i
+- **P2** – wystawianie certyfikatów (w kolejce po R1 – [ścieżka R](#ścieżka-r--okno-powershell-)): kreator z wyborem
+  urzędu i szablonu i objaśnionymi wymaganiami szablonu; wnioski dla siebie i dla komputera z kluczem w magazynie
+  Windows, z wniosku PKCS#10 z dowolnego systemu (także certyfikat HTTPS usługi Watchdog z wniosku hosta), w imieniu
+  innych przez agenta rejestracji, odnowienie, certyfikat podpisywania kodu dla AD Managera, serwery WWW z SAN, DC
+  (LDAPS, KDC), certyfikaty z podpisem własnym; wnioski oczekujące i pobieranie wystawionych; instalacja w magazynie
+  albo eksport (`.cer`, `.p7b`, `.pfx` tylko z kluczem eksportowalnym). Każde wystawienie jako akcja planu zmian z
+  podglądem i audytem.
+- **P3** – bezpieczne zmiany w AD przez plan zmian: *Napraw…* dla ustaleń z P1, edycja właściwości szablonu i
   ukierunkowane zmiany ACL (wpisy *Rejestruj*, *Autorejestracja*, prawa zapisu, właściciel) akcją `ModifySecurity` –
   pełny edytor ACL z fazy 6, kopia szablonu (np. z wersji 1 na nowszą dla ESC15), wystawianie i zdejmowanie szablonów na
   urzędach, NTAuth, `msDS-OIDToGroupLink`, edycja *Opublikowanych certyfikatów*, *Mapowań nazw* (tylko formy silne) i
   usuwanie kluczy z `msDS-KeyCredentialLink`; operacje zbiorcze (wygasłe certyfikaty, słabe mapowania).
-- **P3** – praca z urzędem: odczyt konfiguracji, ról i wersji hosta (ESC6, ESC7, ESC11, ESC16, ESC8 za zgodą operatora,
+- **P4** – praca z urzędem: odczyt konfiguracji, ról i wersji hosta (ESC6, ESC7, ESC11, ESC16, ESC8 za zgodą operatora,
   ESC10 z DC), widoki bazy z filtrami i widokiem anomalii, potem akcje – zatwierdzanie, odrzucanie, odwołanie, cofnięcie
   wstrzymania, publikacja CRL.
-- **P4** – powiązania: reguły i przypomnienia Watchdoga, analizy w czytniku dzienników (E), autorejestracja i *Zasady
+- **P5** – powiązania: reguły i przypomnienia Watchdoga, analizy w czytniku dzienników (E), autorejestracja i *Zasady
   kluczy publicznych* w GPO (K3, K5, K6), powiadomienia o wygasających certyfikatach (U1, U3), ostrzeżenia w sprawdzeniu
   gotowości (S).
 - **Później (do decyzji):** zmiany konfiguracji urzędu z programu (flagi, role, ograniczenia agentów rejestracji),
-  gotowość na kryptografię postkwantową (algorytm podpisu urzędów i szablonów, mieszane łańcuchy), przegląd podpisów
+  gotowość na kryptografię postkwantową (algorytm podpisu urzędów i szablonów, mieszane łańcuchy; wystawianie z kluczami
+  ML-DSA – urzędy Windows Server 2025 od aktualizacji KB5087539, obsługa w .NET do potwierdzenia), przegląd podpisów
   SHA-1 i kluczy RSA-1024.
 
 #### Do ustalenia z zespołem
@@ -1889,6 +1989,16 @@ kontenerów PKI w partycji konfiguracji (lokacje nadal pomijane). Korzysta z sil
 - Czy program może sam wysyłać zapytania HTTP do adresów AIA, CDP, OCSP i rejestracji w sieci Web (ESC8), czy tylko na
   żądanie operatora.
 - Urząd Windows do testów w CI na Windows i w pilotażu (laboratorium Samba go nie zapewni).
+- Wystawianie: tylko MS-WCCE przez DCOM (port 135 i dynamiczne porty RPC do urzędu, grupa *Certificate Service DCOM
+  Access* na urzędzie) czy także CEP/CES przez HTTPS – dla stacji poza domeną i sieci bez DCOM, o ile usługi są
+  wdrożone.
+- Czy AD Manager może w ogóle eksportować klucze prywatne (`.pfx`), czy tylko instalować certyfikaty w magazynie i
+  zapisywać `.cer` / `.p7b`; czy klucz certyfikatu podpisywania kodu ma być wyłącznie na tokenie albo w TPM (z
+  atestacją) i na którym komputerze podpisujemy wydania.
+- Kto może wnioskować w imieniu innych (agenci rejestracji, ich ograniczenia na urzędzie) i czy kreator ma w ogóle
+  dopuszczać szablony z podmiotem z żądania i EKU uwierzytelniania (ESC1), choćby z ostrzeżeniem.
+- Jak wniosek i certyfikat usługi Watchdog przechodzą między hostem a AD Managerem: plikiem (`scp`, jak dziś) czy przez
+  API Watchdoga (HTTPS z Kerberosem) – i kto może zlecić wymianę certyfikatu usługi.
 
 **Kryteria ukończenia**
 - W domenie testowej z co najmniej dwoma urzędami stan zdrowia zgadza się z `pkiview.msc`, a właściwości i uprawnienia
@@ -1901,7 +2011,18 @@ kontenerów PKI w partycji konfiguracji (lokacje nadal pomijane). Korzysta z sil
 - Silne mapowanie zbudowane z pliku `.cer` ma dokładnie format z KB5014754 (`X509:<I>…<SR>…`, `X509:<SKI>…`,
   `X509:<SHA1-PUKEY>…`), a logowanie tym certyfikatem działa przy pełnym wymuszaniu na DC; mapowanie z karty ADUC
   program rozpoznaje jako słabe.
-- Żadnych certyfikatów, list CRL ani wierszy bazy urzędu na dysku stacji poza jawnym eksportem; klucze prywatne nigdy
+- Certyfikat HTTPS usługi Watchdog wystawiony z wniosku hosta przechodzi „Sprawdzenie” z
+  [WATCHDOG-LINUX.md, 3.8](docs/WATCHDOG-LINUX.md#38-certyfikat-tls-dla-api) (łańcuch, SAN, EKU, klucz pasuje), a klucz
+  nie opuścił hosta; certyfikat podpisywania kodu podpisuje `AdMng.exe` (`signtool verify /pa` przechodzi, podpis ma
+  znacznik czasu), a jego klucza nie da się wyeksportować; certyfikat serwera WWW z kilkoma nazwami SAN ma dokładnie te
+  nazwy.
+- Wniosek do szablonu z zatwierdzeniem przez menedżera certyfikatów czeka jako oczekujący, a po zatwierdzeniu program
+  pobiera certyfikat i kończy instalację – także po ponownym uruchomieniu.
+- Podgląd wystawienia mówi dokładnie, o co program poprosi (urząd, szablon, podmiot, SAN, klucz, EKU); wystawiony
+  certyfikat zgadza się z nim, a każda różnica wynika z szablonu i podgląd ją zapowiedział. Hasło `.pfx` nie trafia do
+  audytu, dziennika ani na dysk.
+- Żadnych certyfikatów, list CRL ani wierszy bazy urzędu na dysku stacji poza jawnym eksportem (i magazynem
+  certyfikatów Windows, gdy operator wybierze instalację wystawionego certyfikatu); klucze prywatne z AD i urzędu nigdy
   nie są odczytywane.
 
 </details>
@@ -2209,6 +2330,207 @@ przez WinRM/CIM z poświadczeniami okna (K1), lokacji i podsieci (K1), czytnika 
 
 </details>
 
+### Ścieżka R – Okno PowerShell ⬜
+
+**Cel:** okno PowerShell 7 przy każdym oknie połączenia – do doraźnych zapytań, zrzutów danych z AD („ręcznego
+wysypywania” atrybutów, list i członkostw) i skryptów – bez osobnej konsoli, bez RSAT i bez ponownego logowania.
+Wbudowane polecenia działają na sesji okna: ten sam DC, te same poświadczenia (tylko w pamięci), filtry LDAP budowane
+bezpiecznie. Wyniki są obiektami z widokiem siatki, z każdego DN można przejść do obiektu w programie, a do pliku
+trafiają tylko wtedy, gdy operator wskaże plik. **Odczyty działają od razu, zapisy nigdy nie idą wprost do AD:**
+polecenia zapisu (własne i rozpoznane polecenia modułu `ActiveDirectory`) dodają operacje do oczekującego planu zmian,
+który operator ogląda w podglądzie i wykonuje – z audytem, cofnięciem i historią PowerShell. Moduły RSAT
+`ActiveDirectory` i `GroupPolicy`, jeśli są zainstalowane, są ustawione na DC i poświadczenia okna. Ścieżka
+równoległa; R1 jest w kolejce zaraz po P1 (przed P2). Korzysta z potoku zmian (faza 2), wielu połączeń naraz (osobne
+okno na połączenie) i eksportu list; osadzony PowerShell dzieli ze ścieżką C.
+
+<details>
+<summary><b>Szczegóły ścieżki R</b> – okno i odczyt, zapis przez plan zmian, moduły RSAT, bezpieczeństwo,
+etapy</summary>
+
+#### Okno i polecenia odczytu
+
+- **Okno *PowerShell*** (*Narzędzia → PowerShell…* i paleta poleceń) otwierane z okna połączenia i do niego należące,
+  jak inne okna sesji; w tytule domena, DC i konto. Własny edytor wiersza w WPF (PSReadLine działa tylko w konsoli):
+  uzupełnianie poleceń, parametrów, nazw atrybutów i DN, kolorowanie składni, skrypty wielowierszowe, historia poleceń
+  tylko w pamięci okna; przerwanie polecenia nie blokuje okna (zasada 6).
+- **Polecenia AD Managera** związane z sesją okna, bez `-Server` i `-Credential` (nazwy do ustalenia): `Get-AdmObject`,
+  `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`, `Get-AdmGroupMember` (także członkostwo zagnieżdżone) i
+  `Search-AdmObject` – z gotowym filtrem LDAP albo z parametrami (`-Name`, `-Attribute`, `-Value`, `-SearchBase`,
+  `-Scope`), z których program sam buduje filtr przez `LdapFilter` (zasada 3). Wyniki przychodzą strumieniowo, ze
+  stronicowaniem i możliwością przerwania; wartości są zdekodowane według schematu jak w programie (GUID, SID, daty,
+  flagi `userAccountControl` jako nazwy), a atrybuty tajne (`SecretAttributes`) – maskowane jak w edytorze atrybutów.
+- **Wyniki** to zwykłe obiekty PowerShell (`Where-Object`, `Select-Object`, `Group-Object`, `Measure-Object`, potok),
+  pokazywane jako tabela albo lista; `Out-AdmGrid` otwiera je w siatce programu (sortowanie, filtry, kolumny,
+  kopiowanie), a przy każdym DN jest *Otwórz w programie* (właściwości, miejsce w drzewie).
+- **Eksport** (`Export-Csv`, `Export-AdmList` z ochroną przed formułami jak w eksporcie list) tylko do pliku, który
+  wskaże operator – w oknie zapisu albo jawną ścieżką w poleceniu; sam program niczego nie zapisuje.
+
+#### Zapis przez plan zmian
+
+- **Polecenia zapisu nigdy nie zmieniają AD od razu.** `Set-AdmObject`, `New-AdmUser`, `New-AdmGroup`,
+  `Remove-AdmObject`, `Move-AdmObject`, `Rename-AdmObject`, `Add-AdmGroupMember`, `Remove-AdmGroupMember`,
+  `Enable-AdmAccount`, `Disable-AdmAccount`, `Unlock-AdmAccount`, `Reset-AdmPassword` (nazwy do ustalenia) dodają
+  operacje do **oczekującego planu zmian** okna i wypisują, co dodały (obiekt, atrybut, przed → po).
+- **Koszyk planu** obok konsoli: liczba operacji, *Podgląd…* (ten sam podgląd różnic, walidacja i potwierdzenia co w
+  edycji zbiorczej – próg liczby obiektów, usuwanie, przenoszenie, resety haseł), *Wykonaj*, *Wyczyść*; w konsoli
+  `Show-AdmPlan`, `Clear-AdmPlan` i `Invoke-AdmPlan`, który tylko otwiera podgląd – wykonanie zawsze po potwierdzeniu w
+  oknie. Wykonanie przez potok zmian: audyt, raport, „ponów nieudane”, cofnięcie i równoważny skrypt w historii
+  PowerShell, jak przy każdej innej zmianie (zasada 5).
+- **Z historii do konsoli:** operację z historii poleceń PowerShell potoku zmian (faza 2) można skopiować do okna jako
+  polecenie `…-Adm…`, np. żeby powtórzyć ją dla innych obiektów; wykonanie znów idzie przez plan.
+- **Hasła** w poleceniach zapisu tylko jako `SecureString` albo wygenerowane przez program; nigdy w historii okna,
+  podglądzie, audycie ani w `ToString()` (zasada 2). Hasło wpisane jawnym tekstem (`-AsPlainText`) program odradza
+  ostrzeżeniem, bo rejestrowanie bloków skryptu z GPO może je zapisać w dzienniku zdarzeń.
+- Polecenia zapisu RSAT – zob. „Moduły RSAT”; polecenia, których nie da się przetłumaczyć, program odrzuca z
+  wyjaśnieniem i podpowiedzią (odpowiednik `…-Adm…` albo okno programu).
+
+#### Moduły RSAT
+
+- Gdy na stacji są moduły `ActiveDirectory` i `GroupPolicy` (RSAT), okno ładuje je na żądanie i ustawia domyślnie DC
+  okna (`$PSDefaultParameterValues` dla `*-AD*:Server` i `*-GP*:Server`) oraz poświadczenia okna (`*-AD*:Credential`,
+  tylko w pamięci); dysk `AD:` jest montowany na DC okna (domyślny dysk wyłączony przez `ADPS_LoadDefaultDrive=0`).
+  Wartości domyślne operator może nadpisać – okno pokazuje wtedy, że polecenie idzie poza DC sesji.
+- **Odczyty** RSAT działają bez zmian (np. `Get-ADUser -Filter …`, `Get-GPO`, `Get-GPOReport`). Moduł
+  `ActiveDirectory` łączy się z usługami sieci Web AD (ADWS, TCP 9389) na tym samym DC, ale osobnym połączeniem, nie
+  sesją LDAP okna; laboratorium Samba nie ma ADWS, więc te polecenia sprawdzamy tylko na Windows Server.
+- **Polecenia zapisu RSAT** (np. `Set-ADUser`, `Set-ADObject`, `New-ADUser`, `Remove-ADObject`, `Move-ADObject`,
+  `Rename-ADObject`, `Add-ADGroupMember`, `Remove-ADGroupMember`, `Enable-ADAccount`, `Unlock-ADAccount`,
+  `Set-ADAccountPassword`; lista do ustalenia) przechwytują funkcje pośredniczące o tych samych nazwach, także
+  wywołane z nazwą modułu (`ActiveDirectory\Set-ADUser`), i tłumaczą parametry na operacje planu zmian. Czego nie da
+  się przetłumaczyć wiernie (np. `-Instance`, nieznany typ wartości, polecenia `GroupPolicy` zapisujące SYSVOL), okno
+  odrzuca z wyjaśnieniem. `-WhatIf` RSAT daje tylko tekst, więc nie nadaje się do budowy planu.
+- **`GroupPolicy`:** żadne polecenie nie ma `-Credential` – działają z tożsamością procesu AD Managera, a nie z
+  poświadczeniami okna, i okno mówi o tym, gdy poświadczenia okna są inne. Microsoft oznacza ten moduł jako
+  niesprawdzony z PowerShell 7 (np. `Get-GPInheritance` zwraca w nim inne obiekty) – zgodność do potwierdzenia.
+- Starsze systemy bez modułów zgodnych z PowerShell 7: warstwa zgodności Windows PowerShell 5.1 (osobny proces,
+  obiekty zserializowane, moduły pośredniczące w `%TEMP%`) jest domyślnie wyłączona; czy działa z hosta osadzonego –
+  do potwierdzenia.
+
+#### Bezpieczeństwo i dane
+
+- **Niczego na dysku (zasada 1):** wyniki, historia poleceń i zawartość okna są tylko w pamięci i znikają z oknem. AD
+  Manager nie zapisuje historii poleceń ani transkrypcji: PSReadLine nie jest ładowany, historia jest tylko w pamięci,
+  a transkrypcję i rejestrowanie modułów z pliku `powershell.config.json` użytkownika wyłącza plik konfiguracji w
+  folderze programu. Do pliku trafia tylko to, co operator jawnie wyeksportuje. Fragmenty kodu zapisane w ustawieniach
+  zawierają tylko kod – bez wyników i danych katalogu. Profile (`$PROFILE`) domyślnie nie są ładowane.
+- **Hasła (zasada 2):** poświadczenia okna są tylko w pamięci i nie pojawiają się w historii ani w wynikach (o
+  przekazaniu ich modułom RSAT – zob. „Do ustalenia z zespołem”).
+- **Jeden DC (zasada 4):** polecenia AD Managera idą przez sesję LDAP okna; moduły RSAT są ustawione na ten sam DC.
+- **Zapisy przez plan zmian (zasada 5):** jak wyżej. Przechwytywanie poleceń to ochrona przed pomyłką, **nie granica
+  bezpieczeństwa**: w pełnym trybie języka (FullLanguage) wywołanie przez `& (Get-Command …)` albo bezpośrednio przez
+  .NET je omija, a operator może i tak uruchomić `pwsh.exe`. Jedyną granicą są prawa konta w AD – okno nie daje więcej,
+  niż daje konto; zmiany wykonane obok planu nie mają audytu ani cofnięcia w programie, ale Watchdog widzi je jak każdą
+  zmianę w AD.
+- **Poza kontrolą programu:** GPO komputera może włączyć transkrypcję PowerShell (obejmuje każdy program z silnikiem
+  PowerShell, więc polecenia i wyniki, czyli dane katalogu, trafią do pliku wskazanego w GPO), rejestrowanie bloków
+  skryptu (zdarzenie 4104 w dzienniku *PowerShellCore/Operational*) i modułów. Okno wykrywa te zasady przy otwarciu i
+  mówi o nich wyraźnie – nie próbuje ich obejść. AMSI sprawdza każdy blok skryptu (program antywirusowy widzi jego
+  treść). WDAC (App Control) i AppLocker wymuszają tryb ConstrainedLanguage – okno samo przechodzi w ten tryb, a
+  polecenia AD Managera działają w nim dalej. Zasady wykonywania (`ExecutionPolicy`) obowiązują dla plików `.ps1` i
+  `.psm1`.
+- **Inne:** telemetria PowerShell wyłączona; wyłączony też kanał diagnostyczny, przez który inny proces tego samego
+  użytkownika albo administrator mógłby dołączyć się do AD Managera poleceniem `Enter-PSHostProcess`. Systemy EDR mogą
+  zgłaszać „silnik PowerShell w procesie innym niż `powershell.exe`” (np. reguła Sigma dla
+  `System.Management.Automation.dll`) – stąd podpisany `AdMng.exe` (faza 7, certyfikat z P2) i informacja dla zespołu
+  bezpieczeństwa (SOC).
+
+#### Powiązania z innymi ścieżkami
+
+- **C – Microsoft 365:** ten sam osadzony PowerShell 7 (jedna wersja pakietu, ten sam host); moduły
+  `ExchangeOnlineManagement`, `MicrosoftTeams` i `PnP.PowerShell` w oknie mogą korzystać z tokenu logowania z C, a
+  zapisy w chmurze idą – jak w C – przez potok zmian (szczegóły razem z C4).
+- **Faza 2 – potok zmian:** plan, walidacja, podgląd, wykonanie, raport, cofnięcie i historia równoważnych poleceń
+  PowerShell; polecenia z tej historii można przenieść do okna.
+- **Listy i eksport:** `Out-AdmGrid` używa siatki list obiektów (kolumny, kopiowanie, eksport CSV z ochroną przed
+  formułami), a wynik można przekazać jako zaznaczenie do edytora zbiorczego.
+- **U, K, E, P, N jako źródła danych:** polecenia odczytu dla stanu kont (U2) i uprawnień kont (U4), komputerów i GPO
+  (K), zdarzeń z czytnika dzienników (E – z poświadczeniami okna, bez zapisu na dysku), obiektów PKI i ustaleń ESC (P),
+  stref i rekordów DNS (N) – w miarę etapów tych ścieżek, przez te same silniki i z tymi samymi zasadami co okna
+  programu.
+- **Etap S – sprawdzenie gotowości:** punkt o zasadach transkrypcji i rejestrowania PowerShell z GPO oraz o trybie
+  języka na tej stacji.
+
+#### Jak to działa technicznie
+
+- **Osadzony PowerShell 7.6 (LTS, wsparcie do listopada 2028)** z pakietu `Microsoft.PowerShell.SDK` w procesie AD
+  Managera, w nowym projekcie używanym tylko przez aplikację (jak `AdMng.Remote`). PowerShell 7.7 wymaga .NET 11, więc
+  przejdziemy na niego razem z .NET. Własny host (`PSHost`, `PSHostUserInterface`) – tekst `-WhatIf` i pytania o
+  potwierdzenie trafiają do okna; osobny obszar działania (runspace) na każde okno PowerShell. Pakiet zwiększa program
+  o ok. 19 MB (pojedynczy plik z kompresją) do 54 MB (bez kompresji), a każda poprawka bezpieczeństwa PowerShell
+  (mniej więcej co miesiąc) oznacza nowe wydanie AD Managera. Działanie w pojedynczym pliku `AdMng.exe` – do
+  potwierdzenia testem dymnym w CI na Windows.
+- **Polecenia AD Managera** to polecenia cmdlet z zestawu programu dodane do `InitialSessionState` (bez modułu na
+  dysku), które wołają te same usługi co okna programu: `IDirectorySession` okna (zasada 4), `LdapFilter` i
+  `DistinguishedName` (zasada 3), planistę zmian dla zapisów (zasada 5). Wywołania są asynchroniczne z
+  `CancellationToken`, a przerwanie polecenia anuluje odczyt (zasada 6). Zapisy budują operacje w oczekującym planie
+  okna; wykonanie tylko po potwierdzeniu podglądu w interfejsie.
+- **Tłumaczenie poleceń RSAT** (R3): funkcje pośredniczące dla rozpoznanych poleceń zapisu i zaczep wyszukiwania
+  poleceń (`PreCommandLookupAction`) dla nazw z modułem; parametry (`-Identity`, `-Replace`, `-Add`, `-Remove`,
+  `-Clear` i nazwane właściwości jak `-Department`) program mapuje przez schemat na operacje planu, a obiekt z potoku
+  (`Get-ADUser … | Set-ADUser …`) rozpoznaje po DN albo `objectGUID`.
+- **Tryb języka:** przy zasadach WDAC/AppLocker okno samo sprawdza blokadę systemu i przechodzi w ConstrainedLanguage
+  (osadzony obszar działania tego sam nie robi – do potwierdzenia na maszynie z WDAC); domyślny tryb bez takich zasad –
+  zob. „Do ustalenia z zespołem”.
+- **Środowisko silnika** ustawione przed jego pierwszym użyciem: bez telemetrii i kanału diagnostycznego
+  (`POWERSHELL_TELEMETRY_OPTOUT`, `POWERSHELL_DIAGNOSTICS_OPTOUT`), plik `powershell.config.json` w folderze programu
+  (`$PSHOME`; nie wygrywa z GPO, które ma pierwszeństwo), pamięć podręczna analizy modułów bez zapisu na dysku, bez
+  PSReadLine, profili i `Start-Job` (wymaga `pwsh.exe`).
+- **Testy:** polecenia i plan na `FakeDirectorySession` (testy jednostkowe – pakiet działa także na Linuksie) i na
+  laboratorium Samba; host i okno w testach UI na Windows; moduły RSAT (ADWS) tylko na Windows Server – w CI na Windows
+  z kontrolerem albo w pilotażu; test „żadnych plików” sprawdza, że po pracy w oknie PowerShell nie powstał żaden plik z
+  danymi katalogu.
+
+#### Etapy
+
+- **R1** – okno i odczyt (w kolejce zaraz po P1): okno PowerShell przy oknie połączenia z własnym edytorem wiersza
+  (uzupełnianie, kolorowanie, historia w pamięci), polecenia odczytu AD Managera na sesji okna (`Get-Adm…`,
+  `Search-Adm…` z bezpiecznie budowanymi filtrami), wyniki jako obiekty, `Out-AdmGrid`, *Otwórz w programie* dla DN,
+  eksport tylko do pliku wskazanego przez operatora; wykrywanie zasad transkrypcji i rejestrowania z GPO i trybu
+  języka; bez PSReadLine, profili, telemetrii i kanału diagnostycznego.
+- **R2** – zapis przez plan zmian: polecenia zapisu AD Managera dodające operacje do oczekującego planu, koszyk planu z
+  podglądem i wykonaniem przez potok (audyt, cofnięcie, historia PowerShell), kopiowanie poleceń z historii potoku do
+  okna.
+- **R3** – moduły RSAT: `ActiveDirectory` i `GroupPolicy` ustawione na DC i poświadczenia okna, dysk `AD:` na DC okna,
+  tłumaczenie rozpoznanych poleceń zapisu RSAT na plan zmian i odmowa z wyjaśnieniem dla pozostałych; fragmenty kodu
+  zapisywane w ustawieniach (tylko kod).
+- **Później (do decyzji):** zdalne sesje PowerShell do serwerów (WinRM, jak K1) z poświadczeniami okna; skrypty
+  uruchamiane według harmonogramu – raczej poza zakresem (AD Manager nie jest usługą), a jeśli w ogóle, to jako
+  osobna decyzja dotycząca usługi Watchdog.
+
+#### Do ustalenia z zespołem
+
+- Rozmiar pakietu: osadzony PowerShell dodaje ok. 19–54 MB i wymusza wydanie przy każdej jego poprawce bezpieczeństwa;
+  alternatywa – `pwsh.exe` poza procesem w terminalu (ConPTY), z PSReadLine, ale bez dostępu do sesji i poświadczeń
+  okna i bez obiektów w siatce programu.
+- Tryb języka bez zasad WDAC/AppLocker: czy pozwalamy na FullLanguage (dowolne .NET – także zapis obok planu zmian i
+  odczyt hasła z obiektu poświadczeń), czy domyślnie ConstrainedLanguage z poleceniami AD Managera i przełącznikiem
+  dla zaufanych operatorów.
+- Czy okno może ładować dowolne moduły i skrypty z dysku (`Import-Module`, uruchamianie plików `.ps1`, folder modułów
+  użytkownika w `PSModulePath`), czy tylko moduły z listy (RSAT, Microsoft 365).
+- Które polecenia zapisu RSAT tłumaczyć w R3 (na start `Set-ADUser`, `Set-ADGroup`, `Set-ADComputer`, `Set-ADObject`,
+  `New-ADUser`, `New-ADGroup`, `Remove-ADObject`, `Move-ADObject`, `Rename-ADObject`, `Add-ADGroupMember`,
+  `Remove-ADGroupMember`, `Enable-ADAccount`, `Disable-ADAccount`, `Unlock-ADAccount`, `Set-ADAccountPassword`), a
+  które od razu odrzucać (np. polecenia `GroupPolicy` zapisujące SYSVOL, `Restore-ADObject`).
+- Czy przekazywać poświadczenia okna modułom RSAT jako `PSCredential` (w FullLanguage skrypt może odczytać z niego
+  hasło), czy tylko wtedy, gdy okno łączy się bieżącym kontem Windows.
+- Nazwy poleceń AD Managera (przedrostek `Adm`) i skrót klawiszowy okna.
+
+**Kryteria ukończenia**
+- Polecenia odczytu zwracają te same obiekty i wartości co okna programu (porównanie dla 1000 obiektów laboratorium)
+  i idą tylko do DC okna; 100 000 wyników nie blokuje okna, a odczyt można przerwać w każdej chwili.
+- Wartość z nawiasem, gwiazdką, ukośnikiem odwrotnym albo polskimi znakami (np. `Łukasz (Kraków)*`) w parametrach
+  `Search-AdmObject` daje poprawnie zabezpieczony filtr – bez dodatkowych wyników.
+- Żadne polecenie zapisu – AD Managera ani rozpoznane RSAT – nie zmienia AD bez podglądu i potwierdzenia; po
+  wykonaniu zmiana jest w audycie, raporcie i historii PowerShell i daje się cofnąć; nieprzetłumaczalne polecenie
+  zapisu jest odrzucane z wyjaśnieniem.
+- Z RSAT `Get-ADUser` bez `-Server` idzie do DC okna, a `Set-ADUser` dodaje operację do planu zamiast zapisać.
+- Po zamknięciu okna na dysku stacji nie ma historii poleceń, transkrypcji ani wyników (bez GPO transkrypcji); przy
+  transkrypcji włączonej przez GPO okno ostrzega przed pierwszym poleceniem; hasło nie pojawia się w historii ani w
+  audycie.
+- Pod zasadą WDAC okno pracuje w ConstrainedLanguage, a polecenia AD Managera działają.
+
+</details>
+
 ### Etap S – stabilizacja i gotowość do pilotażu 🟡
 
 **Cel:** zanim przybędzie funkcji – wiarygodne testy, sprawdzenie gotowości środowiska w programie, zgłoszenia problemów
@@ -2431,6 +2753,10 @@ Pełna lista pytań: [RESEARCH.md](docs/RESEARCH.md#11-pytania-otwarte-do-zespo�
    strefach AD zapisywane przez LDAP czy przez serwer DNS; kto może przeglądać dzierżawy DHCP (adresy MAC, nazwy
    hostów) i czy wymaga to podania powodu; czy zawężać domyślne prawo tworzenia rekordów w strefach dla
    *Użytkowników uwierzytelnionych*.
+12. **Okno PowerShell (ścieżka R):** pełny tryb języka (FullLanguage) czy ConstrainedLanguage; czy okno może ładować
+   dowolne moduły i skrypty z dysku; które polecenia zapisu RSAT tłumaczyć na plan zmian; czy osadzać PowerShell w
+   procesie (ok. 19–54 MB więcej i wydanie przy każdej jego poprawce) czy uruchamiać `pwsh.exe` osobno; zasady
+   transkrypcji i rejestrowania PowerShell z GPO na stacjach administratorów (zapisują też dane katalogu).
 
 </details>
 

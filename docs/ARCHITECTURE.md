@@ -67,7 +67,7 @@ trzecim sposobem wysyłki jest klasyczny Outlook operatora (`OutlookUserMessageT
   bieżącą i zamyka poprzednią. Błąd lub anulowanie zostawia bieżącą sesję bez zmian. Okna otwarte w poprzedniej sesji
   zostają przy niej (nie czytają i nie zapisują) i informują, że należą do poprzedniego DC; karty głównego okna
   przeładowują się z nowego DC, a dziennik sesji zapisuje zmianę. Lista DC łączy odczyt z katalogu bieżącej sesji
-  (`server`/`nTDSDSA` w `CN=Sites`, `fSMORoleOwner`) z lokatorem (DsGetDcName/DNS SRV, lokacja klienta)
+  (`server`/`nTDSDSA` w `CN=Sites`, `fSMORoleOwner`) z lokalizatorem DsGetDcName (DNS SRV, lokacja klienta)
   ([dev/phase1-changedc.md](dev/phase1-changedc.md)).
 - Kontenery dobrze znane (`wellKnownObjects`/`otherWellKnownObjects` głowy domeny) czyta
   `ISessionManager.GetWellKnownObjectsAsync` raz na sesję i trzyma w pamięci (`WellKnownObjectMap`); nowa sesja – także
