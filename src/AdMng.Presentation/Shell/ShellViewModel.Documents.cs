@@ -62,6 +62,7 @@ public sealed partial class ShellViewModel
     public (Guid Id, string Name)? ActiveGpo() => SelectedTab switch
     {
         GroupPolicyObjectDocumentViewModel gpo => (gpo.GpoId, gpo.Title),
+        AdMng.Presentation.GroupPolicy.Cleanup.GpoCleanupDocumentViewModel { SelectedRow: { GpoExists: true } row } => (row.GpoId, row.GpoName),
         AdministrativeTemplatesEditorViewModel templates => (templates.GpoId, templates.GpoName),
         SecuritySettingsEditorViewModel security => (security.GpoId, security.GpoName),
         GroupPolicyObjectsDocumentViewModel { Selection: [var row] } => (row.Gpo.Id, row.Name),
