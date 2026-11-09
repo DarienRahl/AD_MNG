@@ -263,7 +263,8 @@ public sealed class GpoSettingsIndexService : IGpoSettingsIndexService, IDisposa
                 _view = view;
                 _viewSession = build.Session;
                 _viewServer = build.Session.Info.Server;
-                _stale = _changes != build.ChangesAtStart; // a GPO operation finished while the build was reading
+                // A GPO operation finished while the build was reading; a culture build re-renders the old data, so it keeps the mark.
+                _stale = _changes != build.ChangesAtStart || (build.Mode == BuildKind.Culture && _stale);
                 current = true;
             }
 

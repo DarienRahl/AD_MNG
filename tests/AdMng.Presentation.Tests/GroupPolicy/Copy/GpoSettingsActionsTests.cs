@@ -388,4 +388,27 @@ public sealed class GpoSettingsActionsTests
         Assert.DoesNotContain("Księgowość", info.ToString(), StringComparison.Ordinal);
         Assert.DoesNotContain("Kadry", info.ToString(), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task CopyFromTheSearch_PassesTheIndexDefinitions_SoAnAdministrativeTemplatePolicyIsCopied()
+    {
+        var k = await K7Harness.CreateAsync();
+        using var document = await k.H.OpenAsync<AdMng.Presentation.GroupPolicy.Search.GpoSettingsSearchDocumentViewModel>(
+            AdMng.Presentation.GroupPolicy.Search.GpoSettingsSearchEntry.Request);
+        document.SearchText = "Wyłącz okienko podglądu";
+        await document.SearchCommand.ExecuteAsync(null);
+        var row = document.Groups.SelectMany(g => g.Rows).First(r => r.GpoId == k.Cleanup.Templates);
+        Assert.Equal(GpoSettingUnitKind.AdministrativeTemplate, row.Unit.Kind);
+        document.SelectedRow = row;
+        document.SelectedRows = [row];
+        k.H.Windows.PickGpo = "Porządki – Pulpit zdalny";
+
+        await document.CopyToCommand.ExecuteAsync(null);
+
+        var window = Assert.Single(k.H.Windows.CopyWindows);
+        Assert.False(window.HasRefused);
+        var preview = Assert.Single(k.H.Windows.Previews);
+        Assert.Equal(0, preview.Result!.FailedCount);
+        Assert.NotNull(k.H.Sysvol.Get(k.Cleanup.RemoteDesktop, "Machine/Registry.pol"));
+    }
 }

@@ -142,6 +142,24 @@ public sealed class GpoSettingsIndexServiceTests
     }
 
     [Fact]
+    public async Task ACultureSwitch_OnAStaleView_KeepsItStale()
+    {
+        var harness = await IndexHarness.CreateAsync();
+        using var service = new GpoSettingsIndexService(harness.Services);
+        await service.GetAsync(GpoIndexRefresh.IfMissing, Ct);
+        harness.Services.NotifyChanged();
+        Assert.True(service.IsStale);
+
+        harness.B2.Localizer.SetCulture(CultureInfo.GetCultureInfo("en-US"));
+        var english = await service.GetAsync(GpoIndexRefresh.IfMissing, Ct);
+
+        Assert.Equal("en-US", english.Culture.Name);
+        Assert.True(service.IsStale); // the texts changed, the data is still the old read
+        await service.GetAsync(GpoIndexRefresh.Incremental, Ct);
+        Assert.False(service.IsStale);
+    }
+
+    [Fact]
     public async Task ABuildStartedBeforeInvalidate_NeverBecomesCurrent()
     {
         var harness = await IndexHarness.CreateAsync();

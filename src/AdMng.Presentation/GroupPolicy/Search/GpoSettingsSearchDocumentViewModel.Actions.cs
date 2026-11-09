@@ -62,7 +62,7 @@ public sealed partial class GpoSettingsSearchDocumentViewModel
     private async Task CopyToAsync()
     {
         var items = ActionRows.Select(r => r.CopyItem).ToList();
-        if (items.Count > 0 && await Actions.CopySettingsAsync(items).ConfigureAwait(true))
+        if (items.Count > 0 && await Actions.CopySettingsAsync(items, definitions: View?.Index.Definitions).ConfigureAwait(true))
         {
             await ReadAsync(GpoIndexRefresh.Incremental).ConfigureAwait(true);
         }
