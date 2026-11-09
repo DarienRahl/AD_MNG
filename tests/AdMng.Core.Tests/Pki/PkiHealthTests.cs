@@ -151,6 +151,41 @@ public sealed class PkiHealthTests
     }
 
     [Fact]
+    public void TheDeltaLocations_TheCaWritesIntoItsBaseCrl_GetRows_AndTheirHttpResults()
+    {
+        // AD CS puts the delta CRL locations into the Freshest CRL of the base CRL ("Include in CRLs"); the CA certificate of a
+        // one-tier PKI has no AIA / CDP at all. HttpUrls lists the HTTP one for the probe, so its result must show.
+        var deltaLdapUrl = "ldap:///" + IssuingCdpDn.Replace(" ", "%20", StringComparison.Ordinal) + "?deltaRevocationList?base?objectClass=cRLDistributionPoint";
+        var baseCrl = Crl(IssuingSki, Now.AddDays(-3), Now.AddDays(4)) with { FreshestCrl = [deltaLdapUrl, PkiSamples.IssuingDeltaCrlHttpUrl] };
+        var delta = Crl(IssuingSki, Now.AddHours(-12), Now.AddHours(6)) with { IsDelta = true };
+        var snapshot = Snapshot(
+            cas: [Ca(IssuingGuid, Issuing(Now.AddYears(2)))],
+            crls: [new PkiCrlList(IssuingCdpDn, Guid.NewGuid(), "x", "SRV-CA02", new PkiCrl([], baseCrl), new PkiCrl([], delta), IssuingGuid)]);
+        Assert.Contains(new PkiUrl(PkiSamples.IssuingDeltaCrlHttpUrl, PkiUrlKind.DeltaCdp), PkiHealth.HttpUrls(snapshot));
+
+        IReadOnlyList<(PkiHealthItem, int, PkiHealthStatus, string?)> RowsWith(CrlSummary? fetched) =>
+        [
+            .. PkiHealth.Evaluate(snapshot, PkiHealthThresholds.Default, Now,
+                    fetched is null ? null : [new PkiHttpCheckResult(PkiSamples.IssuingDeltaCrlHttpUrl, PkiUrlKind.DeltaCdp, PkiHttpOutcome.Ok, 200, null, fetched)])
+                .Where(r => r.CaGuid == IssuingGuid && r.Item != PkiHealthItem.CaCertificate)
+                .Select(r => (r.Item, r.Index, r.Status, r.Url)),
+        ];
+
+        Assert.Equal(
+            [
+                (PkiHealthItem.BaseCrl, 0, PkiHealthStatus.Ok, null),
+                (PkiHealthItem.DeltaCrl, 0, PkiHealthStatus.Expiring, null),
+                (PkiHealthItem.DeltaCrlLocation, 0, PkiHealthStatus.Expiring, deltaLdapUrl),
+                (PkiHealthItem.DeltaCrlLocation, 1, PkiHealthStatus.Unknown, PkiSamples.IssuingDeltaCrlHttpUrl),
+            ],
+            RowsWith(null));
+
+        // The probe's result: the CA's own delta (its key) counts, another CA's delta does not.
+        Assert.Equal(PkiHealthStatus.Ok, RowsWith(delta with { NextUpdate = Now.AddDays(2) })[3].Item3);
+        Assert.Equal(PkiHealthStatus.Unavailable, RowsWith(Crl(RootSki, Now.AddHours(-1), Now.AddDays(2)) with { IsDelta = true })[3].Item3);
+    }
+
+    [Fact]
     public void AnUnparseableBaseCrl_IsUnavailable()
     {
         var snapshot = Snapshot(cas: [Ca(IssuingGuid, Issuing(Now.AddYears(2)))], crls: [new PkiCrlList(IssuingCdpDn, Guid.NewGuid(), "x", null, new PkiCrl(PkiSamples.MalformedDer, null), null, IssuingGuid)]);
@@ -403,6 +438,7 @@ public sealed class PkiHealthTests
         Assert.Equal(PkiHealthStatus.Ok, rows.Single(r => r.CaGuid == root && r.Item == PkiHealthItem.BaseCrl).Status);
         Assert.Equal(PkiHealthStatus.Ok, rows.Single(r => r.Item == PkiHealthItem.KraCertificate).Status);
         Assert.Contains(PkiHealth.HttpUrls(snapshot), u => u.Url == PkiSamples.IssuingDeltaCrlHttpUrl && u.Kind == PkiUrlKind.DeltaCdp);
+        Assert.Contains(rows, r => r.CaGuid == issuing && r.Item == PkiHealthItem.DeltaCrlLocation && r.Url == PkiSamples.IssuingDeltaCrlHttpUrl);
     }
 
     private static IReadOnlyList<PkiHealthRow> Rows(PkiSnapshot snapshot) => PkiHealth.Evaluate(snapshot, PkiHealthThresholds.Default, Now, null);

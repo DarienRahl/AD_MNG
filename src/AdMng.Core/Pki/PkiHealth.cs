@@ -84,7 +84,8 @@ public static class PkiHealth
     /// unparseable: unavailable), the AIA CA Issuers, CDP and Freshest CRL URLs of that certificate (where its issuer's
     /// certificate, base CRL and delta CRL are, as <c>pkiview.msc</c>), then the base and delta CRL of every <c>CN=CDP</c> list
     /// matched to the CA by <see cref="PkiCrlList.IssuerCaGuid"/> (no list: one unavailable base row; a missing delta is a row
-    /// only when the base CRL names a Freshest CRL location). Then every KRA certificate (end-entity threshold) and every
+    /// only when the base CRL names a Freshest CRL location), each followed by the delta CRL locations its base CRL names (the
+    /// Freshest CRL of the CA's own base CRL, where AD CS writes them). Then every KRA certificate (end-entity threshold) and every
     /// NTAuth certificate (CA threshold; a missing NTAuth object is one unavailable row when the forest has an enterprise CA).
     /// </remarks>
     public static IReadOnlyList<PkiHealthRow> Evaluate(PkiSnapshot snapshot, PkiHealthThresholds thresholds, DateTimeOffset now, IReadOnlyList<PkiHttpCheckResult>? http)
@@ -266,10 +267,13 @@ public static class PkiHealth
         && (candidate.SubjectKeyIdentifier is null || subject.AuthorityKeyIdentifier is null
             || string.Equals(candidate.SubjectKeyIdentifier, subject.AuthorityKeyIdentifier, StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>A CRL the certificate's CDP may point to: its Authority Key Identifier is the certificate's (when both are present).</summary>
-    private static bool IsCrlOfIssuer(CrlSummary crl, CertificateSummary subject) =>
-        crl.AuthorityKeyIdentifier is null || subject.AuthorityKeyIdentifier is null
-        || string.Equals(crl.AuthorityKeyIdentifier, subject.AuthorityKeyIdentifier, StringComparison.OrdinalIgnoreCase);
+    /// <summary>
+    /// A CRL a location may hold: its Authority Key Identifier is the expected one (the certificate's for its CDP, the base CRL's
+    /// for the CA's own delta locations) when both are present.
+    /// </summary>
+    private static bool IsCrlOfIssuer(CrlSummary crl, string? authorityKey) =>
+        crl.AuthorityKeyIdentifier is null || authorityKey is null
+        || string.Equals(crl.AuthorityKeyIdentifier, authorityKey, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>What <see cref="Evaluate"/> needs while it walks the CAs.</summary>
     private sealed class Context(PkiSnapshot snapshot, PkiHealthThresholds thresholds, DateTimeOffset now, IReadOnlyList<PkiHttpCheckResult> http)
@@ -287,11 +291,12 @@ public static class PkiHealth
             var current = ca.Certificates.Count > 0 ? ca.Certificates[0] : null;
             var (status, until) = CertificateState(current?.Summary, isCa: true);
             rows.Add(new PkiHealthRow(ca.ObjectGuid, PkiHealthItem.CaCertificate, 0, status, until, null));
+            var deltaLocations = 0;
             if (current?.Summary is { } summary)
             {
-                AddLocations(ca.ObjectGuid, PkiHealthItem.AiaLocation, summary.AiaCaIssuers, summary, rows);
-                AddLocations(ca.ObjectGuid, PkiHealthItem.CdpLocation, summary.CrlDistributionPoints, summary, rows);
-                AddLocations(ca.ObjectGuid, PkiHealthItem.DeltaCrlLocation, summary.FreshestCrl, summary, rows);
+                AddLocations(ca.ObjectGuid, PkiHealthItem.AiaLocation, summary.AiaCaIssuers, summary, summary.AuthorityKeyIdentifier, 0, rows);
+                AddLocations(ca.ObjectGuid, PkiHealthItem.CdpLocation, summary.CrlDistributionPoints, summary, summary.AuthorityKeyIdentifier, 0, rows);
+                deltaLocations = AddLocations(ca.ObjectGuid, PkiHealthItem.DeltaCrlLocation, summary.FreshestCrl, summary, summary.AuthorityKeyIdentifier, 0, rows);
             }
 
             var lists = snapshot.CrlLists.Where(l => l.IssuerCaGuid == ca.ObjectGuid).ToList();
@@ -303,6 +308,7 @@ public static class PkiHealth
 
             var baseIndex = 0;
             var deltaIndex = 0;
+            var ownDeltaUrls = new HashSet<string>(StringComparer.Ordinal);
             foreach (var list in lists)
             {
                 var (baseStatus, baseUntil) = CrlState(list.Base?.Summary, now);
@@ -312,30 +318,45 @@ public static class PkiHealth
                     var (deltaStatus, deltaUntil) = CrlState(list.Delta?.Summary, now);
                     rows.Add(new PkiHealthRow(ca.ObjectGuid, PkiHealthItem.DeltaCrl, deltaIndex++, deltaStatus, deltaUntil, null));
                 }
+
+                // Where the CA's own delta CRL is published: the Freshest CRL of its base CRL (AD CS writes it there for the
+                // CDP URLs marked "Include in CRLs" – the CA certificate itself rarely carries one), checked against the
+                // base CRL's authority key. HttpUrls lists these URLs for the probe, so their results need a row.
+                if (list.Base?.Summary is { } baseCrl)
+                {
+                    deltaLocations = AddLocations(ca.ObjectGuid, PkiHealthItem.DeltaCrlLocation, [.. baseCrl.FreshestCrl.Where(ownDeltaUrls.Add)], null,
+                        baseCrl.AuthorityKeyIdentifier, deltaLocations, rows);
+                }
             }
         }
 
-        private void AddLocations(Guid ca, PkiHealthItem item, IReadOnlyList<string> urls, CertificateSummary certificate, List<PkiHealthRow> rows)
+        /// <summary>
+        /// One row per URL from <paramref name="index"/> on (returns the next index): <paramref name="certificate"/> is the
+        /// certificate whose issuer an AIA location must hold (null for a CRL's own locations), <paramref name="authorityKey"/> the
+        /// Authority Key Identifier a CRL found at a CDP / delta location must carry (null: any).
+        /// </summary>
+        private int AddLocations(Guid ca, PkiHealthItem item, IReadOnlyList<string> urls, CertificateSummary? certificate, string? authorityKey, int index, List<PkiHealthRow> rows)
         {
-            var index = 0;
             foreach (var url in urls)
             {
-                var (status, until) = LocationState(item, url, certificate);
+                var (status, until) = LocationState(item, url, certificate, authorityKey);
                 rows.Add(new PkiHealthRow(ca, item, index++, status, until, url));
             }
+
+            return index;
         }
 
-        private (PkiHealthStatus Status, DateTimeOffset? ValidUntil) LocationState(PkiHealthItem item, string url, CertificateSummary certificate)
+        private (PkiHealthStatus Status, DateTimeOffset? ValidUntil) LocationState(PkiHealthItem item, string url, CertificateSummary? certificate, string? authorityKey)
         {
             if (IsHttp(url))
             {
-                return HttpState(item, url, certificate);
+                return HttpState(item, url, certificate, authorityKey);
             }
 
-            return TryParseLdapUrl(url, out var dn, out var attribute) ? LdapState(item, dn, attribute, certificate) : (PkiHealthStatus.Unknown, null);
+            return TryParseLdapUrl(url, out var dn, out var attribute) ? LdapState(item, dn, attribute, certificate, authorityKey) : (PkiHealthStatus.Unknown, null);
         }
 
-        private (PkiHealthStatus Status, DateTimeOffset? ValidUntil) HttpState(PkiHealthItem item, string url, CertificateSummary certificate)
+        private (PkiHealthStatus Status, DateTimeOffset? ValidUntil) HttpState(PkiHealthItem item, string url, CertificateSummary? certificate, string? authorityKey)
         {
             var kind = item switch
             {
@@ -348,18 +369,18 @@ public static class PkiHealth
             {
                 null or PkiHttpOutcome.NotChecked => (PkiHealthStatus.Unknown, null),
                 PkiHttpOutcome.Ok when kind == PkiUrlKind.AiaCaIssuers =>
-                    result.Certificate is { } issuer && IsIssuerOf(issuer, certificate)
+                    result.Certificate is { } issuer && certificate is not null && IsIssuerOf(issuer, certificate)
                         ? CertificateState(issuer, isCa: true)
                         : (PkiHealthStatus.Unavailable, null),
                 PkiHttpOutcome.Ok =>
-                    result.Crl is { } crl && IsCrlOfIssuer(crl, certificate) && crl.IsDelta == (kind == PkiUrlKind.DeltaCdp)
+                    result.Crl is { } crl && IsCrlOfIssuer(crl, authorityKey) && crl.IsDelta == (kind == PkiUrlKind.DeltaCdp)
                         ? CrlState(crl, now)
                         : (PkiHealthStatus.Unavailable, null),
                 _ => (PkiHealthStatus.Unavailable, null),
             };
         }
 
-        private (PkiHealthStatus Status, DateTimeOffset? ValidUntil) LdapState(PkiHealthItem item, DistinguishedName dn, string? attribute, CertificateSummary certificate)
+        private (PkiHealthStatus Status, DateTimeOffset? ValidUntil) LdapState(PkiHealthItem item, DistinguishedName dn, string? attribute, CertificateSummary? certificate, string? authorityKey)
         {
             if (_publicKeyServices is null || !dn.IsDescendantOf(_publicKeyServices))
             {
@@ -373,7 +394,7 @@ public static class PkiHealth
                 var issuer = store?.Certificates.Concat(store.CrossCertificates)
                     .Select(c => c.Summary)
                     .OfType<CertificateSummary>()
-                    .Where(s => IsIssuerOf(s, certificate))
+                    .Where(s => certificate is not null && IsIssuerOf(s, certificate))
                     .OrderByDescending(s => s.NotAfter)
                     .FirstOrDefault();
                 return issuer is null ? (PkiHealthStatus.Unavailable, null) : CertificateState(issuer, isCa: true);
@@ -389,7 +410,7 @@ public static class PkiHealth
                 ? string.Equals(attribute, PkiAttributes.DeltaRevocationList, StringComparison.OrdinalIgnoreCase)
                 : item == PkiHealthItem.DeltaCrlLocation;
             var crl = (delta ? list.Delta : list.Base)?.Summary;
-            return crl is not null && IsCrlOfIssuer(crl, certificate) ? CrlState(crl, now) : (PkiHealthStatus.Unavailable, null);
+            return crl is not null && IsCrlOfIssuer(crl, authorityKey) ? CrlState(crl, now) : (PkiHealthStatus.Unavailable, null);
         }
 
         /// <summary>

@@ -1118,7 +1118,9 @@ of 2.1–2.6):
   An HTTP result counts only for the same URL **and** kind and is checked the same way (a delta CRL at a CDP URL, a base
   CRL at a delta URL or another CA's certificate → `Unavailable`; `NotChecked` → `Unknown`; every failure outcome →
   `Unavailable`). A CA without a `CN=CDP` list gets one unavailable base row; a delta row exists when a delta was read or
-  the base CRL names a Freshest CRL; a missing NTAuth object is one unavailable row only when the forest has an
+  the base CRL names a Freshest CRL, and each Freshest CRL URL of the CA's own base CRL (where AD CS writes the delta
+  locations; `HttpUrls` lists them) gets a `DeltaCrlLocation` row after that list's rows, numbered on from the
+  certificate's own Freshest CRL rows and checked against the base CRL's authority key; a missing NTAuth object is one unavailable row only when the forest has an
   enterprise CA (an empty snapshot has no rows). `Index` counts from 0 per item (per CA for CA rows). OCSP gets no row (as
   pkiview); `HttpUrls` lists it for the probe.
 * *Analyzer – rules as built.* `EkuSourcesDiffer` = the rule's predicate holds on exactly one of `EffectiveEku` /
