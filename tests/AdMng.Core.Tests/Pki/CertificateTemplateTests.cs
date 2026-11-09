@@ -320,7 +320,7 @@ public sealed class CertificateTemplateTests
     [Fact]
     public void Of_RefusesNull() => Assert.Throws<ArgumentNullException>(() => CertificateTemplate.Of(null!));
 
-    [Fact(Skip = "P1 wave 1 merge")]
+    [Fact]
     public async Task TheOverviewReader_FillsEveryTemplateMember()
     {
         // End to end with C1's reader: the overview search's attributes carry everything Of reads.

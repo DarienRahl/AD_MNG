@@ -11,7 +11,7 @@ public static partial class PkiEscAnalyzer
     {
         foreach (var facts in run.Evaluated.Where(t => t.IsEnrollable))
         {
-            var (holds, differs) = OnEitherEku(facts.Template, Eku.IsAnyPurpose);
+            var (holds, differs) = OnEitherEku(facts.Template, PkiFlags.IsAnyPurpose);
             if (holds)
             {
                 run.AddEnrollment(facts, PkiFindingCodes.AnyPurposeOrNoEku,

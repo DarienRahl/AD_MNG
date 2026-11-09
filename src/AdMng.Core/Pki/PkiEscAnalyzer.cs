@@ -87,23 +87,6 @@ public static partial class PkiEscAnalyzer
 
     private static string Join(IEnumerable<string> items) => string.Join(PkiFindingCodes.ListSeparator, items);
 
-    /// <summary>The EKU predicates of 2.2 (an empty set means Any Purpose, as Certipy) – the same as <c>PkiFlags.Is*</c>.</summary>
-    internal static class Eku
-    {
-        public static bool IsAnyPurpose(IReadOnlyCollection<string> ekus) => ekus.Count == 0 || ekus.Contains(PkiFlags.AnyPurpose, StringComparer.Ordinal);
-
-        public static bool IsClientAuth(IReadOnlyCollection<string> ekus) =>
-            IsAnyPurpose(ekus)
-            || ekus.Contains(PkiFlags.ClientAuthentication, StringComparer.Ordinal)
-            || ekus.Contains(PkiFlags.SmartCardLogon, StringComparer.Ordinal)
-            || ekus.Contains(PkiFlags.PkinitClientAuthentication, StringComparer.Ordinal);
-
-        public static bool IsServerAuth(IReadOnlyCollection<string> ekus) => IsAnyPurpose(ekus) || ekus.Contains(PkiFlags.ServerAuthentication, StringComparer.Ordinal);
-
-        public static bool IsEnrollmentAgent(IReadOnlyCollection<string> ekus) =>
-            IsAnyPurpose(ekus) || ekus.Contains(PkiFlags.CertificateRequestAgent, StringComparer.Ordinal);
-    }
-
     /// <summary>A predicate on both EKU sources: whether it holds on either, and whether exactly one holds.</summary>
     private static (bool Holds, bool Differs) OnEitherEku(CertificateTemplate template, Func<IReadOnlyCollection<string>, bool> predicate)
     {

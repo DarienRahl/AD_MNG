@@ -413,7 +413,7 @@ public sealed class PkiHealthTests
         Assert.Equal("CdpLocation[1] Unavailable " + IssuingGuid.ToString("B"), row.ToString());
     }
 
-    [Fact(Skip = "P1 wave 1 merge")]
+    [Fact]
     public async Task TheSample_ReadByTheOverviewReader_IsHealthyWhereItShouldBe()
     {
         var builder = new FakeDirectoryBuilder();

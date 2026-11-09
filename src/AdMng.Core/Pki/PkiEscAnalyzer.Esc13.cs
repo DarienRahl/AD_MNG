@@ -47,7 +47,7 @@ public static partial class PkiEscAnalyzer
                 continue;
             }
 
-            var (holds, differs) = OnEitherEku(facts.Template, Eku.IsClientAuth);
+            var (holds, differs) = OnEitherEku(facts.Template, PkiFlags.IsClientAuth);
             if (!holds)
             {
                 continue;

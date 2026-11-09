@@ -273,7 +273,7 @@ public class TemplateExpansionTests
         Assert.Equal((sample.Pki.EnterpriseAdminsSid, PrincipalClass.Tier0), (safeWriter.Sid, safeWriter.Class));
     }
 
-    [Fact(Skip = "P1 wave 1 merge")]
+    [Fact]
     public async Task TheExpansionOfTheSample_CountsTheEnrollees_AndKeepsTheMappedAccounts()
     {
         // Needs AltSecurityIdentity.Parse (C4).

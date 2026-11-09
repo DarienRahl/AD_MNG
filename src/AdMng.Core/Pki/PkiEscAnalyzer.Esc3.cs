@@ -19,7 +19,7 @@ public static partial class PkiEscAnalyzer
         var agents = new List<(TemplateFacts Facts, bool Differs)>();
         foreach (var facts in run.Evaluated.Where(t => t.IsEnrollable))
         {
-            var (holds, differs) = OnEitherEku(facts.Template, Eku.IsEnrollmentAgent);
+            var (holds, differs) = OnEitherEku(facts.Template, PkiFlags.IsEnrollmentAgent);
             if (holds)
             {
                 agents.Add((facts, differs));
@@ -31,7 +31,7 @@ public static partial class PkiEscAnalyzer
         foreach (var facts in run.Evaluated.Where(t => t.IsEnrollable && !t.Template.RequiresManagerApproval))
         {
             var template = facts.Template;
-            var (clientAuth, differs) = OnEitherEku(template, Eku.IsClientAuth);
+            var (clientAuth, differs) = OnEitherEku(template, PkiFlags.IsClientAuth);
             if (!clientAuth)
             {
                 continue;

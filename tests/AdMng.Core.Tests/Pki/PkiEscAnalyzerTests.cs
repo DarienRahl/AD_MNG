@@ -845,24 +845,6 @@ public sealed class PkiEscAnalyzerTests
         Assert.Equal(PkiFindingSeverity.Info, PkiEscAnalyzer.Lower(PkiFindingSeverity.Info));
     }
 
-    [Fact(Skip = "P1 wave 1 merge")]
-    public void TheEkuPredicates_AreThoseOfPkiFlags()
-    {
-        IReadOnlyCollection<string>[] sets =
-        [
-            [], [PkiFlags.AnyPurpose], [PkiFlags.ClientAuthentication], [PkiFlags.SmartCardLogon], [PkiFlags.PkinitClientAuthentication], [PkiFlags.ServerAuthentication],
-            [PkiFlags.CertificateRequestAgent], [PkiFlags.KdcAuthentication], [SecureEmail], [SecureEmail, PkiFlags.ServerAuthentication],
-        ];
-
-        Assert.All(sets, set =>
-        {
-            Assert.Equal(PkiFlags.IsAnyPurpose(set), PkiEscAnalyzer.Eku.IsAnyPurpose(set));
-            Assert.Equal(PkiFlags.IsClientAuth(set), PkiEscAnalyzer.Eku.IsClientAuth(set));
-            Assert.Equal(PkiFlags.IsServerAuth(set), PkiEscAnalyzer.Eku.IsServerAuth(set));
-            Assert.Equal(PkiFlags.IsEnrollmentAgent(set), PkiEscAnalyzer.Eku.IsEnrollmentAgent(set));
-        });
-    }
-
     [Theory]
     [InlineData(PkiReadNoticeCode.BaseNotFound, true)]
     [InlineData(PkiReadNoticeCode.BaseAccessDenied, false)]
@@ -908,7 +890,7 @@ public sealed class PkiEscAnalyzerTests
             PkiEscReader.ReadAsync(context, PkiSnapshot.Empty(PkiSamples.ConfigurationDn, PkiSamples.Now), expansion, new PkiEscReadOptions(), null, cancelled.Token));
     }
 
-    [Fact(Skip = "P1 wave 1 merge")]
+    [Fact]
     public async Task TheSample_ReadEndToEnd_FlagsTheVulnerableTemplates_AndNothingElse()
     {
         var ct = TestContext.Current.CancellationToken;

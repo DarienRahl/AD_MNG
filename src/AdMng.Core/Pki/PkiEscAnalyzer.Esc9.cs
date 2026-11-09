@@ -11,7 +11,7 @@ public static partial class PkiEscAnalyzer
     {
         foreach (var facts in run.Evaluated.Where(t => t.IsEnrollable && t.Template.NoSecurityExtension))
         {
-            var (holds, differs) = OnEitherEku(facts.Template, Eku.IsClientAuth);
+            var (holds, differs) = OnEitherEku(facts.Template, PkiFlags.IsClientAuth);
             if (holds)
             {
                 run.AddEnrollment(facts, PkiFindingCodes.NoSecurityExtensionClientAuth,
