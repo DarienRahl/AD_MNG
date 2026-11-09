@@ -2479,3 +2479,9 @@ leftovers is an error (`GpoSettingIncomplete`); a merge refuses with `GpoMergeNo
 time (policy-owned raw value, unknown extension pair), not only for `BlocksMerge`; merge errors sit on A's object, copy
 issues on the target's object; a `P|` selection without a definition set gives `GpoSettingNoDefinitions` (the units
 rebuilt without a set hold no `P|` id); duplicate selections are copied once; `A = B` is `IssueCodes.InvalidValue`.
+W2 review fixes: the writer refuses, independently of the unit layer, any unit with a masked setting and any preference
+item carrying a non-empty `cpassword` (`GpoSettingSecret`), and an audit value outside 0–3 (`GpoSettingUnsupported`
+instead of an exception); `Replace` does not remove a target occurrence that has a `Refusal` (the unit is refused, as
+a remove of it would be); `GpoSettingPolicyOwned` names the target GPO; remove de-duplicates selections; in a merge,
+units of a half A has disabled are skipped before any refusal check, so they neither block the merge
+(`GpoMergeNotCopyable`) nor raise `GpoSettingRemovePolicy` or part-disabled warnings (21.13).

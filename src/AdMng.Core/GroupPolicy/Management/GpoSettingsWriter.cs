@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Xml.Linq;
 using AdMng.Core.Batch;
 using AdMng.Core.GroupPolicy.AdministrativeTemplates;
 using AdMng.Core.GroupPolicy.Content;
@@ -87,6 +88,12 @@ internal sealed class GpoSettingsWriter
     /// </summary>
     public string? CheckCopy(GpoSettingUnit unit, GpoFolderContent source)
     {
+        // Rule 2, independent of the unit layer: a masked setting is never written into another GPO.
+        if (unit.Settings.Any(s => s.Kind == GpoSettingKind.Masked))
+        {
+            return IssueCodes.GpoSettingSecret;
+        }
+
         try
         {
             switch (unit.Kind)
@@ -142,7 +149,10 @@ internal sealed class GpoSettingsWriter
                         return IssueCodes.GpoSettingUnsupported;
                     }
 
-                    return SourceAudit(source)?.GetSubcategories().ContainsKey(guid) == true ? null : IssueCodes.GpoSettingNotFound;
+                    // AuditPolicyDocument writes 0 to 3 only; another value (a newer auditpol) is not guessed.
+                    return SourceAudit(source)?.GetSubcategories().TryGetValue(guid, out var value) != true ? IssueCodes.GpoSettingNotFound
+                        : value is < 0 or > 3 ? IssueCodes.GpoSettingUnsupported
+                        : null;
                 }
 
                 case GpoSettingUnitKind.Preference:
@@ -151,6 +161,12 @@ internal sealed class GpoSettingsWriter
                     if (item is null)
                     {
                         return IssueCodes.GpoSettingNotFound;
+                    }
+
+                    // MS14-025: an item that carries a cpassword is never cloned, whatever the unit layer said.
+                    if (HoldsPassword(item.Value.Item.Element))
+                    {
+                        return IssueCodes.GpoSettingSecret;
                     }
 
                     _ = PreferenceDocument(PreferencePath(unit), item.Value.Document);
@@ -670,6 +686,11 @@ internal sealed class GpoSettingsWriter
         return document.Find(unit.ItemId) is { } item ? (item, document) : null;
     }
 
+    /// <summary>The element or one of its descendants has a non-empty <c>cpassword</c> attribute (GPP passwords, MS14-025).</summary>
+    private static bool HoldsPassword(XElement element) =>
+        element.DescendantsAndSelf().Any(e => e.Attributes().Any(a => !a.IsNamespaceDeclaration
+            && a.Name.LocalName.Equals("cpassword", StringComparison.OrdinalIgnoreCase) && a.Value.Trim().Length > 0));
+
     // ---- Documents --------------------------------------------------------------------------------------------------------
 
     private RegistryHalf RegistryDocument(string path) =>
@@ -753,7 +774,11 @@ internal sealed class GpoSettingsWriter
     private enum RegistryTargetKind { Value, DeleteAll, CreateKey, DeleteKey }
 
     /// <summary>What a Registry.pol setting is about (<see cref="Key"/> without hive; for <see cref="RegistryTargetKind.DeleteKey"/> the deleted key).</summary>
-    private sealed record RegistryTarget(RegistryTargetKind Kind, string Key, string? ValueName);
+    private sealed record RegistryTarget(RegistryTargetKind Kind, string Key, string? ValueName)
+    {
+        /// <summary>The kind only (the key and value name are directory values, 21.7).</summary>
+        public override string ToString() => Kind.ToString();
+    }
 
     /// <summary>
     /// The entries of one Registry.pol half with the raw edits of the copy: forget what a setting names, insert a source

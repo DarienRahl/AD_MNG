@@ -123,7 +123,7 @@ public sealed partial class GroupPolicyPlanner
             work.Error(IssueCodes.GpoSettingIncomplete, "Not every setting of the GPO could be read.", gpo.DisplayName);
         }
 
-        foreach (var selection in units)
+        foreach (var selection in units.DistinctBy(u => (u.GpoId, u.UnitId.ToUpperInvariant())))
         {
             var unit = selection.GpoId == gpoId ? FindUnit(work.TargetUnits, selection) : null;
             if (unit is null && definitions is null && selection.GpoId == gpoId && IsPolicyId(selection.UnitId))
@@ -216,7 +216,9 @@ public sealed partial class GroupPolicyPlanner
                 $"{directory} settings objects kept in the directory (software installation, wireless or wired network policies) cannot be merged."));
         }
 
-        var blocking = source.Units.Count(u => u.BlocksMerge);
+        // Units of a half A has disabled do not apply now and are left out (21.13): they neither block nor warn.
+        var active = source.Units.Where(u => !PartDisabled(a, u.Scope)).ToList();
+        var blocking = active.Count(u => u.BlocksMerge);
         var unparsed = source.Content!.Files.Keys.Count(IsUnparsedFile);
         if (unparsed > 0)
         {
@@ -262,6 +264,13 @@ public sealed partial class GroupPolicyPlanner
         foreach (var unit in source.Units.Where(u => u.CountsAsSetting))
         {
             var selection = new GpoUnitSelection(a.Id, unit.Id, unit.ItemId, unit.ValueFingerprint);
+            if (PartDisabled(a, unit.Scope))
+            {
+                work.Info(IssueCodes.GpoSettingSourcePartDisabled, "The setting comes from a disabled part of the merged GPO and is left out.", a.DisplayName, TechnicalKey(unit));
+                outcomes.Add(new GpoUnitOutcome(selection, GpoUnitOutcomeKind.Skipped, IssueCodes.GpoSettingSourcePartDisabled));
+                continue;
+            }
+
             if (unit.BlocksMerge)
             {
                 outcomes.Add(new GpoUnitOutcome(selection, GpoUnitOutcomeKind.Refused, RefusalCode(unit) ?? IssueCodes.GpoSettingUnsupported));
@@ -279,17 +288,17 @@ public sealed partial class GroupPolicyPlanner
                 (blocking + refused).ToString(CultureInfo.InvariantCulture));
         }
 
-        foreach (var unit in source.Units.Where(u => u.RemovePolicy && u.CountsAsSetting))
+        foreach (var unit in active.Where(u => u.RemovePolicy && u.CountsAsSetting))
         {
             work.Warn(IssueCodes.GpoSettingRemovePolicy, "Clients undo the preference item of the disabled GPO before the copy applies.", a.DisplayName, TechnicalKey(unit));
         }
 
-        if ((b.Status & GpoStatus.ComputerSettingsDisabled) != 0 && source.Units.Any(u => u.CountsAsSetting && u.Scope == GpoScope.Computer))
+        if ((b.Status & GpoStatus.ComputerSettingsDisabled) != 0 && active.Any(u => u.CountsAsSetting && u.Scope == GpoScope.Computer))
         {
             work.Warn(IssueCodes.GpoComputerPartDisabled, "The computer configuration of the target GPO is disabled.");
         }
 
-        if ((b.Status & GpoStatus.UserSettingsDisabled) != 0 && source.Units.Any(u => u.CountsAsSetting && u.Scope == GpoScope.User))
+        if ((b.Status & GpoStatus.UserSettingsDisabled) != 0 && active.Any(u => u.CountsAsSetting && u.Scope == GpoScope.User))
         {
             work.Warn(IssueCodes.GpoUserPartDisabled, "The user configuration of the target GPO is disabled.");
         }
@@ -547,7 +556,8 @@ public sealed partial class GroupPolicyPlanner
 
         if (refusal is not null)
         {
-            work.Warn(refusal, "The setting is not copied.", sourceName, key);
+            // "{1} belongs to an administrative template {0} configures": the policy is the target's.
+            work.Warn(refusal, "The setting is not copied.", refusal == IssueCodes.GpoSettingPolicyOwned ? target.DisplayName : sourceName, key);
             return Outcome(GpoUnitOutcomeKind.Refused, refusal);
         }
 
@@ -592,7 +602,7 @@ public sealed partial class GroupPolicyPlanner
             var replaced = unit.Kind == GpoSettingUnitKind.Preference
                 ? occurrences.Where(o => string.Equals(o.FiltersFingerprint, unit.FiltersFingerprint, StringComparison.Ordinal)).ToList()
                 : occurrences;
-            if (replaced.Any(o => work.Writer.CheckRemove(o) is not null))
+            if (replaced.Any(o => o.Refusal is not null || work.Writer.CheckRemove(o) is not null))
             {
                 work.Warn(IssueCodes.GpoSettingUnsupported, "The target's setting cannot be replaced by AD Manager.", target.DisplayName, key);
                 return Outcome(GpoUnitOutcomeKind.Refused, IssueCodes.GpoSettingUnsupported);
