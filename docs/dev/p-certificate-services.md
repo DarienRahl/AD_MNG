@@ -1274,3 +1274,81 @@ read, its private copy removed, behaviour-neutral). No public member renamed or 
   OID objects keep `Oid` and the group-link rule. The Tier 0 accounts of `CollectPublicKeyAsync` also include the
   accounts whose `primaryGroupID` is a Tier 0 group of the window's domain (primary group membership is not in
   `memberOf`).
+
+**C4 as built.** The parsers, the health rules, the ESC reader and analyzer of 2.4; no public member renamed or removed.
+* *Additions* (init members): `AltSecurityIdentity.Issuer` / `Subject` (as stored, reversed RDN order), `SerialNumber`
+  (the `<SR>` serial in the certificate's byte order, upper-case hex as `CertificateSummary.SerialNumber` – W7/W6 match a
+  mapping to a published certificate with it) and `Identifier` (SKI / SHA1-PUKEY hex, RFC 822 address, Kerberos
+  principal); `KeyCredentialLink.KeyMaterialLength` (the only thing exposed about the key), `IsKeyHashValid` (KeyHash =
+  SHA-256 of the entries after it; null without a KeyHash) and `OwnerDn` (the DN part of the DN-Binary value);
+  `PkiEscSnapshot.NotEvaluated` (the rule groups whose data could not be read) and `TrusteeNames` (SID → name of the grant
+  trustees). Internal: `PkiEscAnalyzer.Lower`, `PkiEscAnalyzer.Eku` (the four EKU predicates of 2.2 – `PkiFlags.Is*` are C2
+  stubs in wave 1, so the analyzer carries the same four lines; `PkiEscAnalyzerTests.TheEkuPredicates_AreThoseOfPkiFlags`,
+  skipped until the merge, pins that they agree; the lead may then call `PkiFlags` directly), `PkiHealth.IsHttp` /
+  `CertificateState` / `CrlState`.
+* *`KeyCredentialLink`.* Only version `0x0200` parses (MS-ADTS 2.2.20; another version, a truncated entry, a DeviceId that
+  is not 16 bytes, a time that is not 8 bytes or an empty KeyID → `IsMalformed`, one row per value). KeyID is Base64 (as
+  DSInternals shows version-2 ids); times are FILETIME for `KEY_SOURCE_AD` and `DateTime.ToBinary` for `KEY_SOURCE_AZURE`
+  (as DSInternals reads version 2); KeyUsage as a single byte (a legacy string usage → `Unknown`); entry 0x07
+  CustomKeyInformation and unknown identifiers are skipped.
+* *`AltSecurityIdentity`.* `X509:`, `Kerberos:` and the tags match case-insensitively; a backslash-escaped `<` stays in a
+  value; `<SR>` and `<SKI>` must be even-length hex, `<SHA1-PUKEY>` exactly 40 hex digits (a hash of another length can
+  never match: `Invalid`); tags in another order (`<S>…<I>…`), three parts, an issuer alone and empty parts are `Invalid`.
+* *Health – refinements of 2.4.* A certificate is `Expiring` when **at most** the threshold is left (30 d exactly is
+  expiring), a CRL when **less than** `max(1 d, 20 %)` is left (exactly the margin is OK); a CRL before `ThisUpdate` is
+  `Unknown`. The CA row is the newest `cACertificate` only (renewals keep their URLs in `HttpUrls`). An `ldap:///` location
+  outside `CN=Public Key Services` is `Unknown` (the snapshot never read it – *not found* would be a false alarm); inside it,
+  a missing object is `Unavailable`, and so is an object that holds no certificate of the issuer (subject = issuer DN, SKI =
+  AKI when both are present) or no CRL of the certificate's authority key; the CRL attribute of the URL
+  (`certificateRevocationList` / `deltaRevocationList`) picks base or delta; URLs are percent-decoded (AD CS writes `%20`).
+  An HTTP result counts only for the same URL **and** kind and is checked the same way (a delta CRL at a CDP URL, a base
+  CRL at a delta URL or another CA's certificate → `Unavailable`; `NotChecked` → `Unknown`; every failure outcome →
+  `Unavailable`). A CA without a `CN=CDP` list gets one unavailable base row; a delta row exists when a delta was read or
+  the base CRL names a Freshest CRL, and each Freshest CRL URL of the CA's own base CRL (where AD CS writes the delta
+  locations; `HttpUrls` lists them) gets a `DeltaCrlLocation` row after that list's rows, numbered on from the
+  certificate's own Freshest CRL rows and checked against the base CRL's authority key; a missing NTAuth object is one unavailable row only when the forest has an
+  enterprise CA (an empty snapshot has no rows). `Index` counts from 0 per item (per CA for CA rows). OCSP gets no row (as
+  pkiview); `HttpUrls` lists it for the probe.
+* *Analyzer – rules as built.* `EkuSourcesDiffer` = the rule's predicate holds on exactly one of `EffectiveEku` /
+  `pKIExtendedKeyUsage` (sets that differ only in OIDs the rule ignores carry no note). The adjustments run approval first,
+  then `NotPublished`, never below Info; `NotPublished` applies to every template finding, ESC4 too (a rewritten template
+  still has to be published). ESC3: the agent's `RelatedObjectIds` are its CAs and the **published** targets (condition 2,
+  and schema 1 + client authentication + enrollable + no manager approval); the target's severity looks only at agent
+  findings on **published** templates. ESC4: one finding per template; a trustee's FullControl hides the WriteDacl /
+  WriteOwner / WriteAllProperties it implies; the severity is the highest of its (trustee, right) pairs. ESC5 counts
+  GenericAll, Owner, WriteDacl, WriteOwner, WriteAllProperties, CreateChild, every named-attribute write of `AclRight`
+  (member, gPLink, GPO property, template property, key credentials, RBCD, altSecurityIdentities), ResetPassword,
+  ReadLapsPassword, ActOnBehalfOfOtherIdentity and – on a CA computer only – AllExtendedRights; DeleteChild and the
+  replication rights are not ESC5; one finding per object (DNs compared parsed), the enrollment service / OID object
+  named and identified from the snapshot, a CA computer related to its CAs. ESC13 and ESC15 take the table's severity
+  whatever the enrolling class (the group's rights / the CA patch decide). ESC14 arguments: Tier 0 mapping – name, weak
+  kinds, empty; aggregated – the account count, the weak kinds found, empty (`ObjectDn` null); write – name, rights,
+  principals. The account-count argument of the enrollment codes is the sum of the enrolling principals' counts capped by
+  the template's Enroll total, `N+` when a principal's count is unknown (another domain), `?` when none is known. A grant
+  trustee the reader did not classify counts as Other (no false negative). A template without evaluated rights gives no
+  finding and a `SecurityDescriptorUnreadable` notice (added when the snapshot had none); `BaseAccessDenied` makes the
+  result not evaluated with Enrollment and AccessControl in `NotEvaluated` (the weak mappings of the account pass are still
+  reported). Findings: severity descending, then catalogue order, then the first argument, then the DN.
+* *Reader.* `CollectPublicKeyAsync` is skipped for a snapshot with `BaseNotFound` / `BaseAccessDenied`; a
+  `DirectoryException` of it puts AccessControl into `NotEvaluated` (ESC5 and the ESC14 writes skipped; ESC4 still runs on
+  the template rights). Grant trustees are classified with one `PrincipalClassifier` (context graph and options, the
+  snapshot's CA computer SIDs) and named from the graph, then by one `objectSid` OR search per 50 SIDs of the default NC
+  (foreign security principals stay unnamed); an other-domain trustee without a name adds `TrusteeUnresolved` (the grant's
+  target DN). A linked group's level is `GroupGraph.GrantedLevel` over the catalogue levels, Tier 0 also when the
+  classifier says so. The rights are `expansion.Templates` by cn in snapshot order. The snapshot notices the review keeps:
+  base not found / denied, descriptor unreadable, CA computer unresolved / in another domain, trustee unresolved.
+* *Texts.* Resx unchanged: the ESC14 message stays generic (one key per code, three variants) – W6 can tell the variants by
+  `ObjectDn == null` (aggregated) and `Principals.Count > 0` (write) if it wants per-variant wording in its own block.
+* *Checked, no change.* KB5014754 forms and the reversed `<SR>`; MS-ADTS 2.2.20 entry identifiers 0x01–0x09, KeyUsage
+  0x01/0x07/0x08 (+ DSInternals' 0x00/0x02/0x03/0x04/0x09) and KeySource 0x00/0x01; the EKU OIDs and predicates; the ESC
+  conditions against Certipy 3ae3442 / Locksmith 8b555bd as the table states. For `docs/CERTYFIKATY.md`: Locksmith's
+  broader ESC15 (every enrollable schema-1 template) reflects that on an unpatched CA the requester of any schema-1 template
+  can also inject Certificate Request Agent (EKUwu → ESC3); the review keeps Certipy's ESS condition so the default *User*
+  template stays quiet. `CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT_ALT_NAME` (0x10000) alone is not treated as ESC1 (as Certipy
+  and Locksmith) – an open question for P3/P4 against MS-WCCE.
+* *Tests.* `AltSecurityIdentityTests`, `KeyCredentialLinkTests`, `PkiHealthTests`, `PkiEscAnalyzerTests` (hand-built
+  snapshots; the reader on a snapshot without PKI and its cancellation). Skipped until the merge: `PkiHealthTests.
+  TheSample_ReadByTheOverviewReader_IsHealthyWhereItShouldBe` (C1's reader and parsers – note the sample's issuing delta
+  CRL is *Expiring* at the fake clock: 12 h of a 1-day margin), `PkiEscAnalyzerTests.TheEkuPredicates_AreThoseOfPkiFlags`
+  (C2) and `TheSample_ReadEndToEnd_FlagsTheVulnerableTemplates_AndNothingElse` (C1–C3: overview, `AclObjectTypes.ReadAsync`,
+  the classifier, `ExpandAsync`, `CollectPublicKeyAsync`).

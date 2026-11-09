@@ -163,8 +163,22 @@ public sealed record PkiEscSnapshot(
     IReadOnlyList<PkiAccountFact> MappedAccounts,
     bool CaGrantsAuthenticatedUsersEnroll)
 {
-    /// <summary>The reader's notices (unresolved trustees and group links).</summary>
+    /// <summary>
+    /// The reader's notices (unresolved trustees and group links) with the snapshot's and the expansion's notices that concern
+    /// the review (base denied, templates without descriptor, CA computers unresolved, trustees unresolved).
+    /// </summary>
     public IReadOnlyList<PkiReadNotice> Notices { get; init; } = [];
+
+    /// <summary>
+    /// The rule groups whose data could not be read (<see cref="PkiEscResult.NotEvaluated"/>): <see cref="PkiRuleGroup.AccessControl"/>
+    /// when <c>CollectPublicKeyAsync</c> failed – ESC5 and the <c>altSecurityIdentities</c> writes of ESC14 are skipped, ESC4
+    /// still uses the template rights –, <see cref="PkiRuleGroup.Enrollment"/> / <see cref="PkiRuleGroup.Mapping"/> to skip
+    /// those rules entirely.
+    /// </summary>
+    public IReadOnlyList<PkiRuleGroup> NotEvaluated { get; init; } = [];
+
+    /// <summary>The names of the grant trustees the reader resolved (SID → name; the graph, then one <c>objectSid</c> lookup).</summary>
+    public IReadOnlyDictionary<string, string> TrusteeNames { get; init; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Counts only.</summary>
     public override string ToString() => string.Create(CultureInfo.InvariantCulture,
