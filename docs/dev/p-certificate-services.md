@@ -3,12 +3,11 @@
 Product description (Polish): README, *Ścieżka P – Urząd certyfikacji (AD CS) i certyfikaty*. This note is the
 implementation design of stage **P1** (read-only overview of the forest PKI, LDAP only) and is **binding** for the P1
 implementers: the public types of 2.11 are the contract, each heading of 2.1–2.6 names its owner, and 2.12 fixes which
-files each agent may touch. P2 (safe changes through the change plan) and P3 (work with the CA host) get their own
-top-level sections later, the way the K note grew from §14 to §21; do not renumber 2.x after the P1 contract commit (XML
-docs and `PkiFindingCodes` will quote these section numbers). Revised after the P1 design review (2.13). Later stages
-are numbered as in README at this note's base commit (a772ac1): P2 repairs through the change plan, P3 work with the CA
-host, P4 links (Watchdog, E, K, U, S). A README change in progress inserts P2 *wystawianie certyfikatów* and shifts them
-to P3 / P4 / P5; when it is committed the lead renumbers these references (no P1 content depends on it).
+files each agent may touch. Later stages (README track P, *Etapy*, operator decision 2026-11-09): P2 certificate
+issuance (requests, CSR, enrollment from templates, renewal), P3 safe changes through the change plan (*Napraw…*), P4
+work with the CA host, P5 links (Watchdog, E, K, U, S); each gets its own top-level section later, the way the K note
+grew from §14 to §21; do not renumber 2.x after the P1 contract commit (XML docs and `PkiFindingCodes` will quote these
+section numbers). Revised after the P1 design review (2.13).
 
 ## 1. Decisions (operator, 2026-11)
 
@@ -31,12 +30,12 @@ rule 5: nothing is written), LDAP only (rule 4: everything through the window se
    `max(1 day, 20 % of (nextUpdate − thisUpdate))` is left; a CRL without `nextUpdate` is *nieznany*, never *wygasła*.
    Stored in `AppSettings.Pki` like the other UI settings and editable in the Settings window. Health states are computed
    **when shown** from the snapshot, the current settings and the clock – never cached with the snapshot.
-3. **CA-enrollment assumption.** Until P3 reads the CA's own security, the ESC review assumes every CA grants *Enroll* to
+3. **CA-enrollment assumption.** Until P4 reads the CA's own security, the ESC review assumes every CA grants *Enroll* to
    *Authenticated Users* (the Windows default) and every enrollment-based finding says so (`AssumesCaEnroll`). A template
    **no enterprise CA publishes** is reported one level lower with the note *szablon nie jest wystawiany* (`NotPublished`)
    – exploitable only once it is published. A default, patched CA adds the SID extension (`szOID_NTDS_CA_SECURITY_EXT`)
    to certificates whose subject is built from AD, so a default forest raises neither ESC9 (template flag clear) nor ESC16
-   (CA `DisableExtensionList` – P3); the review says that a default build is not vulnerable.
+   (CA `DisableExtensionList` – P4); the review says that a default build is not vulnerable.
 4. **Principal classes for ESC** (decide a finding's severity; one `PrincipalClassifier` shared by 2.3 and 2.4). SIDs of
    the form `S-1-5-21-<domain>-<RID>` are classified **by RID for any domain of the forest**, not only the window's:
    * *Tier 0 / infrastructure* → **no finding**: `PrivilegedGroupCatalog` Tier 0 groups and every account or group that
@@ -76,7 +75,7 @@ rule 5: nothing is written), LDAP only (rule 4: everything through the window se
    consequence (it can never watch `userPKCS12`) is stated and tested.
 8. **Shared Core.** Template flag tables, period decoding, certificate / CRL summaries, the health rules, the
    `msDS-KeyCredentialLink` and `altSecurityIdentities` parsers, the rights evaluator and the ESC analyzer all live in
-   `AdMng.Core/Pki` (no Windows types) so the Watchdog can reuse them (P4). The Watchdog's `FlagNames` takes the names of
+   `AdMng.Core/Pki` (no Windows types) so the Watchdog can reuse them (P5). The Watchdog's `FlagNames` takes the names of
    its two certificate tables from `PkiFlags` in a **separate, behaviour-neutral** commit: `PkiFlags.Select` keeps
    exactly today's bits in today's order (no `SUBJECT_ALT_REQUIRE_SPN`, none of `0x2000`–`0x40000`; unknown bits still
    `0x…`; `TableOf` unchanged), pinned by a golden test committed **before** it. `userPKCS12` becoming secret is the only
@@ -95,7 +94,7 @@ rule 5: nothing is written), LDAP only (rule 4: everything through the window se
    *Otwórz szablon/urząd* navigation; export CSV/HTML on demand), **gotowość na silne mapowanie i NTAuth** (accounts with
    weak `altSecurityIdentities`, authentication templates without the SID extension, logon-capable CAs not in NTAuth, DC
    LDAPS certificates without a proper SAN/EKU, KDC certificates published on the DC objects). `EventLogLauncher` has no
-   preset query, so the KDC events 39/40/41/45/21 row says *P4* and no track-E file changes. Read-only property-sheet tabs
+   preset query, so the KDC events 39/40/41/45/21 row says *P5* and no track-E file changes. Read-only property-sheet tabs
    *Opublikowane certyfikaty* (user, computer, contact), *Mapowania nazw* (user, computer) with KB5014754 strength and
    *Poświadczenia kluczy* (user, computer) with key id, device id, source, created / last-logon, usage – read lazily, no
    writes. From a CA to its computer object and to the K1 remote actions (by the computer DN resolved in 2.1).
@@ -219,7 +218,7 @@ the DC object publishes in `userCertificate`: `Ready` (time-valid, EKU KDC Authe
 Smart-Card Logon + Server Authentication pair of the legacy *Domain Controller* template – and the issuer's certificate in
 NTAuth), `NoKdcEku`, `IssuerNotInNtAuth`, `Expired`, or `NoPublishedCertificate` (publishing is optional: *nieznany*,
 not a failure). It is labelled *z certyfikatów opublikowanych w AD*; the authoritative check of the KDC's own store is
-P3/K1.
+P4/K1.
 
 ### 2.2 Core – certificate templates: model, flag tables and period decoders (C2)
 
@@ -319,7 +318,7 @@ right it grants, with `m = DirectoryAccessMask.Normalize(ace.Mask)`:
   **AutoEnroll** the same with `Certificate-AutoEnrollment`. The extended-right GUIDs are in `AclObjectTypes`
   (`Certificate-Enrollment` `0e10c968-78fb-11d2-90d4-00c04f79dc55`, `Certificate-AutoEnrollment`
   `a05b8cc2-17bc-4802-a710-e7c15ab866a2` – the GUIDs Locksmith's `SafeObjectTypes` uses) and in `ExtendedRightIds`
-  (for P2's `ModifySecurity`).
+  (for P3's `ModifySecurity`).
 * **FullControl** = `ObjectType is null && (m & FullControl) == FullControl` – it also yields Enroll, AutoEnroll,
   WriteDacl, WriteOwner and WriteAllProperties; **WriteDacl**, **WriteOwner** from the mask bits.
 * **WriteAllProperties** = `(m & WriteProperty) != 0 && ObjectType is null` (GENERIC_WRITE normalizes into it).
@@ -474,14 +473,14 @@ carries `AssumesCaEnroll`. **Approval** = `RequiresManagerApproval` or `Requires
 | `EnrollmentAgentTargetTemplate` | ESC3 | `ESC3` (C2) | `SchemaVersion ≥ 2` **and** `RaSignatures ≥ 1` **and** `RaApplicationPolicies` contains Certificate Request Agent **and** `IsClientAuth` **and** enrollable; a schema-v1 target is never a finding of its own (it would flag the default *User* template) | manager approval suppresses (the signature is the condition) | High with a broad `EnrollmentAgentTemplate` finding, Medium with an other one, else Low + `TargetOnly` |
 | `TemplateWriteable` | ESC4 | `ESC4` | a broad/other trustee holds FullControl, WriteDacl, WriteOwner, WriteAllProperties, Owner or WriteSensitiveProperty; WriteOtherProperty → Low (Certipy flags only all-properties writes, Locksmith every write but Enroll/AutoEnroll – the graded model finds both); an unknown attribute GUID → the full level + `UnknownAttribute` | never | broad → Critical, other → Medium |
 | `PkiObjectWriteable` | ESC5 | `ESC5` | a broad/other trustee holds GenericAll, WriteDacl, WriteOwner, WriteAllProperties, Owner, CreateChild or a write of a named attribute on a PKI container, NTAuth, an OID object, an enrollment service, a CA / AIA / CDP object or the CA's computer object (`PkiAclGrant`, templates excluded – they are ESC4), with the decision-4 safe set and the decision-6 provisioning trustees | never | broad → Critical, other → Medium |
-| `NoSecurityExtensionClientAuth` | ESC9 | `ESC9` | `NoSecurityExtension` (`0x80000`) **and** `IsClientAuth` **and** enrollable (the DC-side enforcement is P3/K1; P1 reports the template) | lowers | broad → High, other → Medium |
+| `NoSecurityExtensionClientAuth` | ESC9 | `ESC9` | `NoSecurityExtension` (`0x80000`) **and** `IsClientAuth` **and** enrollable (the DC-side enforcement is P4/K1; P1 reports the template) | lowers | broad → High, other → Medium |
 | `IssuancePolicyLinkedToGroup` | ESC13 | `ESC13` | a value of `msPKI-Certificate-Policy` **equals** the `msPKI-Cert-Template-OID` of an `msPKI-Enterprise-Oid` object (join by the OID string, never by DN) whose `msDS-OIDToGroupLink` resolves to a group of the graph (normally an empty universal group – its membership comes from the certificate; members the graph shows are listed too), **and** `IsClientAuth` **and** enrollable | lowers | linked group Tier 0 → Critical, else High |
-| `WeakExplicitMapping` | ESC14 | – | (a) a Tier 0 account carries a weak `altSecurityIdentities` mapping (`PkiAccountFact`) → High; weak mappings on other accounts → one aggregated Low finding with the count (the readiness report lists them); (b) a broad/other trustee holds `WriteAltSecurityIdentities` or `WriteAllProperties` on a Tier 0 account (`PkiAclGrant.TargetKind = Tier0Account`; full control of a Tier 0 object is already U4) → broad Critical, other Medium. Full enforcement (Sept. 2025 update) rejects weak mappings – the DC state is P3/K1 | never | as given |
-| `SchemaV1EnrolleeSuppliesSubject` | ESC15 | `ESC15/EKUwu` | `SchemaVersion = 1` **and** `EnrolleeSuppliesSubject` **and** enrollable, no EKU condition (CVE-2024-49019; Locksmith flags every enrollable v1 template, Certipy only with ESS – the difference is documented), note `PendingCaPatch` (*zależne od poprawki urzędu z listopada 2024*, confirmed in P3) | lowers | Medium |
+| `WeakExplicitMapping` | ESC14 | – | (a) a Tier 0 account carries a weak `altSecurityIdentities` mapping (`PkiAccountFact`) → High; weak mappings on other accounts → one aggregated Low finding with the count (the readiness report lists them); (b) a broad/other trustee holds `WriteAltSecurityIdentities` or `WriteAllProperties` on a Tier 0 account (`PkiAclGrant.TargetKind = Tier0Account`; full control of a Tier 0 object is already U4) → broad Critical, other Medium. Full enforcement (Sept. 2025 update) rejects weak mappings – the DC state is P4/K1 | never | as given |
+| `SchemaV1EnrolleeSuppliesSubject` | ESC15 | `ESC15/EKUwu` | `SchemaVersion = 1` **and** `EnrolleeSuppliesSubject` **and** enrollable, no EKU condition (CVE-2024-49019; Locksmith flags every enrollable v1 template, Certipy only with ESS – the difference is documented), note `PendingCaPatch` (*zależne od poprawki urzędu z listopada 2024*, confirmed in P4) | lowers | Medium |
 | `EnrolleeSuppliesSubjectServerAuth` | ESC17 | `ESC17` | `EnrolleeSuppliesSubject` **and** `IsServerAuth` **and** enrollable (Certipy `server_authentication` includes Any Purpose; Locksmith only `1.3.6.1.5.5.7.3.1`) | suppresses | broad → High, other → Medium |
 
 Certipy also reports ESC1 and ESC2 (and ESC3, ESC17) together on an enrollee-supplies-subject Any-Purpose template; the
-review does the same and groups the rows by template. All eleven codes are LDAP-only; ESC6/7/8/10/11/16 are P3 and ESC12
+review does the same and groups the rows by template. All eleven codes are LDAP-only; ESC6/7/8/10/11/16 are P4 and ESC12
 is out of scope – none is in `PkiFindingCodes`.
 
 ### 2.5 Presentation/App – the PKI node, snapshot service, settings and the overview, templates, security and readiness documents (W5, W6)
@@ -571,14 +570,14 @@ attack path, the affected object, the principals with counts and the notes. **No
 *Otwórz szablon/urząd* through `Pki.RequestDocument` (`PkiDocumentRequest` with `TemplateCn` / `CaDn`), *Kopiuj*,
 *Eksportuj CSV / HTML* (self-contained HTML page, CSP `default-src 'none'`, every value through `E()`, a privacy footer).
 *Gotowość na silne mapowanie i NTAuth* (`PkiReadinessDocumentViewModel`) is a **separate document** in the PKI area (not
-the stage-S readiness check – README puts stage-S PKI rows in P4) with status rows (`Ok` / *ostrzeżenie* / *problem* /
+the stage-S readiness check – README puts stage-S PKI rows in P5) with status rows (`Ok` / *ostrzeżenie* / *problem* /
 *nie sprawdzono*): accounts with weak `altSecurityIdentities` (`expansion.MappedAccounts`, Tier 0 first), authentication
 templates without the SID extension (published `IsClientAuth` templates with `NoSecurityExtension`, and those with
 `EnrolleeSuppliesSubject`, whose certificates carry no SID and need a strong explicit mapping), logon-capable enterprise
 CAs not in NTAuth (publishing an `IsClientAuth` template, `InNtAuth = false`), DC LDAPS certificates without a proper
 SAN/EKU (`GetDcCertificatesAsync` on the document's own button, or the cached results), KDC certificates
 (`KdcCertificateEvaluation` over the certificates `GetDomainControllersAsync` returns), and a KDC events 39/40/41/45/21
-row that says *P4*.
+row that says *P5*.
 Finding texts are the dynamic resx keys of `PkiFindingText` (2.8).
 
 **Shell wiring.** The contract commit pre-wires the call sites to stubs in `src/AdMng.Presentation/Shell/ShellViewModel.Pki.cs`
@@ -625,7 +624,7 @@ confidential text) are unchanged: shown, copied through `ClipboardCopy.Secret`. 
 never show secrets).
 
 **TLS probe implementation** (`src/AdMng.Directory/Pki/SslStreamTlsProbe.cs`, implements 2.1; Directory is cross-platform
-and already TCP/LDAP-flavoured, and the Watchdog service references it for P4 LDAPS-expiry reminders): `HostNames.IsValid`
+and already TCP/LDAP-flavoured, and the Watchdog service references it for P5 LDAPS-expiry reminders): `HostNames.IsValid`
 (else `InvalidHost`; ports other than 636 / 3269 refused), `TcpClient` + `SslStream` with the `LdapConnectionFactory.ProbeAsync`
 timeout pattern (a linked CTS; the probe's own timeout → `Timeout`, the caller's cancellation propagates).
 `AuthenticateAsClientAsync(new SslClientAuthenticationOptions { TargetHost = host, ClientCertificates = [] /* empty */,
@@ -665,7 +664,7 @@ registers no fallback (it consumes the probe through `GetService`).
   that leaves the session is the 636/3269 TLS probe and, on the operator's button, the AIA/CDP/OCSP HTTP check (decision
   1); `ldap://host` URLs are never followed.
 * **Rule 5.** P1 writes nothing: the documents and property tabs are read-only, `GetOperations()` returns `[]`, the ESC
-  review offers navigation only (no `Napraw`), the masked editor rows stage nothing. P2 adds the change-plan repairs.
+  review offers navigation only (no `Napraw`), the masked editor rows stage nothing. P3 adds the change-plan repairs.
 * **Rule 6.** The snapshot build, the account pass, the ESC read and the TLS / HTTP checks are async, cancellable and
   report progress; at most 4 TLS probes and 4 HTTP checks at a time; long template and finding lists virtualize; the
   ESC analysis and the property-tab parsing run on `Task.Run`.
@@ -733,16 +732,18 @@ Polish UI wording as in the consoles' Polish editions; test data with diacritics
 
 ### 2.9 Not in P1 (later options)
 
-P2 repairs (`Napraw…`, template-property edits, `ModifySecurity` ACL writes, template copy, NTAuth / `msDS-OIDToGroupLink`
-edits, `userCertificate` / `altSecurityIdentities` / `msDS-KeyCredentialLink` edits, bulk actions); P3 CA-host reads and
-actions (ESC6/7/8/10/11/16, the CA's own enrollment security replacing the decision-3 assumption, the database views,
-approval/revocation/CRL publication, the KDC's own certificate store); ESC12 (YubiHSM) is out of program scope. The
-DC-side enforcement of ESC9 / ESC10 / ESC14 (`StrongCertificateBindingEnforcement`, Schannel `CertificateMappingMethods`)
-and the September-2025 patch read are P3/K1. Moving PKI ESC evaluation into the Watchdog (P4 / track W) needs a user
-decision and an ADR-0008/0009 amendment (Q24, 2026-10-20). P4: the KDC-event analysis of the readiness report (needs a
-preset query in the event-log reader, track E), the Watchdog history on *Poświadczenia kluczy* (README: *historia z
-Watchdoga, gdy jest podłączony*), the stage-S PKI rows. OCSP requests (beyond reachability) and PKCS#7 AIA bundles are
-later options. An MDI assessment id is filled in only when a real one is known.
+P2 certificate issuance (requests and CSR, enrollment from templates over the CA, renewal, export on request – README
+*Wystawianie certyfikatów*); P3 repairs (`Napraw…`, template-property edits, `ModifySecurity` ACL writes, template copy,
+NTAuth / `msDS-OIDToGroupLink` edits, `userCertificate` / `altSecurityIdentities` / `msDS-KeyCredentialLink` edits, bulk
+actions); P4 CA-host reads and actions (ESC6/7/8/10/11/16, the CA's own enrollment security replacing the decision-3
+assumption, the database views, approval/revocation/CRL publication, the KDC's own certificate store); ESC12 (YubiHSM)
+is out of program scope. The DC-side enforcement of ESC9 / ESC10 / ESC14 (`StrongCertificateBindingEnforcement`,
+Schannel `CertificateMappingMethods`) and the September-2025 patch read are P4/K1. Moving PKI ESC evaluation into the
+Watchdog (P5 / track W) needs a user decision and an ADR-0008/0009 amendment (Q24, 2026-10-20). P5: the KDC-event
+analysis of the readiness report (needs a preset query in the event-log reader, track E), the Watchdog history on
+*Poświadczenia kluczy* (README: *historia z Watchdoga, gdy jest podłączony*), the stage-S PKI rows. OCSP requests
+(beyond reachability) and PKCS#7 AIA bundles are later options. An MDI assessment id is filled in only when a real one
+is known.
 
 ### 2.10 Test plan
 
@@ -970,7 +971,7 @@ before Presentation):
 **Files nobody changes in P1:** `L.cs`, `Directory.Packages.props`, `AdMng.slnx`, the Watchdog projects other than the
 `FlagNames.cs` delegation and the two new Watchdog test files, `AddSampleCompany`, `AddWatchdogInfrastructure`,
 `Fields.cs`, `EventLogServices.cs` / `EventLogLauncher.cs` (track E), the stage-S `ReadinessChecker` / `ReadinessCodes`
-(the PKI readiness report is a PKI-area document – README puts stage-S PKI rows in P4), and `CLAUDE.md` during the waves
+(the PKI readiness report is a PKI-area document – README puts stage-S PKI rows in P5), and `CLAUDE.md` during the waves
 (the lead updates it in the integration step). Any other change to a file another owner holds needs the lead's agreement
 and a line in 2.14; a merge conflict outside the anchors above means a rule of this section was broken.
 
@@ -1002,7 +1003,7 @@ fixed in 1–2.12 without a note. Taken in part or rejected:
   keep today's display and secure copy – whether to mask them too is an operator question (below).
 * architecture-12, workplan-24 (KDC readiness) – in part: the evaluation is labelled LDAPS-only and gets `now`, roots,
   intermediates and NTAuth separately; KDC readiness is shown as an indicator from the DCs' published `userCertificate`
-  (workplan-24) instead of moving it wholly to P3/K1 (architecture-12); the KDC's own store stays P3/K1.
+  (workplan-24) instead of moving it wholly to P4/K1 (architecture-12); the KDC's own store stays P4/K1.
 * architecture-16, workplan-32 (CA-host navigation) – in part: no `ComputerLookup` and no `PkiHostNavigator`; C1 resolves
   the CA computer DN/SID (workplan-18) and W5 navigates by DN through `PkiServices`, so no track-E or stage-S file changes.
 * workplan-8 (freeze the `PkiDocumentBase` surface) – in part: the lead writes `PkiServices` and `PkiDocumentBase`
@@ -1016,7 +1017,7 @@ fixed in 1–2.12 without a note. Taken in part or rejected:
 * workplan-21 (`EffectiveEku` only) – in part: `EffectiveEku` is defined, but the rules evaluate it **and**
   `pKIExtendedKeyUsage` (Certipy and Locksmith read only the latter), marking disagreements `EkuSourcesDiffer`.
 * Author's open questions, settled: ESC17 = Certipy's definition (ESS + server-auth incl. Any Purpose; Locksmith only the
-  Server Auth OID); Locksmith ids are the `Technique` strings (ESC14 has none; ESC16/17 exist but ESC16 is P3), MDI ids
+  Server Auth OID); Locksmith ids are the `Technique` strings (ESC14 has none; ESC16/17 exist but ESC16 is P4), MDI ids
   stay null; ESC14 covers weak mappings and `altSecurityIdentities` writes, no issuer cross-check in P1; the TLS probe
   stays in `AdMng.Directory`; the PKI pass stays inside `DirectoryAclGrantSource` (source count 2).
 * Operator question (open): should the attribute editor also mask the LAPS clear-text password, the BitLocker recovery
