@@ -180,6 +180,27 @@ public sealed class GpoSettingsIndexServiceTests
     }
 
     [Fact]
+    public async Task IfMissingRightAfterCancelBuild_StartsAFollowUp_InsteadOfJoiningTheCancelledBuild()
+    {
+        var harness = await IndexHarness.CreateAsync();
+        using var service = new GpoSettingsIndexService(harness.Services);
+        var hold = harness.Sysvol.HoldNext("Read");
+
+        var cancelled = service.GetAsync(GpoIndexRefresh.IfMissing, Ct);
+        await hold.Reached.WaitAsync(TimeSpan.FromSeconds(30), Ct);
+        service.CancelBuild();
+        var again = service.GetAsync(GpoIndexRefresh.IfMissing, Ct); // the cancelled build is still winding down
+        hold.Release();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelled);
+        var view = await again;
+        Assert.Same(view, service.Current);
+        Assert.Equal(2, harness.Sysvol.OpenedOn.Count);
+        await WaitUntilAsync(() => !service.IsBuilding);
+        Assert.Equal(0, harness.Sysvol.OpenConnections);
+    }
+
+    [Fact]
     public async Task RefreshesDuringABuild_QueueExactlyOneFollowUp()
     {
         var harness = await IndexHarness.CreateAsync();

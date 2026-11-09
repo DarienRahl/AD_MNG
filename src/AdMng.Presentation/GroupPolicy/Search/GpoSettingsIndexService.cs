@@ -30,6 +30,7 @@ public sealed class GpoSettingsIndexService : IGpoSettingsIndexService, IDisposa
     private Build? _queued;
     private GpoIndexProgress? _progress;
     private bool _disposed;
+    private int _statePosted;
 
     public GpoSettingsIndexService(GroupPolicyServices services)
     {
@@ -107,14 +108,15 @@ public sealed class GpoSettingsIndexService : IGpoSettingsIndexService, IDisposa
                 return _view;
             }
 
-            if (_running is { } running && ReferenceEquals(running.Session, session) && (refresh == GpoIndexRefresh.IfMissing))
+            if (_running is { IsCancelled: false } running && ReferenceEquals(running.Session, session) && refresh == GpoIndexRefresh.IfMissing)
             {
                 build = running;
             }
             else if (_running is not null)
             {
-                // A follow-up of the running build: exactly one, the stronger request.
-                var kind = refresh == GpoIndexRefresh.IfMissing ? GpoIndexRefresh.Full : refresh;
+                // A follow-up of the running build (or of a cancelled one still winding down, or of another session's):
+                // exactly one, the stronger request. IfMissing becomes Incremental – it reuses the view only when it fits.
+                var kind = refresh == GpoIndexRefresh.IfMissing ? GpoIndexRefresh.Incremental : refresh;
                 _queued ??= new Build(kind, session, _services.Lifetime);
                 if (kind == GpoIndexRefresh.Full)
                 {
@@ -412,14 +414,22 @@ public sealed class GpoSettingsIndexService : IGpoSettingsIndexService, IDisposa
 
     private void OnSessionChanged(object? sender, EventArgs e) => Invalidate();
 
+    /// <summary>
+    /// Raises <see cref="StateChanged"/> on the UI dispatcher, coalesced: while one notification waits for the dispatcher no
+    /// other is posted (a build reports per folder and per GPO; the handlers read the current state anyway).
+    /// </summary>
     private void RaiseStateChanged()
     {
-        if (StateChanged is null)
+        if (StateChanged is null || Interlocked.Exchange(ref _statePosted, 1) == 1)
         {
             return;
         }
 
-        _ = _services.Dispatcher.RunAsync(() => StateChanged?.Invoke(this, EventArgs.Empty));
+        _ = _services.Dispatcher.RunAsync(() =>
+        {
+            Volatile.Write(ref _statePosted, 0);
+            StateChanged?.Invoke(this, EventArgs.Empty);
+        });
     }
 
     private enum BuildKind
@@ -434,6 +444,7 @@ public sealed class GpoSettingsIndexService : IGpoSettingsIndexService, IDisposa
     {
         private readonly CancellationTokenSource _cts = CancellationTokenSource.CreateLinkedTokenSource(lifetime);
         private int _disposed;
+        private bool _cancelled;
 
         public GpoIndexRefresh Kind { get; set; } = kind;
 
@@ -451,9 +462,16 @@ public sealed class GpoSettingsIndexService : IGpoSettingsIndexService, IDisposa
 
         public CancellationToken Token => _cts.Token;
 
-        /// <summary>Stops the build; a queued (never started) build completes as cancelled at once.</summary>
+        /// <summary><see cref="Cancel"/> ran, or the window's lifetime ended: joining this build would only end in a cancellation.</summary>
+        public bool IsCancelled => Volatile.Read(ref _cancelled) || lifetime.IsCancellationRequested;
+
+        /// <summary>
+        /// Stops the build; a queued (never started) build completes as cancelled at once and releases its link to the
+        /// window's lifetime (it never reaches <c>RunAsync</c>, which disposes started builds).
+        /// </summary>
         public void Cancel()
         {
+            Volatile.Write(ref _cancelled, true);
             if (Volatile.Read(ref _disposed) == 0)
             {
                 try
@@ -469,6 +487,7 @@ public sealed class GpoSettingsIndexService : IGpoSettingsIndexService, IDisposa
             if (Generation == 0)
             {
                 Completion.TrySetCanceled();
+                Dispose();
             }
         }
 
