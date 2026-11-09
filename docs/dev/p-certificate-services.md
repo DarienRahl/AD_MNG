@@ -1088,3 +1088,77 @@ of 2.1–2.6):
   Zofia's end on 2027-02-01, inside the issuing CA's validity; the CES entry of `msPKI-Enrollment-Servers` has
   authentication 2 (Kerberos). Polish `PrivilegedAccess.AclRight.WriteTemplateProperty` = *Zapis właściwości szablonu
   certyfikatu istotnej dla bezpieczeństwa*.
+
+**C3 as built.** Bodies of `TemplateRights.cs` / `TemplateRightsEvaluator.cs`, `AclObjectTypes.ReadAsync` + `Fallbacks`,
+and the PKI pass of `DirectoryAclGrantSource.cs` at the 2.12 anchors (plus the internal `AclTarget.PkiKind` and the
+private PKI methods of `DirectoryAclScan`; `RunAsync` now calls `AclObjectTypes.ReadAsync` – the moved Extended-Rights
+read, its private copy removed, behaviour-neutral). No public member renamed or removed.
+* *Additions (init only).* `TemplateAcl.HasOwnerRights`; `PkiEnrollmentExpansion.Classifier` (the pass's classifier with
+  the Tier 0 accounts it found – C4's reader classifies the grant trustees with it, `expansion.Classifier ?? new
+  PrincipalClassifier(…)`, so a user named directly in an ACE who is a Domain Admin is Tier 0) and
+  `PkiEnrollmentExpansion.DistinctTokens`; `PrincipalClassifier.Tier0Accounts`.
+* *GUIDs.* The schemaIDGUIDs of the nine sensitive attributes, of `altSecurityIdentities` (`00fbf30c-91fe-11d1-aebc-
+  0000f80367c1`) and of the class `pKICertificateTemplate` (`e5209ca2-3bba-11d2-90cc-00c04fd91ab1`) are in `Fallbacks`,
+  checked against the Windows Server schema LDF (MS-ADA1/2, MS-ADSC) and pinned by `TemplateRightsEvaluatorTests`.
+  **Correction:** `altSecurityIdentities` is in the **Public-Information** property set (`attributeSecurityGUID`
+  `e48d0154-bcf8-11d1-8702-00c04fb96050`), so a write of that set writes it: the set and its member are in the fallbacks,
+  and `WriteAltSecurityIdentities` is also reported for it (ESC14). None of the nine template attributes is in a set.
+  The template class must be a fallback: without a readable schema every ACE inherited for templates would be skipped.
+* *Corrections to the evaluator rules of 2.3 (AccessCheck as the DC does it).* (1) An object type equal to the template
+  class covers the whole object (the root of the object type list): write property → `WriteAllProperties`, control access →
+  Enroll + AutoEnroll; U4b likewise treats a write with the object's own class as `WriteAllProperties` on PKI targets.
+  (2) WRITE_DAC / WRITE_OWNER of an object ACE: an allow counts whatever the object type (as U4b), a deny only without
+  one – conservative both ways. (3) `FullControl` is one ACE with the full mask and no object type; a deny removing any
+  part of it denies it; a full-control trustee is listed under FullControl, Enroll, AutoEnroll, WriteDacl, WriteOwner and
+  WriteAllProperties, not under the attribute rights (they name attributes). (4) `WriteSensitiveProperty` /
+  `WriteOtherProperty` are decided **per attribute** (the first ACE covering that attribute – that right on it, or a write
+  of all properties – decides), so a deny on one attribute does not hide a write of another; one trustee row per attribute.
+  A write-property ACE whose object type is a class or an extended right reaches no property. (5) An `InheritedObjectType`
+  nothing can name is kept (conservative), a known other class skipped. (6) Callback (conditional) deny ACEs are not
+  honoured (their condition cannot be evaluated), callback allows count. (7) A descriptor without a DACL
+  (`SE_DACL_PRESENT` clear or no offset – not returned, or a NULL DACL) is not evaluated. (8) OWNER RIGHTS: an effective
+  `S-1-3-4` ACE sets `HasOwnerRights` (the `Owner` right is then not held) and a token with the owner SID holds `S-1-3-4`;
+  its rows go to the owner; CREATOR OWNER / GROUP (and the server forms) and PRINCIPAL SELF are never trustees.
+* *Tokens.* Also NETWORK (`S-1-5-2`): the CA (enrollment) and the DC (template writes) see a network logon, so an ACE for
+  Network is held by every account. `S-1-5-9` only for writable DCs (`SERVER_TRUST_ACCOUNT`) – an RODC's token carries
+  Enterprise Read-only DCs (498) instead. The primary group is the account's own domain prefix + `primaryGroupID`.
+  `sIDHistory` is not read (the `AccountAttributes` list is unchanged).
+* *Trustee level and expansion.* Rows per right in enum order, trustees in DACL order, the owner last; `Name` = the graph
+  node's name, after the pass also an account's. `IsResolved = false` for a SID of another domain (prefix ≠ the window's
+  domain SID), counts -1; one `TrusteeUnresolved` notice per template, only when such a trustee is not Tier 0 (from a child
+  window the root's Domain/Enterprise Admins are on every template – their count never changes a finding). Totals: one per
+  `TemplateRight` for an evaluated template (none for an unevaluated one); `HighestClass` = the most dangerous class among
+  that right's rows with an account or unresolved. `FirstAccounts`: in stream order, a disabled account gives way to a
+  later enabled one, enabled listed first (trustee rows too). Progress every 500 accounts and once at the end. Measured:
+  100 000 generated accounts in about 1 s (test budget 30 s).
+* *Classifier.* The Tier 0 groups of the graph are the closure downward from the groups Tier 0 by the SID / RID rules or
+  the catalogue (`options.LevelOf`; the fixed SIDs and RIDs of decision 4 cannot be lowered), computed once by the
+  classifier itself – `GroupGraph.GrantedLevel` is not used, its cache is keyed to the U4 evaluator's level function.
+  Broad wins over the graph (Domain Users nested in a Tier 0 group stays Broad). Accounts are Tier 0 when any SID of their
+  token is (account RID 500, a CA computer, a Tier 0 group, `S-1-5-9`).
+* *U4b PKI pass.* After the GPO block, before the Tier 0 objects (a CA on a DC is read as a CA computer). The CA computers
+  of the window's domain – by the services' `dNSHostName` (or `sAMAccountName` = label$) in `RunAsync`, by DN in
+  `CollectPublicKeyAsync` – are Tier 0 account targets, so U4b now also reports delegations on the CA computer objects.
+  **Correction:** "in the window's domain" is the exact domain part of the host (`srv-ca03.oddzial.contoso.test` is a child
+  domain's, not `contoso.test`'s) and, for a DN, the window's own DC components – 2.1's "`DomainDnsName` suffix" would put
+  a child domain's CA in the parent's window (C1: use the exact match too). Provisioning trustees: the root's Domain Admins
+  (any domain's 512 while the root is unknown) on every PKI object; Cert Publishers (517 of any domain) on AIA, CDP,
+  Certification Authorities, NTAuth, KRA, Enrollment Services and below; each CA computer on its enrollment service, the
+  CDP host container named by its host label and the CRLs below it, and the `certificationAuthority` objects (AIA,
+  Certification Authorities – not NTAuth) holding one of its `cACertificate` values (byte-equal). Control access without
+  an object type is not reported on PKI objects (the only extended rights there are Enroll / AutoEnroll – enrollment is
+  the evaluator's business, not control). Owners: `container` objects, templates, enrollment services, NTAuth, OID objects
+  with a group link; KRA agents are `PkiAclTargetKind.Container` in the typed output (no kind of their own) but their
+  owner is not reported. Unknown attribute GUIDs on a template → `WriteTemplateProperty` with the GUID as detail.
+* *`CollectPublicKeyAsync`.* PKI pass with the given CA computers + AdminSDHolder as `Tier0Account` (SDProp stamps its DACL
+  on every protected account) + one search of the Tier 0 accounts: DCs, Administrator, krbtgt and the direct `memberOf`
+  members of every graph group the classifier calls Tier 0 (the closure, so nested members are included) – wider than
+  `Tier0Filter`, whose groups are no ESC14 targets. Output ordered by DN, SID, right, detail.
+* *Limits.* From a child-domain window the CA computers (root domain) stay unresolved (2.1), so their own ACEs on the CA
+  objects are reported (U4b) and are *Other* for C4 – the known limitation of 2.1. The Samba-lab `AclDelegationTests` was
+  not run here (no lab); Samba's PKI containers carry only class defaults and inherited configuration ACEs (default
+  trustees), so it should not change.
+* *Tests.* `tests/AdMng.Core.Tests/Pki/{TemplateRightsEvaluatorTests,PrincipalClassifierTests,TemplateExpansionTests}.cs`,
+  `tests/AdMng.Core.Tests/PrivilegedAccess/DirectoryAclPublicKeyTests.cs`; `DirectoryAclGrantSourceTests` unchanged. The
+  trustee level of `AddPublicKeySample` runs now (identity part of `CertificateTemplate.Of`); the expansion of the sample
+  (`TheExpansionOfTheSample_…`) needs C4's `AltSecurityIdentity.Parse` and is `[Fact(Skip = "P1 wave 1 merge")]`.
