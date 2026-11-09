@@ -66,8 +66,9 @@ internal static class CertificateChecks
 
     /// <summary>
     /// Whether the certificate's issuer is in <paramref name="store"/> (NTAuth): a certificate there whose subject is the
-    /// leaf's issuer (as encoded), whose Subject Key Identifier is the leaf's Authority Key Identifier (when the leaf has
-    /// one) and whose key verifies the leaf's signature (when that can be checked).
+    /// leaf's issuer (as encoded), whose Subject Key Identifier is the leaf's Authority Key Identifier (when both have one –
+    /// a CA certificate without SKI, as older third-party CAs write, is decided by the signature) and whose key verifies
+    /// the leaf's signature (when that can be checked).
     /// </summary>
     public static bool IssuerIn(X509Certificate2 leaf, CertificateSummary leafSummary, IReadOnlyList<byte[]> store)
     {
@@ -81,7 +82,8 @@ internal static class CertificateChecks
             }
 
             if (leafSummary.AuthorityKeyIdentifier is { } aki
-                && !string.Equals(SubjectKeyIdentifier(candidate), aki, StringComparison.OrdinalIgnoreCase))
+                && SubjectKeyIdentifier(candidate) is { } ski
+                && !string.Equals(ski, aki, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }

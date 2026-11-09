@@ -68,6 +68,41 @@ public sealed class KdcCertificateEvaluationTests
     }
 
     [Fact]
+    public void AnNtAuthCaWithoutSubjectKeyIdentifier_IsStillTheIssuer()
+    {
+        // A third-party CA certificate without SKI (older CAs omit it) whose leaves carry an AKI: the key identifiers cannot
+        // be compared, so the signature decides – the CA is in NTAuth.
+        using var caKey = System.Security.Cryptography.RSA.Create(2048);
+        var caRequest = new CertificateRequest("CN=Zewnętrzny CA Kart Ąę, O=Kontoso, C=PL", caKey, System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+        caRequest.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, false, 0, critical: true));
+        using var ca = caRequest.CreateSelfSigned(new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2034, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        Assert.Null(CertificateSummary.Of(ca.RawData)!.SubjectKeyIdentifier);
+
+        using var dcKey = System.Security.Cryptography.RSA.Create(2048);
+        var dcRequest = new CertificateRequest("CN=" + PkiSamples.DcHost, dcKey, System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+        dcRequest.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension([new System.Security.Cryptography.Oid(PkiSamples.KdcAuthentication)], critical: false));
+        dcRequest.CertificateExtensions.Add(X509AuthorityKeyIdentifierExtension.CreateFromSubjectKeyIdentifier(System.Security.Cryptography.SHA1.HashData(ca.PublicKey.EncodedKeyValue.RawData)));
+        using var dc = dcRequest.Create(ca, new DateTimeOffset(2026, 3, 1, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2027, 3, 1, 0, 0, 0, TimeSpan.Zero), [0x65, 0x77]);
+        Assert.NotNull(CertificateSummary.Of(dc.RawData)!.AuthorityKeyIdentifier);
+
+        // The same name without SKI but another key is not the issuer (the signature does not verify).
+        using var impostorKey = System.Security.Cryptography.RSA.Create(2048);
+        var impostorRequest = new CertificateRequest(ca.SubjectName, impostorKey, System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+        impostorRequest.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, false, 0, critical: true));
+        using var impostor = impostorRequest.CreateSelfSigned(new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2034, 1, 1, 0, 0, 0, TimeSpan.Zero));
+
+        var inNtAuth = KdcCertificateEvaluation.Evaluate([dc.RawData], PkiSamples.DcHost, new PkiTrustMaterial([ca.RawData], [], [ca.RawData]), PkiSamples.Now);
+        var outside = KdcCertificateEvaluation.Evaluate([dc.RawData], PkiSamples.DcHost, Trust, PkiSamples.Now);
+        var byImpostor = KdcCertificateEvaluation.Evaluate([dc.RawData], PkiSamples.DcHost, new PkiTrustMaterial([ca.RawData], [], [impostor.RawData]), PkiSamples.Now);
+        var ldaps = DcCertificateEvaluation.Evaluate([dc.RawData], PkiSamples.DcHost, PkiSamples.DomainDns, new PkiTrustMaterial([ca.RawData], [], [ca.RawData]), PkiSamples.Now);
+
+        Assert.Equal(KdcReadinessState.Ready, inNtAuth.State);
+        Assert.Equal(KdcReadinessState.IssuerNotInNtAuth, outside.State);
+        Assert.Equal(KdcReadinessState.IssuerNotInNtAuth, byImpostor.State);
+        Assert.True(ldaps.IssuerInNtAuth);
+    }
+
+    [Fact]
     public void OnlyExpiredKdcCertificates_AreExpired()
     {
         var expired = Issue([PkiSamples.KdcAuthentication], notBefore: new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero), notAfter: new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));

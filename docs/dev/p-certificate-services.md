@@ -1137,8 +1137,9 @@ of 2.1–2.6):
   `NotTimeNested` (that is `IsTimeValid`; an expired intermediate does break the chain); NTAuth certificates are in the
   extra store too. `ChainStatus` = the distinct `X509ChainStatusFlags` names of the build (incl. the leaf's
   `NotTimeValid`). `IssuerInNtAuth` (DC and KDC) is matched directly, not through the chain: an NTAuth certificate whose
-  subject is the leaf's issuer (as encoded), whose SKI is the leaf's AKI and whose key verifies the leaf's signature – so
-  it holds also when the chain does not build, and a certificate with the issuer's name but another key does not count.
+  subject is the leaf's issuer (as encoded), whose SKI is the leaf's AKI (when both carry one: a third-party CA
+  certificate without SKI is decided by the signature) and whose key verifies the leaf's signature – so it holds also
+  when the chain does not build, and a certificate with the issuer's name but another key does not count.
   An empty chain or an unparsable leaf gives `Leaf = null` and every flag false.
 * *KDC (correction to 2.1).* The Smart-Card Logon + Server Authentication pair is the v2 *Domain Controller
   Authentication* template's EKU set; the v1 *Domain Controller* template has only Client + Server Authentication and is
