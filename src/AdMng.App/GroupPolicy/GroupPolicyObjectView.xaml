@@ -245,6 +245,11 @@
               <Button x:Name="EditSettingButton" Margin="6,0,0,0" Command="{Binding EditSettingCommand}" Content="{l:Tr GpoSettings.EditSetting}" />
               <Button x:Name="CopySettingButton" Margin="6,0,0,0" Command="{Binding CopySettingCommand}" Content="{l:Tr GpoSettings.CopySetting}" />
               <Button x:Name="SettingsReportButton" Margin="6,0,0,0" Command="{Binding HtmlReportCommand}" Content="{l:Tr GpoSettings.HtmlReport}" />
+              <Button x:Name="SearchAllGposButton"
+                      Margin="6,0,0,0"
+                      Command="{Binding SearchAllGposCommand}"
+                      Content="{l:Tr GpoSearch.FindInAll}"
+                      ToolTip="{l:Tr GpoSearch.FindInAllHint}" />
             </StackPanel>
             <Grid>
               <TextBox x:Name="SettingsSearchBox"

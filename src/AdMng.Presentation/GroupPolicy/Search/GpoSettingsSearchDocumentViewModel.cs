@@ -179,6 +179,7 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
         IndexInfoText = string.Empty;
         ClearResults();
         OnPropertyChanged(nameof(HasIndex));
+        OnPropertyChanged(nameof(ShowsSummary));
         OnPropertyChanged(nameof(View));
         OnPropertyChanged(nameof(Corpus));
     }
@@ -296,6 +297,7 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
         BuildAreaOptions();
         UpdateStale();
         OnPropertyChanged(nameof(HasIndex));
+        OnPropertyChanged(nameof(ShowsSummary));
         OnPropertyChanged(nameof(View));
         OnPropertyChanged(nameof(Corpus));
         RefreshCommands();

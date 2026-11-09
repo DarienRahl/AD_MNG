@@ -394,6 +394,7 @@ internal static class SmokeTest
             new(GroupPolicyDocumentKind.SecuritySettings) { GpoId = GroupPolicySamples.PasswordsId, Name = "Stacje robocze – Zasady haseł" },
             new(GroupPolicyDocumentKind.Modeling) { ComputerDn = "CN=WAW-PC001,OU=Komputery,OU=Firma," + GroupPolicySamples.DomainDn, Name = "WAW-PC001" },
             new(GroupPolicyDocumentKind.Diagnostics),
+            new(GroupPolicyDocumentKind.SettingsSearch) { SearchText = "hasło" },
         })
         {
             var document = shell.OpenGroupPolicyDocument(request) ?? throw new InvalidOperationException("A Group Policy document did not open.");

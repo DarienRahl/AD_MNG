@@ -86,7 +86,11 @@ public sealed partial class GpoSettingsSearchDocumentViewModel
 
     /// <summary>The query is too short: the summary is shown instead of results.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsSummary))]
     public partial bool IsSummaryShown { get; private set; } = true;
+
+    /// <summary>Settings were read and the query is too short: the view shows the summary over the (empty) list.</summary>
+    public bool ShowsSummary => HasIndex && IsSummaryShown;
 
     /// <summary>The settings per area and in total (shown for an empty or one-character query).</summary>
     [ObservableProperty]

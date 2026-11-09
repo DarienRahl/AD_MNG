@@ -49,6 +49,7 @@ public sealed class GpoSearchRowViewModel
         Marks = marks;
         MarksText = string.Join(" · ", marks);
         RefusalText = record.Unit.Refusal is { } refusal ? GpoUnitRefusalText.Text(localizer, refusal) : null;
+        RefusalNote = RefusalText is { } why ? localizer.Format(L.GpoSearch.DetailsRefusal, why) : null;
         CanEdit = GroupPolicyActions.CanEditSetting(record.Text.Focus);
     }
 
@@ -96,6 +97,9 @@ public sealed class GpoSearchRowViewModel
 
     /// <summary>Why the setting cannot be copied or removed (null: it can).</summary>
     public string? RefusalText { get; }
+
+    /// <summary>"Nie można skopiować: …" (the details pane; null when the setting can be copied).</summary>
+    public string? RefusalNote { get; }
 
     public bool IsMasked => Record.IsMasked;
 
