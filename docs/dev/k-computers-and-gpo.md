@@ -2478,8 +2478,13 @@ and marks its item `Truncated`; an identity that falls back to the item id is wr
 `#n` gets a closing `|`, so `BaseIdOf(Id) == BaseId` always. Policies also get a `ValueFingerprint` (state and element values,
 canonical) next to `PolicySetting` equality; `SameValue` also requires the same kind and base id. `PrincipalSids` holds SIDs
 only (an unresolved name stays in `Principals`). `GpoPrincipalResolver.ResolveAsync` returns `KONTOSO\Domain Admins` (another
-domain) as `Unresolved` although `KnownSid` maps the bare name to this domain's RID 512. An incremental index build keeps the
+domain) as `Unresolved` although `KnownSid` maps the bare name to this domain's RID 512; `PrincipalNames` therefore also
+lists `DOMAIN\name` spellings that `KnownSid` maps to a RID of this domain, and with a `SidsByName` map the units take the
+resolver's answer for them (without a map the well-known mapping stands). An incremental index build keeps the
 `SidsByName` of names it resolved before (same domain SID). The service's `GetAsync` throws `InvalidOperationException` when
 disconnected and `ObjectDisposedException` after disposal; waiters of a build that `Invalidate` or `CancelBuild` stopped get
 `OperationCanceledException`. `GpoIndexTexts.For(localizer, view)` returns the one instance per view (the service warms it
-on its build thread); `PresenterOf(entry)` and `Warm()` are public, `Describe` is cached per GPO and unit id.
+on its build thread); `PresenterOf(entry)` and `Warm()` are public, `Describe` is cached per GPO and unit id. Review fixes: a folder the parsers trip
+over marks only that GPO `Failed`; in the service an `IfMissing` request never joins a cancelled build (it queues an
+`Incremental` follow-up), a GPO change during a build leaves the new view stale, queued builds cancelled before they start
+release their lifetime link, and `StateChanged` posts are coalesced.

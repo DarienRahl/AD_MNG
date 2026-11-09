@@ -428,11 +428,17 @@ public sealed class GpoSettingsIndexService : IGpoSettingsIndexService, IDisposa
             return;
         }
 
-        _ = _services.Dispatcher.RunAsync(() =>
+        var posted = _services.Dispatcher.RunAsync(() =>
         {
             Volatile.Write(ref _statePosted, 0);
             StateChanged?.Invoke(this, EventArgs.Empty);
         });
+        if (!posted.IsCompleted)
+        {
+            // A post the dispatcher dropped (shutdown) must not silence every later notification.
+            _ = posted.ContinueWith(_ => Volatile.Write(ref _statePosted, 0), CancellationToken.None,
+                TaskContinuationOptions.NotOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        }
     }
 
     private enum BuildKind
