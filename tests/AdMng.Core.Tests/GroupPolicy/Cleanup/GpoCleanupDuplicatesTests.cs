@@ -408,6 +408,42 @@ public sealed class GpoCleanupDuplicatesTests
     }
 
     [Theory]
+    [InlineData(@"User/Registry/Software\Policies\Contoso\Lista!**delvals.")]
+    [InlineData(@"User/Registry/Software\Policies\Contoso")]
+    public void Duplicate_ARawValueUnderAKeyAKeyLevelEntryActsOn_IsNeverRemoved(string keyLevel)
+    {
+        // Both GPOs hold the same list (no ADMX owner, so raw units): the OU GPO's own **delvals. (or a DELETE_KEY of a
+        // parent key) would wipe the domain GPO's value 1 once the OU GPO's copy of it is removed.
+        const string ValueOne = @"K|User/Registry/Software\Policies\Contoso\Lista!1";
+        var index = new CleanupIndex();
+        var head = index.Gpo("Firma – Lista",
+            Units.Value("K|" + keyLevel, "=**delvals.", GpoScope.User, GpoSettingUnitKind.RegistryKey),
+            Units.Value(ValueOne, "=REG_SZ:example.com", GpoScope.User, GpoSettingUnitKind.RegistryValue));
+        var ou = index.Gpo("Księgowość – Lista",
+            Units.Value("K|" + keyLevel, "=**delvals.", GpoScope.User, GpoSettingUnitKind.RegistryKey),
+            Units.Value(ValueOne, "=REG_SZ:example.com", GpoScope.User, GpoSettingUnitKind.RegistryValue));
+        index.Link(Domain, head).Link(Ksiegowosc, ou);
+
+        Assert.DoesNotContain(index.Analyze().Proposals, p => p.Kind == GpoCleanupKind.DuplicateSetting && p.UnitBaseId == ValueOne);
+    }
+
+    [Fact]
+    public void Duplicate_ARawValueBesideAKeyLevelEntryOfASiblingKey_IsStillProposed()
+    {
+        const string ValueOne = @"K|User/Registry/Software\Policies\Contoso\Lista!1";
+        var index = new CleanupIndex();
+        var head = index.Gpo("Firma – Lista",
+            Units.Value(@"K|User/Registry/Software\Policies\Contoso\Inna!a", "=REG_SZ:x", GpoScope.User, GpoSettingUnitKind.RegistryValue),
+            Units.Value(ValueOne, "=REG_SZ:example.com", GpoScope.User, GpoSettingUnitKind.RegistryValue));
+        var ou = index.Gpo("Księgowość – Lista",
+            Units.Value(@"K|User/Registry/Software\Policies\Contoso\ListaInna!**delvals.", "=**delvals.", GpoScope.User, GpoSettingUnitKind.RegistryKey),
+            Units.Value(ValueOne, "=REG_SZ:example.com", GpoScope.User, GpoSettingUnitKind.RegistryValue));
+        index.Link(Domain, head).Link(Ksiegowosc, ou);
+
+        Assert.Contains(index.Analyze().Proposals, p => p.Kind == GpoCleanupKind.DuplicateSetting && p.UnitBaseId == ValueOne && p.GpoId == ou.Id);
+    }
+
+    [Theory]
     [InlineData(GpoIndexStatus.TooLarge)]
     [InlineData(GpoIndexStatus.AccessDenied)]
     [InlineData(GpoIndexStatus.Failed)]

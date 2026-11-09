@@ -1,4 +1,5 @@
 using System.Globalization;
+using AdMng.Core.GroupPolicy.Content;
 using AdMng.Core.GroupPolicy.Modeling;
 using AdMng.Core.GroupPolicy.Search;
 
@@ -35,6 +36,14 @@ public static partial class GpoCleanupAnalyzer
             }
         }
 
+        // Registry keys that a key-level entry of an applying GPO clears or deletes (**delvals., DELETE_KEY, **del. …).
+        var keyLevel = context.Entries
+            .SelectMany(e => e.Units.Where(u => IsKeyLevel(u) && Applies(e, u)))
+            .SelectMany(RegistryKeysOf)
+            .Select(i => (i.Scope, Key: i.RegistryKey!))
+            .Distinct()
+            .ToList();
+
         foreach (var (baseId, applying) in occurrences.OrderBy(o => o.Key, StringComparer.OrdinalIgnoreCase))
         {
             if (applying.Select(o => o.Entry.Gpo.Id).Distinct().Take(2).Count() < 2)
@@ -53,7 +62,7 @@ public static partial class GpoCleanupAnalyzer
                 DifferentValues(context, baseId, accountPolicy, participants, classes, proposals);
             }
 
-            Duplicates(context, baseId, accountPolicy, applying, participants, classes, proposals);
+            Duplicates(context, baseId, accountPolicy, applying, participants, classes, keyLevel, proposals);
         }
     }
 
@@ -92,18 +101,27 @@ public static partial class GpoCleanupAnalyzer
     /// <summary>
     /// Equal values in GPOs where one covers the other: RemoveSetting from the covered GPO. Nothing is proposed for a base
     /// id with another applying value, a value that cannot be compared, an incompletely read GPO that applies it, a GPO
-    /// that holds it twice, or a key-level Registry.pol entry; nor for a covered GPO where a GPO of unknown content applies
+    /// that holds it twice, a key-level Registry.pol entry or a raw value under a key one acts on; nor for a covered GPO where a GPO of unknown content applies
     /// too. Each GPO is ranked (default GPO, more settings, name) and only proposed for removal when a
     /// higher-ranked GPO covers it – so mutually covering GPOs never both lose the setting, and executing every proposal
     /// keeps each container's value (coverage is transitive, the highest-ranked keeper is never removed).
     /// </summary>
     private static void Duplicates(AnalysisContext context, string baseId, bool accountPolicy, List<Occurrence> applying,
-        List<Occurrence> participants, List<List<Occurrence>> classes, List<GpoCleanupProposal> proposals)
+        List<Occurrence> participants, List<List<Occurrence>> classes, IReadOnlyList<(GpoScope Scope, string Key)> keyLevel,
+        List<GpoCleanupProposal> proposals)
     {
         // Key-level Registry.pol entries (**delvals., **DeleteKeys …) act on every value of the key in processing order: a
         // copy in the GPO applied later also deletes values an earlier GPO set under the key (other units), so removing it
         // is never shown to be neutral.
-        if (applying.Any(o => o.Unit.Kind == GpoSettingUnitKind.RegistryKey))
+        if (applying.Any(o => IsKeyLevel(o.Unit)))
+        {
+            return;
+        }
+
+        // The same holds the other way round: a raw value under a key that a key-level entry of any applying GPO clears or
+        // deletes (the key itself or a parent) – e.g. the covered GPO's own **delvals. would wipe the keeper's copy.
+        if (applying.Any(o => o.Unit.Kind == GpoSettingUnitKind.RegistryValue
+            && RegistryKeysOf(o.Unit).Any(i => keyLevel.Any(k => k.Scope == i.Scope && IsSameOrParentKey(k.Key, i.RegistryKey!)))))
         {
             return;
         }
@@ -168,6 +186,27 @@ public static partial class GpoCleanupAnalyzer
             });
         }
     }
+
+    /// <summary>
+    /// A Registry.pol entry that acts on other values of its key in processing order: a key-level unit (<c>**delvals.</c>,
+    /// a key without a value) or a raw value with a special name (<c>**del.x</c>, <c>**DeleteValues</c>, <c>**DeleteKeys</c> …).
+    /// </summary>
+    private static bool IsKeyLevel(GpoSettingUnit unit) =>
+        unit.Kind == GpoSettingUnitKind.RegistryKey
+        || (unit.Kind == GpoSettingUnitKind.RegistryValue && RegistryKeysOf(unit).Any(i => i.ValueName?.StartsWith("**", StringComparison.Ordinal) == true));
+
+    /// <summary>The parsed Registry.pol keys of a unit's settings (raw units without settings: of the key in their base id).</summary>
+    private static IEnumerable<GpoSettingKeyInfo> RegistryKeysOf(GpoSettingUnit unit)
+    {
+        IEnumerable<string> keys = unit.Settings.Count > 0 ? unit.Settings.Select(s => s.Key)
+            : unit.BaseId.StartsWith("K|", StringComparison.Ordinal) ? [unit.BaseId[2..]]
+            : [];
+        return keys.Select(GpoSettingKey.Parse).Where(i => i.Area == GpoSettingArea.PolicyRegistry && i.RegistryKey is not null);
+    }
+
+    private static bool IsSameOrParentKey(string parent, string key) =>
+        key.Equals(parent, StringComparison.OrdinalIgnoreCase)
+        || (key.Length > parent.Length && key[parent.Length] == '\\' && key.StartsWith(parent, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>The occurrences grouped by value (<see cref="GpoSettingUnits.SameValue"/>).</summary>
     private static List<List<Occurrence>> ValueClasses(IEnumerable<Occurrence> occurrences)
