@@ -418,18 +418,7 @@ public static class GroupPolicyModeler
     }
 
     /// <summary>The part of a preference key up to its item (<c>Computer/Preferences/Groups/{uid}</c>); null for other keys.</summary>
-    private static string? PreferenceItem(string key)
-    {
-        var parts = key.Split('/', 5);
-        if (parts.Length < 4 || !parts[1].Equals("Preferences", StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-
-        var item = parts[3];
-        var at = item.IndexOf('@', StringComparison.Ordinal);
-        return string.Join('/', parts[0], parts[1], parts[2], at < 0 ? item : item[..at]);
-    }
+    private static string? PreferenceItem(string key) => Search.GpoSettingUnits.ItemKeyOf(key);
 
     /// <summary>A password, lockout or Kerberos policy key of the security template.</summary>
     private static bool IsAccountPolicy(string key)

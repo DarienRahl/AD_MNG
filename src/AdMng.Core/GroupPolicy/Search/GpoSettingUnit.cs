@@ -170,6 +170,33 @@ public sealed record GpoUnitContext(PolicyDefinitionSet? Definitions, string? Do
     /// </summary>
     public IReadOnlyDictionary<string, string>? SidsByName { get; init; }
 
+    /// <summary>
+    /// The <c>Collection</c> chains of the preference items by item key (<see cref="GpoSettingUnits.PreferenceScopes"/>):
+    /// the normalized keys do not show collections, so a caller that read the XML passes them here (null: every item is
+    /// taken as being at the root of its file).
+    /// </summary>
+    public IReadOnlyDictionary<string, GpoPreferenceScope>? PreferenceScopes { get; init; }
+
     /// <summary>For diagnostics: whether a set and a map are present.</summary>
     public override string ToString() => $"definitions: {Definitions is not null}, names: {SidsByName?.Count ?? 0}";
+}
+
+/// <summary>
+/// What the <c>Collection</c> elements around one preference item say about it (K7, 21.1/21.2): their <c>disabled</c> and
+/// <c>Filters</c> apply to every child. In memory only; <see cref="ToString"/> prints flags only (the filters hold
+/// directory values).
+/// </summary>
+/// <param name="InCollection">The item is below at least one <c>Collection</c>.</param>
+/// <param name="CollectionDisabled">A collection around it has <c>disabled="1"</c>.</param>
+/// <param name="CollectionFilters">The canonical <c>Filters</c> of its collections, outermost first (empty: none).</param>
+public sealed record GpoPreferenceScope(bool InCollection, bool CollectionDisabled, IReadOnlyList<string> CollectionFilters)
+{
+    /// <summary>A collection around the item has item-level targeting.</summary>
+    public bool CollectionTargeted => CollectionFilters.Count > 0;
+
+    /// <summary>Copying the item to a file's root would drop a collection's targeting or disabled state.</summary>
+    public bool Scoped => CollectionDisabled || CollectionTargeted;
+
+    /// <summary>For diagnostics: flags only.</summary>
+    public override string ToString() => $"in collection: {InCollection}, disabled: {CollectionDisabled}, targeted: {CollectionTargeted}";
 }
