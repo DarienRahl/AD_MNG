@@ -48,7 +48,7 @@ public sealed partial class ShellViewModel
     private IRelayCommand[] StateCommands => _stateCommands ??=
     [
         ChangeDomainControllerCommand,
-        .. GroupPolicyStateCommands, OpenGroupPolicyDiagnosticsCommand,
+        .. GroupPolicyStateCommands, OpenGroupPolicyDiagnosticsCommand, OpenGroupPolicySearchCommand,
         RefreshCommand, PropertiesCommand, DeleteCommand, BeginRenameCommand, MoveCommand, EnableCommand, DisableCommand,
         UnlockCommand, ResetPasswordCommand, AddToGroupCommand, BatchEditCommand, NewUserCommand, NewGroupCommand,
         NewOrganizationalUnitCommand, NewComputerCommand, NewContactCommand, FindCommand, ExportListCommand, CopyDnCommand, .. CopyStateCommands,

@@ -111,6 +111,7 @@ public sealed partial class ShellViewModel
             .. GroupPolicyCommandDescriptors(),
             .. DocumentCommandDescriptors(),
             .. GroupPolicyDiagnosticsCommandDescriptors(),
+            .. GroupPolicySearchCommandDescriptors(),
             .. EventLogCommandDescriptors(),
             .. ReadinessCommandDescriptors(),
             new("tools.settings", L.Commands.Settings, tools, "Ctrl+OemComma", ShowSettingsCommand),
