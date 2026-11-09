@@ -358,6 +358,70 @@ public sealed class GpoSettingsActionsTests
     }
 
     [Fact]
+    public async Task SettingChangesBuilder_ParsesAndDescribesOffTheCallingThread()
+    {
+        // Rule 6: the builder starts on the UI thread (RunAsync awaits with ConfigureAwait(true)); none of its parsing or
+        // describing may run there – the localizer is only used while describing.
+        var k = await K7Harness.CreateAsync(centralStore: false);
+        static byte[] Template(int length) => System.Text.Encoding.Unicode.GetBytes(
+            $"\uFEFF[Unicode]\r\nUnicode=yes\r\n[System Access]\r\nMinimumPasswordLength = {length}\r\n[Version]\r\nsignature=\"$CHICAGO$\"\r\nRevision=1\r\n");
+        var plan = new ChangePlan
+        {
+            Objects = [new ObjectPlan
+            {
+                DistinguishedName = k.H.GpoDn(k.Cleanup.Audit),
+                DisplayName = "Porządki – Inspekcja",
+                Changes = [new PlannedChange
+                {
+                    Action = ChangeAction.WriteGpoFile,
+                    Sysvol = new SysvolChange { GpoId = k.Cleanup.Audit, RelativePath = SecurityTemplate.RelativePath, OldContent = Template(8), NewContent = Template(12) },
+                }],
+            }],
+        };
+        var localizer = new ThreadRecordingLocalizer(k.H.B2.Localizer);
+        var caller = Environment.CurrentManagedThreadId;
+
+        var task = GpoSettingChangesBuilder.BuildAsync(plan, k.H.Session, localizer, null, Ct);
+        var usedOnCaller = localizer.Threads.Contains(caller);
+        var rows = await task;
+
+        Assert.False(usedOnCaller);
+        var row = Assert.Single(rows);
+        Assert.Contains("8", row.Before, StringComparison.Ordinal);
+        Assert.Contains("12", row.After, StringComparison.Ordinal);
+    }
+
+    /// <summary>A localizer that records the threads it is used on.</summary>
+    private sealed class ThreadRecordingLocalizer(ILocalizer inner) : ILocalizer
+    {
+        public System.Collections.Concurrent.ConcurrentDictionary<int, bool> Used { get; } = new();
+
+        public IReadOnlyCollection<int> Threads => [.. Used.Keys];
+
+        public string this[string key] => Record(inner[key]);
+
+        public System.Globalization.CultureInfo Culture => inner.Culture;
+
+        public event EventHandler? CultureChanged
+        {
+            add => inner.CultureChanged += value;
+            remove => inner.CultureChanged -= value;
+        }
+
+        public string Format(string key, params object?[] args) => Record(inner.Format(key, args));
+
+        public bool Contains(string key) => inner.Contains(key);
+
+        public void SetCulture(System.Globalization.CultureInfo culture) => inner.SetCulture(culture);
+
+        private string Record(string text)
+        {
+            Used[Environment.CurrentManagedThreadId] = true;
+            return text;
+        }
+    }
+
+    [Fact]
     public async Task Copy_AnOpenSecuritySettingsEditorOfTheTarget_ReloadsWithoutAConflictNote()
     {
         var k = await K7Harness.CreateAsync(centralStore: false);

@@ -28,24 +28,25 @@ public static class GpoSettingChangesBuilder
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(localizer);
-        var sides = Sides(plan);
+
+        // Parsing every written file twice and evaluating the policies is pure work: off the UI thread (rule 6).
+        var (sides, sids) = await Task.Run(() =>
+        {
+            var parsed = Sides(plan);
+            var found = parsed.SelectMany(s => GpoSettingPresenter.Sids(s.BeforeSettings).Concat(GpoSettingPresenter.Sids(s.AfterSettings)))
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            return (parsed, found);
+        }, cancellationToken).ConfigureAwait(true);
         if (sides.Count == 0)
         {
             return [];
         }
 
-        var sids = sides.SelectMany(s => GpoSettingPresenter.Sids(s.BeforeSettings).Concat(GpoSettingPresenter.Sids(s.AfterSettings)))
-            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         IReadOnlyDictionary<string, string> names = sids.Count == 0 || session is null
             ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             : await TrusteeNames.ResolveAsync(session, sids, localizer, cancellationToken).ConfigureAwait(true);
-        var rows = new List<GroupPolicySettingChange>();
-        foreach (var side in sides)
-        {
-            rows.AddRange(Describe(side, names, localizer, definitions));
-        }
-
-        return rows;
+        return await Task.Run(() => (IReadOnlyList<GroupPolicySettingChange>)[.. sides.SelectMany(side => Describe(side, names, localizer, definitions))],
+            cancellationToken).ConfigureAwait(true);
     }
 
     /// <summary>The rows of one GPO's written files (pure: no directory reads; tests and the builder above).</summary>
