@@ -1,4 +1,5 @@
 using AdMng.Core.ActiveDirectory;
+using AdMng.Core.Directory;
 using AdMng.Core.Schema;
 
 namespace AdMng.Core.PrivilegedAccess;
@@ -32,6 +33,15 @@ public sealed class AclObjectTypes
     public const string ForceChangePassword = "User-Force-Change-Password";
     public const string SelfMembership = "Self-Membership";
 
+    /// <summary>Enroll on a certificate template (P1, docs/dev/p-certificate-services.md 2.3).</summary>
+    public const string CertificateEnrollment = "Certificate-Enrollment";
+
+    /// <summary>Autoenroll on a certificate template (P1, 2.3).</summary>
+    public const string CertificateAutoEnrollment = "Certificate-AutoEnrollment";
+
+    /// <summary>Explicit certificate mappings (ESC14, P1 2.3).</summary>
+    public const string AltSecurityIdentities = "altSecurityIdentities";
+
     /// <summary>Fixed GUIDs of the base schema and of the extended rights every forest has.</summary>
     private static readonly (Guid Guid, string Name, AclGuidKind Kind)[] Fallbacks =
     [
@@ -50,6 +60,8 @@ public sealed class AclObjectTypes
         (new("1131f6ad-9c07-11d1-f79f-00c04fc2dcd2"), GetChangesAll, AclGuidKind.ExtendedRight),
         (new("89e95b76-444d-4c62-991a-0facbeda640c"), GetChangesInFilteredSet, AclGuidKind.ExtendedRight),
         (new("00299570-246d-11d0-a768-00aa006e0529"), ForceChangePassword, AclGuidKind.ExtendedRight),
+        (new("0e10c968-78fb-11d2-90d4-00c04f79dc55"), CertificateEnrollment, AclGuidKind.ExtendedRight),
+        (new("a05b8cc2-17bc-4802-a710-e7c15ab866a2"), CertificateAutoEnrollment, AclGuidKind.ExtendedRight),
         (new("bc0ac240-79a9-11d0-9020-00c04fc2d4cf"), "Membership", AclGuidKind.PropertySet),
         (new("4c164200-20c0-11d0-a768-00aa006e0529"), "User-Account-Restrictions", AclGuidKind.PropertySet),
     ];
@@ -122,6 +134,13 @@ public sealed class AclObjectTypes
             }
         }
     }
+
+    /// <summary>
+    /// Reads the session's schema and <c>CN=Extended-Rights</c> (rightsGuid, cn, validAccesses) into the object types every
+    /// caller shares (P1 2.3: the read <c>DirectoryAclScan</c> does today, moved here by C3).
+    /// </summary>
+    public static Task<AclObjectTypes> ReadAsync(IDirectoryReader reader, int pageSize, CancellationToken cancellationToken) =>
+        throw new NotImplementedException("P1 C3: AclObjectTypes.ReadAsync");
 
     /// <summary>The LDAP name of an attribute GUID, or null.</summary>
     public string? AttributeName(Guid guid) => _attributes.GetValueOrDefault(guid);

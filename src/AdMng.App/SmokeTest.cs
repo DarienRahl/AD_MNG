@@ -45,7 +45,7 @@ namespace AdMng.App;
 /// tests), the connect window of a new connection, and the connection chrome and message dialog header in every palette
 /// colour, light and dark. A shell is disposed with its window, so a scope is never reused for the second pass.
 /// </remarks>
-internal static class SmokeTest
+internal static partial class SmokeTest
 {
     public const int Passed = 0;
     public const int Failed = 1;
@@ -174,6 +174,8 @@ internal static class SmokeTest
         await RenderGroupPolicyAsync(main, services).ConfigureAwait(true);
         await RenderEventLogsAsync(main).ConfigureAwait(true);
         await RenderReadinessAsync(main).ConfigureAwait(true);
+        await RenderPkiAsync(main, services).ConfigureAwait(true);
+        await RenderPkiSecurityAsync(main, services).ConfigureAwait(true);
         main.Shell.CommandPalette.OpenCommand.Execute(null);
 
         // A second connection window (its own scope, disconnected: grey strip, "Nie połączono") and the connect window of

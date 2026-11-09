@@ -112,6 +112,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Tree.PropertyChanged += OnTreePropertyChanged;
         AttachGroupPolicy();
         AttachEventLogs();
+        AttachPki();
         Sessions.SessionChanged += OnSessionChanged;
         Settings.Changed += OnSettingsChanged;
         Localizer.CultureChanged += OnCultureChanged;
@@ -525,6 +526,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Tree.PropertyChanged -= OnTreePropertyChanged;
         DetachGroupPolicy();
         DetachEventLogs();
+        DetachPki();
         _activities.PropertyChanged -= OnActivitiesChanged;
         _views.Changed -= OnViewsChanged;
         Sessions.SessionChanged -= OnSessionChanged;
@@ -810,6 +812,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         }
 
         if (TryActivateGroupPolicyNode(node))
+        {
+            return;
+        }
+
+        if (TryActivatePkiNode(node))
         {
             return;
         }

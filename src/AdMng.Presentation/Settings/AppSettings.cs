@@ -102,6 +102,9 @@ public sealed class AppSettings
     /// <summary>Dzienniki zdarzeń (track E): the saved queries – the builder as typed and the computers, never values read from a log.</summary>
     public EventLogSettings EventLogs { get; set; } = new();
 
+    /// <summary>Usługi kluczy publicznych (P1): tree visibility and the certificate expiry thresholds (never PKI data).</summary>
+    public PkiSettings Pki { get; set; } = new();
+
     /// <summary>Puts <paramref name="distinguishedName"/> first in <see cref="RecentContainers"/> (deduplicated, max <see cref="MaxRecentContainers"/>).</summary>
     public void AddRecentContainer(string distinguishedName)
     {
@@ -150,6 +153,8 @@ public sealed class AppSettings
         Correspondence.Normalize();
         EventLogs ??= new();
         EventLogs.Normalize();
+        Pki ??= new();
+        Pki.Normalize();
         ConnectionProfiles.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.Name));
         SavedViews.RemoveAll(v => v is null || string.IsNullOrWhiteSpace(v.Id));
         PinnedContainers.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.DistinguishedName));

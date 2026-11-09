@@ -27,6 +27,8 @@
         xmlns:evtv="clr-namespace:AdMng.App.EventLogs"
         xmlns:rd="clr-namespace:AdMng.Presentation.Readiness;assembly=AdMng.Presentation"
         xmlns:rdv="clr-namespace:AdMng.App.Readiness"
+        xmlns:pki="clr-namespace:AdMng.Presentation.Pki;assembly=AdMng.Presentation"
+        xmlns:pkiv="clr-namespace:AdMng.App.Pki"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1360"
         Height="840"
@@ -877,6 +879,32 @@
                         ToolTip="{l:Tr Commands.CloseTab}" />
               </StackPanel>
             </DataTemplate>
+            <!-- PKI documents (P1, docs/dev/p-certificate-services.md 2.5): one header for every PkiDocumentBase. -->
+            <DataTemplate DataType="{x:Type pki:PkiDocumentBase}">
+              <StackPanel Orientation="Horizontal" ToolTip="{Binding Title, Mode=OneWay}">
+                <c:ObjectIconView Margin="0,0,6,0"
+                                  VerticalAlignment="Center"
+                                  Icon="{Binding Icon, Mode=OneWay}"
+                                  Size="14" />
+                <TextBlock MaxWidth="220"
+                           VerticalAlignment="Center"
+                           Text="{Binding Title, Mode=OneWay}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Margin="4,0,0,0"
+                           FontSize="10"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{x:Static c:Glyphs.Refresh}"
+                           Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <Button Margin="6,0,0,0"
+                        AutomationProperties.Name="{l:Tr Commands.CloseTab}"
+                        Click="OnCloseTabClick"
+                        Content="{x:Static c:Glyphs.Close}"
+                        Focusable="False"
+                        Style="{StaticResource Ad.SmallIconButton}"
+                        ToolTip="{l:Tr Commands.CloseTab}" />
+              </StackPanel>
+            </DataTemplate>
             <!-- Group Policy documents (K2). -->
             <DataTemplate DataType="{x:Type gpd:GroupPolicyDocumentBase}">
               <StackPanel Orientation="Horizontal" ToolTip="{Binding Title, Mode=OneWay}">
@@ -995,6 +1023,9 @@
             <DataTemplate DataType="{x:Type rd:ReadinessDocumentViewModel}">
               <rdv:ReadinessView />
             </DataTemplate>
+            <!-- P1 PKI (W5) -->
+
+            <!-- P1 PKI security (W6) -->
           </ItemsControl.Resources>
         </ItemsControl>
 

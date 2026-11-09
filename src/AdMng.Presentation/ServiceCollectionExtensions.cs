@@ -19,6 +19,7 @@ using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
+using AdMng.Presentation.Pki;
 using AdMng.Presentation.Readiness;
 using AdMng.Presentation.Session;
 using AdMng.Presentation.Settings;
@@ -73,6 +74,9 @@ public static class ServiceCollectionExtensions
         // the connection window that runs the review.
         services.TryAddEnumerable(ServiceDescriptor.Singleton<Core.PrivilegedAccess.IPrivilegeGrantSource, Core.PrivilegedAccess.DirectoryAclGrantSource>());
         services.AddAdMngGroupPolicy();
+
+        // AD CS (P1, docs/dev/p-certificate-services.md 2.5): the window's PKI cache, services and documents.
+        services.AddAdMngPki();
 
         // One connection window = one DI scope (design note docs/dev/multi-window.md 2.2): its session, change bus, audit
         // log, executor, activities and everything built on them. Never resolved from the root provider. A host that

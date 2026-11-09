@@ -5,6 +5,7 @@ using AdMng.App.Correspondence;
 using AdMng.App.EventLogs;
 using AdMng.App.GroupPolicy;
 using AdMng.App.Localization;
+using AdMng.App.Pki;
 using AdMng.App.Readiness;
 using AdMng.App.Services;
 using AdMng.App.Views;
@@ -127,6 +128,7 @@ public static class AppHost
 
         // Presentation layer.
         services.AddAdMngPresentation();
+        services.AddAdMngPkiApp();
         services.AddAttributeFormatter(schema => new AttributeFormatter(schema));
 
         // WPF implementations of the UI services: application-wide.

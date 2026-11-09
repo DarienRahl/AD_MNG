@@ -3,6 +3,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
+using AdMng.Core.Pki;
 using AdMng.Core.Security;
 
 namespace AdMng.Core.PrivilegedAccess;
@@ -28,6 +29,18 @@ public sealed class DirectoryAclGrantSource : IPrivilegeGrantSource
         ArgumentNullException.ThrowIfNull(context);
         return new DirectoryAclScan(context).RunAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// The typed PKI entry for ESC5 / ESC14 (P1, docs/dev/p-certificate-services.md 2.3): one scan in a PKI mode – the PKI
+    /// subtree of the configuration, the CA computer objects of the window's domain (by DN), the Tier 0 accounts, the
+    /// class defaults and the extended rights; no OUs, GPOs, RBCD or deep scan – with the same evaluation rules as
+    /// <see cref="CollectAsync"/> (one shared PKI pass), returned as typed grants. All reads on the session's DC.
+    /// </summary>
+    /// <param name="context">The scan context (session, graph, options).</param>
+    /// <param name="caComputerDns">The enterprise CA computers (<c>PkiEnrollmentService.ComputerDn</c>).</param>
+    /// <param name="cancellationToken">Cancels the scan.</param>
+    public Task<IReadOnlyList<PkiAclGrant>> CollectPublicKeyAsync(PrivilegeScanContext context, IReadOnlyList<string> caComputerDns, CancellationToken cancellationToken) =>
+        throw new NotImplementedException("P1 C3: DirectoryAclGrantSource.CollectPublicKeyAsync");
 }
 
 /// <summary>What an object whose ACL is read is; decides which rights matter and their level.</summary>

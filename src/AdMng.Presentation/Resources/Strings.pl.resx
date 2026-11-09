@@ -9789,6 +9789,12 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="PrivilegedAccess.AclRight.DeleteChild" xml:space="preserve">
     <value>Usuwanie obiektów</value>
   </data>
+  <data name="PrivilegedAccess.AclRight.WriteTemplateProperty" xml:space="preserve">
+    <value>Edycja poufnej właściwości szablonu certyfikatu</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteAltSecurityIdentities" xml:space="preserve">
+    <value>Zapis altSecurityIdentities (jawne mapowania certyfikatów)</value>
+  </data>
   <data name="PrivilegedAccess.Peers" xml:space="preserve">
     <value>Porównanie z podobnymi kontami</value>
   </data>
@@ -20991,4 +20997,307 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>ustawione w {0} GPO – wartości nieporównywalne</value>
   </data>
   <!-- K7 settings search (21.4): end -->
+  <!-- P1 contract – AD CS finding texts and shared names (2.4, 2.8): begin -->
+  <data name="PkiFinding.EnrolleeSuppliesSubjectClientAuth.Title" xml:space="preserve">
+    <value>Wnioskujący podaje podmiot certyfikatu uwierzytelniania klienta</value>
+  </data>
+  <data name="PkiFinding.EnrolleeSuppliesSubjectClientAuth.Message" xml:space="preserve">
+    <value>Szablon {0}: podmiot dostarcza wnioskujący, a certyfikat pozwala na uwierzytelnianie klienta; rejestrować się może: {1} (kont: {2}).</value>
+  </data>
+  <data name="PkiFinding.EnrolleeSuppliesSubjectClientAuth.Explanation" xml:space="preserve">
+    <value>Kto może się zarejestrować, wpisze do certyfikatu dowolną nazwę – także UPN administratora domeny – i zaloguje się jako to konto przez PKINIT lub Schannel. To ESC1, najczęstsza droga eskalacji w AD CS.</value>
+  </data>
+  <data name="PkiFinding.EnrolleeSuppliesSubjectClientAuth.Recommendation" xml:space="preserve">
+    <value>Na karcie „Nazwa podmiotu” szablonu wybierz „Kompiluj na podstawie tych informacji usługi Active Directory” albo wymagaj zatwierdzenia menedżera certyfikatów, a prawo „Rejestruj” zostaw tylko kontom, które potrzebują certyfikatu.</value>
+  </data>
+  <data name="PkiFinding.AnyPurposeOrNoEku.Title" xml:space="preserve">
+    <value>Dowolny cel lub brak rozszerzonego użycia klucza</value>
+  </data>
+  <data name="PkiFinding.AnyPurposeOrNoEku.Message" xml:space="preserve">
+    <value>Szablon {0}: certyfikat jest ważny do dowolnego celu (Dowolny cel lub brak EKU); rejestrować się może: {1} (kont: {2}).</value>
+  </data>
+  <data name="PkiFinding.AnyPurposeOrNoEku.Explanation" xml:space="preserve">
+    <value>Certyfikat bez ograniczenia użycia nadaje się do uwierzytelniania klienta, jako certyfikat agenta rejestracji, a nawet do podpisywania innych certyfikatów. To ESC2.</value>
+  </data>
+  <data name="PkiFinding.AnyPurposeOrNoEku.Recommendation" xml:space="preserve">
+    <value>Ustaw zasady aplikacji tylko na cele, których certyfikat naprawdę potrzebuje, albo zostaw prawo „Rejestruj” wyłącznie administratorom Tier 0.</value>
+  </data>
+  <data name="PkiFinding.EnrollmentAgentTemplate.Title" xml:space="preserve">
+    <value>Dostępny certyfikat agenta rejestracji</value>
+  </data>
+  <data name="PkiFinding.EnrollmentAgentTemplate.Message" xml:space="preserve">
+    <value>Szablon {0} wystawia certyfikaty agenta żądania certyfikatu (Certificate Request Agent); rejestrować się może: {1} (kont: {2}).</value>
+  </data>
+  <data name="PkiFinding.EnrollmentAgentTemplate.Explanation" xml:space="preserve">
+    <value>Agent rejestracji może żądać certyfikatów w imieniu innych użytkowników – także administratorów – z każdego szablonu, który przyjmuje podpis agenta. To ESC3.</value>
+  </data>
+  <data name="PkiFinding.EnrollmentAgentTemplate.Recommendation" xml:space="preserve">
+    <value>Zostaw prawo „Rejestruj” tylko operatorom, którzy faktycznie rejestrują w imieniu innych, a na urzędzie ogranicz agentów rejestracji do szablonów i użytkowników, których obsługują.</value>
+  </data>
+  <data name="PkiFinding.EnrollmentAgentTargetTemplate.Title" xml:space="preserve">
+    <value>Szablon przyjmuje podpis agenta rejestracji</value>
+  </data>
+  <data name="PkiFinding.EnrollmentAgentTargetTemplate.Message" xml:space="preserve">
+    <value>Szablon {0} wystawia certyfikaty uwierzytelniania klienta na podstawie podpisu agenta rejestracji; rejestrować się może: {1} (kont: {2}).</value>
+  </data>
+  <data name="PkiFinding.EnrollmentAgentTargetTemplate.Explanation" xml:space="preserve">
+    <value>Mając certyfikat agenta rejestracji, wnioskujący podpisuje żądanie w imieniu innego konta i loguje się jako ono. Waga zależy od szablonów agenta rejestracji dostępnych dla tych samych podmiotów.</value>
+  </data>
+  <data name="PkiFinding.EnrollmentAgentTargetTemplate.Recommendation" xml:space="preserve">
+    <value>Wymagaj zatwierdzenia menedżera certyfikatów albo ogranicz prawo „Rejestruj” na tym szablonie, a na urzędzie ogranicz agentów rejestracji.</value>
+  </data>
+  <data name="PkiFinding.TemplateWriteable.Title" xml:space="preserve">
+    <value>Szablon może zmienić podmiot spoza Tier 0</value>
+  </data>
+  <data name="PkiFinding.TemplateWriteable.Message" xml:space="preserve">
+    <value>Szablon {0}: może go zmienić {1} ({2}).</value>
+  </data>
+  <data name="PkiFinding.TemplateWriteable.Explanation" xml:space="preserve">
+    <value>Kto może zmienić szablon, uczyni go podatnym – pozwoli wnioskującemu podać podmiot, doda uwierzytelnianie klienta, usunie zatwierdzanie – zarejestruje się i przywróci poprzedni stan. To ESC4.</value>
+  </data>
+  <data name="PkiFinding.TemplateWriteable.Recommendation" xml:space="preserve">
+    <value>Usuń tym podmiotom „Pełną kontrolę”, „Zapis”, „Modyfikowanie uprawnień” i „Modyfikowanie właściciela” na szablonie; zmiany szablonów należą do administratorów Tier 0.</value>
+  </data>
+  <data name="PkiFinding.PkiObjectWriteable.Title" xml:space="preserve">
+    <value>Obiekt PKI może zmienić podmiot spoza Tier 0</value>
+  </data>
+  <data name="PkiFinding.PkiObjectWriteable.Message" xml:space="preserve">
+    <value>{0}: może go zmienić {1} ({2}).</value>
+  </data>
+  <data name="PkiFinding.PkiObjectWriteable.Explanation" xml:space="preserve">
+    <value>Kontenery PKI, magazyn NTAuth, obiekty OID, urzędy przedsiębiorstwa i komputer urzędu decydują o tym, którym certyfikatom ufa las. Kto może je zmieniać, doda fałszywy urząd, opublikuje podatny szablon albo przejmie serwer urzędu. To ESC5.</value>
+  </data>
+  <data name="PkiFinding.PkiObjectWriteable.Recommendation" xml:space="preserve">
+    <value>Usuń tym podmiotom prawa zapisu i własność obiektu; potrzebują ich tylko administratorzy Tier 0 i sam urząd.</value>
+  </data>
+  <data name="PkiFinding.NoSecurityExtensionClientAuth.Title" xml:space="preserve">
+    <value>Certyfikat uwierzytelniania klienta bez rozszerzenia zabezpieczeń z identyfikatorem SID</value>
+  </data>
+  <data name="PkiFinding.NoSecurityExtensionClientAuth.Message" xml:space="preserve">
+    <value>Szablon {0} pomija rozszerzenie zabezpieczeń (CT_FLAG_NO_SECURITY_EXTENSION) i pozwala na uwierzytelnianie klienta; rejestrować się może: {1} (kont: {2}).</value>
+  </data>
+  <data name="PkiFinding.NoSecurityExtensionClientAuth.Explanation" xml:space="preserve">
+    <value>Bez rozszerzenia z identyfikatorem SID kontroler domeny mapuje certyfikat tylko po UPN lub nazwie DNS. Kto może zmienić własny UPN – albo UPN kontrolowanego konta – uzyska certyfikat mapowany na inne konto. To ESC9; sposób wymuszania silnego mapowania na kontrolerach domeny sprawdza dalszy etap.</value>
+  </data>
+  <data name="PkiFinding.NoSecurityExtensionClientAuth.Recommendation" xml:space="preserve">
+    <value>Wyczyść flagę (stan domyślny) albo zostaw prawo „Rejestruj” tylko kontom, których UPN nikt inny nie może zmienić.</value>
+  </data>
+  <data name="PkiFinding.IssuancePolicyLinkedToGroup.Title" xml:space="preserve">
+    <value>Zasady wystawiania połączone z grupą</value>
+  </data>
+  <data name="PkiFinding.IssuancePolicyLinkedToGroup.Message" xml:space="preserve">
+    <value>Szablon {0} wystawia certyfikaty z zasadami wystawiania połączonymi z grupą {3}; rejestrować się może: {1} (kont: {2}).</value>
+  </data>
+  <data name="PkiFinding.IssuancePolicyLinkedToGroup.Explanation" xml:space="preserve">
+    <value>Zasady wystawiania połączone z grupą (msDS-OIDToGroupLink) dodają tę grupę do biletu Kerberos każdego, kto zaloguje się certyfikatem – członkostwo wynika z certyfikatu, nie z grupy. To ESC13.</value>
+  </data>
+  <data name="PkiFinding.IssuancePolicyLinkedToGroup.Recommendation" xml:space="preserve">
+    <value>Zostaw prawo „Rejestruj” tylko kontom, które mają mieć uprawnienia tej grupy, albo usuń połączenie, jeśli nikt z niego nie korzysta.</value>
+  </data>
+  <data name="PkiFinding.WeakExplicitMapping.Title" xml:space="preserve">
+    <value>Słabe lub modyfikowalne jawne mapowanie certyfikatu</value>
+  </data>
+  <data name="PkiFinding.WeakExplicitMapping.Message" xml:space="preserve">
+    <value>Jawne mapowanie certyfikatu – {0}: {1} {2}</value>
+  </data>
+  <data name="PkiFinding.WeakExplicitMapping.Explanation" xml:space="preserve">
+    <value>Słabe mapowanie (wystawca i podmiot, sam podmiot, adres e-mail) pozwala każdemu, kto uzyska certyfikat o pasujących nazwach, zalogować się jako to konto; podmiot, który może zapisać altSecurityIdentities konta Tier 0, zmapuje na nie własny certyfikat. To ESC14; pełne wymuszanie silnego mapowania (aktualizacja z września 2025) odrzuca słabe mapowania.</value>
+  </data>
+  <data name="PkiFinding.WeakExplicitMapping.Recommendation" xml:space="preserve">
+    <value>Zastąp słabe mapowania silnymi (wystawca i numer seryjny, identyfikator klucza podmiotu lub skrót SHA1 klucza publicznego) i odbierz prawo zapisu altSecurityIdentities kont Tier 0.</value>
+  </data>
+  <data name="PkiFinding.SchemaV1EnrolleeSuppliesSubject.Title" xml:space="preserve">
+    <value>Szablon w wersji schematu 1 z podmiotem dostarczanym przez wnioskującego</value>
+  </data>
+  <data name="PkiFinding.SchemaV1EnrolleeSuppliesSubject.Message" xml:space="preserve">
+    <value>Szablon {0} (wersja schematu 1) pozwala wnioskującemu podać podmiot; rejestrować się może: {1} (kont: {2}).</value>
+  </data>
+  <data name="PkiFinding.SchemaV1EnrolleeSuppliesSubject.Explanation" xml:space="preserve">
+    <value>Na urzędzie bez aktualizacji z listopada 2024 wnioskujący o certyfikat z szablonu w wersji schematu 1 może dodać do żądania zasady aplikacji – na przykład uwierzytelnianie klienta – a urząd je wystawi (CVE-2024-49019, EKUwu). To ESC15.</value>
+  </data>
+  <data name="PkiFinding.SchemaV1EnrolleeSuppliesSubject.Recommendation" xml:space="preserve">
+    <value>Zainstaluj na urzędzie aktualizację z listopada 2024, a szablon zduplikuj w wersji schematu 2 lub nowszej albo przestań go wystawiać.</value>
+  </data>
+  <data name="PkiFinding.EnrolleeSuppliesSubjectServerAuth.Title" xml:space="preserve">
+    <value>Wnioskujący podaje podmiot certyfikatu uwierzytelniania serwera</value>
+  </data>
+  <data name="PkiFinding.EnrolleeSuppliesSubjectServerAuth.Message" xml:space="preserve">
+    <value>Szablon {0}: podmiot dostarcza wnioskujący, a certyfikat pozwala na uwierzytelnianie serwera; rejestrować się może: {1} (kont: {2}).</value>
+  </data>
+  <data name="PkiFinding.EnrolleeSuppliesSubjectServerAuth.Explanation" xml:space="preserve">
+    <value>Kto może się zarejestrować, uzyska zaufany certyfikat dla dowolnej nazwy serwera – kontrolera domeny, witryny, serwera proxy – i podszyje się pod niego wobec każdego klienta ufającego urzędowi przedsiębiorstwa. To ESC17.</value>
+  </data>
+  <data name="PkiFinding.EnrolleeSuppliesSubjectServerAuth.Recommendation" xml:space="preserve">
+    <value>Zostaw prawo „Rejestruj” tylko administratorom serwerów, którzy potrzebują szablonu, albo wymagaj zatwierdzenia menedżera certyfikatów.</value>
+  </data>
+  <data name="Pki.Class.Tier0" xml:space="preserve">
+    <value>Tier 0 / infrastruktura</value>
+  </data>
+  <data name="Pki.Class.Broad" xml:space="preserve">
+    <value>Szeroka grupa</value>
+  </data>
+  <data name="Pki.Class.Other" xml:space="preserve">
+    <value>Konto lub grupa spoza Tier 0</value>
+  </data>
+  <data name="PkiTpl.Right.Enroll" xml:space="preserve">
+    <value>Rejestruj</value>
+  </data>
+  <data name="PkiTpl.Right.AutoEnroll" xml:space="preserve">
+    <value>Autorejestracja</value>
+  </data>
+  <data name="PkiTpl.Right.FullControl" xml:space="preserve">
+    <value>Pełna kontrola</value>
+  </data>
+  <data name="PkiTpl.Right.WriteDacl" xml:space="preserve">
+    <value>Modyfikowanie uprawnień</value>
+  </data>
+  <data name="PkiTpl.Right.WriteOwner" xml:space="preserve">
+    <value>Modyfikowanie właściciela</value>
+  </data>
+  <data name="PkiTpl.Right.WriteAllProperties" xml:space="preserve">
+    <value>Zapis wszystkich właściwości</value>
+  </data>
+  <data name="PkiTpl.Right.WriteSensitiveProperty" xml:space="preserve">
+    <value>Zapis właściwości istotnej dla bezpieczeństwa</value>
+  </data>
+  <data name="PkiTpl.Right.WriteOtherProperty" xml:space="preserve">
+    <value>Zapis innej właściwości</value>
+  </data>
+  <data name="PkiTpl.Right.Owner" xml:space="preserve">
+    <value>Właściciel</value>
+  </data>
+  <data name="Cert.Mapping.Strong" xml:space="preserve">
+    <value>Silne</value>
+  </data>
+  <data name="Cert.Mapping.Weak" xml:space="preserve">
+    <value>Słabe</value>
+  </data>
+  <data name="Cert.Mapping.NotCertificate" xml:space="preserve">
+    <value>Nie jest mapowaniem certyfikatu</value>
+  </data>
+  <data name="Cert.Mapping.Invalid" xml:space="preserve">
+    <value>Nieprawidłowe</value>
+  </data>
+  <data name="Pki.Tls.Ok" xml:space="preserve">
+    <value>Przedstawiony certyfikat LDAPS</value>
+  </data>
+  <data name="Pki.Tls.NameNotResolved" xml:space="preserve">
+    <value>Nie można rozpoznać nazwy hosta</value>
+  </data>
+  <data name="Pki.Tls.PortClosed" xml:space="preserve">
+    <value>Port zamknięty</value>
+  </data>
+  <data name="Pki.Tls.HandshakeFailed" xml:space="preserve">
+    <value>DC bez certyfikatu LDAPS (uzgadnianie TLS nie powiodło się)</value>
+  </data>
+  <data name="Pki.Tls.Timeout" xml:space="preserve">
+    <value>Brak odpowiedzi w ciągu 5 s</value>
+  </data>
+  <data name="Pki.Tls.InvalidHost" xml:space="preserve">
+    <value>Nieprawidłowa nazwa hosta</value>
+  </data>
+  <data name="Pki.Kdc.Ready" xml:space="preserve">
+    <value>Gotowy (z certyfikatów opublikowanych w AD)</value>
+  </data>
+  <data name="Pki.Kdc.NoKdcEku" xml:space="preserve">
+    <value>Brak EKU uwierzytelniania KDC</value>
+  </data>
+  <data name="Pki.Kdc.IssuerNotInNtAuth" xml:space="preserve">
+    <value>Wystawca spoza magazynu NTAuth</value>
+  </data>
+  <data name="Pki.Kdc.Expired" xml:space="preserve">
+    <value>Wygasły</value>
+  </data>
+  <data name="Pki.Kdc.NoPublishedCertificate" xml:space="preserve">
+    <value>Nieznany – brak certyfikatu opublikowanego w AD</value>
+  </data>
+  <data name="Pki.Health.Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Pki.Health.Expiring" xml:space="preserve">
+    <value>Wygasa</value>
+  </data>
+  <data name="Pki.Health.Expired" xml:space="preserve">
+    <value>Wygasła</value>
+  </data>
+  <data name="Pki.Health.Unavailable" xml:space="preserve">
+    <value>Niedostępna</value>
+  </data>
+  <data name="Pki.Health.Unknown" xml:space="preserve">
+    <value>Nieznany</value>
+  </data>
+  <data name="PkiEsc.Note.NotPublished" xml:space="preserve">
+    <value>Szablon nie jest wystawiany (do wykorzystania dopiero po opublikowaniu)</value>
+  </data>
+  <data name="PkiEsc.Note.AssumesCaEnroll" xml:space="preserve">
+    <value>Zakłada, że urząd nadaje Użytkownikom uwierzytelnionym prawo „Rejestruj” (zabezpieczenia urzędu – etap P4)</value>
+  </data>
+  <data name="PkiEsc.Note.PendingCaPatch" xml:space="preserve">
+    <value>Zależne od poprawki urzędu z listopada 2024 (sprawdzane w etapie P4)</value>
+  </data>
+  <data name="PkiEsc.Note.ApprovalRequired" xml:space="preserve">
+    <value>Wymagane zatwierdzenie menedżera certyfikatów lub podpis autoryzowany – poziom niżej</value>
+  </data>
+  <data name="PkiEsc.Note.EkuSourcesDiffer" xml:space="preserve">
+    <value>pKIExtendedKeyUsage i zasady aplikacji różnią się</value>
+  </data>
+  <data name="PkiEsc.Note.UnknownAttribute" xml:space="preserve">
+    <value>Prawo zapisu nierozpoznanego typu obiektu (liczone jako istotne dla bezpieczeństwa)</value>
+  </data>
+  <data name="PkiEsc.Note.TargetOnly" xml:space="preserve">
+    <value>Brak szablonu agenta rejestracji dostępnego dla innych</value>
+  </data>
+  <data name="PkiEsc.Severity.Info" xml:space="preserve">
+    <value>Informacja</value>
+  </data>
+  <data name="PkiEsc.Chip.Info" xml:space="preserve">
+    <value>Informacje: {0}</value>
+  </data>
+  <data name="PkiEsc.Severity.Low" xml:space="preserve">
+    <value>Niska</value>
+  </data>
+  <data name="PkiEsc.Chip.Low" xml:space="preserve">
+    <value>Niskie: {0}</value>
+  </data>
+  <data name="PkiEsc.Severity.Medium" xml:space="preserve">
+    <value>Średnia</value>
+  </data>
+  <data name="PkiEsc.Chip.Medium" xml:space="preserve">
+    <value>Średnie: {0}</value>
+  </data>
+  <data name="PkiEsc.Severity.High" xml:space="preserve">
+    <value>Wysoka</value>
+  </data>
+  <data name="PkiEsc.Chip.High" xml:space="preserve">
+    <value>Wysokie: {0}</value>
+  </data>
+  <data name="PkiEsc.Severity.Critical" xml:space="preserve">
+    <value>Krytyczna</value>
+  </data>
+  <data name="PkiEsc.Chip.Critical" xml:space="preserve">
+    <value>Krytyczne: {0}</value>
+  </data>
+  <data name="PkiEsc.Area.Template" xml:space="preserve">
+    <value>Szablon certyfikatu</value>
+  </data>
+  <data name="PkiEsc.Area.CertificationAuthority" xml:space="preserve">
+    <value>Urząd certyfikacji</value>
+  </data>
+  <data name="PkiEsc.Area.PkiObject" xml:space="preserve">
+    <value>Obiekt PKI</value>
+  </data>
+  <data name="PkiEsc.Area.Account" xml:space="preserve">
+    <value>Konto</value>
+  </data>
+  <!-- P1 contract – AD CS finding texts and shared names (2.4, 2.8): end -->
+  <!-- P1 PKI overview, health and settings (2.1, 2.5): begin -->
+  <!-- P1 PKI overview, health and settings (2.1, 2.5): end -->
+  <!-- P1 certificate templates and enrollment rights (2.2, 2.3, 2.5): begin -->
+  <!-- P1 certificate templates and enrollment rights (2.2, 2.3, 2.5): end -->
+  <!-- P1 AD CS security review (2.4, 2.5): begin -->
+  <!-- P1 AD CS security review (2.4, 2.5): end -->
+  <!-- P1 strong mapping and NTAuth readiness (2.5): begin -->
+  <!-- P1 strong mapping and NTAuth readiness (2.5): end -->
+  <!-- P1 certificates on accounts (2.6): begin -->
+  <!-- P1 certificates on accounts (2.6): end -->
 </root>
