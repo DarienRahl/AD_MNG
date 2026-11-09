@@ -12236,6 +12236,452 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>The item is in a collection with item-level targeting or a disabled collection – copy it in GPMC.</value>
   </data>
   <!-- K7 copy refusals (21.5): end -->
+  <!-- K7 copy and cleanup (21.5, 21.6): start -->
+  <data name="GpoCopy.WindowTitle" xml:space="preserve">
+    <value>Copy settings to {0}</value>
+  </data>
+  <data name="GpoCopy.MergeWindowTitle" xml:space="preserve">
+    <value>Merge {0} into {1}</value>
+  </data>
+  <data name="GpoCopy.PickTargetTitle" xml:space="preserve">
+    <value>Copy settings – choose the target GPO</value>
+  </data>
+  <data name="GpoCopy.TargetText" xml:space="preserve">
+    <value>Target GPO: {0}. Every change is shown in the change plan preview before anything is written; it can be undone there.</value>
+  </data>
+  <data name="GpoCopy.CheckedCount" xml:space="preserve">
+    <value>Checked: {0} of {1}</value>
+  </data>
+  <data name="GpoCopy.RefusedNote" xml:space="preserve">
+    <value>Settings that cannot be copied: {0} – the reason is shown next to each of them.</value>
+  </data>
+  <data name="GpoCopy.TooManySources" xml:space="preserve">
+    <value>Settings from {0} GPOs are checked; one copy takes settings from at most {1} GPOs.</value>
+  </data>
+  <data name="GpoCopy.ColumnSetting" xml:space="preserve">
+    <value>Setting</value>
+  </data>
+  <data name="GpoCopy.ColumnSource" xml:space="preserve">
+    <value>Source GPO</value>
+  </data>
+  <data name="GpoCopy.ColumnValue" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="GpoCopy.ColumnRemark" xml:space="preserve">
+    <value>Remark</value>
+  </data>
+  <data name="GpoCopy.ConflictLabel" xml:space="preserve">
+    <value>When the target GPO already has the setting:</value>
+  </data>
+  <data name="GpoCopy.ConflictReplace" xml:space="preserve">
+    <value>Replace</value>
+  </data>
+  <data name="GpoCopy.ConflictReplaceHint" xml:space="preserve">
+    <value>The value of the target GPO is replaced by the copied one.</value>
+  </data>
+  <data name="GpoCopy.ConflictSkip" xml:space="preserve">
+    <value>Skip</value>
+  </data>
+  <data name="GpoCopy.ConflictSkipHint" xml:space="preserve">
+    <value>The target GPO keeps its value; the setting is not copied.</value>
+  </data>
+  <data name="GpoCopy.ConflictUnion" xml:space="preserve">
+    <value>Merge lists</value>
+  </data>
+  <data name="GpoCopy.ConflictUnionHint" xml:space="preserve">
+    <value>User rights assignments and restricted groups get both lists of accounts; other settings are replaced.</value>
+  </data>
+  <data name="GpoCopy.ConflictDerived" xml:space="preserve">
+    <value>As the link order says: {0}</value>
+  </data>
+  <data name="GpoCopy.ConflictDerivedHint" xml:space="preserve">
+    <value>The values of the GPO with the higher link precedence win, as they do on the clients now.</value>
+  </data>
+  <data name="GpoCopy.CopyButton" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="GpoCopy.CheckAll" xml:space="preserve">
+    <value>Check all</value>
+  </data>
+  <data name="GpoCopy.CheckNone" xml:space="preserve">
+    <value>Uncheck all</value>
+  </data>
+  <data name="GpoCopy.MergeButton" xml:space="preserve">
+    <value>Merge</value>
+  </data>
+  <data name="GpoCopy.MergeIntro" xml:space="preserve">
+    <value>The settings of {0} are copied into {1}, every link to {0} in this domain is replaced by a link to {1} and {0} is set to all settings disabled – one plan with preview and undo. Deleting {0} is a separate step afterwards.</value>
+  </data>
+  <data name="GpoCopy.MergeOrderSourceFirst" xml:space="preserve">
+    <value>{0} has the higher link precedence wherever both are linked: its values replace those of {1}.</value>
+  </data>
+  <data name="GpoCopy.MergeOrderTargetFirst" xml:space="preserve">
+    <value>{1} has the higher link precedence wherever both are linked: its values are kept.</value>
+  </data>
+  <data name="GpoCopy.MergeOrderNoShared" xml:space="preserve">
+    <value>{0} and {1} are not linked in the same place: the values of {0} replace those of {1}.</value>
+  </data>
+  <data name="GpoCopy.MergeOrderMixed" xml:space="preserve">
+    <value>{0} precedes {1} in some places and follows it in others: choose which values win.</value>
+  </data>
+  <data name="GpoCopy.MergeBlockingHeading" xml:space="preserve">
+    <value>These settings cannot be copied, so the GPOs cannot be merged:</value>
+  </data>
+  <data name="GpoCopy.MergeWarningsHeading" xml:space="preserve">
+    <value>Check before merging</value>
+  </data>
+  <data name="GpoCopy.MergeSecurityFilterDiffers" xml:space="preserve">
+    <value>The GPOs apply to different users, groups or computers (security filtering).</value>
+  </data>
+  <data name="GpoCopy.MergeWmiFilterDiffers" xml:space="preserve">
+    <value>The GPOs have different WMI filters.</value>
+  </data>
+  <data name="GpoCopy.MergeOnlySourceLinked" xml:space="preserve">
+    <value>Only {0} is linked to {1}: after the merge these places also get the other settings of {2}.</value>
+  </data>
+  <data name="GpoCopy.MergeOnlyTargetLinked" xml:space="preserve">
+    <value>Only {0} is linked to {1}: after the merge these places also get the settings of {2}.</value>
+  </data>
+  <data name="GpoCopy.MergeSettingsHeading" xml:space="preserve">
+    <value>Settings copied: {0}</value>
+  </data>
+  <data name="GpoCopy.TitleCopy" xml:space="preserve">
+    <value>Copy settings to {0}</value>
+  </data>
+  <data name="GpoCopy.TitleRemove" xml:space="preserve">
+    <value>Remove settings from {0}</value>
+  </data>
+  <data name="GpoCopy.TitleMerge" xml:space="preserve">
+    <value>Merge {0} into {1}</value>
+  </data>
+  <data name="GpoCopy.TitleUnlinkAll" xml:space="preserve">
+    <value>Unlink {0} everywhere</value>
+  </data>
+  <data name="GpoCopy.NothingCopied" xml:space="preserve">
+    <value>Nothing would change in {0}:</value>
+  </data>
+  <data name="GpoCopy.NothingRemoved" xml:space="preserve">
+    <value>Nothing would be removed from {0}:</value>
+  </data>
+  <data name="GpoCopy.OutcomeLine" xml:space="preserve">
+    <value>{0} ({1}) – {2}</value>
+  </data>
+  <data name="GpoCopy.ChangedSinceAnalysis" xml:space="preserve">
+    <value>{0} changed (its settings or links) since the analysis, so it is not deleted. The list of proposals is read again – check it and delete the GPO again if you still want to.</value>
+  </data>
+  <data name="GpoCopy.NotConfigured" xml:space="preserve">
+    <value>Not configured</value>
+  </data>
+  <data name="GpoCopy.NoSettings" xml:space="preserve">
+    <value>(setting)</value>
+  </data>
+  <data name="GpoCopy.Outcome.Added" xml:space="preserve">
+    <value>added</value>
+  </data>
+  <data name="GpoCopy.Outcome.Replaced" xml:space="preserve">
+    <value>replaced</value>
+  </data>
+  <data name="GpoCopy.Outcome.Merged" xml:space="preserve">
+    <value>lists merged</value>
+  </data>
+  <data name="GpoCopy.Outcome.Unchanged" xml:space="preserve">
+    <value>the target GPO already has the same value</value>
+  </data>
+  <data name="GpoCopy.Outcome.Skipped" xml:space="preserve">
+    <value>skipped – the target GPO keeps its value</value>
+  </data>
+  <data name="GpoCopy.Outcome.Refused" xml:space="preserve">
+    <value>cannot be copied (see below)</value>
+  </data>
+  <data name="GpoCopy.Outcome.Removed" xml:space="preserve">
+    <value>removed</value>
+  </data>
+  <data name="GpoCopy.Outcome.NotFound" xml:space="preserve">
+    <value>no longer in the GPO as it was found – refresh</value>
+  </data>
+  <data name="GpoCleanup.Title" xml:space="preserve">
+    <value>GPO cleanup</value>
+  </data>
+  <data name="GpoCleanup.Command" xml:space="preserve">
+    <value>GPO cleanup…</value>
+  </data>
+  <data name="GpoCleanup.ToolbarCommand" xml:space="preserve">
+    <value>Cleanup…</value>
+  </data>
+  <data name="GpoCleanup.Analyze" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="GpoCleanup.AnalyzeHint" xml:space="preserve">
+    <value>Reads the GPOs that changed again and analyses them</value>
+  </data>
+  <data name="GpoCleanup.ReadAll" xml:space="preserve">
+    <value>Read everything again</value>
+  </data>
+  <data name="GpoCleanup.ReadAllHint" xml:space="preserve">
+    <value>Reads the folder of every GPO of the domain again</value>
+  </data>
+  <data name="GpoCleanup.Stale" xml:space="preserve">
+    <value>Group Policy changed after the analysis – the proposals may be out of date.</value>
+  </data>
+  <data name="GpoCleanup.NeverRun" xml:space="preserve">
+    <value>Not analysed yet.</value>
+  </data>
+  <data name="GpoCleanup.Cancelled" xml:space="preserve">
+    <value>The analysis was cancelled.</value>
+  </data>
+  <data name="GpoCleanup.AnalyzeStage" xml:space="preserve">
+    <value>Analysing the GPOs…</value>
+  </data>
+  <data name="GpoCleanup.LastRun" xml:space="preserve">
+    <value>Analysed GPOs: {0}, settings read {1}</value>
+  </data>
+  <data name="GpoCleanup.ProposalsOne" xml:space="preserve">
+    <value>{0} proposal</value>
+  </data>
+  <data name="GpoCleanup.ProposalsFew" xml:space="preserve">
+    <value>{0} proposals</value>
+  </data>
+  <data name="GpoCleanup.ProposalsMany" xml:space="preserve">
+    <value>{0} proposals</value>
+  </data>
+  <data name="GpoCleanup.ProposalsShown" xml:space="preserve">
+    <value>Proposals shown: {0} of {1}</value>
+  </data>
+  <data name="GpoCleanup.NoProposals" xml:space="preserve">
+    <value>Nothing to clean up was found.</value>
+  </data>
+  <data name="GpoCleanup.NoMatches" xml:space="preserve">
+    <value>No proposal matches the filters.</value>
+  </data>
+  <data name="GpoCleanup.NoteNotEvaluated" xml:space="preserve">
+    <value>The settings of {0} GPOs were not read completely, so only their links and status are evaluated: {1}</value>
+  </data>
+  <data name="GpoCleanup.ColumnKind" xml:space="preserve">
+    <value>Kind</value>
+  </data>
+  <data name="GpoCleanup.ColumnProposal" xml:space="preserve">
+    <value>Proposal</value>
+  </data>
+  <data name="GpoCleanup.ColumnActions" xml:space="preserve">
+    <value>Actions</value>
+  </data>
+  <data name="GpoCleanup.ColumnRelated" xml:space="preserve">
+    <value>Related GPOs</value>
+  </data>
+  <data name="GpoCleanup.ColumnPath" xml:space="preserve">
+    <value>Place of the setting</value>
+  </data>
+  <data name="GpoCleanup.Chip" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="GpoCleanup.SummaryLabel" xml:space="preserve">
+    <value>Proposals by kind</value>
+  </data>
+  <data name="GpoCleanup.FilterKind" xml:space="preserve">
+    <value>Kind:</value>
+  </data>
+  <data name="GpoCleanup.FilterGpo" xml:space="preserve">
+    <value>GPO:</value>
+  </data>
+  <data name="GpoCleanup.AllKinds" xml:space="preserve">
+    <value>Every kind</value>
+  </data>
+  <data name="GpoCleanup.AllGpos" xml:space="preserve">
+    <value>Every GPO</value>
+  </data>
+  <data name="GpoCleanup.SearchPlaceholder" xml:space="preserve">
+    <value>Search the proposals (Ctrl+F)</value>
+  </data>
+  <data name="GpoCleanup.ClearFilters" xml:space="preserve">
+    <value>Clear filters</value>
+  </data>
+  <data name="GpoCleanup.DetailsHeading" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="GpoCleanup.DetailsEmpty" xml:space="preserve">
+    <value>Select a proposal to see why it is made and what can be done.</value>
+  </data>
+  <data name="GpoCleanup.WhyHeading" xml:space="preserve">
+    <value>What was found</value>
+  </data>
+  <data name="GpoCleanup.WhatHeading" xml:space="preserve">
+    <value>What to do</value>
+  </data>
+  <data name="GpoCleanup.GposHeading" xml:space="preserve">
+    <value>GPOs</value>
+  </data>
+  <data name="GpoCleanup.SettingHeading" xml:space="preserve">
+    <value>Setting</value>
+  </data>
+  <data name="GpoCleanup.NotesHeading" xml:space="preserve">
+    <value>Remarks</value>
+  </data>
+  <data name="GpoCleanup.NoActions" xml:space="preserve">
+    <value>This proposal is for information only – there is nothing to run.</value>
+  </data>
+  <data name="GpoCleanup.RelatedLine" xml:space="preserve">
+    <value>Related: {0}</value>
+  </data>
+  <data name="GpoCleanup.LinksLine" xml:space="preserve">
+    <value>Linked to: {0}</value>
+  </data>
+  <data name="GpoCleanup.NoLinks" xml:space="preserve">
+    <value>Not linked in this domain</value>
+  </data>
+  <data name="GpoCleanup.BlockingLine" xml:space="preserve">
+    <value>Cannot be copied: {0}</value>
+  </data>
+  <data name="GpoCleanup.OpenGpo" xml:space="preserve">
+    <value>Open GPO</value>
+  </data>
+  <data name="GpoCleanup.Compare" xml:space="preserve">
+    <value>Compare</value>
+  </data>
+  <data name="GpoCleanup.ShowInSearch" xml:space="preserve">
+    <value>Show in the settings search</value>
+  </data>
+  <data name="GpoCleanup.Copied" xml:space="preserve">
+    <value>The proposal was copied to the clipboard.</value>
+  </data>
+  <data name="GpoCleanup.ExportCsv" xml:space="preserve">
+    <value>Export to CSV…</value>
+  </data>
+  <data name="GpoCleanup.ExportHtml" xml:space="preserve">
+    <value>Export to HTML…</value>
+  </data>
+  <data name="GpoCleanup.ReportTitle" xml:space="preserve">
+    <value>GPO cleanup – {0}</value>
+  </data>
+  <data name="GpoCleanup.ReportSubtitle" xml:space="preserve">
+    <value>Domain controller: {0}, settings read {1}</value>
+  </data>
+  <data name="GpoCleanup.ReportFilters" xml:space="preserve">
+    <value>Filtered: {0} of {1} proposals</value>
+  </data>
+  <data name="GpoCleanup.ReportPrivacy" xml:space="preserve">
+    <value>Exported by AD Manager on the operator's request; the report contains GPO names and settings – keep it like other administrative documents.</value>
+  </data>
+  <data name="GpoCleanup.Kind.EmptyGpo.Title" xml:space="preserve">
+    <value>Empty GPO</value>
+  </data>
+  <data name="GpoCleanup.Kind.EmptyGpo.Message" xml:space="preserve">
+    <value>{0} holds no settings.</value>
+  </data>
+  <data name="GpoCleanup.Kind.EmptyGpo.Recommendation" xml:space="preserve">
+    <value>Delete the GPO (a backup is offered first), or unlink it if it has to stay.</value>
+  </data>
+  <data name="GpoCleanup.Kind.UnlinkedGpo.Title" xml:space="preserve">
+    <value>GPO without links</value>
+  </data>
+  <data name="GpoCleanup.Kind.UnlinkedGpo.Message" xml:space="preserve">
+    <value>{0} is not linked to the domain, an organizational unit or a site of this domain: it applies to nobody.</value>
+  </data>
+  <data name="GpoCleanup.Kind.UnlinkedGpo.Recommendation" xml:space="preserve">
+    <value>Delete it, or disable it if you want to keep it for later.</value>
+  </data>
+  <data name="GpoCleanup.Kind.AllLinksDisabled.Title" xml:space="preserve">
+    <value>All links disabled</value>
+  </data>
+  <data name="GpoCleanup.Kind.AllLinksDisabled.Message" xml:space="preserve">
+    <value>Every link to {0} is disabled: the GPO applies to nobody.</value>
+  </data>
+  <data name="GpoCleanup.Kind.AllLinksDisabled.Recommendation" xml:space="preserve">
+    <value>Unlink it everywhere, disable it or delete it.</value>
+  </data>
+  <data name="GpoCleanup.Kind.GpoDisabled.Title" xml:space="preserve">
+    <value>GPO disabled</value>
+  </data>
+  <data name="GpoCleanup.Kind.GpoDisabled.Message" xml:space="preserve">
+    <value>Both the computer and the user configuration of {0} are disabled.</value>
+  </data>
+  <data name="GpoCleanup.Kind.GpoDisabled.Recommendation" xml:space="preserve">
+    <value>Delete it, or unlink it if it is no longer needed.</value>
+  </data>
+  <data name="GpoCleanup.Kind.SingleSettingGpo.Title" xml:space="preserve">
+    <value>GPO with one setting</value>
+  </data>
+  <data name="GpoCleanup.Kind.SingleSettingGpo.Message" xml:space="preserve">
+    <value>{0} has only one setting: {2}.</value>
+  </data>
+  <data name="GpoCleanup.Kind.SingleSettingGpo.Recommendation" xml:space="preserve">
+    <value>Move the setting into a GPO with the same scope (Copy to another GPO…, then Disable GPO), or merge {0} with a GPO linked in the same places.</value>
+  </data>
+  <data name="GpoCleanup.Kind.DuplicateSetting.Title" xml:space="preserve">
+    <value>Duplicated setting</value>
+  </data>
+  <data name="GpoCleanup.Kind.DuplicateSetting.Message" xml:space="preserve">
+    <value>{2} has the same value in {0} as in {1}, and {1} applies everywhere {0} does.</value>
+  </data>
+  <data name="GpoCleanup.Kind.DuplicateSetting.Recommendation" xml:space="preserve">
+    <value>Remove the duplicate from {0} – {1} still sets the value.</value>
+  </data>
+  <data name="GpoCleanup.Kind.DifferentValues.Title" xml:space="preserve">
+    <value>Different values of one setting</value>
+  </data>
+  <data name="GpoCleanup.Kind.DifferentValues.Message" xml:space="preserve">
+    <value>{2} has different values in {0} and in {1}.</value>
+  </data>
+  <data name="GpoCleanup.Kind.DifferentValues.Recommendation" xml:space="preserve">
+    <value>Check which value should apply: compare the GPOs or open the setting in the settings search.</value>
+  </data>
+  <data name="GpoCleanup.Kind.MergeCandidate.Title" xml:space="preserve">
+    <value>Merge candidate</value>
+  </data>
+  <data name="GpoCleanup.Kind.MergeCandidate.Message" xml:space="preserve">
+    <value>{0} and {1} are linked in the same places with the same security filtering and WMI filter.</value>
+  </data>
+  <data name="GpoCleanup.Kind.MergeCandidate.Recommendation" xml:space="preserve">
+    <value>Merge {0} with {1}: the settings are copied, the links replaced and {0} disabled; delete it afterwards.</value>
+  </data>
+  <data name="GpoCleanup.Action.Delete" xml:space="preserve">
+    <value>Delete GPO…</value>
+  </data>
+  <data name="GpoCleanup.Action.Unlink" xml:space="preserve">
+    <value>Unlink everywhere…</value>
+  </data>
+  <data name="GpoCleanup.Action.Disable" xml:space="preserve">
+    <value>Disable GPO</value>
+  </data>
+  <data name="GpoCleanup.Action.RemoveSetting" xml:space="preserve">
+    <value>Remove the duplicate from this GPO</value>
+  </data>
+  <data name="GpoCleanup.Action.CopyTo" xml:space="preserve">
+    <value>Copy to another GPO…</value>
+  </data>
+  <data name="GpoCleanup.Action.Merge" xml:space="preserve">
+    <value>Merge with…</value>
+  </data>
+  <data name="GpoCleanup.Note.Linked" xml:space="preserve">
+    <value>The GPO is linked: deleting it removes its links too.</value>
+  </data>
+  <data name="GpoCleanup.Note.DefaultGpo" xml:space="preserve">
+    <value>A default domain policy is never deleted or merged into another GPO.</value>
+  </data>
+  <data name="GpoCleanup.Note.OtherDomainsNotSearched" xml:space="preserve">
+    <value>The forest has other domains: their links to this GPO are not visible from this domain controller.</value>
+  </data>
+  <data name="GpoCleanup.Note.LinkOrderDiffers" xml:space="preserve">
+    <value>In a shared place the GPO has the higher link precedence: after the merge its settings take the weaker position.</value>
+  </data>
+  <data name="GpoCleanup.Note.NonCopyableUnits" xml:space="preserve">
+    <value>Some settings cannot be copied by AD Manager (secrets, scripts, permissions…), so copy and merge are not offered.</value>
+  </data>
+  <data name="GpoCleanup.Note.DirectorySettings" xml:space="preserve">
+    <value>The GPO holds settings kept in the directory (software installation, wireless or wired network policies): it is not merged.</value>
+  </data>
+  <data name="GpoCleanup.Note.OtherFiles" xml:space="preserve">
+    <value>The GPO holds files AD Manager does not read (e.g. folder redirection): it is not merged.</value>
+  </data>
+  <data name="GpoCleanup.Note.PartDisabled" xml:space="preserve">
+    <value>A disabled part of the GPO (or of the merge target) holds settings: merge is not offered.</value>
+  </data>
+  <data name="GpoCleanup.Note.AccountPolicy" xml:space="preserve">
+    <value>Account policy (passwords, lockout, Kerberos) acts on domain accounts only from GPOs linked to the domain.</value>
+  </data>
+  <data name="GpoCleanup.Note.RemovePolicy" xml:space="preserve">
+    <value>The preference item has "Remove this item when it is no longer applied": clients undo it when it disappears from this GPO.</value>
+  </data>
+  <!-- K7 copy and cleanup (21.5, 21.6): end -->
   <data name="CentralStore.Title" xml:space="preserve">
     <value>Update ADMX templates</value>
   </data>
