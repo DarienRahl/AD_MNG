@@ -101,6 +101,12 @@ public sealed record PkiCrlList(
     PkiCrl? Delta,
     Guid? IssuerCaGuid)
 {
+    /// <summary>
+    /// <c>authorityRevocationList</c> (the ARL – <c>certutil -dspublish</c> writes a root CA's CRL there as well), null when
+    /// absent; parsed like <see cref="Base"/>.
+    /// </summary>
+    public PkiCrl? Authority { get; init; }
+
     /// <summary>GUIDs and presence only.</summary>
     public override string ToString() => string.Create(CultureInfo.InvariantCulture,
         $"{nameof(PkiCrlList)} {ObjectGuid:B} (base {Base is not null}, delta {Delta is not null}{(IssuerCaGuid is { } ca ? ", CA " + ca.ToString("B") : string.Empty)})");

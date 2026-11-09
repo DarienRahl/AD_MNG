@@ -109,8 +109,41 @@ public static class DcCertificateEvaluation
     /// validity at <paramref name="now"/>, the chain to an AD root (<c>X509Chain</c> with <c>CustomRootTrust</c>,
     /// <c>NoCheck</c>, <c>DisableCertificateDownloads</c>) and the issuer in NTAuth.
     /// </summary>
-    public static DcCertificateInfo Evaluate(IReadOnlyList<byte[]> presentedChain, string dcFqdn, string domainDns, PkiTrustMaterial trust, DateTimeOffset now) =>
-        throw new NotImplementedException("P1 C1: DcCertificateEvaluation.Evaluate");
+    /// <remarks>
+    /// The names follow RFC 6125 (SAN DNS entries; the subject CN only without them; a wildcard only as the whole left-most
+    /// label). <see cref="DcCertificateInfo.ChainsToAdRoot"/> ignores the leaf's own validity period (that is
+    /// <see cref="DcCertificateInfo.IsTimeValid"/>) but not an intermediate's. An empty chain or an unparsable leaf gives a
+    /// verdict with <see cref="DcCertificateInfo.Leaf"/> null and every check false.
+    /// </remarks>
+    public static DcCertificateInfo Evaluate(IReadOnlyList<byte[]> presentedChain, string dcFqdn, string domainDns, PkiTrustMaterial trust, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(presentedChain);
+        ArgumentNullException.ThrowIfNull(dcFqdn);
+        ArgumentNullException.ThrowIfNull(domainDns);
+        ArgumentNullException.ThrowIfNull(trust);
+        if (presentedChain.Count == 0 || CertificateSummary.Of(presentedChain[0]) is not { } leaf
+            || CertificateChecks.TryLoad(presentedChain[0]) is not { } certificate)
+        {
+            return new DcCertificateInfo(null, false, false, false, false, 0, false, false, []);
+        }
+
+        using (certificate)
+        {
+            var commonName = CertificateChecks.CommonName(certificate);
+            var issuerInNtAuth = CertificateChecks.IssuerIn(certificate, leaf, trust.NtAuth);
+            var (chains, status) = CertificateChecks.BuildChain(certificate, presentedChain.Skip(1), trust, now);
+            return new DcCertificateInfo(
+                leaf,
+                CertificateChecks.NameMatches(leaf.SanDns, commonName, dcFqdn),
+                CertificateChecks.NameMatches(leaf.SanDns, commonName, domainDns),
+                leaf.Ekus.Count == 0 || leaf.Ekus.Contains(CertificateChecks.ServerAuthentication, StringComparer.Ordinal),
+                now >= leaf.NotBefore && now <= leaf.NotAfter,
+                (int)Math.Floor((leaf.NotAfter - now).TotalDays),
+                chains,
+                issuerInNtAuth,
+                status);
+        }
+    }
 }
 
 /// <summary>The KDC readiness of a DC, from the certificates its object publishes (labelled <i>z certyfikatów opublikowanych w AD</i>).</summary>
@@ -145,6 +178,75 @@ public sealed record KdcCertificateInfo(KdcReadinessState State, CertificateSumm
 public static class KdcCertificateEvaluation
 {
     /// <summary>Evaluates the <c>userCertificate</c> values of a DC object at <paramref name="now"/>.</summary>
-    public static KdcCertificateInfo Evaluate(IReadOnlyList<byte[]> publishedCertificates, string dcFqdn, PkiTrustMaterial trust, DateTimeOffset now) =>
-        throw new NotImplementedException("P1 C1: KdcCertificateEvaluation.Evaluate");
+    /// <remarks>
+    /// A certificate is a KDC certificate when its EKU holds KDC Authentication (<c>1.3.6.1.5.2.3.5</c>, the
+    /// <i>Kerberos Authentication</i> template) or both Smart-Card Logon and Server Authentication (the <i>Domain Controller
+    /// Authentication</i> template); the v1 <i>Domain Controller</i> template (Client + Server Authentication) is not. The
+    /// best state wins: <see cref="KdcReadinessState.Ready"/>, then <see cref="KdcReadinessState.IssuerNotInNtAuth"/> (time-valid),
+    /// then <see cref="KdcReadinessState.Expired"/> (no KDC certificate is time-valid – also one not yet valid). Unparsable values
+    /// are left out. <see cref="KdcCertificateInfo.Best"/> prefers a certificate naming <paramref name="dcFqdn"/>, then the
+    /// latest <c>NotAfter</c>.
+    /// </remarks>
+    public static KdcCertificateInfo Evaluate(IReadOnlyList<byte[]> publishedCertificates, string dcFqdn, PkiTrustMaterial trust, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(publishedCertificates);
+        ArgumentNullException.ThrowIfNull(dcFqdn);
+        ArgumentNullException.ThrowIfNull(trust);
+        var parsed = new List<Candidate>();
+        foreach (var der in publishedCertificates)
+        {
+            using var certificate = CertificateChecks.TryLoad(der);
+            if (certificate is null || CertificateSummary.Of(der) is not { } summary)
+            {
+                continue;
+            }
+
+            var isKdc = summary.Ekus.Contains(CertificateChecks.KdcAuthentication, StringComparer.Ordinal)
+                || (summary.Ekus.Contains(CertificateChecks.SmartCardLogon, StringComparer.Ordinal)
+                    && summary.Ekus.Contains(CertificateChecks.ServerAuthentication, StringComparer.Ordinal));
+            var timeValid = now >= summary.NotBefore && now <= summary.NotAfter;
+            parsed.Add(new Candidate(
+                summary,
+                isKdc,
+                timeValid,
+                isKdc && CertificateChecks.IssuerIn(certificate, summary, trust.NtAuth),
+                CertificateChecks.NameMatches(summary.SanDns, CertificateChecks.CommonName(certificate), dcFqdn)));
+        }
+
+        if (parsed.Count == 0)
+        {
+            return new KdcCertificateInfo(KdcReadinessState.NoPublishedCertificate, null);
+        }
+
+        var kdc = parsed.Where(c => c.IsKdc).ToList();
+        if (kdc.Count == 0)
+        {
+            return new KdcCertificateInfo(KdcReadinessState.NoKdcEku, Best(parsed));
+        }
+
+        if (kdc.Where(c => c.IsTimeValid && c.IssuerInNtAuth).ToList() is { Count: > 0 } ready)
+        {
+            return new KdcCertificateInfo(KdcReadinessState.Ready, Best(ready));
+        }
+
+        return kdc.Where(c => c.IsTimeValid).ToList() is { Count: > 0 } valid
+            ? new KdcCertificateInfo(KdcReadinessState.IssuerNotInNtAuth, Best(valid))
+            : new KdcCertificateInfo(KdcReadinessState.Expired, Best(kdc));
+    }
+
+    private static CertificateSummary Best(List<Candidate> candidates) =>
+        candidates.OrderByDescending(c => c.NamesDc).ThenByDescending(c => c.Summary.NotAfter).First().Summary;
+
+    private sealed class Candidate(CertificateSummary summary, bool isKdc, bool isTimeValid, bool issuerInNtAuth, bool namesDc)
+    {
+        public CertificateSummary Summary { get; } = summary;
+
+        public bool IsKdc { get; } = isKdc;
+
+        public bool IsTimeValid { get; } = isTimeValid;
+
+        public bool IssuerInNtAuth { get; } = issuerInNtAuth;
+
+        public bool NamesDc { get; } = namesDc;
+    }
 }
