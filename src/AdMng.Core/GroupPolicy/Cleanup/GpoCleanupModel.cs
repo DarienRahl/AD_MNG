@@ -112,10 +112,3 @@ public sealed record GpoCleanupResult(IReadOnlyList<GpoCleanupProposal> Proposal
     /// <summary>For diagnostics: counts only.</summary>
     public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"{Proposals.Count} proposals, {NotEvaluated.Count} not evaluated");
 }
-
-/// <summary>The cleanup advisor (21.6): pure rules over a <see cref="GpoSettingsIndex"/>.</summary>
-public static class GpoCleanupAnalyzer
-{
-    public static GpoCleanupResult Analyze(GpoSettingsIndex index, GpoCleanupOptions? options = null) =>
-        throw new NotImplementedException("K7 W3: GpoCleanupAnalyzer.Analyze");
-}
