@@ -582,6 +582,35 @@ public sealed class PkiEscAnalyzerTests
     }
 
     [Fact]
+    public void Esc14_OnTheMappedAccountsOfALargeDomain_StaysWithinATimeBudget()
+    {
+        // A smart-card forest maps every account explicitly: 100 000 mapped accounts, 50 Tier 0 accounts others can write.
+        var accounts = new List<PkiAccountFact>(100_050);
+        for (var i = 0; i < 100_000; i++)
+        {
+            accounts.Add(new PkiAccountFact($"CN=Użytkownik {i:D6},OU=Łódź,OU=Kontoso,DC=contoso,DC=test", $"Użytkownik {i:D6}", $"{DomainSid}-{10_000 + i}", false, false,
+                [AltSecurityIdentity.Parse($"X509:<I>C=PL,CN=Kontoso Wystawiający CA<SR>{i & 0xFF:X2}{i >> 8 & 0xFF:X2}")]));
+        }
+
+        var esc = new Esc { MappedAccounts = accounts };
+        for (var i = 0; i < 50; i++)
+        {
+            var dn = $"CN=Administrator {i:D2},OU=Tier0,OU=Kontoso,DC=contoso,DC=test";
+            accounts.Add(new PkiAccountFact(dn, $"Administrator {i:D2}", $"{DomainSid}-{500_000 + i}", false, true, [AltSecurityIdentity.Parse("X509:<SKI>8D5E1F0A")]));
+            esc.Grant(dn, PkiAclTargetKind.Tier0Account, GgIt, AclRight.WriteAltSecurityIdentities, PrincipalClass.Other, "GG_IT");
+        }
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var result = esc.Analyze();
+        stopwatch.Stop();
+
+        Assert.Equal(50, result.Count);
+        Assert.All(result, f => Assert.Equal(PkiFindingSeverity.Medium, f.Severity));
+        Assert.Contains(result, f => f.Arguments[0] == "Administrator 07");
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(3), $"ESC14 took {stopwatch.Elapsed}.");
+    }
+
+    [Fact]
     public void WithoutThePkiAclPass_Esc5AndTheMappingWritesAreNotEvaluated()
     {
         var esc = new Esc

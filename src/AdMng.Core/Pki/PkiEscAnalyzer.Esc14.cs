@@ -49,7 +49,22 @@ public static partial class PkiEscAnalyzer
         }
 
         var writes = run.Snapshot.AclGrants
-            .Where(g => g.TargetKind == PkiAclTargetKind.Tier0Account && Esc14Rights.Contains(g.Right) && run.ClassOf(g.TrusteeSid) != PrincipalClass.Tier0);
+            .Where(g => g.TargetKind == PkiAclTargetKind.Tier0Account && Esc14Rights.Contains(g.Right) && run.ClassOf(g.TrusteeSid) != PrincipalClass.Tier0)
+            .ToList();
+        if (writes.Count == 0)
+        {
+            return;
+        }
+
+        // The targets are Tier 0 accounts: their names come from the Tier 0 mapped accounts, keyed once (a forest that maps every
+        // account explicitly has 100 000 of them – parsing each DN per target took seconds); any other target is named by the
+        // leaf RDN of its DN, which is the account's name.
+        var tier0ByDn = new Dictionary<string, PkiAccountFact>(StringComparer.Ordinal);
+        foreach (var account in accounts.Where(a => a.IsTier0))
+        {
+            tier0ByDn.TryAdd(Key(account.Dn), account);
+        }
+
         foreach (var target in writes.GroupBy(g => Key(g.TargetDn)))
         {
             var first = target.First();
@@ -57,7 +72,7 @@ public static partial class PkiEscAnalyzer
             var principals = shown.Select(g => run.GrantPrincipal(g.TrusteeSid, g.Right.ToString())).ToList();
             var severity = principals.Aggregate(PkiFindingSeverity.Info,
                 (max, p) => Max(max, ClassSeverity(p.Class, PkiFindingSeverity.Critical, PkiFindingSeverity.Medium)));
-            var name = accounts.FirstOrDefault(a => Key(a.Dn) == target.Key)?.Name ?? LeafName(first.TargetDn);
+            var name = tier0ByDn.TryGetValue(target.Key, out var mapped) ? mapped.Name : LeafName(first.TargetDn);
             run.Add(new PkiFinding(PkiFindingCodes.WeakExplicitMapping, severity, PkiFindingArea.Account, null,
                 [
                     name,
