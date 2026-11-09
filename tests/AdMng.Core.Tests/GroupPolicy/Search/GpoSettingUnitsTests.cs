@@ -162,6 +162,29 @@ public sealed class GpoSettingUnitsTests
     }
 
     [Fact]
+    public void RegistryPol_InconsistentPolicies_CompareByTheirRawEntries()
+    {
+        var context = new GpoUnitContext(Definitions.Value, DomainSid);
+        GpoSettingUnit Unit(uint value)
+        {
+            var document = new RegistryPolicyDocument();
+            document.Set(@"Software\Policies\Contoso\Eksplorator", "NoPreview", RegistryFormat.RegDword, BitConverter.GetBytes(value));
+            return Single(GpoSettingUnits.Of(SettingsOf(("Machine/Registry.pol", document.ToBytes())), document, null, context));
+        }
+
+        var five = Unit(5);
+        var seven = Unit(7);
+        var fiveAgain = Unit(5);
+
+        Assert.Equal((GpoSettingUnitKind.AdministrativeTemplate, PolicyState.Inconsistent), (five.Kind, five.Policy!.State));
+        Assert.Equal(five.Policy, seven.Policy); // the decoded setting carries no value
+        Assert.False(GpoSettingUnits.SameValue(five, seven));
+        Assert.NotEqual(five.ValueFingerprint, seven.ValueFingerprint);
+        Assert.True(GpoSettingUnits.SameValue(five, fiveAgain));
+        Assert.Equal(five.ValueFingerprint, fiveAgain.ValueFingerprint);
+    }
+
+    [Fact]
     public void RegistryPol_Unreadable_IsAnUnreadableFileUnit_ThatBlocksMerge()
     {
         var unit = Single(Units([("Machine/Registry.pol", Encoding.ASCII.GetBytes("PReg?"))]));

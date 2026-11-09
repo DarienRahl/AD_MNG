@@ -156,7 +156,8 @@ public static partial class GpoSettingUnits
 
     /// <summary>
     /// Same setting, same value: false unless both are <see cref="GpoUnitComparability.Comparable"/> and neither is
-    /// <see cref="GpoSettingUnit.Disabled"/>; policies compare by <see cref="PolicySetting"/> equality, the others by
+    /// <see cref="GpoSettingUnit.Disabled"/>; policies compare by <see cref="PolicySetting"/> equality (an inconsistent policy, which
+    /// decodes to its state alone, by its raw entries too), the others by
     /// <see cref="GpoSettingUnit.ValueFingerprint"/>. Masked values are never equal. Units of different
     /// <see cref="GpoSettingUnit.BaseId"/>s are never the same setting.
     /// </summary>
@@ -172,6 +173,7 @@ public static partial class GpoSettingUnits
 
         return a.Kind == GpoSettingUnitKind.AdministrativeTemplate
             ? a.Policy is not null && b.Policy is not null && a.Policy.Equals(b.Policy)
+                && (a.Policy.State != PolicyState.Inconsistent || string.Equals(a.ValueFingerprint, b.ValueFingerprint, StringComparison.Ordinal))
             : string.Equals(a.ValueFingerprint, b.ValueFingerprint, StringComparison.Ordinal);
     }
 

@@ -118,7 +118,10 @@ public static partial class GpoSettingUnits
             PolicyClass = group.PolicyClass,
             Policy = policy.Setting,
             Settings = settings,
-            ValueFingerprint = PolicyFingerprint(policy.Setting),
+            // An inconsistent policy decodes to its state alone: its raw entries are its value (they are what a copy writes).
+            ValueFingerprint = policy.Setting.State == PolicyState.Inconsistent
+                ? PolicyFingerprint(policy.Setting) + LineSeparator + Fingerprint(settings, s => s.Key)
+                : PolicyFingerprint(policy.Setting),
             Comparability = masked ? GpoUnitComparability.Masked : GpoUnitComparability.Comparable,
         };
     }
