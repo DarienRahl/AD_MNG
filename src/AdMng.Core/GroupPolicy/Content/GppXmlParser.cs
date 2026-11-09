@@ -31,13 +31,9 @@ public static class GppXmlParser
         ArgumentNullException.ThrowIfNull(sink);
         var document = GpoXml.Load(content);
         var prefix = (scope == GpoScope.User ? "User" : "Computer") + "/Preferences/" + type + "/";
-        var index = 0;
-        foreach (var item in document.Root!.Descendants().Where(IsItem))
+        foreach (var item in Items(document))
         {
-            index++;
-            var uid = GpoXml.Attribute(item, "uid");
-            var id = string.IsNullOrWhiteSpace(uid) ? item.Name.LocalName + "#" + GpoValues.Number(index) : uid.Trim();
-            Item(sink, prefix + id + "/", type, item);
+            Item(sink, prefix + item.ItemId + "/", type, item.Element);
         }
     }
 
@@ -46,8 +42,31 @@ public static class GppXmlParser
     /// <see cref="Parse"/> uses (<c>uid</c>, else <c>&lt;Element&gt;#n</c>), each with its ancestor <c>Collection</c>
     /// elements (outermost first) – their <c>disabled</c> and <c>Filters</c> apply to the item.
     /// </summary>
-    public static IEnumerable<GppXmlItem> Items(XDocument document) =>
-        throw new NotImplementedException("K7 W1: GppXmlParser.Items");
+    public static IEnumerable<GppXmlItem> Items(XDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        return document.Root is { } root ? ItemsOf(root) : [];
+    }
+
+    /// <summary>A <c>Collection</c> element (GPMC's folders inside a preferences file).</summary>
+    public static bool IsCollection(XElement element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return element.Name.LocalName.Equals("Collection", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<GppXmlItem> ItemsOf(XElement root)
+    {
+        var index = 0;
+        foreach (var item in root.Descendants().Where(IsItem))
+        {
+            index++;
+            var uid = GpoXml.Attribute(item, "uid");
+            var id = string.IsNullOrWhiteSpace(uid) ? item.Name.LocalName + "#" + GpoValues.Number(index) : uid.Trim();
+            IReadOnlyList<XElement> collections = [.. item.Ancestors().Where(IsCollection).Reverse()];
+            yield return new GppXmlItem(id, item, collections);
+        }
+    }
 
     private static bool IsItem(XElement element) =>
         GpoXml.Child(element, "Properties") is not null || GpoXml.Attribute(element, "uid") is not null;
@@ -189,7 +208,7 @@ public static class GppXmlParser
     }
 
     /// <summary>One element as text: <c>Name a=1 b=2 [children]</c> (attributes sorted, secrets as <c>***</c>).</summary>
-    private static string Canonical(XElement element)
+    internal static string Canonical(XElement element)
     {
         var parts = new List<string> { element.Name.LocalName };
         parts.AddRange(element.Attributes()
