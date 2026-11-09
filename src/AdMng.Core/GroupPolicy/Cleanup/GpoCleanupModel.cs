@@ -60,7 +60,7 @@ public enum GpoCleanupNote
     /// <summary>The GPO holds files no parser reads: no Merge.</summary>
     OtherFiles,
 
-    /// <summary>A disabled half of the GPO holds settings: no Merge.</summary>
+    /// <summary>A disabled half of the GPO holds settings, or the merge target's disabled half would take some: no Merge.</summary>
     PartDisabled,
 
     /// <summary>Account policy: only GPOs linked to the domain head are compared.</summary>
@@ -111,11 +111,4 @@ public sealed record GpoCleanupResult(IReadOnlyList<GpoCleanupProposal> Proposal
 {
     /// <summary>For diagnostics: counts only.</summary>
     public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"{Proposals.Count} proposals, {NotEvaluated.Count} not evaluated");
-}
-
-/// <summary>The cleanup advisor (21.6): pure rules over a <see cref="GpoSettingsIndex"/>.</summary>
-public static class GpoCleanupAnalyzer
-{
-    public static GpoCleanupResult Analyze(GpoSettingsIndex index, GpoCleanupOptions? options = null) =>
-        throw new NotImplementedException("K7 W3: GpoCleanupAnalyzer.Analyze");
 }
