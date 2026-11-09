@@ -80,6 +80,23 @@ public sealed class CreationNamesTests
     public void SanitizeIdentifier_TheSamFilter(string value, string attribute, string expected) =>
         Assert.Equal(expected, CreationNames.SanitizeIdentifier(value, ObjectKind.User, attribute));
 
+    [Theory]
+    [InlineData("Kowalski (Jan)", "mail", "KowalskiJan")]
+    [InlineData("jan.kowalski(kadry)", "userPrincipalName", "jan.kowalskikadry")]
+    [InlineData("Kowalski (Jan)", "sAMAccountName", "Kowalski(Jan)")]
+    public void SanitizeIdentifier_AddressParts_LoseParentheses(string value, string attribute, string expected)
+    {
+        // Neither a UPN prefix (AccountNames.IsValidUpnPrefix) nor an unquoted local part may hold '(' or ')': a sanitized
+        // address must pass Validate; a logon name keeps them (valid in sAMAccountName). Review of B1.
+        var clean = CreationNames.SanitizeIdentifier(value, ObjectKind.User, attribute);
+
+        Assert.Equal(expected, clean);
+        if (attribute == "userPrincipalName")
+        {
+            Assert.True(CreationNames.IsValidUpnPrefix(clean));
+        }
+    }
+
     [Fact]
     public void SanitizeIdentifier_NeverCuts()
     {

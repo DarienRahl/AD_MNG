@@ -1717,3 +1717,20 @@ additions:
   next to the contract's `CreationNamesParityTests` (left untouched); the settings unit tests of the GC session are
   `GlobalCatalogSettingsTests` in `GlobalCatalogSessionLabTests.cs`; `BulkCreatePowerShellTests.OperatorScenario_…` (table
   → synonyms → planner → exporter) is `[Fact(Skip = "F3 wave 1 merge")]`.
+* **Review of B1** (adversarial review, fixes with tests):
+  * *Counter values are finished in parts.* `Finish` with `IsCounterValue` works character by character: the ends of a part
+    are neither trimmed nor stripped of dots (a run of spaces at an end becomes one space), the address leading-dot rule
+    does not apply and a phone part is not formatted – 2.4 finishes the prefix and the suffix around the number
+    separately, so `Praktykant {$nr:1:2}` gave *Praktykant01*, `kd.{$nr:201}` *kd201* and `+48 22 555 01 {$nr:10}`
+    *+482255500110*. `Validate` reports white space at either end of a single-line value as `InvalidValue` (a counter rule
+    with a stray space keeps it now). `SanitizeIdentifier` itself is unchanged (internal `CreationNames.Sanitize` with
+    `edges: false`).
+  * *Address parts lose `(` and `)`*: neither `AccountNames.IsValidUpnPrefix` nor `UserMessageRules.TryParseAddress` accepts
+    them, so a sanitized UPN or `mail` rule value failed `Validate`.
+  * *`x:num` on the HTML-only path*: a single column copied from Excel has no tab, so the HTML table is read – its
+    scientific-notation cells now take Excel's `x:num` too (`RecoveredFromHtml`), also for a pasted `.html` file.
+  * *`SplitFullName`*: a comma names the order whatever `NameOrder` says (*Kowalski, Jan*, *Nowak-Kowalska, Anna Maria* –
+    surname, given names); title parts after the last comma are dropped first (*Kowalski, Jan, dr*; *Jan Kowalski, dr* has
+    no comma form), each side loses its own titles. Before, a given-name-first column swapped the parts.
+  * *A headerless PESEL column* (80 % valid PESEL numbers: check digit, month, day) gets no content suggestion – 11 digits
+    passed `LooksLikePhone`, so it became `telephoneNumber`.

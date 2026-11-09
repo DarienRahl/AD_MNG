@@ -23,7 +23,7 @@ public sealed record FinishedValue(string Value, bool Sanitized, bool Truncated)
 /// <param name="SanitizeIdentifiers">Identifier rule values go through <see cref="CreationNames.SanitizeIdentifier"/>.</param>
 /// <param name="TruncateNames">sAMAccountName and cn rule values are cut to their limits (never a counter value).</param>
 /// <param name="Phones">The phone format of phone attributes.</param>
-/// <param name="IsCounterValue">The value contains the counter: it is never truncated (too long → <c>CounterTooLong</c>).</param>
+/// <param name="IsCounterValue">The value contains the counter or is a part of such a value (2.4): it is never truncated (too long → <c>CounterTooLong</c>) and is finished character by character only (see <see cref="CreationValues.Finish"/>).</param>
 public sealed record CreationFinishOptions(bool SanitizeIdentifiers, bool TruncateNames, PhoneFormat Phones, bool IsCounterValue)
 {
     public override string ToString() =>
@@ -102,22 +102,32 @@ public static class CreationValues
     /// <c>cn</c> as the plan does); <see cref="CreationFinishOptions.TruncateNames"/> cuts to 20 / 15 + <c>$</c> / 256.
     /// <c>userPrincipalName</c> and <c>mail</c>: the part before the last <c>@</c> sanitized, the domain lower-cased, never cut
     /// (too long is <see cref="IssueCodes.TooLong"/> of <see cref="Validate(ObjectKind, string, IReadOnlyList{string}, ISchemaCatalog)"/>).
-    /// Phone attributes: <see cref="PhoneFormat.International"/> when chosen. <c>homeDrive</c>: upper case. A counter value is
-    /// never cut. The computer rules (upper case, <c>$</c>) apply whatever the options say, so the planner may pass a
-    /// column value of a computer with <c>SanitizeIdentifiers</c> and <c>TruncateNames</c> off.
+    /// Phone attributes: <see cref="PhoneFormat.International"/> when chosen. <c>homeDrive</c>: upper case. The computer rules
+    /// (upper case, <c>$</c>) apply whatever the options say, so the planner may pass a column value of a computer with
+    /// <c>SanitizeIdentifiers</c> and <c>TruncateNames</c> off.
+    /// <para>
+    /// <see cref="CreationFinishOptions.IsCounterValue"/>: the value is the prefix or the suffix of a counter value (2.4 finishes
+    /// them separately) and is finished character by character only – never cut, its ends neither trimmed nor stripped of
+    /// dots (a run of spaces at an end becomes one space: <c>Praktykant </c> + <c>01</c>, <c>kd.</c> + <c>201</c>), no phone
+    /// format (the digits of a part are no number of their own) and no <c>$</c>.
+    /// </para>
     /// </remarks>
     public static FinishedValue Finish(ObjectKind kind, string attribute, string raw, CreationFinishOptions options)
     {
         ArgumentNullException.ThrowIfNull(attribute);
         ArgumentNullException.ThrowIfNull(raw);
         ArgumentNullException.ThrowIfNull(options);
-        var value = IsMultiLine(attribute) ? raw.Trim() : CollapseSpaces(raw, allWhiteSpace: false);
+
+        // A counter value is finished in parts (2.4: prefix and suffix around the number, separately): only character by
+        // character – an end of a part may be where the number goes ("Praktykant " + 01, "kd." + 201).
+        var edges = !options.IsCounterValue;
+        var value = IsMultiLine(attribute) ? (edges ? raw.Trim() : raw) : CollapseSpaces(raw, allWhiteSpace: false, edges);
         var sanitized = false;
         var truncated = false;
         var mayCut = options.TruncateNames && !options.IsCounterValue;
         if (Is(attribute, Cn))
         {
-            value = CollapseSpaces(value, allWhiteSpace: true);
+            value = CollapseSpaces(value, allWhiteSpace: true, edges);
             if (kind == ObjectKind.Computer)
             {
                 value = value.ToUpperInvariant();
@@ -133,7 +143,7 @@ public static class CreationValues
         {
             if (options.SanitizeIdentifiers)
             {
-                var clean = CreationNames.SanitizeIdentifier(value, kind, attribute);
+                var clean = CreationNames.Sanitize(value, kind, attribute, edges);
                 sanitized = !string.Equals(clean, value, StringComparison.Ordinal);
                 value = clean;
             }
@@ -167,7 +177,7 @@ public static class CreationValues
             var domain = at < 0 ? null : value[(at + 1)..].Trim().ToLowerInvariant();
             if (options.SanitizeIdentifiers)
             {
-                var clean = CreationNames.SanitizeIdentifier(local, kind, attribute);
+                var clean = CreationNames.Sanitize(local, kind, attribute, edges);
                 sanitized = !string.Equals(clean, local, StringComparison.Ordinal);
                 local = clean;
             }
@@ -176,7 +186,8 @@ public static class CreationValues
         }
         else if (IsPhoneAttribute(attribute))
         {
-            value = CellText.NormalizePhone(value, options.Phones);
+            // A part of a counter value is no phone number of its own: formatting it would regroup the digits before the number.
+            value = edges ? CellText.NormalizePhone(value, options.Phones) : value;
         }
         else if (Is(attribute, HomeDrive))
         {
@@ -264,6 +275,13 @@ public static class CreationValues
             {
                 ValidateOther(kind, attribute, value, schema, phones, columnCase, issues);
             }
+
+            // Columns and edits are normalized and rule values trimmed – except a counter value, whose parts keep their ends
+            // (Finish): a rule such as " Sala {$nr}" would create a name with a leading space.
+            if (!multiLine && value.Trim().Length > 0 && (char.IsWhiteSpace(value[0]) || char.IsWhiteSpace(value[^1])))
+            {
+                issues.Error(IssueCodes.InvalidValue, $"The value of '{attribute}' begins or ends with white space.");
+            }
         }
 
         return issues.Items;
@@ -340,8 +358,11 @@ public static class CreationValues
     private static bool IsSingleValued(string attribute, ISchemaCatalog schema) =>
         Is(attribute, "description") || (schema.FindAttribute(attribute) is { } definition ? definition.IsSingleValued : !KnownMultiValued.Contains(attribute));
 
-    /// <summary>Runs of spaces (all white space with <paramref name="allWhiteSpace"/>) → one space, trimmed.</summary>
-    private static string CollapseSpaces(string value, bool allWhiteSpace)
+    /// <summary>
+    /// Runs of spaces (all white space with <paramref name="allWhiteSpace"/>) → one space, trimmed; without
+    /// <paramref name="edges"/> (a part of a counter value) a run at either end becomes one space instead of none.
+    /// </summary>
+    private static string CollapseSpaces(string value, bool allWhiteSpace, bool edges)
     {
         var builder = new StringBuilder(value.Length);
         var pending = false;
@@ -349,7 +370,7 @@ public static class CreationValues
         {
             if (c == ' ' || (allWhiteSpace && char.IsWhiteSpace(c)))
             {
-                pending = builder.Length > 0;
+                pending = !edges || builder.Length > 0;
                 continue;
             }
 
@@ -360,6 +381,11 @@ public static class CreationValues
             }
 
             builder.Append(c);
+        }
+
+        if (pending && !edges)
+        {
+            builder.Append(' ');
         }
 
         return builder.ToString();

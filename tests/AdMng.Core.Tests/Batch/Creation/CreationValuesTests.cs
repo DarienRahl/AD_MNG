@@ -93,6 +93,70 @@ public sealed class CreationValuesTests
     }
 
     [Fact]
+    public void Finish_Addresses_ASanitizedValuePassesValidate()
+    {
+        var mail = Finish(ObjectKind.User, "mail", "Kowalski (Jan)@Contoso.com").Value;
+        var upn = Finish(ObjectKind.User, "userPrincipalName", "kowalski(jan)@contoso.com").Value;
+
+        Assert.Equal("KowalskiJan@contoso.com", mail);
+        Assert.Empty(Validate(ObjectKind.User, "mail", mail));
+        Assert.Equal("kowalskijan@contoso.com", upn);
+        Assert.Empty(Validate(ObjectKind.User, "userPrincipalName", upn));
+    }
+
+    /// <summary>
+    /// The parts around the counter are finished separately and joined with the number (2.4, as the planner does): the end of
+    /// a part where the number goes keeps its space or dot (review of B1 – <c>Praktykant 01</c> became <c>Praktykant01</c>,
+    /// <c>kd.201</c> became <c>kd201</c>).
+    /// </summary>
+    [Theory]
+    [InlineData(ObjectKind.User, "cn", "Praktykant ", "", "Praktykant 01")]
+    [InlineData(ObjectKind.User, "cn", "Sala  ", "  WAW", "Sala 01 WAW")]
+    [InlineData(ObjectKind.User, "displayName", "Praktykant ", "", "Praktykant 01")]
+    [InlineData(ObjectKind.User, "description", "Konto nr ", " (staż)", "Konto nr 01 (staż)")]
+    [InlineData(ObjectKind.User, "sAMAccountName", "kd.", "", "kd.01")]
+    [InlineData(ObjectKind.User, "sAMAccountName", "praktykant.", ".waw", "praktykant.01.waw")]
+    [InlineData(ObjectKind.User, "sAMAccountName", "Praktykant ", "", "Praktykant01")]
+    [InlineData(ObjectKind.Group, "sAMAccountName", "Projekt ", " Kraków", "Projekt 01 Kraków")]
+    [InlineData(ObjectKind.User, "mail", "jan.", "@Contoso.COM", "jan.01@contoso.com")]
+    [InlineData(ObjectKind.User, "mail", "info@sklep", ".pl", "info@sklep01.pl")]
+    [InlineData(ObjectKind.User, "userPrincipalName", "praktykant.", "@contoso.com", "praktykant.01@contoso.com")]
+    public void Finish_CounterParts_KeepTheJunctionWithTheNumber(ObjectKind kind, string attribute, string prefix, string suffix, string expected)
+    {
+        var counter = Defaults with { IsCounterValue = true };
+
+        var joined = Finish(kind, attribute, prefix, counter).Value + "01" + Finish(kind, attribute, suffix, counter).Value;
+
+        Assert.Equal(expected, joined);
+    }
+
+    [Fact]
+    public void Validate_WhiteSpaceAtTheEnds_OfASingleLineValue_IsAnError()
+    {
+        // A counter rule with a stray space (" Sala {$nr}") keeps it, since counter parts keep their ends.
+        var counter = Defaults with { IsCounterValue = true };
+        var cn = Finish(ObjectKind.User, "cn", " Sala ", counter).Value + "01";
+
+        Assert.Equal(" Sala 01", cn);
+        Assert.Equal([IssueCodes.InvalidValue], Codes(Validate(ObjectKind.User, "cn", cn)));
+        Assert.Equal([IssueCodes.InvalidValue], Codes(Validate(ObjectKind.User, "displayName", "Praktykant 01 ")));
+        Assert.Empty(Validate(ObjectKind.User, "cn", "Sala 01"));
+        Assert.Empty(Validate(ObjectKind.User, "streetAddress", "ul. Kwiatowa 5\r\n00-950 Warszawa"));
+    }
+
+    [Fact]
+    public void Finish_CounterParts_OfAPhone_AreNotFormattedOnTheirOwn()
+    {
+        var counter = Defaults with { Phones = PhoneFormat.International, IsCounterValue = true };
+
+        // ipPhone "+48 22 555 01 {$nr:10}": formatting the prefix alone regrouped it to "+4822555001".
+        var joined = Finish(ObjectKind.User, "ipPhone", "+48 22 555 01 ", counter).Value + "10";
+
+        Assert.Equal("+48 22 555 01 10", joined);
+        Assert.Empty(CreationValues.Validate(ObjectKind.User, "ipPhone", [joined], Schema, PhoneFormat.International, columnCase: null));
+    }
+
+    [Fact]
     public void Finish_PhonesHomeDriveAndOtherAttributes()
     {
         var international = Defaults with { Phones = PhoneFormat.International };

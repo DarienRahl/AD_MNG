@@ -113,11 +113,18 @@ public static class CreationNames
     /// <remarks>
     /// The <c>sAMAccountName</c> of a group keeps spaces and letters with diacritics (valid in a group name): only the
     /// forbidden and control characters are removed and the ends trimmed. An address part (<c>userPrincipalName</c>,
-    /// <c>mail</c>) also loses a leading dot and runs of dots (<c>.kowalski</c>, <c>jan..kowalski</c> are no valid local
-    /// parts). The value is one part: <c>@</c> is removed like any forbidden character (<c>CreationValues.Finish</c> splits
-    /// an address at its last <c>@</c> first).
+    /// <c>mail</c>) also loses <c>(</c>, <c>)</c>, a leading dot and runs of dots (<c>kowalski(jan)</c>, <c>.kowalski</c>,
+    /// <c>jan..kowalski</c> are no valid UPN prefixes or local parts). The value is one part: <c>@</c> is removed like any
+    /// forbidden character (<c>CreationValues.Finish</c> splits an address at its last <c>@</c> first).
     /// </remarks>
-    public static string SanitizeIdentifier(string value, ObjectKind kind, string attribute)
+    public static string SanitizeIdentifier(string value, ObjectKind kind, string attribute) => Sanitize(value, kind, attribute, edges: true);
+
+    /// <summary>
+    /// <see cref="SanitizeIdentifier"/>; with <paramref name="edges"/> false only character by character – no trimming of the
+    /// ends, no leading-dot rule – for one part of a counter value (2.4: the parts around the number are finished separately,
+    /// so <c>kd.</c> of <c>kd.{$nr}</c> keeps its dot).
+    /// </summary>
+    internal static string Sanitize(string value, ObjectKind kind, string attribute, bool edges)
     {
         ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(attribute);
@@ -127,25 +134,26 @@ public static class CreationNames
             foreach (var c in value)
             {
                 // A removed character leaves no double space ("Kadry / Płace" → "Kadry Płace").
-                if (!IsInvalidSamCharacter(c) && !(c == ' ' && (builder.Length == 0 || builder[^1] == ' ')))
+                if (!IsInvalidSamCharacter(c) && !(c == ' ' && ((edges && builder.Length == 0) || (builder.Length > 0 && builder[^1] == ' '))))
                 {
                     builder.Append(c);
                 }
             }
 
-            return builder.ToString().Trim().TrimEnd('.').TrimEnd();
+            return edges ? builder.ToString().Trim().TrimEnd('.').TrimEnd() : builder.ToString();
         }
 
         var address = string.Equals(attribute, UpnAttribute, StringComparison.OrdinalIgnoreCase)
             || string.Equals(attribute, MailAttribute, StringComparison.OrdinalIgnoreCase);
         foreach (var c in Diacritics.Remove(value))
         {
-            if (c > '~' || char.IsWhiteSpace(c) || char.IsControl(c) || IsInvalidSamCharacter(c))
+            // An address part also loses '(' and ')': neither a UPN prefix nor an unquoted local part may hold them.
+            if (c > '~' || char.IsWhiteSpace(c) || char.IsControl(c) || IsInvalidSamCharacter(c) || (address && c is '(' or ')'))
             {
                 continue;
             }
 
-            if (address && c == '.' && (builder.Length == 0 || builder[^1] == '.'))
+            if (address && c == '.' && ((edges && builder.Length == 0) || (builder.Length > 0 && builder[^1] == '.')))
             {
                 continue;
             }
@@ -153,7 +161,7 @@ public static class CreationNames
             builder.Append(c);
         }
 
-        return builder.ToString().TrimEnd('.');
+        return edges ? builder.ToString().TrimEnd('.') : builder.ToString();
     }
 
     /// <summary>
