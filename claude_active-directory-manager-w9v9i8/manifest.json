@@ -163,5 +163,15 @@
     "file": "33-readiness.png",
     "title_pl": "Gotowość środowiska – pełne sprawdzenie z komputerem testowym: połączenie, katalog, SYSVOL i zasady grupy, zdalne akcje, dzienniki zdarzeń każdego kontrolera, Watchdog, Outlook i ten komputer; każdy punkt z objaśnieniem, podpowiedzią i rozdziałem instrukcji",
     "title_en": "Environment readiness – the full check with a test computer: connection, directory, SYSVOL and Group Policy, remote actions, every domain controller\u0027s event logs, Watchdog, Outlook and this computer; every check with its explanation, remedy and documentation chapter"
+  },
+  {
+    "file": "34-gpo-settings-search.png",
+    "title_pl": "Wyszukiwarka ustawień GPO – „hasł” we wszystkich obiektach GPO domeny: ustawienia zgrupowane, w ilu GPO są ustawione i czy ich wartości są zgodne, połączenia każdego GPO i szczegóły zaznaczonego wystąpienia",
+    "title_en": "GPO settings search – \u0022hasł\u0022 in every GPO of the domain: the settings grouped, in how many GPOs they are set and whether their values agree, the links of each GPO and the details of the selected occurrence"
+  },
+  {
+    "file": "35-gpo-cleanup.png",
+    "title_pl": "Porządki w GPO – propozycje doradcy: puste i niepołączone obiekty GPO, zduplikowane ustawienie z działaniem „Usuń duplikat z tego GPO”, kandydat do scalenia",
+    "title_en": "GPO cleanup – the advisor\u0027s proposals: empty and unlinked GPOs, a duplicated setting with the action \u0022Remove the duplicate from this GPO\u0022, a merge candidate"
   }
 ]

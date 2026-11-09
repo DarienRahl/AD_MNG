@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `claude/active-directory-manager-w9v9i8`
 
 - Gałąź: `claude/active-directory-manager-w9v9i8`
-- Commit: [`de206eb`](https://github.com/DarienRahl/AD_MNG/commit/de206eb174b2d4fab7db9f384467d2c24c6fe2e6) (`de206eb174b2d4fab7db9f384467d2c24c6fe2e6`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/42546155721
+- Commit: [`27edea6`](https://github.com/DarienRahl/AD_MNG/commit/27edea6ef64ff8414b6222e01775196d3d9f36dd) (`27edea6ef64ff8414b6222e01775196d3d9f36dd`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/42552527166
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
@@ -135,4 +135,12 @@
 ## Gotowość środowiska – pełne sprawdzenie z komputerem testowym: połączenie, katalog, SYSVOL i zasady grupy, zdalne akcje, dzienniki zdarzeń każdego kontrolera, Watchdog, Outlook i ten komputer; każdy punkt z objaśnieniem, podpowiedzią i rozdziałem instrukcji
 
 ![Gotowość środowiska – pełne sprawdzenie z komputerem testowym: połączenie, katalog, SYSVOL i zasady grupy, zdalne akcje, dzienniki zdarzeń każdego kontrolera, Watchdog, Outlook i ten komputer; każdy punkt z objaśnieniem, podpowiedzią i rozdziałem instrukcji](33-readiness.png)
+
+## Wyszukiwarka ustawień GPO – „hasł” we wszystkich obiektach GPO domeny: ustawienia zgrupowane, w ilu GPO są ustawione i czy ich wartości są zgodne, połączenia każdego GPO i szczegóły zaznaczonego wystąpienia
+
+![Wyszukiwarka ustawień GPO – „hasł” we wszystkich obiektach GPO domeny: ustawienia zgrupowane, w ilu GPO są ustawione i czy ich wartości są zgodne, połączenia każdego GPO i szczegóły zaznaczonego wystąpienia](34-gpo-settings-search.png)
+
+## Porządki w GPO – propozycje doradcy: puste i niepołączone obiekty GPO, zduplikowane ustawienie z działaniem „Usuń duplikat z tego GPO”, kandydat do scalenia
+
+![Porządki w GPO – propozycje doradcy: puste i niepołączone obiekty GPO, zduplikowane ustawienie z działaniem „Usuń duplikat z tego GPO”, kandydat do scalenia](35-gpo-cleanup.png)
 
