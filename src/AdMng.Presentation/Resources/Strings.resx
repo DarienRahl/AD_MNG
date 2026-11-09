@@ -20297,4 +20297,246 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Install the Microsoft Edge WebView2 Runtime (Evergreen).</value>
   </data>
   <!-- Stage S readiness check (Gotowość środowiska): end -->
+  <!-- K7 settings search (21.4): begin -->
+  <data name="GpoSearch.Title" xml:space="preserve">
+    <value>GPO settings search</value>
+  </data>
+  <data name="GpoSearch.Command" xml:space="preserve">
+    <value>Search a setting in all GPOs…</value>
+  </data>
+  <data name="GpoSearch.ToolbarCommand" xml:space="preserve">
+    <value>Search settings…</value>
+  </data>
+  <data name="GpoSearch.FindInAll" xml:space="preserve">
+    <value>Find in all GPOs</value>
+  </data>
+  <data name="GpoSearch.FindInAllHint" xml:space="preserve">
+    <value>Searches the settings of every GPO of the domain for the search text (or the selected setting's name)</value>
+  </data>
+  <data name="GpoSearch.SearchPlaceholder" xml:space="preserve">
+    <value>Setting, value, key or account (at least 2 characters)</value>
+  </data>
+  <data name="GpoSearch.SearchHint" xml:space="preserve">
+    <value>Case and Polish letters are ignored (“dlugosc” finds “długość”). Ctrl+F: search, Esc: clear.</value>
+  </data>
+  <data name="GpoSearch.FieldLabel" xml:space="preserve">
+    <value>Search in</value>
+  </data>
+  <data name="GpoSearch.ScopeLabel" xml:space="preserve">
+    <value>Configuration</value>
+  </data>
+  <data name="GpoSearch.AllScopes" xml:space="preserve">
+    <value>Computer and user</value>
+  </data>
+  <data name="GpoSearch.ScopeComputer" xml:space="preserve">
+    <value>Computer</value>
+  </data>
+  <data name="GpoSearch.ScopeUser" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="GpoSearch.AreaLabel" xml:space="preserve">
+    <value>Area</value>
+  </data>
+  <data name="GpoSearch.AllAreas" xml:space="preserve">
+    <value>Every area</value>
+  </data>
+  <data name="GpoSearch.PreferenceArea" xml:space="preserve">
+    <value>{0} – {1}</value>
+  </data>
+  <data name="GpoSearch.OnlyDifferent" xml:space="preserve">
+    <value>Only different values</value>
+  </data>
+  <data name="GpoSearch.OnlyDifferentHint" xml:space="preserve">
+    <value>Shows only the settings that GPOs set to different values</value>
+  </data>
+  <data name="GpoSearch.ClearFilters" xml:space="preserve">
+    <value>Clear filters</value>
+  </data>
+  <data name="GpoSearch.Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="GpoSearch.RefreshHint" xml:space="preserve">
+    <value>Reads again only the GPOs that changed since the last read (F5)</value>
+  </data>
+  <data name="GpoSearch.ReadAll" xml:space="preserve">
+    <value>Read everything again</value>
+  </data>
+  <data name="GpoSearch.ReadAllHint" xml:space="preserve">
+    <value>Reads the folders of every GPO again from SYSVOL</value>
+  </data>
+  <data name="GpoSearch.Preparing" xml:space="preserve">
+    <value>Preparing the search…</value>
+  </data>
+  <data name="GpoSearch.NeverRead" xml:space="preserve">
+    <value>The settings of the GPOs have not been read yet.</value>
+  </data>
+  <data name="GpoSearch.Cancelled" xml:space="preserve">
+    <value>Reading the settings was cancelled.</value>
+  </data>
+  <data name="GpoSearch.Stale" xml:space="preserve">
+    <value>Group Policy changed in this window – the results may be out of date.</value>
+  </data>
+  <data name="GpoSearch.IndexInfo" xml:space="preserve">
+    <value>GPOs searched: {0} · read {1}</value>
+  </data>
+  <data name="GpoSearch.SummaryHeading" xml:space="preserve">
+    <value>Type at least 2 characters to search. The settings of the domain's GPOs:</value>
+  </data>
+  <data name="GpoSearch.SummaryArea" xml:space="preserve">
+    <value>{0} – settings: {1}, occurrences: {2}, GPOs: {3}</value>
+  </data>
+  <data name="GpoSearch.SummaryTotal" xml:space="preserve">
+    <value>In total – settings: {0}, occurrences: {1}, GPOs with settings: {2}</value>
+  </data>
+  <data name="GpoSearch.Results" xml:space="preserve">
+    <value>Settings found: {0} (occurrences: {1})</value>
+  </data>
+  <data name="GpoSearch.NoResults" xml:space="preserve">
+    <value>No setting matches the search.</value>
+  </data>
+  <data name="GpoSearch.Capped" xml:space="preserve">
+    <value>Narrow the search – {0} of {1} settings shown</value>
+  </data>
+  <data name="GpoSearch.ListLabel" xml:space="preserve">
+    <value>Search results</value>
+  </data>
+  <data name="GpoSearch.ColumnMarks" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="GpoSearch.MarkConditional" xml:space="preserve">
+    <value>conditional (item-level targeting)</value>
+  </data>
+  <data name="GpoSearch.MarkDisabled" xml:space="preserve">
+    <value>item disabled</value>
+  </data>
+  <data name="GpoSearch.MarkMasked" xml:space="preserve">
+    <value>value hidden</value>
+  </data>
+  <data name="GpoSearch.MarkIncomplete" xml:space="preserve">
+    <value>GPO read only in part</value>
+  </data>
+  <data name="GpoSearch.LinkDisabled" xml:space="preserve">
+    <value>{0} (disabled)</value>
+  </data>
+  <data name="GpoSearch.NoteNoDefinitions" xml:space="preserve">
+    <value>The administrative templates are not loaded: policies are shown as registry values and cannot be found by their names</value>
+  </data>
+  <data name="GpoSearch.NoteDefinitionsFailed" xml:space="preserve">
+    <value>The administrative templates could not be loaded: policies are shown as registry values and cannot be found by their names</value>
+  </data>
+  <data name="GpoSearch.NoteMasked" xml:space="preserve">
+    <value>Hidden values (passwords, SNMP communities …; occurrences: {0}) are not searched – only their names and keys</value>
+  </data>
+  <data name="GpoSearch.NoteGpo" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="GpoSearch.DetailsHeading" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="GpoSearch.DetailsEmpty" xml:space="preserve">
+    <value>Select a row to see the setting in this GPO.</value>
+  </data>
+  <data name="GpoSearch.DetailsPath" xml:space="preserve">
+    <value>Where GPMC lists it</value>
+  </data>
+  <data name="GpoSearch.DetailsTechnical" xml:space="preserve">
+    <value>Technical key</value>
+  </data>
+  <data name="GpoSearch.DetailsRefusal" xml:space="preserve">
+    <value>Cannot be copied: {0}</value>
+  </data>
+  <data name="GpoSearch.OpenGpo" xml:space="preserve">
+    <value>Open GPO</value>
+  </data>
+  <data name="GpoSearch.EditSetting" xml:space="preserve">
+    <value>Edit this setting</value>
+  </data>
+  <data name="GpoSearch.Compare" xml:space="preserve">
+    <value>Compare GPOs</value>
+  </data>
+  <data name="GpoSearch.CompareHint" xml:space="preserve">
+    <value>Two selected rows: compares their GPOs; one row: compares its GPO with one you pick</value>
+  </data>
+  <data name="GpoSearch.CopyTo" xml:space="preserve">
+    <value>Copy to another GPO…</value>
+  </data>
+  <data name="GpoSearch.CopyToHint" xml:space="preserve">
+    <value>Copies the selected settings into a GPO you pick, through the change preview</value>
+  </data>
+  <data name="GpoSearch.Copied" xml:space="preserve">
+    <value>The settings were copied to the clipboard.</value>
+  </data>
+  <data name="GpoSearch.ExportCsv" xml:space="preserve">
+    <value>Export to CSV…</value>
+  </data>
+  <data name="GpoSearch.ExportHtml" xml:space="preserve">
+    <value>Export to HTML…</value>
+  </data>
+  <data name="GpoSearch.HtmlFilter" xml:space="preserve">
+    <value>HTML page (*.html)</value>
+  </data>
+  <data name="GpoSearch.ColumnAgreement" xml:space="preserve">
+    <value>Values</value>
+  </data>
+  <data name="GpoSearch.ColumnPath" xml:space="preserve">
+    <value>Where GPMC lists it</value>
+  </data>
+  <data name="GpoSearch.ColumnElements" xml:space="preserve">
+    <value>Value parts</value>
+  </data>
+  <data name="GpoSearch.ReportTitle" xml:space="preserve">
+    <value>GPO settings search – {0}</value>
+  </data>
+  <data name="GpoSearch.ReportSubtitle" xml:space="preserve">
+    <value>Domain controller {0} · query “{1}” · read {2}</value>
+  </data>
+  <data name="GpoSearch.ReportPrivacy" xml:space="preserve">
+    <value>The report holds GPO settings read from the domain controller; keep it according to your organization's rules.</value>
+  </data>
+  <data name="GpoSearch.Field.All" xml:space="preserve">
+    <value>Everything</value>
+  </data>
+  <data name="GpoSearch.Field.Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="GpoSearch.Field.Value" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="GpoSearch.Field.Technical" xml:space="preserve">
+    <value>Technical key</value>
+  </data>
+  <data name="GpoSearch.Field.Account" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="GpoSearch.Area.AdministrativeTemplates" xml:space="preserve">
+    <value>Administrative templates</value>
+  </data>
+  <data name="GpoSearch.Area.Security" xml:space="preserve">
+    <value>Security settings</value>
+  </data>
+  <data name="GpoSearch.Area.Audit" xml:space="preserve">
+    <value>Advanced audit</value>
+  </data>
+  <data name="GpoSearch.Area.Preferences" xml:space="preserve">
+    <value>Preferences</value>
+  </data>
+  <data name="GpoSearch.Area.Scripts" xml:space="preserve">
+    <value>Scripts</value>
+  </data>
+  <data name="GpoSearch.Area.Other" xml:space="preserve">
+    <value>Other</value>
+  </data>
+  <data name="GpoSearch.Agreement.Single" xml:space="preserve">
+    <value>set in {0} GPO(s)</value>
+  </data>
+  <data name="GpoSearch.Agreement.Same" xml:space="preserve">
+    <value>set in {0} GPOs – values match</value>
+  </data>
+  <data name="GpoSearch.Agreement.Different" xml:space="preserve">
+    <value>set in {0} GPOs – values differ</value>
+  </data>
+  <data name="GpoSearch.Agreement.NotComparable" xml:space="preserve">
+    <value>set in {0} GPOs – values not comparable</value>
+  </data>
+  <!-- K7 settings search (21.4): end -->
 </root>
