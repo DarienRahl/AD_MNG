@@ -167,7 +167,8 @@ dołączone do wydania. Okno *Korespondencja* (U5) pokazują zrzuty 26–28: odb
 wiadomość w edytorze z podpisem i załącznikami oraz właściciele skrzynek po dopasowaniu; szablony administracyjne GPO
 (K3) – zrzuty 29 i 30: edytor ustawień ADMX i aktualizacja magazynu centralnego; model „co dostanie komputer” (K5) –
 zrzut 31; skąd blokada konta (E) – zrzut 32; gotowość środowiska (etap S) – zrzut 33; wyszukiwarka ustawień GPO i
-porządki w GPO (K7) – zrzuty 34 i 35. Aktualny komplet CI publikuje przy każdym pushu na gałęzi `screenshots` – zob. [Zrzuty ekranu z CI](#zrzuty-ekranu-z-ci).</sub>
+porządki w GPO (K7) – zrzuty 34 i 35. Aktualny komplet CI publikuje przy każdym pushu na gałęzi `screenshots` –
+zob. [Zrzuty ekranu z CI](#zrzuty-ekranu-z-ci).</sub>
 
 ## 🧭 Roadmapa
 
