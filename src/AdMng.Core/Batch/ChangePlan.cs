@@ -294,6 +294,82 @@ public static class IssueCodes
 
     /// <summary>"Zaktualizuj szablony" (K3): the central store does not exist yet; the update creates it.</summary>
     public const string CentralStoreCreated = "CentralStoreCreated";
+
+    // K7 settings copy, remove, merge and cleanup (docs/dev/k-computers-and-gpo.md 21.5, 21.8); arguments as documented.
+    /// <summary>Copy/remove (K7): a masked or secret value ({1}, technical key) of GPO {0} – also preference items with cpassword (MS14-025) – is never copied.</summary>
+    public const string GpoSettingSecret = "GpoSettingSecret";
+
+    /// <summary>Copy/remove (K7): the unit {1} (technical key) of GPO {0} cannot be copied or removed by AD Manager (scripts, [Registry Keys]/[File Security], audit options, comments, unreadable, truncated, ambiguous items, items of a scoped collection).</summary>
+    public const string GpoSettingUnsupported = "GpoSettingUnsupported";
+
+    /// <summary>Copy/remove (K7): the selected unit {1} (technical key) is no longer in GPO {0} as it was found (deleted or moved since the search).</summary>
+    public const string GpoSettingNotFound = "GpoSettingNotFound";
+
+    /// <summary>Copy (K7): the value of {1} (technical key) in GPO {0} changed since the search; the value read now is copied.</summary>
+    public const string GpoSettingChanged = "GpoSettingChanged";
+
+    /// <summary>Copy/remove/merge (K7): not every setting of GPO {0} could be read (a file too large or with too many entries), so its units are not used.</summary>
+    public const string GpoSettingIncomplete = "GpoSettingIncomplete";
+
+    /// <summary>Copy (K7): the same setting {0} (technical key) was selected from two source GPOs; both are refused (no silent last-wins).</summary>
+    public const string GpoSettingAmbiguous = "GpoSettingAmbiguous";
+
+    /// <summary>Copy (K7): GPO {0} already sets {1} (technical key); conflict mode Skip keeps the target's setting.</summary>
+    public const string GpoSettingSkipped = "GpoSettingSkipped";
+
+    /// <summary>Copy (K7): the client-side extension or snap-in pair of {1} (technical key) is unknown – the source GPO {0} does not list it and the target does not either – so the unit is not copied (clients would ignore it).</summary>
+    public const string GpoSettingExtensionUnknown = "GpoSettingExtensionUnknown";
+
+    /// <summary>Copy/remove (K7): the administrative template {1} (policy id) of GPO {0} needs the ADMX templates, which are not loaded.</summary>
+    public const string GpoSettingNoDefinitions = "GpoSettingNoDefinitions";
+
+    /// <summary>Copy (K7): the registry value {1} (technical key) belongs to an administrative template GPO {0} configures; copying it would change that policy.</summary>
+    public const string GpoSettingPolicyOwned = "GpoSettingPolicyOwned";
+
+    /// <summary>Copy (K7): GPO {0} has variants of {1} (technical key) with other item-level targeting; they are kept and the copied item is added after them.</summary>
+    public const string GpoSettingConditionalKept = "GpoSettingConditionalKept";
+
+    /// <summary>Copy/remove/merge (K7): the preference item {1} (technical key) of GPO {0} has "Remove this item when it is no longer applied": clients undo it (drive unmapped, local user or group deleted and created again) before a copy applies.</summary>
+    public const string GpoSettingRemovePolicy = "GpoSettingRemovePolicy";
+
+    /// <summary>Copy/merge (K7): {1} (technical key) comes from a disabled configuration half of GPO {0}: dormant there, active in the target (merge leaves it out).</summary>
+    public const string GpoSettingSourcePartDisabled = "GpoSettingSourcePartDisabled";
+
+    /// <summary>Copy (K7): password, lockout or forced-logoff settings copied into GPO {0}, which is not linked to the domain head: they apply to the computers' local accounts only.</summary>
+    public const string GpoAccountPolicyBelowDomain = "GpoAccountPolicyBelowDomain";
+
+    /// <summary>Copy (K7): Kerberos policy copied into GPO {0}, which is not linked to the domain head: it has no effect there.</summary>
+    public const string GpoKerberosPolicyBelowDomain = "GpoKerberosPolicyBelowDomain";
+
+    /// <summary>Copy (K7): {0} source GPOs selected, at most {1} per copy.</summary>
+    public const string GpoCopyTooManySources = "GpoCopyTooManySources";
+
+    /// <summary>Cleanup (K7): GPO {0} changed (version or links) since the cleanup analysis; the delete is refused until it is analysed again.</summary>
+    public const string GpoChangedSinceAnalysis = "GpoChangedSinceAnalysis";
+
+    /// <summary>Merge (K7): GPO {0} has {1} settings that cannot be copied, so it cannot be merged (the window lists them).</summary>
+    public const string GpoMergeNotCopyable = "GpoMergeNotCopyable";
+
+    /// <summary>Merge (K7): {1} comments or script files of GPO {0} are not carried over (they are not settings).</summary>
+    public const string GpoMergeNotCarried = "GpoMergeNotCarried";
+
+    /// <summary>Merge (K7): GPO {0} holds {1} files below Machine/ or User/ that AD Manager does not read (folder redirection, software installation …), so it cannot be merged.</summary>
+    public const string GpoMergeUnparsedFiles = "GpoMergeUnparsedFiles";
+
+    /// <summary>Merge (K7): GPO {0} precedes GPO {1} in some containers and follows it in others; choose the conflict mode explicitly.</summary>
+    public const string GpoMergeOrderMixed = "GpoMergeOrderMixed";
+
+    /// <summary>Merge (K7): the link sets of GPO {0} (A) and {1} (B) differ: containers only A links ({2}) start getting B's other settings, containers only B links ({3}) start getting A's settings.</summary>
+    public const string GpoMergeLinksDiffer = "GpoMergeLinksDiffer";
+
+    /// <summary>Merge (K7): in {2}, GPO {0} ranks above GPO {1} or its link is enforced or enabled where {1}'s is not; {0}'s settings move to {1}'s weaker position there.</summary>
+    public const string GpoMergeLinkOptionsDiffer = "GpoMergeLinkOptionsDiffer";
+
+    /// <summary>Merge (K7): GPOs {0} and {1} apply to different security principals.</summary>
+    public const string GpoMergeSecurityFilterDiffers = "GpoMergeSecurityFilterDiffers";
+
+    /// <summary>Merge (K7): GPOs {0} and {1} have different WMI filters.</summary>
+    public const string GpoMergeWmiFilterDiffers = "GpoMergeWmiFilterDiffers";
 }
 
 /// <summary>One step for one object. Steps of an object run sequentially in list order.</summary>

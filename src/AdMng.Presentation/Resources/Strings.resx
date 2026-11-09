@@ -12130,6 +12130,112 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Issue.CentralStoreCreated" xml:space="preserve">
     <value>The domain has no central store yet: the update creates PolicyDefinitions on SYSVOL. From then on every administrator's editor uses it instead of the templates of their own computer.</value>
   </data>
+  <!-- K7 copy issues (21.5): start -->
+  <data name="Issue.GpoSettingSecret" xml:space="preserve">
+    <value>{1} in {0} holds a secret or masked value (for example a GPP password, MS14-025) and is not copied.</value>
+  </data>
+  <data name="Issue.GpoSettingUnsupported" xml:space="preserve">
+    <value>{1} in {0} cannot be copied or removed by AD Manager – change it in GPMC.</value>
+  </data>
+  <data name="Issue.GpoSettingNotFound" xml:space="preserve">
+    <value>{1} is no longer in {0} as it was found – refresh the search.</value>
+  </data>
+  <data name="Issue.GpoSettingChanged" xml:space="preserve">
+    <value>The value of {1} in {0} changed since the search: the value read now is copied (see the setting changes).</value>
+  </data>
+  <data name="Issue.GpoSettingIncomplete" xml:space="preserve">
+    <value>Not every setting of {0} could be read, so its settings are not copied or removed.</value>
+  </data>
+  <data name="Issue.GpoSettingAmbiguous" xml:space="preserve">
+    <value>{0} was selected from two GPOs: neither is copied – select it from one GPO only.</value>
+  </data>
+  <data name="Issue.GpoSettingSkipped" xml:space="preserve">
+    <value>{0} already sets {1}: the target's setting is kept (Skip).</value>
+  </data>
+  <data name="Issue.GpoSettingExtensionUnknown" xml:space="preserve">
+    <value>The extension that processes {1} is not listed in {0} or in the target, so the setting is not copied (clients would ignore it).</value>
+  </data>
+  <data name="Issue.GpoSettingNoDefinitions" xml:space="preserve">
+    <value>{1} in {0} is an administrative template: load the ADMX templates to copy or remove it.</value>
+  </data>
+  <data name="Issue.GpoSettingPolicyOwned" xml:space="preserve">
+    <value>{1} belongs to an administrative template {0} configures, so the raw registry value is not copied.</value>
+  </data>
+  <data name="Issue.GpoSettingConditionalKept" xml:space="preserve">
+    <value>{0} has variants of {1} with other item-level targeting: they are kept and the copied item is added after them.</value>
+  </data>
+  <data name="Issue.GpoSettingRemovePolicy" xml:space="preserve">
+    <value>{1} in {0} has "Remove this item when it is no longer applied": clients undo it (unmap the drive, delete and recreate the user or group) before the new item applies.</value>
+  </data>
+  <data name="Issue.GpoSettingSourcePartDisabled" xml:space="preserve">
+    <value>{1} comes from a disabled part of {0}: it does not apply there but will apply in the target.</value>
+  </data>
+  <data name="Issue.GpoAccountPolicyBelowDomain" xml:space="preserve">
+    <value>{0} is not linked to the domain: password and lockout settings there apply only to the local accounts of the computers.</value>
+  </data>
+  <data name="Issue.GpoKerberosPolicyBelowDomain" xml:space="preserve">
+    <value>{0} is not linked to the domain: Kerberos policy there has no effect.</value>
+  </data>
+  <data name="Issue.GpoCopyTooManySources" xml:space="preserve">
+    <value>Settings from {0} GPOs were selected; one copy takes at most {1} source GPOs.</value>
+  </data>
+  <data name="Issue.GpoChangedSinceAnalysis" xml:space="preserve">
+    <value>{0} changed since the analysis (settings or links): refresh "Porządki w GPO" before deleting it.</value>
+  </data>
+  <data name="Issue.GpoMergeNotCopyable" xml:space="preserve">
+    <value>{0} has {1} settings that cannot be copied, so it cannot be merged.</value>
+  </data>
+  <data name="Issue.GpoMergeNotCarried" xml:space="preserve">
+    <value>{1} comments or unreferenced script files of {0} are not carried over.</value>
+  </data>
+  <data name="Issue.GpoMergeUnparsedFiles" xml:space="preserve">
+    <value>{0} holds {1} files AD Manager does not read (for example folder redirection or software installation), so it cannot be merged.</value>
+  </data>
+  <data name="Issue.GpoMergeOrderMixed" xml:space="preserve">
+    <value>{0} comes before {1} in some places and after it in others: choose which values win.</value>
+  </data>
+  <data name="Issue.GpoMergeLinksDiffer" xml:space="preserve">
+    <value>{0} and {1} are linked in different places: {2} will also get the other settings of {1}, and {3} will get the settings of {0}.</value>
+  </data>
+  <data name="Issue.GpoMergeLinkOptionsDiffer" xml:space="preserve">
+    <value>In {2}, {0} has higher precedence or a stronger link than {1}: after the merge its settings take the weaker position of {1}.</value>
+  </data>
+  <data name="Issue.GpoMergeSecurityFilterDiffers" xml:space="preserve">
+    <value>{0} and {1} apply to different users, groups or computers (security filtering).</value>
+  </data>
+  <data name="Issue.GpoMergeWmiFilterDiffers" xml:space="preserve">
+    <value>{0} and {1} have different WMI filters.</value>
+  </data>
+  <!-- K7 copy issues (21.5): end -->
+  <!-- K7 copy refusals (21.5): start -->
+  <data name="GpoCopy.Refusal.Secret" xml:space="preserve">
+    <value>Holds a secret or masked value (for example a GPP password, MS14-025) – never copied.</value>
+  </data>
+  <data name="GpoCopy.Refusal.Script" xml:space="preserve">
+    <value>Scripts and script files are not copied – add them in GPMC.</value>
+  </data>
+  <data name="GpoCopy.Refusal.ObjectSecurity" xml:space="preserve">
+    <value>Registry and file system permissions are not copied – set them in GPMC.</value>
+  </data>
+  <data name="GpoCopy.Refusal.AuditOption" xml:space="preserve">
+    <value>Audit options and global object access auditing are not copied – set them in GPMC.</value>
+  </data>
+  <data name="GpoCopy.Refusal.Comment" xml:space="preserve">
+    <value>Comments are not copied.</value>
+  </data>
+  <data name="GpoCopy.Refusal.Unreadable" xml:space="preserve">
+    <value>The file could not be read.</value>
+  </data>
+  <data name="GpoCopy.Refusal.Truncated" xml:space="preserve">
+    <value>The setting's name is too long to be identified exactly.</value>
+  </data>
+  <data name="GpoCopy.Refusal.Unsupported" xml:space="preserve">
+    <value>AD Manager cannot copy this kind of setting – change it in GPMC.</value>
+  </data>
+  <data name="GpoCopy.Refusal.ScopedCollection" xml:space="preserve">
+    <value>The item is in a collection with item-level targeting or a disabled collection – copy it in GPMC.</value>
+  </data>
+  <!-- K7 copy refusals (21.5): end -->
   <data name="CentralStore.Title" xml:space="preserve">
     <value>Update ADMX templates</value>
   </data>

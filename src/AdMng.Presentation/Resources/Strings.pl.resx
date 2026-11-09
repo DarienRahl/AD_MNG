@@ -12130,6 +12130,112 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Issue.CentralStoreCreated" xml:space="preserve">
     <value>Domena nie ma jeszcze magazynu centralnego: aktualizacja utworzy PolicyDefinitions w SYSVOL. Od tej chwili edytor każdego administratora będzie używał go zamiast szablonów z własnego komputera.</value>
   </data>
+  <!-- K7 copy issues (21.5): start -->
+  <data name="Issue.GpoSettingSecret" xml:space="preserve">
+    <value>{1} w {0} zawiera wartość tajną lub ukrytą (np. hasło GPP, MS14-025) i nie jest kopiowane.</value>
+  </data>
+  <data name="Issue.GpoSettingUnsupported" xml:space="preserve">
+    <value>{1} w {0} nie może zostać skopiowane ani usunięte przez AD Manager – zmień je w GPMC.</value>
+  </data>
+  <data name="Issue.GpoSettingNotFound" xml:space="preserve">
+    <value>{1} nie występuje już w {0} tak jak w wynikach – odśwież wyszukiwanie.</value>
+  </data>
+  <data name="Issue.GpoSettingChanged" xml:space="preserve">
+    <value>Wartość {1} w {0} zmieniła się od wyszukania: kopiowana jest wartość odczytana teraz (zob. zmiany ustawień).</value>
+  </data>
+  <data name="Issue.GpoSettingIncomplete" xml:space="preserve">
+    <value>Nie wszystkie ustawienia {0} dało się odczytać, więc jego ustawienia nie są kopiowane ani usuwane.</value>
+  </data>
+  <data name="Issue.GpoSettingAmbiguous" xml:space="preserve">
+    <value>{0} wybrano z dwóch GPO: żadne nie jest kopiowane – wybierz je tylko z jednego GPO.</value>
+  </data>
+  <data name="Issue.GpoSettingSkipped" xml:space="preserve">
+    <value>{0} już ustawia {1}: zachowano ustawienie docelowe (Pomiń).</value>
+  </data>
+  <data name="Issue.GpoSettingExtensionUnknown" xml:space="preserve">
+    <value>Rozszerzenie przetwarzające {1} nie jest wpisane w {0} ani w GPO docelowym, więc ustawienie nie jest kopiowane (klienci by je pominęli).</value>
+  </data>
+  <data name="Issue.GpoSettingNoDefinitions" xml:space="preserve">
+    <value>{1} w {0} to szablon administracyjny: wczytaj szablony ADMX, aby go skopiować lub usunąć.</value>
+  </data>
+  <data name="Issue.GpoSettingPolicyOwned" xml:space="preserve">
+    <value>{1} należy do szablonu administracyjnego skonfigurowanego w {0}, więc surowa wartość rejestru nie jest kopiowana.</value>
+  </data>
+  <data name="Issue.GpoSettingConditionalKept" xml:space="preserve">
+    <value>{0} ma warianty {1} z innym określaniem docelowym na poziomie elementu: zostają, a skopiowany element jest dodany za nimi.</value>
+  </data>
+  <data name="Issue.GpoSettingRemovePolicy" xml:space="preserve">
+    <value>{1} w {0} ma opcję „Usuń ten element, gdy nie jest już stosowany”: klienci najpierw go cofną (odłączą dysk, usuną i ponownie utworzą użytkownika lub grupę), zanim zadziała nowy element.</value>
+  </data>
+  <data name="Issue.GpoSettingSourcePartDisabled" xml:space="preserve">
+    <value>{1} pochodzi z wyłączonej części {0}: tam nie działa, w GPO docelowym zacznie działać.</value>
+  </data>
+  <data name="Issue.GpoAccountPolicyBelowDomain" xml:space="preserve">
+    <value>{0} nie jest połączone z domeną: ustawienia haseł i blokady konta działają tam tylko dla kont lokalnych komputerów.</value>
+  </data>
+  <data name="Issue.GpoKerberosPolicyBelowDomain" xml:space="preserve">
+    <value>{0} nie jest połączone z domeną: zasady Kerberos nie mają tam żadnego skutku.</value>
+  </data>
+  <data name="Issue.GpoCopyTooManySources" xml:space="preserve">
+    <value>Wybrano ustawienia z {0} GPO; jedno kopiowanie obejmuje najwyżej {1} GPO źródłowych.</value>
+  </data>
+  <data name="Issue.GpoChangedSinceAnalysis" xml:space="preserve">
+    <value>{0} zmieniło się od analizy (ustawienia lub połączenia): odśwież „Porządki w GPO” przed usunięciem.</value>
+  </data>
+  <data name="Issue.GpoMergeNotCopyable" xml:space="preserve">
+    <value>{0} ma {1} ustawień, których nie da się skopiować, więc nie można go scalić.</value>
+  </data>
+  <data name="Issue.GpoMergeNotCarried" xml:space="preserve">
+    <value>{1} komentarzy lub nieużywanych plików skryptów z {0} nie zostanie przeniesionych.</value>
+  </data>
+  <data name="Issue.GpoMergeUnparsedFiles" xml:space="preserve">
+    <value>{0} zawiera {1} plików, których AD Manager nie odczytuje (np. przekierowanie folderów lub instalacja oprogramowania), więc nie można go scalić.</value>
+  </data>
+  <data name="Issue.GpoMergeOrderMixed" xml:space="preserve">
+    <value>{0} jest przed {1} w jednych miejscach, a po nim w innych: wybierz, które wartości mają wygrać.</value>
+  </data>
+  <data name="Issue.GpoMergeLinksDiffer" xml:space="preserve">
+    <value>{0} i {1} są połączone w różnych miejscach: {2} dostanie też pozostałe ustawienia {1}, a {3} – ustawienia {0}.</value>
+  </data>
+  <data name="Issue.GpoMergeLinkOptionsDiffer" xml:space="preserve">
+    <value>W {2} {0} ma wyższe pierwszeństwo lub silniejsze połączenie niż {1}: po scaleniu jego ustawienia zajmą słabszą pozycję {1}.</value>
+  </data>
+  <data name="Issue.GpoMergeSecurityFilterDiffers" xml:space="preserve">
+    <value>{0} i {1} są stosowane do różnych użytkowników, grup lub komputerów (filtrowanie zabezpieczeń).</value>
+  </data>
+  <data name="Issue.GpoMergeWmiFilterDiffers" xml:space="preserve">
+    <value>{0} i {1} mają różne filtry WMI.</value>
+  </data>
+  <!-- K7 copy issues (21.5): end -->
+  <!-- K7 copy refusals (21.5): start -->
+  <data name="GpoCopy.Refusal.Secret" xml:space="preserve">
+    <value>Zawiera wartość tajną lub ukrytą (np. hasło GPP, MS14-025) – nigdy nie jest kopiowane.</value>
+  </data>
+  <data name="GpoCopy.Refusal.Script" xml:space="preserve">
+    <value>Skrypty i pliki skryptów nie są kopiowane – dodaj je w GPMC.</value>
+  </data>
+  <data name="GpoCopy.Refusal.ObjectSecurity" xml:space="preserve">
+    <value>Uprawnienia rejestru i systemu plików nie są kopiowane – ustaw je w GPMC.</value>
+  </data>
+  <data name="GpoCopy.Refusal.AuditOption" xml:space="preserve">
+    <value>Opcje inspekcji i globalna inspekcja dostępu do obiektów nie są kopiowane – ustaw je w GPMC.</value>
+  </data>
+  <data name="GpoCopy.Refusal.Comment" xml:space="preserve">
+    <value>Komentarze nie są kopiowane.</value>
+  </data>
+  <data name="GpoCopy.Refusal.Unreadable" xml:space="preserve">
+    <value>Nie udało się odczytać pliku.</value>
+  </data>
+  <data name="GpoCopy.Refusal.Truncated" xml:space="preserve">
+    <value>Nazwa ustawienia jest zbyt długa, aby je jednoznacznie rozpoznać.</value>
+  </data>
+  <data name="GpoCopy.Refusal.Unsupported" xml:space="preserve">
+    <value>AD Manager nie kopiuje ustawień tego rodzaju – zmień je w GPMC.</value>
+  </data>
+  <data name="GpoCopy.Refusal.ScopedCollection" xml:space="preserve">
+    <value>Element jest w kolekcji z określaniem docelowym lub w wyłączonej kolekcji – skopiuj go w GPMC.</value>
+  </data>
+  <!-- K7 copy refusals (21.5): end -->
   <data name="CentralStore.Title" xml:space="preserve">
     <value>Aktualizacja szablonów ADMX</value>
   </data>

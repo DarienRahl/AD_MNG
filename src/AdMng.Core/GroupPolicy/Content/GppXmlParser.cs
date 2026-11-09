@@ -41,6 +41,14 @@ public static class GppXmlParser
         }
     }
 
+    /// <summary>
+    /// K7 (docs/dev/k-computers-and-gpo.md 21.1): the items of a preferences document in the order and with the ids
+    /// <see cref="Parse"/> uses (<c>uid</c>, else <c>&lt;Element&gt;#n</c>), each with its ancestor <c>Collection</c>
+    /// elements (outermost first) – their <c>disabled</c> and <c>Filters</c> apply to the item.
+    /// </summary>
+    public static IEnumerable<GppXmlItem> Items(XDocument document) =>
+        throw new NotImplementedException("K7 W1: GppXmlParser.Items");
+
     private static bool IsItem(XElement element) =>
         GpoXml.Child(element, "Properties") is not null || GpoXml.Attribute(element, "uid") is not null;
 
@@ -228,4 +236,14 @@ public static class GppXmlParser
 
     private static bool IsSecretRegistryItem(XElement properties) =>
         GpoSecretSettings.IsSecretRegistryValue(RegistryPath(properties), GpoXml.Attribute(properties, "name"));
+}
+
+/// <summary>
+/// One preference item of <see cref="GppXmlParser.Items"/>: its id in the file, its element and the <c>Collection</c>
+/// elements around it (outermost first; empty at the root). The element belongs to the parsed document (in memory only).
+/// </summary>
+public sealed record GppXmlItem(string ItemId, XElement Element, IReadOnlyList<XElement> Collections)
+{
+    /// <summary>For diagnostics: the element name and depth only (the id may carry nothing secret, but stays out of logs).</summary>
+    public override string ToString() => Element.Name.LocalName + " (depth " + Collections.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")";
 }

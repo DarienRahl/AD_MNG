@@ -297,6 +297,13 @@ public sealed class GroupPolicyReader
     /// SYSVOL (the software installation class store, wireless and wired network policies …), which copies, backups and
     /// restores of AD Manager do not carry. 0 for a GPO without them.
     /// </summary>
+    /// <summary>
+    /// K7 (21.1): <see cref="CountDirectorySettingsAsync(IDirectorySession, Guid, CancellationToken)"/> for every GPO of the
+    /// domain in one paged subtree search of <c>CN=Policies,CN=System</c>. A GPO absent from the map has 0.
+    /// </summary>
+    public Task<IReadOnlyDictionary<Guid, int>> CountDirectorySettingsAsync(IDirectorySession session, CancellationToken cancellationToken) =>
+        throw new NotImplementedException("K7 W1: GroupPolicyReader.CountDirectorySettingsAsync (all GPOs)");
+
     public async Task<int> CountDirectorySettingsAsync(IDirectorySession session, Guid gpoId, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
@@ -518,6 +525,14 @@ public sealed class GroupPolicyReader
 
         return new GpoFolderContent(entries, new Dictionary<string, byte[]>(contents, StringComparer.OrdinalIgnoreCase)) { Leftovers = leftovers };
     }
+
+    /// <summary>
+    /// K7 (docs/dev/k-computers-and-gpo.md 21.1): <see cref="Settings"/> plus the files whose settings overflowed their
+    /// <see cref="GpoSettingSink"/> (more than its capacity) – those settings are incomplete. <c>Settings(c)</c> equals
+    /// <c>ReadSettings(c).Settings</c>.
+    /// </summary>
+    public static GpoSettingsRead ReadSettings(GpoFolderContent content) =>
+        throw new NotImplementedException("K7 W1: GroupPolicyReader.ReadSettings");
 
     /// <summary>
     /// The normalized settings of a GPO's files (the Watchdog's keys: "Computer/Security/…", "Computer/Registry/…"), sorted
