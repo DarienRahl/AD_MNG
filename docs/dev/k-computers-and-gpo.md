@@ -2561,7 +2561,9 @@ the view's SID names (exact), else one `GpoPrincipalResolver.ResolveAsync` for a
 on the resolved names. The 250 ms debounce is in the view model (real-time `Task.Delay`; the box binds without `Delay`; Enter /
 `SearchCommand` searches at once); group and row view models are built on the matching thread. Results shown when Group Policy
 changes or the session moves (another DC, reconnect) only get the stale bar, as in diagnostics; "Odśwież" / F5 = `Incremental`,
-"Odczytaj wszystko ponownie" = `Full`; "Anuluj" ends only this tab's wait. "Kopiuj do innego GPO…" calls
+"Odczytaj wszystko ponownie" = `Full`; a language switch re-renders stale results from the shown view only (no
+service call, so a dropped view is never rebuilt and a culture build never clears the mark), fresh ones through
+`IfMissing`; "Anuluj" ends only this tab's wait. "Kopiuj do innego GPO…" calls
 `CopySettingsAsync(items)` (target picked by W5) and refreshes incrementally when it returns true; until W5 it returns false.
 The base document still opens (and disposes) a SYSVOL connection on every load for the banner, besides the service's own
 build connection – one extra SMB logon per load; a `GroupPolicyDocumentBase` opt-out would be a shared-file change for the

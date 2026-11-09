@@ -186,21 +186,46 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
 
     /// <summary>
     /// The texts follow the new language from memory: the index service re-renders the names and definitions of the view for
-    /// the culture (no GPO folder is read) and the search runs again.
+    /// the culture (no GPO folder is read) and the search runs again. Stale results (Group Policy changed, the view was
+    /// dropped or replaced) are re-rendered from the shown view only – asking the service would read the index again (a
+    /// dropped view) or hand back a view that no longer says it is stale – so they stay marked until "Odśwież".
     /// </summary>
     protected override void OnCultureChanged()
     {
         OnPropertyChanged(nameof(Title));
         BuildOptions();
-        if (_corpus is not null)
+        if (_corpus is { } corpus)
         {
-            _requested = GpoIndexRefresh.IfMissing;
+            UpdateStale();
+            if (_requested is null && IsStale)
+            {
+                RerenderAsync(corpus).Forget();
+                return;
+            }
+
+            // A read the operator asked for and still running starts again in the new language (it is not downgraded).
+            _requested ??= GpoIndexRefresh.IfMissing;
             LoadAsync().Forget();
         }
         else
         {
             LoadedText = Localizer[L.GpoSearch.NeverRead];
         }
+    }
+
+    /// <summary>The shown view's texts in the UI language (no directory or SYSVOL access), then the search again; it stays stale.</summary>
+    private async Task RerenderAsync(GpoSearchCorpus corpus)
+    {
+        var localizer = Localizer;
+        var view = corpus.View;
+        var rerendered = await Task.Run(() => GpoSearchCorpus.Build(view, new GpoIndexTexts(localizer, view), CancellationToken.None)).ConfigureAwait(true);
+        if (IsDisposed || !ReferenceEquals(_corpus, corpus))
+        {
+            return;
+        }
+
+        Show(rerendered);
+        await SearchCoreAsync(TimeSpan.Zero).ConfigureAwait(true);
     }
 
     protected override void OnLoadingChanged() => RefreshCommands();

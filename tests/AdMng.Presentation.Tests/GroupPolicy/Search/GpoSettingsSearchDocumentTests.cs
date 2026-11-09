@@ -1,4 +1,5 @@
 using System.Globalization;
+using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy.Content;
 using AdMng.Core.GroupPolicy;
 using AdMng.Presentation.GroupPolicy;
@@ -395,6 +396,49 @@ public sealed class GpoSettingsSearchDocumentTests
 
         Assert.Equal("set in 2 GPOs – values differ", document.Groups[0].SummaryText);
         Assert.Equal("Everything", document.FieldOptions[0].Text);
+        Assert.DoesNotContain(h.Sysvol.Calls, c => c.Operation is "List" or "Read" && c.GpoId != Guid.Empty);
+    }
+
+    [Fact]
+    public async Task LanguageSwitch_OnStaleResults_RerendersThemFromMemory_AndKeepsThemStale()
+    {
+        var h = await GroupPolicyHarness.CreateAsync(Polish);
+        using var document = await OpenAsync(h, "MinimumPasswordLength");
+        var view = document.View;
+        h.Services.NotifyChanged();
+        await B2Harness.WaitUntilAsync(() => document.IsStale && !document.IsLoading);
+        h.Sysvol.ClearCalls();
+
+        h.B2.Localizer.SetCulture(CultureInfo.GetCultureInfo("en-US"));
+        await B2Harness.WaitUntilAsync(() => !document.IsLoading && document.Groups.Count == 1 && document.Groups[0].Name == "Minimum password length");
+
+        // The change elsewhere is not forgotten: the same (old) read, still marked, until "Odśwież".
+        Assert.True(document.IsStale);
+        Assert.Same(view, document.View);
+        Assert.True(h.Factory.Index.IsStale);
+        Assert.Equal("set in 2 GPOs – values differ", document.Groups[0].SummaryText);
+        Assert.DoesNotContain(h.Sysvol.Calls, c => c.Operation is "List" or "Read" && c.GpoId != Guid.Empty);
+    }
+
+    [Fact]
+    public async Task LanguageSwitch_AfterTheSessionMoved_ReadsNoGpoFolder()
+    {
+        var h = await GroupPolicyHarness.CreateAsync(Polish);
+        using var document = await OpenAsync(h, "MinimumPasswordLength");
+        var view = document.View;
+        h.B2.NextSession = new FakeDomainControllerSession(h.B2.Session, "dc01.contoso.test");
+        await h.B2.Sessions.ConnectAsync(new ConnectionOptions { Domain = FakeDirectoryBuilder.DefaultDomain }, null, Ct);
+        await B2Harness.WaitUntilAsync(() => document.IsStale && !document.IsLoading);
+        Assert.Null(h.Factory.Index.Current);
+        h.Sysvol.ClearCalls();
+
+        h.B2.Localizer.SetCulture(CultureInfo.GetCultureInfo("en-US"));
+        await B2Harness.WaitUntilAsync(() => !document.IsLoading && document.Groups.Count == 1 && document.Groups[0].Name == "Minimum password length");
+
+        // No index read behind the operator's back on the new DC: the shown read stays, marked stale.
+        Assert.True(document.IsStale);
+        Assert.Same(view, document.View);
+        Assert.Null(h.Factory.Index.Current);
         Assert.DoesNotContain(h.Sysvol.Calls, c => c.Operation is "List" or "Read" && c.GpoId != Guid.Empty);
     }
 
