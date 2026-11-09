@@ -50,7 +50,7 @@ public sealed class GpoPrincipalResolverTests
         var results = await GpoPrincipalResolver.ResolveAsync(_builder.Session,
         [
             @"CONTOSO\jan.kowalski", @"AD\GG_IT", "lukasz.wisniewski@ad.contoso.test", "jan.kowalski", @"KONTOSO\jan.kowalski",
-            "*S-1-5-32-544", "Wszyscy", @"CONTOSO\nieistniejący", @"contoso\JAN.KOWALSKI", "   ",
+            "*S-1-5-32-544", "Wszyscy", @"CONTOSO\nieistniejący", @"contoso\JAN.KOWALSKI", "   ", @"KONTOSO\Domain Admins", @"CONTOSO\Administratorzy domeny",
         ], DomainSid, Ct);
 
         Assert.Equal(
@@ -64,6 +64,8 @@ public sealed class GpoPrincipalResolverTests
             new GpoPrincipal("Wszyscy", "S-1-1-0", GpoPrincipalKind.WellKnown),
             new GpoPrincipal(@"CONTOSO\nieistniejący", null, GpoPrincipalKind.Unresolved),
             new GpoPrincipal("   ", null, GpoPrincipalKind.Unresolved),
+            new GpoPrincipal(@"KONTOSO\Domain Admins", null, GpoPrincipalKind.Unresolved), // another domain's group
+            new GpoPrincipal(@"CONTOSO\Administratorzy domeny", DomainSid + "-512", GpoPrincipalKind.WellKnown),
         ], results); // the second spelling of CONTOSO\jan.kowalski is the same input
         Assert.Equal("Account", results[0].ToString());
     }

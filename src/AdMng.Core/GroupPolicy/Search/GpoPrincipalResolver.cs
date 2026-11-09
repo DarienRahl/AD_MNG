@@ -76,13 +76,18 @@ public static class GpoPrincipalResolver
                 continue;
             }
 
+            var backslash = text.IndexOf('\\', StringComparison.Ordinal);
             if (KnownSid(text, domainSid) is { } known)
             {
-                results[i] = new GpoPrincipal(written, known, SecurityTemplate.IsSid(text) ? GpoPrincipalKind.Sid : GpoPrincipalKind.WellKnown);
+                // "KONTOSO\Domain Admins" is another domain's group: a domain RID is only this domain's when the prefix says so.
+                var otherDomain = backslash > 0 && domainSid is not null && known.StartsWith(domainSid + "-", StringComparison.OrdinalIgnoreCase)
+                    && !domain.IsThisDomain(text[..backslash].Trim());
+                results[i] = otherDomain
+                    ? new GpoPrincipal(written, null, GpoPrincipalKind.Unresolved)
+                    : new GpoPrincipal(written, known, SecurityTemplate.IsSid(text) ? GpoPrincipalKind.Sid : GpoPrincipalKind.WellKnown);
                 continue;
             }
 
-            var backslash = text.IndexOf('\\', StringComparison.Ordinal);
             if (backslash >= 0)
             {
                 var name = text[(backslash + 1)..].Trim();
