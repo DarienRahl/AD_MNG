@@ -164,6 +164,24 @@ internal sealed class ScriptedGroupPolicyDialogs : IGroupPolicyDialogs
 
     public List<Presentation.GroupPolicy.AdministrativeTemplates.CentralStoreUpdateViewModel> CentralStoreWindows { get; } = [];
 
+    /// <summary>Plays the "Kopiuj ustawienia" / merge window before OK (null: OK as proposed); false cancels the window.</summary>
+    public Func<Presentation.GroupPolicy.Copy.GpoCopySettingsViewModel, bool>? CopySettingsHandler { get; set; }
+
+    public List<Presentation.GroupPolicy.Copy.GpoCopySettingsViewModel> CopyWindows { get; } = [];
+
+    public Task<bool> ShowCopySettingsAsync(Presentation.GroupPolicy.Copy.GpoCopySettingsViewModel dialog)
+    {
+        ArgumentNullException.ThrowIfNull(dialog);
+        CopyWindows.Add(dialog);
+        if (!(CopySettingsHandler?.Invoke(dialog) ?? true) || !dialog.OkCommand.CanExecute(null))
+        {
+            return Task.FromResult(false);
+        }
+
+        dialog.OkCommand.Execute(null);
+        return Task.FromResult(true);
+    }
+
     public async Task<bool> ShowCentralStoreUpdateAsync(Presentation.GroupPolicy.AdministrativeTemplates.CentralStoreUpdateViewModel update)
     {
         CentralStoreWindows.Add(update);

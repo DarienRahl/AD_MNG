@@ -83,5 +83,7 @@ public static class GroupPolicyServiceCollectionExtensions
             update.Dispose();
             return Task.FromResult(false);
         }
+
+        public Task<bool> ShowCopySettingsAsync(Copy.GpoCopySettingsViewModel dialog) => Task.FromResult(false);
     }
 }

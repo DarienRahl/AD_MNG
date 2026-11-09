@@ -2570,3 +2570,34 @@ build connection – one extra SMB logon per load; a `GroupPolicyDocumentBase` o
 lead. The `ActiveGpo()` arm uses the fully qualified type name (no `using` added to the shared file). Screenshot 34 searches
 "hasł" over both samples, with a GptTmpl (password length 10, complexity, maximum age) written into "Porządki – Szablony
 (oddział)" by the screenshot test only (samples unchanged). The UI test and the screenshot are compiled on Linux, not run.
+
+**W5 as built** (copy UI, preview builder, "Porządki w GPO"; merge included). `GpoSettingsActions` implement copy, remove,
+merge, unlink-all and the guarded delete through `GroupPolicyActions.RunAsync`. Its new last parameter is
+`describeChanges: Func<ChangePlan, IDirectorySession, CancellationToken, Task<IReadOnlyList<GroupPolicySettingChange>?>>`,
+called right after planning (before the "nothing to do" toast check); an expected failure drops only the rows, and **null
+stops before the preview** – that is how the "nothing would change" error dialog (one line per unit with its refusal,
+`GpoSettingSecret` shown as the MS14-025 refusal text, else `GpoCopy.Outcome.<Kind>`, then every issue of the plan
+translated) replaces the toast; a merge is stopped only when its plan does nothing at all (it relinks and disables A even
+when every unit is unchanged). Deviation from 21.11: `CopySettingsAsync`, `RemoveSettingsAsync` and `MergeAsync` gained a
+trailing optional `PolicyDefinitionSet? definitions = null` – the actions cannot reach the window's index service, so the
+caller passes `IGpoSettingsIndexService.Current.Index.Definitions` (without it ADMX units are refused with
+`GpoSettingNoDefinitions`); **W4's "Kopiuj do innego GPO…" must pass `view.Index.Definitions`** and can build its items
+with the new `GpoCopyItems.Of(texts, entry, unit)` (`OfGpo`, `OfBaseId` too). `DeleteCheckedAsync` compares the fresh
+`versionNumber` and linking containers with the `GpoExpectedState` *before* the backup offer (refusal dialog
+`GpoCopy.ChangedSinceAnalysis`), then calls `DeleteAsync(gpo, expected)` whose plan guards again up to execution; the
+internal `DeleteCheckedCoreAsync` tells the advisor to read the index again. The merge window's derived mode, mixed-order
+choice and filter/WMI/link warnings come from fresh LDAP link reads in `MergeAsync` (the planner stays authoritative and
+repeats them in the preview); `GpoCopySettingsViewModel` has no per-unit conflict overrides (`ConflictByUnit` unused by
+the UI). `GpoSettingChangesBuilder` compares units by id and `ValueFingerprint` on both sides of each GPO's written
+files (`WriteGpoFile` and `DeleteGpoFile`) with one context (no domain SID, no `SidsByName` – identical on both sides) and
+resolves SID names in one batch. `GpoCleanupDocumentViewModel` reads the index with `IfMissing` on open, `Incremental` for
+F5/"Odśwież"/after an action, `Full` for "Odczytaj wszystko ponownie", re-analyses on `Task.Run`, rebuilds its texts on a
+culture switch through `IfMissing` (no folder reads), never calls `CancelBuild` ("Anuluj" ends only its own wait) and is
+stale while the index is stale or its view was replaced. Strings: block `K7 copy and cleanup (21.5, 21.6)` after the
+refusals block (`L.GpoCopy` with the `Outcome` family, `L.GpoCleanup` with the Kind/Action/Note families, both with
+`AllKeys`). The smoke test renders the copy window with inline items (`GroupPolicySamples` unchanged). "Pokaż w
+wyszukiwarce" calls `OpenSettingsSearch(settingName)`, which the factory refuses until W4's case is merged. Screenshot 35
+and the WPF UI tests compile here and run on Windows CI only. For the lead: conflicts are expected only at the shared
+anchors W4 also uses (Palette, Commands `StateCommands`, Documents `ActiveGpo`, factory `CreateDocument`/`Matches`,
+MainWindow xmlns/templates/menu, TreeMenu, the GPO list toolbar, SmokeTest requests; W4's lines first) and in this
+section.

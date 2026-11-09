@@ -12236,6 +12236,452 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Element jest w kolekcji z określaniem docelowym lub w wyłączonej kolekcji – skopiuj go w GPMC.</value>
   </data>
   <!-- K7 copy refusals (21.5): end -->
+  <!-- K7 copy and cleanup (21.5, 21.6): start -->
+  <data name="GpoCopy.WindowTitle" xml:space="preserve">
+    <value>Kopiuj ustawienia do {0}</value>
+  </data>
+  <data name="GpoCopy.MergeWindowTitle" xml:space="preserve">
+    <value>Scal {0} z {1}</value>
+  </data>
+  <data name="GpoCopy.PickTargetTitle" xml:space="preserve">
+    <value>Kopiuj ustawienia – wybierz docelowy obiekt GPO</value>
+  </data>
+  <data name="GpoCopy.TargetText" xml:space="preserve">
+    <value>Docelowy obiekt GPO: {0}. Każda zmiana jest pokazana w podglądzie planu zmian, zanim cokolwiek zostanie zapisane; tam można ją też cofnąć.</value>
+  </data>
+  <data name="GpoCopy.CheckedCount" xml:space="preserve">
+    <value>Zaznaczono: {0} z {1}</value>
+  </data>
+  <data name="GpoCopy.RefusedNote" xml:space="preserve">
+    <value>Ustawień, których nie można skopiować: {0} – powód jest podany przy każdym z nich.</value>
+  </data>
+  <data name="GpoCopy.TooManySources" xml:space="preserve">
+    <value>Zaznaczono ustawienia z {0} obiektów GPO; jedno kopiowanie obejmuje najwyżej {1} źródłowych obiektów GPO.</value>
+  </data>
+  <data name="GpoCopy.ColumnSetting" xml:space="preserve">
+    <value>Ustawienie</value>
+  </data>
+  <data name="GpoCopy.ColumnSource" xml:space="preserve">
+    <value>Źródłowy obiekt GPO</value>
+  </data>
+  <data name="GpoCopy.ColumnValue" xml:space="preserve">
+    <value>Wartość</value>
+  </data>
+  <data name="GpoCopy.ColumnRemark" xml:space="preserve">
+    <value>Uwaga</value>
+  </data>
+  <data name="GpoCopy.ConflictLabel" xml:space="preserve">
+    <value>Gdy docelowy obiekt GPO ma już to ustawienie:</value>
+  </data>
+  <data name="GpoCopy.ConflictReplace" xml:space="preserve">
+    <value>Zastąp</value>
+  </data>
+  <data name="GpoCopy.ConflictReplaceHint" xml:space="preserve">
+    <value>Wartość w docelowym obiekcie GPO zostaje zastąpiona kopiowaną.</value>
+  </data>
+  <data name="GpoCopy.ConflictSkip" xml:space="preserve">
+    <value>Pomiń</value>
+  </data>
+  <data name="GpoCopy.ConflictSkipHint" xml:space="preserve">
+    <value>Docelowy obiekt GPO zachowuje swoją wartość; ustawienie nie jest kopiowane.</value>
+  </data>
+  <data name="GpoCopy.ConflictUnion" xml:space="preserve">
+    <value>Połącz listy</value>
+  </data>
+  <data name="GpoCopy.ConflictUnionHint" xml:space="preserve">
+    <value>Przypisania praw użytkownika i grupy z ograniczeniami dostają konta z obu list; pozostałe ustawienia są zastępowane.</value>
+  </data>
+  <data name="GpoCopy.ConflictDerived" xml:space="preserve">
+    <value>Według kolejności połączeń: {0}</value>
+  </data>
+  <data name="GpoCopy.ConflictDerivedHint" xml:space="preserve">
+    <value>Wygrywają wartości obiektu GPO o wyższym pierwszeństwie połączenia – tak jak teraz na klientach.</value>
+  </data>
+  <data name="GpoCopy.CopyButton" xml:space="preserve">
+    <value>Kopiuj</value>
+  </data>
+  <data name="GpoCopy.CheckAll" xml:space="preserve">
+    <value>Zaznacz wszystkie</value>
+  </data>
+  <data name="GpoCopy.CheckNone" xml:space="preserve">
+    <value>Odznacz wszystkie</value>
+  </data>
+  <data name="GpoCopy.MergeButton" xml:space="preserve">
+    <value>Scal</value>
+  </data>
+  <data name="GpoCopy.MergeIntro" xml:space="preserve">
+    <value>Ustawienia {0} zostaną skopiowane do {1}, każde połączenie {0} w tej domenie zostanie zastąpione połączeniem {1}, a w {0} zostaną wyłączone wszystkie ustawienia – jeden plan z podglądem i możliwością cofnięcia. Usunięcie {0} to osobny krok.</value>
+  </data>
+  <data name="GpoCopy.MergeOrderSourceFirst" xml:space="preserve">
+    <value>{0} ma wyższe pierwszeństwo połączenia wszędzie tam, gdzie oba są połączone: jego wartości zastąpią wartości {1}.</value>
+  </data>
+  <data name="GpoCopy.MergeOrderTargetFirst" xml:space="preserve">
+    <value>{1} ma wyższe pierwszeństwo połączenia wszędzie tam, gdzie oba są połączone: jego wartości zostają.</value>
+  </data>
+  <data name="GpoCopy.MergeOrderNoShared" xml:space="preserve">
+    <value>{0} i {1} nie są połączone w tym samym miejscu: wartości {0} zastąpią wartości {1}.</value>
+  </data>
+  <data name="GpoCopy.MergeOrderMixed" xml:space="preserve">
+    <value>{0} jest przed {1} w jednych miejscach, a po nim w innych: wybierz, które wartości mają wygrać.</value>
+  </data>
+  <data name="GpoCopy.MergeBlockingHeading" xml:space="preserve">
+    <value>Tych ustawień nie można skopiować, więc obiektów GPO nie można scalić:</value>
+  </data>
+  <data name="GpoCopy.MergeWarningsHeading" xml:space="preserve">
+    <value>Sprawdź przed scaleniem</value>
+  </data>
+  <data name="GpoCopy.MergeSecurityFilterDiffers" xml:space="preserve">
+    <value>Obiekty GPO są stosowane do różnych użytkowników, grup lub komputerów (filtrowanie zabezpieczeń).</value>
+  </data>
+  <data name="GpoCopy.MergeWmiFilterDiffers" xml:space="preserve">
+    <value>Obiekty GPO mają różne filtry WMI.</value>
+  </data>
+  <data name="GpoCopy.MergeOnlySourceLinked" xml:space="preserve">
+    <value>Tylko {0} jest połączony z: {1} – po scaleniu te miejsca dostaną też pozostałe ustawienia {2}.</value>
+  </data>
+  <data name="GpoCopy.MergeOnlyTargetLinked" xml:space="preserve">
+    <value>Tylko {0} jest połączony z: {1} – po scaleniu te miejsca dostaną też ustawienia {2}.</value>
+  </data>
+  <data name="GpoCopy.MergeSettingsHeading" xml:space="preserve">
+    <value>Kopiowane ustawienia: {0}</value>
+  </data>
+  <data name="GpoCopy.TitleCopy" xml:space="preserve">
+    <value>Kopiowanie ustawień do {0}</value>
+  </data>
+  <data name="GpoCopy.TitleRemove" xml:space="preserve">
+    <value>Usuwanie ustawień z {0}</value>
+  </data>
+  <data name="GpoCopy.TitleMerge" xml:space="preserve">
+    <value>Scalanie {0} z {1}</value>
+  </data>
+  <data name="GpoCopy.TitleUnlinkAll" xml:space="preserve">
+    <value>Odłączanie {0} wszędzie</value>
+  </data>
+  <data name="GpoCopy.NothingCopied" xml:space="preserve">
+    <value>Nic nie zmieniłoby się w {0}:</value>
+  </data>
+  <data name="GpoCopy.NothingRemoved" xml:space="preserve">
+    <value>Nic nie zostałoby usunięte z {0}:</value>
+  </data>
+  <data name="GpoCopy.OutcomeLine" xml:space="preserve">
+    <value>{0} ({1}) – {2}</value>
+  </data>
+  <data name="GpoCopy.ChangedSinceAnalysis" xml:space="preserve">
+    <value>{0} zmienił się (ustawienia lub połączenia) od analizy, więc nie zostanie usunięty. Lista propozycji zostanie odczytana ponownie – sprawdź ją i usuń obiekt GPO jeszcze raz, jeśli nadal chcesz.</value>
+  </data>
+  <data name="GpoCopy.NotConfigured" xml:space="preserve">
+    <value>Nie skonfigurowano</value>
+  </data>
+  <data name="GpoCopy.NoSettings" xml:space="preserve">
+    <value>(ustawienie)</value>
+  </data>
+  <data name="GpoCopy.Outcome.Added" xml:space="preserve">
+    <value>dodane</value>
+  </data>
+  <data name="GpoCopy.Outcome.Replaced" xml:space="preserve">
+    <value>zastąpione</value>
+  </data>
+  <data name="GpoCopy.Outcome.Merged" xml:space="preserve">
+    <value>listy połączone</value>
+  </data>
+  <data name="GpoCopy.Outcome.Unchanged" xml:space="preserve">
+    <value>docelowy obiekt GPO ma już tę samą wartość</value>
+  </data>
+  <data name="GpoCopy.Outcome.Skipped" xml:space="preserve">
+    <value>pominięte – docelowy obiekt GPO zachowuje swoją wartość</value>
+  </data>
+  <data name="GpoCopy.Outcome.Refused" xml:space="preserve">
+    <value>nie można go skopiować (zob. niżej)</value>
+  </data>
+  <data name="GpoCopy.Outcome.Removed" xml:space="preserve">
+    <value>usunięte</value>
+  </data>
+  <data name="GpoCopy.Outcome.NotFound" xml:space="preserve">
+    <value>nie ma go już w obiekcie GPO w tej postaci – odśwież</value>
+  </data>
+  <data name="GpoCleanup.Title" xml:space="preserve">
+    <value>Porządki w GPO</value>
+  </data>
+  <data name="GpoCleanup.Command" xml:space="preserve">
+    <value>Porządki w GPO…</value>
+  </data>
+  <data name="GpoCleanup.ToolbarCommand" xml:space="preserve">
+    <value>Porządki…</value>
+  </data>
+  <data name="GpoCleanup.Analyze" xml:space="preserve">
+    <value>Odśwież</value>
+  </data>
+  <data name="GpoCleanup.AnalyzeHint" xml:space="preserve">
+    <value>Ponownie odczytuje zmienione obiekty GPO i analizuje je</value>
+  </data>
+  <data name="GpoCleanup.ReadAll" xml:space="preserve">
+    <value>Odczytaj wszystko ponownie</value>
+  </data>
+  <data name="GpoCleanup.ReadAllHint" xml:space="preserve">
+    <value>Ponownie odczytuje folder każdego obiektu GPO domeny</value>
+  </data>
+  <data name="GpoCleanup.Stale" xml:space="preserve">
+    <value>Zasady grupy zmieniono po analizie – propozycje mogą być nieaktualne.</value>
+  </data>
+  <data name="GpoCleanup.NeverRun" xml:space="preserve">
+    <value>Jeszcze nie przeanalizowano.</value>
+  </data>
+  <data name="GpoCleanup.Cancelled" xml:space="preserve">
+    <value>Analizę anulowano.</value>
+  </data>
+  <data name="GpoCleanup.AnalyzeStage" xml:space="preserve">
+    <value>Analiza obiektów GPO…</value>
+  </data>
+  <data name="GpoCleanup.LastRun" xml:space="preserve">
+    <value>Przeanalizowano obiektów GPO: {0}, ustawienia odczytane {1}</value>
+  </data>
+  <data name="GpoCleanup.ProposalsOne" xml:space="preserve">
+    <value>{0} propozycja</value>
+  </data>
+  <data name="GpoCleanup.ProposalsFew" xml:space="preserve">
+    <value>{0} propozycje</value>
+  </data>
+  <data name="GpoCleanup.ProposalsMany" xml:space="preserve">
+    <value>{0} propozycji</value>
+  </data>
+  <data name="GpoCleanup.ProposalsShown" xml:space="preserve">
+    <value>Pokazano propozycji: {0} z {1}</value>
+  </data>
+  <data name="GpoCleanup.NoProposals" xml:space="preserve">
+    <value>Nie znaleziono niczego do uporządkowania.</value>
+  </data>
+  <data name="GpoCleanup.NoMatches" xml:space="preserve">
+    <value>Żadna propozycja nie pasuje do filtrów.</value>
+  </data>
+  <data name="GpoCleanup.NoteNotEvaluated" xml:space="preserve">
+    <value>Nie odczytano wszystkich ustawień {0} obiektów GPO, więc oceniono tylko ich połączenia i stan: {1}</value>
+  </data>
+  <data name="GpoCleanup.ColumnKind" xml:space="preserve">
+    <value>Rodzaj</value>
+  </data>
+  <data name="GpoCleanup.ColumnProposal" xml:space="preserve">
+    <value>Propozycja</value>
+  </data>
+  <data name="GpoCleanup.ColumnActions" xml:space="preserve">
+    <value>Działania</value>
+  </data>
+  <data name="GpoCleanup.ColumnRelated" xml:space="preserve">
+    <value>Powiązane obiekty GPO</value>
+  </data>
+  <data name="GpoCleanup.ColumnPath" xml:space="preserve">
+    <value>Miejsce ustawienia</value>
+  </data>
+  <data name="GpoCleanup.Chip" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="GpoCleanup.SummaryLabel" xml:space="preserve">
+    <value>Propozycje według rodzaju</value>
+  </data>
+  <data name="GpoCleanup.FilterKind" xml:space="preserve">
+    <value>Rodzaj:</value>
+  </data>
+  <data name="GpoCleanup.FilterGpo" xml:space="preserve">
+    <value>Obiekt GPO:</value>
+  </data>
+  <data name="GpoCleanup.AllKinds" xml:space="preserve">
+    <value>Każdy rodzaj</value>
+  </data>
+  <data name="GpoCleanup.AllGpos" xml:space="preserve">
+    <value>Każdy obiekt GPO</value>
+  </data>
+  <data name="GpoCleanup.SearchPlaceholder" xml:space="preserve">
+    <value>Szukaj w propozycjach (Ctrl+F)</value>
+  </data>
+  <data name="GpoCleanup.ClearFilters" xml:space="preserve">
+    <value>Wyczyść filtry</value>
+  </data>
+  <data name="GpoCleanup.DetailsHeading" xml:space="preserve">
+    <value>Szczegóły</value>
+  </data>
+  <data name="GpoCleanup.DetailsEmpty" xml:space="preserve">
+    <value>Wybierz propozycję, aby zobaczyć, skąd się wzięła i co można zrobić.</value>
+  </data>
+  <data name="GpoCleanup.WhyHeading" xml:space="preserve">
+    <value>Co znaleziono</value>
+  </data>
+  <data name="GpoCleanup.WhatHeading" xml:space="preserve">
+    <value>Co zrobić</value>
+  </data>
+  <data name="GpoCleanup.GposHeading" xml:space="preserve">
+    <value>Obiekty GPO</value>
+  </data>
+  <data name="GpoCleanup.SettingHeading" xml:space="preserve">
+    <value>Ustawienie</value>
+  </data>
+  <data name="GpoCleanup.NotesHeading" xml:space="preserve">
+    <value>Uwagi</value>
+  </data>
+  <data name="GpoCleanup.NoActions" xml:space="preserve">
+    <value>Ta propozycja jest tylko informacją – nie ma działania do wykonania.</value>
+  </data>
+  <data name="GpoCleanup.RelatedLine" xml:space="preserve">
+    <value>Powiązane: {0}</value>
+  </data>
+  <data name="GpoCleanup.LinksLine" xml:space="preserve">
+    <value>Połączony z: {0}</value>
+  </data>
+  <data name="GpoCleanup.NoLinks" xml:space="preserve">
+    <value>Brak połączeń w tej domenie</value>
+  </data>
+  <data name="GpoCleanup.BlockingLine" xml:space="preserve">
+    <value>Nie można skopiować: {0}</value>
+  </data>
+  <data name="GpoCleanup.OpenGpo" xml:space="preserve">
+    <value>Otwórz GPO</value>
+  </data>
+  <data name="GpoCleanup.Compare" xml:space="preserve">
+    <value>Porównaj</value>
+  </data>
+  <data name="GpoCleanup.ShowInSearch" xml:space="preserve">
+    <value>Pokaż w wyszukiwarce</value>
+  </data>
+  <data name="GpoCleanup.Copied" xml:space="preserve">
+    <value>Skopiowano propozycję do schowka.</value>
+  </data>
+  <data name="GpoCleanup.ExportCsv" xml:space="preserve">
+    <value>Eksportuj do CSV…</value>
+  </data>
+  <data name="GpoCleanup.ExportHtml" xml:space="preserve">
+    <value>Eksportuj do HTML…</value>
+  </data>
+  <data name="GpoCleanup.ReportTitle" xml:space="preserve">
+    <value>Porządki w GPO – {0}</value>
+  </data>
+  <data name="GpoCleanup.ReportSubtitle" xml:space="preserve">
+    <value>Kontroler domeny: {0}, ustawienia odczytane {1}</value>
+  </data>
+  <data name="GpoCleanup.ReportFilters" xml:space="preserve">
+    <value>Filtr: {0} z {1} propozycji</value>
+  </data>
+  <data name="GpoCleanup.ReportPrivacy" xml:space="preserve">
+    <value>Wyeksportowane przez AD Manager na żądanie operatora; raport zawiera nazwy i ustawienia obiektów GPO – przechowuj go jak inne dokumenty administracyjne.</value>
+  </data>
+  <data name="GpoCleanup.Kind.EmptyGpo.Title" xml:space="preserve">
+    <value>Pusty obiekt GPO</value>
+  </data>
+  <data name="GpoCleanup.Kind.EmptyGpo.Message" xml:space="preserve">
+    <value>{0} nie zawiera żadnych ustawień.</value>
+  </data>
+  <data name="GpoCleanup.Kind.EmptyGpo.Recommendation" xml:space="preserve">
+    <value>Usuń obiekt GPO (najpierw zostanie zaproponowana kopia zapasowa) albo go odłącz, jeśli ma zostać.</value>
+  </data>
+  <data name="GpoCleanup.Kind.UnlinkedGpo.Title" xml:space="preserve">
+    <value>Obiekt GPO bez połączeń</value>
+  </data>
+  <data name="GpoCleanup.Kind.UnlinkedGpo.Message" xml:space="preserve">
+    <value>{0} nie jest połączony z domeną, jednostką organizacyjną ani lokacją tej domeny: nie jest stosowany do nikogo.</value>
+  </data>
+  <data name="GpoCleanup.Kind.UnlinkedGpo.Recommendation" xml:space="preserve">
+    <value>Usuń go albo wyłącz, jeśli chcesz go zachować na później.</value>
+  </data>
+  <data name="GpoCleanup.Kind.AllLinksDisabled.Title" xml:space="preserve">
+    <value>Wszystkie połączenia wyłączone</value>
+  </data>
+  <data name="GpoCleanup.Kind.AllLinksDisabled.Message" xml:space="preserve">
+    <value>Każde połączenie {0} jest wyłączone: obiekt GPO nie jest stosowany do nikogo.</value>
+  </data>
+  <data name="GpoCleanup.Kind.AllLinksDisabled.Recommendation" xml:space="preserve">
+    <value>Odłącz go wszędzie, wyłącz albo usuń.</value>
+  </data>
+  <data name="GpoCleanup.Kind.GpoDisabled.Title" xml:space="preserve">
+    <value>Obiekt GPO wyłączony</value>
+  </data>
+  <data name="GpoCleanup.Kind.GpoDisabled.Message" xml:space="preserve">
+    <value>W {0} wyłączono zarówno konfigurację komputera, jak i konfigurację użytkownika.</value>
+  </data>
+  <data name="GpoCleanup.Kind.GpoDisabled.Recommendation" xml:space="preserve">
+    <value>Usuń go albo odłącz, jeśli nie jest już potrzebny.</value>
+  </data>
+  <data name="GpoCleanup.Kind.SingleSettingGpo.Title" xml:space="preserve">
+    <value>Obiekt GPO z jednym ustawieniem</value>
+  </data>
+  <data name="GpoCleanup.Kind.SingleSettingGpo.Message" xml:space="preserve">
+    <value>{0} ma tylko jedno ustawienie: {2}.</value>
+  </data>
+  <data name="GpoCleanup.Kind.SingleSettingGpo.Recommendation" xml:space="preserve">
+    <value>Przenieś ustawienie do obiektu GPO o tym samym zasięgu (Kopiuj do innego GPO…, potem Wyłącz GPO) albo scal {0} z obiektem GPO połączonym w tych samych miejscach.</value>
+  </data>
+  <data name="GpoCleanup.Kind.DuplicateSetting.Title" xml:space="preserve">
+    <value>Zduplikowane ustawienie</value>
+  </data>
+  <data name="GpoCleanup.Kind.DuplicateSetting.Message" xml:space="preserve">
+    <value>{2} ma w {0} tę samą wartość co w {1}, a {1} jest stosowany wszędzie tam, gdzie {0}.</value>
+  </data>
+  <data name="GpoCleanup.Kind.DuplicateSetting.Recommendation" xml:space="preserve">
+    <value>Usuń duplikat z {0} – wartość nadal ustawia {1}.</value>
+  </data>
+  <data name="GpoCleanup.Kind.DifferentValues.Title" xml:space="preserve">
+    <value>Różne wartości jednego ustawienia</value>
+  </data>
+  <data name="GpoCleanup.Kind.DifferentValues.Message" xml:space="preserve">
+    <value>{2} ma różne wartości w {0} i w {1}.</value>
+  </data>
+  <data name="GpoCleanup.Kind.DifferentValues.Recommendation" xml:space="preserve">
+    <value>Sprawdź, która wartość ma obowiązywać: porównaj obiekty GPO albo otwórz ustawienie w wyszukiwarce.</value>
+  </data>
+  <data name="GpoCleanup.Kind.MergeCandidate.Title" xml:space="preserve">
+    <value>Kandydat do scalenia</value>
+  </data>
+  <data name="GpoCleanup.Kind.MergeCandidate.Message" xml:space="preserve">
+    <value>{0} i {1} są połączone w tych samych miejscach, z tym samym filtrowaniem zabezpieczeń i filtrem WMI.</value>
+  </data>
+  <data name="GpoCleanup.Kind.MergeCandidate.Recommendation" xml:space="preserve">
+    <value>Scal {0} z {1}: ustawienia zostaną skopiowane, połączenia zastąpione, a {0} wyłączony; potem możesz go usunąć.</value>
+  </data>
+  <data name="GpoCleanup.Action.Delete" xml:space="preserve">
+    <value>Usuń GPO…</value>
+  </data>
+  <data name="GpoCleanup.Action.Unlink" xml:space="preserve">
+    <value>Odłącz wszędzie…</value>
+  </data>
+  <data name="GpoCleanup.Action.Disable" xml:space="preserve">
+    <value>Wyłącz GPO</value>
+  </data>
+  <data name="GpoCleanup.Action.RemoveSetting" xml:space="preserve">
+    <value>Usuń duplikat z tego GPO</value>
+  </data>
+  <data name="GpoCleanup.Action.CopyTo" xml:space="preserve">
+    <value>Kopiuj do innego GPO…</value>
+  </data>
+  <data name="GpoCleanup.Action.Merge" xml:space="preserve">
+    <value>Scal z…</value>
+  </data>
+  <data name="GpoCleanup.Note.Linked" xml:space="preserve">
+    <value>Obiekt GPO jest połączony: usunięcie usunie też jego połączenia.</value>
+  </data>
+  <data name="GpoCleanup.Note.DefaultGpo" xml:space="preserve">
+    <value>Domyślnych zasad domeny nigdy nie usuwa się ani nie scala z innym obiektem GPO.</value>
+  </data>
+  <data name="GpoCleanup.Note.OtherDomainsNotSearched" xml:space="preserve">
+    <value>Las ma inne domeny: ich połączeń z tym obiektem GPO nie widać z tego kontrolera domeny.</value>
+  </data>
+  <data name="GpoCleanup.Note.LinkOrderDiffers" xml:space="preserve">
+    <value>We wspólnym miejscu ten obiekt GPO ma wyższe pierwszeństwo połączenia: po scaleniu jego ustawienia zajmą słabszą pozycję.</value>
+  </data>
+  <data name="GpoCleanup.Note.NonCopyableUnits" xml:space="preserve">
+    <value>Niektórych ustawień AD Manager nie kopiuje (wartości tajne, skrypty, uprawnienia…), więc kopiowanie i scalanie nie są proponowane.</value>
+  </data>
+  <data name="GpoCleanup.Note.DirectorySettings" xml:space="preserve">
+    <value>Obiekt GPO ma ustawienia przechowywane w katalogu (instalacja oprogramowania, zasady sieci przewodowej lub bezprzewodowej): nie jest scalany.</value>
+  </data>
+  <data name="GpoCleanup.Note.OtherFiles" xml:space="preserve">
+    <value>Obiekt GPO zawiera pliki, których AD Manager nie odczytuje (np. przekierowanie folderów): nie jest scalany.</value>
+  </data>
+  <data name="GpoCleanup.Note.PartDisabled" xml:space="preserve">
+    <value>Wyłączona część obiektu GPO (lub docelowego obiektu scalenia) zawiera ustawienia: scalanie nie jest proponowane.</value>
+  </data>
+  <data name="GpoCleanup.Note.AccountPolicy" xml:space="preserve">
+    <value>Zasady konta (hasła, blokada, Kerberos) działają na konta domeny tylko z obiektów GPO połączonych z domeną.</value>
+  </data>
+  <data name="GpoCleanup.Note.RemovePolicy" xml:space="preserve">
+    <value>Element preferencji ma opcję „Usuń ten element, gdy nie jest już stosowany”: klienci cofną go, gdy zniknie z tego obiektu GPO.</value>
+  </data>
+  <!-- K7 copy and cleanup (21.5, 21.6): end -->
   <data name="CentralStore.Title" xml:space="preserve">
     <value>Aktualizacja szablonów ADMX</value>
   </data>

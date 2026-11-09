@@ -74,6 +74,7 @@ internal static class TreeMenu
                 items.Add(Item(L.GroupPolicy.RestoreCommand, new AsyncRelayCommand(gpoRoot.GroupPolicy.Actions.RestoreAsync)));
                 items.Add(Item(L.GpoDiagnostics.Command, shell.OpenGroupPolicyDiagnosticsCommand));
                 items.Add(Item(L.GpoSearch.Command, shell.OpenGroupPolicySearchCommand));
+                items.Add(Item(L.GpoCleanup.Command, shell.OpenGroupPolicyCleanupCommand));
                 items.Add(new Separator());
                 items.Add(Item(L.GroupPolicy.RefreshCommand, gpoRoot.RefreshCommand));
                 break;

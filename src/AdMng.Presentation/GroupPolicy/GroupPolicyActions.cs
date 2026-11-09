@@ -141,9 +141,11 @@ public sealed class GroupPolicyActions(GroupPolicyServices services)
 
     /// <summary>
     /// "Usuń…": the default GPOs are refused; the backup window offers a backup first ("Utwórz kopię zapasową przed
-    /// usunięciem", default on); the preview asks to type the GPO's name (the sentence names the domain).
+    /// usunięciem", default on); the preview asks to type the GPO's name (the sentence names the domain). With
+    /// <paramref name="expected"/> (K7, the cleanup advisor's "Usuń GPO…") the plan is guarded by what the analysis saw: a
+    /// GPO whose version or links moved since carries the error <see cref="IssueCodes.GpoChangedSinceAnalysis"/> and cannot run.
     /// </summary>
-    public async Task<bool> DeleteAsync(GpoInfo gpo)
+    public async Task<bool> DeleteAsync(GpoInfo gpo, GpoExpectedState? expected = null)
     {
         ArgumentNullException.ThrowIfNull(gpo);
         var title = Localizer.Format(L.GroupPolicy.TitleDelete, gpo.DisplayName);
@@ -169,7 +171,9 @@ public sealed class GroupPolicyActions(GroupPolicyServices services)
         var domain = Connections.ConfirmationText.Domain(current);
         var message = Localizer.Format(L.GroupPolicy.ConfirmDelete, gpo.DisplayName, domain) + Environment.NewLine + Environment.NewLine
             + Localizer.Format(L.Delete.TypeToConfirm, gpo.DisplayName);
-        return await RunAsync(title, SysvolUse.Required, (session, _, token) => Services.Planner.PlanDeleteAsync(session, gpo.Id, token),
+        return await RunAsync(title, SysvolUse.Required, (session, _, token) => expected is null
+                ? Services.Planner.PlanDeleteAsync(session, gpo.Id, token)
+                : Services.Planner.PlanDeleteAsync(session, gpo.Id, expected, token),
             confirmationText: gpo.DisplayName, confirmationMessage: message).ConfigureAwait(true);
     }
 
@@ -446,7 +450,10 @@ public sealed class GroupPolicyActions(GroupPolicyServices services)
 
     /// <summary>
     /// Plans on the current session (SYSVOL opened only for planning, closed before the preview: the executor opens its
-    /// own connection to the same DC) and shows the preview. Failures are shown, never thrown.
+    /// own connection to the same DC) and shows the preview. Failures are shown, never thrown. K7 (docs/dev/k-computers-and-gpo.md
+    /// 21.5): <c>describeChanges</c> is called after planning when <c>settingChanges</c> is null, with the plan and the
+    /// session; its rows are shown as "Zmiany ustawień" above the plan's rows. A failure only drops the rows; null returned:
+    /// nothing is previewed (the callback has told the operator why, e.g. nothing would be copied).
     /// </summary>
     internal async Task<bool> RunAsync(
         string title,
@@ -454,7 +461,8 @@ public sealed class GroupPolicyActions(GroupPolicyServices services)
         Func<IDirectorySession, ISysvolWriteConnection?, CancellationToken, Task<ChangePlan>> plan,
         string? confirmationText = null,
         string? confirmationMessage = null,
-        IReadOnlyList<GroupPolicySettingChange>? settingChanges = null)
+        IReadOnlyList<GroupPolicySettingChange>? settingChanges = null,
+        Func<ChangePlan, IDirectorySession, CancellationToken, Task<IReadOnlyList<GroupPolicySettingChange>?>>? describeChanges = null)
     {
         var session = Services.Sessions.Current;
         if (session is null)
@@ -492,6 +500,28 @@ public sealed class GroupPolicyActions(GroupPolicyServices services)
             if (sysvol is not null)
             {
                 await sysvol.DisposeAsync().ConfigureAwait(true);
+            }
+        }
+
+        if (settingChanges is null && describeChanges is not null)
+        {
+            try
+            {
+                settingChanges = await describeChanges(planned, session, Services.Lifetime).ConfigureAwait(true);
+                if (settingChanges is null)
+                {
+                    return false;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The window closed while the rows were made: nothing is previewed, and nothing is thrown.
+                return false;
+            }
+            catch (Exception ex) when (GroupPolicyText.IsExpected(ex))
+            {
+                // Only the plain-language rows are lost; the plan's own rows are still shown.
+                settingChanges = [];
             }
         }
 

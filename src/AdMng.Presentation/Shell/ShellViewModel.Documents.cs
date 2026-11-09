@@ -63,6 +63,7 @@ public sealed partial class ShellViewModel
     {
         GroupPolicyObjectDocumentViewModel gpo => (gpo.GpoId, gpo.Title),
         GroupPolicy.Search.GpoSettingsSearchDocumentViewModel { SelectedRow: { } found } => (found.GpoId, found.GpoName),
+        AdMng.Presentation.GroupPolicy.Cleanup.GpoCleanupDocumentViewModel { SelectedRow: { GpoExists: true } row } => (row.GpoId, row.GpoName),
         AdministrativeTemplatesEditorViewModel templates => (templates.GpoId, templates.GpoName),
         SecuritySettingsEditorViewModel security => (security.GpoId, security.GpoName),
         GroupPolicyObjectsDocumentViewModel { Selection: [var row] } => (row.Gpo.Id, row.Name),

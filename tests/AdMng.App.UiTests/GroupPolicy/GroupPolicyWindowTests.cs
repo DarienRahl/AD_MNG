@@ -39,6 +39,7 @@ public sealed class GroupPolicyWindowTests
         {
             typeof(ChangePlanPreviewViewModel), typeof(NewGpoViewModel), typeof(GpoPickerViewModel), typeof(GpoBackupViewModel),
             typeof(GpoComparisonViewModel), typeof(WmiFilterEditorViewModel), typeof(CentralStoreUpdateViewModel),
+            typeof(Presentation.GroupPolicy.Copy.GpoCopySettingsViewModel),
         })
         {
             Assert.True(windows.IsRegistered(type), type.Name);
@@ -101,6 +102,15 @@ public sealed class GroupPolicyWindowTests
         Assert.True(update.EdgeButton.IsEnabled);
         Assert.False(update.UpdateButton.IsEnabled);
         Assert.Equal(Visibility.Collapsed, update.ErrorBar.Visibility);
+
+        // K7: "Kopiuj ustawienia" renders without a connection (it reads nothing; OK plans afterwards).
+        var copySettings = (GpoCopySettingsWindow)windows.CreateWindow(new Presentation.GroupPolicy.Copy.GpoCopySettingsViewModel(gp.Ui,
+            [new(new Core.GroupPolicy.Management.GpoUnitSelection(GroupPolicySamples.PasswordsId, "S|Computer|System Access|MinimumPasswordLength"),
+                "Stacje robocze – Zasady haseł", "Minimalna długość hasła", null, "12 znaków", null)], "Stacje robocze – Pulpit zdalny"));
+        UiTestSupport.ShowOffScreen(copySettings);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(copySettings.OkButton.IsEnabled);
+        Assert.Single(copySettings.ItemsList.Items);
         await UiTestSupport.WaitForIdleAsync();
         context.AssertHealthy();
     });
