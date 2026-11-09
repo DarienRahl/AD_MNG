@@ -119,6 +119,30 @@ public sealed class LdapDirectoryConnector : IDirectoryConnector
         return await ConnectCoreAsync(settings, domain, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// The DC is the host the window's connections are pinned to (<see cref="LdapConnectionFactory.Host"/> of its pool – the
+    /// DC's own name after pinning, or the name or address the operator gave; <c>Info.Server</c>, the DC's
+    /// <c>dnsHostName</c>, need not resolve on the client); the options are the window's with
+    /// <see cref="ConnectionOptions.GlobalCatalog"/> on and no explicit port (<see cref="ConnectionSettings.ForGlobalCatalog"/>),
+    /// the credential a copy of the window's in-memory one. A DC that is not a global catalog refuses the port: the error is
+    /// that of <see cref="ConnectAsync"/> (<see cref="DirectoryErrorKind.ServerUnavailable"/>). The session reports
+    /// <see cref="SessionInfo.IsGlobalCatalog"/>, so its subtree searches carry no domain-scope control and a search with base
+    /// <c>""</c> covers the whole global catalog. Callers keep it as a read-only reader (docs/dev/phase3-bulk-create.md 2.2).
+    /// </remarks>
+    public async Task<IDirectorySession> ConnectGlobalCatalogAsync(IDirectorySession current, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(current);
+        if (current is not LdapDirectorySession source)
+        {
+            throw new NotSupportedException("The session was not opened by this connector.");
+        }
+
+        var settings = source.SettingsForServer(source.Pool.Factory.Host).ForGlobalCatalog();
+        var domain = settings.Options.Domain?.Trim().TrimEnd('.') ?? source.Info.DomainDnsName;
+        return await ConnectCoreAsync(settings, domain, cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task<IDirectorySession> ConnectCoreAsync(ConnectionSettings settings, string? domain, CancellationToken cancellationToken)
     {
         var started = _timeProvider.GetTimestamp();

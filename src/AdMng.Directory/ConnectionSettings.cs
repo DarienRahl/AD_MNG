@@ -130,6 +130,15 @@ internal sealed class ConnectionSettings
         return new ConnectionSettings(options, AuthType, copy, Account);
     }
 
+    /// <summary>
+    /// The global catalog of the same DC (F3, docs/dev/phase3-bulk-create.md 2.2): these settings with
+    /// <see cref="ConnectionOptions.GlobalCatalog"/> on and no explicit port (3268, or 3269 with
+    /// <see cref="TransportSecurity.Tls"/>); the credential is handed over as it is (call it on a fresh copy from
+    /// <see cref="ForServer"/>, so the new session owns its own instance).
+    /// </summary>
+    public ConnectionSettings ForGlobalCatalog() =>
+        new(Options with { GlobalCatalog = true, Port = null }, AuthType, _credential, Account);
+
     /// <summary>Drops the reference to the credential (session disposed).</summary>
     public void ClearCredential() => _credential = null;
 
