@@ -513,7 +513,12 @@ public sealed class GroupPolicyActions(GroupPolicyServices services)
                     return false;
                 }
             }
-            catch (Exception ex) when (ex is not OperationCanceledException && GroupPolicyText.IsExpected(ex))
+            catch (OperationCanceledException)
+            {
+                // The window closed while the rows were made: nothing is previewed, and nothing is thrown.
+                return false;
+            }
+            catch (Exception ex) when (GroupPolicyText.IsExpected(ex))
             {
                 // Only the plain-language rows are lost; the plan's own rows are still shown.
                 settingChanges = [];

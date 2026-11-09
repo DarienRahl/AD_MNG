@@ -296,6 +296,21 @@ public sealed class GpoSettingsActionsTests
     }
 
     [Fact]
+    public async Task RunAsync_ADescriptionCancelledWithTheWindow_EndsWithoutAPreview_AndNeverThrows()
+    {
+        var k = await K7Harness.CreateAsync(centralStore: false);
+        var gpo = await k.GpoAsync(k.Cleanup.EmptyGpo);
+
+        var done = await k.H.Actions.RunAsync("Odłączanie", Presentation.GroupPolicy.GroupPolicyActions.SysvolUse.None,
+            (session, _, token) => k.H.Services.Planner.PlanUnlinkAllAsync(session, gpo.Id, token),
+            describeChanges: (_, _, _) => throw new OperationCanceledException());
+
+        Assert.False(done);
+        Assert.Empty(k.H.Windows.Previews);
+        Assert.Contains(k.Cleanup.EmptyGpo.ToString("D"), k.H.Value(k.H.Company.CompanyOu, Attr.GpLink) ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task SettingChangesBuilder_DescribesRemovedAndChangedUnits_OfEveryWrittenFile()
     {
         var k = await K7Harness.CreateAsync(centralStore: false);
