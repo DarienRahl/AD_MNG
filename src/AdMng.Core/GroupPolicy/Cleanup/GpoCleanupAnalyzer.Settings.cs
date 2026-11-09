@@ -169,13 +169,13 @@ public static partial class GpoCleanupAnalyzer
         }
     }
 
-    /// <summary>The occurrences grouped by value (<see cref="SameValue"/>).</summary>
+    /// <summary>The occurrences grouped by value (<see cref="GpoSettingUnits.SameValue"/>).</summary>
     private static List<List<Occurrence>> ValueClasses(IEnumerable<Occurrence> occurrences)
     {
         var classes = new List<List<Occurrence>>();
         foreach (var occurrence in occurrences)
         {
-            if (classes.FirstOrDefault(c => SameValue(c[0].Unit, occurrence.Unit)) is { } match)
+            if (classes.FirstOrDefault(c => GpoSettingUnits.SameValue(c[0].Unit, occurrence.Unit)) is { } match)
             {
                 match.Add(occurrence);
             }
@@ -186,27 +186,6 @@ public static partial class GpoCleanupAnalyzer
         }
 
         return classes;
-    }
-
-    /// <summary>
-    /// Same setting, same value – the rule of <see cref="GpoSettingUnits.SameValue"/> (21.2): false unless both are
-    /// comparable and neither is disabled; policies compare by <see cref="AdministrativeTemplates.PolicySetting"/>
-    /// equality, the others by <see cref="GpoSettingUnit.ValueFingerprint"/>. Kept here so the analyzer is a pure function
-    /// of the unit records (it does not depend on how the units were built).
-    /// </summary>
-    private static bool SameValue(GpoSettingUnit a, GpoSettingUnit b)
-    {
-        if (a.Comparability != GpoUnitComparability.Comparable || b.Comparability != GpoUnitComparability.Comparable || a.Disabled || b.Disabled)
-        {
-            return false;
-        }
-
-        if (a.Policy is not null || b.Policy is not null)
-        {
-            return a.Policy is not null && a.Policy.Equals(b.Policy);
-        }
-
-        return string.Equals(a.ValueFingerprint, b.ValueFingerprint, StringComparison.Ordinal);
     }
 
     /// <summary>A password, lockout or Kerberos policy unit (domain effect only from GPOs linked to the domain head).</summary>

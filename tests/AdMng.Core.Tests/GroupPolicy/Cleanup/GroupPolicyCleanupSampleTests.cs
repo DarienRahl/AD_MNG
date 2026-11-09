@@ -13,7 +13,6 @@ namespace AdMng.Core.Tests.GroupPolicy.Cleanup;
 /// </summary>
 public sealed class GroupPolicyCleanupSampleTests
 {
-    private const string WaveOneMerge = "K7 wave 1 merge";
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -120,7 +119,7 @@ public sealed class GroupPolicyCleanupSampleTests
     }
 
     /// <summary>The proposals the sample is built for (with or without the ADMX set: policy unit or raw registry value).</summary>
-    [Theory(Skip = WaveOneMerge)]
+    [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public async Task EndToEnd_TheIndexOfTheSample_GivesTheDesignedProposals(bool withDefinitions)
@@ -161,7 +160,7 @@ public sealed class GroupPolicyCleanupSampleTests
         Assert.DoesNotContain(result.Proposals, p => p.Kind == GpoCleanupKind.EmptyGpo && p.GpoId != sample.EmptyGpo);
     }
 
-    [Fact(Skip = WaveOneMerge)]
+    [Fact]
     public async Task EndToEnd_WithTheManagementSample_TheCleanupProposalsStay()
     {
         var (_, sample) = Create(withManagementSample: true);

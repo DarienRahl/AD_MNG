@@ -16,7 +16,6 @@ namespace AdMng.Core.Tests.GroupPolicy.Copy;
 /// </summary>
 public class CopySettingsEndToEndTests : GroupPolicyTestBed
 {
-    private const string Wave1 = "K7 wave 1 merge";
     private const string SecurityPair = "[{827D319E-6EAC-11D2-A4EA-00C04F79F83A}{803E14A0-B4FB-11D0-A0D0-00A0C90F574B}]";
     private const string DrivesPairs = "[{00000000-0000-0000-0000-000000000000}{2EA1A81B-48E5-45E9-8BB7-A6E3AC170006}][{5794DAFD-BE60-433F-88A2-1A31939AC01F}{2EA1A81B-48E5-45E9-8BB7-A6E3AC170006}]";
 
@@ -34,7 +33,7 @@ public class CopySettingsEndToEndTests : GroupPolicyTestBed
         return await Planner.PlanCopySettingsAsync(Session, sysvol, new GpoSettingsCopyRequest { TargetId = target, Units = [unit], Definitions = definitions }, Ct);
     }
 
-    [Fact(Skip = Wave1)]
+    [Fact]
     public async Task UserRight_FromTheSample_IsCopied_AndUndone()
     {
         var target = Builder.AddManagedGroupPolicy(Sysvol, "Cel – prawa", 0, 0);
@@ -49,7 +48,7 @@ public class CopySettingsEndToEndTests : GroupPolicyTestBed
         Assert.Null(Sysvol.Get(target, SecurityTemplate.RelativePath));
     }
 
-    [Fact(Skip = Wave1)]
+    [Fact]
     public async Task DriveMap_WithItsPairs_IsCopiedWithANewUid()
     {
         var source = Builder.AddManagedGroupPolicy(Sysvol, "Dyski – źródło", 1, 0, attributes: new Dictionary<string, object?> { ["gPCUserExtensionNames"] = DrivesPairs });
@@ -65,7 +64,7 @@ public class CopySettingsEndToEndTests : GroupPolicyTestBed
         Assert.Equal(DrivesPairs, Value(GpoDn(target), "gPCUserExtensionNames"));
     }
 
-    [Fact(Skip = Wave1)]
+    [Fact]
     public async Task Policy_IsCopiedByState_WithTheIndexDefinitions()
     {
         var definitions = SampleAdministrativeTemplates.LoadPolish();
@@ -80,7 +79,7 @@ public class CopySettingsEndToEndTests : GroupPolicyTestBed
         Assert.Equal(Sysvol.Get(source, GroupPolicyPlanner.MachineRegistryPolicyPath), Sysvol.Get(target, GroupPolicyPlanner.MachineRegistryPolicyPath));
     }
 
-    [Fact(Skip = Wave1)]
+    [Fact]
     public async Task RemoveAndMerge_RunOnTheRealUnits()
     {
         var a = Builder.AddManagedGroupPolicy(Sysvol, "Scalanie – A", 0, 1);

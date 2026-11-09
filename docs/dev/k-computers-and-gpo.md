@@ -2513,8 +2513,8 @@ units of a half A has disabled are skipped before any refusal check, so they nei
 
 **W3 as built** (cleanup analyzer, cleanup sample). `GpoCleanupAnalyzer` lives in `src/AdMng.Core/GroupPolicy/Cleanup/`
 (`GpoCleanupAnalyzer{,.Context,.Settings,.Merge}.cs`; the stub left `GpoCleanupModel.cs`, no contract signature changed).
-It reads only the index's records – not W1's `GpoSettingsIndex.Find`/`Occurrences` or `GpoSettingUnits.SameValue` (a
-private copy of the 21.2 rule) – so it is a pure function of hand-built records. Additions to 21.6, all on the safe side:
+It reads only the index's records (not `GpoSettingsIndex.Find`/`Occurrences`) and compares values with
+`GpoSettingUnits.SameValue`, so it is a pure function of the unit records. Additions to 21.6, all on the safe side:
 GPO-level kinds (`UnlinkedGpo`, `AllLinksDisabled`, `GpoDisabled`) are evaluated for every entry, content kinds only for
 `Read`; `Disable` is not offered for a GPO already all-disabled; the note `DefaultGpo` accompanies every withheld Delete.
 Default GPOs never get `SingleSettingGpo` and never take part in a merge group (neither source nor target); merge groups
