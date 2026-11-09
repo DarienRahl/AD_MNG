@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Globalization;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
@@ -158,7 +159,8 @@ public static class TemplateRightsEvaluator
     /// <remarks>
     /// A token is the account SID, its primary group, every group <see cref="GroupGraph.Reach"/> finds (implicit ones
     /// included), Everyone, Authenticated Users, This Organization and NETWORK (the CA and the DC see a network logon),
-    /// plus Enterprise Domain Controllers for a writable DC. The key of the memo is the token ∩ the SIDs the ACEs name (the
+    /// plus Enterprise Domain Controllers for a writable DC (the root's Enterprise Read-only Domain Controllers for an
+    /// RODC). The key of the memo is the token ∩ the SIDs the ACEs name (the
     /// owners included). Trustees of another domain keep the count -1 (<see cref="TemplateTrustee.IsResolved"/> false);
     /// one <see cref="PkiReadNoticeCode.TrusteeUnresolved"/> notice per template where such a trustee is not Tier 0. All
     /// reads go to <paramref name="session"/> (rule 4); nothing is kept beyond the result (rule 1).
@@ -246,7 +248,7 @@ public static class TemplateRightsEvaluator
             {
                 var uac = (UserAccountControl)(account.GetInt32(Attr.UserAccountControl) ?? 0);
                 var disabled = (uac & UserAccountControl.AccountDisable) != 0;
-                BuildToken(account, sid, (uac & UserAccountControl.ServerTrustAccount) != 0, graph, token);
+                BuildToken(account, sid, uac, classifier.RootDomainSid ?? context.Options.RootDomainSid, graph, token);
                 var isTier0 = classifier.Classify(sid) == PrincipalClass.Tier0;
                 key.Clear();
                 for (var i = 0; i < token.Count; i++)
@@ -535,13 +537,13 @@ public static class TemplateRightsEvaluator
 
     // ---- The account pass ---------------------------------------------------------------------------------------------
 
-    private static void BuildToken(DirectoryObject account, string sid, bool isWritableDc, GroupGraph graph, List<string> token)
+    private static void BuildToken(DirectoryObject account, string sid, UserAccountControl uac, string? rootDomainSid, GroupGraph graph, List<string> token)
     {
         token.Clear();
         token.Add(sid);
         var separator = sid.LastIndexOf('-');
         var primary = separator > 0 && account.GetInt64(Attr.PrimaryGroupId) is { } rid and > 0
-            ? string.Concat(sid.AsSpan(0, separator), "-", rid.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            ? string.Concat(sid.AsSpan(0, separator), "-", rid.ToString(CultureInfo.InvariantCulture))
             : null;
         if (primary is not null)
         {
@@ -561,9 +563,15 @@ public static class TemplateRightsEvaluator
         token.Add(AuthenticatedUsersSid);
         token.Add(ThisOrganizationSid);
         token.Add(NetworkSid);
-        if (isWritableDc)
+
+        // A writable DC carries Enterprise Domain Controllers; an RODC Enterprise Read-only Domain Controllers of the root instead.
+        if ((uac & UserAccountControl.ServerTrustAccount) != 0)
         {
             token.Add(EnterpriseDomainControllersSid);
+        }
+        else if ((uac & UserAccountControl.PartialSecretsAccount) != 0 && (rootDomainSid ?? (separator > 0 ? sid[..separator] : null)) is { } root)
+        {
+            token.Add(string.Create(CultureInfo.InvariantCulture, $"{root}-{WellKnownRids.EnterpriseReadOnlyDomainControllers}"));
         }
     }
 

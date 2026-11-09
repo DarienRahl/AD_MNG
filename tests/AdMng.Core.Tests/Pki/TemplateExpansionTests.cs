@@ -133,14 +133,25 @@ public class TemplateExpansionTests
     public async Task WritableDomainControllers_HoldEnterpriseDomainControllers_AndNetworkIsInEveryToken()
     {
         var scenario = await Scenario.CreateAsync();
+        var builder = scenario.Builder;
+        builder.AddComputer("RODC01", builder.DomainControllersDn, new Dictionary<string, object?>
+        {
+            [Attr.UserAccountControl] = (int)(UserAccountControl.WorkstationTrustAccount | UserAccountControl.PartialSecretsAccount),
+            [Attr.PrimaryGroupId] = WellKnownRids.ReadOnlyDomainControllers,
+        });
         var dcs = scenario.Template("Kontroler-Domeny", scenario.DomainAdmins, Ace(FakeAce.AccessAllowedObject, "S-1-5-9"));
+        var rodcs = scenario.Template("Kontroler-Tylko-Do-Odczytu", scenario.DomainAdmins,
+            Ace(FakeAce.AccessAllowedObject, $"{builder.DomainSid}-{WellKnownRids.EnterpriseReadOnlyDomainControllers}"));
         var network = scenario.Template("Dowolny-Z-Sieci", scenario.DomainAdmins, Ace(FakeAce.AccessAllowedObject, "S-1-5-2"));
 
-        var expansion = await scenario.ExpandAsync([dcs, network]);
+        var expansion = await scenario.ExpandAsync([dcs, rodcs, network]);
 
+        // The writable DC carries Enterprise Domain Controllers, the RODC the root's Enterprise Read-only DCs instead.
         var controllers = Total(expansion.Templates[dcs.Cn], TemplateRight.Enroll);
         Assert.Equal(["DC01"], controllers.FirstAccounts.Select(a => a.Name));
         Assert.Equal(PrincipalClass.Tier0, controllers.HighestClass);
+        Assert.Equal(["RODC01"], Total(expansion.Templates[rodcs.Cn], TemplateRight.Enroll).FirstAccounts.Select(a => a.Name));
+        Assert.Contains(builder.SidOf(DistinguishedName.Parse(builder.DomainControllersDn).Child("CN", "RODC01").ToString()), expansion.Classifier!.Tier0Accounts);
         var everyone = Total(expansion.Templates[network.Cn], TemplateRight.Enroll);
         Assert.Equal(expansion.AccountsScanned, everyone.AccountCount + everyone.DisabledCount);
         Assert.Equal(PrincipalClass.Broad, everyone.HighestClass);
