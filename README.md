@@ -196,7 +196,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K6: 🟡, K7: ✅)"] ~~~ EVT["🟡 E · Dzienniki zdarzeń<br/>czytnik i analiza<br/>(E1, część E2: 🟡)"] ~~~ PKI["⬜ P · Urząd certyfikacji<br/>(AD CS) i certyfikaty"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K7: 🟡)"] ~~~ EVT["🟡 E · Dzienniki zdarzeń<br/>czytnik i analiza<br/>(E1, część E2: 🟡)"] ~~~ PKI["⬜ P · Urząd certyfikacji<br/>(AD CS) i certyfikaty"]
     end
     A --> B
     B ~~~ C
@@ -225,7 +225,7 @@ flowchart TB
 | U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog, korespondencja seryjna przez klasycznego Outlooka (pliki z adresami, odbiorcy z AD, pola, podgląd, test, dziennik „już wysłane”) i zapytania do właścicieli skrzynek współdzielonych | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U1c – wiadomości sformatowane wklejone z Outlooka z obrazami osadzonymi, U1d – zwroty grzecznościowe z tytułem i płcią, U2 – przegląd stanu kont, U4 – uprawnienia kont: U4a z grup i ustawień kont z kreatorem filtrów, U4b z delegowań w ACL i U4c z uprawnień lokalnych z GPO: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U5 – Korespondencja (Outlook) i zapytania do właścicieli skrzynek: 🟡 zaimplementowane, czekają na pilotaż z klasycznym Outlookiem i Exchange; U3: ⬜) |
 | C | Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint (ścieżka równoległa) | Logowanie kontem administratora lub Czytelnika globalnego z automatycznym wykrywaniem ról (także kwalifikujących się w PIM) i dopasowaniem dostępnych funkcji; użytkownicy, grupy, licencje, MFA i logowania w Entra ID, skrzynki i uprawnienia w Exchange Online, Teams, SharePoint i OneDrive, powiązanie konta AD z kontem w Entra ID; Microsoft Graph i moduły PowerShell | ⬜ zaplanowane |
 | T | Współpraca zespołu (ścieżka równoległa) | Kilku administratorów na różnych komputerach pracuje razem przez usługę AdMng Watchdog: panel „Wspólne” z obiektami przypiętymi dla zespołu (z notatką, autorem, „Przekaż do…”) i notatki do obiektów widoczne dla wszystkich przy koncie, grupie czy komputerze, odświeżane na żywo | ⬜ zaplanowane |
-| K | Komputery i zasady grupy (GPO) (ścieżka równoległa) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer”, czytelne ustawienia i diagnostyka zasad grupy, wyszukiwanie ustawień we wszystkich GPO, kopiowanie ustawień i porządki w GPO | 🟡 (K1 – komputery, K2 – GPO w drzewie, K3 – edytor ADMX z aktualizacją magazynu centralnego, K4 – ustawienia zabezpieczeń, K5 – raport „co dostanie komputer” i K6 – czytelność, wygoda edycji i diagnostyka: zaimplementowane, czekają na pilotaż na Windows Server AD; K7 – wyszukiwanie, kopiowanie ustawień i porządki w GPO: ✅, ze znanymi ograniczeniami) |
+| K | Komputery i zasady grupy (GPO) (ścieżka równoległa) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer”, czytelne ustawienia i diagnostyka zasad grupy, wyszukiwanie ustawień we wszystkich GPO, kopiowanie ustawień i porządki w GPO | 🟡 (K1 – komputery, K2 – GPO w drzewie, K3 – edytor ADMX z aktualizacją magazynu centralnego, K4 – ustawienia zabezpieczeń, K5 – raport „co dostanie komputer”, K6 – czytelność, wygoda edycji i diagnostyka i K7 – wyszukiwanie, kopiowanie ustawień i porządki w GPO: zaimplementowane, czekają na pilotaż na Windows Server AD) |
 | E | Dzienniki zdarzeń: czytnik i analiza (ścieżka równoległa) | Czytanie dzienników zdarzeń DC, serwerów, stacji i plików `.evtx` z poziomu programu (dowolny kanał, wspólna oś czasu wielu komputerów, objaśnione pola i obiekty AD) oraz analizy: źródło blokady konta, rozpylanie haseł, Kerberos/RC4, NTLMv1, podpisywanie LDAP („kto przestanie działać”), historia logowań, zmiany kont i grup, GPO na komputerze, zdrowie DC, integralność inspekcji; osobno od Watchdoga, bez zapisu na dysku | 🟡 (E1 – czytnik oraz z E2 źródło blokady konta i nieudane logowania: zaimplementowane, czekają na pilotaż na Windows Server AD) |
 | P | Urząd certyfikacji (AD CS) i certyfikaty (ścieżka równoległa) | Przegląd PKI lasu na żywo z LDAP (urzędy, szablony z odczytanymi flagami i tym, kto może się zarejestrować, NTAuth, AIA, listy CRL, OID) ze zdrowiem w stylu `pkiview.msc`; przegląd bezpieczeństwa ESC1–ESC17 z naprawą w AD przez plan zmian z cofnięciem; karty *Opublikowane certyfikaty*, *Mapowania nazw* (silne mapowanie, KB5014754) i *Poświadczenia kluczy*, certyfikaty LDAPS/KDC na DC; praca z urzędem przez DCOM z kontem okna (wystawione, oczekujące, odwołane, zatwierdzanie, odwołanie, publikacja CRL); powiązania z Watchdogiem, dziennikami zdarzeń, GPO i powiadomieniami | ⬜ zaplanowane |
 
@@ -1340,15 +1340,15 @@ Watchdog (połączenie z usługą), wielu połączeń naraz i panelu szczegół�
 
 </details>
 
-### Ścieżka K – Komputery i zasady grupy (GPO) 🟡 (K1–K6: 🟡, K7: ✅)
+### Ścieżka K – Komputery i zasady grupy (GPO) 🟡 (K1–K7: 🟡)
 
 **Cel:** pełna praca z komputerami w AD i z zasadami grupy bez GPMC i edytora GPO: inwentarz i raporty komputerów,
 cykl życia ich kont, zdalne akcje, a dla GPO – tworzenie i łączenie z OU, edycja ustawień z **najnowszych szablonów
 ADMX**, ustawienia zabezpieczeń i raport „co dostanie komputer”. Każda zmiana – w AD i w SYSVOL – przez podgląd planu
 zmian, z możliwością cofnięcia. Ścieżka równoległa: K1 (komputery), K2 (GPO w drzewie), K3 (edytor ADMX z magazynem
-centralnym), K4 (ustawienia zabezpieczeń), K5 (raport „co dostanie komputer”) i K6 (czytelne ustawienia, wygoda edycji,
-diagnostyka zasad grupy) mają pierwszą wersję, K7 (wyszukiwanie ustawień, kopiowanie ustawień i porządki w GPO) jest
-gotowy; zastępuje „polityki ADMX” z fazy 6. Zmiany GPO od razu widzi AdMng Watchdog (treść GPO „było → jest”).
+centralnym), K4 (ustawienia zabezpieczeń), K5 (raport „co dostanie komputer”), K6 (czytelne ustawienia, wygoda edycji,
+diagnostyka zasad grupy) i K7 (wyszukiwanie ustawień, kopiowanie ustawień i porządki w GPO) mają pierwszą wersję;
+zastępuje „polityki ADMX” z fazy 6. Zmiany GPO od razu widzi AdMng Watchdog (treść GPO „było → jest”).
 
 <details>
 <summary><b>Szczegóły ścieżki K</b> – komputery, GPO, edytor ADMX, zabezpieczenia, raport, porządki, etapy</summary>
@@ -1471,7 +1471,7 @@ gotowy; zastępuje „polityki ADMX” z fazy 6. Zmiany GPO od razu widzi AdMng 
   podgląd planu zmian i eksportem); zakładka *Stan* GPO na tym samym silniku. Sprawdzone na fałszywym katalogu; okna
   – CI na Windows; zgodność nazw z raportem GPMC – pilotaż. Opis:
   [ZASADY-GRUPY.md, rozdział 11](docs/ZASADY-GRUPY.md#11-czytelne-ustawienia-wygoda-edycji-i-diagnostyka-k6).
-- ✅ **K7** – wyszukiwanie, kopiowanie ustawień i porządki w GPO. Karta **Wyszukiwarka ustawień GPO** (paleta
+- 🟡 **K7** – wyszukiwanie, kopiowanie ustawień i porządki w GPO. Karta **Wyszukiwarka ustawień GPO** (paleta
   `gpo.searchSettings`, *Wyszukaj ustawienia…* na liście GPO, *Znajdź we wszystkich GPO* na zakładce *Ustawienia*):
   jeden odczyt wszystkich GPO domeny w pamięci okna, szukanie po nazwie, wartości, kluczu technicznym i koncie (nazwa
   albo SID) bez względu na polskie znaki, filtry konfiguracji i obszaru, *Tylko różne wartości*, wyniki pogrupowane

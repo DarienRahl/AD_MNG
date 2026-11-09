@@ -19,7 +19,7 @@ podjęcia z zespołem. Ten plik zostaje tylko po to, żeby dawne odnośniki dale
 | 🟡 (zaimplementowane, czekają na pilotaż z klasycznym Outlookiem i Exchange; instrukcja: [KORESPONDENCJA.md](KORESPONDENCJA.md)) | [U5 – Korespondencja (Outlook) i zapytania do właścicieli skrzynek](../README.md#u5--korespondencja-outlook-i-zapytania-do-właścicieli-skrzynek-) |
 | ⬜ | [Ścieżka C – Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint](../README.md#ścieżka-c--microsoft-365-entra-id-exchange-online-teams-i-sharepoint-) |
 | ⬜ | [Ścieżka T – Współpraca zespołu](../README.md#ścieżka-t--współpraca-zespołu-) |
-| 🟡 (K1–K7 zaimplementowane – K1–K6: 🟡 czekają na pilotaż na Windows Server AD, K7: ✅ ze znanymi ograniczeniami; instrukcja: [ZASADY-GRUPY.md](ZASADY-GRUPY.md)) | [Ścieżka K – Komputery i zasady grupy (GPO)](../README.md#ścieżka-k--komputery-i-zasady-grupy-gpo--k1k6--k7-) |
+| 🟡 (K1–K7: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; instrukcja: [ZASADY-GRUPY.md](ZASADY-GRUPY.md)) | [Ścieżka K – Komputery i zasady grupy (GPO)](../README.md#ścieżka-k--komputery-i-zasady-grupy-gpo--k1k7-) |
 | 🟡 (E1 i część E2: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD) | [Ścieżka E – Dzienniki zdarzeń: czytnik i analiza](../README.md#ścieżka-e--dzienniki-zdarzeń-czytnik-i-analiza--e1-i-część-e2-) |
 | ⬜ | [Ścieżka P – Urząd certyfikacji (AD CS) i certyfikaty](../README.md#ścieżka-p--urząd-certyfikacji-ad-cs-i-certyfikaty-) |
 | 🟡 (lista kontrolna: [PILOTAZ.md](PILOTAZ.md)) | [Etap S – stabilizacja i gotowość do pilotażu](../README.md#etap-s--stabilizacja-i-gotowość-do-pilotażu-) |
