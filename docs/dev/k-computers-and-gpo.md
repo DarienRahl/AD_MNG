@@ -2488,3 +2488,25 @@ on its build thread); `PresenterOf(entry)` and `Warm()` are public, `Describe` i
 over marks only that GPO `Failed`; in the service an `IfMissing` request never joins a cancelled build (it queues an
 `Incremental` follow-up), a GPO change during a build leaves the new view stale, queued builds cancelled before they start
 release their lifetime link, and `StateChanged` posts are coalesced.
+
+**W2 as built.** `PlanCopySettingsAsync`, `PlanRemoveSettingsAsync`, `PlanMergeAsync`, `PlanUnlinkAllAsync` and the
+guarded `PlanDeleteAsync` live in `GroupPolicyPlanner.CopySettings.cs`; contract signatures unchanged. The setting-unit
+layer is reached through the internal `GpoUnitSource` (`ReadSettings`, `PrincipalNames`, `ResolveAsync`, `Of`,
+`SameValue`, `KnownSid`; `GroupPolicyPlanner.UnitSource`, default = W1's real functions), so W2's tests run on
+hand-built units (`tests/AdMng.Core.Tests/GroupPolicy/Copy/HandUnits.cs`) and four end-to-end tests on W1's units wait
+with `Skip = "K7 wave 1 merge"`. The internal `GpoSettingsWriter` addresses a unit through its settings' keys
+(`GpoSettingKey.Parse` of `Settings[0]`), `Scope`, `Source` (preference file), `ItemId`, `PreferenceType` and
+`PolicyId` – W1's units must fill these. A value named in a shared `**DeleteValues` / `**DeleteKeys` list is copied as
+an entry of its own (`**del.x` / a one-name `**DeleteKeys`) and removed by shrinking the list. `GppPreferenceDocument`
+numbers items itself exactly as `GppXmlParser.Parse` does (no dependency on `GppXmlParser.Items`) and resolves item ids
+against the file as read, so removals do not shift positional ids. Deviations: the target's own incomplete read or
+leftovers is an error (`GpoSettingIncomplete`); a merge refuses with `GpoMergeNotCopyable` also for units refused at plan
+time (policy-owned raw value, unknown extension pair), not only for `BlocksMerge`; merge errors sit on A's object, copy
+issues on the target's object; a `P|` selection without a definition set gives `GpoSettingNoDefinitions` (the units
+rebuilt without a set hold no `P|` id); duplicate selections are copied once; `A = B` is `IssueCodes.InvalidValue`.
+W2 review fixes: the writer refuses, independently of the unit layer, any unit with a masked setting and any preference
+item carrying a non-empty `cpassword` (`GpoSettingSecret`), and an audit value outside 0–3 (`GpoSettingUnsupported`
+instead of an exception); `Replace` does not remove a target occurrence that has a `Refusal` (the unit is refused, as
+a remove of it would be); `GpoSettingPolicyOwned` names the target GPO; remove de-duplicates selections; in a merge,
+units of a half A has disabled are skipped before any refusal check, so they neither block the merge
+(`GpoMergeNotCopyable`) nor raise `GpoSettingRemovePolicy` or part-disabled warnings (21.13).
