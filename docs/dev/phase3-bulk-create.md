@@ -83,7 +83,7 @@ of create mode accumulate over all executions of the window (2.7); no new window
 messages (`{attribute|function}`, `{$token:argument}`) with four creation tokens, not a second syntax, and without Polish
 aliases (the UI inserts fields by their Polish labels, 2.6); (c) counters: name-based profiles fill gaps
 (*najniższy wolny numer*), the built-in *Konta numerowane* continues after the highest number (*kolejny po najwyższym*)
-and never reuses numbers of objects in the AD Recycle Bin (operator to confirm, 2.14); (d) a name held only by an object
+and never reuses numbers of objects in the AD Recycle Bin (confirmed by the operator, 2.14); (d) a name held only by an object
 in the AD Recycle Bin does not block a name-based value but warns (restoring such an object later needs a rename);
 (e) the forest-wide check uses a second, read-only session to the **GC port of the same DC** (2.2), opened only for a
 multi-domain forest whose DC is a ready GC; (f) the wave-2 split is by feature (B3: steps 1–3, B4: step 4, plan,
@@ -1518,16 +1518,15 @@ Taken in part or rejected:
 * Author's open questions: (1) counter default – settled by usability-3 for the built-ins, confirmation asked below;
   (2) and (3) stay open below.
 
-**Operator questions (open):**
-1. *Konta numerowane* now continues after the highest existing number and does not reuse numbers of deleted accounts
-   still in the AD Recycle Bin (kd201, kd203, kd205 live + kd207 deleted → kd208, kd209 …). Is that right, or should
-   gaps be filled (kd202, kd204, kd206)?
-2. For numbered accounts, should the name shown in AD lists (`cn`) be the person's name (*Jan Kowalski*, today's
-   built-in) or the login (*kd201*)?
-3. Are these accounts synchronized to Microsoft 365 / Entra ID or Exchange? If yes, the primary `SMTP:` address in
-   `proxyAddresses` should be on by default (today off), and *UPN = adres e-mail* is probably the right UPN rule.
-4. Which attribute identifies a person in your HR sheets – an employee number (`employeeID` / `employeeNumber`) or only
-   name, e-mail and phone? The duplicate check (*Możliwe duplikaty*) uses the first one present.
+**Operator answers (2026-11-09):**
+1. *Konta numerowane* continues after the highest existing number and never reuses numbers of deleted accounts still in
+   the AD Recycle Bin (kd201, kd203, kd205 live + kd207 deleted → kd208, kd209 …) – confirmed.
+2. For numbered accounts the name shown in AD lists (`cn`) is the person's name (*Jan Kowalski*) – confirmed.
+3. Microsoft 365 / Exchange differs between environments: the primary `SMTP:` address in `proxyAddresses` and the
+   *UPN = adres e-mail* rule are **profile options, off by default** (as designed).
+4. The HR sheets identify a person by **name, surname and e-mail** (no employee number): the duplicate check
+   (*Możliwe duplikaty*) uses an employee number only when such a column is mapped, otherwise the e-mail, then given name
+   + surname (a warning, never an error).
 
 ### 2.15 As built
 
