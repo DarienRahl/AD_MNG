@@ -410,7 +410,8 @@ public sealed partial class GroupPolicyPlanner
 
     /// <summary>
     /// <see cref="PlanDeleteAsync(IDirectorySession, Guid, CancellationToken)"/> guarded by what the cleanup advisor saw: an
-    /// error <see cref="IssueCodes.GpoChangedSinceAnalysis"/> when the GPO's version or links moved since.
+    /// error <see cref="IssueCodes.GpoChangedSinceAnalysis"/> when the GPO's version, status or links (containers, enabled,
+    /// enforced) moved since.
     /// </summary>
     public async Task<ChangePlan> PlanDeleteAsync(IDirectorySession session, Guid gpoId, GpoExpectedState expected, CancellationToken cancellationToken)
     {
@@ -419,16 +420,13 @@ public sealed partial class GroupPolicyPlanner
         var gpo = await RequirePolicyAsync(session, gpoId, cancellationToken).ConfigureAwait(false);
         var links = await _reader.ReadLinksOfAsync(session, gpoId, cancellationToken).ConfigureAwait(false);
         var plan = await PlanDeleteAsync(session, gpoId, cancellationToken).ConfigureAwait(false);
-        var linked = links.Select(l => l.ContainerDn).ToList();
-        var sameLinks = linked.All(dn => expected.LinkedContainerDns.Any(e => DistinguishedName.AreEqual(e, dn)))
-            && expected.LinkedContainerDns.All(e => linked.Any(dn => DistinguishedName.AreEqual(e, dn)));
-        if (gpo.DirectoryVersion == expected.DirectoryVersion && sameLinks)
+        if (expected.Matches(gpo, links))
         {
             return plan;
         }
 
         var changed = new ValidationIssue(IssueSeverity.Error, IssueCodes.GpoChangedSinceAnalysis,
-            "The GPO changed (version or links) since the cleanup analysis.") { Arguments = [gpo.DisplayName] };
+            "The GPO changed (version, status or links) since the cleanup analysis.") { Arguments = [gpo.DisplayName] };
         return plan with { Objects = [.. plan.Objects.Select(o => o with { Issues = [.. o.Issues, changed] })] };
     }
 

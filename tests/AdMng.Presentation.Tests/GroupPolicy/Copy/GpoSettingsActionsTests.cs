@@ -270,9 +270,26 @@ public sealed class GpoSettingsActionsTests
         Assert.False(await k.H.Actions.DeleteCheckedAsync(entry.Gpo, expected));
 
         var error = Assert.Single(k.H.B2.Dialogs.Errors);
-        Assert.StartsWith("Porządki – Bez powiązań zmienił się (ustawienia lub połączenia) od analizy", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Porządki – Bez powiązań zmienił się (ustawienia, stan lub połączenia) od analizy", error.Message, StringComparison.Ordinal);
         Assert.Empty(k.H.Windows.BackupWindows);
         Assert.True(k.H.Session.Exists(k.H.GpoDn(k.Cleanup.Unlinked)));
+    }
+
+    [Fact]
+    public async Task DeleteChecked_IsRefusedWhenTheGpoStatusChangedSinceTheAnalysis()
+    {
+        var k = await K7Harness.CreateAsync(centralStore: false);
+        var view = await k.IndexAsync();
+        var entry = view.Index.Find(k.Cleanup.Disabled)!;
+        var expected = GpoExpectedState.Of(entry.Gpo, entry.Links);
+        Assert.Equal(GpoStatus.AllSettingsDisabled, expected.Status);
+        k.H.Session.SetValues(k.H.GpoDn(k.Cleanup.Disabled), "flags", "0");
+
+        Assert.False(await k.H.Actions.DeleteCheckedAsync(entry.Gpo, expected));
+
+        Assert.Single(k.H.B2.Dialogs.Errors);
+        Assert.Empty(k.H.Windows.BackupWindows);
+        Assert.True(k.H.Session.Exists(k.H.GpoDn(k.Cleanup.Disabled)));
     }
 
     [Fact]

@@ -12180,7 +12180,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>Settings from {0} GPOs were selected; one copy takes at most {1} source GPOs.</value>
   </data>
   <data name="Issue.GpoChangedSinceAnalysis" xml:space="preserve">
-    <value>{0} changed since the analysis (settings or links): refresh "Porządki w GPO" before deleting it.</value>
+    <value>{0} changed since the analysis (settings, status or links): refresh "Porządki w GPO" before deleting it.</value>
   </data>
   <data name="Issue.GpoMergeNotCopyable" xml:space="preserve">
     <value>{0} has {1} settings that cannot be copied, so it cannot be merged.</value>
@@ -12367,7 +12367,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>{0} ({1}) – {2}</value>
   </data>
   <data name="GpoCopy.ChangedSinceAnalysis" xml:space="preserve">
-    <value>{0} changed (its settings or links) since the analysis, so it is not deleted. The list of proposals is read again – check it and delete the GPO again if you still want to.</value>
+    <value>{0} changed (its settings, status or links) since the analysis, so it is not deleted. The list of proposals is read again – check it and delete the GPO again if you still want to.</value>
   </data>
   <data name="GpoCopy.NotConfigured" xml:space="preserve">
     <value>Not configured</value>

@@ -91,4 +91,36 @@ public class UnlinkAndGuardedDeleteTests : CopySettingsTestBed
         Assert.True(GpLinkValue.Parse(Value(Company.SalesOu, Attr.GpLink), Builder.DomainDn).Contains(gpo));
         Assert.DoesNotContain(result.Objects.SelectMany(o => o.Changes), c => c.Succeeded);
     }
+
+    [Fact]
+    public async Task GuardedDelete_AfterTheGpoWasEnabledAgain_OrItsLinkWasEnabled_IsRefused()
+    {
+        // The advisor saw a disabled GPO with a disabled link; neither change moves versionNumber or the linking containers.
+        var reEnabled = AddGpo("Porządki – wyłączony", flags: (int)GpoStatus.AllSettingsDisabled);
+        Builder.SetGroupPolicyLinks(Company.SalesOu, [(reEnabled, 0)]);
+        var linkEnabled = AddGpo("Porządki – wyłączone powiązanie");
+        Builder.SetGroupPolicyLinks(Company.ItOu, [(linkEnabled, GroupPolicyLink.DisabledOption)]);
+        var asSeen = new GpoExpectedState(DirectoryVersion(reEnabled), [Company.SalesOu])
+        {
+            Status = GpoStatus.AllSettingsDisabled,
+            Links = [new GpoExpectedLink(Company.SalesOu, Enabled: true, Enforced: false)],
+        };
+        var linkSeen = new GpoExpectedState(DirectoryVersion(linkEnabled), [Company.ItOu])
+        {
+            Status = GpoStatus.AllSettingsEnabled,
+            Links = [new GpoExpectedLink(Company.ItOu.ToUpperInvariant(), Enabled: false, Enforced: false)],
+        };
+        Assert.Equal(0, (await Planner.PlanDeleteAsync(Session, reEnabled, asSeen, Ct)).ErrorCount);
+        Assert.Equal(0, (await Planner.PlanDeleteAsync(Session, linkEnabled, linkSeen, Ct)).ErrorCount);
+
+        Session.SetValues(GpoDn(reEnabled), "flags", "0");
+        Builder.SetGroupPolicyLinks(Company.ItOu, [(linkEnabled, 0)]);
+        var statusPlan = await Planner.PlanDeleteAsync(Session, reEnabled, asSeen, Ct);
+        var linkPlan = await Planner.PlanDeleteAsync(Session, linkEnabled, linkSeen, Ct);
+
+        Assert.Contains(IssuesOf(statusPlan), i => i.Code == IssueCodes.GpoChangedSinceAnalysis && i.Severity == IssueSeverity.Error);
+        Assert.Contains(IssuesOf(linkPlan), i => i.Code == IssueCodes.GpoChangedSinceAnalysis && i.Severity == IssueSeverity.Error);
+        Assert.Equal(0, statusPlan.ExecutableCount);
+        Assert.Equal(0, linkPlan.ExecutableCount);
+    }
 }

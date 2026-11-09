@@ -1,6 +1,7 @@
 using System.Globalization;
 using AdMng.Core.Batch;
 using AdMng.Core.GroupPolicy.AdministrativeTemplates;
+using AdMng.Core.Ldap;
 
 namespace AdMng.Core.GroupPolicy.Management;
 
@@ -95,12 +96,58 @@ public sealed record GpoMergeRequest
 
 /// <summary>
 /// What the cleanup advisor saw of a GPO: a delete planned with it is refused (<see cref="IssueCodes.GpoChangedSinceAnalysis"/>)
-/// when the GPO's version or links moved since.
+/// when the GPO's version, status or links (containers, enabled, enforced) moved since.
 /// </summary>
 /// <param name="DirectoryVersion">The container's <c>versionNumber</c> the index read.</param>
 /// <param name="LinkedContainerDns">The containers that linked the GPO (empty: unlinked).</param>
 public sealed record GpoExpectedState(GpoVersion? DirectoryVersion, IReadOnlyList<string> LinkedContainerDns)
 {
+    /// <summary>
+    /// The GPO's status (<c>flags</c>) the index read; null: not compared. A status change does not move
+    /// <c>versionNumber</c>, and a re-enabled GPO is no longer the one the advisor proposed to delete.
+    /// </summary>
+    public GpoStatus? Status { get; init; }
+
+    /// <summary>Every link with its enabled and enforced state as the index read it; null: not compared (only the containers).</summary>
+    public IReadOnlyList<GpoExpectedLink>? Links { get; init; }
+
+    /// <summary>What the index read of <paramref name="gpo"/> and its links.</summary>
+    public static GpoExpectedState Of(GpoInfo gpo, IReadOnlyList<GpoLinkInfo> links)
+    {
+        ArgumentNullException.ThrowIfNull(gpo);
+        ArgumentNullException.ThrowIfNull(links);
+        return new GpoExpectedState(gpo.DirectoryVersion, [.. links.Select(l => l.ContainerDn).Distinct(StringComparer.OrdinalIgnoreCase)])
+        {
+            Status = gpo.Status,
+            Links = [.. links.Select(l => new GpoExpectedLink(l.ContainerDn, l.Enabled, l.Enforced))],
+        };
+    }
+
+    /// <summary>True when the GPO and its links read now are as expected (version, status, linking containers, link options).</summary>
+    public bool Matches(GpoInfo gpo, IReadOnlyList<GpoLinkInfo> links)
+    {
+        ArgumentNullException.ThrowIfNull(gpo);
+        ArgumentNullException.ThrowIfNull(links);
+        if (gpo.DirectoryVersion != DirectoryVersion || (Status is { } status && gpo.Status != status))
+        {
+            return false;
+        }
+
+        var linked = links.Select(l => l.ContainerDn).ToList();
+        if (!linked.All(dn => LinkedContainerDns.Any(e => DistinguishedName.AreEqual(e, dn)))
+            || !LinkedContainerDns.All(e => linked.Any(dn => DistinguishedName.AreEqual(e, dn))))
+        {
+            return false;
+        }
+
+        static bool Same(GpoExpectedLink a, GpoLinkInfo b) =>
+            DistinguishedName.AreEqual(a.ContainerDn, b.ContainerDn) && a.Enabled == b.Enabled && a.Enforced == b.Enforced;
+        return Links is not { } expected || (links.All(l => expected.Any(e => Same(e, l))) && expected.All(e => links.Any(l => Same(e, l))));
+    }
+
     /// <summary>For diagnostics: the version and the link count only.</summary>
     public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"{DirectoryVersion} ({LinkedContainerDns.Count} links)");
 }
+
+/// <summary>One link of a GPO as the cleanup advisor saw it.</summary>
+public sealed record GpoExpectedLink(string ContainerDn, bool Enabled, bool Enforced);

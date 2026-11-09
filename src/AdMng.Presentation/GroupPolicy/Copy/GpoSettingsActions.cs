@@ -195,7 +195,7 @@ public static class GpoSettingsActions
     }
 
     /// <summary>
-    /// The advisor's "Usuń GPO…": refused when the GPO's version or links moved since the analysis (in another window or by
+    /// The advisor's "Usuń GPO…": refused when the GPO's version, status or links moved since the analysis (in another window or by
     /// another administrator), otherwise <see cref="GroupPolicyActions.DeleteAsync"/> with its backup offer and typed
     /// confirmation – its plan is guarded by <paramref name="expected"/> too, up to execution.
     /// </summary>
@@ -222,7 +222,7 @@ public static class GpoSettingsActions
         {
             var fresh = await services.Reader.ReadPolicyAsync(session, gpo.Id, services.Lifetime).ConfigureAwait(true);
             IReadOnlyList<GpoLinkInfo> links = fresh is null ? [] : await services.Reader.ReadLinksOfAsync(session, gpo.Id, services.Lifetime).ConfigureAwait(true);
-            changed = fresh is null || fresh.DirectoryVersion != expected.DirectoryVersion || !SameContainers(links.Select(l => l.ContainerDn), expected.LinkedContainerDns);
+            changed = fresh is null || !expected.Matches(fresh, links);
         }
         catch (Exception ex) when (GroupPolicyText.IsExpected(ex))
         {
@@ -348,11 +348,5 @@ public static class GpoSettingsActions
         }
 
         return new GpoMergeInfo(source.DisplayName, target.DisplayName, derived, shared.Count > 0, shared.Count > 0 && derived is null, warnings);
-    }
-
-    private static bool SameContainers(IEnumerable<string> actual, IReadOnlyList<string> expected)
-    {
-        var now = actual.ToList();
-        return now.All(dn => expected.Any(e => DistinguishedName.AreEqual(e, dn))) && expected.All(e => now.Any(dn => DistinguishedName.AreEqual(e, dn)));
     }
 }

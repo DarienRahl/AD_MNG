@@ -162,6 +162,6 @@ public sealed class GpoCleanupRowViewModel
 
     /// <summary>What the advisor saw of the GPO (its delete is refused when the GPO moved since).</summary>
     internal GpoExpectedState? ExpectedState() => Entry is { } entry
-        ? new GpoExpectedState(entry.Gpo.DirectoryVersion, [.. entry.Links.Select(l => l.ContainerDn).Distinct(StringComparer.OrdinalIgnoreCase)])
+        ? GpoExpectedState.Of(entry.Gpo, entry.Links)
         : null;
 }

@@ -12180,7 +12180,7 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Wybrano ustawienia z {0} GPO; jedno kopiowanie obejmuje najwyżej {1} GPO źródłowych.</value>
   </data>
   <data name="Issue.GpoChangedSinceAnalysis" xml:space="preserve">
-    <value>{0} zmieniło się od analizy (ustawienia lub połączenia): odśwież „Porządki w GPO” przed usunięciem.</value>
+    <value>{0} zmieniło się od analizy (ustawienia, stan lub połączenia): odśwież „Porządki w GPO” przed usunięciem.</value>
   </data>
   <data name="Issue.GpoMergeNotCopyable" xml:space="preserve">
     <value>{0} ma {1} ustawień, których nie da się skopiować, więc nie można go scalić.</value>
@@ -12367,7 +12367,7 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>{0} ({1}) – {2}</value>
   </data>
   <data name="GpoCopy.ChangedSinceAnalysis" xml:space="preserve">
-    <value>{0} zmienił się (ustawienia lub połączenia) od analizy, więc nie zostanie usunięty. Lista propozycji zostanie odczytana ponownie – sprawdź ją i usuń obiekt GPO jeszcze raz, jeśli nadal chcesz.</value>
+    <value>{0} zmienił się (ustawienia, stan lub połączenia) od analizy, więc nie zostanie usunięty. Lista propozycji zostanie odczytana ponownie – sprawdź ją i usuń obiekt GPO jeszcze raz, jeśli nadal chcesz.</value>
   </data>
   <data name="GpoCopy.NotConfigured" xml:space="preserve">
     <value>Nie skonfigurowano</value>
