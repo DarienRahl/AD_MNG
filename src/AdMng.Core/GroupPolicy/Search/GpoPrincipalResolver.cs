@@ -80,8 +80,7 @@ public static class GpoPrincipalResolver
             if (KnownSid(text, domainSid) is { } known)
             {
                 // "KONTOSO\Domain Admins" is another domain's group: a domain RID is only this domain's when the prefix says so.
-                var otherDomain = backslash > 0 && domainSid is not null && known.StartsWith(domainSid + "-", StringComparison.OrdinalIgnoreCase)
-                    && !domain.IsThisDomain(text[..backslash].Trim());
+                var otherDomain = IsQualifiedDomainRid(text, known, domainSid) && !domain.IsThisDomain(text[..backslash].Trim());
                 results[i] = otherDomain
                     ? new GpoPrincipal(written, null, GpoPrincipalKind.Unresolved)
                     : new GpoPrincipal(written, known, SecurityTemplate.IsSid(text) ? GpoPrincipalKind.Sid : GpoPrincipalKind.WellKnown);
@@ -112,6 +111,18 @@ public static class GpoPrincipalResolver
         await LookupAsync(session, Attr.SamAccountName, bySam, inputs, results, cancellationToken).ConfigureAwait(false);
         await LookupAsync(session, Attr.UserPrincipalName, byUpn, inputs, results, cancellationToken).ConfigureAwait(false);
         return [.. results.Select((r, i) => r ?? new GpoPrincipal(inputs[i], null, GpoPrincipalKind.Unresolved))];
+    }
+
+    /// <summary>
+    /// A <c>DOMAIN\name</c> that <see cref="KnownSid"/> maps to a RID of this domain (<c>KONTOSO\Domain Admins</c> → …-512):
+    /// it is this domain's account only when its prefix names this domain, which only <see cref="ResolveAsync"/> can tell
+    /// (it knows the domain's names). <see cref="GpoSettingUnits"/> therefore sends such names through the resolver and
+    /// trusts its answer (<see cref="GpoUnitContext.SidsByName"/>) instead of <see cref="KnownSid"/>.
+    /// </summary>
+    internal static bool IsQualifiedDomainRid(string written, string known, string? domainSid)
+    {
+        var backslash = written.IndexOf('\\', StringComparison.Ordinal);
+        return backslash > 0 && domainSid is not null && known.StartsWith(domainSid + "-", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void Add(Dictionary<string, List<int>> map, string name, int index)

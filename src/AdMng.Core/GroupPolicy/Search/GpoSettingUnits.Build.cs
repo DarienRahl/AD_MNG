@@ -304,15 +304,22 @@ public static partial class GpoSettingUnits
 
     // ---- Principals --------------------------------------------------------------------------------------------------
 
-    /// <summary>The SID of a principal (well-known, SID text, or resolved by name), null when unknown.</summary>
+    /// <summary>
+    /// The SID of a principal (well-known, SID text, or resolved by name), null when unknown. A <c>DOMAIN\name</c> that
+    /// <see cref="GpoPrincipalResolver.KnownSid"/> maps to a RID of this domain takes the resolver's answer when there is a
+    /// map: <c>KONTOSO\Domain Admins</c> of another domain is not this domain's …-512 (without a map – no LDAP, a test – the
+    /// well-known mapping stands).
+    /// </summary>
     private static string? SidOf(string written, GpoUnitContext context)
     {
-        if (GpoPrincipalResolver.KnownSid(written, context.DomainSid) is { } known)
+        var map = context.SidsByName;
+        if (GpoPrincipalResolver.KnownSid(written, context.DomainSid) is { } known
+            && (map is null || !GpoPrincipalResolver.IsQualifiedDomainRid(written, known, context.DomainSid)))
         {
             return known.ToUpperInvariant();
         }
 
-        return context.SidsByName is { } map && map.TryGetValue(written, out var sid) && !string.IsNullOrEmpty(sid) ? sid.ToUpperInvariant() : null;
+        return map is not null && map.TryGetValue(written, out var sid) && !string.IsNullOrEmpty(sid) ? sid.ToUpperInvariant() : null;
     }
 
     /// <summary>The SID where known, else the name as written in upper case.</summary>

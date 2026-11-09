@@ -55,6 +55,25 @@ public sealed class GpoSettingUnitsTests
     }
 
     [Fact]
+    public void OtherDomainsWellKnownName_IsNotThisDomainsRid_WhenTheResolverAnswered()
+    {
+        // KnownSid maps any DOMAIN\Domain Admins to this domain's -512; only the resolver knows which prefix is this domain.
+        var settings = SettingsOf(Template("[Privilege Rights]", @"SeBackupPrivilege = KONTOSO\Domain Admins", @"SeRestorePrivilege = CONTOSO\Domain Admins"));
+        Assert.Equal([@"CONTOSO\Domain Admins", @"KONTOSO\Domain Admins"], GpoSettingUnits.PrincipalNames(settings, DomainSid).Order(StringComparer.Ordinal));
+        var context = Plain with { SidsByName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [@"CONTOSO\Domain Admins"] = DomainSid + "-512" } };
+        var bySid = Template("[Privilege Rights]", $"SeBackupPrivilege = *{DomainSid}-512");
+
+        var units = GpoSettingUnits.Of(settings, null, null, context);
+
+        var other = units.Single(u => u.BaseId.EndsWith("SeBackupPrivilege", StringComparison.Ordinal));
+        var own = units.Single(u => u.BaseId.EndsWith("SeRestorePrivilege", StringComparison.Ordinal));
+        Assert.Empty(other.PrincipalSids);
+        Assert.Equal([DomainSid + "-512"], own.PrincipalSids);
+        Assert.False(GpoSettingUnits.SameValue(other, Single(Units(bySid, context))));
+        Assert.Equal([DomainSid + "-512"], Single(Units(Template("[Privilege Rights]", @"SeBackupPrivilege = KONTOSO\Domain Admins"))).PrincipalSids); // no map: well-known
+    }
+
+    [Fact]
     public void RestrictedGroup_ByNameAndBySid_OneBaseId()
     {
         var context = Plain with { SidsByName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [@"CONTOSO\GG_Admins"] = AdminsSid } };

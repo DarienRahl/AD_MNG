@@ -88,8 +88,9 @@ public static partial class GpoSettingUnits
     }
 
     /// <summary>
-    /// The principal names in <paramref name="settings"/> that <see cref="GpoPrincipalResolver.KnownSid"/> cannot map
-    /// (distinct, as written): the input of one <see cref="GpoPrincipalResolver.ResolveAsync"/> batch before <c>Of</c>.
+    /// The principal names in <paramref name="settings"/> that <see cref="GpoPrincipalResolver.KnownSid"/> cannot map, and the
+    /// <c>DOMAIN\name</c> spellings it maps to a RID of this domain (only the resolver knows whether <c>DOMAIN</c> is this
+    /// domain) – distinct, as written: the input of one <see cref="GpoPrincipalResolver.ResolveAsync"/> batch before <c>Of</c>.
     /// User rights, Restricted Groups (the group and its lists), GPP groups without a <c>groupSid</c> and GPP members without
     /// a <c>sid=</c>.
     /// </summary>
@@ -101,7 +102,7 @@ public static partial class GpoSettingUnits
         void Add(string? written)
         {
             var name = Written(written);
-            if (name.Length > 0 && GpoPrincipalResolver.KnownSid(name, domainSid) is null && seen.Add(name))
+            if (name.Length > 0 && NeedsResolver(name, domainSid) && seen.Add(name))
             {
                 names.Add(name);
             }
@@ -229,6 +230,13 @@ public static partial class GpoSettingUnits
             return null;
         }
     }
+
+    /// <summary>
+    /// <see cref="GpoPrincipalResolver.KnownSid"/> cannot map the name, or maps a <c>DOMAIN\name</c> to a RID of this domain
+    /// although only the resolver can tell whether <c>DOMAIN</c> is this domain (<c>KONTOSO\Domain Admins</c>).
+    /// </summary>
+    private static bool NeedsResolver(string written, string? domainSid) =>
+        GpoPrincipalResolver.KnownSid(written, domainSid) is not { } known || GpoPrincipalResolver.IsQualifiedDomainRid(written, known, domainSid);
 
     /// <summary>A principal as written, trimmed and without the security template's <c>*</c>.</summary>
     internal static string Written(string? principal) => principal is null ? string.Empty : principal.Trim().TrimStart('*').Trim();

@@ -291,10 +291,19 @@ public static class GpoSettingsIndexBuilder
 
             var folderProgress = progress is null ? null : new FolderProgress(progress);
             folderProgress?.Report(new GpoFolderReadProgress(0, toRead.Count));
-            await GpoFolderReader.ReadAsync(sysvol, toRead, request.Folders, (result, _) =>
+            await GpoFolderReader.ReadAsync(sysvol, toRead, request.Folders, (result, token) =>
             {
-                // Parse and drop the bytes here: no entry keeps a byte[] (at most Parallelism folders in memory).
-                contents[result.GpoId] = ParsedGpo.Parse(result);
+                // Parse and drop the bytes here: no entry keeps a byte[] (at most Parallelism folders in memory). A folder
+                // the parsers trip over is that GPO's failure, never the end of the run (only cancellation stops it).
+                try
+                {
+                    contents[result.GpoId] = ParsedGpo.Parse(result);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException || !token.IsCancellationRequested)
+                {
+                    contents[result.GpoId] = ParsedGpo.Failed;
+                }
+
                 return ValueTask.CompletedTask;
             }, folderProgress, cancellationToken).ConfigureAwait(false);
         }
@@ -403,6 +412,9 @@ public static class GpoSettingsIndexBuilder
         IReadOnlyList<string> OtherFiles)
     {
         private static readonly IReadOnlyDictionary<string, GpoPreferenceScope> NoScopes = new Dictionary<string, GpoPreferenceScope>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>A folder whose content could not be parsed (status <see cref="GpoIndexStatus.Failed"/>, nothing kept).</summary>
+        public static ParsedGpo Failed { get; } = new(GpoIndexStatus.Failed, [], null, null, NoScopes, [], [], []);
 
         public static ParsedGpo From(GpoIndexEntry entry) => new(entry.Status, entry.Settings, entry.MachineRegistry, entry.UserRegistry,
             entry.PreferenceScopes, entry.NotReadFiles, entry.OverflowedFiles, entry.OtherFiles);
