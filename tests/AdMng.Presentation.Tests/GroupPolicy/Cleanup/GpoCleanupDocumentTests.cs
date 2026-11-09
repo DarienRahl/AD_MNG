@@ -218,6 +218,33 @@ public sealed class GpoCleanupDocumentTests
     }
 
     [Fact]
+    public async Task AStaleAnalysis_DisablesTheContentActions_UntilItIsReadAgain()
+    {
+        // The keeper of a duplicate may have lost the setting since the analysis: "Usuń duplikat" must not run on old rows.
+        var k = await K7Harness.CreateAsync();
+        using var document = await k.CleanupAsync();
+        document.SelectedRow = Row(document, GpoCleanupKind.DuplicateSetting, k.Cleanup.TemplatesBranch);
+        Assert.True(document.RemoveSettingCommand.CanExecute(null));
+
+        k.H.Services.NotifyChanged();
+        await B2Harness.WaitUntilAsync(() => document.IsStale && !document.IsLoading);
+
+        Assert.False(document.RemoveSettingCommand.CanExecute(null));
+        document.SelectedRow = Row(document, GpoCleanupKind.SingleSettingGpo, k.Cleanup.RemoteDesktop);
+        Assert.False(document.CopyToCommand.CanExecute(null));
+        Assert.False(document.DisableCommand.CanExecute(null));
+        document.SelectedRow = Row(document, GpoCleanupKind.MergeCandidate, k.Cleanup.RemoteDesktop);
+        Assert.False(document.MergeCommand.CanExecute(null));
+        document.SelectedRow = Row(document, GpoCleanupKind.UnlinkedGpo, k.Cleanup.Unlinked);
+        Assert.True(document.DeleteCommand.CanExecute(null)); // compares the GPO with the analysis itself
+
+        await ((Presentation.Shell.IShellDocument)document).RefreshAsync();
+        Assert.False(document.IsStale);
+        document.SelectedRow = Row(document, GpoCleanupKind.DuplicateSetting, k.Cleanup.TemplatesBranch);
+        Assert.True(document.RemoveSettingCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task AChangeElsewhere_MarksTheAnalysisStale_AndF5ReadsAgain()
     {
         var k = await K7Harness.CreateAsync(centralStore: false);

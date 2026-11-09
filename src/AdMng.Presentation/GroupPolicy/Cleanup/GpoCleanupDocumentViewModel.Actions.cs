@@ -36,13 +36,13 @@ public sealed partial class GpoCleanupDocumentViewModel
     [RelayCommand(CanExecute = nameof(CanUnlink))]
     private Task UnlinkAsync() => RunActionAsync(row => Actions.UnlinkAllAsync(row.Entry!.Gpo));
 
-    private bool CanUnlink() => CanAct(GpoCleanupAction.Unlink);
+    private bool CanUnlink() => CanActOnFreshResult(GpoCleanupAction.Unlink);
 
     /// <summary>"Wyłącz GPO": all settings disabled (reversible).</summary>
     [RelayCommand(CanExecute = nameof(CanDisable))]
     private Task DisableAsync() => RunActionAsync(row => Actions.SetStatusAsync(row.Entry!.Gpo, GpoStatus.AllSettingsDisabled));
 
-    private bool CanDisable() => CanAct(GpoCleanupAction.Disable);
+    private bool CanDisable() => CanActOnFreshResult(GpoCleanupAction.Disable);
 
     /// <summary>"Usuń duplikat z tego GPO": the duplicated setting removed from the covered GPO (the keeper still sets it).</summary>
     [RelayCommand(CanExecute = nameof(CanRemoveSetting))]
@@ -50,7 +50,7 @@ public sealed partial class GpoCleanupDocumentViewModel
         ? Actions.RemoveSettingsAsync(row.Entry!.Gpo, GpoCopyItems.OfBaseId(texts, row.Entry, baseId), Definitions)
         : Task.FromResult(false));
 
-    private bool CanRemoveSetting() => CanAct(GpoCleanupAction.RemoveSetting) && SelectedRow?.Proposal.UnitBaseId is not null;
+    private bool CanRemoveSetting() => CanActOnFreshResult(GpoCleanupAction.RemoveSetting) && SelectedRow?.Proposal.UnitBaseId is not null;
 
     /// <summary>"Kopiuj do innego GPO…": the GPO's settings into a GPO the operator picks (then "Wyłącz GPO" as a separate step).</summary>
     [RelayCommand(CanExecute = nameof(CanCopyTo))]
@@ -58,7 +58,7 @@ public sealed partial class GpoCleanupDocumentViewModel
         ? Actions.CopySettingsAsync(GpoCopyItems.OfGpo(texts, row.Entry!), null, Definitions)
         : Task.FromResult(false));
 
-    private bool CanCopyTo() => CanAct(GpoCleanupAction.CopyTo);
+    private bool CanCopyTo() => CanActOnFreshResult(GpoCleanupAction.CopyTo);
 
     /// <summary>"Scal z…": the GPO merged into the proposal's target (copy, relink, disable – one plan).</summary>
     [RelayCommand(CanExecute = nameof(CanMerge))]
@@ -66,7 +66,7 @@ public sealed partial class GpoCleanupDocumentViewModel
         ? Actions.MergeAsync(row.Entry!.Gpo, target.Gpo, GpoCopyItems.OfGpo(texts, row.Entry), Definitions)
         : Task.FromResult(false));
 
-    private bool CanMerge() => CanAct(GpoCleanupAction.Merge) && SelectedRow is { HasRelated: true };
+    private bool CanMerge() => CanActOnFreshResult(GpoCleanupAction.Merge) && SelectedRow is { HasRelated: true };
 
     /// <summary>"Otwórz GPO": the GPO's document (the "Ustawienia" tab when the proposal is about a setting).</summary>
     [RelayCommand(CanExecute = nameof(CanOpenGpo))]
@@ -122,6 +122,13 @@ public sealed partial class GpoCleanupDocumentViewModel
     private Core.GroupPolicy.AdministrativeTemplates.PolicyDefinitionSet? Definitions => _shown?.View.Index.Definitions;
 
     private bool CanAct(GpoCleanupAction action) => SelectedRow?.Offers(action) == true && HasSession && !IsLoading && _shown is not null;
+
+    /// <summary>
+    /// <see cref="CanAct"/> while the shown analysis is not stale: these plans trust the analysis (a removed duplicate's keeper,
+    /// a merge target) and re-check nothing of it, so a proposal of an older analysis waits for "Odśwież". Only the delete
+    /// compares the GPO with what the analysis saw and stays available.
+    /// </summary>
+    private bool CanActOnFreshResult(GpoCleanupAction action) => CanAct(action) && !IsStale;
 
     /// <summary>Runs an action of the selected proposal; after it wrote something the index is refreshed and analysed again.</summary>
     private async Task RunActionAsync(Func<GpoCleanupRowViewModel, Task<bool>> action)

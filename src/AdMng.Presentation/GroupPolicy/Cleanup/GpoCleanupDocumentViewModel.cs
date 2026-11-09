@@ -211,6 +211,8 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
 
     protected override void OnLoadingChanged() => RefreshCommands();
 
+    partial void OnIsStaleChanged(bool value) => RefreshCommands();
+
     protected override void RefreshCommands()
     {
         AnalyzeCommand.NotifyCanExecuteChanged();
