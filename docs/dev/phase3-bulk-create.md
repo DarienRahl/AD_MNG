@@ -1734,3 +1734,73 @@ additions:
     no comma form), each side loses its own titles. Before, a given-name-first column swapped the parts.
   * *A headerless PESEL column* (80 % valid PESEL numbers: check digit, month, day) gets no content suggestion – 11 digits
     passed `LooksLikePhone`, so it became `telephoneNumber`.
+
+**B2 as built.** Bodies of `CreationPatterns` (`CreationPatternSet`, `CounterSpec`, the creation tokens), `ForestScope`,
+`BulkCreateLookups`, `BulkCreateResults` and every partial of `BulkCreatePlanner` (`Compute`, `Counters`, `Uniqueness`,
+`References`, `Plan`, `Retry`, `Undo`). No new record type (internal helpers are classes, so the contract's ToString test
+does not need them), so `BulkCreateRecordSamples.Value` is unchanged. Deviations and additions:
+
+* **Added members.** `CreationPatternSet`: `DirectReferences`, `HasRule`, `OverridesColumn`, `IsFixed`,
+  `UsesCounterDirectly`, `CanRender`, `Render(attribute, row, Action<string>? emptyToken)`. `CounterSpec`: `MaxNumber`
+  (999 999 999), `MaxWidth` (9), `MaxStep` (1 000 000), `GridAtOrAbove`, `IsOnGrid`. `CreationPatternTokens`:
+  `NumberSentinel` (U+E000, splits a counter value into prefix and suffix) and `ReachableColumnNames`. `ForestInfo`:
+  `DomainNamingContexts`, `NamingContextOf`, `IsDomain`; `ForestScope`: `DomainCrossRefFlag`, `PartitionsDn`.
+  `BulkCreateLookups.QueryCount` (searches run through the lookups, for the budget tests). `BulkCreatePlanner` constants:
+  `ManagerEditKey` (`manager`; `managedBy` is accepted too), `GroupsEditKey` (`memberOf`), `LookupBatchSize` 50,
+  `FullListingThreshold` 250, `ManagerBatchSize` 12, `MaxCounterCandidates` 100 000, `MaxDisambiguator` 99,
+  `RidPoolCheckRows` 100.
+* **Patterns.** `PatternRow.Number` may be a padded number: every `{$nr…}` token re-formats it with its own width
+  (`{$nr|lower}-{$nr:1:3}` → `007-007`). Evaluation is topological with fixed ties (`cn`, `givenName`, `sn`, `initials`,
+  `displayName`, `sAMAccountName`, `userPrincipalName`, `mail`, then by name). Pattern errors become `TemplateError` run
+  issues with the 1-based position and the token; the engine's English texts are never kept.
+* **Precedence and edits.** An edit wins, then a non-empty column (unless the rule `OverridesColumn`), then the rule. Column
+  cells are not normalized again (the reader did it); edits go through `CellText.Normalize`. The edit keys `c`, `co`,
+  `countryCode` are read as a *Country* text, `accountExpires` as a date text (the per-row expiry is written as its
+  FILETIME, end of the day).
+* **Counters.** One prefix query per (namespace, prefix, suffix) when the prefix has at least two characters; a shorter or
+  empty prefix uses windowed equality lookups of 50 candidates, and `AfterHighest` then falls back to `FillGaps` (no
+  listing of every name). Pins are reserved first; along the row order a sequence's cursor only moves forward.
+* **Uniqueness.** Deleted Objects is addressed as `CN=Deleted Objects,<NC>` (`RecycleBin.GetDeletedObjectsContainer`),
+  not the WKGUID form; deleted names are one one-level listing filtered by `lastKnownParent` = the container (not batches
+  of 50; `AccessDenied` there is ignored). More than 250 unknown values of one namespace are read with one paged
+  `(attr=*)` listing (the existing-account lookups too): the batched lookups stay within the budget of 2.4 but are slower
+  than one listing at that size. The implicit UPN (`sAM@domain` and a UPN prefix as a `sAM`) applies to users and
+  `inetOrgPerson` only. The values of rows marked created are reserved (all of them, not only the operator's), so a later
+  row never gets a created row's login; the other rows reserve their operator values first, excluded rows nothing. An unreadable forest gives scope
+  *Domain* with the run warning `CheckedInDomainOnly`; a single-domain forest is `ForestSingleDomain` without a GC reader.
+* **Issues.** `GroupScopeNotAllowed` is a warning and the nesting is left out (the row is still created).
+  `GroupPasswordPolicy` carries the PSO limits in its `Arguments` (`[name, minimum, "1"/"0" complexity]`; only the name
+  is a text placeholder), which `BuildPlan` uses for the shared password; `PasswordContainsName` is a warning. The owner
+  name in `DuplicateInDirectory` / `PossibleExistingAccount` is the RDN value (an existing account's `displayName` when
+  set); the *same person by name* match is reported on `cn`. A Create that failed with `AlreadyExists` or
+  `ConstraintViolation` gets `ValueTakenSinceCheck` in the retry plan.
+* **Plan.** Rows with errors get only their Create step (not executable) at `FallbackDn` `CN=#<row>,<container>` when
+  they have no DN. Users: Create with UAC 514 → password → Modify UAC 514 → 512 (compare-and-swap) and `pwdLastSet` 0 →
+  manager → AddMember; computers: 4098 → join right (`ModifySecurity`) → 120-character machine password → 4098 → 4096.
+* **Validate.** The planner calls the four-parameter `CreationValues.Validate`; `Draft.ColumnCase` holds the mapping's case
+  for column values. **At the wave-1 merge** the call in `AssembleRow` (`BulkCreatePlanner.Compute.cs`, marked with a
+  comment) switches to B1's overload `Validate(_kind, draft.Attribute, draft.Values, _schema, _rules.Phones,
+  draft.ColumnCase)` – needed for `InvalidPhone` and `AllCapsName`. B1's `Finish` gives a computer's counter part no `$`;
+  the planner re-applies the computer rules to the joined value, so nothing changes there.
+* **Tests.** The shared fixture is `tests/AdMng.Core.Tests/Batch/Creation/BulkCreateTestBed.cs` (headerless tables, so
+  the B1 stubs are not reached). 17 tests that need B1's bodies are `[Fact(Skip = BulkCreateTestBed.Wave1)]` (the
+  constant is `"F3 wave 1 merge"`): 3 in `CreationPatternTests`, 2 in `CounterAllocationTests`, 6 in `CollisionTests`, 5 in
+  `BulkCreatePlannerTests`, 1 in `BulkCreatePerformanceTests`. With B1's branch laid over this one they all pass (339 in
+  `Batch.Creation`). `BulkCreateLabTests` (Samba): 20 users `kd<run>01…` with a pre-created number skipped, attributes,
+  UAC 512, `pwdLastSet` 0 and the group, then the undo; a value taken after the computation; a group, a contact and a
+  computer; a shared password with the account name (canary, then the retry with a new one; skipped when the DC accepts
+  it); `ImplicitUpnClash` and `NameInRecycleBin`.
+* **For B4.** Call `BulkCreateLookups.Refresh()` before the plan step's final compute (2.7); created rows must be passed as
+  created so their values stay reserved; computers never appear in `CreatedAccounts`; the edit keys are the attribute
+  names plus `ManagerEditKey` / `GroupsEditKey`.
+* **Review (B2).** The disambiguated candidates are prefetched per (root, value) of the batch, not only per collision with
+  AD: a root value that `n` rows share gets the levels 2…n+5 in the one prefetch pass (rendered once, by the first such
+  row), and a collision deeper than the prefetch looks up the next five levels together. Before, every repeated name
+  asked again per namespace and level (200 rows of 10 names: 577 searches; now 22).
+  A `description` cell is never split on `|` (SAM takes one value; the split made the row a `SingleValued` error, and a
+  pipe could not be entered at all). An expiry cell is an Excel serial only with at least five whole digits: `31.12`
+  (Excel's `dd.MM`, the xlsx built-in format 16) or `12.2026` was serial 31 / 12 – January 1900, an account that expired
+  before it was created – and is now `InvalidDate`.
+  A computation that joins a run read (`ReadOnceAsync`) another computation started on the same lookups reads again when
+  that one is cancelled, instead of failing with its cancellation (an edit cancels a computation and starts the next at
+  once).
