@@ -1,4 +1,6 @@
+using System.Collections.Frozen;
 using System.Globalization;
+using AdMng.Core.ActiveDirectory;
 using AdMng.Core.PrivilegedAccess;
 
 namespace AdMng.Core.Pki;
@@ -64,6 +66,12 @@ public sealed record TemplateAce(string Sid, TemplateRight Right, bool IsDeny, s
 /// <param name="IsEvaluated">False when the descriptor was missing or unparseable (<i>nieoceniony</i>, never "safe").</param>
 public sealed record TemplateAcl(string? Owner, IReadOnlyList<TemplateAce> Aces, bool IsEvaluated)
 {
+    /// <summary>
+    /// The DACL holds an effective OWNER RIGHTS (S-1-3-4) ACE: the owner's implicit READ_CONTROL | WRITE_DAC are replaced by
+    /// what those ACEs grant (as in Windows), so <see cref="TemplateRight.Owner"/> is not held.
+    /// </summary>
+    public bool HasOwnerRights { get; init; }
+
     /// <summary>Counts only.</summary>
     public override string ToString() =>
         string.Create(CultureInfo.InvariantCulture, $"{nameof(TemplateAcl)}({Aces.Count} rights{(IsEvaluated ? string.Empty : ", not evaluated")})");
@@ -163,6 +171,15 @@ public sealed record PkiEnrollmentExpansion(
     PrivilegedAccessOptions Options,
     IReadOnlyList<PkiReadNotice> Notices)
 {
+    /// <summary>
+    /// The classifier of the pass with the Tier 0 accounts it found (<see cref="PrincipalClassifier.Tier0Accounts"/>): a user
+    /// named directly in an ACE who reaches Tier 0 is <see cref="PrincipalClass.Tier0"/> (the ESC reader classifies with it).
+    /// </summary>
+    public PrincipalClassifier? Classifier { get; init; }
+
+    /// <summary>The distinct memoisation keys (token ∩ the SIDs the ACEs name) the pass evaluated.</summary>
+    public int DistinctTokens { get; init; }
+
     /// <summary>Counts only.</summary>
     public override string ToString() => string.Create(CultureInfo.InvariantCulture,
         $"{nameof(PkiEnrollmentExpansion)}({Templates.Count} templates, {MappedAccounts.Count} mapped accounts, {AccountsScanned} accounts scanned, {Notices.Count} notices)");
@@ -198,6 +215,32 @@ public sealed record PkiExpansionProgress(int Accounts)
 /// </summary>
 public sealed class PrincipalClassifier
 {
+    /// <summary>SYSTEM, Enterprise Domain Controllers, PRINCIPAL SELF, CREATOR OWNER, Administrators.</summary>
+    private static readonly FrozenSet<string> Tier0Sids =
+        new[] { "S-1-5-18", "S-1-5-9", "S-1-5-10", "S-1-3-0", "S-1-5-32-544" }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Everyone, Authenticated Users, Anonymous, This Organization, Interactive, Network, Users, Guests.</summary>
+    private static readonly FrozenSet<string> BroadSids =
+        new[] { "S-1-1-0", "S-1-5-11", "S-1-5-7", "S-1-5-15", "S-1-5-4", "S-1-5-2", "S-1-5-32-545", "S-1-5-32-546" }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The Tier 0 RIDs of any forest domain: Administrator, Domain Admins, Domain Controllers, Cert Publishers, Schema
+    /// Admins, Enterprise Admins, Read-only DCs, Enterprise Read-only DCs, Key Admins, Enterprise Key Admins.
+    /// </summary>
+    private static readonly FrozenSet<uint> Tier0Rids = new[]
+    {
+        WellKnownRids.Administrator, WellKnownRids.DomainAdmins, WellKnownRids.DomainControllers, WellKnownRids.CertPublishers,
+        WellKnownRids.SchemaAdmins, WellKnownRids.EnterpriseAdmins, WellKnownRids.ReadOnlyDomainControllers,
+        WellKnownRids.EnterpriseReadOnlyDomainControllers, WellKnownRids.KeyAdmins, WellKnownRids.EnterpriseKeyAdmins,
+    }.ToFrozenSet();
+
+    /// <summary>Domain Users, Domain Guests, Domain Computers of any domain.</summary>
+    private static readonly FrozenSet<uint> BroadRids = new[] { WellKnownRids.DomainUsers, WellKnownRids.DomainGuests, WellKnownRids.DomainComputers }.ToFrozenSet();
+
+    private readonly HashSet<string> _caComputers;
+    private HashSet<string> _tier0Accounts = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Lazy<HashSet<GroupNode>> _tier0Groups;
+
     /// <param name="domainSid">The window's domain SID.</param>
     /// <param name="rootDomainSid">The forest root's domain SID.</param>
     /// <param name="options">The privileged access options (catalogue levels).</param>
@@ -210,6 +253,8 @@ public sealed class PrincipalClassifier
         Options = options ?? throw new ArgumentNullException(nameof(options));
         Groups = groups;
         CaComputerSids = caComputerSids ?? throw new ArgumentNullException(nameof(caComputerSids));
+        _caComputers = new HashSet<string>(caComputerSids.Where(s => !string.IsNullOrEmpty(s)), StringComparer.OrdinalIgnoreCase);
+        _tier0Groups = new Lazy<HashSet<GroupNode>>(ReachingTier0, LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     public string? DomainSid { get; }
@@ -222,6 +267,129 @@ public sealed class PrincipalClassifier
 
     public IReadOnlyCollection<string> CaComputerSids { get; }
 
+    /// <summary>
+    /// Accounts the account pass found to reach Tier 0 (the graph holds groups only, so a user or computer named directly in
+    /// an ACE is Tier 0 only through this list; <see cref="TemplateRightsEvaluator.ExpandAsync"/> fills it).
+    /// </summary>
+    public IReadOnlyCollection<string> Tier0Accounts
+    {
+        get => _tier0Accounts;
+        init => _tier0Accounts = new HashSet<string>((value ?? []).Where(s => !string.IsNullOrEmpty(s)), StringComparer.OrdinalIgnoreCase);
+    }
+
     /// <summary>The class of <paramref name="sid"/>.</summary>
-    public PrincipalClass Classify(string sid) => throw new NotImplementedException("P1 C3: PrincipalClassifier.Classify");
+    public PrincipalClass Classify(string sid)
+    {
+        if (string.IsNullOrWhiteSpace(sid))
+        {
+            return PrincipalClass.Other;
+        }
+
+        if (Tier0Sids.Contains(sid))
+        {
+            return PrincipalClass.Tier0;
+        }
+
+        if (BroadSids.Contains(sid))
+        {
+            return PrincipalClass.Broad;
+        }
+
+        if (_caComputers.Contains(sid) || _tier0Accounts.Contains(sid))
+        {
+            return PrincipalClass.Tier0;
+        }
+
+        if (DomainRid(sid) is { } rid)
+        {
+            if (Tier0Rids.Contains(rid))
+            {
+                return PrincipalClass.Tier0;
+            }
+
+            if (BroadRids.Contains(rid))
+            {
+                return PrincipalClass.Broad;
+            }
+        }
+
+        var node = Groups?.FindBySid(sid);
+        if (IsCatalogueTier0(sid, node?.SamAccountName) || (node is not null && _tier0Groups.Value.Contains(node)))
+        {
+            return PrincipalClass.Tier0;
+        }
+
+        return PrincipalClass.Other;
+    }
+
+    /// <summary>The name of a group of the graph, or null (well-known principals and accounts have none here).</summary>
+    internal string? NameOf(string sid) => Groups?.FindBySid(sid)?.Name;
+
+    /// <summary>The RID of a SID of the form S-1-5-21-&lt;domain&gt;-&lt;RID&gt; (any domain), else null.</summary>
+    internal static uint? DomainRid(string sid) =>
+        sid.StartsWith("S-1-5-21-", StringComparison.OrdinalIgnoreCase)
+        && AdConvert.GetRid(sid) is { } rid
+        && PrivilegedGroupCatalog.IsDomainSid(sid[..sid.LastIndexOf('-')])
+            ? rid
+            : null;
+
+    /// <summary>The SID belongs to another domain than the window's (it cannot be expanded here).</summary>
+    internal bool IsOtherDomain(string sid) =>
+        DomainSid is { } domain
+        && DomainRid(sid) is not null
+        && !string.Equals(sid[..sid.LastIndexOf('-')], domain, StringComparison.OrdinalIgnoreCase);
+
+    private bool IsCatalogueTier0(string? sid, string? samAccountName) =>
+        PrivilegedGroupCatalog.Match(sid, samAccountName, DomainSid, RootDomainSid) is { } definition && Options.LevelOf(definition) == PrivilegeLevel.Tier0;
+
+    /// <summary>Tier 0 by the SID rules or the catalogue alone (the seeds of the graph closure).</summary>
+    private bool IsDirectTier0(GroupNode node) =>
+        node.Sid is { } sid
+        && (Tier0Sids.Contains(sid) || _caComputers.Contains(sid) || (DomainRid(sid) is { } rid && Tier0Rids.Contains(rid)) || IsCatalogueTier0(sid, node.SamAccountName));
+
+    /// <summary>Every group that is Tier 0 or reaches a Tier 0 group through memberOf (one downward pass over the graph).</summary>
+    private HashSet<GroupNode> ReachingTier0()
+    {
+        var result = new HashSet<GroupNode>();
+        if (Groups is not { } graph)
+        {
+            return result;
+        }
+
+        var children = new Dictionary<GroupNode, List<GroupNode>>();
+        foreach (var node in graph.Nodes)
+        {
+            foreach (var parent in node.Parents)
+            {
+                if (!children.TryGetValue(parent, out var list))
+                {
+                    children[parent] = list = [];
+                }
+
+                list.Add(node);
+            }
+        }
+
+        var queue = new Queue<GroupNode>();
+        foreach (var node in graph.Nodes.Where(n => !n.IsImplicit && IsDirectTier0(n)))
+        {
+            if (result.Add(node))
+            {
+                queue.Enqueue(node);
+            }
+        }
+
+        while (queue.Count > 0)
+        {
+            foreach (var child in children.GetValueOrDefault(queue.Dequeue()) ?? [])
+            {
+                if (!child.IsImplicit && result.Add(child))
+                {
+                    queue.Enqueue(child);
+                }
+            }
+        }
+
+        return result;
+    }
 }
