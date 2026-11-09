@@ -80,6 +80,24 @@ public sealed class EntryReaderAndRootDseTests
     }
 
     [Fact]
+    public void RootDse_WithoutIsGlobalCatalogReady_IsUnknown()
+    {
+        // F3 contract (docs/dev/phase3-bulk-create.md 2.2): a DC that does not report isGlobalCatalogReady is "unknown",
+        // which the bulk creation wizard treats like false (no GC session).
+        var entry = new DirectoryObject(string.Empty,
+        [
+            new AttributeValues(Attr.DefaultNamingContext, ["DC=contoso,DC=com"]),
+            new AttributeValues(Attr.ConfigurationNamingContext, ["CN=Configuration,DC=contoso,DC=com"]),
+            new AttributeValues(Attr.SchemaNamingContext, ["CN=Schema,CN=Configuration,DC=contoso,DC=com"]),
+            new AttributeValues(Attr.RootDomainNamingContext, ["DC=contoso,DC=com"]),
+        ]);
+        var notReady = new DirectoryObject(string.Empty, [.. entry.Attributes.Values, new AttributeValues(Attr.IsGlobalCatalogReady, ["FALSE"])]);
+
+        Assert.Null(RootDse.Parse(entry).IsGlobalCatalogReady);
+        Assert.False(RootDse.Parse(notReady).IsGlobalCatalogReady);
+    }
+
+    [Fact]
     public void RootDse_WithoutNamingContexts_IsNotADomainController()
     {
         var entry = new DirectoryObject(string.Empty, [new AttributeValues(Attr.DnsHostNameRootDse, ["ldap.example.com"])]);

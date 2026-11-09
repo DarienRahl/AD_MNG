@@ -71,6 +71,22 @@ internal sealed class FakeDirectoryConnector(FakeDirectorySession session) : IDi
         return Task.FromResult<IDirectorySession>(new FakeDomainControllerSession(directory, server, info => info with { BoundIdentity = identity }));
     }
 
+    /// <summary>F3: global-catalog sessions opened so far (docs/dev/phase3-bulk-create.md 2.2).</summary>
+    public int GlobalCatalogConnectCount { get; private set; }
+
+    /// <summary>F3: the last global-catalog session handed out (its <c>IsDisposed</c> shows whether the wizard closed it).</summary>
+    public FakeDomainControllerSession? LastGlobalCatalogSession { get; private set; }
+
+    public Task<IDirectorySession> ConnectGlobalCatalogAsync(IDirectorySession current, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(current);
+        GlobalCatalogConnectCount++;
+        var directory = current is FakeDomainControllerSession wrapper ? wrapper.Directory : session;
+        var identity = current.Info.BoundIdentity;
+        LastGlobalCatalogSession = new FakeDomainControllerSession(directory, current.Info.Server, info => info with { BoundIdentity = identity, IsGlobalCatalog = true });
+        return Task.FromResult<IDirectorySession>(LastGlobalCatalogSession);
+    }
+
     private static FakeDomainControllerSession Wrap(FakeDirectorySession directory, string? user) =>
         new(directory, directory.Info.Server, info => user is null ? info : info with { BoundIdentity = $@"{info.DomainNetBiosName}\{user}" });
 }

@@ -1530,4 +1530,78 @@ Taken in part or rejected:
 
 ### 2.15 As built
 
-(Empty – filled by each agent with deviations from 2.1–2.13, then by the lead at the integration step.)
+(Filled by each agent with deviations from 2.1–2.13, then by the lead at the integration step.)
+
+**Contract commit.** Everything of 2.12 is in the code; deviations and additions:
+
+* **Entry point gated.** `new.bulkCreate` is registered in the palette (complete descriptor), but `BulkCreateCommand`
+  can execute only when `ShellViewModel.IsBulkCreateAvailable` is true – false in the contract (the steps are stubs), so the
+  palette does not offer it. B4 sets it to true with the create mode of the batch editor. `ShellViewModel.BulkCreate.cs`
+  also has `BulkCreateStateCommands`, added with one line `.. BulkCreateStateCommands,` to `StateCommands` in
+  `ShellViewModel.Commands.cs` (not an anchor of 2.13), so the command follows the connection.
+* **Child view models (not specified in 2.12).** Constructors: `BulkSourceViewModel(DialogServices)`,
+  `BulkColumnsViewModel(DialogServices, BulkSourceViewModel, Func<IDirectorySession?>, ObjectKind)`,
+  `BulkRulesViewModel(DialogServices, BulkColumnsViewModel, IBulkCreatePlanner, Func<IDirectorySession?>, Func<string?>
+  containerDn, Func<BulkCreateInput?> input, Func<BulkCreateLookups> lookups, ObjectKind)`; `BulkCheckViewModel` as 2.7.
+  The members the complete host calls are no-op stubs (*Contract: nothing*), not throwing ones: `Rules.InitializeAsync`,
+  `OnEnteredAsync`, `OnKindChanged`, `OnSessionEnded`, `IsModified`; `Columns.OnKindChanged`; `Check.InitializeAsync`,
+  `OnEnteredAsync`, `OnInputChanged` (an earlier step or the container changed), `OnInputReset` (table replaced or kind
+  changed: drop edits, pins, exclusions, created marks), `OnSessionEnded`, `Lookups`, `Edits`, `ExcludedRows`
+  (`IReadOnlySet<int>`), `PinnedNumbers`, `Computation`, `IsComputing`; every child is `IDisposable`. Step 1 raises
+  `Changed` (edit, added row or column, appended paste) and `TableReplaced`. Commands and outputs (`ToMappings`,
+  `ToRules`, `ToOptions`, `ReadSharedPassword`) throw `NotImplementedException("F3 Bn: …")`; `BuildInput` reaches them only
+  with a non-empty table. `CheckRowViewModel` / `CheckCellViewModel` are in `CheckRowViewModel.cs` (B4),
+  `CheckColumnDescriptor` has an `IsFrozen` init property, `CreatedAccountViewModel` an internal `(row, password)`
+  constructor, `Mask` and `ClearPassword()`.
+* **Host additions.** `BulkCreateViewModel.Title` (*Zakładanie wielu kont – Nowi pracownicy*, `L.BulkCreate.TitleInContainer`;
+  the batch editor's `WindowTitle` branch stays B4's), `ObjectKind`, `HasContainer`, async `NextStepCommand` (calls
+  `Rules.OnEnteredAsync` / `Check.OnEnteredAsync`), `PreviousStepCommand`; `CreatedRows` and `ReleasedValues` (read by
+  `BuildInput`) are internal state of `BulkCreateViewModel.Plan.cs` (B4) with empty defaults, as are `Accumulated`,
+  `CreatedObjects`, `PasswordModeAtPlan` and `HasUnhandedPasswords`; the Plan methods throw. B4 drops its state in the
+  partial method `OnDisposingPlan()`. `IsReadyToPlan` does not require the shared-password boxes (the plan step says
+  *wpisz hasło ponownie*). A kind change asks (`L.BulkCreate.ConfirmKindChange`) only when `Rules.IsModified`.
+* **Texts.** Pattern errors take `{0}` position and `{1}` token only; the did-you-mean is `L.BulkCreate.PatternSuggestion`
+  (`{0}` suggestion), so no text ends with an empty suggestion. Table warnings: `{0}` row, `{1}` column (header or
+  letter), `{2}` count. `BulkCheck.Scope.Forest` takes `{0}` = the DC. Issue placeholders (XML docs of
+  `BulkCreateIssueCodes`, pinned by `BulkCreateTextKeysTests.OnlyTheDocumentedCodes_HaveAPlaceholder`): the
+  `AttributeAndArguments` codes as 2.5; `Disambiguated`, `NameInRecycleBin`, `ScientificNotation`, `InvalidPhone`,
+  `LineBreakInValue`, `AllCapsName` are raised with the attribute and no argument (`{0}` = its display name);
+  `ManagerAmbiguous` (count), `GroupNotFound`, `GroupAmbiguous`, `GroupScopeNotAllowed`, `PrimaryGroupSkipped`,
+  `GroupPasswordPolicy` (group name), `PasswordTooShortForDomain` (minimum) and `JoinOwnerNotTrusted` (owner) take one
+  argument; every other code has no placeholder. `BulkCreateTextKeys` also has `Kinds` and `Functions`.
+* **Core additions.** `CreationValues.IsNamedBlockedAttribute` (complete, schema-independent part of
+  `IsBlockedAttribute`; B1 keeps it), used by `BulkCreateSettings.Normalize`. `BulkCreateSettings.IsStorableHeader` checks
+  the stored (already folded) header with its own copy of the password-like substrings, because `Normalize` runs at
+  start-up and must not reach B1 stubs; B3 may switch it to `ColumnSynonyms.IsPasswordLike` with a parity test.
+* **XAML.** The step-1 label *Operacje* and `ObjectsEditPanel` now bind `IsObjectsMode`; the anchors are
+  `<!-- F3 step labels (B4) -->` after the CSV label of the step strip, `<!-- F3 undo note (B4) -->` at the top of
+  `PreviewPanel` and `<!-- F3 bulk create results (B4) -->` at the top of `ResultsPanel`. `BulkCreateView` has its own
+  sub-step style (a copy of the window's `StepStyle`) and a `Common.Browse` button for the container.
+* **Fakes.** The SAM rules and the channel check are in the new partial `FakeDirectorySession.BulkCreate.cs` (Win32 codes
+  as constants `Win32UserExists`, `Win32UpnNotUnique`, `Win32NameExists`, `Win32PasswordRestriction`); `FakeDirectorySession.cs`
+  only calls them (top of `ApplyAdd`, the modify path, `ResetPasswordAsync`). The computer `$` and the single
+  `description` rules apply on modify too; the enabled-user rule on add only (an enabled user without a password is
+  refused as `PasswordPolicy`, 53 / 0x52D). `IsChannelEncrypted` is a view of `Info.IsChannelEncrypted`.
+  `AddBulkCreateSample` seeds the watchdog infrastructure when missing (CN=Partitions, PSO container, `minPwdLength` 7,
+  `pwdProperties` 1, `CN=RID Manager$` owned by DC01 – the RID master is the window's DC) and clears the seeding
+  operations; names: kd201 *Adam Nowicki*, kd203 *Beata Zając*, kd205 *Cezary Mazur*, deleted kd207 *Dorota Krawczyk*
+  (UPN and `mail` `@contoso.com`), deleted *Jan Kowalski* (`jkowalski`), the contact *Jan Kowalski (zewnętrzny)* in OU=Firma
+  with `mail` / `SMTP:` `jan.kowalski@contoso.com` and `smtp:jan.kowalski@contoso.test`, the second *Piotr Zieliński*
+  `pzielinski`, groups `GG_Nowi`, `DL_Drukarki`, `UG_Projekty`, `GG_Uprzywilejowani` with `PSO_Uprzywilejowani`
+  (`msDS-PSOApplied` also seeded raw for the default schema), OU *Zablokowana* under *Pracownicy* (only contacts, groups
+  and OUs creatable), crossRef `CN=CONTOSO`, RID set 1600–2099 with next 1650. `FakeSchema.BulkCreate.cs` also adds the
+  `crossRef` and `rIDSet` classes and `uPNSuffixes`, `dnsRoot`, `nCName`, `rIDSetReferences`, `rIDAllocationPool`,
+  `rIDNextRID`, `otherHomePhone`, `postalAddress`. `FakeGlobalCatalogReader` counts its searches (`SearchCount`).
+* **Harness and connectors.** `B2Harness.CreateAsync(culture, regional, bulkCreateSchema)`; its `HarnessConnector`
+  (GC session, error, gate, count) goes to `DialogViewModelFactory` only in a bulk-create harness, so the account review
+  and *Change domain controller* tests keep a factory without a connector. The Presentation `FakeDirectoryConnector` has
+  `GlobalCatalogSession`, `GlobalCatalogError`, `GlobalCatalogGate`, `GlobalCatalogConnectCount`; the UI-test connector
+  `GlobalCatalogConnectCount` and `LastGlobalCatalogSession` (a `FakeDomainControllerSession`; its `IsDisposed` is the
+  disposed flag). The reflection helper is `tests/AdMng.Testing/BulkCreate/BulkCreateRecordSamples.cs` (sentinel values;
+  members named `Attribute`, `Code`, `Letter` get constants).
+* **Tests of the contract.** `BulkCreateContractTests` and `BulkCreateFakeTests` (Core), `BulkCreatePresentationContractTests`,
+  `BulkCreateTextKeysTests`, `CreationNamesParityTests` (Presentation; `IsValidUpnPrefix` parity waits for B1), a RootDSE
+  unit test for an absent `isGlobalCatalogReady` in `EntryReaderAndRootDseTests.cs`; `HostTests` and
+  `ServiceRegistrationTests` use the qualified `Core.Batch.Creation.IBulkCreatePlanner` (no using changed).
+* **Not done here.** The line for P1's as-built section (p-certificate-services.md 2.14, `ShellViewModel.Palette.cs`) is
+  left to the lead: that note was not to be touched by this commit.

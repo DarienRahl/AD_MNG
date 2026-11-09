@@ -197,6 +197,34 @@ internal sealed class FakeDirectoryConnector(InMemoryDirectorySession session) :
 
         return Task.FromResult(NextSession ?? session);
     }
+
+    /// <summary>F3: the session <see cref="ConnectGlobalCatalogAsync"/> returns; null = not supported (the default member's behaviour).</summary>
+    public IDirectorySession? GlobalCatalogSession { get; set; }
+
+    /// <summary>F3: what the global-catalog connect throws (a DC that is no GC: <c>ServerUnavailable</c>).</summary>
+    public Exception? GlobalCatalogError { get; set; }
+
+    /// <summary>F3: when set, the global-catalog connect waits for it (a late connect, possibly after the wizard closed).</summary>
+    public TaskCompletionSource? GlobalCatalogGate { get; set; }
+
+    public int GlobalCatalogConnectCount { get; private set; }
+
+    public async Task<IDirectorySession> ConnectGlobalCatalogAsync(IDirectorySession current, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(current);
+        GlobalCatalogConnectCount++;
+        if (GlobalCatalogGate is { } gate)
+        {
+            await gate.Task.ConfigureAwait(false);
+        }
+
+        if (GlobalCatalogError is { } error)
+        {
+            throw error;
+        }
+
+        return GlobalCatalogSession ?? throw new NotSupportedException("This connector cannot open a global catalog session with the credential of another session.");
+    }
 }
 
 internal sealed class FakePasswordInput(string password) : IPasswordInput

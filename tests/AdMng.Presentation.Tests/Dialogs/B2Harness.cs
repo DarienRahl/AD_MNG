@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using AdMng.Core.Audit;
 using AdMng.Core.Batch;
+using AdMng.Core.Batch.Creation;
 using AdMng.Core.Csv;
 using AdMng.Core.Directory;
 using AdMng.Core.Formatting;
@@ -32,9 +33,10 @@ namespace AdMng.Presentation.Tests.Dialogs;
 /// </summary>
 internal sealed class B2Harness
 {
-    private B2Harness(CultureInfo culture, CultureInfo regional)
+    private B2Harness(CultureInfo culture, CultureInfo regional, bool bulkCreateSchema = false)
     {
-        Builder = new FakeDirectoryBuilder(timeProvider: Time);
+        // F3: the bulk-create schema is opt-in (docs/dev/phase3-bulk-create.md 2.13), so other tests keep their attribute lists.
+        Builder = new FakeDirectoryBuilder(timeProvider: Time, schema: bulkCreateSchema ? FakeSchema.Create(bulkCreate: true) : null);
         Company = Builder.AddSampleCompany();
         Localizer = new ResxLocalizer(culture);
         Regional = new SystemRegionalSettings(regional, regional.TextInfo.ANSICodePage);
@@ -53,9 +55,15 @@ internal sealed class B2Harness
         Coordinator = new ChangeCoordinator(Sessions, Planner, Executor, Dialogs, Notifications, Settings, Activities, Changes, Errors, Localizer, PowerShell);
         Services = new DialogServices(Sessions, Localizer, Dispatcher, Settings, Errors, Changes, Time, Dialogs, Files, Clipboard, Notifications, Coordinator, Activities, Lists, Regional);
         var csv = new CsvCodec();
-        Engines = new BatchEngines(Planner, new CsvImportPlanner(Time), new RollbackPlanner(), new PowerShellExporter(), csv, templates, new BatchReportExporter(csv));
+        Engines = new BatchEngines(Planner, new CsvImportPlanner(Time), new RollbackPlanner(), new PowerShellExporter(), csv, templates, new BatchReportExporter(csv),
+            new BulkCreatePlanner(new PasswordGenerator(), Time));
         Views = new ViewLibrary(Settings);
-        Factory = new DialogViewModelFactory(Services, Engines, Views, AuditLog, new AuditLogExporter(csv), PowerShell, Theme);
+        Connector = new HarnessConnector(this);
+
+        // F3: a bulk-create harness hands its connector (the GC session of 2.2) to the factory; the others keep the factory
+        // without one, so the account review and "Change domain controller" behave as their tests expect.
+        Factory = new DialogViewModelFactory(Services, Engines, Views, AuditLog, new AuditLogExporter(csv), PowerShell, Theme,
+            connector: bulkCreateSchema ? Connector : null);
     }
 
     public ManualTimeProvider Time { get; } = new();
@@ -122,12 +130,16 @@ internal sealed class B2Harness
 
     public DialogViewModelFactory Factory { get; }
 
+    /// <summary>F3: the connector of the GC session (handed to <see cref="Factory"/> by a bulk-create harness only).</summary>
+    public HarnessConnector Connector { get; }
+
     /// <param name="culture">UI language (default en-US).</param>
     /// <param name="regional">Regional format of the system (default: the UI culture).</param>
-    public static async Task<B2Harness> CreateAsync(CultureInfo? culture = null, CultureInfo? regional = null)
+    /// <param name="bulkCreateSchema">F3: the fake uses the bulk-create schema and the factory gets <see cref="Connector"/>.</param>
+    public static async Task<B2Harness> CreateAsync(CultureInfo? culture = null, CultureInfo? regional = null, bool bulkCreateSchema = false)
     {
         culture ??= CultureInfo.GetCultureInfo("en-US");
-        var harness = new B2Harness(culture, regional ?? culture);
+        var harness = new B2Harness(culture, regional ?? culture, bulkCreateSchema);
         await harness.Sessions.ConnectAsync(new ConnectionOptions { Domain = FakeDirectoryBuilder.DefaultDomain }, null, CancellationToken.None);
         return harness;
     }
@@ -251,5 +263,52 @@ internal sealed class TestPasswordInput(string password) : IPasswordInput
     {
         Cleared = true;
         Password = string.Empty;
+    }
+}
+
+/// <summary>
+/// The connector of <see cref="B2Harness"/> (F3, docs/dev/phase3-bulk-create.md 2.2): connects to the harness's fake, opens
+/// other DCs through <see cref="B2Harness.ConnectToServer"/>, and the global-catalog session the bulk creation wizard asks for
+/// (<see cref="GlobalCatalogSession"/>; none = <see cref="NotSupportedException"/>, like the default member).
+/// </summary>
+internal sealed class HarnessConnector(B2Harness harness) : IDirectoryConnector
+{
+    /// <summary>What <see cref="ConnectGlobalCatalogAsync"/> returns (e.g. a GC view over several fake domains); null = not supported.</summary>
+    public IDirectorySession? GlobalCatalogSession { get; set; }
+
+    /// <summary>What the global-catalog connect throws (a DC that is no GC: <c>ServerUnavailable</c>).</summary>
+    public Exception? GlobalCatalogError { get; set; }
+
+    /// <summary>When set, the global-catalog connect waits for it (a late connect, possibly after the wizard closed).</summary>
+    public TaskCompletionSource? GlobalCatalogGate { get; set; }
+
+    public int GlobalCatalogConnectCount { get; private set; }
+
+    public string? GetComputerDomain() => FakeDirectoryBuilder.DefaultDomain;
+
+    public Task<IReadOnlyList<DomainControllerInfo>> FindDomainControllersAsync(string domain, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<DomainControllerInfo>>([new(harness.Session.Info.Server, "Warszawa", true, false, true)]);
+
+    public Task<IDirectorySession> ConnectAsync(ConnectionOptions options, NetworkCredential? credential, CancellationToken cancellationToken) =>
+        Task.FromResult<IDirectorySession>(harness.NextSession ?? harness.Session);
+
+    public Task<IDirectorySession> ConnectToServerAsync(IDirectorySession current, string server, CancellationToken cancellationToken) =>
+        harness.ConnectToServer(current, server, cancellationToken);
+
+    public async Task<IDirectorySession> ConnectGlobalCatalogAsync(IDirectorySession current, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(current);
+        GlobalCatalogConnectCount++;
+        if (GlobalCatalogGate is { } gate)
+        {
+            await gate.Task.ConfigureAwait(false);
+        }
+
+        if (GlobalCatalogError is { } error)
+        {
+            throw error;
+        }
+
+        return GlobalCatalogSession ?? throw new NotSupportedException("This connector cannot open a global catalog session with the credential of another session.");
     }
 }

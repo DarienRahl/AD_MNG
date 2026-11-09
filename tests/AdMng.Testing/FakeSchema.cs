@@ -10,20 +10,24 @@ public static partial class FakeSchema
 {
     public const string DefaultSchemaNamingContext = "CN=Schema,CN=Configuration,DC=contoso,DC=test";
 
-    public static SchemaCatalog Create(string schemaNamingContext = DefaultSchemaNamingContext) =>
-        CreateCore(schemaNamingContext, mailboxes: true);
+    /// <param name="schemaNamingContext">The schema naming context.</param>
+    /// <param name="bulkCreate">Adds the attributes of the bulk creation wizard (<c>FakeSchema.BulkCreate.cs</c>; opt-in).</param>
+    public static SchemaCatalog Create(string schemaNamingContext = DefaultSchemaNamingContext, bool bulkCreate = false) =>
+        CreateCore(schemaNamingContext, mailboxes: true, bulkCreate);
 
-    private static SchemaCatalog CreateCore(string schemaNamingContext, bool mailboxes)
+    private static SchemaCatalog CreateCore(string schemaNamingContext, bool mailboxes, bool bulkCreate = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(schemaNamingContext);
         var attributes = CreateAttributes();
         attributes.AddRange(CreateWatchdogAttributes());
         attributes.AddRange(CreateGroupPolicyAttributes());
         attributes.AddRange(CreatePublicKeyAttributes());
+        if (bulkCreate) { attributes.AddRange(CreateBulkCreateAttributes()); }
         var classes = CreateClasses(schemaNamingContext);
         ExtendForWatchdog(classes, schemaNamingContext);
         ExtendForGroupPolicy(classes, schemaNamingContext);
         ExtendForPublicKey(classes, schemaNamingContext);
+        if (bulkCreate) { ExtendForBulkCreate(classes, schemaNamingContext); }
         if (mailboxes)
         {
             attributes.AddRange(CreateMailboxAttributes());
