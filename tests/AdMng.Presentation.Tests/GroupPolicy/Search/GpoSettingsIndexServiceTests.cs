@@ -71,6 +71,25 @@ public sealed class GpoSettingsIndexServiceTests
     }
 
     [Fact]
+    public async Task AChangeDuringTheFirstBuild_LeavesItsViewStale()
+    {
+        var harness = await IndexHarness.CreateAsync();
+        using var service = new GpoSettingsIndexService(harness.Services);
+        var hold = harness.Sysvol.HoldNext("Read");
+
+        var build = service.GetAsync(GpoIndexRefresh.IfMissing, Ct);
+        await hold.Reached.WaitAsync(TimeSpan.FromSeconds(30), Ct);
+        harness.Services.NotifyChanged(); // e.g. a copy finished in another tab while the folders were read
+        hold.Release();
+
+        var view = await build;
+        Assert.Same(view, service.Current);
+        Assert.True(service.IsStale);
+        await service.GetAsync(GpoIndexRefresh.Incremental, Ct);
+        Assert.False(service.IsStale);
+    }
+
+    [Fact]
     public async Task AnotherDomainController_DropsTheView()
     {
         var harness = await IndexHarness.CreateAsync();

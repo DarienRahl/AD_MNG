@@ -25,6 +25,7 @@ public sealed class GpoSettingsIndexService : IGpoSettingsIndexService, IDisposa
     private IDirectorySession? _viewSession;
     private string? _viewServer;
     private bool _stale;
+    private long _changes;
     private long _generation;
     private Build? _running;
     private Build? _queued;
@@ -227,6 +228,7 @@ public sealed class GpoSettingsIndexService : IGpoSettingsIndexService, IDisposa
     private void StartLocked(Build build)
     {
         build.Generation = ++_generation;
+        build.ChangesAtStart = _changes;
         build.Previous = _view is not null && Fits(build.Session) ? _view : null;
         _running = build;
         _progress = new GpoIndexProgress(GpoIndexStage.Directory);
@@ -261,7 +263,7 @@ public sealed class GpoSettingsIndexService : IGpoSettingsIndexService, IDisposa
                 _view = view;
                 _viewSession = build.Session;
                 _viewServer = build.Session.Info.Server;
-                _stale = false;
+                _stale = _changes != build.ChangesAtStart; // a GPO operation finished while the build was reading
                 current = true;
             }
 
@@ -401,6 +403,7 @@ public sealed class GpoSettingsIndexService : IGpoSettingsIndexService, IDisposa
     {
         lock (_gate)
         {
+            _changes++; // a running build may have read the GPOs before the change: its view becomes stale when it ends
             if (_view is null || _stale)
             {
                 return;
@@ -455,6 +458,9 @@ public sealed class GpoSettingsIndexService : IGpoSettingsIndexService, IDisposa
         public GpoIndexView? Previous { get; set; }
 
         public long Generation { get; set; }
+
+        /// <summary>The service's count of <see cref="GroupPolicyServices.Changed"/> when the build started.</summary>
+        public long ChangesAtStart { get; set; }
 
         public int Waiters { get; set; }
 
