@@ -16,7 +16,8 @@ public sealed partial class ShellViewModel
 {
     /// <summary>
     /// The wizard is usable: false in the contract commit (its steps are stubs until wave 2), so the palette does not offer
-    /// <c>new.bulkCreate</c> and the menus show it disabled. B4 sets it to true with the create mode of the batch editor.
+    /// <c>new.bulkCreate</c> and the menus show it disabled. B4 sets it to true with the create mode of the batch editor
+    /// (this line is B4's anchor, docs/dev/phase3-bulk-create.md 2.15; the contract test does not pin its value).
     /// </summary>
     internal static bool IsBulkCreateAvailable => false;
 

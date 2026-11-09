@@ -21677,7 +21677,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>No free number was found for the counter (more than 100,000 numbers checked or above 999,999,999).</value>
   </data>
   <data name="Issue.CounterTooLong" xml:space="preserve">
-    <value>{0}: the prefix and the number do not fit in {1} characters – values with a counter are never shortened.</value>
+    <value>{0}: the prefix and the number are too long (character limit: {1}) – values with a counter are never shortened.</value>
   </data>
   <data name="Issue.Disambiguated" xml:space="preserve">
     <value>{0}: the value was taken – a number was appended.</value>

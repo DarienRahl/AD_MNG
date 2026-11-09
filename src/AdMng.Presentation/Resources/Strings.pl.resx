@@ -21677,7 +21677,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Nie znaleziono wolnego numeru licznika (sprawdzono ponad 100 000 numerów lub przekroczono 999 999 999).</value>
   </data>
   <data name="Issue.CounterTooLong" xml:space="preserve">
-    <value>{0}: prefiks i numer nie mieszczą się w {1} znakach – wartości z licznikiem nie są skracane.</value>
+    <value>{0}: prefiks i numer są za długie (limit znaków: {1}) – wartości z licznikiem nie są skracane.</value>
   </data>
   <data name="Issue.Disambiguated" xml:space="preserve">
     <value>{0}: wartość była zajęta – dopisano numer.</value>

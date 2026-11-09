@@ -125,7 +125,9 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         }
 
         Operations.CollectionChanged += OnOperationsChanged;
-        foreach (var operation in request.Operations)
+
+        // The wizard plans its own creations: request.Operations are ignored in create mode (BatchEditorRequest.Create).
+        foreach (var operation in Mode == BatchSourceMode.Create ? [] : request.Operations)
         {
             Operations.Add(OperationEditorViewModel.From(operation, _editorContext));
         }

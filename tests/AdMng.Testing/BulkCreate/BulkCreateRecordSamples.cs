@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Globalization;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -11,8 +13,12 @@ namespace AdMng.Testing.BulkCreate;
 /// of a namespace declares its own <c>ToString</c> (not the compiler-generated one that prints every member), and an instance
 /// filled with <see cref="Sentinels"/> – Polish names, an address, a phone number, a DN and a password – prints none of them.
 /// Members named <c>Attribute</c>, <c>Code</c> or <c>Letter</c> get an LDAP name, a code or an Excel letter (not directory
-/// data). New records an implementer adds are covered automatically; a member type this builder cannot fill fails the test
-/// with its name (add it to <see cref="Value"/>).
+/// data). New records an implementer adds are covered automatically. The builder fills strings, enums, every numeric
+/// primitive and <c>decimal</c>, dates and times, <c>Guid</c>, <c>Uri</c>, <c>CultureInfo</c>, <c>TimeProvider</c>,
+/// <c>Encoding</c>, string comparers, arrays, the common collections, any delegate (returning a filled value), the
+/// directory interfaces (<c>ISchemaCatalog</c>, <c>IDirectoryReader</c>, <c>IDirectorySession</c> – a fake session) and
+/// nested records, classes and structs; a member type it still cannot fill fails the test with its name. That branch list
+/// in <see cref="Value"/> is a shared anchor of B1 and B2 (2.15): each adds its own branch, both are kept on a merge.
 /// </summary>
 public static class BulkCreateRecordSamples
 {
@@ -28,6 +34,24 @@ public static class BulkCreateRecordSamples
         ["Attribute"] = "department",
         ["Code"] = "DuplicateRow",
         ["Letter"] = "C",
+    };
+
+    private static readonly Dictionary<Type, object> Numbers = new()
+    {
+        [typeof(int)] = 7,
+        [typeof(long)] = 7L,
+        [typeof(short)] = (short)7,
+        [typeof(byte)] = (byte)7,
+        [typeof(sbyte)] = (sbyte)7,
+        [typeof(ushort)] = (ushort)7,
+        [typeof(uint)] = 7u,
+        [typeof(ulong)] = 7ul,
+        [typeof(nint)] = (nint)7,
+        [typeof(nuint)] = (nuint)7,
+        [typeof(double)] = 7.5d,
+        [typeof(float)] = 7.5f,
+        [typeof(decimal)] = 7.5m,
+        [typeof(Half)] = (Half)7.5f,
     };
 
     private static int _next;
@@ -132,14 +156,9 @@ public static class BulkCreateRecordSamples
             return true;
         }
 
-        if (type == typeof(int))
+        if (Numbers.TryGetValue(type, out var number))
         {
-            return 7;
-        }
-
-        if (type == typeof(long))
-        {
-            return 7L;
+            return number;
         }
 
         if (type == typeof(char))
@@ -167,9 +186,62 @@ public static class BulkCreateRecordSamples
             return TimeSpan.FromSeconds(5);
         }
 
+        if (type == typeof(DateOnly))
+        {
+            return new DateOnly(2026, 11, 9);
+        }
+
+        if (type == typeof(TimeOnly))
+        {
+            return new TimeOnly(10, 0);
+        }
+
+        if (type == typeof(Uri))
+        {
+            return new Uri("https://intranet.contoso.test/kadry/");
+        }
+
+        if (type == typeof(CultureInfo))
+        {
+            return CultureInfo.GetCultureInfo("pl-PL");
+        }
+
+        if (type == typeof(TimeProvider))
+        {
+            return TimeProvider.System;
+        }
+
+        if (type == typeof(Encoding))
+        {
+            return Encoding.UTF8;
+        }
+
+        if (type == typeof(StringComparer) || type == typeof(IEqualityComparer<string>) || type == typeof(IComparer<string>))
+        {
+            return StringComparer.OrdinalIgnoreCase;
+        }
+
+        if (type == typeof(object))
+        {
+            return NextSentinel();
+        }
+
         if (type == typeof(ISchemaCatalog))
         {
             return FakeSchema.Create(bulkCreate: true);
+        }
+
+        if (type.IsInterface && type.IsAssignableFrom(typeof(FakeDirectorySession)))
+        {
+            // IDirectoryReader, IDirectorySession and the other interfaces the fake session implements.
+            return new FakeDirectoryBuilder(schema: FakeSchema.Create(bulkCreate: true)).Session;
+        }
+
+        if (type.IsArray && type.GetArrayRank() == 1)
+        {
+            var array = Array.CreateInstance(type.GetElementType()!, 1);
+            array.SetValue(Value(type.GetElementType()!, name, depth), 0);
+            return array;
         }
 
         if (type == typeof(Func<string, string>))
@@ -207,6 +279,16 @@ public static class BulkCreateRecordSamples
                 dictionary.Add(Value(arguments[0], name, depth)!, Value(arguments[1], name, depth));
                 return dictionary;
             }
+        }
+
+        if (typeof(Delegate).IsAssignableFrom(type) && type.GetMethod("Invoke") is { } invoke)
+        {
+            // Any Func or Action: a lambda that ignores its arguments and returns a filled value of its result type.
+            var parameters = invoke.GetParameters().Select(p => Expression.Parameter(p.ParameterType, p.Name)).ToArray();
+            Expression body = invoke.ReturnType == typeof(void)
+                ? Expression.Empty()
+                : Expression.Constant(Value(invoke.ReturnType, name, depth), invoke.ReturnType);
+            return Expression.Lambda(type, body, parameters).Compile();
         }
 
         if (type.IsClass || (type.IsValueType && !type.IsPrimitive))

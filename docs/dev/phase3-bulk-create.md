@@ -1603,5 +1603,40 @@ Taken in part or rejected:
   `BulkCreateTextKeysTests`, `CreationNamesParityTests` (Presentation; `IsValidUpnPrefix` parity waits for B1), a RootDSE
   unit test for an absent `isGlobalCatalogReady` in `EntryReaderAndRootDseTests.cs`; `HostTests` and
   `ServiceRegistrationTests` use the qualified `Core.Batch.Creation.IBulkCreatePlanner` (no using changed).
+* **Contract review fixes** (second contract commit).
+  * *B4 anchor in a lead file:* the `IsBulkCreateAvailable` line of `ShellViewModel.BulkCreate.cs` (B4: `=> true`).
+    `BulkCreatePresentationContractTests.Shell_RegistersNewBulkCreate_OfferedOnlyWhenAvailableAndConnected` asserts
+    `CanExecute == IsBulkCreateAvailable` while connected and false after a disconnect, so B4 does not edit the test.
+  * *Shared anchor in a lead file:* the type branches of `BulkCreateRecordSamples.Value` – B1 and B2 may each add one
+    (both sides kept on a merge). Pre-added: every numeric primitive, `decimal`, `Half`, `DateOnly`, `TimeOnly`, `Uri`,
+    `CultureInfo`, `TimeProvider`, `Encoding`, string comparers, `object` (a sentinel), arrays, any delegate (a lambda
+    returning a filled value) and every interface `FakeDirectorySession` implements (`IDirectoryReader`,
+    `IDirectorySession`: a fake session with the bulk-create schema).
+  * *Create mode ignores `BatchEditorRequest.Operations`:* the constructor no longer loads them, so neither
+    `InitializeAsync` nor `OpenPreview` touches them (as the request's doc says).
+  * *Fake channel check as `LdapDirectorySession`:* an unencrypted channel refuses `ResetPasswordAsync`, an Add with a
+    non-empty `unicodePwd` or `userPassword` (`CheckChannelOnAdd`, first line of `ApplyAdd`, before the DN checks) and
+    any Modify of either (`CheckChannelOnModify`, first line of `ApplyModify`); an empty `unicodePwd` list is not sent
+    (`ApplyAdd` skips it, the enabled-user rule then applies). *SAM rules:* the attributes are read case-insensitively as
+    `ApplyAdd` stores them (the last non-empty list wins; no dictionary copy, so keys differing only by case no longer
+    throw with the rules off) and the requested classes are expanded (`inetOrgPerson` gets the user rules).
+  * *`FakeGlobalCatalogReader` as one namespace:* a subtree search runs in the domain that holds the base (the longest
+    naming context) and from the naming context of every domain below it, so the forest root's DN reaches the child
+    domains; a one-level search adds the naming-context heads directly below the base; a base-scope search or a read of
+    `""` is the forest root's RootDSE; a non-empty base in no domain is `NoSuchObject`; DN reads go to the most specific
+    domain (before: the first match, i.e. the forest root).
+  * *`ExcelSamples`:* `QuirksTsv` has two trailing columns empty in every row and the header (`QuirksColumnCount` 3,
+    `QuirksRowCount` 4); the ragged row moved to `RaggedTsv` (5-cell header, data row 2 with 7 cells: `RaggedRowNumber`,
+    `RaggedColumnCount`). New: `DuplicateHeaderTsv`, `SensitiveColumnsTsv` (*Hasło startowe*, *PESEL*), `CrOnlyTsv`,
+    `MergedAndNestedHtml` (`rowspan`, a nested table, a one-row legend table before the data table), `ProtectedCsvText`
+    (`'+48 …`, `'-Kadry`, `Żak-O'Neill` kept); `MinimalXlsx(…, hiddenFirstSheet, numbers)` (a hidden non-empty first
+    sheet; numeric cells by reference with a custom number format, `XlsxPhoneFormat`, `XlsxPostalCodeFormat`). `Rows`
+    pairs the surname form with the given name's gender (combinations repeat every 400 rows). The `LibreOfficeHtml` doc
+    is corrected (the `colspan` is in data row 2; there is no title row). Invisible characters in the shared samples and
+    tests are escapes (`"\u00A0"`, `"\u202F"`, `"\u200B"`, `"\uFEFF"`, `'\u3000'`; public `ExcelSamples.Bom`).
+  * *Texts:* `Issue.CounterTooLong` is *{0}: prefiks i numer są za długie (limit znaków: {1}) – wartości z licznikiem
+    nie są skracane.* (en to match), the *label: count* rule of 2.9.
+  * *DI:* `ServiceRegistrationTests` and `HostTests` assert that `BatchEngines.BulkCreate` is the registered
+    `IBulkCreatePlanner` (HostTests qualifies `Presentation.BatchEditing.BatchEngines`; no using changed).
 * **Not done here.** The line for P1's as-built section (p-certificate-services.md 2.14, `ShellViewModel.Palette.cs`) is
   left to the lead: that note was not to be touched by this commit.

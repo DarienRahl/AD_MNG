@@ -20,7 +20,7 @@ public sealed class CreationNamesParityTests
     [Fact]
     public void ForbiddenSamCharacters_AreTheSame()
     {
-        for (var c = '\0'; c < '　'; c++)
+        for (var c = '\0'; c < '\u3000'; c++)
         {
             Assert.True(AccountNames.IsInvalidSamCharacter(c) == CreationNames.IsInvalidSamCharacter(c), $"U+{(int)c:X4}");
         }

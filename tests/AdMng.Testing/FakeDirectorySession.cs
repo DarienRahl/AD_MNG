@@ -1063,6 +1063,7 @@ public sealed partial class FakeDirectorySession : IDirectorySession
         bool permissive,
         SecurityDescriptorRights securityDescriptorFlags = SecurityDescriptorRights.None)
     {
+        CheckChannelOnModify(modifications, distinguishedName);
         var entry = FindExisting(distinguishedName);
         var work = entry.CloneAttributes();
         var touched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -1398,6 +1399,7 @@ public sealed partial class FakeDirectorySession : IDirectorySession
 
     private DistinguishedName ApplyAdd(string distinguishedName, IReadOnlyDictionary<string, IReadOnlyList<object>> attributes)
     {
+        CheckChannelOnAdd(attributes, distinguishedName);
         var dn = FakeDn.Parse(distinguishedName);
         if (dn.IsRoot)
         {
@@ -1423,7 +1425,8 @@ public sealed partial class FakeDirectorySession : IDirectorySession
             var definition = Schema.FindAttribute(name) ?? throw Error(17, $"The attribute '{name}' is not defined in the schema.", distinguishedName);
             if (string.Equals(name, Attr.UnicodePwd, StringComparison.OrdinalIgnoreCase))
             {
-                password = DecodeUnicodePwd(values);
+                // Like the real session, an empty value list is not sent (the account then has no password).
+                password = values.Count > 0 ? DecodeUnicodePwd(values) : password;
                 continue;
             }
 

@@ -54,6 +54,7 @@ public sealed class ServiceRegistrationTests
         Assert.NotNull(services.GetRequiredService<IRollbackPlanner>());
         Assert.NotNull(services.GetRequiredService<ICsvImportPlanner>());
         Assert.NotNull(services.GetRequiredService<Core.Batch.Creation.IBulkCreatePlanner>());
+        Assert.Same(services.GetRequiredService<Core.Batch.Creation.IBulkCreatePlanner>(), services.GetRequiredService<BatchEngines>().BulkCreate);
         Assert.NotNull(services.GetRequiredService<PowerShellHistory>());
         Assert.IsType<RecordingChangePlanner>(services.GetRequiredService<IChangePlanner>());
         Assert.IsType<BatchExecutor>(services.GetRequiredService<IBatchExecutor>());

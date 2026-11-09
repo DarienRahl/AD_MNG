@@ -48,6 +48,7 @@ public sealed class HostTests
         Assert.NotNull(services.GetRequiredService<IPowerShellExporter>());
         Assert.NotNull(services.GetRequiredService<ICsvImportPlanner>());
         Assert.NotNull(services.GetRequiredService<Core.Batch.Creation.IBulkCreatePlanner>());
+        Assert.Same(services.GetRequiredService<Core.Batch.Creation.IBulkCreatePlanner>(), services.GetRequiredService<Presentation.BatchEditing.BatchEngines>().BulkCreate);
         Assert.NotNull(services.GetRequiredService<ICsvCodec>());
         Assert.IsType<FakeDirectoryConnector>(services.GetRequiredService<IDirectoryConnector>());
 

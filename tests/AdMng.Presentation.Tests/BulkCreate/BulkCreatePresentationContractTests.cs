@@ -170,16 +170,40 @@ public sealed class BulkCreatePresentationContractTests
     }
 
     [Fact]
-    public async Task Shell_RegistersNewBulkCreate_ButDoesNotOfferItBeforeWave2()
+    public async Task Shell_RegistersNewBulkCreate_OfferedOnlyWhenAvailableAndConnected()
     {
+        // Not pinned to the contract's false: B4 switches IsBulkCreateAvailable on (2.15) without editing this test.
         var harness = await B2Harness.CreateAsync();
         using var shell = harness.CreateShell();
 
         var descriptor = Assert.Single(shell.CommandDescriptors, d => d.Id == "new.bulkCreate");
         Assert.Equal(L.BulkCreate.Command, descriptor.TitleKey);
         Assert.Equal(L.CommandCategories.New, descriptor.CategoryKey);
+        Assert.True(shell.IsConnected);
+        Assert.Equal(Presentation.Shell.ShellViewModel.IsBulkCreateAvailable, descriptor.Command.CanExecute(null));
+
+        await harness.Sessions.DisconnectAsync();
+
+        Assert.False(shell.IsConnected);
         Assert.False(descriptor.Command.CanExecute(null));
-        Assert.False(Presentation.Shell.ShellViewModel.IsBulkCreateAvailable);
+    }
+
+    [Fact]
+    public async Task BatchEditor_InCreateMode_IgnoresTheRequestOperations()
+    {
+        var harness = await B2Harness.CreateAsync(bulkCreateSchema: true);
+        using var editor = harness.Factory.CreateBatchEditor(new BatchEditorRequest([])
+        {
+            Operations = [new SetAttributeOperation("department", "Księgowość")],
+            OpenPreview = true,
+            Create = new BulkCreateRequest(ObjectKind.User, null),
+        });
+
+        await editor.InitializeAsync();
+
+        Assert.True(editor.IsCreateMode);
+        Assert.Empty(editor.Operations);
+        Assert.True(editor.IsEditStep);
     }
 
     [Fact]

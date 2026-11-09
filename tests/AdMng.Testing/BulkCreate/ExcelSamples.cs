@@ -9,16 +9,22 @@ namespace AdMng.Testing.BulkCreate;
 /// <summary>
 /// Hand-written synthetic clipboard and file samples of the bulk creation wizard (F3, docs/dev/phase3-bulk-create.md 2.1,
 /// 2.11): what Excel, LibreOffice and Google Sheets put on the clipboard (Unicode text with Excel's quoting rule, the HTML
-/// format with <c>x:num</c>), the quirks the reader handles, headerless and English tables, a cp1250 CSV and the UTF-16 LE
-/// text of <em>Tekst Unicode (*.txt)</em>, generated Polish rows and a minimal <c>.xlsx</c>. Never real data; the people
+/// format with <c>x:num</c>), the quirks the reader handles (normalisation, trailing empty columns, ragged rows, a duplicate
+/// header, CR-only and LF-only line endings, password-like and identifier columns, <c>colspan</c>, <c>rowspan</c> and a
+/// nested table), headerless and English tables, a cp1250 CSV, an apostrophe-protected CSV and the UTF-16 LE text of
+/// <em>Tekst Unicode (*.txt)</em>, generated Polish rows and a minimal <c>.xlsx</c> (hidden rows and sheets, number
+/// formats). Never real data; the people
 /// are invented, with Polish diacritics (ą ć ę ł ń ó ś ź ż) on purpose.
 /// </summary>
 public static class ExcelSamples
 {
-    private const string Nbsp = " ";
-    private const string NarrowNbsp = " ";
-    private const string ZeroWidth = "​";
-    private const string Bom = "﻿";
+    // Escapes, not the characters: editors and formatters strip or normalise them silently (a BOM in mid-file above all).
+    private const string Nbsp = "\u00A0";
+    private const string NarrowNbsp = "\u202F";
+    private const string ZeroWidth = "\u200B";
+
+    /// <summary>The byte order mark that starts <see cref="QuirksTsv"/> (U+FEFF).</summary>
+    public const string Bom = "\uFEFF";
 
     /// <summary>The headers of <see cref="PolishTsv"/>.</summary>
     public static IReadOnlyList<string> PolishHeaders { get; } =
@@ -88,8 +94,9 @@ public static class ExcelSamples
 
     /// <summary>
     /// The normalisation quirks: a BOM, NBSP in a name, U+202F thousands separators in <em>Numer pracownika</em>, zero-width
-    /// spaces, trailing empty columns in every row, Alt+Enter in an <em>Imię</em> cell (quoted, LF), an empty middle row and a
-    /// ragged row longer than the header.
+    /// spaces, two trailing columns empty in every row and in the header (dropped silently: 3 columns remain), Alt+Enter in
+    /// an <em>Imię</em> cell (quoted, LF), an empty middle row (data line 3, one <c>EmptyRowsSkipped</c>) and an empty last
+    /// row (dropped silently): 4 data rows.
     /// </summary>
     public static string QuirksTsv { get; } =
         Bom + "Imię\tNazwisko\tNumer pracownika\t\t\r\n"
@@ -97,8 +104,49 @@ public static class ExcelSamples
         + "Jan\tKowal" + ZeroWidth + "ski\t12" + NarrowNbsp + "346\t\t\r\n"
         + "\t\t\t\t\r\n"
         + "\"Ewa\nKatarzyna\"\tWiśniewska\t12" + NarrowNbsp + "347\t\t\r\n"
-        + "Józef\tĆwikła\t12" + NarrowNbsp + "348\tnadmiarowa\tkomórka\r\n"
+        + "Józef\tĆwikła\t12" + NarrowNbsp + "348\t\t\r\n"
         + "\t\t\t\t\r\n";
+
+    /// <summary>The number of columns of <see cref="QuirksTsv"/> after the trailing empty columns are dropped.</summary>
+    public const int QuirksColumnCount = 3;
+
+    /// <summary>The number of data rows of <see cref="QuirksTsv"/> (the empty middle and last rows not counted).</summary>
+    public const int QuirksRowCount = 4;
+
+    /// <summary>
+    /// Ragged rows (<c>RaggedRows</c>): a 5-column header, data row 2 with a 6th and a 7th cell beyond it (the table grows to
+    /// 7 columns, F and G without a header) and data row 3 shorter than the header (its missing cells are empty).
+    /// </summary>
+    public static string RaggedTsv { get; } = Tsv(
+        ["Imię", "Nazwisko", "E-mail", "Telefon komórkowy", "Dział"],
+        ["Łucja", "Żak", "lucja.zak@contoso.com", "+48 600 100 201", "Księgowość"],
+        ["Grzegorz", "Bąk", "grzegorz.bak@contoso.com", "+48 600 100 202", "Kadry", "nadmiarowa", "komórka"],
+        ["Ewa", "Wiśniewska", "ewa.wisniewska@contoso.test"]);
+
+    /// <summary>The data row of <see cref="RaggedTsv"/> longer than the header.</summary>
+    public const int RaggedRowNumber = 2;
+
+    /// <summary>The number of columns of <see cref="RaggedTsv"/> (5 named + 2 without a header).</summary>
+    public const int RaggedColumnCount = 7;
+
+    /// <summary>A duplicate header (<c>DuplicateHeader</c>): two <em>Telefon</em> columns, the second named <em>Telefon (2)</em>.</summary>
+    public static string DuplicateHeaderTsv { get; } = Tsv(
+        ["Imię", "Nazwisko", "Telefon", "Telefon"],
+        ["Łucja", "Żak", "+48 22 555 01 01", "+48 600 100 201"],
+        ["Grzegorz", "Bąk", "+48 22 555 01 02", "+48 600 100 202"]);
+
+    /// <summary>
+    /// A password-like column (<em>Hasło startowe</em>, <c>PasswordLikeColumn</c>, never mapped, masked) and a personal
+    /// identifier (<em>PESEL</em>, <c>Ignore</c> unless mapped explicitly). The values are invented (the PESEL numbers have
+    /// no valid check digit).
+    /// </summary>
+    public static string SensitiveColumnsTsv { get; } = Tsv(
+        ["Imię", "Nazwisko", "Hasło startowe", "PESEL", "E-mail"],
+        ["Łucja", "Żak", "Start!2026a", "90010100001", "lucja.zak@contoso.com"],
+        ["Grzegorz", "Bąk", "Start!2026b", "85123100002", "grzegorz.bak@contoso.com"]);
+
+    /// <summary>CR-only line endings (old Mac text), with a final CR.</summary>
+    public static string CrOnlyTsv { get; } = "Imię\tNazwisko\tE-mail\rŁucja\tŻak\tlucja.zak@contoso.com\rGrzegorz\tBąk\tgrzegorz.bak@contoso.com\r";
 
     /// <summary>LF-only line endings and no final line break.</summary>
     public static string LfOnlyTsv { get; } = "Imię\tNazwisko\tE-mail\nŁucja\tŻak\tlucja.zak@contoso.com\nGrzegorz\tBąk\tgrzegorz.bak@contoso.com";
@@ -127,7 +175,10 @@ public static class ExcelSamples
         [["Łucja", "<a href=\"mailto:lucja.zak@contoso.com\">Żak</a>", "lucja.zak@contoso.com"], ["Grzegorz", "Bąk", "grzegorz.bak@contoso.com"]],
         numericCell: null);
 
-    /// <summary>A LibreOffice Calc range in the HTML format (<c>&lt;br&gt;</c> in a cell, <c>colspan</c> in the title row).</summary>
+    /// <summary>
+    /// A LibreOffice Calc range in the HTML format: a header row, <c>&lt;br&gt;</c> in the <em>Adres</em> cell of data row 1
+    /// and a <c>colspan="2"</c> name cell in data row 2 (<c>MergedCells</c>); no title row.
+    /// </summary>
     public static string LibreOfficeHtml { get; } =
         "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\">\r\n<html><head><meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\"/>"
         + "<meta name=\"generator\" content=\"LibreOffice 24.2\"/></head><body>\r\n"
@@ -144,6 +195,21 @@ public static class ExcelSamples
         + "<tbody><tr style=\"height:21px;\"><td>Imię</td><td>Nazwisko</td><td>E-mail</td></tr>"
         + "<tr style=\"height:21px;\"><td>Celina</td><td>Żuraw</td><td>celina.zuraw@contoso.com</td></tr>"
         + "<tr style=\"height:21px;\"><td>Bogdan</td><td>Ćmiel</td><td>bogdan.cmiel@contoso.com</td></tr></tbody></table>";
+
+    /// <summary>
+    /// An HTML table with a <c>rowspan="2"</c> <em>Dział</em> cell in data row 1 (<c>MergedCells</c>; data row 2 has one cell
+    /// fewer) and a nested table in the <em>Uwagi</em> cell of data row 3 (skipped: only the outer table's own cells count),
+    /// after a one-row legend table (the table with the most rows is read: 4 rows against 1, the nested one has 2).
+    /// </summary>
+    public static string MergedAndNestedHtml { get; } =
+        "<html><body>\r\n"
+        + "<table><tr><td>Lista z intranetu – stan na listopad 2026</td></tr></table>\r\n"
+        + "<table border=\"1\">\r\n"
+        + "<tr><th>Imię</th><th>Nazwisko</th><th>Dział</th><th>Uwagi</th></tr>\r\n"
+        + "<tr><td>Hanna</td><td>Łęcka</td><td rowspan=\"2\">Księgowość</td><td>od 1 grudnia</td></tr>\r\n"
+        + "<tr><td>Witold</td><td>Świątek</td><td></td></tr>\r\n"
+        + "<tr><td>Celina</td><td>Żuraw</td><td>Kadry</td><td>bez zmian<table><tr><td>zagnieżdżona</td></tr><tr><td>tabela</td></tr></table></td></tr>\r\n"
+        + "</table>\r\n</body></html>\r\n";
 
     /// <summary>A single column copied from a web page: no tab in the text (<c>NeedsHtml</c> is true).</summary>
     public static string SingleColumnWebText { get; } = "lucja.zak@contoso.com\r\ngrzegorz.bak@contoso.com\r\newa.wisniewska@contoso.test\r\n";
@@ -170,28 +236,45 @@ public static class ExcelSamples
     /// <summary>A CSV file in Windows-1250 (the ANSI code page of Polish Windows), without a BOM.</summary>
     public static byte[] Cp1250Csv => Encoding.GetEncoding(1250).GetBytes(Cp1250CsvText);
 
+    /// <summary>
+    /// A CSV file as AD_MNG's own exports write it: values that Excel would read as a formula are protected with an apostrophe
+    /// (<c>'+48 600 100 201</c>, <c>'-Kadry</c>; removed only for <c>TableSource.CsvFile</c>), an apostrophe before any other
+    /// character stays (<c>Żak-O'Neill</c>).
+    /// </summary>
+    public static string ProtectedCsvText { get; } =
+        "Imię;Nazwisko;Telefon komórkowy;Dział\r\n"
+        + "Łucja;Żak-O'Neill;'+48 600 100 201;Księgowość\r\n"
+        + "Grzegorz;Bąk;'+48 600 100 202;'-Kadry\r\n";
+
     /// <summary>Excel's <em>Tekst Unicode (*.txt)</em>: UTF-16 LE with a BOM, tab-separated.</summary>
     public static byte[] Utf16UnicodeText => [.. Encoding.Unicode.GetPreamble(), .. Encoding.Unicode.GetBytes(Tsv(
         ["Imię", "Nazwisko", "Telefon komórkowy"],
         ["Łucja", "Żak", "+48 600 100 201"],
         ["Mikołaj", "Śliwiński", "+48 600 100 204"]))];
 
-    private static readonly string[] GivenNames =
+    // Given names alternate female / male; each surname has its male and female form (the same for most of them), so a
+    // generated person is never "Grzegorz Wiśniewska" (screenshots 40–43).
+    private static readonly (string Name, bool Female)[] GivenNames =
     [
-        "Łucja", "Grzegorz", "Ewa", "Józef", "Zofia", "Mikołaj", "Bożena", "Łukasz", "Małgorzata", "Jolanta",
-        "Żaneta", "Ścibor", "Ćwiczysław", "Agnieszka", "Bartłomiej", "Halina", "Przemysław", "Weronika", "Zdzisław", "Jadwiga",
+        ("Łucja", true), ("Grzegorz", false), ("Ewa", true), ("Józef", false), ("Zofia", true), ("Mikołaj", false),
+        ("Bożena", true), ("Łukasz", false), ("Małgorzata", true), ("Jędrzej", false), ("Żaneta", true), ("Ścibor", false),
+        ("Agnieszka", true), ("Ćwiczysław", false), ("Halina", true), ("Bartłomiej", false), ("Weronika", true),
+        ("Przemysław", false), ("Jadwiga", true), ("Zdzisław", false),
     ];
 
-    private static readonly string[] Surnames =
+    private static readonly (string Male, string Female)[] Surnames =
     [
-        "Żak", "Bąk", "Wiśniewska", "Ćwikła", "Ślęzak", "Śliwiński", "Kąkol", "Grzędziński", "Źrebiec", "Żółkiewska",
-        "Łęcka", "Świątek", "Żuraw", "Ćmiel", "Brzęczyszczykiewicz", "Dąbrowski", "Kaźmierczak", "Wójcik", "Kozłowska", "Szymański",
+        ("Żak", "Żak"), ("Bąk", "Bąk"), ("Wiśniewski", "Wiśniewska"), ("Ćwikła", "Ćwikła"), ("Ślęzak", "Ślęzak"),
+        ("Śliwiński", "Śliwińska"), ("Kąkol", "Kąkol"), ("Grzędziński", "Grzędzińska"), ("Źrebiec", "Źrebiec"),
+        ("Żółkiewski", "Żółkiewska"), ("Łęcki", "Łęcka"), ("Świątek", "Świątek"), ("Żuraw", "Żuraw"), ("Ćmiel", "Ćmiel"),
+        ("Brzęczyszczykiewicz", "Brzęczyszczykiewicz"), ("Dąbrowski", "Dąbrowska"), ("Kaźmierczak", "Kaźmierczak"),
+        ("Wójcik", "Wójcik"), ("Kozłowski", "Kozłowska"), ("Szymański", "Szymańska"),
     ];
 
     /// <summary>
     /// <paramref name="count"/> generated rows with a header (<em>Imię, Nazwisko, E-mail, Telefon komórkowy, Dział</em>):
-    /// Polish names with diacritics (repeating combinations, so name-based patterns collide), unique e-mail addresses and
-    /// mobile numbers.
+    /// Polish names with diacritics, the surname in the form that matches the given name (repeating combinations every 400
+    /// rows, so name-based patterns collide), unique e-mail addresses and mobile numbers.
     /// </summary>
     public static string Rows(int count)
     {
@@ -200,11 +283,11 @@ public static class ExcelSamples
         var text = new StringBuilder("Imię\tNazwisko\tE-mail\tTelefon komórkowy\tDział\r\n");
         for (var i = 0; i < count; i++)
         {
-            var given = GivenNames[i % GivenNames.Length];
-            var surname = Surnames[i / GivenNames.Length % Surnames.Length];
+            var (given, female) = GivenNames[i % GivenNames.Length];
+            var forms = Surnames[i / GivenNames.Length % Surnames.Length];
             var number = 600_000_000 + i;
             text.Append(given).Append('\t')
-                .Append(surname).Append('\t')
+                .Append(female ? forms.Female : forms.Male).Append('\t')
                 .Append(CultureInfo.InvariantCulture, $"pracownik{i + 1:D5}@contoso.com").Append('\t')
                 .Append(CultureInfo.InvariantCulture, $"+48 {number / 1_000_000} {number / 1000 % 1000:D3} {number % 1000:D3}").Append('\t')
                 .Append(departments[i % departments.Length]).Append("\r\n");
@@ -213,19 +296,46 @@ public static class ExcelSamples
         return text.ToString();
     }
 
+    /// <summary>The number format of a mobile number stored as a number (<c>48600100201</c> is shown <c>+48 600 100 201</c>).</summary>
+    public const string XlsxPhoneFormat = "+00 000 000 000";
+
+    /// <summary>The number format of a postal code stored as a number (<c>2950</c> is shown <c>02-950</c>).</summary>
+    public const string XlsxPostalCodeFormat = "00-000";
+
     /// <summary>
-    /// A minimal <c>.xlsx</c> workbook (inline strings, no styles) with <paramref name="rows"/> on its first sheet;
-    /// <paramref name="hiddenRows"/> (1-based sheet rows) are hidden; <paramref name="otherSheet"/> adds a second non-empty sheet.
+    /// A minimal <c>.xlsx</c> workbook (inline strings; a styles part only with <paramref name="numbers"/>) with
+    /// <paramref name="rows"/> on its first visible sheet. <paramref name="hiddenRows"/> (1-based sheet rows) are hidden;
+    /// <paramref name="otherSheet"/> adds a second non-empty sheet after it; <paramref name="hiddenFirstSheet"/> puts a
+    /// non-empty hidden sheet (<c>state="hidden"</c>) first, so the data sheet is the first <em>visible</em> one;
+    /// <paramref name="numbers"/> replaces the cells at the given references (<c>D2</c>) with numeric cells
+    /// (<c>&lt;v&gt;48600100201&lt;/v&gt;</c>) in a custom number format (<see cref="XlsxPhoneFormat"/>,
+    /// <see cref="XlsxPostalCodeFormat"/>) – what <c>XlsxReader</c> shows is the formatted text.
     /// </summary>
-    public static byte[] MinimalXlsx(IReadOnlyList<IReadOnlyList<string>> rows, IReadOnlyCollection<int>? hiddenRows = null, bool otherSheet = false)
+    public static byte[] MinimalXlsx(
+        IReadOnlyList<IReadOnlyList<string>> rows,
+        IReadOnlyCollection<int>? hiddenRows = null,
+        bool otherSheet = false,
+        bool hiddenFirstSheet = false,
+        IReadOnlyList<(string Reference, string Number, string FormatCode)>? numbers = null)
     {
         ArgumentNullException.ThrowIfNull(rows);
         const string spreadsheetNs = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
         const string relationshipsNs = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
-        var sheets = new List<(string Name, string Data)> { ("Arkusz1", SheetData(rows, hiddenRows)) };
+        var formats = (numbers ?? []).Select(n => n.FormatCode).Distinct(StringComparer.Ordinal).ToList();
+        var numberCells = (numbers ?? []).ToDictionary(
+            n => n.Reference,
+            n => (n.Number, Style: formats.IndexOf(n.FormatCode) + 1),
+            StringComparer.OrdinalIgnoreCase);
+        var sheets = new List<(string Name, string Data, bool Hidden)>();
+        if (hiddenFirstSheet)
+        {
+            sheets.Add(("Słowniki", SheetData([["Ukryty arkusz"], ["nie do wczytania"]], null, null), true));
+        }
+
+        sheets.Add(("Arkusz1", SheetData(rows, hiddenRows, numberCells), false));
         if (otherSheet)
         {
-            sheets.Add(("Arkusz2", SheetData([["Inne dane"], ["nie do wczytania"]], null)));
+            sheets.Add(("Arkusz2", SheetData([["Inne dane"], ["nie do wczytania"]], null, null), false));
         }
 
         var workbook = new StringBuilder($"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><workbook xmlns=\"{spreadsheetNs}\" xmlns:r=\"{relationshipsNs}\"><sheets>");
@@ -237,11 +347,31 @@ public static class ExcelSamples
             for (var i = 0; i < sheets.Count; i++)
             {
                 var n = i + 1;
-                workbook.Append(CultureInfo.InvariantCulture, $"<sheet name=\"{sheets[i].Name}\" sheetId=\"{n}\" r:id=\"rId{n}\"/>");
+                var state = sheets[i].Hidden ? " state=\"hidden\"" : string.Empty;
+                workbook.Append(CultureInfo.InvariantCulture, $"<sheet name=\"{sheets[i].Name}\" sheetId=\"{n}\"{state} r:id=\"rId{n}\"/>");
                 relationships.Append(CultureInfo.InvariantCulture,
                     $"<Relationship Id=\"rId{n}\" Type=\"{relationshipsNs}/worksheet\" Target=\"worksheets/sheet{n}.xml\"/>");
                 Entry(archive, $"xl/worksheets/sheet{n}.xml",
                     $"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"{spreadsheetNs}\"><sheetData>{sheets[i].Data}</sheetData></worksheet>");
+            }
+
+            if (formats.Count > 0)
+            {
+                relationships.Append(CultureInfo.InvariantCulture, $"<Relationship Id=\"rIdStyles\" Type=\"{relationshipsNs}/styles\" Target=\"styles.xml\"/>");
+                var styles = new StringBuilder($"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><styleSheet xmlns=\"{spreadsheetNs}\">");
+                styles.Append(CultureInfo.InvariantCulture, $"<numFmts count=\"{formats.Count}\">");
+                for (var i = 0; i < formats.Count; i++)
+                {
+                    styles.Append(CultureInfo.InvariantCulture, $"<numFmt numFmtId=\"{164 + i}\" formatCode=\"{WebUtility.HtmlEncode(formats[i])}\"/>");
+                }
+
+                styles.Append(CultureInfo.InvariantCulture, $"</numFmts><cellXfs count=\"{formats.Count + 1}\"><xf numFmtId=\"0\"/>");
+                for (var i = 0; i < formats.Count; i++)
+                {
+                    styles.Append(CultureInfo.InvariantCulture, $"<xf numFmtId=\"{164 + i}\" applyNumberFormat=\"1\"/>");
+                }
+
+                Entry(archive, "xl/styles.xml", styles.Append("</cellXfs></styleSheet>").ToString());
             }
 
             Entry(archive, "xl/workbook.xml", workbook.Append("</sheets></workbook>").ToString());
@@ -306,7 +436,8 @@ public static class ExcelSamples
         return html.ToString();
     }
 
-    private static string SheetData(IReadOnlyList<IReadOnlyList<string>> rows, IReadOnlyCollection<int>? hiddenRows)
+    private static string SheetData(IReadOnlyList<IReadOnlyList<string>> rows, IReadOnlyCollection<int>? hiddenRows,
+        IReadOnlyDictionary<string, (string Number, int Style)>? numbers)
     {
         var data = new StringBuilder();
         for (var r = 0; r < rows.Count; r++)
@@ -317,6 +448,12 @@ public static class ExcelSamples
             for (var c = 0; c < rows[r].Count; c++)
             {
                 var reference = ColumnLetters(c) + number.ToString(CultureInfo.InvariantCulture);
+                if (numbers is not null && numbers.TryGetValue(reference, out var numeric))
+                {
+                    data.Append(CultureInfo.InvariantCulture, $"<c r=\"{reference}\" s=\"{numeric.Style}\"><v>{numeric.Number}</v></c>");
+                    continue;
+                }
+
                 data.Append(CultureInfo.InvariantCulture, $"<c r=\"{reference}\" t=\"inlineStr\"><is><t xml:space=\"preserve\">{WebUtility.HtmlEncode(rows[r][c])}</t></is></c>");
             }
 
