@@ -30,7 +30,7 @@ internal sealed class CleanupIndex
     private const string DomainAdminsSid = "S-1-5-21-1000-2000-3000-512";
 
     private readonly List<Draft> _gpos = [];
-    private readonly Dictionary<string, List<(Guid Gpo, int Options)>> _links = new(StringComparer.OrdinalIgnoreCase)
+    private readonly Dictionary<string, List<(Guid Gpo, int Options, string? GpoDomain)>> _links = new(StringComparer.OrdinalIgnoreCase)
     {
         [Domain] = [],
         [Firma] = [],
@@ -66,7 +66,14 @@ internal sealed class CleanupIndex
     /// <summary>Links a GPO; within a container the first link added has link order 1 (the highest precedence).</summary>
     public CleanupIndex Link(string container, Draft gpo, bool enforced = false, bool disabled = false)
     {
-        _links[container].Add((gpo.Id, (enforced ? GroupPolicyLink.EnforcedOption : 0) | (disabled ? GroupPolicyLink.DisabledOption : 0)));
+        _links[container].Add((gpo.Id, (enforced ? GroupPolicyLink.EnforcedOption : 0) | (disabled ? GroupPolicyLink.DisabledOption : 0), null));
+        return this;
+    }
+
+    /// <summary>Links a GPO of another domain of the forest (it has no entry in this index).</summary>
+    public CleanupIndex LinkForeign(string container, Guid gpoId, string gpoDomainDn)
+    {
+        _links[container].Add((gpoId, 0, gpoDomainDn));
         return this;
     }
 
@@ -83,7 +90,7 @@ internal sealed class CleanupIndex
             var kind = c.Key == Domain ? GroupPolicySomKind.Domain : c.Key == Warszawa ? GroupPolicySomKind.Site : GroupPolicySomKind.OrganizationalUnit;
 
             // The gPLink value lists the lowest precedence first: link order 1 is the last entry.
-            var raw = string.Concat(Enumerable.Reverse(c.Value).Select(l => GpLinkValue.Format(l.Gpo, Domain, l.Options)));
+            var raw = string.Concat(Enumerable.Reverse(c.Value).Select(l => GpLinkValue.Format(l.Gpo, l.GpoDomain ?? Domain, l.Options)));
             var value = raw.Length > 0 ? raw : null;
             return new GroupPolicyContainerInfo(c.Key, kind, c.Key.Split(',')[0][3..], GpLinkValue.Parse(value, Domain), value,
                 _blocking.Contains(c.Key) ? "1" : null);

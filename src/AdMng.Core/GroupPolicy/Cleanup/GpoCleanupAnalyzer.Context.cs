@@ -27,6 +27,9 @@ public static partial class GpoCleanupAnalyzer
         private GroupPolicyInheritance? _inheritance;
         private HashSet<Guid>? _unknown;
 
+        /// <summary>GPOs of another domain of the forest that a container of this domain links (their content is never read).</summary>
+        private readonly HashSet<Guid> _foreign = [];
+
         public AnalysisContext(GpoSettingsIndex index)
         {
             Index = index;
@@ -109,9 +112,10 @@ public static partial class GpoCleanupAnalyzer
         }
 
         /// <summary>
-        /// A GPO whose content is not known (not read, read incompletely, failed) applies in a container where
-        /// <paramref name="entry"/> applies: it may hold another value of any setting there, between the two copies of a
-        /// duplicate in precedence, so no duplicate of <paramref name="entry"/> can be shown to be redundant.
+        /// A GPO whose content is not known (not read, read incompletely, failed, or a GPO of another domain linked to a
+        /// container of this one) applies in a container where <paramref name="entry"/> applies: it may hold another value
+        /// of any setting there, between the two copies of a duplicate in precedence, so no duplicate of
+        /// <paramref name="entry"/> can be shown to be redundant.
         /// </summary>
         public bool OverlapsUnknownContent(GpoIndexEntry entry)
         {
@@ -123,7 +127,7 @@ public static partial class GpoCleanupAnalyzer
             _unknown ??= [.. Entries.Where(e => e.Status is not (GpoIndexStatus.Read or GpoIndexStatus.NotFound)
                 && e.Gpo.Status != GpoStatus.AllSettingsDisabled && e.Links.Any(l => l.Enabled)).Select(e => e.Gpo.Id)];
             var result = Positions(entry) is not { } positions
-                || (_unknown.Count > 0 && positions.Any(p => Applied(p.Container, p.Site).Overlaps(_unknown)));
+                || positions.Any(p => Applied(p.Container, p.Site) is var applied && (applied.Overlaps(_unknown) || applied.Overlaps(_foreign)));
             _overlapsUnknown[entry.Gpo.Id] = result;
             return result;
         }
@@ -178,7 +182,11 @@ public static partial class GpoCleanupAnalyzer
             }
 
             _inheritance ??= new GroupPolicyInheritance(Index.DomainDn, Index.Containers.Select(c => c.ToSom()));
-            applied = [.. _inheritance.Resolve(container, site).Select(a => a.GpoId)];
+            var chain = _inheritance.Resolve(container, site);
+            applied = [.. chain.Select(a => a.GpoId)];
+
+            // A link to a GPO outside this domain's CN=Policies (another domain of the forest): no entry, content unknown.
+            _foreign.UnionWith(chain.Where(a => !_byId.ContainsKey(a.GpoId) && !a.Link.IsInDomain(Index.DomainDn)).Select(a => a.GpoId));
             _applied[(container, site)] = applied;
             return applied;
         }

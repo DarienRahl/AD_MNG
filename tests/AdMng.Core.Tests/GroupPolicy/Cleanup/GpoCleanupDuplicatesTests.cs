@@ -443,6 +443,20 @@ public sealed class GpoCleanupDuplicatesTests
         Assert.Contains(index.Analyze().Proposals, p => p.Kind == GpoCleanupKind.DuplicateSetting && p.UnitBaseId == ValueOne && p.GpoId == ou.Id);
     }
 
+    [Fact]
+    public void Duplicate_AGpoOfAnotherDomainAppliesWhereTheCoveredGpoDoes_NoProposal()
+    {
+        // OU=Księgowość also links a GPO of oddzial.contoso.test (no entry here): it could hold another wallpaper between
+        // the two copies in precedence. A dangling link to a deleted GPO of this domain is no such GPO.
+        var (index, _, _) = HeadAndOu();
+        index.LinkForeign(Ksiegowosc, Guid.Parse("7c1f0a52-5d3e-4a8b-9f6e-0d2c4b1a9e33"), "DC=oddzial,DC=contoso,DC=test");
+        var (dangling, _, ou) = HeadAndOu();
+        dangling.LinkForeign(Ksiegowosc, Guid.Parse("0b9d2e41-7a6c-4f15-8e3d-5c1a2b4d6f78"), Domain);
+
+        Assert.Empty(Of(index.Analyze(), GpoCleanupKind.DuplicateSetting));
+        Assert.Equal(ou.Id, Assert.Single(Of(dangling.Analyze(), GpoCleanupKind.DuplicateSetting)).GpoId);
+    }
+
     [Theory]
     [InlineData(GpoIndexStatus.TooLarge)]
     [InlineData(GpoIndexStatus.AccessDenied)]
