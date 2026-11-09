@@ -74,6 +74,20 @@ public sealed class BulkCreatePlannerTests
         Assert.Equal(BulkValueSource.Column, columnWins.Rows[0].Values.Single(v => v.Attribute == Attr.Mail).Source);
     }
 
+    [Fact]
+    public async Task Description_APipeInTheCell_IsText_NotASecondValue()
+    {
+        // description is multi-valued in the schema, but AD (SAM) and the fake's SAM rules take one value on a user.
+        var table = BulkCreateTestBed.Table(["Łucja", "Żak", "Dział IT | Kraków"]);
+        var computation = await _bed.ComputeAsync(_bed.Input(table, mappings: NamesAnd(2, ColumnTargetKind.Attribute, Attr.Description)));
+
+        var row = Assert.Single(computation.Rows);
+        Assert.Equal(["Dział IT | Kraków"], row.Values.Single(v => v.Attribute == Attr.Description).Values);
+        var result = await _bed.ExecuteAsync(_bed.Planner.BuildPlan(computation, null, "Utworzenie kont"));
+        Assert.Equal(ObjectResultStatus.Succeeded, Assert.Single(result.Objects).Status);
+        Assert.Equal(["Dział IT | Kraków"], _bed.Session.GetValues(row.DistinguishedName!, Attr.Description));
+    }
+
     [Fact(Skip = BulkCreateTestBed.Wave1)]
     public async Task Precedence_AnEditWinsOverEverything_AndDependentRulesFollow()
     {
@@ -175,6 +189,7 @@ public sealed class BulkCreatePlannerTests
     [InlineData("31.12.2026 ")]
     [InlineData("2026-12-31")]
     [InlineData("46387")]
+    [InlineData("46387,5")]
     public async Task Expiry_PerRow_TheEndOfThatDay(string cell)
     {
         var input = _bed.Input(BulkCreateTestBed.Table(["Łucja", "Żak", cell]), mappings: NamesAnd(2, ColumnTargetKind.ExpiresAt));
@@ -201,6 +216,9 @@ public sealed class BulkCreatePlannerTests
     [InlineData("jutro")]
     [InlineData("31/12/2026")]
     [InlineData("2026-13-01")]
+    [InlineData("31.12")] // Excel's dd.MM display (the xlsx built-in format 16), not serial 31 of January 1900
+    [InlineData("12.2026")] // a month and a year, not serial 12
+    [InlineData("1,5")]
     public async Task Expiry_InvalidDate_IsAnError(string cell)
     {
         var input = _bed.Input(BulkCreateTestBed.Table(["Łucja", "Żak", cell]), mappings: NamesAnd(2, ColumnTargetKind.ExpiresAt));

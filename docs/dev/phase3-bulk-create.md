@@ -1703,3 +1703,7 @@ does not need them), so `BulkCreateRecordSamples.Value` is unchanged. Deviations
   AD: a root value that `n` rows share gets the levels 2…n+5 in the one prefetch pass (rendered once, by the first such
   row), and a collision deeper than the prefetch looks up the next five levels together. Before, every repeated name
   asked again per namespace and level (200 rows of 10 names: 577 searches; now 22).
+  A `description` cell is never split on `|` (SAM takes one value; the split made the row a `SingleValued` error, and a
+  pipe could not be entered at all). An expiry cell is an Excel serial only with at least five whole digits: `31.12`
+  (Excel's `dd.MM`, the xlsx built-in format 16) or `12.2026` was serial 31 / 12 – January 1900, an account that expired
+  before it was created – and is now `InvalidDate`.

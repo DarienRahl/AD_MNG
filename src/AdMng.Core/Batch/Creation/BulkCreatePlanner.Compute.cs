@@ -455,7 +455,10 @@ public sealed partial class BulkCreatePlanner
                 value = CellText.NormalizePhone(value, PhoneFormat.International);
             }
 
-            IReadOnlyList<string> values = value.Contains('|', StringComparison.Ordinal) && _schema.FindAttribute(attribute) is { IsSingleValued: false }
+            // description is multi-valued in the schema, but SAM takes one value on users, groups and computers (ADUC writes one,
+            // 2.2): a "|" in it is text, not a separator.
+            IReadOnlyList<string> values = value.Contains('|', StringComparison.Ordinal) && !Is(attribute, Attr.Description)
+                && _schema.FindAttribute(attribute) is { IsSingleValued: false }
                 ? CellText.SplitValues(value)
                 : [value];
             state.Base[attribute] = new Draft(attribute, [.. values.Select(v => ApplyComputerRules(attribute, v))], source)
@@ -504,10 +507,13 @@ public sealed partial class BulkCreatePlanner
                 return date;
             }
 
+            // A serial has at least five whole digits (10000 = 18.05.1927): "31.12" or "12.2026" (a day and month, a month and year)
+            // is not serial 31 or 12 in January 1900 – an account that expired before it was created.
             var serialText = value.Replace(',', '.');
-            if (serialText.Length > 0 && serialText.All(c => char.IsAsciiDigit(c) || c == '.')
+            var wholeDigits = serialText.IndexOf('.') is var point and >= 0 ? point : serialText.Length;
+            if (wholeDigits >= 5 && serialText.All(c => char.IsAsciiDigit(c) || c == '.')
                 && double.TryParse(serialText, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var serial)
-                && serial is >= 1 and < 2958466)
+                && serial < 2958466)
             {
                 return DateOnly.FromDateTime(DateTime.FromOADate(Math.Floor(serial)));
             }
