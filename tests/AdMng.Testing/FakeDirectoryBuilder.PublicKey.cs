@@ -150,8 +150,9 @@ public sealed partial class FakeDirectoryBuilder
         var altSecurityGuid = Session.Schema.FindAttribute("altSecurityIdentities")!.SchemaIdGuid;
 
         // ESC13: the issuance policies of CN=OID; the high-assurance one is linked to a Tier 0 group.
+        // A universal group can only nest in a universal or domain local group: Enterprise Admins (universal) makes it Tier 0.
         var linkedGroup = AddGroup("GG_Administratorzy_PKI", company.GroupsOu, GroupScope.Universal);
-        AddMembers(DomainAdminsDn, linkedGroup);
+        AddMembers(pki.EnterpriseAdmins, linkedGroup);
         var highOid = PkiSamples.ForestOid + ".500";
         var mediumOid = PkiSamples.ForestOid + ".501";
         var highAssurance = Seed(Dn("CN", "500.8D5E1F0A2B3C4D5E6F708192A3B4C5D6", pki.OidContainer), new Dictionary<string, object?>
@@ -262,7 +263,7 @@ public sealed partial class FakeDirectoryBuilder
                 CommonName = "Zofia Żurawska",
                 SerialNumber = 0x6302,
                 NotBefore = new(2026, 2, 1, 8, 0, 0, TimeSpan.Zero),
-                NotAfter = new(2028, 2, 1, 8, 0, 0, TimeSpan.Zero),
+                NotAfter = new(2027, 2, 1, 8, 0, 0, TimeSpan.Zero),
                 Ekus = [PkiSamples.SecureEmail],
                 Email = "zofia.zurawska@partner.example",
                 Issuer = PkiSamples.IssuingCa,
@@ -457,7 +458,8 @@ public sealed partial class FakeDirectoryBuilder
             [Attr.DnsHostName] = PkiSamples.IssuingCaHost,
             [PkiAttributeCaCertificate] = PkiSamples.IssuingCaDer,
             ["certificateTemplates"] = PublicKeyTemplates.PublishedByIssuing.ToArray(),
-            ["msPKI-Enrollment-Servers"] = "1\n4\n0\nhttps://pki.contoso.test/Kontoso%20Wystawiaj!0105cy%20CA_CES_Kerberos/service.svc/CES\n",
+            // <priority>\n<authentication: X509EnrollmentAuthFlags, 2 = Kerberos>\n<renewal only>\n<URI>
+            ["msPKI-Enrollment-Servers"] = "1\n2\n0\nhttps://pki.contoso.test/Kontoso%20Wystawiaj!0105cy%20CA_CES_Kerberos/service.svc/CES\n",
             [Attr.NtSecurityDescriptor] = PkiObjectSecurity(da, eaSid, cpSid, FakeAce.FullControl(issuingComputerSid)),
         }, null);
 
@@ -575,7 +577,7 @@ public sealed record PublicKeySample(
     /// <summary><i>Polityka średniej pewności</i> (no group link).</summary>
     public string? MediumAssuranceOid { get; init; }
 
-    /// <summary>GG_Administratorzy_PKI (universal, member of Domain Admins: Tier 0).</summary>
+    /// <summary>GG_Administratorzy_PKI (universal, member of Enterprise Admins: Tier 0).</summary>
     public string? LinkedGroup { get; init; }
 
     /// <summary>Administrator: a weak issuer + subject mapping on a Tier 0 account.</summary>

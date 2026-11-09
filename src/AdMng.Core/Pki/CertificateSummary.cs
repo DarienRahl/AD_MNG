@@ -78,6 +78,9 @@ public sealed record CertificateSummary
     /// <summary>CRL distribution point URLs.</summary>
     public IReadOnlyList<string> CrlDistributionPoints { get; init; } = [];
 
+    /// <summary>Freshest CRL URLs (<c>2.5.29.46</c>, same syntax as the CDP extension): where the delta CRL is.</summary>
+    public IReadOnlyList<string> FreshestCrl { get; init; } = [];
+
     /// <summary>The v1 template name extension (<c>1.3.6.1.4.1.311.20.2</c>), or null.</summary>
     public string? TemplateName { get; init; }
 

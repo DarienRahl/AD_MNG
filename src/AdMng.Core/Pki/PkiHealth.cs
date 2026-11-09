@@ -31,6 +31,13 @@ public enum PkiHealthItem
     CaCertificate,
     AiaLocation,
     CdpLocation,
+
+    /// <summary>
+    /// A delta CRL location (Freshest CRL: <see cref="CrlSummary.FreshestCrl"/>, <see cref="CertificateSummary.FreshestCrl"/>;
+    /// <i>DeltaCRL Location</i> of pkiview).
+    /// </summary>
+    DeltaCrlLocation,
+
     BaseCrl,
     DeltaCrl,
     KraCertificate,
@@ -57,10 +64,13 @@ public sealed record PkiHealthRow(Guid? CaGuid, PkiHealthItem Item, int Index, P
 /// </summary>
 public static class PkiHealth
 {
-    /// <summary>The rows of every enterprise CA (certificate, AIA and CDP URLs, base and delta CRL) and of the KRA and NTAuth certificates.</summary>
+    /// <summary>The rows of every enterprise CA (certificate, AIA, CDP and delta CRL URLs, base and delta CRL) and of the KRA and NTAuth certificates.</summary>
     public static IReadOnlyList<PkiHealthRow> Evaluate(PkiSnapshot snapshot, PkiHealthThresholds thresholds, DateTimeOffset now, IReadOnlyList<PkiHttpCheckResult>? http) =>
         throw new NotImplementedException("P1 C4: PkiHealth.Evaluate");
 
-    /// <summary>The <c>http</c>/<c>https</c> URLs (AIA CA Issuers, CDP, delta CDP, OCSP) of the snapshot's certificates for the HTTP check.</summary>
+    /// <summary>
+    /// The <c>http</c>/<c>https</c> URLs (AIA CA Issuers, CDP, OCSP of the snapshot's certificates; delta CDP = the Freshest
+    /// CRL of the certificates and of the base CRLs) for the HTTP check.
+    /// </summary>
     public static IReadOnlyList<PkiUrl> HttpUrls(PkiSnapshot snapshot) => throw new NotImplementedException("P1 C4: PkiHealth.HttpUrls");
 }

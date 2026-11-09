@@ -130,6 +130,8 @@
       </StackPanel>
     </HierarchicalDataTemplate>
 
+    <!-- P1 PKI tree (W5): the PkiNodeViewModel template -->
+
     <!-- Document tabs: header only; the documents are hosted below so every tab keeps its list, scroll and selection. -->
     <Style x:Key="TabStripStyle" TargetType="TabControl" BasedOn="{StaticResource {x:Type TabControl}}">
       <Setter Property="Template">
@@ -448,6 +450,7 @@
         <MenuItem b:CommandMenu.Id="view.advanced" IsChecked="{Binding ShowAdvancedFeatures, Mode=OneWay}" />
         <MenuItem b:CommandMenu.Id="view.details" IsChecked="{Binding IsDetailsPaneVisible, Mode=OneWay}" />
         <MenuItem x:Name="GroupPolicyNodesMenuItem" b:CommandMenu.Id="view.groupPolicyNodes" IsChecked="{Binding Tree.IsGroupPolicyShown, Mode=OneWay}" />
+        <!-- P1 PKI view toggle (W5) -->
         <MenuItem x:Name="FiltersMenuItem"
                   Click="OnFiltersMenuClick"
                   Header="{l:Tr Ui.ShowFilters}" />
@@ -503,6 +506,7 @@
         <MenuItem b:CommandMenu.Id="events.open" />
         <MenuItem b:CommandMenu.Id="events.failedLogons" />
         <MenuItem b:CommandMenu.Id="tools.readiness" />
+        <!-- P1 PKI menu (W5): the pki.* items -->
         <Separator />
         <MenuItem b:CommandMenu.Id="tools.sessionLog" />
         <MenuItem x:Name="PowerShellHistoryMenuItem"

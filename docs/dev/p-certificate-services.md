@@ -1048,8 +1048,8 @@ of 2.1–2.6):
   rewords it per variant.
 * *Stubs that never throw* (the window scope, the app start-up and the existing tests run them): `PkiSnapshotService`
   (nothing cached, `Invalidate`/`Dispose` no-ops), `AttachPki`/`DetachPki`, `TryActivatePkiNode` (false),
-  `PkiCommandDescriptors`/`PkiStateCommands` (empty), the two `SmokeTest` renders. `ActivePki()` lives in
-  `ShellViewModel.Documents.cs` (a switch with a `PkiDocumentBase` arm W5 extends); `PkiDocuments` is implemented.
+  `PkiCommandDescriptors`/`PkiStateCommands` (empty), the two `SmokeTest` renders. `ActivePki()` (a switch with a
+  `PkiDocumentBase` arm W5 extends) and `PkiDocuments` are implemented in `ShellViewModel.Pki.cs`.
 * *Shared files beyond 2.12.* `MainWindow.xaml` also gets the `pki:`/`pkiv:` xmlns and one tab-header template for
   `PkiDocumentBase` (W5 and W6 would both add them); `pkiv:` needs a type in `AdMng.App.Pki`, so
   `src/AdMng.App/Pki/PkiAppRegistration.cs` exists as a stub (W7 writes its body) and `AppHost` already calls
@@ -1065,3 +1065,26 @@ of 2.1–2.6):
   (defaults, `Vulnerable`, `Safe`, the publishing CA); the root CA (not in NTAuth) publishes `SubCA` and
   `Logowanie-Kartą`, the issuing CA everything else but `Użytkownik-VPN-Niewystawiany`. `AddPublicKeySample` and
   `AddPublicKeyAclSample` (default PKI + one delegation per target kind) are alternatives – call one per builder.
+* *Review fixes.* `CertificateSummary.FreshestCrl` and `CrlSummary.FreshestCrl` (init, `2.5.29.46`; C1 parses them)
+  give `PkiUrlKind.DeltaCdp` its URLs, with a new `PkiHealthItem.DeltaCrlLocation` after `CdpLocation` (W5's
+  `Pki.HealthItem.*` texts cover it); the sample's issuing base CRL carries the Freshest CRL
+  `PkiSamples.IssuingDeltaCrlHttpUrl`, as AD CS writes it for *Include in CRLs* (`PkiCertificateOptions.FreshestCrl` puts
+  one into a certificate). `PkiApprovalEffect.ManagerApprovalSuppresses` for `EnrollmentAgentTargetTemplate` (only manager
+  approval suppresses ESC3 condition 2; the signature is the condition). List arguments are joined with
+  `PkiFindingCodes.ListSeparator`; the rights of ESC4 / ESC5 and the mapping kinds or rights of ESC14 are enum names
+  (`TemplateRight`, `AclRight`, `AltSecurityIdentityKind`) that `PkiFindingText.Message` shows through
+  `PkiFindingText.Argument` (`PkiTpl.Right.*`, `PrivilegedAccess.AclRight.*`, `Cert.MappingKind.*`). `Pki.Notice.*` and
+  `Cert.MappingKind.*` moved from W5 / W7 into `PkiTextKeys` (`NoticeKey`, `MappingKindKey`) and the contract block, since
+  W6 shows both – they leave 2.8's single-wave list. `PkiDocumentBase` resets `IsLoading` / `IsRefresh` when a load finds
+  no session (a session that ended under a running load left the spinner on) and turns the failures of its new
+  `protected static IsExpected` (now also `UnauthorizedAccessException`, `TimeoutException`, `CryptographicException`,
+  `FormatException`) into `Error`. `ActivePki()` moved to `ShellViewModel.Pki.cs` (`.Documents.cs` is back to its pre-P1
+  state). The 2.12 rows for `AppHost` and `MainWindow.xaml` are superseded: W7 leaves `AppHost` alone, W5 adds no
+  xmlns and puts the `PkiNodeViewModel` tree template at `<!-- P1 PKI tree (W5): … -->` (`Window.Resources`), the
+  *Widok* toggle at `<!-- P1 PKI view toggle (W5) -->`, the `pki.*` items at `<!-- P1 PKI menu (W5): … -->`
+  (*Narzędzia*) and its document templates at `<!-- P1 PKI (W5) -->`. Samples: `DcLdapsDer`, `DcKdcDer`, `KraDer` and
+  `UserCertificateDer` (per argument set) are created once per process, each call a copy; `GG_Administratorzy_PKI` is a
+  member of Enterprise Admins (a universal group cannot nest in the global Domain Admins); the KRA certificate and
+  Zofia's end on 2027-02-01, inside the issuing CA's validity; the CES entry of `msPKI-Enrollment-Servers` has
+  authentication 2 (Kerberos). Polish `PrivilegedAccess.AclRight.WriteTemplateProperty` = *Zapis właściwości szablonu
+  certyfikatu istotnej dla bezpieczeństwa*.

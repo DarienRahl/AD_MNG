@@ -3,7 +3,6 @@ using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.GroupPolicy.SecuritySettings;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
-using AdMng.Presentation.Pki;
 using CommunityToolkit.Mvvm.Input;
 
 namespace AdMng.Presentation.Shell;
@@ -70,15 +69,5 @@ public sealed partial class ShellViewModel
         GroupPolicyObjectsDocumentViewModel { Selection: [var row] } => (row.Gpo.Id, row.Name),
         GroupPolicyScopeDocumentViewModel { SelectedLink.Gpo: { } linked } => (linked.Id, linked.DisplayName),
         _ => Tree.SelectedNode is GpoNodeViewModel node ? (node.GpoId, node.Name) : null,
-    };
-
-    /// <summary>
-    /// The PKI document the window is on (P1, docs/dev/p-certificate-services.md 2.5): the active PKI tab, null when none.
-    /// W5 adds the arms its palette commands need (the selected template or CA of the active document).
-    /// </summary>
-    public PkiDocumentBase? ActivePki() => SelectedTab switch
-    {
-        PkiDocumentBase pki => pki,
-        _ => null,
     };
 }

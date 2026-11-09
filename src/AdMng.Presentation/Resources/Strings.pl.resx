@@ -9790,7 +9790,7 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Usuwanie obiektów</value>
   </data>
   <data name="PrivilegedAccess.AclRight.WriteTemplateProperty" xml:space="preserve">
-    <value>Edycja poufnej właściwości szablonu certyfikatu</value>
+    <value>Zapis właściwości szablonu certyfikatu istotnej dla bezpieczeństwa</value>
   </data>
   <data name="PrivilegedAccess.AclRight.WriteAltSecurityIdentities" xml:space="preserve">
     <value>Zapis altSecurityIdentities (jawne mapowania certyfikatów)</value>
@@ -21288,6 +21288,57 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="PkiEsc.Area.Account" xml:space="preserve">
     <value>Konto</value>
+  </data>
+  <data name="Pki.Notice.BaseNotFound" xml:space="preserve">
+    <value>Nie znaleziono kontenera Usługi kluczy publicznych – w tym lesie nie ma AD CS</value>
+  </data>
+  <data name="Pki.Notice.BaseAccessDenied" xml:space="preserve">
+    <value>Odmowa dostępu do kontenera Usługi kluczy publicznych – PKI nie zostało ocenione</value>
+  </data>
+  <data name="Pki.Notice.ContainerMissing" xml:space="preserve">
+    <value>Obiekt PKI jest niewidoczny – brak obiektu albo brak prawa odczytu</value>
+  </data>
+  <data name="Pki.Notice.SecurityDescriptorUnreadable" xml:space="preserve">
+    <value>Nie można odczytać deskryptora zabezpieczeń szablonu – jego prawa nie zostały ocenione</value>
+  </data>
+  <data name="Pki.Notice.CertificateMalformed" xml:space="preserve">
+    <value>Wartość certyfikatu nie jest poprawnym kodowaniem DER</value>
+  </data>
+  <data name="Pki.Notice.CrlMalformed" xml:space="preserve">
+    <value>Wartość listy CRL nie jest poprawnym kodowaniem DER</value>
+  </data>
+  <data name="Pki.Notice.CaComputerUnresolved" xml:space="preserve">
+    <value>Nie znaleziono obiektu komputera serwera urzędu certyfikacji</value>
+  </data>
+  <data name="Pki.Notice.CaComputerInOtherDomain" xml:space="preserve">
+    <value>Serwer urzędu certyfikacji należy do innej domeny – jego SID jest nieznany, więc liczy się jako konto spoza Tier 0</value>
+  </data>
+  <data name="Pki.Notice.TrusteeUnresolved" xml:space="preserve">
+    <value>Nie można rozpoznać w tym oknie podmiotu zabezpieczeń lub połączonej grupy (inna domena lasu)</value>
+  </data>
+  <data name="Cert.MappingKind.X509IssuerSerial" xml:space="preserve">
+    <value>Wystawca i numer seryjny</value>
+  </data>
+  <data name="Cert.MappingKind.X509Ski" xml:space="preserve">
+    <value>Identyfikator klucza podmiotu</value>
+  </data>
+  <data name="Cert.MappingKind.X509Sha1PublicKey" xml:space="preserve">
+    <value>Skrót SHA1 klucza publicznego</value>
+  </data>
+  <data name="Cert.MappingKind.X509IssuerSubject" xml:space="preserve">
+    <value>Wystawca i podmiot</value>
+  </data>
+  <data name="Cert.MappingKind.X509SubjectOnly" xml:space="preserve">
+    <value>Sam podmiot</value>
+  </data>
+  <data name="Cert.MappingKind.X509Rfc822" xml:space="preserve">
+    <value>Adres e-mail (RFC822)</value>
+  </data>
+  <data name="Cert.MappingKind.Kerberos" xml:space="preserve">
+    <value>Nazwa podmiotu Kerberos</value>
+  </data>
+  <data name="Cert.MappingKind.Invalid" xml:space="preserve">
+    <value>Nieprawidłowe mapowanie</value>
   </data>
   <!-- P1 contract – AD CS finding texts and shared names (2.4, 2.8): end -->
   <!-- P1 PKI overview, health and settings (2.1, 2.5): begin -->

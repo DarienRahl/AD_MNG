@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using AdMng.Core.Directory;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
@@ -144,8 +145,13 @@ public abstract partial class PkiDocumentBase : ObservableObject, IShellDocument
         var session = Pki.Sessions.Current;
         if (session is null)
         {
+            // Next() cancelled a running load (the session ended under it): its finally skips the reset, so do it here.
+            IsLoading = false;
+            IsRefresh = false;
             Error = Localizer[L.Errors.NotConnected];
             OnNotConnected();
+            OnPropertyChanged(nameof(HasSession));
+            RefreshCommands();
             return;
         }
 
@@ -161,7 +167,7 @@ public abstract partial class PkiDocumentBase : ObservableObject, IShellDocument
         {
             // Superseded by a newer load, or the window closed.
         }
-        catch (Exception ex) when (ex is DirectoryException or SessionEndedException or InvalidOperationException or ArgumentException or IOException)
+        catch (Exception ex) when (IsExpected(ex))
         {
             if (!token.IsCancellationRequested)
             {
@@ -179,6 +185,15 @@ public abstract partial class PkiDocumentBase : ObservableObject, IShellDocument
             }
         }
     }
+
+    /// <summary>
+    /// The failures a load turns into <see cref="Error"/> (as <c>GroupPolicyText.IsExpected</c>): directory and session
+    /// errors, file and access errors, timeouts, certificate / ASN.1 parsing (<see cref="CryptographicException"/>) and a
+    /// resource formatted with the wrong arguments (<see cref="FormatException"/>) – anything else is a bug and escapes.
+    /// </summary>
+    protected static bool IsExpected(Exception exception) => exception is DirectoryException or SessionEndedException
+        or InvalidOperationException or ArgumentException or IOException or UnauthorizedAccessException or TimeoutException
+        or CryptographicException or FormatException;
 
     private void OnSessionChanged(object? sender, EventArgs e) => _ = Pki.Dispatcher.RunAsync(() => LoadAsync().Forget());
 

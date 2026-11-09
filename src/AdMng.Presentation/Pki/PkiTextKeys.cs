@@ -9,8 +9,11 @@ namespace AdMng.Presentation.Pki;
 /// <c>Pki.Class.&lt;PrincipalClass&gt;</c>, <c>PkiTpl.Right.&lt;TemplateRight&gt;</c>, <c>Cert.Mapping.&lt;MappingStrength&gt;</c>,
 /// <c>Pki.Tls.&lt;TlsProbeOutcome&gt;</c>, <c>Pki.Kdc.&lt;KdcReadinessState&gt;</c>, <c>Pki.Health.&lt;PkiHealthStatus&gt;</c>,
 /// <c>PkiEsc.Note.&lt;flag&gt;</c> (one per flag of <see cref="PkiFindingNotes"/>), <c>PkiEsc.Severity.&lt;PkiFindingSeverity&gt;</c>,
-/// <c>PkiEsc.Chip.&lt;PkiFindingSeverity&gt;</c> (takes {0}: the count) and <c>PkiEsc.Area.&lt;PkiFindingArea&gt;</c>. They live in
-/// the contract block of both resx files; the single-wave families are owned by the class of their wave.
+/// <c>PkiEsc.Chip.&lt;PkiFindingSeverity&gt;</c> (takes {0}: the count), <c>PkiEsc.Area.&lt;PkiFindingArea&gt;</c>, and – moved
+/// here from their single-wave owners because a parallel wave shows them too – <c>Pki.Notice.&lt;PkiReadNoticeCode&gt;</c>
+/// (W5's overview, W6's review) and <c>Cert.MappingKind.&lt;AltSecurityIdentityKind&gt;</c> (W7's name mappings, W6's
+/// readiness report and ESC14). They live in the contract block of both resx files; the single-wave families are owned by
+/// the class of their wave.
 /// </summary>
 public static class PkiTextKeys
 {
@@ -42,6 +45,12 @@ public static class PkiTextKeys
     public static string ChipKey(PkiFindingSeverity severity) => "PkiEsc.Chip." + severity;
 
     public static string AreaKey(PkiFindingArea area) => "PkiEsc.Area." + area;
+
+    /// <summary>A notice of a PKI read (<see cref="PkiReadNotice.Code"/>; the snapshot's and the ESC review's notices).</summary>
+    public static string NoticeKey(PkiReadNoticeCode code) => "Pki.Notice." + code;
+
+    /// <summary>The kind of an explicit mapping (<see cref="AltSecurityIdentity.Kind"/>; <i>Wystawca i podmiot</i>).</summary>
+    public static string MappingKindKey(AltSecurityIdentityKind kind) => "Cert.MappingKind." + kind;
 
     /// <summary>The texts of the flags set in <paramref name="notes"/>, in declaration order.</summary>
     public static IReadOnlyList<string> Notes(ILocalizer localizer, PkiFindingNotes notes)
@@ -97,6 +106,16 @@ public static class PkiTextKeys
         foreach (var value in Enum.GetValues<PkiFindingArea>())
         {
             yield return AreaKey(value);
+        }
+
+        foreach (var value in Enum.GetValues<PkiReadNoticeCode>())
+        {
+            yield return NoticeKey(value);
+        }
+
+        foreach (var value in Enum.GetValues<AltSecurityIdentityKind>())
+        {
+            yield return MappingKindKey(value);
         }
     }
 }

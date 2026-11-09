@@ -21289,6 +21289,57 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="PkiEsc.Area.Account" xml:space="preserve">
     <value>Account</value>
   </data>
+  <data name="Pki.Notice.BaseNotFound" xml:space="preserve">
+    <value>The Public Key Services container was not found – no AD CS in this forest</value>
+  </data>
+  <data name="Pki.Notice.BaseAccessDenied" xml:space="preserve">
+    <value>Access to the Public Key Services container was denied – the PKI was not evaluated</value>
+  </data>
+  <data name="Pki.Notice.ContainerMissing" xml:space="preserve">
+    <value>A PKI object is not visible – it is missing or cannot be read</value>
+  </data>
+  <data name="Pki.Notice.SecurityDescriptorUnreadable" xml:space="preserve">
+    <value>The template's security descriptor could not be read – its rights were not evaluated</value>
+  </data>
+  <data name="Pki.Notice.CertificateMalformed" xml:space="preserve">
+    <value>A certificate value is not valid DER</value>
+  </data>
+  <data name="Pki.Notice.CrlMalformed" xml:space="preserve">
+    <value>A CRL value is not valid DER</value>
+  </data>
+  <data name="Pki.Notice.CaComputerUnresolved" xml:space="preserve">
+    <value>The computer object of the CA server was not found</value>
+  </data>
+  <data name="Pki.Notice.CaComputerInOtherDomain" xml:space="preserve">
+    <value>The CA server is in another domain – its SID is unknown, so it counts as an account outside Tier 0</value>
+  </data>
+  <data name="Pki.Notice.TrusteeUnresolved" xml:space="preserve">
+    <value>A trustee or a linked group could not be resolved in this window (another domain of the forest)</value>
+  </data>
+  <data name="Cert.MappingKind.X509IssuerSerial" xml:space="preserve">
+    <value>Issuer and serial number</value>
+  </data>
+  <data name="Cert.MappingKind.X509Ski" xml:space="preserve">
+    <value>Subject key identifier</value>
+  </data>
+  <data name="Cert.MappingKind.X509Sha1PublicKey" xml:space="preserve">
+    <value>SHA1 hash of the public key</value>
+  </data>
+  <data name="Cert.MappingKind.X509IssuerSubject" xml:space="preserve">
+    <value>Issuer and subject</value>
+  </data>
+  <data name="Cert.MappingKind.X509SubjectOnly" xml:space="preserve">
+    <value>Subject only</value>
+  </data>
+  <data name="Cert.MappingKind.X509Rfc822" xml:space="preserve">
+    <value>E-mail address (RFC822)</value>
+  </data>
+  <data name="Cert.MappingKind.Kerberos" xml:space="preserve">
+    <value>Kerberos principal name</value>
+  </data>
+  <data name="Cert.MappingKind.Invalid" xml:space="preserve">
+    <value>Not a valid mapping</value>
+  </data>
   <!-- P1 contract – AD CS finding texts and shared names (2.4, 2.8): end -->
   <!-- P1 PKI overview, health and settings (2.1, 2.5): begin -->
   <!-- P1 PKI overview, health and settings (2.1, 2.5): end -->

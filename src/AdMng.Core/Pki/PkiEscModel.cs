@@ -74,8 +74,14 @@ public enum PkiFindingNotes
 /// <summary>How manager approval / an authorized signature affects a rule (2.4, the <i>Approval</i> column).</summary>
 public enum PkiApprovalEffect
 {
-    /// <summary>No finding (Certipy and Locksmith agree).</summary>
+    /// <summary>No finding under manager approval or an authorized signature (Certipy and Locksmith agree).</summary>
     Suppresses,
+
+    /// <summary>
+    /// No finding under manager approval only; the authorized signature is the rule's own condition (ESC3 condition 2,
+    /// <see cref="PkiFindingCodes.EnrollmentAgentTargetTemplate"/>), so it never suppresses or lowers the finding.
+    /// </summary>
+    ManagerApprovalSuppresses,
 
     /// <summary>One level lower with <see cref="PkiFindingNotes.ApprovalRequired"/>.</summary>
     Lowers,

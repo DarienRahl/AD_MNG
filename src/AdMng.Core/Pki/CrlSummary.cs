@@ -33,6 +33,12 @@ public sealed record CrlSummary
     /// <summary>The number of revoked entries.</summary>
     public int RevokedCount { get; init; }
 
+    /// <summary>
+    /// Freshest CRL URLs of a base CRL (<c>2.5.29.46</c>, a CDP-syntax extension AD CS writes for the URLs marked
+    /// <i>Include in CRLs. Clients use this to find Delta CRL locations</i>): where its delta CRL is.
+    /// </summary>
+    public IReadOnlyList<string> FreshestCrl { get; init; } = [];
+
     /// <summary>Parses a DER CRL; null when it is malformed.</summary>
     public static CrlSummary? Of(ReadOnlySpan<byte> der) => throw new NotImplementedException("P1 C1: CrlSummary.Of");
 

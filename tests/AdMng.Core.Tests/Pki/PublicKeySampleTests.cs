@@ -48,7 +48,9 @@ public sealed class PublicKeySampleTests
         var high = session.Snapshot(sample.HighAssuranceOid!)!;
         Assert.Equal(PkiSamples.ForestOid + ".500", high.GetString("msPKI-Cert-Template-OID"));
         Assert.True(DistinguishedName.AreEqual(sample.LinkedGroup!, high.GetString("msDS-OIDToGroupLink")!));
-        Assert.Contains(sample.LinkedGroup!, session.GetValues(builder.DomainAdminsDn, Attr.Member), StringComparer.OrdinalIgnoreCase);
+        // Universal in universal (Enterprise Admins): AD forbids a universal group in a global one such as Domain Admins.
+        Assert.Contains(sample.LinkedGroup!, session.GetValues(sample.EnterpriseAdmins, Attr.Member), StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain(sample.LinkedGroup!, session.GetValues(builder.DomainAdminsDn, Attr.Member), StringComparer.OrdinalIgnoreCase);
         Assert.Null(session.Snapshot(sample.MediumAssuranceOid!)!.GetString("msDS-OIDToGroupLink"));
     }
 
@@ -68,7 +70,7 @@ public sealed class PublicKeySampleTests
         Assert.Equal(PublicKeyTemplates.PublishedByRoot, root.GetStrings("certificateTemplates"));
         Assert.Equal(PublicKeyTemplates.PublishedByIssuing.Order(StringComparer.Ordinal), issuing.GetStrings("certificateTemplates").Order(StringComparer.Ordinal));
         Assert.DoesNotContain(PublicKeyTemplates.Esc1NotPublished, issuing.GetStrings("certificateTemplates"));
-        Assert.Single(issuing.GetStrings("msPKI-Enrollment-Servers"));
+        Assert.StartsWith("1\n2\n0\nhttps://", issuing.GetStrings("msPKI-Enrollment-Servers").Single(), StringComparison.Ordinal); // 2 = Kerberos
 
         Assert.Equal(PublicKeyTemplates.All.Count, sample.Templates.Count);
         Assert.Equal(PublicKeyTemplates.All.Count, PublicKeyTemplates.All.Distinct(StringComparer.Ordinal).Count());
@@ -109,7 +111,8 @@ public sealed class PublicKeySampleTests
         Assert.True(expired.NotAfter.ToUniversalTime() < PkiSamples.Now.UtcDateTime);
         using var kdc = X509CertificateLoader.LoadCertificate(Bytes(session, builder.DomainControllerDn, "userCertificate").Single());
         Assert.Contains(PkiSamples.KdcAuthentication, Ekus(kdc));
-        Assert.Single(Bytes(session, sample.Contact!, "userCertificate"));
+        using var zofia = X509CertificateLoader.LoadCertificate(Bytes(session, sample.Contact!, "userCertificate").Single());
+        Assert.True(zofia.NotAfter <= PkiSamples.IssuingCa.NotAfter, "AD CS never issues past the CA's own expiry.");
         Assert.Single(Bytes(session, company.JanKowalski, "userPKCS12"));
 
         var link = session.GetValues(company.JanKowalski, "msDS-KeyCredentialLink").Single();
@@ -146,15 +149,49 @@ public sealed class PublicKeySampleTests
         Assert.True(chain.Build(ldaps), string.Join(", ", chain.ChainStatus.Select(s => s.Status)));
         Assert.Equal("6100", ldaps.SerialNumber);
 
+        using var kra = X509CertificateLoader.LoadCertificate(PkiSamples.KraDer());
+        Assert.True(kra.NotAfter <= issuing.NotAfter, "AD CS never issues past the CA's own expiry.");
+        using var kdc = X509CertificateLoader.LoadCertificate(PkiSamples.DcKdcDer());
+        Assert.True(kdc.NotAfter <= issuing.NotAfter);
+        Assert.True(ldaps.NotAfter <= issuing.NotAfter);
+
         using var server = PkiSamples.ServerCertificate();
         Assert.True(server.HasPrivateKey);
         Assert.Contains(PkiSamples.ServerAuthentication, Ekus(server));
     }
 
     [Fact]
-    public void Crls_TheDeltaIndicator_AndTheCrlWithoutNextUpdate()
+    public void TheFixedCertificates_AreTheSameBytesOnEveryCall()
+    {
+        Assert.Equal(PkiSamples.DcLdapsDer(), PkiSamples.DcLdapsDer());
+        Assert.Equal(PkiSamples.DcKdcDer(), PkiSamples.DcKdcDer());
+        Assert.Equal(PkiSamples.KraDer(), PkiSamples.KraDer());
+        var notBefore = new DateTimeOffset(2025, 10, 30, 8, 0, 0, TimeSpan.Zero);
+        var notAfter = new DateTimeOffset(2026, 10, 30, 8, 0, 0, TimeSpan.Zero);
+        var jan = PkiSamples.UserCertificateDer("Jan Kowalski", "jan.kowalski@contoso.test", null, 0x6300, notBefore, notAfter);
+        Assert.Equal(jan, PkiSamples.UserCertificateDer("Jan Kowalski", "jan.kowalski@contoso.test", null, 0x6300, notBefore, notAfter));
+        Assert.NotEqual(jan, PkiSamples.UserCertificateDer("Jan Kowalski", "jan.kowalski@contoso.test", null, 0x6399, notBefore, notAfter));
+
+        // A copy per call: a test that changes the bytes does not change the sample.
+        var kra = PkiSamples.KraDer();
+        kra[^1] ^= 0xFF;
+        Assert.NotEqual(kra, PkiSamples.KraDer());
+
+        var (builder, _, sample) = Create();
+        Assert.Equal(PkiSamples.KraDer(), Bytes(builder.Session, sample.KraAgent, "userCertificate").Single());
+        Assert.Equal(PkiSamples.DcKdcDer(), Bytes(builder.Session, builder.DomainControllerDn, "userCertificate").Single());
+    }
+
+    [Fact]
+    public void Crls_TheDeltaIndicator_TheFreshestCrl_AndTheCrlWithoutNextUpdate()
     {
         Assert.Equal(new BigInteger(42), CrlNumber(PkiSamples.IssuingCrlDer()));
+        var issuingBase = TbsExtensions(PkiSamples.IssuingCrlDer(), out _);
+        Assert.Contains(PkiSamples.FreshestCrlOid, issuingBase);
+        Assert.DoesNotContain("2.5.29.27", issuingBase);
+        Assert.Equal([PkiSamples.IssuingDeltaCrlHttpUrl], FreshestCrlUrls(PkiSamples.IssuingCrlDer()));
+        Assert.Equal(PkiSamples.IssuingCrlDer(), PkiSamples.IssuingCrlDer());
+        Assert.DoesNotContain(PkiSamples.FreshestCrlOid, TbsExtensions(PkiSamples.RootCrlDer(), out _));
 
         var delta = TbsExtensions(PkiSamples.IssuingDeltaCrlDer(), out var deltaNext);
         Assert.Contains("2.5.29.27", delta);
@@ -193,6 +230,53 @@ public sealed class PublicKeySampleTests
     {
         _ = CertificateRevocationListBuilder.Load(crl, out var number);
         return number;
+    }
+
+    /// <summary>The URIs of the Freshest CRL extension of a DER CRL (CRLDistributionPoints syntax, full names only).</summary>
+    private static List<string> FreshestCrlUrls(byte[] crl)
+    {
+        var tbs = new AsnReader(crl, AsnEncodingRules.DER).ReadSequence().ReadSequence();
+        var extensions = default(AsnReader);
+        while (tbs.HasData)
+        {
+            var tag = tbs.PeekTag();
+            if (tag.TagClass == TagClass.ContextSpecific && tag.TagValue == 0)
+            {
+                extensions = tbs.ReadSequence(new Asn1Tag(TagClass.ContextSpecific, 0)).ReadSequence();
+                break;
+            }
+
+            tbs.ReadEncodedValue();
+        }
+
+        var urls = new List<string>();
+        while (extensions is { HasData: true })
+        {
+            var extension = extensions.ReadSequence();
+            if (extension.ReadObjectIdentifier() != PkiSamples.FreshestCrlOid)
+            {
+                continue;
+            }
+
+            if (extension.PeekTag().HasSameClassAndValue(Asn1Tag.Boolean))
+            {
+                extension.ReadBoolean();
+            }
+
+            var points = new AsnReader(extension.ReadOctetString(), AsnEncodingRules.DER).ReadSequence();
+            while (points.HasData)
+            {
+                var point = points.ReadSequence();
+                var name = point.ReadSequence(new Asn1Tag(TagClass.ContextSpecific, 0, isConstructed: true));
+                var fullName = name.ReadSequence(new Asn1Tag(TagClass.ContextSpecific, 0, isConstructed: true));
+                while (fullName.HasData)
+                {
+                    urls.Add(fullName.ReadCharacterString(UniversalTagNumber.IA5String, new Asn1Tag(TagClass.ContextSpecific, 6)));
+                }
+            }
+        }
+
+        return urls;
     }
 
     /// <summary>The extension OIDs and nextUpdate of a DER CRL.</summary>

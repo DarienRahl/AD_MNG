@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Formats.Asn1;
 using System.Numerics;
 using System.Security.Cryptography;
@@ -60,6 +61,9 @@ public sealed record PkiCertificateOptions
 
     public IReadOnlyList<string>? CrlDistributionPoints { get; init; }
 
+    /// <summary>Freshest CRL URLs (<c>2.5.29.46</c>, the delta CRL location; empty: no extension).</summary>
+    public IReadOnlyList<string> FreshestCrl { get; init; } = [];
+
     /// <summary>Use an RSA 2048 key instead of ECDSA P-256 (CAs).</summary>
     public bool Rsa { get; init; }
 }
@@ -69,10 +73,14 @@ public sealed record PkiCertificateOptions
 /// PKI of <see cref="FakeDirectoryBuilder.AddPublicKeySample"/> – the enterprise root <see cref="RootCaName"/> and the
 /// issuing <see cref="IssuingCaName"/> (RSA 2048), the DC's LDAPS and KDC certificates, the KRA agent, user certificates,
 /// base and delta CRLs – generated in memory with <see cref="CertificateRequest"/> and
-/// <see cref="CertificateRevocationListBuilder"/> (the delta and the CRL without <c>nextUpdate</c> are encoded with
-/// <see cref="AsnWriter"/>: the builder writes neither). Fixed dates around the fake clock <see cref="Now"/>, deterministic
-/// serial numbers, Polish names with diacritics; never written to disk or a certificate store. The CA certificates are
-/// created once per test process (their keys are random, so their DER differs between processes, never within one).
+/// <see cref="CertificateRevocationListBuilder"/> (the issuing base CRL with its Freshest CRL, the delta and the CRL without
+/// <c>nextUpdate</c> are encoded with <see cref="AsnWriter"/>: the builder writes none of these). Fixed dates around the fake
+/// clock <see cref="Now"/>, deterministic serial numbers, Polish names with diacritics; never written to disk or a
+/// certificate store. The CA certificates and the fixed end-entity certificates (<see cref="DcLdapsDer"/>,
+/// <see cref="DcKdcDer"/>, <see cref="KraDer"/>, <see cref="UserCertificateDer"/> per argument set) are created once per test
+/// process – their keys are random, so their DER and thumbprints differ between processes, never within one; every call
+/// returns a fresh copy of the bytes. <see cref="Issue"/>, <see cref="IssueDer"/> and <see cref="ServerCertificate"/> make a
+/// new key on every call.
 /// </summary>
 public static class PkiSamples
 {
@@ -129,6 +137,7 @@ public static class PkiSamples
 
     public static string IssuingCrlHttpUrl => "http://pki.contoso.test/CertEnroll/" + Url(Sanitized(IssuingCaName)) + ".crl";
 
+    /// <summary>The delta CRL of the issuing CA (certutil's <c>%9</c> suffix <c>+</c>): the Freshest CRL of <see cref="IssuingCrlDer"/>.</summary>
     public static string IssuingDeltaCrlHttpUrl => "http://pki.contoso.test/CertEnroll/" + Url(Sanitized(IssuingCaName)) + "+.crl";
 
     public static string IssuingCrtHttpUrl => "http://pki.contoso.test/CertEnroll/" + IssuingCaHost + "_" + Url(Sanitized(IssuingCaName)) + ".crt";
@@ -162,6 +171,43 @@ public static class PkiSamples
     /// </summary>
     public static X509Certificate2 IssuingCa => LazyIssuing.Value;
 
+    private static readonly Lazy<byte[]> LazyDcLdaps = new(() => IssueDer(new PkiCertificateOptions
+    {
+        CommonName = DcHost,
+        SerialNumber = 0x6100,
+        NotBefore = new(2026, 1, 10, 8, 0, 0, TimeSpan.Zero),
+        NotAfter = new(2027, 1, 10, 8, 0, 0, TimeSpan.Zero),
+        Ekus = [ServerAuthentication, ClientAuthentication],
+        DnsNames = [DcHost, DomainDns],
+        TemplateName = "DomainController",
+        Issuer = IssuingCa,
+    }));
+
+    private static readonly Lazy<byte[]> LazyDcKdc = new(() => IssueDer(new PkiCertificateOptions
+    {
+        CommonName = DcHost,
+        SerialNumber = 0x6101,
+        NotBefore = new(2026, 2, 1, 8, 0, 0, TimeSpan.Zero),
+        NotAfter = new(2027, 2, 1, 8, 0, 0, TimeSpan.Zero),
+        Ekus = [ClientAuthentication, ServerAuthentication, SmartCardLogon, KdcAuthentication],
+        DnsNames = [DcHost, DomainDns, "CONTOSO"],
+        TemplateOid = ForestOid + ".1.20",
+        Issuer = IssuingCa,
+    }));
+
+    private static readonly Lazy<byte[]> LazyKra = new(() => IssueDer(new PkiCertificateOptions
+    {
+        CommonName = "Agent odzyskiwania kluczy Kontoso",
+        SerialNumber = 0x6200,
+        NotBefore = new(2026, 3, 1, 8, 0, 0, TimeSpan.Zero),
+        NotAfter = new(2027, 2, 1, 8, 0, 0, TimeSpan.Zero),
+        Ekus = [KeyRecoveryAgent],
+        TemplateOid = ForestOid + ".1.21",
+        Issuer = IssuingCa,
+    }));
+
+    private static readonly ConcurrentDictionary<(string CommonName, string Upn, string? Sid, long Serial, DateTimeOffset NotBefore, DateTimeOffset NotAfter), byte[]> UserCertificates = new();
+
     public static byte[] RootCaDer => RootCa.RawData;
 
     public static byte[] IssuingCaDer => IssuingCa.RawData;
@@ -173,74 +219,56 @@ public static class PkiSamples
     /// The DC's LDAPS certificate (issued by <see cref="IssuingCa"/>, SAN <see cref="DcHost"/> and <see cref="DomainDns"/>,
     /// Server + Client Authentication, template <c>DomainController</c>; 2026-01-10 – 2027-01-10).
     /// </summary>
-    public static byte[] DcLdapsDer() => IssueDer(new PkiCertificateOptions
-    {
-        CommonName = DcHost,
-        SerialNumber = 0x6100,
-        NotBefore = new(2026, 1, 10, 8, 0, 0, TimeSpan.Zero),
-        NotAfter = new(2027, 1, 10, 8, 0, 0, TimeSpan.Zero),
-        Ekus = [ServerAuthentication, ClientAuthentication],
-        DnsNames = [DcHost, DomainDns],
-        TemplateName = "DomainController",
-        Issuer = IssuingCa,
-    });
+    public static byte[] DcLdapsDer() => [.. LazyDcLdaps.Value];
 
     /// <summary>
     /// The DC's KDC certificate published on its object (template <c>KerberosAuthentication</c>: KDC Authentication,
     /// Smart-Card Logon, Client and Server Authentication; issuer in NTAuth; 2026-02-01 – 2027-02-01).
     /// </summary>
-    public static byte[] DcKdcDer() => IssueDer(new PkiCertificateOptions
-    {
-        CommonName = DcHost,
-        SerialNumber = 0x6101,
-        NotBefore = new(2026, 2, 1, 8, 0, 0, TimeSpan.Zero),
-        NotAfter = new(2027, 2, 1, 8, 0, 0, TimeSpan.Zero),
-        Ekus = [ClientAuthentication, ServerAuthentication, SmartCardLogon, KdcAuthentication],
-        DnsNames = [DcHost, DomainDns, "CONTOSO"],
-        TemplateOid = ForestOid + ".1.20",
-        Issuer = IssuingCa,
-    });
+    public static byte[] DcKdcDer() => [.. LazyDcKdc.Value];
 
-    /// <summary>The key recovery agent of <c>CN=KRA</c> (Agent odzyskiwania kluczy; 2026-03-01 – 2028-03-01).</summary>
-    public static byte[] KraDer() => IssueDer(new PkiCertificateOptions
-    {
-        CommonName = "Agent odzyskiwania kluczy Kontoso",
-        SerialNumber = 0x6200,
-        NotBefore = new(2026, 3, 1, 8, 0, 0, TimeSpan.Zero),
-        NotAfter = new(2028, 3, 1, 8, 0, 0, TimeSpan.Zero),
-        Ekus = [KeyRecoveryAgent],
-        TemplateOid = ForestOid + ".1.21",
-        Issuer = IssuingCa,
-    });
+    /// <summary>
+    /// The key recovery agent of <c>CN=KRA</c> (Agent odzyskiwania kluczy; 2026-03-01 – 2027-02-01, within its issuer's
+    /// validity).
+    /// </summary>
+    public static byte[] KraDer() => [.. LazyKra.Value];
 
     /// <summary>
     /// A user certificate published on an account (issued by <see cref="IssuingCa"/>, template <c>User</c>, Client
     /// Authentication, secure e-mail, EFS, the UPN and e-mail in the SAN, the SID in the SAN URL and the security extension).
+    /// Created once per argument set and process: the same arguments give the same DER.
     /// </summary>
-    public static byte[] UserCertificateDer(string commonName, string upn, string? sid, long serialNumber, DateTimeOffset notBefore, DateTimeOffset notAfter) =>
-        IssueDer(new PkiCertificateOptions
+    public static byte[] UserCertificateDer(string commonName, string upn, string? sid, long serialNumber, DateTimeOffset notBefore, DateTimeOffset notAfter)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(commonName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(upn);
+        var der = UserCertificates.GetOrAdd((commonName, upn, sid, serialNumber, notBefore, notAfter), key => IssueDer(new PkiCertificateOptions
         {
-            CommonName = commonName,
-            SerialNumber = serialNumber,
-            NotBefore = notBefore,
-            NotAfter = notAfter,
+            CommonName = key.CommonName,
+            SerialNumber = key.Serial,
+            NotBefore = key.NotBefore,
+            NotAfter = key.NotAfter,
             Ekus = [EncryptingFileSystem, SecureEmail, ClientAuthentication],
-            Upn = upn,
-            Email = upn,
-            Sid = sid,
+            Upn = key.Upn,
+            Email = key.Upn,
+            Sid = key.Sid,
             TemplateName = "User",
             Issuer = IssuingCa,
-        });
+        }));
+        return [.. der];
+    }
 
     /// <summary>The base CRL of <see cref="RootCa"/> (CRL number 7, 2026-06-01 – 2027-06-01, nothing revoked).</summary>
     public static byte[] RootCrlDer() => BuildCrl(RootCa, 7, new(2026, 6, 1, 8, 0, 0, TimeSpan.Zero), new(2027, 6, 1, 8, 0, 0, TimeSpan.Zero), []);
 
     /// <summary>
     /// The base CRL of <see cref="IssuingCa"/> (CRL number 42, 2026-10-10 – 2026-10-17 12:00: OK at <see cref="Now"/>, two
-    /// revoked serials).
+    /// revoked serials; Freshest CRL = <see cref="IssuingDeltaCrlHttpUrl"/>, as AD CS writes it for a CDP URL marked
+    /// <i>Include in CRLs. Clients use this to find Delta CRL locations</i>).
     /// </summary>
-    public static byte[] IssuingCrlDer() => BuildCrl(IssuingCa, 42, new(2026, 10, 10, 0, 0, 0, TimeSpan.Zero), new(2026, 10, 17, 12, 0, 0, TimeSpan.Zero),
-        [(Serial(0x5001), new(2026, 8, 1, 10, 0, 0, TimeSpan.Zero)), (Serial(0x5002), new(2026, 9, 15, 10, 0, 0, TimeSpan.Zero))]);
+    public static byte[] IssuingCrlDer() => EncodeCrl(IssuingCa, 42, new(2026, 10, 10, 0, 0, 0, TimeSpan.Zero), new(2026, 10, 17, 12, 0, 0, TimeSpan.Zero),
+        deltaBaseCrlNumber: null, [(Serial(0x5001), new(2026, 8, 1, 10, 0, 0, TimeSpan.Zero)), (Serial(0x5002), new(2026, 9, 15, 10, 0, 0, TimeSpan.Zero))],
+        freshestCrl: [IssuingDeltaCrlHttpUrl]);
 
     /// <summary>
     /// The delta CRL of <see cref="IssuingCa"/> (CRL number 43, Delta CRL Indicator 42, 2026-10-12 – 2026-10-14 00:00: less than
@@ -347,6 +375,11 @@ public static class PkiSamples
             request.CertificateExtensions.Add(CertificateRevocationListBuilder.BuildCrlDistributionPointExtension(cdp, critical: false));
         }
 
+        if (options.FreshestCrl.Count > 0)
+        {
+            request.CertificateExtensions.Add(new X509Extension(FreshestCrlOid, FreshestCrlValue(options.FreshestCrl), critical: false));
+        }
+
         if (options.Issuer is { } issuer)
         {
             // The generator overload: the issuer may have another key type than the subject, and a test may want a
@@ -418,8 +451,9 @@ public static class PkiSamples
 
     /// <summary>
     /// A CRL encoded by hand (RFC 5280 5.1, signed with the issuer's RSA key): what the builder cannot write – a missing
-    /// <paramref name="nextUpdate"/> and the Delta CRL Indicator (<c>2.5.29.27</c>, critical) of a delta CRL. Extensions: AKI
-    /// (the issuer's SKI), CRL number, and the indicator when <paramref name="deltaBaseCrlNumber"/> is given.
+    /// <paramref name="nextUpdate"/>, the Delta CRL Indicator (<c>2.5.29.27</c>, critical) of a delta CRL and the Freshest CRL
+    /// (<c>2.5.29.46</c>) of a base CRL. Extensions: AKI (the issuer's SKI), CRL number, the indicator when
+    /// <paramref name="deltaBaseCrlNumber"/> is given, the Freshest CRL when <paramref name="freshestCrl"/> has URLs.
     /// </summary>
     public static byte[] EncodeCrl(
         X509Certificate2 issuer,
@@ -427,7 +461,8 @@ public static class PkiSamples
         DateTimeOffset thisUpdate,
         DateTimeOffset? nextUpdate,
         long? deltaBaseCrlNumber,
-        IReadOnlyList<(byte[] Serial, DateTimeOffset RevokedAt)> revoked)
+        IReadOnlyList<(byte[] Serial, DateTimeOffset RevokedAt)> revoked,
+        IReadOnlyList<string>? freshestCrl = null)
     {
         ArgumentNullException.ThrowIfNull(issuer);
         ArgumentNullException.ThrowIfNull(revoked);
@@ -472,6 +507,12 @@ public static class PkiSamples
         if (deltaBaseCrlNumber is { } baseNumber)
         {
             WriteExtension(tbs, "2.5.29.27", critical: true, w => w.WriteInteger(baseNumber));
+        }
+
+        if (freshestCrl is { Count: > 0 })
+        {
+            var value = FreshestCrlValue(freshestCrl);
+            WriteExtension(tbs, FreshestCrlOid, critical: false, w => w.WriteEncodedValue(value));
         }
 
         tbs.PopSequence();
@@ -561,6 +602,13 @@ public static class PkiSamples
         "http://pki.contoso.test/CertEnroll/Kontoso%20Wystawiaj!0105cy%20CA.crl", "S-1-5-21-3623811015-3361044348-30300820-1103",
         "Polityka wysokiej pewności", "GG_Księgowość_Certyfikaty", "Łukasz Wiśniewski", "Żółć-Gęślą-Jaźń",
     ];
+
+    /// <summary>The Freshest CRL extension (RFC 5280 4.2.1.15, 5.2.6).</summary>
+    public const string FreshestCrlOid = "2.5.29.46";
+
+    /// <summary>The value of a Freshest CRL extension: CRLDistributionPoints syntax, as the CDP extension.</summary>
+    private static byte[] FreshestCrlValue(IEnumerable<string> urls) =>
+        CertificateRevocationListBuilder.BuildCrlDistributionPointExtension(urls, critical: false).RawData;
 
     private static X509Certificate2 CreateCa(string name, long serial, DateTimeOffset notBefore, DateTimeOffset notAfter, RSA key, X509Certificate2? issuer, RSA? issuerKey, int? pathLength)
     {

@@ -129,6 +129,43 @@ public sealed class PkiContractTests
     }
 
     [Fact]
+    public async Task DocumentBase_SessionEndingDuringALoad_StopsTheSpinner()
+    {
+        var harness = await PkiHarness.CreateAsync(CultureInfo.GetCultureInfo("en-US"));
+        using var document = new ProbeDocument(harness.Services) { Gate = new TaskCompletionSource() };
+
+        var load = document.RefreshAsync();
+        Assert.True(document.IsLoading);
+        Assert.True(document.Refreshing);
+
+        // The session change starts a new load (cancelling the running one), which finds no session.
+        await harness.B2.Sessions.DisconnectAsync();
+        await load;
+
+        Assert.False(document.IsLoading);
+        Assert.False(document.Refreshing);
+        Assert.False(document.HasSession);
+        Assert.Equal(harness.B2.Localizer[L.Errors.NotConnected], document.Error);
+        Assert.Equal(0, document.Loads);
+    }
+
+    [Theory]
+    [InlineData(typeof(UnauthorizedAccessException))]
+    [InlineData(typeof(System.Security.Cryptography.CryptographicException))]
+    [InlineData(typeof(FormatException))]
+    [InlineData(typeof(TimeoutException))]
+    public async Task DocumentBase_TurnsParsingAndAccessFailures_IntoAnError(Type failure)
+    {
+        var harness = await PkiHarness.CreateAsync();
+        using var document = new ProbeDocument(harness.Services) { Fail = (Exception)Activator.CreateInstance(failure)! };
+
+        await document.LoadAsync();
+
+        Assert.True(document.HasError);
+        Assert.False(document.IsLoading);
+    }
+
+    [Fact]
     public void Settings_DefaultToThirtyAndHundredEightyDays_AndClamp()
     {
         var settings = new AppSettings();
@@ -168,21 +205,30 @@ public sealed class PkiContractTests
 
         public Exception? Fail { get; set; }
 
+        /// <summary>Holds the load until set (or cancelled).</summary>
+        public TaskCompletionSource? Gate { get; init; }
+
+        public bool Refreshing => IsRefresh;
+
         public override string Title => "Probe";
 
         public override ObjectIcon Icon => ObjectIcon.Certificate;
 
-        protected override Task LoadCoreAsync(IDirectorySession session, CancellationToken cancellationToken)
+        protected override async Task LoadCoreAsync(IDirectorySession session, CancellationToken cancellationToken)
         {
             if (Fail is { } failure)
             {
                 throw failure;
             }
 
+            if (Gate is { } gate)
+            {
+                await gate.Task.WaitAsync(cancellationToken);
+            }
+
             Loads++;
             LastWasRefresh = IsRefresh;
             LoadedText = Loads.ToString(CultureInfo.InvariantCulture);
-            return Task.CompletedTask;
         }
 
         protected override void OnSettingsChanged() => SettingsChanges++;

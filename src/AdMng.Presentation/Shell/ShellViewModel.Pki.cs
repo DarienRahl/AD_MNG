@@ -18,6 +18,16 @@ public sealed partial class ShellViewModel
     /// <summary>The open PKI tabs.</summary>
     public IEnumerable<PkiDocumentBase> PkiDocuments => Documents.OfType<PkiDocumentBase>();
 
+    /// <summary>
+    /// The PKI document the window is on (P1, docs/dev/p-certificate-services.md 2.5): the active PKI tab, null when none.
+    /// W5 adds the arms its palette commands need (the selected template or CA of the active document).
+    /// </summary>
+    public PkiDocumentBase? ActivePki() => SelectedTab switch
+    {
+        PkiDocumentBase pki => pki,
+        _ => null,
+    };
+
     /// <summary>The commands whose CanExecute depends on the session or the PKI services (W5).</summary>
     private IRelayCommand[] PkiStateCommands => [];
 

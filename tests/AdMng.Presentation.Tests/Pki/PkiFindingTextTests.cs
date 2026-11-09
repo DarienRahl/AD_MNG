@@ -3,6 +3,8 @@ using System.Resources;
 using System.Text.RegularExpressions;
 using AdMng.Core.Pki;
 using AdMng.Core.Pki.Tls;
+using AdMng.Core.PrivilegedAccess;
+using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Pki;
 
@@ -106,6 +108,49 @@ public sealed partial class PkiFindingTextTests
             "Szablon Użytkownik-VPN-Podatny: podmiot dostarcza wnioskujący, a certyfikat pozwala na uwierzytelnianie klienta; rejestrować się może: Użytkownicy domeny (kont: 12).",
             PkiFindingText.Message(l, new PkiFinding(PkiFindingCodes.EnrolleeSuppliesSubjectClientAuth, PkiFindingSeverity.Critical, PkiFindingArea.Template, null,
                 ["Użytkownik-VPN-Podatny", "Użytkownicy domeny", "12"])));
+    }
+
+    [Fact]
+    public void Message_ShowsTheEnumNamesOfCore_ThroughTheirResources()
+    {
+        var pl = new ResxLocalizer(CultureInfo.GetCultureInfo("pl-PL"));
+
+        var esc4 = new PkiFinding(PkiFindingCodes.TemplateWriteable, PkiFindingSeverity.Critical, PkiFindingArea.Template, null,
+            ["Użytkownik-VPN-Podatny", "Użytkownicy domeny", string.Join(PkiFindingCodes.ListSeparator, nameof(TemplateRight.WriteSensitiveProperty), nameof(TemplateRight.WriteDacl))]);
+        Assert.Equal(
+            "Szablon Użytkownik-VPN-Podatny: może go zmienić Użytkownicy domeny (Zapis właściwości istotnej dla bezpieczeństwa, Modyfikowanie uprawnień).",
+            PkiFindingText.Message(pl, esc4));
+
+        var esc5 = new PkiFinding(PkiFindingCodes.PkiObjectWriteable, PkiFindingSeverity.Critical, PkiFindingArea.PkiObject, null,
+            ["NTAuthCertificates", "GG_Księgowość_Certyfikaty", "GenericAll,WriteOwner"]);
+        Assert.Equal(
+            $"NTAuthCertificates: może go zmienić GG_Księgowość_Certyfikaty ({pl[PrivilegedAccessText.AclRightKey(AclRight.GenericAll)]}, {pl[PrivilegedAccessText.AclRightKey(AclRight.WriteOwner)]}).",
+            PkiFindingText.Message(pl, esc5));
+
+        var mapping = new PkiFinding(PkiFindingCodes.WeakExplicitMapping, PkiFindingSeverity.High, PkiFindingArea.Account, null,
+            ["Administrator", "X509IssuerSubject, X509Rfc822", string.Empty]);
+        Assert.Contains("Administrator: Wystawca i podmiot, Adres e-mail (RFC822)", PkiFindingText.Message(pl, mapping), StringComparison.Ordinal);
+        Assert.Equal(
+            pl[PrivilegedAccessText.AclRightKey(AclRight.WriteAltSecurityIdentities)],
+            PkiFindingText.Argument(pl, PkiFindingCodes.WeakExplicitMapping, 1, nameof(AclRight.WriteAltSecurityIdentities)));
+
+        // Names of no family, numbers and the other arguments stay as given; so does every argument of the other codes.
+        Assert.Equal("Coś, 5", PkiFindingText.Argument(pl, PkiFindingCodes.TemplateWriteable, 2, "Coś, 5"));
+        Assert.Equal("WriteDacl", PkiFindingText.Argument(pl, PkiFindingCodes.TemplateWriteable, 1, "WriteDacl"));
+        Assert.Equal("WriteDacl", PkiFindingText.Argument(pl, PkiFindingCodes.EnrolleeSuppliesSubjectClientAuth, 2, "WriteDacl"));
+        Assert.Equal(string.Empty, PkiFindingText.Argument(pl, PkiFindingCodes.WeakExplicitMapping, 1, string.Empty));
+    }
+
+    [Fact]
+    public void ReadNotices_AndMappingKinds_AreSharedNames()
+    {
+        var pl = new ResxLocalizer(CultureInfo.GetCultureInfo("pl-PL"));
+        var keys = PkiTextKeys.AllKeys().ToHashSet(StringComparer.Ordinal);
+
+        Assert.All(Enum.GetValues<PkiReadNoticeCode>(), code => Assert.Contains(PkiTextKeys.NoticeKey(code), keys));
+        Assert.All(Enum.GetValues<AltSecurityIdentityKind>(), kind => Assert.Contains(PkiTextKeys.MappingKindKey(kind), keys));
+        Assert.Equal("Wystawca i numer seryjny", pl[PkiTextKeys.MappingKindKey(AltSecurityIdentityKind.X509IssuerSerial)]);
+        Assert.StartsWith("Obiekt PKI jest niewidoczny", pl[PkiTextKeys.NoticeKey(PkiReadNoticeCode.ContainerMissing)], StringComparison.Ordinal);
     }
 
     [GeneratedRegex(@"\{(\d+)\}")]

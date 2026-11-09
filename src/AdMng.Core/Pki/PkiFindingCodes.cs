@@ -26,11 +26,19 @@ public sealed record PkiFindingDefinition(
 /// <summary>
 /// The codes of the AD CS security review (docs/dev/p-certificate-services.md 2.4) – stable ids the UI localizes
 /// (<c>PkiFinding.&lt;Code&gt;.Title|Message|Explanation|Recommendation</c>, 2.8). The comment of each code lists its
-/// <see cref="PkiFinding.Arguments"/> in order; the principals themselves are in <see cref="PkiFinding.Principals"/>.
-/// All eleven are LDAP-only; ESC6/7/8/10/11/16 are P4 and ESC12 is out of scope.
+/// <see cref="PkiFinding.Arguments"/> in order; the principals themselves are in <see cref="PkiFinding.Principals"/>. List
+/// arguments are joined with <see cref="ListSeparator"/>; a list of rights or mapping kinds holds <b>enum names</b> (Core
+/// cannot localize – the UI shows each through its resource family). All eleven are LDAP-only; ESC6/7/8/10/11/16 are P4 and
+/// ESC12 is out of scope.
 /// </summary>
 public static class PkiFindingCodes
 {
+    /// <summary>
+    /// Joins the items of a list argument (principals, rights, mapping kinds). A property, not a constant: every constant of
+    /// this class is a code.
+    /// </summary>
+    public static string ListSeparator => ", ";
+
     /// <summary>
     /// ESC1: the enrollee supplies the subject, the template allows client authentication and a broad or other trustee can
     /// enroll. Arguments: the template's name, the enrolling principals (comma separated), the number of accounts.
@@ -51,19 +59,22 @@ public static class PkiFindingCodes
 
     /// <summary>
     /// ESC3 (condition 2): a schema-2+ template that requires one enrollment-agent signature and allows client
-    /// authentication, enrollable. Arguments: the template's name, the enrolling principals, the number of accounts.
+    /// authentication, enrollable. Only manager approval suppresses it (<see cref="PkiApprovalEffect.ManagerApprovalSuppresses"/>:
+    /// the signature is the condition). Arguments: the template's name, the enrolling principals, the number of accounts.
     /// </summary>
     public const string EnrollmentAgentTargetTemplate = nameof(EnrollmentAgentTargetTemplate);
 
     /// <summary>
     /// ESC4: a broad or other trustee may change the template (full control, DACL, owner, all or sensitive properties).
-    /// Arguments: the template's name, the principals, the rights (comma separated).
+    /// Arguments: the template's name, the principals, the rights – <see cref="TemplateRight"/> names (the UI shows
+    /// <c>PkiTpl.Right.&lt;name&gt;</c>).
     /// </summary>
     public const string TemplateWriteable = nameof(TemplateWriteable);
 
     /// <summary>
     /// ESC5: a broad or other trustee may change a PKI container, NTAuth, an OID object, an enrollment service, a CA / AIA /
-    /// CDP object or a CA computer. Arguments: the object's name, the principals, the rights (comma separated).
+    /// CDP object or a CA computer. Arguments: the object's name, the principals, the rights –
+    /// <see cref="PrivilegedAccess.AclRight"/> names (the UI shows <c>PrivilegedAccess.AclRight.&lt;name&gt;</c>).
     /// </summary>
     public const string PkiObjectWriteable = nameof(PkiObjectWriteable);
 
@@ -82,7 +93,9 @@ public static class PkiFindingCodes
     /// <summary>
     /// ESC14: a weak explicit mapping on an account (a Tier 0 account, or the aggregated count of the others), or a broad or
     /// other trustee may write <c>altSecurityIdentities</c> of a Tier 0 account. Arguments: the account's name (or the
-    /// number of accounts of the aggregated finding), the mapping kinds or the rights, the principals (empty for a mapping).
+    /// number of accounts of the aggregated finding), the weak mapping kinds – <see cref="AltSecurityIdentityKind"/> names
+    /// (<c>Cert.MappingKind.&lt;name&gt;</c>) – or the rights – <see cref="PrivilegedAccess.AclRight"/> names, the principals
+    /// (empty for a mapping).
     /// </summary>
     public const string WeakExplicitMapping = nameof(WeakExplicitMapping);
 
@@ -104,7 +117,7 @@ public static class PkiFindingCodes
         new(EnrolleeSuppliesSubjectClientAuth, "ESC1", PkiFindingSeverity.Critical, PkiFindingArea.Template, PkiRuleGroup.Enrollment, PkiApprovalEffect.Suppresses, "ESC1", null),
         new(AnyPurposeOrNoEku, "ESC2", PkiFindingSeverity.Critical, PkiFindingArea.Template, PkiRuleGroup.Enrollment, PkiApprovalEffect.Suppresses, "ESC2", null),
         new(EnrollmentAgentTemplate, "ESC3", PkiFindingSeverity.Critical, PkiFindingArea.Template, PkiRuleGroup.Enrollment, PkiApprovalEffect.Suppresses, "ESC3", null),
-        new(EnrollmentAgentTargetTemplate, "ESC3", PkiFindingSeverity.High, PkiFindingArea.Template, PkiRuleGroup.Enrollment, PkiApprovalEffect.Suppresses, "ESC3", null),
+        new(EnrollmentAgentTargetTemplate, "ESC3", PkiFindingSeverity.High, PkiFindingArea.Template, PkiRuleGroup.Enrollment, PkiApprovalEffect.ManagerApprovalSuppresses, "ESC3", null),
         new(TemplateWriteable, "ESC4", PkiFindingSeverity.Critical, PkiFindingArea.Template, PkiRuleGroup.AccessControl, PkiApprovalEffect.Never, "ESC4", null),
         new(PkiObjectWriteable, "ESC5", PkiFindingSeverity.Critical, PkiFindingArea.PkiObject, PkiRuleGroup.AccessControl, PkiApprovalEffect.Never, "ESC5", null),
         new(NoSecurityExtensionClientAuth, "ESC9", PkiFindingSeverity.High, PkiFindingArea.Template, PkiRuleGroup.Enrollment, PkiApprovalEffect.Lowers, "ESC9", null),

@@ -89,6 +89,11 @@ public sealed class PkiContractTests
         Assert.Equal("ESC15/EKUwu", PkiFindingCodes.Find(PkiFindingCodes.SchemaV1EnrolleeSuppliesSubject).Locksmith);
         Assert.Equal(PkiApprovalEffect.Lowers, PkiFindingCodes.Find(PkiFindingCodes.NoSecurityExtensionClientAuth).Approval);
         Assert.Equal(PkiApprovalEffect.Never, PkiFindingCodes.Find(PkiFindingCodes.TemplateWriteable).Approval);
+        Assert.Equal(PkiApprovalEffect.Suppresses, PkiFindingCodes.Find(PkiFindingCodes.EnrollmentAgentTemplate).Approval);
+
+        // ESC3 condition 2: the authorized signature is the condition itself, only manager approval suppresses it (2.4).
+        Assert.Equal(PkiApprovalEffect.ManagerApprovalSuppresses, PkiFindingCodes.Find(PkiFindingCodes.EnrollmentAgentTargetTemplate).Approval);
+        Assert.Equal([PkiFindingCodes.EnrollmentAgentTargetTemplate], PkiFindingCodes.All.Where(d => d.Approval == PkiApprovalEffect.ManagerApprovalSuppresses).Select(d => d.Code));
         Assert.Throws<KeyNotFoundException>(() => PkiFindingCodes.Find("ESC8"));
     }
 
