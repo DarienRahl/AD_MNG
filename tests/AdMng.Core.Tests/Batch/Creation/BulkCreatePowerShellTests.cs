@@ -4,6 +4,7 @@ using AdMng.Core.Model;
 using AdMng.Core.Schema;
 using AdMng.Core.Security;
 using AdMng.Testing;
+using AdMng.Testing.BulkCreate;
 
 namespace AdMng.Core.Tests.Batch.Creation;
 
@@ -343,4 +344,52 @@ public sealed class BulkCreatePowerShellTests
 
     [Fact]
     public void For_RejectsNull() => Assert.Throws<ArgumentNullException>(() => BulkCreatePowerShell.For(null!));
+
+    /// <summary>
+    /// The operator scenario end to end (B1 reader and synonyms, B2 planner, B1 equivalent and exporter): the plan of five
+    /// numbered accounts exports as five <c>New-ADUser</c> commands with a password prompt and without any password.
+    /// </summary>
+    [Fact(Skip = "F3 wave 1 merge")]
+    public async Task OperatorScenario_ThePlannersPlan_ExportsAsNewADUser()
+    {
+        var builder = new FakeDirectoryBuilder(schema: FakeSchema.Create(bulkCreate: true));
+        var sample = builder.AddBulkCreateSample(builder.AddSampleCompany());
+        await using var session = builder.Build();
+        var table = TableTextReader.ReadClipboard(ExcelSamples.OperatorScenarioTsv, null, null, HeaderMode.Auto);
+        var mappings = table.Columns
+            .Select(c => (Column: c, Suggestion: ColumnSynonyms.Suggest(c.Header, ObjectKind.User, null, [.. table.Rows.Select(r => r.Cell(c.Index))])))
+            .Where(c => c.Suggestion is not null)
+            .Select(c => new ColumnMapping(c.Column.Index, c.Suggestion!.Kind, c.Suggestion.Attribute, c.Suggestion.Order))
+            .ToList();
+        var input = new BulkCreateInput
+        {
+            ContainerDn = sample.NewEmployeesOu,
+            Table = table,
+            Mappings = mappings,
+            Rules = new BulkCreateRules
+            {
+                Attributes =
+                [
+                    new AttributeRule("sAMAccountName", "kd{$nr:201}"), new AttributeRule("userPrincipalName", "{sAMAccountName}"),
+                    new AttributeRule("cn", "{givenName} {sn}"), new AttributeRule("displayName", "{givenName} {sn}"),
+                ],
+                UpnSuffix = "contoso.com",
+                CounterMode = CounterMode.AfterHighest,
+            },
+            Options = new BulkAccountOptions(),
+        };
+        var planner = new BulkCreatePlanner(new PasswordGenerator(), TimeProvider.System);
+
+        var computation = await planner.ComputeAsync(session, input, new BulkCreateLookups(), null, TestContext.Current.CancellationToken);
+        var plan = planner.BuildPlan(computation, null, "Zakładanie wielu kont");
+        var script = new PowerShellExporter().Export(plan, plan.Server, session.Schema);
+
+        Assert.Equal(5, mappings.Count);
+        Assert.Equal(5, script.Split("\r\n").Count(l => l.StartsWith("New-ADUser ", StringComparison.Ordinal)));
+        Assert.Contains("-Name 'Łukasz Grzędziński'", script, StringComparison.Ordinal);
+        Assert.Contains("-SamAccountName 'kd208'", script, StringComparison.Ordinal);
+        Assert.Contains("-MobilePhone '+48 600 200 301'", script, StringComparison.Ordinal);
+        Assert.Contains("-AccountPassword (Read-Host -AsSecureString -Prompt 'Initial password for Łukasz Grzędziński')", script, StringComparison.Ordinal);
+        Assert.All(plan.Objects.SelectMany(o => o.Changes).Select(c => c.Password).OfType<string>(), p => Assert.DoesNotContain(p, script, StringComparison.Ordinal));
+    }
 }
