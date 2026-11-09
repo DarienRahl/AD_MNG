@@ -1088,3 +1088,63 @@ of 2.1–2.6):
   Zofia's end on 2027-02-01, inside the issuing CA's validity; the CES entry of `msPKI-Enrollment-Servers` has
   authentication 2 (Kerberos). Polish `PrivilegedAccess.AclRight.WriteTemplateProperty` = *Zapis właściwości szablonu
   certyfikatu istotnej dla bezpieczeństwa*.
+
+**C1 as built.** No public member renamed or removed; every addition is an init member.
+* *Additions.* `CrlSummary.Version` (1 when the TBS `version` field is absent, 2 for v2 – AD CS writes v2; a hand-built
+  instance defaults to 2). `PkiCrlList.Authority` (`authorityRevocationList` of the CDP object – `certutil -dspublish`
+  writes a root CA's CRL there as well; parsed like `Base`, a malformed one is `CrlMalformed`, used for `IssuerCaGuid` when
+  there is neither base nor delta). Internal only: `PkiDer` and `GeneralNameLists` in `CertificateSummary.cs` (the
+  `System.Formats.Asn1` readers both parsers, the reader and the TLS checks share) and `Tls/CertificateChecks.cs` (names,
+  chain, NTAuth match).
+* *AD facts the note did not state (the reader handles them).* `CN=OID` is itself an `msPKI-Enterprise-Oid` object in AD:
+  the reader treats it as the container, never as an OID object. A `certificationAuthority` object must contain
+  `cACertificate`, `certificateRevocationList` and `authorityRevocationList`, so an empty store (and every AIA / root /
+  NTAuth object's CRL attributes) holds a one-byte `0x00` placeholder: such values (and empty ones) are skipped silently
+  everywhere, and CRLs are read only from `cRLDistributionPoint` objects. `crossCertificatePair` values are X.509
+  `CertificatePair ::= SEQUENCE { forward [0] EXPLICIT Certificate OPTIONAL, reverse [1] EXPLICIT Certificate OPTIONAL }`
+  (CryptoAPI `X509_CERT_PAIR`): both certificates become `CrossCertificates` entries (a bare certificate value is accepted
+  too) and go into `TrustMaterial.Intermediates`.
+* *Reader.* Notices are one per code and object; `BaseNotFound` / `BaseAccessDenied` carry the `CN=Public Key Services` DN
+  (no GUID), `ContainerMissing` the well-known DN; any other error of the base search (server unavailable, busy …)
+  propagates – a transient outage is never shown as *brak AD CS*. `TrustMaterial` lists are deduplicated by SHA-256;
+  `Intermediates` = AIA `cACertificate` + every cross certificate + the enterprise CA certificates. `IssuerCaGuid`: CRL
+  issuer = CA certificate subject (both formatted by `X500DistinguishedName.Name`, so text equality is an encoding-level
+  match) and CRL AKI = certificate SKI; a CRL without AKI matches by subject only when exactly one CA has it. Order: CAs,
+  stores and KRA by name, CDP by host then name, OIDs by display name, templates by cn (all `OrdinalIgnoreCase`), DCs by
+  host name. Progress every `PageSize` objects and once at the end. `ReadDomainControllersAsync` pages by 1000.
+* *CA computer lookup (deviation from 2.1).* A host whose domain part (after the first label) is the window's domain is
+  looked up by `(|(dNSHostName=host)(sAMAccountName=label$))` (label cut to 15 characters); the `dNSHostName` match wins and
+  the `sAMAccountName` fallback is taken only when it is the one match – not found → `CaComputerUnresolved`. Any **other**
+  host is looked up too, but by its exact `dNSHostName` only: a disjoint DNS namespace (host suffix ≠ AD domain) still
+  resolves, and a CA `srv-ca02.child.contoso.test` is never mistaken for the window domain's `SRV-CA02$` (the label
+  fallback would make an unrelated computer Tier 0) – not found → `CaComputerInOtherDomain`. A CA without `dNSHostName`,
+  or a lookup refused with `AccessDenied` / `NoSuchObject`, is `CaComputerUnresolved`.
+* *Parsers.* `Subject` / `Issuer` = `X500DistinguishedName.Name`. `KeyAlgorithm` / `SignatureAlgorithm` are fixed
+  certutil-style names for the common OIDs (`RSA`, `ECC`, `DSA`, `Ed25519`; `sha256RSA`, `RSASSA-PSS`, `sha256ECDSA` …), the
+  same on Linux and Windows, else the friendly name or the OID. `IsSelfSigned` verifies the signature with the own key
+  (RSA PKCS #1 MD5/SHA-1/SHA-2, RSA-PSS with salt = hash length, ECDSA, DSA), so a CA renewal link certificate (same name,
+  signed by the old key) is **not** self-signed; where that cannot be decided it falls back to names equal and AKI absent
+  or = SKI. Every extension is parsed on its own – a malformed one leaves only its members empty and the summary is still
+  returned (null only when the certificate itself does not load). SAN IA5 values with non-ASCII bytes are read as UTF-8;
+  the UPN other name in any usual string type; the SID extension's value as the OCTET STRING AD CS writes (or a string).
+  `CrlSummary.Of` tries DER, then BER (non-minimal lengths some CAs write); a version other than v1/v2, trailing data or a
+  truncated value → null; the CRL signature is not verified (the issuer is not known there).
+* *TLS evaluations.* Names follow RFC 6125: SAN DNS entries, the subject CN only without them, a wildcard only as the whole
+  left-most label of a name with at least two more labels (no partial `dc*`), case-insensitive, trailing dot ignored;
+  `NameMatchesDomain` uses the same rule. `DaysLeft` = floor of the days to `NotAfter`. `ChainsToAdRoot`: the chain ends
+  at a certificate of `trust.Roots` and no element reports a problem **except the leaf's own** `NotTimeValid` /
+  `NotTimeNested` (that is `IsTimeValid`; an expired intermediate does break the chain); NTAuth certificates are in the
+  extra store too. `ChainStatus` = the distinct `X509ChainStatusFlags` names of the build (incl. the leaf's
+  `NotTimeValid`). `IssuerInNtAuth` (DC and KDC) is matched directly, not through the chain: an NTAuth certificate whose
+  subject is the leaf's issuer (as encoded), whose SKI is the leaf's AKI and whose key verifies the leaf's signature – so
+  it holds also when the chain does not build, and a certificate with the issuer's name but another key does not count.
+  An empty chain or an unparsable leaf gives `Leaf = null` and every flag false.
+* *KDC (correction to 2.1).* The Smart-Card Logon + Server Authentication pair is the v2 *Domain Controller
+  Authentication* template's EKU set; the v1 *Domain Controller* template has only Client + Server Authentication and is
+  reported `NoKdcEku` (a KDC can still use it for PKINIT without strict KDC validation – the wording should say *brak EKU
+  KDC*, not *nie działa*). No EKU / Any Purpose is `NoKdcEku` as well. `Expired` also covers *not yet valid*. Unparsable
+  and placeholder values are ignored (only those → `NoPublishedCertificate`). `Best` prefers a certificate naming the DC,
+  then the latest `NotAfter` (for `NoKdcEku` over all published certificates).
+* *Tests* (`tests/AdMng.Core.Tests/Pki/`): `CertificateSummaryTests` (17), `CrlSummaryTests` (15), `PkiOverviewReaderTests`
+  (25, incl. `RecordingReader`, which drops `nTSecurityDescriptor` from a search without the SD flag as a DC does),
+  `DcCertificateEvaluationTests` (24), `KdcCertificateEvaluationTests` (9). No wave-1 end-to-end test needed a skip.
