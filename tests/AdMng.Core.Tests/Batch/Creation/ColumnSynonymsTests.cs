@@ -346,6 +346,27 @@ public sealed class ColumnSynonymsTests
     }
 
     [Fact]
+    public void SuggestFromContent_APeselColumn_IsNeverAPhone()
+    {
+        // 11 digits pass LooksLikePhone: a headerless column of PESEL numbers became telephoneNumber (review of B1). A
+        // personal identifier is ignored unless the operator maps it, as with a "PESEL" header.
+        string[] pesel = ["44051401359", "02070803628", "90090515836", "85022312348", "03211507658"];
+
+        Assert.Null(ColumnSynonyms.SuggestFromContent(pesel, ObjectKind.User));
+        Assert.Null(ColumnSynonyms.SuggestFromContent([.. pesel, "77123109871", "+48 600 100 201"], ObjectKind.Contact));
+        Assert.True(CellText.LooksLikePhone(pesel[0]));
+        Assert.True(ColumnSynonyms.IsPersonalIdentifier("PESEL"));
+
+        // Phone numbers are no PESEL numbers (month 60, check digit), so the 11-digit 48… form still suggests mobile.
+        Assert.Equal("mobile", ColumnSynonyms.SuggestFromContent(["48600100201", "48600100202", "48512345678"], ObjectKind.User)?.Attribute);
+        Assert.False(CellText.LooksLikePesel("48600100200"));
+        Assert.False(CellText.LooksLikePesel("44051401358"));
+        Assert.False(CellText.LooksLikePesel("4405140135"));
+        Assert.False(CellText.LooksLikePesel("44 0514 01359"));
+        Assert.True(CellText.LooksLikePesel(" 03211507658 "));
+    }
+
+    [Fact]
     public void ToString_NamesTheTargetOnly()
     {
         var entry = ColumnSynonyms.Entries.First(e => e.Folded == "telefonkomorkowy");

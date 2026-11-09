@@ -188,6 +188,36 @@ public sealed class CellTextTests
     }
 
     [Theory]
+    [InlineData("Kowalski, Jan", NameOrder.GivenNameFirst)]
+    [InlineData("Kowalski, Jan", NameOrder.SurnameFirst)]
+    [InlineData("Kowalski,Jan", NameOrder.GivenNameFirst)]
+    [InlineData("  KOWALSKI ,  Jan  ", NameOrder.GivenNameFirst)]
+    public void SplitFullName_ACommaMeansSurnameFirst_WhateverTheOrder(string value, NameOrder order)
+    {
+        // "Nazwisko, Imię" – the list form of HR exports: the comma decides, so a column mapped as given-name-first does not
+        // swap the parts (review of B1).
+        var (given, sn) = CellText.SplitFullName(value, order);
+
+        Assert.Equal("Jan", given);
+        Assert.Equal("Kowalski", sn, ignoreCase: true);
+    }
+
+    [Theory]
+    [InlineData("Nowak-Kowalska, Anna Maria", "Anna Maria", "Nowak-Kowalska")]
+    [InlineData("Ślęzak Nowińska, Łucja", "Łucja", "Ślęzak Nowińska")]
+    [InlineData("dr hab. Nowak-Kowalska, Anna Maria", "Anna Maria", "Nowak-Kowalska")]
+    [InlineData("Kowalski, Jan, dr", "Jan", "Kowalski")]
+    [InlineData("Jan Kowalski, dr", "Jan", "Kowalski")]
+    [InlineData("Kowalski,", "", "Kowalski")]
+    public void SplitFullName_SurnameCommaGivenNames(string value, string givenName, string surname)
+    {
+        var (given, sn) = CellText.SplitFullName(value, NameOrder.GivenNameFirst);
+
+        Assert.Equal(givenName, given);
+        Assert.Equal(surname, sn);
+    }
+
+    [Theory]
     [InlineData("+48 600 100 200", "+48 600 100 200")]
     [InlineData("600 100 200", "+48 600 100 200")]
     [InlineData("600100200", "+48 600 100 200")]

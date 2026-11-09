@@ -149,13 +149,17 @@ public static class ColumnSynonyms
 
     /// <summary>
     /// A suggestion for a column without a header from its samples, with <see cref="SuggestionNote.ContentBased"/>: 80 %
-    /// e-mail addresses → <c>mail</c>, Polish mobile numbers → <c>mobile</c>, other phones → <c>telephoneNumber</c>, else null.
+    /// e-mail addresses → <c>mail</c>, Polish mobile numbers → <c>mobile</c>, other phones → <c>telephoneNumber</c>, else null;
+    /// 80 % PESEL numbers (valid check digit and date) → null, a personal identifier is never suggested.
     /// </summary>
     public static ColumnSuggestion? SuggestFromContent(IReadOnlyList<string> samples, ObjectKind kind)
     {
         ArgumentNullException.ThrowIfNull(samples);
         var values = NonEmpty(samples);
-        if (values.Count == 0)
+
+        // A column of PESEL numbers is a personal identifier, not a phone column (11 digits pass LooksLikePhone): ignored
+        // unless the operator maps it, as a header such as "PESEL" is.
+        if (values.Count == 0 || MostAre(values, CellText.LooksLikePesel))
         {
             return null;
         }

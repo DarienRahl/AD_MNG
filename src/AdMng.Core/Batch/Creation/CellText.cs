@@ -214,8 +214,9 @@ public static class CellText
     /// <summary>
     /// Splits a full name after removing titles (<c>TitleParser.WithoutTitles</c>): given-name-first – the last token is the
     /// surname; surname-first – the first token is the surname; one token → surname only. A hyphenated surname is one token
-    /// (<em>dr hab. Anna Maria Nowak-Kowalska</em> → <em>Anna Maria</em> / <em>Nowak-Kowalska</em>); a comma after the
-    /// surname (<em>Kowalski, Jan</em>) is dropped.
+    /// (<em>dr hab. Anna Maria Nowak-Kowalska</em> → <em>Anna Maria</em> / <em>Nowak-Kowalska</em>). A comma names the order
+    /// whatever <paramref name="order"/> says: <em>Kowalski, Jan</em> and <em>Nowak-Kowalska, Anna Maria</em> are surname,
+    /// given names (the list form of HR exports and of many display names).
     /// </summary>
     public static (string GivenName, string Surname) SplitFullName(string value, NameOrder order)
     {
@@ -226,7 +227,26 @@ public static class CellText
             return (string.Empty, string.Empty);
         }
 
-        var withoutTitles = TitleParser.WithoutTitles(text, TitleTable.Default) is { Length: > 0 } stripped ? stripped : text;
+        // "Surname, given names" – after dropping title parts at the end ("Kowalski, Jan, dr"; "Jan Kowalski, dr" has no
+        // comma form left). The titles of each side are removed on their own.
+        var segments = text.Split(',');
+        var count = segments.Length;
+        while (count > 1 && TitleParser.ParseAttribute(segments[count - 1], TitleTable.Default) is { HasTitle: true, Unrecognized.Count: 0 })
+        {
+            count--;
+        }
+
+        if (count > 1)
+        {
+            var surname = Words(WithoutTitles(segments[0]));
+            var given = Words(WithoutTitles(string.Join(' ', segments[1..count])));
+            if (surname.Count > 0 && given.Count > 0)
+            {
+                return (string.Join(' ', given), string.Join(' ', surname));
+            }
+        }
+
+        var withoutTitles = WithoutTitles(text);
         var tokens = withoutTitles
             .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(t => t.Trim(',', ';'))
@@ -243,6 +263,11 @@ public static class CellText
         return order == NameOrder.SurnameFirst
             ? (string.Join(' ', tokens.Skip(1)), tokens[0])
             : (string.Join(' ', tokens.Take(tokens.Count - 1)), tokens[^1]);
+
+        static string WithoutTitles(string part) => TitleParser.WithoutTitles(part, TitleTable.Default) is { Length: > 0 } stripped ? stripped : part;
+
+        static List<string> Words(string part) =>
+            [.. part.Split([' ', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(t => t.Length > 0)];
     }
 
     /// <summary>
@@ -319,6 +344,41 @@ public static class CellText
             { Length: 13 } when compact.StartsWith("0048", StringComparison.Ordinal) => compact[4..],
             _ => null,
         };
+    }
+
+    /// <summary>
+    /// A PESEL (the Polish personal identification number): 11 digits with a valid check digit and a valid month and day of
+    /// the encoded birth date – an 11-digit phone number such as <c>48600100200</c> is none (month 60).
+    /// </summary>
+    internal static bool LooksLikePesel(string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        var text = value.AsSpan().Trim();
+        if (text.Length != 11)
+        {
+            return false;
+        }
+
+        ReadOnlySpan<int> weights = [1, 3, 7, 9, 1, 3, 7, 9, 1, 3];
+        var sum = 0;
+        for (var i = 0; i < 11; i++)
+        {
+            if (!char.IsAsciiDigit(text[i]))
+            {
+                return false;
+            }
+
+            if (i < 10)
+            {
+                sum += (text[i] - '0') * weights[i];
+            }
+        }
+
+        var month = ((text[2] - '0') * 10) + (text[3] - '0');
+        var day = ((text[4] - '0') * 10) + (text[5] - '0');
+        return (10 - (sum % 10)) % 10 == text[10] - '0'
+            && month % 20 is >= 1 and <= 12
+            && day is >= 1 and <= 31;
     }
 
     /// <summary>A phone written as <c>48xxxxxxxxx</c> (11 digits, no <c>+</c>, no separators) – the hint of <see cref="SuggestionNote.PhonesWithoutPlus"/>.</summary>
