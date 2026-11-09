@@ -2543,3 +2543,28 @@ units), for a covered GPO in whose positions a GPO of unknown content applies (s
 enabled link, not all disabled – it could hold a third value between the two copies), or when the covered GPO has a site
 link and the forest has other domains (the site link reaches their objects too). Coverage and filters are cached per
 analysis.
+
+**W4 as built** (search document). `GpoSettingsSearchDocumentViewModel` (`.cs` load/index state, `.Query.cs` query, facets,
+debounce and results, `.Actions.cs` row actions and exports; ctor `(services, actions, IGpoSettingsIndexService, searchText,
+csv)`, the factory passes `request.SearchText`), `GpoSearchGroupViewModel`, `GpoSearchRowViewModel` and `GpoSettingsMatcher.cs`
+(also `GpoSearchCorpus`, `GpoSearchRecord`, `GpoSearchUnitGroup`, `GpoSearchResult`, `GpoSearchQuery`, the enums
+`GpoSearchField`, `GpoSearchArea`, `GpoValueAgreement`); `GpoSearchNote` and `GpoSearchAreaFilter` live in the document's
+files; `GpoSettingsSearchEntry` is unchanged. Choices and deviations: text is matched on keys folded once per corpus (case,
+combining marks, and the stroke letters ł/đ/ø, so "dlugosc" finds "długość") with an ordinal search instead of
+`CompareInfo.IndexOf(IgnoreCase | IgnoreNonSpace)` – a pass over 100 000 records is far below 500 ms (test, best of three);
+a matched unit shows **every** occurrence of its base id (the GPOs with other values too), so "wystąpienia" in the result line
+counts shown rows; the agreement is `Single` when fewer than two occurrences apply (disabled items left out), `NotComparable`
+when any applying one is not `Comparable`, else `SameValue` against the first. Area facet: `RegistryValue`/`RegistryKey` count
+as administrative templates, `Service`/`ObjectSecurity` as security, GPO comments (scope `Gpo`) appear only with both
+configurations; one area entry per preference type of the index. "Konto": SIDs from `KnownSid`, the index's `SidsByName` and
+the view's SID names (exact), else one `GpoPrincipalResolver.ResolveAsync` for a `DOMAIN\name` or UPN, plus a substring match
+on the resolved names. The 250 ms debounce is in the view model (real-time `Task.Delay`; the box binds without `Delay`; Enter /
+`SearchCommand` searches at once); group and row view models are built on the matching thread. Results shown when Group Policy
+changes or the session moves (another DC, reconnect) only get the stale bar, as in diagnostics; "Odśwież" / F5 = `Incremental`,
+"Odczytaj wszystko ponownie" = `Full`; "Anuluj" ends only this tab's wait. "Kopiuj do innego GPO…" calls
+`CopySettingsAsync(items)` (target picked by W5) and refreshes incrementally when it returns true; until W5 it returns false.
+The base document still opens (and disposes) a SYSVOL connection on every load for the banner, besides the service's own
+build connection – one extra SMB logon per load; a `GroupPolicyDocumentBase` opt-out would be a shared-file change for the
+lead. The `ActiveGpo()` arm uses the fully qualified type name (no `using` added to the shared file). Screenshot 34 searches
+"hasł" over both samples, with a GptTmpl (password length 10, complexity, maximum age) written into "Porządki – Szablony
+(oddział)" by the screenshot test only (samples unchanged). The UI test and the screenshot are compiled on Linux, not run.
