@@ -170,7 +170,15 @@ public sealed partial class PkiOverviewDocumentViewModel : PkiDocumentBase, IPki
                 // The LDAPS tab was seen (or opened while the snapshot was read): its rows again – probed on F5 or for another
                 // DC (the probe results were dropped with the snapshot), from the cache after a language switch.
                 _ldapsActivated = true;
-                await LoadLdapsAsync(IsRefresh, cancellationToken).ConfigureAwait(true);
+                try
+                {
+                    await LoadLdapsAsync(IsRefresh, cancellationToken).ConfigureAwait(true);
+                }
+                catch (Exception ex) when (IsExpected(ex) && !cancellationToken.IsCancellationRequested)
+                {
+                    // The overview stays; the tab says why its checks are missing.
+                    LdapsStatusText = Pki.Errors.Translate(ex);
+                }
             }
         }
         finally
