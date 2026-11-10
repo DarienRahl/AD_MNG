@@ -1054,6 +1054,12 @@
             </DataTemplate>
 
             <!-- P1 PKI security (W6) -->
+            <DataTemplate DataType="{x:Type pki:PkiSecurityReviewDocumentViewModel}">
+              <pkiv:PkiSecurityReviewView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type pki:PkiReadinessDocumentViewModel}">
+              <pkiv:PkiReadinessView />
+            </DataTemplate>
           </ItemsControl.Resources>
         </ItemsControl>
 

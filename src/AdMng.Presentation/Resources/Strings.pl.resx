@@ -22306,8 +22306,548 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <!-- P1 certificate templates and enrollment rights (2.2, 2.3, 2.5): end -->
   <!-- P1 AD CS security review (2.4, 2.5): begin -->
+  <data name="PkiEsc.Title" xml:space="preserve">
+    <value>Przegląd bezpieczeństwa AD CS</value>
+  </data>
+  <data name="PkiEsc.CheckAgain" xml:space="preserve">
+    <value>Sprawdź ponownie</value>
+  </data>
+  <data name="PkiEsc.CheckAgainHint" xml:space="preserve">
+    <value>Ponownie odczytuje obiekty PKI, konta i uprawnienia (F5).</value>
+  </data>
+  <data name="PkiEsc.StageSnapshot" xml:space="preserve">
+    <value>Odczyt obiektów PKI ({0})…</value>
+  </data>
+  <data name="PkiEsc.StageAccounts" xml:space="preserve">
+    <value>Odczyt kont ({0})…</value>
+  </data>
+  <data name="PkiEsc.StageAccessControl" xml:space="preserve">
+    <value>Odczyt uprawnień obiektów PKI…</value>
+  </data>
+  <data name="PkiEsc.StagePrincipals" xml:space="preserve">
+    <value>Rozpoznawanie kont i grup…</value>
+  </data>
+  <data name="PkiEsc.StageAnalysis" xml:space="preserve">
+    <value>Ocena reguł ESC…</value>
+  </data>
+  <data name="PkiEsc.LastRun" xml:space="preserve">
+    <value>Ostatnie sprawdzenie: {0} na {1}</value>
+  </data>
+  <data name="PkiEsc.NeverRun" xml:space="preserve">
+    <value>Jeszcze nie sprawdzono.</value>
+  </data>
+  <data name="PkiEsc.Cancelled" xml:space="preserve">
+    <value>Sprawdzanie anulowano.</value>
+  </data>
+  <data name="PkiEsc.FindingsOne" xml:space="preserve">
+    <value>{0} uwaga</value>
+  </data>
+  <data name="PkiEsc.FindingsFew" xml:space="preserve">
+    <value>{0} uwagi</value>
+  </data>
+  <data name="PkiEsc.FindingsMany" xml:space="preserve">
+    <value>{0} uwag</value>
+  </data>
+  <data name="PkiEsc.FindingsShown" xml:space="preserve">
+    <value>Pokazano uwagi: {0} z {1}</value>
+  </data>
+  <data name="PkiEsc.NoFindings" xml:space="preserve">
+    <value>Nie znaleziono podatnej konfiguracji – domyślne PKI systemu Windows nie daje żadnej uwagi.</value>
+  </data>
+  <data name="PkiEsc.NoMatches" xml:space="preserve">
+    <value>Żadna uwaga nie pasuje do filtrów.</value>
+  </data>
+  <data name="PkiEsc.NotEvaluatedList" xml:space="preserve">
+    <value>Nie można ocenić PKI – zobacz informacje powyżej.</value>
+  </data>
+  <data name="PkiEsc.NoPki" xml:space="preserve">
+    <value>W tym lesie nie ma AD CS – nie ma czego sprawdzać.</value>
+  </data>
+  <data name="PkiEsc.ScopeNote" xml:space="preserve">
+    <value>Odczytuje przez LDAP szablony, obiekty PKI i konta (ESC1–5, 9, 13, 14, 15, 17) i niczego nie zmienia. Zakłada, że każdy urząd nadaje Użytkownikom uwierzytelnionym prawo „Rejestruj”; ustawienia samego urzędu (ESC6, 7, 8, 10, 11, 16) sprawdzi etap P4.</value>
+  </data>
+  <data name="PkiEsc.NoteNotEvaluated" xml:space="preserve">
+    <value>Nie oceniono: {0}.</value>
+  </data>
+  <data name="PkiEsc.NoteWithObjects" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="PkiEsc.NoteMoreObjects" xml:space="preserve">
+    <value>i jeszcze {0}</value>
+  </data>
+  <data name="PkiEsc.Group.Enrollment" xml:space="preserve">
+    <value>reguły rejestracji (ESC1, 2, 3, 9, 13, 15, 17)</value>
+  </data>
+  <data name="PkiEsc.Group.AccessControl" xml:space="preserve">
+    <value>uprawnienia obiektów PKI (ESC5 i zapis altSecurityIdentities w ESC14)</value>
+  </data>
+  <data name="PkiEsc.Group.Mapping" xml:space="preserve">
+    <value>jawne mapowania certyfikatów (ESC14)</value>
+  </data>
+  <data name="PkiEsc.FilterSeverity" xml:space="preserve">
+    <value>Ważność</value>
+  </data>
+  <data name="PkiEsc.FilterEsc" xml:space="preserve">
+    <value>Technika</value>
+  </data>
+  <data name="PkiEsc.FilterArea" xml:space="preserve">
+    <value>Obszar</value>
+  </data>
+  <data name="PkiEsc.FilterTemplate" xml:space="preserve">
+    <value>Szablon</value>
+  </data>
+  <data name="PkiEsc.AllSeverities" xml:space="preserve">
+    <value>Każda ważność</value>
+  </data>
+  <data name="PkiEsc.AllEsc" xml:space="preserve">
+    <value>Każda technika</value>
+  </data>
+  <data name="PkiEsc.AllAreas" xml:space="preserve">
+    <value>Każdy obszar</value>
+  </data>
+  <data name="PkiEsc.AllTemplates" xml:space="preserve">
+    <value>Każdy szablon</value>
+  </data>
+  <data name="PkiEsc.SearchPlaceholder" xml:space="preserve">
+    <value>Szukaj w uwagach (tytuł, szablon, konto, ESC)</value>
+  </data>
+  <data name="PkiEsc.ClearFilters" xml:space="preserve">
+    <value>Wyczyść filtry</value>
+  </data>
+  <data name="PkiEsc.SummaryLabel" xml:space="preserve">
+    <value>Podsumowanie</value>
+  </data>
+  <data name="PkiEsc.ColumnSeverity" xml:space="preserve">
+    <value>Ważność</value>
+  </data>
+  <data name="PkiEsc.ColumnEsc" xml:space="preserve">
+    <value>ESC</value>
+  </data>
+  <data name="PkiEsc.ColumnArea" xml:space="preserve">
+    <value>Obszar</value>
+  </data>
+  <data name="PkiEsc.ColumnObject" xml:space="preserve">
+    <value>Obiekt</value>
+  </data>
+  <data name="PkiEsc.ColumnPrincipals" xml:space="preserve">
+    <value>Konta i grupy</value>
+  </data>
+  <data name="PkiEsc.ColumnFinding" xml:space="preserve">
+    <value>Uwaga</value>
+  </data>
+  <data name="PkiEsc.GroupHeader" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="PkiEsc.DetailsHeading" xml:space="preserve">
+    <value>Szczegóły</value>
+  </data>
+  <data name="PkiEsc.DetailsEmpty" xml:space="preserve">
+    <value>Wybierz uwagę, aby zobaczyć warunek, ścieżkę ataku i co zrobić.</value>
+  </data>
+  <data name="PkiEsc.ConditionHeading" xml:space="preserve">
+    <value>Warunek</value>
+  </data>
+  <data name="PkiEsc.AttackPathHeading" xml:space="preserve">
+    <value>Ścieżka ataku</value>
+  </data>
+  <data name="PkiEsc.WhatHeading" xml:space="preserve">
+    <value>Co zrobić</value>
+  </data>
+  <data name="PkiEsc.ObjectHeading" xml:space="preserve">
+    <value>Czego dotyczy</value>
+  </data>
+  <data name="PkiEsc.PrincipalsHeading" xml:space="preserve">
+    <value>Konta i grupy</value>
+  </data>
+  <data name="PkiEsc.NotesHeading" xml:space="preserve">
+    <value>Zastrzeżenia</value>
+  </data>
+  <data name="PkiEsc.RelatedHeading" xml:space="preserve">
+    <value>Powiązane obiekty</value>
+  </data>
+  <data name="PkiEsc.IdsHeading" xml:space="preserve">
+    <value>Identyfikatory</value>
+  </data>
+  <data name="PkiEsc.Ids" xml:space="preserve">
+    <value>Certipy: {0} · Locksmith: {1} · MDI: {2}</value>
+  </data>
+  <data name="PkiEsc.NoId" xml:space="preserve">
+    <value>–</value>
+  </data>
+  <data name="PkiEsc.PrincipalLine" xml:space="preserve">
+    <value>{0} · {1} · {2}</value>
+  </data>
+  <data name="PkiEsc.PrincipalLineRight" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="PkiEsc.AccountCount" xml:space="preserve">
+    <value>kont: {0}</value>
+  </data>
+  <data name="PkiEsc.AccountCountUnknown" xml:space="preserve">
+    <value>liczba kont nieznana</value>
+  </data>
+  <data name="PkiEsc.AccountCountOtherDomain" xml:space="preserve">
+    <value>inna domena – liczba kont nieznana</value>
+  </data>
+  <data name="PkiEsc.CountUnknown" xml:space="preserve">
+    <value>nieznana liczba</value>
+  </data>
+  <data name="PkiEsc.RelatedCa" xml:space="preserve">
+    <value>Urząd certyfikacji: {0}</value>
+  </data>
+  <data name="PkiEsc.RelatedTemplate" xml:space="preserve">
+    <value>Szablon: {0}</value>
+  </data>
+  <data name="PkiEsc.RelatedOid" xml:space="preserve">
+    <value>Obiekt OID: {0}</value>
+  </data>
+  <data name="PkiEsc.AggregatedAccounts" xml:space="preserve">
+    <value>Konta spoza Tier 0 ({0})</value>
+  </data>
+  <data name="PkiEsc.Esc14.Tier0Mapping" xml:space="preserve">
+    <value>Konto Tier 0 {0} ma słabe jawne mapowanie certyfikatu: {1}.</value>
+  </data>
+  <data name="PkiEsc.Esc14.Aggregated" xml:space="preserve">
+    <value>Konta spoza Tier 0 ze słabym jawnym mapowaniem certyfikatu: {0} ({1}); wymienia je raport gotowości na silne mapowanie i NTAuth.</value>
+  </data>
+  <data name="PkiEsc.Esc14.Write" xml:space="preserve">
+    <value>{2} może zmienić altSecurityIdentities konta Tier 0 {0} – prawa: {1} – i zmapować na nie własny certyfikat.</value>
+  </data>
+  <data name="PkiEsc.Principal.ThisOrganization" xml:space="preserve">
+    <value>Ta organizacja</value>
+  </data>
+  <data name="PkiEsc.OpenTemplate" xml:space="preserve">
+    <value>Otwórz szablon</value>
+  </data>
+  <data name="PkiEsc.OpenCa" xml:space="preserve">
+    <value>Otwórz urząd</value>
+  </data>
+  <data name="PkiEsc.OpenAccount" xml:space="preserve">
+    <value>Otwórz konto</value>
+  </data>
+  <data name="PkiEsc.OpenComputer" xml:space="preserve">
+    <value>Otwórz komputer</value>
+  </data>
+  <data name="PkiEsc.OpenObject" xml:space="preserve">
+    <value>Otwórz obiekt</value>
+  </data>
+  <data name="PkiEsc.NoFixNote" xml:space="preserve">
+    <value>Przegląd niczego nie zmienia: wprowadź zmianę w konsoli Szablony certyfikatów (certtmpl.msc) lub w uprawnieniach obiektu. Naprawy przez plan zmian pojawią się w etapie P3.</value>
+  </data>
+  <data name="PkiEsc.Copied" xml:space="preserve">
+    <value>Skopiowano uwagę do schowka.</value>
+  </data>
+  <data name="PkiEsc.ExportCsv" xml:space="preserve">
+    <value>Eksportuj do CSV…</value>
+  </data>
+  <data name="PkiEsc.ExportHtml" xml:space="preserve">
+    <value>Eksportuj do HTML…</value>
+  </data>
+  <data name="PkiEsc.HtmlFilter" xml:space="preserve">
+    <value>Pliki HTML (*.html)</value>
+  </data>
+  <data name="PkiEsc.ReportTitle" xml:space="preserve">
+    <value>Przegląd bezpieczeństwa AD CS – {0}</value>
+  </data>
+  <data name="PkiEsc.ReportSubtitle" xml:space="preserve">
+    <value>Kontroler domeny: {0} · sprawdzenie: {1}</value>
+  </data>
+  <data name="PkiEsc.ReportFilters" xml:space="preserve">
+    <value>Po filtrowaniu: {0} z {1} uwag.</value>
+  </data>
+  <data name="PkiEsc.ReportPrivacy" xml:space="preserve">
+    <value>Raport zawiera nazwy obiektów Twojego katalogu. Przechowuj i udostępniaj go jak każdy inny dokument administracyjny.</value>
+  </data>
   <!-- P1 AD CS security review (2.4, 2.5): end -->
   <!-- P1 strong mapping and NTAuth readiness (2.5): begin -->
+  <data name="PkiReady.Title" xml:space="preserve">
+    <value>Gotowość na silne mapowanie i NTAuth</value>
+  </data>
+  <data name="PkiReady.CheckAgain" xml:space="preserve">
+    <value>Odczytaj ponownie</value>
+  </data>
+  <data name="PkiReady.CheckAgainHint" xml:space="preserve">
+    <value>Ponownie odczytuje obiekty PKI, kontrolery domeny i konta (F5).</value>
+  </data>
+  <data name="PkiReady.CheckLdaps" xml:space="preserve">
+    <value>Sprawdź certyfikaty LDAPS</value>
+  </data>
+  <data name="PkiReady.CheckLdapsHint" xml:space="preserve">
+    <value>Łączy się z portem 636 (i 3269 wykazu globalnego) każdego kontrolera domeny i odczytuje przedstawiany certyfikat – tylko uzgadnianie TLS, bez logowania.</value>
+  </data>
+  <data name="PkiReady.Copy" xml:space="preserve">
+    <value>Kopiuj</value>
+  </data>
+  <data name="PkiReady.Copied" xml:space="preserve">
+    <value>Skopiowano raport do schowka.</value>
+  </data>
+  <data name="PkiReady.ExportCsv" xml:space="preserve">
+    <value>Eksportuj do CSV…</value>
+  </data>
+  <data name="PkiReady.ReadOnlyNote" xml:space="preserve">
+    <value>Raport tylko odczytuje – przez LDAP na kontrolerze domeny okna; sprawdzanie LDAPS łączy się z kontrolerami domeny tylko po naciśnięciu jego przycisku. Zmiany wprowadź w konsolach; naprawy przez plan zmian pojawią się w etapie P3.</value>
+  </data>
+  <data name="PkiReady.NeverRun" xml:space="preserve">
+    <value>Jeszcze nie odczytano.</value>
+  </data>
+  <data name="PkiReady.LastRun" xml:space="preserve">
+    <value>Odczytano: {0} na {1}</value>
+  </data>
+  <data name="PkiReady.StageSnapshot" xml:space="preserve">
+    <value>Odczyt obiektów PKI…</value>
+  </data>
+  <data name="PkiReady.StageDomainControllers" xml:space="preserve">
+    <value>Odczyt kontrolerów domeny…</value>
+  </data>
+  <data name="PkiReady.StageAccounts" xml:space="preserve">
+    <value>Odczyt kont ({0})…</value>
+  </data>
+  <data name="PkiReady.StageLdaps" xml:space="preserve">
+    <value>Sprawdzanie certyfikatów LDAPS kontrolerów domeny…</value>
+  </data>
+  <data name="PkiReady.Summary.Ok" xml:space="preserve">
+    <value>OK: {0}</value>
+  </data>
+  <data name="PkiReady.Summary.Warning" xml:space="preserve">
+    <value>Ostrzeżenia: {0}</value>
+  </data>
+  <data name="PkiReady.Summary.Problem" xml:space="preserve">
+    <value>Problemy: {0}</value>
+  </data>
+  <data name="PkiReady.Summary.NotChecked" xml:space="preserve">
+    <value>Nie sprawdzono: {0}</value>
+  </data>
+  <data name="PkiReady.ColumnArea" xml:space="preserve">
+    <value>Obszar</value>
+  </data>
+  <data name="PkiReady.ColumnStatus" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="PkiReady.ColumnItem" xml:space="preserve">
+    <value>Element</value>
+  </data>
+  <data name="PkiReady.ColumnDetail" xml:space="preserve">
+    <value>Wynik</value>
+  </data>
+  <data name="PkiReady.ColumnRemedy" xml:space="preserve">
+    <value>Co zrobić</value>
+  </data>
+  <data name="PkiReady.RemedyLine" xml:space="preserve">
+    <value>Co zrobić: {0}</value>
+  </data>
+  <data name="PkiReady.MoreRows" xml:space="preserve">
+    <value>… i jeszcze {0}</value>
+  </data>
+  <data name="PkiReady.MoreRowsDetail" xml:space="preserve">
+    <value>Skopiuj lub wyeksportuj raport, aby zobaczyć wszystkie wiersze.</value>
+  </data>
+  <data name="PkiReady.OpenAccount" xml:space="preserve">
+    <value>Otwórz konto</value>
+  </data>
+  <data name="PkiReady.OpenTemplate" xml:space="preserve">
+    <value>Otwórz szablon</value>
+  </data>
+  <data name="PkiReady.OpenCa" xml:space="preserve">
+    <value>Otwórz urząd</value>
+  </data>
+  <data name="PkiReady.NoPki" xml:space="preserve">
+    <value>W tym lesie nie ma AD CS albo nie można odczytać kontenera Usługi kluczy publicznych.</value>
+  </data>
+  <data name="PkiReady.ReadFailed" xml:space="preserve">
+    <value>Nie można odczytać: {0}</value>
+  </data>
+  <data name="PkiReady.Reading" xml:space="preserve">
+    <value>Trwa odczyt…</value>
+  </data>
+  <data name="PkiReady.Mappings.Title" xml:space="preserve">
+    <value>Jawne mapowania certyfikatów (altSecurityIdentities)</value>
+  </data>
+  <data name="PkiReady.Mappings.Description" xml:space="preserve">
+    <value>Przy pełnym wymuszaniu silnego mapowania certyfikatów (KB5014754) kontroler domeny przyjmuje tylko silne jawne mapowania – wystawca i numer seryjny, identyfikator klucza podmiotu lub skrót SHA1 klucza publicznego – chyba że certyfikat ma rozszerzenie SID.</value>
+  </data>
+  <data name="PkiReady.Mappings.Weak" xml:space="preserve">
+    <value>Słabe mapowania: {0}.</value>
+  </data>
+  <data name="PkiReady.Mappings.WeakRemedy" xml:space="preserve">
+    <value>zastąp je mapowaniem wystawcy i numeru seryjnego, identyfikatora klucza podmiotu lub skrótu SHA1 klucza publicznego (karta Mapowania nazw konta).</value>
+  </data>
+  <data name="PkiReady.Mappings.Invalid" xml:space="preserve">
+    <value>Wartość altSecurityIdentities nie jest poprawnym mapowaniem.</value>
+  </data>
+  <data name="PkiReady.Mappings.InvalidRemedy" xml:space="preserve">
+    <value>popraw lub usuń nieprawidłową wartość.</value>
+  </data>
+  <data name="PkiReady.Mappings.Tier0" xml:space="preserve">
+    <value>Konto Tier 0: kto uzyska certyfikat o pasujących nazwach, zaloguje się jako ono (ESC14).</value>
+  </data>
+  <data name="PkiReady.Mappings.Disabled" xml:space="preserve">
+    <value>Konto jest wyłączone.</value>
+  </data>
+  <data name="PkiReady.Mappings.Strong" xml:space="preserve">
+    <value>Konta tylko z silnymi mapowaniami: {0}</value>
+  </data>
+  <data name="PkiReady.Mappings.StrongDetail" xml:space="preserve">
+    <value>Gotowe na pełne wymuszanie.</value>
+  </data>
+  <data name="PkiReady.Mappings.None" xml:space="preserve">
+    <value>Brak jawnych mapowań certyfikatów</value>
+  </data>
+  <data name="PkiReady.Mappings.NoneDetail" xml:space="preserve">
+    <value>Żadne konto nie ma mapowania certyfikatu w altSecurityIdentities.</value>
+  </data>
+  <data name="PkiReady.Templates.Title" xml:space="preserve">
+    <value>Szablony uwierzytelniania a rozszerzenie SID</value>
+  </data>
+  <data name="PkiReady.Templates.Description" xml:space="preserve">
+    <value>Wystawiane szablony z uwierzytelnianiem klienta: certyfikat bez rozszerzenia SID (szOID_NTDS_CA_SECURITY_EXT) przy pełnym wymuszaniu loguje tylko przez silne jawne mapowanie.</value>
+  </data>
+  <data name="PkiReady.Templates.NoExtension" xml:space="preserve">
+    <value>Szablon wyłącza rozszerzenie SID (CT_FLAG_NO_SECURITY_EXTENSION): jego certyfikaty nie zadziałają przy pełnym wymuszaniu, chyba że konto ma silne jawne mapowanie (ESC9).</value>
+  </data>
+  <data name="PkiReady.Templates.NoExtensionRemedy" xml:space="preserve">
+    <value>wyczyść flagę (0x80000 w msPKI-Enrollment-Flag), chyba że każdy certyfikat jest mapowany jawnie.</value>
+  </data>
+  <data name="PkiReady.Templates.Supplied" xml:space="preserve">
+    <value>Podmiot dostarcza wnioskujący: urząd nie dodaje SID, więc logowanie wymaga silnego jawnego mapowania.</value>
+  </data>
+  <data name="PkiReady.Templates.SuppliedRemedy" xml:space="preserve">
+    <value>kompiluj podmiot na podstawie informacji usługi Active Directory albo mapuj silnie każdy certyfikat do jego konta.</value>
+  </data>
+  <data name="PkiReady.Templates.Ok" xml:space="preserve">
+    <value>Szablony z rozszerzeniem SID: {0}</value>
+  </data>
+  <data name="PkiReady.Templates.OkDetail" xml:space="preserve">
+    <value>Ich certyfikaty zawierają SID konta i są mapowane silnie.</value>
+  </data>
+  <data name="PkiReady.Templates.None" xml:space="preserve">
+    <value>Brak wystawianych szablonów uwierzytelniania</value>
+  </data>
+  <data name="PkiReady.Templates.NoneDetail" xml:space="preserve">
+    <value>Żaden urząd przedsiębiorstwa nie wystawia szablonu z uwierzytelnianiem klienta.</value>
+  </data>
+  <data name="PkiReady.NtAuth.Title" xml:space="preserve">
+    <value>Urzędy przedsiębiorstwa a magazyn NTAuth</value>
+  </data>
+  <data name="PkiReady.NtAuth.Description" xml:space="preserve">
+    <value>Logowanie kartą inteligentną i certyfikatem (PKINIT) jest przyjmowane tylko dla certyfikatów urzędu z magazynu NTAuth.</value>
+  </data>
+  <data name="PkiReady.NtAuth.Missing" xml:space="preserve">
+    <value>Brak magazynu NTAuth (CN=NTAuthCertificates) albo nie można go odczytać.</value>
+  </data>
+  <data name="PkiReady.NtAuth.NotIn" xml:space="preserve">
+    <value>Nie ma go w magazynie NTAuth, a wystawia szablony logowania: {0}. Ich certyfikatów nie można użyć do logowania.</value>
+  </data>
+  <data name="PkiReady.NtAuth.NotInRemedy" xml:space="preserve">
+    <value>opublikuj certyfikat urzędu w NTAuth (certutil -dspublish -f &lt;plik&gt; NTAuthCA) albo przestań wystawiać te szablony.</value>
+  </data>
+  <data name="PkiReady.NtAuth.In" xml:space="preserve">
+    <value>W magazynie NTAuth.</value>
+  </data>
+  <data name="PkiReady.NtAuth.NotNeeded" xml:space="preserve">
+    <value>Nie ma go w magazynie NTAuth; nie wystawia szablonów logowania, więc nie musi.</value>
+  </data>
+  <data name="PkiReady.NtAuth.NoCa" xml:space="preserve">
+    <value>Brak urzędów przedsiębiorstwa</value>
+  </data>
+  <data name="PkiReady.NtAuth.NoCaDetail" xml:space="preserve">
+    <value>W lesie nie ma urzędu przedsiębiorstwa (brak obiektów w CN=Enrollment Services).</value>
+  </data>
+  <data name="PkiReady.Ldaps.Title" xml:space="preserve">
+    <value>Certyfikaty LDAPS kontrolerów domeny</value>
+  </data>
+  <data name="PkiReady.Ldaps.Description" xml:space="preserve">
+    <value>Certyfikat, który każdy kontroler domeny przedstawia na porcie 636: nazwy, uwierzytelnianie serwera, ważność i łańcuch do urzędu głównego opublikowanego w Active Directory.</value>
+  </data>
+  <data name="PkiReady.Ldaps.NotRun" xml:space="preserve">
+    <value>Nie sprawdzono</value>
+  </data>
+  <data name="PkiReady.Ldaps.NotRunDetail" xml:space="preserve">
+    <value>Naciśnij „Sprawdź certyfikaty LDAPS” – raport łączy się z kontrolerami domeny tylko po naciśnięciu tego przycisku.</value>
+  </data>
+  <data name="PkiReady.Ldaps.Unavailable" xml:space="preserve">
+    <value>Sprawdzanie LDAPS niedostępne</value>
+  </data>
+  <data name="PkiReady.Ldaps.UnavailableDetail" xml:space="preserve">
+    <value>To okno nie ma sondy TLS.</value>
+  </data>
+  <data name="PkiReady.Ldaps.NoDc" xml:space="preserve">
+    <value>Nie znaleziono kontrolera domeny z nazwą hosta.</value>
+  </data>
+  <data name="PkiReady.Ldaps.Host" xml:space="preserve">
+    <value>{0} (port {1})</value>
+  </data>
+  <data name="PkiReady.Ldaps.Unreadable" xml:space="preserve">
+    <value>Nie można odczytać przedstawionego certyfikatu.</value>
+  </data>
+  <data name="PkiReady.Ldaps.NameMismatch" xml:space="preserve">
+    <value>Jego nazwy nie obejmują nazwy hosta kontrolera domeny.</value>
+  </data>
+  <data name="PkiReady.Ldaps.NoServerAuth" xml:space="preserve">
+    <value>Nie pozwala na uwierzytelnianie serwera.</value>
+  </data>
+  <data name="PkiReady.Ldaps.NotTimeValid" xml:space="preserve">
+    <value>Wygasł lub nie jest jeszcze ważny.</value>
+  </data>
+  <data name="PkiReady.Ldaps.NotChained" xml:space="preserve">
+    <value>Nie prowadzi do urzędu głównego opublikowanego w Active Directory.</value>
+  </data>
+  <data name="PkiReady.Ldaps.NoDomainName" xml:space="preserve">
+    <value>Jego nazwy nie obejmują nazwy domeny (LDAPS do nazwy domeny się nie powiedzie).</value>
+  </data>
+  <data name="PkiReady.Ldaps.Expiring" xml:space="preserve">
+    <value>Wygasa za {0} dni.</value>
+  </data>
+  <data name="PkiReady.Ldaps.Ok" xml:space="preserve">
+    <value>Wystawca: {0}, ważny do {1} (pozostało dni: {2}).</value>
+  </data>
+  <data name="PkiReady.Ldaps.Remedy" xml:space="preserve">
+    <value>zarejestruj lub odnów certyfikat kontrolera domeny (szablon Uwierzytelnianie Kerberos, z nazwą hosta i domeny) – kontroler użyje go bez ponownego uruchamiania.</value>
+  </data>
+  <data name="PkiReady.Kdc.Title" xml:space="preserve">
+    <value>Certyfikaty KDC (opublikowane na obiektach kontrolerów domeny)</value>
+  </data>
+  <data name="PkiReady.Kdc.Description" xml:space="preserve">
+    <value>Wskaźnik na podstawie certyfikatów w userCertificate każdego kontrolera domeny; własny magazyn certyfikatów KDC odczyta etap P4.</value>
+  </data>
+  <data name="PkiReady.Kdc.NoDc" xml:space="preserve">
+    <value>Nie znaleziono kontrolerów domeny.</value>
+  </data>
+  <data name="PkiReady.Kdc.Certificate" xml:space="preserve">
+    <value>Certyfikat od: {0}, ważny do {1}.</value>
+  </data>
+  <data name="PkiReady.Kdc.Expiring" xml:space="preserve">
+    <value>Wygasa za {0} dni.</value>
+  </data>
+  <data name="PkiReady.Kdc.NoKdcEkuDetail" xml:space="preserve">
+    <value>Certyfikat z szablonu Kontroler domeny w wersji 1: PKINIT działa, ale nie przy ścisłej weryfikacji KDC.</value>
+  </data>
+  <data name="PkiReady.Kdc.Remedy" xml:space="preserve">
+    <value>zarejestruj kontroler domeny w szablonie Uwierzytelnianie Kerberos z urzędu z magazynu NTAuth.</value>
+  </data>
+  <data name="PkiReady.Kdc.ReadOnly" xml:space="preserve">
+    <value>Kontroler domeny tylko do odczytu.</value>
+  </data>
+  <data name="PkiReady.Events.Title" xml:space="preserve">
+    <value>Zdarzenia KDC</value>
+  </data>
+  <data name="PkiReady.Events.Row" xml:space="preserve">
+    <value>Zdarzenia 39, 40, 41, 45 i 21 kontrolerów domeny</value>
+  </data>
+  <data name="PkiReady.Events.Detail" xml:space="preserve">
+    <value>Analiza zdarzeń KDC o słabych lub nieudanych mapowaniach certyfikatów pojawi się w etapie P5; do tego czasu przefiltruj dziennik System każdego kontrolera domeny w przeglądarce dzienników zdarzeń.</value>
+  </data>
+  <data name="PkiReady.Status.Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="PkiReady.Status.Warning" xml:space="preserve">
+    <value>Ostrzeżenie</value>
+  </data>
+  <data name="PkiReady.Status.Problem" xml:space="preserve">
+    <value>Problem</value>
+  </data>
+  <data name="PkiReady.Status.NotChecked" xml:space="preserve">
+    <value>Nie sprawdzono</value>
+  </data>
   <!-- P1 strong mapping and NTAuth readiness (2.5): end -->
   <!-- P1 certificates on accounts (2.6): begin -->
   <!-- P1 certificates on accounts (2.6): end -->

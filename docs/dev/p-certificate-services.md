@@ -1408,3 +1408,67 @@ documents, the shell partial and the App views of 2.5; no public member of 2.11 
 * *For the integration step.* `docs/CERTYFIKATY.md`: the HTTP check only on *Sprawdź adresy HTTP*, the LDAPS probe on the
   tab's first activation / its button / F5, the thresholds in *Ustawienia → Ogólne → Certyfikaty*, the tree toggle, the
   compare pane, the exports' privacy footer. Every tree screenshot changes (the node is on by default).
+
+**W6 as built.** The security review and the readiness report of 2.5 with their views, texts, smoke render and tests; no
+public member of 2.1–2.6 renamed or removed; outside the W6 files only the two `DataTemplate`s under
+`<!-- P1 PKI security (W6) -->` in `MainWindow.xaml` (anchor kept) and the two W6 resx blocks.
+* *Additions (Presentation).* `PkiFindingRowViewModel` + `PkiFindingHeadings` (the row and the headings of *Kopiuj* / HTML),
+  `PkiSeverityChipViewModel` (in `.Filters.cs`), internal `PkiFindingRows` (in `.Rows.cs`: texts, grouping, navigation
+  targets); `PkiSecurityReviewDocumentViewModel` with `ShowCode(code)`, `Result`, `TotalCount`, `HasResult`, `ListNote`,
+  `OpenObjectText`, `DetailsText(row)`, `CancelCommand`, `ClearFiltersCommand`, `FocusSearch` (`ISearchableDocument`).
+  `PkiReadinessStatus` (`Ok`, `Warning`, `Problem`, `NotChecked` – the dynamic family `PkiReady.Status.<status>`,
+  `PkiReadinessDocumentViewModel.AllKeys()`, tested), `PkiReadinessArea`, `PkiReadinessRowViewModel`,
+  `PkiReadinessGroupViewModel` (in `.Rows.cs`), internal `PkiReadinessRows` (in `.Builder.cs`, pure);
+  `PkiReadinessDocumentViewModel` with `CheckLdapsCommand`, `IsCheckingLdaps`, `IsBusy`, `RowsShown` = 100, `ReportText()`,
+  `CopyCommand`, `ExportCsvCommand`, `Summary` / `Rank` / `StatusKey`. Key added beyond the first draft: `PkiEsc.NoPki`.
+* *Review.* `LoadCoreAsync` (every load: opening, F5 with `IsRefresh`, a session change) takes the snapshot and the
+  expansion from the service, then `Task.Run(PkiEscReader.ReadAsync + PkiEscAnalyzer.Analyze)` with the default
+  `PkiEscReadOptions` (decision 3); progress per stage (`PkiEsc.Stage*`); *Anuluj* keeps the rows shown (status
+  *Sprawdzanie anulowano.*); a language switch rebuilds the texts from the shown result without reading. Rows are grouped
+  by `GroupText` (*Obszar: obiekt*): groups by their most severe finding, then by name; inside a group severity, catalogue
+  order, analyzer order. Principals named by SID only are given the localized well-known names (the K4
+  `SecuritySettingsText` lists + *Ta organizacja*); a count `?` reads *nieznana liczba*; ESC14 has its three variants in
+  the W6 block (`PkiEsc.Esc14.*`: Tier 0 mapping, aggregated – object *Konta spoza Tier 0 (N)* –, write). Filters: the
+  chips mirror the severity box; ESC = the distinct `PkiFindingDefinition.Esc` values (so `FindingCode` /
+  `ShowCode(EnrollmentAgentTargetTemplate)` shows every ESC3 row); template = the finding's own **or a related** template
+  (ESC3 agents list their targets, e.g. *Użytkownik*); the search uses the **invariant** collation with `IgnoreNonSpace`
+  (the Polish one keeps ś apart from s; K6 uses `CurrentCulture`). Navigation: *Otwórz szablon* →
+  `Pki.RequestDocument(Templates { TemplateCn })`; *Otwórz urząd* → `Overview { CaDn }` (the finding's own CA, the CA of an
+  ESC5 CA computer, else the first related CA); *Otwórz konto / komputer / obiekt* → `Ui.Dialogs.ShowPropertiesAsync`
+  (ESC14 accounts, ESC5 objects and CA computers; an ESC5 finding on an enrollment service opens the urząd instead).
+  Notes bar: the scope note always; one line per notice code with up to five object names; *Nie oceniono: …* for
+  `NotEvaluated` (C4: ESC4 is still evaluated without AccessControl – the group text names ESC5 and the ESC14 writes only).
+  `ListNote`: no match / *Nie można ocenić PKI* (not evaluated, nothing to show) / *W tym lesie nie ma AD CS*
+  (`BaseNotFound`) / none found. Exports of the **filtered** rows: CSV (`protectFormulas`, columns severity, ESC, area,
+  object, title, condition, attack path, what to do, principals, notes, related, Certipy, Locksmith, MDI, `Code` – the last
+  unlocalized as in K6), HTML with CSP `default-src 'none'; style-src 'unsafe-inline'`, every value through `E()`, the
+  filter line and the privacy footer.
+* *Readiness.* Snapshot rows first, then the DCs (`GetDomainControllersAsync`), then the expansion; a failure of either
+  later read is a *nie sprawdzono* row with the translated error (a snapshot failure is `Error`). Rules: a weak mapping on
+  an enabled Tier 0 account → problem, on another account → warning, only invalid values → warning, `NotCertificate`
+  (Kerberos) ignored, the strong-only accounts one OK row; published templates naming client authentication in
+  `EffectiveEku` or `pKIExtendedKeyUsage` (an empty EKU is ESC2's business): `NoSecurityExtension` → problem,
+  `EnrolleeSuppliesSubject` → warning, the rest one OK row; every enterprise CA: in NTAuth OK, not in NTAuth and publishing
+  a logon template problem (with the templates), else OK; LDAPS: name / server-auth / validity problems, expiry within the
+  end-entity threshold, no AD-root chain or no domain name warnings, 636 closed or handshake failed problem, **3269 closed
+  only a warning**, timeout / unresolved warning; KDC (`KdcCertificateEvaluation`, C1's *brak EKU KDC* wording for
+  `NoKdcEku` → warning), `Ready` within the threshold → warning, issuer outside NTAuth / expired → problem, no published
+  certificate → *nie sprawdzono*, RODCs noted; the KDC events row is *nie sprawdzono* with *P5*. The thresholds and the
+  clock apply when shown (`OnSettingsChanged` rebuilds). *Sprawdź certyfikaty LDAPS* passes `refresh: true` once checks are
+  shown (a reload shows the service's cached checks without probing); a reload of another session or F5 cancels a running
+  probe. An area shows 100 rows and *… i jeszcze N* (copy and CSV hold all); no HTML export (not asked for in 2.5).
+* *App.* `PkiSecurityReviewView` (K6 layout; severity styles of its own keyed on `PkiFindingSeverity`; list grouped through
+  `gp:GpoSettingsUi.GroupBy`/`GroupedItemsSource` with `IsVirtualizingWhenGrouping`; `gp:GroupPolicyUi.IsDocumentSearch`,
+  `KeepsSelectionInView`, `gp:PaneSplitter` reused read-only) and `PkiReadinessView` (stage-S layout). `SmokeTest.PkiSecurity`
+  opens both tabs through `ShellViewModel.OpenPkiDocument` in the disconnected window and checks they use the window's
+  `PkiServices` and wait for a connection.
+* *Tests.* `PkiSecurityReviewTests` (12; with `HookedPkiSnapshotService`, a decorator of `DirectPkiSnapshotService` that
+  cancels, replaces the snapshot, fails the expansion or answers the DC checks) and `PkiReadinessTests` (12) on the real
+  Core readers. `PkiSecurityUiTests` (2) and `ScreenshotTestsPkiSecurity` (38, 39) run the app on
+  `ManualTimeProvider(PkiSamples.Now)` (UTC as the local zone) with their own `FakeDomainControllerTlsProbe`
+  (`PkiSecurityUiSupport`); they – and the smoke render – need W5's `OpenPkiDocument` and `PkiSnapshotService` (the
+  contract stubs throw), so they first run after the wave-2 merge on Windows CI.
+* *For W5 / the merge.* When `OpenPkiDocument` selects an open review for a request with `FindingCode`, it should call
+  `review.ShowCode(request.FindingCode)` (`Matches` keeps one review per window); the review and the readiness report
+  read only through `IPkiSnapshotService` (`GetAsync`, `GetExpansionAsync`, `GetDomainControllersAsync`,
+  `GetDcCertificatesAsync`, `DcCertificates`).
