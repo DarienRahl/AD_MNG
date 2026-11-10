@@ -39,7 +39,7 @@ public sealed partial class ColumnChooserViewModel : ObservableObject
         {
             foreach (var attribute in schema.GetAllowedAttributes(ObjectClassesForColumns))
             {
-                if (!schema.IsBinary(attribute))
+                if (!schema.IsBinary(attribute) && !SecretAttributes.IsNeverShown(attribute, schema))
                 {
                     attributes.Add(attribute);
                 }
@@ -48,7 +48,7 @@ public sealed partial class ColumnChooserViewModel : ObservableObject
 
         if (attributes.Count == 0)
         {
-            attributes.UnionWith(DisplayNames.CommonAttributes.Where(a => schema is null || !schema.IsBinary(a)));
+            attributes.UnionWith(DisplayNames.CommonAttributes.Where(a => (schema is null || !schema.IsBinary(a)) && !SecretAttributes.IsNeverShown(a, schema)));
         }
 
         attributes.ExceptWith([Attr.ObjectGuid, Attr.ObjectSid, Attr.NtSecurityDescriptor]);
