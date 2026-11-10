@@ -61,7 +61,10 @@ public sealed partial class AttributeRowViewModel : ObservableObject
         IsBinary = context.Schema.IsBinary(attribute);
         SyntaxText = definition is null ? string.Empty : context.Localizer[DisplayNames.SyntaxKey(definition.Syntax)];
         EditorKind = KindOf(attribute, definition, IsBinary, IsMultiValued);
-        ReadOnlyReason = IsBinary ? context.Localizer[L.AttributeEditor.BinaryReadOnly] : context.ReadOnlyReason(attribute);
+        IsMasked = SecretAttributes.IsNeverShown(attribute, context.Schema);
+        ReadOnlyReason = IsMasked ? context.Localizer[L.Certificates.MaskedReadOnly]
+            : IsBinary ? context.Localizer[L.AttributeEditor.BinaryReadOnly]
+            : context.ReadOnlyReason(attribute);
     }
 
     /// <summary>LDAP display name (what ADUC's Attribute Editor lists).</summary>
@@ -77,6 +80,13 @@ public sealed partial class AttributeRowViewModel : ObservableObject
     public bool IsBinary { get; }
 
     public AttributeEditorKind EditorKind { get; }
+
+    /// <summary>
+    /// Key material (P1 decision 7, <see cref="SecretAttributes.IsNeverShown"/>: <c>userPKCS12</c>, roaming credentials, BitLocker
+    /// key packages, managed and encrypted passwords, binary secrets): the value is masked, the row is read only, never staged
+    /// and cannot be copied – not even here.
+    /// </summary>
+    public bool IsMasked { get; }
 
     /// <summary>Why the attribute cannot be edited (system attribute, permission, binary), or null.</summary>
     public string? ReadOnlyReason { get; }
@@ -95,11 +105,16 @@ public sealed partial class AttributeRowViewModel : ObservableObject
 
     public bool IsDirty => PendingValues is not null;
 
-    /// <summary>Formatted value(s) as ADUC shows them, "&lt;not set&gt;" when empty.</summary>
+    /// <summary>Formatted value(s) as ADUC shows them, "&lt;not set&gt;" when empty; <see cref="SecretAttributes.Mask"/> for a masked row.</summary>
     public string ValueText
     {
         get
         {
+            if (IsMasked)
+            {
+                return Values is { Count: > 0 } ? SecretAttributes.Mask : _context.Localizer[L.AttributeEditor.NotSet];
+            }
+
             if (PendingValues is { } pending)
             {
                 return pending.Count == 0
@@ -118,6 +133,11 @@ public sealed partial class AttributeRowViewModel : ObservableObject
     {
         get
         {
+            if (IsMasked)
+            {
+                return [];
+            }
+
             if (PendingValues is { } pending)
             {
                 return [.. pending.Select(v => ToEditable(v))];
@@ -501,23 +521,23 @@ public sealed partial class AttributeEditorPageViewModel : PropertyPageViewModel
             : null;
 
     internal override IEnumerable<BatchOperation> GetOperations() =>
-        [.. _rows.Where(r => r.PendingValues is not null && !r.IsReadOnly).Select(r => new SetValuesOperation(r.Attribute, r.PendingValues!))];
+        [.. _rows.Where(r => r.PendingValues is not null && !r.IsReadOnly && !r.IsMasked).Select(r => new SetValuesOperation(r.Attribute, r.PendingValues!))];
 
-    [RelayCommand(CanExecute = nameof(HasSelection))]
+    [RelayCommand(CanExecute = nameof(CanEditOrCopy))]
     private void Edit(AttributeRowViewModel? row)
     {
         row ??= SelectedRow;
-        if (row is not null)
+        if (row is { IsMasked: false })
         {
             Editor = new AttributeValueEditorViewModel(Context, row, CloseEditor);
         }
     }
 
-    [RelayCommand(CanExecute = nameof(HasSelection))]
+    [RelayCommand(CanExecute = nameof(CanEditOrCopy))]
     private void CopyValue(AttributeRowViewModel? row)
     {
         row ??= SelectedRow;
-        if (row is not { HasValue: true })
+        if (row is not { HasValue: true, IsMasked: false })
         {
             return;
         }
@@ -533,7 +553,8 @@ public sealed partial class AttributeEditorPageViewModel : PropertyPageViewModel
         ClipboardCopy.Text(Context.Services.Clipboard, Context.Services.Notifications, row.ValueText, Context.Localizer[L.Fields.Copied]);
     }
 
-    private bool HasSelection(AttributeRowViewModel? row) => (row ?? SelectedRow) is not null;
+    /// <summary>A row is selected (or given) and it is not masked key material (P1 decision 7: no editor, no copy).</summary>
+    private bool CanEditOrCopy(AttributeRowViewModel? row) => (row ?? SelectedRow) is { IsMasked: false };
 
     [RelayCommand]
     private Task RefreshAsync() => ReloadAsync();
@@ -544,13 +565,13 @@ public sealed partial class AttributeEditorPageViewModel : PropertyPageViewModel
 
     partial void OnFilterTextChanged(string value) => ApplyFilter();
 
-    protected override bool ComputeHasChanges() => _rows.Any(r => r.IsDirty);
+    protected override bool ComputeHasChanges() => _rows.Any(r => r.IsDirty && !r.IsMasked);
 
     protected override bool ComputeHasErrors() => false;
 
     private void CloseEditor(AttributeValueEditorViewModel editor, IReadOnlyList<string>? values)
     {
-        if (values is not null && !editor.Row.IsReadOnly)
+        if (values is not null && !editor.Row.IsReadOnly && !editor.Row.IsMasked)
         {
             var original = editor.Row.Values?.Strings ?? [];
             editor.Row.PendingValues = values.Count == original.Count && values.Order(StringComparer.Ordinal).SequenceEqual(original.Order(StringComparer.Ordinal), StringComparer.Ordinal)
@@ -606,7 +627,7 @@ public sealed partial class AttributeEditorPageViewModel : PropertyPageViewModel
             foreach (var name in names)
             {
                 var row = new AttributeRowViewModel(Context, name, obj.Attributes.GetValueOrDefault(name));
-                if (pending.TryGetValue(name, out var staged) && !row.IsReadOnly)
+                if (pending.TryGetValue(name, out var staged) && !row.IsReadOnly && !row.IsMasked)
                 {
                     row.PendingValues = staged;
                 }
