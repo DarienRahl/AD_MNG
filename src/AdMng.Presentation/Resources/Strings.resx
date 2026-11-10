@@ -21342,12 +21342,1512 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <!-- P1 contract – AD CS finding texts and shared names (2.4, 2.8): end -->
   <!-- P1 PKI overview, health and settings (2.1, 2.5): begin -->
+  <data name="Pki.NodeTitle" xml:space="preserve">
+    <value>Public Key Services</value>
+  </data>
+  <data name="Pki.NodeHelp" xml:space="preserve">
+    <value>The forest PKI read from the configuration partition: enterprise CAs, trust stores, CRLs, templates and health</value>
+  </data>
+  <data name="Pki.OverviewTitle" xml:space="preserve">
+    <value>Public Key Services</value>
+  </data>
+  <data name="Pki.OverviewCommand" xml:space="preserve">
+    <value>Public Key Services…</value>
+  </data>
+  <data name="Pki.SecurityReviewCommand" xml:space="preserve">
+    <value>AD CS security review…</value>
+  </data>
+  <data name="Pki.SecurityReviewNode" xml:space="preserve">
+    <value>AD CS security review</value>
+  </data>
+  <data name="Pki.ReadinessCommand" xml:space="preserve">
+    <value>Strong mapping and NTAuth readiness…</value>
+  </data>
+  <data name="Pki.ReadinessNode" xml:space="preserve">
+    <value>Strong mapping and NTAuth readiness</value>
+  </data>
+  <data name="Pki.ToggleTreeCommand" xml:space="preserve">
+    <value>Public Key Services in the tree</value>
+  </data>
+  <data name="Pki.MenuHeader" xml:space="preserve">
+    <value>Certificate Services (AD CS)</value>
+  </data>
+  <data name="Pki.OpenCommand" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="Pki.RefreshCommand" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="Pki.SectionAuthorities" xml:space="preserve">
+    <value>Enterprise CAs</value>
+  </data>
+  <data name="Pki.SectionTrust" xml:space="preserve">
+    <value>Trusted CAs and NTAuth</value>
+  </data>
+  <data name="Pki.SectionCrls" xml:space="preserve">
+    <value>CRLs</value>
+  </data>
+  <data name="Pki.SectionKra" xml:space="preserve">
+    <value>Key recovery agents</value>
+  </data>
+  <data name="Pki.SectionOids" xml:space="preserve">
+    <value>OIDs</value>
+  </data>
+  <data name="Pki.SectionHealth" xml:space="preserve">
+    <value>Health</value>
+  </data>
+  <data name="Pki.SectionLdaps" xml:space="preserve">
+    <value>LDAPS certificates</value>
+  </data>
+  <data name="Pki.Summary" xml:space="preserve">
+    <value>{0} enterprise CAs · {1} templates · {2} trusted root CAs · {3} NTAuth certificates</value>
+  </data>
+  <data name="Pki.ReadAt" xml:space="preserve">
+    <value>Read from {0} at {1}.</value>
+  </data>
+  <data name="Pki.ReadProgress" xml:space="preserve">
+    <value>Reading the PKI objects: {0}…</value>
+  </data>
+  <data name="Pki.NoneFound" xml:space="preserve">
+    <value>None found.</value>
+  </data>
+  <data name="Pki.None" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="Pki.ReadOnlyNote" xml:space="preserve">
+    <value>Read-only: nothing is changed. What is shown stays in memory while the window is open.</value>
+  </data>
+  <data name="Pki.NoticesHeading" xml:space="preserve">
+    <value>What the read observed</value>
+  </data>
+  <data name="Pki.NoticeLine" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="Pki.ColumnName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Pki.ColumnHost" xml:space="preserve">
+    <value>Host</value>
+  </data>
+  <data name="Pki.ColumnValidTo" xml:space="preserve">
+    <value>Valid to</value>
+  </data>
+  <data name="Pki.ColumnStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Pki.ColumnNtAuth" xml:space="preserve">
+    <value>NTAuth</value>
+  </data>
+  <data name="Pki.ColumnTemplates" xml:space="preserve">
+    <value>Templates</value>
+  </data>
+  <data name="Pki.ColumnSubject" xml:space="preserve">
+    <value>Subject</value>
+  </data>
+  <data name="Pki.ColumnIssuer" xml:space="preserve">
+    <value>Issuer</value>
+  </data>
+  <data name="Pki.ColumnThumbprint" xml:space="preserve">
+    <value>Thumbprint</value>
+  </data>
+  <data name="Pki.ColumnStore" xml:space="preserve">
+    <value>Store</value>
+  </data>
+  <data name="Pki.ColumnEnterpriseCa" xml:space="preserve">
+    <value>Enterprise CA</value>
+  </data>
+  <data name="Pki.ColumnCa" xml:space="preserve">
+    <value>CA</value>
+  </data>
+  <data name="Pki.ColumnKind" xml:space="preserve">
+    <value>Kind</value>
+  </data>
+  <data name="Pki.ColumnNumber" xml:space="preserve">
+    <value>Number</value>
+  </data>
+  <data name="Pki.ColumnThisUpdate" xml:space="preserve">
+    <value>Effective date</value>
+  </data>
+  <data name="Pki.ColumnNextUpdate" xml:space="preserve">
+    <value>Next update</value>
+  </data>
+  <data name="Pki.ColumnRevoked" xml:space="preserve">
+    <value>Revoked</value>
+  </data>
+  <data name="Pki.ColumnAgent" xml:space="preserve">
+    <value>Agent</value>
+  </data>
+  <data name="Pki.ColumnOid" xml:space="preserve">
+    <value>OID</value>
+  </data>
+  <data name="Pki.ColumnDisplayName" xml:space="preserve">
+    <value>Display name</value>
+  </data>
+  <data name="Pki.ColumnGroupLink" xml:space="preserve">
+    <value>Linked group</value>
+  </data>
+  <data name="Pki.ColumnItem" xml:space="preserve">
+    <value>Item</value>
+  </data>
+  <data name="Pki.ColumnUrl" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="Pki.ColumnOutcome" xml:space="preserve">
+    <value>Result</value>
+  </data>
+  <data name="Pki.ColumnPort" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="Pki.ColumnDc" xml:space="preserve">
+    <value>Domain controller</value>
+  </data>
+  <data name="Pki.ColumnChecks" xml:space="preserve">
+    <value>Checks</value>
+  </data>
+  <data name="Pki.ColumnKdc" xml:space="preserve">
+    <value>KDC certificate</value>
+  </data>
+  <data name="Pki.DetailsHeading" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="Pki.CaDetailsEmpty" xml:space="preserve">
+    <value>Select a CA to see its certificate, chain, templates and enrollment web services.</value>
+  </data>
+  <data name="Pki.CertificateDetailsEmpty" xml:space="preserve">
+    <value>Select a certificate to see its details.</value>
+  </data>
+  <data name="Pki.CaCertificate" xml:space="preserve">
+    <value>CA certificate</value>
+  </data>
+  <data name="Pki.Chain" xml:space="preserve">
+    <value>Certification path</value>
+  </data>
+  <data name="Pki.ChainRootInAd" xml:space="preserve">
+    <value>{0} (trusted root CA in AD)</value>
+  </data>
+  <data name="Pki.ChainIssuerNotFound" xml:space="preserve">
+    <value>{0} (the issuer's certificate is not in AD)</value>
+  </data>
+  <data name="Pki.PublishedTemplates" xml:space="preserve">
+    <value>Certificate templates to issue</value>
+  </data>
+  <data name="Pki.EnrollmentServers" xml:space="preserve">
+    <value>Certificate enrollment web services (CES)</value>
+  </data>
+  <data name="Pki.ValidityRange" xml:space="preserve">
+    <value>{0} to {1}</value>
+  </data>
+  <data name="Pki.DaysLeft" xml:space="preserve">
+    <value>{0} days left</value>
+  </data>
+  <data name="Pki.ExpiredAgo" xml:space="preserve">
+    <value>expired {0} days ago</value>
+  </data>
+  <data name="Pki.NotYetValid" xml:space="preserve">
+    <value>not valid yet</value>
+  </data>
+  <data name="Pki.Validity" xml:space="preserve">
+    <value>Validity</value>
+  </data>
+  <data name="Pki.Key" xml:space="preserve">
+    <value>Public key</value>
+  </data>
+  <data name="Pki.KeyText" xml:space="preserve">
+    <value>{0} ({1} bits)</value>
+  </data>
+  <data name="Pki.SignatureAlgorithm" xml:space="preserve">
+    <value>Signature algorithm</value>
+  </data>
+  <data name="Pki.SerialNumber" xml:space="preserve">
+    <value>Serial number</value>
+  </data>
+  <data name="Pki.Sha256" xml:space="preserve">
+    <value>SHA-256</value>
+  </data>
+  <data name="Pki.Renewals" xml:space="preserve">
+    <value>Certificates in cACertificate (renewals included): {0}</value>
+  </data>
+  <data name="Pki.InNtAuth" xml:space="preserve">
+    <value>In NTAuth</value>
+  </data>
+  <data name="Pki.NotInNtAuth" xml:space="preserve">
+    <value>Not in NTAuth</value>
+  </data>
+  <data name="Pki.NtAuthSummary" xml:space="preserve">
+    <value>NTAuth certificates: {0} · enterprise CAs in NTAuth: {1} of {2}</value>
+  </data>
+  <data name="Pki.OpenComputer" xml:space="preserve">
+    <value>Open computer</value>
+  </data>
+  <data name="Pki.RemoteActions" xml:space="preserve">
+    <value>Remote actions…</value>
+  </data>
+  <data name="Pki.ComputerOtherDomain" xml:space="preserve">
+    <value>The CA host belongs to another domain of the forest: open it from a window of that domain.</value>
+  </data>
+  <data name="Pki.ComputerUnresolved" xml:space="preserve">
+    <value>The CA host's computer object was not found in this domain.</value>
+  </data>
+  <data name="Pki.OpenTemplate" xml:space="preserve">
+    <value>Open template</value>
+  </data>
+  <data name="Pki.LogonCaNotInNtAuth" xml:space="preserve">
+    <value>{0} issues logon certificates ({1}) but is not in NTAuth: smart-card and certificate logon with its certificates fails.</value>
+  </data>
+  <data name="Pki.SanText" xml:space="preserve">
+    <value>Subject alternative name</value>
+  </data>
+  <data name="Pki.EkuText" xml:space="preserve">
+    <value>Intended purposes</value>
+  </data>
+  <data name="Pki.CdpText" xml:space="preserve">
+    <value>CRL distribution points</value>
+  </data>
+  <data name="Pki.AiaText" xml:space="preserve">
+    <value>Authority information access</value>
+  </data>
+  <data name="Pki.StoreRoot" xml:space="preserve">
+    <value>Trusted root CA</value>
+  </data>
+  <data name="Pki.StoreAia" xml:space="preserve">
+    <value>Intermediate CA (AIA)</value>
+  </data>
+  <data name="Pki.StoreCross" xml:space="preserve">
+    <value>Cross certificate (AIA)</value>
+  </data>
+  <data name="Pki.StoreNtAuth" xml:space="preserve">
+    <value>NTAuth</value>
+  </data>
+  <data name="Pki.NotEnterpriseCa" xml:space="preserve">
+    <value>not an enterprise CA</value>
+  </data>
+  <data name="Pki.CrlBase" xml:space="preserve">
+    <value>Base CRL</value>
+  </data>
+  <data name="Pki.CrlDelta" xml:space="preserve">
+    <value>Delta CRL</value>
+  </data>
+  <data name="Pki.CrlAuthority" xml:space="preserve">
+    <value>Authority revocation list (ARL)</value>
+  </data>
+  <data name="Pki.Unreadable" xml:space="preserve">
+    <value>Not readable</value>
+  </data>
+  <data name="Pki.UnknownCa" xml:space="preserve">
+    <value>unknown CA</value>
+  </data>
+  <data name="Pki.DeltaOf" xml:space="preserve">
+    <value>{0} (for base CRL {1})</value>
+  </data>
+  <data name="Pki.OidTemplate" xml:space="preserve">
+    <value>Certificate template</value>
+  </data>
+  <data name="Pki.OidIssuancePolicy" xml:space="preserve">
+    <value>Issuance policy</value>
+  </data>
+  <data name="Pki.OidApplicationPolicy" xml:space="preserve">
+    <value>Application policy</value>
+  </data>
+  <data name="Pki.OidOther" xml:space="preserve">
+    <value>Other ({0})</value>
+  </data>
+  <data name="Pki.OpenGroup" xml:space="preserve">
+    <value>Open group</value>
+  </data>
+  <data name="Pki.HealthItemNumbered" xml:space="preserve">
+    <value>{0} #{1}</value>
+  </data>
+  <data name="Pki.CheckHttp" xml:space="preserve">
+    <value>Check HTTP URLs</value>
+  </data>
+  <data name="Pki.CheckHttpHint" xml:space="preserve">
+    <value>Fetches the http/https AIA, CDP and OCSP URLs of the certificates – no credentials, at most 3 redirects, 15 s and 20 MB per URL. Nothing is fetched otherwise.</value>
+  </data>
+  <data name="Pki.HttpNotChecked" xml:space="preserve">
+    <value>HTTP URLs are checked only when you press “Check HTTP URLs”; until then their rows are Unknown.</value>
+  </data>
+  <data name="Pki.HttpChecked" xml:space="preserve">
+    <value>HTTP URLs checked: {0} ({1} OK).</value>
+  </data>
+  <data name="Pki.HttpChecking" xml:space="preserve">
+    <value>Checking HTTP URLs: {0} of {1}…</value>
+  </data>
+  <data name="Pki.HttpUnavailable" xml:space="preserve">
+    <value>HTTP checks are not available in this window.</value>
+  </data>
+  <data name="Pki.HttpNoUrls" xml:space="preserve">
+    <value>The certificates name no http/https URL.</value>
+  </data>
+  <data name="Pki.HttpStatus" xml:space="preserve">
+    <value>{0} (HTTP {1})</value>
+  </data>
+  <data name="Pki.HttpResultsHeading" xml:space="preserve">
+    <value>HTTP URLs</value>
+  </data>
+  <data name="Pki.HealthSummary" xml:space="preserve">
+    <value>OK: {0} · expiring: {1} · expired: {2} · unavailable: {3} · unknown: {4}</value>
+  </data>
+  <data name="Pki.HealthThresholds" xml:space="preserve">
+    <value>Expiry warning: certificates {0} days, CA certificates {1} days (Settings → General → Certificates).</value>
+  </data>
+  <data name="Pki.HealthEmpty" xml:space="preserve">
+    <value>Nothing to evaluate: the forest has no enterprise CA, key recovery agent or NTAuth certificate.</value>
+  </data>
+  <data name="Pki.ProbeLdaps" xml:space="preserve">
+    <value>Check LDAPS certificates</value>
+  </data>
+  <data name="Pki.ProbeLdapsHint" xml:space="preserve">
+    <value>A TLS handshake with port 636 (and 3269 on global catalogs) of every DC of the domain – no LDAP bind, no data – at most 4 at a time, 5 s each.</value>
+  </data>
+  <data name="Pki.LdapsUnavailable" xml:space="preserve">
+    <value>The LDAPS check is not available in this window.</value>
+  </data>
+  <data name="Pki.LdapsNotChecked" xml:space="preserve">
+    <value>Not checked yet.</value>
+  </data>
+  <data name="Pki.LdapsChecking" xml:space="preserve">
+    <value>Checking the LDAPS certificates of the domain controllers…</value>
+  </data>
+  <data name="Pki.LdapsSummary" xml:space="preserve">
+    <value>Ports checked: {0}; OK: {1}; with a problem: {2}.</value>
+  </data>
+  <data name="Pki.LdapsNoDcs" xml:space="preserve">
+    <value>No domain controller with a DNS host name was found.</value>
+  </data>
+  <data name="Pki.CheckNameMismatch" xml:space="preserve">
+    <value>the name does not match the DC</value>
+  </data>
+  <data name="Pki.CheckNoDomainName" xml:space="preserve">
+    <value>the domain name is not in the SAN (ldaps://{0} fails)</value>
+  </data>
+  <data name="Pki.CheckNoServerAuth" xml:space="preserve">
+    <value>no Server Authentication EKU</value>
+  </data>
+  <data name="Pki.CheckExpired" xml:space="preserve">
+    <value>expired</value>
+  </data>
+  <data name="Pki.CheckExpiring" xml:space="preserve">
+    <value>expires in {0} days</value>
+  </data>
+  <data name="Pki.CheckNoAdRoot" xml:space="preserve">
+    <value>does not chain to a root CA in AD</value>
+  </data>
+  <data name="Pki.CheckIssuerNotInNtAuth" xml:space="preserve">
+    <value>issuer not in NTAuth</value>
+  </data>
+  <data name="Pki.CheckOk" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Pki.CheckUnparsable" xml:space="preserve">
+    <value>the presented certificate cannot be read</value>
+  </data>
+  <data name="Pki.KdcNote" xml:space="preserve">
+    <value>KDC certificate: from the certificates published on the DC object in AD (the KDC's own store is checked in stage P4).</value>
+  </data>
+  <data name="Pki.ChainStatus" xml:space="preserve">
+    <value>Chain status: {0}</value>
+  </data>
+  <data name="Pki.PortText" xml:space="preserve">
+    <value>{0} (global catalog)</value>
+  </data>
+  <data name="Pki.SettingsSection" xml:space="preserve">
+    <value>Certificates</value>
+  </data>
+  <data name="Pki.SettingsCertificateDays" xml:space="preserve">
+    <value>Certificate expiry warning (days)</value>
+  </data>
+  <data name="Pki.SettingsCaDays" xml:space="preserve">
+    <value>CA certificate expiry warning (days)</value>
+  </data>
+  <data name="Pki.SettingsHint" xml:space="preserve">
+    <value>The PKI overview marks DC LDAPS, key recovery agent and published certificates as expiring at the first threshold and CA certificates (renewing a CA has to be planned) at the second. A CRL is expiring when less than 20 % of its validity, at least one day, is left.</value>
+  </data>
+  <data name="Pki.HealthItem.CaCertificate" xml:space="preserve">
+    <value>CA certificate</value>
+  </data>
+  <data name="Pki.HealthItem.AiaLocation" xml:space="preserve">
+    <value>AIA location</value>
+  </data>
+  <data name="Pki.HealthItem.CdpLocation" xml:space="preserve">
+    <value>CDP location</value>
+  </data>
+  <data name="Pki.HealthItem.DeltaCrlLocation" xml:space="preserve">
+    <value>Delta CRL location</value>
+  </data>
+  <data name="Pki.HealthItem.BaseCrl" xml:space="preserve">
+    <value>Base CRL</value>
+  </data>
+  <data name="Pki.HealthItem.DeltaCrl" xml:space="preserve">
+    <value>Delta CRL</value>
+  </data>
+  <data name="Pki.HealthItem.KraCertificate" xml:space="preserve">
+    <value>Key recovery agent certificate</value>
+  </data>
+  <data name="Pki.HealthItem.NtAuthCertificate" xml:space="preserve">
+    <value>NTAuth certificate</value>
+  </data>
+  <data name="Pki.Http.Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Pki.Http.NotFound" xml:space="preserve">
+    <value>Not found (404)</value>
+  </data>
+  <data name="Pki.Http.HttpError" xml:space="preserve">
+    <value>HTTP error</value>
+  </data>
+  <data name="Pki.Http.Timeout" xml:space="preserve">
+    <value>No answer within 15 s</value>
+  </data>
+  <data name="Pki.Http.TooLarge" xml:space="preserve">
+    <value>Larger than 20 MB</value>
+  </data>
+  <data name="Pki.Http.InvalidContent" xml:space="preserve">
+    <value>Not a certificate or CRL</value>
+  </data>
+  <data name="Pki.Http.TlsError" xml:space="preserve">
+    <value>The HTTPS handshake failed</value>
+  </data>
+  <data name="Pki.Http.NameNotResolved" xml:space="preserve">
+    <value>The host name does not resolve</value>
+  </data>
+  <data name="Pki.Http.ConnectFailed" xml:space="preserve">
+    <value>The connection failed</value>
+  </data>
+  <data name="Pki.Http.NotChecked" xml:space="preserve">
+    <value>Not checked (not an http/https URL)</value>
+  </data>
+  <data name="Pki.UrlKind.AiaCaIssuers" xml:space="preserve">
+    <value>AIA (CA issuers)</value>
+  </data>
+  <data name="Pki.UrlKind.Cdp" xml:space="preserve">
+    <value>CDP (base CRL)</value>
+  </data>
+  <data name="Pki.UrlKind.DeltaCdp" xml:space="preserve">
+    <value>Delta CRL</value>
+  </data>
+  <data name="Pki.UrlKind.Ocsp" xml:space="preserve">
+    <value>OCSP (reachability)</value>
+  </data>
   <!-- P1 PKI overview, health and settings (2.1, 2.5): end -->
   <!-- P1 certificate templates and enrollment rights (2.2, 2.3, 2.5): begin -->
+  <data name="PkiTpl.Title" xml:space="preserve">
+    <value>Certificate Templates</value>
+  </data>
+  <data name="PkiTpl.Command" xml:space="preserve">
+    <value>Certificate templates…</value>
+  </data>
+  <data name="PkiTpl.SearchPlaceholder" xml:space="preserve">
+    <value>Search: name, OID, purpose, CA, trustee…</value>
+  </data>
+  <data name="PkiTpl.UnpublishedOnly" xml:space="preserve">
+    <value>Only templates no CA issues</value>
+  </data>
+  <data name="PkiTpl.Summary" xml:space="preserve">
+    <value>{0} templates, {1} not issued by any CA</value>
+  </data>
+  <data name="PkiTpl.Filtered" xml:space="preserve">
+    <value>{0} of {1} templates shown</value>
+  </data>
+  <data name="PkiTpl.ColumnName" xml:space="preserve">
+    <value>Display name</value>
+  </data>
+  <data name="PkiTpl.ColumnCn" xml:space="preserve">
+    <value>Template name (cn)</value>
+  </data>
+  <data name="PkiTpl.ColumnSchema" xml:space="preserve">
+    <value>Schema</value>
+  </data>
+  <data name="PkiTpl.ColumnVersion" xml:space="preserve">
+    <value>Version</value>
+  </data>
+  <data name="PkiTpl.ColumnPurpose" xml:space="preserve">
+    <value>Intended purposes</value>
+  </data>
+  <data name="PkiTpl.ColumnValidity" xml:space="preserve">
+    <value>Validity period</value>
+  </data>
+  <data name="PkiTpl.ColumnRenewal" xml:space="preserve">
+    <value>Renewal period</value>
+  </data>
+  <data name="PkiTpl.ColumnKey" xml:space="preserve">
+    <value>Minimum key size, provider</value>
+  </data>
+  <data name="PkiTpl.ColumnSubject" xml:space="preserve">
+    <value>Subject name</value>
+  </data>
+  <data name="PkiTpl.ColumnApproval" xml:space="preserve">
+    <value>CA manager approval</value>
+  </data>
+  <data name="PkiTpl.ColumnSignatures" xml:space="preserve">
+    <value>Authorized signatures</value>
+  </data>
+  <data name="PkiTpl.ColumnPublish" xml:space="preserve">
+    <value>Publish in AD</value>
+  </data>
+  <data name="PkiTpl.ColumnSuperseded" xml:space="preserve">
+    <value>Superseded templates</value>
+  </data>
+  <data name="PkiTpl.ColumnIssuancePolicies" xml:space="preserve">
+    <value>Issuance policies</value>
+  </data>
+  <data name="PkiTpl.ColumnCas" xml:space="preserve">
+    <value>Issued by</value>
+  </data>
+  <data name="PkiTpl.ColumnEnroll" xml:space="preserve">
+    <value>Who can enroll</value>
+  </data>
+  <data name="PkiTpl.SubjectFromRequest" xml:space="preserve">
+    <value>Supply in the request</value>
+  </data>
+  <data name="PkiTpl.SubjectFromAd" xml:space="preserve">
+    <value>Build from Active Directory information</value>
+  </data>
+  <data name="PkiTpl.AnyPurpose" xml:space="preserve">
+    <value>Any purpose (no EKU)</value>
+  </data>
+  <data name="PkiTpl.NotIssued" xml:space="preserve">
+    <value>not issued by any CA</value>
+  </data>
+  <data name="PkiTpl.KeyBits" xml:space="preserve">
+    <value>{0} bits</value>
+  </data>
+  <data name="PkiTpl.ValueList" xml:space="preserve">
+    <value>{0}, {1}</value>
+  </data>
+  <data name="PkiTpl.Version" xml:space="preserve">
+    <value>{0}.{1}</value>
+  </data>
+  <data name="PkiTpl.DetailsEmpty" xml:space="preserve">
+    <value>Select a template to see its flags, periods and who can enroll in it or change it.</value>
+  </data>
+  <data name="PkiTpl.General" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="PkiTpl.Oid" xml:space="preserve">
+    <value>Template OID</value>
+  </data>
+  <data name="PkiTpl.ApplicationPolicies" xml:space="preserve">
+    <value>Application policies</value>
+  </data>
+  <data name="PkiTpl.Ekus" xml:space="preserve">
+    <value>Extended key usage (pKIExtendedKeyUsage)</value>
+  </data>
+  <data name="PkiTpl.RaPolicies" xml:space="preserve">
+    <value>Policies an authorized signature must carry</value>
+  </data>
+  <data name="PkiTpl.CryptoProviders" xml:space="preserve">
+    <value>Cryptographic providers</value>
+  </data>
+  <data name="PkiTpl.FlagsHeading" xml:space="preserve">
+    <value>Flags</value>
+  </data>
+  <data name="PkiTpl.NoFlags" xml:space="preserve">
+    <value>No flag set.</value>
+  </data>
+  <data name="PkiTpl.UnknownBits" xml:space="preserve">
+    <value>Unknown bits: {0}</value>
+  </data>
+  <data name="PkiTpl.ReservedFlag" xml:space="preserve">
+    <value>{0} (obsolete, ignored)</value>
+  </data>
+  <data name="PkiTpl.EnrollHeading" xml:space="preserve">
+    <value>Who can enroll</value>
+  </data>
+  <data name="PkiTpl.ModifyHeading" xml:space="preserve">
+    <value>Who can change the template</value>
+  </data>
+  <data name="PkiTpl.NotEvaluated" xml:space="preserve">
+    <value>The template's security descriptor could not be read: its rights are not evaluated (never treated as safe).</value>
+  </data>
+  <data name="PkiTpl.Counting" xml:space="preserve">
+    <value>Counting accounts: {0}…</value>
+  </data>
+  <data name="PkiTpl.CountingStarted" xml:space="preserve">
+    <value>Counting accounts…</value>
+  </data>
+  <data name="PkiTpl.CountFailed" xml:space="preserve">
+    <value>The accounts could not be counted: {0}</value>
+  </data>
+  <data name="PkiTpl.CountsDone" xml:space="preserve">
+    <value>Accounts counted: {0}.</value>
+  </data>
+  <data name="PkiTpl.AccountCount" xml:space="preserve">
+    <value>{0} accounts</value>
+  </data>
+  <data name="PkiTpl.AccountCountDisabled" xml:space="preserve">
+    <value>{0} accounts (+ {1} disabled)</value>
+  </data>
+  <data name="PkiTpl.CountUnknown" xml:space="preserve">
+    <value>count unknown (another domain)</value>
+  </data>
+  <data name="PkiTpl.CountPending" xml:space="preserve">
+    <value>counting…</value>
+  </data>
+  <data name="PkiTpl.Nobody" xml:space="preserve">
+    <value>Nobody</value>
+  </data>
+  <data name="PkiTpl.Total" xml:space="preserve">
+    <value>In total</value>
+  </data>
+  <data name="PkiTpl.FirstAccounts" xml:space="preserve">
+    <value>First accounts</value>
+  </data>
+  <data name="PkiTpl.Disabled" xml:space="preserve">
+    <value>{0} (disabled)</value>
+  </data>
+  <data name="PkiTpl.OpenTrustee" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="PkiTpl.RightOnAttribute" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="PkiTpl.BroadNote" xml:space="preserve">
+    <value>A broad group: practically every account holds it.</value>
+  </data>
+  <data name="PkiTpl.Compare" xml:space="preserve">
+    <value>Compare…</value>
+  </data>
+  <data name="PkiTpl.CompareTitle" xml:space="preserve">
+    <value>Compare templates</value>
+  </data>
+  <data name="PkiTpl.CompareWith" xml:space="preserve">
+    <value>with</value>
+  </data>
+  <data name="PkiTpl.CompareClose" xml:space="preserve">
+    <value>Close the comparison</value>
+  </data>
+  <data name="PkiTpl.CompareDifferences" xml:space="preserve">
+    <value>Differences: {0}</value>
+  </data>
+  <data name="PkiTpl.CompareSame" xml:space="preserve">
+    <value>The two templates do not differ in what is compared.</value>
+  </data>
+  <data name="PkiTpl.CompareOnlyDifferences" xml:space="preserve">
+    <value>Differences only</value>
+  </data>
+  <data name="PkiTpl.CompareProperty" xml:space="preserve">
+    <value>Property</value>
+  </data>
+  <data name="PkiTpl.CompareLeft" xml:space="preserve">
+    <value>First template</value>
+  </data>
+  <data name="PkiTpl.CompareRight" xml:space="preserve">
+    <value>Second template</value>
+  </data>
+  <data name="PkiTpl.CompareHint" xml:space="preserve">
+    <value>Select two templates in the list (Ctrl+click) or choose the second one here.</value>
+  </data>
+  <data name="PkiTpl.ExportCsv" xml:space="preserve">
+    <value>Export to CSV…</value>
+  </data>
+  <data name="PkiTpl.ExportHtml" xml:space="preserve">
+    <value>Export to HTML…</value>
+  </data>
+  <data name="PkiTpl.HtmlFilter" xml:space="preserve">
+    <value>HTML report (*.html)</value>
+  </data>
+  <data name="PkiTpl.ReportTitle" xml:space="preserve">
+    <value>Certificate templates – {0}</value>
+  </data>
+  <data name="PkiTpl.ReportSubtitle" xml:space="preserve">
+    <value>Read from {0} at {1}</value>
+  </data>
+  <data name="PkiTpl.ReportFiltered" xml:space="preserve">
+    <value>Filtered: {0} of {1} templates.</value>
+  </data>
+  <data name="PkiTpl.ReportPrivacy" xml:space="preserve">
+    <value>This report holds template names, OIDs, purposes and account names and counts of the directory. Keep it with the same care as the directory itself.</value>
+  </data>
+  <data name="PkiTpl.ExportNote" xml:space="preserve">
+    <value>Exported only on request, into the file you choose.</value>
+  </data>
+  <data name="PkiTpl.Copied" xml:space="preserve">
+    <value>The template's details were copied.</value>
+  </data>
+  <data name="PkiTpl.CopyDetails" xml:space="preserve">
+    <value>Copy details</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT" xml:space="preserve">
+    <value>The enrollee supplies the subject name in the request</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_ADD_EMAIL" xml:space="preserve">
+    <value>The e-mail address from AD is added to the certificate (version 1 flag)</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_ADD_OBJ_GUID" xml:space="preserve">
+    <value>The object GUID is added to the certificate (version 1 flag)</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_OLD_CERT_SUPPLIES_SUBJECT_AND_ALT_NAME" xml:space="preserve">
+    <value>On renewal the subject and the alternative names come from the old certificate</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_ADD_DIRECTORY_PATH" xml:space="preserve">
+    <value>The directory path (DN) is added to the certificate (version 1 flag)</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT_ALT_NAME" xml:space="preserve">
+    <value>The enrollee supplies the subject alternative name in the request</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_ALT_REQUIRE_DOMAIN_DNS" xml:space="preserve">
+    <value>The domain's DNS name is added to the subject alternative name</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_ALT_REQUIRE_SPN" xml:space="preserve">
+    <value>The service principal name (SPN) is added to the subject alternative name</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_ALT_REQUIRE_DIRECTORY_GUID" xml:space="preserve">
+    <value>The object GUID is added to the subject alternative name</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_ALT_REQUIRE_UPN" xml:space="preserve">
+    <value>The user principal name (UPN) is added to the subject alternative name</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_ALT_REQUIRE_EMAIL" xml:space="preserve">
+    <value>The e-mail address is added to the subject alternative name</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_ALT_REQUIRE_DNS" xml:space="preserve">
+    <value>The DNS name is added to the subject alternative name</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_REQUIRE_DNS_AS_CN" xml:space="preserve">
+    <value>The common name of the subject is the DNS name</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_REQUIRE_EMAIL" xml:space="preserve">
+    <value>The e-mail address is added to the subject name</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_REQUIRE_COMMON_NAME" xml:space="preserve">
+    <value>The subject name is the common name</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_REQUIRE_DIRECTORY_PATH" xml:space="preserve">
+    <value>The subject name is the full distinguished name</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_INCLUDE_SYMMETRIC_ALGORITHMS" xml:space="preserve">
+    <value>Symmetric algorithms are included (S/MIME capabilities)</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_PEND_ALL_REQUESTS" xml:space="preserve">
+    <value>Every request waits for CA manager approval</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_PUBLISH_TO_KRA_CONTAINER" xml:space="preserve">
+    <value>The certificate is published in the key recovery agents container</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_PUBLISH_TO_DS" xml:space="preserve">
+    <value>The certificate is published in Active Directory</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_AUTO_ENROLLMENT_CHECK_USER_DS_CERTIFICATE" xml:space="preserve">
+    <value>Autoenrollment skips the template when a valid certificate is already published in AD</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_AUTO_ENROLLMENT" xml:space="preserve">
+    <value>Autoenrollment is allowed</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_PREVIOUS_APPROVAL_VALIDATE_REENROLLMENT" xml:space="preserve">
+    <value>A renewal signed with the old certificate needs no new approval</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_USER_INTERACTION_REQUIRED" xml:space="preserve">
+    <value>The user is asked before autoenrollment</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_REMOVE_INVALID_CERTIFICATE_FROM_PERSONAL_STORE" xml:space="preserve">
+    <value>Revoked and expired certificates are removed from the personal store</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_ALLOW_ENROLL_ON_BEHALF_OF" xml:space="preserve">
+    <value>Enrollment on behalf of others is allowed</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_ADD_OCSP_NOCHECK" xml:space="preserve">
+    <value>The OCSP No Check extension is added (OCSP signing certificates)</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_ENABLE_KEY_REUSE_ON_NT_TOKEN_KEYSET_STORAGE_FULL" xml:space="preserve">
+    <value>The key is reused when the smart card has no room for a new one</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_NOREVOCATIONINFOINISSUEDCERTS" xml:space="preserve">
+    <value>Issued certificates carry no revocation information (no CDP and AIA)</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_INCLUDE_BASIC_CONSTRAINTS_FOR_EE_CERTS" xml:space="preserve">
+    <value>Basic constraints are added to end-entity certificates</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_ALLOW_PREVIOUS_APPROVAL_KEYBASEDRENEWAL_VALIDATE_REENROLLMENT" xml:space="preserve">
+    <value>A key-based renewal needs no new approval</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_ISSUANCE_POLICIES_FROM_REQUEST" xml:space="preserve">
+    <value>The issuance policies are taken from the request</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_SKIP_AUTO_RENEWAL" xml:space="preserve">
+    <value>Autoenrollment does not renew the certificate</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_NO_SECURITY_EXTENSION" xml:space="preserve">
+    <value>The SID security extension (szOID_NTDS_CA_SECURITY_EXT) is not added</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_REQUIRE_PRIVATE_KEY_ARCHIVAL" xml:space="preserve">
+    <value>The private key is archived on the CA</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_EXPORTABLE_KEY" xml:space="preserve">
+    <value>The private key can be exported</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_STRONG_KEY_PROTECTION_REQUIRED" xml:space="preserve">
+    <value>Strong private key protection is required</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_REQUIRE_ALTERNATE_SIGNATURE_ALGORITHM" xml:space="preserve">
+    <value>The alternate signature format (PKCS #1 v2.1) is required</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_REQUIRE_SAME_KEY_RENEWAL" xml:space="preserve">
+    <value>A renewal must use the same key</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_USE_LEGACY_PROVIDER" xml:space="preserve">
+    <value>A legacy cryptographic service provider (CSP) is used</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_EK_TRUST_ON_USE" xml:space="preserve">
+    <value>Key attestation: the endorsement key is trusted on use</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_EK_VALIDATE_CERT" xml:space="preserve">
+    <value>Key attestation: the endorsement certificate is validated</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_EK_VALIDATE_KEY" xml:space="preserve">
+    <value>Key attestation: the endorsement key is validated</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_ATTEST_PREFERRED" xml:space="preserve">
+    <value>Key attestation is used when the client supports it</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_ATTEST_REQUIRED" xml:space="preserve">
+    <value>Key attestation is required</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_ATTESTATION_WITHOUT_POLICY" xml:space="preserve">
+    <value>Attestation adds no issuance policy</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_HELLO_LOGON_KEY" xml:space="preserve">
+    <value>A Windows Hello for Business logon key</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_ADD_EMAIL" xml:space="preserve">
+    <value>Add the e-mail address</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_PUBLISH_TO_DS" xml:space="preserve">
+    <value>Publish in AD</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_EXPORTABLE_KEY" xml:space="preserve">
+    <value>Exportable key</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_AUTO_ENROLLMENT" xml:space="preserve">
+    <value>The template can be used for autoenrollment</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_MACHINE_TYPE" xml:space="preserve">
+    <value>A template for computers</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_IS_CA" xml:space="preserve">
+    <value>A template of CA certificates</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_ADD_TEMPLATE_NAME" xml:space="preserve">
+    <value>The template name is added to the certificate</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_IS_CROSS_CA" xml:space="preserve">
+    <value>A cross-certification template</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_DONOTPERSISTINDB" xml:space="preserve">
+    <value>Requests and certificates are not stored in the CA database</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_IS_DEFAULT" xml:space="preserve">
+    <value>A default template of Windows</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_IS_MODIFIED" xml:space="preserve">
+    <value>A default template that was changed</value>
+  </data>
+  <data name="PkiTpl.FlagGroup.NameFlag" xml:space="preserve">
+    <value>Subject name (msPKI-Certificate-Name-Flag)</value>
+  </data>
+  <data name="PkiTpl.FlagGroup.EnrollmentFlag" xml:space="preserve">
+    <value>Enrollment (msPKI-Enrollment-Flag)</value>
+  </data>
+  <data name="PkiTpl.FlagGroup.PrivateKeyFlag" xml:space="preserve">
+    <value>Private key (msPKI-Private-Key-Flag)</value>
+  </data>
+  <data name="PkiTpl.FlagGroup.GeneralFlag" xml:space="preserve">
+    <value>General (flags)</value>
+  </data>
+  <data name="PkiTpl.Field.MinimumCaVersion" xml:space="preserve">
+    <value>Minimum CA version: {0}</value>
+  </data>
+  <data name="PkiTpl.Field.MinimumClientVersion" xml:space="preserve">
+    <value>Minimum client version: {0}</value>
+  </data>
+  <data name="PkiTpl.Unit.Hours.One" xml:space="preserve">
+    <value>{0} hour</value>
+  </data>
+  <data name="PkiTpl.Unit.Hours.Few" xml:space="preserve">
+    <value>{0} hours</value>
+  </data>
+  <data name="PkiTpl.Unit.Hours.Many" xml:space="preserve">
+    <value>{0} hours</value>
+  </data>
+  <data name="PkiTpl.Unit.Days.One" xml:space="preserve">
+    <value>{0} day</value>
+  </data>
+  <data name="PkiTpl.Unit.Days.Few" xml:space="preserve">
+    <value>{0} days</value>
+  </data>
+  <data name="PkiTpl.Unit.Days.Many" xml:space="preserve">
+    <value>{0} days</value>
+  </data>
+  <data name="PkiTpl.Unit.Weeks.One" xml:space="preserve">
+    <value>{0} week</value>
+  </data>
+  <data name="PkiTpl.Unit.Weeks.Few" xml:space="preserve">
+    <value>{0} weeks</value>
+  </data>
+  <data name="PkiTpl.Unit.Weeks.Many" xml:space="preserve">
+    <value>{0} weeks</value>
+  </data>
+  <data name="PkiTpl.Unit.Months.One" xml:space="preserve">
+    <value>{0} month</value>
+  </data>
+  <data name="PkiTpl.Unit.Months.Few" xml:space="preserve">
+    <value>{0} months</value>
+  </data>
+  <data name="PkiTpl.Unit.Months.Many" xml:space="preserve">
+    <value>{0} months</value>
+  </data>
+  <data name="PkiTpl.Unit.Years.One" xml:space="preserve">
+    <value>{0} year</value>
+  </data>
+  <data name="PkiTpl.Unit.Years.Few" xml:space="preserve">
+    <value>{0} years</value>
+  </data>
+  <data name="PkiTpl.Unit.Years.Many" xml:space="preserve">
+    <value>{0} years</value>
+  </data>
   <!-- P1 certificate templates and enrollment rights (2.2, 2.3, 2.5): end -->
   <!-- P1 AD CS security review (2.4, 2.5): begin -->
+  <data name="PkiEsc.Title" xml:space="preserve">
+    <value>AD CS security review</value>
+  </data>
+  <data name="PkiEsc.CheckAgain" xml:space="preserve">
+    <value>Check again</value>
+  </data>
+  <data name="PkiEsc.CheckAgainHint" xml:space="preserve">
+    <value>Reads the PKI objects, the accounts and the permissions again (F5).</value>
+  </data>
+  <data name="PkiEsc.StageSnapshot" xml:space="preserve">
+    <value>Reading the PKI objects ({0})…</value>
+  </data>
+  <data name="PkiEsc.StageAccounts" xml:space="preserve">
+    <value>Reading the accounts ({0})…</value>
+  </data>
+  <data name="PkiEsc.StageAccessControl" xml:space="preserve">
+    <value>Reading the permissions of the PKI objects…</value>
+  </data>
+  <data name="PkiEsc.StagePrincipals" xml:space="preserve">
+    <value>Resolving the accounts and groups…</value>
+  </data>
+  <data name="PkiEsc.StageAnalysis" xml:space="preserve">
+    <value>Evaluating the ESC rules…</value>
+  </data>
+  <data name="PkiEsc.LastRun" xml:space="preserve">
+    <value>Last check: {0} on {1}</value>
+  </data>
+  <data name="PkiEsc.NeverRun" xml:space="preserve">
+    <value>Not checked yet.</value>
+  </data>
+  <data name="PkiEsc.Cancelled" xml:space="preserve">
+    <value>The check was cancelled.</value>
+  </data>
+  <data name="PkiEsc.FindingsOne" xml:space="preserve">
+    <value>{0} finding</value>
+  </data>
+  <data name="PkiEsc.FindingsFew" xml:space="preserve">
+    <value>{0} findings</value>
+  </data>
+  <data name="PkiEsc.FindingsMany" xml:space="preserve">
+    <value>{0} findings</value>
+  </data>
+  <data name="PkiEsc.FindingsShown" xml:space="preserve">
+    <value>Findings shown: {0} of {1}</value>
+  </data>
+  <data name="PkiEsc.NoFindings" xml:space="preserve">
+    <value>No vulnerable configuration found – a default Windows PKI raises no finding.</value>
+  </data>
+  <data name="PkiEsc.NoMatches" xml:space="preserve">
+    <value>No finding matches the filters.</value>
+  </data>
+  <data name="PkiEsc.NotEvaluatedList" xml:space="preserve">
+    <value>The PKI could not be evaluated – see the notes above.</value>
+  </data>
+  <data name="PkiEsc.NoPki" xml:space="preserve">
+    <value>There is no AD CS in this forest – nothing to review.</value>
+  </data>
+  <data name="PkiEsc.ScopeNote" xml:space="preserve">
+    <value>Reads the templates, the PKI objects and the accounts over LDAP (ESC1–5, 9, 13, 14, 15, 17) and changes nothing. Assumes every CA grants Enroll to Authenticated Users; the CA's own settings (ESC6, 7, 8, 10, 11, 16) are checked in stage P4.</value>
+  </data>
+  <data name="PkiEsc.NoteNotEvaluated" xml:space="preserve">
+    <value>Not evaluated: {0}.</value>
+  </data>
+  <data name="PkiEsc.NoteWithObjects" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="PkiEsc.NoteMoreObjects" xml:space="preserve">
+    <value>and {0} more</value>
+  </data>
+  <data name="PkiEsc.Group.Enrollment" xml:space="preserve">
+    <value>the enrollment rules (ESC1, 2, 3, 9, 13, 15, 17)</value>
+  </data>
+  <data name="PkiEsc.Group.AccessControl" xml:space="preserve">
+    <value>the permissions of the PKI objects (ESC5 and the altSecurityIdentities writes of ESC14)</value>
+  </data>
+  <data name="PkiEsc.Group.Mapping" xml:space="preserve">
+    <value>the explicit certificate mappings (ESC14)</value>
+  </data>
+  <data name="PkiEsc.FilterSeverity" xml:space="preserve">
+    <value>Severity</value>
+  </data>
+  <data name="PkiEsc.FilterEsc" xml:space="preserve">
+    <value>Technique</value>
+  </data>
+  <data name="PkiEsc.FilterArea" xml:space="preserve">
+    <value>Area</value>
+  </data>
+  <data name="PkiEsc.FilterTemplate" xml:space="preserve">
+    <value>Template</value>
+  </data>
+  <data name="PkiEsc.AllSeverities" xml:space="preserve">
+    <value>Any severity</value>
+  </data>
+  <data name="PkiEsc.AllEsc" xml:space="preserve">
+    <value>Any technique</value>
+  </data>
+  <data name="PkiEsc.AllAreas" xml:space="preserve">
+    <value>Any area</value>
+  </data>
+  <data name="PkiEsc.AllTemplates" xml:space="preserve">
+    <value>Any template</value>
+  </data>
+  <data name="PkiEsc.SearchPlaceholder" xml:space="preserve">
+    <value>Search the findings (title, template, account, ESC)</value>
+  </data>
+  <data name="PkiEsc.ClearFilters" xml:space="preserve">
+    <value>Clear filters</value>
+  </data>
+  <data name="PkiEsc.SummaryLabel" xml:space="preserve">
+    <value>Summary</value>
+  </data>
+  <data name="PkiEsc.ColumnSeverity" xml:space="preserve">
+    <value>Severity</value>
+  </data>
+  <data name="PkiEsc.ColumnEsc" xml:space="preserve">
+    <value>ESC</value>
+  </data>
+  <data name="PkiEsc.ColumnArea" xml:space="preserve">
+    <value>Area</value>
+  </data>
+  <data name="PkiEsc.ColumnObject" xml:space="preserve">
+    <value>Object</value>
+  </data>
+  <data name="PkiEsc.ColumnPrincipals" xml:space="preserve">
+    <value>Accounts and groups</value>
+  </data>
+  <data name="PkiEsc.ColumnFinding" xml:space="preserve">
+    <value>Finding</value>
+  </data>
+  <data name="PkiEsc.GroupHeader" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="PkiEsc.DetailsHeading" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="PkiEsc.DetailsEmpty" xml:space="preserve">
+    <value>Select a finding to see the condition, the attack path and what to do.</value>
+  </data>
+  <data name="PkiEsc.ConditionHeading" xml:space="preserve">
+    <value>Condition</value>
+  </data>
+  <data name="PkiEsc.AttackPathHeading" xml:space="preserve">
+    <value>Attack path</value>
+  </data>
+  <data name="PkiEsc.WhatHeading" xml:space="preserve">
+    <value>What to do</value>
+  </data>
+  <data name="PkiEsc.ObjectHeading" xml:space="preserve">
+    <value>Affected object</value>
+  </data>
+  <data name="PkiEsc.PrincipalsHeading" xml:space="preserve">
+    <value>Accounts and groups</value>
+  </data>
+  <data name="PkiEsc.NotesHeading" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="PkiEsc.RelatedHeading" xml:space="preserve">
+    <value>Related objects</value>
+  </data>
+  <data name="PkiEsc.IdsHeading" xml:space="preserve">
+    <value>Identifiers</value>
+  </data>
+  <data name="PkiEsc.Ids" xml:space="preserve">
+    <value>Certipy: {0} · Locksmith: {1} · MDI: {2}</value>
+  </data>
+  <data name="PkiEsc.NoId" xml:space="preserve">
+    <value>–</value>
+  </data>
+  <data name="PkiEsc.PrincipalLine" xml:space="preserve">
+    <value>{0} · {1} · {2}</value>
+  </data>
+  <data name="PkiEsc.PrincipalLineRight" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="PkiEsc.AccountCount" xml:space="preserve">
+    <value>accounts: {0}</value>
+  </data>
+  <data name="PkiEsc.AccountCountUnknown" xml:space="preserve">
+    <value>number of accounts not known</value>
+  </data>
+  <data name="PkiEsc.AccountCountOtherDomain" xml:space="preserve">
+    <value>another domain – number of accounts not known</value>
+  </data>
+  <data name="PkiEsc.CountUnknown" xml:space="preserve">
+    <value>unknown</value>
+  </data>
+  <data name="PkiEsc.RelatedCa" xml:space="preserve">
+    <value>Certification authority: {0}</value>
+  </data>
+  <data name="PkiEsc.RelatedTemplate" xml:space="preserve">
+    <value>Template: {0}</value>
+  </data>
+  <data name="PkiEsc.RelatedOid" xml:space="preserve">
+    <value>OID object: {0}</value>
+  </data>
+  <data name="PkiEsc.AggregatedAccounts" xml:space="preserve">
+    <value>Accounts outside Tier 0 ({0})</value>
+  </data>
+  <data name="PkiEsc.Esc14.Tier0Mapping" xml:space="preserve">
+    <value>Tier 0 account {0} has a weak explicit certificate mapping: {1}.</value>
+  </data>
+  <data name="PkiEsc.Esc14.Aggregated" xml:space="preserve">
+    <value>Accounts outside Tier 0 with a weak explicit certificate mapping: {0} ({1}); the strong mapping and NTAuth readiness report lists them.</value>
+  </data>
+  <data name="PkiEsc.Esc14.Write" xml:space="preserve">
+    <value>{2} can change altSecurityIdentities of Tier 0 account {0} – rights: {1} – and map their own certificate to it.</value>
+  </data>
+  <data name="PkiEsc.Principal.ThisOrganization" xml:space="preserve">
+    <value>This Organization</value>
+  </data>
+  <data name="PkiEsc.OpenTemplate" xml:space="preserve">
+    <value>Open template</value>
+  </data>
+  <data name="PkiEsc.OpenCa" xml:space="preserve">
+    <value>Open CA</value>
+  </data>
+  <data name="PkiEsc.OpenAccount" xml:space="preserve">
+    <value>Open account</value>
+  </data>
+  <data name="PkiEsc.OpenComputer" xml:space="preserve">
+    <value>Open computer</value>
+  </data>
+  <data name="PkiEsc.OpenObject" xml:space="preserve">
+    <value>Open object</value>
+  </data>
+  <data name="PkiEsc.NoFixNote" xml:space="preserve">
+    <value>The review changes nothing: make the change in the Certificate Templates console (certtmpl.msc) or in the object's permissions. Repairs through the change plan come in stage P3.</value>
+  </data>
+  <data name="PkiEsc.Copied" xml:space="preserve">
+    <value>Finding copied to the clipboard.</value>
+  </data>
+  <data name="PkiEsc.ExportCsv" xml:space="preserve">
+    <value>Export to CSV…</value>
+  </data>
+  <data name="PkiEsc.ExportHtml" xml:space="preserve">
+    <value>Export to HTML…</value>
+  </data>
+  <data name="PkiEsc.HtmlFilter" xml:space="preserve">
+    <value>HTML files (*.html)</value>
+  </data>
+  <data name="PkiEsc.ReportTitle" xml:space="preserve">
+    <value>AD CS security review – {0}</value>
+  </data>
+  <data name="PkiEsc.ReportSubtitle" xml:space="preserve">
+    <value>Domain controller: {0} · checked: {1}</value>
+  </data>
+  <data name="PkiEsc.ReportFilters" xml:space="preserve">
+    <value>After filtering: {0} of {1} findings.</value>
+  </data>
+  <data name="PkiEsc.ReportPrivacy" xml:space="preserve">
+    <value>The report contains names of your directory objects. Store and share it like any other administrative document.</value>
+  </data>
   <!-- P1 AD CS security review (2.4, 2.5): end -->
   <!-- P1 strong mapping and NTAuth readiness (2.5): begin -->
+  <data name="PkiReady.Title" xml:space="preserve">
+    <value>Strong mapping and NTAuth readiness</value>
+  </data>
+  <data name="PkiReady.CheckAgain" xml:space="preserve">
+    <value>Read again</value>
+  </data>
+  <data name="PkiReady.CheckAgainHint" xml:space="preserve">
+    <value>Reads the PKI objects, the domain controllers and the accounts again (F5).</value>
+  </data>
+  <data name="PkiReady.CheckLdaps" xml:space="preserve">
+    <value>Check LDAPS certificates</value>
+  </data>
+  <data name="PkiReady.CheckLdapsHint" xml:space="preserve">
+    <value>Connects to port 636 (and 3269 of a global catalog) of every domain controller of the domain and reads the certificate it presents – the TLS handshake only, no logon.</value>
+  </data>
+  <data name="PkiReady.Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="PkiReady.Copied" xml:space="preserve">
+    <value>Report copied to the clipboard.</value>
+  </data>
+  <data name="PkiReady.ExportCsv" xml:space="preserve">
+    <value>Export to CSV…</value>
+  </data>
+  <data name="PkiReady.ReadOnlyNote" xml:space="preserve">
+    <value>The report only reads – over LDAP on the window's domain controller; the LDAPS check connects to the domain controllers only on its button. Make the changes in the consoles; repairs through the change plan come in stage P3.</value>
+  </data>
+  <data name="PkiReady.NeverRun" xml:space="preserve">
+    <value>Not read yet.</value>
+  </data>
+  <data name="PkiReady.LastRun" xml:space="preserve">
+    <value>Read: {0} on {1}</value>
+  </data>
+  <data name="PkiReady.StageSnapshot" xml:space="preserve">
+    <value>Reading the PKI objects…</value>
+  </data>
+  <data name="PkiReady.StageDomainControllers" xml:space="preserve">
+    <value>Reading the domain controllers…</value>
+  </data>
+  <data name="PkiReady.StageAccounts" xml:space="preserve">
+    <value>Reading the accounts ({0})…</value>
+  </data>
+  <data name="PkiReady.StageLdaps" xml:space="preserve">
+    <value>Checking the LDAPS certificates of the domain controllers…</value>
+  </data>
+  <data name="PkiReady.Summary.Ok" xml:space="preserve">
+    <value>OK: {0}</value>
+  </data>
+  <data name="PkiReady.Summary.Warning" xml:space="preserve">
+    <value>Warnings: {0}</value>
+  </data>
+  <data name="PkiReady.Summary.Problem" xml:space="preserve">
+    <value>Problems: {0}</value>
+  </data>
+  <data name="PkiReady.Summary.NotChecked" xml:space="preserve">
+    <value>Not checked: {0}</value>
+  </data>
+  <data name="PkiReady.ColumnArea" xml:space="preserve">
+    <value>Area</value>
+  </data>
+  <data name="PkiReady.ColumnStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="PkiReady.ColumnItem" xml:space="preserve">
+    <value>Item</value>
+  </data>
+  <data name="PkiReady.ColumnDetail" xml:space="preserve">
+    <value>Found</value>
+  </data>
+  <data name="PkiReady.ColumnRemedy" xml:space="preserve">
+    <value>What to do</value>
+  </data>
+  <data name="PkiReady.RemedyLine" xml:space="preserve">
+    <value>What to do: {0}</value>
+  </data>
+  <data name="PkiReady.MoreRows" xml:space="preserve">
+    <value>… and {0} more</value>
+  </data>
+  <data name="PkiReady.MoreRowsDetail" xml:space="preserve">
+    <value>Copy or export the report to see every row.</value>
+  </data>
+  <data name="PkiReady.OpenAccount" xml:space="preserve">
+    <value>Open account</value>
+  </data>
+  <data name="PkiReady.OpenTemplate" xml:space="preserve">
+    <value>Open template</value>
+  </data>
+  <data name="PkiReady.OpenCa" xml:space="preserve">
+    <value>Open CA</value>
+  </data>
+  <data name="PkiReady.NoPki" xml:space="preserve">
+    <value>There is no AD CS in this forest, or the Public Key Services container cannot be read.</value>
+  </data>
+  <data name="PkiReady.ReadFailed" xml:space="preserve">
+    <value>Could not be read: {0}</value>
+  </data>
+  <data name="PkiReady.Reading" xml:space="preserve">
+    <value>Reading…</value>
+  </data>
+  <data name="PkiReady.Mappings.Title" xml:space="preserve">
+    <value>Explicit certificate mappings (altSecurityIdentities)</value>
+  </data>
+  <data name="PkiReady.Mappings.Description" xml:space="preserve">
+    <value>Under full enforcement of strong certificate mapping (KB5014754) a domain controller accepts only strong explicit mappings – issuer and serial number, subject key identifier or SHA1 hash of the public key – unless the certificate carries the SID extension.</value>
+  </data>
+  <data name="PkiReady.Mappings.Weak" xml:space="preserve">
+    <value>Weak mappings: {0}.</value>
+  </data>
+  <data name="PkiReady.Mappings.WeakRemedy" xml:space="preserve">
+    <value>replace them with an issuer and serial number, subject key identifier or SHA1 public key mapping (the Name Mappings tab of the account).</value>
+  </data>
+  <data name="PkiReady.Mappings.Invalid" xml:space="preserve">
+    <value>A value of altSecurityIdentities is not a valid mapping.</value>
+  </data>
+  <data name="PkiReady.Mappings.InvalidRemedy" xml:space="preserve">
+    <value>correct or remove the invalid value.</value>
+  </data>
+  <data name="PkiReady.Mappings.Tier0" xml:space="preserve">
+    <value>Tier 0 account: whoever gets a certificate with matching names logs on as it (ESC14).</value>
+  </data>
+  <data name="PkiReady.Mappings.Disabled" xml:space="preserve">
+    <value>The account is disabled.</value>
+  </data>
+  <data name="PkiReady.Mappings.Strong" xml:space="preserve">
+    <value>Accounts with strong mappings only: {0}</value>
+  </data>
+  <data name="PkiReady.Mappings.StrongDetail" xml:space="preserve">
+    <value>Ready for full enforcement.</value>
+  </data>
+  <data name="PkiReady.Mappings.None" xml:space="preserve">
+    <value>No explicit certificate mapping</value>
+  </data>
+  <data name="PkiReady.Mappings.NoneDetail" xml:space="preserve">
+    <value>No account carries a certificate mapping in altSecurityIdentities.</value>
+  </data>
+  <data name="PkiReady.Templates.Title" xml:space="preserve">
+    <value>Authentication templates and the SID extension</value>
+  </data>
+  <data name="PkiReady.Templates.Description" xml:space="preserve">
+    <value>Published templates with client authentication: a certificate without the SID extension (szOID_NTDS_CA_SECURITY_EXT) logs on under full enforcement only through a strong explicit mapping.</value>
+  </data>
+  <data name="PkiReady.Templates.NoExtension" xml:space="preserve">
+    <value>The template turns the SID extension off (CT_FLAG_NO_SECURITY_EXTENSION): its certificates fail under full enforcement unless the account has a strong explicit mapping (ESC9).</value>
+  </data>
+  <data name="PkiReady.Templates.NoExtensionRemedy" xml:space="preserve">
+    <value>clear the flag (0x80000 of msPKI-Enrollment-Flag) unless every certificate is mapped explicitly.</value>
+  </data>
+  <data name="PkiReady.Templates.Supplied" xml:space="preserve">
+    <value>The enrollee supplies the subject: the CA adds no SID, so logon needs a strong explicit mapping.</value>
+  </data>
+  <data name="PkiReady.Templates.SuppliedRemedy" xml:space="preserve">
+    <value>build the subject from Active Directory information, or map each certificate strongly to its account.</value>
+  </data>
+  <data name="PkiReady.Templates.Ok" xml:space="preserve">
+    <value>Templates with the SID extension: {0}</value>
+  </data>
+  <data name="PkiReady.Templates.OkDetail" xml:space="preserve">
+    <value>Their certificates carry the account's SID and are mapped strongly.</value>
+  </data>
+  <data name="PkiReady.Templates.None" xml:space="preserve">
+    <value>No published authentication template</value>
+  </data>
+  <data name="PkiReady.Templates.NoneDetail" xml:space="preserve">
+    <value>No enterprise CA publishes a template with client authentication.</value>
+  </data>
+  <data name="PkiReady.NtAuth.Title" xml:space="preserve">
+    <value>Enterprise CAs and the NTAuth store</value>
+  </data>
+  <data name="PkiReady.NtAuth.Description" xml:space="preserve">
+    <value>Smart card and certificate logon (PKINIT) is accepted only for certificates of a CA in the NTAuth store.</value>
+  </data>
+  <data name="PkiReady.NtAuth.Missing" xml:space="preserve">
+    <value>The NTAuth store (CN=NTAuthCertificates) is missing or cannot be read.</value>
+  </data>
+  <data name="PkiReady.NtAuth.NotIn" xml:space="preserve">
+    <value>Not in the NTAuth store, but publishes logon templates: {0}. Their certificates cannot be used for logon.</value>
+  </data>
+  <data name="PkiReady.NtAuth.NotInRemedy" xml:space="preserve">
+    <value>publish the CA certificate to NTAuth (certutil -dspublish -f &lt;file&gt; NTAuthCA), or stop publishing the templates.</value>
+  </data>
+  <data name="PkiReady.NtAuth.In" xml:space="preserve">
+    <value>In the NTAuth store.</value>
+  </data>
+  <data name="PkiReady.NtAuth.NotNeeded" xml:space="preserve">
+    <value>Not in the NTAuth store; it publishes no logon template, so it does not need to be.</value>
+  </data>
+  <data name="PkiReady.NtAuth.NoCa" xml:space="preserve">
+    <value>No enterprise CA</value>
+  </data>
+  <data name="PkiReady.NtAuth.NoCaDetail" xml:space="preserve">
+    <value>The forest has no enterprise CA (no object under CN=Enrollment Services).</value>
+  </data>
+  <data name="PkiReady.Ldaps.Title" xml:space="preserve">
+    <value>LDAPS certificates of the domain controllers</value>
+  </data>
+  <data name="PkiReady.Ldaps.Description" xml:space="preserve">
+    <value>The certificate each domain controller presents on port 636: its names, server authentication, validity and chain to a root CA published in Active Directory.</value>
+  </data>
+  <data name="PkiReady.Ldaps.NotRun" xml:space="preserve">
+    <value>Not checked</value>
+  </data>
+  <data name="PkiReady.Ldaps.NotRunDetail" xml:space="preserve">
+    <value>Press "Check LDAPS certificates" – the report connects to the domain controllers only on this button.</value>
+  </data>
+  <data name="PkiReady.Ldaps.Unavailable" xml:space="preserve">
+    <value>LDAPS check not available</value>
+  </data>
+  <data name="PkiReady.Ldaps.UnavailableDetail" xml:space="preserve">
+    <value>This window has no TLS probe.</value>
+  </data>
+  <data name="PkiReady.Ldaps.NoDc" xml:space="preserve">
+    <value>No domain controller with a host name was found.</value>
+  </data>
+  <data name="PkiReady.Ldaps.Host" xml:space="preserve">
+    <value>{0} (port {1})</value>
+  </data>
+  <data name="PkiReady.Ldaps.Unreadable" xml:space="preserve">
+    <value>The presented certificate cannot be read.</value>
+  </data>
+  <data name="PkiReady.Ldaps.NameMismatch" xml:space="preserve">
+    <value>Its names do not include the host name of the domain controller.</value>
+  </data>
+  <data name="PkiReady.Ldaps.NoServerAuth" xml:space="preserve">
+    <value>It does not allow server authentication.</value>
+  </data>
+  <data name="PkiReady.Ldaps.NotTimeValid" xml:space="preserve">
+    <value>It has expired or is not valid yet.</value>
+  </data>
+  <data name="PkiReady.Ldaps.NotChained" xml:space="preserve">
+    <value>It does not chain to a root CA published in Active Directory.</value>
+  </data>
+  <data name="PkiReady.Ldaps.NoDomainName" xml:space="preserve">
+    <value>Its names do not include the domain name (LDAPS to the domain name fails).</value>
+  </data>
+  <data name="PkiReady.Ldaps.Expiring" xml:space="preserve">
+    <value>Expires in {0} days.</value>
+  </data>
+  <data name="PkiReady.Ldaps.Ok" xml:space="preserve">
+    <value>Issued by {0}, valid until {1} ({2} days left).</value>
+  </data>
+  <data name="PkiReady.Ldaps.Remedy" xml:space="preserve">
+    <value>enroll or renew the certificate of the domain controller (Kerberos Authentication template, with the host and domain names) – the domain controller uses it without a restart.</value>
+  </data>
+  <data name="PkiReady.Kdc.Title" xml:space="preserve">
+    <value>KDC certificates (published on the domain controller objects)</value>
+  </data>
+  <data name="PkiReady.Kdc.Description" xml:space="preserve">
+    <value>An indicator from the certificates in userCertificate of each domain controller; the KDC's own certificate store is read in stage P4.</value>
+  </data>
+  <data name="PkiReady.Kdc.NoDc" xml:space="preserve">
+    <value>No domain controller was found.</value>
+  </data>
+  <data name="PkiReady.Kdc.Certificate" xml:space="preserve">
+    <value>Certificate from {0}, valid until {1}.</value>
+  </data>
+  <data name="PkiReady.Kdc.Expiring" xml:space="preserve">
+    <value>Expires in {0} days.</value>
+  </data>
+  <data name="PkiReady.Kdc.NoKdcEkuDetail" xml:space="preserve">
+    <value>A version 1 Domain Controller certificate: PKINIT works, but not with strict KDC validation.</value>
+  </data>
+  <data name="PkiReady.Kdc.Remedy" xml:space="preserve">
+    <value>enroll the domain controller for the Kerberos Authentication template from a CA in the NTAuth store.</value>
+  </data>
+  <data name="PkiReady.Kdc.ReadOnly" xml:space="preserve">
+    <value>Read-only domain controller.</value>
+  </data>
+  <data name="PkiReady.Events.Title" xml:space="preserve">
+    <value>KDC events</value>
+  </data>
+  <data name="PkiReady.Events.Row" xml:space="preserve">
+    <value>Events 39, 40, 41, 45 and 21 of the domain controllers</value>
+  </data>
+  <data name="PkiReady.Events.Detail" xml:space="preserve">
+    <value>The analysis of the KDC events that report weak or failed certificate mappings comes in stage P5; until then filter the System log of each domain controller in the event log reader.</value>
+  </data>
+  <data name="PkiReady.Status.Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="PkiReady.Status.Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="PkiReady.Status.Problem" xml:space="preserve">
+    <value>Problem</value>
+  </data>
+  <data name="PkiReady.Status.NotChecked" xml:space="preserve">
+    <value>Not checked</value>
+  </data>
   <!-- P1 strong mapping and NTAuth readiness (2.5): end -->
   <!-- P1 certificates on accounts (2.6): begin -->
   <!-- P1 certificates on accounts (2.6): end -->

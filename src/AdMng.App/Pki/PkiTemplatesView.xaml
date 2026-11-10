@@ -1,0 +1,507 @@
+<!--
+  "Szablony certyfikatów" (PkiTemplatesDocumentViewModel, P1, docs/dev/p-certificate-services.md 2.5): the templates of the
+  window's PKI snapshot with the README columns, the search (Ctrl+F, Esc) and "only templates no CA issues", the account pass
+  status, and beside the list the selected template's properties, flags as sentences (technical bit name in the tooltip), who
+  can enroll and who can change it (trustees at once, the account counts when counted; accounts and groups open their
+  sheets, a broad group shows its count only); the compare pane below the list (two templates side by side, differences
+  marked); exports to CSV and HTML on request. Read-only; layout and palette as "Diagnostyka zasad grupy".
+-->
+<UserControl x:Class="AdMng.App.Pki.PkiTemplatesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:gp="clr-namespace:AdMng.App.GroupPolicy"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:pki="clr-namespace:AdMng.Presentation.Pki;assembly=AdMng.Presentation"
+             AutomationProperties.Name="{Binding Title, Mode=OneWay}">
+  <UserControl.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/AdMng;component/GroupPolicy/GroupPolicyDiagnosticsResources.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+      <Style x:Key="TemplateRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+        <Setter Property="Height" Value="28" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Padding" Value="2,0" />
+        <Setter Property="AutomationProperties.Name" Value="{Binding DisplayName, Mode=OneWay}" />
+      </Style>
+      <Style x:Key="FilterLabel" TargetType="TextBlock">
+        <Setter Property="Margin" Value="0,0,6,0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+      </Style>
+      <Style x:Key="ActionButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Margin" Value="0,0,6,4" />
+      </Style>
+      <!-- One label/value line of the details. -->
+      <DataTemplate x:Key="DetailLine" DataType="{x:Type pki:PkiDetailLine}">
+        <Grid Margin="0,0,0,3">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="170" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Margin="0,0,8,0" Style="{StaticResource Ad.SecondaryText}" Text="{Binding Label, Mode=OneWay}" TextWrapping="Wrap" />
+          <TextBox Grid.Column="1"
+                   AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                   Style="{StaticResource Ad.SelectableText}"
+                   Text="{Binding Value, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+        </Grid>
+      </DataTemplate>
+      <!-- An account of the first ones: opens its sheet. -->
+      <DataTemplate x:Key="AccountLink" DataType="{x:Type pki:PkiAccountLinkViewModel}">
+        <Button Margin="0,0,4,4"
+                Padding="6,1"
+                AutomationProperties.Name="{Binding Text, Mode=OneWay}"
+                Command="{Binding DataContext.OpenAccountCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                CommandParameter="{Binding Mode=OneWay}"
+                Content="{Binding Text, Mode=OneWay}"
+                ToolTip="{Binding Dn, Mode=OneWay}" />
+      </DataTemplate>
+      <ItemsPanelTemplate x:Key="WrapItems">
+        <WrapPanel />
+      </ItemsPanelTemplate>
+      <!-- A trustee of a right: name (a group or account opens), class, count, the first accounts. -->
+      <DataTemplate x:Key="TrusteeRow" DataType="{x:Type pki:PkiTrusteeRowViewModel}">
+        <Border Margin="0,0,0,6" Padding="8,4" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+          <StackPanel>
+            <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding RightText, Mode=OneWay}" TextWrapping="Wrap" />
+            <WrapPanel>
+              <Button Margin="0,2,8,2"
+                      Padding="6,1"
+                      AutomationProperties.Name="{Binding Name, Mode=OneWay}"
+                      Command="{Binding DataContext.OpenTrusteeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                      CommandParameter="{Binding Mode=OneWay}"
+                      Content="{Binding Name, Mode=OneWay}"
+                      ToolTip="{l:Tr PkiTpl.OpenTrustee}"
+                      Visibility="{Binding CanOpen, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <TextBlock Margin="0,2,8,2"
+                         VerticalAlignment="Center"
+                         FontWeight="SemiBold"
+                         Text="{Binding Name, Mode=OneWay}"
+                         Visibility="{Binding CanOpen, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+              <TextBlock x:Name="ClassText" Margin="0,2,8,2" VerticalAlignment="Center" Text="{Binding ClassText, Mode=OneWay}" />
+              <TextBlock Margin="0,2,0,2" VerticalAlignment="Center" Style="{StaticResource Ad.SecondaryText}" Text="{Binding CountText, Mode=OneWay}" />
+            </WrapPanel>
+            <ItemsControl Focusable="False"
+                          ItemTemplate="{StaticResource AccountLink}"
+                          ItemsPanel="{StaticResource WrapItems}"
+                          ItemsSource="{Binding FirstAccounts, Mode=OneWay}"
+                          Visibility="{Binding HasFirstAccounts, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          </StackPanel>
+        </Border>
+        <DataTemplate.Triggers>
+          <DataTrigger Binding="{Binding IsBroad, Mode=OneWay}" Value="True">
+            <Setter TargetName="ClassText" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+            <Setter TargetName="ClassText" Property="FontWeight" Value="SemiBold" />
+          </DataTrigger>
+        </DataTemplate.Triggers>
+      </DataTemplate>
+      <!-- The account total of a right (after the account pass). -->
+      <DataTemplate x:Key="TotalRow" DataType="{x:Type pki:PkiRightTotalViewModel}">
+        <StackPanel Margin="0,0,0,6">
+          <WrapPanel>
+            <TextBlock Margin="0,0,8,0" FontWeight="SemiBold" Text="{Binding RightText, Mode=OneWay}" />
+            <TextBlock x:Name="TotalClass" Margin="0,0,8,0" Text="{Binding ClassText, Mode=OneWay}" />
+            <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding CountText, Mode=OneWay}" />
+          </WrapPanel>
+          <ItemsControl Focusable="False"
+                        ItemTemplate="{StaticResource AccountLink}"
+                        ItemsPanel="{StaticResource WrapItems}"
+                        ItemsSource="{Binding FirstAccounts, Mode=OneWay}"
+                        Visibility="{Binding HasFirstAccounts, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        </StackPanel>
+        <DataTemplate.Triggers>
+          <DataTrigger Binding="{Binding IsBroad, Mode=OneWay}" Value="True">
+            <Setter TargetName="TotalClass" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+          </DataTrigger>
+        </DataTemplate.Triggers>
+      </DataTemplate>
+    </ResourceDictionary>
+  </UserControl.Resources>
+
+  <DockPanel Margin="8,6,8,8">
+    <!-- Header: the title, F5, compare, exports -->
+    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <c:ObjectIconView Margin="0,0,8,0" VerticalAlignment="Center" Icon="{Binding Icon, Mode=OneWay}" Size="18" />
+      <TextBlock x:Name="TitleText"
+                 Grid.Column="1"
+                 Margin="0,0,12,0"
+                 VerticalAlignment="Center"
+                 FontWeight="SemiBold"
+                 Text="{Binding Title, Mode=OneWay}"
+                 TextTrimming="CharacterEllipsis"
+                 ToolTip="{Binding Title, Mode=OneWay}" />
+      <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
+        <Button x:Name="RefreshButton" Margin="0,0,6,0" Command="{Binding RefreshCommand}" Content="{l:Tr Pki.RefreshCommand}" />
+        <Button x:Name="CompareButton"
+                Margin="0,0,12,0"
+                Command="{Binding CompareCommand}"
+                Content="{l:Tr PkiTpl.Compare}"
+                ToolTip="{l:Tr PkiTpl.CompareHint}" />
+        <Button x:Name="ExportCsvButton"
+                Margin="0,0,6,0"
+                Command="{Binding ExportCsvCommand}"
+                Content="{l:Tr PkiTpl.ExportCsv}"
+                ToolTip="{Binding ExportNote, Mode=OneWay}" />
+        <Button x:Name="ExportHtmlButton" Command="{Binding ExportHtmlCommand}" Content="{l:Tr PkiTpl.ExportHtml}" ToolTip="{Binding ExportNote, Mode=OneWay}" />
+      </StackPanel>
+    </Grid>
+
+    <!-- The summary and the account pass, or the read's progress -->
+    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
+      <StackPanel Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}">
+        <TextBlock x:Name="SummaryText" Text="{Binding SummaryText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+        <TextBlock x:Name="CountStatusText" Style="{StaticResource Ad.SecondaryText}" Text="{Binding CountStatusText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+      </StackPanel>
+      <DockPanel x:Name="ProgressPanel" Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <ProgressBar Width="220"
+                     Height="4"
+                     Margin="0,0,10,0"
+                     VerticalAlignment="Center"
+                     AutomationProperties.Name="{Binding StatusText, Mode=OneWay}"
+                     DockPanel.Dock="Left"
+                     IsIndeterminate="True" />
+        <TextBlock x:Name="ProgressText"
+                   VerticalAlignment="Center"
+                   AutomationProperties.LiveSetting="Polite"
+                   Text="{Binding StatusText, Mode=OneWay}"
+                   TextTrimming="CharacterEllipsis" />
+      </DockPanel>
+    </Grid>
+
+    <Border x:Name="ErrorBar"
+            Margin="0,0,0,6"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.ErrorBar}"
+            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <TextBlock x:Name="ErrorText" AutomationProperties.LiveSetting="Assertive" Text="{Binding Error, Mode=OneWay}" TextWrapping="Wrap" />
+    </Border>
+
+    <!-- Filters: text (Ctrl+F, Esc) and the templates no CA issues -->
+    <WrapPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+      <Grid Width="380" Margin="0,0,16,4">
+        <TextBox x:Name="SearchBox"
+                 gp:GroupPolicyUi.IsDocumentSearch="True"
+                 AutomationProperties.Name="{l:Tr PkiTpl.SearchPlaceholder}"
+                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=250}"
+                 ToolTip="{l:Tr GpEditing.SearchHint}" />
+        <TextBlock Style="{StaticResource Ad.HintText}"
+                   Text="{l:Tr PkiTpl.SearchPlaceholder}"
+                   Visibility="{Binding Text, ElementName=SearchBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+      </Grid>
+      <CheckBox x:Name="UnpublishedOnlyBox"
+                Margin="0,0,16,4"
+                VerticalAlignment="Center"
+                Content="{l:Tr PkiTpl.UnpublishedOnly}"
+                IsChecked="{Binding UnpublishedOnly}" />
+      <TextBlock x:Name="FilterText"
+                 Margin="0,0,0,4"
+                 VerticalAlignment="Center"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{Binding FilterText, Mode=OneWay}"
+                 Visibility="{Binding IsFiltered, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+    </WrapPanel>
+
+    <!-- The compare pane: two templates side by side, the differing rows marked -->
+    <Border x:Name="ComparePane"
+            Height="300"
+            Margin="0,6,0,0"
+            Padding="12,8"
+            DockPanel.Dock="Bottom"
+            Style="{StaticResource Ad.Card}"
+            Visibility="{Binding IsComparing, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <DockPanel>
+        <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+          <Button x:Name="CloseCompareButton"
+                  Margin="12,0,0,0"
+                  VerticalAlignment="Center"
+                  Command="{Binding CloseCompareCommand}"
+                  Content="{l:Tr PkiTpl.CompareClose}"
+                  DockPanel.Dock="Right" />
+          <CheckBox x:Name="CompareOnlyDifferencesBox"
+                    Margin="12,0,0,0"
+                    VerticalAlignment="Center"
+                    Content="{l:Tr PkiTpl.CompareOnlyDifferences}"
+                    DockPanel.Dock="Right"
+                    IsChecked="{Binding CompareOnlyDifferences}" />
+          <WrapPanel VerticalAlignment="Center">
+            <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr PkiTpl.CompareTitle}" />
+            <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding CompareLeft.DisplayName, Mode=OneWay, FallbackValue=''}" />
+            <TextBlock Style="{StaticResource FilterLabel}" Text="{l:Tr PkiTpl.CompareWith}" />
+            <ComboBox x:Name="CompareRightBox"
+                      MinWidth="240"
+                      AutomationProperties.Name="{l:Tr PkiTpl.CompareWith}"
+                      DisplayMemberPath="DisplayName"
+                      ItemsSource="{Binding CompareCandidates, Mode=OneWay}"
+                      SelectedItem="{Binding CompareRight}" />
+            <TextBlock x:Name="CompareSummaryText" Margin="12,0,0,0" VerticalAlignment="Center" Style="{StaticResource Ad.SecondaryText}" Text="{Binding CompareSummary, Mode=OneWay}" />
+          </WrapPanel>
+        </DockPanel>
+        <ListView x:Name="CompareList"
+                  AutomationProperties.Name="{l:Tr PkiTpl.CompareTitle}"
+                  ItemsSource="{Binding CompareRows, Mode=OneWay}"
+                  SelectionMode="Single">
+          <ListView.View>
+            <GridView AllowsColumnReorder="False">
+              <GridViewColumn Width="240" Header="{l:Tr PkiTpl.CompareProperty}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pki:PkiCompareRowViewModel}">
+                    <TextBlock x:Name="PropertyCell" Text="{Binding Property, Mode=OneWay}" TextWrapping="Wrap" />
+                    <DataTemplate.Triggers>
+                      <DataTrigger Binding="{Binding IsDifferent, Mode=OneWay}" Value="True">
+                        <Setter TargetName="PropertyCell" Property="FontWeight" Value="SemiBold" />
+                        <Setter TargetName="PropertyCell" Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                      </DataTrigger>
+                    </DataTemplate.Triggers>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="380" Header="{l:Tr PkiTpl.CompareLeft}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pki:PkiCompareRowViewModel}">
+                    <TextBlock Text="{Binding Left, Mode=OneWay}" TextWrapping="Wrap" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="380" Header="{l:Tr PkiTpl.CompareRight}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pki:PkiCompareRowViewModel}">
+                    <TextBlock Text="{Binding Right, Mode=OneWay}" TextWrapping="Wrap" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+            </GridView>
+          </ListView.View>
+        </ListView>
+      </DockPanel>
+    </Border>
+
+    <!-- The templates and, behind the splitter, the selected one -->
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" MinWidth="360" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="460" MinWidth="300" />
+      </Grid.ColumnDefinitions>
+      <ListView x:Name="TemplatesList"
+                gp:GroupPolicyUi.KeepsSelectionInView="True"
+                AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                ItemContainerStyle="{StaticResource TemplateRowStyle}"
+                ItemsSource="{Binding Rows, Mode=OneWay}"
+                ScrollViewer.CanContentScroll="True"
+                SelectedItem="{Binding SelectedRow}"
+                SelectionChanged="OnTemplatesSelectionChanged"
+                SelectionMode="Extended"
+                VirtualizingPanel.IsVirtualizing="True"
+                VirtualizingPanel.VirtualizationMode="Recycling">
+        <ListView.View>
+          <GridView AllowsColumnReorder="True">
+            <GridViewColumn Width="220" Header="{l:Tr PkiTpl.ColumnName}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type pki:PkiTemplateRowViewModel}">
+                  <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding DisplayName, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="200" Header="{l:Tr PkiTpl.ColumnCn}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type pki:PkiTemplateRowViewModel}">
+                  <TextBlock Text="{Binding Cn, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Cn, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="70" Header="{l:Tr PkiTpl.ColumnSchema}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type pki:PkiTemplateRowViewModel}">
+                  <TextBlock Text="{Binding SchemaText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SchemaText, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="70" Header="{l:Tr PkiTpl.ColumnVersion}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type pki:PkiTemplateRowViewModel}">
+                  <TextBlock Text="{Binding VersionText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding VersionText, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="200" Header="{l:Tr PkiTpl.ColumnPurpose}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type pki:PkiTemplateRowViewModel}">
+                  <TextBlock Text="{Binding PurposeText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding PurposeText, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="100" Header="{l:Tr PkiTpl.ColumnValidity}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type pki:PkiTemplateRowViewModel}">
+                  <TextBlock Text="{Binding ValidityText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding ValidityText, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="110" Header="{l:Tr PkiTpl.ColumnRenewal}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type pki:PkiTemplateRowViewModel}">
+                  <TextBlock Text="{Binding RenewalText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding RenewalText, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="200" Header="{l:Tr PkiTpl.ColumnKey}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type pki:PkiTemplateRowViewModel}">
+                  <TextBlock Text="{Binding KeyText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding KeyText, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="200" Header="{l:Tr PkiTpl.ColumnSubject}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type pki:PkiTemplateRowViewModel}">
+                  <TextBlock Text="{Binding SubjectText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SubjectText, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="90" Header="{l:Tr PkiTpl.ColumnApproval}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type pki:PkiTemplateRowViewModel}">
+                  <TextBlock Text="{Binding ApprovalText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding ApprovalText, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="80" Header="{l:Tr PkiTpl.ColumnSignatures}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type pki:PkiTemplateRowViewModel}">
+                  <TextBlock Text="{Binding SignaturesText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SignaturesText, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="90" Header="{l:Tr PkiTpl.ColumnPublish}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type pki:PkiTemplateRowViewModel}">
+                  <TextBlock Text="{Binding PublishText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding PublishText, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="150" Header="{l:Tr PkiTpl.ColumnSuperseded}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type pki:PkiTemplateRowViewModel}">
+                  <TextBlock Text="{Binding SupersededText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SupersededText, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="170" Header="{l:Tr PkiTpl.ColumnIssuancePolicies}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type pki:PkiTemplateRowViewModel}">
+                  <TextBlock Text="{Binding IssuancePoliciesText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding IssuancePoliciesText, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="200" Header="{l:Tr PkiTpl.ColumnCas}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type pki:PkiTemplateRowViewModel}">
+                  <TextBlock Text="{Binding CasText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding CasText, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="260" Header="{l:Tr PkiTpl.ColumnEnroll}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type pki:PkiTemplateRowViewModel}">
+                  <TextBlock x:Name="EnrollCell" Text="{Binding EnrollText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding EnrollText, Mode=OneWay}" />
+                  <DataTemplate.Triggers>
+                    <DataTrigger Binding="{Binding IsBroadEnroll, Mode=OneWay}" Value="True">
+                      <Setter TargetName="EnrollCell" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                    </DataTrigger>
+                  </DataTemplate.Triggers>
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+          </GridView>
+        </ListView.View>
+      </ListView>
+
+      <gp:PaneSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+      <Border Grid.Column="2" Padding="12,8" Style="{StaticResource Ad.Card}">
+        <DockPanel>
+          <WrapPanel Margin="0,8,0,0" DockPanel.Dock="Bottom" Visibility="{Binding HasSelection, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <Button x:Name="CopyDetailsButton" Command="{Binding CopyDetailsCommand}" Content="{l:Tr PkiTpl.CopyDetails}" Style="{StaticResource ActionButton}" />
+          </WrapPanel>
+          <Grid>
+            <TextBlock x:Name="DetailsEmptyText"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr PkiTpl.DetailsEmpty}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding HasSelection, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+            <ScrollViewer x:Name="DetailsScroll"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding HasSelection, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+              <StackPanel x:Name="DetailsPanel">
+                <TextBlock x:Name="DetailsTitle"
+                           Margin="0,0,0,6"
+                           FontSize="15"
+                           FontWeight="SemiBold"
+                           Text="{Binding SelectedRow.DisplayName, Mode=OneWay, FallbackValue=''}"
+                           TextWrapping="Wrap" />
+                <TextBlock Style="{StaticResource GpoDiag.DetailHeading}" Text="{l:Tr PkiTpl.General}" />
+                <ItemsControl x:Name="DetailLines" Focusable="False" ItemTemplate="{StaticResource DetailLine}" ItemsSource="{Binding Details, Mode=OneWay}" />
+
+                <TextBlock Style="{StaticResource GpoDiag.DetailHeading}" Text="{l:Tr PkiTpl.FlagsHeading}" />
+                <ItemsControl x:Name="FlagGroupsList" Focusable="False" ItemsSource="{Binding FlagGroups, Mode=OneWay}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type pki:PkiFlagGroupViewModel}">
+                      <StackPanel Margin="0,0,0,6">
+                        <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding Header, Mode=OneWay}" />
+                        <ItemsControl Focusable="False" ItemsSource="{Binding Items, Mode=OneWay}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type pki:PkiFlagItemViewModel}">
+                              <TextBlock x:Name="FlagText"
+                                         Margin="8,1,0,1"
+                                         Text="{Binding Text, Mode=OneWay, StringFormat={}• {0}}"
+                                         TextWrapping="Wrap"
+                                         ToolTip="{Binding TechnicalName, Mode=OneWay}" />
+                              <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding IsUnknown, Mode=OneWay}" Value="True">
+                                  <Setter TargetName="FlagText" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                                </DataTrigger>
+                              </DataTemplate.Triggers>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Border Margin="0,6,0,0"
+                        Style="{StaticResource Ad.WarningBar}"
+                        Visibility="{Binding IsNotEvaluated, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <TextBlock x:Name="NotEvaluatedText" Text="{Binding NotEvaluatedText, Mode=OneWay}" TextWrapping="Wrap" />
+                </Border>
+
+                <TextBlock Style="{StaticResource GpoDiag.DetailHeading}" Text="{l:Tr PkiTpl.EnrollHeading}" />
+                <TextBlock Margin="0,0,0,4" Style="{StaticResource Ad.SecondaryText}" Text="{Binding BroadNote, Mode=OneWay}" TextWrapping="Wrap" />
+                <ItemsControl x:Name="EnrollTrusteesList" Focusable="False" ItemTemplate="{StaticResource TrusteeRow}" ItemsSource="{Binding EnrollTrustees, Mode=OneWay}" />
+                <StackPanel Visibility="{Binding IsExpanded, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <TextBlock Margin="0,4,0,2" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr PkiTpl.Total}" />
+                  <ItemsControl x:Name="EnrollTotalsList" Focusable="False" ItemTemplate="{StaticResource TotalRow}" ItemsSource="{Binding EnrollTotals, Mode=OneWay}" />
+                </StackPanel>
+
+                <TextBlock Style="{StaticResource GpoDiag.DetailHeading}" Text="{l:Tr PkiTpl.ModifyHeading}" />
+                <ItemsControl x:Name="ModifyTrusteesList" Focusable="False" ItemTemplate="{StaticResource TrusteeRow}" ItemsSource="{Binding ModifyTrustees, Mode=OneWay}" />
+                <StackPanel Visibility="{Binding IsExpanded, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <TextBlock Margin="0,4,0,2" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr PkiTpl.Total}" />
+                  <ItemsControl x:Name="ModifyTotalsList" Focusable="False" ItemTemplate="{StaticResource TotalRow}" ItemsSource="{Binding ModifyTotals, Mode=OneWay}" />
+                </StackPanel>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </DockPanel>
+      </Border>
+    </Grid>
+  </DockPanel>
+</UserControl>

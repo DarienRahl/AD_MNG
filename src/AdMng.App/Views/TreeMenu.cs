@@ -94,6 +94,22 @@ internal static class TreeMenu
                 items.Add(Item(L.GroupPolicy.LinkExistingCommand, shell.LinkExistingGpoCommand, site.Dn));
                 break;
 
+            case PkiNodeViewModel pki:
+                // P1 (docs/dev/p-certificate-services.md 2.5): the node's document, and from the root node the four PKI documents.
+                var openPki = Item(L.Pki.OpenCommand, new RelayCommand(() => shell.OpenPkiDocument(pki.Request)));
+                openPki.FontWeight = System.Windows.FontWeights.SemiBold;
+                items.Add(openPki);
+                if (pki is PublicKeyServicesNodeViewModel)
+                {
+                    items.Add(new Separator());
+                    items.Add(CommandItem("pki.overview", shell));
+                    items.Add(CommandItem("pki.templates", shell));
+                    items.Add(CommandItem("pki.security", shell));
+                    items.Add(CommandItem("pki.readiness", shell));
+                }
+
+                break;
+
             case FolderNodeViewModel folder when ReferenceEquals(folder, shell.Tree.ViewsNode):
                 items.Add(CommandItem("view.importViews", shell));
                 items.Add(CommandItem("view.exportViews", shell));
