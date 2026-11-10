@@ -2,6 +2,7 @@ using System.Globalization;
 using AdMng.Core.Csv;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
+using AdMng.Core.Pki;
 using AdMng.Core.Pki.Tls;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Pki;
@@ -162,6 +163,64 @@ public sealed class PkiReadinessTests
     }
 
     [Fact]
+    public async Task TheLdapsRow_FollowsTheClockWhenShown_NotTheTimeOfTheProbe()
+    {
+        var h = await PkiHarness.CreateAsync();
+        h.TlsProbe.Set("dc01.contoso.test", 636, TlsProbeOutcome.Ok, PkiSamples.DcLdapsDer(), PkiSamples.IssuingCaDer);
+        using var readiness = await OpenAsync(h);
+        await readiness.CheckLdapsCommand.ExecuteAsync(null);
+        Assert.EndsWith("(pozostało dni: 88).", Assert.Single(Area(readiness, PkiReadinessArea.DomainControllerLdaps).AllRows).Detail, StringComparison.Ordinal);
+
+        // Decision 2: the window keeps the probe's results until F5, but their validity is judged when shown.
+        h.B2.Time.Advance(TimeSpan.FromDays(80));
+        await readiness.LoadAsync();
+        var row = Assert.Single(Area(readiness, PkiReadinessArea.DomainControllerLdaps).AllRows);
+        Assert.Equal((PkiReadinessStatus.Warning, "Wygasa za 8 dni."), (row.Status, row.Detail));
+
+        h.B2.Time.Advance(TimeSpan.FromDays(10));
+        await readiness.LoadAsync();
+        row = Assert.Single(Area(readiness, PkiReadinessArea.DomainControllerLdaps).AllRows);
+        Assert.Equal((PkiReadinessStatus.Problem, "Wygasł lub nie jest jeszcze ważny."), (row.Status, row.Detail));
+        Assert.Single(h.TlsProbe.Calls);
+    }
+
+    [Fact]
+    public async Task ADeniedPkiBase_LeavesTheTrustOfTheDcCertificatesUnjudged_InsteadOfReportingThemUntrusted()
+    {
+        var h = await PkiHarness.CreateAsync();
+        var denied = PkiSnapshot.Empty(PkiSamples.ConfigurationDn, PkiSamples.Now,
+            [new PkiReadNotice(PkiReadNoticeCode.BaseAccessDenied, PkiSamples.PublicKeyServicesDn, null)]);
+        var presented = DcCertificateEvaluation.Evaluate([PkiSamples.DcLdapsDer(), PkiSamples.IssuingCaDer], "dc01.contoso.test", "contoso.test",
+            denied.TrustMaterial, PkiSamples.Now);
+        var snapshot = new HookedPkiSnapshotService(h.Snapshot)
+        {
+            Snapshot = denied,
+            DcChecks = [new DcTlsCheck("dc01.contoso.test", 636, TlsProbeOutcome.Ok, presented)],
+        };
+        using var readiness = new PkiReadinessDocumentViewModel(new PkiServices(h.B2.Services, new CsvCodec(), snapshot, h.TlsProbe));
+        await readiness.LoadAsync();
+        await readiness.CheckLdapsCommand.ExecuteAsync(null);
+
+        const string Unknown = "Nie można odczytać kontenera Usługi kluczy publicznych, więc nie wiadomo, czy urząd wystawiający jest zaufany w Active Directory i w magazynie NTAuth.";
+        var kdc = Assert.Single(Area(readiness, PkiReadinessArea.KdcCertificates).AllRows);
+        Assert.Equal(PkiReadinessStatus.NotChecked, kdc.Status);
+        Assert.Contains(Unknown, kdc.Detail, StringComparison.Ordinal);
+        Assert.False(kdc.HasRemedy);
+        var ldaps = Assert.Single(Area(readiness, PkiReadinessArea.DomainControllerLdaps).AllRows);
+        Assert.Equal(PkiReadinessStatus.NotChecked, ldaps.Status);
+        Assert.StartsWith("Wystawca: Kontoso Wystawiający CA, ważny do ", ldaps.Detail, StringComparison.Ordinal);
+        Assert.EndsWith(Unknown, ldaps.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("Nie prowadzi do urzędu głównego", ldaps.Detail, StringComparison.Ordinal);
+
+        // A forest whose PKI was read keeps judging the chain and NTAuth (the issuer is not trusted there).
+        snapshot.Snapshot = null;
+        await readiness.RefreshCommand.ExecuteAsync(null);
+        await readiness.CheckLdapsCommand.ExecuteAsync(null);
+        Assert.Equal(PkiReadinessStatus.Warning, Assert.Single(Area(readiness, PkiReadinessArea.DomainControllerLdaps).AllRows).Status);
+        Assert.StartsWith("Nie prowadzi do urzędu głównego", Assert.Single(Area(readiness, PkiReadinessArea.DomainControllerLdaps).AllRows).Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ProbeFailures_AndWrongCertificates_AreProblems_WithWhatToDo()
     {
         var h = await PkiHarness.CreateAsync();
@@ -237,7 +296,7 @@ public sealed class PkiReadinessTests
         var row = Assert.Single(Area(readiness, PkiReadinessArea.KdcCertificates).AllRows);
         Assert.Equal(PkiReadinessStatus.Warning, row.Status);
         Assert.StartsWith("Brak EKU uwierzytelniania KDC. Certyfikat z szablonu Kontroler domeny w wersji 1: PKINIT działa", row.Detail, StringComparison.Ordinal);
-        Assert.StartsWith("Co zrobić: zarejestruj kontroler domeny w szablonie Uwierzytelnianie Kerberos", row.RemedyText, StringComparison.Ordinal);
+        Assert.StartsWith("Co zrobić: zarejestruj dla kontrolera domeny certyfikat z szablonu Uwierzytelnianie Kerberos", row.RemedyText, StringComparison.Ordinal);
 
         h.Session.SetValues(h.Builder.DomainControllerDn, "userCertificate");
         await readiness.RefreshCommand.ExecuteAsync(null);
@@ -296,6 +355,9 @@ public sealed class PkiReadinessTests
         Assert.Equal(PkiReadinessDocumentViewModel.RowsShown + 1, mappings.Rows.Count);
         Assert.Equal(("… i jeszcze 8", "Skopiuj lub wyeksportuj raport, aby zobaczyć wszystkie wiersze."), (mappings.Rows[^1].Title, mappings.Rows[^1].Detail));
 
+        // The rows not shown were checked: the line carries their worst status and their counts, never "Nie sprawdzono".
+        Assert.Equal((PkiReadinessStatus.Warning, "OK: 1 · Ostrzeżenia: 7"), (mappings.Rows[^1].Status, mappings.Rows[^1].StatusText));
+
         readiness.CopyCommand.Execute(null);
         var text = h.B2.Clipboard.Text!;
         Assert.StartsWith("Gotowość na silne mapowanie i NTAuth" + Environment.NewLine, text, StringComparison.Ordinal);
@@ -313,6 +375,10 @@ public sealed class PkiReadinessTests
             Assert.Equal("Obszar;Stan;Element;Wynik;Co zrobić", lines[0]);
             Assert.Equal(readiness.Groups.Sum(g => g.AllRows.Count) + 1, lines.Length);
             Assert.Contains(lines, l => l.Contains("Użytkownik104 Mapowany", StringComparison.Ordinal));
+
+            // The "Co zrobić" column holds the remedy itself, not "Co zrobić: …" again.
+            Assert.DoesNotContain(lines.Skip(1), l => l.Contains("Co zrobić:", StringComparison.Ordinal));
+            Assert.Contains(lines, l => l.Contains(";zastąp je mapowaniem wystawcy i numeru seryjnego", StringComparison.Ordinal));
         }
         finally
         {
@@ -335,6 +401,22 @@ public sealed class PkiReadinessTests
         Assert.Equal("Enterprise CAs and the NTAuth store", Area(readiness, PkiReadinessArea.NtAuth).Title);
         Assert.Equal("Problem", Area(readiness, PkiReadinessArea.NtAuth).StatusText);
         Assert.Equal("Not checked", Area(readiness, PkiReadinessArea.KdcEvents).StatusText);
+    }
+
+    [Fact]
+    public async Task ALanguageSwitch_InADisconnectedWindow_SaysNotConnected_AndTheLastReadInTheNewLanguage()
+    {
+        var h = await PkiHarness.CreateAsync();
+        using var readiness = await OpenAsync(h);
+        await h.B2.Sessions.DisconnectAsync();
+        await B2Harness.WaitUntilAsync(() => readiness.Groups.Count == 0);
+        Assert.Equal(h.B2.Localizer[L.Errors.NotConnected], readiness.Error);
+
+        h.B2.Localizer.SetCulture(CultureInfo.GetCultureInfo("en-US"));
+
+        Assert.Equal(new ResxLocalizer(CultureInfo.GetCultureInfo("en-US"))[L.Errors.NotConnected], readiness.Error);
+        Assert.StartsWith("Read: ", readiness.LastRunText, StringComparison.Ordinal);
+        Assert.EndsWith(" on dc01.contoso.test", readiness.LastRunText, StringComparison.Ordinal);
     }
 
     [Fact]

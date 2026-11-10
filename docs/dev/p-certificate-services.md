@@ -1478,6 +1478,17 @@ public member of 2.1–2.6 renamed or removed; outside the W6 files only the two
   `review.ShowCode(request.FindingCode)` (`Matches` keeps one review per window); the review and the readiness report
   read only through `IPkiSnapshotService` (`GetAsync`, `GetExpansionAsync`, `GetDomainControllersAsync`,
   `GetDcCertificatesAsync`, `DcCertificates`).
+* *W6 review fixes.* The LDAPS rows judge the leaf's validity and days left at the time shown (decision 2), not at the
+  probe – the window keeps the probe results until F5, so a reload days later showed the old *pozostało dni*. A denied
+  Public Key Services container (`BaseAccessDenied`: no AD roots, no NTAuth) makes the KDC *wystawca spoza NTAuth* and the
+  LDAPS *nie prowadzi do urzędu głównego* verdicts *nie sprawdzono* with `PkiReady.TrustUnknown` instead of a problem /
+  warning (as the review never calls an unread PKI safe, the report never calls it untrusted). *… i jeszcze N* carries the
+  worst status and the counts of the rows it hides (it said *nie sprawdzono*). The CSV column *Co zrobić* holds the remedy
+  itself (`PkiReadinessRowViewModel.Remedy`; `RemedyText` repeated the heading). A language switch in a disconnected
+  window relocalizes *Brak połączenia* and the last-read line of both documents (their `OnCultureChanged` replaces the
+  base's reload). Screenshots 38/39 follow `ADMNG_SCREENSHOTS_LANGUAGE` (English by default, as `release.yml`) instead of
+  a fixed Polish UI. Reworded: `PkiReady.Templates.Description`, `PkiReady.NtAuth.NotNeeded` (pl),
+  `PkiReady.Kdc.Remedy`.
 
 **W7 as built.** The three tabs, the attribute-editor mask and the TLS probe of 2.6; no member of 2.1–2.6 renamed or
 removed, every addition is new W7 code.

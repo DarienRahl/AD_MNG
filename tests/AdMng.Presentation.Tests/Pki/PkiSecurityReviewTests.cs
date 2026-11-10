@@ -4,6 +4,7 @@ using AdMng.Core.Csv;
 using AdMng.Core.Ldap;
 using AdMng.Core.Pki;
 using AdMng.Core.Pki.Tls;
+using AdMng.Presentation.Localization;
 using AdMng.Presentation.Pki;
 using AdMng.Presentation.Tests.Dialogs;
 using AdMng.Testing;
@@ -463,6 +464,23 @@ public sealed class PkiSecurityReviewTests
         Assert.Equal((PublicKeyTemplates.Esc1, "Critical", "Certificate template"), (review.SelectedRow?.TemplateCn, review.SelectedRow?.SeverityText, review.SelectedRow?.AreaText));
         Assert.Equal("Findings shown: 2 of 15", review.StatusText);
         Assert.Contains("Critical: 4", review.Chips.Select(c => c.Text));
+    }
+
+    [Fact]
+    public async Task ALanguageSwitch_InADisconnectedWindow_SaysNotConnectedInTheNewLanguage_WithoutReading()
+    {
+        var h = await PkiHarness.CreateAsync();
+        using var review = await OpenAsync(h);
+        await h.B2.Sessions.DisconnectAsync();
+        await B2Harness.WaitUntilAsync(() => !review.HasResult);
+        Assert.Equal(h.B2.Localizer[L.Errors.NotConnected], review.Error);
+        var reads = h.Snapshot.Reads;
+
+        h.B2.Localizer.SetCulture(CultureInfo.GetCultureInfo("en-US"));
+
+        Assert.Equal(new ResxLocalizer(CultureInfo.GetCultureInfo("en-US"))[L.Errors.NotConnected], review.Error);
+        Assert.Equal(review.Error, review.StatusText);
+        Assert.Equal(reads, h.Snapshot.Reads);
     }
 
     [Fact]

@@ -181,8 +181,26 @@ public sealed partial class PkiReadinessDocumentViewModel : PkiDocumentBase
     protected override void OnCultureChanged()
     {
         OnPropertyChanged(nameof(Title));
+        if (!HasSession && Error is not null)
+        {
+            // The base would reload to say "not connected" in the new language; nothing is read here, so say it directly.
+            Error = Localizer[L.Errors.NotConnected];
+        }
+
+        if (_snapshot is null)
+        {
+            // Nothing to show (not read yet, or disconnected): Rebuild returns at once, but the last-read line is in the old language.
+            LastRunText = LastRun();
+            LoadedText = LastRunText;
+        }
+
         Rebuild();
     }
+
+    /// <summary>"Odczytano: 13.10.2026 12:00 na dc01.contoso.test", or "Jeszcze nie odczytano.".</summary>
+    private string LastRun() => _readAt is { } at
+        ? Localizer.Format(L.PkiReadiness.LastRun, at.ToString("g", Localizer.Culture), _server ?? string.Empty)
+        : Localizer[L.PkiReadiness.NeverRun];
 
     protected override void RefreshCommands()
     {
@@ -261,8 +279,7 @@ public sealed partial class PkiReadinessDocumentViewModel : PkiDocumentBase
         ];
         var statuses = Groups.SelectMany(g => g.AllRows).Select(r => r.Status).ToList();
         SummaryText = Summary(Localizer, statuses);
-        LastRunText = _readAt is { } at ? Localizer.Format(L.PkiReadiness.LastRun, at.ToString("g", Localizer.Culture), _server ?? string.Empty)
-            : Localizer[L.PkiReadiness.NeverRun];
+        LastRunText = LastRun();
         LoadedText = SummaryText.Length > 0 ? SummaryText : LastRunText;
         RefreshCommands();
     }
@@ -305,7 +322,8 @@ public sealed partial class PkiReadinessDocumentViewModel : PkiDocumentBase
             return;
         }
 
-        var rows = Groups.SelectMany(g => g.AllRows.Select(r => (IReadOnlyList<string>)[g.Title, r.StatusText, r.Title, r.Detail, r.RemedyText])).ToList();
+        // The "Co zrobić" column holds the remedy itself (RemedyText repeats the heading for the view and the copy).
+        var rows = Groups.SelectMany(g => g.AllRows.Select(r => (IReadOnlyList<string>)[g.Title, r.StatusText, r.Title, r.Detail, r.Remedy])).ToList();
         var headers = new[] { L.PkiReadiness.ColumnArea, L.PkiReadiness.ColumnStatus, L.PkiReadiness.ColumnItem, L.PkiReadiness.ColumnDetail, L.PkiReadiness.ColumnRemedy }
             .Select(k => Localizer[k]).ToList();
         var delimiter = CsvFiles.ListSeparator(Pki.Ui.Regional.Culture);

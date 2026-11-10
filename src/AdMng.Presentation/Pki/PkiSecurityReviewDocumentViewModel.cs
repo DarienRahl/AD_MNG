@@ -198,6 +198,12 @@ public sealed partial class PkiSecurityReviewDocumentViewModel : PkiDocumentBase
     protected override void OnCultureChanged()
     {
         OnPropertyChanged(nameof(Title));
+        if (!HasSession && Error is not null)
+        {
+            // The base would reload to say "not connected" in the new language; nothing is read here, so say it directly.
+            Error = Localizer[L.Errors.NotConnected];
+        }
+
         BuildFilterOptions();
         ScopeNote = Localizer[L.PkiSecurity.ScopeNote];
         OnPropertyChanged(nameof(ScopeNote));

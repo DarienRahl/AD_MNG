@@ -51,6 +51,9 @@ public static partial class L
         public const string OpenCa = "PkiReady.OpenCa";
         public const string NoPki = "PkiReady.NoPki";
 
+        /// <summary>The Public Key Services container was denied: the AD roots and NTAuth are unknown (LDAPS and KDC rows).</summary>
+        public const string TrustUnknown = "PkiReady.TrustUnknown";
+
         /// <summary>{0} = the failure.</summary>
         public const string ReadFailed = "PkiReady.ReadFailed";
         public const string Reading = "PkiReady.Reading";

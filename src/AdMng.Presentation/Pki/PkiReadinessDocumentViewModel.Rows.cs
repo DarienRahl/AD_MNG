@@ -54,7 +54,10 @@ public sealed class PkiReadinessRowViewModel
     /// <summary>What was found.</summary>
     public required string Detail { get; init; }
 
-    /// <summary>"Co zrobić: …", empty when there is nothing to do.</summary>
+    /// <summary>What to do (the CSV column "Co zrobić" holds it as is), empty when there is nothing to do.</summary>
+    public string Remedy { get; init; } = string.Empty;
+
+    /// <summary>"Co zrobić: …" (the view and the copy), empty when there is nothing to do.</summary>
     public string RemedyText { get; init; } = string.Empty;
 
     public bool HasRemedy => RemedyText.Length > 0;
@@ -84,17 +87,29 @@ public sealed class PkiReadinessGroupViewModel
         Title = title;
         Description = description;
         AllRows = rows;
-        Status = rows.Count == 0 ? PkiReadinessStatus.NotChecked : rows.Select(r => r.Status).MaxBy(PkiReadinessDocumentViewModel.Rank);
+        Status = rows.Count == 0 ? PkiReadinessStatus.NotChecked : Worst(rows);
         StatusText = localizer[PkiReadinessDocumentViewModel.StatusKey(Status)];
         SummaryText = PkiReadinessDocumentViewModel.Summary(localizer, rows.Select(r => r.Status));
-        Rows = rows.Count <= PkiReadinessDocumentViewModel.RowsShown ? rows
-            : [.. rows.Take(PkiReadinessDocumentViewModel.RowsShown), new PkiReadinessRowViewModel
+        if (rows.Count <= PkiReadinessDocumentViewModel.RowsShown)
+        {
+            Rows = rows;
+            return;
+        }
+
+        // "… i jeszcze N": the rows not shown were checked – the line carries their worst status and their counts, never
+        // "nie sprawdzono".
+        var hidden = rows.Skip(PkiReadinessDocumentViewModel.RowsShown).ToList();
+        Rows =
+        [
+            .. rows.Take(PkiReadinessDocumentViewModel.RowsShown),
+            new PkiReadinessRowViewModel
             {
-                Status = PkiReadinessStatus.NotChecked,
-                StatusText = localizer[PkiReadinessDocumentViewModel.StatusKey(PkiReadinessStatus.NotChecked)],
-                Title = localizer.Format(L.PkiReadiness.MoreRows, (rows.Count - PkiReadinessDocumentViewModel.RowsShown).ToString("N0", localizer.Culture)),
+                Status = Worst(hidden),
+                StatusText = PkiReadinessDocumentViewModel.Summary(localizer, hidden.Select(r => r.Status)),
+                Title = localizer.Format(L.PkiReadiness.MoreRows, hidden.Count.ToString("N0", localizer.Culture)),
                 Detail = localizer[L.PkiReadiness.MoreRowsDetail],
-            }];
+            },
+        ];
     }
 
     public PkiReadinessArea Area { get; }
@@ -122,4 +137,7 @@ public sealed class PkiReadinessGroupViewModel
 
     /// <summary>The area and status only.</summary>
     public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"{Area}: {Status} ({AllRows.Count} rows)");
+
+    private static PkiReadinessStatus Worst(IEnumerable<PkiReadinessRowViewModel> rows) =>
+        rows.Select(r => r.Status).MaxBy(PkiReadinessDocumentViewModel.Rank);
 }
