@@ -21350,6 +21350,252 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <!-- P1 strong mapping and NTAuth readiness (2.5): begin -->
   <!-- P1 strong mapping and NTAuth readiness (2.5): end -->
   <!-- P1 certificates on accounts (2.6): begin -->
+  <data name="Cert.Page.PublishedCertificates" xml:space="preserve">
+    <value>Published Certificates</value>
+  </data>
+  <data name="Cert.Page.NameMappings" xml:space="preserve">
+    <value>Name Mappings</value>
+  </data>
+  <data name="Cert.Page.KeyCredentials" xml:space="preserve">
+    <value>Key Credentials</value>
+  </data>
+  <data name="Cert.MaskedReadOnly" xml:space="preserve">
+    <value>Confidential value (key material): never shown, copied or edited</value>
+  </data>
+  <data name="Cert.Published.Intro" xml:space="preserve">
+    <value>The certificates published on this object in Active Directory (userCertificate and userSMIMECertificate). Read only.</value>
+  </data>
+  <data name="Cert.Published.ColumnIssuedTo" xml:space="preserve">
+    <value>Issued To</value>
+  </data>
+  <data name="Cert.Published.ColumnIssuedBy" xml:space="preserve">
+    <value>Issued By</value>
+  </data>
+  <data name="Cert.Published.ColumnPurposes" xml:space="preserve">
+    <value>Intended Purposes</value>
+  </data>
+  <data name="Cert.Published.ColumnValidTo" xml:space="preserve">
+    <value>Valid To</value>
+  </data>
+  <data name="Cert.Published.ColumnStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Cert.Published.ColumnTemplate" xml:space="preserve">
+    <value>Template</value>
+  </data>
+  <data name="Cert.Published.ColumnThumbprint" xml:space="preserve">
+    <value>Thumbprint</value>
+  </data>
+  <data name="Cert.Published.ColumnAttribute" xml:space="preserve">
+    <value>Attribute</value>
+  </data>
+  <data name="Cert.Published.Count" xml:space="preserve">
+    <value>Published certificates: {0}</value>
+  </data>
+  <data name="Cert.Published.Empty" xml:space="preserve">
+    <value>No certificate is published on this object.</value>
+  </data>
+  <data name="Cert.Published.AnyPurpose" xml:space="preserve">
+    <value>All (no EKU)</value>
+  </data>
+  <data name="Cert.Published.Unreadable" xml:space="preserve">
+    <value>Unreadable value (not a certificate)</value>
+  </data>
+  <data name="Cert.Published.CopyToFile" xml:space="preserve">
+    <value>Copy to File…</value>
+  </data>
+  <data name="Cert.Published.CopyToFileTitle" xml:space="preserve">
+    <value>Copy the certificate to a file</value>
+  </data>
+  <data name="Cert.Published.CerFilter" xml:space="preserve">
+    <value>X.509 certificate, DER (*.cer)</value>
+  </data>
+  <data name="Cert.Published.Saved" xml:space="preserve">
+    <value>The certificate was saved to {0}.</value>
+  </data>
+  <data name="Cert.Published.CopyThumbprint" xml:space="preserve">
+    <value>Copy thumbprint</value>
+  </data>
+  <data name="Cert.Published.DetailsHeader" xml:space="preserve">
+    <value>Certificate details</value>
+  </data>
+  <data name="Cert.Detail.Subject" xml:space="preserve">
+    <value>Subject</value>
+  </data>
+  <data name="Cert.Detail.Issuer" xml:space="preserve">
+    <value>Issuer</value>
+  </data>
+  <data name="Cert.Detail.SerialNumber" xml:space="preserve">
+    <value>Serial number</value>
+  </data>
+  <data name="Cert.Detail.ValidFrom" xml:space="preserve">
+    <value>Valid from</value>
+  </data>
+  <data name="Cert.Detail.ValidTo" xml:space="preserve">
+    <value>Valid to</value>
+  </data>
+  <data name="Cert.Detail.Upn" xml:space="preserve">
+    <value>User principal name (SAN)</value>
+  </data>
+  <data name="Cert.Detail.Email" xml:space="preserve">
+    <value>E-mail address (SAN)</value>
+  </data>
+  <data name="Cert.Detail.Dns" xml:space="preserve">
+    <value>DNS names (SAN)</value>
+  </data>
+  <data name="Cert.Detail.SanSid" xml:space="preserve">
+    <value>SID (SAN URL, strong mapping)</value>
+  </data>
+  <data name="Cert.Detail.SidExtension" xml:space="preserve">
+    <value>SID (security extension)</value>
+  </data>
+  <data name="Cert.Detail.PublicKey" xml:space="preserve">
+    <value>Public key</value>
+  </data>
+  <data name="Cert.Detail.SignatureAlgorithm" xml:space="preserve">
+    <value>Signature algorithm</value>
+  </data>
+  <data name="Cert.Detail.Sha256" xml:space="preserve">
+    <value>SHA-256</value>
+  </data>
+  <data name="Cert.Detail.KeyWithSize" xml:space="preserve">
+    <value>{0} ({1} bits)</value>
+  </data>
+  <data name="Cert.Mappings.Intro" xml:space="preserve">
+    <value>Explicit certificate mappings (altSecurityIdentities) with their strength under KB5014754; Kerberos names are listed apart. Read only.</value>
+  </data>
+  <data name="Cert.Mappings.X509Header" xml:space="preserve">
+    <value>X.509 certificates</value>
+  </data>
+  <data name="Cert.Mappings.KerberosHeader" xml:space="preserve">
+    <value>Kerberos names</value>
+  </data>
+  <data name="Cert.Mappings.ColumnMapping" xml:space="preserve">
+    <value>Mapping</value>
+  </data>
+  <data name="Cert.Mappings.ColumnStrength" xml:space="preserve">
+    <value>Strength (KB5014754)</value>
+  </data>
+  <data name="Cert.Mappings.ColumnIssuer" xml:space="preserve">
+    <value>Issuer</value>
+  </data>
+  <data name="Cert.Mappings.ColumnSubjectOrIdentifier" xml:space="preserve">
+    <value>Subject or identifier</value>
+  </data>
+  <data name="Cert.Mappings.ColumnValue" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="Cert.Mappings.ColumnPrincipal" xml:space="preserve">
+    <value>Kerberos principal</value>
+  </data>
+  <data name="Cert.Mappings.NoX509" xml:space="preserve">
+    <value>No X.509 certificate mappings.</value>
+  </data>
+  <data name="Cert.Mappings.NoKerberos" xml:space="preserve">
+    <value>No Kerberos names.</value>
+  </data>
+  <data name="Cert.Mappings.SerialNumber" xml:space="preserve">
+    <value>Serial number {0}</value>
+  </data>
+  <data name="Cert.Mappings.WeakWarning" xml:space="preserve">
+    <value>Weak mappings: {0}. Under full enforcement of strong certificate binding (KB5014754) the domain controller refuses them – replace them with an issuer and serial number, SKI or SHA1 public key mapping.</value>
+  </data>
+  <data name="Cert.Mappings.InvalidWarning" xml:space="preserve">
+    <value>Invalid values: {0} (the KDC ignores them).</value>
+  </data>
+  <data name="Cert.Keys.Intro" xml:space="preserve">
+    <value>Key credentials (msDS-KeyCredentialLink): Windows Hello for Business, FIDO and device keys this account can authenticate with. Only their metadata is shown, never the key. Read only.</value>
+  </data>
+  <data name="Cert.Keys.Warning" xml:space="preserve">
+    <value>An entry nobody enrolled may be a Shadow Credentials attack: whoever wrote it can log on as this account.</value>
+  </data>
+  <data name="Cert.Keys.ColumnKeyId" xml:space="preserve">
+    <value>Key ID</value>
+  </data>
+  <data name="Cert.Keys.ColumnDeviceId" xml:space="preserve">
+    <value>Device ID</value>
+  </data>
+  <data name="Cert.Keys.ColumnSource" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Cert.Keys.ColumnUsage" xml:space="preserve">
+    <value>Usage</value>
+  </data>
+  <data name="Cert.Keys.ColumnCreated" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="Cert.Keys.ColumnLastLogon" xml:space="preserve">
+    <value>Last logon (approximate)</value>
+  </data>
+  <data name="Cert.Keys.ColumnRemarks" xml:space="preserve">
+    <value>Remarks</value>
+  </data>
+  <data name="Cert.Keys.Count" xml:space="preserve">
+    <value>Key credentials: {0}</value>
+  </data>
+  <data name="Cert.Keys.Empty" xml:space="preserve">
+    <value>No key credentials.</value>
+  </data>
+  <data name="Cert.Keys.Malformed" xml:space="preserve">
+    <value>Unreadable entry</value>
+  </data>
+  <data name="Cert.Keys.HashMismatch" xml:space="preserve">
+    <value>The key hash does not match (the entry was changed)</value>
+  </data>
+  <data name="Cert.Keys.CopyKeyId" xml:space="preserve">
+    <value>Copy key ID</value>
+  </data>
+  <data name="Cert.Keys.CopyDeviceId" xml:space="preserve">
+    <value>Copy device ID</value>
+  </data>
+  <data name="Cert.KeySource.ActiveDirectory" xml:space="preserve">
+    <value>Active Directory</value>
+  </data>
+  <data name="Cert.KeySource.EntraId" xml:space="preserve">
+    <value>Microsoft Entra ID</value>
+  </data>
+  <data name="Cert.KeySource.Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="Cert.KeyUsage.AdminKey" xml:space="preserve">
+    <value>Admin key</value>
+  </data>
+  <data name="Cert.KeyUsage.Ngc" xml:space="preserve">
+    <value>Windows Hello for Business (NGC)</value>
+  </data>
+  <data name="Cert.KeyUsage.Stk" xml:space="preserve">
+    <value>Transport key (STK)</value>
+  </data>
+  <data name="Cert.KeyUsage.BitLockerRecovery" xml:space="preserve">
+    <value>BitLocker recovery</value>
+  </data>
+  <data name="Cert.KeyUsage.Other" xml:space="preserve">
+    <value>Other</value>
+  </data>
+  <data name="Cert.KeyUsage.Fido" xml:space="preserve">
+    <value>FIDO security key</value>
+  </data>
+  <data name="Cert.KeyUsage.Fek" xml:space="preserve">
+    <value>File encryption key (FEK)</value>
+  </data>
+  <data name="Cert.KeyUsage.Dpapi" xml:space="preserve">
+    <value>DPAPI</value>
+  </data>
+  <data name="Cert.KeyUsage.Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="Cert.Validity.Valid" xml:space="preserve">
+    <value>Valid</value>
+  </data>
+  <data name="Cert.Validity.Expiring" xml:space="preserve">
+    <value>Expiring ({0} days left)</value>
+  </data>
+  <data name="Cert.Validity.Expired" xml:space="preserve">
+    <value>Expired</value>
+  </data>
+  <data name="Cert.Validity.NotYetValid" xml:space="preserve">
+    <value>Not yet valid</value>
+  </data>
   <!-- P1 certificates on accounts (2.6): end -->
   <!-- F3 contract – bulk creation shared names (2.9): begin -->
   <data name="BulkCreate.Command" xml:space="preserve">
