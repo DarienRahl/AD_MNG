@@ -578,6 +578,10 @@ public sealed class MotionUiTests
                 Assert.False(hover.HasAnimatedProperties);
                 Assert.Equal(ThemeColor(subject, "SubtleFillColorSecondaryBrush"), ColorOf(hover.Background));
                 Assert.Equal(new CornerRadius(4), hover.CornerRadius);
+
+                // Its outline is the theme's control stroke (the one thing of the layer that shows in High Contrast).
+                Assert.Equal(ThemeColor(subject, "ControlStrokeColorDefaultBrush"), ColorOf(hover.BorderBrush));
+                Assert.Equal(new Thickness(1), hover.BorderThickness);
                 Assert.Equal(ColorOf(subject.Foreground), ColorOf(TextElement.GetForeground(presenter)));
 
                 // Still a button of the theme: transparent but there for the pointer, a tab stop with the theme's focus

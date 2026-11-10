@@ -33,6 +33,7 @@ public sealed partial class XamlSourceTests
         "CardBackgroundFillColorDefaultBrush",
         "CardStrokeColorDefaultBrush",
         "ControlFillColorSecondaryBrush",
+        "ControlStrokeColorDefaultBrush",
         "DividerStrokeColorDefaultBrush",
         "FocusStrokeColorOuterBrush",
         "LayerFillColorDefaultBrush",

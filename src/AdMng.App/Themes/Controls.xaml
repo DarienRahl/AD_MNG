@@ -111,6 +111,9 @@
       over the button, shows the layer as well.
     * The pressed colour and the disabled text colour switch at once. The theme brushes are never animated, so a
       switch of light, dark or High Contrast stays correct.
+    * The layer has the theme's control stroke as a 1 px outline: faint in light and dark (6-7 % of black or white),
+      but the button text colour in High Contrast, where the subtle fills are the button face colour and that is
+      usually the window colour - without the outline the pointer would get no answer there.
     * Keyboard focus is the theme's focus visual (FocusVisualStyle of the Fluent button, through BasedOn).
     * The size is the one of the theme's template: content + Padding + BorderThickness (the border is transparent).
       Unlike the theme's button, a disabled one has no fill and no outline - only its dimmed content.
@@ -137,6 +140,8 @@
               <Border x:Name="HoverLayer"
                       b:Motion.Shown="{TemplateBinding IsMouseOver}"
                       Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                      BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                      BorderThickness="1"
                       CornerRadius="{StaticResource Ad.Radius.Control}"
                       Opacity="0" />
               <ContentPresenter x:Name="ContentPresenter"
