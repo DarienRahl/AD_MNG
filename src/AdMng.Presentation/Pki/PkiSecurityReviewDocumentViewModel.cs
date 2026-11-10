@@ -22,7 +22,7 @@ namespace AdMng.Presentation.Pki;
 /// (rule 5): no <i>Napraw</i> in P1 – the actions are <i>Otwórz szablon / urząd / konto</i>, <i>Kopiuj</i> and the CSV / HTML
 /// exports to a file the operator picks (rule 1). Everything is read on the window's DC (rule 4) and kept in memory only.
 /// </summary>
-public sealed partial class PkiSecurityReviewDocumentViewModel : PkiDocumentBase, ISearchableDocument
+public sealed partial class PkiSecurityReviewDocumentViewModel : PkiDocumentBase, ISearchableDocument, IPkiRequestTarget
 {
     private CancellationTokenSource? _running;
     private bool _cancelRequested;
@@ -53,6 +53,16 @@ public sealed partial class PkiSecurityReviewDocumentViewModel : PkiDocumentBase
     }
 
     public override string Title => Localizer[L.PkiSecurity.Title];
+
+    /// <summary>An already open review shows the ESC of a request's finding code (a request without one keeps the filters).</summary>
+    public void Apply(PkiDocumentRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.FindingCode is { } code)
+        {
+            ShowCode(code);
+        }
+    }
 
     public override ObjectIcon Icon => ObjectIcon.Certificate;
 

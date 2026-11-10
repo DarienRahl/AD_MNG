@@ -216,6 +216,21 @@ public sealed class PkiSecurityReviewTests
     }
 
     [Fact]
+    public async Task AnOpenReview_AppliesTheFindingCodeOfALaterRequest_AndARequestWithoutOneKeepsItsFilters()
+    {
+        var h = await PkiHarness.CreateAsync();
+        using var review = await OpenAsync(h);
+        IPkiRequestTarget target = review;
+
+        target.Apply(Request with { FindingCode = PkiFindingCodes.EnrollmentAgentTargetTemplate });
+        Assert.Equal("ESC3", review.SelectedEsc?.Value);
+
+        target.Apply(Request);
+        Assert.Equal("ESC3", review.SelectedEsc?.Value);
+        Assert.All(review.Rows, r => Assert.Equal("ESC3", r.Esc));
+    }
+
+    [Fact]
     public async Task TheActions_NavigateThroughTheShell_OpenTheObject_AndCopy_ButNeverRepair()
     {
         var h = await PkiHarness.CreateAsync();
