@@ -196,7 +196,18 @@ jobs:
         run: |
           sudo grep -n -i -E "panic|internal error|exited with|signal|backtrace|prefork" /var/log/samba/log.samba | tail -n 60 || true
           sudo tail -n 150 /var/log/samba/log.samba || true
-          ps -eo pid,etimes,args | grep -E "[s]amba" | head -n 30 || true
+          # Every Samba process with its age in seconds: a worker that was restarted during the run is younger than
+          # the others (the LDAP workers come last, so the list is not cut).
+          ps -eo pid,etimes,rss,args | grep -E "[s]amba" || true
+          # Why would the DC refuse or drop an LDAP connection: the accept queue of the LDAP listeners and the kernel's
+          # counters of overflowed queues, open descriptors of the LDAP processes against their limit, kernel messages
+          # (SYN flooding, out of memory).
+          sudo ss -ltn '( sport = :389 or sport = :636 )' || true
+          nstat -az TcpExtListenOverflows TcpExtListenDrops TcpExtTCPAbortOnOverflow TcpExtTCPReqQFullDrop 2>/dev/null || true
+          for pid in $(pgrep -f 'task\[ldap\]' || true); do
+            echo "ldap process $pid: $(sudo ls "/proc/$pid/fd" 2>/dev/null | wc -l) descriptors, limit $(sudo awk '/Max open files/ {print $4}' "/proc/$pid/limits" 2>/dev/null)"
+          done
+          sudo dmesg | tail -n 40 || true
       - name: Stop the watchdog lab and Mailpit
         if: always()
         run: |
