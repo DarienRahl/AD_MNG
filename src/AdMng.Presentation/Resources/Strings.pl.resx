@@ -21806,5 +21806,236 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <!-- F3 data, columns and naming rules (2.6): begin -->
   <!-- F3 data, columns and naming rules (2.6): end -->
   <!-- F3 check, plan and results (2.7): begin -->
+  <data name="BulkCheck.ColumnNumber" xml:space="preserve">
+    <value>Nr</value>
+  </data>
+  <data name="BulkCheck.ColumnNotes" xml:space="preserve">
+    <value>Uwagi</value>
+  </data>
+  <data name="BulkCheck.ColumnManager" xml:space="preserve">
+    <value>Menedżer</value>
+  </data>
+  <data name="BulkCheck.ColumnGroups" xml:space="preserve">
+    <value>Grupy</value>
+  </data>
+  <data name="BulkCheck.ColumnInclude" xml:space="preserve">
+    <value>Utwórz</value>
+  </data>
+  <data name="BulkCheck.ColumnStatus" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="BulkCheck.Summary" xml:space="preserve">
+    <value>Wiersze: {0} – OK: {1}, z ostrzeżeniami: {2}, z błędami: {3}, wykluczone: {4}</value>
+  </data>
+  <data name="BulkCheck.SummaryWithCreated" xml:space="preserve">
+    <value>Wiersze: {0} – OK: {1}, z ostrzeżeniami: {2}, z błędami: {3}, wykluczone: {4}, utworzone: {5}</value>
+  </data>
+  <data name="BulkCheck.ScopeNote" xml:space="preserve">
+    <value>Unikalność UPN i adresów: {0}</value>
+  </data>
+  <data name="BulkCheck.Computing" xml:space="preserve">
+    <value>Sprawdzanie wierszy: {0} z {1}</value>
+  </data>
+  <data name="BulkCheck.Recheck" xml:space="preserve">
+    <value>Sprawdź ponownie</value>
+  </data>
+  <data name="BulkCheck.RecheckHint" xml:space="preserve">
+    <value>Odczytuje katalog od nowa (nazwy zajęte w międzyczasie, menedżerów, grupy) i ponownie wylicza wszystkie wiersze.</value>
+  </data>
+  <data name="BulkCheck.Renumber" xml:space="preserve">
+    <value>Numeruj od nowa</value>
+  </data>
+  <data name="BulkCheck.RenumberHint" xml:space="preserve">
+    <value>Zapomina pokazane numery i ponownie przydziela wierszom kolejne wolne numery.</value>
+  </data>
+  <data name="BulkCheck.NextError" xml:space="preserve">
+    <value>Następny błąd</value>
+  </data>
+  <data name="BulkCheck.CopyErrorRows" xml:space="preserve">
+    <value>Kopiuj wiersze z błędami</value>
+  </data>
+  <data name="BulkCheck.CopyErrorRowsHint" xml:space="preserve">
+    <value>Kopiuje komórki arkusza z wierszy z błędami razem z uwagami – gotowe do wklejenia do Excela i odesłania do poprawy.</value>
+  </data>
+  <data name="BulkCheck.ErrorRowsCopied" xml:space="preserve">
+    <value>Skopiowano wiersze z błędami: {0}.</value>
+  </data>
+  <data name="BulkCheck.NoErrorRows" xml:space="preserve">
+    <value>Żaden wiersz nie ma błędów.</value>
+  </data>
+  <data name="BulkCheck.InputIncomplete" xml:space="preserve">
+    <value>Najpierw uzupełnij wcześniejsze kroki: kontener docelowy, dane, kolumny i reguły nazewnictwa.</value>
+  </data>
+  <data name="BulkCheck.StaleNote" xml:space="preserve">
+    <value>Dane, reguły lub utworzone konta zmieniły się od tego sprawdzenia – kliknij Sprawdź ponownie.</value>
+  </data>
+  <data name="BulkCheck.EditHint" xml:space="preserve">
+    <value>Kliknij dwukrotnie komórkę, aby ją poprawić (Enter zapisuje); odznacz wiersz, aby go pominąć.</value>
+  </data>
+  <data name="BulkCheck.RunIssuesHeading" xml:space="preserve">
+    <value>Problemy całego zakładania</value>
+  </data>
+  <data name="BulkCheck.CellSource" xml:space="preserve">
+    <value>Źródło: {0}</value>
+  </data>
+  <data name="BulkCheck.CellAdjusted" xml:space="preserve">
+    <value>Zmieniono, aby wartość była unikalna.</value>
+  </data>
+  <data name="BulkCheck.CellSanitized" xml:space="preserve">
+    <value>Usunięto lub zamieniono niedozwolone znaki.</value>
+  </data>
+  <data name="BulkCheck.CellTruncated" xml:space="preserve">
+    <value>Skrócono do dopuszczalnej długości.</value>
+  </data>
+  <data name="BulkCheck.RevertCell" xml:space="preserve">
+    <value>Przywróć wartość wyliczoną</value>
+  </data>
+  <data name="BulkCheck.ChooseManager" xml:space="preserve">
+    <value>Pasuje kilka kont – wybierz menedżera</value>
+  </data>
+  <data name="BulkCheck.NoRowsMatch" xml:space="preserve">
+    <value>Żaden wiersz nie pasuje do filtru.</value>
+  </data>
+  <data name="BulkCheck.ChangeTitle.User" xml:space="preserve">
+    <value>Utworzenie kont ({0}) w {1}</value>
+  </data>
+  <data name="BulkCheck.ChangeTitle.Contact" xml:space="preserve">
+    <value>Utworzenie kontaktów ({0}) w {1}</value>
+  </data>
+  <data name="BulkCheck.ChangeTitle.Group" xml:space="preserve">
+    <value>Utworzenie grup ({0}) w {1}</value>
+  </data>
+  <data name="BulkCheck.ChangeTitle.Computer" xml:space="preserve">
+    <value>Utworzenie komputerów ({0}) w {1}</value>
+  </data>
+  <data name="BulkCheck.InUnit" xml:space="preserve">
+    <value>jednostce „{0}”</value>
+  </data>
+  <data name="BulkCheck.InContainer" xml:space="preserve">
+    <value>kontenerze „{0}”</value>
+  </data>
+  <data name="BulkCheck.InDomain" xml:space="preserve">
+    <value>domenie {0}</value>
+  </data>
+  <data name="BulkCheck.ConfirmCreate" xml:space="preserve">
+    <value>„{1}” – obiekty do utworzenia w domenie {3}: {0}. Hasła początkowe będą dostępne tylko w tym oknie. Wpisz {2}, aby potwierdzić.</value>
+  </data>
+  <data name="BulkCheck.ConfirmCreateWithoutPasswords" xml:space="preserve">
+    <value>„{1}” – obiekty do utworzenia w domenie {3}: {0}. Wpisz {2}, aby potwierdzić.</value>
+  </data>
+  <data name="BulkCheck.ReenterPassword" xml:space="preserve">
+    <value>Wpisz hasło ponownie w kroku Nazwy i opcje (oba pola) – pola są czyszczone po każdym planie.</value>
+  </data>
+  <data name="BulkCheck.UndoTitle" xml:space="preserve">
+    <value>Cofnięcie: {0}</value>
+  </data>
+  <data name="BulkCheck.UndoNote" xml:space="preserve">
+    <value>Cofnięcie usunie obiekty ({0}) utworzone w tym oknie – razem z ich hasłami i członkostwem w grupach; przy włączonym Koszu AD można je z niego przywrócić.</value>
+  </data>
+  <data name="BulkCheck.StepPrepare" xml:space="preserve">
+    <value>Dane i reguły</value>
+  </data>
+  <data name="BulkCheck.CanaryStopped" xml:space="preserve">
+    <value>Wstrzymano po pierwszym koncie – pozostałe wiersze nie zostały wykonane. Usuń przyczynę podaną poniżej i użyj Ponów nieudane.</value>
+  </data>
+  <data name="BulkCheck.ReplicationNote" xml:space="preserve">
+    <value>Konta utworzono na kontrolerze {0} (emulator PDC: {1}); pozostałe kontrolery zobaczą je po replikacji – do tego czasu logowanie przez inne kontrolery może się nie udać, a konto o tej samej nazwie utworzone w tym czasie na innym kontrolerze nie zostanie wykryte.</value>
+  </data>
+  <data name="BulkCheck.PdcYes" xml:space="preserve">
+    <value>tak</value>
+  </data>
+  <data name="BulkCheck.PdcNo" xml:space="preserve">
+    <value>nie</value>
+  </data>
+  <data name="BulkCheck.PdcUnknown" xml:space="preserve">
+    <value>nieznany</value>
+  </data>
+  <data name="BulkCheck.DisabledWithoutPassword" xml:space="preserve">
+    <value>Konto bez hasła pozostaje wyłączone.</value>
+  </data>
+  <data name="BulkCheck.UpnMaybeInOtherDomain" xml:space="preserve">
+    <value>UPN może być już używany w innej domenie lasu.</value>
+  </data>
+  <data name="BulkCheck.ResultsHeading" xml:space="preserve">
+    <value>Utworzone obiekty</value>
+  </data>
+  <data name="BulkCheck.ResultsHint" xml:space="preserve">
+    <value>Hasła początkowe istnieją tylko w tym oknie: przekaż je (Kopiuj, Kopiuj tabelę z hasłami lub Eksportuj), zanim je zamkniesz.</value>
+  </data>
+  <data name="BulkCheck.ColumnName" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="BulkCheck.ColumnLogin" xml:space="preserve">
+    <value>Nazwa logowania</value>
+  </data>
+  <data name="BulkCheck.ColumnUpn" xml:space="preserve">
+    <value>UPN</value>
+  </data>
+  <data name="BulkCheck.ColumnMail" xml:space="preserve">
+    <value>Adres e-mail</value>
+  </data>
+  <data name="BulkCheck.ColumnPassword" xml:space="preserve">
+    <value>Hasło początkowe</value>
+  </data>
+  <data name="BulkCheck.ColumnHandedOut" xml:space="preserve">
+    <value>Przekazane</value>
+  </data>
+  <data name="BulkCheck.ShowPassword" xml:space="preserve">
+    <value>Pokaż</value>
+  </data>
+  <data name="BulkCheck.CopyPassword" xml:space="preserve">
+    <value>Kopiuj</value>
+  </data>
+  <data name="BulkCheck.PasswordCopied" xml:space="preserve">
+    <value>Skopiowano hasło – schowek zostanie wyczyszczony po minucie.</value>
+  </data>
+  <data name="BulkCheck.AccountCreated" xml:space="preserve">
+    <value>Utworzono</value>
+  </data>
+  <data name="BulkCheck.AccountPartiallyCreated" xml:space="preserve">
+    <value>Utworzono, nie wszystkie kroki się udały</value>
+  </data>
+  <data name="BulkCheck.AccountUndone" xml:space="preserve">
+    <value>Usunięte (cofnięte)</value>
+  </data>
+  <data name="BulkCheck.CopyTableWithPasswords" xml:space="preserve">
+    <value>Kopiuj tabelę z hasłami…</value>
+  </data>
+  <data name="BulkCheck.CopyTableWithoutPasswords" xml:space="preserve">
+    <value>Kopiuj bez haseł</value>
+  </data>
+  <data name="BulkCheck.TableCopiedWithPasswords" xml:space="preserve">
+    <value>Skopiowano konta z hasłami: {0} – schowek zostanie wyczyszczony po minucie.</value>
+  </data>
+  <data name="BulkCheck.TableCopied" xml:space="preserve">
+    <value>Skopiowano konta: {0}.</value>
+  </data>
+  <data name="BulkCheck.CopyColumns" xml:space="preserve">
+    <value>Kolumny arkusza w kopii:</value>
+  </data>
+  <data name="BulkCheck.NoAccounts" xml:space="preserve">
+    <value>Nie utworzono jeszcze żadnego konta.</value>
+  </data>
+  <data name="BulkCheck.RetryPasswordHeading" xml:space="preserve">
+    <value>Nowe hasło dla kont bez hasła</value>
+  </data>
+  <data name="BulkCheck.RetryPasswordHint" xml:space="preserve">
+    <value>Domena odrzuciła wspólne hasło. Wpisz nowe hasło dwa razy i użyj Ponów nieudane – hasła generowane zostaną wygenerowane ponownie.</value>
+  </data>
+  <data name="BulkCheck.RetryPassword" xml:space="preserve">
+    <value>Nowe hasło</value>
+  </data>
+  <data name="BulkCheck.RetryConfirmPassword" xml:space="preserve">
+    <value>Potwierdź hasło</value>
+  </data>
+  <data name="BulkCheck.RetryPasswordRequired" xml:space="preserve">
+    <value>Wpisz nowe hasło dla kont bez hasła w obu polach.</value>
+  </data>
+  <data name="BulkCheck.CopyPasswordsTitle" xml:space="preserve">
+    <value>Skopiować hasła?</value>
+  </data>
+  <data name="BulkCheck.CopyPasswordsWarning" xml:space="preserve">
+    <value>Tabela zawiera hasła początkowe jawnym tekstem. Wklej ją tylko tam, gdzie hasła pozostaną chronione (np. w zaszyfrowanej wiadomości) – schowek zostanie wyczyszczony po minucie. Skopiować tabelę z hasłami?</value>
+  </data>
   <!-- F3 check, plan and results (2.7): end -->
 </root>

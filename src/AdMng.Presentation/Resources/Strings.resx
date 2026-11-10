@@ -21806,5 +21806,236 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <!-- F3 data, columns and naming rules (2.6): begin -->
   <!-- F3 data, columns and naming rules (2.6): end -->
   <!-- F3 check, plan and results (2.7): begin -->
+  <data name="BulkCheck.ColumnNumber" xml:space="preserve">
+    <value>Row</value>
+  </data>
+  <data name="BulkCheck.ColumnNotes" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="BulkCheck.ColumnManager" xml:space="preserve">
+    <value>Manager</value>
+  </data>
+  <data name="BulkCheck.ColumnGroups" xml:space="preserve">
+    <value>Groups</value>
+  </data>
+  <data name="BulkCheck.ColumnInclude" xml:space="preserve">
+    <value>Create</value>
+  </data>
+  <data name="BulkCheck.ColumnStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="BulkCheck.Summary" xml:space="preserve">
+    <value>Rows: {0} – OK: {1}, with warnings: {2}, with errors: {3}, excluded: {4}</value>
+  </data>
+  <data name="BulkCheck.SummaryWithCreated" xml:space="preserve">
+    <value>Rows: {0} – OK: {1}, with warnings: {2}, with errors: {3}, excluded: {4}, created: {5}</value>
+  </data>
+  <data name="BulkCheck.ScopeNote" xml:space="preserve">
+    <value>Uniqueness of UPNs and addresses: {0}</value>
+  </data>
+  <data name="BulkCheck.Computing" xml:space="preserve">
+    <value>Checking rows: {0} of {1}</value>
+  </data>
+  <data name="BulkCheck.Recheck" xml:space="preserve">
+    <value>Check again</value>
+  </data>
+  <data name="BulkCheck.RecheckHint" xml:space="preserve">
+    <value>Reads the directory again (names taken meanwhile, managers, groups) and recomputes every row.</value>
+  </data>
+  <data name="BulkCheck.Renumber" xml:space="preserve">
+    <value>Renumber</value>
+  </data>
+  <data name="BulkCheck.RenumberHint" xml:space="preserve">
+    <value>Forgets the numbers shown and gives every row the next free number again.</value>
+  </data>
+  <data name="BulkCheck.NextError" xml:space="preserve">
+    <value>Next error</value>
+  </data>
+  <data name="BulkCheck.CopyErrorRows" xml:space="preserve">
+    <value>Copy rows with errors</value>
+  </data>
+  <data name="BulkCheck.CopyErrorRowsHint" xml:space="preserve">
+    <value>Copies the sheet's cells of the rows with errors and their notes, ready to paste into Excel and send back for correction.</value>
+  </data>
+  <data name="BulkCheck.ErrorRowsCopied" xml:space="preserve">
+    <value>Rows with errors copied: {0}.</value>
+  </data>
+  <data name="BulkCheck.NoErrorRows" xml:space="preserve">
+    <value>No row has errors.</value>
+  </data>
+  <data name="BulkCheck.InputIncomplete" xml:space="preserve">
+    <value>Complete the earlier steps first: a target container, data, columns and naming rules.</value>
+  </data>
+  <data name="BulkCheck.StaleNote" xml:space="preserve">
+    <value>The data, the rules or the created accounts changed since this check – click Check again.</value>
+  </data>
+  <data name="BulkCheck.EditHint" xml:space="preserve">
+    <value>Double-click a cell to correct it (Enter saves), clear the check box of a row to leave it out.</value>
+  </data>
+  <data name="BulkCheck.RunIssuesHeading" xml:space="preserve">
+    <value>Problems of the whole run</value>
+  </data>
+  <data name="BulkCheck.CellSource" xml:space="preserve">
+    <value>Source: {0}</value>
+  </data>
+  <data name="BulkCheck.CellAdjusted" xml:space="preserve">
+    <value>Changed so that the value is unique.</value>
+  </data>
+  <data name="BulkCheck.CellSanitized" xml:space="preserve">
+    <value>Characters that are not allowed were removed or replaced.</value>
+  </data>
+  <data name="BulkCheck.CellTruncated" xml:space="preserve">
+    <value>Shortened to the allowed length.</value>
+  </data>
+  <data name="BulkCheck.RevertCell" xml:space="preserve">
+    <value>Restore the computed value</value>
+  </data>
+  <data name="BulkCheck.ChooseManager" xml:space="preserve">
+    <value>Several accounts match – choose the manager</value>
+  </data>
+  <data name="BulkCheck.NoRowsMatch" xml:space="preserve">
+    <value>No row matches the filter.</value>
+  </data>
+  <data name="BulkCheck.ChangeTitle.User" xml:space="preserve">
+    <value>Create accounts ({0}) in {1}</value>
+  </data>
+  <data name="BulkCheck.ChangeTitle.Contact" xml:space="preserve">
+    <value>Create contacts ({0}) in {1}</value>
+  </data>
+  <data name="BulkCheck.ChangeTitle.Group" xml:space="preserve">
+    <value>Create groups ({0}) in {1}</value>
+  </data>
+  <data name="BulkCheck.ChangeTitle.Computer" xml:space="preserve">
+    <value>Create computers ({0}) in {1}</value>
+  </data>
+  <data name="BulkCheck.InUnit" xml:space="preserve">
+    <value>organizational unit “{0}”</value>
+  </data>
+  <data name="BulkCheck.InContainer" xml:space="preserve">
+    <value>container “{0}”</value>
+  </data>
+  <data name="BulkCheck.InDomain" xml:space="preserve">
+    <value>domain {0}</value>
+  </data>
+  <data name="BulkCheck.ConfirmCreate" xml:space="preserve">
+    <value>“{1}” – objects to create in the domain {3}: {0}. The initial passwords will be available in this window only. Type {2} to confirm.</value>
+  </data>
+  <data name="BulkCheck.ConfirmCreateWithoutPasswords" xml:space="preserve">
+    <value>“{1}” – objects to create in the domain {3}: {0}. Type {2} to confirm.</value>
+  </data>
+  <data name="BulkCheck.ReenterPassword" xml:space="preserve">
+    <value>Type the common password again in Names and options (both boxes) – the boxes are cleared after every plan.</value>
+  </data>
+  <data name="BulkCheck.UndoTitle" xml:space="preserve">
+    <value>Undo: {0}</value>
+  </data>
+  <data name="BulkCheck.UndoNote" xml:space="preserve">
+    <value>The undo deletes the objects created in this window ({0}) – with their passwords and group memberships; with the AD Recycle Bin enabled they can be restored from it.</value>
+  </data>
+  <data name="BulkCheck.StepPrepare" xml:space="preserve">
+    <value>Data and rules</value>
+  </data>
+  <data name="BulkCheck.CanaryStopped" xml:space="preserve">
+    <value>Stopped after the first account – the other rows were not run. Fix the cause shown below, then use Retry failed.</value>
+  </data>
+  <data name="BulkCheck.ReplicationNote" xml:space="preserve">
+    <value>The accounts were created on the domain controller {0} (PDC emulator: {1}); the other domain controllers see them after replication – until then a logon through another domain controller may fail, and an account of the same name created meanwhile on another domain controller is not detected.</value>
+  </data>
+  <data name="BulkCheck.PdcYes" xml:space="preserve">
+    <value>yes</value>
+  </data>
+  <data name="BulkCheck.PdcNo" xml:space="preserve">
+    <value>no</value>
+  </data>
+  <data name="BulkCheck.PdcUnknown" xml:space="preserve">
+    <value>unknown</value>
+  </data>
+  <data name="BulkCheck.DisabledWithoutPassword" xml:space="preserve">
+    <value>An account without a password stays disabled.</value>
+  </data>
+  <data name="BulkCheck.UpnMaybeInOtherDomain" xml:space="preserve">
+    <value>The UPN may already be used in another domain of the forest.</value>
+  </data>
+  <data name="BulkCheck.ResultsHeading" xml:space="preserve">
+    <value>Created objects</value>
+  </data>
+  <data name="BulkCheck.ResultsHint" xml:space="preserve">
+    <value>The initial passwords exist only in this window: hand them out (Copy, Copy table with passwords or Export) before you close it.</value>
+  </data>
+  <data name="BulkCheck.ColumnName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="BulkCheck.ColumnLogin" xml:space="preserve">
+    <value>Logon name</value>
+  </data>
+  <data name="BulkCheck.ColumnUpn" xml:space="preserve">
+    <value>UPN</value>
+  </data>
+  <data name="BulkCheck.ColumnMail" xml:space="preserve">
+    <value>E-mail</value>
+  </data>
+  <data name="BulkCheck.ColumnPassword" xml:space="preserve">
+    <value>Initial password</value>
+  </data>
+  <data name="BulkCheck.ColumnHandedOut" xml:space="preserve">
+    <value>Handed out</value>
+  </data>
+  <data name="BulkCheck.ShowPassword" xml:space="preserve">
+    <value>Show</value>
+  </data>
+  <data name="BulkCheck.CopyPassword" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="BulkCheck.PasswordCopied" xml:space="preserve">
+    <value>Password copied – the clipboard is cleared after a minute.</value>
+  </data>
+  <data name="BulkCheck.AccountCreated" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="BulkCheck.AccountPartiallyCreated" xml:space="preserve">
+    <value>Created, not every step succeeded</value>
+  </data>
+  <data name="BulkCheck.AccountUndone" xml:space="preserve">
+    <value>Deleted (undone)</value>
+  </data>
+  <data name="BulkCheck.CopyTableWithPasswords" xml:space="preserve">
+    <value>Copy table with passwords…</value>
+  </data>
+  <data name="BulkCheck.CopyTableWithoutPasswords" xml:space="preserve">
+    <value>Copy without passwords</value>
+  </data>
+  <data name="BulkCheck.TableCopiedWithPasswords" xml:space="preserve">
+    <value>Accounts with passwords copied: {0} – the clipboard is cleared after a minute.</value>
+  </data>
+  <data name="BulkCheck.TableCopied" xml:space="preserve">
+    <value>Accounts copied: {0}.</value>
+  </data>
+  <data name="BulkCheck.CopyColumns" xml:space="preserve">
+    <value>Sheet columns in the copy:</value>
+  </data>
+  <data name="BulkCheck.NoAccounts" xml:space="preserve">
+    <value>No account was created yet.</value>
+  </data>
+  <data name="BulkCheck.RetryPasswordHeading" xml:space="preserve">
+    <value>New password for the accounts without a password</value>
+  </data>
+  <data name="BulkCheck.RetryPasswordHint" xml:space="preserve">
+    <value>The domain refused the common password. Type a new one twice, then use Retry failed – generated passwords are generated again.</value>
+  </data>
+  <data name="BulkCheck.RetryPassword" xml:space="preserve">
+    <value>New password</value>
+  </data>
+  <data name="BulkCheck.RetryConfirmPassword" xml:space="preserve">
+    <value>Confirm password</value>
+  </data>
+  <data name="BulkCheck.RetryPasswordRequired" xml:space="preserve">
+    <value>Type the new password for the accounts without a password in both boxes.</value>
+  </data>
+  <data name="BulkCheck.CopyPasswordsTitle" xml:space="preserve">
+    <value>Copy the passwords?</value>
+  </data>
+  <data name="BulkCheck.CopyPasswordsWarning" xml:space="preserve">
+    <value>The table contains the initial passwords in plain text. Paste it only where the passwords stay protected (for example an encrypted message) – the clipboard is cleared after a minute. Copy the table with the passwords?</value>
+  </data>
   <!-- F3 check, plan and results (2.7): end -->
 </root>
