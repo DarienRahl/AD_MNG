@@ -21637,7 +21637,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>nieznany urząd</value>
   </data>
   <data name="Pki.DeltaOf" xml:space="preserve">
-    <value>{0} (różnicowa do {1})</value>
+    <value>{0} (do listy podstawowej nr {1})</value>
   </data>
   <data name="Pki.OidTemplate" xml:space="preserve">
     <value>Szablon certyfikatu</value>

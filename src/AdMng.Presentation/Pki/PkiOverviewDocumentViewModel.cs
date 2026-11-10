@@ -301,6 +301,7 @@ public sealed partial class PkiOverviewDocumentViewModel : PkiDocumentBase, IPki
             ? Localizer[PkiTextKeys.NoticeKey(PkiReadNoticeCode.ContainerMissing)]
             : Localizer.Format(L.Pki.NtAuthSummary, snapshot.NtAuth.Certificates.Count, snapshot.EnterpriseCas.Count(c => c.InNtAuth), snapshot.EnterpriseCas.Count);
         Evaluate(thresholds, now);
+        EvaluateLdaps();
         ShowHttpResults();
         RaiseCollectionFlags();
 

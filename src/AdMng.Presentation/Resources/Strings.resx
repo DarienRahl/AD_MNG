@@ -21637,7 +21637,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>unknown CA</value>
   </data>
   <data name="Pki.DeltaOf" xml:space="preserve">
-    <value>{0} (delta of {1})</value>
+    <value>{0} (for base CRL {1})</value>
   </data>
   <data name="Pki.OidTemplate" xml:space="preserve">
     <value>Certificate template</value>

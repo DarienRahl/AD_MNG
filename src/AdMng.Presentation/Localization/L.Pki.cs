@@ -218,7 +218,7 @@ public static partial class L
 
         public const string UnknownCa = "Pki.UnknownCa";
 
-        /// <summary>{0} (delta of {1})</summary>
+        /// <summary>{0} (for base CRL {1})</summary>
         public const string DeltaOf = "Pki.DeltaOf";
 
         public const string OidTemplate = "Pki.OidTemplate";

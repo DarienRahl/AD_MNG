@@ -56,23 +56,34 @@ public sealed partial class PkiOverviewDocumentViewModel
         IsCheckingHttp = true;
         HttpStatusText = Localizer.Format(L.Pki.HttpChecking, 0, total);
         var progress = Pki.Dispatcher.CreateProgress<int>(done => HttpStatusText = Localizer.Format(L.Pki.HttpChecking, done, total));
+        string? error = null;
         try
         {
             await Pki.Snapshot.CheckHttpAsync(progress, _actions.Token).ConfigureAwait(true);
-            ShowHttpResults();
-            EvaluateHealth(Pki.Settings.Current.Pki.Thresholds(), Pki.Time.GetUtcNow());
         }
         catch (OperationCanceledException)
         {
-            ShowHttpResults();
+            // The window closed, the session changed or F5 dropped the snapshot: the status says what is known.
         }
         catch (Exception ex) when (IsExpected(ex))
         {
-            HttpStatusText = Pki.Errors.Translate(ex);
+            error = Pki.Errors.Translate(ex);
         }
         finally
         {
             IsCheckingHttp = false;
+        }
+
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        ShowHttpResults();
+        EvaluateHealth(Pki.Settings.Current.Pki.Thresholds(), Pki.Time.GetUtcNow());
+        if (error is not null)
+        {
+            HttpStatusText = error;
         }
     }
 
@@ -215,6 +226,7 @@ public sealed partial class PkiOverviewDocumentViewModel
         finally
         {
             IsProbingLdaps = false;
+            EvaluateLdaps();
         }
     }
 
