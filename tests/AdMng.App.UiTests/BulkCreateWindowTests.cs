@@ -187,7 +187,7 @@ public sealed class BulkCreateWindowTests
         context.AssertHealthy();
     });
 
-    [Fact(Skip = "F3 wave 2 merge")]
+    [Fact]
     public Task EndToEnd_PasteMapNameCheckPreviewExecute_ShowsThePasswords() => WpfTestHost.RunAsync(async () =>
     {
         var dialogs = new ScriptedDialogService { ConfirmAnswer = true };

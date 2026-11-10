@@ -27,7 +27,7 @@ public class BulkCreateEndToEndTests
     /// (kd208–kd212), the plan, the execution and five passwords; the profile becomes the default of <em>Nowi pracownicy</em>
     /// and a new wizard there starts at kd213. At most 10 commands and choices besides typing the confirmation.
     /// </summary>
-    [Fact(Skip = "F3 wave 2 merge")]
+    [Fact]
     public async Task OperatorScenario()
     {
         var harness = await B2Harness.CreateAsync(B4Wizard.Polish, null, bulkCreateSchema: true);

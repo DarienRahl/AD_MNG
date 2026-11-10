@@ -69,7 +69,7 @@ public sealed partial class BulkCreateViewModel : ObservableObject, IDisposable
         Source = new BulkSourceViewModel(services);
         Columns = new BulkColumnsViewModel(services, Source, _session, Kind.Value);
         Check = new BulkCheckViewModel(services, engines.BulkCreate, BuildInput, _session, connector);
-        Rules = new BulkRulesViewModel(services, Columns, engines.BulkCreate, _session, () => ContainerDn, BuildInput, () => Check.Lookups, Kind.Value);
+        Rules = new BulkRulesViewModel(services, Columns, engines.BulkCreate, _session, () => ContainerDn, () => BuildInputCore(requireRows: false), () => Check.Lookups, Kind.Value);
         Source.Changed += OnSourceChanged;
         Source.TableReplaced += OnTableReplaced;
         Columns.Changed += OnStepChanged;
@@ -194,9 +194,15 @@ public sealed partial class BulkCreateViewModel : ObservableObject, IDisposable
     /// The planner's input from the four steps and the window's state (edits, exclusions, pins, created rows, released
     /// values); null while a step is invalid (no container, no rows, a mapping or rule problem).
     /// </summary>
-    public BulkCreateInput? BuildInput()
+    public BulkCreateInput? BuildInput() => BuildInputCore(requireRows: true);
+
+    /// <summary>
+    /// The planner's input; with <paramref name="requireRows"/> false also for an empty table – the first free number of
+    /// the <em>Numeracja</em> panel needs only the rules, so it is shown before any row is pasted.
+    /// </summary>
+    private BulkCreateInput? BuildInputCore(bool requireRows)
     {
-        if (_disposed || ContainerDn is not { } container || Source.Table.Rows.Count == 0
+        if (_disposed || ContainerDn is not { } container || (requireRows && Source.Table.Rows.Count == 0)
             || Columns.MappingError is not null || Rules.Error is not null)
         {
             return null;
