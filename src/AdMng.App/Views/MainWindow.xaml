@@ -383,6 +383,8 @@
           <MenuItem b:CommandMenu.Id="new.ou" />
           <MenuItem b:CommandMenu.Id="new.computer" />
           <MenuItem b:CommandMenu.Id="new.contact" />
+          <Separator />
+          <MenuItem b:CommandMenu.Id="new.bulkCreate" />
         </MenuItem>
         <Separator />
         <MenuItem b:CommandMenu.Id="object.addToGroup" />
