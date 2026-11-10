@@ -544,8 +544,12 @@
     </Menu>
     </DockPanel>
 
-    <!-- ===== Toolbar, address bar, global search ===== -->
-    <Grid Grid.Row="1" Margin="6,0,8,6">
+    <!-- ===== Toolbar, address bar, global search: one card (V1) ===== -->
+    <Border x:Name="ToolbarCard"
+            Grid.Row="1"
+            Margin="8,0,8,8"
+            Style="{StaticResource Ad.Surface.Toolbar}">
+    <Grid>
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="*" />
@@ -704,9 +708,16 @@
         </Popup>
       </Grid>
     </Grid>
+    </Border>
 
-    <!-- ===== Tree | documents | details ===== -->
-    <Grid x:Name="Workspace" Grid.Row="2">
+    <!--
+      ===== Tree | documents | details: three panels on the window background (V1) =====
+      The two splitters are the gaps between the panels (transparent, Ad.Size.PanelGap wide). The column widths keep
+      their meaning: a panel fills its column, border and padding included.
+    -->
+    <Grid x:Name="Workspace"
+          Grid.Row="2"
+          Margin="8,0,8,8">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="280" MinWidth="160" />
         <ColumnDefinition Width="Auto" />
@@ -715,6 +726,8 @@
         <ColumnDefinition x:Name="DetailsColumn" Width="300" />
       </Grid.ColumnDefinitions>
 
+      <Border x:Name="TreePanel" Style="{StaticResource Ad.Surface.Panel}">
+      <Grid>
       <TreeView x:Name="NavigationTree"
                 AllowDrop="True"
                 AutomationProperties.Name="{l:Tr Ui.NavigationTree}"
@@ -762,16 +775,22 @@
               Visibility="Collapsed">
         <TextBlock Text="{l:Tr Connections.CrossConnectionDrop}" TextWrapping="Wrap" />
       </Border>
+      </Grid>
+      </Border>
 
-      <GridSplitter Grid.Column="1"
-                    Width="5"
+      <GridSplitter x:Name="TreeSplitter"
+                    Grid.Column="1"
+                    Width="{StaticResource Ad.Size.PanelGap}"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Stretch"
                     Background="Transparent"
                     ResizeBehavior="PreviousAndNext"
                     ResizeDirection="Columns" />
 
-      <Grid Grid.Column="2">
+      <Border x:Name="DocumentPanel"
+              Grid.Column="2"
+              Style="{StaticResource Ad.Surface.Panel}">
+      <Grid>
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto" />
           <RowDefinition Height="*" />
@@ -1079,23 +1098,22 @@
                      Visibility="{Binding IsConnected, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         </StackPanel>
       </Grid>
+      </Border>
 
       <GridSplitter x:Name="DetailsSplitter"
                     Grid.Column="3"
-                    Width="5"
+                    Width="{StaticResource Ad.Size.PanelGap}"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Stretch"
                     Background="Transparent"
                     ResizeBehavior="PreviousAndNext"
                     ResizeDirection="Columns" />
 
-      <!-- Details pane -->
+      <!-- Details pane: the third panel (shown and collapsed with its column and splitter by UpdateDetailsPane). -->
       <Border x:Name="DetailsPane"
               Grid.Column="4"
               AutomationProperties.Name="{l:Tr Shell.DetailsPane}"
-              Background="{DynamicResource LayerFillColorDefaultBrush}"
-              BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
-              BorderThickness="1,0,0,0">
+              Style="{StaticResource Ad.Surface.Panel}">
         <DockPanel>
           <DockPanel Margin="12,8,6,4" DockPanel.Dock="Top">
             <Button b:CommandMenu.Id="view.details"
