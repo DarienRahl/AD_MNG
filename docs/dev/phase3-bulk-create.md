@@ -1861,7 +1861,7 @@ does not need them), so `BulkCreateRecordSamples.Value` is unchanged. Deviations
   The GC wait is `GlobalCatalogWait` (20 s on the window's `TimeProvider`); a failed connect checks in the domain only.
 * **Snapshots.** `CreatedRows` and `ReleasedValues` (read by the host's `BuildInput`) are immutable snapshots replaced on
   every change, so a computation on the thread pool never sees the UI thread mark a row.
-* **Tests.** Presentation: `BulkCheckTests` (23, incl. the GC-session tests with `GlobalCatalogSessionDouble` over
+* **Tests.** Presentation: `BulkCheckTests` (22, incl. the GC-session tests with `GlobalCatalogSessionDouble` over
   `FakeGlobalCatalogReader`, and every F3 issue code in Polish), `BulkCreateBatchEditorTests` (17), `BulkCreateEntryPointTests`
   (5), `BulkCreateEndToEndTests` (2 + `OperatorScenario` `[Fact(Skip = "F3 wave 2 merge")]`, written against B3's public
   members: `Source.PasteCommand`, `Columns.Mappings`, `Rules.Profiles` / `Profile` / `UpnSuffix` / `AddGroupsCommand` /
