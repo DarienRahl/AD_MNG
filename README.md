@@ -2932,8 +2932,8 @@ reports without directory data and a single pilot checklist for Windows Server A
 
 ### Known limitations
 
-As of October 2026. Features of the next phases are described above; this section lists gaps and simplifications in
-what already works.
+As of November 2026 (version 0.15.0). Features of the next phases are described above; this section lists gaps and
+simplifications in what already works.
 
 - **Not verified on Windows Server AD.** Integration tests run against a Samba 4.19 domain controller; the pilot,
   measurements on large directories, Kerberos with enforced channel binding, the AD Recycle Bin with delegated

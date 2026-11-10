@@ -7123,13 +7123,13 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>Save set</value>
   </data>
   <data name="AccountReview.CheckSetSaved" xml:space="preserve">
-    <value>Check set „{0}” saved.</value>
+    <value>Check set “{0}” saved.</value>
   </data>
   <data name="AccountReview.DeleteCheckSet" xml:space="preserve">
     <value>Delete check set</value>
   </data>
   <data name="AccountReview.DeleteCheckSetConfirm" xml:space="preserve">
-    <value>Delete the check set „{0}”?</value>
+    <value>Delete the check set “{0}”?</value>
   </data>
   <data name="AccountReview.Parameters" xml:space="preserve">
     <value>Parameters</value>
@@ -11486,7 +11486,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>The Default Domain Policy and the Default Domain Controllers Policy cannot be deleted.</value>
   </data>
   <data name="GroupPolicy.ConfirmDelete" xml:space="preserve">
-    <value>Delete the GPO „{0}” with its links and its SYSVOL folder from the domain {1}? This cannot be undone without a backup.</value>
+    <value>Delete the GPO “{0}” with its links and its SYSVOL folder from the domain {1}? This cannot be undone without a backup.</value>
   </data>
   <data name="GroupPolicy.CheckSysvol" xml:space="preserve">
     <value>SYSVOL</value>
@@ -11570,7 +11570,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>Link an existing GPO to {0}</value>
   </data>
   <data name="GroupPolicy.ComparePickerTitle" xml:space="preserve">
-    <value>Compare „{0}” with…</value>
+    <value>Compare “{0}” with…</value>
   </data>
   <data name="GroupPolicy.PickerFilter" xml:space="preserve">
     <value>Filter by name</value>
@@ -11618,13 +11618,13 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>Back Up Group Policy Objects</value>
   </data>
   <data name="GroupPolicy.BackupBeforeDeleteTitle" xml:space="preserve">
-    <value>Delete „{0}”</value>
+    <value>Delete “{0}”</value>
   </data>
   <data name="GroupPolicy.RestoreWindowTitle" xml:space="preserve">
     <value>Restore from Backup</value>
   </data>
   <data name="GroupPolicy.ImportWindowTitle" xml:space="preserve">
-    <value>Import Settings into „{0}”</value>
+    <value>Import Settings into “{0}”</value>
   </data>
   <data name="GroupPolicy.BackupCompatibilityNote" xml:space="preserve">
     <value>Written in GPMC's backup format (manifest.xml, Backup.xml, bkupInfo.xml, DomainSysvol) plus admng.json – GPMC compatible, to be confirmed in the pilot. Backups are written only to the folder you choose.</value>
@@ -11687,7 +11687,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>PowerShell equivalent</value>
   </data>
   <data name="GroupPolicy.CompareWindowTitle" xml:space="preserve">
-    <value>Compare „{0}” and „{1}”</value>
+    <value>Compare “{0}” and “{1}”</value>
   </data>
   <data name="GroupPolicy.CompareWithoutContent" xml:space="preserve">
     <value>Settings and files were not compared.</value>
@@ -11729,31 +11729,31 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>Only in B</value>
   </data>
   <data name="GroupPolicy.TitleNew" xml:space="preserve">
-    <value>New GPO „{0}”</value>
+    <value>New GPO “{0}”</value>
   </data>
   <data name="GroupPolicy.TitleCopy" xml:space="preserve">
-    <value>Copy GPO „{0}”</value>
+    <value>Copy GPO “{0}”</value>
   </data>
   <data name="GroupPolicy.TitleRename" xml:space="preserve">
-    <value>Rename GPO „{0}”</value>
+    <value>Rename GPO “{0}”</value>
   </data>
   <data name="GroupPolicy.TitleDelete" xml:space="preserve">
-    <value>Delete GPO „{0}”</value>
+    <value>Delete GPO “{0}”</value>
   </data>
   <data name="GroupPolicy.TitleDeleteFolder" xml:space="preserve">
-    <value>Delete the remaining folder of „{0}”</value>
+    <value>Delete the remaining folder of “{0}”</value>
   </data>
   <data name="GroupPolicy.TitleLink" xml:space="preserve">
-    <value>Link „{0}” to {1}</value>
+    <value>Link “{0}” to {1}</value>
   </data>
   <data name="GroupPolicy.TitleUnlink" xml:space="preserve">
-    <value>Delete the link of „{0}”</value>
+    <value>Delete the link of “{0}”</value>
   </data>
   <data name="GroupPolicy.TitleReorder" xml:space="preserve">
-    <value>Link order of „{0}”</value>
+    <value>Link order of “{0}”</value>
   </data>
   <data name="GroupPolicy.TitleLinkOptions" xml:space="preserve">
-    <value>Link of „{0}”</value>
+    <value>Link of “{0}”</value>
   </data>
   <data name="GroupPolicy.TitleBlock" xml:space="preserve">
     <value>Block inheritance on {0}</value>
@@ -11762,37 +11762,37 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>Allow inheritance on {0}</value>
   </data>
   <data name="GroupPolicy.TitleStatus" xml:space="preserve">
-    <value>GPO status of „{0}”</value>
+    <value>GPO status of “{0}”</value>
   </data>
   <data name="GroupPolicy.TitleWmiLink" xml:space="preserve">
-    <value>WMI filter of „{0}”</value>
+    <value>WMI filter of “{0}”</value>
   </data>
   <data name="GroupPolicy.TitleAlign" xml:space="preserve">
-    <value>Align the versions of „{0}”</value>
+    <value>Align the versions of “{0}”</value>
   </data>
   <data name="GroupPolicy.TitleRepair" xml:space="preserve">
-    <value>Repair the folder permissions of „{0}”</value>
+    <value>Repair the folder permissions of “{0}”</value>
   </data>
   <data name="GroupPolicy.TitleSecurityFilter" xml:space="preserve">
-    <value>Security filtering of „{0}”</value>
+    <value>Security filtering of “{0}”</value>
   </data>
   <data name="GroupPolicy.TitleDelegation" xml:space="preserve">
-    <value>Delegation of „{0}”</value>
+    <value>Delegation of “{0}”</value>
   </data>
   <data name="GroupPolicy.TitleRestore" xml:space="preserve">
-    <value>Restore „{0}” from a backup</value>
+    <value>Restore “{0}” from a backup</value>
   </data>
   <data name="GroupPolicy.TitleImport" xml:space="preserve">
-    <value>Import settings into „{0}”</value>
+    <value>Import settings into “{0}”</value>
   </data>
   <data name="GroupPolicy.TitleWmiNew" xml:space="preserve">
-    <value>New WMI filter „{0}”</value>
+    <value>New WMI filter “{0}”</value>
   </data>
   <data name="GroupPolicy.TitleWmiEdit" xml:space="preserve">
-    <value>WMI filter „{0}”</value>
+    <value>WMI filter “{0}”</value>
   </data>
   <data name="GroupPolicy.TitleWmiDelete" xml:space="preserve">
-    <value>Delete WMI filter „{0}”</value>
+    <value>Delete WMI filter “{0}”</value>
   </data>
   <data name="GroupPolicy.Category.Other" xml:space="preserve">
     <value>Other</value>
@@ -17572,10 +17572,10 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>This report holds names of objects of your directory. Store and share it like any other administrative document.</value>
   </data>
   <data name="GpoDiag.TitleRemoveDuplicateLinks" xml:space="preserve">
-    <value>Keep one link of „{0}”</value>
+    <value>Keep one link of “{0}”</value>
   </data>
   <data name="GpoDiag.TitleRepairExtensions" xml:space="preserve">
-    <value>Repair the extension names of „{0}”</value>
+    <value>Repair the extension names of “{0}”</value>
   </data>
   <data name="GpoDiag.NoteQuick" xml:space="preserve">
     <value>A quick check does not cover: {0}. Run a full check to include them – it reads the SYSVOL folders too and may take longer.</value>
@@ -17755,7 +17755,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>keep one link (the one that counts)</value>
   </data>
   <data name="GpoDiag.FixKind.SetStatus" xml:space="preserve">
-    <value>set the GPO status to „{0}”</value>
+    <value>set the GPO status to “{0}”</value>
   </data>
   <data name="GpoDiag.FixKind.GrantRead" xml:space="preserve">
     <value>give {0} the Read permission</value>
@@ -17974,7 +17974,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>WMI filter not used by any GPO</value>
   </data>
   <data name="GpoFinding.WmiFilterUnused.Message" xml:space="preserve">
-    <value>The WMI filter „{0}” ({1}) is not assigned to any GPO.</value>
+    <value>The WMI filter “{0}” ({1}) is not assigned to any GPO.</value>
   </data>
   <data name="GpoFinding.WmiFilterUnused.Explanation" xml:space="preserve">
     <value>An unused filter does no harm, but it suggests a GPO that lost its filter or a filter that was never put to use. Unused filters make the list harder to read.</value>
@@ -18190,7 +18190,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Conflicting setting</value>
   </data>
   <data name="GpoFinding.ConflictingSetting.Message" xml:space="preserve">
-    <value>„{0}” sets {2}, but „{1}” sets {3} – „{0}” wins.</value>
+    <value>“{0}” sets {2}, but “{1}” sets {3} – “{0}” wins.</value>
   </data>
   <data name="GpoFinding.ConflictingSetting.Explanation" xml:space="preserve">
     <value>Several GPOs reaching the same container set this setting differently; only the one with the highest precedence counts. The losing values are dead weight and mislead anyone who reads only that GPO.</value>
@@ -18202,7 +18202,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Setting repeated in several GPOs</value>
   </data>
   <data name="GpoFinding.RedundantSetting.Message" xml:space="preserve">
-    <value>„{0}” and „{1}” set the same value: {2}.</value>
+    <value>“{0}” and “{1}” set the same value: {2}.</value>
   </data>
   <data name="GpoFinding.RedundantSetting.Explanation" xml:space="preserve">
     <value>The same value comes from several GPOs on one path. It works, but a later change in one GPO either has no effect or has a different effect than expected, and every GPO is processed for nothing.</value>

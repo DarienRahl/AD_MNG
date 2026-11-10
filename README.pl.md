@@ -2858,7 +2858,8 @@ bez danych katalogu i jedna lista kontrolna pilotażu na Windows Server AD ([PIL
 
 ### Znane ograniczenia
 
-Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki i uproszczenia w tym, co już działa.
+Stan na listopad 2026 (wersja 0.15.0). Funkcje z kolejnych faz opisano wyżej; tu są braki i uproszczenia w tym, co już
+działa.
 
 - **Nie sprawdzone na Windows Server AD.** Testy integracyjne działają na kontrolerze Samba 4.19; pilotaż, pomiary na
   dużych katalogach, Kerberos z wymuszonym channel binding, Kosz AD z delegowanymi uprawnieniami i test „żadnych danych
