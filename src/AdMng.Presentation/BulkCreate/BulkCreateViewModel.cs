@@ -188,7 +188,7 @@ public sealed partial class BulkCreateViewModel : ObservableObject, IDisposable
         && !Check.IsComputing
         && Check.Computation is { HasRunErrors: false } computation
         && computation.Count(BulkRowStatus.Ok) + computation.Count(BulkRowStatus.Warning) > 0
-        && Rules.Error is null;
+        && (_samplePlan is not null || Rules.Error is null); // a sample (smoke test, screenshot) brings its own plan
 
     /// <summary>
     /// The planner's input from the four steps and the window's state (edits, exclusions, pins, created rows, released

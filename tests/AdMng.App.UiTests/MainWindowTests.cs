@@ -245,9 +245,9 @@ public sealed class MainWindowTests
         var dialogs = context.Services.GetRequiredService<Presentation.Services.IDialogService>();
         var domain = window.Shell.Tree.DomainNode!;
         var containerMenu = TreeMenu.Create(domain, window.Shell, views, dialogs);
-        var newMenu = Assert.Single(containerMenu.OfType<MenuItem>(), item => item.Items.Count == 5);
+        var newMenu = Assert.Single(containerMenu.OfType<MenuItem>(), item => item.Items.Count == 6);
 
-        // "New" creates in the right-clicked container, not in the current tab's.
+        // "New" creates in the right-clicked container, not in the current tab's (the five kinds and "Wiele kont…").
         Assert.All(newMenu.Items.OfType<MenuItem>(), item =>
         {
             Assert.Equal(domain.Dn, item.CommandParameter);
@@ -291,7 +291,7 @@ public sealed class MainWindowTests
         var it = await window.Shell.Tree.ExpandToAsync(context.Company.ItOu, select: false);
         var views = context.Services.GetRequiredService<Presentation.Views.ViewLibrary>();
         var dialogs = context.Services.GetRequiredService<IDialogService>();
-        var newMenu = Assert.Single(TreeMenu.Create(it!, window.Shell, views, dialogs).OfType<MenuItem>(), item => item.Items.Count == 5);
+        var newMenu = Assert.Single(TreeMenu.Create(it!, window.Shell, views, dialogs).OfType<MenuItem>(), item => item.Items.Count == 6);
         var items = newMenu.Items.OfType<MenuItem>().ToList();
         await UiWait.UntilAsync(() => !items[1].Command.CanExecute(items[1].CommandParameter), "New Group disabled in the tree menu");
         Assert.True(items[0].Command.CanExecute(items[0].CommandParameter));
