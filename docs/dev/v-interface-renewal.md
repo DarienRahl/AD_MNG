@@ -268,6 +268,10 @@ Fluent key, so light, dark and High Contrast follow from the theme's three dicti
 Rules: no literal colour anywhere (true today); a state is never told by colour alone; the icon palette
 (`docs/assets/icons/README.md`) is for icons only and never used for text or surfaces.
 
+As built (V1b): the aliases of this table were not introduced – views and styles name the Fluent keys with
+`DynamicResource` and a source test keeps the set closed; `Themes/Tokens.xaml` holds only what the theme does not
+have. The reason is in *V1b as built* (section 8).
+
 Backdrop per system (the theme decides, we only add the setting):
 
 | System | Backdrop | Note |
@@ -767,6 +771,80 @@ next ones.
 - **Not done here:** document headers keep 18 px (20 px comes with the page header of V3) and the property sheet
   header its present size; the domain controller rows of the connect window's server list have no icon yet; the
   check of 125 % and 150 % scaling on screenshots and the list render benchmark need Windows CI.
+
+**V1b as built (tokens and surfaces).** The second increment of V1; motion (`Themes/Motion.xaml`, behaviours, the
+*Motion* setting) follows in the next one.
+
+- **Tokens.** `Themes/Tokens.xaml`, merged into the application resources before `Controls.xaml`, holds what the
+  Fluent theme does not have: spacing (`Ad.Space.Page` 16,12 · `Card` 12 · `Toolbar` 4,2 · `Panel` 4), density
+  (`Ad.Size.Control` 28 · `Row` 26 · `ColumnHeader` 28 · `PointerTarget` 24 · `PanelGap` 8), the type ramp
+  (`Ad.FontSize.Caption` 12 · `Compact` 12 · `Body` 14 · `Subtitle` 20 · `Title` 28), radii (`Ad.Radius.Control` 4 ·
+  `Card` 8 · `Pill` 12) and two `Border` styles, `Ad.Surface.Panel` and `Ad.Surface.Toolbar`. They are read with
+  `StaticResource` (a token does not change while the application runs). `Controls.xaml` reads them where the value
+  was the same (`Ad.Card`, `Ad.ErrorBar`, `Ad.Overlay`, `Ad.Title`, `Ad.DialogFooter`). No duration is a token here.
+- **Colours are not aliased** (the owner's decision; it replaces the alias table of 4.1). A XAML alias – a
+  `StaticResource` element as a dictionary entry with `x:Key` and `ResourceKey` – is resolved once and would keep the
+  brush of the old theme after a live switch of light, dark or High Contrast. So styles and views keep
+  `{DynamicResource <Fluent key>}`, which is what 3.4 asks for anyway (names equal to the Fluent keys), and a source
+  test keeps the set closed: `XamlSourceTests.FluentBrushKeysInUse_AreTheDocumentedSet` lists the 24 Fluent brush
+  keys in use and fails on a new one and on a brush read with `StaticResource`. Found on the way: the markup compiler
+  of SDK 10.0 does not compile such an alias entry correctly at all (as the first entry of an implicit dictionary it
+  is taken for the dictionary itself; as a later entry the key table of the BAML loses a key – checked by compiling a
+  throwaway project and reading its BAML), so `XamlSourceTests.NoXamlFile_AliasesAResourceWithAnElement` forbids it
+  for every kind of resource.
+- **Surfaces in the main window.** The toolbar row (toolbar, address bar, quick search) is a card, `ToolbarCard`
+  (`Ad.Surface.Toolbar`: card fill, 1 px card stroke, radius 8, padding 4,2; margin 8,0,8,8). The workspace
+  (margin 8,0,8,8) is three panels of `Ad.Surface.Panel` (layer fill, 1 px card stroke, radius 8, padding 4) on the
+  window background: `TreePanel` around the tree and its drop-refused note, `DocumentPanel` around the tab strip
+  and the document host, and `DetailsPane`, which lost its own background and left border. The two splitters are
+  the gaps: transparent, `Ad.Size.PanelGap` wide (they were 8 px wide before as well – the theme's minimum width
+  beat the declared 5). No clip, opacity mask or effect: children are rectangles and WPF does not clip them to a
+  rounded border, but the corner of a rectangular child is inside an outline of radius 8 once the child is inset
+  by 8 × (1 − 1/√2) ≈ 2.4 px, so 4 px of padding keep every child inside (and nothing is drawn through an
+  intermediate surface, 4.3). Menu, connection strip, status bar, toasts and palette are untouched; no element
+  was renamed, the first splitter got a name (`TreeSplitter`).
+- **Widths.** The panels take 26 px from a row (the two margins of 8, and border 2 + padding 8 of the document
+  panel). The document views are fitted to the old document width – the Watchdog feed is laid out so that its four
+  required columns (600 px) just fit a feed of about 634 px at the default 1360 × 840 (comment in
+  `WatchdogEventsView.xaml`), and its test wants 260 px for the event title at 1440 × 900 – so the tree column is
+  254 instead of 280 by default: a document is exactly as wide as before at every window size
+  (`DesignTokenTests.MainWindow_ADocumentIsAsWideAsBeforeThePanels`), and the tree's content is 244 px (36 less). The minimums (tree 160, documents 320, details 200), the details width the
+  code-behind remembers (300) and `UpdateDetailsPane` are unchanged; no width is stored in the settings. The height
+  is not compensated: a document is 26 px lower (toolbar card 6 + 2, bottom margin 8, panel 10).
+- **Literal sizes of the V1 views.** `MainWindow`, `ConnectWindow` and `SettingsWindow` read `Ad.FontSize.*` and
+  `Ad.Radius.*`. Values that changed: the object name in the details pane and the section titles of the settings
+  15 → 14; the DN in the details pane, the number on the Watchdog tab badge and the "never stored" note of the
+  connect window 11 → 12; the corner of the virtual list badge 3 → 4. Left literal on purpose: every glyph size of
+  the icon font, and the radius of the two pills (connection badge 11, tab badge 9; a pill's radius is half its
+  height, the same as the chip toggle 13 at height 26).
+- **Column header height.** A Fluent key cannot be given a token in XAML (a number resource cannot refer to another
+  resource, and the alias is out, see above), so the attached property `b:Density.ColumnHeaderHeight` on the list
+  writes `Ad.Size.ColumnHeader` under the theme's key `GridViewColumnHeaderMinHeight` into the list's own
+  resources. Used by `ObjectListView`; the other 35 XAML files with the literal override follow with their stages.
+- **Row heights are untouched.** The object list rows are `ObjectRowStyle` (based on the theme's grid view item
+  style): `Height` 26, `MinHeight` 0 (the theme's 40 switched off), margin 0, padding 2,0 – equal to `Ad.Size.Row`
+  but still literal; the Watchdog lists use `Wd.ListRow` with 28. Tree rows have no height rule (padding 2).
+- **Setting *Background*.** `AppSettings.WindowBackground` (`WindowBackgroundPreference`: `Theme` – the default and
+  what a missing or unknown value loads as – or `Solid`), chosen in *Settings › General › Appearance › Background*
+  under *Icons*. `Services/WindowBackdrop.Apply` sets the application context switch
+  `Switch.System.Windows.Appearance.DisableFluentThemeWindowBackdrop` for `Solid` and leaves it alone otherwise.
+  It runs in `AppHost.InitializeAsync` – after the settings were loaded, before `AppearanceService` applies the
+  theme mode of the settings and before any window exists – the same in the application, the smoke test and the UI
+  tests. The theme reads the switch when the first window gets its style (a data trigger of the window style) and
+  its backdrop (`WindowBackdropManager`, cached), not when `ThemeMode` is set in `App.xaml`, so this is early
+  enough; a later change of the setting waits for the next start, which the hint under the box says. The JSON
+  converter of the icon style became the generic `TolerantEnumJsonConverter<TEnum>` and serves both settings.
+- **Settings window.** With the two appearance choices of V1 the content of the *General* tab is about 900 px high
+  (added up from its XAML: six sections, not measured), more than a small or scaled screen shows, and a window
+  sized to its content cannot be scrolled; the tab now scrolls at 600 px like the *Messages* and *Computers* tabs.
+- **Tokens without a user yet:** `Ad.Size.Control`, `Ad.Size.Row`, `Ad.Size.PointerTarget`, `Ad.FontSize.Compact`,
+  `Ad.FontSize.Title` and `Ad.Radius.Pill` are defined for the next stages (density of controls and rows, page
+  header, pills).
+- **Not done here:** `Themes/Watchdog.xaml` and the views outside the four of V1 keep their literals (source test
+  G6 comes when they are converted); `Ad.Text.Compact` as a text style; the page margin `Ad.Space.Page` in the
+  views; the double inset where a document view has its own 8 px margin inside the panel (page skeleton, V3).
+  Nothing of this increment was seen on a screen: whether Mica shows through the panels as intended, the look of
+  the 8 px gaps on hover, and the settings window height need the CI screenshots and a Windows 11 machine.
 
 ### V2 – Feedback: status line, command shape, action button (L)
 

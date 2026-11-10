@@ -24,6 +24,13 @@
   oknach.
   W trybie dużego kontrastu systemu Windows program zawsze używa ikon jednobarwnych, żeby obowiązywały kolory
   systemowe.
+- **Panele okna głównego.** Drzewo, dokumenty i panel szczegółów to teraz trzy zaokrąglone panele na tle okna,
+  a pasek narzędzi z paskiem adresu i szybkim wyszukiwaniem – jedna karta. Odstępy między panelami nadal służą do
+  zmiany ich szerokości (myszą albo z klawiatury). Dokumenty są tak samo szerokie jak dotąd; drzewo jest domyślnie
+  o 36 px węższe.
+- **Tło okna.** *Ustawienia → Ogólne → Wygląd → Tło*: *Zgodnie z motywem* (domyślnie – w systemie Windows 11
+  materiał Mica) albo *Jednolite*, dla sesji pulpitu zdalnego i wolniejszych komputerów. Zmiana działa po ponownym
+  uruchomieniu programu. Karta *Ogólne* w ustawieniach przewija się teraz tak jak pozostałe karty.
 
 ## Inne zmiany
 
