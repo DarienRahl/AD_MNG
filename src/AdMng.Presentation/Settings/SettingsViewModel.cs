@@ -82,6 +82,8 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
         Theme = Themes.First(t => t.Value == current.Theme);
         IconStyles = [.. Enum.GetValues<IconStylePreference>().Select(i => new Option<IconStylePreference>(i, Localizer[DisplayNames.IconStyleKey(i)]))];
         IconStyle = IconStyles.FirstOrDefault(i => i.Value == current.IconStyle) ?? IconStyles[0];
+        WindowBackgrounds = [.. Enum.GetValues<WindowBackgroundPreference>().Select(b => new Option<WindowBackgroundPreference>(b, Localizer[DisplayNames.WindowBackgroundKey(b)]))];
+        WindowBackground = WindowBackgrounds.FirstOrDefault(b => b.Value == current.WindowBackground) ?? WindowBackgrounds[0];
         PageSize = current.PageSize;
         BatchMaxParallelism = current.BatchMaxParallelism;
         ConfirmationThreshold = current.ConfirmationThreshold;
@@ -112,6 +114,15 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
 
     [ObservableProperty]
     public partial Option<IconStylePreference> IconStyle { get; set; }
+
+    /// <summary>
+    /// Window background: the theme's (Mica on Windows 11, the default) or solid. The stored choice is applied when the
+    /// application starts, so a change shows after a restart.
+    /// </summary>
+    public IReadOnlyList<Option<WindowBackgroundPreference>> WindowBackgrounds { get; }
+
+    [ObservableProperty]
+    public partial Option<WindowBackgroundPreference> WindowBackground { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Error))]
@@ -189,12 +200,14 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
         var language = Language.Value;
         var theme = Theme.Value;
         var iconStyle = IconStyle.Value;
+        var windowBackground = WindowBackground.Value;
         var advanced = ShowAdvancedFeatures;
         await Services.Settings.UpdateAsync(s =>
         {
             s.Language = language;
             s.Theme = theme;
             s.IconStyle = iconStyle;
+            s.WindowBackground = windowBackground;
             s.PageSize = PageSize;
             s.BatchMaxParallelism = BatchMaxParallelism;
             s.ConfirmationThreshold = ConfirmationThreshold;

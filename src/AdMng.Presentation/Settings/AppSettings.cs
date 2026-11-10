@@ -26,6 +26,22 @@ public enum IconStylePreference
 }
 
 /// <summary>
+/// What is drawn behind the content of the windows (track V, stage V1). The Fluent theme reads the choice once per
+/// process, so a change takes effect at the next start of the application.
+/// </summary>
+public enum WindowBackgroundPreference
+{
+    /// <summary>
+    /// What the theme draws: the Mica material on Windows 11 22H2 and newer, a solid colour on older systems and in
+    /// High Contrast (the default; also for settings files written before the option existed).
+    /// </summary>
+    Theme,
+
+    /// <summary>Always the solid background colour of the theme - for remote desktop sessions and slower computers.</summary>
+    Solid,
+}
+
+/// <summary>
 /// User settings persisted as JSON. Contains UI preferences, connection profiles WITHOUT passwords and view
 /// definitions (names, DNs, LDAP filters) only - never directory content (CLAUDE.md rule 1) and never passwords
 /// (rule 2; a unit test walks this type graph and the serialized JSON to enforce it).
@@ -51,8 +67,16 @@ public sealed class AppSettings
     /// Icons of things: colour pictures or monochrome glyphs (High Contrast always shows the glyphs). A value this
     /// version does not know reads as colour and leaves the rest of the file alone.
     /// </summary>
-    [System.Text.Json.Serialization.JsonConverter(typeof(IconStylePreferenceJsonConverter))]
+    [System.Text.Json.Serialization.JsonConverter(typeof(TolerantEnumJsonConverter<IconStylePreference>))]
     public IconStylePreference IconStyle { get; set; } = IconStylePreference.Colour;
+
+    /// <summary>
+    /// Window background: the theme's (Mica on Windows 11) or always solid. Read once at start (the theme does not
+    /// follow a later change). A value this version does not know reads as the theme's and leaves the rest of the
+    /// file alone.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonConverter(typeof(TolerantEnumJsonConverter<WindowBackgroundPreference>))]
+    public WindowBackgroundPreference WindowBackground { get; set; } = WindowBackgroundPreference.Theme;
 
     public List<ConnectionProfile> ConnectionProfiles { get; set; } = [];
 

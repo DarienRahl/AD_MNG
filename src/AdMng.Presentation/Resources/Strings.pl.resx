@@ -24319,5 +24319,17 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="IconStyle.Monochrome" xml:space="preserve">
     <value>Jednobarwne</value>
   </data>
+  <data name="Settings.WindowBackground" xml:space="preserve">
+    <value>Tło</value>
+  </data>
+  <data name="Settings.WindowBackgroundHint" xml:space="preserve">
+    <value>System Windows 11 rysuje tło okna materiałem Mica motywu. „Jednolite” to wyłącza – dla sesji pulpitu zdalnego i wolniejszych komputerów. Zmiana działa po ponownym uruchomieniu AD Managera.</value>
+  </data>
+  <data name="WindowBackground.Theme" xml:space="preserve">
+    <value>Zgodnie z motywem</value>
+  </data>
+  <data name="WindowBackground.Solid" xml:space="preserve">
+    <value>Jednolite</value>
+  </data>
   <!-- V interface renewal (V1): end -->
 </root>

@@ -384,6 +384,12 @@ public static partial class L
 
         /// <summary>One line under the icon style choice: High Contrast always uses the monochrome icons.</summary>
         public const string IconStyleHint = "Settings.IconStyleHint";
+
+        /// <summary>Label of the window background choice (V1: the theme's / solid).</summary>
+        public const string WindowBackground = "Settings.WindowBackground";
+
+        /// <summary>The lines under the window background choice: what "solid" is for, and that it needs a restart.</summary>
+        public const string WindowBackgroundHint = "Settings.WindowBackgroundHint";
         public const string PageSize = "Settings.PageSize";
         public const string BatchParallelism = "Settings.BatchParallelism";
         public const string ConfirmationThreshold = "Settings.ConfirmationThreshold";
