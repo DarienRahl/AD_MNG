@@ -989,8 +989,17 @@
           </TabControl.ItemContainerStyle>
         </TabControl>
 
+        <!--
+          Every open document has its container here; only the one of the selected tab is visible. A container that
+          becomes visible - its document was just opened, or its tab was chosen - rises to its place (page entrance,
+          b:Motion.Entrance; moved, never faded, so the text of a list stays sharp). Nothing inside a document
+          changes the visibility of its container, so a refresh, paging or a selection never replays it. The host
+          clips to its bounds: the content starts below its place and must not cover the panel edge or the status bar.
+          The visibility setter comes first, so a container that starts collapsed never begins an entrance.
+        -->
         <ItemsControl x:Name="DocumentHost"
                       Grid.Row="1"
+                      ClipToBounds="True"
                       Focusable="False"
                       ItemsSource="{Binding Documents}">
           <ItemsControl.ItemsPanel>
@@ -1010,6 +1019,7 @@
                   </MultiBinding>
                 </Setter.Value>
               </Setter>
+              <Setter Property="b:Motion.Entrance" Value="Page" />
             </Style>
           </ItemsControl.ItemContainerStyle>
           <!-- Document content by type. -->
@@ -1116,12 +1126,16 @@
                     ResizeBehavior="PreviousAndNext"
                     ResizeDirection="Columns" />
 
-      <!-- Details pane: the third panel (shown and collapsed with its column and splitter by UpdateDetailsPane). -->
+      <!--
+        Details pane: the third panel (shown and collapsed with its column and splitter by UpdateDetailsPane). Its
+        content fades in and rises when the pane is opened (panel entrance on the DockPanel, which becomes visible with
+        the pane) - not when the selected object changes: that swaps what is inside the DockPanel and is live data.
+      -->
       <Border x:Name="DetailsPane"
               Grid.Column="4"
               AutomationProperties.Name="{l:Tr Shell.DetailsPane}"
               Style="{StaticResource Ad.Surface.Panel}">
-        <DockPanel>
+        <DockPanel x:Name="DetailsPaneContent" b:Motion.Entrance="Panel">
           <DockPanel Margin="12,8,6,4" DockPanel.Dock="Top">
             <Button b:CommandMenu.Id="view.details"
                     Content="{x:Static c:Glyphs.Close}"
