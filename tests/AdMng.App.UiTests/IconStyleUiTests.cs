@@ -391,27 +391,25 @@ public sealed class IconStyleUiTests
         }
     }
 
-    /// <summary>Pixel statistics of an element rendered alone on a transparent bitmap of size x size at 96 DPI.</summary>
+    /// <summary>
+    /// Pixel statistics of what an element draws (its own render data; the icon elements have no visual children),
+    /// alone on a transparent bitmap of size x size at 96 DPI.
+    /// </summary>
     private sealed record Pixels(int Covered, int Solid, int Blue, int Amber, int Red, int RedOnly, int Colours)
     {
         public static Pixels Of(FrameworkElement element, int size)
         {
-            // Through a visual brush: the element's own offset in its parent does not move it out of the bitmap.
-            var bounds = new Rect(0, 0, size, size);
-            var brush = new VisualBrush(element)
-            {
-                Stretch = Stretch.None,
-                AlignmentX = AlignmentX.Left,
-                AlignmentY = AlignmentY.Top,
-                ViewboxUnits = BrushMappingMode.Absolute,
-                Viewbox = bounds,
-                ViewportUnits = BrushMappingMode.Absolute,
-                Viewport = bounds,
-            };
+            // The render data is in the element's own coordinates, so where the element sits in its parent does not
+            // matter. (A visual brush with an absolute viewbox works in the parent's coordinates: only the first
+            // element of a column would be in the picture.)
+            Assert.Equal(0, VisualTreeHelper.GetChildrenCount(element));
             var visual = new DrawingVisual();
             using (var context = visual.RenderOpen())
             {
-                context.DrawRectangle(brush, null, bounds);
+                if (VisualTreeHelper.GetDrawing(element) is { } drawing)
+                {
+                    context.DrawDrawing(drawing);
+                }
             }
 
             var bitmap = new RenderTargetBitmap(size, size, 96, 96, PixelFormats.Pbgra32);
