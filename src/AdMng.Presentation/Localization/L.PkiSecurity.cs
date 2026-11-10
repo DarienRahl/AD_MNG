@@ -38,6 +38,7 @@ public static partial class L
         public const string NoFindings = "PkiEsc.NoFindings";
         public const string NoMatches = "PkiEsc.NoMatches";
         public const string NotEvaluatedList = "PkiEsc.NotEvaluatedList";
+        public const string NoPki = "PkiEsc.NoPki";
 
         // Notes bar
         public const string ScopeNote = "PkiEsc.ScopeNote";

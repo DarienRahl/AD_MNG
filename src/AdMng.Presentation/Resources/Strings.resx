@@ -21400,6 +21400,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="PkiEsc.NotEvaluatedList" xml:space="preserve">
     <value>The PKI could not be evaluated – see the notes above.</value>
   </data>
+  <data name="PkiEsc.NoPki" xml:space="preserve">
+    <value>There is no AD CS in this forest – nothing to review.</value>
+  </data>
   <data name="PkiEsc.ScopeNote" xml:space="preserve">
     <value>Reads the templates, the PKI objects and the accounts over LDAP (ESC1–5, 9, 13, 14, 15, 17) and changes nothing. Assumes every CA grants Enroll to Authenticated Users; the CA's own settings (ESC6, 7, 8, 10, 11, 16) are checked in stage P4.</value>
   </data>
@@ -21856,7 +21859,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Expires in {0} days.</value>
   </data>
   <data name="PkiReady.Kdc.NoKdcEkuDetail" xml:space="preserve">
-    <value>No KDC Authentication EKU (a version 1 Domain Controller certificate): PKINIT works, but not with strict KDC validation.</value>
+    <value>A version 1 Domain Controller certificate: PKINIT works, but not with strict KDC validation.</value>
   </data>
   <data name="PkiReady.Kdc.Remedy" xml:space="preserve">
     <value>enroll the domain controller for the Kerberos Authentication template from a CA in the NTAuth store.</value>

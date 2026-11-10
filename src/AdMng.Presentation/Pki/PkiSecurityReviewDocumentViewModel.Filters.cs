@@ -105,11 +105,15 @@ public sealed partial class PkiSecurityReviewDocumentViewModel
     [ObservableProperty]
     public partial string SearchText { get; set; } = string.Empty;
 
-    /// <summary>"Nie znaleziono podatności…" / "Żadna uwaga nie pasuje do filtrów." (null when the list has rows or nothing was checked).</summary>
+    /// <summary>
+    /// "Nie znaleziono podatnej konfiguracji…", "W tym lesie nie ma AD CS…", "Nie można ocenić PKI…" or "Żadna uwaga nie pasuje do
+    /// filtrów." (null when the list has rows or nothing was checked).
+    /// </summary>
     public string? ListNote => Rows.Count > 0 || _review is null ? null
         : _all.Count > 0 ? Localizer[L.PkiSecurity.NoMatches]
-        : _review.Result.IsEvaluated ? Localizer[L.PkiSecurity.NoFindings]
-        : Localizer[L.PkiSecurity.NotEvaluatedList];
+        : !_review.Result.IsEvaluated ? Localizer[L.PkiSecurity.NotEvaluatedList]
+        : _review.Snapshot.Notices.Any(n => n.Code == PkiReadNoticeCode.BaseNotFound) ? Localizer[L.PkiSecurity.NoPki]
+        : Localizer[L.PkiSecurity.NoFindings];
 
     /// <summary>A filter other than "everything" is set.</summary>
     public bool IsFiltered => SelectedSeverity?.Value is not null || SelectedEsc?.Value is not null || SelectedArea?.Value is not null
@@ -190,7 +194,8 @@ public sealed partial class PkiSecurityReviewDocumentViewModel
         var area = SelectedArea?.Value;
         var template = SelectedTemplate?.Value;
         var search = SearchText.Trim();
-        var compare = Localizer.Culture.CompareInfo;
+        // The invariant collation folds the Polish letters too (the Polish one keeps ś apart from s): "pewnosci" finds "pewności".
+        var compare = CultureInfo.InvariantCulture.CompareInfo;
         bool Has(string text) => compare.IndexOf(text, search, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0;
         var previous = restore ?? (SelectedRow is { } selected ? (selected.Key, IndexOf(Rows, selected)) : null);
         Rows = [.. _all.Where(r => (severity is null || r.Severity == severity)

@@ -21400,6 +21400,9 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="PkiEsc.NotEvaluatedList" xml:space="preserve">
     <value>Nie można ocenić PKI – zobacz informacje powyżej.</value>
   </data>
+  <data name="PkiEsc.NoPki" xml:space="preserve">
+    <value>W tym lesie nie ma AD CS – nie ma czego sprawdzać.</value>
+  </data>
   <data name="PkiEsc.ScopeNote" xml:space="preserve">
     <value>Odczytuje przez LDAP szablony, obiekty PKI i konta (ESC1–5, 9, 13, 14, 15, 17) i niczego nie zmienia. Zakłada, że każdy urząd nadaje Użytkownikom uwierzytelnionym prawo „Rejestruj”; ustawienia samego urzędu (ESC6, 7, 8, 10, 11, 16) sprawdzi etap P4.</value>
   </data>
@@ -21856,7 +21859,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Wygasa za {0} dni.</value>
   </data>
   <data name="PkiReady.Kdc.NoKdcEkuDetail" xml:space="preserve">
-    <value>Brak EKU KDC (certyfikat z szablonu Kontroler domeny w wersji 1): PKINIT działa, ale nie przy ścisłej weryfikacji KDC.</value>
+    <value>Certyfikat z szablonu Kontroler domeny w wersji 1: PKINIT działa, ale nie przy ścisłej weryfikacji KDC.</value>
   </data>
   <data name="PkiReady.Kdc.Remedy" xml:space="preserve">
     <value>zarejestruj kontroler domeny w szablonie Uwierzytelnianie Kerberos z urzędu z magazynu NTAuth.</value>
