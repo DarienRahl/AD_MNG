@@ -68,11 +68,14 @@ public sealed partial class PkiSecurityReviewDocumentViewModel
 
     /// <summary>The finding whose details are shown.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SelectionText), nameof(HasSelection))]
+    [NotifyPropertyChangedFor(nameof(SelectionText), nameof(HasSelection), nameof(OpenObjectText))]
     [NotifyCanExecuteChangedFor(nameof(OpenTemplateCommand), nameof(OpenCaCommand), nameof(OpenObjectCommand), nameof(CopyCommand))]
     public partial PkiFindingRowViewModel? SelectedRow { get; set; }
 
     public bool HasSelection => SelectedRow is not null;
+
+    /// <summary>The caption of <see cref="OpenObjectCommand"/>: <i>Otwórz konto / komputer / obiekt</i> of the selected finding.</summary>
+    public string OpenObjectText => SelectedRow?.OpenObjectText ?? Localizer[L.PkiSecurity.OpenObject];
 
     /// <summary>One chip per severity with its count (Krytyczne … Informacje).</summary>
     [ObservableProperty]

@@ -1,0 +1,445 @@
+<!--
+  "Przegląd bezpieczeństwa AD CS" (PkiSecurityReviewDocumentViewModel, P1 W6, design note docs/dev/p-certificate-services.md
+  2.5; modelled on "Diagnostyka zasad grupy"): "Sprawdź ponownie" with progress and cancel, the scope note (decision 3) and
+  the notes of what could not be read or evaluated, the summary chips per severity, the filters (severity, ESC, area,
+  template, text - Ctrl+F, Esc), the virtualized list of findings grouped by object and, beside it behind a splitter, the
+  details of the selected finding (condition, attack path, what to do, the affected object, the accounts and groups with
+  their counts, the notes, the related objects, the Certipy / Locksmith / MDI ids) with "Otwórz szablon", "Otwórz urząd",
+  "Otwórz konto / komputer / obiekt" and "Kopiuj" - no "Napraw" in P1. Exports to CSV and HTML. Severity colours as the
+  K6 diagnostics; theme brushes are DynamicResource only (light, dark and high contrast).
+-->
+<UserControl x:Class="AdMng.App.Pki.PkiSecurityReviewView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:core="clr-namespace:AdMng.Core.Pki;assembly=AdMng.Core"
+             xmlns:gp="clr-namespace:AdMng.App.GroupPolicy"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:pki="clr-namespace:AdMng.Presentation.Pki;assembly=AdMng.Presentation"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             AutomationProperties.Name="{Binding Title, Mode=OneWay}">
+  <UserControl.Resources>
+    <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
+
+    <!-- Severity dot (Tag = PkiFindingSeverity): Critical with a ring in the text colour, as the K6 diagnostics. -->
+    <Style x:Key="PkiEsc.SeverityDot" TargetType="Ellipse">
+      <Setter Property="Width" Value="10" />
+      <Setter Property="Height" Value="10" />
+      <Setter Property="Margin" Value="0,0,8,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Fill" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+      <Style.Triggers>
+        <Trigger Property="Tag" Value="{x:Static core:PkiFindingSeverity.Critical}">
+          <Setter Property="Width" Value="12" />
+          <Setter Property="Height" Value="12" />
+          <Setter Property="Margin" Value="-1,0,7,0" />
+          <Setter Property="Fill" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+          <Setter Property="Stroke" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+          <Setter Property="StrokeThickness" Value="2" />
+        </Trigger>
+        <Trigger Property="Tag" Value="{x:Static core:PkiFindingSeverity.High}">
+          <Setter Property="Fill" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        </Trigger>
+        <Trigger Property="Tag" Value="{x:Static core:PkiFindingSeverity.Medium}">
+          <Setter Property="Fill" Value="{DynamicResource SystemFillColorCautionBrush}" />
+        </Trigger>
+        <Trigger Property="Tag" Value="{x:Static core:PkiFindingSeverity.Low}">
+          <Setter Property="Fill" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+
+    <!-- Severity text next to the dot (Tag = PkiFindingSeverity): Critical semibold in the critical colour, Info secondary. -->
+    <Style x:Key="PkiEsc.SeverityText" TargetType="TextBlock">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Style.Triggers>
+        <Trigger Property="Tag" Value="{x:Static core:PkiFindingSeverity.Critical}">
+          <Setter Property="FontWeight" Value="SemiBold" />
+          <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        </Trigger>
+        <Trigger Property="Tag" Value="{x:Static core:PkiFindingSeverity.Info}">
+          <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="PkiEsc.DetailHeading" TargetType="TextBlock">
+      <Setter Property="Margin" Value="0,10,0,2" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="PkiEsc.DetailText" TargetType="TextBlock">
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="FindingRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Title, Mode=OneWay}" />
+    </Style>
+
+    <Style x:Key="FilterLabel" TargetType="TextBlock">
+      <Setter Property="Margin" Value="0,0,6,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- One line of a list in the details (principals, notes, related objects). -->
+    <DataTemplate x:Key="PkiEsc.Line" DataType="{x:Type sys:String}">
+      <TextBlock Margin="0,1" Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <DockPanel Margin="8,6,8,8">
+    <!-- Header: the title trimmed in its column, the check and the exports in their own -->
+    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <c:ObjectIconView Margin="0,0,8,0" VerticalAlignment="Center" Icon="{Binding Icon, Mode=OneWay}" Size="18" />
+      <TextBlock x:Name="TitleText"
+                 Grid.Column="1"
+                 Margin="0,0,12,0"
+                 VerticalAlignment="Center"
+                 FontWeight="SemiBold"
+                 Text="{Binding Title, Mode=OneWay}"
+                 TextTrimming="CharacterEllipsis"
+                 ToolTip="{Binding Title, Mode=OneWay}" />
+      <WrapPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
+        <Button x:Name="CheckAgainButton"
+                Margin="0,0,6,0"
+                Command="{Binding RefreshCommand}"
+                Content="{l:Tr PkiEsc.CheckAgain}"
+                Style="{StaticResource AccentButtonStyle}"
+                ToolTip="{l:Tr PkiEsc.CheckAgainHint}" />
+        <Button x:Name="CancelButton" Margin="0,0,12,0" Command="{Binding CancelCommand}" Content="{l:Tr Common.Cancel}" />
+        <Button x:Name="ExportCsvButton" Margin="0,0,6,0" Command="{Binding ExportCsvCommand}" Content="{l:Tr PkiEsc.ExportCsv}" />
+        <Button x:Name="ExportHtmlButton" Command="{Binding ExportHtmlCommand}" Content="{l:Tr PkiEsc.ExportHtml}" />
+      </WrapPanel>
+    </Grid>
+
+    <!-- The last check, or the progress of the running one -->
+    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
+      <TextBlock x:Name="LastRunText"
+                 VerticalAlignment="Center"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{Binding LastRunText, Mode=OneWay}"
+                 TextTrimming="CharacterEllipsis"
+                 ToolTip="{Binding LastRunText, Mode=OneWay}"
+                 Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+      <DockPanel x:Name="ProgressPanel" Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <ProgressBar x:Name="CheckProgress"
+                     Width="220"
+                     Height="4"
+                     Margin="0,0,10,0"
+                     VerticalAlignment="Center"
+                     AutomationProperties.Name="{Binding ProgressText, Mode=OneWay}"
+                     DockPanel.Dock="Left"
+                     IsIndeterminate="{Binding IsLoading, Mode=OneWay}" />
+        <TextBlock x:Name="ProgressText"
+                   VerticalAlignment="Center"
+                   AutomationProperties.LiveSetting="Polite"
+                   Text="{Binding ProgressText, Mode=OneWay}"
+                   TextTrimming="CharacterEllipsis" />
+      </DockPanel>
+    </Grid>
+
+    <!-- What the review covers and assumes (always), and what the shown check could not read or evaluate -->
+    <Border x:Name="NotesBar"
+            Margin="0,0,0,6"
+            Padding="12,6"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.Card}">
+      <DockPanel>
+        <TextBlock Margin="0,1,10,0"
+                   VerticalAlignment="Top"
+                   DockPanel.Dock="Left"
+                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Info}" />
+        <StackPanel>
+          <TextBlock x:Name="ScopeNoteText" Text="{Binding ScopeNote, Mode=OneWay}" TextWrapping="Wrap" />
+          <ItemsControl x:Name="NotesList"
+                        Margin="0,4,0,0"
+                        AutomationProperties.LiveSetting="Polite"
+                        Focusable="False"
+                        ItemTemplate="{StaticResource PkiEsc.Line}"
+                        ItemsSource="{Binding Notes, Mode=OneWay}"
+                        Visibility="{Binding HasNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- Summary chips (click: only that severity) -->
+    <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+      <Button x:Name="ClearFiltersButton"
+              Margin="12,0,0,0"
+              VerticalAlignment="Center"
+              Command="{Binding ClearFiltersCommand}"
+              Content="{l:Tr PkiEsc.ClearFilters}"
+              DockPanel.Dock="Right"
+              Visibility="{Binding IsFiltered, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      <ItemsControl x:Name="ChipsList" AutomationProperties.Name="{l:Tr PkiEsc.SummaryLabel}" Focusable="False" ItemsSource="{Binding Chips, Mode=OneWay}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type pki:PkiSeverityChipViewModel}">
+            <ToggleButton Margin="0,0,6,4"
+                          Padding="10,3"
+                          AutomationProperties.Name="{Binding Text, Mode=OneWay}"
+                          IsChecked="{Binding IsSelected}"
+                          IsEnabled="{Binding HasFindings, Mode=OneWay}">
+              <StackPanel Orientation="Horizontal">
+                <Ellipse Style="{StaticResource PkiEsc.SeverityDot}" Tag="{Binding Severity, Mode=OneWay}" />
+                <TextBlock VerticalAlignment="Center" Text="{Binding Text, Mode=OneWay}" />
+              </StackPanel>
+            </ToggleButton>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </DockPanel>
+
+    <!-- Filters: severity, ESC, area, template, text (Ctrl+F, Esc) -->
+    <WrapPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+      <StackPanel Margin="0,0,16,4" Orientation="Horizontal">
+        <TextBlock Style="{StaticResource FilterLabel}" Text="{l:Tr PkiEsc.FilterSeverity}" />
+        <ComboBox x:Name="SeverityBox"
+                  MinWidth="150"
+                  AutomationProperties.Name="{l:Tr PkiEsc.FilterSeverity}"
+                  DisplayMemberPath="Text"
+                  ItemsSource="{Binding SeverityOptions, Mode=OneWay}"
+                  SelectedItem="{Binding SelectedSeverity}" />
+      </StackPanel>
+      <StackPanel Margin="0,0,16,4" Orientation="Horizontal">
+        <TextBlock Style="{StaticResource FilterLabel}" Text="{l:Tr PkiEsc.FilterEsc}" />
+        <ComboBox x:Name="EscBox"
+                  MinWidth="140"
+                  AutomationProperties.Name="{l:Tr PkiEsc.FilterEsc}"
+                  DisplayMemberPath="Text"
+                  ItemsSource="{Binding EscOptions, Mode=OneWay}"
+                  SelectedItem="{Binding SelectedEsc}" />
+      </StackPanel>
+      <StackPanel Margin="0,0,16,4" Orientation="Horizontal">
+        <TextBlock Style="{StaticResource FilterLabel}" Text="{l:Tr PkiEsc.FilterArea}" />
+        <ComboBox x:Name="AreaBox"
+                  MinWidth="160"
+                  AutomationProperties.Name="{l:Tr PkiEsc.FilterArea}"
+                  DisplayMemberPath="Text"
+                  ItemsSource="{Binding AreaOptions, Mode=OneWay}"
+                  SelectedItem="{Binding SelectedArea}" />
+      </StackPanel>
+      <StackPanel Margin="0,0,16,4" Orientation="Horizontal">
+        <TextBlock Style="{StaticResource FilterLabel}" Text="{l:Tr PkiEsc.FilterTemplate}" />
+        <ComboBox x:Name="TemplateBox"
+                  MinWidth="200"
+                  MaxWidth="360"
+                  AutomationProperties.Name="{l:Tr PkiEsc.FilterTemplate}"
+                  DisplayMemberPath="Text"
+                  ItemsSource="{Binding TemplateOptions, Mode=OneWay}"
+                  SelectedItem="{Binding SelectedTemplate}" />
+      </StackPanel>
+      <Grid Width="340" Margin="0,0,0,4">
+        <TextBox x:Name="SearchBox"
+                 gp:GroupPolicyUi.IsDocumentSearch="True"
+                 AutomationProperties.Name="{l:Tr PkiEsc.SearchPlaceholder}"
+                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=250}"
+                 ToolTip="{l:Tr GpEditing.SearchHint}" />
+        <TextBlock Style="{StaticResource Ad.HintText}"
+                   Text="{l:Tr PkiEsc.SearchPlaceholder}"
+                   Visibility="{Binding Text, ElementName=SearchBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+      </Grid>
+    </WrapPanel>
+
+    <!-- The findings grouped by object and, behind the splitter, the details of the selected one -->
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" MinWidth="360" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="420" MinWidth="260" />
+      </Grid.ColumnDefinitions>
+      <Grid>
+        <ListView x:Name="FindingsList"
+                  gp:GpoSettingsUi.GroupBy="GroupText"
+                  gp:GpoSettingsUi.GroupedItemsSource="{Binding Rows, Mode=OneWay}"
+                  gp:GroupPolicyUi.KeepsSelectionInView="True"
+                  AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                  IsSynchronizedWithCurrentItem="False"
+                  ItemContainerStyle="{StaticResource FindingRowStyle}"
+                  ScrollViewer.CanContentScroll="True"
+                  SelectedItem="{Binding SelectedRow}"
+                  SelectionMode="Single"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                  VirtualizingPanel.ScrollUnit="Pixel"
+                  VirtualizingPanel.VirtualizationMode="Recycling">
+          <ListView.InputBindings>
+            <KeyBinding Key="C" Command="{Binding CopyCommand}" Modifiers="Control" />
+          </ListView.InputBindings>
+          <ListView.ContextMenu>
+            <ContextMenu>
+              <MenuItem x:Name="OpenTemplateMenuItem" Command="{Binding OpenTemplateCommand}" Header="{l:Tr PkiEsc.OpenTemplate}" />
+              <MenuItem x:Name="OpenCaMenuItem" Command="{Binding OpenCaCommand}" Header="{l:Tr PkiEsc.OpenCa}" />
+              <MenuItem x:Name="OpenObjectMenuItem" Command="{Binding OpenObjectCommand}" Header="{Binding OpenObjectText, Mode=OneWay}" />
+              <Separator />
+              <MenuItem x:Name="CopyMenuItem" Command="{Binding CopyCommand}" Header="{l:Tr Common.Copy}" InputGestureText="Ctrl+C" />
+            </ContextMenu>
+          </ListView.ContextMenu>
+          <ListView.GroupStyle>
+            <!-- One object: "Szablon certyfikatu: Użytkownik-VPN-Podatny" -->
+            <GroupStyle>
+              <GroupStyle.HeaderTemplate>
+                <DataTemplate>
+                  <TextBlock Margin="4,8,0,2"
+                             FontWeight="SemiBold"
+                             Text="{Binding Name, Mode=OneWay}"
+                             TextTrimming="CharacterEllipsis"
+                             ToolTip="{Binding Name, Mode=OneWay}" />
+                </DataTemplate>
+              </GroupStyle.HeaderTemplate>
+            </GroupStyle>
+          </ListView.GroupStyle>
+          <ListView.View>
+            <GridView AllowsColumnReorder="False">
+              <GridViewColumn Width="130" Header="{l:Tr PkiEsc.ColumnSeverity}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pki:PkiFindingRowViewModel}">
+                    <StackPanel Orientation="Horizontal">
+                      <Ellipse Style="{StaticResource PkiEsc.SeverityDot}" Tag="{Binding Severity, Mode=OneWay}" />
+                      <TextBlock Style="{StaticResource PkiEsc.SeverityText}" Tag="{Binding Severity, Mode=OneWay}" Text="{Binding SeverityText, Mode=OneWay}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="80" Header="{l:Tr PkiEsc.ColumnEsc}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pki:PkiFindingRowViewModel}">
+                    <TextBlock FontWeight="SemiBold" Text="{Binding Esc, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="220" Header="{l:Tr PkiEsc.ColumnObject}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pki:PkiFindingRowViewModel}">
+                    <TextBlock Text="{Binding ObjectText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding ObjectText, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="220" Header="{l:Tr PkiEsc.ColumnPrincipals}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pki:PkiFindingRowViewModel}">
+                    <TextBlock Text="{Binding PrincipalsText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding PrincipalsText, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="520" Header="{l:Tr PkiEsc.ColumnFinding}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pki:PkiFindingRowViewModel}">
+                    <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding Message, Mode=OneWay}">
+                      <Run FontWeight="SemiBold" Text="{Binding Title, Mode=OneWay}" />
+                      <Run Text=" – " />
+                      <Run Text="{Binding Message, Mode=OneWay}" />
+                    </TextBlock>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+            </GridView>
+          </ListView.View>
+        </ListView>
+        <TextBlock x:Name="ListNoteText"
+                   Margin="16,48,16,0"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Top"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding ListNote, Mode=OneWay}"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding ListNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+      </Grid>
+
+      <gp:PaneSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+      <Border Grid.Column="2" Padding="12,8" Style="{StaticResource Ad.Card}">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr PkiEsc.DetailsHeading}" />
+          <StackPanel Margin="0,8,0,0" DockPanel.Dock="Bottom">
+            <WrapPanel x:Name="ActionsPanel">
+              <Button x:Name="OpenTemplateButton" Margin="0,0,6,4" Command="{Binding OpenTemplateCommand}" Content="{l:Tr PkiEsc.OpenTemplate}" />
+              <Button x:Name="OpenCaButton" Margin="0,0,6,4" Command="{Binding OpenCaCommand}" Content="{l:Tr PkiEsc.OpenCa}" />
+              <Button x:Name="OpenObjectButton" Margin="0,0,6,4" Command="{Binding OpenObjectCommand}" Content="{Binding OpenObjectText, Mode=OneWay}" />
+              <Button x:Name="CopyButton" Margin="0,0,6,4" Command="{Binding CopyCommand}" Content="{l:Tr Common.Copy}" />
+            </WrapPanel>
+            <TextBlock x:Name="NoFixNoteText"
+                       Margin="0,4,0,0"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr PkiEsc.NoFixNote}"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+          <Grid>
+            <TextBlock x:Name="DetailsEmptyText"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr PkiEsc.DetailsEmpty}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding HasSelection, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+            <ScrollViewer x:Name="DetailsScroll"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding HasSelection, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+              <StackPanel x:Name="DetailsPanel" DataContext="{Binding SelectedRow, Mode=OneWay}">
+                <StackPanel Margin="0,0,0,4" Orientation="Horizontal">
+                  <Ellipse Style="{StaticResource PkiEsc.SeverityDot}" Tag="{Binding Severity, Mode=OneWay}" />
+                  <TextBlock Style="{StaticResource PkiEsc.SeverityText}" Tag="{Binding Severity, Mode=OneWay}" Text="{Binding SeverityText, Mode=OneWay}" />
+                  <TextBlock Margin="6,0" VerticalAlignment="Center" Style="{StaticResource Ad.SecondaryText}" Text="·" />
+                  <TextBlock x:Name="DetailsEsc" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding Esc, Mode=OneWay}" />
+                  <TextBlock Margin="6,0" VerticalAlignment="Center" Style="{StaticResource Ad.SecondaryText}" Text="·" />
+                  <TextBlock VerticalAlignment="Center" Style="{StaticResource Ad.SecondaryText}" Text="{Binding AreaText, Mode=OneWay}" />
+                </StackPanel>
+                <TextBlock x:Name="DetailsTitle"
+                           Margin="0,0,0,2"
+                           FontSize="15"
+                           FontWeight="SemiBold"
+                           Text="{Binding Title, Mode=OneWay}"
+                           TextWrapping="Wrap" />
+                <TextBlock x:Name="DetailsIds"
+                           Margin="0,0,0,6"
+                           Style="{StaticResource Ad.SecondaryText}"
+                           Text="{Binding IdsText, Mode=OneWay}"
+                           TextWrapping="Wrap" />
+                <TextBlock Style="{StaticResource PkiEsc.DetailHeading}" Text="{l:Tr PkiEsc.ConditionHeading}" />
+                <TextBox x:Name="DetailsMessage"
+                         AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                         Style="{StaticResource Ad.SelectableText}"
+                         Text="{Binding Message, Mode=OneWay}"
+                         TextWrapping="Wrap" />
+                <TextBlock Style="{StaticResource PkiEsc.DetailHeading}" Text="{l:Tr PkiEsc.AttackPathHeading}" />
+                <TextBlock x:Name="DetailsExplanation" Style="{StaticResource PkiEsc.DetailText}" Text="{Binding Explanation, Mode=OneWay}" />
+                <TextBlock Style="{StaticResource PkiEsc.DetailHeading}" Text="{l:Tr PkiEsc.WhatHeading}" />
+                <TextBlock x:Name="DetailsRecommendation" Style="{StaticResource PkiEsc.DetailText}" Text="{Binding Recommendation, Mode=OneWay}" />
+                <TextBlock Style="{StaticResource PkiEsc.DetailHeading}" Text="{l:Tr PkiEsc.ObjectHeading}" />
+                <TextBlock x:Name="DetailsObject" Style="{StaticResource PkiEsc.DetailText}" Text="{Binding ObjectText, Mode=OneWay}" />
+                <StackPanel Visibility="{Binding HasPrincipals, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <TextBlock Style="{StaticResource PkiEsc.DetailHeading}" Text="{l:Tr PkiEsc.PrincipalsHeading}" />
+                  <ItemsControl x:Name="PrincipalsList" Focusable="False" ItemTemplate="{StaticResource PkiEsc.Line}" ItemsSource="{Binding PrincipalLines, Mode=OneWay}" />
+                </StackPanel>
+                <StackPanel Visibility="{Binding HasNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <TextBlock Style="{StaticResource PkiEsc.DetailHeading}" Text="{l:Tr PkiEsc.NotesHeading}" />
+                  <ItemsControl x:Name="FindingNotesList" Focusable="False" ItemTemplate="{StaticResource PkiEsc.Line}" ItemsSource="{Binding NoteLines, Mode=OneWay}" />
+                </StackPanel>
+                <StackPanel Visibility="{Binding HasRelated, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <TextBlock Style="{StaticResource PkiEsc.DetailHeading}" Text="{l:Tr PkiEsc.RelatedHeading}" />
+                  <ItemsControl x:Name="RelatedList" Focusable="False" ItemTemplate="{StaticResource PkiEsc.Line}" ItemsSource="{Binding RelatedLines, Mode=OneWay}" />
+                </StackPanel>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </DockPanel>
+      </Border>
+    </Grid>
+  </DockPanel>
+</UserControl>

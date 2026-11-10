@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using AdMng.Core.Directory;
 using AdMng.Core.Pki;
 using AdMng.Core.Pki.Tls;
@@ -73,9 +74,12 @@ public sealed partial class PkiReadinessDocumentViewModel : PkiDocumentBase
 
     /// <summary>The DC LDAPS probe runs (<i>Sprawdź certyfikaty LDAPS</i>).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText))]
+    [NotifyPropertyChangedFor(nameof(StatusText), nameof(IsBusy))]
     [NotifyCanExecuteChangedFor(nameof(CheckLdapsCommand))]
     public partial bool IsCheckingLdaps { get; private set; }
+
+    /// <summary>The report reads or probes (the view shows the progress instead of the last read).</summary>
+    public bool IsBusy => IsLoading || IsCheckingLdaps;
 
     /// <summary>Areas are shown.</summary>
     public bool HasResult => Groups.Count > 0;
@@ -85,6 +89,15 @@ public sealed partial class PkiReadinessDocumentViewModel : PkiDocumentBase
 
     /// <summary>The probe that runs, or ran last (tests await it).</summary>
     internal Task? Probe { get; private set; }
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.PropertyName == nameof(IsLoading))
+        {
+            OnPropertyChanged(nameof(IsBusy));
+        }
+    }
 
     // ---- Loading --------------------------------------------------------------------------------------------------------------
 
