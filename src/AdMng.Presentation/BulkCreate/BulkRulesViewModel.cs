@@ -40,6 +40,7 @@ public sealed partial class BulkRulesViewModel : ObservableObject, IDisposable
     private ObjectKind _kind;
     private string? _joinerSid;
     private string? _joinerName;
+    private bool? _enabledBeforeNoPassword;
     private bool _disposed;
 
     /// <param name="services">The dialog services of the window.</param>
@@ -675,11 +676,22 @@ public sealed partial class BulkRulesViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial string? OptionsError { get; private set; }
 
-    partial void OnPasswordModeChanged(InitialPasswordMode value)
+    partial void OnPasswordModeChanged(InitialPasswordMode oldValue, InitialPasswordMode newValue)
     {
-        if (value == InitialPasswordMode.None)
+        if (newValue == InitialPasswordMode.None)
         {
+            // An account without a password cannot be enabled; the operator's choice comes back with a password mode.
+            _enabledBeforeNoPassword = IsApplying ? null : Enabled;
             Enabled = false;
+        }
+        else if (oldValue == InitialPasswordMode.None && !IsApplying && _enabledBeforeNoPassword is { } enabled)
+        {
+            Enabled = enabled;
+        }
+
+        if (newValue != InitialPasswordMode.None)
+        {
+            _enabledBeforeNoPassword = null;
         }
 
         OnOptionEdited();

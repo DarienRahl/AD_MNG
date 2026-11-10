@@ -325,6 +325,13 @@ public sealed class BulkRulesTests
         Assert.False(rules.ToOptions().Enabled);
         Assert.Equal(InitialPasswordMode.None, rules.ToOptions().PasswordMode);
 
+        // Back to a password mode: the accounts are enabled again as before (not silently created disabled).
+        rules.PasswordMode = InitialPasswordMode.Generate;
+        Assert.True(rules.Enabled);
+        rules.Enabled = false;
+        rules.PasswordMode = InitialPasswordMode.None;
+        rules.PasswordMode = InitialPasswordMode.SameForAll;
+        Assert.False(rules.Enabled);
         rules.PasswordMode = InitialPasswordMode.Generate;
         rules.Enabled = true;
         rules.MustChangeAtLogon = false;
