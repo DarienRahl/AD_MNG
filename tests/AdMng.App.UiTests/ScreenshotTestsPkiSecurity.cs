@@ -14,7 +14,8 @@ namespace AdMng.App.UiTests;
 /// <summary>
 /// Release screenshots 38 and 39 of AD CS (P1 W6, design note docs/dev/p-certificate-services.md 2.10, decision 10): the
 /// security review over the Polish PKI sample with the ESC1 template selected, and the strong mapping and NTAuth readiness
-/// report after <i>Sprawdź certyfikaty LDAPS</i>. Polish UI, light theme, the in-memory directory on the sample's clock
+/// report after <i>Sprawdź certyfikaty LDAPS</i>. UI in the language of <see cref="ScreenshotWriter.LanguageVariable"/> (English
+/// by default, as the release pictures) over the Polish PKI sample, light theme, the in-memory directory on the sample's clock
 /// (2026-10-13) and the fake TLS probe. Like <see cref="ScreenshotTests"/> they run only when
 /// <see cref="ScreenshotWriter.DirectoryVariable"/> is set; the class name starts with "ScreenshotTests" so the CI step
 /// "Screenshots" takes it too.
@@ -78,7 +79,7 @@ public sealed class ScreenshotTestsPkiSecurity
         return WpfTestHost.RunAsync(async () =>
         {
             var probe = new FakeDomainControllerTlsProbe();
-            var (created, _) = await TestDialogService.CreateContextAsync("pl", PkiSecurityUiSupport.Configure(probe));
+            var (created, _) = await TestDialogService.CreateContextAsync(ScreenshotWriter.Language, PkiSecurityUiSupport.Configure(probe));
             await using var context = created;
             var themes = context.Services.GetRequiredService<IThemeService>();
             themes.Apply(ThemePreference.Light);

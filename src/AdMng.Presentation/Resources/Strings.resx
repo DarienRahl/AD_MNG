@@ -22653,6 +22653,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="PkiReady.NoPki" xml:space="preserve">
     <value>There is no AD CS in this forest, or the Public Key Services container cannot be read.</value>
   </data>
+  <data name="PkiReady.TrustUnknown" xml:space="preserve">
+    <value>The Public Key Services container cannot be read, so it is not known whether the issuing CA is trusted in Active Directory and in the NTAuth store.</value>
+  </data>
   <data name="PkiReady.ReadFailed" xml:space="preserve">
     <value>Could not be read: {0}</value>
   </data>
@@ -22699,7 +22702,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Authentication templates and the SID extension</value>
   </data>
   <data name="PkiReady.Templates.Description" xml:space="preserve">
-    <value>Published templates with client authentication: a certificate without the SID extension (szOID_NTDS_CA_SECURITY_EXT) logs on under full enforcement only through a strong explicit mapping.</value>
+    <value>Published templates with client authentication: under full enforcement a certificate without the SID extension (szOID_NTDS_CA_SECURITY_EXT) can be used for logon only through a strong explicit mapping.</value>
   </data>
   <data name="PkiReady.Templates.NoExtension" xml:space="preserve">
     <value>The template turns the SID extension off (CT_FLAG_NO_SECURITY_EXTENSION): its certificates fail under full enforcement unless the account has a strong explicit mapping (ESC9).</value>
@@ -22822,7 +22825,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>A version 1 Domain Controller certificate: PKINIT works, but not with strict KDC validation.</value>
   </data>
   <data name="PkiReady.Kdc.Remedy" xml:space="preserve">
-    <value>enroll the domain controller for the Kerberos Authentication template from a CA in the NTAuth store.</value>
+    <value>enroll the domain controller for a Kerberos Authentication certificate from a CA in the NTAuth store.</value>
   </data>
   <data name="PkiReady.Kdc.ReadOnly" xml:space="preserve">
     <value>Read-only domain controller.</value>

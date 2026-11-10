@@ -16,6 +16,13 @@ internal sealed class PkiReadinessRows(PkiServices pki, ILocalizer localizer, Pk
 
     private readonly bool _hasPki = !snapshot.Notices.Any(n => n.Code is PkiReadNoticeCode.BaseNotFound or PkiReadNoticeCode.BaseAccessDenied);
 
+    /// <summary>
+    /// The roots of <c>CN=Certification Authorities</c> and NTAuth were read: a denied Public Key Services container leaves them
+    /// unknown (an empty trust material), so a DC certificate is then <i>nie sprawdzono</i>, never "outside NTAuth" or
+    /// "not chained" (as the security review never calls a PKI it could not read safe).
+    /// </summary>
+    private readonly bool _trustKnown = !snapshot.Notices.Any(n => n.Code == PkiReadNoticeCode.BaseAccessDenied);
+
     /// <summary>Accounts with weak or invalid <c>altSecurityIdentities</c> (Tier 0 first), and one OK row for the strong ones.</summary>
     public PkiReadinessGroupViewModel Mappings(PkiEnrollmentExpansion? expansion, string? error, bool reading)
     {
@@ -231,7 +238,8 @@ internal sealed class PkiReadinessRows(PkiServices pki, ILocalizer localizer, Pk
 
         var problems = new List<string>();
         var warnings = new List<string>();
-        if (info.Leaf is null)
+        var daysLeft = 0;
+        if (info.Leaf is not { } presented)
         {
             problems.Add(localizer[L.PkiReadiness.LdapsUnreadable]);
         }
@@ -247,16 +255,19 @@ internal sealed class PkiReadinessRows(PkiServices pki, ILocalizer localizer, Pk
                 problems.Add(localizer[L.PkiReadiness.LdapsNoServerAuth]);
             }
 
-            if (!info.IsTimeValid)
+            // The validity at the time shown, not at the probe (decision 2: the clock applies when shown; the window's
+            // probe results stay cached until F5) – as DcCertificateEvaluation judges it.
+            daysLeft = (int)Math.Floor((presented.NotAfter - now).TotalDays);
+            if (now < presented.NotBefore || now > presented.NotAfter)
             {
                 problems.Add(localizer[L.PkiReadiness.LdapsNotTimeValid]);
             }
-            else if (info.DaysLeft <= thresholds.EndEntityWarningDays)
+            else if (daysLeft <= thresholds.EndEntityWarningDays)
             {
-                warnings.Add(localizer.Format(L.PkiReadiness.LdapsExpiring, info.DaysLeft));
+                warnings.Add(localizer.Format(L.PkiReadiness.LdapsExpiring, daysLeft));
             }
 
-            if (!info.ChainsToAdRoot)
+            if (!info.ChainsToAdRoot && _trustKnown)
             {
                 warnings.Add(localizer[L.PkiReadiness.LdapsNotChained]);
             }
@@ -267,15 +278,17 @@ internal sealed class PkiReadinessRows(PkiServices pki, ILocalizer localizer, Pk
             }
         }
 
+        // Unknown roots: the chain cannot be judged, so the row says so instead of a warning.
+        var unknown = info.Leaf is not null && !info.ChainsToAdRoot && !_trustKnown ? localizer[L.PkiReadiness.TrustUnknown] : null;
         if (problems.Count > 0 || warnings.Count > 0)
         {
             return Row(problems.Count > 0 ? PkiReadinessStatus.Problem : PkiReadinessStatus.Warning, title,
-                string.Join(" ", problems.Concat(warnings)), localizer[L.PkiReadiness.LdapsRemedy]);
+                string.Join(" ", problems.Concat(warnings).Append(unknown).OfType<string>()), localizer[L.PkiReadiness.LdapsRemedy]);
         }
 
         var leaf = info.Leaf!;
-        return Row(PkiReadinessStatus.Ok, title, localizer.Format(L.PkiReadiness.LdapsOk, IssuerName(leaf),
-            leaf.NotAfter.ToLocalTime().ToString("d", localizer.Culture), info.DaysLeft));
+        var valid = localizer.Format(L.PkiReadiness.LdapsOk, IssuerName(leaf), leaf.NotAfter.ToLocalTime().ToString("d", localizer.Culture), daysLeft);
+        return unknown is null ? Row(PkiReadinessStatus.Ok, title, valid) : Row(PkiReadinessStatus.NotChecked, title, valid + " " + unknown);
     }
 
     /// <summary>The KDC indicator of every DC (from the certificates published on its object).</summary>
@@ -305,12 +318,18 @@ internal sealed class PkiReadinessRows(PkiServices pki, ILocalizer localizer, Pk
                 {
                     KdcReadinessState.Ready => PkiReadinessStatus.Ok,
                     KdcReadinessState.NoKdcEku => PkiReadinessStatus.Warning,
+                    KdcReadinessState.IssuerNotInNtAuth when !_trustKnown => PkiReadinessStatus.NotChecked,
                     KdcReadinessState.IssuerNotInNtAuth or KdcReadinessState.Expired => PkiReadinessStatus.Problem,
                     _ => PkiReadinessStatus.NotChecked,
                 };
                 if (kdc.State == KdcReadinessState.NoKdcEku)
                 {
                     parts.Add(localizer[L.PkiReadiness.KdcNoKdcEkuDetail]);
+                }
+
+                if (kdc.State == KdcReadinessState.IssuerNotInNtAuth && !_trustKnown)
+                {
+                    parts.Add(localizer[L.PkiReadiness.TrustUnknown]);
                 }
 
                 if (kdc.Best is { } best)
@@ -388,6 +407,7 @@ internal sealed class PkiReadinessRows(PkiServices pki, ILocalizer localizer, Pk
         StatusText = localizer[PkiReadinessDocumentViewModel.StatusKey(status)],
         Title = title,
         Detail = detail,
+        Remedy = remedy,
         RemedyText = remedy.Length == 0 ? string.Empty : localizer.Format(L.PkiReadiness.RemedyLine, remedy),
         OpenCommand = open,
         OpenText = openText,

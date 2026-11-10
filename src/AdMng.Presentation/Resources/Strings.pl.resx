@@ -22653,6 +22653,9 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="PkiReady.NoPki" xml:space="preserve">
     <value>W tym lesie nie ma AD CS albo nie można odczytać kontenera Usługi kluczy publicznych.</value>
   </data>
+  <data name="PkiReady.TrustUnknown" xml:space="preserve">
+    <value>Nie można odczytać kontenera Usługi kluczy publicznych, więc nie wiadomo, czy urząd wystawiający jest zaufany w Active Directory i w magazynie NTAuth.</value>
+  </data>
   <data name="PkiReady.ReadFailed" xml:space="preserve">
     <value>Nie można odczytać: {0}</value>
   </data>
@@ -22699,7 +22702,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Szablony uwierzytelniania a rozszerzenie SID</value>
   </data>
   <data name="PkiReady.Templates.Description" xml:space="preserve">
-    <value>Wystawiane szablony z uwierzytelnianiem klienta: certyfikat bez rozszerzenia SID (szOID_NTDS_CA_SECURITY_EXT) przy pełnym wymuszaniu loguje tylko przez silne jawne mapowanie.</value>
+    <value>Wystawiane szablony z uwierzytelnianiem klienta: przy pełnym wymuszaniu certyfikatem bez rozszerzenia SID (szOID_NTDS_CA_SECURITY_EXT) można się zalogować tylko przez silne jawne mapowanie.</value>
   </data>
   <data name="PkiReady.Templates.NoExtension" xml:space="preserve">
     <value>Szablon wyłącza rozszerzenie SID (CT_FLAG_NO_SECURITY_EXTENSION): jego certyfikaty nie zadziałają przy pełnym wymuszaniu, chyba że konto ma silne jawne mapowanie (ESC9).</value>
@@ -22744,7 +22747,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>W magazynie NTAuth.</value>
   </data>
   <data name="PkiReady.NtAuth.NotNeeded" xml:space="preserve">
-    <value>Nie ma go w magazynie NTAuth; nie wystawia szablonów logowania, więc nie musi.</value>
+    <value>Nie ma go w magazynie NTAuth; nie wystawia szablonów logowania, więc nie musi w nim być.</value>
   </data>
   <data name="PkiReady.NtAuth.NoCa" xml:space="preserve">
     <value>Brak urzędów przedsiębiorstwa</value>
@@ -22822,7 +22825,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Certyfikat z szablonu Kontroler domeny w wersji 1: PKINIT działa, ale nie przy ścisłej weryfikacji KDC.</value>
   </data>
   <data name="PkiReady.Kdc.Remedy" xml:space="preserve">
-    <value>zarejestruj kontroler domeny w szablonie Uwierzytelnianie Kerberos z urzędu z magazynu NTAuth.</value>
+    <value>zarejestruj dla kontrolera domeny certyfikat z szablonu Uwierzytelnianie Kerberos w urzędzie, który jest w magazynie NTAuth.</value>
   </data>
   <data name="PkiReady.Kdc.ReadOnly" xml:space="preserve">
     <value>Kontroler domeny tylko do odczytu.</value>
