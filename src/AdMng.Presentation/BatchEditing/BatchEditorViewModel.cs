@@ -138,15 +138,19 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         Operations,
         Csv,
         Rollback,
+
+        /// <summary>A create or retry plan of the bulk creation wizard (create mode; the undo is <see cref="Rollback"/>).</summary>
+        Create,
     }
 
     /// <summary>"Batch edit – 120 objects" / "Import from CSV".</summary>
-    public override string WindowTitle => Mode == BatchSourceMode.Csv
-        ? Localizer[L.Batch.CsvWindowTitle]
+    public override string WindowTitle => Mode == BatchSourceMode.Create ? BulkCreate!.Title
+        : Mode == BatchSourceMode.Csv ? Localizer[L.Batch.CsvWindowTitle]
         : Localizer.Format(L.Batch.WindowTitle, TargetCount);
 
     /// <summary>Title of the change (activity center, audit, notifications).</summary>
     public string ChangeTitle => !string.IsNullOrWhiteSpace(_request.Title) ? _request.Title
+        : Mode == BatchSourceMode.Create ? BulkCreate!.ChangeTitle
         : Mode == BatchSourceMode.Csv ? Localizer.Format(L.Batch.CsvChangeTitle, CsvImport?.FileName ?? string.Empty)
         : Localizer.Format(L.Batch.DefaultChangeTitle, TargetCount);
 
@@ -218,7 +222,9 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     /// <summary>
     /// Create mode: <em>Cofnięcie usunie obiekty (114) utworzone w tym oknie …</em> above the undo preview (B4); null otherwise.
     /// </summary>
-    public string? UndoNote => null;
+    public string? UndoNote => IsCreateMode && IsRollbackPreview && BulkCreate?.UndoObjectCount is { } count
+        ? Localizer.Format(L.BulkCreateCheck.UndoNote, count)
+        : null;
 
     // ---- Planning / errors -------------------------------------------------------------------------------
 
@@ -351,7 +357,9 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     /// true while an undo plan or new operations are previewed: the results are only replaced by the next execution.
     /// </summary>
     public bool HasUnsavedGeneratedPasswords =>
-        !_passwordsExported
+        IsCreateMode
+            ? !_passwordsExported && BulkCreate!.HasUnhandedPasswords
+            : !_passwordsExported
         && _resultHasGeneratedPasswords
         && Result is { } result
         && result.Objects.Any(o => o.Changes.Any(c => c.Succeeded && c.Change.Action == ChangeAction.ResetPassword));
@@ -383,6 +391,22 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     [RelayCommand(CanExecute = nameof(CanPreview), IncludeCancelCommand = true)]
     private async Task PreviewAsync(CancellationToken cancellationToken)
     {
+        if (Mode == BatchSourceMode.Create)
+        {
+            // The wizard's plan (docs/dev/phase3-bulk-create.md 2.7): computed again with the check's values frozen, the shared
+            // password read last; its own reasons (wpisz hasło ponownie …) replace the generic error.
+            var bulk = BulkCreate!;
+            await RunPlanningAsync((progress, token) => bulk.PlanAsync(progress, token), bulk.IncludedRowCount, PlanSource.Create, cancellationToken)
+                .ConfigureAwait(true);
+            if (bulk.LastPlanError is { } planError)
+            {
+                Error = planError;
+            }
+
+            OnPropertyChanged(nameof(ChangeTitle));
+            return;
+        }
+
         if (Mode == BatchSourceMode.Csv)
         {
             var csv = CsvImport!;
@@ -406,7 +430,8 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
 
     private bool CanPreview() =>
         Step == BatchEditorStep.Edit && !IsBusy && !IsSessionEnded
-        && (Mode == BatchSourceMode.Csv
+        && (Mode == BatchSourceMode.Create ? BulkCreate!.IsReadyToPlan
+            : Mode == BatchSourceMode.Csv
             ? CsvImport!.IsValid
             : TargetCount > 0 && Operations.Count > 0 && Operations.All(o => o.IsValid) && OperationsError is null);
 
@@ -474,6 +499,12 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             return;
         }
 
+        if (IsCreateMode)
+        {
+            await ExecuteCreateModeAsync(plan, executable).ConfigureAwait(true);
+            return;
+        }
+
         // The new results replace the current ones (retry, undo, edited operations): generated passwords that were
         // not exported would be gone for good.
         if (HasUnsavedGeneratedPasswords
@@ -514,6 +545,49 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         }
 
         // Closed while executing: the activity center reports the outcome and no results (passwords) are kept.
+        if (!IsDisposed)
+        {
+            ShowResults(result);
+        }
+    }
+
+    /// <summary>
+    /// Create mode (docs/dev/phase3-bulk-create.md 2.7): every execution is merged into the wizard's accumulated results, so
+    /// nothing is replaced and the <c>ReplacePasswords</c> prompt never appears; a new create plan is confirmed by typing with
+    /// <c>BulkCheck.ConfirmCreate</c> and runs a canary object first, a retry or the undo is confirmed as any risky batch.
+    /// </summary>
+    private async Task ExecuteCreateModeAsync(ChangePlan plan, int executable)
+    {
+        var bulk = BulkCreate!;
+        var title = string.IsNullOrWhiteSpace(plan.Title) ? ChangeTitle : plan.Title;
+        var expected = executable.ToString(CultureInfo.InvariantCulture);
+        var fresh = _planSource == PlanSource.Create && bulk.UsesCanary && !IsRollbackPreview;
+        var message = Localizer.Format(fresh ? bulk.ConfirmationKey : L.Batch.ConfirmExecute, executable, title, expected, ConfirmationDomain);
+        if (!await Services.Dialogs.ConfirmTypedAsync(title, message, expected).ConfigureAwait(true))
+        {
+            return;
+        }
+
+        // An export with the passwords since the last execution handed every password shown out.
+        if (_passwordsExported)
+        {
+            MarkPasswordsHandedOut();
+        }
+
+        Error = null;
+        Step = BatchEditorStep.Executing;
+        BatchResult result;
+        try
+        {
+            result = await bulk.ExecuteAsync(plan, title, RequireSession(), activity => CurrentActivity = activity).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            Error = Errors.Translate(ex);
+            Step = BatchEditorStep.Preview;
+            return;
+        }
+
         if (!IsDisposed)
         {
             ShowResults(result);
@@ -575,6 +649,19 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             return;
         }
 
+        if (IsCreateMode)
+        {
+            // Over every execution of the window (2.5): no second Create, a new password where one was refused.
+            var bulk = BulkCreate!;
+            await RunPlanningAsync((_, token) => bulk.PlanRetryAsync(token), failed.Count, PlanSource.Create, CancellationToken.None).ConfigureAwait(true);
+            if (bulk.LastPlanError is { } planError)
+            {
+                Error = planError;
+            }
+
+            return;
+        }
+
         if (_planSource == PlanSource.Csv && CsvImport is { } csv)
         {
             var rows = failed.Select(o => o.Plan.SourceRow).OfType<int>().ToList();
@@ -615,6 +702,35 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     [RelayCommand(CanExecute = nameof(CanUndo))]
     private void Undo()
     {
+        if (IsCreateMode)
+        {
+            // Everything this window created, over all executions, each object checked by its objectGUID (2.5).
+            var bulk = BulkCreate!;
+            if (bulk.CreatedCount == 0)
+            {
+                Services.Notifications.Show(NotificationSeverity.Info, Localizer[L.Batch.NothingToUndo]);
+                return;
+            }
+
+            UndoCreatedAsync().Forget();
+            return;
+
+            async Task UndoCreatedAsync()
+            {
+                await RunPlanningAsync(
+                    async (_, token) => await bulk.PlanUndoAsync(token).ConfigureAwait(true) ?? throw new InvalidOperationException(Localizer[L.Batch.NothingToUndo]),
+                    bulk.CreatedCount,
+                    PlanSource.Rollback,
+                    CancellationToken.None).ConfigureAwait(true);
+                if (bulk.LastPlanError is { } planError)
+                {
+                    Error = planError;
+                }
+
+                OnPropertyChanged(nameof(UndoNote));
+            }
+        }
+
         if (Result is not { } result)
         {
             return;
@@ -704,7 +820,8 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     }
 
     private bool GeneratesPasswords =>
-        _planSource == PlanSource.Operations && _plannedOperations.OfType<ResetPasswordOperation>().Any(o => o.Mode == PasswordMode.GenerateUnique);
+        IsCreateMode ? BulkCreate!.PasswordModeAtPlan == Core.Batch.Creation.InitialPasswordMode.Generate
+        : _planSource == PlanSource.Operations && _plannedOperations.OfType<ResetPasswordOperation>().Any(o => o.Mode == PasswordMode.GenerateUnique);
 
     private static bool IsRetryable(ObjectResult result) =>
         result.Status is ObjectResultStatus.Failed or ObjectResultStatus.PartiallySucceeded or ObjectResultStatus.Cancelled;
@@ -864,14 +981,33 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     {
         var session = Session;
         var builder = new PreviewBuilder(Localizer, Errors, Services.Sessions.Formatter, session?.Schema ?? Core.Schema.SchemaCatalog.Empty, Services.Time);
-        Result = result;
+        var shown = result;
+        if (IsCreateMode)
+        {
+            // Create mode (2.7): the results are those of every execution of the window (built once – 5 000 objects are a lot
+            // of rows); the undo clears the created marks and shows its own result.
+            var bulk = BulkCreate!;
+            if (_planSource == PlanSource.Rollback)
+            {
+                bulk.OnUndone(result);
+            }
+            else
+            {
+                bulk.OnExecuted(result);
+                shown = bulk.Accumulated ?? result;
+            }
+
+            CreatedAccounts.ReplaceAll(bulk.Accounts);
+        }
+
+        Result = shown;
         _resultHasGeneratedPasswords = GeneratesPasswords;
         _passwordsExported = false;
         _resultRows.Clear();
-        _resultRows.AddRange(result.Objects.Select(builder.BuildResult));
-        ResultFilter = result.FailedCount > 0 ? ResultFilter.Failed : ResultFilter.All;
+        _resultRows.AddRange(shown.Objects.Select(builder.BuildResult));
+        ResultFilter = shown.FailedCount > 0 ? ResultFilter.Failed : ResultFilter.All;
         ApplyResultFilter();
-        ResultSummary = Localizer.Format(L.Batch.ResultSummary, result.SucceededCount, result.FailedCount, result.SkippedCount);
+        ResultSummary = Localizer.Format(L.Batch.ResultSummary, shown.SucceededCount, shown.FailedCount, shown.SkippedCount);
         Step = BatchEditorStep.Results;
         var severity = result.FailedCount > 0 ? NotificationSeverity.Warning : result.WasCancelled ? NotificationSeverity.Warning : NotificationSeverity.Success;
         Services.Notifications.Show(severity, Localizer.Format(L.Batch.ExecutedNotification, ChangeTitle, ResultSummary));
@@ -1020,13 +1156,24 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         OnPropertyChanged(nameof(ChangeTitle));
     }
 
-    private void OnBulkCreateChanged(object? sender, EventArgs e) => PreviewCommand.NotifyCanExecuteChanged();
+    private void OnBulkCreateChanged(object? sender, EventArgs e)
+    {
+        PreviewCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(WindowTitle));
+        OnPropertyChanged(nameof(ChangeTitle));
+    }
 
     /// <summary>
     /// Create mode: marks every created account as handed out (<em>Kopiuj tabelę z hasłami</em>, <em>Kopiuj bez haseł</em>,
     /// the export with passwords), which clears the close guard (B4, docs/dev/phase3-bulk-create.md 2.7).
     /// </summary>
-    internal void MarkPasswordsHandedOut() => throw new NotImplementedException("F3 B4: BatchEditorViewModel.MarkPasswordsHandedOut (2.7).");
+    internal void MarkPasswordsHandedOut()
+    {
+        foreach (var account in CreatedAccounts.Where(a => a.HasPassword))
+        {
+            account.WasHandedOut = true;
+        }
+    }
 
     private string? ValidateOperations()
     {

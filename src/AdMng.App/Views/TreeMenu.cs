@@ -156,6 +156,7 @@ internal static class TreeMenu
         menu.Items.Add(NewItem(shell, L.Commands.NewOrganizationalUnit, shell.NewOrganizationalUnitCommand, ObjectKind.OrganizationalUnit, container.Dn));
         menu.Items.Add(NewItem(shell, L.Commands.NewComputer, shell.NewComputerCommand, ObjectKind.Computer, container.Dn));
         menu.Items.Add(NewItem(shell, L.Commands.NewContact, shell.NewContactCommand, ObjectKind.Contact, container.Dn));
+        menu.Items.Add(Item(L.BulkCreate.Command, shell.BulkCreateCommand, container.Dn)); // F3: enabled when connected; the wizard checks the kind
         shell.LoadCreatePermissionsAsync(container.Dn).Forget();
         return menu;
     }

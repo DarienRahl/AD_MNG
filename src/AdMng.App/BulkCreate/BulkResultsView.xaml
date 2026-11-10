@@ -1,9 +1,233 @@
 <!--
-  The created accounts with their initial passwords in the batch editor's results (2.7).
-  Contract placeholder: B4 replaces this view.
+  The created accounts with their initial passwords at the top of the batch editor's results in create mode (docs/dev/
+  phase3-bulk-create.md 2.7). DataContext: BatchEditorViewModel (CreatedAccounts; the wizard's commands, notes and retry
+  password boxes through BulkCreate). Passwords are masked, revealed per row, copied through the protected clipboard;
+  the table with the passwords is copied only after a warning; the retry boxes are PasswordBoxes handed over in code-behind.
 -->
 <UserControl x:Class="AdMng.App.BulkCreate.BulkResultsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <Grid />
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:bc="clr-namespace:AdMng.Presentation.BulkCreate;assembly=AdMng.Presentation"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:conv="clr-namespace:AdMng.App.Converters"
+             xmlns:corebatch="clr-namespace:AdMng.Core.Batch;assembly=AdMng.Core"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             AutomationProperties.Name="{l:Tr BulkCheck.ResultsHeading}">
+  <UserControl.Resources>
+    <conv:ResultStatusToGlyphConverter x:Key="ResultStatusGlyph" />
+  </UserControl.Resources>
+
+  <DockPanel Margin="0,0,0,12">
+    <!-- Heading and the table copies -->
+    <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+        <Button x:Name="CopyTableWithPasswordsButton"
+                Command="{Binding BulkCreate.CopyTableWithPasswordsCommand}"
+                Content="{l:Tr BulkCheck.CopyTableWithPasswords}" />
+        <Button x:Name="CopyTableWithoutPasswordsButton"
+                Margin="8,0,0,0"
+                Command="{Binding BulkCreate.CopyTableWithoutPasswordsCommand}"
+                Content="{l:Tr BulkCheck.CopyTableWithoutPasswords}" />
+      </StackPanel>
+      <TextBlock VerticalAlignment="Center"
+                 Style="{StaticResource Ad.SectionHeader}"
+                 Text="{l:Tr BulkCheck.ResultsHeading}" />
+    </DockPanel>
+
+    <!-- Canary stop, replication, accounts left disabled, the forest UPN hint -->
+    <ItemsControl x:Name="ResultNotesList"
+                  DockPanel.Dock="Top"
+                  ItemsSource="{Binding BulkCreate.ResultNotes, Mode=OneWay}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate>
+          <Border Margin="0,0,0,6" Style="{StaticResource Ad.WarningBar}">
+            <DockPanel>
+              <TextBlock Margin="0,0,8,0"
+                         DockPanel.Dock="Left"
+                         Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                         Style="{StaticResource Ad.GlyphText}"
+                         Text="{x:Static c:Glyphs.Info}" />
+              <TextBlock Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
+            </DockPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <!-- A new shared password after the domain refused it -->
+    <Border x:Name="RetryPasswordPanel"
+            Margin="0,0,0,8"
+            Padding="12,10"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.Card}"
+            Visibility="{Binding BulkCreate.NeedsRetryPassword, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}, FallbackValue=Collapsed}">
+      <StackPanel>
+        <TextBlock FontWeight="SemiBold" Text="{l:Tr BulkCheck.RetryPasswordHeading}" />
+        <TextBlock Margin="0,2,0,8"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{l:Tr BulkCheck.RetryPasswordHint}"
+                   TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Margin="0,0,8,0"
+                     VerticalAlignment="Center"
+                     Text="{l:Tr BulkCheck.RetryPassword}" />
+          <PasswordBox x:Name="RetryPasswordBox"
+                       Width="220"
+                       AutomationProperties.Name="{l:Tr BulkCheck.RetryPassword}" />
+          <TextBlock Margin="16,0,8,0"
+                     VerticalAlignment="Center"
+                     Text="{l:Tr BulkCheck.RetryConfirmPassword}" />
+          <PasswordBox x:Name="RetryConfirmPasswordBox"
+                       Width="220"
+                       AutomationProperties.Name="{l:Tr BulkCheck.RetryConfirmPassword}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <!-- The sheet's columns added to the copied table -->
+    <DockPanel Margin="0,0,0,6"
+               DockPanel.Dock="Top"
+               Visibility="{Binding BulkCreate.CopyColumns, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}, FallbackValue=Collapsed}">
+      <TextBlock Margin="0,0,8,0"
+                 VerticalAlignment="Center"
+                 DockPanel.Dock="Left"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{l:Tr BulkCheck.CopyColumns}" />
+      <ItemsControl x:Name="CopyColumnsList" ItemsSource="{Binding BulkCreate.CopyColumns, Mode=OneWay}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type bc:SheetColumnOption}">
+            <CheckBox Margin="0,0,12,0"
+                      Content="{Binding Header, Mode=OneWay}"
+                      IsChecked="{Binding IsSelected}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </DockPanel>
+
+    <TextBlock Margin="0,6,0,0"
+               DockPanel.Dock="Bottom"
+               Style="{StaticResource Ad.SecondaryText}"
+               Text="{l:Tr BulkCheck.ResultsHint}"
+               TextWrapping="Wrap" />
+
+    <!-- The created accounts -->
+    <Grid>
+      <ListView x:Name="CreatedAccountsList"
+                MaxHeight="320"
+                AutomationProperties.Name="{l:Tr BulkCheck.ResultsHeading}"
+                ItemsSource="{Binding CreatedAccounts, Mode=OneWay}"
+                ScrollViewer.CanContentScroll="True"
+                VirtualizingPanel.IsVirtualizing="True"
+                VirtualizingPanel.VirtualizationMode="Recycling">
+        <ListView.View>
+          <GridView AllowsColumnReorder="False">
+            <GridViewColumn Width="34">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type bc:CreatedAccountViewModel}">
+                  <TextBlock x:Name="StatusGlyph"
+                             AutomationProperties.Name="{Binding Status, Mode=OneWay}"
+                             FontSize="13"
+                             Foreground="{DynamicResource SystemFillColorSuccessBrush}"
+                             Style="{StaticResource Ad.GlyphText}"
+                             Text="{Binding Outcome, Mode=OneWay, Converter={StaticResource ResultStatusGlyph}}"
+                             ToolTip="{Binding Status, Mode=OneWay}" />
+                  <DataTemplate.Triggers>
+                    <DataTrigger Binding="{Binding Outcome, Mode=OneWay}" Value="{x:Static corebatch:ObjectResultStatus.PartiallySucceeded}">
+                      <Setter TargetName="StatusGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding IsUndone, Mode=OneWay}" Value="True">
+                      <Setter TargetName="StatusGlyph" Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+                    </DataTrigger>
+                  </DataTemplate.Triggers>
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="48"
+                            DisplayMemberBinding="{Binding ExcelRow, Mode=OneWay}"
+                            Header="{l:Tr BulkCheck.ColumnNumber}" />
+            <GridViewColumn Width="180" Header="{l:Tr BulkCheck.ColumnName}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type bc:CreatedAccountViewModel}">
+                  <TextBlock Text="{Binding Name, Mode=OneWay}"
+                             TextTrimming="CharacterEllipsis"
+                             ToolTip="{Binding DistinguishedName, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="120"
+                            DisplayMemberBinding="{Binding Login, Mode=OneWay}"
+                            Header="{l:Tr BulkCheck.ColumnLogin}" />
+            <GridViewColumn Width="190"
+                            DisplayMemberBinding="{Binding Upn, Mode=OneWay}"
+                            Header="{l:Tr BulkCheck.ColumnUpn}" />
+            <GridViewColumn Width="210"
+                            DisplayMemberBinding="{Binding Mail, Mode=OneWay}"
+                            Header="{l:Tr BulkCheck.ColumnMail}" />
+            <GridViewColumn Width="300" Header="{l:Tr BulkCheck.ColumnPassword}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type bc:CreatedAccountViewModel}">
+                  <DockPanel Visibility="{Binding HasPassword, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                    <Button x:Name="CopyPasswordButton"
+                            Margin="6,0,0,0"
+                            AutomationProperties.Name="{l:Tr BulkCheck.CopyPassword}"
+                            Command="{Binding CopyPasswordCommand}"
+                            Content="{l:Tr BulkCheck.CopyPassword}"
+                            DockPanel.Dock="Right" />
+                    <ToggleButton x:Name="ShowPasswordButton"
+                                  Margin="6,0,0,0"
+                                  AutomationProperties.Name="{l:Tr BulkCheck.ShowPassword}"
+                                  Content="{l:Tr BulkCheck.ShowPassword}"
+                                  DockPanel.Dock="Right"
+                                  IsChecked="{Binding IsPasswordVisible}" />
+                    <TextBlock x:Name="PasswordText"
+                               VerticalAlignment="Center"
+                               FontFamily="Consolas"
+                               Text="{Binding PasswordText, Mode=OneWay}"
+                               TextTrimming="CharacterEllipsis" />
+                  </DockPanel>
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="90" Header="{l:Tr BulkCheck.ColumnHandedOut}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type bc:CreatedAccountViewModel}">
+                  <CheckBox MinWidth="0"
+                            MinHeight="0"
+                            Padding="0"
+                            HorizontalAlignment="Center"
+                            AutomationProperties.Name="{l:Tr BulkCheck.ColumnHandedOut}"
+                            IsChecked="{Binding WasHandedOut, Mode=OneWay}"
+                            IsHitTestVisible="False"
+                            Visibility="{Binding HasPassword, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="130"
+                            DisplayMemberBinding="{Binding Status, Mode=OneWay}"
+                            Header="{l:Tr BulkCheck.ColumnStatus}" />
+            <GridViewColumn Width="320" Header="{l:Tr Batch.Message}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type bc:CreatedAccountViewModel}">
+                  <TextBlock Text="{Binding Message, Mode=OneWay}"
+                             TextTrimming="CharacterEllipsis"
+                             ToolTip="{Binding Message, Mode=OneWay}" />
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+          </GridView>
+        </ListView.View>
+      </ListView>
+      <TextBlock Margin="0,24,0,0"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Top"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{l:Tr BulkCheck.NoAccounts}"
+                 Visibility="{Binding CreatedAccounts.Count, Mode=OneWay, Converter={StaticResource Ad.EmptyToVisible}}" />
+    </Grid>
+  </DockPanel>
 </UserControl>

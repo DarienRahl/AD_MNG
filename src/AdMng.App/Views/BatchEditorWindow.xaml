@@ -594,6 +594,7 @@
               <TextBlock Text="{l:Tr Batch.StepOperations}" Visibility="{Binding IsObjectsMode, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
               <TextBlock Text="{l:Tr BatchUi.StepCsv}" Visibility="{Binding IsCsvMode, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
               <!-- F3 step labels (B4) -->
+              <TextBlock Text="{l:Tr BulkCheck.StepPrepare}" Visibility="{Binding IsCreateMode, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
             </StackPanel>
           </Border>
           <TextBlock Style="{StaticResource StepChevron}" />
@@ -1125,6 +1126,35 @@
       <!-- ===== 2. Preview ===== -->
       <DockPanel x:Name="PreviewPanel" Visibility="{Binding IsPreviewStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
         <!-- F3 undo note (B4) -->
+        <Border x:Name="BulkUndoNote"
+                Margin="0,0,0,8"
+                DockPanel.Dock="Top">
+          <Border.Style>
+            <Style TargetType="Border" BasedOn="{StaticResource Ad.WarningBar}">
+              <Setter Property="Visibility" Value="Collapsed" />
+              <Style.Triggers>
+                <MultiDataTrigger>
+                  <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding IsCreateMode, Mode=OneWay}" Value="True" />
+                    <Condition Binding="{Binding IsRollbackPreview, Mode=OneWay}" Value="True" />
+                  </MultiDataTrigger.Conditions>
+                  <Setter Property="Visibility" Value="Visible" />
+                </MultiDataTrigger>
+              </Style.Triggers>
+            </Style>
+          </Border.Style>
+          <DockPanel>
+            <TextBlock Margin="0,0,8,0"
+                       DockPanel.Dock="Left"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Warning}" />
+            <TextBlock x:Name="BulkUndoNoteText"
+                       AutomationProperties.LiveSetting="Polite"
+                       Text="{Binding UndoNote, Mode=OneWay}"
+                       TextWrapping="Wrap" />
+          </DockPanel>
+        </Border>
         <Border x:Name="RollbackBanner"
                 Margin="0,0,0,8"
                 DockPanel.Dock="Top"
@@ -1347,6 +1377,17 @@
       <!-- ===== 4. Results ===== -->
       <DockPanel x:Name="ResultsPanel" Visibility="{Binding IsResultsStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
         <!-- F3 bulk create results (B4) -->
+        <ContentControl x:Name="BulkResultsPanel"
+                        Content="{Binding Mode=OneWay}"
+                        DockPanel.Dock="Top"
+                        Focusable="False"
+                        Visibility="{Binding IsCreateMode, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <ContentControl.ContentTemplate>
+            <DataTemplate>
+              <bulk:BulkResultsView />
+            </DataTemplate>
+          </ContentControl.ContentTemplate>
+        </ContentControl>
         <DockPanel Margin="0,0,0,8" DockPanel.Dock="Top">
           <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
             <Button Margin="8,0,0,0"

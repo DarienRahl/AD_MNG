@@ -1893,3 +1893,87 @@ additions:
   chosen meanwhile. *Bez hasła* no longer leaves *Konto włączone* cleared when another password mode is chosen again (the
   operator's choice comes back). The date entries of *Wstaw pole* describe the format (*RRRR-MM-DD*) instead of a fixed day;
   a few Polish texts reworded.
+
+**B4 as built.** Bodies of `BulkCheckViewModel`, `CheckRowViewModel` / `CheckCellViewModel`, `BulkCreateViewModel.Plan.cs`,
+`CreatedAccountViewModel`, `L.BulkCreateCheck` and the B4 resx block; the batch editor's create branches at the anchors of
+2.13; `IsBulkCreateAvailable => true` and the three menu entries; `BulkCheckView`, `BulkResultsView`, `BulkCreateSamples`,
+`SmokeTest.RenderBulkCreateAsync`; the tests of 2.11. Deviations and additions:
+
+* **Seams for the time before the wave-2 merge** (B3's outputs throw until then). `BulkCheckViewModel.Input` is an internal
+  settable `Func<BulkCreateInput?>` (default: the host's `BuildInput`), `BulkCreateViewModel.EnterCheckStepAsync()` (internal)
+  goes to *Sprawdzenie* and computes, `SharedPasswordReader` (internal, default `Rules.ReadSharedPassword`) – the Presentation
+  tests drive the check, the plan and the results through the fixture `B4Wizard` (in `BulkCheckTests.cs`) with them.
+  `BulkCreateViewModel.ShowSample(computation, plan)` (public) shows a finished computation in the check step and keeps the plan
+  for the next Preview **only while the window has no session** – the smoke test and screenshot 43 render without a planner;
+  `BulkCheckViewModel.Show(computation)` (public) updates the grid in place without computing. The Excel row of step 1 is
+  wired in the toolkit's generated `partial void OnStepChanged(BulkCreateStep)` (Plan.cs: `Check.ExcelRowOffset ??= () =>
+  Source.ExcelRowOffset`), because the host's constructor is the contract's; before that, *Nr* is `number + 1` with a header
+  (`HeaderLine` + 1) and `number` without.
+* **Batch editor.** Besides the anchors: `OnBulkCreateChanged` (contract line) also raises `WindowTitle` and `ChangeTitle`
+  (the container and the kind change the title); the create branch of `ExecuteAsync` calls the new private
+  `ExecuteCreateModeAsync` next to it; the create branch of `Undo` runs a local async function (the command is synchronous).
+  Every execution in create mode is confirmed by typing (`BulkCheck.ConfirmCreate`, or `ConfirmCreateWithoutPasswords` for
+  contacts, groups, computers and users without a password, for a new create plan; `Batch.ConfirmExecute` for a retry and the
+  undo) and runs with the plan's own title (the undo's is `BulkCheck.UndoTitle`: *Cofnięcie: Utworzenie kont (5) w jednostce
+  „Nowi pracownicy”*). The wizard's own planning reasons (*wpisz hasło ponownie*, retry boxes, not connected) reach the
+  editor's `Error` through `BulkCreateViewModel.LastPlanError` instead of the generic *Nieoczekiwany błąd*. The preview build of
+  5 000 creates stays on the UI thread: the end-to-end test builds it in well under 3 s (the whole compute, plan and preview of
+  5 000 rows takes ≈ 3 s on Linux), so the lead-agreed `RunPlanningAsync` anchor is not used.
+* **Change title.** `BulkCheck.ChangeTitle.<kind>` (`L.BulkCreateCheck.ChangeTitleKey`: users, contacts, groups, computers;
+  `{0}` objects, `{1}` the place) with `BulkCheck.InUnit` (*jednostce „…”*), `InContainer` (*kontenerze „…”*) and `InDomain`;
+  counted from the OK and warning rows and fixed when the plan is built.
+* **Canary.** Up to `MaxCanaries` (3) when a canary's Create fails with `AlreadyExists` / `ConstraintViolation`; every other
+  failure (incl. a partially succeeded canary) stops. The objects that did not run are added to the result as `Cancelled`
+  (error rows `Skipped`) with no change – synthesized, not audited – so *Ponów nieudane* covers them; the retry runs a canary
+  again when the last run stopped after its canary or a new shared password was typed (2.7 said: no canary on a retry).
+* **Retry with a new shared password.** The two boxes of `BulkResultsView` (`NeedsRetryPassword`: `SameForAll` at plan time and
+  a failed reset with `PasswordPolicy`) are read when *Ponów nieudane* runs – empty → `BulkCheck.RetryPasswordRequired`,
+  different → `Batch.PasswordMismatch` – instead of disabling the button (`CanRetryFailed` is not an anchor); the new password
+  goes to **every** password step of the retry plan (rows the canary stopped never tried theirs) and the boxes are cleared.
+* **Results.** `Result` is the accumulated result after a create or retry execution and the undo's own result after an undo;
+  the undo removes the deleted objects (and their passwords) from `Accumulated`; their accounts stay listed as *Usunięte
+  (cofnięte)* without a password. `BulkResultsView`'s DataContext is the `BatchEditorViewModel` (its `CreatedAccounts`; the
+  wizard's commands and notes through `BulkCreate`), not the wizard. Run notes (`ResultNotes`): the canary stop, the
+  replication note (DC and PDC emulator of the plan's computation), *Konto bez hasła pozostaje wyłączone*, the forest UPN hint.
+  The created accounts list contacts and groups too (without a password); computers never. *Kopiuj tabelę z hasłami…* asks
+  with its own clipboard wording (`BulkCheck.CopyPasswordsTitle` / `CopyPasswordsWarning`) instead of the file-export warning;
+  the sheet's columns of the copy are chosen in `CopyColumns` (`SheetColumnOption`; phone and pattern-only columns
+  preselected, password-like headers never offered). *Kopiuj bez haseł* hands nothing out (2.7 said both mark). *Pokaż*
+  counts as handed out (as *Resetuj hasło*). The close guard watches **generated** passwords only (a shared password was
+  typed by the operator). `MarkPasswordsHandedOut()` marks every account with a password; it runs before the next execution
+  when the results were exported with the passwords (`ShowResults` resets the export flag).
+* **Check grid.** Descriptor keys `#number`, `#notes`, `#manager`, `#groups`; frozen: *Nr* plus `givenName`, `sn` (users,
+  contacts) or `cn` (groups, computers); *Uwagi* right after them; masked columns are `SecretAttributes`. The include check box
+  and the status glyph are fixed XAML columns before the generated ones (`FrozenColumnCount` = 2 + the frozen descriptors).
+  A cell commits on Enter or leaving the cell (`UpdateSourceTrigger=Explicit`, updated in `CellEditEnding` on commit only, so
+  Escape drops the text). After an execution or an undo the grid is computed again in the background (`RecomputeSoon`).
+  The GC wait is `GlobalCatalogWait` (20 s on the window's `TimeProvider`); a failed connect checks in the domain only.
+* **Snapshots.** `CreatedRows` and `ReleasedValues` (read by the host's `BuildInput`) are immutable snapshots replaced on
+  every change, so a computation on the thread pool never sees the UI thread mark a row.
+* **Tests.** Presentation: `BulkCheckTests` (23, incl. the GC-session tests with `GlobalCatalogSessionDouble` over
+  `FakeGlobalCatalogReader`, and every F3 issue code in Polish), `BulkCreateBatchEditorTests` (20), `BulkCreateEntryPointTests`
+  (5), `BulkCreateEndToEndTests` (2 + `OperatorScenario` `[Fact(Skip = "F3 wave 2 merge")]`, written against B3's public
+  members: `Source.PasteCommand`, `Columns.Mappings`, `Rules.Profiles` / `Profile` / `UpnSuffix` / `AddGroupsCommand` /
+  `SetDefaultForContainerCommand` / `FirstFreeText`). UI (Windows CI): `BulkCreateWindowTests` (6 + the end-to-end paste test
+  skipped until the merge), `ScreenshotTestsBulkCreateCheck` (screenshot 43). The smoke test renders step 1, the check step and
+  the preview of `BulkCreateSamples`; loading `BulkCreateSamples.Tsv` through `Source` waits for B3's loading API.
+* **Review (B4).** A table replaced (header choice, *Wklej i zastąp*, a new file) or a kind changed after this window
+  created objects: the row numbers of the new table name other rows, so `BulkCheckViewModel.ResetGeneration` is now read –
+  the first plan, execution, retry or undo after a reset moves the earlier table's rows to negative keys (`_createdRows`,
+  `CreatedObjects`, `CreatedAccountViewModel.Row`, the `SourceRow`s of `Accumulated`), and `CreatedRows` is empty for the
+  new table. Before, rows 1–5 of the second sheet were shown and planned as *Utworzone* (never created), and a second
+  execution's results replaced the first table's accounts and passwords in the merge (keyed by row). The results list shows
+  such a row with `#-n`; its Excel row and the sheet columns of *Kopiuj tabelę…* are those of its own (gone) sheet – the Excel
+  row is kept, the extra cells are empty. `OnInputReset` also refreshes the lookups, so the new table is numbered after the
+  accounts just created (kd213 …, not kd208 again). The undo's `bulk.CreatedRows.Count` check became `CreatedCount` (every
+  table of the window). The GUID read after an execution is matched to its rows through the recorded DNs, and the undo
+  reads again every created row without a GUID – including rows whose read failed as a whole (before, those were left out of
+  the undo silently: an undo after a failed read said *Nie ma nic do cofnięcia*). After an undo and a re-run of the same rows
+  a third execution threw (`_accounts.ToDictionary` over the undone and the new account of a row); only live accounts are
+  matched now. An edit or an exclusion cancels a computation still running (a *Sprawdź ponownie*, the first computation),
+  so its older rows no longer re-check an unchecked row or revert an edited cell until the debounced recompute. The change
+  title without a container is the wizard's title (not *… w Nie wybrano kontenera*); `ShowResults` builds the result rows of
+  a create execution once (the accumulated ones). The results UI test uses a recording clipboard (a password never goes to
+  the CI desktop's clipboard, and a busy clipboard no longer fails it). Texts: *Problemy dotyczące wszystkich wierszy*,
+  *emulator PDC: nie wiadomo*, the retry hint (*otrzymają je wszystkie konta, które jeszcze nie mają hasła* – a refused shared
+  password has no generated ones), *po przygotowaniu każdego planu*; English titles *in the organizational unit “…”*.
