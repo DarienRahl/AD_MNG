@@ -33,6 +33,24 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: "true"
 
 jobs:
+  checks:
+    # Seconds, no .NET and no secrets: what tools/release/release.sh checks before it commits a release
+    # (docs/dev/releasing.md). Versions agree in all their places, release notes are well-formed, Polish and English
+    # documents have the same headings, relative links and anchors resolve, the resx pairs have the same keys.
+    name: Checks (versions, release notes, documentation)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Release and documentation checks
+        run: bash tools/release/release.sh check
+      - name: Icon set (sources valid, generated files up to date)
+        run: python3 tools/icon/build-icon-set.py --check
+
   windows:
     name: Build, unit & UI smoke tests (Windows)
     runs-on: windows-latest
