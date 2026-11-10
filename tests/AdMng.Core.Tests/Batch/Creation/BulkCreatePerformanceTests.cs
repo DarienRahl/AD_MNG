@@ -9,6 +9,7 @@ namespace AdMng.Core.Tests.Batch.Creation;
 /// name-based profile each compute within 10 s and within the query budget of 2.4, and the plan of 5 000 accounts is built
 /// within 2 s.
 /// </summary>
+[Collection(TimingCollection.Name)]
 public sealed class BulkCreatePerformanceTests
 {
     private const int Rows = 5000;
