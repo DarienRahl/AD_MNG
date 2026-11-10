@@ -11,7 +11,7 @@
 **A fast, modern successor to the `dsa.msc` snap-in – with bulk editing, the AD Recycle Bin and a directory change monitor**
 
 [![CI](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml/badge.svg)](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-0.14.0-2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
+[![Version](https://img.shields.io/badge/version-0.15.0-2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
 [![Downloads](https://img.shields.io/github/downloads/DarienRahl/AD_MNG/total?label=downloads&color=2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
 ![WPF Fluent](https://img.shields.io/badge/WPF-Fluent-0078D4)
@@ -838,7 +838,7 @@ specifications [dev/watchdog-spec.md](docs/dev/watchdog-spec.md) and
   LDAP over GSSAPI, API with Negotiate and roles, OpenWEC, SYSVOL), lab scripts (`tools/testlab/watchdog`)
   also run in CI, package installation tests in Debian 12 and 13 containers.
 
-**To do before the stable release (0.14.0 is a preview release):** a pilot in a Windows Server 2025 lab
+**To do before the stable release (0.15.0 is a preview release):** a pilot in a Windows Server 2025 lab
 with Debian 13 and an admin workstation, then in a test domain with 2025 and 2022 domain controllers – the shared
 checklist [PILOT.md](docs/en/PILOT.md) (AD Manager, Group Policy, event logs) and the service checklist
 [WATCHDOG-LINUX.md, section 7](docs/en/WATCHDOG-LINUX.md#7-pilot--checklist) (forwarding events from real

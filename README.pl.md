@@ -11,7 +11,7 @@
 **Szybki, nowoczesny następca przystawki `dsa.msc` – z edycją zbiorczą, Koszem AD i monitorem zmian w katalogu**
 
 [![CI](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml/badge.svg)](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml)
-[![Wersja](https://img.shields.io/badge/wersja-0.14.0-2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
+[![Wersja](https://img.shields.io/badge/wersja-0.15.0-2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
 [![Pobrania](https://img.shields.io/github/downloads/DarienRahl/AD_MNG/total?label=pobrania&color=2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
 ![WPF Fluent](https://img.shields.io/badge/WPF-Fluent-0078D4)
@@ -827,7 +827,7 @@ specyfikacje [dev/watchdog-spec.md](docs/dev/watchdog-spec.md) i
   LDAP przez GSSAPI, API z Negotiate i rolami, OpenWEC, SYSVOL), skrypty laboratoryjne (`tools/testlab/watchdog`)
   uruchamiane także w CI, testy instalacji pakietów w kontenerach Debian 12 i 13.
 
-**Do zrobienia przed wersją stabilną (0.14.0 jest wersją zapoznawczą):** pilotaż na laboratorium Windows Server 2025
+**Do zrobienia przed wersją stabilną (0.15.0 jest wersją zapoznawczą):** pilotaż na laboratorium Windows Server 2025
 z Debianem 13 i stacją administratora, potem w domenie testowej z kontrolerami 2025 i 2022 – wspólna lista kontrolna
 [PILOTAZ.md](docs/PILOTAZ.md) (AD Manager, zasady grupy, dzienniki zdarzeń) i lista usługi
 [WATCHDOG-LINUX.md, rozdział 7](docs/WATCHDOG-LINUX.md#7-pilotaż--lista-kontrolna) (przekazywanie zdarzeń z prawdziwych
