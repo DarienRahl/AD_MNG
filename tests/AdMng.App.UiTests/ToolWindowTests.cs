@@ -165,6 +165,19 @@ public sealed class ToolWindowTests
         Assert.Same(settings.Language, window.LanguageBox.SelectedItem);
         Assert.Same(settings.Theme, window.ThemeBox.SelectedItem);
 
+        // Icons (V1): colour by default, monochrome as the other choice, with the High Contrast note under the box.
+        Assert.Equal(IconStylePreference.Colour, settings.IconStyle.Value);
+        Assert.Same(settings.IconStyle, window.IconStyleBox.SelectedItem);
+        Assert.Equal(2, window.IconStyleBox.Items.Count);
+        Assert.True(window.IconStyleBox.IsVisible);
+        Assert.Equal(context.Localizer()[AdMng.Presentation.Localization.L.Settings.IconStyleHint], window.IconStyleHint.Text);
+        window.IconStyleBox.SelectedItem = settings.IconStyles.Single(i => i.Value == IconStylePreference.Monochrome);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(IconStylePreference.Monochrome, settings.IconStyle.Value);
+        settings.IconStyle = settings.IconStyles.Single(i => i.Value == IconStylePreference.Colour);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Same(settings.IconStyle, window.IconStyleBox.SelectedItem);
+
         // Typing in the box updates the setting; out of range values disable Save.
         window.PageSizeBox.Text = "10";
         await UiTestSupport.WaitForIdleAsync();
@@ -189,6 +202,7 @@ public sealed class ToolWindowTests
         Assert.Equal(40, current.ConfirmationThreshold);
         Assert.True(current.ShowAdvancedFeatures);
         Assert.Equal("pl", current.Language);
+        Assert.Equal(IconStylePreference.Colour, current.IconStyle);
         Assert.Equal("pl-PL", context.Localizer().Culture.Name);
         context.AssertHealthy();
     });
