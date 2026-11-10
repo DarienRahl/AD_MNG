@@ -1,9 +1,258 @@
 <!--
-  Step 1 "Dane": paste, file, typed rows, header choice, warnings (docs/dev/phase3-bulk-create.md 2.6).
-  Contract placeholder: B3 replaces this view.
+  Step 1 "Dane" of the bulk creation wizard (BulkSourceViewModel, docs/dev/phase3-bulk-create.md 2.6): paste from Excel (Ctrl+V
+  appends, "Wklej i zastąp" replaces), a CSV / xlsx file, typed rows and columns, the header choice and line, the Excel row
+  offset, the repeated-paste question, the reading warnings and the editable source grid. The grid's columns are generated in
+  code-behind from SourceColumnViewModel (one per table column, bound to the row indexer [i]; password-like columns are
+  read-only and show and copy the mask). Rows and columns are virtualized (5 000 rows).
 -->
 <UserControl x:Class="AdMng.App.BulkCreate.BulkSourceView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <Grid />
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             AutomationProperties.Name="{l:Tr BulkCreate.StepSource}">
+  <UserControl.InputBindings>
+    <!-- Ctrl+V anywhere in the step (a cell in edit mode or a text box handles its own paste first). -->
+    <KeyBinding Key="V"
+                Command="{Binding PasteCommand}"
+                Modifiers="Control" />
+  </UserControl.InputBindings>
+
+  <UserControl.Resources>
+    <Style x:Key="ToolbarButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Margin" Value="0,0,6,0" />
+    </Style>
+    <Style x:Key="OptionLabel" TargetType="TextBlock" BasedOn="{StaticResource Ad.FieldLabel}">
+      <Setter Property="Margin" Value="0,0,8,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Resources>
+
+  <DockPanel>
+    <!-- Commands -->
+    <DockPanel Margin="0,0,0,8" DockPanel.Dock="Top">
+      <ProgressBar Width="72"
+                   Margin="8,0,0,0"
+                   VerticalAlignment="Center"
+                   DockPanel.Dock="Right"
+                   IsIndeterminate="{Binding IsBusy, Mode=OneWay}"
+                   ToolTip="{l:Tr BulkCreate.Reading}"
+                   Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      <WrapPanel Orientation="Horizontal">
+        <Button x:Name="PasteButton"
+                Command="{Binding PasteCommand}"
+                Style="{StaticResource Ad.AccentDialogButton}"
+                ToolTip="{l:Tr BulkCreate.PasteToolTip}">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Margin="0,0,6,0"
+                       VerticalAlignment="Center"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Copy}" />
+            <TextBlock Text="{l:Tr BulkCreate.Paste}" />
+          </StackPanel>
+        </Button>
+        <Button x:Name="ReplaceWithPasteButton"
+                Margin="6,0,6,0"
+                Command="{Binding ReplaceWithPasteCommand}"
+                Content="{l:Tr BulkCreate.ReplaceWithPaste}"
+                ToolTip="{l:Tr BulkCreate.ReplaceWithPasteToolTip}" />
+        <Button x:Name="LoadFileButton"
+                Command="{Binding LoadFileCommand}"
+                Content="{l:Tr BulkCreate.LoadFile}"
+                Style="{StaticResource ToolbarButton}" />
+        <Rectangle Margin="6,4,12,4" Style="{StaticResource Ad.VerticalDivider}" />
+        <Button x:Name="AddRowButton"
+                Command="{Binding AddRowCommand}"
+                Content="{l:Tr BulkCreate.AddRow}"
+                Style="{StaticResource ToolbarButton}" />
+        <TextBox x:Name="NewColumnHeaderBox"
+                 Width="170"
+                 Margin="0,0,4,0"
+                 VerticalContentAlignment="Center"
+                 AutomationProperties.Name="{l:Tr BulkCreate.NewColumnHeader}"
+                 Text="{Binding NewColumnHeader, UpdateSourceTrigger=PropertyChanged}"
+                 ToolTip="{l:Tr BulkCreate.NewColumnHeader}" />
+        <Button x:Name="AddColumnButton"
+                Command="{Binding AddColumnCommand}"
+                Content="{l:Tr BulkCreate.AddColumn}"
+                Style="{StaticResource ToolbarButton}" />
+        <Button x:Name="RemoveRowsButton"
+                Command="{Binding RemoveRowsCommand}"
+                CommandParameter="{Binding SelectedItems, ElementName=SourceGrid}"
+                Content="{l:Tr BulkCreate.RemoveRows}"
+                Style="{StaticResource ToolbarButton}" />
+        <Button x:Name="ClearButton"
+                Command="{Binding ClearCommand}"
+                Content="{l:Tr Common.Clear}"
+                Style="{StaticResource ToolbarButton}" />
+      </WrapPanel>
+    </DockPanel>
+
+    <!-- Header choice, header line, Excel row offset, summary -->
+    <DockPanel Margin="0,0,0,8" DockPanel.Dock="Top">
+      <TextBlock x:Name="SummaryText"
+                 Margin="12,0,0,0"
+                 VerticalAlignment="Center"
+                 AutomationProperties.LiveSetting="Polite"
+                 DockPanel.Dock="Right"
+                 FontWeight="SemiBold"
+                 Text="{Binding Summary, Mode=OneWay}" />
+      <WrapPanel Orientation="Horizontal">
+        <TextBlock Style="{StaticResource OptionLabel}" Text="{l:Tr BulkCreate.HeaderModeLabel}" />
+        <ComboBox x:Name="HeaderModeBox"
+                  MinWidth="130"
+                  Margin="0,0,16,0"
+                  AutomationProperties.Name="{l:Tr BulkCreate.HeaderModeLabel}"
+                  DisplayMemberPath="Text"
+                  ItemsSource="{Binding HeaderModes, Mode=OneWay}"
+                  SelectedValue="{Binding HeaderMode}"
+                  SelectedValuePath="Value" />
+        <StackPanel Orientation="Horizontal" Visibility="{Binding HasTable, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <TextBlock Style="{StaticResource OptionLabel}" Text="{l:Tr BulkCreate.HeaderLineLabel}" />
+          <TextBox x:Name="HeaderLineBox"
+                   Width="56"
+                   Margin="0,0,16,0"
+                   AutomationProperties.Name="{l:Tr BulkCreate.HeaderLineLabel}"
+                   Text="{Binding HeaderLine, UpdateSourceTrigger=LostFocus, TargetNullValue=''}" />
+          <TextBlock Style="{StaticResource OptionLabel}" Text="{l:Tr BulkCreate.ExcelRowOffsetLabel}" />
+          <TextBox x:Name="ExcelRowOffsetBox"
+                   Width="56"
+                   AutomationProperties.Name="{l:Tr BulkCreate.ExcelRowOffsetLabel}"
+                   Text="{Binding ExcelRowOffset, UpdateSourceTrigger=LostFocus}" />
+        </StackPanel>
+      </WrapPanel>
+    </DockPanel>
+
+    <!-- Problem of the last paste or file -->
+    <Border Margin="0,0,0,8"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.ErrorBar}"
+            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <DockPanel>
+        <TextBlock Margin="0,0,10,0"
+                   DockPanel.Dock="Left"
+                   Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Error}" />
+        <TextBlock x:Name="ErrorText"
+                   AutomationProperties.LiveSetting="Assertive"
+                   Text="{Binding Error, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+      </DockPanel>
+    </Border>
+
+    <!-- Te wiersze są już wklejone – Dołącz mimo to / Zastąp / Anuluj -->
+    <Border x:Name="RepeatedPastePanel"
+            Margin="0,0,0,8"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.WarningBar}"
+            Visibility="{Binding HasRepeatedPaste, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <DockPanel>
+        <StackPanel Margin="12,0,0,0"
+                    DockPanel.Dock="Right"
+                    Orientation="Horizontal">
+          <Button x:Name="AppendRepeatedButton"
+                  Command="{Binding AppendRepeatedCommand}"
+                  Content="{l:Tr BulkCreate.AppendRepeated}" />
+          <Button x:Name="ReplaceWithRepeatedButton"
+                  Margin="6,0,0,0"
+                  Command="{Binding ReplaceWithRepeatedCommand}"
+                  Content="{l:Tr BulkCreate.ReplaceWithRepeated}" />
+          <Button x:Name="CancelRepeatedButton"
+                  Margin="6,0,0,0"
+                  Command="{Binding CancelRepeatedCommand}"
+                  Content="{l:Tr Common.Cancel}" />
+        </StackPanel>
+        <TextBlock Margin="0,0,10,0"
+                   VerticalAlignment="Center"
+                   DockPanel.Dock="Left"
+                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Question}" />
+        <TextBlock x:Name="RepeatedPasteText"
+                   VerticalAlignment="Center"
+                   AutomationProperties.LiveSetting="Assertive"
+                   Text="{Binding RepeatedPasteQuestion, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+      </DockPanel>
+    </Border>
+
+    <!-- Reading warnings (localized, Excel rows) -->
+    <Border x:Name="WarningsPanel"
+            Margin="0,0,0,8"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.WarningBar}"
+            Visibility="{Binding Warnings, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <DockPanel>
+        <TextBlock Margin="0,1,10,0"
+                   VerticalAlignment="Top"
+                   DockPanel.Dock="Left"
+                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Warning}" />
+        <ScrollViewer MaxHeight="88" VerticalScrollBarVisibility="Auto">
+          <ItemsControl x:Name="WarningsList"
+                        AutomationProperties.Name="{l:Tr Common.Warning}"
+                        ItemsSource="{Binding Warnings, Mode=OneWay}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Margin="0,0,0,2"
+                           Text="{Binding Mode=OneWay}"
+                           TextWrapping="Wrap" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+
+    <!-- The source grid; the hint shows while nothing is loaded -->
+    <Grid>
+      <DataGrid x:Name="SourceGrid"
+                AutoGenerateColumns="False"
+                AutomationProperties.Name="{l:Tr BulkCreate.StepSource}"
+                CanUserAddRows="False"
+                CanUserDeleteRows="False"
+                CanUserReorderColumns="False"
+                CanUserSortColumns="False"
+                ClipboardCopyMode="IncludeHeader"
+                EnableColumnVirtualization="True"
+                EnableRowVirtualization="True"
+                FrozenColumnCount="1"
+                HeadersVisibility="Column"
+                IsReadOnly="{Binding IsBusy, Mode=OneWay}"
+                ItemsSource="{Binding Rows, Mode=OneWay}"
+                SelectionMode="Extended"
+                SelectionUnit="FullRow"
+                VirtualizingPanel.IsVirtualizing="True"
+                VirtualizingPanel.VirtualizationMode="Recycling"
+                Visibility="{Binding HasTable, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <DataGrid.InputBindings>
+          <KeyBinding Key="Delete"
+                      Command="{Binding RemoveRowsCommand}"
+                      CommandParameter="{Binding SelectedItems, ElementName=SourceGrid}" />
+        </DataGrid.InputBindings>
+      </DataGrid>
+      <Border x:Name="EmptyHint"
+              MaxWidth="560"
+              Padding="24"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Style="{StaticResource Ad.Card}"
+              Visibility="{Binding HasTable, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}">
+        <StackPanel>
+          <TextBlock Margin="0,0,0,10"
+                     HorizontalAlignment="Center"
+                     FontSize="28"
+                     Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                     Style="{StaticResource Ad.GlyphText}"
+                     Text="{x:Static c:Glyphs.Copy}" />
+          <TextBlock HorizontalAlignment="Center"
+                     Text="{l:Tr BulkCreate.SourceHint}"
+                     TextAlignment="Center"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+    </Grid>
+  </DockPanel>
 </UserControl>
