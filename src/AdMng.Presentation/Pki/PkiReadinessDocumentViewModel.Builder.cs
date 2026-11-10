@@ -11,6 +11,9 @@ namespace AdMng.Presentation.Pki;
 /// </summary>
 internal sealed class PkiReadinessRows(PkiServices pki, ILocalizer localizer, PkiSnapshot snapshot, PkiHealthThresholds thresholds, DateTimeOffset now)
 {
+    /// <summary>The LDAPS port (the global catalog's is 3269).</summary>
+    private const int LdapsPort = 636;
+
     private readonly bool _hasPki = !snapshot.Notices.Any(n => n.Code is PkiReadNoticeCode.BaseNotFound or PkiReadNoticeCode.BaseAccessDenied);
 
     /// <summary>Accounts with weak or invalid <c>altSecurityIdentities</c> (Tier 0 first), and one OK row for the strong ones.</summary>
@@ -213,8 +216,11 @@ internal sealed class PkiReadinessRows(PkiServices pki, ILocalizer localizer, Pk
         var title = localizer.Format(L.PkiReadiness.LdapsHost, check.Host, check.Port);
         if (check.Outcome != TlsProbeOutcome.Ok || check.Certificate is not { } info)
         {
+            // LDAPS (636) is what strong mapping and the LDAP clients need; a closed global catalog port (3269) is often a
+            // firewall decision, so it only warns.
             var status = check.Outcome switch
             {
+                TlsProbeOutcome.PortClosed when check.Port != LdapsPort => PkiReadinessStatus.Warning,
                 TlsProbeOutcome.HandshakeFailed or TlsProbeOutcome.PortClosed => PkiReadinessStatus.Problem,
                 TlsProbeOutcome.Timeout or TlsProbeOutcome.NameNotResolved => PkiReadinessStatus.Warning,
                 _ => PkiReadinessStatus.NotChecked,

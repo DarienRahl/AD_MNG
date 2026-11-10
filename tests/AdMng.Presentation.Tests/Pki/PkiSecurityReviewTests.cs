@@ -481,6 +481,9 @@ internal sealed class HookedPkiSnapshotService(DirectPkiSnapshotService inner) :
 
     public Exception? ExpansionFailure { get; set; }
 
+    /// <summary>The DC checks the LDAPS button gets instead of probing (null: the inner service probes).</summary>
+    public IReadOnlyList<DcTlsCheck>? DcChecks { get; set; }
+
     public int Refreshes { get; private set; }
 
     public PkiSnapshot? Current => Snapshot ?? inner.Current;
@@ -491,7 +494,7 @@ internal sealed class HookedPkiSnapshotService(DirectPkiSnapshotService inner) :
 
     public PkiEnrollmentExpansion? Expansion => inner.Expansion;
 
-    public IReadOnlyList<DcTlsCheck>? DcCertificates => inner.DcCertificates;
+    public IReadOnlyList<DcTlsCheck>? DcCertificates => DcChecks is null ? inner.DcCertificates : null;
 
     public IReadOnlyList<PkiHttpCheckResult>? HttpResults => inner.HttpResults;
 
@@ -524,7 +527,7 @@ internal sealed class HookedPkiSnapshotService(DirectPkiSnapshotService inner) :
         inner.GetDomainControllersAsync(refresh, cancellationToken);
 
     public Task<IReadOnlyList<DcTlsCheck>> GetDcCertificatesAsync(bool refresh, CancellationToken cancellationToken) =>
-        inner.GetDcCertificatesAsync(refresh, cancellationToken);
+        DcChecks is { } checks ? Task.FromResult(checks) : inner.GetDcCertificatesAsync(refresh, cancellationToken);
 
     public Task<IReadOnlyList<PkiHttpCheckResult>> CheckHttpAsync(IProgress<int>? progress, CancellationToken cancellationToken) =>
         inner.CheckHttpAsync(progress, cancellationToken);

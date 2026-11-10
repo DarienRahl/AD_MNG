@@ -194,6 +194,28 @@ public sealed class PkiReadinessTests
     }
 
     [Fact]
+    public async Task AClosedGlobalCatalogPort_OnlyWarns_WhileAClosedLdapsPortIsAProblem()
+    {
+        var h = await PkiHarness.CreateAsync();
+        var snapshot = new HookedPkiSnapshotService(h.Snapshot)
+        {
+            DcChecks =
+            [
+                new DcTlsCheck("dc01.contoso.test", 636, TlsProbeOutcome.PortClosed, null),
+                new DcTlsCheck("dc01.contoso.test", 3269, TlsProbeOutcome.PortClosed, null),
+            ],
+        };
+        using var readiness = new PkiReadinessDocumentViewModel(new PkiServices(h.B2.Services, new CsvCodec(), snapshot, h.TlsProbe));
+        await readiness.LoadAsync();
+        await readiness.CheckLdapsCommand.ExecuteAsync(null);
+
+        Assert.Equal(
+            "Problem | dc01.contoso.test (port 636) | Port zamknięty" + Environment.NewLine + "Warning | dc01.contoso.test (port 3269) | Port zamknięty",
+            Rows(Area(readiness, PkiReadinessArea.DomainControllerLdaps)));
+        Assert.Empty(h.TlsProbe.Calls);
+    }
+
+    [Fact]
     public async Task WithoutATlsProbe_TheLdapsAreaSaysSo_AndTheButtonWaits()
     {
         var h = await PkiHarness.CreateAsync();
