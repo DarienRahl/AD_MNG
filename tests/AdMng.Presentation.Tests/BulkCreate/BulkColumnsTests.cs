@@ -198,7 +198,7 @@ public sealed class BulkColumnsTests
         Assert.False(password.CanMap);
         Assert.Equal(ColumnTargetKind.Ignore, password.Target);
         Assert.Equal([BulkSourceViewModel.Mask, BulkSourceViewModel.Mask], password.Samples);
-        Assert.Equal("wygląda na hasła – nigdy nie jest używana", password.NoteText);
+        Assert.Equal("prawdopodobnie hasła – kolumna nie zostanie użyta", password.NoteText);
         password.Target = ColumnTargetKind.Attribute;
         Assert.Equal(ColumnTargetKind.Ignore, password.Target);
         Assert.Equal(ColumnTargetKind.Ignore, wizard.Columns.ToMappings()[2].Kind);

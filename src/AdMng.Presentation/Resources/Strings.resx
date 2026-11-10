@@ -21910,7 +21910,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Given name|Surname|E-mail|Mobile|Department</value>
   </data>
   <data name="BulkCreate.MaskedColumnToolTip" xml:space="preserve">
-    <value>This column looks like passwords: it is hidden and not used</value>
+    <value>This column probably holds passwords – it is hidden and not used</value>
   </data>
   <data name="BulkCreate.ColumnsHint" xml:space="preserve">
     <value>Each column of the sheet goes to an attribute, is used only in patterns or is skipped. The columns were recognized by their headers and contents – check and correct them.</value>
@@ -21943,7 +21943,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>International format</value>
   </data>
   <data name="BulkCreate.PasswordColumnNote" xml:space="preserve">
-    <value>looks like passwords – never used</value>
+    <value>probably passwords – the column is not used</value>
   </data>
   <data name="BulkCreate.ProfileMappingNote" xml:space="preserve">
     <value>as remembered in the profile</value>
@@ -21964,7 +21964,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Column „{0}”: the attribute {1} cannot be set when creating objects.</value>
   </data>
   <data name="BulkCreate.TargetNotForKind" xml:space="preserve">
-    <value>Column „{0}”: „{1}” is not available for this kind of objects.</value>
+    <value>Column „{0}”: the target „{1}” is not available for this kind of objects.</value>
   </data>
   <data name="BulkCreate.DuplicateTarget" xml:space="preserve">
     <value>Columns „{0}” and „{1}” have the same target – skip one of them.</value>
@@ -22237,7 +22237,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Account expires: end of</value>
   </data>
   <data name="BulkCreate.LengthBelowDomain" xml:space="preserve">
-    <value>The domain requires passwords of at least this length: {0}.</value>
+    <value>The domain requires longer passwords (minimum length: {0}).</value>
   </data>
   <data name="BulkCreate.ExpiryDateRequired" xml:space="preserve">
     <value>Choose the expiry date.</value>
@@ -22285,7 +22285,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Fix disallowed characters in identifiers (ą→a, spaces)</value>
   </data>
   <data name="BulkCreate.TruncateNames" xml:space="preserve">
-    <value>Shorten names that are too long (logon name 20, cn 64 characters)</value>
+    <value>Shorten names that are too long (character limit: logon name 20, cn 64)</value>
   </data>
   <data name="BulkCreate.AddPrimarySmtp" xml:space="preserve">
     <value>Add the primary SMTP address to proxyAddresses (Microsoft 365 / Exchange)</value>

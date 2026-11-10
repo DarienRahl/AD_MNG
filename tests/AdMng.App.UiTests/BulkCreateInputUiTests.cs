@@ -155,6 +155,11 @@ public sealed class BulkCreateInputUiTests
 
         var watch = Stopwatch.StartNew();
         var paste = wizard.Source.PasteCommand.ExecuteAsync(null);
+        if (!paste.IsCompleted)
+        {
+            // A header choice would re-read the previous table and race the paste.
+            Assert.False(source.HeaderModeBox.IsEnabled, "the header choice waits for the paste");
+        }
 
         // The UI thread keeps pumping while the sheet is parsed on the thread pool.
         while (!paste.IsCompleted)

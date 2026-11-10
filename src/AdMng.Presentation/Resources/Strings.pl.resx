@@ -21910,7 +21910,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Imię|Nazwisko|E-mail|Telefon komórkowy|Dział</value>
   </data>
   <data name="BulkCreate.MaskedColumnToolTip" xml:space="preserve">
-    <value>Ta kolumna wygląda na hasła: jest ukryta i nie zostanie użyta</value>
+    <value>Ta kolumna zawiera prawdopodobnie hasła – jest ukryta i nie zostanie użyta</value>
   </data>
   <data name="BulkCreate.ColumnsHint" xml:space="preserve">
     <value>Każda kolumna arkusza trafia do atrybutu, jest używana tylko we wzorcach albo zostaje pominięta. Kolumny rozpoznano po nagłówkach i zawartości – sprawdź je i w razie potrzeby popraw.</value>
@@ -21943,7 +21943,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Format międzynarodowy</value>
   </data>
   <data name="BulkCreate.PasswordColumnNote" xml:space="preserve">
-    <value>wygląda na hasła – nigdy nie jest używana</value>
+    <value>prawdopodobnie hasła – kolumna nie zostanie użyta</value>
   </data>
   <data name="BulkCreate.ProfileMappingNote" xml:space="preserve">
     <value>jak zapamiętano w profilu</value>
@@ -21964,7 +21964,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Kolumna „{0}”: atrybutu {1} nie można ustawić przy zakładaniu obiektów.</value>
   </data>
   <data name="BulkCreate.TargetNotForKind" xml:space="preserve">
-    <value>Kolumna „{0}”: „{1}” nie jest dostępne dla tego rodzaju obiektów.</value>
+    <value>Kolumna „{0}”: przeznaczenie „{1}” nie jest dostępne dla tego rodzaju obiektów.</value>
   </data>
   <data name="BulkCreate.DuplicateTarget" xml:space="preserve">
     <value>Kolumny „{0}” i „{1}” mają to samo przeznaczenie – pomiń jedną z nich.</value>
@@ -22237,7 +22237,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Konto wygasa: koniec dnia</value>
   </data>
   <data name="BulkCreate.LengthBelowDomain" xml:space="preserve">
-    <value>Domena wymaga haseł o długości co najmniej: {0}.</value>
+    <value>Domena wymaga dłuższych haseł (minimalna długość: {0}).</value>
   </data>
   <data name="BulkCreate.ExpiryDateRequired" xml:space="preserve">
     <value>Wybierz datę wygaśnięcia.</value>
@@ -22285,7 +22285,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Poprawiaj niedozwolone znaki w identyfikatorach (ą→a, spacje)</value>
   </data>
   <data name="BulkCreate.TruncateNames" xml:space="preserve">
-    <value>Skracaj za długie nazwy (nazwa logowania 20, cn 64 znaki)</value>
+    <value>Skracaj za długie nazwy (limit znaków: nazwa logowania 20, cn 64)</value>
   </data>
   <data name="BulkCreate.AddPrimarySmtp" xml:space="preserve">
     <value>Dodaj główny adres SMTP do proxyAddresses (Microsoft 365 / Exchange)</value>

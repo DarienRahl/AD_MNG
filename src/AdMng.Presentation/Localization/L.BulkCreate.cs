@@ -144,7 +144,7 @@ public static partial class L
         /// <summary><em>Imię|Nazwisko|E-mail|Telefon komórkowy|Dział</em></summary>
         public const string StarterHeaders = "BulkCreate.StarterHeaders";
 
-        /// <summary><em>Ta kolumna wygląda na hasła: jest ukryta i nie zostanie użyta</em></summary>
+        /// <summary><em>Ta kolumna zawiera prawdopodobnie hasła – jest ukryta i nie zostanie użyta</em></summary>
         public const string MaskedColumnToolTip = "BulkCreate.MaskedColumnToolTip";
 
         /// <summary><em>Każda kolumna arkusza trafia do atrybutu, jest używana tylko we wzorcach albo zostaje pominięta. Kolumny ro…</em></summary>
@@ -177,7 +177,7 @@ public static partial class L
         /// <summary><em>Format międzynarodowy</em></summary>
         public const string UseInternationalPhones = "BulkCreate.UseInternationalPhones";
 
-        /// <summary><em>wygląda na hasła – nigdy nie jest używana</em></summary>
+        /// <summary><em>prawdopodobnie hasła – kolumna nie zostanie użyta</em></summary>
         public const string PasswordColumnNote = "BulkCreate.PasswordColumnNote";
 
         /// <summary><em>jak zapamiętano w profilu</em></summary>
@@ -198,7 +198,7 @@ public static partial class L
         /// <summary><em>Kolumna „{0}”: atrybutu {1} nie można ustawić przy zakładaniu obiektów.</em></summary>
         public const string AttributeNotSettable = "BulkCreate.AttributeNotSettable";
 
-        /// <summary><em>Kolumna „{0}”: „{1}” nie jest dostępne dla tego rodzaju obiektów.</em></summary>
+        /// <summary><em>Kolumna „{0}”: przeznaczenie „{1}” nie jest dostępne dla tego rodzaju obiektów.</em></summary>
         public const string TargetNotForKind = "BulkCreate.TargetNotForKind";
 
         /// <summary><em>Kolumny „{0}” i „{1}” mają to samo przeznaczenie – pomiń jedną z nich.</em></summary>
@@ -471,7 +471,7 @@ public static partial class L
         /// <summary><em>Konto wygasa: koniec dnia</em></summary>
         public const string HasExpiry = "BulkCreate.HasExpiry";
 
-        /// <summary><em>Domena wymaga haseł o długości co najmniej: {0}.</em></summary>
+        /// <summary><em>Domena wymaga dłuższych haseł (minimalna długość: {0}).</em></summary>
         public const string LengthBelowDomain = "BulkCreate.LengthBelowDomain";
 
         /// <summary><em>Wybierz datę wygaśnięcia.</em></summary>
@@ -519,7 +519,7 @@ public static partial class L
         /// <summary><em>Poprawiaj niedozwolone znaki w identyfikatorach (ą→a, spacje)</em></summary>
         public const string SanitizeIdentifiers = "BulkCreate.SanitizeIdentifiers";
 
-        /// <summary><em>Skracaj za długie nazwy (nazwa logowania 20, cn 64 znaki)</em></summary>
+        /// <summary><em>Skracaj za długie nazwy (limit znaków: nazwa logowania 20, cn 64)</em></summary>
         public const string TruncateNames = "BulkCreate.TruncateNames";
 
         /// <summary><em>Dodaj główny adres SMTP do proxyAddresses (Microsoft 365 / Exchange)</em></summary>

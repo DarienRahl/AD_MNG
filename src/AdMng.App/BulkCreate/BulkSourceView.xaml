@@ -99,11 +99,13 @@
                  Text="{Binding Summary, Mode=OneWay}" />
       <WrapPanel Orientation="Horizontal">
         <TextBlock Style="{StaticResource OptionLabel}" Text="{l:Tr BulkCreate.HeaderModeLabel}" />
+        <!-- The header choices re-read the table: not while a paste or a file is being read (its result would race them). -->
         <ComboBox x:Name="HeaderModeBox"
                   MinWidth="130"
                   Margin="0,0,16,0"
                   AutomationProperties.Name="{l:Tr BulkCreate.HeaderModeLabel}"
                   DisplayMemberPath="Text"
+                  IsEnabled="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.InverseBool}}"
                   ItemsSource="{Binding HeaderModes, Mode=OneWay}"
                   SelectedValue="{Binding HeaderMode}"
                   SelectedValuePath="Value" />
@@ -113,6 +115,7 @@
                    Width="56"
                    Margin="0,0,16,0"
                    AutomationProperties.Name="{l:Tr BulkCreate.HeaderLineLabel}"
+                   IsEnabled="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.InverseBool}}"
                    Text="{Binding HeaderLine, UpdateSourceTrigger=LostFocus, TargetNullValue=''}" />
           <TextBlock Style="{StaticResource OptionLabel}" Text="{l:Tr BulkCreate.ExcelRowOffsetLabel}" />
           <TextBox x:Name="ExcelRowOffsetBox"
