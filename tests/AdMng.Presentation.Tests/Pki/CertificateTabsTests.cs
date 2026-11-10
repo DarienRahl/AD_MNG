@@ -296,6 +296,16 @@ public sealed class CertificateTabsTests
         page.CopyValueCommand.Execute(page.KerberosNames[0]);
         Assert.Equal("Kerberos:grazyna@CONTOSO.TEST", harness.B2.Clipboard.Text);
 
+        // One selection across the two lists: "Kopiuj" copies the row selected last.
+        page.SelectedKerberosName = page.KerberosNames[0];
+        Assert.Null(page.SelectedMapping);
+        page.CopyValueCommand.Execute(null);
+        Assert.Equal("Kerberos:grazyna@CONTOSO.TEST", harness.B2.Clipboard.Text);
+        page.SelectedMapping = page.X509Mappings[0];
+        Assert.Null(page.SelectedKerberosName);
+        page.CopyValueCommand.Execute(null);
+        Assert.Equal("X509:<SR>0063", harness.B2.Clipboard.Text);
+
         // The mappings come with the sheet's read, and a refresh replaces them.
         harness.Session.SetValues(grazyna, PkiAttributes.AltSecurityIdentities, "X509:<RFC822>grazyna@contoso.test");
         await sheet.RefreshCommand.ExecuteAsync(null);

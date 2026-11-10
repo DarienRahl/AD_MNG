@@ -80,6 +80,23 @@ public sealed partial class NameMappingsPageViewModel : PropertyPageViewModel
 
     protected override bool ComputeHasErrors() => false;
 
+    // One selection across the two lists: "Kopiuj" copies the row last selected.
+    partial void OnSelectedMappingChanged(NameMappingRowViewModel? value)
+    {
+        if (value is not null)
+        {
+            SelectedKerberosName = null;
+        }
+    }
+
+    partial void OnSelectedKerberosNameChanged(NameMappingRowViewModel? value)
+    {
+        if (value is not null)
+        {
+            SelectedMapping = null;
+        }
+    }
+
     /// <summary>"Kopiuj": the value as stored of the given row (or the selected mapping, else the selected Kerberos name).</summary>
     [RelayCommand(CanExecute = nameof(CanCopyValue))]
     private void CopyValue(NameMappingRowViewModel? row)
