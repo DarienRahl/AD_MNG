@@ -19,7 +19,7 @@ A design note is written before a stage is built and gets an "as built" part whe
 
 | Document | Track | State |
 |---|---|---|
-| [v-interface-renewal.md](v-interface-renewal.md) | V – interface renewal (look, motion, icons) | plan; decisions for the owner in section 9; clickable prototype: [prototypes/interface-renewal.html](prototypes/interface-renewal.html) |
+| [v-interface-renewal.md](v-interface-renewal.md) | V – interface renewal (look, motion, icons) | V1 built (as-built notes V1a–V1c in section 8), V2–V7 planned; decisions for the owner in section 9; clickable prototype: [prototypes/interface-renewal.html](prototypes/interface-renewal.html) |
 | [ideas-logontracer.md](ideas-logontracer.md) | E – event logs | ideas for later review |
 
 ## Design notes of what is built

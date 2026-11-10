@@ -361,6 +361,17 @@ with the pre-edit content as a precondition (conflict) and `SetGpoVersion` of th
 - **Bulk editor:** a wizard operations → preview → execution → results → rollback; CSV import with column mapping.
 - **Localization:** `Strings.resx` (en) and `Strings.pl.resx` resources; attribute names from AD display specifiers (as in the
   Polish ADUC), language switching without a restart.
+- **Look, icons and motion (track V, stage V1;** [dev/v-interface-renewal.md](../dev/v-interface-renewal.md)**):**
+  `Themes/Tokens.xaml` holds what the Fluent theme does not have – spacing, density, radii, the type ramp and the
+  surface styles of the main window (a toolbar card and three panels). Colours are not aliased: views and styles read
+  the Fluent keys with `DynamicResource`, so light, dark and High Contrast switch while the program runs, and a
+  source test keeps the set of keys closed. Things are shown with the colour pictures of the project's icon set
+  (`docs/assets/icons` → generated `Themes/Icons.xaml`), drawn by `ObjectIconView` as one shared frozen image per
+  kind; the monochrome glyphs are a setting and always used in High Contrast (`IconStyleService`). Motion is never
+  written in XAML: the attached properties of `Behaviors/Motion.cs` start every animation from code, with the
+  durations of `Themes/Motion.xaml`, behind one switch (`MotionService`: the setting, the Windows "Animation
+  effects" setting and hardware acceleration; off in UI tests, screenshots and the smoke test). Only opacity and a
+  render transform move, nothing delays input, and nothing moves on a live refresh.
 
 ## Computers (K1)
 

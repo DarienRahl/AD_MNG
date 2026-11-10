@@ -27,7 +27,7 @@ What the project is for and the proposed goals of the next releases: [GOALS.md](
 | 🟡 (P1 – read-only AD CS overview: 🟡 implemented, awaiting a pilot on Windows Server AD with AD CS; guide: [CERTIFICATES.md](CERTIFICATES.md); P2–P5: ⬜) | [Track P – Certification authority (AD CS) and certificates](../../README.md#track-p--certification-authority-ad-cs-and-certificates--p1-) |
 | ⬜ | [Track N – DNS and DHCP](../../README.md#track-n--dns-and-dhcp-) |
 | ⬜ | [Track R – PowerShell window](../../README.md#track-r--powershell-window-) |
-| ⬜ (design note: [v-interface-renewal.md](../dev/v-interface-renewal.md)) | [Track V – Interface renewal (look, motion, icons)](../../README.md#track-v--interface-renewal-look-motion-icons-) |
+| 🟡 V1 (design note: [v-interface-renewal.md](../dev/v-interface-renewal.md)) | [Track V – Interface renewal (look, motion, icons)](../../README.md#track-v--interface-renewal-look-motion-icons--v1-) |
 | 🟡 (checklist: [PILOT.md](PILOT.md)) | [Stage S – stabilization and pilot readiness](../../README.md#stage-s--stabilization-and-pilot-readiness-) |
 
 ## Known limitations

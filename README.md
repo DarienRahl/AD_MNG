@@ -399,7 +399,7 @@ flowchart TB
 | P | Certification authority (AD CS) and certificates (parallel track) | A live overview of the forest's PKI from LDAP (CAs, templates with decoded flags and who can enroll, NTAuth, AIA, CRLs, OIDs) with health in the style of `pkiview.msc`; an ESC1–ESC17 security review with fixes in AD through the change plan with rollback; the *Published Certificates*, *Name Mappings* (strong mapping, KB5014754) and *Key Credentials* tabs, LDAPS/KDC certificates on DCs; issuing certificates from the CA's templates with the template's requirements explained (for users, computers, web servers with SANs and DCs, from PKCS#10 requests from any system, on behalf of others through an enrollment agent; renewal, pending requests) – including the HTTPS certificate of the Watchdog service from the host's request and a code signing certificate for AD Manager – as a change plan action with preview and audit; working with the CA over DCOM with the window's account (issued, pending, revoked, approval, revocation, CRL publication); links with the Watchdog, event logs, GPOs and notifications | 🟡 (P1 – a read-only overview of the PKI from LDAP: CAs, NTAuth, CRLs, health, DC LDAPS certificates, templates with enrollment permissions, the ESC security review, the strong mapping and NTAuth readiness report, certificate tabs on accounts: implemented, awaiting a pilot on Windows Server AD with AD CS; P2–P5: ⬜) |
 | N | DNS and DHCP (parallel track) | DNS zones and records live from AD (all partitions, records decoded from `dnsRecord`, aging and stale records, conditional forwarders, DC locator records), going from a computer to its records, leases and reservations; DNS server settings and DHCP scopes, leases, reservations, options, policies and failover over WinRM/CIM or RPC with the window's account; a security and health review (who can create records, DnsAdmins, DnsUpdateProxy, nonsecure dynamic updates, DHCP on DCs, DNS credentials, name protection, scopes close to exhaustion) with fixes in AD through the change plan with rollback; links with computers, sites and subnets, the AD Recycle Bin, event logs and the Watchdog | ⬜ planned |
 | R | PowerShell window (parallel track) | A PowerShell 7 console next to every connection window for ad hoc queries, AD data dumps and scripts: built-in read commands in the window's session (the same DC, credentials in memory only, no RSAT) with safely built LDAP filters, results as PowerShell objects that open in the program's grid, with a jump to the object, export only to a file the operator chooses; writes never go straight to AD – AD Manager commands and translated RSAT commands go into the pending change plan with preview, audit and rollback, other RSAT writes are rejected; installed RSAT `ActiveDirectory` and `GroupPolicy` modules pointed by default at the window's DC (`ActiveDirectory` also with the window's credentials); no command history and no transcripts on disk | ⬜ planned |
-| V | Interface renewal: look, motion, icons (parallel track) | The same page skeleton everywhere (page header with a description and a guide link, one status line, toolbar card, content), a cancellable action button, search in the title bar for commands, pages, settings and objects (Ctrl+K), the areas of the program in view and a home page after connecting, one list toolbar, settings as cards, one dialog style; design tokens (light, dark, High Contrast, Mica where Windows offers it, compact density), a catalogue of short animations with a reduced-motion setting and a new set of colourful icons drawn for the project; modelled on *Harden System Security* and *AppControl Manager* for ease of use, without copying their artwork | ⬜ planned (design note: [v-interface-renewal.md](docs/dev/v-interface-renewal.md); the technology is the owner's decision) |
+| V | Interface renewal: look, motion, icons (parallel track) | The same page skeleton everywhere (page header with a description and a guide link, one status line, toolbar card, content), a cancellable action button, search in the title bar for commands, pages, settings and objects (Ctrl+K), the areas of the program in view and a home page after connecting, one list toolbar, settings as cards, one dialog style; design tokens (light, dark, High Contrast, Mica where Windows offers it, compact density), a catalogue of short animations with a reduced-motion setting and a new set of colourful icons drawn for the project; modelled on *Harden System Security* and *AppControl Manager* for ease of use, without copying their artwork | 🟡 stage V1 built: colour icons, design tokens and panels in the main window, first motion, the settings *Icons*, *Background* and *Motion*; V2–V7 planned (design note: [v-interface-renewal.md](docs/dev/v-interface-renewal.md)) |
 
 Details of each phase are below – click to expand.
 
@@ -2902,7 +2902,7 @@ stages</summary>
 
 </details>
 
-### Track V – Interface renewal (look, motion, icons) ⬜
+### Track V – Interface renewal (look, motion, icons) 🟡 (V1: 🟡)
 
 **Goal:** make AD Manager as easy to use as the best current Windows tools and give it a current look: every page built
 the same way, every function found by name, the result of every action shown in one place, calm motion that explains
@@ -2965,8 +2965,13 @@ track – its stages are proposed to alternate with R1, P2 and N. Design note:
 
 #### Stages of the renewal
 
-- **V1** – look: tokens, the new icons in the tree, lists, tabs and details, card surfaces, hover feedback, page
-  entrance, settings for icons, motion and background. No change of structure.
+- **V1** 🟡 – look: tokens, the new icons in the tree, lists, tabs and details, card surfaces, hover feedback, page
+  entrance, settings for icons, motion and background. No change of structure. **Built:** colour icons for things
+  (monochrome as a setting and always in High Contrast); spacing, density, radii and the type ramp as tokens; the
+  main window as a toolbar card and three rounded panels; icon buttons that answer the pointer, a document and the
+  details pane that enter when they are shown, notifications that slide in and out – all behind the setting
+  *Motion: follow Windows / on / off*; the setting *Background: follow the theme / solid*. Left for the next stages:
+  the density of controls and rows, the page margin, hover feedback of the other buttons.
 - **V2** – feedback: the status line, one shape for every command, the cancellable action button, status pills, empty
   states, the loading skeleton, progress on the taskbar.
 - **V3** – page skeleton: page header with description and guide link, toolbar card, the standard list toolbar, compact

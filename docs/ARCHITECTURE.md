@@ -358,6 +358,18 @@ z treścią sprzed edycji jako warunkiem (konflikt) i `SetGpoVersion` części k
 - **Edytor zbiorczy:** kreator operacje → podgląd → wykonanie → wyniki → cofnięcie; import CSV z mapowaniem kolumn.
 - **Lokalizacja:** zasoby `Strings.resx` (en) i `Strings.pl.resx`; nazwy atrybutów z display specifiers AD (jak w
   polskim ADUC), przełączanie języka bez restartu.
+- **Wygląd, ikony i animacje (ścieżka V, etap V1;** [dev/v-interface-renewal.md](dev/v-interface-renewal.md)**):**
+  `Themes/Tokens.xaml` trzyma to, czego motyw Fluent nie ma – odstępy, gęstość, promienie, skalę pisma i style
+  powierzchni okna głównego (karta paska narzędzi i trzy panele). Kolory nie mają aliasów: widoki i style czytają
+  klucze Fluent przez `DynamicResource`, więc motyw jasny, ciemny i wysoki kontrast przełączają się w trakcie pracy,
+  a test źródeł pilnuje zamkniętego zbioru kluczy. Rzeczy pokazują kolorowe obrazki z zestawu ikon projektu
+  (`docs/assets/icons` → generowany `Themes/Icons.xaml`), rysowane przez `ObjectIconView` jako jeden wspólny,
+  zamrożony obraz na rodzaj; jednobarwne glify są ustawieniem i obowiązują zawsze w trybie wysokiego kontrastu
+  (`IconStyleService`). Animacji nie zapisuje się w XAML: właściwości dołączane z `Behaviors/Motion.cs` uruchamiają
+  każdą z kodu, z czasami z `Themes/Motion.xaml`, za jednym przełącznikiem (`MotionService`: ustawienie, ustawienie
+  systemu Windows „Efekty animacji” i akceleracja sprzętowa; wyłączone w testach UI, na zrzutach i w teście dymnym).
+  Porusza się tylko przezroczystość i przekształcenie renderowania, nic nie opóźnia wejścia i nic nie rusza się przy
+  odświeżaniu na żywo.
 
 ## Komputery (K1)
 

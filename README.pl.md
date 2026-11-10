@@ -397,7 +397,7 @@ flowchart TB
 | P | Urząd certyfikacji (AD CS) i certyfikaty (ścieżka równoległa) | Przegląd PKI lasu na żywo z LDAP (urzędy, szablony z odczytanymi flagami i tym, kto może się zarejestrować, NTAuth, AIA, listy CRL, OID) ze zdrowiem w stylu `pkiview.msc`; przegląd bezpieczeństwa ESC1–ESC17 z naprawą w AD przez plan zmian z cofnięciem; karty *Opublikowane certyfikaty*, *Mapowania nazw* (silne mapowanie, KB5014754) i *Poświadczenia kluczy*, certyfikaty LDAPS/KDC na DC; wystawianie certyfikatów z szablonów urzędu, z objaśnieniem wymagań szablonu (dla użytkowników, komputerów, serwerów WWW z SAN i DC, z wniosków PKCS#10 z dowolnego systemu, w imieniu innych przez agenta rejestracji; odnowienie, żądania oczekujące) – także certyfikat HTTPS usługi Watchdog z wniosku hosta i certyfikat podpisywania kodu dla AD Managera – jako akcja planu zmian z podglądem i audytem; praca z urzędem przez DCOM z kontem okna (wystawione, oczekujące, odwołane, zatwierdzanie, odwołanie, publikacja CRL); powiązania z Watchdogiem, dziennikami zdarzeń, GPO i powiadomieniami | 🟡 (P1 – przegląd PKI tylko do odczytu z LDAP: urzędy, NTAuth, listy CRL, zdrowie, certyfikaty LDAPS DC, szablony z uprawnieniami do rejestracji, przegląd bezpieczeństwa ESC, raport gotowości na silne mapowanie i NTAuth, karty certyfikatów na kontach: zaimplementowane, czeka na pilotaż na Windows Server AD z AD CS; P2–P5: ⬜) |
 | N | DNS i DHCP (ścieżka równoległa) | Strefy i rekordy DNS na żywo z AD (wszystkie partycje, rekordy zdekodowane z `dnsRecord`, starzenie i rekordy nieaktualne, warunkowe usługi przesyłania dalej, rekordy lokalizatora DC), przejście od komputera do jego rekordów, dzierżawy i rezerwacji; ustawienia serwerów DNS oraz zakresy, dzierżawy, rezerwacje, opcje, zasady i praca awaryjna DHCP przez WinRM/CIM albo RPC z kontem okna; przegląd bezpieczeństwa i zdrowia (kto może tworzyć rekordy, DnsAdmins, DnsUpdateProxy, niezabezpieczone aktualizacje dynamiczne, DHCP na DC, poświadczenia DNS, ochrona nazw, zakresy bliskie wyczerpania) z naprawą w AD przez plan zmian z cofnięciem; powiązania z komputerami, lokacjami i podsieciami, Koszem AD, dziennikami zdarzeń i Watchdogiem | ⬜ zaplanowane |
 | R | Okno PowerShell (ścieżka równoległa) | Konsola PowerShell 7 przy każdym oknie połączenia do doraźnych zapytań, zrzutów danych z AD i skryptów: wbudowane polecenia odczytu w sesji okna (ten sam DC, poświadczenia tylko w pamięci, bez RSAT) z bezpiecznie budowanymi filtrami LDAP, wyniki jako obiekty PowerShell do otwarcia w siatce programu, z przejściem do obiektu, eksport tylko do pliku wskazanego przez operatora; zapisy nigdy wprost do AD – polecenia AD Managera i przetłumaczone polecenia RSAT trafiają do oczekującego planu zmian z podglądem, audytem i cofnięciem, pozostałe zapisy RSAT są odrzucane; zainstalowane moduły RSAT `ActiveDirectory` i `GroupPolicy` domyślnie skierowane na DC okna (`ActiveDirectory` także z poświadczeniami okna); bez historii poleceń i transkrypcji na dysku | ⬜ zaplanowane |
-| V | Odnowa interfejsu: wygląd, animacje, ikony (ścieżka równoległa) | Ten sam szkielet strony wszędzie (nagłówek strony z opisem i odnośnikiem do instrukcji, jedna linia stanu, karta paska narzędzi, treść), przycisk akcji z anulowaniem, wyszukiwanie w pasku tytułu – polecenia, strony, ustawienia i obiekty (Ctrl+K), obszary programu na widoku i strona startowa po połączeniu, jeden pasek listy, ustawienia jako karty, jeden styl okien dialogowych; tokeny projektowe (jasny, ciemny, wysoki kontrast, Mica tam, gdzie Windows ją daje, zwarta gęstość), katalog krótkich animacji z ustawieniem ograniczenia ruchu i nowy zestaw kolorowych ikon narysowanych dla projektu; wzorem łatwości obsługi są *Harden System Security* i *AppControl Manager*, bez kopiowania ich grafiki | ⬜ zaplanowane (notatka projektowa: [v-interface-renewal.md](docs/dev/v-interface-renewal.md); technologia jest decyzją właściciela) |
+| V | Odnowa interfejsu: wygląd, animacje, ikony (ścieżka równoległa) | Ten sam szkielet strony wszędzie (nagłówek strony z opisem i odnośnikiem do instrukcji, jedna linia stanu, karta paska narzędzi, treść), przycisk akcji z anulowaniem, wyszukiwanie w pasku tytułu – polecenia, strony, ustawienia i obiekty (Ctrl+K), obszary programu na widoku i strona startowa po połączeniu, jeden pasek listy, ustawienia jako karty, jeden styl okien dialogowych; tokeny projektowe (jasny, ciemny, wysoki kontrast, Mica tam, gdzie Windows ją daje, zwarta gęstość), katalog krótkich animacji z ustawieniem ograniczenia ruchu i nowy zestaw kolorowych ikon narysowanych dla projektu; wzorem łatwości obsługi są *Harden System Security* i *AppControl Manager*, bez kopiowania ich grafiki | 🟡 etap V1 zbudowany: kolorowe ikony, tokeny projektowe i panele okna głównego, pierwsze animacje, ustawienia *Ikony*, *Tło* i *Animacje*; V2–V7 zaplanowane (notatka projektowa: [v-interface-renewal.md](docs/dev/v-interface-renewal.md)) |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -2829,7 +2829,7 @@ etapy</summary>
 
 </details>
 
-### Ścieżka V – Odnowa interfejsu (wygląd, animacje, ikony) ⬜
+### Ścieżka V – Odnowa interfejsu (wygląd, animacje, ikony) 🟡 (V1: 🟡)
 
 **Cel:** AD Manager ma być tak łatwy w obsłudze jak najlepsze współczesne narzędzia Windows i wyglądać współcześnie:
 każda strona zbudowana tak samo, każda funkcja do znalezienia po nazwie, wynik każdego działania w jednym miejscu,
@@ -2894,8 +2894,14 @@ projektu: [CELE.md](docs/CELE.md).
 
 #### Etapy odnowy
 
-- **V1** – wygląd: tokeny, nowe ikony w drzewie, listach, kartach i szczegółach, powierzchnie kart, reakcja na
-  wskazanie, wejście strony, ustawienia ikon, animacji i tła. Bez zmiany struktury.
+- **V1** 🟡 – wygląd: tokeny, nowe ikony w drzewie, listach, kartach i szczegółach, powierzchnie kart, reakcja na
+  wskazanie, wejście strony, ustawienia ikon, animacji i tła. Bez zmiany struktury. **Zbudowane:** kolorowe ikony
+  rzeczy (jednobarwne jako ustawienie i zawsze w trybie wysokiego kontrastu); odstępy, gęstość, promienie i skala
+  pisma jako tokeny; okno główne jako karta paska narzędzi i trzy zaokrąglone panele; przyciski z ikoną reagujące
+  na wskaźnik, dokument i panel szczegółów wchodzące przy pokazaniu, powiadomienia wsuwane i wysuwane – wszystko
+  za ustawieniem *Animacje: zgodnie z systemem Windows / włączone / wyłączone*; ustawienie *Tło: zgodnie
+  z motywem / jednolite*. Na kolejne etapy zostają: gęstość kontrolek i wierszy, margines strony, reakcja na
+  wskazanie pozostałych przycisków.
 - **V2** – informacja zwrotna: linia stanu, jeden kształt każdego polecenia, przycisk akcji z anulowaniem, etykiety
   stanu, puste stany, szkielet ładowania, postęp na pasku zadań.
 - **V3** – szkielet strony: nagłówek strony z opisem i odnośnikiem do instrukcji, karta paska narzędzi, standardowy
