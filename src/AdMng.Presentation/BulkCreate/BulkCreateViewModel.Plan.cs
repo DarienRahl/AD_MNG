@@ -393,6 +393,7 @@ public sealed partial class BulkCreateViewModel
 
         _createdSnapshot = new Dictionary<int, string>(_createdRows);
         Check.MarkCreated(created);
+        Check.RecomputeSoon();
         UpdateAccounts();
         UpdateRunState();
         if (Session is { } session && created.Count + result.Objects.Count > 0)
@@ -460,6 +461,7 @@ public sealed partial class BulkCreateViewModel
 
         UndoObjectCount = null;
         Check.OnUndone(deleted);
+        Check.RecomputeSoon();
         UpdateRunState();
         NotifyStateChanged();
     }

@@ -515,6 +515,18 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// After an execution or an undo: the grid is computed again in the background (debounced), so it is current when the
+    /// operator goes back to <em>Sprawdzenie</em> (created rows need no lookups).
+    /// </summary>
+    internal void RecomputeSoon()
+    {
+        if (Computation is not null && !_sessionEnded)
+        {
+            ScheduleRecompute();
+        }
+    }
+
     /// <summary>The undo deleted these rows: they are no longer created and are computed again with the next computation.</summary>
     internal void OnUndone(IReadOnlyCollection<int> rows)
     {
