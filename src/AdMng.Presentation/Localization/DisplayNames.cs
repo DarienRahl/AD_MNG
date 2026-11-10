@@ -56,6 +56,8 @@ public static partial class DisplayNames
 
     public static string WindowBackgroundKey(WindowBackgroundPreference background) => $"WindowBackground.{background}";
 
+    public static string MotionKey(MotionPreference motion) => $"Motion.{motion}";
+
     /// <summary>"Connections.Color.Blue": the name of a connection colour (connect dialog, badge tool tip).</summary>
     public static string ConnectionColorKey(Connections.ConnectionColor color) => $"Connections.Color.{color}";
 

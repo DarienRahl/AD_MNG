@@ -84,6 +84,8 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
         IconStyle = IconStyles.FirstOrDefault(i => i.Value == current.IconStyle) ?? IconStyles[0];
         WindowBackgrounds = [.. Enum.GetValues<WindowBackgroundPreference>().Select(b => new Option<WindowBackgroundPreference>(b, Localizer[DisplayNames.WindowBackgroundKey(b)]))];
         WindowBackground = WindowBackgrounds.FirstOrDefault(b => b.Value == current.WindowBackground) ?? WindowBackgrounds[0];
+        MotionChoices = [.. Enum.GetValues<MotionPreference>().Select(m => new Option<MotionPreference>(m, Localizer[DisplayNames.MotionKey(m)]))];
+        Motion = MotionChoices.FirstOrDefault(m => m.Value == current.Motion) ?? MotionChoices[0];
         PageSize = current.PageSize;
         BatchMaxParallelism = current.BatchMaxParallelism;
         ConfirmationThreshold = current.ConfirmationThreshold;
@@ -123,6 +125,15 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
 
     [ObservableProperty]
     public partial Option<WindowBackgroundPreference> WindowBackground { get; set; }
+
+    /// <summary>
+    /// Motion of the interface: follow Windows (default), on or off. Applied as soon as the settings are saved;
+    /// progress indicators are never switched off.
+    /// </summary>
+    public IReadOnlyList<Option<MotionPreference>> MotionChoices { get; }
+
+    [ObservableProperty]
+    public partial Option<MotionPreference> Motion { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Error))]
@@ -201,6 +212,7 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
         var theme = Theme.Value;
         var iconStyle = IconStyle.Value;
         var windowBackground = WindowBackground.Value;
+        var motion = Motion.Value;
         var advanced = ShowAdvancedFeatures;
         await Services.Settings.UpdateAsync(s =>
         {
@@ -208,6 +220,7 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
             s.Theme = theme;
             s.IconStyle = iconStyle;
             s.WindowBackground = windowBackground;
+            s.Motion = motion;
             s.PageSize = PageSize;
             s.BatchMaxParallelism = BatchMaxParallelism;
             s.ConfirmationThreshold = ConfirmationThreshold;

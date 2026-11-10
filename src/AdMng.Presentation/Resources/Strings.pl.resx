@@ -24331,5 +24331,20 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="WindowBackground.Solid" xml:space="preserve">
     <value>Jednolite</value>
   </data>
+  <data name="Settings.Motion" xml:space="preserve">
+    <value>Animacje</value>
+  </data>
+  <data name="Settings.MotionHint" xml:space="preserve">
+    <value>„Zgodnie z systemem Windows” korzysta z ustawienia systemu „Efekty animacji” i wyłącza animacje, gdy obraz nie jest rysowany z akceleracją sprzętową. Wskaźniki postępu działają zawsze.</value>
+  </data>
+  <data name="Motion.FollowWindows" xml:space="preserve">
+    <value>Zgodnie z systemem Windows</value>
+  </data>
+  <data name="Motion.On" xml:space="preserve">
+    <value>Włączone</value>
+  </data>
+  <data name="Motion.Off" xml:space="preserve">
+    <value>Wyłączone</value>
+  </data>
   <!-- V interface renewal (V1): end -->
 </root>

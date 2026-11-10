@@ -24331,5 +24331,20 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="WindowBackground.Solid" xml:space="preserve">
     <value>Solid</value>
   </data>
+  <data name="Settings.Motion" xml:space="preserve">
+    <value>Motion</value>
+  </data>
+  <data name="Settings.MotionHint" xml:space="preserve">
+    <value>“Follow Windows” uses the Windows setting “Animation effects” and switches motion off when the display is not hardware accelerated. Progress indicators always stay.</value>
+  </data>
+  <data name="Motion.FollowWindows" xml:space="preserve">
+    <value>Follow Windows</value>
+  </data>
+  <data name="Motion.On" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="Motion.Off" xml:space="preserve">
+    <value>Off</value>
+  </data>
   <!-- V interface renewal (V1): end -->
 </root>

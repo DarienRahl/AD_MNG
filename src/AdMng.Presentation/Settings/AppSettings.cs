@@ -42,6 +42,26 @@ public enum WindowBackgroundPreference
 }
 
 /// <summary>
+/// Whether the interface moves (track V, stage V1): hover feedback, the entrance of a document and of a panel, toasts
+/// sliding in and out. Progress indicators are information and are never switched off. The effective answer is
+/// <see cref="Motion.MotionRules.Effective"/>.
+/// </summary>
+public enum MotionPreference
+{
+    /// <summary>
+    /// On while Windows has "Animation effects" on and the display is hardware accelerated (the default; also for
+    /// settings files written before the option existed).
+    /// </summary>
+    FollowWindows,
+
+    /// <summary>Always on, whatever Windows says.</summary>
+    On,
+
+    /// <summary>Always off: every change shows its final state at once.</summary>
+    Off,
+}
+
+/// <summary>
 /// User settings persisted as JSON. Contains UI preferences, connection profiles WITHOUT passwords and view
 /// definitions (names, DNs, LDAP filters) only - never directory content (CLAUDE.md rule 1) and never passwords
 /// (rule 2; a unit test walks this type graph and the serialized JSON to enforce it).
@@ -77,6 +97,13 @@ public sealed class AppSettings
     /// </summary>
     [System.Text.Json.Serialization.JsonConverter(typeof(TolerantEnumJsonConverter<WindowBackgroundPreference>))]
     public WindowBackgroundPreference WindowBackground { get; set; } = WindowBackgroundPreference.Theme;
+
+    /// <summary>
+    /// Motion of the interface: follow Windows, always on or always off. Applied at once. A value this version does
+    /// not know reads as "follow Windows" and leaves the rest of the file alone.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonConverter(typeof(TolerantEnumJsonConverter<MotionPreference>))]
+    public MotionPreference Motion { get; set; } = MotionPreference.FollowWindows;
 
     public List<ConnectionProfile> ConnectionProfiles { get; set; } = [];
 

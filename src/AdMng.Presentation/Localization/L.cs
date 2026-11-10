@@ -390,6 +390,12 @@ public static partial class L
 
         /// <summary>The lines under the window background choice: what "solid" is for, and that it needs a restart.</summary>
         public const string WindowBackgroundHint = "Settings.WindowBackgroundHint";
+
+        /// <summary>Label of the motion choice (V1: follow Windows / on / off).</summary>
+        public const string Motion = "Settings.Motion";
+
+        /// <summary>The lines under the motion choice: what "follow Windows" means, and that progress indicators stay.</summary>
+        public const string MotionHint = "Settings.MotionHint";
         public const string PageSize = "Settings.PageSize";
         public const string BatchParallelism = "Settings.BatchParallelism";
         public const string ConfirmationThreshold = "Settings.ConfirmationThreshold";

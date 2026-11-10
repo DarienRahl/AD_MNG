@@ -8,7 +8,8 @@ namespace AdMng.Presentation.Settings;
 /// version or edited by hand) reads as the default instead of failing: a failed read makes the settings store treat the
 /// whole file - connection profiles, saved views - as corrupt and start from the defaults. The default is the zero
 /// value of the enum, so the member a missing or unknown value stands for is declared first
-/// (<see cref="IconStylePreference.Colour"/>, <see cref="WindowBackgroundPreference.Theme"/>).
+/// (<see cref="IconStylePreference.Colour"/>, <see cref="WindowBackgroundPreference.Theme"/>,
+/// <see cref="MotionPreference.FollowWindows"/>).
 /// </summary>
 /// <typeparam name="TEnum">The enum of the setting.</typeparam>
 public sealed class TolerantEnumJsonConverter<TEnum> : JsonConverter<TEnum>
