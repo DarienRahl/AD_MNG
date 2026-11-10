@@ -1352,3 +1352,59 @@ read, its private copy removed, behaviour-neutral). No public member renamed or 
   CRL is *Expiring* at the fake clock: 12 h of a 1-day margin), `PkiEscAnalyzerTests.TheEkuPredicates_AreThoseOfPkiFlags`
   (C2) and `TheSample_ReadEndToEnd_FlagsTheVulnerableTemplates_AndNothingElse` (C1–C3: overview, `AclObjectTypes.ReadAsync`,
   the classifier, `ExpandAsync`, `CollectPublicKeyAsync`).
+
+**W5 as built.** The node, the snapshot service, the HTTP check, the settings section, the overview and templates
+documents, the shell partial and the App views of 2.5; no public member of 2.11 renamed or removed.
+* *Snapshot service.* One `Slot` per item (snapshot, expansion, DCs, DC checks, HTTP results); a build is shared by its
+  callers, each caller's progress sink is fanned out, the last waiter that cancels cancels the build, `refresh` joins a
+  running build. The expansion, the DC checks and the HTTP results are *derived*: a refreshed snapshot drops them and
+  cancels their builds, and a derived build stores its value only when its snapshot is still the current one. The key is
+  the session instance and its server (a reconnect to the same server is a new instance). `ReadAsync` gets the window clock
+  and the settings' page size; the expansion builds its options like the U4 review (domain and root SID, the
+  `AccountReview` level overrides), the CA computers' SIDs Tier 0. `Targets` (internal): the configuration partition's DCs
+  (GC flag) plus the domain's DC objects it does not list, each host once, the current DC first, then by name; 3269 only
+  for a GC. Without a probe `GetDcCertificatesAsync` and `CheckHttpAsync` return empty lists.
+* *HTTP check.* `PkiHealthProbe` as 2.5; also no cookies, no pre-authentication, no decompression, no user info in a URL
+  (`http://user:pass@…` is `NotChecked`), `Timeout` / `MaxBodyBytes` are init properties for the tests. A declared
+  `Content-Length` over the cap is `TooLarge` before the body is read. AIA bodies: DER, PEM, else a PKCS #7 bundle (DER or
+  PEM `PKCS7`) unwrapped in the probe (C1's note) – its first CA certificate; CDP bodies: DER or PEM CRL. More than 3
+  redirects is `HttpError` with the redirect's status.
+* *Node and shell.* `PkiNodeViewModel` (abstract), `PublicKeyServicesNodeViewModel` (opens the overview) with the static
+  children `PkiDocumentNodeViewModel` (templates, security review, readiness). Five descriptors: the four `pki.*` and
+  `view.pkiNodes` (the *Widok* toggle, `ShellViewModel.IsPkiNodesShown`, `TogglePkiNodesCommand`). **Addition:**
+  `IPkiRequestTarget.Apply(PkiDocumentRequest)` (in `PkiViewModelFactory.cs`): an open document a request names is pointed
+  at its `TemplateCn` / `CaDn` (W6 can implement it for `FindingCode`); a new document gets the request in its constructor.
+  Selecting the security or readiness node needs W6's factory bodies (they still throw in this worktree).
+* *Overview.* Tabs `PkiOverviewTab` (`SelectedTabIndex` for the view). "Re-evaluated on activation" is the *Zdrowie* tab
+  being selected (`IShellDocument` has no activation hook), plus F5 and a settings change; the CA, trust-store, CRL and KRA
+  rows get their state the same way (`PkiDisplay`, the rules of `PkiHealth`'s internal `CertificateState` / `CrlState`
+  repeated – the lead may make those public), the LDAPS verdicts use the end-entity threshold (`DaysLeft`) at display time.
+  The CA path is walked over the snapshot's CA certificates (subject = issuer, SKI = AKI when both are there; nothing
+  downloaded). The NTAuth warning names the published templates whose `EffectiveEku` is client authentication. The LDAPS
+  tab probes on its first activation (also when it was opened during the read), on its button and on F5; without a probe
+  it lists the DCs with the KDC column only. When another PKI document refreshes the window's cache the open documents
+  reload from it (`Changed`).
+* *Templates.* The trustee level is computed in the document: `AclObjectTypes.ReadAsync`, a `PrincipalClassifier` without
+  a graph (SID / RID rules), `TemplateRightsEvaluator.TrusteeLevel`, the trustees named by one `objectSid` OR search per 50
+  SIDs (well-known names from `TrusteeNames.WellKnown`) – which also gives a group's DN for *Otwórz*; then the counting runs
+  inside the load (the rows are on screen, the status says *Liczenie kont…*) and the expansion's rights replace the trustee
+  level (classes with the graph, counts, first accounts). A failed count leaves the trustee level and says why. A group
+  opens its property sheet (`IDialogService.ShowPropertiesAsync` has no page argument, so not directly on *Członkowie*).
+  Rights shown: *Kto może się zarejestrować* = Enroll / AutoEnroll, *Kto może zmienić* = the other seven; totals of the
+  modify rights nobody holds are left out. Periods use `PkiTpl.Unit.<unit>.One|Few|Many` (Polish plural forms). The
+  compare pane takes the two rows selected in the list (`SetSelection`, from the view) or the selected one and a template
+  picked in the pane. CSV / HTML export the shown (filtered) rows; *Kopiuj szczegóły* copies the selected template.
+* *Strings.* `L.Pki` (with the W5 dynamic families `Pki.HealthItem.*`, `Pki.Http.*` and the new `Pki.UrlKind.*`) and
+  `L.PkiTemplates` (`PkiTpl.Flag.*`, `PkiTpl.FlagGroup.*`, `PkiTpl.Field.*`, `PkiTpl.Unit.*`), both with `AllDynamicKeys()`,
+  only between the two W5 marker pairs.
+* *Shared files beyond the anchors.* `PkiHarness.CreateShell` gives the tree `pki: Factory` and the contract test
+  `TheShell_IsUnchanged_UntilW5FillsThePartial` became `TheShell_ListsThePkiDescriptors_AndOpensNothingByItself` (both
+  announced by the contract commit). `HostTests` at the W5 entry also checks that the window's `PkiServices.Snapshot` and
+  the tree's `Pki` are the window's.
+* *Tests.* `tests/AdMng.Presentation.Tests/Pki/{PkiSnapshotServiceTests,PkiHealthProbeTests,PkiSettingsTests,
+  PkiTreeAndShellTests,PkiOverviewTests,PkiTemplatesTests}.cs` (70 tests, on the real cache and on `DirectPkiSnapshotService`);
+  `tests/AdMng.App.UiTests/Pki/PkiOverviewUiTests.cs` (node, menus, every overview tab, templates with the compare pane, the
+  settings section) and `ScreenshotTestsPki.cs` (36 health tab, 37 templates with `Użytkownik-VPN-Podatny`) – Windows CI only.
+* *For the integration step.* `docs/CERTYFIKATY.md`: the HTTP check only on *Sprawdź adresy HTTP*, the LDAPS probe on the
+  tab's first activation / its button / F5, the thresholds in *Ustawienia → Ogólne → Certyfikaty*, the tree toggle, the
+  compare pane, the exports' privacy footer. Every tree screenshot changes (the node is on by default).

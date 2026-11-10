@@ -183,12 +183,13 @@ public sealed class PkiContractTests
     }
 
     [Fact]
-    public async Task TheShell_IsUnchanged_UntilW5FillsThePartial()
+    public async Task TheShell_ListsThePkiDescriptors_AndOpensNothingByItself()
     {
         var harness = await PkiHarness.CreateAsync();
         using var shell = harness.CreateShell();
 
-        Assert.DoesNotContain(shell.CommandDescriptors, d => d.Id.StartsWith("pki.", StringComparison.Ordinal));
+        Assert.Equal(["pki.overview", "pki.templates", "pki.security", "pki.readiness"],
+            shell.CommandDescriptors.Where(d => d.Id.StartsWith("pki.", StringComparison.Ordinal)).Select(d => d.Id));
         Assert.Empty(shell.PkiDocuments);
         Assert.Null(shell.ActivePki());
         Assert.True(Enum.IsDefined(ObjectIcon.Certificate));

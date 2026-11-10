@@ -22,7 +22,8 @@ public sealed partial class PkiViewModelFactory(PkiServices pki)
         {
             PkiDocumentKind.SecurityReview => CreateSecurity(request),
             PkiDocumentKind.Readiness => CreateReadiness(request),
-            _ => throw new NotImplementedException("P1 W5: PkiViewModelFactory.Create"),
+            PkiDocumentKind.Templates => new PkiTemplatesDocumentViewModel(Pki, request),
+            _ => new PkiOverviewDocumentViewModel(Pki, request),
         };
     }
 
@@ -31,8 +32,21 @@ public sealed partial class PkiViewModelFactory(PkiServices pki)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(request);
-        return request.Kind is PkiDocumentKind.SecurityReview or PkiDocumentKind.Readiness
-            ? MatchesSecurity(document, request)
-            : throw new NotImplementedException("P1 W5: PkiViewModelFactory.Matches");
+        return request.Kind switch
+        {
+            PkiDocumentKind.SecurityReview or PkiDocumentKind.Readiness => MatchesSecurity(document, request),
+            PkiDocumentKind.Templates => document is PkiTemplatesDocumentViewModel,
+            _ => document is PkiOverviewDocumentViewModel,
+        };
     }
+}
+
+/// <summary>
+/// A PKI document that points at what a request names when it is already open (<i>Otwórz szablon</i> selects the template,
+/// <i>Otwórz urząd</i> the CA): the shell calls <see cref="Apply"/> when it selects the open tab for a request.
+/// </summary>
+public interface IPkiRequestTarget
+{
+    /// <summary>Selects what <paramref name="request"/> names (its <c>TemplateCn</c> / <c>CaDn</c> / <c>FindingCode</c>), when the document shows it.</summary>
+    void Apply(PkiDocumentRequest request);
 }

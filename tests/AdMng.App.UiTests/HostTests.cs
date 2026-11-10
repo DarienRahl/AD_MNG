@@ -141,6 +141,11 @@ public sealed class HostTests
         Assert.Same(first.GetRequiredService<Presentation.GroupPolicy.Search.GpoSettingsIndexService>(),
             first.GetRequiredService<Presentation.GroupPolicy.Search.IGpoSettingsIndexService>());
 
+        // P1 (2.10): one PKI cache per window behind both registrations, the one the window's PKI services and tree use.
+        Assert.Same(first.GetRequiredService<Presentation.Pki.IPkiSnapshotService>(), first.GetRequiredService<Presentation.Pki.PkiSnapshotService>());
+        Assert.Same(first.GetRequiredService<Presentation.Pki.IPkiSnapshotService>(), first.GetRequiredService<Presentation.Pki.PkiServices>().Snapshot);
+        Assert.Same(first.GetRequiredService<Presentation.Pki.PkiViewModelFactory>(), first.GetRequiredService<Presentation.Navigation.NavigationTreeViewModel>().Pki);
+
         // README U4: the grant sources (ACL delegations, local rights from GPOs) are stateless engines of the application;
         // a run reads through the session of the window that runs the review, never through a session of their own.
         Assert.All(registrations!.Where(d => d.ServiceType == typeof(IPrivilegeGrantSource)), d => Assert.Equal(ServiceLifetime.Singleton, d.Lifetime));

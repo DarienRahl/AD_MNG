@@ -70,10 +70,10 @@ internal sealed class PkiHarness
         return document;
     }
 
-    /// <summary>The main window's shell over the same services (W5 adds the tree's <c>PkiViewModelFactory</c> parameter).</summary>
+    /// <summary>The main window's shell over the same services (its tree has the window's <see cref="PkiViewModelFactory"/>).</summary>
     public ShellViewModel CreateShell() => new(
         B2.Lists,
-        new NavigationTreeViewModel(B2.Sessions, B2.Settings, B2.Localizer, B2.Dispatcher, B2.Errors, B2.Views, B2.Changes),
+        new NavigationTreeViewModel(B2.Sessions, B2.Settings, B2.Localizer, B2.Dispatcher, B2.Errors, B2.Views, B2.Changes, pki: Factory),
         B2.Activities,
         B2.Coordinator,
         B2.Views,
