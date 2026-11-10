@@ -83,6 +83,8 @@
 
     <TabControl x:Name="SettingsTabs" Margin="8,8,8,0">
       <TabItem x:Name="GeneralTab" Header="{l:Tr UserMessages.GeneralTab}">
+        <!-- Scrolls like the other tabs: with the appearance choices of V1 the tab is taller than a small screen. -->
+        <ScrollViewer MaxHeight="600" VerticalScrollBarVisibility="Auto">
           <StackPanel Margin="24,0,24,16">
             <!-- Appearance -->
             <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr ToolsUi.SettingsAppearance}" />
@@ -92,6 +94,8 @@
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
               <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -132,6 +136,25 @@
                          Margin="0,4,0,0"
                          Style="{StaticResource Ad.SecondaryText}"
                          Text="{l:Tr Settings.IconStyleHint}"
+                         TextWrapping="Wrap" />
+              <!-- Window background (V1): the theme's (Mica on Windows 11) or solid; applied when the application starts. -->
+              <TextBlock Grid.Row="4"
+                         Style="{StaticResource SettingLabel}"
+                         Text="{l:Tr Settings.WindowBackground}" />
+              <ComboBox x:Name="WindowBackgroundBox"
+                        Grid.Row="4"
+                        Grid.Column="1"
+                        AutomationProperties.HelpText="{l:Tr Settings.WindowBackgroundHint}"
+                        AutomationProperties.Name="{l:Tr Settings.WindowBackground}"
+                        ItemsSource="{Binding WindowBackgrounds, Mode=OneWay}"
+                        SelectedItem="{Binding WindowBackground}"
+                        Style="{StaticResource SettingCombo}" />
+              <TextBlock x:Name="WindowBackgroundHint"
+                         Grid.Row="5"
+                         Grid.Column="1"
+                         Margin="0,4,0,0"
+                         Style="{StaticResource Ad.SecondaryText}"
+                         Text="{l:Tr Settings.WindowBackgroundHint}"
                          TextWrapping="Wrap" />
             </Grid>
 
@@ -266,6 +289,7 @@
                          TextWrapping="Wrap" />
             </StackPanel>
           </StackPanel>
+        </ScrollViewer>
       </TabItem>
         <TabItem x:Name="MessagesTab"
                  DataContext="{Binding Messages, Mode=OneWay}"

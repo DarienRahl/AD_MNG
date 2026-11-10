@@ -237,15 +237,20 @@ public static class AppHost
     }
 
     /// <summary>
-    /// Loads the settings and applies language and theme. Call on the UI thread after <see cref="Build"/> and before
-    /// the first window is created (XAML texts bind to the localizer set here).
+    /// Loads the settings and applies the window background, language, theme and icon style. Call on the UI thread
+    /// after <see cref="Build"/> and before the first window is created (XAML texts bind to the localizer set here, and
+    /// the theme reads the window background switch when the first window gets its style).
     /// </summary>
     public static async Task InitializeAsync(IServiceProvider services, StartupOptions options)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(options);
         TranslationSource.Localizer = services.GetRequiredService<ILocalizer>();
-        await services.GetRequiredService<ISettingsStore>().LoadAsync().ConfigureAwait(true);
+        var settings = services.GetRequiredService<ISettingsStore>();
+        await settings.LoadAsync().ConfigureAwait(true);
+
+        // Once per process, before the theme mode of the settings is applied and before any window exists.
+        WindowBackdrop.Apply(settings.Current.WindowBackground);
         services.GetRequiredService<AppearanceService>().Start(options.Language);
     }
 }
