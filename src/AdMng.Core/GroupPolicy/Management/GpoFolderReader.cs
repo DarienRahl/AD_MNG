@@ -140,6 +140,7 @@ public static class GpoFolderReader
         var work = gpos.DistinctBy(g => g.GpoId).ToList();
         var parallelism = Math.Max(1, options.Parallelism);
         var done = 0;
+        var reportGate = new Lock();
         long total = 0;
         progress?.Report(new GpoFolderReadProgress(0, work.Count));
         await using var throttled = new ThrottledSysvolConnection(sysvol, parallelism);
@@ -162,7 +163,13 @@ public static class GpoFolderReader
             }
 
             await onRead(result, token).ConfigureAwait(false);
-            progress?.Report(new GpoFolderReadProgress(Interlocked.Increment(ref done), work.Count));
+
+            // Counted and reported under one lock: otherwise the reports of two workers can overtake each other and
+            // the progress ends below the total.
+            lock (reportGate)
+            {
+                progress?.Report(new GpoFolderReadProgress(++done, work.Count));
+            }
         }).ConfigureAwait(false);
     }
 

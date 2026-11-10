@@ -67,13 +67,19 @@ public sealed class ChangePlanner : IChangePlanner
         var targets = DistinctTargets(request.TargetDns);
         var drafts = new ObjectPlanDraft[targets.Count];
         var completed = 0;
+        var reportGate = new Lock();
         await Parallel.ForEachAsync(
             Enumerable.Range(0, targets.Count),
             new ParallelOptions { MaxDegreeOfParallelism = context.MaxDegreeOfParallelism, CancellationToken = cancellationToken },
             async (index, _) =>
             {
                 drafts[index] = await PlanObjectAsync(context, analysis, targets[index], index + 1).ConfigureAwait(false);
-                progress?.Report(Interlocked.Increment(ref completed));
+
+                // Counted and reported under one lock, so the reports of parallel workers arrive in order.
+                lock (reportGate)
+                {
+                    progress?.Report(++completed);
+                }
             }).ConfigureAwait(false);
 
         PlanValidation.ValidateFinalDnsInBatch(drafts);

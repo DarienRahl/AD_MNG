@@ -145,6 +145,9 @@ public sealed partial class BatchExecutor : IBatchExecutor
 
         /// <summary>Per object (only with <see cref="_dependencies"/>): completes with "restored" when the object finished.</summary>
         private readonly TaskCompletionSource<bool>[]? _restored;
+
+        /// <summary>Counting a finished object and reporting the count are one step (see <see cref="Complete"/>).</summary>
+        private readonly Lock _reportGate = new();
         private int _completed;
         private int _failed;
         private volatile bool _stopRequested;
@@ -306,11 +309,17 @@ public sealed partial class BatchExecutor : IBatchExecutor
         {
             results[index] = result;
             _restored?[index].TrySetResult(result.Changes.Any(c => c.Succeeded && c.Change.Action == ChangeAction.Restore));
-            var failed = result.Status is ObjectResultStatus.Failed or ObjectResultStatus.PartiallySucceeded
-                ? Interlocked.Increment(ref _failed)
-                : Volatile.Read(ref _failed);
-            var completed = Interlocked.Increment(ref _completed);
-            _progress?.Report(new BatchProgress(completed, _plan.Objects.Count, failed, result));
+
+            // Counted and reported under one lock: objects finish on several workers, and the report of one must not
+            // overtake the report of another (the progress would end below the total).
+            lock (_reportGate)
+            {
+                var failed = result.Status is ObjectResultStatus.Failed or ObjectResultStatus.PartiallySucceeded
+                    ? Interlocked.Increment(ref _failed)
+                    : Volatile.Read(ref _failed);
+                var completed = Interlocked.Increment(ref _completed);
+                _progress?.Report(new BatchProgress(completed, _plan.Objects.Count, failed, result));
+            }
         }
 
         private async Task<ObjectResult> ExecuteObjectAsync(ObjectPlan objectPlan, int index)

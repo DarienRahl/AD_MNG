@@ -36,6 +36,10 @@
 
 - **Angielski interfejs:** 33 starsze teksty (zestawy sprawdzeń przeglądu kont, tytuły planów zasad grupy, ustalenia
   diagnostyki i porządków GPO) otwierały cytat polskim cudzysłowem „ – teraz używają angielskich, jak reszta.
+- **Postęp operacji równoległych:** licznik postępu przy planowaniu i wykonywaniu zmian wsadowych, imporcie CSV,
+  odczycie folderów zasad grupy i sprawdzaniu adresów AIA/CDP mógł zatrzymać się o jedną pozycję przed końcem
+  (np. „11 z 12”), choć operacja była zakończona – meldunki równoległych wątków mogły się wyprzedzać. Teraz
+  przychodzą po kolei.
 
 ## AdMng Watchdog {{VERSION}}
 

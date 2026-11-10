@@ -111,8 +111,11 @@ public sealed class GpoFolderReaderTests : GroupPolicyTestBed
         Assert.True(snapshot.Folders[Sample.WorkstationPasswords].SecurityRead);
         Assert.All(snapshot.Folders.Where(f => f.Key != Sample.WorkstationPasswords), f => Assert.False(f.Value.SecurityRead));
         var folders = progress.Where(p => p.Stage == GpoDiagnosticsStage.Folders).ToList();
-        Assert.Equal((0, snapshot.Folders.Count), (folders[0].Done, folders[0].Total));
-        Assert.Equal((snapshot.Folders.Count, snapshot.Folders.Count), (folders[^1].Done, folders[^1].Total));
+
+        // 0, 1, 2 ... of the total, in the order the reports arrive: the folders are read in parallel, and a report of
+        // one worker must not overtake the report of another (the progress would end below the total).
+        Assert.Equal(Enumerable.Range(0, snapshot.Folders.Count + 1), folders.Select(f => f.Done));
+        Assert.All(folders, f => Assert.Equal(snapshot.Folders.Count, f.Total));
     }
 
     [Fact]

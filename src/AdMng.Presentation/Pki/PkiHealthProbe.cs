@@ -53,6 +53,7 @@ public sealed class PkiHealthProbe(Func<HttpMessageHandler>? handler = null) : I
         using var client = new HttpClient((Handler ?? DefaultHandler)(), disposeHandler: true) { Timeout = System.Threading.Timeout.InfiniteTimeSpan };
         using var gate = new SemaphoreSlim(MaxParallel);
         var done = 0;
+        var reportGate = new Lock();
         var checks = urls.Select(async url =>
         {
             await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -63,7 +64,12 @@ public sealed class PkiHealthProbe(Func<HttpMessageHandler>? handler = null) : I
             finally
             {
                 gate.Release();
-                progress?.Report(Interlocked.Increment(ref done));
+
+                // Counted and reported under one lock, so the reports of parallel checks arrive in order.
+                lock (reportGate)
+                {
+                    progress?.Report(++done);
+                }
             }
         }).ToList();
         return await Task.WhenAll(checks).ConfigureAwait(false);

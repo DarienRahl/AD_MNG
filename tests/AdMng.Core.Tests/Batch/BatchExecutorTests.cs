@@ -671,10 +671,15 @@ public class BatchExecutorTests
         Session.Latency = TimeSpan.FromMilliseconds(25);
         Session.ResetConcurrencyStatistics();
 
-        var result = await ExecuteAsync(plan, Fast with { MaxDegreeOfParallelism = 3 });
+        var progress = new SynchronousProgress<BatchProgress>();
+
+        var result = await ExecuteAsync(plan, Fast with { MaxDegreeOfParallelism = 3 }, progress);
 
         Assert.Equal(8, result.SucceededCount);
         Assert.InRange(Session.MaxObservedConcurrency, 2, 3);
+
+        // The counts arrive in order although the objects finish on several workers: the last report is the total.
+        Assert.Equal(Enumerable.Range(1, 8), progress.Values.Select(p => p.Completed));
     }
 
     [Fact]

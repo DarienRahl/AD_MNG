@@ -190,7 +190,9 @@ public sealed class PkiHealthProbeTests
         Assert.Equal(12, results.Count);
         Assert.Equal(Enumerable.Range(0, 12).Select(i => $"http://pki.contoso.test/{i}.crl"), results.Select(r => r.Url));
         Assert.InRange(handler.MaxConcurrency, 1, PkiHealthProbe.MaxParallel);
-        Assert.Equal(12, done.Max());
+
+        // In the order they arrive: the report of one check never overtakes the report of another.
+        Assert.Equal(Enumerable.Range(1, 12), done);
     }
 
     [Fact]
