@@ -24311,7 +24311,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Icons</value>
   </data>
   <data name="Settings.IconStyleHint" xml:space="preserve">
-    <value>Colour icons show the kind of an object by shape and colour. Windows high contrast always uses the monochrome icons.</value>
+    <value>Windows high contrast always uses the monochrome icons.</value>
   </data>
   <data name="IconStyle.Colour" xml:space="preserve">
     <value>Colour</value>

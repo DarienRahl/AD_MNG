@@ -10,8 +10,8 @@ using CommunityToolkit.Mvvm.Input;
 namespace AdMng.App.Services;
 
 /// <summary>
-/// Applies the language and theme of the settings to the running application (at start and whenever the settings
-/// change, e.g. from the View menu or the settings dialog) and offers the View › Theme / Language menu commands.
+/// Applies the language, theme and icon style of the settings to the running application (at start and whenever the
+/// settings change, e.g. from the View menu or the settings dialog) and offers the View › Theme / Language menu commands.
 /// The <c>--lang</c> command line override wins until the operator picks a language explicitly.
 /// </summary>
 public sealed partial class AppearanceService : ObservableObject
@@ -19,21 +19,27 @@ public sealed partial class AppearanceService : ObservableObject
     private readonly ISettingsStore _settings;
     private readonly ILocalizer _localizer;
     private readonly IThemeService _theme;
+    private readonly IconStyleService _iconStyle;
     private readonly WpfUiDispatcher _dispatcher;
     private string? _languageOverride;
     private string? _appliedLanguage;
     private ThemePreference? _appliedTheme;
+    private IconStylePreference? _appliedIconStyle;
 
-    public AppearanceService(ISettingsStore settings, ILocalizer localizer, IThemeService theme, WpfUiDispatcher dispatcher)
+    public AppearanceService(ISettingsStore settings, ILocalizer localizer, IThemeService theme, IconStyleService iconStyle, WpfUiDispatcher dispatcher)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
         _theme = theme ?? throw new ArgumentNullException(nameof(theme));
+        _iconStyle = iconStyle ?? throw new ArgumentNullException(nameof(iconStyle));
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
     }
 
     /// <summary>Theme of the settings (for menu check marks).</summary>
     public ThemePreference Theme => _settings.Current.Theme;
+
+    /// <summary>Icon style of the settings (the effective style is <see cref="IconStyleService.Effective"/>).</summary>
+    public IconStylePreference IconStyle => _settings.Current.IconStyle;
 
     /// <summary>Language of the settings: "" (system), "pl" or "en".</summary>
     public string Language => _settings.Current.Language;
@@ -53,6 +59,9 @@ public sealed partial class AppearanceService : ObservableObject
 
     [RelayCommand]
     private Task SetThemeAsync(ThemePreference theme) => _settings.UpdateAsync(s => s.Theme = theme);
+
+    [RelayCommand]
+    private Task SetIconStyleAsync(IconStylePreference iconStyle) => _settings.UpdateAsync(s => s.IconStyle = iconStyle);
 
     [RelayCommand]
     private Task SetLanguageAsync(string? language)
@@ -80,7 +89,15 @@ public sealed partial class AppearanceService : ObservableObject
             _theme.Apply(theme);
         }
 
+        var iconStyle = _settings.Current.IconStyle;
+        if (iconStyle != _appliedIconStyle)
+        {
+            _appliedIconStyle = iconStyle;
+            _iconStyle.Apply(iconStyle);
+        }
+
         OnPropertyChanged(nameof(Theme));
+        OnPropertyChanged(nameof(IconStyle));
         OnPropertyChanged(nameof(Language));
     }
 

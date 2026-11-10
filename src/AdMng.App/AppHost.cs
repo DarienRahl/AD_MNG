@@ -140,6 +140,7 @@ public static class AppHost
         services.AddSingleton<IAppShutdown, ApplicationShutdown>();
         services.AddSingleton<ThemeService>();
         services.AddSingleton<IThemeService>(sp => sp.GetRequiredService<ThemeService>());
+        services.AddSingleton<IconStyleService>();
         services.AddSingleton<AppearanceService>();
 
         // Connection windows: one manager for the application, one scope per window.

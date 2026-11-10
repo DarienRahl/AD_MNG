@@ -24311,7 +24311,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Ikony</value>
   </data>
   <data name="Settings.IconStyleHint" xml:space="preserve">
-    <value>Kolorowe ikony pokazują rodzaj obiektu kształtem i kolorem. W trybie dużego kontrastu systemu Windows zawsze używane są ikony jednobarwne.</value>
+    <value>W trybie dużego kontrastu zawsze używane są ikony jednobarwne.</value>
   </data>
   <data name="IconStyle.Colour" xml:space="preserve">
     <value>Kolorowe</value>
