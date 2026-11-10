@@ -101,6 +101,20 @@
   </Style>
 
   <!-- Buttons -->
+  <!--
+    The subtle button of toolbars and rows (inherited by Ad.SmallIconButton and Ad.CopyButton): no fill at rest. The
+    only template of ours in this stage; the toggle, chip and dialog buttons keep the theme's templates (their checked
+    and accent states are the theme's business).
+    * HoverLayer fades in and out over Motion.Hover through b:Motion.Shown (at once when motion is off). Its opacity
+      belongs to that property alone: the behaviour sets it as a local value, which outranks a template trigger, so
+      the pressed trigger sets b:Motion.Shown and not the opacity - a press from the keyboard, without the pointer
+      over the button, shows the layer as well.
+    * The pressed colour and the disabled text colour switch at once. The theme brushes are never animated, so a
+      switch of light, dark or High Contrast stays correct.
+    * Keyboard focus is the theme's focus visual (FocusVisualStyle of the Fluent button, through BasedOn).
+    * The size is the one of the theme's template: content + Padding + BorderThickness (the border is transparent).
+      Unlike the theme's button, a disabled one has no fill and no outline - only its dimmed content.
+  -->
   <Style x:Key="Ad.IconButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderBrush" Value="Transparent" />
@@ -111,6 +125,40 @@
     <Setter Property="FontSize" Value="16" />
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="ContentBorder"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{StaticResource Ad.Radius.Control}">
+            <Grid>
+              <Border x:Name="HoverLayer"
+                      b:Motion.Shown="{TemplateBinding IsMouseOver}"
+                      Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                      CornerRadius="{StaticResource Ad.Radius.Control}"
+                      Opacity="0" />
+              <ContentPresenter x:Name="ContentPresenter"
+                                Margin="{TemplateBinding Padding}"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                RecognizesAccessKey="True"
+                                TextElement.Foreground="{TemplateBinding Foreground}" />
+            </Grid>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="HoverLayer" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+              <Setter TargetName="HoverLayer" Property="b:Motion.Shown" Value="True" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="ContentPresenter" Property="TextElement.Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
 
   <Style x:Key="Ad.SmallIconButton" TargetType="Button" BasedOn="{StaticResource Ad.IconButton}">
