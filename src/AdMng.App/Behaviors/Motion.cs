@@ -310,10 +310,15 @@ public static class Motion
     private static void Enter(FrameworkElement element, TravelState state)
     {
         state.Entered = true;
+        if (GetLeaving(element))
+        {
+            // On its way out: the exit keeps the element as it is, it does not enter again.
+            return;
+        }
 
         // A new entrance replaces a running one; with motion off this leaves the element at its base values.
         Stop(element, state);
-        if (!IsEnabled || !element.IsVisible || GetLeaving(element))
+        if (!IsEnabled || !element.IsVisible)
         {
             return;
         }
