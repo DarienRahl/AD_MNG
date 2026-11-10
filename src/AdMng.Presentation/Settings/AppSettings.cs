@@ -13,6 +13,19 @@ public enum ThemePreference
 }
 
 /// <summary>
+/// How the icons of things (object kinds, areas) are drawn. The effective style also depends on Windows High Contrast:
+/// see <see cref="Icons.IconStyleRules.Effective"/>.
+/// </summary>
+public enum IconStylePreference
+{
+    /// <summary>The colour icon set (the default; also for settings files written before the option existed).</summary>
+    Colour,
+
+    /// <summary>One-colour glyphs of the icon font, in the text colour.</summary>
+    Monochrome,
+}
+
+/// <summary>
 /// User settings persisted as JSON. Contains UI preferences, connection profiles WITHOUT passwords and view
 /// definitions (names, DNs, LDAP filters) only - never directory content (CLAUDE.md rule 1) and never passwords
 /// (rule 2; a unit test walks this type graph and the serialized JSON to enforce it).
@@ -33,6 +46,9 @@ public sealed class AppSettings
     public string Language { get; set; } = string.Empty;
 
     public ThemePreference Theme { get; set; } = ThemePreference.System;
+
+    /// <summary>Icons of things: colour pictures or monochrome glyphs (High Contrast always shows the glyphs).</summary>
+    public IconStylePreference IconStyle { get; set; } = IconStylePreference.Colour;
 
     public List<ConnectionProfile> ConnectionProfiles { get; set; } = [];
 

@@ -80,6 +80,8 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
         var current = services.Settings.Current;
         Language = Languages.FirstOrDefault(l => l.Value == current.Language) ?? Languages[0];
         Theme = Themes.First(t => t.Value == current.Theme);
+        IconStyles = [.. Enum.GetValues<IconStylePreference>().Select(i => new Option<IconStylePreference>(i, Localizer[DisplayNames.IconStyleKey(i)]))];
+        IconStyle = IconStyles.FirstOrDefault(i => i.Value == current.IconStyle) ?? IconStyles[0];
         PageSize = current.PageSize;
         BatchMaxParallelism = current.BatchMaxParallelism;
         ConfirmationThreshold = current.ConfirmationThreshold;
@@ -104,6 +106,12 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
 
     [ObservableProperty]
     public partial Option<ThemePreference> Theme { get; set; }
+
+    /// <summary>Icons of things: colour (default) or monochrome. Windows High Contrast always shows the monochrome ones.</summary>
+    public IReadOnlyList<Option<IconStylePreference>> IconStyles { get; }
+
+    [ObservableProperty]
+    public partial Option<IconStylePreference> IconStyle { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Error))]
@@ -180,11 +188,13 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
 
         var language = Language.Value;
         var theme = Theme.Value;
+        var iconStyle = IconStyle.Value;
         var advanced = ShowAdvancedFeatures;
         await Services.Settings.UpdateAsync(s =>
         {
             s.Language = language;
             s.Theme = theme;
+            s.IconStyle = iconStyle;
             s.PageSize = PageSize;
             s.BatchMaxParallelism = BatchMaxParallelism;
             s.ConfirmationThreshold = ConfirmationThreshold;

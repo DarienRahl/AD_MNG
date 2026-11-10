@@ -24306,4 +24306,18 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Tabela zawiera hasła początkowe jawnym tekstem. Wklej ją tylko tam, gdzie hasła pozostaną chronione (np. w zaszyfrowanej wiadomości) – schowek zostanie wyczyszczony po minucie. Skopiować tabelę z hasłami?</value>
   </data>
   <!-- F3 check, plan and results (2.7): end -->
+  <!-- V interface renewal (V1): begin -->
+  <data name="Settings.IconStyle" xml:space="preserve">
+    <value>Ikony</value>
+  </data>
+  <data name="Settings.IconStyleHint" xml:space="preserve">
+    <value>Kolorowe ikony pokazują rodzaj obiektu kształtem i kolorem. W trybie dużego kontrastu systemu Windows zawsze używane są ikony jednobarwne.</value>
+  </data>
+  <data name="IconStyle.Colour" xml:space="preserve">
+    <value>Kolorowe</value>
+  </data>
+  <data name="IconStyle.Monochrome" xml:space="preserve">
+    <value>Jednobarwne</value>
+  </data>
+  <!-- V interface renewal (V1): end -->
 </root>

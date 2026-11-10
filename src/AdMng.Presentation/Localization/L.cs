@@ -378,6 +378,12 @@ public static partial class L
         public const string LanguagePolish = "Settings.LanguagePolish";
         public const string LanguageEnglish = "Settings.LanguageEnglish";
         public const string Theme = "Settings.Theme";
+
+        /// <summary>Label of the icon style choice (V1: colour / monochrome).</summary>
+        public const string IconStyle = "Settings.IconStyle";
+
+        /// <summary>One line under the icon style choice: High Contrast always uses the monochrome icons.</summary>
+        public const string IconStyleHint = "Settings.IconStyleHint";
         public const string PageSize = "Settings.PageSize";
         public const string BatchParallelism = "Settings.BatchParallelism";
         public const string ConfirmationThreshold = "Settings.ConfirmationThreshold";
