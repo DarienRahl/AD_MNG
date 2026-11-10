@@ -146,7 +146,7 @@
                   <c:ObjectIconView Margin="0,0,6,0"
                                     VerticalAlignment="Center"
                                     Icon="{Binding Icon, Mode=OneWay}"
-                                    Size="14" />
+                                    Size="16" />
                   <TextBlock VerticalAlignment="Center" Text="{Binding Name, Mode=OneWay}" />
                   <Button Margin="4,0,0,0"
                           AutomationProperties.Name="{l:Tr Common.Remove}"
