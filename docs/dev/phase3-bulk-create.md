@@ -1882,3 +1882,14 @@ additions:
   *Nowi pracownicy*; a new wizard there picks the profile, maps by the remembered headers and starts at kd213. The check grid
   and the results are B4's. UI tests `BulkCreateInputUiTests` (3) and screenshots 40–42 compile here; they run on Windows CI only
   (`TableClipboard` is their clipboard double).
+* **Review fixes** (adversarial review of B3). *Dalej* stayed disabled after a paste, a file or a header choice: step 1 is
+  idle before it raises the change events of a new table (the wizard's `CanGoNext` reads `IsBusy` and a WPF button asks
+  `CanExecute` only on `CanExecuteChanged`). Ctrl+V did nothing right after the window opened or after *Wstecz* from
+  *Kolumny* (whose button collapses on step 1): when step 1 is shown and nothing visible holds the focus, *Wklej* (or the grid
+  of a loaded table) takes it. The header mode and the header line are disabled while a paste or a file is read (a choice made
+  meanwhile re-read the previous table). Ctrl+C with the header row copies the column names (the header panels' `Tag`), not
+  their type names. *Wstaw pole* binds through a `BindingProxy` (its menu had no items before the first opening, as it took
+  its DataContext from `PlacementTarget`). Entering step 3 refreshes the *Domyślny dla tego kontenera* mark for a container
+  chosen meanwhile. *Bez hasła* no longer leaves *Konto włączone* cleared when another password mode is chosen again (the
+  operator's choice comes back). The date entries of *Wstaw pole* describe the format (*RRRR-MM-DD*) instead of a fixed day;
+  a few Polish texts reworded.
