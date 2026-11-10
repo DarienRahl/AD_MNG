@@ -44,9 +44,11 @@ internal static class BulkCreateSamples
     }
 
     /// <summary>The input of the sample: the automatic mapping and the <em>Konta numerowane</em> profile.</summary>
-    public static BulkCreateInput Input() => new()
+    /// <param name="containerDn">The target container (default <see cref="ContainerDn"/>; UI tests pass the fake's).</param>
+    /// <param name="groupDn">The option group (default <see cref="GroupDn"/>).</param>
+    public static BulkCreateInput Input(string containerDn = ContainerDn, string groupDn = GroupDn) => new()
     {
-        ContainerDn = ContainerDn,
+        ContainerDn = containerDn,
         Table = Table(),
         Mappings =
         [
@@ -72,14 +74,15 @@ internal static class BulkCreateSamples
             MailDomain = "contoso.com",
             CounterMode = CounterMode.AfterHighest,
         },
-        Options = new BulkAccountOptions { GroupDns = [GroupDn] },
+        Options = new BulkAccountOptions { GroupDns = [groupDn] },
         UpnSuffixes = ["contoso.com", "firma.pl"],
     };
 
     /// <summary>The check grid of the sample (kd208 … kd212): OK, a warning, an error, OK and a possible existing account.</summary>
-    public static BulkCreateComputation Computation()
+    public static BulkCreateComputation Computation(string containerDn = ContainerDn, string groupDn = GroupDn, int extraAttributes = 0)
     {
-        var input = Input();
+        var input = Input(containerDn, groupDn);
+        var extra = Enumerable.Range(1, extraAttributes).Select(i => "contosoExtra" + i.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToList();
         BulkCreateRow Row(int number, BulkRowStatus status, string login, IReadOnlyList<ValidationIssue>? issues = null, string? manager = null, IReadOnlyList<string>? candidates = null)
         {
             var cells = Rows[number - 1];
@@ -99,12 +102,13 @@ internal static class BulkCreateSamples
                     new(Attr.Sn, [cells[2]], BulkValueSource.Column),
                     new(Attr.Department, [cells[3]], BulkValueSource.Column),
                     new(Attr.Mobile, [cells[0]], BulkValueSource.Column),
+                    .. extra.Select(a => new BulkValue(a, [a + "-" + number.ToString(System.Globalization.CultureInfo.InvariantCulture)], BulkValueSource.Fixed)),
                 ],
-                DistinguishedName = $"CN={name},{ContainerDn}",
+                DistinguishedName = $"CN={name},{containerDn}",
                 CounterNumber = int.Parse(login[2..], System.Globalization.CultureInfo.InvariantCulture),
                 ManagerDn = manager,
                 ManagerCandidates = candidates ?? [],
-                GroupDns = [GroupDn],
+                GroupDns = [groupDn],
                 Issues = issues ?? [],
             };
         }
@@ -125,7 +129,7 @@ internal static class BulkCreateSamples
                 Row(5, BulkRowStatus.Warning, "kd212",
                     [new ValidationIssue(IssueSeverity.Warning, BulkCreateIssueCodes.PossibleExistingAccount, "The same person may exist.", Attr.Cn) { Arguments = ["Ewa Wiśniewska"] }]),
             ],
-            Attributes = [Attr.Cn, Attr.SamAccountName, Attr.UserPrincipalName, Attr.Mail, Attr.DisplayName, Attr.GivenName, Attr.Sn, Attr.Department, Attr.Mobile],
+            Attributes = [Attr.Cn, Attr.SamAccountName, Attr.UserPrincipalName, Attr.Mail, Attr.DisplayName, Attr.GivenName, Attr.Sn, Attr.Department, Attr.Mobile, .. extra],
             Server = Server,
             Scope = UniquenessScope.ForestSingleDomain,
             IsPdcEmulator = true,

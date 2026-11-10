@@ -46,6 +46,21 @@ public class BulkCreateBatchEditorTests
     }
 
     [Fact]
+    public async Task DefaultSchema_TheOperatorSheetIsCreatedToo()
+    {
+        // The UI tests' context has the default schema (no bulk-create attributes): the wizard works there as well.
+        using var wizard = await B4Wizard.CreateAsync(bulkCreateSchema: false);
+        wizard.Use(wizard.OperatorInput());
+        await wizard.EnterCheckAsync();
+        Assert.Null(wizard.Check.Error);
+        Assert.False(wizard.Check.Computation!.HasRunErrors, string.Join(" ", wizard.Check.RunIssues));
+
+        await wizard.PreviewAndExecuteAsync();
+
+        Assert.Equal(5, wizard.Editor.CreatedAccounts.Count(a => a.HasPassword));
+    }
+
+    [Fact]
     public async Task Preview_AValueTakenSinceTheCheck_IsAnErrorOfItsRow_NotRenumbered()
     {
         using var wizard = await B4Wizard.CreateAsync();

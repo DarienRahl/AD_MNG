@@ -358,6 +358,24 @@ public class BulkCheckTests
         Assert.Equal("Utworzenie kont (0) w jednostce „Nowi pracownicy”", wizard.Bulk.ChangeTitle);
     }
 
+    [Fact]
+    public void EveryF3IssueCode_RendersInPolish_WithoutTheEnglishFallback()
+    {
+        var pl = new ResxLocalizer(B4Wizard.Polish);
+        var en = new ResxLocalizer(CultureInfo.GetCultureInfo("en-US"));
+        foreach (var code in BulkCreateIssueCodes.All)
+        {
+            var issue = new Core.Batch.ValidationIssue(Core.Batch.IssueSeverity.Warning, code, "English text of the planner.", Attr.SamAccountName)
+            {
+                Arguments = ["Jan Kowalski", "7", "1"],
+            };
+            var polish = pl.IssueText(issue);
+            Assert.DoesNotContain("English text", polish, StringComparison.Ordinal);
+            Assert.DoesNotContain("[Issue.", polish, StringComparison.Ordinal);
+            Assert.NotEqual(en.IssueText(issue), polish);
+        }
+    }
+
     // ---- The read-only global-catalog session of a multi-domain forest (2.2, 2.7) ----
 
     [Fact]
@@ -579,9 +597,10 @@ internal sealed class B4Wizard : IDisposable
     /// <param name="before">Changes the directory or the harness before the window opens (e.g. a multi-domain forest).</param>
     /// <param name="kind">The kind of the request.</param>
     /// <param name="initialize">Calls the editor's <c>InitializeAsync</c> (the GC session starts there).</param>
-    public static async Task<B4Wizard> CreateAsync(Action<B2Harness, BulkCreateSample>? before = null, ObjectKind kind = ObjectKind.User, bool initialize = true)
+    /// <param name="bulkCreateSchema">The bulk-create schema (false: the default schema the UI tests' context has).</param>
+    public static async Task<B4Wizard> CreateAsync(Action<B2Harness, BulkCreateSample>? before = null, ObjectKind kind = ObjectKind.User, bool initialize = true, bool bulkCreateSchema = true)
     {
-        var harness = await B2Harness.CreateAsync(Polish, null, bulkCreateSchema: true);
+        var harness = await B2Harness.CreateAsync(Polish, null, bulkCreateSchema);
         var sample = harness.Builder.AddBulkCreateSample(harness.Company);
         before?.Invoke(harness, sample);
         var editor = harness.Factory.CreateBatchEditor(new BatchEditorRequest([]) { Create = new BulkCreateRequest(kind, sample.NewEmployeesOu) });
