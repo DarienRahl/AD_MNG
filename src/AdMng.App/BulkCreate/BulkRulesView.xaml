@@ -16,6 +16,9 @@
              xmlns:local="clr-namespace:AdMng.App.BulkCreate"
              AutomationProperties.Name="{l:Tr BulkCreate.StepRules}">
   <UserControl.Resources>
+    <!-- The Wstaw pole menu is outside the visual tree and has no PlacementTarget until it opens: it binds through the proxy. -->
+    <c:BindingProxy x:Key="RulesProxy" Data="{Binding}" />
+
     <Style x:Key="SectionExpander" TargetType="Expander" BasedOn="{StaticResource {x:Type Expander}}">
       <Setter Property="Margin" Value="0,0,0,10" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -405,13 +408,12 @@
               <Button.ContextMenu>
                 <ContextMenu x:Name="InsertFieldMenu"
                              MaxHeight="520"
-                             DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
-                             ItemsSource="{Binding InsertableFields, Mode=OneWay}"
+                             ItemsSource="{Binding Data.InsertableFields, Source={StaticResource RulesProxy}, Mode=OneWay}"
                              MenuItem.Click="OnInsertFieldMenuClick">
                   <ContextMenu.ItemContainerStyle>
                     <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
                       <Setter Property="Header" Value="{Binding MenuText, Mode=OneWay}" />
-                      <Setter Property="Command" Value="{Binding DataContext.InsertTokenCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
+                      <Setter Property="Command" Value="{Binding Data.InsertTokenCommand, Source={StaticResource RulesProxy}}" />
                       <Setter Property="CommandParameter" Value="{Binding Token, Mode=OneWay}" />
                       <Setter Property="ToolTip" Value="{Binding Group, Mode=OneWay}" />
                     </Style>

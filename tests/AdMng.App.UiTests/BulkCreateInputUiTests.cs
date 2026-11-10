@@ -39,9 +39,10 @@ public sealed class BulkCreateInputUiTests
         var wizard = Assert.IsType<BulkCreateViewModel>(editor.BulkCreate);
         Assert.Equal(Visibility.Visible, window.BulkCreateEditPanel.Visibility);
 
-        // 1 Dane: Ctrl+V is the step's key binding.
+        // 1 Dane: Ctrl+V is the step's key binding, so the step holds the focus as soon as the window opens (Wklej).
         var source = Single<BulkSourceView>(window);
         Assert.Equal(Visibility.Visible, source.EmptyHint.Visibility);
+        Assert.Same(source.PasteButton, FocusManager.GetFocusedElement(FocusManager.GetFocusScope(source.PasteButton)));
         clipboard.Content = new ClipboardContent(null, null, null, ExcelSamples.OperatorScenarioTsv);
         var paste = source.InputBindings.OfType<KeyBinding>().Single(b => b.Key == Key.V && b.Modifiers == ModifierKeys.Control);
         Assert.Same(wizard.Source.PasteCommand, paste.Command);
@@ -101,8 +102,8 @@ public sealed class BulkCreateInputUiTests
         Assert.Empty(rules.SharedPasswordBox.Password);
         Assert.Empty(rules.ConfirmPasswordBox.Password);
 
-        // Wstaw pole lists the fields by their Polish labels.
-        Assert.NotEmpty(rules.InsertFieldMenu.Items);
+        // Wstaw pole lists the fields by their Polish labels – already before its menu was opened once (no PlacementTarget yet).
+        Assert.Equal(model.InsertableFields.Count, rules.InsertFieldMenu.Items.Count);
         Assert.Contains(model.InsertableFields, f => f.Text == "Imię" && f.Token == "{givenName}");
         context.AssertHealthy();
     });

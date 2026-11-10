@@ -2,6 +2,8 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Input;
+using System.Windows.Threading;
 using AdMng.App.Controls;
 using AdMng.App.Localization;
 using AdMng.Presentation.BulkCreate;
@@ -26,6 +28,40 @@ public partial class BulkSourceView : UserControl
         DataContextChanged += (_, _) => Attach(DataContext as BulkSourceViewModel);
         Loaded += (_, _) => Attach(DataContext as BulkSourceViewModel);
         Unloaded += (_, _) => Attach(null);
+        IsVisibleChanged += (_, e) =>
+        {
+            if (e.NewValue is true)
+            {
+                Dispatcher.BeginInvoke(DispatcherPriority.Input, FocusStep);
+            }
+        };
+    }
+
+    /// <summary>
+    /// Ctrl+V is the step's key binding, so it works only while the focus is inside the step. When the step is shown – the
+    /// wizard opens, or <em>Wstecz</em> returns from <em>Kolumny</em> (that button collapses on step 1) – and nothing visible
+    /// in the window holds the focus, the grid (a loaded table) or <em>Wklej</em> takes it.
+    /// </summary>
+    internal void FocusStep()
+    {
+        if (!IsVisible || IsKeyboardFocusWithin)
+        {
+            return;
+        }
+
+        var scope = FocusManager.GetFocusScope(this);
+        if (scope is null
+            || (FocusManager.GetFocusedElement(scope) is UIElement { IsVisible: true, IsEnabled: true } focused && !ReferenceEquals(focused, scope)))
+        {
+            return;
+        }
+
+        UIElement target = SourceGrid.IsVisible ? SourceGrid : PasteButton;
+        if (target.IsEnabled && !target.Focus())
+        {
+            // The window is not active yet: the focus moves there when it is.
+            FocusManager.SetFocusedElement(scope, target);
+        }
     }
 
     private void Attach(BulkSourceViewModel? viewModel)
