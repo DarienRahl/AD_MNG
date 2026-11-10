@@ -23,7 +23,7 @@ podjęcia z zespołem. Ten plik zostaje tylko po to, żeby dawne odnośniki dale
 | ⬜ | [Ścieżka T – Współpraca zespołu](../README.pl.md#ścieżka-t--współpraca-zespołu-) |
 | 🟡 (K1–K7: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; instrukcja: [ZASADY-GRUPY.md](ZASADY-GRUPY.md)) | [Ścieżka K – Komputery i zasady grupy (GPO)](../README.pl.md#ścieżka-k--komputery-i-zasady-grupy-gpo--k1k7-) |
 | 🟡 (E1 i część E2: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD) | [Ścieżka E – Dzienniki zdarzeń: czytnik i analiza](../README.pl.md#ścieżka-e--dzienniki-zdarzeń-czytnik-i-analiza--e1-i-część-e2-) |
-| ⬜ | [Ścieżka P – Urząd certyfikacji (AD CS) i certyfikaty](../README.pl.md#ścieżka-p--urząd-certyfikacji-ad-cs-i-certyfikaty-) |
+| 🟡 (P1 – przegląd AD CS tylko do odczytu: 🟡 zaimplementowane, czeka na pilotaż na Windows Server AD z AD CS; instrukcja: [CERTYFIKATY.md](CERTYFIKATY.md); P2–P5: ⬜) | [Ścieżka P – Urząd certyfikacji (AD CS) i certyfikaty](../README.pl.md#ścieżka-p--urząd-certyfikacji-ad-cs-i-certyfikaty--p1-) |
 | ⬜ | [Ścieżka N – DNS i DHCP](../README.pl.md#ścieżka-n--dns-i-dhcp-) |
 | ⬜ | [Ścieżka R – Okno PowerShell](../README.pl.md#ścieżka-r--okno-powershell-) |
 | 🟡 (lista kontrolna: [PILOTAZ.md](PILOTAZ.md)) | [Etap S – stabilizacja i gotowość do pilotażu](../README.pl.md#etap-s--stabilizacja-i-gotowość-do-pilotażu-) |

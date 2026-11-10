@@ -38,8 +38,8 @@
 AD Manager to konsola Windows dla administratorów lokalnej usługi Active Directory. Zastępuje przystawkę **Użytkownicy
 i komputery usługi Active Directory** (`dsa.msc`) szybką, nowoczesną aplikacją – i łączy w niej zadania, do których dziś
 potrzeba kilku osobnych narzędzi: zmiany wielu obiektów naraz, przywracanie usuniętych obiektów, przegląd kont
-i uprawnień, zasady grupy, dzienniki zdarzeń i wiadomości do użytkowników. Osobna usługa, **AdMng Watchdog**, całą dobę
-zapisuje każdą zmianę w katalogu.
+i uprawnień, zasady grupy, usługi certyfikatów (AD CS), dzienniki zdarzeń i wiadomości do użytkowników. Osobna usługa,
+**AdMng Watchdog**, całą dobę zapisuje każdą zmianę w katalogu.
 
 <table>
   <tr>
@@ -181,6 +181,19 @@ Szczegóły: [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytko
 Szczegóły: [ścieżka K](#ścieżka-k--komputery-i-zasady-grupy-gpo--k1k7-), [docs/KOMPUTERY.md](docs/KOMPUTERY.md) i
 [docs/ZASADY-GRUPY.md](docs/ZASADY-GRUPY.md).
 
+### 🏛 Usługi certyfikatów (AD CS)
+
+- 🏛 **Przegląd PKI lasu tylko do odczytu** – węzeł *Usługi kluczy publicznych* w drzewie: urzędy przedsiębiorstwa,
+  zaufane urzędy i NTAuth, listy CRL i zdrowie w stylu `pkiview.msc`, certyfikaty LDAPS kontrolerów domeny; szablony
+  certyfikatów z odczytanymi flagami i tym, kto naprawdę może się zarejestrować (z liczbą kont); przegląd
+  bezpieczeństwa ESC1–5, 9, 13–15 i 17 z odpowiednikami w Certipy i Locksmith; raport gotowości na silne mapowanie
+  certyfikatów (KB5014754) i NTAuth; karty *Opublikowane certyfikaty*, *Mapowania nazw* i *Poświadczenia kluczy* na
+  kontach. Wszystko z LDAP przez kontroler okna, bez połączenia z urzędem certyfikacji; nic nie jest zmieniane ani
+  zapisywane na dysku, a materiału klucza (`userPKCS12` …) program nie pokazuje nigdzie.
+
+Szczegóły: [ścieżka P](#ścieżka-p--urząd-certyfikacji-ad-cs-i-certyfikaty--p1-),
+[docs/CERTYFIKATY.md](docs/CERTYFIKATY.md).
+
 ### 📋 Dzienniki zdarzeń i diagnostyka
 
 - 📋 **Czytnik dzienników zdarzeń** – dzienniki kontrolerów domeny, serwerów, stacji i pliki `.evtx` prosto z AD
@@ -232,8 +245,9 @@ Szczegóły: [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytko
   w trakcie pracy (**„Zmień kontroler domeny…”** – lista DC z lokacją, GC i RODC, bez ponownego wpisywania hasła, otwarte
   karty zostają). Interfejs pokazuje, co dane konto może zmienić, a czego nie (`allowedAttributesEffective`), i wyróżnia
   konta uprzywilejowane.
-- 🕵 **Bez telemetrii i automatycznych aktualizacji** – jedyne połączenie z internetem to pobranie szablonów ADMX
-  przeglądarek, gdy sam o to poprosisz; zob. [politykę prywatności](#privacy-policy).
+- 🕵 **Bez telemetrii i automatycznych aktualizacji** – jedyne połączenia z internetem to pobranie szablonów ADMX
+  przeglądarek i – w przeglądzie PKI, gdy certyfikaty lasu wskazują takie adresy – sprawdzenie adresów AIA, CDP i OCSP,
+  oba tylko wtedy, gdy sam o to poprosisz; zob. [politykę prywatności](#privacy-policy).
 
 Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, „Kopiuj użytkownika”): zob.
 [znane ograniczenia](#znane-ograniczenia).
@@ -348,7 +362,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K7: 🟡)"] ~~~ EVT["🟡 E · Dzienniki zdarzeń<br/>czytnik i analiza<br/>(E1, część E2: 🟡)"] ~~~ PKI["⬜ P · Urząd certyfikacji<br/>(AD CS) i certyfikaty"] ~~~ NET["⬜ N · DNS i DHCP<br/>strefy, rekordy, zakresy"] ~~~ PWSH["⬜ R · Okno PowerShell<br/>zapytania i skrypty,<br/>zapis przez plan zmian"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K7: 🟡)"] ~~~ EVT["🟡 E · Dzienniki zdarzeń<br/>czytnik i analiza<br/>(E1, część E2: 🟡)"] ~~~ PKI["🟡 P · Urząd certyfikacji<br/>(AD CS) i certyfikaty<br/>(P1: 🟡)"] ~~~ NET["⬜ N · DNS i DHCP<br/>strefy, rekordy, zakresy"] ~~~ PWSH["⬜ R · Okno PowerShell<br/>zapytania i skrypty,<br/>zapis przez plan zmian"]
     end
     A --> B
     B ~~~ C
@@ -356,8 +370,8 @@ flowchart TB
     classDef wip fill:#fff8c5,stroke:#9a6700,color:#3b2300
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
-    class F1,F2,W,U,K,EVT wip
-    class F3,F4,F5,F6,F7,M365,TEAM,PKI,NET,PWSH todo
+    class F1,F2,W,U,K,EVT,PKI wip
+    class F3,F4,F5,F6,F7,M365,TEAM,NET,PWSH todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -379,7 +393,7 @@ flowchart TB
 | T | Współpraca zespołu (ścieżka równoległa) | Kilku administratorów na różnych komputerach pracuje razem przez usługę AdMng Watchdog: panel „Wspólne” z obiektami przypiętymi dla zespołu (z notatką, autorem, „Przekaż do…”) i notatki do obiektów widoczne dla wszystkich przy koncie, grupie czy komputerze, odświeżane na żywo | ⬜ zaplanowane |
 | K | Komputery i zasady grupy (GPO) (ścieżka równoległa) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer”, czytelne ustawienia i diagnostyka zasad grupy, wyszukiwanie ustawień we wszystkich GPO, kopiowanie ustawień i porządki w GPO | 🟡 (K1 – komputery, K2 – GPO w drzewie, K3 – edytor ADMX z aktualizacją magazynu centralnego, K4 – ustawienia zabezpieczeń, K5 – raport „co dostanie komputer”, K6 – czytelność, wygoda edycji i diagnostyka i K7 – wyszukiwanie, kopiowanie ustawień i porządki w GPO: zaimplementowane, czekają na pilotaż na Windows Server AD) |
 | E | Dzienniki zdarzeń: czytnik i analiza (ścieżka równoległa) | Czytanie dzienników zdarzeń DC, serwerów, stacji i plików `.evtx` z poziomu programu (dowolny kanał, wspólna oś czasu wielu komputerów, objaśnione pola i obiekty AD) oraz analizy: źródło blokady konta, rozpylanie haseł, Kerberos/RC4, NTLMv1, podpisywanie LDAP („kto przestanie działać”), historia logowań, zmiany kont i grup, GPO na komputerze, zdrowie DC, integralność inspekcji; osobno od Watchdoga, bez zapisu na dysku | 🟡 (E1 – czytnik oraz z E2 źródło blokady konta i nieudane logowania: zaimplementowane, czekają na pilotaż na Windows Server AD) |
-| P | Urząd certyfikacji (AD CS) i certyfikaty (ścieżka równoległa) | Przegląd PKI lasu na żywo z LDAP (urzędy, szablony z odczytanymi flagami i tym, kto może się zarejestrować, NTAuth, AIA, listy CRL, OID) ze zdrowiem w stylu `pkiview.msc`; przegląd bezpieczeństwa ESC1–ESC17 z naprawą w AD przez plan zmian z cofnięciem; karty *Opublikowane certyfikaty*, *Mapowania nazw* (silne mapowanie, KB5014754) i *Poświadczenia kluczy*, certyfikaty LDAPS/KDC na DC; wystawianie certyfikatów z szablonów urzędu, z objaśnieniem wymagań szablonu (dla użytkowników, komputerów, serwerów WWW z SAN i DC, z wniosków PKCS#10 z dowolnego systemu, w imieniu innych przez agenta rejestracji; odnowienie, żądania oczekujące) – także certyfikat HTTPS usługi Watchdog z wniosku hosta i certyfikat podpisywania kodu dla AD Managera – jako akcja planu zmian z podglądem i audytem; praca z urzędem przez DCOM z kontem okna (wystawione, oczekujące, odwołane, zatwierdzanie, odwołanie, publikacja CRL); powiązania z Watchdogiem, dziennikami zdarzeń, GPO i powiadomieniami | ⬜ zaplanowane |
+| P | Urząd certyfikacji (AD CS) i certyfikaty (ścieżka równoległa) | Przegląd PKI lasu na żywo z LDAP (urzędy, szablony z odczytanymi flagami i tym, kto może się zarejestrować, NTAuth, AIA, listy CRL, OID) ze zdrowiem w stylu `pkiview.msc`; przegląd bezpieczeństwa ESC1–ESC17 z naprawą w AD przez plan zmian z cofnięciem; karty *Opublikowane certyfikaty*, *Mapowania nazw* (silne mapowanie, KB5014754) i *Poświadczenia kluczy*, certyfikaty LDAPS/KDC na DC; wystawianie certyfikatów z szablonów urzędu, z objaśnieniem wymagań szablonu (dla użytkowników, komputerów, serwerów WWW z SAN i DC, z wniosków PKCS#10 z dowolnego systemu, w imieniu innych przez agenta rejestracji; odnowienie, żądania oczekujące) – także certyfikat HTTPS usługi Watchdog z wniosku hosta i certyfikat podpisywania kodu dla AD Managera – jako akcja planu zmian z podglądem i audytem; praca z urzędem przez DCOM z kontem okna (wystawione, oczekujące, odwołane, zatwierdzanie, odwołanie, publikacja CRL); powiązania z Watchdogiem, dziennikami zdarzeń, GPO i powiadomieniami | 🟡 (P1 – przegląd PKI tylko do odczytu z LDAP: urzędy, NTAuth, listy CRL, zdrowie, certyfikaty LDAPS DC, szablony z uprawnieniami do rejestracji, przegląd bezpieczeństwa ESC, raport gotowości na silne mapowanie i NTAuth, karty certyfikatów na kontach: zaimplementowane, czeka na pilotaż na Windows Server AD z AD CS; P2–P5: ⬜) |
 | N | DNS i DHCP (ścieżka równoległa) | Strefy i rekordy DNS na żywo z AD (wszystkie partycje, rekordy zdekodowane z `dnsRecord`, starzenie i rekordy nieaktualne, warunkowe usługi przesyłania dalej, rekordy lokalizatora DC), przejście od komputera do jego rekordów, dzierżawy i rezerwacji; ustawienia serwerów DNS oraz zakresy, dzierżawy, rezerwacje, opcje, zasady i praca awaryjna DHCP przez WinRM/CIM albo RPC z kontem okna; przegląd bezpieczeństwa i zdrowia (kto może tworzyć rekordy, DnsAdmins, DnsUpdateProxy, niezabezpieczone aktualizacje dynamiczne, DHCP na DC, poświadczenia DNS, ochrona nazw, zakresy bliskie wyczerpania) z naprawą w AD przez plan zmian z cofnięciem; powiązania z komputerami, lokacjami i podsieciami, Koszem AD, dziennikami zdarzeń i Watchdogiem | ⬜ zaplanowane |
 | R | Okno PowerShell (ścieżka równoległa) | Konsola PowerShell 7 przy każdym oknie połączenia do doraźnych zapytań, zrzutów danych z AD i skryptów: wbudowane polecenia odczytu w sesji okna (ten sam DC, poświadczenia tylko w pamięci, bez RSAT) z bezpiecznie budowanymi filtrami LDAP, wyniki jako obiekty PowerShell do otwarcia w siatce programu, z przejściem do obiektu, eksport tylko do pliku wskazanego przez operatora; zapisy nigdy wprost do AD – polecenia AD Managera i przetłumaczone polecenia RSAT trafiają do oczekującego planu zmian z podglądem, audytem i cofnięciem, pozostałe zapisy RSAT są odrzucane; zainstalowane moduły RSAT `ActiveDirectory` i `GroupPolicy` domyślnie skierowane na DC okna (`ActiveDirectory` także z poświadczeniami okna); bez historii poleceń i transkrypcji na dysku | ⬜ zaplanowane |
 
@@ -753,7 +767,7 @@ karty ADUC.
   operatora (metadane zmian, bez wartości), wsparcie korelacji z audytem DC (5136/5137/5141 – przechodzi do ścieżki E).
 - Rzadkie karty ADUC: Dial-in, Środowisko/Sesje/Zdalne sterowanie (RDS), zasady replikacji haseł RODC (karty
   *Mapowania nazw* i *Opublikowane certyfikaty* przeszły do
-  [ścieżki P](#ścieżka-p--urząd-certyfikacji-ad-cs-i-certyfikaty-)); wzorce operacji (FSMO), konta gMSA/dMSA.
+  [ścieżki P](#ścieżka-p--urząd-certyfikacji-ad-cs-i-certyfikaty--p1-)); wzorce operacji (FSMO), konta gMSA/dMSA.
 
 </details>
 
@@ -765,7 +779,7 @@ karty ADUC.
 <summary><b>Szczegóły fazy 7</b> – instalator MSI, WDAC/AppLocker, „cztery oczy”, PAM</summary>
 
 - Podpisany instalator MSI (certyfikat podpisywania kodu z firmowego AD CS wystawia sam AD Manager – zob. [ścieżkę P,
-  etap P2](#ścieżka-p--urząd-certyfikacji-ad-cs-i-certyfikaty-)), reguły WDAC/AppLocker, dystrybucja przez
+  etap P2](#ścieżka-p--urząd-certyfikacji-ad-cs-i-certyfikaty--p1-)), reguły WDAC/AppLocker, dystrybucja przez
   Intune/ConfigMgr/GPO.
 - Zatwierdzanie „cztery oczy”: operator A eksportuje podpisany plan zmian, operator B weryfikuje go na żywo i wykonuje.
 - Członkostwo czasowe (PAM/TTL), polityki i silosy uwierzytelniania (podgląd), logowanie kartą inteligentną.
@@ -1862,7 +1876,7 @@ diagnostyki zasad grupy (K6): ważność, obszar, szczegóły, zalecenie, *Napra
 
 </details>
 
-### Ścieżka P – Urząd certyfikacji (AD CS) i certyfikaty ⬜
+### Ścieżka P – Urząd certyfikacji (AD CS) i certyfikaty 🟡 (P1: 🟡)
 
 **Cel:** infrastruktura kluczy publicznych lasu w jednym miejscu, zamiast konsol *Urząd certyfikacji* (`certsrv.msc`),
 *Szablony certyfikatów* (`certtmpl.msc`), *PKI przedsiębiorstwa* (`pkiview.msc`), *Edytor ADSI* (`adsiedit.msc`) i
@@ -1877,11 +1891,44 @@ także dla AD Managera (podpisywanie kodu) i usługi Watchdog (certyfikat HTTPS 
 urzędem: wystawione, oczekujące i odwołane certyfikaty, zatwierdzanie i odwoływanie przez DCOM z kontem okna. Ścieżka
 równoległa; przejmuje karty *Mapowania nazw* i *Opublikowane certyfikaty* z fazy 6 i znosi część ograniczenia U4b
 dotyczącą kontenerów PKI w partycji konfiguracji (lokacje nadal pomijane). Korzysta z silnika uprawnień U4, zapisu
-uprawnień akcją `ModifySecurity` (K1/K2), zdalnych akcji (K1) i czytnika dzienników (E).
+uprawnień akcją `ModifySecurity` (K1/K2), zdalnych akcji (K1) i czytnika dzienników (E). Pierwszą wersję ma etap P1 –
+przegląd tylko do odczytu z LDAP; P2–P5 są zaplanowane.
 
 <details>
-<summary><b>Szczegóły ścieżki P</b> – przegląd PKI, szablony, ESC, certyfikaty kont i DC, wystawianie, urząd,
-etapy</summary>
+<summary><b>Szczegóły ścieżki P</b> – stan realizacji, przegląd PKI, szablony, ESC, certyfikaty kont i DC, wystawianie,
+urząd, etapy</summary>
+
+#### Stan realizacji
+
+- 🟡 **P1 – przegląd AD CS tylko do odczytu (LDAP)**: zaimplementowane, czeka na pilotaż na Windows Server AD z AD CS.
+  Węzeł *Usługi kluczy publicznych* w drzewie (*Widok → Usługi kluczy publicznych w drzewie*), menu *Narzędzia → Usługi
+  certyfikatów (AD CS)* i polecenia palety `pki.overview`, `pki.templates`, `pki.security`, `pki.readiness`. Cztery
+  dokumenty korzystają z jednego odczytu PKI okna (tylko w pamięci, F5 czyta od nowa):
+  - **Usługi kluczy publicznych** – urzędy przedsiębiorstwa (certyfikat, ścieżka z certyfikatów w AD, szablony do
+    wystawienia, CES, *Otwórz komputer* i *Zdalne akcje…* hosta urzędu), zaufane urzędy i NTAuth z dopasowaniem do
+    urzędów, listy CRL, agenci odzyskiwania kluczy, identyfikatory OID z połączonymi grupami; karta *Zdrowie* w stylu
+    `pkiview.msc` (progi w ustawieniach, adresy HTTP sprawdzane tylko po *Sprawdź adresy HTTP*) i karta *Certyfikaty
+    LDAPS* (samo uzgadnianie TLS z portem 636 i 3269 każdego DC – nazwa, EKU, ważność, łańcuch do urzędu z AD, NTAuth –
+    oraz wskaźnik certyfikatu KDC);
+  - **Szablony certyfikatów** – kolumny jak w `certtmpl.msc`, flagi jako zdania, okresy, urzędy wystawiające, *kto może
+    się zarejestrować* i *kto może zmienić szablon* (ocena jak AccessCheck z odmowami, klasy Tier 0 / szeroka grupa /
+    inne, liczby kont z jednego przebiegu), porównanie dwóch szablonów, eksport CSV i HTML;
+  - **Przegląd bezpieczeństwa AD CS** – ESC1–5, 9, 13, 14, 15 i 17 (11 kodów ustaleń z odpowiednikami w Certipy i
+    Locksmith), poziomy, filtry, warunek, ścieżka ataku, konta i grupy z liczbami, zastrzeżenia (m.in. założenie prawa
+    *Rejestruj* na urzędzie do czasu P4), eksport CSV i HTML; bez *Napraw…* (P3);
+  - **Gotowość na silne mapowanie i NTAuth** – słabe `altSecurityIdentities`, szablony uwierzytelniania bez rozszerzenia
+    SID, urzędy spoza NTAuth, certyfikaty LDAPS i KDC kontrolerów domeny, eksport CSV;
+  - karty *Opublikowane certyfikaty*, *Mapowania nazw* (siła według KB5014754) i *Poświadczenia kluczy* (tylko
+    metadane) na użytkownikach, komputerach i kontaktach; materiał klucza (`userPKCS12`, poświadczenia mobilne …) jest
+    zamaskowany w Edytorze atrybutów i w kolumnach list; zakładka *Uprawnienia* (U4b) czyta też kontenery PKI;
+  - bez połączenia z urzędem; poza sesją LDAP tylko sonda TLS kontrolerów domeny i – na przycisk – sprawdzenie adresów
+    HTTP. Sprawdzone testami na fałszywym katalogu z polskimi danymi (celowo podatny szablon dla każdej reguły ESC i
+    bezpieczny odpowiednik), sondą TLS na serwerze TLS w procesie i na laboratorium Samba (bez AD CS: puste kontenery
+    PKI i LDAPS kontrolera); okna WPF i zrzuty 36–39 – tylko CI na Windows; zgodność z `pkiview.msc`, `certtmpl.msc`,
+    Certipy i Locksmith – pilotaż. Opis: [docs/CERTYFIKATY.md](docs/CERTYFIKATY.md), projekt:
+    [docs/dev/p-certificate-services.md](docs/dev/p-certificate-services.md).
+- ⬜ **P2–P5** – wystawianie certyfikatów, naprawy przez plan zmian, praca z urzędem i powiązania z innymi ścieżkami
+  (zakres poniżej).
 
 #### Przegląd PKI i zdrowie
 
@@ -2161,11 +2208,12 @@ etapy</summary>
 
 #### Etapy
 
-- **P1** – przegląd tylko do odczytu, tylko LDAP: węzeł „Usługi kluczy publicznych”, urzędy, szablony z flagami i
+- 🟡 **P1** – przegląd tylko do odczytu, tylko LDAP: węzeł „Usługi kluczy publicznych”, urzędy, szablony z flagami i
   rozwiniętymi uprawnieniami do rejestracji, NTAuth, AIA, CDP z listami CRL, KRA, OID; zdrowie w stylu `pkiview.msc`;
   przegląd bezpieczeństwa ESC z LDAP (ESC1–5, 9, 13–15, 17); certyfikaty LDAPS DC; odczyt kart *Opublikowane
   certyfikaty*, *Mapowania nazw* i *Poświadczenia kluczy*; raport gotowości na silne mapowanie i NTAuth. Silnik ACL U4b
-  czyta kontenery PKI w partycji konfiguracji (lokacje nadal pomijane).
+  czyta kontenery PKI w partycji konfiguracji (lokacje nadal pomijane). Pierwsza wersja gotowa (zob. *Stan
+  realizacji*), czeka na pilotaż na Windows Server AD z AD CS; opis: [CERTYFIKATY.md](docs/CERTYFIKATY.md).
 - **P2** – wystawianie certyfikatów (w kolejce po R1 – [ścieżka R](#ścieżka-r--okno-powershell-)): kreator z wyborem
   urzędu i szablonu oraz objaśnieniem wymagań szablonu; certyfikaty dla siebie i dla komputera z kluczem w magazynie
   Windows, z wniosku PKCS#10 z dowolnego systemu (także certyfikat HTTPS usługi Watchdog z wniosku hosta), w imieniu
@@ -2197,9 +2245,10 @@ etapy</summary>
   `certutil` do uruchomienia przez administratora urzędu.
 - Kto może przeglądać bazę urzędu i czy wyszukiwanie certyfikatów konkretnej osoby ma wymagać podania powodu (jak w
   ścieżce E).
-- Domyślny próg „wygasa” dla certyfikatów urzędów, list CRL i certyfikatów LDAPS.
+- Domyślny próg „wygasa” dla certyfikatów urzędów, list CRL i certyfikatów LDAPS (P1: 180 dni dla urzędów, 30 dni dla
+  pozostałych certyfikatów, lista CRL – mniej niż 20 % ważności; oba progi do zmiany w ustawieniach).
 - Czy program może sam wysyłać zapytania HTTP do adresów AIA, CDP, OCSP i rejestracji w sieci Web (ESC8), czy tylko na
-  żądanie operatora.
+  żądanie operatora (P1: tylko na żądanie – *Sprawdź adresy HTTP*).
 - Urząd Windows do testów w CI na Windows i w pilotażu (laboratorium Samba go nie zapewni).
 - Wystawianie: tylko MS-WCCE przez DCOM (port 135 i dynamiczne porty RPC do urzędu, członkostwo w grupie *Certificate
   Service DCOM Access* na hoście urzędu – polska nazwa grupy do potwierdzenia) czy także CEP/CES przez HTTPS – dla
@@ -2883,15 +2932,15 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
 - **Uprawnienia kont (U4)** – sprawdzone tylko testami na fałszywym kontrolerze i na laboratorium Samba, nie na Windows
   Server AD: domyślne ACL świeżej domeny Windows różnią się od Samby (możliwe fałszywe ustalenia delegowań), do
   potwierdzenia są też Exchange, LAPS i komputery dołączone w ramach `ms-DS-MachineAccountQuota`, a czytnik SYSVOL dla
-  Windows nie był jeszcze uruchomiony. Delegowania w ACL (U4b): odmowy (deny) nie są oceniane, nie są czytane
-  kontenery inne niż `CN=Users` / `CN=Computers` (np. `CN=Managed Service Accounts`, `CN=System`), partycja
-  konfiguracji (lokacje, PKI – PKI w planie ścieżki P) ani partycje stref DNS (w planie ścieżki N), właściciele
-  zwykłych użytkowników, grup i komputerów nie są pokazywani, edycja GPO jest
-  oceniana po ACL obiektu GPO w AD (nie po uprawnieniach plików w SYSVOL), deskryptor, którego nie da się odczytać,
-  jest pomijany bez komunikatu; pojedyncze konta i grupy tylko z *Głębokim skanowaniem*. Uprawnienia lokalne z GPO
-  (U4c): filtry WMI i określanie elementów docelowych nie są oceniane (ustalenia „warunkowe”), lokacje komputerów
-  członkowskich też nie; lokalne konta i grupy samych komputerów są poza zasięgiem (tylko to, co nadają GPO); SYSVOL
-  tylko na Windows. Z domeny podrzędnej nie są widoczne Enterprise / Schema Admins domeny głównej lasu.
+  Windows nie był jeszcze uruchomiony. Delegowania w ACL (U4b): odmowy (deny) nie są oceniane, nie są czytane kontenery
+  inne niż `CN=Users` / `CN=Computers` (np. `CN=Managed Service Accounts`, `CN=System`), partycja konfiguracji poza
+  kontenerami PKI (czytanymi od P1; lokacje nie) ani partycje stref DNS (w planie ścieżki N), właściciele zwykłych
+  użytkowników, grup i komputerów nie są pokazywani, edycja GPO jest oceniana po ACL obiektu GPO w AD (nie po
+  uprawnieniach plików w SYSVOL), deskryptor, którego nie da się odczytać, jest pomijany bez komunikatu; pojedyncze
+  konta i grupy tylko z *Głębokim skanowaniem*. Uprawnienia lokalne z GPO (U4c): filtry WMI i określanie elementów
+  docelowych nie są oceniane (ustalenia „warunkowe”), lokacje komputerów członkowskich też nie; lokalne konta i grupy
+  samych komputerów są poza zasięgiem (tylko to, co nadają GPO); SYSVOL tylko na Windows. Z domeny podrzędnej nie są
+  widoczne Enterprise / Schema Admins domeny głównej lasu.
 - **Wiadomości do użytkowników (U1)** – wysyła AD Manager bezpośrednio przez SMTP, usługa Watchdog (U1b: kolejka,
   sekrety po stronie usługi, OAuth2 Exchange Online) albo – od U5 – klasyczny Outlook operatora; XOAUTH2 w wysyłce
   bezpośredniej nie jest obsługiwany – bez Watchdoga dla Exchange Online zostaje przekaźnik, konto z włączonym SMTP AUTH
@@ -2948,6 +2997,14 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   testach), rozpakowywanie MSI, EXE i CAB oraz sprawdzanie podpisu działa tylko w Windows. Zgodność `Registry.pol` z
   plikiem edytora Microsoftu i działanie na kliencie potwierdzi pilotaż. Brak komentarzy do ustawień, filtrów według
   platformy i słów kluczowych oraz starych szablonów ADM.
+- **Usługi certyfikatów (P1) – nie sprawdzone na Windows Server AD z AD CS.** Przegląd jest tylko do odczytu i czyta
+  wyłącznie LDAP: prawo *Rejestruj* na samym urzędzie jest zakładane (*Użytkownicy uwierzytelnieni*), a konfiguracja
+  urzędu (ESC6, ESC7, ESC8, ESC11, ESC16), jego poprawki (ESC15), wymuszanie silnego mapowania na DC (ESC10) i magazyn
+  certyfikatów KDC pozostają nieznane do P4; OCSP – tylko osiągalność; zdarzenia KDC – P5. Z okna domeny podrzędnej
+  komputery urzędów z domeny głównej i podmioty innych domen lasu nie są rozpoznawane (liczba kont nieznana). Samba
+  nie ma AD CS, więc wszystko poza sondą LDAPS sprawdzono na fałszywym katalogu; okna i zrzuty 36–39 – tylko CI na
+  Windows; zgodność z `pkiview.msc`, `certtmpl.msc`, Certipy i Locksmith potwierdzi pilotaż
+  ([lista](docs/CERTYFIKATY.md#11-ograniczenia-i-pilotaż)).
 - **Filtr „Puste grupy”** sprawdza atrybut `member` i pomija domyślne grupy podstawowe domeny (Domain Users, Domain
   Guests, Domain Computers, Domain Controllers, Read-only Domain Controllers – po SID domeny); własna grupa, która jest
   grupą podstawową (`primaryGroupID`) części kont i nie ma innych członków, nadal może być pokazywana jako pusta.
@@ -2974,6 +3031,7 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
 | Wiadomości e-mail do użytkowników | U | – | U (członkowie jako odbiorcy) | – | – |
 | Korespondencja przez Outlooka | U5 | – | U5 (członkowie jako odbiorcy) | U5 | – |
 | Zapytania do właścicieli skrzynek | U5 (skrzynki i ich właściciele) | – | – | – | U5 (zakres) |
+| Certyfikaty na kontach (*Opublikowane certyfikaty*, *Mapowania nazw*, *Poświadczenia kluczy*) | P1 (odczyt), P3 (zmiany) | P1 (odczyt), P3 (zmiany) | – | P1 (*Opublikowane certyfikaty*) | – |
 
 </details>
 
@@ -3171,6 +3229,7 @@ Lokalnie (Windows): `$env:ADMNG_SCREENSHOTS_DIR = "$PWD\zrzuty"; dotnet test tes
 | 🖥 [Komputery](docs/KOMPUTERY.md) | przegląd komputerów i raporty, cykl życia kont, zdalne akcje przez WinRM, WinRM zasadą grupy |
 | 📋 [Dzienniki zdarzeń](docs/DZIENNIKI-ZDARZEN.md) | czytnik dzienników zdarzeń DC, serwerów, stacji i plików `.evtx`, skąd blokada konta, nieudane logowania; wymagania (zapora, grupa, inspekcja) |
 | 📜 [Zasady grupy](docs/ZASADY-GRUPY.md) | obiekty zasad grupy w drzewie, karta *Zasady grupy*, operacje na GPO, filtrowanie zabezpieczeń, filtry WMI, delegowanie, kopie zapasowe, porównanie, edytory ustawień, model „co dostanie komputer”, diagnostyka zasad grupy, wyszukiwanie i kopiowanie ustawień, porządki w GPO |
+| 🏛 [Usługi certyfikatów](docs/CERTYFIKATY.md) | przegląd PKI lasu tylko do odczytu (etap P1): węzeł *Usługi kluczy publicznych*, urzędy, NTAuth, listy CRL, zdrowie, sprawdzenie adresów HTTP, certyfikaty LDAPS kontrolerów domeny, szablony i prawa do rejestracji, przegląd bezpieczeństwa ESC i różnice względem Certipy i Locksmith, gotowość na silne mapowanie i NTAuth, karty certyfikatów na kontach, maskowanie kluczy, prywatność i sieć, pilotaż |
 | 📨 [Korespondencja](docs/KORESPONDENCJA.md) | okno *Korespondencja (Outlook)*: odbiorcy z plików i z AD, pola, wiadomość, podgląd, wysyłka przez Outlooka, dziennik „już wysłane”, zapytania do właścicieli skrzynek, odpowiedzi, rozwiązywanie problemów, pilotaż |
 | ✅ [Pilotaż](docs/PILOTAZ.md) | lista kontrolna pilotażu na Windows Server AD: środowisko, sprawdzenie gotowości, scenariusze z narzędziem Microsoftu do porównania, zgłaszanie problemów, wyniki |
 | 🧪 [Laboratorium testowe](tools/testlab/README.pl.md) | Samba AD DC z danymi „polskiej firmy”; [Watchdog w laboratorium](tools/testlab/watchdog/README.pl.md) |
@@ -3209,10 +3268,12 @@ or the person installing or operating it.
 
 Program nie przesyła żadnych informacji do innych systemów w sieci, chyba że wyraźnie zażąda tego użytkownik albo
 osoba, która go instaluje lub obsługuje. AD Manager łączy się wyłącznie z kontrolerami domeny i serwerami wskazanymi
-przez operatora (LDAP, WinRM, dzienniki zdarzeń, usługa AdMng Watchdog, poczta). Jedyne połączenie z internetem to
-pobranie szablonów ADMX przeglądarek Edge, Chrome i Firefox, gdy operator sam o to poprosi (*Zaktualizuj szablony*).
-Program nie ma telemetrii ani automatycznych aktualizacji, a podgląd wiadomości HTML nie pobiera zdalnych obrazów ani
-innych zasobów. AdMng Watchdog wysyła powiadomienia tylko do kanałów skonfigurowanych przez administratora usługi.
+przez operatora (LDAP, WinRM, dzienniki zdarzeń, usługa AdMng Watchdog, poczta). Połączenia z internetem są tylko
+dwa i oba na wyraźne polecenie operatora: pobranie szablonów ADMX przeglądarek Edge, Chrome i Firefox (*Zaktualizuj
+szablony*) oraz – gdy adresy AIA, CDP lub OCSP w certyfikatach lasu wskazują serwery w internecie – *Sprawdź adresy
+HTTP* w przeglądzie PKI (bez poświadczeń). Program nie ma telemetrii ani automatycznych aktualizacji, a podgląd
+wiadomości HTML nie pobiera zdalnych obrazów ani innych zasobów. AdMng Watchdog wysyła powiadomienia tylko do kanałów
+skonfigurowanych przez administratora usługi.
 
 ---
 

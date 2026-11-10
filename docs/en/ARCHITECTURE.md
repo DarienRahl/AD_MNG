@@ -458,6 +458,54 @@ AdMng.Core/Correspondence                 AdMng.Outlook ── COM (dynamic) on 
   `AdMng.Presentation.Tests/Correspondence` (with `FakeOutlookClient` from `AdMng.Testing`), UI tests and screenshots 26–28 on
   Windows. Real Outlook – only the pilot.
 
+## Certificate Services (Track P, P1)
+
+Design: [dev/p-certificate-services.md](../dev/p-certificate-services.md); administrator guide:
+[CERTIFICATES.md](CERTIFICATES.md). P1 is a **read-only** AD CS overview: it writes nothing to the directory (rule 5 –
+no change plan operation, the property tabs return an empty operation list) and reads everything over the LDAP of the
+window's session (rule 4); it does not connect to the certification authority.
+
+- **Core/Pki** – pure logic without Windows types (shared with the Watchdog from P5): `PkiOverviewReader` (one paged
+  search of `CN=Public Key Services` with security descriptors and extended DNs; read notices instead of exceptions; the
+  CA computer resolution), the `CertificateSummary` and `CrlSummary` parsers (DER through `System.Formats.Asn1`, `null`
+  on malformed data), `CertificateTemplate` with the `PkiFlags` flag tables and the `PkiPeriod` periods,
+  `TemplateRightsEvaluator` (AccessCheck: the first ACE per right, deny entries, one pass over the accounts with
+  memoised decisions) and `PrincipalClassifier` (Tier 0 / broad group / other), `PkiHealth` (states computed when shown
+  from the thresholds and the clock), `PkiEscReader` and `PkiEscAnalyzer` (the 11 `PkiFindingCodes`),
+  `AltSecurityIdentity`, `KeyCredentialLink` and the TLS probe contract `IDomainControllerTlsProbe` with the
+  `DcCertificateEvaluation` and `KdcCertificateEvaluation` assessments. Chains are built with `CustomRootTrust` on the
+  CAs read from AD, without downloads (`DisableCertificateDownloads`, `RevocationMode = NoCheck`). U4b
+  (`DirectoryAclGrantSource`) reads the PKI containers in the same pass as `CollectPublicKeyAsync` (ESC5, ESC14).
+- **Directory/Pki** – `SslStreamTlsProbe`: TCP and `SslStream` to port 636 or 3269, only the TLS handshake (no LDAP
+  bind, no client certificate, no application data), 5 s, host names only (`HostNames.IsValid`, no IP addresses); a
+  chain policy with `CustomRootTrust` on an empty store and no downloads, so the platform reaches neither the Windows
+  store nor the AIA URLs. The App registers it (`AddAdMngPkiApp()`).
+- **Presentation/Pki** – `PkiSnapshotService` (**Scoped**, one per connection window) keeps in memory the PKI read, the
+  account pass, the domain controllers, the TLS probe results and the HTTP checks; its key is the session instance and
+  the server, a session change and F5 (`Invalidate`) drop everything, and one build is shared by all documents of the
+  window. `PkiHealthProbe` (a stateless singleton): the AIA, CDP and OCSP checks only on the button – `http`/`https`
+  only, no credentials for the target, at most 3 redirects (each checked), 15 s, 20 MB, the body discarded after
+  parsing. `PkiServices` and `PkiViewModelFactory` (Scoped), `PkiDocumentBase` and the four documents (overview,
+  templates, security review, readiness), the `PkiNodeViewModel` tree node, the `pki.*` and `view.pkiNodes` commands
+  (`ShellViewModel.Pki.cs`), `PkiSettings` (two thresholds and the node toggle) and three read-only property tabs.
+- **Masking** – `SecretAttributes.IsNeverShown` (key material: `userPKCS12`, the roaming credentials, the BitLocker key
+  package, managed and encrypted passwords, every secret with a binary syntax): the Attribute Editor shows the mask
+  without editing and copying, the column chooser leaves these attributes out, and a list cell (e.g. from a saved view)
+  formats as the mask – also in the CSV export (Ctrl+C leaves secret columns out). The Watchdog rejects a configuration
+  that watches `userPKCS12`.
+- **Network** – outside the window's LDAP session only the TLS probe (the *LDAPS certificates* tab: first opening, its
+  button, F5 and a DC change once opened; the readiness report – only its button; at most 4 controllers at a time) and
+  the HTTP checks after *Check HTTP URLs*; never `file:`, UNC or `ldap://host`.
+- **Data** (rule 1) – the read, the findings and the probe results are only in the window's memory; the records of
+  `AdMng.Core.Pki` and `AdMng.Presentation.Pki` have their own value-free `ToString()` (`PkiContractTests`); the PKI
+  documents write nothing of their own to the diagnostic logs; only the operator's exports reach the disk (CSV, HTML,
+  `.cer`).
+- **Tests** – `AdMng.Core.Tests/Pki` (the `AddPublicKeySample` sample: CAs and templates with Polish names, a
+  deliberately vulnerable template for every ESC rule and a safe look-alike; `PkiSamples` with certificates and CRLs
+  with fixed dates), `AdMng.Presentation.Tests/Pki`, `AdMng.Directory.IntegrationTests/Pki` (the probe against an
+  in-process TLS server, in the lab – LDAPS of `localhost`), UI tests and the screenshots 36–39 on Windows. Samba has no
+  AD CS – consistency with `pkiview.msc`, `certtmpl.msc`, Certipy and Locksmith will be confirmed by the pilot.
+
 ## Security
 
 - Sign-in and reset passwords exist only in memory; they do not reach settings, logs or `ToString()`.
@@ -469,6 +517,9 @@ AdMng.Core/Correspondence                 AdMng.Outlook ── COM (dynamic) on 
   containing them are skipped on Ctrl+C); a secret reaches the clipboard only after being explicitly revealed in the Attribute Editor, with
   exclusion from the clipboard history and clearing after 60 s. Rows copied to Excel have the same formula protection as
   CSV export.
+- Key material (`userPKCS12`, the roaming credentials, encrypted LAPS passwords, every secret with a binary syntax) is
+  never shown, copied or exported – not in the Attribute Editor and not in list columns either
+  (`SecretAttributes.IsNeverShown`, P1).
 - Warnings for protected objects (adminCount=1, critical system objects, built-in accounts) and confirmation
   by typing the number of objects for large/risky operations.
 - The application is not a security boundary – permissions are decided by ACLs in AD; the UI only reflects them.
@@ -564,6 +615,7 @@ Principles that distinguish the service from the rest of the solution:
 |---|---|---|
 | Unit | `AdMng.Core.Tests`, `AdMng.Presentation.Tests` | xUnit v3, `FakeDirectorySession`; view model tests on a single UI thread (`UiThreadAttribute`), as in WPF; time limits as logical bounds and linear growth of work (`LinearWork`), not wall-clock time |
 | Integration | `AdMng.Directory.IntegrationTests` | Samba AD DC from `tools/testlab` (locally and in CI on Ubuntu) |
+| PKI (P1) | `AdMng.Core.Tests/Pki`, `AdMng.Presentation.Tests/Pki`, `AdMng.Directory.IntegrationTests/Pki` | the fake directory's PKI sample (deliberately vulnerable templates and safe look-alikes), certificates and CRLs generated in the tests with fixed dates, the TLS probe against an in-process TLS server (Linux and Windows); the Samba lab – only empty PKI containers and the LDAPS probe |
 | Outlook (U5) | `AdMng.Outlook.Tests` | a fake Outlook object model in the CLR: order of message-building steps, `cid:` images, error classification, the STA thread, temporary files, votes, the U1 transport (Linux and Windows); real Outlook – only the pilot |
 | UI smoke | Windows CI | `AdMng.exe --smoke-test` creates all views with test data |
 | Watchdog – engine | `AdMng.Watchdog.Core.Tests` | `FakeDirectorySession` with USN, metadata and controller emulation; recorded 47xx/5136 events; a fake clock |

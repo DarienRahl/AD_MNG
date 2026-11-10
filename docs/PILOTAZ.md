@@ -4,10 +4,10 @@
 
 Prawie wszystko, co AD Manager potrafi, sprawdzono testami na fałszywym katalogu, laboratorium Samba i w testach
 interfejsu na Windows. **Nie sprawdzono jeszcze tego, co wymaga prawdziwego Windows Server AD**: kontrolerów Windows,
-GPMC i klientów stosujących zasady grupy, dzienników zdarzeń czytanych przez RPC, zdalnych akcji, klasycznego Outlooka
-i Exchange. Ten dokument prowadzi przez pilotaż: przygotowanie, sprawdzenie gotowości, scenariusze z oczekiwanym
-wynikiem i sposób zgłaszania problemów. Szczegółowe listy usługi AdMng Watchdog i Korespondencji są w ich instrukcjach
-(odnośniki niżej) – tu ich nie powtarzamy.
+GPMC i klientów stosujących zasady grupy, dzienników zdarzeń czytanych przez RPC, zdalnych akcji, urzędów certyfikacji
+(AD CS), klasycznego Outlooka i Exchange. Ten dokument prowadzi przez pilotaż: przygotowanie, sprawdzenie gotowości,
+scenariusze z oczekiwanym wynikiem i sposób zgłaszania problemów. Szczegółowe listy usługi AdMng Watchdog i
+Korespondencji są w ich instrukcjach (odnośniki niżej) – tu ich nie powtarzamy.
 
 > Zacznijcie od **domeny testowej** albo konta z ograniczonymi uprawnieniami. Każda zmiana w AD i SYSVOL przechodzi przez
 > podgląd planu zmian z możliwością cofnięcia, ale pilotaż ma dopiero potwierdzić zgodność z narzędziami Microsoftu.
@@ -23,7 +23,8 @@ wynikiem i sposób zgłaszania problemów. Szczegółowe listy usługi AdMng Wat
 | Komputery testowe | stacja Windows 11 i serwer członkowski w OU testowej – do zdalnych akcji, zasad grupy i dzienników zdarzeń |
 | AdMng Watchdog (opcjonalnie) | Debian 13 według [WATCHDOG-LINUX.md](WATCHDOG-LINUX.md) |
 | Korespondencja (opcjonalnie) | klasyczny Outlook z profilem Exchange (lokalny lub Exchange Online) |
-| Narzędzia do porównań | GPMC, `gpresult /h`, `secedit`, LockoutStatus i EventCombMT, Podgląd zdarzeń, ADUC/ADAC, PowerShell `ActiveDirectory` i `GroupPolicy` |
+| Usługi certyfikatów (opcjonalnie, P1) | AD CS z urzędem głównym i urzędem przedsiębiorstwa wystawiającym, listy CRL publikowane w AD i pod adresem HTTP; celowo podatne kopie szablonów tylko w domenie testowej (przepis laboratorium: [WATCHDOG-LINUX.md, 1.7](WATCHDOG-LINUX.md#17-urząd-certyfikacji-w-laboratorium-opcjonalnie)) |
+| Narzędzia do porównań | GPMC, `gpresult /h`, `secedit`, LockoutStatus i EventCombMT, Podgląd zdarzeń, ADUC/ADAC, PowerShell `ActiveDirectory` i `GroupPolicy`; dla PKI: `pkiview.msc`, `certtmpl.msc`, `certlm.msc`, `certutil`, Certipy (`certipy find -vulnerable`) i Locksmith |
 
 Pliki AD Managera nie są jeszcze podpisane cyfrowo: SmartScreen, AppLocker albo WDAC mogą zablokować `AdMng.exe` –
 na czas pilotażu potrzebny jest wyjątek dla folderu programu albo skrótu pliku (`SHA256SUMS.txt` z wydania).
@@ -111,7 +112,26 @@ Ograniczenia i szczegóły: [ZASADY-GRUPY.md, rozdział 15](ZASADY-GRUPY.md#15-o
 
 Ograniczenia: [DZIENNIKI-ZDARZEN.md, rozdział 7](DZIENNIKI-ZDARZEN.md#7-ograniczenia-i-pilotaż).
 
-### 3.5 AdMng Watchdog i Korespondencja
+### 3.5 Usługi certyfikatów (P1)
+
+Wszystko tylko do odczytu; celowo podatne szablony i wpisy ACL twórzcie wyłącznie w domenie testowej i usuńcie je po
+pilotażu.
+
+| # | Scenariusz | Oczekiwany wynik | Porównaj z |
+|---|---|---|---|
+| P1 | *Usługi kluczy publicznych* w domenie z urzędem głównym i wystawiającym: urzędy, zaufane urzędy i NTAuth, listy CRL, karta *Zdrowie*; potem *Sprawdź adresy HTTP* | stany certyfikatów urzędów, lokalizacji AIA i CDP oraz list podstawowych i różnicowych jak w *PKI przedsiębiorstwa*; adresy HTTP kontaktowane dopiero po przycisku | `pkiview.msc` |
+| P2 | *Szablony certyfikatów*: szablony domyślne i ich kopie (wersje schematu 1–4) – flagi, okresy, dostawcy, *Wystawiany przez*, *Kto może się zarejestrować* i *Kto może zmienić szablon*, także z wpisem odmowy i grupą zagnieżdżoną | te same właściwości i uprawnienia co w konsoli; liczby kont zgodne z członkostwem | `certtmpl.msc`, `Get-ADGroupMember -Recursive` |
+| P3 | *Przegląd bezpieczeństwa AD CS* w niezmienionym, domyślnym PKI – z okna domeny głównej i domeny podrzędnej | brak uwag; zakładka *Uprawnienia* (*Przegląd kont*) bez delegowań na obiektach PKI | Certipy, Locksmith |
+| P4 | Celowo podatne kopie szablonów (ESC1, ESC2, ESC3, ESC4, ESC9, ESC13, ESC15, ESC17), prawo zapisu na kontenerze PKI dla grupy testowej (ESC5), słabe mapowanie konta Tier 0 testowego (ESC14) | każde ustalenie `certipy find -vulnerable` i Locksmith dla ESC z listy LDAP ma odpowiednik; różnice tylko te z [CERTYFIKATY.md, rozdział 5.4](CERTYFIKATY.md#54-różnice-względem-certipy-find--vulnerable-i-locksmith); eksport CSV i HTML na żądanie | `certipy find -vulnerable`, Locksmith |
+| P5 | Karta *Certyfikaty LDAPS* na wszystkich DC (także RODC i wykaz globalny), jeden DC bez certyfikatu LDAPS, stacja bez dostępu do internetu | certyfikat i łańcuch jak w magazynie komputera DC; DC bez certyfikatu – *DC bez certyfikatu LDAPS (uzgadnianie TLS nie powiodło się)*; nic nie jest pobierane z sieci | `certlm.msc` na DC |
+| P6 | *Gotowość na silne mapowanie i NTAuth* z *Sprawdź certyfikaty LDAPS*: konto ze słabym i konto z silnym mapowaniem, urząd spoza NTAuth wystawiający szablon logowania, logowanie certyfikatem testowym | wiersze zgodne z rzeczywistością; wynik logowania zgodny z oceną (przy pełnym wymuszaniu słabe mapowanie odrzucone) | zdarzenia KDC 39/40/41 w dzienniku *System* DC |
+| P7 | Karty *Opublikowane certyfikaty*, *Mapowania nazw* i *Poświadczenia kluczy* użytkownika z certyfikatem S/MIME z Outlooka, mapowaniem z karty ADUC i kluczem Windows Hello dla firm | te same certyfikaty i mapowania co w ADUC; mapowanie z ADUC oznaczone jako słabe; klucze zgodne z `msDS-KeyCredentialLink` | ADUC (*Funkcje zaawansowane*), `Get-ADUser -Properties *` |
+| P8 | Edytor atrybutów i zapisany widok z kolumną `msPKIAccountCredentials` na koncie z poświadczeniami mobilnymi | wartość tylko jako maska, *Edytuj* i *Kopiuj* nieaktywne, CSV listy z maską | – |
+
+Do scenariusza A7 dołączcie pracę z dokumentami PKI: poza wskazanymi eksportami nie powstaje żaden plik. Ograniczenia
+i szczegóły: [CERTYFIKATY.md, rozdział 11](CERTYFIKATY.md#11-ograniczenia-i-pilotaż).
+
+### 3.6 AdMng Watchdog i Korespondencja
 
 - **Watchdog:** lista kontrolna
   [WATCHDOG-LINUX.md, rozdział 7](WATCHDOG-LINUX.md#7-pilotaż--lista-kontrolna) – przekazywanie zdarzeń z DC do
@@ -134,5 +154,5 @@ narzędzie Microsoftu. Zrzuty ekranu i eksporty z nazwami z katalogu przekazujci
 | A1 | | | | |
 | … | | | | |
 
-Pilotaż kończy się, gdy wszystkie scenariusze A, G i E (oraz listy Watchdoga i Korespondencji, jeśli są używane) mają
-wynik „zgodne” albo zgłoszone i poprawione różnice; wtedy wersję można uznać za stabilną.
+Pilotaż kończy się, gdy wszystkie scenariusze A, G, E i P (oraz listy Watchdoga i Korespondencji, jeśli są używane)
+mają wynik „zgodne” albo zgłoszone i poprawione różnice; wtedy wersję można uznać za stabilną.

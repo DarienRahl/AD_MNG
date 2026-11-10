@@ -1536,3 +1536,37 @@ removed, every addition is new W7 code.
   templates put the host only in the SAN) falls back to the first SAN DNS name after the UPN and e-mail – it was an empty
   cell; *Kopiuj do pliku…* suggests the thumbprint as the file name when the certificate names nobody (it was the
   hard-coded Polish `certyfikat.cer`).
+
+**Integration.** User documentation, the list-column mask and one wave-2 merge fix; the docs describe the code.
+* *Docs.* `docs/CERTYFIKATY.md` and `docs/en/CERTIFICATES.md` (11 chapters: scope and rules, where it is, the overview
+  with health, the HTTP check and the LDAPS tab, templates, the security review with the code table and every difference
+  from `certipy find -vulnerable` and Locksmith – decision 10 and the README completion criterion –, the readiness
+  report, the three tabs, key-material masking, settings, privacy and network, limitations and pilot); README /
+  README.pl.md: track P `🟡 (P1: 🟡)` in the Mermaid node, the track table and the heading (anchor now
+  `…-certyfikaty--p1-` / `…-certificates--p1-`, every link updated), an *Implementation status* part, a feature section,
+  the docs table row, a known limitation, the U4b limitation (PKI containers read since P1), a coverage row and the
+  privacy policy (the HTTP check is the second internet connection on the operator's request); ROADMAP; PILOTAZ / PILOT
+  3.5 with scenarios P1–P8 (Watchdog and Correspondence moved to 3.6); ARCHITECTURE (a P1 section, a security bullet, a
+  test row); CLAUDE.md (the two missing English file names, the Core `Pki/` and Directory probe layout rows). Every UI
+  text the docs quote was checked by script against `Strings.pl.resx` / `Strings.resx`, every link and anchor against
+  the GitHub slug rules.
+* *List-column masking (4c36287).* Decision 7 masked key material in the attribute editor only; the column chooser
+  excluded binary attributes only, so the DN-binary roaming credentials (`msPKIAccountCredentials`,
+  `msPKIDPAPIMasterKeys`) could be added as a list column, shown raw and exported. The chooser now skips
+  `SecretAttributes.IsNeverShown`, and a list cell of such an attribute (e.g. a saved view's column) formats as
+  `SecretAttributes.Mask` – which is also what the CSV export writes (`KeyMaterialColumnTests`); Ctrl+C leaves such a
+  column out like every secret column. The cell checks the name list only (`schema: null`); secrets of binary syntax
+  never reach a column through the chooser.
+* *Review request target (c69ceff).* W5's shell selects an open PKI document through `IPkiRequestTarget`; the W6 review
+  implements it, so a later request with a `FindingCode` narrows the open review to that ESC (`ShowCode`) instead of
+  keeping the old filters. No UI sends a `FindingCode` yet (the API is ready for P3/P5 links).
+* *Where the docs follow the code rather than 1–2.6.* The LDAPS tab probes on its first activation, its button and –
+  once seen – on F5 (in any PKI document: a refreshed snapshot drops the probe results) and after a session change
+  (decision 1: "explicit navigation or a button"); periods include months and hours (C2); a group trustee opens the
+  property sheet, not its *Członkowie* tab (W5); *Opublikowane certyfikaty* names the template by its own search, not
+  from the snapshot (W7); the readiness report exports CSV and copies, no HTML (W6); the HTTP check gives the Windows
+  credentials to a configured proxy only (`DefaultProxyCredentials`, 2.5), never to the target. 2.13 holds no pilot
+  checklist: the PILOTAZ scenarios come from the README completion criteria of track P, 2.10 and the as-built notes. The
+  rule-1/4 notes on the probe and the HTTP check that 2.12 planned for CLAUDE.md were not added (the integration brief
+  limited CLAUDE.md to file names and layout rows) – open for the lead. The README property-sheet and tree screenshots
+  change with the new tabs and node; regenerating them is a CI run.

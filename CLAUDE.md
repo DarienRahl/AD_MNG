@@ -5,8 +5,9 @@ System.DirectoryServices.Protocols. The main page `README.md` is in English and 
 keep both in sync (same sections and order; Polish docs link to `README.pl.md`). The product docs are in Polish in
 `docs/` and in English in `docs/en/` (same headings, numbering and order – update both; English file names:
 `COMPUTERS.md` = `KOMPUTERY.md`, `EVENT-LOGS.md` = `DZIENNIKI-ZDARZEN.md`, `GROUP-POLICY.md` = `ZASADY-GRUPY.md`,
-`CORRESPONDENCE.md` = `KORESPONDENCJA.md`, `PILOT.md` = `PILOTAZ.md`, ADRs under `docs/en/adr/`); the test lab READMEs
-are `README.md` (English) and `README.pl.md`. The English UI points to `docs/en/` (`Readiness.Doc.*` in `Strings.resx`).
+`CORRESPONDENCE.md` = `KORESPONDENCJA.md`, `PILOT.md` = `PILOTAZ.md`, `CERTIFICATES.md` = `CERTYFIKATY.md`,
+`CREATING-ACCOUNTS.md` = `ZAKLADANIE-KONT.md`, ADRs under `docs/en/adr/`); the test lab READMEs are `README.md`
+(English) and `README.pl.md`. The English UI points to `docs/en/` (`Readiness.Doc.*` in `Strings.resx`).
 Code, comments, commit messages and these notes are in English.
 
 ## Non-negotiable rules
@@ -55,8 +56,8 @@ Code, comments, commit messages and these notes are in English.
 
 | Project | Target | Purpose |
 |---|---|---|
-| `src/AdMng.Core` | net10.0 | DN/filter primitives, AD flags & converters, object/schema model, contracts (`Directory/`, `Batch/`, `Templates/`, `Csv/`, `Formatting/`, `Audit/`) and their pure implementations |
-| `src/AdMng.Directory` | net10.0 | S.DS.P implementation of `IDirectoryConnector`/`IDirectorySession` |
+| `src/AdMng.Core` | net10.0 | DN/filter primitives, AD flags & converters, object/schema model, contracts (`Directory/`, `Batch/`, `Templates/`, `Csv/`, `Formatting/`, `Audit/`) and their pure implementations; `Pki/` – the read-only AD CS model of P1 (`docs/dev/p-certificate-services.md`): PKI snapshot reader, certificate/CRL parsers, template flags and periods, enrollment rights evaluator, health rules, ESC analyzer, mapping and key credential parsers, the DC TLS probe contract (`Pki/Tls/`) |
+| `src/AdMng.Directory` | net10.0 | S.DS.P implementation of `IDirectoryConnector`/`IDirectorySession`; the DC LDAPS handshake probe (`Pki/SslStreamTlsProbe.cs`: TLS handshake only on 636/3269 – no LDAP bind, no client certificate, no application data, no chain downloads) |
 | `src/AdMng.Presentation` | net10.0 | View models (CommunityToolkit.Mvvm), UI service interfaces, localization (resx en + pl), settings. **No WPF types.** |
 | `src/AdMng.App` | net10.0-windows | WPF views (XAML), Generic Host/DI, Windows-only services |
 | `src/AdMng.Remote` | net10.0 | Remote actions on computers (K1): CIM over WinRM (`Microsoft.Management.Infrastructure`, Kerberos with the window's credentials, never stored), ping, local tools (mstsc, Computer Management, Event Viewer); used by the App only, never shipped in the Watchdog package |

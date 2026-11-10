@@ -4,10 +4,10 @@
 
 Almost everything AD Manager can do has been verified with tests on a fake directory, in the Samba lab and in UI tests on
 Windows. **What has not been verified yet is whatever requires a real Windows Server AD**: Windows domain controllers,
-GPMC and clients applying Group Policy, event logs read over RPC, remote actions, classic Outlook and Exchange. This
-document guides you through the pilot: preparation, the readiness check, scenarios with expected results, and how to
-report problems. The detailed checklists of the AdMng Watchdog service and of Correspondence are in their guides (links
-below) – we do not repeat them here.
+GPMC and clients applying Group Policy, event logs read over RPC, remote actions, certification authorities (AD CS),
+classic Outlook and Exchange. This document guides you through the pilot: preparation, the readiness check, scenarios
+with expected results, and how to report problems. The detailed checklists of the AdMng Watchdog service and of
+Correspondence are in their guides (links below) – we do not repeat them here.
 
 > Start with a **test domain** or an account with limited permissions. Every change in AD and SYSVOL goes through a
 > change plan preview with rollback, but the pilot is meant precisely to confirm compatibility with Microsoft tools.
@@ -23,7 +23,8 @@ below) – we do not repeat them here.
 | Test computers | a Windows 11 workstation and a member server in the test OU – for remote actions, Group Policy and event logs |
 | AdMng Watchdog (optional) | Debian 13 according to [WATCHDOG-LINUX.md](WATCHDOG-LINUX.md) |
 | Correspondence (optional) | classic Outlook with an Exchange profile (on-premises or Exchange Online) |
-| Comparison tools | GPMC, `gpresult /h`, `secedit`, LockoutStatus and EventCombMT, Event Viewer, ADUC/ADAC, PowerShell `ActiveDirectory` and `GroupPolicy` |
+| Certificate Services (optional, P1) | AD CS with a root CA and an issuing enterprise CA, CRLs published in AD and at an HTTP URL; deliberately vulnerable template copies only in the test domain (lab recipe: [WATCHDOG-LINUX.md, 1.7](WATCHDOG-LINUX.md#17-a-certification-authority-in-the-lab-optional)) |
+| Comparison tools | GPMC, `gpresult /h`, `secedit`, LockoutStatus and EventCombMT, Event Viewer, ADUC/ADAC, PowerShell `ActiveDirectory` and `GroupPolicy`; for the PKI: `pkiview.msc`, `certtmpl.msc`, `certlm.msc`, `certutil`, Certipy (`certipy find -vulnerable`) and Locksmith |
 
 AD Manager files are not digitally signed yet: SmartScreen, AppLocker or WDAC may block `AdMng.exe` – for the duration of
 the pilot you need an exception for the program folder or the file hash (`SHA256SUMS.txt` from the release).
@@ -113,7 +114,26 @@ Limitations and details: [GROUP-POLICY.md, chapter 15](GROUP-POLICY.md#15-limita
 
 Limitations: [EVENT-LOGS.md, chapter 7](EVENT-LOGS.md#7-limitations-and-pilot).
 
-### 3.5 AdMng Watchdog and Correspondence
+### 3.5 Certificate Services (P1)
+
+Everything is read-only; create the deliberately vulnerable templates and ACL entries only in the test domain and remove
+them after the pilot.
+
+| # | Scenario | Expected result | Compare with |
+|---|---|---|---|
+| P1 | *Public Key Services* in a domain with a root and an issuing CA: CAs, trusted CAs and NTAuth, CRLs, the *Health* tab; then *Check HTTP URLs* | the states of the CA certificates, the AIA and CDP locations and the base and delta CRLs as in *Enterprise PKI*; the HTTP URLs are contacted only after the button | `pkiview.msc` |
+| P2 | *Certificate Templates*: the default templates and their copies (schema versions 1–4) – flags, periods, providers, *Issued by*, *Who can enroll* and *Who can change the template*, also with a deny entry and a nested group | the same properties and permissions as in the console; account counts consistent with the membership | `certtmpl.msc`, `Get-ADGroupMember -Recursive` |
+| P3 | *AD CS security review* on an unchanged, default PKI – from a window of the root domain and of a child domain | no findings; the *Privileges* tab (*Account review*) without delegations on PKI objects | Certipy, Locksmith |
+| P4 | Deliberately vulnerable template copies (ESC1, ESC2, ESC3, ESC4, ESC9, ESC13, ESC15, ESC17), a write right on a PKI container for a test group (ESC5), a weak mapping on a test Tier 0 account (ESC14) | every `certipy find -vulnerable` and Locksmith finding for the ESCs of the LDAP list has a counterpart; differences only those of [CERTIFICATES.md, chapter 5.4](CERTIFICATES.md#54-differences-from-certipy-find--vulnerable-and-locksmith); CSV and HTML export on request | `certipy find -vulnerable`, Locksmith |
+| P5 | The *LDAPS certificates* tab on all DCs (an RODC and a global catalog too), one DC without an LDAPS certificate, a workstation without internet access | the certificate and chain as in the DC's computer store; a DC without a certificate – *DC without an LDAPS certificate (the TLS handshake failed)*; nothing is downloaded | `certlm.msc` on the DC |
+| P6 | *Strong mapping and NTAuth readiness* with *Check LDAPS certificates*: an account with a weak and one with a strong mapping, a CA outside NTAuth publishing a logon template, a logon with a test certificate | rows consistent with reality; the logon result consistent with the assessment (under full enforcement a weak mapping is refused) | KDC events 39/40/41 in the *System* log of the DC |
+| P7 | The *Published Certificates*, *Name Mappings* and *Key Credentials* tabs of a user with an S/MIME certificate from Outlook, a mapping created by the ADUC tab and a Windows Hello for Business key | the same certificates and mappings as in ADUC; the ADUC mapping marked as weak; the keys consistent with `msDS-KeyCredentialLink` | ADUC (*Advanced Features*), `Get-ADUser -Properties *` |
+| P8 | The Attribute Editor and a saved view with an `msPKIAccountCredentials` column on an account with roaming credentials | the value only as the mask, *Edit* and *Copy* disabled, the list CSV with the mask | – |
+
+Include the work with the PKI documents in scenario A7: apart from the exports you chose, no file is created.
+Limitations and details: [CERTIFICATES.md, chapter 11](CERTIFICATES.md#11-limitations-and-pilot).
+
+### 3.6 AdMng Watchdog and Correspondence
 
 - **Watchdog:** checklist
   [WATCHDOG-LINUX.md, chapter 7](WATCHDOG-LINUX.md#7-pilot--checklist) – forwarding events from the DCs to
@@ -137,5 +157,5 @@ organization's rules.
 | A1 | | | | |
 | … | | | | |
 
-The pilot ends when all A, G and E scenarios (and the Watchdog and Correspondence checklists, if used) have the result
-"match" or reported and fixed differences; the version can then be considered stable.
+The pilot ends when all A, G, E and P scenarios (and the Watchdog and Correspondence checklists, if used) have the
+result "match" or reported and fixed differences; the version can then be considered stable.

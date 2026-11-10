@@ -23,7 +23,7 @@ decisions to be made with the team. This file remains only so that old links kee
 | ⬜ | [Track T – Team collaboration](../../README.md#track-t--team-collaboration-) |
 | 🟡 (K1–K7: 🟡 implemented, awaiting a pilot on Windows Server AD; guide: [GROUP-POLICY.md](GROUP-POLICY.md)) | [Track K – Computers and Group Policy (GPO)](../../README.md#track-k--computers-and-group-policy-gpo--k1k7-) |
 | 🟡 (E1 and part of E2: 🟡 implemented, awaiting a pilot on Windows Server AD) | [Track E – Event logs: reader and analysis](../../README.md#track-e--event-logs-reader-and-analysis--e1-and-part-of-e2-) |
-| ⬜ | [Track P – Certification authority (AD CS) and certificates](../../README.md#track-p--certification-authority-ad-cs-and-certificates-) |
+| 🟡 (P1 – read-only AD CS overview: 🟡 implemented, awaiting a pilot on Windows Server AD with AD CS; guide: [CERTIFICATES.md](CERTIFICATES.md); P2–P5: ⬜) | [Track P – Certification authority (AD CS) and certificates](../../README.md#track-p--certification-authority-ad-cs-and-certificates--p1-) |
 | ⬜ | [Track N – DNS and DHCP](../../README.md#track-n--dns-and-dhcp-) |
 | ⬜ | [Track R – PowerShell window](../../README.md#track-r--powershell-window-) |
 | 🟡 (checklist: [PILOT.md](PILOT.md)) | [Stage S – stabilization and pilot readiness](../../README.md#stage-s--stabilization-and-pilot-readiness-) |
