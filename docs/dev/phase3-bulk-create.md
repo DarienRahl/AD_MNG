@@ -1804,3 +1804,81 @@ does not need them), so `BulkCreateRecordSamples.Value` is unchanged. Deviations
   A computation that joins a run read (`ReadOnceAsync`) another computation started on the same lookups reads again when
   that one is cancelled, instead of failing with its cancellation (an edit cancels a computation and starts the next at
   once).
+
+**B3 as built.** Bodies of `BulkSourceViewModel`, `BulkColumnsViewModel`, `BulkRulesViewModel` (with two new partials,
+`BulkRulesViewModel.Rules.cs` – compile, *Numeracja*, first free number, *Wstaw pole*, samples and the internal
+`PatternEditing` helper – and `BulkRulesViewModel.Profiles.cs`), `BulkCreateProfileStore`, `BulkCreateCountries`, the B3 part
+of `L.BulkCreate` and the B3 resx block (173 keys, en + pl); `BulkSourceView`, `BulkColumnsView`, `BulkRulesView`;
+`NewObjectViewModel.OpenBulkCreateCommand` with the *Wiele naraz…* button; `ClipboardService.ReadTable`. Deviations and
+additions:
+
+* **Added members.** Step 1: `Mask`, `HasTable`, `HasHeader`, `NewColumnHeader`, `RepeatedPasteQuestion` / `HasRepeatedPaste`
+  with `AppendRepeatedCommand`, `ReplaceWithRepeatedCommand`, `CancelRepeatedCommand` (the question is an inline bar: three
+  answers do not fit `ConfirmAsync` and `IDialogService` gets no method), internal `PendingWork`; `SourceRowViewModel` has the
+  two-way indexer `this[int]` the grid binds and `ExcelRow`, `SourceColumnViewModel` `Letter`. *Dodaj wiersz* on an empty
+  wizard starts a typed table with the columns *Imię, Nazwisko, E-mail, Telefon komórkowy, Dział* (`StarterHeaders`), which
+  step 2 maps by itself. Step 2: `AvailableTargets` (the kind's targets: no full name or country for groups and computers,
+  the expiry for users only), `InternationalPhones` + `UseInternationalPhonesCommand` (kept in step with `Rules.Phones`),
+  `HeaderMappings` (set by step 3 from the profile; used by the next automatic mapping, an existing mapping is not redone),
+  `ToHeaderMappings()`, `StorableHeaderNames()`, static `OptionsFor` / `ResolveAttribute`; the row has `Letter`,
+  `SamplesText`, `CanMap`, `AttributeText` (the editable combo's text, resolved to the LDAP name), `ShowsInternationalOffer`,
+  `IsAttributeTarget`, `IsFullNameTarget`, `CanChooseCase`, `IsPhone`. Step 3: `Kind` is a plain property (an
+  `[ObservableProperty]` generates `OnKindChanged(ObjectKind)`, which clashes with the contract's public method); the kind
+  flags, `HasUpnRule`, `AttributeOptions`, `ActiveRule`, `HasCounter`, `CanEditPrefix`, `NoCounterHint` (a pattern example,
+  read through `Format`), `IsUpnFromPattern`, `UpnSuffixWarning`, `MailDomainWarning`, `InsertableFields`
+  (`BulkTokenOption`: group, Polish label, token, function description, `MenuText`), `IsGenerate`, `IsSharedPassword`,
+  `MinimumLength` / `MaximumLength`, `DomainMinimumText`, `PasswordError`, `CanEnable`, `SharedPasswordNote`, `JoinerText`,
+  `ClearJoinerCommand`, `OptionsError`, `HomeFoldersNote`, `ClearSharedPassword()`, `NotifyPasswordChanged()` (the view calls
+  it on `PasswordChanged`); profiles: `IsBuiltInProfile`, `ModifiedText`, `IsDefaultForContainer`, `CanSetDefault`,
+  `IsNamingProfile`, `NewProfileName`, `SaveAsDefaultForContainer`, `SaveHeadersText`, `ProfileStatus`, `GroupsWarning`,
+  `ConfirmSaveProfileAsCommand`, `CancelSaveProfileAsCommand`; internal `Capture()`, `Compiled`, `CoreAttributes(kind)`,
+  `SampleWork`, `PreviewWork`. `AttributeRuleViewModel`: `IsCore`, `CanEditAttribute`, `HasColumnNote`, `IsError`,
+  `CounterFix` / `HasCounterFix`, `EmptyHint`, `IsUpn`, `CaretIndex`. Private nested records (sample values, token spans) have
+  value-free `ToString`s (the contract's reflection test covers them).
+* **Rule rows.** Every kind has fixed rows – users `cn`, `displayName`, `sAMAccountName`, `userPrincipalName`, `mail`,
+  `description`; contacts `cn`, `displayName`, `mail`, `description`; groups `cn`, `sAMAccountName`, `mail`, `description`;
+  computers `cn`, `sAMAccountName`, `description` – whose empty pattern takes the mapped column (*bez reguły – wartość z
+  kolumny „E-mail”*) or leaves the value empty; *Dodaj regułę* adds any attribute of the class. No source for `cn` (every
+  kind) or `sAMAccountName` (all but contacts) is a step error. The literal quick fix is offered for `cn`, `sAMAccountName`,
+  UPN and `mail`.
+* **Samples** are rendered on the thread pool by a local renderer that mirrors the planner's precedence (column values with
+  their case and phone format, the full name split, the rules in evaluation order, a non-empty column wins unless the rule
+  overrides it, `CreationValues.Finish`, the UPN suffix appended) – no directory access, the check grid's edits are not
+  considered. Included rows get the first free number plus position × step. The sample is the first three included rows,
+  plus *najdłuższy: …* only when a longer value exists; the newest change wins (`SerialCancellation`).
+* **First free number.** `PreviewCounterAsync` runs on entering the step and whenever the counter rules, the counter mode, the
+  Recycle Bin option, the UPN suffix or the mail domain change (the lookups cache the queries); disconnected or before a
+  result: *Pierwszy numer: kd201 (bez sprawdzenia w AD)*. The highest number is shown with the counter's width.
+* **Profiles.** *Zapisz jako…* is an inline panel (name, *Domyślny dla tego kontenera*, the headers that will be remembered),
+  as no prompt dialog exists; *Domyślny dla tego kontenera* on a built-in opens that panel with the box ticked. *(zmieniony)*
+  compares everything but the id, the name, the container defaults and the remembered headers; a picked UPN suffix or mail
+  domain counts, the window's domain as the default does not. The profile list is refreshed on entering step 3 (profiles saved
+  in another window appear). `ExpiresAfterDays` is relative to the local today. Selecting a profile remembers it as the last
+  used of the kind.
+* **Header rule.** A remembered header is checked as typed too: no `@` and fewer than 7 digits in the original header – folding
+  drops the punctuation of an address, so `jan.kowalski@contoso.com` folded passed `BulkCreateSettings.IsStorableHeader`.
+  That method (lead file) is unchanged; `BulkCreateProfileTests.Normalize_KeepsTheHeaderRule_AndClampsTheLength` pins its
+  password list against `ColumnSynonyms.IsPasswordLike` for the listed words; switching it is left to the lead.
+* **Shared password.** `ReadSharedPassword()` clears both boxes as soon as it has read a matching pair (the contract text);
+  B4 reads it last in `PlanAsync` as 2.7 says. A mismatch sets `PasswordError` (`L.Batch.PasswordMismatch`), which is the step's
+  `Error` until the operator types again.
+* **Shared files.** `NewObjectViewModel`: `CanOpenBulkCreate` and `OpenBulkCreateCommand` after `CancelCommand` (the command
+  returns while busy; the `IsBusy` attribute line is outside the anchor); `NewObjectWindow.xaml`: `BulkCreateButton` left of OK.
+  `ClipboardHtmlReader.ReadTable` (next to `Read`) reads the HTML with `MaxBytes + 1` like `Read` – an oversized format is then
+  refused by the reader instead of being cut – and falls back to the platform's HTML string; `ClipboardService.ReadTable` after
+  `ReadFormatted`.
+* **Views.** The source grid is a `DataGrid` (rows and columns virtualized, the Excel row frozen) whose columns code-behind
+  builds from `Columns`; a masked column's `ClipboardContentBinding` is the mask. Ctrl+V is a `KeyBinding` of the whole step (a
+  cell in edit mode or a text box pastes into itself). *Wstaw pole* is a context menu of `InsertableFields`; the view keeps the
+  pattern box that had the focus and restores its caret after an insertion. The password boxes are handed over as
+  `PasswordBoxInput`. Styles the batch editor window defines are not reachable from the child views at load time, so each view
+  defines its own (attribute combo, mapping row).
+* **Tests.** `BulkSourceTests` (20, with the internal helpers `BulkWizardHarness` and `TempFile` the other three use),
+  `BulkColumnsTests` (13), `BulkRulesTests` (17), `BulkCreateProfileTests` (10): 63 tests, three runs green. The operator
+  scenario of 2.6 is `BulkCreateProfileTests.OperatorScenario_PasteToCreatedAccounts_AndTheContainersDefaultProfile` (B4 owns
+  `BulkCreateEndToEndTests`): Ctrl+V, *Dalej* twice, *Konta numerowane*, `contoso.com`, *GG_Nowi*, *Dalej* (seven commands and
+  choices) → the planner computes kd208–kd212 with UPN `kd208@contoso.com`, the sheet's `mail` and `mobile`; `BuildPlan` has five
+  generated passwords; the coordinator creates them (`pwdLastSet` 0, member of *GG_Nowi*); *Zapisz jako…* as the default of
+  *Nowi pracownicy*; a new wizard there picks the profile, maps by the remembered headers and starts at kd213. The check grid
+  and the results are B4's. UI tests `BulkCreateInputUiTests` (3) and screenshots 40–42 compile here; they run on Windows CI only
+  (`TableClipboard` is their clipboard double).
