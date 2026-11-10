@@ -6,6 +6,7 @@ using AdMng.Core.Model;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Connections;
 using AdMng.Presentation.Errors;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
@@ -224,6 +225,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public string StatusText => SelectedTab?.StatusText ?? string.Empty;
 
     public string SelectionText => SelectedTab?.SelectionText ?? string.Empty;
+
+    /// <summary>
+    /// What the status bar of the window says about the selected tab: nothing for a tab whose page has a status line of
+    /// its own (<see cref="IHasPageStatus"/>: the object list) - one window never says the same sentence twice (design
+    /// note docs/dev/v-interface-renewal.md 6.1) - and <see cref="StatusText"/> for the tabs that have none yet.
+    /// </summary>
+    public string StatusBarText => SelectedTab is IHasPageStatus ? string.Empty : StatusText;
+
+    /// <summary>The selection of the selected tab for the status bar; see <see cref="StatusBarText"/>.</summary>
+    public string StatusBarSelectionText => SelectedTab is IHasPageStatus ? string.Empty : SelectionText;
 
     /// <summary>A tab is loading or a background operation runs.</summary>
     public bool IsBusy => SelectedTab?.IsLoading == true || _activities.HasRunning;
@@ -555,6 +566,21 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         Documents.Clear();
         Tree.Dispose();
+    }
+
+    /// <summary>The status bar texts follow the texts of the selected tab.</summary>
+    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        switch (e.PropertyName)
+        {
+            case nameof(StatusText):
+                base.OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(StatusBarText)));
+                break;
+            case nameof(SelectionText):
+                base.OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(StatusBarSelectionText)));
+                break;
+        }
     }
 
     partial void OnSelectedTabChanged(IShellDocument? value)

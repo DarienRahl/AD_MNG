@@ -3,6 +3,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
@@ -107,7 +108,13 @@ public sealed partial class FindConditionViewModel : ObservableObject
 /// (ambiguous name resolution) and advanced field/condition/value rows. The generated LDAP filter is shown and can
 /// be edited as raw LDAP (validated). Results are an <see cref="ObjectListViewModel"/> (sorting, columns, streaming).
 /// </summary>
-public sealed partial class FindViewModel : WindowViewModelBase
+/// <remarks>
+/// The window has one status line (<see cref="Status"/>; track V, stage V2): the search is the load of the results
+/// list, so the status of the window is the status of that list - what to do before the first search, the running
+/// search (stopped from the button that started it), the summary of the results, a stopped or failed search - and, once
+/// the session of the window ended, that it must be reopened.
+/// </remarks>
+public sealed partial class FindViewModel : WindowViewModelBase, IHasPageStatus
 {
     private static readonly string[] CommonFields =
     [
@@ -128,6 +135,7 @@ public sealed partial class FindViewModel : WindowViewModelBase
         Fields = [.. CommonFields.Select(a => new Option<string>(a, Localizer.AttributeName(a, schema)))];
         SearchBaseDn = startDn;
         Results = services.Lists.CreateList(() => Session);
+        Results.NothingLoadedText = Localizer[L.FindStatus.Hint];
         Conditions.CollectionChanged += (_, _) => RegenerateFilter();
         RegenerateFilter();
     }
@@ -178,6 +186,9 @@ public sealed partial class FindViewModel : WindowViewModelBase
 
     /// <summary>Results (an object list: sort, columns, export through the shell's list features).</summary>
     public ObjectListViewModel Results { get; }
+
+    /// <summary>The status line of the window: the status of the results list (see the remarks of the class).</summary>
+    public PageStatusHolder Status => Results.Status;
 
     /// <summary>A search ran (the results pane is shown).</summary>
     [ObservableProperty]
@@ -282,8 +293,21 @@ public sealed partial class FindViewModel : WindowViewModelBase
     {
         Results.CancelLoad();
         Results.Dispose();
+        ShowSessionEnded();
         FindNowCommand.NotifyCanExecuteChanged();
         OpenCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// The status line says that the session of the window ended, for as long as the window is open (the disposed
+    /// results list says nothing any more).
+    /// </summary>
+    private void ShowSessionEnded()
+    {
+        if (SessionEndedMessage is { } message)
+        {
+            Status.Show(PageStatus.Error(message, new PageStatusLog(L.WindowSession.Ended), canClose: false));
+        }
     }
 
     partial void OnKindChanged(Option<FindKind> oldValue, Option<FindKind> newValue)
@@ -318,6 +342,8 @@ public sealed partial class FindViewModel : WindowViewModelBase
     {
         base.OnCultureChanged();
         OnPropertyChanged(nameof(SearchBaseText));
+        Results.NothingLoadedText = Localizer[L.FindStatus.Hint];
+        ShowSessionEnded();
     }
 
     protected override void Dispose(bool disposing)

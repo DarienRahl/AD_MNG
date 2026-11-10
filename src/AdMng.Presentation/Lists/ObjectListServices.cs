@@ -1,10 +1,12 @@
 using AdMng.Core.Directory;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Errors;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Session;
 using AdMng.Presentation.Settings;
+using Microsoft.Extensions.Logging;
 
 namespace AdMng.Presentation.Lists;
 
@@ -19,7 +21,8 @@ public sealed class ObjectListServices(
     ISettingsStore settings,
     ErrorTranslator errors,
     IDirectoryChangeNotifier changes,
-    TimeProvider time)
+    TimeProvider time,
+    ILogger<PageStatusHolder>? statusLog = null)
 {
     public ISessionManager Sessions { get; } = sessions ?? throw new ArgumentNullException(nameof(sessions));
 
@@ -34,6 +37,12 @@ public sealed class ObjectListServices(
     public IDirectoryChangeNotifier Changes { get; } = changes ?? throw new ArgumentNullException(nameof(changes));
 
     public TimeProvider Time { get; } = time ?? throw new ArgumentNullException(nameof(time));
+
+    /// <summary>
+    /// The diagnostic log the status lines of the lists write their value-free copies to (message key and counts,
+    /// never an object name); null in hosts without logging (tests).
+    /// </summary>
+    public ILogger<PageStatusHolder>? StatusLog { get; } = statusLog;
 
     /// <summary>Creates a new, empty list (call <see cref="ObjectListViewModel.NavigateAsync"/> to show something).</summary>
     /// <param name="session">The session the list reads from (a window's own session); null = the current session.</param>
