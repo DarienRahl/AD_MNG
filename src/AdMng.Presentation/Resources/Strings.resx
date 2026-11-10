@@ -24347,4 +24347,54 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Off</value>
   </data>
   <!-- V interface renewal (V1): end -->
+  <!-- V interface renewal (V2): begin -->
+  <data name="Feedback.Title.Working" xml:space="preserve">
+    <value>Working</value>
+  </data>
+  <data name="Feedback.Title.Done" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="Feedback.Title.Attention" xml:space="preserve">
+    <value>Attention</value>
+  </data>
+  <data name="Feedback.Title.Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Feedback.Stopping" xml:space="preserve">
+    <value>Stopping…</value>
+  </data>
+  <data name="Feedback.StatusName" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Feedback.Objects.One" xml:space="preserve">
+    <value>{0:N0} object</value>
+  </data>
+  <data name="Feedback.Objects.Few" xml:space="preserve">
+    <value>{0:N0} objects</value>
+  </data>
+  <data name="Feedback.Objects.Many" xml:space="preserve">
+    <value>{0:N0} objects</value>
+  </data>
+  <data name="List.Status.Reading" xml:space="preserve">
+    <value>Reading “{0}”…</value>
+  </data>
+  <data name="List.Status.ReadingCount" xml:space="preserve">
+    <value>Reading “{0}”: {1} so far…</value>
+  </data>
+  <data name="List.Status.Stopped" xml:space="preserve">
+    <value>Reading “{0}” was stopped before all results arrived: {1} loaded. Press Refresh to read the whole list.</value>
+  </data>
+  <data name="List.Status.ReadFailed" xml:space="preserve">
+    <value>Could not read “{0}”</value>
+  </data>
+  <data name="List.Status.ReadFailedNext" xml:space="preserve">
+    <value>Press Retry to try again.</value>
+  </data>
+  <data name="List.Status.GoneNext" xml:space="preserve">
+    <value>Choose another container in the tree.</value>
+  </data>
+  <data name="Find.Status.Hint" xml:space="preserve">
+    <value>Say what to find and press Find Now.</value>
+  </data>
+  <!-- V interface renewal (V2): end -->
 </root>

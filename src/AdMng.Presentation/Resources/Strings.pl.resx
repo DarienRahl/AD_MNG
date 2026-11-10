@@ -24347,4 +24347,54 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Wyłączone</value>
   </data>
   <!-- V interface renewal (V1): end -->
+  <!-- V interface renewal (V2): begin -->
+  <data name="Feedback.Title.Working" xml:space="preserve">
+    <value>Trwa</value>
+  </data>
+  <data name="Feedback.Title.Done" xml:space="preserve">
+    <value>Gotowe</value>
+  </data>
+  <data name="Feedback.Title.Attention" xml:space="preserve">
+    <value>Uwaga</value>
+  </data>
+  <data name="Feedback.Title.Error" xml:space="preserve">
+    <value>Błąd</value>
+  </data>
+  <data name="Feedback.Stopping" xml:space="preserve">
+    <value>Zatrzymywanie…</value>
+  </data>
+  <data name="Feedback.StatusName" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="Feedback.Objects.One" xml:space="preserve">
+    <value>{0:N0} obiekt</value>
+  </data>
+  <data name="Feedback.Objects.Few" xml:space="preserve">
+    <value>{0:N0} obiekty</value>
+  </data>
+  <data name="Feedback.Objects.Many" xml:space="preserve">
+    <value>{0:N0} obiektów</value>
+  </data>
+  <data name="List.Status.Reading" xml:space="preserve">
+    <value>Wczytywanie „{0}”…</value>
+  </data>
+  <data name="List.Status.ReadingCount" xml:space="preserve">
+    <value>Wczytywanie „{0}”: na razie {1}…</value>
+  </data>
+  <data name="List.Status.Stopped" xml:space="preserve">
+    <value>Wczytywanie „{0}” zatrzymano, zanim nadeszły wszystkie wyniki: wczytano {1}. Wybierz Odśwież, aby wczytać całą listę.</value>
+  </data>
+  <data name="List.Status.ReadFailed" xml:space="preserve">
+    <value>Nie udało się wczytać „{0}”</value>
+  </data>
+  <data name="List.Status.ReadFailedNext" xml:space="preserve">
+    <value>Wybierz Ponów, aby spróbować ponownie.</value>
+  </data>
+  <data name="List.Status.GoneNext" xml:space="preserve">
+    <value>Wybierz inny kontener w drzewie.</value>
+  </data>
+  <data name="Find.Status.Hint" xml:space="preserve">
+    <value>Określ, czego szukasz, i wybierz Znajdź teraz.</value>
+  </data>
+  <!-- V interface renewal (V2): end -->
 </root>
