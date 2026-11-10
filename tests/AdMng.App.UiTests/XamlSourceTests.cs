@@ -12,7 +12,9 @@ namespace AdMng.App.UiTests;
 /// Checks of the XAML sources that WPF only reports at runtime (as "[key]" texts, silently missing commands or a
 /// resource that cannot be found): every <c>{l:Tr Key}</c> / <c>TrBinding Key</c> exists in both languages, every
 /// <c>b:CommandMenu.Id</c> names a shell command descriptor, every <c>Ad.*</c> resource key that is used is defined, and
-/// the Fluent brush keys in use are a closed, documented set read with <c>DynamicResource</c> (track V, stage V1).
+/// the Fluent brush keys in use are a closed, documented set read with <c>DynamicResource</c> (track V, stage V1). And
+/// the one source of motion (design note 5.3, rule 6): no XAML file writes a storyboard, an animation or a visual
+/// state, and durations and easings are entries of Themes/Motion.xaml only.
 /// </summary>
 public sealed partial class XamlSourceTests
 {
@@ -153,6 +155,47 @@ public sealed partial class XamlSourceTests
         Assert.Equal([], aliases);
     }
 
+    [Fact]
+    public void NoViewWritesAMotion()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Runs with the Windows test suite.");
+
+        // Rule 6 of docs/dev/v-interface-renewal.md 5.3: outside Themes/ no XAML file has a storyboard, an animation
+        // element, a visual state, a duration, a key spline or an easing. A view asks for motion with the attached
+        // properties of Behaviors/Motion.cs, which read the tokens of Themes/Motion.xaml behind the one switch.
+        var views = XamlFiles().Where(file => !IsThemeDictionary(file)).ToList();
+        Assert.True(views.Count > 50, $"only {views.Count} XAML files outside Themes/ found");
+
+        var written = views.SelectMany(file => TimelineMarkup().Matches(WithoutComments(File.ReadAllText(file)))
+            .Concat(TimingMarkup().Matches(WithoutComments(File.ReadAllText(file))))
+            .Select(m => $"{Path.GetFileName(file)}: {m.Value.Trim()}"));
+
+        Assert.Equal([], written.Distinct(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void MotionDictionary_IsTheOnlyPlaceOfDurationsAndEasings()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Runs with the Windows test suite.");
+        var themes = XamlFiles().Where(IsThemeDictionary)
+            .Select(file => (Name: Path.GetFileName(file), Text: WithoutComments(File.ReadAllText(file))))
+            .ToList();
+        Assert.Contains(themes, theme => theme.Name == "Tokens.xaml");
+        Assert.Contains(themes, theme => theme.Name == "Controls.xaml");
+
+        // Durations and easings are entries of Themes/Motion.xaml and of no other dictionary.
+        Assert.Equal(["Motion.xaml"], themes.Where(theme => TimingMarkup().IsMatch(theme.Text)).Select(theme => theme.Name));
+
+        // No storyboard, animation element or visual state of ours in any XAML file, the dictionaries included: every
+        // motion is started from code (Behaviors/Motion.cs), where "off" sets the final values directly.
+        Assert.Equal([], XamlFiles().Where(file => TimelineMarkup().IsMatch(WithoutComments(File.ReadAllText(file)))).Select(Path.GetFileName));
+
+        // What the dictionary holds are the motion tokens: every key is "Motion.<name>".
+        var keys = DefinedKeys(themes.Single(theme => theme.Name == "Motion.xaml").Text).ToList();
+        Assert.True(keys.Count >= 18, $"only {keys.Count} motion tokens found");
+        Assert.All(keys, key => Assert.StartsWith("Motion.", key, StringComparison.Ordinal));
+    }
+
     /// <summary>Whether a XAML file is merged into the application resources: App.xaml and the dictionaries of Themes/.</summary>
     private static bool IsApplicationDictionary(string file)
     {
@@ -160,6 +203,13 @@ public sealed partial class XamlSourceTests
         return relative.Equals("App.xaml", StringComparison.OrdinalIgnoreCase)
             || relative.StartsWith("Themes/", StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>Whether a XAML file is one of the dictionaries of Themes/.</summary>
+    private static bool IsThemeDictionary(string file) =>
+        Path.GetRelativePath(SourceDirectory(), file).Replace('\\', '/').StartsWith("Themes/", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The markup without its XML comments (a comment may name what the markup must not contain).</summary>
+    private static string WithoutComments(string xaml) => XmlComment().Replace(xaml, string.Empty);
 
     private static IEnumerable<string> DefinedKeys(string xaml) => ResourceKeyDefinition().Matches(xaml).Select(m => m.Groups["key"].Value);
 
@@ -199,4 +249,21 @@ public sealed partial class XamlSourceTests
     /// <summary>A resource extension written as an element.</summary>
     [GeneratedRegex(@"<(?:StaticResource|DynamicResource)(?:Extension)?[\s/>]")]
     private static partial Regex ResourceElement();
+
+    [GeneratedRegex(@"<!--.*?-->", RegexOptions.Singleline)]
+    private static partial Regex XmlComment();
+
+    /// <summary>
+    /// A motion written in markup: a storyboard (also BeginStoryboard and the attached Storyboard.* properties), an
+    /// element whose name ends with "Animation" or "AnimationUsingKeyFrames" / "AnimationUsingPath", a visual state.
+    /// </summary>
+    [GeneratedRegex(@"Storyboard|<(?:\w+:)?\w*Animation(?:UsingKeyFrames|UsingPath)?[\s/>]|VisualState")]
+    private static partial Regex TimelineMarkup();
+
+    /// <summary>
+    /// A time or a curve of a motion: a Duration attribute or element (not ToolTipService.ShowDuration, which is how
+    /// long a tool tip stays), a key time or key spline, a begin time, an easing function or an easing element.
+    /// </summary>
+    [GeneratedRegex(@"(?<![A-Za-z])Duration\s*=|<Duration[\s>]|KeySpline\s*=|KeyTime\s*=|BeginTime\s*=|EasingFunction|<(?:\w+:)?\w+Ease[\s/>]")]
+    private static partial Regex TimingMarkup();
 }
