@@ -14,7 +14,7 @@ decisions to be made with the team. This file remains only so that old links kee
 | ⬜ (creating multiple accounts, F3: 🟡 implemented, awaiting a pilot on Windows Server AD; guide: [CREATING-ACCOUNTS.md](CREATING-ACCOUNTS.md)) | [Phase 3 – Bulk editing v2 and account creation](../../README.md#phase-3--bulk-editing-v2-and-account-creation--creating-multiple-accounts-) |
 | ⬜ (AD Recycle Bin: 🟡; multiple domains in separate windows and object comparison between them: ✅) | [Phase 4 – AD Recycle Bin, views and reports](../../README.md#phase-4--ad-recycle-bin-views-and-reports--ad-recycle-bin-) |
 | ⬜ | [Phase 5 – Helpdesk+ and security](../../README.md#phase-5--helpdesk-and-security-) |
-| ⬜ | [Phase 6 – Delegation and management](../../README.md#phase-6--delegation-and-governance-) |
+| ⬜ | [Phase 6 – Delegation and governance](../../README.md#phase-6--delegation-and-governance-) |
 | ⬜ | [Phase 7 – Deployment and extras](../../README.md#phase-7--deployment-and-extras-) |
 | 🟡 | [AdMng Watchdog – AD change monitor](../../README.md#admng-watchdog--ad-change-monitor-) |
 | 🟡 (U1 – U1a, U1b, U1c, U1d –, U2 and U4 – U4a, U4b, U4c: 🟡 implemented, awaiting a pilot on Windows Server AD; U5: 🟡; U3: ⬜) | [Track U – Account review and messages to users](../../README.md#track-u--account-review-and-messages-to-users--u1a-u1b-u1c-u1d-u2-u4-and-u5-) |

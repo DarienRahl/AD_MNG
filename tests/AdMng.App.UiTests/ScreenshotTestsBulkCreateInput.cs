@@ -10,16 +10,19 @@ using AdMng.Presentation.Settings;
 using AdMng.Testing;
 using AdMng.Testing.BulkCreate;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AdMng.App.UiTests;
 
 /// <summary>
-/// Release screenshots 40–42 of the bulk creation wizard (docs/dev/phase3-bulk-create.md 2.6): <em>Dane</em> with a range pasted
-/// from Excel, <em>Kolumny</em> with the automatic mapping and <em>Nazwy i opcje</em> with the <em>Konta numerowane</em> profile,
-/// the <em>Numeracja</em> panel and the live samples – Polish sample data, light theme, on the bulk-create sample (OU
-/// <em>Nowi pracownicy</em>, live kd201, kd203, kd205 and kd207 in the Recycle Bin). Like <see cref="ScreenshotTests"/> they run
-/// only when <see cref="ScreenshotWriter.DirectoryVariable"/> is set; the class name starts with "ScreenshotTests" so the CI step
-/// "Screenshots" takes them too.
+/// Screenshots 40–42 of the bulk creation wizard (docs/dev/phase3-bulk-create.md 2.6): <em>Data</em> with a range pasted from
+/// Excel, <em>Columns</em> with the automatic mapping and <em>Names and options</em> with the <em>Numbered accounts</em>
+/// profile, the <em>Numbering</em> panel and the live samples (<em>Dane</em>, <em>Kolumny</em>, <em>Nazwy i opcje</em>,
+/// <em>Konta numerowane</em>, <em>Numeracja</em> in the Polish UI) – UI in the language of
+/// <see cref="ScreenshotWriter.LanguageVariable"/>, Polish sample data (the Polish headers are recognized in every UI
+/// language), light theme, on the bulk-create sample (OU <em>Nowi pracownicy</em>, live kd201, kd203, kd205 and kd207 in the
+/// Recycle Bin). Like <see cref="ScreenshotTests"/> they run only when <see cref="ScreenshotWriter.DirectoryVariable"/> is set;
+/// the class name starts with "ScreenshotTests" so the CI step "Screenshots" takes them too.
 /// </summary>
 [Collection(UiTestCollection.Name)]
 public sealed class ScreenshotTestsBulkCreateInput
@@ -35,7 +38,7 @@ public sealed class ScreenshotTestsBulkCreateInput
     private static readonly ScreenshotInfo Columns = new(
         "41-bulk-create-columns.png",
         "Zakładanie wielu kont – krok Kolumny: kolumny przypisane automatycznie do atrybutów (Telefon komórkowy → mobile, Przełożony → menedżer) z przykładami z arkusza",
-        "Creating multiple accounts – the Columns step: the columns mapped to attributes automatically (mobile, the manager) with samples from the sheet");
+        "Creating multiple accounts – the Columns step: the columns mapped to attributes automatically (Telefon komórkowy → mobile, Przełożony → Manager) with samples from the sheet");
 
     private static readonly ScreenshotInfo Rules = new(
         "42-bulk-create-rules.png",
@@ -82,7 +85,8 @@ public sealed class ScreenshotTestsBulkCreateInput
         return WpfTestHost.RunAsync(async () =>
         {
             var clipboard = new TableClipboard();
-            await using var context = await BulkCreateInputUiTests.CreateContextAsync(clipboard);
+            await using var context = await UiTestContext.CreateAsync(
+                ScreenshotWriter.Language, services => services.Replace(ServiceDescriptor.Scoped<IClipboardService>(_ => clipboard)));
             var themes = context.Services.GetRequiredService<IThemeService>();
             themes.Apply(ThemePreference.Light);
             await UiTestSupport.WaitForIdleAsync(rounds: 2);

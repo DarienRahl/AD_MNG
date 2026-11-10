@@ -21958,16 +21958,16 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>The table has no columns.</value>
   </data>
   <data name="BulkCreate.ChooseAttribute" xml:space="preserve">
-    <value>Column „{0}”: choose the attribute.</value>
+    <value>Column “{0}”: choose the attribute.</value>
   </data>
   <data name="BulkCreate.AttributeNotSettable" xml:space="preserve">
-    <value>Column „{0}”: the attribute {1} cannot be set when creating objects.</value>
+    <value>Column “{0}”: the attribute {1} cannot be set when creating objects.</value>
   </data>
   <data name="BulkCreate.TargetNotForKind" xml:space="preserve">
-    <value>Column „{0}”: the target „{1}” is not available for this kind of objects.</value>
+    <value>Column “{0}”: the target “{1}” is not available for this kind of objects.</value>
   </data>
   <data name="BulkCreate.DuplicateTarget" xml:space="preserve">
-    <value>Columns „{0}” and „{1}” have the same target – skip one of them.</value>
+    <value>Columns “{0}” and “{1}” have the same target – skip one of them.</value>
   </data>
   <data name="BulkCreate.NothingMapped" xml:space="preserve">
     <value>Every column is skipped – map at least one column.</value>
@@ -22024,16 +22024,16 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>The profile saves the patterns and options only (no column headers to remember).</value>
   </data>
   <data name="BulkCreate.ProfileSaved" xml:space="preserve">
-    <value>Profile „{0}” saved.</value>
+    <value>Profile “{0}” saved.</value>
   </data>
   <data name="BulkCreate.ProfileSavedWithHeaders" xml:space="preserve">
-    <value>Profile „{0}” saved. Remembered columns: {1}.</value>
+    <value>Profile “{0}” saved. Remembered columns: {1}.</value>
   </data>
   <data name="BulkCreate.ProfileNameRequired" xml:space="preserve">
     <value>Type a name for the profile.</value>
   </data>
   <data name="BulkCreate.ProfileNameTaken" xml:space="preserve">
-    <value>A profile named „{0}” already exists.</value>
+    <value>A profile named “{0}” already exists.</value>
   </data>
   <data name="BulkCreate.TooManyProfiles" xml:space="preserve">
     <value>No more profiles can be saved (limit: {0}). Delete a profile you no longer need.</value>
@@ -22042,22 +22042,22 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Delete profile</value>
   </data>
   <data name="BulkCreate.ConfirmDeleteProfile" xml:space="preserve">
-    <value>Delete the naming profile „{0}”? Objects that were already created are not changed.</value>
+    <value>Delete the naming profile “{0}”? Objects that were already created are not changed.</value>
   </data>
   <data name="BulkCreate.ProfileDeleted" xml:space="preserve">
-    <value>Profile „{0}” deleted.</value>
+    <value>Profile “{0}” deleted.</value>
   </data>
   <data name="BulkCreate.DefaultNeedsSavedProfile" xml:space="preserve">
     <value>A built-in profile cannot be a container's default – save it under a new name first.</value>
   </data>
   <data name="BulkCreate.ProfileIsDefault" xml:space="preserve">
-    <value>„{0}” is now the default profile of this container.</value>
+    <value>“{0}” is now the default profile of this container.</value>
   </data>
   <data name="BulkCreate.ProfileNotDefault" xml:space="preserve">
-    <value>„{0}” is no longer the default profile of this container.</value>
+    <value>“{0}” is no longer the default profile of this container.</value>
   </data>
   <data name="BulkCreate.ConfirmDiscardProfileChanges" xml:space="preserve">
-    <value>The changes of profile „{0}” are not saved. Discard them and switch the profile?</value>
+    <value>The changes of profile “{0}” are not saved. Discard them and switch the profile?</value>
   </data>
   <data name="BulkCreate.UpnSuffixMissing" xml:space="preserve">
     <value>The profile's UPN suffix {0} is not in this forest – {1} is used.</value>
@@ -22144,13 +22144,13 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Number them from {0}? → {1}</value>
   </data>
   <data name="BulkCreate.ColumnPrecedenceNote" xml:space="preserve">
-    <value>Column „{0}” takes precedence – the rule applies to empty cells only</value>
+    <value>Column “{0}” takes precedence – the rule applies to empty cells only</value>
   </data>
   <data name="BulkCreate.RuleOverridesColumnNote" xml:space="preserve">
-    <value>The rule replaces column „{0}”</value>
+    <value>The rule replaces column “{0}”</value>
   </data>
   <data name="BulkCreate.ValueFromColumnHint" xml:space="preserve">
-    <value>no rule – the value comes from column „{0}”</value>
+    <value>no rule – the value comes from column “{0}”</value>
   </data>
   <data name="BulkCreate.NoRuleHint" xml:space="preserve">
     <value>no rule – left empty</value>
@@ -22183,7 +22183,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Functions</value>
   </data>
   <data name="BulkCreate.TokenColumn" xml:space="preserve">
-    <value>Column „{0}”</value>
+    <value>Column “{0}”</value>
   </data>
   <data name="BulkCreate.TokenCounter" xml:space="preserve">
     <value>Next number</value>

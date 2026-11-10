@@ -832,7 +832,7 @@ nie jest w ten sposób ograniczane.
 ## 11. Środowisko testowe
 
 Usługę można uruchomić na Linuksie przeciw laboratorium Samba AD DC z `tools/testlab` – skrypty i opis:
-[`tools/testlab/watchdog/README.md`](../tools/testlab/watchdog/README.pl.md).
+[`tools/testlab/watchdog/README.pl.md`](../tools/testlab/watchdog/README.pl.md).
 
 ```bash
 tools/testlab/watchdog/run-watchdog-lab.sh --reset --background   # usługa (profil Lab), Mailpit, odbiornik webhooków

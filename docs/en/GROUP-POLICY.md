@@ -96,7 +96,7 @@ linked container.
 Domain filters with queries, author, date and the list of GPOs that use them; *New…*, *Edit…*, *Delete…* (deleting
 first detaches the filter from those GPOs). The filter editor: name, description and WQL queries (namespace + query).
 Trying a query on a selected computer does not exist yet – it requires extending the remote actions of stage K1 (CIM
-over WinRM, [KOMPUTERY.md](COMPUTERS.md)) with WQL queries.
+over WinRM, [COMPUTERS.md](COMPUTERS.md)) with WQL queries.
 
 ## 3. Operations
 
@@ -495,7 +495,247 @@ The checks work on data from one domain controller (rule 4) and change nothing; 
 plan preview. Some rules assume that WMI filters are true and loopback is off (like in the K5 model) – details are in
 the description of each finding.
 
-## 12. Domain controller, PDC emulator and SYSVOL
+## 12. Searching, copying settings and cleaning up GPOs (K7)
+
+Three tools for all GPOs of the window's domain: the **GPO settings search** answers questions like "where is the
+minimum password length set?", "which GPO maps drive K:?", "who grants the right to log on through Remote Desktop
+Services?"; **copying settings** carries selected settings from one or more GPOs into another GPO; **GPO cleanup** points
+out empty, unused and disabled GPOs, repeated settings and GPOs that can be merged. Settings are described in the GPMC
+language (chapter 11). Every change – copying, removing a setting, merging, unlinking, disabling, deleting a GPO – goes
+through the change plan preview (chapter 4) on the window's domain controller (chapter 13); every one of them except
+deleting a GPO can be undone.
+
+### Where it is
+
+| Place | Search | Cleanup |
+|---|---|---|
+| Command palette (Ctrl+K) | `gpo.searchSettings` – *Search a setting in all GPOs…* | `gpo.cleanup` – *GPO cleanup…* |
+| *Action → Group Policy* | *Search a setting in all GPOs…* | *GPO cleanup…* |
+| Menu of the *Group Policy Objects* node in the tree | *Search a setting in all GPOs…* | *GPO cleanup…* |
+| Toolbar of the *Group Policy Objects* tab | the **Search settings…** button | the **Cleanup…** button |
+| *Settings* tab of a GPO tab | **Find in all GPOs** – searches for the text of the tab's search box (and, when it is empty, for the name of the selected setting) | – |
+| *GPO cleanup* tab | *Show in the settings search* – opens the settings search with the setting name of the proposal | – |
+
+Both tabs exist once per connection window: a second call returns to the open tab (the search gets the new text).
+
+### Reading the settings of all GPOs
+
+The first opening of the search or the cleanup reads from the window's domain controller the GPO objects, the links
+(domain, OUs, sites), the `GPT.INI` versions and the folders of all GPOs in SYSVOL (at most four reads at a time),
+resolves account names and groups the settings. The progress shows the stages *Reading GPOs and links*, *Reading GPT.INI
+versions*, *Reading GPO folders*, *Resolving account names*, *Grouping settings*; **Cancel** ends this tab's wait (the
+previous results stay). Both tabs use **one read** per window: opening the second one does not read the folders again.
+
+- **Refresh** (F5) reads again only the GPOs changed since the last read (a different version in AD or in `GPT.INI`),
+  deleted ones disappear, links are always fresh. **Read everything again** reads the folders of all GPOs.
+- When Group Policy changes in this window (also through copying or the cleanup), the tab shows the bar *Group Policy
+  changed in this window – the results may be out of date.* with a *Refresh* button – it does not read again by itself.
+  After an action from these tabs, the refresh (of the changed GPOs only) starts by itself.
+- Changing the domain controller, reconnecting and disconnecting discard the read (the results shown stay, with the
+  out-of-date bar); changing the language only rewrites the texts (without reading the folders again).
+- **Limits:** a settings file larger than 16 MiB or a GPO's settings over 64 MiB in total are not read (the GPO has
+  the status *Not all settings read*, the same as with a `Registry.pol` file of more than 10,000 entries); after 1 GiB
+  has been read, the remaining GPOs have the status *Not read*. Other statuses: *Folder not found on SYSVOL*, *Access denied*, *Folder
+  too large*, *Could not be read*. GPOs that the window's account cannot read in AD are not visible at all – the tab
+  header gives the number of GPOs searched and the time of the read (*GPOs searched: N · read …*).
+- Without access to SYSVOL, the tab has only directory data (the bar *SYSVOL is not available (…): only directory data
+  was read*); the settings from files then cannot be searched or assessed.
+
+### GPO settings search
+
+**The search box** (*Setting, value, key or account (at least 2 characters)*, Ctrl+F, Esc clears it) searches as you
+type (Enter – at once). Case and Polish letters do not matter: "dlugosc" finds "długość".
+
+| Filter | Choices |
+|---|---|
+| **Search in** | *Everything*, *Name* (the setting's name as in GPMC), *Value*, *Technical key* (e.g. `MinimumPasswordLength`, `HKLM\Software\Policies\…`), *Account* |
+| **Configuration** | *Computer and user*, *Computer*, *User* |
+| **Area** | *Every area*, *Administrative templates* (also registry values outside the templates), *Security settings*, *Advanced audit*, *Preferences – type* (each preference type that occurs in the domain separately, e.g. drive maps), *Scripts*, *Other* |
+| **Only different values** | only the settings that GPOs set to different values |
+
+*Clear filters* returns to the defaults. **Account** accepts a name (`KONTOSO\Serwisanci`, `serwis@kontoso.pl`,
+*Administrators*) or a SID and finds the settings in which the account is stored as a SID or by name (user rights,
+restricted groups, local groups of preferences, item-level targeting), as well as accounts whose name contains the typed
+text. **Hidden values** (passwords, SNMP communities …) are never searched – only their names and keys.
+
+**A short query** (an empty text or one character) shows only a summary: for each area the number of settings,
+occurrences and GPOs, and the total at the end – never the whole list of all settings of the domain.
+
+**Results** are grouped by setting. The group header is the setting's name, its path in the GPMC console and a summary:
+*set in N GPOs – values match*, *– values differ* or *– values not comparable* (e.g. a hidden value, an item with
+item-level targeting, scripts; disabled items are not counted; when the setting takes effect from one GPO only – just
+*set in N GPO(s)*). Under the header is **every** GPO that sets this setting, also with a different value, with the
+columns *GPO*, *Value*, *Links* (a disabled link with the note *(disabled)*) and *Notes*: *conditional (item-level
+targeting)*, *item disabled*, *value hidden*, *GPO read only in part*. The line above the list: *Settings found: N
+(occurrences: M)*. When there are more than **2,000** groups, the tab shows the first 2,000 and the note *Narrow the
+search – 2,000 of N settings shown*.
+
+**The notes bar** above the results says what was not searched: GPOs whose folders were not read or were read only in
+part (the number, names and statuses in the tooltip), administrative templates that are not loaded (policies are then
+shown as registry values and cannot be found by their names), the number of hidden values, an unavailable SYSVOL, links
+from other domains of the forest (not visible from this domain controller).
+
+**Details** of the selected row: the name, the GPO, the full value with its parts, *Where GPMC lists it*, *Links*,
+*Technical key*, notes and – when the setting cannot be copied – *Cannot be copied: reason*.
+
+**Actions** (buttons in the details and the row's context menu):
+
+- **Open GPO** (Enter, double-click) – the GPO tab on its *Settings* tab;
+- **Edit this setting** – the template editor (K3) or the security settings editor (K4) right at this setting (when the
+  setting has an editor, chapter 11);
+- **Compare GPOs** – two selected rows: compares their GPOs; one row: compares its GPO with one you pick (chapter 6);
+- **Copy to another GPO…** – the selected rows (also from different GPOs) to a chosen GPO, see below;
+- **Copy** (Ctrl+C) – the text of the selected rows to the clipboard (hidden values stay hidden);
+- **Export to CSV…** and **Export to HTML…** – the current results to a file chosen by the operator (CSV protected
+  against formulas; the HTML report with the domain controller, the query and the time of the read).
+
+### Copying settings to another GPO
+
+**Copy to another GPO…** (in the search and in the cleanup) first asks for the **target GPO** (*Copy settings – choose
+the target GPO*; one GPO, the source GPOs are not offered), then opens the **Copy settings to …** window: a list of the
+settings with the columns *Setting*, *Value*, *Source GPO* and *Remark*, check boxes (*Check all*, *Uncheck all*, the
+counter *Checked: X of Y*) and the choice **When the target GPO already has the setting:**
+
+| Mode | Effect |
+|---|---|
+| **Replace** (default) | the value in the target GPO is replaced by the copied one; when the target GPO already has the same value, nothing is written (*the target GPO already has the same value*); preference items with different item-level targeting (e.g. several mappings of drive K: for different groups) stay, and the copy is added after them |
+| **Skip** | the target GPO keeps its value, the setting is not copied |
+| **Merge lists** | user rights assignments and restricted groups get the accounts of both lists (the same account stored by name and by SID counts once); other settings are replaced |
+
+One copy takes settings from **at most 10** source GPOs (the window says so when more are checked). A setting selected
+from two GPOs at the same time is not copied at all – it has to be selected from one of them.
+
+**What cannot be copied.** Refused settings are greyed out in the window, with the reason in the *Remark* column, and do
+not stop the others from being copied:
+
+| Setting | Reason in the window |
+|---|---|
+| passwords in preferences (`cpassword`, **MS14-025**), `DefaultPassword`, SNMP communities and other hidden values | *Holds a secret or masked value (for example a GPP password, MS14-025) – never copied.* |
+| startup, shutdown, logon and logoff scripts and their files | *Scripts and script files are not copied – add them in GPMC.* |
+| registry and file system permissions (*Registry*, *File System* in the security settings) | *Registry and file system permissions are not copied – set them in GPMC.* |
+| audit options and global object access auditing | *Audit options and global object access auditing are not copied – set them in GPMC.* |
+| comments of the GPO and of settings | *Comments are not copied.* |
+| a setting from a file that could not be read; a setting with too long a name | *The file could not be read.* / *The setting's name is too long to be identified exactly.* |
+| a preference item the program cannot identify unambiguously, and settings of other kinds | *AD Manager cannot copy this kind of setting – change it in GPMC.* |
+| a preference item in a collection with item-level targeting or in a disabled collection (copied outside the collection, it would lose its conditions) | *The item is in a collection with item-level targeting or a disabled collection – copy it in GPMC.* |
+
+Also refused, with a message in the plan preview: an ADMX policy when the administrative templates are not loaded; a
+registry value that belongs to a configured ADMX policy in the target GPO; a preference whose client-side extension
+(CSE) is in neither the source nor the target GPO (clients would skip it); all settings of a GPO read only in part.
+Settings stored in the directory (software installation, wired and wireless network policies) are **never copied** – the
+preview warns about it, as with a copy of a GPO (chapter 3).
+
+**Warnings in the preview** (copying goes on): the value changed since the search (the value read now is copied); the
+setting comes from a disabled part of the source GPO (it has no effect there, in the target it will take effect);
+password and account lockout policies in a GPO not linked to the domain (they act only on the local accounts of
+computers), Kerberos policies in such a GPO (no effect); a preference item with the option *Remove this item when it is
+no longer applied* (clients first undo it – unmap the drive, delete and recreate the user or group – before the new
+item takes effect).
+
+**The plan preview** is one plan for the target GPO: extension names (only when they change), every changed file
+(`Registry.pol`, `GptTmpl.inf`, `audit.csv`, preference files – with *Show differences*) and a single version increase.
+The **Setting changes (N)** section shows every setting with its value before and after (group: *GPO name › area*;
+hidden values stay hidden). All bytes come from the files read at planning time, not from the search results; a new
+preference item gets a new identifier and goes to the end of the target GPO's list (applied last). The *PowerShell* tab
+gives `Set-GPRegistryValue` for registry values and a comment that the other files are written by the plan (the
+`GroupPolicy` module has no cmdlets for them). When nothing would change (every setting refused, skipped or already the
+same), an error window *Nothing would change in …* with every setting and its reason appears instead of the preview – an
+MS14-025 refusal never disappears silently. **Undo** in the preview window restores the files of the target GPO (with
+another version increase).
+
+### Removing a setting
+
+**Remove the duplicate from this GPO** (cleanup, the *Duplicated setting* proposal) removes a setting from one GPO: it
+sets the ADMX policy to *Not configured*, removes the `GptTmpl.inf` and `audit.csv` lines, the `Registry.pol` entries and
+the preference items (an empty collection stays, as in GPMC). The same preview, the same refusals and the same warning
+about the option *Remove this item when it is no longer applied*; *Undo* restores the setting.
+
+### Merging two GPOs
+
+**Merge with…** (cleanup, the *Merge candidate* and *GPO with one setting* proposals) opens the **Merge A into B** window
+and, in one plan with a preview and *Undo*:
+
+1. **copies** all settings of A into B (without the settings of A's disabled part – they had no effect there; comments
+   and unused script files are not carried over, the preview says so);
+2. **replaces the links**: in every domain container and site to which A is linked, B takes A's place with its options
+   (order, enforcement, enabled); when B is already linked there, A's link is only removed (B's link stays);
+3. **disables A** (status *All settings disabled*). Deleting A is a separate step (*Delete GPO…* from the proposal, with
+   a backup) – a deletion cannot be undone.
+
+**Which values win** when both GPOs set the same thing – the window suggests it from the link order (*As the link order
+says: Replace* or *Skip*): when B has the higher precedence everywhere both are linked, B's values stay; when A has, A's
+values replace B's; when they have no container in common, A's values replace B's. When the order differs from place to
+place, you have to choose yourself (*Replace*, *Skip*, *Merge lists*).
+
+**Check before merging** – the window and the preview warn when: the GPOs apply to different users, groups or computers
+(security filtering) or have different WMI filters; they are linked in different places (*Only A is linked to …: after
+the merge these places also get the other settings of B*, and the other way round); in a shared container A has the
+higher precedence, enforcement or an enabled link where B does not (A's settings take B's weaker position – B is not
+moved); the forest has other domains (their links to A are not replaced); a part of B is disabled where A has settings;
+preference items of A have the option *Remove this item when it is no longer applied*.
+
+**The merge is refused** when A has settings that cannot be copied (the list *These settings cannot be copied, so the
+GPOs cannot be merged:* with the reasons), settings stored in the directory or files AD Manager does not read (e.g.
+folder redirection, software installation), when A or B was read only in part, when A is one of the two default GPOs or
+when A and B are the same GPO. **Undo** restores B's files, the links and A's status.
+
+### GPO cleanup
+
+The **GPO cleanup** tab analyses the read of all GPOs (the same one as the search) and shows proposals: counters by kind
+above the list (a click filters), the filters *Kind:* and *GPO:*, search in the proposals (Ctrl+F), a list with the
+columns *Kind*, *GPO*, *Proposal* and *Actions* and, in the details, **What was found**, **What to do**, **GPOs** (with
+their links), **Setting** (in the GPMC language) and **Remarks**. *Refresh* (F5), *Read everything again*, *Cancel*, the
+bar *Group Policy changed after the analysis – the proposals may be out of date.* and the export (*Export to CSV…*,
+*Export to HTML…* – to a file of the operator's choice) work as in the search. GPO content is assessed only for GPOs read
+in full; the others have only their links and status assessed (the bar *The settings of N GPOs were not read
+completely, …*).
+
+| Kind | When | Actions | Remarks |
+|---|---|---|---|
+| **Empty GPO** | the GPO has no settings at all – also none in the directory and in files the program does not read; a disabled preference item is a setting too (dormant content is not an "empty GPO") | *Delete GPO…*, *Unlink everywhere…* (when linked) | a linked GPO: deleting it removes its links too; default GPOs – no deletion |
+| **GPO without links** | no link to the domain, an OU or a site of this domain – it applies to nobody | *Delete GPO…*, *Disable GPO* | a forest with other domains: their links are not visible from this controller |
+| **All links disabled** | every link of the GPO is disabled | *Unlink everywhere…*, *Disable GPO*, *Delete GPO…* | |
+| **GPO disabled** | both parts (computer and user) disabled | *Delete GPO…*, *Unlink everywhere…* (when linked) | |
+| **GPO with one setting** | exactly one setting, without settings in the directory and files the program does not read | *Copy to another GPO…* (then *Disable GPO* separately); *Merge with…* when there is a GPO linked in the same places (container, enabled, enforced), with the same security filtering and WMI filter | the setting cannot be copied – no copying and no merging |
+| **Duplicated setting** | the setting has the same value in another GPO that applies everywhere this one does (described below) | *Remove the duplicate from this GPO* | the option *Remove this item when it is no longer applied*; account policies only in GPOs linked to the domain |
+| **Different values of one setting** | the same setting has different values in different GPOs that take effect | information only: *Open GPO*, *Compare*, *Show in the settings search* | |
+| **Merge candidate** | two or more GPOs linked in the same places, with the same security filtering and WMI filter; each is proposed for merging into the one with the most settings | *Merge with…* | a different link order; the option *Remove this item…*; no merging when the GPO has settings that cannot be copied, settings in the directory, files the program does not read or a disabled part with settings |
+
+**Duplicated setting** is cautious, because the same value in two GPOs does not always make one of them redundant (user
+rights and restricted groups replace each other as a whole, preferences act one after another, scopes may not overlap).
+Removing the setting from GPO X is proposed only when: both GPOs take effect (they have an enabled link, the part with
+the setting is not disabled, the value is comparable – not hidden, not conditional, not a script); no other GPO that
+takes effect sets a different value here (then it is *Different values of one setting*); the other GPO Y applies
+**everywhere** X does – in every domain, OU and site (with block inheritance and enforcement), to the same users and
+computers (security filtering) and with the same WMI filter or without a filter. Two GPOs with the same drive mapping on
+disjoint OUs give no proposal – the search shows them. The GPOs are ranked, so carrying out all proposals never removes
+the last copy of a setting. Account policies (passwords, lockout, Kerberos) are assessed only in GPOs linked to the
+domain; entries that delete a whole registry key (`**delvals.`) are not proposed.
+
+**Actions** – each one through the plan preview (with *Undo* – except deleting a GPO); after execution the tab refreshes
+the read and analyses again:
+
+- **Delete GPO…** – first the program checks whether the GPO has changed since the analysis (version and links): when it
+  got settings or links in another window or from another administrator, the deletion is refused (*… changed (its
+  settings, status or links) since the analysis, so it is not deleted*) and the list is read again. Then the usual
+  deletion from chapter 3: the offer of a backup (*Create a backup before deleting*) and retyping the GPO name; the plan
+  checks the state again right up to execution. Deleting a GPO **cannot be undone** – hence the backup.
+- **Unlink everywhere…** – removes the GPO's links from all containers of the domain and all sites (with a warning when
+  the forest has other domains); **Disable GPO** – the status *All settings disabled*;
+- **Copy to another GPO…**, **Remove the duplicate from this GPO**, **Merge with…** – as above;
+- **Open GPO**, **Compare** (with the related GPO), **Show in the settings search**, **Copy** (the text of the proposal).
+
+The cleanup never proposes deleting or merging the default GPOs (*Default Domain Policy*, *Default Domain Controllers
+Policy*).
+
+### What stays only in memory
+
+The read of the settings of all GPOs, account names, search results and cleanup proposals are only in the memory of the
+connection window – they disappear when the domain controller changes, on disconnecting and when the window closes. The
+program does not keep a search history; the diagnostic log contains only counts and times. Files are created only when
+exporting to CSV or HTML – where the operator points (chapter 14).
+
+## 13. Domain controller, PDC emulator and SYSVOL
 
 - The window reads and writes AD and SYSVOL **only on its own domain controller**. When it is not the PDC emulator (the
   one GPMC uses by default), the GPO tabs show: *GPO changes are made on X, but the PDC emulator is Y* with the *Change
@@ -503,25 +743,28 @@ the description of each finding.
 - SYSVOL is opened with the window's credentials (the password only in memory, rule 2) only for the time of reading,
   planning and execution. When it is unavailable, the bar gives the reason (a connection opened by distinguished name, an
   unsupported environment, rejected credentials, access denied, no connection to the share). Then only the changes that
-  write SYSVOL are disabled (a new GPO, backup, deletion, security filtering, delegation, restore, import, aligning
-  versions, repairing permissions, saving administrative templates, updating the central store); links, GPO status,
-  rename, WMI filter and block inheritance change only AD and keep working.
+  write SYSVOL are disabled (a new GPO, a GPO copy, deletion, security filtering, delegation, restore, import, aligning
+  versions, repairing permissions, saving administrative templates, updating the central store, copying and removing
+  settings, merging GPOs); links, GPO status, rename, WMI filter and block inheritance change only AD and keep working.
+  The settings search and the cleanup (chapter 12) then have only directory data.
 
-## 13. What AD Manager writes to disk
+## 14. What AD Manager writes to disk
 
 Nothing from the directory or SYSVOL (rule 1): GPOs, links, settings, ADMX templates and differences are only in memory
 while they are visible. Only the following are remembered: the visibility of GPO nodes in the tree, the last backup
 folder, the backup comment template and the choice *Create a backup before deleting*. Files are created only where the
 operator points: GPO backups, the copy of the central store before an update, the export of the comparison and the model
-(chapter 9) to CSV, the HTML report of GPO settings and the export of diagnostics to CSV or HTML (chapter 11). The
-diagnostics results are only in the tab's memory.
+(chapter 9) to CSV, the HTML report of GPO settings, the export of diagnostics (chapter 11), of settings search results
+and of cleanup proposals (chapter 12) to CSV or HTML. The diagnostics results are only in the tab's memory, and the read
+of the settings of all GPOs, the search results and the cleanup proposals only in the memory of the connection window
+(without a search history).
 Security settings (chapter 10) are only in the tab's memory until written to SYSVOL. Vendor template packages (vendor
 files, not directory data) are kept in memory; only MSI and EXE installers and CAB archives are copied to the profile's
 temporary folder (installers are also unpacked there, CAB – in memory), deleted right after loading. The audit log
 contains, for SYSVOL changes, the paths of files in the GPO folder or the central store, sizes and SHA-256 sums – not
 the content of the files.
 
-## 14. Limitations and pilot
+## 15. Limitations and pilot
 
 - Verified by tests on a fake directory and on a Samba 4.19 lab (SYSVOL writing through `smbclient`); SYSVOL writing on
   Windows (`WindowsSysvolFileWriter`), WPF windows, screenshot 23 and the smoke test are verified only by CI on Windows.
@@ -538,7 +781,7 @@ the content of the files.
   from Microsoft's editor for the same settings, and the client applies them as if set in GPMC; updating the central
   store from current Windows 11 / Server 2025, Microsoft 365 Apps, Edge, Chrome and Firefox packages – including that
   Microsoft's MSI and EXE installers pass the Microsoft certificate chain check (when one does not: unpack it manually,
-  e.g. `msiexec /a plik.msi TARGETDIR=C:\Szablony`, and point to the folder through *From a folder…*).
+  e.g. `msiexec /a file.msi TARGETDIR=C:\Templates`, and point to the folder through *From a folder…*).
 - Modeling (K5) was verified by tests on a fake directory and on the Samba lab (a computer model in an OU with block
   inheritance consistent with `samba-tool gpo list`); in the pilot – a comparison with GPMC's *Group Policy Modeling* and
   with `gpresult /h` on a test computer.
@@ -550,6 +793,15 @@ the content of the files.
   rule on examples with Polish data, the texts of all findings in both languages); windows – CI on Windows; in the
   pilot – a comparison of setting names with the GPMC report (`Get-GPOReport`) and of diagnostics findings with
   knowledge of the domain.
+- Searching, copying settings and cleanup (K7) were verified by tests on a fake directory (the sample company and the
+  *Porządki – …* GPOs with Polish data: copying and removing every kind of setting with execution and undo, refusals
+  including MS14-025, merging with replacement of the links, every kind of proposal together with the cases in which
+  there must be no proposal); windows and screenshots 34 and 35 – CI on Windows; **not verified on a real Windows
+  domain**. In the pilot: search results against *Find* in the GPMC editor and `gpresult /h`, the copied settings in
+  GPMC and in `gpresult /h` on a test computer, merging two test GPOs, the cleanup proposals against the picture in
+  GPMC. Not copied or merged: scripts, file and registry permissions, audit options, comments, hidden values (GPP
+  passwords – MS14-025), items of collections with targeting or of disabled collections, settings in the directory; no
+  copying to a new GPO or between domains; a merge does not move B's link to A's position.
 - Not available: editing firewall rules, file and registry permissions, event logs, local users and other preferences,
   local groups in the user configuration, comments on template settings, editor filters by platform and keywords, old
   ADM templates, migration tables and copying GPOs between domains, Starter GPOs, comparing GPOs from another

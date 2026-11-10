@@ -11,11 +11,12 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AdMng.App.UiTests;
 
 /// <summary>
-/// Release screenshot 35 of "Porządki w GPO" (K7, design note docs/dev/k-computers-and-gpo.md 21.6, 21.10): the cleanup
-/// advisor over the GPO management sample and the cleanup sample, the duplicated setting selected with its details and
-/// its one action. Polish UI, light theme, the in-memory directory and SYSVOL with the sample ADMX templates. Like
-/// <see cref="ScreenshotTests"/> it runs only when <see cref="ScreenshotWriter.DirectoryVariable"/> is set; the class name
-/// starts with "ScreenshotTests" so the CI step "Screenshots" takes it too.
+/// Screenshot 35 of the GPO cleanup (K7, design note docs/dev/k-computers-and-gpo.md 21.6, 21.10): the cleanup advisor
+/// over the GPO management sample and the cleanup sample, the duplicated setting selected with its details and its one
+/// action. UI in the language of <see cref="ScreenshotWriter.LanguageVariable"/>, light theme, the in-memory directory and
+/// SYSVOL with the sample ADMX templates. Like <see cref="ScreenshotTests"/> it runs only when
+/// <see cref="ScreenshotWriter.DirectoryVariable"/> is set; the class name starts with "ScreenshotTests" so the CI step
+/// "Screenshots" takes it too.
 /// </summary>
 [Collection(UiTestCollection.Name)]
 public sealed class ScreenshotTestsGpoCleanup
@@ -59,7 +60,7 @@ public sealed class ScreenshotTestsGpoCleanup
         ScreenshotWriter.RequireOutputDirectory();
         return WpfTestHost.RunAsync(async () =>
         {
-            var (created, _) = await TestDialogService.CreateContextAsync("pl");
+            var (created, _) = await TestDialogService.CreateContextAsync(ScreenshotWriter.Language);
             await using var context = created;
             var themes = context.Services.GetRequiredService<IThemeService>();
             themes.Apply(ThemePreference.Light);

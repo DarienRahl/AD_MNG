@@ -314,7 +314,7 @@ with the pre-edit content as a precondition (conflict) and `SetGpoVersion` of th
   `GroupPolicyInheritance`); proposals and their actions are only data, and every action goes through the planner and
   the preview. The index, results and proposals exist only in the window's memory, export goes to an operator's file
   (rule 1). Description:
-  [GROUP-POLICY.md, chapter 12](GROUP-POLICY.md); specification:
+  [GROUP-POLICY.md, chapter 12](GROUP-POLICY.md#12-searching-copying-settings-and-cleaning-up-gpos-k7); specification:
   [dev/k-computers-and-gpo.md](../dev/k-computers-and-gpo.md), chapter 21.
 
 ### Event logs (track E)

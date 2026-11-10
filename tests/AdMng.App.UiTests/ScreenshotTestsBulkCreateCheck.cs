@@ -12,11 +12,12 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AdMng.App.UiTests;
 
 /// <summary>
-/// Release screenshot 43 of the bulk creation wizard (docs/dev/phase3-bulk-create.md 2.7): the step <em>Sprawdzenie</em> with
-/// the operator's sheet computed – OK rows, a warning (an ambiguous manager), an error (a login already taken) and a possible
-/// existing account, the frozen name columns and the uniqueness scope. Like <see cref="ScreenshotTests"/> it runs only when
-/// <see cref="ScreenshotWriter.DirectoryVariable"/> is set; the class name starts with "ScreenshotTests" so the CI step
-/// "Screenshots" takes it too.
+/// Screenshot 43 of the bulk creation wizard (docs/dev/phase3-bulk-create.md 2.7): the step <em>Check</em>
+/// (<em>Sprawdzenie</em>) with the operator's sheet computed – OK rows, a warning (an ambiguous manager), an error (a login
+/// already taken) and a possible existing account, the frozen name columns and the uniqueness scope. UI in the language of
+/// <see cref="ScreenshotWriter.LanguageVariable"/> over Polish sample data, light theme. Like <see cref="ScreenshotTests"/> it
+/// runs only when <see cref="ScreenshotWriter.DirectoryVariable"/> is set; the class name starts with "ScreenshotTests" so
+/// the CI step "Screenshots" takes it too.
 /// </summary>
 [Collection(UiTestCollection.Name)]
 public sealed class ScreenshotTestsBulkCreateCheck
@@ -27,7 +28,7 @@ public sealed class ScreenshotTestsBulkCreateCheck
     private static readonly ScreenshotInfo Check = new(
         "43-bulk-create-check.png",
         "Zakładanie wielu kont – krok Sprawdzenie: każdy wiersz arkusza z wyliczonymi wartościami (kd208…kd212, UPN, adres e-mail, telefon komórkowy), stan OK / ostrzeżenie / błąd z uwagami, niejednoznaczny menedżer i możliwy duplikat istniejącego konta",
-        "Bulk account creation – the Check step: every row of the sheet with its computed values (kd208…kd212, UPN, e-mail address, mobile phone), the OK / warning / error status with its notes, an ambiguous manager and a possible duplicate of an existing account");
+        "Creating multiple accounts – the Check step: every row of the sheet with its computed values (kd208…kd212, UPN, e-mail address, mobile phone), the OK / warning / error status with its notes, an ambiguous manager and a possible duplicate of an existing account");
 
     [Fact]
     public Task Screenshot43_BulkCreateCheck() => ShootAsync(async context =>
@@ -54,7 +55,7 @@ public sealed class ScreenshotTestsBulkCreateCheck
         ScreenshotWriter.RequireOutputDirectory();
         return WpfTestHost.RunAsync(async () =>
         {
-            var (created, _) = await TestDialogService.CreateContextAsync("pl");
+            var (created, _) = await TestDialogService.CreateContextAsync(ScreenshotWriter.Language);
             await using var context = created;
             var themes = context.Services.GetRequiredService<IThemeService>();
             themes.Apply(ThemePreference.Light);

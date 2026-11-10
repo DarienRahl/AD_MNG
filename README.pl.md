@@ -178,7 +178,7 @@ Szczegóły: [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytko
   Edge, Microsoft 365 Apps, Chrome, Firefox …) z aktualizacją magazynu centralnego; ustawienia zabezpieczeń; raport „co
   dostanie komputer” i diagnostyka zasad grupy. Każda zmiana w AD i SYSVOL przechodzi przez plan zmian, z cofaniem.
 
-Szczegóły: [ścieżka K](#ścieżka-k--komputery-i-zasady-grupy-gpo--k1k6-), [docs/KOMPUTERY.md](docs/KOMPUTERY.md) i
+Szczegóły: [ścieżka K](#ścieżka-k--komputery-i-zasady-grupy-gpo--k1k7-), [docs/KOMPUTERY.md](docs/KOMPUTERY.md) i
 [docs/ZASADY-GRUPY.md](docs/ZASADY-GRUPY.md).
 
 ### 📋 Dzienniki zdarzeń i diagnostyka

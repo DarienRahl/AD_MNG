@@ -42,7 +42,7 @@ Each tab belongs to its connection window and uses its credentials.
   Authentication Service* (failure); 4776 – *Credential Validation* (failure); 4625 – *Logon* (failure); 4624 – *Logon*
   (success). The tabs show whether these events are recorded at all (chapter 4). Auditing settings are changed in the GPO
   security settings editor
-  ([ZASADY-GRUPY.md, chapter 10](GROUP-POLICY.md#10-security-settings-local-groups-rights-account-policies-auditing-services)).
+  ([GROUP-POLICY.md, chapter 10](GROUP-POLICY.md#10-security-settings-local-groups-rights-account-policies-auditing-services)).
 
 ## 3. The reader – the "Event logs" tab
 
@@ -96,7 +96,7 @@ Each tab belongs to its connection window and uses its credentials.
      the log covers the window – probably not audited* (only after a check without the account filter) or *unknown*; with
      a jump to the Group Policy model of the DC (*Show in model*) and to *Group Policy diagnostics*.
 5. **Check the source computer** (for a computer or an IP address – the name is resolved through DNS): through remote
-   actions ([KOMPUTERY.md](COMPUTERS.md)) shows this account's **sessions**, **services** and **scheduled tasks** running as
+   actions ([COMPUTERS.md](COMPUTERS.md)) shows this account's **sessions**, **services** and **scheduled tasks** running as
    this account (with tasks that have a saved password marked); *Open remote actions* opens the computer's window.
 
 A locked account can be unlocked with the ordinary command (through the change plan preview). When the window is
