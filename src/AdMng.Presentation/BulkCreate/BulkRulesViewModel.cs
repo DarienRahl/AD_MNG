@@ -613,6 +613,7 @@ public sealed partial class BulkRulesViewModel : ObservableObject, IDisposable
         }
 
         _selectedFor = container;
+        RefreshProfileList();
         Recompile();
         RefreshFields();
         await RefreshPreviewAsync().ConfigureAwait(true);

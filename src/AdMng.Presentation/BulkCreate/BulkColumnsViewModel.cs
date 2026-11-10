@@ -139,7 +139,7 @@ public sealed partial class BulkColumnsViewModel : ObservableObject, IDisposable
         var result = new List<BulkCreateHeaderMapping>();
         foreach (var mapping in Mappings)
         {
-            if (mapping.IsPasswordLike || HeaderKey(table, mapping.Column) is not { } key || !BulkCreateSettings.IsStorableHeader(key))
+            if (mapping.IsPasswordLike || HeaderKey(table, mapping.Column) is not { } key || !IsStorable(mapping.Column, key))
             {
                 continue;
             }
@@ -155,7 +155,7 @@ public sealed partial class BulkColumnsViewModel : ObservableObject, IDisposable
     {
         var table = Source.Table;
         return [.. Mappings
-            .Where(m => !m.IsPasswordLike && HeaderKey(table, m.Column) is { } key && BulkCreateSettings.IsStorableHeader(key))
+            .Where(m => !m.IsPasswordLike && HeaderKey(table, m.Column) is { } key && IsStorable(m.Column, key))
             .Select(m => m.Name)];
     }
 
@@ -455,6 +455,17 @@ public sealed partial class BulkColumnsViewModel : ObservableObject, IDisposable
         ColumnTargetKind.Attribute => row.Attribute is { Length: > 0 } attribute ? "a:" + attribute.ToLowerInvariant() : null,
         var target => "t:" + target,
     };
+
+    /// <summary>
+    /// The header rule of 2.6 on the header as typed and as folded: no <c>@</c> and fewer than 7 digits in the original (folding
+    /// drops the punctuation of an address), never password-like, and a folded key <see cref="BulkCreateSettings.IsStorableHeader"/> accepts.
+    /// </summary>
+    private static bool IsStorable(TableColumn column, string key)
+    {
+        var header = column.Header;
+        return BulkCreateSettings.IsStorableHeader(key)
+            && (key[0] == '#' || (!header.Contains('@', StringComparison.Ordinal) && header.Count(char.IsDigit) < 7 && !ColumnSynonyms.IsPasswordLike(header)));
+    }
 
     /// <summary>The key a profile remembers the column by: the folded header, or <c>#letter</c> without a header.</summary>
     private static string? HeaderKey(InputTable table, TableColumn column)

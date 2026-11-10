@@ -306,7 +306,8 @@ public sealed partial class BulkRulesViewModel
             parts.Add(localizer[L.BulkCreate.SummaryNoRecycleBin]);
         }
 
-        parts.Add(localizer.Format(L.BulkCreate.SummaryCollisions, localizer[BulkCreateTextKeys.CollisionKey(Kind == ObjectKind.Computer ? CollisionStrategy.MarkError : Collisions)]));
+        var collision = localizer[BulkCreateTextKeys.CollisionKey(Kind == ObjectKind.Computer ? CollisionStrategy.MarkError : Collisions)];
+        parts.Add(localizer.Format(L.BulkCreate.SummaryCollisions, collision.ToLower(localizer.Culture)));
         if (!SanitizeIdentifiers)
         {
             parts.Add(localizer[L.BulkCreate.SummaryNoSanitize]);
