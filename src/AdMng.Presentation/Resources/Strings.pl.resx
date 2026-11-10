@@ -21342,8 +21342,959 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <!-- P1 contract – AD CS finding texts and shared names (2.4, 2.8): end -->
   <!-- P1 PKI overview, health and settings (2.1, 2.5): begin -->
+  <data name="Pki.NodeTitle" xml:space="preserve">
+    <value>Usługi kluczy publicznych</value>
+  </data>
+  <data name="Pki.NodeHelp" xml:space="preserve">
+    <value>PKI lasu odczytane z partycji konfiguracji: urzędy przedsiębiorstwa, magazyny zaufania, listy CRL, szablony i zdrowie</value>
+  </data>
+  <data name="Pki.OverviewTitle" xml:space="preserve">
+    <value>Usługi kluczy publicznych</value>
+  </data>
+  <data name="Pki.OverviewCommand" xml:space="preserve">
+    <value>Usługi kluczy publicznych…</value>
+  </data>
+  <data name="Pki.SecurityReviewCommand" xml:space="preserve">
+    <value>Przegląd bezpieczeństwa AD CS…</value>
+  </data>
+  <data name="Pki.SecurityReviewNode" xml:space="preserve">
+    <value>Przegląd bezpieczeństwa AD CS</value>
+  </data>
+  <data name="Pki.ReadinessCommand" xml:space="preserve">
+    <value>Gotowość na silne mapowanie i NTAuth…</value>
+  </data>
+  <data name="Pki.ReadinessNode" xml:space="preserve">
+    <value>Gotowość na silne mapowanie i NTAuth</value>
+  </data>
+  <data name="Pki.ToggleTreeCommand" xml:space="preserve">
+    <value>Usługi kluczy publicznych w drzewie</value>
+  </data>
+  <data name="Pki.MenuHeader" xml:space="preserve">
+    <value>Usługi certyfikatów (AD CS)</value>
+  </data>
+  <data name="Pki.OpenCommand" xml:space="preserve">
+    <value>Otwórz</value>
+  </data>
+  <data name="Pki.RefreshCommand" xml:space="preserve">
+    <value>Odśwież</value>
+  </data>
+  <data name="Pki.SectionAuthorities" xml:space="preserve">
+    <value>Urzędy przedsiębiorstwa</value>
+  </data>
+  <data name="Pki.SectionTrust" xml:space="preserve">
+    <value>Zaufane urzędy i NTAuth</value>
+  </data>
+  <data name="Pki.SectionCrls" xml:space="preserve">
+    <value>Listy CRL</value>
+  </data>
+  <data name="Pki.SectionKra" xml:space="preserve">
+    <value>Agenci odzyskiwania kluczy</value>
+  </data>
+  <data name="Pki.SectionOids" xml:space="preserve">
+    <value>Identyfikatory OID</value>
+  </data>
+  <data name="Pki.SectionHealth" xml:space="preserve">
+    <value>Zdrowie</value>
+  </data>
+  <data name="Pki.SectionLdaps" xml:space="preserve">
+    <value>Certyfikaty LDAPS</value>
+  </data>
+  <data name="Pki.Summary" xml:space="preserve">
+    <value>Urzędy przedsiębiorstwa: {0} · szablony: {1} · zaufane urzędy główne: {2} · certyfikaty NTAuth: {3}</value>
+  </data>
+  <data name="Pki.ReadAt" xml:space="preserve">
+    <value>Odczytano z {0}, {1}.</value>
+  </data>
+  <data name="Pki.ReadProgress" xml:space="preserve">
+    <value>Odczyt obiektów PKI: {0}…</value>
+  </data>
+  <data name="Pki.NoneFound" xml:space="preserve">
+    <value>Nie znaleziono.</value>
+  </data>
+  <data name="Pki.None" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="Pki.ReadOnlyNote" xml:space="preserve">
+    <value>Tylko odczyt: nic nie jest zmieniane. To, co widać, jest tylko w pamięci, dopóki okno jest otwarte.</value>
+  </data>
+  <data name="Pki.NoticesHeading" xml:space="preserve">
+    <value>Uwagi z odczytu</value>
+  </data>
+  <data name="Pki.NoticeLine" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="Pki.ColumnName" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="Pki.ColumnHost" xml:space="preserve">
+    <value>Host</value>
+  </data>
+  <data name="Pki.ColumnValidTo" xml:space="preserve">
+    <value>Ważny do</value>
+  </data>
+  <data name="Pki.ColumnStatus" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="Pki.ColumnNtAuth" xml:space="preserve">
+    <value>NTAuth</value>
+  </data>
+  <data name="Pki.ColumnTemplates" xml:space="preserve">
+    <value>Szablony</value>
+  </data>
+  <data name="Pki.ColumnSubject" xml:space="preserve">
+    <value>Podmiot</value>
+  </data>
+  <data name="Pki.ColumnIssuer" xml:space="preserve">
+    <value>Wystawca</value>
+  </data>
+  <data name="Pki.ColumnThumbprint" xml:space="preserve">
+    <value>Odcisk palca</value>
+  </data>
+  <data name="Pki.ColumnStore" xml:space="preserve">
+    <value>Magazyn</value>
+  </data>
+  <data name="Pki.ColumnEnterpriseCa" xml:space="preserve">
+    <value>Urząd przedsiębiorstwa</value>
+  </data>
+  <data name="Pki.ColumnCa" xml:space="preserve">
+    <value>Urząd</value>
+  </data>
+  <data name="Pki.ColumnKind" xml:space="preserve">
+    <value>Rodzaj</value>
+  </data>
+  <data name="Pki.ColumnNumber" xml:space="preserve">
+    <value>Numer</value>
+  </data>
+  <data name="Pki.ColumnThisUpdate" xml:space="preserve">
+    <value>Data wejścia w życie</value>
+  </data>
+  <data name="Pki.ColumnNextUpdate" xml:space="preserve">
+    <value>Następna aktualizacja</value>
+  </data>
+  <data name="Pki.ColumnRevoked" xml:space="preserve">
+    <value>Odwołane</value>
+  </data>
+  <data name="Pki.ColumnAgent" xml:space="preserve">
+    <value>Agent</value>
+  </data>
+  <data name="Pki.ColumnOid" xml:space="preserve">
+    <value>OID</value>
+  </data>
+  <data name="Pki.ColumnDisplayName" xml:space="preserve">
+    <value>Nazwa wyświetlana</value>
+  </data>
+  <data name="Pki.ColumnGroupLink" xml:space="preserve">
+    <value>Połączona grupa</value>
+  </data>
+  <data name="Pki.ColumnItem" xml:space="preserve">
+    <value>Element</value>
+  </data>
+  <data name="Pki.ColumnUrl" xml:space="preserve">
+    <value>Lokalizacja</value>
+  </data>
+  <data name="Pki.ColumnOutcome" xml:space="preserve">
+    <value>Wynik</value>
+  </data>
+  <data name="Pki.ColumnPort" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="Pki.ColumnDc" xml:space="preserve">
+    <value>Kontroler domeny</value>
+  </data>
+  <data name="Pki.ColumnChecks" xml:space="preserve">
+    <value>Sprawdzenia</value>
+  </data>
+  <data name="Pki.ColumnKdc" xml:space="preserve">
+    <value>Certyfikat KDC</value>
+  </data>
+  <data name="Pki.DetailsHeading" xml:space="preserve">
+    <value>Szczegóły</value>
+  </data>
+  <data name="Pki.CaDetailsEmpty" xml:space="preserve">
+    <value>Wybierz urząd, aby zobaczyć jego certyfikat, łańcuch, szablony i usługi rejestracji w sieci Web.</value>
+  </data>
+  <data name="Pki.CertificateDetailsEmpty" xml:space="preserve">
+    <value>Wybierz certyfikat, aby zobaczyć szczegóły.</value>
+  </data>
+  <data name="Pki.CaCertificate" xml:space="preserve">
+    <value>Certyfikat urzędu</value>
+  </data>
+  <data name="Pki.Chain" xml:space="preserve">
+    <value>Ścieżka certyfikacji</value>
+  </data>
+  <data name="Pki.ChainRootInAd" xml:space="preserve">
+    <value>{0} (zaufany urząd główny w AD)</value>
+  </data>
+  <data name="Pki.ChainIssuerNotFound" xml:space="preserve">
+    <value>{0} (certyfikatu wystawcy nie ma w AD)</value>
+  </data>
+  <data name="Pki.PublishedTemplates" xml:space="preserve">
+    <value>Szablony certyfikatów do wystawienia</value>
+  </data>
+  <data name="Pki.EnrollmentServers" xml:space="preserve">
+    <value>Usługi rejestracji certyfikatów w sieci Web (CES)</value>
+  </data>
+  <data name="Pki.ValidityRange" xml:space="preserve">
+    <value>od {0} do {1}</value>
+  </data>
+  <data name="Pki.DaysLeft" xml:space="preserve">
+    <value>pozostało dni: {0}</value>
+  </data>
+  <data name="Pki.ExpiredAgo" xml:space="preserve">
+    <value>wygasł – dni temu: {0}</value>
+  </data>
+  <data name="Pki.NotYetValid" xml:space="preserve">
+    <value>jeszcze nieważny</value>
+  </data>
+  <data name="Pki.Validity" xml:space="preserve">
+    <value>Ważność</value>
+  </data>
+  <data name="Pki.Key" xml:space="preserve">
+    <value>Klucz publiczny</value>
+  </data>
+  <data name="Pki.KeyText" xml:space="preserve">
+    <value>{0} ({1} bitów)</value>
+  </data>
+  <data name="Pki.SignatureAlgorithm" xml:space="preserve">
+    <value>Algorytm podpisu</value>
+  </data>
+  <data name="Pki.SerialNumber" xml:space="preserve">
+    <value>Numer seryjny</value>
+  </data>
+  <data name="Pki.Sha256" xml:space="preserve">
+    <value>SHA-256</value>
+  </data>
+  <data name="Pki.Renewals" xml:space="preserve">
+    <value>Certyfikaty w cACertificate (z odnowieniami): {0}</value>
+  </data>
+  <data name="Pki.InNtAuth" xml:space="preserve">
+    <value>W magazynie NTAuth</value>
+  </data>
+  <data name="Pki.NotInNtAuth" xml:space="preserve">
+    <value>Poza magazynem NTAuth</value>
+  </data>
+  <data name="Pki.OpenComputer" xml:space="preserve">
+    <value>Otwórz komputer</value>
+  </data>
+  <data name="Pki.RemoteActions" xml:space="preserve">
+    <value>Zdalne akcje…</value>
+  </data>
+  <data name="Pki.ComputerOtherDomain" xml:space="preserve">
+    <value>Serwer urzędu należy do innej domeny lasu – otwórz go z okna tamtej domeny.</value>
+  </data>
+  <data name="Pki.ComputerUnresolved" xml:space="preserve">
+    <value>Nie znaleziono obiektu komputera serwera urzędu w tej domenie.</value>
+  </data>
+  <data name="Pki.OpenTemplate" xml:space="preserve">
+    <value>Otwórz szablon</value>
+  </data>
+  <data name="Pki.LogonCaNotInNtAuth" xml:space="preserve">
+    <value>{0} wystawia certyfikaty logowania ({1}), ale nie ma go w magazynie NTAuth – logowanie kartą i certyfikatem z jego certyfikatami się nie powiedzie.</value>
+  </data>
+  <data name="Pki.SanText" xml:space="preserve">
+    <value>Alternatywna nazwa podmiotu</value>
+  </data>
+  <data name="Pki.EkuText" xml:space="preserve">
+    <value>Przeznaczenie</value>
+  </data>
+  <data name="Pki.CdpText" xml:space="preserve">
+    <value>Punkty dystrybucji listy CRL</value>
+  </data>
+  <data name="Pki.AiaText" xml:space="preserve">
+    <value>Dostęp do informacji o urzędzie</value>
+  </data>
+  <data name="Pki.StoreRoot" xml:space="preserve">
+    <value>Zaufany urząd główny</value>
+  </data>
+  <data name="Pki.StoreAia" xml:space="preserve">
+    <value>Urząd pośredni (AIA)</value>
+  </data>
+  <data name="Pki.StoreCross" xml:space="preserve">
+    <value>Certyfikat krzyżowy (AIA)</value>
+  </data>
+  <data name="Pki.StoreNtAuth" xml:space="preserve">
+    <value>NTAuth</value>
+  </data>
+  <data name="Pki.NotEnterpriseCa" xml:space="preserve">
+    <value>nie jest urzędem przedsiębiorstwa</value>
+  </data>
+  <data name="Pki.CrlBase" xml:space="preserve">
+    <value>Podstawowa lista CRL</value>
+  </data>
+  <data name="Pki.CrlDelta" xml:space="preserve">
+    <value>Różnicowa lista CRL</value>
+  </data>
+  <data name="Pki.CrlAuthority" xml:space="preserve">
+    <value>Lista odwołań urzędów (ARL)</value>
+  </data>
+  <data name="Pki.Unreadable" xml:space="preserve">
+    <value>Nieczytelna</value>
+  </data>
+  <data name="Pki.UnknownCa" xml:space="preserve">
+    <value>nieznany urząd</value>
+  </data>
+  <data name="Pki.DeltaOf" xml:space="preserve">
+    <value>{0} (różnicowa do {1})</value>
+  </data>
+  <data name="Pki.OidTemplate" xml:space="preserve">
+    <value>Szablon certyfikatu</value>
+  </data>
+  <data name="Pki.OidIssuancePolicy" xml:space="preserve">
+    <value>Zasady wystawiania</value>
+  </data>
+  <data name="Pki.OidApplicationPolicy" xml:space="preserve">
+    <value>Zasady aplikacji</value>
+  </data>
+  <data name="Pki.OidOther" xml:space="preserve">
+    <value>Inny ({0})</value>
+  </data>
+  <data name="Pki.OpenGroup" xml:space="preserve">
+    <value>Otwórz grupę</value>
+  </data>
+  <data name="Pki.HealthItemNumbered" xml:space="preserve">
+    <value>{0} nr {1}</value>
+  </data>
+  <data name="Pki.CheckHttp" xml:space="preserve">
+    <value>Sprawdź adresy HTTP</value>
+  </data>
+  <data name="Pki.CheckHttpHint" xml:space="preserve">
+    <value>Pobiera adresy http/https AIA, CDP i OCSP z certyfikatów – bez poświadczeń, najwyżej 3 przekierowania, 15 s i 20 MB na adres. Bez tego nic nie jest pobierane.</value>
+  </data>
+  <data name="Pki.HttpNotChecked" xml:space="preserve">
+    <value>Adresy HTTP są sprawdzane tylko po naciśnięciu „Sprawdź adresy HTTP”; do tego czasu ich wiersze mają stan Nieznany.</value>
+  </data>
+  <data name="Pki.HttpChecked" xml:space="preserve">
+    <value>Sprawdzone adresy HTTP: {0} (OK: {1}).</value>
+  </data>
+  <data name="Pki.HttpChecking" xml:space="preserve">
+    <value>Sprawdzanie adresów HTTP: {0} z {1}…</value>
+  </data>
+  <data name="Pki.HttpUnavailable" xml:space="preserve">
+    <value>Sprawdzanie adresów HTTP jest niedostępne w tym oknie.</value>
+  </data>
+  <data name="Pki.HttpNoUrls" xml:space="preserve">
+    <value>Certyfikaty nie zawierają adresów http/https.</value>
+  </data>
+  <data name="Pki.HttpStatus" xml:space="preserve">
+    <value>{0} (HTTP {1})</value>
+  </data>
+  <data name="Pki.HttpResultsHeading" xml:space="preserve">
+    <value>Adresy HTTP</value>
+  </data>
+  <data name="Pki.HealthSummary" xml:space="preserve">
+    <value>OK: {0} · wygasa: {1} · wygasła: {2} · niedostępna: {3} · nieznany: {4}</value>
+  </data>
+  <data name="Pki.HealthThresholds" xml:space="preserve">
+    <value>Ostrzeżenie o wygasaniu: certyfikaty {0} dni, certyfikaty urzędów {1} dni (Ustawienia → Ogólne → Certyfikaty).</value>
+  </data>
+  <data name="Pki.HealthEmpty" xml:space="preserve">
+    <value>Nic do oceny: las nie ma urzędu przedsiębiorstwa, agenta odzyskiwania kluczy ani certyfikatu NTAuth.</value>
+  </data>
+  <data name="Pki.ProbeLdaps" xml:space="preserve">
+    <value>Sprawdź certyfikaty LDAPS</value>
+  </data>
+  <data name="Pki.ProbeLdapsHint" xml:space="preserve">
+    <value>Uzgadnianie TLS z portem 636 (i 3269 na wykazach globalnych) każdego DC domeny – bez powiązania LDAP i bez danych – najwyżej 4 naraz, po 5 s.</value>
+  </data>
+  <data name="Pki.LdapsUnavailable" xml:space="preserve">
+    <value>Sprawdzanie certyfikatów LDAPS jest niedostępne w tym oknie.</value>
+  </data>
+  <data name="Pki.LdapsNotChecked" xml:space="preserve">
+    <value>Jeszcze nie sprawdzono.</value>
+  </data>
+  <data name="Pki.LdapsChecking" xml:space="preserve">
+    <value>Sprawdzanie certyfikatów LDAPS kontrolerów domeny…</value>
+  </data>
+  <data name="Pki.LdapsSummary" xml:space="preserve">
+    <value>Sprawdzone porty: {0}; OK: {1}; z problemem: {2}.</value>
+  </data>
+  <data name="Pki.LdapsNoDcs" xml:space="preserve">
+    <value>Nie znaleziono kontrolera domeny z nazwą hosta DNS.</value>
+  </data>
+  <data name="Pki.CheckNameMismatch" xml:space="preserve">
+    <value>nazwa nie pasuje do DC</value>
+  </data>
+  <data name="Pki.CheckNoDomainName" xml:space="preserve">
+    <value>nazwy domeny nie ma w SAN (ldaps://{0} nie zadziała)</value>
+  </data>
+  <data name="Pki.CheckNoServerAuth" xml:space="preserve">
+    <value>brak EKU uwierzytelniania serwera</value>
+  </data>
+  <data name="Pki.CheckExpired" xml:space="preserve">
+    <value>wygasł</value>
+  </data>
+  <data name="Pki.CheckExpiring" xml:space="preserve">
+    <value>wygasa – pozostało dni: {0}</value>
+  </data>
+  <data name="Pki.CheckNoAdRoot" xml:space="preserve">
+    <value>łańcuch nie prowadzi do urzędu głównego w AD</value>
+  </data>
+  <data name="Pki.CheckIssuerNotInNtAuth" xml:space="preserve">
+    <value>wystawca spoza magazynu NTAuth</value>
+  </data>
+  <data name="Pki.CheckOk" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Pki.CheckUnparsable" xml:space="preserve">
+    <value>przedstawionego certyfikatu nie można odczytać</value>
+  </data>
+  <data name="Pki.KdcNote" xml:space="preserve">
+    <value>Certyfikat KDC: na podstawie certyfikatów opublikowanych w obiekcie DC w AD (magazyn samego KDC sprawdza etap P4).</value>
+  </data>
+  <data name="Pki.ChainStatus" xml:space="preserve">
+    <value>Stan łańcucha: {0}</value>
+  </data>
+  <data name="Pki.PortText" xml:space="preserve">
+    <value>{0} (wykaz globalny)</value>
+  </data>
+  <data name="Pki.SettingsSection" xml:space="preserve">
+    <value>Certyfikaty</value>
+  </data>
+  <data name="Pki.SettingsCertificateDays" xml:space="preserve">
+    <value>Próg ostrzeżenia o wygasaniu certyfikatów (dni)</value>
+  </data>
+  <data name="Pki.SettingsCaDays" xml:space="preserve">
+    <value>Próg ostrzeżenia o wygasaniu certyfikatów urzędów (dni)</value>
+  </data>
+  <data name="Pki.SettingsHint" xml:space="preserve">
+    <value>Przegląd PKI oznacza certyfikaty LDAPS kontrolerów domeny, agentów odzyskiwania kluczy i opublikowane jako wygasające według pierwszego progu, a certyfikaty urzędów (odnowienie urzędu trzeba zaplanować) według drugiego. Lista CRL wygasa, gdy zostało mniej niż 20% jej ważności, co najmniej jeden dzień.</value>
+  </data>
+  <data name="Pki.HealthItem.CaCertificate" xml:space="preserve">
+    <value>Certyfikat urzędu</value>
+  </data>
+  <data name="Pki.HealthItem.AiaLocation" xml:space="preserve">
+    <value>Lokalizacja AIA</value>
+  </data>
+  <data name="Pki.HealthItem.CdpLocation" xml:space="preserve">
+    <value>Lokalizacja CDP</value>
+  </data>
+  <data name="Pki.HealthItem.DeltaCrlLocation" xml:space="preserve">
+    <value>Lokalizacja różnicowej listy CRL</value>
+  </data>
+  <data name="Pki.HealthItem.BaseCrl" xml:space="preserve">
+    <value>Podstawowa lista CRL</value>
+  </data>
+  <data name="Pki.HealthItem.DeltaCrl" xml:space="preserve">
+    <value>Różnicowa lista CRL</value>
+  </data>
+  <data name="Pki.HealthItem.KraCertificate" xml:space="preserve">
+    <value>Certyfikat agenta odzyskiwania kluczy</value>
+  </data>
+  <data name="Pki.HealthItem.NtAuthCertificate" xml:space="preserve">
+    <value>Certyfikat NTAuth</value>
+  </data>
+  <data name="Pki.Http.Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Pki.Http.NotFound" xml:space="preserve">
+    <value>Nie znaleziono (404)</value>
+  </data>
+  <data name="Pki.Http.HttpError" xml:space="preserve">
+    <value>Błąd HTTP</value>
+  </data>
+  <data name="Pki.Http.Timeout" xml:space="preserve">
+    <value>Brak odpowiedzi w ciągu 15 s</value>
+  </data>
+  <data name="Pki.Http.TooLarge" xml:space="preserve">
+    <value>Większe niż 20 MB</value>
+  </data>
+  <data name="Pki.Http.InvalidContent" xml:space="preserve">
+    <value>To nie jest certyfikat ani lista CRL</value>
+  </data>
+  <data name="Pki.Http.TlsError" xml:space="preserve">
+    <value>Uzgadnianie HTTPS nie powiodło się</value>
+  </data>
+  <data name="Pki.Http.NameNotResolved" xml:space="preserve">
+    <value>Nie można rozpoznać nazwy hosta</value>
+  </data>
+  <data name="Pki.Http.ConnectFailed" xml:space="preserve">
+    <value>Nie można nawiązać połączenia</value>
+  </data>
+  <data name="Pki.Http.NotChecked" xml:space="preserve">
+    <value>Nie sprawdzono (to nie jest adres http/https)</value>
+  </data>
+  <data name="Pki.UrlKind.AiaCaIssuers" xml:space="preserve">
+    <value>AIA (wystawcy urzędu)</value>
+  </data>
+  <data name="Pki.UrlKind.Cdp" xml:space="preserve">
+    <value>CDP (podstawowa lista CRL)</value>
+  </data>
+  <data name="Pki.UrlKind.DeltaCdp" xml:space="preserve">
+    <value>Różnicowa lista CRL</value>
+  </data>
+  <data name="Pki.UrlKind.Ocsp" xml:space="preserve">
+    <value>OCSP (osiągalność)</value>
+  </data>
   <!-- P1 PKI overview, health and settings (2.1, 2.5): end -->
   <!-- P1 certificate templates and enrollment rights (2.2, 2.3, 2.5): begin -->
+  <data name="PkiTpl.Title" xml:space="preserve">
+    <value>Szablony certyfikatów</value>
+  </data>
+  <data name="PkiTpl.Command" xml:space="preserve">
+    <value>Szablony certyfikatów…</value>
+  </data>
+  <data name="PkiTpl.SearchPlaceholder" xml:space="preserve">
+    <value>Szukaj: nazwa, OID, przeznaczenie, urząd, podmiot…</value>
+  </data>
+  <data name="PkiTpl.UnpublishedOnly" xml:space="preserve">
+    <value>Tylko szablony niewystawiane przez żaden urząd</value>
+  </data>
+  <data name="PkiTpl.Summary" xml:space="preserve">
+    <value>Szablony: {0}, niewystawiane przez żaden urząd: {1}</value>
+  </data>
+  <data name="PkiTpl.Filtered" xml:space="preserve">
+    <value>Pokazane szablony: {0} z {1}</value>
+  </data>
+  <data name="PkiTpl.ColumnName" xml:space="preserve">
+    <value>Nazwa wyświetlana</value>
+  </data>
+  <data name="PkiTpl.ColumnCn" xml:space="preserve">
+    <value>Nazwa szablonu (cn)</value>
+  </data>
+  <data name="PkiTpl.ColumnSchema" xml:space="preserve">
+    <value>Schemat</value>
+  </data>
+  <data name="PkiTpl.ColumnVersion" xml:space="preserve">
+    <value>Wersja</value>
+  </data>
+  <data name="PkiTpl.ColumnPurpose" xml:space="preserve">
+    <value>Przeznaczenie</value>
+  </data>
+  <data name="PkiTpl.ColumnValidity" xml:space="preserve">
+    <value>Okres ważności</value>
+  </data>
+  <data name="PkiTpl.ColumnRenewal" xml:space="preserve">
+    <value>Okres odnawiania</value>
+  </data>
+  <data name="PkiTpl.ColumnKey" xml:space="preserve">
+    <value>Minimalny rozmiar klucza, dostawca</value>
+  </data>
+  <data name="PkiTpl.ColumnSubject" xml:space="preserve">
+    <value>Nazwa podmiotu</value>
+  </data>
+  <data name="PkiTpl.ColumnApproval" xml:space="preserve">
+    <value>Zatwierdzenie menedżera certyfikatów</value>
+  </data>
+  <data name="PkiTpl.ColumnSignatures" xml:space="preserve">
+    <value>Podpisy autoryzowane</value>
+  </data>
+  <data name="PkiTpl.ColumnPublish" xml:space="preserve">
+    <value>Publikuj w AD</value>
+  </data>
+  <data name="PkiTpl.ColumnSuperseded" xml:space="preserve">
+    <value>Zastępowane szablony</value>
+  </data>
+  <data name="PkiTpl.ColumnIssuancePolicies" xml:space="preserve">
+    <value>Zasady wystawiania</value>
+  </data>
+  <data name="PkiTpl.ColumnCas" xml:space="preserve">
+    <value>Wystawiany przez</value>
+  </data>
+  <data name="PkiTpl.ColumnEnroll" xml:space="preserve">
+    <value>Kto może się zarejestrować</value>
+  </data>
+  <data name="PkiTpl.SubjectFromRequest" xml:space="preserve">
+    <value>Dostarcz w żądaniu</value>
+  </data>
+  <data name="PkiTpl.SubjectFromAd" xml:space="preserve">
+    <value>Kompiluj na podstawie informacji usługi Active Directory</value>
+  </data>
+  <data name="PkiTpl.AnyPurpose" xml:space="preserve">
+    <value>Dowolny cel (brak EKU)</value>
+  </data>
+  <data name="PkiTpl.NotIssued" xml:space="preserve">
+    <value>niewystawiany przez żaden urząd</value>
+  </data>
+  <data name="PkiTpl.KeyBits" xml:space="preserve">
+    <value>{0} bitów</value>
+  </data>
+  <data name="PkiTpl.ValueList" xml:space="preserve">
+    <value>{0}, {1}</value>
+  </data>
+  <data name="PkiTpl.Version" xml:space="preserve">
+    <value>{0}.{1}</value>
+  </data>
+  <data name="PkiTpl.DetailsEmpty" xml:space="preserve">
+    <value>Wybierz szablon, aby zobaczyć jego flagi, okresy oraz kto może się na niego zarejestrować i kto może go zmienić.</value>
+  </data>
+  <data name="PkiTpl.General" xml:space="preserve">
+    <value>Ogólne</value>
+  </data>
+  <data name="PkiTpl.Oid" xml:space="preserve">
+    <value>OID szablonu</value>
+  </data>
+  <data name="PkiTpl.ApplicationPolicies" xml:space="preserve">
+    <value>Zasady aplikacji</value>
+  </data>
+  <data name="PkiTpl.Ekus" xml:space="preserve">
+    <value>Rozszerzone użycie klucza (pKIExtendedKeyUsage)</value>
+  </data>
+  <data name="PkiTpl.RaPolicies" xml:space="preserve">
+    <value>Zasady wymagane w podpisie autoryzowanym</value>
+  </data>
+  <data name="PkiTpl.CryptoProviders" xml:space="preserve">
+    <value>Dostawcy usług kryptograficznych</value>
+  </data>
+  <data name="PkiTpl.FlagsHeading" xml:space="preserve">
+    <value>Flagi</value>
+  </data>
+  <data name="PkiTpl.NoFlags" xml:space="preserve">
+    <value>Żadna flaga nie jest ustawiona.</value>
+  </data>
+  <data name="PkiTpl.UnknownBits" xml:space="preserve">
+    <value>Nieznane bity: {0}</value>
+  </data>
+  <data name="PkiTpl.ReservedFlag" xml:space="preserve">
+    <value>{0} (przestarzała, ignorowana)</value>
+  </data>
+  <data name="PkiTpl.EnrollHeading" xml:space="preserve">
+    <value>Kto może się zarejestrować</value>
+  </data>
+  <data name="PkiTpl.ModifyHeading" xml:space="preserve">
+    <value>Kto może zmienić szablon</value>
+  </data>
+  <data name="PkiTpl.NotEvaluated" xml:space="preserve">
+    <value>Nie można odczytać deskryptora zabezpieczeń szablonu – jego prawa nie zostały ocenione (nigdy nie są traktowane jako bezpieczne).</value>
+  </data>
+  <data name="PkiTpl.Counting" xml:space="preserve">
+    <value>Liczenie kont: {0}…</value>
+  </data>
+  <data name="PkiTpl.CountingStarted" xml:space="preserve">
+    <value>Liczenie kont…</value>
+  </data>
+  <data name="PkiTpl.CountFailed" xml:space="preserve">
+    <value>Nie udało się policzyć kont: {0}</value>
+  </data>
+  <data name="PkiTpl.CountsDone" xml:space="preserve">
+    <value>Policzone konta: {0}.</value>
+  </data>
+  <data name="PkiTpl.AccountCount" xml:space="preserve">
+    <value>kont: {0}</value>
+  </data>
+  <data name="PkiTpl.AccountCountDisabled" xml:space="preserve">
+    <value>kont: {0} (+ wyłączonych: {1})</value>
+  </data>
+  <data name="PkiTpl.CountUnknown" xml:space="preserve">
+    <value>liczba nieznana (inna domena)</value>
+  </data>
+  <data name="PkiTpl.CountPending" xml:space="preserve">
+    <value>liczenie…</value>
+  </data>
+  <data name="PkiTpl.Nobody" xml:space="preserve">
+    <value>Nikt</value>
+  </data>
+  <data name="PkiTpl.Total" xml:space="preserve">
+    <value>Razem</value>
+  </data>
+  <data name="PkiTpl.FirstAccounts" xml:space="preserve">
+    <value>Pierwsze konta</value>
+  </data>
+  <data name="PkiTpl.Disabled" xml:space="preserve">
+    <value>{0} (wyłączone)</value>
+  </data>
+  <data name="PkiTpl.OpenTrustee" xml:space="preserve">
+    <value>Otwórz</value>
+  </data>
+  <data name="PkiTpl.RightOnAttribute" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="PkiTpl.BroadNote" xml:space="preserve">
+    <value>Szeroka grupa: ma je praktycznie każde konto.</value>
+  </data>
+  <data name="PkiTpl.Compare" xml:space="preserve">
+    <value>Porównaj…</value>
+  </data>
+  <data name="PkiTpl.CompareTitle" xml:space="preserve">
+    <value>Porównanie szablonów</value>
+  </data>
+  <data name="PkiTpl.CompareWith" xml:space="preserve">
+    <value>z</value>
+  </data>
+  <data name="PkiTpl.CompareClose" xml:space="preserve">
+    <value>Zamknij porównanie</value>
+  </data>
+  <data name="PkiTpl.CompareDifferences" xml:space="preserve">
+    <value>Różnice: {0}</value>
+  </data>
+  <data name="PkiTpl.CompareSame" xml:space="preserve">
+    <value>Szablony nie różnią się w porównywanych właściwościach.</value>
+  </data>
+  <data name="PkiTpl.CompareOnlyDifferences" xml:space="preserve">
+    <value>Tylko różnice</value>
+  </data>
+  <data name="PkiTpl.CompareProperty" xml:space="preserve">
+    <value>Właściwość</value>
+  </data>
+  <data name="PkiTpl.CompareHint" xml:space="preserve">
+    <value>Zaznacz dwa szablony na liście (Ctrl+kliknięcie) albo wybierz drugi tutaj.</value>
+  </data>
+  <data name="PkiTpl.ExportCsv" xml:space="preserve">
+    <value>Eksportuj do CSV…</value>
+  </data>
+  <data name="PkiTpl.ExportHtml" xml:space="preserve">
+    <value>Eksportuj do HTML…</value>
+  </data>
+  <data name="PkiTpl.HtmlFilter" xml:space="preserve">
+    <value>Raport HTML (*.html)</value>
+  </data>
+  <data name="PkiTpl.ReportTitle" xml:space="preserve">
+    <value>Szablony certyfikatów – {0}</value>
+  </data>
+  <data name="PkiTpl.ReportSubtitle" xml:space="preserve">
+    <value>Odczytano z {0}, {1}</value>
+  </data>
+  <data name="PkiTpl.ReportFiltered" xml:space="preserve">
+    <value>Z filtrem: {0} z {1} szablonów.</value>
+  </data>
+  <data name="PkiTpl.ReportPrivacy" xml:space="preserve">
+    <value>Raport zawiera nazwy szablonów, identyfikatory OID, przeznaczenie oraz nazwy i liczby kont z katalogu. Przechowuj go z taką samą ostrożnością jak sam katalog.</value>
+  </data>
+  <data name="PkiTpl.ExportNote" xml:space="preserve">
+    <value>Eksport tylko na żądanie, do wybranego pliku.</value>
+  </data>
+  <data name="PkiTpl.Copied" xml:space="preserve">
+    <value>Skopiowano szczegóły szablonu.</value>
+  </data>
+  <data name="PkiTpl.CopyDetails" xml:space="preserve">
+    <value>Kopiuj szczegóły</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT" xml:space="preserve">
+    <value>Wnioskujący podaje nazwę podmiotu w żądaniu</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_ADD_EMAIL" xml:space="preserve">
+    <value>Adres e-mail z AD jest dodawany do certyfikatu (flaga szablonów w wersji 1)</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_ADD_OBJ_GUID" xml:space="preserve">
+    <value>GUID obiektu jest dodawany do certyfikatu (flaga szablonów w wersji 1)</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_OLD_CERT_SUPPLIES_SUBJECT_AND_ALT_NAME" xml:space="preserve">
+    <value>Przy odnawianiu podmiot i nazwy alternatywne pochodzą ze starego certyfikatu</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_ADD_DIRECTORY_PATH" xml:space="preserve">
+    <value>Ścieżka katalogu (DN) jest dodawana do certyfikatu (flaga szablonów w wersji 1)</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT_ALT_NAME" xml:space="preserve">
+    <value>Wnioskujący podaje alternatywną nazwę podmiotu w żądaniu</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_ALT_REQUIRE_DOMAIN_DNS" xml:space="preserve">
+    <value>Nazwa DNS domeny jest dodawana do alternatywnej nazwy podmiotu</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_ALT_REQUIRE_SPN" xml:space="preserve">
+    <value>Nazwa główna usługi (SPN) jest dodawana do alternatywnej nazwy podmiotu</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_ALT_REQUIRE_DIRECTORY_GUID" xml:space="preserve">
+    <value>GUID obiektu jest dodawany do alternatywnej nazwy podmiotu</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_ALT_REQUIRE_UPN" xml:space="preserve">
+    <value>Główna nazwa użytkownika (UPN) jest dodawana do alternatywnej nazwy podmiotu</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_ALT_REQUIRE_EMAIL" xml:space="preserve">
+    <value>Adres e-mail jest dodawany do alternatywnej nazwy podmiotu</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_ALT_REQUIRE_DNS" xml:space="preserve">
+    <value>Nazwa DNS jest dodawana do alternatywnej nazwy podmiotu</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_REQUIRE_DNS_AS_CN" xml:space="preserve">
+    <value>Nazwą pospolitą podmiotu jest nazwa DNS</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_REQUIRE_EMAIL" xml:space="preserve">
+    <value>Adres e-mail jest dodawany do nazwy podmiotu</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_REQUIRE_COMMON_NAME" xml:space="preserve">
+    <value>Nazwą podmiotu jest nazwa pospolita</value>
+  </data>
+  <data name="PkiTpl.Flag.NameFlag.CT_FLAG_SUBJECT_REQUIRE_DIRECTORY_PATH" xml:space="preserve">
+    <value>Nazwą podmiotu jest pełna nazwa wyróżniająca (DN)</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_INCLUDE_SYMMETRIC_ALGORITHMS" xml:space="preserve">
+    <value>Do certyfikatu są dodawane algorytmy symetryczne (możliwości S/MIME)</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_PEND_ALL_REQUESTS" xml:space="preserve">
+    <value>Każde żądanie czeka na zatwierdzenie menedżera certyfikatów</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_PUBLISH_TO_KRA_CONTAINER" xml:space="preserve">
+    <value>Certyfikat jest publikowany w kontenerze agentów odzyskiwania kluczy</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_PUBLISH_TO_DS" xml:space="preserve">
+    <value>Certyfikat jest publikowany w Active Directory</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_AUTO_ENROLLMENT_CHECK_USER_DS_CERTIFICATE" xml:space="preserve">
+    <value>Autorejestracja pomija szablon, gdy w AD jest już opublikowany ważny certyfikat</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_AUTO_ENROLLMENT" xml:space="preserve">
+    <value>Autorejestracja jest dozwolona</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_PREVIOUS_APPROVAL_VALIDATE_REENROLLMENT" xml:space="preserve">
+    <value>Odnowienie podpisane starym certyfikatem nie wymaga ponownego zatwierdzenia</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_USER_INTERACTION_REQUIRED" xml:space="preserve">
+    <value>Przed autorejestracją użytkownik jest pytany o zgodę</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_REMOVE_INVALID_CERTIFICATE_FROM_PERSONAL_STORE" xml:space="preserve">
+    <value>Odwołane i wygasłe certyfikaty są usuwane z magazynu osobistego</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_ALLOW_ENROLL_ON_BEHALF_OF" xml:space="preserve">
+    <value>Rejestracja w imieniu innych jest dozwolona</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_ADD_OCSP_NOCHECK" xml:space="preserve">
+    <value>Dodawane jest rozszerzenie OCSP No Check (certyfikaty podpisywania OCSP)</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_ENABLE_KEY_REUSE_ON_NT_TOKEN_KEYSET_STORAGE_FULL" xml:space="preserve">
+    <value>Klucz jest używany ponownie, gdy na karcie inteligentnej nie ma miejsca na nowy</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_NOREVOCATIONINFOINISSUEDCERTS" xml:space="preserve">
+    <value>Wystawione certyfikaty nie zawierają informacji o odwołaniu (bez CDP i AIA)</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_INCLUDE_BASIC_CONSTRAINTS_FOR_EE_CERTS" xml:space="preserve">
+    <value>Do certyfikatów jednostek końcowych dodawane są podstawowe warunki ograniczające</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_ALLOW_PREVIOUS_APPROVAL_KEYBASEDRENEWAL_VALIDATE_REENROLLMENT" xml:space="preserve">
+    <value>Odnowienie na podstawie klucza nie wymaga ponownego zatwierdzenia</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_ISSUANCE_POLICIES_FROM_REQUEST" xml:space="preserve">
+    <value>Zasady wystawiania są brane z żądania</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_SKIP_AUTO_RENEWAL" xml:space="preserve">
+    <value>Autorejestracja nie odnawia certyfikatu</value>
+  </data>
+  <data name="PkiTpl.Flag.EnrollmentFlag.CT_FLAG_NO_SECURITY_EXTENSION" xml:space="preserve">
+    <value>Rozszerzenie zabezpieczeń z identyfikatorem SID (szOID_NTDS_CA_SECURITY_EXT) nie jest dodawane</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_REQUIRE_PRIVATE_KEY_ARCHIVAL" xml:space="preserve">
+    <value>Klucz prywatny jest archiwizowany w urzędzie</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_EXPORTABLE_KEY" xml:space="preserve">
+    <value>Klucz prywatny można wyeksportować</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_STRONG_KEY_PROTECTION_REQUIRED" xml:space="preserve">
+    <value>Wymagana jest silna ochrona klucza prywatnego</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_REQUIRE_ALTERNATE_SIGNATURE_ALGORITHM" xml:space="preserve">
+    <value>Wymagany jest alternatywny format podpisu (PKCS #1 v2.1)</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_REQUIRE_SAME_KEY_RENEWAL" xml:space="preserve">
+    <value>Odnowienie musi używać tego samego klucza</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_USE_LEGACY_PROVIDER" xml:space="preserve">
+    <value>Używany jest starszy dostawca usług kryptograficznych (CSP)</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_EK_TRUST_ON_USE" xml:space="preserve">
+    <value>Zaświadczanie klucza: klucz poręczenia jest zaufany przy użyciu</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_EK_VALIDATE_CERT" xml:space="preserve">
+    <value>Zaświadczanie klucza: certyfikat poręczenia jest sprawdzany</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_EK_VALIDATE_KEY" xml:space="preserve">
+    <value>Zaświadczanie klucza: klucz poręczenia jest sprawdzany</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_ATTEST_PREFERRED" xml:space="preserve">
+    <value>Zaświadczanie klucza jest używane, gdy klient je obsługuje</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_ATTEST_REQUIRED" xml:space="preserve">
+    <value>Zaświadczanie klucza jest wymagane</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_ATTESTATION_WITHOUT_POLICY" xml:space="preserve">
+    <value>Zaświadczanie nie dodaje zasad wystawiania</value>
+  </data>
+  <data name="PkiTpl.Flag.PrivateKeyFlag.CT_FLAG_HELLO_LOGON_KEY" xml:space="preserve">
+    <value>Klucz logowania usługi Windows Hello dla firm</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_ADD_EMAIL" xml:space="preserve">
+    <value>Dodawanie adresu e-mail</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_PUBLISH_TO_DS" xml:space="preserve">
+    <value>Publikowanie w AD</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_EXPORTABLE_KEY" xml:space="preserve">
+    <value>Klucz do wyeksportowania</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_AUTO_ENROLLMENT" xml:space="preserve">
+    <value>Szablonu można używać do autorejestracji</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_MACHINE_TYPE" xml:space="preserve">
+    <value>Szablon dla komputerów</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_IS_CA" xml:space="preserve">
+    <value>Szablon certyfikatów urzędu certyfikacji</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_ADD_TEMPLATE_NAME" xml:space="preserve">
+    <value>Nazwa szablonu jest dodawana do certyfikatu</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_IS_CROSS_CA" xml:space="preserve">
+    <value>Szablon certyfikacji krzyżowej</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_DONOTPERSISTINDB" xml:space="preserve">
+    <value>Żądania i certyfikaty nie są zapisywane w bazie danych urzędu</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_IS_DEFAULT" xml:space="preserve">
+    <value>Domyślny szablon systemu Windows</value>
+  </data>
+  <data name="PkiTpl.Flag.GeneralFlag.CT_FLAG_IS_MODIFIED" xml:space="preserve">
+    <value>Domyślny szablon, który zmieniono</value>
+  </data>
+  <data name="PkiTpl.FlagGroup.NameFlag" xml:space="preserve">
+    <value>Nazwa podmiotu (msPKI-Certificate-Name-Flag)</value>
+  </data>
+  <data name="PkiTpl.FlagGroup.EnrollmentFlag" xml:space="preserve">
+    <value>Rejestracja (msPKI-Enrollment-Flag)</value>
+  </data>
+  <data name="PkiTpl.FlagGroup.PrivateKeyFlag" xml:space="preserve">
+    <value>Klucz prywatny (msPKI-Private-Key-Flag)</value>
+  </data>
+  <data name="PkiTpl.FlagGroup.GeneralFlag" xml:space="preserve">
+    <value>Ogólne (flags)</value>
+  </data>
+  <data name="PkiTpl.Field.MinimumCaVersion" xml:space="preserve">
+    <value>Minimalna wersja urzędu: {0}</value>
+  </data>
+  <data name="PkiTpl.Field.MinimumClientVersion" xml:space="preserve">
+    <value>Minimalna wersja klienta: {0}</value>
+  </data>
+  <data name="PkiTpl.Unit.Hours.One" xml:space="preserve">
+    <value>{0} godzina</value>
+  </data>
+  <data name="PkiTpl.Unit.Hours.Few" xml:space="preserve">
+    <value>{0} godziny</value>
+  </data>
+  <data name="PkiTpl.Unit.Hours.Many" xml:space="preserve">
+    <value>{0} godzin</value>
+  </data>
+  <data name="PkiTpl.Unit.Days.One" xml:space="preserve">
+    <value>{0} dzień</value>
+  </data>
+  <data name="PkiTpl.Unit.Days.Few" xml:space="preserve">
+    <value>{0} dni</value>
+  </data>
+  <data name="PkiTpl.Unit.Days.Many" xml:space="preserve">
+    <value>{0} dni</value>
+  </data>
+  <data name="PkiTpl.Unit.Weeks.One" xml:space="preserve">
+    <value>{0} tydzień</value>
+  </data>
+  <data name="PkiTpl.Unit.Weeks.Few" xml:space="preserve">
+    <value>{0} tygodnie</value>
+  </data>
+  <data name="PkiTpl.Unit.Weeks.Many" xml:space="preserve">
+    <value>{0} tygodni</value>
+  </data>
+  <data name="PkiTpl.Unit.Months.One" xml:space="preserve">
+    <value>{0} miesiąc</value>
+  </data>
+  <data name="PkiTpl.Unit.Months.Few" xml:space="preserve">
+    <value>{0} miesiące</value>
+  </data>
+  <data name="PkiTpl.Unit.Months.Many" xml:space="preserve">
+    <value>{0} miesięcy</value>
+  </data>
+  <data name="PkiTpl.Unit.Years.One" xml:space="preserve">
+    <value>{0} rok</value>
+  </data>
+  <data name="PkiTpl.Unit.Years.Few" xml:space="preserve">
+    <value>{0} lata</value>
+  </data>
+  <data name="PkiTpl.Unit.Years.Many" xml:space="preserve">
+    <value>{0} lat</value>
+  </data>
   <!-- P1 certificate templates and enrollment rights (2.2, 2.3, 2.5): end -->
   <!-- P1 AD CS security review (2.4, 2.5): begin -->
   <!-- P1 AD CS security review (2.4, 2.5): end -->
