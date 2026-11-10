@@ -209,6 +209,41 @@
                        Text="{l:Tr Watchdog.Certificate.PinHint}"
                        TextWrapping="Wrap"
                        Visibility="{Binding HasPinnedCertificate, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+
+            <!-- Certificates (P1, decision 2): the expiry thresholds of the PKI health rows -->
+            <StackPanel x:Name="PkiSection" DataContext="{Binding Pki, Mode=OneWay}">
+              <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr Pki.SettingsSection}" />
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="220" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Style="{StaticResource SettingLabel}" Text="{l:Tr Pki.SettingsCertificateDays}" TextWrapping="Wrap" />
+                <TextBox x:Name="CertificateExpiryBox"
+                         Grid.Column="1"
+                         AutomationProperties.Name="{l:Tr Pki.SettingsCertificateDays}"
+                         Style="{StaticResource NumberBox}"
+                         Text="{Binding CertificateExpiryWarningDays, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Grid.Row="1"
+                           Style="{StaticResource SettingLabel}"
+                           Text="{l:Tr Pki.SettingsCaDays}"
+                           TextWrapping="Wrap" />
+                <TextBox x:Name="CaCertificateExpiryBox"
+                         Grid.Row="1"
+                         Grid.Column="1"
+                         AutomationProperties.Name="{l:Tr Pki.SettingsCaDays}"
+                         Style="{StaticResource NumberBox}"
+                         Text="{Binding CaCertificateExpiryWarningDays, UpdateSourceTrigger=PropertyChanged}" />
+              </Grid>
+              <TextBlock Margin="0,4,0,0"
+                         Style="{StaticResource Ad.SecondaryText}"
+                         Text="{Binding Hint, Mode=OneWay}"
+                         TextWrapping="Wrap" />
+            </StackPanel>
           </StackPanel>
       </TabItem>
         <TabItem x:Name="MessagesTab"

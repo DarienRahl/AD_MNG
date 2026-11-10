@@ -131,6 +131,15 @@
     </HierarchicalDataTemplate>
 
     <!-- P1 PKI tree (W5): the PkiNodeViewModel template -->
+    <HierarchicalDataTemplate DataType="{x:Type nav:PkiNodeViewModel}" ItemsSource="{Binding Children}">
+      <StackPanel Orientation="Horizontal" ToolTip="{Binding HelpText, Mode=OneWay}">
+        <c:ObjectIconView Margin="0,0,6,0"
+                          VerticalAlignment="Center"
+                          Icon="{Binding Icon, Mode=OneWay}"
+                          Size="16" />
+        <TextBlock VerticalAlignment="Center" Text="{Binding Name, Mode=OneWay}" />
+      </StackPanel>
+    </HierarchicalDataTemplate>
 
     <!-- Document tabs: header only; the documents are hosted below so every tab keeps its list, scroll and selection. -->
     <Style x:Key="TabStripStyle" TargetType="TabControl" BasedOn="{StaticResource {x:Type TabControl}}">
@@ -451,6 +460,7 @@
         <MenuItem b:CommandMenu.Id="view.details" IsChecked="{Binding IsDetailsPaneVisible, Mode=OneWay}" />
         <MenuItem x:Name="GroupPolicyNodesMenuItem" b:CommandMenu.Id="view.groupPolicyNodes" IsChecked="{Binding Tree.IsGroupPolicyShown, Mode=OneWay}" />
         <!-- P1 PKI view toggle (W5) -->
+        <MenuItem x:Name="PkiNodesMenuItem" b:CommandMenu.Id="view.pkiNodes" IsChecked="{Binding Tree.IsPkiShown, Mode=OneWay}" />
         <MenuItem x:Name="FiltersMenuItem"
                   Click="OnFiltersMenuClick"
                   Header="{l:Tr Ui.ShowFilters}" />
@@ -507,6 +517,12 @@
         <MenuItem b:CommandMenu.Id="events.failedLogons" />
         <MenuItem b:CommandMenu.Id="tools.readiness" />
         <!-- P1 PKI menu (W5): the pki.* items -->
+        <MenuItem x:Name="PkiMenu" Header="{l:Tr Pki.MenuHeader}">
+          <MenuItem b:CommandMenu.Id="pki.overview" />
+          <MenuItem b:CommandMenu.Id="pki.templates" />
+          <MenuItem b:CommandMenu.Id="pki.security" />
+          <MenuItem b:CommandMenu.Id="pki.readiness" />
+        </MenuItem>
         <Separator />
         <MenuItem b:CommandMenu.Id="tools.sessionLog" />
         <MenuItem x:Name="PowerShellHistoryMenuItem"
@@ -1028,6 +1044,12 @@
               <rdv:ReadinessView />
             </DataTemplate>
             <!-- P1 PKI (W5) -->
+            <DataTemplate DataType="{x:Type pki:PkiOverviewDocumentViewModel}">
+              <pkiv:PkiOverviewView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type pki:PkiTemplatesDocumentViewModel}">
+              <pkiv:PkiTemplatesView />
+            </DataTemplate>
 
             <!-- P1 PKI security (W6) -->
           </ItemsControl.Resources>
