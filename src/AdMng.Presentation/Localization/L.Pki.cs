@@ -174,6 +174,9 @@ public static partial class L
 
         public const string NotInNtAuth = "Pki.NotInNtAuth";
 
+        /// <summary>NTAuth certificates: {0} · enterprise CAs in NTAuth: {1} of {2}</summary>
+        public const string NtAuthSummary = "Pki.NtAuthSummary";
+
         public const string OpenComputer = "Pki.OpenComputer";
 
         public const string RemoteActions = "Pki.RemoteActions";

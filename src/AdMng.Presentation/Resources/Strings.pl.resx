@@ -21573,6 +21573,9 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="Pki.NotInNtAuth" xml:space="preserve">
     <value>Poza magazynem NTAuth</value>
   </data>
+  <data name="Pki.NtAuthSummary" xml:space="preserve">
+    <value>Certyfikaty NTAuth: {0} · urzędy przedsiębiorstwa w NTAuth: {1} z {2}</value>
+  </data>
   <data name="Pki.OpenComputer" xml:space="preserve">
     <value>Otwórz komputer</value>
   </data>

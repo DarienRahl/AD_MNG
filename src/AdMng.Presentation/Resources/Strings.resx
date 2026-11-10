@@ -21573,6 +21573,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Pki.NotInNtAuth" xml:space="preserve">
     <value>Not in NTAuth</value>
   </data>
+  <data name="Pki.NtAuthSummary" xml:space="preserve">
+    <value>NTAuth certificates: {0} · enterprise CAs in NTAuth: {1} of {2}</value>
+  </data>
   <data name="Pki.OpenComputer" xml:space="preserve">
     <value>Open computer</value>
   </data>

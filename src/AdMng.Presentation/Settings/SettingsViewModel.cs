@@ -59,6 +59,17 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
             }
         };
 
+        // Certificates (P1): the "Certyfikaty" section of the "Ogólne" tab.
+        Pki = new AdMng.Presentation.Pki.PkiSettingsViewModel(services);
+        Pki.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(AdMng.Presentation.Pki.PkiSettingsViewModel.Error))
+            {
+                OnPropertyChanged(nameof(Error));
+                SaveCommand.NotifyCanExecuteChanged();
+            }
+        };
+
         Languages =
         [
             new(string.Empty, Localizer[L.Settings.LanguageSystem]),
@@ -146,6 +157,9 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
     /// <summary>The "Komputery" tab (K1): WinRM, restart defaults, placement rules, catalogue overrides.</summary>
     public AdMng.Presentation.Computers.ComputerSettingsViewModel Computers { get; }
 
+    /// <summary>The "Certyfikaty" section (P1): the expiry thresholds of the PKI health rows.</summary>
+    public AdMng.Presentation.Pki.PkiSettingsViewModel Pki { get; }
+
     /// <summary>Localized range error of the numeric settings, or null.</summary>
     public string? Error =>
         Range(L.Settings.PageSize, PageSize, MinPageSize, MaxPageSize)
@@ -153,7 +167,8 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
         ?? Range(L.Settings.ConfirmationThreshold, ConfirmationThreshold, MinThreshold, MaxThreshold)
         ?? Range(L.Settings.InactiveDays, InactiveDays, MinInactiveDays, MaxInactiveDays)
         ?? Messages?.Error
-        ?? Computers.Error;
+        ?? Computers.Error
+        ?? Pki.Error;
 
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
@@ -184,6 +199,7 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
 
             Messages?.Apply(s);
             Computers.Apply(s);
+            Pki.Apply(s);
         }).ConfigureAwait(true);
 
         Localizer.SetCulture(ResxLocalizer.ResolveCulture(language));
