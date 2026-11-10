@@ -1408,3 +1408,11 @@ removed, every addition is new W7 code.
   (`ScreenshotTests.ShootUserPropertiesAsync`) change – check that the tab strip still fits. `docs/CERTYFIKATY.md`
   should describe the tabs, the mask and the probe; the Watchdog history on *Poświadczenia kluczy* stays P5. The
   operator question of 2.13 (mask LAPS / BitLocker recovery / confidential text too) is still open.
+* *W7 review fixes.* The probe's handshake policy also sets `TrustMode = CustomRootTrust` with an empty custom store
+  (decision 1; 2.6 left it out): the platform chain build never consults the system store, so Windows' automatic root
+  update cannot fetch a root or the CTL for an untrusted (e.g. self-signed) DC certificate – `PolicyErrors` (informational,
+  read by nobody) now always carries `RemoteCertificateChainErrors`; `Options` and `Capture` are internal for a test.
+  *Wystawiony dla* of a certificate with an empty subject (the Domain Controller / Kerberos / Workstation Authentication
+  templates put the host only in the SAN) falls back to the first SAN DNS name after the UPN and e-mail – it was an empty
+  cell; *Kopiuj do pliku…* suggests the thumbprint as the file name when the certificate names nobody (it was the
+  hard-coded Polish `certyfikat.cer`).

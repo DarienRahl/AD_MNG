@@ -204,6 +204,28 @@ public sealed class SslStreamTlsProbeTests
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => new SslStreamTlsProbe().ProbeAsync("localhost", 636, TimeSpan.Zero, TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public void TheHandshakeOptions_OfferNoCertificate_AndTheirChainPolicyCanReachNothing()
+    {
+        var options = SslStreamTlsProbe.Options("dc01.contoso.test", new SslStreamTlsProbe.Capture());
+
+        Assert.Equal("dc01.contoso.test", options.TargetHost);
+        Assert.Empty(options.ClientCertificates!);
+        Assert.Null(options.LocalCertificateSelectionCallback!(this, "dc01.contoso.test", [], null, []));
+
+        // Decision 1: no AIA / CRL / OCSP fetch, and an empty custom root store – neither the system store nor Windows'
+        // automatic root update (which downloads roots and the CTL) takes part in the handshake's own chain build.
+        var policy = options.CertificateChainPolicy!;
+        Assert.True(policy.DisableCertificateDownloads);
+        Assert.Equal(X509RevocationMode.NoCheck, policy.RevocationMode);
+        Assert.Equal(X509ChainTrustMode.CustomRootTrust, policy.TrustMode);
+        Assert.Empty(policy.CustomTrustStore);
+        Assert.Empty(policy.ExtraStore);
+
+        // A fresh policy per probe: the handshake adds the presented certificates to its ExtraStore.
+        Assert.NotSame(policy, SslStreamTlsProbe.Options("dc01.contoso.test", new SslStreamTlsProbe.Capture()).CertificateChainPolicy);
+    }
+
     [Theory]
     [InlineData(SocketError.HostNotFound, TlsProbeOutcome.NameNotResolved)]
     [InlineData(SocketError.NoData, TlsProbeOutcome.NameNotResolved)]

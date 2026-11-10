@@ -12,8 +12,9 @@ namespace AdMng.Directory.Pki;
 /// decision 1): TCP plus a client <see cref="SslStream"/> handshake – no LDAP bind, no client certificate, no application
 /// data – that copies the certificates the server presented (leaf first) and closes the stream right after. Every server
 /// certificate is accepted (the probe judges nothing; <c>DcCertificateEvaluation</c> does, from the AD roots), the platform's
-/// own chain build can download nothing (<c>DisableCertificateDownloads</c>, <c>RevocationMode = NoCheck</c>), and nothing
-/// is logged or written (rule 1). Stateless and thread-safe: one instance for the application.
+/// own chain build can download nothing (<c>DisableCertificateDownloads</c>, <c>RevocationMode = NoCheck</c>, and an empty
+/// custom root store, so no system root store and no automatic root update either – decision 1), and nothing is logged or
+/// written (rule 1). Stateless and thread-safe: one instance for the application.
 /// </summary>
 public sealed class SslStreamTlsProbe : IDomainControllerTlsProbe
 {
@@ -113,7 +114,8 @@ public sealed class SslStreamTlsProbe : IDomainControllerTlsProbe
 
     private static TlsProbeResult Result(string host, int port, TlsProbeOutcome outcome) => new(host, port, outcome, null, [], null);
 
-    private static SslClientAuthenticationOptions Options(string name, Capture capture) => new()
+    /// <summary>The handshake options of one probe (internal for the tests).</summary>
+    internal static SslClientAuthenticationOptions Options(string name, Capture capture) => new()
     {
         TargetHost = name,
 
@@ -122,17 +124,21 @@ public sealed class SslStreamTlsProbe : IDomainControllerTlsProbe
         LocalCertificateSelectionCallback = static (_, _, _, _, _) => null!,
         CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
 
-        // A fresh policy per probe: the platform chain build inside the handshake can fetch no AIA / CRL / OCSP URL.
+        // A fresh policy per probe (the handshake adds the presented certificates to its ExtraStore): the platform chain
+        // build inside the handshake can fetch no AIA / CRL / OCSP URL, and its roots are an empty custom store (decision 1:
+        // CustomRootTrust) – the system store is never consulted, so Windows' automatic root update never fetches a root or
+        // CTL for an untrusted (e.g. self-signed) DC certificate. The policy errors are informational only.
         CertificateChainPolicy = new X509ChainPolicy
         {
             DisableCertificateDownloads = true,
             RevocationMode = X509RevocationMode.NoCheck,
+            TrustMode = X509ChainTrustMode.CustomRootTrust,
         },
         RemoteCertificateValidationCallback = capture.Accept,
     };
 
     /// <summary>What the validation callback saw: the presented certificates (copied – the callback's objects are disposed after it) and the policy errors.</summary>
-    private sealed class Capture
+    internal sealed class Capture
     {
         public List<byte[]> Chain { get; } = [];
 

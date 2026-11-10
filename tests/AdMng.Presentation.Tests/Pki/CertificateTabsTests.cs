@@ -146,6 +146,32 @@ public sealed class CertificateTabsTests
     }
 
     [Fact]
+    public async Task ACertificateWithAnEmptySubject_IsIssuedToItsSanDnsName_AndSavedUnderItsThumbprintWithoutAName()
+    {
+        // The Domain Controller Authentication, Kerberos Authentication and Workstation Authentication templates leave the
+        // subject empty and put the host in the SAN: "Wystawiony dla" is the first DNS name, not an empty cell.
+        var harness = await PkiHarness.CreateAsync();
+        var laptop = harness.Company.Laptop;
+        var dnsOnly = EmptySubjectDer(san => san.AddDnsName("krk-lt001.contoso.test"));
+        var bare = EmptySubjectDer(_ => { });
+        harness.Session.SetValues(laptop, PkiAttributes.UserCertificate, dnsOnly, bare);
+
+        var (_, page) = await OpenAsync<PublishedCertificatesPageViewModel>(harness, laptop);
+
+        Assert.Equal(2, page.Rows.Count);
+        Assert.Equal("krk-lt001.contoso.test", page.Rows[0].IssuedTo);
+        Assert.Equal("krk-lt001.contoso.test.cer", page.Rows[0].SuggestedFileName);
+        Assert.False(page.Rows[1].IsUnreadable);
+        Assert.Equal(string.Empty, page.Rows[1].IssuedTo);
+
+        // No name at all: the suggested file is named by the thumbprint (no hard-coded, untranslated file name).
+        page.SelectedRow = page.Rows[1];
+        harness.B2.Files.NextSavePath = null;
+        await page.CopyToFileCommand.ExecuteAsync(null);
+        Assert.Equal(page.Rows[1].Thumbprint + ".cer", harness.B2.Files.LastDefaultFileName);
+    }
+
+    [Fact]
     public async Task UnreadableValues_AreRows_ThePlaceholderIsNot_AndNoCertificateMeansEmpty()
     {
         var harness = await PkiHarness.CreateAsync();
@@ -495,6 +521,24 @@ public sealed class CertificateTabsTests
         writer.PopSequence(new Asn1Tag(TagClass.ContextSpecific, 0, isConstructed: true));
         writer.PopSequence();
         return writer.Encode();
+    }
+
+    /// <summary>A self-signed certificate with an empty subject and the SAN entries <paramref name="san"/> adds (none: no SAN).</summary>
+    private static byte[] EmptySubjectDer(Action<System.Security.Cryptography.X509Certificates.SubjectAlternativeNameBuilder> san)
+    {
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var request = new System.Security.Cryptography.X509Certificates.CertificateRequest(
+            new System.Security.Cryptography.X509Certificates.X500DistinguishedName([0x30, 0x00]), key, HashAlgorithmName.SHA256);
+        var names = new System.Security.Cryptography.X509Certificates.SubjectAlternativeNameBuilder();
+        san(names);
+        var extension = names.Build(critical: true);
+        if (extension.RawData.Length > 2)
+        {
+            request.CertificateExtensions.Add(extension);
+        }
+
+        using var certificate = request.CreateSelfSigned(PkiSamples.Now.AddDays(-30), PkiSamples.Now.AddDays(300));
+        return certificate.RawData;
     }
 
     /// <summary>The value with the last byte of its blob flipped (the KeyCreationTime): the KeyHash no longer matches.</summary>

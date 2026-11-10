@@ -236,7 +236,7 @@ public sealed class PublishedCertificateRowViewModel
             : localizer[L.Certificates.ValidityKey(validity)];
         Template = certificate.TemplateName ?? summary.TemplateName ?? summary.TemplateOid ?? string.Empty;
         Thumbprint = summary.Thumbprint;
-        SuggestedFileName = FileName(IssuedTo);
+        SuggestedFileName = FileName(IssuedTo, Thumbprint);
 
         var details = new List<CertificateDetailViewModel>();
         void Add(string key, string? value)
@@ -315,7 +315,8 @@ public sealed class PublishedCertificateRowViewModel
     /// <summary>The certificate's DER (for <i>Kopiuj do pliku…</i>), null for an unreadable value.</summary>
     internal byte[]? Der { get; }
 
-    internal string SuggestedFileName { get; } = "certyfikat.cer";
+    /// <summary>The <c>.cer</c> name offered by <i>Kopiuj do pliku…</i>: <i>Wystawiony dla</i>, else the thumbprint.</summary>
+    internal string SuggestedFileName { get; } = string.Empty;
 
     /// <summary>The validity state only (never a name or thumbprint).</summary>
     public override string ToString() => $"{nameof(PublishedCertificateRowViewModel)}({Validity?.ToString() ?? "unreadable"})";
@@ -326,11 +327,11 @@ public sealed class PublishedCertificateRowViewModel
     private static string Moment(DateTimeOffset value, TimeZoneInfo zone, CultureInfo culture) =>
         TimeZoneInfo.ConvertTime(value, zone).ToString("g", culture);
 
-    private static string FileName(string name)
+    private static string FileName(string name, string thumbprint)
     {
         var invalid = Path.GetInvalidFileNameChars().Concat(['/', '\\', ':', '*', '?', '"', '<', '>', '|']).ToHashSet();
         var clean = new string([.. name.Select(c => invalid.Contains(c) ? '_' : c)]).Trim().TrimEnd('.');
-        return (clean.Length == 0 ? "certyfikat" : clean) + ".cer";
+        return (clean.Length == 0 ? thumbprint : clean) + ".cer";
     }
 }
 
@@ -351,7 +352,7 @@ public sealed class CertificateDetailViewModel(string label, string value)
 /// <param name="Summary">Its fields, null when the value is not a readable certificate.</param>
 internal sealed record PublishedCertificate(string Attribute, byte[] Der, CertificateSummary? Summary)
 {
-    /// <summary>The subject's simple name (CN, else the e-mail or UPN of the SAN).</summary>
+    /// <summary>The subject's simple name (CN, else the UPN, e-mail or DNS name of the SAN).</summary>
     public string SubjectName { get; init; } = string.Empty;
 
     /// <summary>The issuer's simple name.</summary>
@@ -449,7 +450,8 @@ internal static class PublishedCertificates
             var subject = certificate.GetNameInfo(X509NameType.SimpleName, forIssuer: false);
             if (string.IsNullOrWhiteSpace(subject))
             {
-                subject = summary.SanUpn.FirstOrDefault() ?? summary.SanEmail.FirstOrDefault() ?? summary.Subject;
+                // An empty subject (the Domain Controller / Kerberos / Workstation Authentication templates): the SAN names it.
+                subject = summary.SanUpn.FirstOrDefault() ?? summary.SanEmail.FirstOrDefault() ?? summary.SanDns.FirstOrDefault() ?? summary.Subject;
             }
 
             return new PublishedCertificate(attribute, der, summary)
