@@ -636,11 +636,11 @@
                           DockPanel.Dock="Right"
                           Style="{StaticResource Ad.SmallIconButton}"
                           ToolTip="{l:Tr Common.Remove}" />
-                  <TextBlock Margin="0,0,8,0"
-                             VerticalAlignment="Center"
-                             DockPanel.Dock="Left"
-                             Style="{StaticResource Ad.GlyphText}"
-                             Text="{x:Static c:Glyphs.Group}" />
+                  <c:ObjectIconView Margin="0,0,8,0"
+                                    VerticalAlignment="Center"
+                                    DockPanel.Dock="Left"
+                                    Icon="{Binding Icon, Mode=OneWay}"
+                                    Size="16" />
                   <TextBlock Margin="0,0,10,0"
                              VerticalAlignment="Center"
                              DockPanel.Dock="Left"

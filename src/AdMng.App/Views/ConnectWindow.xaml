@@ -78,11 +78,23 @@
     </Border>
 
     <StackPanel Margin="24,18,24,16">
-      <TextBlock Style="{StaticResource Ad.Title}" Text="{l:Tr Connect.Title}" />
-      <TextBlock Margin="0,4,0,6"
-                 Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                 Text="{l:Tr Connect.Subtitle}"
-                 TextWrapping="Wrap" />
+      <!-- Header: the connection picture (colour style) or its glyph (monochrome style, High Contrast). -->
+      <DockPanel>
+        <c:AreaIconView x:Name="HeaderIcon"
+                        Margin="0,0,14,0"
+                        VerticalAlignment="Top"
+                        DockPanel.Dock="Left"
+                        Glyph="{x:Static c:Glyphs.Network}"
+                        IconKey="{x:Static c:AppIcons.Connection}"
+                        Size="48" />
+        <StackPanel>
+          <TextBlock Style="{StaticResource Ad.Title}" Text="{l:Tr Connect.Title}" />
+          <TextBlock Margin="0,4,0,6"
+                     Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                     Text="{l:Tr Connect.Subtitle}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </DockPanel>
 
       <!-- Saved profiles -->
       <TextBlock Style="{StaticResource Ad.FieldLabel}" Text="{l:Tr Connect.Profile}" />
