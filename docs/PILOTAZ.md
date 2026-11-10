@@ -40,7 +40,7 @@ na czas pilotażu potrzebny jest wyjątek dla folderu programu albo skrótu plik
 
 Wpisujcie wynik w tabeli z rozdziału 5. *Porównaj z* – narzędzie Microsoftu, z którym wynik ma się zgadzać.
 
-### 3.1 Codzienna praca (faza 1–2)
+### 3.1 Codzienna praca (fazy 1–3)
 
 | # | Scenariusz | Oczekiwany wynik | Porównaj z |
 |---|---|---|---|
@@ -51,6 +51,24 @@ Wpisujcie wynik w tabeli z rozdziału 5. *Porównaj z* – narzędzie Microsoftu
 | A5 | Edycja zbiorcza 50 kont z podglądem, wykonaniem i *Cofnij* | zmiany jak w podglądzie, cofnięcie przywraca stan | PowerShell |
 | A6 | Kosz AD: usunięcie i przywrócenie konta i OU z poddrzewem | obiekty i członkostwa wracają | ADAC |
 | A7 | „Żadnych danych katalogu na dysku”: po pracy przejrzyjcie `%APPDATA%\AdMng` i `%TEMP%` | tylko ustawienia, profile bez haseł, definicje widoków | – |
+| A8 | *Wiele kont…* w OU testowej: wklejenie z Excela ok. 20 wierszy (*Telefon komórkowy, Imię, Nazwisko, Dział, E-mail*), profil *Konta numerowane (kd201…)*, sufiks UPN, grupa; *Sprawdzenie*, *Podgląd*, *Wykonaj*, *Kopiuj tabelę z hasłami…*; logowanie jednym kontem na stacji testowej; na koniec *Cofnij* | numery od pierwszego wolnego, UPN i atrybuty jak w kroku *Sprawdzenie*, konta włączone z wymuszoną zmianą hasła i członkostwem; pierwsze logowanie wymusza zmianę hasła; cofnięcie usuwa wszystkie utworzone konta (przy włączonym Koszu AD trafiają do Kosza) | ADUC, `Get-ADUser -Properties *` |
+| A9 | Ten sam arkusz w kreatorze otwartym kontem z delegowanym tworzeniem kont w OU, ale bez prawa resetu hasła | wykonanie zatrzymuje się po pierwszym koncie (*Wstrzymano po pierwszym koncie…*), konto zostaje wyłączone i bez grup, pozostałe wiersze niewykonane | ADUC |
+
+**Zakładanie wielu kont – do potwierdzenia na kontrolerach Windows** (fałszywy katalog testów i laboratorium Samba z jedną
+domeną w lesie tego nie rozstrzygną; szczegóły:
+[ZAKLADANIE-KONT.md, rozdział 12](ZAKLADANIE-KONT.md#12-ograniczenia-i-pilotaż)):
+
+- las z kilkoma domenami: unikalność UPN i adresów sprawdzana przez wykaz globalny kontrolera okna (*Unikalność UPN i
+  adresów: cały las (wykaz globalny na …)*), *sprawdzone tylko w domenie*, gdy kontroler nie jest wykazem globalnym, i
+  kontrola unikalności UPN w lesie, którą Windows wykonuje sam przy zapisie (błąd 0x21C8 → *UPN może być już używany w
+  innej domenie lasu.*);
+- unikalność nazwy obiektu w kontenerze dla różnych typów (np. grupa *Księgowość* obok jednostki *Księgowość*);
+- konta komputerów: KB5020276 (dołączenie do przygotowanego konta przez osobę spoza administratorów) i KB5008102 (zasady
+  znaku `$`), przebieg „wyłączone → losowe hasło → włączone” oraz okno *Nowy komputer* (K1), które zakłada konto włączone
+  bez hasła;
+- wyczerpanie puli RID przy dużej paczce (ostrzeżenie o małej puli, błędy kolejnych kont, *Ponów nieudane*);
+- logowanie nowym kontem przez inny kontroler przed zakończeniem replikacji;
+- administrator OU z delegowanymi uprawnieniami bez prawa resetu hasła – zatrzymanie po pierwszym koncie (scenariusz A9).
 
 ### 3.2 Komputery (K1)
 

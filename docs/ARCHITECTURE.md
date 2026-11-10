@@ -160,6 +160,30 @@ podmiana, na końcu wersja w `GPT.INI` i porównanie-z-zamianą `versionNumber` 
 innego przywraca pliki z pamięci. Wersje tylko rosną (także przy cofaniu), plan cofnięcia odwraca kolejność obiektów.
 Dziennik audytu zapisuje ścieżki, rozmiary i SHA-256 plików – nigdy treść. Nic poza potokiem nie pisze do SYSVOL.
 
+**Zakładanie wielu kont (F3) w potoku zmian.** Kreator *Zakładanie wielu kont* to trzeci tryb edytora zbiorczego
+(`BatchSourceMode.Create`), a nie osobne okno. Wszystko, co decyduje o wartościach, jest w `AdMng.Core/Batch/Creation`:
+`TableTextReader` (tekst schowka, w razie potrzeby jego format HTML, CSV albo `.xlsx`) daje `InputTable`, a
+`IBulkCreatePlanner` (`BulkCreatePlanner`) w `ComputeAsync` tylko czyta – przez sesję okna i, w lesie z kilkoma domenami,
+przez sesję tylko do odczytu do portu wykazu globalnego **tego samego** DC (`ConnectGlobalCatalogAsync`) – i wylicza
+wiersze: wzorce (składnia `ITemplateEngine` z tokenami `{$nr}`, `{$column:…}`, `{$suffix}`, `{$mailDomain}`), liczniki,
+unikalność, menedżerów, grupy i walidację (`BulkCreateIssueCodes`). `BuildPlan` jest czysty i daje zwykły `ChangePlan`:
+jeden `ObjectPlan` na wiersz (`SourceRow`, `PowerShell` = `New-ADUser … -AccountPassword (Read-Host -AsSecureString …)`)
+z krokami `Create` (konto wyłączone, UAC 514), `ResetPassword` (hasło tylko w `PlannedChange.Password`), `Modify`
+(włączenie z porównaniem-z-zamianą starej wartości UAC, `pwdLastSet` 0), menedżer i `AddMember`; plan zmian nie jest
+sekwencyjny, a `Server` to DC, z którego czytano wartości (wykonawca odmawia innego). Przed planem kreator liczy wiersze
+ponownie z wartościami ze sprawdzenia zamrożonymi (`FrozenValues`), więc plan zawiera dokładnie to, co pokazała siatka.
+Wykonanie idzie przez `IChangeCoordinator` → `BatchExecutor` (wykonawca bez zmian; audyt, historia PowerShell i
+powiadomienia o zmianach pochodzą z potoku) w dwóch częściach: najpierw jeden obiekt na próbę (*canary*), a resztę
+tylko wtedy, gdy wszystkie jego kroki się udały – błąd systematyczny (brak szyfrowania, brak prawa resetu, hasło
+odrzucone) zatrzymuje się po jednym koncie. Wyniki wszystkich wykonań okna są scalane (`BulkCreateResults.Merge`);
+`BuildRetryPlan` pomija kroki, które już się udały (konto nigdy nie powstaje dwa razy ani nie dostaje drugiego hasła).
+Cofnięcie nie używa `IRollbackPlanner`, który zna tylko ostatni wynik: `PlanUndoAsync` buduje plan kroków `Delete` dla
+wszystkiego, co utworzyło okno, po ponownym odczycie każdego obiektu po `objectGUID` (obiekt podmieniony pod tą samą
+nazwą jest pomijany). Tabela, wyliczenia, plany, wyniki i hasła żyją tylko w modelach okna (zasady 1 i 2); profile
+nazewnictwa w ustawieniach to wzorce i opcje.
+Opis dla użytkownika: [ZAKLADANIE-KONT.md](ZAKLADANIE-KONT.md); projekt:
+[dev/phase3-bulk-create.md](dev/phase3-bulk-create.md).
+
 ### Zasady grupy (K2)
 
 `AdMng.Core/GroupPolicy`: `GroupPolicyReader` (GPO, połączenia, dziedziczenie, filtry WMI, lokacje, emulator PDC,

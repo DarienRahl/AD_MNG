@@ -1,9 +1,10 @@
 # Phase 3 – bulk creation of accounts (design)
 
 Product description (Polish): README, *Faza 3 – Edycja zbiorcza v2 i zakładanie kont* (the bullets *Import CSV
-**tworzący** obiekty* and *polityka nazewnictwa … licznikami unikalności*); the Polish user document
-`docs/ZAKLADANIE-KONT.md` is written in the integration step (2.13). This note is the implementation design of the first
-part of phase 3 – the wizard **Zakładanie wielu kont** – and is **binding** for its implementers: the public types of
+**tworzący** obiekty* and *polityka nazewnictwa … licznikami unikalności*); the Polish user document is
+[`docs/ZAKLADANIE-KONT.md`](../ZAKLADANIE-KONT.md) (integration step, 2.13 and 2.15). This note is the implementation
+design of the first part of phase 3 – the wizard **Zakładanie wielu kont** – and is **binding** for its implementers:
+the public types of
 2.12 are the contract, each heading of 2.1–2.7 names its owner (Core agents **B1**, **B2** in wave 1, Presentation/App
 agents **B3**, **B4** in wave 2), and 2.13 fixes which files each agent may touch. The rest of phase 3 (batch editing v2)
 gets its own top-level section later; do not renumber 2.x after the F3 contract commit (XML docs and
@@ -1375,7 +1376,7 @@ mode, canary, accumulated results, retry, undo, results, entry points, smoke tes
 (`docs/ZAKLADANIE-KONT.md` modelled on `docs/KOMPUTERY.md`; README *Faza 3* status and the 40–43 screenshot paragraph;
 `docs/ROADMAP.md` link and status – the README anchor changes with the heading; `docs/PILOTAZ.md` §3.1 scenario and the
 pilot checklist of 2.11; `docs/ARCHITECTURE.md` *Potok zmian*; the CLAUDE.md layout notes if needed) are the integration
-step after wave 2 (lead), from the as-built notes.
+step after wave 2 (lead), from the as-built notes – **done** (2.15, *Integration docs*).
 
 **The contract commit (lead)** holds everything marked *done*, *complete* or *pass-through* in 2.12 and every stub, plus:
 the shared test files `tests/AdMng.Testing/FakeDirectoryBuilder.BulkCreate.cs` (`AddBulkCreateSample(SampleCompany,
@@ -1977,3 +1978,18 @@ additions:
   the CI desktop's clipboard, and a busy clipboard no longer fails it). Texts: *Problemy dotyczące wszystkich wierszy*,
   *emulator PDC: nie wiadomo*, the retry hint (*otrzymają je wszystkie konta, które jeszcze nie mają hasła* – a refused shared
   password has no generated ones), *po przygotowaniu każdego planu*; English titles *in the organizational unit “…”*.
+
+**Integration docs (lead).** Done after the wave-2 merge (`1c419b1`): the Polish user chapter `docs/ZAKLADANIE-KONT.md`
+(modelled on `docs/KOMPUTERY.md`: entry points, the four steps, built-in profiles, the pattern language and the counter,
+UPN / mail / Microsoft 365 options, passwords, the check statuses and what blocks, plan, canary, results, retry, undo, a
+worked example, privacy, limitations and the pilot list of 2.11); README (*Faza 3* status 🟡 for F3 with the heading
+anchor `#faza-3--edycja-zbiorcza-v2-i-zakładanie-kont--zakładanie-wielu-kont-`, a feature bullet, screenshots 40–43,
+the docs table, *Znane ograniczenia*, the coverage table); `docs/ROADMAP.md` (status and the new anchor);
+`docs/PILOTAZ.md` §3.1 (now *fazy 1–3*: scenarios A8, A9 and the Windows checklist); `docs/ARCHITECTURE.md` (*Potok
+zmian*). CLAUDE.md needs no layout change (`Batch/Creation` and `BulkCreate/` sit in existing project rows). Where the
+earlier sections and the code differ, the user doc follows the code and its as-built notes: the attribute combo shows
+*Telefon komórkowy [mobile]* (`AttributeOption.Text`), not *(mobile)* (2.6); *Kopiuj bez haseł* hands nothing out and
+the copy table asks with `BulkCheck.CopyPasswordsWarning` (B4, not 2.7); a retry runs a canary again after a canary
+stop or a new shared password (B4); `GroupScopeNotAllowed` is a warning (B2, not 2.5); `AfterHighest` continues after
+the highest number of the primary counter attribute (`sAMAccountName`, domain scope, Recycle Bin included unless
+reused) while the number must be free for UPN and `mail` forest-wide (2.4, B2).

@@ -23,9 +23,10 @@
 
 > [!WARNING]
 > **Wersja rozwojowa.** Fazy 1 (codzienna praca zamiast ADUC) i 2 (edycja zbiorcza) z [roadmapy](#-roadmapa) są
-> zaimplementowane, podobnie jak Kosz AD z fazy 4 i usługa AdMng Watchdog. Aplikacja jest testowana automatycznie
-> (testy jednostkowe, testy UI na Windows, testy integracyjne na kontrolerze Samba AD), ale **nie przeszła jeszcze
-> pilotażu na produkcyjnym Windows AD** – zacznijcie od domeny testowej lub konta z ograniczonymi uprawnieniami.
+> zaimplementowane, podobnie jak zakładanie wielu kont z fazy 3, Kosz AD z fazy 4 i usługa AdMng Watchdog. Aplikacja
+> jest testowana automatycznie (testy jednostkowe, testy UI na Windows, testy integracyjne na kontrolerze Samba AD), ale
+> **nie przeszła jeszcze pilotażu na produkcyjnym Windows AD** – zacznijcie od domeny testowej lub konta z ograniczonymi
+> uprawnieniami.
 
 ## ✨ Funkcje
 
@@ -43,7 +44,7 @@ podglądem zmian, raportem i cofaniem.
 - 🔒 **Zero lokalnych danych** – nic z katalogu nie jest zapisywane na dysku (brak bazy, cache, snapshotów); każde
   odświeżenie pyta kontroler domeny na żywo. Na dysku (`%APPDATA%\AdMng`) są tylko ustawienia interfejsu, profile
   połączeń bez haseł i definicje widoków. Hasła nigdy nie trafiają do dzienników; do pliku – tylko w eksporcie wyników
-  resetu haseł, o który operator wyraźnie poprosi.
+  resetu haseł albo zakładania kont, o który operator wyraźnie poprosi.
 - 🔑 **Różne poświadczenia** – logowanie bieżącym kontem Windows albo innym (helpdesk, administrator); Kerberos z
   podpisywaniem i szyfrowaniem, LDAPS lub StartTLS; cała sesja pracuje z jednym kontrolerem domeny, który można zmienić
   w trakcie pracy (**„Zmień kontroler domeny…”** – lista DC z lokacją, GC i RODC, bez ponownego wpisywania hasła, otwarte
@@ -80,6 +81,13 @@ podglądem zmian, raportem i cofaniem.
   przenoszenie, zmiana nazwy, członkostwo w grupach, usuwanie, import CSV (także `;` i cp1250 z polskiego Excela) –
   zawsze z podglądem różnic, walidacją, ochroną przed nadpisaniem cudzych zmian, raportem, eksportem do CSV/PowerShell i
   możliwością cofnięcia.
+- 👥 **Zakładanie wielu kont z Excela** – kreator *Wiele kont…* (paleta, *Nowy* w menu i w drzewie, *Wiele naraz…* w
+  oknie nowego obiektu): wklejony zakres z Excela, Calca lub Arkuszy Google, plik CSV albo `.xlsx`, kolumny rozpoznane po
+  polskich i angielskich nagłówkach, nazwy z reguł z transliteracją polskich znaków i licznikiem (`kd{$nr:201}` →
+  kd201, kd202… z UPN `kd201@contoso.com`), profile nazewnictwa domyślne dla kontenera, sprawdzenie każdego wiersza
+  przed zapisem (zajęte nazwy, możliwe istniejące konta tej osoby), hasła początkowe tylko w pamięci, najpierw jedno
+  konto na próbę i cofnięcie wszystkiego, co utworzyło okno. Użytkownicy, kontakty, grupy i komputery – zob.
+  [docs/ZAKLADANIE-KONT.md](docs/ZAKLADANIE-KONT.md).
 - 🗂 **Widoki dopasowane do Waszego AD** – przypinanie OU (np. *Pracownicy*, *Komputery*), zapisane zapytania LDAP z
   kolumnami, gotowe szybkie filtry (zablokowane, wyłączone, nieaktywne > N dni, hasło nigdy nie wygasa…), eksport/import
   widoków dla zespołu.
@@ -106,7 +114,7 @@ podglądem zmian, raportem i cofaniem.
   [ADR-0009](docs/adr/0009-watchdog-na-linuksie.md)). Funkcje: [docs/WATCHDOG.md](docs/WATCHDOG.md), wdrożenie:
   [docs/WATCHDOG-LINUX.md](docs/WATCHDOG-LINUX.md).
 
-Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV, „Kopiuj użytkownika”): zob.
+Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, „Kopiuj użytkownika”): zob.
 [znane ograniczenia](#znane-ograniczenia).
 
 ### AD Manager a ADUC
@@ -167,8 +175,9 @@ dołączone do wydania. Okno *Korespondencja* (U5) pokazują zrzuty 26–28: odb
 wiadomość w edytorze z podpisem i załącznikami oraz właściciele skrzynek po dopasowaniu; szablony administracyjne GPO
 (K3) – zrzuty 29 i 30: edytor ustawień ADMX i aktualizacja magazynu centralnego; model „co dostanie komputer” (K5) –
 zrzut 31; skąd blokada konta (E) – zrzut 32; gotowość środowiska (etap S) – zrzut 33; wyszukiwarka ustawień GPO i
-porządki w GPO (K7) – zrzuty 34 i 35. Aktualny komplet CI publikuje przy każdym pushu na gałęzi `screenshots` –
-zob. [Zrzuty ekranu z CI](#zrzuty-ekranu-z-ci).</sub>
+porządki w GPO (K7) – zrzuty 34 i 35; zakładanie wielu kont (F3) – zrzuty 40–43: zakres wklejony z Excela, kolumny
+przypisane automatycznie, profil „Konta numerowane (kd201…)” z panelem *Numeracja* i krok *Sprawdzenie*. Aktualny
+komplet CI publikuje przy każdym pushu na gałęzi `screenshots` – zob. [Zrzuty ekranu z CI](#zrzuty-ekranu-z-ci).</sub>
 
 ## 🧭 Roadmapa
 
@@ -189,7 +198,7 @@ Legenda statusu: ✅ zrobione · 🟡 pierwsza wersja gotowa, wymaga dopracowani
 flowchart TB
     subgraph A["Ścieżka główna · fazy 0–3"]
         direction LR
-        F0["✅ 0 · Fundamenty"] --> F1["🟡 1 · MVP zamiast ADUC"] --> F2["🟡 2 · Edycja zbiorcza v1"] --> F3["⬜ 3 · Edycja zbiorcza v2<br/>i zakładanie kont"]
+        F0["✅ 0 · Fundamenty"] --> F1["🟡 1 · MVP zamiast ADUC"] --> F2["🟡 2 · Edycja zbiorcza v1"] --> F3["⬜ 3 · Edycja zbiorcza v2<br/>i zakładanie kont<br/>(wiele kont: 🟡)"]
     end
     subgraph B["Ścieżka główna · fazy 4–7"]
         direction LR
@@ -217,7 +226,7 @@ flowchart TB
 | 0 | Fundamenty | Rozwiązanie, CI, laboratorium Samba AD, rdzeń LDAP, kontrakty, prototyp wydajności | ✅ |
 | 1 | MVP – codzienna praca zamiast ADUC | Logowanie (różne poświadczenia), drzewo, szybkie listy, wyszukiwanie, właściwości, akcje helpdesk, tworzenie/przenoszenie/usuwanie | 🟡 cały zakres zaimplementowany (także kopiowanie wartości, „Zmień kontroler domeny”, godziny logowania, WKGUID i VLV: ✅), czeka na pilotaż na Windows AD |
 | 2 | Edycja zbiorcza v1 (kluczowa) | Operacje zbiorcze z podglądem różnic, walidacją, raportem, eksportem PowerShell, cofaniem; import CSV (aktualizacja) | 🟡 zaimplementowane, czeka na testy obciążeniowe |
-| 3 | Edycja zbiorcza v2 i zakładanie kont | Import CSV (tworzenie), szablony per OU, edytor arkuszowy, koszyk, kreatory (nieaktywne konta, zmiana nazwiska), pełna obsługa poczty | ⬜ (karta Adresy e-mail: ✅) |
+| 3 | Edycja zbiorcza v2 i zakładanie kont | Import CSV (tworzenie), szablony per OU, edytor arkuszowy, koszyk, kreatory (nieaktywne konta, zmiana nazwiska), pełna obsługa poczty | ⬜ (zakładanie wielu kont – kreator z wklejaniem z Excela, CSV i `.xlsx`, regułami nazw, licznikami i profilami dla OU: 🟡 zaimplementowane, czeka na pilotaż na Windows Server AD; karta Adresy e-mail: ✅) |
 | 4 | Kosz AD, widoki i raporty | Przeglądanie i przywracanie usuniętych obiektów, kreator zapytań, przestrzenie robocze dla działów, raporty, wiele domen | ⬜ (Kosz AD: 🟡; członkostwo zagnieżdżone, eksport widoków, wiele domen w osobnych oknach i porównanie obiektów między nimi: ✅) |
 | 5 | Helpdesk+ i bezpieczeństwo | Poświadczenia bez hasła w pamięci, ochrona przed usunięciem, karta Zabezpieczenia, stan blokady na wszystkich DC, historia zmian, LAPS, BitLocker, odświeżanie na żywo | ⬜ (odświeżanie list na żywo: ✅) |
 | 6 | Delegacja i zarządzanie | Edytor ACL, kreator delegowania i przegląd delegacji, polityki ADMX, dziennik zdarzeń operatora, rzadkie karty ADUC | ⬜ |
@@ -468,17 +477,48 @@ Wartość kopiuje się jednym kliknięciem albo skrótem – bez zaznaczania tek
 
 </details>
 
-### Faza 3 – Edycja zbiorcza v2 i zakładanie kont ⬜
+### Faza 3 – Edycja zbiorcza v2 i zakładanie kont ⬜ (zakładanie wielu kont: 🟡)
 
 **Cel:** zakładanie kont z CSV i szablonów przypisanych do OU, edytor arkuszowy, koszyk obiektów, kreatory (nieaktywne
-konta, zmiana nazwiska) i pełna obsługa poczty.
+konta, zmiana nazwiska) i pełna obsługa poczty. Pierwsza część – kreator **Zakładanie wielu kont** (F3) – ma pierwszą
+wersję.
 
 <details>
-<summary><b>Szczegóły fazy 3</b> – import CSV tworzący obiekty, szablony per OU, edytor arkuszowy, kreatory, poczta</summary>
+<summary><b>Szczegóły fazy 3</b> – zakładanie wielu kont, szablony per OU, edytor arkuszowy, kreatory, poczta</summary>
 
-- Import CSV **tworzący** obiekty (użytkownicy, kontakty, grupy, komputery) z szablonem pliku do pobrania; obsługa cp1250.
-- Szablony nowych obiektów przypisane do OU (np. *Pracownicy/IT*: UPN, mail, grupy startowe, atrybuty działu), polityka
-  nazewnictwa z transliteracją polskich znaków i licznikami unikalności (`jan.kowalski2`).
+#### Stan realizacji
+
+- 🟡 **F3 – Zakładanie wielu kont** (paleta `new.bulkCreate` *Wiele kont…*, *Akcja → Nowy*, *Nowy* w menu drzewa i
+  listy, *Wiele naraz…* w oknie nowego obiektu). Kreator w edytorze zbiorczym, w czterech krokach: **Dane** – wklejanie
+  z Excela, LibreOffice Calc i Arkuszy Google (tekst schowka, tabela HTML tylko w razie potrzeby), pliki CSV (także
+  cp1250 i UTF-16) i `.xlsx`, wpisywanie w tabeli, nagłówki wykrywane także pod tytułem arkusza, obsługa pułapek Excela
+  (wartości błędów, zapis naukowy, Alt+Enter, scalone komórki); **Kolumny** – przypisanie do dowolnego atrybutu ze
+  schematu (także `extensionAttribute1–15`) po polskich i angielskich nagłówkach i po zawartości, *Imię i nazwisko*,
+  menedżer, grupy, kraj, data wygaśnięcia, kolumny tylko do wzorców, kolumny z hasłami nigdy nieużywane; **Nazwy i
+  opcje** – wzorce z transliteracją polskich znaków i licznikiem `{$nr:start[:cyfry[:krok]]}` (*Konta numerowane
+  (kd201…)*: kolejny numer po najwyższym w domenie, bez numerów z Kosza AD), sufiks UPN, kolizje (`jan.kowalski2`,
+  *Jan Kowalski (2)*), hasła generowane albo jedno dla wszystkich, wymuszona zmiana hasła, grupy, opcje Microsoft 365 /
+  Exchange (główny adres SMTP, UPN = adres e-mail – domyślnie wyłączone), profile nazewnictwa domyślne dla kontenera
+  (bez danych i haseł); **Sprawdzenie** – każdy wiersz z wyliczonymi wartościami, stanem i uwagami (zajęte w AD i w
+  arkuszu, możliwe istniejące konto tej osoby, menedżer niejednoznaczny), poprawianie komórek, wykluczanie wierszy,
+  filtry, unikalność UPN i adresów w całym lesie (wykaz globalny tego samego DC). Dalej zwykły potok: plan zmian z
+  podglądem i PowerShell (`New-ADUser … Read-Host -AsSecureString`), wykonanie zaczynające się od jednego konta na próbę,
+  wyniki z hasłami tylko w pamięci (bezpieczne kopiowanie, eksport tylko na żądanie), *Ponów nieudane* i *Cofnij*
+  wszystkiego, co utworzyło okno. Także kontakty, grupy (zakres i typ) i komputery (losowe hasło konta, prawo
+  dołączenia). Sprawdzone testami na fałszywym katalogu z polskimi danymi (5 000 wierszy), na laboratorium Samba i
+  testami UI (zrzuty 40–43 – tylko CI na Windows); las z wieloma domenami i reguły kont komputerów Windows – pilotaż.
+  Opis: [docs/ZAKLADANIE-KONT.md](docs/ZAKLADANIE-KONT.md), projekt:
+  [docs/dev/phase3-bulk-create.md](docs/dev/phase3-bulk-create.md).
+- ⬜ Pozostała część fazy (zakres poniżej): „Kopiuj użytkownika”, edytor arkuszowy, koszyk, kreatory, pełna obsługa
+  poczty, synchronizacja członkostwa.
+
+#### Zakres fazy
+
+- 🟡 Import CSV **tworzący** obiekty (użytkownicy, kontakty, grupy, komputery); obsługa cp1250 – w kreatorze F3 (bez
+  szablonu pliku do pobrania; *Dodaj wiersz* zaczyna tabelę z typowymi kolumnami).
+- 🟡 Szablony nowych obiektów przypisane do OU (np. *Pracownicy/IT*: UPN, mail, grupy startowe, atrybuty działu), polityka
+  nazewnictwa z transliteracją polskich znaków i licznikami unikalności (`jan.kowalski2`) – profile nazewnictwa F3,
+  także domyślne dla kontenera (okno pojedynczego nowego obiektu ich nie używa).
 - „Kopiuj użytkownika” (atrybuty kopiowalne wg schematu + członkostwa).
 - Edytor arkuszowy (jak Excel) nad wynikami listy: wklejanie z Excela, wypełnianie w dół, zmiany trafiają do podglądu.
 - Koszyk obiektów z różnych OU, „wklej listę” (rozpoznawanie po sAMAccountName/UPN/mail/employeeID).
@@ -2677,7 +2717,15 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   zatrzymywania). Lokacja komputera jest ustalana przez DNS stacji operatora, nie kontrolera domeny. Daty końca wsparcia
   pochodzą z wbudowanego katalogu (data katalogu w oknie, własne daty w ustawieniach). Nieaktywne komputery są tylko
   raportem – nic nie jest wyłączane automatycznie.
-- **Zakładanie kont** tylko formularzem (bez szablonów per OU, CSV i „Kopiuj użytkownika”) – faza 3.
+- **Zakładanie wielu kont (F3) – nie sprawdzone na Windows Server AD.** Kreator jest sprawdzony testami na fałszywym
+  katalogu, na laboratorium Samba (jedna domena w lesie) i testami UI w CI na Windows; las z kilkoma domenami (wykaz
+  globalny, kontrola UPN przez Windows), reguły kont komputerów (KB5020276, KB5008102), wyczerpanie puli RID i
+  zachowanie przy uprawnieniach delegowanych potwierdzi pilotaż
+  ([lista](docs/ZAKLADANIE-KONT.md#12-ograniczenia-i-pilotaż)).
+  Jeden kontener na przebieg; bez haseł z arkusza, skrzynek pocztowych, folderów macierzystych, flag konta przy
+  tworzeniu i „Kopiuj użytkownika”. Excel kopiuje ukryte kolumny, ale nie wiersze ukryte filtrem, a zer wiodących
+  usuniętych przez Excela nie da się wykryć. Cofnięcie obejmuje wszystko, co utworzyło okno, ale działa tylko do jego
+  zamknięcia; numer licznika i unikalność nazw są tak aktualne, jak kontroler okna (replikacja).
 - **Przegląd kont (U2)** – sprawdzenia problemów (blokada, hasła, wygaśnięcia, nieaktywność, higiena haseł,
   gotowość do powiadomień) dotyczą tylko włączonych kont; „Wyłączone” i pozostałości – tylko wyłączonych (bez kont
   krytycznych systemu, np. krbtgt, Gość). „Nigdy nie logowane” używa tego samego N co „Nieaktywne” (`whenCreated`
@@ -2771,7 +2819,7 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
 |---|---|---|---|---|---|
 | Lista, wyszukiwanie, właściwości | F1 | F1 | F1 | F1 | F1 |
 | Edycja pól, Edytor atrybutów | F1 | F1 | F1 | F1 | F1 |
-| Tworzenie | F1 (formularz), F3 (szablony, CSV) | F1, F3 | F1, F3 | F1, F3 | F1 |
+| Tworzenie | F1 (formularz), F3 (kreator wielu kont: Excel, CSV, `.xlsx`, profile) | F1, F3 | F1, F3 | F1, F3 | F1 |
 | Akcje konta (reset, odblokuj, włącz/wyłącz) | F1 | F1 (włącz/wyłącz) | – | – | – |
 | Edycja zbiorcza atrybutów | F2 | F2 | F2 | F2 | F2 |
 | Członkostwo zbiorczo | F2 | F2 | F2 (zagnieżdżanie) | F2 | – |
@@ -2974,6 +3022,7 @@ Lokalnie (Windows): `$env:ADMNG_SCREENSHOTS_DIR = "$PWD\zrzuty"; dotnet test tes
 | 🔬 [Wyniki analizy](docs/RESEARCH.md) | `dsa.msc`, ADAC, produkty konkurencyjne, techniki LDAP |
 | 🛡 [AdMng Watchdog](docs/WATCHDOG.md) | funkcje i konfiguracja usługi monitorującej |
 | 🐧 [AdMng Watchdog na Linuksie](docs/WATCHDOG-LINUX.md) | wdrożenie krok po kroku: AD, kontrolery, serwer Debian, pakiety, pilotaż, wycofanie |
+| 👥 [Zakładanie wielu kont](docs/ZAKLADANIE-KONT.md) | kreator *Wiele kont…*: wklejanie z Excela, CSV i `.xlsx`, rozpoznawanie kolumn, reguły nazw i licznik (kd201…), UPN i adresy, hasła początkowe, sprawdzenie, plan zmian, wyniki, cofnięcie, prywatność, pilotaż |
 | 🖥 [Komputery](docs/KOMPUTERY.md) | przegląd komputerów i raporty, cykl życia kont, zdalne akcje przez WinRM, WinRM zasadą grupy |
 | 📋 [Dzienniki zdarzeń](docs/DZIENNIKI-ZDARZEN.md) | czytnik dzienników zdarzeń DC, serwerów, stacji i plików `.evtx`, skąd blokada konta, nieudane logowania; wymagania (zapora, grupa, inspekcja) |
 | 📜 [Zasady grupy](docs/ZASADY-GRUPY.md) | obiekty zasad grupy w drzewie, karta *Zasady grupy*, operacje na GPO, filtrowanie zabezpieczeń, filtry WMI, delegowanie, kopie zapasowe, porównanie, edytory ustawień, model „co dostanie komputer”, diagnostyka zasad grupy, wyszukiwanie i kopiowanie ustawień, porządki w GPO |
