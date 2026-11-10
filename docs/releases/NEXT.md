@@ -31,6 +31,17 @@
 - **Tło okna.** *Ustawienia → Ogólne → Wygląd → Tło*: *Zgodnie z motywem* (domyślnie – w systemie Windows 11
   materiał Mica) albo *Jednolite*, dla sesji pulpitu zdalnego i wolniejszych komputerów. Zmiana działa po ponownym
   uruchomieniu programu. Karta *Ogólne* w ustawieniach przewija się teraz tak jak pozostałe karty.
+- **Animacje.** Interfejs porusza się tam, gdzie ruch coś mówi: przyciski z samą ikoną (paski narzędzi, przyciski
+  w wierszach, zamykanie kart, kopiowanie wartości) podświetlają się płynnie pod wskaźnikiem myszy; dokument
+  otwierany albo wybrany kartą wsuwa się na miejsce od dołu; zawartość panelu szczegółów pojawia się płynnie, gdy
+  panel zostaje otwarty; powiadomienia w rogu okna wsuwają się z prawej strony i wysuwają po zamknięciu. Każdy
+  taki ruch trwa najwyżej ćwierć sekundy i niczego nie opóźnia – program od pierwszej chwili reaguje na klawiaturę
+  i mysz; odświeżenie listy, stronicowanie i zmiana zaznaczenia niczego nie animują. **Gdzie:** *Ustawienia →
+  Ogólne → Wygląd → Animacje*: *Zgodnie z systemem Windows* (domyślnie: animacje działają, gdy w systemie włączone
+  są „Efekty animacji”, a obraz jest rysowany z akceleracją sprzętową – bez niej, np. w części sesji pulpitu
+  zdalnego i maszyn wirtualnych, są wyłączone), *Włączone* albo *Wyłączone*; zmiana działa od razu po zapisaniu.
+  Wskaźniki postępu działają zawsze. Wyłączony przycisk z ikoną nie ma już bladej ramki – zostaje sama przygaszona
+  ikona.
 
 ## Inne zmiany
 

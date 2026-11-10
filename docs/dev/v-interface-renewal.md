@@ -397,6 +397,10 @@ All in `Themes/Motion.xaml` (new); no duration or easing is written anywhere els
 "Behaviour" means an attached property in `src/AdMng.App/Behaviors/Motion.cs` (new) that starts a storyboard; "VSM"
 means visual states in a control template of `Themes/`.
 
+As built (V1c): rows 1 (the icon button only), 4, 5 and 7 exist, and none of them is a storyboard or a visual state –
+every motion is started from code by a behaviour, for the reason given in *V1c as built* (section 8). The column
+*Built with* is the plan, not the code.
+
 | # | Animation | Where | Trigger | What moves | Time, easing | What it tells | Built with | Performance rule |
 |---|---|---|---|---|---|---|---|---|
 | 1 | Hover and press feedback | `Ad.*` buttons, chips, cards, area strip | pointer over, pressed | opacity of a hover layer inside the template | Hover 83 ms, press at once; Change | "this can be clicked" | VSM (`CommonStates`) | opacity of one border only; the theme brush is never animated, so theme and High Contrast switches stay correct |
@@ -451,6 +455,9 @@ does it), selection change, sorting, tab reordering, theme switch.
   behaves the same.
 - Tests of the motion itself turn it on explicitly and assert through the storyboard clock, not by waiting.
 - Screenshot tests additionally assert that no animation clock is active when the picture is taken.
+
+As built (V1c): the tests of the motion switch the static flag `Motion.IsEnabled` on in a scope and assert that an
+animation was started on the element (`HasAnimatedProperties`); the screenshot writer asserts that the flag is off.
 
 ## 6. The renewed shell
 
@@ -846,6 +853,112 @@ next ones.
   views; the double inset where a document view has its own 8 px margin inside the panel (page skeleton, V3).
   Nothing of this increment was seen on a screen: whether Mica shows through the panels as intended, the look of
   the 8 px gaps on hover, and the settings window height need the CI screenshots and a Windows 11 machine.
+
+**V1c as built (first motion).** The third increment of V1: the motion tokens, the one switch, the setting and
+the first four places that move. No structure change, no element renamed.
+
+- **Decision: motion is started from code, not written in XAML.** There is no `Storyboard`, no animation element
+  and no visual state of ours in any XAML file. A storyboard inside a template is frozen with the template and
+  cannot take a duration that is read when the motion starts, and reduced motion must set the final values directly
+  (5.4), not run a zero-length storyboard; code does both in one place. So `Behaviors/Motion.cs` holds attached
+  properties that start `DoubleAnimation`s with the durations, offsets and easings of `Themes/Motion.xaml`, read by
+  key each time a motion starts, behind one switch (`Motion.IsEnabled`). The views only say *what* enters
+  (`b:Motion.Entrance="Page"`), never how long or along which curve.
+- **Tokens.** `Themes/Motion.xaml`, merged after `Tokens.xaml`: the table of 5.1 as resources – twelve `Duration`
+  entries (`Motion.Hover` 83 ms · `Press` 120 · `Swap` 150 · `Fast` 167 · `Appear` 250 · `Disappear` 167 ·
+  `Entrance` 200 · `Expand` 333 · `Collapse` 167 · `Highlight` 2 s · `Shimmer` 1.6 s · `HoverIntent` 500 ms),
+  three offsets (`Motion.Offset.Page` 24 · `Panel` 8 · `Toast` 16 – the toast offset is the 16 px of catalogue
+  row 7, a token now) and three easings (`Motion.Ease.Enter` cubic ease-out · `Exit` cubic ease-in · `Change`
+  quadratic ease in-out; easing functions, not key splines). Used so far: `Hover`, `Fast`, `Appear`, `Disappear`,
+  `Entrance`, the three offsets and the three easings; the other durations wait for their stages.
+- **The one switch.** `MotionPreference` (`FollowWindows` – the default and what a missing or unknown value loads
+  as – `On`, `Off`) in `AppSettings`; the pure rule `MotionRules.Effective(preference, windowsAnimations,
+  hardwareAccelerated, forcedOff)` in `AdMng.Presentation/Motion`; `Services/MotionService` (application-wide
+  singleton like `IconStyleService`, fed by `AppearanceService`) evaluates it with
+  `SystemParameters.ClientAreaAnimation` and the rendering tier (`RenderCapability.Tier >> 16` above 0), follows
+  both while the application runs (`SystemParameters.StaticPropertyChanged`, `RenderCapability.TierChanged`) and
+  publishes the answer as the static `Motion.IsEnabled`. The flag is false while no service exists, so an element
+  created without the host never animates. Forced off for the whole run: the environment variable
+  `ADMNG_UI_TESTS=1`, `--smoke-test`, and `MotionService.ForceOff()`, which the smoke test and the UI test host
+  call before the first window. The switch is read when a motion starts: switching it off lets a running motion
+  (at most a quarter of a second) end and applies from the next one.
+- **Reduced motion.** With the switch off every behaviour sets the natural final state directly – no clock is
+  created at all; a dismissed toast is removed at once, as before V1c. Nothing is ever started on an element that
+  is not visible. Progress bars are untouched. The theme's own storyboards (expander, combo box, scroll bar) are
+  not gated, as 5.4 says.
+- **Behaviours** (`Behaviors/Motion.cs`). They animate only `Opacity` and a `TranslateTransform` the behaviour
+  puts on the element (an element that has a render transform of its own is not moved), never a size or a margin,
+  and never touch `IsHitTestVisible` or `IsEnabled`. When a motion ends its clocks are removed
+  (`BeginAnimation(property, null)`) and the transform is taken off: the element has its base values again and
+  `HasAnimatedProperties` is false – nothing is left for scrolling or a screenshot to meet. A new motion replaces a
+  running one where it stands.
+  - `Motion.Shown` (bool): the hover layer – opacity to 1 or 0 over `Motion.Hover` with `Motion.Ease.Change`. At
+    the end the value is written as a plain local value and the clock removed (the clock does not hold it).
+  - `Motion.Entrance` (`MotionEntrance`: `None`, `Page`, `Panel`, `Toast`) with `Motion.EntranceTrigger`: plays when
+    the element becomes visible (also when it is loaded visible) and when the trigger changes to a value that is
+    not null. *Page*: rises by `Offset.Page` over `Motion.Entrance`, moved and never faded (a fade draws the subtree
+    through an intermediate surface and the text of a list loses ClearType meanwhile). *Panel*: fades in and rises
+    by `Offset.Panel` over `Motion.Fast`. *Toast*: fades in and slides in from the right by `Offset.Toast` over
+    `Motion.Appear`. All with `Motion.Ease.Enter`.
+  - `Motion.Leaving` (bool): fades out and slides right by `Offset.Toast` over `Motion.Disappear` with
+    `Motion.Ease.Exit` and holds that end until the owner removes the element – the one place that keeps a clock,
+    on an element that is about to go. An element on its way out does not enter again.
+- **Where it moves.**
+  1. *Icon buttons* (catalogue row 1). `Ad.IconButton` – and with it `Ad.SmallIconButton` and `Ad.CopyButton` – has
+     the one control template of ours: a transparent border, inside it the border `HoverLayer`
+     (`SubtleFillColorSecondaryBrush` with a 1 px outline of `ControlStrokeColorDefaultBrush`, opacity 0,
+     `b:Motion.Shown` template-bound to `IsMouseOver`) and the content. The outline is for High Contrast: there the
+     subtle fills are the button face colour, usually equal to the window colour, and the control stroke is the
+     button text colour; in light and dark it is 6–7 % of black or white.
+     Pressed switches the layer's fill to `SubtleFillColorTertiaryBrush`, disabled sets the content to
+     `TextFillColorDisabledBrush`; neither is animated and no theme brush is ever animated. The style is still
+     based on the theme's button (focus visual, sizes, tool tip on a disabled button). Seen at rest: a disabled icon
+     button lost the theme's faint fill and outline and shows only its dimmed glyph; on hover the fill is the
+     subtle one instead of the button fill, 1 px inside the button's edge (inside the transparent border).
+  2. *Document* (row 4). The container of a document in `DocumentHost` has the page entrance (a style setter after
+     the visibility setter). It becomes visible when its document is opened or its tab is chosen – and when the
+     window is shown; nothing inside a document changes it, so a refresh, paging or a selection never replays the
+     entrance (rule 3 of 5.3). `DocumentHost` clips to its bounds (`ClipToBounds`), because the document starts
+     24 px below its place. The header and toolbar fade of row 4 waits for the page header of V3.
+  3. *Details pane* (row 5). The pane's content (`DetailsPaneContent`, a name added for it) has the panel entrance:
+     it plays when the pane is opened (Ctrl+D, or a tab with objects after the Watchdog tab), not when the selected
+     object changes.
+  4. *Toasts* (row 7). The root of the toast template has the toast entrance and `b:Motion.Leaving` bound to the
+     new `ToastViewModel.IsLeaving`. `NotificationService.Dismiss` marks the toast as leaving and removes it after
+     `Motion.Disappear` (a dispatcher timer; the same token the animation reads); with motion off, after the window
+     closed, and when room is made for a new toast (the limit of four holds at every moment) it removes at once.
+     Dismissing twice or while leaving does nothing more.
+- **Setting *Motion*.** *Settings › General › Appearance › Motion* under *Background* (`MotionBox`, `MotionHint`):
+  *Follow Windows*, *On*, *Off*; applied as soon as the settings are saved.
+- **Where this differs from the plan of section 5.**
+  - *Pressed goes through `Motion.Shown`.* The behaviour sets the layer's opacity as a local value, and a local
+    value outranks a template trigger; a trigger that set the opacity itself would stop working on a button the
+    pointer had visited. So the pressed trigger sets `b:Motion.Shown`, and a press from the keyboard (no pointer
+    over the button) fades the layer in over `Motion.Hover` instead of showing it at once; the pressed fill
+    switches at once. `Motion.Press` (the small scale of the reference) is not used.
+  - *No visual states* – see the decision above; `CommonStates` of row 1 are a template binding and two triggers.
+  - *Only the icon button.* `Ad.IconToggleButton`, `Ad.ChipToggleButton` and the dialog buttons keep the theme's
+    templates in this increment: their checked and accent states are the theme's business, and a template of ours
+    would have to redraw them.
+- **Tests.** Presentation (run on Linux): the rule table, the settings round trip and unknown values, the view
+  model choice, the texts. UI tests (`MotionUiTests`, Windows CI only, written without a screen): the tokens, the
+  service, each behaviour with motion off (final values, `HasAnimatedProperties` false) and on (a test switches the
+  flag on in a scope and asserts that an animation was started, never a frame), the template, the main window
+  wiring and the toasts; the end of a motion is asserted against a clock of the test's own and skipped where
+  animation clocks do not advance. `ScreenshotWriter` asserts that the switch is off when a picture is taken.
+  Source tests: rule 6 of 5.3 (`XamlSourceTests.NoViewWritesAMotion`) and
+  `MotionDictionary_IsTheOnlyPlaceOfDurationsAndEasings`, which also forbids storyboards in the dictionaries; the
+  documented Fluent brush set has 27 keys (`ControlStrokeColorDefaultBrush`, `SubtleFillColorTertiaryBrush` and
+  `TextFillColorDisabledBrush` added).
+- **Left for V2 and later:** the action button and its content swap (row 2), the status line (3), transient
+  surfaces (6), the "look here" highlight (9), the skeleton (10), the ring (11), the area indicator (12), the
+  refused drop (13); hover feedback in the toggle and chip templates, the dialog buttons and cards; the header and
+  toolbar fade of the page entrance; whether a remote session should default to off (open question 6).
+- **Not seen, to confirm on Windows:** nothing of this was seen moving. Open: how sharp the text of a list stays
+  while its document is moved (row 4's "to confirm in V1" stands); how much of the entrance of a *new* document is
+  seen – its clock starts when the container becomes visible, so a first layout that takes as long as the entrance
+  shows only its end (it never delays input, but may show no movement); the look of the subtle hover and pressed
+  fills on the toolbar card, and of the outline alone in High Contrast.
 
 ### V2 – Feedback: status line, command shape, action button (L)
 
