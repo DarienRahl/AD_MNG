@@ -717,12 +717,16 @@
       ===== Tree | documents | details: three panels on the window background (V1) =====
       The two splitters are the gaps between the panels (transparent, Ad.Size.PanelGap wide). The column widths keep
       their meaning: a panel fills its column, border and padding included.
+      The tree column is 254 wide: the 280 it had before the panels, minus the 26 the panels take from a row (the two
+      margins of 8 and the border and padding of the document panel, 2 + 8). So a document is exactly as wide as before
+      at every window size - the lists of the document views are fitted to that width at 1360 x 840 and 1440 x 900
+      (Watchdog feed, GridViewColumnFit) - and the tree gives the room.
     -->
     <Grid x:Name="Workspace"
           Grid.Row="2"
           Margin="8,0,8,8">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="280" MinWidth="160" />
+        <ColumnDefinition Width="254" MinWidth="160" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="*" MinWidth="320" />
         <ColumnDefinition Width="Auto" />
