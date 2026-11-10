@@ -22,7 +22,7 @@ uprawnienia” i „kto to zmienił”. Wszystko czyta na żywo z kontrolera dom
 | 3 | Szybko przy dużym katalogu, bez blokowania | listy dziesiątek tysięcy obiektów działają płynnie, a każdy długi odczyt da się anulować; budżety mierzymy w CI ([odnowa interfejsu, rozdział 7](dev/v-interface-renewal.md#7-accessibility-keyboard-and-performance-budgets)) |
 | 4 | Pokazać to, czego przystawka nie pokazuje | stan kont, uprawnienia, komputery, zasady grupy, AD CS i dzienniki zdarzeń odpowiadają na swoje pytania z danych na żywo; części 3.2–3.5 pilotażu zgadzają się z narzędziami Microsoftu |
 | 5 | Wiedzieć, kto co zmienił | w pilotażu na kontrolerach domeny Windows Server AdMng Watchdog wskazuje, kto i skąd wprowadził zmianę, a powiadomienie dociera |
-| 6 | Łatwa obsługa i nauka (**propozycja**, ścieżka V) | każdą funkcję da się znaleźć po nazwie, każda strona sama się objaśnia, wynik działania widać zawsze w tym samym miejscu – miary G1–G7 [odnowy interfejsu](dev/v-interface-renewal.md#1-goals-and-measures) |
+| 6 | Łatwa obsługa i nauka (ścieżka V) | każdą funkcję da się znaleźć po nazwie, każda strona sama się objaśnia, wynik działania widać zawsze w tym samym miejscu – miary G1–G7 [odnowy interfejsu](dev/v-interface-renewal.md#1-goals-and-measures) |
 | 7 | Bezpieczne wdrożenie | nic z katalogu nie zostaje na stacji roboczej, żadne hasło nie jest zapisywane, kod jest otwarty (Apache-2.0), wydania są podpisane i mają sumy kontrolne |
 
 ## Zasady, od których nie ma wyjątków
@@ -77,8 +77,9 @@ tak żeby każde nowe okno powstawało już w nowym stylu i niczego nie trzeba b
 | 6 | N – DNS i DHCP, pierwszy etap | V5 – ustawienia jako karty, jeden styl okien dialogowych |
 | 7 | – | V6 – duże okna; V7 – audyt dostępności i wydajności |
 
-To, czy rozwijamy aplikację WPF w miejscu (zalecane), czy zaczynamy powłokę w WinUI 3, jest decyzją właściciela – zob.
-[decyzję technologiczną](dev/v-interface-renewal.md#3-technology-decision-the-owners-decision).
+Właściciel zdecydował 10 listopada 2026: aplikację WPF rozwijamy w miejscu (bez powłoki w WinUI 3 – zob.
+[decyzję technologiczną](dev/v-interface-renewal.md#3-technology-decision-the-owners-decision)), drzewo zostaje główną
+nawigacją z wąskim paskiem obszarów obok, a etap V1 idzie przed R1. Dalsza kolejność w tabeli pozostaje propozycją.
 
 ## Droga do wersji 1.0 (propozycja)
 

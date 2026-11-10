@@ -2881,7 +2881,7 @@ projektu: [CELE.md](docs/CELE.md).
 
 #### Technologia odnowy
 
-- Zalecane i będące **decyzją właściciela** (warianty porównuje notatka projektowa): rozwijać aplikację WPF w miejscu
+- **Decyzja właściciela** (warianty porównuje notatka projektowa): rozwijać aplikację WPF w miejscu
   i zbudować kilka małych kontrolek dla tego, czego brakuje w motywie Fluent dla WPF – linię stanu, przycisk akcji,
   nagłówek strony, pasek tytułu, pasek obszarów, podpowiedź przy kontrolce, kartę ustawień. Alternatywa, czyli nowa
   powłoka w WinUI 3 nad istniejącymi modelami widoków, oznaczałaby napisanie od nowa około 66 000 wierszy widoków,
@@ -2909,11 +2909,10 @@ projektu: [CELE.md](docs/CELE.md).
 
 #### Decyzje odnowy do ustalenia z zespołem
 
-- Technologia: WPF w miejscu (zalecane), biblioteka WPF-UI albo powłoka w WinUI 3.
-- Nawigacja: drzewo zostaje główne, a obok niego pasek obszarów (zalecane), albo panel nawigacji z drzewem wewnątrz
-  obszaru *Katalog*.
-- Czy klasyczny pasek menu zostaje widoczny; ikony domyślnie kolorowe czy jednobarwne; zwarta gęstość jako domyślna.
-- Czy V1 może wejść przed R1.
+- **Ustalone (10 listopada 2026):** technologia to WPF w miejscu (bez powłoki w WinUI 3 i bez biblioteki WPF-UI);
+  drzewo zostaje główną nawigacją, a obok niego jest pasek obszarów; V1 wchodzi przed R1.
+- Nadal otwarte: czy klasyczny pasek menu zostaje widoczny; ikony domyślnie kolorowe czy jednobarwne; zwarta gęstość
+  jako domyślna.
 - Pełna lista piętnastu pytań jest w rozdziale 9 notatki projektowej.
 
 **Kryteria ukończenia**

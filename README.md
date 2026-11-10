@@ -2953,7 +2953,7 @@ track – its stages are proposed to alternate with R1, P2 and N. Design note:
 
 #### Technology of the renewal
 
-- Recommended, and **the owner's decision** (the options are compared in the design note): evolve the WPF application
+- **Decided by the owner** (the options are compared in the design note): evolve the WPF application
   in place and build a few small controls for what WPF's Fluent theme lacks – status line, action button, page header,
   title bar, area strip, teaching tip, settings card. The alternative, a new WinUI 3 shell over the existing view
   models, would write about 66,000 lines of views, application code and UI tests again, and the Windows App SDK ships
@@ -2980,11 +2980,10 @@ track – its stages are proposed to alternate with R1, P2 and N. Design note:
 
 #### Renewal decisions to be agreed with the team
 
-- The technology: WPF in place (recommended), the WPF-UI library, or a WinUI 3 shell.
-- Navigation: the tree stays primary with an area strip next to it (recommended), or a navigation pane with the tree
-  inside the *Directory* area.
-- Whether the classic menu bar stays visible; colour or monochrome icons by default; compact density as the default.
-- Whether V1 may come before R1.
+- **Decided (10 November 2026):** the technology is WPF in place (no WinUI 3 shell, no WPF-UI library); the tree
+  stays the main navigation, with an area strip next to it; V1 comes before R1.
+- Still open: whether the classic menu bar stays visible; colour or monochrome icons by default; compact density as
+  the default.
 - The full list of fifteen questions is in section 9 of the design note.
 
 **Completion criteria**

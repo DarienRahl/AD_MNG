@@ -23,7 +23,7 @@ nor RSAT.
 | 3 | Fast with a large directory, never blocked | lists of tens of thousands of objects stay fluid and every long read can be cancelled; the budgets are measured in CI ([interface renewal, section 7](../dev/v-interface-renewal.md#7-accessibility-keyboard-and-performance-budgets)) |
 | 4 | Show what the snap-in does not | account state, privileges, computers, Group Policy, AD CS and event logs answer their questions from live data; the pilot sections 3.2–3.5 agree with Microsoft's tools |
 | 5 | Know who changed what | in the pilot on Windows Server domain controllers the AdMng Watchdog names who made a change and from where, and the notification arrives |
-| 6 | Easy to use and to learn (**proposal**, track V) | every function is found by name, every page explains itself, the result of an action is always shown in the same place – measures G1–G7 of the [interface renewal](../dev/v-interface-renewal.md#1-goals-and-measures) |
+| 6 | Easy to use and to learn (track V) | every function is found by name, every page explains itself, the result of an action is always shown in the same place – measures G1–G7 of the [interface renewal](../dev/v-interface-renewal.md#1-goals-and-measures) |
 | 7 | Safe to deploy | nothing of the directory stays on the workstation, no password is stored, the code is open (Apache-2.0), releases are signed and come with checksums |
 
 ## The rules that never bend
@@ -78,8 +78,10 @@ between them, so that every new window is built in the new style and nothing is 
 | 6 | N – DNS and DHCP, first stage | V5 – settings as cards, one dialog style |
 | 7 | – | V6 – the large windows; V7 – accessibility and performance audit |
 
-Whether the WPF app is evolved in place (recommended) or a WinUI 3 shell is started is the owner's decision – see the
-[technology decision](../dev/v-interface-renewal.md#3-technology-decision-the-owners-decision).
+The owner decided on 10 November 2026: the WPF app is evolved in place (no WinUI 3 shell – see the
+[technology decision](../dev/v-interface-renewal.md#3-technology-decision-the-owners-decision)), the tree stays the
+main navigation with a narrow area strip next to it, and stage V1 comes before R1. The rest of the order in the table
+stays a proposal.
 
 ## The road to 1.0 (proposal)
 

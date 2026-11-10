@@ -158,6 +158,9 @@ What we deliberately do not take, and why (study, *Things not to adopt*):
 
 ## 3. Technology decision (the owner's decision)
 
+**Decided by the owner on 2026-11-10: option A1** – the WPF app is evolved in place with our own small controls. The
+comparison below is kept as the record of why.
+
 ADR-0001 chose WPF on .NET 10 with the built-in Fluent theme and rejected WinUI 3 for the lack of a mature DataGrid and
 for its deployment. The reference is a WinUI 3 application, so the question is asked again here, fairly.
 
@@ -462,6 +465,8 @@ The elements carry fixed names (`PageHeader`, `PageStatus`, `PageToolbar`, `Page
 the skeleton and UI tests can find the parts the same way everywhere.
 
 ### 6.2 Navigation – open question 2
+
+**Decided by the owner on 2026-11-10: N2** – the tree stays primary and a 48 px area strip is added.
 
 AD Manager is tree-centred: the directory tree is the first column, and Group Policy and PKI already live in it as
 nodes (`GroupPolicyNodeViewModel`, `PkiNodeViewModel` in the tree templates of `MainWindow.xaml`). Documents are tabs,
@@ -802,6 +807,8 @@ The most visible gain for the least risk: no structure changes, no element is re
 
 ### How the stages could interleave with the features (proposal)
 
+**Decided by the owner on 2026-11-10:** V1 comes first, before R1. The rest of the table stays a proposal.
+
 The agreed feature order is R1 (PowerShell window), then P2 (certificate issuance), then N (DNS and DHCP). A renewal
 stage never blocks a feature, and a new feature window is written against the newest renewed parts, so nothing is
 restyled twice:
@@ -817,6 +824,12 @@ restyled twice:
 | then | – | V6, V7 | the large windows, then the audit |
 
 ## 9. Open questions for the owner
+
+**Decided on 2026-11-10:** question 1 – A1 (evolve the WPF app in place with our own controls); question 2 – N2 (the
+tree stays primary, with the area strip); question 9 – V1 goes before R1. Until the owner says otherwise, V1 is built
+with the recommended answers to the questions it touches: 4 (colour icons by default, monochrome as a setting),
+6 (motion follows Windows) and 10 (Windows 10 and the server systems stay supported, with a solid background). The
+other questions stay open until their stage.
 
 1. **Technology:** do we evolve the WPF app in place with our own controls (A1, recommended), adopt WPF-UI (A2), or
    start a WinUI 3 shell (B)?
