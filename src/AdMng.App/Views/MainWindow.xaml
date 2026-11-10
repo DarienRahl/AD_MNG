@@ -222,10 +222,15 @@
       </DockPanel>
     </DataTemplate>
 
-    <!-- Toasts -->
+    <!--
+      Toasts. A new toast fades and slides in from the right (b:Motion.Entrance); a dismissed one fades and slides out
+      while the notification service keeps it for Motion.Disappear (b:Motion.Leaving). With motion off both are skipped.
+    -->
     <DataTemplate x:Key="ToastTemplate" DataType="{x:Type svc:ToastViewModel}">
       <Border Width="380"
               Margin="0,8,0,0"
+              b:Motion.Entrance="Toast"
+              b:Motion.Leaving="{Binding IsLeaving, Mode=OneWay}"
               Style="{StaticResource Ad.Overlay}">
         <DockPanel>
           <Button VerticalAlignment="Top"

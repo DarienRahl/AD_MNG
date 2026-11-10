@@ -262,8 +262,18 @@ public sealed class HostTests
 
         Assert.Equal(NotificationService.MaxVisible, notifications.Toasts.Count);
         Assert.Equal("Komunikat 5", notifications.Toasts[^1].Message);
-        notifications.Toasts[0].DismissCommand.Execute(null);
+        var first = notifications.Toasts[0];
+        first.DismissCommand.Execute(null);
         Assert.Equal(NotificationService.MaxVisible - 1, notifications.Toasts.Count);
+
+        // Motion is off in the test host: a dismissed toast is gone at once and was never "leaving". Dismissing it
+        // again (the close button and the timeout can meet) changes nothing.
+        Assert.False(first.IsLeaving);
+        Assert.DoesNotContain(first, notifications.Toasts);
+        notifications.Dismiss(first);
+        first.DismissCommand.Execute(null);
+        Assert.Equal(NotificationService.MaxVisible - 1, notifications.Toasts.Count);
+        Assert.All(notifications.Toasts, toast => Assert.False(toast.IsLeaving));
         context.AssertHealthy();
     });
 }
