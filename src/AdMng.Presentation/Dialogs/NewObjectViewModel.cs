@@ -368,6 +368,22 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
 
     private bool CanCancel() => !IsBusy;
 
+    /// <summary>F3 (docs/dev/phase3-bulk-create.md 2.6): <em>Wiele naraz…</em> is offered for users, contacts, groups and computers.</summary>
+    public bool CanOpenBulkCreate => Kind is ObjectKind.User or ObjectKind.Contact or ObjectKind.Group or ObjectKind.Computer;
+
+    /// <summary>F3 <em>Wiele naraz…</em>: closes this dialog and opens the bulk creation wizard for the same kind and parent.</summary>
+    [RelayCommand]
+    private async Task OpenBulkCreateAsync()
+    {
+        if (IsBusy || !CanOpenBulkCreate)
+        {
+            return;
+        }
+
+        RequestClose(false);
+        await Services.Dialogs.ShowBatchEditorAsync(new BatchEditorRequest([]) { Create = new BulkCreateRequest(Kind, ParentDn) }).ConfigureAwait(true);
+    }
+
     /// <summary>Builds the creation plan (internal for tests). The password is only copied into the plan.</summary>
     internal ChangePlan BuildPlan(IDirectorySession session, string? password)
     {

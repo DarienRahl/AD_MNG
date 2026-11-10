@@ -88,6 +88,14 @@
                      IsIndeterminate="{Binding IsBusy, Mode=OneWay}"
                      Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+          <!-- F3 (docs/dev/phase3-bulk-create.md 2.6): the bulk creation wizard for the same kind and parent -->
+          <Button x:Name="BulkCreateButton"
+                  Margin="0,0,16,0"
+                  Command="{Binding OpenBulkCreateCommand}"
+                  Content="{l:Tr BulkCreate.SeveralAtOnce}"
+                  Style="{StaticResource Ad.DialogButton}"
+                  ToolTip="{l:Tr BulkCreate.SeveralAtOnceToolTip}"
+                  Visibility="{Binding CanOpenBulkCreate, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
           <Button x:Name="CreateButton"
                   Command="{Binding CreateCommand}"
                   Content="{l:Tr Common.Ok}"
