@@ -112,7 +112,10 @@ public sealed class PkiSnapshotServiceTests
         await cancel.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => only);
         gate.Set();
-        await B2Harness.WaitUntilAsync(() => !service.IsBuilding);
+
+        // The abandoned read finishes in the background after the service stopped building: wait until the fake has
+        // recorded it, or the count below races with it on a busy machine.
+        await B2Harness.WaitUntilAsync(() => !service.IsBuilding && SnapshotReads(h) == 1);
         Assert.Null(service.Current);
 
         h.Session.BeforeOperation = null;
