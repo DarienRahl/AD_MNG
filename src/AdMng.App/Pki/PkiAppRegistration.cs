@@ -1,3 +1,5 @@
+using AdMng.Core.Pki.Tls;
+using AdMng.Directory.Pki;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AdMng.App.Pki;
@@ -6,13 +8,14 @@ namespace AdMng.App.Pki;
 public static class PkiAppRegistration
 {
     /// <summary>
-    /// W7: <c>services.AddSingleton&lt;IDomainControllerTlsProbe, SslStreamTlsProbe&gt;()</c> (a plain <c>AddSingleton</c>:
-    /// Presentation registers no fallback and consumes the probe through <c>GetService</c>). Called from <c>AppHost</c> after
-    /// <c>AddAdMngPresentation()</c>. The contract stub registers nothing (the LDAPS tab then says <i>niedostępne</i>).
+    /// The DC LDAPS / GC-LDAPS handshake probe of <c>AdMng.Directory</c> (<see cref="SslStreamTlsProbe"/>: stateless, one for
+    /// the application) – a plain <c>AddSingleton</c>: Presentation registers no fallback and consumes the probe through
+    /// <c>GetService</c>. Called from <c>AppHost</c> after <c>AddAdMngPresentation()</c>.
     /// </summary>
     public static IServiceCollection AddAdMngPkiApp(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+        services.AddSingleton<IDomainControllerTlsProbe, SslStreamTlsProbe>();
         return services;
     }
 }
