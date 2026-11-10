@@ -47,7 +47,11 @@ public sealed class AppSettings
 
     public ThemePreference Theme { get; set; } = ThemePreference.System;
 
-    /// <summary>Icons of things: colour pictures or monochrome glyphs (High Contrast always shows the glyphs).</summary>
+    /// <summary>
+    /// Icons of things: colour pictures or monochrome glyphs (High Contrast always shows the glyphs). A value this
+    /// version does not know reads as colour and leaves the rest of the file alone.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonConverter(typeof(IconStylePreferenceJsonConverter))]
     public IconStylePreference IconStyle { get; set; } = IconStylePreference.Colour;
 
     public List<ConnectionProfile> ConnectionProfiles { get; set; } = [];

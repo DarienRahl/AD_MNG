@@ -53,6 +53,43 @@ public sealed class IconStyleTests : IDisposable
         Assert.Equal(IconStylePreference.Colour, store.Current.IconStyle);
     }
 
+    [Theory]
+    [InlineData("\"Rainbow\"", IconStylePreference.Colour)]       // a style of a later version
+    [InlineData("\"\"", IconStylePreference.Colour)]
+    [InlineData("7", IconStylePreference.Colour)]
+    [InlineData("\"7\"", IconStylePreference.Colour)]
+    [InlineData("null", IconStylePreference.Colour)]
+    [InlineData("true", IconStylePreference.Colour)]
+    [InlineData("{\"name\":\"Monochrome\"}", IconStylePreference.Colour)]
+    [InlineData("\"monochrome\"", IconStylePreference.Monochrome)]
+    [InlineData("1", IconStylePreference.Monochrome)]
+    public async Task UnknownIconStyle_LoadsAsColour_AndKeepsTheRestOfTheFile(string json, IconStylePreference expected)
+    {
+        // A failed read would make the store treat the whole file (profiles, views) as corrupt and reset it.
+        var writer = new JsonSettingsStore(_paths);
+        var directory = Path.GetDirectoryName(writer.FilePath)!;
+        Directory.CreateDirectory(directory);
+        await File.WriteAllTextAsync(
+            writer.FilePath,
+            $$"""{"version":1,"language":"pl","theme":"Dark","iconStyle":{{json}},"pageSize":750}""",
+            TestContext.Current.CancellationToken);
+
+        var store = new JsonSettingsStore(_paths);
+        await store.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(expected, store.Current.IconStyle);
+        Assert.Equal("pl", store.Current.Language);
+        Assert.Equal(ThemePreference.Dark, store.Current.Theme);
+        Assert.Equal(750, store.Current.PageSize);
+        Assert.Empty(Directory.GetFiles(directory, "settings.corrupt-*"));
+
+        // The next save writes a name this version knows.
+        await store.UpdateAsync(s => s.PageSize = 800, TestContext.Current.CancellationToken);
+        using var saved = JsonDocument.Parse(await File.ReadAllTextAsync(store.FilePath, TestContext.Current.CancellationToken));
+        Assert.Equal(expected.ToString(), saved.RootElement.GetProperty("iconStyle").GetString());
+        Assert.Equal(expected, store.Current.IconStyle);
+    }
+
     [Fact]
     public async Task IconStyle_IsPersistedByName_AndReloads()
     {

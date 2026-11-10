@@ -733,7 +733,8 @@ The most visible gain for the least risk: no structure changes, no element is re
 next ones.
 
 - **Setting.** `AppSettings.IconStyle` (`IconStylePreference`: `Colour` – the default and what a settings file
-  without the value loads as – or `Monochrome`), chosen in *Settings › General › Appearance › Icons* next to the theme. The
+  without the value or with a value this version does not know loads as, `IconStylePreferenceJsonConverter`, so
+  such a file is not taken for corrupt – or `Monochrome`), chosen in *Settings › General › Appearance › Icons* next to the theme. The
   rule is the pure function `IconStyleRules.Effective(preference, highContrast)` in `AdMng.Presentation/Icons`:
   monochrome when chosen or when Windows High Contrast is on.
 - **Switch.** `Services/IconStyleService` (application-wide singleton, like `ThemeService`; `AppearanceService`
