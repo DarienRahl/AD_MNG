@@ -192,7 +192,7 @@
         <TextBlock Style="{StaticResource Ad.FieldLabel}" Text="{l:Tr Connect.Password}" />
         <PasswordBox x:Name="PasswordBox" AutomationProperties.Name="{l:Tr Connect.Password}" />
         <TextBlock Margin="0,4,0,0"
-                   FontSize="11"
+                   FontSize="{StaticResource Ad.FontSize.Caption}"
                    Style="{StaticResource Ad.SecondaryText}"
                    Text="{l:Tr Connect.PasswordNeverStored}" />
       </StackPanel>

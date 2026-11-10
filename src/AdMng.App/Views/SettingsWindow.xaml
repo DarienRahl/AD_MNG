@@ -24,7 +24,7 @@
 
     <Style x:Key="SettingsSection" TargetType="TextBlock" BasedOn="{StaticResource Ad.SectionHeader}">
       <Setter Property="Margin" Value="0,16,0,2" />
-      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontSize" Value="{StaticResource Ad.FontSize.Body}" />
     </Style>
 
     <Style x:Key="SettingLabel" TargetType="TextBlock">

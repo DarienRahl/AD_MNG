@@ -265,7 +265,7 @@
     <!-- Identity banner: amber for privileged (Tier 0) identities. -->
     <Style x:Key="IdentityBannerStyle" TargetType="Border">
       <Setter Property="Padding" Value="6,1" />
-      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="CornerRadius" Value="{StaticResource Ad.Radius.Control}" />
       <Setter Property="Background" Value="Transparent" />
       <Style.Triggers>
         <DataTrigger Binding="{Binding IsPrivilegedIdentity, Mode=OneWay}" Value="True">
@@ -285,7 +285,7 @@
     </Style>
     <Style x:Key="DetailsCaption" TargetType="TextBlock" BasedOn="{StaticResource Ad.SecondaryText}">
       <Setter Property="Margin" Value="0,0,0,1" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{StaticResource Ad.FontSize.Caption}" />
       <Setter Property="TextWrapping" Value="Wrap" />
       <Setter Property="VerticalAlignment" Value="Top" />
     </Style>
@@ -324,7 +324,10 @@
             DockPanel.Dock="Right"
             Foreground="White"
             ToolTip="{Binding ConnectionToolTip, Mode=OneWay}">
-      <!-- A plain pill: the theme's hover/pressed brushes would put the white text on a light background. -->
+      <!--
+        A plain pill: the theme's hover/pressed brushes would put the white text on a light background. The radius is
+        literal on purpose: a pill's radius is half its height (here and on the tab badge), not a token.
+      -->
       <Button.Template>
         <ControlTemplate TargetType="Button">
           <Border x:Name="Pill"
@@ -770,7 +773,7 @@
               HorizontalAlignment="Stretch"
               VerticalAlignment="Bottom"
               Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
-              CornerRadius="4"
+              CornerRadius="{StaticResource Ad.Radius.Control}"
               IsHitTestVisible="False"
               Visibility="Collapsed">
         <TextBlock Text="{l:Tr Connections.CrossConnectionDrop}" TextWrapping="Wrap" />
@@ -848,7 +851,7 @@
                         ToolTip="{l:Tr Watchdog.Ui.TabBadge}"
                         Visibility="{Binding HasBadge, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
                   <TextBlock HorizontalAlignment="Center"
-                             FontSize="11"
+                             FontSize="{StaticResource Ad.FontSize.Caption}"
                              FontWeight="SemiBold"
                              Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
                              Text="{Binding BadgeText, Mode=OneWay}" />
@@ -1155,7 +1158,7 @@
                               Tag="{Binding NameField.Label, Mode=OneWay}"
                               Visibility="{Binding NameField.CanCopy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}, FallbackValue=Collapsed}" />
                       <TextBox AutomationProperties.Name="{Binding Name, Mode=OneWay, TargetNullValue=''}"
-                               FontSize="15"
+                               FontSize="{StaticResource Ad.FontSize.Body}"
                                FontWeight="SemiBold"
                                Style="{StaticResource Ad.SelectableText}"
                                Text="{Binding Name, Mode=OneWay}" />
@@ -1234,7 +1237,7 @@
                               Tag="{Binding DnField.Label, Mode=OneWay}" />
                       <TextBox x:Name="DetailsDnText"
                                AutomationProperties.Name="{l:Tr Details.DistinguishedName}"
-                               FontSize="11"
+                               FontSize="{StaticResource Ad.FontSize.Caption}"
                                Style="{StaticResource DetailsValue}"
                                Text="{Binding DistinguishedName, Mode=OneWay}" />
                     </DockPanel>
@@ -1325,7 +1328,7 @@
               </TextBlock.Text>
             </TextBlock>
           </Button.ToolTip>
-          <TextBlock x:Name="VersionText" FontSize="12" Style="{StaticResource Ad.SecondaryText}">
+          <TextBlock x:Name="VersionText" FontSize="{StaticResource Ad.FontSize.Caption}" Style="{StaticResource Ad.SecondaryText}">
             <TextBlock.Text>
               <MultiBinding Converter="{StaticResource Ad.Format}">
                 <l:TrBinding Key="Shell.Version" />
@@ -1440,7 +1443,7 @@
                      AutomationProperties.Name="{l:Tr List.Virtual.Badge}"
                      ToolTip="{l:Tr List.Virtual.BadgeToolTip}"
                      Visibility="{Binding IsVirtualListShown, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-        <Border Padding="6,0" Background="{DynamicResource AccentFillColorDefaultBrush}" CornerRadius="3">
+        <Border Padding="6,0" Background="{DynamicResource AccentFillColorDefaultBrush}" CornerRadius="{StaticResource Ad.Radius.Control}">
           <StackPanel Orientation="Horizontal">
             <TextBlock Margin="0,0,4,0"
                        VerticalAlignment="Center"

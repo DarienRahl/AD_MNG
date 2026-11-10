@@ -4,12 +4,12 @@
              xmlns:b="clr-namespace:AdMng.App.Behaviors"
              xmlns:c="clr-namespace:AdMng.App.Controls"
              xmlns:l="clr-namespace:AdMng.App.Localization"
-             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              AutomationProperties.Name="{Binding Title, Mode=OneWay}">
   <UserControl.Resources>
-    <!-- Compact density for the list (ADUC-like): Fluent reads these keys as dynamic resources. -->
-    <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
-
+    <!--
+      Compact density for the list (ADUC-like). Rows: the style below (height 26 = Ad.Size.Row, the theme's minimum of
+      40 switched off). Column headers: b:Density.ColumnHeaderHeight on the list (Ad.Size.ColumnHeader).
+    -->
     <Style x:Key="ObjectRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
       <Setter Property="Height" Value="26" />
       <Setter Property="MinHeight" Value="0" />
@@ -177,6 +177,7 @@
 
     <Grid Grid.Row="3">
       <ListView x:Name="List"
+                b:Density.ColumnHeaderHeight="{StaticResource Ad.Size.ColumnHeader}"
                 b:DynamicColumns.SortCommand="{Binding SortCommand}"
                 b:DynamicColumns.Source="{Binding Columns}"
                 AutomationProperties.Name="{Binding Title, Mode=OneWay}"
