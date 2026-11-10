@@ -782,7 +782,8 @@ next ones.
   `Card` 8 · `Pill` 12) and two `Border` styles, `Ad.Surface.Panel` and `Ad.Surface.Toolbar`. They are read with
   `StaticResource` (a token does not change while the application runs). `Controls.xaml` reads them where the value
   was the same (`Ad.Card`, `Ad.ErrorBar`, `Ad.Overlay`, `Ad.Title`, `Ad.DialogFooter`). No duration is a token here.
-- **Colours are not aliased** (the owner's decision; it replaces the alias table of 4.1). A XAML alias – a
+- **Colours are not aliased** (decided while building this increment, not one of the owner's decisions of
+  section 9; it replaces the alias table of 4.1). A XAML alias – a
   `StaticResource` element as a dictionary entry with `x:Key` and `ResourceKey` – is resolved once and would keep the
   brush of the old theme after a live switch of light, dark or High Contrast. So styles and views keep
   `{DynamicResource <Fluent key>}`, which is what 3.4 asks for anyway (names equal to the Fluent keys), and a source
