@@ -164,6 +164,7 @@ public sealed class HostTests
         typeof(Core.Computers.Remote.IHostAddressResolver),
         typeof(AppearanceService),
         typeof(IconStyleService),
+        typeof(MotionService),
         typeof(ISysvolFileReader),
         typeof(WebView2Host),
         typeof(Presentation.Diagnostics.IWebView2Runtime),

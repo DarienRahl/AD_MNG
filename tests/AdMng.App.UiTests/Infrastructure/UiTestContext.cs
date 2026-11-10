@@ -21,7 +21,8 @@ namespace AdMng.App.UiTests.Infrastructure;
 /// so that no test reaches \\dc01.contoso.test over the network; a test replaces it with its own; the Group Policy views
 /// write to <see cref="Sysvol"/>) and the settings folder (a temporary directory); the computer remote client, tool
 /// launcher, ping and DNS resolver are fakes (K1), so are Outlook, its signatures and the U1 Outlook transport (U5).
-/// Unhandled UI exceptions are recorded instead of shown. Create and dispose it on the UI thread.
+/// Motion is forced off (<see cref="MotionService.ForceOff"/>). Unhandled UI exceptions are recorded instead of shown.
+/// Create and dispose it on the UI thread.
 /// </summary>
 /// <remarks>
 /// Per-connection services live in a connection scope (design note docs/dev/multi-window.md 10.3): <see cref="Services"/>
@@ -131,6 +132,10 @@ internal sealed class UiTestContext : IAsyncDisposable
             UseFake<Presentation.Pki.IPkiHealthProbe>(services, new Testing.Pki.FakePkiHealthProbe());
         });
         var context = new UiTestContext(host, directory, company, connector, shutdown, settingsDirectory, sysvol);
+
+        // No motion in a UI test, whatever the settings or Windows say and also in a run started without
+        // ADMNG_UI_TESTS=1: before the first window, so every test and every screenshot sees final values.
+        host.Services.GetRequiredService<MotionService>().ForceOff();
         await AppHost.InitializeAsync(host.Services, options);
         WpfTestHost.Bindings.Clear();
         return context;

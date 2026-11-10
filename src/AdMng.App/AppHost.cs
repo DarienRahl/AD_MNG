@@ -141,6 +141,12 @@ public static class AppHost
         services.AddSingleton<ThemeService>();
         services.AddSingleton<IThemeService>(sp => sp.GetRequiredService<ThemeService>());
         services.AddSingleton<IconStyleService>();
+
+        // Motion (track V): one answer for the whole application; off for the whole run in a UI test run and in the
+        // smoke test, so tests and screenshots always see final values.
+        services.AddSingleton(sp => new MotionService(
+            sp.GetRequiredService<WpfUiDispatcher>(),
+            forcedOff: options.SmokeTest || MotionService.IsTestRun(Environment.GetEnvironmentVariable(MotionService.TestRunVariable))));
         services.AddSingleton<AppearanceService>();
 
         // Connection windows: one manager for the application, one scope per window.
@@ -237,7 +243,7 @@ public static class AppHost
     }
 
     /// <summary>
-    /// Loads the settings and applies the window background, language, theme and icon style. Call on the UI thread
+    /// Loads the settings and applies the window background, language, theme, icon style and motion. Call on the UI thread
     /// after <see cref="Build"/> and before the first window is created (XAML texts bind to the localizer set here, and
     /// the theme reads the window background switch when the first window gets its style).
     /// </summary>

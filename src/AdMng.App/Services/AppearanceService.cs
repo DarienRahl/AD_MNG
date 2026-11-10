@@ -10,8 +10,9 @@ using CommunityToolkit.Mvvm.Input;
 namespace AdMng.App.Services;
 
 /// <summary>
-/// Applies the language, theme and icon style of the settings to the running application (at start and whenever the
-/// settings change, e.g. from the View menu or the settings dialog) and offers the View › Theme / Language menu commands.
+/// Applies the language, theme, icon style and motion preference of the settings to the running application (at start
+/// and whenever the settings change, e.g. from the View menu or the settings dialog) and offers the View › Theme /
+/// Language menu commands.
 /// The <c>--lang</c> command line override wins until the operator picks a language explicitly.
 /// </summary>
 public sealed partial class AppearanceService : ObservableObject
@@ -20,18 +21,27 @@ public sealed partial class AppearanceService : ObservableObject
     private readonly ILocalizer _localizer;
     private readonly IThemeService _theme;
     private readonly IconStyleService _iconStyle;
+    private readonly MotionService _motion;
     private readonly WpfUiDispatcher _dispatcher;
     private string? _languageOverride;
     private string? _appliedLanguage;
     private ThemePreference? _appliedTheme;
     private IconStylePreference? _appliedIconStyle;
+    private MotionPreference? _appliedMotion;
 
-    public AppearanceService(ISettingsStore settings, ILocalizer localizer, IThemeService theme, IconStyleService iconStyle, WpfUiDispatcher dispatcher)
+    public AppearanceService(
+        ISettingsStore settings,
+        ILocalizer localizer,
+        IThemeService theme,
+        IconStyleService iconStyle,
+        MotionService motion,
+        WpfUiDispatcher dispatcher)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
         _theme = theme ?? throw new ArgumentNullException(nameof(theme));
         _iconStyle = iconStyle ?? throw new ArgumentNullException(nameof(iconStyle));
+        _motion = motion ?? throw new ArgumentNullException(nameof(motion));
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
     }
 
@@ -94,6 +104,14 @@ public sealed partial class AppearanceService : ObservableObject
         {
             _appliedIconStyle = iconStyle;
             _iconStyle.Apply(iconStyle);
+        }
+
+        // Applied at once: the next hover, entrance or toast already follows the new choice.
+        var motion = _settings.Current.Motion;
+        if (motion != _appliedMotion)
+        {
+            _appliedMotion = motion;
+            _motion.Apply(motion);
         }
 
         OnPropertyChanged(nameof(Theme));

@@ -100,6 +100,10 @@ internal static partial class SmokeTest
             exceptions = host.Services.GetRequiredService<GlobalExceptionHandler>();
             exceptions.Recorder = ex => failures.Add($"Unhandled exception: {ex}");
             exceptions.Attach(app);
+
+            // No motion in the smoke test, whatever the command line or the settings say: every window is rendered
+            // with its final values (the host also forces it off for --smoke-test; this is the explicit switch).
+            host.Services.GetRequiredService<MotionService>().ForceOff();
             await AppHost.InitializeAsync(host.Services, options).ConfigureAwait(true);
 
             var localizer = host.Services.GetRequiredService<ILocalizer>();
