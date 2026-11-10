@@ -22850,6 +22850,252 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <!-- P1 strong mapping and NTAuth readiness (2.5): end -->
   <!-- P1 certificates on accounts (2.6): begin -->
+  <data name="Cert.Page.PublishedCertificates" xml:space="preserve">
+    <value>Opublikowane certyfikaty</value>
+  </data>
+  <data name="Cert.Page.NameMappings" xml:space="preserve">
+    <value>Mapowania nazw</value>
+  </data>
+  <data name="Cert.Page.KeyCredentials" xml:space="preserve">
+    <value>Poświadczenia kluczy</value>
+  </data>
+  <data name="Cert.MaskedReadOnly" xml:space="preserve">
+    <value>Wartość poufna (materiał klucza): nie jest wyświetlana, kopiowana ani edytowana</value>
+  </data>
+  <data name="Cert.Published.Intro" xml:space="preserve">
+    <value>Certyfikaty opublikowane na tym obiekcie w usłudze Active Directory (userCertificate i userSMIMECertificate). Tylko do odczytu.</value>
+  </data>
+  <data name="Cert.Published.ColumnIssuedTo" xml:space="preserve">
+    <value>Wystawiony dla</value>
+  </data>
+  <data name="Cert.Published.ColumnIssuedBy" xml:space="preserve">
+    <value>Wystawiony przez</value>
+  </data>
+  <data name="Cert.Published.ColumnPurposes" xml:space="preserve">
+    <value>Przeznaczenie</value>
+  </data>
+  <data name="Cert.Published.ColumnValidTo" xml:space="preserve">
+    <value>Ważny do</value>
+  </data>
+  <data name="Cert.Published.ColumnStatus" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="Cert.Published.ColumnTemplate" xml:space="preserve">
+    <value>Szablon</value>
+  </data>
+  <data name="Cert.Published.ColumnThumbprint" xml:space="preserve">
+    <value>Odcisk palca</value>
+  </data>
+  <data name="Cert.Published.ColumnAttribute" xml:space="preserve">
+    <value>Atrybut</value>
+  </data>
+  <data name="Cert.Published.Count" xml:space="preserve">
+    <value>Opublikowane certyfikaty: {0}</value>
+  </data>
+  <data name="Cert.Published.Empty" xml:space="preserve">
+    <value>Na tym obiekcie nie opublikowano żadnego certyfikatu.</value>
+  </data>
+  <data name="Cert.Published.AnyPurpose" xml:space="preserve">
+    <value>Wszystkie (brak EKU)</value>
+  </data>
+  <data name="Cert.Published.Unreadable" xml:space="preserve">
+    <value>Nieczytelna wartość (to nie jest certyfikat)</value>
+  </data>
+  <data name="Cert.Published.CopyToFile" xml:space="preserve">
+    <value>Kopiuj do pliku…</value>
+  </data>
+  <data name="Cert.Published.CopyToFileTitle" xml:space="preserve">
+    <value>Kopiuj certyfikat do pliku</value>
+  </data>
+  <data name="Cert.Published.CerFilter" xml:space="preserve">
+    <value>Certyfikat X.509, DER (*.cer)</value>
+  </data>
+  <data name="Cert.Published.Saved" xml:space="preserve">
+    <value>Zapisano certyfikat w pliku {0}.</value>
+  </data>
+  <data name="Cert.Published.CopyThumbprint" xml:space="preserve">
+    <value>Kopiuj odcisk palca</value>
+  </data>
+  <data name="Cert.Published.DetailsHeader" xml:space="preserve">
+    <value>Szczegóły certyfikatu</value>
+  </data>
+  <data name="Cert.Detail.Subject" xml:space="preserve">
+    <value>Podmiot</value>
+  </data>
+  <data name="Cert.Detail.Issuer" xml:space="preserve">
+    <value>Wystawca</value>
+  </data>
+  <data name="Cert.Detail.SerialNumber" xml:space="preserve">
+    <value>Numer seryjny</value>
+  </data>
+  <data name="Cert.Detail.ValidFrom" xml:space="preserve">
+    <value>Ważny od</value>
+  </data>
+  <data name="Cert.Detail.ValidTo" xml:space="preserve">
+    <value>Ważny do</value>
+  </data>
+  <data name="Cert.Detail.Upn" xml:space="preserve">
+    <value>Główna nazwa użytkownika (SAN)</value>
+  </data>
+  <data name="Cert.Detail.Email" xml:space="preserve">
+    <value>Adres e-mail (SAN)</value>
+  </data>
+  <data name="Cert.Detail.Dns" xml:space="preserve">
+    <value>Nazwy DNS (SAN)</value>
+  </data>
+  <data name="Cert.Detail.SanSid" xml:space="preserve">
+    <value>SID (adres URL w SAN, silne mapowanie)</value>
+  </data>
+  <data name="Cert.Detail.SidExtension" xml:space="preserve">
+    <value>SID (rozszerzenie zabezpieczeń)</value>
+  </data>
+  <data name="Cert.Detail.PublicKey" xml:space="preserve">
+    <value>Klucz publiczny</value>
+  </data>
+  <data name="Cert.Detail.SignatureAlgorithm" xml:space="preserve">
+    <value>Algorytm podpisu</value>
+  </data>
+  <data name="Cert.Detail.Sha256" xml:space="preserve">
+    <value>SHA-256</value>
+  </data>
+  <data name="Cert.Detail.KeyWithSize" xml:space="preserve">
+    <value>{0} ({1} bitów)</value>
+  </data>
+  <data name="Cert.Mappings.Intro" xml:space="preserve">
+    <value>Jawne mapowania certyfikatów (altSecurityIdentities) z oceną siły według KB5014754; nazwy Kerberos osobno. Tylko do odczytu.</value>
+  </data>
+  <data name="Cert.Mappings.X509Header" xml:space="preserve">
+    <value>Certyfikaty X.509</value>
+  </data>
+  <data name="Cert.Mappings.KerberosHeader" xml:space="preserve">
+    <value>Nazwy Kerberos</value>
+  </data>
+  <data name="Cert.Mappings.ColumnMapping" xml:space="preserve">
+    <value>Mapowanie</value>
+  </data>
+  <data name="Cert.Mappings.ColumnStrength" xml:space="preserve">
+    <value>Siła (KB5014754)</value>
+  </data>
+  <data name="Cert.Mappings.ColumnIssuer" xml:space="preserve">
+    <value>Wystawca</value>
+  </data>
+  <data name="Cert.Mappings.ColumnSubjectOrIdentifier" xml:space="preserve">
+    <value>Podmiot lub identyfikator</value>
+  </data>
+  <data name="Cert.Mappings.ColumnValue" xml:space="preserve">
+    <value>Wartość</value>
+  </data>
+  <data name="Cert.Mappings.ColumnPrincipal" xml:space="preserve">
+    <value>Podmiot zabezpieczeń Kerberos</value>
+  </data>
+  <data name="Cert.Mappings.NoX509" xml:space="preserve">
+    <value>Brak mapowań certyfikatów X.509.</value>
+  </data>
+  <data name="Cert.Mappings.NoKerberos" xml:space="preserve">
+    <value>Brak nazw Kerberos.</value>
+  </data>
+  <data name="Cert.Mappings.SerialNumber" xml:space="preserve">
+    <value>Numer seryjny {0}</value>
+  </data>
+  <data name="Cert.Mappings.WeakWarning" xml:space="preserve">
+    <value>Słabe mapowania: {0}. Przy pełnym wymuszaniu silnego powiązania certyfikatów (KB5014754) kontroler domeny je odrzuca – zastąp je mapowaniem wystawcy i numeru seryjnego, identyfikatora klucza podmiotu (SKI) albo skrótu SHA1 klucza publicznego.</value>
+  </data>
+  <data name="Cert.Mappings.InvalidWarning" xml:space="preserve">
+    <value>Nieprawidłowe wartości: {0} (KDC je pomija).</value>
+  </data>
+  <data name="Cert.Keys.Intro" xml:space="preserve">
+    <value>Poświadczenia kluczy (msDS-KeyCredentialLink): klucze Windows Hello dla firm, FIDO i urządzeń, którymi to konto może się uwierzytelnić. Widać tylko ich metadane, nigdy klucz. Tylko do odczytu.</value>
+  </data>
+  <data name="Cert.Keys.Warning" xml:space="preserve">
+    <value>Wpis, którego nikt nie rejestrował, może oznaczać atak Shadow Credentials: ten, kto go zapisał, może zalogować się jako to konto.</value>
+  </data>
+  <data name="Cert.Keys.ColumnKeyId" xml:space="preserve">
+    <value>Identyfikator klucza</value>
+  </data>
+  <data name="Cert.Keys.ColumnDeviceId" xml:space="preserve">
+    <value>Identyfikator urządzenia</value>
+  </data>
+  <data name="Cert.Keys.ColumnSource" xml:space="preserve">
+    <value>Źródło</value>
+  </data>
+  <data name="Cert.Keys.ColumnUsage" xml:space="preserve">
+    <value>Zastosowanie</value>
+  </data>
+  <data name="Cert.Keys.ColumnCreated" xml:space="preserve">
+    <value>Utworzono</value>
+  </data>
+  <data name="Cert.Keys.ColumnLastLogon" xml:space="preserve">
+    <value>Ostatnie logowanie (przybliżone)</value>
+  </data>
+  <data name="Cert.Keys.ColumnRemarks" xml:space="preserve">
+    <value>Uwagi</value>
+  </data>
+  <data name="Cert.Keys.Count" xml:space="preserve">
+    <value>Poświadczenia kluczy: {0}</value>
+  </data>
+  <data name="Cert.Keys.Empty" xml:space="preserve">
+    <value>Brak poświadczeń kluczy.</value>
+  </data>
+  <data name="Cert.Keys.Malformed" xml:space="preserve">
+    <value>Nieczytelny wpis</value>
+  </data>
+  <data name="Cert.Keys.HashMismatch" xml:space="preserve">
+    <value>Skrót klucza się nie zgadza (wpis został zmieniony)</value>
+  </data>
+  <data name="Cert.Keys.CopyKeyId" xml:space="preserve">
+    <value>Kopiuj identyfikator klucza</value>
+  </data>
+  <data name="Cert.Keys.CopyDeviceId" xml:space="preserve">
+    <value>Kopiuj identyfikator urządzenia</value>
+  </data>
+  <data name="Cert.KeySource.ActiveDirectory" xml:space="preserve">
+    <value>Active Directory</value>
+  </data>
+  <data name="Cert.KeySource.EntraId" xml:space="preserve">
+    <value>Microsoft Entra ID</value>
+  </data>
+  <data name="Cert.KeySource.Unknown" xml:space="preserve">
+    <value>Nieznane</value>
+  </data>
+  <data name="Cert.KeyUsage.AdminKey" xml:space="preserve">
+    <value>Klucz administratora</value>
+  </data>
+  <data name="Cert.KeyUsage.Ngc" xml:space="preserve">
+    <value>Windows Hello dla firm (NGC)</value>
+  </data>
+  <data name="Cert.KeyUsage.Stk" xml:space="preserve">
+    <value>Klucz transportowy (STK)</value>
+  </data>
+  <data name="Cert.KeyUsage.BitLockerRecovery" xml:space="preserve">
+    <value>Odzyskiwanie funkcji BitLocker</value>
+  </data>
+  <data name="Cert.KeyUsage.Other" xml:space="preserve">
+    <value>Inne</value>
+  </data>
+  <data name="Cert.KeyUsage.Fido" xml:space="preserve">
+    <value>Klucz zabezpieczeń FIDO</value>
+  </data>
+  <data name="Cert.KeyUsage.Fek" xml:space="preserve">
+    <value>Klucz szyfrowania plików (FEK)</value>
+  </data>
+  <data name="Cert.KeyUsage.Dpapi" xml:space="preserve">
+    <value>DPAPI</value>
+  </data>
+  <data name="Cert.KeyUsage.Unknown" xml:space="preserve">
+    <value>Nieznane</value>
+  </data>
+  <data name="Cert.Validity.Valid" xml:space="preserve">
+    <value>Ważny</value>
+  </data>
+  <data name="Cert.Validity.Expiring" xml:space="preserve">
+    <value>Wygasa (pozostało dni: {0})</value>
+  </data>
+  <data name="Cert.Validity.Expired" xml:space="preserve">
+    <value>Wygasł</value>
+  </data>
+  <data name="Cert.Validity.NotYetValid" xml:space="preserve">
+    <value>Jeszcze nieważny</value>
+  </data>
   <!-- P1 certificates on accounts (2.6): end -->
   <!-- F3 contract – bulk creation shared names (2.9): begin -->
   <data name="BulkCreate.Command" xml:space="preserve">

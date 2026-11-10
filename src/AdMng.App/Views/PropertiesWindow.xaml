@@ -14,6 +14,7 @@
         xmlns:cv="clr-namespace:AdMng.Presentation.Computers;assembly=AdMng.Presentation"
         xmlns:dlg="clr-namespace:AdMng.Presentation.Dialogs;assembly=AdMng.Presentation"
         xmlns:l="clr-namespace:AdMng.App.Localization"
+        xmlns:pk="clr-namespace:AdMng.Presentation.Pki;assembly=AdMng.Presentation"
         xmlns:ps="clr-namespace:AdMng.Presentation.PropertySheets;assembly=AdMng.Presentation"
         xmlns:shell="clr-namespace:AdMng.Presentation.Shell;assembly=AdMng.Presentation"
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
@@ -1536,6 +1537,468 @@
             </ItemsControl.ItemTemplate>
           </ItemsControl>
         </ScrollViewer>
+      </DockPanel>
+    </DataTemplate>
+
+    <!-- P1 (W7, docs/dev/p-certificate-services.md 2.6): "Opublikowane certyfikaty" – userCertificate and userSMIMECertificate,
+         the details of the selected certificate, "Kopiuj do pliku…" to a file the operator picks. Read only. -->
+    <DataTemplate DataType="{x:Type pk:PublishedCertificatesPageViewModel}">
+      <DockPanel Margin="12,10,12,12">
+        <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+          <Button Margin="8,0,0,0"
+                  VerticalAlignment="Top"
+                  AutomationProperties.Name="{l:Tr Commands.Refresh}"
+                  Command="{Binding RefreshCommand}"
+                  Content="{x:Static c:Glyphs.Refresh}"
+                  DockPanel.Dock="Right"
+                  Style="{StaticResource Ad.IconButton}"
+                  ToolTip="{l:Tr Commands.Refresh}" />
+          <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                     Text="{l:Tr Cert.Published.Intro}"
+                     TextWrapping="Wrap" />
+        </DockPanel>
+        <ProgressBar Height="2"
+                     Margin="0,0,0,4"
+                     DockPanel.Dock="Top"
+                     IsIndeterminate="{Binding IsLoading, Mode=OneWay}"
+                     Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <Border Margin="0,0,0,6"
+                DockPanel.Dock="Top"
+                Style="{StaticResource Ad.ErrorBar}"
+                Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <TextBlock AutomationProperties.LiveSetting="Assertive"
+                     Text="{Binding Error, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </Border>
+        <TextBlock Margin="0,0,0,6"
+                   AutomationProperties.LiveSetting="Polite"
+                   DockPanel.Dock="Top"
+                   Text="{Binding CountText, Mode=OneWay}"
+                   Visibility="{Binding CountText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        <WrapPanel Margin="0,8,0,0" DockPanel.Dock="Bottom">
+          <Button x:Name="CopyCertificateToFileButton"
+                  Command="{Binding CopyToFileCommand}"
+                  Content="{l:Tr Cert.Published.CopyToFile}"
+                  Style="{StaticResource SmallButton}" />
+          <Button Command="{Binding CopyThumbprintCommand}"
+                  Content="{l:Tr Cert.Published.CopyThumbprint}"
+                  Style="{StaticResource SmallButton}" />
+        </WrapPanel>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="*" MinHeight="90" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="1.3*" MinHeight="90" />
+          </Grid.RowDefinitions>
+          <ListView x:Name="PublishedCertificateList"
+                    AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                    ItemsSource="{Binding Rows, Mode=OneWay}"
+                    SelectedItem="{Binding SelectedRow}"
+                    SelectionMode="Single">
+            <ListView.ItemContainerStyle>
+              <Style TargetType="ListViewItem" BasedOn="{StaticResource CompactRow}">
+                <Setter Property="AutomationProperties.Name" Value="{Binding IssuedTo, Mode=OneWay}" />
+              </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.View>
+              <GridView AllowsColumnReorder="False">
+                <GridViewColumn Width="150" Header="{l:Tr Cert.Published.ColumnIssuedTo}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:PublishedCertificateRowViewModel}">
+                      <TextBlock x:Name="IssuedToText"
+                                 Text="{Binding IssuedTo, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis" />
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsUnreadable, Mode=OneWay}" Value="True">
+                          <Setter TargetName="IssuedToText" Property="FontStyle" Value="Italic" />
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="150" Header="{l:Tr Cert.Published.ColumnIssuedBy}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:PublishedCertificateRowViewModel}">
+                      <TextBlock Text="{Binding IssuedBy, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="160" Header="{l:Tr Cert.Published.ColumnPurposes}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:PublishedCertificateRowViewModel}">
+                      <TextBlock Text="{Binding Purposes, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip="{Binding Purposes, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="90" Header="{l:Tr Cert.Published.ColumnValidTo}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:PublishedCertificateRowViewModel}">
+                      <TextBlock Text="{Binding ValidTo, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="150" Header="{l:Tr Cert.Published.ColumnStatus}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:PublishedCertificateRowViewModel}">
+                      <TextBlock x:Name="ValidityText"
+                                 Text="{Binding ValidityText, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis" />
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsExpiring, Mode=OneWay}" Value="True">
+                          <Setter TargetName="ValidityText" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsExpired, Mode=OneWay}" Value="True">
+                          <Setter TargetName="ValidityText" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="130" Header="{l:Tr Cert.Published.ColumnTemplate}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:PublishedCertificateRowViewModel}">
+                      <TextBlock Text="{Binding Template, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="140" Header="{l:Tr Cert.Published.ColumnThumbprint}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:PublishedCertificateRowViewModel}">
+                      <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                                 Text="{Binding Thumbprint, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="140" Header="{l:Tr Cert.Published.ColumnAttribute}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:PublishedCertificateRowViewModel}">
+                      <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding Attribute, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+              </GridView>
+            </ListView.View>
+          </ListView>
+          <TextBlock Grid.Row="1"
+                     Margin="0,10,0,4"
+                     Style="{StaticResource Ad.SectionHeader}"
+                     Text="{l:Tr Cert.Published.DetailsHeader}" />
+          <ScrollViewer Grid.Row="2"
+                        Focusable="False"
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="CertificateDetails"
+                          Focusable="False"
+                          Grid.IsSharedSizeScope="True"
+                          ItemsSource="{Binding Details, Mode=OneWay}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type pk:CertificateDetailViewModel}">
+                  <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto" MinWidth="150" SharedSizeGroup="CertificateDetailLabel" />
+                      <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Margin="0,4,12,0"
+                               VerticalAlignment="Top"
+                               Style="{StaticResource Ad.SecondaryText}"
+                               Text="{Binding Label, Mode=OneWay}" />
+                    <TextBox Grid.Column="1"
+                             AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                             Style="{StaticResource Ad.SelectableText}"
+                             Text="{Binding Value, Mode=OneWay}" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Grid>
+      </DockPanel>
+    </DataTemplate>
+
+    <!-- P1 (W7): "Mapowania nazw" – altSecurityIdentities with the KB5014754 strength, Kerberos names apart. Read only. -->
+    <DataTemplate DataType="{x:Type pk:NameMappingsPageViewModel}">
+      <DockPanel Margin="12,10,12,12">
+        <TextBlock Margin="0,0,0,6"
+                   DockPanel.Dock="Top"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{l:Tr Cert.Mappings.Intro}"
+                   TextWrapping="Wrap" />
+        <Border Margin="0,0,0,6"
+                DockPanel.Dock="Top"
+                Style="{StaticResource Ad.WarningBar}"
+                Visibility="{Binding WeakWarning, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <TextBlock x:Name="WeakMappingsWarning"
+                     AutomationProperties.LiveSetting="Polite"
+                     Text="{Binding WeakWarning, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </Border>
+        <Border Margin="0,0,0,6"
+                DockPanel.Dock="Top"
+                Style="{StaticResource Ad.WarningBar}"
+                Visibility="{Binding InvalidWarning, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <TextBlock Text="{Binding InvalidWarning, Mode=OneWay}" TextWrapping="Wrap" />
+        </Border>
+        <WrapPanel Margin="0,8,0,0" DockPanel.Dock="Bottom">
+          <Button Command="{Binding CopyValueCommand}"
+                  Content="{l:Tr Common.Copy}"
+                  Style="{StaticResource SmallButton}" />
+        </WrapPanel>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="2*" MinHeight="80" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="60" />
+          </Grid.RowDefinitions>
+          <TextBlock Margin="0,0,0,4"
+                     Style="{StaticResource Ad.SectionHeader}"
+                     Text="{l:Tr Cert.Mappings.X509Header}" />
+          <ListView x:Name="X509MappingList"
+                    Grid.Row="1"
+                    AutomationProperties.Name="{l:Tr Cert.Mappings.X509Header}"
+                    ItemsSource="{Binding X509Mappings, Mode=OneWay}"
+                    SelectedItem="{Binding SelectedMapping}"
+                    SelectionMode="Single">
+            <ListView.ItemContainerStyle>
+              <Style TargetType="ListViewItem" BasedOn="{StaticResource CompactRow}">
+                <Setter Property="AutomationProperties.Name" Value="{Binding Value, Mode=OneWay}" />
+              </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.View>
+              <GridView AllowsColumnReorder="False">
+                <GridViewColumn Width="160" Header="{l:Tr Cert.Mappings.ColumnMapping}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:NameMappingRowViewModel}">
+                      <TextBlock Text="{Binding KindText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="110" Header="{l:Tr Cert.Mappings.ColumnStrength}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:NameMappingRowViewModel}">
+                      <TextBlock x:Name="StrengthText" Text="{Binding StrengthText, Mode=OneWay}" />
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsWeak, Mode=OneWay}" Value="True">
+                          <Setter TargetName="StrengthText" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                          <Setter TargetName="StrengthText" Property="FontWeight" Value="SemiBold" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsInvalid, Mode=OneWay}" Value="True">
+                          <Setter TargetName="StrengthText" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="180" Header="{l:Tr Cert.Mappings.ColumnIssuer}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:NameMappingRowViewModel}">
+                      <TextBlock Text="{Binding Issuer, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip="{Binding Issuer, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="180" Header="{l:Tr Cert.Mappings.ColumnSubjectOrIdentifier}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:NameMappingRowViewModel}">
+                      <TextBlock Text="{Binding SubjectOrIdentifier, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip="{Binding SubjectOrIdentifier, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="240" Header="{l:Tr Cert.Mappings.ColumnValue}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:NameMappingRowViewModel}">
+                      <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                                 Text="{Binding Value, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip="{Binding Value, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+              </GridView>
+            </ListView.View>
+          </ListView>
+          <TextBlock Grid.Row="1"
+                     Margin="8,32,8,0"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Top"
+                     IsHitTestVisible="False"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{l:Tr Cert.Mappings.NoX509}"
+                     Visibility="{Binding HasX509Mappings, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+          <TextBlock Grid.Row="2"
+                     Margin="0,10,0,4"
+                     Style="{StaticResource Ad.SectionHeader}"
+                     Text="{l:Tr Cert.Mappings.KerberosHeader}" />
+          <ListView x:Name="KerberosNameList"
+                    Grid.Row="3"
+                    AutomationProperties.Name="{l:Tr Cert.Mappings.KerberosHeader}"
+                    ItemsSource="{Binding KerberosNames, Mode=OneWay}"
+                    SelectedItem="{Binding SelectedKerberosName}"
+                    SelectionMode="Single">
+            <ListView.ItemContainerStyle>
+              <Style TargetType="ListViewItem" BasedOn="{StaticResource CompactRow}">
+                <Setter Property="AutomationProperties.Name" Value="{Binding SubjectOrIdentifier, Mode=OneWay}" />
+              </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.View>
+              <GridView AllowsColumnReorder="False">
+                <GridViewColumn Width="260" Header="{l:Tr Cert.Mappings.ColumnPrincipal}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:NameMappingRowViewModel}">
+                      <TextBlock Text="{Binding SubjectOrIdentifier, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="280" Header="{l:Tr Cert.Mappings.ColumnValue}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:NameMappingRowViewModel}">
+                      <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                                 Text="{Binding Value, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+              </GridView>
+            </ListView.View>
+          </ListView>
+          <TextBlock Grid.Row="3"
+                     Margin="8,32,8,0"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Top"
+                     IsHitTestVisible="False"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{l:Tr Cert.Mappings.NoKerberos}"
+                     Visibility="{Binding HasKerberosNames, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+        </Grid>
+      </DockPanel>
+    </DataTemplate>
+
+    <!-- P1 (W7): "Poświadczenia kluczy" – the msDS-KeyCredentialLink entries (metadata only, never the key). Read only. -->
+    <DataTemplate DataType="{x:Type pk:KeyCredentialsPageViewModel}">
+      <DockPanel Margin="12,10,12,12">
+        <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+          <Button Margin="8,0,0,0"
+                  VerticalAlignment="Top"
+                  AutomationProperties.Name="{l:Tr Commands.Refresh}"
+                  Command="{Binding RefreshCommand}"
+                  Content="{x:Static c:Glyphs.Refresh}"
+                  DockPanel.Dock="Right"
+                  Style="{StaticResource Ad.IconButton}"
+                  ToolTip="{l:Tr Commands.Refresh}" />
+          <StackPanel>
+            <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr Cert.Keys.Intro}"
+                       TextWrapping="Wrap" />
+            <TextBlock Margin="0,4,0,0"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr Cert.Keys.Warning}"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+        </DockPanel>
+        <ProgressBar Height="2"
+                     Margin="0,0,0,4"
+                     DockPanel.Dock="Top"
+                     IsIndeterminate="{Binding IsLoading, Mode=OneWay}"
+                     Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <Border Margin="0,0,0,6"
+                DockPanel.Dock="Top"
+                Style="{StaticResource Ad.ErrorBar}"
+                Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <TextBlock AutomationProperties.LiveSetting="Assertive"
+                     Text="{Binding Error, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </Border>
+        <TextBlock Margin="0,0,0,6"
+                   AutomationProperties.LiveSetting="Polite"
+                   DockPanel.Dock="Top"
+                   Text="{Binding CountText, Mode=OneWay}"
+                   Visibility="{Binding CountText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        <WrapPanel Margin="0,8,0,0" DockPanel.Dock="Bottom">
+          <Button Command="{Binding CopyKeyIdCommand}"
+                  Content="{l:Tr Cert.Keys.CopyKeyId}"
+                  Style="{StaticResource SmallButton}" />
+          <Button Command="{Binding CopyDeviceIdCommand}"
+                  Content="{l:Tr Cert.Keys.CopyDeviceId}"
+                  Style="{StaticResource SmallButton}" />
+        </WrapPanel>
+        <ListView x:Name="KeyCredentialList"
+                  AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                  ItemsSource="{Binding Rows, Mode=OneWay}"
+                  SelectedItem="{Binding SelectedRow}"
+                  SelectionMode="Single">
+          <ListView.ItemContainerStyle>
+            <Style TargetType="ListViewItem" BasedOn="{StaticResource CompactRow}">
+              <Setter Property="AutomationProperties.Name" Value="{Binding UsageText, Mode=OneWay}" />
+            </Style>
+          </ListView.ItemContainerStyle>
+          <ListView.View>
+            <GridView AllowsColumnReorder="False">
+              <GridViewColumn Width="150" Header="{l:Tr Cert.Keys.ColumnKeyId}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pk:KeyCredentialRowViewModel}">
+                    <TextBlock Text="{Binding KeyId, Mode=OneWay}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding KeyId, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="150" Header="{l:Tr Cert.Keys.ColumnDeviceId}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pk:KeyCredentialRowViewModel}">
+                    <TextBlock Text="{Binding DeviceId, Mode=OneWay}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding DeviceId, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="110" Header="{l:Tr Cert.Keys.ColumnSource}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pk:KeyCredentialRowViewModel}">
+                    <TextBlock Text="{Binding SourceText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="150" Header="{l:Tr Cert.Keys.ColumnUsage}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pk:KeyCredentialRowViewModel}">
+                    <TextBlock Text="{Binding UsageText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="120" Header="{l:Tr Cert.Keys.ColumnCreated}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pk:KeyCredentialRowViewModel}">
+                    <TextBlock Text="{Binding Created, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="120" Header="{l:Tr Cert.Keys.ColumnLastLogon}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pk:KeyCredentialRowViewModel}">
+                    <TextBlock Text="{Binding LastLogon, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="200" Header="{l:Tr Cert.Keys.ColumnRemarks}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pk:KeyCredentialRowViewModel}">
+                    <TextBlock Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                               Text="{Binding Remarks, Mode=OneWay}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding Remarks, Mode=OneWay}"
+                               Visibility="{Binding HasRemarks, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+            </GridView>
+          </ListView.View>
+        </ListView>
       </DockPanel>
     </DataTemplate>
 

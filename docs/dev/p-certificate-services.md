@@ -1472,3 +1472,67 @@ public member of 2.1–2.6 renamed or removed; outside the W6 files only the two
   `review.ShowCode(request.FindingCode)` (`Matches` keeps one review per window); the review and the readiness report
   read only through `IPkiSnapshotService` (`GetAsync`, `GetExpansionAsync`, `GetDomainControllersAsync`,
   `GetDcCertificatesAsync`, `DcCertificates`).
+
+**W7 as built.** The three tabs, the attribute-editor mask and the TLS probe of 2.6; no member of 2.1–2.6 renamed or
+removed, every addition is new W7 code.
+* *Property tabs.* `PageIf` plus a `CertificatePages(bool mappings)` helper in `PropertyPageFactory` (each tab only when
+  the schema defines its attribute – `userCertificate`, `altSecurityIdentities`, `msDS-KeyCredentialLink`); user and
+  inetOrgPerson after *Organizacja*, computer after *Stan*, contact *Opublikowane certyfikaty* only, all before *Członek
+  grupy* (tab-order tests for user, computer and the new contact test). Public row types:
+  `PublishedCertificateRowViewModel`, `CertificateDetailViewModel`, `NameMappingRowViewModel`,
+  `KeyCredentialRowViewModel`; the enum `CertificateValidity` (`Valid | Expiring | Expired | NotYetValid`, family
+  `Cert.Validity.*` in `L.Certificates.AllKeys()`, *Wygasa* = at most `PkiSettings.CertificateExpiryWarningDays` left,
+  as C4's health rule, at `Services.Time`). Every row's `ToString` prints states only.
+* *Opublikowane certyfikaty.* Read lazily (`ActivateAsync`, re-read by the sheet's refresh once activated, own
+  *Odśwież*), ranged values completed, parsed on `Task.Run` (internal `PublishedCertificates` + record
+  `PublishedCertificate`): `userCertificate` first, then `userSMIMECertificate`; a PKCS #7 `SignedData` value (Outlook's
+  S/MIME bundle) is unwrapped to its end-entity certificates (all of them when it holds only CA certificates); the
+  one-byte `0x00` placeholder is no row; any other unreadable value is a row with the attribute only. Columns
+  *Wystawiony dla* (CN, else the SAN UPN / e-mail), *Wystawiony przez*, przeznaczenie (`PkiFlags.KnownEku` names, else
+  the OID; no EKU = *Wszystkie (brak EKU)*), ważny do, stan, szablon, odcisk (SHA-1), atrybut; the details pane lists
+  subject, issuer, serial, validity, the EKUs with their OIDs, the template, SAN UPN / e-mail / DNS / SID URL, the SID
+  extension, key algorithm and size, signature algorithm, SHA-1 and SHA-256. **Deviation:** the template name is not
+  taken from the snapshot – the sheet's `FieldContext` has no `PkiServices` and the snapshot service is W5's (a full PKI
+  read for one tab); one one-level search of `CN=Certificate Templates` on the window's DC (`msPKI-Cert-Template-OID` /
+  `cn` OR filter, size limit 100; any `DirectoryException` → the name or OID the certificate carries) resolves the
+  display name. *Kopiuj do pliku…* writes the DER to the `.cer` the operator picks (`Files.SaveFileAsync`; I/O errors as
+  a dialog, success as a toast); *Kopiuj odcisk palca*.
+* *Mapowania nazw.* `altSecurityIdentities` in `ReadAttributes` (the sheet's read; a refresh replaces the lists):
+  `X509Mappings` (every value but `Kerberos:`, invalid ones included, in server order) with kind, strength, issuer and
+  subject / serial (*Numer seryjny …*) / identifier, and `KerberosNames` apart; warnings with the weak count (KB5014754
+  full enforcement) and the invalid count; one selection across both lists, *Kopiuj* copies the value as stored.
+* *Poświadczenia kluczy.* Read lazily like the published certificates (`KeyCredentialLink.Parse` on `Task.Run`): key id
+  (Base64), device id, source, usage, created, approximate last logon, remarks (*Nieczytelny wpis*, a KeyHash mismatch);
+  a static Shadow Credentials note; *Kopiuj identyfikator klucza / urządzenia*. Never the key material.
+* *Attribute-editor mask.* `AttributeRowViewModel.IsMasked` (= `SecretAttributes.IsNeverShown`): `ValueText` is the mask
+  (*&lt;nie ustawiono&gt;* when empty), `EditableValues` is empty, `ReadOnlyReason` = `Cert.MaskedReadOnly` (*Wartość
+  poufna (materiał klucza)…*, before the binary reason); `Edit` / `CopyValue` cannot execute (`HasSelection` became
+  `CanEditOrCopy`), and `CloseEditor`, the restaging after a reload, `GetOperations` and `ComputeHasChanges` skip masked
+  rows. No XAML change (the lock glyph shows the reason).
+* *TLS probe.* As 2.6, plus: the constants `LdapsPort` / `GlobalCatalogLdapsPort` / `DefaultTimeout` (5 s; the caller
+  passes the timeout, `Timeout.InfiniteTimeSpan` allowed, a non-positive one throws `ArgumentOutOfRangeException`); an
+  internal `ConnectPort` (the tests' TLS server listens on an ephemeral port while the 636 / 3269 check stays);
+  `ConnectOutcome`: `HostNotFound` / `NoData` / `TryAgain` → `NameNotResolved`, `TimedOut` / `HostUnreachable` /
+  `NetworkUnreachable` / `HostDown` / `NetworkDown` → `Timeout`, any other connect error → `PortClosed`; a handshake
+  that completes without a captured certificate, and `AuthenticationException` / `IOException` / `SocketException`
+  (resets) → `HandshakeFailed`; an exception after the probe's own deadline fired (some platforms close the socket under
+  the read) → `Timeout`. `AddAdMngPkiApp()` registers it (`AppHost` untouched – the contract commit already calls it).
+* *App.* The three `PropertiesWindow` templates after the *Stan* template (`pk:` xmlns), named lists for the UI tests;
+  `HostTests.SharedApp` lists `IDomainControllerTlsProbe`; `CertificateTabsUiTests` (both languages, PKI sample seeded
+  by the test, the masked `userPKCS12` row, the registration). Not run on Linux – every `{l:Tr}` key of the window was
+  checked against both resx files and every binding path against the view models by script.
+* *Tests.* `CertificateTabsTests` (16), `AttributeEditorMaskTests` (7), the three tab-order tests in
+  `PropertySheetTests`, `SslStreamTlsProbeTests` (28 + the lab probe of `localhost:636`, skipped without
+  `ADMNG_TEST_LDAP_*`).
+* *For the integration step.* The user and computer sheets have three more tabs, so the README property-sheet pictures
+  (`ScreenshotTests.ShootUserPropertiesAsync`) change – check that the tab strip still fits. `docs/CERTYFIKATY.md`
+  should describe the tabs, the mask and the probe; the Watchdog history on *Poświadczenia kluczy* stays P5. The
+  operator question of 2.13 (mask LAPS / BitLocker recovery / confidential text too) is still open.
+* *W7 review fixes.* The probe's handshake policy also sets `TrustMode = CustomRootTrust` with an empty custom store
+  (decision 1; 2.6 left it out): the platform chain build never consults the system store, so Windows' automatic root
+  update cannot fetch a root or the CTL for an untrusted (e.g. self-signed) DC certificate – `PolicyErrors` (informational,
+  read by nobody) now always carries `RemoteCertificateChainErrors`; `Options` and `Capture` are internal for a test.
+  *Wystawiony dla* of a certificate with an empty subject (the Domain Controller / Kerberos / Workstation Authentication
+  templates put the host only in the SAN) falls back to the first SAN DNS name after the UPN and e-mail – it was an empty
+  cell; *Kopiuj do pliku…* suggests the thumbprint as the file name when the certificate names nobody (it was the
+  hard-coded Polish `certyfikat.cer`).

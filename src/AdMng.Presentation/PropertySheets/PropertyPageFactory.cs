@@ -50,8 +50,8 @@ internal static class PropertyPageFactory
         public List<PropertyPageViewModel> User(DirectoryObject obj)
         {
             var mail = Text(Attr.Mail);
-            var pages = new List<PropertyPageViewModel>
-            {
+            List<PropertyPageViewModel> pages =
+            [
                 Page(L.Pages.General, Section(null,
                     Text(Attr.GivenName), Text(Attr.Initials), Text(Attr.Sn), Text(Attr.DisplayName), Text(Attr.Description),
                     Text(Attr.Office), Text(Attr.TelephoneNumber, others: Attr.OtherTelephone), mail,
@@ -63,8 +63,9 @@ internal static class PropertyPageFactory
                     Section(Localizer[L.Labels.HomeFolder], context.IsKnown(Attr.HomeDirectory) ? new HomeFolderFieldViewModel(context) : null)),
                 TelephonesPage(),
                 OrganizationPage(),
+                .. CertificatePages(mappings: true),
                 new MemberOfPageViewModel(context),
-            };
+            ];
             AddEmailPage(pages, obj, mail);
             pages.Add(ObjectPage());
             pages.Add(new AttributeEditorPageViewModel(context));
@@ -74,8 +75,8 @@ internal static class PropertyPageFactory
         public List<PropertyPageViewModel> Contact(DirectoryObject obj)
         {
             var mail = Text(Attr.Mail);
-            var pages = new List<PropertyPageViewModel>
-            {
+            List<PropertyPageViewModel> pages =
+            [
                 Page(L.Pages.General, Section(null,
                     Text(Attr.GivenName), Text(Attr.Initials), Text(Attr.Sn), Text(Attr.DisplayName), Text(Attr.Description),
                     Text(Attr.Office), Text(Attr.TelephoneNumber, others: Attr.OtherTelephone), mail,
@@ -83,8 +84,9 @@ internal static class PropertyPageFactory
                 AddressPage(),
                 TelephonesPage(),
                 OrganizationPage(),
+                .. CertificatePages(mappings: false),
                 new MemberOfPageViewModel(context),
-            };
+            ];
             AddEmailPage(pages, obj, mail);
             pages.Add(ObjectPage());
             pages.Add(new AttributeEditorPageViewModel(context));
@@ -107,6 +109,7 @@ internal static class PropertyPageFactory
                 Computers.ComputerStatusPageViewModel.ReleaseField(context),
                 Computers.ComputerStatusPageViewModel.SupportField(context))),
             new Computers.ComputerStatusPageViewModel(context),
+            .. CertificatePages(mappings: true),
             new MemberOfPageViewModel(context),
             Page(L.Pages.Delegation, Section(null,
                 Info(Attr.UserAccountControl, Localizer[L.Labels.Delegation], DelegationText),
@@ -326,6 +329,23 @@ internal static class PropertyPageFactory
 
         private T? Known<T>(string attribute, Func<T> create)
             where T : PropertyFieldViewModel =>
+            context.IsKnown(attribute) ? create() : null;
+
+        /// <summary>
+        /// P1 (docs/dev/p-certificate-services.md 2.6): the read-only tabs <i>Opublikowane certyfikaty</i> and – for users and
+        /// computers (<paramref name="mappings"/>) – <i>Mapowania nazw</i> and <i>Poświadczenia kluczy</i>, each only when the
+        /// schema defines its attribute; after Organization / Stan and before Member Of (ADUC's order).
+        /// </summary>
+        private IEnumerable<PropertyPageViewModel> CertificatePages(bool mappings) =>
+            new[]
+            {
+                PageIf(Core.Pki.PkiAttributes.UserCertificate, () => new Pki.PublishedCertificatesPageViewModel(context)),
+                mappings ? PageIf(Core.Pki.PkiAttributes.AltSecurityIdentities, () => new Pki.NameMappingsPageViewModel(context)) : null,
+                mappings ? PageIf(Core.Pki.PkiAttributes.KeyCredentialLink, () => new Pki.KeyCredentialsPageViewModel(context)) : null,
+            }.OfType<PropertyPageViewModel>();
+
+        /// <summary>A page that is shown only when the schema defines <paramref name="attribute"/> (<see cref="Known{T}"/> takes fields only).</summary>
+        private PropertyPageViewModel? PageIf(string attribute, Func<PropertyPageViewModel> create) =>
             context.IsKnown(attribute) ? create() : null;
     }
 }
