@@ -21949,7 +21949,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>jak zapamiętano w profilu</value>
   </data>
   <data name="BulkCreate.PersonalIdentifierNote" xml:space="preserve">
-    <value>identyfikator osobowy – pominięto (mapuj tylko, gdy to konieczne)</value>
+    <value>identyfikator osobowy – pominięto (przypisuj go tylko wtedy, gdy to konieczne)</value>
   </data>
   <data name="BulkCreate.DuplicateTargetNote" xml:space="preserve">
     <value>inna kolumna ma już to przeznaczenie – pominięto</value>
@@ -22201,10 +22201,10 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Nazwa kontenera</value>
   </data>
   <data name="BulkCreate.TokenDateIso" xml:space="preserve">
-    <value>Dzisiejsza data (2026-11-09)</value>
+    <value>Dzisiejsza data (RRRR-MM-DD)</value>
   </data>
   <data name="BulkCreate.TokenDatePolish" xml:space="preserve">
-    <value>Dzisiejsza data (09.11.2026)</value>
+    <value>Dzisiejsza data (DD.MM.RRRR)</value>
   </data>
   <data name="BulkCreate.TokenDefaultText" xml:space="preserve">
     <value>tekst</value>

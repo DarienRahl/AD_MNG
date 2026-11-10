@@ -45,6 +45,41 @@ public sealed class BulkSourceTests
     }
 
     [Fact]
+    public async Task Paste_TellsTheWindowThatDalejIsPossible_OnceTheGridIsFilled()
+    {
+        // A WPF button asks CanExecute only when CanExecuteChanged is raised: the last notification after a paste (or a
+        // file, a header choice) must already see the step as idle, or Dalej stays disabled until the next edit.
+        using var wizard = await BulkWizardHarness.CreateAsync();
+        var command = wizard.Wizard.NextStepCommand;
+        var seen = new List<bool>();
+        var notified = new List<bool>();
+        command.CanExecuteChanged += (_, _) => seen.Add(command.CanExecute(null));
+        wizard.Wizard.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(BulkCreateViewModel.CanGoNext))
+            {
+                notified.Add(wizard.Wizard.CanGoNext);
+            }
+        };
+
+        await wizard.PasteAsync(ExcelSamples.OperatorScenarioTsv);
+        Assert.True(seen[^1], "Dalej after a paste");
+        Assert.True(notified[^1], "CanGoNext after a paste");
+
+        seen.Clear();
+        wizard.Source.HeaderMode = HeaderMode.FirstRowIsHeader;
+        await wizard.Source.PendingWork;
+        Assert.True(seen[^1], "Dalej after a header choice");
+
+        seen.Clear();
+        using var file = new TempFile(".csv", ExcelSamples.Cp1250Csv);
+        wizard.Harness.Files.NextOpenPath = file.Path;
+        wizard.Harness.Dialogs.ConfirmAnswers.Enqueue(true);
+        await wizard.Source.LoadFileCommand.ExecuteAsync(null);
+        Assert.True(seen[^1], "Dalej after a file");
+    }
+
+    [Fact]
     public async Task Paste_HtmlOnly_ReadsTheHtmlTable()
     {
         using var wizard = await BulkWizardHarness.CreateAsync();

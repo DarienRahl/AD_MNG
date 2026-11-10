@@ -566,6 +566,9 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
         var rows = await Task.Run(() => BuildRows(table, columns)).ConfigureAwait(true);
         if (!_disposed)
         {
+            // Idle before the change events: the wizard re-evaluates Dalej on them (CanGoNext reads IsBusy), and a WPF
+            // button asks CanExecute only then – a later IsBusy = false would leave Dalej disabled until the next edit.
+            IsBusy = false;
             ApplyTable(table, replaced, rows, columns);
         }
     }

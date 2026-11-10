@@ -263,6 +263,38 @@ public sealed class BulkCreateProfileTests
     }
 
     [Fact]
+    public async Task AnotherContainer_ShowsTheDefaultMarkOfThatContainer()
+    {
+        using var wizard = await BulkWizardHarness.CreateAsync();
+        await wizard.PasteAsync(ExcelSamples.OperatorScenarioTsv);
+        await wizard.GoToRulesAsync();
+        var rules = wizard.Rules;
+        await rules.SaveProfileAsCommand.ExecuteAsync(null);
+        rules.NewProfileName = "Nowi";
+        rules.SaveAsDefaultForContainer = true;
+        await rules.ConfirmSaveProfileAsCommand.ExecuteAsync(null);
+        Assert.True(rules.IsDefaultForContainer);
+
+        // Back to Dane, another container, Dalej twice: the saved profile stays selected, but it is not that container's default.
+        wizard.Wizard.PreviousStepCommand.Execute(null);
+        wizard.Wizard.PreviousStepCommand.Execute(null);
+        wizard.Harness.Dialogs.PickedContainers.Enqueue(wizard.Sample.AccountingChildOu);
+        await wizard.Wizard.PickContainerCommand.ExecuteAsync(null);
+        var notified = new List<string?>();
+        rules.PropertyChanged += (_, e) => notified.Add(e.PropertyName);
+        await wizard.GoToRulesAsync();
+
+        Assert.Equal("Nowi", rules.Profile?.Text);
+        Assert.False(rules.IsDefaultForContainer);
+        Assert.Contains(nameof(BulkRulesViewModel.CanSetDefault), notified);
+
+        // So the button makes it the default of this container (instead of removing a mark that is not there).
+        await rules.SetDefaultForContainerCommand.ExecuteAsync(null);
+        Assert.True(rules.IsDefaultForContainer);
+        Assert.Equal(2, wizard.Harness.Settings.Current.BulkCreate.Profiles[0].DefaultForContainers.Count);
+    }
+
+    [Fact]
     public async Task MaxProfiles_IsEnforced()
     {
         using var wizard = await BulkWizardHarness.CreateAsync();

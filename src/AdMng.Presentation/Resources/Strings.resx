@@ -22201,10 +22201,10 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Container name</value>
   </data>
   <data name="BulkCreate.TokenDateIso" xml:space="preserve">
-    <value>Today's date (2026-11-09)</value>
+    <value>Today's date (YYYY-MM-DD)</value>
   </data>
   <data name="BulkCreate.TokenDatePolish" xml:space="preserve">
-    <value>Today's date (09.11.2026)</value>
+    <value>Today's date (DD.MM.YYYY)</value>
   </data>
   <data name="BulkCreate.TokenDefaultText" xml:space="preserve">
     <value>text</value>

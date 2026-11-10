@@ -203,7 +203,9 @@ public sealed class BulkRulesTests
         Assert.Contains(fields, f => f.Token == "{$nr:1}" && f.Text == "Kolejny numer");
         Assert.Contains(fields, f => f.Token == "{$suffix}");
         Assert.Contains(fields, f => f.Token == "{$mailDomain}");
-        Assert.Contains(fields, f => f.Token == "{$date:dd.MM.yyyy}");
+        // The date entries describe the format, not a fixed day (the label would show a stale date tomorrow).
+        Assert.Contains(fields, f => f.Token == "{$date:yyyy-MM-dd}" && f.Text == "Dzisiejsza data (RRRR-MM-DD)");
+        Assert.Contains(fields, f => f.Token == "{$date:dd.MM.yyyy}" && f.Text == "Dzisiejsza data (DD.MM.RRRR)");
         var lower = Assert.Single(fields, f => f.Token == "|lower");
         Assert.True(lower.IsFunction);
         Assert.Equal("małe litery", lower.Description);

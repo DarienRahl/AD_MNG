@@ -183,7 +183,7 @@ public static partial class L
         /// <summary><em>jak zapamiętano w profilu</em></summary>
         public const string ProfileMappingNote = "BulkCreate.ProfileMappingNote";
 
-        /// <summary><em>identyfikator osobowy – pominięto (mapuj tylko, gdy to konieczne)</em></summary>
+        /// <summary><em>identyfikator osobowy – pominięto (przypisuj go tylko wtedy, gdy to konieczne)</em></summary>
         public const string PersonalIdentifierNote = "BulkCreate.PersonalIdentifierNote";
 
         /// <summary><em>inna kolumna ma już to przeznaczenie – pominięto</em></summary>
@@ -435,10 +435,10 @@ public static partial class L
         /// <summary><em>Nazwa kontenera</em></summary>
         public const string TokenParentName = "BulkCreate.TokenParentName";
 
-        /// <summary><em>Dzisiejsza data (2026-11-09)</em></summary>
+        /// <summary><em>Dzisiejsza data (RRRR-MM-DD)</em></summary>
         public const string TokenDateIso = "BulkCreate.TokenDateIso";
 
-        /// <summary><em>Dzisiejsza data (09.11.2026)</em></summary>
+        /// <summary><em>Dzisiejsza data (DD.MM.RRRR)</em></summary>
         public const string TokenDatePolish = "BulkCreate.TokenDatePolish";
 
         /// <summary><em>tekst</em></summary>

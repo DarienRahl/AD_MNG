@@ -54,6 +54,17 @@ public sealed class BulkCreateInputUiTests
         Assert.Equal("Wiersze: 5, kolumny: 5 – nagłówki rozpoznane", source.SummaryText.Text);
         Assert.Equal(Visibility.Collapsed, source.EmptyHint.Visibility);
         Assert.True(wizard.NextStepCommand.CanExecute(null));
+        Assert.True(Single<BulkCreateView>(window).NextStepButton.IsEnabled, "Dalej is enabled once the paste is done");
+
+        // Ctrl+C with the header row copies the column names, never the header panels' type names.
+        var copied = new DataGridRowClipboardEventArgs(new object(), 0, source.SourceGrid.Columns.Count - 1, isColumnHeadersRow: true);
+        foreach (var column in source.SourceGrid.Columns)
+        {
+            copied.ClipboardRowContent.Add(new DataGridClipboardCellContent(new object(), column, column.Header));
+        }
+
+        BulkSourceView.UseHeaderNames(copied);
+        Assert.Equal(["Wiersz", "Telefon komórkowy", "Imię", "Nazwisko", "Dział", "E-mail"], copied.ClipboardRowContent.Select(c => c.Content as string));
 
         // 2 Kolumny: the automatic mapping and the attribute combo of the class's attributes.
         await wizard.NextStepCommand.ExecuteAsync(null);

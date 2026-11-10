@@ -22,6 +22,7 @@ public partial class BulkSourceView : UserControl
     public BulkSourceView()
     {
         InitializeComponent();
+        SourceGrid.CopyingRowClipboardContent += (_, e) => UseHeaderNames(e);
         DataContextChanged += (_, _) => Attach(DataContext as BulkSourceViewModel);
         Loaded += (_, _) => Attach(DataContext as BulkSourceViewModel);
         Unloaded += (_, _) => Attach(null);
@@ -98,9 +99,31 @@ public partial class BulkSourceView : UserControl
         }
     }
 
+    /// <summary>
+    /// Ctrl+C copies the header row too (<c>ClipboardCopyMode="IncludeHeader"</c>), and the grid writes a header object with
+    /// its <c>ToString()</c> – for the panel of <see cref="HeaderFor"/> that is its type name. The header row gets the column's
+    /// name instead (the panel's <c>Tag</c>).
+    /// </summary>
+    internal static void UseHeaderNames(DataGridRowClipboardEventArgs e)
+    {
+        if (!e.IsColumnHeadersRow)
+        {
+            return;
+        }
+
+        var cells = e.ClipboardRowContent;
+        for (var i = 0; i < cells.Count; i++)
+        {
+            if (cells[i].Content is FrameworkElement { Tag: string name })
+            {
+                cells[i] = new DataGridClipboardCellContent(cells[i].Item, cells[i].Column, name);
+            }
+        }
+    }
+
     private StackPanel HeaderFor(SourceColumnViewModel column)
     {
-        var header = new StackPanel { Orientation = Orientation.Horizontal };
+        var header = new StackPanel { Orientation = Orientation.Horizontal, Tag = column.Name };
         if (column.IsMasked)
         {
             var glyph = new TextBlock

@@ -614,6 +614,9 @@ public sealed partial class BulkRulesViewModel : ObservableObject, IDisposable
 
         _selectedFor = container;
         RefreshProfileList();
+
+        // The container may have changed in step 1: the default mark and the button follow it.
+        RefreshProfileState();
         Recompile();
         RefreshFields();
         await RefreshPreviewAsync().ConfigureAwait(true);
