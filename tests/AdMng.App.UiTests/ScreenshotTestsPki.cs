@@ -1,7 +1,7 @@
 using AdMng.App.Infrastructure;
 using AdMng.App.UiTests.Infrastructure;
+using AdMng.App.UiTests.Pki;
 using AdMng.App.Views;
-using AdMng.Core.Pki.Tls;
 using AdMng.Presentation.Pki;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
@@ -14,7 +14,9 @@ namespace AdMng.App.UiTests;
 /// <summary>
 /// Release screenshots 36 and 37 of AD CS (P1, docs/dev/p-certificate-services.md 2.10, decision 10): the PKI overview on its
 /// health tab and the certificate templates with the enrollment rights of a deliberately vulnerable template, over the Polish
-/// PKI sample. Polish UI, light theme. Like <see cref="ScreenshotTests"/> it runs only when
+/// PKI sample. UI in the language of <see cref="ScreenshotWriter.LanguageVariable"/>, light theme, on the sample's clock
+/// (<see cref="PkiSecurityUiSupport.Configure"/>: the certificates and CRLs of the sample are valid around 2026-10-13, so the
+/// health states do not depend on the day the screenshots are taken). Like <see cref="ScreenshotTests"/> it runs only when
 /// <see cref="ScreenshotWriter.DirectoryVariable"/> is set; the class name starts with "ScreenshotTests" so the CI step
 /// "Screenshots" takes it too.
 /// </summary>
@@ -35,11 +37,10 @@ public sealed class ScreenshotTestsPki
         "Certificate templates – flags as sentences and who can really enroll (account counts after group expansion)");
 
     [Fact]
-    public Task Screenshot36_PkiOverview() => ShootAsync(async context =>
+    public Task Screenshot36_PkiOverview() => ShootAsync(async (context, probe) =>
     {
         context.Directory.AddPublicKeySample(context.Company);
-        var probe = Assert.IsType<FakeDomainControllerTlsProbe>(context.Services.GetRequiredService<IDomainControllerTlsProbe>());
-        probe.Set(PkiSamples.DcHost, 636, TlsProbeOutcome.Ok, PkiSamples.DcLdapsDer(), PkiSamples.IssuingCaDer);
+        PkiSecurityUiSupport.PresentTheSampleCertificate(probe);
         await context.ConnectAsync();
         var window = context.Services.GetRequiredService<MainWindow>();
         await ScreenshotWriter.ShowWithClientSizeAsync(window, MainWindowWidth, MainWindowHeight);
@@ -56,7 +57,7 @@ public sealed class ScreenshotTestsPki
     });
 
     [Fact]
-    public Task Screenshot37_PkiTemplates() => ShootAsync(async context =>
+    public Task Screenshot37_PkiTemplates() => ShootAsync(async (context, _) =>
     {
         context.Directory.AddPublicKeySample(context.Company);
         await context.ConnectAsync();
@@ -73,19 +74,20 @@ public sealed class ScreenshotTestsPki
         await ScreenshotWriter.SaveAsync(window, Templates, dark: false);
     });
 
-    private static Task ShootAsync(Func<UiTestContext, Task> shoot)
+    private static Task ShootAsync(Func<UiTestContext, FakeDomainControllerTlsProbe, Task> shoot)
     {
         ScreenshotWriter.RequireOutputDirectory();
         return WpfTestHost.RunAsync(async () =>
         {
-            var (created, _) = await TestDialogService.CreateContextAsync("pl");
+            var probe = new FakeDomainControllerTlsProbe();
+            var (created, _) = await TestDialogService.CreateContextAsync(ScreenshotWriter.Language, PkiSecurityUiSupport.Configure(probe));
             await using var context = created;
             var themes = context.Services.GetRequiredService<IThemeService>();
             themes.Apply(ThemePreference.Light);
             await UiTestSupport.WaitForIdleAsync(rounds: 2);
             try
             {
-                await shoot(context);
+                await shoot(context, probe);
                 context.AssertHealthy();
             }
             finally

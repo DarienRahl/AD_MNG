@@ -282,7 +282,7 @@ public sealed class PkiOverviewTests
         using var _ = document;
 
         h.B2.Localizer.SetCulture(CultureInfo.GetCultureInfo("en-US"));
-        await B2Harness.WaitUntilAsync(() => document.SummaryText.StartsWith("2 enterprise CAs", StringComparison.Ordinal) && !document.IsLoading);
+        await B2Harness.WaitUntilAsync(() => document.SummaryText.StartsWith("Enterprise CAs: 2", StringComparison.Ordinal) && !document.IsLoading);
         Assert.Equal("Public Key Services", document.Title);
 
         await h.B2.Sessions.DisconnectAsync();

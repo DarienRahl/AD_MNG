@@ -1408,6 +1408,12 @@ documents, the shell partial and the App views of 2.5; no public member of 2.11 
 * *For the integration step.* `docs/CERTYFIKATY.md`: the HTTP check only on *Sprawdź adresy HTTP*, the LDAPS probe on the
   tab's first activation / its button / F5, the thresholds in *Ustawienia → Ogólne → Certyfikaty*, the tree toggle, the
   compare pane, the exports' privacy footer. Every tree screenshot changes (the node is on by default).
+* *W5 review fixes.* The compare pane rebuilds its picker from the current rows when a reload (F5, a language switch, a
+  newer snapshot) replaced them – the picker's selection was a row it no longer listed; the shown template's trustees say
+  *liczenie…* from the start of the account pass (the template a request selected was built before it) and stop saying it
+  after a failed count. Screenshots 36/37 use the language of `ADMNG_SCREENSHOTS_LANGUAGE` and the sample's clock
+  (`PkiSecurityUiSupport.Configure`, as 38/39), so the CRLs of the sample are not shown expired. Texts: the English overview
+  summary and the Polish *dni od wygaśnięcia* avoid wrong plural forms, *Notes from the read*, the broad-group note.
 
 **W6 as built.** The security review and the readiness report of 2.5 with their views, texts, smoke render and tests; no
 public member of 2.1–2.6 renamed or removed; outside the W6 files only the two `DataTemplate`s under

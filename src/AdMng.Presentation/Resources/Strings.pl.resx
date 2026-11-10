@@ -21541,7 +21541,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>pozostało dni: {0}</value>
   </data>
   <data name="Pki.ExpiredAgo" xml:space="preserve">
-    <value>wygasł – dni temu: {0}</value>
+    <value>dni od wygaśnięcia: {0}</value>
   </data>
   <data name="Pki.NotYetValid" xml:space="preserve">
     <value>jeszcze nieważny</value>
@@ -22002,7 +22002,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>{0}: {1}</value>
   </data>
   <data name="PkiTpl.BroadNote" xml:space="preserve">
-    <value>Szeroka grupa: ma je praktycznie każde konto.</value>
+    <value>Szeroka grupa: należy do niej praktycznie każde konto.</value>
   </data>
   <data name="PkiTpl.Compare" xml:space="preserve">
     <value>Porównaj…</value>

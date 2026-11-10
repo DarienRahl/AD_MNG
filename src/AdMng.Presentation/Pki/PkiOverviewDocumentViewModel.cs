@@ -90,7 +90,7 @@ public sealed partial class PkiOverviewDocumentViewModel : PkiDocumentBase, IPki
     [ObservableProperty]
     public partial string ReadAtText { get; private set; } = string.Empty;
 
-    /// <summary>What the read observed (localized, one line per notice).</summary>
+    /// <summary>The notes of the read (localized, one line per notice).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasNotices))]
     public partial IReadOnlyList<string> Notices { get; private set; } = [];
