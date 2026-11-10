@@ -178,6 +178,17 @@ public sealed class ToolWindowTests
         await UiTestSupport.WaitForIdleAsync();
         Assert.Same(settings.IconStyle, window.IconStyleBox.SelectedItem);
 
+        // Background (V1): the theme's by default, solid as the other choice, with the note about the restart under the box.
+        Assert.Equal(WindowBackgroundPreference.Theme, settings.WindowBackground.Value);
+        Assert.Same(settings.WindowBackground, window.WindowBackgroundBox.SelectedItem);
+        Assert.Equal(2, window.WindowBackgroundBox.Items.Count);
+        Assert.True(window.WindowBackgroundBox.IsVisible);
+        Assert.Equal(context.Localizer()[AdMng.Presentation.Localization.L.Settings.WindowBackgroundHint], window.WindowBackgroundHint.Text);
+        window.WindowBackgroundBox.SelectedItem = settings.WindowBackgrounds.Single(b => b.Value == WindowBackgroundPreference.Solid);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(WindowBackgroundPreference.Solid, settings.WindowBackground.Value);
+        Assert.Equal(WindowBackgroundPreference.Theme, context.Services.GetRequiredService<ISettingsStore>().Current.WindowBackground);
+
         // Typing in the box updates the setting; out of range values disable Save.
         window.PageSizeBox.Text = "10";
         await UiTestSupport.WaitForIdleAsync();
@@ -203,6 +214,10 @@ public sealed class ToolWindowTests
         Assert.True(current.ShowAdvancedFeatures);
         Assert.Equal("pl", current.Language);
         Assert.Equal(IconStylePreference.Colour, current.IconStyle);
+
+        // The background choice is stored; the running process keeps its background (the theme reads the switch at start).
+        Assert.Equal(WindowBackgroundPreference.Solid, current.WindowBackground);
+        Assert.False(AppContext.TryGetSwitch(WindowBackdrop.DisableSwitchName, out var backdropDisabled) && backdropDisabled);
         Assert.Equal("pl-PL", context.Localizer().Culture.Name);
         context.AssertHealthy();
     });
