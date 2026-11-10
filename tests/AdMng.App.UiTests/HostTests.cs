@@ -170,6 +170,9 @@ public sealed class HostTests
         typeof(Presentation.Correspondence.ICorrespondenceKeyProtector),
         typeof(Presentation.Correspondence.ICorrespondencePlatform),
         typeof(Core.EventLogs.IEventLogConnector),
+
+        // AD CS (P1, W7): the DC LDAPS handshake probe (stateless; the UI tests replace it with the in-memory fake).
+        typeof(Core.Pki.Tls.IDomainControllerTlsProbe),
     ];
 
     /// <summary>
