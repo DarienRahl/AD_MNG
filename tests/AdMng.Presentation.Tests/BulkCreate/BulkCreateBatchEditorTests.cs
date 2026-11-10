@@ -15,6 +15,16 @@ namespace AdMng.Presentation.Tests.BulkCreate;
 /// </summary>
 public class BulkCreateBatchEditorTests
 {
+    /// <summary>Another HR sheet of five people – row numbers 1–5 again, other names.</summary>
+    private static readonly string[][] SecondSheet =
+    [
+        ["+48 600 100 206", "Anna", "Kowalczyk", "Kadry", "anna.kowalczyk@firma.pl"],
+        ["+48 600 100 207", "Paweł", "Wiśniewski", "IT", "pawel.wisniewski@firma.pl"],
+        ["+48 600 100 208", "Katarzyna", "Zielińska", "Sprzedaż", "katarzyna.zielinska@firma.pl"],
+        ["+48 600 100 209", "Tomasz", "Szymański", "Logistyka", "tomasz.szymanski@firma.pl"],
+        ["+48 600 100 210", "Agnieszka", "Woźniak", "Księgowość", "agnieszka.wozniak@firma.pl"],
+    ];
+
     [Fact]
     public async Task Preview_BuildsThePlanOfTheCheckedValues_AndTheChangeTitleCountsThem()
     {
@@ -512,6 +522,124 @@ public class BulkCreateBatchEditorTests
         Assert.True(wizard.Editor.HasUnsavedGeneratedPasswords);
         await wizard.BackToCheckAsync();
         Assert.False(wizard.Editor.PreviewCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Undo_ThenARerun_ThenARetry_ListsEveryAccountOnce()
+    {
+        using var wizard = await B4Wizard.CreateAsync();
+        var editor = wizard.Editor;
+        wizard.Use(wizard.OperatorInput());
+        await wizard.EnterCheckAsync();
+        await wizard.PreviewAndExecuteAsync();
+        await B2Harness.WaitUntilAsync(() => wizard.Bulk.CreatedObjects.Count == 5 && wizard.Bulk.CreatedObjects.All(o => o.ObjectGuid is not null));
+        editor.UndoCommand.Execute(null);
+        await B2Harness.WaitUntilAsync(() => editor.IsPreviewStep && editor.UndoNote is not null);
+        wizard.Harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        await editor.ExecuteCommand.ExecuteAsync(null);
+        Assert.Empty(wizard.Bulk.CreatedRows);
+
+        // The same rows created again (one of them partially): the undone accounts and the new ones share their row numbers.
+        await wizard.BackToCheckAsync();
+        await wizard.Check.RecheckCommand.ExecuteAsync(null);
+        await editor.PreviewCommand.ExecuteAsync(null);
+        Assert.True(editor.IsPreviewStep, editor.Error);
+        wizard.Harness.Session.FailNext(FakeOperationKind.Modify, wizard.Check.Computation!.Rows[2].DistinguishedName!, Core.Directory.DirectoryErrorKind.AccessDenied);
+        wizard.Harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        await editor.ExecuteCommand.ExecuteAsync(null);
+        Assert.True(editor.IsResultsStep, editor.Error);
+        Assert.Equal(5, editor.CreatedAccounts.Count(a => !a.IsUndone && a.HasPassword));
+
+        // A third execution of the window (the retry) merges into that list again – each row's live account once.
+        await editor.RetryFailedCommand.ExecuteAsync(null);
+        Assert.True(editor.IsPreviewStep, editor.Error);
+        wizard.Harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        await editor.ExecuteCommand.ExecuteAsync(null);
+
+        Assert.True(editor.IsResultsStep, editor.Error);
+        Assert.Equal(5, editor.Result!.SucceededCount);
+        Assert.Equal([1, 2, 3, 4, 5], editor.CreatedAccounts.Where(a => !a.IsUndone).Select(a => a.Row));
+        Assert.Equal(5, editor.CreatedAccounts.Count(a => a.IsUndone));
+    }
+
+    [Fact]
+    public async Task ANewTable_AfterTheFirstWasCreated_IsCheckedAndCreatedOnItsOwn_AndTheUndoCoversBoth()
+    {
+        using var wizard = await B4Wizard.CreateAsync();
+        var editor = wizard.Editor;
+        wizard.Use(wizard.OperatorInput());
+        await wizard.EnterCheckAsync();
+        await wizard.PreviewAndExecuteAsync();
+        var first = editor.CreatedAccounts.ToDictionary(a => a.Login!, a => a.Password);
+        Assert.Equal(["kd208", "kd209", "kd210", "kd211", "kd212"], first.Keys);
+
+        // Wstecz → Wklej i zastąp: the next sheet uses the row numbers 1–5 again.
+        editor.BackToEditCommand.Execute(null);
+        wizard.Check.OnInputReset();
+        wizard.Use(wizard.OperatorInput() with { Table = B4Wizard.TableWithHeaders(B4Wizard.OperatorHeaders, SecondSheet) });
+        await wizard.Check.OnEnteredAsync();
+
+        var check = wizard.Check;
+        Assert.Null(check.Error);
+        Assert.Empty(wizard.Bulk.CreatedRows);
+        Assert.All(check.Rows, r => Assert.NotEqual(BulkRowStatus.Created, r.Status));
+        Assert.Equal(["kd213", "kd214", "kd215", "kd216", "kd217"], check.Rows.Select(r => r.Cell(Attr.SamAccountName)!.Value));
+
+        await wizard.PreviewAndExecuteAsync();
+        Assert.Equal(10, editor.Result!.SucceededCount);
+        Assert.Equal(10, editor.CreatedAccounts.Count);
+        Assert.Equal(10, editor.CreatedAccounts.Select(a => a.Login).Distinct().Count());
+        Assert.All(first, p => Assert.Equal(p.Value, Assert.Single(editor.CreatedAccounts, a => a.Login == p.Key).Password));
+        Assert.Equal(5, wizard.Bulk.CreatedRows.Count);
+        Assert.All(check.Rows, r => Assert.Equal(BulkRowStatus.Created, r.Status));
+
+        // The undo deletes both tables' accounts.
+        await B2Harness.WaitUntilAsync(() => wizard.Bulk.CreatedObjects.Count == 10 && wizard.Bulk.CreatedObjects.All(o => o.ObjectGuid is not null));
+        var dns = wizard.Bulk.CreatedObjects.Select(o => o.DistinguishedName).ToList();
+        editor.UndoCommand.Execute(null);
+        await B2Harness.WaitUntilAsync(() => editor.IsPreviewStep && editor.UndoNote is not null);
+        Assert.Equal(wizard.Harness.Localizer.Format(L.BulkCreateCheck.UndoNote, 10), editor.UndoNote);
+        wizard.Harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        await editor.ExecuteCommand.ExecuteAsync(null);
+
+        Assert.True(editor.IsResultsStep, editor.Error);
+        Assert.All(dns, dn => Assert.Empty(wizard.Harness.Session.GetValues(dn, Attr.ObjectClass)));
+        Assert.All(editor.CreatedAccounts, a => Assert.True(a.IsUndone));
+        Assert.Equal(0, wizard.Bulk.CreatedCount);
+    }
+
+    [Fact]
+    public async Task Undo_AfterTheGuidReadFailed_ReadsThemAgain_AndDeletesEveryCreatedObject()
+    {
+        using var wizard = await B4Wizard.CreateAsync();
+        var editor = wizard.Editor;
+        wizard.Use(wizard.OperatorInput());
+        await wizard.EnterCheckAsync();
+
+        // The read of objectGUID and whenCreated right after the execution fails as a whole (the DC was briefly unreachable).
+        var failed = 0;
+        wizard.Harness.Session.BeforeOperation = operation =>
+        {
+            if (operation is { Kind: FakeOperationKind.Search, Search: { Scope: Core.Directory.SearchScope.OneLevel } search }
+                && search.Attributes.Contains(Attr.WhenCreated, StringComparer.OrdinalIgnoreCase)
+                && Interlocked.Exchange(ref failed, 1) == 0)
+            {
+                throw new Core.Directory.DirectoryException(Core.Directory.DirectoryErrorKind.Timeout, "The domain controller did not answer.");
+            }
+        };
+        await wizard.PreviewAndExecuteAsync();
+        Assert.Equal(5, wizard.Bulk.CreatedRows.Count);
+        var created = wizard.Bulk.CreatedRows.Values.ToList();
+
+        editor.UndoCommand.Execute(null);
+        await B2Harness.WaitUntilAsync(() => editor.IsPreviewStep && editor.UndoNote is not null);
+
+        Assert.Equal(1, failed);
+        Assert.Equal(5, editor.PreviewObjects.Count);
+        Assert.Equal(wizard.Harness.Localizer.Format(L.BulkCreateCheck.UndoNote, 5), editor.UndoNote);
+        wizard.Harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        await editor.ExecuteCommand.ExecuteAsync(null);
+        Assert.All(created, dn => Assert.Empty(wizard.Harness.Session.GetValues(dn, Attr.ObjectClass)));
     }
 
     private static string? Value(ObjectPlan plan, string attribute) =>

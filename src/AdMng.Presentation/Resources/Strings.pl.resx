@@ -21873,7 +21873,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Kliknij dwukrotnie komórkę, aby ją poprawić (Enter zapisuje); odznacz wiersz, aby go pominąć.</value>
   </data>
   <data name="BulkCheck.RunIssuesHeading" xml:space="preserve">
-    <value>Problemy całego zakładania</value>
+    <value>Problemy dotyczące wszystkich wierszy</value>
   </data>
   <data name="BulkCheck.CellSource" xml:space="preserve">
     <value>Źródło: {0}</value>
@@ -21924,7 +21924,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>„{1}” – obiekty do utworzenia w domenie {3}: {0}. Wpisz {2}, aby potwierdzić.</value>
   </data>
   <data name="BulkCheck.ReenterPassword" xml:space="preserve">
-    <value>Wpisz hasło ponownie w kroku Nazwy i opcje (oba pola) – pola są czyszczone po każdym planie.</value>
+    <value>Wpisz hasło ponownie w kroku Nazwy i opcje (oba pola) – pola są czyszczone po przygotowaniu każdego planu.</value>
   </data>
   <data name="BulkCheck.UndoTitle" xml:space="preserve">
     <value>Cofnięcie: {0}</value>
@@ -21948,7 +21948,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>nie</value>
   </data>
   <data name="BulkCheck.PdcUnknown" xml:space="preserve">
-    <value>nieznany</value>
+    <value>nie wiadomo</value>
   </data>
   <data name="BulkCheck.DisabledWithoutPassword" xml:space="preserve">
     <value>Konto bez hasła pozostaje wyłączone.</value>
@@ -22020,7 +22020,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Nowe hasło dla kont bez hasła</value>
   </data>
   <data name="BulkCheck.RetryPasswordHint" xml:space="preserve">
-    <value>Domena odrzuciła wspólne hasło. Wpisz nowe hasło dwa razy i użyj Ponów nieudane – hasła generowane zostaną wygenerowane ponownie.</value>
+    <value>Domena odrzuciła wspólne hasło. Wpisz nowe hasło dwa razy i użyj Ponów nieudane – otrzymają je wszystkie konta, które jeszcze nie mają hasła.</value>
   </data>
   <data name="BulkCheck.RetryPassword" xml:space="preserve">
     <value>Nowe hasło</value>

@@ -24,8 +24,8 @@ public sealed partial class CreatedAccountViewModel : ObservableObject
         Password = password;
     }
 
-    /// <summary>The wizard's row number.</summary>
-    public int Row { get; }
+    /// <summary>The wizard's row number (negative for a row of an earlier table of the window, docs/dev/phase3-bulk-create.md 2.15).</summary>
+    public int Row { get; internal set; }
 
     /// <summary>The row of the Excel sheet (<em>Nr</em>).</summary>
     [ObservableProperty]

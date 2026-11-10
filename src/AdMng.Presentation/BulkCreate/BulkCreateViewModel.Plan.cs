@@ -37,9 +37,15 @@ public sealed partial class BulkCreateViewModel
     private readonly Dictionary<int, string> _createdRows = [];
     private readonly HashSet<string> _released = new(StringComparer.OrdinalIgnoreCase);
 
+    private static readonly IReadOnlyDictionary<int, string> NoRows = new Dictionary<int, string>();
+
     // Snapshots handed to the computations (they run on the thread pool while the UI thread may mark rows created).
     private IReadOnlyDictionary<int, string> _createdSnapshot = new Dictionary<int, string>();
     private IReadOnlyCollection<string> _releasedSnapshot = [];
+
+    // The table (Check.ResetGeneration) whose row numbers key the state below, and the next key of a row of an earlier table.
+    private int _generation;
+    private int _nextArchivedRow = -1;
 
     // The computation of the last create plan: the basis of the retry plan (2.5) and of the run notes.
     private BulkCreateComputation? _planned;
@@ -66,8 +72,14 @@ public sealed partial class BulkCreateViewModel
     /// <summary>The created accounts (computers never; the batch editor shows them as <c>CreatedAccounts</c>).</summary>
     internal IReadOnlyList<CreatedAccountViewModel> Accounts => _accounts;
 
-    /// <summary>Rows created by an earlier execution: row number → final DN (<see cref="BulkCreateInput.CreatedRows"/>).</summary>
-    internal IReadOnlyDictionary<int, string> CreatedRows => _createdSnapshot;
+    /// <summary>
+    /// Rows of the current table created by an earlier execution: row number → final DN (<see cref="BulkCreateInput.CreatedRows"/>).
+    /// Empty after the table was replaced or the kind changed: the new table's row numbers name other rows.
+    /// </summary>
+    internal IReadOnlyDictionary<int, string> CreatedRows => _generation == Check.ResetGeneration ? _createdSnapshot : NoRows;
+
+    /// <summary>The objects this window created and its undo has not deleted, over every table of the window (the undo's scope).</summary>
+    internal int CreatedCount => _createdRows.Count;
 
     /// <summary>Identifiers this window created and its own undo deleted (<see cref="BulkCreateInput.ReleasedValues"/>).</summary>
     internal IReadOnlyCollection<string> ReleasedValues => _releasedSnapshot;
@@ -165,6 +177,7 @@ public sealed partial class BulkCreateViewModel
         }
 
         var session = RequireSession();
+        SyncGeneration();
 
         // (1) A pending edit is computed first, then everything once more with the check's values frozen (2.4): nothing is
         // renumbered or disambiguated, a value taken since the check becomes an error of its row.
@@ -241,6 +254,7 @@ public sealed partial class BulkCreateViewModel
     public async Task<ChangePlan> PlanRetryAsync(CancellationToken cancellationToken)
     {
         LastPlanError = null;
+        SyncGeneration();
         if (_planned is not { } computation || Accumulated is not { } accumulated)
         {
             throw PlanError(Services.Localizer[L.Batch.NothingToUndo]);
@@ -289,15 +303,18 @@ public sealed partial class BulkCreateViewModel
         LastPlanError = null;
         await _readingCreated.ConfigureAwait(true);
         var session = RequireSession();
+        SyncGeneration();
         if (_createdRows.Count == 0)
         {
             return null;
         }
 
-        // Rows whose GUIDs could not be read right after their execution are read now (their undo is refused without one).
-        if (Accumulated is { } accumulated && CreatedObjects.Any(o => o.ObjectGuid is null))
+        // Created objects whose GUID is not known – not found right after their execution, or a read that failed as a whole
+        // and left no record at all – are read now: the undo must cover every object this window created.
+        var known = CreatedObjects.Where(o => o.ObjectGuid is not null).Select(o => o.Row).ToHashSet();
+        var missing = _createdRows.Keys.Where(row => !known.Contains(row)).ToHashSet();
+        if (Accumulated is { } accumulated && missing.Count > 0)
         {
-            var missing = CreatedObjects.Where(o => o.ObjectGuid is null).Select(o => o.Row).ToHashSet();
             var subset = accumulated with { Objects = [.. accumulated.Objects.Where(o => o.Plan.SourceRow is { } row && missing.Contains(row))] };
             await ReadCreatedAsync(session, subset, cancellationToken).ConfigureAwait(true);
         }
@@ -380,6 +397,7 @@ public sealed partial class BulkCreateViewModel
             return;
         }
 
+        SyncGeneration();
         Accumulated = BulkCreateResults.Merge(Accumulated, result);
         var created = new List<int>();
         foreach (var obj in result.Objects)
@@ -391,7 +409,7 @@ public sealed partial class BulkCreateViewModel
             }
         }
 
-        _createdSnapshot = new Dictionary<int, string>(_createdRows);
+        PublishCreated();
         Check.MarkCreated(created);
         Check.RecomputeSoon();
         UpdateAccounts();
@@ -414,6 +432,7 @@ public sealed partial class BulkCreateViewModel
             return;
         }
 
+        SyncGeneration();
         var deleted = new HashSet<int>();
         foreach (var obj in result.Objects)
         {
@@ -423,7 +442,8 @@ public sealed partial class BulkCreateViewModel
             }
         }
 
-        foreach (var account in _accounts.Where(a => deleted.Contains(a.Row)))
+        // An account of the same row deleted by an earlier undo stays as it is.
+        foreach (var account in _accounts.Where(a => !a.IsUndone && deleted.Contains(a.Row)))
         {
             foreach (var value in new[] { account.Login, account.Upn, account.Mail, account.Name })
             {
@@ -445,7 +465,7 @@ public sealed partial class BulkCreateViewModel
             _createdRows.Remove(row);
         }
 
-        _createdSnapshot = new Dictionary<int, string>(_createdRows);
+        PublishCreated();
         _releasedSnapshot = [.. _released];
 
         CreatedObjects = [.. CreatedObjects.Where(o => !deleted.Contains(o.Row))];
@@ -524,6 +544,59 @@ public sealed partial class BulkCreateViewModel
     private IDirectorySession RequireSession() =>
         Session ?? throw PlanError(Services.Localizer[L.Errors.NotConnected]);
 
+    /// <summary>The created rows of the current table handed to the computations (positive keys; rows of earlier tables are negative).</summary>
+    private void PublishCreated() =>
+        _createdSnapshot = _createdRows.Where(p => p.Key > 0).ToDictionary(p => p.Key, p => p.Value);
+
+    /// <summary>
+    /// The table was replaced or the kind changed since this window created objects (<see cref="BulkCheckViewModel.ResetGeneration"/>):
+    /// the new table's row numbers name other rows, so the rows of the earlier table move to negative keys. Their results,
+    /// passwords and undo stay; no row of the new table is taken for created, and no result of it replaces one of theirs.
+    /// </summary>
+    private void SyncGeneration()
+    {
+        if (_generation == Check.ResetGeneration)
+        {
+            return;
+        }
+
+        _generation = Check.ResetGeneration;
+        var rows = new SortedSet<int>(_createdRows.Keys
+            .Concat(CreatedObjects.Select(o => o.Row))
+            .Concat(_accounts.Select(a => a.Row))
+            .Concat(Accumulated?.Objects.Select(o => o.Plan.SourceRow).OfType<int>() ?? [])
+            .Where(r => r > 0));
+        if (rows.Count == 0)
+        {
+            return;
+        }
+
+        var keys = rows.ToDictionary(r => r, _ => _nextArchivedRow--);
+        int Key(int row) => keys.TryGetValue(row, out var key) ? key : row;
+
+        var created = _createdRows.ToList();
+        _createdRows.Clear();
+        foreach (var (row, dn) in created)
+        {
+            _createdRows[Key(row)] = dn;
+        }
+
+        PublishCreated();
+        CreatedObjects = [.. CreatedObjects.Select(o => o with { Row = Key(o.Row) })];
+        foreach (var account in _accounts)
+        {
+            account.Row = Key(account.Row);
+        }
+
+        if (Accumulated is { } accumulated)
+        {
+            var objects = accumulated.Objects
+                .Select(o => o.Plan.SourceRow is { } row ? o with { Plan = o.Plan with { SourceRow = Key(row) } } : o)
+                .ToList();
+            Accumulated = accumulated with { Objects = objects, Plan = accumulated.Plan with { Objects = [.. objects.Select(o => o.Plan)] } };
+        }
+    }
+
     /// <summary>The objects a computation would create: OK and warning rows.</summary>
     private static int PlannedCount(BulkCreateComputation? computation) =>
         computation is null ? 0 : computation.Count(BulkRowStatus.Ok) + computation.Count(BulkRowStatus.Warning);
@@ -532,19 +605,16 @@ public sealed partial class BulkCreateViewModel
     private string TitleFor(int count)
     {
         var localizer = Services.Localizer;
-        string place;
-        if (ContainerDn is { } dn && DistinguishedName.TryParse(dn, out var parsed) && !parsed.IsRoot)
+        if (ContainerDn is not { } dn || !DistinguishedName.TryParse(dn, out var parsed) || parsed.IsRoot)
         {
-            var type = parsed.Rdns[0].Type;
-            place = string.Equals(type, "OU", StringComparison.OrdinalIgnoreCase) ? localizer.Format(L.BulkCreateCheck.InUnit, parsed.Name)
-                : string.Equals(type, "DC", StringComparison.OrdinalIgnoreCase) ? localizer.Format(L.BulkCreateCheck.InDomain, Session?.Info.DomainDnsName ?? parsed.Name)
-                : localizer.Format(L.BulkCreateCheck.InContainer, parsed.Name);
-        }
-        else
-        {
-            place = localizer[L.BulkCreate.NoContainer];
+            // No container yet (nothing can be planned): the wizard's own title rather than "… w Nie wybrano kontenera".
+            return localizer[BulkCreateTextKeys.TitleKey(ObjectKind)];
         }
 
+        var type = parsed.Rdns[0].Type;
+        var place = string.Equals(type, "OU", StringComparison.OrdinalIgnoreCase) ? localizer.Format(L.BulkCreateCheck.InUnit, parsed.Name)
+            : string.Equals(type, "DC", StringComparison.OrdinalIgnoreCase) ? localizer.Format(L.BulkCreateCheck.InDomain, Session?.Info.DomainDnsName ?? parsed.Name)
+            : localizer.Format(L.BulkCreateCheck.InContainer, parsed.Name);
         return localizer.Format(L.BulkCreateCheck.ChangeTitleKey(ObjectKind), count, place);
     }
 
@@ -603,18 +673,35 @@ public sealed partial class BulkCreateViewModel
             return;
         }
 
+        // The result's rows → their keys now, through the DN this window recorded: a table replaced since the execution moved
+        // its rows to other keys, and a row of the new table with the same number is another object.
+        var keyOf = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, dn) in _createdRows)
+        {
+            keyOf[dn] = key;
+        }
+
+        var current = new Dictionary<int, int>();
+        foreach (var obj in result.Objects)
+        {
+            if (obj.Plan.SourceRow is { } source && keyOf.TryGetValue(obj.FinalDn, out var key))
+            {
+                current[source] = key;
+            }
+        }
+
         var byRow = CreatedObjects.ToDictionary(o => o.Row);
         foreach (var created in read)
         {
-            if (_createdRows.ContainsKey(created.Row))
+            if (current.TryGetValue(created.Row, out var key))
             {
-                byRow[created.Row] = created;
+                byRow[key] = created with { Row = key };
             }
         }
 
         foreach (var obj in result.Objects)
         {
-            if (obj.Plan.SourceRow is { } row && byRow.TryGetValue(row, out var existing) && !existing.MustChangeSet
+            if (obj.Plan.SourceRow is { } source && current.TryGetValue(source, out var row) && byRow.TryGetValue(row, out var existing) && !existing.MustChangeSet
                 && obj.Changes.Any(c => c.Succeeded && c.Change.Action == ChangeAction.Modify
                     && c.Change.Attributes.Any(a => string.Equals(a.Attribute, Attr.PwdLastSet, StringComparison.OrdinalIgnoreCase) && a.NewValues is ["0"])))
             {
@@ -634,7 +721,14 @@ public sealed partial class BulkCreateViewModel
         }
 
         var localizer = Services.Localizer;
-        var byRow = _accounts.ToDictionary(a => a.Row);
+
+        // The live account of each row: a row undone and created again also has its undone account in the list.
+        var byRow = new Dictionary<int, CreatedAccountViewModel>();
+        foreach (var listed in _accounts.Where(a => !a.IsUndone))
+        {
+            byRow[listed.Row] = listed;
+        }
+
         var ordered = new List<CreatedAccountViewModel>();
         var generated = PasswordModeAtPlan == InitialPasswordMode.Generate;
         foreach (var obj in accumulated.Objects)
@@ -651,7 +745,7 @@ public sealed partial class BulkCreateViewModel
             }
 
             var password = obj.Changes.LastOrDefault(c => c.Succeeded && c.Change.Action == ChangeAction.ResetPassword)?.Change.Password;
-            if (!byRow.TryGetValue(row, out var account) || account.IsUndone)
+            if (!byRow.TryGetValue(row, out var account))
             {
                 account = new CreatedAccountViewModel(row, password) { IsGeneratedPassword = generated, CopyRequested = CopyPassword };
             }
@@ -662,7 +756,11 @@ public sealed partial class BulkCreateViewModel
             }
 
             var attributes = create.Change.Attributes;
-            account.ExcelRow = Check.ExcelRow(row);
+            if (row > 0)
+            {
+                // A row of an earlier table (negative key) keeps the Excel row of its own sheet.
+                account.ExcelRow = Check.ExcelRow(row);
+            }
             account.Name = obj.Plan.DisplayName;
             account.DistinguishedName = obj.FinalDn;
             account.Login = First(attributes, Attr.SamAccountName);
@@ -675,7 +773,7 @@ public sealed partial class BulkCreateViewModel
         }
 
         // Undone accounts stay listed (Usunięte (cofnięte)) after the live ones.
-        ordered.AddRange(_accounts.Where(a => a.IsUndone && !ordered.Contains(a)));
+        ordered.AddRange(_accounts.Where(a => a.IsUndone));
         _accounts.Clear();
         _accounts.AddRange(ordered);
         UpdateCopyColumns();

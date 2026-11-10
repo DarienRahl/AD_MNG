@@ -238,6 +238,36 @@ public class BulkCheckTests
     }
 
     [Fact]
+    public async Task AnExclusion_WhileAComputationRuns_IsNotUndoneByThatOlderComputation()
+    {
+        using var wizard = await B4Wizard.CreateAsync();
+        wizard.Use(wizard.OperatorInput());
+        await wizard.EnterCheckAsync();
+        var check = wizard.Check;
+        check.EditDelay = TimeSpan.FromHours(1);
+
+        // Sprawdź ponownie reads the directory; the operator unchecks a row meanwhile.
+        using var gate = new ManualResetEventSlim(false);
+        var held = 0;
+        wizard.Harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.Search && Interlocked.Exchange(ref held, 1) == 0)
+            {
+                gate.Wait(TimeSpan.FromSeconds(30));
+            }
+        };
+        var recheck = check.RecheckCommand.ExecuteAsync(null);
+        await B2Harness.WaitUntilAsync(() => Volatile.Read(ref held) == 1);
+        check.Rows[1].IsIncluded = false;
+        gate.Set();
+        await recheck;
+
+        Assert.False(check.Rows[1].IsIncluded);
+        Assert.Equal(BulkRowStatus.Excluded, check.Rows[1].Status);
+        Assert.Equal([2], check.ExcludedRows);
+    }
+
+    [Fact]
     public async Task Renumber_ForgetsThePins()
     {
         using var wizard = await B4Wizard.CreateAsync();

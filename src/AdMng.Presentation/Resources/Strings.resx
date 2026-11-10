@@ -21873,7 +21873,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Double-click a cell to correct it (Enter saves), clear the check box of a row to leave it out.</value>
   </data>
   <data name="BulkCheck.RunIssuesHeading" xml:space="preserve">
-    <value>Problems of the whole run</value>
+    <value>Problems that concern every row</value>
   </data>
   <data name="BulkCheck.CellSource" xml:space="preserve">
     <value>Source: {0}</value>
@@ -21909,13 +21909,13 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Create computers ({0}) in {1}</value>
   </data>
   <data name="BulkCheck.InUnit" xml:space="preserve">
-    <value>organizational unit “{0}”</value>
+    <value>the organizational unit “{0}”</value>
   </data>
   <data name="BulkCheck.InContainer" xml:space="preserve">
-    <value>container “{0}”</value>
+    <value>the container “{0}”</value>
   </data>
   <data name="BulkCheck.InDomain" xml:space="preserve">
-    <value>domain {0}</value>
+    <value>the domain {0}</value>
   </data>
   <data name="BulkCheck.ConfirmCreate" xml:space="preserve">
     <value>“{1}” – objects to create in the domain {3}: {0}. The initial passwords will be available in this window only. Type {2} to confirm.</value>
@@ -21924,7 +21924,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>“{1}” – objects to create in the domain {3}: {0}. Type {2} to confirm.</value>
   </data>
   <data name="BulkCheck.ReenterPassword" xml:space="preserve">
-    <value>Type the common password again in Names and options (both boxes) – the boxes are cleared after every plan.</value>
+    <value>Type the common password again in Names and options (both boxes) – the boxes are cleared each time a plan is built.</value>
   </data>
   <data name="BulkCheck.UndoTitle" xml:space="preserve">
     <value>Undo: {0}</value>
@@ -22020,7 +22020,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>New password for the accounts without a password</value>
   </data>
   <data name="BulkCheck.RetryPasswordHint" xml:space="preserve">
-    <value>The domain refused the common password. Type a new one twice, then use Retry failed – generated passwords are generated again.</value>
+    <value>The domain refused the common password. Type a new one twice, then use Retry failed – every account that has no password yet gets it.</value>
   </data>
   <data name="BulkCheck.RetryPassword" xml:space="preserve">
     <value>New password</value>

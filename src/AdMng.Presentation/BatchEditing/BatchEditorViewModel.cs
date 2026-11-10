@@ -706,7 +706,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         {
             // Everything this window created, over all executions, each object checked by its objectGUID (2.5).
             var bulk = BulkCreate!;
-            if (bulk.CreatedRows.Count == 0)
+            if (bulk.CreatedCount == 0)
             {
                 Services.Notifications.Show(NotificationSeverity.Info, Localizer[L.Batch.NothingToUndo]);
                 return;
@@ -719,7 +719,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             {
                 await RunPlanningAsync(
                     async (_, token) => await bulk.PlanUndoAsync(token).ConfigureAwait(true) ?? throw new InvalidOperationException(Localizer[L.Batch.NothingToUndo]),
-                    bulk.CreatedRows.Count,
+                    bulk.CreatedCount,
                     PlanSource.Rollback,
                     CancellationToken.None).ConfigureAwait(true);
                 if (bulk.LastPlanError is { } planError)
@@ -981,17 +981,11 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     {
         var session = Session;
         var builder = new PreviewBuilder(Localizer, Errors, Services.Sessions.Formatter, session?.Schema ?? Core.Schema.SchemaCatalog.Empty, Services.Time);
-        Result = result;
-        _resultHasGeneratedPasswords = GeneratesPasswords;
-        _passwordsExported = false;
-        _resultRows.Clear();
-        _resultRows.AddRange(result.Objects.Select(builder.BuildResult));
-        ResultFilter = result.FailedCount > 0 ? ResultFilter.Failed : ResultFilter.All;
-        ApplyResultFilter();
-        ResultSummary = Localizer.Format(L.Batch.ResultSummary, result.SucceededCount, result.FailedCount, result.SkippedCount);
+        var shown = result;
         if (IsCreateMode)
         {
-            // Create mode (2.7): the results are those of every execution of the window; the undo clears the created marks.
+            // Create mode (2.7): the results are those of every execution of the window (built once – 5 000 objects are a lot
+            // of rows); the undo clears the created marks and shows its own result.
             var bulk = BulkCreate!;
             if (_planSource == PlanSource.Rollback)
             {
@@ -1000,20 +994,20 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             else
             {
                 bulk.OnExecuted(result);
-                if (bulk.Accumulated is { } accumulated)
-                {
-                    Result = accumulated;
-                    _resultRows.Clear();
-                    _resultRows.AddRange(accumulated.Objects.Select(builder.BuildResult));
-                    ResultFilter = accumulated.FailedCount > 0 ? ResultFilter.Failed : ResultFilter.All;
-                    ApplyResultFilter();
-                    ResultSummary = Localizer.Format(L.Batch.ResultSummary, accumulated.SucceededCount, accumulated.FailedCount, accumulated.SkippedCount);
-                }
+                shown = bulk.Accumulated ?? result;
             }
 
             CreatedAccounts.ReplaceAll(bulk.Accounts);
         }
 
+        Result = shown;
+        _resultHasGeneratedPasswords = GeneratesPasswords;
+        _passwordsExported = false;
+        _resultRows.Clear();
+        _resultRows.AddRange(shown.Objects.Select(builder.BuildResult));
+        ResultFilter = shown.FailedCount > 0 ? ResultFilter.Failed : ResultFilter.All;
+        ApplyResultFilter();
+        ResultSummary = Localizer.Format(L.Batch.ResultSummary, shown.SucceededCount, shown.FailedCount, shown.SkippedCount);
         Step = BatchEditorStep.Results;
         var severity = result.FailedCount > 0 ? NotificationSeverity.Warning : result.WasCancelled ? NotificationSeverity.Warning : NotificationSeverity.Success;
         Services.Notifications.Show(severity, Localizer.Format(L.Batch.ExecutedNotification, ChangeTitle, ResultSummary));

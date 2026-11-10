@@ -1861,10 +1861,30 @@ does not need them), so `BulkCreateRecordSamples.Value` is unchanged. Deviations
   The GC wait is `GlobalCatalogWait` (20 s on the window's `TimeProvider`); a failed connect checks in the domain only.
 * **Snapshots.** `CreatedRows` and `ReleasedValues` (read by the host's `BuildInput`) are immutable snapshots replaced on
   every change, so a computation on the thread pool never sees the UI thread mark a row.
-* **Tests.** Presentation: `BulkCheckTests` (22, incl. the GC-session tests with `GlobalCatalogSessionDouble` over
-  `FakeGlobalCatalogReader`, and every F3 issue code in Polish), `BulkCreateBatchEditorTests` (17), `BulkCreateEntryPointTests`
+* **Tests.** Presentation: `BulkCheckTests` (23, incl. the GC-session tests with `GlobalCatalogSessionDouble` over
+  `FakeGlobalCatalogReader`, and every F3 issue code in Polish), `BulkCreateBatchEditorTests` (20), `BulkCreateEntryPointTests`
   (5), `BulkCreateEndToEndTests` (2 + `OperatorScenario` `[Fact(Skip = "F3 wave 2 merge")]`, written against B3's public
   members: `Source.PasteCommand`, `Columns.Mappings`, `Rules.Profiles` / `Profile` / `UpnSuffix` / `AddGroupsCommand` /
   `SetDefaultForContainerCommand` / `FirstFreeText`). UI (Windows CI): `BulkCreateWindowTests` (6 + the end-to-end paste test
   skipped until the merge), `ScreenshotTestsBulkCreateCheck` (screenshot 43). The smoke test renders step 1, the check step and
   the preview of `BulkCreateSamples`; loading `BulkCreateSamples.Tsv` through `Source` waits for B3's loading API.
+* **Review (B4).** A table replaced (header choice, *Wklej i zastąp*, a new file) or a kind changed after this window
+  created objects: the row numbers of the new table name other rows, so `BulkCheckViewModel.ResetGeneration` is now read –
+  the first plan, execution, retry or undo after a reset moves the earlier table's rows to negative keys (`_createdRows`,
+  `CreatedObjects`, `CreatedAccountViewModel.Row`, the `SourceRow`s of `Accumulated`), and `CreatedRows` is empty for the
+  new table. Before, rows 1–5 of the second sheet were shown and planned as *Utworzone* (never created), and a second
+  execution's results replaced the first table's accounts and passwords in the merge (keyed by row). The results list shows
+  such a row with `#-n`; its Excel row and the sheet columns of *Kopiuj tabelę…* are those of its own (gone) sheet – the Excel
+  row is kept, the extra cells are empty. `OnInputReset` also refreshes the lookups, so the new table is numbered after the
+  accounts just created (kd213 …, not kd208 again). The undo's `bulk.CreatedRows.Count` check became `CreatedCount` (every
+  table of the window). The GUID read after an execution is matched to its rows through the recorded DNs, and the undo
+  reads again every created row without a GUID – including rows whose read failed as a whole (before, those were left out of
+  the undo silently: an undo after a failed read said *Nie ma nic do cofnięcia*). After an undo and a re-run of the same rows
+  a third execution threw (`_accounts.ToDictionary` over the undone and the new account of a row); only live accounts are
+  matched now. An edit or an exclusion cancels a computation still running (a *Sprawdź ponownie*, the first computation),
+  so its older rows no longer re-check an unchecked row or revert an edited cell until the debounced recompute. The change
+  title without a container is the wizard's title (not *… w Nie wybrano kontenera*); `ShowResults` builds the result rows of
+  a create execution once (the accumulated ones). The results UI test uses a recording clipboard (a password never goes to
+  the CI desktop's clipboard, and a busy clipboard no longer fails it). Texts: *Problemy dotyczące wszystkich wierszy*,
+  *emulator PDC: nie wiadomo*, the retry hint (*otrzymają je wszystkie konta, które jeszcze nie mają hasła* – a refused shared
+  password has no generated ones), *po przygotowaniu każdego planu*; English titles *in the organizational unit “…”*.

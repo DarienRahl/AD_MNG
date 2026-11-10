@@ -415,6 +415,9 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
         _recompute.Cancel();
         _computing.Cancel();
         ResetGeneration++;
+
+        // The cache may predate accounts this window created: the rows of the new table are checked against them.
+        Lookups.Refresh();
         _edits.Clear();
         _excluded.Clear();
         PublishEdits();
@@ -664,6 +667,8 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
             return;
         }
 
+        // A computation still running was started before this edit or exclusion: its rows must not be shown over them.
+        _computing.Cancel();
         HasPendingRecompute = true;
         Changed?.Invoke(this, EventArgs.Empty);
         _recompute.RunAsync(RunComputeAsync).Forget();

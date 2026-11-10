@@ -127,8 +127,14 @@ public sealed class BulkCreateWindowTests
     [Fact]
     public Task Results_ListTheCreatedAccounts_WithMaskedPasswords_AndCopyThemOneByOne() => WpfTestHost.RunAsync(async () =>
     {
+        // The window's clipboard is a recording one: the CI desktop's clipboard may be busy, and a password never goes there.
         var dialogs = new ScriptedDialogService { ConfirmAnswer = true };
-        await using var context = await UiTestContext.CreateAsync("pl", services => services.Replace(ServiceDescriptor.Singleton<IDialogService>(dialogs)));
+        var clipboard = new RecordingClipboard();
+        await using var context = await UiTestContext.CreateAsync("pl", services =>
+        {
+            services.Replace(ServiceDescriptor.Singleton<IDialogService>(dialogs));
+            services.Replace(ServiceDescriptor.Singleton<IClipboardService>(clipboard));
+        });
         var sample = context.Directory.AddBulkCreateSample(context.Company);
         await context.ConnectAsync();
         var (window, editor) = await OpenAsync(context, sample.NewEmployeesOu);
@@ -154,6 +160,8 @@ public sealed class BulkCreateWindowTests
 
         first.CopyPasswordCommand.Execute(null);
         Assert.True(first.WasHandedOut);
+        Assert.Equal(1, clipboard.Secrets);
+        Assert.Equal(0, clipboard.Texts);
         first.IsPasswordVisible = true;
         await UiTestSupport.WaitForIdleAsync();
         Assert.Contains(BatchEditorWindowTests.Descendants<TextBlock>(results.CreatedAccountsList), t => t.Name == "PasswordText" && t.Text != CreatedAccountViewModel.Mask);
@@ -225,6 +233,26 @@ public sealed class BulkCreateWindowTests
             {
                 yield return child;
             }
+        }
+    }
+
+    /// <summary>Counts the copies (the protected path for passwords) and keeps nothing.</summary>
+    private sealed class RecordingClipboard : IClipboardService
+    {
+        public int Texts { get; private set; }
+
+        public int Secrets { get; private set; }
+
+        public bool SetText(string text)
+        {
+            Texts++;
+            return true;
+        }
+
+        public bool SetSecret(string secret)
+        {
+            Secrets++;
+            return true;
         }
     }
 }
