@@ -349,6 +349,7 @@ completion criteria. The order follows what was agreed with the team:
 - **bulk editing** is key, so the change engine is built already in Phase 1 and the full UI in Phase 2.
 
 Technical details and rationale: [ARCHITECTURE.md](docs/en/ARCHITECTURE.md), [RESEARCH.md](docs/en/RESEARCH.md).
+What the project is for, its goals and the proposed goals of the next releases: [GOALS.md](docs/en/GOALS.md).
 
 Status legend: ✅ done · 🟡 first version ready, needs refinement/verification on Windows AD · ⬜ planned
 
@@ -364,7 +365,7 @@ flowchart TB
     end
     subgraph C["Parallel tracks"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>AD change monitor"] ~~~ U["🟡 U · Account review, privileges,<br/>e-mail messages and correspondence<br/>via Outlook<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Team collaboration<br/>shared pins<br/>and object notes"] ~~~ K["🟡 K · Computers<br/>and Group Policy (GPO)<br/>(K1–K7: 🟡)"] ~~~ EVT["🟡 E · Event logs<br/>reader and analysis<br/>(E1, part of E2: 🟡)"] ~~~ PKI["🟡 P · Certification authority<br/>(AD CS) and certificates<br/>(P1: 🟡)"] ~~~ NET["⬜ N · DNS and DHCP<br/>zones, records, scopes"] ~~~ PWSH["⬜ R · PowerShell window<br/>queries and scripts,<br/>writes through the change plan"]
+        W["🟡 W · AdMng Watchdog<br/>AD change monitor"] ~~~ U["🟡 U · Account review, privileges,<br/>e-mail messages and correspondence<br/>via Outlook<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Team collaboration<br/>shared pins<br/>and object notes"] ~~~ K["🟡 K · Computers<br/>and Group Policy (GPO)<br/>(K1–K7: 🟡)"] ~~~ EVT["🟡 E · Event logs<br/>reader and analysis<br/>(E1, part of E2: 🟡)"] ~~~ PKI["🟡 P · Certification authority<br/>(AD CS) and certificates<br/>(P1: 🟡)"] ~~~ NET["⬜ N · DNS and DHCP<br/>zones, records, scopes"] ~~~ PWSH["⬜ R · PowerShell window<br/>queries and scripts,<br/>writes through the change plan"] ~~~ UIX["⬜ V · Interface renewal<br/>look, motion, icons"]
     end
     A --> B
     B ~~~ C
@@ -373,7 +374,7 @@ flowchart TB
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
     class F1,F2,W,U,K,EVT,PKI wip
-    class F3,F4,F5,F6,F7,M365,TEAM,NET,PWSH todo
+    class F3,F4,F5,F6,F7,M365,TEAM,NET,PWSH,UIX todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -398,6 +399,7 @@ flowchart TB
 | P | Certification authority (AD CS) and certificates (parallel track) | A live overview of the forest's PKI from LDAP (CAs, templates with decoded flags and who can enroll, NTAuth, AIA, CRLs, OIDs) with health in the style of `pkiview.msc`; an ESC1–ESC17 security review with fixes in AD through the change plan with rollback; the *Published Certificates*, *Name Mappings* (strong mapping, KB5014754) and *Key Credentials* tabs, LDAPS/KDC certificates on DCs; issuing certificates from the CA's templates with the template's requirements explained (for users, computers, web servers with SANs and DCs, from PKCS#10 requests from any system, on behalf of others through an enrollment agent; renewal, pending requests) – including the HTTPS certificate of the Watchdog service from the host's request and a code signing certificate for AD Manager – as a change plan action with preview and audit; working with the CA over DCOM with the window's account (issued, pending, revoked, approval, revocation, CRL publication); links with the Watchdog, event logs, GPOs and notifications | 🟡 (P1 – a read-only overview of the PKI from LDAP: CAs, NTAuth, CRLs, health, DC LDAPS certificates, templates with enrollment permissions, the ESC security review, the strong mapping and NTAuth readiness report, certificate tabs on accounts: implemented, awaiting a pilot on Windows Server AD with AD CS; P2–P5: ⬜) |
 | N | DNS and DHCP (parallel track) | DNS zones and records live from AD (all partitions, records decoded from `dnsRecord`, aging and stale records, conditional forwarders, DC locator records), going from a computer to its records, leases and reservations; DNS server settings and DHCP scopes, leases, reservations, options, policies and failover over WinRM/CIM or RPC with the window's account; a security and health review (who can create records, DnsAdmins, DnsUpdateProxy, nonsecure dynamic updates, DHCP on DCs, DNS credentials, name protection, scopes close to exhaustion) with fixes in AD through the change plan with rollback; links with computers, sites and subnets, the AD Recycle Bin, event logs and the Watchdog | ⬜ planned |
 | R | PowerShell window (parallel track) | A PowerShell 7 console next to every connection window for ad hoc queries, AD data dumps and scripts: built-in read commands in the window's session (the same DC, credentials in memory only, no RSAT) with safely built LDAP filters, results as PowerShell objects that open in the program's grid, with a jump to the object, export only to a file the operator chooses; writes never go straight to AD – AD Manager commands and translated RSAT commands go into the pending change plan with preview, audit and rollback, other RSAT writes are rejected; installed RSAT `ActiveDirectory` and `GroupPolicy` modules pointed by default at the window's DC (`ActiveDirectory` also with the window's credentials); no command history and no transcripts on disk | ⬜ planned |
+| V | Interface renewal: look, motion, icons (parallel track) | The same page skeleton everywhere (page header with a description and a guide link, one status line, toolbar card, content), a cancellable action button, search in the title bar for commands, pages, settings and objects (Ctrl+K), the areas of the program in view and a home page after connecting, one list toolbar, settings as cards, one dialog style; design tokens (light, dark, High Contrast, Mica where Windows offers it, compact density), a catalogue of short animations with a reduced-motion setting and a new set of colourful icons drawn for the project; modelled on *Harden System Security* and *AppControl Manager* for ease of use, without copying their artwork | ⬜ planned (design note: [v-interface-renewal.md](docs/dev/v-interface-renewal.md); the technology is the owner's decision) |
 
 Details of each phase are below – click to expand.
 
@@ -2900,6 +2902,103 @@ stages</summary>
 
 </details>
 
+### Track V – Interface renewal (look, motion, icons) ⬜
+
+**Goal:** make AD Manager as easy to use as the best current Windows tools and give it a current look: every page built
+the same way, every function found by name, the result of every action shown in one place, calm motion that explains
+what changed, and a set of colourful icons of our own. The model the owner named is *Harden System Security* and
+*AppControl Manager* (WinUI 3): the ease of use is to match strongly, the look partly. The track adds no function and
+changes none of the six rules; lists with thousands of rows, keyboard work and the tests must not get worse. A parallel
+track – its stages are proposed to alternate with R1, P2 and N. Design note:
+[docs/dev/v-interface-renewal.md](docs/dev/v-interface-renewal.md); the project's goals:
+[GOALS.md](docs/en/GOALS.md).
+
+<details>
+<summary><b>Track V details</b> – what the user gets, look and icons, motion, technology, stages</summary>
+
+#### What the user gets
+
+- **One page skeleton** on every tab and in every tool window: a page header (title, one sentence saying what the page
+  is for, a link to the right chapter of the guide), the status line, a toolbar card, the content.
+- **One status line**, always in the same place, with four kinds of message – working, done, attention, error. A long
+  operation shows progress and is cancelled with the button that started it; closing a window asks only while
+  something is running.
+- **Search in the title bar** (Ctrl+K): commands, pages and views, settings and directory objects in one box; the
+  target is opened and highlighted for two seconds.
+- **The areas of the program in view** (directory, Group Policy, certificates, event logs, Watchdog, reviews,
+  messages) and a **home page** after connecting: the connection, environment readiness, quick actions, pinned views.
+- **The same list toolbar everywhere:** filter while typing, "displayed / total", columns, export, a selection menu.
+- **Settings as cards** with an icon, a title and a description; one dialog style with the safe button as the default;
+  a few teaching tips, each shown once.
+
+#### Look and icons
+
+- Design tokens in one place: surfaces and colours from the Fluent theme (light, dark, High Contrast), the Mica
+  background on Windows 11 22H2 and newer and a solid background elsewhere, a compact density for an administrator's
+  tool, one type ramp, spacing and corner radii.
+- **New icons drawn for this project** (`docs/assets/icons/`): colourful pictures for things – object kinds with state
+  badges (disabled, locked), areas, statuses – and monochrome glyphs for actions; sizes from 16 to 48 px; a setting
+  *Icons: colour / monochrome*; High Contrast always uses glyphs. Nothing is copied from the model: its artwork is
+  licensed to that repository only.
+
+#### Motion
+
+- A small catalogue of animations, each with a meaning: hover and press feedback (83 ms), the content swap of the
+  action button (150 ms), a status message arriving (250 ms), page entrance (200 ms), the "look here" highlight (2 s),
+  the loading skeleton. Routine motion takes at most about 300 ms.
+- Rules: motion never delays input; nothing animates in a virtualized list beyond its first screen, and nothing on
+  live refresh; only opacity and position are animated.
+- **Reduced motion:** the program follows the Windows "Animation effects" setting and has its own setting *Motion:
+  follow Windows / on / off*; UI tests and screenshots run with motion off.
+
+#### Technology of the renewal
+
+- Recommended, and **the owner's decision** (the options are compared in the design note): evolve the WPF application
+  in place and build a few small controls for what WPF's Fluent theme lacks – status line, action button, page header,
+  title bar, area strip, teaching tip, settings card. The alternative, a new WinUI 3 shell over the existing view
+  models, would write about 66,000 lines of views, application code and UI tests again, and the Windows App SDK ships
+  under a licence that is not OSI-approved.
+- The new concepts (page status, operation scope, page header, areas, search index, motion and icon preferences) are
+  view models and services in `AdMng.Presentation` without WPF types, tested on Linux; the views only draw them.
+- Element names (`x:Name`) are kept, so the UI tests keep finding their elements; the README screenshots are rendered
+  again with each stage.
+
+#### Stages of the renewal
+
+- **V1** – look: tokens, the new icons in the tree, lists, tabs and details, card surfaces, hover feedback, page
+  entrance, settings for icons, motion and background. No change of structure.
+- **V2** – feedback: the status line, one shape for every command, the cancellable action button, status pills, empty
+  states, the loading skeleton, progress on the taskbar.
+- **V3** – page skeleton: page header with description and guide link, toolbar card, the standard list toolbar, compact
+  density everywhere.
+- **V4** – shell: title bar with search, area strip (or navigation pane), home page, slimmer menus, a layout for
+  narrow windows.
+- **V5** – settings as cards, one dialog style, teaching tips, "What's new".
+- **V6** – the large windows: property sheet, bulk editor, Correspondence, account review and the others.
+- **V7** – audit: High Contrast, screen reader, a keyboard shortcuts page, reduced motion in remote sessions,
+  performance budgets, the guides.
+
+#### Renewal decisions to be agreed with the team
+
+- The technology: WPF in place (recommended), the WPF-UI library, or a WinUI 3 shell.
+- Navigation: the tree stays primary with an area strip next to it (recommended), or a navigation pane with the tree
+  inside the *Directory* area.
+- Whether the classic menu bar stays visible; colour or monochrome icons by default; compact density as the default.
+- Whether V1 may come before R1.
+- The full list of fifteen questions is in section 9 of the design note.
+
+**Completion criteria**
+- Every command, page and settings section is found by the search (a test walks the command registry).
+- Every tab and tool window has exactly one status line, in the same place; every operation longer than a second can
+  be cancelled with the button that started it.
+- Every page has a description and a guide link in both languages, and every link resolves.
+- No literal colour, font size, corner radius or animation duration outside the theme dictionaries.
+- Opening a container with 10,000 objects is no slower than in 0.15.0; no animation runs while a list scrolls or
+  refreshes; with "Animation effects" switched off in Windows nothing moves.
+- All UI and view model tests stay green with the element names unchanged; High Contrast works in every window.
+
+</details>
+
 ### Stage S – stabilization and pilot readiness 🟡
 
 **Goal:** before more features arrive – reliable tests, an environment readiness check in the application, problem
@@ -3310,6 +3409,7 @@ Every document is available in English (`docs/en/`) and Polish (`docs/`).
 
 | Document | About |
 |---|---|
+| 🎯 [Goals](docs/en/GOALS.md) | what AD Manager is for and for whom, product goals and their measures, the rules that never bend, what it is not, where we are, the goals of the next releases and the road to 1.0 (proposals) |
 | 🏗 [Architecture](docs/en/ARCHITECTURE.md) | layers, directory session, change pipeline, UI, security, AdMng Watchdog, tests |
 | 📐 [Architecture decision records (ADR)](docs/en/adr/) | why WPF .NET 10, S.DS.P, no local data, one change pipeline, a session pinned to a DC … |
 | 🔬 [Research findings](docs/en/RESEARCH.md) | `dsa.msc`, ADAC, competing products, LDAP techniques |

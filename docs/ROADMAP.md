@@ -5,6 +5,7 @@
 Roadmapa jest na stronie głównej projektu – w sekcji [Roadmapa w README](../README.pl.md#-roadmapa): diagram i przegląd
 faz, szczegóły każdej fazy i ścieżki równoległej, znane ograniczenia, pokrycie według typów obiektów i decyzje do
 podjęcia z zespołem. Ten plik zostaje tylko po to, żeby dawne odnośniki dalej prowadziły we właściwe miejsce.
+Do czego służy projekt i proponowane cele najbliższych wydań: [CELE.md](CELE.md).
 
 | | Sekcja |
 |---|---|
@@ -26,6 +27,7 @@ podjęcia z zespołem. Ten plik zostaje tylko po to, żeby dawne odnośniki dale
 | 🟡 (P1 – przegląd AD CS tylko do odczytu: 🟡 zaimplementowane, czeka na pilotaż na Windows Server AD z AD CS; instrukcja: [CERTYFIKATY.md](CERTYFIKATY.md); P2–P5: ⬜) | [Ścieżka P – Urząd certyfikacji (AD CS) i certyfikaty](../README.pl.md#ścieżka-p--urząd-certyfikacji-ad-cs-i-certyfikaty--p1-) |
 | ⬜ | [Ścieżka N – DNS i DHCP](../README.pl.md#ścieżka-n--dns-i-dhcp-) |
 | ⬜ | [Ścieżka R – Okno PowerShell](../README.pl.md#ścieżka-r--okno-powershell-) |
+| ⬜ (notatka projektowa: [v-interface-renewal.md](dev/v-interface-renewal.md)) | [Ścieżka V – Odnowa interfejsu (wygląd, animacje, ikony)](../README.pl.md#ścieżka-v--odnowa-interfejsu-wygląd-animacje-ikony-) |
 | 🟡 (lista kontrolna: [PILOTAZ.md](PILOTAZ.md)) | [Etap S – stabilizacja i gotowość do pilotażu](../README.pl.md#etap-s--stabilizacja-i-gotowość-do-pilotażu-) |
 
 ## Znane ograniczenia

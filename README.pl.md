@@ -347,6 +347,7 @@ ukończenia. Kolejność wynika z ustaleń z zespołem:
 - **edycja zbiorcza** jest kluczowa, dlatego silnik zmian powstaje już w fazie 1, a pełne UI w fazie 2.
 
 Szczegóły techniczne i uzasadnienia: [ARCHITECTURE.md](docs/ARCHITECTURE.md), [RESEARCH.md](docs/RESEARCH.md).
+Do czego służy projekt, jego cele i proponowane cele najbliższych wydań: [CELE.md](docs/CELE.md).
 
 Legenda statusu: ✅ zrobione · 🟡 pierwsza wersja gotowa, wymaga dopracowania/weryfikacji na Windows AD · ⬜ planowane
 
@@ -362,7 +363,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K7: 🟡)"] ~~~ EVT["🟡 E · Dzienniki zdarzeń<br/>czytnik i analiza<br/>(E1, część E2: 🟡)"] ~~~ PKI["🟡 P · Urząd certyfikacji<br/>(AD CS) i certyfikaty<br/>(P1: 🟡)"] ~~~ NET["⬜ N · DNS i DHCP<br/>strefy, rekordy, zakresy"] ~~~ PWSH["⬜ R · Okno PowerShell<br/>zapytania i skrypty,<br/>zapis przez plan zmian"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K7: 🟡)"] ~~~ EVT["🟡 E · Dzienniki zdarzeń<br/>czytnik i analiza<br/>(E1, część E2: 🟡)"] ~~~ PKI["🟡 P · Urząd certyfikacji<br/>(AD CS) i certyfikaty<br/>(P1: 🟡)"] ~~~ NET["⬜ N · DNS i DHCP<br/>strefy, rekordy, zakresy"] ~~~ PWSH["⬜ R · Okno PowerShell<br/>zapytania i skrypty,<br/>zapis przez plan zmian"] ~~~ UIX["⬜ V · Odnowa interfejsu<br/>wygląd, animacje, ikony"]
     end
     A --> B
     B ~~~ C
@@ -371,7 +372,7 @@ flowchart TB
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
     class F1,F2,W,U,K,EVT,PKI wip
-    class F3,F4,F5,F6,F7,M365,TEAM,NET,PWSH todo
+    class F3,F4,F5,F6,F7,M365,TEAM,NET,PWSH,UIX todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -396,6 +397,7 @@ flowchart TB
 | P | Urząd certyfikacji (AD CS) i certyfikaty (ścieżka równoległa) | Przegląd PKI lasu na żywo z LDAP (urzędy, szablony z odczytanymi flagami i tym, kto może się zarejestrować, NTAuth, AIA, listy CRL, OID) ze zdrowiem w stylu `pkiview.msc`; przegląd bezpieczeństwa ESC1–ESC17 z naprawą w AD przez plan zmian z cofnięciem; karty *Opublikowane certyfikaty*, *Mapowania nazw* (silne mapowanie, KB5014754) i *Poświadczenia kluczy*, certyfikaty LDAPS/KDC na DC; wystawianie certyfikatów z szablonów urzędu, z objaśnieniem wymagań szablonu (dla użytkowników, komputerów, serwerów WWW z SAN i DC, z wniosków PKCS#10 z dowolnego systemu, w imieniu innych przez agenta rejestracji; odnowienie, żądania oczekujące) – także certyfikat HTTPS usługi Watchdog z wniosku hosta i certyfikat podpisywania kodu dla AD Managera – jako akcja planu zmian z podglądem i audytem; praca z urzędem przez DCOM z kontem okna (wystawione, oczekujące, odwołane, zatwierdzanie, odwołanie, publikacja CRL); powiązania z Watchdogiem, dziennikami zdarzeń, GPO i powiadomieniami | 🟡 (P1 – przegląd PKI tylko do odczytu z LDAP: urzędy, NTAuth, listy CRL, zdrowie, certyfikaty LDAPS DC, szablony z uprawnieniami do rejestracji, przegląd bezpieczeństwa ESC, raport gotowości na silne mapowanie i NTAuth, karty certyfikatów na kontach: zaimplementowane, czeka na pilotaż na Windows Server AD z AD CS; P2–P5: ⬜) |
 | N | DNS i DHCP (ścieżka równoległa) | Strefy i rekordy DNS na żywo z AD (wszystkie partycje, rekordy zdekodowane z `dnsRecord`, starzenie i rekordy nieaktualne, warunkowe usługi przesyłania dalej, rekordy lokalizatora DC), przejście od komputera do jego rekordów, dzierżawy i rezerwacji; ustawienia serwerów DNS oraz zakresy, dzierżawy, rezerwacje, opcje, zasady i praca awaryjna DHCP przez WinRM/CIM albo RPC z kontem okna; przegląd bezpieczeństwa i zdrowia (kto może tworzyć rekordy, DnsAdmins, DnsUpdateProxy, niezabezpieczone aktualizacje dynamiczne, DHCP na DC, poświadczenia DNS, ochrona nazw, zakresy bliskie wyczerpania) z naprawą w AD przez plan zmian z cofnięciem; powiązania z komputerami, lokacjami i podsieciami, Koszem AD, dziennikami zdarzeń i Watchdogiem | ⬜ zaplanowane |
 | R | Okno PowerShell (ścieżka równoległa) | Konsola PowerShell 7 przy każdym oknie połączenia do doraźnych zapytań, zrzutów danych z AD i skryptów: wbudowane polecenia odczytu w sesji okna (ten sam DC, poświadczenia tylko w pamięci, bez RSAT) z bezpiecznie budowanymi filtrami LDAP, wyniki jako obiekty PowerShell do otwarcia w siatce programu, z przejściem do obiektu, eksport tylko do pliku wskazanego przez operatora; zapisy nigdy wprost do AD – polecenia AD Managera i przetłumaczone polecenia RSAT trafiają do oczekującego planu zmian z podglądem, audytem i cofnięciem, pozostałe zapisy RSAT są odrzucane; zainstalowane moduły RSAT `ActiveDirectory` i `GroupPolicy` domyślnie skierowane na DC okna (`ActiveDirectory` także z poświadczeniami okna); bez historii poleceń i transkrypcji na dysku | ⬜ zaplanowane |
+| V | Odnowa interfejsu: wygląd, animacje, ikony (ścieżka równoległa) | Ten sam szkielet strony wszędzie (nagłówek strony z opisem i odnośnikiem do instrukcji, jedna linia stanu, karta paska narzędzi, treść), przycisk akcji z anulowaniem, wyszukiwanie w pasku tytułu – polecenia, strony, ustawienia i obiekty (Ctrl+K), obszary programu na widoku i strona startowa po połączeniu, jeden pasek listy, ustawienia jako karty, jeden styl okien dialogowych; tokeny projektowe (jasny, ciemny, wysoki kontrast, Mica tam, gdzie Windows ją daje, zwarta gęstość), katalog krótkich animacji z ustawieniem ograniczenia ruchu i nowy zestaw kolorowych ikon narysowanych dla projektu; wzorem łatwości obsługi są *Harden System Security* i *AppControl Manager*, bez kopiowania ich grafiki | ⬜ zaplanowane (notatka projektowa: [v-interface-renewal.md](docs/dev/v-interface-renewal.md); technologia jest decyzją właściciela) |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -2827,6 +2829,107 @@ etapy</summary>
 
 </details>
 
+### Ścieżka V – Odnowa interfejsu (wygląd, animacje, ikony) ⬜
+
+**Cel:** AD Manager ma być tak łatwy w obsłudze jak najlepsze współczesne narzędzia Windows i wyglądać współcześnie:
+każda strona zbudowana tak samo, każda funkcja do znalezienia po nazwie, wynik każdego działania w jednym miejscu,
+spokojne animacje, które objaśniają, co się zmieniło, i własny zestaw kolorowych ikon. Wzorem wskazanym przez
+właściciela są *Harden System Security* i *AppControl Manager* (WinUI 3): łatwość obsługi ma się pokrywać mocno, wygląd
+częściowo. Ścieżka nie dodaje funkcji i nie zmienia żadnej z sześciu zasad; listy z tysiącami wierszy, praca z
+klawiatury i testy nie mogą się pogorszyć. Ścieżka równoległa – proponujemy, żeby jej etapy przeplatały się z R1, P2
+i N. Notatka projektowa (po angielsku): [docs/dev/v-interface-renewal.md](docs/dev/v-interface-renewal.md); cele
+projektu: [CELE.md](docs/CELE.md).
+
+<details>
+<summary><b>Szczegóły ścieżki V</b> – co dostaje użytkownik, wygląd i ikony, animacje, technologia, etapy</summary>
+
+#### Co dostaje użytkownik
+
+- **Jeden szkielet strony** na każdej karcie i w każdym oknie narzędzia: nagłówek strony (tytuł, jedno zdanie o tym,
+  do czego strona służy, odnośnik do właściwego rozdziału instrukcji), linia stanu, karta paska narzędzi, treść.
+- **Jedna linia stanu**, zawsze w tym samym miejscu, z czterema rodzajami komunikatów – trwa, gotowe, uwaga, błąd.
+  Długa operacja pokazuje postęp i anuluje się ją przyciskiem, którym została uruchomiona; zamknięcie okna pyta tylko
+  wtedy, gdy coś jeszcze działa.
+- **Wyszukiwanie w pasku tytułu** (Ctrl+K): polecenia, strony i widoki, ustawienia i obiekty katalogu w jednym polu;
+  cel zostaje otwarty i podświetlony na dwie sekundy.
+- **Obszary programu na widoku** (katalog, zasady grupy, certyfikaty, dzienniki zdarzeń, Watchdog, przeglądy,
+  wiadomości) i **strona startowa** po połączeniu: połączenie, gotowość środowiska, szybkie akcje, przypięte widoki.
+- **Ten sam pasek listy wszędzie:** filtr podczas pisania, „wyświetlane / wszystkie”, kolumny, eksport, menu
+  zaznaczenia.
+- **Ustawienia jako karty** z ikoną, tytułem i opisem; jeden styl okien dialogowych z bezpiecznym przyciskiem jako
+  domyślnym; kilka podpowiedzi przy kontrolkach, każda pokazywana raz.
+
+#### Wygląd i ikony
+
+- Tokeny projektowe w jednym miejscu: powierzchnie i kolory z motywu Fluent (jasny, ciemny, wysoki kontrast), tło Mica
+  na Windows 11 22H2 i nowszych oraz jednolite tło gdzie indziej, zwarta gęstość dla narzędzia administratora, jedna
+  skala pisma, odstępy i promienie narożników.
+- **Nowe ikony narysowane dla tego projektu** (`docs/assets/icons/`): kolorowe obrazki dla rzeczy – rodzajów obiektów
+  ze znaczkami stanu (wyłączone, zablokowane), obszarów, stanów – i jednobarwne glify dla akcji; rozmiary od 16 do
+  48 px; ustawienie *Ikony: kolorowe / jednobarwne*; wysoki kontrast zawsze używa glifów. Nic nie jest kopiowane ze
+  wzoru: jego grafika ma licencję tylko dla tamtego repozytorium.
+
+#### Animacje
+
+- Mały katalog animacji, każda coś znaczy: reakcja na wskazanie i naciśnięcie (83 ms), zamiana treści przycisku akcji
+  (150 ms), pojawienie się komunikatu stanu (250 ms), wejście strony (200 ms), podświetlenie „spójrz tutaj” (2 s),
+  szkielet ładowania. Zwykła animacja trwa najwyżej około 300 ms.
+- Zasady: animacja nigdy nie opóźnia reakcji na klawiaturę i mysz; w wirtualizowanej liście nic nie animuje się poza
+  pierwszym ekranem i nic przy odświeżaniu na żywo; animowane są tylko przezroczystość i położenie.
+- **Ograniczenie ruchu:** program stosuje się do ustawienia Windows „Efekty animacji” i ma własne ustawienie
+  *Animacje: jak w Windows / włączone / wyłączone*; testy UI i zrzuty ekranu działają z wyłączonymi animacjami.
+
+#### Technologia odnowy
+
+- Zalecane i będące **decyzją właściciela** (warianty porównuje notatka projektowa): rozwijać aplikację WPF w miejscu
+  i zbudować kilka małych kontrolek dla tego, czego brakuje w motywie Fluent dla WPF – linię stanu, przycisk akcji,
+  nagłówek strony, pasek tytułu, pasek obszarów, podpowiedź przy kontrolce, kartę ustawień. Alternatywa, czyli nowa
+  powłoka w WinUI 3 nad istniejącymi modelami widoków, oznaczałaby napisanie od nowa około 66 000 wierszy widoków,
+  kodu aplikacji i testów UI, a Windows App SDK jest wydawany na licencji, która nie jest zatwierdzona przez OSI.
+- Nowe pojęcia (stan strony, zakres operacji, nagłówek strony, obszary, indeks wyszukiwania, preferencje animacji
+  i ikon) są modelami widoków i usługami w `AdMng.Presentation` bez typów WPF, testowanymi na Linuksie; widoki tylko
+  je rysują.
+- Nazwy elementów (`x:Name`) zostają, więc testy UI dalej znajdują swoje elementy; zrzuty ekranu w README są
+  renderowane ponownie z każdym etapem.
+
+#### Etapy odnowy
+
+- **V1** – wygląd: tokeny, nowe ikony w drzewie, listach, kartach i szczegółach, powierzchnie kart, reakcja na
+  wskazanie, wejście strony, ustawienia ikon, animacji i tła. Bez zmiany struktury.
+- **V2** – informacja zwrotna: linia stanu, jeden kształt każdego polecenia, przycisk akcji z anulowaniem, etykiety
+  stanu, puste stany, szkielet ładowania, postęp na pasku zadań.
+- **V3** – szkielet strony: nagłówek strony z opisem i odnośnikiem do instrukcji, karta paska narzędzi, standardowy
+  pasek listy, zwarta gęstość wszędzie.
+- **V4** – powłoka: pasek tytułu z wyszukiwaniem, pasek obszarów (albo panel nawigacji), strona startowa, szczuplejsze
+  menu, układ dla wąskich okien.
+- **V5** – ustawienia jako karty, jeden styl okien dialogowych, podpowiedzi przy kontrolkach, „Co nowego”.
+- **V6** – duże okna: arkusz właściwości, edytor zbiorczy, Korespondencja, przegląd kont i pozostałe.
+- **V7** – audyt: wysoki kontrast, czytnik ekranu, strona skrótów klawiszowych, ograniczenie ruchu w sesjach zdalnych,
+  budżety wydajności, instrukcje.
+
+#### Decyzje odnowy do ustalenia z zespołem
+
+- Technologia: WPF w miejscu (zalecane), biblioteka WPF-UI albo powłoka w WinUI 3.
+- Nawigacja: drzewo zostaje główne, a obok niego pasek obszarów (zalecane), albo panel nawigacji z drzewem wewnątrz
+  obszaru *Katalog*.
+- Czy klasyczny pasek menu zostaje widoczny; ikony domyślnie kolorowe czy jednobarwne; zwarta gęstość jako domyślna.
+- Czy V1 może wejść przed R1.
+- Pełna lista piętnastu pytań jest w rozdziale 9 notatki projektowej.
+
+**Kryteria ukończenia**
+- Każde polecenie, każdą stronę i każdą sekcję ustawień da się znaleźć wyszukiwaniem (test przechodzi przez rejestr
+  poleceń).
+- Każda karta i każde okno narzędzia ma dokładnie jedną linię stanu, w tym samym miejscu; każdą operację dłuższą niż
+  sekunda da się anulować przyciskiem, którym została uruchomiona.
+- Każda strona ma opis i odnośnik do instrukcji w obu językach, a każdy odnośnik działa.
+- Żadnego wpisanego na stałe koloru, rozmiaru pisma, promienia narożnika ani czasu animacji poza słownikami motywu.
+- Otwarcie kontenera z 10 000 obiektów nie jest wolniejsze niż w 0.15.0; żadna animacja nie działa podczas przewijania
+  ani odświeżania listy; przy wyłączonych „Efektach animacji” w Windows nic się nie porusza.
+- Wszystkie testy UI i modeli widoków pozostają zielone przy niezmienionych nazwach elementów; wysoki kontrast działa
+  w każdym oknie.
+
+</details>
+
 ### Etap S – stabilizacja i gotowość do pilotażu 🟡
 
 **Cel:** zanim przybędzie funkcji – wiarygodne testy, sprawdzenie gotowości środowiska w programie, zgłoszenia problemów
@@ -3221,6 +3324,7 @@ Lokalnie (Windows): `$env:ADMNG_SCREENSHOTS_DIR = "$PWD\zrzuty"; dotnet test tes
 
 | Dokument | O czym |
 |---|---|
+| 🎯 [Cele](docs/CELE.md) | do czego służy AD Manager i dla kogo, cele produktu i ich miary, zasady, od których nie ma wyjątków, czym nie jest, gdzie jesteśmy, cele najbliższych wydań i droga do wersji 1.0 (propozycje) |
 | 🏗 [Architektura](docs/ARCHITECTURE.md) | warstwy, sesja katalogu, potok zmian, interfejs, bezpieczeństwo, AdMng Watchdog, testy |
 | 📐 [Decyzje architektoniczne (ADR)](docs/adr/) | dlaczego WPF .NET 10, S.DS.P, brak lokalnych danych, jeden potok zmian, sesja przypięta do DC … |
 | 🔬 [Wyniki analizy](docs/RESEARCH.md) | `dsa.msc`, ADAC, produkty konkurencyjne, techniki LDAP |

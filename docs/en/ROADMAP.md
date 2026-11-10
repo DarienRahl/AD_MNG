@@ -5,6 +5,7 @@
 The roadmap is on the project's main page – in the section [Roadmap in the README](../../README.md#-roadmap): a diagram
 and overview of the phases, details of each phase and the parallel track, known limitations, coverage by object type and
 decisions to be made with the team. This file remains only so that old links keep leading to the right place.
+What the project is for and the proposed goals of the next releases: [GOALS.md](GOALS.md).
 
 | | Section |
 |---|---|
@@ -26,6 +27,7 @@ decisions to be made with the team. This file remains only so that old links kee
 | 🟡 (P1 – read-only AD CS overview: 🟡 implemented, awaiting a pilot on Windows Server AD with AD CS; guide: [CERTIFICATES.md](CERTIFICATES.md); P2–P5: ⬜) | [Track P – Certification authority (AD CS) and certificates](../../README.md#track-p--certification-authority-ad-cs-and-certificates--p1-) |
 | ⬜ | [Track N – DNS and DHCP](../../README.md#track-n--dns-and-dhcp-) |
 | ⬜ | [Track R – PowerShell window](../../README.md#track-r--powershell-window-) |
+| ⬜ (design note: [v-interface-renewal.md](../dev/v-interface-renewal.md)) | [Track V – Interface renewal (look, motion, icons)](../../README.md#track-v--interface-renewal-look-motion-icons-) |
 | 🟡 (checklist: [PILOT.md](PILOT.md)) | [Stage S – stabilization and pilot readiness](../../README.md#stage-s--stabilization-and-pilot-readiness-) |
 
 ## Known limitations
