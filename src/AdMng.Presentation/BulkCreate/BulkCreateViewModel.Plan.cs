@@ -37,6 +37,10 @@ public sealed partial class BulkCreateViewModel
     private readonly Dictionary<int, string> _createdRows = [];
     private readonly HashSet<string> _released = new(StringComparer.OrdinalIgnoreCase);
 
+    // Snapshots handed to the computations (they run on the thread pool while the UI thread may mark rows created).
+    private IReadOnlyDictionary<int, string> _createdSnapshot = new Dictionary<int, string>();
+    private IReadOnlyCollection<string> _releasedSnapshot = [];
+
     // The computation of the last create plan: the basis of the retry plan (2.5) and of the run notes.
     private BulkCreateComputation? _planned;
     private string? _plannedTitle;
@@ -63,10 +67,10 @@ public sealed partial class BulkCreateViewModel
     internal IReadOnlyList<CreatedAccountViewModel> Accounts => _accounts;
 
     /// <summary>Rows created by an earlier execution: row number → final DN (<see cref="BulkCreateInput.CreatedRows"/>).</summary>
-    internal IReadOnlyDictionary<int, string> CreatedRows => _createdRows;
+    internal IReadOnlyDictionary<int, string> CreatedRows => _createdSnapshot;
 
     /// <summary>Identifiers this window created and its own undo deleted (<see cref="BulkCreateInput.ReleasedValues"/>).</summary>
-    internal IReadOnlyCollection<string> ReleasedValues => _released;
+    internal IReadOnlyCollection<string> ReleasedValues => _releasedSnapshot;
 
     /// <summary>
     /// The title of the change (activity, audit, the batch editor's header): <em>Utworzenie kont (114) w jednostce „Nowi
@@ -184,8 +188,8 @@ public sealed partial class BulkCreateViewModel
         {
             FrozenValues = frozen,
             PinnedNumbers = checkedRows.Numbers,
-            CreatedRows = new Dictionary<int, string>(_createdRows),
-            ReleasedValues = [.. _released],
+            CreatedRows = _createdSnapshot,
+            ReleasedValues = _releasedSnapshot,
         };
         await Check.WaitForGlobalCatalogAsync(cancellationToken).ConfigureAwait(true);
         var lookups = Check.Lookups;
@@ -387,6 +391,7 @@ public sealed partial class BulkCreateViewModel
             }
         }
 
+        _createdSnapshot = new Dictionary<int, string>(_createdRows);
         Check.MarkCreated(created);
         UpdateAccounts();
         UpdateRunState();
@@ -438,6 +443,9 @@ public sealed partial class BulkCreateViewModel
         {
             _createdRows.Remove(row);
         }
+
+        _createdSnapshot = new Dictionary<int, string>(_createdRows);
+        _releasedSnapshot = [.. _released];
 
         CreatedObjects = [.. CreatedObjects.Where(o => !deleted.Contains(o.Row))];
 
@@ -844,6 +852,8 @@ public sealed partial class BulkCreateViewModel
         _accounts.Clear();
         _createdRows.Clear();
         _released.Clear();
+        _createdSnapshot = new Dictionary<int, string>();
+        _releasedSnapshot = [];
         Accumulated = null;
         CreatedObjects = [];
         _planned = null;
