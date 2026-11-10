@@ -748,10 +748,17 @@ next ones.
   `ComputerDisabled`) with the overlay drawn in, so the glyph badges are drawn only in the monochrome style, which
   is today's code unchanged. `AreaIconView` (same shape: `IconKey` + fallback `Glyph`) is for pictures without an
   `ObjectIcon` value.
+- **Dimmed rows.** A glyph is dimmed on a greyed row because it is drawn in the row's text colour (the object list
+  shows disabled accounts in the secondary text colour; the theme greys disabled and pressed rows). A picture has
+  its own colours, so it follows through its opacity (`IconDrawing.PictureOpacity`): next to full-strength text
+  (alpha of the inherited `Foreground` at least 0.85 – the primary text colour is 0.89 on the light and 1 on the
+  dark theme) it is drawn as it is, otherwise with the alpha of the text colour (secondary 0.62 / 0.77, tertiary
+  0.45 / 0.53, disabled 0.36), never below 0.3. No property is added and nothing is pushed for full-strength rows.
 - **Where.** Every existing use of `ObjectIconView` (tree, lists, tabs, details pane header, property sheet,
   pickers, document headers) shows the colour icon without a change in the views. Changed views: the document tabs
-  use 16 px instead of 14 px (table in 4.4), the connect window has the *connection* picture at 48 px in its header,
-  the group list of the bulk creation rules shows each group's object icon instead of one glyph.
+  use 16 px instead of 14 px, as do the pills of the chosen objects in the object picker (table in 4.4), the connect
+  window has the *connection* picture at 48 px in its header, the group list of the bulk creation rules shows each
+  group's object icon instead of one glyph.
 - **Left as glyphs on purpose:** actions (toolbar, menus, chevrons, copy and close buttons), status and severity
   glyphs (error bars, the Watchdog connection state, list severities – they become status icons with the status line
   in V2), the well-known container badge and the loading mark in the tree, the mail glyph of the transport lines.

@@ -13,7 +13,9 @@ namespace AdMng.App.Controls;
 /// <list type="bullet">
 /// <item><b>colour</b> (the default): the picture of the icon set (<see cref="AppIcons.KeyFor"/>) scaled to
 /// <see cref="Size"/> - one shared frozen image per icon, nothing cloned per element. Disabled and locked accounts have
-/// their own pictures with the state overlay drawn in, so no badge is added here;</item>
+/// their own pictures with the state overlay drawn in, so no badge is added here. Where the text is dimmed (the inherited
+/// <see cref="Foreground"/> is a secondary, tertiary or disabled text colour: disabled accounts in the object list,
+/// disabled rows) the picture is dimmed with it (<see cref="IconDrawing.PictureOpacity"/>);</item>
 /// <item><b>monochrome</b> (the setting, and always in Windows High Contrast): the glyph of the icon font with the ADUC
 /// overlay badges (down arrow for disabled accounts, padlock for locked-out accounts). Colours come from the Fluent
 /// theme resources and follow light/dark/high contrast switches.</item>
@@ -33,7 +35,10 @@ public sealed class ObjectIconView : FrameworkElement
         new FrameworkPropertyMetadata(16d, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender),
         value => value is double d && d > 0 && !double.IsInfinity(d));
 
-    /// <summary>Glyph colour of leaf objects (inherits the text colour, so selected/disabled rows look right).</summary>
+    /// <summary>
+    /// Glyph colour of leaf objects (inherits the text colour, so selected/disabled rows look right); in the colour style
+    /// its alpha dims the picture on rows with dimmed text.
+    /// </summary>
     public static readonly DependencyProperty ForegroundProperty = TextElement.ForegroundProperty.AddOwner(
         typeof(ObjectIconView),
         new FrameworkPropertyMetadata(Brushes.Black, FrameworkPropertyMetadataOptions.Inherits | FrameworkPropertyMetadataOptions.AffectsRender));
@@ -94,7 +99,7 @@ public sealed class ObjectIconView : FrameworkElement
         var dpi = VisualTreeHelper.GetDpi(this);
         if ((IconStylePreference)GetValue(IconStyleProperty) == IconStylePreference.Colour && IconDrawing.ObjectImage(icon) is { } image)
         {
-            IconDrawing.DrawImage(drawingContext, image, RenderSize, size, dpi);
+            IconDrawing.DrawImage(drawingContext, image, RenderSize, size, dpi, Foreground);
             return;
         }
 

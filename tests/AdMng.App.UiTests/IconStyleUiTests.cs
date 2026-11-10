@@ -93,6 +93,64 @@ public sealed class IconStyleUiTests
     });
 
     [Fact]
+    public Task ColourStyle_DimsThePicture_WhereTheTextIsDimmed() => WpfTestHost.RunAsync(async () =>
+    {
+        // The glyph is dimmed on a greyed row because it is drawn in the row's text colour (disabled accounts in the
+        // object list, disabled rows); the picture has its own colours, so it follows through its opacity.
+        using var style = new StyleScope(IconStylePreference.Colour);
+        var full = Icon(ObjectIcon.User, 16);
+        full.Foreground = Solid(0xE4, 0x00);            // primary text, light theme
+        var white = Icon(ObjectIcon.User, 16);
+        white.Foreground = Solid(0xFF, 0xFF);           // primary text, dark theme
+        var disabled = Icon(ObjectIcon.User, 16);
+        disabled.Foreground = Solid(0x5C, 0x00);        // disabled text, light theme
+        // A row style sets the text colour on the row; the icon inherits it (secondary text, light theme).
+        var inRow = new ObjectIconView { Icon = ObjectIcon.UserDisabled, Size = 16 };
+        var row = new StackPanel();
+        System.Windows.Documents.TextElement.SetForeground(row, Solid(0x9E, 0x00));
+        row.Children.Add(inRow);
+        var window = Show(full, white, disabled, row);
+        try
+        {
+            await UiTestSupport.WaitForIdleAsync(rounds: 2);
+            Assert.Equal(1, Strength(full), 3);
+            Assert.Equal(1, Strength(white), 3);
+            Assert.Equal(0x5C / 255d, Strength(disabled), 3);
+            Assert.Equal(0x9E / 255d, Strength(inRow), 3);
+            Assert.Same(AppIcons.Find(AppIcons.UserDisabled), Assert.Single(Images(inRow)));
+
+            // On the screen: the full-strength picture has solid pixels, the one next to disabled text only faint ones.
+            Assert.True(Pixels.Of(full, 16).Solid > 0);
+            var faint = Pixels.Of(disabled, 16);
+            Assert.True(faint.Covered > 0, "the dimmed picture paints nothing");
+            Assert.Equal(0, faint.Solid);
+
+            // The row is no longer dimmed (the account was enabled): the same element is drawn at full strength again.
+            System.Windows.Documents.TextElement.SetForeground(row, Brushes.Black);
+            await UiTestSupport.WaitForIdleAsync(rounds: 2);
+            Assert.Equal(1, Strength(inRow), 3);
+
+            // The monochrome style keeps drawing the glyph in the text colour itself: no picture, nothing to dim.
+            style.Set(IconStylePreference.Monochrome);
+            await UiTestSupport.WaitForIdleAsync(rounds: 2);
+            Assert.Empty(Images(disabled));
+        }
+        finally
+        {
+            window.Close();
+        }
+
+        // The rule itself: only solid text colours below full strength dim, and never to nothing.
+        Assert.Equal(1, IconDrawing.PictureOpacity(null));
+        Assert.Equal(1, IconDrawing.PictureOpacity(Brushes.Red));
+        Assert.Equal(1, IconDrawing.PictureOpacity(new LinearGradientBrush(Colors.Black, Colors.Transparent, 0)));
+        Assert.Equal(0xC5 / 255d, IconDrawing.PictureOpacity(Solid(0xC5, 0xFF)), 3);   // secondary text, dark theme
+        Assert.Equal(0x72 / 255d, IconDrawing.PictureOpacity(Solid(0x72, 0x00)), 3);   // tertiary text, light theme
+        Assert.Equal(0.5, IconDrawing.PictureOpacity(new SolidColorBrush(Colors.Black) { Opacity = 0.5 }), 3);
+        Assert.Equal(IconDrawing.MinimumPictureOpacity, IconDrawing.PictureOpacity(Brushes.Transparent));
+    });
+
+    [Fact]
     public Task SwitchingTheStyleResource_RedrawsTheSameElements() => WpfTestHost.RunAsync(async () =>
     {
         using var style = new StyleScope(IconStylePreference.Colour);
@@ -264,6 +322,39 @@ public sealed class IconStyleUiTests
                     foreach (var child in group.Children)
                     {
                         Collect(child, images);
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    /// <summary>A frozen grey of the given alpha, like the text colours of the Fluent theme (black or white with an alpha).</summary>
+    private static SolidColorBrush Solid(byte alpha, byte grey)
+    {
+        var brush = new SolidColorBrush(Color.FromArgb(alpha, grey, grey, grey));
+        brush.Freeze();
+        return brush;
+    }
+
+    /// <summary>The opacity the element draws its one picture with (the opacities pushed around it in its render data).</summary>
+    private static double Strength(Visual visual)
+    {
+        var found = new List<double>();
+        Walk(VisualTreeHelper.GetDrawing(visual), 1, found);
+        return Assert.Single(found);
+
+        static void Walk(Drawing? drawing, double opacity, List<double> found)
+        {
+            switch (drawing)
+            {
+                case ImageDrawing image when image.ImageSource is not null:
+                    found.Add(opacity);
+                    break;
+                case DrawingGroup group:
+                    foreach (var child in group.Children)
+                    {
+                        Walk(child, opacity * group.Opacity, found);
                     }
 
                     break;

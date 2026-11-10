@@ -28,7 +28,7 @@ public sealed class AreaIconView : FrameworkElement
         new FrameworkPropertyMetadata(20d, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender),
         value => value is double d && d > 0 && !double.IsInfinity(d));
 
-    /// <summary>Glyph colour of the monochrome style (inherits the text colour).</summary>
+    /// <summary>Glyph colour of the monochrome style (inherits the text colour); its alpha dims the picture next to dimmed text.</summary>
     public static readonly DependencyProperty ForegroundProperty = TextElement.ForegroundProperty.AddOwner(
         typeof(AreaIconView),
         new FrameworkPropertyMetadata(Brushes.Black, FrameworkPropertyMetadataOptions.Inherits | FrameworkPropertyMetadataOptions.AffectsRender));
@@ -85,7 +85,7 @@ public sealed class AreaIconView : FrameworkElement
             && IconKey is { Length: > 0 } key
             && AppIcons.Find(key) is { } image)
         {
-            IconDrawing.DrawImage(drawingContext, image, RenderSize, size, dpi);
+            IconDrawing.DrawImage(drawingContext, image, RenderSize, size, dpi, Foreground);
             return;
         }
 

@@ -47,14 +47,57 @@ internal static class IconDrawing
     }
 
     /// <summary>
+    /// Text colours at least this opaque are full-strength text: the primary text colour of the Fluent theme has an
+    /// alpha of 0.89 on the light and 1 on the dark theme, the secondary one 0.62 and 0.77.
+    /// </summary>
+    internal const double FullStrengthAlpha = 0.85;
+
+    /// <summary>A picture never fades further than this, so it stays recognisable next to disabled text.</summary>
+    internal const double MinimumPictureOpacity = 0.3;
+
+    /// <summary>
+    /// How strong a colour picture is drawn next to text of the colour <paramref name="textColour"/> (the inherited
+    /// foreground): 1 next to full-strength text, and the alpha of the text colour where the theme or a row style dims
+    /// the text (secondary, tertiary and disabled text: a disabled account in the object list, a disabled or pressed
+    /// row or button, an unselected tab). The monochrome glyph is dimmed there because it is drawn in that colour; the
+    /// picture has its own colours, so it follows through its opacity. Brushes that are not a solid colour count as
+    /// full strength.
+    /// </summary>
+    public static double PictureOpacity(Brush? textColour)
+    {
+        if (textColour is not SolidColorBrush solid)
+        {
+            return 1;
+        }
+
+        var alpha = solid.Color.A / 255d * solid.Opacity;
+        if (double.IsNaN(alpha) || alpha >= FullStrengthAlpha)
+        {
+            return 1;
+        }
+
+        return Math.Max(MinimumPictureOpacity, alpha);
+    }
+
+    /// <summary>
     /// Draws a picture into the square of <paramref name="size"/> centred in the element. The image is drawn as it is
     /// (a vector drawing scaled by the drawing context; nothing is cloned), and the square starts on a device pixel
-    /// of the element, so a 16 px icon is not blurred by a half-pixel offset in a wider cell.
+    /// of the element, so a 16 px icon is not blurred by a half-pixel offset in a wider cell. Next to dimmed text
+    /// (<paramref name="textColour"/>, see <see cref="PictureOpacity"/>) the picture is dimmed as well.
     /// </summary>
-    public static void DrawImage(DrawingContext context, ImageSource image, Size renderSize, double size, DpiScale dpi)
+    public static void DrawImage(DrawingContext context, ImageSource image, Size renderSize, double size, DpiScale dpi, Brush? textColour)
     {
         var x = SnapToDevice((renderSize.Width - size) / 2, dpi.DpiScaleX);
         var y = SnapToDevice((renderSize.Height - size) / 2, dpi.DpiScaleY);
+        var opacity = PictureOpacity(textColour);
+        if (opacity < 1)
+        {
+            context.PushOpacity(opacity);
+            context.DrawImage(image, new Rect(x, y, size, size));
+            context.Pop();
+            return;
+        }
+
         context.DrawImage(image, new Rect(x, y, size, size));
     }
 

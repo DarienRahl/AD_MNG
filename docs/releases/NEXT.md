@@ -18,8 +18,10 @@
   użytkownik, komputer, serwer, kontroler domeny, grupa, kontakt, jednostka organizacyjna, zasada grupy, certyfikat
   i pozostałe rodzaje mają własne rysunki, a konto wyłączone i zablokowane – własny wariant ze znaczkiem (strzałka
   w dół, kłódka). Ikony są w drzewie, na listach, na kartach, w nagłówku panelu szczegółów, w oknach właściwości
-  i wyboru obiektów oraz w oknie połączenia. **Gdzie:** *Ustawienia → Ogólne → Wygląd → Ikony*: *Kolorowe*
-  (domyślnie) albo *Jednobarwne* (dotychczasowy wygląd); zmiana działa od razu we wszystkich otwartych oknach.
+  i wyboru obiektów oraz w oknie połączenia; w wierszu wyszarzonym (np. wyłączone konto na liście obiektów) ikona
+  jest przygaszona razem z tekstem. **Gdzie:** *Ustawienia → Ogólne → Wygląd → Ikony*: *Kolorowe*
+  (domyślnie) albo *Jednobarwne* (dotychczasowy wygląd); po zapisaniu zmiana działa od razu we wszystkich otwartych
+  oknach.
   W trybie dużego kontrastu systemu Windows program zawsze używa ikon jednobarwnych, żeby obowiązywały kolory
   systemowe.
 
