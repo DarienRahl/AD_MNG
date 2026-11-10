@@ -163,6 +163,23 @@ internal static class CertificateChecks
                 }
             }
 
+            // The CA certificates' own validity at the verification time, checked here: Windows reports an expired CA
+            // with the leaf's element status (which the loop above lets through for the leaf's own period), Linux with
+            // the CA's element, so the per-element flags alone differ between the platforms.
+            var at = now.UtcDateTime;
+            for (var i = 1; i < elements.Count; i++)
+            {
+                var ca = elements[i].Certificate;
+                if (at < ca.NotBefore.ToUniversalTime() || at > ca.NotAfter.ToUniversalTime())
+                {
+                    clean = false;
+                    if (!status.Contains(nameof(X509ChainStatusFlags.NotTimeValid)))
+                    {
+                        status.Add(nameof(X509ChainStatusFlags.NotTimeValid));
+                    }
+                }
+            }
+
             return (anchored && clean, status);
         }
         finally
