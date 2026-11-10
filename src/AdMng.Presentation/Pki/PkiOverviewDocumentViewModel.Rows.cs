@@ -63,8 +63,9 @@ public sealed partial class PkiCaRowViewModel : PkiStatusRowViewModel
 
     public bool HasNtAuthWarning => NtAuthWarning.Length > 0;
 
-    /// <summary>The certificate's fields (subject, issuer, validity, key, signature, serial, SHA-256, renewals).</summary>
-    public IReadOnlyList<PkiDetailLine> Details { get; internal set; } = [];
+    /// <summary>The certificate's fields (subject, issuer, validity with the days left, key, signature, serial, SHA-256, renewals).</summary>
+    [ObservableProperty]
+    public partial IReadOnlyList<PkiDetailLine> Details { get; internal set; } = [];
 
     /// <summary>The certification path read from AD (the CA first).</summary>
     public IReadOnlyList<string> Chain { get; internal init; } = [];
@@ -113,8 +114,9 @@ public sealed partial class PkiCertificateRowViewModel : PkiStatusRowViewModel
     /// <summary>The enterprise CA whose certificate this is (NTAuth match), or "—".</summary>
     public string EnterpriseCaText { get; internal init; } = string.Empty;
 
-    /// <summary>The certificate's fields.</summary>
-    public IReadOnlyList<PkiDetailLine> Details { get; internal set; } = [];
+    /// <summary>The certificate's fields (the days left follow the clock).</summary>
+    [ObservableProperty]
+    public partial IReadOnlyList<PkiDetailLine> Details { get; internal set; } = [];
 
     /// <summary>Store and state only.</summary>
     public override string ToString() => $"{nameof(PkiCertificateRowViewModel)}({Store}, {Status})";

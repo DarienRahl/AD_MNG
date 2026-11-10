@@ -22028,6 +22028,12 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="PkiTpl.CompareProperty" xml:space="preserve">
     <value>Property</value>
   </data>
+  <data name="PkiTpl.CompareLeft" xml:space="preserve">
+    <value>First template</value>
+  </data>
+  <data name="PkiTpl.CompareRight" xml:space="preserve">
+    <value>Second template</value>
+  </data>
   <data name="PkiTpl.CompareHint" xml:space="preserve">
     <value>Select two templates in the list (Ctrl+click) or choose the second one here.</value>
   </data>

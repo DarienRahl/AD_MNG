@@ -131,7 +131,7 @@ public sealed class PkiOverviewUiTests
         Assert.True(view.CompareList.Items.Count > 0);
 
         // The search box filters (Ctrl+F reaches it through the shell).
-        view.SearchBox.Text = "Bezpieczny";
+        view.SearchBox.Text = "bezpieczn";
         await UiWait.UntilAsync(() => document.Rows.Count == PublicKeyTemplates.Safe.Count, "the search");
         context.AssertHealthy();
     });

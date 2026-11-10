@@ -165,9 +165,11 @@ public sealed partial class PkiOverviewDocumentViewModel : PkiDocumentBase, IPki
             cancellationToken.ThrowIfCancellationRequested();
             _server = session.Info.Server;
             Show(snapshot);
-            if (_ldapsActivated)
+            if (_ldapsActivated || SelectedTab == PkiOverviewTab.Ldaps)
             {
-                // F5 / another DC while the LDAPS tab was seen: probe again (the probe results were dropped with the snapshot).
+                // The LDAPS tab was seen (or opened while the snapshot was read): its rows again – probed on F5 or for another
+                // DC (the probe results were dropped with the snapshot), from the cache after a language switch.
+                _ldapsActivated = true;
                 await LoadLdapsAsync(IsRefresh, cancellationToken).ConfigureAwait(true);
             }
         }

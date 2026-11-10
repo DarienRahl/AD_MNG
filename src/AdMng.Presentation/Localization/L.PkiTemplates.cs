@@ -156,6 +156,10 @@ public static partial class L
 
         public const string CompareProperty = "PkiTpl.CompareProperty";
 
+        public const string CompareLeft = "PkiTpl.CompareLeft";
+
+        public const string CompareRight = "PkiTpl.CompareRight";
+
         public const string CompareHint = "PkiTpl.CompareHint";
 
         public const string ExportCsv = "PkiTpl.ExportCsv";

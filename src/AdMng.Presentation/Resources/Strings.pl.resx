@@ -22028,6 +22028,12 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="PkiTpl.CompareProperty" xml:space="preserve">
     <value>Właściwość</value>
   </data>
+  <data name="PkiTpl.CompareLeft" xml:space="preserve">
+    <value>Pierwszy szablon</value>
+  </data>
+  <data name="PkiTpl.CompareRight" xml:space="preserve">
+    <value>Drugi szablon</value>
+  </data>
   <data name="PkiTpl.CompareHint" xml:space="preserve">
     <value>Zaznacz dwa szablony na liście (Ctrl+kliknięcie) albo wybierz drugi tutaj.</value>
   </data>
