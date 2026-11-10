@@ -1,3 +1,5 @@
+[English](en/ARCHITECTURE.md) · **Polski**
+
 # Architektura AD Manager
 
 Dokument opisuje budowę aplikacji i zasady, które ją kształtują. Decyzje z uzasadnieniem: [`docs/adr`](adr/).

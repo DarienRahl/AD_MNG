@@ -1,3 +1,5 @@
+[English](en/COMPUTERS.md) · **Polski**
+
 # Komputery w AD Managerze (etap K1)
 
 Ten dokument opisuje pracę z kontami komputerów: **Przegląd komputerów** (inwentarz i raporty), kartę **Stan** we

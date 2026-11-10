@@ -2,10 +2,24 @@ name: CI
 
 on:
   push:
-    # "screenshots" only holds the pictures committed by the publish-screenshots job below.
+    # "screenshots" only holds the pictures committed by earlier CI runs (no longer updated).
     branches: ["**", "!screenshots"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      screenshots:
+        description: "Render the screenshots (artifact 'screenshots')"
+        type: boolean
+        default: false
+      screenshots_language:
+        description: "UI language of the screenshots"
+        type: choice
+        options: [en, pl]
+        default: en
+      update_readme_screenshots:
+        description: "Also commit the README pictures (docs/assets/screenshots) to this branch"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -76,8 +90,10 @@ jobs:
           path: publish-watchdog/
           retention-days: 14
       - name: Screenshots
-        # Renders the Polish UI over the sample company (tests/AdMng.App.UiTests/ScreenshotTests.cs) into PNG files and
-        # manifest.json; the publish-screenshots job commits them to the "screenshots" branch.
+        # Renders the UI (English by default) over the sample company (tests/AdMng.App.UiTests/ScreenshotTests.cs) into
+        # PNG files and manifest.json. Only on request (Run workflow with "screenshots" or "update_readme_screenshots"),
+        # not on every push: the pictures are large. Releases render their own for major versions (release.yml).
+        if: github.event_name == 'workflow_dispatch' && (inputs.screenshots || inputs.update_readme_screenshots)
         shell: pwsh
         run: |
           dotnet test tests/AdMng.App.UiTests -c Release --no-build --filter "FullyQualifiedName~AdMng.App.UiTests.ScreenshotTests" --logger "console;verbosity=normal"
@@ -90,9 +106,10 @@ jobs:
         env:
           ADMNG_UI_TESTS: "1"
           ADMNG_SCREENSHOTS_DIR: ${{ github.workspace }}/screenshots
+          ADMNG_SCREENSHOTS_LANGUAGE: ${{ inputs.screenshots_language || 'en' }}
       - uses: actions/upload-artifact@v4
         # Also after a failed screenshot test: the pictures written so far help to see what went wrong.
-        if: ${{ !cancelled() && hashFiles('screenshots/*.png') != '' }}
+        if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && (inputs.screenshots || inputs.update_readme_screenshots) && hashFiles('screenshots/*.png') != '' }}
         with:
           name: screenshots
           path: screenshots/
@@ -168,166 +185,61 @@ jobs:
           tools/testlab/watchdog/lab-scenario.sh --cleanup || true
           tools/testlab/watchdog/run-watchdog-lab.sh --stop
 
-  publish-screenshots:
-    name: Publish screenshots (branch "screenshots")
+  readme-screenshots:
+    name: Update the README screenshots
     needs: windows
-    if: github.event_name == 'push'
+    # Also when another screenshot (or test) of the Windows job failed: the step below still requires every README
+    # picture to be there.
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.update_readme_screenshots }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    # The only job that writes to the repository: it commits the pictures of the windows job into the orphan branch
-    # "screenshots", one folder per source branch, from where they are fetched with git.
+    # Only on request: copies the pictures README.md and README.pl.md show from this run's screenshots into
+    # docs/assets/screenshots, compresses them losslessly and commits them to the branch the workflow ran on.
     permissions:
       contents: write
-    concurrency:
-      group: screenshots-publish
-      cancel-in-progress: false
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
       - name: Download screenshots
         uses: actions/download-artifact@v4
         with:
           name: screenshots
           path: ${{ runner.temp }}/screenshots
-      - name: Commit to the "screenshots" branch
+      - name: Commit the README pictures
         shell: bash
         env:
           SCREENSHOTS_DIR: ${{ runner.temp }}/screenshots
-          SOURCE_BRANCH: ${{ github.ref_name }}
-          SOURCE_SHA: ${{ github.sha }}
-          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          SCREENSHOTS_LANGUAGE: ${{ inputs.screenshots_language }}
+          BRANCH: ${{ github.ref_name }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          REMOTE_URL: ${{ github.server_url }}/${{ github.repository }}.git
-          SERVER_URL: ${{ github.server_url }}
-          GH_TOKEN: ${{ github.token }}
-          RETRY_DELAY: "5"
         run: |
           set -euo pipefail
-          branch=screenshots
-          folder="${SOURCE_BRANCH//\//_}"
-          case "$folder" in
-            "" | . | ..) echo "::error::Cannot derive a folder name from the branch '$SOURCE_BRANCH'."; exit 1 ;;
-          esac
-          short_sha="${SOURCE_SHA:0:7}"
-          shopt -s nullglob
-          images=("$SCREENSHOTS_DIR"/*.png)
-          if [ "${#images[@]}" -eq 0 ]; then
-            echo "::error::No screenshots in $SCREENSHOTS_DIR."
-            exit 1
-          fi
-
-          work="$(mktemp -d)"
-          git init -q "$work"
-          cd "$work"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [ -n "${GH_TOKEN:-}" ]; then
-            # Authenticates like actions/checkout: an extra header for this server only, never part of a URL.
-            auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-            echo "::add-mask::$auth"
-            git config "http.$SERVER_URL/.extraheader" "AUTHORIZATION: basic $auth"
-          fi
-          git remote add origin "$REMOTE_URL"
-
-          # Puts the work tree on the tip of the remote branch, or on a new orphan branch when there is none yet.
-          checkout_tip() {
-            local status=0
-            git ls-remote --exit-code --heads origin "refs/heads/$branch" > /dev/null || status=$?
-            if [ "$status" -eq 0 ]; then
-              git fetch -q --no-tags --depth=1 origin "+refs/heads/$branch:refs/remotes/origin/$branch"
-              git checkout -q -f -B "$branch" "refs/remotes/origin/$branch"
-            elif [ "$status" -eq 2 ]; then
-              echo "The branch $branch does not exist yet: creating it as an orphan branch."
-              git update-ref -d "refs/heads/$branch"
-              git symbolic-ref HEAD "refs/heads/$branch"
-              git read-tree --empty
-            else
-              echo "::error::git ls-remote failed (exit code $status)."
-              return 1
+          # The pictures README.md and README.pl.md show; keep this list in step with them.
+          files=(01-main-window.png 02-main-window-dark.png 05-batch-editor-preview.png 06-recycle-bin.png 07-find.png
+                 10-watchdog-event-details.png 17-account-review.png 19-privileged-access.png 22-computers.png
+                 23-group-policy.png 29-administrative-templates.png 32-lockout-source.png)
+          sudo apt-get install -y -qq optipng > /dev/null
+          target=docs/assets/screenshots
+          mkdir -p "$target"
+          for f in "${files[@]}"; do
+            if [ ! -f "$SCREENSHOTS_DIR/$f" ]; then
+              echo "::error::$f is missing from the screenshots of this run."
+              exit 1
             fi
-            git clean -fdxq
-          }
-
-          write_readme() {
-            echo "# Zrzuty ekranu – gałąź \`$SOURCE_BRANCH\`"
-            echo
-            echo "- Gałąź: \`$SOURCE_BRANCH\`"
-            echo "- Commit: [\`$short_sha\`]($COMMIT_URL) (\`$SOURCE_SHA\`)"
-            echo "- Przebieg CI: $RUN_URL"
-            echo
-            if [ -f "$SCREENSHOTS_DIR/manifest.json" ]; then
-              jq -r '.[] | "\(.file)\t\(.title_pl)"' "$SCREENSHOTS_DIR/manifest.json"
-            else
-              for image in "${images[@]}"; do printf '%s\t%s\n' "${image##*/}" "${image##*/}"; done
-            fi | while IFS=$'\t' read -r file title; do
-              echo "## $title"
-              echo
-              echo "![$title]($file)"
-              echo
-            done
-          }
-
-          # Replaces the folder of the source branch with the new pictures and commits; committed=false when nothing
-          # changed. Always call it as a plain command: inside an if/!/|| condition bash ignores "set -e" in the whole
-          # function, so a failing cp/jq/git step would be skipped silently and a broken folder published.
-          commit_folder() {
-            committed=false
-            rm -rf -- "$folder"
-            mkdir -p -- "$folder"
-            cp -- "${images[@]}" "$folder/"
-            if [ -f "$SCREENSHOTS_DIR/manifest.json" ]; then
-              cp -- "$SCREENSHOTS_DIR/manifest.json" "$folder/"
-            fi
-            write_readme > "$folder/README.md"
-            if [ ! -f README.md ]; then
-              printf '%s\n' "# Zrzuty ekranu AD_MNG" "" \
-                "Gałąź tworzona automatycznie przez CI (zadanie publish-screenshots): jeden folder na gałąź źródłową" \
-                "(\`/\` w nazwie zamienione na \`_\`), zastępowany przy każdym pushu. Opisy obrazów są w README.md folderu." \
-                > README.md
-              git add README.md
-            fi
-            git add -A -- "$folder"
-            if git diff --cached --quiet; then
-              return 0
-            fi
-            git commit -q -m "Screenshots $short_sha ($SOURCE_BRANCH)"
-            committed=true
-          }
-
-          checkout_tip
-          commit_folder
-          if [ "$committed" != true ]; then
-            echo "The screenshots of $SOURCE_BRANCH did not change: nothing to publish."
+            cp -- "$SCREENSHOTS_DIR/$f" "$target/$f"
+            optipng -quiet -o2 -strip all "$target/$f"
+          done
+          ls -l "$target"
+          git add -- "$target"
+          if git diff --cached --quiet; then
+            echo "The README pictures did not change."
             exit 0
           fi
-
-          for attempt in 1 2 3; do
-            if git push -q origin "HEAD:refs/heads/$branch"; then
-              echo "Published $folder/ to $branch as $(git rev-parse --short HEAD)."
-              exit 0
-            fi
-            if [ "$attempt" -eq 3 ]; then
-              break
-            fi
-            echo "::warning::Push to $branch rejected (attempt $attempt of 3): fetching it and rebasing."
-            sleep $((attempt * RETRY_DELAY))
-            if parent="$(git rev-parse -q --verify 'HEAD^')"; then
-              upstream=("$parent")
-            else
-              upstream=(--root)
-            fi
-            git fetch -q --no-tags --depth=1 origin "+refs/heads/$branch:refs/remotes/origin/$branch"
-            if ! git rebase -q --onto "refs/remotes/origin/$branch" "${upstream[@]}"; then
-              # Only possible when someone else changed the same folder: re-apply ours on the new tip.
-              git rebase --abort || true
-              checkout_tip
-              commit_folder
-              if [ "$committed" != true ]; then
-                echo "The branch $branch already has these screenshots."
-                exit 0
-              fi
-            fi
-          done
-          echo "::error::Could not push to $branch after 3 attempts."
-          exit 1
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "README screenshots ($SCREENSHOTS_LANGUAGE UI) from CI" -m "$RUN_URL"
+          git push -q origin "HEAD:refs/heads/$BRANCH"
+          echo "Committed the README pictures to $BRANCH as $(git rev-parse --short HEAD)."
 
   openwec-package:
     # admng-openwec (docs/dev/watchdog-linux-design.md 7.1, 13.2, 21 B4): OpenWEC from the pinned upstream commit, built in

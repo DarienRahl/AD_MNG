@@ -1,3 +1,5 @@
+[English](../en/adr/0002-system-directoryservices-protocols.md) · **Polski**
+
 # ADR-0002: Dostęp do AD przez System.DirectoryServices.Protocols
 
 - Status: przyjęta

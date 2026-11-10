@@ -1,3 +1,5 @@
+[English](en/WATCHDOG.md) · **Polski**
+
 # AdMng Watchdog – monitor zmian w Active Directory
 
 AdMng Watchdog to osobna usługa, która przez całą dobę obserwuje domenę Active Directory, zapisuje historię zmian
@@ -484,7 +486,7 @@ dowodach atrybucji pokazywane jako „�” – rekord nie jest z tego powodu o
 ### 5.8 Wiadomości do użytkowników (z AD Managera)
 
 AD Manager może wysyłać wiadomości do użytkowników z szablonów („hasło wygasa 5 listopada”, „konto zostanie
-wyłączone” …, [README, U1](../README.md#u1--wiadomości-e-mail-do-użytkowników-smtp-)) bezpośrednio przez SMTP albo
+wyłączone” …, [README, U1](../README.pl.md#u1--wiadomości-e-mail-do-użytkowników-smtp-)) bezpośrednio przez SMTP albo
 **przez tę usługę** – wtedy korzysta z jej kanału SMTP (także Exchange Online z OAuth2), sekretów, kolejki z
 ponawianiem i dziennika wysyłek. Funkcja jest **domyślnie wyłączona**.
 
@@ -533,7 +535,7 @@ wygrywa jak wszędzie. Konfigurację zmienia tylko administrator.
   FROM) jest zawsze `smtp.from`. Usługa nie zna listy dozwolonych domen łączy AD Managera – tę sprawdza AD Manager.
 
 **Obrazy w treści (U1c).** Wiadomość wklejona w AD Managerze z Outlooka może mieć obrazy osadzone w treści (pole
-`inlineImages`, [README, U1c](../README.md#u1--wiadomości-e-mail-do-użytkowników-smtp-)). Usługa nie ufa klientowi i przy
+`inlineImages`, [README, U1c](../README.pl.md#u1--wiadomości-e-mail-do-użytkowników-smtp-)). Usługa nie ufa klientowi i przy
 każdej wiadomości sprawdza:
 
 - tylko **PNG, JPEG i GIF** – rozpoznawane po zawartości (sygnatura, struktura pliku do znacznika końca, wymiary
@@ -830,7 +832,7 @@ nie jest w ten sposób ograniczane.
 ## 11. Środowisko testowe
 
 Usługę można uruchomić na Linuksie przeciw laboratorium Samba AD DC z `tools/testlab` – skrypty i opis:
-[`tools/testlab/watchdog/README.md`](../tools/testlab/watchdog/README.md).
+[`tools/testlab/watchdog/README.md`](../tools/testlab/watchdog/README.pl.md).
 
 ```bash
 tools/testlab/watchdog/run-watchdog-lab.sh --reset --background   # usługa (profil Lab), Mailpit, odbiornik webhooków
@@ -870,7 +872,7 @@ Pakiety Debiana buduje `tools/packaging/build-deb.sh` (`admng-watchdog`) i `tool
 czystym kontenerze Debian 12 lub 13.
 
 CI (`.github/workflows/ci.yml`): na Windows wszystkie projekty testów (także testy tylko-Windows), aplikacja AD Manager
-i zrzuty ekranu (także zakładki Watchdog – gałąź `screenshots`); na Ubuntu z Samba DC – testy silnika i usługi, testy
+i – na żądanie (*Run workflow*) – zrzuty ekranu, także zakładek Watchdog; na Ubuntu z Samba DC – testy silnika i usługi, testy
 integracyjne z Mailpit i skrypty laboratorium (`lab-scenario.sh --verify`); zadania `openwec-package` (Debian 12 i 13,
 źródła GPL-3.0) i `linux-package` (pakiet `admng-watchdog`, test instalacji na Debianie 12 i 13, lintian). Wydanie
 (`.github/workflows/release.yml`) publikuje te pakiety razem z AD Managerem.

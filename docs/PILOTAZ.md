@@ -1,3 +1,5 @@
+[English](en/PILOT.md) · **Polski**
+
 # Pilotaż AD Managera – lista kontrolna
 
 Prawie wszystko, co AD Manager potrafi, sprawdzono testami na fałszywym katalogu, laboratorium Samba i w testach

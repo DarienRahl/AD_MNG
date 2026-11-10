@@ -1,172 +1,174 @@
-# AdMng Watchdog w laboratorium (Samba AD DC)
+**English** · [Polski](README.pl.md)
 
-Skrypty z tego katalogu uruchamiają usługę **AdMng Watchdog** na Linuksie przeciwko laboratoryjnemu kontrolerowi
-domeny z `tools/testlab` (`CONTOSO.TEST`), z lokalnym serwerem pocztowym **Mailpit** i odbiornikiem webhooków.
-Wszystko działa tylko na pętli zwrotnej (`127.0.0.1`), a scenariusz zmienia katalog wyłącznie w jednorazowych OU,
-które sam tworzy i usuwa. Hasła laboratorium są publicznymi wartościami testowymi – nigdy nie używaj tych skryptów
-w prawdziwej domenie.
+# AdMng Watchdog in the lab (Samba AD DC)
 
-| Plik | Do czego służy |
+The scripts in this directory run the **AdMng Watchdog** service on Linux against the lab domain controller
+from `tools/testlab` (`CONTOSO.TEST`), with a local **Mailpit** mail server and a webhook receiver.
+Everything runs on the loopback interface only (`127.0.0.1`), and the scenario changes the directory only in disposable OUs
+that it creates and deletes itself. The lab passwords are public test values – never use these scripts
+in a real domain.
+
+| File | Purpose |
 |---|---|
-| `start-mailpit.sh` / `stop-mailpit.sh` | pobiera przypiętą wersję Mailpit **v1.31.5** (SHA-256 sprawdzany przed rozpakowaniem, do `~/.cache/admng/mailpit/`), uruchamia SMTP `127.0.0.1:1025` (STARTTLS z certyfikatem samopodpisanym, dowolny login) i UI/API `http://127.0.0.1:8025`; `--require-starttls` wymusza STARTTLS |
-| `webhook-sink.py` | odbiornik `http://127.0.0.1:8091` (sama biblioteka standardowa Pythona): sprawdza podpisy Standard Webhooks (`SINK_SECRET`) i tolerancję znacznika czasu 5 min, wypisuje typ / id / obiekt, tryb Teams dla ścieżek `/teams…` (koperta `message` z kartą Adaptive Card – wypisuje tytuł karty); odpowiedzi sterowane `SINK_STATUS` (`202`, `429`, `500`) i `SINK_RETRY_AFTER` lub w locie `PUT /_sink/response`; `GET /_sink/requests` zwraca podsumowanie odebranych wywołań |
-| `appsettings.Lab.json` | plik startowy usługi (profil `Lab`): uwierzytelnianie `Development` (tylko pętla zwrotna), `http://127.0.0.1:5089`, odczyt katalogu jako `odczyt.test` prostym wiązaniem bez TLS (`AllowInsecureLab`, tylko w środowisku Development), dane w `~/.local/share/admng-watchdog-lab` |
-| `run-watchdog-lab.sh` | uruchamia Mailpit, odbiornik i usługę (`dotnet run --launch-profile Lab`); hasło LDAP trafia do usługi wyłącznie przez zmienną `ADMNG_WATCHDOG_LDAP_PASSWORD` (z `ADMNG_TEST_LDAP_READONLY_PASSWORD`), nigdy do pliku; `--reset` usuwa folder danych (nowy baseline), `--background` uruchamia usługę w tle, `--stop` zatrzymuje wszystko |
-| `configure-lab.sh` | konfiguruje usługę przez jej API: SMTP → Mailpit (certyfikat przypięty SHA-256), grupy odbiorców `it-admins` = `admin@contoso.test`, `helpdesk` = `helpdesk@contoso.test`, kanały `siem-lab` (webhook) i `teams-lab` (Teams) → odbiornik, raport dzienny za 2 minuty; `--test` wysyła wiadomości testowe |
-| `lab-scenario.sh` | scenariusz demonstracyjny w `OU=WatchdogDemo` (Zofia Żak, Łukasz Wiśniewski, Paweł Lewandowski, Grażyna Dąbrowska); `--verify` sprawdza zdarzenia w API, e-maile w Mailpit i podpisy w odbiorniku; `--cleanup` usuwa OU |
-| `krb5-lab.sh` | ręczne próby Negotiate (testy go nie używają): konto usługi z SPN `HTTP/localhost` w `OU=WatchdogKerberos`, keytab (`samba-tool domain exportkeytab`) i prywatny `krb5.conf`; `--cleanup` |
-| `keytab-lab.sh` | środowisko Kerberos dla narzędzia `admng-watchdog-keytab`, LDAP przez SASL GSSAPI i API z Negotiate (`KeytabLabTests`, `KerberosNegotiateTests`): prywatne `krb5.conf` i `ldap.conf` (jak w pakiecie), zmienne `KRB5_*`, `LDAPCONF`; `env [--admin]`, `cleanup` |
-| `wec-units-lab.sh` | etap B4: pakiety `admng-openwec` i `admng-watchdog` w uprzywilejowanym kontenerze z systemd jako PID 1 – `openwecd.service` w swojej piaskownicy z keytabem świeżego konta (własne OU, usuwane na końcu; `admng-watchdog-keytab init` z pakietu) przyjmuje SPNEGO z hosta, nie pisze logu dostępu; prawdziwa jednostka `admng-wec-rotate.service`: zmiana nazwy, przeładowanie `openwecd`, usuwanie tylko przeczytanych plików, `MAX_UNCONSUMED_DAYS`, przebieg przy zatrzymanej usłudze |
-| `common.sh` | wspólne ustawienia i funkcje (dołączany przez pozostałe skrypty) |
+| `start-mailpit.sh` / `stop-mailpit.sh` | downloads the pinned Mailpit version **v1.31.5** (SHA-256 checked before unpacking, into `~/.cache/admng/mailpit/`), starts SMTP `127.0.0.1:1025` (STARTTLS with a self-signed certificate, any login) and the UI/API `http://127.0.0.1:8025`; `--require-starttls` enforces STARTTLS |
+| `webhook-sink.py` | a receiver at `http://127.0.0.1:8091` (Python standard library only): verifies Standard Webhooks signatures (`SINK_SECRET`) and the 5-minute timestamp tolerance, prints the type / id / object, a Teams mode for `/teams…` paths (a `message` envelope with an Adaptive Card – prints the card title); responses controlled by `SINK_STATUS` (`202`, `429`, `500`) and `SINK_RETRY_AFTER` or on the fly with `PUT /_sink/response`; `GET /_sink/requests` returns a summary of the calls received |
+| `appsettings.Lab.json` | the service's startup file (the `Lab` profile): `Development` authentication (loopback only), `http://127.0.0.1:5089`, directory read as `odczyt.test` with a simple bind without TLS (`AllowInsecureLab`, only in the Development environment), data in `~/.local/share/admng-watchdog-lab` |
+| `run-watchdog-lab.sh` | starts Mailpit, the receiver and the service (`dotnet run --launch-profile Lab`); the LDAP password reaches the service only through the `ADMNG_WATCHDOG_LDAP_PASSWORD` variable (from `ADMNG_TEST_LDAP_READONLY_PASSWORD`), never through a file; `--reset` deletes the data folder (a new baseline), `--background` runs the service in the background, `--stop` stops everything |
+| `configure-lab.sh` | configures the service through its API: SMTP → Mailpit (certificate pinned by SHA-256), recipient groups `it-admins` = `admin@contoso.test`, `helpdesk` = `helpdesk@contoso.test`, channels `siem-lab` (webhook) and `teams-lab` (Teams) → the receiver, a daily report in 2 minutes; `--test` sends test messages |
+| `lab-scenario.sh` | a demonstration scenario in `OU=WatchdogDemo` (Zofia Żak, Łukasz Wiśniewski, Paweł Lewandowski, Grażyna Dąbrowska); `--verify` checks the events in the API, the emails in Mailpit and the signatures in the receiver; `--cleanup` deletes the OU |
+| `krb5-lab.sh` | manual Negotiate experiments (the tests do not use it): a service account with the SPN `HTTP/localhost` in `OU=WatchdogKerberos`, a keytab (`samba-tool domain exportkeytab`) and a private `krb5.conf`; `--cleanup` |
+| `keytab-lab.sh` | the Kerberos environment for the `admng-watchdog-keytab` tool, LDAP over SASL GSSAPI and the API with Negotiate (`KeytabLabTests`, `KerberosNegotiateTests`): a private `krb5.conf` and `ldap.conf` (as in the package), the `KRB5_*` variables, `LDAPCONF`; `env [--admin]`, `cleanup` |
+| `wec-units-lab.sh` | Stage B4: the `admng-openwec` and `admng-watchdog` packages in a privileged container with systemd as PID 1 – `openwecd.service` in its sandbox with the keytab of a fresh account (its own OU, deleted at the end; `admng-watchdog-keytab init` from the package) accepts SPNEGO from the host and writes no access log; the real `admng-wec-rotate.service` unit: renaming, reloading `openwecd`, deleting only files that were read, `MAX_UNCONSUMED_DAYS`, a run with the service stopped |
+| `common.sh` | shared settings and functions (sourced by the other scripts) |
 
-Wymagania: laboratorium z `tools/testlab/setup-samba-dc.sh`, .NET SDK 10, `ldap-utils`, `curl`, `jq`, `openssl`,
+Requirements: the lab from `tools/testlab/setup-samba-dc.sh`, .NET SDK 10, `ldap-utils`, `curl`, `jq`, `openssl`,
 `python3`.
 
-## Szybki start
+## Quick start
 
 ```bash
-# 1. Usługa + Mailpit + odbiornik webhooków (w tle; bez --background działa na pierwszym planie, Ctrl+C kończy)
+# 1. Service + Mailpit + webhook receiver (in the background; without --background it runs in the foreground, Ctrl+C ends it)
 tools/testlab/watchdog/run-watchdog-lab.sh --reset --background
 
-# 2. Kanały powiadomień i odbiorcy (przez API usługi)
+# 2. Notification channels and recipients (through the service API)
 tools/testlab/watchdog/configure-lab.sh --test
 
-# 3. Zmiany w katalogu i sprawdzenie, że zostały zgłoszone (ok. 2 minut)
+# 3. Directory changes and a check that they were reported (about 2 minutes)
 tools/testlab/watchdog/lab-scenario.sh --verify
 
-# 4. Sprzątanie
+# 4. Cleanup
 tools/testlab/watchdog/run-watchdog-lab.sh --stop
 ```
 
-Po kroku 3 widać:
+After step 3 you can see:
 
-- zdarzenia: `curl -s -H 'X-AdMng-Watchdog-Api: 1' http://127.0.0.1:5089/api/v1/events | jq` albo zakładka
-  **Watchdog** w AD_MNG (adres usługi `http://127.0.0.1:5089` jest dozwolony tylko dla pętli zwrotnej w trybie
-  deweloperskim) – strona pojedynczego zdarzenia: link „Otwórz w przeglądarce” w e-mailu;
-- e-maile (polskie tematy, np. „[AD Watchdog][WYSOKI] Dodano do grupy uprzywilejowanej: Zofia Żak…”, „Nowe konta: 4”,
-  „Zablokowano konto: Paweł Lewandowski” dla helpdesku) w Mailpit: <http://127.0.0.1:8025>;
-- wywołania webhooka i karty Teams w dzienniku odbiornika `~/.cache/admng/watchdog-lab/webhook-sink.log`
-  (`signatureValid: true`) albo `curl -s http://127.0.0.1:8091/_sink/requests | jq`;
-- raport dzienny o godzinie ustawionej przez `configure-lab.sh` (domyślnie 2 minuty po konfiguracji).
+- events: `curl -s -H 'X-AdMng-Watchdog-Api: 1' http://127.0.0.1:5089/api/v1/events | jq` or the **Watchdog**
+  tab in AD_MNG (the service address `http://127.0.0.1:5089` is allowed only for the loopback interface in development
+  mode) – the page of a single event: the "Open in the browser" link in the email;
+- emails (Polish subjects, e.g. "[AD Watchdog][WYSOKI] Dodano do grupy uprzywilejowanej: Zofia Żak…", "Nowe konta: 4",
+  "Zablokowano konto: Paweł Lewandowski" for the help desk) in Mailpit: <http://127.0.0.1:8025>;
+- webhook calls and Teams cards in the receiver log `~/.cache/admng/watchdog-lab/webhook-sink.log`
+  (`signatureValid: true`) or `curl -s http://127.0.0.1:8091/_sink/requests | jq`;
+- the daily report at the time set by `configure-lab.sh` (by default 2 minutes after configuration).
 
-Dziennik usługi (`~/.cache/admng/watchdog-lab/watchdog.log` w trybie `--background`) nie zawiera wartości z katalogu
-ani sekretów – tak samo jak w produkcji.
+The service log (`~/.cache/admng/watchdog-lab/watchdog.log` in `--background` mode) contains no directory values
+or secrets – just as in production.
 
-## Co robi scenariusz
+## What the scenario does
 
-1. Tworzy `OU=WatchdogDemo` z OU `Pracownicy`, `Przeniesieni`, `Komputery`, `Grupy`, grupy `Demo Tier0` (korzeń
-   uprzywilejowany – `configure-lab.sh` dopisuje ją do `privilegedGroups.highSamAccountNames`), `Demo Operatorzy`
-   (zagnieżdżona w `Demo Tier0`) i `Demo Projekt`.
-2. Zakłada konto Zofii Żak w trzech krokach (wyłączone → hasło przez StartTLS → włączone) – w oknie
-   `creationSettleWindow` (w laboratorium 30 s) to jedno zdarzenie **UserCreated** ze stanem końcowym; do tego trzy
-   kolejne konta i komputer `WD-KRK-PC01` z obiektem podrzędnym.
-3. Zmienia dział i stanowisko Łukasza Wiśniewskiego (**AttributesChanged** stara → nowa wartość), ustawia wygaśnięcie
-   konta za 5 dni (**AccountExpirationChanged**, a przy najbliższym skanie **AccountExpiring**), dodaje go do grupy
-   (**GroupMemberAdded**), dodaje Zofię do grupy zagnieżdżonej (**PrivilegeGranted** z członkostwem pośrednim),
-   ustawia `pwdLastSet` 0 → -1 u Grażyny Dąbrowskiej (**PasswordAgeReset**) i wyłącza jej konto (**AccountDisabled**).
-4. Pięć błędnych logowań Pawła Lewandowskiego (próg blokady 5) → **AccountLockedOut**, potem odblokowanie przez
-   administratora → **AccountUnlocked**.
-5. Przenosi Łukasza (**ObjectMoved**), zmienia nazwę OU `Pracownicy` → `Zespół Demo` (jedno **ObjectRenamed**, obiekty
-   podrzędne nie są zgłaszane), usuwa Grażynę i komputer z obiektem podrzędnym.
+1. Creates `OU=WatchdogDemo` with the OUs `Pracownicy`, `Przeniesieni`, `Komputery`, `Grupy`, the groups `Demo Tier0` (the
+   privileged root – `configure-lab.sh` adds it to `privilegedGroups.highSamAccountNames`), `Demo Operatorzy`
+   (nested in `Demo Tier0`) and `Demo Projekt`.
+2. Creates Zofia Żak's account in three steps (disabled → password over StartTLS → enabled) – within the
+   `creationSettleWindow` (30 s in the lab) this is a single **UserCreated** event with the final state; in addition three
+   more accounts and the computer `WD-KRK-PC01` with a child object.
+3. Changes Łukasz Wiśniewski's department and job title (**AttributesChanged** old → new value), sets the account
+   expiration in 5 days (**AccountExpirationChanged**, and at the next scan **AccountExpiring**), adds him to a group
+   (**GroupMemberAdded**), adds Zofia to a nested group (**PrivilegeGranted** with indirect membership),
+   sets `pwdLastSet` 0 → -1 for Grażyna Dąbrowska (**PasswordAgeReset**) and disables her account (**AccountDisabled**).
+4. Five failed logons of Paweł Lewandowski (lockout threshold 5) → **AccountLockedOut**, then an unlock by an
+   administrator → **AccountUnlocked**.
+5. Moves Łukasz (**ObjectMoved**), renames the OU `Pracownicy` → `Zespół Demo` (a single **ObjectRenamed**, child objects
+   are not reported), deletes Grażyna and the computer with its child object.
 
-Usługa czyta katalog jako `odczyt.test`, który nie widzi `CN=Deleted Objects`: usunięcia zgłasza dopiero nocne
-uzgodnienie jako **ObjectDisappeared** („zniknął”), a stan zdrowia pokazuje ostrzeżenie `permission.deletedObjects`
-– tak jak w domenie bez delegacji odczytu usuniętych obiektów (`docs/WATCHDOG.md`). Testy integracyjne sprawdzają
-również wariant z kontem administratora (**ObjectDeleted**).
+The service reads the directory as `odczyt.test`, which cannot see `CN=Deleted Objects`: deletions are reported only by the
+nightly reconciliation as **ObjectDisappeared** ("disappeared"), and the health status shows the warning `permission.deletedObjects`
+– just as in a domain without delegated read access to deleted objects (`docs/WATCHDOG.md`). The integration tests also
+check the variant with the administrator account (**ObjectDeleted**).
 
-Konfiguracja laboratoryjna celowo różni się od domyślnej: tryb wdrożenia (rollout) jest zakończony, godziny pracy
-obejmują cały tydzień bez świąt, okna agregacji mają 1 minutę, a limit wiadomości na regułę – 1000 na godzinę, żeby
-kolejne przebiegi scenariusza nie trafiały wyłącznie do raportu dziennego.
+The lab configuration deliberately differs from the default: the rollout mode is finished, working hours
+cover the whole week without holidays, the aggregation windows are 1 minute, and the message limit per rule is 1000 per hour, so that
+subsequent scenario runs do not end up only in the daily report.
 
-## Kerberos (opcjonalnie)
+## Kerberos (optional)
 
-Domyślnie laboratorium używa uwierzytelniania `Development`. Prawdziwy Kerberos API (etap B3,
-`docs/dev/watchdog-linux-design.md` 6.1–6.2) sprawdza test `KerberosNegotiateTests`: zakłada we własnym OU świeże konto
-komputera, wykonuje `admng-watchdog-keytab init` (keytab ze środowiska `keytab-lab.sh env`), uruchamia usługę z
-`Negotiate` na Kestrelu (akceptor z `KRB5_KTNAME`, odczyt katalogu przez SASL GSSAPI jako to konto) i loguje się hasłami
-użytkowników testowych (bilet dla `HTTP/<fqdn konta>`). Role pochodzą wyłącznie z odczytu `objectSid` i `tokenGroups`
-przez samą usługę: Viewer (przez grupę zagnieżdżoną) czyta, Admin dostaje punkty końcowe administratora, osoba spoza
-grup dostaje 403, członek grupy z `DeniedSids` – 403 mimo członkostwa w grupie Adminów; bilet zaszyfrowany kluczem,
-którego keytab nie zawiera, daje 401 (nie 500), klient tylko-NTLM – 401, a wywołanie z pętli zwrotnej spoza
-`AllowedRemoteSubnets` – 403 jeszcze przed uwierzytelnieniem.
+By default the lab uses `Development` authentication. The real API Kerberos (Stage B3,
+`docs/dev/watchdog-linux-design.md` 6.1–6.2) is checked by the `KerberosNegotiateTests` test: it creates a fresh computer
+account in its own OU, runs `admng-watchdog-keytab init` (the keytab from the `keytab-lab.sh env` environment), starts the service with
+`Negotiate` on Kestrel (an acceptor from `KRB5_KTNAME`, directory read over SASL GSSAPI as that account) and logs in with the passwords of
+the test users (a ticket for `HTTP/<account FQDN>`). Roles come solely from reading `objectSid` and `tokenGroups`
+by the service itself: a Viewer (through a nested group) reads, an Admin gets the administrator endpoints, a person outside the
+groups gets 403, a member of a group from `DeniedSids` gets 403 despite membership in the Admins group; a ticket encrypted with a key
+that the keytab does not contain gives 401 (not 500), an NTLM-only client gets 401, and a call from the loopback interface outside
+`AllowedRemoteSubnets` gets 403 even before authentication.
 
 ```bash
 export ADMNG_TEST_LDAP_SERVER=127.0.0.1 ADMNG_TEST_LDAP_USER='Administrator@contoso.test' ADMNG_TEST_LDAP_PASSWORD='P@ssw0rd!2026'
-eval "$(tools/testlab/watchdog/keytab-lab.sh env)"          # pusty bufor MEMORY: – tożsamość usługi z keytabu testu
+eval "$(tools/testlab/watchdog/keytab-lab.sh env)"          # empty MEMORY: cache – the service identity from the test keytab
 dotnet test tests/AdMng.Watchdog.IntegrationTests --filter "FullyQualifiedName~KerberosNegotiateTests"
 ```
 
-Nazwy konta testowego nie ma w DNS: klienci łączą się z `127.0.0.1` i podają FQDN konta w nagłówku `Host` (.NET buduje
-z niego SPN bez zapytania DNS). `KerberosNegotiateTests` i `KeytabLabTests` zapisują ten sam keytab, dlatego działają w
-jednej kolekcji xUnit (po kolei).
+The test account name is not in DNS: clients connect to `127.0.0.1` and give the account FQDN in the `Host` header (.NET builds
+the SPN from it without a DNS query). `KerberosNegotiateTests` and `KeytabLabTests` write the same keytab, so they run in
+one xUnit collection (one after another).
 
-`krb5-lab.sh` zostaje do ręcznych prób Negotiate (konto `wd-krb-http` z SPN `HTTP/localhost`, keytab i prywatny
-`krb5.conf` w `~/.cache/admng/watchdog-lab/kerberos`, uprawnienia 0700; `--cleanup` usuwa konto i pliki).
+`krb5-lab.sh` remains for manual Negotiate experiments (the account `wd-krb-http` with the SPN `HTTP/localhost`, a keytab and a private
+`krb5.conf` in `~/.cache/admng/watchdog-lab/kerberos`, permissions 0700; `--cleanup` deletes the account and files).
 
-## Konto usługi i keytab
+## Service account and keytab
 
-Etap B2 wersji linuksowej (`docs/dev/watchdog-linux-design.md` 4.4–4.7, 5.1): narzędzie `admng-watchdog-keytab` ustawia
-hasło konta komputera z hasła jednorazowego (`init`) i je rotuje (`rotate`), a usługa łączy się z DC przez LDAP 389 z
-Kerberosem i szyfrowaniem SASL (SSF ≥ 56) jako to konto. Testy `KeytabLabTests` zakładają we własnym OU świeże konto
-komputera (wyłączone, z hasłem jednorazowym, SPN `HTTP/` i `HOST/`, AES, `NOT_DELEGATED`), wykonują `init` i `rotate`
-w procesie testu i sprawdzają, że otwarta sesja LDAP oraz klient Negotiate (akceptor z `KRB5_KTNAME`) działają dalej
-bez restartu, a monitor konta usługi zgłasza kody zdrowia 4.6/4.7 dla wstrzykniętych błędów.
+Stage B2 of the Linux version (`docs/dev/watchdog-linux-design.md` 4.4–4.7, 5.1): the `admng-watchdog-keytab` tool sets the
+computer account password from a one-time password (`init`) and rotates it (`rotate`), and the service connects to the DC over LDAP 389 with
+Kerberos and SASL encryption (SSF ≥ 56) as that account. The `KeytabLabTests` tests create a fresh computer account in their own OU
+(disabled, with a one-time password, the SPNs `HTTP/` and `HOST/`, AES, `NOT_DELEGATED`), run `init` and `rotate`
+in the test process and check that the open LDAP session and the Negotiate client (an acceptor from `KRB5_KTNAME`) keep working
+without a restart, and that the service account monitor reports the health codes 4.6/4.7 for injected faults.
 
 ```bash
 export ADMNG_TEST_LDAP_SERVER=127.0.0.1
-eval "$(tools/testlab/watchdog/keytab-lab.sh env)"          # pusty bufor MEMORY: – tożsamość z keytabu testu
+eval "$(tools/testlab/watchdog/keytab-lab.sh env)"          # empty MEMORY: cache – the identity from the test keytab
 dotnet test tests/AdMng.Watchdog.IntegrationTests --filter "FullyQualifiedName~KeytabLabTests"
 
-eval "$(tools/testlab/watchdog/keytab-lab.sh env --admin)"  # bilet Administratora – testy GssapiTests
+eval "$(tools/testlab/watchdog/keytab-lab.sh env --admin)"  # the Administrator's ticket – the GssapiTests tests
 dotnet test tests/AdMng.Directory.IntegrationTests --filter "FullyQualifiedName~GssapiTests"
 tools/testlab/watchdog/keytab-lab.sh cleanup
 ```
 
-Zmienne muszą być w środowisku procesu testów (libkrb5, libldap i Cyrus SASL czytają je natywnie; zmiana w procesie
-.NET do nich nie dociera). Pliki leżą w `~/.cache/admng/watchdog-lab/keytab` (0700). Wymaga SPN-ów `ldap/<nazwa DC>`
-i rozwiązywalnej nazwy DC – patrz [`../README.md`](../README.md) („Kerberos (SASL GSSAPI) przez LDAP”). Samba zwalnia
-konto komputera z minimalnego wieku hasła, więc ścieżki `otpActive` nie da się tu wywołać (sprawdzają ją testy
-jednostkowe); jeden DC – opóźnienie replikacji test symuluje drugim, nieosiągalnym KDC w `krb5.conf`.
+The variables must be in the environment of the test process (libkrb5, libldap and Cyrus SASL read them natively; a change inside the
+.NET process does not reach them). The files are in `~/.cache/admng/watchdog-lab/keytab` (0700). It requires the SPNs `ldap/<DC name>`
+and a resolvable DC name – see [`../README.md`](../README.md) ("Kerberos (SASL GSSAPI) over LDAP"). Samba exempts the
+computer account from the minimum password age, so the `otpActive` path cannot be triggered here (the unit tests cover it); with one DC the
+replication delay is simulated by the test with a second, unreachable KDC in `krb5.conf`.
 
-## Kolektor WEF (OpenWEC)
+## WEF collector (OpenWEC)
 
-Etap B4 (`docs/dev/watchdog-linux-design.md` 7, 12.2, 12.4): `OpenWecLabTests` uruchamia `openwecd` z przypiętego
-commitu OpenWEC z konfiguracją pakietu (`packaging/admng-openwec/etc/openwec.conf.toml`) i keytabem świeżego konta
-(`admng-watchdog-keytab init`), ładuje subskrypcję z `print-wec-subscription` prawdziwym CLI `openwec` i sprawdza, że
-bilety dla `HTTP/` i `host/` konta są przyjmowane (schematy `Kerberos` i `Negotiate`, token wzajemnego uwierzytelnienia),
-a żądanie bez biletu i bilet innej usługi – nie. `openwecd` buduje `tools/packaging/build-openwec-deb.sh` (w CI dla
-Debiana 12 i 13) albo `cargo build --release --locked` w klonie z commitu `86de07f`.
+Stage B4 (`docs/dev/watchdog-linux-design.md` 7, 12.2, 12.4): `OpenWecLabTests` starts `openwecd` from the pinned
+OpenWEC commit with the package configuration (`packaging/admng-openwec/etc/openwec.conf.toml`) and the keytab of a fresh account
+(`admng-watchdog-keytab init`), loads the subscription from `print-wec-subscription` with the real `openwec` CLI and checks that
+tickets for `HTTP/` and `host/` of the account are accepted (the `Kerberos` and `Negotiate` schemes, the mutual authentication token),
+and that a request without a ticket and a ticket for another service are not. `openwecd` is built by `tools/packaging/build-openwec-deb.sh` (in CI for
+Debian 12 and 13) or by `cargo build --release --locked` in a clone at commit `86de07f`.
 
 ```bash
 export ADMNG_TEST_LDAP_SERVER=127.0.0.1 ADMNG_TEST_LDAP_USER='Administrator@contoso.test' ADMNG_TEST_LDAP_PASSWORD='P@ssw0rd!2026'
 eval "$(tools/testlab/watchdog/keytab-lab.sh env)"
-export ADMNG_TEST_OPENWECD=/ścieżka/do/openwec/target/release/openwecd   # obok niego binarka openwec
+export ADMNG_TEST_OPENWECD=/ścieżka/do/openwec/target/release/openwecd   # the openwec binary next to it
 dotnet test tests/AdMng.Watchdog.IntegrationTests --filter "FullyQualifiedName~OpenWecLabTests"
 
-# jednostki pod systemd (obraz z systemd >= 252 i aspnetcore-runtime-10.0, np. obraz laboratorium B1)
+# units under systemd (an image with systemd >= 252 and aspnetcore-runtime-10.0, e.g. the lab image of B1)
 eval "$(tools/testlab/watchdog/keytab-lab.sh env --admin)"
 tools/testlab/watchdog/wec-units-lab.sh <obraz> admng-openwec_<wersja>_amd64.deb admng-watchdog_<wersja>_amd64.deb
 ```
 
-## Zawartość GPO (SYSVOL)
+## GPO content (SYSVOL)
 
-Etap B5 (`docs/dev/watchdog-linux-design.md` 8): `GpoContentLabTests` zakłada `samba-tool gpo create` własny GPO, zapisuje
-jego pliki przez `smbclient` jako administrator (szablon zabezpieczeń, Registry.pol, skrypt startowy, zadanie GPP,
-użytkownik GPP z `cpassword`), podbija `GPT.INI` i `versionNumber` jak GPMC i sprawdza zdarzenia „było → jest” zadania
-`gpo-content`, które czyta SYSVOL przez `smbclient` z biletem świeżego konta komputera (keytab z
-`admng-watchdog-keytab init`, własne `krb5.conf` i `smb-client.conf` w katalogu tymczasowym). Do tego: zmiana pliku bez
-zmiany wersji wykryta wymuszonym uzgodnieniem, przekierowanie `gPCFileSysPath` (Critical, bez żadnego połączenia SMB),
-skan bazy SQLite pod kątem `cpassword` oraz wymiana biletu TGT z 1-minutowym czasem życia. Na końcu GPO jest usuwany.
-Wymaga `smbclient`, `kinit` i `samba-tool` (Python z modułem `samba`). Jeżeli konto komputera dostaje
-`NT_STATUS_ACCESS_DENIED` na `Policies`, uprawnienia SYSVOL laboratorium rozjechały się z ACL obiektów GPO
-(`samba-tool ntacl sysvolcheck` zgłasza błąd) – naprawia je `samba-tool ntacl sysvolreset`.
+Stage B5 (`docs/dev/watchdog-linux-design.md` 8): `GpoContentLabTests` runs `samba-tool gpo create` for its own GPO, writes
+its files through `smbclient` as the administrator (a security template, Registry.pol, a startup script, a GPP task,
+a GPP user with `cpassword`), bumps `GPT.INI` and `versionNumber` like GPMC and checks the "was → is" events of the
+`gpo-content` job, which reads SYSVOL through `smbclient` with a ticket of a fresh computer account (a keytab from
+`admng-watchdog-keytab init`, its own `krb5.conf` and `smb-client.conf` in a temporary directory). In addition: a file change without a
+version change detected by a forced reconciliation, a `gPCFileSysPath` redirect (Critical, with no SMB connection at all),
+a scan of the SQLite database for `cpassword` and a TGT ticket exchange with a 1-minute lifetime. At the end the GPO is deleted.
+It requires `smbclient`, `kinit` and `samba-tool` (Python with the `samba` module). If the computer account gets
+`NT_STATUS_ACCESS_DENIED` on `Policies`, the lab's SYSVOL permissions have diverged from the ACLs of the GPO objects
+(`samba-tool ntacl sysvolcheck` reports an error) – `samba-tool ntacl sysvolreset` fixes it.
 
 ```bash
 export ADMNG_TEST_LDAP_SERVER=127.0.0.1 ADMNG_TEST_LDAP_USER='Administrator@contoso.test' ADMNG_TEST_LDAP_PASSWORD='P@ssw0rd!2026'
 dotnet test tests/AdMng.Watchdog.IntegrationTests --filter "FullyQualifiedName~GpoContentLabTests"
 ```
 
-## Testy integracyjne
+## Integration tests
 
 ```bash
 tools/testlab/watchdog/start-mailpit.sh
@@ -177,19 +179,19 @@ dotnet test tests/AdMng.Watchdog.IntegrationTests
 tools/testlab/watchdog/stop-mailpit.sh
 ```
 
-Testy tworzą własne OU `OU=WatchdogIT-<identyfikator przebiegu>` i patrzą wyłącznie na zdarzenia obiektów z tego OU –
-laboratorium bywa współdzielone. Opis OU wskazuje proces testów; na starcie usuwane są OU przebiegów, które się
-skończyły (proces na tym hoście już nie działa albo OU jest starsze niż 2 godziny), a OU trwających przebiegów
-zostają. Usuwanie odbywa się po stronie klienta, obiekt po obiekcie (zob. „Sprzątanie po testach” w
-[`tools/testlab/README.md`](../README.md)). Bez
-`ADMNG_TEST_LDAP_SERVER` są pomijane; test end-to-end bez `ADMNG_TEST_SMTP_HOST` uruchamia własny serwer SMTP w procesie
-zamiast Mailpit.
+The tests create their own OU `OU=WatchdogIT-<run id>` and look only at events of objects from that OU –
+the lab is sometimes shared. The OU description identifies the test process; at start, the OUs of runs that have
+finished are deleted (the process on this host is no longer running or the OU is older than 2 hours), and the OUs of runs in progress
+are left alone. Deletion is done on the client side, object by object (see "Cleaning up after tests" in
+[`tools/testlab/README.md`](../README.md)). Without
+`ADMNG_TEST_LDAP_SERVER` they are skipped; the end-to-end test without `ADMNG_TEST_SMTP_HOST` starts its own in-process SMTP server
+instead of Mailpit.
 
-## Sprzątanie
+## Cleanup
 
 ```bash
 tools/testlab/watchdog/lab-scenario.sh --cleanup        # OU=WatchdogDemo
-tools/testlab/watchdog/run-watchdog-lab.sh --stop       # usługa w tle, odbiornik, Mailpit (wiadomości znikają)
-tools/testlab/watchdog/run-watchdog-lab.sh --reset ...  # przy następnym starcie: nowa baza i nowy baseline
-rm -rf ~/.local/share/admng-watchdog-lab ~/.cache/admng # wszystko, łącznie z pobranym Mailpit
+tools/testlab/watchdog/run-watchdog-lab.sh --stop       # background service, receiver, Mailpit (messages disappear)
+tools/testlab/watchdog/run-watchdog-lab.sh --reset ...  # at the next start: a new database and a new baseline
+rm -rf ~/.local/share/admng-watchdog-lab ~/.cache/admng # everything, including the downloaded Mailpit
 ```

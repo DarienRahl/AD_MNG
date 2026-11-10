@@ -1,3 +1,5 @@
+[English](../en/adr/0008-watchdog-data-in-separate-folder.md) · **Polski**
+
 # ADR-0008: Watchdog przechowuje dane w osobnym folderze (wyjątek od ADR-0003)
 
 - Status: przyjęta

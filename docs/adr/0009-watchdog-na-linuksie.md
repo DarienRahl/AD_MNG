@@ -1,3 +1,5 @@
+[English](../en/adr/0009-watchdog-on-linux.md) · **Polski**
+
 # ADR-0009: Usługa AdMng Watchdog na Linuksie (Debian + systemd)
 
 - Status: **przyjęta** (2026-10-20). Opiera się na ustaleniach z 2026-10-19; zmiany wobec nich użytkownik potwierdził

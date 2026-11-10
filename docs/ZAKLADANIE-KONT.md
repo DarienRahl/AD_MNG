@@ -1,3 +1,5 @@
+[English](en/CREATING-ACCOUNTS.md) · **Polski**
+
 # Zakładanie wielu kont w AD Managerze (faza 3)
 
 Ten dokument opisuje kreator **Zakładanie wielu kont**: konta użytkowników – a także kontakty, grupy i komputery –

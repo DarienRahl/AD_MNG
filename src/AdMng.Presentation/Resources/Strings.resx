@@ -8455,7 +8455,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>Check that the computer is on, that its DNS name resolves and that the firewall lets you in.</value>
   </data>
   <data name="RemoteActions.Hint.WinRmNotAvailable" xml:space="preserve">
-    <value>Enable WinRM by Group Policy (service, listener, firewall rule) – see docs/KOMPUTERY.md.</value>
+    <value>Enable WinRM by Group Policy (service, listener, firewall rule) – see docs/en/COMPUTERS.md.</value>
   </data>
   <data name="RemoteActions.Hint.AuthenticationFailed" xml:space="preserve">
     <value>Check the computer's SPN (HTTP/ or WSMAN/), the clocks and that the account is a domain account; NTLM is never used.</value>
@@ -20182,67 +20182,67 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>The check failed: {0}</value>
   </data>
   <data name="Readiness.Doc.ComputersRemote" xml:space="preserve">
-    <value>KOMPUTERY.md, chapter 4 “Zdalne akcje (WinRM, Kerberos)”</value>
+    <value>docs/en/COMPUTERS.md, chapter 4 “Remote actions (WinRM, Kerberos)”</value>
   </data>
   <data name="Readiness.Doc.ComputersWinRm" xml:space="preserve">
-    <value>KOMPUTERY.md, chapter 5 “Włączenie WinRM na komputerach zasadą grupy”</value>
+    <value>docs/en/COMPUTERS.md, chapter 5 “Enabling WinRM on computers with Group Policy”</value>
   </data>
   <data name="Readiness.Doc.ComputersProperties" xml:space="preserve">
-    <value>KOMPUTERY.md, chapter 2 “Właściwości komputera”</value>
+    <value>docs/en/COMPUTERS.md, chapter 2 “Computer properties”</value>
   </data>
   <data name="Readiness.Doc.EventLogsRequirements" xml:space="preserve">
-    <value>DZIENNIKI-ZDARZEN.md, chapter 2 “Wymagania”</value>
+    <value>docs/en/EVENT-LOGS.md, chapter 2 “Requirements”</value>
   </data>
   <data name="Readiness.Doc.EventLogsLockout" xml:space="preserve">
-    <value>DZIENNIKI-ZDARZEN.md, chapter 4 “Skąd blokada konta”</value>
+    <value>docs/en/EVENT-LOGS.md, chapter 4 “Lockout source”</value>
   </data>
   <data name="Readiness.Doc.GpoDc" xml:space="preserve">
-    <value>ZASADY-GRUPY.md, chapter 13 “Kontroler domeny, emulator PDC i SYSVOL”</value>
+    <value>docs/en/GROUP-POLICY.md, chapter 13 “Domain controller, PDC emulator and SYSVOL”</value>
   </data>
   <data name="Readiness.Doc.GpoCentralStore" xml:space="preserve">
-    <value>ZASADY-GRUPY.md, chapter 8 “Aktualizacja szablonów ADMX (magazyn centralny)”</value>
+    <value>docs/en/GROUP-POLICY.md, chapter 8 “Updating ADMX templates (central store)”</value>
   </data>
   <data name="Readiness.Doc.GpoOperations" xml:space="preserve">
-    <value>ZASADY-GRUPY.md, chapter 3 “Operacje”</value>
+    <value>docs/en/GROUP-POLICY.md, chapter 3 “Operations”</value>
   </data>
   <data name="Readiness.Doc.GpoBackup" xml:space="preserve">
-    <value>ZASADY-GRUPY.md, chapter 5 “Kopie zapasowe, przywracanie i import”</value>
+    <value>docs/en/GROUP-POLICY.md, chapter 5 “Backups, restore and import”</value>
   </data>
   <data name="Readiness.Doc.WatchdogTime" xml:space="preserve">
-    <value>WATCHDOG-LINUX.md, chapter 1.4 “Czas w domenie”</value>
+    <value>docs/en/WATCHDOG-LINUX.md, chapter 1.4 “Time in the domain”</value>
   </data>
   <data name="Readiness.Doc.WatchdogForest" xml:space="preserve">
-    <value>WATCHDOG-LINUX.md, chapter 1.2 “DC01 – nowy las contoso.com”</value>
+    <value>docs/en/WATCHDOG-LINUX.md, chapter 1.2 “DC01 – the new forest contoso.com”</value>
   </data>
   <data name="Readiness.Doc.WatchdogAudit" xml:space="preserve">
-    <value>WATCHDOG-LINUX.md, chapter 2.10 “Zasady inspekcji na kontrolerach i rozmiar dziennika Security”</value>
+    <value>docs/en/WATCHDOG-LINUX.md, chapter 2.10 “Audit policy on domain controllers and the Security log size”</value>
   </data>
   <data name="Readiness.Doc.WatchdogRoles" xml:space="preserve">
-    <value>WATCHDOG-LINUX.md, chapter 2.3 “Grupy ról AdMng-Watchdog-Admins i AdMng-Watchdog-Viewers”</value>
+    <value>docs/en/WATCHDOG-LINUX.md, chapter 2.3 “Role groups AdMng-Watchdog-Admins and AdMng-Watchdog-Viewers”</value>
   </data>
   <data name="Readiness.Doc.WatchdogDns" xml:space="preserve">
-    <value>WATCHDOG-LINUX.md, chapter 2.4 “Rekord DNS A (i PTR) dla serwera Watchdog”</value>
+    <value>docs/en/WATCHDOG-LINUX.md, chapter 2.4 “DNS A (and PTR) record for the Watchdog server”</value>
   </data>
   <data name="Readiness.Doc.WatchdogTls" xml:space="preserve">
-    <value>WATCHDOG-LINUX.md, chapter 3.8 “Certyfikat TLS dla API”</value>
+    <value>docs/en/WATCHDOG-LINUX.md, chapter 3.8 “TLS certificate for the API”</value>
   </data>
   <data name="Readiness.Doc.WatchdogOrder" xml:space="preserve">
-    <value>WATCHDOG-LINUX.md, chapter 0.4 “Kolejność prac”</value>
+    <value>docs/en/WATCHDOG-LINUX.md, chapter 0.4 “Order of work”</value>
   </data>
   <data name="Readiness.Doc.CorrespondenceRequirements" xml:space="preserve">
-    <value>KORESPONDENCJA.md, chapter 1 “Wymagania”</value>
+    <value>docs/en/CORRESPONDENCE.md, chapter 1 “Requirements”</value>
   </data>
   <data name="Readiness.Doc.CorrespondenceTroubleshooting" xml:space="preserve">
-    <value>KORESPONDENCJA.md, chapter 13 “Gdy coś nie działa”</value>
+    <value>docs/en/CORRESPONDENCE.md, chapter 13 “When something does not work”</value>
   </data>
   <data name="Readiness.Doc.ArchitectureSecurity" xml:space="preserve">
-    <value>ARCHITECTURE.md, chapter “Bezpieczeństwo”</value>
+    <value>docs/en/ARCHITECTURE.md, chapter “Security”</value>
   </data>
   <data name="Readiness.Doc.ArchitectureSession" xml:space="preserve">
-    <value>ARCHITECTURE.md, chapter “Sesja katalogu”</value>
+    <value>docs/en/ARCHITECTURE.md, chapter “Directory session”</value>
   </data>
   <data name="Readiness.Doc.ReadmeRun" xml:space="preserve">
-    <value>README.md, chapter “Pobierz i uruchom”</value>
+    <value>README.md, chapter “Download and run”</value>
   </data>
   <data name="Readiness.Title.Logon" xml:space="preserve">
     <value>Logon of the window</value>

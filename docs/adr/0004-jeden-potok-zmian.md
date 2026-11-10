@@ -1,3 +1,5 @@
+[English](../en/adr/0004-one-change-pipeline.md) · **Polski**
+
 # ADR-0004: Jeden potok zmian dla edycji pojedynczej i zbiorczej
 
 - Status: przyjęta

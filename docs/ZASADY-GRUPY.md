@@ -1,3 +1,5 @@
+[English](en/GROUP-POLICY.md) · **Polski**
+
 # Zasady grupy (GPO) w AD Managerze
 
 Od etapu **K2** AD Manager zarządza obiektami zasad grupy bez konsoli GPMC: drzewo GPO w oknie głównym, karta

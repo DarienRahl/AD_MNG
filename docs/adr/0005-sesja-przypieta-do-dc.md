@@ -1,3 +1,5 @@
+[English](../en/adr/0005-session-pinned-to-dc.md) · **Polski**
+
 # ADR-0005: Sesja przypięta do jednego kontrolera domeny
 
 - Status: przyjęta

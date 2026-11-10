@@ -1,3 +1,5 @@
+[English](../en/adr/0006-permission-aware-ui.md) · **Polski**
+
 # ADR-0006: Interfejs świadomy uprawnień operatora
 
 - Status: przyjęta
