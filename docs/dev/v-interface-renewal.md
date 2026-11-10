@@ -729,6 +729,36 @@ The most visible gain for the least risk: no structure changes, no element is re
 - **Risks:** drawing cost of colour icons in long lists; blur at 16 px on 125 % scaling; noise in screenshot
   reviews.
 
+**V1a as built (colour icons for things).** The first increment of V1; tokens, surfaces and motion follow in the
+next ones.
+
+- **Setting.** `AppSettings.IconStyle` (`IconStylePreference`: `Colour` – the default and what a settings file
+  without the value loads as – or `Monochrome`), chosen in *Settings › General › Appearance › Icons* next to the theme. The
+  rule is the pure function `IconStyleRules.Effective(preference, highContrast)` in `AdMng.Presentation/Icons`:
+  monochrome when chosen or when Windows High Contrast is on.
+- **Switch.** `Services/IconStyleService` (application-wide singleton, like `ThemeService`; `AppearanceService`
+  feeds it from the settings) writes the effective style to the application resource `Ad.IconStyle` and follows
+  `SystemParameters.HighContrast` at run time. The icon elements read the resource through a private dependency
+  property set with `SetResourceReference` (`AffectsRender`), so every icon of every open window of every connection
+  is redrawn at once and no element subscribes to an event. Without the resource an element draws colour.
+- **Drawing.** `ObjectIconView` draws `AppIcons.KeyFor(icon)` with `DrawingContext.DrawImage` into the `Size` square:
+  the frozen `DrawingImage` of the resources, the same instance for every element (a static table by enum value
+  saves the resource lookup per render), nothing cloned, measure and arrange unchanged, the square snapped to a
+  device pixel of the element. *Disabled* and *locked* are their own pictures (`UserDisabled`, `UserLocked`,
+  `ComputerDisabled`) with the overlay drawn in, so the glyph badges are drawn only in the monochrome style, which
+  is today's code unchanged. `AreaIconView` (same shape: `IconKey` + fallback `Glyph`) is for pictures without an
+  `ObjectIcon` value.
+- **Where.** Every existing use of `ObjectIconView` (tree, lists, tabs, details pane header, property sheet,
+  pickers, document headers) shows the colour icon without a change in the views. Changed views: the document tabs
+  use 16 px instead of 14 px (table in 4.4), the connect window has the *connection* picture at 48 px in its header,
+  the group list of the bulk creation rules shows each group's object icon instead of one glyph.
+- **Left as glyphs on purpose:** actions (toolbar, menus, chevrons, copy and close buttons), status and severity
+  glyphs (error bars, the Watchdog connection state, list severities – they become status icons with the status line
+  in V2), the well-known container badge and the loading mark in the tree, the mail glyph of the transport lines.
+- **Not done here:** document headers keep 18 px (20 px comes with the page header of V3) and the property sheet
+  header its present size; the domain controller rows of the connect window's server list have no icon yet; the
+  check of 125 % and 150 % scaling on screenshots and the list render benchmark need Windows CI.
+
 ### V2 – Feedback: status line, command shape, action button (L)
 
 - **Scope:** `PageStatus` and `OperationScope` in Presentation (with the session-log copy and the value-free log

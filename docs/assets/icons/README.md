@@ -18,6 +18,11 @@ resources the application uses:
 In XAML: `<Image Source="{StaticResource Icon.User}" Width="16" Height="16" />`; in code:
 `AppIcons.Find(AppIcons.KeyFor(icon))`. Every image is 48 x 48 units and scales to any size.
 
+Where the application uses them (from V1a of `docs/dev/v-interface-renewal.md`): `Controls/ObjectIconView` draws the
+object icons wherever a thing is shown (tree, lists, tabs, details and property sheet headers, pickers) and
+`Controls/AreaIconView` the area pictures (the connect window); both fall back to the monochrome glyphs of
+`Controls/Glyphs.cs` when the operator chose *Icons: monochrome* or Windows High Contrast is on.
+
 ## Preview
 
 Every icon at 16, 20, 24, 32 and 48 px on the light (`#F3F3F3`) and on the dark (`#202020`) surface:

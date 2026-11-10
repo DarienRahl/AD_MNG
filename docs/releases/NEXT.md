@@ -12,9 +12,16 @@
 
 {{DOWNLOADS}}
 
-## Nowe: <!-- TODO: nazwa funkcji -->
+## Nowe: odnowa interfejsu – etap V1
 
-<!-- TODO: **Gdzie:** wejścia w interfejsie, potem lista najważniejszych możliwości i link do instrukcji w docs/ (z tagiem v{{VERSION}}) -->
+- **Kolorowe ikony obiektów.** Rodzaj obiektu widać teraz po kształcie i kolorze, zanim przeczyta się nazwę:
+  użytkownik, komputer, serwer, kontroler domeny, grupa, kontakt, jednostka organizacyjna, zasada grupy, certyfikat
+  i pozostałe rodzaje mają własne rysunki, a konto wyłączone i zablokowane – własny wariant ze znaczkiem (strzałka
+  w dół, kłódka). Ikony są w drzewie, na listach, na kartach, w nagłówku panelu szczegółów, w oknach właściwości
+  i wyboru obiektów oraz w oknie połączenia. **Gdzie:** *Ustawienia → Ogólne → Wygląd → Ikony*: *Kolorowe*
+  (domyślnie) albo *Jednobarwne* (dotychczasowy wygląd); zmiana działa od razu we wszystkich otwartych oknach.
+  W trybie dużego kontrastu systemu Windows program zawsze używa ikon jednobarwnych, żeby obowiązywały kolory
+  systemowe.
 
 ## Inne zmiany
 
