@@ -69,7 +69,7 @@ the third way of sending is the operator's classic Outlook (`OutlookUserMessageT
   the current one and closes the previous one. An error or cancellation leaves the current session unchanged. Windows opened in the previous session
   stay with it (they neither read nor write) and state that they belong to the previous DC; the main window's tabs
   reload from the new DC, and the session log records the change. The DC list combines a read from the directory of the current session
-  (`server`/`nTDSDSA` in `CN=Sites`, `fSMORoleOwner`) with the locator (DsGetDcName/DNS SRV, client site)
+  (`server`/`nTDSDSA` in `CN=Sites`, `fSMORoleOwner`) with the DsGetDcName locator (DNS SRV, client site)
   ([dev/phase1-changedc.md](../dev/phase1-changedc.md)).
 - Well-known containers (`wellKnownObjects`/`otherWellKnownObjects` of the domain head) are read by
   `ISessionManager.GetWellKnownObjectsAsync` once per session and kept in memory (`WellKnownObjectMap`); a new session – also
@@ -163,6 +163,31 @@ replacement, finally the version in `GPT.INI` and a compare-and-swap of `version
 else restores the files from memory. Versions only increase (also on rollback), the rollback plan reverses the order of objects.
 The audit log records the paths, sizes and SHA-256 of files – never the content. Nothing outside the pipeline writes to SYSVOL.
 
+**Creating multiple accounts (F3) in the change pipeline.** The *Create multiple accounts* wizard is the third mode of the
+bulk editor (`BatchSourceMode.Create`), not a separate window. Everything that decides the values is in
+`AdMng.Core/Batch/Creation`: `TableTextReader` (clipboard text, its HTML format when needed, CSV or `.xlsx`) yields an
+`InputTable`, and `IBulkCreatePlanner` (`BulkCreatePlanner`) only reads in `ComputeAsync` – through the window's session
+and, in a forest with several domains, through a read-only session to the global catalog port of **the same** DC
+(`ConnectGlobalCatalogAsync`) – and computes the rows: patterns (the `ITemplateEngine` syntax with the tokens `{$nr}`,
+`{$column:…}`, `{$suffix}`, `{$mailDomain}`), counters, uniqueness, managers, groups and validation
+(`BulkCreateIssueCodes`). `BuildPlan` is pure and yields an ordinary `ChangePlan`: one `ObjectPlan` per row (`SourceRow`,
+`PowerShell` = `New-ADUser … -AccountPassword (Read-Host -AsSecureString …)`) with the steps `Create` (the account
+disabled, UAC 514), `ResetPassword` (the password only in `PlannedChange.Password`), `Modify` (enabling with a
+compare-and-swap of the old UAC value, `pwdLastSet` 0), the manager and `AddMember`; the plan is not sequential, and
+`Server` is the DC the values were read from (the executor refuses any other). Before the plan is built, the wizard
+computes the rows again with the values of the check frozen (`FrozenValues`), so the plan contains exactly what the grid
+showed. Execution goes through `IChangeCoordinator` → `BatchExecutor` (the executor is unchanged; audit, PowerShell
+history and change notifications come from the pipeline) in two parts: first one object as a trial (*canary*), and the
+rest only when all its steps succeeded – a systematic error (no encryption, no reset right, a rejected password) stops
+after one account. The results of all executions of the window are merged (`BulkCreateResults.Merge`); `BuildRetryPlan`
+skips the steps that already succeeded (an account is never created twice and never gets a second password). Undo does
+not use `IRollbackPlanner`, which knows only the last result: `PlanUndoAsync` builds a plan of `Delete` steps for
+everything the window created, after reading each object again by `objectGUID` (an object replaced under the same name is
+skipped). The table, the computed rows, plans, results and passwords live only in the window's view models (rules 1 and
+2); the naming profiles in the settings are patterns and options.
+User description: [CREATING-ACCOUNTS.md](CREATING-ACCOUNTS.md); design:
+[dev/phase3-bulk-create.md](../dev/phase3-bulk-create.md).
+
 ### Group Policy (K2)
 
 `AdMng.Core/GroupPolicy`: `GroupPolicyReader` (GPOs, links, inheritance, WMI filters, sites, PDC emulator,
@@ -174,7 +199,7 @@ the Watchdog (`GroupPolicy/Content`). `AdMng.Presentation/GroupPolicy`: per-conn
 four tabs (`IShellDocument`), tree nodes, window models and the plan preview window (`ChangePlanPreviewViewModel`).
 `AdMng.App/GroupPolicy`: WPF views, windows and `WindowsSysvolFileWriter` (`AdMng.Directory`). Backups and comparison export
 go only to places chosen by the operator (rule 1). User description:
-[ZASADY-GRUPY.md](GROUP-POLICY.md); specification: [dev/k-computers-and-gpo.md](../dev/k-computers-and-gpo.md).
+[GROUP-POLICY.md](GROUP-POLICY.md); specification: [dev/k-computers-and-gpo.md](../dev/k-computers-and-gpo.md).
 
 ### Administrative Templates (K3)
 
@@ -260,6 +285,38 @@ with the pre-edit content as a precondition (conflict) and `SetGpoVersion` of th
   connection window) and the GPO *Status* tab (`GroupPolicyObjectDocumentViewModel.Health.cs`) show the results; snapshots and
   findings exist only in memory, CSV/HTML export goes to an operator's file (rule 1).
 
+### Settings search, copying settings and GPO cleanup (K7)
+
+- **Settings index:** `AdMng.Core/GroupPolicy/Search`: `GpoSettingsIndexBuilder` reads from the session's DC (rule 4) the
+  GPOs, links, `GPT.INI` versions and the folders of all GPOs, streamed through `GpoFolderReader` (`ContentOnly` mode, at
+  most four SYSVOL reads at a time, limits per file, per GPO and per run; the bytes of one GPO are parsed and discarded
+  right away), resolves account names in one pass with `GpoPrincipalResolver` (`LdapFilter` filters, 50 names per query)
+  and groups the settings into **units** (`GpoSettingUnits.Of`): what GPMC shows as one row, with an identifier shared by
+  all GPOs (an ADMX policy by its identifier, a preference item by its natural identity – drive letter, group name, path –
+  not by its `uid`), a value fingerprint, comparability (hidden, conditional, cumulative) and the reason why copying is
+  refused. An incremental refresh reads only the GPOs whose version changed.
+- **Index service per window:** `GpoSettingsIndexService` (`AdMng.Presentation/GroupPolicy/Search`, Scoped – one per
+  connection window) owns every run: its own SYSVOL connection and its own token tied to the lifetime of the GPO
+  services, one run at a time with at most one run queued, a view bound to the session instance and the server, a
+  staleness marker after GPO changes, abandonment when the session changes. The search
+  (`GpoSettingsSearchDocumentViewModel`, matching by `GpoSettingsMatcher` in the background) and the cleanup
+  (`GpoCleanupDocumentViewModel`) read the same view; `GpoIndexTexts` computes the GPMC texts once per view.
+- **Writing through the change plan:** `GroupPolicyPlanner.PlanCopySettingsAsync`, `PlanRemoveSettingsAsync`,
+  `PlanMergeAsync`, `PlanUnlinkAllAsync` and `PlanDeleteAsync` with an expected state read the source and the target
+  **again** at planning time (never values from the index), and the internal `GpoSettingsWriter` changes `Registry.pol`,
+  `GptTmpl.inf`, `audit.csv` and the preference files (`GppPreferenceDocument`) with minimal edits. The result is one
+  `ObjectPlan` per target GPO (extension names, `WriteGpoFile`, a single version increment – one `GpoTransaction`), for a
+  merge also the `gPLink` of the containers and the state of the merged GPO; preview, audit and rollback as for any plan
+  (rule 5). The `GpoSettingsActions` actions (`AdMng.Presentation/GroupPolicy/Copy`) pass on the index's ADMX definition
+  set and build the *Setting changes* section (`GpoSettingChangesBuilder`).
+- **Cleanup advisor:** `GpoCleanupAnalyzer.Analyze(index, options)` (`AdMng.Core/GroupPolicy/Cleanup`) is a pure
+  function of the index records (values are compared by `GpoSettingUnits.SameValue`, the scope by
+  `GroupPolicyInheritance`); proposals and their actions are only data, and every action goes through the planner and
+  the preview. The index, results and proposals exist only in the window's memory, export goes to an operator's file
+  (rule 1). Description:
+  [GROUP-POLICY.md, chapter 12](GROUP-POLICY.md); specification:
+  [dev/k-computers-and-gpo.md](../dev/k-computers-and-gpo.md), chapter 21.
+
 ### Event logs (track E)
 
 - `AdMng.Core/EventLogs`: the `EventLogRecord` model, the `EventLogQuery` query, the `EventLogCoverage` coverage, the contracts
@@ -277,7 +334,7 @@ with the pre-edit content as a precondition (conflict) and `SetGpoVersion` of th
   the tabs *Event logs*, *Find the lockout source* (account state on each DC through `DomainControllerReader` – rule 4,
   `lockoutTime` replication metadata, PSOs, the source computer through the K1 remote actions) and *Failed logons*; saved
   queries in settings (without values from the logs). Events and results exist only in memory; CSV/HTML export goes to an
-  operator's file with a note about personal data (rule 1). Description: [DZIENNIKI-ZDARZEN.md](EVENT-LOGS.md),
+  operator's file with a note about personal data (rule 1). Description: [EVENT-LOGS.md](EVENT-LOGS.md),
   design: [dev/e-event-logs.md](../dev/e-event-logs.md).
 
 ## User interface
@@ -308,7 +365,7 @@ with the pre-edit content as a precondition (conflict) and `SetGpoVersion` of th
 ## Computers (K1)
 
 Design: [dev/k-computers-and-gpo.md](../dev/k-computers-and-gpo.md), chapters 3.1 and 4; administrator description:
-[KOMPUTERY.md](COMPUTERS.md).
+[COMPUTERS.md](COMPUTERS.md).
 
 - **Core/Computers** – pure logic without LDAP: `ComputerFacts` (facts from one search result), `ComputerClassifier`
   (workstation / server / DC / RODC from `userAccountControl`, the primary group and `operatingSystem`), `WindowsReleaseCatalog`
@@ -341,7 +398,7 @@ Design: [dev/k-computers-and-gpo.md](../dev/k-computers-and-gpo.md), chapters 3.
 ## Correspondence (U5)
 
 Design: [dev/u5-outlook-correspondence.md](../dev/u5-outlook-correspondence.md); user description:
-[KORESPONDENCJA.md](CORRESPONDENCE.md). The *Correspondence* window is the *Korespondencja WPiA* program (bulk sending through
+[CORRESPONDENCE.md](CORRESPONDENCE.md). The *Correspondence* window is the *Korespondencja WPiA* program (bulk sending through
 classic Outlook) moved into AD Manager, with recipients from AD and queries to mailbox owners. It writes nothing
 to the directory (rule 5 does not apply – a message is not an AD change); all reads go through the connection window's
 session (rule 4).

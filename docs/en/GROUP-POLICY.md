@@ -20,10 +20,12 @@ user rights, account policies and security options, auditing and services – ar
 (chapter 10). From stage **K6**, settings everywhere speak the GPMC language (names, values with units, groups and
 accounts instead of SIDs), editing has keyboard shortcuts, *Edit this setting* and a summary of changes before saving,
 and **Group Policy diagnostics** searches all GPOs of the domain for logical errors and weak security settings
-(chapter 11).
+(chapter 11). From stage **K7**, the **GPO settings search** shows which GPOs of the domain set a given setting, value
+or account, selected settings can be **copied to another GPO**, and **GPO cleanup** proposes deleting empty and unused
+GPOs and duplicate settings, as well as merging GPOs with the same scope (chapter 12).
 
 Developer specification (in English): [dev/k-computers-and-gpo.md](../dev/k-computers-and-gpo.md), chapters 3, 5
-and 6 as well as *K2 as built* (15), *K3 as built* (17), K5 (18), K4 (19) and K6 (20).
+and 6 as well as *K2 as built* (15), *K3 as built* (17), K5 (18), K4 (19), K6 (20) and K7 (21).
 
 ---
 
@@ -42,8 +44,9 @@ and 6 as well as *K2 as built* (15), *K3 as built* (17), K5 (18), K4 (19) and K6
 | *Group Policy Objects* tab and template editor | **Update templates…** – update of the central store of ADMX templates, chapter 8 |
 | *Action*, list, *Group Policy* tab, *Status* page of a computer | **What will the computer get…**, **What will the user get…**, **Model Group Policy…** – modeling, chapter 9 |
 | *Group Policy Objects* tab, *Action → Group Policy*, menu of the *Group Policy Objects* node | **Group Policy diagnostics…** – logical errors, consistency and security of all GPOs of the domain, chapter 11 |
+| *Group Policy Objects* tab, *Action → Group Policy*, menu of the *Group Policy Objects* node, the GPO's *Settings* tab | **Search a setting in all GPOs…** (on the toolbar: *Search settings…*, on the tab: *Find in all GPOs*) and **GPO cleanup…** (on the toolbar: *Cleanup…*) – chapter 12 |
 | Keyboard | **Ctrl+S** – save the changes of the active editor, **Ctrl+F** – tab search, **Esc** – clear the search (chapter 11) |
-| Command palette (Ctrl+K) | `gpo.objects`, `gpo.wmiFilters`, `gpo.containerPolicies`, `gpo.newLinked`, `gpo.linkExisting`, `gpo.blockInheritance`, `gpo.model`, `gpo.modelUser`, `gpo.diagnose`, `gpo.editTemplates`, `gpo.editSecurity`, `document.save`, `view.groupPolicyNodes` |
+| Command palette (Ctrl+K) | `gpo.objects`, `gpo.wmiFilters`, `gpo.containerPolicies`, `gpo.newLinked`, `gpo.linkExisting`, `gpo.blockInheritance`, `gpo.model`, `gpo.modelUser`, `gpo.diagnose`, `gpo.searchSettings`, `gpo.cleanup`, `gpo.editTemplates`, `gpo.editSecurity`, `document.save`, `view.groupPolicyNodes` |
 
 Every GPO view opens as a tab next to the object lists (one tab per target – a second click returns to it).
 

@@ -31,9 +31,9 @@ the pilot you need an exception for the program folder or the file hash (`SHA256
 ## 2. Preparation and readiness
 
 1. On the domain controllers and test computers, enable what the features need (details in the guides):
-   - remote actions – WinRM ([KOMPUTERY.md, chapter 5](COMPUTERS.md#5-enabling-winrm-on-computers-with-group-policy));
+   - remote actions – WinRM ([COMPUTERS.md, chapter 5](COMPUTERS.md#5-enabling-winrm-on-computers-with-group-policy));
    - event logs – the "Remote Event Log Management" firewall rule group, the operator account in the Event Log Readers
-     group, auditing on the DCs ([DZIENNIKI-ZDARZEN.md, chapter 2](EVENT-LOGS.md#2-requirements)).
+     group, auditing on the DCs ([EVENT-LOGS.md, chapter 2](EVENT-LOGS.md#2-requirements)).
 2. Run **Tools → Check environment readiness…** – first *Quick check*, then *Full check* with a test computer. Every
    error and warning has a hint on what to do. Save the report (HTML) as a baseline.
 3. Note the AD Manager version (bottom right corner) and the operating system versions.
@@ -42,7 +42,7 @@ the pilot you need an exception for the program folder or the file hash (`SHA256
 
 Enter the results in the table in chapter 5. *Compare with* – the Microsoft tool the result is supposed to match.
 
-### 3.1 Everyday work (Phases 1–2)
+### 3.1 Everyday work (Phases 1–3)
 
 | # | Scenario | Expected result | Compare with |
 |---|---|---|---|
@@ -53,14 +53,34 @@ Enter the results in the table in chapter 5. *Compare with* – the Microsoft to
 | A5 | Bulk editing of 50 accounts with preview, execution and *Undo* | changes as in the preview, rollback restores the state | PowerShell |
 | A6 | AD Recycle Bin: deleting and restoring an account and an OU with its subtree | objects and memberships come back | ADAC |
 | A7 | "No directory data on disk": after the work, review `%APPDATA%\AdMng` and `%TEMP%` | only settings, profiles without passwords, view definitions | – |
+| A8 | *Multiple accounts…* in a test OU: about 20 rows pasted from Excel (mobile phone, given name, surname, department, e-mail), the *Numbered accounts (kd201…)* profile, the UPN suffix, a group; *Check*, *Preview*, *Execute*, *Copy table with passwords…*; logon with one account on the test workstation; finally *Undo* | numbers from the first free one, UPNs and attributes as in the *Check* step, accounts enabled with a forced password change and the group membership; the first logon forces a password change; the undo deletes all created accounts (with the AD Recycle Bin enabled they go to the Recycle Bin) | ADUC, `Get-ADUser -Properties *` |
+| A9 | The same sheet in the wizard opened with an account that has delegated account creation in the OU but no right to reset passwords | the execution stops after the first account (*Stopped after the first account…*), that account stays disabled and without groups, the other rows are not run | ADUC |
+
+**Creating multiple accounts – to be confirmed on Windows domain controllers** (the fake directory of the tests and the
+Samba lab with one domain in the forest cannot settle this; details:
+[CREATING-ACCOUNTS.md, chapter 12](CREATING-ACCOUNTS.md#12-limitations-and-pilot)):
+
+- a forest with several domains: the uniqueness of UPNs and addresses checked through the global catalog of the window's
+  controller (*Uniqueness of UPNs and addresses: the whole forest (global catalog on …)*), *checked in the domain only*
+  when the controller is not a global catalog, and the forest-wide UPN uniqueness check that Windows performs itself at
+  write time (error 0x21C8 → *The UPN may already be used in another domain of the forest.*);
+- uniqueness of the object name in a container for different types (e.g. a group *Księgowość* next to an organizational
+  unit *Księgowość*);
+- computer accounts: KB5020276 (joining to a prepared account by someone outside the administrators) and KB5008102 (the
+  rules for the `$` character), the "disabled → random password → enabled" sequence and the *New Computer* window (K1),
+  which creates the account enabled without a password;
+- the RID pool running out with a large batch (the low-pool warning, errors of the following accounts, *Retry failed*);
+- logging on with a new account through another controller before replication has finished;
+- an OU administrator with delegated permissions but without the right to reset passwords – the stop after the first
+  account (scenario A9).
 
 ### 3.2 Computers (K1)
 
-[KOMPUTERY.md, chapter 7](COMPUTERS.md#7-limitations-and-pilot): remote actions with an account other than the Windows
+[COMPUTERS.md, chapter 7](COMPUTERS.md#7-limitations-and-pilot): remote actions with an account other than the Windows
 account, restart with a message, refreshing user policy, launching tools (`mmc`, Event Viewer), preparing a computer
 account and joining the domain (KB5020276), inventory consistent with `Get-ADComputer`.
 
-### 3.3 Group Policy (K2–K6)
+### 3.3 Group Policy (K2–K7)
 
 | # | Scenario | Expected result | Compare with |
 |---|---|---|---|
@@ -73,8 +93,12 @@ account and joining the domain (KB5020276), inventory consistent with `Get-ADCom
 | G7 | "What the computer will get" model for a test computer | list of GPOs and winning settings as in *Group Policy Modeling* and `gpresult` | GPMC, `gpresult` |
 | G8 | The *Settings* tab and *HTML report…* | names and values as in the GPMC report (`Get-GPOReport`) | `Get-GPOReport` |
 | G9 | Group Policy diagnostics (full) | accurate findings; *Fix…* works through the plan preview | knowledge of the domain |
+| G10 | *GPO settings search*: a setting (e.g. the minimum password length), a value, a technical key, an account (name and SID) | the same GPOs and values as *Find* in the GPMC editor; the winning value consistent with `gpresult /h` | GPMC (*Find*), `gpresult` |
+| G11 | *Copy to another GPO…*: an ADMX policy, a user right, a security setting and a drive mapping into a test GPO; then *Undo* | GPMC shows the copied settings as its own; `gpresult /h` on the test computer applies them; after the undo they are gone; a GPP password is refused with a reason | GPMC, `gpresult` |
+| G12 | *Merge with…* of two test GPOs linked to the same OU | the settings in the target GPO, the link of the merged GPO replaced, the merged GPO disabled; `gpresult /h` shows no change in effect; *Undo* restores the previous state | GPMC, `gpresult` |
+| G13 | *GPO cleanup*: every proposal (empty, unlinked, disabled, with a single setting, duplicates, merge candidates) | proposals consistent with what GPMC shows; *Delete GPO…* offers a backup and refuses when the GPO has changed since the analysis | GPMC |
 
-Limitations and details: [ZASADY-GRUPY.md, chapter 14](GROUP-POLICY.md#14-limitations-and-pilot).
+Limitations and details: [GROUP-POLICY.md, chapter 15](GROUP-POLICY.md#15-limitations-and-pilot).
 
 ### 3.4 Event logs (E)
 
@@ -87,7 +111,7 @@ Limitations and details: [ZASADY-GRUPY.md, chapter 14](GROUP-POLICY.md#14-limita
 | E5 | Failed logons: several accounts with a wrong password from one computer | a *Password spraying* or *Password guessing* finding | Event Viewer |
 | E6 | An `.evtx` file saved on a DC ("Save All Events As…") | events and descriptions as in Event Viewer | Event Viewer |
 
-Limitations: [DZIENNIKI-ZDARZEN.md, chapter 7](EVENT-LOGS.md#7-limitations-and-pilot).
+Limitations: [EVENT-LOGS.md, chapter 7](EVENT-LOGS.md#7-limitations-and-pilot).
 
 ### 3.5 AdMng Watchdog and Correspondence
 
@@ -95,7 +119,7 @@ Limitations: [DZIENNIKI-ZDARZEN.md, chapter 7](EVENT-LOGS.md#7-limitations-and-p
   [WATCHDOG-LINUX.md, chapter 7](WATCHDOG-LINUX.md#7-pilot--checklist) – forwarding events from the DCs to
   OpenWEC, "who and from where", GPO "was → is" content, notifications.
 - **Correspondence:** checklist
-  [KORESPONDENCJA.md, chapter 14](CORRESPONDENCE.md#14-pilot-checklist) – classic Outlook 32- and 64-bit,
+  [CORRESPONDENCE.md, chapter 14](CORRESPONDENCE.md#14-pilot-checklist) – classic Outlook 32- and 64-bit,
   sending as and on behalf of, images, voting, on-premises Exchange and Exchange Online.
 
 ## 4. Reporting problems
