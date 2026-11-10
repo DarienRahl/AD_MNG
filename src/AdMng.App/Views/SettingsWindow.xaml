@@ -100,6 +100,8 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
               </Grid.RowDefinitions>
               <TextBlock Style="{StaticResource SettingLabel}" Text="{l:Tr Settings.Language}" />
               <ComboBox x:Name="LanguageBox"
@@ -155,6 +157,25 @@
                          Margin="0,4,0,0"
                          Style="{StaticResource Ad.SecondaryText}"
                          Text="{l:Tr Settings.WindowBackgroundHint}"
+                         TextWrapping="Wrap" />
+              <!-- Motion (V1): follow Windows, on or off; applied as soon as the settings are saved. -->
+              <TextBlock Grid.Row="6"
+                         Style="{StaticResource SettingLabel}"
+                         Text="{l:Tr Settings.Motion}" />
+              <ComboBox x:Name="MotionBox"
+                        Grid.Row="6"
+                        Grid.Column="1"
+                        AutomationProperties.HelpText="{l:Tr Settings.MotionHint}"
+                        AutomationProperties.Name="{l:Tr Settings.Motion}"
+                        ItemsSource="{Binding MotionChoices, Mode=OneWay}"
+                        SelectedItem="{Binding Motion}"
+                        Style="{StaticResource SettingCombo}" />
+              <TextBlock x:Name="MotionHint"
+                         Grid.Row="7"
+                         Grid.Column="1"
+                         Margin="0,4,0,0"
+                         Style="{StaticResource Ad.SecondaryText}"
+                         Text="{l:Tr Settings.MotionHint}"
                          TextWrapping="Wrap" />
             </Grid>
 
