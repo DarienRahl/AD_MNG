@@ -183,6 +183,9 @@ public sealed partial class PkiTemplatesDocumentViewModel : PkiDocumentBase, ISe
 
     partial void OnSelectedRowChanged(PkiTemplateRowViewModel? value) => ShowDetails(value);
 
+    /// <summary>The trustees of the shown template say <i>liczenie…</i> while the accounts are counted, and stop saying it after a failed count.</summary>
+    partial void OnIsCountingChanged(bool value) => ShowDetails(SelectedRow);
+
     // ---- Load -------------------------------------------------------------------------------------------------------------
 
     protected override async Task LoadCoreAsync(IDirectorySession session, CancellationToken cancellationToken)

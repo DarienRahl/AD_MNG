@@ -21400,7 +21400,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>LDAPS certificates</value>
   </data>
   <data name="Pki.Summary" xml:space="preserve">
-    <value>{0} enterprise CAs · {1} templates · {2} trusted root CAs · {3} NTAuth certificates</value>
+    <value>Enterprise CAs: {0} · templates: {1} · trusted root CAs: {2} · NTAuth certificates: {3}</value>
   </data>
   <data name="Pki.ReadAt" xml:space="preserve">
     <value>Read from {0} at {1}.</value>
@@ -21418,7 +21418,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Read-only: nothing is changed. What is shown stays in memory while the window is open.</value>
   </data>
   <data name="Pki.NoticesHeading" xml:space="preserve">
-    <value>What the read observed</value>
+    <value>Notes from the read</value>
   </data>
   <data name="Pki.NoticeLine" xml:space="preserve">
     <value>{0}: {1}</value>
@@ -22002,7 +22002,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>{0}: {1}</value>
   </data>
   <data name="PkiTpl.BroadNote" xml:space="preserve">
-    <value>A broad group: practically every account holds it.</value>
+    <value>Broad group: practically every account belongs to it.</value>
   </data>
   <data name="PkiTpl.Compare" xml:space="preserve">
     <value>Compare…</value>

@@ -1,5 +1,6 @@
 using System.Globalization;
 using AdMng.Core.Csv;
+using AdMng.Core.Directory;
 using AdMng.Core.Pki;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Pki;
@@ -185,6 +186,67 @@ public sealed class PkiTemplatesTests
         await load;
         Assert.True(document.IsExpanded);
         Assert.StartsWith("kont: ", Assert.Single(document.EnrollTrustees, t => t.IsBroad && t.Right == TemplateRight.Enroll).CountText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TheShownTemplate_SaysCounting_WhileTheAccountsAreCounted_AndNotAfterAFailedCount()
+    {
+        var h = await PkiHarness.CreateAsync();
+        using var document = new PkiTemplatesDocumentViewModel(h.Services, new PkiDocumentRequest(PkiDocumentKind.Templates) { TemplateCn = PublicKeyTemplates.Esc1 });
+        using var gate = new ManualResetEventSlim();
+        using var started = new SemaphoreSlim(0);
+        h.Session.BeforeOperation = operation =>
+        {
+            // The account pass waits for the checks below, then fails.
+            if (operation.Kind == FakeOperationKind.Search && operation.Search?.Attributes.Contains("altSecurityIdentities", StringComparer.OrdinalIgnoreCase) == true)
+            {
+                started.Release();
+                gate.Wait(TimeSpan.FromSeconds(20));
+                throw new DirectoryException(DirectoryErrorKind.Busy, "The DC is busy.");
+            }
+        };
+
+        var load = Task.Run(document.LoadAsync, Ct);
+        Assert.True(await started.WaitAsync(TimeSpan.FromSeconds(10), Ct));
+        await B2Harness.WaitUntilAsync(() => document.IsCounting);
+
+        // The template the request selected was shown before the count started: its trustees say so without a new selection.
+        Assert.Equal(PublicKeyTemplates.Esc1, document.SelectedRow?.Cn);
+        Assert.Contains(document.EnrollTrustees, t => t.IsBroad && t.CountText == "liczenie…");
+        document.SelectedRow = Row(document, PublicKeyTemplates.Esc2);
+        Assert.Contains(document.EnrollTrustees, t => t.CountText == "liczenie…");
+
+        gate.Set();
+        await load;
+        Assert.False(document.IsCounting);
+        Assert.False(document.IsExpanded);
+        Assert.StartsWith("Nie udało się policzyć kont", document.CountStatusText, StringComparison.Ordinal);
+        Assert.NotEmpty(document.EnrollTrustees);
+        Assert.DoesNotContain(document.EnrollTrustees, t => t.CountText == "liczenie…");
+    }
+
+    [Fact]
+    public async Task TheComparePane_AfterF5_PicksFromTheTemplatesReadAgain()
+    {
+        var (_, document) = await OpenAsync();
+        using var __ = document;
+        document.SetSelection([Row(document, PublicKeyTemplates.Esc1), Row(document, PublicKeyTemplates.Esc1Safe)]);
+        document.CompareCommand.Execute(null);
+        var before = document.CompareCandidates.ToList();
+
+        await document.RefreshAsync();
+
+        // F5 read the templates again (new rows): the pair is kept by cn, and the picker lists the new rows – its selection is
+        // one of its items (a stale row would leave the view's picker empty).
+        Assert.True(document.IsComparing);
+        Assert.Same(Row(document, PublicKeyTemplates.Esc1), document.CompareLeft);
+        var right = Assert.IsType<PkiTemplateRowViewModel>(document.CompareRight);
+        Assert.Same(Row(document, PublicKeyTemplates.Esc1Safe), right);
+        Assert.Contains(right, document.CompareCandidates);
+        Assert.Equal(document.Rows.Count - 1, document.CompareCandidates.Count);
+        Assert.All(document.CompareCandidates, c => Assert.Contains(c, document.Rows));
+        Assert.DoesNotContain(document.CompareCandidates, before.Contains);
+        Assert.NotEmpty(document.CompareRows);
     }
 
     [Fact]

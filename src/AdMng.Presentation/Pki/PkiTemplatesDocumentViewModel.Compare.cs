@@ -15,6 +15,9 @@ public sealed partial class PkiTemplatesDocumentViewModel
 {
     // ---- Compare ----------------------------------------------------------------------------------------------------------
 
+    /// <summary>The pane's pair and picker are being set: the picker's selection changes this causes are not a new pick.</summary>
+    private bool _updatingCompare;
+
     /// <summary>The compare pane is open.</summary>
     [ObservableProperty]
     public partial bool IsComparing { get; private set; }
@@ -53,15 +56,19 @@ public sealed partial class PkiTemplatesDocumentViewModel
             return;
         }
 
-        CompareLeft = left;
-        CompareCandidates.Clear();
-        foreach (var row in _all.Where(r => !ReferenceEquals(r, left)))
+        _updatingCompare = true;
+        try
         {
-            CompareCandidates.Add(row);
+            CompareLeft = left;
+            FillCompareCandidates(left);
+            CompareRight = right ?? CompareCandidates.FirstOrDefault();
+            IsComparing = true;
+        }
+        finally
+        {
+            _updatingCompare = false;
         }
 
-        CompareRight = right ?? CompareCandidates.FirstOrDefault();
-        IsComparing = true;
         RefreshCompare();
     }
 
@@ -81,24 +88,38 @@ public sealed partial class PkiTemplatesDocumentViewModel
 
     partial void OnCompareOnlyDifferencesChanged(bool value) => RefreshCompare();
 
-    /// <summary>The pane's rows from the shown rows (a reload or the expansion keeps the pair by cn).</summary>
+    /// <summary>
+    /// The pane's rows from the shown rows (a reload or the expansion keeps the pair by cn). A reload replaces the row objects,
+    /// so the picker's list is rebuilt from the current rows as well – its selection must be one of its items (a stale row
+    /// would leave the picker empty and could be pushed back into <see cref="CompareRight"/> by the view).
+    /// </summary>
     private void RefreshCompare()
     {
-        if (!IsComparing)
+        if (!IsComparing || _updatingCompare)
         {
             return;
         }
 
-        CompareLeft = Same(CompareLeft);
+        var left = Same(CompareLeft);
         var right = Same(CompareRight);
-        if (!ReferenceEquals(right, CompareRight))
+        _updatingCompare = true;
+        try
         {
+            CompareLeft = left;
+            if (left is not null && !AreCompareCandidatesOf(left))
+            {
+                FillCompareCandidates(left);
+            }
+
             CompareRight = right;
-            return;
+        }
+        finally
+        {
+            _updatingCompare = false;
         }
 
         CompareRows.Clear();
-        if (CompareLeft is not { } left || right is null)
+        if (left is null || right is null)
         {
             CompareSummary = string.Empty;
             return;
@@ -116,6 +137,20 @@ public sealed partial class PkiTemplatesDocumentViewModel
 
     private PkiTemplateRowViewModel? Same(PkiTemplateRowViewModel? row) =>
         row is null ? null : _all.FirstOrDefault(r => string.Equals(r.Cn, row.Cn, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The picker lists every current row but <paramref name="left"/> (the same objects, in the list's order).</summary>
+    private bool AreCompareCandidatesOf(PkiTemplateRowViewModel left) =>
+        CompareCandidates.SequenceEqual(_all.Where(r => !ReferenceEquals(r, left)), ReferenceEqualityComparer.Instance);
+
+    /// <summary>The picker's list: every current row but <paramref name="left"/> (call with <c>_updatingCompare</c> set).</summary>
+    private void FillCompareCandidates(PkiTemplateRowViewModel left)
+    {
+        CompareCandidates.Clear();
+        foreach (var row in _all.Where(r => !ReferenceEquals(r, left)))
+        {
+            CompareCandidates.Add(row);
+        }
+    }
 
     /// <summary>The README columns, the flags of each attribute, the policies and the rights of both templates.</summary>
     private List<PkiCompareRowViewModel> CompareProperties(PkiTemplateRowViewModel left, PkiTemplateRowViewModel right)
