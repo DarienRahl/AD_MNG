@@ -77,6 +77,12 @@ public abstract partial class PropertyFieldViewModel : ObservableObject
 
     internal FieldContext Context { get; }
 
+    /// <summary>
+    /// The status of the page the field is on (set by the page; null for a field outside a page): a field that reads on
+    /// demand says so there, in the status line of the sheet, and takes its cancellation from that operation.
+    /// </summary>
+    internal Feedback.PageStatusHolder? PageStatus { get; set; }
+
     /// <summary>All attributes the field writes (planner findings for any of them are shown on the field).</summary>
     internal virtual IReadOnlyList<string> WrittenAttributes => [Attribute];
 

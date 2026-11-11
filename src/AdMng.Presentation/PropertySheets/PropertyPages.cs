@@ -1,5 +1,8 @@
+using System.Windows.Input;
 using AdMng.Core.Batch;
 using AdMng.Core.Model;
+using AdMng.Presentation.Feedback;
+using AdMng.Presentation.Localization;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace AdMng.Presentation.PropertySheets;
@@ -9,6 +12,11 @@ namespace AdMng.Presentation.PropertySheets;
 /// <see cref="FieldsPageViewModel"/> (sections of fields, templated by field type), <see cref="MemberOfPageViewModel"/>,
 /// <see cref="MembersPageViewModel"/> and <see cref="AttributeEditorPageViewModel"/>.
 /// </summary>
+/// <remarks>
+/// A page says what it is doing through <see cref="Status"/> (track V, stage V2b): the sheet has one status line and
+/// shows there the status of the page in front (<see cref="PageStatusHolder.Front"/>). A page that could not be read
+/// keeps that as its state that lasts, so it says so whenever it is selected.
+/// </remarks>
 public abstract partial class PropertyPageViewModel : ObservableObject
 {
     private protected PropertyPageViewModel(FieldContext context, string key, string title)
@@ -16,6 +24,7 @@ public abstract partial class PropertyPageViewModel : ObservableObject
         Context = context ?? throw new ArgumentNullException(nameof(context));
         Key = key ?? throw new ArgumentNullException(nameof(key));
         Title = title ?? throw new ArgumentNullException(nameof(title));
+        Status = new PageStatusHolder(context.Localizer, context.Services.Dispatcher, context.Services.Lists.StatusLog);
     }
 
     /// <summary>Raised when <see cref="HasChanges"/> or <see cref="HasErrors"/> may have changed.</summary>
@@ -26,6 +35,12 @@ public abstract partial class PropertyPageViewModel : ObservableObject
 
     /// <summary>Localized tab title.</summary>
     public string Title { get; }
+
+    /// <summary>
+    /// What the page says in the status line of the sheet while it is the selected tab: its summary ("Groups: 12"), a
+    /// read of its own, and - for as long as it lasts - that it could not be read.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     /// <summary>The page loads additional data (members, names, all attributes).</summary>
     [ObservableProperty]
@@ -70,6 +85,40 @@ public abstract partial class PropertyPageViewModel : ObservableObject
     {
     }
 
+    /// <summary>The sheet was closed: a read of the page that still runs ends without a message, its token is cancelled.</summary>
+    internal virtual void EndOperations() => Status.Operation?.Dispose();
+
+    /// <summary>Starts a read of the page as its operation: "Reading the “Member Of” tab…", with Stop.</summary>
+    private protected OperationScope BeginReading() =>
+        Status.Begin(Context.Localizer.Format(L.PropertySheetStatus.PageReading, Title), new PageStatusLog(L.PropertySheetStatus.PageReading));
+
+    /// <summary>The read of the page was stopped by the operator: what the page may lack, and Refresh as the way on.</summary>
+    private protected PageStatus ReadStopped(ICommand refresh) => PageStatus.Attention(
+        Context.Localizer.Format(L.PropertySheetStatus.PageStopped, Title),
+        new PageStatusLog(L.PropertySheetStatus.PageStopped),
+        new PageStatusAction(Context.Localizer[L.Commands.Refresh], refresh));
+
+    /// <summary>
+    /// The page could not be read: its state for as long as that lasts (<see cref="PageStatusHolder.SetLasting"/>) -
+    /// "Could not read the “Member Of” tab: why. Press Retry to try again. (code)".
+    /// </summary>
+    /// <param name="reason">Why, a localized sentence.</param>
+    /// <param name="code">The result code of the failure.</param>
+    /// <param name="retry">What "Retry" runs; null when the page cannot be read again by itself.</param>
+    private protected void SetReadFailed(string reason, ResultCode code, ICommand? retry)
+    {
+        var localizer = Context.Localizer;
+        Status.SetLasting(PageStatus.Error(
+            PageStatusText.Failure(
+                localizer.Format(L.PropertySheetStatus.PageReadFailed, Title),
+                reason,
+                retry is null ? null : localizer[L.Feedback.RetryNext],
+                code),
+            new PageStatusLog(L.PropertySheetStatus.PageReadFailed).WithCode(code),
+            retry is null ? null : new PageStatusAction(localizer[L.Common.Retry], retry),
+            canClose: false));
+    }
+
     /// <summary>Recomputes <see cref="HasChanges"/> / <see cref="HasErrors"/> and notifies the sheet.</summary>
     protected void UpdateState()
     {
@@ -111,6 +160,7 @@ public sealed class FieldsPageViewModel : PropertyPageViewModel
         Fields = all;
         foreach (var field in Fields)
         {
+            field.PageStatus = Status;
             field.StateChanged += (_, _) => UpdateState();
         }
     }

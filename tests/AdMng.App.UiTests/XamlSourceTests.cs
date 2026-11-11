@@ -68,6 +68,7 @@ public sealed partial class XamlSourceTests
     [
         "Views/FindWindow.xaml",
         "Views/ObjectListView.xaml",
+        "Views/PropertiesWindow.xaml",
     ];
 
     [Fact]

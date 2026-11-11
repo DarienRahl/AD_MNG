@@ -81,6 +81,15 @@ public sealed class CertificateTabsUiTests
         Assert.True(warning.IsVisible);
         Assert.Equal(mappings.WeakWarning, warning.Text);
 
+        // It is a note of the list (track V, stage V2b) - a glyph and the sentence, in the page - not a banner and not the
+        // status of the sheet: the status line says nothing about it.
+        var note = Assert.Single(UiWait.Descendants<ContentControl>(lukasz), c => c.Name == "WeakMappingsNote");
+        Assert.Same(Application.Current.FindResource("Ad.Note.Attention"), note.Style);
+        Assert.True(warning.IsDescendantOf(note));
+        Assert.False(Assert.Single(UiWait.Descendants<ContentControl>(lukasz), c => c.Name == "InvalidMappingsNote").IsVisible);
+        Assert.DoesNotContain(mappings.WeakWarning, lukasz.PageStatus.Message, StringComparison.Ordinal);
+        Assert.Equal(AdMng.Presentation.Feedback.PageStatusKind.Idle, lukasz.PageStatus.Kind);
+
         // The empty tabs say so.
         var keys = await ShowAsync<KeyCredentialsPageViewModel>(lukasz);
         await UiWait.UntilAsync(() => !keys.IsLoading && keys.IsEmpty, "no key credentials");

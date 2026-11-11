@@ -3,6 +3,7 @@ using AdMng.Core.Batch;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
 using AdMng.Core.Pki;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.PropertySheets;
@@ -22,7 +23,8 @@ public sealed partial class KeyCredentialsPageViewModel : PropertyPageViewModel
 {
     public const string PageKey = L.Certificates.KeyCredentialsPage;
 
-    private readonly SerialCancellation _loads = new();
+    // The read that owns the page: a newer one replaces it, and only it ends "loading".
+    private OperationScope? _reading;
     private string _dn = string.Empty;
     private bool _activated;
     private bool _readOnce;
@@ -108,9 +110,14 @@ public sealed partial class KeyCredentialsPageViewModel : PropertyPageViewModel
             return;
         }
 
-        var token = _loads.Next();
+        // The read is the operation of the page (track V, stage V2b): the status line of the sheet says so while the
+        // tab is in front, a newer read replaces this one, and the operator can stop it.
+        using var scope = BeginReading();
+        _reading = scope;
+        var token = scope.Token;
         IsLoading = true;
         Error = null;
+        Status.SetLasting(null);
         try
         {
             var session = Context.Session;
@@ -128,9 +135,16 @@ public sealed partial class KeyCredentialsPageViewModel : PropertyPageViewModel
                     return KeyCredentialLink.Parse(read.GetStrings(PkiAttributes.KeyCredentialLink));
                 },
                 token).ConfigureAwait(true);
+            if (scope.IsEnded)
+            {
+                // Superseded by a newer read while the answer was on its way.
+                return;
+            }
+
             if (links is null)
             {
                 Error = Context.Localizer[L.PropertySheet.NotFound];
+                SetReadFailed(Error, ResultCode.None, RefreshCommand);
                 return;
             }
 
@@ -138,19 +152,34 @@ public sealed partial class KeyCredentialsPageViewModel : PropertyPageViewModel
             _readOnce = true;
             Rows = [.. links.Select(l => new KeyCredentialRowViewModel(Context, l))];
             SelectedRow = Rows.FirstOrDefault(r => selected is not null && string.Equals(r.KeyId, selected, StringComparison.Ordinal));
+
+            // The count ("Key credentials: 1", or that there is none) is the summary of the page.
+            OnPropertyChanged(nameof(CountText));
+            Status.SetIdle(CountText);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            // Superseded by a newer load.
+            // Superseded by a newer load - or stopped by the operator: then the page says what it may lack.
+            if (!scope.IsEnded)
+            {
+                scope.Complete(ReadStopped(RefreshCommand));
+            }
         }
-        catch (DirectoryException ex)
+        catch (DirectoryException ex) when (ReferenceEquals(_reading, scope))
         {
+            // The page stays as it was for as long as this lasts: said whenever the tab is in front.
             Error = Context.Services.Errors.Translate(ex);
+            SetReadFailed(Error, ResultCode.Of(ex), RefreshCommand);
+        }
+        catch (DirectoryException)
+        {
+            // A read that was replaced failed: the newer one owns the page.
         }
         finally
         {
-            if (_loads.IsCurrent(token))
+            if (ReferenceEquals(_reading, scope))
             {
+                _reading = null;
                 IsLoading = false;
             }
         }

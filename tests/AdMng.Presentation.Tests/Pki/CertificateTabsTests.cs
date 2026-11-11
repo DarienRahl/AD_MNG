@@ -470,6 +470,58 @@ public sealed class CertificateTabsTests
 
     // ---- Helpers --------------------------------------------------------------------------------------------------------
 
+    // ---- The status line of the sheet (track V, stage V2b) -----------------------------------------------------------
+
+    [Fact]
+    public async Task TheCertificateTabs_SayTheirCountAndAReadThatFailed_InTheStatusLineOfTheSheet()
+    {
+        var harness = await PkiHarness.CreateAsync(CultureInfo.GetCultureInfo("en-US"));
+        var jan = harness.Company.JanKowalski;
+        var (sheet, published) = await OpenAsync<PublishedCertificatesPageViewModel>(harness, jan, activate: false);
+        var keys = Assert.Single(sheet.Pages.OfType<KeyCredentialsPageViewModel>());
+        Assert.StartsWith("Read from ", sheet.Status.Current.Message, StringComparison.Ordinal);
+
+        // Shown, a tab reads and then says its count as the summary of the line - in one place.
+        sheet.SelectedPage = published;
+        await B2Harness.WaitUntilAsync(() => !published.IsLoading && published.Rows.Count == 1);
+        Assert.True(sheet.Status.Current.IsIdle);
+        Assert.Equal("Published certificates: 1", sheet.Status.Current.Message);
+        Assert.Equal(published.CountText, sheet.Status.Current.Message);
+
+        sheet.SelectedPage = keys;
+        await B2Harness.WaitUntilAsync(() => !keys.IsLoading && keys.Rows.Count == 1);
+        Assert.Equal("Key credentials: 1", sheet.Status.Current.Message);
+
+        // A read that fails is the state of that tab, with Retry - and of no other tab.
+        harness.Session.FailNext(FakeOperationKind.Get, jan, DirectoryErrorKind.AccessDenied);
+        await keys.RefreshCommand.ExecuteAsync(null);
+        var reason = Assert.IsType<string>(keys.Error);
+        var failed = sheet.Status.Current;
+        Assert.Equal(AdMng.Presentation.Feedback.PageStatusKind.Error, failed.Kind);
+        Assert.StartsWith($"Could not read the “{keys.Title}” tab: {reason}", failed.Message, StringComparison.Ordinal);
+        Assert.Contains(" Press Retry to try again. (LDAP ", failed.Message, StringComparison.Ordinal);
+        Assert.StartsWith("PropertySheet.Status.PageReadFailed [LDAP ", failed.Log.ToString(), StringComparison.Ordinal);
+        Assert.False(failed.CanClose);
+        Assert.Same(keys.RefreshCommand, Assert.IsType<AdMng.Presentation.Feedback.PageStatusAction>(failed.Action).Command);
+
+        sheet.SelectedPage = published;
+        Assert.Equal("Published certificates: 1", sheet.Status.Current.Message);
+        sheet.SelectedPage = keys;
+        Assert.Same(failed, sheet.Status.Current);
+
+        // Read again, the tab says its count.
+        await keys.RefreshCommand.ExecuteAsync(null);
+        Assert.Null(keys.Error);
+        Assert.Equal("Key credentials: 1", sheet.Status.Current.Message);
+
+        // An empty tab says so as its summary.
+        var (other, empty) = await OpenAsync<KeyCredentialsPageViewModel>(harness, harness.Company.PawelLewandowski, activate: false);
+        other.SelectedPage = empty;
+        await B2Harness.WaitUntilAsync(() => !empty.IsLoading && empty.IsEmpty);
+        Assert.Equal("No key credentials.", other.Status.Current.Message);
+        Assert.True(other.Status.Current.IsIdle);
+    }
+
     private static async Task<(PropertySheetViewModel Sheet, T Page)> OpenAsync<T>(PkiHarness harness, string dn, bool activate = true)
         where T : PropertyPageViewModel
     {

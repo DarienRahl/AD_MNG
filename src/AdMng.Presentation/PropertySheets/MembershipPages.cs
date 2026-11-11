@@ -6,6 +6,7 @@ using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
@@ -80,15 +81,25 @@ public sealed partial class MembershipItemViewModel : ObservableObject
 /// Shared logic of the Member Of and Members pages: list with filter, staged additions/removals (applied with the
 /// other changes of the sheet), names resolved in batches, and a lazily loaded "All (nested)" list.
 /// </summary>
+/// <remarks>
+/// The status line of the sheet (track V, stage V2b): the page says its count as its summary and, for as long as it
+/// lasts, that the direct list could not be read with the object (<see cref="PropertyPageViewModel.Status"/>). The
+/// "All (nested)" list is a part of the page with a status of its own (<see cref="NestedStatus"/>: its read as an
+/// operation that can be stopped, a failed read, its count) - in front while its tab is the one shown
+/// (<see cref="SelectedListIndex"/>), so the line never explains a list the operator is not looking at.
+/// </remarks>
 public abstract partial class MembershipPageViewModel : PropertyPageViewModel
 {
+    /// <summary><see cref="SelectedListIndex"/> of the "All (nested)" list.</summary>
+    public const int NestedListIndex = 1;
+
     private readonly List<MembershipItemViewModel> _all = [];
-    private readonly SerialCancellation _nestedLoads = new();
     private IList? _selectedItems;
 
     private protected MembershipPageViewModel(FieldContext context, string key, string title)
         : base(context, key, title)
     {
+        NestedStatus = new PageStatusHolder(context.Localizer, context.Services.Dispatcher, context.Services.Lists.StatusLog);
     }
 
     /// <summary>Visible (filtered) items, sorted by name.</summary>
@@ -124,6 +135,13 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
     /// <summary>All (nested) memberships - read-only, loaded on demand.</summary>
     public BulkObservableCollection<DirectoryItem> NestedItems { get; } = [];
 
+    /// <summary>What the "All (nested)" list says while its tab is shown: its read, a failed read, its count.</summary>
+    public PageStatusHolder NestedStatus { get; }
+
+    /// <summary>The list of the page the operator looks at: 0 = the direct list, <see cref="NestedListIndex"/> = "All (nested)".</summary>
+    [ObservableProperty]
+    public partial int SelectedListIndex { get; set; }
+
     [ObservableProperty]
     public partial bool IsNestedLoading { get; private set; }
 
@@ -139,6 +157,12 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
     internal string Dn { get; private set; } = string.Empty;
 
     internal IEnumerable<MembershipItemViewModel> AllItems => _all;
+
+    internal override void EndOperations()
+    {
+        base.EndOperations();
+        NestedStatus.Operation?.Dispose();
+    }
 
     /// <summary>Call with the DataGrid's selection after it changed (multi-select remove).</summary>
     public void NotifySelectionChanged()
@@ -237,12 +261,18 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
         _all.Clear();
         Items.ReplaceAll([]);
 
-        // A running "All (nested)" query belongs to the previous read (possibly of another DN after a move).
-        _nestedLoads.Cancel();
+        // A running "All (nested)" query belongs to the previous read (possibly of another DN after a move): it ends
+        // without a message, and what it finds later is not shown.
+        NestedStatus.Operation?.Dispose();
         NestedItems.ReplaceAll([]);
         IsNestedLoading = false;
         IsNestedLoaded = false;
         NestedError = null;
+        NestedStatus.SetLasting(null);
+        NestedStatus.SetIdle(null);
+
+        // A fresh read of the object: what the page said about the previous one is over.
+        Status.SetLasting(null);
         Refresh();
     }
 
@@ -320,13 +350,22 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
 
     private bool CanOpen(MembershipItemViewModel? item) => (item ?? SelectedItem) is not null;
 
-    [RelayCommand(IncludeCancelCommand = true)]
-    private async Task LoadNestedAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Reads the "All (nested)" list: an operation of that list (<see cref="NestedStatus"/>) - the status line says
+    /// what is read and offers Stop, the button that started it is its Cancel. A newer read, or a fresh read of the
+    /// object, replaces a running one.
+    /// </summary>
+    [RelayCommand]
+    private async Task LoadNestedAsync()
     {
-        var token = _nestedLoads.Next();
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, cancellationToken);
+        var localizer = Context.Localizer;
+        var list = localizer[L.Membership.Nested];
+        using var scope = NestedStatus.Begin(
+            localizer.Format(L.PropertySheetStatus.ListReading, list), new PageStatusLog(L.PropertySheetStatus.ListReading));
+        var token = scope.Token;
         IsNestedLoading = true;
         NestedError = null;
+        NestedStatus.SetLasting(null);
         try
         {
             var session = Context.Session;
@@ -337,20 +376,19 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
                 Filter = NestedFilter(Dn),
                 Attributes = DirectoryItem.Attributes,
             };
-            var localizer = Context.Localizer;
             var items = await Task.Run(
                 async () =>
                 {
-                    var list = new List<DirectoryItem>();
-                    await foreach (var obj in session.SearchAsync(search, linked.Token).ConfigureAwait(false))
+                    var found = new List<DirectoryItem>();
+                    await foreach (var obj in session.SearchAsync(search, token).ConfigureAwait(false))
                     {
-                        list.Add(DirectoryItem.From(obj, localizer));
+                        found.Add(DirectoryItem.From(obj, localizer));
                     }
 
-                    return list;
+                    return found;
                 },
-                linked.Token).ConfigureAwait(true);
-            if (!_nestedLoads.IsCurrent(token))
+                token).ConfigureAwait(true);
+            if (scope.IsEnded)
             {
                 // Superseded by a newer load or by a reload of the object: the results are stale.
                 return;
@@ -359,25 +397,41 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
             var comparer = StringComparer.Create(Context.Culture, ignoreCase: true);
             NestedItems.ReplaceAll(items.OrderBy(i => i.Name, comparer));
             IsNestedLoaded = true;
+            IsNestedLoading = false;
+
+            // The result of the read is the list itself: its count is the summary, and the operation ends without a
+            // message.
+            NestedStatus.SetIdle(PageStatusText.Objects(localizer, NestedItems.Count));
+        }
+        catch (OperationCanceledException) when (!scope.IsEnded)
+        {
+            // Stopped by the operator: the list is not there, and Refresh is the way on.
+            IsNestedLoading = false;
+            scope.CompleteAttention(
+                localizer.Format(L.PropertySheetStatus.ListStopped, list),
+                new PageStatusLog(L.PropertySheetStatus.ListStopped),
+                new PageStatusAction(localizer[L.Commands.Refresh], LoadNestedCommand));
         }
         catch (OperationCanceledException)
         {
-            // Superseded or cancelled by the operator.
+            // Superseded: the newer read owns the list and what is said about it.
         }
-        catch (DirectoryException ex) when (_nestedLoads.IsCurrent(token))
+        catch (DirectoryException ex) when (!scope.IsEnded)
         {
+            // The list stays empty for as long as this lasts: said whenever the list is shown, until it could be read.
+            var code = ResultCode.Of(ex);
+            IsNestedLoading = false;
             NestedError = Context.Services.Errors.Translate(ex);
+            NestedStatus.SetLasting(PageStatus.Error(
+                PageStatusText.Failure(
+                    localizer.Format(L.PropertySheetStatus.ListReadFailed, list), NestedError, localizer[L.Feedback.RetryNext], code),
+                new PageStatusLog(L.PropertySheetStatus.ListReadFailed).WithCode(code),
+                new PageStatusAction(localizer[L.Common.Retry], LoadNestedCommand),
+                canClose: false));
         }
         catch (DirectoryException)
         {
             // A stale query failed: the newer state is kept.
-        }
-        finally
-        {
-            if (_nestedLoads.IsCurrent(token))
-            {
-                IsNestedLoading = false;
-            }
         }
     }
 
@@ -461,6 +515,9 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
             .Where(i => TextFolding.Contains(i.Name, FilterText) || TextFolding.Contains(i.Path, FilterText))
             .OrderBy(i => i.Name, comparer));
         CountText = FormatCount(_all.Count(i => i.State != MembershipState.PendingRemove));
+
+        // The count is the summary of the page in the status line of the sheet.
+        Status.SetIdle(CountText);
         RemoveCommand.NotifyCanExecuteChanged();
         NotifyCopyCommands();
         CopyAllMailCommand.NotifyCanExecuteChanged();
@@ -469,6 +526,19 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
     }
 
     partial void OnFilterTextChanged(string value) => Refresh();
+
+    /// <summary>The list that is shown is the part of the page in front: the status line speaks about that list.</summary>
+    partial void OnSelectedListIndexChanged(int value) => Status.Front = value == NestedListIndex ? NestedStatus : null;
+
+    /// <summary>
+    /// The direct list could not be read with the object: the state of the page until the object is read again
+    /// ("Retry" reads the whole object - the page has no read of its own).
+    /// </summary>
+    private protected void SetDirectReadFailed(DirectoryException exception)
+    {
+        Error = Context.Services.Errors.Translate(exception);
+        SetReadFailed(Error, ResultCode.Of(exception), Context.Reload);
+    }
 
     partial void OnSelectedItemChanged(MembershipItemViewModel? value) => OnSelectionChanged();
 
@@ -567,7 +637,7 @@ public sealed partial class MemberOfPageViewModel : MembershipPageViewModel
         }
         catch (DirectoryException ex)
         {
-            Error = Context.Services.Errors.Translate(ex);
+            SetDirectReadFailed(ex);
         }
         finally
         {
@@ -720,7 +790,7 @@ public sealed partial class MembersPageViewModel : MembershipPageViewModel
         }
         catch (DirectoryException ex)
         {
-            Error = Context.Services.Errors.Translate(ex);
+            SetDirectReadFailed(ex);
         }
         finally
         {
