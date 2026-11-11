@@ -210,6 +210,7 @@
           <TextBlock FontWeight="SemiBold"
                      Text="{Binding Title, Mode=OneWay}"
                      TextTrimming="CharacterEllipsis" />
+          <!-- How far this one activity is: the progress of a row stays in its row (track V, stage V2b). -->
           <ProgressBar Margin="0,4,0,2"
                        Maximum="1"
                        Minimum="0"
@@ -656,24 +657,42 @@
                  Padding="30,4,10,5"
                  AutomationProperties.Name="{l:Tr Commands.QuickSearch}"
                  PreviewKeyDown="OnSearchKeyDown"
-                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
-        <TextBlock Margin="10,0,0,0"
+                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}">
+          <TextBox.Style>
+            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+              <Style.Triggers>
+                <!-- The ring below is decorative: a screen reader finds "Searching…" as the status of the box. -->
+                <DataTrigger Binding="{Binding IsSearching, Mode=OneWay}" Value="True">
+                  <Setter Property="AutomationProperties.ItemStatus" Value="{l:Tr Ui.Searching}" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBox.Style>
+        </TextBox>
+        <TextBlock x:Name="SearchGlyph"
+                   Margin="10,0,0,0"
                    HorizontalAlignment="Left"
                    FontSize="13"
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                    IsHitTestVisible="False"
                    Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Search}" />
+                   Text="{x:Static c:Glyphs.Search}"
+                   Visibility="{Binding IsSearching, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+        <!--
+          The quick search runs: a progress ring takes the place of the magnifier ("busy" is the ring - track V, stage
+          V2b; the results are the suggestions, so there is nothing to say in a status line).
+        -->
+        <c:ProgressRing x:Name="SearchRing"
+                        Margin="9,0,0,0"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                        IsActive="{Binding IsSearching, Mode=OneWay}"
+                        Size="14" />
         <TextBlock Margin="30,0,10,0"
                    Style="{StaticResource Ad.HintText}"
                    Text="{l:Tr Shell.SearchPlaceholder}"
                    Visibility="{Binding Text, ElementName=SearchBox, Converter={StaticResource Ad.EmptyToVisible}}" />
-        <ProgressBar Height="2"
-                     Margin="6,0,6,2"
-                     VerticalAlignment="Bottom"
-                     AutomationProperties.Name="{l:Tr Ui.Searching}"
-                     IsIndeterminate="{Binding IsSearching, Mode=OneWay}"
-                     Visibility="{Binding IsSearching, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         <Popup x:Name="SuggestionsPopup"
                Width="460"
                AllowsTransparency="True"
@@ -1190,19 +1209,15 @@
                   </StackPanel>
                 </DockPanel>
 
-                <Border Margin="0,10,0,0"
-                        Padding="8,6"
-                        Style="{StaticResource Ad.WarningBar}"
-                        Visibility="{Binding IsProtected, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-                  <DockPanel>
-                    <TextBlock Margin="0,0,8,0"
-                               DockPanel.Dock="Left"
-                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                               Style="{StaticResource Ad.GlyphText}"
-                               Text="{x:Static c:Glyphs.Shield}" />
-                    <TextBlock Text="{l:Tr Details.ProtectedObject}" TextWrapping="Wrap" />
-                  </DockPanel>
-                </Border>
+                <!-- A note about the selected object, true for as long as it is shown - not a status of the shell. -->
+                <ContentControl x:Name="ProtectedNote"
+                                Margin="0,10,0,0"
+                                Style="{StaticResource Ad.Note.Attention}"
+                                Visibility="{Binding IsProtected, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <TextBlock x:Name="ProtectedNoteText"
+                             Text="{l:Tr Details.ProtectedObject}"
+                             TextWrapping="Wrap" />
+                </ContentControl>
 
                 <TextBox Margin="0,10,0,0"
                          AutomationProperties.Name="{l:Tr Attribute.description}"
@@ -1373,11 +1388,13 @@
               <TextBlock FontSize="13"
                          Style="{StaticResource Ad.GlyphText}"
                          Text="{x:Static c:Glyphs.Activity}" />
-              <ProgressBar Width="60"
-                           Margin="8,0,0,0"
-                           VerticalAlignment="Center"
-                           IsIndeterminate="{Binding Activities.HasRunning, Mode=OneWay}"
-                           Visibility="{Binding Activities.HasRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <!-- Something runs in this connection: the ring ("busy"); what and how far is the text and the list. -->
+              <c:ProgressRing x:Name="ActivityRing"
+                              Margin="8,0,0,0"
+                              VerticalAlignment="Center"
+                              IsActive="{Binding Activities.HasRunning, Mode=OneWay}"
+                              Size="14"
+                              Visibility="{Binding Activities.HasRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
               <TextBlock Margin="8,0,0,0"
                          VerticalAlignment="Center"
                          Text="{Binding Activities.Summary, Mode=OneWay}"
