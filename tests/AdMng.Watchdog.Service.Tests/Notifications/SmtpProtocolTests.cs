@@ -185,8 +185,9 @@ public sealed class SmtpProtocolTests
     [Fact]
     public async Task NothingListening_IsTransient()
     {
+        using var closed = Testing.Net.FreeTcpPort.Closed();
         await using var fixture = DeliveryFixture.Create();
-        fixture.Configure(SmtpEmailTransportTests.Configuration(Testing.Net.FreeTcpPort.Next(), SmtpSecurity.None));
+        fixture.Configure(SmtpEmailTransportTests.Configuration(closed.Port, SmtpSecurity.None));
 
         var result = await fixture.Smtp.SendAsync(SmtpEmailTransportTests.Message(), Ct);
 
