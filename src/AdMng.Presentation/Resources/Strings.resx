@@ -24762,5 +24762,116 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="NewObject.Status.JoinerFailed" xml:space="preserve">
     <value>Could not read the chosen account</value>
   </data>
+  <data name="MessageWindow.Status.Reading" xml:space="preserve">
+    <value>Reading the accounts ({0:N0}) and preparing the messages…</value>
+  </data>
+  <data name="MessageWindow.Status.NotPrepared" xml:space="preserve">
+    <value>No message was prepared</value>
+  </data>
+  <data name="MessageWindow.Status.ReadStopped" xml:space="preserve">
+    <value>Preparing the messages was stopped</value>
+  </data>
+  <data name="MessageWindow.Status.ReadStoppedReason" xml:space="preserve">
+    <value>no message was prepared</value>
+  </data>
+  <data name="MessageWindow.Status.ReadFailed" xml:space="preserve">
+    <value>Could not read the accounts</value>
+  </data>
+  <data name="MessageWindow.Status.NotSent" xml:space="preserve">
+    <value>No message was sent</value>
+  </data>
+  <data name="MessageWindow.Status.Sending" xml:space="preserve">
+    <value>Sending the messages: {0}…</value>
+  </data>
+  <data name="MessageWindow.Status.SendingFailures" xml:space="preserve">
+    <value>Sending the messages: {0}, failed: {1:N0}…</value>
+  </data>
+  <data name="MessageWindow.Status.SendingRetry" xml:space="preserve">
+    <value>Sending the messages: {0} – waiting to retry after a temporary failure…</value>
+  </data>
+  <data name="MessageWindow.Status.SendingFailuresRetry" xml:space="preserve">
+    <value>Sending the messages: {0}, failed: {1:N0} – waiting to retry after a temporary failure…</value>
+  </data>
+  <data name="MessageWindow.Status.Messages.One" xml:space="preserve">
+    <value>{0:N0} message</value>
+  </data>
+  <data name="MessageWindow.Status.Messages.Few" xml:space="preserve">
+    <value>{0:N0} messages</value>
+  </data>
+  <data name="MessageWindow.Status.Messages.Many" xml:space="preserve">
+    <value>{0:N0} messages</value>
+  </data>
+  <data name="MessageWindow.Status.Sent" xml:space="preserve">
+    <value>The server accepted {0} for users of {1}. The report is in the list below.</value>
+  </data>
+  <data name="MessageWindow.Status.SentAnywhere" xml:space="preserve">
+    <value>The server accepted {0}. The report is in the list below.</value>
+  </data>
+  <data name="MessageWindow.Status.SentPartly" xml:space="preserve">
+    <value>The messages were sent only in part</value>
+  </data>
+  <data name="MessageWindow.Status.SendStopped" xml:space="preserve">
+    <value>Sending the messages was stopped</value>
+  </data>
+  <data name="MessageWindow.Status.SendFailed" xml:space="preserve">
+    <value>Could not send the messages</value>
+  </data>
+  <data name="MessageWindow.Status.SendCounts" xml:space="preserve">
+    <value>accepted by the server: {0:N0}, failed: {1:N0}, not sent: {2:N0}</value>
+  </data>
+  <data name="MessageWindow.Status.ReasonsNext" xml:space="preserve">
+    <value>The reasons are in the report below.</value>
+  </data>
+  <data name="MessageWindow.Status.RetryFailedNext" xml:space="preserve">
+    <value>Press “{0}” to prepare the messages that were not sent again.</value>
+  </data>
+  <data name="MessageWindow.Status.TestSending" xml:space="preserve">
+    <value>Sending the test message to {0}…</value>
+  </data>
+  <data name="MessageWindow.Status.TestNotSent" xml:space="preserve">
+    <value>The test message was not sent</value>
+  </data>
+  <data name="MessageWindow.Status.TestStopped" xml:space="preserve">
+    <value>Sending the test message was stopped: the message was not sent.</value>
+  </data>
+  <data name="MessageWindow.Status.NotPasted" xml:space="preserve">
+    <value>Nothing was pasted</value>
+  </data>
+  <data name="MessageWindow.Status.PasteStopped" xml:space="preserve">
+    <value>Pasting was stopped: the content was not changed.</value>
+  </data>
+  <data name="Settings.Status.Testing" xml:space="preserve">
+    <value>Testing the connection to {0}…</value>
+  </data>
+  <data name="Settings.Status.NotTested" xml:space="preserve">
+    <value>The connection was not tested</value>
+  </data>
+  <data name="Settings.Status.TestOk" xml:space="preserve">
+    <value>The connection to {0} works: {1}, authentication: {2}.</value>
+  </data>
+  <data name="Settings.Status.TestFailed" xml:space="preserve">
+    <value>The connection to {0} does not work</value>
+  </data>
+  <data name="Settings.Status.TestStopped" xml:space="preserve">
+    <value>Testing the connection to {0} was stopped.</value>
+  </data>
+  <data name="Settings.Status.OutlookRead" xml:space="preserve">
+    <value>The Outlook profile “{0}” has {1}. Choose the account to send from in the list.</value>
+  </data>
+  <data name="Settings.Status.Accounts.One" xml:space="preserve">
+    <value>{0:N0} account</value>
+  </data>
+  <data name="Settings.Status.Accounts.Few" xml:space="preserve">
+    <value>{0:N0} accounts</value>
+  </data>
+  <data name="Settings.Status.Accounts.Many" xml:space="preserve">
+    <value>{0:N0} accounts</value>
+  </data>
+  <data name="Settings.Status.OutlookFailed" xml:space="preserve">
+    <value>Could not read the accounts from Outlook</value>
+  </data>
+  <data name="Settings.Status.OutlookStopped" xml:space="preserve">
+    <value>Reading the accounts from Outlook was stopped: the list was not changed.</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

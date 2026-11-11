@@ -24762,5 +24762,116 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="NewObject.Status.JoinerFailed" xml:space="preserve">
     <value>Nie udało się odczytać wybranego konta</value>
   </data>
+  <data name="MessageWindow.Status.Reading" xml:space="preserve">
+    <value>Wczytywanie kont ({0:N0}) i przygotowywanie wiadomości…</value>
+  </data>
+  <data name="MessageWindow.Status.NotPrepared" xml:space="preserve">
+    <value>Nie przygotowano żadnej wiadomości</value>
+  </data>
+  <data name="MessageWindow.Status.ReadStopped" xml:space="preserve">
+    <value>Przygotowywanie wiadomości zatrzymano</value>
+  </data>
+  <data name="MessageWindow.Status.ReadStoppedReason" xml:space="preserve">
+    <value>nie przygotowano żadnej wiadomości</value>
+  </data>
+  <data name="MessageWindow.Status.ReadFailed" xml:space="preserve">
+    <value>Nie udało się wczytać kont</value>
+  </data>
+  <data name="MessageWindow.Status.NotSent" xml:space="preserve">
+    <value>Nie wysłano żadnej wiadomości</value>
+  </data>
+  <data name="MessageWindow.Status.Sending" xml:space="preserve">
+    <value>Wysyłanie wiadomości: {0}…</value>
+  </data>
+  <data name="MessageWindow.Status.SendingFailures" xml:space="preserve">
+    <value>Wysyłanie wiadomości: {0}, nieudane: {1:N0}…</value>
+  </data>
+  <data name="MessageWindow.Status.SendingRetry" xml:space="preserve">
+    <value>Wysyłanie wiadomości: {0} – oczekiwanie na ponowienie po błędzie przejściowym…</value>
+  </data>
+  <data name="MessageWindow.Status.SendingFailuresRetry" xml:space="preserve">
+    <value>Wysyłanie wiadomości: {0}, nieudane: {1:N0} – oczekiwanie na ponowienie po błędzie przejściowym…</value>
+  </data>
+  <data name="MessageWindow.Status.Messages.One" xml:space="preserve">
+    <value>{0:N0} wiadomość</value>
+  </data>
+  <data name="MessageWindow.Status.Messages.Few" xml:space="preserve">
+    <value>{0:N0} wiadomości</value>
+  </data>
+  <data name="MessageWindow.Status.Messages.Many" xml:space="preserve">
+    <value>{0:N0} wiadomości</value>
+  </data>
+  <data name="MessageWindow.Status.Sent" xml:space="preserve">
+    <value>Serwer przyjął {0} dla użytkowników domeny {1}. Raport jest na liście poniżej.</value>
+  </data>
+  <data name="MessageWindow.Status.SentAnywhere" xml:space="preserve">
+    <value>Serwer przyjął {0}. Raport jest na liście poniżej.</value>
+  </data>
+  <data name="MessageWindow.Status.SentPartly" xml:space="preserve">
+    <value>Wiadomości wysłano tylko częściowo</value>
+  </data>
+  <data name="MessageWindow.Status.SendStopped" xml:space="preserve">
+    <value>Wysyłanie wiadomości zatrzymano</value>
+  </data>
+  <data name="MessageWindow.Status.SendFailed" xml:space="preserve">
+    <value>Nie udało się wysłać wiadomości</value>
+  </data>
+  <data name="MessageWindow.Status.SendCounts" xml:space="preserve">
+    <value>przyjęte przez serwer: {0:N0}, nieudane: {1:N0}, niewysłane: {2:N0}</value>
+  </data>
+  <data name="MessageWindow.Status.ReasonsNext" xml:space="preserve">
+    <value>Przyczyny są w raporcie poniżej.</value>
+  </data>
+  <data name="MessageWindow.Status.RetryFailedNext" xml:space="preserve">
+    <value>Wybierz „{0}”, aby ponownie przygotować wiadomości, których nie wysłano.</value>
+  </data>
+  <data name="MessageWindow.Status.TestSending" xml:space="preserve">
+    <value>Wysyłanie wiadomości testowej do {0}…</value>
+  </data>
+  <data name="MessageWindow.Status.TestNotSent" xml:space="preserve">
+    <value>Nie wysłano wiadomości testowej</value>
+  </data>
+  <data name="MessageWindow.Status.TestStopped" xml:space="preserve">
+    <value>Wysyłanie wiadomości testowej zatrzymano: wiadomości nie wysłano.</value>
+  </data>
+  <data name="MessageWindow.Status.NotPasted" xml:space="preserve">
+    <value>Niczego nie wklejono</value>
+  </data>
+  <data name="MessageWindow.Status.PasteStopped" xml:space="preserve">
+    <value>Wklejanie zatrzymano: treść nie została zmieniona.</value>
+  </data>
+  <data name="Settings.Status.Testing" xml:space="preserve">
+    <value>Testowanie połączenia z {0}…</value>
+  </data>
+  <data name="Settings.Status.NotTested" xml:space="preserve">
+    <value>Nie przetestowano połączenia</value>
+  </data>
+  <data name="Settings.Status.TestOk" xml:space="preserve">
+    <value>Połączenie z {0} działa: {1}, uwierzytelnianie: {2}.</value>
+  </data>
+  <data name="Settings.Status.TestFailed" xml:space="preserve">
+    <value>Połączenie z {0} nie działa</value>
+  </data>
+  <data name="Settings.Status.TestStopped" xml:space="preserve">
+    <value>Testowanie połączenia z {0} zatrzymano.</value>
+  </data>
+  <data name="Settings.Status.OutlookRead" xml:space="preserve">
+    <value>Profil Outlooka „{0}” ma {1}. Wybierz z listy konto, z którego będą wysyłane wiadomości.</value>
+  </data>
+  <data name="Settings.Status.Accounts.One" xml:space="preserve">
+    <value>{0:N0} konto</value>
+  </data>
+  <data name="Settings.Status.Accounts.Few" xml:space="preserve">
+    <value>{0:N0} konta</value>
+  </data>
+  <data name="Settings.Status.Accounts.Many" xml:space="preserve">
+    <value>{0:N0} kont</value>
+  </data>
+  <data name="Settings.Status.OutlookFailed" xml:space="preserve">
+    <value>Nie udało się pobrać kont z Outlooka</value>
+  </data>
+  <data name="Settings.Status.OutlookStopped" xml:space="preserve">
+    <value>Pobieranie kont z Outlooka zatrzymano: lista nie została zmieniona.</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

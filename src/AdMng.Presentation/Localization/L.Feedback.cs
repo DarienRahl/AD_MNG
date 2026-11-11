@@ -461,4 +461,105 @@ public static partial class L
         /// <summary>What was tried, without a full stop.</summary>
         public const string JoinerFailed = "NewObject.Status.JoinerFailed";
     }
+
+    /// <summary>
+    /// What the message window ("Send message to users") says in its status line (stage V2b-2): preparing the preview,
+    /// sending with the part done, the test message, pasting formatted content. The keys are <c>MessageWindow.Status.*</c>:
+    /// <c>UserMessages.Status.*</c> is the family of the states of a planned message. A text may name a domain or the
+    /// operator's test address; the log copy never does, and no text ever holds the content of a message or the SMTP
+    /// password.
+    /// </summary>
+    public static class MessageWindowStatus
+    {
+        /// <summary>{0} = the number of accounts.</summary>
+        public const string Reading = "MessageWindow.Status.Reading";
+
+        /// <summary>What was skipped, without a full stop: the lead of "No message was prepared: why."</summary>
+        public const string NotPrepared = "MessageWindow.Status.NotPrepared";
+
+        /// <summary>What was stopped, without a full stop, and what that means.</summary>
+        public const string ReadStopped = "MessageWindow.Status.ReadStopped";
+        public const string ReadStoppedReason = "MessageWindow.Status.ReadStoppedReason";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string ReadFailed = "MessageWindow.Status.ReadFailed";
+
+        /// <summary>What was skipped, without a full stop: the lead of "No message was sent: why."</summary>
+        public const string NotSent = "MessageWindow.Status.NotSent";
+
+        /// <summary>{0} = how far ("12 of 300"); with failures {1} = their number; "Retry": waiting to send one again.</summary>
+        public const string Sending = "MessageWindow.Status.Sending";
+        public const string SendingFailures = "MessageWindow.Status.SendingFailures";
+        public const string SendingRetry = "MessageWindow.Status.SendingRetry";
+        public const string SendingFailuresRetry = "MessageWindow.Status.SendingFailuresRetry";
+
+        /// <summary>"{0} message" in the three plural forms (one, few, many).</summary>
+        public const string MessagesOne = "MessageWindow.Status.Messages.One";
+        public const string MessagesFew = "MessageWindow.Status.Messages.Few";
+        public const string MessagesMany = "MessageWindow.Status.Messages.Many";
+
+        /// <summary>{0} = the messages ("12 messages"), {1} = the domain of the recipients.</summary>
+        public const string Sent = "MessageWindow.Status.Sent";
+
+        /// <summary>{0} = the messages; for a window without a domain.</summary>
+        public const string SentAnywhere = "MessageWindow.Status.SentAnywhere";
+
+        /// <summary>What happened, without a full stop: the leads of a send that did not deliver everything.</summary>
+        public const string SentPartly = "MessageWindow.Status.SentPartly";
+        public const string SendStopped = "MessageWindow.Status.SendStopped";
+        public const string SendFailed = "MessageWindow.Status.SendFailed";
+
+        /// <summary>{0} = accepted, {1} = failed, {2} = not sent.</summary>
+        public const string SendCounts = "MessageWindow.Status.SendCounts";
+
+        /// <summary>Where the reasons are, and what to do; {0} = the text of the "Retry failed" button.</summary>
+        public const string ReasonsNext = "MessageWindow.Status.ReasonsNext";
+        public const string RetryFailedNext = "MessageWindow.Status.RetryFailedNext";
+
+        /// <summary>{0} = the operator's address for test messages (settings).</summary>
+        public const string TestSending = "MessageWindow.Status.TestSending";
+
+        /// <summary>What was skipped, without a full stop: the lead of "The test message was not sent: why."</summary>
+        public const string TestNotSent = "MessageWindow.Status.TestNotSent";
+        public const string TestStopped = "MessageWindow.Status.TestStopped";
+
+        /// <summary>What was skipped, without a full stop: the lead of "Nothing was pasted: why."</summary>
+        public const string NotPasted = "MessageWindow.Status.NotPasted";
+        public const string PasteStopped = "MessageWindow.Status.PasteStopped";
+    }
+
+    /// <summary>
+    /// What the settings window says in its status line (stage V2b-2): the tests of the "E-mail messages" tab - the
+    /// connection test, the test message (the words of <see cref="MessageWindowStatus"/>) and the accounts of the Outlook
+    /// profile. The SMTP password is never part of a text.
+    /// </summary>
+    public static class SettingsStatus
+    {
+        /// <summary>{0} = the server ("smtp.contoso.com:587").</summary>
+        public const string Testing = "Settings.Status.Testing";
+
+        /// <summary>What was skipped, without a full stop: the lead of "The connection was not tested: why."</summary>
+        public const string NotTested = "Settings.Status.NotTested";
+
+        /// <summary>{0} = the server, {1} = "encrypted (…)" or "NOT encrypted", {2} = the authentication used.</summary>
+        public const string TestOk = "Settings.Status.TestOk";
+
+        /// <summary>What was found, without a full stop; {0} = the server.</summary>
+        public const string TestFailed = "Settings.Status.TestFailed";
+
+        /// <summary>{0} = the server.</summary>
+        public const string TestStopped = "Settings.Status.TestStopped";
+
+        /// <summary>{0} = the name of the Outlook profile, {1} = its accounts ("2 accounts").</summary>
+        public const string OutlookRead = "Settings.Status.OutlookRead";
+
+        /// <summary>"{0} account" in the three plural forms (one, few, many).</summary>
+        public const string AccountsOne = "Settings.Status.Accounts.One";
+        public const string AccountsFew = "Settings.Status.Accounts.Few";
+        public const string AccountsMany = "Settings.Status.Accounts.Many";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string OutlookFailed = "Settings.Status.OutlookFailed";
+        public const string OutlookStopped = "Settings.Status.OutlookStopped";
+    }
 }
