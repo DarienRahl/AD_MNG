@@ -1183,7 +1183,9 @@ sheet; units 2 and 3 add their windows to this block.
      action) changes nothing, so a view model has **one** method that computes the most important of its conditions
      and calls it whenever one of them changes (`PropertySheetViewModel.UpdateLasting` / `LastingState`, called from the
      `On…Changed` hooks of the properties). Only an attention or an error can last. `Show`/`Complete…` with
-     `canClose: false` (the way of the two pilots) stays right for a page with one operation.
+     `canClose: false` (the way of the two pilots) stays right for a page with one operation. Every window has one
+     such condition from its base class: `WindowViewModelBase.SessionEndedStatus` is "the session of this window
+     ended" as a lasting error – the first condition a window checks.
   3. *Several sources in one window: the page in front* – `PageStatusHolder.Front`. A window whose tabs say something
      of their own gives **every page view model a holder** (created like the window's: the localizer, the dispatcher
      and the logger of the scoped services – `Services.Lists.StatusLog`) and tells **its own holder** which page is

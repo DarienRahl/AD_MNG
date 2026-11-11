@@ -642,9 +642,9 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase, IHasPa
     private PageStatus? LastingState()
     {
         // The session of the window ended: nothing here can be read or written any more.
-        if (SessionEndedMessage is { } ended)
+        if (SessionEndedStatus is { } ended)
         {
-            return PageStatus.Error(ended, new PageStatusLog(L.WindowSession.Ended), canClose: false);
+            return ended;
         }
 
         // The object could not be read (or no longer exists): the pages are empty or show the previous read.
