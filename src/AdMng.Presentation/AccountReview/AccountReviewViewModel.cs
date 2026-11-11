@@ -9,6 +9,7 @@ using AdMng.Core.Model;
 using AdMng.Core.PrivilegedAccess;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Filters;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
@@ -30,7 +31,15 @@ namespace AdMng.Presentation.AccountReview;
 /// export and the actions of the check - always through the change plan. Results exist only in memory; the parameters,
 /// enabled checks, scope and named check sets are remembered in the settings.
 /// </summary>
-public sealed partial class AccountReviewViewModel : WindowViewModelBase
+/// <remarks>
+/// The window has one status line (<see cref="Status"/>; track V, stage V2b, design note
+/// docs/dev/v-interface-renewal.md "V2b-1 as built"). The check - of either tab, one at a time - is the operation of
+/// the window: the line says what is checked, in which scope and how much so far, on both tabs, and "Check" is its
+/// Cancel. How a check ended belongs to the tab it was for: each tab owns a holder (<see cref="AccountsStatus"/>, the
+/// one of <see cref="Privileges"/>) with its summary, a check that failed (the state of the tab, with Retry) or was
+/// stopped, and - on this tab - the read of the exact last logon; the tab shown is in front.
+/// </remarks>
+public sealed partial class AccountReviewViewModel : WindowViewModelBase, IHasPageStatus
 {
     /// <summary>"Przedłuż ważność…" pre-fills the end of the day this many days from today (editable in the batch editor).</summary>
     public const int ExtendByDays = 90;
@@ -61,6 +70,10 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
     private bool _sortDescending;
     private bool _applyingCheckSet;
 
+    /// <summary>The running check of the "Account state" tab and the scope it names (for its progress reports).</summary>
+    private OperationScope? _checking;
+    private string _checkingScope = string.Empty;
+
     public AccountReviewViewModel(
         DialogServices services,
         ViewLibrary views,
@@ -76,6 +89,8 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         _domainControllers = domainControllers ?? throw new ArgumentNullException(nameof(domainControllers));
         _messages = messages;
         _filters = filters ?? new FilterLibrary(services.Settings);
+        Status = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
+        AccountsStatus = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
         Privileges = new PrivilegedAccessViewModel(services, () => Session, () => IsSessionEnded, _filters, csv, messages, grantSources);
         Privileges.PropertyChanged += OnPrivilegesChanged;
         _refreshDebouncer = new Debouncer(services.Time, TimeSpan.FromMilliseconds(300));
@@ -98,11 +113,25 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         Services.Changes.Changed += OnDirectoryChanged;
         _views.Changed += OnViewsChanged;
         _filters.Changed += OnFiltersChanged;
+        Status.Front = AccountsStatus;
     }
 
     public override string WindowTitle => Session is { } session
         ? Localizer.Format(L.AccountReview.WindowTitleDomain, session.Info.DomainDnsName)
         : Localizer[L.AccountReview.WindowTitle];
+
+    /// <summary>
+    /// The status of the window - what its one status line shows: the running check (of either tab), else what the tab
+    /// shown says, and - as the state that lasts - that the session of the window ended.
+    /// </summary>
+    public PageStatusHolder Status { get; }
+
+    /// <summary>
+    /// The status of the "Account state" tab: its summary ("As of 12:00 · 1 234 accounts read · 56 accounts with
+    /// findings · 3 selected"), a check that failed (for as long as that lasts, with Retry) or was stopped, and the
+    /// read of the exact last logon with how it ended.
+    /// </summary>
+    public PageStatusHolder AccountsStatus { get; }
 
     // ---- Scope ---------------------------------------------------------------------------------------------------
 
@@ -335,9 +364,15 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         _ => true,
     };
 
+    /// <summary>
+    /// Stops whatever runs - a check, the read of the exact last logon - as the operator's Stop: the status line says
+    /// "Stopping…" at once and what was stopped says so when it ended.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanStop))]
     private void Stop()
     {
+        Status.Operation?.Cancel();
+        AccountsStatus.Operation?.Cancel();
         _runs.Cancel();
         _exactReads.Cancel();
     }
@@ -593,14 +628,21 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
             return;
         }
 
-        var token = _exactReads.Next();
+        // The read is the operation of this tab: the line says so with Stop (the button that started it is its Cancel),
+        // and how it ended - how many domain controllers answered and what that changed - is its result. A new check
+        // replaces it without a word.
+        var latest = _exactReads.Next();
+        using var reading = AccountsStatus.Begin(
+            Localizer.Format(L.AccountReviewStatus.ReadingExact, rows.Count), new PageStatusLog(L.AccountReviewStatus.ReadingExact, rows.Count));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, reading.Token);
+        var token = linked.Token;
         IsReadingDomainControllers = true;
         StatusText = Localizer.Format(L.AccountReview.ReadingDomainControllers, rows.Count);
         try
         {
             var dns = Dns(rows);
             var reads = await Task.Run(() => _domainControllers.ReadAsync(session, dns, [Attr.LastLogon], token), token).ConfigureAwait(true);
-            if (!ReferenceEquals(run, _run))
+            if (!ReferenceEquals(run, _run) || reading.IsEnded)
             {
                 return;
             }
@@ -633,22 +675,41 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
 
             UpdateTiles(complete: true);
             RebuildItems();
-            var failed = reads.Where(r => !r.Succeeded).ToList();
-            var message = Localizer.Format(L.AccountReview.ExactDone, answered.Count, reads.Count, active);
-            if (failed.Count > 0)
-            {
-                message += Environment.NewLine + string.Join(Environment.NewLine, failed.Select(f => $"{f.Server}: {f.Error}"));
-            }
 
-            Services.Notifications.Show(failed.Count > 0 ? NotificationSeverity.Warning : NotificationSeverity.Success, message);
+            // What happened: on how many domain controllers the value was read and how many accounts left the list;
+            // with the ones that did not answer it is an "attention". Their names are on screen only - the log copy has
+            // the numbers.
+            var failed = reads.Where(r => !r.Succeeded).Select(r => r.Server).ToList();
+            var done = Localizer.Format(L.AccountReviewStatus.ExactDone, PageStatusText.Progress(Localizer, answered.Count, reads.Count), active);
+            var log = new PageStatusLog(L.AccountReviewStatus.ExactDone, answered.Count, reads.Count, active);
+            if (failed.Count == 0)
+            {
+                reading.CompleteDone(done, log);
+            }
+            else
+            {
+                reading.CompleteAttention($"{done} {Localizer.Format(L.AccountReviewStatus.ExactNoAnswer, string.Join(", ", failed))}", log);
+            }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            // Stopped by the operator or a new run.
+            // Replaced by a new check, or the window closed: nothing to say. Stopped by the operator: the list is as
+            // it was, and the button reads again.
+            if (reading.IsCancelling)
+            {
+                reading.CompleteAttention(
+                    Localizer.Format(L.AccountReviewStatus.ExactStopped, Localizer[L.AccountReview.ExactLastLogon]),
+                    new PageStatusLog(L.AccountReviewStatus.ExactStopped),
+                    new PageStatusAction(Localizer[L.AccountReview.ExactLastLogon], ReadExactLastLogonCommand));
+            }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            await Services.Dialogs.ShowErrorAsync(Localizer[L.AccountReview.ExactLastLogon], Errors.Translate(ex)).ConfigureAwait(true);
+            var code = ResultCode.Of(ex);
+            reading.CompleteError(
+                PageStatusText.Failure(Localizer[L.AccountReviewStatus.ExactFailed], Errors.Translate(ex), Localizer[L.Feedback.RetryNext], code),
+                new PageStatusLog(L.AccountReviewStatus.ExactFailed).WithCode(code),
+                new PageStatusAction(Localizer[L.Common.Retry], ReadExactLastLogonCommand));
         }
         finally
         {
@@ -703,6 +764,11 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         _runs.Cancel();
         _exactReads.Cancel();
         _refreshDebouncer.Cancel();
+
+        // What still runs ends without a word: the line says at once, and for good, that the session ended.
+        Status.Operation?.Dispose();
+        AccountsStatus.Operation?.Dispose();
+        Status.SetLasting(SessionEndedStatus);
         Privileges.OnSessionEnded();
         RunCommand.NotifyCanExecuteChanged();
         BrowseScopeCommand.NotifyCanExecuteChanged();
@@ -713,6 +779,7 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
     protected override void OnCultureChanged()
     {
         base.OnCultureChanged();
+        Status.SetLasting(SessionEndedStatus);
         var kind = ScopeKind.Value;
         ScopeKinds = CreateScopeKinds();
         ScopeKind = ScopeKinds.First(k => k.Value == kind);
@@ -742,6 +809,9 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
             _runs.Cancel();
             _exactReads.Cancel();
             _refreshDebouncer.Cancel();
+            Status.Operation?.Dispose();
+            Status.Front = null;
+            AccountsStatus.Operation?.Dispose();
             Services.Changes.Changed -= OnDirectoryChanged;
             _views.Changed -= OnViewsChanged;
             _filters.Changed -= OnFiltersChanged;
@@ -805,7 +875,24 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         RebuildItems();
     }
 
-    partial void OnStatusTextChanged(string value) => OnPropertyChanged(nameof(FooterText));
+    partial void OnStatusTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(FooterText));
+        UpdateSummary();
+    }
+
+    partial void OnSelectionTextChanged(string value) => UpdateSummary();
+
+    /// <summary>The tab shown is in front: the line says its summary and what its last check or read ended with.</summary>
+    partial void OnSelectedTabIndexChanged(int value) => Status.Front = IsPrivilegesTab ? Privileges.Status : AccountsStatus;
+
+    /// <summary>The summary of the "Account state" tab: what was read and when, and what is selected.</summary>
+    private void UpdateSummary()
+    {
+        var read = StatusText;
+        var selected = SelectionText;
+        AccountsStatus.SetIdle(read.Length == 0 || selected.Length == 0 ? read + selected : $"{read} · {selected}");
+    }
 
     private void OnPrivilegesChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -829,7 +916,7 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
 
     private async Task RunCoreAsync()
     {
-        var token = _runs.Next();
+        var latest = _runs.Next();
         _exactReads.Cancel();
         var generation = ++_generation;
         _rows.Clear();
@@ -844,6 +931,21 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
             return;
         }
 
+        // The check is the operation of the window: the line says "working" from here on - with the accounts read so
+        // far - on both tabs, and Stop (in the line, or "Check" as its Cancel) ends it as "stopped". "The latest check
+        // wins" and the end of the session cancel it without a word. How it ended is said by this tab.
+        var scope = ScopeLabel(session);
+        using var checking = Status.Begin(Localizer.Format(L.AccountReviewStatus.Checking, scope), new PageStatusLog(L.AccountReviewStatus.Checking));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, checking.Token);
+        var token = linked.Token;
+        _checking = checking;
+        _checkingScope = scope;
+
+        // What the tab said about its last check or read is over (a read of the exact last logon that still runs was
+        // cancelled above and says nothing any more): this check decides.
+        AccountsStatus.SetLasting(null);
+        AccountsStatus.Clear();
+        var code = ResultCode.None;
         var checks = EnabledChecks();
         var parameters = CurrentParameters();
         LoadParameters(parameters);
@@ -902,7 +1004,8 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         {
             if (generation == _generation)
             {
-                Error = ex is ScopeException scope ? scope.Message : Errors.Translate(ex);
+                Error = ex is ScopeException unresolved ? unresolved.Message : Errors.Translate(ex);
+                code = ex is ScopeException ? ResultCode.None : ResultCode.Of(ex);
             }
         }
         finally
@@ -914,6 +1017,28 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
                 RebuildItems();
                 UpdateStatus(stopped);
                 OnPropertyChanged(nameof(ShowHideFromGal));
+                if (Error is { } reason)
+                {
+                    // The tab shows nothing, or not everything, and this is why: its state until the next check.
+                    AccountsStatus.SetLasting(PageStatus.Error(
+                        PageStatusText.Failure(Localizer[L.AccountReviewStatus.Failed], reason, Localizer[L.Feedback.RetryNext], code),
+                        new PageStatusLog(L.AccountReviewStatus.Failed).WithCode(code),
+                        new PageStatusAction(Localizer[L.Common.Retry], RunCommand)));
+                }
+                else if (stopped && checking.IsCancelling)
+                {
+                    // Only a check the operator stopped says so: what is there is incomplete, and "Check" runs it again.
+                    var again = Localizer[L.AccountReview.Run];
+                    AccountsStatus.Show(PageStatus.Attention(
+                        Localizer.Format(L.AccountReviewStatus.Stopped, _readCount, again),
+                        new PageStatusLog(L.AccountReviewStatus.Stopped, _readCount),
+                        new PageStatusAction(again, RunCommand)));
+                }
+            }
+
+            if (ReferenceEquals(_checking, checking))
+            {
+                _checking = null;
             }
         }
     }
@@ -921,7 +1046,7 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
     /// <summary>"Sprawdź" on the Uprawnienia tab: the same scope (and extra filter) as the checks, then the tab's run.</summary>
     private async Task RunPrivilegesAsync()
     {
-        var token = _runs.Next();
+        var latest = _runs.Next();
         _exactReads.Cancel();
         var session = Session;
         if (session is null)
@@ -931,23 +1056,48 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         }
 
         Error = null;
+
+        // The check of this tab is the operation of the window as well (see RunCoreAsync); the tab reports how far it
+        // is through the same operation and says itself how its check ended.
+        var scope = ScopeLabel(session);
+        using var checking = Status.Begin(
+            Localizer.Format(L.AccountReviewStatus.PrivilegesChecking, scope), new PageStatusLog(L.AccountReviewStatus.PrivilegesChecking));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, checking.Token);
+        var token = linked.Token;
         var now = Services.Time.GetUtcNow();
         try
         {
             await RememberAsync(CurrentParameters()).ConfigureAwait(true);
             var policy = await ReadPolicyAsync(token).ConfigureAwait(true);
             var target = await Task.Run(() => ResolveScopeAsync(session, CurrentScopeRequest(), policy, now, token), token).ConfigureAwait(true);
-            await Privileges.RunAsync(session, target, policy, now, token).ConfigureAwait(true);
+            await Privileges.RunAsync(session, target, policy, now, token, new PrivilegedAccessCheck(checking, scope, RunCommand)).ConfigureAwait(true);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            // Stopped before the tab's run started.
+            // Stopped before the tab's run started: the tab shows what it showed. Only the operator's Stop is said.
+            if (checking.IsCancelling)
+            {
+                Privileges.Status.Show(Privileges.StoppedStatus(RunCommand));
+            }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            Error = ex is ScopeException scope ? scope.Message : Errors.Translate(ex);
+            // The scope could not be resolved: the tab keeps what it showed - a result that can be closed, with Retry.
+            Error = ex is ScopeException unresolved ? unresolved.Message : Errors.Translate(ex);
+            Privileges.Status.Show(Privileges.FailedStatus(Error, ex is ScopeException ? ResultCode.None : ResultCode.Of(ex), RunCommand, canClose: true));
         }
     }
+
+    /// <summary>
+    /// What the scope of a check is called in the status line: the domain, the path of the organizational unit or of
+    /// the group, or the name of the saved view.
+    /// </summary>
+    private string ScopeLabel(IDirectorySession session) => ScopeKind.Value switch
+    {
+        AccountReviewScopeKind.SavedView => SavedView?.Text ?? string.Empty,
+        AccountReviewScopeKind.OrganizationalUnit or AccountReviewScopeKind.GroupMembers when ScopeDn is { } dn => AddressResolver.ToDisplayPath(dn),
+        _ => session.Info.DomainDnsName,
+    };
 
     private ScopeRequest CurrentScopeRequest() => new(
         ScopeKind.Value,
@@ -1127,6 +1277,11 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         Items.AddRange(added);
         UpdateTiles(complete: false);
         UpdateStatus();
+
+        // One report per batch: the same message with the accounts read and the accounts with findings so far.
+        _checking?.Report(
+            Localizer.Format(L.AccountReviewStatus.CheckingCount, _checkingScope, read, _rows.Count),
+            log: new PageStatusLog(L.AccountReviewStatus.Checking, read, _rows.Count));
     });
 
     /// <summary>Managers of the candidates: from the findings when they are listed, else read in batches (UAC only).</summary>

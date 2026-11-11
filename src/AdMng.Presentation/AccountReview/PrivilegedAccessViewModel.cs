@@ -10,6 +10,7 @@ using AdMng.Core.Model;
 using AdMng.Core.PrivilegedAccess;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Filters;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
@@ -30,13 +31,27 @@ namespace AdMng.Presentation.AccountReview;
 public sealed record ReviewScope(string BaseDn, SearchScope Scope, string? Filter, SavedFilterPlan? ClientPlan);
 
 /// <summary>
+/// The check of the account review window as the "Uprawnienia" tab sees it (track V, stage V2b): the check is the
+/// operation of the window - the tab reports how far it is through it - and the tab says itself how it ended.
+/// </summary>
+/// <param name="Operation">The running check of the window.</param>
+/// <param name="Scope">What the scope is called in the status line.</param>
+/// <param name="Again">The command that checks again ("Sprawdź").</param>
+internal sealed record PrivilegedAccessCheck(OperationScope Operation, string Scope, IRelayCommand Again);
+
+/// <summary>
 /// The "Uprawnienia" tab of the account review (README U4, design docs/dev/u4-privileged-access.md): every account of the
 /// window's scope that has any right beyond a plain domain user, with a level per finding and the path that explains it.
 /// Runs with the window's scope and "Sprawdź"; streamed and cancellable, results only in memory, CSV only on demand, every
 /// action through the change plan. The settings of the tab (levels, marks, rules, peers) are saved as they change; they
 /// are shared by every connection window, so a change saved by another window's account review is shown here at once.
 /// </summary>
-public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDisposable
+/// <remarks>
+/// The tab owns a status (<see cref="Status"/>; track V, stage V2b) that the window puts in front while the tab is
+/// shown: its summary, and how its last check ended - failed (the state of the tab, with Retry) or stopped. What a grant
+/// source could not read (<see cref="NoticeText"/>) is a note above the list, not a status.
+/// </remarks>
+public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDisposable, IHasPageStatus
 {
     private const int FirstBatchSize = 50;
     private static readonly TimeSpan FlushInterval = TimeSpan.FromMilliseconds(150);
@@ -57,6 +72,9 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
     private readonly HashSet<string> _pendingRefresh = new(StringComparer.Ordinal);
     private readonly Debouncer _refreshDebouncer;
     private RunContext? _run;
+
+    /// <summary>The check of the window that runs this tab (for the progress reports), or null.</summary>
+    private PrivilegedAccessCheck? _check;
     private Task _refreshing = Task.CompletedTask;
     private int _generation;
     private int _readCount;
@@ -84,6 +102,7 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
         _csv = csv ?? throw new ArgumentNullException(nameof(csv));
         _messages = messages;
         _sources = [.. sources ?? []];
+        Status = new PageStatusHolder(services.Localizer, services.Dispatcher, services.Lists.StatusLog);
         _refreshDebouncer = new Debouncer(services.Time, TimeSpan.FromMilliseconds(300));
         LevelTiles = [.. PrivilegeLevels.Descending.Select(l => new PrivilegeLevelTileViewModel(l))];
         foreach (var tile in LevelTiles)
@@ -118,6 +137,12 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
     }
 
     private ILocalizer Localizer => _services.Localizer;
+
+    /// <summary>
+    /// The status of the tab: its summary ("As of 12:00 · 30 accounts read · 17 with rights beyond a domain user ·
+    /// 3 selected") and how its last check ended. The check itself is the operation of the window.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     // ---- Settings of the tab -------------------------------------------------------------------------------------
 
@@ -469,11 +494,24 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
     /// A run over the scope: the queries of <see cref="PrivilegedAccessScanner"/> off the UI thread, the accounts streamed
     /// in batches, then the peer comparison. A newer run or <paramref name="token"/> stops it (what was read stays).
     /// </summary>
-    internal async Task RunAsync(IDirectorySession session, ReviewScope scope, DomainPolicy policy, DateTimeOffset now, CancellationToken token)
+    /// <param name="session">The session of the window.</param>
+    /// <param name="scope">The scope as the window resolved it.</param>
+    /// <param name="policy">The policy of the domain.</param>
+    /// <param name="now">The reference time of the run.</param>
+    /// <param name="token">Stops the run.</param>
+    /// <param name="check">The check of the window this run belongs to: progress is reported through it.</param>
+    internal async Task RunAsync(
+        IDirectorySession session, ReviewScope scope, DomainPolicy policy, DateTimeOffset now, CancellationToken token, PrivilegedAccessCheck? check = null)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(scope);
         var generation = ++_generation;
+        _check = check;
+
+        // What the tab said about its last check is over: this one decides.
+        Status.SetLasting(null);
+        Status.Clear();
+        var code = ResultCode.None;
         _accounts.Clear();
         _rows.Clear();
         _pendingRefresh.Clear();
@@ -511,6 +549,9 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
             if (generation == _generation)
             {
                 StatusText = Localizer[L.PrivilegedAccess.StatusPeers];
+                check?.Operation.Report(
+                    Localizer.Format(L.AccountReviewStatus.PrivilegesCheckingPeers, check.Scope),
+                    log: new PageStatusLog(L.AccountReviewStatus.PrivilegesChecking, _readCount, _rows.Count));
                 List<AccountPrivileges> snapshot = [.. _accounts.Values];
                 var peers = await Task.Run(() => PrivilegedAccessScanner.ComparePeers(snapshot, evaluator), token).ConfigureAwait(true);
                 if (generation == _generation)
@@ -528,6 +569,7 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
             if (generation == _generation)
             {
                 Error = _services.Errors.Translate(ex);
+                code = ResultCode.Of(ex);
             }
         }
         finally
@@ -538,15 +580,63 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
                 UpdateCounts();
                 RebuildItems();
                 UpdateStatus(stopped);
+                if (Error is { } reason)
+                {
+                    // The tab shows nothing, or not everything, and this is why: its state until the next check.
+                    Status.SetLasting(FailedStatus(reason, code, check?.Again, canClose: false));
+                }
+                else if (stopped && check is { Operation.IsCancelling: true })
+                {
+                    // Only a check the operator stopped says so.
+                    Status.Show(StoppedStatus(check.Again));
+                }
+            }
+
+            if (ReferenceEquals(_check, check))
+            {
+                _check = null;
             }
         }
     }
+
+    /// <summary>The check of this tab was stopped by the operator: what is there is incomplete, and "Sprawdź" checks again.</summary>
+    internal PageStatus StoppedStatus(IRelayCommand? again)
+    {
+        var label = Localizer[L.AccountReview.Run];
+        return PageStatus.Attention(
+            Localizer.Format(L.AccountReviewStatus.PrivilegesStopped, _readCount, label),
+            new PageStatusLog(L.AccountReviewStatus.PrivilegesStopped, _readCount),
+            again is null ? null : new PageStatusAction(label, again));
+    }
+
+    /// <summary>The check of this tab failed: what was tried, why, what to do, the code - with Retry.</summary>
+    /// <param name="reason">The localized reason (a sentence).</param>
+    /// <param name="code">The result code of the failure.</param>
+    /// <param name="again">The command that checks again.</param>
+    /// <param name="canClose">True for a failure that left the tab as it was (a result), false for the state of the tab.</param>
+    internal PageStatus FailedStatus(string reason, ResultCode code, IRelayCommand? again, bool canClose) => PageStatus.Error(
+        PageStatusText.Failure(Localizer[L.AccountReviewStatus.PrivilegesFailed], reason, again is null ? null : Localizer[L.Feedback.RetryNext], code),
+        new PageStatusLog(L.AccountReviewStatus.PrivilegesFailed).WithCode(code),
+        again is null ? null : new PageStatusAction(Localizer[L.Common.Retry], again),
+        canClose);
 
     /// <summary>The session ended: the results stay (read-only), actions are refused.</summary>
     internal void OnSessionEnded()
     {
         _refreshDebouncer.Cancel();
         RefreshCommandStates();
+    }
+
+    partial void OnStatusTextChanged(string value) => UpdateSummary();
+
+    partial void OnSelectionTextChanged(string value) => UpdateSummary();
+
+    /// <summary>The summary of the tab: what was read and when, and what is selected.</summary>
+    private void UpdateSummary()
+    {
+        var read = StatusText;
+        var selected = SelectionText;
+        Status.SetIdle(read.Length == 0 || selected.Length == 0 ? read + selected : $"{read} · {selected}");
     }
 
     internal void OnCultureChanged()
@@ -672,6 +762,11 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
         Items.AddRange(added);
         UpdateCounts();
         UpdateStatus();
+
+        // One report per batch: the same message with the accounts read and the accounts with findings so far.
+        _check?.Operation.Report(
+            Localizer.Format(L.AccountReviewStatus.PrivilegesCheckingCount, _check.Scope, read, _rows.Count),
+            log: new PageStatusLog(L.AccountReviewStatus.PrivilegesChecking, read, _rows.Count));
     });
 
     private void ApplyPeers(IReadOnlyDictionary<string, IReadOnlyList<PrivilegeFinding>> peers)
