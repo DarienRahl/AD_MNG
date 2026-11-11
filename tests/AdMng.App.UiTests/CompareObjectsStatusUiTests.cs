@@ -172,7 +172,7 @@ public sealed class CompareObjectsStatusUiTests
         Assert.Equal(Visibility.Visible, close.Visibility);
         Assert.Equal(ActionButtonState.Idle, window.CompareButton.State);
         window.UpdateLayout();
-        Assert.Equal(tabsTop, TopOf(window.Tabs, window));
+        Assert.Equal(tabsTop + GrowthOf(line), TopOf(window.Tabs, window), 0.5);
 
         // "Compare", pressed in the line, compares: which object was found.
         await UiWait.UntilAsync(() => action.IsEnabled && window.CompareButton.IsEnabled, "a comparison can be started again");
@@ -347,6 +347,17 @@ public sealed class CompareObjectsStatusUiTests
             UiWait.Descendants<Border>(window),
             border => ReferenceEquals(border.Style, errorBar) || ReferenceEquals(border.Style, warningBar));
         Assert.Same(window.PageStatus, Assert.Single(UiWait.Descendants<StatusLine>(window)));
+    }
+
+    /// <summary>
+    /// How much higher than one line the status line is right now: a result that does not fit one line wraps (to three
+    /// lines at most), and what lies under the line moves down by as much - by nothing when the result fits.
+    /// </summary>
+    private static double GrowthOf(StatusLine line)
+    {
+        var growth = line.ActualHeight - (double)Application.Current.FindResource("Ad.Size.StatusLine");
+        Assert.InRange(growth, -0.5, 40.5);
+        return growth;
     }
 
     private static double TopOf(FrameworkElement element, UIElement relativeTo) =>

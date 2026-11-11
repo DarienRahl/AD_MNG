@@ -1175,12 +1175,11 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     front, operations one after another on one holder – foundations 2 to 4, without a hub); how far an operation over
     many objects is ("12 of 300" and the part done in the ring – foundation 6, nothing new in the control); the look of
     what stays in its place (the notes); the execution of a plan as an operation (foundation 9); "busy" where there is
-    no sentence to say (a `ProgressRing` in the place, as in the main window).
+    no sentence to say (a `ProgressRing` in the place, as in the main window); and long results – by the owner's
+    decision of 2026-11-11 a result that does not fit the line wraps, to three lines at most, while the summary and a
+    running operation stay one line (built next to unit 3: *A result that does not fit the line wraps* in *V2b-1 as
+    built*).
   - Still open – in the controls and the model:
-    - *Long messages* – settled within V2b-1 by the owner's decision: a result ("done", "attention", "error") that
-      does not fit the line wraps to three lines at most; the summary and a running operation stay one line and are
-      cut with an ellipsis (the whole text is the tool tip and what a screen reader hears). See "*A result that does
-      not fit the line wraps*" in the block "V2b-1 as built".
     - *A delay before "Working"* (about 150 ms), so that an operation that ends at once does not flash – more visible
       now: the read of nested membership after every comparison, the reads of the tabs of the property sheet.
     - *The rest of the V2 scope:* the status pictures at 16 px for pills, `StatusPill`, `EmptyState`, `Skeleton`,
@@ -1765,10 +1764,11 @@ above.
     accent *Check* next to the scope. The footers of the three windows with buttons only. The notes of the comparison
     window: under the connection box, above the tabs, and in the narrow card of a side (wrapped next to its glyph).
     "Reading nested membership…" in the line right after every comparison – in a small domain it may only flash (the
-    open question of a delay before "Working"). The long sentences: the running "Comparing “…” with the connection fabrikam.test ·
-    FABRIKAM\anna.zielinska…" stays one line and is cut with an ellipsis in a narrow window; a failed comparison or
-    restore with its reasons wraps to three lines at most. The README picture of the comparison window keeps its client size (1180 × 780), so its tabs are 36 px lower
-    than before.
+    open question of a delay before "Working"). The long sentences: "Comparing “…” with the connection fabrikam.test ·
+    FABRIKAM\anna.zielinska…" names the object and the whole label of the other connection and stays one line, cut with
+    an ellipsis in a narrow window; a failed comparison or restore with its reasons is the kind of result the wrapping
+    was decided for. The README picture of the comparison window keeps its client size (1180 × 780), so its tabs are 36
+    px lower than before.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 
