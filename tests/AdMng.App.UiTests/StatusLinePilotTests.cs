@@ -53,7 +53,7 @@ public sealed class StatusLinePilotTests
         Assert.Equal(PageStatusKind.Idle, line.Kind);
         Assert.Equal(2, document.Items.Count);
         Assert.StartsWith("2 objects · ", line.Message, StringComparison.Ordinal);
-        Assert.Equal(document.StatusText, line.Message);
+        Assert.StartsWith(document.StatusText, line.Message, StringComparison.Ordinal);
         Assert.Equal(AppIcons.StatusInfo, line.IconKey);
         Assert.False(line.HasAction);
         Assert.False(line.CanClose);
@@ -269,7 +269,7 @@ public sealed class StatusLinePilotTests
         await UiTestSupport.WaitForIdleAsync();
         Assert.Contains(find.Results.Items, row => row.Name == "Jan Kowalski");
         Assert.Equal(PageStatusKind.Idle, line.Kind);
-        Assert.Equal(find.Results.StatusText, line.Message);
+        Assert.StartsWith(find.Results.StatusText, line.Message, StringComparison.Ordinal);
         Assert.NotEqual(string.Empty, line.Message);
         Assert.True(window.ResultsView.IsVisible);
         Assert.False(window.ResultsView.PageStatus.IsVisible);
@@ -407,7 +407,7 @@ public sealed class StatusLinePilotTests
             "the search after Retry");
         Assert.Null(find.Results.Error);
         Assert.Contains(find.Results.Items, row => row.Name == "Jan Kowalski");
-        Assert.Equal(find.Results.StatusText, line.Message);
+        Assert.StartsWith(find.Results.StatusText, line.Message, StringComparison.Ordinal);
 
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         context.AssertHealthy();

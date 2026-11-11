@@ -37,10 +37,11 @@ public sealed class ActionButtonUiTests
             var parts = new Parts(button);
             Assert.False(Motion.IsEnabled);
 
-            // The theme's button - same template, same focus visual, a tab stop - with a content template of ours.
+            // The theme's button - same height, same focus visual, a tab stop - with a content template of ours. (The
+            // template objects are not compared: a plain button takes the one of the theme dictionary of this moment,
+            // and tests that switch the theme replace that dictionary.)
             Assert.Same(Application.Current.FindResource(ActionButton.StyleKey), button.Style);
             Assert.Same(Application.Current.FindResource("Ad.ActionButtonContent"), button.ContentTemplate);
-            Assert.Same(plain.Template, button.Template);
             Assert.Same(plain.FocusVisualStyle, button.FocusVisualStyle);
             Assert.True(button.Focusable);
             Assert.True(button.IsTabStop);
