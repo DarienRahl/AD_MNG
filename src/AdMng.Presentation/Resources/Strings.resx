@@ -24672,5 +24672,95 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Comparison.Status.NestedMembersFailedNext" xml:space="preserve">
     <value>Only direct members are compared.</value>
   </data>
+  <data name="Connect.Status.NotConnected" xml:space="preserve">
+    <value>Not connected</value>
+  </data>
+  <data name="Connect.Status.Stopped" xml:space="preserve">
+    <value>Connecting to {0} was stopped: no session was opened. Press “{1}” to try again.</value>
+  </data>
+  <data name="Connect.Status.Failed" xml:space="preserve">
+    <value>Could not connect to {0}</value>
+  </data>
+  <data name="Connect.Status.NotSearched" xml:space="preserve">
+    <value>The domain controllers were not looked for</value>
+  </data>
+  <data name="Connect.Status.FindStopped" xml:space="preserve">
+    <value>Looking for the domain controllers of {0} was stopped: the list was not changed. Press “{1}” to look again.</value>
+  </data>
+  <data name="Connect.Status.FindFailed" xml:space="preserve">
+    <value>Could not find the domain controllers of {0}</value>
+  </data>
+  <data name="ChangeDc.Status.Reading" xml:space="preserve">
+    <value>Reading the domain controllers of {0}…</value>
+  </data>
+  <data name="ChangeDc.Status.ReadStopped" xml:space="preserve">
+    <value>Reading the domain controllers was stopped: the list shows only the current one. Type the name of a domain controller, or press Refresh to read the list.</value>
+  </data>
+  <data name="ChangeDc.Status.ReadFailed" xml:space="preserve">
+    <value>Could not read the list of domain controllers</value>
+  </data>
+  <data name="ChangeDc.Status.ReadFailedNext" xml:space="preserve">
+    <value>Type the name of a domain controller, or press Retry to read the list again.</value>
+  </data>
+  <data name="ChangeDc.Status.Count.One" xml:space="preserve">
+    <value>{0:N0} domain controller</value>
+  </data>
+  <data name="ChangeDc.Status.Count.Few" xml:space="preserve">
+    <value>{0:N0} domain controllers</value>
+  </data>
+  <data name="ChangeDc.Status.Count.Many" xml:space="preserve">
+    <value>{0:N0} domain controllers</value>
+  </data>
+  <data name="ChangeDc.Status.Stopped" xml:space="preserve">
+    <value>Connecting to {0} was stopped: the session stays connected to {1}. Press “{2}” to try again.</value>
+  </data>
+  <data name="ChangeDc.Status.Failed" xml:space="preserve">
+    <value>Could not move the session to {0}</value>
+  </data>
+  <data name="ChangeDc.Status.NotChanged" xml:space="preserve">
+    <value>The domain controller was not changed</value>
+  </data>
+  <data name="ResetPassword.Status.Reading" xml:space="preserve">
+    <value>Reading the accounts ({0:N0})…</value>
+  </data>
+  <data name="ResetPassword.Status.ReadStopped" xml:space="preserve">
+    <value>Reading the accounts was stopped: names and the lockout state may be missing. Press Retry to read them again.</value>
+  </data>
+  <data name="ResetPassword.Status.ReadFailed" xml:space="preserve">
+    <value>Could not read the accounts</value>
+  </data>
+  <data name="ResetPassword.Status.NotReset" xml:space="preserve">
+    <value>No password was reset</value>
+  </data>
+  <data name="ResetPassword.Status.Checking" xml:space="preserve">
+    <value>Checking the accounts ({0:N0})…</value>
+  </data>
+  <data name="ResetPassword.Status.CheckStopped" xml:space="preserve">
+    <value>Checking the accounts was stopped</value>
+  </data>
+  <data name="ResetPassword.Status.CheckStoppedReason" xml:space="preserve">
+    <value>no password was reset</value>
+  </data>
+  <data name="ResetPassword.Status.CheckFailed" xml:space="preserve">
+    <value>Could not check the accounts</value>
+  </data>
+  <data name="NewObject.Status.Creating" xml:space="preserve">
+    <value>Creating “{0}” in {1}…</value>
+  </data>
+  <data name="NewObject.Status.NotCreated" xml:space="preserve">
+    <value>Nothing was created</value>
+  </data>
+  <data name="NewObject.Status.Stopped" xml:space="preserve">
+    <value>Creating “{0}” was stopped: the object was not created.</value>
+  </data>
+  <data name="NewObject.Status.Failed" xml:space="preserve">
+    <value>Could not create “{0}”</value>
+  </data>
+  <data name="NewObject.Status.JoinerNotSet" xml:space="preserve">
+    <value>The account that may join the computer was not changed</value>
+  </data>
+  <data name="NewObject.Status.JoinerFailed" xml:space="preserve">
+    <value>Could not read the chosen account</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

@@ -24672,5 +24672,95 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="Comparison.Status.NestedMembersFailedNext" xml:space="preserve">
     <value>Porównano tylko członków bezpośrednich.</value>
   </data>
+  <data name="Connect.Status.NotConnected" xml:space="preserve">
+    <value>Nie połączono</value>
+  </data>
+  <data name="Connect.Status.Stopped" xml:space="preserve">
+    <value>Łączenie z {0} zatrzymano: nie otwarto sesji. Wybierz „{1}”, aby spróbować ponownie.</value>
+  </data>
+  <data name="Connect.Status.Failed" xml:space="preserve">
+    <value>Nie udało się połączyć z {0}</value>
+  </data>
+  <data name="Connect.Status.NotSearched" xml:space="preserve">
+    <value>Nie wyszukano kontrolerów domeny</value>
+  </data>
+  <data name="Connect.Status.FindStopped" xml:space="preserve">
+    <value>Wyszukiwanie kontrolerów domeny {0} zatrzymano: listy nie zmieniono. Wybierz „{1}”, aby wyszukać ponownie.</value>
+  </data>
+  <data name="Connect.Status.FindFailed" xml:space="preserve">
+    <value>Nie udało się wyszukać kontrolerów domeny {0}</value>
+  </data>
+  <data name="ChangeDc.Status.Reading" xml:space="preserve">
+    <value>Wczytywanie kontrolerów domeny {0}…</value>
+  </data>
+  <data name="ChangeDc.Status.ReadStopped" xml:space="preserve">
+    <value>Wczytywanie kontrolerów domeny zatrzymano: lista pokazuje tylko bieżący. Wpisz nazwę kontrolera domeny albo wybierz Odśwież, aby wczytać listę.</value>
+  </data>
+  <data name="ChangeDc.Status.ReadFailed" xml:space="preserve">
+    <value>Nie udało się wczytać listy kontrolerów domeny</value>
+  </data>
+  <data name="ChangeDc.Status.ReadFailedNext" xml:space="preserve">
+    <value>Wpisz nazwę kontrolera domeny albo wybierz Ponów, aby wczytać listę ponownie.</value>
+  </data>
+  <data name="ChangeDc.Status.Count.One" xml:space="preserve">
+    <value>{0:N0} kontroler domeny</value>
+  </data>
+  <data name="ChangeDc.Status.Count.Few" xml:space="preserve">
+    <value>{0:N0} kontrolery domeny</value>
+  </data>
+  <data name="ChangeDc.Status.Count.Many" xml:space="preserve">
+    <value>{0:N0} kontrolerów domeny</value>
+  </data>
+  <data name="ChangeDc.Status.Stopped" xml:space="preserve">
+    <value>Łączenie z {0} zatrzymano: sesja pozostaje połączona z {1}. Wybierz „{2}”, aby spróbować ponownie.</value>
+  </data>
+  <data name="ChangeDc.Status.Failed" xml:space="preserve">
+    <value>Nie udało się przenieść sesji na {0}</value>
+  </data>
+  <data name="ChangeDc.Status.NotChanged" xml:space="preserve">
+    <value>Kontrolera domeny nie zmieniono</value>
+  </data>
+  <data name="ResetPassword.Status.Reading" xml:space="preserve">
+    <value>Wczytywanie kont ({0:N0})…</value>
+  </data>
+  <data name="ResetPassword.Status.ReadStopped" xml:space="preserve">
+    <value>Wczytywanie kont zatrzymano: może brakować nazw i informacji o blokadzie. Wybierz Ponów, aby wczytać je ponownie.</value>
+  </data>
+  <data name="ResetPassword.Status.ReadFailed" xml:space="preserve">
+    <value>Nie udało się wczytać kont</value>
+  </data>
+  <data name="ResetPassword.Status.NotReset" xml:space="preserve">
+    <value>Nie zresetowano żadnego hasła</value>
+  </data>
+  <data name="ResetPassword.Status.Checking" xml:space="preserve">
+    <value>Sprawdzanie kont ({0:N0})…</value>
+  </data>
+  <data name="ResetPassword.Status.CheckStopped" xml:space="preserve">
+    <value>Sprawdzanie kont zatrzymano</value>
+  </data>
+  <data name="ResetPassword.Status.CheckStoppedReason" xml:space="preserve">
+    <value>nie zresetowano żadnego hasła</value>
+  </data>
+  <data name="ResetPassword.Status.CheckFailed" xml:space="preserve">
+    <value>Nie udało się sprawdzić kont</value>
+  </data>
+  <data name="NewObject.Status.Creating" xml:space="preserve">
+    <value>Tworzenie obiektu „{0}” w domenie {1}…</value>
+  </data>
+  <data name="NewObject.Status.NotCreated" xml:space="preserve">
+    <value>Niczego nie utworzono</value>
+  </data>
+  <data name="NewObject.Status.Stopped" xml:space="preserve">
+    <value>Tworzenie obiektu „{0}” zatrzymano: obiektu nie utworzono.</value>
+  </data>
+  <data name="NewObject.Status.Failed" xml:space="preserve">
+    <value>Nie udało się utworzyć obiektu „{0}”</value>
+  </data>
+  <data name="NewObject.Status.JoinerNotSet" xml:space="preserve">
+    <value>Nie zmieniono konta, które może dołączyć komputer</value>
+  </data>
+  <data name="NewObject.Status.JoinerFailed" xml:space="preserve">
+    <value>Nie udało się odczytać wybranego konta</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

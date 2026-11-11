@@ -357,4 +357,108 @@ public static partial class L
         public const string NestedMembersFailed = "Comparison.Status.NestedMembersFailed";
         public const string NestedMembersFailedNext = "Comparison.Status.NestedMembersFailedNext";
     }
+
+    /// <summary>
+    /// What the Connect window says in its status line (stage V2b-2): connecting and looking for the domain controllers
+    /// of the domain. Nothing of the credential is ever part of a text.
+    /// </summary>
+    public static class ConnectStatus
+    {
+        /// <summary>What was skipped, without a full stop: the lead of "Not connected: why."</summary>
+        public const string NotConnected = "Connect.Status.NotConnected";
+
+        /// <summary>{0} = the domain controller or the domain, {1} = the text of the button that connects.</summary>
+        public const string Stopped = "Connect.Status.Stopped";
+
+        /// <summary>What was tried, without a full stop; {0} = the domain controller or the domain.</summary>
+        public const string Failed = "Connect.Status.Failed";
+
+        /// <summary>What was skipped, without a full stop: no domain to look in.</summary>
+        public const string NotSearched = "Connect.Status.NotSearched";
+
+        /// <summary>{0} = the domain, {1} = the text of the button that looks again.</summary>
+        public const string FindStopped = "Connect.Status.FindStopped";
+
+        /// <summary>What was tried, without a full stop; {0} = the domain.</summary>
+        public const string FindFailed = "Connect.Status.FindFailed";
+    }
+
+    /// <summary>
+    /// What "Change domain controller" says in its status line (stage V2b-2): the list of domain controllers (reading
+    /// it) and the window (moving the session to the chosen one).
+    /// </summary>
+    public static class ChangeDcStatus
+    {
+        /// <summary>{0} = the domain.</summary>
+        public const string Reading = "ChangeDc.Status.Reading";
+        public const string ReadStopped = "ChangeDc.Status.ReadStopped";
+
+        /// <summary>What was tried, without a full stop, and what to do instead.</summary>
+        public const string ReadFailed = "ChangeDc.Status.ReadFailed";
+        public const string ReadFailedNext = "ChangeDc.Status.ReadFailedNext";
+
+        /// <summary>"{0} domain controller" in the three plural forms (one, few, many): the summary of the list.</summary>
+        public const string CountOne = "ChangeDc.Status.Count.One";
+        public const string CountFew = "ChangeDc.Status.Count.Few";
+        public const string CountMany = "ChangeDc.Status.Count.Many";
+
+        /// <summary>{0} = the chosen domain controller, {1} = the one the session stays on, {2} = the text of the button.</summary>
+        public const string Stopped = "ChangeDc.Status.Stopped";
+
+        /// <summary>What was tried, without a full stop; {0} = the chosen domain controller.</summary>
+        public const string Failed = "ChangeDc.Status.Failed";
+
+        /// <summary>What was skipped, without a full stop: the lead of "The domain controller was not changed: why."</summary>
+        public const string NotChanged = "ChangeDc.Status.NotChanged";
+    }
+
+    /// <summary>
+    /// What "Reset Password" says in its status line (stage V2b-2): the list of accounts (reading their names) and the
+    /// window (checking - planning - the reset; the reset itself through <see cref="ChangeStatus"/>). A password is
+    /// never part of a text.
+    /// </summary>
+    public static class ResetPasswordStatus
+    {
+        /// <summary>{0} = the number of accounts.</summary>
+        public const string Reading = "ResetPassword.Status.Reading";
+        public const string ReadStopped = "ResetPassword.Status.ReadStopped";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string ReadFailed = "ResetPassword.Status.ReadFailed";
+
+        /// <summary>What was skipped, without a full stop: the lead of "No password was reset: why."</summary>
+        public const string NotReset = "ResetPassword.Status.NotReset";
+
+        /// <summary>Planning the reset; {0} = the number of accounts.</summary>
+        public const string Checking = "ResetPassword.Status.Checking";
+
+        /// <summary>What was stopped, without a full stop, and what that means.</summary>
+        public const string CheckStopped = "ResetPassword.Status.CheckStopped";
+        public const string CheckStoppedReason = "ResetPassword.Status.CheckStoppedReason";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string CheckFailed = "ResetPassword.Status.CheckFailed";
+    }
+
+    /// <summary>What "New Object" says in its status line (stage V2b-2): creating the object. A password is never part of a text.</summary>
+    public static class NewObjectStatus
+    {
+        /// <summary>{0} = the name of the new object, {1} = the domain.</summary>
+        public const string Creating = "NewObject.Status.Creating";
+
+        /// <summary>What was skipped, without a full stop: the lead of "Nothing was created: why."</summary>
+        public const string NotCreated = "NewObject.Status.NotCreated";
+
+        /// <summary>The creation was cancelled in the list of background operations; {0} = the name of the new object.</summary>
+        public const string Stopped = "NewObject.Status.Stopped";
+
+        /// <summary>What was tried, without a full stop; {0} = the name of the new object.</summary>
+        public const string Failed = "NewObject.Status.Failed";
+
+        /// <summary>What was skipped, without a full stop: the chosen account cannot be the one that joins the computer.</summary>
+        public const string JoinerNotSet = "NewObject.Status.JoinerNotSet";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string JoinerFailed = "NewObject.Status.JoinerFailed";
+    }
 }
