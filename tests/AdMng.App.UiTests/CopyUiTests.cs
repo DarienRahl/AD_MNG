@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Automation.Peers;
@@ -67,10 +68,9 @@ public sealed class CopyUiTests
         var copyMail = UiWait.Descendants<Button>(window.DetailsContent).Single(b => ReferenceEquals(b.CommandParameter, mailField));
         Assert.Equal(Visibility.Visible, copyMail.Visibility);
         Assert.StartsWith("Copy: ", AutomationProperties.GetName(copyMail), StringComparison.Ordinal);
-        await ClickAsync(copyMail);
+        var shownOnCopy = await ClickAndWatchFeedbackAsync(copyMail);
         Assert.Equal("jan.kowalski@contoso.test", clipboard.Text);
-        Assert.True(CopyFeedback.GetIsShowing(copyMail));
-        Assert.Equal(Glyphs.Completed, copyMail.Content);
+        Assert.Equal(Glyphs.Completed, shownOnCopy);
         Assert.Contains(context.Services.GetRequiredService<NotificationService>().Toasts, t => t.Message.StartsWith("Copied: ", StringComparison.Ordinal));
 
         await ClickAsync(window.CopyDnButton);
@@ -176,9 +176,9 @@ public sealed class CopyUiTests
         Assert.Same(row, VisualTreeHelper.GetParent(mailBox));
         Assert.Equal(KeyboardNavigationMode.Local, KeyboardNavigation.GetTabNavigation(row));
         Assert.True(KeyboardNavigation.GetTabIndex(mailBox) < KeyboardNavigation.GetTabIndex(mailButton));
-        await ClickAsync(mailButton);
+        var shownOnCopy = await ClickAndWatchFeedbackAsync(mailButton);
         Assert.Equal("lukasz.wisniewski@contoso.test", clipboard.Text);
-        Assert.True(CopyFeedback.GetIsShowing(mailButton));
+        Assert.Equal(Glyphs.Completed, shownOnCopy);
 
         sheet.SelectedPage = sheet.Pages.Single(p => p.Key == L.Pages.Account);
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
@@ -352,6 +352,37 @@ public sealed class CopyUiTests
         var invoke = (IInvokeProvider)new ButtonAutomationPeer(button).GetPattern(PatternInterface.Invoke)!;
         invoke.Invoke();
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
+    }
+
+    /// <summary>
+    /// Clicks a copy button and returns what it showed at the moment its check mark appeared (null: it never did).
+    /// The check mark is there for <see cref="CopyFeedback.Duration"/> only, so the change itself is observed: a test
+    /// host that is held up for longer than that between the click and the assertion would miss it by looking
+    /// afterwards.
+    /// </summary>
+    private static async Task<object?> ClickAndWatchFeedbackAsync(Button button)
+    {
+        object? shown = null;
+        var descriptor = DependencyPropertyDescriptor.FromProperty(CopyFeedback.IsShowingProperty, typeof(Button));
+        void OnChanged(object? sender, EventArgs e)
+        {
+            if (CopyFeedback.GetIsShowing(button))
+            {
+                shown = button.Content;
+            }
+        }
+
+        descriptor.AddValueChanged(button, OnChanged);
+        try
+        {
+            await ClickAsync(button);
+        }
+        finally
+        {
+            descriptor.RemoveValueChanged(button, OnChanged);
+        }
+
+        return shown;
     }
 
     private sealed class RecordingClipboard : IClipboardService
