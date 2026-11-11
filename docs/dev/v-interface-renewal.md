@@ -573,6 +573,8 @@ names of the new sections.
 - **Property sheet** (`PropertiesWindow.xaml`, 2,340 lines) stays modeless and per connection: a header card (48 px
   icon with badge, name, state pills, copy buttons), the status line, then the pages. Whether the pages stay tabs
   across the top or become a list on the left is open question 11.
+  As built (V2b-1): the status line is there, between today's header and the pages, for the window and for the page
+  in front (*V2b-1 as built*, section 8); the header card is not.
 - **Multi-window connections** keep their identity (`docs/dev/multi-window.md` 4): the custom title bar carries the
   connection colour and the domain-and-account title; each window remains one DI scope. New per-connection services
   (page status hub, search index, home document) are scoped and added to `ConnectionLifetimes.cs`; `MotionService`,
@@ -1157,6 +1159,170 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
   button contents and the entrance of a message; the width of the Polish "Zatrzymywanie…", which makes *Znajdź teraz*
   wider than the buttons next to it were; that a ring keeps its clock while the window is minimized (a minimized
   window still counts as visible).
+
+**V2b-1 as built (the core windows).** The second increment of V2 is the sweep over the views that still had banners;
+V2b-1 covers seven core windows in three units. Unit 1 built what the sweep needs beyond V2a and converted the property
+sheet; units 2 and 3 add their windows to this block.
+
+- **Foundations** (what every later unit follows).
+  1. *Sort first.* Every `Ad.ErrorBar`, `Ad.WarningBar` and `ProgressBar` of a view is one of three things. **Status** –
+     what the window did or is doing (reading, a read that failed, an operation that was stopped or finished, "the
+     session of this window ended", "this was changed elsewhere"): it goes to the status line. **Note** – a sentence
+     that belongs to one field or one section and is true for as long as that content is shown (a validation text, a
+     finding of the planner, "these mappings are weak"): it stays where it is. **Progress of a row** – how far one item
+     of a list is: it stays in its row. The test for the first two: *is this the answer to something the operator just
+     did, or to something the window is doing?* Then it is status. The same holds for what never was a banner: a count
+     line of a page is its summary (`SetIdle`) and leaves the page, an error text that reports a failed read is status.
+  2. *A state that lasts* – `PageStatusHolder.SetLasting(PageStatus?)`. "Could not be read", "was deleted", "is out
+     of date" are true for as long as the page shows what it shows; with a second operation on the same page a plain
+     `Show(…, canClose: false)` would be wiped by that operation and gone for good when its result is closed. The
+     lasting state takes the place of the summary: it is said whenever nothing else is, it cannot be closed (whatever
+     the status handed in says), an operation and its result cover it for their time, and it is back when the result
+     is closed or the operation ended without a message. A new state is said at once, also in place of a result; while
+     an operation runs it is kept and said when the operation is over. Setting an *equal* state again (kind, text,
+     action) changes nothing, so a view model has **one** method that computes the most important of its conditions
+     and calls it whenever one of them changes (`PropertySheetViewModel.UpdateLasting` / `LastingState`, called from the
+     `On…Changed` hooks of the properties). Only an attention or an error can last. `Show`/`Complete…` with
+     `canClose: false` (the way of the two pilots) stays right for a page with one operation.
+  3. *Several sources in one window: the page in front* – `PageStatusHolder.Front`. A window whose tabs say something
+     of their own gives **every page view model a holder** (created like the window's: the localizer, the dispatcher
+     and the logger of the scoped services – `Services.Lists.StatusLog`) and tells **its own holder** which page is
+     shown: `Status.Front = selectedPage?.Status`, before the page is activated. The one status line stays bound to the
+     window's holder (`Status.Current`, `Status.CloseCommand` – the source test wants exactly that); `Current` is then,
+     in this order: (1) the window's own running operation, or its own error that cannot be closed – then nothing a
+     page says matters; (2) otherwise whatever was said last, by the window or by the page in front, that is not a
+     summary – a page says its status again when it comes to the front, a new count of the same message is not "saying
+     it again"; (3) otherwise the summary of the page in front or, when it has none, of the window. Nothing is lost by
+     that – a status that is not shown stays in its holder: a tab that failed while it was not selected says so when
+     it is selected, a result of the window that was covered by a page is back when the page has nothing more to say,
+     and a page that finishes loading does not take a result of the window off the line. `CloseCommand` closes what is
+     shown in the holder that said it; a "Stop" in the line is the command of the holder whose operation it is.
+     Everything else of a holder – `IsWorking`, `IsCancelling`, `Operation`, `CancelCommand` – is about **its own**
+     operation, so an action button binds to the holder whose operation it starts. A page in front may have a part in
+     front of its own (the "All (nested)" list of the membership pages: the view model learns which inner tab is shown
+     through a two-way `SelectedIndex` binding). No hub and no service came back: the holders still belong to their
+     view models, and nothing was added to `ConnectionLifetimes.cs`.
+  4. *Operations that must not replace one another.* `Begin` on a holder replaces the operation that runs there. Two
+     operations that can overlap therefore live in two holders (the window and a page; a page and a part of it), or
+     the second is refused by its command while the first runs. An operation that *contains* a step that is an
+     operation elsewhere does not begin a second scope for it: the read after Apply belongs to "Saving…"
+     (`PropertySheetViewModel._saving`). A "latest wins" token that other code cancels (a `SerialCancellation`) is
+     linked with the token of the scope, so both the newer request and the operator's Stop end the work.
+  5. *The shape of an operation.* `using var scope = Status.Begin(text, new PageStatusLog(key));` and the token from
+     the scope. After every `await`: `scope.IsEnded` means replaced or disposed – say nothing, touch nothing. `catch
+     (OperationCanceledException) when (!scope.IsEnded)` is the operator's Stop: complete as attention – what was
+     stopped, what the page may lack, and the command that starts it again as the action. A failure that leaves the
+     content empty or stale is the state of the page: `SetLasting(error with Retry)` inside the operation, which then
+     ends without a message. A failure that leaves the content as it was is a result: `CompleteError`. A result that
+     is the content itself (a list that was read) is no message: set the summary and let the scope end. A flag like
+     `IsLoading` is ended only by the operation that owns the page (keep the scope in a field and compare), never by a
+     replaced one. A window that is closed disposes what still runs (`Status.Operation?.Dispose()`), its pages too.
+  6. *Words.* `PageStatusText.Failure(tried, reason, next, code)` for errors and for "what was skipped: why" of an
+     attention; `PageStatusText.Progress(localizer, done, total)` – "12 of 300" / "12 z 300" – for an operation over
+     many objects, written after what it does ("Saving the accounts: 12 of 300…": no noun has to follow the numbers in
+     a plural form) and reported together with `PageProgress.Of(done, total)` and a log copy with the two numbers. That
+     is the whole of determinate progress: the ring of the line shows the part done and stands still (checked in
+     `StatusLineUiTests`), it stays one message (nothing is announced or enters again), and neither the model nor the
+     control needed more. Reports are not coalesced: an operation that reports from a worker thread more often than a
+     few times a second should report per batch. New strings go to the block *V interface renewal (V2)*, grouped by
+     window as `<Window>.Status.*` with one class of `L` per window (`L.PropertySheetStatus`); "Press Retry to try
+     again." is the shared `Feedback.RetryNext`. The log copy is the key, counts and a `ResultCode` – the names of
+     servers and objects are on screen only.
+  7. *Looks* (`Themes/Controls.xaml`; its header now says where each kind of feedback goes). **Notes**:
+     `Ad.Note.Info`, `Ad.Note.Attention`, `Ad.Note.Error` on a `ContentControl` whose content is the text (a wrapping
+     `TextBlock`, which keeps its name and its live setting) – the glyph of the severity in its status colour, then
+     the content; no fill, no border. Not told by colour alone: each severity has its own glyph and the sentence says
+     what it is about. **Banners**: `Ad.ErrorBar` and `Ad.WarningBar` are unchanged for the views that are not
+     converted yet and go with the last of them; a converted view uses neither (the source test). **Action buttons**:
+     `Ad.AccentActionButton` for the primary action of a window (the theme's accent button with the three contents),
+     `Ad.DialogActionButton` and `Ad.AccentDialogActionButton` with the metrics of the dialog buttons; a window that
+     needs another size bases a local style on `Ad.ActionButton` (`SmallActionButton` of the property sheet). The
+     inline validation texts in the critical colour and the field findings of the property sheet (glyph and text) were
+     notes before and were not touched.
+  8. *Tests.* Presentation: record every change of `Status.Current` (kind and text) and assert the sequence; a slow
+     domain controller is `FakeDirectorySession.Latency` (cancellable), a failing one `FailNext` or an exception thrown
+     from `BeforeOperation`. Never lower the latency while a call may still be on its way to it – the call then
+     finishes normally and the test is right only most of the time; hold the call in `BeforeOperation` instead. UI
+     (Windows CI): one file per window in the style of `PropertySheetStatusUiTests`, asserting only states that last
+     until the test changes them. The view goes on `PagesWithAStatusLine`; the source tests are proven here with a
+     throwaway script that repeats their expressions.
+- **The property sheet** (`Views/PropertiesWindow.xaml`; `PropertySheets/`, the pages of `Computers/` and `Pki/`).
+  - *What the line says.* At rest where and when the object was read ("Read from dc01.contoso.test · as of
+    12:03:05") or the summary of the page in front ("Groups: 12", "Published certificates: 2", "No key
+    credentials.", "5 objects" for the nested list). **Working**: "Reading “Jan Kowalski”…" with Stop; "Saving the
+    changes to “Jan Kowalski”…" without Stop; the read of a page ("Reading the “Attribute Editor” tab…", "Reading the
+    “All (nested)” list…", the two reads of a computer's *Stan* page, the check of the account on all domain
+    controllers) with Stop. **Done**: "The changes to “Jan Kowalski” were saved in contoso.test. The report is in the
+    list of background operations."; that nothing had to be saved. **Attention**: nothing was saved and why (values
+    that are not valid, a plan the planner refused); a save that was cancelled in the activity list; a read that was
+    stopped, with Refresh; not every domain controller answered. **Error**: could not save, with the reasons and what
+    to do; could not read a page or a list, with Retry. States that last, the most important first: the session of
+    the window ended; the object could not be read (Retry) or no longer exists; it was deleted while the window was
+    open; its read was stopped (Refresh); it was changed elsewhere while the sheet has pending changes (Refresh).
+  - *How the old places were sorted* (8 error bars, 3 warning bars, 8 progress bars).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | progress bar under the header (`IsLoading`) | status | the read of the window, with Stop |
+    | error bar `LoadError` with Retry | status | lasting error of the window, Retry in the line |
+    | "deleted" bar (a style based on `Ad.ErrorBar`) | status | lasting error of the window |
+    | warning bar "changed elsewhere" with Refresh | status | lasting attention of the window, Refresh in the line |
+    | error bar `ApplyError` | status | result of Apply: attention or error |
+    | progress bar in the footer (`IsApplying`) | status | "Saving…" in the line |
+    | membership pages: progress bar, error bar | status | read with the object; lasting error of the page, Retry reads the object |
+    | nested list: progress bar, error bar, *Stop* button | status | operation of the list; *Refresh* is an action button |
+    | *Stan* of a computer: progress bar (and an error text) | status | operations of the page, attention or error |
+    | published certificates, key credentials, attribute editor: progress bar, error bar each | status | operation of the page, lasting error with Retry |
+    | name mappings: two warning bars (weak, invalid) | note | `Ad.Note.Attention` above the lists |
+    | count lines of the membership and certificate pages | summary | `SetIdle` of the page; gone from the page |
+    | findings of the planner, validation texts, read-only reasons | note | unchanged |
+
+  - *Decisions.*
+    - **One computed lasting state** for the window (`LastingState`), not one banner per condition: the old sheet could
+      show "could not be read", "deleted", "out of date" and "Apply failed" at once; the line says the most important
+      one, and a result of Apply covers it only until it is closed.
+    - **A read can be stopped, Apply cannot** – from the line. A read was "latest wins" only; its token is now linked
+      with the operation's, and a stopped read is a state of the window ("may not show everything", Refresh). Apply
+      keeps its way: planning and execution are not given the operation's token, the execution is an activity of the
+      connection and can be cancelled there, as before (rule 5: only how the result is said changed).
+    - **Declining to overwrite** a value that was changed on the server ends "Saving…" without a message: the window
+      is out of date and says so as its state; the same sentence is not said twice. `ApplyError` still carries it.
+    - **A page that is read with the object** (the membership lists) starts no operation of its own – the window is
+      working then – but keeps its failure as its state; its Retry is the sheet's Refresh (`FieldContext.Reload`). A
+      page that reads when it is shown reads as an operation of its own, also when the sheet reads it again; while
+      the window works the line is the window's.
+    - **The nested list is a part of its page** with a holder of its own, in front while its inner tab is shown.
+      Otherwise the line would explain an empty list the operator is not looking at, or lose that explanation with the
+      next thing the page says. The inner tab is now remembered per page while the sheet is open (it follows the view
+      model); it opened on the direct list every time before.
+    - **Reads on demand got a token**: the two reads of the computer's *Stan* page and the account check ran with
+      `CancellationToken.None` or could only be superseded; as operations they can be stopped (rule 6).
+      `LoadNestedCancelCommand` is gone – cancel is the operation's. A closed sheet ends the reads of its pages.
+    - **The line sits 8 px in from the window edge**, like in the Find window, so its picture stands over the icon of
+      the header; the window is 34 px higher by default (720 to 754), as much as the line takes. The summary names the
+      domain controller and the time of the read: a sheet is modeless and may stay open for long, and what it shows is
+      what that one controller answered then (rule 4 of `CLAUDE.md`).
+    - `LoadError`, `ApplyError`, `Error`, `IsLoading`, `IsNestedLoading`, `NestedError`, `IsOutdated`, `IsDeleted` and
+      `CountText` are unchanged for the tests and view models that read them.
+  - *Where this differs from the plan.* 6.8 describes the sheet with a header card (48 px icon with badge, state
+    pills, copy buttons): only the status line was placed; the header is the old one until V3/V6. 6.7 puts progress
+    "in the action button, the tab header and the taskbar": the tab headers of the sheet carry no mark for a page that
+    reads or failed – a failed tab says so when it is selected. The two items left open by V2a – the accent variant of
+    the action button and the status line of a window with several sources – are closed by the foundations above;
+    "Working" still appears without a delay, and the status pictures at 16 px are still not drawn (the notes use the
+    glyphs of the icon font).
+  - *Tests.* Presentation: `Feedback/PageStatusSourcesTests` (the lasting state, the page in front, "12 of 300"),
+    `Dialogs/PropertySheetStatusTests` (summary in both languages, read with stop, failed read, gone and deleted, out
+    of date, Apply done / refused / failed, a tab that failed, the nested list with cancel and failure, a tab that
+    reads when shown, the account check, the session that ended, closing the sheet), and the status of the certificate
+    tabs and of the computer's page in their test classes. UI: `NoteUiTests`, the accent and dialog variants in
+    `ActionButtonUiTests`, the line of a window with a page in front in `StatusLineUiTests`,
+    `PropertySheetStatusUiTests` (six tests through the real window), the note in `CertificateTabsUiTests`.
+  - *Not seen, to confirm on Windows.* The line in a 640 px wide window: an error with its reason and advice is
+    longer than the line and is cut with an ellipsis (the whole text is the tool tip and the name a screen reader
+    hears) – whether a narrow window needs a second line is open. The note next to the old validation texts (glyph and
+    plain text against text in the critical colour). The width of the nested list's button ("Odśwież" grows to the
+    width of "Zatrzymywanie…"). The time of day in the summary, which is now in the two README pictures of the sheet.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 

@@ -68,6 +68,29 @@
   podpowiedź, potem przebieg wyszukiwania z poleceniem **Zatrzymaj**, podsumowanie wyników, informacja o zatrzymaniu
   (z **Odśwież**) albo błąd (z **Ponów**), a także to, że sesja okna się zakończyła – dotąd: ramka u góry okna
   i tekst w stopce.
+- **Okno *Właściwości* obiektu: jeden wiersz stanu zamiast ramek i pasków.** Między nagłówkiem a kartami jest
+  wiersz, w którym okno mówi, co robi i co się stało. W spoczynku: skąd i kiedy odczytano obiekt („Odczytano
+  z dc01.contoso.test · stan na 14:35:02”), a na kartach z listą – jej podsumowanie („Grupy: 12”, „Członkowie: 40”,
+  „Opublikowane certyfikaty: 2”). W czasie odczytu: **Trwa** – „Wczytywanie „Jan Kowalski”…” z poleceniem
+  **Zatrzymaj**; po zatrzymaniu okno mówi, że może nie pokazywać wszystkiego, i podaje **Odśwież**. Po **Zastosuj**:
+  „Zapisywanie zmian obiektu…”, a potem **Gotowe** – „Zmiany obiektu „Jan Kowalski” zapisano w domenie contoso.test.
+  Raport jest na liście operacji w tle.”; gdy niczego nie zapisano – **Uwaga** z powodem; gdy zapis się nie udał –
+  **Błąd** z przyczyną i z tym, co zrobić. Komunikaty, które dotąd były osobnymi ramkami u góry okna (nie udało się
+  odczytać obiektu – z **Ponów**, obiekt usunięto, obiekt zmieniono w innym miejscu – z **Odśwież**, sesja okna się
+  zakończyła), są teraz w tym wierszu i zostają w nim, dopóki trwa ich przyczyna; wynik zapisu można zamknąć i wtedy
+  wraca komunikat, który nadal obowiązuje.
+- **Karty okna *Właściwości* mówią w tym samym wierszu.** Karta, której nie udało się odczytać (*Członek grupy*,
+  *Członkowie*, *Edytor atrybutów*, *Opublikowane certyfikaty*, *Poświadczenia kluczy*), mówi o tym, gdy jest
+  wybrana – z poleceniem **Ponów** – a nie ramką na karcie; na innych kartach wiersz tego nie pokazuje. Lista
+  *Wszystkie (zagnieżdżone)* ma jeden przycisk **Odśwież**, który na czas odczytu zamienia się w **Anuluj** (osobnego
+  *Zatrzymaj* już nie ma), a okno pamięta, którą z dwóch list karty oglądano. *Sprawdź na wszystkich DC* na karcie
+  *Konto* i na karcie *Stan* komputera oraz *Ustal* (lokację) można teraz zatrzymać w wierszu stanu; gdy nie
+  wszystkie kontrolery domeny odpowiedziały, wiersz mówi które. Paski postępu pod nagłówkiem, w stopce i na kartach
+  zniknęły, więc zawartość kart nie przesuwa się w czasie odczytu. Okno jest domyślnie o tyle wyższe, ile zajmuje
+  wiersz stanu.
+- **Uwagi przy treści zamiast ramek.** Ostrzeżenia karty *Mapowania nazw* (słabe mapowania, nieprawidłowe wartości)
+  są teraz zwykłym tekstem ze znakiem ostrzeżenia nad listami – to uwagi o tym, co widać na karcie, a nie komunikat
+  o działaniu okna. Tak samo jak dotąd wyglądają komunikaty przy polach (błędna wartość, uwaga planisty zmian).
 - **Co się nie zmieniło:** pozostałe okna i karty mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski
   postępu – przejdą na wiersz stanu w następnych wydaniach. Animacja nowego komunikatu (krótkie wsunięcie) i zamiany
   napisu na przycisku działa tylko przy włączonych animacjach (*Ustawienia → Ogólne → Wygląd → Animacje*); kółko
