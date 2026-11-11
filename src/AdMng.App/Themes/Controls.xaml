@@ -8,6 +8,16 @@
   * Sizes, radii and spacing come from Themes/Tokens.xaml (StaticResource). Glyph sizes of the icon font stay literal.
   * The controls of our own (c:StatusLine, c:ActionButton) have string keyed styles too and take them by themselves
     (a resource reference set in their constructors), so the first rule holds for them as well.
+  Feedback (track V, stage V2; docs/dev/v-interface-renewal.md 6.7 and "V2b-1 as built") - one place each:
+  * What a page did or is doing: its status line (Ad.StatusLine, taken by c:StatusLine) - never a banner in the page.
+  * A sentence that belongs to one field or one section and is true while that content is shown: a note
+    (Ad.Note.Info, Ad.Note.Attention, Ad.Note.Error on a ContentControl) - quiet, inline, a glyph and words.
+  * A command that starts an operation that can be cancelled: c:ActionButton (Ad.ActionButton by itself;
+    Ad.AccentActionButton for the primary action; Ad.DialogActionButton and Ad.AccentDialogActionButton with the
+    metrics of the dialog buttons).
+  * Ad.ErrorBar and Ad.WarningBar are the banners of before stage V2: only for the views that are not converted yet
+    (a converted view is on the list PagesWithAStatusLine of XamlSourceTests and uses neither). They go with the last
+    of those views; nothing new uses them.
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -509,6 +519,86 @@
     </Style.Triggers>
   </Style>
 
+  <!--
+    The accent variant, for the primary action of a window ("Preview", "Execute"): the theme's accent button - what
+    Ad.AccentDialogButton is for a plain button - with the same three contents. The rings and the busy texts take the
+    text colour of the accent button by inheritance. Taken explicitly:
+    <c:ActionButton Style="{StaticResource Ad.AccentActionButton}" … />.
+  -->
+  <Style x:Key="Ad.AccentActionButton" TargetType="{x:Type c:ActionButton}" BasedOn="{StaticResource AccentButtonStyle}">
+    <Setter Property="ContentTemplate" Value="{StaticResource Ad.ActionButtonContent}" />
+    <Style.Triggers>
+      <Trigger Property="State" Value="Cancelling">
+        <Setter Property="IsHitTestVisible" Value="False" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- An action button in the footer of a dialog: the metrics of Ad.DialogButton and Ad.AccentDialogButton. -->
+  <Style x:Key="Ad.DialogActionButton" TargetType="{x:Type c:ActionButton}" BasedOn="{StaticResource Ad.ActionButton}">
+    <Setter Property="MinWidth" Value="96" />
+    <Setter Property="Margin" Value="8,0,0,0" />
+  </Style>
+
+  <Style x:Key="Ad.AccentDialogActionButton" TargetType="{x:Type c:ActionButton}" BasedOn="{StaticResource Ad.AccentActionButton}">
+    <Setter Property="MinWidth" Value="96" />
+    <Setter Property="Margin" Value="8,0,0,0" />
+  </Style>
+
+  <!--
+    A note (stage V2b): a sentence that belongs to one field or one section and is true for as long as that content is
+    shown - "these mappings are weak", "this value is read only", a validation text. It is not a status: what the page
+    did or is doing is said in its status line. Quiet and inline - no fill, no border, in the flow of the content: the
+    glyph of the severity in its status colour, then the content (normally a wrapping TextBlock; a link after the
+    text works as well).
+      Ad.Note.Info        information   secondary text colour, also for the text
+      Ad.Note.Attention   attention     the caution colour for the glyph
+      Ad.Note.Error       error         the critical colour for the glyph
+    * Never told by colour alone: each severity has its own glyph and the words of the note say what it is about. In
+      High Contrast the status colours are the window text colour and the glyphs still differ.
+    * The glyph is a template part: a screen reader reads the text of the note, not the glyph. Give that text a live
+      setting when the note can appear while the operator works.
+    * The style carries the glyph in Tag and its colour in BorderBrush (a ContentControl draws no border of its own).
+    * Use: <ContentControl Style="{StaticResource Ad.Note.Attention}" Visibility="…">
+             <TextBlock Text="…" TextWrapping="Wrap" />
+           </ContentControl>
+    * The metrics are those of the field findings of the property sheet: glyph 12, 6 px before the text, top aligned.
+  -->
+  <ControlTemplate x:Key="Ad.NoteTemplate" TargetType="ContentControl">
+    <DockPanel LastChildFill="True">
+      <TextBlock x:Name="PART_Glyph"
+                 Margin="0,1,6,0"
+                 VerticalAlignment="Top"
+                 DockPanel.Dock="Left"
+                 FontSize="12"
+                 Foreground="{TemplateBinding BorderBrush}"
+                 Style="{StaticResource Ad.GlyphText}"
+                 Text="{Binding Tag, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
+      <ContentPresenter x:Name="PART_Text" />
+    </DockPanel>
+  </ControlTemplate>
+
+  <Style x:Key="Ad.Note.Info" TargetType="ContentControl">
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="IsTabStop" Value="False" />
+    <Setter Property="Tag" Value="{x:Static c:Glyphs.Info}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Setter Property="Template" Value="{StaticResource Ad.NoteTemplate}" />
+  </Style>
+
+  <Style x:Key="Ad.Note.Attention" TargetType="ContentControl" BasedOn="{StaticResource Ad.Note.Info}">
+    <Setter Property="Tag" Value="{x:Static c:Glyphs.Warning}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCautionBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+  </Style>
+
+  <Style x:Key="Ad.Note.Error" TargetType="ContentControl" BasedOn="{StaticResource Ad.Note.Info}">
+    <Setter Property="Tag" Value="{x:Static c:Glyphs.Error}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+  </Style>
+
   <!-- Panels -->
   <Style x:Key="Ad.VerticalDivider" TargetType="Rectangle">
     <Setter Property="Width" Value="1" />
@@ -521,6 +611,10 @@
     <Setter Property="Fill" Value="{DynamicResource DividerStrokeColorDefaultBrush}" />
   </Style>
 
+  <!--
+    The banners of before stage V2 (see the header): kept as they were for the views that are not converted yet. A
+    converted view says what it did in its status line and what belongs to a section in a note.
+  -->
   <Style x:Key="Ad.ErrorBar" TargetType="Border">
     <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />

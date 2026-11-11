@@ -292,6 +292,89 @@ public sealed class StatusLineUiTests
     });
 
     [Fact]
+    public Task TheLine_OfAWindowWithAPageInFront_ShowsWhatThePageSays_HowFarItIs_AndClosesItThere() => WpfTestHost.RunAsync(async () =>
+    {
+        // Stage V2b: one line for a window whose pages say something of their own. The line stays bound to the holder
+        // of the window; the holder of the selected page is "in front".
+        using var language = LanguageScope.Use("en-US");
+        var dispatcher = new WpfUiDispatcher(Dispatcher.CurrentDispatcher);
+        var sheet = new PageStatusHolder(language.Localizer, dispatcher);
+        var page = new PageStatusHolder(language.Localizer, dispatcher);
+        var line = new StatusLine { Width = 640, CloseCommand = sheet.CloseCommand };
+        line.SetBinding(StatusLine.StatusProperty, new Binding(nameof(PageStatusHolder.Current)) { Source = sheet, Mode = BindingMode.OneWay });
+        var window = ControlHost.Show(line);
+        try
+        {
+            await UiTestSupport.WaitForIdleAsync(rounds: 2);
+            var parts = new Parts(line);
+            sheet.SetIdle("Read from dc01.contoso.test · as of 12:03:05");
+            page.SetIdle("Groups: 12");
+            Assert.Equal("Read from dc01.contoso.test · as of 12:03:05", line.Message);
+
+            // The page comes to the front: its summary.
+            sheet.Front = page;
+            Assert.Equal(PageStatusKind.Idle, line.Kind);
+            Assert.Equal("Groups: 12", line.Message);
+
+            // An operation of the page over many objects. Not known how far: the ring turns, Stop is the page's.
+            var log = new PageStatusLog("Test.Saving");
+            using var scope = page.Begin("Saving the accounts…", log);
+            Assert.True(line.IsWorking);
+            Assert.False(sheet.IsWorking);
+            Assert.True(parts.Ring.IsActive);
+            Assert.True(parts.Ring.IsTurning, "the ring of an operation that cannot say how far it is does not turn");
+            Assert.True(double.IsNaN(line.ProgressFraction));
+            Assert.Same(page.CancelCommand, parts.Action.Command);
+
+            // "12 of 300": the text says how far, the ring shows the part done and stands still - it is one message, so
+            // nothing is announced or enters again.
+            scope.Report(
+                $"Saving the accounts: {PageStatusText.Progress(language.Localizer, 12, 300)}…", PageProgress.Of(12, 300), new PageStatusLog("Test.Saving", 12, 300));
+            Assert.Equal("Saving the accounts: 12 of 300…", line.Message);
+            Assert.Equal("Working", line.Title);
+            Assert.Equal(0.04, line.ProgressFraction, 6);
+            Assert.Equal(0.04, parts.Ring.Fraction, 6);
+            Assert.True(parts.Ring.IsActive);
+            Assert.False(parts.Ring.IsTurning, "a ring that shows the part done still turns");
+            Assert.Equal(Visibility.Visible, parts.IconSlot.Visibility);
+            scope.Report($"Saving the accounts: {PageStatusText.Progress(language.Localizer, 300, 300)}…", PageProgress.Of(300, 300));
+            Assert.Equal("Saving the accounts: 300 of 300…", line.Message);
+            Assert.Equal(1d, parts.Ring.Fraction, 6);
+            Assert.False(parts.Ring.IsTurning);
+
+            // The result of the page, in the line of the window; the close button closes it in the holder of the page.
+            scope.CompleteError(Failed, new PageStatusLog("Test.Failed"));
+            Assert.Equal(PageStatusKind.Error, line.Kind);
+            Assert.Equal(Failed, line.Message);
+            Assert.False(parts.Ring.IsActive);
+            Assert.Equal(Visibility.Visible, parts.Close.Visibility);
+            Assert.Same(sheet.CloseCommand, parts.Close.Command);
+            ControlHost.Press(parts.Close);
+            await UiTestSupport.WaitForIdleAsync(rounds: 2);
+            Assert.True(page.Current.IsIdle);
+            Assert.Equal(PageStatusKind.Idle, line.Kind);
+            Assert.Equal("Groups: 12", line.Message);
+            Assert.Equal(Visibility.Collapsed, parts.Close.Visibility);
+
+            // A state of the page that lasts: said, with nothing to close - and only while that page is in front.
+            page.SetLasting(PageStatus.Error(Failed, new PageStatusLog("Test.ReadFailed")));
+            Assert.Equal(PageStatusKind.Error, line.Kind);
+            Assert.False(line.CanClose);
+            Assert.Equal(Visibility.Collapsed, parts.Close.Visibility);
+            sheet.Front = null;
+            Assert.Equal(PageStatusKind.Idle, line.Kind);
+            Assert.Equal("Read from dc01.contoso.test · as of 12:03:05", line.Message);
+            sheet.Front = page;
+            Assert.Equal(PageStatusKind.Error, line.Kind);
+            Assert.Equal(Failed, line.Message);
+        }
+        finally
+        {
+            window.Close();
+        }
+    });
+
+    [Fact]
     public Task TheLine_IsALiveRegion_PoliteForProgressAndResults_AssertiveForWhatNeedsTheOperator() => WpfTestHost.RunAsync(async () =>
     {
         using var language = LanguageScope.Use("en-US");

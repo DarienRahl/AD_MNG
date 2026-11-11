@@ -17,7 +17,8 @@ namespace AdMng.App.UiTests;
 /// The action button (track V, stage V2; docs/dev/v-interface-renewal.md 6.7 and goal G3 - cancel where you started):
 /// its three states and what each shows, the one width of all states, what a press does in each, that it stays enabled
 /// while its operation runs (so it keeps the keyboard focus), what UI Automation is told, and the cross-fade of its
-/// contents (only with motion on). Property checks on the control and the named parts of its content template.
+/// contents (only with motion on); the accent variant and the variants for a dialog footer (stage V2b). Property checks
+/// on the control and the named parts of its content template.
 /// </summary>
 [Collection(UiTestCollection.Name)]
 public sealed class ActionButtonUiTests
@@ -430,6 +431,127 @@ public sealed class ActionButtonUiTests
             Assert.Equal(Glyphs.Refresh, glyph.Text);
             Assert.True(idle.ActualWidth > width, "the glyph takes no room");
             Assert.Equal(ActionButtonState.Idle, button.State);
+        }
+        finally
+        {
+            window.Close();
+        }
+    });
+
+    [Fact]
+    public Task TheAccentVariant_IsTheThemesAccentButton_WithTheSameThreeStates() => WpfTestHost.RunAsync(async () =>
+    {
+        using var language = LanguageScope.Use("en-US");
+
+        // The primary action of a window (stage V2b): the style is taken explicitly, as Ad.AccentDialogButton is by a
+        // plain button.
+        var accentStyle = Assert.IsType<Style>(Application.Current.FindResource("Ad.AccentActionButton"));
+        var button = new ActionButton { Content = "Preview", Style = accentStyle };
+        var accentPlain = new Button { Content = "Preview", Style = (Style)Application.Current.FindResource("Ad.AccentDialogButton") };
+        var plainAction = new ActionButton { Content = "Preview" };
+        var started = 0;
+        var cancelled = 0;
+        button.Command = new RelayCommand(() => started++);
+        button.CancelCommand = new RelayCommand(() => cancelled++);
+        var window = ControlHost.Show(button, accentPlain, plainAction);
+        try
+        {
+            await UiTestSupport.WaitForIdleAsync(rounds: 2);
+            var parts = new Parts(button);
+
+            // The explicit style stands (the control's own default is a resource reference that a local value replaces),
+            // it is based on the accent style the dialog buttons are based on, and it has the content of every action
+            // button.
+            Assert.Same(accentStyle, button.Style);
+            Assert.Equal(typeof(ActionButton), accentStyle.TargetType);
+            Assert.Same(accentPlain.Style.BasedOn, accentStyle.BasedOn);
+            Assert.NotNull(accentStyle.BasedOn);
+            Assert.Same(Application.Current.FindResource("Ad.ActionButtonContent"), button.ContentTemplate);
+
+            // It looks like the accent button next to it - the same fill, text colour and height - and not like the
+            // plain action button.
+            Assert.Equal(ControlHost.ColorOf(accentPlain.Background), ControlHost.ColorOf(button.Background));
+            Assert.Equal(ControlHost.ColorOf(accentPlain.Foreground), ControlHost.ColorOf(button.Foreground));
+            Assert.NotEqual(ControlHost.ColorOf(plainAction.Background), ControlHost.ColorOf(button.Background));
+            Assert.Equal(accentPlain.ActualHeight, button.ActualHeight, 0.5);
+            Assert.Same(accentPlain.FocusVisualStyle, button.FocusVisualStyle);
+
+            // At rest; a press starts.
+            Assert.Equal(ActionButtonState.Idle, button.State);
+            AssertShown(parts, parts.Idle);
+            AssertRings(parts, running: false, stopping: false);
+            Click(button);
+            Assert.Equal(1, started);
+
+            // Running: the ring and "Cancel" - the ring in the colour of the text next to it, whatever the accent
+            // button makes of it; a press cancels.
+            button.IsRunning = true;
+            window.UpdateLayout();
+            Assert.Equal(ActionButtonState.Running, button.State);
+            AssertShown(parts, parts.Running);
+            AssertRings(parts, running: true, stopping: false);
+            Assert.Equal("Cancel", parts.CancelText.Text);
+            Assert.Equal(ControlHost.ColorOf(parts.CancelText.Foreground), ControlHost.ColorOf(parts.RunningRing.Foreground));
+            Assert.True(button.IsEnabled);
+            Click(button);
+            Assert.Equal(1, cancelled);
+            Assert.Equal(1, started);
+
+            // Stopping: nothing to press, still enabled; the style's trigger takes the pointer away.
+            window.UpdateLayout();
+            Assert.Equal(ActionButtonState.Cancelling, button.State);
+            AssertShown(parts, parts.Stopping);
+            AssertRings(parts, running: false, stopping: true);
+            Assert.True(button.IsEnabled);
+            Assert.False(button.IsHitTestVisible);
+            Click(button);
+            Assert.Equal(1, cancelled);
+
+            button.IsRunning = false;
+            window.UpdateLayout();
+            Assert.Equal(ActionButtonState.Idle, button.State);
+            AssertShown(parts, parts.Idle);
+            Assert.True(button.IsHitTestVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    });
+
+    [Fact]
+    public Task TheDialogVariants_HaveTheMetricsOfTheDialogButtons() => WpfTestHost.RunAsync(async () =>
+    {
+        using var language = LanguageScope.Use("en-US");
+        var dialog = (Style)Application.Current.FindResource("Ad.DialogButton");
+        var accentDialog = (Style)Application.Current.FindResource("Ad.AccentDialogButton");
+        var action = new ActionButton { Content = "OK", Style = (Style)Application.Current.FindResource("Ad.DialogActionButton") };
+        var accentAction = new ActionButton { Content = "OK", Style = (Style)Application.Current.FindResource("Ad.AccentDialogActionButton") };
+        var plain = new Button { Content = "OK", Style = dialog };
+        var accent = new Button { Content = "OK", Style = accentDialog };
+        var window = ControlHost.Show(action, accentAction, plain, accent);
+        try
+        {
+            await UiTestSupport.WaitForIdleAsync(rounds: 2);
+
+            // In a footer an action button stands in the row of the dialog buttons: the same minimum width and the same
+            // distance to its neighbour.
+            Assert.Same(Application.Current.FindResource(ActionButton.StyleKey), action.Style.BasedOn);
+            Assert.Same(Application.Current.FindResource("Ad.AccentActionButton"), accentAction.Style.BasedOn);
+            foreach (var button in new[] { action, accentAction })
+            {
+                Assert.Equal(plain.MinWidth, button.MinWidth);
+                Assert.Equal(plain.Margin, button.Margin);
+                Assert.Equal(plain.ActualHeight, button.ActualHeight, 0.5);
+                Assert.True(button.ActualWidth >= plain.ActualWidth, "an action button of a dialog is narrower than a dialog button");
+                Assert.Same(Application.Current.FindResource("Ad.ActionButtonContent"), button.ContentTemplate);
+                Assert.Equal(ActionButtonState.Idle, button.State);
+            }
+
+            Assert.Equal(accent.MinWidth, accentAction.MinWidth);
+            Assert.Equal(accent.Margin, accentAction.Margin);
+            Assert.Equal(ControlHost.ColorOf(accent.Background), ControlHost.ColorOf(accentAction.Background));
+            Assert.Equal(ControlHost.ColorOf(plain.Background), ControlHost.ColorOf(action.Background));
         }
         finally
         {
