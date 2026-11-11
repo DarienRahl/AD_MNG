@@ -102,12 +102,11 @@ public sealed class SslStreamTlsProbeTests
     [Fact]
     public async Task AClosedPort_IsPortClosed()
     {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
+        // The port stays taken while the probe runs. A port that was only free a moment ago may be the listener of
+        // another test by then (the test projects run side by side), and a listener that never answers is a timeout.
+        using var closed = ClosedPort.Reserve();
 
-        var result = await Probe(port).ProbeAsync("localhost", 636, Generous, TestContext.Current.CancellationToken);
+        var result = await Probe(closed.Port).ProbeAsync("localhost", 636, Generous, TestContext.Current.CancellationToken);
 
         Assert.Equal(TlsProbeOutcome.PortClosed, result.Outcome);
         Assert.Empty(result.PresentedChain);
@@ -257,6 +256,81 @@ public sealed class SslStreamTlsProbeTests
     private static SslStreamTlsProbe Probe(int listenerPort) => new() { ConnectPort = _ => listenerPort };
 
     private static PkiTrustMaterial Trust() => new([PkiSamples.RootCaDer], [PkiSamples.IssuingCaDer], [PkiSamples.IssuingCaDer]);
+
+    /// <summary>
+    /// A port of the loopback addresses that refuses every connection for as long as this object lives: sockets that
+    /// are bound to it and never listen. Nothing else can take the port meanwhile, on either address "localhost"
+    /// resolves to.
+    /// </summary>
+    private sealed class ClosedPort : IDisposable
+    {
+        private readonly Socket[] _sockets;
+
+        private ClosedPort(int port, Socket[] sockets)
+        {
+            Port = port;
+            _sockets = sockets;
+        }
+
+        public int Port { get; }
+
+        public static ClosedPort Reserve()
+        {
+            for (var attempt = 0; ; attempt++)
+            {
+                var v4 = Bind(IPAddress.Loopback, 0);
+                var port = ((IPEndPoint)v4.LocalEndPoint!).Port;
+                if (!Socket.OSSupportsIPv6)
+                {
+                    return new ClosedPort(port, [v4]);
+                }
+
+                try
+                {
+                    return new ClosedPort(port, [v4, Bind(IPAddress.IPv6Loopback, port)]);
+                }
+                catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse && attempt < 20)
+                {
+                    // The same number is somebody's on the IPv6 loopback address: another port.
+                    v4.Dispose();
+                }
+                catch (SocketException)
+                {
+                    // No IPv6 loopback address on this machine: nothing can listen there either.
+                    return new ClosedPort(port, [v4]);
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            foreach (var socket in _sockets)
+            {
+                socket.Dispose();
+            }
+        }
+
+        private static Socket Bind(IPAddress address, int port)
+        {
+            var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            try
+            {
+                if (OperatingSystem.IsWindows())
+                {
+                    // Nobody binds the same port next to this socket (Windows allows that to a socket that asks for it).
+                    socket.ExclusiveAddressUse = true;
+                }
+
+                socket.Bind(new IPEndPoint(address, port));
+                return socket;
+            }
+            catch
+            {
+                socket.Dispose();
+                throw;
+            }
+        }
+    }
 
     /// <summary>What the TLS server saw of the probe.</summary>
     private sealed record ClientSeen(bool Authenticated, bool ClientCertificatePresented, int ApplicationBytes);
