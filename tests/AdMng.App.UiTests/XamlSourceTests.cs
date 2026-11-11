@@ -49,6 +49,7 @@ public sealed partial class XamlSourceTests
         "SystemFillColorCautionBrush",
         "SystemFillColorCriticalBackgroundBrush",
         "SystemFillColorCriticalBrush",
+        "SystemFillColorSuccessBackgroundBrush",
         "SystemFillColorSuccessBrush",
         "TextFillColorDisabledBrush",
         "TextFillColorPrimaryBrush",
