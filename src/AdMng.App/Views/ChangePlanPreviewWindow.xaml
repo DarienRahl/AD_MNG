@@ -4,18 +4,24 @@
   (SYSVOL files with their sizes, the version row, folder and permission steps), the differences of a selected file
   (settings with secrets masked, text lines or "binary"), the PowerShell equivalent - then Execute (typed confirmation
   for destructive operations), the results and Undo.
+
+  Feedback (track V, stage V2b): one status line under the title (PageStatus) - at rest the summary of the plan, the
+  execution with the part done, its result with the domain (Undo as its action where something was made), that the
+  session of the window ended. "Execute" is an action button: while the execution runs it is its Cancel. "The undo plan
+  is shown" is a note above the rows.
 -->
 <Window x:Class="AdMng.App.Views.ChangePlanPreviewWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:batch="clr-namespace:AdMng.Presentation.BatchEditing;assembly=AdMng.Presentation"
+        xmlns:c="clr-namespace:AdMng.App.Controls"
         xmlns:changes="clr-namespace:AdMng.Presentation.Changes;assembly=AdMng.Presentation"
         xmlns:conv="clr-namespace:AdMng.App.Converters"
         xmlns:l="clr-namespace:AdMng.App.Localization"
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1080"
-        Height="700"
+        Height="736"
         MinWidth="760"
         MinHeight="460"
         ShowInTaskbar="False"
@@ -60,53 +66,54 @@
   </Window.Resources>
 
   <DockPanel>
+    <!--
+      Footer. "Execute" is an action button: while the execution it started runs, the same button is its Cancel (it
+      keeps the keyboard focus), then "Stopping…" until the execution ended. The summary of the plan and the progress
+      are said in the status line.
+    -->
     <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
-      <DockPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-          <Button x:Name="ExecuteButton"
-                  Command="{Binding ExecuteCommand}"
-                  Content="{l:Tr PlanPreview.Execute}"
-                  IsDefault="True"
-                  Style="{StaticResource Ad.AccentDialogButton}"
-                  Visibility="{Binding IsPreviewStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <Button x:Name="CancelExecutionButton"
-                  Command="{Binding CancelExecutionCommand}"
-                  Content="{l:Tr PlanPreview.Cancel}"
-                  Style="{StaticResource Ad.DialogButton}"
-                  Visibility="{Binding IsExecutingStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <Button x:Name="UndoButton"
-                  Command="{Binding UndoCommand}"
-                  Content="{l:Tr PlanPreview.Undo}"
-                  Style="{StaticResource Ad.DialogButton}"
-                  Visibility="{Binding IsResultsStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <Button x:Name="CloseButton"
-                  Command="{Binding CloseCommand}"
-                  Content="{l:Tr PlanPreview.Close}"
-                  IsCancel="True"
-                  Style="{StaticResource Ad.DialogButton}" />
-        </StackPanel>
-        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
-          <ProgressBar Width="80"
-                       Margin="0,0,10,0"
-                       VerticalAlignment="Center"
-                       IsIndeterminate="True"
-                       Visibility="{Binding IsExecutingStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <TextBlock x:Name="SummaryTextBlock"
-                     VerticalAlignment="Center"
-                     AutomationProperties.LiveSetting="Polite"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding Summary, Mode=OneWay}"
-                     TextTrimming="CharacterEllipsis" />
-        </StackPanel>
-      </DockPanel>
+      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+        <c:ActionButton x:Name="ExecuteButton"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding ExecuteCommand}"
+                        Content="{l:Tr PlanPreview.Execute}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsDefault="True"
+                        IsRunning="{Binding IsExecutingStep, Mode=OneWay}"
+                        Style="{StaticResource Ad.AccentDialogActionButton}"
+                        Visibility="{Binding IsExecuteStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <Button x:Name="UndoButton"
+                Command="{Binding UndoCommand}"
+                Content="{l:Tr PlanPreview.Undo}"
+                Style="{StaticResource Ad.DialogButton}"
+                Visibility="{Binding IsResultsStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <Button x:Name="CloseButton"
+                Command="{Binding CloseCommand}"
+                Content="{l:Tr PlanPreview.Close}"
+                IsCancel="True"
+                Style="{StaticResource Ad.DialogButton}" />
+      </StackPanel>
     </Border>
 
-    <DockPanel Margin="16,12,16,8">
-      <TextBlock Margin="0,0,0,8"
-                 DockPanel.Dock="Top"
-                 Style="{StaticResource Ad.Title}"
-                 Text="{Binding ChangeTitle, Mode=OneWay}"
-                 TextTrimming="CharacterEllipsis" />
+    <!-- Header: the title of the change -->
+    <TextBlock x:Name="TitleText"
+               Margin="16,12,16,0"
+               DockPanel.Dock="Top"
+               Style="{StaticResource Ad.Title}"
+               Text="{Binding ChangeTitle, Mode=OneWay}"
+               TextTrimming="CharacterEllipsis" />
+
+    <!--
+      Status line (design note 6.1): the summary of the plan shown, the running execution, how it ended - and that the
+      session of this window ended. Always present, so nothing under it moves.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="8,8,8,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
+    <DockPanel Margin="16,8,16,8">
       <ItemsControl x:Name="NotesList"
                     Margin="0,0,0,6"
                     DockPanel.Dock="Top"
@@ -120,21 +127,17 @@
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
-      <Border x:Name="ErrorBar"
-              Margin="0,0,0,6"
-              DockPanel.Dock="Top"
-              Style="{StaticResource Ad.ErrorBar}"
-              Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <TextBlock x:Name="ErrorText" AutomationProperties.LiveSetting="Assertive" Text="{Binding Error, Mode=OneWay}" TextWrapping="Wrap" />
-      </Border>
-      <Border x:Name="ResultBar"
-              Margin="0,0,0,6"
-              DockPanel.Dock="Top"
-              Padding="12,6"
-              Style="{StaticResource Ad.Card}"
-              Visibility="{Binding ResultText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <TextBlock x:Name="ResultTextBlock" AutomationProperties.LiveSetting="Polite" Text="{Binding ResultText, Mode=OneWay}" TextWrapping="Wrap" />
-      </Border>
+      <!-- A note: what the plan shown is, while it waits to be executed. -->
+      <ContentControl x:Name="RollbackNote"
+                      Margin="0,0,0,6"
+                      DockPanel.Dock="Top"
+                      Style="{StaticResource Ad.Note.Attention}"
+                      Visibility="{Binding IsRollbackNoteShown, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <TextBlock x:Name="RollbackNoteText"
+                   AutomationProperties.LiveSetting="Polite"
+                   Text="{l:Tr PlanPreview.RollbackShown}"
+                   TextWrapping="Wrap" />
+      </ContentControl>
 
       <TabControl x:Name="PreviewTabs">
         <TabItem x:Name="ChangesTab" Header="{l:Tr PlanPreview.Changes}">

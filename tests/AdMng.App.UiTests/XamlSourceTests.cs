@@ -66,6 +66,8 @@ public sealed partial class XamlSourceTests
     /// </summary>
     private static readonly string[] PagesWithAStatusLine =
     [
+        "Views/BatchEditorWindow.xaml",
+        "Views/ChangePlanPreviewWindow.xaml",
         "Views/FindWindow.xaml",
         "Views/ObjectListView.xaml",
         "Views/PropertiesWindow.xaml",
