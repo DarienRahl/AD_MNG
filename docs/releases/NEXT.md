@@ -176,6 +176,56 @@
   ze znakiem ostrzeżenia zamiast ramek: brak innego otwartego połączenia – pod polem połączenia, zamknięte albo
   zmienione połączenie drugiej strony – na jej karcie, „To ten sam obiekt widziany przez dwa konta…” – nad kartami.
   O zakończeniu sesji okna mówi wiersz stanu (dotąd: ramka u góry okna i druga na karcie strony A).
+- **Okno połączenia: wiersz stanu pod nagłówkiem.** Okno *Połącz z usługą Active Directory* mówi w jednym wierszu, co
+  robi i co się nie udało. **Trwa** – „Łączenie z contoso.test…” (z nazwą kontrolera domeny, gdy go wskazano) albo
+  „Wyszukiwanie kontrolerów domeny contoso.test…”, z poleceniem **Zatrzymaj**. Gdy brakuje danych: **Uwaga** – „Nie
+  połączono: Wprowadź hasło.”. Gdy połączenie się nie udało: **Błąd** – „Nie udało się połączyć z contoso.test: …”
+  z przyczyną, radą, co sprawdzić, i kodem wyniku na końcu. Po zatrzymaniu: „Łączenie z contoso.test zatrzymano: nie
+  otwarto sesji. Wybierz „Połącz”, aby spróbować ponownie.” – z poleceniem **Połącz**. Po wyszukaniu kontrolerów wiersz
+  podaje ich liczbę („Znalezione kontrolery domeny: 2”), a gdy wyszukiwanie się nie udało – przyczynę i polecenie
+  **Ponów**. W wierszu jest nazwa domeny albo kontrolera domeny, nigdy nazwa konta ani hasło. Wybranie innego profilu
+  zamyka komunikat o poprzedniej próbie. Dotąd: ramka błędu pod polami oraz pasek postępu i tekst w stopce. Długi
+  komunikat zawija się i okno jest wtedy o tyle wyższe.
+- **Okno połączenia: *Połącz* i *Znajdź kontrolery domeny* przerywa się tym samym przyciskiem.** Każdy z nich na czas
+  swojego działania zamienia się w **Anuluj** z kółkiem postępu, a po naciśnięciu pokazuje „Zatrzymywanie…”, dopóki
+  operacja się nie skończy. Osobnych przycisków *Anuluj* w stopce już nie ma. Enter nadal zaczyna łączenie; naciśnięty
+  jeszcze raz w trakcie niczego nie przerywa.
+- **Okno *Zmień kontroler domeny*: wiersz stanu pod nagłówkiem.** W spoczynku: ile kontrolerów domeny jest na liście („3
+  kontrolery domeny”). Wczytywanie listy widać w wierszu – „Wczytywanie kontrolerów domeny contoso.test…” – i można je
+  zatrzymać poleceniem **Zatrzymaj** (dotąd nie dało się go przerwać inaczej niż zamknięciem okna); po zatrzymaniu
+  wiersz mówi, że lista może nie pokazywać wszystkich, i podaje **Odśwież**. Gdy listy nie udało się wczytać: **Uwaga**
+  – „Nie udało się wczytać listy kontrolerów domeny: …” – teraz z przyczyną, kodem wyniku i poleceniem **Ponów**; nazwę
+  kontrolera nadal można wpisać. Zmiana kontrolera: „Łączenie z dc02.contoso.test…”, a gdy się nie uda – **Błąd**: „Nie
+  udało się przenieść sesji na dc02.contoso.test: …” z przyczyną, radą i zdaniem „Sesja pozostaje połączona
+  z dc01.contoso.test.”. Przycisk *Zmień* na czas łączenia zamienia się w **Anuluj**; po zatrzymaniu sesja zostaje na
+  dotychczasowym kontrolerze, a wiersz podaje polecenie **Zmień**. *Anuluj* okna działa jak dotąd: zamyka okno,
+  a trwającą zmianę najpierw przerywa. Dotąd: ramka błędu i ramka ostrzeżenia nad listą, pasek obok *Odśwież* oraz pasek
+  i tekst w stopce. Okno jest domyślnie o tyle wyższe, ile zajmuje wiersz stanu.
+- **Okno *Resetuj hasło*: wiersz stanu u góry okna.** Po **OK**: „Sprawdzanie kont (2)…”, potem „Wykonywanie „Resetuj
+  hasło” w domenie contoso.test: 1 z 2…”, a na końcu wynik z nazwą domeny – **Gotowe** („Wykonano „Resetuj hasło”
+  w domenie contoso.test: zmieniono 2 obiekty. Raport jest na liście operacji w tle.”), **Uwaga**, gdy części haseł nie
+  udało się zresetować albo wykonanie zatrzymano, **Błąd**, gdy nie zresetowano żadnego. Po zamknięciu komunikatu wiersz
+  pokazuje liczby wyników („Powodzenie: 2, niepowodzenie: 0, pominięte: 0”); lista wyników ma nagłówek *Wyniki*. Gdy
+  niczego nie zaczęto: **Uwaga** – „Nie zresetowano żadnego hasła: Hasła nie są zgodne.”; gdy żadnego z kont nie można
+  zresetować, wiersz podaje powody. Wczytywanie nazw kont i stanu blokady („Wczytywanie kont (2)…”) można zatrzymać; gdy
+  się nie uda albo zostanie zatrzymane, wiersz podaje polecenie **Ponów**, a lista pokazuje konta nazwami z ich nazw
+  wyróżniających. Hasło – ani wpisane, ani wygenerowane – nigdy nie trafia do wiersza: wygenerowane jest tam, gdzie
+  dotąd, w wierszu wyniku. Dotąd: ramka błędu na dole okna, pasek w stopce i tekst z liczbami nad listą wyników.
+- **Okno *Resetuj hasło*: OK przerywa resetowanie.** Przycisk na czas sprawdzania kont i resetowania zamienia się
+  w **Anuluj** z kółkiem postępu (dotąd resetowanie można było przerwać tylko na liście operacji w tle). Zatrzymanie
+  w czasie sprawdzania niczego nie zmienia – „Sprawdzanie kont zatrzymano: nie zresetowano żadnego hasła.” – i wiersz
+  podaje **Ponów**. Zatrzymanie w czasie resetowania kończy krok, który już trwa, a pozostałych kont nie rusza – wiersz
+  mówi, ile obiektów zmieniono i że reszty nie wykonano. Konto, przy którym zatrzymano, może mieć już nowe hasło bez
+  pozostałych ustawień (na przykład bez wymuszenia zmiany hasła przy następnym logowaniu) i jest na liście wyników jako
+  niepowodzenie. *Anuluj* okna zamyka je jak dotąd.
+- **Okno *Nowy obiekt*: wiersz stanu u góry okna.** Po **OK**: **Trwa** – „Tworzenie obiektu „Projekty” w domenie
+  contoso.test…” (tworzenia nie przerywa się w oknie – można je, jak dotąd, anulować na liście operacji w tle). Gdy
+  niczego nie zaczęto: **Uwaga** – „Niczego nie utworzono: Wprowadź nazwę.” (także: hasła nie są zgodne, nazwa albo
+  nazwa logowania jest zajęta, uwagi planisty zmian). Gdy tworzenie się nie udało: **Błąd** – „Nie udało się utworzyć
+  obiektu „Projekty”: …” z przyczyną i kodem wyniku. Po utworzeniu obiektu okno zamyka się jak dotąd, a o wyniku mówi
+  powiadomienie w oknie głównym. Okno otwarte bez połączenia z domeną mówi o tym od razu, a nie dopiero po **OK**. Uwaga
+  „Hasło nigdy nie wygasa, więc użytkownik nie będzie musiał go zmienić przy następnym logowaniu.” jest zwykłym tekstem
+  ze znakiem ostrzeżenia pod opcjami hasła zamiast ramki. Dotąd: ramka błędu pod polami i pasek w stopce.
 - **Co się nie zmieniło:** pozostałe okna i karty – między innymi zasady grupy, Watchdog, dzienniki zdarzeń,
   certyfikaty, przegląd komputerów, wiadomości do użytkowników i korespondencja – mają na razie dotychczasowe ramki
   ostrzeżeń i błędów oraz paski postępu; przejdą na wiersz stanu w następnych wydaniach. Dotyczy to także kreatora
