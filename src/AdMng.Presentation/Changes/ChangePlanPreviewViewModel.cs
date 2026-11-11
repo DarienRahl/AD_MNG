@@ -4,6 +4,7 @@ using AdMng.Core.GroupPolicy.Management;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Errors;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -56,7 +57,14 @@ public enum PlanPreviewStep
 /// window's own session, then the results with Undo (the rollback plan is shown here again, executed the same way).
 /// Contents of files stay in memory with the plan (rule 1).
 /// </summary>
-public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
+/// <remarks>
+/// <b>One status line</b> (<see cref="Status"/>; track V, stage V2b, design note docs/dev/v-interface-renewal.md "V2b-1 as
+/// built"): at rest the summary of the plan shown (<see cref="Summary"/>); the execution as the operation of the window
+/// (<see cref="ExecutionStatus"/>: progress, Stop cancels the activity, the result names the domain and offers Undo
+/// where something was made); that the session of the window ended. How the plan is executed is unchanged (CLAUDE.md
+/// rule 5).
+/// </remarks>
+public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase, IHasPageStatus
 {
     private readonly BatchEngines _engines;
     private readonly ChangePlanPreviewRequest _request;
@@ -70,12 +78,16 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
         _engines = engines ?? throw new ArgumentNullException(nameof(engines));
         _request = request ?? throw new ArgumentNullException(nameof(request));
         _plan = request.Plan ?? throw new ArgumentException("The request has no plan.", nameof(request));
+        Status = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
         Notes = request.Notes;
         SettingChanges = request.SettingChanges;
         Rebuild();
     }
 
     public override string WindowTitle => Localizer.Format(L.PlanPreview.Title, _request.Title);
+
+    /// <summary>What the window says in its one status line (see the remarks of the class).</summary>
+    public PageStatusHolder Status { get; }
 
     /// <summary>Title of the change.</summary>
     public string ChangeTitle => IsRollbackPreview ? _plan.Title : _request.Title;
@@ -103,7 +115,7 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
     public const int MaxExpandedSettingChanges = 8;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsPreviewStep), nameof(IsExecutingStep), nameof(IsResultsStep))]
+    [NotifyPropertyChangedFor(nameof(IsPreviewStep), nameof(IsExecutingStep), nameof(IsResultsStep), nameof(IsExecuteStep), nameof(IsRollbackNoteShown))]
     [NotifyCanExecuteChangedFor(nameof(ExecuteCommand), nameof(UndoCommand), nameof(CloseCommand))]
     public partial PlanPreviewStep Step { get; private set; }
 
@@ -113,6 +125,12 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
 
     public bool IsResultsStep => Step == PlanPreviewStep.Results;
 
+    /// <summary>
+    /// The Execute button is shown: in the preview and while its execution runs - then it is the Cancel of that
+    /// execution (one action button; "cancel where you started").
+    /// </summary>
+    public bool IsExecuteStep => Step is PlanPreviewStep.Preview or PlanPreviewStep.Executing;
+
     /// <summary>The rows of the plan (one per attribute, file, version or folder step).</summary>
     [ObservableProperty]
     public partial IReadOnlyList<PreviewRowViewModel> Rows { get; private set; } = [];
@@ -120,7 +138,7 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
     [ObservableProperty]
     public partial PreviewRowViewModel? SelectedRow { get; set; }
 
-    /// <summary>"3 objects, 9 steps on dc01.contoso.test."</summary>
+    /// <summary>"3 objects, 9 steps on dc01.contoso.test." - the summary of the status line.</summary>
     [ObservableProperty]
     public partial string Summary { get; private set; } = string.Empty;
 
@@ -138,8 +156,14 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
 
     /// <summary>The undo plan is shown (Execute reverts the change).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ChangeTitle), nameof(HasSettingChanges))]
+    [NotifyPropertyChangedFor(nameof(ChangeTitle), nameof(HasSettingChanges), nameof(IsRollbackNoteShown))]
     public partial bool IsRollbackPreview { get; private set; }
+
+    /// <summary>
+    /// The note "The undo plan is shown. Execute it to revert the change." belongs to the plan while it waits to be
+    /// executed - not to its results.
+    /// </summary>
+    public bool IsRollbackNoteShown => IsRollbackPreview && IsPreviewStep;
 
     /// <summary>The last execution's result.</summary>
     [ObservableProperty]
@@ -219,18 +243,30 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
         }
 
         Error = null;
+
+        // Executing is the operation of the window: the status line says how far the activity is, Stop - in the line
+        // or on the Execute button - cancels it, and the end is the result, with the domain (design note 4.5).
+        using var execution = ExecutionStatus.Begin(Status, Localizer, ChangeTitle, ConfirmationDomain, plan.Objects.Count);
         Step = PlanPreviewStep.Executing;
         BatchResult result;
         try
         {
             // Only in the session the plan was made in (its DC: CLAUDE.md rule 4) - never with a newer session's identity.
-            result = await Services.Coordinator.ExecutePlanAsync(plan, ChangeTitle, RequireSession(), activity => CurrentActivity = activity)
-                .ConfigureAwait(true);
+            result = await Services.Coordinator.ExecutePlanAsync(
+                plan,
+                ChangeTitle,
+                RequireSession(),
+                activity =>
+                {
+                    CurrentActivity = activity;
+                    execution.Follow(activity);
+                }).ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             Error = Errors.Translate(ex);
             Step = PlanPreviewStep.Preview;
+            execution.Fail(Error, ResultCode.Of(ex));
             return;
         }
         finally
@@ -242,6 +278,17 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
         if (!IsDisposed)
         {
             ShowResults(result);
+
+            // What can be done about what was not made: the reasons are in the results, and Undo reverts what was made.
+            var next = result.FailedCount > 0 ? Localizer[L.ChangeStatus.ReasonsNext] : null;
+            PageStatusAction? undo = null;
+            if (CanUndo())
+            {
+                next = next is null ? Localizer[L.PlanPreviewStatus.UndoNext] : $"{next} {Localizer[L.PlanPreviewStatus.UndoNext]}";
+                undo = new PageStatusAction(Localizer[L.PlanPreview.Undo], UndoCommand);
+            }
+
+            execution.Complete(result, next, undo);
         }
     }
 
@@ -274,6 +321,8 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
             return;
         }
 
+        // The line said how the execution ended; from here on it is about the undo plan.
+        Status.Clear();
         _plan = rollback;
         IsRollbackPreview = true;
         Result = null;
@@ -298,7 +347,9 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
 
     protected override void OnSessionEnded()
     {
+        // The line says for good that the session of this window ended; a running execution still says how it ended.
         Error = Localizer[L.PlanPreview.SessionEnded];
+        Status.SetLasting(SessionEndedStatus);
         ExecuteCommand.NotifyCanExecuteChanged();
         UndoCommand.NotifyCanExecuteChanged();
     }
@@ -306,6 +357,7 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
     protected override void OnCultureChanged()
     {
         base.OnCultureChanged();
+        Status.SetLasting(SessionEndedStatus);
         OnPropertyChanged(nameof(SettingChangesTitle));
         Rebuild();
         if (Result is { } result)
@@ -319,12 +371,17 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase
         if (disposing)
         {
             _diff.Cancel();
+
+            // An execution is not cancelled by that: it keeps running as a background activity.
+            Status.Operation?.Dispose();
         }
 
         base.Dispose(disposing);
     }
 
     partial void OnSelectedRowChanged(PreviewRowViewModel? value) => UpdateDiffAsync(value).Forget();
+
+    partial void OnSummaryChanged(string value) => Status.SetIdle(value);
 
     private void Rebuild()
     {
