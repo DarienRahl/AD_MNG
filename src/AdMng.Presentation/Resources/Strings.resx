@@ -24840,6 +24840,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="MessageWindow.Status.PasteStopped" xml:space="preserve">
     <value>Pasting was stopped: the content was not changed.</value>
   </data>
+  <data name="MessageWindow.SendingHint" xml:space="preserve">
+    <value>The messages go out one at a time, at the rate set in Settings → E-mail messages. Closing this window stops the send; messages the server has accepted cannot be recalled.</value>
+  </data>
   <data name="Settings.Status.Testing" xml:space="preserve">
     <value>Testing the connection to {0}…</value>
   </data>

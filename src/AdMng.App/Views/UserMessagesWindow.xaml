@@ -1,8 +1,13 @@
 <!--
   Messages to users (UserMessageComposerViewModel, modeless, README U1): compose (template, PL/EN text, condition,
-  recipients, inputs) → preview of every message (filter, exclude, test message to me) → sending with progress → report
-  (retry failed, CSV on demand). The rendered messages exist only in memory while the window is open; the SMTP password
-  box hands its value to the view model only when sending.
+  recipients, inputs) → preview of every message (filter, exclude, test message to me) → sending → report (retry
+  failed, CSV on demand). The rendered messages exist only in memory while the window is open; the SMTP password box
+  hands its value to the view model only when sending.
+  Feedback (track V, stage V2b; docs/dev/v-interface-renewal.md "V2b-2 as built"): one status line at the top says what
+  the window does and what happened - preparing the preview, the test message, the send with the part done, a paste in
+  the editor, the counts of the preview and of the report, the end of the session. What is true of the content for as
+  long as it is shown stays next to it as a note: the findings of the template check, the images that could not be
+  read, why the messages do not fit the transport.
 -->
 <Window x:Class="AdMng.App.Views.UserMessagesWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -14,7 +19,7 @@
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1180"
-        Height="820"
+        Height="856"
         MinWidth="860"
         MinHeight="600"
         WindowStartupLocation="CenterOwner">
@@ -62,7 +67,10 @@
   </Window.InputBindings>
 
   <DockPanel>
-    <!-- Footer: status, then the commands of the current stage. -->
+    <!--
+      Footer: the commands of the current stage. "Preview" and "Send" are action buttons: while the preview is prepared
+      or the messages go out, the button that started it is its Cancel (the Send button stays for the sending stage).
+    -->
     <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
@@ -75,25 +83,26 @@
                   Command="{Binding SendTestCommand}"
                   Content="{l:Tr UserMessages.SendTest}"
                   Visibility="{Binding IsPreview, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <Button x:Name="PlanButton"
-                  MinWidth="140"
-                  Margin="6,0,0,0"
-                  Command="{Binding PlanCommand}"
-                  Content="{l:Tr UserMessages.Plan}"
-                  Style="{StaticResource Ad.AccentDialogButton}"
-                  Visibility="{Binding IsCompose, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <Button x:Name="SendButton"
-                  MinWidth="120"
-                  Margin="6,0,0,0"
-                  Command="{Binding SendCommand}"
-                  Content="{Binding SendButtonText, Mode=OneWay}"
-                  Style="{StaticResource Ad.AccentDialogButton}"
-                  Visibility="{Binding IsPreview, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <Button x:Name="StopButton"
-                  Margin="6,0,0,0"
-                  Command="{Binding CancelSendCommand}"
-                  Content="{l:Tr Common.Stop}"
-                  Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
+          <c:ActionButton x:Name="PlanButton"
+                          MinWidth="140"
+                          Margin="6,0,0,0"
+                          CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                          Command="{Binding PlanCommand}"
+                          Content="{l:Tr UserMessages.Plan}"
+                          IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                          IsRunning="{Binding IsPlanning, Mode=OneWay}"
+                          Style="{StaticResource Ad.AccentDialogActionButton}"
+                          Visibility="{Binding IsCompose, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <c:ActionButton x:Name="SendButton"
+                          MinWidth="120"
+                          Margin="6,0,0,0"
+                          CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                          Command="{Binding SendCommand}"
+                          Content="{Binding SendButtonText, Mode=OneWay}"
+                          IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                          IsRunning="{Binding IsSending, Mode=OneWay}"
+                          Style="{StaticResource Ad.AccentDialogActionButton}"
+                          Visibility="{Binding IsSendStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
           <Button x:Name="RetryFailedButton"
                   Margin="6,0,0,0"
                   Command="{Binding RetryFailedCommand}"
@@ -111,58 +120,60 @@
                   IsCancel="True"
                   Style="{StaticResource Ad.DialogButton}" />
         </StackPanel>
-        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
-          <ProgressBar Width="60"
-                       Margin="0,0,8,0"
-                       VerticalAlignment="Center"
-                       IsIndeterminate="True"
-                       Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <TextBlock x:Name="StatusText"
-                     AutomationProperties.LiveSetting="Polite"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding StatusText, Mode=OneWay}" />
-        </StackPanel>
       </DockPanel>
     </Border>
 
     <!--
       U1c (design note u1c-u1d section 9.6): the messages do not fit the chosen transport (images to an older AdMng Watchdog,
-      over its limits or its storage, HTML longer than it takes) – nothing is sent until the operator chooses.
+      over its limits or its storage, HTML longer than it takes) – nothing is sent until the operator chooses. A note
+      next to the Send button it explains, not a status: it is true of these messages and this transport for as long as
+      they are shown, and it carries the choices that help (a status has one action).
     -->
-    <Border x:Name="TransportFitBar"
-            Margin="16,0,16,8"
-            DockPanel.Dock="Bottom"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding IsTransportFitVisible, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <DockPanel>
-        <StackPanel VerticalAlignment="Center"
-                    DockPanel.Dock="Right"
-                    Orientation="Horizontal">
-          <Button x:Name="SendDirectForRunButton"
-                  Margin="6,0,0,0"
-                  Command="{Binding SendDirectForRunCommand}"
-                  Content="{l:Tr UserMessages.Rich.SendDirect}"
-                  Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
-          <Button x:Name="SendWithoutImagesButton"
-                  Margin="6,0,0,0"
-                  Command="{Binding SendWithoutImagesCommand}"
-                  Content="{l:Tr UserMessages.Rich.SendWithoutImages}"
-                  Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
-          <Button x:Name="DismissTransportFitButton"
-                  Margin="6,0,0,0"
-                  Command="{Binding DismissTransportFitCommand}"
-                  Content="{l:Tr UserMessages.Rich.FitCancel}" />
-        </StackPanel>
+    <DockPanel x:Name="TransportFitBar"
+               Margin="16,0,16,8"
+               DockPanel.Dock="Bottom"
+               Visibility="{Binding IsTransportFitVisible, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <StackPanel VerticalAlignment="Center"
+                  DockPanel.Dock="Right"
+                  Orientation="Horizontal">
+        <Button x:Name="SendDirectForRunButton"
+                Margin="6,0,0,0"
+                Command="{Binding SendDirectForRunCommand}"
+                Content="{l:Tr UserMessages.Rich.SendDirect}"
+                Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
+        <Button x:Name="SendWithoutImagesButton"
+                Margin="6,0,0,0"
+                Command="{Binding SendWithoutImagesCommand}"
+                Content="{l:Tr UserMessages.Rich.SendWithoutImages}"
+                Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
+        <Button x:Name="DismissTransportFitButton"
+                Margin="6,0,0,0"
+                Command="{Binding DismissTransportFitCommand}"
+                Content="{l:Tr UserMessages.Rich.FitCancel}" />
+      </StackPanel>
+      <ContentControl x:Name="TransportFitNote"
+                      VerticalAlignment="Center"
+                      Style="{StaticResource Ad.Note.Attention}">
         <TextBlock x:Name="TransportFitTextBlock"
-                   VerticalAlignment="Center"
                    AutomationProperties.LiveSetting="Assertive"
                    Text="{Binding TransportFitText, Mode=OneWay}"
                    TextWrapping="Wrap" />
-      </DockPanel>
-    </Border>
+      </ContentControl>
+    </DockPanel>
 
-    <!-- Transport and recipients, the SMTP password when needed, session and error bars. -->
-    <StackPanel Margin="16,12,16,0" DockPanel.Dock="Top">
+    <!--
+      Status line (design note 6.1): preparing the preview, the test message and the send with the part done - each
+      with Stop - and how they ended; in the editor the paste of formatted content; at rest the counts of the preview or
+      of the report; and that the session of this window ended. Always present, so nothing under it moves.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="8,8,8,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
+    <!-- Transport and recipients, the SMTP password when needed. -->
+    <StackPanel Margin="16,8,16,0" DockPanel.Dock="Top">
       <DockPanel>
         <TextBlock x:Name="RecipientsCountText"
                    Margin="16,0,0,0"
@@ -192,21 +203,6 @@
                    Text="{l:Tr UserMessages.SmtpPasswordHint}"
                    TextWrapping="Wrap" />
       </DockPanel>
-      <Border x:Name="SessionEndedBar"
-              Margin="0,10,0,0"
-              Style="{StaticResource Ad.WarningBar}"
-              Visibility="{Binding SessionEndedMessage, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <TextBlock Text="{Binding SessionEndedMessage, Mode=OneWay}" TextWrapping="Wrap" />
-      </Border>
-      <Border x:Name="ErrorBar"
-              Margin="0,10,0,0"
-              Style="{StaticResource Ad.ErrorBar}"
-              Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <TextBlock x:Name="ErrorText"
-                   AutomationProperties.LiveSetting="Assertive"
-                   Text="{Binding Error, Mode=OneWay}"
-                   TextWrapping="Wrap" />
-      </Border>
     </StackPanel>
 
     <Grid Margin="16,10,16,12">
@@ -394,12 +390,17 @@
             <Expander x:Name="HtmlExpander" Margin="0,10,0,0" Header="{l:Tr UserMessages.Rich.Section}">
               <StackPanel Margin="0,6,0,0">
                 <WrapPanel x:Name="RichToolbar">
-                  <Button x:Name="PasteFormattedButton"
-                          Margin="0,0,6,6"
-                          AutomationProperties.Name="{l:Tr UserMessages.Rich.PasteFormatted}"
-                          Command="{Binding PasteFormattedCommand}"
-                          Content="{l:Tr UserMessages.Rich.PasteFormatted}"
-                          ToolTip="{l:Tr UserMessages.Rich.PasteFormattedTip}" />
+                  <!-- While a paste runs, the button that started it is its Cancel (the paste is the editor's operation). -->
+                  <c:ActionButton x:Name="PasteFormattedButton"
+                                  Margin="0,0,6,6"
+                                  AutomationProperties.Name="{l:Tr UserMessages.Rich.PasteFormatted}"
+                                  CancelCommand="{Binding EditorStatus.CancelCommand, Mode=OneWay}"
+                                  Command="{Binding PasteFormattedCommand}"
+                                  Content="{l:Tr UserMessages.Rich.PasteFormatted}"
+                                  IsCancelling="{Binding EditorStatus.IsCancelling, Mode=OneWay}"
+                                  IsRunning="{Binding IsPasting, Mode=OneWay}"
+                                  Style="{StaticResource Ad.ActionButton}"
+                                  ToolTip="{l:Tr UserMessages.Rich.PasteFormattedTip}" />
                   <Button x:Name="PasteImageButton"
                           Margin="0,0,6,6"
                           AutomationProperties.Name="{l:Tr UserMessages.Rich.PasteImage}"
@@ -426,32 +427,7 @@
                           AutomationProperties.Name="{l:Tr UserMessages.Rich.GenerateText}"
                           Command="{Binding GenerateTextCommand}"
                           Content="{l:Tr UserMessages.Rich.GenerateText}" />
-                  <Button x:Name="CancelPasteButton"
-                          Margin="0,0,6,6"
-                          Command="{Binding CancelPasteCommand}"
-                          Content="{l:Tr UserMessages.Rich.CancelPaste}"
-                          Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
                 </WrapPanel>
-                <DockPanel Margin="0,0,0,6" Visibility="{Binding RichStatusText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-                  <ProgressBar Width="40"
-                               Margin="0,0,8,0"
-                               VerticalAlignment="Center"
-                               DockPanel.Dock="Left"
-                               IsIndeterminate="True"
-                               Visibility="{Binding IsPasting, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-                  <Button x:Name="RemoveMissingImagesButton"
-                          Margin="8,0,0,0"
-                          Command="{Binding RemoveMissingImagesCommand}"
-                          Content="{l:Tr UserMessages.Rich.RemoveMissing}"
-                          DockPanel.Dock="Right"
-                          Visibility="{Binding HasMissingImages, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-                  <TextBlock x:Name="RichStatusTextBlock"
-                             VerticalAlignment="Center"
-                             AutomationProperties.LiveSetting="Polite"
-                             Style="{StaticResource Ad.SecondaryText}"
-                             Text="{Binding RichStatusText, Mode=OneWay}"
-                             TextWrapping="Wrap" />
-                </DockPanel>
                 <Grid Height="260">
                   <TextBox x:Name="HtmlBox"
                            AcceptsReturn="True"
@@ -471,10 +447,43 @@
                            Text="{l:Tr UserMessages.Html}"
                            TextWrapping="Wrap" />
 
-                <!-- The images of the edited template (both languages). -->
-                <StackPanel Visibility="{Binding HasTemplateImages, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-                  <TextBlock Style="{StaticResource Label}" Text="{l:Tr UserMessages.Rich.Images}" />
+                <!--
+                  The images of the edited template (both languages). While they are read from the image store the
+                  label carries a progress ring ("busy" - the result is the strip itself); the images that could not
+                  be read are a note of the strip, with the button that removes them.
+                -->
+                <StackPanel x:Name="TemplateImagesSection" Visibility="{Binding ShowTemplateImages, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource Label}" Text="{l:Tr UserMessages.Rich.Images}" />
+                    <c:ProgressRing x:Name="ImagesRing"
+                                    Margin="8,10,0,4"
+                                    VerticalAlignment="Center"
+                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                    IsActive="{Binding IsLoadingImages, Mode=OneWay}"
+                                    Size="14"
+                                    Visibility="{Binding IsLoadingImages, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                  </StackPanel>
+                  <DockPanel x:Name="MissingImagesPanel"
+                             Margin="0,0,0,6"
+                             Visibility="{Binding HasMissingImages, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                    <Button x:Name="RemoveMissingImagesButton"
+                            Margin="8,0,0,0"
+                            VerticalAlignment="Top"
+                            Command="{Binding RemoveMissingImagesCommand}"
+                            Content="{l:Tr UserMessages.Rich.RemoveMissing}"
+                            DockPanel.Dock="Right" />
+                    <ContentControl x:Name="MissingImagesNote"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource Ad.Note.Attention}">
+                      <TextBlock x:Name="MissingImagesText"
+                                 AutomationProperties.LiveSetting="Polite"
+                                 Text="{Binding MissingImagesText, Mode=OneWay}"
+                                 TextWrapping="Wrap" />
+                    </ContentControl>
+                  </DockPanel>
+                  <!-- The ring is decorative: a screen reader finds "Loading the template's images…" as the status of the strip. -->
                   <ItemsControl x:Name="TemplateImagesList"
+                                AutomationProperties.ItemStatus="{Binding ImagesLoadingText, Mode=OneWay}"
                                 AutomationProperties.Name="{l:Tr UserMessages.Rich.Images}"
                                 Focusable="False"
                                 ItemsSource="{Binding TemplateImages, Mode=OneWay}">
@@ -597,14 +606,19 @@
               </ItemsControl>
             </StackPanel>
 
-            <Border x:Name="TemplateErrorsBar"
-                    Margin="0,10,0,0"
-                    Style="{StaticResource Ad.ErrorBar}"
-                    Visibility="{Binding TemplateErrors, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+            <!--
+              The findings of the template check while editing (syntax, fields that are not allowed, HTML): a note of
+              the editor - true of the text for as long as it is shown - not a status.
+            -->
+            <ContentControl x:Name="TemplateErrorsNote"
+                            Margin="0,10,0,0"
+                            Style="{StaticResource Ad.Note.Error}"
+                            Visibility="{Binding TemplateErrors, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
               <TextBlock x:Name="TemplateErrorsText"
+                         AutomationProperties.LiveSetting="Polite"
                          Text="{Binding TemplateErrors, Mode=OneWay}"
                          TextWrapping="Wrap" />
-            </Border>
+            </ContentControl>
             <TextBlock Margin="0,10,0,0"
                        Style="{StaticResource Ad.SecondaryText}"
                        Text="{l:Tr UserMessages.FooterNote}"
@@ -621,21 +635,16 @@
           <ColumnDefinition Width="2*" />
         </Grid.ColumnDefinitions>
         <DockPanel>
-          <DockPanel Margin="0,0,0,8" DockPanel.Dock="Top">
-            <ComboBox x:Name="FilterBox"
-                      Width="190"
-                      AutomationProperties.Name="{l:Tr Common.Filter}"
-                      DisplayMemberPath="Text"
-                      DockPanel.Dock="Left"
-                      ItemsSource="{Binding Filters, Mode=OneWay}"
-                      SelectedItem="{Binding Filter}" />
-            <TextBlock x:Name="SummaryText"
-                       Margin="12,0,0,0"
-                       VerticalAlignment="Center"
-                       Style="{StaticResource Ad.SecondaryText}"
-                       Text="{Binding SummaryText, Mode=OneWay}"
-                       TextTrimming="CharacterEllipsis" />
-          </DockPanel>
+          <!-- The counts of the preview ("Ready: 3 · With warnings: 1 · …") are the summary of the status line. -->
+          <ComboBox x:Name="FilterBox"
+                    Width="190"
+                    Margin="0,0,0,8"
+                    HorizontalAlignment="Left"
+                    AutomationProperties.Name="{l:Tr Common.Filter}"
+                    DisplayMemberPath="Text"
+                    DockPanel.Dock="Top"
+                    ItemsSource="{Binding Filters, Mode=OneWay}"
+                    SelectedItem="{Binding Filter}" />
           <Grid>
             <ListView x:Name="ItemsList"
                       AutomationProperties.Name="{l:Tr UserMessages.PreviewTitle}"
@@ -811,13 +820,6 @@
                      Text="{Binding IssuesText, Mode=OneWay}"
                      TextWrapping="Wrap"
                      Visibility="{Binding IssuesText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-          <TextBlock x:Name="TestResultText"
-                     Margin="0,8,0,0"
-                     DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"
-                     DockPanel.Dock="Bottom"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding TestResultText, Mode=OneWay}"
-                     TextWrapping="Wrap" />
           <!-- U1c: the message as it is sent – rendered (images from memory), its text part and its HTML source. -->
           <TextBlock x:Name="SelectedImagesText"
                      Margin="0,8,0,0"
@@ -848,7 +850,10 @@
         </DockPanel>
       </Grid>
 
-      <!-- ==== Sending ==== -->
+      <!--
+        ==== Sending ==== How far the send is - and Stop - is in the status line and on the Send button; here only what
+        the stage is and what closing the window means.
+      -->
       <StackPanel x:Name="SendingPanel"
                   MaxWidth="640"
                   VerticalAlignment="Center"
@@ -856,25 +861,20 @@
         <TextBlock Margin="0,0,0,10"
                    Style="{StaticResource Ad.SectionHeader}"
                    Text="{l:Tr UserMessages.SendingTitle}" />
-        <ProgressBar x:Name="SendProgress"
-                     Height="8"
-                     Maximum="{Binding ProgressMaximum, Mode=OneWay}"
-                     Value="{Binding ProgressValue, Mode=OneWay}" />
-        <TextBlock x:Name="ProgressText"
-                   Margin="0,10,0,0"
-                   AutomationProperties.LiveSetting="Polite"
-                   Text="{Binding ProgressText, Mode=OneWay}"
+        <TextBlock x:Name="SendingHint"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{l:Tr MessageWindow.SendingHint}"
                    TextWrapping="Wrap" />
       </StackPanel>
 
       <!-- ==== Report ==== -->
       <DockPanel x:Name="ReportPanel" Visibility="{Binding IsReport, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-        <TextBlock x:Name="ReportSummaryText"
+        <!-- How the send ended and the counts of the report are said by the status line; the list has its header. -->
+        <TextBlock x:Name="ReportHeader"
                    Margin="0,0,0,8"
                    DockPanel.Dock="Top"
-                   FontWeight="SemiBold"
-                   Text="{Binding ReportSummary, Mode=OneWay}"
-                   TextWrapping="Wrap" />
+                   Style="{StaticResource Ad.SectionHeader}"
+                   Text="{l:Tr UserMessages.ReportTitle}" />
         <ListView x:Name="ReportList"
                   AutomationProperties.Name="{l:Tr UserMessages.ReportTitle}"
                   ItemContainerStyle="{StaticResource MessageRowStyle}"

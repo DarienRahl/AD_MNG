@@ -24840,6 +24840,9 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="MessageWindow.Status.PasteStopped" xml:space="preserve">
     <value>Wklejanie zatrzymano: treść nie została zmieniona.</value>
   </data>
+  <data name="MessageWindow.SendingHint" xml:space="preserve">
+    <value>Wiadomości są wysyłane pojedynczo, w tempie ustawionym w Ustawieniach → Wiadomości e-mail. Zamknięcie tego okna przerywa wysyłkę; wiadomości przyjętych przez serwer nie można cofnąć.</value>
+  </data>
   <data name="Settings.Status.Testing" xml:space="preserve">
     <value>Testowanie połączenia z {0}…</value>
   </data>
