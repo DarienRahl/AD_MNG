@@ -5,6 +5,7 @@ using AdMng.Core.Directory;
 using AdMng.Core.Model;
 using AdMng.Presentation.Connections;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -25,9 +26,16 @@ namespace AdMng.Presentation.Comparison;
 /// captured together): this window's pinned session for A, the other window's current session for B (rule 4). The
 /// readers forward only reads (<see cref="ReadOnlyDirectoryReader"/>), so nothing here can write (rule 5 is not involved).
 /// Results live in memory while the window is open; CSV is written only on "Eksportuj CSV…" (rule 1). Closing the window,
-/// "Przerwij" and a new run cancel every read; nested membership runs last, in the background.
+/// Stop and a new run cancel every read; nested membership runs last, in the background.
+/// <para>The window has one status line (<see cref="Status"/>; track V, stage V2b, design note
+/// docs/dev/v-interface-renewal.md "V2b-1 as built"): the comparison is the operation of the window ("Porównaj" is its
+/// Cancel), the reads of nested membership and nested members that follow it are operations as well - one at a time -
+/// and the line says how they ended. Why the tabs are empty - no match, several candidates, a read that failed, the
+/// session of the window that ended - is the state of the window for as long as it lasts; at rest the line says which
+/// object was found. That a side B connection was closed or changed is a note of that side, and that no other
+/// connection is open a note of the connection box.</para>
 /// </remarks>
-public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
+public sealed partial class ObjectComparisonViewModel : WindowViewModelBase, IHasPageStatus
 {
     private readonly ConnectionRegistry? _registry;
     private readonly ICsvCodec _csv;
@@ -62,9 +70,16 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
     private Task _nestedMembersLoad = Task.CompletedTask;
     private bool _initializing = true;
 
+    /// <summary>Why the last comparison could not be read (an error), for as long as nothing else was compared.</summary>
+    private PageStatus? _failure;
+
+    /// <summary>Why the last comparison shows no pair of objects (an attention), for as long as nothing else was compared.</summary>
+    private PageStatus? _outcome;
+
     public ObjectComparisonViewModel(DialogServices services, ICsvCodec csv, string distinguishedName, ConnectionRegistry? registry = null)
         : base(services)
     {
+        Status = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
         _csv = csv ?? throw new ArgumentNullException(nameof(csv));
         ArgumentException.ThrowIfNullOrWhiteSpace(distinguishedName);
         _sourceDn = distinguishedName;
@@ -103,6 +118,13 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
 
     /// <summary>The DN of the source object.</summary>
     public string SourceDistinguishedName => _sourceDn;
+
+    /// <summary>
+    /// The status of the window - what its one status line shows: the running comparison or the read of nested
+    /// membership that follows it, how they ended, which object was found, and - as the state that lasts - why the tabs
+    /// are empty or that the session of the window ended.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     /// <summary>The object kind of the source (after the first read; Unknown before).</summary>
     [ObservableProperty]
@@ -269,6 +291,7 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
         if (SelectedTarget is null)
         {
             StatusText = HasTargets ? Localizer[L.Comparison.StatusChooseTarget] : string.Empty;
+            UpdateSummary();
             await (_lastRun = LoadSourceAsync()).ConfigureAwait(true);
             return;
         }
@@ -293,6 +316,7 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
             _sideB?.Dispose();
             _sideA = null;
             _sideB = null;
+            Status.Operation?.Dispose();
         }
 
         base.Dispose(disposing);
@@ -303,7 +327,15 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
         _runs.Cancel();
         _nestedRuns.Cancel();
         _nestedMemberRuns.Cancel();
-        SideA.MarkEnded(SessionEndedMessage ?? Localizer[L.WindowSession.Ended]);
+
+        // What still runs ends without a word: the line says at once, and for good, that the session ended. Side A is
+        // marked as ended without a note of its own - the window says it once. The cancelled run is no longer the
+        // current one and does not end "running" itself: "Porównaj" must not stay the Cancel of nothing.
+        Status.Operation?.Dispose();
+        IsRunning = false;
+        IsNestedLoading = false;
+        SideA.MarkEnded(null);
+        UpdateLasting();
         CompareCommand.NotifyCanExecuteChanged();
         RefreshCommand.NotifyCanExecuteChanged();
     }
@@ -311,6 +343,8 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
     protected override void OnCultureChanged()
     {
         base.OnCultureChanged();
+        UpdateLasting();
+        UpdateSummary();
         var selectedRule = SelectedRule?.Value;
         RebuildRules(selectedRule);
         RebuildRows();
@@ -401,6 +435,7 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
     partial void OnSelectedTargetChanged(ComparisonTargetViewModel? value)
     {
         RefreshCommand.NotifyCanExecuteChanged();
+        UpdateSummary();
         if (_initializing || value is null || IsDisposed)
         {
             return;
@@ -408,7 +443,7 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
 
         // Another connection: what was matched in the previous one means nothing there.
         _matchedDn = null;
-        Candidates.Clear();
+        ForgetCandidates();
     }
 
     partial void OnSelectedRuleChanged(Option<ObjectMatchRule>? value)
@@ -459,7 +494,9 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
 
     partial void OnShowNestedMembersChanged(bool value)
     {
-        if (value && _nestedMembersA is null && HasResult)
+        // Not while a comparison runs: it has not read the direct members yet, a second operation would take the line
+        // from it - and with the line its token - and it starts this read itself when it is through.
+        if (value && _nestedMembersA is null && HasResult && !IsRunning)
         {
             _nestedMembersLoad = LoadNestedMembersAsync();
         }
@@ -469,7 +506,55 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
         }
     }
 
-    partial void OnHasResultChanged(bool value) => RaiseTabHeaders();
+    partial void OnHasResultChanged(bool value)
+    {
+        RaiseTabHeaders();
+        UpdateSummary();
+    }
+
+    // ---- What the status line says ----------------------------------------------------------------------------
+
+    /// <summary>
+    /// The state of the window that lasts, the most important first: its session ended; the last comparison could not
+    /// be read; the last comparison shows no pair of objects, and why.
+    /// </summary>
+    private void UpdateLasting() => Status.SetLasting(SessionEndedStatus ?? _failure ?? _outcome);
+
+    /// <summary>
+    /// The summary of the line: the object of the other connection the tabs show a comparison with, or - while nothing
+    /// is compared and no connection is chosen - what to choose.
+    /// </summary>
+    private void UpdateSummary() => Status.SetIdle(
+        HasResult && _snapshotB is { } found ? Localizer.Format(L.Comparison.StatusFound, found.DistinguishedName)
+        : SelectedTarget is null && HasTargets ? Localizer[L.Comparison.StatusChooseTarget]
+        : null);
+
+    /// <summary>
+    /// The comparison ended without a pair of objects: <paramref name="text"/> says why (also as
+    /// <see cref="StatusText"/>) - the state of the window until something else is compared.
+    /// </summary>
+    /// <param name="key">The resource key of the text (the log copy).</param>
+    /// <param name="text">The localized text.</param>
+    private void SayOutcome(string key, string text)
+    {
+        StatusText = text;
+        _outcome = PageStatus.Attention(PageStatusText.Failure(text, null), new PageStatusLog(key), canClose: false);
+        UpdateLasting();
+    }
+
+    /// <summary>
+    /// The candidates of an ambiguous match were found through a connection, or a session, that is no longer the one
+    /// to compare with: they go, and with them what the last comparison said about its match ("choose one").
+    /// </summary>
+    private void ForgetCandidates()
+    {
+        Candidates.Clear();
+        if (_outcome is not null)
+        {
+            _outcome = null;
+            UpdateLasting();
+        }
+    }
 
     // ---- The run ----------------------------------------------------------------------------------------------
 
@@ -488,9 +573,20 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
         _nestedRuns.Cancel();
         _nestedMemberRuns.Cancel();
 
-        // Closing the window that owns this comparison (its lifetime) cancels the run like "Przerwij".
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(run, cancellationToken, Services.Connection?.Lifetime ?? CancellationToken.None);
+        // The comparison is the operation of the window: the line says "working" from here on, Stop - in the line or
+        // "Porównaj" as its Cancel - ends it as "stopped", and however this method is left the window does not stay in
+        // "working". A newer run, the end of a session and closing the window that owns this comparison (its lifetime)
+        // cancel it without a word. The cancel of the command (CompareCancelCommand) is the operator's Stop as well.
+        using var comparing = Status.Begin(
+            Localizer.Format(L.ComparisonStatus.Comparing, Name, target.Label), new PageStatusLog(L.ComparisonStatus.Comparing));
+        using var stop = cancellationToken.Register(comparing.Cancel);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(run, comparing.Token, Services.Connection?.Lifetime ?? CancellationToken.None);
         var ct = linked.Token;
+
+        // Why the last comparison showed nothing is over: this one decides.
+        _failure = null;
+        _outcome = null;
+        UpdateLasting();
         IsRunning = true;
         ErrorText = null;
         StatusText = Localizer[L.Comparison.StatusReading];
@@ -500,7 +596,7 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
             var (sideA, sideB) = PinSides(session, target);
             if (sideB is null)
             {
-                StatusText = Localizer[L.Comparison.TargetNotConnected];
+                SayOutcome(L.Comparison.TargetNotConnected, Localizer[L.Comparison.TargetNotConnected]);
                 return;
             }
 
@@ -521,7 +617,7 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
 
             if (snapshotA is null)
             {
-                StatusText = Localizer.Format(L.Comparison.SourceNotFound, sideA.Info.DomainDnsName);
+                SayOutcome(L.Comparison.SourceNotFound, Localizer.Format(L.Comparison.SourceNotFound, sideA.Info.DomainDnsName));
                 return;
             }
 
@@ -534,7 +630,7 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
 
             if (!ObjectMatcher.CanCompare(snapshotA.Kind))
             {
-                StatusText = Localizer[L.Comparison.NotComparable];
+                SayOutcome(L.Comparison.NotComparable, Localizer[L.Comparison.NotComparable]);
                 return;
             }
 
@@ -573,7 +669,7 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
 
             if (snapshotB is null)
             {
-                StatusText = Localizer.Format(L.Comparison.TargetNotFound, sideB.Info.DomainDnsName);
+                SayOutcome(L.Comparison.TargetNotFound, Localizer.Format(L.Comparison.TargetNotFound, sideB.Info.DomainDnsName));
                 return;
             }
 
@@ -587,6 +683,7 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
             SideB.Summary = Summary(snapshotB, sideB, policyB, now);
             IsSameObject = snapshotA.ObjectGuid is { } guid && guid == snapshotB.ObjectGuid;
             StatusText = Localizer.Format(L.Comparison.StatusFound, snapshotB.DistinguishedName);
+            UpdateSummary();
             RebuildAttributeRows();
 
             // The membership tabs of the previous pair go now: a run stopped or failing while they load leaves them empty
@@ -628,6 +725,9 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
             _membersComplete = true;
             RebuildMemberRows();
             IsRunning = false;
+
+            // The comparison is there - its result is the content of the tabs, and the line says which object was
+            // found. What follows in the background is an operation of its own (it takes the line from this one).
             _nestedLoad = LoadNestedAsync(snapshotA, snapshotB, readerA, readerB);
             if (ShowNestedMembers && IsGroup)
             {
@@ -639,6 +739,17 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
             if (_runs.IsCurrent(run) || cancellationToken.IsCancellationRequested)
             {
                 StatusText = Localizer[L.Comparison.StatusCancelled];
+            }
+
+            // Only a comparison the operator stopped says so: the tabs may not show everything, and "Porównaj"
+            // compares again.
+            if (comparing.IsCancelling)
+            {
+                var again = Localizer[L.Comparison.Compare];
+                comparing.CompleteAttention(
+                    Localizer.Format(L.ComparisonStatus.Stopped, Name, again),
+                    new PageStatusLog(L.ComparisonStatus.Stopped),
+                    new PageStatusAction(again, CompareCommand));
             }
         }
         catch (Exception ex) when (ex is ObjectDisposedException or SessionEndedException or InvalidOperationException)
@@ -652,8 +763,17 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
         {
             if (_runs.IsCurrent(run))
             {
+                // The tabs are empty, or not complete, and this is why: the state of the window until the next
+                // comparison, with Retry (the same pair again when it is known).
+                var code = ResultCode.Of(ex);
                 ErrorText = Errors.Translate(ex);
                 StatusText = string.Empty;
+                _failure = PageStatus.Error(
+                    PageStatusText.Failure(Localizer.Format(L.ComparisonStatus.Failed, Name), ErrorText, Localizer[L.Feedback.RetryNext], code),
+                    new PageStatusLog(L.ComparisonStatus.Failed).WithCode(code),
+                    new PageStatusAction(Localizer[L.Common.Retry], RefreshCommand),
+                    canClose: false);
+                UpdateLasting();
             }
         }
         finally
@@ -710,7 +830,10 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
     private async Task LoadNestedAsync(ObjectSnapshot a, ObjectSnapshot b, IDirectoryReader readerA, IDirectoryReader readerB)
     {
         var token = _nestedRuns.Next();
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, Services.Connection?.Lifetime ?? CancellationToken.None);
+
+        // An operation of the window as well: the line says so with Stop, and a new comparison replaces it without a word.
+        using var reading = Status.Begin(Localizer[L.Comparison.NestedLoading], new PageStatusLog(L.Comparison.NestedLoading));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, reading.Token, Services.Connection?.Lifetime ?? CancellationToken.None);
         var ct = linked.Token;
         var directA = _directA;
         var directB = _directB;
@@ -731,7 +854,15 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
         }
         catch (OperationCanceledException)
         {
-            // Superseded, closed or stopped.
+            // Superseded or closed: nothing to say. Stopped by the operator: what is compared, and Refresh.
+            if (reading.IsCancelling)
+            {
+                var again = Localizer[L.Comparison.Refresh];
+                reading.CompleteAttention(
+                    Localizer.Format(L.ComparisonStatus.NestedStopped, again),
+                    new PageStatusLog(L.ComparisonStatus.NestedStopped),
+                    new PageStatusAction(again, RefreshCommand));
+            }
         }
         catch (Exception ex) when (ex is ObjectDisposedException or SessionEndedException)
         {
@@ -744,7 +875,13 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
         {
             if (_nestedRuns.IsCurrent(token))
             {
-                MembershipNotes = $"{MembershipNotes}\n{Errors.Translate(ex)}".Trim();
+                // The tab keeps the direct membership: a result that can be closed, with Retry.
+                var code = ResultCode.Of(ex);
+                reading.CompleteError(
+                    PageStatusText.Failure(
+                        Localizer[L.ComparisonStatus.NestedFailed], Errors.Translate(ex), Localizer[L.ComparisonStatus.NestedFailedNext], code),
+                    new PageStatusLog(L.ComparisonStatus.NestedFailed).WithCode(code),
+                    new PageStatusAction(Localizer[L.Common.Retry], RefreshCommand));
             }
         }
         finally
@@ -765,7 +902,17 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
         }
 
         var token = _nestedMemberRuns.Next();
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, Services.Connection?.Lifetime ?? CancellationToken.None);
+
+        // One read at a time says what it is doing: the nested members wait for the nested membership of the same
+        // comparison (both are started at its end), then this read is the operation of the window.
+        await WhenOverAsync(_nestedLoad).ConfigureAwait(true);
+        if (!_nestedMemberRuns.IsCurrent(token) || IsDisposed)
+        {
+            return;
+        }
+
+        using var reading = Status.Begin(Localizer[L.ComparisonStatus.ReadingNestedMembers], new PageStatusLog(L.ComparisonStatus.ReadingNestedMembers));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, reading.Token, Services.Connection?.Lifetime ?? CancellationToken.None);
         var ct = linked.Token;
         var membersA = _membersA;
         var membersB = _membersB;
@@ -788,7 +935,15 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
         }
         catch (OperationCanceledException)
         {
-            // Superseded, closed or stopped.
+            // Superseded or closed: nothing to say. Stopped by the operator: what is compared, and Refresh.
+            if (reading.IsCancelling)
+            {
+                var again = Localizer[L.Comparison.Refresh];
+                reading.CompleteAttention(
+                    Localizer.Format(L.ComparisonStatus.NestedMembersStopped, again),
+                    new PageStatusLog(L.ComparisonStatus.NestedMembersStopped),
+                    new PageStatusAction(again, RefreshCommand));
+            }
         }
         catch (Exception ex) when (ex is ObjectDisposedException or SessionEndedException)
         {
@@ -801,7 +956,16 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
         {
             if (_nestedMemberRuns.IsCurrent(token))
             {
-                MemberNotes = $"{MemberNotes}\n{Errors.Translate(ex)}".Trim();
+                // The tab keeps the direct members: a result that can be closed, with Retry.
+                var code = ResultCode.Of(ex);
+                reading.CompleteError(
+                    PageStatusText.Failure(
+                        Localizer[L.ComparisonStatus.NestedMembersFailed],
+                        Errors.Translate(ex),
+                        Localizer[L.ComparisonStatus.NestedMembersFailedNext],
+                        code),
+                    new PageStatusLog(L.ComparisonStatus.NestedMembersFailed).WithCode(code),
+                    new PageStatusAction(Localizer[L.Common.Retry], RefreshCommand));
             }
         }
         finally
@@ -810,6 +974,19 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
             {
                 IsNestedLoading = false;
             }
+        }
+    }
+
+    /// <summary>Waits until a background read is over, however it ended (it says its own failure).</summary>
+    private static async Task WhenOverAsync(Task read)
+    {
+        try
+        {
+            await read.ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Said, or not, by that read.
         }
     }
 
@@ -851,6 +1028,10 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
         return (own, other);
     }
 
+    /// <summary>
+    /// What matching found: one object (the comparison goes on), or why there is none to compare with - several
+    /// candidates to choose from, too many, nothing - which is the state of the window until the next comparison.
+    /// </summary>
     private void ShowMatch(MatchResult match, ConnectionReadContext sideB)
     {
         Candidates.Clear();
@@ -865,21 +1046,30 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
                     Candidates.Add(MatchCandidateViewModel.From(candidate));
                 }
 
-                StatusText = Localizer.Format(L.Comparison.StatusAmbiguous, match.Candidates.Count);
+                SayOutcome(L.Comparison.StatusAmbiguous, Localizer.Format(L.Comparison.StatusAmbiguous, match.Candidates.Count));
                 break;
             case MatchStatus.TooMany:
-                StatusText = Localizer[L.Comparison.StatusTooMany];
+                SayOutcome(L.Comparison.StatusTooMany, Localizer[L.Comparison.StatusTooMany]);
                 break;
             case MatchStatus.OutsideNamingContext:
-                StatusText = Localizer.Format(L.Comparison.StatusOutside, sideB.Info.DomainDnsName);
+                SayOutcome(L.Comparison.StatusOutside, Localizer.Format(L.Comparison.StatusOutside, sideB.Info.DomainDnsName));
                 break;
             case MatchStatus.NoValue:
-                StatusText = Localizer[match.Rule == ObjectMatchRule.Explicit ? L.Comparison.StatusNoExplicitText : L.Comparison.StatusNoValue];
+                var noValue = match.Rule == ObjectMatchRule.Explicit ? L.Comparison.StatusNoExplicitText : L.Comparison.StatusNoValue;
+                SayOutcome(noValue, Localizer[noValue]);
                 break;
             default:
-                StatusText = match.Rule == ObjectMatchRule.Explicit
-                    ? Localizer[L.Comparison.StatusNotFoundExplicit]
-                    : Localizer.Format(L.Comparison.StatusNotFound, string.Join(", ", match.RulesTried.Select(r => Localizer[ComparisonText.RuleKey(r)])));
+                if (match.Rule == ObjectMatchRule.Explicit)
+                {
+                    SayOutcome(L.Comparison.StatusNotFoundExplicit, Localizer[L.Comparison.StatusNotFoundExplicit]);
+                }
+                else
+                {
+                    SayOutcome(
+                        L.Comparison.StatusNotFound,
+                        Localizer.Format(L.Comparison.StatusNotFound, string.Join(", ", match.RulesTried.Select(r => Localizer[ComparisonText.RuleKey(r)]))));
+                }
+
                 break;
         }
     }
@@ -943,14 +1133,19 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
         }
         else if (_sideA is { IsEnded: true } || Session is null)
         {
-            SideA.MarkEnded(IsSessionEnded ? SessionEndedMessage ?? NoSessionMessage : NoSessionMessage);
+            // This window's own session: said by the status line (the state of the window), not by a note of side A.
+            // The same sentence as SessionEndedStatus, for a read that noticed the end before the window was told.
+            SideA.MarkEnded(null);
             StatusText = string.Empty;
+            _failure = PageStatus.Error(NoSessionMessage, new PageStatusLog(L.WindowSession.Ended), canClose: false);
         }
         else
         {
             ErrorText = Localizer[L.WindowSession.Ended];
+            _failure = PageStatus.Error(ErrorText, new PageStatusLog(L.WindowSession.Ended), canClose: false);
         }
 
+        UpdateLasting();
         IsRunning = false;
         IsNestedLoading = false;
     }
@@ -1097,6 +1292,7 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
         _initializing = wasInitializing;
         OnPropertyChanged(nameof(HasTargets));
         OnPropertyChanged(nameof(NoTargetsMessage));
+        UpdateSummary();
         CompareCommand.NotifyCanExecuteChanged();
         RefreshCommand.NotifyCanExecuteChanged();
     }
@@ -1138,11 +1334,12 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
             _runs.Cancel();
             _nestedRuns.Cancel();
             _nestedMemberRuns.Cancel();
+            Status.Operation?.Dispose();
             IsRunning = false;
             IsNestedLoading = false;
 
             // The candidates were found through the previous session; the results stay visible under their label.
-            Candidates.Clear();
+            ForgetCandidates();
             SideB.MarkEnded(Localizer.Format(L.Comparison.SideChanged, SideB.Label));
         }
     });
@@ -1161,6 +1358,7 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
             _runs.Cancel();
             _nestedRuns.Cancel();
             _nestedMemberRuns.Cancel();
+            Status.Operation?.Dispose();
             IsRunning = false;
             IsNestedLoading = false;
             SideB.MarkEnded(Localizer.Format(L.Comparison.SideClosed, SideB.Label));
