@@ -4,12 +4,15 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using AdMng.App.Behaviors;
+using AdMng.App.Controls;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
+using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Icons;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
@@ -393,6 +396,54 @@ public sealed class MainWindowTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => execution);
         await activity.Completion;
         await UiTestSupport.WaitForIdleAsync();
+        context.AssertHealthy();
+    });
+
+    /// <summary>
+    /// "Group Policy" over the object list says what it is - the picture of a group policy object and the name of the
+    /// command (the button used to have no content at all: an empty frame with a tool tip) - and a list that has no
+    /// shell behind it (the results of the Find window) has no such button instead of one that does nothing.
+    /// </summary>
+    [Fact]
+    public Task TheGroupPolicyButtonOfTheList_SaysItsName_AndAListWithoutTheShellHasNone() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync();
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        UiTestSupport.ShowOffScreen(window);
+        await window.Shell.InitializeAsync();
+        await window.Shell.NavigateAsync(ListLocation.ForContainer(context.Company.ItOu));
+        await UiTestSupport.WaitForIdleAsync();
+        var view = Assert.IsType<ObjectListView>(window.SelectedListView);
+
+        // The main window: the command of the shell, with its picture and its name, between the title and the filter.
+        var button = view.GroupPolicyButton;
+        Assert.Same(window.Shell.OpenContainerPoliciesCommand, button.Command);
+        Assert.True(button.IsVisible);
+        Assert.Contains(UiWait.Descendants<TextBlock>(button), text => text.IsVisible && text.Text == "Group Policy");
+        var picture = Assert.Single(UiWait.Descendants<ObjectIconView>(button));
+        Assert.Equal(ObjectIcon.GroupPolicy, picture.Icon);
+        Assert.True(picture.IsVisible);
+        Assert.True(button.ActualWidth > 60, $"the button is {button.ActualWidth} wide: it shows no name");
+        Assert.True(BoundsIn(button, view).Right <= BoundsIn(view.QuickFilterBox, view).Left, "the button overlaps the quick filter");
+
+        // The Find window: its results are the same view, but nothing gives the button a command - it is not there.
+        var find = context.Services.GetRequiredService<IDialogViewModelFactory>().CreateFind(context.Company.EmployeesOu);
+        var findWindow = (FindWindow)context.Services.GetRequiredService<IWindowService>().CreateWindow(find);
+        UiTestSupport.ShowOffScreen(findWindow);
+        await UiWait.InitializedAsync(findWindow.Initialization);
+        findWindow.NameBox.Text = "Kowalski";
+        ControlHost.Press(findWindow.FindNowButton);
+        await UiWait.UntilAsync(
+            () => find.HasSearched && !find.Results.IsLoading && find.Results.Items.Count > 0,
+            "search results");
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(findWindow.ResultsView.IsVisible);
+        var none = findWindow.ResultsView.GroupPolicyButton;
+        Assert.Null(none.Command);
+        Assert.Equal(Visibility.Collapsed, none.Visibility);
+        Assert.False(none.IsVisible);
+
         context.AssertHealthy();
     });
 

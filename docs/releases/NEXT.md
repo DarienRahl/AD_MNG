@@ -191,6 +191,8 @@
   odczycie folderów zasad grupy i sprawdzaniu adresów AIA/CDP mógł zatrzymać się o jedną pozycję przed końcem
   (np. „11 z 12”), choć operacja była zakończona – meldunki równoległych wątków mogły się wyprzedzać. Teraz
   przychodzą po kolei.
+- **Przycisk „Zasady grupy” nad listą obiektów** był pustą ramką – miał tylko podpowiedź. Teraz ma ikonę obiektu
+  zasad grupy i nazwę polecenia. W oknie *Znajdź*, gdzie nic nie robił, już go nie ma.
 
 ## AdMng Watchdog {{VERSION}}
 
