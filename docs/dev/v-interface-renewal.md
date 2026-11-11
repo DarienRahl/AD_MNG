@@ -486,6 +486,8 @@ window no longer repeats the summary of a tab that has its own line. See *V2a as
 As built (V2b-1): also on the property sheet, the batch editor, the change plan preview, the AD Recycle Bin, the
 account review and the comparison of objects. The main window itself has none – it is the shell, not a page; its
 "busy" marks are progress rings (*V2b-1 as built*, section 8).
+As built (V2b-2, unit 1): also on four dialogs – the Connect window, "Change domain controller", "Reset Password" and
+"New Object" (*V2b-2 as built*, section 8).
 
 ### 6.2 Navigation – open question 2
 
@@ -574,6 +576,9 @@ names of the new sections.
   `docs/dev/multi-window.md` 3.6); one layout: title, text that states the consequence and names the domain,
   optional single check box, buttons right-aligned with the safe one as default. The existing `Ad.DialogButton`,
   `Ad.AccentDialogButton` and `Ad.DangerDialogButton` become the only button styles of dialogs.
+  As built (V2b-2): a dialog that starts an operation of its own has the status line at its top, above its fields, and
+  its primary button is an action button when that operation can be stopped; a dialog that only collects input has no
+  line (*V2b-2 as built*, section 8, *Dialogs*).
 - **Property sheet** (`PropertiesWindow.xaml`, 2,340 lines) stays modeless and per connection: a header card (48 px
   icon with badge, name, state pills, copy buttons), the status line, then the pages. Whether the pages stay tabs
   across the top or become a list on the left is open question 11.
@@ -1741,7 +1746,11 @@ above.
   purpose, to be looked through when the sweep is over: the strings `Batch.Planning`, `PlanPreview.Cancel`,
   `Comparison.Stop`, `Comparison.StatusAmbiguous` and `AccountReview.ExactDone`, which have no user any more, and
   view-model members that are no longer shown but are read by tests or other code (`StatusText`, `Error` and the "busy"
-  flags of the converted windows, `StopCommand` of the Recycle Bin and of the account review).
+  flags of the converted windows, `StopCommand` of the Recycle Bin and of the account review). Added by V2b-2, unit 1:
+  `FindDomainControllersCancelCommand` of the Connect window, which has no user any more; no longer shown but read by
+  tests or by the view model itself – `ErrorText` and `StatusText` of the Connect window and of "Change domain
+  controller", `ListNote` of the latter, `Error` of "Reset Password" and of "New Object". No string lost its last user
+  in that unit.
 - **Not seen, to confirm on Windows.** Nothing of V2b-1 was seen on a screen.
   - *The property sheet.* How a wrapped result looks in the 640 px wide sheet (two or three lines on the caution or
     critical surface, picture and buttons in the first line). The note next to the old validation texts (glyph and plain
@@ -1769,6 +1778,273 @@ above.
     an ellipsis in a narrow window; a failed comparison or restore with its reasons is the kind of result the wrapping
     was decided for. The README picture of the comparison window keeps its client size (1180 × 780), so its tabs are 36
     px lower than before.
+
+**V2b-2 as built (the remaining windows of Views).** The third increment of V2 converts the twelve windows of `Views/`
+that still had banners, in three units. Unit 1 converted the four dialogs that open a session or write one object – the
+Connect window, "Change domain controller", "Reset Password" and "New Object" – and, because they are the first small
+dialogs of the sweep, decided how a dialog carries a status line (the sub-list *Dialogs*, which units 2 and 3 follow).
+The foundations are those of *V2b-1 as built*; nothing was added to the model or to the controls.
+
+- **Dialogs** (decided in unit 1; what the later units follow).
+  1. *Where the line sits.* At the top of the dialog, above its fields: under the dialog's own header when it has one
+     (the title of the Connect window, the domain and the current domain controller of "Change domain controller"),
+     otherwise as the first thing ("Reset Password", "New Object"). It is the place of every converted window – the
+     operator looks in one place – and not the place of the old bars (under the fields, next to the buttons): a line at
+     the bottom would be a second convention. Its side margin is the margin of the content less 8 px (content at 24 px:
+     line at 16 px), so the picture of the line stands over the left edge of the fields; 8 px above it (4 px under a
+     header that ends with a gap of its own), and the content starts 8 px under it (0 where its first element has a top
+     margin already).
+  2. *How it is declared: tab order, default and cancel button.* In the `DockPanel` of the dialog the footer comes first
+     (`DockPanel.Dock="Bottom"`, as before), then the header, then `c:StatusLine` (`DockPanel.Dock="Top"`), then the
+     content. Tab order is the order of declaration, so the cycle is: fields, footer buttons, the action and the close
+     button of the line, fields. From the button that started an operation the next Tab is what the line offers; nothing
+     that was a tab stop moved. (Visual order and tab order differ for the line, as in the tool windows of V2b-1 – left
+     for the page skeleton of V3.) `IsDefault` stays on the primary button, also when it becomes an action button (Enter
+     starts and never cancels – the control sees to it). `IsCancel` stays on the dialog's own Cancel or Close: the
+     Cancel of an operation never takes its place, Esc does what it did. The focus on open is untouched: the line is no
+     tab stop and has no buttons at rest.
+  3. *Size.* A dialog with a fixed height is 36 px higher by default (the 28 px of the line and 8 px above it), like the
+     windows of V2b-1. A dialog with `SizeToContent="Height"` grows by itself – and grows and shrinks with a result that
+     wraps, the fields moving down by as much. Tests assert that movement (`GrowthOf`), never a height.
+  4. *A dialog that closes itself on success says nothing in its line.* The operation ends without a message
+     (`scope.Complete(null)`, or the scope is disposed) before `RequestClose`. What the operator learns is what he
+     learned before – the toast of the main window, a message dialog of the opener: nothing was added, nothing was taken
+     away. The line of such a dialog only ever says: working, stopped, why nothing was started, why it failed, and its
+     state that lasts.
+  5. *What is said when the button was pressed and nothing was started* – a field is empty, two passwords do not match –
+     is status: the answer to the press, an attention the operator can close, built with `PageStatusText.Failure(what
+     was skipped, the reason)` – "Not connected: Enter the password.", "Nothing was created: Enter a name." – with the
+     key of the reason (or of the lead) as its log copy. These dialogs check their fields on the press and have one
+     sentence for the whole form; such a sentence goes stale the moment a field is corrected, which a result may and a
+     note may not. A note is what the dialog computes from its fields for as long as they are shown (whether the logon
+     name is free, what two options mean together): it stays next to its field.
+  6. *An empty line.* A dialog has a summary only when it shows a list or a result (the number of domain controllers;
+     the counts of the result list). Otherwise its line is empty at rest – present, one line high, without a picture.
+  7. *No session.* A dialog that was opened without a session, or whose session ended, says so as its state that lasts
+     from the first moment (`UpdateLasting`: `SessionEndedStatus`, else "Not connected to a domain."), not only when its
+     button is pressed.
+  8. *Action buttons in a footer.* The primary button of a dialog whose operation can be stopped is
+     `Ad.AccentDialogActionButton`: `IsRunning` on the dialog's own flag for *that* operation (`IsConnecting`,
+     `IsBusy`), `CancelCommand` / `IsCancelling` on the holder that owns the operation. Two action buttons over one
+     holder each need their own flag – with `Status.IsWorking` both would say "Cancel". A button whose operation cannot
+     be stopped stays a `Button`. The separate cancel buttons of operations (`Ad.CollapsedWhenDisabledButton` over a
+     `…CancelCommand`) go; the cancel of a command stays the same Stop (`cancellationToken.Register(scope.Cancel)`).
+  9. *Stop must hold.* Where a step that can be stopped is followed by a write, check `scope.IsCancelling` after the
+     step returned as well as in its `catch`: a planner or a locator that finished although Stop was pressed must not
+     lead to the write ("Reset Password": Stop while the accounts are checked never resets a password).
+  10. *A short read after a picker* (the account that may join a computer) is no operation of its own: its failure is
+      said with `Status.Show`, unless an operation runs – that one keeps the line.
+  11. *When a dialog gets no line at all.* A dialog that starts no operation – it collects input and hands it to its
+      opener, and everything it says is computed from its fields – has no status. It gets **no** `c:StatusLine`, its
+      sentences become notes next to what they are about, and it is **not** put on `PagesWithAStatusLine`. It goes on a
+      second sorted list of `XamlSourceTests` instead – to be created by the unit that converts the first such view
+      (suggested: `ConvertedViewsWithoutAStatusLine`, with a test of its own: no status line, no `Ad.ErrorBar`, no
+      `Ad.WarningBar`, no `<ProgressBar`). Unit 1 had no such dialog – all four start an operation – and added no empty
+      list. The question to ask: does the dialog itself read or write something that takes time, or can it fail by
+      itself? An error its *opener* gets back and shows is not the status of the dialog.
+- **The Connect window** (`Views/ConnectWindow.xaml`; `Connection/ConnectViewModel`).
+  - *What the line says.* Under the header, above the profile box. At rest nothing; once domain controllers were looked
+    for, "Domain controllers found: 2" – the summary, because the result is the list of the drop-down. **Working:**
+    "Connecting to contoso.test…" (the domain controller when one was chosen, else the domain – the computer's own when
+    the box is empty; never the account), "Looking for domain controllers of contoso.test…"; both with Stop.
+    **Stopped:** attention "Connecting to contoso.test was stopped: no session was opened. Press “Connect” to try
+    again." with *Connect*; "Looking for the domain controllers of contoso.test was stopped: the list was not changed.
+    Press “Find domain controllers” to look again." with that button's text. **Not started:** attention "Not connected:
+    Enter the password." (the domain, the user name, the profile name, simple bind without TLS), "The domain controllers
+    were not looked for: Enter the domain name…". **Failed:** error "Could not connect to contoso.test: The user name or
+    password is incorrect. Check the user name (DOMAIN\user or user@domain), the password and Caps Lock. (LDAP 49,
+    0x52E)" – the reason, the advice of `ErrorTranslator.ConnectHint`, the code; "Could not find the domain controllers
+    of contoso.test: …" with Retry. A connection that succeeded says nothing: the window closes.
+  - *How the old places were sorted* (1 error bar, 1 progress bar, and the text and the two buttons that went with
+    them).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `ErrorText` under the fields (a field is missing; the bind or the search failed) | status | attention "not connected: why"; error of the operation |
+    | progress bar and `StatusText` in the footer ("Connecting to …", "Looking for …", "Domain controllers found: 2", "cancelled") | status, summary | the operation in the line; the count as the summary; a stopped operation as attention |
+    | the two *Cancel* buttons of the footer (shown while their command ran) | – | gone: *Connect* and *Find domain controllers* are action buttons |
+    | "This profile is already open in the window …" under the profile box (a dot in the colour of that window and a sentence) | note | unchanged – never a banner |
+
+  - *Decisions.*
+    - **The view model is no window view model and gets what the holder needs from DI:** the UI dispatcher as a required
+      constructor argument, the status logger (`ILogger<PageStatusHolder>`) as an optional one – the smallest honest
+      way; `DialogServices` and `ObjectListServices` belong to a connected window and this one has no session yet. So
+      there is also no "session ended" state.
+    - **One holder, two operations that never overlap:** each command refuses while the other runs (`IsBusy`, as
+      before). Each action button has its own flag (`IsConnecting`, `IsFindingDomainControllers`) and both cancel
+      through the holder.
+    - **A failed bind offers no Retry in the line.** Its advice is nearly always to change something in the window or on
+      the account first, and a bind repeated with a wrong password counts towards the lockout of the account; *Connect*
+      is where it was. A stopped attempt offers *Connect* (the operator stopped it himself), a failed search Retry (a
+      read is safe to repeat).
+    - **Nothing of the credential is in a text or a log copy:** the line names the domain or the domain controller, the
+      log copy is a key and a result code. (An unexpected exception still shows its own message on screen, as the bar
+      did; the log copy has its type name only.)
+    - **Choosing a profile closes a result** – what the line said was about the connection typed before (6.7). The
+      cancel of the command, which the view uses when the window closes while it connects, is the same Stop.
+    - `ErrorText`, `IsBusy` and `ConnectCancelCommand` are unchanged for the tests and the code that read them;
+      `StatusText` is still set, and only the view model reads it.
+- **Change domain controller** (`Views/ChangeDomainControllerWindow.xaml`; `Dialogs/ChangeDomainControllerViewModel`).
+  - *What the line says.* Under the header, above the list. **While nothing else is said** it is the line of the list:
+    at rest "3 domain controllers" (in the plural form of the language); "Reading the domain controllers of
+    contoso.test…" with Stop; as the state of the list until it is read again – attention "Reading the domain
+    controllers was stopped: the list may not show all of them. Type the name of a domain controller, or press Refresh
+    to read the list again." with Refresh, and attention "Could not read the list of domain controllers: Access is
+    denied. Type the name of a domain controller, or press Retry to read the list again. (AccessDenied)" with Retry.
+    **The switch** is the window's own: "Connecting to dc02.contoso.test…" with Stop; stopped – attention "Connecting to
+    dc02.contoso.test was stopped: the session stays connected to dc01.contoso.test. Press “Change” to try again." with
+    *Change*; failed – error "Could not move the session to dc02.contoso.test: The domain controller is not available.
+    Check the domain controller name, … The session stays connected to dc01.contoso.test. (LDAP 81)"; an alias of the
+    current one – attention "The domain controller was not changed: Already connected to dc01.contoso.test.". A switch
+    that succeeded says nothing: the dialog closes and the main window shows its toast, as before. As the state that
+    lasts: the session of the window ended, or it was opened without one.
+  - *How the old places were sorted* (1 error bar, 1 warning bar, 2 progress bars, and the text of the footer).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `ErrorText` (why the switch failed; not connected; the session ended) | status | result of the switch; lasting error of the window |
+    | warning bar `ListNote` ("The list of domain controllers could not be read. Type the name of a domain controller.") | status | lasting attention of the list, now with the reason, the code and Retry |
+    | progress bar next to *Refresh* (`IsLoading`) | status | the read of the list in the line, with Stop |
+    | progress bar and `StatusText` in the footer ("Connecting to dc02…", "cancelled") | status | the switch in the line; a stopped switch as attention |
+    | the hint under the name box (not a host name; the current one; a read-only domain controller) | note | unchanged – computed from the box while it is shown |
+
+  - *Decisions.*
+    - **What the warning bar said decided it: a read failed.** It is the answer to what the window did when it opened
+      (or to Refresh), it has a way out (read again), and it is over when the list is read – status, the state of the
+      list. It stays an *attention*, as the bar was a warning: the dialog still works, a name can be typed. The reason
+      and the code are new (the read of the directory used to be swallowed whole).
+    - **Two holders: the list and the window.** The list can still be read when the operator already switches to a name
+      he typed, so the read (`ListStatus`, the page in front – it is always shown) and the switch (`Status`) cannot
+      share an operation. The window's operation takes the line while it runs; closing its result gives the line back to
+      the list.
+    - **The read can be stopped** (it ran with the token of the window only): a slow locator no longer has to be waited
+      for. A stopped read shows what had arrived – the current domain controller at least – and is a state of the list,
+      like one that failed. The end of the session and closing the dialog end the read without a word.
+    - ***Change* is an action button, the dialog's *Cancel* stays what it was:** it closes the dialog and, while a
+      switch runs, stops that switch first – the same Stop as the button and the line. *Refresh* stays an icon button:
+      it never had a Stop of its own; the read is stopped in the line.
+    - **The session log entry is unchanged** (the reason and, on a line of its own, the advice): only the line got the
+      two as one flowing text, with where the session stays.
+    - `ErrorText`, `StatusText`, `ListNote`, `IsLoading` and `IsBusy` are unchanged for the tests and the code that read
+      them. The window is 36 px higher by default (600 to 636).
+- **Reset Password** (`Views/ResetPasswordWindow.xaml`; `Dialogs/ResetPasswordViewModel`).
+  - *What the line says.* At the top, above the accounts. **While nothing else is said** it is the line of the list of
+    accounts: "Reading the accounts (2)…" with Stop; stopped – attention "Reading the accounts was stopped: names and
+    the lockout state may be missing. Press Retry to read them again."; failed – error "Could not read the accounts:
+    reason. Press Retry to try again. (code)"; both results with Retry (the list keeps the names of the distinguished
+    names). **The reset** is the window's own: "Checking the accounts (2)…" with Stop, then the execution of the plan
+    (foundation 9: "Executing “Reset Password” in contoso.test: 1 of 2…") with Stop; done, attention or error with the
+    domain and, when the result list has them, "The reasons are in the list of results."; stopped while checking –
+    attention "Checking the accounts was stopped: no password was reset. Press Retry to try again." with Retry. **Not
+    started:** attention "No password was reset: The passwords do not match." (a missing password, the length of
+    generated ones, no account that can be reset – with the reasons of the planner, each once, three at most).
+    **Afterwards**, behind the result: the counts of the result list ("Succeeded: 2, failed: 0, skipped: 0"). As the
+    state that lasts: no session.
+  - *How the old places were sorted* (1 error bar, 1 progress bar, and the count line).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `Error` (a password is missing or does not match; no account can be reset; the read or the reset failed; no session) | status | attention "no password was reset: why"; result of the operation; lasting error of the window |
+    | progress bar in the footer (`IsBusy`) | status | the check and the execution in the line |
+    | `ResultSummary` above the result list | summary | `SetIdle`; gone from the page (the list has the header "Results" and keeps the counts as its accessible name) |
+    | "the account is locked out" under *Unlock*; the hint about generated passwords; the message of a result row | note | unchanged |
+
+  - *Decisions.*
+    - **Two holders: the accounts and the window.** The names may still be read when OK is pressed, so the read
+      (`TargetsStatus`, in front) and the reset (`Status`) are apart, as in the Recycle Bin; OK is never refused because
+      of the read (a disabled default button would lose the focus it gets when the dialog opens).
+    - **The reset uses `ExecutionStatus`** – several accounts, a result that stays on screen – and with it the execution
+      can be stopped from the window: OK is an action button (`IsRunning` is `IsBusy`), although it had no Stop before.
+      The check before it got the operation's token (planning ran with `CancellationToken.None`), and a Stop during the
+      check never proceeds to the execution (Dialogs 9). The line is at rest while the typed confirmation of several
+      accounts is asked; for one account the execution takes the line from the check without a pause.
+    - **A Stop during the execution may leave one account half done** (its password reset, "must change" not set): that
+      is how the executor stops, as it did from the list of background operations. That account is in the result list
+      as failed, without a message of its own, so the line says how many were changed and that the rest was not executed
+      – and does not point to reasons the list does not have.
+    - **A password is never said.** The line says the title of the change, the domain and counts; the generated password
+      is in its result row, masked until asked for, as before.
+    - `Error`, `ResultSummary`, `IsBusy` and `IsCompleted` are unchanged for the tests and the code that read them.
+- **New Object** (`Views/NewObjectWindow.xaml`; `Dialogs/NewObjectViewModel`).
+  - *What the line says.* At the top, above "Create in". **Working:** "Creating “Łucja Żak-Wąsowska” in contoso.test…" –
+    without Stop. **Not created:** attention "Nothing was created: Enter a name." (the fields, the password, a name or a
+    logon name that is taken – found by the checks of the creation –, the findings of the plan). **Failed:** error
+    "Could not create “Projekty”: Access is denied. (AccessDenied)"; cancelled in the list of background operations
+    before anything was written – attention "Creating “…” was stopped: the object was not created.". For a computer:
+    attention "The account that may join the computer was not changed: The chosen user or group has no security
+    identifier.", error "Could not read the chosen account: …". An object that was created says nothing: the dialog
+    closes; the toast of the main window – or, for an account created only in part, the dialog of before – tells it. As
+    the state that lasts: no session.
+  - *How the old places were sorted* (1 error bar, 1 warning bar, 1 progress bar).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `Error` (a field; the name is taken; the plan; the creation failed; no session; the joiner) | status | attention "nothing was created: why"; error of the creation; lasting error of the window |
+    | progress bar in the footer (`IsBusy`) | status | "Creating …" in the line |
+    | warning bar `PasswordOptionsWarning` ("The password never expires, so the user will not be required to change it at next logon.") | note | `Ad.Note.Attention` under the two options: what they mean together, for as long as both are ticked |
+    | the availability of the logon name under its box (glyph and text, "Checking…" included) | note | unchanged |
+
+  - *Decisions.*
+    - **One operation without Stop, like Apply of the property sheet:** the checks of the name, the plan and its
+      execution are "Creating …" (`canCancel: false`); OK stays a plain button. A creation stopped half way would leave
+      an account without its password, the checks are single reads, and the execution can be cancelled in the list of
+      background operations, as before. The reads of the checks still run with `CancellationToken.None` – *Stop for a
+      write* stays open (see *What V2b has to do*).
+    - **`ExecutionStatus` is not used:** one object, and no result that stays – the dialog closes. "Executing “New User:
+      …” in contoso.test: 0 of 1…" would say less than "Creating “…” in contoso.test…".
+    - **The reads when the dialog opens** (UPN suffixes; whether the window's account is a trusted owner of a computer
+      account) and the check of the logon name stay as they were: silent, best effort, next to their fields.
+    - **A window without a session says so from the start** (it used to say it when OK was pressed).
+    - `Error`, `IsBusy` and `CreatedDn` are unchanged for the tests and the code that read them.
+- **Tests (unit 1).** Presentation (run on Linux): `Session/ConnectStatusTests` (15: at rest, not started in both
+  languages, connecting with Stop and "Connect", success, a failed bind in both languages without Retry, an exception
+  without advice, the window closing while it connects, the search with its summary in both languages, stopped and
+  failed with Retry, no domain, a profile that closes a result, the log copies);
+  `Dialogs/ChangeDomainControllerStatusTests` (14: the summary in the plural forms, the read with Stop and Refresh, a
+  list that could not be read in both languages, the switch with Stop, the dialog's Cancel, a failed switch in both
+  languages, what the dialog explains itself, the list read while the operator switches, no session, the end of the
+  session during a read and a switch, closing, the log copies); `Dialogs/ResetPasswordStatusTests` (13: the read,
+  stopped and failed, not started in both languages, checking then executing in both languages, several accounts with
+  the confirmation, nothing succeeded, an account that cannot be reset, Stop while checking – no password reset –, Stop
+  while executing, no session and its end, the log copies – and no password in any text); `Dialogs/NewObjectStatusTests`
+  (13: not started in both languages, the passwords, creating without Stop in both languages, a name that is taken, a
+  failed creation in both languages, a domain controller that does not answer the checks, created in part, no session
+  and its end, the joiner, the log copies). The fake connector of the Presentation tests can hold or fail a bind and a
+  search. Unchanged and green: `SessionAndConnectTests` (the constructor got the dispatcher),
+  `ChangeDomainControllerViewModelTests`, `ResetPasswordTests`, `NewObjectTests`. UI (Windows CI):
+  `ConnectStatusUiTests`, `ChangeDomainControllerStatusUiTests`, `ResetPasswordStatusUiTests`, `NewObjectStatusUiTests`
+  (three tests each, through the real window; the fake connector of the UI tests can hold or refuse a bind, a search and
+  a switch); `ChangeDomainControllerWindowTests` and `ConnectWindowTests` read "not connected" and "what is missing"
+  from the line instead of the error bar. Source rules: the four views are on `PagesWithAStatusLine` (twelve views now);
+  proven on Linux with the throwaway script of V2b-1.
+- **After unit 1** (counted in the XAML, comments excluded): 23 uses of `Ad.ErrorBar` and 43 of `Ad.WarningBar` in 40
+  files and 37 progress bars in 32 files – 49 view files with at least one of the three, 12 views with a status line.
+  Unit 1 took 4 error bars (all status), 2 warning bars (1 status – the list that could not be read –, 1 note) and 5
+  progress bars (all status). Left behind, to be looked through when the sweep is over (added to the list of *After
+  V2b-1*): `FindDomainControllersCancelCommand` of the Connect window, which has no user any more, and view-model
+  members that are no longer shown but are read by tests or by the view model itself (`ErrorText` and `StatusText` of
+  the Connect window and of "Change domain controller", `ListNote` of the latter, `Error` of "Reset Password" and of
+  "New Object"); no string lost its last user.
+- **Not seen, to confirm on Windows (unit 1).** Nothing of this was seen on a screen.
+  - *The empty line.* The four dialogs show an empty band of 28 px at rest (under the header of the Connect window,
+    under the header of "Change domain controller" until the list is read, at the top of the other two). Whether that
+    reads as a gap, and whether "Domain controllers found: 2" with the info picture is too loud in the Connect window.
+    Of the four only the Connect window is in the screenshots of CI (`08-connect.png`, at rest: the empty line under the
+    header and the footer with one button); the other three dialogs are in no picture.
+  - *Long results in narrow dialogs.* The Connect window is 560 px wide: about 65 characters of a result fit one line
+    next to the title and the close button. A bind that fails with "the domain controller is not available" says some
+    250 characters with the advice about ports and the LDAPS certificate – four lines, so it is cut in the third and
+    whole only in the tool tip (the old bar wrapped freely). The same advice plus "The session stays connected to …" in
+    "Change domain controller" (680 px). If that proves too tight: a shorter advice for the line, or a fourth line – a
+    question for the owner, not decided here.
+  - *The fields move.* In the three dialogs that size to their content a result that wraps makes the window higher and
+    moves every field down by 20 or 40 px, and back when it is closed (the old bar was under the fields and moved only
+    the footer).
+  - *Widths.* OK of "Reset Password" and *Change* are as wide as "Stopping…" / "Zatrzymywanie…" needs; *Find domain
+    controllers* is wider than that already. The footer of the Connect window holds one button now; the *Export results*
+    button of "Reset Password" starts at the left edge of the footer.
+  - *The note of "New Object"* (glyph and plain text where a caution bar was), and the header "Results" in "Reset
+    Password" where the counts were.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 
