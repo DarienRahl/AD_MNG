@@ -110,8 +110,10 @@ public sealed class ProgressRing : FrameworkElement
         var thickness = Math.Max(1.5, size / 8);
         var radius = (size - thickness) / 2;
         var centre = new Point(RenderSize.Width / 2, RenderSize.Height / 2);
+
+        // The pen is not frozen: a brush of the theme cannot be (its colour is a resource reference that follows the
+        // theme and the accent colour), and a pen is only as freezable as its brush.
         var pen = new Pen(Foreground, thickness) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
-        pen.Freeze();
 
         drawingContext.PushOpacity(TrackOpacity);
         drawingContext.DrawEllipse(null, pen, centre, radius, radius);

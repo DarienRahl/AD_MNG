@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 using AdMng.App.Behaviors;
 using AdMng.App.Controls;
@@ -62,6 +63,35 @@ public sealed class ProgressRingUiTests
             ring.IsActive = false;
             await UiTestSupport.WaitForIdleAsync(rounds: 1);
             Assert.True(Drawn(ring).IsEmpty, "a ring that is not active any more is still drawn");
+        }
+        finally
+        {
+            window.Close();
+        }
+    });
+
+    [Fact]
+    public Task ARing_IsDrawnInABrushThatCannotBeFrozen() => WpfTestHost.RunAsync(async () =>
+    {
+        // The brushes of the theme are not frozen: their colour is a resource reference that follows the theme and
+        // the accent colour, and the status line gives its ring the accent brush. Drawing with such a brush must not
+        // fail - an exception while an element is drawn ends the UI thread.
+        var bound = new SolidColorBrush();
+        BindingOperations.SetBinding(bound, SolidColorBrush.ColorProperty, new Binding { Source = Colors.SteelBlue });
+        Assert.False(bound.CanFreeze);
+
+        var ring = new ProgressRing { Foreground = bound, IsActive = true };
+        var part = new ProgressRing { Foreground = bound, IsActive = true, Fraction = 0.25 };
+        var themed = new ProgressRing { IsActive = true };
+        themed.SetResourceReference(ProgressRing.ForegroundProperty, "AccentFillColorDefaultBrush");
+        var window = ControlHost.Show(ring, part, themed);
+        try
+        {
+            await UiTestSupport.WaitForIdleAsync(rounds: 2);
+            AssertDrawnInside(ring, 16);
+            AssertDrawnInside(part, 16);
+            AssertDrawnInside(themed, 16);
+            Assert.NotSame(Brushes.Black, themed.Foreground);
         }
         finally
         {
