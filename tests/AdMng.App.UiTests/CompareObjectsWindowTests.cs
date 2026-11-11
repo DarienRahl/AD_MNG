@@ -9,6 +9,7 @@ using AdMng.App.Views;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Comparison;
 using AdMng.Core.Directory;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Services;
 using AdMng.Testing;
@@ -132,7 +133,13 @@ public sealed class CompareObjectsWindowTests
         var window = Application.Current.Windows.OfType<CompareObjectsWindow>().Single();
         await UiWait.InitializedAsync(window.Initialization);
 
+        // How to open one is a note under the connection box (track V, stage V2b) - the status line has nothing to say.
         Assert.Equal(Visibility.Visible, window.NoTargetsBar.Visibility);
+        Assert.Same(Application.Current.FindResource("Ad.Note.Attention"), window.NoTargetsBar.Style);
+        Assert.True(window.NoTargetsText.IsVisible);
+        Assert.Equal(window.ViewModel.NoTargetsMessage, window.NoTargetsText.Text);
+        Assert.Equal(PageStatusKind.Idle, window.PageStatus.Kind);
+        Assert.Equal(string.Empty, window.PageStatus.Message);
         Assert.False(window.CompareButton.IsEnabled);
         Assert.False(window.ExportButton.IsEnabled);
         Assert.Equal(Visibility.Collapsed, window.MembersTab.Visibility);
