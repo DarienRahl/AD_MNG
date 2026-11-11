@@ -1,4 +1,5 @@
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -15,11 +16,19 @@ namespace AdMng.Presentation.Settings;
 /// counts from the next connection to the Watchdog service.
 /// </summary>
 /// <remarks>
-/// The settings are shared by every connection window. "Advanced Features" is only stored: the shell of every window reacts
-/// to the settings change and reloads its tree and container tabs.
+/// <para>The settings are shared by every connection window. "Advanced Features" is only stored: the shell of every window reacts
+/// to the settings change and reloads its tree and container tabs.</para>
+/// <para>The window has one status line (<see cref="Status"/>; track V, stage V2b, design note
+/// docs/dev/v-interface-renewal.md "V2b-2 as built"). The window itself has nothing to say - Save closes it - so the
+/// line shows what the tab in front says: the "E-mail messages" tab has the connection test, the test message and the
+/// read of the Outlook accounts as its operations (<see cref="SelectedTabIndex"/>). Why Save is not possible
+/// (<see cref="Error"/>) is computed from the fields for as long as they are shown: a note, not a status.</para>
 /// </remarks>
-public sealed partial class SettingsViewModel : WindowViewModelBase
+public sealed partial class SettingsViewModel : WindowViewModelBase, IHasPageStatus
 {
+    /// <summary>Index of the "Wiadomości e-mail" tab (<see cref="SelectedTabIndex"/>).</summary>
+    public const int MessagesTab = 1;
+
     public const int MinPageSize = 50;
     public const int MaxPageSize = 5000;
     public const int MinParallelism = 1;
@@ -35,6 +44,7 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
         : base(services)
     {
         _theme = theme ?? throw new ArgumentNullException(nameof(theme));
+        Status = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
         if (userMessages is not null)
         {
             Messages = new UserMessages.UserMessageSettingsViewModel(services, userMessages);
@@ -97,6 +107,30 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
     }
 
     public override string WindowTitle => Localizer[L.Settings.TitleShared];
+
+    /// <summary>
+    /// The status of the window - what its one status line shows: what the tab in front says (the tests of the "E-mail
+    /// messages" tab); the window has no operation of its own.
+    /// </summary>
+    public PageStatusHolder Status { get; }
+
+    /// <summary>The tab shown (the view keeps it current): its status is in front of the window's.</summary>
+    [ObservableProperty]
+    public partial int SelectedTabIndex { get; set; }
+
+    partial void OnSelectedTabIndexChanged(int value) => Status.Front = value == MessagesTab ? Messages?.Status : null;
+
+    /// <summary>The window closed: a test that still runs ends without a message.</summary>
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            Status.Front = null;
+            Messages?.EndOperations();
+        }
+
+        base.Dispose(disposing);
+    }
 
     /// <summary>Application-wide; never acts in the directory session, so it does not end with it.</summary>
     protected override bool UsesSession => false;
