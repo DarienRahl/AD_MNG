@@ -25,13 +25,21 @@ public enum MotionEntrance
 
     /// <summary>A toast: the element fades in and slides in from the right by <c>Motion.Offset.Toast</c> over <c>Motion.Appear</c>.</summary>
     Toast,
+
+    /// <summary>
+    /// A new message of the status line (design note 5.2, row 3): the element fades in and rises by
+    /// <c>Motion.Offset.Panel</c> over <c>Motion.Appear</c>. Played from code (<see cref="Motion.Play"/>) when the
+    /// message changes - never because the line became visible, and never for a new count of the same message.
+    /// </summary>
+    Status,
 }
 
 /// <summary>
-/// All motion of the application (track V, stage V1; design note docs/dev/v-interface-renewal.md 5). Nothing is
-/// animated in XAML: these attached properties start every animation from code, with the durations, offsets and
+/// All motion of the application (track V, stages V1 and V2; design note docs/dev/v-interface-renewal.md 5). Nothing
+/// is animated in XAML: these attached properties start every animation from code, with the durations, offsets and
 /// easings of Themes/Motion.xaml read by key when a motion starts, behind the one switch <see cref="IsEnabled"/>
-/// (set by <c>Services/MotionService</c>).
+/// (set by <c>Services/MotionService</c>). The one thing here that is not behind the switch is <see cref="Turn"/>,
+/// the turning of the progress ring: progress is information, not motion (design note 5.4).
 /// </summary>
 /// <remarks>
 /// <para>Why code and not storyboards or visual states in XAML: a storyboard inside a template is frozen with the
@@ -60,6 +68,8 @@ public static class Motion
 {
     // Keys of Themes/Motion.xaml.
     internal const string HoverKey = "Motion.Hover";
+    internal const string SwapKey = "Motion.Swap";
+    internal const string RingKey = "Motion.Ring";
     internal const string FastKey = "Motion.Fast";
     internal const string AppearKey = "Motion.Appear";
     internal const string DisappearKey = "Motion.Disappear";
@@ -79,6 +89,16 @@ public static class Motion
     /// </summary>
     public static readonly DependencyProperty ShownProperty = DependencyProperty.RegisterAttached(
         "Shown", typeof(bool), typeof(Motion), new PropertyMetadata(false, OnShownChanged));
+
+    /// <summary>
+    /// One of the contents of a swap (design note 5.2, row 2: the action button): true shows the element (opacity 1),
+    /// false hides it (opacity 0), over <c>Motion.Swap</c> - the content that goes and the one that comes cross-fade.
+    /// Like <see cref="ShownProperty"/>: the element declares the opacity of its initial state itself, the opacity is
+    /// this property's alone, and with motion off the final value is set at once. The contents of a swap stay in the
+    /// layout all the time (they only differ in opacity), so the control keeps the size of its largest content.
+    /// </summary>
+    public static readonly DependencyProperty SwapProperty = DependencyProperty.RegisterAttached(
+        "Swap", typeof(bool), typeof(Motion), new PropertyMetadata(false, OnSwapChanged));
 
     /// <summary>
     /// The entrance of the element: played when the element is visible as the property is set, whenever the element
@@ -126,6 +146,18 @@ public static class Motion
     {
         ArgumentNullException.ThrowIfNull(element);
         element.SetValue(ShownProperty, value);
+    }
+
+    public static bool GetSwap(DependencyObject element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return (bool)element.GetValue(SwapProperty);
+    }
+
+    public static void SetSwap(DependencyObject element, bool value)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        element.SetValue(SwapProperty, value);
     }
 
     public static MotionEntrance GetEntrance(DependencyObject element)
@@ -185,17 +217,59 @@ public static class Motion
 
     private static IEasingFunction? EaseOf(string key) => Application.Current?.TryFindResource(key) as IEasingFunction;
 
-    // ---- Shown ----------------------------------------------------------------------------------------------------
+    /// <summary>
+    /// Plays an entrance once, now: for a control whose content was replaced by something the operator should notice
+    /// (a new message of the status line). The element does not need the <see cref="EntranceProperty"/>, and nothing
+    /// follows its visibility. Nothing is started on an element that is not visible; with motion off the element is
+    /// left at its base values (a running entrance is taken off).
+    /// </summary>
+    public static void Play(FrameworkElement element, MotionEntrance entrance)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        if (entrance != MotionEntrance.None)
+        {
+            Enter(element, StateOf(element), entrance);
+        }
+    }
 
-    private static void OnShownChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    /// <summary>
+    /// Progress, not motion: turns <paramref name="rotation"/> once per <c>Motion.Ring</c>, on and on, or stops it and
+    /// puts it back to its base angle. It is not behind the switch - a progress indicator says "busy" also when the
+    /// interface does not move (design note 5.4, catalogue row 11) - so the caller turns it only while its element is
+    /// visible and stops it otherwise: no clock runs for something nobody sees.
+    /// </summary>
+    /// <returns>Whether a clock runs now (false also when the token is missing: the ring then stands still).</returns>
+    internal static bool Turn(RotateTransform rotation, bool on)
+    {
+        ArgumentNullException.ThrowIfNull(rotation);
+        if (on && TimeOf(RingKey) is { } time)
+        {
+            rotation.BeginAnimation(
+                RotateTransform.AngleProperty,
+                new DoubleAnimation { From = 0d, To = 360d, Duration = new Duration(time), RepeatBehavior = RepeatBehavior.Forever });
+            return true;
+        }
+
+        rotation.BeginAnimation(RotateTransform.AngleProperty, null);
+        return false;
+    }
+
+    // ---- Shown and Swap -------------------------------------------------------------------------------------------
+
+    private static void OnShownChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) => Fade(d, e.NewValue is true, HoverKey);
+
+    private static void OnSwapChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) => Fade(d, e.NewValue is true, SwapKey);
+
+    /// <summary>The opacity of the element to 1 or 0 over the duration of <paramref name="durationKey"/> - at once without motion.</summary>
+    private static void Fade(DependencyObject d, bool shown, string durationKey)
     {
         if (d is not UIElement element)
         {
             return;
         }
 
-        var target = e.NewValue is true ? 1d : 0d;
-        if (IsEnabled && element.IsVisible && TimeOf(HoverKey) is { } time)
+        var target = shown ? 1d : 0d;
+        if (IsEnabled && element.IsVisible && TimeOf(durationKey) is { } time)
         {
             var run = new object();
             element.SetValue(ShownRunProperty, run);
@@ -307,7 +381,9 @@ public static class Motion
         }
     }
 
-    private static void Enter(FrameworkElement element, TravelState state)
+    private static void Enter(FrameworkElement element, TravelState state) => Enter(element, state, GetEntrance(element));
+
+    private static void Enter(FrameworkElement element, TravelState state, MotionEntrance entrance)
     {
         state.Entered = true;
         if (GetLeaving(element))
@@ -327,7 +403,7 @@ public static class Motion
         string offsetKey;
         bool fades;
         bool sideways;
-        switch (GetEntrance(element))
+        switch (entrance)
         {
             case MotionEntrance.Page:
                 (durationKey, offsetKey, fades, sideways) = (EntranceKey, PageOffsetKey, false, false);
@@ -337,6 +413,9 @@ public static class Motion
                 break;
             case MotionEntrance.Toast:
                 (durationKey, offsetKey, fades, sideways) = (AppearKey, ToastOffsetKey, true, true);
+                break;
+            case MotionEntrance.Status:
+                (durationKey, offsetKey, fades, sideways) = (AppearKey, PanelOffsetKey, true, false);
                 break;
             default:
                 return;

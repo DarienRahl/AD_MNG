@@ -21,11 +21,12 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AdMng.App.UiTests;
 
 /// <summary>
-/// The first motion of track V (stage V1, docs/dev/v-interface-renewal.md 5): the tokens of Themes/Motion.xaml, the one
+/// The motion of track V (stage V1, docs/dev/v-interface-renewal.md 5): the tokens of Themes/Motion.xaml, the one
 /// switch (<see cref="MotionService"/> and <see cref="Motion.IsEnabled"/>, off in the UI test host), and the behaviours
-/// of Behaviors/Motion.cs - hover layer, entrances, a toast on its way out. Motion is off in every UI test; the tests
-/// of the motion itself switch it on for a few lines (<see cref="MotionScope"/>) and assert that an animation was
-/// started (properties of the element), never what a frame looks like.
+/// of Behaviors/Motion.cs - hover layer, entrances, a toast on its way out - and what stage V2 added for the feedback
+/// controls: the content swap, the entrance played once from code and the turning of the progress ring. Motion is off
+/// in every UI test; the tests of the motion itself switch it on for a few lines (<see cref="MotionScope"/>) and
+/// assert that an animation was started (properties of the element), never what a frame looks like.
 /// </summary>
 [Collection(UiTestCollection.Name)]
 public sealed class MotionUiTests
@@ -48,6 +49,7 @@ public sealed class MotionUiTests
         ("Motion.Highlight", 2000),
         ("Motion.Shimmer", 1600),
         ("Motion.HoverIntent", 500),
+        ("Motion.Ring", 1000),
     ];
 
     private static readonly (string Key, double Pixels)[] Offsets =
@@ -93,6 +95,8 @@ public sealed class MotionUiTests
         // What the code reads by key: the time of a token, and nothing for a key that is not there.
         Assert.Equal(TimeSpan.FromMilliseconds(83), Motion.TimeOf(Motion.HoverKey));
         Assert.Equal(TimeSpan.FromMilliseconds(167), Motion.TimeOf(Motion.DisappearKey));
+        Assert.Equal(TimeSpan.FromMilliseconds(150), Motion.TimeOf(Motion.SwapKey));
+        Assert.Equal(TimeSpan.FromSeconds(1), Motion.TimeOf(Motion.RingKey));
         Assert.Null(Motion.TimeOf("Motion.NoSuchToken"));
         return Task.CompletedTask;
     });
@@ -542,6 +546,145 @@ public sealed class MotionUiTests
     });
 
     [Fact]
+    public Task Swap_CrossFadesOnlyWhileMotionIsOn_AndSetsTheFinalOpacityOtherwise() => WpfTestHost.RunAsync(() =>
+    {
+        // The two contents of a swap (design note 5.2, row 2): one shown, one hidden, both in the layout.
+        var going = new Border { Width = 40, Height = 20 };
+        var coming = new Border { Width = 40, Height = 20, Opacity = 0 };
+        var window = Show(going, coming);
+        try
+        {
+            Assert.False(Motion.IsEnabled);
+            Assert.False(Motion.GetSwap(coming));
+
+            // Motion off: the final values at once, no clock.
+            Motion.SetSwap(going, true);
+            Assert.Equal(1d, going.Opacity);
+            Motion.SetSwap(going, false);
+            Motion.SetSwap(coming, true);
+            Assert.Equal(0d, going.Opacity);
+            Assert.Equal(1d, coming.Opacity);
+            Assert.False(going.HasAnimatedProperties);
+            Assert.False(coming.HasAnimatedProperties);
+            Assert.False(Motion.IsRunning(going));
+            Assert.False(Motion.IsRunning(coming));
+
+            // The size of a content never changes with the swap, and input is never touched.
+            Assert.Equal(40d, going.ActualWidth);
+            Assert.Equal(40d, coming.ActualWidth);
+            Assert.True(going.IsHitTestVisible);
+            Assert.True(coming.IsEnabled);
+
+            using (MotionScope.On())
+            {
+                Motion.SetSwap(going, true);
+                Motion.SetSwap(coming, false);
+                Assert.True(going.HasAnimatedProperties, "the content that comes is not faded in");
+                Assert.True(coming.HasAnimatedProperties, "the content that goes is not faded out");
+                Assert.True(Motion.IsRunning(going));
+                Assert.True(Motion.IsRunning(coming));
+            }
+
+            // Motion is off again: the next swap takes the running fades off and sets the final values.
+            Motion.SetSwap(going, false);
+            Motion.SetSwap(coming, true);
+            Assert.False(going.HasAnimatedProperties);
+            Assert.False(coming.HasAnimatedProperties);
+            Assert.Equal(0d, going.Opacity);
+            Assert.Equal(1d, coming.Opacity);
+        }
+        finally
+        {
+            window.Close();
+        }
+
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task Play_PlaysAnEntranceOnce_WithoutFollowingTheElement() => WpfTestHost.RunAsync(async () =>
+    {
+        // What the status line does when its message changes (design note 5.2, row 3).
+        var content = new Border { Width = 40, Height = 20 };
+        var hidden = new Border { Width = 40, Height = 20, Visibility = Visibility.Collapsed };
+        var window = Show(content, hidden);
+        try
+        {
+            await UiTestSupport.WaitForIdleAsync(rounds: 2);
+
+            // Motion off: nothing happens, nothing is left on the element.
+            Motion.Play(content, MotionEntrance.Status);
+            AssertAtRest(content);
+            Motion.Play(content, MotionEntrance.None);
+            AssertAtRest(content);
+
+            using (MotionScope.On())
+            {
+                // Fades in and rises: opacity and a transform of the behaviour.
+                Motion.Play(content, MotionEntrance.Status);
+                Assert.True(Motion.IsRunning(content), "the entrance was not played");
+                Assert.True(content.HasAnimatedProperties, "the content is not faded in");
+                var rise = Assert.IsType<TranslateTransform>(content.RenderTransform);
+                Assert.True(rise.HasAnimatedProperties, "the content does not rise");
+                Assert.True(content.IsHitTestVisible);
+
+                // Played again: the running entrance is replaced.
+                Motion.Play(content, MotionEntrance.Status);
+                Assert.NotSame(rise, content.RenderTransform);
+                Assert.False(rise.HasAnimatedProperties);
+                Assert.True(Motion.IsRunning(content));
+
+                // "None" plays nothing and leaves the running entrance alone.
+                Motion.Play(content, MotionEntrance.None);
+                Assert.True(Motion.IsRunning(content));
+
+                // The element has no entrance of its own: hiding and showing it neither stops nor replays anything.
+                Assert.Equal(MotionEntrance.None, Motion.GetEntrance(content));
+                var playing = content.RenderTransform;
+                content.Visibility = Visibility.Collapsed;
+                content.Visibility = Visibility.Visible;
+                Assert.True(content.IsVisible);
+                Assert.Same(playing, content.RenderTransform);
+
+                // Nothing is started on an element that is not visible.
+                Motion.Play(hidden, MotionEntrance.Status);
+                AssertAtRest(hidden);
+            }
+
+            // Motion is off again: the next play takes what runs off the element.
+            Motion.Play(content, MotionEntrance.Status);
+            AssertAtRest(content);
+        }
+        finally
+        {
+            window.Close();
+        }
+    });
+
+    [Fact]
+    public Task Turn_IsProgressNotMotion_ItTurnsWithTheSwitchOff_AndStopsAtItsBaseAngle() => WpfTestHost.RunAsync(() =>
+    {
+        var rotation = new RotateTransform();
+        Assert.False(Motion.IsEnabled);
+
+        // Not behind the switch: a clock runs although motion is off.
+        Assert.True(Motion.Turn(rotation, on: true));
+        Assert.True(rotation.HasAnimatedProperties, "the ring does not turn");
+
+        // Asked again while it turns: still one clock.
+        Assert.True(Motion.Turn(rotation, on: true));
+        Assert.True(rotation.HasAnimatedProperties);
+
+        // Stopped: no clock, the base angle again.
+        Assert.False(Motion.Turn(rotation, on: false));
+        Assert.False(rotation.HasAnimatedProperties);
+        Assert.Equal(0d, rotation.Angle);
+        Assert.False(Motion.Turn(rotation, on: false));
+        Assert.False(rotation.HasAnimatedProperties);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
     public Task IconButton_HasAHoverLayer_AndStaysAButton() => WpfTestHost.RunAsync(async () =>
     {
         var plain = new Button { Content = "OK" };
@@ -885,22 +1028,5 @@ public sealed class MotionUiTests
         var window = new Window { Width = 320, Height = 240, Content = panel, WindowStyle = WindowStyle.ToolWindow };
         UiTestSupport.ShowOffScreen(window);
         return window;
-    }
-
-    /// <summary>
-    /// Switches the one switch of the behaviours on for a part of a test and off again whatever happens (the host
-    /// keeps motion off; a test that left it on would let every later test and screenshot see elements on their way).
-    /// </summary>
-    private sealed class MotionScope : IDisposable
-    {
-        private MotionScope() => Motion.IsEnabled = true;
-
-        public static MotionScope On()
-        {
-            Assert.False(Motion.IsEnabled, "motion must be off in the UI test host");
-            return new MotionScope();
-        }
-
-        public void Dispose() => Motion.IsEnabled = false;
     }
 }

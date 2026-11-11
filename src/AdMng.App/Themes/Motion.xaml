@@ -3,8 +3,9 @@
   after Tokens.xaml. No duration, offset or easing is written anywhere else: neither in another dictionary of Themes/
   nor in a view (XamlSourceTests keeps both rules).
 
-  Who reads them: the code of Behaviors/Motion.cs (attached properties Motion.Shown, Motion.Entrance, Motion.Leaving)
-  and Services/NotificationService.cs, by key, each time a motion starts. There is no Storyboard, animation element or
+  Who reads them: the code of Behaviors/Motion.cs (attached properties Motion.Shown, Motion.Swap, Motion.Entrance,
+  Motion.Leaving, and Motion.Play and Motion.Turn for the controls) and Services/NotificationService.cs, by key, each
+  time a motion starts. There is no Storyboard, animation element or
   visual state of ours in XAML: a storyboard inside a template is frozen and could not take a value that changes
   while the application runs, and with motion switched off (Services/MotionService.cs, the setting "Motion") the
   final values must be set directly, which code does in one place.
@@ -12,7 +13,8 @@
   Durations (Duration)     Motion.Hover 83 ms · Motion.Press 120 ms · Motion.Swap 150 ms · Motion.Fast 167 ms ·
                            Motion.Appear 250 ms · Motion.Disappear 167 ms · Motion.Entrance 200 ms ·
                            Motion.Expand 333 ms · Motion.Collapse 167 ms · Motion.Highlight 2 s · Motion.Shimmer 1.6 s ·
-                           Motion.HoverIntent 500 ms (a delay, not a movement)
+                           Motion.HoverIntent 500 ms (a delay, not a movement) · Motion.Ring 1 s (one turn of the
+                           progress ring: progress, not motion - it turns also when motion is switched off)
   Offsets (Double, px)     Motion.Offset.Page 24 · Motion.Offset.Panel 8 · Motion.Offset.Toast 16
   Easings                  Motion.Ease.Enter (cubic, ease out) · Motion.Ease.Exit (cubic, ease in) ·
                            Motion.Ease.Change (quadratic, ease in and out)
@@ -37,6 +39,7 @@
   <Duration x:Key="Motion.Highlight">0:0:2</Duration>
   <Duration x:Key="Motion.Shimmer">0:0:1.6</Duration>
   <Duration x:Key="Motion.HoverIntent">0:0:0.5</Duration>
+  <Duration x:Key="Motion.Ring">0:0:1</Duration>
 
   <!-- Offsets: how far an entering element travels to its place -->
   <sys:Double x:Key="Motion.Offset.Page">24</sys:Double>

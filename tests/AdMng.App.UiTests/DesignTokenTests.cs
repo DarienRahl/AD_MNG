@@ -230,6 +230,7 @@ public sealed class DesignTokenTests
         ("Ad.Size.ColumnHeader", 28d),
         ("Ad.Size.PointerTarget", 24d),
         ("Ad.Size.PanelGap", 8d),
+        ("Ad.Size.StatusLine", 28d),
         ("Ad.FontSize.Caption", 12d),
         ("Ad.FontSize.Compact", 12d),
         ("Ad.FontSize.Body", 14d),
