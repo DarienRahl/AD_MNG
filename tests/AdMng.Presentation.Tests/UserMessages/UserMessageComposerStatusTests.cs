@@ -841,8 +841,15 @@ public sealed class UserMessageComposerStatusTests
         var summary = composer.SummaryText;
         Assert.Equal(summary, composer.Status.Current.Message);
 
-        // This Watchdog takes no images: nothing is sent, and why - with the choices that help - is a note next to
-        // the Send button, true for as long as these messages and this transport are shown. The line keeps its summary.
+        // Something the line still says about an earlier attempt (no address for test messages) ...
+        await scenario.Harness.Settings.UpdateAsync(s => s.UserMessages.TestAddress = null, Ct);
+        composer.SelectedItem = Item(composer, "Jan Kowalski");
+        await composer.SendTestCommand.ExecuteAsync(null);
+        Assert.Equal(PageStatusKind.Attention, composer.Status.Current.Kind);
+
+        // ... is over with the next attempt. This Watchdog takes no images: nothing is sent, and why - with the
+        // choices that help - is a note next to the Send button, true for as long as these messages and this
+        // transport are shown. The line shows its summary.
         await composer.SendCommand.ExecuteAsync(null);
         Assert.True(composer.IsTransportFitVisible);
         Assert.StartsWith("AdMng Watchdog does not take images", composer.TransportFitText, StringComparison.Ordinal);

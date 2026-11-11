@@ -1138,6 +1138,13 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, 
     private async Task<IUserMessageTransport?> EnsureTransportAsync(string notStartedKey)
     {
         Error = null;
+
+        // A new attempt: what the line said about the one before (a password that was missing) is over.
+        if (Status.Operation is null)
+        {
+            Status.Clear();
+        }
+
         if (_transport is null || NeedsSmtpPassword)
         {
             await RefreshTransportAsync().ConfigureAwait(true);
