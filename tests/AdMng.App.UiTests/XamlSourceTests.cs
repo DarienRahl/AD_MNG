@@ -76,6 +76,7 @@ public sealed partial class XamlSourceTests
         "Views/ObjectListView.xaml",
         "Views/PropertiesWindow.xaml",
         "Views/RecycleBinWindow.xaml",
+        "Views/ResetPasswordWindow.xaml",
     ];
 
     [Fact]
