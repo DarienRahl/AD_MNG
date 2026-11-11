@@ -147,8 +147,10 @@ public sealed class StatusLinePilotTests
         Assert.Equal("Refresh", Assert.IsType<string>(action.Content));
         Assert.Same(document.RefreshCommand, action.Command);
         Assert.Equal(Visibility.Visible, close.Visibility);
+
+        // The result does not fit one line of the list: it wraps, and the rows moved down by as much as the line grew.
         view.UpdateLayout();
-        Assert.Equal(rowsTop, TopOf(view.ListControl, view));
+        Assert.Equal(rowsTop + GrowthOf(line), TopOf(view.ListControl, view), 0.5);
 
         // Closed, the line still says that the list is incomplete - as its summary.
         ControlHost.Press(close);
@@ -446,6 +448,17 @@ public sealed class StatusLinePilotTests
     /// <summary>What UI Automation calls the button right now.</summary>
     private static string NameOf(Button button) =>
         Assert.IsAssignableFrom<AutomationPeer>(UIElementAutomationPeer.CreatePeerForElement(button)).GetName();
+
+    /// <summary>
+    /// How much higher than one line the status line is right now: a result that does not fit one line wraps (to three
+    /// lines at most), and what lies under the line moves down by as much - by nothing when the result fits.
+    /// </summary>
+    private static double GrowthOf(StatusLine line)
+    {
+        var growth = line.ActualHeight - (double)Application.Current.FindResource("Ad.Size.StatusLine");
+        Assert.InRange(growth, -0.5, 40.5);
+        return growth;
+    }
 
     private static double TopOf(FrameworkElement element, UIElement relativeTo) =>
         element.TranslatePoint(new Point(0, 0), relativeTo).Y;
