@@ -63,6 +63,10 @@
   z listą obiektów są one w wierszu stanu listy. Połączenie, kontroler domeny, zabezpieczenia połączenia, działania,
   wersja i znaczek listy wirtualnej zostają na swoim miejscu; dla pozostałych kart (Watchdog, dzienniki zdarzeń,
   zasady grupy, certyfikaty, gotowość środowiska) pasek działa jak dotąd.
+- **Okno główne: kółko postępu zamiast pasków.** Szybkie wyszukiwanie pokazuje na czas szukania kółko w miejscu lupy
+  (dotąd: cienki pasek pod polem), a przycisk działań w pasku stanu – kółko obok liczby trwających operacji (dotąd:
+  pasek). Pasek postępu każdej operacji na liście operacji w tle został bez zmian. „Konto chronione (adminCount=1)”
+  w panelu szczegółów jest uwagą ze znakiem ostrzeżenia zamiast ramki.
 - **Okno *Znajdź* (Ctrl+F): jeden przycisk do szukania i przerywania.** Przycisk **Znajdź teraz** na czas
   wyszukiwania zamienia się w **Anuluj** z kółkiem postępu – wyszukiwanie przerywa się tam, gdzie się je zaczęło; po
   naciśnięciu pokazuje „Zatrzymywanie…”, dopóki wyszukiwanie się nie skończy. Osobnego przycisku *Zatrzymaj* już nie
@@ -124,15 +128,60 @@
   **Cofnij**. *Wykonaj* na czas wykonywania zamienia się w **Anuluj** – osobnego przycisku już nie ma. Dotąd: pasek
   i podsumowanie w stopce, ramka błędu i karta z wynikiem nad zakładkami. „Pokazano plan cofnięcia. Wykonaj go, aby
   odwrócić zmianę.” jest uwagą nad zakładkami, dopóki plan cofnięcia czeka na wykonanie.
-- **Okno główne: kółko postępu zamiast pasków.** Szybkie wyszukiwanie pokazuje na czas szukania kółko w miejscu lupy
-  (dotąd: cienki pasek pod polem), a przycisk działań w pasku stanu – kółko obok liczby trwających operacji (dotąd:
-  pasek). Pasek postępu każdej operacji na liście operacji w tle został bez zmian. „Konto chronione (adminCount=1)”
-  w panelu szczegółów jest uwagą ze znakiem ostrzeżenia zamiast ramki.
-- **Co się nie zmieniło:** pozostałe okna i karty mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski
-  postępu – przejdą na wiersz stanu w następnych wydaniach. Dotyczy to także kreatora zakładania wielu kont, który
-  jest pierwszym krokiem w oknie edytora zbiorczego. Animacja nowego komunikatu (krótkie wsunięcie) i zamiany
-  napisu na przycisku działa tylko przy włączonych animacjach (*Ustawienia → Ogólne → Wygląd → Animacje*); kółko
-  postępu obraca się zawsze.
+- **Kosz AD: wiersz stanu u góry okna.** Okno mówi w jednym wierszu, co robi i jak się to skończyło. Gdy widać listę,
+  jest tam jej podsumowanie („Obiektów: 12 · 0,21 s · stan na 14:35:02”, po zaznaczeniu wierszy także „Zaznaczono: 3”),
+  a w czasie odczytu: **Trwa** – „Wczytywanie usuniętych obiektów domeny contoso.test: na razie 1 500 obiektów…”
+  z poleceniem **Zatrzymaj**. Po zatrzymaniu: **Uwaga** – ile obiektów wczytano, z poleceniem **Odśwież**. Gdy listy
+  nie udało się wczytać (na przykład konto nie ma prawa do odczytu usuniętych obiektów): **Błąd** z przyczyną
+  i poleceniem **Ponów** – zostaje, dopóki lista nie zostanie wczytana. Po *Przywróć*: „Sprawdzanie obiektów do
+  przywrócenia (3)…”, w podglądzie – jego podsumowanie („Obiekty do przywrócenia: 3 z 4.”), a po potwierdzeniu:
+  „Wykonywanie „Przywracanie z Kosza AD (3)” w domenie contoso.test: 2 z 3…” i wynik z nazwą domeny. Gdy części
+  obiektów nie udało się przywrócić, wiersz podaje liczby, przyczyny (każdą raz) i to, że nieprzywrócone obiekty
+  pozostały na liście; które obiekty i dlaczego – widać w raporcie na liście operacji w tle (dotąd: osobne okno
+  komunikatu). Dotąd: ramka błędu i pasek postępu nad listą oraz pasek i teksty w stopce. Okno jest domyślnie o tyle
+  wyższe, ile zajmuje wiersz stanu.
+- **Kosz AD: odświeżanie i przywracanie przerywa się tym przyciskiem, którym się je zaczęło.** *Odśwież* – teraz
+  z napisem, nie sama ikona – na czas wczytywania listy zamienia się w **Anuluj**, a przycisk *Przywróć (3)*
+  w podglądzie – na czas przywracania; osobnego przycisku *Zatrzymaj* już nie ma. Sprawdzanie obiektów przed
+  podglądem zatrzymuje się poleceniem **Zatrzymaj** w wierszu stanu: niczego wtedy nie przywrócono, a **Ponów**
+  sprawdza to samo jeszcze raz. Informacja o tym, co można przywrócić w tym lesie (Kosz AD włączony albo tylko
+  obiekty tombstone), jest uwagą nad filtrami – ze znakiem informacji albo ostrzeżenia – zamiast karty z tłem.
+- **Przegląd kont: wiersz stanu u góry okna.** Sprawdzanie widać w wierszu niezależnie od tego, która karta jest
+  otwarta: **Trwa** – „Sprawdzanie kont w zakresie „contoso.test”: odczytano: 1 200, z uwagami: 56…”, a dla karty
+  *Uprawnienia* – „Sprawdzanie uprawnień kont w zakresie „…”: odczytano: 300, z uprawnieniami ponad użytkownika
+  domeny: 17…”; zakres jest nazwany tak, jak go wybrano (domena, jednostka organizacyjna, grupa albo zapisany widok).
+  W spoczynku wiersz pokazuje podsumowanie oglądanej karty („Stan na godz. 12:00 · odczytano kont: 1234 · kont
+  z uwagami: 56”, z liczbą zaznaczonych kont). Zatrzymane sprawdzanie: **Uwaga** – wyniki są niepełne, z poleceniem
+  **Sprawdź**; nieudane: **Błąd** z przyczyną i poleceniem **Ponów** – na tej karcie, której dotyczyło, dopóki nie
+  zostanie sprawdzona ponownie. Dotąd: dwie ramki błędu, ramka o zakończonej sesji, pasek w stopce, paski nad listami
+  i teksty w stopce. Okno jest domyślnie o tyle wyższe, ile zajmuje wiersz stanu.
+- **Przegląd kont: *Sprawdź* i *Dokładne ostatnie logowanie (wszystkie DC)* przerywa się tym samym przyciskiem.**
+  Każdy z nich na czas działania zamienia się w **Anuluj**; osobnego przycisku *Zatrzymaj* już nie ma. Wynik odczytu
+  dokładnego ostatniego logowania jest w wierszu stanu, a nie w powiadomieniu: „Dokładne ostatnie logowanie odczytano
+  na kontrolerach domeny: 3 z 3. Konta, które jednak są aktywne: 2.”; gdy któryś kontroler nie odpowiedział –
+  **Uwaga** z jego nazwą („Brak odpowiedzi: dc02.contoso.test.”). To, czego nie udało się odczytać ze źródeł
+  uprawnień (SYSVOL, pliki zasad grupy), jest uwagą nad listą karty *Uprawnienia* zamiast ramki.
+- **Porównanie obiektów między połączeniami: wiersz stanu u góry okna.** **Trwa** – „Porównywanie obiektu „Łukasz
+  Wiśniewski” z połączeniem fabrikam.test · FABRIKAM\anna.zielinska…”, potem „Odczytywanie członkostwa
+  zagnieżdżonego…” (a po zaznaczeniu *Pokaż członków zagnieżdżonych* – „Odczytywanie członków zagnieżdżonych…”),
+  każde z poleceniem **Zatrzymaj**. W spoczynku: z którym obiektem porównano („Znaleziono: CN=…”). Gdy karty są
+  puste, wiersz mówi dlaczego i zostaje tak do następnego porównania: „Znaleziono 2 obiekty – wybierz jeden.”
+  (kandydaci są na liście pod polem połączenia), „Nie znaleziono (sprawdzone reguły: …).” albo **Błąd** – „Nie udało
+  się porównać obiektu „…”: …” z poleceniem **Ponów**. Zatrzymane porównanie: **Uwaga** – karty mogą nie pokazywać
+  wszystkiego, z poleceniem **Porównaj**. Dotąd: ramki błędów u góry okna, pasek i tekst w stopce oraz pasek na
+  karcie *Członkostwo*. Okno jest domyślnie o tyle wyższe, ile zajmuje wiersz stanu.
+- **Porównanie obiektów: *Porównaj* przerywa porównanie.** Przycisk na czas porównywania zamienia się w **Anuluj** –
+  także wtedy, gdy porównanie zaczęło *Odśwież*, wybór kandydata albo samo okno po otwarciu (dotąd *Przerwij* działał
+  tylko po *Porównaj*); osobnego przycisku *Przerwij* już nie ma. Uwagi zostały przy tym, czego dotyczą, jako tekst
+  ze znakiem ostrzeżenia zamiast ramek: brak innego otwartego połączenia – pod polem połączenia, zamknięte albo
+  zmienione połączenie drugiej strony – na jej karcie, „To ten sam obiekt widziany przez dwa konta…” – nad kartami.
+  O zakończeniu sesji okna mówi wiersz stanu (dotąd: ramka u góry okna i druga na karcie strony A).
+- **Co się nie zmieniło:** pozostałe okna i karty – między innymi zasady grupy, Watchdog, dzienniki zdarzeń,
+  certyfikaty, przegląd komputerów, wiadomości do użytkowników i korespondencja – mają na razie dotychczasowe ramki
+  ostrzeżeń i błędów oraz paski postępu; przejdą na wiersz stanu w następnych wydaniach. Dotyczy to także kreatora
+  zakładania wielu kont, który jest pierwszym krokiem w oknie edytora zbiorczego. Animacja nowego komunikatu (krótkie
+  wsunięcie) i zamiany napisu na przycisku działa tylko przy włączonych animacjach (*Ustawienia → Ogólne → Wygląd →
+  Animacje*); kółko postępu obraca się zawsze.
 
 ## Inne zmiany
 

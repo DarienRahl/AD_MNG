@@ -483,8 +483,9 @@ the skeleton and UI tests can find the parts the same way everywhere.
 As built (V2a): `PageStatus` exists on two pages – the object list and the Find window – as a `c:StatusLine` over the
 `PageStatusHolder` of the page view model; a source test keeps the list of converted pages. The status bar of the main
 window no longer repeats the summary of a tab that has its own line. See *V2a as built* (section 8).
-As built (V2b-1): also on the property sheet, the batch editor and the change plan preview. The main window itself has
-none – it is the shell, not a page; its "busy" marks are progress rings (*V2b-1 as built*, section 8).
+As built (V2b-1): also on the property sheet, the batch editor, the change plan preview, the AD Recycle Bin, the
+account review and the comparison of objects. The main window itself has none – it is the shell, not a page; its
+"busy" marks are progress rings (*V2b-1 as built*, section 8).
 
 ### 6.2 Navigation – open question 2
 
@@ -1134,29 +1135,72 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
   list `PagesWithAStatusLine` has exactly one status line named `PageStatus` over `Status.Current`, no `Ad.ErrorBar`,
   no `Ad.WarningBar` and no `ProgressBar`, and a view with a status line must be on the list; the 81 views that are
   not converted yet are not touched by it.
-- **What V2b has to do** (counted in the XAML of this commit, comments excluded): 43 uses of `Ad.ErrorBar` and 58 of
-  `Ad.WarningBar` in 51 files, and 65 progress bars.
-  - By area (error bars + warning bars, progress bars): windows of `Views/` – property sheet 8 + 3 and 8, batch editor
-    2 + 4 and 5, compare objects 2 + 3 and 2, account review 2 + 2 and 3, user messages 2 + 2 and 3, logon hours 0 +
-    3, change domain controller, connect, new object, reset password, recycle bin, change plan preview, settings,
-    session log, the filter and saved view editors, the pickers and the main window (its toolbar search and activity
-    popup) – together 26 + 21 and 34; `GroupPolicy/` 7 + 17 and 8 in 15 files (with the shared
-    `GroupPolicyBanners.xaml`); `BulkCreate/` 3 + 5 and 2; `Views/Watchdog/` 2 + 4 and 7; `Computers/` 2 + 3 and 3;
-    `Pki/` 2 + 2 and 4; `EventLogs/` 0 + 3 and 3; `Correspondence/` 1 + 1 and 3; `Readiness/` 0 + 1 and 1;
-    `Controls/HtmlPreviewView.xaml` 0 + 1.
-  - Not every banner is a status: a warning that belongs to one field or one section (a validation text, a "this is
-    read only" note) stays where it is and gets the status colours; only what says what the page did moves to the
-    line. V2b has to sort the 101 uses into these two kinds first.
-  - Per page: give the view model a `PageStatusHolder`, put the summary into `SetIdle` (`StatusText` is mentioned 76
-    times in XAML), run the long operation in a scope, build its error with `PageStatusText.Failure`, replace banner
-    and progress bar by `PageStatus`, put the file on `PagesWithAStatusLine`, and turn a start button with a separate
-    stop or cancel button into an `ActionButton` (candidates: bulk check, computer review, remote computer, event log
-    reader and its two analyses, GPO search, cleanup and diagnostics, PKI security review, readiness, account review,
-    recycle bin, compare objects, the tests of the filter and saved view editors, the sending of correspondence and
-    user messages, Watchdog delivery test, connect). Document tabs then drop out of `StatusBarText` one by one.
-  - Still open in the controls: an accent variant of the action button for the primary action of a dialog; the status
-    line of a page that has several operations at once (the batch editor); whether "Working" should wait about 150 ms
-    before it is shown, so that a load that ends at once does not flash; the status pictures at 16 px for pills.
+- **What V2b has to do** (rewritten at the end of V2b-1; counted in the XAML, comments excluded). At the end of V2a
+  there were 43 uses of `Ad.ErrorBar` and 58 of `Ad.WarningBar` in 51 files, and 65 progress bars. V2b-1 – seven core
+  windows, *V2b-1 as built* below – took 16 + 13 of the banners and 23 of the progress bars away. **Left: 27 uses of
+  `Ad.ErrorBar` and 45 of `Ad.WarningBar` in 44 files, and 42 progress bars in 36 files** – 53 view files with at least
+  one of the three, 8 views with a status line.
+  - By area (error bars + warning bars, progress bars): the remaining windows of `Views/` – user messages 2 + 2 and 3,
+    change domain controller 1 + 1 and 2, new object 1 + 1 and 1, logon hours 0 + 3, settings 1 + 1, connect 1 + 0 and
+    1, reset password 1 + 0 and 1, the filter editor, the saved view editor and the session log 1 + 0 each, the
+    container picker and the object picker 0 + 0 and 1 each, and the row of an activity in the main window (0 + 0 and 1,
+    which stays) – together 10 + 8 and 11 in 13 files; `GroupPolicy/` 7 + 17 and 8 in 15 files (with the shared
+    `GroupPolicyBanners.xaml`); `BulkCreate/` 3 + 5 and 2 in 4 files; `Views/Watchdog/` 2 + 4 and 7 in 9 files;
+    `Computers/` 2 + 3 and 3 in 2 files; `Pki/` 2 + 2 and 4 in 4 files; `EventLogs/` 0 + 3 and 3 in 3 files;
+    `Correspondence/` 1 + 1 and 3 in 1 file; `Readiness/` 0 + 1 and 1; `Controls/HtmlPreviewView.xaml` 0 + 1.
+  - Sort first (foundation 1 of *V2b-1 as built*): status goes to the line, a note stays where it is with the look of a
+    note (`Ad.Note.Info`, `Ad.Note.Attention`, `Ad.Note.Error`), the progress of a row stays in its row. Of the 29
+    banners V2b-1 sorted, 18 were status and 11 notes: all 16 error bars were status, 11 of the 13 warning bars were
+    notes. So most of the 45 warning bars that are left will stay in their places as notes, and the 27 error bars will
+    go to the line. What never was a banner is sorted the same way: a count or "as of" text is the summary (`StatusText`
+    is still mentioned 51 times in the XAML of 27 views), a result card, a toast or a dialog that says what the window
+    just did is status.
+  - Per page, the recipe is the foundations of *V2b-1 as built*: a `PageStatusHolder` per view model – and per tab or
+    part that says something of its own, with the one shown in front –, the summary in `SetIdle`, every long operation
+    in a scope with its token, a state that lasts in `SetLasting` (first of all `SessionEndedStatus`), errors built with
+    `PageStatusText.Failure`, an execution through `ExecutionStatus`; in the view one `c:StatusLine` named `PageStatus`,
+    the file on `PagesWithAStatusLine`, and a start button with a separate stop or cancel button as one
+    `c:ActionButton`. Candidates for the action button that are left: bulk check, computer review, remote computer, the
+    event log reader and its two analyses, GPO search, cleanup and diagnostics, the PKI security review, readiness, the
+    tests of the filter and saved view editors, the sending of correspondence and of user messages, the Watchdog
+    delivery test, connect.
+  - Document tabs drop out of `StatusBarText` as they are converted (Watchdog, event logs, Group Policy, PKI, readiness
+    – V2b-1 had no document tab). The wizard of bulk creation (`BulkCreate/`) is hosted in step 1 of the batch editor:
+    its holder becomes `SourceStatus` of the create mode. With the last converted view `Ad.ErrorBar` and `Ad.WarningBar`
+    leave `Themes/Controls.xaml`, and with them the strings and view-model members that lost their last user (listed
+    under *After V2b-1*).
+  - Settled in V2b-1, of what was open in the controls after V2a: the accent variant of the action button
+    (`Ad.AccentActionButton`, and `Ad.DialogActionButton` / `Ad.AccentDialogActionButton` with the metrics of the dialog
+    buttons); the status line of a page with several operations (a state that lasts, several holders with the page in
+    front, operations one after another on one holder – foundations 2 to 4, without a hub); how far an operation over
+    many objects is ("12 of 300" and the part done in the ring – foundation 6, nothing new in the control); the look of
+    what stays in its place (the notes); the execution of a plan as an operation (foundation 9); "busy" where there is
+    no sentence to say (a `ProgressRing` in the place, as in the main window).
+  - Still open – in the controls and the model:
+    - *Long messages* – settled within V2b-1 by the owner's decision: a result ("done", "attention", "error") that
+      does not fit the line wraps to three lines at most; the summary and a running operation stay one line and are
+      cut with an ellipsis (the whole text is the tool tip and what a screen reader hears). See "*A result that does
+      not fit the line wraps*" in the block "V2b-1 as built".
+    - *A delay before "Working"* (about 150 ms), so that an operation that ends at once does not flash – more visible
+      now: the read of nested membership after every comparison, the reads of the tabs of the property sheet.
+    - *The rest of the V2 scope:* the status pictures at 16 px for pills, `StatusPill`, `EmptyState`, `Skeleton`,
+      taskbar progress and the close question tied to running activities are not started.
+    - *A mark in the tab header* of a page that reads or failed (6.7): a failed tab says so only when it is selected.
+    - *The same message on two pages:* switching between two tabs that say a message of the same key changes the text
+      without the entrance motion and without a live region event (the control compares kind and key).
+    - *Reports are not coalesced:* an operation that reports per object (planning thousands of objects) updates the line
+      as often.
+    - *Notes:* whether a note may choose its glyph (the shield of the protected account became the warning glyph).
+    - *Stop for a write:* Apply of the property sheet cannot be stopped from the line (its execution is an activity).
+    - *Said twice:* the toast of the main window after an execution or a restore repeats what the line of the window
+      that ran it says.
+    - *Tab order:* in the dialog-like windows the status line is declared after the footer (as in the Find pilot), so
+      its link and close button follow the footer buttons – to be put right with the page skeleton of V3 (section 7).
+    - *Language:* the property sheet computes its lasting state from its conditions and says it again after a language
+      switch; in the other converted windows a failure that lasts keeps the language it was said in, and only "the
+      session of this window ended" follows the switch at once.
+    - *Tests:* summaries show the time of day, so README pictures of converted windows differ with every screenshot run
+      – a fixed clock for the UI tests would end that.
 - **Not seen, to confirm on Windows:** nothing of this was seen on a screen. Open: the look of the line on the status
   backgrounds in light and dark and in High Contrast; whether the info picture next to the summary is too loud in a
   dense window; the ring at 14 px in a button and at 16 px in the line (stroke 1.75 and 2 px); the cross-fade of the
@@ -1167,7 +1211,10 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
 **V2b-1 as built (the core windows).** The second increment of V2 is the sweep over the views that still had banners;
 V2b-1 covers seven core windows in three units. Unit 1 built what the sweep needs beyond V2a and converted the property
 sheet; unit 2 added the execution of a change plan as an operation (foundation 9) and converted the batch editor, the
-change plan preview and the main window; unit 3 adds its windows to this block.
+change plan preview and the main window; unit 3 converted the AD Recycle Bin, the account review and the comparison of
+objects. The block reads in this order: the foundations every later unit follows, the seven windows, the tests, what
+is left, and what nobody has seen on a screen yet. What the sweep still has to do is counted in *What V2b has to do*
+above.
 
 - **Foundations** (what every later unit follows).
   1. *Sort first.* Every `Ad.ErrorBar`, `Ad.WarningBar` and `ProgressBar` of a view is one of three things. **Status** –
@@ -1211,8 +1258,11 @@ change plan preview and the main window; unit 3 adds its windows to this block.
      view models, and nothing was added to `ConnectionLifetimes.cs`.
   4. *Operations that must not replace one another.* `Begin` on a holder replaces the operation that runs there. Two
      operations that can overlap therefore live in two holders (the window and a page; a page and a part of it), or
-     the second is refused by its command while the first runs. An operation that *contains* a step that is an
-     operation elsewhere does not begin a second scope for it: the read after Apply belongs to "Saving…"
+     the second is refused by its command while the first runs, or - when the second only *follows* the first - it
+     waits for it and takes the line then (the reads of nested membership in the comparison window; unit 3). What
+     decides between two holders and one: do the two things belong to two places the operator can look at (a list and
+     what is done with its selection, two tabs)? Then each place says its own. An operation that *contains* a step
+     that is an operation elsewhere does not begin a second scope for it: the read after Apply belongs to "Saving…"
      (`PropertySheetViewModel._saving`). A "latest wins" token that other code cancels (a `SerialCancellation`) is
      linked with the token of the scope, so both the newer request and the operator's Stop end the work.
   5. *The shape of an operation.* `using var scope = Status.Begin(text, new PageStatusLog(key));` and the token from
@@ -1341,13 +1391,6 @@ change plan preview and the main window; unit 3 adds its windows to this block.
     the action button and the status line of a window with several sources – are closed by the foundations above;
     "Working" still appears without a delay, and the status pictures at 16 px are still not drawn (the notes use the
     glyphs of the icon font).
-  - *Tests.* Presentation: `Feedback/PageStatusSourcesTests` (the lasting state, the page in front, "12 of 300"),
-    `Dialogs/PropertySheetStatusTests` (summary in both languages, read with stop, failed read, gone and deleted, out
-    of date, Apply done / refused / failed, a tab that failed, the nested list with cancel and failure, a tab that
-    reads when shown or with the sheet, the account check, the session that ended, closing the sheet), and the status
-    of the certificate tabs and of the computer's page in their test classes. UI: `NoteUiTests`, the accent and dialog variants in
-    `ActionButtonUiTests`, the line of a window with a page in front in `StatusLineUiTests`,
-    `PropertySheetStatusUiTests` (six tests through the real window), the note in `CertificateTabsUiTests`.
   - *A result that does not fit the line wraps* (owner's decision of 2026-11-11, after the sheet showed the
     problem: in a 640 px wide window an error with its reason and advice was cut with an ellipsis, and failures that
     used to be a dialog with the whole text became one cut line). "Done", "attention" and "error" wrap to three lines
@@ -1362,10 +1405,6 @@ change plan preview and the main window; unit 3 adds its windows to this block.
     `StatusLineUiTests.TheSummaryAndARunningOperation_AreOneLineOfAFixedHeight_AndWhatLiesUnderThemNeverMoves` and
     `AResultThatDoesNotFitTheLine_WrapsToThreeLinesAtMost_AndTheLineGrowsWithIt`; the window tests assert after a
     result that the content moved by as much as the line grew (`GrowthOf`), and after "working" that it did not move.
-  - *Not seen, to confirm on Windows.* How a wrapped result looks in the 640 px wide sheet (two or three lines on the
-    caution or critical surface, picture and buttons in the first line). The note next to the old validation texts (glyph and
-    plain text against text in the critical colour). The width of the nested list's button ("Odśwież" grows to the
-    width of "Zatrzymywanie…"). The time of day in the summary, which is now in the two README pictures of the sheet.
 - **The batch editor and the CSV import** (`Views/BatchEditorWindow.xaml`; `BatchEditing/BatchEditorViewModel`,
   `CsvImportViewModel`).
   - *What the line says.* It sits under the step strip, 8 px in from the window edge, and follows the step shown.
@@ -1477,31 +1516,255 @@ change plan preview and the main window; unit 3 adds its windows to this block.
   `StatusBarSelectionText` are empty for a tab that is `IHasPageStatus` (`ObjectListStatusTests`,
   `StatusLinePilotTests`) – and nothing of this unit added a document to it: the batch editor and the plan preview are
   windows, not tabs.
-- **Tests of unit 2.** Presentation: `Changes/ExecutionStatusTests` (working from the first moment, the progress of
-  one and of several activities, Stop in both directions and before the activity is known, an operation that merely
-  ends, a plan that could not be executed, a window without a domain); `Dialogs/BatchEditorStatusTests` (the summary of
-  the objects in both languages, the read with Stop / failure / Retry, checking with the part done in both languages,
-  the overlap of read and check, Stop and the command's cancel, a failed check, executing with the part done and the
-  result with the domain in both languages, Stop of an execution and cancel from the list of background operations,
-  executed in part and not at all, Undo, Back, the session that ended – also during a check –, closing the window
-  during an execution, the CSV file, the log copies without a title, name or server text);
-  `GroupPolicy/ChangePlanPreviewStatusTests` (summary in both languages, execute and undo, a failed execution with
-  Undo as the action, Stop, a refused confirmation, the session that ended). `BatchEditorTests` and
-  `ChangePlanPreviewTests` are unchanged. UI (Windows CI): `BatchEditorStatusUiTests` (six tests),
-  `ChangePlanPreviewStatusUiTests` (four), `MainWindowFeedbackUiTests` (three); `BatchEditorWindowTests` reads the two
-  summaries from the line instead of the text blocks that are gone. A write the test holds in
-  `FakeDirectorySession.BeforeOperation` and releases makes "1 of 2" and "Stopping…" states that last.
-- **After unit 2** (counted in the XAML, comments excluded): 32 uses of `Ad.ErrorBar` and 50 of `Ad.WarningBar` in 47
-  files, and 49 progress bars (one of them the row of an activity, which stays).
-- **Not seen, to confirm on Windows (unit 2).** The line of the batch editor between the step strip and the content
-  (an empty line at rest in the CSV mode before a file was chosen, and in step 1 of the create mode). The footer of
-  both windows without the texts on its left; the width of *Podgląd* / *Wykonaj* as action buttons (they are as wide
-  as "Zatrzymywanie…"). The card of the executing step without its bars. The three notes next to the content they
-  belong to, and the note in the narrow details pane (the shield is gone). The 14 px rings in the search box (in the
-  secondary text colour, at the place of the magnifier) and in the status bar. A long result of an execution in the
-  line ("…was executed only in part in contoso.test: 3 objects changed, failed: 2. The reasons are in the list of
-  results. Press “Retry failed”…") is cut with an ellipsis sooner than the reads of unit 1 – the whole text is the
-  tool tip and what a screen reader hears; the question of a second line is the one unit 1 left open.
+- **The AD Recycle Bin** (`Views/RecycleBinWindow.xaml`; `Dialogs/RecycleBinViewModel`).
+  - *What the line says.* It sits at the top of the window, 8 px in from its edge, above the note about the forest, the
+    filters and the list. **While the list is shown** it is the line of the list: at rest "12 objects · 0.21 s · as of
+    14:35:02", with " · 3 selected" once rows are selected; "Reading the deleted objects of contoso.test…", then "…:
+    1,500 objects so far…" (one report per batch), with Stop; a read the operator stopped – attention "Reading the
+    deleted objects was stopped before all results arrived: 150 objects loaded. Press Refresh to read the whole list."
+    with Refresh; a read that failed – error with the reason, "Press Retry to try again.", the code and Retry, for as
+    long as the list is empty because of it. **What the window does with the selection:** "Checking the objects to
+    restore (3)…" with Stop; stopped – attention "Checking the objects to restore was stopped: nothing was restored.
+    Press Retry to try again."; failed – error with the reason and the code; both with Retry, which checks the same
+    restore, to the same place, again. **While the restore preview is shown:** its summary ("3 of 4 objects will be
+    restored."). **The restore** is the execution of a plan (foundation 9), with Stop, and its result names the domain:
+    done; attention with the reasons of the failures (each said once, three at most) and "What was not restored is still
+    in the list."; error when nothing was restored. As the state that lasts: the session of the window ended, or the
+    window was opened without one.
+  - *How the old places were sorted* (1 error bar, 2 progress bars, and the texts and the dialog that said the same).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `Error` over the list (could not be read, no right to list the deleted objects, not connected) | status | lasting error of the list with Retry; "not connected" and "the session ended" are the lasting error of the window |
+    | 3 px progress bar over the list (`IsLoading`); the *Stop* icon button next to *Refresh* | status | the read in the line, with the objects so far; *Refresh* is an action button and the Cancel of the read |
+    | progress bar in the footer (`IsBusy`: checking or restoring) | status | the check and the restore in the line; the button that restores is an action button |
+    | footer texts: "12 objects · …", "3 selected", the summary of the preview | summary | `SetIdle` of the list and, in the preview, of the window; gone from the footer |
+    | error dialog after a check or a restore that failed | status | error (or attention) in the line; a restore whose window was closed meanwhile still reports with a toast or the dialog |
+    | banner "The AD Recycle Bin is enabled…" / "…is not enabled in this forest…" (a card of its own style, caution background without the Recycle Bin; "not connected" in the same place) | note | `Ad.Note.Info` with the Recycle Bin, `Ad.Note.Attention` without it: what can be restored here – a fact about the forest, shown while the window is connected |
+    | "1 object cannot be restored – see the findings" over the preview, the findings of its rows | note | unchanged |
+
+  - *Decisions.*
+    - **Two holders: the list and the window.** The list is read while a restore is being checked or executed (objects
+      deleted elsewhere arrive, the restore reads the list again), so the read (`ListStatus`) and what is done with the
+      selection (`Status`) cannot share an operation. The list is in front while it is shown (`OnIsPreviewingChanged`);
+      in the preview the window says its own summary.
+    - **A failed read is the state of the list, a stopped one a result.** The empty list has no other explanation than
+      the error, which lasts until the list is read again; what a stopped read left is there to see, and its message can
+      be closed. Only a read the operator stopped says so: a newer read ("the latest wins": another filter, F5, objects
+      deleted elsewhere) and the end of the session cancel without a word.
+    - **Refresh is the Cancel of the read, whoever started it** – the window when it opens, a filter, the reload after a
+      restore: `IsRunning` is `ListStatus.IsWorking`. Refresh was an icon button; as an action button it has its glyph
+      *and* its text, because "Cancel" and "Stopping…" need the room anyway.
+    - **The read after a restore belongs to the restore.** The line keeps saying "Executing…" while the list is read
+      again and says how the restore ended when the list is there – "what was not restored is still in the list" is true
+      when it is said.
+    - **A result leaves with the operator's next step.** Refresh, another filter and Back close what the window said
+      about its last check or restore (6.7: a result stays until the next operation or until it is closed); a reload the
+      window starts by itself leaves it.
+    - **A failed restore is said in the line, not in a dialog.** The dialog listed every failed object with its reason;
+      the line says the numbers, the distinct reasons and where the objects are – which object failed why is in the
+      report of the operation, in the list of background operations. A restore without failures is still a toast as
+      well: of the main window, for which it finished elsewhere (6.7).
+    - `Error`, `StatusText`, `SelectionText`, `PreviewSummary`, `BannerText`, `IsLoading`, `IsBusy`, `IsPlanning` and
+      `StopCommand` are unchanged for the tests and the code that read them. The window is 36 px higher by default (660
+      to 696).
+- **The account review** (`Views/AccountReviewWindow.xaml`; `AccountReview/AccountReviewViewModel`,
+  `PrivilegedAccessViewModel`).
+  - *What the line says.* It sits at the top of the window, above the scope. **The check** – *Check* runs the one of the
+    tab shown – is the operation of the window and is said on both tabs: "Checking the accounts in the scope
+    “contoso.test”…", then "…: read: 1,200, with findings: 56…"; for the *Privileges* tab "Checking the privileges of
+    the accounts in the scope “…”…", "…: read: 300, with rights beyond a domain user: 17…" and, as its last step, "…:
+    comparing with similar accounts…"; with Stop. The scope is named as the operator chose it: the domain, the path of
+    the organizational unit or of the group, the name of the saved view. **How a check ended is said by the tab it was
+    for**, while that tab is shown: at rest its summary ("As of 12:00 · 1,234 accounts read · 56 accounts with
+    findings", with " · 3 selected"); stopped – attention "Checking the accounts was stopped: the results are incomplete
+    (read: 400). Press “Check” to check again." with *Check*; failed – error with the reason, the code and Retry, for as
+    long as the tab shows what that check left. **The exact last logon** (*Account state* tab): "Reading the exact last
+    logon of the accounts (12) on all domain controllers…" with Stop; done "The exact last logon was read on 3 of 3
+    domain controllers. Accounts that are active after all: 2."; attention when a controller did not answer ("… No
+    answer from: dc02.contoso.test."); stopped – attention "…: the list was not changed." with the button's own text as
+    the action; failed – error with Retry. As the state that lasts: the session of the window ended.
+  - *How the old places were sorted* (2 error bars, 2 warning bars, 3 progress bars, and the texts, the toast and the
+    dialog that said the same).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `Error` under the scope (a check that failed) and the same text in an error bar on the *Privileges* tab | status | lasting error of the tab the check was for, with Retry |
+    | warning bar `SessionEndedMessage` | status | lasting error of the window |
+    | progress bar in the footer (`IsBusy`); the 3 px bars over the two lists (`IsRunning`) | status | the check in the line, with the accounts read so far |
+    | the *Stop* button next to *Check* | – | gone: *Check* is an action button, and so is *Exact last logon (all DCs)* |
+    | footer texts: "As of …" / "Checking (as of …)…" of the tab shown, the selection | summary | `SetIdle` of each tab; gone from the footer |
+    | toast (done, or a warning with the controllers that did not answer) and error dialog after *Exact last logon* | status | done / attention / error of the *Account state* tab |
+    | warning bar `NoticeText` on the *Privileges* tab (what a grant source could not read: SYSVOL, GPO files, unknown names) | note | `Ad.Note.Attention` above the list: how complete the results below are, true for as long as they are shown |
+    | the hints "not checked yet" and "no accounts", the validation of the parameters | note | unchanged |
+
+  - *Decisions.*
+    - **Three holders: the window and its two tabs.** A check runs one at a time and belongs to the window – *Check* is
+      one button for both tabs, and the operator may look at the other tab while it runs – so it is the window's
+      operation and is said whichever tab is shown. What a check left belongs to its tab: `AccountsStatus` and
+      `Privileges.Status` hold the summary and the outcome, and the tab shown is in front (`OnSelectedTabIndexChanged`).
+      A tab whose check failed says so when it is selected, not on the other tab.
+    - **The *Privileges* tab reports through the window's operation.** Its view model does the work but does not own the
+      operation: the window hands it the running scope (`PrivilegedAccessCheck`: the operation, the name of the scope,
+      the command that checks again), the tab reports its counts through it and says itself how the check ended. One
+      operation for one piece of work (foundation 4). A scope that cannot be resolved leaves that tab as it was – an
+      error that can be closed – and is said with its own reason, without a code.
+    - **The exact last logon is an operation of its tab** (`AccountsStatus`), with the button that started it as its
+      Cancel; a check started meanwhile replaces it without a word. Its result is said in the line and no longer in a
+      toast or a dialog – it is what this window just did (6.7). The domain controllers that did not answer are named on
+      screen (their number is in the log copy); the reason of each, which the toast listed, is not said any more.
+    - **Only a check the operator stopped says so**; a newer check and the end of the session cancel without a word.
+    - `Error`, `StatusText`, `FooterText`, `SelectionText`, `IsBusy`, `IsRunning`, `IsReadingDomainControllers`,
+      `StopCommand` and the tab's `Error` / `StatusText` are unchanged for the tests and the code that read them. The
+      window is 36 px higher by default (840 to 876).
+- **The comparison of objects** (`Views/CompareObjectsWindow.xaml`; `Comparison/ObjectComparisonViewModel`).
+  - *What the line says.* It sits at the top of the window, above the connection box. **Working:** "Comparing “Łukasz
+    Wiśniewski” with the connection fabrikam.test · FABRIKAM\anna.zielinska…" with Stop – whoever started the comparison
+    (the window when it opens with the only other connection chosen, *Compare*, *Refresh*, a chosen candidate); then, as
+    operations of their own that follow it, "Reading nested membership…" and – when asked for – "Reading nested
+    members…", with Stop. **At rest:** the object of the other connection the tabs show a comparison with ("Found:
+    CN=Łukasz Wiśniewski,OU=IT,…"); before the first comparison, with several other connections open, "Choose the other
+    connection". **Stopped:** attention "Comparing “…” was stopped: the tabs may not show everything. Press “Compare” to
+    compare again." with *Compare*; a stopped read of nested membership – "…: only direct membership is compared. Press
+    “Refresh” to read everything again." with *Refresh*. **A nested read that failed:** error "Could not read nested
+    membership: reason. Only direct membership is compared. (code)" with Retry – a result that can be closed, the tab
+    keeps what it has. **States that last**, the most important first: the session of the window ended; the last
+    comparison could not be read – error "Could not compare “…”: reason. Press Retry to try again. (code)" with Retry;
+    the last comparison shows no pair of objects, and why – attention: "Found 2 objects – choose one." (the candidates
+    are listed under the connection box), "Not found (rules tried: …).", "More than 50 – narrow the search.", "The
+    object no longer exists in contoso.test." and the like. The last two go with the next comparison.
+  - *How the old places were sorted* (2 error bars, 3 warning bars, 2 progress bars, and the text of the footer).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `SessionEndedMessage` at the top | status | lasting error of the window |
+    | the same sentence as a warning bar in the card of side A | status | gone: said once, by the line (side A is still marked as ended) |
+    | error bar `ErrorText` (a comparison that failed) | status | lasting error of the window with Retry |
+    | progress bar and `StatusText` in the footer ("Reading…", "Found: …", "Not found…", "Stopped") | status, summary | the comparison in the line; how matching ended as the summary or as a lasting attention |
+    | progress bar and "Reading nested membership…" on the *Membership* tab | status | an operation of the window, with Stop |
+    | the error of a nested read, added to the footnotes under its tab | status | error in the line, with Retry |
+    | the *Stop* button next to *Compare* | – | gone: *Compare* is an action button |
+    | warning bar in the card of side B ("The connection … was closed – its results stay visible.", "… changed its session … – Refresh") | note | `Ad.Note.Attention` in the card: about what that card and its column show, for as long as they show it |
+    | warning bar "No other connection is open. Open a second connection (Ctrl+Shift+N) to compare." | note | `Ad.Note.Attention` under the connection box: why the box is empty and *Compare* cannot be pressed |
+    | warning bar "This is the same object seen by two accounts – differences come from read permissions." | note | `Ad.Note.Attention` above the tabs: how to read the differences below |
+    | the footnotes under the membership tabs (truncated lists, members that were skipped) | note | unchanged |
+
+  - *Decisions.*
+    - **One holder, operations one after another.** The window has tabs but no page view models, and what runs after a
+      comparison – nested membership, nested members – fills tabs of the same result. So there is one holder: the
+      comparison, then the nested reads, each begin on it; the read of nested members waits for the read of nested
+      membership (`WhenOverAsync`); a new comparison replaces whatever runs. The line says what the window is still
+      reading whichever tab is shown, and the count in a tab header follows when its read is through. Ticking *Show
+      nested members* while a comparison runs starts nothing: the comparison starts that read itself when it is through.
+      (It used to start at once, from members that were not read yet; as a second operation it would also have taken the
+      line, and with the line the token, from the comparison.)
+    - **Every comparison can be stopped, and *Compare* is its Cancel.** The old *Stop* was the cancel of the *Compare*
+      command only: for a comparison started by *Refresh*, by a chosen candidate or by the window itself it was shown
+      disabled. The action button is running while `IsRunning` and cancels through the holder (`Status.CancelCommand`),
+      so it stops the comparison whoever started it. The nested reads are not its operation: they are stopped in the
+      line, `IsRunning` is false then and *Compare* can be pressed – it replaces them. The cancel of the command
+      (`CompareCancelCommand`) is the same Stop.
+    - **Why the tabs are empty is a state, not a result.** "Not found", "choose one", "could not compare" explain what
+      the window shows until something else is compared; as results they could be closed, and the empty tabs would stand
+      without a reason. They are kept as two statuses (`_failure`, `_outcome`) behind the end of the session
+      (`UpdateLasting`). "Choose one" goes with its candidates: choosing another connection, or the other connection
+      changing its session, clears both (the sentence used to stay in the footer).
+    - **The summary is what the tabs show** (the object of side B that was read), not what was matched last: after a
+      comparison that was stopped or failed, with the results of the one before still on screen, "Found: …" behind the
+      message is still true.
+    - **The end of the session ends "running".** A comparison that is cancelled by the end of the session is no longer
+      the current run and never reset `IsRunning` (the bar in the footer stayed); `OnSessionEnded` resets it now –
+      *Compare* would otherwise stay the Cancel of nothing.
+    - **The other side is a note, this side is the line.** That the session of *this* window ended is its state: nothing
+      can be compared any more. That the *other* connection was closed or changed its session is about one of the two
+      columns – the results stay, *Refresh* or another connection goes on – and stays in the card of that side.
+    - **A state is said in the language of the moment.** After a language switch the end of the session is said in the
+      new language (in all three windows of this unit); why a read or a comparison failed stays as it was said until it
+      is read or compared again, as the texts of the view models did before.
+    - `StatusText`, `ErrorText`, `IsRunning`, `IsNestedLoading`, `SessionEndedMessage` and `CompareCancelCommand` are
+      unchanged for the tests and the code that read them (`StatusText` is still the accessible name of the list of
+      candidates). The window is 36 px higher by default (780 to 816).
+- **Tests.** Presentation tests run on Linux and are the bulk; the UI tests run on Windows CI only and were written
+  without a screen – one file per window, through the real window over the fake directory, asserting only states that
+  last until the test changes them (a call the test holds in `FakeDirectorySession.BeforeOperation` and releases makes
+  "1 of 2", "8 objects so far" and "Stopping…" such states).
+  - *Foundations and the property sheet (unit 1).* Presentation: `Feedback/PageStatusSourcesTests` (the lasting state,
+    the page in front, "12 of 300"), `Dialogs/PropertySheetStatusTests` (summary in both languages, read with stop,
+    failed read, gone and deleted, out of date, Apply done / refused / failed, a tab that failed, the nested list with
+    cancel and failure, a tab that reads when shown or with the sheet, the account check, the session that ended,
+    closing the sheet), and the status of the certificate tabs and of the computer's page in their test classes. UI:
+    `NoteUiTests`, the accent and dialog variants in `ActionButtonUiTests`, the line of a window with a page in front in
+    `StatusLineUiTests`, `PropertySheetStatusUiTests` (six tests through the real window), the note in
+    `CertificateTabsUiTests`.
+  - *The batch editor, the change plan preview, the main window (unit 2).* Presentation: `Changes/ExecutionStatusTests`
+    (working from the first moment, the progress of one and of several activities, Stop in both directions and before
+    the activity is known, an operation that merely ends, a plan that could not be executed, a window without a domain);
+    `Dialogs/BatchEditorStatusTests` (the summary of the objects in both languages, the read with Stop / failure /
+    Retry, checking with the part done in both languages, the overlap of read and check, Stop and the command's cancel,
+    a failed check, executing with the part done and the result with the domain in both languages, Stop of an execution
+    and cancel from the list of background operations, executed in part and not at all, Undo, Back, the session that
+    ended – also during a check –, closing the window during an execution, the CSV file, the log copies without a title,
+    name or server text); `GroupPolicy/ChangePlanPreviewStatusTests` (summary in both languages, execute and undo, a
+    failed execution with Undo as the action, Stop, a refused confirmation, the session that ended). `BatchEditorTests`
+    and `ChangePlanPreviewTests` are unchanged. UI (Windows CI): `BatchEditorStatusUiTests` (six tests),
+    `ChangePlanPreviewStatusUiTests` (four), `MainWindowFeedbackUiTests` (three); `BatchEditorWindowTests` reads the two
+    summaries from the line instead of the text blocks that are gone.
+  - *The Recycle Bin, the account review, the comparison (unit 3).* Presentation: `Dialogs/RecycleBinStatusTests` (16:
+    the summary with the selection in both languages, the read with the objects so far and Stop, a newer read that
+    replaces the running one, a failed read and "no right to list", a window without a session and the end of the
+    session, checking a restore with Stop and failure, the list read while a restore is checked, the restore with the
+    domain, in part and stopped, closing the window, the log copies); `AccountReview/AccountReviewStatusTests` (13: the
+    summary of the tab shown in both languages, the check with its counts and the name of a saved scope, Stop, a failed
+    check as the state of its tab, a scope that cannot be resolved, the check of the *Privileges* tab, "said on both
+    tabs, ended on its own", the exact last logon done / not all controllers / stopped, the end of the session on both
+    tabs, the log copies); `Comparison/ObjectComparisonStatusTests` (16: comparing, then nested membership, then the
+    summary, in both languages; what to choose; Stop and the cancel of the command; the stopped and the failed
+    comparison in Polish; a failed comparison with Retry; no match and several candidates as the state of the window,
+    and another connection that takes "choose one" off the line; the nested reads as operations of their own, stopped,
+    failed, one after the other, and not started inside a running comparison; the end of the session, also during a
+    comparison; the other connection closing as a note; the log copies). Adapted where the place of a message changed:
+    `RecycleBinViewModelTests` (a failed restore is read from the line, no dialog) and `AccountReviewViewModelTests`
+    (the result of the exact last logon is read from the line, no toast). UI: `RecycleBinStatusUiTests` (three tests),
+    `AccountReviewStatusUiTests` (three), `CompareObjectsStatusUiTests` (four); `RecycleBinWindowTests`,
+    `AccountReviewWindowTests` and `CompareObjectsWindowTests` read the summaries, "not connected" and the notes from
+    their new places.
+  - *Source rules.* The eight views with a status line – the two pilots and six windows of V2b-1; the main window has
+    none – are on `PagesWithAStatusLine`. The rules of `XamlSourceTests` that cover these files (`Ad.*` keys defined,
+    the closed set of Fluent brush keys – unchanged at 28 –, no storyboard, duration or easing outside
+    `Themes/Motion.xaml`, the status line rule) and "every `StaticResource` key resolves, before its first use" were
+    proven on Linux with throwaway scripts that repeat the expressions of the tests.
+- **After V2b-1** (counted in the XAML, comments excluded): 27 uses of `Ad.ErrorBar` and 45 of `Ad.WarningBar` in 44
+  files and 42 progress bars in 36 files – 53 view files with at least one of the three; one progress bar is the row of
+  an activity, which stays. By area, and what else the sweep has to do: *What V2b has to do*, above. Left behind on
+  purpose, to be removed when the sweep is over: the strings `Batch.Planning`, `PlanPreview.Cancel`, `Comparison.Stop`
+  and `AccountReview.ExactDone`, and view-model members that lost their last binding but are read by tests
+  (`StatusText`, `Error` and the "busy" flags of the converted windows, `StopCommand` of the Recycle Bin and of the
+  account review).
+- **Not seen, to confirm on Windows.** Nothing of V2b-1 was seen on a screen.
+  - *The property sheet.* How a wrapped result looks in the 640 px wide sheet (two or three lines on the caution or
+    critical surface, picture and buttons in the first line). The note next to the old validation texts (glyph and plain
+    text against text in the critical colour). The width of the nested list's button ("Odśwież" grows to the width of "Zatrzymywanie…"). The
+    time of day in the summary, which is now in the two README pictures of the sheet.
+  - *The batch editor, the change plan preview, the main window.* The line of the batch editor between the step strip
+    and the content (an empty line at rest in the CSV mode before a file was chosen, and in step 1 of the create mode).
+    The footer of both windows without the texts on its left; the width of *Podgląd* / *Wykonaj* as action buttons (they
+    are as wide as "Zatrzymywanie…"). The card of the executing step without its bars. The three notes next to the
+    content they belong to, and the note in the narrow details pane (the shield is gone). The 14 px rings in the search
+    box (in the secondary text colour, at the place of the magnifier) and in the status bar. A long result of an
+    execution in the line ("…was executed only in part in contoso.test: 3 objects changed, failed: 2. The reasons are in
+    the list of results. Press “Retry failed”…") wraps to two or three lines; how that looks above the results is to be
+    seen.
+  - *The Recycle Bin, the account review, the comparison.* The line above the note about the forest and the filters of
+    the Recycle Bin, and that note without its card (the caution background of "not enabled in this forest" is gone –
+    glyph and text only). *Refresh* of the Recycle Bin with glyph and text where an icon button was, next to the icon
+    button that clears the filters; *Compare* and *Exact last logon (all DCs)* as wide as "Zatrzymywanie…" needs; the
+    accent *Check* next to the scope. The footers of the three windows with buttons only. The notes of the comparison
+    window: under the connection box, above the tabs, and in the narrow card of a side (wrapped next to its glyph).
+    "Reading nested membership…" in the line right after every comparison – in a small domain it may only flash (the
+    open question of a delay before "Working"). The long sentences: the running "Comparing “…” with the connection fabrikam.test ·
+    FABRIKAM\anna.zielinska…" stays one line and is cut with an ellipsis in a narrow window; a failed comparison or
+    restore with its reasons wraps to three lines at most. The README picture of the comparison window keeps its client size (1180 × 780), so its tabs are 36 px lower
+    than before.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 
