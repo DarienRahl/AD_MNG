@@ -3,6 +3,7 @@ using System.Net;
 using AdMng.Core.Directory;
 using AdMng.Presentation.Connections;
 using AdMng.Presentation.Errors;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -10,6 +11,7 @@ using AdMng.Presentation.Session;
 using AdMng.Presentation.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 
 namespace AdMng.Presentation.Connection;
 
@@ -23,8 +25,14 @@ namespace AdMng.Presentation.Connection;
 /// window which profile and colour it connected with, and says when the chosen profile is already open in another window
 /// (information only: the same domain with another account, or a second window of the same account, is supported).
 /// Every window types its own password: a credential is never taken over from another window.
+/// <para>The window has one status line (<see cref="Status"/>; track V, stage V2b, design note
+/// docs/dev/v-interface-renewal.md "V2b-2 as built"): connecting and looking for the domain controllers of the domain
+/// are its two operations - one at a time, each command refuses while the other runs - and the line says how they
+/// ended: stopped, failed with the reason and what to do, or why nothing was started. A connection that succeeded says
+/// nothing here: the window closes. The window has no session, so there is no "session ended" state; and nothing of
+/// the credential - not the password, not the user name - is part of a text or of its log copy.</para>
 /// </remarks>
-public sealed partial class ConnectViewModel : ObservableObject
+public sealed partial class ConnectViewModel : ObservableObject, IHasPageStatus
 {
     private readonly IDirectoryConnector _connector;
     private readonly ISessionManager _sessions;
@@ -36,8 +44,10 @@ public sealed partial class ConnectViewModel : ObservableObject
     private bool _initialized;
 
     /// <remarks>
-    /// <c>connection</c>: the connection window this dialog connects (null in hosts without connection windows);
-    /// <c>registry</c>: the open connection windows (for "this profile is already open in …").
+    /// <c>dispatcher</c>: the UI thread, for the status line; <c>connection</c>: the connection window this dialog
+    /// connects (null in hosts without connection windows); <c>registry</c>: the open connection windows (for "this
+    /// profile is already open in …"); <c>statusLog</c>: the diagnostic log the status line writes its value-free
+    /// copies to (null in hosts without logging).
     /// </remarks>
     public ConnectViewModel(
         IDirectoryConnector connector,
@@ -45,8 +55,10 @@ public sealed partial class ConnectViewModel : ObservableObject
         ISettingsStore settings,
         ILocalizer localizer,
         ErrorTranslator errors,
+        IUiDispatcher dispatcher,
         ConnectionContext? connection = null,
-        ConnectionRegistry? registry = null)
+        ConnectionRegistry? registry = null,
+        ILogger<PageStatusHolder>? statusLog = null)
     {
         _connector = connector ?? throw new ArgumentNullException(nameof(connector));
         _sessions = sessions ?? throw new ArgumentNullException(nameof(sessions));
@@ -55,6 +67,7 @@ public sealed partial class ConnectViewModel : ObservableObject
         _errors = errors ?? throw new ArgumentNullException(nameof(errors));
         _connection = connection;
         _registry = registry;
+        Status = new PageStatusHolder(localizer, dispatcher ?? throw new ArgumentNullException(nameof(dispatcher)), statusLog);
         Colors =
         [
             new(null, localizer[L.Connections.ColorAutomatic]),
@@ -76,6 +89,13 @@ public sealed partial class ConnectViewModel : ObservableObject
 
     /// <summary>Raised on the UI thread after a successful connect (the app then opens the main window).</summary>
     public event EventHandler? Connected;
+
+    /// <summary>
+    /// The status of the window - what its one status line shows: the running connection attempt or search for domain
+    /// controllers (with Stop), how it ended, and - at rest, once a search ran - how many domain controllers the
+    /// drop-down offers.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     /// <summary>Set by the view (PasswordBox wrapper). Read only inside <see cref="ConnectCommand"/>.</summary>
     public IPasswordInput? PasswordInput { get; set; }
@@ -153,11 +173,19 @@ public sealed partial class ConnectViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(FindDomainControllersCommand), nameof(DeleteProfileCommand))]
     public partial bool IsBusy { get; private set; }
 
-    /// <summary>Localized error with a hint how to fix it.</summary>
+    /// <summary>The connection attempt runs: the Connect button is its Cancel.</summary>
+    [ObservableProperty]
+    public partial bool IsConnecting { get; private set; }
+
+    /// <summary>The search for domain controllers runs: its button is its Cancel.</summary>
+    [ObservableProperty]
+    public partial bool IsFindingDomainControllers { get; private set; }
+
+    /// <summary>Localized error with a hint how to fix it (what the status line says, as plain text; kept for callers that read it).</summary>
     [ObservableProperty]
     public partial string? ErrorText { get; private set; }
 
-    /// <summary>Progress text ("Connecting to contoso.test…").</summary>
+    /// <summary>Progress text ("Connecting to contoso.test…"; the status line says it, kept for callers that read it).</summary>
     [ObservableProperty]
     public partial string? StatusText { get; private set; }
 
@@ -187,6 +215,11 @@ public sealed partial class ConnectViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Connects with what the window holds. Connecting is the operation of the window: its status line says so with
+    /// Stop - the Connect button is its Cancel as well - and says how it ended unless it succeeded (the window closes
+    /// then). A connection that was not even tried - a field is missing - is said as "not connected: why".
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanConnect), IncludeCancelCommand = true)]
     private async Task ConnectAsync(CancellationToken cancellationToken)
     {
@@ -194,7 +227,7 @@ public sealed partial class ConnectViewModel : ObservableObject
         var validation = Validate();
         if (validation is not null)
         {
-            ErrorText = _localizer[validation];
+            NotStarted(L.ConnectStatus.NotConnected, validation);
             return;
         }
 
@@ -205,7 +238,7 @@ public sealed partial class ConnectViewModel : ObservableObject
             var password = PasswordInput?.GetPassword() ?? string.Empty;
             if (password.Length == 0)
             {
-                ErrorText = _localizer[L.Connect.PasswordRequired];
+                NotStarted(L.ConnectStatus.NotConnected, L.Connect.PasswordRequired);
                 return;
             }
 
@@ -229,31 +262,60 @@ public sealed partial class ConnectViewModel : ObservableObject
             _connection.PreferredColor = SelectedColor;
         }
 
+        // What the operator connects to, as far as the window knows it: the domain controller, else the domain (the
+        // computer's own when the box is empty). Never the account.
+        var target = options.Server ?? options.Domain ?? _connector.GetComputerDomain() ?? string.Empty;
         IsBusy = true;
-        StatusText = _localizer.Format(L.Connect.Connecting, options.Server ?? options.Domain ?? string.Empty);
+        IsConnecting = true;
+        StatusText = _localizer.Format(L.Connect.Connecting, target);
+
+        // The operation of the window: "working" from here on, with Stop. The cancel of the command (the window that
+        // closes while it connects) is the same Stop; however this method is left, the line does not stay in "working".
+        using var connecting = Status.Begin(StatusText, new PageStatusLog(L.Connect.Connecting));
+        using var stop = cancellationToken.Register(connecting.Cancel);
         try
         {
             try
             {
                 // Closing the window (its lifetime) ends a bind still running; one that completes anyway is closed by the
                 // session manager and never becomes a connection without a window.
-                using var connecting = _connection?.LinkLifetime(cancellationToken);
-                await _sessions.ConnectAsync(options, credential, connecting?.Token ?? cancellationToken).ConfigureAwait(true);
+                using var lifetime = _connection?.LinkLifetime(connecting.Token);
+                await _sessions.ConnectAsync(options, credential, lifetime?.Token ?? connecting.Token).ConfigureAwait(true);
             }
             catch (OperationCanceledException)
             {
                 StatusText = _localizer[L.Errors.Cancelled];
+
+                // Only a connection the operator stopped says so; the end of the window's lifetime ends it without a word.
+                if (connecting.IsCancelling)
+                {
+                    var again = _localizer[L.Connect.ConnectButton];
+                    connecting.CompleteAttention(
+                        _localizer.Format(L.ConnectStatus.Stopped, target, again),
+                        new PageStatusLog(L.ConnectStatus.Stopped),
+                        new PageStatusAction(again, ConnectCommand));
+                }
+
                 return;
             }
             catch (Exception ex)
             {
                 StatusText = null;
                 ErrorText = _errors.TranslateConnectError(ex);
+
+                // What was tried, why it failed, what to do, the code. No Retry in the line: the advice is nearly always
+                // to change something in the window or on the account first - and a bind repeated with a wrong password
+                // counts towards the lockout of the account. The Connect button is where it was.
+                var code = ResultCode.Of(ex);
+                connecting.CompleteError(
+                    PageStatusText.Failure(_localizer.Format(L.ConnectStatus.Failed, target), _errors.Translate(ex), _errors.ConnectHint(ex), code),
+                    new PageStatusLog(L.ConnectStatus.Failed).WithCode(code));
                 return;
             }
 
             // Connected: from here on nothing may turn the success into an error - a failed profile save would
             // otherwise leave an open session behind a "failed" window and the next attempt would open a second one.
+            // The window closes: its line says nothing about a result nobody would read.
             PasswordInput?.Clear();
             StatusText = null;
             try
@@ -269,29 +331,38 @@ public sealed partial class ConnectViewModel : ObservableObject
         }
         finally
         {
+            IsConnecting = false;
             IsBusy = false;
         }
     }
 
     private bool CanConnect() => !IsBusy;
 
+    /// <summary>
+    /// Fills the drop-down of domain controllers. The search is an operation of the window (it and connecting never run
+    /// together): the line says it with Stop - its button is its Cancel - and, when it is through, how many domain
+    /// controllers the drop-down offers: the summary of the window, because the list itself is the result.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanFindDomainControllers), IncludeCancelCommand = true)]
     private async Task FindDomainControllersAsync(CancellationToken cancellationToken)
     {
         var domain = NullIfEmpty(Domain) ?? _connector.GetComputerDomain();
         if (domain is null)
         {
-            ErrorText = _localizer[L.Connect.DomainRequired];
+            NotStarted(L.ConnectStatus.NotSearched, L.Connect.DomainRequired);
             return;
         }
 
         ErrorText = null;
         IsBusy = true;
+        IsFindingDomainControllers = true;
         StatusText = _localizer.Format(L.Connect.FindingDomainControllers, domain);
+        using var finding = Status.Begin(StatusText, new PageStatusLog(L.Connect.FindingDomainControllers));
+        using var stop = cancellationToken.Register(finding.Cancel);
+        var token = finding.Token;
         try
         {
-            var controllers = await Task.Run(() => _connector.FindDomainControllersAsync(domain, cancellationToken), cancellationToken)
-                .ConfigureAwait(true);
+            var controllers = await Task.Run(() => _connector.FindDomainControllersAsync(domain, token), token).ConfigureAwait(true);
             DomainControllers.Clear();
             foreach (var dc in controllers.OrderByDescending(d => d.IsInClientSite).ThenBy(d => d.IsReadOnly).ThenBy(d => d.HostName, StringComparer.OrdinalIgnoreCase))
             {
@@ -299,18 +370,39 @@ public sealed partial class ConnectViewModel : ObservableObject
             }
 
             StatusText = _localizer.Format(L.Connect.DomainControllersFound, DomainControllers.Count);
+            Status.SetIdle(StatusText);
         }
         catch (OperationCanceledException)
         {
             StatusText = _localizer[L.Errors.Cancelled];
+            if (finding.IsCancelling)
+            {
+                var again = _localizer[L.Connect.FindDomainControllers];
+                finding.CompleteAttention(
+                    _localizer.Format(L.ConnectStatus.FindStopped, domain, again),
+                    new PageStatusLog(L.ConnectStatus.FindStopped),
+                    new PageStatusAction(again, FindDomainControllersCommand));
+            }
         }
         catch (Exception ex)
         {
             StatusText = null;
             ErrorText = _errors.TranslateConnectError(ex);
+
+            // The drop-down is as it was: a result that can be closed, with Retry (a read is safe to repeat).
+            var code = ResultCode.Of(ex);
+            finding.CompleteError(
+                PageStatusText.Failure(
+                    _localizer.Format(L.ConnectStatus.FindFailed, domain),
+                    _errors.Translate(ex),
+                    _errors.ConnectHint(ex) ?? _localizer[L.Feedback.RetryNext],
+                    code),
+                new PageStatusLog(L.ConnectStatus.FindFailed).WithCode(code),
+                new PageStatusAction(_localizer[L.Common.Retry], FindDomainControllersCommand));
         }
         finally
         {
+            IsFindingDomainControllers = false;
             IsBusy = false;
         }
     }
@@ -357,6 +449,13 @@ public sealed partial class ConnectViewModel : ObservableObject
         ProfileName = value.Name;
         SaveProfile = false;
         ErrorText = null;
+
+        // What the line said was about the connection that was typed before: a result leaves with the operator's next
+        // step (design note 6.7). A running operation keeps the line.
+        if (Status.Operation is null)
+        {
+            Status.Clear();
+        }
     }
 
     partial void OnSelectedDomainControllerChanged(DomainControllerInfo? value)
@@ -365,6 +464,18 @@ public sealed partial class ConnectViewModel : ObservableObject
         {
             Server = value.HostName;
         }
+    }
+
+    /// <summary>
+    /// Nothing was started because the window lacks something: "Not connected: Enter the password." - an attention the
+    /// operator can close; the log copy is the key of the reason.
+    /// </summary>
+    /// <param name="skippedKey">What was skipped, without a full stop.</param>
+    /// <param name="reasonKey">Why: the validation text.</param>
+    private void NotStarted(string skippedKey, string reasonKey)
+    {
+        ErrorText = _localizer[reasonKey];
+        Status.Show(PageStatus.Attention(PageStatusText.Failure(_localizer[skippedKey], ErrorText), new PageStatusLog(reasonKey)));
     }
 
     /// <summary>Returns a resource key describing the first validation problem, or null.</summary>

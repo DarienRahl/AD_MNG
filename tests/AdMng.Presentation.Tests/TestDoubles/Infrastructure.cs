@@ -180,22 +180,51 @@ internal sealed class FakeDirectoryConnector(InMemoryDirectorySession session) :
         new("dc01.contoso.test", "Warszawa", true, false, true),
     ];
 
+    /// <summary>
+    /// When set, a connect waits for it before it answers (a slow domain controller); it gets the token of the connect
+    /// and may honour it or not (a native bind does not).
+    /// </summary>
+    public Func<CancellationToken, Task>? BeforeConnect { get; set; }
+
+    /// <summary>What the search for domain controllers throws instead of answering.</summary>
+    public Exception? FindError { get; set; }
+
+    /// <summary>When set, the search for domain controllers waits for it before it answers.</summary>
+    public Func<CancellationToken, Task>? BeforeFind { get; set; }
+
     public string? GetComputerDomain() => ComputerDomain;
 
-    public Task<IReadOnlyList<DomainControllerInfo>> FindDomainControllersAsync(string domain, CancellationToken cancellationToken) =>
-        Task.FromResult(DomainControllers);
+    public async Task<IReadOnlyList<DomainControllerInfo>> FindDomainControllersAsync(string domain, CancellationToken cancellationToken)
+    {
+        if (BeforeFind is { } wait)
+        {
+            await wait(cancellationToken).ConfigureAwait(false);
+        }
 
-    public Task<IDirectorySession> ConnectAsync(ConnectionOptions options, NetworkCredential? credential, CancellationToken cancellationToken)
+        if (FindError is { } error)
+        {
+            throw error;
+        }
+
+        return DomainControllers;
+    }
+
+    public async Task<IDirectorySession> ConnectAsync(ConnectionOptions options, NetworkCredential? credential, CancellationToken cancellationToken)
     {
         ConnectCount++;
         LastOptions = options;
         LastCredential = credential;
+        if (BeforeConnect is { } wait)
+        {
+            await wait(cancellationToken).ConfigureAwait(false);
+        }
+
         if (ConnectError is { } error)
         {
             throw error;
         }
 
-        return Task.FromResult(NextSession ?? session);
+        return NextSession ?? session;
     }
 
     /// <summary>F3: the session <see cref="ConnectGlobalCatalogAsync"/> returns; null = not supported (the default member's behaviour).</summary>
