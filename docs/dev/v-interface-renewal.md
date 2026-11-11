@@ -1211,14 +1211,16 @@ sheet; units 2 and 3 add their windows to this block.
      (`PropertySheetViewModel._saving`). A "latest wins" token that other code cancels (a `SerialCancellation`) is
      linked with the token of the scope, so both the newer request and the operator's Stop end the work.
   5. *The shape of an operation.* `using var scope = Status.Begin(text, new PageStatusLog(key));` and the token from
-     the scope. After every `await`: `scope.IsEnded` means replaced or disposed – say nothing, touch nothing. `catch
-     (OperationCanceledException) when (!scope.IsEnded)` is the operator's Stop: complete as attention – what was
-     stopped, what the page may lack, and the command that starts it again as the action. A failure that leaves the
-     content empty or stale is the state of the page: `SetLasting(error with Retry)` inside the operation, which then
-     ends without a message. A failure that leaves the content as it was is a result: `CompleteError`. A result that
-     is the content itself (a list that was read) is no message: set the summary and let the scope end. A flag like
-     `IsLoading` is ended only by the operation that owns the page (keep the scope in a field and compare), never by a
-     replaced one. A window that is closed disposes what still runs (`Status.Operation?.Dispose()`), its pages too.
+     the scope. After every `await`: `scope.IsEnded` means replaced or disposed – say nothing, touch nothing. A
+     cancellation with `scope.IsCancelling` is the operator's Stop (with the scope's token alone that is every
+     cancellation of a scope that has not ended): complete as attention – what was stopped, what the page may lack,
+     and the command that starts it again as the action. A cancellation that came through a linked token (the read of
+     the window ended, a newer request) ends without a message. A failure that leaves the content empty or stale is
+     the state of the page: `SetLasting(error with Retry)` inside the operation, which then ends without a message. A
+     failure that leaves the content as it was is a result: `CompleteError`. A result that is the content itself (a
+     list that was read) is no message: set the summary and let the scope end. A flag like `IsLoading` is ended only
+     by the operation that owns the page (keep the scope in a field and compare), never by a replaced one. A window
+     that is closed disposes what still runs (`Status.Operation?.Dispose()`), its pages too.
   6. *Words.* `PageStatusText.Failure(tried, reason, next, code)` for errors and for "what was skipped: why" of an
      attention; `PageStatusText.Progress(localizer, done, total)` – "12 of 300" / "12 z 300" – for an operation over
      many objects, written after what it does ("Saving the accounts: 12 of 300…": no noun has to follow the numbers in
