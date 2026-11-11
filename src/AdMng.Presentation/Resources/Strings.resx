@@ -24486,5 +24486,89 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Computers.Status.SiteFailed" xml:space="preserve">
     <value>Could not determine the site of the computer</value>
   </data>
+  <data name="Changes.Status.Executing" xml:space="preserve">
+    <value>Executing “{0}” in {1}: {2}…</value>
+  </data>
+  <data name="Changes.Status.ExecutingFailures" xml:space="preserve">
+    <value>Executing “{0}” in {1}: {2}, failed: {3:N0}…</value>
+  </data>
+  <data name="Changes.Status.ExecutingAnywhere" xml:space="preserve">
+    <value>Executing “{0}”: {1}…</value>
+  </data>
+  <data name="Changes.Status.Executed" xml:space="preserve">
+    <value>“{0}” was executed in {1}: {2} changed. The report is in the list of background operations.</value>
+  </data>
+  <data name="Changes.Status.ExecutedPartly" xml:space="preserve">
+    <value>“{0}” was executed only in part in {1}</value>
+  </data>
+  <data name="Changes.Status.Stopped" xml:space="preserve">
+    <value>Executing “{0}” in {1} was stopped</value>
+  </data>
+  <data name="Changes.Status.ExecuteFailed" xml:space="preserve">
+    <value>Could not execute “{0}” in {1}</value>
+  </data>
+  <data name="Changes.Status.ExecuteFailedAnywhere" xml:space="preserve">
+    <value>Could not execute “{0}”</value>
+  </data>
+  <data name="Changes.Status.Counts" xml:space="preserve">
+    <value>{0} changed, failed: {1:N0}</value>
+  </data>
+  <data name="Changes.Status.CountsStopped" xml:space="preserve">
+    <value>{0} changed, failed: {1:N0}, the rest was not executed</value>
+  </data>
+  <data name="Changes.Status.NothingChanged" xml:space="preserve">
+    <value>nothing was changed, failed: {0:N0}</value>
+  </data>
+  <data name="Changes.Status.ReasonsNext" xml:space="preserve">
+    <value>The reasons are in the list of results.</value>
+  </data>
+  <data name="Batch.Status.ReadingTargets" xml:space="preserve">
+    <value>Reading the selected objects ({0:N0})…</value>
+  </data>
+  <data name="Batch.Status.TargetsStopped" xml:space="preserve">
+    <value>Reading the selected objects was stopped: names, types and attribute suggestions may be missing. Press Retry to read them again.</value>
+  </data>
+  <data name="Batch.Status.TargetsFailed" xml:space="preserve">
+    <value>Could not read the selected objects</value>
+  </data>
+  <data name="Batch.Status.CheckingStart" xml:space="preserve">
+    <value>Checking the changes…</value>
+  </data>
+  <data name="Batch.Status.Checking" xml:space="preserve">
+    <value>Checking the changes: {0}…</value>
+  </data>
+  <data name="Batch.Status.CheckStopped" xml:space="preserve">
+    <value>Checking the changes was stopped</value>
+  </data>
+  <data name="Batch.Status.CheckStoppedReason" xml:space="preserve">
+    <value>nothing was changed</value>
+  </data>
+  <data name="Batch.Status.CheckFailed" xml:space="preserve">
+    <value>Could not check the changes</value>
+  </data>
+  <data name="Batch.Status.OpenFailed" xml:space="preserve">
+    <value>Could not prepare this window</value>
+  </data>
+  <data name="Batch.Status.RetryNext" xml:space="preserve">
+    <value>Press “{0}” to plan the objects that were not changed again.</value>
+  </data>
+  <data name="Csv.Status.Reading" xml:space="preserve">
+    <value>Reading “{0}”…</value>
+  </data>
+  <data name="Csv.Status.Stopped" xml:space="preserve">
+    <value>Reading “{0}” was stopped: the file was not loaded.</value>
+  </data>
+  <data name="Csv.Status.ReadFailed" xml:space="preserve">
+    <value>Could not read “{0}”</value>
+  </data>
+  <data name="Csv.Status.NotLoaded" xml:space="preserve">
+    <value>The file was not loaded</value>
+  </data>
+  <data name="Csv.Status.Next" xml:space="preserve">
+    <value>Choose another file.</value>
+  </data>
+  <data name="PlanPreview.Status.UndoNext" xml:space="preserve">
+    <value>Press Undo to revert what was made.</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

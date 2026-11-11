@@ -142,4 +142,100 @@ public static partial class L
         /// <summary>What was tried, without a full stop.</summary>
         public const string ComputerSiteFailed = "Computers.Status.SiteFailed";
     }
+
+    /// <summary>
+    /// The execution of a change plan as the operation of a window (stage V2b; <c>Changes.ExecutionStatus</c>): the batch
+    /// editor and the change plan preview say with these how far the execution is and how it ended. {0} is the title of
+    /// the change, {1} the domain - a result that changed the directory names it.
+    /// </summary>
+    public static class ChangeStatus
+    {
+        /// <summary>{2} = how far ("12 of 300").</summary>
+        public const string Executing = "Changes.Status.Executing";
+
+        /// <summary>{2} = how far, {3} = the objects that failed so far.</summary>
+        public const string ExecutingFailures = "Changes.Status.ExecutingFailures";
+
+        /// <summary>A window without a domain (opened while disconnected): {0} = the title, {1} = how far.</summary>
+        public const string ExecutingAnywhere = "Changes.Status.ExecutingAnywhere";
+
+        /// <summary>Done: {2} = the objects that were changed ("12 objects").</summary>
+        public const string Executed = "Changes.Status.Executed";
+
+        /// <summary>What happened, without a full stop: some objects failed.</summary>
+        public const string ExecutedPartly = "Changes.Status.ExecutedPartly";
+
+        /// <summary>What happened, without a full stop: the execution was stopped.</summary>
+        public const string Stopped = "Changes.Status.Stopped";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string ExecuteFailed = "Changes.Status.ExecuteFailed";
+
+        /// <summary>What was tried, without a full stop and without a domain; {0} = the title.</summary>
+        public const string ExecuteFailedAnywhere = "Changes.Status.ExecuteFailedAnywhere";
+
+        /// <summary>The numbers of a result: {0} = the objects that were changed, {1} = the objects that failed.</summary>
+        public const string Counts = "Changes.Status.Counts";
+
+        /// <summary>The numbers of a stopped execution: {0} = the objects that were changed, {1} = the objects that failed.</summary>
+        public const string CountsStopped = "Changes.Status.CountsStopped";
+
+        /// <summary>No object was changed; {0} = the objects that failed.</summary>
+        public const string NothingChanged = "Changes.Status.NothingChanged";
+
+        /// <summary>Where the reasons of the failures are.</summary>
+        public const string ReasonsNext = "Changes.Status.ReasonsNext";
+    }
+
+    /// <summary>
+    /// What the batch editor says in its status line (stage V2b): the window (checking - planning - the changes, the
+    /// execution through <see cref="ChangeStatus"/>) and the source of its first step, the selected objects or the CSV
+    /// file.
+    /// </summary>
+    public static class BatchStatus
+    {
+        /// <summary>{0} = the number of selected objects.</summary>
+        public const string ReadingTargets = "Batch.Status.ReadingTargets";
+        public const string TargetsStopped = "Batch.Status.TargetsStopped";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string TargetsFailed = "Batch.Status.TargetsFailed";
+
+        /// <summary>Planning, before the first object was checked.</summary>
+        public const string CheckingStart = "Batch.Status.CheckingStart";
+
+        /// <summary>Planning: {0} = how far ("120 of 300").</summary>
+        public const string Checking = "Batch.Status.Checking";
+
+        /// <summary>What was stopped, without a full stop, and what that means.</summary>
+        public const string CheckStopped = "Batch.Status.CheckStopped";
+        public const string CheckStoppedReason = "Batch.Status.CheckStoppedReason";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string CheckFailed = "Batch.Status.CheckFailed";
+
+        /// <summary>What was tried, without a full stop: the window could not be filled.</summary>
+        public const string OpenFailed = "Batch.Status.OpenFailed";
+
+        /// <summary>What to do with the objects that failed or were not executed; {0} = the text of "Retry failed".</summary>
+        public const string RetryNext = "Batch.Status.RetryNext";
+
+        /// <summary>The CSV file of the import; {0} = the name of the file.</summary>
+        public const string FileReading = "Csv.Status.Reading";
+        public const string FileStopped = "Csv.Status.Stopped";
+
+        /// <summary>What was tried, without a full stop; {0} = the name of the file.</summary>
+        public const string FileReadFailed = "Csv.Status.ReadFailed";
+
+        /// <summary>What happened, without a full stop: a file that was read cannot be used.</summary>
+        public const string FileNotLoaded = "Csv.Status.NotLoaded";
+        public const string FileNext = "Csv.Status.Next";
+    }
+
+    /// <summary>What the change plan preview says in its status line beyond <see cref="ChangeStatus"/> (stage V2b).</summary>
+    public static class PlanPreviewStatus
+    {
+        /// <summary>What to do after an execution that failed in part.</summary>
+        public const string UndoNext = "PlanPreview.Status.UndoNext";
+    }
 }

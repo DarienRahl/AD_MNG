@@ -24486,5 +24486,89 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="Computers.Status.SiteFailed" xml:space="preserve">
     <value>Nie udało się ustalić lokacji komputera</value>
   </data>
+  <data name="Changes.Status.Executing" xml:space="preserve">
+    <value>Wykonywanie „{0}” w domenie {1}: {2}…</value>
+  </data>
+  <data name="Changes.Status.ExecutingFailures" xml:space="preserve">
+    <value>Wykonywanie „{0}” w domenie {1}: {2}, niepowodzenia: {3:N0}…</value>
+  </data>
+  <data name="Changes.Status.ExecutingAnywhere" xml:space="preserve">
+    <value>Wykonywanie „{0}”: {1}…</value>
+  </data>
+  <data name="Changes.Status.Executed" xml:space="preserve">
+    <value>Wykonano „{0}” w domenie {1}: zmieniono {2}. Raport jest na liście operacji w tle.</value>
+  </data>
+  <data name="Changes.Status.ExecutedPartly" xml:space="preserve">
+    <value>„{0}” wykonano w domenie {1} tylko częściowo</value>
+  </data>
+  <data name="Changes.Status.Stopped" xml:space="preserve">
+    <value>Wykonywanie „{0}” w domenie {1} zatrzymano</value>
+  </data>
+  <data name="Changes.Status.ExecuteFailed" xml:space="preserve">
+    <value>Nie udało się wykonać „{0}” w domenie {1}</value>
+  </data>
+  <data name="Changes.Status.ExecuteFailedAnywhere" xml:space="preserve">
+    <value>Nie udało się wykonać „{0}”</value>
+  </data>
+  <data name="Changes.Status.Counts" xml:space="preserve">
+    <value>zmieniono {0}, niepowodzenia: {1:N0}</value>
+  </data>
+  <data name="Changes.Status.CountsStopped" xml:space="preserve">
+    <value>zmieniono {0}, niepowodzenia: {1:N0}, pozostałych nie wykonano</value>
+  </data>
+  <data name="Changes.Status.NothingChanged" xml:space="preserve">
+    <value>niczego nie zmieniono, niepowodzenia: {0:N0}</value>
+  </data>
+  <data name="Changes.Status.ReasonsNext" xml:space="preserve">
+    <value>Przyczyny są na liście wyników.</value>
+  </data>
+  <data name="Batch.Status.ReadingTargets" xml:space="preserve">
+    <value>Wczytywanie wybranych obiektów ({0:N0})…</value>
+  </data>
+  <data name="Batch.Status.TargetsStopped" xml:space="preserve">
+    <value>Wczytywanie wybranych obiektów zatrzymano: może brakować nazw, typów i podpowiedzi atrybutów. Wybierz Ponów, aby wczytać je ponownie.</value>
+  </data>
+  <data name="Batch.Status.TargetsFailed" xml:space="preserve">
+    <value>Nie udało się wczytać wybranych obiektów</value>
+  </data>
+  <data name="Batch.Status.CheckingStart" xml:space="preserve">
+    <value>Sprawdzanie zmian…</value>
+  </data>
+  <data name="Batch.Status.Checking" xml:space="preserve">
+    <value>Sprawdzanie zmian: {0}…</value>
+  </data>
+  <data name="Batch.Status.CheckStopped" xml:space="preserve">
+    <value>Sprawdzanie zmian zatrzymano</value>
+  </data>
+  <data name="Batch.Status.CheckStoppedReason" xml:space="preserve">
+    <value>niczego nie zmieniono</value>
+  </data>
+  <data name="Batch.Status.CheckFailed" xml:space="preserve">
+    <value>Nie udało się sprawdzić zmian</value>
+  </data>
+  <data name="Batch.Status.OpenFailed" xml:space="preserve">
+    <value>Nie udało się przygotować tego okna</value>
+  </data>
+  <data name="Batch.Status.RetryNext" xml:space="preserve">
+    <value>Wybierz „{0}”, aby ponownie zaplanować obiekty, których nie zmieniono.</value>
+  </data>
+  <data name="Csv.Status.Reading" xml:space="preserve">
+    <value>Wczytywanie pliku „{0}”…</value>
+  </data>
+  <data name="Csv.Status.Stopped" xml:space="preserve">
+    <value>Wczytywanie pliku „{0}” zatrzymano: pliku nie wczytano.</value>
+  </data>
+  <data name="Csv.Status.ReadFailed" xml:space="preserve">
+    <value>Nie udało się wczytać pliku „{0}”</value>
+  </data>
+  <data name="Csv.Status.NotLoaded" xml:space="preserve">
+    <value>Pliku nie wczytano</value>
+  </data>
+  <data name="Csv.Status.Next" xml:space="preserve">
+    <value>Wybierz inny plik.</value>
+  </data>
+  <data name="PlanPreview.Status.UndoNext" xml:space="preserve">
+    <value>Wybierz Cofnij, aby odwrócić to, co wykonano.</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>
