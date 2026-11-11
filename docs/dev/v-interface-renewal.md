@@ -387,6 +387,7 @@ All in `Themes/Motion.xaml` (new); no duration or easing is written anywhere els
 | `Motion.Highlight` | 2 s | reference: "look here" fade (`MUnitListViewControl.xaml.cs:1185-1191`) |
 | `Motion.Shimmer` | 1600 ms loop | reference (`CC/ToolKits/Shimmer.cs:51`) |
 | `Motion.HoverIntent` | 500 ms delay | reference (`HSS/CustomUIElements/LinkButtonV2.cs:44`) |
+| `Motion.Ring` | 1 s per turn | **ours** – the progress ring (catalogue row 11); progress, not motion: not behind the switch |
 | `Motion.Offset.Page` / `Motion.Offset.Panel` | 24 px / 8 px | reference uses 50 px for pages and 24 px for panels; **ours** are smaller for a dense tool |
 | `Motion.Ease.Enter` | cubic ease-out; key spline `0,0,0,1` | reference (`InfoBarV2.cs:189`, `SettingsExpander.xaml:166-227`) |
 | `Motion.Ease.Exit` | cubic ease-in; key spline `1,1,0,1` | reference (`InfoBarV2.cs:1438`, `SettingsExpander.xaml`) |
@@ -400,6 +401,9 @@ means visual states in a control template of `Themes/`.
 As built (V1c): rows 1 (the icon button only), 4, 5 and 7 exist, and none of them is a storyboard or a visual state –
 every motion is started from code by a behaviour, for the reason given in *V1c as built* (section 8). The column
 *Built with* is the plan, not the code.
+
+As built (V2a): rows 2 and 3 and the ring of row 11 exist, built the same way (`Motion.Swap`, `Motion.Play`,
+`Motion.Turn`); of row 3 only the entrance of the new message. See *V2a as built* (section 8).
 
 | # | Animation | Where | Trigger | What moves | Time, easing | What it tells | Built with | Performance rule |
 |---|---|---|---|---|---|---|---|---|
@@ -474,6 +478,10 @@ Group Policy) and every tool window gets the same four parts, top to bottom:
 
 The elements carry fixed names (`PageHeader`, `PageStatus`, `PageToolbar`, `PageContent`), so a source test can check
 the skeleton and UI tests can find the parts the same way everywhere.
+
+As built (V2a): `PageStatus` exists on two pages – the object list and the Find window – as a `c:StatusLine` over the
+`PageStatusHolder` of the page view model; a source test keeps the list of converted pages. The status bar of the main
+window no longer repeats the summary of a tab that has its own line. See *V2a as built* (section 8).
 
 ### 6.2 Navigation – open question 2
 
@@ -569,6 +577,7 @@ names of the new sections.
   connection colour and the domain-and-account title; each window remains one DI scope. New per-connection services
   (page status hub, search index, home document) are scoped and added to `ConnectionLifetimes.cs`; `MotionService`,
   icon style and theme are application-wide.
+  As built (V2a): there is no page status hub – a status belongs to its page view model (*V2a as built*, section 8).
 
 ### 6.9 Wireframes
 
@@ -693,7 +702,8 @@ Settings, page *Appearance*:
 
 **Screen reader and vision**
 
-- The status line is a live region: polite for working and done, assertive for errors.
+- The status line is a live region: polite for working and done, assertive for errors. As built (V2a): attention is
+  assertive too, the summary is polite.
 - Page titles are headings (`AutomationProperties.HeadingLevel`); every new control has an automation peer and a
   name; decorative icons stay out of the automation tree as `ObjectIconView` does today.
 - Text contrast at least 4.5:1, icons and control borders at least 3:1, in light and dark; High Contrast uses only
@@ -975,6 +985,178 @@ the first four places that move. No structure change, no element renamed.
   the guides.
 - **Exit criteria:** G2 and G3 of section 1; no window shows two banner styles.
 - **Risks:** width of the sweep; many strings in two languages.
+
+**V2a as built (status line and action button).** The first increment of V2: the model of "what a page says", the two
+controls that show it, and two pilot pages. Everything else keeps its banners until V2b; `StatusPill`, `EmptyState`,
+`Skeleton`, taskbar progress and the close question of the scope above are not started.
+
+- **Model** (`AdMng.Presentation/Feedback`, no WPF type). `PageStatus` is the immutable value: a kind (`Idle` – the
+  neutral summary – or one of the four severities `Working`, `Done`, `Attention`, `Error`), the text for the screen, a
+  `PageProgress` (indeterminate or a fraction, only for `Working`), at most one `PageStatusAction` (label and
+  command), `CanClose`, and the copy for the diagnostic log (`PageStatusLog`: message key, counts, `ResultCode`). The
+  fixed title is not part of the value: the view takes it from the kind (`PageStatusText.Title`), so no page can give
+  a severity another name. `PageStatusHolder` is the observable holder a page view model owns
+  (`IHasPageStatus.Status`): `SetIdle` (the summary, shown whenever nothing else is), `Begin` (an operation), `Show`
+  (a result), `Clear`, and the commands `CloseCommand` and `CancelCommand`. `OperationScope` is one running operation:
+  `Token`, `Report`, `Cancel`, `Complete…`, `Dispose`.
+- **Decisions of the model.**
+  - *No hub and no service.* 6.8 planned a per-connection "page status hub". A status never leaves its page (what
+    finished elsewhere is a toast, what runs in the connection is the activity list), so the holder is created by the
+    page view model and dies with it; nothing was added to `ConnectionLifetimes.cs`. The only thing that comes from
+    the connection scope is the logger, through the scoped `ObjectListServices.StatusLog`.
+  - *A second operation replaces the running one* (its token is cancelled, what it says later is ignored). The first
+    page is a list that loads: a new location, F5 or a sort must take effect at once and the old load is of no
+    interest. Refusing would have made navigation wait for a 50,000 object container. A page whose operation must not
+    be interrupted keeps its command disabled while it runs – the command's business, not the holder's.
+  - *"Working" exists only through a scope.* `Show` refuses a `Working` status; `Begin` is the only way in, and a
+    scope that is disposed without a completion ends as the summary. With `using var scope = Status.Begin(…)` no path
+    out of a method can leave the page in "working".
+  - *Cancel answers first.* `Cancel` puts "Stopping…" on the page and only then cancels the token; the operation still
+    ends itself (normally as `Attention`: what was stopped and what to do). The first completion stands; a second one,
+    a report after the end and everything a replaced operation says are ignored.
+  - *Threads.* The holder is a UI-thread object like every view model; a scope may be used from any thread and hands
+    what changes the page to the UI dispatcher.
+  - *The log copy cannot carry a value* (rule 1 of `CLAUDE.md`). `PageStatusLog` holds a resource key and numbers,
+    `ResultCode` can only be made from numbers and names the program produced (LDAP result code, Win32 error, error
+    kind, exception type – never a server message). Every new message that is not the summary is logged once with the
+    key as the event name (event ids 5200 + kind; error, warning, information, debug by kind); a new count of the same
+    message is not logged again. `PageStatus.ToString()` is the kind and the log copy.
+  - *One shape of a text.* `PageStatusText.Failure(tried, reason, next, code)` builds "what we tried: why it failed.
+    What to do next. (code)" and is used for errors; `PageStatusText.Objects` and `Count` form counts with the plural
+    rule the program already had (`CorrespondenceText.Plural`: one, few, many – 1 obiekt, 2 obiekty, 5 obiektów);
+    `PageStatusText.Name` is what a screen reader hears ("Error: …").
+- **Strings.** The block *V interface renewal (V2)* of `Strings.resx` / `Strings.pl.resx`: the four titles (Working /
+  Trwa, Done / Gotowe, Attention / Uwaga, Error / Błąd), "Stopping…", the name of an empty line, the three plural
+  forms of "object", and the texts of the two pilots (`List.Status.*`, `Find.Status.Hint`). "Stop", "Retry",
+  "Refresh", "Cancel" and "Close" are the existing keys.
+- **Motion and tokens.** `Behaviors/Motion.cs` got `Motion.Swap` (catalogue row 2: one content of a swap, shown or
+  hidden over `Motion.Swap`), `Motion.Play` with `MotionEntrance.Status` (row 3: fade and rise by
+  `Motion.Offset.Panel` over `Motion.Appear`, played once from code) and `Motion.Turn` (row 11: the ring, once per the
+  new token `Motion.Ring`, 1 s). `Turn` is the one thing that is not behind the switch – progress is information (5.4)
+  – so its caller turns only while visible. `Themes/Tokens.xaml` got `Ad.Size.StatusLine` (28).
+- **Controls** (`Controls/`, styles in `Themes/Controls.xaml`). The rule "only string keys in `Controls.xaml`" holds
+  for controls of our own as well: `StatusLine` and `ActionButton` take their styles `Ad.StatusLine` and
+  `Ad.ActionButton` by a resource reference set in their constructors.
+  - `ProgressRing` – the theme has none. A light element like the icon elements (no template, outside UI Automation):
+    a faint full circle and an arc in the inherited text colour – a quarter that turns while the progress is not
+    known, or the part done, standing still. It turns also with motion off and has a clock only while it is active
+    *and* visible (`IsTurning`): a ring in a hidden tab, a collapsed row or a content that is not shown costs nothing.
+  - `StatusLine` – shows a `PageStatus` in one line of the fixed height `Ad.Size.StatusLine`, always present: the
+    picture of the severity (`Icon.StatusInfo` for the summary, `StatusOk`, `StatusWarning`, `StatusError`, through
+    `AreaIconView` at 20 px with the glyphs Info, Completed, Warning, Error as fallback; the ring instead of a picture
+    while an operation runs, as 4.4 says), the fixed title in semibold, the message on one line with an ellipsis and
+    the whole text as its tool tip, the action as a link (`Ad.LinkButton`: accent text colour *and* an underline, the
+    hover layer of the icon button), and a close button (`Ad.SmallIconButton`, 24 × 24) only for what may be closed.
+    The summary and a running operation have no fill and the summary is in the secondary text colour; done, attention
+    and error have the theme's status backgrounds. The control computes read-only properties (`Kind`, `Title`,
+    `Message`, `IconKey`, `IsWorking`, `HasAction`, `CanClose` …) and the template only lays them out. It is a live
+    region (`AutomationControlType.StatusBar`, name "Error: …", "Status" when empty): polite for the summary, working
+    and done, assertive for attention and error; a new message raises the live region event, a new count of the same
+    message and a changed summary do not. Its own words (title, name) follow a language switch at once.
+  - `ActionButton` – a `Button` with the theme's own template and a content template with three contents in one cell:
+    its own content (with an optional `Glyph`) at rest, ring + "Cancel" while the operation runs, ring + "Stopping…"
+    after that. All three stay in the layout and differ only in opacity (`Motion.Swap`), so the button has the width
+    of its widest state in every state and nothing animates a size. A press at rest runs `Command`, a press while
+    running runs `CancelCommand`, a press while stopping does nothing.
+- **Decisions of the action button.**
+  - *Bound through plain properties* – `Command`, `CancelCommand`, `IsRunning`, optional `IsCancelling` – not through
+    an `OperationScope`-producing command. The existing view models already have a start command, a stop or cancel
+    command and a "busy" flag; with plain properties a page adopts the button by changing its XAML only, with or
+    without a `PageStatusHolder`. With a holder the two flags are bound to `Status.IsWorking` and
+    `Status.IsCancelling`. Without one the button itself remembers that Cancel was pressed – until the operation
+    ended, or until the view model reports that the cancellation is over while something still runs (the cancelled
+    operation was replaced).
+  - *It keeps the keyboard focus by staying enabled.* A start command reports "cannot execute" while it runs, and a
+    disabled element loses the focus. While the operation runs the button is enabled whatever the start command says
+    (`IsEnabledCore`); it also holds "enabled" for one dispatcher turn after the press and after the end of the
+    operation, because the operation and its command do not change in the same moment (WPF looks for a new focus at
+    input priority; the hold ends at background priority). "Stopping…" is an enabled button that ignores the press and
+    is not hit-test visible; UI Automation is told that it is not enabled.
+  - *Enter starts, it never cancels.* As the default button it gets Enter from anywhere in the window as its access
+    key; while the operation runs that is ignored unless the button itself has the focus – Enter typed twice into the
+    name box must not stop the search it started.
+  - *UI Automation:* a normal button and a leaf, named by what a press does now – "Find Now", "Cancel: Find Now",
+    "Stopping…".
+  - *One trigger per property in the content template.* Two data triggers that set the same property fall back to the
+    template's value in the moment between "the first no longer applies" and "the second applies"; with behaviours
+    that start a motion on every change that moment is not harmless. So each busy content and each ring is switched by
+    exactly one trigger, and the content at rest by the one property `IsBusy`.
+- **The two pilots.**
+  1. *Object list* (`Views/ObjectListView.xaml`, `Lists/ObjectListViewModel.cs`). The element `PageStatus` sits
+     between the header and the filter chips, full width, and shows `Status.Current`: the summary (what `StatusText`
+     says, with the selection joined by " · "), a load as the operation of the page ("Reading “Kraków”…", then with
+     the number of objects read so far; with Stop – the load's cancellation token is the operation's), a stopped load
+     as attention with Refresh, a failed load as an error with Retry that cannot be closed (it is the only explanation
+     of the empty list), a deleted container as a lasting attention. The loading row (progress bar and Stop button)
+     and the `Ad.ErrorBar` over the list are gone, so the rows no longer move when a load starts or ends; they start
+     30 px lower than before. The quick filter status in the header, the "no items" hint and the virtual list are
+     untouched; a virtual list's page error goes to the line as well. `StatusText`, `SelectionText` and
+     `CancelLoadCommand` are unchanged for their other users.
+  2. *Status bar of the main window.* It no longer says the summary and the selection of a tab that has a line of its
+     own: `ShellViewModel.StatusBarText` / `StatusBarSelectionText` are empty for a tab that is `IHasPageStatus` and
+     equal to `StatusText` / `SelectionText` for the others (Watchdog, event logs, Group Policy, PKI, readiness –
+     until their pages are converted). Connection, domain controller, security, activities, version and the virtual
+     list badge stay.
+  3. *Find window* (`Views/FindWindow.xaml`, `Dialogs/FindViewModel.cs`) – the tool window with a long, cancellable
+     operation started by a button. One status line at the top, over the status of the results list
+     (`FindViewModel.Status` is `Results.Status`): what to do before the first search, the running search, the
+     summary, a stopped or failed search, and – as a lasting error – that the session of the window ended. It replaces
+     the error bar at the top and the status text in the footer; the results list inside shows no line of its own
+     (`ObjectListView.ShowStatusLine="False"`). *Find Now* is an action button over the two commands the window had
+     (`FindNowCommand`, `StopCommand`); the separate *Stop* button is gone.
+- **Where this differs from the plan.**
+  - *Catalogue row 2:* no visual states – one attached property per content and data triggers (the decision of V1c
+    stands). *Row 3:* only the entrance of the new message is built (`Motion.Appear`); the old message does not fade
+    out first (`Motion.Disappear`), because the line would have to keep showing a status the page no longer has.
+  - *Section 7* said "polite for working and done, assertive for errors". Attention is assertive too (something was
+    skipped or stopped and the operator has to act); the summary is polite and is never announced when it only
+    changes.
+  - *6.7, progress:* in the action button and in the status line. The tab header keeps its loading mark of today; the
+    taskbar is not done.
+  - *4.1:* one more Fluent brush in the closed set, `SystemFillColorSuccessBackgroundBrush` (28 keys). In High
+    Contrast the three status backgrounds are the window colour and the status colours the window text colour: there
+    the severity is told by the glyph and the title alone, which is the rule anyway.
+- **Tests.** Presentation (run on Linux; the bulk): `Feedback/PageStatusTests`, `PageStatusHolderTests` (every
+  transition, cancellation, double completion, dispose without completion, replacement, use from worker threads, the
+  log copy and the problem report never containing a text argument, both languages), `Lists/ObjectListStatusTests`,
+  `Dialogs/FindStatusTests`. UI tests (Windows CI only, written without a screen; properties, resources and view model
+  state, never pixels): `ProgressRingUiTests`, `StatusLineUiTests`, `ActionButtonUiTests` – with `LanguageScope`,
+  `MotionScope` and `ControlHost` in the test infrastructure – and `StatusLinePilotTests`, the two pilots through
+  their real windows over the fake directory (a slow domain controller is the fake session's cancellable latency, a
+  failing one an injected search failure): working with Stop, "cancel returns control", attention with Refresh, error
+  with Retry. Source tests: `XamlSourceTests.APageWithAStatusLine_SaysItsStatusThere_AndNowhereElse` – a view on the
+  list `PagesWithAStatusLine` has exactly one status line named `PageStatus` over `Status.Current`, no `Ad.ErrorBar`,
+  no `Ad.WarningBar` and no `ProgressBar`, and a view with a status line must be on the list; the 81 views that are
+  not converted yet are not touched by it.
+- **What V2b has to do** (counted in the XAML of this commit, comments excluded): 43 uses of `Ad.ErrorBar` and 58 of
+  `Ad.WarningBar` in 51 files, and 65 progress bars.
+  - By area (error bars + warning bars, progress bars): windows of `Views/` – property sheet 8 + 3 and 8, batch editor
+    2 + 4 and 5, compare objects 2 + 3 and 2, account review 2 + 2 and 3, user messages 2 + 2 and 3, logon hours 0 +
+    3, change domain controller, connect, new object, reset password, recycle bin, change plan preview, settings,
+    session log, the filter and saved view editors, the pickers and the main window (its toolbar search and activity
+    popup) – together 26 + 21 and 34; `GroupPolicy/` 7 + 17 and 8 in 15 files (with the shared
+    `GroupPolicyBanners.xaml`); `BulkCreate/` 3 + 5 and 2; `Views/Watchdog/` 2 + 4 and 7; `Computers/` 2 + 3 and 3;
+    `Pki/` 2 + 2 and 4; `EventLogs/` 0 + 3 and 3; `Correspondence/` 1 + 1 and 3; `Readiness/` 0 + 1 and 1;
+    `Controls/HtmlPreviewView.xaml` 0 + 1.
+  - Not every banner is a status: a warning that belongs to one field or one section (a validation text, a "this is
+    read only" note) stays where it is and gets the status colours; only what says what the page did moves to the
+    line. V2b has to sort the 101 uses into these two kinds first.
+  - Per page: give the view model a `PageStatusHolder`, put the summary into `SetIdle` (`StatusText` is mentioned 76
+    times in XAML), run the long operation in a scope, build its error with `PageStatusText.Failure`, replace banner
+    and progress bar by `PageStatus`, put the file on `PagesWithAStatusLine`, and turn a start button with a separate
+    stop or cancel button into an `ActionButton` (candidates: bulk check, computer review, remote computer, event log
+    reader and its two analyses, GPO search, cleanup and diagnostics, PKI security review, readiness, account review,
+    recycle bin, compare objects, the tests of the filter and saved view editors, the sending of correspondence and
+    user messages, Watchdog delivery test, connect). Document tabs then drop out of `StatusBarText` one by one.
+  - Still open in the controls: an accent variant of the action button for the primary action of a dialog; the status
+    line of a page that has several operations at once (the batch editor); whether "Working" should wait about 150 ms
+    before it is shown, so that a load that ends at once does not flash; the status pictures at 16 px for pills.
+- **Not seen, to confirm on Windows:** nothing of this was seen on a screen. Open: the look of the line on the status
+  backgrounds in light and dark and in High Contrast; whether the info picture next to the summary is too loud in a
+  dense window; the ring at 14 px in a button and at 16 px in the line (stroke 1.75 and 2 px); the cross-fade of the
+  button contents and the entrance of a message; the width of the Polish "Zatrzymywanie…", which makes *Znajdź teraz*
+  wider than the buttons next to it were; that a ring keeps its clock while the window is minimized (a minimized
+  window still counts as visible).
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 

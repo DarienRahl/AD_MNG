@@ -43,6 +43,36 @@
   Wskaźniki postępu działają zawsze. Wyłączony przycisk z ikoną nie ma już bladej ramki – zostaje sama przygaszona
   ikona.
 
+## Nowe: odnowa interfejsu – etap V2
+
+- **Wiersz stanu listy obiektów.** Lista obiektów mówi teraz w jednym stałym miejscu – w wierszu pod nagłówkiem
+  z nazwą kontenera, nad wierszami listy – co robi i co się stało. W spoczynku jest tam podsumowanie („Obiektów: 428 ·
+  0,17 s · stan na 14:35:02”, a po zaznaczeniu wierszy także „Zaznaczono: 3”). W czasie wczytywania: **Trwa** –
+  „Wczytywanie „Kraków”: na razie 1 500 obiektów…”, z kółkiem postępu i poleceniem **Zatrzymaj**. Po zatrzymaniu:
+  **Uwaga** – ile obiektów wczytano i że lista jest niepełna, z poleceniem **Odśwież**. Gdy listy nie udało się
+  wczytać: **Błąd** – co się nie udało, dlaczego i co zrobić, z kodem wyniku na końcu i poleceniem **Ponów**; ten
+  komunikat zostaje, dopóki lista nie zostanie wczytana. Wiersz ma stałą wysokość, więc wiersze listy nie przesuwają
+  się już, gdy wczytywanie się zaczyna i kończy – dotąd nad listą pojawiał się na ten czas pasek postępu
+  z przyciskiem, a błąd był w ramce na liście. Rodzaj komunikatu widać po ikonie i po słowie na początku, nie tylko
+  po kolorze; czytnik ekranu sam odczytuje nowy komunikat. Komunikat, który można zamknąć, ma przycisk zamknięcia –
+  po zamknięciu wraca podsumowanie.
+- **Pasek stanu okna głównego** nie powtarza już podsumowania listy i liczby zaznaczonych obiektów – dla karty
+  z listą obiektów są one w wierszu stanu listy. Połączenie, kontroler domeny, zabezpieczenia połączenia, działania,
+  wersja i znaczek listy wirtualnej zostają na swoim miejscu; dla pozostałych kart (Watchdog, dzienniki zdarzeń,
+  zasady grupy, certyfikaty, gotowość środowiska) pasek działa jak dotąd.
+- **Okno *Znajdź* (Ctrl+F): jeden przycisk do szukania i przerywania.** Przycisk **Znajdź teraz** na czas
+  wyszukiwania zamienia się w **Anuluj** z kółkiem postępu – wyszukiwanie przerywa się tam, gdzie się je zaczęło; po
+  naciśnięciu pokazuje „Zatrzymywanie…”, dopóki wyszukiwanie się nie skończy. Osobnego przycisku *Zatrzymaj* już nie
+  ma, a przycisk nie zmienia szerokości między stanami. Enter w polu nazwy nadal zaczyna wyszukiwanie; naciśnięty
+  jeszcze raz w trakcie niczego nie przerywa. U góry okna jest wiersz stanu: przed pierwszym wyszukiwaniem
+  podpowiedź, potem przebieg wyszukiwania z poleceniem **Zatrzymaj**, podsumowanie wyników, informacja o zatrzymaniu
+  (z **Odśwież**) albo błąd (z **Ponów**), a także to, że sesja okna się zakończyła – dotąd: ramka u góry okna
+  i tekst w stopce.
+- **Co się nie zmieniło:** pozostałe okna i karty mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski
+  postępu – przejdą na wiersz stanu w następnych wydaniach. Animacja nowego komunikatu (krótkie wsunięcie) i zamiany
+  napisu na przycisku działa tylko przy włączonych animacjach (*Ustawienia → Ogólne → Wygląd → Animacje*); kółko
+  postępu obraca się zawsze.
+
 ## Inne zmiany
 
 - **Angielski interfejs:** 33 starsze teksty (zestawy sprawdzeń przeglądu kont, tytuły planów zasad grupy, ustalenia
