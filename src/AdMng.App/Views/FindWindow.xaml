@@ -16,7 +16,7 @@
         xmlns:v="clr-namespace:AdMng.App.Views"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="900"
-        Height="680"
+        Height="716"
         MinWidth="620"
         MinHeight="460"
         WindowStartupLocation="CenterOwner">
