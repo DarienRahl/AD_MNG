@@ -1,6 +1,10 @@
 <!--
   ADUC "Find Users, Contacts, and Groups" (modeless): kind, search base, name (ambiguous name resolution), advanced
   field/condition/value rows and the generated (or hand-edited) LDAP filter. Results reuse the object list view.
+
+  Feedback (track V, stage V2): one status line at the top (PageStatus) says what to do, what the search is doing and
+  how it ended - also that the session of the window ended - and "Find Now" is an action button: while the search
+  runs it is the Cancel of that search. The results list does not show a status line of its own here.
 -->
 <Window x:Class="AdMng.App.Views.FindWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -38,10 +42,6 @@
   <DockPanel>
     <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
       <DockPanel>
-        <TextBlock VerticalAlignment="Center"
-                   AutomationProperties.LiveSetting="Polite"
-                   Style="{StaticResource Ad.SecondaryText}"
-                   Text="{Binding Results.StatusText, Mode=OneWay}" />
         <Button x:Name="CloseButton"
                 HorizontalAlignment="Right"
                 Click="OnCloseClick"
@@ -51,17 +51,17 @@
       </DockPanel>
     </Border>
 
-    <!-- The directory session this window was opened in ended: reopen the window to work in the current one. -->
-    <Border Margin="16,12,16,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.ErrorBar}"
-            Visibility="{Binding SessionEndedMessage, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock AutomationProperties.LiveSetting="Assertive"
-                 Text="{Binding SessionEndedMessage, Mode=OneWay}"
-                 TextWrapping="Wrap" />
-    </Border>
+    <!--
+      Status line (design note 6.1): what to do before the first search, the running search, the summary of the
+      results, a stopped or failed search - and that the session of this window ended (reopen it).
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="8,8,8,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
 
-    <!-- Criteria | Find Now / Stop / Clear All -->
+    <!-- Criteria | Find Now (Cancel while the search runs) / Clear All -->
     <Grid Margin="16,12,16,8" DockPanel.Dock="Top">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*" />
@@ -187,15 +187,18 @@
       </StackPanel>
 
       <StackPanel Grid.Column="1">
-        <Button x:Name="FindNowButton"
-                Command="{Binding FindNowCommand}"
-                Content="{l:Tr Find.FindNow}"
-                IsDefault="True"
-                Style="{StaticResource SideButton}" />
-        <Button Command="{Binding StopCommand}"
-                Content="{l:Tr Common.Stop}"
-                Style="{StaticResource SideButton}" />
-        <Button Command="{Binding ClearAllCommand}"
+        <c:ActionButton x:Name="FindNowButton"
+                        MinWidth="110"
+                        Margin="0,0,0,6"
+                        HorizontalAlignment="Stretch"
+                        CancelCommand="{Binding StopCommand, Mode=OneWay}"
+                        Command="{Binding FindNowCommand}"
+                        Content="{l:Tr Find.FindNow}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsDefault="True"
+                        IsRunning="{Binding Status.IsWorking, Mode=OneWay}" />
+        <Button x:Name="ClearAllButton"
+                Command="{Binding ClearAllCommand}"
                 Content="{l:Tr Find.ClearAll}"
                 Style="{StaticResource SideButton}" />
       </StackPanel>
@@ -209,7 +212,8 @@
             Visibility="{Binding HasSearched, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
       <v:ObjectListView x:Name="ResultsView"
                         DataContext="{Binding Results, Mode=OneWay}"
-                        ItemActivated="OnResultActivated" />
+                        ItemActivated="OnResultActivated"
+                        ShowStatusLine="False" />
     </Border>
   </DockPanel>
 </Window>

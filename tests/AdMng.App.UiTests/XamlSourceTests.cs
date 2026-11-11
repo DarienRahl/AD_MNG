@@ -14,7 +14,8 @@ namespace AdMng.App.UiTests;
 /// <c>b:CommandMenu.Id</c> names a shell command descriptor, every <c>Ad.*</c> resource key that is used is defined, and
 /// the Fluent brush keys in use are a closed, documented set read with <c>DynamicResource</c> (track V, stage V1). And
 /// the one source of motion (design note 5.3, rule 6): no XAML file writes a storyboard, an animation or a visual
-/// state, and durations and easings are entries of Themes/Motion.xaml only.
+/// state, and durations and easings are entries of Themes/Motion.xaml only. And the one place of feedback (stage V2,
+/// design note 6.1 and goal G2): a page that was converted says its status through one status line named PageStatus.
 /// </summary>
 public sealed partial class XamlSourceTests
 {
@@ -56,6 +57,17 @@ public sealed partial class XamlSourceTests
         "TextFillColorSecondaryBrush",
         "TextFillColorTertiaryBrush",
         "TextOnAccentFillColorPrimaryBrush",
+    ];
+
+    /// <summary>
+    /// The views that say their status through the status line (track V, stage V2; design note 6.1), sorted. The list
+    /// grows with every page that is converted (the sweep of stage V2b and later); a view that gets a status line
+    /// must be put on it, so the rule of <see cref="APageWithAStatusLine_SaysItsStatusThere_AndNowhereElse"/> holds for it.
+    /// </summary>
+    private static readonly string[] PagesWithAStatusLine =
+    [
+        "Views/FindWindow.xaml",
+        "Views/ObjectListView.xaml",
     ];
 
     [Fact]
@@ -198,6 +210,46 @@ public sealed partial class XamlSourceTests
         Assert.All(keys, key => Assert.StartsWith("Motion.", key, StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void APageWithAStatusLine_SaysItsStatusThere_AndNowhereElse()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Runs with the Windows test suite.");
+        var views = XamlFiles().Where(file => !IsApplicationDictionary(file)).ToDictionary(
+            file => Path.GetRelativePath(SourceDirectory(), file).Replace('\\', '/'),
+            file => WithoutComments(File.ReadAllText(file)),
+            StringComparer.Ordinal);
+        Assert.True(views.Count > 50, $"only {views.Count} views found");
+        Assert.Equal(PagesWithAStatusLine.Order(StringComparer.Ordinal).ToArray(), PagesWithAStatusLine);
+
+        foreach (var page in PagesWithAStatusLine)
+        {
+            Assert.True(views.TryGetValue(page, out var xaml), $"{page} is not a view of the application");
+
+            // Exactly one status line, with the fixed name of design note 6.1, over the status holder of the page.
+            var lines = StatusLineElement().Matches(xaml!);
+            Assert.True(lines.Count == 1, $"{page} has {lines.Count} status lines");
+            var line = lines[0].Value;
+            Assert.True(line.Contains("x:Name=\"PageStatus\"", StringComparison.Ordinal), $"{page}: the status line is not named PageStatus");
+            Assert.True(line.Contains("Status=\"{Binding Status.Current, Mode=OneWay}\"", StringComparison.Ordinal), $"{page}: the status line does not show Status.Current");
+            Assert.True(line.Contains("CloseCommand=\"{Binding Status.CloseCommand, Mode=OneWay}\"", StringComparison.Ordinal), $"{page}: the status line has no close command");
+
+            // The page says what happened in no other place: no banner of the old styles, no progress bar of its own.
+            Assert.False(xaml!.Contains("Ad.ErrorBar", StringComparison.Ordinal), $"{page} still has an error bar");
+            Assert.False(xaml.Contains("Ad.WarningBar", StringComparison.Ordinal), $"{page} still has a warning bar");
+            Assert.False(xaml.Contains("<ProgressBar", StringComparison.Ordinal), $"{page} still has a progress bar");
+        }
+
+        // The other way round: a view with a status line is on the list, and nothing else takes the name PageStatus.
+        Assert.Equal(
+            PagesWithAStatusLine,
+            views.Where(view => StatusLineElement().IsMatch(view.Value)).Select(view => view.Key).Order(StringComparer.Ordinal).ToArray());
+        Assert.Equal(
+            [],
+            views.SelectMany(view => PageStatusName().Matches(view.Value)
+                    .Where(match => match.Groups["tag"].Value != "StatusLine")
+                    .Select(match => $"{view.Key}: {match.Groups["tag"].Value}")));
+    }
+
     /// <summary>Whether a XAML file is merged into the application resources: App.xaml and the dictionaries of Themes/.</summary>
     private static bool IsApplicationDictionary(string file)
     {
@@ -254,6 +306,14 @@ public sealed partial class XamlSourceTests
 
     [GeneratedRegex(@"<!--.*?-->", RegexOptions.Singleline)]
     private static partial Regex XmlComment();
+
+    /// <summary>The start tag of a status line (c:StatusLine) with its attributes.</summary>
+    [GeneratedRegex(@"<(?:\w+:)?StatusLine\b[^>]*>")]
+    private static partial Regex StatusLineElement();
+
+    /// <summary>An element named PageStatus: its tag without the prefix.</summary>
+    [GeneratedRegex(@"<(?:\w+:)?(?<tag>[\w.]+)\b[^>]*\bx:Name=""PageStatus""")]
+    private static partial Regex PageStatusName();
 
     /// <summary>
     /// A motion written in markup: a storyboard (also BeginStoryboard and the attached Storyboard.* properties), an

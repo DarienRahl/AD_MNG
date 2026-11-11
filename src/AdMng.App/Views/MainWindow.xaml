@@ -1481,14 +1481,21 @@
         </Border>
       </StatusBarItem>
 
-      <StatusBarItem DockPanel.Dock="Left">
+      <!--
+        What the selected tab says about itself - only for the tabs that have no status line of their own yet (track V,
+        stage V2): an object list says it in its own line (PageStatus of ObjectListView), and one window never says the
+        same sentence twice.
+      -->
+      <StatusBarItem x:Name="TabStatusItem" DockPanel.Dock="Left">
         <StackPanel Orientation="Horizontal">
-          <TextBlock Margin="12,0,0,0"
-                     Text="{Binding StatusText, Mode=OneWay}"
+          <TextBlock x:Name="TabStatusText"
+                     Margin="12,0,0,0"
+                     Text="{Binding StatusBarText, Mode=OneWay}"
                      TextTrimming="CharacterEllipsis" />
-          <TextBlock Margin="12,0,0,0"
+          <TextBlock x:Name="TabSelectionText"
+                     Margin="12,0,0,0"
                      FontWeight="SemiBold"
-                     Text="{Binding SelectionText, Mode=OneWay}" />
+                     Text="{Binding StatusBarSelectionText, Mode=OneWay}" />
         </StackPanel>
       </StatusBarItem>
     </StatusBar>
