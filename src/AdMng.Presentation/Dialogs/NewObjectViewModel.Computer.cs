@@ -4,6 +4,7 @@ using AdMng.Core.Batch.Planning;
 using AdMng.Core.Computers;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Shell;
@@ -100,7 +101,10 @@ public sealed partial class NewObjectViewModel
             var principal = await Task.Run(() => session.GetAsync(picked[0], [Attr.ObjectSid, Attr.SamAccountName, Attr.Name], CancellationToken.None)).ConfigureAwait(true);
             if (principal?.ObjectSid is not { } sid)
             {
+                // Nothing was changed, and why: an attention in the status line.
                 Error = Localizer[L.Computers.PrestageJoinerNotFound];
+                Say(PageStatus.Attention(
+                    PageStatusText.Failure(Localizer[L.NewObjectStatus.JoinerNotSet], Error), new PageStatusLog(L.Computers.PrestageJoinerNotFound)));
                 return;
             }
 
@@ -110,10 +114,32 @@ public sealed partial class NewObjectViewModel
                 : principal.Name;
             JoinerDn = principal.DistinguishedName;
             Error = null;
+
+            // The operator's next step: what the line said about the step before is over (design note 6.7).
+            if (Status.Operation is null)
+            {
+                Status.Clear();
+            }
         }
         catch (Exception ex) when (ex is DirectoryException or InvalidOperationException or ObjectDisposedException)
         {
             Error = Errors.Translate(ex);
+            var code = ResultCode.Of(ex);
+            Say(PageStatus.Error(
+                PageStatusText.Failure(Localizer[L.NewObjectStatus.JoinerFailed], Error, null, code),
+                new PageStatusLog(L.NewObjectStatus.JoinerFailed).WithCode(code)));
+        }
+    }
+
+    /// <summary>
+    /// A result of the short read after the picker (it is no operation of its own): said unless the creation runs - that
+    /// one keeps the line and says how it ended.
+    /// </summary>
+    private void Say(PageStatus result)
+    {
+        if (Status.Operation is null)
+        {
+            Status.Show(result);
         }
     }
 
@@ -191,5 +217,8 @@ public sealed partial class NewObjectViewModel
         OnPropertyChanged(nameof(ManagedByText));
         OnPropertyChanged(nameof(JoinSummary));
         OnPropertyChanged(nameof(PreWindows2000Note));
+
+        // The window's own sentence in the new language.
+        UpdateLasting();
     }
 }

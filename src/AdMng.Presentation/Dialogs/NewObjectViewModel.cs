@@ -6,6 +6,7 @@ using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Core.Templates;
 using AdMng.Presentation.BatchEditing;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
@@ -35,8 +36,15 @@ public enum NameAvailability
 /// <remarks>
 /// User accounts are created disabled (userAccountControl 514) without a password, then the password is set and
 /// the account is enabled (512) - the order AD requires when the password policy forbids empty passwords.
+/// <para>The window has one status line (<see cref="Status"/>; track V, stage V2b, design note
+/// docs/dev/v-interface-renewal.md "V2b-2 as built"): creating the object is its one operation - "Creating “…” in
+/// contoso.test…", which cannot be stopped from the line, like Apply of the property sheet - and the line says why
+/// nothing was created (a field is missing, the name is taken, the planner refused) or why the creation failed. An
+/// object that was created says nothing here: the dialog closes. As the state that lasts: the window has no session.
+/// A password is never part of what the line says or of its log copy. What belongs to one field - whether the logon
+/// name is free, what two password options mean together - stays next to that field.</para>
 /// </remarks>
-public sealed partial class NewObjectViewModel : WindowViewModelBase
+public sealed partial class NewObjectViewModel : WindowViewModelBase, IHasPageStatus
 {
     /// <summary>Default sAMAccountName template for new users.</summary>
     public const string DefaultSamTemplate = "{givenName|nodiacritics|lower}.{sn|nodiacritics|lower}";
@@ -67,6 +75,7 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
 
         Kind = kind == ObjectKind.InetOrgPerson ? ObjectKind.User : kind;
         ParentDn = parentDn;
+        Status = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
         _samCheck = new Debouncer(services.Time, TimeSpan.FromMilliseconds(300));
         GroupScopes =
         [
@@ -79,7 +88,15 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
             UpnSuffix = session.Info.DomainDnsName;
             UpnSuffixes = [session.Info.DomainDnsName];
         }
+
+        UpdateLasting();
     }
+
+    /// <summary>
+    /// The status of the window - what its one status line shows: the running creation, why nothing was created or why
+    /// the creation failed, and that the window has no session.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     /// <summary>"New Object - User" / "Nowy obiekt - Użytkownik".</summary>
     public override string WindowTitle => Localizer.Format(L.NewObject.WindowTitle, Localizer.ObjectKindName(Kind));
@@ -200,7 +217,10 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
     [NotifyCanExecuteChangedFor(nameof(CreateCommand), nameof(CancelCommand))]
     public partial bool IsBusy { get; private set; }
 
-    /// <summary>Localized validation or creation error.</summary>
+    /// <summary>
+    /// Localized validation or creation error - what the status line says, as plain text (kept for callers that read
+    /// it).
+    /// </summary>
     [ObservableProperty]
     public partial string? Error { get; private set; }
 
@@ -249,6 +269,13 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
 
     private string ObjectName => Kind is ObjectKind.User or ObjectKind.Contact ? FullName : Name;
 
+    /// <summary>
+    /// Creates the object through the change pipeline. Creating is the operation of the window: its status line says
+    /// so from the press on - the checks of the name, the plan and its execution are one operation - and says why
+    /// nothing was created or why the creation failed. It cannot be stopped from the line: a creation stopped half way
+    /// would leave an account without its password, and its execution is an activity of the connection that can be
+    /// cancelled there, as before. An object that was created says nothing here - the dialog closes.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanCreate))]
     private async Task CreateAsync()
     {
@@ -256,12 +283,14 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
         if (session is null)
         {
             Error = NoSessionMessage;
+            UpdateLasting();
             return;
         }
 
         Error = Validate();
         if (Error is not null)
         {
+            Status.Show(NotCreated(Error));
             return;
         }
 
@@ -272,23 +301,29 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
             if (!string.Equals(password, ConfirmPasswordInput?.GetPassword() ?? string.Empty, StringComparison.Ordinal))
             {
                 Error = Localizer[L.Batch.PasswordMismatch];
+                Status.Show(NotCreated(Error));
                 return;
             }
 
             if (password.Length == 0 && !AccountDisabled)
             {
                 Error = Localizer[L.NewObject.PasswordRequired];
+                Status.Show(NotCreated(Error));
                 return;
             }
         }
 
         IsBusy = true;
+        var name = ObjectName.Trim();
+        using var creating = Status.Begin(
+            Localizer.Format(L.NewObjectStatus.Creating, name, ConfirmationDomain), new PageStatusLog(L.NewObjectStatus.Creating), canCancel: false);
         try
         {
             var dn = TargetDn!;
             if (await Task.Run(() => session.GetAsync(dn, [Attr.DistinguishedName], CancellationToken.None)).ConfigureAwait(true) is not null)
             {
                 Error = Localizer.Format(L.NewObject.AlreadyExists, ObjectName.Trim());
+                creating.Complete(NotCreated(Error));
                 return;
             }
 
@@ -296,6 +331,7 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
                 && await FindOwnerAsync(session, Attr.SamAccountName, SamValue(), CancellationToken.None).ConfigureAwait(true) is { } owner)
             {
                 Error = Localizer.Format(L.NewObject.SamTaken, SamValue(), owner);
+                creating.Complete(NotCreated(Error));
                 return;
             }
 
@@ -305,6 +341,7 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
                 && await FindOwnerAsync(session, Attr.UserPrincipalName, upn, CancellationToken.None).ConfigureAwait(true) is { } upnOwner)
             {
                 Error = Localizer.Format(L.NewObject.SamTaken, upn, upnOwner);
+                creating.Complete(NotCreated(Error));
                 return;
             }
 
@@ -312,7 +349,9 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
             password = null;
             if (plan.Objects[0].HasErrors)
             {
-                Error = string.Join(Environment.NewLine, plan.Objects[0].Changes.SelectMany(c => c.Issues).Select(i => Errors.TranslateIssue(i, session.Schema)));
+                var issues = plan.Objects[0].Changes.SelectMany(c => c.Issues).Select(i => Errors.TranslateIssue(i, session.Schema)).ToList();
+                Error = string.Join(Environment.NewLine, issues);
+                creating.Complete(NotCreated(string.Join(" ", issues.Distinct(StringComparer.Ordinal))));
                 return;
             }
 
@@ -324,10 +363,28 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
             {
                 var failure = objectResult.Changes.FirstOrDefault(c => !c.Succeeded);
                 Error = failure is null ? Localizer[L.NewObject.Failed] : Errors.TranslateFailure(failure.ErrorKind, failure.ErrorMessage);
+                if (failure is null && objectResult.Status == ObjectResultStatus.Cancelled)
+                {
+                    // Cancelled in the list of background operations before anything was written.
+                    creating.CompleteAttention(Localizer.Format(L.NewObjectStatus.Stopped, name), new PageStatusLog(L.NewObjectStatus.Stopped));
+                }
+                else
+                {
+                    // What was tried, why it failed, the code. The window is as it was: correct and press OK again.
+                    var code = failure?.ErrorKind is { } kind && kind != DirectoryErrorKind.Unknown ? ResultCode.Kind(kind) : ResultCode.None;
+                    creating.CompleteError(
+                        PageStatusText.Failure(Localizer.Format(L.NewObjectStatus.Failed, name), failure is null ? null : Error, null, code),
+                        new PageStatusLog(L.NewObjectStatus.Failed).WithCode(code));
+                }
+
                 return;
             }
 
             CreatedDn = objectResult.FinalDn;
+
+            // The object exists and the dialog closes: its line says nothing about a result nobody would read. What the
+            // operator learns is what he learned before - the toast of the main window, or the dialog below.
+            creating.Complete(null);
             if (objectResult.Status != ObjectResultStatus.Succeeded)
             {
                 // ADUC behaviour: the object exists (disabled); report why the password or the options were not set.
@@ -348,6 +405,10 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             Error = Errors.Translate(ex);
+            var code = ResultCode.Of(ex);
+            creating.CompleteError(
+                PageStatusText.Failure(Localizer.Format(L.NewObjectStatus.Failed, name), Error, null, code),
+                new PageStatusLog(L.NewObjectStatus.Failed).WithCode(code));
         }
         finally
         {
@@ -359,9 +420,31 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
 
     protected override void OnSessionEnded()
     {
+        // A creation that runs still says how it ended; the line says for good that the session of this window ended.
         Error = SessionEndedMessage;
+        UpdateLasting();
         CreateCommand.NotifyCanExecuteChanged();
     }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            // What still runs says nothing any more (the creation itself goes on as an activity of the connection).
+            Status.Operation?.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// The state of the window that lasts: its session ended, or it was opened without one. An error that cannot be
+    /// closed - nothing can be created here.
+    /// </summary>
+    private void UpdateLasting() => Status.SetLasting(
+        SessionEndedStatus ?? (Session is null ? PageStatus.Error(NoSessionMessage, new PageStatusLog(L.Errors.NotConnected), canClose: false) : null));
+
+    /// <summary>"Nothing was created: Enter a name." - what was skipped and why, an attention the operator can close.</summary>
+    private PageStatus NotCreated(string reason) =>
+        PageStatus.Attention(PageStatusText.Failure(Localizer[L.NewObjectStatus.NotCreated], reason), new PageStatusLog(L.NewObjectStatus.NotCreated));
 
     [RelayCommand(CanExecute = nameof(CanCancel))]
     private void Cancel() => RequestClose(false);
