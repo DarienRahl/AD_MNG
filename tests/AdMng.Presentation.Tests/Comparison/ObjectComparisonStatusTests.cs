@@ -315,12 +315,30 @@ public sealed class ObjectComparisonStatusTests
         Assert.Equal(PageStatusKind.Attention, ambiguous.Kind);
         Assert.Equal("Found 2 objects – choose one.", ambiguous.Message);
         Assert.Equal("Found 2 objects – choose one", comparison.StatusText);
-        Assert.Equal("Comparison.StatusAmbiguous", ambiguous.Log.ToString());
+        Assert.Equal("Comparison.Status.Ambiguous (2)", ambiguous.Log.ToString());
         Assert.Same(comparison.Status.Lasting, ambiguous);
         Assert.False(ambiguous.CanClose);
         Assert.Null(ambiguous.Action);
         Assert.False(comparison.HasResult);
         Assert.Equal(2, comparison.Candidates.Count);
+
+        // In Polish the count has the plural form of the language (2 obiekty, 5 obiektów).
+        a.Get<ILocalizer>().SetCulture(CultureInfo.GetCultureInfo("pl-PL"));
+        try
+        {
+            await comparison.CompareCommand.ExecuteAsync(null);
+            await comparison.Pending;
+            Assert.Equal("Znaleziono 2 obiekty – wybierz jeden.", comparison.Status.Current.Message);
+            Assert.Equal("Znaleziono 2 obiekty – wybierz jeden", comparison.StatusText);
+        }
+        finally
+        {
+            a.Get<ILocalizer>().SetCulture(CultureInfo.InvariantCulture);
+        }
+
+        await comparison.CompareCommand.ExecuteAsync(null);
+        await comparison.Pending;
+        Assert.Equal("Found 2 objects – choose one.", comparison.Status.Current.Message);
 
         // One is chosen: compared, and the state is over.
         comparison.SelectedCandidate = comparison.Candidates.Single(c => c.Path.Contains("Gdańsk", StringComparison.Ordinal));

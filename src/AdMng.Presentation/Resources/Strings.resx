@@ -24645,6 +24645,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Comparison.Status.Stopped" xml:space="preserve">
     <value>Comparing “{0}” was stopped: the tabs may not show everything. Press “{1}” to compare again.</value>
   </data>
+  <data name="Comparison.Status.Ambiguous" xml:space="preserve">
+    <value>Found {0} – choose one</value>
+  </data>
   <data name="Comparison.Status.Failed" xml:space="preserve">
     <value>Could not compare “{0}”</value>
   </data>

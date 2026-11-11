@@ -535,10 +535,11 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase, IHa
     /// </summary>
     /// <param name="key">The resource key of the text (the log copy).</param>
     /// <param name="text">The localized text.</param>
-    private void SayOutcome(string key, string text)
+    /// <param name="counts">The numbers the text was filled with (the log copy).</param>
+    private void SayOutcome(string key, string text, params long[] counts)
     {
         StatusText = text;
-        _outcome = PageStatus.Attention(PageStatusText.Failure(text, null), new PageStatusLog(key), canClose: false);
+        _outcome = PageStatus.Attention(PageStatusText.Failure(text, null), new PageStatusLog(key, counts), canClose: false);
         UpdateLasting();
     }
 
@@ -1046,7 +1047,11 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase, IHa
                     Candidates.Add(MatchCandidateViewModel.From(candidate));
                 }
 
-                SayOutcome(L.Comparison.StatusAmbiguous, Localizer.Format(L.Comparison.StatusAmbiguous, match.Candidates.Count));
+                // With the count in the plural form of the language ("2 obiekty", "5 obiektów").
+                SayOutcome(
+                    L.ComparisonStatus.Ambiguous,
+                    Localizer.Format(L.ComparisonStatus.Ambiguous, PageStatusText.Objects(Localizer, match.Candidates.Count)),
+                    match.Candidates.Count);
                 break;
             case MatchStatus.TooMany:
                 SayOutcome(L.Comparison.StatusTooMany, Localizer[L.Comparison.StatusTooMany]);

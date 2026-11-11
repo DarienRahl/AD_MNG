@@ -24645,6 +24645,9 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="Comparison.Status.Stopped" xml:space="preserve">
     <value>Porównywanie obiektu „{0}” zatrzymano: karty mogą nie pokazywać wszystkiego. Wybierz „{1}”, aby porównać ponownie.</value>
   </data>
+  <data name="Comparison.Status.Ambiguous" xml:space="preserve">
+    <value>Znaleziono {0} – wybierz jeden</value>
+  </data>
   <data name="Comparison.Status.Failed" xml:space="preserve">
     <value>Nie udało się porównać obiektu „{0}”</value>
   </data>

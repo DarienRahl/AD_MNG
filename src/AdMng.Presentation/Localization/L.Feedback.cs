@@ -295,7 +295,7 @@ public static partial class L
         /// <summary>{0} = the domain controllers that answered ("2 of 3"), {1} = the accounts that left the list.</summary>
         public const string ExactDone = "AccountReview.Status.ExactDone";
 
-        /// <summary>{0} = the domain controllers that did not answer, each with its reason.</summary>
+        /// <summary>{0} = the names of the domain controllers that did not answer.</summary>
         public const string ExactNoAnswer = "AccountReview.Status.ExactNoAnswer";
 
         /// <summary>{0} = the text of the button that reads again.</summary>
@@ -331,6 +331,11 @@ public static partial class L
 
         /// <summary>{0} = the name of the object, {1} = the text of the button that compares again.</summary>
         public const string Stopped = "Comparison.Status.Stopped";
+
+        /// <summary>
+        /// Several objects match, without a full stop; {0} = how many ("2 objects"; the candidates are listed for a choice).
+        /// </summary>
+        public const string Ambiguous = "Comparison.Status.Ambiguous";
 
         /// <summary>What was tried, without a full stop; {0} = the name of the object.</summary>
         public const string Failed = "Comparison.Status.Failed";
