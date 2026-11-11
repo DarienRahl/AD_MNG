@@ -73,6 +73,7 @@ public sealed partial class XamlSourceTests
         "Views/CompareObjectsWindow.xaml",
         "Views/ConnectWindow.xaml",
         "Views/FindWindow.xaml",
+        "Views/NewObjectWindow.xaml",
         "Views/ObjectListView.xaml",
         "Views/PropertiesWindow.xaml",
         "Views/RecycleBinWindow.xaml",
