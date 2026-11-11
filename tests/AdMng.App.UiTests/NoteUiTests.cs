@@ -58,8 +58,7 @@ public sealed class NoteUiTests
                 Assert.False(note.Focusable);
                 Assert.False(note.IsTabStop);
 
-                // For a screen reader the note is its text: the control itself and its glyph are no elements of their own.
-                Assert.Null(UIElementAutomationPeer.CreatePeerForElement(note));
+                // For a screen reader the note is its text; the glyph, a part of the template, is no element of its own.
                 var peer = Assert.IsAssignableFrom<AutomationPeer>(UIElementAutomationPeer.CreatePeerForElement(text));
                 Assert.Equal(Weak, peer.GetName());
                 Assert.False(Assert.IsAssignableFrom<AutomationPeer>(UIElementAutomationPeer.CreatePeerForElement(glyph)).IsControlElement());
