@@ -3,6 +3,7 @@ using System.ComponentModel;
 using AdMng.Core.Messaging;
 using AdMng.Core.Messaging.Html;
 using AdMng.Core.Messaging.Images;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -18,18 +19,24 @@ namespace AdMng.Presentation.UserMessages;
 /// longer than it accepts) with the choices that help – never a silent switch or drop. The images of the working template
 /// live in memory (<see cref="_images"/>); a saved template's images come from the image store when it is selected.
 /// </summary>
+/// <remarks>
+/// What the editor does and what became of it is said in the status line of the window, through
+/// <see cref="EditorStatus"/> (track V, stage V2b): the paste is its operation, with Stop. What is true of the content
+/// for as long as it is shown stays next to it: the images that could not be read (<see cref="MissingImagesText"/>) and
+/// why the messages do not fit the transport (<see cref="TransportFitText"/>) are notes; the read of a template's
+/// images only shows "busy" (<see cref="IsLoadingImages"/>).
+/// </remarks>
 public sealed partial class UserMessageComposerViewModel
 {
     private readonly Dictionary<string, MessageImage> _images = new(StringComparer.OrdinalIgnoreCase);
     private HtmlPasteWorkflow? _pasteWorkflow;
-    private CancellationTokenSource? _pasteCancellation;
+    private OperationScope? _pasting;
     private Task _imagesLoading = Task.CompletedTask;
     private int _imageVersion;
     private bool _richHooked;
     private bool _omitImages;
     private bool _directForRun;
     private bool _fitIsTest;
-    private bool _loadingImages;
 
     // ---- HTML section --------------------------------------------------------------------------------------------
 
@@ -39,7 +46,29 @@ public sealed partial class UserMessageComposerViewModel
     public bool HasTemplateImages => TemplateImages.Count > 0;
 
     /// <summary>Images of the template whose bytes could not be read (file missing or changed): "Usuń brakujące obrazy".</summary>
-    public bool HasMissingImages => !_loadingImages && (_working.Images ?? []).Any(i => !_images.ContainsKey(i.ContentId));
+    public bool HasMissingImages => !IsLoadingImages && (_working.Images ?? []).Any(i => !_images.ContainsKey(i.ContentId));
+
+    /// <summary>
+    /// "2 image(s) of the template could not be read (file missing or changed) – remove them or paste them again." while
+    /// <see cref="HasMissingImages"/>, else null: a note of the image strip - true for as long as the template has them.
+    /// </summary>
+    public string? MissingImagesText => HasMissingImages
+        ? Localizer.Format(L.UserMessagesRich.ImagesMissing, (_working.Images ?? []).Count(i => !_images.ContainsKey(i.ContentId)))
+        : null;
+
+    /// <summary>
+    /// The images of the template just loaded are being read from the image store: the "busy" mark of the image strip
+    /// (there is nothing to say in the status line - the result is the strip, or the note about missing images).
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasMissingImages), nameof(MissingImagesText), nameof(ImagesLoadingText), nameof(ShowTemplateImages))]
+    public partial bool IsLoadingImages { get; private set; }
+
+    /// <summary>"Loading the template's images…" while <see cref="IsLoadingImages"/> (what a screen reader finds as the status of the strip), else empty.</summary>
+    public string ImagesLoadingText => IsLoadingImages ? Localizer[L.UserMessagesRich.ImagesLoading] : string.Empty;
+
+    /// <summary>The image strip has something to show: images, the "busy" mark, or the note about images that are missing.</summary>
+    public bool ShowTemplateImages => HasTemplateImages || IsLoadingImages || HasMissingImages;
 
     /// <summary>The results of the last paste, grouped, with their actions.</summary>
     public ObservableCollection<HtmlPasteProblemViewModel> PasteProblems { get; } = [];
@@ -99,14 +128,16 @@ public sealed partial class UserMessageComposerViewModel
     // ---- Commands ------------------------------------------------------------------------------------------------
 
     /// <summary>"Wklej sformatowaną treść" (Ctrl+Shift+V): replaces the HTML of the edited language (asks first when it is
-    /// not empty); an empty text body is filled from the HTML.</summary>
+    /// not empty); an empty text body is filled from the HTML. The paste is the operation of the editor: the status line
+    /// says "Pasting the formatted content…" with Stop - the button that started it is its Cancel as well - and what
+    /// became of it.</summary>
     [RelayCommand(CanExecute = nameof(CanEditHtml))]
     private async Task PasteFormattedAsync()
     {
         var content = Paste.ReadClipboard();
         if (content is null || content.IsEmpty)
         {
-            RichStatusText = Localizer[L.UserMessagesRich.ClipboardEmpty];
+            NotPasted(L.UserMessagesRich.ClipboardEmpty, Localizer[L.UserMessagesRich.ClipboardEmpty]);
             return;
         }
 
@@ -116,37 +147,44 @@ public sealed partial class UserMessageComposerViewModel
             return;
         }
 
-        _pasteCancellation?.Cancel();
-        var cancellation = new CancellationTokenSource();
-        _pasteCancellation = cancellation;
+        using var pasting = EditorStatus.Begin(Localizer[L.UserMessagesRich.Pasting], new PageStatusLog(L.UserMessagesRich.Pasting));
+        _pasting = pasting;
         IsPasting = true;
         RichStatusText = Localizer[L.UserMessagesRich.Pasting];
         try
         {
-            var result = await Paste.ImportAsync(content, PasteDomains(), OtherLanguageImages(), cancellation.Token).ConfigureAwait(true);
-            if (!cancellation.IsCancellationRequested && !IsDisposed)
+            var result = await Paste.ImportAsync(content, PasteDomains(), OtherLanguageImages(), pasting.Token).ConfigureAwait(true);
+            if (pasting.IsCancelling)
             {
-                ApplyPaste(result);
+                // Stop was pressed and the import finished all the same: the operator said stop, so nothing is pasted.
+                PasteStopped(pasting);
+            }
+            else if (!pasting.IsEnded && !IsDisposed)
+            {
+                ApplyPaste(result, pasting);
             }
         }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        catch (OperationCanceledException) when (pasting.Token.IsCancellationRequested)
         {
-            RichStatusText = Localizer[L.UserMessagesRich.PasteCancelled];
+            // Only a paste the operator stopped says so (the window that closes ends it without a word).
+            if (pasting.IsCancelling)
+            {
+                PasteStopped(pasting);
+            }
         }
         finally
         {
-            if (ReferenceEquals(_pasteCancellation, cancellation))
+            if (ReferenceEquals(_pasting, pasting))
             {
-                _pasteCancellation = null;
+                _pasting = null;
                 IsPasting = false;
             }
-
-            cancellation.Dispose();
         }
     }
 
+    /// <summary>The Cancel of the paste as a command (the same Stop as in the status line and on the paste button).</summary>
     [RelayCommand(CanExecute = nameof(IsPasting))]
-    private void CancelPaste() => _pasteCancellation?.Cancel();
+    private void CancelPaste() => _pasting?.Cancel();
 
     /// <summary>"Wklej obraz": the clipboard's bitmap at the caret of the HTML source (else as a paragraph at the end).</summary>
     [RelayCommand(CanExecute = nameof(CanEditHtml))]
@@ -155,15 +193,21 @@ public sealed partial class UserMessageComposerViewModel
         var (image, error) = HtmlPasteWorkflow.ImageOf(Paste.ReadClipboard(), _images.Count + 1);
         if (image is null)
         {
-            RichStatusText = error is { } refused
-                ? Localizer.Format(L.UserMessagesRich.ImageNotAccepted, UserMessageText.Reason(Localizer, refused.ToString()))
-                : Localizer[L.UserMessagesRich.ClipboardNoImage];
+            if (error is { } refused)
+            {
+                NotPasted(L.UserMessagesRich.ImageNotAccepted, Localizer.Format(L.UserMessagesRich.ImageNotAccepted, UserMessageText.Reason(Localizer, refused.ToString())));
+            }
+            else
+            {
+                NotPasted(L.UserMessagesRich.ClipboardNoImage, Localizer[L.UserMessagesRich.ClipboardNoImage]);
+            }
+
             return;
         }
 
         if (!_images.ContainsKey(image.ContentId) && !FitsTemplateLimits([image]))
         {
-            RichStatusText = Localizer[L.UserMessagesRich.TemplateImageLimit];
+            NotPasted(L.UserMessagesRich.TemplateImageLimit, Localizer[L.UserMessagesRich.TemplateImageLimit]);
             return;
         }
 
@@ -175,7 +219,7 @@ public sealed partial class UserMessageComposerViewModel
             : html + (html.Length == 0 || html.EndsWith('\n') ? string.Empty : "\n") + "<p>" + tag + "</p>\n";
         SetWorkingImages(updated);
         Html = updated;
-        RichStatusText = Localizer.Format(L.UserMessagesRich.ImageInserted, image.FileName);
+        EditorDone(L.UserMessagesRich.ImageInserted, Localizer.Format(L.UserMessagesRich.ImageInserted, image.FileName));
         RefreshImages();
     }
 
@@ -241,7 +285,7 @@ public sealed partial class UserMessageComposerViewModel
         }
 
         OnPropertyChanged(nameof(HasPasteProblems));
-        RichStatusText = Localizer.Format(L.UserMessagesRich.DomainAllowed, choice.Domain);
+        EditorDone(L.UserMessagesRich.DomainAllowed, Localizer.Format(L.UserMessagesRich.DomainAllowed, choice.Domain));
         RefreshTemplateCheck();
     }
 
@@ -261,7 +305,7 @@ public sealed partial class UserMessageComposerViewModel
         }
 
         OnPropertyChanged(nameof(HasPasteProblems));
-        RichStatusText = Localizer.Format(L.UserMessagesRich.LinkRemoved, host);
+        EditorDone(L.UserMessagesRich.LinkRemoved, Localizer.Format(L.UserMessagesRich.LinkRemoved, host));
     }
 
     /// <summary>"Wyślij bezpośrednio przez SMTP" (for this run only – the setting stays): the direct transport, with the
@@ -281,7 +325,10 @@ public sealed partial class UserMessageComposerViewModel
         if (choice.NeedsPassword)
         {
             NeedsSmtpPassword = true;
-            Error = Localizer[L.UserMessages.PasswordRequired];
+            NotStarted(
+                _fitIsTest ? L.MessageWindowStatus.TestNotSent : L.MessageWindowStatus.NotSent,
+                L.UserMessages.PasswordRequired,
+                Localizer[L.UserMessages.PasswordRequired]);
             return;
         }
 
@@ -335,16 +382,19 @@ public sealed partial class UserMessageComposerViewModel
         OnPropertyChanged(nameof(HasPasteProblems));
         _omitImages = false;
         RichStatusText = null;
+
+        // What the editor said was about the template shown before (a paste that still runs keeps the line).
+        ClearEditorResult();
         if ((template.Images ?? []).Count == 0)
         {
-            _loadingImages = false;
+            IsLoadingImages = false;
             _imagesLoading = Task.CompletedTask;
             RefreshImages();
             return;
         }
 
         RichStatusText = Localizer[L.UserMessagesRich.ImagesLoading];
-        _loadingImages = true;
+        IsLoadingImages = true;
         _imagesLoading = LoadTemplateImagesAsync(template, version);
     }
 
@@ -441,21 +491,76 @@ public sealed partial class UserMessageComposerViewModel
 
         PasteFormattedCommand.NotifyCanExecuteChanged();
         PasteImageCommand.NotifyCanExecuteChanged();
+        OnStageShown();
+    }
+
+    // ---- What the editor says ------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// A result of the editor - an image that was inserted, a link that was removed, why nothing was pasted - unless a
+    /// paste runs: that operation keeps the line and says itself how it ended.
+    /// </summary>
+    private void SayInEditor(PageStatus status)
+    {
+        if (EditorStatus.Operation is null)
+        {
+            EditorStatus.Show(status);
+        }
+    }
+
+    /// <summary>What the editor just did (a sentence), with its resource key as the log copy.</summary>
+    private void EditorDone(string key, string text)
+    {
+        RichStatusText = text;
+        SayInEditor(PageStatus.Done(text, new PageStatusLog(key)));
+    }
+
+    /// <summary>"Nothing was pasted: The clipboard holds no image." - an attention the operator can close; the log copy is the key of the reason.</summary>
+    private void NotPasted(string reasonKey, string reason)
+    {
+        RichStatusText = reason;
+        SayInEditor(NotPastedStatus(reasonKey, reason));
+    }
+
+    private PageStatus NotPastedStatus(string reasonKey, string reason) =>
+        PageStatus.Attention(PageStatusText.Failure(Localizer[L.MessageWindowStatus.NotPasted], reason), new PageStatusLog(reasonKey));
+
+    /// <summary>"Pasting was stopped: the content was not changed."</summary>
+    private void PasteStopped(OperationScope pasting)
+    {
+        RichStatusText = Localizer[L.UserMessagesRich.PasteCancelled];
+        pasting.CompleteAttention(Localizer[L.MessageWindowStatus.PasteStopped], new PageStatusLog(L.MessageWindowStatus.PasteStopped));
+    }
+
+    /// <summary>Takes a result of the editor off the line (another template, images removed); a running paste stays.</summary>
+    private void ClearEditorResult()
+    {
+        if (EditorStatus.Operation is null)
+        {
+            EditorStatus.Clear();
+        }
     }
 
     // ---- Helpers -------------------------------------------------------------------------------------------------
 
     private HtmlPasteWorkflow Paste => _pasteWorkflow ??= new HtmlPasteWorkflow(Services.Clipboard, _messages.PastedImages, _messages.Planner.Fields.Engine);
 
-    private void ApplyPaste(HtmlPasteResult result)
+    /// <summary>
+    /// Takes the result of a paste into the editor and ends the operation with what became of it: nothing could be
+    /// pasted and why (attention), the text or the formatted content was pasted (done) - with the remarks that are
+    /// listed under the content as an attention when one of them is a warning.
+    /// </summary>
+    private void ApplyPaste(HtmlPasteResult result, OperationScope pasting)
     {
         switch (result.Kind)
         {
             case HtmlPasteKind.Nothing:
                 RichStatusText = Localizer[L.UserMessagesRich.ClipboardEmpty];
+                pasting.Complete(NotPastedStatus(L.UserMessagesRich.ClipboardEmpty, RichStatusText));
                 return;
             case HtmlPasteKind.TooLarge:
                 RichStatusText = Localizer[L.UserMessagesRich.ClipboardTooLarge];
+                pasting.Complete(NotPastedStatus(L.UserMessagesRich.ClipboardTooLarge, RichStatusText));
                 return;
         }
 
@@ -469,6 +574,7 @@ public sealed partial class UserMessageComposerViewModel
         if (result.Kind == HtmlPasteKind.Image && result.Images.Count == 0)
         {
             RichStatusText = Localizer.Format(L.UserMessagesRich.ImageNotAccepted, UserMessageText.Reason(Localizer, result.Problems.FirstOrDefault()?.Detail));
+            pasting.Complete(NotPastedStatus(L.UserMessagesRich.ImageNotAccepted, RichStatusText));
             return;
         }
 
@@ -484,9 +590,27 @@ public sealed partial class UserMessageComposerViewModel
             Body = result.SuggestedText;
         }
 
-        RichStatusText = result.Kind == HtmlPasteKind.Text
-            ? Localizer[L.UserMessagesRich.PastedText]
-            : Localizer.Format(L.UserMessagesRich.Pasted, result.Images.Count, PasteProblems.Count);
+        if (result.Kind == HtmlPasteKind.Text)
+        {
+            RichStatusText = Localizer[L.UserMessagesRich.PastedText];
+            pasting.CompleteDone(RichStatusText, new PageStatusLog(L.UserMessagesRich.PastedText));
+        }
+        else
+        {
+            // "Pasted: 2 image(s), 3 note(s) below." - the notes are the list under the content; one that is a warning
+            // makes the result an attention.
+            RichStatusText = Localizer.Format(L.UserMessagesRich.Pasted, result.Images.Count, PasteProblems.Count);
+            var log = new PageStatusLog(L.UserMessagesRich.Pasted, result.Images.Count, PasteProblems.Count);
+            if (PasteProblems.Any(p => p.IsWarning))
+            {
+                pasting.CompleteAttention(RichStatusText, log);
+            }
+            else
+            {
+                pasting.CompleteDone(RichStatusText, log);
+            }
+        }
+
         RefreshImages();
     }
 
@@ -528,6 +652,7 @@ public sealed partial class UserMessageComposerViewModel
         RefreshTemplateCheck();
         RefreshImages();
         RichStatusText = null;
+        ClearEditorResult();
     }
 
     private bool FitsTemplateLimits(IReadOnlyCollection<MessageImage> added)
@@ -585,7 +710,7 @@ public sealed partial class UserMessageComposerViewModel
             _images[image.ContentId] = image;
         }
 
-        _loadingImages = false;
+        IsLoadingImages = false;
         var missing = (template.Images ?? []).Count(i => !_images.ContainsKey(i.ContentId));
         RichStatusText = missing > 0 ? Localizer.Format(L.UserMessagesRich.ImagesMissing, missing) : null;
         RefreshImages();
@@ -604,6 +729,8 @@ public sealed partial class UserMessageComposerViewModel
 
         OnPropertyChanged(nameof(HasTemplateImages));
         OnPropertyChanged(nameof(HasMissingImages));
+        OnPropertyChanged(nameof(MissingImagesText));
+        OnPropertyChanged(nameof(ShowTemplateImages));
         OnPropertyChanged(nameof(ComposePreview));
     }
 
