@@ -24694,7 +24694,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Wczytywanie kontrolerów domeny {0}…</value>
   </data>
   <data name="ChangeDc.Status.ReadStopped" xml:space="preserve">
-    <value>Wczytywanie kontrolerów domeny zatrzymano: lista pokazuje tylko bieżący. Wpisz nazwę kontrolera domeny albo wybierz Odśwież, aby wczytać listę.</value>
+    <value>Wczytywanie kontrolerów domeny zatrzymano: lista może nie pokazywać wszystkich. Wpisz nazwę kontrolera domeny albo wybierz Odśwież, aby wczytać listę ponownie.</value>
   </data>
   <data name="ChangeDc.Status.ReadFailed" xml:space="preserve">
     <value>Nie udało się wczytać listy kontrolerów domeny</value>

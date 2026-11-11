@@ -24694,7 +24694,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Reading the domain controllers of {0}…</value>
   </data>
   <data name="ChangeDc.Status.ReadStopped" xml:space="preserve">
-    <value>Reading the domain controllers was stopped: the list shows only the current one. Type the name of a domain controller, or press Refresh to read the list.</value>
+    <value>Reading the domain controllers was stopped: the list may not show all of them. Type the name of a domain controller, or press Refresh to read the list again.</value>
   </data>
   <data name="ChangeDc.Status.ReadFailed" xml:space="preserve">
     <value>Could not read the list of domain controllers</value>
