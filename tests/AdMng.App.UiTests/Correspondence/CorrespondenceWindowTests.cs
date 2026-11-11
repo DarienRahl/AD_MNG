@@ -19,6 +19,7 @@ using AdMng.Core.Correspondence.Outlook;
 using AdMng.Core.Ldap;
 using AdMng.Presentation.Correspondence;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Services;
@@ -509,12 +510,13 @@ public sealed class CorrespondenceWindowTests
         Assert.Equal(BindingStatus.Active, Expression(window.OutlookAccountBox, ItemsControl.ItemsSourceProperty).Status);
         Assert.Equal(BindingStatus.Active, Expression(window.LoadOutlookAccountsButton, ButtonBase.CommandProperty).Status);
         Assert.Equal(BindingStatus.Active, Expression(window.OutlookOnBehalfBox, ToggleButton.IsCheckedProperty).Status);
-        Assert.Equal(BindingStatus.Active, Expression(window.OutlookAccountsText, TextBlock.TextProperty).Status);
 
-        // "Pobierz konta z Outlooka" reads the accounts of the (in-memory) profile.
+        // "Pobierz konta z Outlooka" reads the accounts of the (in-memory) profile; how it ended is said by the status
+        // line of the window (the tab is the page in front) - a result that stays until it is closed.
         window.LoadOutlookAccountsButton.Command.Execute(null);
         await UiWait.UntilAsync(() => window.OutlookAccountBox.Items.Count == FakeOutlookClient.SampleProfile.Accounts.Count, "the accounts of the profile");
-        await UiWait.UntilAsync(() => window.OutlookAccountsText.Visibility == Visibility.Visible, "the outcome of loading the accounts");
+        await UiWait.UntilAsync(() => window.PageStatus.Kind == PageStatusKind.Done, "the outcome of loading the accounts in the status line");
+        Assert.Equal("Profil Outlooka „Outlook” ma 2 konta. Wybierz z listy konto, z którego będą wysyłane wiadomości.", window.PageStatus.Message);
         Assert.Contains(window.OutlookAccountBox.Items.Cast<object>(), a => a.ToString()!.Contains("sekretariat.lodz@contoso.test", StringComparison.Ordinal));
         window.OutlookAccountBox.Text = "sekretariat.lodz@contoso.test";
         window.OutlookOnBehalfBox.IsChecked = true;

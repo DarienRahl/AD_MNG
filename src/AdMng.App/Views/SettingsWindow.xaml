@@ -3,7 +3,11 @@
      account of the transport "Przez Outlooka" (U5) and the direct SMTP connection with its tests (the SMTP password box is
      read only for a test and never saved) and the salutations (U1d: title and gender attributes, given names, title table,
      "Sprawdź" box); tab "Komputery" (K1) – WinRM, restart defaults, own end-of-support dates, expected containers. Save
-     applies at once. -->
+     applies at once.
+     Feedback (track V, stage V2b; docs/dev/v-interface-renewal.md "V2b-2 as built"): one status line above the tabs
+     says what the tab in front does and how it ended – the connection test, the test message and the read of the
+     Outlook accounts of "Wiadomości e-mail". What is true of the fields for as long as they are shown is a note: why
+     Save is not possible (above the buttons), what sending without TLS means (next to that choice). -->
 <Window x:Class="AdMng.App.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -63,28 +67,44 @@
       </StackPanel>
     </Border>
 
-    <!-- Errors of the settings (both tabs) -->
-    <Border Margin="24,8,24,0"
-            DockPanel.Dock="Bottom"
-            Style="{StaticResource Ad.ErrorBar}"
-            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <DockPanel>
-        <TextBlock Margin="0,0,10,0"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Error}" />
-        <TextBlock x:Name="ErrorMessage"
-                   AutomationProperties.LiveSetting="Assertive"
-                   Text="{Binding Error, Mode=OneWay}"
-                   TextWrapping="Wrap" />
-      </DockPanel>
-    </Border>
+    <!--
+      Why Save is not possible: the first value of any tab that is not valid. Computed from the fields for as long as
+      they are shown - a note next to the Save button it explains, not a status.
+    -->
+    <ContentControl x:Name="ErrorNote"
+                    Margin="24,8,24,0"
+                    DockPanel.Dock="Bottom"
+                    Style="{StaticResource Ad.Note.Error}"
+                    Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <TextBlock x:Name="ErrorMessage"
+                 AutomationProperties.LiveSetting="Assertive"
+                 Text="{Binding Error, Mode=OneWay}"
+                 TextWrapping="Wrap" />
+    </ContentControl>
 
-    <TabControl x:Name="SettingsTabs" Margin="8,8,8,0">
+    <!--
+      Status line (design note 6.1): what the tab in front does and how it ended - the connection test, the test
+      message and the read of the Outlook accounts of the "E-mail messages" tab, each with Stop. The window itself
+      has nothing to say (Save closes it), so the line is empty on the other tabs. Always present, above the tabs and
+      outside their scrolling, so a test started far down a tab answers where the operator can see it.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="8,8,8,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
+    <!-- The view model learns which tab is shown: the status of that tab is in front. -->
+    <TabControl x:Name="SettingsTabs"
+                Margin="8,8,8,0"
+                SelectedIndex="{Binding SelectedTabIndex}">
       <TabItem x:Name="GeneralTab" Header="{l:Tr UserMessages.GeneralTab}">
-        <!-- Scrolls like the other tabs: with the appearance choices of V1 the tab is taller than a small screen. -->
-        <ScrollViewer MaxHeight="600" VerticalScrollBarVisibility="Auto">
+        <!--
+          Scrolls like the other tabs: with the appearance choices of V1 the tab is taller than a small screen. The
+          three tabs scroll from 564 px (600 less the 36 px of the status line above them), so the window is as high
+          as it was.
+        -->
+        <ScrollViewer MaxHeight="564" VerticalScrollBarVisibility="Auto">
           <StackPanel Margin="24,0,24,16">
             <!-- Appearance -->
             <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr ToolsUi.SettingsAppearance}" />
@@ -316,7 +336,7 @@
                  DataContext="{Binding Messages, Mode=OneWay}"
                  Header="{l:Tr UserMessages.SettingsTab}"
                  Visibility="{Binding Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-          <ScrollViewer MaxHeight="600" VerticalScrollBarVisibility="Auto">
+          <ScrollViewer MaxHeight="564" VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="24,0,24,16">
               <!-- Sender -->
               <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr UserMessages.SenderSection}" />
@@ -466,14 +486,8 @@
                               ItemsSource="{Binding OutlookAccounts, Mode=OneWay}"
                               Text="{Binding OutlookAccount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                   </DockPanel>
+                  <!-- How "Pobierz konta z Outlooka" ended is said by the status line; the accounts are the list of the box. -->
                   <StackPanel Grid.Row="1" Grid.Column="1">
-                    <!-- The outcome of "Pobierz konta z Outlooka" (the accounts found, or why Outlook could not be used). -->
-                    <TextBlock x:Name="OutlookAccountsText"
-                               Margin="0,4,0,0"
-                               AutomationProperties.LiveSetting="Polite"
-                               Text="{Binding OutlookAccountsText, Mode=OneWay}"
-                               TextWrapping="Wrap"
-                               Visibility="{Binding OutlookAccountsText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
                     <TextBlock Margin="0,4,0,0"
                                Style="{StaticResource Ad.SecondaryText}"
                                Text="{l:Tr Correspondence.App.Settings.OutlookAccountHint}"
@@ -528,19 +542,22 @@
                           ItemsSource="{Binding TlsModes, Mode=OneWay}"
                           SelectedItem="{Binding Tls}"
                           Style="{StaticResource SettingCombo}" />
-                <Border Grid.Row="3"
-                        Grid.Column="1"
-                        Margin="0,6,0,0"
-                        Style="{StaticResource Ad.WarningBar}"
-                        Visibility="{Binding IsInsecureTls, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-                  <StackPanel>
-                    <TextBlock Text="{l:Tr UserMessages.InsecureTlsWarning}" TextWrapping="Wrap" />
-                    <CheckBox x:Name="InsecureTlsConfirmBox"
-                              Margin="0,6,0,0"
-                              Content="{l:Tr UserMessages.InsecureTlsConfirm}"
-                              IsChecked="{Binding InsecureTlsConfirmed}" />
-                  </StackPanel>
-                </Border>
+                <!-- What the chosen TLS mode means - a note next to the choice, while it is chosen - and its confirmation. -->
+                <StackPanel x:Name="InsecureTlsPanel"
+                            Grid.Row="3"
+                            Grid.Column="1"
+                            Margin="0,6,0,0"
+                            Visibility="{Binding IsInsecureTls, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <ContentControl x:Name="InsecureTlsNote" Style="{StaticResource Ad.Note.Attention}">
+                    <TextBlock x:Name="InsecureTlsText"
+                               Text="{l:Tr UserMessages.InsecureTlsWarning}"
+                               TextWrapping="Wrap" />
+                  </ContentControl>
+                  <CheckBox x:Name="InsecureTlsConfirmBox"
+                            Margin="0,6,0,0"
+                            Content="{l:Tr UserMessages.InsecureTlsConfirm}"
+                            IsChecked="{Binding InsecureTlsConfirmed}" />
+                </StackPanel>
                 <TextBlock Grid.Row="4" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.SmtpCertificate}" />
                 <ComboBox Grid.Row="4"
                           Grid.Column="1"
@@ -612,11 +629,17 @@
                         Content="{l:Tr UserMessages.PinSeen}"
                         Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
               </WrapPanel>
-              <TextBlock x:Name="MessagesTestResult"
+              <!--
+                How a test ended is said by the status line. Here: what the server showed in the last connection test -
+                the mechanisms it offers and the fingerprint of its certificate, which "Pin the certificate from the
+                test" pins.
+              -->
+              <TextBlock x:Name="TestDetailsText"
                          AutomationProperties.LiveSetting="Polite"
                          FontFamily="Cascadia Mono, Consolas"
-                         Text="{Binding TestResult, Mode=OneWay}"
-                         TextWrapping="Wrap" />
+                         Text="{Binding TestDetails, Mode=OneWay}"
+                         TextWrapping="Wrap"
+                         Visibility="{Binding TestDetails, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
 
               <!-- Salutations (U1d): attributes, value lists, neutral texts, given names, title table, check box -->
               <StackPanel x:Name="SalutationsSection" DataContext="{Binding Salutations, Mode=OneWay}">
@@ -906,7 +929,7 @@
         <TabItem x:Name="ComputersTab"
                  DataContext="{Binding Computers, Mode=OneWay}"
                  Header="{l:Tr Computers.Settings.Tab}">
-          <ScrollViewer MaxHeight="600" VerticalScrollBarVisibility="Auto">
+          <ScrollViewer MaxHeight="564" VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="24,0,24,16">
               <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr Computers.Settings.RemoteHeader}" />
               <Grid>
