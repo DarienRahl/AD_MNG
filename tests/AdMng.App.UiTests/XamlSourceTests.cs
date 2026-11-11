@@ -81,6 +81,17 @@ public sealed partial class XamlSourceTests
         "Views/UserMessagesWindow.xaml",
     ];
 
+    /// <summary>
+    /// The views that were converted in stage V2b and have no status line (design note "V2b-2 as built", Dialogs 11),
+    /// sorted: a dialog that starts no operation - it collects input and hands it to its opener - has no status to say;
+    /// what it says is true of its fields for as long as they are shown, and stands next to them as a note.
+    /// <see cref="AConvertedViewWithoutAStatusLine_HasNoBannerAndNoProgressBar"/> keeps the banners of before out of it.
+    /// </summary>
+    private static readonly string[] ConvertedViewsWithoutAStatusLine =
+    [
+        "Views/LogonHoursWindow.xaml",
+    ];
+
     [Fact]
     public void EveryLocalizationKeyUsedInXaml_ExistsInEnglishAndPolish()
     {
@@ -259,6 +270,34 @@ public sealed partial class XamlSourceTests
             views.SelectMany(view => PageStatusName().Matches(view.Value)
                     .Where(match => match.Groups["tag"].Value != "StatusLine")
                     .Select(match => $"{view.Key}: {match.Groups["tag"].Value}")));
+    }
+
+    [Fact]
+    public void AConvertedViewWithoutAStatusLine_HasNoBannerAndNoProgressBar()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Runs with the Windows test suite.");
+        var views = XamlFiles().Where(file => !IsApplicationDictionary(file)).ToDictionary(
+            file => Path.GetRelativePath(SourceDirectory(), file).Replace('\\', '/'),
+            file => WithoutComments(File.ReadAllText(file)),
+            StringComparer.Ordinal);
+        Assert.True(views.Count > 50, $"only {views.Count} views found");
+        Assert.NotEmpty(ConvertedViewsWithoutAStatusLine);
+        Assert.Equal(ConvertedViewsWithoutAStatusLine.Order(StringComparer.Ordinal).ToArray(), ConvertedViewsWithoutAStatusLine);
+
+        // A view is on one of the two lists, never on both.
+        Assert.Equal([], ConvertedViewsWithoutAStatusLine.Intersect(PagesWithAStatusLine, StringComparer.Ordinal));
+
+        foreach (var view in ConvertedViewsWithoutAStatusLine)
+        {
+            Assert.True(views.TryGetValue(view, out var xaml), $"{view} is not a view of the application");
+
+            // No status line (a view that gets one moves to PagesWithAStatusLine), no banner of the old styles and no
+            // progress bar: what the view says, it says in notes.
+            Assert.False(StatusLineElement().IsMatch(xaml!), $"{view} has a status line: it belongs on PagesWithAStatusLine");
+            Assert.False(xaml!.Contains("Ad.ErrorBar", StringComparison.Ordinal), $"{view} still has an error bar");
+            Assert.False(xaml.Contains("Ad.WarningBar", StringComparison.Ordinal), $"{view} still has a warning bar");
+            Assert.False(xaml.Contains("<ProgressBar", StringComparison.Ordinal), $"{view} still has a progress bar");
+        }
     }
 
     /// <summary>Whether a XAML file is merged into the application resources: App.xaml and the dictionaries of Themes/.</summary>
