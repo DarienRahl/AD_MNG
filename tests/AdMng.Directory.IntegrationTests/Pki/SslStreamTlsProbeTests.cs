@@ -29,7 +29,7 @@ public sealed class SslStreamTlsProbeTests
 
         var result = await Probe(server.Port).ProbeAsync("localhost", 636, Generous, TestContext.Current.CancellationToken);
 
-        Assert.Equal(TlsProbeOutcome.Ok, result.Outcome);
+        AssertOutcome(TlsProbeOutcome.Ok, result);
         Assert.Equal("localhost", result.Host);
         Assert.Equal(636, result.Port);
         Assert.NotNull(result.Protocol);
@@ -61,7 +61,7 @@ public sealed class SslStreamTlsProbeTests
 
         var result = await Probe(server.Port).ProbeAsync("localhost", 636, Generous, TestContext.Current.CancellationToken);
 
-        Assert.Equal(TlsProbeOutcome.Ok, result.Outcome);
+        AssertOutcome(TlsProbeOutcome.Ok, result);
         Assert.Equal(leaf.RawData, result.PresentedChain[0]);
         Assert.NotNull(result.PolicyErrors);
         Assert.NotEqual(SslPolicyErrors.None, result.PolicyErrors);
@@ -78,7 +78,7 @@ public sealed class SslStreamTlsProbeTests
 
         var result = await Probe(server.Port).ProbeAsync("localhost", 636, Generous, TestContext.Current.CancellationToken);
 
-        Assert.Equal(TlsProbeOutcome.Ok, result.Outcome);
+        AssertOutcome(TlsProbeOutcome.Ok, result);
         Assert.True(result.PolicyErrors?.HasFlag(SslPolicyErrors.RemoteCertificateNameMismatch));
         var info = DcCertificateEvaluation.Evaluate(result.PresentedChain, "localhost", "contoso.test", Trust(), PkiSamples.Now);
         Assert.False(info.NameMatchesDc);
@@ -93,7 +93,7 @@ public sealed class SslStreamTlsProbeTests
 
         var result = await Probe(server.Port).ProbeAsync("localhost", 3269, Generous, TestContext.Current.CancellationToken);
 
-        Assert.Equal(TlsProbeOutcome.Ok, result.Outcome);
+        AssertOutcome(TlsProbeOutcome.Ok, result);
         Assert.Equal(3269, result.Port);
         Assert.Equal(leaf.RawData, Assert.Single(result.PresentedChain));
         Assert.False(DcCertificateEvaluation.Evaluate(result.PresentedChain, "localhost", "contoso.test", Trust(), PkiSamples.Now).ChainsToAdRoot);
@@ -108,7 +108,7 @@ public sealed class SslStreamTlsProbeTests
 
         var result = await Probe(closed.Port).ProbeAsync("localhost", 636, Generous, TestContext.Current.CancellationToken);
 
-        Assert.Equal(TlsProbeOutcome.PortClosed, result.Outcome);
+        AssertOutcome(TlsProbeOutcome.PortClosed, result);
         Assert.Empty(result.PresentedChain);
         Assert.Null(result.Protocol);
     }
@@ -133,7 +133,7 @@ public sealed class SslStreamTlsProbeTests
 
         var result = await Probe(server.Port).ProbeAsync("localhost", 636, Generous, TestContext.Current.CancellationToken);
 
-        Assert.Equal(TlsProbeOutcome.HandshakeFailed, result.Outcome);
+        AssertOutcome(TlsProbeOutcome.HandshakeFailed, result);
         Assert.Empty(result.PresentedChain);
     }
 
@@ -145,7 +145,7 @@ public sealed class SslStreamTlsProbeTests
 
         var result = await Probe(server.Port).ProbeAsync("localhost", 636, TimeSpan.FromMilliseconds(400), TestContext.Current.CancellationToken);
 
-        Assert.Equal(TlsProbeOutcome.Timeout, result.Outcome);
+        AssertOutcome(TlsProbeOutcome.Timeout, result);
         Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"Took {stopwatch.Elapsed}.");
     }
 
@@ -181,7 +181,7 @@ public sealed class SslStreamTlsProbeTests
 
         var result = await Probe(listenerPort).ProbeAsync(host, port, Generous, TestContext.Current.CancellationToken);
 
-        Assert.Equal(TlsProbeOutcome.InvalidHost, result.Outcome);
+        AssertOutcome(TlsProbeOutcome.InvalidHost, result);
         Assert.Empty(result.PresentedChain);
         await Task.Delay(100, TestContext.Current.CancellationToken);
         Assert.False(listener.Pending());
@@ -246,7 +246,7 @@ public sealed class SslStreamTlsProbeTests
         // self-signed one, so it is presented but chains to no AD root.
         var result = await new SslStreamTlsProbe().ProbeAsync("localhost", 636, SslStreamTlsProbe.DefaultTimeout, TestContext.Current.CancellationToken);
 
-        Assert.Equal(TlsProbeOutcome.Ok, result.Outcome);
+        AssertOutcome(TlsProbeOutcome.Ok, result);
         Assert.NotEmpty(result.PresentedChain);
         var info = DcCertificateEvaluation.Evaluate(result.PresentedChain, "localhost", LabSettings.DomainDns, PkiTrustMaterial.Empty, DateTimeOffset.UtcNow);
         Assert.NotNull(info.Leaf);
@@ -254,6 +254,27 @@ public sealed class SslStreamTlsProbeTests
     }
 
     private static SslStreamTlsProbe Probe(int listenerPort) => new() { ConnectPort = _ => listenerPort };
+
+    /// <summary>
+    /// The outcome of a probe. One that ended differently - twice so far in the probe's own ten second timeout, on a
+    /// busy Windows runner, against a port of this very process - says what the process looked like at that moment: a
+    /// thread pool without a free thread delays the continuations of the test's server and of the probe alike.
+    /// </summary>
+    private static void AssertOutcome(TlsProbeOutcome expected, TlsProbeResult result)
+    {
+        if (result.Outcome == expected)
+        {
+            return;
+        }
+
+        ThreadPool.GetAvailableThreads(out var workers, out var completionPorts);
+        ThreadPool.GetMaxThreads(out var maxWorkers, out var maxCompletionPorts);
+        ThreadPool.GetMinThreads(out var minWorkers, out _);
+        Assert.Fail(
+            $"Expected {expected}, got {result.Outcome}. Thread pool: {ThreadPool.ThreadCount} threads, {ThreadPool.PendingWorkItemCount} items waiting, " +
+            $"{maxWorkers - workers} workers busy (the pool starts new ones slowly above {minWorkers}), " +
+            $"{maxCompletionPorts - completionPorts} I/O threads busy; {Environment.ProcessorCount} processors.");
+    }
 
     private static PkiTrustMaterial Trust() => new([PkiSamples.RootCaDer], [PkiSamples.IssuingCaDer], [PkiSamples.IssuingCaDer]);
 
