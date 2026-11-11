@@ -14,10 +14,12 @@ namespace AdMng.App.Controls;
 
 /// <summary>
 /// The status line of a page (track V, stage V2; design note docs/dev/v-interface-renewal.md 4.5, 6.1 and 6.7): the one
-/// place where a page says what it is doing and what happened. Always present and of a fixed height, so the content
-/// under it never jumps. It shows a <see cref="PageStatus"/>: the picture of the severity (a progress ring while an
-/// operation runs), the fixed title of the severity, the message on one line (the whole text in the tool tip), the
-/// follow-up action as a link and a close button for what may be closed.
+/// place where a page says what it is doing and what happened. Always present, and one line of a fixed height for the
+/// summary and for a running operation, so the content under it does not move while the page works. It shows a
+/// <see cref="PageStatus"/>: the picture of the severity (a progress ring while an operation runs), the fixed title of
+/// the severity, the message, the follow-up action as a link and a close button for what may be closed. A result -
+/// done, attention, error - that does not fit the line wraps to at most three lines, so that what went wrong and what
+/// to do can be read without pointing at it; whatever is cut is whole in the tool tip.
 /// </summary>
 /// <remarks>
 /// <para>Use: <c>&lt;c:StatusLine x:Name="PageStatus" Status="{Binding Status.Current, Mode=OneWay}"
@@ -98,7 +100,7 @@ public class StatusLine : Control
     /// <summary>The text of the status.</summary>
     public static readonly DependencyProperty MessageProperty = MessagePropertyKey.DependencyProperty;
 
-    /// <summary>The whole text for the tool tip of the message, which is cut to one line; null when there is no text.</summary>
+    /// <summary>The whole text for the tool tip of the message, which may be cut (to one line, a result to three); null when there is no text.</summary>
     public static readonly DependencyProperty MessageToolTipProperty = MessageToolTipPropertyKey.DependencyProperty;
 
     /// <summary>The picture of the severity (a key of <see cref="AppIcons"/>); null when none is shown.</summary>

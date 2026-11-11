@@ -315,9 +315,16 @@
   </Style>
 
   <!--
-    The status line of a page (c:StatusLine over a PageStatus; the control takes this style by itself). One line of a
-    fixed height (Ad.Size.StatusLine), so the content under it never jumps:
+    The status line of a page (c:StatusLine over a PageStatus; the control takes this style by itself). Always there,
+    and one line of the height Ad.Size.StatusLine for the summary and for a running operation, so the content under it
+    does not move while the page works:
       [picture of the severity or progress ring] [fixed title] [message … ] [action link] [close]
+    * A result - "done", "attention", "error" - that does not fit the line wraps, to three lines at most (then it is
+      cut with an ellipsis; the whole text is the tool tip): what went wrong and what to do must be readable without
+      pointing at it. The line grows with it and is one line again when the result is closed. The summary and a
+      running operation never wrap: they change while the operator works.
+    * The lines of the text are 20 px high (title and message share a base line), with 4 px above and below - one
+      line is exactly Ad.Size.StatusLine. The picture and the two buttons stay in the first line.
     * The control computes what is shown (Kind, Title, Message, IconKey …) from its Status; this template only lays it
       out and gives each severity its surface. The summary (Idle) and a running operation have no fill; "done",
       "attention" and "error" have the theme's status background.
@@ -330,7 +337,7 @@
     * Element order = visual order = tab order: content, action, close.
   -->
   <Style x:Key="Ad.StatusLine" TargetType="{x:Type c:StatusLine}">
-    <Setter Property="Height" Value="{StaticResource Ad.Size.StatusLine}" />
+    <Setter Property="MinHeight" Value="{StaticResource Ad.Size.StatusLine}" />
     <Setter Property="Padding" Value="8,0" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="IsTabStop" Value="False" />
@@ -352,8 +359,8 @@
                 <Grid x:Name="IconSlot"
                       Width="20"
                       Height="20"
-                      Margin="0,0,8,0"
-                      VerticalAlignment="Center"
+                      Margin="0,4,8,4"
+                      VerticalAlignment="Top"
                       DockPanel.Dock="Left">
                   <c:AreaIconView x:Name="PART_Icon"
                                   Glyph="{TemplateBinding IconGlyph}"
@@ -368,36 +375,48 @@
                                   Size="16" />
                 </Grid>
                 <TextBlock x:Name="PART_Title"
-                           Margin="0,0,6,0"
-                           VerticalAlignment="Center"
+                           Margin="0,4,6,4"
+                           VerticalAlignment="Top"
                            DockPanel.Dock="Left"
                            FontWeight="SemiBold"
+                           LineHeight="20"
+                           LineStackingStrategy="BlockLineHeight"
                            Text="{TemplateBinding Title}" />
+                <!-- One line, cut with an ellipsis; a result wraps (the triggers below) to MaxHeight = three lines. -->
                 <TextBlock x:Name="PART_Message"
-                           VerticalAlignment="Center"
+                           MaxHeight="60"
+                           Margin="0,4"
+                           VerticalAlignment="Top"
+                           LineHeight="20"
+                           LineStackingStrategy="BlockLineHeight"
                            Text="{TemplateBinding Message}"
                            TextTrimming="CharacterEllipsis"
                            ToolTip="{TemplateBinding MessageToolTip}" />
               </DockPanel>
-              <Button x:Name="PART_ActionButton"
-                      Grid.Column="1"
-                      Margin="8,0,0,0"
-                      Command="{TemplateBinding ActionCommand}"
-                      CommandParameter="{TemplateBinding ActionParameter}"
-                      Content="{TemplateBinding ActionLabel}"
-                      Style="{StaticResource Ad.LinkButton}"
-                      Visibility="Collapsed" />
-              <Button x:Name="PART_CloseButton"
-                      Grid.Column="2"
-                      Width="{StaticResource Ad.Size.PointerTarget}"
-                      Height="{StaticResource Ad.Size.PointerTarget}"
-                      Margin="4,0,0,0"
-                      AutomationProperties.Name="{l:Tr Common.Close}"
-                      Command="{TemplateBinding CloseCommand}"
-                      Content="{x:Static c:Glyphs.Close}"
-                      Style="{StaticResource Ad.SmallIconButton}"
-                      ToolTip="{l:Tr Common.Close}"
-                      Visibility="Collapsed" />
+              <!-- The buttons stay in the first line, whatever the height of the message. -->
+              <Border Grid.Column="1" Height="{StaticResource Ad.Size.StatusLine}" VerticalAlignment="Top">
+                <Button x:Name="PART_ActionButton"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        Command="{TemplateBinding ActionCommand}"
+                        CommandParameter="{TemplateBinding ActionParameter}"
+                        Content="{TemplateBinding ActionLabel}"
+                        Style="{StaticResource Ad.LinkButton}"
+                        Visibility="Collapsed" />
+              </Border>
+              <Border Grid.Column="2" Height="{StaticResource Ad.Size.StatusLine}" VerticalAlignment="Top">
+                <Button x:Name="PART_CloseButton"
+                        Width="{StaticResource Ad.Size.PointerTarget}"
+                        Height="{StaticResource Ad.Size.PointerTarget}"
+                        Margin="4,0,0,0"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="{l:Tr Common.Close}"
+                        Command="{TemplateBinding CloseCommand}"
+                        Content="{x:Static c:Glyphs.Close}"
+                        Style="{StaticResource Ad.SmallIconButton}"
+                        ToolTip="{l:Tr Common.Close}"
+                        Visibility="Collapsed" />
+              </Border>
             </Grid>
           </Border>
           <ControlTemplate.Triggers>
@@ -418,14 +437,17 @@
               <Setter TargetName="PART_Icon" Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
             </Trigger>
             <Trigger Property="Kind" Value="Done">
+              <Setter TargetName="PART_Message" Property="TextWrapping" Value="Wrap" />
               <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}" />
               <Setter TargetName="PART_Icon" Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
             </Trigger>
             <Trigger Property="Kind" Value="Attention">
+              <Setter TargetName="PART_Message" Property="TextWrapping" Value="Wrap" />
               <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
               <Setter TargetName="PART_Icon" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
             </Trigger>
             <Trigger Property="Kind" Value="Error">
+              <Setter TargetName="PART_Message" Property="TextWrapping" Value="Wrap" />
               <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
               <Setter TargetName="PART_Icon" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
             </Trigger>

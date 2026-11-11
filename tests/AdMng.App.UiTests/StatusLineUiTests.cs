@@ -17,9 +17,10 @@ namespace AdMng.App.UiTests;
 
 /// <summary>
 /// The status line of a page (track V, stage V2; docs/dev/v-interface-renewal.md 4.5, 6.1 and 6.7): what it shows for
-/// each kind of <see cref="PageStatus"/>, that it is one line of a fixed height, its two buttons, what a screen reader
-/// is told, and the entrance of a new message (only with motion on). Property checks on the control and the named parts
-/// of its template - what it looks like is checked on the CI screenshots.
+/// each kind of <see cref="PageStatus"/>, that it is one line of a fixed height unless a result has to wrap (to three
+/// lines at most), its two buttons, what a screen reader is told, and the entrance of a new message (only with motion
+/// on). Property checks on the control and the named parts of its template - what it looks like is checked on the CI
+/// screenshots.
 /// </summary>
 [Collection(UiTestCollection.Name)]
 public sealed class StatusLineUiTests
@@ -159,7 +160,7 @@ public sealed class StatusLineUiTests
     });
 
     [Fact]
-    public Task TheLine_HasAFixedHeight_AndWhatLiesUnderItNeverMoves() => WpfTestHost.RunAsync(async () =>
+    public Task TheSummaryAndARunningOperation_AreOneLineOfAFixedHeight_AndWhatLiesUnderThemNeverMoves() => WpfTestHost.RunAsync(async () =>
     {
         using var language = LanguageScope.Use("pl-PL");
         var command = new RelayCommand(() => { });
@@ -175,41 +176,120 @@ public sealed class StatusLineUiTests
             var top = TopOf(below, window);
             Assert.Equal(height, top, 0.5);
 
-            // A text far longer than the line, with both buttons.
+            // What changes while the operator works - the summary, a running operation - is one line whatever its
+            // length, and so is a result that fits: nothing under the line moves.
             var longText = string.Join(" ", Enumerable.Repeat(Failed, 6));
             PageStatus?[] statuses =
             [
                 null,
                 PageStatus.Idle(Summary),
+                PageStatus.Idle(longText),
                 PageStatus.Working(Reading, new PageStatusLog("Test.Reading"), action: new PageStatusAction("Zatrzymaj", command)),
-                PageStatus.Done(Disabled, new PageStatusLog("Test.Disabled", 12)),
-                PageStatus.Error(longText, new PageStatusLog("Test.Failed"), new PageStatusAction("Ponów", command)),
+                PageStatus.Working(longText, new PageStatusLog("Test.Reading"), action: new PageStatusAction("Zatrzymaj", command)),
+                PageStatus.Done("Wyłączono 12 kont.", new PageStatusLog("Test.Disabled", 12)),
+                PageStatus.Error("Brak połączenia.", new PageStatusLog("Test.Failed"), new PageStatusAction("Ponów", command)),
             ];
             foreach (var status in statuses)
             {
                 line.Status = status;
                 window.UpdateLayout();
-                Assert.Equal(height, line.ActualHeight);
+                Assert.Equal(height, line.ActualHeight, 0.5);
                 Assert.Equal(480d, line.ActualWidth);
-                Assert.Equal(top, TopOf(below, window));
+                Assert.Equal(top, TopOf(below, window), 0.5);
             }
 
-            // The long text stays on one line and is cut; the whole text is in the tool tip.
+            // A long text of a running operation stays on one line and is cut; the whole text is in the tool tip.
+            line.Status = PageStatus.Working(longText, new PageStatusLog("Test.Reading"), action: new PageStatusAction("Zatrzymaj", command));
+            window.UpdateLayout();
+            Assert.Equal(TextWrapping.NoWrap, parts.Message.TextWrapping);
+            Assert.Equal(TextTrimming.CharacterEllipsis, parts.Message.TextTrimming);
             Assert.Equal(longText, parts.Message.Text);
             Assert.Equal(longText, Assert.IsType<string>(parts.Message.ToolTip));
             Assert.True(parts.Message.ActualHeight <= height, $"the message is {parts.Message.ActualHeight} high");
             Assert.True(parts.Message.ActualWidth < 480, $"the message is {parts.Message.ActualWidth} wide");
 
-            // Both buttons keep their place inside the line, the action before the close button, and are pointer
-            // targets of the compact size at least.
+            // The line clips what rises into it when a message enters.
+            Assert.True(line.ClipToBounds);
+        }
+        finally
+        {
+            window.Close();
+        }
+    });
+
+    [Fact]
+    public Task AResultThatDoesNotFitTheLine_WrapsToThreeLinesAtMost_AndTheLineGrowsWithIt() => WpfTestHost.RunAsync(async () =>
+    {
+        using var language = LanguageScope.Use("pl-PL");
+        var command = new RelayCommand(() => { });
+        var line = new StatusLine { Width = 480, CloseCommand = command };
+        var below = new Border { Width = 40, Height = 20 };
+        var window = ControlHost.Show(line, below);
+        try
+        {
+            await UiTestSupport.WaitForIdleAsync(rounds: 2);
+            var parts = new Parts(line);
+            var height = (double)Application.Current.FindResource("Ad.Size.StatusLine");
             var target = (double)Application.Current.FindResource("Ad.Size.PointerTarget");
+            const double TextLine = 20;
+
+            // An error with its reason and what to do, longer than the line: it wraps, so it can be read without
+            // pointing at it. The line is as much higher as the text has more lines, and what lies under it moves down.
+            line.Status = PageStatus.Error(Failed, new PageStatusLog("Test.Failed"), new PageStatusAction("Ponów", command));
+            window.UpdateLayout();
+            Assert.Equal(TextWrapping.Wrap, parts.Message.TextWrapping);
+            var lines = Math.Round(parts.Message.ActualHeight / TextLine);
+            Assert.InRange(lines, 2, 3);
+            Assert.Equal(lines * TextLine, parts.Message.ActualHeight, 0.5);
+            Assert.Equal(height + ((lines - 1) * TextLine), line.ActualHeight, 0.5);
+            Assert.Equal(480d, line.ActualWidth);
+            Assert.Equal(line.ActualHeight, TopOf(below, window), 0.5);
+            Assert.True(parts.Message.ActualWidth < 480, $"the message is {parts.Message.ActualWidth} wide");
+
+            // The picture, the title and both buttons stay in the first line; the action is before the close button and
+            // both are pointer targets of the compact size at least.
             Assert.True(parts.Action.IsVisible);
             Assert.True(parts.Close.IsVisible);
+            Assert.Equal(height / 2, MiddleOf(parts.IconSlot, line), 0.5);
+            Assert.Equal(height / 2, MiddleOf(parts.Title, line), 0.5);
+            Assert.Equal(height / 2, MiddleOf(parts.Action, line), 1);
+            Assert.Equal(height / 2, MiddleOf(parts.Close, line), 0.5);
             Assert.True(RightOf(parts.Action, line) <= LeftOf(parts.Close, line) + 0.5, "the action is not before the close button");
             Assert.True(RightOf(parts.Close, line) <= 480.5, "the close button is outside the line");
             Assert.True(parts.Action.ActualHeight >= target, $"the action is {parts.Action.ActualHeight} high");
             Assert.Equal(target, parts.Close.ActualHeight);
             Assert.Equal(target, parts.Close.ActualWidth);
+
+            // A text of many lines: three lines at most (the third is cut), the whole text is in the tool tip.
+            var longText = string.Join(" ", Enumerable.Repeat(Failed, 6));
+            foreach (var status in new[]
+            {
+                PageStatus.Error(longText, new PageStatusLog("Test.Failed"), new PageStatusAction("Ponów", command)),
+                PageStatus.Attention(longText, new PageStatusLog("Test.Skipped", 3)),
+                PageStatus.Done(longText, new PageStatusLog("Test.Disabled", 12)),
+            })
+            {
+                line.Status = status;
+                window.UpdateLayout();
+                Assert.Equal(TextWrapping.Wrap, parts.Message.TextWrapping);
+                Assert.Equal(TextTrimming.CharacterEllipsis, parts.Message.TextTrimming);
+                Assert.Equal(3 * TextLine, parts.Message.ActualHeight, 0.5);
+                Assert.Equal(height + (2 * TextLine), line.ActualHeight, 0.5);
+                Assert.Equal(line.ActualHeight, TopOf(below, window), 0.5);
+                Assert.Equal(longText, parts.Message.Text);
+                Assert.Equal(longText, Assert.IsType<string>(parts.Message.ToolTip));
+            }
+
+            // The result is closed (or the next operation starts): one line again, and what lies under it is back.
+            line.Status = PageStatus.Idle(Summary);
+            window.UpdateLayout();
+            Assert.Equal(TextWrapping.NoWrap, parts.Message.TextWrapping);
+            Assert.Equal(height, line.ActualHeight, 0.5);
+            Assert.Equal(height, TopOf(below, window), 0.5);
+            line.Status = PageStatus.Working(longText, new PageStatusLog("Test.Reading"));
+            window.UpdateLayout();
+            Assert.Equal(height, line.ActualHeight, 0.5);
+            Assert.Equal(height, TopOf(below, window), 0.5);
 
             // The line clips what rises into it when a message enters.
             Assert.True(line.ClipToBounds);
@@ -487,8 +567,8 @@ public sealed class StatusLineUiTests
                 Assert.True(parts.Action.IsHitTestVisible);
                 Assert.True(parts.Content.IsHitTestVisible);
 
-                // The height is fixed also while a message enters.
-                Assert.Equal(28d, line.ActualHeight);
+                // The line clips to its bounds also while a message enters: the rise is not drawn over what lies under it.
+                Assert.True(line.ClipToBounds);
             }
 
             // Motion is off again: the next message takes the running entrance off.
@@ -596,6 +676,10 @@ public sealed class StatusLineUiTests
 
     private static double TopOf(FrameworkElement element, Window window) =>
         element.TranslatePoint(new Point(0, 0), (UIElement)window.Content).Y;
+
+    /// <summary>The vertical middle of an element, in the coordinates of <paramref name="relativeTo"/>.</summary>
+    private static double MiddleOf(FrameworkElement element, UIElement relativeTo) =>
+        element.TranslatePoint(new Point(0, element.ActualHeight / 2), relativeTo).Y;
 
     private static double LeftOf(FrameworkElement element, UIElement relativeTo) =>
         element.TranslatePoint(new Point(0, 0), relativeTo).X;

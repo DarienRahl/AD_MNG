@@ -7,7 +7,7 @@
                            Ad.Space.Toolbar 4,2 (padding of the toolbar card) · Ad.Space.Panel 4 (padding of a workspace panel)
   Density (Double)         Ad.Size.Control 28 · Ad.Size.Row 26 · Ad.Size.ColumnHeader 28 · Ad.Size.PointerTarget 24 ·
                            Ad.Size.PanelGap 8 (gap between workspace panels = width of their splitters) ·
-                           Ad.Size.StatusLine 28 (the fixed height of the status line of a page)
+                           Ad.Size.StatusLine 28 (the height of the status line of a page while it shows one line)
   Type ramp (Double)       Ad.FontSize.Caption 12 · Ad.FontSize.Compact 12 (list rows, tree rows, details values) ·
                            Ad.FontSize.Body 14 · Ad.FontSize.Subtitle 20 · Ad.FontSize.Title 28
   Radii (CornerRadius)     Ad.Radius.Control 4 · Ad.Radius.Card 8 (cards, panels, popups, toasts) · Ad.Radius.Pill 12 (at height 24)

@@ -51,9 +51,12 @@
   „Wczytywanie „Kraków”: na razie 1 500 obiektów…”, z kółkiem postępu i poleceniem **Zatrzymaj**. Po zatrzymaniu:
   **Uwaga** – ile obiektów wczytano i że lista jest niepełna, z poleceniem **Odśwież**. Gdy listy nie udało się
   wczytać: **Błąd** – co się nie udało, dlaczego i co zrobić, z kodem wyniku na końcu i poleceniem **Ponów**; ten
-  komunikat zostaje, dopóki lista nie zostanie wczytana. Wiersz ma stałą wysokość, więc wiersze listy nie przesuwają
-  się już, gdy wczytywanie się zaczyna i kończy – dotąd nad listą pojawiał się na ten czas pasek postępu
-  z przyciskiem, a błąd był w ramce na liście. Rodzaj komunikatu widać po ikonie i po słowie na początku, nie tylko
+  komunikat zostaje, dopóki lista nie zostanie wczytana. Podsumowanie i trwająca operacja zajmują zawsze jeden
+  wiersz, więc wiersze listy nie przesuwają się już, gdy wczytywanie się zaczyna i kończy – dotąd nad listą pojawiał
+  się na ten czas pasek postępu z przyciskiem, a błąd był w ramce na liście. Wynik (**Gotowe**, **Uwaga**, **Błąd**),
+  który nie mieści się w jednym wierszu, zawija się – najwyżej do trzech wierszy – żeby przyczynę i radę dało się
+  przeczytać bez wskazywania myszą; dłuższy tekst jest ucinany wielokropkiem, a w całości pokazuje go dymek. Wiersz
+  jest wtedy odpowiednio wyższy i wraca do jednego wiersza po zamknięciu komunikatu. Rodzaj komunikatu widać po ikonie i po słowie na początku, nie tylko
   po kolorze; czytnik ekranu sam odczytuje nowy komunikat. Komunikat, który można zamknąć, ma przycisk zamknięcia –
   po zamknięciu wraca podsumowanie.
 - **Pasek stanu okna głównego** nie powtarza już podsumowania listy i liczby zaznaczonych obiektów – dla karty

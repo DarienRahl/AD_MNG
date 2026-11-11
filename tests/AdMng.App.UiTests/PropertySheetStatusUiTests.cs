@@ -153,7 +153,7 @@ public sealed class PropertySheetStatusUiTests
         Assert.Equal(Visibility.Collapsed, close.Visibility);
         Assert.True(window.RefreshButton.IsEnabled);
         window.UpdateLayout();
-        Assert.Equal(pagesTop, TopOf(window.PageTabs, window));
+        Assert.Equal(pagesTop + GrowthOf(line), TopOf(window.PageTabs, window), 0.5);
 
         // Refresh, pressed in the line, reads the object: the summary again.
         ControlHost.Press(action);
@@ -419,6 +419,17 @@ public sealed class PropertySheetStatusUiTests
         Assert.False(window.ViewModel.IsLoading);
         Assert.NotEmpty(window.ViewModel.Pages);
         return window;
+    }
+
+    /// <summary>
+    /// How much higher than one line the status line is right now: a result that does not fit one line wraps (to three
+    /// lines at most), and what lies under the line moves down by as much - by nothing when the result fits.
+    /// </summary>
+    private static double GrowthOf(StatusLine line)
+    {
+        var growth = line.ActualHeight - (double)Application.Current.FindResource("Ad.Size.StatusLine");
+        Assert.InRange(growth, -0.5, 40.5);
+        return growth;
     }
 
     private static double TopOf(FrameworkElement element, UIElement relativeTo) =>

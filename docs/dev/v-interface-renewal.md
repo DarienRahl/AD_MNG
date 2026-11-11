@@ -409,7 +409,7 @@ As built (V2a): rows 2 and 3 and the ring of row 11 exist, built the same way (`
 |---|---|---|---|---|---|---|---|---|
 | 1 | Hover and press feedback | `Ad.*` buttons, chips, cards, area strip | pointer over, pressed | opacity of a hover layer inside the template | Hover 83 ms, press at once; Change | "this can be clicked" | VSM (`CommonStates`) | opacity of one border only; the theme brush is never animated, so theme and High Contrast switches stay correct |
 | 2 | Content swap of the action button | `ActionButton` | operation starts, cancel requested, ends | two contents cross-fade | Swap; Change | "running – press again to stop", then "stopping" | VSM states `Idle`/`Running`/`Cancelling` | no size animation: the button keeps the width of its widest state |
-| 3 | Status message change | `StatusLine` | `PageStatus` changes | text and icon fade, 8 px rise | Appear in, Disappear out; Enter/Exit | "a result arrived" – without a pop-up | storyboard in the control | the line has a fixed height and is always present, so content never jumps |
+| 3 | Status message change | `StatusLine` | `PageStatus` changes | text and icon fade, 8 px rise | Appear in, Disappear out; Enter/Exit | "a result arrived" – without a pop-up | storyboard in the control | the line is always present and one line high while the page works, so content does not jump (a long result wraps – "V2b-1 as built") |
 | 4 | Page entrance | document host, home page, settings page | a document opens or its tab is chosen | header and toolbar fade; content rises by Offset.Page | Entrance; Enter | "a new page replaced the old one" | behaviour `Motion.Entrance` on the host | one container, `RenderTransform` only; list content is moved, not faded (a fade renders the subtree off-screen and text loses ClearType meanwhile – to confirm in V1) |
 | 5 | Panel entrance | details pane content, filter panel, expander body of ours | panel becomes visible | fade and rise by Offset.Panel | Fast; Enter | "this belongs to what you just chose" | behaviour `Motion.Entrance="Panel"` | not on selection change in a list (that is live data, rule 3 of 5.3) |
 | 6 | Transient surface in and out | palette and search popup, teaching tip, in-window overlay | opens, closes | fade, 4 px drop **(ours)** | 120 ms in, 100 ms out **(ours)**; Enter/Exit | "this lies on top and will go away" | storyboard on `Popup` child | closes at once on Esc – the exit never delays focus return |
@@ -471,7 +471,8 @@ Every document page (the 6 template groups in `MainWindow.xaml`: object list, Wa
 Group Policy) and every tool window gets the same four parts, top to bottom:
 
 1. **Page header** – title, one sentence, guide link (from 1300 px inline, below that behind a "?" button).
-2. **Status line** – always present, fixed height. Idle: a neutral summary ("2,314 objects, 12 selected") – this
+2. **Status line** – always present; one line of a fixed height, except for a result too long for it, which wraps
+   to three lines at most (decided with the owner in V2b-1). Idle: a neutral summary ("2,314 objects, 12 selected") – this
    absorbs the `StatusText` bindings found in 32 XAML files. During and after an operation: the four severities.
 3. **Toolbar card** – the page's commands; for lists the standard list toolbar.
 4. **Content.**
@@ -1045,7 +1046,8 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     a faint full circle and an arc in the inherited text colour – a quarter that turns while the progress is not
     known, or the part done, standing still. It turns also with motion off and has a clock only while it is active
     *and* visible (`IsTurning`): a ring in a hidden tab, a collapsed row or a content that is not shown costs nothing.
-  - `StatusLine` – shows a `PageStatus` in one line of the fixed height `Ad.Size.StatusLine`, always present: the
+  - `StatusLine` – shows a `PageStatus` in one line of the fixed height `Ad.Size.StatusLine`, always present (as
+    built in V2a; since V2b-1 a result that does not fit wraps to three lines at most – see "V2b-1 as built"): the
     picture of the severity (`Icon.StatusInfo` for the summary, `StatusOk`, `StatusWarning`, `StatusError`, through
     `AreaIconView` at 20 px with the glyphs Info, Completed, Warning, Error as fallback; the ring instead of a picture
     while an operation runs, as 4.4 says), the fixed title in semibold, the message on one line with an ellipsis and
@@ -1346,9 +1348,22 @@ change plan preview and the main window; unit 3 adds its windows to this block.
     of the certificate tabs and of the computer's page in their test classes. UI: `NoteUiTests`, the accent and dialog variants in
     `ActionButtonUiTests`, the line of a window with a page in front in `StatusLineUiTests`,
     `PropertySheetStatusUiTests` (six tests through the real window), the note in `CertificateTabsUiTests`.
-  - *Not seen, to confirm on Windows.* The line in a 640 px wide window: an error with its reason and advice is
-    longer than the line and is cut with an ellipsis (the whole text is the tool tip and the name a screen reader
-    hears) – whether a narrow window needs a second line is open. The note next to the old validation texts (glyph and
+  - *A result that does not fit the line wraps* (owner's decision of 2026-11-11, after the sheet showed the
+    problem: in a 640 px wide window an error with its reason and advice was cut with an ellipsis, and failures that
+    used to be a dialog with the whole text became one cut line). "Done", "attention" and "error" wrap to three lines
+    at most; a text longer than that is cut in its third line and is whole in the tool tip and in the name a screen
+    reader hears. The line grows by 20 px per extra line and what lies under it moves down by as much – once, when
+    the result arrives, and back when it is closed or the next operation starts. The summary and a running operation
+    stay one line whatever their length: they change while the operator works, and a page must not jump then. In
+    `Ad.StatusLine`: `MinHeight` instead of `Height`; title and message with a 20 px block line height and 4 px above
+    and below (one line is exactly `Ad.Size.StatusLine`, and both share a base line); the message has
+    `MaxHeight` = three lines and wraps through the triggers of the three result kinds; the picture and the two
+    buttons stay in the first line (each button in a box of the line's height at the top). Tests:
+    `StatusLineUiTests.TheSummaryAndARunningOperation_AreOneLineOfAFixedHeight_AndWhatLiesUnderThemNeverMoves` and
+    `AResultThatDoesNotFitTheLine_WrapsToThreeLinesAtMost_AndTheLineGrowsWithIt`; the window tests assert after a
+    result that the content moved by as much as the line grew (`GrowthOf`), and after "working" that it did not move.
+  - *Not seen, to confirm on Windows.* How a wrapped result looks in the 640 px wide sheet (two or three lines on the
+    caution or critical surface, picture and buttons in the first line). The note next to the old validation texts (glyph and
     plain text against text in the critical colour). The width of the nested list's button ("Odśwież" grows to the
     width of "Zatrzymywanie…"). The time of day in the summary, which is now in the two README pictures of the sheet.
 - **The batch editor and the CSV import** (`Views/BatchEditorWindow.xaml`; `BatchEditing/BatchEditorViewModel`,

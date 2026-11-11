@@ -178,7 +178,7 @@ public sealed class ChangePlanPreviewStatusUiTests
         Assert.True(window.CloseButton.IsEnabled);
         Assert.Equal(["Koordynator V2b"], session.GetValues(jan, Attr.Title));
         window.UpdateLayout();
-        Assert.Equal(tabsTop, TopOf(window.PreviewTabs, window));
+        Assert.Equal(tabsTop + GrowthOf(line), TopOf(window.PreviewTabs, window), 0.5);
 
         // Undo shows the undo plan: the line says its summary, and that it is the undo plan is a note above the tabs
         // for as long as that plan waits to be executed.
@@ -376,6 +376,17 @@ public sealed class ChangePlanPreviewStatusUiTests
             UiWait.Descendants<Border>(window),
             border => ReferenceEquals(border.Style, errorBar) || ReferenceEquals(border.Style, warningBar));
         Assert.Same(window.PageStatus, Assert.Single(UiWait.Descendants<StatusLine>(window)));
+    }
+
+    /// <summary>
+    /// How much higher than one line the status line is right now: a result that does not fit one line wraps (to three
+    /// lines at most), and what lies under the line moves down by as much - by nothing when the result fits.
+    /// </summary>
+    private static double GrowthOf(StatusLine line)
+    {
+        var growth = line.ActualHeight - (double)Application.Current.FindResource("Ad.Size.StatusLine");
+        Assert.InRange(growth, -0.5, 40.5);
+        return growth;
     }
 
     private static double TopOf(FrameworkElement element, UIElement relativeTo) =>
