@@ -5,6 +5,7 @@ using AdMng.Core.Csv;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
@@ -57,6 +58,12 @@ public sealed record CsvPreviewRow(int RowNumber, IReadOnlyList<string> Cells);
 /// display name or "Display Name [ldapName]"), and plan with <see cref="ICsvImportPlanner"/>. Hosted by
 /// <see cref="BatchEditorViewModel"/> in CSV mode, which shows the same preview / execute / results steps.
 /// </summary>
+/// <remarks>
+/// What it says (<see cref="Status"/>; track V, stage V2b): reading the file as an operation with Stop, a file that
+/// could not be read or used as an error, and - at rest - which file is loaded and how many rows it has. The batch
+/// editor shows it in its one status line while the first step is shown (<see cref="PageStatusHolder.Front"/>). Why
+/// the mapping cannot be planned yet (<see cref="MappingError"/>) is a note next to the mapping, not a status.
+/// </remarks>
 public sealed partial class CsvImportViewModel : ObservableObject
 {
     /// <summary>Rows shown in the file preview.</summary>
@@ -77,6 +84,9 @@ public sealed partial class CsvImportViewModel : ObservableObject
     private readonly BatchEngines _engines;
     private readonly Func<IDirectorySession?> _session;
 
+    // The read of a file that owns IsLoading (a newer read replaces a running one).
+    private OperationScope? _reading;
+
     /// <param name="services">Shared dialog services.</param>
     /// <param name="engines">CSV planner and codec.</param>
     /// <param name="session">
@@ -89,6 +99,7 @@ public sealed partial class CsvImportViewModel : ObservableObject
         _engines = engines ?? throw new ArgumentNullException(nameof(engines));
         _session = session ?? (() => services.Sessions.Current);
         var localizer = services.Localizer;
+        Status = new PageStatusHolder(localizer, services.Dispatcher, services.Lists.StatusLog);
         KeyAttributes = [.. KeyAttributeNames.Select(a => new Option<string>(a, AttributeText(a)))];
         KeyAttribute = KeyAttributes[0];
         EmptyCellOptions =
@@ -111,6 +122,12 @@ public sealed partial class CsvImportViewModel : ObservableObject
 
     /// <summary>Raised when the mapping became valid or invalid (the batch editor re-evaluates Preview).</summary>
     public event EventHandler? Changed;
+
+    /// <summary>
+    /// What the import says in the status line of the batch editor: reading the file, a file that could not be read,
+    /// and the summary of the loaded file ("users.csv · 120 rows, delimiter: ;").
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     [ObservableProperty]
     public partial string? FilePath { get; private set; }
@@ -252,38 +269,66 @@ public sealed partial class CsvImportViewModel : ObservableObject
 
     /// <summary>
     /// Reads a CSV file (UTF-8, else the system's ANSI code page - Excel's "CSV (comma delimited)" - whatever the UI
-    /// language; delimiter detected).
+    /// language; delimiter detected). The read is the operation of the import: it can be stopped, a newer read
+    /// replaces it, and a failure leaves the file that was loaded before as it is.
     /// </summary>
     public async Task LoadFileAsync(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        var localizer = _services.Localizer;
+        var name = System.IO.Path.GetFileName(path);
+        using var reading = Status.Begin(localizer.Format(L.BatchStatus.FileReading, name), new PageStatusLog(L.BatchStatus.FileReading));
+        var token = reading.Token;
+        _reading = reading;
         IsLoading = true;
         Error = null;
         try
         {
             var ansiCodePage = _services.Regional.AnsiCodePage;
             var csv = _engines.Csv;
-            var table = await Task.Run(async () =>
+            var table = await Task.Run(
+                async () =>
+                {
+                    var text = await CsvFiles.ReadTextAsync(path, ansiCodePage, token).ConfigureAwait(false);
+                    using var reader = new StringReader(text);
+                    return csv.Read(reader);
+                },
+                token).ConfigureAwait(true);
+            if (reading.IsEnded)
             {
-                var text = await CsvFiles.ReadTextAsync(path, ansiCodePage).ConfigureAwait(false);
-                using var reader = new StringReader(text);
-                return csv.Read(reader);
-            }).ConfigureAwait(true);
+                // A newer read took the place of this one, or the window was closed.
+                return;
+            }
+
             FilePath = path;
             OnPropertyChanged(nameof(FileName));
             Load(table);
         }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // Stopped by the operator: say so. Replaced or closed: nothing to say.
+            if (reading.IsCancelling)
+            {
+                reading.CompleteAttention(localizer.Format(L.BatchStatus.FileStopped, name), new PageStatusLog(L.BatchStatus.FileStopped));
+            }
+        }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Error = _services.Errors.Translate(ex);
+            reading.Complete(ReadFailed(name, Error, ResultCode.Of(ex)));
         }
         catch (Exception ex) when (ex is FormatException or InvalidDataException)
         {
-            Error = _services.Localizer[L.Csv.InvalidFile];
+            Error = localizer[L.Csv.InvalidFile];
+            reading.Complete(ReadFailed(name, Error, ResultCode.None));
         }
         finally
         {
-            IsLoading = false;
+            if (ReferenceEquals(_reading, reading))
+            {
+                _reading = null;
+                IsLoading = false;
+            }
         }
     }
 
@@ -291,15 +336,20 @@ public sealed partial class CsvImportViewModel : ObservableObject
     public void Load(CsvTable table)
     {
         ArgumentNullException.ThrowIfNull(table);
+        var localizer = _services.Localizer;
         if (table.Headers.Count == 0 || table.Headers.All(string.IsNullOrWhiteSpace))
         {
             Table = null;
-            Error = _services.Localizer[L.Csv.NoHeader];
+            Error = localizer[L.Csv.NoHeader];
+            UpdateSummary();
+            Status.Show(PageStatus.Error(
+                PageStatusText.Failure(localizer[L.BatchStatus.FileNotLoaded], Error, localizer[L.BatchStatus.FileNext]),
+                new PageStatusLog(L.BatchStatus.FileNotLoaded)));
             return;
         }
 
         Table = table;
-        Error = table.Rows.Count == 0 ? _services.Localizer[L.Csv.NoRows] : null;
+        Error = table.Rows.Count == 0 ? localizer[L.Csv.NoRows] : null;
         PreviewRows.ReplaceAll(table.Rows.Take(PreviewRowCount)
             .Select((row, index) => new CsvPreviewRow(index + 1, [.. table.Headers.Select((_, column) => table.Cell(index, column))])));
         foreach (var mapping in Mappings)
@@ -322,7 +372,33 @@ public sealed partial class CsvImportViewModel : ObservableObject
         KeyColumn = ChooseKeyColumn();
         MarkKeyColumn(KeyColumn);
         RaiseChanged();
+
+        // The file is the content now: the line names it, and whatever was said about a read is over. (A file without
+        // data rows is loaded too - the note next to the mapping says why it cannot be planned.)
+        UpdateSummary();
+        Status.Clear();
     }
+
+    /// <summary>Ends a running read without a message (the window closes).</summary>
+    internal void EndOperations() => Status.Operation?.Dispose();
+
+    /// <summary>"users.csv · 120 rows, delimiter: ;" - the summary of the loaded file; none before a file was loaded.</summary>
+    private void UpdateSummary()
+    {
+        if (Table is null)
+        {
+            Status.SetIdle(null);
+            return;
+        }
+
+        var rows = _services.Localizer.Format(L.Csv.RowsLoaded, RowCount, DelimiterText);
+        Status.SetIdle(FileName.Length == 0 ? rows : $"{FileName} · {rows}");
+    }
+
+    /// <summary>"Could not read “users.csv”: why. Choose another file. (code)".</summary>
+    private PageStatus ReadFailed(string name, string reason, ResultCode code) => PageStatus.Error(
+        PageStatusText.Failure(_services.Localizer.Format(L.BatchStatus.FileReadFailed, name), reason, _services.Localizer[L.BatchStatus.FileNext], code),
+        new PageStatusLog(L.BatchStatus.FileReadFailed).WithCode(code));
 
     /// <summary>The mapping as the planner needs it.</summary>
     /// <exception cref="InvalidOperationException">No file loaded or the mapping is not valid.</exception>

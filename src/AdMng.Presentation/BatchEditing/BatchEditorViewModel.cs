@@ -10,6 +10,7 @@ using AdMng.Core.Templates;
 using AdMng.Presentation.BulkCreate;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
@@ -62,8 +63,16 @@ public enum BatchSourceMode
 /// import mode, <see cref="BatchEditorRequest.Create"/> the create mode (the bulk creation wizard,
 /// <see cref="BulkCreateViewModel"/>). With <see cref="BatchEditorRequest.OpenPreview"/> the pre-filled operations are
 /// planned right after <see cref="InitializeAsync"/>.
+/// <para><b>One status line</b> (<see cref="Status"/>; track V, stage V2b, design note docs/dev/v-interface-renewal.md
+/// "V2b-1 as built"): the window says there what it is doing and how it ended - checking (planning) the changes with
+/// the part done and Stop, executing them (<see cref="ExecutionStatus"/>: the progress of the activity, Stop cancels
+/// it, the result names the domain), that the session of the window ended - and, at rest, the summary of the step
+/// shown (<see cref="PreviewSummary"/>, <see cref="ResultSummary"/>). The source of the first step says its own
+/// (<see cref="SourceStatus"/>: reading the selected objects, or the CSV file) and is the page in front of the line
+/// while that step is shown, so reading the objects and checking the changes never replace one another. How a plan
+/// is made, checked and executed is unchanged (CLAUDE.md rule 5).</para>
 /// </remarks>
-public sealed partial class BatchEditorViewModel : WindowViewModelBase
+public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPageStatus
 {
     private readonly BatchEngines _engines;
     private readonly BatchEditorRequest _request;
@@ -73,6 +82,13 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     private readonly List<PreviewRowViewModel> _previewRows = [];
     private readonly List<ResultRowViewModel> _resultRows = [];
     private readonly HashSet<string> _sampleAttributes = new(StringComparer.OrdinalIgnoreCase);
+
+    // Objects mode: what the list of selected objects says (reading their names and types) - a part of the first
+    // step with a status of its own, in front of the window's line while that step is shown.
+    private readonly PageStatusHolder? _targetsStatus;
+
+    // The window executes a plan (the operation of the status line then belongs to that execution).
+    private bool _executing;
 
     // Steps of the current operations that already succeeded, per object (DnKey of its current DN; see StepKeys): a
     // retry runs only the failed and not executed steps - never a second password reset, which would invalidate the
@@ -102,6 +118,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         _engines = engines ?? throw new ArgumentNullException(nameof(engines));
         _request = request ?? throw new ArgumentNullException(nameof(request));
         _editorContext = new OperationEditorContext(services, engines.Templates, RenderSampleAsync, () => Session);
+        Status = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
         Mode = request.Create is not null ? BatchSourceMode.Create
             : request.TargetDns.Count == 0 ? BatchSourceMode.Csv
             : BatchSourceMode.Objects;
@@ -121,9 +138,12 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         }
         else
         {
+            _targetsStatus = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
+            _targetsStatus.SetIdle(PageStatusText.Objects(Localizer, TargetCount));
             Targets.ReplaceAll(request.TargetDns.Select(dn => DirectoryItem.Unresolved(dn, Localizer)));
         }
 
+        UpdateFront();
         Operations.CollectionChanged += OnOperationsChanged;
 
         // The wizard plans its own creations: request.Operations are ignored in create mode (BatchEditorRequest.Create).
@@ -156,6 +176,19 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
 
     public BatchSourceMode Mode { get; }
 
+    /// <summary>
+    /// What the window says in its one status line (see the remarks of the class): its own operations and results or,
+    /// in the first step, what <see cref="SourceStatus"/> says.
+    /// </summary>
+    public PageStatusHolder Status { get; }
+
+    /// <summary>
+    /// What the source of the first step says - the list of selected objects (reading their names and types) or the
+    /// CSV import (reading the file); null in create mode, where the wizard still says its own on its pages. It is the
+    /// page in front of <see cref="Status"/> while the first step is shown.
+    /// </summary>
+    public PageStatusHolder? SourceStatus => _targetsStatus ?? CsvImport?.Status;
+
     public bool IsCsvMode => Mode == BatchSourceMode.Csv;
 
     /// <summary>Selected objects with operations (the operations panel).</summary>
@@ -165,7 +198,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     public bool IsCreateMode => Mode == BatchSourceMode.Create;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsEditStep), nameof(IsPreviewStep), nameof(IsExecutingStep), nameof(IsResultsStep))]
+    [NotifyPropertyChangedFor(nameof(IsEditStep), nameof(IsPreviewStep), nameof(IsExecutingStep), nameof(IsResultsStep), nameof(IsExecuteStep))]
     [NotifyCanExecuteChangedFor(nameof(PreviewCommand), nameof(ExecuteCommand), nameof(BackToEditCommand), nameof(ExportPreviewCommand),
         nameof(CopyPowerShellCommand), nameof(ExportResultsCommand), nameof(RetryFailedCommand), nameof(UndoCommand))]
     public partial BatchEditorStep Step { get; private set; }
@@ -177,6 +210,12 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     public bool IsExecutingStep => Step == BatchEditorStep.Executing;
 
     public bool IsResultsStep => Step == BatchEditorStep.Results;
+
+    /// <summary>
+    /// The Execute button is shown: in the preview and while its execution runs - then it is the Cancel of that
+    /// execution (one action button; "cancel where you started").
+    /// </summary>
+    public bool IsExecuteStep => Step is BatchEditorStep.Preview or BatchEditorStep.Executing;
 
     // ---- Targets ------------------------------------------------------------------------------------------
 
@@ -190,6 +229,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     public partial string TargetSummary { get; private set; } = string.Empty;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ReloadTargetsCommand))]
     public partial bool IsLoadingTargets { get; private set; }
 
     // ---- Operations ---------------------------------------------------------------------------------------
@@ -232,7 +272,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     [NotifyCanExecuteChangedFor(nameof(PreviewCommand), nameof(ExecuteCommand), nameof(RetryFailedCommand), nameof(UndoCommand), nameof(BackToEditCommand))]
     public partial bool IsBusy { get; private set; }
 
-    /// <summary>Objects planned so far / to plan (progress bar while planning).</summary>
+    /// <summary>Objects planned so far / to plan (the status line says them while the changes are checked).</summary>
     [ObservableProperty]
     public partial int PlanningCompleted { get; private set; }
 
@@ -327,13 +367,17 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
 
             if (_request.OpenPreview && Operations.Count > 0 && CanPreview())
             {
-                // Through the command, so that its Stop button (PreviewCancelCommand) can cancel planning thousands of objects.
+                // Through the command, as the Preview button does: checking thousands of objects can be stopped.
                 await PreviewCommand.ExecuteAsync(null).ConfigureAwait(true);
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             Error = Errors.Translate(ex);
+            var code = ResultCode.Of(ex);
+            Status.Show(PageStatus.Error(
+                PageStatusText.Failure(Localizer[L.BatchStatus.OpenFailed], Error, null, code),
+                new PageStatusLog(L.BatchStatus.OpenFailed).WithCode(code)));
         }
     }
 
@@ -396,13 +440,9 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             // The wizard's plan (docs/dev/phase3-bulk-create.md 2.7): computed again with the check's values frozen, the shared
             // password read last; its own reasons (wpisz hasło ponownie …) replace the generic error.
             var bulk = BulkCreate!;
-            await RunPlanningAsync((progress, token) => bulk.PlanAsync(progress, token), bulk.IncludedRowCount, PlanSource.Create, cancellationToken)
+            await RunPlanningAsync(
+                (progress, token) => bulk.PlanAsync(progress, token), bulk.IncludedRowCount, PlanSource.Create, cancellationToken, PreviewCommand, () => bulk.LastPlanError)
                 .ConfigureAwait(true);
-            if (bulk.LastPlanError is { } planError)
-            {
-                Error = planError;
-            }
-
             OnPropertyChanged(nameof(ChangeTitle));
             return;
         }
@@ -410,7 +450,8 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         if (Mode == BatchSourceMode.Csv)
         {
             var csv = CsvImport!;
-            await RunPlanningAsync((progress, token) => csv.PlanAsync(progress, token), csv.RowCount, PlanSource.Csv, cancellationToken).ConfigureAwait(true);
+            await RunPlanningAsync((progress, token) => csv.PlanAsync(progress, token), csv.RowCount, PlanSource.Csv, cancellationToken, PreviewCommand)
+                .ConfigureAwait(true);
             return;
         }
 
@@ -425,7 +466,8 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             (progress, token) => PlanOperationsAsync(_request.TargetDns, built, new Dictionary<string, HashSet<string>>(), progress, token),
             TargetCount,
             PlanSource.Operations,
-            cancellationToken).ConfigureAwait(true);
+            cancellationToken,
+            PreviewCommand).ConfigureAwait(true);
     }
 
     private bool CanPreview() =>
@@ -438,7 +480,10 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     [RelayCommand(CanExecute = nameof(CanBackToEdit))]
     private void BackToEdit()
     {
+        // A check that still runs (Retry failed, Undo of the wizard) ends without a message, and what the line said
+        // about the step that is left - a result, a failure - goes with it.
         _planning.Cancel();
+        Status.Clear();
         IsRollbackPreview = false;
         Step = BatchEditorStep.Edit;
     }
@@ -526,29 +571,11 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             }
         }
 
-        Error = null;
-        Step = BatchEditorStep.Executing;
-        BatchResult result;
-        try
-        {
-            // The coordinator hands over the activity of this execution: progress and Cancel must never follow another
-            // operation the operator starts meanwhile (another batch editor, a disable from the main window...).
-            // Only in the session the plan was made in - never with the identity of a newer session.
-            result = await Services.Coordinator.ExecutePlanAsync(plan, ChangeTitle, RequireSession(), activity => CurrentActivity = activity)
-                .ConfigureAwait(true);
-        }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            Error = Errors.Translate(ex);
-            Step = BatchEditorStep.Preview;
-            return;
-        }
-
-        // Closed while executing: the activity center reports the outcome and no results (passwords) are kept.
-        if (!IsDisposed)
-        {
-            ShowResults(result);
-        }
+        // The coordinator hands over the activity of this execution: progress and Cancel must never follow another
+        // operation the operator starts meanwhile (another batch editor, a disable from the main window...).
+        // Only in the session the plan was made in - never with the identity of a newer session.
+        await RunExecutionAsync(ChangeTitle, plan.Objects.Count, started => Services.Coordinator.ExecutePlanAsync(plan, ChangeTitle, RequireSession(), started))
+            .ConfigureAwait(true);
     }
 
     /// <summary>
@@ -574,24 +601,70 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             MarkPasswordsHandedOut();
         }
 
+        await RunExecutionAsync(title, plan.Objects.Count, started => bulk.ExecuteAsync(plan, title, RequireSession(), started)).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Executes through <paramref name="execute"/> - the coordinator, as before - and says it in the status line: the
+    /// execution is the operation of the window from the first moment (progress of the activity, Stop cancels it), and
+    /// its end is the result - with the domain, because the directory was changed (design note 4.5).
+    /// </summary>
+    /// <param name="title">The title of the change.</param>
+    /// <param name="total">The objects of the plan (the executor counts every one of them, also those it skips).</param>
+    /// <param name="execute">Starts the execution; its argument receives every activity of it (UI thread).</param>
+    private async Task RunExecutionAsync(string title, int total, Func<Action<ActivityViewModel>, Task<BatchResult>> execute)
+    {
         Error = null;
+
+        // First the operation, then the step: the line goes from the summary of the preview straight to "working".
+        using var execution = ExecutionStatus.Begin(Status, Localizer, title, ConfirmationDomain, total);
+        _executing = true;
         Step = BatchEditorStep.Executing;
         BatchResult result;
         try
         {
-            result = await bulk.ExecuteAsync(plan, title, RequireSession(), activity => CurrentActivity = activity).ConfigureAwait(true);
+            result = await execute(activity =>
+            {
+                CurrentActivity = activity;
+                execution.Follow(activity);
+            }).ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             Error = Errors.Translate(ex);
             Step = BatchEditorStep.Preview;
+            execution.Fail(Error, ResultCode.Of(ex));
             return;
         }
+        finally
+        {
+            _executing = false;
+        }
 
+        // Closed while executing: the activity center reports the outcome and no results (passwords) are kept.
         if (!IsDisposed)
         {
             ShowResults(result);
+            var (next, action) = AfterExecution(result);
+            execution.Complete(result, next, action);
         }
+    }
+
+    /// <summary>
+    /// What the operator can do about the objects an execution did not change: the reasons are in the list of results
+    /// and - unless it was an undo - "Retry failed" plans them again (the action of the status line).
+    /// </summary>
+    private (string? Next, PageStatusAction? Action) AfterExecution(BatchResult result)
+    {
+        var next = result.FailedCount > 0 ? Localizer[L.ChangeStatus.ReasonsNext] : null;
+        if (!CanRetryFailed())
+        {
+            return (next, null);
+        }
+
+        var retry = Localizer[L.Batch.RetryFailed];
+        var again = Localizer.Format(L.BatchStatus.RetryNext, retry);
+        return (next is null ? again : $"{next} {again}", new PageStatusAction(retry, RetryFailedCommand));
     }
 
     private bool CanExecute() => Step == BatchEditorStep.Preview && !IsBusy && ChangeCount > 0 && !IsSessionEnded;
@@ -653,19 +726,16 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         {
             // Over every execution of the window (2.5): no second Create, a new password where one was refused.
             var bulk = BulkCreate!;
-            await RunPlanningAsync((_, token) => bulk.PlanRetryAsync(token), failed.Count, PlanSource.Create, CancellationToken.None).ConfigureAwait(true);
-            if (bulk.LastPlanError is { } planError)
-            {
-                Error = planError;
-            }
-
+            await RunPlanningAsync(
+                (_, token) => bulk.PlanRetryAsync(token), failed.Count, PlanSource.Create, CancellationToken.None, RetryFailedCommand, () => bulk.LastPlanError)
+                .ConfigureAwait(true);
             return;
         }
 
         if (_planSource == PlanSource.Csv && CsvImport is { } csv)
         {
             var rows = failed.Select(o => o.Plan.SourceRow).OfType<int>().ToList();
-            await RunPlanningAsync((progress, token) => csv.PlanAsync(progress, token, rows), rows.Count, PlanSource.Csv, CancellationToken.None)
+            await RunPlanningAsync((progress, token) => csv.PlanAsync(progress, token, rows), rows.Count, PlanSource.Csv, CancellationToken.None, RetryFailedCommand)
                 .ConfigureAwait(true);
             return;
         }
@@ -690,7 +760,8 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         }
 
         var operations = _plannedOperations;
-        await RunPlanningAsync((progress, token) => PlanOperationsAsync(dns, operations, succeeded, progress, token), dns.Count, PlanSource.Operations, CancellationToken.None)
+        await RunPlanningAsync(
+            (progress, token) => PlanOperationsAsync(dns, operations, succeeded, progress, token), dns.Count, PlanSource.Operations, CancellationToken.None, RetryFailedCommand)
             .ConfigureAwait(true);
     }
 
@@ -721,12 +792,9 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
                     async (_, token) => await bulk.PlanUndoAsync(token).ConfigureAwait(true) ?? throw new InvalidOperationException(Localizer[L.Batch.NothingToUndo]),
                     bulk.CreatedCount,
                     PlanSource.Rollback,
-                    CancellationToken.None).ConfigureAwait(true);
-                if (bulk.LastPlanError is { } planError)
-                {
-                    Error = planError;
-                }
-
+                    CancellationToken.None,
+                    UndoCommand,
+                    () => bulk.LastPlanError).ConfigureAwait(true);
                 OnPropertyChanged(nameof(UndoNote));
             }
         }
@@ -743,6 +811,8 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             return;
         }
 
+        // The line said how the execution ended; from here on it is about the undo plan.
+        Status.Clear();
         ShowPreview(rollback, PlanSource.Rollback);
     }
 
@@ -763,25 +833,75 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
 
     partial void OnOperationsErrorChanged(string? value) => PreviewCommand.NotifyCanExecuteChanged();
 
+    partial void OnStepChanged(BatchEditorStep value)
+    {
+        UpdateFront();
+        UpdateSummary();
+    }
+
+    partial void OnPreviewSummaryChanged(string value) => UpdateSummary();
+
+    partial void OnResultSummaryChanged(string value) => UpdateSummary();
+
+    /// <summary>
+    /// The source of the first step is the page in front of the status line while that step is shown: what it says -
+    /// its summary, its read, a read that failed - is said in the one line of the window.
+    /// </summary>
+    private void UpdateFront() => Status.Front = IsEditStep ? SourceStatus : null;
+
+    /// <summary>
+    /// The summary of the window: what the preview holds, or how the execution went. The first step has none of its
+    /// own - its source says "3 objects · User: 2, Group: 1" or names the file.
+    /// </summary>
+    private void UpdateSummary() => Status.SetIdle(Step switch
+    {
+        BatchEditorStep.Preview => PreviewSummary,
+        BatchEditorStep.Results => ResultSummary,
+        _ => null,
+    });
+
     /// <remarks>
     /// Results and previews stay readable (export, PowerShell, the undo plan), but nothing is planned or executed any
     /// more; a running execution was cancelled by the disconnect and reports its outcome as usual.
     /// </remarks>
     protected override void OnSessionEnded()
     {
+        // A running check or read ends without a message; the line says for good that the session of this window
+        // ended (an execution still says how it ended - the state is back when that result is closed).
         _planning.Cancel();
+        if (!_executing)
+        {
+            Status.Operation?.Dispose();
+        }
+
+        _targetsStatus?.Operation?.Dispose();
         BulkCreate?.OnSessionEnded();
         Error = SessionEndedMessage;
+        Status.SetLasting(SessionEndedStatus);
         PreviewCommand.NotifyCanExecuteChanged();
         ExecuteCommand.NotifyCanExecuteChanged();
         RetryFailedCommand.NotifyCanExecuteChanged();
+        ReloadTargetsCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>The state of the window in the new language (the other sentences are said again with their next operation).</summary>
+    protected override void OnCultureChanged()
+    {
+        base.OnCultureChanged();
+        Status.SetLasting(SessionEndedStatus);
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
+            // What still runs here ends without a message. An execution is not cancelled by that: it keeps running as
+            // a background activity.
             _planning.Cancel();
+            Status.Operation?.Dispose();
+            Status.Front = null;
+            _targetsStatus?.Operation?.Dispose();
+            CsvImport?.EndOperations();
             Operations.CollectionChanged -= OnOperationsChanged;
             foreach (var editor in Operations)
             {
@@ -908,14 +1028,33 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         return plan with { Changes = changes };
     }
 
+    /// <summary>
+    /// Plans through <paramref name="plan"/> and shows the preview. Checking the changes is the operation of the
+    /// window: the status line says how far it is, Stop - in the line, on the Preview button, or the command's own
+    /// cancel - ends it as "stopped", and a failure is said there with <paramref name="again"/> as Retry. The result of
+    /// a check is the preview itself: the line then shows its summary.
+    /// </summary>
+    /// <param name="plan">Builds the plan (progress = objects planned so far).</param>
+    /// <param name="total">The objects to plan.</param>
+    /// <param name="source">Where the plan comes from.</param>
+    /// <param name="cancellationToken">The cancellation of the command that started the check.</param>
+    /// <param name="again">The command that starts this check again.</param>
+    /// <param name="ownReason">The planner's own localized reason for a failure, when it has one (the wizard).</param>
     private async Task RunPlanningAsync(
         Func<IProgress<int>, CancellationToken, Task<ChangePlan>> plan,
         int total,
         PlanSource source,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IRelayCommand again,
+        Func<string?>? ownReason = null)
     {
-        var token = _planning.Next();
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, cancellationToken);
+        // "The latest check wins", and Back, closing the window or the end of its session cancel it without a word.
+        var latest = _planning.Next();
+        using var checking = Status.Begin(Localizer[L.BatchStatus.CheckingStart], new PageStatusLog(L.BatchStatus.Checking, 0, total));
+
+        // The cancel of the command (PreviewCancelCommand) is the operator's Stop as well: the line says "Stopping…".
+        using var stop = cancellationToken.Register(checking.Cancel);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, checking.Token);
         IsBusy = true;
         Error = null;
         PlanningCompleted = 0;
@@ -924,9 +1063,13 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         {
             var progress = Services.Dispatcher.CreateProgress<int>(n =>
             {
-                if (_planning.IsCurrent(token))
+                if (_planning.IsCurrent(latest))
                 {
                     PlanningCompleted = n;
+                    checking.Report(
+                        Localizer.Format(L.BatchStatus.Checking, PageStatusText.Progress(Localizer, n, total)),
+                        n > 0 ? PageProgress.Of(n, total) : PageProgress.Indeterminate,
+                        new PageStatusLog(L.BatchStatus.Checking, n, total));
                 }
             });
             var result = await plan(progress, linked.Token).ConfigureAwait(true);
@@ -937,11 +1080,27 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         }
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
-            // Cancelled by the operator, by Back or by closing the window.
+            // Cancelled by Back or by closing the window: nothing to say. Stopped by the operator: what was stopped,
+            // that nothing was changed, and the command that checks again.
+            if (checking.IsCancelling)
+            {
+                checking.CompleteAttention(
+                    PageStatusText.Failure(
+                        Localizer[L.BatchStatus.CheckStopped], Localizer[L.BatchStatus.CheckStoppedReason], Localizer[L.Feedback.RetryNext]),
+                    new PageStatusLog(L.BatchStatus.CheckStopped),
+                    new PageStatusAction(Localizer[L.Common.Retry], again));
+            }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            Error = Errors.Translate(ex);
+            // The planner's own reason ("type the password again") instead of the translation of its exception.
+            var own = ownReason?.Invoke();
+            var code = own is null ? ResultCode.Of(ex) : ResultCode.None;
+            Error = own ?? Errors.Translate(ex);
+            checking.CompleteError(
+                PageStatusText.Failure(Localizer[L.BatchStatus.CheckFailed], Error, Localizer[L.Feedback.RetryNext], code),
+                new PageStatusLog(L.BatchStatus.CheckFailed).WithCode(code),
+                new PageStatusAction(Localizer[L.Common.Retry], again));
         }
         finally
         {
@@ -1193,27 +1352,61 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         return null;
     }
 
+    /// <summary>
+    /// Reads the names and types of the selected objects again: the Retry of the status line after a read that failed
+    /// or was stopped.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanReloadTargets))]
+    private Task ReloadTargetsAsync() => LoadTargetsAsync();
+
+    private bool CanReloadTargets() => _targetsStatus is not null && !IsLoadingTargets && !IsSessionEnded;
+
+    /// <summary>
+    /// Objects mode: reads the names and types of the selected objects. It is the operation of the list of objects -
+    /// the part of the first step in front of the window's status line - with Stop; a read that failed or was stopped
+    /// is the state of that list for as long as it lasts, with Retry. Never throws.
+    /// </summary>
     private async Task LoadTargetsAsync()
     {
+        if (_targetsStatus is not { } status)
+        {
+            return;
+        }
+
         var session = Session;
         if (session is null)
         {
             Error = NoSessionMessage;
+            status.SetLasting(TargetsFailed(Error, ResultCode.None, retry: false));
             return;
         }
 
+        using var reading = status.Begin(
+            Localizer.Format(L.BatchStatus.ReadingTargets, TargetCount), new PageStatusLog(L.BatchStatus.ReadingTargets, TargetCount));
+        var token = reading.Token;
+        status.SetLasting(null);
         IsLoadingTargets = true;
         try
         {
             var dns = _request.TargetDns;
-            var found = await Task.Run(() => DirectoryLookup.ReadManyAsync(session, dns, DirectoryItem.Attributes, CancellationToken.None))
+            var found = await Task.Run(() => DirectoryLookup.ReadManyAsync(session, dns, DirectoryItem.Attributes, token), token)
                 .ConfigureAwait(true);
+            if (reading.IsEnded)
+            {
+                // The window was closed, or its session ended.
+                return;
+            }
+
             var items = dns.Select(dn => found.TryGetValue(DnKey.For(dn), out var obj) ? DirectoryItem.From(obj, Localizer) : DirectoryItem.Unresolved(dn, Localizer)).ToList();
             Targets.ReplaceAll(items);
             TargetSummary = string.Join(", ", items
                 .GroupBy(i => i.Kind)
                 .OrderByDescending(g => g.Count())
                 .Select(g => $"{Localizer.ObjectKindName(g.Key)}: {g.Count().ToString(Localizer.Culture)}"));
+
+            // "3 objects · User: 2, Group: 1": the summary of the list, said in the status line.
+            var count = PageStatusText.Objects(Localizer, items.Count);
+            status.SetIdle(TargetSummary.Length == 0 ? count : $"{count} · {TargetSummary}");
             var kinds = items.Select(i => i.Kind).Where(k => k != ObjectKind.Unknown).Distinct().ToList();
             AttributeOptions = AttributeOption.ForKinds(session.Schema, Localizer, kinds.Count > 0 ? kinds : [ObjectKind.User]);
             foreach (var editor in Operations.OfType<AttributeOperationEditorViewModel>())
@@ -1222,15 +1415,36 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
                 editor.Revalidate();
             }
         }
-        catch (DirectoryException ex)
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
+            // Stopped by the operator: the list says so until it is read again. Ended with the window or its session:
+            // nothing to say.
+            if (reading.IsCancelling)
+            {
+                status.SetLasting(PageStatus.Attention(
+                    Localizer[L.BatchStatus.TargetsStopped],
+                    new PageStatusLog(L.BatchStatus.TargetsStopped),
+                    new PageStatusAction(Localizer[L.Common.Retry], ReloadTargetsCommand)));
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Whatever the read failed with: the list keeps the objects without their names, and says why (the Retry
+            // of the line runs this again - a command must not throw).
             Error = Errors.Translate(ex);
+            status.SetLasting(TargetsFailed(Error, ResultCode.Of(ex), retry: true));
         }
         finally
         {
             IsLoadingTargets = false;
         }
     }
+
+    /// <summary>"Could not read the selected objects: why. Press Retry to try again. (code)" - the state of the list.</summary>
+    private PageStatus TargetsFailed(string reason, ResultCode code, bool retry) => PageStatus.Error(
+        PageStatusText.Failure(Localizer[L.BatchStatus.TargetsFailed], reason, retry ? Localizer[L.Feedback.RetryNext] : null, code),
+        new PageStatusLog(L.BatchStatus.TargetsFailed).WithCode(code),
+        retry ? new PageStatusAction(Localizer[L.Common.Retry], ReloadTargetsCommand) : null);
 
     /// <summary>Renders a template for the first target (attributes are read on demand, once per new attribute).</summary>
     private async Task<string?> RenderSampleAsync(string template, CancellationToken cancellationToken)
