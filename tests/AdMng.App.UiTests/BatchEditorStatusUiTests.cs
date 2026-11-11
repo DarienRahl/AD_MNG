@@ -570,16 +570,23 @@ public sealed class BatchEditorStatusUiTests
         return (window, editor);
     }
 
-    /// <summary>The old places of feedback are gone from the window: no progress bar and no banner of the styles of before.</summary>
+    /// <summary>
+    /// The old places of feedback are gone from the window: no progress bar and no banner of the styles of before. The
+    /// views of the bulk creation wizard, which this window hosts in its create mode only, are not this window's (they
+    /// are converted with their own unit).
+    /// </summary>
     private static void AssertNoOldFeedback(BatchEditorWindow window)
     {
         var errorBar = Application.Current.FindResource("Ad.ErrorBar");
         var warningBar = Application.Current.FindResource("Ad.WarningBar");
-        Assert.Empty(UiWait.Descendants<ProgressBar>(window));
+        Assert.DoesNotContain(UiWait.Descendants<ProgressBar>(window), bar => !IsOfTheWizard(bar));
         Assert.DoesNotContain(
             UiWait.Descendants<Border>(window),
-            border => ReferenceEquals(border.Style, errorBar) || ReferenceEquals(border.Style, warningBar));
+            border => !IsOfTheWizard(border) && (ReferenceEquals(border.Style, errorBar) || ReferenceEquals(border.Style, warningBar)));
         Assert.Same(window.PageStatus, Assert.Single(UiWait.Descendants<StatusLine>(window)));
+
+        bool IsOfTheWizard(FrameworkElement element) =>
+            element.IsDescendantOf(window.BulkCreateEditPanel) || element.IsDescendantOf(window.BulkResultsPanel);
     }
 
     private static double TopOf(FrameworkElement element, UIElement relativeTo) =>

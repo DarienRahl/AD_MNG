@@ -34,10 +34,12 @@ public sealed class MainWindowFeedbackUiTests
         var window = await OpenAsync(context);
         var ring = window.ActivityRing;
 
-        // The shell has no status line of its own: the one in the window belongs to the object list of the tab.
-        var line = Assert.Single(UiWait.Descendants<StatusLine>(window));
-        Assert.NotNull(window.SelectedListView);
-        Assert.True(line.IsDescendantOf(window.SelectedListView!));
+        // The shell has no status line of its own: what the window shows of them belongs to the object list of a tab.
+        var lists = UiWait.Descendants<ObjectListView>(window).ToList();
+        var lines = UiWait.Descendants<StatusLine>(window).ToList();
+        Assert.Contains(window.SelectedListView!, lists);
+        Assert.NotEmpty(lines);
+        Assert.All(lines, line => Assert.Contains(lists, list => line.IsDescendantOf(list)));
 
         // Nothing runs: no ring, and no progress bar anywhere in the window.
         Assert.False(window.Shell.Activities.HasRunning);
