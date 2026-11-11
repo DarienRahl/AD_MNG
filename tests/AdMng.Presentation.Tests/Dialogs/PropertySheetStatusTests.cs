@@ -780,6 +780,73 @@ public class PropertySheetStatusTests
         Assert.DoesNotContain(seen, status => status.Kind is PageStatusKind.Attention or PageStatusKind.Error or PageStatusKind.Done);
     }
 
+    [Fact]
+    public async Task StoppingTheReadOfTheSheet_AlsoStopsATabThatReadsWithIt()
+    {
+        var (sheet, harness) = await OpenAsync(c => c.JanKowalski);
+        var jan = harness.Company.JanKowalski;
+        var editor = Page<AttributeEditorPageViewModel>(sheet);
+        sheet.SelectedPage = editor;
+        await B2Harness.WaitUntilAsync(() => !editor.IsLoading && editor.Rows.Count > 0);
+        var rows = editor.Rows.Count;
+
+        // The sheet reads the object at once; the read of the tab that follows is held (the read of all attributes).
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.Get && operation.Attributes.Contains("*"))
+            {
+                held.Release();
+                release.Wait(TestContext.Current.CancellationToken);
+            }
+        };
+        List<(PageStatusKind Kind, string Message)> seen;
+        try
+        {
+            var load = sheet.LoadAsync();
+            Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+            Assert.True(sheet.Status.IsWorking);
+            Assert.True(editor.Status.IsWorking);
+            Assert.Equal("Reading “Jan Kowalski”…", sheet.Status.Current.Message);
+            var tabRead = Assert.IsType<OperationScope>(editor.Status.Operation).Token;
+
+            // Stop in the line stops the read of the window - and with it the read of the tab, which would otherwise
+            // keep the window "stopping" until the domain controller answered.
+            seen = Record(sheet.Status);
+            sheet.Status.CancelCommand.Execute(null);
+            Assert.False(tabRead.IsCancellationRequested);
+            harness.Session.Latency = SlowDomainController;
+            release.Set();
+            await load.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+        }
+        finally
+        {
+            release.Set();
+            harness.Session.BeforeOperation = null;
+            harness.Session.Latency = TimeSpan.Zero;
+        }
+
+        // The window says that its read was stopped; the tab says nothing of its own and keeps what it showed.
+        Assert.Equal((PageStatusKind.Working, "Stopping…"), seen[0]);
+        Assert.Equal(PageStatusKind.Attention, sheet.Status.Current.Kind);
+        Assert.Equal("PropertySheet.Status.Stopped", sheet.Status.Current.Log.ToString());
+        Assert.False(sheet.IsLoading);
+        Assert.False(editor.IsLoading);
+        Assert.False(editor.Status.IsWorking);
+        Assert.True(editor.Status.Current.IsIdle);
+        Assert.Null(editor.Error);
+        Assert.Equal(rows, editor.Rows.Count);
+
+        // Refresh reads both.
+        await sheet.RefreshCommand.ExecuteAsync(null);
+        await B2Harness.WaitUntilAsync(() => !editor.IsLoading && !sheet.IsLoading);
+        Assert.Null(sheet.Status.Lasting);
+        Assert.True(sheet.Status.Current.IsIdle);
+        Assert.Equal(rows, editor.Rows.Count);
+        Assert.Equal(jan, sheet.DistinguishedName);
+    }
+
     // ---- The session of the window ------------------------------------------------------------------------------
 
     [Fact]

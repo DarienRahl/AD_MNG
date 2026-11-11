@@ -96,6 +96,9 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
     private readonly List<MembershipItemViewModel> _all = [];
     private IList? _selectedItems;
 
+    // The read that owns the "All (nested)" list: a newer one replaces it, and only it ends "loading".
+    private OperationScope? _nestedRead;
+
     private protected MembershipPageViewModel(FieldContext context, string key, string title)
         : base(context, key, title)
     {
@@ -263,6 +266,7 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
 
         // A running "All (nested)" query belongs to the previous read (possibly of another DN after a move): it ends
         // without a message, and what it finds later is not shown.
+        _nestedRead = null;
         NestedStatus.Operation?.Dispose();
         NestedItems.ReplaceAll([]);
         IsNestedLoading = false;
@@ -362,6 +366,7 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
         var list = localizer[L.Membership.Nested];
         using var scope = NestedStatus.Begin(
             localizer.Format(L.PropertySheetStatus.ListReading, list), new PageStatusLog(L.PropertySheetStatus.ListReading));
+        _nestedRead = scope;
         var token = scope.Token;
         IsNestedLoading = true;
         NestedError = null;
@@ -397,7 +402,6 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
             var comparer = StringComparer.Create(Context.Culture, ignoreCase: true);
             NestedItems.ReplaceAll(items.OrderBy(i => i.Name, comparer));
             IsNestedLoaded = true;
-            IsNestedLoading = false;
 
             // The result of the read is the list itself: its count is the summary, and the operation ends without a
             // message.
@@ -406,7 +410,6 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
         catch (OperationCanceledException) when (!scope.IsEnded)
         {
             // Stopped by the operator: the list is not there, and Refresh is the way on.
-            IsNestedLoading = false;
             scope.CompleteAttention(
                 localizer.Format(L.PropertySheetStatus.ListStopped, list),
                 new PageStatusLog(L.PropertySheetStatus.ListStopped),
@@ -420,7 +423,6 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
         {
             // The list stays empty for as long as this lasts: said whenever the list is shown, until it could be read.
             var code = ResultCode.Of(ex);
-            IsNestedLoading = false;
             NestedError = Context.Services.Errors.Translate(ex);
             NestedStatus.SetLasting(PageStatus.Error(
                 PageStatusText.Failure(
@@ -432,6 +434,14 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
         catch (DirectoryException)
         {
             // A stale query failed: the newer state is kept.
+        }
+        finally
+        {
+            if (ReferenceEquals(_nestedRead, scope))
+            {
+                _nestedRead = null;
+                IsNestedLoading = false;
+            }
         }
     }
 

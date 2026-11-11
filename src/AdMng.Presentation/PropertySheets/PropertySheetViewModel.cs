@@ -594,6 +594,9 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase, IHasPa
                 await page.LoadDetailsAsync(obj, token).ConfigureAwait(true);
             }
 
+            // A page that reads by itself ends its own read when this one is stopped and says so itself: the read of
+            // the window was stopped all the same.
+            token.ThrowIfCancellationRequested();
             _readFrom = session.Info.Server;
             _readAt = Services.Time.GetLocalNow();
             UpdateSummary();

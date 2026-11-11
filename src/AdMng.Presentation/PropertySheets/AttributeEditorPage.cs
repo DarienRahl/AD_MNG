@@ -515,7 +515,7 @@ public sealed partial class AttributeEditorPageViewModel : PropertyPageViewModel
     }
 
     internal override Task LoadDetailsAsync(DirectoryObject obj, CancellationToken cancellationToken) =>
-        _activated ? ReloadAsync() : Task.CompletedTask;
+        _activated ? ReloadAsync(cancellationToken) : Task.CompletedTask;
 
     /// <summary>Values the Attribute Editor showed for an attribute with staged values (null when nothing is staged).</summary>
     internal IReadOnlyList<string>? StagedBaseline(string attribute) =>
@@ -591,7 +591,8 @@ public sealed partial class AttributeEditorPageViewModel : PropertyPageViewModel
         UpdateState();
     }
 
-    private async Task ReloadAsync()
+    /// <param name="sheetRead">The token of the sheet's read when the page is read again with the object: stopping that read stops this one.</param>
+    private async Task ReloadAsync(CancellationToken sheetRead = default)
     {
         if (_dn.Length == 0)
         {
@@ -601,8 +602,9 @@ public sealed partial class AttributeEditorPageViewModel : PropertyPageViewModel
         // The read is the operation of the page: the status line of the sheet says so while the tab is in front, a
         // newer read replaces this one, and the operator can stop it.
         using var scope = BeginReading();
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(scope.Token, sheetRead);
         _reading = scope;
-        var token = scope.Token;
+        var token = cancellation.Token;
         IsLoading = true;
         Error = null;
         Status.SetLasting(null);
@@ -655,8 +657,9 @@ public sealed partial class AttributeEditorPageViewModel : PropertyPageViewModel
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            // Superseded by a newer load - or stopped by the operator: then the page says what it may lack.
-            if (!scope.IsEnded)
+            // Stopped by the operator in the line of this page: the page says what it may lack. Superseded by a newer
+            // read, or ended together with the read of the sheet (which says so itself): nothing to say here.
+            if (scope.IsCancelling)
             {
                 scope.Complete(ReadStopped(RefreshCommand));
             }

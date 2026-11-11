@@ -1290,7 +1290,10 @@ sheet; units 2 and 3 add their windows to this block.
     - **A page that is read with the object** (the membership lists) starts no operation of its own – the window is
       working then – but keeps its failure as its state; its Retry is the sheet's Refresh (`FieldContext.Reload`). A
       page that reads when it is shown reads as an operation of its own, also when the sheet reads it again; while
-      the window works the line is the window's.
+      the window works the line is the window's. The token of the sheet's read is linked into such a read, so Stop in
+      the line does not leave the window "stopping" until a tab has finished. **Who was stopped says so:** a page says
+      "stopped" only when the operator stopped *its* operation; a read that ended with the read of the sheet, or was
+      replaced, ends without a message – the window says that it may not show everything.
     - **The nested list is a part of its page** with a holder of its own, in front while its inner tab is shown.
       Otherwise the line would explain an empty list the operator is not looking at, or lose that explanation with the
       next thing the page says. The inner tab is now remembered per page while the sheet is open (it follows the view
@@ -1314,8 +1317,8 @@ sheet; units 2 and 3 add their windows to this block.
   - *Tests.* Presentation: `Feedback/PageStatusSourcesTests` (the lasting state, the page in front, "12 of 300"),
     `Dialogs/PropertySheetStatusTests` (summary in both languages, read with stop, failed read, gone and deleted, out
     of date, Apply done / refused / failed, a tab that failed, the nested list with cancel and failure, a tab that
-    reads when shown, the account check, the session that ended, closing the sheet), and the status of the certificate
-    tabs and of the computer's page in their test classes. UI: `NoteUiTests`, the accent and dialog variants in
+    reads when shown or with the sheet, the account check, the session that ended, closing the sheet), and the status
+    of the certificate tabs and of the computer's page in their test classes. UI: `NoteUiTests`, the accent and dialog variants in
     `ActionButtonUiTests`, the line of a window with a page in front in `StatusLineUiTests`,
     `PropertySheetStatusUiTests` (six tests through the real window), the note in `CertificateTabsUiTests`.
   - *Not seen, to confirm on Windows.* The line in a 640 px wide window: an error with its reason and advice is
