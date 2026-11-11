@@ -238,4 +238,118 @@ public static partial class L
         /// <summary>What to do after an execution that failed in part.</summary>
         public const string UndoNext = "PlanPreview.Status.UndoNext";
     }
+
+    /// <summary>
+    /// What the AD Recycle Bin says in its status line (stage V2b): the list of deleted objects (reading it) and the
+    /// window (checking - planning - a restore; the restore itself through <see cref="ChangeStatus"/>).
+    /// </summary>
+    public static class RecycleBinStatus
+    {
+        /// <summary>{0} = the domain.</summary>
+        public const string Reading = "RecycleBin.Status.Reading";
+
+        /// <summary>{0} = the domain, {1} = the objects read so far ("1 500 objects").</summary>
+        public const string ReadingCount = "RecycleBin.Status.ReadingCount";
+
+        /// <summary>{0} = the objects that were read.</summary>
+        public const string Stopped = "RecycleBin.Status.Stopped";
+
+        /// <summary>What was tried, without a full stop; {0} = the domain.</summary>
+        public const string ReadFailed = "RecycleBin.Status.ReadFailed";
+
+        /// <summary>Planning a restore; {0} = the number of selected objects.</summary>
+        public const string Checking = "RecycleBin.Status.Checking";
+
+        /// <summary>What was stopped, without a full stop, and what that means.</summary>
+        public const string CheckStopped = "RecycleBin.Status.CheckStopped";
+        public const string CheckStoppedReason = "RecycleBin.Status.CheckStoppedReason";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string CheckFailed = "RecycleBin.Status.CheckFailed";
+
+        /// <summary>Where the objects are that a restore did not bring back.</summary>
+        public const string NotRestoredNext = "RecycleBin.Status.NotRestoredNext";
+    }
+
+    /// <summary>
+    /// What the account review says in its status line (stage V2b): the check of the window - of the "Account state" tab
+    /// or of the "Privileges" tab - and the read of the exact last logon on the "Account state" tab.
+    /// </summary>
+    public static class AccountReviewStatus
+    {
+        /// <summary>{0} = the scope.</summary>
+        public const string Checking = "AccountReview.Status.Checking";
+
+        /// <summary>{0} = the scope, {1} = the accounts read so far, {2} = the accounts with findings so far.</summary>
+        public const string CheckingCount = "AccountReview.Status.CheckingCount";
+
+        /// <summary>{0} = the accounts that were read, {1} = the text of the button that checks again.</summary>
+        public const string Stopped = "AccountReview.Status.Stopped";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string Failed = "AccountReview.Status.Failed";
+
+        /// <summary>"Exact last logon (all DCs)"; {0} = the number of accounts.</summary>
+        public const string ReadingExact = "AccountReview.Status.ReadingExact";
+
+        /// <summary>{0} = the domain controllers that answered ("2 of 3"), {1} = the accounts that left the list.</summary>
+        public const string ExactDone = "AccountReview.Status.ExactDone";
+
+        /// <summary>{0} = the domain controllers that did not answer, each with its reason.</summary>
+        public const string ExactNoAnswer = "AccountReview.Status.ExactNoAnswer";
+
+        /// <summary>{0} = the text of the button that reads again.</summary>
+        public const string ExactStopped = "AccountReview.Status.ExactStopped";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string ExactFailed = "AccountReview.Status.ExactFailed";
+
+        /// <summary>The "Privileges" tab; {0} = the scope.</summary>
+        public const string PrivilegesChecking = "PrivilegedAccess.Status.Checking";
+
+        /// <summary>{0} = the scope, {1} = the accounts read so far, {2} = the accounts with rights beyond a domain user.</summary>
+        public const string PrivilegesCheckingCount = "PrivilegedAccess.Status.CheckingCount";
+
+        /// <summary>The last step of the check: the comparison with similar accounts; {0} = the scope.</summary>
+        public const string PrivilegesCheckingPeers = "PrivilegedAccess.Status.CheckingPeers";
+
+        /// <summary>{0} = the accounts that were read, {1} = the text of the button that checks again.</summary>
+        public const string PrivilegesStopped = "PrivilegedAccess.Status.Stopped";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string PrivilegesFailed = "PrivilegedAccess.Status.Failed";
+    }
+
+    /// <summary>
+    /// What the comparison of two objects says in its status line (stage V2b): the comparison and the reads of nested
+    /// membership and nested members that follow it.
+    /// </summary>
+    public static class ComparisonStatus
+    {
+        /// <summary>{0} = the name of the object, {1} = the label of the other connection.</summary>
+        public const string Comparing = "Comparison.Status.Comparing";
+
+        /// <summary>{0} = the name of the object, {1} = the text of the button that compares again.</summary>
+        public const string Stopped = "Comparison.Status.Stopped";
+
+        /// <summary>What was tried, without a full stop; {0} = the name of the object.</summary>
+        public const string Failed = "Comparison.Status.Failed";
+
+        /// <summary>The read of the nested members of both groups (nested membership: <c>Comparison.NestedLoading</c>).</summary>
+        public const string ReadingNestedMembers = "Comparison.Status.ReadingNestedMembers";
+
+        /// <summary>{0} = the text of the button that reads again.</summary>
+        public const string NestedStopped = "Comparison.Status.NestedStopped";
+
+        /// <summary>What was tried, without a full stop, and what is shown instead.</summary>
+        public const string NestedFailed = "Comparison.Status.NestedFailed";
+        public const string NestedFailedNext = "Comparison.Status.NestedFailedNext";
+
+        /// <summary>{0} = the text of the button that reads again.</summary>
+        public const string NestedMembersStopped = "Comparison.Status.NestedMembersStopped";
+
+        /// <summary>What was tried, without a full stop, and what is shown instead.</summary>
+        public const string NestedMembersFailed = "Comparison.Status.NestedMembersFailed";
+        public const string NestedMembersFailedNext = "Comparison.Status.NestedMembersFailedNext";
+    }
 }

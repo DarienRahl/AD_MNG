@@ -7,6 +7,7 @@ using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Errors;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Testing;
@@ -378,10 +379,15 @@ public class RecycleBinViewModelTests
 
         await bin.ConfirmRestoreCommand.ExecuteAsync(null);
 
-        var (title, message) = Assert.Single(harness.Dialogs.Errors);
-        Assert.Equal("Restore", title);
-        Assert.Contains("Failed: 2, succeeded: 0.", message, StringComparison.Ordinal);
-        Assert.Contains("• Paweł Lewandowski: Not restored, because its parent container could not be restored.", message, StringComparison.Ordinal);
+        // Said in the status line of the window (track V, stage V2b) - no dialog: what was tried, the numbers, the
+        // reasons (each once) and where the objects are.
+        Assert.Empty(harness.Dialogs.Errors);
+        var failed = bin.Status.Current;
+        Assert.Equal(PageStatusKind.Error, failed.Kind);
+        Assert.StartsWith(
+            "Could not execute “Restore from the AD Recycle Bin (2)” in contoso.test: nothing was changed, failed: 2. ", failed.Message, StringComparison.Ordinal);
+        Assert.Contains("Not restored, because its parent container could not be restored.", failed.Message, StringComparison.Ordinal);
+        Assert.EndsWith(" What was not restored is still in the list.", failed.Message, StringComparison.Ordinal);
         Assert.Equal(4, bin.Items.Count);
         Assert.False(bin.IsPreviewing);
     }

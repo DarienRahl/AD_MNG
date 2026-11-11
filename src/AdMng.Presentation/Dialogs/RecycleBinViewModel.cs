@@ -6,6 +6,7 @@ using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Changes;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
@@ -116,13 +117,22 @@ public sealed class RestorePreviewItemViewModel
 /// delete...) apply to live objects; deleted objects only support restore. Without the AD Recycle Bin the window explains
 /// that only tombstone reanimation is possible (most attributes are lost) and asks once more before restoring.
 /// Nothing is cached: the list lives only while the window shows it and every restore is planned on fresh reads.
+/// <para>The window has one status line (<see cref="Status"/>; track V, stage V2b, design note
+/// docs/dev/v-interface-renewal.md "V2b-1 as built"). Two things can run at the same time - the list is read while a
+/// restore is being checked - so there are two holders: the list of deleted objects says what it reads and how much,
+/// that the read was stopped or why it failed (<see cref="ListStatus"/>, in front while the list is shown), and the
+/// window says what it does with the selection: checking the objects to restore, restoring them
+/// (<see cref="ExecutionStatus"/>) and how that ended - and, as the state that lasts, that it has no session.</para>
 /// </remarks>
-public sealed partial class RecycleBinViewModel : WindowViewModelBase
+public sealed partial class RecycleBinViewModel : WindowViewModelBase, IHasPageStatus
 {
     private const int FirstBatchSize = 50;
     private const int MaxParentReads = 200;
     private const int MaxParentDepth = 16;
     private const int MaxListedFailures = 10;
+
+    /// <summary>How many different reasons of failed restores the status line says.</summary>
+    private const int MaxSaidReasons = 3;
     private static readonly TimeSpan FilterDelay = TimeSpan.FromMilliseconds(400);
     private static readonly TimeSpan FlushInterval = TimeSpan.FromMilliseconds(150);
 
@@ -136,6 +146,9 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
 
     /// <summary>Deleted containers that are not in the list but on the original path of listed objects (keyed by DN).</summary>
     private readonly Dictionary<string, DeletedObjectInfo> _deletedParents = new(StringComparer.Ordinal);
+
+    /// <summary>Checks the restore that was checked last again (the Retry of a check that was stopped or failed).</summary>
+    private readonly IAsyncRelayCommand _checkAgainCommand;
     private IList? _selectedItems;
     private ChangePlan? _plan;
     private string? _planTarget;
@@ -154,9 +167,19 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     /// <summary>A name filter was typed and its debounced reload has not started yet (the list is about to change).</summary>
     private bool _filterReloadPending;
 
+    /// <summary>What the list says at rest (<see cref="StatusText"/> without the text of a running check).</summary>
+    private string _loadedText = string.Empty;
+
+    /// <summary>Where the restore that was checked last goes: a container, or null for the original location.</summary>
+    private string? _checkTarget;
+
     public RecycleBinViewModel(DialogServices services)
         : base(services)
     {
+        Status = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
+        ListStatus = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
+        Status.Front = ListStatus;
+        _checkAgainCommand = new AsyncRelayCommand(() => PreviewAsync(_checkTarget));
         _reloadDebouncer = new Debouncer(services.Time, FilterDelay);
         Kinds = CreateKinds();
         Kind = Kinds[0];
@@ -167,6 +190,19 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     public override string WindowTitle => Session is { } session
         ? Localizer.Format(L.RecycleBin.WindowTitleDomain, session.Info.DomainDnsName)
         : Localizer[L.RecycleBin.WindowTitle];
+
+    /// <summary>
+    /// The status of the window - what its one status line shows: the status of the list while the list is shown, the
+    /// check and the restore of the selection, the summary of the restore preview, and that the window has no session.
+    /// </summary>
+    public PageStatusHolder Status { get; }
+
+    /// <summary>
+    /// The status of the list of deleted objects: its summary ("12 objects · 0.21 s · as of 14:35:02 · 3 selected"), the
+    /// read with the number of objects so far, a read that was stopped, and - for as long as it lasts - why the list
+    /// could not be read. The Refresh button is the Cancel of this read.
+    /// </summary>
+    public PageStatusHolder ListStatus { get; }
 
     // ---- State of the forest ----------------------------------------------------------------------------------
 
@@ -320,6 +356,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     {
         var count = Selection.Count;
         SelectionText = count == 0 ? string.Empty : Localizer.Format(L.RecycleBin.Selected, count);
+        UpdateSummary();
         RestoreCommand.NotifyCanExecuteChanged();
         RestoreToCommand.NotifyCanExecuteChanged();
         CopyDnCommand.NotifyCanExecuteChanged();
@@ -341,17 +378,35 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     }
 
     [RelayCommand(CanExecute = nameof(CanRefresh))]
-    private Task RefreshAsync() => LoadAsync();
+    private Task RefreshAsync()
+    {
+        CloseResult();
+        return LoadAsync();
+    }
 
     private bool CanRefresh() => IsConnected && !IsBusy;
 
-    /// <summary>Stops the planning of a restore (the list stays as it is), else the running load.</summary>
+    /// <summary>
+    /// Stops the planning of a restore (the list stays as it is), else the running load - as the operator's Stop: the
+    /// status line says "Stopping…" at once and the operation ends as "stopped".
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanStop))]
     private void Stop()
     {
         if (IsPlanning)
         {
-            _planning.Cancel();
+            if (Status.Operation is { } checking)
+            {
+                checking.Cancel();
+            }
+            else
+            {
+                _planning.Cancel();
+            }
+        }
+        else if (ListStatus.Operation is { } reading)
+        {
+            reading.Cancel();
         }
         else
         {
@@ -405,7 +460,13 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
             _settingFilters = false;
         }
 
-        return _initialized ? LoadAsync() : Task.CompletedTask;
+        if (!_initialized)
+        {
+            return Task.CompletedTask;
+        }
+
+        CloseResult();
+        return LoadAsync();
     }
 
     [RelayCommand(CanExecute = nameof(HasSelection))]
@@ -445,7 +506,11 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
 
     private bool HasSelection() => Selection.Count > 0;
 
-    /// <summary>Executes the previewed plan through the change pipeline, reports the outcome and reloads the list.</summary>
+    /// <summary>
+    /// Executes the previewed plan through the change pipeline and reloads the list. Restoring is the operation of the
+    /// window (<see cref="ExecutionStatus"/>): the status line says how far it is, Stop - in the line or on the button
+    /// that started it - cancels the activity, and the line says how it ended, with the domain.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanConfirm))]
     private async Task ConfirmRestoreAsync()
     {
@@ -461,12 +526,13 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
             return;
         }
 
+        using var execution = ExecutionStatus.Begin(Status, Localizer, plan.Title, ConfirmationDomain, plan.Objects.Count);
         IsBusy = true;
         BatchResult? result = null;
         try
         {
             // Only in the session the restore was planned in - never with the identity of a newer session.
-            result = await Services.Coordinator.ExecutePlanAsync(plan, plan.Title, RequireSession()).ConfigureAwait(true);
+            result = await Services.Coordinator.ExecutePlanAsync(plan, plan.Title, RequireSession(), execution.Follow).ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
@@ -475,21 +541,38 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             IsBusy = false;
-            await Services.Dialogs.ShowErrorAsync(title, Errors.Translate(ex)).ConfigureAwait(true);
+            if (IsDisposed)
+            {
+                // The window was closed meanwhile: there is no line left to say it in.
+                await Services.Dialogs.ShowErrorAsync(title, Errors.Translate(ex)).ConfigureAwait(true);
+            }
+            else
+            {
+                execution.Fail(Errors.Translate(ex), ResultCode.Of(ex));
+            }
+
             return;
         }
 
         IsBusy = false;
         ClosePreview();
-        if (result is not null)
+        if (result is not null && (IsDisposed || result.FailedCount == 0))
         {
-            // Also when the window was closed meanwhile: the operator must learn what was (not) restored.
+            // A restore without failures is also a toast of the main window, for which it finished elsewhere. When the
+            // window was closed meanwhile the operator must still learn what was (not) restored: toast or dialog.
             await ReportAsync(title, result).ConfigureAwait(true);
         }
 
-        if (!IsDisposed)
+        if (IsDisposed)
         {
-            await LoadAsync().ConfigureAwait(true);
+            return;
+        }
+
+        // The read after the restore belongs to it: the line keeps saying "restoring" and then says how it ended.
+        await LoadAsync().ConfigureAwait(true);
+        if (result is not null)
+        {
+            execution.Complete(result, AfterRestore(result));
         }
     }
 
@@ -505,6 +588,8 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         }
         else if (IsPreviewing && !IsBusy)
         {
+            // What the line said was about the preview that is left (a restore that could not start).
+            Status.Clear();
             ClosePreview();
         }
     }
@@ -518,6 +603,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     {
         if (_initialized && !_settingFilters)
         {
+            CloseResult();
             _filterReloadPending = true;
             _reloadDebouncer.RunAsync(_ => LoadAsync()).Forget();
         }
@@ -533,6 +619,9 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
 
     partial void OnIsPreviewingChanged(bool value)
     {
+        // The list says its status while it is shown; the preview is the window's own (its summary).
+        Status.Front = value ? null : ListStatus;
+        UpdateSummary();
         RestoreCommand.NotifyCanExecuteChanged();
         RestoreToCommand.NotifyCanExecuteChanged();
         ConfirmRestoreCommand.NotifyCanExecuteChanged();
@@ -557,6 +646,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
 
         OnPropertyChanged(nameof(BannerText));
         OnPropertyChanged(nameof(DeletedFromText));
+        UpdateLasting();
         var infos = _rows.Select(r => r.Info).ToList();
         _rows.Clear();
         _rows.AddRange(infos.Select(CreateRow));
@@ -579,6 +669,12 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
             _planning.Cancel();
             _reloadDebouncer.Cancel();
             _plan = null;
+
+            // What still runs says nothing any more. A restore that is being executed goes on as an activity of the
+            // connection: ending its operation does not cancel it.
+            Status.Operation?.Dispose();
+            Status.Front = null;
+            ListStatus.Operation?.Dispose();
         }
     }
 
@@ -593,8 +689,40 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     {
         if (_initialized && !_settingFilters)
         {
+            CloseResult();
             LoadAsync().Forget();
         }
+    }
+
+    /// <summary>
+    /// The operator reads the list anew (Refresh, another filter): what the window said about its last check or restore
+    /// goes - a result stays until the next operation or until it is closed (design note 6.7). A reload the window
+    /// starts by itself (objects deleted elsewhere, after a restore) leaves it.
+    /// </summary>
+    private void CloseResult()
+    {
+        if (Status.Operation is null)
+        {
+            Status.Clear();
+        }
+    }
+
+    /// <summary>
+    /// The state of the window that lasts: its session ended, or it was opened without one. An error that cannot be
+    /// closed - nothing can be read or restored here.
+    /// </summary>
+    private void UpdateLasting() => Status.SetLasting(
+        SessionEndedStatus ?? (IsConnected ? null : PageStatus.Error(NoSessionMessage, new PageStatusLog(L.Errors.NotConnected), canClose: false)));
+
+    /// <summary>
+    /// The summaries of the line: of the list what was read and what is selected, of the window - only while the restore
+    /// preview is shown - how many objects will be restored.
+    /// </summary>
+    private void UpdateSummary()
+    {
+        var selected = SelectionText;
+        ListStatus.SetIdle(_loadedText.Length == 0 || selected.Length == 0 ? _loadedText + selected : $"{_loadedText} · {selected}");
+        Status.SetIdle(IsPreviewing ? PreviewSummary : null);
     }
 
     private void UpdateSessionState()
@@ -611,6 +739,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
 
         OnPropertyChanged(nameof(BannerText));
         OnPropertyChanged(nameof(WindowTitle));
+        UpdateLasting();
     }
 
     /// <summary>
@@ -621,6 +750,13 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     {
         _loads.Cancel();
         _planning.Cancel();
+        if (IsPlanning)
+        {
+            // The check ends without a word: the line says at once that the session ended. (A restore that is being
+            // executed keeps its operation - it still says how it ended.)
+            Status.Operation?.Dispose();
+        }
+
         ClosePreview();
         UpdateSessionState();
         if (_initialized)
@@ -650,7 +786,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
 
     private async Task LoadCoreAsync()
     {
-        var token = _loads.Next();
+        var latest = _loads.Next();
         var generation = ++_generation;
         _rows.Clear();
         _listed.Clear();
@@ -658,18 +794,34 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         Items.ReplaceAll([]);
         Error = null;
         StatusText = string.Empty;
+        _loadedText = string.Empty;
         NotifySelectionChanged();
         var session = Session;
         if (session is null)
         {
+            // Nothing can be read: the window says why as its state (UpdateLasting), and what the list said is over.
+            ListStatus.Operation?.Dispose();
+            ListStatus.SetLasting(null);
             Error = NoSessionMessage;
             OnPropertyChanged(nameof(IsEmpty));
             return;
         }
 
+        // The read is the operation of the list: the line says "working" from here on, with the number of objects so
+        // far; a newer read replaces this one, and however this method is left the list does not stay in "working".
+        // "The latest read wins" and the end of the session cancel it without a word; Stop - in the line or on the
+        // Refresh button - is the operator's, and the read says that it was stopped.
+        var domain = session.Info.DomainDnsName;
+        using var reading = ListStatus.Begin(Localizer.Format(L.RecycleBinStatus.Reading, domain), new PageStatusLog(L.RecycleBinStatus.Reading));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, reading.Token);
+        var token = linked.Token;
+
+        // Why the list could not be read before is over: this read decides.
+        ListStatus.SetLasting(null);
         IsLoading = true;
         var started = Services.Time.GetTimestamp();
         var stopped = false;
+        var code = ResultCode.None;
         try
         {
             if (!ReferenceEquals(session, _lifetimeSession))
@@ -684,7 +836,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
             }
 
             var search = RecycleBin.CreateSearch(session.Info.DefaultNamingContext, CurrentFilter(), Services.Settings.Current.PageSize);
-            await StreamAsync(session, search, generation, token).ConfigureAwait(true);
+            await StreamAsync(session, search, generation, reading, domain, token).ConfigureAwait(true);
             await ResolveDeletedParentsAsync(session, generation, token).ConfigureAwait(true);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -697,6 +849,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
             if (generation == _generation)
             {
                 Error = Localizer[L.RecycleBin.NoAccess];
+                code = ResultCode.Of(ex);
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -704,6 +857,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
             if (generation == _generation)
             {
                 Error = Errors.Translate(ex);
+                code = ResultCode.Of(ex);
             }
         }
         finally
@@ -716,6 +870,23 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
                 UpdateStatus(stopped ? null : Services.Time.GetElapsedTime(started), stopped);
                 OnPropertyChanged(nameof(IsEmpty));
                 ApplyPendingSelection();
+                if (Error is { } reason)
+                {
+                    // The list is empty and this is why: its state until it is read again. The read ends without a
+                    // message of its own.
+                    ListStatus.SetLasting(PageStatus.Error(
+                        PageStatusText.Failure(Localizer.Format(L.RecycleBinStatus.ReadFailed, domain), reason, Localizer[L.Feedback.RetryNext], code),
+                        new PageStatusLog(L.RecycleBinStatus.ReadFailed).WithCode(code),
+                        new PageStatusAction(Localizer[L.Common.Retry], RefreshCommand)));
+                }
+                else if (stopped && reading.IsCancelling)
+                {
+                    // Only a read the operator stopped says so: what is there, and that Refresh reads the whole list.
+                    reading.CompleteAttention(
+                        Localizer.Format(L.RecycleBinStatus.Stopped, PageStatusText.Objects(Localizer, _rows.Count)),
+                        new PageStatusLog(L.RecycleBinStatus.Stopped, _rows.Count),
+                        new PageStatusAction(Localizer[L.Commands.Refresh], RefreshCommand));
+                }
             }
         }
     }
@@ -772,7 +943,8 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         };
     }
 
-    private Task StreamAsync(IDirectorySession session, DirectorySearch search, int generation, CancellationToken token)
+    private Task StreamAsync(
+        IDirectorySession session, DirectorySearch search, int generation, OperationScope reading, string domain, CancellationToken token)
     {
         var time = Services.Time;
         return Task.Run(
@@ -786,7 +958,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
                     buffer.Add(DeletedObjectInfo.From(obj));
                     if (buffer.Count >= threshold || time.GetElapsedTime(lastFlush) >= FlushInterval)
                     {
-                        await FlushAsync(buffer, generation).ConfigureAwait(false);
+                        await FlushAsync(buffer, generation, reading, domain).ConfigureAwait(false);
                         threshold = Math.Max(search.PageSize, FirstBatchSize);
                         buffer = new List<DeletedObjectInfo>(threshold);
                         lastFlush = time.GetTimestamp();
@@ -795,13 +967,13 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
 
                 if (buffer.Count > 0)
                 {
-                    await FlushAsync(buffer, generation).ConfigureAwait(false);
+                    await FlushAsync(buffer, generation, reading, domain).ConfigureAwait(false);
                 }
             },
             token);
     }
 
-    private Task FlushAsync(List<DeletedObjectInfo> infos, int generation) => Services.Dispatcher.InvokeAsync(() =>
+    private Task FlushAsync(List<DeletedObjectInfo> infos, int generation, OperationScope reading, string domain) => Services.Dispatcher.InvokeAsync(() =>
     {
         if (generation != _generation || IsDisposed)
         {
@@ -818,6 +990,11 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         UpdateLocations(rows);
         Items.AddRange(rows);
         UpdateStatus(null);
+
+        // One report per batch: the same message with the objects read so far.
+        reading.Report(
+            Localizer.Format(L.RecycleBinStatus.ReadingCount, domain, PageStatusText.Objects(Localizer, _rows.Count)),
+            log: new PageStatusLog(L.RecycleBinStatus.Reading, _rows.Count));
     });
 
     /// <summary>
@@ -974,6 +1151,9 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         {
             StatusText = Localizer.Format(IsLoading ? L.RecycleBin.Loading : L.RecycleBin.Count, count);
         }
+
+        _loadedText = StatusText;
+        UpdateSummary();
     }
 
     private static string Key(string dn) =>
@@ -990,7 +1170,15 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
             return;
         }
 
-        var token = _planning.Next();
+        // Checking is the operation of the window: the line says so, Stop ends it as "stopped", a failure is said
+        // there, and both offer to check the same restore again. Back, closing the window and the end of its session
+        // cancel it without a word. The result of a check is the preview itself: the line then shows its summary.
+        _checkTarget = targetContainerDn;
+        var latest = _planning.Next();
+        using var checking = Status.Begin(
+            Localizer.Format(L.RecycleBinStatus.Checking, selection.Count), new PageStatusLog(L.RecycleBinStatus.Checking, selection.Count));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, checking.Token);
+        var token = linked.Token;
         var status = StatusText;
         var planningText = Localizer[L.RecycleBin.Planning];
         IsPlanning = true;
@@ -1006,18 +1194,32 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
                 TimeProvider = Services.Time,
             };
             var plan = await Task.Run(() => RecycleBin.PlanRestoreAsync(session, dns, targetContainerDn, options, token), token).ConfigureAwait(true);
-            if (!token.IsCancellationRequested && !IsDisposed)
+
+            // Stopped in the last moment: the answer is "stopped", not a preview nobody waits for any more.
+            token.ThrowIfCancellationRequested();
+            if (!IsDisposed)
             {
                 ShowPreview(plan, targetContainerDn);
             }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            // Back / window closed while planning.
+            if (checking.IsCancelling)
+            {
+                checking.CompleteAttention(
+                    PageStatusText.Failure(
+                        Localizer[L.RecycleBinStatus.CheckStopped], Localizer[L.RecycleBinStatus.CheckStoppedReason], Localizer[L.Feedback.RetryNext]),
+                    new PageStatusLog(L.RecycleBinStatus.CheckStopped),
+                    new PageStatusAction(Localizer[L.Common.Retry], _checkAgainCommand));
+            }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            await Services.Dialogs.ShowErrorAsync(Localizer[L.RecycleBin.Restore], Errors.Translate(ex)).ConfigureAwait(true);
+            var code = ResultCode.Of(ex);
+            checking.CompleteError(
+                PageStatusText.Failure(Localizer[L.RecycleBinStatus.CheckFailed], Errors.Translate(ex), Localizer[L.Feedback.RetryNext], code),
+                new PageStatusLog(L.RecycleBinStatus.CheckFailed).WithCode(code),
+                new PageStatusAction(Localizer[L.Common.Retry], _checkAgainCommand));
         }
         finally
         {
@@ -1069,6 +1271,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
             : Localizer.Format(L.RecycleBin.ToContainer, AddressResolver.ToDisplayPath(targetContainerDn));
         ConfirmText = Localizer.Format(L.RecycleBin.ConfirmRestore, plan.ExecutableCount);
         IsPreviewing = true;
+        UpdateSummary();
         ConfirmRestoreCommand.NotifyCanExecuteChanged();
     }
 
@@ -1081,6 +1284,30 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         ConfirmRestoreCommand.NotifyCanExecuteChanged();
     }
 
+    /// <summary>
+    /// What the line adds to a restore that did not bring everything back: why (the reasons of the failures, each said
+    /// once) and where those objects are.
+    /// </summary>
+    private string? AfterRestore(BatchResult result)
+    {
+        if (result.FailedCount == 0 && !result.WasCancelled)
+        {
+            return null;
+        }
+
+        var reasons = result.Objects
+            .Where(o => o.Status is ObjectResultStatus.Failed or ObjectResultStatus.PartiallySucceeded)
+            .SelectMany(o => o.Changes.Where(c => !c.Succeeded).Take(1))
+            .Select(c => Errors.TranslateFailure(c.ErrorKind, c.ErrorMessage))
+            .Distinct(StringComparer.Ordinal)
+            .Take(MaxSaidReasons);
+        return string.Join(" ", [.. reasons, Localizer[L.RecycleBinStatus.NotRestoredNext]]);
+    }
+
+    /// <summary>
+    /// The outcome of a restore for the main window - a toast when nothing failed - and, when this window was closed
+    /// while it restored, the failures as a dialog (an open window says them in its status line).
+    /// </summary>
     private async Task ReportAsync(string title, BatchResult result)
     {
         if (result.FailedCount == 0)

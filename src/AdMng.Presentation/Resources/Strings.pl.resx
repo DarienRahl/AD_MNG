@@ -24570,5 +24570,104 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="PlanPreview.Status.UndoNext" xml:space="preserve">
     <value>Wybierz Cofnij, aby odwrócić to, co wykonano.</value>
   </data>
+  <data name="RecycleBin.Status.Reading" xml:space="preserve">
+    <value>Wczytywanie usuniętych obiektów domeny {0}…</value>
+  </data>
+  <data name="RecycleBin.Status.ReadingCount" xml:space="preserve">
+    <value>Wczytywanie usuniętych obiektów domeny {0}: na razie {1}…</value>
+  </data>
+  <data name="RecycleBin.Status.Stopped" xml:space="preserve">
+    <value>Wczytywanie usuniętych obiektów zatrzymano, zanim nadeszły wszystkie wyniki: wczytano {0}. Wybierz Odśwież, aby wczytać całą listę.</value>
+  </data>
+  <data name="RecycleBin.Status.ReadFailed" xml:space="preserve">
+    <value>Nie udało się wczytać usuniętych obiektów domeny {0}</value>
+  </data>
+  <data name="RecycleBin.Status.Checking" xml:space="preserve">
+    <value>Sprawdzanie obiektów do przywrócenia ({0:N0})…</value>
+  </data>
+  <data name="RecycleBin.Status.CheckStopped" xml:space="preserve">
+    <value>Sprawdzanie obiektów do przywrócenia zatrzymano</value>
+  </data>
+  <data name="RecycleBin.Status.CheckStoppedReason" xml:space="preserve">
+    <value>niczego nie przywrócono</value>
+  </data>
+  <data name="RecycleBin.Status.CheckFailed" xml:space="preserve">
+    <value>Nie udało się sprawdzić obiektów do przywrócenia</value>
+  </data>
+  <data name="RecycleBin.Status.NotRestoredNext" xml:space="preserve">
+    <value>To, czego nie przywrócono, pozostało na liście.</value>
+  </data>
+  <data name="AccountReview.Status.Checking" xml:space="preserve">
+    <value>Sprawdzanie kont w zakresie „{0}”…</value>
+  </data>
+  <data name="AccountReview.Status.CheckingCount" xml:space="preserve">
+    <value>Sprawdzanie kont w zakresie „{0}”: odczytano: {1:N0}, z uwagami: {2:N0}…</value>
+  </data>
+  <data name="AccountReview.Status.Stopped" xml:space="preserve">
+    <value>Sprawdzanie kont zatrzymano: wyniki są niepełne (odczytano: {0:N0}). Wybierz „{1}”, aby sprawdzić ponownie.</value>
+  </data>
+  <data name="AccountReview.Status.Failed" xml:space="preserve">
+    <value>Nie udało się sprawdzić kont</value>
+  </data>
+  <data name="AccountReview.Status.ReadingExact" xml:space="preserve">
+    <value>Odczytywanie dokładnego ostatniego logowania kont ({0:N0}) na wszystkich kontrolerach domeny…</value>
+  </data>
+  <data name="AccountReview.Status.ExactDone" xml:space="preserve">
+    <value>Dokładne ostatnie logowanie odczytano na kontrolerach domeny: {0}. Konta, które jednak są aktywne: {1:N0}.</value>
+  </data>
+  <data name="AccountReview.Status.ExactNoAnswer" xml:space="preserve">
+    <value>Brak odpowiedzi: {0}.</value>
+  </data>
+  <data name="AccountReview.Status.ExactStopped" xml:space="preserve">
+    <value>Odczytywanie dokładnego ostatniego logowania zatrzymano: listy nie zmieniono. Wybierz „{0}”, aby odczytać je ponownie.</value>
+  </data>
+  <data name="AccountReview.Status.ExactFailed" xml:space="preserve">
+    <value>Nie udało się odczytać dokładnego ostatniego logowania na wszystkich kontrolerach domeny</value>
+  </data>
+  <data name="PrivilegedAccess.Status.Checking" xml:space="preserve">
+    <value>Sprawdzanie uprawnień kont w zakresie „{0}”…</value>
+  </data>
+  <data name="PrivilegedAccess.Status.CheckingCount" xml:space="preserve">
+    <value>Sprawdzanie uprawnień kont w zakresie „{0}”: odczytano: {1:N0}, z uprawnieniami ponad użytkownika domeny: {2:N0}…</value>
+  </data>
+  <data name="PrivilegedAccess.Status.CheckingPeers" xml:space="preserve">
+    <value>Sprawdzanie uprawnień kont w zakresie „{0}”: porównywanie z podobnymi kontami…</value>
+  </data>
+  <data name="PrivilegedAccess.Status.Stopped" xml:space="preserve">
+    <value>Sprawdzanie uprawnień zatrzymano: wyniki są niepełne (odczytano: {0:N0}). Wybierz „{1}”, aby sprawdzić ponownie.</value>
+  </data>
+  <data name="PrivilegedAccess.Status.Failed" xml:space="preserve">
+    <value>Nie udało się sprawdzić uprawnień kont</value>
+  </data>
+  <data name="Comparison.Status.Comparing" xml:space="preserve">
+    <value>Porównywanie obiektu „{0}” z połączeniem {1}…</value>
+  </data>
+  <data name="Comparison.Status.Stopped" xml:space="preserve">
+    <value>Porównywanie obiektu „{0}” zatrzymano: karty mogą nie pokazywać wszystkiego. Wybierz „{1}”, aby porównać ponownie.</value>
+  </data>
+  <data name="Comparison.Status.Failed" xml:space="preserve">
+    <value>Nie udało się porównać obiektu „{0}”</value>
+  </data>
+  <data name="Comparison.Status.ReadingNestedMembers" xml:space="preserve">
+    <value>Odczytywanie członków zagnieżdżonych…</value>
+  </data>
+  <data name="Comparison.Status.NestedStopped" xml:space="preserve">
+    <value>Odczytywanie członkostwa zagnieżdżonego zatrzymano: porównano tylko członkostwo bezpośrednie. Wybierz „{0}”, aby odczytać wszystko ponownie.</value>
+  </data>
+  <data name="Comparison.Status.NestedFailed" xml:space="preserve">
+    <value>Nie udało się odczytać członkostwa zagnieżdżonego</value>
+  </data>
+  <data name="Comparison.Status.NestedFailedNext" xml:space="preserve">
+    <value>Porównano tylko członkostwo bezpośrednie.</value>
+  </data>
+  <data name="Comparison.Status.NestedMembersStopped" xml:space="preserve">
+    <value>Odczytywanie członków zagnieżdżonych zatrzymano: porównano tylko członków bezpośrednich. Wybierz „{0}”, aby odczytać wszystko ponownie.</value>
+  </data>
+  <data name="Comparison.Status.NestedMembersFailed" xml:space="preserve">
+    <value>Nie udało się odczytać członków zagnieżdżonych</value>
+  </data>
+  <data name="Comparison.Status.NestedMembersFailedNext" xml:space="preserve">
+    <value>Porównano tylko członków bezpośrednich.</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>
