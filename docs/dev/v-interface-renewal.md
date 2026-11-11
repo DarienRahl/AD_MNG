@@ -1681,6 +1681,9 @@ above.
     - **A state is said in the language of the moment.** After a language switch the end of the session is said in the
       new language (in all three windows of this unit); why a read or a comparison failed stays as it was said until it
       is read or compared again, as the texts of the view models did before.
+    - **The texts of matching are the ones the footer had**, said as sentences (a full stop is added) and logged with
+      their keys. One was made anew: "choose one" counts the candidates in the plural form of the language
+      (`Comparison.Status.Ambiguous` with `PageStatusText.Objects` – „2 obiekty”, „5 obiektów”; it read „2 obiektów”).
     - `StatusText`, `ErrorText`, `IsRunning`, `IsNestedLoading`, `SessionEndedMessage` and `CompareCancelCommand` are
       unchanged for the tests and the code that read them (`StatusText` is still the accessible name of the list of
       candidates). The window is 36 px higher by default (780 to 816).
@@ -1736,14 +1739,15 @@ above.
 - **After V2b-1** (counted in the XAML, comments excluded): 27 uses of `Ad.ErrorBar` and 45 of `Ad.WarningBar` in 44
   files and 42 progress bars in 36 files – 53 view files with at least one of the three; one progress bar is the row of
   an activity, which stays. By area, and what else the sweep has to do: *What V2b has to do*, above. Left behind on
-  purpose, to be removed when the sweep is over: the strings `Batch.Planning`, `PlanPreview.Cancel`, `Comparison.Stop`
-  and `AccountReview.ExactDone`, and view-model members that lost their last binding but are read by tests
-  (`StatusText`, `Error` and the "busy" flags of the converted windows, `StopCommand` of the Recycle Bin and of the
-  account review).
+  purpose, to be looked through when the sweep is over: the strings `Batch.Planning`, `PlanPreview.Cancel`,
+  `Comparison.Stop`, `Comparison.StatusAmbiguous` and `AccountReview.ExactDone`, which have no user any more, and
+  view-model members that are no longer shown but are read by tests or other code (`StatusText`, `Error` and the "busy"
+  flags of the converted windows, `StopCommand` of the Recycle Bin and of the account review).
 - **Not seen, to confirm on Windows.** Nothing of V2b-1 was seen on a screen.
   - *The property sheet.* How a wrapped result looks in the 640 px wide sheet (two or three lines on the caution or
     critical surface, picture and buttons in the first line). The note next to the old validation texts (glyph and plain
-    text against text in the critical colour). The width of the nested list's button ("Odśwież" grows to the width of "Zatrzymywanie…"). The
+    text against text in the critical colour). The width of the nested list's button ("Odśwież" grows to the width of
+    "Zatrzymywanie…"). The
     time of day in the summary, which is now in the two README pictures of the sheet.
   - *The batch editor, the change plan preview, the main window.* The line of the batch editor between the step strip
     and the content (an empty line at rest in the CSV mode before a file was chosen, and in step 1 of the create mode).
