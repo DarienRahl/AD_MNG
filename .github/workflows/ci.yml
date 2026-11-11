@@ -157,7 +157,8 @@ jobs:
         with:
           dotnet-version: "10.0.x"
       - name: Set up Samba AD DC lab
-        run: sudo LAB_USERS=400 LAB_COMPUTERS=250 tools/testlab/setup-samba-dc.sh
+        # Log level 3: Samba writes why it ended a connection - read by the "Samba DC log" step after a failure.
+        run: sudo LAB_USERS=400 LAB_COMPUTERS=250 LAB_SAMBA_LOG_LEVEL=3 tools/testlab/setup-samba-dc.sh
       - name: Integration tests
         run: dotnet test tests/AdMng.Directory.IntegrationTests -c Release
       # One project per "dotnet test" call (VSTest mode accepts a single project or solution, MSB1008 otherwise):
@@ -195,7 +196,12 @@ jobs:
         if: failure()
         run: |
           sudo grep -n -i -E "panic|internal error|exited with|signal|backtrace|prefork" /var/log/samba/log.samba | tail -n 60 || true
-          sudo tail -n 150 /var/log/samba/log.samba || true
+          # Why Samba ended connections (the lab runs with log level 3): every reason with its count, then the ones
+          # that are not a client closing its connection, each with the time and place Samba logged it.
+          sudo grep -h -o "Terminating connection - .*" /var/log/samba/log.samba | sort | uniq -c | sort -rn | head -n 30 || true
+          sudo awk '/^\[/ {head=$0; next} /Terminating connection/ && !/NT_STATUS_END_OF_FILE/ && !/NT_STATUS_CONNECTION_RESET/ {print head; print $0}' /var/log/samba/log.samba | tail -n 80 || true
+          sudo grep -h -i -E "ldapsrv.*(fail|error)|backend init|samdb_connect|too many|limit" /var/log/samba/log.samba | sort | uniq -c | sort -rn | head -n 30 || true
+          sudo tail -n 40 /var/log/samba/log.samba || true
           # Every Samba process with its age in seconds: a worker that was restarted during the run is younger than
           # the others (the LDAP workers come last, so the list is not cut).
           ps -eo pid,etimes,rss,args | grep -E "[s]amba" || true
