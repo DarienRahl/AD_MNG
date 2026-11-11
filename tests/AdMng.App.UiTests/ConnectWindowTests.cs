@@ -5,6 +5,7 @@ using AdMng.App.Infrastructure;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
 using AdMng.Core.Directory;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Session;
 using AdMng.Testing;
@@ -44,10 +45,12 @@ public sealed class ConnectWindowTests
         window.ServerBox.IsDropDownOpen = false;
         Assert.Equal("dc02.contoso.test", viewModel.Server);
 
-        // Validation error (no password) is shown in the error bar.
+        // What is missing (no password) is said in the status line: nothing was tried.
         await viewModel.ConnectCommand.ExecuteAsync(null);
         await UiTestSupport.WaitForIdleAsync();
         Assert.False(string.IsNullOrEmpty(viewModel.ErrorText));
+        Assert.Equal(PageStatusKind.Attention, window.PageStatus.Kind);
+        Assert.EndsWith(viewModel.ErrorText!, window.PageStatus.Message, StringComparison.Ordinal);
         Assert.Equal(0, context.Connector.ConnectCount);
 
         context.AssertHealthy();
