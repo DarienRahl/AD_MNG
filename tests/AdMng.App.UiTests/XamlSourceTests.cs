@@ -68,6 +68,7 @@ public sealed partial class XamlSourceTests
     [
         "Views/AccountReviewWindow.xaml",
         "Views/BatchEditorWindow.xaml",
+        "Views/ChangeDomainControllerWindow.xaml",
         "Views/ChangePlanPreviewWindow.xaml",
         "Views/CompareObjectsWindow.xaml",
         "Views/ConnectWindow.xaml",

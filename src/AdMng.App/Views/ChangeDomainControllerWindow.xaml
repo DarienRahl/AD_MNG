@@ -1,5 +1,13 @@
-<!-- "Change Domain Controller" (modal, ChangeDomainControllerViewModel): the DCs of the domain, a typed name or any
-     writable DC of this computer's site; the session moves to the chosen DC only after it answered. -->
+<!--
+  "Change Domain Controller" (modal, ChangeDomainControllerViewModel): the DCs of the domain, a typed name or any
+  writable DC of this computer's site; the session moves to the chosen DC only after it answered.
+  Feedback (track V, stage V2b): one status line under the header (PageStatus) says what the list reads, how many
+  domain controllers it shows, and - for as long as it lasts - that it could not be read or that its read was stopped;
+  the switch to the chosen domain controller, with Stop, and why it did not happen; and that the window has no session.
+  "Change" is an action button: while the switch it started runs, it is its Cancel. A switch that succeeded says
+  nothing here - the dialog closes. What belongs to the name box (not a host name, the current one, read-only) stays
+  next to it.
+-->
 <Window x:Class="AdMng.App.Views.ChangeDomainControllerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -9,7 +17,7 @@
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="680"
-        Height="600"
+        Height="636"
         MinWidth="520"
         MinHeight="460"
         ShowInTaskbar="False"
@@ -29,41 +37,56 @@
   </Window.Resources>
 
   <DockPanel>
+    <!--
+      Footer. "Change" is an action button: while the switch it started runs, the same button is its Cancel (it keeps
+      the keyboard focus), then "Stopping…" until the switch ended. The dialog's own Cancel stays: it closes the
+      dialog - and, while a switch runs, stops that switch first. What the window is doing is said in the status line.
+    -->
     <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
-      <DockPanel LastChildFill="True">
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-          <Button x:Name="ChangeButton"
-                  Command="{Binding ChangeCommand}"
-                  Content="{l:Tr ChangeDc.ChangeButton}"
-                  IsDefault="True"
-                  Style="{StaticResource Ad.AccentDialogButton}" />
-          <Button x:Name="CancelButton"
-                  Command="{Binding CancelCommand}"
-                  Content="{l:Tr Common.Cancel}"
-                  IsCancel="True"
-                  Style="{StaticResource Ad.DialogButton}" />
-        </StackPanel>
-        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
-          <ProgressBar Width="72"
-                       Margin="0,0,10,0"
-                       VerticalAlignment="Center"
-                       IsIndeterminate="{Binding IsBusy, Mode=OneWay}"
-                       Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <TextBlock x:Name="StatusTextBlock"
-                     VerticalAlignment="Center"
-                     AutomationProperties.LiveSetting="Polite"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding StatusText, Mode=OneWay}"
-                     TextTrimming="CharacterEllipsis" />
-        </StackPanel>
-      </DockPanel>
+      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+        <c:ActionButton x:Name="ChangeButton"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding ChangeCommand}"
+                        Content="{l:Tr ChangeDc.ChangeButton}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsDefault="True"
+                        IsRunning="{Binding IsBusy, Mode=OneWay}"
+                        Style="{StaticResource Ad.AccentDialogActionButton}" />
+        <Button x:Name="CancelButton"
+                Command="{Binding CancelCommand}"
+                Content="{l:Tr Common.Cancel}"
+                IsCancel="True"
+                Style="{StaticResource Ad.DialogButton}" />
+      </StackPanel>
     </Border>
 
-    <Grid Margin="24,18,24,12">
+    <!-- Header: the domain and the DC the session works with now -->
+    <StackPanel Margin="24,18,24,0" DockPanel.Dock="Top">
+      <TextBlock Style="{StaticResource Ad.Title}" Text="{Binding WindowTitle, Mode=OneWay}" />
+      <TextBlock x:Name="DomainTextBlock"
+                 Margin="0,4,0,0"
+                 Text="{Binding DomainText, Mode=OneWay}"
+                 Visibility="{Binding DomainText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+      <TextBlock x:Name="CurrentTextBlock"
+                 Margin="0,2,0,0"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{Binding CurrentText, Mode=OneWay}"
+                 Visibility="{Binding CurrentText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+    </StackPanel>
+
+    <!--
+      Status line (design note 6.1 and "V2b-2 as built", Dialogs): under the header, above the list; declared after the
+      footer, so Tab goes from the button that started the switch to what the line offers. It says what the list reads
+      and shows, the switch and why it did not happen, and that the window has no session.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="16,8,16,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
+    <Grid Margin="24,0,24,12">
       <Grid.RowDefinitions>
-        <RowDefinition Height="Auto" />
-        <RowDefinition Height="Auto" />
-        <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="*" MinHeight="120" />
         <RowDefinition Height="Auto" />
@@ -71,50 +94,7 @@
         <RowDefinition Height="Auto" />
       </Grid.RowDefinitions>
 
-      <!-- Domain and the DC the session works with now -->
-      <StackPanel Grid.Row="0">
-        <TextBlock Style="{StaticResource Ad.Title}" Text="{Binding WindowTitle, Mode=OneWay}" />
-        <TextBlock x:Name="DomainTextBlock"
-                   Margin="0,4,0,0"
-                   Text="{Binding DomainText, Mode=OneWay}"
-                   Visibility="{Binding DomainText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-        <TextBlock x:Name="CurrentTextBlock"
-                   Margin="0,2,0,0"
-                   Style="{StaticResource Ad.SecondaryText}"
-                   Text="{Binding CurrentText, Mode=OneWay}"
-                   Visibility="{Binding CurrentText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-      </StackPanel>
-
-      <!-- Why the switch failed (the session stays on its DC), not connected, session ended -->
-      <Border x:Name="ErrorBar"
-              Grid.Row="1"
-              Margin="0,12,0,0"
-              Style="{StaticResource Ad.ErrorBar}"
-              Visibility="{Binding ErrorText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <DockPanel>
-          <TextBlock Margin="0,1,10,0"
-                     VerticalAlignment="Top"
-                     DockPanel.Dock="Left"
-                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                     Style="{StaticResource Ad.GlyphText}"
-                     Text="{x:Static c:Glyphs.Error}" />
-          <TextBlock x:Name="ErrorTextBlock"
-                     AutomationProperties.LiveSetting="Assertive"
-                     Text="{Binding ErrorText, Mode=OneWay}"
-                     TextWrapping="Wrap" />
-        </DockPanel>
-      </Border>
-
-      <!-- The list could not be read: a name can still be typed -->
-      <Border x:Name="ListNoteBar"
-              Grid.Row="2"
-              Margin="0,12,0,0"
-              Style="{StaticResource Ad.WarningBar}"
-              Visibility="{Binding ListNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <TextBlock Text="{Binding ListNote, Mode=OneWay}" TextWrapping="Wrap" />
-      </Border>
-
-      <DockPanel Grid.Row="3" Margin="0,14,0,6">
+      <DockPanel Grid.Row="0" Margin="0,10,0,6">
         <Button x:Name="RefreshButton"
                 AutomationProperties.Name="{l:Tr Commands.Refresh}"
                 Command="{Binding RefreshCommand}"
@@ -122,20 +102,13 @@
                 DockPanel.Dock="Right"
                 Style="{StaticResource Ad.IconButton}"
                 ToolTip="{l:Tr Commands.Refresh}" />
-        <ProgressBar Width="60"
-                     Margin="0,0,10,0"
-                     VerticalAlignment="Center"
-                     AutomationProperties.Name="{l:Tr Common.Loading}"
-                     DockPanel.Dock="Right"
-                     IsIndeterminate="{Binding IsLoading, Mode=OneWay}"
-                     Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         <TextBlock VerticalAlignment="Center"
                    Style="{StaticResource Ad.SectionHeader}"
                    Text="{l:Tr ChangeDc.ListLabel}" />
       </DockPanel>
 
       <ListView x:Name="DomainControllerList"
-                Grid.Row="4"
+                Grid.Row="1"
                 AutomationProperties.Name="{l:Tr ChangeDc.ListLabel}"
                 ItemContainerStyle="{StaticResource DomainControllerRowStyle}"
                 ItemsSource="{Binding DomainControllers}"
@@ -178,7 +151,7 @@
       </ListView>
 
       <!-- This domain controller: an entry of the list or a typed name -->
-      <StackPanel Grid.Row="5" Margin="0,12,0,0">
+      <StackPanel Grid.Row="2" Margin="0,12,0,0">
         <RadioButton x:Name="SpecificOption"
                      Content="{l:Tr ChangeDc.ThisDomainController}"
                      GroupName="Target"
@@ -201,7 +174,7 @@
       </StackPanel>
 
       <!-- Any writable DC of this computer's site (DC locator) -->
-      <StackPanel Grid.Row="6" Margin="0,10,0,0">
+      <StackPanel Grid.Row="3" Margin="0,10,0,0">
         <RadioButton x:Name="AnyWritableOption"
                      Content="{l:Tr ChangeDc.AnyWritableInSite}"
                      GroupName="Target"
@@ -216,7 +189,7 @@
 
       <!-- Remember in the profile the connection came from (only when asked) -->
       <CheckBox x:Name="UpdateProfileBox"
-                Grid.Row="7"
+                Grid.Row="4"
                 Margin="0,12,0,0"
                 Content="{Binding UpdateProfileText, Mode=OneWay}"
                 IsChecked="{Binding UpdateProfile}"
