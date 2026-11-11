@@ -91,8 +91,43 @@
 - **Uwagi przy treści zamiast ramek.** Ostrzeżenia karty *Mapowania nazw* (słabe mapowania, nieprawidłowe wartości)
   są teraz zwykłym tekstem ze znakiem ostrzeżenia nad listami – to uwagi o tym, co widać na karcie, a nie komunikat
   o działaniu okna. Tak samo jak dotąd wyglądają komunikaty przy polach (błędna wartość, uwaga planisty zmian).
+- **Edytor zbiorczy i import z CSV: wiersz stanu pod paskiem kroków.** Okno mówi w jednym wierszu, co robi i jak się
+  to skończyło. W pierwszym kroku: ile obiektów wybrano i jakich („3 obiekty · Użytkownik: 2, Grupa: 1”), a przy
+  imporcie – który plik wczytano („konta.csv · Wiersze: 120, separator: ;”); wczytywanie obiektów i pliku można
+  zatrzymać poleceniem **Zatrzymaj**, a gdy się nie uda, wiersz podaje przyczynę i polecenie **Ponów** (przy pliku:
+  „Wybierz inny plik.”). Po *Podgląd*: **Trwa** – „Sprawdzanie zmian: 120 z 300…”, z kółkiem pokazującym wykonaną
+  część; w kroku podglądu wiersz podaje jego podsumowanie („Obiekty: 300 · do zmiany: 280 · …”). Po *Wykonaj*:
+  „Wykonywanie „Edycja zbiorcza (obiekty: 300)” w domenie contoso.test: 12 z 300…”, a na końcu **Gotowe** – „Wykonano
+  „Edycja zbiorcza (obiekty: 300)” w domenie contoso.test: zmieniono 300 obiektów. Raport jest na liście operacji
+  w tle.” Gdy części obiektów nie udało się zmienić albo wykonanie zatrzymano – **Uwaga**: ile obiektów zmieniono
+  i ile było niepowodzeń (ich przyczyny są na liście wyników), z poleceniem **Ponów nieudane**; gdy niczego nie
+  zmieniono – **Błąd**. Po zamknięciu komunikatu wiersz pokazuje liczby wyników („Powodzenie: 118, niepowodzenie: 2,
+  pominięte: 5”). Dotąd: ramka błędu pod paskiem kroków, pasek planowania w stopce, paski nad listą obiektów, przy
+  pliku CSV i w kroku wykonywania oraz osobne teksty podsumowań. Okno jest domyślnie o tyle wyższe, ile zajmuje
+  wiersz stanu.
+- **Edytor zbiorczy: sprawdzanie i wykonywanie przerywa się tym przyciskiem, którym się je zaczęło.** Przycisk
+  *Podgląd* na czas sprawdzania zmian, a *Wykonaj* na czas wykonywania (zostaje wtedy w stopce) zamienia się
+  w **Anuluj** z kółkiem postępu; po naciśnięciu pokazuje „Zatrzymywanie…”, dopóki operacja się nie skończy. Osobnych
+  przycisków *Zatrzymaj* już nie ma. Zatrzymane sprawdzanie niczego nie zmienia – wiersz stanu mówi „Sprawdzanie
+  zmian zatrzymano: niczego nie zmieniono.” i podaje **Ponów**; zatrzymać można teraz także sprawdzanie zaczęte przez
+  *Ponów nieudane*. Wykonanie przerwane w oknie albo na liście operacji w tle kończy krok, który już trwa, a wiersz
+  mówi, ile obiektów zmieniono i że pozostałych nie wykonano.
+- **Uwagi w edytorze zbiorczym zamiast ramek.** Reguła listy operacji („Usuwania nie można łączyć z innymi
+  operacjami.”), ostrzeżenie przy operacji usuwania i informacja nad podglądem, że pokazano plan cofnięcia, są teraz
+  zwykłym tekstem ze znakiem ostrzeżenia w swoim miejscu.
+- **Podgląd planu zmian (zasady grupy): wiersz stanu pod tytułem.** W spoczynku podsumowanie planu („Obiektów: 3,
+  kroków: 9, kontroler: dc01.contoso.test.”), w czasie wykonywania – postęp z poleceniem **Zatrzymaj**, potem wynik
+  z nazwą domeny; gdy coś wykonano, ale nie wszystko się udało albo wykonanie zatrzymano, wiersz podaje polecenie
+  **Cofnij**. *Wykonaj* na czas wykonywania zamienia się w **Anuluj** – osobnego przycisku już nie ma. Dotąd: pasek
+  i podsumowanie w stopce, ramka błędu i karta z wynikiem nad zakładkami. „Pokazano plan cofnięcia. Wykonaj go, aby
+  odwrócić zmianę.” jest uwagą nad zakładkami, dopóki plan cofnięcia czeka na wykonanie.
+- **Okno główne: kółko postępu zamiast pasków.** Szybkie wyszukiwanie pokazuje na czas szukania kółko w miejscu lupy
+  (dotąd: cienki pasek pod polem), a przycisk działań w pasku stanu – kółko obok liczby trwających operacji (dotąd:
+  pasek). Pasek postępu każdej operacji na liście operacji w tle został bez zmian. „Konto chronione (adminCount=1)”
+  w panelu szczegółów jest uwagą ze znakiem ostrzeżenia zamiast ramki.
 - **Co się nie zmieniło:** pozostałe okna i karty mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski
-  postępu – przejdą na wiersz stanu w następnych wydaniach. Animacja nowego komunikatu (krótkie wsunięcie) i zamiany
+  postępu – przejdą na wiersz stanu w następnych wydaniach. Dotyczy to także kreatora zakładania wielu kont, który
+  jest pierwszym krokiem w oknie edytora zbiorczego. Animacja nowego komunikatu (krótkie wsunięcie) i zamiany
   napisu na przycisku działa tylko przy włączonych animacjach (*Ustawienia → Ogólne → Wygląd → Animacje*); kółko
   postępu obraca się zawsze.
 

@@ -482,6 +482,8 @@ the skeleton and UI tests can find the parts the same way everywhere.
 As built (V2a): `PageStatus` exists on two pages – the object list and the Find window – as a `c:StatusLine` over the
 `PageStatusHolder` of the page view model; a source test keeps the list of converted pages. The status bar of the main
 window no longer repeats the summary of a tab that has its own line. See *V2a as built* (section 8).
+As built (V2b-1): also on the property sheet, the batch editor and the change plan preview. The main window itself has
+none – it is the shell, not a page; its "busy" marks are progress rings (*V2b-1 as built*, section 8).
 
 ### 6.2 Navigation – open question 2
 
@@ -1162,7 +1164,8 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
 
 **V2b-1 as built (the core windows).** The second increment of V2 is the sweep over the views that still had banners;
 V2b-1 covers seven core windows in three units. Unit 1 built what the sweep needs beyond V2a and converted the property
-sheet; units 2 and 3 add their windows to this block.
+sheet; unit 2 added the execution of a change plan as an operation (foundation 9) and converted the batch editor, the
+change plan preview and the main window; unit 3 adds its windows to this block.
 
 - **Foundations** (what every later unit follows).
   1. *Sort first.* Every `Ad.ErrorBar`, `Ad.WarningBar` and `ProgressBar` of a view is one of three things. **Status** –
@@ -1250,6 +1253,24 @@ sheet; units 2 and 3 add their windows to this block.
      (Windows CI): one file per window in the style of `PropertySheetStatusUiTests`, asserting only states that last
      until the test changes them. The view goes on `PagesWithAStatusLine`; the source tests are proven here with a
      throwaway script that repeats their expressions.
+  9. *The execution of a change plan* (added by unit 2) – `Changes/ExecutionStatus`. A window that executes a plan
+     through the coordinator says it with this one helper, so every such window says the same: `using var execution =
+     ExecutionStatus.Begin(Status, Localizer, title, ConfirmationDomain, plan.Objects.Count);` **before** the step
+     changes (the line goes from the summary straight to "working"), every activity the coordinator hands to its
+     `started` callback goes to `execution.Follow(activity)`, and the end is `execution.Complete(result, next, action)`
+     or `execution.Fail(reason, code)`. Working: "Executing “Disable accounts” in contoso.test: 12 of 300…" – with
+     ", failed: 2" once something failed – as one message whose ring shows the part done (the total is every object of
+     the plan: the executor counts also the ones it skips, and the list of background operations shows the same
+     numbers). Stop works both ways: the Stop of the line and the Cancel of the action button cancel the activity, and
+     an activity that is cancelled in the list of background operations makes the line say "Stopping…". An operation
+     that merely ends – the window was closed, something else took the line – never cancels the activity: the
+     execution goes on in the background, as before. Several activities one after another (the wizard's first object,
+     then the rest) add up. Results name the domain (4.5): **done** "“…” was executed in contoso.test: 12 objects
+     changed. The report is in the list of background operations."; **attention** when it was executed only in part
+     or stopped (what was changed, how many failed, that the rest was not executed, then the window's own advice and
+     action – `next`, `action`); **error** when nothing was changed or the plan could not be executed at all (reason
+     and result code). It only *says* what happens: planning, validation, execution, audit and rollback are the
+     pipeline's, untouched (rule 5 of `CLAUDE.md`).
 - **The property sheet** (`Views/PropertiesWindow.xaml`; `PropertySheets/`, the pages of `Computers/` and `Pki/`).
   - *What the line says.* At rest where and when the object was read ("Read from dc01.contoso.test · as of
     12:03:05") or the summary of the page in front ("Groups: 12", "Published certificates: 2", "No key
@@ -1330,6 +1351,142 @@ sheet; units 2 and 3 add their windows to this block.
     hears) – whether a narrow window needs a second line is open. The note next to the old validation texts (glyph and
     plain text against text in the critical colour). The width of the nested list's button ("Odśwież" grows to the
     width of "Zatrzymywanie…"). The time of day in the summary, which is now in the two README pictures of the sheet.
+- **The batch editor and the CSV import** (`Views/BatchEditorWindow.xaml`; `BatchEditing/BatchEditorViewModel`,
+  `CsvImportViewModel`).
+  - *What the line says.* It sits under the step strip, 8 px in from the window edge, and follows the step shown.
+    **Step 1, selected objects:** at rest "3 objects · User: 2, Group: 1"; "Reading the selected objects (3)…" with
+    Stop; a read that was stopped (attention: names, types and attribute suggestions may be missing) or failed (error
+    with the reason and the code) as the state of the list, with Retry, for as long as it lasts. **Step 1, CSV:** at
+    rest the loaded file, "users.csv · 120 rows, delimiter: ;" (nothing before a file was chosen); "Reading
+    “users.csv”…" with Stop; a file that could not be read or has no header row as an error ("Choose another file.").
+    **Checking** (Preview, Retry failed, the wizard's Undo): "Checking the changes…", then "Checking the changes: 120
+    of 300…" with the part done and Stop; stopped – attention "Checking the changes was stopped: nothing was changed.
+    Press Retry to try again."; failed – error with the reason, the code and Retry (the command that started that
+    check). **Step 2:** the summary of the preview ("300 objects: 280 will change, …"), which follows the include check
+    boxes. **Step 3:** the execution (foundation 9). **Step 4:** how it ended – done; attention with "The reasons are
+    in the list of results. Press “Retry failed” to plan the objects that were not changed again." and *Retry failed*
+    as the action; error when nothing was changed – and behind that result, as the summary, the counts ("Succeeded:
+    118, failed: 2, skipped: 5"). In every step: that the session of the window ended (lasting error).
+  - *How the old places were sorted* (2 error bars, 4 warning bars, 5 progress bars, and the texts that said the
+    same).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar under the steps (`Error`: a failed check or execution, the session that ended) | status | result of the operation; lasting error of the window |
+    | progress bar and "Reading current values and validating... 120 / 300" in the footer; the *Stop* button of Preview | status | "Checking the changes: 120 of 300…" in the line; *Preview* is an action button |
+    | progress bar over the list of selected objects; the line "User: 2, Group: 1" | status, summary | operation and summary of the list (the source in front in step 1) |
+    | CSV: progress bar next to *Browse*; "120 rows, delimiter: ;" under the file name; error bar (`Error`) | status, summary | operation, summary and error of the import (the source in front in step 1) |
+    | executing step: the indeterminate bar, the bar of the activity and its "12 / 300 · 1 failed" | status | the execution in the line (the card keeps the title, the object done last and the hint) |
+    | the *Stop* button of the executing step | – | *Execute* is an action button and stays for that step |
+    | preview: "120 objects: 100 will change…"; results: "Succeeded: 118…" next to the filter | summary | `SetIdle` of the step shown; gone from the page |
+    | warning bar `OperationsError` ("Delete cannot be combined with other operations.") | note | `Ad.Note.Attention` above the operations: the rule the list breaks – why Preview is not possible yet |
+    | warning bar of the delete operation ("Deleted objects cannot be restored with Undo…") | note | `Ad.Note.Attention` in the card of that operation |
+    | two warning bars above the preview (the undo plan; what the wizard's undo deletes) | note | `Ad.Note.Attention` above the rows: what the plan shown is |
+    | message of an operation card, `MappingError` of the CSV mapping, the field messages of the editors | note | unchanged (glyph and text, as before) |
+
+  - *Decisions.*
+    - **Two holders: the window and the source of its first step.** This closes the question left open by unit 1 –
+      reading the selected objects and checking the changes *can* overlap (Preview is possible before the names
+      arrived), and a second `Begin` on one holder would have taken the read off the line for good. The list of
+      objects (`_targetsStatus`) and the CSV import (`CsvImportViewModel.Status`) each own a holder,
+      `BatchEditorViewModel.SourceStatus` is the one of the mode, and it is `Status.Front` exactly while step 1 is
+      shown (`OnStepChanged`). The check is the window's own operation and takes the line while it runs; back in step
+      1 the source says again what is true of it. Nothing new in the model.
+    - **Which button cancels what.** Both action buttons bind `CancelCommand` / `IsCancelling` to the window's holder
+      – they start the window's operations. *Preview* is running while `Status.IsWorking` (not `IsBusy`: after Back or
+      the end of the session a cancelled check may take a moment to return, and there is nothing left to cancel then);
+      *Execute* is running while `IsExecutingStep` and is shown in steps 2 **and** 3 (`IsExecuteStep`), so the button
+      that was pressed stays where it was and is the Cancel of the execution. Reading the objects or the file is
+      stopped in the line (the Stop of the source's operation), not on a button: no button started it.
+    - **A read of the selected objects that was stopped or failed is a state of the list**, not a result: the rows
+      keep their DNs without names, and that stays true until the list is read again (Retry –
+      `ReloadTargetsCommand`, which never throws). A check that failed or was stopped is a result that can be closed:
+      step 1 is as it was.
+    - **Tokens** (rule 6). The read of the selected objects ran with `CancellationToken.None`, the read of a CSV file
+      could not be stopped, and the checks of *Retry failed* and of the wizard's *Undo* were started with
+      `CancellationToken.None`: all of them are operations now and can be stopped. The cancel of the Preview command
+      (`PreviewCancelCommand`) is the same Stop – the line says "Stopping…". Back, closing the window and the end of
+      its session still cancel a check without a message. How a plan is made, checked and executed did not change:
+      `BatchEditorTests` passes as it was.
+    - **Back and Undo take the result off the line.** What the line said was about the step that is left; the step
+      shown says its own. An execution that is still running is not affected by closing the window (it stays an
+      activity), and when the session ends during an execution the execution still says how it ended – the lasting
+      "session ended" is back when that result is closed.
+    - **The toast after an execution stays**: it is shown in the main window, for which the execution finished
+      "elsewhere" (6.7).
+    - `Error`, `TargetSummary`, `IsLoadingTargets`, `PlanningCompleted` / `PlanningTotal`, `PreviewSummary`,
+      `ResultSummary`, `PreviewCancelCommand`, `CancelExecutionCommand` and the import's `Error` / `IsLoading` are
+      unchanged for the tests and view models that read them. The window is 36 px higher by default (760 to 796).
+  - *Where this differs from the plan.* **The wizard of the create mode is not converted**: its pages
+    (`BulkCreate/*.xaml`, a later unit of the sweep) are hosted in step 1 of this window and keep their banners and
+    bars, so in create mode the window still shows them there, and the line is empty at rest in that step (the check
+    started by Preview, the execution and the results are said in the line as in the other modes). When the wizard
+    gets a holder, it becomes `SourceStatus` of the create mode – the place is prepared. The strings `Batch.Planning`
+    and `PlanPreview.Cancel` have no user any more and were left in the resources.
+- **The change plan preview** (`Views/ChangePlanPreviewWindow.xaml`; `Changes/ChangePlanPreviewViewModel`) – the
+  window every Group Policy operation is previewed and executed in.
+  - *What the line says.* Under the title: at rest the summary of the plan shown ("3 objects, 9 steps on
+    dc01.contoso.test."); the execution (foundation 9) with Stop; its result – done; attention or error with "The
+    reasons are in the list of results." and, where something was made, "Press Undo to revert what was made." with
+    *Undo* as the action; the end of the session as the lasting error.
+  - *How the old places were sorted* (1 error bar, 1 progress bar, and two places that were neither).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `Error` (an execution that could not start, the session that ended) | status | result of the execution; lasting error of the window |
+    | indeterminate progress bar in the footer | status | the execution in the line, with the part done |
+    | summary text in the footer | summary | `SetIdle`; gone from the footer |
+    | result card `ResultText` after an execution ("Done: every change was made." / "Not every change was made…") | status | result of the execution, with the domain and the counts |
+    | the same card after Undo ("The undo plan is shown. Execute it to revert the change.") | note | `Ad.Note.Attention` above the tabs while that plan waits (`IsRollbackNoteShown`) |
+    | the *Cancel* button of the executing step | – | *Execute* is an action button (the default button of the window) and stays for that step |
+    | the notes of the request (cards above the rows), the warnings of the rows | note | unchanged |
+
+  - *Decisions.* The result card was a card, not a banner – but it said what the window just did, and the line says
+    that now: one place. After Undo the same property carried a sentence about the plan shown; that is a note, and it
+    belongs to the plan only while it waits to be executed (its result is said by the line). `ResultText`, `Error`,
+    `Summary` and `CancelExecutionCommand` are unchanged for their tests; the window still cannot be closed while it
+    executes. It is 36 px higher by default (700 to 736).
+- **The main window** (`Views/MainWindow.xaml`). The shell is not a page: it has **no status line of its own** – a
+  document says its status in its own line (the object list since V2a; the other documents with their units). Its four
+  places were sorted one by one:
+
+  | Place | Kind | Now | Why |
+  |---|---|---|---|
+  | bar of one activity in the list of background operations (`ActivityTemplate`, `Fraction`) | progress of a row | unchanged | how far *one* item of a list is stays in its row |
+  | 2 px bar under the quick search (`IsSearching`) | "busy" mark | `ProgressRing` in the place of the magnifier while the search runs | the result of the search is the list of suggestions and a failure is a toast – there is no sentence to say, only "busy"; the box got `AutomationProperties.ItemStatus` "Searching…" while it runs, because the ring is outside UI Automation and the bar had that name |
+  | 60 px bar next to the activity button of the status bar (`Activities.HasRunning`) | "busy" mark | `ProgressRing` (14 px) | what runs and how far is the text next to it ("Running operations: 2") and the list behind the button |
+  | warning bar "Protected account (adminCount=1)" in the details pane | note | `Ad.Note.Attention` | not a warning of the shell: a fact about the selected object, true for as long as the pane shows it |
+
+  The warning glyph of the note replaced the shield of the bar (a note does not choose its glyph; the words say what
+  it is about). The rule of V2a for the status bar holds unchanged – `ShellViewModel.StatusBarText` /
+  `StatusBarSelectionText` are empty for a tab that is `IHasPageStatus` (`ObjectListStatusTests`,
+  `StatusLinePilotTests`) – and nothing of this unit added a document to it: the batch editor and the plan preview are
+  windows, not tabs.
+- **Tests of unit 2.** Presentation: `Changes/ExecutionStatusTests` (working from the first moment, the progress of
+  one and of several activities, Stop in both directions and before the activity is known, an operation that merely
+  ends, a plan that could not be executed, a window without a domain); `Dialogs/BatchEditorStatusTests` (the summary of
+  the objects in both languages, the read with Stop / failure / Retry, checking with the part done in both languages,
+  the overlap of read and check, Stop and the command's cancel, a failed check, executing with the part done and the
+  result with the domain in both languages, Stop of an execution and cancel from the list of background operations,
+  executed in part and not at all, Undo, Back, the session that ended – also during a check –, closing the window
+  during an execution, the CSV file, the log copies without a title, name or server text);
+  `GroupPolicy/ChangePlanPreviewStatusTests` (summary in both languages, execute and undo, a failed execution with
+  Undo as the action, Stop, a refused confirmation, the session that ended). `BatchEditorTests` and
+  `ChangePlanPreviewTests` are unchanged. UI (Windows CI): `BatchEditorStatusUiTests` (six tests),
+  `ChangePlanPreviewStatusUiTests` (four), `MainWindowFeedbackUiTests` (three); `BatchEditorWindowTests` reads the two
+  summaries from the line instead of the text blocks that are gone. A write the test holds in
+  `FakeDirectorySession.BeforeOperation` and releases makes "1 of 2" and "Stopping…" states that last.
+- **After unit 2** (counted in the XAML, comments excluded): 32 uses of `Ad.ErrorBar` and 50 of `Ad.WarningBar` in 47
+  files, and 49 progress bars (one of them the row of an activity, which stays).
+- **Not seen, to confirm on Windows (unit 2).** The line of the batch editor between the step strip and the content
+  (an empty line at rest in the CSV mode before a file was chosen, and in step 1 of the create mode). The footer of
+  both windows without the texts on its left; the width of *Podgląd* / *Wykonaj* as action buttons (they are as wide
+  as "Zatrzymywanie…"). The card of the executing step without its bars. The three notes next to the content they
+  belong to, and the note in the narrow details pane (the shield is gone). The 14 px rings in the search box (in the
+  secondary text colour, at the place of the magnifier) and in the status bar. A long result of an execution in the
+  line ("…was executed only in part in contoso.test: 3 objects changed, failed: 2. The reasons are in the list of
+  results. Press “Retry failed”…") is cut with an ellipsis sooner than the reads of unit 1 – the whole text is the
+  tool tip and what a screen reader hears; the question of a second line is the one unit 1 left open.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 

@@ -493,7 +493,8 @@ PowerShell* – `New-ADUser … -AccountPassword (Read-Host -AsSecureString -Pro
 
 **Wykonaj.** Okno potwierdzenia podaje tytuł zmiany, liczbę obiektów do utworzenia i domenę, przypomina, że *Hasła
 początkowe będą dostępne tylko w tym oknie*, i wymaga wpisania liczby obiektów. Wykonanie działa w tle (centrum
-aktywności) z postępem i przyciskiem *Zatrzymaj*.
+aktywności); jego postęp – z poleceniem *Zatrzymaj* – widać w wierszu stanu okna, a przycisk *Wykonaj* zamienia się na
+ten czas w *Anuluj*.
 
 **Najpierw jedno konto.** Kreator tworzy najpierw jeden obiekt; dopiero gdy wszystkie jego kroki się udadzą, wykonuje
 resztę (w centrum aktywności i dzienniku sesji są wtedy dwa wpisy). Błąd systematyczny – brak szyfrowania, brak prawa
@@ -504,8 +505,9 @@ następny – najwyżej trzy.
 
 ## 8. Wyniki i hasła
 
-Nad zwykłym raportem edytora zbiorczego (filtr, podsumowanie, stan i komunikat każdego obiektu, *Eksportuj wyniki*,
-*Ponów nieudane*, *Cofnij*) jest lista **Utworzone obiekty**: *Nr*, *Nazwa*, *Nazwa logowania*, *UPN*, *Adres e-mail*,
+Nad zwykłym raportem edytora zbiorczego (filtr, stan i komunikat każdego obiektu, *Eksportuj wyniki*, *Ponów
+nieudane*, *Cofnij*; podsumowanie jest w wierszu stanu okna) jest lista **Utworzone obiekty**: *Nr*, *Nazwa*, *Nazwa
+logowania*, *UPN*, *Adres e-mail*,
 *Hasło początkowe* (zamaskowane, z przyciskami *Pokaż* i *Kopiuj*), *Przekazane*, *Stan* (*Utworzono*, *Utworzono, nie
 wszystkie kroki się udały*, *Usunięte (cofnięte)*) i *Komunikat*. Lista obejmuje wszystkie wykonania okna; kontakty i
 grupy są na niej bez hasła, komputerów nie ma. *Hasła początkowe istnieją tylko w tym oknie: przekaż je (Kopiuj, Kopiuj

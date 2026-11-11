@@ -502,7 +502,8 @@ usual bulk editor preview: objects with steps (the "before" value is empty), fil
 
 **Execute.** The confirmation window gives the title of the change, the number of objects to create and the domain,
 reminds you that *The initial passwords will be available in this window only*, and requires typing the number of
-objects. The execution runs in the background (activity center) with progress and a *Stop* button.
+objects. The execution runs in the background (activity center); its progress – with the *Stop* command – is in the
+status line of the window, and the *Execute* button turns into *Cancel* for that time.
 
 **One account first.** The wizard first creates one object; only when all its steps succeed does it run the rest (the
 activity center and the session log then have two entries). A systematic error – no encryption, no right to reset the
@@ -513,8 +514,9 @@ attempt – at most three.
 
 ## 8. Results and passwords
 
-Above the usual bulk editor report (filter, summary, the status and message of each object, *Export results*, *Retry
-failed*, *Undo*) is the **Created objects** list: *Row*, *Name*, *Logon name*, *UPN*, *E-mail*, *Initial password*
+Above the usual bulk editor report (filter, the status and message of each object, *Export results*, *Retry failed*,
+*Undo*; the summary is in the status line of the window) is the **Created objects** list: *Row*, *Name*, *Logon name*,
+*UPN*, *E-mail*, *Initial password*
 (masked, with the *Show* and *Copy* buttons), *Handed out*, *Status* (*Created*, *Created, not every step succeeded*,
 *Deleted (undone)*) and *Message*. The list covers all executions of the window; contacts and groups are on it without a
 password, computers are not on it. *The initial passwords exist only in this window: hand them out (Copy, Copy table
