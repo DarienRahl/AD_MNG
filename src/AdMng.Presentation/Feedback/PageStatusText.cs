@@ -42,6 +42,18 @@ public static class PageStatusText
         Count(localizer, count, L.Feedback.ObjectsOne, L.Feedback.ObjectsFew, L.Feedback.ObjectsMany);
 
     /// <summary>
+    /// How far an operation over many objects is, for the text of a running operation: "12 of 300" - "12 z 300". A page
+    /// puts it after what it does - "Saving the accounts: 12 of 300…" - so no noun has to follow the numbers in a plural
+    /// form, and reports the same two numbers as <see cref="PageProgress.Of(long, long)"/>: the ring of the status line
+    /// then shows the part done instead of turning. A count below zero is shown as zero.
+    /// </summary>
+    public static string Progress(ILocalizer localizer, long done, long total)
+    {
+        ArgumentNullException.ThrowIfNull(localizer);
+        return localizer.Format(L.Feedback.Progress, Math.Max(done, 0), Math.Max(total, 0));
+    }
+
+    /// <summary>
     /// The one shape of an error text: "what we tried: why it failed. What to do next. (code)". Also the shape of an
     /// "attention" text - what was skipped: why. What to do. Every part is a localized text; the result code goes in
     /// parentheses at the end and never stands alone.

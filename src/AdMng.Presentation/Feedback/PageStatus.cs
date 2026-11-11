@@ -245,6 +245,23 @@ public sealed class PageStatus
     public bool IsSameMessageAs(PageStatus? other) =>
         other is not null && Kind == other.Kind && string.Equals(Log.Key, other.Log.Key, StringComparison.Ordinal);
 
+    /// <summary>
+    /// True when <paramref name="other"/> says the same to the operator: the same kind, text, action and whether it
+    /// can be closed. A page that computes its lasting state anew gets an equal one and nothing changes.
+    /// </summary>
+    internal bool HasSameContentAs(PageStatus? other) =>
+        other is not null
+        && Kind == other.Kind
+        && CanClose == other.CanClose
+        && string.Equals(Message, other.Message, StringComparison.Ordinal)
+        && string.Equals(Log.Key, other.Log.Key, StringComparison.Ordinal)
+        && string.Equals(Action?.Label, other.Action?.Label, StringComparison.Ordinal)
+        && ReferenceEquals(Action?.Command, other.Action?.Command)
+        && Equals(Action?.Parameter, other.Action?.Parameter);
+
+    /// <summary>The same status as a state that lasts: it cannot be closed (see <see cref="PageStatusHolder.SetLasting"/>).</summary>
+    internal PageStatus AsLasting() => CanClose ? new PageStatus(Kind, Message, Progress, Action, canClose: false, Log) : this;
+
     /// <summary>A running operation with a new text, progress, log copy or action; what is not given stays.</summary>
     internal PageStatus Update(string? message, PageProgress? progress, PageStatusLog? log) =>
         new(Kind, message ?? Message, Progress is null ? null : progress ?? Progress, Action, CanClose, log ?? Log);

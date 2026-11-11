@@ -24375,6 +24375,12 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Feedback.Objects.Many" xml:space="preserve">
     <value>{0:N0} objects</value>
   </data>
+  <data name="Feedback.Progress" xml:space="preserve">
+    <value>{0:N0} of {1:N0}</value>
+  </data>
+  <data name="Feedback.RetryNext" xml:space="preserve">
+    <value>Press Retry to try again.</value>
+  </data>
   <data name="List.Status.Reading" xml:space="preserve">
     <value>Reading “{0}”…</value>
   </data>
@@ -24395,6 +24401,90 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="Find.Status.Hint" xml:space="preserve">
     <value>Say what to find and press Find Now.</value>
+  </data>
+  <data name="PropertySheet.Status.Summary" xml:space="preserve">
+    <value>Read from {0} · as of {1}</value>
+  </data>
+  <data name="PropertySheet.Status.Reading" xml:space="preserve">
+    <value>Reading “{0}”…</value>
+  </data>
+  <data name="PropertySheet.Status.Stopped" xml:space="preserve">
+    <value>Reading “{0}” was stopped: the window may not show everything. Press Refresh to read the object again.</value>
+  </data>
+  <data name="PropertySheet.Status.ReadFailed" xml:space="preserve">
+    <value>Could not read “{0}”</value>
+  </data>
+  <data name="PropertySheet.Status.GoneNext" xml:space="preserve">
+    <value>Close this window.</value>
+  </data>
+  <data name="PropertySheet.Status.Deleted" xml:space="preserve">
+    <value>“{0}” was deleted while this window was open. Close this window.</value>
+  </data>
+  <data name="PropertySheet.Status.Saving" xml:space="preserve">
+    <value>Saving the changes to “{0}”…</value>
+  </data>
+  <data name="PropertySheet.Status.Saved" xml:space="preserve">
+    <value>The changes to “{0}” were saved in {1}. The report is in the list of background operations.</value>
+  </data>
+  <data name="PropertySheet.Status.NothingToSave" xml:space="preserve">
+    <value>Nothing had to be saved: “{0}” already has these values.</value>
+  </data>
+  <data name="PropertySheet.Status.NotSaved" xml:space="preserve">
+    <value>Nothing was saved</value>
+  </data>
+  <data name="PropertySheet.Status.SaveStopped" xml:space="preserve">
+    <value>Saving the changes to “{0}” was stopped: part of them may already be written. Check the values and press Apply again.</value>
+  </data>
+  <data name="PropertySheet.Status.SaveFailed" xml:space="preserve">
+    <value>Could not save the changes to “{0}”</value>
+  </data>
+  <data name="PropertySheet.Status.SaveFailedNext" xml:space="preserve">
+    <value>Correct the values and press Apply again.</value>
+  </data>
+  <data name="PropertySheet.Status.PageReading" xml:space="preserve">
+    <value>Reading the “{0}” tab…</value>
+  </data>
+  <data name="PropertySheet.Status.PageStopped" xml:space="preserve">
+    <value>Reading the “{0}” tab was stopped: it may not show everything. Press Refresh to read it again.</value>
+  </data>
+  <data name="PropertySheet.Status.PageReadFailed" xml:space="preserve">
+    <value>Could not read the “{0}” tab</value>
+  </data>
+  <data name="PropertySheet.Status.ListReading" xml:space="preserve">
+    <value>Reading the “{0}” list…</value>
+  </data>
+  <data name="PropertySheet.Status.ListStopped" xml:space="preserve">
+    <value>Reading the “{0}” list was stopped before all results arrived. Press Refresh to read it again.</value>
+  </data>
+  <data name="PropertySheet.Status.ListReadFailed" xml:space="preserve">
+    <value>Could not read the “{0}” list</value>
+  </data>
+  <data name="AccountStatus.Status.Checking" xml:space="preserve">
+    <value>Checking the account on all domain controllers…</value>
+  </data>
+  <data name="AccountStatus.Status.Stopped" xml:space="preserve">
+    <value>Checking the account on all domain controllers was stopped. Press “{0}” to check again.</value>
+  </data>
+  <data name="Computers.Status.ReadingExact" xml:space="preserve">
+    <value>Reading the last logon on all domain controllers…</value>
+  </data>
+  <data name="Computers.Status.ExactStopped" xml:space="preserve">
+    <value>Reading the last logon on all domain controllers was stopped. Press “{0}” to read it again.</value>
+  </data>
+  <data name="Computers.Status.ExactFailed" xml:space="preserve">
+    <value>Could not read the last logon on all domain controllers</value>
+  </data>
+  <data name="Computers.Status.ExactPartialNext" xml:space="preserve">
+    <value>The newest logon among the answers is shown.</value>
+  </data>
+  <data name="Computers.Status.ResolvingSite" xml:space="preserve">
+    <value>Determining the site of the computer…</value>
+  </data>
+  <data name="Computers.Status.SiteStopped" xml:space="preserve">
+    <value>Determining the site of the computer was stopped. Press “{0}” to try again.</value>
+  </data>
+  <data name="Computers.Status.SiteFailed" xml:space="preserve">
+    <value>Could not determine the site of the computer</value>
   </data>
   <!-- V interface renewal (V2): end -->
 </root>
