@@ -3,6 +3,7 @@ using AdMng.Core.Audit;
 using AdMng.Core.Batch;
 using AdMng.Core.Ldap;
 using AdMng.Presentation.Connection;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -63,7 +64,13 @@ public sealed class AuditEntryViewModel
 /// Session log: every change this application made in the session (who, when, which DC, object, attribute, old →
 /// new; never passwords), updated live, filterable and exportable to CSV on request. In memory only.
 /// </summary>
-public sealed partial class SessionLogViewModel : WindowViewModelBase
+/// <remarks>
+/// The window has one status line (<see cref="Status"/>; track V, stage V2b, design note
+/// docs/dev/v-interface-renewal.md "V2b-2 as built"): at rest how many entries the list shows, and - as the state that
+/// lasts - that the session of the window ended. The window reads nothing from a domain controller and starts no
+/// operation of its own; the export still answers with a toast, or with a dialog when the file could not be written.
+/// </remarks>
+public sealed partial class SessionLogViewModel : WindowViewModelBase, IHasPageStatus
 {
     private readonly IAuditLog _log;
     private readonly AuditLogExporter _exporter;
@@ -77,11 +84,19 @@ public sealed partial class SessionLogViewModel : WindowViewModelBase
     {
         _log = log ?? throw new ArgumentNullException(nameof(log));
         _exporter = exporter ?? throw new ArgumentNullException(nameof(exporter));
+        Status = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
         _log.EntryRecorded += OnEntryRecorded;
         Reload();
+        UpdateLasting();
     }
 
     public override string WindowTitle => Localizer[L.SessionLog.WindowTitle];
+
+    /// <summary>
+    /// The status of the window - what its one status line shows: how many entries the list shows ("Entries: 12 of 40")
+    /// and, once the session of the window ended, that it did.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     /// <summary>Visible entries, newest first.</summary>
     public BulkObservableCollection<AuditEntryViewModel> Entries { get; } = [];
@@ -97,7 +112,7 @@ public sealed partial class SessionLogViewModel : WindowViewModelBase
     [ObservableProperty]
     public partial bool ShowFailuresOnly { get; set; }
 
-    /// <summary>"12 of 40 entries".</summary>
+    /// <summary>"Entries: 12 of 40": the summary of the status line.</summary>
     [ObservableProperty]
     public partial string CountText { get; private set; } = string.Empty;
 
@@ -186,7 +201,11 @@ public sealed partial class SessionLogViewModel : WindowViewModelBase
 
     private bool IsSessionActive(AuditEntryViewModel? entry) => !IsSessionEnded;
 
-    protected override void OnSessionEnded() => OpenCommand.NotifyCanExecuteChanged();
+    protected override void OnSessionEnded()
+    {
+        OpenCommand.NotifyCanExecuteChanged();
+        UpdateLasting();
+    }
 
     [RelayCommand]
     private void Close() => RequestClose(true);
@@ -199,6 +218,9 @@ public sealed partial class SessionLogViewModel : WindowViewModelBase
     {
         base.OnCultureChanged();
         Reload();
+
+        // "The session of this window ended" in the new language.
+        UpdateLasting();
     }
 
     protected override void Dispose(bool disposing)
@@ -208,6 +230,12 @@ public sealed partial class SessionLogViewModel : WindowViewModelBase
             _log.EntryRecorded -= OnEntryRecorded;
         }
     }
+
+    /// <summary>
+    /// The state of the window that lasts: its session ended - the entries stay and can be filtered, copied and
+    /// exported, but an object can no longer be opened from here.
+    /// </summary>
+    private void UpdateLasting() => Status.SetLasting(SessionEndedStatus);
 
     private void Reload()
     {
@@ -274,5 +302,6 @@ public sealed partial class SessionLogViewModel : WindowViewModelBase
             .ToList();
         Entries.ReplaceAll(visible);
         CountText = Localizer.Format(L.SessionLog.Count, visible.Count, _all.Count);
+        Status.SetIdle(CountText);
     }
 }
