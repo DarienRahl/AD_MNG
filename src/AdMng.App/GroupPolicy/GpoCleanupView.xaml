@@ -102,10 +102,10 @@
     </Grid>
 
     <!--
-      Status line (design note 6.1): the read of the document with Stop, its summary, why it could not be read, and what became of an
-      operation that is prepared for the change plan preview. The bars of this view are converted with it (V2b-3).
-      Always present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and the PDC emulator
-      (GroupPolicyNotes).
+      Status line (design note 6.1): the read of the document with Stop, its summary, why it could not be read, and what
+      became of an operation that is prepared for the change plan preview. The bars of this view are converted with it
+      (V2b-3). Always present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and the
+      PDC emulator (GroupPolicyNotes).
     -->
     <c:StatusLine x:Name="PageStatus"
                   Margin="0,0,0,6"

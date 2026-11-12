@@ -72,11 +72,11 @@
       </StackPanel>
     </Grid>
     <!--
-      Status line (design note 6.1): the read of the GPO with Stop, the summary of the GPO - on the "Stan" tab the check of the GPO, its
-      stages and when it was checked -, that the GPO no longer exists (with "Usuń pozostały folder" when its folder is
-      still there) or could not be read, and what became of an operation that is prepared for the change plan preview.
-      Always present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and the PDC emulator
-      (GroupPolicyNotes).
+      Status line (design note 6.1): the read of the GPO with Stop, the summary of the GPO - on the "Stan" tab the check
+      of the GPO, its stages and when it was checked -, that the GPO no longer exists (with "Usuń pozostały folder" when
+      its folder is still there) or could not be read, and what became of an operation that is prepared for the change
+      plan preview. Always present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and
+      the PDC emulator (GroupPolicyNotes).
     -->
     <c:StatusLine x:Name="PageStatus"
                   Margin="0,0,0,6"
