@@ -76,7 +76,18 @@
                 ToolTip="{l:Tr GroupPolicy.RefreshCommand}" />
       </StackPanel>
     </Grid>
-    <gp:GroupPolicyBanners DockPanel.Dock="Top" />
+    <!--
+      Status line (design note 6.1): the read of the links and of the inheritance with Stop, the summary, that the container no longer
+      exists or could not be read, and what became of an operation that is prepared for the change plan preview.
+      Always present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and the PDC emulator
+      (GroupPolicyNotes).
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="0,0,0,6"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+    <gp:GroupPolicyNotes x:Name="DocumentNotes" DockPanel.Dock="Top" />
 
     <!-- Block inheritance (domain and OUs) -->
     <DockPanel Margin="0,0,0,8"

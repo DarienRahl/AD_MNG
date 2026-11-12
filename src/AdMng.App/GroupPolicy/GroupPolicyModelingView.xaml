@@ -268,7 +268,18 @@
                 ToolTip="{l:Tr GroupPolicy.RefreshCommand}" />
       </StackPanel>
     </Grid>
-    <gp:GroupPolicyBanners DockPanel.Dock="Top" />
+    <!--
+      Status line (design note 6.1): the read of the document with Stop, its summary and why it could not be read. The bar of this view
+      below is converted with it (V2b-3).
+      Always present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and the PDC emulator
+      (GroupPolicyNotes).
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="0,0,0,6"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+    <gp:GroupPolicyNotes x:Name="DocumentNotes" DockPanel.Dock="Top" />
 
     <!-- Inputs -->
     <Border Margin="0,0,0,8" Padding="12,8" DockPanel.Dock="Top" Style="{StaticResource Ad.Card}">

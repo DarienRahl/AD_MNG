@@ -11,6 +11,7 @@ using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Backup;
 using AdMng.Core.GroupPolicy.Security;
 using AdMng.Presentation.Changes;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.GroupPolicy.Modeling;
@@ -263,8 +264,10 @@ public sealed class GroupPolicyWindowTests
         Assert.Single(gpoView.LinksList.Items);
         Assert.True(gpoView.DeleteButton.IsEnabled);
         Assert.True(gpoView.RenameButton.IsEnabled);
-        // The button sits in the orphaned-folder bar, which is collapsed for a GPO with its folder.
-        Assert.False(gpoView.DeleteOrphanButton.IsVisible);
+        // "Usuń pozostały folder" is the action of the line of a GPO that is gone: this one exists, so the line says
+        // its summary and offers nothing.
+        Assert.Equal(PageStatusKind.Idle, gpoView.PageStatus.Kind);
+        Assert.False(gpoView.PageStatus.HasAction);
 
         // The settings of the security template and the status tab.
         gpoView.GpoTabs.SelectedItem = gpoView.SettingsTab;

@@ -66,6 +66,10 @@ public sealed partial class XamlSourceTests
     /// </summary>
     private static readonly string[] PagesWithAStatusLine =
     [
+        "GroupPolicy/GroupPolicyObjectView.xaml",
+        "GroupPolicy/GroupPolicyObjectsView.xaml",
+        "GroupPolicy/GroupPolicyScopeView.xaml",
+        "GroupPolicy/WmiFiltersView.xaml",
         "Views/AccountReviewWindow.xaml",
         "Views/BatchEditorWindow.xaml",
         "Views/ChangeDomainControllerWindow.xaml",
@@ -98,7 +102,28 @@ public sealed partial class XamlSourceTests
     private static readonly string[] ConvertedViewsWithoutAStatusLine =
     [
         "Controls/HtmlPreviewView.xaml",
+        "GroupPolicy/GroupPolicyHealthPanel.xaml",
+        "GroupPolicy/GroupPolicyNotes.xaml",
         "Views/LogonHoursWindow.xaml",
+    ];
+
+    /// <summary>
+    /// The views that have their status line already and are not converted yet, sorted (design note "V2b-3 as built",
+    /// <i>Group Policy documents</i>). The Group Policy documents got their status holder in their base class, and with
+    /// it every one of their views got its status line in one step - the status bar of the main window says nothing
+    /// about a tab that has one. The views on this list still have banners or progress bars of their own: the unit
+    /// that converts them moves each to <see cref="PagesWithAStatusLine"/>. A list for the time of that sweep - it
+    /// ends empty; <see cref="AViewWithAStatusLineThatIsNotConvertedYet_StillHasSomethingToConvert"/> keeps a view
+    /// that has nothing left to convert from staying on it.
+    /// </summary>
+    private static readonly string[] ViewsWithAStatusLineNotConvertedYet =
+    [
+        "GroupPolicy/AdministrativeTemplatesEditorView.xaml",
+        "GroupPolicy/GpoCleanupView.xaml",
+        "GroupPolicy/GpoSettingsSearchView.xaml",
+        "GroupPolicy/GroupPolicyDiagnosticsView.xaml",
+        "GroupPolicy/GroupPolicyModelingView.xaml",
+        "GroupPolicy/SecuritySettingsEditorView.xaml",
     ];
 
     [Fact]
@@ -257,12 +282,7 @@ public sealed partial class XamlSourceTests
             Assert.True(views.TryGetValue(page, out var xaml), $"{page} is not a view of the application");
 
             // Exactly one status line, with the fixed name of design note 6.1, over the status holder of the page.
-            var lines = StatusLineElement().Matches(xaml!);
-            Assert.True(lines.Count == 1, $"{page} has {lines.Count} status lines");
-            var line = lines[0].Value;
-            Assert.True(line.Contains("x:Name=\"PageStatus\"", StringComparison.Ordinal), $"{page}: the status line is not named PageStatus");
-            Assert.True(line.Contains("Status=\"{Binding Status.Current, Mode=OneWay}\"", StringComparison.Ordinal), $"{page}: the status line does not show Status.Current");
-            Assert.True(line.Contains("CloseCommand=\"{Binding Status.CloseCommand, Mode=OneWay}\"", StringComparison.Ordinal), $"{page}: the status line has no close command");
+            AssertOneStatusLine(page, xaml!);
 
             // The page says what happened in no other place: no banner of the old styles, no progress bar of its own.
             Assert.False(xaml!.Contains("Ad.ErrorBar", StringComparison.Ordinal), $"{page} still has an error bar");
@@ -270,15 +290,47 @@ public sealed partial class XamlSourceTests
             Assert.False(xaml.Contains("<ProgressBar", StringComparison.Ordinal), $"{page} still has a progress bar");
         }
 
-        // The other way round: a view with a status line is on the list, and nothing else takes the name PageStatus.
+        // The other way round: a view with a status line is on the list - or, for the time of the sweep, on the list of
+        // the views that have the line and are not converted yet -, and nothing else takes the name PageStatus.
         Assert.Equal(
-            PagesWithAStatusLine,
+            PagesWithAStatusLine.Concat(ViewsWithAStatusLineNotConvertedYet).Order(StringComparer.Ordinal).ToArray(),
             views.Where(view => StatusLineElement().IsMatch(view.Value)).Select(view => view.Key).Order(StringComparer.Ordinal).ToArray());
         Assert.Equal(
             [],
             views.SelectMany(view => PageStatusName().Matches(view.Value)
                     .Where(match => match.Groups["tag"].Value != "StatusLine")
                     .Select(match => $"{view.Key}: {match.Groups["tag"].Value}")));
+    }
+
+    [Fact]
+    public void AViewWithAStatusLineThatIsNotConvertedYet_StillHasSomethingToConvert()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Runs with the Windows test suite.");
+        var views = XamlFiles().Where(file => !IsApplicationDictionary(file)).ToDictionary(
+            file => Path.GetRelativePath(SourceDirectory(), file).Replace('\\', '/'),
+            file => WithoutComments(File.ReadAllText(file)),
+            StringComparer.Ordinal);
+        Assert.True(views.Count > 50, $"only {views.Count} views found");
+        Assert.Equal(ViewsWithAStatusLineNotConvertedYet.Order(StringComparer.Ordinal).ToArray(), ViewsWithAStatusLineNotConvertedYet);
+
+        // A view is on one of the three lists, never on two.
+        Assert.Equal([], ViewsWithAStatusLineNotConvertedYet.Intersect(PagesWithAStatusLine, StringComparer.Ordinal));
+        Assert.Equal([], ViewsWithAStatusLineNotConvertedYet.Intersect(ConvertedViewsWithoutAStatusLine, StringComparer.Ordinal));
+
+        foreach (var view in ViewsWithAStatusLineNotConvertedYet)
+        {
+            Assert.True(views.TryGetValue(view, out var xaml), $"{view} is not a view of the application");
+
+            // The line is the one every page has: one, named PageStatus, over the status holder of the page.
+            AssertOneStatusLine(view, xaml!);
+
+            // Something is left to convert; a view without any banner or progress bar belongs on PagesWithAStatusLine.
+            Assert.True(
+                xaml!.Contains("Ad.ErrorBar", StringComparison.Ordinal)
+                    || xaml.Contains("Ad.WarningBar", StringComparison.Ordinal)
+                    || xaml.Contains("<ProgressBar", StringComparison.Ordinal),
+                $"{view} has no banner and no progress bar left: it belongs on PagesWithAStatusLine");
+        }
     }
 
     [Fact]
@@ -307,6 +359,17 @@ public sealed partial class XamlSourceTests
             Assert.False(xaml.Contains("Ad.WarningBar", StringComparison.Ordinal), $"{view} still has a warning bar");
             Assert.False(xaml.Contains("<ProgressBar", StringComparison.Ordinal), $"{view} still has a progress bar");
         }
+    }
+
+    /// <summary>Exactly one status line, with the fixed name of design note 6.1, over the status holder of the page.</summary>
+    private static void AssertOneStatusLine(string page, string xaml)
+    {
+        var lines = StatusLineElement().Matches(xaml);
+        Assert.True(lines.Count == 1, $"{page} has {lines.Count} status lines");
+        var line = lines[0].Value;
+        Assert.True(line.Contains("x:Name=\"PageStatus\"", StringComparison.Ordinal), $"{page}: the status line is not named PageStatus");
+        Assert.True(line.Contains("Status=\"{Binding Status.Current, Mode=OneWay}\"", StringComparison.Ordinal), $"{page}: the status line does not show Status.Current");
+        Assert.True(line.Contains("CloseCommand=\"{Binding Status.CloseCommand, Mode=OneWay}\"", StringComparison.Ordinal), $"{page}: the status line has no close command");
     }
 
     /// <summary>Whether a XAML file is merged into the application resources: App.xaml and the dictionaries of Themes/.</summary>

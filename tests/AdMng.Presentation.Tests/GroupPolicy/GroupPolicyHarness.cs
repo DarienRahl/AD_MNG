@@ -4,13 +4,16 @@ using AdMng.Core.GroupPolicy.Management;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Dialogs;
 using AdMng.Core.GroupPolicy.AdministrativeTemplates;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.GroupPolicy.SecuritySettings;
+using AdMng.Presentation.Lists;
 using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Shell;
 using AdMng.Presentation.Tests.Dialogs;
 using AdMng.Testing;
+using Microsoft.Extensions.Logging;
 
 namespace AdMng.Presentation.Tests.GroupPolicy;
 
@@ -22,15 +25,19 @@ namespace AdMng.Presentation.Tests.GroupPolicy;
 /// </summary>
 internal sealed class GroupPolicyHarness
 {
-    private GroupPolicyHarness(B2Harness b2, bool withWriter)
+    private GroupPolicyHarness(B2Harness b2, bool withWriter, ILogger<PageStatusHolder>? statusLog = null)
     {
         B2 = b2;
         Sample = b2.Builder.AddGroupPolicyManagementSample(b2.Company, Sysvol);
         Executor = new BatchExecutor(b2.AuditLog, b2.Time, null, Sysvol);
         Coordinator = new ChangeCoordinator(b2.Sessions, b2.Planner, Executor, b2.Dialogs, b2.Notifications, b2.Settings, b2.Activities, b2.Changes, b2.Errors,
             b2.Localizer, b2.PowerShell);
+        // The status lines of the documents write their log copies to the logger of the list services.
+        var lists = statusLog is null
+            ? b2.Lists
+            : new ObjectListServices(b2.Sessions, b2.Localizer, b2.Dispatcher, b2.Settings, b2.Errors, b2.Changes, b2.Time, statusLog);
         Ui = new DialogServices(b2.Sessions, b2.Localizer, b2.Dispatcher, b2.Settings, b2.Errors, b2.Changes, b2.Time, b2.Dialogs, b2.Files, b2.Clipboard,
-            b2.Notifications, Coordinator, b2.Activities, b2.Lists, b2.Regional);
+            b2.Notifications, Coordinator, b2.Activities, lists, b2.Regional);
         Planner = new GroupPolicyPlanner(new GroupPolicyReader(), b2.Time);
         Definitions = new PolicyDefinitionsService(Local);
         Services = new GroupPolicyServices(Ui, b2.Engines, Planner, Windows, withWriter ? Sysvol : null, definitions: Definitions);
@@ -92,6 +99,10 @@ internal sealed class GroupPolicyHarness
     /// <param name="withWriter">False: a host without SYSVOL writer (every SYSVOL write disabled as not supported).</param>
     public static async Task<GroupPolicyHarness> CreateAsync(CultureInfo? culture, bool withWriter) =>
         new(await B2Harness.CreateAsync(culture), withWriter);
+
+    /// <summary>A harness whose documents write the log copies of their status lines to <paramref name="statusLog"/>.</summary>
+    public static async Task<GroupPolicyHarness> CreateAsync(CultureInfo? culture, ILogger<PageStatusHolder> statusLog) =>
+        new(await B2Harness.CreateAsync(culture), withWriter: true, statusLog);
 
     public string GpoDn(Guid id) => Core.GroupPolicy.GpLinkValue.GpoDn(id, DomainDn);
 
