@@ -16,8 +16,9 @@
     Ad.AccentActionButton for the primary action; Ad.DialogActionButton and Ad.AccentDialogActionButton with the
     metrics of the dialog buttons).
   * Ad.ErrorBar and Ad.WarningBar are the banners of before stage V2: only for the views that are not converted yet
-    (a converted view is on the list PagesWithAStatusLine of XamlSourceTests and uses neither). They go with the last
-    of those views; nothing new uses them.
+    (a converted view is on one of the two lists of XamlSourceTests - PagesWithAStatusLine, or
+    ConvertedViewsWithoutAStatusLine when it has only notes and no status to say - and uses neither). They go with the
+    last of those views; nothing new uses them.
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
