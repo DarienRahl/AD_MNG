@@ -147,6 +147,8 @@ jobs:
     env:
       # Public test values of the throwaway lab (tools/testlab/README.md) – no secrets are needed.
       ADMNG_TEST_LDAP_SERVER: 127.0.0.1
+      # Connection-level LDAP errors of the lab tests with libldap's own words (LdapErrorLog), printed by "Samba DC log".
+      ADMNG_TEST_LDAP_ERROR_LOG: ${{ runner.temp }}/admng-ldap-errors.log
       ADMNG_TEST_LDAP_USER: Administrator@contoso.test
       ADMNG_TEST_LDAP_PASSWORD: P@ssw0rd!2026
       ADMNG_TEST_LDAP_READONLY_USER: odczyt.test@contoso.test
@@ -205,6 +207,21 @@ jobs:
           sudo awk '/^\[/ {head=$0; next} /Terminating connection/ && !/NT_STATUS_LOCAL_DISCONNECT/ && !/NT_STATUS_CONNECTION_DISCONNECTED/ && !/NT_STATUS_END_OF_FILE/ && !/NT_STATUS_CONNECTION_RESET/ && !/tstream_tls_accept_recv/ {print head; print $0}' /var/log/samba/log.samba | tail -n 80 || true
           sudo grep -h -i -E "ldapsrv.*(fail|error)|backend init|samdb_connect|too many|limit" /var/log/samba/log.samba | sort | uniq -c | sort -rn | head -n 30 || true
           sudo tail -n 40 /var/log/samba/log.samba || true
+          # What the client library said when a connection failed ("ServerUnavailable" names no cause), and what Samba
+          # logged from the second before to the second after each of those moments.
+          if [ -s "$ADMNG_TEST_LDAP_ERROR_LOG" ]; then
+            echo "--- connection-level LDAP errors the tests saw, in libldap's own words ---"
+            cat "$ADMNG_TEST_LDAP_ERROR_LOG"
+            cut -c1-19 "$ADMNG_TEST_LDAP_ERROR_LOG" | sort -u | head -n 10 | while read -r stamp; do
+              for offset in -1 0 1; do
+                second=$(date -u -d "$stamp UTC $offset seconds" '+%Y/%m/%d %H:%M:%S')
+                echo "--- Samba log, $second ---"
+                sudo grep -A1 -F "[$second" /var/log/samba/log.samba | head -n 150 || true
+              done
+            done
+          else
+            echo "No connection-level LDAP error was recorded by the tests."
+          fi
           # Every Samba process with its age in seconds: a worker that was restarted during the run is younger than
           # the others (the LDAP workers come last, so the list is not cut).
           ps -eo pid,etimes,rss,args | grep -E "[s]amba" || true
