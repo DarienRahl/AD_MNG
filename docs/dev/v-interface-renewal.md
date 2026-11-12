@@ -488,6 +488,9 @@ account review and the comparison of objects. The main window itself has none �
 "busy" marks are progress rings (*V2b-1 as built*, section 8).
 As built (V2b-2, unit 1): also on four dialogs – the Connect window, "Change domain controller", "Reset Password" and
 "New Object" (*V2b-2 as built*, section 8).
+As built (V2b-2, unit 2): also on the message window ("Send message to users") and on the settings window, above its
+tabs. The Logon Hours dialog and the rendered preview of a message have none – they say what they say in notes – and
+are on the second list of the source test, `ConvertedViewsWithoutAStatusLine`.
 
 ### 6.2 Navigation – open question 2
 
@@ -577,8 +580,9 @@ names of the new sections.
   optional single check box, buttons right-aligned with the safe one as default. The existing `Ad.DialogButton`,
   `Ad.AccentDialogButton` and `Ad.DangerDialogButton` become the only button styles of dialogs.
   As built (V2b-2): a dialog that starts an operation of its own has the status line at its top, above its fields, and
-  its primary button is an action button when that operation can be stopped; a dialog that only collects input has no
-  line (*V2b-2 as built*, section 8, *Dialogs*).
+  its primary button is an action button when that operation can be stopped; a dialog with tabs has the line above
+  them and shows there what the tab in front says; a dialog that only collects input has no line (*V2b-2 as built*,
+  section 8, *Dialogs*).
 - **Property sheet** (`PropertiesWindow.xaml`, 2,340 lines) stays modeless and per connection: a header card (48 px
   icon with badge, name, state pills, copy buttons), the status line, then the pages. Whether the pages stay tabs
   across the top or become a list on the left is open question 11.
@@ -1750,7 +1754,11 @@ above.
   `FindDomainControllersCancelCommand` of the Connect window, which has no user any more; no longer shown but read by
   tests or by the view model itself – `ErrorText` and `StatusText` of the Connect window and of "Change domain
   controller", `ListNote` of the latter, `Error` of "Reset Password" and of "New Object". No string lost its last user
-  in that unit.
+  in that unit. Added by V2b-2, unit 2: the string `UserMessages.Rich.CancelPaste` and `CancelPasteCommand` of the
+  message window, which have no user any more; `CancelSendCommand`, which only tests use; no longer shown but read by
+  tests or by the view model itself – `Error`, `StatusText`, `TestResultText`, `RichStatusText`, `ProgressText`,
+  `ProgressValue` and `ProgressMaximum` of the message window, `TestResult`, `TestSucceeded` and `OutlookAccountsText`
+  of the "E-mail messages" tab of the settings.
 - **Not seen, to confirm on Windows.** Nothing of V2b-1 was seen on a screen.
   - *The property sheet.* How a wrapped result looks in the 640 px wide sheet (two or three lines on the caution or
     critical surface, picture and buttons in the first line). The note next to the old validation texts (glyph and plain
@@ -1783,7 +1791,11 @@ above.
 that still had banners, in three units. Unit 1 converted the four dialogs that open a session or write one object – the
 Connect window, "Change domain controller", "Reset Password" and "New Object" – and, because they are the first small
 dialogs of the sweep, decided how a dialog carries a status line (the sub-list *Dialogs*, which units 2 and 3 follow).
-The foundations are those of *V2b-1 as built*; nothing was added to the model or to the controls.
+Unit 2 converted the window that sends messages to users, the settings window and the Logon Hours dialog – the first
+window of the increment with an operation over many items and a known count, the first dialog with tabs, and the first
+view that gets no status line at all – and added what they needed to *Dialogs* (12 to 16). The foundations are those of
+*V2b-1 as built*; nothing was added to the model or to the controls. The block reads: *Dialogs*, the four windows of
+unit 1 with their tests, counts and what was not seen, then the same for unit 2.
 
 - **Dialogs** (decided in unit 1; what the later units follow).
   1. *Where the line sits.* At the top of the dialog, above its fields: under the dialog's own header when it has one
@@ -1842,6 +1854,32 @@ The foundations are those of *V2b-1 as built*; nothing was added to the model or
       `Ad.WarningBar`, no `<ProgressBar`). Unit 1 had no such dialog – all four start an operation – and added no empty
       list. The question to ask: does the dialog itself read or write something that takes time, or can it fail by
       itself? An error its *opener* gets back and shows is not the status of the dialog.
+  12. *A dialog with tabs* (added by unit 2: the settings window). The line sits above the tab control, outside the
+      scrolling of the tabs, 8 px in from the window edge like in the property sheet: a test that was started far down a
+      long tab answers where the operator can see it. A tab that says something of its own gets a holder; the window's
+      holder has it in front while that tab is shown (the view tells the view model through a two-way `SelectedIndex`
+      binding – foundation 3). On a tab that has nothing to say the line is empty; a result of another tab is still in
+      its holder and is said again when that tab is shown.
+  13. *What answers a press and is still a note* (added by unit 2: the transport that does not fit, in the message
+      window). "Nothing was sent: these messages have images and this AdMng Watchdog takes none" answers the press of
+      *Send* – but it offers up to three ways out (a status has one action), and it is true of these messages and this
+      transport for as long as they are shown. It stays a note next to the button it explains, with its buttons; the
+      line keeps what it showed. The test of Dialogs 5 still holds for a sentence without a choice ("Enter the SMTP
+      password"): that one is status.
+  14. *"Busy" without a sentence in a dialog* (added by unit 2: the images of a template being read from the image
+      store). A `c:ProgressRing` (14 px, secondary text colour) next to the label of the place that is being filled, and
+      the old sentence as `AutomationProperties.ItemStatus` of that place – the ring is outside UI Automation (the
+      pattern of the quick search of the main window).
+  15. *A control that a converted window hosts* (added by unit 2: `Controls/HtmlPreviewView.xaml`, the rendered preview
+      of a message). Its elements are in the visual tree of the window, so a banner in it is a banner of the window –
+      for the operator and for the UI tests, whose "no element of the old banner styles" walks that tree. Its sentence
+      follows the sorting of its host: a note (why the HTML source is shown instead of the rendered preview), and the
+      control goes on `ConvertedViewsWithoutAStatusLine`. Look for hosted controls of other folders before a window is
+      called converted (`grep '<c:'` and the local namespaces of the view).
+  16. *The second list exists* (created by unit 2, as Dialogs 11 asked).
+      `XamlSourceTests.ConvertedViewsWithoutAStatusLine` – sorted, never overlapping `PagesWithAStatusLine` – with the
+      test `AConvertedViewWithoutAStatusLine_HasNoBannerAndNoProgressBar`: no `StatusLine` element, no `Ad.ErrorBar`, no
+      `Ad.WarningBar`, no `<ProgressBar`. On it after unit 2: the Logon Hours dialog and the rendered preview.
 - **The Connect window** (`Views/ConnectWindow.xaml`; `Connection/ConnectViewModel`).
   - *What the line says.* Under the header, above the profile box. At rest nothing; once domain controllers were looked
     for, "Domain controllers found: 2" – the summary, because the result is the list of the drop-down. **Working:**
@@ -2045,6 +2083,221 @@ The foundations are those of *V2b-1 as built*; nothing was added to the model or
     button of "Reset Password" starts at the left edge of the footer.
   - *The note of "New Object"* (glyph and plain text where a caution bar was), and the header "Results" in "Reset
     Password" where the counts were.
+- **The message window** (`Views/UserMessagesWindow.xaml`, "Send message to users";
+  `UserMessages/UserMessageComposerViewModel` with its part `…RichHtml.cs`) – unit 2.
+  - *What the line says.* At the top of the window, 8 px in from its edge, above the line that says how the messages go
+    out and the stage shown. **In the editor** nothing at rest; what the editor does is said there (below). **Preparing
+    the preview** – *Preview*, F5, *Retry failed*, *Send without images* – is the operation of the window: "Reading the
+    accounts (4) and preparing the messages…" with Stop; then, as the summary, the counts of the preview ("Ready: 3 ·
+    With warnings: 1 · Errors: 0 · Skipped: 2 · Excluded: 0", which follow the check boxes). Stopped – attention
+    "Preparing the messages was stopped: no message was prepared. Press Retry to try again."; could not be read – error
+    "Could not read the accounts: reason. Press Retry to try again. (code)"; both with Retry, which prepares the same
+    accounts again. A template that stops the plan – attention "No message was prepared: Enter the value of the field
+    “termin”." (the reasons that block, each once, three at most). **The test message:** "Sending the test message to
+    operator@contoso.test…" with Stop; done "The server accepted the test message for …"; error "The test message was
+    not sent: reason"; stopped – attention. **The send:** "Sending the messages: 12 of 300…" – one message whose ring
+    shows the part done, with ", failed: 2" once something failed and "– waiting to retry after a temporary failure"
+    while it waits – with Stop. How it ended: **done** "The server accepted 300 messages for users of contoso.test. The
+    report is in the list below."; **attention** when only a part was accepted ("The messages were sent only in part:
+    accepted by the server: 298, failed: 2, not sent: 0. The reasons are in the report below. Press “Retry failed” to
+    prepare the messages that were not sent again.") or the send was stopped ("Sending the messages was stopped:
+    accepted …, failed …, not sent ….", same advice); **error** when the server accepted none ("Could not send the
+    messages: …"); each with *Retry failed* as the action when something can be prepared again. Behind the result, as
+    the summary: the counts of the report ("Accepted by the server: 298 · Failed: 2 · Not sent: 0 · Not in this send:
+    1"). **Not started:** attention "No message was sent: Enter the SMTP password (kept in memory only until AD Manager
+    closes).", "The test message was not sent: Set your address for test messages in Settings → E-mail messages.", or
+    why no transport can be used. **The editor** (the page in front while it is shown): "Pasting the formatted content…"
+    with Stop; done "Pasted: 2 image(s), 0 note(s) below." (attention when one of the remarks listed under the content
+    warns), "Image obraz1.png inserted.", a link domain that was allowed, a link that was removed; attention "Nothing
+    was pasted: The clipboard holds no image." (nothing to paste, too large, an image that was refused, the limits of
+    the template); stopped – attention "Pasting was stopped: the content was not changed.". As the state that lasts: the
+    session of the window ended, or it was opened without one.
+  - *How the old places were sorted* (2 error bars, 2 warning bars, 3 progress bars, and the texts that said the same).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `Error` in the header (the template stops the plan; the read failed; the SMTP password is missing; no transport; no session) | status | attention "no message was prepared / sent: why"; error of the read with Retry; lasting error of the window |
+    | warning bar `SessionEndedMessage` in the header | status | lasting error of the window |
+    | progress bar and `StatusText` in the footer ("Reading the accounts from the domain controller...") | status | the preparation in the line, with Stop |
+    | progress bar and `ProgressText` of the sending stage ("Sent 12 of 300 · accepted 11 · failed 1"); the *Stop* button of the footer | status | the send in the line, with the part done; *Send* is an action button and stays for that stage (the stage keeps its title and says what closing the window means) |
+    | row under the toolbar of the HTML section: progress bar and `RichStatusText` (pasting, pasted, an image inserted or refused, a link allowed or removed); the *Stop pasting* button | status | operation and results of the editor; *Paste formatted content* is an action button |
+    | the same row saying "Loading the template's images…" | "busy" without a sentence | progress ring at the label of the image strip (Dialogs 14) |
+    | the same row saying "2 image(s) of the template could not be read (file missing or changed) – remove them or paste them again.", with *Remove missing images* | note | `Ad.Note.Attention` in the image strip, with its button: true for as long as the template has such images |
+    | `SummaryText` next to the filter of the preview; `ReportSummary` above the report | summary | `SetIdle` of the stage shown; gone from the page (the report has the header "Report") |
+    | `TestResultText` under the selected message | status | result of the test message |
+    | error bar `TemplateErrors` under the editor (syntax, fields that are never sent, HTML) | note | `Ad.Note.Error`: the findings of the template check while editing – computed from the text for as long as it is shown |
+    | warning bar above the footer: why the messages do not fit the transport, with *Send directly through SMTP*, *Send without images*, *Cancel* | note | `Ad.Note.Attention` in the same place, with its buttons (Dialogs 13) |
+    | bar of the rendered preview: WebView2 is missing or the preview is switched off, so the HTML source is shown (`Controls/HtmlPreviewView.xaml`, hosted twice) | note | `Ad.Note.Attention` in the control (Dialogs 15) |
+    | the remarks of a paste under the content, the issues of the selected message, the hints | note | unchanged |
+
+  - *Decisions.*
+    - **Two holders: the window and the editor.** A paste reads image files and may take long, and *Preview* can be
+      pressed meanwhile – on one holder the second `Begin` would have taken the paste off the line for good. The editor
+      owns `EditorStatus` and is `Status.Front` exactly while the editor is shown (`OnStageShown`); the preparation of
+      the preview is the window's own and takes the line while it runs; back in the editor a paste that still runs is
+      said again.
+    - **One holder for the preparation, the test message and the send:** their commands exclude one another (`IsBusy`,
+      the stage), as before.
+    - **Which button cancels what.** *Preview* is running while `IsPlanning` (not `IsBusy`, which a test message sets as
+      well), *Send* while the stage is "sending" – it is shown in the preview **and** while sending (`IsSendStep`), so
+      the button that was pressed stays where it was; both cancel through the window's holder. *Paste formatted content*
+      is running while `IsPasting` and cancels through the editor's. The test message keeps its plain button – it never
+      had a Stop – and is stopped in the line, like a preparation that no visible button started (F5 in the preview,
+      *Retry failed*, Retry of the line). `CancelSendCommand`, which the old *Stop* button used, is the same Stop.
+    - **A read that failed or was stopped is a result, not a state:** the window shows what it showed before – the
+      editor, or the preview of before – and Retry prepares the same accounts again (`_lastPlanned`). Nothing is empty
+      because of it.
+    - **Stop holds.** Stop while the messages are rendered (the last, uncancellable step of the plan) leaves the window
+      as it was; Stop while the import of a paste finishes all the same pastes nothing (Dialogs 9).
+    - **Tokens** (rule 6). The test message ran with `CancellationToken.None`; it has the token of its operation now.
+      The plan's "latest wins" token is linked with the operation's; the paste has the operation's alone. How messages
+      are planned, rate-limited, sent, reported and written to the session log did not change –
+      `UserMessageComposerTests` passes as it was.
+    - **How a send ended is said three times over, each for its reader:** the line (what happened, the counts, what to
+      do), the report (which account, why), and – unchanged – the toast of the main window, for which the send finished
+      elsewhere (6.7). The sending stage lost its bar: how far the send is, is the ring and the numbers of the line and
+      the Cancel of the button.
+    - **The end of the session** ends a preparation without a word and "busy" with it at once; a send or a test message
+      goes on – neither needs the session – and still says how it ended. Messages that are prepared can still be sent;
+      *Retry failed* is not offered then (nothing can be read again).
+    - **A new attempt takes what the line said about the one before with it** (`EnsureTransportAsync`): the old error
+      bar was cleared when *Send* was pressed again, and "No message was sent: Enter the SMTP password…" next to a note
+      about the transport would be two answers to one press. *Back* closes what the line said about the step that is
+      left.
+    - **What may be named.** The line names the domain of the window and the operator's own address for test messages
+      (from the settings); never a recipient, a subject or the content of a message, and never the SMTP password or the
+      SMTP user name. The log copy is a key with numbers (the count of accounts, done / total / failed, accepted /
+      failed / not sent).
+    - The keys are `MessageWindow.Status.*` (`L.MessageWindowStatus`): `UserMessages.Status.*` is the family of the
+      states of a planned message. One string is no status: `MessageWindow.SendingHint`, what the sending stage says now
+      that its bar is gone. The texts of the editor are the ones its row had (`UserMessages.Rich.*`), as results with
+      their keys as log copies.
+    - `Error`, `StatusText`, `TestResultText`, `RichStatusText`, `ProgressText`, `ProgressValue`, `ProgressMaximum`,
+      `SummaryText`, `ReportSummary`, `IsBusy` and `CancelSendCommand` are unchanged for the tests and the code that
+      read them. The window is 36 px higher by default (820 to 856).
+  - *Where this differs from the recipe.* The rendered preview is a control of `Controls/`, outside the twelve windows
+    of this increment, and is hosted by the correspondence window too, which is not converted: its one bar was converted
+    here all the same (Dialogs 15) – with it the message window shows no banner in any state, and the correspondence
+    window shows that one note next to its own bars until its unit. The transport that does not fit is a note although
+    it answers a press (Dialogs 13). The test message got Stop without an action button.
+- **The settings window** (`Views/SettingsWindow.xaml`; `Settings/SettingsViewModel`,
+  `UserMessages/UserMessageSettingsViewModel` for the "E-mail messages" tab) – unit 2.
+  - *What the line says.* Above the tabs (Dialogs 12). The window itself says nothing: Save writes a local file and
+    closes the dialog, and the window never acts in a session, so it has no state that lasts. **While the "E-mail
+    messages" tab is shown** the line is the tab's: "Testing the connection to smtp.contoso.com:587…" with Stop, then
+    done "The connection to smtp.contoso.com:587 works: encrypted (Tls13), authentication: LOGIN." or error "The
+    connection to smtp.contoso.com:587 does not work: Stage "TLS" failed: smtp.notSupported – The server does not offer
+    STARTTLS."; "Sending the test message to …" with Stop and its result, in the words of the message window;
+    "Connecting to Outlook…" with Stop, then done "The Outlook profile “Outlook” has 2 accounts. Choose the account to
+    send from in the list.", attention "The Outlook profile has no accounts." or error "Could not read the accounts from
+    Outlook: reason". Stopped – attention ("Testing the connection to … was stopped.", "Reading the accounts from
+    Outlook was stopped: the list was not changed."). Not started – attention "The connection was not tested: Enter the
+    SMTP password (kept in memory only until AD Manager closes)." or, with a value that is not valid, the sentence of
+    the note below. On the other tabs the line is empty.
+  - *How the old places were sorted* (1 error bar, 1 warning bar, and the two texts that said what a button did).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `Error` above the buttons (the first value of any tab that is not valid: why Save cannot be pressed) | note | `Ad.Note.Error` in the same place – computed from the fields for as long as they are shown |
+    | warning bar under the TLS choice ("Without TLS the messages travel unencrypted…") with its confirmation check box | note | `Ad.Note.Attention` next to the choice, while it is chosen; the check box under it |
+    | `TestResult` under the test buttons (testing, how the test ended, what was missing) | status | operation and result of the tab; what the server showed – the mechanisms it offers, the fingerprint of its certificate, which *Pin the certificate from the test* pins – stays there as `TestDetails` |
+    | `OutlookAccountsText` under the account box ("Accounts of the profile “…”: a@…, b@…", or why Outlook could not be used) | status | operation and result of the tab; the accounts are the list of the box, the line says how many |
+    | the hints of the fields, the pinned certificate, the salutation check | note | unchanged |
+
+  - *Decisions.*
+    - **Both banners are notes.** "Sender address: not a valid e-mail address." is not the answer to a press: it is
+      there while the value is, and goes with it – a validation text. What the insecure choice means is true while it is
+      chosen. Neither is a setting "applied at the next start"; the window has no such sentence.
+    - **The tab owns the holder, the window shows it** – the window has no operation of its own, so its holder only has
+      the tab in front (`SelectedTabIndex`, `SettingsViewModel.MessagesTab`). A result of the tab is not shown on
+      *General* or *Computers* and is back on its tab.
+    - **Three operations on one holder, one after another:** the connection test, the test message and the read of the
+      Outlook accounts each refuse while another runs (`IsTesting`, `IsLoadingOutlookAccounts` – the accounts could be
+      read during a test before; with one line for the tab they cannot).
+    - **The buttons stay plain buttons, Stop is in the line.** None of the three had a Cancel, and three action buttons
+      over one holder would each need a flag; the line is in sight above the tabs wherever the tab is scrolled.
+    - **Tokens** (rule 6): the three calls ran with `CancellationToken.None`; they have the token of their operation.
+      Closing the window ends what runs without a word (`EndOperations`). A read of the accounts that Outlook answered
+      although Stop was pressed leaves the list as it was (Dialogs 9); a connection test that the server answered all
+      the same says its result – it changes no setting.
+    - **No result code of ours for a failed test:** the reason of the transport carries its own code
+      ("smtp.notSupported") and what it means.
+    - **The SMTP password is in no text.** The line names the server and the mechanism that was used, never the user
+      name or the password; the log copy is a key (and the count of accounts).
+    - The three tabs scroll from 564 px instead of 600, so with a tab that scrolls the dialog is as high as it was; with
+      a shorter tab it is 36 px higher (it sizes to its content, and grows with a result that wraps). `TestResult`,
+      `TestSucceeded` and `OutlookAccountsText` are still set for the tests that read them; `TestDetails` is new.
+- **Logon Hours** (`Views/LogonHoursWindow.xaml`; `Dialogs/LogonHoursViewModel`, untouched) – unit 2. **No status line**
+  (Dialogs 11): the dialog is pure editing – it reads nothing, writes nothing and hands its result to its opener, which
+  turns it into a change plan. Its three warning bars are true of the grid for as long as it is shown and became
+  `Ad.Note.Attention` where they were: why the hours cannot be changed (the reason its opener hands in – for example no
+  right to write) and a stored value the grid cannot show – above the grid; "No hour is permitted: the user will not be
+  able to log on at all." – under it, while the schedule is so, still announced when it appears. The notes are left
+  aligned and keep the 720 px cap of the bars (the dialog sizes to its content). The view is on
+  `ConvertedViewsWithoutAStatusLine`.
+- **Tests (unit 2).** Presentation (run on Linux): `UserMessages/UserMessageComposerStatusTests` (26 cases: at rest with
+  the editor in front; preparing with Stop and the counts in both languages; Stop with "Stopping…" at once and Retry
+  that prepares the same accounts; a failed read in both languages; a template that stops the plan in both languages;
+  sending with "0 of 2", "1 of 2", "2 of 2" and the result with the domain in both languages, then the counts of the
+  report; Stop while sending, also through the command of the old button; sent in part in both languages; nothing
+  accepted, and no Retry without a session; no SMTP password in both languages – and the password in no text; the test
+  message with Stop, refused, stopped, without an address; the paste as the editor's operation while the preview is
+  prepared; Stop while pasting although the import finished; the small steps of the editor and that they go with the
+  template; the transport that does not fit as a note while the line keeps its summary; the end of the session during a
+  held read – nothing "busy" – and in Polish after a language switch; closing the window; the log copies without an
+  address, a name, the content or the password) and `UserMessages/UserMessageSettingsStatusTests` (13 cases: the tab in
+  front and the empty line of the other tabs; the connection test with Stop in both languages; a failed test with its
+  stage; Stop; what stops a test before it starts, in both languages, and the password in no text; the test message; the
+  Outlook accounts in both languages – how many, not which; accounts that could not be read, and a stopped read; closing
+  the window; the log copies). `HtmlPasteWorkflowTests` got the note of the images that could not be read (no status, in
+  Polish after the switch, gone with the images). The fake transport can hold a connect and a connection test, the fake
+  Outlook client a connect. Unchanged and green: `UserMessageComposerTests`, `UserMessageSettingsTests`, the salutation,
+  transport and library tests. UI (Windows CI): `UserMessagesStatusUiTests` (four tests through the real window),
+  `SettingsStatusUiTests` (three), `LogonHoursNotesUiTests` (two: no status line, the three notes). Adapted where the
+  place of a message changed: `UserMessagesWindowTests` (the counts of the report are read from the line behind the
+  result), `UserMessagesRichHtmlWindowTests` (what became of a paste is read from the line; the transport and the
+  fallback of the preview are notes) and `CorrespondenceWindowTests` (how the read of the Outlook accounts ended is read
+  from the line of the settings window). Source rules: the two views are on `PagesWithAStatusLine` (fourteen views now),
+  the dialog and the hosted control on `ConvertedViewsWithoutAStatusLine`; proven on Linux with the throwaway script,
+  extended by the second list.
+- **After unit 2** (counted in the XAML, comments excluded): 20 uses of `Ad.ErrorBar` and 36 of `Ad.WarningBar` in 36
+  files and 34 progress bars in 31 files – 45 view files with at least one of the three; 14 views with a status line and
+  2 converted views without one. Unit 2 took 3 error bars (1 status, 2 notes – the first error bars of the sweep that
+  are notes: both are findings of a check that runs while the operator types), 7 warning bars (1 status, the session
+  that ended, and 6 notes, the bar of the rendered preview among them) and 3 progress bars (all status). Left for unit 3
+  in `Views/`: the filter editor, the saved view editor and the session log (1 error bar each), the container picker and
+  the object picker (1 progress bar each); the progress bar of an activity row in the main window stays.
+  `Controls/HtmlPreviewView.xaml` has left the by-area list of *What V2b has to do*. Left behind, to be looked through
+  when the sweep is over (added to the list of *After V2b-1*): the string `UserMessages.Rich.CancelPaste` and the
+  command `CancelPasteCommand` of the message window, which have no user any more; `CancelSendCommand`, which only tests
+  use; and view-model members that are no longer shown but are read by tests or by the view model itself (`Error`,
+  `StatusText`, `TestResultText`, `RichStatusText`, `ProgressText`, `ProgressValue` and `ProgressMaximum` of the message
+  window; `TestResult`, `TestSucceeded` and `OutlookAccountsText` of the "E-mail messages" tab of the settings).
+- **Not seen, to confirm on Windows (unit 2).** Nothing of this was seen on a screen.
+  - *The message window.* The line above the row that says how the messages go out – an empty band of 28 px in the
+    editor at rest – and the footer with buttons only. *Preview* and *Send (300)* as wide as "Stopping…" /
+    "Zatrzymywanie…" needs; *Paste formatted content* is wider than that already. The sending stage: a title and two
+    sentences in the middle of the window where an 8 px bar was – whether the 16 px ring of the line and its numbers are
+    enough for a send that takes minutes (taskbar progress is not built). The notes: the findings of the template check
+    (several lines next to one glyph) under the editor, the transport that does not fit next to its three buttons, the
+    images that could not be read with their button, the fallback of the rendered preview; the 14 px ring next to
+    "Images in the content". The header "Report". The long results: sent in part with the counts, where the reasons are
+    and what to press – some 200 characters, two lines at the default width and three at the minimum width of 860 px;
+    "No message was prepared: …" with three reasons may be cut in its third line. Three README pictures show this window
+    (the preview, the salutations, the formatted content): they change with this unit – the line at the top, and in it
+    the counts that stood next to the filter.
+  - *The settings window.* The line above the tab strip is empty on every tab at rest, and always on *General* and
+    *Computers*: whether that band reads as a gap in this dialog more than in the others. The answer of a test appears
+    at the top of the dialog while its button is at the bottom of a long tab – in sight, but not next to the button,
+    where the old text was (what the server showed is still there). The note above the buttons where the critical bar
+    was (glyph and plain text for "why Save is disabled"); the note of the TLS choice in the column of the fields.
+  - *Logon Hours.* The three notes without their caution background – "No hour is permitted…" is the loudest thing the
+    dialog says and is now a glyph and a sentence under the grid.
+  - *Known and left.* While the window has no session the line says so and nothing else at rest – the state that lasts
+    takes the place of the summary, and the window's own error that cannot be closed covers what the page in front says
+    (foundation 3): in a message window whose session ended the counts of the preview and of the report are not shown (a
+    result still is, until it is closed), and what the editor says about a paste is not shown at all (the remarks of the
+    paste under the content are). To be decided with the rest of "what a window without a session still does".
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 
