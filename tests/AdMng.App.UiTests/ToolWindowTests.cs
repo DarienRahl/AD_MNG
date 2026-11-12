@@ -56,7 +56,8 @@ public sealed class ToolWindowTests
         Assert.Equal("Dyrektor finansowa", entry.NewValue);
         Assert.True(entry.Succeeded);
         Assert.Single(window.EntriesList.Items);
-        Assert.Equal(log.CountText, window.CountText.Text);
+        Assert.Equal("Entries: 1 of 1", log.CountText);
+        Assert.Equal(log.CountText, window.PageStatus.Message);
 
         log.FilterText = "nie ma takiego wpisu";
         await UiTestSupport.WaitForIdleAsync();
