@@ -830,7 +830,7 @@ public sealed partial class ShellViewModel
 
     private async Task EditAndSaveViewAsync(SavedView view, bool isNew)
     {
-        var editor = new SavedViewEditorViewModel(Sessions, _dialogs, Localizer, Errors, view, isNew);
+        var editor = new SavedViewEditorViewModel(Sessions, _dialogs, Localizer, Errors, _lists.Dispatcher, view, isNew, _lists.StatusLog);
         if (await _dialogs.ShowSavedViewEditorAsync(editor).ConfigureAwait(true) && editor.Result is { } saved)
         {
             await _views.SaveViewAsync(saved).ConfigureAwait(true);

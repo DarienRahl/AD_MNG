@@ -5,13 +5,16 @@ using AdMng.Core.Directory;
 using AdMng.Core.Filters;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
+using AdMng.Presentation.Connections;
 using AdMng.Presentation.Errors;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Session;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 
 namespace AdMng.Presentation.Filters;
 
@@ -103,7 +106,16 @@ public sealed partial class FilterGroupViewModel : ObservableObject
 /// I/LUB, a live preview of the LDAP filter built only through <see cref="FilterCompiler"/> (CLAUDE.md rule 3), a raw LDAP
 /// filter for advanced users (validated), a test count on the DC and Save by name. Modal; <see cref="Result"/> after Save.
 /// </summary>
-public sealed partial class FilterEditorViewModel : ObservableObject
+/// <remarks>
+/// The window has one status line (<see cref="Status"/>; track V, stage V2b, design note
+/// docs/dev/v-interface-renewal.md "V2b-2 as built"). Its one operation is the test of the filter on the domain
+/// controller: the line says that the matching objects are being counted (with Stop - the Test button is its Cancel),
+/// how many there are, that the count was stopped or why it failed, and why a test was not started. What is wrong with
+/// the filter itself (<see cref="Error"/>) is no status: it is computed from the conditions while they are shown and
+/// stands next to the filter as a note. The editor is not pinned to a session - a filter can be edited and saved
+/// without one - so it has no state that lasts.
+/// </remarks>
+public sealed partial class FilterEditorViewModel : ObservableObject, IHasPageStatus
 {
     private readonly ISessionManager _sessions;
     private readonly IDialogService _dialogs;
@@ -113,19 +125,28 @@ public sealed partial class FilterEditorViewModel : ObservableObject
     private readonly SavedFilter _original;
     private bool _settingRaw;
 
+    /// <remarks>
+    /// <c>dispatcher</c>: the UI thread, for the status line; <c>statusLog</c>: the diagnostic log the status line
+    /// writes its value-free copies to (null in hosts without logging).
+    /// </remarks>
     public FilterEditorViewModel(
         ISessionManager sessions,
         IDialogService dialogs,
         ILocalizer localizer,
         ErrorTranslator errors,
         TimeProvider time,
-        SavedFilter? existing = null)
+        IUiDispatcher dispatcher,
+        SavedFilter? existing = null,
+        ILogger<PageStatusHolder>? statusLog = null)
     {
         _sessions = sessions ?? throw new ArgumentNullException(nameof(sessions));
         _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
         _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
         _errors = errors ?? throw new ArgumentNullException(nameof(errors));
         _time = time ?? throw new ArgumentNullException(nameof(time));
+
+        // Before the first Regenerate: a change of the filter takes what the line said about a test with it.
+        Status = new PageStatusHolder(localizer, dispatcher ?? throw new ArgumentNullException(nameof(dispatcher)), statusLog);
         IsNew = existing is null;
         _original = existing ?? new SavedFilter();
         Operators = [.. Enum.GetValues<FilterOperator>().Select(o => new Option<FilterOperator>(o, localizer[FilterTexts.OperatorKey(o)]))];
@@ -171,6 +192,12 @@ public sealed partial class FilterEditorViewModel : ObservableObject
 
     public string WindowTitle => _localizer[IsNew ? L.Filters.NewTitle : L.Filters.EditTitle];
 
+    /// <summary>
+    /// The status of the window - what its one status line shows: the running test of the filter (with Stop) and how it
+    /// ended. Empty at rest.
+    /// </summary>
+    public PageStatusHolder Status { get; }
+
     public IReadOnlyList<Option<FilterOperator>> Operators { get; }
 
     public IReadOnlyList<Option<FilterCombinator>> Combinators { get; }
@@ -205,7 +232,7 @@ public sealed partial class FilterEditorViewModel : ObservableObject
     [ObservableProperty]
     public partial string Preview { get; private set; } = string.Empty;
 
-    /// <summary>Localized problems of the filter, or null.</summary>
+    /// <summary>Localized problems of the filter, or null: the note next to the filter (why Save and Test are not possible).</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand), nameof(TestCommand))]
     public partial string? Error { get; private set; }
@@ -214,6 +241,10 @@ public sealed partial class FilterEditorViewModel : ObservableObject
     [ObservableProperty]
     public partial string? ClientCheckNote { get; private set; }
 
+    /// <summary>
+    /// How the last test ended, as plain text ("Matching objects: 4 (0.02 s)"; the status line says it - kept for
+    /// callers that read it); null once the filter changed.
+    /// </summary>
     [ObservableProperty]
     public partial string? TestResult { get; private set; }
 
@@ -277,13 +308,24 @@ public sealed partial class FilterEditorViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Counts the objects the filter matches on the domain controller. The test is the operation of the window: its
+    /// status line says so with Stop - the Test button is its Cancel as well, and so is the cancel of this command, which
+    /// the view uses when the window closes - and says how many objects match, that the count was stopped, or why it
+    /// failed. A filter that changes while it is tested ends the test without a word: the count would be about another
+    /// filter.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanTest), IncludeCancelCommand = true)]
     private async Task TestAsync(CancellationToken cancellationToken)
     {
+        // A new attempt takes what the line said about the one before with it.
+        Status.Clear();
         var session = _sessions.Current;
         if (session is null)
         {
             TestResult = _localizer[L.Errors.NotConnected];
+            Status.Show(PageStatus.Attention(
+                PageStatusText.Failure(_localizer[L.FilterEditorStatus.NotTested], TestResult), new PageStatusLog(L.Errors.NotConnected)));
             return;
         }
 
@@ -297,7 +339,13 @@ public sealed partial class FilterEditorViewModel : ObservableObject
             return;
         }
 
+        var domain = ConfirmationText.Domain(session);
         TestResult = _localizer[L.Views.Testing];
+
+        // "Working" from here on, with Stop; however this method is left, the line does not stay in "working".
+        using var testing = Status.Begin(_localizer.Format(L.FilterEditorStatus.Testing, domain), new PageStatusLog(L.FilterEditorStatus.Testing));
+        using var stop = cancellationToken.Register(testing.Cancel);
+        var token = testing.Token;
         var search = new DirectorySearch
         {
             BaseDn = session.Info.DefaultNamingContext,
@@ -312,7 +360,7 @@ public sealed partial class FilterEditorViewModel : ObservableObject
                 async () =>
                 {
                     var n = 0;
-                    await foreach (var obj in session.SearchAsync(search, cancellationToken).ConfigureAwait(false))
+                    await foreach (var obj in session.SearchAsync(search, token).ConfigureAwait(false))
                     {
                         if (plan.Matches(obj))
                         {
@@ -322,17 +370,59 @@ public sealed partial class FilterEditorViewModel : ObservableObject
 
                     return n;
                 },
-                cancellationToken).ConfigureAwait(true);
-            TestResult = _localizer.Format(L.Views.TestResult, count, stopwatch.Elapsed.TotalSeconds.ToString("0.00", _localizer.Culture));
+                token).ConfigureAwait(true);
+            if (testing.IsEnded)
+            {
+                // The filter changed meanwhile: the count is about another filter.
+                return;
+            }
+
+            if (testing.IsCancelling)
+            {
+                // The domain controller answered although Stop was pressed: stopped is what the operator asked for.
+                TestStopped(testing);
+                return;
+            }
+
+            var seconds = stopwatch.Elapsed.TotalSeconds.ToString("0.00", _localizer.Culture);
+            TestResult = _localizer.Format(L.Views.TestResult, count, seconds);
+            testing.CompleteDone(
+                _localizer.Format(L.FilterEditorStatus.Tested, domain, count, seconds), new PageStatusLog(L.FilterEditorStatus.Tested, count));
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            TestResult = _localizer[L.Errors.Cancelled];
+            // Only a test the operator stopped says so; one that ended with its filter says nothing.
+            if (testing.IsCancelling)
+            {
+                TestStopped(testing);
+            }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
+            if (testing.IsEnded)
+            {
+                return;
+            }
+
+            // The editor is as it was: a result that can be closed, with the way to try again.
             TestResult = _errors.Translate(ex);
+            var code = ResultCode.Of(ex);
+            testing.CompleteError(
+                PageStatusText.Failure(_localizer.Format(L.FilterEditorStatus.TestFailed, domain), TestResult, _localizer[L.Feedback.RetryNext], code),
+                new PageStatusLog(L.FilterEditorStatus.TestFailed).WithCode(code),
+                new PageStatusAction(_localizer[L.Common.Retry], TestCommand));
         }
+    }
+
+    /// <summary>The operator stopped the test: what was not done, and the button that tests again.</summary>
+    private void TestStopped(OperationScope testing)
+    {
+        TestResult = _localizer[L.Errors.Cancelled];
+        var again = _localizer[L.Views.Test];
+        testing.CompleteAttention(
+            _localizer.Format(L.FilterEditorStatus.TestStopped, again),
+            new PageStatusLog(L.FilterEditorStatus.TestStopped),
+            new PageStatusAction(again, TestCommand));
     }
 
     private bool CanTest() => Error is null;
@@ -427,7 +517,9 @@ public sealed partial class FilterEditorViewModel : ObservableObject
             Groups[issue.GroupIndex].Conditions[issue.ConditionIndex].Issue = _localizer[FilterTexts.IssueKey(issue.Code)];
         }
 
+        // What the line said about a test - and a test that still runs - was about the filter of before.
         TestResult = null;
+        Status.Clear();
         if (issues.Count > 0)
         {
             Preview = string.Empty;

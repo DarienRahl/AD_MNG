@@ -517,7 +517,7 @@ internal static partial class SmokeTest
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateSavedFilters()));
         var dialogServices = services.GetRequiredService<DialogServices>();
         var editor = new Presentation.Filters.FilterEditorViewModel(
-            dialogServices.Sessions, dialogServices.Dialogs, dialogServices.Localizer, dialogServices.Errors, dialogServices.Time);
+            dialogServices.Sessions, dialogServices.Dialogs, dialogServices.Localizer, dialogServices.Errors, dialogServices.Time, dialogServices.Dispatcher);
         editor.Groups[0].Conditions[0].Attribute = Core.ActiveDirectory.Attr.Department;
         editor.Groups[0].Conditions[0].Value = "Księgowość";
         editor.AddGroupCommand.Execute(null);

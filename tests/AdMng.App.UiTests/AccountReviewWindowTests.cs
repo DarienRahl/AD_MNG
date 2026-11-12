@@ -259,7 +259,8 @@ public sealed class AccountReviewWindowTests
 
         // The builder with two groups and a problem shown next to the condition.
         var services = context.Services.GetRequiredService<DialogServices>();
-        var editor = new Presentation.Filters.FilterEditorViewModel(services.Sessions, services.Dialogs, services.Localizer, services.Errors, services.Time);
+        var editor = new Presentation.Filters.FilterEditorViewModel(
+            services.Sessions, services.Dialogs, services.Localizer, services.Errors, services.Time, services.Dispatcher);
         var builder = (FilterEditorWindow)windows.CreateWindow(editor);
         UiTestSupport.ShowOffScreen(builder);
         editor.Groups[0].Conditions[0].Attribute = Attr.Department;
