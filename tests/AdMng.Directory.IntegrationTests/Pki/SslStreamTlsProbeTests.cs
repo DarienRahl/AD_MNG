@@ -29,7 +29,7 @@ public sealed class SslStreamTlsProbeTests
 
         var result = await Probe(server.Port).ProbeAsync("localhost", 636, Generous, TestContext.Current.CancellationToken);
 
-        AssertOutcome(TlsProbeOutcome.Ok, result, server.Seen);
+        await AssertHandshakeAsync(result, server);
         Assert.Equal("localhost", result.Host);
         Assert.Equal(636, result.Port);
         Assert.NotNull(result.Protocol);
@@ -61,7 +61,7 @@ public sealed class SslStreamTlsProbeTests
 
         var result = await Probe(server.Port).ProbeAsync("localhost", 636, Generous, TestContext.Current.CancellationToken);
 
-        AssertOutcome(TlsProbeOutcome.Ok, result, server.Seen);
+        await AssertHandshakeAsync(result, server);
         Assert.Equal(leaf.RawData, result.PresentedChain[0]);
         Assert.NotNull(result.PolicyErrors);
         Assert.NotEqual(SslPolicyErrors.None, result.PolicyErrors);
@@ -78,7 +78,7 @@ public sealed class SslStreamTlsProbeTests
 
         var result = await Probe(server.Port).ProbeAsync("localhost", 636, Generous, TestContext.Current.CancellationToken);
 
-        AssertOutcome(TlsProbeOutcome.Ok, result, server.Seen);
+        await AssertHandshakeAsync(result, server);
         Assert.True(result.PolicyErrors?.HasFlag(SslPolicyErrors.RemoteCertificateNameMismatch));
         var info = DcCertificateEvaluation.Evaluate(result.PresentedChain, "localhost", "contoso.test", Trust(), PkiSamples.Now);
         Assert.False(info.NameMatchesDc);
@@ -93,7 +93,7 @@ public sealed class SslStreamTlsProbeTests
 
         var result = await Probe(server.Port).ProbeAsync("localhost", 3269, Generous, TestContext.Current.CancellationToken);
 
-        AssertOutcome(TlsProbeOutcome.Ok, result, server.Seen);
+        await AssertHandshakeAsync(result, server);
         Assert.Equal(3269, result.Port);
         Assert.Equal(leaf.RawData, Assert.Single(result.PresentedChain));
         Assert.False(DcCertificateEvaluation.Evaluate(result.PresentedChain, "localhost", "contoso.test", Trust(), PkiSamples.Now).ChainsToAdRoot);
@@ -278,6 +278,26 @@ public sealed class SslStreamTlsProbeTests
             $"{maxCompletionPorts - completionPorts} I/O threads busy; {Environment.ProcessorCount} processors.");
     }
 
+    /// <summary>
+    /// The probe of a test TLS server ended in a handshake. One that did not - five times so far it was the probe's own
+    /// ten seconds, on a Windows runner, with one connection accepted and no handshake completed - says what the server
+    /// saw and when, then waits for what became of the server's side once the probe had given up (a server that only
+    /// waited for the client ends at once; one that stood still itself does not), and lets a client of the test's own
+    /// try a second handshake with the options of the probe. So the failure names the side that stood still, for how
+    /// long, and whether it still does. Nothing of this runs for a probe that ended as expected.
+    /// </summary>
+    private static async Task AssertHandshakeAsync(TlsProbeResult result, TlsServer server)
+    {
+        if (result.Outcome == TlsProbeOutcome.Ok)
+        {
+            return;
+        }
+
+        var seen = server.Seen;
+        var afterwards = await server.AfterTheProbeGaveUpAsync();
+        AssertOutcome(TlsProbeOutcome.Ok, result, $"{seen}. Afterwards: {afterwards}");
+    }
+
     private static PkiTrustMaterial Trust() => new([PkiSamples.RootCaDer], [PkiSamples.IssuingCaDer], [PkiSamples.IssuingCaDer]);
 
     /// <summary>
@@ -371,6 +391,11 @@ public sealed class SslStreamTlsProbeTests
         private readonly TaskCompletionSource<ClientSeen> _client = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly List<Task> _connections = [];
         private readonly Task _accepting;
+
+        // When what happened, from the start of this server: the timeline a failed probe is explained with.
+        private readonly Stopwatch _clock = Stopwatch.StartNew();
+        private readonly List<Connection> _timeline = [];
+        private readonly long _contextBuiltAfter;
         private int _accepted;
         private int _handshakes;
 
@@ -380,14 +405,90 @@ public sealed class SslStreamTlsProbeTests
             _listener.Start();
             Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
             var context = SslStreamCertificateContext.Create(leaf, new X509Certificate2Collection(intermediates), offline: true);
+            _contextBuiltAfter = _clock.ElapsedMilliseconds;
             _accepting = Task.Run(() => AcceptAsync(context, requestClientCertificate, _stop.Token));
         }
 
         public int Port { get; }
 
         /// <summary>What the server saw so far, for a probe that did not end as expected.</summary>
-        public string Seen =>
-            $"{Volatile.Read(ref _accepted)} connection(s) accepted on port {Port}, {Volatile.Read(ref _handshakes)} handshake(s) completed";
+        public string Seen
+        {
+            get
+            {
+                var now = _clock.ElapsedMilliseconds;
+                string[] connections;
+                lock (_timeline)
+                {
+                    connections = [.. _timeline.Select((connection, index) => $"connection {index + 1} {connection.Describe(now)}")];
+                }
+
+                return $"{Volatile.Read(ref _accepted)} connection(s) accepted on port {Port}, {Volatile.Read(ref _handshakes)} handshake(s) completed" +
+                    $" (its certificate context took {_contextBuiltAfter} ms to build; {now} ms after its start" +
+                    $"{string.Concat(connections.Select(c => "; " + c))})";
+            }
+        }
+
+        /// <summary>
+        /// What became of this server after a probe gave up on it: how long its connections took to end (one that only
+        /// waited for the client ends as soon as the client is gone), and how a second handshake goes - by a client of
+        /// the test's own, with the options of the probe and half a minute to finish.
+        /// </summary>
+        public async Task<string> AfterTheProbeGaveUpAsync()
+        {
+            Task[] connections;
+            lock (_connections)
+            {
+                connections = [.. _connections];
+            }
+
+            var waited = Stopwatch.StartNew();
+            string ended;
+            try
+            {
+                await Task.WhenAll(connections).WaitAsync(TimeSpan.FromSeconds(30));
+                ended = $"its connection(s) ended within {waited.ElapsedMilliseconds} ms";
+            }
+            catch (TimeoutException)
+            {
+                ended = "its connection(s) had not ended 30 s later";
+            }
+
+            return $"{ended}; {await SecondHandshakeAsync()}; the server then: {Seen}";
+        }
+
+        private async Task<string> SecondHandshakeAsync()
+        {
+            var watch = Stopwatch.StartNew();
+            long connectedAfter = -1;
+            long certificateAfter = -1;
+            try
+            {
+                using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                using var client = new TcpClient();
+                await client.ConnectAsync(IPAddress.Loopback, Port, deadline.Token);
+                connectedAfter = watch.ElapsedMilliseconds;
+
+                var capture = new SslStreamTlsProbe.Capture();
+                var options = SslStreamTlsProbe.Options("localhost", capture);
+                options.RemoteCertificateValidationCallback = (sender, certificate, chain, errors) =>
+                {
+                    // The server's certificate is here and the platform has built its chain.
+                    Volatile.Write(ref certificateAfter, watch.ElapsedMilliseconds);
+                    return capture.Accept(sender, certificate, chain, errors);
+                };
+                await using var stream = new SslStream(client.GetStream(), leaveInnerStreamOpen: false);
+                await stream.AuthenticateAsClientAsync(options, deadline.Token);
+                return $"a second handshake took {watch.ElapsedMilliseconds} ms ({stream.SslProtocol}; connected after {connectedAfter} ms, " +
+                    $"the certificate callback ran after {Volatile.Read(ref certificateAfter)} ms)";
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or IOException or SocketException or ObjectDisposedException
+                or System.Security.Authentication.AuthenticationException)
+            {
+                return $"a second handshake failed after {watch.ElapsedMilliseconds} ms with {ex.GetType().Name} (connected after {connectedAfter} ms, " +
+                    $"the certificate callback ran after {Volatile.Read(ref certificateAfter)} ms; -1: never)";
+            }
+        }
 
         public static TlsServer Start(X509Certificate2 leaf, X509Certificate2[] intermediates, bool requestClientCertificate = false) =>
             new(leaf, intermediates, requestClientCertificate);
@@ -422,7 +523,13 @@ public sealed class SslStreamTlsProbeTests
             {
                 var socket = await _listener.AcceptTcpClientAsync(cancellationToken);
                 Interlocked.Increment(ref _accepted);
-                var connection = ServeAsync(socket, context, requestClientCertificate, cancellationToken);
+                var entry = new Connection(_clock.ElapsedMilliseconds);
+                lock (_timeline)
+                {
+                    _timeline.Add(entry);
+                }
+
+                var connection = ServeAsync(socket, context, requestClientCertificate, entry, cancellationToken);
                 lock (_connections)
                 {
                     _connections.Add(connection);
@@ -430,21 +537,32 @@ public sealed class SslStreamTlsProbeTests
             }
         }
 
-        private async Task ServeAsync(TcpClient socket, SslStreamCertificateContext context, bool requestClientCertificate, CancellationToken cancellationToken)
+        private async Task ServeAsync(
+            TcpClient socket, SslStreamCertificateContext context, bool requestClientCertificate, Connection entry, CancellationToken cancellationToken)
         {
             try
             {
                 using var owned = socket;
                 await using var stream = new SslStream(socket.GetStream(), leaveInnerStreamOpen: false);
-                await stream.AuthenticateAsServerAsync(
-                    new SslServerAuthenticationOptions
-                    {
-                        ServerCertificateContext = context,
-                        ClientCertificateRequired = requestClientCertificate,
-                        CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
-                        RemoteCertificateValidationCallback = (_, _, _, _) => true,
-                    },
-                    cancellationToken);
+                try
+                {
+                    await stream.AuthenticateAsServerAsync(
+                        new SslServerAuthenticationOptions
+                        {
+                            ServerCertificateContext = context,
+                            ClientCertificateRequired = requestClientCertificate,
+                            CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
+                            RemoteCertificateValidationCallback = (_, _, _, _) => true,
+                        },
+                        cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    entry.Ended(_clock.ElapsedMilliseconds, ex.GetType().Name);
+                    throw;
+                }
+
+                entry.Ended(_clock.ElapsedMilliseconds, $"completed, {stream.SslProtocol}");
                 Interlocked.Increment(ref _handshakes);
                 var presented = stream.RemoteCertificate is not null;
 
@@ -470,6 +588,27 @@ public sealed class SslStreamTlsProbeTests
                 or System.Security.Authentication.AuthenticationException)
             {
                 // Not a client that speaks TLS to the end, or the server was stopped: another connection decides.
+            }
+        }
+
+        /// <summary>One accepted connection: when it came, and when and how its handshake ended.</summary>
+        private sealed class Connection(long acceptedAt)
+        {
+            private string? _outcome;
+            private long _endedAt = -1;
+
+            public void Ended(long at, string outcome)
+            {
+                _outcome = outcome;
+                Volatile.Write(ref _endedAt, at);
+            }
+
+            public string Describe(long now)
+            {
+                var endedAt = Volatile.Read(ref _endedAt);
+                return endedAt < 0
+                    ? $"accepted after {acceptedAt} ms, its handshake still running {now - acceptedAt} ms later"
+                    : $"accepted after {acceptedAt} ms, its handshake ended {endedAt - acceptedAt} ms later ({_outcome})";
             }
         }
     }
