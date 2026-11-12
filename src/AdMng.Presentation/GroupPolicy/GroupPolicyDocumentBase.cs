@@ -26,9 +26,10 @@ namespace AdMng.Presentation.GroupPolicy;
 /// <item>the summary is <see cref="LoadedText"/>, with <see cref="SelectionText"/> joined by " · ";</item>
 /// <item>the load is the operation of the document - "Reading “…”…" with Stop (<see cref="ReadingText"/>; a document
 /// reports the steps of its load through <see cref="LoadOperation"/>);</item>
-/// <item>what lasts for as long as the document shows what it shows is computed in one place: not connected, the
-/// content cannot be shown (the load failed - with Retry -, or found that the GPO or the container is gone:
-/// <see cref="ShowUnavailable"/>), the load was stopped (with Refresh);</item>
+/// <item>what lasts for as long as the document shows what it shows is computed in one place
+/// (<see cref="UpdateLasting"/>): not connected, the content cannot be shown (the load failed - with Retry -, or found
+/// that the GPO or the container is gone: <see cref="ShowUnavailable"/>), the load was stopped (with Refresh), and then
+/// what a kind of document adds (<see cref="DocumentLastingState"/>);</item>
 /// <item>an operation the document starts through <see cref="Actions"/> says in the same line that its plan is being
 /// made, and why nothing came of it.</item>
 /// </list>
@@ -355,11 +356,19 @@ public abstract partial class GroupPolicyDocumentBase : ObservableObject, IShell
     }
 
     /// <summary>
-    /// The state of the document that lasts, the most important first: it cannot show its content (not connected, the
-    /// load failed, the GPO or the container is gone), or its load was stopped. Called whenever one of them changes;
-    /// while the load runs the line keeps "working" and shows the state when the load is over.
+    /// Says the state of the document that lasts, the most important first: it cannot show its content (not connected,
+    /// the load failed, the GPO or the container is gone), its load was stopped, or what this kind of document adds
+    /// (<see cref="DocumentLastingState"/>). The base calls it whenever one of its own conditions changes, a document
+    /// whenever one of its own does; while an operation runs the line keeps "working" and shows the state afterwards.
     /// </summary>
-    private void UpdateLasting() => Status.SetLasting(LastingState());
+    protected void UpdateLasting() => Status.SetLasting(LastingState());
+
+    /// <summary>
+    /// A state that lasts for this kind of document, behind the ones every document has: "Group Policy changed after
+    /// these results were made", for example - an attention or an error that is true for as long as the document shows
+    /// what it shows, with at most one action. Null: none. Computed anew at every <see cref="UpdateLasting"/>.
+    /// </summary>
+    protected virtual PageStatus? DocumentLastingState => null;
 
     private PageStatus? LastingState()
     {
@@ -384,7 +393,7 @@ public abstract partial class GroupPolicyDocumentBase : ObservableObject, IShell
                 new PageStatusAction(Localizer[L.Commands.Refresh], RefreshCommand));
         }
 
-        return null;
+        return DocumentLastingState;
     }
 
     /// <summary>Ends the operation of a load without a message: the line shows the state that lasts, or the summary.</summary>

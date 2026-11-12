@@ -5,6 +5,7 @@ using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy;
+using AdMng.Presentation.Icons;
 using AdMng.Presentation.Tests.Dialogs;
 using AdMng.Testing;
 
@@ -396,6 +397,33 @@ public sealed class GroupPolicyDocumentStatusTests
         Assert.Equal(7, objects.Rows.Count);
     }
 
+    [Fact]
+    public async Task AKindOfDocument_AddsItsOwnStateThatLasts_BehindTheOnesEveryDocumentHas()
+    {
+        var h = await GroupPolicyHarness.CreateAsync();
+        using var document = new StaleableDocument(h.Services, h.Actions);
+        await document.LoadAsync();
+        Assert.Equal((PageStatusKind.Idle, "read"), (document.Status.Current.Kind, document.Status.Current.Message));
+
+        // "The results are out of date": an attention of this kind of document, with its one action - it lasts.
+        document.SetStale(true);
+        var stale = document.Status.Current;
+        Assert.Equal((PageStatusKind.Attention, "The results are out of date."), (stale.Kind, stale.Message));
+        Assert.False(stale.CanClose);
+        Assert.Same(stale, document.Status.Lasting);
+        Assert.Same(document.RefreshCommand, Assert.IsType<PageStatusAction>(stale.Action).Command);
+
+        // What every document has comes first: without a session the line says that, and the other state is behind it.
+        await h.B2.Sessions.DisconnectAsync();
+        await B2Harness.WaitUntilAsync(() => document.Status.Current.Kind == PageStatusKind.Error);
+        Assert.Equal("Not connected to a domain.", document.Status.Current.Message);
+
+        // The condition is over: nothing of it is left.
+        document.SetStale(false);
+        Assert.Equal("Not connected to a domain.", document.Status.Current.Message);
+        Assert.Equal(PageStatusKind.Error, document.Status.Lasting?.Kind);
+    }
+
     // ---- Operations the document starts -----------------------------------------------------------------------------
 
     [Theory]
@@ -682,6 +710,32 @@ public sealed class GroupPolicyDocumentStatusTests
         lock (seen)
         {
             return [.. seen];
+        }
+    }
+
+    /// <summary>A kind of document with a state of its own that lasts: its results can be out of date.</summary>
+    private sealed class StaleableDocument(GroupPolicyServices services, GroupPolicyActions actions) : GroupPolicyDocumentBase(services, actions)
+    {
+        private bool _stale;
+
+        public override string Title => "Results";
+
+        public override ObjectIcon Icon => ObjectIcon.GroupPolicy;
+
+        protected override PageStatus? DocumentLastingState => _stale
+            ? PageStatus.Attention("The results are out of date.", new PageStatusLog("Test.Stale"), new PageStatusAction("Refresh", RefreshCommand))
+            : null;
+
+        public void SetStale(bool stale)
+        {
+            _stale = stale;
+            UpdateLasting();
+        }
+
+        protected override Task LoadCoreAsync(IDirectorySession session, ISysvolWriteConnection? sysvol, CancellationToken cancellationToken)
+        {
+            LoadedText = "read";
+            return Task.CompletedTask;
         }
     }
 
