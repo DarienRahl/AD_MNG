@@ -226,12 +226,66 @@
   powiadomienie w oknie głównym. Okno otwarte bez połączenia z domeną mówi o tym od razu, a nie dopiero po **OK**. Uwaga
   „Hasło nigdy nie wygasa, więc użytkownik nie będzie musiał go zmienić przy następnym logowaniu.” jest zwykłym tekstem
   ze znakiem ostrzeżenia pod opcjami hasła zamiast ramki. Dotąd: ramka błędu pod polami i pasek w stopce.
+- **Okno *Wyślij wiadomość do użytkowników*: wiersz stanu u góry okna.** Okno mówi w jednym wierszu, co robi z
+  wiadomościami i jak się to skończyło. Po *Przygotuj podgląd*: **Trwa** – „Wczytywanie kont (4) i przygotowywanie
+  wiadomości…” z poleceniem **Zatrzymaj**; w podglądzie wiersz pokazuje jego podsumowanie („Gotowe: 3 · Z ostrzeżeniami:
+  1 · Błędy: 0 · Pominięte: 2 · Wykluczone: 0”), które zmienia się razem z zaznaczeniami na liście. Gdy kont nie udało
+  się wczytać: **Błąd** – „Nie udało się wczytać kont: …” z przyczyną, kodem wyniku i poleceniem **Ponów**; gdy szablon
+  nie pozwala przygotować wiadomości (na przykład brakuje wartości pola): **Uwaga** – „Nie przygotowano żadnej
+  wiadomości: …” z powodami. W czasie wysyłki: „Wysyłanie wiadomości: 12 z 300…” z kółkiem pokazującym wykonaną część, a
+  gdy coś się nie udało – także „nieudane: 2”. Na końcu: **Gotowe** – „Serwer przyjął 300 wiadomości dla użytkowników
+  domeny contoso.test. Raport jest na liście poniżej.”; gdy serwer przyjął tylko część albo wysyłkę zatrzymano –
+  **Uwaga** z liczbami („przyjęte przez serwer: 298, nieudane: 2, niewysłane: 0”), z informacją, że przyczyny są w
+  raporcie, i z poleceniem **Ponów nieudane**; gdy nie przyjął żadnej – **Błąd**. Po zamknięciu komunikatu wiersz
+  pokazuje liczby raportu („Przyjęte przez serwer: 298 · Nieudane: 2 · Niewysłane: 0 · Poza tą wysyłką: 1”). Wiadomość
+  testowa – „Wysyłanie wiadomości testowej do …” i jej wynik – też jest w tym wierszu i też ma **Zatrzymaj** (dotąd nie
+  dało się jej przerwać). Gdy niczego nie zaczęto: **Uwaga** – „Nie wysłano żadnej wiadomości: Wpisz hasło SMTP…”. W
+  wierszu jest nazwa domeny, a przy wiadomości testowej – adres operatora z ustawień; nigdy adres odbiorcy, treść
+  wiadomości ani hasło SMTP. Dotąd: ramka błędu i ramka o zakończonej sesji pod nagłówkiem, pasek i tekst w stopce,
+  pasek postępu wysyłki, podsumowania przy filtrze i nad raportem oraz tekst wyniku wiadomości testowej pod podglądem.
+  Okno jest domyślnie o tyle wyższe, ile zajmuje wiersz stanu.
+- **Wiadomości do użytkowników: podgląd, wysyłkę i wklejanie przerywa się tym przyciskiem, którym się je zaczęło.**
+  *Przygotuj podgląd* na czas wczytywania kont, *Wyślij (300)* na czas wysyłki (zostaje wtedy w stopce) i *Wklej
+  sformatowaną treść* na czas wklejania zamienia się w **Anuluj** z kółkiem postępu; po naciśnięciu pokazuje
+  „Zatrzymywanie…”, dopóki operacja się nie skończy. Osobnych przycisków *Zatrzymaj* i *Przerwij wklejanie* już nie ma.
+  Zatrzymane przygotowywanie niczego nie zmienia – „Przygotowywanie wiadomości zatrzymano: nie przygotowano żadnej
+  wiadomości.”, z poleceniem **Ponów**; zatrzymana wysyłka kończy wiadomość, która jest w drodze, a wiersz mówi, ile
+  wiadomości serwer przyjął i ilu nie wysłano; zatrzymane wklejanie zostawia treść bez zmian. Krok wysyłki nie ma już
+  własnego paska postępu – postęp jest w wierszu stanu – i przypomina, że zamknięcie okna przerywa wysyłkę (okno, jak
+  dotąd, pyta o to przy zamykaniu). To, co edytor zrobił z wklejaną treścią („Wklejono: obrazy: 2, uwagi poniżej: 3.”,
+  „Niczego nie wklejono: Schowek nie zawiera obrazu.”), jest w wierszu stanu, dopóki widać edytor.
+- **Wiadomości do użytkowników: uwagi przy treści zamiast ramek.** Uwagi sprawdzania szablonu (błąd składni, pole,
+  którego nie wolno wysyłać) są zwykłym tekstem ze znakiem błędu pod edytorem. To, że wiadomości nie mieszczą się w
+  wybranym sposobie wysyłki (na przykład AdMng Watchdog nie przyjmuje obrazów), jest uwagą nad stopką – z tymi samymi
+  przyciskami co dotąd (*Wyślij bezpośrednio przez SMTP*, *Wyślij bez obrazów*, *Anuluj*). Obrazy szablonu, których nie
+  udało się odczytać, są uwagą przy pasku obrazów, z przyciskiem *Usuń brakujące obrazy*; w czasie wczytywania obrazów
+  szablonu przy napisie *Obrazy w treści* obraca się kółko. Podgląd sformatowany, który pokazuje źródło HTML (brak
+  WebView2 Runtime albo podgląd wyłączony w ustawieniach), mówi o tym uwagą zamiast ramki – także w oknie
+  *Korespondencja*.
+- **Ustawienia: wiersz stanu nad kartami.** Testy z karty *Wiadomości e-mail* odpowiadają teraz w wierszu u góry okna –
+  widocznym niezależnie od tego, jak daleko przewinięto kartę: **Trwa** – „Testowanie połączenia z
+  smtp.contoso.com:587…”, potem **Gotowe** – „Połączenie z smtp.contoso.com:587 działa: szyfrowane (Tls13),
+  uwierzytelnianie: LOGIN.” albo **Błąd** – „Połączenie z smtp.contoso.com:587 nie działa: Etap „TLS” nie powiódł się:
+  …”. Tak samo *Wyślij wiadomość testową do mnie* i *Pobierz konta z Outlooka* („Profil Outlooka „Outlook” ma 2 konta.
+  Wybierz z listy konto, z którego będą wysyłane wiadomości.”). Każdą z tych trzech operacji można teraz zatrzymać
+  poleceniem **Zatrzymaj** w wierszu (dotąd trzeba było czekać na odpowiedź serwera albo Outlooka); działają pojedynczo
+  – w czasie testu nie pobiera się kont i odwrotnie. Gdy brakuje hasła: **Uwaga** – „Nie przetestowano połączenia: Wpisz
+  hasło SMTP…”; hasło ani nazwa użytkownika SMTP nigdy nie trafiają do wiersza. Pod przyciskami testów zostaje to, co
+  serwer pokazał w ostatnim teście: oferowane mechanizmy uwierzytelniania i odcisk certyfikatu, który przypina *Przypnij
+  certyfikat z testu*. Na pozostałych kartach wiersz jest pusty. Powód, dla którego nie można zapisać ustawień (pierwsza
+  nieprawidłowa wartość), jest uwagą ze znakiem błędu nad przyciskami, a ostrzeżenie o wysyłce bez TLS – uwagą przy tym
+  wyborze, z polem potwierdzenia pod nią; dotąd były to ramki. Karty przewijają się odpowiednio wcześniej, więc okno z
+  długą kartą ma tę samą wysokość co dotąd.
+- **Okno *Godziny logowania*: uwagi zamiast ramek.** Trzy ostrzeżenia okna – dlaczego godzin nie można zmienić, że
+  zapisanej wartości nie da się pokazać na siatce, i „Żadna godzina nie jest dozwolona – użytkownik nie będzie mógł się
+  zalogować.” – są zwykłym tekstem ze znakiem ostrzeżenia w tych samych miejscach, nad siatką i pod nią. Okno niczego
+  samo nie odczytuje ani nie zapisuje, więc nie ma wiersza stanu.
 - **Co się nie zmieniło:** pozostałe okna i karty – między innymi zasady grupy, Watchdog, dzienniki zdarzeń,
-  certyfikaty, przegląd komputerów, wiadomości do użytkowników i korespondencja – mają na razie dotychczasowe ramki
-  ostrzeżeń i błędów oraz paski postępu; przejdą na wiersz stanu w następnych wydaniach. Dotyczy to także kreatora
-  zakładania wielu kont, który jest pierwszym krokiem w oknie edytora zbiorczego. Animacja nowego komunikatu (krótkie
-  wsunięcie) i zamiany napisu na przycisku działa tylko przy włączonych animacjach (*Ustawienia → Ogólne → Wygląd →
-  Animacje*); kółko postępu obraca się zawsze.
+  certyfikaty, przegląd komputerów i korespondencja – mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski
+  postępu; przejdą na wiersz stanu w następnych wydaniach. Dotyczy to także kreatora zakładania wielu kont, który jest
+  pierwszym krokiem w oknie edytora zbiorczego. Animacja nowego komunikatu (krótkie wsunięcie) i zamiany napisu na
+  przycisku działa tylko przy włączonych animacjach (*Ustawienia → Ogólne → Wygląd → Animacje*); kółko postępu obraca
+  się zawsze.
 
 ## Inne zmiany
 
