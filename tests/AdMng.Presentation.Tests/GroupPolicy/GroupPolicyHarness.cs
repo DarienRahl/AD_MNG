@@ -25,7 +25,13 @@ namespace AdMng.Presentation.Tests.GroupPolicy;
 /// </summary>
 internal sealed class GroupPolicyHarness
 {
-    private GroupPolicyHarness(B2Harness b2, bool withWriter, ILogger<PageStatusHolder>? statusLog = null)
+    // Found by its two parameters through reflection (K7Harness.CreateOnDomainControllerAsync): keep the signature.
+    private GroupPolicyHarness(B2Harness b2, bool withWriter)
+        : this(b2, withWriter, null)
+    {
+    }
+
+    private GroupPolicyHarness(B2Harness b2, bool withWriter, ILogger<PageStatusHolder>? statusLog)
     {
         B2 = b2;
         Sample = b2.Builder.AddGroupPolicyManagementSample(b2.Company, Sysvol);
