@@ -2,6 +2,8 @@
   The filter builder (FilterEditorViewModel, modal, README U4): name and description, groups of conditions combined with
   I/LUB (attribute from the schema, condition, value, "Wybierz grupę..." for member-of), or a raw LDAP filter; the LDAP
   filter built only through LdapFilter as a live preview, the problems per condition, a test count on the DC, Save.
+  Feedback (design note 6.7 and "V2b-2 as built"): the test of the filter is said by the status line at the top; what is
+  wrong with the filter is a note under its preview.
 -->
 <Window x:Class="AdMng.App.Views.FilterEditorWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -11,7 +13,7 @@
         xmlns:l="clr-namespace:AdMng.App.Localization"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="900"
-        Height="720"
+        Height="756"
         MinWidth="640"
         MinHeight="480"
         ResizeMode="CanResize"
@@ -42,8 +44,20 @@
       </StackPanel>
     </Border>
 
+    <!--
+      Status line (design note 6.1 and "V2b-2 as built", Dialogs): at the top, above the name; declared after the
+      footer, so Tab goes from the buttons to what the line offers. It says the test of the filter - counting the
+      matching objects (with Stop), how many there are, why it failed or was not started. Its picture stands over the
+      left edge of the fields.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="16,8,16,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
     <!-- Name and description. -->
-    <Grid Margin="24,12,24,0" DockPanel.Dock="Top">
+    <Grid Margin="24,0,24,0" DockPanel.Dock="Top">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*" />
         <ColumnDefinition Width="16" />
@@ -61,7 +75,7 @@
       </StackPanel>
     </Grid>
 
-    <!-- The generated (or typed) LDAP filter, the problems and the test. -->
+    <!-- The generated (or typed) LDAP filter, what is wrong with it (a note: why Save and Test are not possible) and the test. -->
     <StackPanel Margin="24,8,24,12" DockPanel.Dock="Bottom">
       <TextBlock Style="{StaticResource Ad.FieldLabel}" Text="{l:Tr Filters.Preview}" />
       <TextBox x:Name="PreviewBox"
@@ -76,31 +90,24 @@
                  Text="{Binding ClientCheckNote, Mode=OneWay}"
                  TextWrapping="Wrap"
                  Visibility="{Binding ClientCheckNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-      <Border x:Name="ErrorBar"
-              Margin="0,8,0,0"
-              Style="{StaticResource Ad.ErrorBar}"
-              Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <ContentControl x:Name="ErrorNote"
+                      Margin="0,8,0,0"
+                      Style="{StaticResource Ad.Note.Error}"
+                      Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
         <TextBlock x:Name="ErrorText"
                    AutomationProperties.LiveSetting="Assertive"
                    Text="{Binding Error, Mode=OneWay}"
                    TextWrapping="Wrap" />
-      </Border>
-      <DockPanel Margin="0,10,0,0">
-        <Button x:Name="TestButton"
-                Command="{Binding TestCommand}"
-                Content="{l:Tr Views.Test}"
-                DockPanel.Dock="Left" />
-        <Button Margin="6,0,0,0"
-                Command="{Binding TestCancelCommand}"
-                Content="{l:Tr Common.Stop}"
-                DockPanel.Dock="Left"
-                Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
-        <TextBlock Margin="12,0,0,0"
-                   VerticalAlignment="Center"
-                   AutomationProperties.LiveSetting="Polite"
-                   Text="{Binding TestResult, Mode=OneWay}"
-                   TextWrapping="Wrap" />
-      </DockPanel>
+      </ContentControl>
+      <!-- Counts the matching objects on the domain controller; while it counts the button is the Cancel of the test. -->
+      <c:ActionButton x:Name="TestButton"
+                      Margin="0,10,0,0"
+                      HorizontalAlignment="Left"
+                      CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                      Command="{Binding TestCommand}"
+                      Content="{l:Tr Views.Test}"
+                      IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                      IsRunning="{Binding Status.IsWorking, Mode=OneWay}" />
     </StackPanel>
 
     <CheckBox x:Name="RawBox"

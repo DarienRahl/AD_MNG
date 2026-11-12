@@ -268,11 +268,13 @@ public sealed class AccountReviewWindowTests
         editor.AddGroupCommand.Execute(null);
         await UiTestSupport.WaitForIdleAsync();
         Assert.Equal(2, builder.GroupsList.Items.Count);
-        Assert.Equal(Visibility.Visible, builder.ErrorBar.Visibility);
+        Assert.Equal(Visibility.Visible, builder.ErrorNote.Visibility);
+        Assert.Same(Application.Current.FindResource("Ad.Note.Error"), builder.ErrorNote.Style);
+        Assert.Equal(editor.Error, builder.ErrorText.Text);
         Assert.Contains(UiWait.Descendants<TextBlock>(builder.GroupsList), t => t.Text == "Wybierz atrybut.");
         editor.RemoveGroupCommand.Execute(editor.Groups[1]);
         await UiTestSupport.WaitForIdleAsync();
-        Assert.Equal(Visibility.Collapsed, builder.ErrorBar.Visibility);
+        Assert.Equal(Visibility.Collapsed, builder.ErrorNote.Visibility);
         Assert.Equal("(department=Księgowość)", builder.PreviewBox.Text);
         editor.IsRaw = true;
         await UiTestSupport.WaitForIdleAsync();
