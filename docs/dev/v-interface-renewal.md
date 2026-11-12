@@ -2179,7 +2179,11 @@ unit 1 with their tests, counts and what was not seen, then the same for unit 2.
     of this increment, and is hosted by the correspondence window too, which is not converted: its one bar was converted
     here all the same (Dialogs 15) – with it the message window shows no banner in any state, and the correspondence
     window shows that one note next to its own bars until its unit. The transport that does not fit is a note although
-    it answers a press (Dialogs 13). The test message got Stop without an action button.
+    it answers a press (Dialogs 13). The test message got Stop without an action button. The two short reads before a
+    send or a test message – which transport can be used, and what an AdMng Watchdog takes (`RefreshTransportAsync`,
+    `FitsTransportAsync`) – were left as they were: silent and with `CancellationToken.None`, before the operation
+    begins (Dialogs 10: such a read is no operation); with a service that does not answer the window says nothing
+    until its client gives up.
 - **The settings window** (`Views/SettingsWindow.xaml`; `Settings/SettingsViewModel`,
   `UserMessages/UserMessageSettingsViewModel` for the "E-mail messages" tab) – unit 2.
   - *What the line says.* Above the tabs (Dialogs 12). The window itself says nothing: Save writes a local file and
