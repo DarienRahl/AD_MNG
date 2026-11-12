@@ -25,7 +25,7 @@ public sealed class SslStreamTlsProbeTests
     public async Task AHandshake_CapturesTheLeafAndThePresentedIntermediate_AndOffersNoClientCertificate()
     {
         using var leaf = PkiSamples.ServerCertificate();
-        await using var server = TlsServer.Start(leaf, intermediates: [PkiSamples.IssuingCa], requestClientCertificate: true);
+        await using var server = TlsServer.Start(leaf, intermediates: [PkiSamples.IssuingCaForTls], requestClientCertificate: true);
 
         var result = await Probe(server.Port).ProbeAsync("localhost", 636, Generous, TestContext.Current.CancellationToken);
 
@@ -34,7 +34,7 @@ public sealed class SslStreamTlsProbeTests
         Assert.Equal(636, result.Port);
         Assert.NotNull(result.Protocol);
         Assert.Equal(leaf.RawData, result.PresentedChain[0]);
-        Assert.Contains(result.PresentedChain, der => der.AsSpan().SequenceEqual(PkiSamples.IssuingCaDer));
+        Assert.Contains(result.PresentedChain, der => der.AsSpan().SequenceEqual(PkiSamples.IssuingCaForTls.RawData));
         Assert.DoesNotContain(result.PresentedChain, der => der.AsSpan().SequenceEqual(PkiSamples.RootCaDer));
         Assert.Equal(result.PresentedChain.Count, result.PresentedChain.Select(Convert.ToHexString).Distinct().Count());
 
@@ -57,7 +57,7 @@ public sealed class SslStreamTlsProbeTests
     public async Task AnExpiredLeaf_IsStillCaptured_AndJudgedExpiredByTheEvaluation()
     {
         using var leaf = PkiSamples.ServerCertificate(notBefore: new(2024, 1, 1, 0, 0, 0, TimeSpan.Zero), notAfter: new(2025, 1, 1, 0, 0, 0, TimeSpan.Zero));
-        await using var server = TlsServer.Start(leaf, intermediates: [PkiSamples.IssuingCa]);
+        await using var server = TlsServer.Start(leaf, intermediates: [PkiSamples.IssuingCaForTls]);
 
         var result = await Probe(server.Port).ProbeAsync("localhost", 636, Generous, TestContext.Current.CancellationToken);
 
@@ -74,7 +74,7 @@ public sealed class SslStreamTlsProbeTests
     public async Task AWrongSan_IsCaptured_WithTheNameMismatchReported()
     {
         using var leaf = PkiSamples.ServerCertificate(dnsName: "dc99.contoso.test");
-        await using var server = TlsServer.Start(leaf, intermediates: [PkiSamples.IssuingCa]);
+        await using var server = TlsServer.Start(leaf, intermediates: [PkiSamples.IssuingCaForTls]);
 
         var result = await Probe(server.Port).ProbeAsync("localhost", 636, Generous, TestContext.Current.CancellationToken);
 

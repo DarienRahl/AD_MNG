@@ -159,6 +159,9 @@ public static class PkiSamples
     private static readonly Lazy<X509Certificate2> LazyIssuing = new(() => CreateCa(IssuingCaName, 0x1A2B3C4D02, new(2024, 3, 1, 8, 0, 0, TimeSpan.Zero),
         new(2027, 2, 28, 8, 0, 0, TimeSpan.Zero), IssuingKey.Value, LazyRoot.Value, RootKey.Value, pathLength: 0));
 
+    private static readonly Lazy<X509Certificate2> LazyIssuingForTls = new(() => CreateCa(IssuingCaName, 0x1A2B3C4D03, new(2024, 3, 1, 8, 0, 0, TimeSpan.Zero),
+        new(2027, 2, 28, 8, 0, 0, TimeSpan.Zero), IssuingKey.Value, LazyRoot.Value, RootKey.Value, pathLength: 0, withUrls: false));
+
     /// <summary>
     /// The enterprise root CA (self-signed, with its private key; 2021-03-01 – 2041-03-01). Shared by the process – never
     /// dispose it.
@@ -170,6 +173,22 @@ public static class PkiSamples
     /// 2027-02-28: within the 180-day CA threshold at <see cref="Now"/>). Shared by the process – never dispose it.
     /// </summary>
     public static X509Certificate2 IssuingCa => LazyIssuing.Value;
+
+    /// <summary>
+    /// The issuing CA as a test TLS server presents it: the subject, the key (so also the key identifiers) and the
+    /// validity of <see cref="IssuingCa"/>, issued by <see cref="RootCa"/> - but without the AIA and CDP extensions. A
+    /// certificate issued by <see cref="IssuingCa"/> chains through this one just the same.
+    /// </summary>
+    /// <remarks>
+    /// A real TLS stack builds the chain of the certificate it serves. On Windows that is SChannel, outside the test
+    /// process: it does not have the issuer of the intermediate (the root is in no store), and an intermediate with an
+    /// AIA extension tells it where to look - here <c>ldap:///...</c> and <c>http://pki.contoso.test/...</c>, which
+    /// nobody answers. A handshake of a test server then waits for a directory and a name lookup that can take longer
+    /// than the test gives the probe. The pointers of <see cref="IssuingCa"/> are test data for the parsers and the
+    /// AIA / CDP checks; nothing a platform may follow by itself is put into a live handshake. Shared by the process -
+    /// never dispose it.
+    /// </remarks>
+    public static X509Certificate2 IssuingCaForTls => LazyIssuingForTls.Value;
 
     private static readonly Lazy<byte[]> LazyDcLdaps = new(() => IssueDer(new PkiCertificateOptions
     {
@@ -610,7 +629,8 @@ public static class PkiSamples
     private static byte[] FreshestCrlValue(IEnumerable<string> urls) =>
         CertificateRevocationListBuilder.BuildCrlDistributionPointExtension(urls, critical: false).RawData;
 
-    private static X509Certificate2 CreateCa(string name, long serial, DateTimeOffset notBefore, DateTimeOffset notAfter, RSA key, X509Certificate2? issuer, RSA? issuerKey, int? pathLength)
+    private static X509Certificate2 CreateCa(
+        string name, long serial, DateTimeOffset notBefore, DateTimeOffset notAfter, RSA key, X509Certificate2? issuer, RSA? issuerKey, int? pathLength, bool withUrls = true)
     {
         var request = new CertificateRequest(Name(name, [("O", Organization), ("C", "PL")]), key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         request.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, pathLength is not null, pathLength ?? 0, critical: true));
@@ -623,8 +643,12 @@ public static class PkiSamples
         }
 
         request.CertificateExtensions.Add(X509AuthorityKeyIdentifierExtension.CreateFromCertificate(issuer, includeKeyIdentifier: true, includeIssuerAndSerial: false));
-        request.CertificateExtensions.Add(new X509AuthorityInformationAccessExtension(null, [RootCrtLdapUrl, RootCrtHttpUrl], critical: false));
-        request.CertificateExtensions.Add(CertificateRevocationListBuilder.BuildCrlDistributionPointExtension([RootCrlLdapUrl, RootCrlHttpUrl], critical: false));
+        if (withUrls)
+        {
+            request.CertificateExtensions.Add(new X509AuthorityInformationAccessExtension(null, [RootCrtLdapUrl, RootCrtHttpUrl], critical: false));
+            request.CertificateExtensions.Add(CertificateRevocationListBuilder.BuildCrlDistributionPointExtension([RootCrlLdapUrl, RootCrlHttpUrl], critical: false));
+        }
+
         using var issued = request.Create(issuer.SubjectName, X509SignatureGenerator.CreateForRSA(issuerKey!, RSASignaturePadding.Pkcs1), notBefore, notAfter, Serial(serial));
         return issued.CopyWithPrivateKey(key);
     }
