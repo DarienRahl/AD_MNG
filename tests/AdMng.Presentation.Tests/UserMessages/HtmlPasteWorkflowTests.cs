@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using AdMng.Core.Audit;
 using AdMng.Core.Csv;
@@ -5,6 +6,7 @@ using AdMng.Core.Messaging.Html;
 using AdMng.Core.Messaging.Images;
 using AdMng.Core.Messaging;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Tests.TestDoubles;
 using AdMng.Presentation.UserMessages;
@@ -317,9 +319,26 @@ public sealed class HtmlPasteWorkflowTests : IDisposable
         await WaitForImagesAsync(third, 0);
         Assert.StartsWith($"{ids.Count} image(s) of the template could not be read", third.RichStatusText, StringComparison.Ordinal);
         Assert.True(third.HasMissingImages);
+
+        // A note of the image strip - true for as long as the template has such images - and no status: the line of the
+        // window says nothing, and nothing is "busy" any more. The note follows the language.
+        Assert.False(third.IsLoadingImages);
+        Assert.Equal(string.Empty, third.ImagesLoadingText);
+        Assert.Equal(third.RichStatusText, third.MissingImagesText);
+        Assert.True(third.ShowTemplateImages);
+        Assert.Same(PageStatus.Empty, third.Status.Current);
+        var raised = new List<string?>();
+        third.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+        rich.Messages.Harness.Localizer.SetCulture(CultureInfo.GetCultureInfo("pl-PL"));
+        Assert.Contains(nameof(UserMessageComposerViewModel.MissingImagesText), raised);
+        Assert.StartsWith($"Nie można odczytać obrazów szablonu: {ids.Count} ", third.MissingImagesText, StringComparison.Ordinal);
+
         third.RemoveMissingImagesCommand.Execute(null);
         Assert.DoesNotContain("cid:", third.Html, StringComparison.Ordinal);
         Assert.False(third.HasMissingImages);
+        Assert.Null(third.MissingImagesText);
+        Assert.False(third.ShowTemplateImages);
+        Assert.Same(PageStatus.Empty, third.Status.Current);
     }
 
     private static async Task PasteAsync(RichScenario rich, UserMessageComposerViewModel composer)

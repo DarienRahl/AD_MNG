@@ -329,10 +329,20 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, 
 
     protected override void OnSessionEnded()
     {
-        // A preview that is being prepared ends without a word; a send or a test message goes on - neither needs the
-        // session - and still says how it ended. The line says for good that the session of this window ended.
+        // A preview that is being prepared ends without a word - and "busy" ends with it at once, not when the read that
+        // is on its way returns (the Preview button would stay the Cancel of nothing). A send or a test message goes on -
+        // neither needs the session - and still says how it ended. The line says for good that the session of this
+        // window ended.
         _plans.Cancel();
-        _planning?.Dispose();
+        if (_planning is { } planning)
+        {
+            _planning = null;
+            planning.Dispose();
+            IsBusy = false;
+            IsPlanning = false;
+            StatusText = null;
+        }
+
         UpdateLasting();
         PlanCommand.NotifyCanExecuteChanged();
         RetryFailedCommand.NotifyCanExecuteChanged();
@@ -345,6 +355,8 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, 
         base.OnCultureChanged();
         OnPropertyChanged(nameof(RecipientsText));
         OnPropertyChanged(nameof(SendButtonText));
+        OnPropertyChanged(nameof(MissingImagesText));
+        OnPropertyChanged(nameof(ImagesLoadingText));
         UpdateLasting();
     }
 
@@ -1176,12 +1188,16 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, 
 
     /// <summary>
     /// The button was pressed and nothing was started: "No message was sent: why." - an attention the operator can
-    /// close; the log copy is the key of the reason, never its text.
+    /// close; the log copy is the key of the reason, never its text. An operation that runs keeps the line (a result
+    /// shown now would take it off the line, and nobody would say how it ended).
     /// </summary>
     private void NotStarted(string notStartedKey, string reasonKey, string? reason)
     {
         Error = reason;
-        Status.Show(PageStatus.Attention(PageStatusText.Failure(Localizer[notStartedKey], reason), new PageStatusLog(reasonKey)));
+        if (Status.Operation is null)
+        {
+            Status.Show(PageStatus.Attention(PageStatusText.Failure(Localizer[notStartedKey], reason), new PageStatusLog(reasonKey)));
+        }
     }
 
     // ---- Template editing ----------------------------------------------------------------------------------------

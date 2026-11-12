@@ -892,6 +892,8 @@ public sealed class UserMessageComposerStatusTests
             Assert.False(ended.CanClose);
             Assert.Null(ended.Action);
             Assert.False(composer.Status.IsWorking);
+            Assert.False(composer.IsBusy);
+            Assert.False(composer.IsPlanning);
         }
         finally
         {
