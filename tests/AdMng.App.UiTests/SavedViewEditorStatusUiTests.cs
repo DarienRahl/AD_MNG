@@ -68,9 +68,11 @@ public sealed class SavedViewEditorStatusUiTests
 
         // A filter that cannot be read: a note under the filter - not a banner, and not the line - and Test cannot be
         // pressed. The dialog sizes to its content: the Test button moved down by the note.
+        window.UpdateLayout();
         var testTop = TopOf(window.TestButton, window);
         editor.Filter = "(&(objectClass=user)";
         await UiTestSupport.WaitForIdleAsync();
+        window.UpdateLayout();
         Assert.NotNull(editor.FilterError);
         Assert.True(window.FilterErrorNote.IsVisible);
         Assert.Same(Application.Current.FindResource("Ad.Note.Error"), window.FilterErrorNote.Style);

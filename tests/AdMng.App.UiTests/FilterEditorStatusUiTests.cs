@@ -55,6 +55,7 @@ public sealed class FilterEditorStatusUiTests
         Assert.False(line.CanClose);
 
         // A new filter has a condition without an attribute: a note under the preview - not a banner, and not the line.
+        window.UpdateLayout();
         Assert.NotNull(editor.Error);
         Assert.True(window.ErrorNote.IsVisible);
         Assert.Same(Application.Current.FindResource("Ad.Note.Error"), window.ErrorNote.Style);
