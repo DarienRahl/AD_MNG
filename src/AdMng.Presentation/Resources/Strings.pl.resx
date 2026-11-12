@@ -24939,5 +24939,29 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="ObjectPicker.Status.CheckFailed" xml:space="preserve">
     <value>Nie udało się sprawdzić nazw</value>
   </data>
+  <data name="GroupPolicy.Status.Reading" xml:space="preserve">
+    <value>Wczytywanie „{0}”…</value>
+  </data>
+  <data name="GroupPolicy.Status.Stopped" xml:space="preserve">
+    <value>Wczytywanie „{0}” zatrzymano: karta może nie pokazywać wszystkiego. Wybierz Odśwież, aby wczytać ją ponownie.</value>
+  </data>
+  <data name="GroupPolicy.Status.ReadFailed" xml:space="preserve">
+    <value>Nie udało się wczytać „{0}”</value>
+  </data>
+  <data name="GroupPolicy.Status.Preparing" xml:space="preserve">
+    <value>{0}: przygotowywanie zmian…</value>
+  </data>
+  <data name="GroupPolicy.Status.NotChanged" xml:space="preserve">
+    <value>{0} – nic nie zmieniono</value>
+  </data>
+  <data name="GroupPolicy.Status.PreparingStopped" xml:space="preserve">
+    <value>Przygotowywanie zmian zatrzymano.</value>
+  </data>
+  <data name="GroupPolicy.Status.HealthStopped" xml:space="preserve">
+    <value>Sprawdzanie obiektu GPO zatrzymano: wyników nie zaktualizowano. Wybierz „{0}”, aby sprawdzić go ponownie.</value>
+  </data>
+  <data name="GroupPolicy.Status.HealthFailed" xml:space="preserve">
+    <value>Nie udało się sprawdzić obiektu GPO</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

@@ -24939,5 +24939,29 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="ObjectPicker.Status.CheckFailed" xml:space="preserve">
     <value>Could not check the names</value>
   </data>
+  <data name="GroupPolicy.Status.Reading" xml:space="preserve">
+    <value>Reading “{0}”…</value>
+  </data>
+  <data name="GroupPolicy.Status.Stopped" xml:space="preserve">
+    <value>Reading “{0}” was stopped: the tab may not show everything. Press Refresh to read it again.</value>
+  </data>
+  <data name="GroupPolicy.Status.ReadFailed" xml:space="preserve">
+    <value>Could not read “{0}”</value>
+  </data>
+  <data name="GroupPolicy.Status.Preparing" xml:space="preserve">
+    <value>{0}: preparing the changes…</value>
+  </data>
+  <data name="GroupPolicy.Status.NotChanged" xml:space="preserve">
+    <value>{0} – nothing was changed</value>
+  </data>
+  <data name="GroupPolicy.Status.PreparingStopped" xml:space="preserve">
+    <value>Preparing the changes was stopped.</value>
+  </data>
+  <data name="GroupPolicy.Status.HealthStopped" xml:space="preserve">
+    <value>Checking the GPO was stopped: the findings were not updated. Press “{0}” to check it again.</value>
+  </data>
+  <data name="GroupPolicy.Status.HealthFailed" xml:space="preserve">
+    <value>Could not check the GPO</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

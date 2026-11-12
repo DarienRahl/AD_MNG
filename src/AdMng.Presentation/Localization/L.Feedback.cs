@@ -654,4 +654,36 @@ public static partial class L
         /// <summary>What was tried, without a full stop.</summary>
         public const string CheckFailed = "ObjectPicker.Status.CheckFailed";
     }
+
+    /// <summary>
+    /// What the Group Policy documents - the tabs of the main window - say in their status lines (stage V2b-3): the read
+    /// of a document, an operation that is being prepared for the change plan preview, and the check of one GPO on its
+    /// "Status" tab. The summaries are the texts the documents had (<see cref="GroupPolicy.ObjectsCount"/> and the like).
+    /// </summary>
+    public static class GroupPolicyStatus
+    {
+        /// <summary>{0} = the title of the document.</summary>
+        public const string Reading = "GroupPolicy.Status.Reading";
+
+        /// <summary>{0} = the title of the document.</summary>
+        public const string Stopped = "GroupPolicy.Status.Stopped";
+
+        /// <summary>What was tried, without a full stop; {0} = the title of the document.</summary>
+        public const string ReadFailed = "GroupPolicy.Status.ReadFailed";
+
+        /// <summary>The plan of an operation is being made; {0} = the title of the operation ("Rename GPO “…”").</summary>
+        public const string Preparing = "GroupPolicy.Status.Preparing";
+
+        /// <summary>What was skipped, without a full stop: the lead of "… – nothing was changed: why."; {0} = the title of the operation.</summary>
+        public const string NotChanged = "GroupPolicy.Status.NotChanged";
+
+        /// <summary>Why nothing was changed when the operator stopped the preparation.</summary>
+        public const string PreparingStopped = "GroupPolicy.Status.PreparingStopped";
+
+        /// <summary>{0} = the text of the "Check again" button.</summary>
+        public const string HealthStopped = "GroupPolicy.Status.HealthStopped";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string HealthFailed = "GroupPolicy.Status.HealthFailed";
+    }
 }
