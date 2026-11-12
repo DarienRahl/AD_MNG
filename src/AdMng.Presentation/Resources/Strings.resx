@@ -24876,5 +24876,68 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Settings.Status.OutlookStopped" xml:space="preserve">
     <value>Reading the accounts from Outlook was stopped: the list was not changed.</value>
   </data>
+  <data name="FilterEditor.Status.Testing" xml:space="preserve">
+    <value>Counting the matching objects in {0}…</value>
+  </data>
+  <data name="FilterEditor.Status.Tested" xml:space="preserve">
+    <value>Matching objects in {0}: {1:N0} ({2} s).</value>
+  </data>
+  <data name="FilterEditor.Status.TestStopped" xml:space="preserve">
+    <value>Counting the matching objects was stopped: the filter was not tested. Press “{0}” to test again.</value>
+  </data>
+  <data name="FilterEditor.Status.TestFailed" xml:space="preserve">
+    <value>Could not test the filter in {0}</value>
+  </data>
+  <data name="FilterEditor.Status.NotTested" xml:space="preserve">
+    <value>The filter was not tested</value>
+  </data>
+  <data name="SavedViewEditor.Status.Testing" xml:space="preserve">
+    <value>Counting the matching objects in “{0}”…</value>
+  </data>
+  <data name="SavedViewEditor.Status.Tested" xml:space="preserve">
+    <value>Matching objects in “{0}”: {1:N0} ({2} s).</value>
+  </data>
+  <data name="SavedViewEditor.Status.TestStopped" xml:space="preserve">
+    <value>Counting the matching objects was stopped: the view was not tested. Press “{0}” to test again.</value>
+  </data>
+  <data name="SavedViewEditor.Status.TestFailed" xml:space="preserve">
+    <value>Could not test the view in “{0}”</value>
+  </data>
+  <data name="SavedViewEditor.Status.NotTested" xml:space="preserve">
+    <value>The view was not tested</value>
+  </data>
+  <data name="ContainerPicker.Status.Reading" xml:space="preserve">
+    <value>Reading the containers of {0}…</value>
+  </data>
+  <data name="ContainerPicker.Status.ReadFailed" xml:space="preserve">
+    <value>Could not read the containers in “{0}”</value>
+  </data>
+  <data name="ObjectPicker.Status.Searching" xml:space="preserve">
+    <value>Searching in “{0}”…</value>
+  </data>
+  <data name="ObjectPicker.Status.Found" xml:space="preserve">
+    <value>Found: {0}</value>
+  </data>
+  <data name="ObjectPicker.Status.TooMany" xml:space="preserve">
+    <value>More than {0:N0} objects match: the list shows the first {0:N0}. Type a name or choose another location to narrow the search.</value>
+  </data>
+  <data name="ObjectPicker.Status.SearchStopped" xml:space="preserve">
+    <value>Searching was stopped: the list was not changed. Press “{0}” to search again.</value>
+  </data>
+  <data name="ObjectPicker.Status.SearchFailed" xml:space="preserve">
+    <value>Could not search in “{0}”</value>
+  </data>
+  <data name="ObjectPicker.Status.Checking" xml:space="preserve">
+    <value>Checking the names ({0:N0})…</value>
+  </data>
+  <data name="ObjectPicker.Status.NotResolved" xml:space="preserve">
+    <value>Not every name was resolved</value>
+  </data>
+  <data name="ObjectPicker.Status.CheckStopped" xml:space="preserve">
+    <value>Checking the names was stopped: no object was added. Press “{0}” to check again.</value>
+  </data>
+  <data name="ObjectPicker.Status.CheckFailed" xml:space="preserve">
+    <value>Could not check the names</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

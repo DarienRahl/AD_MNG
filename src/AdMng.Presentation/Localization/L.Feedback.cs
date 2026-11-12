@@ -562,4 +562,96 @@ public static partial class L
         public const string OutlookFailed = "Settings.Status.OutlookFailed";
         public const string OutlookStopped = "Settings.Status.OutlookStopped";
     }
+
+    /// <summary>
+    /// What the filter builder says in its status line (stage V2b-2): the test of the filter on the domain controller.
+    /// What is wrong with the filter itself is a note next to it (<c>Filters.Issue.*</c>).
+    /// </summary>
+    public static class FilterEditorStatus
+    {
+        /// <summary>{0} = the domain.</summary>
+        public const string Testing = "FilterEditor.Status.Testing";
+
+        /// <summary>{0} = the domain, {1} = the number of objects, {2} = the seconds it took.</summary>
+        public const string Tested = "FilterEditor.Status.Tested";
+
+        /// <summary>{0} = the text of the "Test" button.</summary>
+        public const string TestStopped = "FilterEditor.Status.TestStopped";
+
+        /// <summary>What was tried, without a full stop; {0} = the domain.</summary>
+        public const string TestFailed = "FilterEditor.Status.TestFailed";
+
+        /// <summary>What was skipped, without a full stop: the lead of "The filter was not tested: why."</summary>
+        public const string NotTested = "FilterEditor.Status.NotTested";
+    }
+
+    /// <summary>
+    /// What the editor of a saved view says in its status line (stage V2b-2): the test of the view - its search base,
+    /// scope and filter - on the domain controller. A filter that cannot be read is a note under the filter.
+    /// </summary>
+    public static class SavedViewEditorStatus
+    {
+        /// <summary>{0} = the search base as a path ("contoso.test/Firma/IT").</summary>
+        public const string Testing = "SavedViewEditor.Status.Testing";
+
+        /// <summary>{0} = the search base as a path, {1} = the number of objects, {2} = the seconds it took.</summary>
+        public const string Tested = "SavedViewEditor.Status.Tested";
+
+        /// <summary>{0} = the text of the "Test" button.</summary>
+        public const string TestStopped = "SavedViewEditor.Status.TestStopped";
+
+        /// <summary>What was tried, without a full stop; {0} = the search base as a path.</summary>
+        public const string TestFailed = "SavedViewEditor.Status.TestFailed";
+
+        /// <summary>What was skipped, without a full stop: the lead of "The view was not tested: why."</summary>
+        public const string NotTested = "SavedViewEditor.Status.NotTested";
+    }
+
+    /// <summary>
+    /// What "Browse for Container" says in its status line (stage V2b-2): the read of the tree when the dialog opens,
+    /// and the container whose content could not be read.
+    /// </summary>
+    public static class ContainerPickerStatus
+    {
+        /// <summary>{0} = the domain.</summary>
+        public const string Reading = "ContainerPicker.Status.Reading";
+
+        /// <summary>What was tried, without a full stop; {0} = the name of the container.</summary>
+        public const string ReadFailed = "ContainerPicker.Status.ReadFailed";
+    }
+
+    /// <summary>
+    /// What the object picker ("Select Users, Computers, or Groups") says in its status line (stage V2b-2): the search
+    /// of "Find Now" and the check of the typed names. The sentences about single names are the ones the dialog had
+    /// (<see cref="Picker.NotFound"/>, <see cref="Picker.Ambiguous"/>).
+    /// </summary>
+    public static class ObjectPickerStatus
+    {
+        /// <summary>{0} = the location as a path ("contoso.test/Firma").</summary>
+        public const string Searching = "ObjectPicker.Status.Searching";
+
+        /// <summary>The summary of the list of results; {0} = the objects ("4 objects").</summary>
+        public const string Found = "ObjectPicker.Status.Found";
+
+        /// <summary>{0} = the most objects the list shows.</summary>
+        public const string TooMany = "ObjectPicker.Status.TooMany";
+
+        /// <summary>{0} = the text of the "Find Now" button.</summary>
+        public const string SearchStopped = "ObjectPicker.Status.SearchStopped";
+
+        /// <summary>What was tried, without a full stop; {0} = the location as a path.</summary>
+        public const string SearchFailed = "ObjectPicker.Status.SearchFailed";
+
+        /// <summary>{0} = the number of names.</summary>
+        public const string Checking = "ObjectPicker.Status.Checking";
+
+        /// <summary>What was skipped, without a full stop: the lead of "Not every name was resolved: why."</summary>
+        public const string NotResolved = "ObjectPicker.Status.NotResolved";
+
+        /// <summary>{0} = the text of the "Check Names" button.</summary>
+        public const string CheckStopped = "ObjectPicker.Status.CheckStopped";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string CheckFailed = "ObjectPicker.Status.CheckFailed";
+    }
 }

@@ -24876,5 +24876,68 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="Settings.Status.OutlookStopped" xml:space="preserve">
     <value>Pobieranie kont z Outlooka zatrzymano: lista nie została zmieniona.</value>
   </data>
+  <data name="FilterEditor.Status.Testing" xml:space="preserve">
+    <value>Liczenie pasujących obiektów w domenie {0}…</value>
+  </data>
+  <data name="FilterEditor.Status.Tested" xml:space="preserve">
+    <value>Pasujące obiekty w domenie {0}: {1:N0} ({2} s).</value>
+  </data>
+  <data name="FilterEditor.Status.TestStopped" xml:space="preserve">
+    <value>Liczenie pasujących obiektów zatrzymano: filtru nie przetestowano. Wybierz „{0}”, aby przetestować ponownie.</value>
+  </data>
+  <data name="FilterEditor.Status.TestFailed" xml:space="preserve">
+    <value>Nie udało się przetestować filtru w domenie {0}</value>
+  </data>
+  <data name="FilterEditor.Status.NotTested" xml:space="preserve">
+    <value>Filtru nie przetestowano</value>
+  </data>
+  <data name="SavedViewEditor.Status.Testing" xml:space="preserve">
+    <value>Liczenie pasujących obiektów w „{0}”…</value>
+  </data>
+  <data name="SavedViewEditor.Status.Tested" xml:space="preserve">
+    <value>Pasujące obiekty w „{0}”: {1:N0} ({2} s).</value>
+  </data>
+  <data name="SavedViewEditor.Status.TestStopped" xml:space="preserve">
+    <value>Liczenie pasujących obiektów zatrzymano: widoku nie przetestowano. Wybierz „{0}”, aby przetestować ponownie.</value>
+  </data>
+  <data name="SavedViewEditor.Status.TestFailed" xml:space="preserve">
+    <value>Nie udało się przetestować widoku w „{0}”</value>
+  </data>
+  <data name="SavedViewEditor.Status.NotTested" xml:space="preserve">
+    <value>Widoku nie przetestowano</value>
+  </data>
+  <data name="ContainerPicker.Status.Reading" xml:space="preserve">
+    <value>Wczytywanie kontenerów domeny {0}…</value>
+  </data>
+  <data name="ContainerPicker.Status.ReadFailed" xml:space="preserve">
+    <value>Nie udało się wczytać kontenerów w „{0}”</value>
+  </data>
+  <data name="ObjectPicker.Status.Searching" xml:space="preserve">
+    <value>Wyszukiwanie w „{0}”…</value>
+  </data>
+  <data name="ObjectPicker.Status.Found" xml:space="preserve">
+    <value>Znaleziono: {0}</value>
+  </data>
+  <data name="ObjectPicker.Status.TooMany" xml:space="preserve">
+    <value>Pasuje ponad {0:N0} obiektów: lista pokazuje pierwsze {0:N0}. Wpisz nazwę albo wybierz inną lokalizację, aby zawęzić wyszukiwanie.</value>
+  </data>
+  <data name="ObjectPicker.Status.SearchStopped" xml:space="preserve">
+    <value>Wyszukiwanie zatrzymano: listy nie zmieniono. Wybierz „{0}”, aby wyszukać ponownie.</value>
+  </data>
+  <data name="ObjectPicker.Status.SearchFailed" xml:space="preserve">
+    <value>Nie udało się przeszukać „{0}”</value>
+  </data>
+  <data name="ObjectPicker.Status.Checking" xml:space="preserve">
+    <value>Sprawdzanie nazw ({0:N0})…</value>
+  </data>
+  <data name="ObjectPicker.Status.NotResolved" xml:space="preserve">
+    <value>Nie wszystkie nazwy rozpoznano</value>
+  </data>
+  <data name="ObjectPicker.Status.CheckStopped" xml:space="preserve">
+    <value>Sprawdzanie nazw zatrzymano: nie dodano żadnego obiektu. Wybierz „{0}”, aby sprawdzić ponownie.</value>
+  </data>
+  <data name="ObjectPicker.Status.CheckFailed" xml:space="preserve">
+    <value>Nie udało się sprawdzić nazw</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>
