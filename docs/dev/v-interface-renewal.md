@@ -486,11 +486,12 @@ window no longer repeats the summary of a tab that has its own line. See *V2a as
 As built (V2b-1): also on the property sheet, the batch editor, the change plan preview, the AD Recycle Bin, the
 account review and the comparison of objects. The main window itself has none – it is the shell, not a page; its
 "busy" marks are progress rings (*V2b-1 as built*, section 8).
-As built (V2b-2, unit 1): also on four dialogs – the Connect window, "Change domain controller", "Reset Password" and
-"New Object" (*V2b-2 as built*, section 8).
-As built (V2b-2, unit 2): also on the message window ("Send message to users") and on the settings window, above its
-tabs. The Logon Hours dialog and the rendered preview of a message have none – they say what they say in notes – and
-are on the second list of the source test, `ConvertedViewsWithoutAStatusLine`.
+As built (V2b-2): also on the four dialogs that open a session or write one object – the Connect window, "Change domain
+controller", "Reset Password" and "New Object" –, on the message window ("Send message to users"), on the settings
+window (above its tabs), on the filter builder, the editor of a saved view, the session log, "Browse for Container" and
+the object picker: nineteen views in all, and every window of `Views/` that has a status to say. The Logon Hours dialog
+and the rendered preview of a message have none – they say what they say in notes – and are on the second list of the
+source test, `ConvertedViewsWithoutAStatusLine` (*V2b-2 as built*, section 8).
 
 ### 6.2 Navigation – open question 2
 
@@ -579,10 +580,10 @@ names of the new sections.
   `docs/dev/multi-window.md` 3.6); one layout: title, text that states the consequence and names the domain,
   optional single check box, buttons right-aligned with the safe one as default. The existing `Ad.DialogButton`,
   `Ad.AccentDialogButton` and `Ad.DangerDialogButton` become the only button styles of dialogs.
-  As built (V2b-2): a dialog that starts an operation of its own has the status line at its top, above its fields, and
-  its primary button is an action button when that operation can be stopped; a dialog with tabs has the line above
-  them and shows there what the tab in front says; a dialog that only collects input has no line (*V2b-2 as built*,
-  section 8, *Dialogs*).
+  As built (V2b-2): a dialog that starts an operation of its own – or reads something that can fail, like the two
+  pickers – has the status line at its top, above its fields, and its primary button is an action button when that
+  operation can be stopped; a dialog with tabs has the line above them and shows there what the tab in front says; a
+  dialog that only collects input has no line (*V2b-2 as built*, section 8, *Dialogs*).
 - **Property sheet** (`PropertiesWindow.xaml`, 2,340 lines) stays modeless and per connection: a header card (48 px
   icon with badge, name, state pills, copy buttons), the status line, then the pages. Whether the pages stay tabs
   across the top or become a list on the left is open question 11.
@@ -1144,40 +1145,48 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
   list `PagesWithAStatusLine` has exactly one status line named `PageStatus` over `Status.Current`, no `Ad.ErrorBar`,
   no `Ad.WarningBar` and no `ProgressBar`, and a view with a status line must be on the list; the 81 views that are
   not converted yet are not touched by it.
-- **What V2b has to do** (rewritten at the end of V2b-1; counted in the XAML, comments excluded). At the end of V2a
+- **What V2b has to do** (rewritten at the end of V2b-2; counted in the XAML, comments excluded). At the end of V2a
   there were 43 uses of `Ad.ErrorBar` and 58 of `Ad.WarningBar` in 51 files, and 65 progress bars. V2b-1 – seven core
-  windows, *V2b-1 as built* below – took 16 + 13 of the banners and 23 of the progress bars away. **Left: 27 uses of
-  `Ad.ErrorBar` and 45 of `Ad.WarningBar` in 44 files, and 42 progress bars in 36 files** – 53 view files with at least
-  one of the three, 8 views with a status line.
-  - By area (error bars + warning bars, progress bars): the remaining windows of `Views/` – user messages 2 + 2 and 3,
-    change domain controller 1 + 1 and 2, new object 1 + 1 and 1, logon hours 0 + 3, settings 1 + 1, connect 1 + 0 and
-    1, reset password 1 + 0 and 1, the filter editor, the saved view editor and the session log 1 + 0 each, the
-    container picker and the object picker 0 + 0 and 1 each, and the row of an activity in the main window (0 + 0 and 1,
-    which stays) – together 10 + 8 and 11 in 13 files; `GroupPolicy/` 7 + 17 and 8 in 15 files (with the shared
+  windows, *V2b-1 as built* below – took 16 + 13 of the banners and 23 of the progress bars away; V2b-2 – the twelve
+  remaining windows of `Views/` and the rendered preview of a message, *V2b-2 as built* – took 10 + 9 and 10. **Left: 17
+  uses of `Ad.ErrorBar` and 36 of `Ad.WarningBar` in 33 files, and 32 progress bars in 29 files** – 40 view files with
+  at least one of the three, 19 views with a status line and 2 converted views without one. `Views/` itself is done:
+  what is left is in the feature folders, most of it on document tabs.
+  - By area (error bars + warning bars, progress bars): `GroupPolicy/` 7 + 17 and 8 in 15 files (with the shared
     `GroupPolicyBanners.xaml`); `BulkCreate/` 3 + 5 and 2 in 4 files; `Views/Watchdog/` 2 + 4 and 7 in 9 files;
     `Computers/` 2 + 3 and 3 in 2 files; `Pki/` 2 + 2 and 4 in 4 files; `EventLogs/` 0 + 3 and 3 in 3 files;
-    `Correspondence/` 1 + 1 and 3 in 1 file; `Readiness/` 0 + 1 and 1; `Controls/HtmlPreviewView.xaml` 0 + 1.
+    `Correspondence/` 1 + 1 and 3 in 1 file; `Readiness/` 0 + 1 and 1; and the row of an activity in the main window
+    (no banner, 1 progress bar), which stays. The HTML preview control (`Controls/HtmlPreviewView.xaml`, 0 + 1 until
+    V2b-2) is done: it was converted with the message window that hosts it, and the correspondence window, which hosts
+    it too, shows its one note next to its own bars until its increment.
   - Sort first (foundation 1 of *V2b-1 as built*): status goes to the line, a note stays where it is with the look of a
-    note (`Ad.Note.Info`, `Ad.Note.Attention`, `Ad.Note.Error`), the progress of a row stays in its row. Of the 29
-    banners V2b-1 sorted, 18 were status and 11 notes: all 16 error bars were status, 11 of the 13 warning bars were
-    notes. So most of the 45 warning bars that are left will stay in their places as notes, and the 27 error bars will
-    go to the line. What never was a banner is sorted the same way: a count or "as of" text is the summary (`StatusText`
-    is still mentioned 51 times in the XAML of 27 views), a result card, a toast or a dialog that says what the window
-    just did is status.
+    note (`Ad.Note.Info`, `Ad.Note.Attention`, `Ad.Note.Error`), the progress of a row stays in its row, and a place
+    that only shows "busy" gets a progress ring – unless its read can fail: then it has status to say (*V2b-2 as built*,
+    Dialogs 19). Of the 48 banners sorted so far, 26 were status and 22 notes: of the 26 error bars 22 were status and 4
+    notes – findings of a check that runs while the operator types (a template, "why Save is not possible", a filter
+    that is not valid) –, of the 22 warning bars 4 were status and 18 notes. So most of the 36 warning bars that are
+    left will stay in their places as notes, and most of the 17 error bars will go to the line. What never was a banner
+    is sorted the same way: a count or "as of" text is the summary (`StatusText` is still mentioned 45 times in the XAML
+    of 24 views), a result card, a toast or a dialog that says what the window just did is status.
   - Per page, the recipe is the foundations of *V2b-1 as built*: a `PageStatusHolder` per view model – and per tab or
     part that says something of its own, with the one shown in front –, the summary in `SetIdle`, every long operation
     in a scope with its token, a state that lasts in `SetLasting` (first of all `SessionEndedStatus`), errors built with
     `PageStatusText.Failure`, an execution through `ExecutionStatus`; in the view one `c:StatusLine` named `PageStatus`,
     the file on `PagesWithAStatusLine`, and a start button with a separate stop or cancel button as one
-    `c:ActionButton`. Candidates for the action button that are left: bulk check, computer review, remote computer, the
-    event log reader and its two analyses, GPO search, cleanup and diagnostics, the PKI security review, readiness, the
-    tests of the filter and saved view editors, the sending of correspondence and of user messages, the Watchdog
-    delivery test, connect.
+    `c:ActionButton`. For a dialog, the sub-list *Dialogs* of *V2b-2 as built* says the rest: where the line sits and
+    how it is declared (tab order, default and cancel button), what a dialog that closes on success says, that a missing
+    field is said when the button is pressed, how a dialog with tabs, a dialog without a session and a hosted control
+    are handled, and that a view with nothing but notes gets no line and goes on the second list
+    (`ConvertedViewsWithoutAStatusLine`). Candidates for the action button that are left: bulk check, computer review,
+    remote computer, the event log reader and its two analyses, GPO search, cleanup and diagnostics, the PKI security
+    review, readiness, the sending of correspondence, the Watchdog delivery test. (Done in V2b-2: connect and the search
+    for domain controllers, the change of the domain controller, OK of "Reset Password", preview, send and paste of the
+    message window, the tests of the filter builder and of the saved view editor.)
   - Document tabs drop out of `StatusBarText` as they are converted (Watchdog, event logs, Group Policy, PKI, readiness
-    – V2b-1 had no document tab). The wizard of bulk creation (`BulkCreate/`) is hosted in step 1 of the batch editor:
-    its holder becomes `SourceStatus` of the create mode. With the last converted view `Ad.ErrorBar` and `Ad.WarningBar`
-    leave `Themes/Controls.xaml`, and with them the strings and view-model members that lost their last user (listed
-    under *After V2b-1*).
+    – neither V2b-1 nor V2b-2 had a document tab). The wizard of bulk creation (`BulkCreate/`) is hosted in step 1 of
+    the batch editor: its holder becomes `SourceStatus` of the create mode. With the last converted view `Ad.ErrorBar`
+    and `Ad.WarningBar` leave `Themes/Controls.xaml`, and with them the strings and view-model members that lost their
+    last user (listed under *After V2b-1*).
   - Settled in V2b-1, of what was open in the controls after V2a: the accent variant of the action button
     (`Ad.AccentActionButton`, and `Ad.DialogActionButton` / `Ad.AccentDialogActionButton` with the metrics of the dialog
     buttons); the status line of a page with several operations (a state that lasts, several holders with the page in
@@ -1188,25 +1197,59 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     decision of 2026-11-11 a result that does not fit the line wraps, to three lines at most, while the summary and a
     running operation stay one line (built next to unit 3: *A result that does not fit the line wraps* in *V2b-1 as
     built*).
+  - Settled in V2b-2 (*V2b-2 as built*, the sub-list *Dialogs*), without a change to the model or the controls: how a
+    small dialog carries the line – its place above the fields, the footer declared first, `IsDefault` and `IsCancel`
+    where they were, the primary button as an action button when its operation can be stopped (Dialogs 1 to 10); the
+    dialog with tabs (12); the view that has no status and gets no line, with a source rule of its own (11, 16), and the
+    control a converted window hosts (15); a sentence that answers a press and is still a note (13); "busy" in a dialog
+    (14) and when a progress bar that looks like it is status after all (19); view models that are no window view models
+    and own a holder all the same (the Connect window, the two editors – 17); a result that goes with its input (18); a
+    state that follows a selection (20); and an operation over many items that is no change plan – the send of messages
+    – with the progress of foundation 6. The sorting itself learned one thing: an error bar may be a note.
   - Still open – in the controls and the model:
     - *A delay before "Working"* (about 150 ms), so that an operation that ends at once does not flash – more visible
-      now: the read of nested membership after every comparison, the reads of the tabs of the property sheet.
+      with every window: the read of nested membership after every comparison, the reads of the tabs of the property
+      sheet, "Reading the containers of …" at every opening of the container picker, a test of a filter in a small
+      domain.
     - *The rest of the V2 scope:* the status pictures at 16 px for pills, `StatusPill`, `EmptyState`, `Skeleton`,
-      taskbar progress and the close question tied to running activities are not started.
+      taskbar progress and the close question tied to running activities are not started. A send of messages that takes
+      minutes now shows its progress only in the 16 px ring and the numbers of the line – taskbar progress would be its
+      place.
     - *A mark in the tab header* of a page that reads or failed (6.7): a failed tab says so only when it is selected.
     - *The same message on two pages:* switching between two tabs that say a message of the same key changes the text
       without the entrance motion and without a live region event (the control compares kind and key).
     - *Reports are not coalesced:* an operation that reports per object (planning thousands of objects) updates the line
       as often.
     - *Notes:* whether a note may choose its glyph (the shield of the protected account became the warning glyph).
-    - *Stop for a write:* Apply of the property sheet cannot be stopped from the line (its execution is an activity).
-    - *Said twice:* the toast of the main window after an execution or a restore repeats what the line of the window
-      that ran it says.
-    - *Tab order:* in the dialog-like windows the status line is declared after the footer (as in the Find pilot), so
-      its link and close button follow the footer buttons – to be put right with the page skeleton of V3 (section 7).
+    - *Stop for a write:* Apply of the property sheet and OK of "New Object" cannot be stopped from the line (the
+      execution is an activity). Where a write can be stopped – "Reset Password" through `ExecutionStatus` – the
+      executor leaves the account it was working on half done (password reset, "must change" not set) and reports it as
+      failed without a message.
+    - *Reads that take no token:* the containers of the tree (the main window and the container picker – the picker's
+      read therefore has no Stop), the two short reads before a send, the checks of "New Object".
+    - *Said twice, or said elsewhere:* the toast of the main window after an execution, a restore or a send repeats what
+      the line of the window that ran it says; an export and a copy to the clipboard still answer with a toast in every
+      converted window, not in its line.
+    - *Buttons whose operation is stopped in the line only:* the test message, the three tests of the settings, *Find
+      Now* and *Check Names* of the object picker (and its OK, the primary button of a dialog) stayed plain buttons –
+      they never had a Cancel, and several action buttons over one holder each need a flag. Whether they become action
+      buttons is to be decided with the owner (6.7: "cancel where you started").
+    - *The empty line of a dialog:* a small dialog shows an empty band of 28 px at rest, and always on a tab that has
+      nothing to say. Collapse an empty line in dialogs, or keep the one fixed place?
+    - *Long results in narrow dialogs:* a failed connect with its advice does not fit three lines at 560 px – a shorter
+      advice for the line, or a fourth line.
+    - *A window without a session:* the lasting "session ended" takes the place of the summary and covers what the page
+      in front says, so counts that are still true (the session log, the report of a send) are not shown.
+    - *A failed read in the tree* is said by the line of the container picker only for the selected container; a
+      container opened with its expander alone, and every container of the main window's tree, says it with a glyph in
+      its row.
+    - *Tab order:* in the dialog-like windows and the dialogs the status line is declared after the footer (as in the
+      Find pilot), so its link and close button follow the footer buttons – to be put right with the page skeleton of V3
+      (section 7).
     - *Language:* the property sheet computes its lasting state from its conditions and says it again after a language
       switch; in the other converted windows a failure that lasts keeps the language it was said in, and only "the
-      session of this window ended" follows the switch at once.
+      session of this window ended" and "not connected" follow the switch at once. The Connect window and the two
+      editors do not follow a switch at all (they are modal, and the settings cannot be opened over them).
     - *Tests:* summaries show the time of day, so README pictures of converted windows differ with every screenshot run
       – a fixed clock for the UI tests would end that.
 - **Not seen, to confirm on Windows:** nothing of this was seen on a screen. Open: the look of the line on the status
@@ -1758,7 +1801,12 @@ above.
   message window, which have no user any more; `CancelSendCommand`, which only tests use; no longer shown but read by
   tests or by the view model itself – `Error`, `StatusText`, `TestResultText`, `RichStatusText`, `ProgressText`,
   `ProgressValue` and `ProgressMaximum` of the message window, `TestResult`, `TestSucceeded` and `OutlookAccountsText`
-  of the "E-mail messages" tab of the settings.
+  of the "E-mail messages" tab of the settings. Added by V2b-2, unit 3: no longer shown but read by tests or set by the
+  view model itself – `TestResult` of the filter builder and of the saved view editor (with the strings `Views.Testing`
+  and `Views.TestResult`, which only feed it), `StatusText` of the object picker (with `Picker.Found` and
+  `Picker.TooMany`), `IsLoading` of the container picker, and `SessionEndedMessage`, which the session log no longer
+  binds. `TestCancelCommand` of the two editors still has a user: the view cancels a running test with it when the
+  window closes. No string lost its last user in that unit.
 - **Not seen, to confirm on Windows.** Nothing of V2b-1 was seen on a screen.
   - *The property sheet.* How a wrapped result looks in the 640 px wide sheet (two or three lines on the caution or
     critical surface, picture and buttons in the first line). The note next to the old validation texts (glyph and plain
@@ -1790,14 +1838,18 @@ above.
 **V2b-2 as built (the remaining windows of Views).** The third increment of V2 converts the twelve windows of `Views/`
 that still had banners, in three units. Unit 1 converted the four dialogs that open a session or write one object – the
 Connect window, "Change domain controller", "Reset Password" and "New Object" – and, because they are the first small
-dialogs of the sweep, decided how a dialog carries a status line (the sub-list *Dialogs*, which units 2 and 3 follow).
-Unit 2 converted the window that sends messages to users, the settings window and the Logon Hours dialog – the first
-window of the increment with an operation over many items and a known count, the first dialog with tabs, and the first
-view that gets no status line at all – and added what they needed to *Dialogs* (12 to 16). The foundations are those of
-*V2b-1 as built*; nothing was added to the model or to the controls. The block reads: *Dialogs*, the four windows of
-unit 1 with their tests, counts and what was not seen, then the same for unit 2.
+dialogs of the sweep, decided how a dialog carries a status line (the sub-list *Dialogs*, which the later units follow
+and extend). Unit 2 converted the window that sends messages to users, the settings window and the Logon Hours dialog –
+the first window of the increment with an operation over many items and a known count, the first dialog with tabs, and
+the first view that gets no status line at all – together with the rendered preview of a message, a control the message
+window hosts. Unit 3 converted the filter builder, the editor of a saved view, the session log and the two pickers – two
+editors that work without a session and still test something on the domain controller, a window with a state and no
+operation, and two dialogs whose progress bar looked like a mere "busy" mark. With that no window of `Views/` has a
+banner any more. The foundations are those of *V2b-1 as built*; nothing was added to the model or to the controls. The
+block reads in this order: *Dialogs*, the twelve windows, the tests, what is left behind, and what nobody has seen on a
+screen yet. What the sweep still has to do is counted in *What V2b has to do*, above.
 
-- **Dialogs** (decided in unit 1; what the later units follow).
+- **Dialogs** (decided in unit 1, extended by units 2 and 3; what every later dialog of the sweep follows).
   1. *Where the line sits.* At the top of the dialog, above its fields: under the dialog's own header when it has one
      (the title of the Connect window, the domain and the current domain controller of "Change domain controller"),
      otherwise as the first thing ("Reset Password", "New Object"). It is the place of every converted window – the
@@ -1880,6 +1932,36 @@ unit 1 with their tests, counts and what was not seen, then the same for unit 2.
       `XamlSourceTests.ConvertedViewsWithoutAStatusLine` – sorted, never overlapping `PagesWithAStatusLine` – with the
       test `AConvertedViewWithoutAStatusLine_HasNoBannerAndNoProgressBar`: no `StatusLine` element, no `Ad.ErrorBar`, no
       `Ad.WarningBar`, no `<ProgressBar`. On it after unit 2: the Logon Hours dialog and the rendered preview.
+  17. *A dialog that works without a session* (added by unit 3: the filter builder, the editor of a saved view). Its
+      view model is no window view model – it is not pinned to a session; a filter or a view can be edited and saved
+      without one – so it takes what the holder needs as constructor arguments, like the Connect window: the UI
+      dispatcher (required) and the status logger (optional). It has no state that lasts: "Not connected to a domain."
+      is the answer to the press of *Test* (Dialogs 5: "The filter was not tested: …"), not an error that cannot be
+      closed. Dialogs 7 is for a dialog that can do nothing without its session; the question to ask is whether the
+      dialog still does its main job.
+  18. *A result goes with what it was about* (added by unit 3: the test of a filter or of a view). When the input the
+      operation was about changes – the filter; for a view also its search base and scope – the line is cleared
+      (`Status.Clear()`): the result is closed, and an operation that still runs ends without a word, because its answer
+      would be about another input. What is not that input (the name, the description) leaves the result alone.
+  19. *A picker gets the line, not a ring, when its place can fail* (added by unit 3: "Browse for Container"). Its 2 px
+      bar looked like "busy" without a sentence (Dialogs 14) – but the read behind it can fail, a failed read is status,
+      and a window says its status in one place: so the read is said by the line as well. The ring stays for a place
+      whose failure is said elsewhere (the toast of the quick search, a note). The marks in the rows of the tree –
+      "being read", "could not be read" – are the progress and the state of a row and stay in the row.
+  20. *A state that lasts and follows the selection* (added by unit 3: "Browse for Container"). "The content of this
+      container could not be read" is computed in the one `UpdateLasting` from the selected node (the view model follows
+      that node's `LoadError`), behind "session ended" and "not connected": it is said while the operator looks at that
+      container and gone when another one is selected – nothing is lost, the row keeps its mark. Its Retry is the node's
+      own command.
+  21. *An operation the dialog cannot stop is begun with `canCancel: false`* (added by unit 3: the read of the container
+      tree). The tree reads its containers itself, without a token, as in the main window; a Stop in the line would only
+      have stopped the waiting. The dialog's own Cancel closes it at any time, and the tree can be used while it is
+      read. An operation that reads through the dialog's own calls takes the token of its scope, as everywhere.
+  22. *The end of the session: the state first, then the operation* (added by unit 3). `OnSessionEnded` calls
+      `UpdateLasting()` before it disposes the running operation: the line then goes from "working" straight to "the
+      session of this window ended". The other way round it shows its summary for a moment in between – one change of
+      the line more, found by a test that records every change. "Busy" ends in the same call, not when the domain
+      controller answers (the object picker), as unit 2 found for the message window.
 - **The Connect window** (`Views/ConnectWindow.xaml`; `Connection/ConnectViewModel`).
   - *What the line says.* Under the header, above the profile box. At rest nothing; once domain controllers were looked
     for, "Domain controllers found: 2" – the summary, because the result is the list of the drop-down. **Working:**
@@ -2034,57 +2116,8 @@ unit 1 with their tests, counts and what was not seen, then the same for unit 2.
       account) and the check of the logon name stay as they were: silent, best effort, next to their fields.
     - **A window without a session says so from the start** (it used to say it when OK was pressed).
     - `Error`, `IsBusy` and `CreatedDn` are unchanged for the tests and the code that read them.
-- **Tests (unit 1).** Presentation (run on Linux): `Session/ConnectStatusTests` (15: at rest, not started in both
-  languages, connecting with Stop and "Connect", success, a failed bind in both languages without Retry, an exception
-  without advice, the window closing while it connects, the search with its summary in both languages, stopped and
-  failed with Retry, no domain, a profile that closes a result, the log copies);
-  `Dialogs/ChangeDomainControllerStatusTests` (14: the summary in the plural forms, the read with Stop and Refresh, a
-  list that could not be read in both languages, the switch with Stop, the dialog's Cancel, a failed switch in both
-  languages, what the dialog explains itself, the list read while the operator switches, no session, the end of the
-  session during a read and a switch, closing, the log copies); `Dialogs/ResetPasswordStatusTests` (13: the read,
-  stopped and failed, not started in both languages, checking then executing in both languages, several accounts with
-  the confirmation, nothing succeeded, an account that cannot be reset, Stop while checking – no password reset –, Stop
-  while executing, no session and its end, the log copies – and no password in any text); `Dialogs/NewObjectStatusTests`
-  (13: not started in both languages, the passwords, creating without Stop in both languages, a name that is taken, a
-  failed creation in both languages, a domain controller that does not answer the checks, created in part, no session
-  and its end, the joiner, the log copies). The fake connector of the Presentation tests can hold or fail a bind and a
-  search. Unchanged and green: `SessionAndConnectTests` (the constructor got the dispatcher),
-  `ChangeDomainControllerViewModelTests`, `ResetPasswordTests`, `NewObjectTests`. UI (Windows CI):
-  `ConnectStatusUiTests`, `ChangeDomainControllerStatusUiTests`, `ResetPasswordStatusUiTests`, `NewObjectStatusUiTests`
-  (three tests each, through the real window; the fake connector of the UI tests can hold or refuse a bind, a search and
-  a switch); `ChangeDomainControllerWindowTests` and `ConnectWindowTests` read "not connected" and "what is missing"
-  from the line instead of the error bar. Source rules: the four views are on `PagesWithAStatusLine` (twelve views now);
-  proven on Linux with the throwaway script of V2b-1.
-- **After unit 1** (counted in the XAML, comments excluded): 23 uses of `Ad.ErrorBar` and 43 of `Ad.WarningBar` in 40
-  files and 37 progress bars in 32 files – 49 view files with at least one of the three, 12 views with a status line.
-  Unit 1 took 4 error bars (all status), 2 warning bars (1 status – the list that could not be read –, 1 note) and 5
-  progress bars (all status). Left behind, to be looked through when the sweep is over (added to the list of *After
-  V2b-1*): `FindDomainControllersCancelCommand` of the Connect window, which has no user any more, and view-model
-  members that are no longer shown but are read by tests or by the view model itself (`ErrorText` and `StatusText` of
-  the Connect window and of "Change domain controller", `ListNote` of the latter, `Error` of "Reset Password" and of
-  "New Object"); no string lost its last user.
-- **Not seen, to confirm on Windows (unit 1).** Nothing of this was seen on a screen.
-  - *The empty line.* The four dialogs show an empty band of 28 px at rest (under the header of the Connect window,
-    under the header of "Change domain controller" until the list is read, at the top of the other two). Whether that
-    reads as a gap, and whether "Domain controllers found: 2" with the info picture is too loud in the Connect window.
-    Of the four only the Connect window is in the screenshots of CI (`08-connect.png`, at rest: the empty line under the
-    header and the footer with one button); the other three dialogs are in no picture.
-  - *Long results in narrow dialogs.* The Connect window is 560 px wide: about 65 characters of a result fit one line
-    next to the title and the close button. A bind that fails with "the domain controller is not available" says some
-    250 characters with the advice about ports and the LDAPS certificate – four lines, so it is cut in the third and
-    whole only in the tool tip (the old bar wrapped freely). The same advice plus "The session stays connected to …" in
-    "Change domain controller" (680 px). If that proves too tight: a shorter advice for the line, or a fourth line – a
-    question for the owner, not decided here.
-  - *The fields move.* In the three dialogs that size to their content a result that wraps makes the window higher and
-    moves every field down by 20 or 40 px, and back when it is closed (the old bar was under the fields and moved only
-    the footer).
-  - *Widths.* OK of "Reset Password" and *Change* are as wide as "Stopping…" / "Zatrzymywanie…" needs; *Find domain
-    controllers* is wider than that already. The footer of the Connect window holds one button now; the *Export results*
-    button of "Reset Password" starts at the left edge of the footer.
-  - *The note of "New Object"* (glyph and plain text where a caution bar was), and the header "Results" in "Reset
-    Password" where the counts were.
 - **The message window** (`Views/UserMessagesWindow.xaml`, "Send message to users";
-  `UserMessages/UserMessageComposerViewModel` with its part `…RichHtml.cs`) – unit 2.
+  `UserMessages/UserMessageComposerViewModel` with its part `…RichHtml.cs`).
   - *What the line says.* At the top of the window, 8 px in from its edge, above the line that says how the messages go
     out and the stage shown. **In the editor** nothing at rest; what the editor does is said there (below). **Preparing
     the preview** – *Preview*, F5, *Retry failed*, *Send without images* – is the operation of the window: "Reading the
@@ -2185,7 +2218,7 @@ unit 1 with their tests, counts and what was not seen, then the same for unit 2.
     begins (Dialogs 10: such a read is no operation); with a service that does not answer the window says nothing
     until its client gives up.
 - **The settings window** (`Views/SettingsWindow.xaml`; `Settings/SettingsViewModel`,
-  `UserMessages/UserMessageSettingsViewModel` for the "E-mail messages" tab) – unit 2.
+  `UserMessages/UserMessageSettingsViewModel` for the "E-mail messages" tab).
   - *What the line says.* Above the tabs (Dialogs 12). The window itself says nothing: Save writes a local file and
     closes the dialog, and the window never acts in a session, so it has no state that lasts. **While the "E-mail
     messages" tab is shown** the line is the tab's: "Testing the connection to smtp.contoso.com:587…" with Stop, then
@@ -2231,7 +2264,7 @@ unit 1 with their tests, counts and what was not seen, then the same for unit 2.
     - The three tabs scroll from 564 px instead of 600, so with a tab that scrolls the dialog is as high as it was; with
       a shorter tab it is 36 px higher (it sizes to its content, and grows with a result that wraps). `TestResult`,
       `TestSucceeded` and `OutlookAccountsText` are still set for the tests that read them; `TestDetails` is new.
-- **Logon Hours** (`Views/LogonHoursWindow.xaml`; `Dialogs/LogonHoursViewModel`, untouched) – unit 2. **No status line**
+- **Logon Hours** (`Views/LogonHoursWindow.xaml`; `Dialogs/LogonHoursViewModel`, untouched). **No status line**
   (Dialogs 11): the dialog is pure editing – it reads nothing, writes nothing and hands its result to its opener, which
   turns it into a change plan. Its three warning bars are true of the grid for as long as it is shown and became
   `Ad.Note.Attention` where they were: why the hours cannot be changed (the reason its opener hands in – for example no
@@ -2239,47 +2272,255 @@ unit 1 with their tests, counts and what was not seen, then the same for unit 2.
   able to log on at all." – under it, while the schedule is so, still announced when it appears. The notes are left
   aligned and keep the 720 px cap of the bars (the dialog sizes to its content). The view is on
   `ConvertedViewsWithoutAStatusLine`.
-- **Tests (unit 2).** Presentation (run on Linux): `UserMessages/UserMessageComposerStatusTests` (26 cases: at rest with
-  the editor in front; preparing with Stop and the counts in both languages; Stop with "Stopping…" at once and Retry
-  that prepares the same accounts; a failed read in both languages; a template that stops the plan in both languages;
-  sending with "0 of 2", "1 of 2", "2 of 2" and the result with the domain in both languages, then the counts of the
-  report; Stop while sending, also through the command of the old button; sent in part in both languages; nothing
-  accepted, and no Retry without a session; no SMTP password in both languages – and the password in no text; the test
-  message with Stop, refused, stopped, without an address; the paste as the editor's operation while the preview is
-  prepared; Stop while pasting although the import finished; the small steps of the editor and that they go with the
-  template; the transport that does not fit as a note while the line keeps its summary; the end of the session during a
-  held read – nothing "busy" – and in Polish after a language switch; closing the window; the log copies without an
-  address, a name, the content or the password) and `UserMessages/UserMessageSettingsStatusTests` (13 cases: the tab in
-  front and the empty line of the other tabs; the connection test with Stop in both languages; a failed test with its
-  stage; Stop; what stops a test before it starts, in both languages, and the password in no text; the test message; the
-  Outlook accounts in both languages – how many, not which; accounts that could not be read, and a stopped read; closing
-  the window; the log copies). `HtmlPasteWorkflowTests` got the note of the images that could not be read (no status, in
-  Polish after the switch, gone with the images). The fake transport can hold a connect and a connection test, the fake
-  Outlook client a connect. Unchanged and green: `UserMessageComposerTests`, `UserMessageSettingsTests`, the salutation,
-  transport and library tests. UI (Windows CI): `UserMessagesStatusUiTests` (four tests through the real window),
-  `SettingsStatusUiTests` (three), `LogonHoursNotesUiTests` (two: no status line, the three notes). Adapted where the
-  place of a message changed: `UserMessagesWindowTests` (the counts of the report are read from the line behind the
-  result), `UserMessagesRichHtmlWindowTests` (what became of a paste is read from the line; the transport and the
-  fallback of the preview are notes) and `CorrespondenceWindowTests` (how the read of the Outlook accounts ended is read
-  from the line of the settings window). Source rules: the two views are on `PagesWithAStatusLine` (fourteen views now),
-  the dialog and the hosted control on `ConvertedViewsWithoutAStatusLine`; proven on Linux with the throwaway script,
-  extended by the second list.
-- **After unit 2** (counted in the XAML, comments excluded): 20 uses of `Ad.ErrorBar` and 36 of `Ad.WarningBar` in 36
-  files and 34 progress bars in 31 files – 45 view files with at least one of the three; 14 views with a status line and
-  2 converted views without one. Unit 2 took 3 error bars (1 status, 2 notes – the first error bars of the sweep that
-  are notes: both are findings of a check that runs while the operator types), 7 warning bars (1 status, the session
-  that ended, and 6 notes, the bar of the rendered preview among them) and 3 progress bars (all status). Left for unit 3
-  in `Views/`: the filter editor, the saved view editor and the session log (1 error bar each), the container picker and
-  the object picker (1 progress bar each); the progress bar of an activity row in the main window stays.
-  `Controls/HtmlPreviewView.xaml` has left the by-area list of *What V2b has to do*. Left behind, to be looked through
-  when the sweep is over (added to the list of *After V2b-1*): the string `UserMessages.Rich.CancelPaste` and the
-  command `CancelPasteCommand` of the message window, which have no user any more; `CancelSendCommand`, which only tests
-  use; and view-model members that are no longer shown but are read by tests or by the view model itself (`Error`,
-  `StatusText`, `TestResultText`, `RichStatusText`, `ProgressText`, `ProgressValue` and `ProgressMaximum` of the message
-  window; `TestResult`, `TestSucceeded` and `OutlookAccountsText` of the "E-mail messages" tab of the settings).
-- **Not seen, to confirm on Windows (unit 2).** Nothing of this was seen on a screen.
-  - *The message window.* The line above the row that says how the messages go out – an empty band of 28 px in the
-    editor at rest – and the footer with buttons only. *Preview* and *Send (300)* as wide as "Stopping…" /
+- **The filter builder and the editor of a saved view** (`Views/FilterEditorWindow.xaml`,
+  `Views/SavedViewEditorWindow.xaml`; `Filters/FilterEditorViewModel`, `Views/SavedViewEditorViewModel`) – two dialogs
+  with the same one operation: the test of what is edited on the domain controller.
+  - *What the line says.* At the top, above the name. At rest nothing. **The test:** "Counting the matching objects in
+    contoso.test…" – in the editor of a view with the search base as a path, "…in “contoso.test/Firma/IT”…" – with Stop;
+    **done** "Matching objects in contoso.test: 42 (0.21 s)."; stopped – attention "Counting the matching objects was
+    stopped: the filter was not tested. Press “Test” to test again." with *Test*; failed – error "Could not test the
+    filter in contoso.test: reason. Press Retry to try again. (code)" with Retry, a result that can be closed. **Not
+    started:** attention "The filter was not tested: Not connected to a domain." ("The view was not tested: …").
+  - *How the old places were sorted* (2 error bars, and the text and the button next to *Test*).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `Error` under the preview of the filter builder (a condition without an attribute, a value that is not valid, an LDAP filter that cannot be read) | note | `Ad.Note.Error` in the same place: computed from the conditions while they are shown – why *Save* and *Test* cannot be pressed |
+    | error bar `FilterError` under the filter of the saved view editor (with a glyph of its own) | note | `Ad.Note.Error` in the same place (the note brings the glyph) |
+    | `TestResult` next to *Test* ("Counting matching objects…", "Matching objects: 42 (0.21 s)", "The operation was cancelled.", why the search failed, "Not connected to a domain.") | status | operation and result of the window; gone from the page |
+    | the *Stop* button next to *Test* (shown while the command ran) | – | gone: *Test* is an action button |
+    | the issue under a condition, the hint about constructed attributes, the hint under the filter of a view | note | unchanged |
+
+  - *Decisions.*
+    - **The count is a result, not the summary.** It answers a press, the dialog shows no list it would count, and it is
+      true only of the filter that was tested: a "done" the operator can close, which goes by itself when the filter
+      changes (Dialogs 18). The tests of the settings window are the same kind of answer.
+    - **The number stands after a colon** – "Matching objects in contoso.test: 42" – as in the text the button had next
+      to it: after a verb the Polish noun would need a case the plural helper does not have („pasuje do 42 obiektów”).
+    - **No state that lasts, and a view model with two more arguments** (Dialogs 17). `SavedFiltersViewModel`,
+      `ShellViewModel` and the smoke test pass the dispatcher and the logger of their services; the container resolves
+      them for the editor of a new view.
+    - ***Test* is the plain action button** (`Ad.ActionButton`, the style the control takes by itself), left aligned
+      where the button was: it is not the primary action of the dialog – *Save* is, and stays the default button. It is
+      running while `Status.IsWorking` (one operation, one holder). The cancel of the command, which the view uses when
+      the window closes during a test, is the same Stop.
+    - **A filter that changes ends its test.** The count of a search that was started for the filter of before used to
+      appear next to the new filter. In the editor of a view the search base and the scope count as well (they did not
+      clear the old text; `TestResult` keeps that rule for the tests that read it).
+    - **Stop holds** (Dialogs 9): a domain controller that answers although Stop was pressed does not turn "Stopping…"
+      into a count.
+    - `Error`, `FilterError`, `TestResult` and `TestCancelCommand` are unchanged for the tests and the code that read
+      them; the element `ErrorBar` of the filter builder is the note `ErrorNote` now. The filter builder is 36 px higher
+      by default (720 to 756); the editor of a view sizes to its content.
+- **The session log** (`Views/SessionLogWindow.xaml`; `Dialogs/SessionLogViewModel`).
+  - *What the line says.* At the top, 8 px in from the window edge, above the filter. At rest how many entries the list
+    shows – "Entries: 12 of 40", the text the footer had –, which follows new entries, the filter and the language. As
+    the state that lasts: the session of the window ended. The window reads nothing from a domain controller and starts
+    no operation.
+  - *How the old places were sorted* (1 error bar, and the count).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `SessionEndedMessage` at the top | status | lasting error of the window |
+    | `CountText` in the footer | summary | `SetIdle`; gone from the footer, which holds its two buttons |
+    | the toast after an export, the dialog when the file could not be written, the toasts of the copy commands | – | unchanged, as in every converted window |
+    | "No entries to show." over the empty list | – | unchanged (the hint of an empty list, never a banner) |
+
+  - *Decisions.* What its error bar said decided it: that the session ended is the state of the window, and the count –
+    a text, never a banner – is its summary; so the window has a line although it starts nothing. **A window opened
+    without a session has no state that lasts:** it lists the log, which is its whole job (Dialogs 7 is for dialogs that
+    act in the session). **The state covers the count** – it takes the place of the summary –, while the entries are
+    still there to see, filter, copy and export: the known price of one line (*Not seen*, below). `CountText` is
+    unchanged for the tests that read it. The window is 36 px higher by default (640 to 676).
+- **Browse for Container** (`Views/ContainerPickerWindow.xaml`; `Dialogs/ContainerPickerViewModel`; one property added
+  to `Navigation/ContainerNodeViewModel`).
+  - *What the line says.* At the top, above the prompt and the tree. **Working**, when the dialog opens: "Reading the
+    containers of contoso.test…" – without Stop – until the tree stands at the start container; then nothing. **States
+    that last**, the most important first: the session of the dialog ended, or it was opened without one ("Not connected
+    to a domain."); the content of the selected container could not be read – error "Could not read the containers in
+    “Pracownicy”: Access is denied. Press Retry to try again. (AccessDenied)" with Retry, for as long as that container
+    is selected.
+  - *How the old places were sorted* (1 progress bar, and the marks of the tree).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | 2 px progress bar above the tree (`IsLoading`: the tree is read and opened at the start container) | status | the read in the line |
+    | the glyph next to a container that is being read | progress of a row | unchanged |
+    | the error glyph next to a container whose read failed, with the reason as its tool tip | state of a row | unchanged in the row; for the selected container the line says it as well, with the reason, the code and Retry |
+    | the path of the selected container under the tree | content | unchanged |
+
+  - *Decisions.*
+    - **A status line, not a ring** (Dialogs 19): the bar only showed "busy", but what it stood for can fail – a domain
+      controller that does not answer, a container the account may not list – and until now that was said by a 12 px
+      glyph whose reason only a pointer could read. The line is the place a keyboard and a screen reader reach.
+    - **No Stop** (Dialogs 21). The reads are the tree's; the dialog can be used and cancelled while they run.
+    - **The failure belongs to the container the operator looks at** (Dialogs 20). When the dialog opens, the walk to
+      the start container ends at the container that could not be read and selects it, so the line explains at once why
+      the tree stops there. Retry is the node's own refresh: it reads that container again; the walk to the start
+      container is not taken up again – the operator opens the rest himself.
+    - **The node carries the code of its failure.** `ContainerNodeViewModel.LoadErrorCode` – a `ResultCode`, set next to
+      the translated `LoadError` – is the one touch of a class the main window shares: the line needs the code for its
+      text and its log copy, and the exception is not kept.
+    - `IsLoading`, `SelectedPath` and the commands are unchanged; a container whose content could not be read can still
+      be chosen. The dialog is 36 px higher by default (560 to 596).
+  - *Where this differs from the recipe.* The operation takes no token (Dialogs 21). A container the operator opens with
+    its expander without selecting it says a failed read only in its row, as in the main window – the line follows the
+    selection, and the tree raises no event for a failed read.
+- **The object picker** (`Views/ObjectPickerWindow.xaml`, "Select Users, Computers, or Groups";
+  `Dialogs/ObjectPickerViewModel`).
+  - *What the line says.* At the top, above the object types. **Find Now:** "Searching in “contoso.test/Firma”…" with
+    Stop; then, as the summary, how many objects the list shows ("Found: 12 objects", in the plural form of the
+    language); attention "More than 500 objects match: the list shows the first 500. Type a name or choose another
+    location to narrow the search." when the list is cut; stopped – attention "Searching was stopped: the list was not
+    changed. Press “Find Now” to search again." with *Find Now*; failed – error "Could not search in
+    “contoso.test/Firma”: reason. Press Retry to try again. (code)" with Retry. **The check of the names** (*Check
+    Names*, and OK with names in the box): "Checking the names (3)…" with Stop; attention "Not every name was resolved:
+    Several objects match 'GG_' - select one in the list. No object found for 'nikt'." – three names at most, all of
+    them stay in the box; stopped – attention "Checking the names was stopped: no object was added. Press “Check Names”
+    to check again." with *Check Names*; failed – error "Could not check the names: reason. Press Retry to try again.
+    (code)" with Retry. A check that resolved every name says nothing – the chosen objects appear –, and neither does OK
+    that closes the dialog (Dialogs 4). As the state that lasts: the session of the dialog ended.
+  - *How the old places were sorted* (1 progress bar, and the text next to it).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | 60 px progress bar under the names box (`IsSearching`) | status | the search or the check in the line, with Stop |
+    | `StatusText` next to it ("Loading…", "Objects found: 12", "More than 500 objects match - narrow the search.", "No object found for 'x'.", "Several objects match 'x' - select one in the list.", why a search failed) | status, summary | the count of the list as the summary; attention for a list that was cut and for names that were not resolved; error for a search that failed; gone from the page |
+    | the chosen objects, the list of results | content | unchanged |
+
+  - *Decisions.*
+    - **One holder, three commands that exclude one another** (`IsSearching`, as before): *Find Now*, *Check Names* and
+      the name check of OK.
+    - **The buttons stay plain buttons, Stop is in the line** – as for the tests of the settings window: none of the
+      three had a Cancel, and three action buttons over one holder would each need a flag. OK is the primary button, but
+      what it starts is "return the choice"; the name check it may run first is the operation of *Check Names*. (A
+      departure from Dialogs 8, on purpose – see the open questions of *What V2b has to do*.)
+    - **Both operations can be stopped now** (rule 6): they ran with a "latest wins" token that nothing but closing the
+      dialog cancelled; it is linked with the token of the operation.
+    - **Stop holds, and so does a failure: a check adds nothing until it is through.** The unique matches used to be
+      chosen name by name, so a check that failed half way had already added objects; they are chosen together at the
+      end now, and "no object was added" is true when it is said.
+    - **A list that was cut is an attention the operator can close**, and the summary behind it counts what is listed
+      ("Found: 500 objects"). The list is there to see; what is missing is said once.
+    - **The sentences about single names are the ones the dialog had** (`Picker.NotFound`, `Picker.Ambiguous`, with
+      their quotes), joined after "Not every name was resolved:"; the log copy has the two counts.
+    - **No "not connected".** The picker is always opened with the session of its caller and reads through it, so its
+      only state that lasts is "the session ended" (Dialogs 7 has nothing more to say here). The end of the session ends
+      "busy" at once and takes *Find Now* and *Check Names* away; before, nothing told the dialog.
+    - `StatusText` and `IsSearching` are unchanged for the tests and the code that read them. The dialog is 36 px higher
+      by default (640 to 676).
+- **Tests.** The Presentation tests run on Linux and are the bulk; the UI tests run on Windows CI only and were written
+  without a screen – one file per window, through the real window over the fake directory, asserting only states that
+  last until the test changes them (a call the test holds and releases makes "working" and "Stopping…" such states).
+  - *The four dialogs (unit 1).* Presentation (run on Linux): `Session/ConnectStatusTests` (15: at rest, not started in
+    both languages, connecting with Stop and "Connect", success, a failed bind in both languages without Retry, an
+    exception without advice, the window closing while it connects, the search with its summary in both languages,
+    stopped and failed with Retry, no domain, a profile that closes a result, the log copies);
+    `Dialogs/ChangeDomainControllerStatusTests` (14: the summary in the plural forms, the read with Stop and Refresh, a
+    list that could not be read in both languages, the switch with Stop, the dialog's Cancel, a failed switch in both
+    languages, what the dialog explains itself, the list read while the operator switches, no session, the end of the
+    session during a read and a switch, closing, the log copies); `Dialogs/ResetPasswordStatusTests` (13: the read,
+    stopped and failed, not started in both languages, checking then executing in both languages, several accounts with
+    the confirmation, nothing succeeded, an account that cannot be reset, Stop while checking – no password reset –,
+    Stop while executing, no session and its end, the log copies – and no password in any text);
+    `Dialogs/NewObjectStatusTests` (13: not started in both languages, the passwords, creating without Stop in both
+    languages, a name that is taken, a failed creation in both languages, a domain controller that does not answer the
+    checks, created in part, no session and its end, the joiner, the log copies). The fake connector of the Presentation
+    tests can hold or fail a bind and a search. Unchanged and green: `SessionAndConnectTests` (the constructor got the
+    dispatcher), `ChangeDomainControllerViewModelTests`, `ResetPasswordTests`, `NewObjectTests`. UI (Windows CI):
+    `ConnectStatusUiTests`, `ChangeDomainControllerStatusUiTests`, `ResetPasswordStatusUiTests`,
+    `NewObjectStatusUiTests` (three tests each, through the real window; the fake connector of the UI tests can hold or
+    refuse a bind, a search and a switch); `ChangeDomainControllerWindowTests` and `ConnectWindowTests` read "not
+    connected" and "what is missing" from the line instead of the error bar.
+  - *The message window, the settings window, Logon Hours (unit 2).* Presentation (run on Linux):
+    `UserMessages/UserMessageComposerStatusTests` (26 cases: at rest with the editor in front; preparing with Stop and
+    the counts in both languages; Stop with "Stopping…" at once and Retry that prepares the same accounts; a failed read
+    in both languages; a template that stops the plan in both languages; sending with "0 of 2", "1 of 2", "2 of 2" and
+    the result with the domain in both languages, then the counts of the report; Stop while sending, also through the
+    command of the old button; sent in part in both languages; nothing accepted, and no Retry without a session; no SMTP
+    password in both languages – and the password in no text; the test message with Stop, refused, stopped, without an
+    address; the paste as the editor's operation while the preview is prepared; Stop while pasting although the import
+    finished; the small steps of the editor and that they go with the template; the transport that does not fit as a
+    note while the line keeps its summary; the end of the session during a held read – nothing "busy" – and in Polish
+    after a language switch; closing the window; the log copies without an address, a name, the content or the password)
+    and `UserMessages/UserMessageSettingsStatusTests` (13 cases: the tab in front and the empty line of the other tabs;
+    the connection test with Stop in both languages; a failed test with its stage; Stop; what stops a test before it
+    starts, in both languages, and the password in no text; the test message; the Outlook accounts in both languages –
+    how many, not which; accounts that could not be read, and a stopped read; closing the window; the log copies).
+    `HtmlPasteWorkflowTests` got the note of the images that could not be read (no status, in Polish after the switch,
+    gone with the images). The fake transport can hold a connect and a connection test, the fake Outlook client a
+    connect. Unchanged and green: `UserMessageComposerTests`, `UserMessageSettingsTests`, the salutation, transport and
+    library tests. UI (Windows CI): `UserMessagesStatusUiTests` (four tests through the real window),
+    `SettingsStatusUiTests` (three), `LogonHoursNotesUiTests` (two: no status line, the three notes). Adapted where the
+    place of a message changed: `UserMessagesWindowTests` (the counts of the report are read from the line behind the
+    result), `UserMessagesRichHtmlWindowTests` (what became of a paste is read from the line; the transport and the
+    fallback of the preview are notes) and `CorrespondenceWindowTests` (how the read of the Outlook accounts ended is
+    read from the line of the settings window).
+  - *The editors, the session log and the pickers (unit 3).* Presentation (run on Linux), 55 cases:
+    `Filters/FilterEditorStatusTests` (12: at rest, with a filter that is not valid as no status; the test with Stop and
+    the count in both languages; Stop with "Stopping…" at once, in both languages, and the action that tests again; the
+    cancel of the command; a filter that changes during its test, and a result that goes with its filter; a failed test
+    in both languages with Retry; no session in both languages; the log copies without the filter, the domain or a
+    server text), `Views/SavedViewEditorStatusTests` (11: the same for a view, with the search base in the text, and the
+    base and the scope that end a test), `Dialogs/SessionLogStatusTests` (6: the summary that follows entries, filter
+    and language; the end of the session in both languages with the entries kept; a window opened without a session; the
+    export that keeps its toast; the log copy), `Dialogs/ContainerPickerStatusTests` (9: the read without Stop in both
+    languages; a container that could not be read as the state of the selection, in both languages, with Retry; a domain
+    that could not be read; no session in both languages – and nothing is read; the end of the session during the read
+    as one message; the log copies) and `Dialogs/ObjectPickerStatusTests` (17: Find Now with the summary in the three
+    plural forms and both languages; Stop; a failed search; more matches than the list shows; the names that were not
+    resolved, in both languages; a check that resolved everything, and three names at most; Stop during the check, which
+    adds nothing; a failed check and OK that stays open; the end of the session during a search – nothing "busy"; the
+    log copies without a name or a location). A slow domain controller is a search held in
+    `FakeDirectorySession.BeforeOperation`. Unchanged and green: `SavedFiltersTests` and `ViewsTests` (the constructors
+    got the dispatcher), `PickerTests`, `SessionLogAndHistoryTests`. UI (Windows CI): `FilterEditorStatusUiTests`,
+    `SavedViewEditorStatusUiTests`, `ContainerPickerStatusUiTests`, `ObjectPickerStatusUiTests` (three tests each) and
+    `SessionLogStatusUiTests` (two), through the real windows. Adapted where the place of a message changed:
+    `AccountReviewWindowTests` (what is wrong with a filter is read from the note of the builder) and `ToolWindowTests`
+    (the count of the session log is read from the line).
+  - *Source rules.* The twelve windows are on the two lists of `XamlSourceTests`: eleven on `PagesWithAStatusLine` –
+    nineteen views now, with the two pilots and the six windows of V2b-1 –, the Logon Hours dialog and the rendered
+    preview on `ConvertedViewsWithoutAStatusLine`. Proven on Linux with the throwaway script of V2b-1, extended by the
+    second list, and with a second script for "every `StaticResource` key of a converted view resolves, before its first
+    use".
+- **After V2b-2** (counted in the XAML, comments excluded): 17 uses of `Ad.ErrorBar` and 36 of `Ad.WarningBar` in 33
+  files and 32 progress bars in 29 files – 40 view files with at least one of the three; 19 views with a status line and
+  2 converted views without one. No window of `Views/` has a banner any more; the one progress bar left there is the row
+  of an activity in the main window, which stays. V2b-2 took 10 error bars (6 status, 4 notes), 9 warning bars (2
+  status, 7 notes) and 10 progress bars (all status). Unit 1: 4 error bars (all status), 2 warning bars (1 status – the
+  list that could not be read –, 1 note) and 5 progress bars. Unit 2: 3 error bars (1 status, 2 notes – the first error
+  bars of the sweep that are notes: both are findings of a check that runs while the operator types), 7 warning bars (1
+  status, the session that ended, and 6 notes, the bar of the rendered preview among them) and 3 progress bars. Unit 3:
+  3 error bars (1 status, the session that ended, and 2 notes, the filter that is not valid) and 2 progress bars. By
+  area, and what else the sweep has to do: *What V2b has to do*, above. Left behind on purpose, to be looked through
+  when the sweep is over – every item is on the list of *After V2b-1*: commands that lost their last user
+  (`FindDomainControllersCancelCommand`, `CancelPasteCommand`) and the string `UserMessages.Rich.CancelPaste`;
+  `CancelSendCommand`, which only tests use; and view-model members that are no longer shown but are read by tests or by
+  the view model itself – the `Error`, `ErrorText`, `StatusText`, `TestResult` and progress members of the converted
+  dialogs, with the strings that only feed them (`Views.Testing`, `Views.TestResult`, `Picker.Found`, `Picker.TooMany`).
+- **Not seen, to confirm on Windows.** Nothing of V2b-2 was seen on a screen. By unit: the four dialogs of unit 1, the
+  three windows of unit 2, the five of unit 3.
+  - *The empty line (unit 1).* The four dialogs of unit 1 show an empty band of 28 px at rest (under the header of the
+    Connect window, under the header of "Change domain controller" until the list is read, at the top of the other two).
+    Whether that reads as a gap, and whether "Domain controllers found: 2" with the info picture is too loud in the
+    Connect window. Of the four only the Connect window is in the screenshots of CI (`08-connect.png`, at rest: the
+    empty line under the header and the footer with one button); the other three dialogs are in no picture.
+  - *Long results in narrow dialogs (unit 1).* The Connect window is 560 px wide: about 65 characters of a result fit
+    one line next to the title and the close button. A bind that fails with "the domain controller is not available"
+    says some 250 characters with the advice about ports and the LDAPS certificate – four lines, so it is cut in the
+    third and whole only in the tool tip (the old bar wrapped freely). The same advice plus "The session stays connected
+    to …" in "Change domain controller" (680 px). If that proves too tight: a shorter advice for the line, or a fourth
+    line – a question for the owner, not decided here.
+  - *The fields move (unit 1).* In the three dialogs that size to their content (the Connect window, "Reset Password",
+    "New Object") a result that wraps makes the window higher and moves every field down by 20 or 40 px, and back when
+    it is closed (the old bar was under the fields and moved only the footer).
+  - *Widths (unit 1).* OK of "Reset Password" and *Change* are as wide as "Stopping…" / "Zatrzymywanie…" needs; *Find
+    domain controllers* is wider than that already. The footer of the Connect window holds one button now; the *Export
+    results* button of "Reset Password" starts at the left edge of the footer.
+  - *The note of "New Object" (unit 1)* (glyph and plain text where a caution bar was), and the header "Results" in
+    "Reset Password" where the counts were.
+  - *The message window (unit 2).* The line above the row that says how the messages go out – an empty band of 28 px in
+    the editor at rest – and the footer with buttons only. *Preview* and *Send (300)* as wide as "Stopping…" /
     "Zatrzymywanie…" needs; *Paste formatted content* is wider than that already. The sending stage: a title and two
     sentences in the middle of the window where an 8 px bar was – whether the 16 px ring of the line and its numbers are
     enough for a send that takes minutes (taskbar progress is not built). The notes: the findings of the template check
@@ -2290,18 +2531,39 @@ unit 1 with their tests, counts and what was not seen, then the same for unit 2.
     "No message was prepared: …" with three reasons may be cut in its third line. Three README pictures show this window
     (the preview, the salutations, the formatted content): they change with this unit – the line at the top, and in it
     the counts that stood next to the filter.
-  - *The settings window.* The line above the tab strip is empty on every tab at rest, and always on *General* and
-    *Computers*: whether that band reads as a gap in this dialog more than in the others. The answer of a test appears
-    at the top of the dialog while its button is at the bottom of a long tab – in sight, but not next to the button,
-    where the old text was (what the server showed is still there). The note above the buttons where the critical bar
-    was (glyph and plain text for "why Save is disabled"); the note of the TLS choice in the column of the fields.
-  - *Logon Hours.* The three notes without their caution background – "No hour is permitted…" is the loudest thing the
-    dialog says and is now a glyph and a sentence under the grid.
-  - *Known and left.* While the window has no session the line says so and nothing else at rest – the state that lasts
-    takes the place of the summary, and the window's own error that cannot be closed covers what the page in front says
-    (foundation 3): in a message window whose session ended the counts of the preview and of the report are not shown (a
-    result still is, until it is closed), and what the editor says about a paste is not shown at all (the remarks of the
-    paste under the content are). To be decided with the rest of "what a window without a session still does".
+  - *The settings window (unit 2).* The line above the tab strip is empty on every tab at rest, and always on *General*
+    and *Computers*: whether that band reads as a gap in this dialog more than in the others. The answer of a test
+    appears at the top of the dialog while its button is at the bottom of a long tab – in sight, but not next to the
+    button, where the old text was (what the server showed is still there). The note above the buttons where the
+    critical bar was (glyph and plain text for "why Save is disabled"); the note of the TLS choice in the column of the
+    fields.
+  - *Logon Hours (unit 2).* The three notes without their caution background – "No hour is permitted…" is the loudest
+    thing the dialog says and is now a glyph and a sentence under the grid.
+  - *The two editors (unit 3).* An empty band of 28 px at the top at rest, above the name. *Test* / *Testuj* alone under
+    the filter, as wide as "Stopping…" / "Zatrzymywanie…" needs, where a button, a second button and a text stood. The
+    note under the filter where the critical bar was – in the filter builder possibly several lines next to one glyph
+    (one line per condition that is not valid). "Matching objects in contoso.test: 42 (0.21 s)." on the success
+    background for what used to be a quiet text next to the button; the failed test with its reason and Retry in the 600
+    px wide editor of a view (two or three lines, and the fields move down with it – the dialog sizes to its content).
+  - *The session log (unit 3).* The count above the filter instead of in the footer, with the info picture; the footer
+    with its two buttons only. "The session this window was opened in has ended…" is one line at the default width of
+    1140 px and two at the minimum of 720 px – and while it is there the count is not (the state takes the place of the
+    summary).
+  - *The two pickers (unit 3).* "Reading the containers of contoso.test…" at every opening of "Browse for Container" –
+    with a fast domain controller it only flashes (the open question of a delay before "Working") – and the empty band
+    above the prompt afterwards. In that 460 px wide dialog an error with its reason, "Press Retry to try again." and
+    the code takes two or three lines, and the tree moves down with it. In the object picker what a search or a check
+    did is said at the top of the dialog, away from the names box and the buttons that started it, where the bar and the
+    text were; "Not every name was resolved: …" with three names is three lines at the default width of 720 px. Whether
+    "Found: 12 objects" with the info picture is too loud for a count. None of the five windows of unit 3 is in a
+    picture of CI.
+  - *Known and left: a window without a session.* While a window has no session the line says so and nothing else at
+    rest – the state that lasts takes the place of the summary, and the window's own error that cannot be closed covers
+    what the page in front says (foundation 3): in a message window whose session ended the counts of the preview and of
+    the report are not shown (a result still is, until it is closed), and what the editor says about a paste is not
+    shown at all (the remarks of the paste under the content are). To be decided with the rest of "what a window without
+    a session still does". The session log is the plainest case: its count is covered by the state while its list still
+    works.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 
