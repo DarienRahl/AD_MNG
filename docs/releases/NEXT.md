@@ -280,12 +280,54 @@
   zapisanej wartości nie da się pokazać na siatce, i „Żadna godzina nie jest dozwolona – użytkownik nie będzie mógł się
   zalogować.” – są zwykłym tekstem ze znakiem ostrzeżenia w tych samych miejscach, nad siatką i pod nią. Okno niczego
   samo nie odczytuje ani nie zapisuje, więc nie ma wiersza stanu.
-- **Co się nie zmieniło:** pozostałe okna i karty – między innymi zasady grupy, Watchdog, dzienniki zdarzeń,
-  certyfikaty, przegląd komputerów i korespondencja – mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski
+- **Kreator filtrów i edytor zapisanego widoku: wiersz stanu u góry okna.** Przycisk *Testuj* liczy pasujące obiekty
+  na kontrolerze domeny, a odpowiedź jest teraz w wierszu stanu. **Trwa** – „Liczenie pasujących obiektów w domenie
+  contoso.test…” (w edytorze widoku wiersz podaje bazę wyszukiwania: „…w „contoso.test/Firma/IT”…”), potem **Gotowe** –
+  „Pasujące obiekty w domenie contoso.test: 42 (0,21 s).”. Gdy test się nie uda: **Błąd** – „Nie udało się przetestować
+  filtru w domenie contoso.test: …” z przyczyną, kodem wyniku i poleceniem **Ponów**; bez połączenia z domeną:
+  **Uwaga** – „Filtru nie przetestowano: Brak połączenia z domeną.” (filtr i widok nadal można edytować i zapisać).
+  *Testuj* na czas liczenia zamienia się w **Anuluj** z kółkiem postępu – osobnego przycisku *Zatrzymaj* już nie ma; po
+  zatrzymaniu wiersz mówi „Liczenie pasujących obiektów zatrzymano: filtru nie przetestowano.” i podaje polecenie
+  **Testuj**. Zmiana filtru (w edytorze widoku także bazy wyszukiwania albo zakresu) zamyka wynik testu i kończy test,
+  który jeszcze trwa – liczba dotyczyłaby już innego filtru. To, co jest nie tak z samym filtrem (warunek bez atrybutu,
+  niepoprawny filtr LDAP), jest zwykłym tekstem ze znakiem błędu pod filtrem zamiast ramki. Dotąd: ramka błędu pod
+  filtrem oraz przycisk *Zatrzymaj* i tekst wyniku obok przycisku *Testuj*. Kreator filtrów jest domyślnie o tyle
+  wyższy, ile zajmuje wiersz stanu.
+- **Dziennik sesji: wiersz stanu u góry okna.** Liczba wpisów („Wpisy: 12 z 40”) jest teraz w wierszu stanu nad
+  filtrem, a nie w stopce. Gdy sesja, w której otwarto okno, się zakończy, mówi o tym ten sam wiersz (dotąd: ramka u
+  góry okna); wpisy zostają – można je filtrować, kopiować i eksportować – ale z tego okna nie da się już otworzyć
+  właściwości obiektu. Eksport, jak dotąd, potwierdza powiadomienie. Okno jest domyślnie o tyle wyższe, ile zajmuje
+  wiersz stanu.
+- **Okno *Wybieranie kontenera*: wiersz stanu u góry okna.** Wczytywanie drzewa po otwarciu okna widać w wierszu –
+  „Wczytywanie kontenerów domeny contoso.test…” – zamiast cienkiego paska nad drzewem; z drzewa można w tym czasie
+  korzystać, a *Anuluj* zamyka okno jak dotąd. Gdy zawartości kontenera nie udało się wczytać (na przykład z braku
+  uprawnień), wiersz mówi o tym, dopóki ten kontener jest zaznaczony: **Błąd** – „Nie udało się wczytać kontenerów w
+  „Pracownicy”: …” z przyczyną, kodem wyniku i poleceniem **Ponów**. Dotąd mówił o tym tylko znak błędu przy
+  kontenerze w drzewie, z przyczyną w podpowiedzi; znak zostaje, a sam kontener nadal można wybrać. Okno otwarte bez
+  połączenia z domeną albo po zakończeniu sesji mówi o tym w wierszu. Okno jest domyślnie o tyle wyższe, ile zajmuje
+  wiersz stanu.
+- **Okno wybierania obiektów: wiersz stanu u góry okna.** To, co okno *Wybieranie: Użytkownicy, Grupy…* mówiło pod
+  polem nazw, jest teraz w wierszu stanu. *Znajdź teraz*: **Trwa** – „Wyszukiwanie w „contoso.test/Firma”…” z
+  poleceniem **Zatrzymaj** (dotąd wyszukiwania nie dało się przerwać), a potem liczba obiektów na liście („Znaleziono:
+  12 obiektów”); gdy pasuje więcej, niż mieści lista: **Uwaga** – „Pasuje ponad 500 obiektów: lista pokazuje
+  pierwsze 500. Wpisz nazwę albo wybierz inną lokalizację, aby zawęzić wyszukiwanie.”. *Sprawdź nazwy* (i **OK**
+  z nazwami w polu): „Sprawdzanie nazw (3)…”, też z poleceniem **Zatrzymaj**; gdy nie wszystkie nazwy udało się
+  rozpoznać: **Uwaga** – „Nie wszystkie nazwy rozpoznano: Nazwie „GG_” odpowiada kilka obiektów - wybierz jeden
+  z listy. Nie znaleziono obiektu dla „nikt”.” (wiersz wymienia najwyżej trzy nazwy; wszystkie nierozpoznane zostają
+  w polu). Gdy rozpoznano wszystkie, wiersz nic nie mówi – obiekty pojawiają się wśród wybranych. Zatrzymane albo
+  nieudane sprawdzanie niczego nie dodaje (dotąd nazwy rozpoznane przed błędem były już dodane), a zatrzymane albo
+  nieudane wyszukiwanie zostawia listę bez zmian; wiersz podaje wtedy polecenie **Znajdź teraz**, **Sprawdź nazwy**
+  albo – po błędzie, z przyczyną i kodem wyniku – **Ponów**. Po zakończeniu sesji okna wiersz mówi o tym, a wyszukiwanie
+  i sprawdzanie nazw są niedostępne. Dotąd: pasek postępu i tekst pod polem nazw. Okno jest domyślnie o tyle wyższe,
+  ile zajmuje wiersz stanu.
+- **Co się nie zmieniło:** wiersz stanu mają teraz lista obiektów i wszystkie okna oraz dialogi wymienione wyżej.
+  Pozostałe karty i okna – zasady grupy, Watchdog, dzienniki zdarzeń, certyfikaty, przegląd komputerów i zdalne
+  akcje, korespondencja, gotowość środowiska – mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski
   postępu; przejdą na wiersz stanu w następnych wydaniach. Dotyczy to także kreatora zakładania wielu kont, który jest
-  pierwszym krokiem w oknie edytora zbiorczego. Animacja nowego komunikatu (krótkie wsunięcie) i zamiany napisu na
-  przycisku działa tylko przy włączonych animacjach (*Ustawienia → Ogólne → Wygląd → Animacje*); kółko postępu obraca
-  się zawsze.
+  pierwszym krokiem w oknie edytora zbiorczego. Eksport do pliku i kopiowanie do schowka nadal potwierdza
+  powiadomienie, a pasek postępu pojedynczej operacji na liście operacji w tle zostaje w swoim wierszu. Animacja
+  nowego komunikatu (krótkie wsunięcie) i zamiany napisu na przycisku działa tylko przy włączonych animacjach
+  (*Ustawienia → Ogólne → Wygląd → Animacje*); kółko postępu obraca się zawsze.
 
 ## Inne zmiany
 
