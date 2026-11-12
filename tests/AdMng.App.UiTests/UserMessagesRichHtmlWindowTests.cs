@@ -89,6 +89,12 @@ public sealed class UserMessagesRichHtmlWindowTests
         Assert.Equal(Visibility.Visible, window.ComposePreviewView.Visibility);
         Assert.True(window.ComposePreviewView.IsShowingSource);
         Assert.Equal(composer.Html, window.ComposePreviewView.SourceBox.Text);
+
+        // Why the source is shown is a note of the preview - true for as long as it is shown - not a banner.
+        Assert.True(window.ComposePreviewView.FallbackNote.IsVisible);
+        Assert.Same(Application.Current.FindResource("Ad.Note.Attention"), window.ComposePreviewView.FallbackNote.Style);
+        Assert.True(window.ComposePreviewView.UnavailableText.IsVisible);
+        Assert.False(window.ComposePreviewView.DisabledText.IsVisible);
         Assert.Equal("Source", window.HtmlPreviewToggleButton.Content);
 
         // "Remove" in the strip takes the image and its <img> away.
