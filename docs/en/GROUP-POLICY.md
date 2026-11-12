@@ -78,8 +78,9 @@ linked container.
   shown.
 - **Status** – diagnostics of this GPO (chapter 11): links, scope, filtering, AD and `GPT.INI` versions, SYSVOL folder
   and its permissions, extension names, leftovers of an interrupted save, settings and security – one row per area,
-  then findings with *Fix…*. The buttons **Align versions** and **Repair folder permissions**. A GPO deleted from AD
-  with its folder left behind: *Delete the remaining folder*.
+  then findings with *Fix…*. The buttons **Align versions** and **Repair folder permissions**. The progress of the
+  check (with *Stop*) and when the GPO was checked are shown by the status line of the tab. A GPO deleted from AD with
+  its folder left behind: the status line says so and offers *Delete the remaining folder*.
 
 ### Group Policy of a container (domain, OU, site)
 
@@ -116,7 +117,7 @@ over WinRM, [COMPUTERS.md](COMPUTERS.md)) with WQL queries.
 
 **Deleting a GPO** requires retyping the GPO name; the message names the domain. First the window offers a backup
 (*Create a backup before deleting* – on by default, the choice is remembered). When the folder could not be deleted, the
-GPO tab shows *Delete the remaining folder* (it refuses when the GPO exists again). *Undo* after deleting a GPO or a WMI
+status line of the GPO tab offers *Delete the remaining folder* (it refuses when the GPO exists again). *Undo* after deleting a GPO or a WMI
 filter does not restore the links or filters that pointed to the deleted object.
 
 **Settings stored in the directory** – software installation (class store), wireless and wired network policies – live
@@ -738,11 +739,12 @@ exporting to CSV or HTML – where the operator points (chapter 14).
 ## 13. Domain controller, PDC emulator and SYSVOL
 
 - The window reads and writes AD and SYSVOL **only on its own domain controller**. When it is not the PDC emulator (the
-  one GPMC uses by default), the GPO tabs show: *GPO changes are made on X, but the PDC emulator is Y* with the *Change
-  Domain Controller…* button; the program never switches the controller by itself.
+  one GPMC uses by default), the GPO tabs show a note under their status line: *GPO changes are made on X, but the PDC
+  emulator is Y* with the *Change Domain Controller…* link; the program never switches the controller by itself.
 - SYSVOL is opened with the window's credentials (the password only in memory, rule 2) only for the time of reading,
-  planning and execution. When it is unavailable, the bar gives the reason (a connection opened by distinguished name, an
-  unsupported environment, rejected credentials, access denied, no connection to the share). Then only the changes that
+  planning and execution. When it is unavailable, a note under the status line of the tab gives the reason (a connection
+  opened by distinguished name, an unsupported environment, rejected credentials, access denied, no connection to the
+  share), and an operation that needs SYSVOL says in the status line that nothing was changed. Then only the changes that
   write SYSVOL are disabled (a new GPO, a GPO copy, deletion, security filtering, delegation, restore, import, aligning
   versions, repairing permissions, saving administrative templates, updating the central store, copying and removing
   settings, merging GPOs); links, GPO status, rename, WMI filter and block inheritance change only AD and keep working.

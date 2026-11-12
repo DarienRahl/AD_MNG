@@ -60,9 +60,9 @@
   po kolorze; czytnik ekranu sam odczytuje nowy komunikat. Komunikat, który można zamknąć, ma przycisk zamknięcia –
   po zamknięciu wraca podsumowanie.
 - **Pasek stanu okna głównego** nie powtarza już podsumowania listy i liczby zaznaczonych obiektów – dla karty
-  z listą obiektów są one w wierszu stanu listy. Połączenie, kontroler domeny, zabezpieczenia połączenia, działania,
-  wersja i znaczek listy wirtualnej zostają na swoim miejscu; dla pozostałych kart (Watchdog, dzienniki zdarzeń,
-  zasady grupy, certyfikaty, gotowość środowiska) pasek działa jak dotąd.
+  z listą obiektów są one w wierszu stanu listy, a dla kart zasad grupy – w wierszu stanu karty. Połączenie, kontroler
+  domeny, zabezpieczenia połączenia, działania, wersja i znaczek listy wirtualnej zostają na swoim miejscu; dla
+  pozostałych kart (Watchdog, dzienniki zdarzeń, certyfikaty, gotowość środowiska) pasek działa jak dotąd.
 - **Okno główne: kółko postępu zamiast pasków.** Szybkie wyszukiwanie pokazuje na czas szukania kółko w miejscu lupy
   (dotąd: cienki pasek pod polem), a przycisk działań w pasku stanu – kółko obok liczby trwających operacji (dotąd:
   pasek). Pasek postępu każdej operacji na liście operacji w tle został bez zmian. „Konto chronione (adminCount=1)”
@@ -320,10 +320,57 @@
   albo – po błędzie, z przyczyną i kodem wyniku – **Ponów**. Po zakończeniu sesji okna wiersz mówi o tym, a wyszukiwanie
   i sprawdzanie nazw są niedostępne. Dotąd: pasek postępu i tekst pod polem nazw. Okno jest domyślnie o tyle wyższe,
   ile zajmuje wiersz stanu.
-- **Co się nie zmieniło:** wiersz stanu mają teraz lista obiektów i wszystkie okna oraz dialogi wymienione wyżej.
-  Pozostałe karty i okna – zasady grupy, Watchdog, dzienniki zdarzeń, certyfikaty, przegląd komputerów i zdalne
-  akcje, korespondencja, gotowość środowiska – mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski
-  postępu; przejdą na wiersz stanu w następnych wydaniach. Dotyczy to także kreatora zakładania wielu kont, który jest
+- **Karty zasad grupy: wiersz stanu pod nagłówkiem karty.** Karty *Obiekty zasad grupy*, *Zasady grupy* kontenera
+  (domeny, jednostki organizacyjnej, lokacji), karta jednego GPO i *Filtry WMI* mówią teraz w jednym wierszu – pod
+  nagłówkiem albo paskiem poleceń karty, nad jej zawartością – co robią i co się stało. W spoczynku jest tam
+  podsumowanie, które dotąd było w pasku stanu okna: „Obiekty zasad grupy: 7, z różnymi wersjami w AD i SYSVOL: 1”, a
+  po zaznaczeniu wierszy także „Zaznaczono: 2”; „Połączone GPO: 2, stosowane: 5”; „Połączenia: 1, ustawienia: 14”;
+  „Filtry WMI: 1”. Odczyt karty: **Trwa** – „Wczytywanie „Obiekty zasad grupy”…” z poleceniem **Zatrzymaj** (dotąd
+  odczytu nie dało się przerwać, a widać go było tylko po znaczku na karcie i słowie „Ładowanie…” w pasku stanu). Po
+  zatrzymaniu: **Uwaga** – karta może nie pokazywać wszystkiego, z poleceniem **Odśwież**. Gdy odczyt się nie udał:
+  **Błąd** – „Nie udało się wczytać „Obiekty zasad grupy”: …” z przyczyną, kodem wyniku i poleceniem **Ponów**. Te
+  komunikaty, a także „Brak połączenia z domeną.”, „Kontener już nie istnieje.” i „Obiekt GPO już nie istnieje.”,
+  zostają w wierszu, dopóki trwa ich przyczyna; dotąd były ramką nad zawartością karty. Zawartość każdej karty zasad
+  grupy zaczyna się o wysokość wiersza stanu niżej.
+- **Operacje na zasadach grupy mówią w wierszu karty, co się z nimi stało.** Po wybraniu polecenia, które kończy się
+  podglądem planu zmian (nowe GPO, kopia, zmiana nazwy, usunięcie, połączenia i ich opcje, blokada dziedziczenia, stan
+  GPO, filtr WMI, filtrowanie zabezpieczeń, delegowanie, wyrównanie wersji, naprawa uprawnień folderu, filtry WMI),
+  karta pokazuje **Trwa** – „Zmiana nazwy obiektu GPO „Stacje robocze – Zasady haseł”: przygotowywanie zmian…” – z
+  poleceniem **Zatrzymaj**, dopóki plan powstaje; dotąd nic nie było wtedy widać i nie dało się tego przerwać. Gdy z
+  operacji nic nie wyszło, wiersz mówi dlaczego: „… – nic nie zmieniono: SYSVOL niedostępny na dc01.contoso.test: …”,
+  „… – nic nie zmieniono: …” z przyczyną i kodem wyniku albo „… – nic nie zmieniono: Przygotowywanie zmian
+  zatrzymano.” – i podaje polecenie **Ponów**, które przygotowuje tę samą zmianę jeszcze raz, z wpisaną już nazwą albo
+  wybranym kontem. Dotąd był to osobny komunikat błędu. „…: brak zmian – obiekty mają już żądane wartości.” też jest
+  teraz w wierszu karty, a nie w powiadomieniu. Podgląd planu zmian, potwierdzenia i wykonanie działają jak dotąd; po
+  wykonaniu karta wczytuje się ponownie. Polecenia wybrane z drzewa albo z menu okna – bez karty, która mogłaby
+  odpowiedzieć – nadal odpowiadają komunikatem.
+- **Karta GPO: zakładka *Stan* mówi w wierszu stanu karty.** Sprawdzanie GPO widać w wierszu – „Sprawdzanie obiektu
+  GPO…”, potem jego etapy („Odczyt folderów SYSVOL: 1 z 1”) – z poleceniem **Zatrzymaj**; po sprawdzeniu wiersz
+  podaje, jak i kiedy GPO sprawdzono: „Ostatnie sprawdzenie: pełne, 12.11.2026 14:32 – 2 uwagi”. Na pozostałych
+  zakładkach wiersz pokazuje podsumowanie GPO. Zatrzymane sprawdzanie: **Uwaga** – „Sprawdzanie obiektu GPO
+  zatrzymano: wyników nie zaktualizowano.” z poleceniem **Sprawdź ponownie**; nieudane: **Błąd** – „Nie udało się
+  sprawdzić obiektu GPO: …” z przyczyną i poleceniem **Ponów**, widoczny, gdy wybrana jest zakładka *Stan*. Pasek
+  postępu i tekst pod opisem zakładki zniknęły. To, czego sprawdzenie nie mogło ocenić (SYSVOL niedostępny,
+  nieodczytany folder GPO), jest uwagą ze znakiem ostrzeżenia nad wynikami, a nie ramką. Gdy GPO usunięto z AD, a jego
+  folder w SYSVOL pozostał, wiersz mówi o tym i podaje polecenie **Usuń pozostały folder** – dotąd był to przycisk w
+  osobnej ramce.
+- **Uwagi o SYSVOL i o emulatorze PDC zamiast ramek.** „SYSVOL niedostępny na dc01.contoso.test: … – zmiany zapisujące
+  SYSVOL są wyłączone.” oraz „Zmiany GPO wykonujesz na dc01.contoso.test, a emulatorem PDC jest dc02.contoso.test –
+  GPMC domyślnie używa emulatora PDC.” stoją teraz pod wierszem stanu każdej karty zasad grupy jako zwykły tekst ze
+  znakiem ostrzeżenia albo informacji; *Zmień kontroler…* jest odnośnikiem zaraz za zdaniem. To uwagi o tym, co karta
+  pokazuje i gdzie zapisuje, a nie komunikaty o jej działaniu – widać je razem z podsumowaniem w wierszu stanu, dopóki
+  karta jest otwarta.
+- **Pozostałe karty zasad grupy mają już wiersz stanu.** *Szablony administracyjne*, *Ustawienia zabezpieczeń*, *Co
+  dostanie komputer*, *Diagnostyka zasad grupy*, *Wyszukiwarka ustawień GPO* i *Porządki w GPO* pokazują w nim odczyt
+  karty (z poleceniem **Zatrzymaj**), podsumowanie, błąd odczytu i przebieg przygotowania zmian, a pod nim te same
+  dwie uwagi. Ich własne ramki ostrzeżeń i paski postępu – na przykład postęp analizy – na razie zostają pod spodem i
+  przejdą do wiersza stanu w następnych wydaniach, więc część informacji widać tam dwa razy. Pasek stanu okna głównego
+  nie mówi już nic o żadnej karcie zasad grupy.
+- **Co się nie zmieniło:** wiersz stanu mają teraz lista obiektów, karty zasad grupy i wszystkie okna oraz dialogi
+  wymienione wyżej. Pozostałe karty i okna – okna zasad grupy (kopie zapasowe, porównanie GPO, wybór GPO, aktualizacja
+  szablonów ADMX, kopiowanie ustawień), Watchdog, dzienniki zdarzeń, certyfikaty, przegląd komputerów i zdalne akcje,
+  korespondencja, gotowość środowiska – mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski postępu;
+  przejdą na wiersz stanu w następnych wydaniach. Dotyczy to także kreatora zakładania wielu kont, który jest
   pierwszym krokiem w oknie edytora zbiorczego. Eksport do pliku i kopiowanie do schowka nadal potwierdza
   powiadomienie, a pasek postępu pojedynczej operacji na liście operacji w tle zostaje w swoim wierszu. Animacja
   nowego komunikatu (krótkie wsunięcie) i zamiany napisu na przycisku działa tylko przy włączonych animacjach

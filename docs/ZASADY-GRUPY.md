@@ -79,8 +79,9 @@ listę po nazwie, GUID-zie, filtrze WMI i połączonym kontenerze.
   *Usuń*. Wpisy odziedziczone są tylko pokazywane.
 - **Stan** – diagnostyka tego GPO (rozdział 11): połączenia, zakres, filtrowanie, wersje AD i `GPT.INI`, folder
   SYSVOL i jego uprawnienia, nazwy rozszerzeń, pozostałości przerwanego zapisu, ustawienia i bezpieczeństwo – po
-  jednym wierszu na obszar, potem uwagi z *Napraw…*. Przyciski **Wyrównaj wersje** i **Napraw uprawnienia folderu**. GPO usunięte z AD z pozostawionym folderem: *Usuń pozostały
-  folder*.
+  jednym wierszu na obszar, potem uwagi z *Napraw…*. Przyciski **Wyrównaj wersje** i **Napraw uprawnienia folderu**.
+  Przebieg sprawdzania (z poleceniem *Zatrzymaj*) i to, kiedy GPO sprawdzono, pokazuje wiersz stanu karty. GPO usunięte
+  z AD z pozostawionym folderem: wiersz stanu mówi o tym i podaje polecenie *Usuń pozostały folder*.
 
 ### Zasady grupy kontenera (domena, OU, lokacja)
 
@@ -118,7 +119,7 @@ zapytania na wybranym komputerze jeszcze nie ma – wymaga rozszerzenia zdalnych
 
 **Usuwanie GPO** wymaga przepisania nazwy GPO; komunikat podaje domenę. Najpierw okno proponuje kopię zapasową
 (*Utwórz kopię zapasową przed usunięciem* – domyślnie włączone, wybór jest zapamiętywany). Gdy folderu nie udało się
-usunąć, karta GPO pokazuje *Usuń pozostały folder* (odmawia, gdy GPO znów istnieje). *Cofnij* po usunięciu GPO lub
+usunąć, wiersz stanu karty GPO podaje polecenie *Usuń pozostały folder* (odmawia, gdy GPO znów istnieje). *Cofnij* po usunięciu GPO lub
 filtru WMI nie przywraca połączeń ani filtrów wskazujących usunięty obiekt.
 
 **Ustawienia przechowywane w katalogu** – instalacja oprogramowania (magazyn klas), zasady sieci bezprzewodowej i
@@ -736,11 +737,12 @@ HTML – tam, gdzie wskaże operator (rozdział 14).
 ## 13. Kontroler domeny, emulator PDC i SYSVOL
 
 - Okno czyta i zapisuje AD oraz SYSVOL **tylko na swoim kontrolerze domeny**. Gdy nie jest nim emulator PDC (z którego
-  domyślnie korzysta GPMC), karty GPO pokazują: *Zmiany GPO wykonujesz na X, a emulatorem PDC jest Y* z przyciskiem
-  *Zmień kontroler…*; program nigdy nie przełącza kontrolera sam.
+  domyślnie korzysta GPMC), karty GPO pokazują pod wierszem stanu uwagę: *Zmiany GPO wykonujesz na X, a emulatorem PDC
+  jest Y* z odnośnikiem *Zmień kontroler…*; program nigdy nie przełącza kontrolera sam.
 - SYSVOL otwierany jest poświadczeniami okna (hasło tylko w pamięci, zasada 2) tylko na czas odczytu, planowania i
-  wykonania. Gdy jest niedostępny, pasek podaje przyczynę (połączenie otwarte nazwą wyróżniającą, środowisko
-  nieobsługiwane, odrzucone poświadczenia, odmowa dostępu, brak połączenia z udziałem). Wtedy wyłączone są tylko
+  wykonania. Gdy jest niedostępny, uwaga pod wierszem stanu karty podaje przyczynę (połączenie otwarte nazwą
+  wyróżniającą, środowisko nieobsługiwane, odrzucone poświadczenia, odmowa dostępu, brak połączenia z udziałem), a
+  operacja, która potrzebuje SYSVOL, mówi w wierszu stanu, że niczego nie zmieniono. Wtedy wyłączone są tylko
   zmiany zapisujące SYSVOL (nowe GPO, kopia, usuwanie, filtrowanie zabezpieczeń, delegowanie, przywracanie, import,
   wyrównanie wersji, naprawa uprawnień, zapis szablonów administracyjnych, aktualizacja magazynu centralnego,
   kopiowanie i usuwanie ustawień, scalanie GPO); połączenia, stan GPO, zmiana nazwy, filtr WMI i blokowanie

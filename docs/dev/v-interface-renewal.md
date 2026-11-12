@@ -492,6 +492,10 @@ window (above its tabs), on the filter builder, the editor of a saved view, the 
 the object picker: nineteen views in all, and every window of `Views/` that has a status to say. The Logon Hours dialog
 and the rendered preview of a message have none – they say what they say in notes – and are on the second list of the
 source test, `ConvertedViewsWithoutAStatusLine` (*V2b-2 as built*, section 8).
+As built (V2b-3, unit 1): the first document tabs after the object list – the list of GPOs, the Group Policy of a
+container, one GPO and the WMI filters: twenty-three views. The base class of the Group Policy documents owns their
+status, so the other six Group Policy tabs have the line as well, above the bars they keep until their units; the status
+bar of the main window says nothing about a Group Policy tab any more (*V2b-3 as built*, section 8).
 
 ### 6.2 Navigation – open question 2
 
@@ -1152,6 +1156,8 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
   uses of `Ad.ErrorBar` and 36 of `Ad.WarningBar` in 33 files, and 32 progress bars in 29 files** – 40 view files with
   at least one of the three, 19 views with a status line and 2 converted views without one. `Views/` itself is done:
   what is left is in the feature folders, most of it on document tabs.
+  (V2b-3 – the Group Policy area – is in progress: what its units took, and what is left after each, is counted in
+  *V2b-3 as built*.)
   - By area (error bars + warning bars, progress bars): `GroupPolicy/` 7 + 17 and 8 in 15 files (with the shared
     `GroupPolicyBanners.xaml`); `BulkCreate/` 3 + 5 and 2 in 4 files; `Views/Watchdog/` 2 + 4 and 7 in 9 files;
     `Computers/` 2 + 3 and 3 in 2 files; `Pki/` 2 + 2 and 4 in 4 files; `EventLogs/` 0 + 3 and 3 in 3 files;
@@ -1806,7 +1812,10 @@ above.
   and `Views.TestResult`, which only feed it), `StatusText` of the object picker (with `Picker.Found` and
   `Picker.TooMany`), `IsLoading` of the container picker, and `SessionEndedMessage`, which the session log no longer
   binds. `TestCancelCommand` of the two editors still has a user: the view cancels a running test with it when the
-  window closes. No string lost its last user in that unit.
+  window closes. No string lost its last user in that unit. Added by V2b-3, unit 1: no longer shown but read by tests
+  or by the view models themselves – `HasError` of the Group Policy documents, `HealthStatusText` and
+  `IsCheckingHealth` of a GPO –, and `StatusText` / `SelectionText` of those documents, which only the shell reads now.
+  No string and no command lost its last user in that unit.
 - **Not seen, to confirm on Windows.** Nothing of V2b-1 was seen on a screen.
   - *The property sheet.* How a wrapped result looks in the 640 px wide sheet (two or three lines on the caution or
     critical surface, picture and buttons in the first line). The note next to the old validation texts (glyph and plain
@@ -2564,6 +2573,250 @@ screen yet. What the sweep still has to do is counted in *What V2b has to do*, a
     shown at all (the remarks of the paste under the content are). To be decided with the rest of "what a window without
     a session still does". The session log is the plainest case: its count is covered by the state while its list still
     works.
+
+**V2b-3 as built (Group Policy).** The fourth increment of V2 converts the Group Policy area – the views of
+`GroupPolicy/` with their view models in `Presentation/GroupPolicy` – in four units. Unit 1 built what the area shares
+and converted its four plain documents: the list of GPOs, the Group Policy of a domain, organizational unit or site, one
+GPO with its tabs (and the health panel its *Status* tab hosts), and the WMI filters. Every Group Policy document is a
+tab of the main window and derives from one base class, so the decisions of that class hold for all ten documents: they
+are written down first, as the sub-list *Group Policy documents*, for the units that convert the other six. The
+foundations are those of *V2b-1 as built* and the *Dialogs* of *V2b-2 as built*; nothing was added to the model or to
+the controls. The block reads in this order: *Group Policy documents*, the shared bars, the four views, where this
+departs from the recipe, the tests, what is left, and what nobody has seen on a screen yet.
+
+- **Group Policy documents** (decided in unit 1; what the later units of the area follow).
+  1. *The holder is the base class's.* `GroupPolicyDocumentBase` is `IHasPageStatus`: `Status` is created there – the
+     localizer and the dispatcher of `GroupPolicyServices`, the logger of the window's list services
+     (`Gp.Ui.Lists.StatusLog`) – and every document view binds its one status line to it. A document creates no second
+     holder for what the base does. A part of a document that says something of its own – a tab, a pane – gets a holder
+     and is put in front while it is shown (`Status.Front`, foundation 3), like the *Status* tab of a GPO
+     (`GroupPolicyObjectDocumentViewModel.HealthStatus`).
+  2. *The status bar of the main window says nothing about a Group Policy tab* – since unit 1, for all ten documents:
+     the rule of V2a (`ShellViewModel.StatusBarText` is empty for a tab that is `IHasPageStatus`) needed no change.
+     `StatusText` and `SelectionText` of the documents are unchanged for the shell and the tests that read them.
+  3. *The summary* is `LoadedText`, with `SelectionText` joined by " · " ("7 group policy objects, 1 with different
+     versions in AD and SYSVOL · 2 selected"). The base follows both properties: a document sets `LoadedText` and raises
+     `SelectionText` as it always did, and calls nothing.
+  4. *The load is the operation of the document.* `LoadAsync` begins "Reading “Group Policy Objects”…"
+     (`ReadingText`, virtual: the title of the document) with Stop; its token is the serial token of the base, the
+     lifetime of the window and the token of the operation. A newer load replaces the running one without a word, as it
+     did in the document. A load with steps reports them through `LoadOperation` – one operation for one piece of
+     work (foundation 4): the check of a GPO that opens on its *Status* tab says its stages in the line of the load.
+     The three documents whose `LoadCoreAsync` *is* their long operation (the settings search, the cleanup, the
+     diagnostics) have it in the line already – as "Reading “…”…" – next to their own progress bar and text; their unit
+     reports the stages through `LoadOperation`, and their *Cancel* becomes the Stop of the line. `IsLoading` is
+     unchanged: the commands and the mark in the tab header follow it.
+  5. *What lasts is computed in one method of the base*, `UpdateLasting`, the most important first: **not connected**
+     ("Not connected to a domain." – an error without an action); **the content cannot be shown** – the load failed
+     ("Could not read “…”: reason. Press Retry to try again. (code)", with Retry = `RefreshCommand`), or the load found
+     that the GPO or the container is gone: a document says that with `ShowUnavailable(key, action)` from its
+     `LoadCoreAsync` – the key is the resource of the sentence and its log copy, the action the one thing to do
+     ("Delete the remaining folder"); **the load was stopped** ("Reading “…” was stopped: the tab may not show
+     everything. Press Refresh to read it again.", an attention with Refresh) – a state, not a result, because a
+     stopped load leaves the document as it was before, or empty; then **what a kind of document adds**: override
+     `DocumentLastingState` ("Group Policy changed after these results were made") and call `UpdateLasting()` whenever
+     its condition changes. `Error` is still what the document cannot show, as a text; its setter is private now – a
+     document cannot say such a state without its key.
+  6. *SYSVOL and the PDC emulator are notes, not status* – see *The shared bars* below for the reasons. They are one
+     control, `GroupPolicy/GroupPolicyNotes.xaml` (`SysvolNote`, `PdcPanel` with `PdcNote` and the link
+     `ChangeDcButton`), hosted under the status line of every document view.
+  7. *An operation the document starts speaks in the line of the document.* `GroupPolicyDocumentBase.Actions` is the
+     window's `GroupPolicyActions` bound to the holder of the document (`GroupPolicyActions.For(status)`; the scoped
+     instance the tree and the shell use has `Status == null` and keeps the dialog and the toast). `RunAsync` – the
+     one path of every operation: plan on the session's domain controller, then the change plan preview – says, when
+     it has a holder: **working** "Rename GPO “…”: preparing the changes…" with Stop (planning took the lifetime of the
+     window only; it can be stopped now, rule 6), and then gives the line back to the document before the preview
+     window opens – that window says its own status. When nothing comes of it: **attention** "… – nothing was changed:
+     SYSVOL unavailable on dc01: …" (the plan needs SYSVOL), **error** "… – nothing was changed: reason. Press Retry to
+     try again. (code)" (the plan could not be made), **attention** "… – nothing was changed: Preparing the changes was
+     stopped. …" (the operator's Stop; a plan that was made although Stop was pressed is not previewed – Dialogs 9),
+     each with **Retry**, which makes the plan of the *same* request again (the name that was typed, the trustee that
+     was picked) and goes on to the preview; **done** "…: nothing to change – the objects already have the requested
+     values." where the toast was. What a helper of the operations says before a plan exists – a trustee without a
+     SID, a read after the object picker that failed, the default GPOs that cannot be deleted – goes through
+     `GroupPolicyActions.RefuseAsync(dialogTitle, operation, reason, logKey, code)`: the line of the document when
+     there is one and it is not working, else the dialog. The extension methods of the later units (`CopySettingsAsync`,
+     `DeleteCheckedAsync` …) use it for their own "why nothing was done" dialogs. Only what is *said* changed: plan,
+     preview, confirmation and execution are the pipeline's (rule 5).
+  8. *The load and the planning share the holder, and replace one another.* The commands that plan are disabled while
+     the document loads (as before), so planning never takes the line from a load; a load that starts while a plan is
+     being made (F5, another operation was executed, the session changed, the language) ends that planning without a
+     word – the plan would be of a state that is no longer shown. A load that loses the line to another operation
+     that is no load says "stopped" as its state: a document is never silently stale. So a long operation of a
+     document that may run *while* the document reloads or plans does not go on `Status`: it is the load itself (4),
+     or it gets a holder of its own in front (1).
+  9. *The view.* Where the shared bars were: `<c:StatusLine x:Name="PageStatus" Margin="0,0,0,6"
+     DockPanel.Dock="Top" …/>` over `Status.Current` / `Status.CloseCommand`, then `<gp:GroupPolicyNotes
+     x:Name="DocumentNotes" DockPanel.Dock="Top" />`. Declared in place: visual order is tab order (header, line, notes,
+     content). All ten views have both since unit 1. The six that still have bars of their own – the two editors,
+     modeling, diagnostics, search, cleanup – are on a third, temporary list of `XamlSourceTests`,
+     `ViewsWithAStatusLineNotConvertedYet` (one line named `PageStatus`, and at least one banner or progress bar left):
+     the unit that converts a view moves it to `PagesWithAStatusLine`, and the test fails for a view that stays on the
+     list with nothing left to convert. Until then such a view says some things twice – "Reading “…”…" in the line and
+     its own progress text under its toolbar.
+  10. *Tests.* Presentation: `GroupPolicyHarness.CreateAsync(culture, statusLog)` for the log copies; a slow domain
+      controller is a call held in `FakeDirectorySession.BeforeOperation` (the reads of the documents run on pool
+      threads; the planner's first read runs on the caller's thread – start such a command with `Task.Run`). UI:
+      `GroupPolicy/GroupPolicyStatusUiSupport.cs` – the main window over the GPO sample (`OpenMainAsync`), a document
+      with its view (`OpenAsync<TDocument, TView>`), `AssertTheLineOf`, `AssertNoOldFeedback`, `AssertNoNotes`,
+      `GrowthOf`, and `HeldRead`, which holds a read only on a pool thread (a call held on the UI thread holds the
+      test: do not hold a planner's read in a UI test – fail it instead).
+- **The shared bars** (`GroupPolicy/GroupPolicyBanners.xaml`, deleted; hosted by all ten document views).
+
+  | Old place | Kind | Now |
+  |---|---|---|
+  | error bar `Error` (not connected, a failed load, "the GPO / the container no longer exists") | status | the state of the document that lasts (5): error, with Retry for a failed load |
+  | warning bar `SysvolWarning` ("SYSVOL unavailable on dc01: …") | note | `Ad.Note.Attention` under the line (`GroupPolicyNotes.SysvolNote`) |
+  | card `PdcNote` with the button *Change Domain Controller…* (never a banner style) | note | `Ad.Note.Info` under the line, the button as a link (`Ad.LinkButton`) right after the sentence |
+  | "Loading…" / the loaded text / the error in the status bar of the main window (`StatusText`), the selection next to it | status, summary | the load in the line; the summary with the selection; gone from the status bar |
+
+  - **Why "SYSVOL unavailable" is a note and not a lasting attention of the line.** It looks like the answer to
+    something the document did – it tried to open SYSVOL – and the list of domain controllers that could not be read
+    became status in V2b-2. Three things decided the other way. (a) *What it is about:* how complete the content is
+    (versions and settings from SYSVOL are missing) and why the commands that write SYSVOL are disabled – a sentence
+    about the content, true for as long as it is shown, like "No other connection is open" of the comparison window.
+    (b) *It must stand next to the summary.* A state that lasts takes the place of the summary, and it cannot be
+    closed. For a connection opened with a distinguished name, or in a host without a SYSVOL writer, SYSVOL is never
+    available: every Group Policy tab would then say nothing but that, for the whole session – and the less important
+    states of the later units ("the results are out of date") would never be seen behind it. (c) *The line has nothing
+    to offer for it:* the cause is rarely over with a second try, Refresh is in the toolbar, and the way out – another
+    domain controller, another logon – is not one action of the line. What the document *did* about SYSVOL is still
+    status: an operation that needs SYSVOL and finds it gone says so in the line (7).
+  - **Why the PDC note is a note with a link.** It is information – where the changes of this tab are made – not an
+    attention, and only an attention or an error can last in the line (foundation 2). It is true while the document is
+    shown on this session, and it has one optional way to act on it, which opens a dialog: a note with a link in
+    place. The link is the first use of `Ad.LinkButton` outside the status line; the style and the note styles were
+    not changed.
+- **Group Policy Objects** (`GroupPolicy/GroupPolicyObjectsView.xaml`; `GroupPolicyObjectsDocumentViewModel` – the
+  document itself; its entries to search, cleanup and diagnostics belong to unit 2).
+  - *What the line says.* Under the toolbar, above the notes and the list. At rest "7 group policy objects, 1 with
+    different versions in AD and SYSVOL", "· 2 selected" with a selection, "1 of 7 group policy objects shown" while the
+    search narrows the list. **Working:** "Reading “Group Policy Objects”…" with Stop; "New GPO “…”: preparing the
+    changes…" (Copy, Rename, Delete, Import – every operation that goes to the preview) with Stop. **Results** of an
+    operation as in (7). **States:** as in (5).
+  - *How the old places were sorted.* The view had no bar of its own: the three shared ones, and the status bar. The
+    hint in the middle of an empty list ("No GPO matches the search.") is a hint about the list and unchanged.
+- **Group Policy of a domain, organizational unit or site** (`GroupPolicy/GroupPolicyScopeView.xaml`;
+  `GroupPolicyScopeDocumentViewModel`).
+  - *What the line says.* Under the header, above the notes and the inheritance box. At rest "2 linked GPOs, 5
+    applied". **Working:** "Reading “Group Policy – Computers”…"; "Link of “…”: preparing the changes…" (Up, Down,
+    Enforced, Link Enabled, Delete Link, Link an Existing GPO, Create and link, Block Inheritance). **State:** "The
+    container no longer exists." – an error without an action (`ShowUnavailable(L.GroupPolicy.ContainerMissing)`).
+  - *How the old places were sorted.* No bar of its own. Its writes are unchanged (rule 5): the check box of *Block
+    inheritance* still shows the state as read after a preview that was closed without executing.
+- **One GPO** (`GroupPolicy/GroupPolicyObjectView.xaml` with `GroupPolicyHealthPanel.xaml`;
+  `GroupPolicyObjectDocumentViewModel` and its partial files).
+  - *What the line says.* Under the header, above the notes and the five tabs. At rest "1 links, 14 settings" – and on
+    the *Status* tab what that tab says: "Last check: full, 12.11.2026 14:32 – 2 findings". **Working:** "Reading
+    “…”…" (with the stages of the check when the document opens on *Status*); "Checking the GPO…", then its stages
+    ("Reading SYSVOL folders: 1 of 1"), with Stop – the check the tab starts when it is selected, or *Check again*;
+    the planning of an operation as in (7). **Attention:** "Checking the GPO was stopped: the findings were not
+    updated. Press “Check again” to check it again." with *Check again*. **States:** of the document – "The GPO no
+    longer exists.", or "The GPO no longer exists in Active Directory, but its SYSVOL folder is still there." with
+    *Delete the remaining folder* as the action of the line; of the tab – "Could not check the GPO: reason. Press Retry
+    to try again. (code)" with Retry.
+  - *How the old places were sorted* (2 warning bars, 1 progress bar, and the text next to it).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | warning bar that held only the button *Delete the remaining folder* (`HasOrphanedFolder`) | status | the action of the lasting error "… its SYSVOL folder is still there." |
+    | health panel: progress bar (`IsCheckingHealth`) and the text next to it (`HealthStatusText`: the stage, then "Last check: …") | status, summary | the operation and the summary of the *Status* tab, in the line of the document |
+    | health panel: warning bar `HealthNotes` after a check that **failed** (the reason) | status | lasting error of the tab, with Retry |
+    | health panel: warning bar `HealthNotes` after a check that could not evaluate everything (SYSVOL unavailable, the folder was not read) | note | `Ad.Note.Attention` above the results (`HealthNote`): how complete they are |
+    | *Settings* tab: `SettingsNote` (why the settings are not shown), the note about the templates | note | unchanged – never banners |
+    | *Check again* | – | stays a button: it never had a Stop of its own; a running check is stopped in the line |
+
+  - *Decisions.*
+    - **The *Status* tab has a holder of its own, in front while it is shown.** The check of the tab and the load of
+      the document can overlap – F5 while the tab checks, a check that starts when the load is past its own – so they
+      cannot share an operation (foundation 4), and what a check left belongs to its tab: on the other tabs the line
+      says the summary of the GPO, and a tab that failed says so when it is selected. The document's own operation
+      (its load, a plan that is being made) takes the line whichever tab is shown.
+    - **A check that is a step of the load starts no operation of the tab.** Opened on *Status*, or reloaded there, the
+      document checks the GPO inside its load on the load's SYSVOL connection: the stages are reported by the load
+      (`LoadOperation`), the tab only gets its summary or its failure.
+    - **A failed check is the state of the tab, a stopped one a result.** After a failure the tab is empty and has no
+      other explanation; after a Stop it shows what the check before found, with its time in the summary.
+    - **The button that had a bar of its own is the action of the line.** The bar had no sentence – that was in the
+      error bar above it. One state, one sentence, one action: the lasting error carries the command
+      (`DeleteOrphanedFolderCommand`, which plans and previews like every change).
+    - `HealthStatusText`, `HealthNotes`, `IsCheckingHealth`, `Error` and `LoadedText` are unchanged for the tests and
+      the code that read them, except that a failed check no longer puts its reason into `HealthNotes`.
+- **WMI Filters** (`GroupPolicy/WmiFiltersView.xaml`; `WmiFiltersDocumentViewModel`). Under the header, above the notes
+  and the list: "1 WMI filters" at rest; "Reading “WMI Filters”…"; "New WMI filter “…”: preparing the changes…" for
+  New, Edit and Delete; the states of (5). No bar of its own.
+- **Where this departs from the recipe.**
+  - *A third list in the source test.* The recipe knows converted views with a line and converted views without one.
+    The base class gave all ten documents their holder at once – with it the status bar stopped speaking for them – so
+    the six views of the later units needed the line in this unit, while they still have bars of their own:
+    `ViewsWithAStatusLineNotConvertedYet`, with its own rule, exists until the units that convert those views have
+    emptied it.
+  - *Two view models of a later unit were touched* – one line each: the two editors set `Error` themselves for a GPO
+    that is gone; with the private setter they call `ShowUnavailable(L.GroupPolicy.Missing)`.
+  - *No `ExecutionStatus` in the documents.* A Group Policy document never executes a plan itself: the change plan
+    preview does, and says it in its own line (converted in V2b-1). The document says the step before – the planning
+    – and the read after.
+  - *A behaviour that was repaired on the way:* a document that lost its session while it was loading stayed
+    "loading" until the next connection (the mark in the tab header kept turning). `IsLoading` ends with the session
+    now, in the same call that says "not connected" (Dialogs 22).
+  - *Left as they were:* the error dialog of *History in Watchdog* (the read before another window opens), the
+    toasts of the HTML report and of the copy to the clipboard on the *Settings* tab (an export still answers with a
+    toast everywhere), and the dialogs of the tree and of the shell.
+- **Tests.** Presentation (run on Linux): `GroupPolicy/GroupPolicyDocumentStatusTests` (26 cases: the summary with the
+  selection and the search in both languages, and of every document; the status bar that says nothing about a Group
+  Policy tab; the read with Stop – "Stopping…" at once, the stopped read as a state with Refresh – in both languages;
+  a failed read with Retry in both languages; a newer read that replaces the running one; not connected as the state,
+  "busy" ending with the session, said again after a language switch; a container that is gone in both languages; a
+  GPO that is gone with its folder, deleted from the line; SYSVOL and the PDC emulator as notes; a kind of document
+  that adds its own state; an operation with the preview and the read after it, in both languages; Stop while the plan
+  is made and Retry, in both languages; a plan that cannot be made, in both languages, no dialog; SYSVOL gone when an
+  operation needs it; nothing to change, in the line and – for the tree – as a toast; the dialog the tree keeps; the
+  log copies without a name, a title, a domain or a server text) and `GroupPolicy/GroupPolicyHealthStatusTests` (9:
+  the tab in front and its summary in both languages; its check with Stop in both languages; a failed check with
+  Retry in both languages, not the document's error; a failure that stays with its tab and goes with the GPO; the
+  note; a check inside the load; the log copies). Unchanged and green: the 401 tests of `GroupPolicy/` that were
+  there, among them `GroupPolicyDocumentTests`, `GroupPolicyOperationTests` and `GroupPolicyHealthTabTests`. UI
+  (Windows CI only, written without a screen): `GroupPolicyObjectsStatusUiTests` (five tests: the line with the
+  summary and the selection and the empty status bar; a held read with Stop; a failed read; the two notes with the
+  link; every Group Policy tab with its line and notes), `GroupPolicyScopeStatusUiTests` (three: the summary; a plan
+  that cannot be made, then Retry into the real preview window; a container that is gone),
+  `GroupPolicyObjectStatusUiTests` (four: the *Status* tab in front; its check with Stop; a GPO that is gone with the
+  action of the line through the real preview window; the notes without SYSVOL), `WmiFiltersStatusUiTests` (two).
+  Adapted where the place of a message changed: `GroupPolicyWindowTests` (the button of the orphaned folder is read
+  from the line). The four views are on `PagesWithAStatusLine`, the notes control and the health panel on
+  `ConvertedViewsWithoutAStatusLine`. The source rules – the three lists, the closed set of Fluent brush keys (28,
+  unchanged), "every `StaticResource` key resolves, before its first use" – were proven on Linux with a throwaway
+  script that repeats the expressions of the tests.
+- **After unit 1 of V2b-3** (counted in the XAML, comments excluded): 16 uses of `Ad.ErrorBar` and 33 of
+  `Ad.WarningBar` in 30 files and 31 progress bars in 28 files – 37 view files with at least one of the three; in
+  `GroupPolicy/` 6 + 14 and 7 in 12 files. 23 views with a status line, 6 with a line and bars of their own, 4 converted
+  views without a line. Unit 1 took 1 error bar (status), 3 warning bars (1 note – SYSVOL –, 1 status – the action of a
+  GPO that is gone –, and one that was both: a failed check is status, an incomplete one a note) and 1 progress bar
+  (status). Left behind on purpose, for the list of *After V2b-1*: no longer shown but read by tests or by the view
+  models themselves – `HasError` of the documents, `HealthStatusText` and `IsCheckingHealth` of a GPO –, and
+  `StatusText` / `SelectionText` of the documents, which only the shell reads now (for hosts without a line); no string
+  and no command lost its last user.
+- **Not seen, to confirm on Windows.** Nothing of this unit was seen on a screen.
+  - *Every Group Policy tab is 34 px lower* under its header or toolbar – the line and its 6 px – where the shared bars
+    took no room at rest. On the tabs that are not converted yet the line stands above their own bars.
+  - *The notes.* "SYSVOL unavailable on dc01: … – changes that write SYSVOL are disabled." as a glyph and a sentence
+    where a caution bar was: it is the reason why half the toolbar is disabled, and quieter than before. The PDC note in
+    the secondary text colour with *Change Domain Controller…* as a link after it (underlined, accent colour): the
+    first link outside the status line – its base line against the sentence (the sentence starts 3 px lower than the
+    24 px high link), and how it wraps in a narrow window (the sentence wraps, the link stays at the right).
+  - *"Reading “…”…" at every reload* – after each executed operation, a change of the domain controller, a language
+    switch – flashes with a fast domain controller (the open question of a delay before "Working"); "…: preparing the
+    changes…" flashes before every preview.
+  - *Long results.* "Copy GPO “…” – nothing was changed: SYSVOL unavailable on dc01.contoso.test: the share cannot be
+    reached – changes that write SYSVOL are disabled. Press Retry to try again." is some 170 characters: it wraps to
+    two or three lines, depending on the width the tree and the details pane leave to the tab, and the content of the
+    tab moves down with it.
+  - *The* Status *tab of a GPO* without its progress bar and text: the hint and *Check again* in one row, the note
+    above the results; the stages of the check in the line change quickly.
+  - *Delete the remaining folder* as a link in an error line, where a button in a caution bar was.
+  - Two README pictures show a Group Policy tab and change with this unit (the line under the header):
+    `23-group-policy.png` – the Group Policy of a unit – and `29-administrative-templates.png`, an editor of a later
+    unit, which has the line already.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 
