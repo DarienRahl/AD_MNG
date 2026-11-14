@@ -92,9 +92,6 @@ public static partial class L
 
         public const string ClipboardEmpty = "Correspondence.Recipients.ClipboardEmpty";
 
-        /// <summary>The title of import error reports.</summary>
-        public const string ImportTitle = "Correspondence.Recipients.ImportTitle";
-
         /// <summary>{0} = file, {1} = the reason.</summary>
         public const string ReadFailed = "Correspondence.Recipients.ReadFailed";
 
@@ -159,9 +156,6 @@ public static partial class L
         public const string JournalPruned = "Correspondence.Recipients.JournalPruned";
 
         public const string JournalCleared = "Correspondence.Recipients.JournalCleared";
-
-        /// <summary>The title of directory errors.</summary>
-        public const string DirectoryTitle = "Correspondence.Recipients.DirectoryTitle";
 
         /// <summary>The name of a new field definition.</summary>
         public const string NewFieldName = "Correspondence.Recipients.NewFieldName";

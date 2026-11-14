@@ -8634,9 +8634,6 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="UserMessages.Rich.ReplaceHtmlConfirm" xml:space="preserve">
     <value>Replace the HTML version of this language with the pasted content?</value>
   </data>
-  <data name="UserMessages.Rich.CancelPaste" xml:space="preserve">
-    <value>Stop pasting</value>
-  </data>
   <data name="UserMessages.Rich.Pasting" xml:space="preserve">
     <value>Pasting the formatted content…</value>
   </data>
@@ -13331,9 +13328,6 @@ Use "Check Outlook" – it shows the version, profile, accounts and signatures s
   <data name="Correspondence.Recipients.ClipboardEmpty" xml:space="preserve">
     <value>The clipboard holds no text – copy the addresses (e.g. from Word, Excel or a message) and try again.</value>
   </data>
-  <data name="Correspondence.Recipients.ImportTitle" xml:space="preserve">
-    <value>Reading addresses</value>
-  </data>
   <data name="Correspondence.Recipients.ReadFailed" xml:space="preserve">
     <value>Could not read “{0}”: {1}</value>
   </data>
@@ -13435,9 +13429,6 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="Correspondence.Recipients.JournalCleared" xml:space="preserve">
     <value>The journal was cleared.</value>
-  </data>
-  <data name="Correspondence.Recipients.DirectoryTitle" xml:space="preserve">
-    <value>Recipients from the directory</value>
   </data>
   <data name="Correspondence.Recipients.NewFieldName" xml:space="preserve">
     <value>New field</value>
@@ -14032,9 +14023,6 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="Correspondence.Preview.LargeAttachments" xml:space="preserve">
     <value>The attachments weigh {0} together – many servers refuse messages above 10–20 MB.</value>
-  </data>
-  <data name="Correspondence.Preview.OutlookFailed" xml:space="preserve">
-    <value>The preview could not be read from Outlook: {0}</value>
   </data>
   <data name="Correspondence.Preview.BrowserTitle" xml:space="preserve">
     <value>Message preview</value>
@@ -14917,9 +14905,6 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="Correspondence.App.Send.RetryFailed" xml:space="preserve">
     <value>Retry failed</value>
-  </data>
-  <data name="Correspondence.App.Send.Progress" xml:space="preserve">
-    <value>Sending progress</value>
   </data>
   <data name="Correspondence.App.Send.Sent" xml:space="preserve">
     <value>sent</value>

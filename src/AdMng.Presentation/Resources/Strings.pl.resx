@@ -8634,9 +8634,6 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="UserMessages.Rich.ReplaceHtmlConfirm" xml:space="preserve">
     <value>Zastąpić wersję HTML tego języka wklejoną treścią?</value>
   </data>
-  <data name="UserMessages.Rich.CancelPaste" xml:space="preserve">
-    <value>Przerwij wklejanie</value>
-  </data>
   <data name="UserMessages.Rich.Pasting" xml:space="preserve">
     <value>Wklejanie sformatowanej treści…</value>
   </data>
@@ -13331,9 +13328,6 @@ Użyj przycisku „Sprawdź Outlooka” – pokaże wersję, profil, konta i pod
   <data name="Correspondence.Recipients.ClipboardEmpty" xml:space="preserve">
     <value>Schowek jest pusty – skopiuj adresy (np. z Worda, Excela lub wiadomości) i spróbuj ponownie.</value>
   </data>
-  <data name="Correspondence.Recipients.ImportTitle" xml:space="preserve">
-    <value>Wczytywanie adresów</value>
-  </data>
   <data name="Correspondence.Recipients.ReadFailed" xml:space="preserve">
     <value>Nie udało się wczytać „{0}”: {1}</value>
   </data>
@@ -13435,9 +13429,6 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="Correspondence.Recipients.JournalCleared" xml:space="preserve">
     <value>Dziennik wyczyszczony.</value>
-  </data>
-  <data name="Correspondence.Recipients.DirectoryTitle" xml:space="preserve">
-    <value>Odbiorcy z katalogu</value>
   </data>
   <data name="Correspondence.Recipients.NewFieldName" xml:space="preserve">
     <value>Nowe pole</value>
@@ -14032,9 +14023,6 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="Correspondence.Preview.LargeAttachments" xml:space="preserve">
     <value>Załączniki ważą razem {0} – wiele serwerów odrzuca wiadomości powyżej 10–20 MB.</value>
-  </data>
-  <data name="Correspondence.Preview.OutlookFailed" xml:space="preserve">
-    <value>Nie udało się pobrać podglądu z Outlooka: {0}</value>
   </data>
   <data name="Correspondence.Preview.BrowserTitle" xml:space="preserve">
     <value>Podgląd wiadomości</value>
@@ -14917,9 +14905,6 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="Correspondence.App.Send.RetryFailed" xml:space="preserve">
     <value>Ponów nieudane</value>
-  </data>
-  <data name="Correspondence.App.Send.Progress" xml:space="preserve">
-    <value>Postęp wysyłki</value>
   </data>
   <data name="Correspondence.App.Send.Sent" xml:space="preserve">
     <value>wysłane</value>

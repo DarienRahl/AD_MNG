@@ -20,7 +20,6 @@ public static partial class L
         public const string GenerateText = "UserMessages.Rich.GenerateText";
         public const string GenerateTextConfirm = "UserMessages.Rich.GenerateTextConfirm";
         public const string ReplaceHtmlConfirm = "UserMessages.Rich.ReplaceHtmlConfirm";
-        public const string CancelPaste = "UserMessages.Rich.CancelPaste";
         public const string Pasting = "UserMessages.Rich.Pasting";
         public const string Pasted = "UserMessages.Rich.Pasted";
         public const string PastedText = "UserMessages.Rich.PastedText";
