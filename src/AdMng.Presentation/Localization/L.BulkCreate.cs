@@ -81,9 +81,6 @@ public static partial class L
         /// <summary><em>Wiersz</em></summary>
         public const string ExcelRowColumn = "BulkCreate.ExcelRowColumn";
 
-        /// <summary><em>Wczytywanie danych…</em></summary>
-        public const string Reading = "BulkCreate.Reading";
-
         /// <summary><em>Dołącz mimo to</em></summary>
         public const string AppendRepeated = "BulkCreate.AppendRepeated";
 

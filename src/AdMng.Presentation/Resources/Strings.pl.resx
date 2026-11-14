@@ -23580,9 +23580,6 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="BulkCreate.ExcelRowColumn" xml:space="preserve">
     <value>Wiersz</value>
   </data>
-  <data name="BulkCreate.Reading" xml:space="preserve">
-    <value>Wczytywanie danych…</value>
-  </data>
   <data name="BulkCreate.AppendRepeated" xml:space="preserve">
     <value>Dołącz mimo to</value>
   </data>
@@ -24086,9 +24083,6 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="BulkCheck.ScopeNote" xml:space="preserve">
     <value>Unikalność UPN i adresów: {0}</value>
   </data>
-  <data name="BulkCheck.Computing" xml:space="preserve">
-    <value>Sprawdzanie wierszy: {0} z {1}</value>
-  </data>
   <data name="BulkCheck.Recheck" xml:space="preserve">
     <value>Sprawdź ponownie</value>
   </data>
@@ -24118,9 +24112,6 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="BulkCheck.InputIncomplete" xml:space="preserve">
     <value>Najpierw uzupełnij wcześniejsze kroki: kontener docelowy, dane, kolumny i reguły nazewnictwa.</value>
-  </data>
-  <data name="BulkCheck.StaleNote" xml:space="preserve">
-    <value>Dane, reguły lub utworzone konta zmieniły się od tego sprawdzenia – kliknij Sprawdź ponownie.</value>
   </data>
   <data name="BulkCheck.EditHint" xml:space="preserve">
     <value>Kliknij dwukrotnie komórkę, aby ją poprawić (Enter zapisuje); odznacz wiersz, aby go pominąć.</value>

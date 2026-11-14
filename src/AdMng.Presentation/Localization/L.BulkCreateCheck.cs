@@ -36,9 +36,6 @@ public static partial class L
         /// <summary><em>Unikalność UPN i adresów: {0}</em> (<c>BulkCheck.Scope.*</c>).</summary>
         public const string ScopeNote = "BulkCheck.ScopeNote";
 
-        /// <summary>The progress line: <c>{0}</c> rows computed, <c>{1}</c> rows.</summary>
-        public const string Computing = "BulkCheck.Computing";
-
         public const string Recheck = "BulkCheck.Recheck";
         public const string RecheckHint = "BulkCheck.RecheckHint";
         public const string Renumber = "BulkCheck.Renumber";
@@ -54,9 +51,6 @@ public static partial class L
 
         /// <summary>An earlier step is incomplete: nothing can be computed.</summary>
         public const string InputIncomplete = "BulkCheck.InputIncomplete";
-
-        /// <summary>The grid shows an older computation (data, rules or created rows changed since).</summary>
-        public const string StaleNote = "BulkCheck.StaleNote";
 
         /// <summary>How to fix rows inline.</summary>
         public const string EditHint = "BulkCheck.EditHint";
