@@ -68,6 +68,7 @@ public sealed partial class XamlSourceTests
     [
         "GroupPolicy/AdministrativeTemplatesEditorView.xaml",
         "GroupPolicy/GpoCleanupView.xaml",
+        "GroupPolicy/GpoPickerWindow.xaml",
         "GroupPolicy/GpoSettingsSearchView.xaml",
         "GroupPolicy/GroupPolicyDiagnosticsView.xaml",
         "GroupPolicy/GroupPolicyModelingView.xaml",

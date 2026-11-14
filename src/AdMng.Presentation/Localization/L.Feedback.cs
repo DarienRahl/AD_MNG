@@ -696,4 +696,23 @@ public static partial class L
         /// <summary>The ADMX and ADML files of the central store (or of this computer) are being read; a stage of the load, logged as <see cref="GroupPolicyStatus.Reading"/>.</summary>
         public const string ReadingTemplates = "AdmTemplates.Status.ReadingTemplates";
     }
+
+    /// <summary>
+    /// What the GPO picker ("Link an existing GPO…", "Compare with…") says in its status line (stage V2b-3): the read of the
+    /// GPOs of the domain when the dialog opens.
+    /// </summary>
+    public static class GpoPickerStatus
+    {
+        /// <summary>{0} = the domain.</summary>
+        public const string Reading = "GpoPicker.Status.Reading";
+
+        /// <summary>The summary of the list; {0} = how many GPOs it shows.</summary>
+        public const string Found = "GpoPicker.Status.Found";
+
+        /// <summary>{0} = the text of the "Retry" button.</summary>
+        public const string Stopped = "GpoPicker.Status.Stopped";
+
+        /// <summary>What was tried, without a full stop; {0} = the domain.</summary>
+        public const string ReadFailed = "GpoPicker.Status.ReadFailed";
+    }
 }

@@ -727,7 +727,8 @@ public sealed class GroupPolicyWindowTests
         await UiTestSupport.WaitForIdleAsync();
         // Every window of a connection names its domain in the title (several connections at once).
         Assert.Equal("Połącz istniejący GPO z Komputery – contoso.test", picker.Title);
-        Assert.Equal(Visibility.Collapsed, picker.ErrorBar.Visibility);
+        Assert.Equal(PageStatusKind.Idle, picker.PageStatus.Kind); // the read said nothing wrong; the line has the count
+        Assert.Equal($"Obiekty zasad grupy: {all.Count - 1}", picker.PageStatus.Message);
         Assert.Equal(all.Count - 1, picker.GpoList.Items.Count);
         Assert.DoesNotContain(picker.GpoList.Items.Cast<GpoPickerItem>(), i => i.Gpo.Id == sample.WorkstationPasswords);
         Assert.False(picker.OkButton.IsEnabled);

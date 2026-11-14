@@ -24966,5 +24966,17 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="AdmTemplates.Status.ReadingTemplates" xml:space="preserve">
     <value>Wczytywanie plików ADMX i ADML…</value>
   </data>
+  <data name="GpoPicker.Status.Reading" xml:space="preserve">
+    <value>Wczytywanie obiektów zasad grupy domeny {0}…</value>
+  </data>
+  <data name="GpoPicker.Status.Found" xml:space="preserve">
+    <value>Obiekty zasad grupy: {0:N0}</value>
+  </data>
+  <data name="GpoPicker.Status.Stopped" xml:space="preserve">
+    <value>Wczytywanie obiektów zasad grupy zatrzymano: lista jest pusta. Wybierz „{0}”, aby wczytać je ponownie.</value>
+  </data>
+  <data name="GpoPicker.Status.ReadFailed" xml:space="preserve">
+    <value>Nie udało się wczytać obiektów zasad grupy domeny {0}</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>
