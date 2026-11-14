@@ -148,7 +148,7 @@ jobs:
       # Public test values of the throwaway lab (tools/testlab/README.md) – no secrets are needed.
       ADMNG_TEST_LDAP_SERVER: 127.0.0.1
       # Connection-level LDAP errors of the lab tests with libldap's own words (LdapErrorLog), printed by "Samba DC log".
-      ADMNG_TEST_LDAP_ERROR_LOG: ${{ runner.temp }}/admng-ldap-errors.log
+      ADMNG_TEST_LDAP_ERROR_LOG: /tmp/admng-ldap-errors.log
       ADMNG_TEST_LDAP_USER: Administrator@contoso.test
       ADMNG_TEST_LDAP_PASSWORD: P@ssw0rd!2026
       ADMNG_TEST_LDAP_READONLY_USER: odczyt.test@contoso.test
