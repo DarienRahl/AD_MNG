@@ -149,6 +149,12 @@ jobs:
       ADMNG_TEST_LDAP_SERVER: 127.0.0.1
       # Connection-level LDAP errors of the lab tests with libldap's own words (LdapErrorLog), printed by "Samba DC log".
       ADMNG_TEST_LDAP_ERROR_LOG: /tmp/admng-ldap-errors.log
+      # A test process that dies without a managed stack (exit code 134, SIGABRT) leaves a mini dump and a crash report
+      # (stack of the native and managed frames as JSON) here - printed by "Crash reports".
+      DOTNET_DbgEnableMiniDump: "1"
+      DOTNET_DbgMiniDumpType: "1"
+      DOTNET_DbgMiniDumpName: /tmp/admng-crash-%p.dmp
+      DOTNET_EnableCrashReport: "1"
       ADMNG_TEST_LDAP_USER: Administrator@contoso.test
       ADMNG_TEST_LDAP_PASSWORD: P@ssw0rd!2026
       ADMNG_TEST_LDAP_READONLY_USER: odczyt.test@contoso.test
@@ -193,6 +199,17 @@ jobs:
       - name: Watchdog lab logs
         if: failure()
         run: tail -n 200 ~/.cache/admng/watchdog-lab/watchdog.log ~/.cache/admng/watchdog-lab/webhook-sink.log || true
+      # The report names the signal, the thread and the frames of the crashed process; the dump itself is not uploaded.
+      - name: Crash reports
+        if: failure()
+        run: |
+          ls -la /tmp/admng-crash-* 2>/dev/null || echo "no crash dump or report was written"
+          for report in /tmp/admng-crash-*.crashreport.json; do
+            [ -e "$report" ] || continue
+            echo "=== $report ==="
+            head -c 20000 "$report"
+            echo
+          done
       # A dropped LDAP connection (ServerUnavailable) shows here as a crashed or restarted Samba worker.
       - name: Samba DC log
         if: failure()
