@@ -3118,7 +3118,12 @@ has seen on a screen yet.
   `PagesWithAStatusLine`; the source rules – the two lists, the closed set of Fluent brush keys (28, unchanged although
   the card gave up three uses), "every `StaticResource` key resolves, before its first use" – were proven on Linux with
   a throwaway script that repeats the expressions of the tests (and the script was shown to catch an old bar and a key
-  that does not exist).
+  that does not exist). The first Windows run found one wrong assumption of a test, none of a view: a test that ends
+  with unsaved edits makes the main window ask before it closes, and that question (a message window) outlived the test
+  – the next test of the shared application found a window it had not opened (the failure showed in the test that
+  asserts "no dialog"). The first test of each editor now discards its edit through the real confirmation, as its last
+  step, and asserts that the changed count goes with it; a UI test of an editor must not end with unsaved edits. The
+  other seven UI tests of the unit were green unseen.
 - **After unit 1 of V2b-3** (counted in the XAML, comments excluded): 16 uses of `Ad.ErrorBar` and 33 of
   `Ad.WarningBar` in 30 files and 31 progress bars in 28 files – 37 view files with at least one of the three; in
   `GroupPolicy/` 6 + 14 and 7 in 12 files. 23 views with a status line, 6 with a line and bars of their own, 4 converted
