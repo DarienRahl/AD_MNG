@@ -273,13 +273,6 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
     [NotifyCanExecuteChangedFor(nameof(PreviewCommand), nameof(ExecuteCommand), nameof(RetryFailedCommand), nameof(UndoCommand), nameof(BackToEditCommand))]
     public partial bool IsBusy { get; private set; }
 
-    /// <summary>Objects planned so far / to plan (the status line says them while the changes are checked).</summary>
-    [ObservableProperty]
-    public partial int PlanningCompleted { get; private set; }
-
-    [ObservableProperty]
-    public partial int PlanningTotal { get; private set; }
-
     /// <summary>Localized error of the last planning or execution attempt.</summary>
     [ObservableProperty]
     public partial string? Error { get; private set; }
@@ -1061,15 +1054,12 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, checking.Token);
         IsBusy = true;
         Error = null;
-        PlanningCompleted = 0;
-        PlanningTotal = total;
         try
         {
             var progress = Services.Dispatcher.CreateProgress<int>(n =>
             {
                 if (_planning.IsCurrent(latest))
                 {
-                    PlanningCompleted = n;
                     checking.Report(
                         Localizer.Format(L.BatchStatus.Checking, PageStatusText.Progress(Localizer, n, total)),
                         n > 0 ? PageProgress.Of(n, total) : PageProgress.Indeterminate,

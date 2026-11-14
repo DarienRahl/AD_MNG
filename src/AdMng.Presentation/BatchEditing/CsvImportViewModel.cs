@@ -84,7 +84,7 @@ public sealed partial class CsvImportViewModel : ObservableObject
     private readonly BatchEngines _engines;
     private readonly Func<IDirectorySession?> _session;
 
-    // The read of a file that owns IsLoading (a newer read replaces a running one).
+    // The read of a file that owns the status line (a newer read replaces a running one).
     private OperationScope? _reading;
 
     /// <param name="services">Shared dialog services.</param>
@@ -199,9 +199,6 @@ public sealed partial class CsvImportViewModel : ObservableObject
     [ObservableProperty]
     public partial string? Error { get; private set; }
 
-    [ObservableProperty]
-    public partial bool IsLoading { get; private set; }
-
     /// <summary>A file is loaded, a key column is chosen and at least one other column is mapped.</summary>
     public bool IsValid => Table is not null && ValidationError() is null;
 
@@ -280,7 +277,6 @@ public sealed partial class CsvImportViewModel : ObservableObject
         using var reading = Status.Begin(localizer.Format(L.BatchStatus.FileReading, name), new PageStatusLog(L.BatchStatus.FileReading));
         var token = reading.Token;
         _reading = reading;
-        IsLoading = true;
         Error = null;
         try
         {
@@ -327,7 +323,6 @@ public sealed partial class CsvImportViewModel : ObservableObject
             if (ReferenceEquals(_reading, reading))
             {
                 _reading = null;
-                IsLoading = false;
             }
         }
     }

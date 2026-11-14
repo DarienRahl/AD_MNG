@@ -233,8 +233,6 @@ public class BatchEditorStatusTests
             Assert.Equal(1d / 3, editor.Status.Current.Progress!.Value.Fraction!.Value, 5);
             Assert.Equal("Batch.Status.Checking (1, 3)", editor.Status.Current.Log.ToString());
             Assert.Same(editor.Status.CancelCommand, editor.Status.Current.Action!.Command);
-            Assert.Equal(1, editor.PlanningCompleted);
-            Assert.Equal(3, editor.PlanningTotal);
         }
         finally
         {
@@ -820,7 +818,6 @@ public class BatchEditorStatusTests
         Assert.Equal((PageStatusKind.Working, $"Reading “{name}”…"), seen[0]);
         Assert.Equal((PageStatusKind.Idle, $"{name} · 2 rows, delimiter: ;"), seen[^1]);
         Assert.DoesNotContain(seen, s => s.Kind is PageStatusKind.Done or PageStatusKind.Attention or PageStatusKind.Error);
-        Assert.False(csv.IsLoading);
         Assert.False(csv.Status.IsWorking);
         Assert.Null(csv.Error);
 
@@ -835,7 +832,7 @@ public class BatchEditorStatusTests
         Assert.True(failed.CanClose);
         Assert.NotNull(csv.Error);
         Assert.Equal(2, csv.RowCount);
-        Assert.False(csv.IsLoading);
+        Assert.False(csv.Status.IsWorking);
         editor.Status.CloseCommand.Execute(null);
         Assert.Equal($"{name} · 2 rows, delimiter: ;", editor.Status.Current.Message);
     }
