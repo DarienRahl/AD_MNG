@@ -177,6 +177,15 @@ controller – the backup window says so explicitly.
   SHA-256 sums from `admng.json` checked when the file exists. Preference passwords (`cpassword`, MS14-025) in restored
   or imported files produce a warning in the preview (the values are not shown).
 
+The window has **one status line** at the top. It says what the window is doing – reading the folder of backups, reading
+the selected backup, making the backups (*Backing up the GPOs: 1 of 3…*) or preparing the plan of a restore or an import
+up to the opening of the preview – always with **Stop**; the button that started it (*Back Up*, *Restore…*, *Import…*) is
+then its **Cancel**, and stopping the read of a folder on a share that does not answer gives the window back at once. When
+nothing is running, the line says how many backups the folder holds. A backup that succeeded adds nothing (the window
+closes, the notification says the result); a stopped one says how many GPOs were written, and a failed one how many
+backups were not made and why. A folder or a backup that cannot be read is described by the line until you read it again
+(*Retry*). A backup from another domain gets a note under the list for as long as it is selected.
+
 ## 6. Comparing two GPOs
 
 *Compare* (two selected GPOs) or *Compare with…* (choosing the second GPO) opens a window with the columns of both
@@ -184,6 +193,11 @@ GPOs: basic settings (status, versions, WMI filter, security filtering, delegati
 list of files (identical, different, only in A, only in B). Settings are named like in GPMC, with an *Area* column and
 the technical key in the tooltip (chapter 11). By default **differences only**. Masked values (passwords) are never
 shown. *Export CSV…* saves the comparison only on request. Both GPOs come from the window's domain.
+
+The status line under the title of the window says what is being compared (with **Stop**; once the rows are shown, the
+stage *Reading the administrative templates to name the policies…*) and, at rest, how many differences there are. A
+comparison that was stopped or failed before it showed anything is described by the line until you repeat it (*Refresh*,
+*Retry*); what could not be compared (SYSVOL not available) is said by a note above the rows.
 
 ## 7. Administrative Templates (ADMX)
 
@@ -285,6 +299,15 @@ shown. *Export CSV…* saves the comparison only on request. Both GPOs come from
    created the central store – deletes it together with the folders (an empty `PolicyDefinitions` would take all
    templates away from the editors). The backup, plan and preview run in the background; the window cannot be closed in
    the meantime. After the update, open editors reload the templates.
+
+The window has **one status line** at the top: loading a package (from a file, from a folder, the templates of this
+computer, a download), the comparison with the central store and the update are operations in it, with **Stop**, and the
+*Update…* button is then its own **Cancel**. At rest the line says what the comparison found (*To write: 2, unchanged: 1,
+skipped: 0*). A package that could not be loaded and a backup that could not be written are results that can be closed
+(a download and the templates of this computer offer *Retry*); a comparison that was stopped or failed has no files to
+show, so the line describes that until you choose *Retry*. While the plan preview is open the line returns to the summary,
+and after the update and the new comparison it says what was written and where the backup is. That the central store does
+not exist yet is said by a note above the files.
 
 ## 9. What the computer will get (Group Policy modeling)
 

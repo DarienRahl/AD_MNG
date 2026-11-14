@@ -176,6 +176,15 @@ Zgodność w obie strony potwierdzi pilotaż na kontrolerze Windows – okno kop
   rozmiaru, sumy SHA-256 z `admng.json` sprawdzane, gdy plik istnieje. Hasła preferencji (`cpassword`, MS14-025) w
   przywracanych lub importowanych plikach dają ostrzeżenie w podglądzie (wartości nie są pokazywane).
 
+Okno ma u góry **jeden wiersz stanu**. Mówi w nim, co robi – czyta folder z kopiami, czyta wybraną kopię, tworzy kopie
+(*Tworzenie kopii zapasowych GPO: 1 z 3…*) albo przygotowuje plan przywrócenia lub importu aż do otwarcia podglądu –
+zawsze z poleceniem **Zatrzymaj**; przycisk, który to rozpoczął (*Utwórz kopię*, *Przywróć…*, *Importuj…*), jest wtedy
+jego **Anuluj**, a zatrzymanie odczytu folderu na udziale, który nie odpowiada, oddaje okno od razu. Gdy nic nie trwa,
+wiersz podaje, ile kopii jest w folderze. Kopia, która się udała, niczego nie dodaje (okno się zamyka, wynik mówi
+powiadomienie); zatrzymana mówi, ile obiektów GPO zapisano, a nieudana – ile kopii nie powstało i dlaczego. Folder albo
+kopię, których nie da się odczytać, wiersz opisuje, dopóki nie odczytasz ich ponownie (*Ponów*). Kopia z innej domeny
+dostaje uwagę pod listą, dopóki jest zaznaczona.
+
 ## 6. Porównanie dwóch GPO
 
 *Porównaj* (dwa zaznaczone GPO) albo *Porównaj z…* (wybór drugiego GPO) otwiera okno z kolumnami obu GPO: ustawienia
@@ -183,6 +192,11 @@ podstawowe (stan, wersje, filtr WMI, filtrowanie zabezpieczeń, delegowanie, po�
 plików (takie same, różne, tylko w A, tylko w B). Ustawienia są nazwane jak w GPMC, z kolumną *Obszar* i kluczem
 technicznym w podpowiedzi (rozdział 11). Domyślnie **tylko różnice**. Wartości zamaskowane (hasła) nigdy nie
 są pokazywane. *Eksportuj CSV…* zapisuje porównanie tylko na żądanie. Oba GPO pochodzą z domeny okna.
+
+Wiersz stanu pod tytułem okna mówi, co jest porównywane (z poleceniem **Zatrzymaj**; po pokazaniu wierszy – etap
+*Wczytywanie szablonów administracyjnych, aby nazwać zasady…*), a w spoczynku, ile jest różnic. Porównanie, które zatrzymano
+albo które się nie udało, zanim cokolwiek pokazało, wiersz opisuje, dopóki nie powtórzysz go (*Odśwież*, *Ponów*); co się
+nie dało porównać (SYSVOL niedostępny) mówi uwaga nad wierszami.
 
 ## 7. Szablony administracyjne (ADMX)
 
@@ -284,6 +298,14 @@ są pokazywane. *Eksportuj CSV…* zapisuje porównanie tylko na żądanie. Oba 
    centralny – usuwa go razem z folderami (pusty `PolicyDefinitions` odebrałby edytorom wszystkie szablony). Kopia
    zapasowa, plan i podgląd działają w tle; w tym czasie okna nie można zamknąć. Po aktualizacji otwarte edytory
    wczytują szablony ponownie.
+
+Okno ma u góry **jeden wiersz stanu**: wczytanie paczki (z pliku, z folderu, szablony tego komputera, pobranie), porównanie z
+magazynem centralnym i aktualizacja są w nim operacjami z poleceniem **Zatrzymaj**, a przycisk *Zaktualizuj…* jest wtedy
+swoim **Anuluj**. W spoczynku wiersz mówi, co porównanie znalazło (*Do zapisania: 2, bez zmian: 1, pominięte: 0*). Paczka,
+której nie wczytano, i kopia zapasowa, której nie zapisano, są wynikami, które można zamknąć (pobranie i szablony tego
+komputera podają *Ponów*); porównanie zatrzymane albo nieudane nie ma plików do pokazania, więc wiersz opisuje to, dopóki nie
+wybierzesz *Ponów*. Na czas podglądu planu wiersz wraca do podsumowania, a po aktualizacji i nowym porównaniu mówi, co
+zapisano i gdzie jest kopia zapasowa. Że magazyn centralny jeszcze nie istnieje, mówi uwaga nad plikami.
 
 ## 9. Co dostanie komputer (modelowanie zasad grupy)
 

@@ -502,6 +502,11 @@ Group Policy views that keep bars of their own (*V2b-3 as built*, section 8).
 As built (V2b-3, unit 3): also the two editors of a GPO – the administrative templates and the security settings:
 twenty-nine views. Every Group Policy document has its line and no banner now; what is left of the area are the windows
 of unit 4 (*V2b-3 as built*, section 8).
+As built (V2b-3, unit 4): also the four windows of the area that read or write something of their own – the GPO picker, the
+comparison of two GPOs, the window that backs up, restores and imports GPOs, and the window that updates the ADMX templates
+of the central store: thirty-three views. The WMI filter editor, the window that copies settings or merges two GPOs and the
+name of a GPO start no operation and are on the second list of the source test, `ConvertedViewsWithoutAStatusLine`. With
+that the Group Policy area has no banner and no progress bar left (*V2b-3 as built*, section 8).
 
 ### 6.2 Navigation – open question 2
 
@@ -594,6 +599,9 @@ names of the new sections.
   pickers – has the status line at its top, above its fields, and its primary button is an action button when that
   operation can be stopped; a dialog with tabs has the line above them and shows there what the tab in front says; a
   dialog that only collects input has no line (*V2b-2 as built*, section 8, *Dialogs*).
+  As built (V2b-3): the GPO picker, the comparison, the backup window and the central store window follow it; the WMI
+  filter editor, the copy and merge window and the name of a GPO only collect input and have notes, no line (*V2b-3 as
+  built*, section 8, *The windows*).
 - **Property sheet** (`PropertiesWindow.xaml`, 2,340 lines) stays modeless and per connection: a header card (48 px
   icon with badge, name, state pills, copy buttons), the status line, then the pages. Whether the pages stay tabs
   across the top or become a list on the left is open question 11.
@@ -1155,31 +1163,31 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
   list `PagesWithAStatusLine` has exactly one status line named `PageStatus` over `Status.Current`, no `Ad.ErrorBar`,
   no `Ad.WarningBar` and no `ProgressBar`, and a view with a status line must be on the list; the 81 views that are
   not converted yet are not touched by it.
-- **What V2b has to do** (rewritten at the end of V2b-2; counted in the XAML, comments excluded). At the end of V2a
+- **What V2b has to do** (rewritten at the end of V2b-3; counted in the XAML, comments excluded). At the end of V2a
   there were 43 uses of `Ad.ErrorBar` and 58 of `Ad.WarningBar` in 51 files, and 65 progress bars. V2b-1 – seven core
   windows, *V2b-1 as built* below – took 16 + 13 of the banners and 23 of the progress bars away; V2b-2 – the twelve
-  remaining windows of `Views/` and the rendered preview of a message, *V2b-2 as built* – took 10 + 9 and 10. **Left: 17
-  uses of `Ad.ErrorBar` and 36 of `Ad.WarningBar` in 33 files, and 32 progress bars in 29 files** – 40 view files with
-  at least one of the three, 19 views with a status line and 2 converted views without one. `Views/` itself is done:
-  what is left is in the feature folders, most of it on document tabs.
-  (V2b-3 – the Group Policy area – is in progress: what its units took, and what is left after each, is counted in
-  *V2b-3 as built*.)
-  - By area (error bars + warning bars, progress bars): `GroupPolicy/` 7 + 17 and 8 in 15 files (with the shared
-    `GroupPolicyBanners.xaml`); `BulkCreate/` 3 + 5 and 2 in 4 files; `Views/Watchdog/` 2 + 4 and 7 in 9 files;
-    `Computers/` 2 + 3 and 3 in 2 files; `Pki/` 2 + 2 and 4 in 4 files; `EventLogs/` 0 + 3 and 3 in 3 files;
-    `Correspondence/` 1 + 1 and 3 in 1 file; `Readiness/` 0 + 1 and 1; and the row of an activity in the main window
-    (no banner, 1 progress bar), which stays. The HTML preview control (`Controls/HtmlPreviewView.xaml`, 0 + 1 until
-    V2b-2) is done: it was converted with the message window that hosts it, and the correspondence window, which hosts
-    it too, shows its one note next to its own bars until its increment.
+  remaining windows of `Views/` and the rendered preview of a message, *V2b-2 as built* – took 10 + 9 and 10; V2b-3 – the
+  Group Policy area, ten documents and six windows, *V2b-3 as built* – took 7 + 17 and 8. **Left: 10 uses of
+  `Ad.ErrorBar` and 19 of `Ad.WarningBar`, and 24 progress bars, in 25 view files** (one of the progress bars is the row
+  of an activity in the main window and stays; the two styles themselves are still defined in `Themes/Controls.xaml`) –
+  33 views with a status line and 7 converted views without one. `Views/` and `GroupPolicy/` are done: what is left is
+  seven areas, most of it on document tabs.
+  - By area (error bars + warning bars, progress bars), in the order the next increments could take them: `BulkCreate/`
+    3 + 5 and 2 in 4 files; `Views/Watchdog/` 2 + 4 and 7 in 9 files; `Computers/` 2 + 3 and 3 in 2 files; `Pki/` 2 + 2 and
+    4 in 4 files; `EventLogs/` 0 + 3 and 3 in 3 files; `Correspondence/` 1 + 1 and 3 in 1 file; `Readiness/` 0 + 1 and 1 in
+    1 file; and the row of an activity in the main window (no banner, 1 progress bar), which stays. The HTML preview
+    control (`Controls/HtmlPreviewView.xaml`) is done: it was converted with the message window that hosts it, and the
+    correspondence window, which hosts it too, shows its one note next to its own bars until its increment.
   - Sort first (foundation 1 of *V2b-1 as built*): status goes to the line, a note stays where it is with the look of a
     note (`Ad.Note.Info`, `Ad.Note.Attention`, `Ad.Note.Error`), the progress of a row stays in its row, and a place
     that only shows "busy" gets a progress ring – unless its read can fail: then it has status to say (*V2b-2 as built*,
-    Dialogs 19). Of the 48 banners sorted so far, 26 were status and 22 notes: of the 26 error bars 22 were status and 4
+    Dialogs 19). Of the 72 banners sorted so far, 37 were status, 34 notes and one both: of the 33 error bars 27 were status and 6
     notes – findings of a check that runs while the operator types (a template, "why Save is not possible", a filter
-    that is not valid) –, of the 22 warning bars 4 were status and 18 notes. So most of the 36 warning bars that are
-    left will stay in their places as notes, and most of the 17 error bars will go to the line. What never was a banner
-    is sorted the same way: a count or "as of" text is the summary (`StatusText` is still mentioned 45 times in the XAML
-    of 24 views), a result card, a toast or a dialog that says what the window just did is status.
+    that is not valid, the settings that block a merge) –, of the 39 warning bars 10 were status, 28 notes and one both
+    (a failed check is status, an incomplete one a note). So most of the 19 warning bars that are left will stay in their
+    places as notes, and most of the 10 error bars will go to the line. What never was a banner is sorted the same way: a
+    count or "as of" text is the summary, a result card, a toast or a dialog that says what the window just did is
+    status.
   - Per page, the recipe is the foundations of *V2b-1 as built*: a `PageStatusHolder` per view model – and per tab or
     part that says something of its own, with the one shown in front –, the summary in `SetIdle`, every long operation
     in a scope with its token, a state that lasts in `SetLasting` (first of all `SessionEndedStatus`), errors built with
@@ -1193,9 +1201,12 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     remote computer, the event log reader and its two analyses, the PKI security
     review, readiness, the sending of correspondence, the Watchdog delivery test. (Done in V2b-2: connect and the search
     for domain controllers, the change of the domain controller, OK of "Reset Password", preview, send and paste of the
-    message window, the tests of the filter builder and of the saved view editor.)
-  - Document tabs drop out of `StatusBarText` as they are converted (Watchdog, event logs, Group Policy, PKI, readiness
-    – neither V2b-1 nor V2b-2 had a document tab). The wizard of bulk creation (`BulkCreate/`) is hosted in step 1 of
+    message window, the tests of the filter builder and of the saved view editor. Done in V2b-3: the two start buttons
+    of the settings search, the cleanup advisor and the diagnostics, the main button of the backup window and *Update…*
+    of the central store.)
+  - Document tabs drop out of `StatusBarText` as they are converted: the ten Group Policy documents did in V2b-3, with
+    the base class they share; Watchdog, event logs, PKI and readiness are left (neither V2b-1 nor V2b-2 had a document
+    tab). The wizard of bulk creation (`BulkCreate/`) is hosted in step 1 of
     the batch editor: its holder becomes `SourceStatus` of the create mode. With the last converted view `Ad.ErrorBar`
     and `Ad.WarningBar` leave `Themes/Controls.xaml`, and with them the strings and view-model members that lost their
     last user (listed under *After V2b-1*).
@@ -1218,11 +1229,25 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     and own a holder all the same (the Connect window, the two editors – 17); a result that goes with its input (18); a
     state that follows a selection (20); and an operation over many items that is no change plan – the send of messages
     – with the progress of foundation 6. The sorting itself learned one thing: an error bar may be a note.
+  - Settled in V2b-3 (*V2b-3 as built*), again without a change to the model or to the controls: a family of documents
+    that share one base class shares one holder, and a part of a document that says something gets a holder in front (the
+    sub-list *Group Policy documents*, 1); a lasting state that a kind of document adds to the common ones, through one
+    hook (5, 14, 18); an "as of" text as the detail of the summary (15); what an operation started from a document says -
+    the plan up to the preview with Stop, why nothing came of it with Retry, and the refusals of the helpers (7, 17); a
+    read that was stopped or failed is repeated by the action of the line and by nothing else (13); the stage of an
+    operation under the key of the operation, so that it is no new message (11, and the comparison of the central store);
+    the line handed back before a window that says its own status opens, and the result said after the read that belongs
+    to the operation (*The windows*, 4 and 5); a read that no token can stop and that still gives control back (*The
+    windows*, 6); a sentence about the selected item that is a note, not a state (*The windows*, 8); a dialog that only
+    collects input gets no line even when it belongs to a flow that has one (*The windows*, 9); and what a document that
+    edits what it shows does with a conflict (18, 19).
   - Still open – in the controls and the model:
     - *A delay before "Working"* (about 150 ms), so that an operation that ends at once does not flash – more visible
       with every window: the read of nested membership after every comparison, the reads of the tabs of the property
       sheet, "Reading the containers of …" at every opening of the container picker, a test of a filter in a small
-      domain.
+      domain, and in the Group Policy area "Reading “…”…" at every reload of a tab, "…: preparing the changes…" before
+      every preview, the stage of the templates in the editor and in the comparison, and the ring on the first read
+      button of a tab whose reload reads nothing.
     - *The rest of the V2 scope:* the status pictures at 16 px for pills, `StatusPill`, `EmptyState`, `Skeleton`,
       taskbar progress and the close question tied to running activities are not started. A send of messages that takes
       minutes now shows its progress only in the 16 px ring and the numbers of the line – taskbar progress would be its
@@ -1241,11 +1266,14 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
       read therefore has no Stop), the two short reads before a send, the checks of "New Object".
     - *Said twice, or said elsewhere:* the toast of the main window after an execution, a restore or a send repeats what
       the line of the window that ran it says; an export and a copy to the clipboard still answer with a toast in every
-      converted window, not in its line.
+      converted window, not in its line (in V2b-3 also the toast after a backup, which is all the operator learns when the
+      backup window closes itself, and the eleven press-time answers of the two editors, which were sorted and left).
     - *Buttons whose operation is stopped in the line only:* the test message, the three tests of the settings, *Find
       Now* and *Check Names* of the object picker (and its OK, the primary button of a dialog) stayed plain buttons –
-      they never had a Cancel, and several action buttons over one holder each need a flag. Whether they become action
-      buttons is to be decided with the owner (6.7: "cancel where you started").
+      they never had a Cancel, and several action buttons over one holder each need a flag. So did, in V2b-3, *Save
+      changes…* of the two editors, *Recalculate* of the model, *Browse…* of the backup window and the six sources of the
+      central store window (a file, a folder, this computer, three downloads – only one of them can run, and the Stop is in
+      the line). Whether they become action buttons is to be decided with the owner (6.7: "cancel where you started").
     - *The empty line of a dialog:* a small dialog shows an empty band of 28 px at rest, and always on a tab that has
       nothing to say. Collapse an empty line in dialogs, or keep the one fixed place?
     - *Long results in narrow dialogs:* a failed connect with its advice does not fit three lines at 560 px – a shorter
@@ -1259,9 +1287,22 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
       Find pilot), so its link and close button follow the footer buttons – to be put right with the page skeleton of V3
       (section 7).
     - *Language:* the property sheet computes its lasting state from its conditions and says it again after a language
-      switch; in the other converted windows a failure that lasts keeps the language it was said in, and only "the
-      session of this window ended" and "not connected" follow the switch at once. The Connect window and the two
+      switch; the Group Policy windows do the same for the states they compute (a conflict under the edits, "changed
+      elsewhere", the end of the session, the summary); in the other converted windows a failure that lasts keeps the
+      language it was said in, and only "the session of this window ended" and "not connected" follow the switch at once. A
+      result - "Central store updated…", a stopped backup - always stays in the language it was said in. The Connect window and the two
       editors do not follow a switch at all (they are modal, and the settings cannot be opened over them).
+    - *Open for the owner, from V2b-3* (the questions the four units left): whether the "as of" text belongs to the summary
+      of the settings search, the cleanup and the diagnostics - the line gets long - or the line should keep the count and
+      the selection only; whether the caution glyph of the notes that state how complete results are ("the quick check does
+      not cover …") is too loud, and whether the information note of the templates in the secondary text colour is enough;
+      whether the screen reader should hear the count of a search after each query (the summary of the line is never
+      announced when it only changes); whether the press-time answers of the editors ("Type a name or choose one from the
+      list.") move to the line, cleared by the next edit; whether a domain without a central store offers *Update
+      templates…* as the action of a state that lasts, at the price of the summary; whether the accent "Changed settings: N
+      (not saved)" under the title of an editor stays now that the summary of the line says it; whether *Recalculate* and
+      the sources of the central store become action buttons; and whether the "as of" and "stale" states of the document
+      tabs need the delay before "Working" to stop flashing.
     - *Tests:* summaries show the time of day, so README pictures of converted windows differ with every screenshot run
       – a fixed clock for the UI tests would end that.
 - **Not seen, to confirm on Windows:** nothing of this was seen on a screen. Open: the look of the line on the status
@@ -1827,7 +1868,12 @@ above.
   view any more (the Stop of the line is theirs), and tests and code without a line still use them. No string lost its
   last user in that unit. Added by V2b-3, unit 3: no longer shown but read by tests and by the view models themselves –
   `ConflictNote` of the two editors (the text of the state in the line). No string and no command lost its last user in
-  that unit.
+  that unit. Added by V2b-3, unit 4: no longer shown but read by tests or by the view models themselves –
+  `Error` of the picker, the comparison, the backup window and the central store window, `IsLoading` of the picker and the
+  comparison, `SummaryText` of the comparison and the central store window, `StatusText` of the backup window (with the
+  strings `GroupPolicy.BackupsFound`, `GroupPolicy.NoBackups` and `GroupPolicy.BackupRunning`), `ProgressText`, `BusyText`,
+  `IsWorking` and `ResultText` of the central store window; `CancelWorkCommand` of the backup window never had a view. No
+  string lost its last user in that unit.
 - **Not seen, to confirm on Windows.** Nothing of V2b-1 was seen on a screen.
   - *The property sheet.* How a wrapped result looks in the 640 px wide sheet (two or three lines on the caution or
     critical surface, picture and buttons in the first line). The note next to the old validation texts (glyph and plain
@@ -2592,14 +2638,17 @@ and converted its four plain documents: the list of GPOs, the Group Policy of a 
 GPO with its tabs (and the health panel its *Status* tab hosts), and the WMI filters. Unit 2 converted the four
 documents that read or compute something of their own and had kept their bars: the settings search, the cleanup advisor,
 the diagnostics and the model of a computer or a user. Unit 3 converted the two editors of a GPO, which edit what they
-show and save it through the change plan preview: the administrative templates and the security settings. Every Group
-Policy document is a tab of the main window and derives from one base class, so the decisions of that class hold for
-all ten documents: they are written down first, as the sub-list *Group Policy documents*, for the units that convert
-the other six. The
-foundations are those of *V2b-1 as built* and the *Dialogs* of *V2b-2 as built*; nothing was added to the model or to
-the controls. The block reads in this order: *Group Policy documents*, the shared bars, the four views of unit 1, the
-four of unit 2, the two editors of unit 3, where this departs from the recipe, the tests, what is left, and what nobody
-has seen on a screen yet.
+show and save it through the change plan preview: the administrative templates and the security settings. Unit 4
+converted the six windows of the area – the GPO picker, the comparison of two GPOs, the window that backs up, restores and
+imports, the window that updates the ADMX templates of the central store, and three dialogs that only collect input – and
+closed the increment: the area has no banner and no progress bar left. Every Group Policy document is a tab of the main
+window and derives from one base class, so the decisions of that class hold for all ten documents: they are written down
+first, as the sub-list *Group Policy documents*; the windows are `WindowViewModelBase` view models over the same services,
+and what is common to them is the sub-list *The windows*. The foundations are those of *V2b-1 as built* and the *Dialogs* of
+*V2b-2 as built*; nothing was added to the model or to the controls. The block reads in this order: *Group Policy
+documents*, the shared bars, the four views of unit 1, the four of unit 2, the two editors of unit 3, *The windows* and the
+six of unit 4, where this departs from the recipe, the tests, what is left (the counts, what was left behind on purpose),
+and what nobody has seen on a screen yet.
 
 - **Group Policy documents** (decided in unit 1; what the later units of the area follow).
   1. *The holder is the base class's.* `GroupPolicyDocumentBase` is `IHasPageStatus`: `Status` is created there – the
@@ -2998,6 +3047,185 @@ has seen on a screen yet.
     - `ConflictNote`, `FileNote`, `DefinitionsNote`, `IsCentralStoreMissing`, `AuditNote`, `LoadedText`, `SelectionText`,
       `IsSaving` and the commands are unchanged for the tests and the code that read them; the views no longer bind
       `ConflictNote`.
+- **The windows** (decided in unit 4; what the later work on windows of any area follows, next to the *Dialogs* of
+  V2b-2). The six windows of the area are `WindowViewModelBase` view models: the picker, the comparison, the backup window
+  and the central store window have a status line; the WMI filter editor, the copy and merge window and the name of a GPO
+  have none.
+  1. *Who gets a line.* A window that reads or writes something of its own, or can fail by itself, gets one – the picker
+     (reads the GPOs), the comparison (reads two GPOs and the templates), the backup window (reads a folder and a backup,
+     writes backups, plans a restore or an import), the central store window (reads a package, compares, writes a backup,
+     plans). A window that only collects input and hands it to its opener gets none (the question of *Dialogs* 11): what
+     the opener does with it – the plan, its refusals, the preview, the result – is said by the line of the *document* that
+     opened the window (7 of *Group Policy documents*, `GroupPolicyActions.For`), and a window that is opened from the tree
+     or the shell has no line to say it in and uses a dialog or a toast, as before. So the WMI filter editor, the copy and
+     merge window and the name of a GPO are on `ConvertedViewsWithoutAStatusLine`; the name of a GPO had no banner and is on
+     the list as a guard (its validation text stays under the box: it never was a banner).
+  2. *Where the line sits.* As in *Dialogs* 1 and 2: at the top, 8 px from the top and (content margin − 8) from the sides,
+     declared after the footer so that Tab goes from the buttons to what the line offers and then to the fields; the footer
+     holds buttons only now (a progress bar, a summary text and a status text went from three footers). Two windows are
+     tool windows with a header row of their own: the comparison puts the line under that row (title, *only
+     differences*, refresh), the other three at the very top. The line is above the title in the backup window – its title is
+     the title of the window repeated, not a header the line should follow. The windows are 36 px higher by default (picker
+     520 to 556, backup window 600 to 636, comparison and central store 680 to 716), and a result that wraps moves the fields
+     under it down by as much (`GrowthOf`).
+  3. *Holders.* Every window with a line owns one `Status` made from the services it already gets (`DialogServices`: the
+     localizer, the dispatcher and the status log of the list services). The backup window has a second, `DetailsStatus`,
+     in front of the first while backups are listed (foundation 3): the read of the selected backup starts with every
+     selection – also while the window plans, because the list is not disabled then – so it cannot share an operation with
+     the window; what it says (working, the state of that selection) is said by the one line of the window whenever the
+     window has nothing more important.
+  4. *The plan up to the preview, and the line handed back.* A window that plans a change says it like the documents do
+     (*Group Policy documents* 7) and ends its operation before the change plan preview opens - that window says its own
+     status: "Restore “…” from a backup: preparing the changes…" with Stop, then what nothing came of - SYSVOL not available
+     (attention), the plan could not be made (error), the operator's Stop (attention: "Preparing the changes was stopped.") –
+     each "– nothing was changed: why" with Retry, which makes the plan again, and Stop holds: a plan that was made
+     although Stop was pressed is not previewed (*Dialogs* 9). The backup window does this with the texts of the documents
+     (`GroupPolicyStatus.Preparing` and `NotChanged`); the central store window has its own, because its operation begins
+     with the backup ("Preparing the update of the central store…", "Backing up the central store…", "The update was
+     stopped: the central store was not changed. Press “Update…” to try again.", with the update button as the action).
+  5. *The read that belongs to the operation says the result.* After an update the central store window compares again; that
+     comparison is the last stage of the update ("after" scope), and the result - "Central store updated: written files: 2.
+     Open editors read the templates again. Backup written to …" - is said when the new files are shown, as the restore of
+     the Recycle Bin does. When that comparison cannot be made, its state is the more important thing and the result is not
+     said. When the preview was closed without executing (or nothing had to change) and a backup was made, the line says that
+     the backup was written. A backup that ends well says nothing in the backup window: the window closes, and the toast of
+     the main window is what the operator learns (*Dialogs* 4).
+  6. *Stop returns control for a read that no token can stop.* The listing of a folder of backups and the read of a backup
+     – a sync call that may sit on a share that does not answer – run on pool threads and are waited for with
+     `WaitAsync(token)`: Stop gives the window back at once, and what the abandoned call finds later is of no interest. The
+     thread itself is not stopped (the API takes no token); that is the price, and a Linux test holds a read with a FIFO to
+     see it (`GpoBackupStatusTests`). The read of the picker (no token before), the plan of the backup window and the
+     backup and the comparison of the central store window (the lifetime of the window only) take the token of their scope
+     now: they can be stopped (rule 6). The planner of the central store takes none; Stop holds after it (above).
+  7. *A stage is not a message.* The comparison as the last stage of a load or an update, and the templates in the
+     comparison window, are reported under the key of the operation (`Report(text)` without a log copy keeps the key): one
+     log copy, nothing announced twice, no entrance motion. A comparison that an option starts is an operation of its own;
+     started by a load it is its stage (a parent scope is passed down: one holder never has two operations that overlap).
+  8. *A sentence about the selected item is a note, not a state.* "This backup comes from another domain: restore it there,
+     or import its settings into a GPO of this domain" is true for as long as that backup is selected, and restore is refused
+     while import is possible: a note under the list (`OtherDomainText`), not the `Error` of the window it was.
+  9. *A dialog that only collects input has notes.* The stored WMI queries that could not be read, more source GPOs than one
+     copy takes, the settings that block a merge and the differences a merge changes are sentences about the fields, true
+     while they are shown: `Ad.Note.Attention` or `Ad.Note.Error` where a bar was, glyph and words without a fill. The
+     error notes are findings of a check that runs while the operator chooses ("why OK is disabled"), as in V2b-2.
+  10. *"Not connected" from the start* (*Dialogs* 7): the four windows with a line say it at once when they were opened
+      without a session, and the end of the session first (`SessionEndedStatus`), as in every window. A package can still
+      be read without a session, and the line keeps saying why nothing can be compared or written.
+  11. *Log copies hold keys, counts and the kind of a failure.* Nothing of a GPO name, a folder, a domain, a server text, a
+      download address or a package name reaches them (CLAUDE.md rule 1) - the tests read the log of every window and
+      look for exactly those. The exceptions of the package loader have no result code of their own; the reason is on
+      screen and the log copy has the key of what was tried.
+- **The GPO picker** (`GroupPolicy/GpoPickerWindow.xaml`; `GpoPickerViewModel`).
+  - *What the line says.* At the top, above the filter. **Working:** "Reading the group policy objects of contoso.test…"
+    with Stop. At rest the count ("Group policy objects: 12"; with the filter "3 of 12 group policy objects shown", the
+    text of the GPO list). **States:** a read that was stopped ("…was stopped: the list is empty. Press “Retry” to read
+    them again.", attention) or failed ("Could not read the group policy objects of contoso.test: reason. Press Retry to try
+    again. (code)"), both with Retry; the end of the session, or no session.
+  - *How the old places were sorted* (1 error bar, 1 progress bar).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `Error` over the list (a failed read, "not connected", the session that ended) | status | the state of the dialog that lasts, with Retry for a read |
+    | progress bar in the middle of the list (`IsLoading`) | status | the read of the dialog, with Stop |
+
+  - *Decisions.* A read that was stopped or failed leaves an empty list and is the state of the dialog until it is read again
+    (*Dialogs* 19 and 20) - not a result: the list has no other explanation. The count is the summary and follows the
+    filter. `IsLoading`, `Error` and `LoadCommand` are unchanged for the tests that read them.
+- **The comparison of two GPOs** (`GroupPolicy/GpoComparisonWindow.xaml`; `GpoComparisonViewModel` and its partial file).
+  - *What the line says.* Under the title and its options, above the note and the rows. **Working:** "Comparing “A” with
+    “B”…" with Stop, then - once the rows are shown with the registry names of the settings - the stage "Reading the
+    administrative templates to name the policies…" (the same message, the key of the comparison). At rest the count of
+    differences ("12 differences in 140 items"; it moved from the footer). **Results and states:** a comparison stopped
+    before it showed anything ("Comparing was stopped: nothing is shown. Press “Refresh” to compare again.", attention that
+    lasts) or failed (an error with the reason, the code and Retry that lasts); a comparison stopped while the templates
+    were read is a result that can be closed ("…the policies are shown under their registry names"), because the rows are
+    all there; a failed export ("The comparison was not exported: …") is a result that can be closed, a good one keeps its
+    toast; the end of the session, or no session.
+  - *How the old places were sorted* (1 error bar, 1 warning bar, 1 progress bar, the summary text).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `Error` (a failed comparison or export, "not connected", the session that ended) | status | the state of the window with Retry; a failed export a result; "not connected" and the end of the session the state of the window |
+    | warning bar `Warning` ("SYSVOL unavailable… Settings and files were not compared.", a GPO too large) | note | `Ad.Note.Attention` above the rows: how complete the rows are, true while they are shown |
+    | progress bar in the middle of the list (`IsLoading`) | status | the operation of the window, with Stop |
+    | `SummaryText` in the footer | summary | `SetIdle` of the window; gone from the footer |
+
+  - *Decisions.* One scope runs through the whole of `LoadAsync`, the stage of the templates included: ending it when the rows
+    appeared (as `IsLoading` does) would have left the names arriving a moment later unannounced and unstoppable. The
+    summary is computed from the rows again after a language switch (it was left in the old language). The Refresh button
+    stays an icon button that never had a Stop of its own (*Group Policy documents* 4).
+- **The backup, restore and import window** (`GroupPolicy/GpoBackupWindow.xaml`; `GpoBackupViewModel`).
+  - *What the line says.* At the very top. **Working:** "Reading the backups in the folder…", "Reading the backup of “…”…"
+    (holder of the selection), "Backing up the GPOs: 1 of 3…" with the part done in the ring, "Restore “…” from a backup:
+    preparing the changes…" – each with Stop. At rest the count of backups in the folder ("Backups in the folder: 3", "No
+    backups in the folder"); nothing in a mode that lists none. **Results:** a backup that ended well says nothing (the
+    window closes); stopped, "The backup was stopped: 1 of 3 GPOs were written to the folder. Press “Back Up” to try again."
+    with the button that backs up; failed, "Could not back up 1 of 3 GPOs: reason. (code)" (the reason of the first
+    failure; it was only a count); SYSVOL not available before anything was written, "The backup was not made: …" with
+    Retry; a stopped read of the folder, with Retry (a result: the list is as it was); the plan as in 4 above. **States:** a
+    folder that could not be read ("Could not list the backups: The folder could not be read or written. Press Retry to try
+    again. (ArgumentException)") and a backup that could not be read or was stopped ("Could not read the backup of “…”: …
+    (GpoBackupException)", "Reading the backup was stopped: it cannot be used yet. Press “Retry” to read it again.") –
+    the second is the state of that selection and goes with it; the end of the session, or no session.
+  - *How the old places were sorted* (1 error bar, 1 progress bar, a status text, and a sentence that was in the error bar).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `Error` (a failed read of a folder or a backup, a failed backup or plan, "not connected", the session that ended) | status | results and states as above |
+    | the same bar, "this backup comes from another domain" | note | `Ad.Note.Attention` under the list, while that backup is selected (8) |
+    | progress bar and `StatusText` in the footer ("Backing up…", "N backups in this folder.", "Cancelled") | status, summary | the operations in the line; the count as the summary; the stopped backup as attention |
+    | *Create backup* / *Restore…* / *Import…* | – | an action button (`Ad.AccentDialogActionButton`): the Cancel of the backup or the plan it started; *Close* stays the dialog's cancel button and is disabled meanwhile, as before |
+
+  - *Decisions.* *Browse…* stays a button (the picker is a dialog of its own and the listing after it is stopped in the line).
+    The folder is remembered after a listing as before (`RememberFolderAsync`, also after a failing folder; unchanged).
+    `Error` and `StatusText` keep their sentences for the tests; `Error` no longer holds the other-domain sentence.
+    `CancelWorkCommand` has no view and never had one; it is left.
+- **The central store window** (`GroupPolicy/CentralStoreUpdateWindow.xaml`; `AdministrativeTemplates/CentralStoreUpdateViewModel`).
+  - *What the line says.* At the top, above the target and the sources. **Working:** "Reading the templates…" or "Downloading
+    the templates of Microsoft Edge…" with Stop, then "Comparing with the central store…" (a stage; of its own when a
+    language or an option changes); the update: "Preparing the update of the central store…", "Backing up the central
+    store…" with Stop, and the button that started it is its Cancel. At rest what the comparison found ("To write: 2,
+    unchanged: 1, skipped: 0"; it moved from the footer). **Results:** a package that could not be read ("Could not read the
+    templates: The file or folder does not exist. Choose another package."; a download or the templates of this computer
+    with Retry), a load that was stopped ("Loading the templates was stopped: the package shown was not changed."), a
+    backup that could not be written ("The central store was not updated: The backup could not be written to the chosen
+    folder; nothing was changed. (IOException)"), an update that was stopped ("The update was stopped: the central store
+    was not changed. Press “Update…” to try again."), a backup written when the preview was closed without executing, and
+    the end of an update ("Central store updated: written files: 2. … Backup written to …"). **States:** a comparison
+    that was stopped or failed leaves no files to show ("Could not compare the templates with the central store: reason.
+    Press Retry to try again.") with Retry; the end of the session, or no session ("Not connected to a domain." from the
+    start, also while a package is read).
+  - *How the old places were sorted* (1 error bar, 1 warning bar, 1 progress bar, and three texts that never were banners).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `Error` (a package that could not be read, a failed comparison, a failed backup) | status | results and states as above |
+    | the text `ProgressText` ("Downloading…", "Backing up…", "Comparing…") | status | the operation and its stages |
+    | card `ResultBar` (`ResultText`: the backup written, the store updated) | status | the result of the update (5) |
+    | progress bar and `SummaryText` in the footer | status, summary | the operation; the summary |
+    | warning bar `StoreNote` ("The domain has no central store yet: the update creates it.") | note | `Ad.Note.Attention` over the files, while they are shown |
+    | the trust of the package and the skipped files (a glyph and a text in the package card; an expander) | note, never a banner | unchanged |
+
+  - *Decisions.* One holder: loading, comparing and updating never overlap (the sources, the options and the cultures are
+    disabled while the window is busy, and a comparison started by an option takes the line by replacing the one before).
+    *Update…* is an action button over `IsUpdating` (the plan of the update runs while the window cannot be closed, as before);
+    the six sources stay plain buttons - only one can run and the Stop is in the line. "Busy" ends with the generation of the
+    load that started it: the old code asked whether its token was cancelled to tell "a newer load took over", which a
+    Stop or the end of the session would have answered the same way and left the window busy. `WriteBackup` – the seam that
+    replaces the write of the backup in the tests – is public now, because the UI tests hold the backup to see the update
+    stopped. The log copies are the keys of the texts (`CentralStore.Loading`, `CentralStore.Downloading`, …) and never an
+    address, a file or a package (11).
+- **Three dialogs that only collect input** (`GroupPolicy/WmiFilterEditorWindow.xaml`, `GpoCopySettingsWindow.xaml`,
+  `NewGpoWindow.xaml`; their view models are unchanged). No line (1). Sorted:
+
+  | Old place | Kind | Now |
+  |---|---|---|
+  | WMI filter editor: warning bar "The stored queries could not be read; saving replaces them with the queries shown here." | note | `Ad.Note.Attention` above the queries (`UnparsedNote`) |
+  | copy window: error bar "More than N source GPOs are checked…" (`TooManySourcesBar`) | note | `Ad.Note.Error` above the list: why OK is disabled |
+  | merge window: error bar "These settings block the merge" with their list (`BlockingBar`) | note | `Ad.Note.Error` with the list inside it |
+  | merge window: warning bar "Check before OK" with the differences of filtering, WMI filter and links (`WarningsBar`) | note | `Ad.Note.Attention` with the list inside it |
+  | the validation texts (the footer of the WMI editor, under the name box of the name dialog), the count in the footer of the copy window | never banners | unchanged |
+
 - **Where this departs from the recipe.**
   - *A third list in the source test.* The recipe knows converted views with a line and converted views without one.
     The base class gave all ten documents their holder at once – with it the status bar stopped speaking for them – so
@@ -3037,6 +3265,20 @@ has seen on a screen yet.
   - *Unit 3: a card became a note.* `DefinitionsBar` was never a banner style, but with a caution background it looked
     like one; it is a note now, as the cards of unit 2 (16). The information note is in the secondary text colour where
     the old information glyph was in the accent colour.
+  - *Unit 4: nothing of the base, the model or the controls changed, and no document was touched.* The windows use the
+    foundations and the sub-list *The windows*; new are four L classes (`GpoPickerStatus`, `GpoComparisonStatus`,
+    `GpoBackupStatus`, `CentralStoreStatus`) and 31 pairs of strings. The things of other units that were touched are
+    their windows only: `WriteBackup` of the central store view model became public (the UI tests hold the backup); the
+    comparison computes its summary again after a language switch.
+  - *Unit 4: a property changed its meaning.* `Error` of the backup window no longer holds "this backup comes from another
+    domain" (it is `OtherDomainText`, a note); nothing read it for that.
+  - *Unit 4: the line of the backup window is above its title*, not under it (*The windows* 2), and the three windows with
+    a plain footer have a footer of buttons only.
+  - *Unit 4: "Reading the folder" is waited for, not stopped* (*The windows* 6): the thread of a call that takes no token
+    runs on until the share answers.
+  - *Unit 4: three views were put on the second list without much to convert* - the name of a GPO had no banner - so that
+    the source rule keeps one out of it; the validation texts of the three dialogs were not made notes (they never were
+    banners).
 - **Tests.** Presentation (run on Linux): `GroupPolicy/GroupPolicyDocumentStatusTests` (26 cases: the summary with the
   selection and the search in both languages, and of every document; the status bar that says nothing about a Group
   Policy tab; the read with Stop – "Stopping…" at once, the stopped read as a state with Refresh – in both languages;
@@ -3124,6 +3366,39 @@ has seen on a screen yet.
   asserts "no dialog"). The first test of each editor now discards its edit through the real confirmation, as its last
   step, and asserts that the changed count goes with it; a UI test of an editor must not end with unsaved edits. The
   other seven UI tests of the unit were green unseen.
+- **Tests of unit 4.** Presentation (run on Linux): `GroupPolicy/GpoPickerStatusTests` (12 cases: the read with Stop and the
+  count in both languages, the filter and the language switch, "Stopping…" at once with a held call, the stopped read as
+  the state with Retry, a failed read with the reason, the code and Retry in both languages, no session from the first
+  moment, the end of the session during the read, the log copies), `GroupPolicy/GpoComparisonStatusTests` (15: the
+  comparison with the templates as its stage, no stage without registry settings, Stop before the rows and during the
+  templates in both languages, a failure with Retry, SYSVOL as a note and no status, an export that failed and one that
+  worked, no session, the end of the session during the read, the language switch, the log copies),
+  `GroupPolicy/GpoBackupStatusTests` (31: the backup with its part done and nothing said when it ended well, Stop with the
+  count written and the action, a failure of one GPO, SYSVOL not available, the read of the folder with its count in both
+  languages, an empty folder, a folder that hangs - a FIFO - stopped and read again, a folder that cannot be read, the
+  selected backup in front of the window and stopped on a FIFO and failed on a damaged file with Retry, the note of
+  another domain, the plan of a restore with Stop that holds and Retry into the preview, a plan that could not be made,
+  no session, the end of the session during the backup, the log copies) and `GroupPolicy/CentralStoreUpdateStatusTests`
+  (23: a load with the comparison as its stage, a download held and stopped and offered again, a failed download, a file that
+  does not exist, a comparison that failed and one that was stopped with Retry, the update with the line handed back for
+  the preview and the result after the new comparison, an update stopped and offered again, a backup that could not be
+  written, a preview closed without executing, no session, the end of the session during a download, the language switch
+  and the log copies). Each hook was mutated once to see the tests fail (the stage, the lasting state, the part done, the
+  holder in front, Stop that holds, the handing back of the line, the result after the comparison); unchanged and green: the
+  530 tests of `GroupPolicy/` that were there - among them the 22 of `CentralStoreUpdateTests` and the ones of
+  `GroupPolicyBackupAndCompareTests`; 3,382 in the project with these. UI
+  (Windows CI only, written without a screen): `GpoPickerStatusUiTests` (3), `GpoComparisonStatusUiTests` (4),
+  `GpoBackupStatusUiTests` (3), `CentralStoreUpdateStatusUiTests` (3) and `GroupPolicyDialogNotesUiTests` (3): the line at
+  the top or under the header, its summary, the action button that is also the Cancel (`ActionButtonState`), a held read
+  or backup with Stop in the line and in the button, the stopped state with its action and the growth of the line (the
+  content under it moved by as much), a failure with Retry, the notes with the note style and their places, no element of
+  the old banners and no progress bar, and for the three dialogs without a line: none of it, and the notes. Adapted where
+  the place of a message changed: `GroupPolicyWindowTests` (the picker's count in the line, the summary of the comparison
+  in the line after the templates were read, the central store window without a connection - an error in the line -, its
+  summary and the result of the update in the line). The four windows are on `PagesWithAStatusLine`, the three dialogs on
+  `ConvertedViewsWithoutAStatusLine`. The source rules – the two lists, the closed set of Fluent brush keys (28,
+  unchanged), "every `StaticResource` key resolves, before its first use", the keys of the localization – were proven on
+  Linux with a throwaway script that repeats the expressions of the tests (and the script was shown to catch an old bar).
 - **After unit 1 of V2b-3** (counted in the XAML, comments excluded): 16 uses of `Ad.ErrorBar` and 33 of
   `Ad.WarningBar` in 30 files and 31 progress bars in 28 files – 37 view files with at least one of the three; in
   `GroupPolicy/` 6 + 14 and 7 in 12 files. 23 views with a status line, 6 with a line and bars of their own, 4 converted
@@ -3154,6 +3429,22 @@ has seen on a screen yet.
   purpose, for the list of *After V2b-1*: `ConflictNote` of the two editors, which the views do not bind any more (it is
   the text of the state in the line). No string and no command lost its last user. The source test lost its temporary
   list.
+- **After unit 4 of V2b-3 - and so after the increment** (counted in the XAML, comments excluded): 10 uses of
+  `Ad.ErrorBar` and 19 of `Ad.WarningBar` in 18 files and 24 progress bars in 21 files – 25 view files with at least one
+  of the three (one of the progress bars is the row of an activity in the main window, which stays); `GroupPolicy/` has
+  none. 33 views with a status line, none with a line and bars of its own, 7 converted views without a line. Unit 4 took
+  6 error bars (4 status – the picker, the comparison, the backup window and the central store window –, and 2 notes –
+  too many source GPOs and what blocks a merge), 4 warning bars (all notes – SYSVOL in the comparison, the store that does
+  not exist yet, the differences of a merge, the WMI queries that could not be read) and 4 progress bars (status); the
+  cards and texts that never were banners went the same way (the result card, the progress text, the summary and status
+  texts of three footers), and the sentence "from another domain" became a note. The whole of V2b-3 took 7 error bars (5
+  status, 2 notes), 17 warning bars (6 status, 10 notes, 1 both) and 8 progress bars (all status): 24 banners. Left behind
+  on purpose, for the list of *After V2b-1*: no longer shown but read by tests or by the view models themselves – `Error`
+  of the four windows with a line (the sentence each window always had; the comparison also sets it for a failed export),
+  `IsLoading` of the picker and the comparison, `SummaryText` of the comparison and of the central store window,
+  `StatusText` of the backup window (with the strings `GroupPolicy.BackupsFound`, `GroupPolicy.NoBackups`,
+  `GroupPolicy.BackupRunning` that feed it), `ProgressText`, `BusyText`, `IsWorking` and `ResultText` of the central store
+  window, and `CancelWorkCommand` of the backup window, which never had a view. No string lost its last user.
 - **Not seen, to confirm on Windows.** Nothing of this unit was seen on a screen.
   - *Every Group Policy tab is 34 px lower* under its header or toolbar – the line and its 6 px – where the shared bars
     took no room at rest. On the tabs that are not converted yet the line stands above their own bars.
@@ -3213,6 +3504,37 @@ has seen on a screen yet.
   - *Open for the owner:* whether the answers to a press in a row (the toasts of *The two editors*) should be said in
     the line, cleared by the next edit; whether "no central store" should offer *Update templates…* as an action of a
     state that lasts, at the price of the summary.
+
+- **Not seen, to confirm on Windows (unit 4).** Nothing of unit 4 was seen on a screen either – nor of the four units
+  together, in which the area has one look for the first time.
+  - *The windows are 36 px higher by default* (picker 556, backup window 636, comparison and central store 716 – still
+    below the 728 px a 768 px display leaves above the task bar); their minimum heights are the old ones, so at the minimum
+    the list of the comparison, of the backups and of the files has 34 px less, as in every window of the sweep.
+  - *The footers.* The backup window, the comparison and the central store window have buttons only, right-aligned, where a
+    progress bar and a text stood on the left; the width of *Utwórz kopię* / *Przywróć…* / *Importuj…* / *Dalej* and of
+    *Zaktualizuj…* (as wide as "Zatrzymywanie…" needs) next to *Zamknij*; whether an empty left half of a footer reads as
+    a gap.
+  - *The line of the backup window above its title* (the title repeats the window's own): whether it reads better under
+    the title, as in the comparison, where it follows the header row.
+  - *The backup that runs.* "Backing up the GPOs: 1 of 3…" with the part done in a 16 px ring is the only progress of a
+    backup of many GPOs, next to the activity in the list of background operations; the button that started it saying
+    "Cancel" while the window cannot be closed; a stopped backup's sentence with the label of the button that backs up
+    ("Press “Back Up” to try again.", in the Polish "Wybierz „Utwórz kopię”…").
+  - *Long results.* "Central store updated: written files: 2. Open editors read the templates again. Backup written to
+    \\pliki\Kopie\Magazyn centralny\PolicyDefinitions-dc01-…" is some 200 characters and wraps to three lines at 900 px
+    (the path is cut in the third); "Could not back up 1 of 3 GPOs: reason. (code)" and a failed plan in the backup window
+    wrap likewise, and the fields move down with them.
+  - *The notes of the three dialogs.* The merge window's two notes - a list of settings under one error glyph, a list of
+    differences under one caution glyph - where two coloured bars stood; the single sentence of the copy window and of the
+    WMI editor; whether a note without a fill is enough for "why OK is disabled" there.
+  - *The central store window.* "Not connected to a domain." as an error from the first moment when the window is opened
+    without a connection (it used to open quietly, and its sources still work); the store note over the files without a
+    fill; the summary in the line where the footer said it, with the info glyph.
+  - *"Reading …" at every opening.* The picker, the comparison and the backup window flash their working state with a fast
+    domain controller (the open question of a delay before "Working"); the comparison's stage of the templates flashes
+    when the definitions are cached.
+  - *The README picture* `30-central-store-update.png` is made by the screenshot test but is not committed or shown in the
+    READMEs; with the line it has 34 px less for the list in the fixed client size of 900 × 680.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 

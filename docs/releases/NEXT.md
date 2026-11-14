@@ -411,15 +411,65 @@
   z poleceniem **Odrzuć zmiany**. Plik, którego nie da się odczytać, jest uwagą pod wierszem stanu, a ostrzeżenie o
   inspekcji (kategorie podstawowe i podkategorie bez wymuszenia podkategorii) – uwagą nad listą na stronie
   *Inspekcja*.
-- **Co się nie zmieniło:** wiersz stanu mają teraz lista obiektów, karty zasad grupy i wszystkie okna oraz dialogi
-  wymienione wyżej. Pozostałe karty i okna – okna zasad grupy (kopie zapasowe, porównanie GPO, wybór GPO, aktualizacja
-  szablonów ADMX, kopiowanie ustawień), Watchdog, dzienniki zdarzeń, certyfikaty, przegląd komputerów i zdalne akcje,
-  korespondencja, gotowość środowiska – mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski postępu;
-  przejdą na wiersz stanu w następnych wydaniach. Dotyczy to także kreatora zakładania wielu kont, który jest
-  pierwszym krokiem w oknie edytora zbiorczego. Eksport do pliku i kopiowanie do schowka nadal potwierdza
-  powiadomienie, a pasek postępu pojedynczej operacji na liście operacji w tle zostaje w swoim wierszu. Animacja
-  nowego komunikatu (krótkie wsunięcie) i zamiany napisu na przycisku działa tylko przy włączonych animacjach
-  (*Ustawienia → Ogólne → Wygląd → Animacje*); kółko postępu obraca się zawsze.
+- **Wybór GPO (*Połącz istniejący GPO…*, *Porównaj z…*): wiersz stanu u góry okna.** Wczytywanie GPO domeny widać w
+  wierszu – **Trwa** „Wczytywanie obiektów zasad grupy domeny contoso.test…” z poleceniem **Zatrzymaj** – a gdy lista
+  jest gotowa, wiersz mówi, ile jest GPO („Obiekty zasad grupy: 12”, po wpisaniu filtra „Pokazano obiekty zasad grupy: 3
+  z 12”). Odczyt zatrzymany albo nieudany zostawia pustą listę, więc wiersz opisuje to, dopóki GPO nie odczytasz ponownie
+  poleceniem **Ponów** („Wczytywanie obiektów zasad grupy zatrzymano: lista jest pusta…”, „Nie udało się wczytać …:
+  przyczyna. (kod)”). Po zakończeniu sesji okna wiersz mówi o tym. Dotąd: czerwona ramka nad listą i pasek postępu na
+  środku listy. Okno jest domyślnie o tyle wyższe, ile zajmuje wiersz stanu.
+- **Porównanie dwóch GPO: wiersz stanu pod tytułem okna.** **Trwa** – „Porównywanie „Stacje robocze – Zasady haseł” z
+  „Stacje robocze – Pulpit zdalny”…” z poleceniem **Zatrzymaj**; gdy wiersze już widać, a szablony administracyjne jeszcze
+  nazywają zasady, kolejny etap „Wczytywanie szablonów administracyjnych, aby nazwać zasady…” (zatrzymany zostawia wiersze
+  z nazwami z rejestru – to wynik, który można zamknąć). W spoczynku wiersz mówi, ile jest różnic („Różnice: 12 z 140
+  pozycji”) – to zdanie było dotąd w stopce okna. Porównanie zatrzymane, zanim cokolwiek pokazało, albo nieudane jest
+  stanem okna, dopóki nie powtórzysz go poleceniem **Odśwież** albo **Ponów**. Co się nie dało porównać (SYSVOL
+  niedostępny, GPO za duży – „Ustawień i plików nie porównano.”) jest uwagą nad wierszami, tak długo jak je widać. Nieudany
+  eksport do CSV mówi w wierszu, dlaczego; udany nadal potwierdza powiadomienie. Dotąd: czerwona i żółta ramka oraz pasek
+  postępu na środku listy.
+- **Kopia zapasowa, przywracanie i import GPO: wiersz stanu u góry okna.** Okno mówi w jednym wierszu: czyta folder z
+  kopiami („Wczytywanie kopii zapasowych z folderu…” – zatrzymanie oddaje okno od razu także wtedy, gdy udział sieciowy nie
+  odpowiada), czyta wybraną kopię („Wczytywanie kopii zapasowej „…”…”), tworzy kopie („Tworzenie kopii zapasowych GPO: 1 z
+  3…” z postępem) i przygotowuje plan przywrócenia albo importu aż do otwarcia podglądu („Przywrócenie „…” z kopii
+  zapasowej: przygotowywanie zmian…”), zawsze z poleceniem **Zatrzymaj**. W spoczynku wiersz podaje, ile kopii jest w
+  folderze („Kopie zapasowe w folderze: 3”). Kopia, która się udała, niczego nie dodaje – okno się zamyka, a wynik mówi
+  powiadomienie jak dotąd; zatrzymana mówi, ile obiektów GPO zapisano, i podaje polecenie, które rozpoczyna kopię od nowa;
+  nieudana mówi, ile kopii nie powstało i dlaczego („Nie udało się utworzyć kopii zapasowych 1 z 3 obiektów GPO: …”).
+  Folder albo kopię, których nie da się odczytać, wiersz
+  opisuje, dopóki nie odczytasz ich ponownie poleceniem **Ponów**. Zatrzymanie planu przywrócenia albo importu mówi, że
+  nic nie zmieniono, i też podaje **Ponów**. To, że kopia pochodzi z innej domeny (przywrócić ją można tylko tam, można
+  zaimportować jej ustawienia), jest uwagą pod listą, dopóki ta kopia jest zaznaczona – dotąd czerwoną ramką.
+- **Kopia zapasowa, przywracanie i import: przycisk główny przerywa to, co rozpoczął.** **Utwórz kopię**, **Przywróć…** i
+  **Importuj…** na czas kopii albo przygotowania planu zamieniają się w **Anuluj** (potem „Zatrzymywanie…”) – ten sam
+  przycisk, który to rozpoczął, jak w pozostałych oknach. Przycisk **Zamknij** jest wtedy wyłączony, jak dotąd.
+- **Aktualizacja szablonów ADMX: wiersz stanu u góry okna.** Wczytywanie paczki – pliku, folderu, szablonów tego komputera
+  albo pobrania („Pobieranie szablonów Microsoft Edge…”) – jest operacją okna z poleceniem **Zatrzymaj**; porównanie z
+  magazynem centralnym to jej ostatni etap („Porównywanie z magazynem centralnym…”), a gdy zmienisz język albo opcję, jest
+  osobną operacją. W spoczynku wiersz mówi, co porównanie znalazło („Do zapisania: 2, bez zmian: 1, pominięte: 0”) – to
+  zdanie było dotąd w stopce. Paczka, której nie dało się wczytać, jest wynikiem, który można zamknąć („Nie udało się
+  pobrać szablonów Microsoft Edge: … Wybierz Ponów, aby spróbować ponownie.”; przy pliku lub folderze: „… Wybierz inną
+  paczkę.”); porównanie zatrzymane albo nieudane nie ma plików do pokazania, więc jest stanem okna, dopóki nie wybierzesz
+  **Ponów**. **Zaktualizuj…** jest teraz przyciskiem, który przerywa to, co rozpoczął: kopia zapasowa magazynu i plan
+  (zatrzymane: „Aktualizację zatrzymano: magazynu centralnego nie zmieniono…”); na czas podglądu planu wiersz wraca do
+  podsumowania, a po aktualizacji i nowym porównaniu mówi, co zapisano i gdzie jest kopia zapasowa („Magazyn centralny
+  zaktualizowany: zapisano plików: 2. … Kopia zapasowa zapisana w …”). Że magazyn centralny jeszcze nie istnieje, jest uwagą
+  nad plikami. Dotąd: czerwona ramka, karta z wynikiem, pasek postępu i dwa teksty w stopce. W dzienniku diagnostycznym
+  zostają tylko klucze komunikatów, liczby i rodzaje błędów – nigdy adres pobierania ani nazwa pliku.
+- **Okna zasad grupy, które tylko zbierają dane, mają uwagi zamiast ramek.** *Edytor filtru WMI* (zapytania zapisane w
+  filtrze, których nie dało się odczytać), okno *Kopiuj ustawienia* i *Scal GPO* (zbyt wiele GPO źródłowych, ustawienia,
+  które blokują scalenie, i różnice, które scalenie zmieni) oraz okno nazwy nowego, kopiowanego i zmienianego GPO nie
+  uruchamiają żadnej operacji – oddają to, co zebrały, poleceniu, które je otworzyło, a ono przygotowuje plan, pokazuje
+  podgląd i mówi w wierszu swojej karty, jak poszło. Nie mają więc wiersza stanu; to, co mówią, jest prawdą o polach dopóty,
+  dopóki je widać, i stoi obok nich jako uwaga (znak błędu albo ostrzeżenia i zdanie, bez tła).
+- **Co się nie zmieniło:** wiersz stanu mają teraz lista obiektów, wszystkie karty zasad grupy i wszystkie okna oraz
+  dialogi wymienione wyżej; uwagi zamiast ramek mają też okna zasad grupy, które tylko zbierają dane. Pozostałe karty i
+  okna – Watchdog, dzienniki zdarzeń, certyfikaty, przegląd komputerów i zdalne akcje, korespondencja, gotowość
+  środowiska – mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski postępu; przejdą na wiersz stanu w
+  następnych wydaniach. Dotyczy to także kreatora zakładania wielu kont, który jest pierwszym krokiem w oknie edytora
+  zbiorczego. Eksport do pliku i kopiowanie do schowka nadal potwierdza powiadomienie, a pasek postępu pojedynczej
+  operacji na liście operacji w tle zostaje w swoim wierszu. Animacja nowego komunikatu (krótkie wsunięcie) i zamiany
+  napisu na przycisku działa tylko przy włączonych animacjach (*Ustawienia → Ogólne → Wygląd → Animacje*); kółko postępu
+  obraca się zawsze.
 
 ## Inne zmiany
 
