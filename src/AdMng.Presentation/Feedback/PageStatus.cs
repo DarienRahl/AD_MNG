@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows.Input;
+using AdMng.Core.Computers.Remote;
 using AdMng.Core.Directory;
 
 namespace AdMng.Presentation.Feedback;
@@ -91,6 +92,9 @@ public readonly record struct ResultCode
 
     /// <summary>A directory error kind: "ServerUnavailable".</summary>
     public static ResultCode Kind(DirectoryErrorKind kind) => new(kind.ToString());
+
+    /// <summary>The kind of a failed remote action on a computer (WinRM, CIM, ping): "WinRmNotAvailable".</summary>
+    public static ResultCode Remote(RemoteErrorKind kind) => new(kind.ToString());
 
     /// <summary>
     /// The code of an exception: the LDAP result code and the Win32 detail of a directory error (else its kind), the

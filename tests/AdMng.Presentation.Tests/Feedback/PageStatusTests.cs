@@ -196,6 +196,7 @@ public class PageStatusTests
         Assert.Equal(string.Empty, ResultCode.None.ToString());
         Assert.Equal(ResultCode.Ldap(81), ResultCode.Of(ldap));
         Assert.Equal("ServerUnavailable", ResultCode.Kind(DirectoryErrorKind.ServerUnavailable).ToString());
+        Assert.Equal("WinRmNotAvailable", ResultCode.Remote(AdMng.Core.Computers.Remote.RemoteErrorKind.WinRmNotAvailable).ToString());
 
         foreach (var exception in new Exception[] { both, ldap, win32, kind, other })
         {

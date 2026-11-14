@@ -167,6 +167,37 @@ public class ComputerActionsTests
     }
 
     [Fact]
+    public async Task FindTarget_SaysWhyThereIsNone_WithoutADialog_AndTryPing_ReturnsTheOutcome_WithoutAToast()
+    {
+        var scenario = await ComputerScenario.CreateAsync();
+        var harness = scenario.Harness;
+        scenario.Ping.Answering["krk-pc101.contoso.test"] = TimeSpan.FromMilliseconds(2);
+
+        var (nobody, notAComputer) = await scenario.Actions.FindTargetAsync(harness.Session, scenario.Company.JanKowalski, Ct);
+        var (prestaged, noName) = await scenario.Actions.FindTargetAsync(harness.Session, scenario.Sample.Prestaged, Ct);
+        var (target, none) = await scenario.Actions.FindTargetAsync(harness.Session, scenario.Sample.Pro24H2, Ct);
+
+        Assert.Null(nobody);
+        Assert.Equal("The object is not a computer (any more).", notAComputer);
+        Assert.Null(prestaged);
+        Assert.StartsWith("PREST-PC201 has no DNS host name in Active Directory", noName, StringComparison.Ordinal);
+        Assert.Equal("krk-pc101.contoso.test", target!.DnsHostName);
+        Assert.Null(none);
+
+        var answered = await scenario.Actions.TryPingAsync(harness.Session, scenario.Sample.Pro24H2, Ct);
+        Assert.Equal(4, answered.Result!.Received);
+        Assert.Null(answered.Problem);
+        var refused = await scenario.Actions.TryPingAsync(harness.Session, scenario.Sample.Prestaged, Ct);
+        Assert.Null(refused.Result);
+        Assert.Equal(noName, refused.Problem);
+        Assert.True(refused.Code.IsNone);
+
+        // Nothing was said anywhere: the caller says it where it has its place.
+        Assert.Empty(harness.Dialogs.Errors);
+        Assert.Empty(harness.Notifications.Items);
+    }
+
+    [Fact]
     public async Task RunAsync_DispatchesTheShellActions()
     {
         var scenario = await ComputerScenario.CreateAsync();

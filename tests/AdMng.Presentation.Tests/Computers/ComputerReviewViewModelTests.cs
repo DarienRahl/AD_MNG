@@ -4,7 +4,7 @@ using AdMng.Core.Directory;
 using AdMng.Core.Model;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Computers;
-using AdMng.Presentation.Services;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Tests.AccountReview;
 using AdMng.Testing;
@@ -260,9 +260,11 @@ public class ComputerReviewViewModelTests
 
         Assert.Empty(harness.Dialogs.Errors);
         Assert.Equal(["WAW-PC108"], [.. review.Items.Select(r => r.Name)]);
-        var (severity, message) = harness.Notifications.Items[^1];
-        Assert.Equal(NotificationSeverity.Success, severity);
-        Assert.Equal("2 of 2 domain controllers answered; 1 computers were active after all.", message);
+
+        // How it ended is said by the status line of the window, not by a toast.
+        var done = review.Status.Current;
+        Assert.Equal(PageStatusKind.Done, done.Kind);
+        Assert.Equal("2 of 2 domain controllers answered; 1 computers were active after all.", done.Message);
         Assert.All(opened, s => Assert.True(s.IsDisposed));
 
         // LOD-PC107 stays in the end-of-support report, now with the exact value and its DC.
@@ -335,7 +337,8 @@ public class ComputerReviewViewModelTests
         harness.Dialogs.ConfirmAnswers.Enqueue(true);
         await review.ReadExactLastLogonCommand.ExecuteAsync(null);
         Assert.True(connected > 0);
-        Assert.StartsWith($"Sprawdzono 500 z {total} komputerów. Odpowiedziało ", harness.Notifications.Items[^1].Message, StringComparison.Ordinal);
+        Assert.StartsWith($"Sprawdzono 500 z {total} komputerów. Odpowiedziało ", review.Status.Current.Message, StringComparison.Ordinal);
+        Assert.Equal(PageStatusKind.Done, review.Status.Current.Kind);
     }
 
     [Fact]
@@ -358,14 +361,20 @@ public class ComputerReviewViewModelTests
         Assert.Equal("Kraków (10.20.0.0/16)", Row(review, ComputerReport.EndOfSupport, "KRK-PC102")[ComputerReviewColumns.Site]);
         Assert.Equal("no subnet", Row(review, ComputerReport.EndOfSupport, "GDA-PC103")[ComputerReviewColumns.Site]);
         Assert.Equal("not resolved", Row(review, ComputerReport.EndOfSupport, "SRV-STARY04")[ComputerReviewColumns.Site]);
-        Assert.Contains(scenario.Harness.Notifications.Items, n => n.Severity == NotificationSeverity.Warning && n.Message == "Subnets with an invalid name were skipped: 10.99.0.0/33");
+
+        // The subnets that were skipped are said once per check, as an attention behind the count of the sites.
+        Assert.Equal(PageStatusKind.Attention, review.Status.Current.Kind);
+        Assert.StartsWith("Sites of the computers determined: ", review.Status.Current.Message, StringComparison.Ordinal);
+        Assert.EndsWith("Subnets with an invalid name were skipped: 10.99.0.0/33", review.Status.Current.Message, StringComparison.Ordinal);
 
         // A DC's site is its server object's, without DNS.
         review.SelectedTile = review.Tiles.Single(t => t.Release == "Windows Server 2022");
         await review.ResolveSitesCommand.ExecuteAsync(null);
         Assert.Equal("Kraków", Assert.Single(review.Items, r => r.Name == "DC02")[ComputerReviewColumns.Site]);
         Assert.DoesNotContain("dc02.contoso.test", scenario.Resolver.Lookups);
-        Assert.Single(scenario.Harness.Notifications.Items, n => n.Message.StartsWith("Subnets with an invalid name", StringComparison.Ordinal));
+        Assert.Equal(PageStatusKind.Done, review.Status.Current.Kind);
+        Assert.DoesNotContain("invalid name", review.Status.Current.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(scenario.Harness.Notifications.Items, n => n.Message.StartsWith("Subnets with an invalid name", StringComparison.Ordinal));
     }
 
     [Fact]

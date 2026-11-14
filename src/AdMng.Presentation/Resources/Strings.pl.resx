@@ -25197,5 +25197,104 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="EventLogs.Status.ModelFailed" xml:space="preserve">
     <value>Nie udało się otworzyć modelu komputera {0}</value>
   </data>
+  <data name="ComputerReview.Status.Checking" xml:space="preserve">
+    <value>Sprawdzanie komputerów w zakresie „{0}”…</value>
+  </data>
+  <data name="ComputerReview.Status.CheckingCount" xml:space="preserve">
+    <value>Sprawdzanie komputerów w zakresie „{0}”: odczytano: {1:N0}, z ustaleniami: {2:N0}…</value>
+  </data>
+  <data name="ComputerReview.Status.Stopped" xml:space="preserve">
+    <value>Sprawdzanie komputerów zatrzymano: wyniki są niepełne (odczytano: {0:N0}). Wybierz „{1}”, aby sprawdzić ponownie.</value>
+  </data>
+  <data name="ComputerReview.Status.Failed" xml:space="preserve">
+    <value>Nie udało się sprawdzić komputerów</value>
+  </data>
+  <data name="ComputerReview.Status.NotChecked" xml:space="preserve">
+    <value>Nie sprawdzono komputerów</value>
+  </data>
+  <data name="ComputerReview.Status.ReadingExact" xml:space="preserve">
+    <value>Odczytywanie dokładnego ostatniego logowania komputerów ({0:N0}) na wszystkich kontrolerach domeny…</value>
+  </data>
+  <data name="ComputerReview.Status.ExactNoAnswer" xml:space="preserve">
+    <value>Brak odpowiedzi: {0}.</value>
+  </data>
+  <data name="ComputerReview.Status.ExactStopped" xml:space="preserve">
+    <value>Odczytywanie dokładnego ostatniego logowania zatrzymano: listy nie zmieniono. Wybierz „{0}”, aby odczytać je ponownie.</value>
+  </data>
+  <data name="ComputerReview.Status.ExactFailed" xml:space="preserve">
+    <value>Nie udało się odczytać dokładnego ostatniego logowania</value>
+  </data>
+  <data name="ComputerReview.Status.ResolvingSites" xml:space="preserve">
+    <value>Ustalanie lokacji komputerów ({0:N0})…</value>
+  </data>
+  <data name="ComputerReview.Status.ResolvingSitesCount" xml:space="preserve">
+    <value>Ustalanie lokacji komputerów: {0}…</value>
+  </data>
+  <data name="ComputerReview.Status.SitesDone" xml:space="preserve">
+    <value>Ustalono lokacje komputerów: {0}.</value>
+  </data>
+  <data name="ComputerReview.Status.SitesStopped" xml:space="preserve">
+    <value>Ustalanie lokacji zatrzymano: listy nie zmieniono. Wybierz „{0}”, aby ustalić je ponownie.</value>
+  </data>
+  <data name="ComputerReview.Status.SitesFailed" xml:space="preserve">
+    <value>Nie udało się ustalić lokacji komputerów</value>
+  </data>
+  <data name="ComputerReview.Status.Pinging" xml:space="preserve">
+    <value>Ping komputera {0}…</value>
+  </data>
+  <data name="ComputerReview.Status.PingStopped" xml:space="preserve">
+    <value>Ping komputera {0} zatrzymano. Wybierz „{1}”, aby spróbować ponownie.</value>
+  </data>
+  <data name="ComputerReview.Status.PingFailed" xml:space="preserve">
+    <value>Nie udało się wykonać ping komputera {0}</value>
+  </data>
+  <data name="RemoteActions.Status.Working" xml:space="preserve">
+    <value>{0}…</value>
+  </data>
+  <data name="RemoteActions.Status.TitleStatus" xml:space="preserve">
+    <value>Odczytywanie stanu komputera {0}</value>
+  </data>
+  <data name="RemoteActions.Status.TitleUsers" xml:space="preserve">
+    <value>Odczytywanie zalogowanych użytkowników komputera {0}</value>
+  </data>
+  <data name="RemoteActions.Status.TitleServices" xml:space="preserve">
+    <value>Odczytywanie usług komputera {0}</value>
+  </data>
+  <data name="RemoteActions.Status.TitlePolicy" xml:space="preserve">
+    <value>Odświeżanie zasad grupy na komputerze {0}</value>
+  </data>
+  <data name="RemoteActions.Status.TitleRestart" xml:space="preserve">
+    <value>Planowanie ponownego uruchomienia komputera {0}</value>
+  </data>
+  <data name="RemoteActions.Status.TitleAbortRestart" xml:space="preserve">
+    <value>Anulowanie zaplanowanego ponownego uruchomienia komputera {0}</value>
+  </data>
+  <data name="RemoteActions.Status.FailedStatus" xml:space="preserve">
+    <value>Nie udało się odczytać stanu komputera {0}</value>
+  </data>
+  <data name="RemoteActions.Status.FailedUsers" xml:space="preserve">
+    <value>Nie udało się odczytać zalogowanych użytkowników komputera {0}</value>
+  </data>
+  <data name="RemoteActions.Status.FailedServices" xml:space="preserve">
+    <value>Nie udało się odczytać usług komputera {0}</value>
+  </data>
+  <data name="RemoteActions.Status.FailedPolicy" xml:space="preserve">
+    <value>Nie udało się odświeżyć zasad grupy na komputerze {0}</value>
+  </data>
+  <data name="RemoteActions.Status.FailedRestart" xml:space="preserve">
+    <value>Nie udało się zaplanować ponownego uruchomienia komputera {0}</value>
+  </data>
+  <data name="RemoteActions.Status.FailedAbortRestart" xml:space="preserve">
+    <value>Nie udało się anulować zaplanowanego ponownego uruchomienia komputera {0}</value>
+  </data>
+  <data name="RemoteActions.Status.StoppedRead" xml:space="preserve">
+    <value>{0} zatrzymano. Wybierz „{1}”, aby odczytać ponownie.</value>
+  </data>
+  <data name="RemoteActions.Status.StoppedAction" xml:space="preserve">
+    <value>{0} zatrzymano: nie wiadomo, czy komputer otrzymał żądanie.</value>
+  </data>
+  <data name="RemoteActions.Status.ActionDone" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

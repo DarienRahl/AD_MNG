@@ -40,21 +40,36 @@ public static class ComputerSites
         return new SiteData(topology, controllers);
     }
 
-    /// <summary>The site of each computer, keyed by <see cref="DnKey.For"/> of its DN.</summary>
+    /// <summary>The number of reports of a resolution of many computers (about; one per batch, never one per computer).</summary>
+    public const int MaxProgressReports = 50;
+
+    /// <summary>
+    /// The site of each computer, keyed by <see cref="DnKey.For"/> of its DN. <paramref name="progress"/> hears how many
+    /// computers are done, about <see cref="MaxProgressReports"/> times and at the end.
+    /// </summary>
     public static async Task<Dictionary<string, SiteResolution>> ResolveAsync(
-        IHostAddressResolver resolver, SiteData topology, IReadOnlyList<ComputerFacts> computers, CancellationToken cancellationToken)
+        IHostAddressResolver resolver, SiteData topology, IReadOnlyList<ComputerFacts> computers, CancellationToken cancellationToken, IProgress<int>? progress = null)
     {
         ArgumentNullException.ThrowIfNull(resolver);
         ArgumentNullException.ThrowIfNull(topology);
         ArgumentNullException.ThrowIfNull(computers);
         var result = new Dictionary<string, SiteResolution>(StringComparer.Ordinal);
         var gate = new Lock();
+        var done = 0;
+        var step = Math.Max(1, computers.Count / MaxProgressReports);
         await Parallel.ForEachAsync(computers, new ParallelOptions { MaxDegreeOfParallelism = Parallelism, CancellationToken = cancellationToken }, async (facts, ct) =>
         {
             var site = await ResolveOneAsync(resolver, topology, facts, ct).ConfigureAwait(false);
             lock (gate)
             {
                 result[DnKey.For(facts.DistinguishedName)] = site;
+
+                // In order: a report is posted to the UI thread, so it does not wait for anything.
+                done++;
+                if (progress is not null && (done % step == 0 || done == computers.Count))
+                {
+                    progress.Report(done);
+                }
             }
         }).ConfigureAwait(false);
         return result;

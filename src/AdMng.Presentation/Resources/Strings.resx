@@ -25197,5 +25197,104 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="EventLogs.Status.ModelFailed" xml:space="preserve">
     <value>Could not open the model of {0}</value>
   </data>
+  <data name="ComputerReview.Status.Checking" xml:space="preserve">
+    <value>Checking the computers in the scope “{0}”…</value>
+  </data>
+  <data name="ComputerReview.Status.CheckingCount" xml:space="preserve">
+    <value>Checking the computers in the scope “{0}”: read: {1:N0}, with findings: {2:N0}…</value>
+  </data>
+  <data name="ComputerReview.Status.Stopped" xml:space="preserve">
+    <value>Checking the computers was stopped: the results are incomplete (read: {0:N0}). Press “{1}” to check again.</value>
+  </data>
+  <data name="ComputerReview.Status.Failed" xml:space="preserve">
+    <value>Could not check the computers</value>
+  </data>
+  <data name="ComputerReview.Status.NotChecked" xml:space="preserve">
+    <value>The computers were not checked</value>
+  </data>
+  <data name="ComputerReview.Status.ReadingExact" xml:space="preserve">
+    <value>Reading the exact last logon of the computers ({0:N0}) on all domain controllers…</value>
+  </data>
+  <data name="ComputerReview.Status.ExactNoAnswer" xml:space="preserve">
+    <value>No answer from: {0}.</value>
+  </data>
+  <data name="ComputerReview.Status.ExactStopped" xml:space="preserve">
+    <value>Reading the exact last logon was stopped: the list was not changed. Press “{0}” to read it again.</value>
+  </data>
+  <data name="ComputerReview.Status.ExactFailed" xml:space="preserve">
+    <value>Could not read the exact last logon</value>
+  </data>
+  <data name="ComputerReview.Status.ResolvingSites" xml:space="preserve">
+    <value>Finding the sites of the computers ({0:N0})…</value>
+  </data>
+  <data name="ComputerReview.Status.ResolvingSitesCount" xml:space="preserve">
+    <value>Finding the sites of the computers: {0}…</value>
+  </data>
+  <data name="ComputerReview.Status.SitesDone" xml:space="preserve">
+    <value>Sites of the computers determined: {0}.</value>
+  </data>
+  <data name="ComputerReview.Status.SitesStopped" xml:space="preserve">
+    <value>Finding the sites was stopped: the list was not changed. Press “{0}” to find them again.</value>
+  </data>
+  <data name="ComputerReview.Status.SitesFailed" xml:space="preserve">
+    <value>Could not find the sites of the computers</value>
+  </data>
+  <data name="ComputerReview.Status.Pinging" xml:space="preserve">
+    <value>Pinging {0}…</value>
+  </data>
+  <data name="ComputerReview.Status.PingStopped" xml:space="preserve">
+    <value>Pinging {0} was stopped. Press “{1}” to try again.</value>
+  </data>
+  <data name="ComputerReview.Status.PingFailed" xml:space="preserve">
+    <value>Could not ping {0}</value>
+  </data>
+  <data name="RemoteActions.Status.Working" xml:space="preserve">
+    <value>{0}…</value>
+  </data>
+  <data name="RemoteActions.Status.TitleStatus" xml:space="preserve">
+    <value>Reading the status of {0}</value>
+  </data>
+  <data name="RemoteActions.Status.TitleUsers" xml:space="preserve">
+    <value>Reading the logged-on users of {0}</value>
+  </data>
+  <data name="RemoteActions.Status.TitleServices" xml:space="preserve">
+    <value>Reading the services of {0}</value>
+  </data>
+  <data name="RemoteActions.Status.TitlePolicy" xml:space="preserve">
+    <value>Refreshing Group Policy on {0}</value>
+  </data>
+  <data name="RemoteActions.Status.TitleRestart" xml:space="preserve">
+    <value>Scheduling the restart of {0}</value>
+  </data>
+  <data name="RemoteActions.Status.TitleAbortRestart" xml:space="preserve">
+    <value>Cancelling the scheduled restart of {0}</value>
+  </data>
+  <data name="RemoteActions.Status.FailedStatus" xml:space="preserve">
+    <value>Could not read the status of {0}</value>
+  </data>
+  <data name="RemoteActions.Status.FailedUsers" xml:space="preserve">
+    <value>Could not read the logged-on users of {0}</value>
+  </data>
+  <data name="RemoteActions.Status.FailedServices" xml:space="preserve">
+    <value>Could not read the services of {0}</value>
+  </data>
+  <data name="RemoteActions.Status.FailedPolicy" xml:space="preserve">
+    <value>Could not refresh Group Policy on {0}</value>
+  </data>
+  <data name="RemoteActions.Status.FailedRestart" xml:space="preserve">
+    <value>Could not schedule the restart of {0}</value>
+  </data>
+  <data name="RemoteActions.Status.FailedAbortRestart" xml:space="preserve">
+    <value>Could not cancel the scheduled restart of {0}</value>
+  </data>
+  <data name="RemoteActions.Status.StoppedRead" xml:space="preserve">
+    <value>{0} was stopped. Press “{1}” to read again.</value>
+  </data>
+  <data name="RemoteActions.Status.StoppedAction" xml:space="preserve">
+    <value>{0} was stopped: it is not known whether the computer received the request.</value>
+  </data>
+  <data name="RemoteActions.Status.ActionDone" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

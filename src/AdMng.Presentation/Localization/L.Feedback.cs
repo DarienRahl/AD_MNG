@@ -976,4 +976,90 @@ public static partial class L
         /// <summary>"Could not open the model of {0}", without a full stop.</summary>
         public const string ModelFailed = "EventLogs.Status.ModelFailed";
     }
+
+    /// <summary>What the computer review says in its status line (stage V2b-4).</summary>
+    public static class ComputerReviewStatus
+    {
+        /// <summary>{0} = the scope.</summary>
+        public const string Checking = "ComputerReview.Status.Checking";
+
+        /// <summary>{0} = the scope, {1} = the computers read so far, {2} = the computers with findings so far.</summary>
+        public const string CheckingCount = "ComputerReview.Status.CheckingCount";
+
+        /// <summary>{0} = the computers that were read, {1} = the text of the button that checks again.</summary>
+        public const string Stopped = "ComputerReview.Status.Stopped";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string Failed = "ComputerReview.Status.Failed";
+
+        /// <summary>What was skipped, without a full stop: the scope cannot be resolved.</summary>
+        public const string NotChecked = "ComputerReview.Status.NotChecked";
+
+        /// <summary>{0} = the number of computers.</summary>
+        public const string ReadingExact = "ComputerReview.Status.ReadingExact";
+
+        /// <summary>{0} = the names of the domain controllers that did not answer.</summary>
+        public const string ExactNoAnswer = "ComputerReview.Status.ExactNoAnswer";
+
+        /// <summary>{0} = the text of the button that reads again.</summary>
+        public const string ExactStopped = "ComputerReview.Status.ExactStopped";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string ExactFailed = "ComputerReview.Status.ExactFailed";
+
+        /// <summary>{0} = the number of computers.</summary>
+        public const string ResolvingSites = "ComputerReview.Status.ResolvingSites";
+
+        /// <summary>{0} = how far ("120 of 300").</summary>
+        public const string ResolvingSitesCount = "ComputerReview.Status.ResolvingSitesCount";
+
+        /// <summary>{0} = how many computers have a site ("280 of 300").</summary>
+        public const string SitesDone = "ComputerReview.Status.SitesDone";
+
+        /// <summary>{0} = the text of the button that finds the sites.</summary>
+        public const string SitesStopped = "ComputerReview.Status.SitesStopped";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string SitesFailed = "ComputerReview.Status.SitesFailed";
+
+        /// <summary>{0} = the computer.</summary>
+        public const string Pinging = "ComputerReview.Status.Pinging";
+
+        /// <summary>{0} = the computer, {1} = the text of the button.</summary>
+        public const string PingStopped = "ComputerReview.Status.PingStopped";
+
+        /// <summary>What was tried, without a full stop; {0} = the computer.</summary>
+        public const string PingFailed = "ComputerReview.Status.PingFailed";
+    }
+
+    /// <summary>What the remote actions window says in its status line (stage V2b-4); {0} is always the computer.</summary>
+    public static class RemoteStatus
+    {
+        /// <summary>"{0}…" - the title of an action with the dots.</summary>
+        public const string Working = "RemoteActions.Status.Working";
+
+        public const string TitleStatus = "RemoteActions.Status.TitleStatus";
+        public const string TitleUsers = "RemoteActions.Status.TitleUsers";
+        public const string TitleServices = "RemoteActions.Status.TitleServices";
+        public const string TitlePolicy = "RemoteActions.Status.TitlePolicy";
+        public const string TitleRestart = "RemoteActions.Status.TitleRestart";
+        public const string TitleAbortRestart = "RemoteActions.Status.TitleAbortRestart";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string FailedStatus = "RemoteActions.Status.FailedStatus";
+        public const string FailedUsers = "RemoteActions.Status.FailedUsers";
+        public const string FailedServices = "RemoteActions.Status.FailedServices";
+        public const string FailedPolicy = "RemoteActions.Status.FailedPolicy";
+        public const string FailedRestart = "RemoteActions.Status.FailedRestart";
+        public const string FailedAbortRestart = "RemoteActions.Status.FailedAbortRestart";
+
+        /// <summary>A read that was stopped; {0} = its title, {1} = the text of the button that reads again.</summary>
+        public const string StoppedRead = "RemoteActions.Status.StoppedRead";
+
+        /// <summary>An action that was stopped: whether the computer got the request is not known; {0} = its title.</summary>
+        public const string StoppedAction = "RemoteActions.Status.StoppedAction";
+
+        /// <summary>{0} = the computer, {1} = what happened.</summary>
+        public const string ActionDone = "RemoteActions.Status.ActionDone";
+    }
 }
