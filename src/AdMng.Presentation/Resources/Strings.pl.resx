@@ -21357,9 +21357,6 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="Pki.ReadAt" xml:space="preserve">
     <value>Odczytano z {0}, {1}.</value>
   </data>
-  <data name="Pki.ReadProgress" xml:space="preserve">
-    <value>Odczyt obiektów PKI: {0}…</value>
-  </data>
   <data name="Pki.NoneFound" xml:space="preserve">
     <value>Nie znaleziono.</value>
   </data>
@@ -22267,21 +22264,6 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="PkiEsc.CheckAgainHint" xml:space="preserve">
     <value>Ponownie odczytuje obiekty PKI, konta i uprawnienia (F5).</value>
   </data>
-  <data name="PkiEsc.StageSnapshot" xml:space="preserve">
-    <value>Odczyt obiektów PKI ({0})…</value>
-  </data>
-  <data name="PkiEsc.StageAccounts" xml:space="preserve">
-    <value>Odczyt kont ({0})…</value>
-  </data>
-  <data name="PkiEsc.StageAccessControl" xml:space="preserve">
-    <value>Odczyt uprawnień obiektów PKI…</value>
-  </data>
-  <data name="PkiEsc.StagePrincipals" xml:space="preserve">
-    <value>Rozpoznawanie kont i grup…</value>
-  </data>
-  <data name="PkiEsc.StageAnalysis" xml:space="preserve">
-    <value>Ocena reguł ESC…</value>
-  </data>
   <data name="PkiEsc.LastRun" xml:space="preserve">
     <value>Ostatnie sprawdzenie: {0} na {1}</value>
   </data>
@@ -22544,18 +22526,6 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="PkiReady.LastRun" xml:space="preserve">
     <value>Odczytano: {0} na {1}</value>
-  </data>
-  <data name="PkiReady.StageSnapshot" xml:space="preserve">
-    <value>Odczyt obiektów PKI…</value>
-  </data>
-  <data name="PkiReady.StageDomainControllers" xml:space="preserve">
-    <value>Odczyt kontrolerów domeny…</value>
-  </data>
-  <data name="PkiReady.StageAccounts" xml:space="preserve">
-    <value>Odczyt kont ({0})…</value>
-  </data>
-  <data name="PkiReady.StageLdaps" xml:space="preserve">
-    <value>Sprawdzanie certyfikatów LDAPS kontrolerów domeny…</value>
   </data>
   <data name="PkiReady.Summary.Ok" xml:space="preserve">
     <value>OK: {0}</value>

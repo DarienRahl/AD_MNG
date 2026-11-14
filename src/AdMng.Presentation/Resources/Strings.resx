@@ -21357,9 +21357,6 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Pki.ReadAt" xml:space="preserve">
     <value>Read from {0} at {1}.</value>
   </data>
-  <data name="Pki.ReadProgress" xml:space="preserve">
-    <value>Reading the PKI objects: {0}…</value>
-  </data>
   <data name="Pki.NoneFound" xml:space="preserve">
     <value>None found.</value>
   </data>
@@ -22267,21 +22264,6 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="PkiEsc.CheckAgainHint" xml:space="preserve">
     <value>Reads the PKI objects, the accounts and the permissions again (F5).</value>
   </data>
-  <data name="PkiEsc.StageSnapshot" xml:space="preserve">
-    <value>Reading the PKI objects ({0})…</value>
-  </data>
-  <data name="PkiEsc.StageAccounts" xml:space="preserve">
-    <value>Reading the accounts ({0})…</value>
-  </data>
-  <data name="PkiEsc.StageAccessControl" xml:space="preserve">
-    <value>Reading the permissions of the PKI objects…</value>
-  </data>
-  <data name="PkiEsc.StagePrincipals" xml:space="preserve">
-    <value>Resolving the accounts and groups…</value>
-  </data>
-  <data name="PkiEsc.StageAnalysis" xml:space="preserve">
-    <value>Evaluating the ESC rules…</value>
-  </data>
   <data name="PkiEsc.LastRun" xml:space="preserve">
     <value>Last check: {0} on {1}</value>
   </data>
@@ -22544,18 +22526,6 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="PkiReady.LastRun" xml:space="preserve">
     <value>Read: {0} on {1}</value>
-  </data>
-  <data name="PkiReady.StageSnapshot" xml:space="preserve">
-    <value>Reading the PKI objects…</value>
-  </data>
-  <data name="PkiReady.StageDomainControllers" xml:space="preserve">
-    <value>Reading the domain controllers…</value>
-  </data>
-  <data name="PkiReady.StageAccounts" xml:space="preserve">
-    <value>Reading the accounts ({0})…</value>
-  </data>
-  <data name="PkiReady.StageLdaps" xml:space="preserve">
-    <value>Checking the LDAPS certificates of the domain controllers…</value>
   </data>
   <data name="PkiReady.Summary.Ok" xml:space="preserve">
     <value>OK: {0}</value>

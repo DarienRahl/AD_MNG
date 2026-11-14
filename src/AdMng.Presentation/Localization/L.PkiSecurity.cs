@@ -16,15 +16,6 @@ public static partial class L
         public const string CheckAgainHint = "PkiEsc.CheckAgainHint";
 
         // Progress and status
-        /// <summary>{0} = the PKI objects read so far.</summary>
-        public const string StageSnapshot = "PkiEsc.StageSnapshot";
-
-        /// <summary>{0} = the accounts streamed so far.</summary>
-        public const string StageAccounts = "PkiEsc.StageAccounts";
-        public const string StageAccessControl = "PkiEsc.StageAccessControl";
-        public const string StagePrincipals = "PkiEsc.StagePrincipals";
-        public const string StageAnalysis = "PkiEsc.StageAnalysis";
-
         /// <summary>{0} = the time, {1} = the DC.</summary>
         public const string LastRun = "PkiEsc.LastRun";
         public const string NeverRun = "PkiEsc.NeverRun";

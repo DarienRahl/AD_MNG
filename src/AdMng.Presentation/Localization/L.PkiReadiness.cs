@@ -22,12 +22,6 @@ public static partial class L
 
         /// <summary>{0} = the time, {1} = the DC.</summary>
         public const string LastRun = "PkiReady.LastRun";
-        public const string StageSnapshot = "PkiReady.StageSnapshot";
-        public const string StageDomainControllers = "PkiReady.StageDomainControllers";
-
-        /// <summary>{0} = the accounts streamed so far.</summary>
-        public const string StageAccounts = "PkiReady.StageAccounts";
-        public const string StageLdaps = "PkiReady.StageLdaps";
 
         /// <summary>{0} = the count (the summary line, only the statuses that occur).</summary>
         public const string SummaryOk = "PkiReady.Summary.Ok";

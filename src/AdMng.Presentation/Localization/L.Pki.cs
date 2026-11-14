@@ -53,9 +53,6 @@ public static partial class L
         /// <summary>Read from {0} at {1}.</summary>
         public const string ReadAt = "Pki.ReadAt";
 
-        /// <summary>Reading the PKI objects: {0}…</summary>
-        public const string ReadProgress = "Pki.ReadProgress";
-
         public const string NoneFound = "Pki.NoneFound";
 
         public const string None = "Pki.None";
