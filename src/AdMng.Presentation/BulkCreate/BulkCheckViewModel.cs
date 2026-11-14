@@ -549,10 +549,13 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
         }
     }
 
-    /// <summary>The plan step: a pending recompute or a stale grid is computed now, so the frozen values are the latest ones.</summary>
+    /// <summary>
+    /// The plan step: a pending recompute or a stale grid is computed now, so the frozen values are the latest ones. So is
+    /// a grid whose recompute the operator stopped: it lacks the edit that started that recompute, and the line says so.
+    /// </summary>
     internal async Task EnsureCurrentAsync(CancellationToken cancellationToken)
     {
-        if (Computation is null || IsStale || HasPendingRecompute || IsComputing)
+        if (Computation is null || IsStale || HasPendingRecompute || IsComputing || _stopped)
         {
             _recompute.Cancel();
             await RunComputeAsync(cancellationToken).ConfigureAwait(true);

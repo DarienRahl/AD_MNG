@@ -1,6 +1,8 @@
 using System.Globalization;
 using AdMng.Core.ActiveDirectory;
+using AdMng.Core.Batch.Creation;
 using AdMng.Core.Directory;
+using AdMng.Presentation.BulkCreate;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Tests.Dialogs;
@@ -318,6 +320,39 @@ public sealed class BulkCheckStatusTests
         Assert.Null(check.Status.Lasting);
         Assert.Equal(PageStatusKind.Idle, wizard.Editor.Status.Current.Kind);
         Assert.Equal(check.Summary, wizard.Editor.Status.Current.Message);
+    }
+
+    [Fact]
+    public async Task APlanAfterAStoppedRecompute_ComputesAgain_SoItHasTheChoiceThatStartedIt()
+    {
+        using var wizard = await B4Wizard.CreateAsync();
+        wizard.Use(wizard.Input(
+            [["Łukasz", "Wójcik", "Piotr Zieliński"], ["Zofia", "Kamińska", "Ewa Wiśniewska"]],
+            [.. B4Wizard.NameMappings, new(2, ColumnTargetKind.Manager)]));
+        await wizard.EnterCheckAsync();
+        var check = wizard.Check;
+        var before = check.Computation;
+        using var held = new HeldDirectoryCall(wizard.Harness.Session);
+
+        // The choice of one of two managers starts a recompute that reads the directory; the operator stops it there.
+        check.Rows[0].Cell(BulkCheckViewModel.ManagerKey)!.ChosenCandidate = wizard.Sample.PiotrZielinski2;
+        await held.Reached.WaitAsync(Limit, TestContext.Current.CancellationToken);
+        check.StopCommand.Execute(null);
+        held.Release();
+        await B2Harness.WaitUntilAsync(() => !check.IsComputing);
+
+        // What is shown is the grid of before the choice, and the line says that it may not match.
+        Assert.Same(before, check.Computation);
+        Assert.Null(check.Computation!.Rows[0].ManagerDn);
+        Assert.Equal("BulkCheck.Status.Stopped", wizard.Editor.Status.Current.Log.ToString());
+        Assert.False(check.HasPendingRecompute);
+
+        // The plan step does not take that grid as it is: it computes again, with the choice.
+        await check.EnsureCurrentAsync(TestContext.Current.CancellationToken);
+
+        Assert.NotSame(before, check.Computation);
+        Assert.True(Core.Ldap.DistinguishedName.AreEqual(wizard.Sample.PiotrZielinski2, check.Computation!.Rows[0].ManagerDn!));
+        Assert.Null(check.Status.Lasting);
     }
 
     [Fact]

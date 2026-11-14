@@ -3650,9 +3650,12 @@ yet. Every later unit adds its entry to *Areas* and its own section after the wi
       own - empty after a first check that was stopped, older after a recompute - and the sentence is true until the next
       check applies. They are computed from the facts in one method (`UpdateLasting`: the failure, the stop, `IsStale`),
       so "stopped" and "out of date" follow a language switch at once; a failure keeps the language it was said in.
-      `IsStale` and `Error` are unchanged for the tests and the plan. *Noticed, not changed (rule 5):* a recompute that
-      was stopped after an edit leaves `HasPendingRecompute` false, so *Podgląd* plans from the older computation without
-      that edit; the line now says so ("the results may not match … your changes") but the preview does not refuse.
+      `IsStale` and `Error` are unchanged for the tests and the plan. *Noticed and fixed after the unit:* a recompute
+      that was stopped after an edit left `HasPendingRecompute` false, so *Podgląd* planned from the older computation
+      without that edit although the line said "the results may not match … your changes". The plan step
+      (`EnsureCurrentAsync`) now also computes again when the last computation was stopped (`_stopped`); the preview
+      does not refuse, it has the edit. A test holds the recompute of a manager choice at the directory call, stops it and
+      proves that the plan step brings a new computation with the choice.
     - **A result goes with what it was about.** Choosing another profile closes what the line said about the last profile
       command (V2b-2 Dialogs 18); the next action in the table (a row, a column, *Wyczyść*) closes the last read's answer
       (6.7: a result stays until the next operation or until it is closed).
