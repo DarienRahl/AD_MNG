@@ -80,6 +80,7 @@ public sealed partial class XamlSourceTests
         "GroupPolicy/GroupPolicyScopeView.xaml",
         "GroupPolicy/SecuritySettingsEditorView.xaml",
         "GroupPolicy/WmiFiltersView.xaml",
+        "Readiness/ReadinessView.xaml",
         "Views/AccountReviewWindow.xaml",
         "Views/BatchEditorWindow.xaml",
         "Views/ChangeDomainControllerWindow.xaml",
