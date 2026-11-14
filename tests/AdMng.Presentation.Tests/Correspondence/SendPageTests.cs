@@ -86,7 +86,6 @@ public sealed class SendPageTests
             window.Send.Results.Select(r => r.Text));
         Assert.All(window.Send.Results, r => Assert.True(r.IsSuccess));
         Assert.Equal((3, 0, 0), (window.Send.SentCount, window.Send.FailedCount, window.Send.SkippedCount));
-        Assert.Equal((3d, 3d), (window.Send.ProgressValue, window.Send.ProgressMaximum));
         Assert.Equal("Wysyłka zakończona: udane 3, błędy 0.", window.Send.ProgressText);
         Assert.False(window.Send.IsSending);
         Assert.Equal([TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3)], scenario.Delays);

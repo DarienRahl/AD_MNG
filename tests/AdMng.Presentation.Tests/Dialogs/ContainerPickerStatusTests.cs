@@ -60,7 +60,6 @@ public sealed class ContainerPickerStatusTests
             Assert.True(await held.WaitAsync(Limit, Ct));
 
             // Working: what is read - and no Stop: the dialog's own Cancel closes it at any time.
-            Assert.True(picker.IsLoading);
             Assert.True(picker.Status.IsWorking);
             Assert.Equal(PageStatusKind.Working, picker.Status.Current.Kind);
             Assert.Equal(working, picker.Status.Current.Message);
@@ -82,7 +81,6 @@ public sealed class ContainerPickerStatusTests
         Assert.Equal([(PageStatusKind.Working, working), (PageStatusKind.Idle, string.Empty)], seen);
         Assert.Same(PageStatus.Empty, picker.Status.Current);
         Assert.Null(picker.Status.Lasting);
-        Assert.False(picker.IsLoading);
         Assert.False(picker.Status.IsWorking);
         Assert.Equal(harness.Company.ItOu, picker.SelectedContainer?.Dn, StringComparer.OrdinalIgnoreCase);
         Assert.True(picker.OkCommand.CanExecute(null));
@@ -173,7 +171,7 @@ public sealed class ContainerPickerStatusTests
         Assert.Equal(PageStatusKind.Error, failed.Kind);
         Assert.Equal($"Could not read the containers in “contoso.test”: {domain.LoadError} Press Retry to try again. (ServerUnavailable)", failed.Message);
         Assert.False(failed.CanClose);
-        Assert.False(picker.IsLoading);
+        Assert.False(picker.Status.IsWorking);
 
         // Retry reads the containers of the domain.
         var retry = Assert.IsType<PageStatusAction>(failed.Action);
@@ -206,7 +204,7 @@ public sealed class ContainerPickerStatusTests
 
         Assert.Empty(seen);
         Assert.Empty(picker.Roots);
-        Assert.False(picker.IsLoading);
+        Assert.False(picker.Status.IsWorking);
         Assert.False(picker.OkCommand.CanExecute(null));
         Assert.Equal(before, session.Operations.Count);
     }

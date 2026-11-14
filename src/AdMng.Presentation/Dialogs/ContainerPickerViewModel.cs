@@ -63,10 +63,6 @@ public sealed partial class ContainerPickerViewModel : WindowViewModelBase, IHas
     /// <summary>Canonical path of the selection ("contoso.test/Firma/IT").</summary>
     public string SelectedPath => SelectedContainer is null ? string.Empty : AddressResolver.ToDisplayPath(SelectedContainer.Dn);
 
-    /// <summary>The tree is being read and opened at the start container (the status line says it).</summary>
-    [ObservableProperty]
-    public partial bool IsLoading { get; private set; }
-
     /// <summary>The chosen container DN after OK.</summary>
     public string? Result { get; private set; }
 
@@ -85,7 +81,6 @@ public sealed partial class ContainerPickerViewModel : WindowViewModelBase, IHas
             return;
         }
 
-        IsLoading = true;
         using var reading = Status.Begin(
             Localizer.Format(L.ContainerPickerStatus.Reading, ConfirmationText.Domain(session)),
             new PageStatusLog(L.ContainerPickerStatus.Reading),
@@ -104,10 +99,6 @@ public sealed partial class ContainerPickerViewModel : WindowViewModelBase, IHas
         catch (DirectoryException)
         {
             // Nodes show their own load errors.
-        }
-        finally
-        {
-            IsLoading = false;
         }
     }
 

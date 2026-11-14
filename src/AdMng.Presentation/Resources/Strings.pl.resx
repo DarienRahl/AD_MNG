@@ -1192,9 +1192,6 @@ Profil: {2}</value>
   <data name="ChangeDc.RolePdcEmulator" xml:space="preserve">
     <value>Emulator PDC</value>
   </data>
-  <data name="ChangeDc.ListUnavailable" xml:space="preserve">
-    <value>Nie udało się odczytać listy kontrolerów domeny. Wpisz nazwę kontrolera domeny.</value>
-  </data>
   <data name="ChangeDc.ThisDomainController" xml:space="preserve">
     <value>Ten kontroler domeny:</value>
   </data>

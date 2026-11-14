@@ -115,12 +115,6 @@ public sealed partial class SendPageViewModel : ObservableObject, IHasPageStatus
     [ObservableProperty]
     public partial bool IsRetrying { get; private set; }
 
-    [ObservableProperty]
-    public partial double ProgressValue { get; private set; }
-
-    [ObservableProperty]
-    public partial double ProgressMaximum { get; private set; }
-
     /// <summary>"Wysyłam 12 z 95 · zostało ok. 4 min".</summary>
     [ObservableProperty]
     public partial string ProgressText { get; private set; } = string.Empty;
@@ -535,8 +529,6 @@ public sealed partial class SendPageViewModel : ObservableObject, IHasPageStatus
         SentCount = 0;
         FailedCount = 0;
         SkippedCount = skipped;
-        ProgressMaximum = jobs.Count;
-        ProgressValue = 0;
         ProgressText = Localizer[L.CorrespondenceSend.ProgressStarting];
         _lastRunAt = Services.Time.GetLocalNow();
         _lastSubject = Message.Subject?.Trim() ?? string.Empty;
@@ -556,7 +548,6 @@ public sealed partial class SendPageViewModel : ObservableObject, IHasPageStatus
             ApplyOutcome(kind, p.Outcome, jobs, jobRows, session, bcc, journal.IsLoaded);
             SentCount = p.Succeeded;
             FailedCount = p.Failed;
-            ProgressValue = p.Done;
             ProgressText = ProgressTextOf(kind, p.Done, p.Total, p.Remaining);
             scope.Report(RunningText(kind, p.Done, p.Total, p.Remaining), PageProgress.Of(p.Done, p.Total), new PageStatusLog(RunningKey(kind, p.Remaining), p.Done, p.Total));
         });
@@ -581,7 +572,6 @@ public sealed partial class SendPageViewModel : ObservableObject, IHasPageStatus
 
         SentCount = result.Succeeded;
         FailedCount = result.Failed;
-        ProgressValue = result.Outcomes.Count;
         Finish(kind, result, journal);
         IsSending = false;
         IsTesting = false;

@@ -188,13 +188,6 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
     [ObservableProperty]
     public partial string? ErrorText { get; private set; }
 
-    /// <summary>
-    /// Set when the list could not be read at all (a name can still be typed): the state of the list in the status
-    /// line, as plain text (kept for callers that read it).
-    /// </summary>
-    [ObservableProperty]
-    public partial string? ListNote { get; private set; }
-
     /// <summary>The DC the session works with after a successful switch.</summary>
     public string? Result { get; private set; }
 
@@ -484,7 +477,6 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, reading.Token);
         var token = linked.Token;
         IsLoading = true;
-        ListNote = null;
 
         // What the last read left is over: this one decides.
         ListStatus.SetLasting(null);
@@ -513,7 +505,6 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
             // Without a locator (or when it found nothing) it returns only its fallback, the domain name: no DC is known.
             var locatedAny = located?.Any(d => !DomainControllerCatalog.IsLocatorFallback(d, session.Info.DomainDnsName)) == true;
             var unavailable = !stopped && directory is null && !locatedAny;
-            ListNote = unavailable ? Localizer[L.ChangeDc.ListUnavailable] : null;
             if (string.IsNullOrWhiteSpace(ServerText))
             {
                 ServerText = session.Info.Server;

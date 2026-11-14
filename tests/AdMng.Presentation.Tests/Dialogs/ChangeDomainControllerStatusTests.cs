@@ -111,7 +111,6 @@ public sealed class ChangeDomainControllerStatusTests
         Assert.False(stopped.CanClose);
         Assert.False(dialog.IsLoading);
         Assert.False(dialog.ListStatus.IsWorking);
-        Assert.Null(dialog.ListNote);
         Assert.Contains(dialog.DomainControllers, d => d.Entry.IsCurrent);
         var refresh = Assert.IsType<PageStatusAction>(stopped.Action);
         Assert.Equal("Refresh", refresh.Label);
@@ -153,7 +152,6 @@ public sealed class ChangeDomainControllerStatusTests
         Assert.Equal("ChangeDc.Status.ReadFailed [AccessDenied]", failed.Log.ToString());
         Assert.False(failed.CanClose);
         Assert.False(dialog.Status.CloseCommand.CanExecute(null));
-        Assert.Equal(harness.Localizer[L.ChangeDc.ListUnavailable], dialog.ListNote);
         Assert.True(Assert.Single(dialog.DomainControllers).Entry.IsCurrent);
         var retry = Assert.IsType<PageStatusAction>(failed.Action);
         Assert.Equal(retryLabel, retry.Label);
@@ -173,7 +171,6 @@ public sealed class ChangeDomainControllerStatusTests
         await ((IAsyncRelayCommand)retry.Command).ExecuteAsync(retry.Parameter);
         harness.Session.BeforeOperation = null;
         Assert.Null(dialog.ListStatus.Lasting);
-        Assert.Null(dialog.ListNote);
         Assert.Equal(PageStatusKind.Idle, dialog.Status.Current.Kind);
         Assert.Equal(3, dialog.DomainControllers.Count);
     }

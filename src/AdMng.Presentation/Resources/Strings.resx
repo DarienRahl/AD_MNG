@@ -1192,9 +1192,6 @@ Profile: {2}</value>
   <data name="ChangeDc.RolePdcEmulator" xml:space="preserve">
     <value>PDC emulator</value>
   </data>
-  <data name="ChangeDc.ListUnavailable" xml:space="preserve">
-    <value>The list of domain controllers could not be read. Type the name of a domain controller.</value>
-  </data>
   <data name="ChangeDc.ThisDomainController" xml:space="preserve">
     <value>This domain controller:</value>
   </data>
