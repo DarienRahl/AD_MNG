@@ -8,6 +8,7 @@ using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Core.Schema;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -58,6 +59,16 @@ public sealed record CheckColumnDescriptor(string Key, string Header, bool IsEdi
     public override string ToString() => $"Check column (editable={IsEditable}, masked={IsMasked}, frozen={IsFrozen})";
 }
 
+/// <summary>Who asked for a computation: the two buttons that start one are action buttons, each the Cancel of its own kind.</summary>
+internal enum CheckRunKind
+{
+    /// <summary>Entering the step, <em>Sprawdź ponownie</em>, an edit or an exclusion, the global-catalog session that arrived.</summary>
+    Check,
+
+    /// <summary><em>Numeruj od nowa</em>.</summary>
+    Renumber,
+}
+
 /// <summary>
 /// Step 4 <em>Sprawdzenie</em> of the bulk creation wizard (docs/dev/phase3-bulk-create.md 2.7, owner B4): computes on
 /// entering the step (cancellable, progress), the virtualized check grid with dynamic editable columns updated in place,
@@ -70,8 +81,16 @@ public sealed record CheckColumnDescriptor(string Key, string Header, bool IsEdi
 /// Every computation runs on the thread pool (rule 6); the grid is filled with <c>ReplaceAll</c> on the first fill and on a
 /// filter change and updated in place afterwards (rows keyed by their number, the open cell editor keeps its text). Rows,
 /// cells, edits and the lookups live only in memory and are dropped on <see cref="Dispose"/> (rule 1).
+/// <para><b>What the step says</b> (<see cref="Status"/>; track V, stage V2b-4, design note docs/dev/v-interface-renewal.md
+/// "V2b-4 as built"): in the one line of the batch editor, while this step is in front. At rest the summary
+/// ("Wiersze: 120 – OK: 108 …"); a computation is an operation with the part done ("Checking the rows: 12 of 120…") and Stop -
+/// whoever asked for it; <em>Sprawdź ponownie</em> and <em>Numeruj od nowa</em> are action buttons and the Cancel of what
+/// they started. What lasts is computed in one place (<see cref="UpdateLasting"/>): why there are no rows (the earlier steps
+/// are incomplete, there is no session, the check failed - with Retry), that the check was stopped, and that the rows may be
+/// out of date (<see cref="IsStale"/>) - both with <em>Sprawdź ponownie</em>. The findings of a check - the problems of the
+/// whole run, the scope of the uniqueness check - are notes next to the grid.</para>
 /// </remarks>
-public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
+public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatus, IDisposable
 {
     /// <summary>The key of the <em>Nr</em> column.</summary>
     public const string NumberKey = "#number";
@@ -105,6 +124,11 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
     private bool _sessionEnded;
     private bool _disposed;
 
+    // Why the grid has no rows of the last computation (the same sentence as Error, with the line's words), and that the
+    // last computation was stopped by the operator: the two states of the page that lasts besides IsStale.
+    private PageStatus? _problem;
+    private bool _stopped;
+
     /// <param name="services">The dialog services of the window.</param>
     /// <param name="planner">The planner (<see cref="IBulkCreatePlanner.ComputeAsync"/>).</param>
     /// <param name="input">The wizard's current input (<see cref="BulkCreateViewModel.BuildInput"/>; null while a step is invalid).</param>
@@ -124,6 +148,9 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
         Connector = connector;
         _recompute = new Debouncer(services.Time, TimeSpan.FromMilliseconds(300));
         var localizer = services.Localizer;
+        Status = new PageStatusHolder(localizer, services.Dispatcher, services.Lists.StatusLog);
+        Status.PropertyChanged += OnStatusChanged;
+        localizer.CultureChanged += OnCultureChanged;
         Filters = [.. Enum.GetValues<BulkCheckFilter>().Select(f => new Option<BulkCheckFilter>(f, localizer[BulkCreateTextKeys.FilterKey(f)]))];
     }
 
@@ -131,6 +158,13 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
     public event EventHandler? Changed;
 
     internal DialogServices Services { get; }
+
+    /// <summary>
+    /// What the step says: its summary, the computation with the part done and Stop, and what lasts (why there are no rows,
+    /// that the check was stopped, that the rows may be out of date). The wizard puts it in front of the status line of the
+    /// batch editor while step 4 is shown.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     internal IBulkCreatePlanner Planner { get; }
 
@@ -164,10 +198,24 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial BulkCreateComputation? Computation { get; private set; }
 
-    /// <summary>A computation runs (progress bar, <em>Zatrzymaj</em>).</summary>
+    /// <summary>A computation runs (the operation of <see cref="Status"/>; <see cref="StopCommand"/> stops it).</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StopCommand))]
     public partial bool IsComputing { get; private set; }
+
+    /// <summary>Who asked for the computation that runs (or ran last).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsRechecking), nameof(IsRenumbering))]
+    internal partial CheckRunKind RunKind { get; private set; }
+
+    /// <summary>
+    /// <em>Sprawdź ponownie</em> is the Cancel of the computation that runs: whoever started it (entering the step, an edit,
+    /// the button), except <em>Numeruj od nowa</em>, which is the Cancel of its own.
+    /// </summary>
+    public bool IsRechecking => Status.IsWorking && RunKind != CheckRunKind.Renumber;
+
+    /// <summary><em>Numeruj od nowa</em> started the computation that runs.</summary>
+    public bool IsRenumbering => Status.IsWorking && RunKind == CheckRunKind.Renumber;
 
     /// <summary>Rows computed so far / to compute.</summary>
     [ObservableProperty]
@@ -232,13 +280,23 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
     [RelayCommand(IncludeCancelCommand = true)]
     private Task ComputeAsync(CancellationToken cancellationToken) => RunComputeAsync(cancellationToken);
 
-    /// <summary><em>Zatrzymaj</em>: stops whatever computation runs (entering the step, a recompute after an edit).</summary>
+    /// <summary>
+    /// <em>Zatrzymaj</em>: stops whatever computation runs (entering the step, a recompute after an edit) - the same Stop as
+    /// the line's and the one of the action buttons, which say "Stopping…" at once.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(IsComputing))]
     private void Stop()
     {
         _recompute.Cancel();
-        _computing.Cancel();
         HasPendingRecompute = false;
+        if (Status.Operation is { } operation)
+        {
+            operation.Cancel();
+        }
+        else
+        {
+            _computing.Cancel();
+        }
     }
 
     /// <summary><em>Sprawdź ponownie</em>: forgets the lookups and computes.</summary>
@@ -246,7 +304,7 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
     private Task RecheckAsync()
     {
         Lookups.Refresh();
-        return RunComputeAsync(CancellationToken.None);
+        return RunComputeAsync(CancellationToken.None, CheckRunKind.Check);
     }
 
     /// <summary><em>Numeruj od nowa</em>: clears the pins and computes.</summary>
@@ -254,7 +312,7 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
     private Task RenumberAsync()
     {
         PinnedNumbers = new Dictionary<int, int>();
-        return RunComputeAsync(CancellationToken.None);
+        return RunComputeAsync(CancellationToken.None, CheckRunKind.Renumber);
     }
 
     /// <summary><em>Następny błąd</em> (F8).</summary>
@@ -429,6 +487,9 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
         Computation = null;
         IsStale = false;
         Error = null;
+        _problem = null;
+        _stopped = false;
+        UpdateLasting();
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
@@ -574,7 +635,7 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
         UpdateSummary();
     }
 
-    private async Task RunComputeAsync(CancellationToken cancellationToken)
+    private async Task RunComputeAsync(CancellationToken cancellationToken, CheckRunKind kind = CheckRunKind.Check)
     {
         if (_disposed)
         {
@@ -585,22 +646,28 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
         var session = Session();
         if (session is null || _sessionEnded)
         {
-            Error = localizer[_sessionEnded ? L.WindowSession.Ended : L.Errors.NotConnected];
+            Refuse(localizer[_sessionEnded ? L.WindowSession.Ended : L.Errors.NotConnected]);
             return;
         }
 
+        // The operation is the page's before the serial token is renewed: the one that ran before is taken off the line
+        // first, so what it says when it notices the cancellation is no longer the page's.
+        RunKind = kind;
+        using var scope = Status.Begin(localizer[L.BulkCheckStatus.CheckingStart], new PageStatusLog(L.BulkCheckStatus.CheckingStart));
         var token = _computing.Next();
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, cancellationToken, _lifetime.Token);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, cancellationToken, _lifetime.Token, scope.Token);
         HasPendingRecompute = false;
         _running++;
         IsComputing = true;
         Error = null;
+        _problem = null;
+        UpdateLasting();
         try
         {
             await WaitForGlobalCatalogAsync(linked.Token).ConfigureAwait(true);
             if (Input() is not { } input)
             {
-                Error = localizer[L.BulkCreateCheck.InputIncomplete];
+                Refuse(localizer[L.BulkCreateCheck.InputIncomplete]);
                 return;
             }
 
@@ -614,17 +681,22 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
 
             ComputedRows = 0;
             TotalRows = input.Table.Rows.Count;
+            var total = TotalRows;
             var progress = Services.Dispatcher.CreateProgress<int>(n =>
             {
                 if (_computing.IsCurrent(token))
                 {
                     ComputedRows = n;
+                    scope.Report(
+                        localizer.Format(L.BulkCheckStatus.Checking, PageStatusText.Progress(localizer, n, total)),
+                        PageProgress.Of(n, total),
+                        new PageStatusLog(L.BulkCheckStatus.Checking, n, total));
                 }
             });
             var lookups = Lookups;
             var planner = Planner;
             var computation = await Task.Run(() => planner.ComputeAsync(session, input, lookups, progress, linked.Token), linked.Token).ConfigureAwait(true);
-            if (!_computing.IsCurrent(token) || _disposed)
+            if (!_computing.IsCurrent(token) || _disposed || scope.IsEnded)
             {
                 return;
             }
@@ -634,19 +706,114 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
         }
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
-            // Stopped, superseded by a newer computation, or the window closed.
+            // Stopped by the operator: the grid may not match the data any more, and that lasts until it is checked again.
+            // Superseded by a newer computation, or the window closed or its session ended: nothing to say.
+            if (scope.IsCancelling && !_disposed)
+            {
+                _stopped = true;
+                UpdateLasting();
+            }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            if (_computing.IsCurrent(token))
+            if (_computing.IsCurrent(token) && !scope.IsEnded)
             {
-                Error = Services.Errors.Translate(ex);
+                Fail(ex);
             }
         }
         finally
         {
             _running--;
             IsComputing = _running > 0;
+        }
+    }
+
+    /// <summary>Why the rows were not checked (nothing was tried: no session, an earlier step is incomplete): the state of the page that lasts.</summary>
+    private void Refuse(string reason)
+    {
+        Error = reason;
+        _problem = PageStatus.Error(
+            PageStatusText.Failure(Services.Localizer[L.BulkCheckStatus.NotChecked], reason),
+            new PageStatusLog(L.BulkCheckStatus.NotChecked),
+            canClose: false);
+        UpdateLasting();
+    }
+
+    /// <summary>
+    /// The check failed: "Could not check the rows: why. Press Retry to try again. (code)" - what is left of the grid may be
+    /// empty or older, so it is the state of the page that lasts, with Retry.
+    /// </summary>
+    private void Fail(Exception exception)
+    {
+        var localizer = Services.Localizer;
+        var reason = Services.Errors.Translate(exception);
+        var code = ResultCode.Of(exception);
+        Error = reason;
+        _problem = PageStatus.Error(
+            PageStatusText.Failure(localizer[L.BulkCheckStatus.Failed], reason, localizer[L.Feedback.RetryNext], code),
+            new PageStatusLog(L.BulkCheckStatus.Failed).WithCode(code),
+            new PageStatusAction(localizer[L.Common.Retry], RecheckCommand),
+            canClose: false);
+        UpdateLasting();
+    }
+
+    /// <summary>
+    /// What lasts, computed from the facts - the most important first - so it follows a language switch: why there are no
+    /// rows, that the check was stopped, that the rows may be out of date.
+    /// </summary>
+    private PageStatus? LastingState()
+    {
+        if (_disposed)
+        {
+            return null;
+        }
+
+        if (_problem is not null)
+        {
+            return _problem;
+        }
+
+        var localizer = Services.Localizer;
+        var recheck = new PageStatusAction(localizer[L.BulkCreateCheck.Recheck], RecheckCommand);
+        if (_stopped)
+        {
+            return PageStatus.Attention(
+                localizer.Format(L.BulkCheckStatus.Stopped, recheck.Label),
+                new PageStatusLog(L.BulkCheckStatus.Stopped),
+                recheck,
+                canClose: false);
+        }
+
+        return IsStale
+            ? PageStatus.Attention(
+                localizer.Format(L.BulkCheckStatus.Stale, recheck.Label),
+                new PageStatusLog(L.BulkCheckStatus.Stale),
+                recheck,
+                canClose: false)
+            : null;
+    }
+
+    private void UpdateLasting() => Status.SetLasting(LastingState());
+
+    partial void OnIsStaleChanged(bool value) => UpdateLasting();
+
+    partial void OnSummaryChanged(string value) => Status.SetIdle(value);
+
+    private void OnStatusChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PageStatusHolder.IsWorking))
+        {
+            OnPropertyChanged(nameof(IsRechecking));
+            OnPropertyChanged(nameof(IsRenumbering));
+        }
+    }
+
+    private void OnCultureChanged(object? sender, EventArgs e)
+    {
+        UpdateLasting();
+        if (Computation is not null)
+        {
+            UpdateSummary();
         }
     }
 
@@ -671,7 +838,7 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
         _computing.Cancel();
         HasPendingRecompute = true;
         Changed?.Invoke(this, EventArgs.Empty);
-        _recompute.RunAsync(RunComputeAsync).Forget();
+        _recompute.RunAsync(token => RunComputeAsync(token)).Forget();
     }
 
     // ------------------------------------------------------------------ the grid
@@ -723,7 +890,9 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
 
         Computation = computation;
         PinnedNumbers = computation.Numbers;
+        _stopped = false;
         IsStale = false;
+        UpdateLasting();
         ScopeNote = Services.Localizer.Format(L.BulkCreateCheck.ScopeNote, ScopeText(computation));
         RunIssues = [.. computation.Issues
             .OrderByDescending(i => i.Severity)
@@ -1131,6 +1300,9 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IDisposable
         _recompute.Cancel();
         _computing.Cancel();
         _lifetime.Cancel();
+        Status.Operation?.Dispose();
+        Status.PropertyChanged -= OnStatusChanged;
+        Services.Localizer.CultureChanged -= OnCultureChanged;
         if (_subscribed)
         {
             Services.Sessions.SessionChanged -= OnSessionChanged;

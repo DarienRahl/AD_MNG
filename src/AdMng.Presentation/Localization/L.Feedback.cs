@@ -819,4 +819,81 @@ public static partial class L
         /// <summary>{0} = the text of the button that updates ("Update…").</summary>
         public const string UpdateStopped = "CentralStore.Status.UpdateStopped";
     }
+
+    /// <summary>
+    /// What the bulk creation wizard says in the status line of the batch editor (stage V2b-4): the three pages that say
+    /// something of their own - the source of the data, the naming rules, the check - each as the page in front of the
+    /// line. The texts of the profile commands and of the results are the ones the pages already had
+    /// (<see cref="BulkCreate"/>); the log copies of the wizard are these keys and those - never a cell, a file name, a
+    /// profile name or an account.
+    /// </summary>
+    public static class BulkCreateStatus
+    {
+        /// <summary>Step 1: a table pasted from the clipboard is being read.</summary>
+        public const string ReadingPaste = "BulkCreate.Status.ReadingPaste";
+
+        /// <summary>Step 1: {0} = the name of the file.</summary>
+        public const string ReadingFile = "BulkCreate.Status.ReadingFile";
+
+        /// <summary>Step 1: the table is being rebuilt (a header choice, repeated rows appended or replacing the table).</summary>
+        public const string Updating = "BulkCreate.Status.Updating";
+
+        /// <summary>{0} = the text of the button that pasted ("Paste", "Paste and replace").</summary>
+        public const string PasteStopped = "BulkCreate.Status.PasteStopped";
+
+        /// <summary>{0} = the name of the file, {1} = the text of "Load file…".</summary>
+        public const string FileStopped = "BulkCreate.Status.FileStopped";
+
+        /// <summary>What was skipped, without a full stop: a paste that held no table or no rows.</summary>
+        public const string NothingPasted = "BulkCreate.Status.NothingPasted";
+
+        /// <summary>What was skipped, without a full stop; {0} = the name of the file.</summary>
+        public const string FileNotLoaded = "BulkCreate.Status.FileNotLoaded";
+
+        /// <summary>Why a file was not loaded: the limit.</summary>
+        public const string FileTooLarge = "BulkCreate.Status.FileTooLarge";
+
+        /// <summary>What to do after a file that cannot be used.</summary>
+        public const string FileNext = "BulkCreate.Status.FileNext";
+
+        /// <summary>What was skipped, without a full stop: a header row that is not in the table.</summary>
+        public const string HeaderNotChanged = "BulkCreate.Status.HeaderNotChanged";
+
+        /// <summary>What was skipped, without a full stop: a column that would be one too many.</summary>
+        public const string ColumnNotAdded = "BulkCreate.Status.ColumnNotAdded";
+
+        /// <summary>Step 3, what was skipped, without a full stop: a profile that cannot be saved.</summary>
+        public const string ProfileNotSaved = "BulkCreate.Status.ProfileNotSaved";
+
+        /// <summary>Step 3, what was skipped, without a full stop: the default profile of the container.</summary>
+        public const string DefaultNotChanged = "BulkCreate.Status.DefaultNotChanged";
+
+        /// <summary>Step 3, what was skipped, without a full stop: the account that can join computers.</summary>
+        public const string JoinerNotSet = "BulkCreate.Status.JoinerNotSet";
+
+        /// <summary>Step 3, what was tried, without a full stop: reading the account the operator chose.</summary>
+        public const string JoinerNotRead = "BulkCreate.Status.JoinerNotRead";
+    }
+
+    /// <summary>What the check step (step 4) of the bulk creation wizard says in the status line (stage V2b-4).</summary>
+    public static class BulkCheckStatus
+    {
+        /// <summary>Before the first row was checked (the wait for the global catalog is part of it).</summary>
+        public const string CheckingStart = "BulkCheck.Status.CheckingStart";
+
+        /// <summary>{0} = how far ("12 of 120").</summary>
+        public const string Checking = "BulkCheck.Status.Checking";
+
+        /// <summary>{0} = the text of the "Check again" button.</summary>
+        public const string Stopped = "BulkCheck.Status.Stopped";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string Failed = "BulkCheck.Status.Failed";
+
+        /// <summary>What was skipped, without a full stop: the earlier steps are not complete, or there is no session.</summary>
+        public const string NotChecked = "BulkCheck.Status.NotChecked";
+
+        /// <summary>{0} = the text of the "Check again" button.</summary>
+        public const string Stale = "BulkCheck.Status.Stale";
+    }
 }

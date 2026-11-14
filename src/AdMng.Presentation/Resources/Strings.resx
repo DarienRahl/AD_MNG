@@ -25062,5 +25062,68 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="GpoComparison.Status.StoppedStale" xml:space="preserve">
     <value>Comparing was stopped: the rows may be out of date. Press “{0}” to compare again.</value>
   </data>
+  <data name="BulkCreate.Status.ReadingPaste" xml:space="preserve">
+    <value>Reading the pasted table…</value>
+  </data>
+  <data name="BulkCreate.Status.ReadingFile" xml:space="preserve">
+    <value>Reading “{0}”…</value>
+  </data>
+  <data name="BulkCreate.Status.Updating" xml:space="preserve">
+    <value>Updating the table…</value>
+  </data>
+  <data name="BulkCreate.Status.PasteStopped" xml:space="preserve">
+    <value>Reading the pasted table was stopped: the table was not changed. Press “{0}” to try again.</value>
+  </data>
+  <data name="BulkCreate.Status.FileStopped" xml:space="preserve">
+    <value>Reading “{0}” was stopped: the table was not changed. Press “{1}” to load a file again.</value>
+  </data>
+  <data name="BulkCreate.Status.NothingPasted" xml:space="preserve">
+    <value>Nothing was pasted</value>
+  </data>
+  <data name="BulkCreate.Status.FileNotLoaded" xml:space="preserve">
+    <value>“{0}” was not loaded</value>
+  </data>
+  <data name="BulkCreate.Status.FileTooLarge" xml:space="preserve">
+    <value>The file is larger than 50 MB.</value>
+  </data>
+  <data name="BulkCreate.Status.FileNext" xml:space="preserve">
+    <value>Choose another file.</value>
+  </data>
+  <data name="BulkCreate.Status.HeaderNotChanged" xml:space="preserve">
+    <value>The header row was not changed</value>
+  </data>
+  <data name="BulkCreate.Status.ColumnNotAdded" xml:space="preserve">
+    <value>The column was not added</value>
+  </data>
+  <data name="BulkCreate.Status.ProfileNotSaved" xml:space="preserve">
+    <value>The profile was not saved</value>
+  </data>
+  <data name="BulkCreate.Status.DefaultNotChanged" xml:space="preserve">
+    <value>The default profile was not changed</value>
+  </data>
+  <data name="BulkCreate.Status.JoinerNotSet" xml:space="preserve">
+    <value>The account that can join computers was not changed</value>
+  </data>
+  <data name="BulkCreate.Status.JoinerNotRead" xml:space="preserve">
+    <value>Could not read the chosen account</value>
+  </data>
+  <data name="BulkCheck.Status.CheckingStart" xml:space="preserve">
+    <value>Checking the rows…</value>
+  </data>
+  <data name="BulkCheck.Status.Checking" xml:space="preserve">
+    <value>Checking the rows: {0}…</value>
+  </data>
+  <data name="BulkCheck.Status.Stopped" xml:space="preserve">
+    <value>Checking the rows was stopped: the results may not match the data and your changes. Press “{0}” to check again.</value>
+  </data>
+  <data name="BulkCheck.Status.Failed" xml:space="preserve">
+    <value>Could not check the rows</value>
+  </data>
+  <data name="BulkCheck.Status.NotChecked" xml:space="preserve">
+    <value>The rows were not checked</value>
+  </data>
+  <data name="BulkCheck.Status.Stale" xml:space="preserve">
+    <value>The data, the rules or the created accounts changed since this check: the rows may be out of date. Press “{0}” to check again.</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

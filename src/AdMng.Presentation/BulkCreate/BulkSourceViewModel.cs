@@ -1,6 +1,7 @@
 using System.Collections;
 using AdMng.Core.Batch.Creation;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -21,8 +22,15 @@ namespace AdMng.Presentation.BulkCreate;
 /// (<see cref="IsBusy"/>). A cell edit, an added row or column, a removed row and an appended paste raise
 /// <see cref="Changed"/> only (rows keep their numbers, so the check step keeps its edits and pins); a new table – another
 /// header choice, <em>Wklej i zastąp</em>, <em>Wyczyść</em>, a file – raises <see cref="TableReplaced"/> first.
+/// <para><b>What the step says</b> (<see cref="Status"/>; track V, stage V2b-4, design note docs/dev/v-interface-renewal.md
+/// "V2b-4 as built"): the step has no line of its own - the wizard is hosted in the first step of the batch editor, whose
+/// one line shows this page while it is in front (<see cref="BulkCreateViewModel.Status"/>). At rest it says
+/// <see cref="Summary"/> ("Wiersze: 120, kolumny: 7"); reading a paste or a file is an operation with Stop (the parsing
+/// runs on the thread pool and goes on to its end, but the page gets control back at once and drops what it read),
+/// rebuilding the table after a header choice is one without; why nothing was pasted or loaded is a result of its own.
+/// Nothing of the operator's sheet - no cell, header or file name - reaches a log copy.</para>
 /// </remarks>
-public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
+public sealed partial class BulkSourceViewModel : ObservableObject, IHasPageStatus, IDisposable
 {
     /// <summary>Files larger than this are refused (50 MiB).</summary>
     public const long MaxFileBytes = 50L * 1024 * 1024;
@@ -43,6 +51,7 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
     {
         Services = services ?? throw new ArgumentNullException(nameof(services));
         var localizer = services.Localizer;
+        Status = new PageStatusHolder(localizer, services.Dispatcher, services.Lists.StatusLog);
         HeaderModes = [.. Enum.GetValues<HeaderMode>().Select(m => new Option<HeaderMode>(m, localizer[BulkCreateTextKeys.HeaderModeKey(m)]))];
         localizer.CultureChanged += OnCultureChanged;
     }
@@ -60,6 +69,12 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
     public event EventHandler? TableReplaced;
 
     internal DialogServices Services { get; }
+
+    /// <summary>
+    /// What the step says: its summary, reading a paste or a file with Stop, and why nothing was pasted or loaded. The
+    /// wizard puts it in front of the status line of the batch editor while step 1 is shown.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     /// <summary>The table the next steps work on (<see cref="InputTable.Empty"/> until something is pasted, loaded or typed).</summary>
     [ObservableProperty]
@@ -156,14 +171,20 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
             return;
         }
 
+        // The read is the operation of the step: the name of the file is on screen only, never in a log copy.
+        var name = System.IO.Path.GetFileName(path);
+        using var scope = BeginWork(L.BulkCreateStatus.ReadingFile, name);
+        var token = scope.Token;
         IsBusy = true;
         Error = null;
         try
         {
             var header = HeaderMode;
             var ansiCodePage = Services.Regional.AnsiCodePage;
-            var table = await Task.Run(() => ReadFileAsync(path, header, ansiCodePage)).ConfigureAwait(true);
-            if (_disposed)
+
+            // The read of the file cannot be interrupted: Stop gives control back at once and the thread finishes it.
+            var table = await Task.Run(() => ReadFileAsync(path, header, ansiCodePage)).WaitAsync(token).ConfigureAwait(true);
+            if (_disposed || scope.IsEnded)
             {
                 return;
             }
@@ -171,24 +192,39 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
             if (table is null)
             {
                 Error = localizer[L.BulkCreate.FileTooLarge];
+                scope.Complete(NotLoaded(name, localizer[L.BulkCreateStatus.FileTooLarge], isError: true));
                 return;
             }
 
             if (table.Rows.Count == 0)
             {
                 Error = localizer[L.BulkCreate.NoRowsRead];
+                scope.Complete(NotLoaded(name, Error, isError: false));
                 return;
             }
 
-            await SetTableAsync(table, replaced: true).ConfigureAwait(true);
+            await SetTableAsync(table, replaced: true, token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // Stopped by the operator: say so. Replaced or closed: nothing to say.
+            if (scope.IsCancelling)
+            {
+                scope.CompleteAttention(
+                    localizer.Format(L.BulkCreateStatus.FileStopped, name, localizer[L.BulkCreate.LoadFile]),
+                    new PageStatusLog(L.BulkCreateStatus.FileStopped),
+                    new PageStatusAction(localizer[L.BulkCreate.LoadFile], LoadFileCommand));
+            }
         }
         catch (InvalidDataException)
         {
             Error = localizer[L.BulkCreate.InvalidFile];
+            scope.Complete(NotLoaded(name, Error, isError: true));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Error = Services.Errors.Translate(ex);
+            scope.Complete(NotLoaded(name, Error, isError: true, ResultCode.Of(ex)));
         }
         finally
         {
@@ -203,7 +239,7 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanEdit))]
     private void AddRow()
     {
-        Error = null;
+        ClearError();
         if (Table.Columns.Count == 0)
         {
             var headers = Services.Localizer[L.BulkCreate.StarterHeaders].Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
@@ -229,13 +265,14 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanEdit))]
     private void AddColumn(string? header)
     {
-        Error = null;
+        ClearError();
         var text = CellText.Normalize(header ?? NewColumnHeader ?? string.Empty);
         var table = Table;
         var index = table.Columns.Count;
         if (index >= TableTextReader.MaxColumns)
         {
             Error = Services.Localizer.Format(L.BulkCreate.TooManyColumns, TableTextReader.MaxColumns);
+            Status.Show(Refused(L.BulkCreateStatus.ColumnNotAdded, Error));
             return;
         }
 
@@ -277,7 +314,7 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
         }
 
         ClearPending();
-        Error = null;
+        ClearError();
         ApplyTable(InputTable.Empty, replaced: true, []);
     }
 
@@ -291,6 +328,7 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
         }
 
         ClearPending();
+        using var scope = BeginWork(L.BulkCreateStatus.Updating, canCancel: false);
         IsBusy = true;
         try
         {
@@ -317,6 +355,7 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
         }
 
         ClearPending();
+        using var scope = BeginWork(L.BulkCreateStatus.Updating, canCancel: false);
         await SetTableAsync(pending, replaced: true).ConfigureAwait(true);
     }
 
@@ -336,6 +375,7 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
 
         _disposed = true;
         Services.Localizer.CultureChanged -= OnCultureChanged;
+        Status.Operation?.Dispose();
         ClearPending();
         Rows.Clear();
         Columns = [];
@@ -347,6 +387,43 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
 
     /// <summary>Counts only – never a cell or a header.</summary>
     public override string ToString() => $"Bulk create source: {Table}";
+
+    // ---- What the step says --------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Starts an operation of the step: it says "working" at once. Only one runs at a time (<see cref="IsBusy"/> keeps the
+    /// commands that start one disabled meanwhile). The text of a log copy is the key alone - the name of a file is on
+    /// screen only.
+    /// </summary>
+    private OperationScope BeginWork(string key, string? name = null, bool canCancel = true) =>
+        Status.Begin(name is null ? Services.Localizer[key] : Services.Localizer.Format(key, name), new PageStatusLog(key), canCancel: canCancel);
+
+    /// <summary>The operator's next action closes what was said about the last one (6.7); a running operation is not touched.</summary>
+    private void ClearError()
+    {
+        Error = null;
+        if (!Status.IsWorking)
+        {
+            Status.Clear();
+        }
+    }
+
+    /// <summary>"What was skipped: why." - the answer to a press that came to nothing (4.5), with the key of what was skipped as its log copy.</summary>
+    private PageStatus Refused(string leadKey, string reason) => PageStatus.Attention(
+        PageStatusText.Failure(Services.Localizer[leadKey], reason),
+        new PageStatusLog(leadKey));
+
+    /// <summary>
+    /// A file that cannot be used: "“users.xlsx” was not loaded: why. Choose another file. (code)" - an error when the file
+    /// could not be read, an attention when it was read and held nothing to use.
+    /// </summary>
+    private PageStatus NotLoaded(string name, string reason, bool isError, ResultCode code = default)
+    {
+        var localizer = Services.Localizer;
+        var text = PageStatusText.Failure(localizer.Format(L.BulkCreateStatus.FileNotLoaded, name), reason, localizer[L.BulkCreateStatus.FileNext], code);
+        var log = new PageStatusLog(L.BulkCreateStatus.FileNotLoaded).WithCode(code);
+        return isError ? PageStatus.Error(text, log) : PageStatus.Attention(text, log);
+    }
 
     // ---- Cells --------------------------------------------------------------------------------------------------
 
@@ -396,6 +473,8 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
         var localizer = Services.Localizer;
         Error = null;
         ClearPending();
+        using var scope = BeginWork(L.BulkCreateStatus.ReadingPaste);
+        var token = scope.Token;
         IsBusy = true;
         try
         {
@@ -404,18 +483,21 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
             if (content is null || (string.IsNullOrWhiteSpace(content.Text) && content.CfHtml is not { Length: > 0 } && string.IsNullOrWhiteSpace(content.CfHtmlText)))
             {
                 Error = localizer[L.BulkCreate.ClipboardEmpty];
+                scope.Complete(Refused(L.BulkCreateStatus.NothingPasted, Error));
                 return;
             }
 
             var existing = Table;
             var append = !replace && existing.Rows.Count > 0;
             var header = append && HeaderMode != HeaderMode.NoHeader ? HeaderMode.Auto : HeaderMode;
+
+            // Parsing cannot be interrupted: Stop gives control back at once and the thread finishes it.
             var (added, repeated) = await Task.Run(() =>
             {
                 var read = TableTextReader.ReadClipboard(content.Text, content.CfHtml, content.CfHtmlText, header);
                 return (read, append ? TableTextReader.CountRepeatedRows(existing, read) : 0);
-            }).ConfigureAwait(true);
-            if (_disposed)
+            }).WaitAsync(token).ConfigureAwait(true);
+            if (_disposed || scope.IsEnded)
             {
                 return;
             }
@@ -423,12 +505,13 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
             if (added.Rows.Count == 0)
             {
                 Error = localizer[L.BulkCreate.NoRowsRead];
+                scope.Complete(Refused(L.BulkCreateStatus.NothingPasted, Error));
                 return;
             }
 
             if (!append)
             {
-                await SetTableAsync(added, replaced: true).ConfigureAwait(true);
+                await SetTableAsync(added, replaced: true, token).ConfigureAwait(true);
                 return;
             }
 
@@ -440,10 +523,22 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            var appended = await Task.Run(() => TableTextReader.Append(existing, added)).ConfigureAwait(true);
-            if (!_disposed)
+            var appended = await Task.Run(() => TableTextReader.Append(existing, added)).WaitAsync(token).ConfigureAwait(true);
+            if (!_disposed && !scope.IsEnded)
             {
-                await SetTableAsync(appended, replaced: false).ConfigureAwait(true);
+                await SetTableAsync(appended, replaced: false, token).ConfigureAwait(true);
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // Stopped by the operator: say so. Replaced or closed: nothing to say.
+            if (scope.IsCancelling)
+            {
+                var button = localizer[replace ? L.BulkCreate.ReplaceWithPaste : L.BulkCreate.Paste];
+                scope.CompleteAttention(
+                    localizer.Format(L.BulkCreateStatus.PasteStopped, button),
+                    new PageStatusLog(L.BulkCreateStatus.PasteStopped),
+                    new PageStatusAction(button, replace ? ReplaceWithPasteCommand : PasteCommand));
             }
         }
         finally
@@ -508,6 +603,7 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
     {
         var table = Table;
         Error = null;
+        using var scope = BeginWork(L.BulkCreateStatus.Updating, canCancel: false);
         IsBusy = true;
         try
         {
@@ -515,6 +611,7 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
             if (line is { } chosen && (chosen < 1 || chosen > lines))
             {
                 Error = Services.Localizer.Format(L.BulkCreate.HeaderLineOutOfRange, chosen, lines);
+                scope.Complete(Refused(L.BulkCreateStatus.HeaderNotChanged, Error));
                 return;
             }
 
@@ -534,6 +631,7 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
         catch (ArgumentOutOfRangeException)
         {
             Error = Services.Localizer.Format(L.BulkCreate.HeaderLineOutOfRange, line ?? 0, table.TitleRows.Count + (table.HasHeader ? 1 : 0) + table.Rows.Count);
+            scope.Complete(Refused(L.BulkCreateStatus.HeaderNotChanged, Error));
         }
         finally
         {
@@ -560,10 +658,10 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
     // ---- Table ----------------------------------------------------------------------------------------------------
 
     /// <summary>Builds the grid rows on the thread pool (10 000 rows stay responsive) and shows the table.</summary>
-    private async Task SetTableAsync(InputTable table, bool replaced)
+    private async Task SetTableAsync(InputTable table, bool replaced, CancellationToken cancellationToken = default)
     {
         var columns = ColumnsOf(table);
-        var rows = await Task.Run(() => BuildRows(table, columns)).ConfigureAwait(true);
+        var rows = await Task.Run(() => BuildRows(table, columns)).WaitAsync(cancellationToken).ConfigureAwait(true);
         if (!_disposed)
         {
             // Idle before the change events: the wizard re-evaluates Dalej on them (CanGoNext reads IsBusy), and a WPF
@@ -636,6 +734,7 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IDisposable
                 : L.BulkCreate.SummaryHeader,
                 table.Rows.Count,
                 table.Columns.Count);
+        Status.SetIdle(Summary);
         RefreshWarnings();
     }
 

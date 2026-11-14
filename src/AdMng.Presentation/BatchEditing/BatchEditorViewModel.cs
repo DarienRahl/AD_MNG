@@ -68,8 +68,9 @@ public enum BatchSourceMode
 /// the part done and Stop, executing them (<see cref="ExecutionStatus"/>: the progress of the activity, Stop cancels
 /// it, the result names the domain), that the session of the window ended - and, at rest, the summary of the step
 /// shown (<see cref="PreviewSummary"/>, <see cref="ResultSummary"/>). The source of the first step says its own
-/// (<see cref="SourceStatus"/>: reading the selected objects, or the CSV file) and is the page in front of the line
-/// while that step is shown, so reading the objects and checking the changes never replace one another. How a plan
+/// (<see cref="SourceStatus"/>: reading the selected objects, or the CSV file, or - in create mode - what the pages of the
+/// bulk creation wizard say) and is the page in front of the line while that step is shown, so reading the objects and
+/// checking the changes never replace one another. How a plan
 /// is made, checked and executed is unchanged (CLAUDE.md rule 5).</para>
 /// </remarks>
 public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPageStatus
@@ -183,11 +184,11 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
     public PageStatusHolder Status { get; }
 
     /// <summary>
-    /// What the source of the first step says - the list of selected objects (reading their names and types) or the
-    /// CSV import (reading the file); null in create mode, where the wizard still says its own on its pages. It is the
-    /// page in front of <see cref="Status"/> while the first step is shown.
+    /// What the source of the first step says - the list of selected objects (reading their names and types), the
+    /// CSV import (reading the file) or the bulk creation wizard (the page of its step that is shown). It is the page in
+    /// front of <see cref="Status"/> while the first step is shown.
     /// </summary>
-    public PageStatusHolder? SourceStatus => _targetsStatus ?? CsvImport?.Status;
+    public PageStatusHolder? SourceStatus => _targetsStatus ?? CsvImport?.Status ?? BulkCreate?.Status;
 
     public bool IsCsvMode => Mode == BatchSourceMode.Csv;
 
@@ -875,9 +876,12 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
         }
 
         _targetsStatus?.Operation?.Dispose();
-        BulkCreate?.OnSessionEnded();
         Error = SessionEndedMessage;
         Status.SetLasting(SessionEndedStatus);
+
+        // After the state of the window: a check of the wizard that is still running ends without a message, and the line
+        // goes from "working" straight to the end of the session (V2b-2 Dialogs 22).
+        BulkCreate?.OnSessionEnded();
         PreviewCommand.NotifyCanExecuteChanged();
         ExecuteCommand.NotifyCanExecuteChanged();
         RetryFailedCommand.NotifyCanExecuteChanged();

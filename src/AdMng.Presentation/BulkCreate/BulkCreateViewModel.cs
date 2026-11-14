@@ -4,6 +4,7 @@ using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -37,7 +38,17 @@ public enum BulkCreateStep
 /// in <c>BulkCreateViewModel.Plan.cs</c> (B4). Everything lives in memory of the window and is dropped on
 /// <see cref="Dispose"/> (rule 1).
 /// </summary>
-public sealed partial class BulkCreateViewModel : ObservableObject, IDisposable
+/// <remarks>
+/// <b>One status line for the whole wizard</b> (<see cref="Status"/>; track V, stage V2b-4, design note
+/// docs/dev/v-interface-renewal.md "V2b-4 as built"): the wizard is hosted in the first step of the batch editor, whose one
+/// line is the line of the wizard too - <see cref="BatchEditing.BatchEditorViewModel.SourceStatus"/> is this holder, and it
+/// is the page in front of the window's own while that step is shown. The holder says nothing of its own: the page that is
+/// shown says its status - <em>Dane</em> (<see cref="BulkSourceViewModel.Status"/>), <em>Nazwy i opcje</em>
+/// (<see cref="BulkRulesViewModel.Status"/>), <em>Sprawdzenie</em> (<see cref="BulkCheckViewModel.Status"/>); <em>Kolumny</em>
+/// has nothing to say but notes. The plan, its preview and the execution are the window's (<c>Status</c> of the batch
+/// editor says them), and so is the end of the session.
+/// </remarks>
+public sealed partial class BulkCreateViewModel : ObservableObject, IHasPageStatus, IDisposable
 {
     private readonly Func<IDirectorySession?> _session;
     private readonly bool _initialized;
@@ -62,6 +73,7 @@ public sealed partial class BulkCreateViewModel : ObservableObject, IDisposable
         _session = session ?? throw new ArgumentNullException(nameof(session));
         Connector = connector;
         var localizer = services.Localizer;
+        Status = new PageStatusHolder(localizer, services.Dispatcher, services.Lists.StatusLog);
         Kinds = [.. BulkCreateTextKeys.Kinds.Select(k => new Option<ObjectKind>(k, localizer[BulkCreateTextKeys.KindKey(k)]))];
         Kind = Kinds.FirstOrDefault(o => o.Value == request.Kind) ?? Kinds[0];
         ContainerDn = string.IsNullOrWhiteSpace(request.ParentDn) ? null : request.ParentDn;
@@ -76,6 +88,7 @@ public sealed partial class BulkCreateViewModel : ObservableObject, IDisposable
         Rules.Changed += OnStepChanged;
         Check.Changed += OnCheckChanged;
         localizer.CultureChanged += OnCultureChanged;
+        UpdateFront();
         _initialized = true;
     }
 
@@ -83,6 +96,12 @@ public sealed partial class BulkCreateViewModel : ObservableObject, IDisposable
     public event EventHandler? Changed;
 
     public DialogServices Services { get; }
+
+    /// <summary>
+    /// What the wizard says in the status line of the batch editor: nothing of its own - the page of the step that is
+    /// shown is the page in front (<see cref="PageStatusHolder.Front"/>), so the line says what that page says.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     internal BatchEngines Engines { get; }
 
@@ -288,6 +307,23 @@ public sealed partial class BulkCreateViewModel : ObservableObject, IDisposable
 
     private bool CanGoPrevious() => !_disposed && Step > BulkCreateStep.Source;
 
+    /// <summary>The page of the step shown is the one the status line follows (<em>Kolumny</em> has no status of its own).</summary>
+    private void UpdateFront()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        Status.Front = Step switch
+        {
+            BulkCreateStep.Source => Source.Status,
+            BulkCreateStep.Rules => Rules.Status,
+            BulkCreateStep.Check => Check.Status,
+            _ => null,
+        };
+    }
+
     partial void OnKindChanged(Option<ObjectKind> oldValue, Option<ObjectKind> newValue)
     {
         if (!_initialized || _revertingKind || oldValue is null || oldValue.Value == newValue.Value)
@@ -378,6 +414,7 @@ public sealed partial class BulkCreateViewModel : ObservableObject, IDisposable
         }
 
         _disposed = true;
+        Status.Front = null;
         Services.Localizer.CultureChanged -= OnCultureChanged;
         Source.Changed -= OnSourceChanged;
         Source.TableReplaced -= OnTableReplaced;

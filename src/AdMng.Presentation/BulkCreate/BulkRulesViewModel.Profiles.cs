@@ -3,6 +3,7 @@ using AdMng.Core.Batch.Creation;
 using AdMng.Core.Ldap;
 using AdMng.Core.Security;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Settings;
@@ -52,7 +53,10 @@ public sealed partial class BulkRulesViewModel
     [ObservableProperty]
     public partial string? SaveHeadersText { get; private set; }
 
-    /// <summary>The result of the last profile command (<em>Zapisano profil „…”</em>) or its problem.</summary>
+    /// <summary>
+    /// The result of the last profile command (<em>Zapisano profil „…”</em>) or its problem - the sentence the step has always
+    /// had; the line of the batch editor says it as a result (<see cref="Status"/>).
+    /// </summary>
     [ObservableProperty]
     public partial string? ProfileStatus { get; private set; }
 
@@ -79,12 +83,12 @@ public sealed partial class BulkRulesViewModel
         profile.DefaultForContainers = existing.DefaultForContainers;
         if (!await _store.SaveAsync(profile).ConfigureAwait(true))
         {
-            ProfileStatus = Services.Localizer.Format(L.BulkCreate.TooManyProfiles, BulkCreateSettings.MaxProfiles);
+            ProfileRefused(L.BulkCreateStatus.ProfileNotSaved, Services.Localizer.Format(L.BulkCreate.TooManyProfiles, BulkCreateSettings.MaxProfiles));
             return;
         }
 
         _baseline = Signature(profile);
-        ProfileStatus = SavedText(profile.Name);
+        ProfileSaved(profile.Name);
         Revalidate(raise: false);
     }
 
@@ -104,7 +108,7 @@ public sealed partial class BulkRulesViewModel
         var name = (NewProfileName ?? string.Empty).Trim();
         if (name.Length == 0)
         {
-            ProfileStatus = localizer[L.BulkCreate.ProfileNameRequired];
+            ProfileRefused(L.BulkCreateStatus.ProfileNotSaved, localizer[L.BulkCreate.ProfileNameRequired]);
             return;
         }
 
@@ -115,7 +119,7 @@ public sealed partial class BulkRulesViewModel
 
         if (_store.ProfilesFor(Kind).Any(p => string.Equals(p.Name, name, StringComparison.CurrentCultureIgnoreCase)))
         {
-            ProfileStatus = localizer.Format(L.BulkCreate.ProfileNameTaken, name);
+            ProfileRefused(L.BulkCreateStatus.ProfileNotSaved, localizer.Format(L.BulkCreate.ProfileNameTaken, name));
             return;
         }
 
@@ -125,7 +129,7 @@ public sealed partial class BulkRulesViewModel
         profile.DefaultForContainers = [];
         if (!await _store.SaveAsync(profile).ConfigureAwait(true))
         {
-            ProfileStatus = localizer.Format(L.BulkCreate.TooManyProfiles, BulkCreateSettings.MaxProfiles);
+            ProfileRefused(L.BulkCreateStatus.ProfileNotSaved, localizer.Format(L.BulkCreate.TooManyProfiles, BulkCreateSettings.MaxProfiles));
             return;
         }
 
@@ -143,7 +147,7 @@ public sealed partial class BulkRulesViewModel
         RefreshProfileList();
         _baseline = Signature(profile);
         IsNamingProfile = false;
-        ProfileStatus = SavedText(name);
+        ProfileSaved(name);
         RefreshProfileState();
         Revalidate(raise: false);
     }
@@ -153,6 +157,7 @@ public sealed partial class BulkRulesViewModel
     {
         IsNamingProfile = false;
         ProfileStatus = null;
+        Status.Clear();
     }
 
     /// <summary><em>Usuń</em>: deletes the selected saved profile (asks) and returns to <em>Standardowy</em>.</summary>
@@ -178,7 +183,7 @@ public sealed partial class BulkRulesViewModel
         }
 
         ApplyProfile(_store.BuiltIns(Kind)[0], warn: false);
-        ProfileStatus = localizer.Format(L.BulkCreate.ProfileDeleted, selected.Text);
+        ProfileDone(localizer.Format(L.BulkCreate.ProfileDeleted, selected.Text), L.BulkCreate.ProfileDeleted);
     }
 
     private bool CanDeleteProfile() => !IsBuiltInProfile && Profile is not null;
@@ -190,7 +195,7 @@ public sealed partial class BulkRulesViewModel
         var localizer = Services.Localizer;
         if (IsBuiltInProfile || _profileId is not { } id)
         {
-            ProfileStatus = localizer[L.BulkCreate.DefaultNeedsSavedProfile];
+            ProfileRefused(L.BulkCreateStatus.DefaultNotChanged, localizer[L.BulkCreate.DefaultNeedsSavedProfile]);
             BeginSaveAs();
             SaveAsDefaultForContainer = true;
             return;
@@ -209,7 +214,8 @@ public sealed partial class BulkRulesViewModel
         }
 
         RefreshProfileState();
-        ProfileStatus = localizer.Format(makeDefault ? L.BulkCreate.ProfileIsDefault : L.BulkCreate.ProfileNotDefault, Profile?.Text ?? string.Empty);
+        var key = makeDefault ? L.BulkCreate.ProfileIsDefault : L.BulkCreate.ProfileNotDefault;
+        ProfileDone(localizer.Format(key, Profile?.Text ?? string.Empty), key);
     }
 
     private void BeginSaveAs()
@@ -224,12 +230,34 @@ public sealed partial class BulkRulesViewModel
         IsNamingProfile = true;
     }
 
-    private string SavedText(string name)
+    /// <summary>The profile was saved: <em>Zapisano profil „…”. Zapamiętane kolumny: …</em> - the sentence and its result.</summary>
+    private void ProfileSaved(string name)
     {
         var headers = Columns.StorableHeaderNames();
-        return headers.Count == 0
-            ? Services.Localizer.Format(L.BulkCreate.ProfileSaved, name)
-            : Services.Localizer.Format(L.BulkCreate.ProfileSavedWithHeaders, name, string.Join(", ", headers));
+        if (headers.Count == 0)
+        {
+            ProfileDone(Services.Localizer.Format(L.BulkCreate.ProfileSaved, name), L.BulkCreate.ProfileSaved);
+        }
+        else
+        {
+            ProfileDone(Services.Localizer.Format(L.BulkCreate.ProfileSavedWithHeaders, name, string.Join(", ", headers)), L.BulkCreate.ProfileSavedWithHeaders, headers.Count);
+        }
+    }
+
+    /// <summary>What the profile command did: the sentence of <see cref="ProfileStatus"/> and a "done" in the line. The log copy is the key and a count.</summary>
+    private void ProfileDone(string text, string key, params long[] counts)
+    {
+        ProfileStatus = text;
+        Status.Show(PageStatus.Done(text, new PageStatusLog(key, counts)));
+    }
+
+    /// <summary>A profile command that changed nothing: <see cref="ProfileStatus"/> keeps the reason, the line says "what was skipped: why".</summary>
+    private void ProfileRefused(string leadKey, string reason)
+    {
+        ProfileStatus = reason;
+        Status.Show(PageStatus.Attention(
+            PageStatusText.Failure(Services.Localizer[leadKey], reason),
+            new PageStatusLog(leadKey)));
     }
 
     // ---- Selection ----------------------------------------------------------------------------------------------
@@ -369,6 +397,9 @@ public sealed partial class BulkRulesViewModel
             IsNamingProfile = false;
             OptionsError = null;
             PasswordError = null;
+
+            // What the line said was about the profile that was left (6.7: a result goes with what it was about).
+            Status.Clear();
         }
         finally
         {

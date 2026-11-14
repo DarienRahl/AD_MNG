@@ -9,6 +9,7 @@ using AdMng.Core.Schema;
 using AdMng.Core.Security;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.PropertySheets;
@@ -32,8 +33,14 @@ namespace AdMng.Presentation.BulkCreate;
 /// The first free number comes from <see cref="IBulkCreatePlanner.PreviewCounterAsync"/> on entering the step and after a
 /// counter change. Nothing of the table, the samples or the shared password is stored: a saved profile holds patterns,
 /// options, header names and portable DNs only (rule 1, rule 2).
+/// <para><b>What the step says</b> (<see cref="Status"/>; track V, stage V2b-4, design note docs/dev/v-interface-renewal.md
+/// "V2b-4 as built"): the answers to the presses of the step - a profile was saved, deleted or made the default of the
+/// container, or why it was not (<see cref="ProfileStatus"/> keeps its sentence), and why the account that can join computers
+/// could not be set. They are shown in the one line of the batch editor while this step is in front. Why <em>Dalej</em> is
+/// not possible (<see cref="Error"/>), the pattern errors, the warnings about the suffixes and the groups and the first free
+/// number are not status: they are true of the fields next to them for as long as the fields are shown and stay notes.</para>
 /// </remarks>
-public sealed partial class BulkRulesViewModel : ObservableObject, IDisposable
+public sealed partial class BulkRulesViewModel : ObservableObject, IHasPageStatus, IDisposable
 {
     private readonly BulkCreateProfileStore _store;
     private readonly ISchemaCatalog? _openedSchema;
@@ -70,6 +77,7 @@ public sealed partial class BulkRulesViewModel : ObservableObject, IDisposable
         Lookups = lookups ?? throw new ArgumentNullException(nameof(lookups));
         Kind = kind;
         var localizer = services.Localizer;
+        Status = new PageStatusHolder(localizer, services.Dispatcher, services.Lists.StatusLog);
         PasswordModes = [.. Enum.GetValues<InitialPasswordMode>().Select(m => new Option<InitialPasswordMode>(m, localizer[BulkCreateTextKeys.InitialModeKey(m)]))];
         CounterModes = [.. Enum.GetValues<CounterMode>().Select(m => new Option<CounterMode>(m, localizer[BulkCreateTextKeys.CounterModeKey(m)]))];
         CollisionStrategies = [.. Enum.GetValues<CollisionStrategy>().Select(s => new Option<CollisionStrategy>(s, localizer[BulkCreateTextKeys.CollisionKey(s)]))];
@@ -96,6 +104,12 @@ public sealed partial class BulkRulesViewModel : ObservableObject, IDisposable
     public event EventHandler? Changed;
 
     internal DialogServices Services { get; }
+
+    /// <summary>
+    /// What the step says: the result of a profile command and why the account that can join computers was not set. The
+    /// wizard puts it in front of the status line of the batch editor while step 3 is shown.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     internal BulkColumnsViewModel Columns { get; }
 
@@ -464,6 +478,9 @@ public sealed partial class BulkRulesViewModel : ObservableObject, IDisposable
             if (principal?.ObjectSid is not { } sid)
             {
                 OptionsError = Services.Localizer[L.BulkCreate.JoinerNotFound];
+                Status.Show(PageStatus.Attention(
+                    PageStatusText.Failure(Services.Localizer[L.BulkCreateStatus.JoinerNotSet], OptionsError),
+                    new PageStatusLog(L.BulkCreateStatus.JoinerNotSet)));
                 return;
             }
 
@@ -472,11 +489,21 @@ public sealed partial class BulkRulesViewModel : ObservableObject, IDisposable
                 ? $"{session.Info.DomainNetBiosName ?? session.Info.DomainDnsName}\\{login}"
                 : principal.Name;
             Joiner = DirectoryItem.From(principal, Services.Localizer);
-            OptionsError = null;
+            if (OptionsError is not null)
+            {
+                // What was said about the account before is over.
+                OptionsError = null;
+                Status.Clear();
+            }
         }
         catch (Exception ex) when (ex is DirectoryException or InvalidOperationException or ObjectDisposedException)
         {
+            // A short read after a picker is no operation of its own: its failure is said at once (Dialogs 10).
             OptionsError = Services.Errors.Translate(ex);
+            var code = ResultCode.Of(ex);
+            Status.Show(PageStatus.Error(
+                PageStatusText.Failure(Services.Localizer[L.BulkCreateStatus.JoinerNotRead], OptionsError, null, code),
+                new PageStatusLog(L.BulkCreateStatus.JoinerNotRead).WithCode(code)));
         }
 
         OnOptionEdited();

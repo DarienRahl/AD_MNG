@@ -937,7 +937,14 @@ public sealed partial class BulkCreateViewModel
     }
 
     /// <summary>Wires the Excel row of step 1 into the check step once the wizard moves (the host's constructor is the contract's).</summary>
-    partial void OnStepChanged(BulkCreateStep value) => Check.ExcelRowOffset ??= () => Source.ExcelRowOffset;
+    partial void OnStepChanged(BulkCreateStep value)
+    {
+        Check.ExcelRowOffset ??= () => Source.ExcelRowOffset;
+        if (_initialized)
+        {
+            UpdateFront();
+        }
+    }
 
     partial void OnDisposingPlan()
     {
