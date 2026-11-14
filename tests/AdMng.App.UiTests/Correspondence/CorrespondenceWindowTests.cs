@@ -422,7 +422,7 @@ public sealed class CorrespondenceWindowTests
         Assert.Equal("0", window.FailedCountText.Text);
         Assert.NotEmpty(vm.Send.Results);
         Assert.Equal(vm.Send.Results.Count, window.ResultsList.Items.Count);
-        Assert.Equal(PageStatusKind.Done, window.PageStatus.Status.Kind);
+        Assert.Equal(PageStatusKind.Done, window.PageStatus.Kind);
         Assert.Equal(vm.Send.Status.Current.Message, window.PageStatus.Message);
         Assert.StartsWith(vm.Send.ProgressText, window.PageStatus.Message, StringComparison.Ordinal);
         Assert.Equal(RecipientStatusKind.Sent, Assert.Single(vm.Recipients.Items).StatusKind);
