@@ -98,7 +98,11 @@ public sealed class ConnectorTests
             new LdapDirectoryConnector().ConnectAsync(options, new NetworkCredential(string.Empty, "x"), TestContext.Current.CancellationToken));
 
         Assert.Equal(DirectoryErrorKind.ServerUnavailable, error.Kind);
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5));
+
+        // The connect timeout (2 s) decides, not the request timeout (60 s by default). The bound is wide on purpose:
+        // the test projects of the solution run side by side on CI, and a loaded runner once delivered this failure
+        // after 6 s.
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(20), $"Took {stopwatch.Elapsed}.");
     }
 
     [Fact]

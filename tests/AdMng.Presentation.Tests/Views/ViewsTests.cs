@@ -86,7 +86,7 @@ public class ViewsTests
     {
         var harness = await TestHarness.ConnectedAsync();
         harness.Dialogs.PickedContainers.Enqueue(It);
-        var editor = new SavedViewEditorViewModel(harness.Sessions, harness.Dialogs, harness.Localizer, harness.Errors);
+        var editor = new SavedViewEditorViewModel(harness.Sessions, harness.Dialogs, harness.Localizer, harness.Errors, harness.Dispatcher);
         bool? closed = null;
         editor.CloseRequested += (_, saved) => closed = saved;
 

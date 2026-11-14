@@ -58,7 +58,13 @@ public sealed class ServiceEndToEndTests(LabFixture lab)
 
         var me = await client.GetMeAsync(Ct);
         Assert.Contains(WatchdogRole.Admin, me.Roles);
-        await Poll.UntilAsync(() => client.GetStatusAsync(Ct), s => s.Directory.BaselineCompletedAt is not null, Timeout, "the baseline", Ct);
+        await Poll.UntilAsync(
+            () => client.GetStatusAsync(Ct),
+            s => s.Directory.BaselineCompletedAt is not null,
+            Timeout,
+            "the baseline",
+            Ct,
+            s => DescribeService(s, service.Log));
 
         // Configuration through the API (as the GUI does it): SMTP, recipients, a signed webhook, no holds or windows –
         // the new-accounts rule limited to the test's OU (the service watches the whole shared lab).
@@ -242,6 +248,17 @@ public sealed class ServiceEndToEndTests(LabFixture lab)
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// For a wait that timed out: what the service says about its directory reader and the end of its log. The log has
+    /// no directory values and no secrets (<see cref="AssertLogIsClean"/> is the rule it is held to), so it may be printed.
+    /// </summary>
+    private static string DescribeService(StatusDto status, CapturingLoggerProvider log)
+    {
+        var lines = log.Lines;
+        return $"directory {JsonSerializer.Serialize(status.Directory, WatchdogJson.Options)}; the last {Math.Min(lines.Count, 60)} of {lines.Count} log lines:"
+            + Environment.NewLine + string.Join(Environment.NewLine, lines.Skip(Math.Max(0, lines.Count - 60)));
     }
 
     private static void AssertLogIsClean(CapturingLoggerProvider log, params string[] secrets)

@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy.Management;
@@ -27,7 +26,6 @@ namespace AdMng.Core.GroupPolicy.Diagnostics;
 public static class GroupPolicyDiagnosticsReader
 {
     private const int PageSize = 500;
-    private const int SysvolParallelism = 4;
     private const int SidChunk = 50;
 
     /// <summary>The snapshot of <paramref name="request"/>.</summary>
@@ -186,77 +184,20 @@ public static class GroupPolicyDiagnosticsReader
         IProgress<GpoDiagnosticsProgress>? progress,
         CancellationToken cancellationToken)
     {
-        // The GPOs in scope with their ACL, the others (conflicts) for their content only.
-        var work = inScope.Distinct().Select(id => (Id: id, Security: true))
-            .Concat(others.Distinct().Select(id => (Id: id, Security: false)))
-            .DistinctBy(w => w.Id)
+        // The GPOs in scope with their ACL, the others (conflicts) for their content only - the K7 folder reader (21.1).
+        var work = inScope.Distinct().Select(id => new GpoFolderRequest(id, WithSecurity: true))
+            .Concat(others.Distinct().Select(id => new GpoFolderRequest(id, WithSecurity: false)))
+            .DistinctBy(w => w.GpoId)
             .ToList();
-        var result = new ConcurrentDictionary<Guid, GpoFolderState>();
-        var done = 0;
-        progress?.Report(new GpoDiagnosticsProgress(GpoDiagnosticsStage.Folders, 0, work.Count));
-        await using var throttled = new ThrottledSysvolConnection(sysvol, SysvolParallelism);
-        await Parallel.ForEachAsync(work, new ParallelOptions { MaxDegreeOfParallelism = SysvolParallelism, CancellationToken = cancellationToken }, async (item, token) =>
-        {
-            result[item.Id] = await ReadFolderAsync(throttled, item.Id, item.Security, token).ConfigureAwait(false);
-            progress?.Report(new GpoDiagnosticsProgress(GpoDiagnosticsStage.Folders, Interlocked.Increment(ref done), work.Count));
-        }).ConfigureAwait(false);
-        return new Dictionary<Guid, GpoFolderState>(result);
+        var folderProgress = progress is null ? null : new FolderProgress(progress);
+        var results = await GpoFolderReader.ReadAsync(sysvol, work, GpoFolderReadOptions.Default, folderProgress, cancellationToken).ConfigureAwait(false);
+        return results.ToDictionary(r => r.Key, r => r.Value.ToState());
     }
 
-    private static async Task<GpoFolderState> ReadFolderAsync(ISysvolWriteConnection sysvol, Guid gpoId, bool withSecurity, CancellationToken cancellationToken)
+    /// <summary>The folder reader's counts as the diagnostics' Folders stage (reported as they come, as before K7).</summary>
+    private sealed class FolderProgress(IProgress<GpoDiagnosticsProgress> inner) : IProgress<GpoFolderReadProgress>
     {
-        GpoFolderContent content;
-        try
-        {
-            content = await GroupPolicyReader.ReadFolderAsync(sysvol, gpoId, cancellationToken).ConfigureAwait(false);
-        }
-        catch (SysvolWriteException ex) when (ex.Error == SysvolWriteError.NotFound)
-        {
-            // The folder, or a file listed and gone before it was read (a save going on): only the former is missing.
-            var missing = await FolderMissingAsync(sysvol, gpoId, cancellationToken).ConfigureAwait(false);
-            return new GpoFolderState { Status = missing ? GpoFolderReadStatus.NotFound : GpoFolderReadStatus.Failed };
-        }
-        catch (SysvolWriteException ex) when (ex.Error is SysvolWriteError.AccessDenied or SysvolWriteError.LogonFailure)
-        {
-            return new GpoFolderState { Status = GpoFolderReadStatus.AccessDenied };
-        }
-        catch (GpoTooLargeException)
-        {
-            return new GpoFolderState { Status = GpoFolderReadStatus.TooLarge };
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
-        {
-            // Any other failure of one folder (SYSVOL error, a path SYSVOL rejects …) leaves only that folder unread.
-            return new GpoFolderState { Status = GpoFolderReadStatus.Failed };
-        }
-
-        byte[]? security = null;
-        if (withSecurity)
-        {
-            try
-            {
-                security = await sysvol.GetGpoFolderSecurityAsync(gpoId, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
-            {
-                security = null; // the ACL rule is skipped for this folder
-            }
-        }
-
-        return GpoFolderState.Of(content, security, withSecurity);
-    }
-
-    /// <summary>After "not found" while reading a folder: the GPO's folder itself does not exist (false when that cannot be told).</summary>
-    private static async Task<bool> FolderMissingAsync(ISysvolWriteConnection sysvol, Guid gpoId, CancellationToken cancellationToken)
-    {
-        try
-        {
-            return !await sysvol.GpoFolderExistsAsync(gpoId, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
-        {
-            return false;
-        }
+        public void Report(GpoFolderReadProgress value) => inner.Report(new GpoDiagnosticsProgress(GpoDiagnosticsStage.Folders, value.Done, value.Total));
     }
 
     /// <summary>

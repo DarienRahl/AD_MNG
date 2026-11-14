@@ -9,7 +9,15 @@ internal static class Poll
 {
     public static readonly TimeSpan Interval = TimeSpan.FromMilliseconds(500);
 
-    public static async Task<T> UntilAsync<T>(Func<Task<T>> probe, Func<T, bool> done, TimeSpan timeout, string what, CancellationToken cancellationToken)
+    // describe: what the failure says about the last answer when the wait timed out (the state of the service, the end
+    // of its log) - a timeout alone names no cause.
+    public static async Task<T> UntilAsync<T>(
+        Func<Task<T>> probe,
+        Func<T, bool> done,
+        TimeSpan timeout,
+        string what,
+        CancellationToken cancellationToken,
+        Func<T, string>? describe = null)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(timeout);
@@ -27,7 +35,9 @@ internal static class Poll
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                Assert.Fail($"{what} did not happen within {timeout}.");
+                Assert.Fail(describe is null
+                    ? $"{what} did not happen within {timeout}."
+                    : $"{what} did not happen within {timeout}. Last seen: {describe(value)}");
             }
         }
     }

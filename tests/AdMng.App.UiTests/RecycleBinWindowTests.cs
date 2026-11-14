@@ -7,6 +7,7 @@ using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,9 +34,13 @@ public sealed class RecycleBinWindowTests
         await UiWait.InitializedAsync(window.Initialization);
         await UiTestSupport.WaitForIdleAsync();
         Assert.False(window.ViewModel.IsConnected);
-        Assert.Equal(Visibility.Visible, window.ErrorBar.Visibility);
-        Assert.Equal(window.ViewModel.Error, window.ErrorText.Text);
-        Assert.Equal(window.ViewModel.BannerText, window.BannerText.Text);
+
+        // Not connected: said once, by the status line (track V, stage V2b) - an error that cannot be closed. The note
+        // about the forest is not shown: there is no forest to speak of.
+        Assert.Equal(PageStatusKind.Error, window.PageStatus.Kind);
+        Assert.Equal(window.ViewModel.Error, window.PageStatus.Message);
+        Assert.False(window.PageStatus.CanClose);
+        Assert.False(window.Banner.IsVisible);
         Assert.False(window.RestoreButton.IsEnabled);
         Assert.False(window.RestoreToButton.IsEnabled);
         Assert.False(window.RefreshButton.IsEnabled);
@@ -72,9 +77,14 @@ public sealed class RecycleBinWindowTests
         var bin = window.ViewModel;
         Assert.True(bin.IsRecycleBinEnabled);
         Assert.Equal(2, window.ItemsList.Items.Count);
-        Assert.Equal(Visibility.Collapsed, window.ErrorBar.Visibility);
         Assert.Equal(Visibility.Collapsed, window.EmptyHint.Visibility);
-        Assert.Equal(bin.StatusText, window.StatusText.Text);
+
+        // The summary of the list is in the status line; with the Recycle Bin the note about the forest is information.
+        Assert.Equal(PageStatusKind.Idle, window.PageStatus.Kind);
+        Assert.Equal(bin.StatusText, window.PageStatus.Message);
+        Assert.True(window.EnabledNote.IsVisible);
+        Assert.False(window.TombstoneNote.IsVisible);
+        Assert.Equal(bin.BannerText, window.BannerText.Text);
         var jan = bin.Items.Single(r => r.Name == "Jan Kowalski");
         Assert.Equal("contoso.test/Firma/Pracownicy/IT", jan.OriginalLocation);
         Assert.Contains(bin.Items, r => r.Name == "KRK-LT001");
@@ -93,7 +103,8 @@ public sealed class RecycleBinWindowTests
         Assert.True(window.ConfirmButton.IsEnabled);
         Assert.Equal(bin.ConfirmText, window.ConfirmButton.Content);
         Assert.False(window.RestoreButton.IsVisible);
-        Assert.Equal(bin.PreviewSummary, window.PreviewSummaryText.Text);
+        Assert.Equal(PageStatusKind.Idle, window.PageStatus.Kind);
+        Assert.Equal(bin.PreviewSummary, window.PageStatus.Message);
 
         // Restore: the object is back, the bin lists only the computer, the open OU=IT list shows the user again.
         await bin.ConfirmRestoreCommand.ExecuteAsync(null);
@@ -106,6 +117,10 @@ public sealed class RecycleBinWindowTests
         Assert.Equal("KRK-LT001", Assert.Single(bin.Items).Name);
         Assert.Single(window.ItemsList.Items);
         Assert.True(window.RestoreButton.IsVisible);
+
+        // What happened and where - in the status line of the window.
+        Assert.Equal(PageStatusKind.Done, window.PageStatus.Kind);
+        Assert.Contains(" was executed in contoso.test: 1 object changed.", window.PageStatus.Message, StringComparison.Ordinal);
         await UiWait.UntilAsync(() => document.Items.Any(r => r.Name == "Jan Kowalski"), "the restored user in the OU=IT list");
         context.AssertHealthy();
     });
@@ -128,7 +143,12 @@ public sealed class RecycleBinWindowTests
 
         Assert.Equal("Kosz Active Directory – contoso.test", window.Title);
         Assert.True(window.ViewModel.IsRecycleBinDisabled);
-        Assert.StartsWith("Kosz Active Directory nie jest włączony", window.BannerText.Text, StringComparison.Ordinal);
+
+        // Without the Recycle Bin the note about the forest is an "attention" - a note, not a banner.
+        Assert.True(window.TombstoneNote.IsVisible);
+        Assert.False(window.EnabledNote.IsVisible);
+        Assert.Same(Application.Current.FindResource("Ad.Note.Attention"), window.TombstoneNote.Style);
+        Assert.StartsWith("Kosz Active Directory nie jest włączony", window.TombstoneNoteText.Text, StringComparison.Ordinal);
         var row = Assert.Single(window.ViewModel.Items);
         Assert.Equal("Żaneta Szymańska", row.Name);
         Assert.Equal("Użytkownik", row.TypeText);

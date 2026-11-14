@@ -1,6 +1,29 @@
 admng-watchdog (@VERSION@) unstable; urgency=medium
 
   * No change in how the service works and no database migration.
+  * Rebuilt for AD Manager 0.15.0 (creating multiple accounts from a pasted
+    sheet and the read-only AD CS overview – AD Manager features that do not
+    use the service). The certificate template flag names in change
+    notifications now come from the shared AD CS flag table; the names and
+    their order are unchanged.
+  * debian/copyright declares the Apache-2.0 license of the project.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Tue, 10 Nov 2026 09:00:00 +0000
+
+admng-watchdog (0.14.0-1) unstable; urgency=medium
+
+  * No change in how the service works and no database migration.
+  * Rebuilt for AD Manager 0.14.0 (GPO settings search, copying settings
+    and the GPO cleanup advisor – AD Manager features that do not use the
+    service). The shared Group Policy Preferences parser now enumerates
+    items through one method; the content snapshots it produces are
+    unchanged.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Mon, 09 Nov 2026 08:00:00 +0000
+
+admng-watchdog (0.13.0-1) unstable; urgency=medium
+
+  * No change in how the service works and no database migration.
   * Rebuilt for AD Manager 0.13.0 (stabilization and pilot readiness: the
     environment readiness check and the problem report are AD Manager
     features; the readiness check reads the existing /me and /status

@@ -4,12 +4,12 @@
              xmlns:b="clr-namespace:AdMng.App.Behaviors"
              xmlns:c="clr-namespace:AdMng.App.Controls"
              xmlns:l="clr-namespace:AdMng.App.Localization"
-             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              AutomationProperties.Name="{Binding Title, Mode=OneWay}">
   <UserControl.Resources>
-    <!-- Compact density for the list (ADUC-like): Fluent reads these keys as dynamic resources. -->
-    <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
-
+    <!--
+      Compact density for the list (ADUC-like). Rows: the style below (height 26 = Ad.Size.Row, the theme's minimum of
+      40 switched off). Column headers: b:Density.ColumnHeaderHeight on the list (Ad.Size.ColumnHeader).
+    -->
     <Style x:Key="ObjectRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
       <Setter Property="Height" Value="26" />
       <Setter Property="MinHeight" Value="0" />
@@ -90,12 +90,34 @@
                 ToolTip="{l:Tr Common.Clear}"
                 Visibility="{Binding Text, ElementName=QuickFilterBox, Converter={StaticResource Ad.EmptyToCollapsed}}" />
       </Grid>
-      <!-- Group Policy (K2): "Zasady grupy" of the domain or OU shown (or selected). -->
+      <!--
+        Group Policy (K2): "Zasady grupy" of the domain or OU shown (or selected) - the picture of a group policy object
+        and the name of the command. The command comes from the shell of the main window (b:CommandMenu); a host
+        without it (the Find window) has no such button instead of one that does nothing.
+      -->
       <Button x:Name="GroupPolicyButton"
               Margin="0,0,8,0"
+              Padding="8,3,10,3"
               VerticalAlignment="Center"
               b:CommandMenu.Id="gpo.containerPolicies"
-              DockPanel.Dock="Right" />
+              DockPanel.Dock="Right">
+        <Button.Style>
+          <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Style.Triggers>
+              <Trigger Property="Command" Value="{x:Null}">
+                <Setter Property="Visibility" Value="Collapsed" />
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </Button.Style>
+        <StackPanel Orientation="Horizontal">
+          <c:ObjectIconView Margin="0,0,6,0"
+                            VerticalAlignment="Center"
+                            Icon="GroupPolicy"
+                            Size="16" />
+          <TextBlock VerticalAlignment="Center" Text="{l:Tr GroupPolicy.ContainerPoliciesCommand}" />
+        </StackPanel>
+      </Button>
       <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
         <c:ObjectIconView Margin="0,0,8,0"
                           VerticalAlignment="Center"
@@ -111,8 +133,20 @@
       </StackPanel>
     </DockPanel>
 
+    <!--
+      Status line (track V, stage V2; design note 6.1): the one place where the list says what it is doing and what
+      happened - the summary of what is loaded and selected, a running load with Stop, a stopped load with Refresh, a
+      failed one with Retry. Always there and of a fixed height: the rows under it never jump. A host that shows the
+      status of this list in its own line (the Find window) switches it off with ShowStatusLine="False".
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Grid.Row="1"
+                  Margin="0,0,0,2"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
     <!-- Server side quick filters (chips) -->
-    <DockPanel Grid.Row="1"
+    <DockPanel Grid.Row="2"
                Margin="8,0,8,2"
                Style="{StaticResource ChipsRowStyle}">
       <TextBlock Margin="0,4,8,0"
@@ -163,20 +197,9 @@
       </StackPanel>
     </DockPanel>
 
-    <!-- Loading indicator with "stop" -->
-    <DockPanel Grid.Row="2"
-               Margin="8,0,8,2"
-               Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <Button Margin="8,0,0,0"
-              Command="{Binding CancelLoadCommand}"
-              Content="{l:Tr Commands.CancelLoad}"
-              DockPanel.Dock="Right"
-              Padding="8,2" />
-      <ProgressBar VerticalAlignment="Center" IsIndeterminate="{Binding IsLoading, Mode=OneWay}" />
-    </DockPanel>
-
     <Grid Grid.Row="3">
       <ListView x:Name="List"
+                b:Density.ColumnHeaderHeight="{StaticResource Ad.Size.ColumnHeader}"
                 b:DynamicColumns.SortCommand="{Binding SortCommand}"
                 b:DynamicColumns.Source="{Binding Columns}"
                 AutomationProperties.Name="{Binding Title, Mode=OneWay}"
@@ -223,6 +246,8 @@
               <MenuItem b:CommandMenu.Id="new.ou" />
               <MenuItem b:CommandMenu.Id="new.computer" />
               <MenuItem b:CommandMenu.Id="new.contact" />
+              <Separator />
+              <MenuItem b:CommandMenu.Id="new.bulkCreate" />
             </MenuItem>
             <Separator />
             <MenuItem b:CommandMenu.Id="object.addToGroup" />
@@ -276,28 +301,6 @@
           </ContextMenu>
         </ListView.ContextMenu>
       </ListView>
-
-      <!-- Load error with retry -->
-      <Border Margin="16,40,16,0"
-              VerticalAlignment="Top"
-              Style="{StaticResource Ad.ErrorBar}"
-              Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <DockPanel>
-          <TextBlock Margin="0,0,10,0"
-                     DockPanel.Dock="Left"
-                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                     Style="{StaticResource Ad.GlyphText}"
-                     Text="{x:Static c:Glyphs.Error}" />
-          <Button Margin="10,0,0,0"
-                  Command="{Binding RefreshCommand}"
-                  Content="{l:Tr Common.Retry}"
-                  DockPanel.Dock="Right" />
-          <TextBlock VerticalAlignment="Center"
-                     AutomationProperties.LiveSetting="Assertive"
-                     Text="{Binding Error, Mode=OneWay}"
-                     TextWrapping="Wrap" />
-        </DockPanel>
-      </Border>
 
       <TextBlock Margin="0,60,0,0"
                  HorizontalAlignment="Center"

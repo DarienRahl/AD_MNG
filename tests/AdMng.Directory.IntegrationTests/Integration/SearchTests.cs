@@ -246,7 +246,10 @@ public sealed class SearchTests(LabFixture lab)
     public async Task ParallelSearches_ShareThePool()
     {
         LabSettings.RequireLab();
-        var search = new DirectorySearch { BaseDn = LabSettings.CompanyOu, Filter = UsersFilter, PageSize = 50, SizeLimit = 120 };
+        // One page per search: the Samba lab DC sometimes drops a connection under parallel load (LDAP 81, see LabFixture).
+        // A first page moves to another pooled connection; a later page cannot (its paging cookie is bound to the
+        // connection), so a multi-page search here would test the lab, not the pool. Paging is covered above.
+        var search = new DirectorySearch { BaseDn = LabSettings.CompanyOu, Filter = UsersFilter, PageSize = 120, SizeLimit = 120 };
 
         var results = await Task.WhenAll(Enumerable.Range(0, 12).Select(_ =>
             Collect(lab.Admin.SearchAsync(search, TestContext.Current.CancellationToken))));

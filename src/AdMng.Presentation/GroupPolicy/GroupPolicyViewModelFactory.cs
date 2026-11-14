@@ -1,8 +1,10 @@
 using AdMng.Core.Computers.Remote;
 using AdMng.Core.Csv;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
+using AdMng.Presentation.GroupPolicy.Cleanup;
 using AdMng.Presentation.GroupPolicy.Diagnostics;
 using AdMng.Presentation.GroupPolicy.Modeling;
+using AdMng.Presentation.GroupPolicy.Search;
 using AdMng.Presentation.GroupPolicy.SecuritySettings;
 
 namespace AdMng.Presentation.GroupPolicy;
@@ -12,7 +14,8 @@ namespace AdMng.Presentation.GroupPolicy;
 /// <see cref="GroupPolicyServices"/> and <see cref="GroupPolicyActions"/>. Closing a tab disposes its document.
 /// </summary>
 public sealed class GroupPolicyViewModelFactory(GroupPolicyServices services, GroupPolicyActions actions, PolicyDefinitionsService? definitions = null,
-    PolicyTemplatePackageLoader? loader = null, IHostAddressResolver? resolver = null, ICsvCodec? csv = null)
+    PolicyTemplatePackageLoader? loader = null, IHostAddressResolver? resolver = null, ICsvCodec? csv = null,
+    IGpoSettingsIndexService? index = null)
 {
     public GroupPolicyServices Services { get; } = services ?? throw new ArgumentNullException(nameof(services));
 
@@ -20,6 +23,12 @@ public sealed class GroupPolicyViewModelFactory(GroupPolicyServices services, Gr
 
     /// <summary>The ADMX templates of the window (K3).</summary>
     public PolicyDefinitionsService Definitions { get; } = definitions ?? new PolicyDefinitionsService();
+
+    /// <summary>
+    /// The window's settings index (K7, 21.3) – the scoped service in the app; the fallback instance is for test harnesses
+    /// that pass none (it is not disposed by the factory).
+    /// </summary>
+    public IGpoSettingsIndexService Index { get; } = index ?? new GpoSettingsIndexService(services!);
 
     /// <summary>The packages of "Zaktualizuj szablony" (K3).</summary>
     public PolicyTemplatePackageLoader Loader { get; } = loader ?? new PolicyTemplatePackageLoader();
@@ -63,6 +72,8 @@ public sealed class GroupPolicyViewModelFactory(GroupPolicyServices services, Gr
             GroupPolicyDocumentKind.Objects => new GroupPolicyObjectsDocumentViewModel(Services, Actions) { UpdateTemplates = UpdateTemplatesAsync },
             GroupPolicyDocumentKind.Modeling => new GroupPolicyModelingDocumentViewModel(Services, Actions, Definitions, request, resolver, csv),
             GroupPolicyDocumentKind.Diagnostics => new GroupPolicyDiagnosticsDocumentViewModel(Services, Actions, csv),
+            GroupPolicyDocumentKind.SettingsSearch => new GpoSettingsSearchDocumentViewModel(Services, Actions, Index, request.SearchText, csv),
+            GroupPolicyDocumentKind.Cleanup => new GpoCleanupDocumentViewModel(Services, Actions, Index, csv),
             _ => throw new ArgumentException("The request names no GPO or container.", nameof(request)),
         };
     }
@@ -81,6 +92,8 @@ public sealed class GroupPolicyViewModelFactory(GroupPolicyServices services, Gr
             (SecuritySettingsEditorViewModel editor, GroupPolicyDocumentKind.SecuritySettings) => editor.GpoId == request.GpoId,
             (GroupPolicyModelingDocumentViewModel model, GroupPolicyDocumentKind.Modeling) => model.Matches(request),
             (GroupPolicyDiagnosticsDocumentViewModel, GroupPolicyDocumentKind.Diagnostics) => true,
+            (GpoSettingsSearchDocumentViewModel, GroupPolicyDocumentKind.SettingsSearch) => true,
+            (GpoCleanupDocumentViewModel, GroupPolicyDocumentKind.Cleanup) => true,
             (GroupPolicyScopeDocumentViewModel scope, GroupPolicyDocumentKind.Scope) =>
                 request.ContainerDn is { } dn && Core.Ldap.DistinguishedName.AreEqual(scope.ContainerDn, dn),
             _ => false,

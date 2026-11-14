@@ -1,6 +1,10 @@
 <!--
   "New Object" for users, groups, OUs, computers and contacts (modal). The sections are shown by object kind; the
   password boxes are handed to the view model as IPasswordInput adapters and never bound.
+  Feedback (track V, stage V2b): one status line at the top (PageStatus) says that the object is being created, why
+  nothing was created (a field is missing, the name is taken, the planner refused) or why the creation failed, and
+  that the window has no session. An object that was created says nothing here - the dialog closes. What belongs to
+  one field stays next to it: whether the logon name is free, and - as a note - what two password options mean together.
 -->
 <Window x:Class="AdMng.App.Views.NewObjectWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -80,28 +84,44 @@
   </Window.Resources>
 
   <DockPanel>
+    <!--
+      Footer. OK stays a plain button: the creation it starts cannot be stopped from this window (its execution is an
+      activity of the connection). That the object is being created, and why it was not, is said in the status line.
+    -->
     <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
-      <DockPanel>
-        <ProgressBar Width="72"
-                     VerticalAlignment="Center"
-                     DockPanel.Dock="Left"
-                     IsIndeterminate="{Binding IsBusy, Mode=OneWay}"
-                     Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-          <Button x:Name="CreateButton"
-                  Command="{Binding CreateCommand}"
-                  Content="{l:Tr Common.Ok}"
-                  IsDefault="True"
-                  Style="{StaticResource Ad.AccentDialogButton}" />
-          <Button Command="{Binding CancelCommand}"
-                  Content="{l:Tr Common.Cancel}"
-                  IsCancel="True"
-                  Style="{StaticResource Ad.DialogButton}" />
-        </StackPanel>
-      </DockPanel>
+      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+        <!-- F3 (docs/dev/phase3-bulk-create.md 2.6): the bulk creation wizard for the same kind and parent -->
+        <Button x:Name="BulkCreateButton"
+                Margin="0,0,16,0"
+                Command="{Binding OpenBulkCreateCommand}"
+                Content="{l:Tr BulkCreate.SeveralAtOnce}"
+                Style="{StaticResource Ad.DialogButton}"
+                ToolTip="{l:Tr BulkCreate.SeveralAtOnceToolTip}"
+                Visibility="{Binding CanOpenBulkCreate, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <Button x:Name="CreateButton"
+                Command="{Binding CreateCommand}"
+                Content="{l:Tr Common.Ok}"
+                IsDefault="True"
+                Style="{StaticResource Ad.AccentDialogButton}" />
+        <Button x:Name="CancelButton"
+                Command="{Binding CancelCommand}"
+                Content="{l:Tr Common.Cancel}"
+                IsCancel="True"
+                Style="{StaticResource Ad.DialogButton}" />
+      </StackPanel>
     </Border>
 
-    <StackPanel Margin="24,14,24,16">
+    <!--
+      Status line (design note 6.1 and "V2b-2 as built", Dialogs): at the top, above "Create in"; declared after the
+      footer, so Tab goes from OK to what the line offers. Its picture stands over the left edge of the content.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="16,8,16,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
+    <StackPanel Margin="24,8,24,16">
       <!-- Where the object is created -->
       <DockPanel>
         <c:ObjectIconView x:Name="KindIcon"
@@ -221,13 +241,19 @@
         <CheckBox Margin="0,6,0,0"
                   Content="{l:Tr Uac.AccountDisable}"
                   IsChecked="{Binding AccountDisabled}" />
-        <Border Margin="0,8,0,0"
-                Style="{StaticResource Ad.WarningBar}"
-                Visibility="{Binding PasswordOptionsWarning, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-          <TextBlock AutomationProperties.LiveSetting="Polite"
+        <!--
+          A note: what the two options above mean together - true for as long as both are ticked, whatever the window
+          is doing.
+        -->
+        <ContentControl x:Name="PasswordOptionsNote"
+                        Margin="0,8,0,0"
+                        Style="{StaticResource Ad.Note.Attention}"
+                        Visibility="{Binding PasswordOptionsWarning, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <TextBlock x:Name="PasswordOptionsNoteText"
+                     AutomationProperties.LiveSetting="Polite"
                      Text="{Binding PasswordOptionsWarning, Mode=OneWay}"
                      TextWrapping="Wrap" />
-        </Border>
+        </ContentControl>
       </StackPanel>
 
       <!-- ===== Group ===== -->
@@ -351,24 +377,6 @@
                    Text="{Binding PreWindows2000Note, Mode=OneWay}"
                    TextWrapping="Wrap" />
       </StackPanel>
-
-      <!-- Validation / creation error -->
-      <Border Margin="0,14,0,0"
-              Style="{StaticResource Ad.ErrorBar}"
-              Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <DockPanel>
-          <TextBlock Margin="0,1,10,0"
-                     VerticalAlignment="Top"
-                     DockPanel.Dock="Left"
-                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                     Style="{StaticResource Ad.GlyphText}"
-                     Text="{x:Static c:Glyphs.Error}" />
-          <TextBlock x:Name="ErrorTextBlock"
-                     AutomationProperties.LiveSetting="Assertive"
-                     Text="{Binding Error, Mode=OneWay}"
-                     TextWrapping="Wrap" />
-        </DockPanel>
-      </Border>
     </StackPanel>
   </DockPanel>
 </Window>

@@ -1,0 +1,190 @@
+<!--
+  Step 2 "Kolumny" of the bulk creation wizard (BulkColumnsViewModel, docs/dev/phase3-bulk-create.md 2.6): one row per column
+  of the sheet with its samples, the target (Pomiń, Atrybut, Tylko we wzorcach, Imię i nazwisko, Menedżer, Grupy, Kraj/region,
+  Konto wygasa), the attribute (an editable, virtualized combo of the class's writable attributes from the live schema with
+  their Polish labels), the name order, the case and the suggestion note with the "Format międzynarodowy" offer.
+-->
+<UserControl x:Class="AdMng.App.BulkCreate.BulkColumnsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:bc="clr-namespace:AdMng.Presentation.BulkCreate;assembly=AdMng.Presentation"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:local="clr-namespace:AdMng.App.BulkCreate"
+             AutomationProperties.Name="{l:Tr BulkCreate.StepColumns}">
+  <UserControl.Resources>
+    <Style x:Key="BulkAttributeComboBox" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+      <Setter Property="IsEditable" Value="True" />
+      <Setter Property="IsTextSearchEnabled" Value="False" />
+      <Setter Property="DisplayMemberPath" Value="Text" />
+      <Setter Property="TextSearch.TextPath" Value="Text" />
+      <Setter Property="MaxDropDownHeight" Value="320" />
+      <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+      <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+      <Setter Property="ItemsPanel">
+        <Setter.Value>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="MappingRow" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,3" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+    </Style>
+  </UserControl.Resources>
+
+  <DockPanel>
+    <DockPanel Margin="0,0,0,8" DockPanel.Dock="Top">
+      <Button x:Name="AutoMapButton"
+              Margin="12,0,0,0"
+              VerticalAlignment="Top"
+              Command="{Binding AutoMapCommand}"
+              Content="{l:Tr BulkCreate.AutoMap}"
+              DockPanel.Dock="Right" />
+      <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                 Text="{l:Tr BulkCreate.ColumnsHint}"
+                 TextTrimming="None"
+                 TextWrapping="Wrap" />
+    </DockPanel>
+
+    <!-- Why Dalej is not possible yet -->
+    <DockPanel Margin="0,0,0,8"
+               DockPanel.Dock="Top"
+               Visibility="{Binding MappingError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <TextBlock Margin="0,1,6,0"
+                 VerticalAlignment="Top"
+                 DockPanel.Dock="Left"
+                 FontSize="12"
+                 Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                 Style="{StaticResource Ad.GlyphText}"
+                 Text="{x:Static c:Glyphs.Warning}" />
+      <TextBlock x:Name="MappingErrorText"
+                 AutomationProperties.LiveSetting="Polite"
+                 Text="{Binding MappingError, Mode=OneWay}"
+                 TextWrapping="Wrap" />
+    </DockPanel>
+
+    <ListView x:Name="MappingList"
+              AutomationProperties.Name="{l:Tr BulkCreate.StepColumns}"
+              ItemContainerStyle="{StaticResource MappingRow}"
+              ItemsSource="{Binding Mappings, Mode=OneWay}"
+              VirtualizingPanel.IsVirtualizing="True"
+              VirtualizingPanel.VirtualizationMode="Recycling">
+      <ListView.View>
+        <GridView AllowsColumnReorder="False">
+          <GridViewColumn Width="170" Header="{l:Tr BulkCreate.ColumnHeader}">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type bc:BulkColumnMappingViewModel}">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock MinWidth="22"
+                             Margin="0,0,6,0"
+                             VerticalAlignment="Center"
+                             Style="{StaticResource Ad.SecondaryText}"
+                             Text="{Binding Letter, Mode=OneWay}" />
+                  <TextBlock MaxWidth="130"
+                             VerticalAlignment="Center"
+                             FontWeight="SemiBold"
+                             Text="{Binding Name, Mode=OneWay}"
+                             TextTrimming="CharacterEllipsis"
+                             ToolTip="{Binding Name, Mode=OneWay}" />
+                  <TextBlock Margin="6,0,0,0"
+                             VerticalAlignment="Center"
+                             Style="{StaticResource Ad.GlyphText}"
+                             Text="{x:Static c:Glyphs.Lock}"
+                             ToolTip="{l:Tr BulkCreate.MaskedColumnToolTip}"
+                             Visibility="{Binding IsPasswordLike, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                </StackPanel>
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Width="230" Header="{l:Tr BulkCreate.SamplesHeader}">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type bc:BulkColumnMappingViewModel}">
+                <TextBlock VerticalAlignment="Center"
+                           Style="{StaticResource Ad.SecondaryText}"
+                           Text="{Binding SamplesText, Mode=OneWay}"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip="{Binding SamplesText, Mode=OneWay}" />
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Width="190" Header="{l:Tr BulkCreate.TargetHeader}">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type bc:BulkColumnMappingViewModel}">
+                <ComboBox x:Name="TargetBox"
+                          MinWidth="170"
+                          AutomationProperties.Name="{Binding Name, Mode=OneWay}"
+                          DisplayMemberPath="Text"
+                          IsEnabled="{Binding CanMap, Mode=OneWay}"
+                          ItemsSource="{Binding DataContext.AvailableTargets, RelativeSource={RelativeSource AncestorType={x:Type local:BulkColumnsView}}, Mode=OneWay}"
+                          SelectedValue="{Binding Target}"
+                          SelectedValuePath="Value" />
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Width="260" Header="{l:Tr BulkCreate.AttributeHeader}">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type bc:BulkColumnMappingViewModel}">
+                <Grid MinWidth="240">
+                  <ComboBox x:Name="AttributeBox"
+                            AutomationProperties.Name="{Binding Name, Mode=OneWay}"
+                            ItemsSource="{Binding DataContext.AttributeOptions, RelativeSource={RelativeSource AncestorType={x:Type local:BulkColumnsView}}, Mode=OneWay}"
+                            Style="{StaticResource BulkAttributeComboBox}"
+                            Text="{Binding AttributeText, UpdateSourceTrigger=PropertyChanged}"
+                            Visibility="{Binding IsAttributeTarget, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                  <ComboBox x:Name="OrderBox"
+                            AutomationProperties.Name="{l:Tr BulkCreate.OrderHeader}"
+                            DisplayMemberPath="Text"
+                            ItemsSource="{Binding DataContext.NameOrders, RelativeSource={RelativeSource AncestorType={x:Type local:BulkColumnsView}}, Mode=OneWay}"
+                            SelectedValue="{Binding Order}"
+                            SelectedValuePath="Value"
+                            ToolTip="{l:Tr BulkCreate.OrderHeader}"
+                            Visibility="{Binding IsFullNameTarget, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                </Grid>
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Width="150" Header="{l:Tr BulkCreate.CaseHeader}">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type bc:BulkColumnMappingViewModel}">
+                <ComboBox x:Name="CaseBox"
+                          MinWidth="130"
+                          AutomationProperties.Name="{l:Tr BulkCreate.CaseHeader}"
+                          DisplayMemberPath="Text"
+                          ItemsSource="{Binding DataContext.Cases, RelativeSource={RelativeSource AncestorType={x:Type local:BulkColumnsView}}, Mode=OneWay}"
+                          SelectedValue="{Binding Case}"
+                          SelectedValuePath="Value"
+                          Visibility="{Binding CanChooseCase, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Width="260" Header="{l:Tr BulkCreate.NoteHeader}">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type bc:BulkColumnMappingViewModel}">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock MaxWidth="250"
+                             VerticalAlignment="Center"
+                             Style="{StaticResource Ad.SecondaryText}"
+                             Text="{Binding NoteText, Mode=OneWay}"
+                             TextTrimming="CharacterEllipsis"
+                             ToolTip="{Binding NoteText, Mode=OneWay}" />
+                  <Button x:Name="InternationalButton"
+                          Margin="8,0,0,0"
+                          Command="{Binding DataContext.UseInternationalPhonesCommand, RelativeSource={RelativeSource AncestorType={x:Type local:BulkColumnsView}}}"
+                          Content="{l:Tr BulkCreate.UseInternationalPhones}"
+                          Visibility="{Binding ShowsInternationalOffer, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                </StackPanel>
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+        </GridView>
+      </ListView.View>
+    </ListView>
+  </DockPanel>
+</UserControl>

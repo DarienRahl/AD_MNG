@@ -5,6 +5,7 @@ using AdMng.App.Correspondence;
 using AdMng.App.EventLogs;
 using AdMng.App.GroupPolicy;
 using AdMng.App.Localization;
+using AdMng.App.Pki;
 using AdMng.App.Readiness;
 using AdMng.App.Services;
 using AdMng.App.Views;
@@ -106,6 +107,7 @@ public static class AppHost
         services.AddSingleton<IRollbackPlanner, RollbackPlanner>();
         services.AddSingleton<IPowerShellExporter, PowerShellExporter>();
         services.AddSingleton<ICsvImportPlanner, CsvImportPlanner>();
+        services.AddSingleton<AdMng.Core.Batch.Creation.IBulkCreatePlanner, AdMng.Core.Batch.Creation.BulkCreatePlanner>();
         services.AddSingleton<BatchReportExporter>();
         services.AddSingleton<AuditLogExporter>();
 
@@ -127,6 +129,7 @@ public static class AppHost
 
         // Presentation layer.
         services.AddAdMngPresentation();
+        services.AddAdMngPkiApp();
         services.AddAttributeFormatter(schema => new AttributeFormatter(schema));
 
         // WPF implementations of the UI services: application-wide.
@@ -137,6 +140,13 @@ public static class AppHost
         services.AddSingleton<IAppShutdown, ApplicationShutdown>();
         services.AddSingleton<ThemeService>();
         services.AddSingleton<IThemeService>(sp => sp.GetRequiredService<ThemeService>());
+        services.AddSingleton<IconStyleService>();
+
+        // Motion (track V): one answer for the whole application; off for the whole run in a UI test run and in the
+        // smoke test, so tests and screenshots always see final values.
+        services.AddSingleton(sp => new MotionService(
+            sp.GetRequiredService<WpfUiDispatcher>(),
+            forcedOff: options.SmokeTest || MotionService.IsTestRun(Environment.GetEnvironmentVariable(MotionService.TestRunVariable))));
         services.AddSingleton<AppearanceService>();
 
         // Connection windows: one manager for the application, one scope per window.
@@ -233,15 +243,20 @@ public static class AppHost
     }
 
     /// <summary>
-    /// Loads the settings and applies language and theme. Call on the UI thread after <see cref="Build"/> and before
-    /// the first window is created (XAML texts bind to the localizer set here).
+    /// Loads the settings and applies the window background, language, theme, icon style and motion. Call on the UI thread
+    /// after <see cref="Build"/> and before the first window is created (XAML texts bind to the localizer set here, and
+    /// the theme reads the window background switch when the first window gets its style).
     /// </summary>
     public static async Task InitializeAsync(IServiceProvider services, StartupOptions options)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(options);
         TranslationSource.Localizer = services.GetRequiredService<ILocalizer>();
-        await services.GetRequiredService<ISettingsStore>().LoadAsync().ConfigureAwait(true);
+        var settings = services.GetRequiredService<ISettingsStore>();
+        await settings.LoadAsync().ConfigureAwait(true);
+
+        // Once per process, before the theme mode of the settings is applied and before any window exists.
+        WindowBackdrop.Apply(settings.Current.WindowBackground);
         services.GetRequiredService<AppearanceService>().Start(options.Language);
     }
 }

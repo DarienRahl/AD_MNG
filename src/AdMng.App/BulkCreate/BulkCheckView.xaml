@@ -1,0 +1,262 @@
+<!--
+  Step 4 "Sprawdzenie" of the bulk creation wizard (BulkCheckViewModel, docs/dev/phase3-bulk-create.md 2.7): the filter and the
+  row commands, the summary, the uniqueness scope, the run issues and the progress above a virtualized DataGrid. The include
+  check box and the status glyph are fixed columns; the value columns (Nr, Imię, Nazwisko frozen, Uwagi, the attributes,
+  Menedżer, Grupy) are generated in code-behind from BulkCheckViewModel.Columns and bound by index (Cells[i]).
+-->
+<UserControl x:Class="AdMng.App.BulkCreate.BulkCheckView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:batch="clr-namespace:AdMng.Presentation.BatchEditing;assembly=AdMng.Presentation"
+             xmlns:bc="clr-namespace:AdMng.Presentation.BulkCreate;assembly=AdMng.Presentation"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:conv="clr-namespace:AdMng.App.Converters"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             AutomationProperties.Name="{l:Tr BulkCreate.StepCheck}">
+  <UserControl.Resources>
+    <conv:RowSeverityToGlyphConverter x:Key="RowSeverityGlyph" />
+  </UserControl.Resources>
+  <UserControl.InputBindings>
+    <KeyBinding Key="F8" Command="{Binding NextErrorCommand}" />
+  </UserControl.InputBindings>
+
+  <DockPanel>
+    <!-- Filter and the row commands -->
+    <DockPanel Margin="0,0,0,8" DockPanel.Dock="Top">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+        <Button x:Name="NextErrorButton"
+                Command="{Binding NextErrorCommand}"
+                Content="{l:Tr BulkCheck.NextError}"
+                ToolTip="F8" />
+        <Button x:Name="CopyErrorRowsButton"
+                Margin="8,0,0,0"
+                Command="{Binding CopyErrorRowsCommand}"
+                Content="{l:Tr BulkCheck.CopyErrorRows}"
+                ToolTip="{l:Tr BulkCheck.CopyErrorRowsHint}" />
+        <Button x:Name="RecheckButton"
+                Margin="8,0,0,0"
+                Command="{Binding RecheckCommand}"
+                Content="{l:Tr BulkCheck.Recheck}"
+                ToolTip="{l:Tr BulkCheck.RecheckHint}" />
+        <Button x:Name="RenumberButton"
+                Margin="8,0,0,0"
+                Command="{Binding RenumberCommand}"
+                Content="{l:Tr BulkCheck.Renumber}"
+                ToolTip="{l:Tr BulkCheck.RenumberHint}" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Margin="0,0,8,0"
+                   VerticalAlignment="Center"
+                   Text="{l:Tr Common.Filter}" />
+        <ComboBox x:Name="FilterBox"
+                  MinWidth="180"
+                  AutomationProperties.Name="{l:Tr Common.Filter}"
+                  DisplayMemberPath="Text"
+                  ItemsSource="{Binding Filters, Mode=OneWay}"
+                  SelectedValue="{Binding Filter}"
+                  SelectedValuePath="Value" />
+      </StackPanel>
+    </DockPanel>
+
+    <!-- Summary and the uniqueness scope -->
+    <TextBlock x:Name="SummaryText"
+               AutomationProperties.LiveSetting="Polite"
+               DockPanel.Dock="Top"
+               FontWeight="SemiBold"
+               Text="{Binding Summary, Mode=OneWay}"
+               TextWrapping="Wrap" />
+    <TextBlock x:Name="ScopeNoteText"
+               Margin="0,2,0,0"
+               DockPanel.Dock="Top"
+               Style="{StaticResource Ad.SecondaryText}"
+               Text="{Binding ScopeNote, Mode=OneWay}"
+               TextWrapping="Wrap"
+               Visibility="{Binding ScopeNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+
+    <!-- The computation's error -->
+    <Border Margin="0,8,0,0"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.ErrorBar}"
+            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <DockPanel>
+        <TextBlock Margin="0,0,10,0"
+                   DockPanel.Dock="Left"
+                   Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Error}" />
+        <TextBlock x:Name="CheckError"
+                   AutomationProperties.LiveSetting="Assertive"
+                   Text="{Binding Error, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+      </DockPanel>
+    </Border>
+
+    <!-- Problems of the whole run (target, permissions, patterns, password policy …) -->
+    <Border x:Name="RunIssuesBar"
+            Margin="0,8,0,0"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.WarningBar}"
+            Visibility="{Binding RunIssues, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <DockPanel>
+        <TextBlock Margin="0,0,8,0"
+                   DockPanel.Dock="Left"
+                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Warning}" />
+        <StackPanel>
+          <TextBlock FontWeight="SemiBold" Text="{l:Tr BulkCheck.RunIssuesHeading}" />
+          <ItemsControl ItemsSource="{Binding RunIssues, Mode=OneWay}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Margin="0,2,0,0"
+                           Text="{Binding Mode=OneWay}"
+                           TextWrapping="Wrap" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- The grid shows an older computation -->
+    <Border Margin="0,8,0,0"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.WarningBar}"
+            Visibility="{Binding IsStale, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <TextBlock Text="{l:Tr BulkCheck.StaleNote}" TextWrapping="Wrap" />
+    </Border>
+
+    <!-- Progress of a computation -->
+    <StackPanel x:Name="ComputingPanel"
+                Margin="0,8,0,0"
+                DockPanel.Dock="Top"
+                Orientation="Horizontal"
+                Visibility="{Binding IsComputing, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <ProgressBar Width="200"
+                   VerticalAlignment="Center"
+                   AutomationProperties.Name="{l:Tr BulkCreate.StepCheck}"
+                   Maximum="{Binding TotalRows, Mode=OneWay}"
+                   Minimum="0"
+                   Value="{Binding ComputedRows, Mode=OneWay}" />
+      <TextBlock Margin="10,0,0,0"
+                 VerticalAlignment="Center"
+                 AutomationProperties.LiveSetting="Polite"
+                 Style="{StaticResource Ad.SecondaryText}">
+        <TextBlock.Text>
+          <MultiBinding Converter="{StaticResource Ad.Format}">
+            <l:TrBinding Key="BulkCheck.Computing" />
+            <Binding Mode="OneWay" Path="ComputedRows" />
+            <Binding Mode="OneWay" Path="TotalRows" />
+          </MultiBinding>
+        </TextBlock.Text>
+      </TextBlock>
+      <Button Margin="10,0,0,0"
+              Command="{Binding StopCommand}"
+              Content="{l:Tr Common.Stop}" />
+    </StackPanel>
+
+    <TextBlock Margin="0,6,0,0"
+               DockPanel.Dock="Bottom"
+               Style="{StaticResource Ad.SecondaryText}"
+               Text="{l:Tr BulkCheck.EditHint}"
+               TextWrapping="Wrap" />
+
+    <!-- The rows: two fixed columns, the rest generated from Columns (code-behind) -->
+    <Grid Margin="0,8,0,0">
+      <DataGrid x:Name="CheckGrid"
+                AutoGenerateColumns="False"
+                AutomationProperties.Name="{l:Tr BulkCreate.StepCheck}"
+                BeginningEdit="OnBeginningEdit"
+                CanUserAddRows="False"
+                CanUserDeleteRows="False"
+                CanUserReorderColumns="False"
+                CanUserSortColumns="False"
+                CellEditEnding="OnCellEditEnding"
+                ClipboardCopyMode="IncludeHeader"
+                ContextMenuOpening="OnContextMenuOpening"
+                EnableColumnVirtualization="True"
+                EnableRowVirtualization="True"
+                GridLinesVisibility="Horizontal"
+                HeadersVisibility="Column"
+                ItemsSource="{Binding Rows, Mode=OneWay}"
+                PreparingCellForEdit="OnPreparingCellForEdit"
+                ScrollViewer.CanContentScroll="True"
+                SelectedItem="{Binding SelectedRow}"
+                SelectionChanged="OnSelectionChanged"
+                SelectionMode="Single"
+                SelectionUnit="FullRow"
+                VirtualizingPanel.IsVirtualizing="True"
+                VirtualizingPanel.VirtualizationMode="Recycling">
+        <DataGrid.ContextMenu>
+          <ContextMenu>
+            <MenuItem x:Name="RevertCellItem" Header="{l:Tr BulkCheck.RevertCell}" />
+          </ContextMenu>
+        </DataGrid.ContextMenu>
+        <DataGrid.Columns>
+          <DataGridTemplateColumn x:Name="IncludeColumn"
+                                  Width="64"
+                                  Header="{l:Tr BulkCheck.ColumnInclude}">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type bc:CheckRowViewModel}">
+                <CheckBox MinWidth="0"
+                          MinHeight="0"
+                          Padding="0"
+                          HorizontalAlignment="Center"
+                          AutomationProperties.Name="{l:Tr BulkCheck.ColumnInclude}"
+                          IsChecked="{Binding IsIncluded, UpdateSourceTrigger=PropertyChanged}"
+                          IsEnabled="{Binding CanToggle, Mode=OneWay}" />
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn x:Name="StatusColumn"
+                                  Width="36"
+                                  Header="{l:Tr BulkCheck.ColumnStatus}"
+                                  IsReadOnly="True">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type bc:CheckRowViewModel}">
+                <TextBlock x:Name="StatusGlyph"
+                           HorizontalAlignment="Center"
+                           AutomationProperties.Name="{Binding StatusText, Mode=OneWay}"
+                           FontSize="13"
+                           Foreground="{DynamicResource SystemFillColorSuccessBrush}"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{Binding Severity, Mode=OneWay, Converter={StaticResource RowSeverityGlyph}}"
+                           ToolTip="{Binding StatusToolTip, Mode=OneWay}" />
+                <DataTemplate.Triggers>
+                  <DataTrigger Binding="{Binding Severity, Mode=OneWay}" Value="{x:Static batch:RowSeverity.Warning}">
+                    <Setter TargetName="StatusGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                  </DataTrigger>
+                  <DataTrigger Binding="{Binding Severity, Mode=OneWay}" Value="{x:Static batch:RowSeverity.Error}">
+                    <Setter TargetName="StatusGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                  </DataTrigger>
+                  <DataTrigger Binding="{Binding Severity, Mode=OneWay}" Value="{x:Static batch:RowSeverity.Info}">
+                    <Setter TargetName="StatusGlyph" Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                  </DataTrigger>
+                </DataTemplate.Triggers>
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+        </DataGrid.Columns>
+      </DataGrid>
+      <TextBlock Margin="0,60,0,0"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Top"
+                 Text="{l:Tr BulkCheck.NoRowsMatch}">
+        <TextBlock.Style>
+          <Style TargetType="TextBlock" BasedOn="{StaticResource Ad.SecondaryText}">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+              <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                  <Condition Binding="{Binding Rows.Count, Mode=OneWay}" Value="0" />
+                  <Condition Binding="{Binding IsComputing, Mode=OneWay}" Value="False" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Visibility" Value="Visible" />
+              </MultiDataTrigger>
+            </Style.Triggers>
+          </Style>
+        </TextBlock.Style>
+      </TextBlock>
+    </Grid>
+  </DockPanel>
+</UserControl>

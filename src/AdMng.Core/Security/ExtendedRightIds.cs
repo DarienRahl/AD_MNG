@@ -2,8 +2,8 @@ namespace AdMng.Core.Security;
 
 /// <summary>
 /// rightsGuid values of the extended rights, validated writes and property sets the pipeline writes into DACLs (the
-/// join right of a prestaged computer, K1; security filtering and delegation of Group Policy objects, K2). They are the
-/// same in every forest (schema and configuration constants).
+/// join right of a prestaged computer, K1; security filtering and delegation of Group Policy objects, K2; the template
+/// rights of AD CS, P1/P3). They are the same in every forest (schema and configuration constants).
 /// </summary>
 public static class ExtendedRightIds
 {
@@ -21,4 +21,10 @@ public static class ExtendedRightIds
 
     /// <summary>Apply Group Policy (Apply-Group-Policy), control access on a groupPolicyContainer.</summary>
     public static readonly Guid ApplyGroupPolicy = new("edacfd8f-ffb3-11d1-b41d-00a0c968f939");
+
+    /// <summary>Enroll (Certificate-Enrollment), control access on a pKICertificateTemplate (P1; P3's ModifySecurity).</summary>
+    public static readonly Guid CertificateEnrollment = new("0e10c968-78fb-11d2-90d4-00c04f79dc55");
+
+    /// <summary>Autoenroll (Certificate-AutoEnrollment), control access on a pKICertificateTemplate (P1; P3's ModifySecurity).</summary>
+    public static readonly Guid CertificateAutoEnrollment = new("a05b8cc2-17bc-4802-a710-e7c15ab866a2");
 }

@@ -22,7 +22,10 @@ public interface IDialogViewModelFactory
     /// <summary>For <see cref="IDialogService.ShowPropertiesAsync"/> (modeless).</summary>
     PropertySheetViewModel CreatePropertySheet(string distinguishedName);
 
-    /// <summary>For <see cref="IDialogService.ShowBatchEditorAsync"/> (modeless). Empty targets = CSV import.</summary>
+    /// <summary>
+    /// For <see cref="IDialogService.ShowBatchEditorAsync"/> (modeless). Empty targets = CSV import;
+    /// <see cref="BatchEditorRequest.Create"/> = the bulk creation wizard (docs/dev/phase3-bulk-create.md 2.6).
+    /// </summary>
     BatchEditorViewModel CreateBatchEditor(BatchEditorRequest request);
 
     /// <summary>For <see cref="IDialogService.ShowResetPasswordAsync"/> (modal).</summary>
@@ -129,7 +132,7 @@ public sealed class DialogViewModelFactory(
             EventLogLauncher = eventLogs,
         };
 
-    public BatchEditorViewModel CreateBatchEditor(BatchEditorRequest request) => new(services, engines, request);
+    public BatchEditorViewModel CreateBatchEditor(BatchEditorRequest request) => new(services, engines, request, connector);
 
     public ResetPasswordViewModel CreateResetPassword(IReadOnlyList<string> distinguishedNames) =>
         new(services, engines.Planner, engines.Reports, distinguishedNames);

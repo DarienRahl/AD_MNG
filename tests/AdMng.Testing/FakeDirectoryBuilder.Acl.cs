@@ -28,6 +28,16 @@ public sealed partial class FakeDirectoryBuilder
         public static readonly Guid ValidatedDnsHostName = new("72e39547-7b18-11d1-adef-00c04fd8d5cd");
         public static readonly Guid UserAccountRestrictions = new("4c164200-20c0-11d0-a768-00aa006e0529");
         public static readonly Guid ApplyGroupPolicy = new("edacfd8f-ffb3-11d1-b41d-00a0c968f939");
+
+        // AD CS (P1, docs/dev/p-certificate-services.md 2.3, 2.10): the template extended rights and the PKI classes.
+        public static readonly Guid CertificateEnrollment = new("0e10c968-78fb-11d2-90d4-00c04f79dc55");
+        public static readonly Guid CertificateAutoEnrollment = new("a05b8cc2-17bc-4802-a710-e7c15ab866a2");
+        public static readonly Guid PkiCertificateTemplate = new("e5209ca2-3bba-11d2-90cc-00c04fd91ab1");
+        public static readonly Guid PkiEnrollmentService = new("ee4aa692-3bba-11d2-90cc-00c04fd91ab1");
+        public static readonly Guid CertificationAuthority = new("3fdfee50-47f4-11d1-a9c3-0000f80367c1");
+        public static readonly Guid CrlDistributionPoint = new("167758ca-47f3-11d1-a9c3-0000f80367c1");
+        public static readonly Guid EnterpriseOid = new("37cfd85c-6719-4ad8-8f9e-8678ba627563");
+        public static readonly Guid PrivateKeyRecoveryAgent = new("1562a632-44b9-4a7e-a2d3-e426c96a3acc");
     }
 
     /// <summary>defaultSecurityDescriptor of the classes the review reads (as Windows Server 2025 / the Samba lab have them).</summary>
@@ -70,11 +80,14 @@ public sealed partial class FakeDirectoryBuilder
         ("Validated-DNS-Host-Name", AclGuids.ValidatedDnsHostName, 0x8),
         ("Membership", new("bc0ac240-79a9-11d0-9020-00c04fc2d4cf"), 0x30),
         ("User-Account-Restrictions", AclGuids.UserAccountRestrictions, 0x30),
+        ("Certificate-Enrollment", AclGuids.CertificateEnrollment, 0x100),
+        ("Certificate-AutoEnrollment", AclGuids.CertificateAutoEnrollment, 0x100),
     ];
 
     /// <summary>
     /// Seeds the classSchema objects (lDAPDisplayName, defaultSecurityDescriptor of <see cref="DefaultSecurityDescriptors"/>)
-    /// and CN=Extended-Rights in the configuration. Seeds <see cref="AddWatchdogInfrastructure"/> first when needed.
+    /// and CN=Extended-Rights in the configuration (what is already there is kept, so a second call adds nothing). Seeds
+    /// <see cref="AddWatchdogInfrastructure"/> first when needed.
     /// </summary>
     public void AddAclDefinitions()
     {
@@ -83,25 +96,39 @@ public sealed partial class FakeDirectoryBuilder
             AddWatchdogInfrastructure();
         }
 
-        foreach (var (name, sddl) in DefaultSecurityDescriptors)
-        {
-            Session.Seed(Dn("CN", name, SchemaDn), new Dictionary<string, object?>
-            {
-                [Attr.ObjectClass] = new[] { "top", "classSchema" },
-                ["lDAPDisplayName"] = name,
-                ["defaultSecurityDescriptor"] = sddl,
-            });
-        }
-
+        // Idempotent: the PKI samples (AddPublicKeySample, AddPublicKeyAclSample) call it too.
+        SeedClassDefaults(DefaultSecurityDescriptors);
         var rights = SeedConfigContainer("Extended-Rights", ConfigurationDn);
         foreach (var (name, guid, validAccesses) in ControlAccessRights)
         {
-            Session.Seed(Dn("CN", name, rights), new Dictionary<string, object?>
+            var dn = Dn("CN", name, rights);
+            if (!Session.Exists(dn))
             {
-                [Attr.ObjectClass] = new[] { "top", "controlAccessRight" },
-                ["rightsGuid"] = guid.ToString("D"),
-                ["validAccesses"] = validAccesses,
-            });
+                Session.Seed(dn, new Dictionary<string, object?>
+                {
+                    [Attr.ObjectClass] = new[] { "top", "controlAccessRight" },
+                    ["rightsGuid"] = guid.ToString("D"),
+                    ["validAccesses"] = validAccesses,
+                });
+            }
+        }
+    }
+
+    /// <summary>Seeds a classSchema object (lDAPDisplayName, defaultSecurityDescriptor) per class that is not seeded yet.</summary>
+    private void SeedClassDefaults(IReadOnlyDictionary<string, string> defaults)
+    {
+        foreach (var (name, sddl) in defaults)
+        {
+            var dn = Dn("CN", name, SchemaDn);
+            if (!Session.Exists(dn))
+            {
+                Session.Seed(dn, new Dictionary<string, object?>
+                {
+                    [Attr.ObjectClass] = new[] { "top", "classSchema" },
+                    ["lDAPDisplayName"] = name,
+                    ["defaultSecurityDescriptor"] = sddl,
+                });
+            }
         }
     }
 

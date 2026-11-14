@@ -11,6 +11,7 @@ using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Backup;
 using AdMng.Core.GroupPolicy.Security;
 using AdMng.Presentation.Changes;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.GroupPolicy.Modeling;
@@ -39,6 +40,7 @@ public sealed class GroupPolicyWindowTests
         {
             typeof(ChangePlanPreviewViewModel), typeof(NewGpoViewModel), typeof(GpoPickerViewModel), typeof(GpoBackupViewModel),
             typeof(GpoComparisonViewModel), typeof(WmiFilterEditorViewModel), typeof(CentralStoreUpdateViewModel),
+            typeof(Presentation.GroupPolicy.Copy.GpoCopySettingsViewModel),
         })
         {
             Assert.True(windows.IsRegistered(type), type.Name);
@@ -101,6 +103,15 @@ public sealed class GroupPolicyWindowTests
         Assert.True(update.EdgeButton.IsEnabled);
         Assert.False(update.UpdateButton.IsEnabled);
         Assert.Equal(Visibility.Collapsed, update.ErrorBar.Visibility);
+
+        // K7: "Kopiuj ustawienia" renders without a connection (it reads nothing; OK plans afterwards).
+        var copySettings = (GpoCopySettingsWindow)windows.CreateWindow(new Presentation.GroupPolicy.Copy.GpoCopySettingsViewModel(gp.Ui,
+            [new(new Core.GroupPolicy.Management.GpoUnitSelection(GroupPolicySamples.PasswordsId, "S|Computer|System Access|MinimumPasswordLength"),
+                "Stacje robocze – Zasady haseł", "Minimalna długość hasła", null, "12 znaków", null)], "Stacje robocze – Pulpit zdalny"));
+        UiTestSupport.ShowOffScreen(copySettings);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(copySettings.OkButton.IsEnabled);
+        Assert.Single(copySettings.ItemsList.Items);
         await UiTestSupport.WaitForIdleAsync();
         context.AssertHealthy();
     });
@@ -253,8 +264,10 @@ public sealed class GroupPolicyWindowTests
         Assert.Single(gpoView.LinksList.Items);
         Assert.True(gpoView.DeleteButton.IsEnabled);
         Assert.True(gpoView.RenameButton.IsEnabled);
-        // The button sits in the orphaned-folder bar, which is collapsed for a GPO with its folder.
-        Assert.False(gpoView.DeleteOrphanButton.IsVisible);
+        // "Usuń pozostały folder" is the action of the line of a GPO that is gone: this one exists, so the line says
+        // its summary and offers nothing.
+        Assert.Equal(PageStatusKind.Idle, gpoView.PageStatus.Kind);
+        Assert.False(gpoView.PageStatus.HasAction);
 
         // The settings of the security template and the status tab.
         gpoView.GpoTabs.SelectedItem = gpoView.SettingsTab;

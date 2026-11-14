@@ -5,8 +5,10 @@ System.DirectoryServices.Protocols. The main page `README.md` is in English and 
 keep both in sync (same sections and order; Polish docs link to `README.pl.md`). The product docs are in Polish in
 `docs/` and in English in `docs/en/` (same headings, numbering and order – update both; English file names:
 `COMPUTERS.md` = `KOMPUTERY.md`, `EVENT-LOGS.md` = `DZIENNIKI-ZDARZEN.md`, `GROUP-POLICY.md` = `ZASADY-GRUPY.md`,
-`CORRESPONDENCE.md` = `KORESPONDENCJA.md`, `PILOT.md` = `PILOTAZ.md`, ADRs under `docs/en/adr/`); the test lab READMEs
-are `README.md` (English) and `README.pl.md`. The English UI points to `docs/en/` (`Readiness.Doc.*` in `Strings.resx`).
+`CORRESPONDENCE.md` = `KORESPONDENCJA.md`, `PILOT.md` = `PILOTAZ.md`, `CERTIFICATES.md` = `CERTYFIKATY.md`,
+`CREATING-ACCOUNTS.md` = `ZAKLADANIE-KONT.md`, `GOALS.md` = `CELE.md`, ADRs under `docs/en/adr/`); the test lab
+READMEs are `README.md` (English) and `README.pl.md`. `tools/docs/check_docs.py` (CI job `checks`) verifies the pairs
+and every relative link. The English UI points to `docs/en/` (`Readiness.Doc.*` in `Strings.resx`).
 Code, comments, commit messages and these notes are in English.
 
 ## Non-negotiable rules
@@ -46,7 +48,10 @@ Code, comments, commit messages and these notes are in English.
    in a zeroed in-memory buffer of that tool, and the TGT cache of the service is the tmpfs `/run/admng-watchdog`.
 3. **Escape everything.** Build filters with `AdMng.Core.Ldap.LdapFilter`, DNs with `DistinguishedName`
    (`EscapeValue`, `Child`, `WithParent`). Never concatenate user input into filters/DNs.
-4. **One DC per session.** All reads and writes of an `IDirectorySession` go to the same DC.
+4. **One DC per session.** All reads and writes of an `IDirectorySession` go to the same DC. The only network paths
+   outside the session are the two of P1 (`docs/dev/p-certificate-services.md`, decision 1): the TLS handshake probe of
+   the window's domain controllers (handshake only – no bind, no data, no downloads) and the HTTP check of AIA/CDP
+   addresses, which runs only when the operator presses its button and sends no credentials to the target.
 5. **Every write goes through the change-plan pipeline** (`IChangePlanner`/`ChangePlan` → `IBatchExecutor`),
    also single-object edits from property pages, so preview, validation, audit and rollback work everywhere.
 6. **UI never blocks.** All directory calls are async with `CancellationToken`; long lists stream/virtualize.
@@ -55,8 +60,8 @@ Code, comments, commit messages and these notes are in English.
 
 | Project | Target | Purpose |
 |---|---|---|
-| `src/AdMng.Core` | net10.0 | DN/filter primitives, AD flags & converters, object/schema model, contracts (`Directory/`, `Batch/`, `Templates/`, `Csv/`, `Formatting/`, `Audit/`) and their pure implementations |
-| `src/AdMng.Directory` | net10.0 | S.DS.P implementation of `IDirectoryConnector`/`IDirectorySession` |
+| `src/AdMng.Core` | net10.0 | DN/filter primitives, AD flags & converters, object/schema model, contracts (`Directory/`, `Batch/`, `Templates/`, `Csv/`, `Formatting/`, `Audit/`) and their pure implementations; `Pki/` – the read-only AD CS model of P1 (`docs/dev/p-certificate-services.md`): PKI snapshot reader, certificate/CRL parsers, template flags and periods, enrollment rights evaluator, health rules, ESC analyzer, mapping and key credential parsers, the DC TLS probe contract (`Pki/Tls/`) |
+| `src/AdMng.Directory` | net10.0 | S.DS.P implementation of `IDirectoryConnector`/`IDirectorySession`; the DC LDAPS handshake probe (`Pki/SslStreamTlsProbe.cs`: TLS handshake only on 636/3269 – no LDAP bind, no client certificate, no application data, no chain downloads) |
 | `src/AdMng.Presentation` | net10.0 | View models (CommunityToolkit.Mvvm), UI service interfaces, localization (resx en + pl), settings. **No WPF types.** |
 | `src/AdMng.App` | net10.0-windows | WPF views (XAML), Generic Host/DI, Windows-only services |
 | `src/AdMng.Remote` | net10.0 | Remote actions on computers (K1): CIM over WinRM (`Microsoft.Management.Infrastructure`, Kerberos with the window's credentials, never stored), ping, local tools (mstsc, Computer Management, Event Viewer); used by the App only, never shipped in the Watchdog package |
@@ -110,6 +115,12 @@ tools/packaging/build-deb.sh --output artifacts/deb
 tools/packaging/build-openwec-deb.sh --release 13 --output artifacts/deb --source-tarball
 # install test as in CI: docker run --rm --cap-add=NET_ADMIN -v "$PWD:/src:ro" debian:13 bash \
 #   /src/tools/packaging/test-deb-install.sh /src/<admng-watchdog .deb> /src/packaging/admng-watchdog /src/<admng-openwec .deb>
+# checks of versions, release notes, Polish/English document pairs, links and resx keys (python3 only; CI job "checks")
+tools/release/release.sh check
+# release (docs/dev/releasing.md): one commit "Release X.Y.Z" from docs/releases/NEXT.md, then git push starts release.yml
+tools/release/release.sh status && tools/release/release.sh 0.16.0 --dry-run && tools/release/release.sh 0.16.0
+tools/release/release.sh prepare 0.16.0   # two-step path: "Prepare X.Y.Z", git push, wait for a green CI run, then
+tools/release/release.sh publish          # "Release notes X.Y.Z" with the marker of the Prepare commit, git push
 ```
 
 The WPF app cannot run on Linux; it is compiled here and tested on Windows CI
@@ -138,5 +149,11 @@ that subscribes to an application-wide event must unsubscribe in `Dispose`. Add 
 - README pictures (`docs/assets/screenshots`) are English UI screenshots rendered by `tests/AdMng.App.UiTests`
   (`ScreenshotTests*`, language from `ADMNG_SCREENSHOTS_LANGUAGE`) and committed by the CI job `readme-screenshots`
   (*Run workflow* with "Also commit the README pictures"); its file list must match the pictures both READMEs show.
+- Icons: the colourful icon set is drawn for this project (`docs/assets/icons`: SVG sources in a restricted subset,
+  palette and gallery in its README – never copy third-party icons). `tools/icon/build-icon-set.py` generates
+  `src/AdMng.App/Themes/Icons.xaml` (`Icon.<Name>`) and `Controls/AppIcons.cs`; do not edit the generated files
+  (`--check` runs in the CI job `checks`). The interface renewal is planned in `docs/dev/v-interface-renewal.md`.
 - User-visible strings only via localization resources (`AdMng.Presentation/Resources/Strings*.resx`; watchdog
   notifications: `AdMng.Watchdog.Core/Resources/NotificationStrings*.resx`), both `en` and `pl` entries required.
+- Every user-visible change adds its paragraph to `docs/releases/NEXT.md`, the draft of the next release notes
+  (`docs/dev/releasing.md`); releases are made with `tools/release/release.sh`, never by editing the version by hand.

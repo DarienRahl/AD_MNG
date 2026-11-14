@@ -2,7 +2,10 @@
   ADUC's "Logon Hours" dialog: the week as a 7 × 24 grid in the operator machine's local time (days in the UI culture's
   order, Polish: Monday first). Select by dragging over the cells, by the day and hour headers or the corner button,
   or with the keyboard on the grid (arrows, Shift, Home/End, Space, Ctrl+A); the radio buttons set the selection.
-  Pure editing: the caller turns the result into a change plan (nothing is written from here).
+  Pure editing: the caller turns the result into a change plan (nothing is written from here). So the dialog has no
+  status line (track V, stage V2b; docs/dev/v-interface-renewal.md "V2b-2 as built"): it starts no operation and
+  everything it says is true of the grid for as long as it is shown - notes next to it (why the hours cannot be
+  changed, a stored value the grid cannot show, a schedule that permits no hour).
 -->
 <Window x:Class="AdMng.App.Views.LogonHoursWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -115,22 +118,29 @@
         Texts are capped at the width of the time-zone note: the window sizes to its content, so an unbounded line (a
         long summary of a fragmented schedule) would widen it past the screen and push OK/Cancel out of sight.
       -->
-      <Border MaxWidth="720"
-              Margin="0,0,0,10"
-              Style="{StaticResource Ad.WarningBar}"
-              Visibility="{Binding ReadOnlyReason, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <TextBlock Text="{Binding ReadOnlyReason, Mode=OneWay}" TextWrapping="Wrap" />
-      </Border>
+      <!-- Why the hours cannot be changed here: a note about the grid below, for as long as the dialog is open. -->
+      <ContentControl x:Name="ReadOnlyNote"
+                      MaxWidth="720"
+                      Margin="0,0,0,10"
+                      HorizontalAlignment="Left"
+                      Style="{StaticResource Ad.Note.Attention}"
+                      Visibility="{Binding ReadOnlyReason, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+        <TextBlock x:Name="ReadOnlyReasonText"
+                   Text="{Binding ReadOnlyReason, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+      </ContentControl>
 
       <!-- The stored value is not 21 bytes: the grid cannot show it (it starts with every hour permitted). -->
-      <Border MaxWidth="720"
-              Margin="0,0,0,10"
-              Style="{StaticResource Ad.WarningBar}"
-              Visibility="{Binding InvalidValueNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <ContentControl x:Name="InvalidValueNote"
+                      MaxWidth="720"
+                      Margin="0,0,0,10"
+                      HorizontalAlignment="Left"
+                      Style="{StaticResource Ad.Note.Attention}"
+                      Visibility="{Binding InvalidValueNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
         <TextBlock x:Name="InvalidValueText"
                    Text="{Binding InvalidValueNote, Mode=OneWay}"
                    TextWrapping="Wrap" />
-      </Border>
+      </ContentControl>
 
       <!-- A header click (bubbling Click) hands the keyboard focus to the grid, so the keys continue from there. -->
       <Grid HorizontalAlignment="Left" ButtonBase.Click="OnHeaderClick">
@@ -281,16 +291,19 @@
                  TextTrimming="None"
                  TextWrapping="Wrap" />
 
-      <Border MaxWidth="720"
-              Margin="0,10,0,0"
-              Style="{StaticResource Ad.WarningBar}"
-              Visibility="{Binding IsNonePermitted, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <!-- No hour is permitted - the account could not log on at all: a note about the schedule shown, while it is so. -->
+      <ContentControl x:Name="NoneWarningNote"
+                      MaxWidth="720"
+                      Margin="0,10,0,0"
+                      HorizontalAlignment="Left"
+                      Style="{StaticResource Ad.Note.Attention}"
+                      Visibility="{Binding IsNonePermitted, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
         <!-- Announced by the code-behind when it appears (WPF raises no live region event by itself). -->
         <TextBlock x:Name="NoneWarningText"
                    AutomationProperties.LiveSetting="Assertive"
                    Text="{l:Tr LogonHours.NoneWarning}"
                    TextWrapping="Wrap" />
-      </Border>
+      </ContentControl>
 
       <TextBlock MaxWidth="720"
                  Margin="0,10,0,0"

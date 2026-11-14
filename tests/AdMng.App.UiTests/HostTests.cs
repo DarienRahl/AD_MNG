@@ -47,6 +47,8 @@ public sealed class HostTests
         Assert.NotNull(services.GetRequiredService<IRollbackPlanner>());
         Assert.NotNull(services.GetRequiredService<IPowerShellExporter>());
         Assert.NotNull(services.GetRequiredService<ICsvImportPlanner>());
+        Assert.NotNull(services.GetRequiredService<Core.Batch.Creation.IBulkCreatePlanner>());
+        Assert.Same(services.GetRequiredService<Core.Batch.Creation.IBulkCreatePlanner>(), services.GetRequiredService<Presentation.BatchEditing.BatchEngines>().BulkCreate);
         Assert.NotNull(services.GetRequiredService<ICsvCodec>());
         Assert.IsType<FakeDirectoryConnector>(services.GetRequiredService<IDirectoryConnector>());
 
@@ -133,6 +135,17 @@ public sealed class HostTests
             Assert.Same(first.GetRequiredService(type), second.GetRequiredService(type));
         }
 
+        // K7 (21.3): the Group Policy factory of a window uses that window's scoped settings index, not a fallback of its own.
+        Assert.Same(first.GetRequiredService<Presentation.GroupPolicy.Search.IGpoSettingsIndexService>(),
+            first.GetRequiredService<Presentation.GroupPolicy.GroupPolicyViewModelFactory>().Index);
+        Assert.Same(first.GetRequiredService<Presentation.GroupPolicy.Search.GpoSettingsIndexService>(),
+            first.GetRequiredService<Presentation.GroupPolicy.Search.IGpoSettingsIndexService>());
+
+        // P1 (2.10): one PKI cache per window behind both registrations, the one the window's PKI services and tree use.
+        Assert.Same(first.GetRequiredService<Presentation.Pki.IPkiSnapshotService>(), first.GetRequiredService<Presentation.Pki.PkiSnapshotService>());
+        Assert.Same(first.GetRequiredService<Presentation.Pki.IPkiSnapshotService>(), first.GetRequiredService<Presentation.Pki.PkiServices>().Snapshot);
+        Assert.Same(first.GetRequiredService<Presentation.Pki.PkiViewModelFactory>(), first.GetRequiredService<Presentation.Navigation.NavigationTreeViewModel>().Pki);
+
         // README U4: the grant sources (ACL delegations, local rights from GPOs) are stateless engines of the application;
         // a run reads through the session of the window that runs the review, never through a session of their own.
         Assert.All(registrations!.Where(d => d.ServiceType == typeof(IPrivilegeGrantSource)), d => Assert.Equal(ServiceLifetime.Singleton, d.Lifetime));
@@ -150,6 +163,8 @@ public sealed class HostTests
         typeof(Core.Computers.Remote.IPingService),
         typeof(Core.Computers.Remote.IHostAddressResolver),
         typeof(AppearanceService),
+        typeof(IconStyleService),
+        typeof(MotionService),
         typeof(ISysvolFileReader),
         typeof(WebView2Host),
         typeof(Presentation.Diagnostics.IWebView2Runtime),
@@ -162,6 +177,9 @@ public sealed class HostTests
         typeof(Presentation.Correspondence.ICorrespondenceKeyProtector),
         typeof(Presentation.Correspondence.ICorrespondencePlatform),
         typeof(Core.EventLogs.IEventLogConnector),
+
+        // AD CS (P1, W7): the DC LDAPS handshake probe (stateless; the UI tests replace it with the in-memory fake).
+        typeof(Core.Pki.Tls.IDomainControllerTlsProbe),
     ];
 
     /// <summary>
@@ -244,8 +262,18 @@ public sealed class HostTests
 
         Assert.Equal(NotificationService.MaxVisible, notifications.Toasts.Count);
         Assert.Equal("Komunikat 5", notifications.Toasts[^1].Message);
-        notifications.Toasts[0].DismissCommand.Execute(null);
+        var first = notifications.Toasts[0];
+        first.DismissCommand.Execute(null);
         Assert.Equal(NotificationService.MaxVisible - 1, notifications.Toasts.Count);
+
+        // Motion is off in the test host: a dismissed toast is gone at once and was never "leaving". Dismissing it
+        // again (the close button and the timeout can meet) changes nothing.
+        Assert.False(first.IsLeaving);
+        Assert.DoesNotContain(first, notifications.Toasts);
+        notifications.Dismiss(first);
+        first.DismissCommand.Execute(null);
+        Assert.Equal(NotificationService.MaxVisible - 1, notifications.Toasts.Count);
+        Assert.All(notifications.Toasts, toast => Assert.False(toast.IsLeaving));
         context.AssertHealthy();
     });
 }

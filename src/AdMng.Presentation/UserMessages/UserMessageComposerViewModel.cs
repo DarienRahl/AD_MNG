@@ -8,6 +8,7 @@ using AdMng.Core.Messaging;
 using AdMng.Core.Messaging.Html;
 using AdMng.Core.Model;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
@@ -25,7 +26,17 @@ namespace AdMng.Presentation.UserMessages;
 /// report (per recipient, retry failed, CSV on demand, one session log entry without content). Rendered messages and the
 /// report exist only in memory while the window is open.
 /// </summary>
-public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
+/// <remarks>
+/// The window has one status line (<see cref="Status"/>; track V, stage V2b, design note
+/// docs/dev/v-interface-renewal.md "V2b-2 as built"). The window says what it does with the messages: preparing the
+/// preview ("Reading the accounts (4) and preparing the messages…"), the test message, the send with the part done
+/// ("Sending the messages: 12 of 300…") - each with Stop - and how they ended; at rest the counts of the preview or of
+/// the report; and, as the state that lasts, that its session ended. While the editor is shown the editor says its own
+/// (<see cref="EditorStatus"/>, the page in front): pasting formatted content and what became of it. A text may name the
+/// domain and the operator's test address - never a recipient, the content of a message or the SMTP password; the log
+/// copy is a key with numbers.
+/// </remarks>
+public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, IHasPageStatus
 {
     /// <summary>Session log action of a send (<see cref="AuditEntry.Action"/>).</summary>
     public const string SessionLogAction = "SendUserMessages";
@@ -33,9 +44,13 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
     /// <summary>The pause in editing after which the HTML part of the template check runs (off the UI thread).</summary>
     public static readonly TimeSpan HtmlCheckDelay = TimeSpan.FromMilliseconds(300);
 
+    /// <summary>How many reasons the status line says at most (each once); the editor and the report show all of them.</summary>
+    private const int MaxSaidReasons = 3;
+
     private readonly UserMessageServices _messages;
     private readonly SerialCancellation _plans = new();
     private readonly List<UserMessageItemViewModel> _items = [];
+    private readonly AsyncRelayCommand _planAgainCommand;
     private MessageTemplate _working;
     private bool _loading;
     private IReadOnlyList<MessageIssue> _syntaxIssues = [];
@@ -43,15 +58,26 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
     private HtmlCheckKey? _htmlIssuesKey;
     private HtmlCheckKey? _htmlCheckPending;
     private Debouncer? _htmlCheck;
-    private CancellationTokenSource? _sending;
     private IUserMessageTransport? _transport;
     private Task _currentRun = Task.CompletedTask;
+
+    // The accounts of the plan made last (Retry in the status line plans the same accounts again), and the running
+    // operations of the window: the plan, which ends with the session, and the send, which Stop and closing cancel.
+    private IReadOnlyList<string> _lastPlanned = [];
+    private OperationScope? _planning;
+    private OperationScope? _sendRun;
 
     public UserMessageComposerViewModel(DialogServices services, UserMessageServices messages, UserMessageRequest request)
         : base(services)
     {
         _messages = messages ?? throw new ArgumentNullException(nameof(messages));
         ArgumentNullException.ThrowIfNull(request);
+        Status = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
+        EditorStatus = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
+
+        // The window opens in the editor: the editor is the page in front until the preview is shown.
+        Status.Front = EditorStatus;
+        _planAgainCommand = new AsyncRelayCommand(() => PlanCoreAsync(_lastPlanned), CanPlanAgain);
         Recipients = [.. request.DistinguishedNames
             .Where(dn => !string.IsNullOrWhiteSpace(dn))
             .DistinctBy(DnKey.For, StringComparer.Ordinal)
@@ -73,14 +99,29 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         _loading = false;
         LoadTemplate(template, request.ConditionDays);
         _messages.Templates.Changed += OnTemplatesChanged;
+        UpdateLasting();
     }
 
     public override string WindowTitle => Localizer.Format(L.UserMessages.WindowTitle, Recipients.Count);
 
+    /// <summary>
+    /// The status of the window - what its one status line shows: the window's own operations and results, the counts
+    /// of the step shown, its state that lasts or, while the editor is shown, what the editor says
+    /// (<see cref="EditorStatus"/>).
+    /// </summary>
+    public PageStatusHolder Status { get; }
+
+    /// <summary>
+    /// The status of the editor (the formatted content): the paste as its operation and what became of it, an image
+    /// that was inserted or refused, a link that was allowed or removed. In front of the window's status while the
+    /// editor is shown, so a paste and the preparation of the preview - which may overlap - never share an operation.
+    /// </summary>
+    public PageStatusHolder EditorStatus { get; }
+
     // ---- Stage ---------------------------------------------------------------------------------------------------
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsCompose), nameof(IsPreview), nameof(IsSending), nameof(IsReport))]
+    [NotifyPropertyChangedFor(nameof(IsCompose), nameof(IsPreview), nameof(IsSending), nameof(IsReport), nameof(IsSendStep))]
     [NotifyCanExecuteChangedFor(nameof(PlanCommand), nameof(SendCommand), nameof(SendTestCommand), nameof(BackCommand),
         nameof(RetryFailedCommand), nameof(ExportReportCommand), nameof(CancelSendCommand), nameof(AddRecipientsCommand), nameof(RemoveRecipientCommand))]
     public partial UserMessageStage Stage { get; private set; }
@@ -93,10 +134,20 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
 
     public bool IsReport => Stage == UserMessageStage.Report;
 
+    /// <summary>
+    /// The preview or the send: the stages the Send button is shown in - it starts the send and, while the messages
+    /// go out, is its Cancel (the button that was pressed stays where it was).
+    /// </summary>
+    public bool IsSendStep => Stage is UserMessageStage.Preview or UserMessageStage.Sending;
+
     /// <summary>Reading or planning, or a test message is on its way.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(PlanCommand), nameof(SendCommand), nameof(SendTestCommand), nameof(RetryFailedCommand))]
     public partial bool IsBusy { get; private set; }
+
+    /// <summary>The preview is being prepared (the accounts are read and the messages rendered): the Preview button is its Cancel.</summary>
+    [ObservableProperty]
+    public partial bool IsPlanning { get; private set; }
 
     [ObservableProperty]
     public partial string? StatusText { get; private set; }
@@ -255,7 +306,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
             return false;
         }
 
-        _sending?.Cancel();
+        _sendRun?.Cancel();
         return true;
     }
 
@@ -264,16 +315,39 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         _messages.Templates.Changed -= OnTemplatesChanged;
         _htmlCheck?.Cancel();
         _plans.Cancel();
-        _sending?.Cancel();
+        if (disposing)
+        {
+            // The window is gone: what still runs ends without a message, and its token is cancelled - a send stops
+            // after the message it is at, as it did before.
+            Status.Operation?.Dispose();
+            Status.Front = null;
+            EditorStatus.Operation?.Dispose();
+        }
+
         base.Dispose(disposing);
     }
 
     protected override void OnSessionEnded()
     {
+        // A preview that is being prepared ends without a word - and "busy" ends with it at once, not when the read that
+        // is on its way returns (the Preview button would stay the Cancel of nothing). A send or a test message goes on -
+        // neither needs the session - and still says how it ended. The line says for good that the session of this
+        // window ended.
         _plans.Cancel();
+        if (_planning is { } planning)
+        {
+            _planning = null;
+            planning.Dispose();
+            IsBusy = false;
+            IsPlanning = false;
+            StatusText = null;
+        }
+
+        UpdateLasting();
         PlanCommand.NotifyCanExecuteChanged();
         RetryFailedCommand.NotifyCanExecuteChanged();
         AddRecipientsCommand.NotifyCanExecuteChanged();
+        _planAgainCommand.NotifyCanExecuteChanged();
     }
 
     protected override void OnCultureChanged()
@@ -281,6 +355,36 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         base.OnCultureChanged();
         OnPropertyChanged(nameof(RecipientsText));
         OnPropertyChanged(nameof(SendButtonText));
+        OnPropertyChanged(nameof(MissingImagesText));
+        OnPropertyChanged(nameof(ImagesLoadingText));
+        UpdateLasting();
+    }
+
+    /// <summary>
+    /// The state of the window that lasts: its session ended, or it was opened without one. An error that cannot be
+    /// closed - no account can be read here any more (messages that are already prepared can still be sent).
+    /// </summary>
+    private void UpdateLasting() => Status.SetLasting(
+        SessionEndedStatus ?? (Session is null ? PageStatus.Error(NoSessionMessage, new PageStatusLog(L.Errors.NotConnected), canClose: false) : null));
+
+    /// <summary>The summary of the step shown: the counts of the preview, the counts of the report; nothing in the editor and while sending.</summary>
+    private void UpdateSummary() => Status.SetIdle(Stage switch
+    {
+        UserMessageStage.Preview => SummaryText,
+        UserMessageStage.Report => ReportSummary,
+        _ => null,
+    });
+
+    partial void OnSummaryTextChanged(string? value) => UpdateSummary();
+
+    partial void OnReportSummaryChanged(string? value) => UpdateSummary();
+
+    /// <summary>The stage shown changed: the editor is in front while it is shown, and the line shows the summary of the stage.</summary>
+    private void OnStageShown()
+    {
+        Status.Front = Stage == UserMessageStage.Compose ? EditorStatus : null;
+        UpdateSummary();
+        _planAgainCommand.NotifyCanExecuteChanged();
     }
 
     // ---- Compose commands ----------------------------------------------------------------------------------------
@@ -427,11 +531,20 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
     {
         Stage = UserMessageStage.Compose;
         TestResultText = null;
+
+        // What the line said was about the step that is left (an operation that still runs says itself how it ends).
+        if (Status.Operation is null)
+        {
+            Status.Clear();
+        }
     }
 
     private bool CanGoBack() => Stage is UserMessageStage.Preview or UserMessageStage.Report;
 
-    /// <summary>"Wyślij wiadomość testową do mnie": the selected message to the test address of the settings (no CC).</summary>
+    /// <summary>
+    /// "Wyślij wiadomość testową do mnie": the selected message to the test address of the settings (no CC). An
+    /// operation of the window: the status line says "Sending the test message to …" with Stop and how it ended.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanSendTest))]
     private async Task SendTestAsync()
     {
@@ -444,10 +557,13 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         if (!UserMessageRules.TryParseAddress(settings.TestAddress, out var address))
         {
             TestResultText = Localizer[L.UserMessages.TestAddressMissing];
+            Status.Show(PageStatus.Attention(
+                PageStatusText.Failure(Localizer[L.MessageWindowStatus.TestNotSent], TestResultText),
+                new PageStatusLog(L.UserMessages.TestAddressMissing)));
             return;
         }
 
-        if (await EnsureTransportAsync().ConfigureAwait(true) is not { } transport
+        if (await EnsureTransportAsync(L.MessageWindowStatus.TestNotSent).ConfigureAwait(true) is not { } transport
             || !await FitsTransportAsync(transport, [planned], test: true).ConfigureAwait(true))
         {
             return;
@@ -466,14 +582,37 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         };
         IsBusy = true;
         TestResultText = Localizer[L.UserMessages.TestSending];
+
+        // The address is the operator's own, from the settings: it may be named on screen - never in the log copy.
+        using var sending = Status.Begin(
+            Localizer.Format(L.MessageWindowStatus.TestSending, address), new PageStatusLog(L.MessageWindowStatus.TestSending));
+        var token = sending.Token;
         try
         {
             ApplyRateSettings();
-            var results = await Task.Run(() => _messages.Dispatcher.SendAsync(transport, [test], _messages.RateLimiter, _messages.DispatchOptions, null, CancellationToken.None)).ConfigureAwait(true);
+            var results = await Task.Run(() => _messages.Dispatcher.SendAsync(transport, [test], _messages.RateLimiter, _messages.DispatchOptions, null, token)).ConfigureAwait(true);
             var result = results[0];
-            TestResultText = result.Status == UserMessageSendStatus.Accepted
-                ? Localizer.Format(L.UserMessages.TestSent, address)
-                : Localizer.Format(L.UserMessages.TestFailed, UserMessageText.ResultDetail(Localizer, result));
+            if (result.Status == UserMessageSendStatus.Accepted)
+            {
+                TestResultText = Localizer.Format(L.UserMessages.TestSent, address);
+                sending.CompleteDone(TestResultText, new PageStatusLog(L.UserMessages.TestSent));
+            }
+            else
+            {
+                var detail = UserMessageText.ResultDetail(Localizer, result);
+                TestResultText = Localizer.Format(L.UserMessages.TestFailed, detail);
+                if (result.NotSentReason == UserMessageNotSentReason.Cancelled && sending.IsCancelling)
+                {
+                    // Stopped by the operator before the server took it.
+                    sending.CompleteAttention(Localizer[L.MessageWindowStatus.TestStopped], new PageStatusLog(L.MessageWindowStatus.TestStopped));
+                }
+                else
+                {
+                    sending.CompleteError(
+                        PageStatusText.Failure(Localizer[L.MessageWindowStatus.TestNotSent], detail), new PageStatusLog(L.MessageWindowStatus.TestNotSent));
+                }
+            }
+
             AfterRun(results);
         }
         finally
@@ -489,7 +628,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
     private async Task SendAsync()
     {
         var items = _items.Where(i => i.CanInclude && i.IsIncluded).ToList();
-        if (items.Count == 0 || await EnsureTransportAsync().ConfigureAwait(true) is not { } transport
+        if (items.Count == 0 || await EnsureTransportAsync(L.MessageWindowStatus.NotSent).ConfigureAwait(true) is not { } transport
             || !await FitsTransportAsync(transport, [.. items.Select(i => i.Planned)], test: false).ConfigureAwait(true))
         {
             return;
@@ -513,10 +652,14 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
 
     private bool CanSend() => Stage == UserMessageStage.Preview && !IsBusy && SendCount > 0;
 
+    /// <summary>
+    /// Stops the send after the message it is at - the operator's Stop: the status line says "Stopping…" at once. The
+    /// same as Stop in the line and Cancel on the Send button.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(IsSending))]
     private void CancelSend()
     {
-        _sending?.Cancel();
+        _sendRun?.Cancel();
         ProgressText = Localizer[L.UserMessages.Stopping];
     }
 
@@ -526,6 +669,9 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         PlanCoreAsync([.. _items.Where(i => i.CanRetry).Select(i => i.Planned.DistinguishedName)]);
 
     private bool CanRetryFailed() => Stage == UserMessageStage.Report && !IsBusy && Session is not null && _items.Any(i => i.CanRetry);
+
+    /// <summary>Retry of the status line: the accounts of the plan that was stopped or failed can be planned again.</summary>
+    private bool CanPlanAgain() => Session is not null && !IsBusy && Stage != UserMessageStage.Sending && _lastPlanned.Count > 0;
 
     /// <summary>Exports the report (one row per account, no content) to a CSV file the operator chooses.</summary>
     [RelayCommand(CanExecute = nameof(IsReport))]
@@ -559,10 +705,25 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
 
     // ---- Plan ----------------------------------------------------------------------------------------------------
 
+    /// <summary>
+    /// Reads the accounts fresh from the window's domain controller, renders and checks the messages and shows the
+    /// preview. The operation of the window: the status line says so with Stop - in the line or on the Preview button -
+    /// and a plan that was stopped or could not be read is said there with Retry, which plans the same accounts again.
+    /// The result of a plan is the preview itself: the line then shows its counts. Never throws.
+    /// </summary>
     private async Task PlanCoreAsync(IReadOnlyList<string> distinguishedNames)
     {
-        var token = _plans.Next();
+        // "The latest plan wins"; closing the window and the end of its session cancel it without a word.
+        var latest = _plans.Next();
+        _lastPlanned = distinguishedNames;
+        using var reading = Status.Begin(
+            Localizer.Format(L.MessageWindowStatus.Reading, distinguishedNames.Count),
+            new PageStatusLog(L.MessageWindowStatus.Reading, distinguishedNames.Count));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, reading.Token);
+        var token = linked.Token;
+        _planning = reading;
         IsBusy = true;
+        IsPlanning = true;
         Error = null;
         TestResultText = null;
         StatusText = Localizer[L.UserMessages.Reading];
@@ -575,7 +736,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
             var templateIssues = await Task.Run(() => planner.CheckTemplate(template, inputs, session.Schema), token).ConfigureAwait(true);
             if (templateIssues.Any(i => i.Severity == MessageIssueSeverity.Error))
             {
-                Error = string.Join(Environment.NewLine, templateIssues.Select(i => UserMessageText.Issue(Localizer, i)));
+                NotPrepared(reading, templateIssues);
                 return;
             }
 
@@ -608,14 +769,17 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
                 Schema = session.Schema,
             };
             var plan = await Task.Run(() => planner.Plan(request), token).ConfigureAwait(true);
-            if (!_plans.IsCurrent(token) || IsDisposed)
+            if (reading.IsEnded || !_plans.IsCurrent(latest) || IsDisposed)
             {
+                // Replaced by a newer plan, or the window was closed or lost its session.
                 return;
             }
 
+            // Stop was pressed while the messages were rendered: the operator said stop, so the window keeps what it showed.
+            token.ThrowIfCancellationRequested();
             if (plan.IsBlocked)
             {
-                Error = string.Join(Environment.NewLine, plan.TemplateIssues.Select(i => UserMessageText.Issue(Localizer, i)));
+                NotPrepared(reading, plan.TemplateIssues);
                 return;
             }
 
@@ -626,20 +790,66 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            // Superseded or the window closed.
+            // Superseded, the window closed or its session ended: nothing to say. Stopped by the operator: what was
+            // stopped, that no message was prepared, and Retry.
+            if (reading.IsCancelling)
+            {
+                reading.CompleteAttention(
+                    PageStatusText.Failure(
+                        Localizer[L.MessageWindowStatus.ReadStopped], Localizer[L.MessageWindowStatus.ReadStoppedReason], Localizer[L.Feedback.RetryNext]),
+                    new PageStatusLog(L.MessageWindowStatus.ReadStopped),
+                    new PageStatusAction(Localizer[L.Common.Retry], _planAgainCommand));
+            }
         }
         catch (Exception ex) when (ex is DirectoryException or SessionEndedException or InvalidOperationException)
         {
-            Error = ex is SessionEndedException or InvalidOperationException ? NoSessionMessage : Errors.Translate(ex);
+            if (ex is DirectoryException)
+            {
+                // The window shows what it showed before: a result with Retry.
+                Error = Errors.Translate(ex);
+                var code = ResultCode.Of(ex);
+                reading.CompleteError(
+                    PageStatusText.Failure(Localizer[L.MessageWindowStatus.ReadFailed], Error, Localizer[L.Feedback.RetryNext], code),
+                    new PageStatusLog(L.MessageWindowStatus.ReadFailed).WithCode(code),
+                    new PageStatusAction(Localizer[L.Common.Retry], _planAgainCommand));
+            }
+            else
+            {
+                // No session: the state of the window says so.
+                Error = NoSessionMessage;
+                UpdateLasting();
+            }
         }
         finally
         {
-            if (_plans.IsCurrent(token))
+            // Only the plan the window still runs ends "busy" - not one that a newer plan replaced.
+            if (ReferenceEquals(_planning, reading))
             {
+                _planning = null;
                 IsBusy = false;
+                IsPlanning = false;
                 StatusText = null;
             }
+
+            _planAgainCommand.NotifyCanExecuteChanged();
         }
+    }
+
+    /// <summary>
+    /// The template stops the plan: "No message was prepared: Enter the value of the field “termin”." - the reasons
+    /// that block, each once, three at most (the editor shows all of them); an attention the operator can close.
+    /// </summary>
+    private void NotPrepared(OperationScope reading, IReadOnlyList<MessageIssue> issues)
+    {
+        Error = string.Join(Environment.NewLine, issues.Select(i => UserMessageText.Issue(Localizer, i)));
+        var reasons = issues
+            .Where(i => i.Severity == MessageIssueSeverity.Error)
+            .Select(i => UserMessageText.Issue(Localizer, i))
+            .Distinct(StringComparer.Ordinal)
+            .Take(MaxSaidReasons);
+        reading.CompleteAttention(
+            PageStatusText.Failure(Localizer[L.MessageWindowStatus.NotPrepared], string.Join(" ", reasons)),
+            new PageStatusLog(L.MessageWindowStatus.NotPrepared, issues.Count(i => i.Severity == MessageIssueSeverity.Error)));
     }
 
     private async Task<DomainPolicy> ReadPolicyAsync(CancellationToken token)
@@ -727,10 +937,17 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
 
     // ---- Send ----------------------------------------------------------------------------------------------------
 
+    /// <summary>
+    /// Sends <paramref name="items"/> in the background. The send is the operation of the window: the status line says
+    /// how far it is ("Sending the messages: 12 of 300…", with the failures so far and while it waits to retry), Stop -
+    /// in the line or on the Send button - stops it after the message it is at, and the line says how it ended: every
+    /// message accepted, sent only in part, stopped, or none accepted - with what to do about the rest. The report,
+    /// the session log entry and the notification of the main window are made as before.
+    /// </summary>
     private async Task RunAsync(IUserMessageTransport transport, IReadOnlyList<UserMessageItemViewModel> items)
     {
-        using var cancellation = new CancellationTokenSource();
-        _sending = cancellation;
+        using var sending = Status.Begin(SendingText(0, items.Count, 0, waiting: false), SendingLog(0, items.Count, 0));
+        _sendRun = sending;
         foreach (var item in _items)
         {
             item.Result = null;
@@ -755,16 +972,23 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
             ProgressText = p.IsWaitingForRetry
                 ? Localizer.Format(L.UserMessages.ProgressRetry, p.Completed, p.Total, p.Accepted, p.Failed)
                 : Localizer.Format(L.UserMessages.Progress, p.Completed, p.Total, p.Accepted, p.Failed);
+
+            // One message for the whole send: the ring shows the part done, the text the numbers.
+            sending.Report(
+                SendingText(p.Completed, p.Total, p.Failed, p.IsWaitingForRetry),
+                p.Completed > 0 ? PageProgress.Of(p.Completed, p.Total) : PageProgress.Indeterminate,
+                SendingLog(p.Completed, p.Total, p.Failed));
         });
         IReadOnlyList<UserMessageSendResult> results;
         try
         {
             var planned = items.Select(i => i.Planned).ToList();
-            results = await Task.Run(() => _messages.Dispatcher.SendAsync(transport, planned, _messages.RateLimiter, _messages.DispatchOptions, progress, cancellation.Token)).ConfigureAwait(true);
+            var token = sending.Token;
+            results = await Task.Run(() => _messages.Dispatcher.SendAsync(transport, planned, _messages.RateLimiter, _messages.DispatchOptions, progress, token)).ConfigureAwait(true);
         }
         finally
         {
-            _sending = null;
+            _sendRun = null;
         }
 
         var byIndex = items.Zip(results).ToList();
@@ -776,6 +1000,9 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         var accepted = results.Count(r => r.Status == UserMessageSendStatus.Accepted);
         var failed = results.Count(r => r.Status == UserMessageSendStatus.Failed);
         var notSent = results.Count(r => r.Status == UserMessageSendStatus.NotSent);
+
+        // Asked before the operation ends: afterwards it is no longer "stopping".
+        var stopped = sending.IsCancelling && results.Any(r => r.NotSentReason == UserMessageNotSentReason.Cancelled);
         ReportSummary = Localizer.Format(L.UserMessages.ReportSummary, accepted, failed, notSent, _items.Count - items.Count);
         _messages.AuditLog.Record(new AuditEntry(
             Services.Time.GetUtcNow(),
@@ -792,9 +1019,70 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         Stage = UserMessageStage.Report;
         Filter = Filters[0];
         ApplyFilter();
+        sending.Complete(SendResult(accepted, failed, notSent, stopped));
         Services.Notifications.Show(
             failed + notSent == 0 ? NotificationSeverity.Success : NotificationSeverity.Warning,
             ReportSummary);
+    }
+
+    /// <summary>"Sending the messages: 12 of 300, failed: 1 – waiting to retry after a temporary failure…".</summary>
+    private string SendingText(int done, int total, int failed, bool waiting)
+    {
+        var progress = PageStatusText.Progress(Localizer, done, total);
+        return (failed > 0, waiting) switch
+        {
+            (true, true) => Localizer.Format(L.MessageWindowStatus.SendingFailuresRetry, progress, failed),
+            (true, false) => Localizer.Format(L.MessageWindowStatus.SendingFailures, progress, failed),
+            (false, true) => Localizer.Format(L.MessageWindowStatus.SendingRetry, progress),
+            _ => Localizer.Format(L.MessageWindowStatus.Sending, progress),
+        };
+    }
+
+    // One key for every report - with or without failures, sending or waiting, it is the same message, said once.
+    private static PageStatusLog SendingLog(int done, int total, int failed) => new(L.MessageWindowStatus.Sending, done, total, failed);
+
+    /// <summary>
+    /// How a send ended, for the status line: <b>done</b> when the server accepted every message (how many, for the
+    /// users of which domain, where the report is); <b>attention</b> when it was stopped or only a part was accepted;
+    /// an <b>error</b> when none was. What was not sent has its reason in the report, and "Retry failed" - offered when
+    /// something can be planned again - prepares those messages anew.
+    /// </summary>
+    private PageStatus SendResult(int accepted, int failed, int notSent, bool stopped)
+    {
+        if (failed == 0 && notSent == 0)
+        {
+            var messages = PageStatusText.Count(
+                Localizer, accepted, L.MessageWindowStatus.MessagesOne, L.MessageWindowStatus.MessagesFew, L.MessageWindowStatus.MessagesMany);
+            var text = ConfirmationDomain.Length == 0
+                ? Localizer.Format(L.MessageWindowStatus.SentAnywhere, messages)
+                : Localizer.Format(L.MessageWindowStatus.Sent, messages, ConfirmationDomain);
+            return PageStatus.Done(text, new PageStatusLog(L.MessageWindowStatus.Sent, accepted));
+        }
+
+        var counts = Localizer.Format(L.MessageWindowStatus.SendCounts, accepted, failed, notSent);
+        var retry = RetryFailedCommand.CanExecute(null)
+            ? new PageStatusAction(Localizer[L.UserMessages.RetryFailed], RetryFailedCommand)
+            : null;
+        var again = retry is null ? null : Localizer.Format(L.MessageWindowStatus.RetryFailedNext, retry.Label);
+        if (stopped)
+        {
+            return PageStatus.Attention(
+                PageStatusText.Failure(Localizer[L.MessageWindowStatus.SendStopped], counts, again),
+                new PageStatusLog(L.MessageWindowStatus.SendStopped, accepted, failed, notSent),
+                retry);
+        }
+
+        // The reasons are in the "Detail" column of the report.
+        var next = again is null ? Localizer[L.MessageWindowStatus.ReasonsNext] : $"{Localizer[L.MessageWindowStatus.ReasonsNext]} {again}";
+        return accepted > 0
+            ? PageStatus.Attention(
+                PageStatusText.Failure(Localizer[L.MessageWindowStatus.SentPartly], counts, next),
+                new PageStatusLog(L.MessageWindowStatus.SentPartly, accepted, failed, notSent),
+                retry)
+            : PageStatus.Error(
+                PageStatusText.Failure(Localizer[L.MessageWindowStatus.SendFailed], counts, next),
+                new PageStatusLog(L.MessageWindowStatus.SendFailed, accepted, failed, notSent),
+                retry);
     }
 
     /// <summary>A rejected password is forgotten, so the next send asks again.</summary>
@@ -853,10 +1141,22 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
             ? Localizer.Format(L.UserMessagesOutlook.Description, OutlookAccountText())
             : transport.Description;
 
-    /// <summary>The transport for a send; asks the SMTP password from the window's box when needed (kept in memory only).</summary>
-    private async Task<IUserMessageTransport?> EnsureTransportAsync()
+    /// <summary>
+    /// The transport for a send; asks the SMTP password from the window's box when needed (kept in memory only - it is
+    /// never part of a text). Without a transport nothing is started, and the status line says why:
+    /// "No message was sent: Enter the SMTP password…".
+    /// </summary>
+    /// <param name="notStartedKey">The resource key of what was not started ("No message was sent").</param>
+    private async Task<IUserMessageTransport?> EnsureTransportAsync(string notStartedKey)
     {
         Error = null;
+
+        // A new attempt: what the line said about the one before (a password that was missing) is over.
+        if (Status.Operation is null)
+        {
+            Status.Clear();
+        }
+
         if (_transport is null || NeedsSmtpPassword)
         {
             await RefreshTransportAsync().ConfigureAwait(true);
@@ -867,7 +1167,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
             var password = SmtpPasswordInput?.GetPassword();
             if (string.IsNullOrEmpty(password))
             {
-                Error = Localizer[L.UserMessages.PasswordRequired];
+                NotStarted(notStartedKey, L.UserMessages.PasswordRequired, Localizer[L.UserMessages.PasswordRequired]);
                 return null;
             }
 
@@ -879,10 +1179,25 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
 
         if (_transport is null)
         {
-            Error = TransportText;
+            // Why no transport can be used is what the header of the window says as well.
+            NotStarted(notStartedKey, notStartedKey, TransportText);
         }
 
         return _transport;
+    }
+
+    /// <summary>
+    /// The button was pressed and nothing was started: "No message was sent: why." - an attention the operator can
+    /// close; the log copy is the key of the reason, never its text. An operation that runs keeps the line (a result
+    /// shown now would take it off the line, and nobody would say how it ended).
+    /// </summary>
+    private void NotStarted(string notStartedKey, string reasonKey, string? reason)
+    {
+        Error = reason;
+        if (Status.Operation is null)
+        {
+            Status.Show(PageStatus.Attention(PageStatusText.Failure(Localizer[notStartedKey], reason), new PageStatusLog(reasonKey)));
+        }
     }
 
     // ---- Template editing ----------------------------------------------------------------------------------------

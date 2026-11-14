@@ -1,0 +1,721 @@
+<!--
+  Step 3 "Nazwy i opcje" of the bulk creation wizard (BulkRulesViewModel, docs/dev/phase3-bulk-create.md 2.6): the naming
+  profile (Zapisz, Zapisz jako…, Usuń, Domyślny dla tego kontenera), then the sections Nazwy (the Numeracja panel with the first
+  free number, one row per rule: attribute, pattern with its error, quick fix and column note, live sample; Wstaw pole; the UPN
+  suffix and the mail domain), Konto (password mode, length, the shared password boxes – set in code-behind, never bound –,
+  must-change, enabled, expiry; group scope and type; the computers' joiner), Grupy and a collapsed Zaawansowane with a
+  one-line summary.
+-->
+<UserControl x:Class="AdMng.App.BulkCreate.BulkRulesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:bc="clr-namespace:AdMng.Presentation.BulkCreate;assembly=AdMng.Presentation"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:dlg="clr-namespace:AdMng.Presentation.Dialogs;assembly=AdMng.Presentation"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:local="clr-namespace:AdMng.App.BulkCreate"
+             AutomationProperties.Name="{l:Tr BulkCreate.StepRules}">
+  <UserControl.Resources>
+    <!-- The Wstaw pole menu is outside the visual tree and has no PlacementTarget until it opens: it binds through the proxy. -->
+    <c:BindingProxy x:Key="RulesProxy" Data="{Binding}" />
+
+    <Style x:Key="SectionExpander" TargetType="Expander" BasedOn="{StaticResource {x:Type Expander}}">
+      <Setter Property="Margin" Value="0,0,0,10" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+
+    <Style x:Key="OptionLabel" TargetType="TextBlock" BasedOn="{StaticResource Ad.FieldLabel}">
+      <Setter Property="Margin" Value="0,8,0,3" />
+    </Style>
+
+    <Style x:Key="InlineLabel" TargetType="TextBlock">
+      <Setter Property="Margin" Value="0,0,8,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="OptionCheck" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+      <Setter Property="Margin" Value="0,6,0,0" />
+    </Style>
+
+    <Style x:Key="PatternBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+      <Setter Property="FontFamily" Value="Cascadia Mono, Consolas" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="RuleAttributeComboBox" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+      <Setter Property="IsEditable" Value="True" />
+      <Setter Property="IsTextSearchEnabled" Value="False" />
+      <Setter Property="DisplayMemberPath" Value="Text" />
+      <Setter Property="TextSearch.TextPath" Value="Text" />
+      <Setter Property="MaxDropDownHeight" Value="320" />
+      <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+      <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+      <Setter Property="ItemsPanel">
+        <Setter.Value>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- One naming rule: attribute | pattern (+ problem, quick fix, column note, UPN suffix) | live sample | remove -->
+    <DataTemplate x:Key="RuleTemplate" DataType="{x:Type bc:AttributeRuleViewModel}">
+      <Grid Margin="0,0,0,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="250" />
+          <ColumnDefinition Width="12" />
+          <ColumnDefinition Width="*" MinWidth="260" />
+          <ColumnDefinition Width="12" />
+          <ColumnDefinition Width="300" />
+          <ColumnDefinition Width="36" />
+        </Grid.ColumnDefinitions>
+
+        <Grid VerticalAlignment="Top">
+          <TextBlock x:Name="RuleAttributeText"
+                     Margin="0,6,0,0"
+                     FontWeight="SemiBold"
+                     Text="{Binding AttributeText, Mode=OneWay}"
+                     TextTrimming="CharacterEllipsis"
+                     TextWrapping="NoWrap"
+                     ToolTip="{Binding AttributeText, Mode=OneWay}"
+                     Visibility="{Binding IsCore, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <ComboBox x:Name="RuleAttributeBox"
+                    AutomationProperties.Name="{l:Tr BulkCreate.RuleAttributeHeader}"
+                    ItemsSource="{Binding DataContext.AttributeOptions, RelativeSource={RelativeSource AncestorType={x:Type local:BulkRulesView}}, Mode=OneWay}"
+                    Style="{StaticResource RuleAttributeComboBox}"
+                    Text="{Binding AttributeText, UpdateSourceTrigger=LostFocus}"
+                    Visibility="{Binding CanEditAttribute, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        </Grid>
+
+        <StackPanel Grid.Column="2">
+          <DockPanel>
+            <!-- The UPN row: @ suffix, or "z wzorca" when the prefix renders a whole address -->
+            <StackPanel Margin="6,0,0,0"
+                        DockPanel.Dock="Right"
+                        Orientation="Horizontal"
+                        Visibility="{Binding IsUpn, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+              <Grid Visibility="{Binding DataContext.IsUpnFromPattern, RelativeSource={RelativeSource AncestorType={x:Type local:BulkRulesView}}, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock Margin="0,0,4,0"
+                             VerticalAlignment="Center"
+                             FontFamily="Cascadia Mono, Consolas"
+                             Text="@" />
+                  <ComboBox x:Name="UpnSuffixBox"
+                            MinWidth="150"
+                            AutomationProperties.Name="{l:Tr BulkCreate.UpnSuffixLabel}"
+                            ItemsSource="{Binding DataContext.UpnSuffixes, RelativeSource={RelativeSource AncestorType={x:Type local:BulkRulesView}}, Mode=OneWay}"
+                            SelectedItem="{Binding DataContext.UpnSuffix, RelativeSource={RelativeSource AncestorType={x:Type local:BulkRulesView}}}"
+                            ToolTip="{l:Tr BulkCreate.UpnSuffixLabel}" />
+                </StackPanel>
+              </Grid>
+              <TextBlock VerticalAlignment="Center"
+                         Style="{StaticResource Ad.SecondaryText}"
+                         Text="{l:Tr BulkCreate.UpnFromPattern}"
+                         Visibility="{Binding DataContext.IsUpnFromPattern, RelativeSource={RelativeSource AncestorType={x:Type local:BulkRulesView}}, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            </StackPanel>
+            <TextBox x:Name="PatternBox"
+                     AutomationProperties.Name="{Binding AttributeText, Mode=OneWay}"
+                     GotKeyboardFocus="OnPatternFocused"
+                     SelectionChanged="OnPatternSelectionChanged"
+                     Style="{StaticResource PatternBox}"
+                     Text="{Binding Pattern, UpdateSourceTrigger=PropertyChanged}" />
+          </DockPanel>
+
+          <!-- Empty pattern: where the value comes from -->
+          <TextBlock Margin="2,2,0,0"
+                     FontStyle="Italic"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding EmptyHint, Mode=OneWay}"
+                     Visibility="{Binding EmptyHint, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+
+          <!-- Pattern problem with its position, the did-you-mean or the counter quick fix -->
+          <DockPanel Margin="0,3,0,0" Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+            <TextBlock Margin="0,1,6,0"
+                       VerticalAlignment="Top"
+                       DockPanel.Dock="Left"
+                       FontSize="12"
+                       Text="{x:Static c:Glyphs.Warning}">
+              <TextBlock.Style>
+                <Style TargetType="TextBlock" BasedOn="{StaticResource Ad.GlyphText}">
+                  <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsError, Mode=OneWay}" Value="True">
+                      <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </TextBlock.Style>
+            </TextBlock>
+            <TextBlock x:Name="RuleErrorText"
+                       AutomationProperties.LiveSetting="Polite"
+                       Text="{Binding Error, Mode=OneWay}"
+                       TextWrapping="Wrap" />
+          </DockPanel>
+          <DockPanel Margin="0,3,0,0" Visibility="{Binding Suggestion, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+            <Button x:Name="CounterFixButton"
+                    Margin="8,0,0,0"
+                    Padding="10,2"
+                    Command="{Binding DataContext.ApplyCounterSuggestionCommand, RelativeSource={RelativeSource AncestorType={x:Type local:BulkRulesView}}}"
+                    CommandParameter="{Binding Mode=OneWay}"
+                    Content="{l:Tr BulkCreate.ApplyCounterFix}"
+                    DockPanel.Dock="Right"
+                    Visibility="{Binding HasCounterFix, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            <TextBlock VerticalAlignment="Center"
+                       Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                       Text="{Binding Suggestion, Mode=OneWay}"
+                       TextWrapping="Wrap" />
+          </DockPanel>
+
+          <!-- A mapped column feeds the attribute too -->
+          <DockPanel Margin="0,3,0,0" Visibility="{Binding HasColumnNote, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <CheckBox x:Name="OverridesColumnBox"
+                      Margin="12,0,0,0"
+                      Content="{l:Tr BulkCreate.OverridesColumn}"
+                      DockPanel.Dock="Right"
+                      IsChecked="{Binding OverridesColumn}" />
+            <TextBlock VerticalAlignment="Center"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{Binding ColumnNote, Mode=OneWay}"
+                       TextTrimming="None"
+                       TextWrapping="Wrap" />
+          </DockPanel>
+        </StackPanel>
+
+        <TextBlock x:Name="SampleText"
+                   Grid.Column="4"
+                   Margin="0,6,0,0"
+                   VerticalAlignment="Top"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding Sample, Mode=OneWay}"
+                   TextTrimming="CharacterEllipsis"
+                   ToolTip="{Binding Sample, Mode=OneWay}" />
+
+        <Button x:Name="RemoveRuleButton"
+                Grid.Column="5"
+                VerticalAlignment="Top"
+                AutomationProperties.Name="{l:Tr BulkCreate.RemoveRule}"
+                Command="{Binding DataContext.RemoveRuleCommand, RelativeSource={RelativeSource AncestorType={x:Type local:BulkRulesView}}}"
+                CommandParameter="{Binding Mode=OneWay}"
+                Content="{x:Static c:Glyphs.Delete}"
+                Style="{StaticResource Ad.SmallIconButton}"
+                ToolTip="{l:Tr BulkCreate.RemoveRule}"
+                Visibility="{Binding CanEditAttribute, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      </Grid>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <ScrollViewer x:Name="RulesScroller"
+                HorizontalScrollBarVisibility="Disabled"
+                VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="0,0,8,0">
+      <!-- ===== Profil nazewnictwa ===== -->
+      <Border Margin="0,0,0,10" Style="{StaticResource Ad.Card}">
+        <StackPanel>
+          <WrapPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource InlineLabel}" Text="{l:Tr BulkCreate.ProfileLabel}" />
+            <ComboBox x:Name="ProfileBox"
+                      MinWidth="240"
+                      Margin="0,0,8,0"
+                      AutomationProperties.Name="{l:Tr BulkCreate.ProfileLabel}"
+                      DisplayMemberPath="Text"
+                      ItemsSource="{Binding Profiles, Mode=OneWay}"
+                      SelectedItem="{Binding Profile}" />
+            <TextBlock x:Name="ModifiedMark"
+                       Margin="0,0,12,0"
+                       VerticalAlignment="Center"
+                       FontStyle="Italic"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{Binding ModifiedText, Mode=OneWay}"
+                       Visibility="{Binding IsModified, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            <Button x:Name="SaveProfileButton"
+                    Margin="0,0,6,0"
+                    Command="{Binding SaveProfileCommand}"
+                    Content="{l:Tr BulkCreate.SaveProfile}" />
+            <Button x:Name="SaveProfileAsButton"
+                    Margin="0,0,6,0"
+                    Command="{Binding SaveProfileAsCommand}"
+                    Content="{l:Tr BulkCreate.SaveProfileAs}" />
+            <Button x:Name="DeleteProfileButton"
+                    Margin="0,0,6,0"
+                    Command="{Binding DeleteProfileCommand}"
+                    Content="{l:Tr BulkCreate.DeleteProfile}" />
+            <Button x:Name="DefaultForContainerButton"
+                    Command="{Binding SetDefaultForContainerCommand}"
+                    IsEnabled="{Binding CanSetDefault, Mode=OneWay}">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Margin="0,0,6,0"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{x:Static c:Glyphs.Accept}"
+                           Visibility="{Binding IsDefaultForContainer, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <TextBlock Text="{l:Tr BulkCreate.DefaultForContainer}" />
+              </StackPanel>
+            </Button>
+          </WrapPanel>
+
+          <!-- Zapisz jako… -->
+          <StackPanel x:Name="SaveAsPanel"
+                      Margin="0,10,0,0"
+                      Visibility="{Binding IsNamingProfile, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <WrapPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource InlineLabel}" Text="{l:Tr BulkCreate.NewProfileNameLabel}" />
+              <TextBox x:Name="NewProfileNameBox"
+                       Width="280"
+                       Margin="0,0,12,0"
+                       AutomationProperties.Name="{l:Tr BulkCreate.NewProfileNameLabel}"
+                       Text="{Binding NewProfileName, UpdateSourceTrigger=PropertyChanged}" />
+              <CheckBox x:Name="SaveAsDefaultBox"
+                        Margin="0,0,12,0"
+                        VerticalAlignment="Center"
+                        Content="{l:Tr BulkCreate.DefaultForContainer}"
+                        IsChecked="{Binding SaveAsDefaultForContainer}"
+                        IsEnabled="{Binding CanSetDefault, Mode=OneWay}" />
+              <Button x:Name="ConfirmSaveAsButton"
+                      Margin="0,0,6,0"
+                      Command="{Binding ConfirmSaveProfileAsCommand}"
+                      Content="{l:Tr Common.Save}"
+                      Style="{StaticResource Ad.AccentDialogButton}" />
+              <Button Command="{Binding CancelSaveProfileAsCommand}" Content="{l:Tr Common.Cancel}" />
+            </WrapPanel>
+            <TextBlock Margin="0,6,0,0"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{Binding SaveHeadersText, Mode=OneWay}"
+                       TextTrimming="None"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+
+          <TextBlock x:Name="ProfileStatusText"
+                     Margin="0,8,0,0"
+                     AutomationProperties.LiveSetting="Polite"
+                     Text="{Binding ProfileStatus, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding ProfileStatus, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        </StackPanel>
+      </Border>
+
+      <!-- Why Dalej is not possible yet -->
+      <Border Margin="0,0,0,10"
+              Style="{StaticResource Ad.ErrorBar}"
+              Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+        <DockPanel>
+          <TextBlock Margin="0,0,10,0"
+                     DockPanel.Dock="Left"
+                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                     Style="{StaticResource Ad.GlyphText}"
+                     Text="{x:Static c:Glyphs.Error}" />
+          <TextBlock x:Name="RulesErrorText"
+                     AutomationProperties.LiveSetting="Assertive"
+                     Text="{Binding Error, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </DockPanel>
+      </Border>
+
+      <!-- ===== Nazwy ===== -->
+      <Expander x:Name="NamesSection"
+                Header="{l:Tr BulkCreate.SectionNames}"
+                IsExpanded="True"
+                Style="{StaticResource SectionExpander}">
+        <StackPanel Margin="0,6,0,0">
+          <!-- Numeracja -->
+          <Border x:Name="NumberingPanel"
+                  Margin="0,0,0,10"
+                  Style="{StaticResource Ad.Card}"
+                  Visibility="{Binding HasCounter, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <StackPanel>
+              <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr BulkCreate.Numbering}" />
+              <WrapPanel Orientation="Horizontal">
+                <StackPanel Margin="0,0,16,0">
+                  <TextBlock Style="{StaticResource OptionLabel}" Text="{l:Tr BulkCreate.CounterPrefixLabel}" />
+                  <TextBox x:Name="CounterPrefixBox"
+                           Width="120"
+                           AutomationProperties.Name="{l:Tr BulkCreate.CounterPrefixLabel}"
+                           FontFamily="Cascadia Mono, Consolas"
+                           IsEnabled="{Binding CanEditPrefix, Mode=OneWay}"
+                           Text="{Binding CounterPrefix, UpdateSourceTrigger=LostFocus}" />
+                </StackPanel>
+                <StackPanel Margin="0,0,16,0">
+                  <TextBlock Style="{StaticResource OptionLabel}" Text="{l:Tr BulkCreate.CounterStartLabel}" />
+                  <TextBox x:Name="CounterStartBox"
+                           Width="110"
+                           AutomationProperties.Name="{l:Tr BulkCreate.CounterStartLabel}"
+                           Text="{Binding CounterStart, UpdateSourceTrigger=LostFocus}" />
+                </StackPanel>
+                <StackPanel Margin="0,0,16,0">
+                  <TextBlock Style="{StaticResource OptionLabel}" Text="{l:Tr BulkCreate.CounterWidthLabel}" />
+                  <TextBox x:Name="CounterWidthBox"
+                           Width="110"
+                           AutomationProperties.Name="{l:Tr BulkCreate.CounterWidthLabel}"
+                           Text="{Binding CounterWidth, UpdateSourceTrigger=LostFocus}" />
+                </StackPanel>
+                <StackPanel Margin="0,0,16,0">
+                  <TextBlock Style="{StaticResource OptionLabel}" Text="{l:Tr BulkCreate.CounterStepLabel}" />
+                  <TextBox x:Name="CounterStepBox"
+                           Width="80"
+                           AutomationProperties.Name="{l:Tr BulkCreate.CounterStepLabel}"
+                           Text="{Binding CounterStep, UpdateSourceTrigger=LostFocus}" />
+                </StackPanel>
+              </WrapPanel>
+              <TextBlock x:Name="FirstFreeText"
+                         Margin="0,10,0,0"
+                         AutomationProperties.LiveSetting="Polite"
+                         FontWeight="SemiBold"
+                         Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                         Text="{Binding FirstFreeText, Mode=OneWay}" />
+            </StackPanel>
+          </Border>
+          <TextBlock Margin="0,0,0,10"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding NoCounterHint, Mode=OneWay}"
+                     TextTrimming="None"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding HasCounter, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+
+          <!-- Rule header -->
+          <Grid Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="250" />
+              <ColumnDefinition Width="12" />
+              <ColumnDefinition Width="*" MinWidth="260" />
+              <ColumnDefinition Width="12" />
+              <ColumnDefinition Width="300" />
+              <ColumnDefinition Width="36" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr BulkCreate.RuleAttributeHeader}" />
+            <TextBlock Grid.Column="2"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr BulkCreate.RulePatternHeader}" />
+            <TextBlock Grid.Column="4"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr BulkCreate.RuleSampleHeader}" />
+          </Grid>
+          <ItemsControl x:Name="RuleList"
+                        AutomationProperties.Name="{l:Tr BulkCreate.SectionNames}"
+                        Focusable="False"
+                        ItemTemplate="{StaticResource RuleTemplate}"
+                        ItemsSource="{Binding Rules, Mode=OneWay}" />
+
+          <WrapPanel Margin="0,2,0,0" Orientation="Horizontal">
+            <Button x:Name="AddRuleButton"
+                    Margin="0,0,6,0"
+                    Command="{Binding AddRuleCommand}"
+                    Content="{l:Tr BulkCreate.AddRule}" />
+            <Button x:Name="InsertFieldButton"
+                    Margin="0,0,6,0"
+                    Click="OnInsertFieldClick">
+              <Button.ContextMenu>
+                <ContextMenu x:Name="InsertFieldMenu"
+                             MaxHeight="520"
+                             ItemsSource="{Binding Data.InsertableFields, Source={StaticResource RulesProxy}, Mode=OneWay}"
+                             MenuItem.Click="OnInsertFieldMenuClick">
+                  <ContextMenu.ItemContainerStyle>
+                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                      <Setter Property="Header" Value="{Binding MenuText, Mode=OneWay}" />
+                      <Setter Property="Command" Value="{Binding Data.InsertTokenCommand, Source={StaticResource RulesProxy}}" />
+                      <Setter Property="CommandParameter" Value="{Binding Token, Mode=OneWay}" />
+                      <Setter Property="ToolTip" Value="{Binding Group, Mode=OneWay}" />
+                    </Style>
+                  </ContextMenu.ItemContainerStyle>
+                </ContextMenu>
+              </Button.ContextMenu>
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{l:Tr BulkCreate.InsertField}" />
+                <TextBlock Margin="6,0,0,0"
+                           VerticalAlignment="Center"
+                           FontSize="10"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{x:Static c:Glyphs.ChevronDown}" />
+              </StackPanel>
+            </Button>
+            <Button x:Name="UseMailAsUpnButton"
+                    Command="{Binding UseMailAsUpnCommand}"
+                    Content="{l:Tr BulkCreate.UseMailAsUpn}"
+                    Visibility="{Binding HasUpnRule, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          </WrapPanel>
+
+          <!-- UPN suffix warning, mail domain -->
+          <TextBlock Margin="0,8,0,0"
+                     Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                     Text="{Binding UpnSuffixWarning, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding UpnSuffixWarning, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+          <TextBlock Style="{StaticResource OptionLabel}" Text="{l:Tr BulkCreate.MailDomainLabel}" />
+          <TextBox x:Name="MailDomainBox"
+                   Width="280"
+                   HorizontalAlignment="Left"
+                   AutomationProperties.Name="{l:Tr BulkCreate.MailDomainLabel}"
+                   Text="{Binding MailDomain, UpdateSourceTrigger=LostFocus}" />
+          <TextBlock Margin="0,4,0,0"
+                     Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                     Text="{Binding MailDomainWarning, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding MailDomainWarning, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+          <TextBlock Margin="0,10,0,0"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding HomeFoldersNote, Mode=OneWay}"
+                     TextTrimming="None"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Expander>
+
+      <!-- ===== Konto ===== -->
+      <Expander x:Name="AccountSection"
+                Header="{l:Tr BulkCreate.SectionAccount}"
+                IsExpanded="True"
+                Style="{StaticResource SectionExpander}">
+        <StackPanel Margin="0,6,0,0">
+          <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                     Text="{l:Tr BulkCreate.ContactNoAccount}"
+                     Visibility="{Binding HasAccountOptions, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+
+          <!-- Users -->
+          <StackPanel x:Name="UserOptions" Visibility="{Binding IsUserKind, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <TextBlock Style="{StaticResource OptionLabel}" Text="{l:Tr BulkCreate.PasswordModeLabel}" />
+            <ComboBox x:Name="PasswordModeBox"
+                      MinWidth="320"
+                      HorizontalAlignment="Left"
+                      AutomationProperties.Name="{l:Tr BulkCreate.PasswordModeLabel}"
+                      DisplayMemberPath="Text"
+                      ItemsSource="{Binding PasswordModes, Mode=OneWay}"
+                      SelectedValue="{Binding PasswordMode}"
+                      SelectedValuePath="Value" />
+            <StackPanel Margin="0,8,0,0"
+                        Orientation="Horizontal"
+                        Visibility="{Binding IsGenerate, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+              <TextBlock Style="{StaticResource InlineLabel}" Text="{l:Tr BulkCreate.GeneratedLengthLabel}" />
+              <TextBox x:Name="GeneratedLengthBox"
+                       Width="64"
+                       AutomationProperties.Name="{l:Tr BulkCreate.GeneratedLengthLabel}"
+                       Text="{Binding GeneratedLength, UpdateSourceTrigger=LostFocus}" />
+              <TextBlock Margin="10,0,0,0"
+                         VerticalAlignment="Center"
+                         Style="{StaticResource Ad.SecondaryText}"
+                         Text="{Binding DomainMinimumText, Mode=OneWay}" />
+            </StackPanel>
+            <Grid Margin="0,8,0,0" Visibility="{Binding IsSharedPassword, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
+              <TextBlock Style="{StaticResource Ad.FieldLabel}" Text="{l:Tr BulkCreate.SharedPasswordLabel}" />
+              <PasswordBox x:Name="SharedPasswordBox"
+                           Grid.Row="1"
+                           AutomationProperties.Name="{l:Tr BulkCreate.SharedPasswordLabel}" />
+              <TextBlock Grid.Column="2"
+                         Style="{StaticResource Ad.FieldLabel}"
+                         Text="{l:Tr BulkCreate.ConfirmPasswordLabel}" />
+              <PasswordBox x:Name="ConfirmPasswordBox"
+                           Grid.Row="1"
+                           Grid.Column="2"
+                           AutomationProperties.Name="{l:Tr BulkCreate.ConfirmPasswordLabel}" />
+              <StackPanel Grid.Row="2"
+                          Grid.ColumnSpan="4"
+                          Margin="0,6,0,0">
+                <TextBlock Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                           Text="{Binding SharedPasswordNote, Mode=OneWay}"
+                           TextWrapping="Wrap"
+                           Visibility="{Binding SharedPasswordNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+                <TextBlock x:Name="PasswordErrorText"
+                           Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                           Text="{Binding PasswordError, Mode=OneWay}"
+                           TextWrapping="Wrap"
+                           Visibility="{Binding PasswordError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+              </StackPanel>
+            </Grid>
+            <CheckBox x:Name="MustChangeBox"
+                      Margin="0,10,0,0"
+                      Content="{l:Tr BulkCreate.MustChangeAtLogon}"
+                      IsChecked="{Binding MustChangeAtLogon}" />
+            <CheckBox x:Name="EnabledBox"
+                      Content="{l:Tr BulkCreate.Enabled}"
+                      IsChecked="{Binding Enabled}"
+                      IsEnabled="{Binding CanEnable, Mode=OneWay}"
+                      Style="{StaticResource OptionCheck}" />
+            <StackPanel Margin="0,6,0,0" Orientation="Horizontal">
+              <CheckBox x:Name="HasExpiryBox"
+                        Margin="0,0,10,0"
+                        VerticalAlignment="Center"
+                        Content="{l:Tr BulkCreate.HasExpiry}"
+                        IsChecked="{Binding HasExpiry}" />
+              <DatePicker x:Name="ExpiryDateBox"
+                          AutomationProperties.Name="{l:Tr BulkCreate.HasExpiry}"
+                          IsEnabled="{Binding HasExpiry, Mode=OneWay}"
+                          SelectedDate="{Binding ExpiryDate}" />
+            </StackPanel>
+          </StackPanel>
+
+          <!-- Groups -->
+          <StackPanel x:Name="GroupOptions" Visibility="{Binding IsGroupKind, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <TextBlock Style="{StaticResource OptionLabel}" Text="{l:Tr BulkCreate.GroupScopeLabel}" />
+            <ComboBox x:Name="GroupScopeBox"
+                      MinWidth="220"
+                      HorizontalAlignment="Left"
+                      AutomationProperties.Name="{l:Tr BulkCreate.GroupScopeLabel}"
+                      DisplayMemberPath="Text"
+                      ItemsSource="{Binding GroupScopes, Mode=OneWay}"
+                      SelectedValue="{Binding GroupScope}"
+                      SelectedValuePath="Value" />
+            <CheckBox Content="{l:Tr BulkCreate.SecurityGroup}"
+                      IsChecked="{Binding IsSecurityGroup}"
+                      Style="{StaticResource OptionCheck}" />
+          </StackPanel>
+
+          <!-- Computers -->
+          <StackPanel x:Name="ComputerOptions" Visibility="{Binding IsComputerKind, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <TextBlock Style="{StaticResource OptionLabel}" Text="{l:Tr BulkCreate.JoinerLabel}" />
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Margin="0,0,10,0"
+                         VerticalAlignment="Center"
+                         Text="{Binding JoinerText, Mode=OneWay}" />
+              <Button Margin="0,0,6,0"
+                      Command="{Binding PickJoinerCommand}"
+                      Content="{l:Tr Common.Browse}" />
+              <Button Command="{Binding ClearJoinerCommand}"
+                      Content="{l:Tr Common.Clear}"
+                      Visibility="{Binding Joiner, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+            </StackPanel>
+          </StackPanel>
+
+          <TextBlock Margin="0,8,0,0"
+                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                     Text="{Binding OptionsError, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding OptionsError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        </StackPanel>
+      </Expander>
+
+      <!-- ===== Grupy ===== -->
+      <Expander x:Name="GroupsSection"
+                Header="{l:Tr BulkCreate.SectionGroups}"
+                IsExpanded="True"
+                Style="{StaticResource SectionExpander}">
+        <StackPanel Margin="0,6,0,0">
+          <DockPanel>
+            <Button x:Name="AddGroupsButton"
+                    Margin="12,0,0,0"
+                    Command="{Binding AddGroupsCommand}"
+                    Content="{l:Tr BulkCreate.AddGroups}"
+                    DockPanel.Dock="Right" />
+            <TextBlock VerticalAlignment="Center"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr BulkCreate.GroupsHint}"
+                       TextWrapping="Wrap" />
+          </DockPanel>
+          <TextBlock Margin="0,6,0,0"
+                     Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                     Text="{Binding GroupsWarning, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding GroupsWarning, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+          <TextBlock Margin="0,6,0,0"
+                     FontStyle="Italic"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{l:Tr BulkCreate.NoGroups}"
+                     Visibility="{Binding Groups.Count, Mode=OneWay, Converter={StaticResource Ad.EmptyToVisible}}" />
+          <ItemsControl x:Name="GroupList"
+                        Margin="0,6,0,0"
+                        AutomationProperties.Name="{l:Tr BulkCreate.SectionGroups}"
+                        Focusable="False"
+                        ItemsSource="{Binding Groups, Mode=OneWay}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="{x:Type dlg:DirectoryItem}">
+                <DockPanel Margin="0,0,0,4">
+                  <Button Margin="8,0,0,0"
+                          AutomationProperties.Name="{l:Tr Common.Remove}"
+                          Command="{Binding DataContext.RemoveGroupCommand, RelativeSource={RelativeSource AncestorType={x:Type local:BulkRulesView}}}"
+                          CommandParameter="{Binding Mode=OneWay}"
+                          Content="{x:Static c:Glyphs.Delete}"
+                          DockPanel.Dock="Right"
+                          Style="{StaticResource Ad.SmallIconButton}"
+                          ToolTip="{l:Tr Common.Remove}" />
+                  <c:ObjectIconView Margin="0,0,8,0"
+                                    VerticalAlignment="Center"
+                                    DockPanel.Dock="Left"
+                                    Icon="{Binding Icon, Mode=OneWay}"
+                                    Size="16" />
+                  <TextBlock Margin="0,0,10,0"
+                             VerticalAlignment="Center"
+                             DockPanel.Dock="Left"
+                             FontWeight="SemiBold"
+                             Text="{Binding Name, Mode=OneWay}" />
+                  <TextBlock VerticalAlignment="Center"
+                             Style="{StaticResource Ad.SecondaryText}"
+                             Text="{Binding Path, Mode=OneWay}"
+                             TextTrimming="CharacterEllipsis" />
+                </DockPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Expander>
+
+      <!-- ===== Zaawansowane (collapsed, with a one-line summary) ===== -->
+      <Expander x:Name="AdvancedSection"
+                IsExpanded="False"
+                Style="{StaticResource SectionExpander}">
+        <Expander.Header>
+          <StackPanel>
+            <TextBlock Text="{l:Tr BulkCreate.SectionAdvanced}" />
+            <TextBlock x:Name="AdvancedSummaryText"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{Binding AdvancedSummary, Mode=OneWay}"
+                       TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+        </Expander.Header>
+        <StackPanel Margin="0,6,0,0">
+          <TextBlock Style="{StaticResource OptionLabel}" Text="{l:Tr BulkCreate.CounterModeLabel}" />
+          <ComboBox x:Name="CounterModeBox"
+                    MinWidth="320"
+                    HorizontalAlignment="Left"
+                    AutomationProperties.Name="{l:Tr BulkCreate.CounterModeLabel}"
+                    DisplayMemberPath="Text"
+                    ItemsSource="{Binding CounterModes, Mode=OneWay}"
+                    SelectedValue="{Binding CounterMode}"
+                    SelectedValuePath="Value" />
+          <CheckBox Content="{l:Tr BulkCreate.AvoidRecycleBin}"
+                    IsChecked="{Binding AvoidRecycleBinNumbers}"
+                    Style="{StaticResource OptionCheck}" />
+          <TextBlock Style="{StaticResource OptionLabel}" Text="{l:Tr BulkCreate.CollisionsLabel}" />
+          <ComboBox x:Name="CollisionsBox"
+                    MinWidth="220"
+                    HorizontalAlignment="Left"
+                    AutomationProperties.Name="{l:Tr BulkCreate.CollisionsLabel}"
+                    DisplayMemberPath="Text"
+                    IsEnabled="{Binding CanChooseCollisions, Mode=OneWay}"
+                    ItemsSource="{Binding CollisionStrategies, Mode=OneWay}"
+                    SelectedValue="{Binding Collisions}"
+                    SelectedValuePath="Value" />
+          <CheckBox Content="{l:Tr BulkCreate.SanitizeIdentifiers}"
+                    IsChecked="{Binding SanitizeIdentifiers}"
+                    Style="{StaticResource OptionCheck}" />
+          <CheckBox Content="{l:Tr BulkCreate.TruncateNames}"
+                    IsChecked="{Binding TruncateNames}"
+                    Style="{StaticResource OptionCheck}" />
+          <CheckBox Content="{l:Tr BulkCreate.AddPrimarySmtp}"
+                    IsChecked="{Binding AddPrimarySmtp}"
+                    Style="{StaticResource OptionCheck}" />
+          <TextBlock Style="{StaticResource OptionLabel}" Text="{l:Tr BulkCreate.PhonesLabel}" />
+          <ComboBox x:Name="PhonesBox"
+                    MinWidth="260"
+                    HorizontalAlignment="Left"
+                    AutomationProperties.Name="{l:Tr BulkCreate.PhonesLabel}"
+                    DisplayMemberPath="Text"
+                    ItemsSource="{Binding PhoneFormats, Mode=OneWay}"
+                    SelectedValue="{Binding Phones}"
+                    SelectedValuePath="Value" />
+          <CheckBox Content="{l:Tr BulkCreate.MatchExisting}"
+                    IsChecked="{Binding MatchExisting}"
+                    Style="{StaticResource OptionCheck}" />
+        </StackPanel>
+      </Expander>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

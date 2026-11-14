@@ -3,6 +3,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
+using AdMng.Core.Pki;
 using AdMng.Core.Security;
 
 namespace AdMng.Core.PrivilegedAccess;
@@ -28,6 +29,22 @@ public sealed class DirectoryAclGrantSource : IPrivilegeGrantSource
         ArgumentNullException.ThrowIfNull(context);
         return new DirectoryAclScan(context).RunAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// The typed PKI entry for ESC5 / ESC14 (P1, docs/dev/p-certificate-services.md 2.3): one scan in a PKI mode – the PKI
+    /// subtree of the configuration, the CA computer objects of the window's domain (by DN), the Tier 0 accounts, the
+    /// class defaults and the extended rights; no OUs, GPOs, RBCD or deep scan – with the same evaluation rules as
+    /// <see cref="CollectAsync"/> (one shared PKI pass), returned as typed grants. All reads on the session's DC.
+    /// </summary>
+    /// <param name="context">The scan context (session, graph, options).</param>
+    /// <param name="caComputerDns">The enterprise CA computers (<c>PkiEnrollmentService.ComputerDn</c>).</param>
+    /// <param name="cancellationToken">Cancels the scan.</param>
+    public Task<IReadOnlyList<PkiAclGrant>> CollectPublicKeyAsync(PrivilegeScanContext context, IReadOnlyList<string> caComputerDns, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(caComputerDns);
+        return new DirectoryAclScan(context).RunPublicKeyAsync(caComputerDns, cancellationToken);
+    }
 }
 
 /// <summary>What an object whose ACL is read is; decides which rights matter and their level.</summary>
@@ -38,6 +55,9 @@ internal enum AclTargetKind
     GroupPolicy,
     Account,
     Group,
+
+    /// <summary>An object of <c>CN=Public Key Services</c> (P1, docs/dev/p-certificate-services.md 2.3): Tier 0.</summary>
+    PublicKey,
 }
 
 /// <summary>An object whose security descriptor was read (in memory for the run only).</summary>
@@ -89,6 +109,9 @@ internal sealed class AclTarget
     /// <summary>The owner is reported (containers, GPOs, Tier 0 objects; not ordinary leaf objects - creators own them).</summary>
     public bool ReportOwner { get; set; }
 
+    /// <summary>What the target is in the typed PKI output (<c>CollectPublicKeyAsync</c>); null: not part of it.</summary>
+    public PkiAclTargetKind? PkiKind { get; set; }
+
     public DistinguishedName Parsed => _parsed ??= DistinguishedName.TryParse(Dn, out var dn) ? dn : DistinguishedName.Root;
 
     private DistinguishedName? _parsed;
@@ -99,8 +122,6 @@ internal sealed class DirectoryAclScan
 {
     private const string DefaultSecurityDescriptorAttribute = "defaultSecurityDescriptor";
     private const string LdapDisplayNameAttribute = "lDAPDisplayName";
-    private const string RightsGuidAttribute = "rightsGuid";
-    private const string ValidAccessesAttribute = "validAccesses";
     private const string CreatorSidAttribute = "mS-DS-CreatorSID";
 
     /// <summary>Trustees whose rights are the defaults of every domain (never reported).</summary>
@@ -144,6 +165,12 @@ internal sealed class DirectoryAclScan
     /// CN=Policies.
     /// </summary>
     private readonly Dictionary<string, HashSet<string>> _provisioningTrustees = new(StringComparer.Ordinal);
+
+    /// <summary>PKI targets on which Cert Publishers of any forest domain are provisioning trustees (P1 decision 6).</summary>
+    private readonly HashSet<string> _certPublisherTargets = new(StringComparer.Ordinal);
+
+    /// <summary>The SIDs of the enterprise CA computers the PKI pass found (Tier 0, P1 decision 4).</summary>
+    private readonly List<string> _caComputerSids = [];
 
     public DirectoryAclScan(PrivilegeScanContext context)
     {
@@ -241,6 +268,9 @@ internal sealed class DirectoryAclScan
             }
         }
 
+        // The PKI objects of the configuration and the enterprise CAs' computers (P1, docs/dev/p-certificate-services.md 2.3).
+        await ReadPublicKeyInfrastructureAsync(null, cancellationToken).ConfigureAwait(false);
+
         // The Tier 0 objects: domain controllers, Administrator, krbtgt and the protected / Tier 0 groups of the graph.
         await foreach (var obj in SearchAsync(_nc, SearchScope.Subtree, Tier0Filter(), [.. SdAttributes, Attr.UserAccountControl, Attr.OperatingSystem], cancellationToken)
             .ConfigureAwait(false))
@@ -256,7 +286,7 @@ internal sealed class DirectoryAclScan
 
         // What the ACEs mean: the defaults of the classes, the extended rights; servers when LAPS rights are possible.
         await ReadDefaultsAsync(cancellationToken).ConfigureAwait(false);
-        _types = new AclObjectTypes(_session.Schema, await ReadControlAccessRightsAsync(cancellationToken).ConfigureAwait(false));
+        _types = await AclObjectTypes.ReadAsync(_session, PageSize, cancellationToken).ConfigureAwait(false);
         if (_types.HasLaps)
         {
             await ReadServersAsync(cancellationToken).ConfigureAwait(false);
@@ -281,6 +311,335 @@ internal sealed class DirectoryAclScan
             .OrderBy(g => g.Target.Dn, StringComparer.Ordinal)
             .ThenBy(g => g.Sid, StringComparer.Ordinal)
             .Select(g => g.Build())];
+    }
+
+    /// <summary>
+    /// The PKI mode of <see cref="DirectoryAclGrantSource.CollectPublicKeyAsync"/> (P1 2.3): the PKI pass of
+    /// <see cref="RunAsync"/> with the CA computers given by DN, AdminSDHolder and the Tier 0 accounts, the class defaults
+    /// and the extended rights – no OUs, GPOs, RBCD or deep scan – evaluated by the same rules, returned as typed grants.
+    /// </summary>
+    public async Task<IReadOnlyList<PkiAclGrant>> RunPublicKeyAsync(IReadOnlyList<string> caComputerDns, CancellationToken cancellationToken)
+    {
+        await ReadPublicKeyInfrastructureAsync(caComputerDns, cancellationToken).ConfigureAwait(false);
+        await ReadTier0AccountsAsync(cancellationToken).ConfigureAwait(false);
+        await ReadDefaultsAsync(cancellationToken).ConfigureAwait(false);
+        _types = await AclObjectTypes.ReadAsync(_session, PageSize, cancellationToken).ConfigureAwait(false);
+        foreach (var target in _index.Values.OrderBy(t => t.Dn, StringComparer.Ordinal))
+        {
+            Evaluate(target);
+        }
+
+        return [.. _grants.Values
+            .Where(g => g.Target.PkiKind is not null)
+            .OrderBy(g => g.Target.Dn, StringComparer.Ordinal)
+            .ThenBy(g => g.Sid, StringComparer.Ordinal)
+            .SelectMany(g => g.Typed())];
+    }
+
+    // ---- PKI (P1, docs/dev/p-certificate-services.md 2.3, decisions 4 and 6) ----------------------------------------
+
+    /// <summary>
+    /// The PKI pass shared by U4b and ESC5 / ESC14: one paged subtree search of <c>CN=Public Key Services</c> over the PKI
+    /// classes – every object a Tier 0 <see cref="AclTargetKind.PublicKey"/> target, owners reported only for containers,
+    /// templates, enrollment services, NTAuth and OID objects with a group link – then the enterprise CAs' computers of
+    /// the window's domain (by DN when given, else by the services' <c>dNSHostName</c>) as Tier 0 accounts, and the
+    /// provisioning trustees of decision 6: Cert Publishers on AIA / CDP / Certification Authorities / NTAuth / KRA / the
+    /// enrollment services, each CA computer on its enrollment service, its CDP host container and CRLs, and the CA store
+    /// objects holding its certificate. No PKI (Samba) is no error.
+    /// </summary>
+    private async Task ReadPublicKeyInfrastructureAsync(IReadOnlyList<string>? caComputerDns, CancellationToken cancellationToken)
+    {
+        if (!DistinguishedName.TryParse(_session.Info.ConfigurationNamingContext, out var configuration) || configuration.IsRoot)
+        {
+            return;
+        }
+
+        var pki = configuration.Child("CN", "Services").Child("CN", "Public Key Services");
+        var ntAuth = pki.Child("CN", "NTAuthCertificates");
+        var oidContainer = pki.Child("CN", "OID");
+        var cdp = pki.Child("CN", "CDP");
+        DistinguishedName[] certPublisherScopes =
+        [
+            pki.Child("CN", "AIA"), cdp, pki.Child("CN", "Certification Authorities"), ntAuth, pki.Child("CN", "KRA"), pki.Child("CN", "Enrollment Services"),
+        ];
+        var services = new List<(AclTarget? Target, string? Host, IReadOnlyList<byte[]> Certificates)>();
+        var stores = new List<(AclTarget Target, IReadOnlyList<byte[]> Certificates)>();
+        var crlTargets = new List<(AclTarget Target, string HostLabel)>();
+        var filter = LdapFilter.Or(PkiClasses.All.Select(c => LdapFilter.Equal(Attr.ObjectClass, c)));
+        try
+        {
+            await foreach (var obj in SearchAsync(pki.ToString(), SearchScope.Subtree, filter,
+                [.. SdAttributes, Attr.DnsHostName, PkiAttributes.CaCertificate, PkiAttributes.OidToGroupLink], cancellationToken).ConfigureAwait(false))
+            {
+                var kind = PublicKeyKindOf(obj, ntAuth, oidContainer);
+                var target = Read(obj, AclTargetKind.PublicKey);
+                if (kind == PkiAclTargetKind.EnrollmentService)
+                {
+                    services.Add((target, obj.GetString(Attr.DnsHostName), Certificates(obj)));
+                }
+
+                if (target is null)
+                {
+                    continue;
+                }
+
+                target.IsTier0 = true;
+                target.Tier0Subtree = true;
+                target.PkiKind = kind;
+                // Owners: containers (not the KRA agents, which the typed output also calls Container; CN=OID, itself an
+                // msPKI-Enterprise-Oid object, is one), templates, enrollment services, NTAuth and OID objects with a group
+                // link (CN=OID can hold thousands of objects).
+                target.ReportOwner = kind is PkiAclTargetKind.Template or PkiAclTargetKind.EnrollmentService or PkiAclTargetKind.NtAuth
+                    || (kind == PkiAclTargetKind.Container
+                        && (string.Equals(target.StructuralClass, PkiClasses.Container, StringComparison.OrdinalIgnoreCase) || target.Parsed.Equals(oidContainer)))
+                    || (kind == PkiAclTargetKind.Oid && obj.GetString(PkiAttributes.OidToGroupLink) is { Length: > 0 });
+                if (certPublisherScopes.Any(s => target.Parsed.Equals(s) || target.Parsed.IsDescendantOf(s)))
+                {
+                    _certPublisherTargets.Add(GroupGraph.Key(target.Dn));
+                }
+
+                if (kind == PkiAclTargetKind.CertificationAuthority)
+                {
+                    stores.Add((target, Certificates(obj)));
+                }
+
+                if (HostLabelBelow(target.Parsed, cdp) is { } label)
+                {
+                    crlTargets.Add((target, label));
+                }
+            }
+        }
+        catch (DirectoryException ex) when (ex.Kind == DirectoryErrorKind.NoSuchObject)
+        {
+            // No AD CS in this forest (the Samba lab): nothing to read.
+            return;
+        }
+
+        var computers = await ReadCaComputersAsync(services.Select(s => s.Host).OfType<string>(), caComputerDns, cancellationToken).ConfigureAwait(false);
+        foreach (var (service, host, certificates) in services)
+        {
+            if (host is null)
+            {
+                continue;
+            }
+
+            foreach (var computer in computers.Where(c => c.Matches(host)))
+            {
+                if (service is not null)
+                {
+                    Provision(service, computer.Sid);
+                }
+
+                foreach (var (store, _) in stores.Where(s => s.Certificates.Any(c => certificates.Any(own => own.AsSpan().SequenceEqual(c)))))
+                {
+                    Provision(store, computer.Sid);
+                }
+
+                foreach (var (crl, _) in crlTargets.Where(c => string.Equals(c.HostLabel, Label(host), StringComparison.OrdinalIgnoreCase)))
+                {
+                    Provision(crl, computer.Sid);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// The enterprise CAs' computer objects of the window's domain (2.1): by DN when the caller resolved them, else one
+    /// search by the services' <c>dNSHostName</c> (or <c>sAMAccountName</c> = label$). Each is a Tier 0 account target.
+    /// </summary>
+    private async Task<List<CaComputer>> ReadCaComputersAsync(IEnumerable<string> hosts, IReadOnlyList<string>? caComputerDns, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<string> attributes = [.. SdAttributes, Attr.DnsHostName, Attr.SamAccountName, Attr.UserAccountControl];
+        var nc = DistinguishedName.Parse(_nc);
+        var objects = new List<DirectoryObject>();
+        if (caComputerDns is not null)
+        {
+            foreach (var dn in caComputerDns.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                // The window's domain only: a child domain's DN lies below the parent's textually (DC=oddzial,DC=contoso,…),
+                // so the DC components must be the window's own.
+                if (DistinguishedName.TryParse(dn, out var parsed) && parsed.IsDescendantOf(nc) && parsed.DomainComponent.Equals(nc.DomainComponent)
+                    && await _session.GetAsync(dn, attributes, cancellationToken).ConfigureAwait(false) is { } obj)
+                {
+                    objects.Add(obj);
+                }
+            }
+        }
+        else
+        {
+            // Hosts of the window's domain only: srv.oddzial.contoso.test is in a child domain, not in contoso.test.
+            var own = hosts
+                .Where(h => h.Split('.', 2) is [_, var domain] && string.Equals(domain.TrimEnd('.'), _session.Info.DomainDnsName, StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (own.Count > 0)
+            {
+                var filter = LdapFilter.And(ObjectKind.Computer.ToLdapFilter(), LdapFilter.Or(own.SelectMany(h => new[]
+                {
+                    LdapFilter.Equal(Attr.DnsHostName, h),
+                    LdapFilter.Equal(Attr.SamAccountName, Label(h) + "$"),
+                })));
+                await foreach (var obj in SearchAsync(_nc, SearchScope.Subtree, filter, attributes, cancellationToken).ConfigureAwait(false))
+                {
+                    objects.Add(obj);
+                }
+            }
+        }
+
+        var computers = new List<CaComputer>();
+        foreach (var obj in objects)
+        {
+            if (obj.ObjectSid is not { } sid)
+            {
+                continue;
+            }
+
+            _caComputerSids.Add(sid);
+            computers.Add(new CaComputer(obj.GetString(Attr.DnsHostName), obj.GetString(Attr.SamAccountName)?.TrimEnd('$'), sid));
+            if (Read(obj, AclTargetKind.Account) is { } target)
+            {
+                target.IsTier0 = true;
+                target.ReportOwner = true;
+                target.IsDomainController = IsDomainController(obj);
+                target.PkiKind = PkiAclTargetKind.CaComputer;
+            }
+        }
+
+        return computers;
+    }
+
+    /// <summary>
+    /// The Tier 0 accounts of the PKI mode (ESC14): AdminSDHolder (its DACL is stamped on every protected account), the
+    /// domain controllers, Administrator, krbtgt and the direct members of every group that is Tier 0 by decision 4 (the
+    /// classifier's graph closure: nested members are direct members of a group of the closure), also by primary group.
+    /// </summary>
+    private async Task ReadTier0AccountsAsync(CancellationToken cancellationToken)
+    {
+        var nc = DistinguishedName.Parse(_nc);
+        var adminSdHolder = nc.Child("CN", "System").Child("CN", "AdminSDHolder").ToString();
+        if (await _session.GetAsync(adminSdHolder, SdAttributes, cancellationToken).ConfigureAwait(false) is { } holder
+            && Read(holder, AclTargetKind.Container) is { } holderTarget)
+        {
+            holderTarget.IsTier0 = true;
+            holderTarget.ReportOwner = true;
+            holderTarget.PkiKind = PkiAclTargetKind.Tier0Account;
+        }
+
+        var classifier = new PrincipalClassifier(_options.DomainSid, _options.RootDomainSid, _options, _context.Groups, _caComputerSids);
+        var parts = new List<string> { PrivilegedAccessScanner.DomainControllerFilter };
+        if (_options.DomainSid is { } domainSid)
+        {
+            parts.Add(LdapFilter.Equal(Attr.ObjectSid, string.Create(CultureInfo.InvariantCulture, $"{domainSid}-{WellKnownRids.Administrator}")));
+            parts.Add(LdapFilter.Equal(Attr.ObjectSid, string.Create(CultureInfo.InvariantCulture, $"{domainSid}-{WellKnownRids.Krbtgt}")));
+        }
+
+        foreach (var node in _context.Groups.Nodes.Where(n => !n.IsImplicit && n.Sid is not null).OrderBy(n => n.Dn, StringComparer.OrdinalIgnoreCase))
+        {
+            var sid = node.Sid!;
+            if (classifier.Classify(sid) == PrincipalClass.Tier0)
+            {
+                parts.Add(LdapFilter.Equal(Attr.MemberOf, node.Dn));
+
+                // Primary group membership is not in memberOf: primaryGroupID = 512 makes a Domain Admin no memberOf shows.
+                if (_options.DomainSid is { } own && sid.LastIndexOf('-') is var separator and > 0
+                    && string.Equals(sid[..separator], own, StringComparison.OrdinalIgnoreCase) && AdConvert.GetRid(sid) is { } rid)
+                {
+                    parts.Add(LdapFilter.Equal(Attr.PrimaryGroupId, rid.ToString(CultureInfo.InvariantCulture)));
+                }
+            }
+        }
+
+        await foreach (var obj in SearchAsync(_nc, SearchScope.Subtree, LdapFilter.And(PrivilegedAccessScanner.AccountFilter, LdapFilter.Or(parts)),
+            [.. SdAttributes, Attr.UserAccountControl], cancellationToken).ConfigureAwait(false))
+        {
+            if (Read(obj, AclTargetKind.Account) is { } target)
+            {
+                target.IsTier0 = true;
+                target.ReportOwner = true;
+                target.IsDomainController = IsDomainController(obj);
+                target.PkiKind = PkiAclTargetKind.Tier0Account;
+            }
+        }
+    }
+
+    /// <summary>
+    /// What a PKI object is in the typed output (the KRA agents, <c>CN=OID</c> – in AD an <c>msPKI-Enterprise-Oid</c> object
+    /// holding the others – and anything else of the subtree: container).
+    /// </summary>
+    private static PkiAclTargetKind PublicKeyKindOf(DirectoryObject obj, DistinguishedName ntAuth, DistinguishedName oidContainer)
+    {
+        var classes = obj.GetStrings(Attr.ObjectClass);
+        bool Is(string name) => classes.Contains(name, StringComparer.OrdinalIgnoreCase);
+        var dn = DistinguishedName.TryParse(obj.DistinguishedName, out var parsed) ? parsed : DistinguishedName.Root;
+        return Is(PkiClasses.CertificateTemplate) ? PkiAclTargetKind.Template
+            : Is(PkiClasses.EnrollmentService) ? PkiAclTargetKind.EnrollmentService
+            : Is(PkiClasses.CrlDistributionPoint) ? PkiAclTargetKind.CrlDistributionPoint
+            : Is(PkiClasses.EnterpriseOid) && !dn.Equals(oidContainer) ? PkiAclTargetKind.Oid
+            : Is(PkiClasses.CertificationAuthority) ? (dn.Equals(ntAuth) ? PkiAclTargetKind.NtAuth : PkiAclTargetKind.CertificationAuthority)
+            : PkiAclTargetKind.Container;
+    }
+
+    /// <summary>The RDN value of the host container below <c>CN=CDP</c> the target is (or is in), else null.</summary>
+    private static string? HostLabelBelow(DistinguishedName target, DistinguishedName cdp)
+    {
+        for (var current = target; current.Parent is { IsRoot: false } parent; current = parent)
+        {
+            if (parent.Equals(cdp))
+            {
+                return current.Name;
+            }
+        }
+
+        return null;
+    }
+
+    private static IReadOnlyList<byte[]> Certificates(DirectoryObject obj) =>
+        obj.TryGet(PkiAttributes.CaCertificate, out var values) ? [.. values.OfType<byte[]>()] : [];
+
+    /// <summary>The first DNS label of a host name.</summary>
+    private static string Label(string host) => host.Split('.', 2)[0];
+
+    private void Provision(AclTarget target, string sid)
+    {
+        var key = GroupGraph.Key(target.Dn);
+        if (!_provisioningTrustees.TryGetValue(key, out var trustees))
+        {
+            _provisioningTrustees[key] = trustees = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        trustees.Add(sid);
+    }
+
+    /// <summary>
+    /// Decision 6: the forest root's Domain Admins (owners of the default templates and containers; any domain's while the
+    /// root is unknown) on every PKI object, Cert Publishers of any forest domain on <see cref="_certPublisherTargets"/>.
+    /// </summary>
+    private bool IsPublicKeyProvisioningTrustee(string sid, AclTarget target)
+    {
+        if (PrincipalClassifier.DomainRid(sid) is not { } rid)
+        {
+            return false;
+        }
+
+        var prefix = sid[..sid.LastIndexOf('-')];
+        return rid switch
+        {
+            WellKnownRids.DomainAdmins => _options.RootDomainSid is not { } root || string.Equals(prefix, root, StringComparison.OrdinalIgnoreCase),
+            WellKnownRids.CertPublishers => _certPublisherTargets.Contains(GroupGraph.Key(target.Dn)),
+            _ => false,
+        };
+    }
+
+    private static bool IsTemplate(AclTarget target) =>
+        target.Kind == AclTargetKind.PublicKey && string.Equals(target.StructuralClass, PkiClasses.CertificateTemplate, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A CA computer read by the PKI pass (the names it is matched to its enrollment service by).</summary>
+    private sealed record CaComputer(string? DnsHostName, string? SamLabel, string Sid)
+    {
+        public bool Matches(string host) =>
+            string.Equals(DnsHostName, host, StringComparison.OrdinalIgnoreCase) || string.Equals(SamLabel, Label(host), StringComparison.OrdinalIgnoreCase);
+
+        public override string ToString() => nameof(CaComputer);
     }
 
     // ---- Reads -----------------------------------------------------------------------------------------------------
@@ -398,37 +757,6 @@ internal sealed class DirectoryAclScan
         {
             // No schema to read: only the default trustees are left out.
         }
-    }
-
-    /// <summary>CN=Extended-Rights of the configuration (one one-level search): rightsGuid → name.</summary>
-    private async Task<IReadOnlyList<(Guid Guid, string Name, int ValidAccesses)>> ReadControlAccessRightsAsync(CancellationToken cancellationToken)
-    {
-        var rights = new List<(Guid, string, int)>();
-        var extendedRights = DistinguishedName.TryParse(_session.Info.ConfigurationNamingContext, out var configuration) && !configuration.IsRoot
-            ? configuration.Child("CN", "Extended-Rights").ToString()
-            : null;
-        if (extendedRights is null)
-        {
-            return rights;
-        }
-
-        try
-        {
-            await foreach (var right in SearchAsync(extendedRights, SearchScope.OneLevel,
-                LdapFilter.Equal(Attr.ObjectClass, "controlAccessRight"), [Attr.Cn, RightsGuidAttribute, ValidAccessesAttribute], cancellationToken).ConfigureAwait(false))
-            {
-                if (Guid.TryParse(right.GetString(RightsGuidAttribute), out var guid) && (right.GetString(Attr.Cn) ?? right.Name) is { Length: > 0 } name)
-                {
-                    rights.Add((guid, name, right.GetInt32(ValidAccessesAttribute) ?? 0));
-                }
-            }
-        }
-        catch (DirectoryException ex) when (ex.Kind == DirectoryErrorKind.NoSuchObject)
-        {
-            // Only the fixed GUIDs of the base schema are known.
-        }
-
-        return rights;
     }
 
     /// <summary>Server computers (DN only): LAPS rights over servers are High.</summary>
@@ -571,7 +899,11 @@ internal sealed class DirectoryAclScan
         {
             if (objectType is not { } right)
             {
-                rights.Add((AclRight.AllExtendedRights, appliesTo));
+                // P1 (2.3): the only extended rights of PKI objects are Enroll / AutoEnroll – enrollment, not control.
+                if (target.Kind != AclTargetKind.PublicKey)
+                {
+                    rights.Add((AclRight.AllExtendedRights, appliesTo));
+                }
             }
             else if (target.Kind == AclTargetKind.DomainHead && _types.IsRight(right, AclObjectTypes.GetChangesAll))
             {
@@ -601,6 +933,12 @@ internal sealed class DirectoryAclScan
             {
                 rights.Add((AclRight.WriteAllProperties, appliesTo));
             }
+            else if (target.Kind == AclTargetKind.PublicKey && _types.ClassName(property) is { } objectClass
+                && string.Equals(objectClass, target.StructuralClass, StringComparison.OrdinalIgnoreCase))
+            {
+                // P1 (2.3): the object's own class as object type covers every property (the root of AccessCheck's object type list).
+                rights.Add((AclRight.WriteAllProperties, appliesTo));
+            }
             else
             {
                 var known = false;
@@ -626,6 +964,28 @@ internal sealed class DirectoryAclScan
                 {
                     rights.Add((AclRight.WriteAllowedToActOnBehalf, appliesTo));
                     known = true;
+                }
+
+                // P1 (2.3): explicit certificate mappings (ESC14) on any target – the attribute or its property set (Public-Information).
+                if (_types.Covers(property, AclObjectTypes.AltSecurityIdentities))
+                {
+                    rights.Add((AclRight.WriteAltSecurityIdentities, appliesTo));
+                    known = true;
+                }
+
+                // P1 (2.3): the ESC4-sensitive template attributes; a GUID nothing can name counts as sensitive (conservative).
+                if (!known && IsTemplate(target))
+                {
+                    var sensitive = PkiAttributes.SensitiveTemplateAttributes.Where(a => _types.Covers(property, a)).ToList();
+                    foreach (var attribute in sensitive)
+                    {
+                        rights.Add((AclRight.WriteTemplateProperty, attribute));
+                    }
+
+                    if (sensitive.Count == 0 && string.Equals(_types.Describe(property), property.ToString("D"), StringComparison.Ordinal))
+                    {
+                        rights.Add((AclRight.WriteTemplateProperty, property.ToString("D")));
+                    }
                 }
 
                 if (!known && target.Kind == AclTargetKind.GroupPolicy)
@@ -689,7 +1049,8 @@ internal sealed class DirectoryAclScan
     {
         if (DefaultTrusteeSids.Contains(sid)
             || (target.Sid is { } own && string.Equals(own, sid, StringComparison.OrdinalIgnoreCase))
-            || (_provisioningTrustees.TryGetValue(GroupGraph.Key(target.Dn), out var provisioned) && provisioned.Contains(sid)))
+            || (_provisioningTrustees.TryGetValue(GroupGraph.Key(target.Dn), out var provisioned) && provisioned.Contains(sid))
+            || (target.Kind == AclTargetKind.PublicKey && IsPublicKeyProvisioningTrustee(sid, target)))
         {
             return true;
         }
@@ -881,5 +1242,13 @@ internal sealed class DirectoryAclScan
                 .Select(r => AclRights.Format(r.Right, r.Detail))
                 .Distinct(StringComparer.Ordinal)],
         };
+
+        /// <summary>One typed grant per right and detail (P1 <c>CollectPublicKeyAsync</c>); <see cref="AclTarget.PkiKind"/> is set.</summary>
+        public IEnumerable<PkiAclGrant> Typed() => _rights
+            .Select(r => (r.Right, r.Detail))
+            .Distinct()
+            .OrderBy(r => r.Right)
+            .ThenBy(r => r.Detail, StringComparer.Ordinal)
+            .Select(r => new PkiAclGrant(Target.Dn, Target.PkiKind!.Value, Sid, r.Right, r.Detail));
     }
 }

@@ -12,6 +12,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
@@ -72,7 +73,11 @@ public sealed class BatchEditorWindowTests
         Assert.Equal(2, editor.ChangeCount);
         Assert.Equal(editor.PreviewRows.Count, window.PreviewList.Items.Count);
         Assert.Contains(editor.PreviewRows, r => r.Name == "Jan Kowalski" && r.Before == "IT" && r.After == "Rozwój oprogramowania");
-        Assert.False(string.IsNullOrEmpty(window.PreviewSummaryText.Text));
+
+        // The summary of the preview is the summary of the status line - said once, there (track V, stage V2b).
+        Assert.False(string.IsNullOrEmpty(editor.PreviewSummary));
+        Assert.Equal(PageStatusKind.Idle, window.PageStatus.Kind);
+        Assert.Equal(editor.PreviewSummary, window.PageStatus.Message);
         editor.PreviewRows.First(r => r.Name == "Łukasz Wiśniewski").IsIncluded = false;
         Assert.Equal(1, editor.ChangeCount);
         editor.SetAllIncludedCommand.Execute(true);
@@ -86,7 +91,11 @@ public sealed class BatchEditorWindowTests
         Assert.Equal(Visibility.Visible, window.ResultsPanel.Visibility);
         Assert.Equal(2, editor.Result!.SucceededCount);
         Assert.Equal(2, window.ResultList.Items.Count);
-        Assert.Equal(editor.ResultSummary, window.ResultSummaryText.Text);
+
+        // How the execution ended is said in the status line - with the domain; the counts are its summary behind that.
+        Assert.Equal(PageStatusKind.Done, window.PageStatus.Kind);
+        Assert.Contains(directory.Info.DomainDnsName, window.PageStatus.Message, StringComparison.Ordinal);
+        Assert.Equal(editor.ResultSummary, editor.Status.Idle.Message);
         Assert.Equal(["Rozwój oprogramowania"], directory.GetValues(company.JanKowalski, Attr.Department));
         Assert.True(IsDisabled(directory, company.LukaszWisniewski));
         editor.ResultFilter = ResultFilter.Failed;

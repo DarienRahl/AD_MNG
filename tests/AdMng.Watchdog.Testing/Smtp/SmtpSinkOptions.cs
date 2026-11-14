@@ -19,4 +19,10 @@ public sealed record SmtpSinkOptions
 
     /// <summary>SIZE limit in bytes (0 = none).</summary>
     public int MaxMessageSize { get; init; }
+
+    /// <summary>
+    /// Where the sink takes the port it listens on (default: <c>FreeTcpPort.Next</c>). Only the test of the sink itself
+    /// sets it, to hand out a port that is taken.
+    /// </summary>
+    public Func<int>? NextPort { get; init; }
 }

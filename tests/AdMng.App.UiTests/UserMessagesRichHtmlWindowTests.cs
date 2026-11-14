@@ -10,6 +10,7 @@ using AdMng.App.Views;
 using AdMng.Core.Messaging;
 using AdMng.Core.Messaging.Images;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.UserMessages;
 using AdMng.Testing;
@@ -67,7 +68,10 @@ public sealed class UserMessagesRichHtmlWindowTests
         Assert.Contains(UiWait.Descendants<Image>(window.TemplateImagesList), image => image.Source is not null);
         Assert.Contains(UiWait.Descendants<TextBlock>(window.TemplateImagesList), t => t.Text == "clip_image002.png");
         Assert.False(string.IsNullOrWhiteSpace(composer.Body));
-        Assert.Equal(composer.RichStatusText, window.RichStatusTextBlock.Text);
+
+        // What became of the paste is said by the status line of the window (the editor is the page in front).
+        Assert.Equal(composer.RichStatusText, window.PageStatus.Message);
+        Assert.Same(composer.EditorStatus.Current, window.PageStatus.Status);
 
         // The paste results: links outside the allowed domains, with "Allow domain …".
         Assert.True(window.PasteProblemsList.Items.Count > 0);
@@ -85,6 +89,12 @@ public sealed class UserMessagesRichHtmlWindowTests
         Assert.Equal(Visibility.Visible, window.ComposePreviewView.Visibility);
         Assert.True(window.ComposePreviewView.IsShowingSource);
         Assert.Equal(composer.Html, window.ComposePreviewView.SourceBox.Text);
+
+        // Why the source is shown is a note of the preview - true for as long as it is shown - not a banner.
+        Assert.True(window.ComposePreviewView.FallbackNote.IsVisible);
+        Assert.Same(Application.Current.FindResource("Ad.Note.Attention"), window.ComposePreviewView.FallbackNote.Style);
+        Assert.True(window.ComposePreviewView.UnavailableText.IsVisible);
+        Assert.False(window.ComposePreviewView.DisabledText.IsVisible);
         Assert.Equal("Source", window.HtmlPreviewToggleButton.Content);
 
         // "Remove" in the strip takes the image and its <img> away.
@@ -183,8 +193,14 @@ public sealed class UserMessagesRichHtmlWindowTests
         await composer.SendCommand.ExecuteAsync(null);
         await UiTestSupport.WaitForIdleAsync();
 
+        // Why nothing was sent is a note next to the Send button - with the choices that help - not a status: the
+        // line keeps the counts of the preview.
         Assert.Equal(Visibility.Visible, window.TransportFitBar.Visibility);
+        Assert.Same(Application.Current.FindResource("Ad.Note.Attention"), window.TransportFitNote.Style);
+        Assert.True(window.TransportFitTextBlock.IsVisible);
         Assert.StartsWith("AdMng Watchdog nie przyjmuje obrazów", window.TransportFitTextBlock.Text, StringComparison.Ordinal);
+        Assert.Equal(PageStatusKind.Idle, window.PageStatus.Kind);
+        Assert.Equal(composer.SummaryText, window.PageStatus.Message);
         Assert.Equal(Visibility.Visible, window.SendDirectForRunButton.Visibility);
         Assert.Equal(Visibility.Visible, window.SendWithoutImagesButton.Visibility);
         Assert.Equal("Wyślij bez obrazów", window.SendWithoutImagesButton.Content);

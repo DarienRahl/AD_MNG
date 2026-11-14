@@ -75,6 +75,16 @@
               Command="{Binding DiagnoseCommand}"
               Content="{l:Tr GpoDiag.ToolbarCommand}"
               ToolTip="{l:Tr GpoDiag.Title}" />
+      <Button x:Name="SearchSettingsButton"
+              Margin="0,0,6,4"
+              Command="{Binding SearchSettingsCommand}"
+              Content="{l:Tr GpoSearch.ToolbarCommand}"
+              ToolTip="{l:Tr GpoSearch.Title}" />
+      <Button x:Name="CleanupButton"
+              Margin="0,0,6,4"
+              Command="{Binding CleanupCommand}"
+              Content="{l:Tr GpoCleanup.ToolbarCommand}"
+              ToolTip="{l:Tr GpoCleanup.Title}" />
       <Button x:Name="RefreshButton"
               Margin="12,0,0,4"
               AutomationProperties.Name="{l:Tr GroupPolicy.RefreshCommand}"
@@ -83,7 +93,18 @@
               Style="{StaticResource Ad.IconButton}"
               ToolTip="{l:Tr GroupPolicy.RefreshCommand}" />
     </WrapPanel>
-    <gp:GroupPolicyBanners DockPanel.Dock="Top" />
+    <!--
+      Status line (design note 6.1): the read of the list with Stop, the summary (how many GPOs, how many shown, the
+      selection), why the list could not be read, and what became of an operation that is prepared for the change plan
+      preview. Always present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and the
+      PDC emulator (GroupPolicyNotes).
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="0,0,0,6"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+    <gp:GroupPolicyNotes x:Name="DocumentNotes" DockPanel.Dock="Top" />
 
     <Grid>
       <ListView x:Name="GpoList"

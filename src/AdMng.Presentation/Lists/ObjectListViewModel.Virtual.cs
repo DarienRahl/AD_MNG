@@ -4,6 +4,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Presentation.Changes;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -482,6 +483,10 @@ public sealed partial class ObjectListViewModel
         if (ReferenceEquals(sender, _virtualRows) && ReferenceEquals(_virtualSession, _session()))
         {
             Error = _services.Errors.Translate(e);
+            if (!_disposed)
+            {
+                Status.Show(ReadFailedStatus(Error, ResultCode.Of(e)));
+            }
         }
     }
 

@@ -99,7 +99,9 @@ public class CsvImportPlannerTests
         Assert.Equal(3, searches.Count);
         Assert.Equal([50, 50, 20], searches.Select(s => s.Search!.Filter.Split("(employeeID=").Length - 1));
         Assert.Equal(120, plan.ExecutableCount);
-        Assert.Equal(120, progress.Values.Max());
+
+        // Every row is counted once and the counts arrive in order, so the last report is the total.
+        Assert.Equal(Enumerable.Range(1, 120), progress.Values);
     }
 
     [Fact]

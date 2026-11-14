@@ -1,0 +1,53 @@
+<!--
+  Motion tokens of the interface renewal (track V, docs/dev/v-interface-renewal.md 5.1). Merged into App.Resources
+  after Tokens.xaml. No duration, offset or easing is written anywhere else: neither in another dictionary of Themes/
+  nor in a view (XamlSourceTests keeps both rules).
+
+  Who reads them: the code of Behaviors/Motion.cs (attached properties Motion.Shown, Motion.Swap, Motion.Entrance,
+  Motion.Leaving, and Motion.Play and Motion.Turn for the controls) and Services/NotificationService.cs, by key, each
+  time a motion starts. There is no Storyboard, animation element or
+  visual state of ours in XAML: a storyboard inside a template is frozen and could not take a value that changes
+  while the application runs, and with motion switched off (Services/MotionService.cs, the setting "Motion") the
+  final values must be set directly, which code does in one place.
+
+  Durations (Duration)     Motion.Hover 83 ms · Motion.Press 120 ms · Motion.Swap 150 ms · Motion.Fast 167 ms ·
+                           Motion.Appear 250 ms · Motion.Disappear 167 ms · Motion.Entrance 200 ms ·
+                           Motion.Expand 333 ms · Motion.Collapse 167 ms · Motion.Highlight 2 s · Motion.Shimmer 1.6 s ·
+                           Motion.HoverIntent 500 ms (a delay, not a movement) · Motion.Ring 1 s (one turn of the
+                           progress ring: progress, not motion - it turns also when motion is switched off)
+  Offsets (Double, px)     Motion.Offset.Page 24 · Motion.Offset.Panel 8 · Motion.Offset.Toast 16
+  Easings                  Motion.Ease.Enter (cubic, ease out) · Motion.Ease.Exit (cubic, ease in) ·
+                           Motion.Ease.Change (quadratic, ease in and out)
+
+  Rules (5.3): routine motion is at most about 300 ms; only opacity and a render transform move, never a size or a
+  margin; nothing is disabled or hidden from the pointer while it moves.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+  <!-- Durations -->
+  <Duration x:Key="Motion.Hover">0:0:0.083</Duration>
+  <Duration x:Key="Motion.Press">0:0:0.12</Duration>
+  <Duration x:Key="Motion.Swap">0:0:0.15</Duration>
+  <Duration x:Key="Motion.Fast">0:0:0.167</Duration>
+  <Duration x:Key="Motion.Appear">0:0:0.25</Duration>
+  <Duration x:Key="Motion.Disappear">0:0:0.167</Duration>
+  <Duration x:Key="Motion.Entrance">0:0:0.2</Duration>
+  <Duration x:Key="Motion.Expand">0:0:0.333</Duration>
+  <Duration x:Key="Motion.Collapse">0:0:0.167</Duration>
+  <Duration x:Key="Motion.Highlight">0:0:2</Duration>
+  <Duration x:Key="Motion.Shimmer">0:0:1.6</Duration>
+  <Duration x:Key="Motion.HoverIntent">0:0:0.5</Duration>
+  <Duration x:Key="Motion.Ring">0:0:1</Duration>
+
+  <!-- Offsets: how far an entering element travels to its place -->
+  <sys:Double x:Key="Motion.Offset.Page">24</sys:Double>
+  <sys:Double x:Key="Motion.Offset.Panel">8</sys:Double>
+  <sys:Double x:Key="Motion.Offset.Toast">16</sys:Double>
+
+  <!-- Easings -->
+  <CubicEase x:Key="Motion.Ease.Enter" EasingMode="EaseOut" />
+  <CubicEase x:Key="Motion.Ease.Exit" EasingMode="EaseIn" />
+  <QuadraticEase x:Key="Motion.Ease.Change" EasingMode="EaseInOut" />
+</ResourceDictionary>

@@ -11,7 +11,7 @@
 **A fast, modern successor to the `dsa.msc` snap-in – with bulk editing, the AD Recycle Bin and a directory change monitor**
 
 [![CI](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml/badge.svg)](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-0.13.0-2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
+[![Version](https://img.shields.io/badge/version-0.15.0-2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
 [![Downloads](https://img.shields.io/github/downloads/DarienRahl/AD_MNG/total?label=downloads&color=2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
 ![WPF Fluent](https://img.shields.io/badge/WPF-Fluent-0078D4)
@@ -28,17 +28,18 @@
 
 > [!WARNING]
 > **Development version.** Phases 1 (everyday work instead of ADUC) and 2 (bulk editing) of the [roadmap](#-roadmap)
-> are implemented, as are the AD Recycle Bin from phase 4 and the AdMng Watchdog service. The application is tested
-> automatically (unit tests, UI tests on Windows, integration tests against a Samba AD domain controller), but **it has
-> not yet been piloted on a production Windows AD** – start with a test domain or an account with limited permissions.
+> are implemented, as are creating multiple accounts from phase 3, the AD Recycle Bin from phase 4 and the AdMng
+> Watchdog service. The application is tested automatically (unit tests, UI tests on Windows, integration tests against
+> a Samba AD domain controller), but **it has not yet been piloted on a production Windows AD** – start with a test
+> domain or an account with limited permissions.
 
 ## ✨ Features
 
 AD Manager is a Windows desktop console for administrators of on-premises Active Directory. It replaces the
 **Active Directory Users and Computers** snap-in (`dsa.msc`) with a fast, modern application – and brings in the jobs
 that today need several separate tools: changing many objects at once, restoring deleted objects, reviewing accounts and
-privileges, Group Policy, event logs and messages to users. A separate service, **AdMng Watchdog**, records every change
-in the directory around the clock.
+privileges, Group Policy, Certificate Services (AD CS), event logs and messages to users. A separate service, **AdMng
+Watchdog**, records every change in the directory around the clock.
 
 <table>
   <tr>
@@ -142,6 +143,14 @@ flowchart LR
   resets, moving, renaming, group membership, deleting, CSV import (also `;` and cp1250 from a Polish Excel) – always
   with a preview of the differences, validation, protection against overwriting other people's changes, a report,
   export to CSV/PowerShell and the option to undo.
+- 👥 **Creating multiple accounts from Excel** – the *Multiple accounts…* wizard (command palette, *New* in the menu and
+  in the tree, *Several at once…* in the *New Object* window): a range pasted from Excel, Calc or Google Sheets, a CSV
+  or `.xlsx` file, columns recognized by Polish and English headers, names from rules with transliteration of Polish
+  characters and a counter (`kd{$nr:201}` → kd201, kd202… with the UPN `kd201@contoso.com`), naming profiles that are
+  the default for a container, a check of every row before anything is written (names already taken, possible existing
+  accounts of the same person), initial passwords in memory only, one trial account first and an undo of everything
+  the window created. Users, contacts, groups and computers – see
+  [docs/en/CREATING-ACCOUNTS.md](docs/en/CREATING-ACCOUNTS.md).
 - ♻ **AD Recycle Bin** – the *AD Recycle Bin* window (Ctrl+Shift+R): deleted objects read live, filters, restoring to
   the original or a chosen location, a whole OU subtree in one plan in parent → children order.
 
@@ -171,8 +180,21 @@ Details: [Track U](#track-u--account-review-and-messages-to-users--u1a-u1b-u1c-u
   Microsoft 365 Apps, Chrome, Firefox …) with central store updates; security settings; the "what will the computer
   get" report and Group Policy diagnostics. Every change in AD and SYSVOL goes through the change plan, with rollback.
 
-Details: [Track K](#track-k--computers-and-group-policy-gpo--k1k6-), [docs/en/COMPUTERS.md](docs/en/COMPUTERS.md) and
+Details: [Track K](#track-k--computers-and-group-policy-gpo--k1k7-), [docs/en/COMPUTERS.md](docs/en/COMPUTERS.md) and
 [docs/en/GROUP-POLICY.md](docs/en/GROUP-POLICY.md).
+
+### 🏛 Certificate Services (AD CS)
+
+- 🏛 **A read-only overview of the forest's PKI** – the *Public Key Services* node in the tree: enterprise CAs, trusted
+  CAs and NTAuth, CRLs and health in the style of `pkiview.msc`, the LDAPS certificates of the domain controllers;
+  certificate templates with their flags decoded and who can really enroll (with the account count); an ESC1–5, 9,
+  13–15 and 17 security review with the Certipy and Locksmith equivalents; a readiness report for strong certificate
+  mapping (KB5014754) and NTAuth; the *Published Certificates*, *Name Mappings* and *Key Credentials* tabs on accounts.
+  All from LDAP through the window's controller, without connecting to the certification authority; nothing is changed
+  or written to disk, and the program never shows key material (`userPKCS12` …).
+
+Details: [Track P](#track-p--certification-authority-ad-cs-and-certificates--p1-),
+[docs/en/CERTIFICATES.md](docs/en/CERTIFICATES.md).
 
 ### 📋 Event logs and troubleshooting
 
@@ -219,16 +241,17 @@ Details: [Track U](#track-u--account-review-and-messages-to-users--u1a-u1b-u1c-u
 - 🔒 **Zero local data** – nothing from the directory is written to disk (no database, cache or snapshots); every
   refresh asks the domain controller live. On disk (`%APPDATA%\AdMng`) there are only UI settings, connection profiles
   without passwords and view definitions. Passwords never end up in logs; they go to a file only in an export of
-  password reset results that the operator explicitly asks for.
+  password reset or account creation results that the operator explicitly asks for.
 - 🔑 **Different credentials** – sign in with the current Windows account or another one (helpdesk, administrator);
   Kerberos with signing and encryption, LDAPS or StartTLS; the whole session works with one domain controller, which
   can be changed while you work (**"Change Domain Controller..."** – a list of DCs with site, GC and RODC, without
   re-entering the password, open tabs stay). The UI shows what a given account can and cannot change
   (`allowedAttributesEffective`) and highlights privileged accounts.
-- 🕵 **No telemetry, no automatic updates** – the only connection to the internet is downloading browser ADMX templates
-  when you ask for it; see the [privacy policy](#privacy-policy).
+- 🕵 **No telemetry, no automatic updates** – the only connections to the internet are downloading browser ADMX
+  templates and – in the PKI overview, when the forest's certificates name such URLs – checking the AIA, CDP and OCSP
+  URLs, both only when you ask for it; see the [privacy policy](#privacy-policy).
 
-What is still missing (among others LAPS, BitLocker, an ACL editor, creating accounts from CSV, "Copy user"): see
+What is still missing (among others LAPS, BitLocker, an ACL editor, "Copy user"): see
 [known limitations](#known-limitations).
 
 ### AD Manager vs. ADUC
@@ -326,6 +349,7 @@ completion criteria. The order follows what was agreed with the team:
 - **bulk editing** is key, so the change engine is built already in Phase 1 and the full UI in Phase 2.
 
 Technical details and rationale: [ARCHITECTURE.md](docs/en/ARCHITECTURE.md), [RESEARCH.md](docs/en/RESEARCH.md).
+What the project is for, its goals and the proposed goals of the next releases: [GOALS.md](docs/en/GOALS.md).
 
 Status legend: ✅ done · 🟡 first version ready, needs refinement/verification on Windows AD · ⬜ planned
 
@@ -333,7 +357,7 @@ Status legend: ✅ done · 🟡 first version ready, needs refinement/verificati
 flowchart TB
     subgraph A["Main track · Phases 0–3"]
         direction LR
-        F0["✅ 0 · Foundations"] --> F1["🟡 1 · MVP instead of ADUC"] --> F2["🟡 2 · Bulk editing v1"] --> F3["⬜ 3 · Bulk editing v2<br/>and account creation"]
+        F0["✅ 0 · Foundations"] --> F1["🟡 1 · MVP instead of ADUC"] --> F2["🟡 2 · Bulk editing v1"] --> F3["⬜ 3 · Bulk editing v2<br/>and account creation<br/>(multiple accounts: 🟡)"]
     end
     subgraph B["Main track · Phases 4–7"]
         direction LR
@@ -341,7 +365,7 @@ flowchart TB
     end
     subgraph C["Parallel tracks"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>AD change monitor"] ~~~ U["🟡 U · Account review, privileges,<br/>e-mail messages and correspondence<br/>via Outlook<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Team collaboration<br/>shared pins<br/>and object notes"] ~~~ K["🟡 K · Computers<br/>and Group Policy (GPO)<br/>(K1–K6: 🟡)"] ~~~ EVT["🟡 E · Event logs<br/>reader and analysis<br/>(E1, part of E2: 🟡)"]
+        W["🟡 W · AdMng Watchdog<br/>AD change monitor"] ~~~ U["🟡 U · Account review, privileges,<br/>e-mail messages and correspondence<br/>via Outlook<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Team collaboration<br/>shared pins<br/>and object notes"] ~~~ K["🟡 K · Computers<br/>and Group Policy (GPO)<br/>(K1–K7: 🟡)"] ~~~ EVT["🟡 E · Event logs<br/>reader and analysis<br/>(E1, part of E2: 🟡)"] ~~~ PKI["🟡 P · Certification authority<br/>(AD CS) and certificates<br/>(P1: 🟡)"] ~~~ NET["⬜ N · DNS and DHCP<br/>zones, records, scopes"] ~~~ PWSH["⬜ R · PowerShell window<br/>queries and scripts,<br/>writes through the change plan"] ~~~ UIX["⬜ V · Interface renewal<br/>look, motion, icons"]
     end
     A --> B
     B ~~~ C
@@ -349,8 +373,8 @@ flowchart TB
     classDef wip fill:#fff8c5,stroke:#9a6700,color:#3b2300
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
-    class F1,F2,W,U,K,EVT wip
-    class F3,F4,F5,F6,F7,M365,TEAM todo
+    class F1,F2,W,U,K,EVT,PKI wip
+    class F3,F4,F5,F6,F7,M365,TEAM,NET,PWSH,UIX todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -361,7 +385,7 @@ flowchart TB
 | 0 | Foundations | Solution, CI, Samba AD lab, LDAP core, contracts, performance prototype | ✅ |
 | 1 | MVP – everyday work instead of ADUC | Sign-in (various credentials), tree, fast lists, search, properties, helpdesk actions, create/move/delete | 🟡 full scope implemented (including copying values, "Change Domain Controller", logon hours, WKGUID and VLV: ✅), awaiting a pilot on Windows AD |
 | 2 | Bulk editing v1 (key) | Bulk operations with a diff preview, validation, report, PowerShell export, rollback; CSV import (update) | 🟡 implemented, awaiting load tests |
-| 3 | Bulk editing v2 and account creation | CSV import (creation), per-OU templates, spreadsheet editor, basket, wizards (inactive accounts, surname change), full mail support | ⬜ (E-mail Addresses tab: ✅) |
+| 3 | Bulk editing v2 and account creation | CSV import (creation), per-OU templates, spreadsheet editor, basket, wizards (inactive accounts, surname change), full mail support | ⬜ (creating multiple accounts – a wizard with pasting from Excel, CSV and `.xlsx`, naming rules, counters and profiles for OUs: 🟡 implemented, awaiting a pilot on Windows Server AD; E-mail Addresses tab: ✅) |
 | 4 | AD Recycle Bin, views and reports | Browsing and restoring deleted objects, query builder, workspaces for departments, reports, multiple domains | ⬜ (AD Recycle Bin: 🟡; nested membership, view export, multiple domains in separate windows and comparing objects between them: ✅) |
 | 5 | Helpdesk+ and security | Credentials without the password in memory, protection from deletion, Security tab, lockout status on all DCs, change history, LAPS, BitLocker, live refresh | ⬜ (live list refresh: ✅) |
 | 6 | Delegation and governance | ACL editor, delegation wizard and delegation review, ADMX policies, operator event log, rare ADUC tabs | ⬜ |
@@ -370,8 +394,12 @@ flowchart TB
 | U | Account review and messages to users (parallel track) | E-mail messages (SMTP) from templates with account data (e.g. "password expires on …") to a single user from the properties window or to many at once, a review of all accounts (locked out, expired and expiring passwords and accounts, inactive, password hygiene), account privileges (every account with rights beyond those of an ordinary domain user, with level and path), filter builder, automatic reminders in the Watchdog service, mail merge through classic Outlook (address files, recipients from AD, fields, preview, test, "already sent" journal) and queries to owners of shared mailboxes | 🟡 (U1a – messages from AD Manager over direct SMTP, U1b – sending through the Watchdog service, U1c – formatted messages pasted from Outlook with embedded images, U1d – salutations with title and gender, U2 – account status review, U4 – account privileges: U4a from groups and account settings with the filter builder, U4b from delegations in ACLs and U4c from local rights granted by GPO: 🟡 implemented, awaiting a pilot on Windows Server AD; U5 – Correspondence (Outlook) and queries to mailbox owners: 🟡 implemented, awaiting a pilot with classic Outlook and Exchange; U3: ⬜) |
 | C | Microsoft 365: Entra ID, Exchange Online, Teams and SharePoint (parallel track) | Sign-in with an administrator or Global Reader account with automatic role detection (including roles eligible in PIM) and matching of the available features; users, groups, licenses, MFA and sign-ins in Entra ID, mailboxes and permissions in Exchange Online, Teams, SharePoint and OneDrive, linking an AD account to its Entra ID account; Microsoft Graph and PowerShell modules | ⬜ planned |
 | T | Team collaboration (parallel track) | Several administrators on different computers work together through the AdMng Watchdog service: a "Shared" panel with objects pinned for the team (with a note, author, "Forward to…") and object notes visible to everyone on the account, group or computer, refreshed live | ⬜ planned |
-| K | Computers and Group Policy (GPO) (parallel track) | Computer inventory and reports, computer account lifecycle, remote actions over WinRM; GPOs in the tree (creating, linking to OUs, order, filtering), Administrative Templates editor based on the latest ADMX files (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox and others) with central store updates, security settings, "What will the computer get" report, readable settings and Group Policy diagnostics | 🟡 (K1 – computers, K2 – GPOs in the tree, K3 – ADMX editor with central store updates, K4 – security settings, K5 – "What will the computer get" report and K6 – readability, editing convenience and diagnostics: implemented, awaiting a pilot on Windows Server AD) |
+| K | Computers and Group Policy (GPO) (parallel track) | Computer inventory and reports, computer account lifecycle, remote actions over WinRM; GPOs in the tree (creating, linking to OUs, order, filtering), Administrative Templates editor based on the latest ADMX files (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox and others) with central store updates, security settings, "What will the computer get" report, readable settings and Group Policy diagnostics, searching for settings across all GPOs, copying settings and cleaning up GPOs | 🟡 (K1 – computers, K2 – GPOs in the tree, K3 – ADMX editor with central store updates, K4 – security settings, K5 – "What will the computer get" report, K6 – readability, editing convenience and diagnostics and K7 – searching, copying settings and cleaning up GPOs: implemented, awaiting a pilot on Windows Server AD) |
 | E | Event logs: reader and analysis (parallel track) | Reading the event logs of DCs, servers, workstations and `.evtx` files from within the program (any channel, a shared timeline across multiple computers, explained fields and AD objects) and analyses: source of an account lockout, password spraying, Kerberos/RC4, NTLMv1, LDAP signing ("who will stop working"), logon history, account and group changes, GPO on a computer, DC health, audit integrity; separate from the Watchdog, nothing written to disk | 🟡 (E1 – reader and, from E2, the account lockout source and failed logons: implemented, awaiting a pilot on Windows Server AD) |
+| P | Certification authority (AD CS) and certificates (parallel track) | A live overview of the forest's PKI from LDAP (CAs, templates with decoded flags and who can enroll, NTAuth, AIA, CRLs, OIDs) with health in the style of `pkiview.msc`; an ESC1–ESC17 security review with fixes in AD through the change plan with rollback; the *Published Certificates*, *Name Mappings* (strong mapping, KB5014754) and *Key Credentials* tabs, LDAPS/KDC certificates on DCs; issuing certificates from the CA's templates with the template's requirements explained (for users, computers, web servers with SANs and DCs, from PKCS#10 requests from any system, on behalf of others through an enrollment agent; renewal, pending requests) – including the HTTPS certificate of the Watchdog service from the host's request and a code signing certificate for AD Manager – as a change plan action with preview and audit; working with the CA over DCOM with the window's account (issued, pending, revoked, approval, revocation, CRL publication); links with the Watchdog, event logs, GPOs and notifications | 🟡 (P1 – a read-only overview of the PKI from LDAP: CAs, NTAuth, CRLs, health, DC LDAPS certificates, templates with enrollment permissions, the ESC security review, the strong mapping and NTAuth readiness report, certificate tabs on accounts: implemented, awaiting a pilot on Windows Server AD with AD CS; P2–P5: ⬜) |
+| N | DNS and DHCP (parallel track) | DNS zones and records live from AD (all partitions, records decoded from `dnsRecord`, aging and stale records, conditional forwarders, DC locator records), going from a computer to its records, leases and reservations; DNS server settings and DHCP scopes, leases, reservations, options, policies and failover over WinRM/CIM or RPC with the window's account; a security and health review (who can create records, DnsAdmins, DnsUpdateProxy, nonsecure dynamic updates, DHCP on DCs, DNS credentials, name protection, scopes close to exhaustion) with fixes in AD through the change plan with rollback; links with computers, sites and subnets, the AD Recycle Bin, event logs and the Watchdog | ⬜ planned |
+| R | PowerShell window (parallel track) | A PowerShell 7 console next to every connection window for ad hoc queries, AD data dumps and scripts: built-in read commands in the window's session (the same DC, credentials in memory only, no RSAT) with safely built LDAP filters, results as PowerShell objects that open in the program's grid, with a jump to the object, export only to a file the operator chooses; writes never go straight to AD – AD Manager commands and translated RSAT commands go into the pending change plan with preview, audit and rollback, other RSAT writes are rejected; installed RSAT `ActiveDirectory` and `GroupPolicy` modules pointed by default at the window's DC (`ActiveDirectory` also with the window's credentials); no command history and no transcripts on disk | ⬜ planned |
+| V | Interface renewal: look, motion, icons (parallel track) | The same page skeleton everywhere (page header with a description and a guide link, one status line, toolbar card, content), a cancellable action button, search in the title bar for commands, pages, settings and objects (Ctrl+K), the areas of the program in view and a home page after connecting, one list toolbar, settings as cards, one dialog style; design tokens (light, dark, High Contrast, Mica where Windows offers it, compact density), a catalogue of short animations with a reduced-motion setting and a new set of colourful icons drawn for the project; modelled on *Harden System Security* and *AppControl Manager* for ease of use, without copying their artwork | 🟡 stage V1 built: colour icons, design tokens and panels in the main window, first motion, the settings *Icons*, *Background* and *Motion*; V2–V7 planned (design note: [v-interface-renewal.md](docs/dev/v-interface-renewal.md)) |
 
 Details of each phase are below – click to expand.
 
@@ -612,17 +640,49 @@ A value is copied with one click or a shortcut – without selecting text in the
 
 </details>
 
-### Phase 3 – Bulk editing v2 and account creation ⬜
+### Phase 3 – Bulk editing v2 and account creation ⬜ (creating multiple accounts: 🟡)
 
 **Goal:** account creation from CSV and from templates assigned to OUs, spreadsheet editor, object basket, wizards
-(inactive accounts, surname change) and full mail support.
+(inactive accounts, surname change) and full mail support. The first part – the **Create multiple accounts** wizard
+(F3) – has a first version.
 
 <details>
-<summary><b>Phase 3 details</b> – CSV import that creates objects, per-OU templates, spreadsheet editor, wizards, mail</summary>
+<summary><b>Phase 3 details</b> – creating multiple accounts, per-OU templates, spreadsheet editor, wizards, mail</summary>
 
-- CSV import that **creates** objects (users, contacts, groups, computers) with a downloadable file template; cp1250 support.
-- Templates for new objects assigned to OUs (e.g. *Pracownicy/IT*: UPN, mail, initial groups, department attributes),
-  naming policy with transliteration of Polish characters and uniqueness counters (`jan.kowalski2`).
+#### Implementation status
+
+- 🟡 **F3 – Creating multiple accounts** (command palette `new.bulkCreate` *Multiple accounts…*, *Action → New*, *New*
+  in the tree and list menus, *Several at once…* in the *New Object* window). A wizard in the bulk editor, in four
+  steps: **Data** – pasting from Excel, LibreOffice Calc and Google Sheets (clipboard text, the HTML table only when
+  needed), CSV files (also cp1250 and UTF-16) and `.xlsx`, typing into the table, headers detected also below a sheet
+  title, handling of Excel pitfalls (error values, scientific notation, Alt+Enter, merged cells); **Columns** – mapping
+  to any attribute of the schema (also `extensionAttribute1–15`) by Polish and English headers and by content, *Full
+  name*, manager, groups, country, expiration date, columns used only in patterns, password columns never used;
+  **Names and options** – patterns with transliteration of Polish characters and the counter
+  `{$nr:start[:digits[:step]]}` (*Numbered accounts (kd201…)*: the next number after the highest one in the domain,
+  without reusing numbers from the AD Recycle Bin), UPN suffix, collisions (`jan.kowalski2`, *Jan Kowalski (2)*),
+  generated passwords or one for all, forced password change, groups, Microsoft 365 / Exchange options (primary SMTP
+  address, UPN = e-mail address – off by default), naming profiles that are the default for a container (without data
+  and passwords); **Check** – every row with its computed values, status and remarks (taken in AD and in the sheet, a
+  possible existing account of the same person, an ambiguous manager), correcting cells, excluding rows, filters,
+  uniqueness of UPNs and addresses across the whole forest (the global catalog of the same DC). Then the usual
+  pipeline: a change plan with preview and PowerShell (`New-ADUser … Read-Host -AsSecureString`), execution that starts
+  with one trial account, results with passwords in memory only (safe copying, export only on request), *Retry failed*
+  and *Undo* of everything the window created. Also contacts, groups (scope and type) and computers (random account
+  password, join right). Verified with tests on a fake directory with Polish data (5,000 rows), on the Samba lab and
+  with UI tests (screenshots 40–43 – Windows CI only); a forest with multiple domains and the rules for Windows
+  computer accounts – pilot. Description: [docs/en/CREATING-ACCOUNTS.md](docs/en/CREATING-ACCOUNTS.md), design:
+  [docs/dev/phase3-bulk-create.md](docs/dev/phase3-bulk-create.md).
+- ⬜ The rest of the phase (scope below): "Copy user", spreadsheet editor, basket, wizards, full mail support,
+  membership synchronization.
+
+#### Phase scope
+
+- 🟡 CSV import that **creates** objects (users, contacts, groups, computers); cp1250 support – in the F3 wizard
+  (without a downloadable file template; *Add row* starts a table with the typical columns).
+- 🟡 Templates for new objects assigned to OUs (e.g. *Pracownicy/IT*: UPN, mail, initial groups, department attributes),
+  naming policy with transliteration of Polish characters and uniqueness counters (`jan.kowalski2`) – the F3 naming
+  profiles, also as the default for a container (the window for a single new object does not use them).
 - "Copy user" (attributes copyable according to the schema + memberships).
 - Spreadsheet editor (like Excel) over list results: pasting from Excel, fill down, changes go to the preview.
 - Basket of objects from different OUs, "paste a list" (matching by sAMAccountName/UPN/mail/employeeID).
@@ -658,7 +718,7 @@ domains.
   from tombstones).
   Still to do: verification on Windows Server with the Recycle Bin enabled and with permissions delegated on
   `CN=Deleted Objects`, a warning in the delete dialog when the Recycle Bin is disabled, restoring in the Configuration
-  and DNS zone partitions.
+  partition and in the DNS zone partitions (zones and `dnsNode` nodes – see [Track N](#track-n--dns-and-dhcp-)).
 - 🟡 **Views for departments:** ✅ pinning OUs, saved views (LDAP query + container + columns), ready-made built-in views
   and view export/import for the team; ⬜ workspaces (e.g. *Pracownicy*, *Komputery*, *Kontrahenci*) combining views
   with templates, separate for helpdesk and administrators.
@@ -715,8 +775,10 @@ ADUC tabs.
 - Pre-check of extended rights (AuthZ) before an operation.
 - ADMX templates (confirmation thresholds, export limits, inactivity lock, PAW requirement), an operator Event Log
   channel (change metadata, no values), support for correlation with DC auditing (5136/5137/5141 – moves to Track E).
-- Rare ADUC tabs: Dial-in, Environment/Sessions/Remote control (RDS), Name Mappings, Published Certificates,
-  RODC password replication policy; operations masters (FSMO), gMSA/dMSA accounts.
+- Rare ADUC tabs: Dial-in, Environment/Sessions/Remote control (RDS), RODC password replication policy (the *Name
+  Mappings* and *Published Certificates* tabs moved to
+  [Track P](#track-p--certification-authority-ad-cs-and-certificates--p1-)); operations masters (FSMO), gMSA/dMSA
+  accounts.
 
 </details>
 
@@ -727,7 +789,9 @@ ADUC tabs.
 <details>
 <summary><b>Phase 7 details</b> – MSI installer, WDAC/AppLocker, "four-eyes", PAM</summary>
 
-- Signed MSI installer (certificate from the company AD CS), WDAC/AppLocker rules, distribution via Intune/ConfigMgr/GPO.
+- Signed MSI installer (AD Manager itself issues the code signing certificate from the company AD CS – see [Track P,
+  stage P2](#track-p--certification-authority-ad-cs-and-certificates--p1-)), WDAC/AppLocker rules, distribution via
+  Intune/ConfigMgr/GPO.
 - "Four-eyes" approval: operator A exports a signed change plan, operator B verifies it live and executes it.
 - Time-bound membership (PAM/TTL), authentication policies and silos (view only), smart card logon.
 
@@ -776,9 +840,9 @@ specifications [dev/watchdog-spec.md](docs/dev/watchdog-spec.md) and
   LDAP over GSSAPI, API with Negotiate and roles, OpenWEC, SYSVOL), lab scripts (`tools/testlab/watchdog`)
   also run in CI, package installation tests in Debian 12 and 13 containers.
 
-**To do before the stable release (0.13.0 is a preview release):** a pilot in a Windows Server 2025 lab
+**To do before the stable release (0.15.0 is a preview release):** a pilot in a Windows Server 2025 lab
 with Debian 13 and an admin workstation, then in a test domain with 2025 and 2022 domain controllers – the shared
-checklist [PILOTAZ.md](docs/en/PILOT.md) (AD Manager, Group Policy, event logs) and the service checklist
+checklist [PILOT.md](docs/en/PILOT.md) (AD Manager, Group Policy, event logs) and the service checklist
 [WATCHDOG-LINUX.md, section 7](docs/en/WATCHDOG-LINUX.md#7-pilot--checklist) (forwarding events from real
 DCs to OpenWEC and "who and from where" attribution, computer account password change with a deny entry for SELF, the
 first automatic change after 30 days, LDAP signing on Windows Server 2025 with GSSAPI, `tokenGroups` after granting
@@ -914,7 +978,7 @@ description: [docs/dev/u1-user-messages.md](docs/dev/u1-user-messages.md), U1c a
   "Retry failed" unchanged; the sending window shows *Sending through Outlook: …*, and the report shows `outlook.*` codes
   with a hint. Automatic mode still picks Watchdog or SMTP, never Outlook. Requirements (classic Outlook, the same
   privilege level as AD Manager, Outlook's programmatic access security):
-  [KORESPONDENCJA.md, section 10](docs/en/CORRESPONDENCE.md#10-messages-to-users-u1-through-outlook).
+  [CORRESPONDENCE.md, section 10](docs/en/CORRESPONDENCE.md#10-messages-to-users-u1-through-outlook).
 - ⬜ XOAUTH2 (Exchange Online) in direct sending – does not fit the existing MSAL code (the Watchdog service's
   confidential client); Exchange Online with OAuth2 – through Watchdog (U1b, ✅) or through Outlook (U5, ✅).
 - ✅ Tests: unit (fields and dates with Polish characters in both languages and the Europe/Warsaw time zone, security
@@ -1289,7 +1353,7 @@ and the person receives a message asking whether the mailbox is still needed.
   `cid:` images, draft after an error, error classification, STA thread, reading votes), window models on a fake DC and
   a fake Outlook, UI tests, smoke test and screenshots `26-…`–`28-…` (Windows).
 - 🟡 To verify in the pilot: the checklist in
-  [KORESPONDENCJA.md, ch. 14](docs/en/CORRESPONDENCE.md#14-pilot-checklist) – among others Microsoft 365 Apps 32-
+  [CORRESPONDENCE.md, ch. 14](docs/en/CORRESPONDENCE.md#14-pilot-checklist) – among others Microsoft 365 Apps 32-
   and 64-bit, Exchange Online and on-premises, *On behalf of*, images in Outlook, in the browser and in Gmail, voting
   buttons and reading votes, Outlook's programmatic access security, AD Manager run as administrator, 300 messages with
   a 3 s interval, real `msExchRecipientTypeDetails` values in a hybrid environment.
@@ -1398,7 +1462,8 @@ reports, stages</summary>
 - **Microsoft Graph** wherever it is sufficient (Entra ID, groups, licenses, authentication methods, logs, Teams,
   SharePoint); **PowerShell modules** where Graph does not reach: `ExchangeOnlineManagement`, `MicrosoftTeams`,
   `PnP.PowerShell` – in an embedded PowerShell 7 inside the AD Manager process, with the token from the same sign-in
-  (no second sign-in). Every operation has an equivalent PowerShell command in the history, as for AD today.
+  (no second sign-in). Every operation has an equivalent PowerShell command in the history, as for AD today. The
+  PowerShell window ([Track R](#track-r--powershell-window-)) uses the same embedded PowerShell 7.
 - **Delegated permissions** only: AD Manager always acts on behalf of the signed-in person and never with application
   permissions of its own – it cannot grant more than that person's roles allow.
 - Read-only by default; changes go through the same pipeline as in AD (plan → validation → preview → execution →
@@ -1507,18 +1572,19 @@ and the details pane.
 
 </details>
 
-### Track K – Computers and Group Policy (GPO) 🟡 (K1–K6: 🟡)
+### Track K – Computers and Group Policy (GPO) 🟡 (K1–K7: 🟡)
 
 **Goal:** full work with computers in AD and with Group Policy without GPMC and the GPO editor: computer inventory and
 reports, the lifecycle of their accounts, remote actions, and for GPOs – creating them and linking them to OUs, editing
 settings from the **latest ADMX templates**, security settings and the "what will the computer get" report. Every change –
 in AD and in SYSVOL – goes through the change plan preview, with rollback. Parallel track: K1 (computers), K2 (GPOs in
-the tree), K3 (ADMX editor with the central store), K4 (security settings), K5 ("what will the computer get" report) and
-K6 (readable settings, editing convenience, Group Policy diagnostics) have a first version; replaces "ADMX policies" from
-Phase 6. AdMng Watchdog sees GPO changes right away (GPO content "before → after").
+the tree), K3 (ADMX editor with the central store), K4 (security settings), K5 ("what will the computer get" report),
+K6 (readable settings, editing convenience, Group Policy diagnostics) and K7 (searching for settings, copying settings
+and cleaning up GPOs) have a first version; replaces "ADMX policies" from Phase 6. AdMng Watchdog sees GPO changes right
+away (GPO content "before → after").
 
 <details>
-<summary><b>Track K details</b> – computers, GPOs in the tree, ADMX editor, security, report, stages</summary>
+<summary><b>Track K details</b> – computers, GPOs, ADMX editor, security, report, cleanup, stages</summary>
 
 #### Computers
 
@@ -1578,13 +1644,22 @@ Phase 6. AdMng Watchdog sees GPO changes right away (GPO content "before → aft
 - *Group Policy diagnostics*: logic errors (links, scope, filtering, versions, SYSVOL, conflicts between GPOs) and weak
   security settings in all GPOs of the domain, with a fix through the change plan preview.
 
+#### Searching, copying settings and cleanup
+
+- *GPO settings search*: which GPOs of the domain set a given setting, value or account ("minimum password length",
+  "K:", `KONTOSO\Serwisanci`), with a comparison of the values between GPOs.
+- Copying selected settings to another GPO, removing a duplicate and merging two GPOs – through the change plan
+  preview.
+- *GPO cleanup*: empty, unlinked and disabled GPOs, GPOs with a single setting, repeated settings, merge candidates –
+  every proposal with an action through the change plan.
+
 #### Stages
 
 - 🟡 **K1** – computers: inventory and reports, account lifecycle, remote actions over WinRM. First version ready:
   *Computer review* (8 reports, a catalog of Windows versions with end-of-support dates, exact last logon, site from the
   subnet, CSV), the *Status* tab in properties, account preparation with the join right, *Reset Account*, the *Remote
   actions* window (CIM over WinRM, Kerberos only) and tools (ping, mstsc, *Computer Management*, *Event
-  Viewer*); description: [KOMPUTERY.md](docs/en/COMPUTERS.md). Awaiting a pilot on Windows Server 2025 and Windows 11.
+  Viewer*); description: [COMPUTERS.md](docs/en/COMPUTERS.md). Awaiting a pilot on Windows Server 2025 and Windows 11.
 - 🟡 **K2** – GPOs in the tree: GPO node, "Group Policy" tab, creating, linking, order, filtering, backups. First
   version ready: the *Group Policy Objects*, *WMI Filters* and *Sites* nodes, GPO tabs (scope, details, read-only
   settings, delegation, AD/SYSVOL status) and the *Group Policy* tab of the domain, OUs and sites; new GPO, copy,
@@ -1592,7 +1667,7 @@ Phase 6. AdMng Watchdog sees GPO changes right away (GPO content "before → aft
   (MS16-072), WMI filters, delegation, backups in GPMC format (restore, import settings), comparison of two GPOs; every
   AD and SYSVOL change goes through the change plan preview with file diffs, PowerShell and rollback. Verified on the
   fake directory and the Samba lab; WPF windows and GPMC compatibility – Windows CI and the pilot. Description:
-  [ZASADY-GRUPY.md](docs/en/GROUP-POLICY.md).
+  [GROUP-POLICY.md](docs/en/GROUP-POLICY.md).
 - 🟡 **K1 + K2 together:** both stages work in one version of the program – the computer join right, security filtering
   and GPO delegation change permissions with the same change plan action (with an audit of only what really changed the
   ACL, and rollback). Unit tests and the Samba lab pass on the combined version; the WPF windows of both stages are
@@ -1603,7 +1678,7 @@ Phase 6. AdMng Watchdog sees GPO changes right away (GPO content "before → aft
   a file or folder, templates of this computer, downloading Edge, Chrome and Firefox, trust, languages, comparison,
   store copy, transactional save with rollback). Verified on the fake directory and synthetic templates; WPF windows –
   Windows CI; vendor packages and `Registry.pol` compatibility with Microsoft's editor – pilot.
-  Description: [ZASADY-GRUPY.md, chapters 7 and 8](docs/en/GROUP-POLICY.md#7-administrative-templates-admx).
+  Description: [GROUP-POLICY.md, chapters 7 and 8](docs/en/GROUP-POLICY.md#7-administrative-templates-admx).
 - 🟡 **K4** – security settings. First version ready: the GPO *Security settings* tab with local groups (Restricted
   Groups and preference local groups side by side, with a description of precedence), user rights, account policies and
   security options, auditing (basic categories and advanced subcategories) and services; saving changes only the edited
@@ -1611,14 +1686,14 @@ Phase 6. AdMng Watchdog sees GPO changes right away (GPO content "before → aft
   stay), with extension names as in GPMC and conflict detection. Verified on the fake directory; WPF window – Windows CI;
   GPMC compatibility and behavior on the client – pilot. Firewall, file and registry permissions and the remaining
   preferences – later. Description:
-  [ZASADY-GRUPY.md, chapter 10](docs/en/GROUP-POLICY.md#10-security-settings-local-groups-rights-account-policies-auditing-services).
+  [GROUP-POLICY.md, chapter 10](docs/en/GROUP-POLICY.md#10-security-settings-local-groups-rights-account-policies-auditing-services).
 - 🟡 **K5** – "what will the computer get" report. First version ready: a model tab for a computer, a user or new
   accounts in a container (*What will the computer get…*, *What will the user get…*, *Model Group Policy…*, the
   computer's *Status* page) with the site, an assumption about WMI filters and loopback; a list of GPOs with the outcome
   (blocking, enforcement, security filtering with ACL entries evaluated in the same order as Windows, MS16-072, disabled
   parts, empty GPOs), settings with the winning GPO and a *Why* panel, token groups, CSV export. Verified on the fake
   directory and the Samba lab (consistent with `samba-tool gpo list`); WPF window – Windows CI; comparison with GPMC and
-  `gpresult` – pilot. Description: [ZASADY-GRUPY.md, chapter 9](docs/en/GROUP-POLICY.md#9-what-the-computer-will-get-group-policy-modeling).
+  `gpresult` – pilot. Description: [GROUP-POLICY.md, chapter 9](docs/en/GROUP-POLICY.md#9-what-the-computer-will-get-group-policy-modeling).
 - 🟡 **K6** – GPO readability, editing convenience and diagnostics. First version ready: settings everywhere in GPMC
   language (the *Settings* tab grouped like the GPMC report, with search, *Edit this setting* and *HTML report…*; the K5
   model, GPO comparison, change plan preview, Watchdog tab) – names, values with units and explanations, accounts instead
@@ -1629,22 +1704,33 @@ Phase 6. AdMng Watchdog sees GPO changes right away (GPO content "before → aft
   others `cpassword`, MS16-072, sensitive rights for broad groups, NTLM/LM, SMB and LDAP signing on DCs – with *Fix…*
   through the change plan preview, and export); the GPO *Status* tab on the same engine. Verified on the fake directory;
   windows – Windows CI; name compatibility with the GPMC report – pilot. Description:
-  [ZASADY-GRUPY.md, chapter 11](docs/en/GROUP-POLICY.md#11-readable-settings-editing-comfort-and-diagnostics-k6).
+  [GROUP-POLICY.md, chapter 11](docs/en/GROUP-POLICY.md#11-readable-settings-editing-comfort-and-diagnostics-k6).
+- 🟡 **K7** – searching, copying settings and cleaning up GPOs. The **GPO settings search** tab (command palette
+  `gpo.searchSettings`, *Search settings…* in the GPO list, *Find in all GPOs* on the *Settings* tab): one read of all
+  GPOs of the domain into the window's memory, search by name, value, technical key and account (name or SID)
+  regardless of Polish diacritics, configuration and area filters, *Only different values*, results grouped by setting
+  with the verdict *values match / differ / not comparable*, CSV and HTML export. **Copy to another GPO…** (at most 10
+  source GPOs, the *Replace*, *Skip* and *Merge lists* modes) – one change plan for the target GPO with a *Setting
+  changes* section and rollback. The **GPO cleanup** tab (command palette `gpo.cleanup`, *Cleanup…*): empty, unlinked
+  and disabled GPOs, all links disabled, GPOs with a single setting, duplicated settings (only when the second GPO
+  applies everywhere the first one does), different values, merge candidates; the actions *Delete GPO…* (with a check
+  for changes since the analysis and a backup), *Unlink everywhere…*, *Disable GPO*, *Remove the duplicate from this
+  GPO*, *Merge with…* (copies the settings, replaces the links, disables the merged GPO). Description:
+  [GROUP-POLICY.md, chapter 12](docs/en/GROUP-POLICY.md#12-searching-copying-settings-and-cleaning-up-gpos-k7).
+  - ⚠ Known limitations of K7:
+    - Not verified on a real Windows domain: tests on a fake directory with Polish data; the WPF windows and
+      screenshots 34 and 35 – Windows CI only; consistency with the GPMC *Find*, `gpresult /h` and GPMC after copying
+      and merging – pilot.
+    - Not copied or merged: hidden values (GPP `cpassword` passwords – MS14-025, SNMP communities), scripts, file and
+      registry permissions, audit options, comments, collection items with targeting or disabled ones, settings stored
+      in the directory; a GPO with such settings cannot be merged.
+    - No copying to a new GPO and between domains; a merge does not move the target GPO's link to the position of the
+      merged one; links from other domains of the forest are not visible.
 
-#### Ideas for further development of Group Policy (K7–K11, to choose from)
+#### Ideas for further development of Group Policy (K8–K11, to choose from)
 
 Proposals for the next stages – order and scope to be agreed with the team.
 
-- ⬜ **K7 – searching and cleaning up GPOs.**
-  - **Settings search across all GPOs of the domain**, e.g., "where is the minimum password length set", "which GPO
-    maps drive K:", "who grants the *Allow log on through Remote Desktop Services* right". Searches by name, value,
-    technical key and account, in GPMC language (K6).
-  - **Copying selected settings to another GPO** through the change plan: ADMX policies, security settings,
-    preferences.
-  - **Cleanup advisor:**
-    - GPOs that are empty, unlinked or have a single setting;
-    - settings repeated in several GPOs;
-    - a proposal to merge two GPOs, with preview and rollback.
 - ⬜ **K8 – history and safe rollout.**
   - **GPO version history** from the content snapshots AdMng Watchdog already stores: a timeline of changes and
     comparison with any earlier version. *Restore this setting* works through the change plan.
@@ -1798,7 +1884,7 @@ application has a fix.
   parsers to `AdMng.Core`. First version ready (reading over RPC; WinRM – later).
 - 🟡 **E2** – accounts: lockout source with a jump to the computer (K1), failed logons and password spraying – first
   version ready; ⬜ logon history, account and group changes in DC logs. Description:
-  [DZIENNIKI-ZDARZEN.md](docs/en/EVENT-LOGS.md). Verified on fake logs and in UI tests on Windows; reading from
+  [EVENT-LOGS.md](docs/en/EVENT-LOGS.md). Verified on fake logs and in UI tests on Windows; reading from
   real DCs and a comparison with LockoutStatus and EventCombMT – pilot.
 - **E3** – hardening readiness: Kerberos and RC4, NTLM and NTLMv1, LDAP signing and channel binding – *who will stop
   working* – with a check of the audit requirements and fixes through K4 and K3.
@@ -1829,10 +1915,1098 @@ application has a fix.
 
 </details>
 
+### Track P – Certification authority (AD CS) and certificates 🟡 (P1: 🟡)
+
+**Goal:** the forest's public key infrastructure in one place, instead of the *Certification Authority* (`certsrv.msc`),
+*Certificate Templates* (`certtmpl.msc`), *Enterprise PKI* (`pkiview.msc`) and *ADSI Edit* (`adsiedit.msc`) consoles and
+`certutil`. The program shows all CAs of the forest, the templates with their flags decoded and with **who can really
+enroll**, as well as the NTAuth store, the CRLs and the expiration dates. It assesses security against the
+**ESC1–ESC17** catalog (Certipy's numbering; Locksmith and Microsoft Defender for Identity cover some of the classes)
+and proposes every fix in AD as a **change plan with preview and rollback**. It also handles the certificates on
+accounts and DCs (*Published Certificates*, *Name Mappings* with an assessment against strong mapping (KB5014754), KDC
+and LDAPS certificates). It **issues certificates** from the CA's templates – instead of `certreq` and the *Certificate
+Enrollment* wizard (*Request New Certificate…*) in the *Certificates* snap-in – for users, computers, servers and DCs,
+from requests made on any system and on behalf of other people, also for AD Manager (code signing) and the Watchdog
+service (an HTTPS certificate from the host's request). It also works with the CA itself: issued, pending and revoked
+certificates, approval and revocation over DCOM with the window's account. A parallel track; it takes over the *Name
+Mappings* and *Published Certificates* tabs from phase 6 and lifts the part of the U4b limitation about the PKI
+containers in the configuration partition (sites are still skipped). It uses the U4 permission engine, permission writes
+through the `ModifySecurity` action (K1/K2), remote actions (K1) and the log reader (E). Stage P1 – the read-only
+overview from LDAP – has its first version; P2–P5 are planned.
+
+<details>
+<summary><b>Track P details</b> – implementation status, PKI overview, templates, ESC, account and DC certificates,
+issuance, CA, stages</summary>
+
+#### Implementation status
+
+- 🟡 **P1 – a read-only AD CS overview (LDAP)**: implemented, awaiting a pilot on Windows Server AD with AD CS. The
+  *Public Key Services* node in the tree (*View → Public Key Services in the tree*), the *Tools → Certificate Services
+  (AD CS)* menu and the palette commands `pki.overview`, `pki.templates`, `pki.security`, `pki.readiness`. Four
+  documents use one PKI read of the window (in memory only, F5 reads again):
+  - **Public Key Services** – the enterprise CAs (certificate, path from the certificates in AD, templates to issue,
+    CES, *Open computer* and *Remote actions…* of the CA host), trusted CAs and NTAuth matched to the CAs, CRLs, key
+    recovery agents, OIDs with their linked groups; a *Health* tab in the style of `pkiview.msc` (thresholds in the
+    settings, HTTP URLs checked only after *Check HTTP URLs*) and an *LDAPS certificates* tab (only the TLS handshake
+    with port 636 and 3269 of every DC – name, EKU, validity, chain to a CA from AD, NTAuth – and a KDC certificate
+    indicator);
+  - **Certificate Templates** – the columns of `certtmpl.msc`, flags as sentences, periods, the issuing CAs, *who can
+    enroll* and *who can change the template* (evaluated like AccessCheck with deny ACEs, Tier 0 / broad group / other
+    classes, account counts from one pass), a comparison of two templates, CSV and HTML export;
+  - **AD CS security review** – ESC1–5, 9, 13, 14, 15 and 17 (11 finding codes with their Certipy and Locksmith
+    equivalents), severities, filters, condition, attack path, accounts and groups with counts, notes (among them the
+    assumed *Enroll* right on the CA until P4), CSV and HTML export; no *Fix…* (P3);
+  - **Strong mapping and NTAuth readiness** – weak `altSecurityIdentities`, authentication templates without the SID
+    extension, CAs outside NTAuth, the LDAPS and KDC certificates of the domain controllers, CSV export;
+  - the *Published Certificates*, *Name Mappings* (strength under KB5014754) and *Key Credentials* (metadata only) tabs
+    on users, computers and contacts; key material (`userPKCS12`, the roaming credentials …) is masked in the Attribute
+    Editor and in list columns; the *Privileges* tab (U4b) also reads the PKI containers;
+  - no connection to the CA; outside the LDAP session only the TLS probe of the domain controllers and – on a button –
+    the HTTP URL check. Verified by tests on a fake directory with Polish data (a deliberately vulnerable template for
+    every ESC rule and a safe look-alike), the TLS probe against an in-process TLS server and on the Samba lab (no AD
+    CS: empty PKI containers and the controller's LDAPS); the WPF windows and the screenshots 36–39 – only Windows CI;
+    consistency with `pkiview.msc`, `certtmpl.msc`, Certipy and Locksmith – the pilot. User guide:
+    [docs/en/CERTIFICATES.md](docs/en/CERTIFICATES.md), design:
+    [docs/dev/p-certificate-services.md](docs/dev/p-certificate-services.md).
+- ⬜ **P2–P5** – issuing certificates, repairs through the change plan, working with the CA and the links with other
+  tracks (scope below).
+
+#### PKI overview and health
+
+- A **"Public Key Services"** node in the tree (like the GPO node), read live from
+  `CN=Public Key Services,CN=Services,CN=Configuration,…`:
+  - **enterprise CAs** (`pKIEnrollmentService`): host, CA certificate with its chain and validity, *Certificate
+    Templates to Issue* (`certificateTemplates`), the addresses of the Certificate Enrollment Web Service (CES,
+    `msPKI-Enrollment-Servers`);
+  - **trusted root and intermediate CAs** (`CN=Certification Authorities`, `CN=AIA`) and the **NTAuth store**
+    (`CN=NTAuthCertificates`) with thumbprint, subject, validity and matching to the enterprise CAs; a warning when a CA
+    that issues logon certificates is not in NTAuth (smart card and certificate logon require it; since KB5057784,
+    CVE-2025-26647, also with mapping by SKI in `altSecurityIdentities`);
+  - **CRLs** published in AD (`CN=CDP`, base and delta): number, `thisUpdate` / `nextUpdate`, number of revoked
+    certificates;
+  - **key recovery agents** (`CN=KRA`) and **OIDs** (`CN=OID`): issuance policies linked to a group
+    (`msDS-OIDToGroupLink`).
+- **Health in the style of `pkiview.msc`** for all CAs at once: CA certificate, AIA and CDP locations, delta CRL – status
+  OK / expiring / expired / unavailable, with an adjustable "expiring" threshold. The program checks HTTP addresses from
+  the certificates (AIA, CDP, OCSP) only when the operator chooses to; it keeps the responses in memory.
+- From every place, a jump to the CA host in the remote actions (K1) and to its computer object.
+
+#### Templates and enrollment permissions
+
+- A list of templates with the columns: display name and the name used by the CA (`cn`), schema version (1–4), template
+  version, purpose (EKUs and application policies), validity and renewal period, minimum key length and provider,
+  subject source (*Supply in the request* or built from AD), CA certificate manager approval, number of authorized
+  signatures required, publishing to AD, superseded templates, issuance policies. In addition: the CAs that issue a
+  given template, and the templates that no CA issues.
+- The `msPKI-Certificate-Name-Flag`, `msPKI-Enrollment-Flag`, `msPKI-Private-Key-Flag` and `flags` flags shown as
+  readable sentences in Polish and English, with the technical name of the bit in a tooltip; the `pKIExpirationPeriod` /
+  `pKIOverlapPeriod` periods in days, weeks and years.
+- **Who can enroll:** the *Enroll* and *Autoenroll* permissions from the template's ACL (also *Full Control* and *All
+  Extended Rights*) expanded through group membership by the U4 engine – with the number of accounts and a jump to them.
+  Separately: who can **change** the template (writing attributes, the ACL, the owner).
+- Comparing two templates (e.g. a copy with the original) and exporting the list on request.
+
+#### ESC security with fixes through the change plan
+
+- An **AD CS security review** in the style of the readiness check (stage S) and the Group Policy diagnostics (K6):
+  every finding has a level, an ESC number consistent with Certipy and the counterpart in Locksmith and in the Microsoft
+  Defender for Identity assessment when there is one, a description of the condition and of the attack path, the object
+  it concerns, the accounts and groups with excessive rights and a *Fix…* button.
+- **From LDAP only** (from P1): ESC1 (subject supplied in the request + an authentication EKU + enrollment for broad
+  groups + no approval and no signatures), ESC2 (any purpose or no EKU), ESC3 (enrollment agent and the templates that
+  allow enrolling on behalf of others), ESC4 (write rights and the owner of a template), ESC5 (ACLs of the PKI
+  containers, NTAuth, OIDs, enrollment services and the CA's computer object), ESC9 (`CT_FLAG_NO_SECURITY_EXTENSION`),
+  ESC13 (an issuance policy linked to a privileged group), ESC14 (weak `altSecurityIdentities` and the right to write
+  them), ESC15 (a version 1 template with the subject from the request – CVE-2024-49019; in P1 marked as depending on
+  the CA's November 2024 update, confirmed in P4 from the updates of the CA host), ESC17 (subject from the request with
+  a server authentication EKU). Until the CA's security is read (P4), the result assumes the default right of
+  *Authenticated Users* to enroll on the CA and says so.
+- **Need the CA or a DC** (from P4, until then marked "to be checked on the CA"): ESC6 (`EditFlags` with
+  `EDITF_ATTRIBUTESUBJECTALTNAME2`), ESC7 (*Manage CA* and *Issue and Manage Certificates* for accounts outside Tier 0),
+  ESC11 (`InterfaceFlags` without `IF_ENFORCEENCRYPTICERTREQUEST`), ESC16 (the SID extension in
+  `DisableExtensionList`), ESC8 (enrollment over HTTP without HTTPS and Extended Protection for Authentication – the
+  addresses are checked only with the operator's consent), ESC10 (weak mapping on DCs: `StrongCertificateBindingEnforcement`
+  only on DCs without the September 2025 update, which ignores it, and the UPN bit in the Schannel
+  `CertificateMappingMethods` – through K1 or from the GPO that sets them), a second check of ESC15. ESC12 (the CA key
+  in a YubiHSM with its password stored in the CA's registry; needs shell access to the CA) is outside the program's
+  scope. The catalog is open to further numbers.
+- **Fixes in AD through the change plan** (from P3): turning off *Supply in the request* or
+  `CT_FLAG_NO_SECURITY_EXTENSION`, requiring CA certificate manager approval or an authorized signature, narrowing the
+  EKUs, removing the *Enroll* entry for *Domain Users* (the `ModifySecurity` action), correcting the owner, removing a
+  template from a CA, removing `msDS-OIDToGroupLink`, removing a foreign certificate from NTAuth, replacing a weak
+  mapping with a strong one. Every fix has a diff preview, a warning about its effects (who stops getting a
+  certificate) and rollback.
+- Fixes on the CA side (ESC6, ESC7, ESC11, ESC16): in P4 the program only detects them and describes the fix; whether it
+  will make them itself or generate a `certutil` script is to be decided (see "Later" and "To be agreed with the team").
+
+#### Certificates on accounts and DCs
+
+- **Published Certificates** (a tab as in ADUC, from phase 6) on users, computers and contacts: `userCertificate` and
+  `userSMIMECertificate` with the columns *Issued To*, *Issued By*, purpose, validity, template, thumbprint; adding from
+  a file, removing, *Copy to File…* (saved only on a click); in bulk – removing expired certificates from the selected
+  accounts through the bulk editor (phase 2).
+- **Name Mappings** (a tab as in ADUC, which creates only weak forms): `altSecurityIdentities` with a strength
+  assessment according to KB5014754. Weak forms (`X509:<I>…<S>…`, `X509:<S>…`, `X509:<RFC822>…`) are marked, and the
+  program builds a new mapping from a chosen `.cer` file only in strong forms (`X509:<I>…<SR>…` with the serial number
+  reversed, `X509:<SKI>…`, `X509:<SHA1-PUKEY>…`); Kerberos names separately. A report of accounts with weak mappings and
+  a bulk replacement with strong ones.
+- **Key Credentials** (`msDS-KeyCredentialLink` – Windows Hello for Business, FIDO, *Shadow Credentials*): a list of
+  keys with the device ID, source (AD / Entra ID), creation and last use date; removing a stale key through the change
+  plan; history from the Watchdog when it is connected.
+- **DC certificates:** for every DC a TLS connection on port 636 (and 3269) without signing in – the LDAPS certificate
+  with subject and SAN (full name of the DC and of the domain), EKUs, issuer, validity and chain; KDC readiness for smart
+  card and Windows Hello logon (the *KDC Authentication* EKU, issuer in NTAuth). The mapping settings on DCs through
+  the K1 remote actions: `StrongCertificateBindingEnforcement` (ignored since the September 2025 update – it matters
+  only on DCs without it, so K1 also reads the installed updates) and the Schannel `CertificateMappingMethods`.
+- **Readiness for strong mapping and NTAuth:** one report with the accounts with weak mappings, authentication
+  templates without the SID extension, CAs outside NTAuth and – through Track E – the KDC events 39, 40 and 41
+  (KB5014754) and 45 and 21 (KB5057784, NTAuth) from the DCs. It answers the question of who will not be able to sign
+  in with a certificate.
+
+#### Issuing certificates
+
+- **The *Issue certificate…* wizard**, available from the CA node, a template, a user or computer account, a DC and the
+  command palette: choosing a CA, then a template among those that this CA issues and for which the operator has the
+  *Enroll* right (the engine from "Who can enroll"; the right to enroll on the CA itself assumed until P4 as in P1); the
+  other templates are visible with an explanation of why they are not available (no right, a template no CA issues, a
+  kind of request the program does not support).
+- **The template's requirements explained before sending:**
+  - where the subject comes from: *Supply in the request* – the operator types the subject and the SAN names; subject
+    built from AD – the CA builds it from the account that sends the request and ignores the subject from the request
+    (a certificate for another person then needs an enrollment agent);
+  - key: algorithm and minimum length, provider (`msPKI-Minimal-Key-Size`, `pKIDefaultCSPs`; CNG providers only in
+    templates compatible with at least Windows Server 2008), whether the private key can be exported, strong key
+    protection, TPM key attestation (required or preferred), the same key on renewal;
+  - CA certificate manager approval (the request goes to *Pending Requests*), the number of authorized signatures and
+    the required application policy (usually *Certificate Request Agent*), validity and renewal period;
+  - the template's ESC findings (e.g. ESC1, ESC2, ESC15 for version 1 with the subject from the request) – the wizard
+    shows them with the template, not only in the security review.
+- **Kinds of requests:**
+  - **for yourself or for this computer** – the key is created in the Windows key store (CNG: the software provider, a
+    smart card or the TPM through the *Microsoft Platform Crypto Provider*), not exportable by default; a request for
+    the computer (the `LocalMachine` store) requires the program to run elevated. Whether the CA then authenticates the
+    computer or the operator (the subject built from AD depends on it) has to be confirmed on Windows Server: according
+    to Microsoft, `certreq -machine` sends the request in the user's context (the user's rights to the template count,
+    not the computer's), and whether CertEnroll in the program's process can authenticate the computer is not known yet;
+  - **from a PKCS#10 request (CSR) made on any system** (Linux, network devices, other servers; from a file or the
+    clipboard): the program shows what is in the request (subject, SAN, key algorithm and length, EKUs, other extensions
+    and attributes), checks its signature and says which fields of the request the CA will drop or replace according to
+    the template; the key stays where it was created;
+  - **on behalf of another person** through an enrollment agent (a CMC request with `RequesterName`, signed with a
+    certificate with the *Certificate Request Agent* EKU), e.g. smart cards for users – from P4 (reading the CA
+    configuration) with information on whether the enrollment agent restrictions on the CA (by templates and groups,
+    not OUs) allow this agent to submit a request with this template for this person, and with an ESC3 warning when the
+    CA has no restrictions at all; in P2 the preview says that the restrictions were not checked;
+  - **renewal** of an existing certificate with the same or a new key (according to the template's flag), also from the
+    list of certificates in the Windows store that are close to expiration (from P4 – from the *Issued Certificates* view
+    with an expiration filter);
+  - **a self-signed certificate** for the lab and tests (no CA; the preview says that workstations do not trust it).
+- **Certificates for AD Manager and the Watchdog service:**
+  - **HTTPS of the AdMng Watchdog service on Debian:** the key and the request are created on the host by a new
+    `admng-watchdog` subcommand (next to `cert-fingerprint` and `cert-renew-self-signed`; the name is to be decided), AD
+    Manager sends the request to the CA (a template with the *Server Authentication* EKU, a SAN with the service name,
+    e.g. `admng-wd.contoso.com`) and hands the issued certificate with its chain to the host; **the key never leaves the
+    host**. This replaces the manual steps with `certreq` and `certutil` from
+    [WATCHDOG-LINUX.md, 3.8](docs/en/WATCHDOG-LINUX.md#38-tls-certificate-for-the-api), also on renewal (a new pair next
+    to the working one, swapped only after checking that the key matches the certificate).
+  - **Code signing** of `AdMng.exe` and of the MSI installer ([phase 7](#phase-7--deployment-and-extras-)): a template
+    (prepared in `certtmpl.msc`, from P3 as a copy of a template made in the program) with the *Code Signing* EKU, a key
+    that cannot be exported – preferably on a token, a smart card or in a TPM with attestation (since June 2023 the
+    CA/Browser Forum requires, for public code signing certificates, a hardware module certified to FIPS 140 Level 2 or
+    Common Criteria EAL 4+; a TPM only with such a certification) – CA certificate manager approval, the *Enroll* right
+    for a narrow group only and a short validity period. A signature with an RFC 3161 timestamp
+    (`signtool sign /fd sha256 /tr <address> /td sha256`) stays valid after the certificate expires; AD CS has no
+    timestamping server (TSA) of its own, so the program proposes a public one (which receives only the hash of the
+    signature, not the file) or a company one.
+- **Other typical certificates:** a web server with multiple SAN names (DNS names and IP addresses), users (S/MIME, smart
+  card logon, file encryption), computers, DCs (LDAPS and *KDC Authentication*, with a check of the names as in "DC
+  certificates"). For logon certificates the program checks strong mapping (KB5014754): the SID extension added by the CA
+  or the SAN `tag:microsoft.com,2022-09-14:sid:<SID>`; whether the CA adds the SID extension itself with *Supply in the
+  request* templates or copies it from the request is to be confirmed on Windows Server.
+- **Pending requests:** the request ID and status (*pending*, *issued*, *denied*) in the window's activity center; after
+  approval (in `certsrv.msc`, from P4 also in the program) the program retrieves the certificate (like `certreq -retrieve`)
+  and finishes the installation or the save. The key of a pending request stays in the Windows *Certificate Enrollment
+  Requests* store (as with `certreq`); the program keeps no list of requests of its own – after a restart it finds them
+  in that store or by the request ID.
+- **Receiving the certificate:** installation in the Windows store (*Current User* or *Local Computer*) with the chain,
+  or saving to a file the operator chooses: `.cer` (DER or Base64), `.p7b` with the chain; `.pfx` with the key only when
+  the key is exportable and the operator asks for it – the file password exists only in memory (never in the audit, the
+  log or `ToString()`), and the program warns that a file with a private key has to be protected like credentials.
+- **Every issuance is a change plan action:** the preview says exactly to which CA and with what the program will send
+  the request – template, subject, SAN, key (algorithm, length, provider, exportability), EKUs and application policies
+  – and what the CA will add or replace according to the template (subject built from AD, SID extension, validity
+  period), whether the request will wait for approval and where the certificate and the key will be stored. After
+  confirmation, an audit entry (without the key and the password). **An issuance cannot be undone** – the only way back
+  is revoking the certificate on the CA (P4) – and the preview says so explicitly.
+
+#### Working with the CA
+
+- **Views of the CA database** as in `certsrv.msc`, but for multiple CAs and with filters on the CA side: *Issued
+  Certificates*, *Pending Requests*, *Failed Requests*, *Revoked Certificates*. Filters: template, requester, subject,
+  expiration period, request date. Rows are streamed and virtualized (rule 6).
+- **An anomaly view** (like PSPKIAudit): a requester different from the subject or the SAN, a SAN with a privileged
+  account or a DC name, certificates from templates with ESC findings, certificates issued for the Watchdog service
+  account `ADMNG-WD$` (today a manual `certutil -view` from
+  [WATCHDOG-LINUX.md, 2.5](docs/en/WATCHDOG-LINUX.md#25-the-admng-wd-service-account)).
+- **Actions:** approving and denying a pending request, revocation with a reason, releasing a hold
+  (`certificateHold`), publishing a CRL (base or delta). The program asks the CA about the operator's roles and enables
+  only the actions the operator has the right to.
+- **The CA configuration, read-only:** `EditFlags`, `InterfaceFlags`, `DisableExtensionList`, the audit filter
+  (`AuditFilter`), certificate manager and enrollment agent restrictions, the validity limit, the CRL schedule, the CDP
+  and AIA addresses, the CA roles with their accounts (ESC6, ESC7, ESC11, ESC16), the OS version and the installed
+  updates of the CA host (through K1).
+
+#### Links with other tracks
+
+- **W – Watchdog:** watching the template attributes that are missing today (`msPKI-Private-Key-Flag`,
+  `msPKI-Certificate-Policy`, schema version, validity period), the `CN=OID` objects with `msDS-OIDToGroupLink`,
+  `CN=KRA`, `CN=CDP` / `CN=AIA` and the ACL of the Public Key Services container; an alert when a change **makes a
+  template vulnerable** (an ESC assessment on every template change), not just when it changes an attribute; reminders
+  about expiring CA certificates, CRLs and LDAPS certificates; optionally the CA events (4886, 4887, 4888, 4870, 4882,
+  4885, 4899, 4900) from the CA hosts through OpenWEC as a Tier 0 source – this needs an amendment of
+  ADR-0008/ADR-0009 (a new source: the Security log of the CAs, the range of fields, retention, the WEF subscription) and
+  of WATCHDOG-LINUX.md. The HTTPS certificate of the service itself is issued by AD Manager from the host's request
+  (P2, see "Issuing certificates").
+- **E – Event logs:** an *AD CS* analysis on the CAs (requests with a SAN in the attributes, changes of templates, of
+  permissions and of the audit filter, deleted database rows) with a check of whether CA auditing is turned on; a
+  *certificate logon* analysis on the DCs (the KDC events 39/40/41 and 45/21 and the certificate fields in 4768) – who
+  will stop being able to sign in.
+- **K – Computers and GPO:** a readable editor for *Certificate Services Client - Auto-Enrollment* (`AEPolicy`) and for
+  the certificates distributed through *Public Key Policies* on the `Registry.pol` infrastructure (K3); K6 diagnostics
+  rules (e.g. a template with autoenrollment while the policy is turned off); a row in the K5 model; auditing of
+  *Certification Services* through K4.
+- **U – Accounts and messages:** notifications about expiring certificates from `userCertificate` to the account owners
+  through U1 templates (a "certificate expires on …" field), automatically in U3; CA hosts and accounts with CA roles as
+  Tier 0 in the account privileges (U4).
+- **Stage S – readiness check:** a warning about an expiring CA certificate, CRL or DC LDAPS certificate.
+- **Phase 7 – deployment:** the code signing certificate from P2 for `AdMng.exe` and the MSI installer.
+- **R – PowerShell window:** PKI objects, templates with decoded flags and ESC findings available also through the read
+  commands of the PowerShell window; R1 is queued before P2.
+
+#### How it works technically
+
+- **Two data sources.** Everything that is in AD (templates, CAs, NTAuth, AIA, CDP, KRA, OIDs, certificates and mappings
+  on accounts) the program reads over the window's LDAP session – from one DC (rule 4); the configuration partition is
+  replicated across the whole forest, so an ordinary read is enough. The state of the CA itself (database,
+  configuration, roles) is available only on the CA host: through MS-CSRA (DCOM/RPC) or the registry over CIM as in K1.
+  These calls, like the K1 remote actions, the E reader and the TLS check on ports 636/3269 of every DC, go outside the
+  window's LDAP session; all reads and writes in AD (also matching a requester or a CA host to an AD object) go through
+  the window's DC. Kerberos with the window's credentials, packet encryption, passwords in memory only (rule 2); Windows
+  code in a new project used only by the application (like `AdMng.Remote`). The template flag decoders, the ESC
+  assessment from LDAP data and the building of strong mappings are in `AdMng.Core` (no Windows types), shared with
+  AdMng Watchdog – like the GPO and security descriptor parsers.
+- **Nothing on disk (rule 1):** certificates, CRLs, CA database rows, the CA configuration and ESC findings are in memory
+  only while they are visible. A `.cer`, `.crl` or CSV file is created only at the operator's explicit request; a
+  diagnostic log without values.
+- **Private keys from AD and from the CA – never:** the program does not show, copy or save `userPKCS12`, roaming
+  credentials (`msPKIAccountCredentials`, `msPKIDPAPIMasterKeys`) or keys archived on the CA (`userPKCS12` goes into
+  `SecretAttributes` next to the `msPKIAccountCredentials` and `msPKIDPAPIMasterKeys` already there, so it is masked
+  everywhere, also in the Attribute Editor, the audit and exports); key recovery through a key recovery agent (KRA) is
+  not in scope. The keys of new certificates (P2) are created only in the Windows key store, on a token or on the host
+  that created the request.
+- **Changes in AD through the change plan (rule 5):** template flags and properties, targeted ACL changes with the
+  `ModifySecurity` action, issuing a template on a CA (`certificateTemplates`), NTAuth, `msDS-OIDToGroupLink`,
+  `userCertificate`, `altSecurityIdentities`, `msDS-KeyCredentialLink` – with preview, audit and rollback (the old
+  value or the old descriptor). A copy of a template is two new objects – the template and an OID object with a new
+  identifier under the forest's OID root – as `certtmpl.msc` does it. DNs through `DistinguishedName.Child`, filters
+  through `LdapFilter` (rule 3). The CA sees a template change only after replication and a refresh of its cache
+  (minutes) – the preview says so.
+- **Issuance (P2)** goes outside the window's LDAP session, straight to the CA host:
+  - **DCOM:** MS-WCCE (the `ICertRequestD2` interface, Kerberos with the window's credentials, packet encryption; port
+    135 and dynamic RPC ports) through the Windows `certcli` client and CertEnroll. `certcli` (`ICertRequest`) and
+    CertEnroll do not accept credentials for DCOM – they send the identity of the process or the thread. When the
+    window's account differs from the account signed in to Windows, a custom `ICertRequestD2` client is needed
+    (`CoCreateInstanceEx` with `COAUTHIDENTITY`, `CoSetProxyBlanket`) or a thread with a `LOGON32_LOGON_NEW_CREDENTIALS`
+    token (like `runas /netonly`) and COM cloaking – to be confirmed on Windows Server; CertEnroll then only builds the
+    request, and the preview says that the key goes to the store of the Windows account and the subject built from AD
+    comes from the window's account.
+  - **CEP/CES:** when DCOM is blocked, the program can use the *Certificate Enrollment Policy Web Service* and the
+    *Certificate Enrollment Web Service* (MS-XCEP, MS-WSTEP over HTTPS) if they are deployed (see "To be agreed with the
+    team"), but never *Certification Authority Web Enrollment* (`/certsrv`, HTTP, ESC8). CertEnroll authenticates to
+    CEP/CES with Kerberos of the current account (it does not accept the window's credentials) or with a name and
+    password (`X509AuthUsername`), which Windows saves in the workstation's credential store – that breaks rule 2, so
+    outside the domain only client certificate authentication (`X509AuthCertificate`) remains.
+  - **Request:** the program reads the CA and the template from AD through the window's DC and builds the request
+    itself from that data (`InitializeFromPrivateKey` without a template name, or .NET, with the template extension
+    added by the program); it does not use `InitializeFromTemplateName` or the CertEnroll enrollment policy (`LDAP:`),
+    which read the templates over their own connection to AD, outside the window's session (rule 4) – to be confirmed.
+    Requests with a key on this workstation (for yourself, for the computer, renewal, the enrollment agent's CMC, TPM
+    attestation) are built and installed by CertEnroll: `IX509Enrollment::CreateRequest` writes a dummy certificate to
+    the *Certificate Enrollment Requests* store, and `InstallResponse` joins the issued certificate to it. .NET
+    (`CertificateRequest`, `LoadSigningRequest`) reads and checks requests from other systems and builds the preview and
+    self-signed certificates. The template name: the template extension in the request or the
+    `CertificateTemplate:<name>` attribute when sending (like `certreq -attrib`) – only the latter works for requests
+    from other systems, because changing the request would invalidate its signature.
+  - **COM and cancellation:** the program calls the COM objects through late binding on a separate thread (like
+    `AdMng.Outlook`), without `COMReference`, so that the solution still builds on Linux. A DCOM call can be cancelled
+    only on the client side (`CoEnableCallCancellation` and `CoCancelCall`, or giving up the wait) – the CA may finish
+    it anyway. So the window does not wait for it to finish (rule 6), and after a cancellation the program says that the
+    CA may have accepted the request regardless.
+  - **Change plan and data:** an issuance is a new kind of change plan action (like the CA actions below): preview,
+    confirmation, an audit entry, no rollback. Certificates and keys are the operator's content (rule 1): the private
+    key stays in the Windows key store, on a token or in a file the operator chooses; the `.pfx` password is only in
+    memory (rule 2).
+- **Changes on the CA side** (approval, denial, revocation, CRL publication; configuration flags – if the team decides
+  so) are a new kind of change plan action, like the SYSVOL write in K2: preview, confirmation and an audit entry. **A
+  revocation cannot be undone** – except with the *Certificate Hold* reason – and the preview says so explicitly; nor
+  can a CRL publication. A change of a CA flag remembers the old value for rollback and needs a restart of the
+  certificate service – the preview shows this as a separate step.
+- **Tests:** Samba does not support AD CS, so the LDAP features are tested against PKI objects in `FakeDirectoryBuilder`
+  (CAs and templates with Polish names, deliberately vulnerable templates for every ESC on the LDAP list); operations on
+  the CA – a Windows CA in Windows CI or in the lab ([WATCHDOG-LINUX.md,
+  1.7](docs/en/WATCHDOG-LINUX.md#17-a-certification-authority-in-the-lab-optional)), tests skipped without the
+  `ADMNG_TEST_CA_*` variables; that is also where the issuance tests run (test templates with certificate manager
+  approval, with an enrollment agent and for code signing). Reading PKCS#10 requests (.NET) and the issuance preview are
+  checked by unit tests, also on Linux; building requests through CertEnroll – tests on Windows.
+
+#### Stages
+
+- 🟡 **P1** – a read-only overview, LDAP only: the "Public Key Services" node, CAs, templates with flags and expanded
+  enrollment permissions, NTAuth, AIA, CDP with CRLs, KRA, OIDs; health in the style of `pkiview.msc`; the ESC security
+  review from LDAP (ESC1–5, 9, 13–15, 17); DC LDAPS certificates; reading the *Published Certificates*, *Name Mappings*
+  and *Key Credentials* tabs; the readiness report for strong mapping and NTAuth. The U4b ACL engine reads the PKI
+  containers in the configuration partition (sites are still skipped). First version done (see *Implementation
+  status*), awaiting a pilot on Windows Server AD with AD CS; user guide: [CERTIFICATES.md](docs/en/CERTIFICATES.md).
+- **P2** – issuing certificates (queued after R1 – [Track R](#track-r--powershell-window-)): a wizard with the choice
+  of the CA and the template and an explanation of the template's requirements; certificates for yourself and for the
+  computer with the key in the Windows store, from a PKCS#10 request from any system (also the HTTPS certificate of the
+  Watchdog service from the host's request), on behalf of others through an enrollment agent, renewal, a code signing
+  certificate for AD Manager, web servers with SANs, DCs (LDAPS, KDC), self-signed certificates; pending requests and
+  retrieving issued certificates; installation in the store or export (`.cer`, `.p7b`, `.pfx` only with an exportable
+  key). Every issuance as a change plan action with preview and audit.
+- **P3** – safe changes in AD through the change plan: *Fix…* for the findings from P1, editing template properties and
+  targeted ACL changes (the *Enroll* and *Autoenroll* entries, write rights, owner) with the `ModifySecurity` action
+  (the full ACL editor belongs to phase 6), a copy of a template (e.g. from version 1 to a newer one for ESC15), issuing
+  and removing templates on CAs, NTAuth, `msDS-OIDToGroupLink`, editing *Published Certificates*, *Name Mappings* (strong
+  forms only) and removing keys from `msDS-KeyCredentialLink`; bulk operations (expired certificates, weak mappings).
+- **P4** – working with the CA: reading the configuration, the roles and the host version (ESC6, ESC7, ESC11, ESC16,
+  ESC8 with the operator's consent, ESC10 from the DCs), database views with filters and the anomaly view, then the
+  actions – approval, denial, revocation, releasing a hold, CRL publication.
+- **P5** – links: Watchdog rules and reminders, analyses in the log reader (E), autoenrollment and *Public Key Policies*
+  in GPOs (K3, K5, K6), notifications about expiring certificates (U1, U3), warnings in the readiness check (S).
+- **Later (to be decided):** changes to the CA configuration from the program (flags, roles, enrollment agent
+  restrictions), readiness for post-quantum cryptography (the signature algorithm of CAs and templates, mixed chains;
+  issuing with ML-DSA keys – Windows Server 2025 CAs from the KB5087539 update, .NET support to be confirmed), a review
+  of SHA-1 signatures and RSA-1024 keys.
+
+#### To be agreed with the team
+
+- Reading the CA configuration and roles: the registry over WinRM/CIM (like K1) or MS-CSRA over DCOM – or both with an
+  automatic choice; the database views and the actions need MS-CSRA (DCOM, dynamic RPC ports) regardless of this choice.
+- Whether to make changes to the CA configuration (ESC6, ESC7, ESC11, ESC16) in the program, or only to generate a
+  verified `certutil` script for the CA administrator to run.
+- Who may browse the CA database, and whether searching for the certificates of a specific person should require a
+  reason (as in Track E).
+- The default "expiring" threshold for CA certificates, CRLs and LDAPS certificates (P1: 180 days for CAs, 30 days for
+  the other certificates, a CRL – less than 20 % of its validity; both thresholds can be changed in the settings).
+- Whether the program may send HTTP requests to the AIA, CDP, OCSP and web enrollment (ESC8) addresses by itself, or
+  only at the operator's request (P1: only on request – *Check HTTP URLs*).
+- A Windows CA for tests in Windows CI and in the pilot (the Samba lab cannot provide one).
+- Issuance: only MS-WCCE over DCOM (port 135 and dynamic RPC ports to the CA, membership in the *Certificate Service DCOM
+  Access* group on the CA host – the Polish name of the group is to be confirmed) or also CEP/CES over HTTPS – for
+  workstations outside the domain and networks in which DCOM is blocked, as long as the services are deployed (outside
+  the domain only with client certificate authentication, see "How it works technically"); for a window account other
+  than the Windows account – a custom `ICertRequestD2` client or a thread with a `LOGON32_LOGON_NEW_CREDENTIALS` token.
+- Whether the `.pfx` export (exportable key only, at the operator's explicit request) is available to every operator,
+  or only after it is turned on in the settings; whether the key of the code signing certificate has to be only on a
+  token or in a TPM (with attestation), and on which computer we sign the releases.
+- Who may submit requests on behalf of others (enrollment agents, their restrictions on the CA) and whether the wizard
+  should allow templates with the subject from the request and an authentication EKU (ESC1) at all, even with a
+  warning.
+- How the request and the certificate of the Watchdog service travel between the host and AD Manager: as a file
+  (`scp`, as today) or through the Watchdog API (HTTPS with Kerberos) – and who may order a replacement of the service
+  certificate.
+
+**Completion criteria**
+- In a test domain with at least two CAs the health status matches `pkiview.msc`, and the properties and permissions of
+  every template match `certtmpl.msc`.
+- On deliberately vulnerable templates the review finds everything that `certipy find -vulnerable` and Locksmith find
+  for the ESCs on the LDAP list; every difference is explained in the documentation.
+- Every fix in AD made and rolled back through the change plan restores identical attributes and an identical security
+  descriptor.
+- The database views match `certsrv.msc` and `certutil -view`; a database with 100,000 rows does not block the window,
+  and the read can be cancelled at any moment. The revocation preview says that it cannot be undone; the new CRL is
+  visible in the CDP.
+- A strong mapping built from a `.cer` file has exactly the KB5014754 format (`X509:<I>…<SR>…`, `X509:<SKI>…`,
+  `X509:<SHA1-PUKEY>…`), and signing in with that certificate works with full enforcement on the DCs; the program
+  recognizes a mapping from the ADUC tab as weak.
+- The HTTPS certificate of the Watchdog service issued from the host's request passes the "Verification" from
+  [WATCHDOG-LINUX.md, 3.8](docs/en/WATCHDOG-LINUX.md#38-tls-certificate-for-the-api) (chain, SAN, EKU, the key matches
+  the certificate), and the key has not left the host; the code signing certificate signs `AdMng.exe`
+  (`signtool verify /pa` succeeds, the signature has a timestamp), and its key cannot be exported; a web server
+  certificate with several SAN names has exactly those names.
+- A certificate request from a template that requires CA certificate manager approval goes to *Pending Requests*, and
+  after approval the program retrieves the certificate and finishes the installation – also after a restart.
+- The issuance preview says exactly what the program will ask for (CA, template, subject, SAN, key, EKUs); the issued
+  certificate matches it, and every difference comes from the template and was announced by the preview. The `.pfx`
+  password does not reach the audit, the log or the disk.
+- No certificates, CRLs or CA database rows on the workstation's disk apart from an explicit export (and the Windows
+  stores: *Certificate Enrollment Requests* for pending requests with a key on this workstation, as with `certreq`, and
+  the certificate store when the operator chooses installation); private keys from AD and from the CA are never read.
+
+</details>
+
+### Track N – DNS and DHCP ⬜
+
+**Goal:** the domain's DNS and DHCP in one place, instead of the *DNS* (`dnsmgmt.msc`) and *DHCP* (`dhcpmgmt.msc`)
+consoles, part of the IPAM features (by default based on the deprecated WID database, since Windows Server 2012 R2 also
+on SQL Server), *ADSI Edit* (`adsiedit.msc`) for the DNS partitions and the `dnscmd` / `Get-DnsServer*` /
+`Get-DhcpServer*` commands. The program reads live from AD the zones, the records (with timestamps), the records deleted
+by the server and the conditional forwarders, and shows **who can create and change records**. It lets you go from a
+computer to its records, lease and reservation, and from the DNS and DHCP servers themselves it reads the settings,
+scopes, leases, options and the failover state. It assesses security and health (DnsAdmins, DnsUpdateProxy, nonsecure
+dynamic updates, DC locator records, DHCP on DCs, the DNS credentials of DHCP servers, name protection, scopes close to
+exhaustion) and proposes every fix in AD as a **change plan with preview and rollback**. A parallel track; it lifts the
+part of the U4b limitation about the DNS zones (N1). It uses the U4 permission engine, permission writes through the
+`ModifySecurity` action (K1/K2), remote actions over WinRM/CIM with the window's credentials (K1), sites and subnets
+(K1), the log reader (E) and the Watchdog (W).
+
+<details>
+<summary><b>Track N details</b> – zones and records, DNS server, DHCP, security, changes, stages</summary>
+
+#### DNS zones and records from AD (LDAP)
+
+- A **"DNS"** node in the tree (like the GPO node), read live over LDAP: the domain zones
+  (`CN=MicrosoftDNS,DC=DomainDnsZones,…`), the forest zones (`CN=MicrosoftDNS,DC=ForestDnsZones,…`, among others
+  `_msdcs`), older Windows 2000-compatible zones (`CN=MicrosoftDNS,CN=System,…`) and zones in custom application
+  partitions; AD-integrated primary and stub zones, forward lookup zones and reverse lookup zones (below: reverse zones),
+  root hints (`RootDNSServers`) and the **conditional forwarders** stored in AD (with the server addresses).
+- **Records** decoded from `dnsRecord` (the MS-DNSP format): A, AAAA, CNAME, PTR, MX, SRV, NS, SOA, TXT and the other
+  MS-DNSP types (among others DNAME, DHCID, TLSA, DNSSEC records); a type the program does not know is shown as bytes.
+  Columns: name, type, data, TTL, **timestamp** (date of the last refresh or *static*), owner of the node (with secure
+  dynamic update – the account that registered the record). Rows are streamed and the list is virtualized (rule 6).
+- **Stale records** (dynamic ones whose timestamp is older than the sum of the zone's *No-refresh* and *Refresh*
+  intervals) with the date from which scavenging can delete them – only in zones with aging turned on and after the
+  zone's "can be scavenged after" date; separately, for review and re-creation, **records deleted by the DNS server**
+  (a node with `dNSTombstoned` and a single record of type 0 with the deletion time; the record data is no longer in
+  AD).
+- **Zone properties** from `dnsProperty`: type, dynamic updates (*None*, *Nonsecure and secure*, *Secure only*), aging
+  with its intervals, scavenging servers, the target servers of conditional forwarders; plus the partition, the ACL and
+  the owner of the zone.
+- **Search across all zones** by name, IP address and record type. LDAP filters the name; the address and the record
+  type are in the binary data of `dnsRecord`, so the program decodes the records in a stream, with the option to
+  cancel.
+- **From a computer to its records and back:** on a computer, the A/AAAA records for `dNSHostName` and the PTR records
+  for their addresses, with mismatches marked (no PTR, a PTR to another name, several addresses, a node owned by
+  another account); from a record, a jump to the computer object.
+- **DC locator:** for every DC the records it should have: in the domain zone the SRV records `_ldap`, `_kerberos`,
+  `_kpasswd` and the A/AAAA records of the domain name; in `_msdcs.<domain>` the SRV records `_ldap` and `_kerberos`
+  under `dc` and `_ldap._tcp.pdc` only for the PDC emulator; in `_msdcs.<forest>` the CNAME `<DSA GUID>` and the SRV
+  record `_ldap._tcp.<domain GUID>.domains`, and for a GC also the SRV `_ldap._tcp.gc` and the A record `gc`; for a GC
+  also the SRV `_gc._tcp` in the zone of the forest root domain. The SRV records `_ldap`, `_kerberos` and `_gc` also
+  have site-specific versions. The list is computed from the DC objects, the sites and the GC roles and then compared
+  with the records in the zones, taking into account automatic site coverage (DC records for sites without a DC) and
+  the records excluded by the `DnsAvoidRegisterRecords` setting in a GPO (the K5 model): OK / missing / superfluous
+  (e.g. a record of a DC that no longer exists) – like the health in the style of `pkiview.msc` in Track P.
+- **Reverse zones and the K1 subnets:** site subnets without a reverse zone and reverse zones without any subnet.
+
+#### DNS server (outside LDAP)
+
+- **DNS servers** from the NS records of the zones and from the DC list, as well as servers the operator specifies. The
+  settings of each of them: forwarders and root hints, recursion, scavenging (interval, last run), default aging of new
+  zones, the **global query block list**, the socket pool, query resolution policies and zone scopes, response rate
+  limiting, the DNSSEC state (signed zones, trust anchors), `ServerLevelPluginDll`, `OpenACLOnProxyUpdates`, the event
+  logging level, statistics; DNS over HTTPS (Windows Server 2025 from the KB5094125 update of June 9, 2026; it encrypts
+  only the traffic between the client and the server, not to the forwarders; reading over CIM – to be confirmed).
+- **Zones outside AD** (file-based primary and stub zones, secondary zones) with records read from the server.
+- **Zone transfers and notifications** (to any server, only to the servers from the NS records, only to the servers on
+  the list, turned off): these settings are not in AD – every server keeps them in its registry, so they can differ, and
+  the program shows the differences; changing a zone's replication scope can reset them on the other servers.
+- Access through CIM over WinRM as in K1 (the WMI provider used by the `DnsServer` module) or through MS-DNSP (RPC,
+  `\pipe\dnsserver` or TCP) – see "To be agreed with the team"; with the window's credentials, read-only at first.
+
+#### DHCP
+
+- **Authorized servers** from AD (LDAP, in `CN=NetServices,CN=Services,CN=Configuration,…`: the list in the
+  multi-valued `dhcpServers` attribute of the `CN=DhcpRoot` object – this is what a starting DHCP server checks – and
+  the separate `dHCPClass` objects of the servers; discrepancies between them are a finding too): name and address,
+  matching to the computer object, stale authorizations (the computer no longer exists or does not run the DHCP service
+  – such entries stay on the list, e.g. after decommissioned DCs). The format of the `dhcpServers` values is to be
+  confirmed with MS-DHCPE and on Windows Server.
+- **DHCP servers** (CIM in the `root/Microsoft/Windows/DHCP` namespace used by the `DhcpServer` module, or MS-DHCPM):
+  IPv4 and IPv6 scopes, superscopes, multicast scopes, exclusions, bindings, statistics and **utilization** of the
+  scopes, free addresses; **leases** (active ones and, on request, also offered, expired and bad ones – BAD_ADDRESS,
+  i.e. declined by the client or with a detected conflict) with IP address, MAC address, name, expiration time and
+  state; **reservations**; server, scope, reservation and policy options together with the option definitions, vendor
+  and user classes; **policies** with conditions and address ranges; *Allow* and *Deny* MAC filters; conflict detection
+  (0–5 attempts, 0 by default).
+- **Failover** (IPv4 only, since Windows Server 2012, two servers in a relationship): mode (load balance, 50% by
+  default, or *hot standby*, 5% by default), MCLT, the automatic state switchover interval, message authentication with
+  a shared secret, the relationship state (NORMAL, COMMUNICATION_INT, PARTNER_DOWN, …) and a **comparison of the scope
+  configuration on both partners** – the configuration does not synchronize by itself.
+- **DNS updates by DHCP** at every level (server, scope, policy, reservation): *always*, *never*, *when requested by the
+  client*, deleting records when the lease expires, records for older clients, PTR, **name protection** (DHCID records;
+  off by default, requires secure updates), DNS suffix; **DNS credentials** – only the account and the domain (the DHCP
+  interface does not return the password), with an assessment of the account in U4.
+- **Audit log:** whether it is turned on (yes by default), the path, the maximum size of the files and the minimum free
+  disk space below which the server stops writing.
+- **From a computer to its lease and reservation:** by the addresses from the computer's A records – server, scope,
+  lease expiration time and MAC address.
+
+#### Security and health
+
+- **A DNS and DHCP security and health review** in the style of the readiness check (stage S), the Group Policy
+  diagnostics (K6) and the ESC review (Track P): every finding has a level, a description of the condition and its
+  effect, the object it concerns, the accounts and groups with excessive rights, the counterpart in BlueTuxedo or
+  Invoke-DHCPCheckup when there is one, and a *Fix…* button when the fix is a change in AD.
+- **From LDAP only** (DNS from N1, DHCP from N4):
+  - who can create and change records in each zone (the ACLs of the zone and of the nodes expanded through group
+    membership by the U4 engine); the program shows the default *Create all child objects* right for *Authenticated
+    Users* as a known factory setting, not as an error (see "To be agreed with the team"); a zone ACL and owner that
+    differ from the defaults;
+  - missing protective records for the names `*` and `wpad` (BlueTuxedo checks whether they exist and have the right
+    type), zones with nonsecure dynamic updates, zones in the older `CN=MicrosoftDNS,CN=System` container, empty zone
+    scope containers (BlueTuxedo);
+  - the members of DnsAdmins (Tier 0 in U4 – they can run code on DCs) and DnsUpdateProxy (objects created by its
+    members have no security – with the DNS server's default `OpenACLOnProxyUpdates` = 1 – and their owner becomes the
+    first account outside the group that changes them; Microsoft advises against using this group in zones with secure
+    updates only unless additional safeguards are applied); the members of *DHCP Administrators* with DHCP on a DC (on
+    a DC it is a domain local group); records owned by DHCP servers and records that *Authenticated Users* can
+    overwrite (as in Invoke-DHCPCheckup);
+  - aging turned off in a zone with dynamic records among which there are stale ones (with aging turned off the
+    timestamps are not refreshed, so staleness is indicated by a missing computer object or a computer that is inactive
+    according to K1, not by the age of the timestamp), nodes of records deleted by the server that still linger in the
+    zone (BlueTuxedo), missing or superfluous DC locator records, CNAMEs and delegations pointing to names that are not
+    in the zones (the program checks names outside the zones with a DNS query only with the operator's consent, like
+    the HTTP addresses in Track P), SPNs without a record for the host name (BlueTuxedo);
+  - DHCP authorizations without a computer object or inconsistent between `dhcpServers` and the `dHCPClass` objects,
+    DHCP servers on DCs.
+- **Need the DNS or DHCP server** (from N3 and N4, until then marked "to be checked on the server"):
+  - DNS: a `ServerLevelPluginDll` value set, zone transfers to any server, the global query block list turned off or
+    without `wpad` and `isatap`, scavenging turned off on all servers while aging is turned on in the zones, a socket
+    pool size below the maximum, `OpenACLOnProxyUpdates` = 1 with a non-empty DnsUpdateProxy group, forwarders to public
+    resolvers (BlueTuxedo), zones outside AD, query resolution policies and zone scopes (rare and easy to overlook – for
+    review), different settings of the same zone on different servers;
+  - DHCP on a DC without DNS credentials (event 1056; the DHCPv6 counterpart is to be confirmed on Windows Server) – the
+    service then registers records with the DC's computer account and can change every record in secured zones; DNS
+    credentials of a privileged account, or no DNS credentials on a server with DNS updates turned on (BlueTuxedo
+    reports their absence on every DHCP server; the credentials are not in a backup of the DHCP database – after a
+    restore from a backup they have to be set again); name protection turned off at the server level (the default for
+    new scopes) or in a scope; a DHCP server in DnsUpdateProxy; DNS updates turned on without need. These points are
+    Akamai's recommendations after the DDSpoof research of 2023; Invoke-DHCPCheckup checks the DNS credentials, name
+    protection and DnsUpdateProxy, but not whether updates are turned on;
+  - scopes close to exhaustion (adjustable threshold), failover in a state other than NORMAL, a clock skew between the
+    partners of more than a minute, a relationship without a shared secret, a different scope configuration on the
+    partners, a turned-off audit log, reservations whose name matches no computer object, a server in the domain without
+    authorization (event 1046) or without contact with the directory (event 1059) – both from the log reader (Track E).
+- **Fixes in AD through the change plan** (DNS from N2, DHCP from N5): creating the `*` and `wpad` protective records,
+  turning on *Secure only* dynamic updates and aging in a zone (`dnsProperty`), narrowing the zone ACL with the
+  `ModifySecurity` action, removing members of DnsAdmins and DnsUpdateProxy (an ordinary membership change), deleting
+  stale records and the records of DCs that no longer exist, removing a stale DHCP authorization. Every fix has a diff
+  preview, a warning about its effects (e.g. who stops registering their own name) and rollback. The program does not
+  create missing DC locator records itself – it describes how to force the Netlogon service on the DC to register them
+  again.
+- Fixes on the server side (global query block list, zone transfers, scavenging, the DNS settings of a DHCP server) go
+  through a new kind of plan action (see "Changes through the change plan"); the program only detects
+  `ServerLevelPluginDll` and describes the fix (it requires a restart of the DNS service on the DC).
+
+#### Changes through the change plan
+
+- **Records in AD zones** as LDAP writes through the window's DC: a new record is a new `dnsNode` node or a new
+  `dnsRecord` value, a change replaces one value, and deleting one of several records of a node deletes that value.
+  Deleting the last record works the way the DNS server does it: instead of deleting the object, the program sets
+  `dNSTombstoned` = `TRUE` and leaves a single record of type 0 with the deletion time (the DNS servers delete the node
+  itself later). The program sets the serial numbers of the record (`dwSerial`) and of the zone (SOA) according to
+  MS-DNSP (to be confirmed on Windows Server). A rollback restores identical `dnsRecord` bytes. DNs through
+  `DistinguishedName.Child` (also the names `_ldap._tcp` and `*`), filters through `LdapFilter` (rule 3). The DNS
+  servers see a change only after replication and their next read of the directory (`DsPollingInterval`) – the preview
+  says so.
+- **Zones:** properties in `dnsProperty` (dynamic updates, aging, intervals), conditional forwarders in AD, the ACL of
+  the zone and of the nodes with the `ModifySecurity` action, with the old descriptor kept for rollback.
+- **DHCP authorization in AD** as an LDAP write in the configuration partition (by default requires membership in
+  Enterprise Admins or permissions delegated on `CN=NetServices`): adding and removing an entry in `dhcpServers` of the
+  `CN=DhcpRoot` object together with the server's `dHCPClass` object (whether the console also deletes the `dHCPClass`
+  object when an authorization is revoked is to be confirmed).
+- **Changes on the server side** – DNS server settings, zones outside AD, zone transfers, moving an older zone to a DNS
+  partition (the preview warns that changing the replication scope can reset the zone transfer settings on the other
+  servers); scopes, exclusions, reservations, options, policies, filters, DNS settings and failover replication of DHCP
+  – are a new kind of change plan action executed over WinRM/CIM (or RPC), like the SYSVOL write in K2: preview,
+  confirmation and an audit entry; the old value (except passwords) is kept in memory for rollback. A DHCP server has no
+  locks and no version check on writes (MS-DHCPM), so the program reads the state just before the write and stops if
+  someone has changed it in the meantime. **It is not possible to undo** deleting a lease, a failover replication (it
+  overwrites the partner's configuration) or a change of the DNS credentials and of the failover shared secret (the old
+  passwords cannot be read, and the program does not store them) – the preview says so explicitly and, before a
+  replication, shows the differences on the partner.
+
+#### Links with other tracks
+
+- **K – Computers and GPO:** DNS records, lease and reservation on a computer (K1); the K1 sites and subnets versus the
+  reverse zones and the DHCP scopes (a subnet without a scope, a scope without a subnet); deleting computers (K1, also
+  from the inactive computers report through the bulk editor) also **proposes** deleting their records and
+  reservations – as a separate step of the plan, never automatically; the DNS client settings from GPOs (suffixes,
+  registration, DNS over HTTPS) only as a pointer to K5 and K6.
+- **Phase 4 – AD Recycle Bin:** restoring deleted zones and `dnsNode` nodes from the DNS partitions with the Recycle Bin
+  engine – the task stays in the "Still to do" of phase 4, and N adds an entry point from the "DNS" node. Before deleting
+  a zone, the DNS server renames it to `..Deleted-<zone>`, so a restore means the zone object, its nodes by
+  `lastKnownParent` and renaming it back (to be checked on Windows Server). A record deleted by the DNS server
+  (`dNSTombstoned`) does not go to the Recycle Bin, and its data disappears from `dnsRecord` (only the deletion time
+  remains): the change plan restores it only when rolling back its own change; in other cases the operator types the
+  data again (the node and the name remain).
+- **U – Accounts and messages:** DnsAdmins (Tier 0), DnsUpdateProxy, *DHCP Administrators* (Tier 0 when DHCP runs on a
+  DC), *DHCP Users* and the DNS credential accounts of DHCP servers in the account privileges (U4); rights in DNS zones
+  in the U4b delegations.
+- **E – Event logs:** the *DNS Server* channel and the DHCP server channels (among others the failover state changes in
+  `Microsoft-Windows-DHCP Server Events/Admin`, the authorization events 1046 and 1059 and the credential event 1056) in
+  the reader and in the DC health analysis (E4, whose plan so far has only the events 4013 and 4015 from the DNS
+  server).
+- **W – Watchdog:** alerts when a `*` or `wpad` record is created, changed or disappears, when the ACL of a zone or its
+  `dnsProperty` changes (e.g. secure updates turned off), when the membership of DnsAdmins changes (already watched
+  today as a privileged group) or when a new DHCP authorization appears. This requires extending the detection scope to
+  the DNS partitions, the older zones in `CN=MicrosoftDNS,CN=System` and `CN=NetServices` in the configuration
+  partition (today they are outside it – the specification, items 9.1 and 10.11; item 10.9 skips deleted `dnsNode`
+  nodes) and an amendment of [WATCHDOG-LINUX.md, 2.5](docs/en/WATCHDOG-LINUX.md#25-the-admng-wd-service-account); the
+  optional denial of the `CC` right (create child objects) for `ADMNG-WD$` in the zones stays.
+- **Stage S – readiness check:** the DC locator records, and whether the session's DC holds replicas of the DNS
+  partitions.
+
+#### How it works technically
+
+- **The LDAP part through the window's DC (rule 4).** The program reads and writes zones, records, properties, ACLs and
+  DHCP authorizations through the window's LDAP session. `DomainDnsZones` and `ForestDnsZones` are application
+  partitions replicated only to the DCs that hold their replicas (`msDS-NC-Replica-Locations` in `CN=Partitions`); when
+  the session's DC has no replica of one of them, the program explains this and proposes *Change Domain Controller...* –
+  it does not switch DCs by itself and does not follow referrals (`ReferralChasing = None`,
+  [RESEARCH.md, 6.3](docs/en/RESEARCH.md#63-connections-and-their-configuration)).
+- **The server part outside the LDAP session**, like the K1 remote actions and the E reader: DNS servers through
+  MS-DNSP (`\pipe\dnsserver` or TCP) or CIM over WinRM; DHCP servers through CIM in `root/Microsoft/Windows/DHCP`
+  (requires WinRM on the server, no 2008/R2 servers) or MS-DHCPM through `dhcpsapi.dll` (that is how the console works;
+  the calls go with the thread's identity, so the program has to impersonate the window's account). Kerberos with the
+  window's credentials, packet encryption, passwords in memory only (rule 2); Windows code in a new project used only by
+  the application (like `AdMng.Remote`, with which it shares the CIM stack). Membership in the *DHCP Users* group is
+  enough for reading DHCP, changes require the *DHCP Administrators* group; whether access over CIM also needs WinRM
+  and WMI permissions is to be confirmed.
+- **Decoders in `AdMng.Core`:** `dnsRecord` (a header with the type, version, rank, serial number, TTL and a timestamp
+  counted in hours since 1601, where 0 means a static record; data by type) and `dnsProperty` – pure code without
+  Windows types, later shared with AdMng Watchdog (like the GPO and security descriptor parsers). Unknown types and
+  properties are kept byte for byte; the program tolerates unusual values seen in practice (a zero-length property from
+  some Windows servers, a node without records and without `dNSTombstoned`) the way Samba does.
+- **Nothing on disk (rule 1):** zones, records, leases with MAC addresses and host names, reservations, statistics and
+  findings are in memory only while they are visible; a CSV file is created only at the operator's explicit request; a
+  diagnostic log without values.
+- **Passwords – never:** the program shows the DNS credentials of a DHCP server only as the account and the domain; a
+  new password typed by the operator lives only in the memory of the plan action – never in the preview, the audit, the
+  PowerShell history or `ToString()` (like `PlannedChange.Password`); the same goes for the failover shared secret – the
+  program only says whether it is set.
+- **Tests:** Samba's internal DNS server stores zones in the same LDAP format (the same partitions, `dnsNode`,
+  `dnsRecord`, `dnsProperty`, deletion through `dNSTombstoned`) and supports MS-DNSP (the `dnsserver` interface used by
+  `samba-tool dns`), so the LDAP part and the zone handling over RPC can be checked with lab tests. Samba does not
+  support `OpenACLOnProxyUpdates` (the value is always 0), so the lab cannot reproduce the behavior of DnsUpdateProxy.
+  Samba's schema has `dHCPClass`, and provisioning creates `CN=NetServices,CN=Services`, so reading and writing DHCP
+  authorizations in LDAP is also checked in the lab (without a DHCP server). `FakeDirectoryBuilder` gets sample zones
+  with Polish names (also IDN, e.g. `xn--krakw-3ta` = `kraków`), K1 computers and subnets and deliberately weak
+  settings for every finding from LDAP. We test the Windows DNS and DHCP servers in Windows CI: both roles install
+  without a restart on the `windows-2022` image (that is how the windows_exporter CI works), the DNS role also on
+  `windows-2025` (the DnsServerDsc integration tests); the DHCP groups have to be created separately
+  (`Add-DhcpServerSecurityGroup`). These machines are not in a domain (the CIM connection there is local, without
+  Kerberos), so we check AD zones and the DHCP authorization in the lab, and Kerberos with the window's account against
+  Windows servers in the pilot. Tests are skipped without the `ADMNG_TEST_DNS_*` and `ADMNG_TEST_DHCP_*` variables.
+
+#### Stages
+
+- **N1** – read-only DNS, LDAP only: the "DNS" node with the zones from all partitions, records decoded from
+  `dnsRecord`, aging, stale records and records deleted by the server, conditional forwarders, zone properties, search,
+  records on a computer, DC locator, reverse zones versus the K1 subnets; the DNS security review from LDAP. The U4b ACL
+  engine reads the DNS zones (the DNS partitions and `CN=MicrosoftDNS,CN=System`).
+- **N2** – DNS changes in AD through the change plan: records (adding, changing, deleting the way the DNS server does
+  it, re-creating a record deleted by the server – data from the operator or from the rollback of its own change), zone
+  properties, the ACL of the zone and of the nodes with the `ModifySecurity` action, *Fix…* for the findings from N1,
+  deleting the records of computers being deleted, proposed when deleting in K1 and in the bulk editor.
+- **N3** – DNS server: reading the settings, zones outside AD, zone transfers and statistics, findings on the server
+  side, the *DNS Server* channel in the E analyses; then changes – server settings, zones outside AD, transfers, moving
+  older zones to the DNS partitions.
+- **N4** – read-only DHCP: authorizations from LDAP, servers through CIM or MS-DHCPM (scopes, utilization, leases,
+  reservations, options, policies, filters, failover, DNS and audit settings), lease and reservation on a computer, DHCP
+  findings, the DHCP server channels in the E analyses.
+- **N5** – DHCP changes: authorization in AD through the change plan, scopes, exclusions, reservations, options,
+  policies, filters, DNS settings (also DNS credentials), failover replication.
+- **Later (to be decided):** an overview of IP addresses as in IPAM (K1 subnets, scopes, records and leases together),
+  Watchdog rules for the DNS partitions, managing DNSSEC and DNS over HTTPS on the server. DNS and DHCP servers other
+  than Windows (BIND, Kea, Infoblox) are outside the program's scope.
+
+#### To be agreed with the team
+
+- Reading and changes on the servers: CIM over WinRM (like K1; no 2008/R2 DHCP servers) or RPC – MS-DNSP and MS-DHCPM
+  (dynamic RPC ports, for DHCP impersonation of the window's account) – or both with an automatic choice.
+- Records in AD zones: writing through LDAP (the default – change plan, rollback and audit as for other objects) or
+  through MS-DNSP to the DNS server on the session's DC (the server then sets the serial number and the owner of the
+  record itself).
+- Who may browse DHCP leases (MAC addresses and host names point to the devices of specific people) and whether
+  searching for the leases of a specific person should require a reason (as in Track E).
+- The default *Create all child objects* right for *Authenticated Users* in the zones: once this right is narrowed, not
+  every account can register any name, but new computers then cannot register their own names – what remains is
+  registration by DHCP on their behalf (DNS credentials, name protection) or a right for a chosen group; whether the
+  program should propose this as a fix or only describe it.
+- The aging and scavenging proposed in a fix (the Windows default: 7 days *No-refresh* and 7 days *Refresh*), the
+  threshold for the number of stale records in a zone without aging (a missing computer object or a computer that is
+  inactive according to K1) and the DHCP scope utilization threshold.
+- Servers for tests: Windows DNS and DHCP in Windows CI; in the pilot a Windows domain with AD-integrated DNS and two
+  DHCP servers in a failover relationship (the Samba lab cannot provide a Windows DHCP server or failover).
+
+**Completion criteria**
+- The zones, records (with TTL and timestamp) and properties of the test zones match `dnsmgmt.msc` and
+  `Get-DnsServerResourceRecord`, and the expected DC locator records match `netlogon.dns` on every DC.
+- In deliberately weakly secured zones and on such servers the review finds everything that BlueTuxedo and
+  Invoke-DHCPCheckup find; every difference is explained in the documentation.
+- After rolling back the creation, change and deletion of a record through the change plan the `dnsRecord` bytes are
+  identical to the original ones, and the zone's security descriptor after rolling back an ACL change is identical to
+  the original one; after replication the DNS server answers according to the change.
+- The DHCP data matches `dhcpmgmt.msc`, `Get-DhcpServerv4Scope` and `Get-DhcpServerv4Lease`, and the failover state
+  matches `Get-DhcpServerv4Failover`.
+- 100,000 records or leases do not block the window, and the read can be cancelled at any moment.
+- No zones, records, leases or MAC addresses on the workstation's disk apart from an explicit export; the DNS credential
+  password is never shown or stored.
+
+</details>
+
+### Track R – PowerShell window ⬜
+
+**Goal:** a PowerShell 7 window next to every connection window – for ad hoc queries, AD data dumps (attributes, lists
+and memberships) and scripts – without a separate console, without RSAT and without signing in again. The built-in
+commands use the window's session: the same DC, the same credentials (in memory only), safely built LDAP filters. The
+results are PowerShell objects that can be opened in the program's grid; from every DN you can jump to the object, and
+the results go to a file only when the operator chooses one. **Reads work right away, writes never go straight to AD:**
+the write commands (AD Manager's and the translated commands of the `ActiveDirectory` module) add operations to a
+pending change plan, which the operator looks at in the preview and executes – with audit, rollback and PowerShell
+history; the window rejects the other RSAT write commands. The installed RSAT `ActiveDirectory` and `GroupPolicy`
+modules connect to the window's DC by default (`ActiveDirectory` also with the window's credentials). A parallel track;
+R1 is queued right after P1 (before P2). It uses the change pipeline (phase 2), multiple connections at once (a separate
+window per connection) and list export; it shares the embedded PowerShell with Track C.
+
+<details>
+<summary><b>Track R details</b> – window and reads, writes through the change plan, RSAT modules, security,
+stages</summary>
+
+#### Window and read commands
+
+- **The *PowerShell* window** (*Tools → PowerShell…* and the command palette), opened from a connection window and
+  belonging to it, like the other windows of the session; the title shows the domain, the DC and the account. A custom
+  line editor in WPF (PSReadLine works only in a console): completion of commands, parameters, attribute names and DNs,
+  syntax highlighting, multi-line scripts, a command history only in the window's memory; a long command does not block
+  the window and can be interrupted (rule 6).
+- **AD Manager commands** bound to the window's session, without `-Server` and `-Credential` (names to be decided):
+  `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`, `Get-AdmGroupMember` (also nested membership) and
+  `Search-AdmObject` – with a ready LDAP filter or with parameters (`-Name`, `-Attribute`, `-Value`, `-SearchBase`,
+  `-Scope`) from which the program builds the filter itself through `LdapFilter` (rule 3). Results are streamed, with
+  paging and the option to cancel; values are decoded according to the schema as in the program (GUIDs, SIDs, dates,
+  `userAccountControl` flags as names), and secret attributes (`SecretAttributes`) are masked as in the Attribute
+  Editor.
+- **Results** are ordinary PowerShell objects – `Where-Object`, `Select-Object`, `Group-Object`, `Measure-Object` and
+  the pipeline work on them – shown as a table or a list; `Out-AdmGrid` opens them in the program's grid (sorting,
+  filters, columns, copying), and every DN has *Open in the program* (properties, place in the tree).
+- **Export** (`Export-Csv`, `Export-AdmList` with formula protection as in the list export) only to a file the operator
+  chooses – in the *Save As* dialog or with an explicit path in the command; the program itself saves nothing.
+
+#### Writes through the change plan
+
+- **Write commands never change AD right away.** `Set-AdmObject`, `New-AdmUser`, `New-AdmGroup`, `Remove-AdmObject`,
+  `Move-AdmObject`, `Rename-AdmObject`, `Add-AdmGroupMember`, `Remove-AdmGroupMember`, `Enable-AdmAccount`,
+  `Disable-AdmAccount`, `Unlock-AdmAccount`, `Reset-AdmPassword` (names to be decided) add operations to the window's
+  **pending change plan** and print what they added (object, attribute, before → after).
+- **A pending plan panel** next to the console: the number of operations, *Preview…* (diff preview, validation and
+  confirmations the same as in the bulk editor – object count threshold, deleting, moving, password resets), *Execute*,
+  *Clear*; in the console `Show-AdmPlan`, `Clear-AdmPlan` and `Invoke-AdmPlan`, which only opens the preview – execution
+  always after confirmation in the window. Execution through the change pipeline: audit, report, "retry failed",
+  rollback and an equivalent script in the PowerShell history, as with every other change (rule 5).
+- **From the history to the console:** an operation from the history of equivalent PowerShell commands (phase 1, the
+  change pipeline from phase 2) can be copied into the window as a `…-Adm…` command, e.g. to repeat it for other
+  objects; execution again goes through the plan.
+- **Passwords** in write commands only as a `SecureString` or generated by the program; never in the window's history,
+  the preview, the audit or `ToString()` (rule 2). The program warns before a password typed as plain text
+  (`-AsPlainText`), because script block logging from a GPO can write it to the event log. The window does not add a
+  line with a plain-text password (`-AsPlainText`, `ConvertTo-SecureString '…'`, a parameter with *Password* in its
+  name) to the history (like the PSReadLine history filter).
+- RSAT write commands – see "RSAT modules"; the program rejects commands that are not on the translated list and those
+  that cannot be translated, with an explanation and a hint (the `…-Adm…` counterpart or a program window).
+
+#### RSAT modules
+
+- When the workstation has the `ActiveDirectory` and `GroupPolicy` modules (RSAT), the window loads them on demand and
+  sets the window's DC as the default (`$PSDefaultParameterValues` with a separate key for every read command of these
+  modules from the `Get-Command -Module` list, e.g. `Get-ADUser:Server`) and the window's credentials
+  (`<command>:Credential` only for the read commands of the `ActiveDirectory` module, in memory only); a key with a
+  wildcard, e.g. `*-AD*:Credential`, would also cover the commands of other modules (e.g.
+  `Install-ADDSDomainController`) and AD Manager's commands. The `AD:` drive points to the window's DC (the default drive
+  is turned off through `ADPS_LoadDefaultDrive=0`) and is read-only: the window rejects the provider commands that write
+  to it (`Set-Item`, `Set-ItemProperty`, `Clear-ItemProperty`, `New-Item`, `Remove-Item`, `Rename-Item`, `Move-Item`,
+  `Copy-Item`, `Set-Acl`) with a hint (the `…-Adm…` counterpart). The operator can override the defaults in reads – the
+  window then shows that the command goes to a server other than the session's DC; the window rejects a write command
+  with a `-Server` other than the window's DC or with `-Credential`, because the plan always runs on the window's DC
+  and with the window's credentials (rule 4).
+- RSAT **reads** work unchanged (e.g. `Get-ADUser -Filter …`, `Get-GPO`, `Get-GPOReport`). The `ActiveDirectory`
+  module connects to *Active Directory Web Services* (ADWS, TCP port 9389) on the same DC, but over a separate
+  connection, not the window's LDAP session; the Samba lab has no ADWS, so we test these commands only on Windows
+  Server.
+- **RSAT write commands** (e.g. `Set-ADUser`, `Set-ADObject`, `New-ADUser`, `Remove-ADObject`, `Move-ADObject`,
+  `Rename-ADObject`, `Add-ADGroupMember`, `Remove-ADGroupMember`, `Enable-ADAccount`, `Unlock-ADAccount`,
+  `Set-ADAccountPassword`; the list is to be decided) are intercepted by proxy functions with the same names – also
+  when they are called with the module name (`ActiveDirectory\Set-ADUser`) – which translate the parameters into change
+  plan operations. The window rejects, with an explanation, every other command of the `ActiveDirectory` and
+  `GroupPolicy` modules that is not on the list of reads (`Get-*`, `Search-*`, `Test-*`, `Show-*`) – e.g.
+  `Set-ADOrganizationalUnit`, `Add-ADPrincipalGroupMembership`, `New-GPLink` and the `GroupPolicy` commands that write
+  to SYSVOL – as well as a call that cannot be translated faithfully (e.g. `-Instance`, an unknown value type).
+  `-WhatIf` in RSAT commands only prints text, so it is not suitable for building a plan.
+- **`GroupPolicy`:** the commands of this module have no `-Credential` parameter – they run with the identity of the AD
+  Manager process, not with the window's credentials, and the window says so when the window's credentials differ.
+  Microsoft marks this module as "Untested with Compatibility Layer" – it is not natively compatible with PowerShell 7,
+  so `pwsh` loads it through the compatibility layer (serialized objects – which is why `Get-GPInheritance` shows type
+  names instead of GPOs in `InheritedGpoLinks`), and natively only with `Import-Module GroupPolicy -SkipEditionCheck`
+  (untested). With the compatibility layer turned off, R3 has to choose one of the two – to be confirmed.
+- Older systems without modules compatible with PowerShell 7: the Windows PowerShell 5.1 compatibility layer (a
+  separate `powershell.exe` process, serialized objects, proxy modules in `%TEMP%`) is on by default in PowerShell 7; AD
+  Manager turns it off in its `powershell.config.json` (`DisableImplicitWinCompat`) and allows it only on request
+  (`Import-Module -UseWindowsPowerShell`); whether it works from an embedded host is to be confirmed.
+
+#### Security and data
+
+- **Nothing on disk (rule 1):** results, the command history and the window's content are only in memory and disappear
+  when the window is closed. AD Manager does not save a command history or transcripts: PSReadLine is not loaded, and a
+  configuration file in the program folder turns off transcription and module logging turned on in the user's
+  `powershell.config.json`. Only what the operator explicitly exports goes to a file; the window rejects
+  `Start-Transcript` without `-Path` (by default a file in *Documents*) – transcription only to an explicitly specified
+  file. Code snippets saved in the settings contain only code typed by the operator (like saved views: names, DNs,
+  filters) – without results or values read from the directory; the program does not save a snippet with a plain-text
+  password. Profiles (`$PROFILE`) are not loaded by default.
+- **Passwords (rule 2):** the window's credentials are only in memory and do not appear in the history or in the
+  results. The `ActiveDirectory` module gets them as a `PSCredential` in `$PSDefaultParameterValues`, from where a
+  script in the window can take them and read the password in any language mode (`GetNetworkCredential()`) – see "To be
+  agreed with the team".
+- **One DC (rule 4):** AD Manager's commands go through the window's LDAP session; the RSAT modules point to the same DC
+  by default.
+- **Writes through the change plan (rule 5):** as above. Intercepting commands protects against mistakes, it is **not a
+  security boundary**: in any language mode it is bypassed by the call `& (Get-Command -Module ActiveDirectory
+  Set-ADUser)` (the command object does not go through name lookup, so neither the proxy function nor
+  `PreCommandLookupAction` sees it), in FullLanguage also by a direct .NET call, and the operator can run `pwsh.exe`
+  anyway. The only boundary is the account's rights in AD – the window gives no more than the account has; changes made
+  around the plan have no audit and no rollback in the program, but the Watchdog sees them like any other change in AD.
+- **Outside the program's control:** a computer or user GPO can turn on PowerShell transcription, script block logging
+  (event 4104 in the *PowerShellCore/Operational* log – provided the PowerShell 7 event provider is registered: by the
+  installer or `RegisterManifest.ps1`) and module logging. Transcription covers every program with the PowerShell
+  engine, so the commands and results – that is, directory data – end up in the file specified in the GPO. PowerShell 7
+  reads its own policies (*PowerShell Core*, `HKLM`/`HKCU\Software\Policies\Microsoft\PowerShellCore`), and the Windows
+  PowerShell policies only with *Use Windows PowerShell Policy setting* turned on. The window checks both places when it
+  opens and points these policies out clearly – it does not try to get around them. AMSI checks every script block (the
+  antivirus program sees its content). WDAC (App Control) and AppLocker enforce the ConstrainedLanguage mode – the
+  window switches to this mode by itself, and AD Manager's commands keep working in it. Execution policies
+  (`ExecutionPolicy`) apply to `.ps1` and `.psm1` files.
+- **Other:** PowerShell telemetry turned off; also turned off is the diagnostics channel through which another process
+  of the same user or an administrator could attach to the AD Manager process with the `Enter-PSHostProcess` command.
+  EDR systems may report "a PowerShell engine in a process other than `powershell.exe`" (e.g. a Sigma rule for
+  `System.Management.Automation.dll`) – hence the signed `AdMng.exe` (phase 7, certificate from P2) and information for
+  the security team (SOC).
+
+#### Links with other tracks
+
+- **C – Microsoft 365:** the same embedded PowerShell 7 (one package version, the same host); the
+  `ExchangeOnlineManagement`, `MicrosoftTeams` and `PnP.PowerShell` modules in the window can use the sign-in token from
+  C, and writes in the cloud go – as in C – through the change pipeline (details together with C4).
+- **Phase 2 – change pipeline:** plan, validation, preview, execution, report and rollback; entries from the history of
+  equivalent PowerShell commands (phase 1) can be moved to the window.
+- **Lists and export:** `Out-AdmGrid` uses the object list grid (columns, copying, CSV export with formula protection),
+  and the result can be passed as a selection to the bulk editor.
+- **U, K, E, P, N as data sources:** read commands for the account status (U2) and account privileges (U4), computers
+  and GPOs (K), events from the log reader (E – with the window's credentials, nothing written to disk), PKI objects and
+  ESC findings (P), DNS zones and records (N) – as the stages of these tracks are delivered, through the same engines
+  and with the same rules as the program's windows.
+- **Stage S – readiness check:** an item about the PowerShell transcription and logging policies from GPOs and about
+  the language mode on this workstation.
+
+#### How it works technically
+
+- **Embedded PowerShell 7.6 (LTS, supported until November 2028)** from the `Microsoft.PowerShell.SDK` package in the
+  AD Manager process, in a new project used only by the application (like `AdMng.Remote`). PowerShell 7.7 requires .NET
+  11, so we will move to it only together with the upgrade to .NET 11. A custom host (`PSHost`,
+  `PSHostUserInterface`) – the `-WhatIf` text and confirmation prompts go to the window; a separate runspace for every
+  PowerShell window. The package makes the program about 19 MB larger (single file with compression) or about 54 MB
+  larger (without compression), and every PowerShell security update (roughly once a month) means a new AD Manager
+  release. Whether it works in the single-file `AdMng.exe` is to be confirmed with a smoke test in Windows CI.
+- **AD Manager's commands** are cmdlets from the program's assembly added to `InitialSessionState` (no module on
+  disk), which call the same services as the program's windows: the window's `IDirectorySession` (rule 4), `LdapFilter`
+  and `DistinguishedName` (rule 3), the change planning mechanism (`IChangePlanner`) for writes (rule 5). The calls are
+  asynchronous with a `CancellationToken`, and interrupting a command cancels the read (rule 6). Writes build operations
+  in the window's pending plan; execution only after the preview is confirmed in the interface.
+- **Translating RSAT commands** (R3): proxy functions for the recognized write commands, refusal functions for the
+  other commands that are not on the list of reads, and a command lookup hook (`PreCommandLookupAction`) for names with
+  the module; the program maps the parameters (`-Identity`, `-Replace`, `-Add`, `-Remove`, `-Clear` and named
+  properties such as `-Department`) through the schema to plan operations, and recognizes an object from the pipeline
+  (`Get-ADUser … | Set-ADUser …`) by its DN or `objectGUID`.
+- **Language mode:** with WDAC/AppLocker policies the window checks the system lockdown by itself and switches to
+  ConstrainedLanguage – an ordinary `Runspace` from `InitialSessionState.CreateDefault()` stays in FullLanguage, because
+  the lockdown is enforced only by `ConsoleHost` or `RunspacePool`; the window checks the public
+  `SystemPolicy.GetSystemLockdownPolicy()` or uses a `RunspacePool` (behavior to be confirmed on a machine with WDAC).
+  The default mode without such policies – see "To be agreed with the team".
+- **The engine's environment**, set before its first use: no telemetry and no diagnostics channel
+  (`POWERSHELL_TELEMETRY_OPTOUT`, `POWERSHELL_DIAGNOSTICS_OPTOUT`), a `powershell.config.json` file in the program
+  folder (`$PSHOME`; GPO settings take precedence over it), a module analysis cache without writes to disk, no
+  PSReadLine, profiles or `Start-Job` (it requires `pwsh.exe`).
+- **Tests:** the commands and the plan on `FakeDirectorySession` (unit tests – the package also works on Linux) and on
+  the Samba lab; the host and the window in UI tests on Windows; the RSAT modules (ADWS) only on Windows Server – in
+  Windows CI with a domain controller or in the pilot; a "no files" test checks that working in the PowerShell window
+  left no file with directory data behind.
+
+#### Stages
+
+- **R1** – window and reads (queued right after P1): the PowerShell window next to the connection window, with a custom
+  line editor (completion, highlighting, history in memory), AD Manager's read commands in the window's session
+  (`Get-Adm…`, `Search-Adm…` with safely built filters), results as objects, `Out-AdmGrid`, *Open in the program* for
+  DNs, export only to a file the operator chooses; detection of the transcription and logging policies from GPOs and of
+  the language mode; no PSReadLine, profiles, telemetry or diagnostics channel.
+- **R2** – writes through the change plan: AD Manager's write commands adding operations to the pending plan, the
+  pending plan panel with preview and execution through the pipeline (audit, rollback, PowerShell history), copying
+  commands from the pipeline history into the window.
+- **R3** – RSAT modules: `ActiveDirectory` and `GroupPolicy` pointed by default at the window's DC (`ActiveDirectory`
+  also with the window's credentials), the `AD:` drive on the window's DC read-only, translation of the recognized RSAT
+  write commands into the change plan and a refusal with an explanation for the others; code snippets saved in the
+  settings (only code typed by the operator).
+- **Later (to be decided):** remote PowerShell sessions to servers (WinRM, like K1) with the window's credentials;
+  scripts run on a schedule – rather out of scope (AD Manager is not a service), and if at all, then as a separate
+  decision about the Watchdog service.
+
+#### To be agreed with the team
+
+- Package size: the embedded PowerShell adds about 19–54 MB and forces a release with each of its security updates; the
+  alternative – `pwsh.exe` out of process in a terminal (ConPTY), with PSReadLine, but without access to the window's
+  session and credentials and without objects in the program's grid.
+- The language mode without WDAC/AppLocker policies: whether we allow FullLanguage (any .NET code – including writes
+  around the change plan), or ConstrainedLanguage by default with AD Manager's commands and a switch for trusted
+  operators. No mode protects the password in a `PSCredential` object: `PSCredential` is an allowed type in
+  ConstrainedLanguage, so `$cred.GetNetworkCredential().Password` works there too.
+- Whether the window may load any modules and scripts from disk (`Import-Module`, running `.ps1` files, the user's
+  module folder in `PSModulePath`), or only the modules on a list (RSAT, Microsoft 365).
+- Which RSAT write commands to translate in R3 (to start with `Set-ADUser`, `Set-ADGroup`, `Set-ADComputer`,
+  `Set-ADObject`, `New-ADUser`, `New-ADGroup`, `Remove-ADObject`, `Move-ADObject`, `Rename-ADObject`,
+  `Add-ADGroupMember`, `Remove-ADGroupMember`, `Enable-ADAccount`, `Disable-ADAccount`, `Unlock-ADAccount`,
+  `Set-ADAccountPassword`), and which to reject right away (e.g. the `GroupPolicy` commands that write to SYSVOL,
+  `Restore-ADObject`).
+- The window's credentials for the `ActiveDirectory` module: a script in the window can take the `PSCredential` from
+  `$PSDefaultParameterValues` and read the password from it in any language mode (`GetNetworkCredential()`) – whether,
+  with a window account other than the current Windows account, to always pass them, or only after the operator
+  confirms it at the first RSAT command.
+- The names of AD Manager's commands (the `Adm` prefix) and the window's keyboard shortcut.
+
+**Completion criteria**
+- The read commands return the same objects and values as the program's windows (a comparison for 1,000 lab objects)
+  and go only to the window's DC; 100,000 results do not block the window, and the read can be cancelled at any
+  moment.
+- A value with a parenthesis, an asterisk, a backslash or Polish characters (e.g. `Łukasz (Kraków)*`) in the
+  `Search-AdmObject` parameters gives a correctly escaped filter (RFC 4515) – without extra results.
+- No write command – AD Manager's or RSAT's – changes AD without a preview and confirmation; after execution the change
+  is in the audit, the report and the PowerShell history and can be rolled back; an RSAT write command that is not on
+  the translated list, a call that cannot be translated and a write on the `AD:` drive are rejected with an
+  explanation.
+- With the RSAT `ActiveDirectory` module, `Get-ADUser` without `-Server` connects to the window's DC, and `Set-ADUser`
+  adds an operation to the plan instead of writing the change.
+- After the window is closed there is no command history, transcript or result on the workstation's disk (when no GPO
+  turns on transcription or script block logging); with transcription turned on by a GPO, the window warns before the
+  first command; the password does not appear in the history or in the audit.
+- When a WDAC policy applies, the window works in ConstrainedLanguage mode, and AD Manager's commands work.
+
+</details>
+
+### Track V – Interface renewal (look, motion, icons) 🟡 (V1: 🟡)
+
+**Goal:** make AD Manager as easy to use as the best current Windows tools and give it a current look: every page built
+the same way, every function found by name, the result of every action shown in one place, calm motion that explains
+what changed, and a set of colourful icons of our own. The model the owner named is *Harden System Security* and
+*AppControl Manager* (WinUI 3): the ease of use is to match strongly, the look partly. The track adds no function and
+changes none of the six rules; lists with thousands of rows, keyboard work and the tests must not get worse. A parallel
+track – its stages are proposed to alternate with R1, P2 and N. Design note:
+[docs/dev/v-interface-renewal.md](docs/dev/v-interface-renewal.md); the project's goals:
+[GOALS.md](docs/en/GOALS.md).
+
+<details>
+<summary><b>Track V details</b> – what the user gets, look and icons, motion, technology, stages</summary>
+
+#### What the user gets
+
+- **One page skeleton** on every tab and in every tool window: a page header (title, one sentence saying what the page
+  is for, a link to the right chapter of the guide), the status line, a toolbar card, the content.
+- **One status line**, always in the same place, with four kinds of message – working, done, attention, error. A long
+  operation shows progress and is cancelled with the button that started it; closing a window asks only while
+  something is running.
+- **Search in the title bar** (Ctrl+K): commands, pages and views, settings and directory objects in one box; the
+  target is opened and highlighted for two seconds.
+- **The areas of the program in view** (directory, Group Policy, certificates, event logs, Watchdog, reviews,
+  messages) and a **home page** after connecting: the connection, environment readiness, quick actions, pinned views.
+- **The same list toolbar everywhere:** filter while typing, "displayed / total", columns, export, a selection menu.
+- **Settings as cards** with an icon, a title and a description; one dialog style with the safe button as the default;
+  a few teaching tips, each shown once.
+
+#### Look and icons
+
+- Design tokens in one place: surfaces and colours from the Fluent theme (light, dark, High Contrast), the Mica
+  background on Windows 11 22H2 and newer and a solid background elsewhere, a compact density for an administrator's
+  tool, one type ramp, spacing and corner radii.
+- **New icons drawn for this project** (`docs/assets/icons/`): colourful pictures for things – object kinds with state
+  badges (disabled, locked), areas, statuses – and monochrome glyphs for actions; sizes from 16 to 48 px; a setting
+  *Icons: colour / monochrome*; High Contrast always uses glyphs. Nothing is copied from the model: its artwork is
+  licensed to that repository only.
+
+#### Motion
+
+- A small catalogue of animations, each with a meaning: hover and press feedback (83 ms), the content swap of the
+  action button (150 ms), a status message arriving (250 ms), page entrance (200 ms), the "look here" highlight (2 s),
+  the loading skeleton. Routine motion takes at most about 300 ms.
+- Rules: motion never delays input; nothing animates in a virtualized list beyond its first screen, and nothing on
+  live refresh; only opacity and position are animated.
+- **Reduced motion:** the program follows the Windows "Animation effects" setting and has its own setting *Motion:
+  follow Windows / on / off*; UI tests and screenshots run with motion off.
+
+#### Technology of the renewal
+
+- **Decided by the owner** (the options are compared in the design note): evolve the WPF application
+  in place and build a few small controls for what WPF's Fluent theme lacks – status line, action button, page header,
+  title bar, area strip, teaching tip, settings card. The alternative, a new WinUI 3 shell over the existing view
+  models, would write about 66,000 lines of views, application code and UI tests again, and the Windows App SDK ships
+  under a licence that is not OSI-approved.
+- The new concepts (page status, operation scope, page header, areas, search index, motion and icon preferences) are
+  view models and services in `AdMng.Presentation` without WPF types, tested on Linux; the views only draw them.
+- Element names (`x:Name`) are kept, so the UI tests keep finding their elements; the README screenshots are rendered
+  again with each stage.
+
+#### Stages of the renewal
+
+- **V1** 🟡 – look: tokens, the new icons in the tree, lists, tabs and details, card surfaces, hover feedback, page
+  entrance, settings for icons, motion and background. No change of structure. **Built:** colour icons for things
+  (monochrome as a setting and always in High Contrast); spacing, density, radii and the type ramp as tokens; the
+  main window as a toolbar card and three rounded panels; icon buttons that answer the pointer, a document and the
+  details pane that enter when they are shown, notifications that slide in and out – all behind the setting
+  *Motion: follow Windows / on / off*; the setting *Background: follow the theme / solid*. Left for the next stages:
+  the density of controls and rows, the page margin, hover feedback of the other buttons.
+- **V2** – feedback: the status line, one shape for every command, the cancellable action button, status pills, empty
+  states, the loading skeleton, progress on the taskbar.
+- **V3** – page skeleton: page header with description and guide link, toolbar card, the standard list toolbar, compact
+  density everywhere.
+- **V4** – shell: title bar with search, area strip (or navigation pane), home page, slimmer menus, a layout for
+  narrow windows.
+- **V5** – settings as cards, one dialog style, teaching tips, "What's new".
+- **V6** – the large windows: property sheet, bulk editor, Correspondence, account review and the others.
+- **V7** – audit: High Contrast, screen reader, a keyboard shortcuts page, reduced motion in remote sessions,
+  performance budgets, the guides.
+
+#### Renewal decisions to be agreed with the team
+
+- **Decided (10 November 2026):** the technology is WPF in place (no WinUI 3 shell, no WPF-UI library); the tree
+  stays the main navigation, with an area strip next to it; V1 comes before R1.
+- Still open: whether the classic menu bar stays visible; colour or monochrome icons by default; compact density as
+  the default.
+- The full list of fifteen questions is in section 9 of the design note.
+
+**Completion criteria**
+- Every command, page and settings section is found by the search (a test walks the command registry).
+- Every tab and tool window has exactly one status line, in the same place; every operation longer than a second can
+  be cancelled with the button that started it.
+- Every page has a description and a guide link in both languages, and every link resolves.
+- No literal colour, font size, corner radius or animation duration outside the theme dictionaries.
+- Opening a container with 10,000 objects is no slower than in 0.15.0; no animation runs while a list scrolls or
+  refreshes; with "Animation effects" switched off in Windows nothing moves.
+- All UI and view model tests stay green with the element names unchanged; High Contrast works in every window.
+
+</details>
+
 ### Stage S – stabilization and pilot readiness 🟡
 
 **Goal:** before more features arrive – reliable tests, an environment readiness check in the application, problem
-reports without directory data and a single pilot checklist for Windows Server AD ([PILOTAZ.md](docs/en/PILOT.md)).
+reports without directory data and a single pilot checklist for Windows Server AD ([PILOT.md](docs/en/PILOT.md)).
 
 <details>
 <summary><b>Stage S details</b> – tests, environment readiness, report a problem, pilot</summary>
@@ -1854,15 +3028,15 @@ reports without directory data and a single pilot checklist for Windows Server A
 
 **Completion criteria**
 - Full test runs under load without a single random failure.
-- The pilot according to [PILOTAZ.md](docs/en/PILOT.md) starts with a readiness report, and every issue report comes with
+- The pilot according to [PILOT.md](docs/en/PILOT.md) starts with a readiness report, and every issue report comes with
   the description from *Report a problem…* attached.
 
 </details>
 
 ### Known limitations
 
-As of October 2026. Features of the next phases are described above; this section lists gaps and simplifications in
-what already works.
+As of November 2026 (version 0.15.0). Features of the next phases are described above; this section lists gaps and
+simplifications in what already works.
 
 - **Not verified on Windows Server AD.** Integration tests run against a Samba 4.19 domain controller; the pilot,
   measurements on large directories, Kerberos with enforced channel binding, the AD Recycle Bin with delegated
@@ -1915,7 +3089,15 @@ what already works.
   or stopping). The computer's site is determined through the DNS of the operator's workstation, not of the domain
   controller. End-of-support dates come from a built-in catalog (the catalog date is shown in the window, custom dates
   go in the settings). Inactive computers are only a report – nothing is disabled automatically.
-- **Account creation** only through the form (no per-OU templates, CSV or "Copy user") – phase 3.
+- **Creating multiple accounts (F3) – not verified on Windows Server AD.** The wizard is verified with tests on a fake
+  directory, on the Samba lab (one domain in the forest) and with UI tests in Windows CI; a forest with several domains
+  (global catalog, the UPN check by Windows), the rules for computer accounts (KB5020276, KB5008102), RID pool
+  exhaustion and the behavior with delegated permissions will be confirmed by the pilot
+  ([list](docs/en/CREATING-ACCOUNTS.md#12-limitations-and-pilot)).
+  One container per run; no passwords from the sheet, mailboxes, home folders, account flags at creation and "Copy
+  user". Excel copies hidden columns but not rows hidden by a filter, and leading zeros removed by Excel cannot be
+  detected. The undo covers everything the window created, but works only until the window is closed; the counter
+  number and the uniqueness of names are as current as the window's domain controller (replication).
 - **Account review (U2)** – the problem checks (lockout, passwords, expirations, inactivity, password hygiene,
   notification readiness) apply only to enabled accounts; "Disabled" and leftovers – only to disabled ones (excluding
   critical system accounts, e.g. krbtgt, Guest). "Never logged on" uses the same N as "Inactive" (`whenCreated`
@@ -1928,17 +3110,18 @@ what already works.
   after the next *Check*. A group as the scope includes the accounts for which it is the primary group, but not members
   through a nested primary group. Samba does not write `lastLogon` on a simple LDAP bind; FGPP and "never logged on"
   were verified only by tests on a fake DC (the lab would need a PSO outside its own OU and an old `whenCreated`).
-- **Account privileges (U4)** – verified only by tests on a fake controller and on the Samba lab, not on Windows
-  Server AD: the default ACLs of a fresh Windows domain differ from Samba's (false delegation findings are possible),
-  Exchange, LAPS and computers joined under `ms-DS-MachineAccountQuota` also remain to be confirmed, and the SYSVOL
-  reader for Windows has not been run yet. Delegations in ACLs (U4b): deny entries are not evaluated; containers other
-  than `CN=Users` / `CN=Computers` (e.g. `CN=Managed Service Accounts`, `CN=System`) and the configuration partition
-  (sites, PKI) are not read; owners of ordinary users, groups and computers are not shown; GPO editing is assessed by
-  the ACL of the GPO object in AD (not by the file permissions in SYSVOL); a descriptor that cannot be read is skipped
-  without a message; individual accounts and groups only with *Deep scan*. Local permissions from GPOs (U4c): WMI
-  filters and item-level targeting are not evaluated ("conditional" findings), and neither are the sites of member
-  computers; the local accounts and groups of the computers themselves are out of scope (only what GPOs grant); SYSVOL
-  only on Windows. Enterprise / Schema Admins of the forest root domain are not visible from a child domain.
+- **Account privileges (U4)** – verified only by tests on a fake controller and on the Samba lab, not on Windows Server
+  AD: the default ACLs of a fresh Windows domain differ from Samba's (false delegation findings are possible), Exchange,
+  LAPS and computers joined under `ms-DS-MachineAccountQuota` also remain to be confirmed, and the SYSVOL reader for
+  Windows has not been run yet. Delegations in ACLs (U4b): deny entries are not evaluated; containers other than
+  `CN=Users` / `CN=Computers` (e.g. `CN=Managed Service Accounts`, `CN=System`), the configuration partition outside the
+  PKI containers (read since P1; sites are not) and the DNS zone partitions (planned in Track N) are not read; owners of
+  ordinary users, groups and computers are not shown; GPO editing is assessed by the ACL of the GPO object in AD (not by
+  the file permissions in SYSVOL); a descriptor that cannot be read is skipped without a message; individual accounts
+  and groups only with *Deep scan*. Local permissions from GPOs (U4c): WMI filters and item-level targeting are not
+  evaluated ("conditional" findings), and neither are the sites of member computers; the local accounts and groups of
+  the computers themselves are out of scope (only what GPOs grant); SYSVOL only on Windows. Enterprise / Schema Admins
+  of the forest root domain are not visible from a child domain.
 - **Messages to users (U1)** – sent by AD Manager directly over SMTP, by the Watchdog service (U1b: queue, secrets on
   the service side, Exchange Online OAuth2) or – since U5 – by the operator's classic Outlook; XOAUTH2 is not supported
   for direct sending – without Watchdog, the options for Exchange Online are a relay, an account with SMTP AUTH enabled
@@ -1988,12 +3171,24 @@ what already works.
   the change). Security settings are edited on the K4 tab (without the firewall, file and registry permissions and the
   remaining preferences); there are no migration tables, no copying between domains, no Starter GPOs, no comparison with
   a GPO of another window and no WMI filter test on a computer. Details:
-  [ZASADY-GRUPY.md, chapter 14](docs/en/GROUP-POLICY.md#14-limitations-and-pilot).
+  [GROUP-POLICY.md, chapter 15](docs/en/GROUP-POLICY.md#15-limitations-and-pilot).
+- **Searching, copying settings and cleaning up GPOs (K7)** – verified on a fake directory; the windows and screenshots 34
+  and 35 only in Windows CI, on a real Windows domain – pilot. Copying and merging refuse the settings the program does
+  not write (GPP passwords – MS14-025, scripts, file and registry permissions, audit options, comments, settings stored
+  in the directory); no copying to a new GPO and between domains.
 - **Administrative Templates (K3)** – verified on a fake directory and synthetic templates; downloading the Edge,
   Chrome and Firefox templates – against responses prepared according to the vendors' formats (no access to their
   servers in tests); unpacking MSI, EXE and CAB and checking signatures work only on Windows. Compatibility of
   `Registry.pol` with the file written by the Microsoft editor and the behavior on a client will be confirmed by the
   pilot. No comments on settings, no filters by platform and keywords, and no old ADM templates.
+- **Certificate Services (P1) – not verified on Windows Server AD with AD CS.** The overview is read-only and reads
+  LDAP only: the *Enroll* right on the CA itself is assumed (*Authenticated Users*), while the CA configuration (ESC6,
+  ESC7, ESC8, ESC11, ESC16), its updates (ESC15), the enforcement of strong mapping on the DCs (ESC10) and the KDC's
+  certificate store stay unknown until P4; OCSP – reachability only; KDC events – P5. From a child domain window the CA
+  computers of the root domain and the trustees of other domains of the forest are not resolved (account count
+  unknown). Samba has no AD CS, so everything but the LDAPS probe was verified on a fake directory; the windows and the
+  screenshots 36–39 – only Windows CI; consistency with `pkiview.msc`, `certtmpl.msc`, Certipy and Locksmith will be
+  confirmed by the pilot ([list](docs/en/CERTIFICATES.md#11-limitations-and-pilot)).
 - **"Empty groups" filter** checks the `member` attribute and skips the default primary groups of the domain (Domain
   Users, Domain Guests, Domain Computers, Domain Controllers, Read-only Domain Controllers – by the domain SID); a custom
   group that is the primary group (`primaryGroupID`) of some accounts and has no other members may still be shown as
@@ -2008,7 +3203,7 @@ what already works.
 |---|---|---|---|---|---|
 | List, search, properties | F1 | F1 | F1 | F1 | F1 |
 | Field editing, Attribute Editor | F1 | F1 | F1 | F1 | F1 |
-| Creation | F1 (form), F3 (templates, CSV) | F1, F3 | F1, F3 | F1, F3 | F1 |
+| Creation | F1 (form), F3 (multiple accounts wizard: Excel, CSV, `.xlsx`, profiles) | F1, F3 | F1, F3 | F1, F3 | F1 |
 | Account actions (reset, unlock, enable/disable) | F1 | F1 (enable/disable) | – | – | – |
 | Bulk attribute editing | F2 | F2 | F2 | F2 | F2 |
 | Bulk membership | F2 | F2 | F2 (nesting) | F2 | – |
@@ -2021,6 +3216,7 @@ what already works.
 | E-mail messages to users | U | – | U (members as recipients) | – | – |
 | Correspondence through Outlook | U5 | – | U5 (members as recipients) | U5 | – |
 | Queries to mailbox owners | U5 (mailboxes and their owners) | – | – | – | U5 (scope) |
+| Certificates on accounts (*Published Certificates*, *Name Mappings*, *Key Credentials*) | P1 (read), P3 (changes) | P1 (read), P3 (changes) | – | P1 (*Published Certificates*) | – |
 
 </details>
 
@@ -2044,7 +3240,7 @@ next phases:
    duplicates, differences between OUs.
 6. **CSV data source** (HR system?): format, encoding, uniqueness of `employeeID`.
 7. **Exchange:** on-premises, hybrid or only Entra/Exchange Online; whether address changes should go through AD.
-8. **Rarely used ADUC tabs in use** (RDS, Dial-in, certificates) – decides the scope of phase 6.
+8. **Rarely used ADUC tabs in use** (RDS, Dial-in) – decides the scope of phase 6; certificates – Track P.
 9. **Messages to users (track U):** sending through the Watchdog service (recommended) or directly from AD_MNG; the
    sender mailbox (e.g. a shared helpdesk mailbox) and the reply address; who can send and to how many people at once;
    template content and footer approved by security (phishing protection) and the DPO (GDPR); whether copies stay in
@@ -2052,6 +3248,15 @@ next phases:
 10. **Event logs (track E):** reading over RPC (additional firewall rule) or also over WinRM; default time range and
    limit of events in memory; whether searching the events of a specific person requires a reason (GDPR, DPO); a
    separate *Event Log Readers* group on DCs treated as Tier 0.
+11. **DNS and DHCP (track N):** reading and changes on the servers over WinRM/CIM or RPC (MS-DNSP, MS-DHCPM); records in
+   AD zones written through LDAP or through the DNS server; who may browse DHCP leases (MAC addresses, host names) and
+   whether that requires a reason; whether to narrow the default right of *Authenticated Users* to create records in
+   the zones.
+12. **PowerShell window (track R):** full language mode (FullLanguage) or ConstrainedLanguage; whether the window may
+   load any modules and scripts from disk; which RSAT write commands to translate into the change plan; whether to
+   embed PowerShell in the process (about 19–54 MB more and a new release with each of its updates) or to run
+   `pwsh.exe` separately; the PowerShell transcription and logging policies from GPOs on the administrators'
+   workstations (they also record directory data).
 
 </details>
 
@@ -2067,7 +3272,7 @@ next phases:
   10, often missing on Windows Server 2019 and 2022); without it the window shows the HTML source.
 - The *Correspondence* window (U5) and sending messages to users through Outlook require **classic Outlook**
   (Microsoft 365 Apps or Office 2016+) with a mail profile on the same computer, running at the same privilege level as
-  AD Manager (both without *Run as administrator*) – see [KORESPONDENCJA.md](docs/en/CORRESPONDENCE.md#1-requirements).
+  AD Manager (both without *Run as administrator*) – see [CORRESPONDENCE.md](docs/en/CORRESPONDENCE.md#1-requirements).
 - To build: .NET SDK 10.0.
 
 **Ready-made version**
@@ -2208,14 +3413,17 @@ Every document is available in English (`docs/en/`) and Polish (`docs/`).
 
 | Document | About |
 |---|---|
+| 🎯 [Goals](docs/en/GOALS.md) | what AD Manager is for and for whom, product goals and their measures, the rules that never bend, what it is not, where we are, the goals of the next releases and the road to 1.0 (proposals) |
 | 🏗 [Architecture](docs/en/ARCHITECTURE.md) | layers, directory session, change pipeline, UI, security, AdMng Watchdog, tests |
 | 📐 [Architecture decision records (ADR)](docs/en/adr/) | why WPF .NET 10, S.DS.P, no local data, one change pipeline, a session pinned to a DC … |
 | 🔬 [Research findings](docs/en/RESEARCH.md) | `dsa.msc`, ADAC, competing products, LDAP techniques |
 | 🛡 [AdMng Watchdog](docs/en/WATCHDOG.md) | features and configuration of the monitoring service |
 | 🐧 [AdMng Watchdog on Linux](docs/en/WATCHDOG-LINUX.md) | step-by-step deployment: AD, domain controllers, Debian server, packages, pilot, rollback |
+| 👥 [Creating multiple accounts](docs/en/CREATING-ACCOUNTS.md) | the *Multiple accounts…* wizard: pasting from Excel, CSV and `.xlsx`, column recognition, naming rules and the counter (kd201…), UPNs and addresses, initial passwords, the check, the change plan, results, undo, privacy, pilot |
 | 🖥 [Computers](docs/en/COMPUTERS.md) | computer review and reports, account life cycle, remote actions over WinRM, WinRM through Group Policy |
 | 📋 [Event logs](docs/en/EVENT-LOGS.md) | event log reader for DCs, servers, workstations and `.evtx` files, lockout source, failed logons; requirements (firewall, group, auditing) |
-| 📜 [Group Policy](docs/en/GROUP-POLICY.md) | Group Policy Objects in the tree, the *Group Policy* tab, GPO operations, security filtering, WMI filters, delegation, backups, comparison, settings editors, the "what will the computer get" model, Group Policy diagnostics |
+| 📜 [Group Policy](docs/en/GROUP-POLICY.md) | Group Policy Objects in the tree, the *Group Policy* tab, GPO operations, security filtering, WMI filters, delegation, backups, comparison, settings editors, the "what will the computer get" model, Group Policy diagnostics, searching and copying settings, GPO cleanup |
+| 🏛 [Certificate Services](docs/en/CERTIFICATES.md) | read-only overview of the forest's PKI (stage P1): the *Public Key Services* node, CAs, NTAuth, CRLs, health, the HTTP URL check, the LDAPS certificates of the domain controllers, templates and enrollment rights, the ESC security review and its differences from Certipy and Locksmith, strong mapping and NTAuth readiness, certificate tabs on accounts, key masking, privacy and network, pilot |
 | 📨 [Correspondence](docs/en/CORRESPONDENCE.md) | the *Correspondence (Outlook)* window: recipients from files and from AD, fields, message, preview, sending through Outlook, the "already sent" journal, queries to mailbox owners, replies, troubleshooting, pilot |
 | ✅ [Pilot](docs/en/PILOT.md) | pilot checklist for Windows Server AD: environment, readiness check, scenarios with a Microsoft tool for comparison, reporting problems, results |
 | 🧪 [Test lab](tools/testlab/README.md) | Samba AD DC with "Polish company" data; [Watchdog in the lab](tools/testlab/watchdog/README.md) |
@@ -2253,10 +3461,12 @@ This program will not transfer any information to other networked systems unless
 or the person installing or operating it.
 
 AD Manager connects only to the domain controllers and servers the operator specifies (LDAP, WinRM, event logs, the
-AdMng Watchdog service, mail). Its only connection to the internet is downloading the ADMX templates of the Edge, Chrome
-and Firefox browsers when the operator asks for it (*Update templates…*). The program has no telemetry and no automatic
-updates, and the HTML message preview does not fetch remote images or other resources. AdMng Watchdog sends
-notifications only to the channels configured by the service administrator.
+AdMng Watchdog service, mail). It has only two connections to the internet, both at the operator's explicit request:
+downloading the ADMX templates of the Edge, Chrome and Firefox browsers (*Update templates…*) and – when the AIA, CDP or
+OCSP URLs in the forest's certificates name servers on the internet – *Check HTTP URLs* in the PKI overview (without
+credentials). The program has no telemetry and no automatic updates, and the HTML message preview does not fetch remote
+images or other resources. AdMng Watchdog sends notifications only to the channels configured by the service
+administrator.
 
 ---
 

@@ -174,6 +174,8 @@ public sealed partial class FakeDirectorySession : IDirectorySession
     /// <summary>Write calls only.</summary>
     public IReadOnlyList<FakeOperation> Writes => Operations.Where(o => o.IsWrite).ToList();
 
+    // F3 contract: SamRules and IsChannelEncrypted are in FakeDirectorySession.BulkCreate.cs.
+
     public IReadOnlyList<FakePasswordReset> PasswordResets
     {
         get
@@ -603,7 +605,11 @@ public sealed partial class FakeDirectorySession : IDirectorySession
         ArgumentNullException.ThrowIfNull(distinguishedName);
         ArgumentNullException.ThrowIfNull(newPassword);
         var operation = new FakeOperation { Kind = FakeOperationKind.ResetPassword, DistinguishedName = distinguishedName };
-        var dn = await RunAsync(operation, cancellationToken, () => ApplyResetPassword(distinguishedName, newPassword)).ConfigureAwait(false);
+        var dn = await RunAsync(operation, cancellationToken, () =>
+        {
+            CheckChannelForPassword(distinguishedName);
+            return ApplyResetPassword(distinguishedName, newPassword);
+        }).ConfigureAwait(false);
         Notify(dn);
     }
 
@@ -1057,6 +1063,7 @@ public sealed partial class FakeDirectorySession : IDirectorySession
         bool permissive,
         SecurityDescriptorRights securityDescriptorFlags = SecurityDescriptorRights.None)
     {
+        CheckChannelOnModify(modifications, distinguishedName);
         var entry = FindExisting(distinguishedName);
         var work = entry.CloneAttributes();
         var touched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -1201,6 +1208,7 @@ public sealed partial class FakeDirectorySession : IDirectorySession
             touched.Add(name);
         }
 
+        CheckBulkCreateRulesOnModify(entry, work, touched);
         ValidateValues(entry.Dn, work, touched);
         CheckPrimaryGroupMembers(entry, addedMembers);
         CheckObjectClass(entry.Dn, work, touched);
@@ -1391,6 +1399,7 @@ public sealed partial class FakeDirectorySession : IDirectorySession
 
     private DistinguishedName ApplyAdd(string distinguishedName, IReadOnlyDictionary<string, IReadOnlyList<object>> attributes)
     {
+        CheckChannelOnAdd(attributes, distinguishedName);
         var dn = FakeDn.Parse(distinguishedName);
         if (dn.IsRoot)
         {
@@ -1407,6 +1416,7 @@ public sealed partial class FakeDirectorySession : IDirectorySession
             throw Error(32, $"The parent of '{dn}' does not exist.", distinguishedName);
         }
 
+        CheckBulkCreateRulesOnAdd(dn, attributes, distinguishedName);
         var work = new Dictionary<string, List<object>>(StringComparer.OrdinalIgnoreCase);
         string? password = null;
         foreach (var (attribute, values) in attributes)
@@ -1415,7 +1425,8 @@ public sealed partial class FakeDirectorySession : IDirectorySession
             var definition = Schema.FindAttribute(name) ?? throw Error(17, $"The attribute '{name}' is not defined in the schema.", distinguishedName);
             if (string.Equals(name, Attr.UnicodePwd, StringComparison.OrdinalIgnoreCase))
             {
-                password = DecodeUnicodePwd(values);
+                // Like the real session, an empty value list is not sent (the account then has no password).
+                password = values.Count > 0 ? DecodeUnicodePwd(values) : password;
                 continue;
             }
 

@@ -1,0 +1,159 @@
+<!--
+  The bulk creation wizard "Zakładanie wielu kont" (BulkCreateViewModel, docs/dev/phase3-bulk-create.md 2.6): the Edit step of
+  the batch editor in create mode. Header: the four sub-steps (Dane, Kolumny, Nazwy i opcje, Sprawdzenie), the kind and the
+  target container; body: one ContentControl per child with the implicit DataTemplates below (the child views are owned by
+  B3 – BulkSourceView, BulkColumnsView, BulkRulesView – and B4 – BulkCheckView); footer: Wstecz / Dalej within the wizard
+  (the batch editor's own footer continues with Podgląd).
+-->
+<UserControl x:Class="AdMng.App.BulkCreate.BulkCreateView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:bc="clr-namespace:AdMng.Presentation.BulkCreate;assembly=AdMng.Presentation"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:local="clr-namespace:AdMng.App.BulkCreate"
+             AutomationProperties.Name="{Binding Title, Mode=OneWay}">
+  <UserControl.Resources>
+    <!-- Sub-steps: the current one is highlighted (Tag = IsXxxStep), as the batch editor's StepStyle. -->
+    <Style x:Key="SubStepStyle" TargetType="Border">
+      <Setter Property="Padding" Value="10,4" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
+          <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+          <Setter Property="TextElement.Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+          <Setter Property="TextElement.FontWeight" Value="SemiBold" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="SubStepNumber" TargetType="TextBlock">
+      <Setter Property="Margin" Value="0,0,8,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="SubStepChevron" TargetType="TextBlock" BasedOn="{StaticResource Ad.GlyphText}">
+      <Setter Property="Margin" Value="4,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+      <Setter Property="Text" Value="{x:Static c:Glyphs.ChevronRight}" />
+    </Style>
+
+    <!-- The children: B3 and B4 replace the placeholder views. -->
+    <DataTemplate DataType="{x:Type bc:BulkSourceViewModel}">
+      <local:BulkSourceView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type bc:BulkColumnsViewModel}">
+      <local:BulkColumnsView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type bc:BulkRulesViewModel}">
+      <local:BulkRulesView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type bc:BulkCheckViewModel}">
+      <local:BulkCheckView />
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <DockPanel>
+    <!-- Header: sub-steps on the left, kind and container on the right -->
+    <DockPanel Margin="0,0,0,8" DockPanel.Dock="Top">
+      <StackPanel VerticalAlignment="Center"
+                  DockPanel.Dock="Right"
+                  Orientation="Horizontal">
+        <TextBlock Margin="16,0,8,0"
+                   VerticalAlignment="Center"
+                   Text="{l:Tr BulkCreate.Kind}" />
+        <ComboBox x:Name="KindBox"
+                  MinWidth="150"
+                  AutomationProperties.Name="{l:Tr BulkCreate.Kind}"
+                  DisplayMemberPath="Text"
+                  ItemsSource="{Binding Kinds, Mode=OneWay}"
+                  SelectedItem="{Binding Kind}" />
+        <TextBlock Margin="16,0,8,0"
+                   VerticalAlignment="Center"
+                   Text="{l:Tr BulkCreate.Container}" />
+        <TextBlock x:Name="ContainerText"
+                   MaxWidth="280"
+                   VerticalAlignment="Center"
+                   FontWeight="SemiBold"
+                   Text="{Binding ContainerName, Mode=OneWay}"
+                   TextTrimming="CharacterEllipsis"
+                   ToolTip="{Binding ContainerDn, Mode=OneWay}" />
+        <Button x:Name="PickContainerButton"
+                Margin="8,0,0,0"
+                AutomationProperties.Name="{l:Tr BulkCreate.Container}"
+                Command="{Binding PickContainerCommand}"
+                Content="{l:Tr Common.Browse}" />
+      </StackPanel>
+      <StackPanel x:Name="SubStepStrip" Orientation="Horizontal">
+        <Border Style="{StaticResource SubStepStyle}" Tag="{Binding IsSourceStep, Mode=OneWay}">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource SubStepNumber}" Text="1" />
+            <TextBlock Text="{l:Tr BulkCreate.StepSource}" />
+          </StackPanel>
+        </Border>
+        <TextBlock Style="{StaticResource SubStepChevron}" />
+        <Border Style="{StaticResource SubStepStyle}" Tag="{Binding IsColumnsStep, Mode=OneWay}">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource SubStepNumber}" Text="2" />
+            <TextBlock Text="{l:Tr BulkCreate.StepColumns}" />
+          </StackPanel>
+        </Border>
+        <TextBlock Style="{StaticResource SubStepChevron}" />
+        <Border Style="{StaticResource SubStepStyle}" Tag="{Binding IsRulesStep, Mode=OneWay}">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource SubStepNumber}" Text="3" />
+            <TextBlock Text="{l:Tr BulkCreate.StepRules}" />
+          </StackPanel>
+        </Border>
+        <TextBlock Style="{StaticResource SubStepChevron}" />
+        <Border Style="{StaticResource SubStepStyle}" Tag="{Binding IsCheckStep, Mode=OneWay}">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource SubStepNumber}" Text="4" />
+            <TextBlock Text="{l:Tr BulkCreate.StepCheck}" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </DockPanel>
+
+    <!-- Footer: navigation within the wizard -->
+    <StackPanel Margin="0,8,0,0"
+                HorizontalAlignment="Right"
+                DockPanel.Dock="Bottom"
+                Orientation="Horizontal">
+      <Button x:Name="PreviousStepButton"
+              Command="{Binding PreviousStepCommand}"
+              Content="{l:Tr Common.Back}"
+              Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
+      <Button x:Name="NextStepButton"
+              Margin="8,0,0,0"
+              Command="{Binding NextStepCommand}"
+              Content="{l:Tr Common.Next}"
+              Style="{StaticResource Ad.DialogButton}"
+              Visibility="{Binding IsCheckStep, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+    </StackPanel>
+
+    <!-- Body: the current sub-step -->
+    <Grid>
+      <ContentControl x:Name="SourceStep"
+                      Content="{Binding Source, Mode=OneWay}"
+                      Focusable="False"
+                      Visibility="{Binding IsSourceStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      <ContentControl x:Name="ColumnsStep"
+                      Content="{Binding Columns, Mode=OneWay}"
+                      Focusable="False"
+                      Visibility="{Binding IsColumnsStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      <ContentControl x:Name="RulesStep"
+                      Content="{Binding Rules, Mode=OneWay}"
+                      Focusable="False"
+                      Visibility="{Binding IsRulesStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      <ContentControl x:Name="CheckStep"
+                      Content="{Binding Check, Mode=OneWay}"
+                      Focusable="False"
+                      Visibility="{Binding IsCheckStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+    </Grid>
+  </DockPanel>
+</UserControl>

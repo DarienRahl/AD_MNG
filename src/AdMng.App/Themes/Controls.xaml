@@ -1,10 +1,24 @@
 <!--
-  Application-wide resources of the WPF shell (merged into App.Resources after the Fluent theme).
+  Application-wide resources of the WPF shell (merged into App.Resources after the Fluent theme and Themes/Tokens.xaml).
   Rules:
   * Only string keys here. Implicit (type keyed) styles that are BasedOn a Fluent style must live in window or element
     resources: a type keyed entry in this dictionary would hide the Fluent style it is based on.
   * Theme brushes are always DynamicResource (light/dark/high contrast switch at runtime).
   * Keys are prefixed "Ad." so they never collide with Fluent theme keys.
+  * Sizes, radii and spacing come from Themes/Tokens.xaml (StaticResource). Glyph sizes of the icon font stay literal.
+  * The controls of our own (c:StatusLine, c:ActionButton) have string keyed styles too and take them by themselves
+    (a resource reference set in their constructors), so the first rule holds for them as well.
+  Feedback (track V, stage V2; docs/dev/v-interface-renewal.md 6.7 and "V2b-1 as built") - one place each:
+  * What a page did or is doing: its status line (Ad.StatusLine, taken by c:StatusLine) - never a banner in the page.
+  * A sentence that belongs to one field or one section and is true while that content is shown: a note
+    (Ad.Note.Info, Ad.Note.Attention, Ad.Note.Error on a ContentControl) - quiet, inline, a glyph and words.
+  * A command that starts an operation that can be cancelled: c:ActionButton (Ad.ActionButton by itself;
+    Ad.AccentActionButton for the primary action; Ad.DialogActionButton and Ad.AccentDialogActionButton with the
+    metrics of the dialog buttons).
+  * Ad.ErrorBar and Ad.WarningBar are the banners of before stage V2: only for the views that are not converted yet
+    (a converted view is on one of the two lists of XamlSourceTests - PagesWithAStatusLine, or
+    ConvertedViewsWithoutAStatusLine when it has only notes and no status to say - and uses neither). They go with the
+    last of those views; nothing new uses them.
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -54,7 +68,7 @@
   </Style>
 
   <Style x:Key="Ad.Title" TargetType="TextBlock">
-    <Setter Property="FontSize" Value="20" />
+    <Setter Property="FontSize" Value="{StaticResource Ad.FontSize.Subtitle}" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="TextWrapping" Value="Wrap" />
   </Style>
@@ -100,6 +114,23 @@
   </Style>
 
   <!-- Buttons -->
+  <!--
+    The subtle button of toolbars and rows (inherited by Ad.SmallIconButton and Ad.CopyButton): no fill at rest. The
+    only template of ours in this stage; the toggle, chip and dialog buttons keep the theme's templates (their checked
+    and accent states are the theme's business).
+    * HoverLayer fades in and out over Motion.Hover through b:Motion.Shown (at once when motion is off). Its opacity
+      belongs to that property alone: the behaviour sets it as a local value, which outranks a template trigger, so
+      the pressed trigger sets b:Motion.Shown and not the opacity - a press from the keyboard, without the pointer
+      over the button, shows the layer as well.
+    * The pressed colour and the disabled text colour switch at once. The theme brushes are never animated, so a
+      switch of light, dark or High Contrast stays correct.
+    * The layer has the theme's control stroke as a 1 px outline: faint in light and dark (6-7 % of black or white),
+      but the button text colour in High Contrast, where the subtle fills are the button face colour and that is
+      usually the window colour - without the outline the pointer would get no answer there.
+    * Keyboard focus is the theme's focus visual (FocusVisualStyle of the Fluent button, through BasedOn).
+    * The size is the one of the theme's template: content + Padding + BorderThickness (the border is transparent).
+      Unlike the theme's button, a disabled one has no fill and no outline - only its dimmed content.
+  -->
   <Style x:Key="Ad.IconButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderBrush" Value="Transparent" />
@@ -110,6 +141,42 @@
     <Setter Property="FontSize" Value="16" />
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="ContentBorder"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{StaticResource Ad.Radius.Control}">
+            <Grid>
+              <Border x:Name="HoverLayer"
+                      b:Motion.Shown="{TemplateBinding IsMouseOver}"
+                      Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                      BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                      BorderThickness="1"
+                      CornerRadius="{StaticResource Ad.Radius.Control}"
+                      Opacity="0" />
+              <ContentPresenter x:Name="ContentPresenter"
+                                Margin="{TemplateBinding Padding}"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                RecognizesAccessKey="True"
+                                TextElement.Foreground="{TemplateBinding Foreground}" />
+            </Grid>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="HoverLayer" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+              <Setter TargetName="HoverLayer" Property="b:Motion.Shown" Value="True" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="ContentPresenter" Property="TextElement.Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
 
   <Style x:Key="Ad.SmallIconButton" TargetType="Button" BasedOn="{StaticResource Ad.IconButton}">
@@ -160,7 +227,7 @@
     <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
   </Style>
 
-  <!-- Filter chip: a compact toggle with text. -->
+  <!-- Filter chip: a compact toggle with text. A pill: the radius is half its height. -->
   <Style x:Key="Ad.ChipToggleButton" TargetType="ToggleButton" BasedOn="{StaticResource {x:Type ToggleButton}}">
     <Setter Property="Padding" Value="10,2" />
     <Setter Property="Margin" Value="0,0,6,4" />
@@ -193,6 +260,368 @@
     </Style.Triggers>
   </Style>
 
+  <!-- Feedback (track V, stage V2; docs/dev/v-interface-renewal.md 6.7) -->
+  <!--
+    The link of the status line ("Retry", "Stop", "Refresh"): a button that reads as a link - the accent text colour
+    and an underline, so it is not told by colour alone - with the hover layer of the icon button (b:Motion.Shown; the
+    pressed trigger sets that property, not the opacity). Content is the text of the link, a string. Keyboard focus is
+    the theme's focus visual (through BasedOn); at least one pointer target high.
+  -->
+  <Style x:Key="Ad.LinkButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+    <Setter Property="Padding" Value="6,1" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="MinHeight" Value="{StaticResource Ad.Size.PointerTarget}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="ContentBorder"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{StaticResource Ad.Radius.Control}">
+            <Grid>
+              <Border x:Name="HoverLayer"
+                      b:Motion.Shown="{TemplateBinding IsMouseOver}"
+                      Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                      BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                      BorderThickness="1"
+                      CornerRadius="{StaticResource Ad.Radius.Control}"
+                      Opacity="0" />
+              <TextBlock x:Name="LinkText"
+                         Margin="{TemplateBinding Padding}"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         Foreground="{TemplateBinding Foreground}"
+                         Text="{Binding Content, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
+                         TextDecorations="Underline" />
+            </Grid>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="HoverLayer" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+              <Setter TargetName="HoverLayer" Property="b:Motion.Shown" Value="True" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="LinkText" Property="Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!--
+    The status line of a page (c:StatusLine over a PageStatus; the control takes this style by itself). Always there,
+    and one line of the height Ad.Size.StatusLine for the summary and for a running operation, so the content under it
+    does not move while the page works:
+      [picture of the severity or progress ring] [fixed title] [message … ] [action link] [close]
+    * A result - "done", "attention", "error" - that does not fit the line wraps, to three lines at most (then it is
+      cut with an ellipsis; the whole text is the tool tip): what went wrong and what to do must be readable without
+      pointing at it. The line grows with it and is one line again when the result is closed. The summary and a
+      running operation never wrap: they change while the operator works.
+    * The lines of the text are 20 px high (title and message share a base line), with 4 px above and below - one
+      line is exactly Ad.Size.StatusLine. The picture and the two buttons stay in the first line.
+    * The control computes what is shown (Kind, Title, Message, IconKey …) from its Status; this template only lays it
+      out and gives each severity its surface. The summary (Idle) and a running operation have no fill; "done",
+      "attention" and "error" have the theme's status background.
+    * A state is never told by colour alone: the picture (a glyph in the monochrome icon style and in High Contrast)
+      and the title in words say it. The picture's Foreground is the status colour for the glyph; the summary is
+      quiet - secondary text, and its picture dimmed with it.
+    * PART_Content is what enters when the message changes (Motion.Play from the control; nothing moves with motion
+      off). It starts Motion.Offset.Panel below its place, so the line clips to its bounds: nothing is drawn over
+      what lies under the line. The two buttons switch at once: the logical state never waits for a motion.
+    * Element order = visual order = tab order: content, action, close.
+  -->
+  <Style x:Key="Ad.StatusLine" TargetType="{x:Type c:StatusLine}">
+    <Setter Property="MinHeight" Value="{StaticResource Ad.Size.StatusLine}" />
+    <Setter Property="Padding" Value="8,0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="IsTabStop" Value="False" />
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type c:StatusLine}">
+          <Border x:Name="Surface"
+                  Padding="{TemplateBinding Padding}"
+                  Background="{TemplateBinding Background}"
+                  CornerRadius="{StaticResource Ad.Radius.Control}">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <DockPanel x:Name="PART_Content" LastChildFill="True">
+                <Grid x:Name="IconSlot"
+                      Width="20"
+                      Height="20"
+                      Margin="0,4,8,4"
+                      VerticalAlignment="Top"
+                      DockPanel.Dock="Left">
+                  <c:AreaIconView x:Name="PART_Icon"
+                                  Glyph="{TemplateBinding IconGlyph}"
+                                  IconKey="{TemplateBinding IconKey}"
+                                  Size="20" />
+                  <c:ProgressRing x:Name="PART_Ring"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  Foreground="{DynamicResource AccentFillColorDefaultBrush}"
+                                  Fraction="{TemplateBinding ProgressFraction}"
+                                  IsActive="{TemplateBinding IsWorking}"
+                                  Size="16" />
+                </Grid>
+                <TextBlock x:Name="PART_Title"
+                           Margin="0,4,6,4"
+                           VerticalAlignment="Top"
+                           DockPanel.Dock="Left"
+                           FontWeight="SemiBold"
+                           LineHeight="20"
+                           LineStackingStrategy="BlockLineHeight"
+                           Text="{TemplateBinding Title}" />
+                <!-- One line, cut with an ellipsis; a result wraps (the triggers below) to MaxHeight = three lines. -->
+                <TextBlock x:Name="PART_Message"
+                           MaxHeight="60"
+                           Margin="0,4"
+                           VerticalAlignment="Top"
+                           LineHeight="20"
+                           LineStackingStrategy="BlockLineHeight"
+                           Text="{TemplateBinding Message}"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip="{TemplateBinding MessageToolTip}" />
+              </DockPanel>
+              <!-- The buttons stay in the first line, whatever the height of the message. -->
+              <Border Grid.Column="1" Height="{StaticResource Ad.Size.StatusLine}" VerticalAlignment="Top">
+                <Button x:Name="PART_ActionButton"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        Command="{TemplateBinding ActionCommand}"
+                        CommandParameter="{TemplateBinding ActionParameter}"
+                        Content="{TemplateBinding ActionLabel}"
+                        Style="{StaticResource Ad.LinkButton}"
+                        Visibility="Collapsed" />
+              </Border>
+              <Border Grid.Column="2" Height="{StaticResource Ad.Size.StatusLine}" VerticalAlignment="Top">
+                <Button x:Name="PART_CloseButton"
+                        Width="{StaticResource Ad.Size.PointerTarget}"
+                        Height="{StaticResource Ad.Size.PointerTarget}"
+                        Margin="4,0,0,0"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="{l:Tr Common.Close}"
+                        Command="{TemplateBinding CloseCommand}"
+                        Content="{x:Static c:Glyphs.Close}"
+                        Style="{StaticResource Ad.SmallIconButton}"
+                        ToolTip="{l:Tr Common.Close}"
+                        Visibility="Collapsed" />
+              </Border>
+            </Grid>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="HasIcon" Value="False">
+              <Setter TargetName="IconSlot" Property="Visibility" Value="Collapsed" />
+            </Trigger>
+            <Trigger Property="Title" Value="">
+              <Setter TargetName="PART_Title" Property="Visibility" Value="Collapsed" />
+            </Trigger>
+            <Trigger Property="HasAction" Value="True">
+              <Setter TargetName="PART_ActionButton" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="CanClose" Value="True">
+              <Setter TargetName="PART_CloseButton" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="Kind" Value="Idle">
+              <Setter TargetName="PART_Message" Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+              <Setter TargetName="PART_Icon" Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Trigger>
+            <Trigger Property="Kind" Value="Done">
+              <Setter TargetName="PART_Message" Property="TextWrapping" Value="Wrap" />
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}" />
+              <Setter TargetName="PART_Icon" Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+            </Trigger>
+            <Trigger Property="Kind" Value="Attention">
+              <Setter TargetName="PART_Message" Property="TextWrapping" Value="Wrap" />
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+              <Setter TargetName="PART_Icon" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+            </Trigger>
+            <Trigger Property="Kind" Value="Error">
+              <Setter TargetName="PART_Message" Property="TextWrapping" Value="Wrap" />
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
+              <Setter TargetName="PART_Icon" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!--
+    The content of an action button (c:ActionButton) in its three states. The three contents lie in one cell, so the
+    button is as wide as its widest content in every state; they differ only in opacity (b:Motion.Swap: a cross-fade
+    over Motion.Swap, at once with motion off), and each is centred by itself.
+      IdleContent      [glyph] the button's own content
+      RunningContent   [ring] "Cancel"
+      StoppingContent  [ring] "Stopping…"
+    * The content at rest is shown unless the button says it is busy (IsBusy), so a button always shows something.
+      Every other property here is set by exactly one trigger: a change of the state never passes through a value
+      of another state (two triggers on one property would fall back to the template's value in between).
+    * A ring takes the text colour of the button (plain or accent) and turns only while its content is the one shown.
+  -->
+  <DataTemplate x:Key="Ad.ActionButtonContent">
+    <Grid>
+      <StackPanel x:Name="IdleContent"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  b:Motion.Swap="True"
+                  Orientation="Horizontal">
+        <TextBlock x:Name="IdleGlyph"
+                   Margin="0,0,8,0"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{Binding Glyph, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type c:ActionButton}}}"
+                   Visibility="{Binding Glyph, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type c:ActionButton}}, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        <ContentPresenter VerticalAlignment="Center"
+                          Content="{Binding Mode=OneWay}"
+                          RecognizesAccessKey="True" />
+      </StackPanel>
+      <StackPanel x:Name="RunningContent"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Opacity="0"
+                  Orientation="Horizontal">
+        <c:ProgressRing x:Name="RunningRing"
+                        Margin="0,0,8,0"
+                        VerticalAlignment="Center"
+                        Size="14" />
+        <TextBlock x:Name="CancelText"
+                   VerticalAlignment="Center"
+                   Text="{l:Tr Common.Cancel}" />
+      </StackPanel>
+      <StackPanel x:Name="StoppingContent"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Opacity="0"
+                  Orientation="Horizontal">
+        <c:ProgressRing x:Name="StoppingRing"
+                        Margin="0,0,8,0"
+                        VerticalAlignment="Center"
+                        Size="14" />
+        <TextBlock x:Name="StoppingText"
+                   VerticalAlignment="Center"
+                   Text="{l:Tr Feedback.Stopping}" />
+      </StackPanel>
+    </Grid>
+    <DataTemplate.Triggers>
+      <DataTrigger Binding="{Binding IsBusy, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type c:ActionButton}}}" Value="True">
+        <Setter TargetName="IdleContent" Property="b:Motion.Swap" Value="False" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding State, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type c:ActionButton}}}" Value="{x:Static c:ActionButtonState.Running}">
+        <Setter TargetName="RunningContent" Property="b:Motion.Swap" Value="True" />
+        <Setter TargetName="RunningRing" Property="IsActive" Value="True" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding State, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type c:ActionButton}}}" Value="{x:Static c:ActionButtonState.Cancelling}">
+        <Setter TargetName="StoppingContent" Property="b:Motion.Swap" Value="True" />
+        <Setter TargetName="StoppingRing" Property="IsActive" Value="True" />
+      </DataTrigger>
+    </DataTemplate.Triggers>
+  </DataTemplate>
+
+  <!--
+    The button of a command that starts a long operation (c:ActionButton takes this style by itself): the theme's
+    button with the three contents above. While it says "Stopping…" it stays enabled - it keeps the keyboard focus -
+    but there is nothing to press: the pointer gets no hover or pressed answer.
+  -->
+  <Style x:Key="Ad.ActionButton" TargetType="{x:Type c:ActionButton}" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="ContentTemplate" Value="{StaticResource Ad.ActionButtonContent}" />
+    <Style.Triggers>
+      <Trigger Property="State" Value="Cancelling">
+        <Setter Property="IsHitTestVisible" Value="False" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!--
+    The accent variant, for the primary action of a window ("Preview", "Execute"): the theme's accent button - what
+    Ad.AccentDialogButton is for a plain button - with the same three contents. The rings and the busy texts take the
+    text colour of the accent button by inheritance. Taken explicitly:
+    <c:ActionButton Style="{StaticResource Ad.AccentActionButton}" … />.
+  -->
+  <Style x:Key="Ad.AccentActionButton" TargetType="{x:Type c:ActionButton}" BasedOn="{StaticResource AccentButtonStyle}">
+    <Setter Property="ContentTemplate" Value="{StaticResource Ad.ActionButtonContent}" />
+    <Style.Triggers>
+      <Trigger Property="State" Value="Cancelling">
+        <Setter Property="IsHitTestVisible" Value="False" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- An action button in the footer of a dialog: the metrics of Ad.DialogButton and Ad.AccentDialogButton. -->
+  <Style x:Key="Ad.DialogActionButton" TargetType="{x:Type c:ActionButton}" BasedOn="{StaticResource Ad.ActionButton}">
+    <Setter Property="MinWidth" Value="96" />
+    <Setter Property="Margin" Value="8,0,0,0" />
+  </Style>
+
+  <Style x:Key="Ad.AccentDialogActionButton" TargetType="{x:Type c:ActionButton}" BasedOn="{StaticResource Ad.AccentActionButton}">
+    <Setter Property="MinWidth" Value="96" />
+    <Setter Property="Margin" Value="8,0,0,0" />
+  </Style>
+
+  <!--
+    A note (stage V2b): a sentence that belongs to one field or one section and is true for as long as that content is
+    shown - "these mappings are weak", "this value is read only", a validation text. It is not a status: what the page
+    did or is doing is said in its status line. Quiet and inline - no fill, no border, in the flow of the content: the
+    glyph of the severity in its status colour, then the content (normally a wrapping TextBlock; a link after the
+    text works as well).
+      Ad.Note.Info        information   secondary text colour, also for the text
+      Ad.Note.Attention   attention     the caution colour for the glyph
+      Ad.Note.Error       error         the critical colour for the glyph
+    * Never told by colour alone: each severity has its own glyph and the words of the note say what it is about. In
+      High Contrast the status colours are the window text colour and the glyphs still differ.
+    * The glyph is a template part: a screen reader reads the text of the note, not the glyph. Give that text a live
+      setting when the note can appear while the operator works.
+    * The style carries the glyph in Tag and its colour in BorderBrush (a ContentControl draws no border of its own).
+    * Use: <ContentControl Style="{StaticResource Ad.Note.Attention}" Visibility="…">
+             <TextBlock Text="…" TextWrapping="Wrap" />
+           </ContentControl>
+    * The metrics are those of the field findings of the property sheet: glyph 12, 6 px before the text, top aligned.
+  -->
+  <ControlTemplate x:Key="Ad.NoteTemplate" TargetType="ContentControl">
+    <DockPanel LastChildFill="True">
+      <TextBlock x:Name="PART_Glyph"
+                 Margin="0,1,6,0"
+                 VerticalAlignment="Top"
+                 DockPanel.Dock="Left"
+                 FontSize="12"
+                 Foreground="{TemplateBinding BorderBrush}"
+                 Style="{StaticResource Ad.GlyphText}"
+                 Text="{Binding Tag, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
+      <ContentPresenter x:Name="PART_Text" />
+    </DockPanel>
+  </ControlTemplate>
+
+  <Style x:Key="Ad.Note.Info" TargetType="ContentControl">
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="IsTabStop" Value="False" />
+    <Setter Property="Tag" Value="{x:Static c:Glyphs.Info}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Setter Property="Template" Value="{StaticResource Ad.NoteTemplate}" />
+  </Style>
+
+  <Style x:Key="Ad.Note.Attention" TargetType="ContentControl" BasedOn="{StaticResource Ad.Note.Info}">
+    <Setter Property="Tag" Value="{x:Static c:Glyphs.Warning}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCautionBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+  </Style>
+
+  <Style x:Key="Ad.Note.Error" TargetType="ContentControl" BasedOn="{StaticResource Ad.Note.Info}">
+    <Setter Property="Tag" Value="{x:Static c:Glyphs.Error}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+  </Style>
+
   <!-- Panels -->
   <Style x:Key="Ad.VerticalDivider" TargetType="Rectangle">
     <Setter Property="Width" Value="1" />
@@ -205,11 +634,15 @@
     <Setter Property="Fill" Value="{DynamicResource DividerStrokeColorDefaultBrush}" />
   </Style>
 
+  <!--
+    The banners of before stage V2 (see the header): kept as they were for the views that are not converted yet. A
+    converted view says what it did in its status line and what belongs to a section in a note.
+  -->
   <Style x:Key="Ad.ErrorBar" TargetType="Border">
     <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="CornerRadius" Value="{StaticResource Ad.Radius.Control}" />
     <Setter Property="Padding" Value="12,8" />
   </Style>
 
@@ -221,22 +654,22 @@
     <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="8" />
-    <Setter Property="Padding" Value="12" />
+    <Setter Property="CornerRadius" Value="{StaticResource Ad.Radius.Card}" />
+    <Setter Property="Padding" Value="{StaticResource Ad.Space.Card}" />
   </Style>
 
   <Style x:Key="Ad.DialogFooter" TargetType="Border">
     <Setter Property="Background" Value="{DynamicResource SolidBackgroundFillColorSecondaryBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource DividerStrokeColorDefaultBrush}" />
     <Setter Property="BorderThickness" Value="0,1,0,0" />
-    <Setter Property="Padding" Value="16,12" />
+    <Setter Property="Padding" Value="{StaticResource Ad.Space.Page}" />
   </Style>
 
   <Style x:Key="Ad.Overlay" TargetType="Border">
     <Setter Property="Background" Value="{DynamicResource SolidBackgroundFillColorQuarternaryBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource SurfaceStrokeColorFlyoutBrush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="CornerRadius" Value="{StaticResource Ad.Radius.Card}" />
     <Setter Property="Padding" Value="8" />
   </Style>
 

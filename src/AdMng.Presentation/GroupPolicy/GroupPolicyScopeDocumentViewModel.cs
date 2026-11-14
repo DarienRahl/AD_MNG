@@ -110,7 +110,7 @@ public sealed partial class GroupPolicyScopeDocumentViewModel : GroupPolicyDocum
             IsMissing = true;
             Links = [];
             Inheritance = [];
-            Error = Localizer[L.GroupPolicy.ContainerMissing];
+            ShowUnavailable(L.GroupPolicy.ContainerMissing);
             return;
         }
 

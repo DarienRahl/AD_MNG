@@ -45,6 +45,9 @@ public enum ObjectIcon
 
     /// <summary>A site and the "Lokacje" node (K2).</summary>
     Site,
+
+    /// <summary>A certificate, a CA or a template and the "Usługi kluczy publicznych" node and documents (P1).</summary>
+    Certificate,
 }
 
 /// <summary>Chooses the icon of a directory object (ADUC conventions: down arrow for disabled accounts, padlock for locked).</summary>

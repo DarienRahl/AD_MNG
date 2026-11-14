@@ -6,6 +6,7 @@ using AdMng.Core.Directory;
 using AdMng.Core.Model;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
@@ -30,7 +31,18 @@ public sealed record SheetIssueViewModel(IssueSeverity Severity, string Text)
 /// the object, plans it (findings are shown on the fields), executes it through <see cref="IChangeCoordinator"/>
 /// (audit, activity, list refresh) and reloads the object. Nothing is written outside the change pipeline.
 /// </summary>
-public sealed partial class PropertySheetViewModel : WindowViewModelBase
+/// <remarks>
+/// <para><b>One status line</b> (<see cref="Status"/>; track V, stage V2b, design note docs/dev/v-interface-renewal.md
+/// 6.8): between the header and the pages the sheet says what it is doing and what happened - reading the object (with
+/// Stop), saving (Apply) and how it ended, and the states that last: the session of the window ended, the object could
+/// not be read (with Retry) or was deleted, a read that was stopped, values that are out of date (with Refresh).
+/// <see cref="LoadError"/>, <see cref="ApplyError"/>, <see cref="IsOutdated"/> and <see cref="IsDeleted"/> are
+/// unchanged for whoever reads them; the view shows the line.</para>
+/// <para>The pages say their own (<see cref="PropertyPageViewModel.Status"/>): the sheet shows the page in front
+/// (<see cref="PageStatusHolder.Front"/> follows <see cref="SelectedPage"/>), so a tab that could not be read says so
+/// whenever it is selected, and the result of Apply is not lost when a page finishes loading.</para>
+/// </remarks>
+public sealed partial class PropertySheetViewModel : WindowViewModelBase, IHasPageStatus
 {
     /// <summary>
     /// Attributes whose planned "old" values legitimately differ from what the sheet showed: userAccountControl
@@ -46,6 +58,19 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
     private FieldContext? _context;
     private bool _applying;
 
+    // The running Apply: a read that is its last step belongs to that operation and starts none of its own.
+    private OperationScope? _saving;
+
+    // The last read was stopped by the operator: the window may not show everything until the object is read again.
+    private bool _loadStopped;
+
+    // The result code that belongs to LoadError.
+    private ResultCode _loadErrorCode;
+
+    // Where and when the values on screen were read (the summary of the window).
+    private string? _readFrom;
+    private DateTimeOffset? _readAt;
+
     /// <summary>The object as the pages show it (values the operator based the edits on), and the attributes read.</summary>
     private DirectoryObject? _loaded;
     private HashSet<string> _loadedAttributes = new(StringComparer.OrdinalIgnoreCase);
@@ -59,8 +84,15 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
         ArgumentException.ThrowIfNullOrWhiteSpace(distinguishedName);
         DistinguishedName = distinguishedName;
         Name = Core.Ldap.DistinguishedName.TryParse(distinguishedName, out var dn) && !dn.IsRoot ? dn.Name : distinguishedName;
+        Status = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
         Services.Changes.Changed += OnDirectoryChanged;
     }
+
+    /// <summary>
+    /// What the one status line of the sheet shows (<see cref="PageStatusHolder.Current"/>): the window's own status or
+    /// the one of the selected page. <see cref="PageStatusHolder.IsWorking"/> and the operation are the window's own.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     /// <summary>Raised after changes of this object were applied (the host may refresh other views).</summary>
     public event EventHandler<string>? ObjectChanged;
@@ -231,6 +263,7 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
         if (HasErrors)
         {
             ApplyError = Localizer[L.PropertySheet.FixErrors];
+            Status.Show(NotSaved(L.PropertySheet.FixErrors, ApplyError));
             return false;
         }
 
@@ -239,6 +272,7 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
         if (session is null)
         {
             ApplyError = NoSessionMessage;
+            Status.Show(SaveFailed(ApplyError, ResultCode.None, next: false));
             return false;
         }
 
@@ -258,7 +292,12 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
             page.ClearIssues();
         }
 
+        // Saving is the operation of the window: the status line says so from here on and says how it ended. It
+        // cannot be stopped from the line - the execution is an activity of the connection, as before.
         IsApplying = true;
+        using var saving = Status.Begin(
+            Localizer.Format(L.PropertySheetStatus.Saving, Name), new PageStatusLog(L.PropertySheetStatus.Saving), canCancel: false);
+        _saving = saving;
         try
         {
             var title = Localizer.Format(L.PropertySheet.ApplyTitle, Name);
@@ -270,12 +309,14 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
             if (objectPlan.HasErrors)
             {
                 ApplyError = Localizer[L.PropertySheet.ApplyBlocked];
+                saving.Complete(NotSaved(L.PropertySheet.ApplyBlocked, ApplyError));
                 return false;
             }
 
             if (objectPlan.IsNoOp)
             {
                 await LoadCoreAsync(keepMessages: true).ConfigureAwait(true);
+                saving.CompleteDone(Localizer.Format(L.PropertySheetStatus.NothingToSave, Name), new PageStatusLog(L.PropertySheetStatus.NothingToSave));
                 return true;
             }
 
@@ -289,6 +330,8 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
                 if (!await Services.Dialogs.ConfirmAsync(WindowTitle, Localizer.Format(L.PropertySheet.ChangedOnServer, names), destructive: true)
                         .ConfigureAwait(true))
                 {
+                    // Nothing was written. The operation ends without a message: the window says that its values are
+                    // out of date - its state that lasts - with Refresh.
                     ApplyError = Localizer[L.PropertySheet.Outdated];
                     return false;
                 }
@@ -311,12 +354,27 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
                 DistinguishedName = objectResult.FinalDn;
                 await LoadCoreAsync(keepMessages: true).ConfigureAwait(true);
                 ObjectChanged?.Invoke(this, DistinguishedName);
+
+                // What happened, where, and where the report is.
+                saving.CompleteDone(
+                    Localizer.Format(L.PropertySheetStatus.Saved, Name, ConfirmationDomain), new PageStatusLog(L.PropertySheetStatus.Saved));
                 return true;
             }
 
             // Keep the operator's values so the failed part can be corrected and applied again (succeeded steps
             // become no-ops then, because the next plan compares with fresh values).
-            ApplyError = objectResult.Status == ObjectResultStatus.Cancelled ? Localizer[L.Errors.Cancelled] : DescribeFailure(objectResult);
+            if (objectResult.Status == ObjectResultStatus.Cancelled)
+            {
+                ApplyError = Localizer[L.Errors.Cancelled];
+                saving.CompleteAttention(
+                    Localizer.Format(L.PropertySheetStatus.SaveStopped, Name), new PageStatusLog(L.PropertySheetStatus.SaveStopped));
+            }
+            else
+            {
+                ApplyError = DescribeFailure(objectResult);
+                saving.Complete(SaveFailed(objectResult));
+            }
+
             if (objectResult.Status == ObjectResultStatus.PartiallySucceeded)
             {
                 ObjectChanged?.Invoke(this, objectResult.FinalDn);
@@ -327,10 +385,12 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             ApplyError = Errors.Translate(ex);
+            saving.Complete(SaveFailed(ApplyError, ResultCode.Of(ex)));
             return false;
         }
         finally
         {
+            _saving = null;
             IsApplying = false;
         }
     }
@@ -376,17 +436,44 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
 
     private bool CanRefresh() => !IsApplying && !IsLoading && !IsSessionEnded;
 
-    partial void OnSelectedPageChanged(PropertyPageViewModel? value) => value?.ActivateAsync().Forget();
+    partial void OnSelectedPageChanged(PropertyPageViewModel? value)
+    {
+        // The selected page is the page in front of the window's status line - first, so that a page that starts to
+        // read when it is shown says so at once.
+        Status.Front = value?.Status;
+        value?.ActivateAsync().Forget();
+    }
+
+    partial void OnLoadErrorChanged(string? value) => UpdateLasting();
+
+    partial void OnIsOutdatedChanged(bool value) => UpdateLasting();
+
+    partial void OnIsDeletedChanged(bool value) => UpdateLasting();
 
     /// <remarks>The pending changes stay visible, but they can no longer be applied (reopen the sheet).</remarks>
     protected override void OnSessionEnded()
     {
+        // A running read ends without a message; the line says for good that the session of this window ended.
         _loads.Cancel();
+        if (_saving is null)
+        {
+            Status.Operation?.Dispose();
+        }
+
         IsLoading = false;
         LoadError = SessionEndedMessage;
+        UpdateLasting();
         ApplyCommand.NotifyCanExecuteChanged();
         RefreshCommand.NotifyCanExecuteChanged();
         CompareWithConnectionCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>The window's own sentences in the new language (the pages say theirs again with their next read).</summary>
+    protected override void OnCultureChanged()
+    {
+        base.OnCultureChanged();
+        UpdateSummary();
+        UpdateLasting();
     }
 
     protected override void Dispose(bool disposing)
@@ -394,6 +481,8 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
         if (disposing)
         {
             _loads.Cancel();
+            Status.Operation?.Dispose();
+            Status.Front = null;
             Services.Changes.Changed -= OnDirectoryChanged;
             if (_historyLauncher is not null)
             {
@@ -403,21 +492,33 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
             foreach (var page in Pages)
             {
                 page.StateChanged -= OnPageStateChanged;
+                page.EndOperations();
             }
         }
     }
 
     private async Task LoadCoreAsync(bool keepMessages)
     {
-        var token = _loads.Next();
+        // "The latest read wins" (a newer one cancels this token) - and the operator can stop the read in the status line.
+        var latest = _loads.Next();
         var session = Session;
         if (session is null)
         {
+            _loadErrorCode = ResultCode.None;
             LoadError = NoSessionMessage;
             return;
         }
 
+        // The read is the operation of the window: the status line says "working" from here on, and however this
+        // method is left the window does not stay in it. As the last step of Apply it belongs to that operation.
+        using var reading = _saving is null
+            ? Status.Begin(Localizer.Format(L.PropertySheetStatus.Reading, Name), new PageStatusLog(L.PropertySheetStatus.Reading))
+            : null;
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(latest, reading?.Token ?? CancellationToken.None);
+        var token = cancellation.Token;
         IsLoading = true;
+        _loadStopped = false;
+        _loadErrorCode = ResultCode.None;
         LoadError = null;
         if (!keepMessages)
         {
@@ -429,7 +530,13 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
         {
             if (_context is null || !ReferenceEquals(_context.Session, session))
             {
-                _context = new FieldContext(Services, session) { DomainControllers = DomainControllers, Messages = MessageLauncher, EventLogs = EventLogLauncher };
+                _context = new FieldContext(Services, session)
+                {
+                    DomainControllers = DomainControllers,
+                    Messages = MessageLauncher,
+                    EventLogs = EventLogLauncher,
+                    Reload = RefreshCommand,
+                };
                 ReplacePages([]);
             }
 
@@ -487,23 +594,114 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
                 await page.LoadDetailsAsync(obj, token).ConfigureAwait(true);
             }
 
+            // A page that reads by itself ends its own read when this one is stopped and says so itself: the read of
+            // the window was stopped all the same.
+            token.ThrowIfCancellationRequested();
+            _readFrom = session.Info.Server;
+            _readAt = Services.Time.GetLocalNow();
+            UpdateSummary();
             UpdateState();
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            // Superseded by a newer load or the window closed.
+            // Superseded by a newer load or the window closed - or stopped by the operator: then the window says, for
+            // as long as it shows this read, that it may not show everything.
+            if (_loads.IsCurrent(latest) && reading is { IsCancelling: true })
+            {
+                _loadStopped = true;
+            }
         }
         catch (DirectoryException ex)
         {
+            _loadErrorCode = ResultCode.Of(ex);
             LoadError = Errors.Translate(ex);
         }
         finally
         {
-            if (_loads.IsCurrent(token))
+            if (_loads.IsCurrent(latest))
             {
                 IsLoading = false;
             }
+
+            // The name may be another one now, and a stopped read is a state of the window.
+            UpdateLasting();
         }
+    }
+
+    /// <summary>"Read from dc01.contoso.test · as of 12:03:05": the summary of the window, once the object was read.</summary>
+    private void UpdateSummary() => Status.SetIdle(_readFrom is { Length: > 0 } server && _readAt is { } at
+        ? Localizer.Format(L.PropertySheetStatus.Summary, server, at.ToString("T", Localizer.Culture))
+        : null);
+
+    /// <summary>
+    /// The state of the window that lasts - the most important of its conditions - or none. The status line says it
+    /// whenever nothing else is said and says it again when a result was closed.
+    /// </summary>
+    private void UpdateLasting() => Status.SetLasting(LastingState());
+
+    private PageStatus? LastingState()
+    {
+        // The session of the window ended: nothing here can be read or written any more.
+        if (SessionEndedStatus is { } ended)
+        {
+            return ended;
+        }
+
+        // The object could not be read (or no longer exists): the pages are empty or show the previous read.
+        if (LoadError is { } reason)
+        {
+            var next = Localizer[IsDeleted ? L.PropertySheetStatus.GoneNext : L.Feedback.RetryNext];
+            return PageStatus.Error(
+                PageStatusText.Failure(Localizer.Format(L.PropertySheetStatus.ReadFailed, Name), reason, next, _loadErrorCode),
+                new PageStatusLog(L.PropertySheetStatus.ReadFailed).WithCode(_loadErrorCode),
+                new PageStatusAction(Localizer[L.Common.Retry], RefreshCommand),
+                canClose: false);
+        }
+
+        // Deleted elsewhere in the application while the sheet was open.
+        if (IsDeleted)
+        {
+            return PageStatus.Error(
+                Localizer.Format(L.PropertySheetStatus.Deleted, Name), new PageStatusLog(L.PropertySheetStatus.Deleted), canClose: false);
+        }
+
+        if (_loadStopped)
+        {
+            return PageStatus.Attention(
+                Localizer.Format(L.PropertySheetStatus.Stopped, Name),
+                new PageStatusLog(L.PropertySheetStatus.Stopped),
+                new PageStatusAction(Localizer[L.PropertySheet.Refresh], RefreshCommand),
+                canClose: false);
+        }
+
+        // Changed elsewhere while this sheet has pending changes.
+        return IsOutdated
+            ? PageStatus.Attention(
+                Localizer[L.PropertySheet.Outdated],
+                new PageStatusLog(L.PropertySheet.Outdated),
+                new PageStatusAction(Localizer[L.PropertySheet.Refresh], RefreshCommand),
+                canClose: false)
+            : null;
+    }
+
+    /// <summary>"Nothing was saved: why." - what Apply skipped and what to do (an attention, not an error).</summary>
+    private PageStatus NotSaved(string key, string reason) =>
+        PageStatus.Attention(PageStatusText.Failure(Localizer[L.PropertySheetStatus.NotSaved], reason), new PageStatusLog(key));
+
+    /// <summary>"Could not save the changes to “Jan Kowalski”: why. Correct the values and press Apply again. (code)".</summary>
+    private PageStatus SaveFailed(string reason, ResultCode code, bool next = true) => PageStatus.Error(
+        PageStatusText.Failure(
+            Localizer.Format(L.PropertySheetStatus.SaveFailed, Name), reason, next ? Localizer[L.PropertySheetStatus.SaveFailedNext] : null, code),
+        new PageStatusLog(L.PropertySheetStatus.SaveFailed).WithCode(code));
+
+    /// <summary>The steps that failed, each reason once; the code is their error kind when they share one.</summary>
+    private PageStatus SaveFailed(ObjectResult result)
+    {
+        var failed = result.Changes.Where(c => !c.Succeeded).ToList();
+        var reasons = failed.Select(c => Errors.TranslateFailure(c.ErrorKind, c.ErrorMessage)).Distinct(StringComparer.Ordinal);
+        var kinds = failed.Select(c => c.ErrorKind).Distinct().ToList();
+        var code = kinds is [{ } kind] && kind != DirectoryErrorKind.Unknown ? ResultCode.Kind(kind) : ResultCode.None;
+        return SaveFailed(string.Join(" ", reasons), code);
     }
 
     private static string[] AttributesToRead(IEnumerable<PropertyPageViewModel> pages) =>

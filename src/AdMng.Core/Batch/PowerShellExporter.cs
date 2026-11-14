@@ -59,7 +59,7 @@ public sealed class PowerShellExporter : IPowerShellExporter
             if (objectPlan.PowerShell is { } equivalent)
             {
                 // Semantic cmdlets (GPO plans): written instead of the per-step lines.
-                WriteEquivalent(sb, equivalent, server);
+                WriteEquivalent(sb, objectPlan, equivalent, server, schema);
                 continue;
             }
 
@@ -192,9 +192,10 @@ public sealed class PowerShellExporter : IPowerShellExporter
     /// <summary>
     /// The structured commands of <see cref="ObjectPlan.PowerShell"/>: every literal quoted with <see cref="Quote"/>, numbers
     /// and booleans as such, <c>-Server $server</c> only when the script has a server. An empty list: covered by an earlier
-    /// object's command.
+    /// object's command. A secure prompt is <c>(Read-Host -AsSecureString -Prompt '…')</c>; an attribute table is a hashtable
+    /// of the exporter's attribute entries (a secret attribute read into a variable first, removed after the command).
     /// </summary>
-    private static void WriteEquivalent(StringBuilder sb, PowerShellEquivalent equivalent, string? server)
+    private static void WriteEquivalent(StringBuilder sb, ObjectPlan objectPlan, PowerShellEquivalent equivalent, string? server, ISchemaCatalog? schema)
     {
         if (equivalent.Commands.Count == 0)
         {
@@ -210,10 +211,26 @@ public sealed class PowerShellExporter : IPowerShellExporter
             }
 
             var text = new StringBuilder(command.Cmdlet);
+            var secrets = new List<string>();
             foreach (var parameter in command.Parameters)
             {
                 switch (parameter.Kind)
                 {
+                    case PowerShellValueKind.SecurePrompt:
+                        text.Append(" -").Append(parameter.Name).Append(" (Read-Host -AsSecureString -Prompt ")
+                            .Append(Quote(parameter.Value ?? string.Empty)).Append(')');
+                        break;
+                    case PowerShellValueKind.AttributeTable:
+                        var entries = parameter.Attributes
+                            .Where(a => a.NewValues.Count > 0)
+                            .Select(a => Entry(sb, objectPlan, a.Attribute, a.NewValues, schema, secrets))
+                            .ToList();
+                        if (entries.Count > 0)
+                        {
+                            text.Append(" -").Append(parameter.Name).Append(" @{").Append(string.Join("; ", entries)).Append('}');
+                        }
+
+                        break;
                     case PowerShellValueKind.Switch:
                         text.Append(" -").Append(parameter.Name);
                         break;
@@ -240,6 +257,7 @@ public sealed class PowerShellExporter : IPowerShellExporter
             Line(sb, command.Property is { } property
                 ? $"({text}).{property} = {Quote(command.PropertyValue ?? string.Empty)}"
                 : text.ToString());
+            RemoveSecrets(sb, secrets);
         }
     }
 

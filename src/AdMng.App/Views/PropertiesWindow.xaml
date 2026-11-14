@@ -3,6 +3,13 @@
   are templated by page type; fields are templated by field type (implicit DataTemplates below). Every field shares the
   FieldChrome template: label column, editor, dirty marker, lock glyph with the read-only reason, validation error and
   planner finding. Nothing here writes to the directory: Apply/OK go through the view model's change pipeline.
+
+  Feedback (track V, stage V2b): one status line (PageStatus) between the header and the pages says what the sheet is
+  doing and what happened - reading, saving, a read that failed, an object that is gone or out of date - and what the
+  page in front has to say (its count, its own read, a tab that could not be read). No page has a banner or a progress
+  bar of its own. What belongs to one field or one section stays there as a note (validation texts, planner findings,
+  the warnings of the name mappings). "Refresh" of the nested list is an action button: while the list is read it is
+  the Cancel of that read.
 -->
 <Window x:Class="AdMng.App.Views.PropertiesWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -14,12 +21,13 @@
         xmlns:cv="clr-namespace:AdMng.Presentation.Computers;assembly=AdMng.Presentation"
         xmlns:dlg="clr-namespace:AdMng.Presentation.Dialogs;assembly=AdMng.Presentation"
         xmlns:l="clr-namespace:AdMng.App.Localization"
+        xmlns:pk="clr-namespace:AdMng.Presentation.Pki;assembly=AdMng.Presentation"
         xmlns:ps="clr-namespace:AdMng.Presentation.PropertySheets;assembly=AdMng.Presentation"
         xmlns:shell="clr-namespace:AdMng.Presentation.Shell;assembly=AdMng.Presentation"
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="640"
-        Height="720"
+        Height="754"
         MinWidth="480"
         MinHeight="460"
         ShowInTaskbar="False"
@@ -45,6 +53,13 @@
     </Style>
 
     <Style x:Key="SmallButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Padding" Value="10,3" />
+      <Setter Property="Margin" Value="0,0,6,0" />
+      <Setter Property="MinWidth" Value="72" />
+    </Style>
+
+    <!-- The small button of the pages as an action button (start, cancel where you started). -->
+    <Style x:Key="SmallActionButton" TargetType="{x:Type c:ActionButton}" BasedOn="{StaticResource Ad.ActionButton}">
       <Setter Property="Padding" Value="10,3" />
       <Setter Property="Margin" Value="0,0,6,0" />
       <Setter Property="MinWidth" Value="72" />
@@ -1000,7 +1015,11 @@
       </ScrollViewer>
     </DataTemplate>
 
-    <!-- Member Of / Members: filter, direct list with staged changes, lazily loaded "All (nested)" list. -->
+    <!--
+      Member Of / Members: filter, direct list with staged changes, lazily loaded "All (nested)" list. The count of
+      the list in front, its read and a read that failed are said in the status line of the sheet: the page tells
+      its view model which of its two lists is shown (SelectedListIndex).
+    -->
     <DataTemplate x:Key="MembershipBody" DataType="{x:Type ps:MembershipPageViewModel}">
       <DockPanel>
         <DockPanel.Resources>
@@ -1008,11 +1027,6 @@
           <c:BindingProxy x:Key="MembershipPageProxy" Data="{Binding}" />
         </DockPanel.Resources>
         <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
-          <TextBlock Margin="12,0,0,0"
-                     VerticalAlignment="Center"
-                     DockPanel.Dock="Right"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding CountText, Mode=OneWay}" />
           <Grid Width="260" HorizontalAlignment="Left">
             <TextBox x:Name="MembershipFilterBox"
                      AutomationProperties.Name="{l:Tr Common.Filter}"
@@ -1023,20 +1037,9 @@
                        Visibility="{Binding Text, ElementName=MembershipFilterBox, Converter={StaticResource Ad.EmptyToVisible}}" />
           </Grid>
         </DockPanel>
-        <ProgressBar Height="2"
-                     Margin="0,0,0,4"
-                     DockPanel.Dock="Top"
-                     IsIndeterminate="{Binding IsLoading, Mode=OneWay}"
-                     Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        <Border Margin="0,0,0,6"
-                DockPanel.Dock="Top"
-                Style="{StaticResource Ad.ErrorBar}"
-                Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-          <TextBlock AutomationProperties.LiveSetting="Assertive"
-                     Text="{Binding Error, Mode=OneWay}"
-                     TextWrapping="Wrap" />
-        </Border>
-        <TabControl x:Name="MembershipTabs" SelectionChanged="OnMembershipTabChanged">
+        <TabControl x:Name="MembershipTabs"
+                    SelectedIndex="{Binding SelectedListIndex}"
+                    SelectionChanged="OnMembershipTabChanged">
           <TabItem Header="{l:Tr Membership.Direct}">
             <DockPanel Margin="0,6,0,0">
               <WrapPanel Margin="0,8,0,0" DockPanel.Dock="Bottom">
@@ -1150,28 +1153,17 @@
           </TabItem>
           <TabItem Header="{l:Tr Membership.Nested}">
             <DockPanel Margin="0,6,0,0">
-              <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
-                <Button Command="{Binding LoadNestedCommand}"
-                        Content="{l:Tr Commands.Refresh}"
-                        DockPanel.Dock="Left"
-                        Style="{StaticResource SmallButton}" />
-                <Button Command="{Binding LoadNestedCancelCommand}"
-                        Content="{l:Tr Common.Stop}"
-                        DockPanel.Dock="Left"
-                        Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
-                <ProgressBar Margin="12,0,0,0"
-                             VerticalAlignment="Center"
-                             IsIndeterminate="{Binding IsNestedLoading, Mode=OneWay}"
-                             Visibility="{Binding IsNestedLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-              </DockPanel>
-              <Border Margin="0,0,0,6"
-                      DockPanel.Dock="Top"
-                      Style="{StaticResource Ad.ErrorBar}"
-                      Visibility="{Binding NestedError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-                <TextBlock AutomationProperties.LiveSetting="Assertive"
-                           Text="{Binding NestedError, Mode=OneWay}"
-                           TextWrapping="Wrap" />
-              </Border>
+              <!-- Refresh reads the list; while it is read the same button is the Cancel of that read. -->
+              <c:ActionButton x:Name="NestedRefreshButton"
+                              Margin="0,0,0,6"
+                              HorizontalAlignment="Left"
+                              CancelCommand="{Binding NestedStatus.CancelCommand, Mode=OneWay}"
+                              Command="{Binding LoadNestedCommand}"
+                              Content="{l:Tr Commands.Refresh}"
+                              DockPanel.Dock="Top"
+                              IsCancelling="{Binding NestedStatus.IsCancelling, Mode=OneWay}"
+                              IsRunning="{Binding NestedStatus.IsWorking, Mode=OneWay}"
+                              Style="{StaticResource SmallActionButton}" />
               <ListView x:Name="NestedList"
                         AutomationProperties.Name="{l:Tr Membership.Nested}"
                         ItemsSource="{Binding NestedItems, Mode=OneWay}"
@@ -1446,7 +1438,8 @@
     </DataTemplate>
 
     <!-- Computers (K1): "Stan" – type, system, support, last logon (exact on demand), site, creator, owner, LAPS, and the
-         remote actions and tools of the computer. Read only. -->
+         remote actions and tools of the computer. Read only. The two reads on demand say in the status line of the
+         sheet what they read and how they ended. -->
     <DataTemplate DataType="{x:Type cv:ComputerStatusPageViewModel}">
       <DockPanel Margin="16,10,16,16">
         <StackPanel DockPanel.Dock="Bottom">
@@ -1503,17 +1496,7 @@
                   Style="{StaticResource SmallButton}"
                   ToolTip="{l:Tr ComputerReview.SitesTooltip}"
                   Visibility="{Binding CanResolveSite, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <ProgressBar Width="60"
-                       Margin="4,0,0,6"
-                       VerticalAlignment="Center"
-                       IsIndeterminate="True"
-                       Visibility="{Binding IsReading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         </WrapPanel>
-        <TextBlock Margin="0,0,0,8"
-                   DockPanel.Dock="Top"
-                   Style="{StaticResource ErrorText}"
-                   Text="{Binding Error, Mode=OneWay}"
-                   Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
         <ScrollViewer Focusable="False" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
           <ItemsControl Focusable="False" Grid.IsSharedSizeScope="True" ItemsSource="{Binding Details, Mode=OneWay}">
             <ItemsControl.ItemTemplate>
@@ -1539,6 +1522,440 @@
       </DockPanel>
     </DataTemplate>
 
+    <!-- P1 (W7, docs/dev/p-certificate-services.md 2.6): "Opublikowane certyfikaty" – userCertificate and userSMIMECertificate,
+         the details of the selected certificate, "Kopiuj do pliku…" to a file the operator picks. Read only. The count
+         (or that there is no certificate), the read and a read that failed are said in the status line of the sheet. -->
+    <DataTemplate DataType="{x:Type pk:PublishedCertificatesPageViewModel}">
+      <DockPanel Margin="12,10,12,12">
+        <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+          <Button Margin="8,0,0,0"
+                  VerticalAlignment="Top"
+                  AutomationProperties.Name="{l:Tr Commands.Refresh}"
+                  Command="{Binding RefreshCommand}"
+                  Content="{x:Static c:Glyphs.Refresh}"
+                  DockPanel.Dock="Right"
+                  Style="{StaticResource Ad.IconButton}"
+                  ToolTip="{l:Tr Commands.Refresh}" />
+          <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                     Text="{l:Tr Cert.Published.Intro}"
+                     TextWrapping="Wrap" />
+        </DockPanel>
+        <WrapPanel Margin="0,8,0,0" DockPanel.Dock="Bottom">
+          <Button x:Name="CopyCertificateToFileButton"
+                  Command="{Binding CopyToFileCommand}"
+                  Content="{l:Tr Cert.Published.CopyToFile}"
+                  Style="{StaticResource SmallButton}" />
+          <Button Command="{Binding CopyThumbprintCommand}"
+                  Content="{l:Tr Cert.Published.CopyThumbprint}"
+                  Style="{StaticResource SmallButton}" />
+        </WrapPanel>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="*" MinHeight="90" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="1.3*" MinHeight="90" />
+          </Grid.RowDefinitions>
+          <ListView x:Name="PublishedCertificateList"
+                    AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                    ItemsSource="{Binding Rows, Mode=OneWay}"
+                    SelectedItem="{Binding SelectedRow}"
+                    SelectionMode="Single">
+            <ListView.ItemContainerStyle>
+              <Style TargetType="ListViewItem" BasedOn="{StaticResource CompactRow}">
+                <Setter Property="AutomationProperties.Name" Value="{Binding IssuedTo, Mode=OneWay}" />
+              </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.View>
+              <GridView AllowsColumnReorder="False">
+                <GridViewColumn Width="150" Header="{l:Tr Cert.Published.ColumnIssuedTo}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:PublishedCertificateRowViewModel}">
+                      <TextBlock x:Name="IssuedToText"
+                                 Text="{Binding IssuedTo, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis" />
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsUnreadable, Mode=OneWay}" Value="True">
+                          <Setter TargetName="IssuedToText" Property="FontStyle" Value="Italic" />
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="150" Header="{l:Tr Cert.Published.ColumnIssuedBy}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:PublishedCertificateRowViewModel}">
+                      <TextBlock Text="{Binding IssuedBy, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="160" Header="{l:Tr Cert.Published.ColumnPurposes}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:PublishedCertificateRowViewModel}">
+                      <TextBlock Text="{Binding Purposes, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip="{Binding Purposes, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="90" Header="{l:Tr Cert.Published.ColumnValidTo}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:PublishedCertificateRowViewModel}">
+                      <TextBlock Text="{Binding ValidTo, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="150" Header="{l:Tr Cert.Published.ColumnStatus}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:PublishedCertificateRowViewModel}">
+                      <TextBlock x:Name="ValidityText"
+                                 Text="{Binding ValidityText, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis" />
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsExpiring, Mode=OneWay}" Value="True">
+                          <Setter TargetName="ValidityText" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsExpired, Mode=OneWay}" Value="True">
+                          <Setter TargetName="ValidityText" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="130" Header="{l:Tr Cert.Published.ColumnTemplate}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:PublishedCertificateRowViewModel}">
+                      <TextBlock Text="{Binding Template, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="140" Header="{l:Tr Cert.Published.ColumnThumbprint}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:PublishedCertificateRowViewModel}">
+                      <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                                 Text="{Binding Thumbprint, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="140" Header="{l:Tr Cert.Published.ColumnAttribute}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:PublishedCertificateRowViewModel}">
+                      <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding Attribute, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+              </GridView>
+            </ListView.View>
+          </ListView>
+          <TextBlock Grid.Row="1"
+                     Margin="0,10,0,4"
+                     Style="{StaticResource Ad.SectionHeader}"
+                     Text="{l:Tr Cert.Published.DetailsHeader}" />
+          <ScrollViewer Grid.Row="2"
+                        Focusable="False"
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="CertificateDetails"
+                          Focusable="False"
+                          Grid.IsSharedSizeScope="True"
+                          ItemsSource="{Binding Details, Mode=OneWay}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type pk:CertificateDetailViewModel}">
+                  <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto" MinWidth="150" SharedSizeGroup="CertificateDetailLabel" />
+                      <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Margin="0,4,12,0"
+                               VerticalAlignment="Top"
+                               Style="{StaticResource Ad.SecondaryText}"
+                               Text="{Binding Label, Mode=OneWay}" />
+                    <TextBox Grid.Column="1"
+                             AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                             Style="{StaticResource Ad.SelectableText}"
+                             Text="{Binding Value, Mode=OneWay}" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Grid>
+      </DockPanel>
+    </DataTemplate>
+
+    <!-- P1 (W7): "Mapowania nazw" – altSecurityIdentities with the KB5014754 strength, Kerberos names apart. Read only. -->
+    <DataTemplate DataType="{x:Type pk:NameMappingsPageViewModel}">
+      <DockPanel Margin="12,10,12,12">
+        <TextBlock Margin="0,0,0,6"
+                   DockPanel.Dock="Top"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{l:Tr Cert.Mappings.Intro}"
+                   TextWrapping="Wrap" />
+        <!-- Notes of the list below: true for as long as these mappings are shown - not a status of the sheet. -->
+        <ContentControl x:Name="WeakMappingsNote"
+                        Margin="0,0,0,6"
+                        DockPanel.Dock="Top"
+                        Style="{StaticResource Ad.Note.Attention}"
+                        Visibility="{Binding WeakWarning, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <TextBlock x:Name="WeakMappingsWarning"
+                     AutomationProperties.LiveSetting="Polite"
+                     Text="{Binding WeakWarning, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </ContentControl>
+        <ContentControl x:Name="InvalidMappingsNote"
+                        Margin="0,0,0,6"
+                        DockPanel.Dock="Top"
+                        Style="{StaticResource Ad.Note.Attention}"
+                        Visibility="{Binding InvalidWarning, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <TextBlock x:Name="InvalidMappingsWarning"
+                     Text="{Binding InvalidWarning, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </ContentControl>
+        <WrapPanel Margin="0,8,0,0" DockPanel.Dock="Bottom">
+          <Button Command="{Binding CopyValueCommand}"
+                  Content="{l:Tr Common.Copy}"
+                  Style="{StaticResource SmallButton}" />
+        </WrapPanel>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="2*" MinHeight="80" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="60" />
+          </Grid.RowDefinitions>
+          <TextBlock Margin="0,0,0,4"
+                     Style="{StaticResource Ad.SectionHeader}"
+                     Text="{l:Tr Cert.Mappings.X509Header}" />
+          <ListView x:Name="X509MappingList"
+                    Grid.Row="1"
+                    AutomationProperties.Name="{l:Tr Cert.Mappings.X509Header}"
+                    ItemsSource="{Binding X509Mappings, Mode=OneWay}"
+                    SelectedItem="{Binding SelectedMapping}"
+                    SelectionMode="Single">
+            <ListView.ItemContainerStyle>
+              <Style TargetType="ListViewItem" BasedOn="{StaticResource CompactRow}">
+                <Setter Property="AutomationProperties.Name" Value="{Binding Value, Mode=OneWay}" />
+              </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.View>
+              <GridView AllowsColumnReorder="False">
+                <GridViewColumn Width="160" Header="{l:Tr Cert.Mappings.ColumnMapping}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:NameMappingRowViewModel}">
+                      <TextBlock Text="{Binding KindText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="110" Header="{l:Tr Cert.Mappings.ColumnStrength}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:NameMappingRowViewModel}">
+                      <TextBlock x:Name="StrengthText" Text="{Binding StrengthText, Mode=OneWay}" />
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsWeak, Mode=OneWay}" Value="True">
+                          <Setter TargetName="StrengthText" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                          <Setter TargetName="StrengthText" Property="FontWeight" Value="SemiBold" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsInvalid, Mode=OneWay}" Value="True">
+                          <Setter TargetName="StrengthText" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="180" Header="{l:Tr Cert.Mappings.ColumnIssuer}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:NameMappingRowViewModel}">
+                      <TextBlock Text="{Binding Issuer, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip="{Binding Issuer, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="180" Header="{l:Tr Cert.Mappings.ColumnSubjectOrIdentifier}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:NameMappingRowViewModel}">
+                      <TextBlock Text="{Binding SubjectOrIdentifier, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip="{Binding SubjectOrIdentifier, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="240" Header="{l:Tr Cert.Mappings.ColumnValue}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:NameMappingRowViewModel}">
+                      <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                                 Text="{Binding Value, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip="{Binding Value, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+              </GridView>
+            </ListView.View>
+          </ListView>
+          <TextBlock Grid.Row="1"
+                     Margin="8,32,8,0"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Top"
+                     IsHitTestVisible="False"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{l:Tr Cert.Mappings.NoX509}"
+                     Visibility="{Binding HasX509Mappings, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+          <TextBlock Grid.Row="2"
+                     Margin="0,10,0,4"
+                     Style="{StaticResource Ad.SectionHeader}"
+                     Text="{l:Tr Cert.Mappings.KerberosHeader}" />
+          <ListView x:Name="KerberosNameList"
+                    Grid.Row="3"
+                    AutomationProperties.Name="{l:Tr Cert.Mappings.KerberosHeader}"
+                    ItemsSource="{Binding KerberosNames, Mode=OneWay}"
+                    SelectedItem="{Binding SelectedKerberosName}"
+                    SelectionMode="Single">
+            <ListView.ItemContainerStyle>
+              <Style TargetType="ListViewItem" BasedOn="{StaticResource CompactRow}">
+                <Setter Property="AutomationProperties.Name" Value="{Binding SubjectOrIdentifier, Mode=OneWay}" />
+              </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.View>
+              <GridView AllowsColumnReorder="False">
+                <GridViewColumn Width="260" Header="{l:Tr Cert.Mappings.ColumnPrincipal}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:NameMappingRowViewModel}">
+                      <TextBlock Text="{Binding SubjectOrIdentifier, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="280" Header="{l:Tr Cert.Mappings.ColumnValue}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type pk:NameMappingRowViewModel}">
+                      <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                                 Text="{Binding Value, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+              </GridView>
+            </ListView.View>
+          </ListView>
+          <TextBlock Grid.Row="3"
+                     Margin="8,32,8,0"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Top"
+                     IsHitTestVisible="False"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{l:Tr Cert.Mappings.NoKerberos}"
+                     Visibility="{Binding HasKerberosNames, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+        </Grid>
+      </DockPanel>
+    </DataTemplate>
+
+    <!-- P1 (W7): "Poświadczenia kluczy" – the msDS-KeyCredentialLink entries (metadata only, never the key). Read only.
+         The count (or that there is none), the read and a read that failed are said in the status line of the sheet. -->
+    <DataTemplate DataType="{x:Type pk:KeyCredentialsPageViewModel}">
+      <DockPanel Margin="12,10,12,12">
+        <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+          <Button Margin="8,0,0,0"
+                  VerticalAlignment="Top"
+                  AutomationProperties.Name="{l:Tr Commands.Refresh}"
+                  Command="{Binding RefreshCommand}"
+                  Content="{x:Static c:Glyphs.Refresh}"
+                  DockPanel.Dock="Right"
+                  Style="{StaticResource Ad.IconButton}"
+                  ToolTip="{l:Tr Commands.Refresh}" />
+          <StackPanel>
+            <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr Cert.Keys.Intro}"
+                       TextWrapping="Wrap" />
+            <TextBlock Margin="0,4,0,0"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr Cert.Keys.Warning}"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+        </DockPanel>
+        <WrapPanel Margin="0,8,0,0" DockPanel.Dock="Bottom">
+          <Button Command="{Binding CopyKeyIdCommand}"
+                  Content="{l:Tr Cert.Keys.CopyKeyId}"
+                  Style="{StaticResource SmallButton}" />
+          <Button Command="{Binding CopyDeviceIdCommand}"
+                  Content="{l:Tr Cert.Keys.CopyDeviceId}"
+                  Style="{StaticResource SmallButton}" />
+        </WrapPanel>
+        <ListView x:Name="KeyCredentialList"
+                  AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                  ItemsSource="{Binding Rows, Mode=OneWay}"
+                  SelectedItem="{Binding SelectedRow}"
+                  SelectionMode="Single">
+          <ListView.ItemContainerStyle>
+            <Style TargetType="ListViewItem" BasedOn="{StaticResource CompactRow}">
+              <Setter Property="AutomationProperties.Name" Value="{Binding UsageText, Mode=OneWay}" />
+            </Style>
+          </ListView.ItemContainerStyle>
+          <ListView.View>
+            <GridView AllowsColumnReorder="False">
+              <GridViewColumn Width="150" Header="{l:Tr Cert.Keys.ColumnKeyId}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pk:KeyCredentialRowViewModel}">
+                    <TextBlock Text="{Binding KeyId, Mode=OneWay}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding KeyId, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="150" Header="{l:Tr Cert.Keys.ColumnDeviceId}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pk:KeyCredentialRowViewModel}">
+                    <TextBlock Text="{Binding DeviceId, Mode=OneWay}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding DeviceId, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="110" Header="{l:Tr Cert.Keys.ColumnSource}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pk:KeyCredentialRowViewModel}">
+                    <TextBlock Text="{Binding SourceText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="150" Header="{l:Tr Cert.Keys.ColumnUsage}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pk:KeyCredentialRowViewModel}">
+                    <TextBlock Text="{Binding UsageText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="120" Header="{l:Tr Cert.Keys.ColumnCreated}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pk:KeyCredentialRowViewModel}">
+                    <TextBlock Text="{Binding Created, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="120" Header="{l:Tr Cert.Keys.ColumnLastLogon}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pk:KeyCredentialRowViewModel}">
+                    <TextBlock Text="{Binding LastLogon, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="200" Header="{l:Tr Cert.Keys.ColumnRemarks}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type pk:KeyCredentialRowViewModel}">
+                    <TextBlock Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                               Text="{Binding Remarks, Mode=OneWay}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding Remarks, Mode=OneWay}"
+                               Visibility="{Binding HasRemarks, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+            </GridView>
+          </ListView.View>
+        </ListView>
+      </DockPanel>
+    </DataTemplate>
+
+    <!-- Attribute Editor: its read and a read that failed are said in the status line of the sheet. -->
     <DataTemplate DataType="{x:Type ps:AttributeEditorPageViewModel}">
       <DockPanel Margin="12,10,12,12">
         <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
@@ -1568,19 +1985,6 @@
             <CheckBox Content="{l:Tr Labels.ShowOnlyWritable}" IsChecked="{Binding ShowOnlyWritable}" />
           </WrapPanel>
         </DockPanel>
-        <ProgressBar Height="2"
-                     Margin="0,0,0,4"
-                     DockPanel.Dock="Top"
-                     IsIndeterminate="{Binding IsLoading, Mode=OneWay}"
-                     Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        <Border Margin="0,0,0,6"
-                DockPanel.Dock="Top"
-                Style="{StaticResource Ad.ErrorBar}"
-                Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-          <TextBlock AutomationProperties.LiveSetting="Assertive"
-                     Text="{Binding Error, Mode=OneWay}"
-                     TextWrapping="Wrap" />
-        </Border>
         <Border Margin="0,8,0,0"
                 DockPanel.Dock="Bottom"
                 Style="{StaticResource Ad.Card}"
@@ -1667,20 +2071,6 @@
         </ListView>
       </DockPanel>
     </DataTemplate>
-
-    <!-- The "deleted" bar is shown when the object disappeared while the sheet was open (a reload shows LoadError). -->
-    <Style x:Key="DeletedBar" TargetType="Border" BasedOn="{StaticResource Ad.ErrorBar}">
-      <Setter Property="Visibility" Value="Collapsed" />
-      <Style.Triggers>
-        <MultiDataTrigger>
-          <MultiDataTrigger.Conditions>
-            <Condition Binding="{Binding IsDeleted, Mode=OneWay}" Value="True" />
-            <Condition Binding="{Binding LoadError, Mode=OneWay}" Value="{x:Null}" />
-          </MultiDataTrigger.Conditions>
-          <Setter Property="Visibility" Value="Visible" />
-        </MultiDataTrigger>
-      </Style.Triggers>
-    </Style>
   </Window.Resources>
 
   <DockPanel>
@@ -1707,12 +2097,6 @@
                 DockPanel.Dock="Left"
                 Style="{StaticResource Ad.DialogButton}"
                 Visibility="{Binding IsComparisonAvailable, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        <ProgressBar Width="72"
-                     Margin="12,0,0,0"
-                     VerticalAlignment="Center"
-                     DockPanel.Dock="Left"
-                     IsIndeterminate="{Binding IsApplying, Mode=OneWay}"
-                     Visibility="{Binding IsApplying, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
           <Button x:Name="OkButton"
                   Command="{Binding OkCommand}"
@@ -1750,85 +2134,19 @@
       </StackPanel>
     </DockPanel>
 
-    <ProgressBar Height="2"
-                 Margin="16,0,16,4"
-                 AutomationProperties.Name="{l:Tr Common.Loading}"
-                 DockPanel.Dock="Top"
-                 IsIndeterminate="{Binding IsLoading, Mode=OneWay}"
-                 Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+    <!--
+      Status line (design note 6.1 and 6.8): between the header and the pages. What the sheet is doing and what
+      happened - reading the object (with Stop), saving, a read that failed (with Retry), an object that was deleted, a
+      sheet that is out of date (with Refresh), the session of the window that ended - and what the page in front says.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="8,0,8,6"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
 
-    <!-- State and messages -->
+    <!-- Findings of the planner that belong to no single field (notes: they stay while the values they are about do). -->
     <StackPanel Margin="16,0,16,0" DockPanel.Dock="Top">
-      <Border Margin="0,0,0,8"
-              Style="{StaticResource Ad.ErrorBar}"
-              Visibility="{Binding LoadError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <DockPanel>
-          <TextBlock Margin="0,1,10,0"
-                     VerticalAlignment="Top"
-                     DockPanel.Dock="Left"
-                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                     Style="{StaticResource Ad.GlyphText}"
-                     Text="{x:Static c:Glyphs.Error}" />
-          <Button Margin="10,0,0,0"
-                  VerticalAlignment="Top"
-                  Command="{Binding RefreshCommand}"
-                  Content="{l:Tr Common.Retry}"
-                  DockPanel.Dock="Right" />
-          <TextBlock VerticalAlignment="Center"
-                     AutomationProperties.LiveSetting="Assertive"
-                     Text="{Binding LoadError, Mode=OneWay}"
-                     TextWrapping="Wrap" />
-        </DockPanel>
-      </Border>
-      <Border Margin="0,0,0,8" Style="{StaticResource DeletedBar}">
-        <DockPanel>
-          <TextBlock Margin="0,1,10,0"
-                     VerticalAlignment="Top"
-                     DockPanel.Dock="Left"
-                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                     Style="{StaticResource Ad.GlyphText}"
-                     Text="{x:Static c:Glyphs.Delete}" />
-          <TextBlock AutomationProperties.LiveSetting="Assertive"
-                     Text="{l:Tr PropertySheet.Deleted}"
-                     TextWrapping="Wrap" />
-        </DockPanel>
-      </Border>
-      <Border Margin="0,0,0,8"
-              Style="{StaticResource Ad.WarningBar}"
-              Visibility="{Binding IsOutdated, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-        <DockPanel>
-          <TextBlock Margin="0,1,10,0"
-                     VerticalAlignment="Top"
-                     DockPanel.Dock="Left"
-                     Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                     Style="{StaticResource Ad.GlyphText}"
-                     Text="{x:Static c:Glyphs.Warning}" />
-          <Button Margin="10,0,0,0"
-                  VerticalAlignment="Top"
-                  Command="{Binding RefreshCommand}"
-                  Content="{l:Tr PropertySheet.Refresh}"
-                  DockPanel.Dock="Right" />
-          <TextBlock VerticalAlignment="Center"
-                     AutomationProperties.LiveSetting="Polite"
-                     Text="{l:Tr PropertySheet.Outdated}"
-                     TextWrapping="Wrap" />
-        </DockPanel>
-      </Border>
-      <Border Margin="0,0,0,8"
-              Style="{StaticResource Ad.ErrorBar}"
-              Visibility="{Binding ApplyError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <DockPanel>
-          <TextBlock Margin="0,1,10,0"
-                     VerticalAlignment="Top"
-                     DockPanel.Dock="Left"
-                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                     Style="{StaticResource Ad.GlyphText}"
-                     Text="{x:Static c:Glyphs.Error}" />
-          <TextBlock AutomationProperties.LiveSetting="Assertive"
-                     Text="{Binding ApplyError, Mode=OneWay}"
-                     TextWrapping="Wrap" />
-        </DockPanel>
-      </Border>
       <ItemsControl Margin="0,0,0,8"
                     Focusable="False"
                     ItemsSource="{Binding Issues, Mode=OneWay}"

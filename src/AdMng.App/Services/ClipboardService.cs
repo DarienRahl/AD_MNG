@@ -82,6 +82,23 @@ public sealed class ClipboardService(INotificationService notifications, ILocali
         }
     }
 
+    /// <summary>
+    /// F3 (docs/dev/phase3-bulk-create.md 2.6): a pasted table – text first, the HTML format only when needed, no bitmap
+    /// (<see cref="ClipboardHtmlReader.ReadTable"/>); a busy clipboard is reported with its HRESULT only.
+    /// </summary>
+    public ClipboardContent? ReadTable()
+    {
+        try
+        {
+            return ClipboardHtmlReader.ReadTable();
+        }
+        catch (ExternalException ex)
+        {
+            ReportBusy(ex);
+            return null;
+        }
+    }
+
     /// <summary>The text plus the formats that keep it out of clipboard history, cloud clipboard and clipboard monitors.</summary>
     internal static DataObject CreateSecretData(string secret)
     {

@@ -69,7 +69,7 @@ trzecim sposobem wysyłki jest klasyczny Outlook operatora (`OutlookUserMessageT
   bieżącą i zamyka poprzednią. Błąd lub anulowanie zostawia bieżącą sesję bez zmian. Okna otwarte w poprzedniej sesji
   zostają przy niej (nie czytają i nie zapisują) i informują, że należą do poprzedniego DC; karty głównego okna
   przeładowują się z nowego DC, a dziennik sesji zapisuje zmianę. Lista DC łączy odczyt z katalogu bieżącej sesji
-  (`server`/`nTDSDSA` w `CN=Sites`, `fSMORoleOwner`) z lokatorem (DsGetDcName/DNS SRV, lokacja klienta)
+  (`server`/`nTDSDSA` w `CN=Sites`, `fSMORoleOwner`) z lokalizatorem DsGetDcName (DNS SRV, lokacja klienta)
   ([dev/phase1-changedc.md](dev/phase1-changedc.md)).
 - Kontenery dobrze znane (`wellKnownObjects`/`otherWellKnownObjects` głowy domeny) czyta
   `ISessionManager.GetWellKnownObjectsAsync` raz na sesję i trzyma w pamięci (`WellKnownObjectMap`); nowa sesja – także
@@ -161,6 +161,30 @@ i 4) – a pliki jednego GPO zapisuje transakcją `GpoTransaction`: pliki tymcza
 podmiana, na końcu wersja w `GPT.INI` i porównanie-z-zamianą `versionNumber` w AD; błąd lub zmiana GPO przez kogoś
 innego przywraca pliki z pamięci. Wersje tylko rosną (także przy cofaniu), plan cofnięcia odwraca kolejność obiektów.
 Dziennik audytu zapisuje ścieżki, rozmiary i SHA-256 plików – nigdy treść. Nic poza potokiem nie pisze do SYSVOL.
+
+**Zakładanie wielu kont (F3) w potoku zmian.** Kreator *Zakładanie wielu kont* to trzeci tryb edytora zbiorczego
+(`BatchSourceMode.Create`), a nie osobne okno. Wszystko, co decyduje o wartościach, jest w `AdMng.Core/Batch/Creation`:
+`TableTextReader` (tekst schowka, w razie potrzeby jego format HTML, CSV albo `.xlsx`) daje `InputTable`, a
+`IBulkCreatePlanner` (`BulkCreatePlanner`) w `ComputeAsync` tylko czyta – przez sesję okna i, w lesie z kilkoma domenami,
+przez sesję tylko do odczytu do portu wykazu globalnego **tego samego** DC (`ConnectGlobalCatalogAsync`) – i wylicza
+wiersze: wzorce (składnia `ITemplateEngine` z tokenami `{$nr}`, `{$column:…}`, `{$suffix}`, `{$mailDomain}`), liczniki,
+unikalność, menedżerów, grupy i walidację (`BulkCreateIssueCodes`). `BuildPlan` jest czysty i daje zwykły `ChangePlan`:
+jeden `ObjectPlan` na wiersz (`SourceRow`, `PowerShell` = `New-ADUser … -AccountPassword (Read-Host -AsSecureString …)`)
+z krokami `Create` (konto wyłączone, UAC 514), `ResetPassword` (hasło tylko w `PlannedChange.Password`), `Modify`
+(włączenie z porównaniem-z-zamianą starej wartości UAC, `pwdLastSet` 0), menedżer i `AddMember`; plan zmian nie jest
+sekwencyjny, a `Server` to DC, z którego czytano wartości (wykonawca odmawia innego). Przed planem kreator liczy wiersze
+ponownie z wartościami ze sprawdzenia zamrożonymi (`FrozenValues`), więc plan zawiera dokładnie to, co pokazała siatka.
+Wykonanie idzie przez `IChangeCoordinator` → `BatchExecutor` (wykonawca bez zmian; audyt, historia PowerShell i
+powiadomienia o zmianach pochodzą z potoku) w dwóch częściach: najpierw jeden obiekt na próbę (*canary*), a resztę
+tylko wtedy, gdy wszystkie jego kroki się udały – błąd systematyczny (brak szyfrowania, brak prawa resetu, hasło
+odrzucone) zatrzymuje się po jednym koncie. Wyniki wszystkich wykonań okna są scalane (`BulkCreateResults.Merge`);
+`BuildRetryPlan` pomija kroki, które już się udały (konto nigdy nie powstaje dwa razy ani nie dostaje drugiego hasła).
+Cofnięcie nie używa `IRollbackPlanner`, który zna tylko ostatni wynik: `PlanUndoAsync` buduje plan kroków `Delete` dla
+wszystkiego, co utworzyło okno, po ponownym odczycie każdego obiektu po `objectGUID` (obiekt podmieniony pod tą samą
+nazwą jest pomijany). Tabela, wyliczenia, plany, wyniki i hasła żyją tylko w modelach okna (zasady 1 i 2); profile
+nazewnictwa w ustawieniach to wzorce i opcje.
+Opis dla użytkownika: [ZAKLADANIE-KONT.md](ZAKLADANIE-KONT.md); projekt:
+[dev/phase3-bulk-create.md](dev/phase3-bulk-create.md).
 
 ### Zasady grupy (K2)
 
@@ -259,6 +283,37 @@ z treścią sprzed edycji jako warunkiem (konflikt) i `SetGpoVersion` części k
   okno połączenia) i zakładka *Stan* GPO (`GroupPolicyObjectDocumentViewModel.Health.cs`) pokazują wyniki; migawki i
   uwagi są tylko w pamięci, eksport CSV/HTML – do pliku operatora (zasada 1).
 
+### Wyszukiwanie, kopiowanie ustawień i porządki w GPO (K7)
+
+- **Indeks ustawień:** `AdMng.Core/GroupPolicy/Search`: `GpoSettingsIndexBuilder` czyta z DC sesji (zasada 4) GPO,
+  połączenia, wersje `GPT.INI` i foldery wszystkich GPO strumieniowo przez `GpoFolderReader` (tryb `ContentOnly`,
+  najwyżej cztery odczyty SYSVOL naraz, limity na plik, GPO i cały przebieg; bajty jednego GPO są parsowane i od razu
+  porzucane), nazwy kont rozpoznaje jednym przebiegiem `GpoPrincipalResolver` (filtry `LdapFilter`, 50 nazw na
+  zapytanie) i grupuje ustawienia w **jednostki** (`GpoSettingUnits.Of`): to, co GPMC pokazuje jako jeden wiersz, z
+  identyfikatorem wspólnym dla wszystkich GPO (zasada ADMX po identyfikatorze, element preferencji po naturalnej
+  tożsamości – litera dysku, nazwa grupy, ścieżka – a nie po `uid`), odciskiem wartości, porównywalnością (ukryte,
+  warunkowe, skumulowane) i powodem odmowy kopiowania. Odświeżenie przyrostowe czyta tylko GPO ze zmienioną wersją.
+- **Usługa indeksu na okno:** `GpoSettingsIndexService` (`AdMng.Presentation/GroupPolicy/Search`, Scoped – jedna na okno
+  połączenia) jest właścicielem każdego przebiegu: własne połączenie SYSVOL i własny token powiązany z czasem życia
+  usług GPO, jeden przebieg naraz z co najwyżej jednym przebiegiem w kolejce, widok związany z instancją sesji i
+  serwerem, znacznik nieaktualności po zmianach GPO, porzucenie przy zmianie sesji. Wyszukiwarka
+  (`GpoSettingsSearchDocumentViewModel`, dopasowanie `GpoSettingsMatcher` w tle) i porządki
+  (`GpoCleanupDocumentViewModel`) czytają ten sam widok; teksty GPMC liczy raz na widok `GpoIndexTexts`.
+- **Zapis przez plan zmian:** `GroupPolicyPlanner.PlanCopySettingsAsync`, `PlanRemoveSettingsAsync`, `PlanMergeAsync`,
+  `PlanUnlinkAllAsync` i `PlanDeleteAsync` z oczekiwanym stanem czytają źródło i cel **od nowa** w chwili planowania
+  (nigdy wartości z indeksu), a wewnętrzny `GpoSettingsWriter` zmienia `Registry.pol`, `GptTmpl.inf`, `audit.csv` i
+  pliki preferencji (`GppPreferenceDocument`) minimalną edycją. Wynik to jeden `ObjectPlan` na docelowy GPO (nazwy
+  rozszerzeń, `WriteGpoFile`, jedno podniesienie wersji – jedna transakcja `GpoTransaction`), przy scaleniu także
+  `gPLink` kontenerów i stan scalanego GPO; podgląd, audyt i cofnięcie jak każdy plan (zasada 5). Akcje
+  `GpoSettingsActions` (`AdMng.Presentation/GroupPolicy/Copy`) przekazują zbiór definicji ADMX indeksu i budują sekcję
+  *Zmiany ustawień* (`GpoSettingChangesBuilder`).
+- **Doradca porządków:** `GpoCleanupAnalyzer.Analyze(index, options)` (`AdMng.Core/GroupPolicy/Cleanup`) jest czystą
+  funkcją rekordów indeksu (wartości porównuje `GpoSettingUnits.SameValue`, zasięg – `GroupPolicyInheritance`);
+  propozycje i ich działania są tylko danymi, a każde działanie idzie przez planistę i podgląd. Indeks, wyniki i
+  propozycje są tylko w pamięci okna, eksport – do pliku operatora (zasada 1). Opis:
+  [ZASADY-GRUPY.md, rozdział 12](ZASADY-GRUPY.md#12-wyszukiwanie-kopiowanie-ustawień-i-porządki-w-gpo-k7); specyfikacja:
+  [dev/k-computers-and-gpo.md](dev/k-computers-and-gpo.md), rozdział 21.
+
 ### Dzienniki zdarzeń (ścieżka E)
 
 - `AdMng.Core/EventLogs`: model `EventLogRecord`, zapytanie `EventLogQuery`, zasięg `EventLogCoverage`, kontrakty
@@ -303,6 +358,18 @@ z treścią sprzed edycji jako warunkiem (konflikt) i `SetGpoVersion` części k
 - **Edytor zbiorczy:** kreator operacje → podgląd → wykonanie → wyniki → cofnięcie; import CSV z mapowaniem kolumn.
 - **Lokalizacja:** zasoby `Strings.resx` (en) i `Strings.pl.resx`; nazwy atrybutów z display specifiers AD (jak w
   polskim ADUC), przełączanie języka bez restartu.
+- **Wygląd, ikony i animacje (ścieżka V, etap V1;** [dev/v-interface-renewal.md](dev/v-interface-renewal.md)**):**
+  `Themes/Tokens.xaml` trzyma to, czego motyw Fluent nie ma – odstępy, gęstość, promienie, skalę pisma i style
+  powierzchni okna głównego (karta paska narzędzi i trzy panele). Kolory nie mają aliasów: widoki i style czytają
+  klucze Fluent przez `DynamicResource`, więc motyw jasny, ciemny i wysoki kontrast przełączają się w trakcie pracy,
+  a test źródeł pilnuje zamkniętego zbioru kluczy. Rzeczy pokazują kolorowe obrazki z zestawu ikon projektu
+  (`docs/assets/icons` → generowany `Themes/Icons.xaml`), rysowane przez `ObjectIconView` jako jeden wspólny,
+  zamrożony obraz na rodzaj; jednobarwne glify są ustawieniem i obowiązują zawsze w trybie wysokiego kontrastu
+  (`IconStyleService`). Animacji nie zapisuje się w XAML: właściwości dołączane z `Behaviors/Motion.cs` uruchamiają
+  każdą z kodu, z czasami z `Themes/Motion.xaml`, za jednym przełącznikiem (`MotionService`: ustawienie, ustawienie
+  systemu Windows „Efekty animacji” i akceleracja sprzętowa; wyłączone w testach UI, na zrzutach i w teście dymnym).
+  Porusza się tylko przezroczystość i przekształcenie renderowania, nic nie opóźnia wejścia i nic nie rusza się przy
+  odświeżaniu na żywo.
 
 ## Komputery (K1)
 
@@ -400,6 +467,53 @@ AdMng.Core/Correspondence                 AdMng.Outlook ── COM (dynamic) na 
   `AdMng.Presentation.Tests/Correspondence` (z `FakeOutlookClient` z `AdMng.Testing`), testy UI i zrzuty 26–28 na
   Windows. Prawdziwy Outlook – tylko pilotaż.
 
+## Usługi certyfikatów (ścieżka P, P1)
+
+Projekt: [dev/p-certificate-services.md](dev/p-certificate-services.md); opis dla administratora:
+[CERTYFIKATY.md](CERTYFIKATY.md). P1 to przegląd AD CS **tylko do odczytu**: niczego nie zapisuje w katalogu (zasada 5 –
+żadnej operacji planu zmian, karty właściwości zwracają pustą listę operacji), a wszystko czyta przez LDAP sesji okna
+(zasada 4); z urzędem certyfikacji się nie łączy.
+
+- **Core/Pki** – czysta logika bez typów Windows (wspólna z Watchdogiem od P5): `PkiOverviewReader` (jedno stronicowane
+  wyszukiwanie `CN=Public Key Services` z deskryptorami zabezpieczeń i rozszerzonym DN; uwagi odczytu zamiast wyjątków;
+  rozpoznanie komputera urzędu), parsery `CertificateSummary` i `CrlSummary` (DER przez `System.Formats.Asn1`, `null`
+  przy błędnych danych), `CertificateTemplate` z tablicami flag `PkiFlags` i okresami `PkiPeriod`,
+  `TemplateRightsEvaluator` (AccessCheck: pierwszy ACE na prawo, odmowy, jeden przebieg po kontach z zapamiętanymi
+  decyzjami) i `PrincipalClassifier` (Tier 0 / szeroka grupa / inne), `PkiHealth` (stany liczone w chwili pokazania z
+  progami i zegarem), `PkiEscReader` i `PkiEscAnalyzer` (11 kodów `PkiFindingCodes`), `AltSecurityIdentity`,
+  `KeyCredentialLink` oraz kontrakt sondy TLS `IDomainControllerTlsProbe` z ocenami `DcCertificateEvaluation` i
+  `KdcCertificateEvaluation`. Łańcuchy są budowane z `CustomRootTrust` na urzędach odczytanych z AD, bez pobierania
+  (`DisableCertificateDownloads`, `RevocationMode = NoCheck`). U4b (`DirectoryAclGrantSource`) czyta kontenery PKI tym
+  samym przebiegiem co `CollectPublicKeyAsync` (ESC5, ESC14).
+- **Directory/Pki** – `SslStreamTlsProbe`: TCP i `SslStream` do portu 636 albo 3269, samo uzgadnianie TLS (bez
+  powiązania LDAP, bez certyfikatu klienta, bez danych aplikacji), 5 s, tylko nazwy hostów (`HostNames.IsValid`, bez
+  adresów IP); polityka łańcucha `CustomRootTrust` z pustym magazynem i bez pobierania, więc platforma nie sięga do
+  magazynu Windows ani do adresów AIA. Rejestruje ją App (`AddAdMngPkiApp()`).
+- **Presentation/Pki** – `PkiSnapshotService` (**Scoped**, jeden na okno połączenia) trzyma w pamięci odczyt PKI,
+  przebieg po kontach, kontrolery domeny, wyniki sondy TLS i sprawdzeń HTTP; kluczem jest instancja sesji i serwer,
+  zmiana sesji i F5 (`Invalidate`) usuwają wszystko, a jedna budowa jest wspólna dla wszystkich dokumentów okna.
+  `PkiHealthProbe` (singleton bez stanu): sprawdzenia AIA, CDP i OCSP tylko na przycisk – wyłącznie `http`/`https`, bez
+  poświadczeń dla celu, najwyżej 3 przekierowania (każde sprawdzane), 15 s, 20 MB, treść odrzucana po rozbiorze.
+  `PkiServices` i `PkiViewModelFactory` (Scoped), `PkiDocumentBase` i cztery dokumenty (przegląd, szablony, przegląd
+  bezpieczeństwa, gotowość), węzeł drzewa `PkiNodeViewModel`, polecenia `pki.*` i `view.pkiNodes`
+  (`ShellViewModel.Pki.cs`), `PkiSettings` (dwa progi i przełącznik węzła) i trzy karty właściwości tylko do odczytu.
+- **Maskowanie** – `SecretAttributes.IsNeverShown` (materiał klucza: `userPKCS12`, poświadczenia mobilne, pakiet kluczy
+  BitLocker, hasła zarządzane i zaszyfrowane, każdy sekret o składni binarnej): Edytor atrybutów pokazuje maskę bez
+  edycji i kopiowania, okno wyboru kolumn pomija te atrybuty, a komórka listy (np. z zapisanego widoku) formatuje się
+  jako maska – także w eksporcie CSV (Ctrl+C pomija kolumny z sekretami). Watchdog nie przyjmie konfiguracji
+  obserwującej `userPKCS12`.
+- **Sieć** – poza sesją LDAP okna tylko sonda TLS (karta *Certyfikaty LDAPS*: pierwsze otwarcie, przycisk, F5 i zmiana
+  DC po pierwszym otwarciu; raport gotowości – tylko przycisk; najwyżej 4 kontrolery naraz) i sprawdzenia HTTP po
+  *Sprawdź adresy HTTP*; nigdy `file:`, UNC ani `ldap://host`.
+- **Dane** (zasada 1) – odczyt, ustalenia i wyniki sond są tylko w pamięci okna; rekordy `AdMng.Core.Pki` i
+  `AdMng.Presentation.Pki` mają własne `ToString()` bez wartości (`PkiContractTests`); dokumenty PKI nie zapisują nic
+  własnego w dziennikach diagnostycznych; na dysk trafiają tylko eksporty operatora (CSV, HTML, `.cer`).
+- **Testy** – `AdMng.Core.Tests/Pki` (próbka `AddPublicKeySample`: urzędy i szablony z polskimi nazwami, celowo podatny
+  szablon dla każdej reguły ESC i bezpieczny odpowiednik; `PkiSamples` z certyfikatami i listami CRL o stałych datach),
+  `AdMng.Presentation.Tests/Pki`, `AdMng.Directory.IntegrationTests/Pki` (sonda na serwerze TLS w procesie, na
+  laboratorium – LDAPS `localhost`), testy UI i zrzuty 36–39 na Windows. Samba nie ma AD CS – zgodność z `pkiview.msc`,
+  `certtmpl.msc`, Certipy i Locksmith potwierdzi pilotaż.
+
 ## Bezpieczeństwo
 
 - Hasła logowania i resetowane są tylko w pamięci; nie trafiają do ustawień, logów ani `ToString()`.
@@ -411,6 +525,9 @@ AdMng.Core/Correspondence                 AdMng.Outlook ── COM (dynamic) na 
   z nimi są pomijane przy Ctrl+C); sekret trafia do schowka tylko po jawnym odsłonięciu w Edytorze atrybutów, z
   wykluczeniem z historii schowka i wyczyszczeniem po 60 s. Wiersze kopiowane do Excela mają tę samą ochronę przed
   formułami co eksport CSV.
+- Materiał klucza (`userPKCS12`, poświadczenia mobilne, zaszyfrowane hasła LAPS, każdy sekret o składni binarnej) nie
+  jest nigdy pokazywany, kopiowany ani eksportowany – także w Edytorze atrybutów i w kolumnach list
+  (`SecretAttributes.IsNeverShown`, P1).
 - Ostrzeżenia dla obiektów chronionych (adminCount=1, obiekty krytyczne systemu, konta wbudowane) i potwierdzenie
   przez wpisanie liczby obiektów dla dużych/ryzykownych operacji.
 - Aplikacja nie jest granicą bezpieczeństwa – o uprawnieniach decydują ACL w AD; UI jedynie je odzwierciedla.
@@ -506,6 +623,7 @@ Zasady, które odróżniają usługę od reszty rozwiązania:
 |---|---|---|
 | Jednostkowe | `AdMng.Core.Tests`, `AdMng.Presentation.Tests` | xUnit v3, `FakeDirectorySession`; testy modeli widoku w jednym wątku interfejsu (`UiThreadAttribute`), jak w WPF; limity czasu jako granice logiczne i liniowy wzrost pracy (`LinearWork`), nie czas zegarowy |
 | Integracyjne | `AdMng.Directory.IntegrationTests` | Samba AD DC z `tools/testlab` (lokalnie i w CI na Ubuntu) |
+| PKI (P1) | `AdMng.Core.Tests/Pki`, `AdMng.Presentation.Tests/Pki`, `AdMng.Directory.IntegrationTests/Pki` | próbka PKI fałszywego katalogu (celowo podatne szablony i bezpieczne odpowiedniki), certyfikaty i listy CRL generowane w testach ze stałymi datami, sonda TLS na serwerze TLS w procesie (Linux i Windows); laboratorium Samba – tylko puste kontenery PKI i sonda LDAPS |
 | Outlook (U5) | `AdMng.Outlook.Tests` | fałszywy model obiektowy Outlooka w CLR: kolejność kroków budowania wiadomości, obrazki `cid:`, klasyfikacja błędów, wątek STA, pliki tymczasowe, głosy, transport U1 (Linux i Windows); prawdziwy Outlook – tylko pilotaż |
 | Dymne UI | CI Windows | `AdMng.exe --smoke-test` tworzy wszystkie widoki z danymi testowymi |
 | Watchdog – silnik | `AdMng.Watchdog.Core.Tests` | `FakeDirectorySession` z emulacją USN, metadanych i kontrolera; zarejestrowane zdarzenia 47xx/5136; fałszywy zegar |

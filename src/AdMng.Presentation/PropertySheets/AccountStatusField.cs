@@ -3,6 +3,7 @@ using AdMng.Core.Batch;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
 using AdMng.Presentation.AccountReview;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Session;
@@ -17,6 +18,11 @@ namespace AdMng.Presentation.PropertySheets;
 /// demand, the lock state and the exact last logon on every domain controller. Informational: it never writes. The
 /// "Wyślij wiadomość…" button is the U1 hook and stays hidden without an <see cref="IUserMessageLauncher"/>.
 /// </summary>
+/// <remarks>
+/// "Sprawdź na wszystkich DC" is an operation of the field's page (track V, stage V2b): the status line of the sheet
+/// says that the domain controllers are asked and offers Stop; the answers are the content of the field
+/// (<see cref="DomainControllersText"/>), so a check that went through ends without a message.
+/// </remarks>
 public sealed partial class AccountStatusFieldViewModel : PropertyFieldViewModel
 {
     private static readonly string[] DomainControllerAttributes = [Attr.LockoutTime, Attr.UserAccountControlComputed, Attr.LastLogon];
@@ -93,9 +99,15 @@ public sealed partial class AccountStatusFieldViewModel : PropertyFieldViewModel
         }
 
         var reader = Context.DomainControllers ?? new DomainControllerReader(null, Context.Services.Errors);
-        var token = _reads.Next();
+
+        // A fresh read of the object supersedes the check (_reads); the operator stops it in the status line (the
+        // operation of the page). Without a page - a field on its own - the place of the answers says that it reads.
+        var superseded = _reads.Next();
+        using var scope = PageStatus?.Begin(Localizer[L.PropertySheetStatus.AccountChecking], new PageStatusLog(L.PropertySheetStatus.AccountChecking));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(superseded, scope?.Token ?? CancellationToken.None);
+        var token = linked.Token;
         IsCheckingDomainControllers = true;
-        DomainControllersText = Localizer[L.AccountStatus.ReadingDomainControllers];
+        DomainControllersText = scope is null ? Localizer[L.AccountStatus.ReadingDomainControllers] : string.Empty;
         try
         {
             var dn = account.DistinguishedName;
@@ -105,6 +117,13 @@ public sealed partial class AccountStatusFieldViewModel : PropertyFieldViewModel
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
             DomainControllersText = string.Empty;
+            if (scope is { IsEnded: false } && !superseded.IsCancellationRequested)
+            {
+                // Stopped by the operator, not by a newer read of the object.
+                scope.CompleteAttention(
+                    Localizer.Format(L.PropertySheetStatus.AccountCheckStopped, Localizer[L.AccountStatus.CheckDomainControllers]),
+                    new PageStatusLog(L.PropertySheetStatus.AccountCheckStopped));
+            }
         }
         finally
         {

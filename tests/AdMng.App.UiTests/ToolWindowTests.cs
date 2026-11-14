@@ -56,7 +56,8 @@ public sealed class ToolWindowTests
         Assert.Equal("Dyrektor finansowa", entry.NewValue);
         Assert.True(entry.Succeeded);
         Assert.Single(window.EntriesList.Items);
-        Assert.Equal(log.CountText, window.CountText.Text);
+        Assert.Equal("Entries: 1 of 1", log.CountText);
+        Assert.Equal(log.CountText, window.PageStatus.Message);
 
         log.FilterText = "nie ma takiego wpisu";
         await UiTestSupport.WaitForIdleAsync();
@@ -165,6 +166,42 @@ public sealed class ToolWindowTests
         Assert.Same(settings.Language, window.LanguageBox.SelectedItem);
         Assert.Same(settings.Theme, window.ThemeBox.SelectedItem);
 
+        // Icons (V1): colour by default, monochrome as the other choice, with the High Contrast note under the box.
+        Assert.Equal(IconStylePreference.Colour, settings.IconStyle.Value);
+        Assert.Same(settings.IconStyle, window.IconStyleBox.SelectedItem);
+        Assert.Equal(2, window.IconStyleBox.Items.Count);
+        Assert.True(window.IconStyleBox.IsVisible);
+        Assert.Equal(context.Localizer()[AdMng.Presentation.Localization.L.Settings.IconStyleHint], window.IconStyleHint.Text);
+        window.IconStyleBox.SelectedItem = settings.IconStyles.Single(i => i.Value == IconStylePreference.Monochrome);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(IconStylePreference.Monochrome, settings.IconStyle.Value);
+        settings.IconStyle = settings.IconStyles.Single(i => i.Value == IconStylePreference.Colour);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Same(settings.IconStyle, window.IconStyleBox.SelectedItem);
+
+        // Background (V1): the theme's by default, solid as the other choice, with the note about the restart under the box.
+        Assert.Equal(WindowBackgroundPreference.Theme, settings.WindowBackground.Value);
+        Assert.Same(settings.WindowBackground, window.WindowBackgroundBox.SelectedItem);
+        Assert.Equal(2, window.WindowBackgroundBox.Items.Count);
+        Assert.True(window.WindowBackgroundBox.IsVisible);
+        Assert.Equal(context.Localizer()[AdMng.Presentation.Localization.L.Settings.WindowBackgroundHint], window.WindowBackgroundHint.Text);
+        window.WindowBackgroundBox.SelectedItem = settings.WindowBackgrounds.Single(b => b.Value == WindowBackgroundPreference.Solid);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(WindowBackgroundPreference.Solid, settings.WindowBackground.Value);
+        Assert.Equal(WindowBackgroundPreference.Theme, context.Services.GetRequiredService<ISettingsStore>().Current.WindowBackground);
+
+        // Motion (V1): follow Windows by default, on and off as the other choices, with the note about the Windows
+        // setting under the box.
+        Assert.Equal(MotionPreference.FollowWindows, settings.Motion.Value);
+        Assert.Same(settings.Motion, window.MotionBox.SelectedItem);
+        Assert.Equal(3, window.MotionBox.Items.Count);
+        Assert.True(window.MotionBox.IsVisible);
+        Assert.Equal(context.Localizer()[AdMng.Presentation.Localization.L.Settings.MotionHint], window.MotionHint.Text);
+        window.MotionBox.SelectedItem = settings.MotionChoices.Single(m => m.Value == MotionPreference.On);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(MotionPreference.On, settings.Motion.Value);
+        Assert.Equal(MotionPreference.FollowWindows, context.Services.GetRequiredService<ISettingsStore>().Current.Motion);
+
         // Typing in the box updates the setting; out of range values disable Save.
         window.PageSizeBox.Text = "10";
         await UiTestSupport.WaitForIdleAsync();
@@ -189,6 +226,19 @@ public sealed class ToolWindowTests
         Assert.Equal(40, current.ConfirmationThreshold);
         Assert.True(current.ShowAdvancedFeatures);
         Assert.Equal("pl", current.Language);
+        Assert.Equal(IconStylePreference.Colour, current.IconStyle);
+
+        // The background choice is stored; the running process keeps its background (the theme reads the switch at start).
+        Assert.Equal(WindowBackgroundPreference.Solid, current.WindowBackground);
+        Assert.False(AppContext.TryGetSwitch(WindowBackdrop.DisableSwitchName, out var backdropDisabled) && backdropDisabled);
+
+        // The motion choice is stored and handed to the service at once; the test host keeps motion off all the same.
+        Assert.Equal(MotionPreference.On, current.Motion);
+        var motion = context.Services.GetRequiredService<MotionService>();
+        Assert.Equal(MotionPreference.On, motion.Preference);
+        Assert.True(motion.IsForcedOff);
+        Assert.False(motion.IsOn);
+        Assert.False(AdMng.App.Behaviors.Motion.IsEnabled);
         Assert.Equal("pl-PL", context.Localizer().Culture.Name);
         context.AssertHealthy();
     });

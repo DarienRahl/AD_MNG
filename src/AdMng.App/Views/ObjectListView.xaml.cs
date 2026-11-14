@@ -36,6 +36,13 @@ public partial class ObjectListView : UserControl
     /// <summary>Typed characters of the virtual list's type-to-find form one prefix within this time.</summary>
     private const long TypeToFindWindowMs = 1000;
 
+    /// <summary>
+    /// The list shows its status line (<c>PageStatus</c>). False in a host that shows the status of the list in a line
+    /// of its own (the Find window): a window says what happened in one place.
+    /// </summary>
+    public static readonly DependencyProperty ShowStatusLineProperty = DependencyProperty.Register(
+        nameof(ShowStatusLine), typeof(bool), typeof(ObjectListView), new PropertyMetadata(true, OnShowStatusLineChanged));
+
     private ObjectListViewModel? _viewModel;
     private Point? _dragStart;
     private ListViewItem? _pressedItem;
@@ -56,6 +63,12 @@ public partial class ObjectListView : UserControl
     public event EventHandler<ObjectRowEventArgs>? ItemActivated;
 
     public ObjectListViewModel? ViewModel => _viewModel;
+
+    public bool ShowStatusLine
+    {
+        get => (bool)GetValue(ShowStatusLineProperty);
+        set => SetValue(ShowStatusLineProperty, value);
+    }
 
     /// <summary>The list control (focus management, tests).</summary>
     public ListView ListControl => List;
@@ -105,6 +118,14 @@ public partial class ObjectListView : UserControl
         RenameEditor.Visibility = Visibility.Visible;
         RenameEditor.Focus();
         RenameEditor.SelectAll();
+    }
+
+    private static void OnShowStatusLineChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (((ObjectListView)d).PageStatus is { } line)
+        {
+            line.Visibility = e.NewValue is true ? Visibility.Visible : Visibility.Collapsed;
+        }
     }
 
     private static FrameworkElement? FindDescendant(DependencyObject root, Func<FrameworkElement, bool> match)

@@ -45,7 +45,8 @@ internal sealed record RootDse
 
     public int ForestFunctionality { get; init; }
 
-    public bool IsGlobalCatalogReady { get; init; }
+    /// <summary>RootDSE <c>isGlobalCatalogReady</c>; null when the DC did not return it.</summary>
+    public bool? IsGlobalCatalogReady { get; init; }
 
     /// <summary>Parses the RootDSE entry.</summary>
     /// <exception cref="DirectoryException">The server is not an Active Directory domain controller.</exception>
@@ -73,7 +74,7 @@ internal sealed record RootDse
             SupportedExtensions = new HashSet<string>(entry.GetStrings(SupportedExtension), StringComparer.Ordinal),
             DomainFunctionality = entry.GetInt32(Attr.DomainFunctionality) ?? 0,
             ForestFunctionality = entry.GetInt32(Attr.ForestFunctionality) ?? 0,
-            IsGlobalCatalogReady = entry.GetBoolean(Attr.IsGlobalCatalogReady) ?? false,
+            IsGlobalCatalogReady = entry.GetBoolean(Attr.IsGlobalCatalogReady),
         };
     }
 }

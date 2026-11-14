@@ -126,6 +126,19 @@ public sealed record SessionInfo
 
     public bool IsGlobalCatalog { get; init; }
 
+    /// <summary>
+    /// The channel of the session is encrypted (sealed SASL, LDAPS or StartTLS) – what the session checks before it sends a
+    /// password. Set by <c>LdapDirectoryConnector</c>; sessions that do not report it (test doubles) count as encrypted
+    /// (docs/dev/phase3-bulk-create.md 2.2: a password batch on an unencrypted channel is refused before it runs).
+    /// </summary>
+    public bool IsChannelEncrypted { get; init; } = true;
+
+    /// <summary>
+    /// RootDSE <c>isGlobalCatalogReady</c> of the DC: true when it is a global catalog with a complete partial replica;
+    /// null when the DC did not report it (docs/dev/phase3-bulk-create.md 2.2).
+    /// </summary>
+    public bool? IsGlobalCatalogReady { get; init; }
+
     public int DomainFunctionality { get; init; }
 
     public int ForestFunctionality { get; init; }

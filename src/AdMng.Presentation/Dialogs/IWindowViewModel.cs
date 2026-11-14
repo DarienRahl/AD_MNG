@@ -86,6 +86,16 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
     /// </summary>
     public string? SessionEndedMessage => IsSessionEnded ? EndedMessage : null;
 
+    /// <summary>
+    /// <see cref="SessionEndedMessage"/> as the state of the window that lasts (track V, stage V2b): what a window with a
+    /// status line hands to <see cref="Feedback.PageStatusHolder.SetLasting"/> - first among its conditions - once its
+    /// session ended; null while the session lasts. An error that cannot be closed: nothing in the window can be read
+    /// or written any more.
+    /// </summary>
+    protected Feedback.PageStatus? SessionEndedStatus => SessionEndedMessage is { } message
+        ? Feedback.PageStatus.Error(message, new Feedback.PageStatusLog(L.WindowSession.Ended), canClose: false)
+        : null;
+
     protected DialogServices Services { get; }
 
     protected ILocalizer Localizer => Services.Localizer;

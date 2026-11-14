@@ -3,6 +3,7 @@ using AdMng.Core.Correspondence.Outlook;
 using AdMng.Core.Messaging;
 using AdMng.Presentation.Correspondence;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -20,7 +21,15 @@ namespace AdMng.Presentation.UserMessages;
 /// Outlook (U5) adds the account of the Outlook profile ("Pobierz konta z Outlooka" connects to Outlook to list them) and
 /// "w imieniu nadawcy".
 /// </summary>
-public sealed partial class UserMessageSettingsViewModel : ObservableObject
+/// <remarks>
+/// What the tab does is said in the status line of the settings window, through <see cref="Status"/> (track V, stage
+/// V2b; design note docs/dev/v-interface-renewal.md "V2b-2 as built") - the tab is the page in front while it is shown:
+/// the connection test, the test message and the read of the Outlook accounts are its operations, with Stop, and say
+/// how they ended. They never overlap - each command waits for the others - so they share the one holder. What the
+/// server showed in the last test (<see cref="TestDetails"/>) is content of the tab; why Save is not possible
+/// (<see cref="Error"/>) is a note of the window. The SMTP password is never part of a text.
+/// </remarks>
+public sealed partial class UserMessageSettingsViewModel : ObservableObject, IHasPageStatus
 {
     private readonly DialogServices _services;
     private readonly UserMessageServices _messages;
@@ -29,6 +38,7 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
         _messages = messages ?? throw new ArgumentNullException(nameof(messages));
+        Status = new PageStatusHolder(services.Localizer, services.Dispatcher, services.Lists.StatusLog);
         var l = services.Localizer;
         Languages = [new("pl", l[L.UserMessages.LanguagePolish]), new("en", l[L.UserMessages.LanguageEnglish])];
         TransportChoices = [.. Enum.GetValues<UserMessageTransportChoice>().Select(c => new Option<UserMessageTransportChoice>(c, l[UserMessageText.TransportKey(c)]))];
@@ -74,6 +84,12 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
             }
         };
     }
+
+    /// <summary>
+    /// The status of the tab: the connection test, the test message and the read of the Outlook accounts, and how they
+    /// ended. The settings window shows it in its status line while the tab is in front.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     /// <summary>The "Zwroty grzecznościowe" section (U1d).</summary>
     public SalutationSettingsViewModel Salutations { get; }
@@ -149,7 +165,7 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
 
     /// <summary>"Pobierz konta z Outlooka" is running.</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(LoadOutlookAccountsCommand))]
+    [NotifyCanExecuteChangedFor(nameof(LoadOutlookAccountsCommand), nameof(TestConnectionCommand), nameof(SendTestMessageCommand))]
     public partial bool IsLoadingOutlookAccounts { get; private set; }
 
     /// <summary>The outcome of the last "Pobierz konta z Outlooka", or null.</summary>
@@ -204,12 +220,20 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
     public IPasswordInput? SmtpPasswordInput { get; set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(TestConnectionCommand), nameof(SendTestMessageCommand))]
+    [NotifyCanExecuteChangedFor(nameof(TestConnectionCommand), nameof(SendTestMessageCommand), nameof(LoadOutlookAccountsCommand))]
     public partial bool IsTesting { get; private set; }
 
     /// <summary>Outcome of the last connection test or test message.</summary>
     [ObservableProperty]
     public partial string? TestResult { get; private set; }
+
+    /// <summary>
+    /// What the server showed in the last connection test - the authentication mechanisms it offers and the SHA-256
+    /// of its certificate (what "Pin the certificate from the test" pins) - or null. Content of the tab, shown until the
+    /// next test; how the test ended is said by the status line.
+    /// </summary>
+    [ObservableProperty]
+    public partial string? TestDetails { get; private set; }
 
     [ObservableProperty]
     public partial bool TestSucceeded { get; private set; }
@@ -268,26 +292,67 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
         target.Normalize();
     }
 
-    /// <summary>"Testuj połączenie": connect, TLS and authentication with the typed values (nothing is sent).</summary>
+    /// <summary>
+    /// "Testuj połączenie": connect, TLS and authentication with the typed values (nothing is sent). An operation of
+    /// the tab: the status line says "Testing the connection to smtp.contoso.com:587…" with Stop, then that the
+    /// connection works - encrypted or not, signed in how - or which stage failed and why.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanTest))]
     private async Task TestConnectionAsync()
     {
-        if (CreateTransport() is not IDirectSmtpTransport transport)
+        if (CreateTransport(L.SettingsStatus.NotTested) is not IDirectSmtpTransport transport)
         {
             return;
         }
 
+        var l = _services.Localizer;
+        var server = transport.Description;
         IsTesting = true;
-        TestResult = _services.Localizer[L.UserMessages.Testing];
+        TestResult = l[L.UserMessages.Testing];
+        TestDetails = null;
+        using var testing = Status.Begin(l.Format(L.SettingsStatus.Testing, server), new PageStatusLog(L.SettingsStatus.Testing));
+        var token = testing.Token;
         try
         {
-            var result = await Task.Run(() => transport.TestConnectionAsync(CancellationToken.None)).ConfigureAwait(true);
+            SmtpConnectionTest result;
+            try
+            {
+                result = await Task.Run(() => transport.TestConnectionAsync(token), token).ConfigureAwait(true);
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                // Only a test the operator stopped says so (the window that closes ends it without a word).
+                if (testing.IsCancelling)
+                {
+                    TestSucceeded = false;
+                    TestResult = l.Format(L.SettingsStatus.TestStopped, server);
+                    testing.CompleteAttention(TestResult, new PageStatusLog(L.SettingsStatus.TestStopped));
+                }
+
+                return;
+            }
+
             SeenCertificate = result.CertificateSha256;
             TestSucceeded = result.Success;
             TestResult = Describe(result);
+            TestDetails = Details(result);
             if (result.Failure?.Outcome == UserMessageDeliveryOutcome.AuthenticationFailed)
             {
                 _messages.Transports.Credentials.Clear();
+            }
+
+            if (result.Success)
+            {
+                testing.CompleteDone(
+                    l.Format(L.SettingsStatus.TestOk, server, Encryption(result), SignedInWith(result)), new PageStatusLog(L.SettingsStatus.TestOk));
+            }
+            else
+            {
+                // Which stage failed and the reason of the transport (its code and what it means) - no result code of
+                // ours: the code is part of that reason.
+                testing.CompleteError(
+                    PageStatusText.Failure(l.Format(L.SettingsStatus.TestFailed, server), StageFailure(result)),
+                    new PageStatusLog(L.SettingsStatus.TestFailed));
             }
         }
         finally
@@ -300,7 +365,7 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanSendTestMessage))]
     private async Task SendTestMessageAsync()
     {
-        if (!UserMessageRules.TryParseAddress(TestAddress, out var address) || CreateTransport() is not { } transport)
+        if (!UserMessageRules.TryParseAddress(TestAddress, out var address) || CreateTransport(L.MessageWindowStatus.TestNotSent) is not { } transport)
         {
             return;
         }
@@ -334,14 +399,37 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
         };
         IsTesting = true;
         TestResult = l[L.UserMessages.TestSending];
+        TestDetails = null;
+
+        // The address is the operator's own, typed into the tab: it may be named on screen - never in the log copy.
+        using var sending = Status.Begin(l.Format(L.MessageWindowStatus.TestSending, address), new PageStatusLog(L.MessageWindowStatus.TestSending));
+        var token = sending.Token;
         try
         {
             _messages.RateLimiter.MessagesPerMinute = MessagesPerMinute is >= 1 and <= 600 ? MessagesPerMinute : MessageRateLimiter.DefaultMessagesPerMinute;
-            var results = await Task.Run(() => _messages.Dispatcher.SendAsync(transport, [planned], _messages.RateLimiter, _messages.DispatchOptions, null, CancellationToken.None)).ConfigureAwait(true);
-            TestSucceeded = results[0].Status == UserMessageSendStatus.Accepted;
-            TestResult = TestSucceeded
-                ? l.Format(L.UserMessages.TestSent, address)
-                : l.Format(L.UserMessages.TestFailed, UserMessageText.ResultDetail(l, results[0]));
+            var results = await Task.Run(() => _messages.Dispatcher.SendAsync(transport, [planned], _messages.RateLimiter, _messages.DispatchOptions, null, token)).ConfigureAwait(true);
+            var result = results[0];
+            TestSucceeded = result.Status == UserMessageSendStatus.Accepted;
+            if (TestSucceeded)
+            {
+                TestResult = l.Format(L.UserMessages.TestSent, address);
+                sending.CompleteDone(TestResult, new PageStatusLog(L.UserMessages.TestSent));
+            }
+            else
+            {
+                var detail = UserMessageText.ResultDetail(l, result);
+                TestResult = l.Format(L.UserMessages.TestFailed, detail);
+                if (result.NotSentReason == UserMessageNotSentReason.Cancelled && sending.IsCancelling)
+                {
+                    // Stopped by the operator before the server took it.
+                    sending.CompleteAttention(l[L.MessageWindowStatus.TestStopped], new PageStatusLog(L.MessageWindowStatus.TestStopped));
+                }
+                else
+                {
+                    sending.CompleteError(
+                        PageStatusText.Failure(l[L.MessageWindowStatus.TestNotSent], detail), new PageStatusLog(L.MessageWindowStatus.TestNotSent));
+                }
+            }
         }
         finally
         {
@@ -351,7 +439,9 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
 
     /// <summary>
     /// "Pobierz konta z Outlooka" (U5): connects to classic Outlook (attaches to the running one or starts it), lists the
-    /// SMTP addresses of the profile's accounts and ends the session. Only with Outlook installed.
+    /// SMTP addresses of the profile's accounts and ends the session. Only with Outlook installed. An operation of the
+    /// tab: the status line says "Connecting to Outlook…" with Stop, then how many accounts the profile has - they are
+    /// the list of the box - or why they could not be read.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanLoadOutlookAccounts))]
     private async Task LoadOutlookAccountsAsync()
@@ -364,16 +454,28 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
         var l = _services.Localizer;
         IsLoadingOutlookAccounts = true;
         OutlookAccountsText = l[L.UserMessagesOutlook.LoadingAccounts];
+        using var reading = Status.Begin(l[L.UserMessagesOutlook.LoadingAccounts], new PageStatusLog(L.UserMessagesOutlook.LoadingAccounts));
+        var token = reading.Token;
         try
         {
             OutlookConnectResult result;
             try
             {
-                result = await outlook.ConnectAsync(CancellationToken.None).ConfigureAwait(true);
+                result = await outlook.ConnectAsync(token).ConfigureAwait(true);
             }
             catch (OutlookException ex)
             {
                 result = new OutlookConnectResult(null, ex.Failure);
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                // Only a read the operator stopped says so (the window that closes ends it without a word).
+                if (reading.IsCancelling)
+                {
+                    OutlookStopped(reading);
+                }
+
+                return;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -384,12 +486,22 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
             if (result.Session is not { } session)
             {
                 var failure = result.Failure ?? new OutlookFailure(OutlookFailureKind.Unknown, OutlookFailureCodes.Unknown, null, null);
-                OutlookAccountsText = l.Format(L.UserMessagesOutlook.AccountsFailed, CorrespondenceText.FailureText(l, failure));
+                var reason = CorrespondenceText.FailureText(l, failure);
+                OutlookAccountsText = l.Format(L.UserMessagesOutlook.AccountsFailed, reason);
+                reading.CompleteError(
+                    PageStatusText.Failure(l[L.SettingsStatus.OutlookFailed], reason), new PageStatusLog(L.SettingsStatus.OutlookFailed));
                 return;
             }
 
             await using (session.ConfigureAwait(true))
             {
+                if (reading.IsCancelling)
+                {
+                    // Stop was pressed while Outlook answered: the operator said stop, so the list stays as it was.
+                    OutlookStopped(reading);
+                    return;
+                }
+
                 var addresses = session.Profile.Accounts
                     .Select(a => a?.SmtpAddress?.Trim())
                     .Where(a => !string.IsNullOrEmpty(a))
@@ -409,9 +521,21 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
                 }
 
                 OutlookAccount = chosen;
-                OutlookAccountsText = addresses.Count == 0
-                    ? l[L.UserMessagesOutlook.NoAccounts]
-                    : l.Format(L.UserMessagesOutlook.AccountsLoaded, session.Profile.ProfileName, string.Join(", ", addresses));
+                if (addresses.Count == 0)
+                {
+                    OutlookAccountsText = l[L.UserMessagesOutlook.NoAccounts];
+                    reading.CompleteAttention(OutlookAccountsText, new PageStatusLog(L.UserMessagesOutlook.NoAccounts));
+                }
+                else
+                {
+                    // The accounts are the list of the box: the line says how many, of which profile - not which.
+                    OutlookAccountsText = l.Format(L.UserMessagesOutlook.AccountsLoaded, session.Profile.ProfileName, string.Join(", ", addresses));
+                    var accounts = PageStatusText.Count(
+                        l, addresses.Count, L.SettingsStatus.AccountsOne, L.SettingsStatus.AccountsFew, L.SettingsStatus.AccountsMany);
+                    reading.CompleteDone(
+                        l.Format(L.SettingsStatus.OutlookRead, session.Profile.ProfileName, accounts),
+                        new PageStatusLog(L.SettingsStatus.OutlookRead, addresses.Count));
+                }
             }
         }
         finally
@@ -420,8 +544,19 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
         }
     }
 
+    /// <summary>"Reading the accounts from Outlook was stopped: the list was not changed."</summary>
+    private void OutlookStopped(OperationScope reading)
+    {
+        OutlookAccountsText = _services.Localizer[L.SettingsStatus.OutlookStopped];
+        reading.CompleteAttention(OutlookAccountsText, new PageStatusLog(L.SettingsStatus.OutlookStopped));
+    }
+
+    /// <summary>The window closed: what still runs ends without a message, and its token is cancelled.</summary>
+    internal void EndOperations() => Status.Operation?.Dispose();
+
+    // The three operations of the tab share its status: each waits for the others.
     private bool CanLoadOutlookAccounts() =>
-        !IsLoadingOutlookAccounts && _messages.Transports.Outlook?.Availability == OutlookAvailability.Installed;
+        !IsLoadingOutlookAccounts && !IsTesting && _messages.Transports.Outlook?.Availability == OutlookAvailability.Installed;
 
     /// <summary>Copies the certificate seen in the last test into the pin (and switches to pinning).</summary>
     [RelayCommand(CanExecute = nameof(HasSeenCertificate))]
@@ -433,17 +568,22 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
 
     private bool HasSeenCertificate() => SeenCertificate is not null;
 
-    private bool CanTest() => !IsTesting && SmtpHost.Trim().Length > 0;
+    private bool CanTest() => !IsTesting && !IsLoadingOutlookAccounts && SmtpHost.Trim().Length > 0;
 
     private bool CanSendTestMessage() => CanTest() && UserMessageRules.TryParseAddress(TestAddress, out _);
 
-    /// <summary>The direct SMTP transport of the typed values (the password from the box goes to the session memory).</summary>
-    private IUserMessageTransport? CreateTransport()
+    /// <summary>
+    /// The direct SMTP transport of the typed values (the password from the box goes to the session memory - it is
+    /// never part of a text). Without one nothing is started, and the status line says why: "The connection was not
+    /// tested: Enter the SMTP password…".
+    /// </summary>
+    /// <param name="notStartedKey">The resource key of what was not started ("The connection was not tested").</param>
+    private IUserMessageTransport? CreateTransport(string notStartedKey)
     {
         if (Error is { } error)
         {
-            TestSucceeded = false;
-            TestResult = error;
+            // The same sentence the window shows as its note: why the values cannot be used.
+            NotStarted(notStartedKey, notStartedKey, error);
             return null;
         }
 
@@ -456,43 +596,69 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
 
         if (choice.Transport is null || choice.NeedsPassword)
         {
-            TestSucceeded = false;
-            TestResult = choice.NeedsPassword
-                ? _services.Localizer[L.UserMessages.PasswordRequired]
-                : _services.Localizer[UserMessageText.ProblemKey(choice.Problem ?? UserMessageTransportChoiceResult.SmtpNotConfigured)];
+            var reasonKey = choice.NeedsPassword
+                ? L.UserMessages.PasswordRequired
+                : UserMessageText.ProblemKey(choice.Problem ?? UserMessageTransportChoiceResult.SmtpNotConfigured);
+            NotStarted(notStartedKey, reasonKey, _services.Localizer[reasonKey]);
             return null;
         }
 
         return choice.Transport;
     }
 
+    /// <summary>
+    /// The button was pressed and nothing was started: "The connection was not tested: why." - an attention the
+    /// operator can close; the log copy is the key of the reason, never its text.
+    /// </summary>
+    private void NotStarted(string notStartedKey, string reasonKey, string reason)
+    {
+        TestSucceeded = false;
+        TestResult = reason;
+        TestDetails = null;
+        Status.Show(PageStatus.Attention(
+            PageStatusText.Failure(_services.Localizer[notStartedKey], reason), new PageStatusLog(reasonKey)));
+    }
+
     private string Describe(SmtpConnectionTest result)
     {
         var l = _services.Localizer;
-        var lines = new List<string>();
-        if (result.Success)
+        var lines = new List<string>
         {
-            lines.Add(l.Format(
-                L.UserMessages.TestConnectionOk,
-                result.IsEncrypted ? l.Format(L.UserMessages.Encrypted, result.TlsProtocol ?? string.Empty) : l[L.UserMessages.NotEncrypted],
-                result.AuthenticatedWith ?? l[UserMessageText.AuthKey(SmtpAuthentication.None)]));
-        }
-        else
-        {
-            lines.Add(l.Format(L.UserMessages.TestConnectionFailed, l[UserMessageText.StageKey(result.Stage)], UserMessageText.Delivery(l, result.Failure!)));
-        }
+            result.Success ? l.Format(L.UserMessages.TestConnectionOk, Encryption(result), SignedInWith(result)) : StageFailure(result),
+        };
+        lines.AddRange(DetailLines(result));
+        return string.Join(Environment.NewLine, lines);
+    }
 
+    /// <summary>"encrypted (Tls13)" or "NOT encrypted".</summary>
+    private string Encryption(SmtpConnectionTest result) => result.IsEncrypted
+        ? _services.Localizer.Format(L.UserMessages.Encrypted, result.TlsProtocol ?? string.Empty)
+        : _services.Localizer[L.UserMessages.NotEncrypted];
+
+    /// <summary>The mechanism the test signed in with, or "none".</summary>
+    private string SignedInWith(SmtpConnectionTest result) =>
+        result.AuthenticatedWith ?? _services.Localizer[UserMessageText.AuthKey(SmtpAuthentication.None)];
+
+    /// <summary>"Stage "TLS" failed: smtp.notSupported – The server does not offer STARTTLS."</summary>
+    private string StageFailure(SmtpConnectionTest result) => _services.Localizer.Format(
+        L.UserMessages.TestConnectionFailed, _services.Localizer[UserMessageText.StageKey(result.Stage)], UserMessageText.Delivery(_services.Localizer, result.Failure!));
+
+    /// <summary>What the server showed, one fact per line; null when it showed nothing.</summary>
+    private string? Details(SmtpConnectionTest result) =>
+        DetailLines(result).ToList() is { Count: > 0 } lines ? string.Join(Environment.NewLine, lines) : null;
+
+    private IEnumerable<string> DetailLines(SmtpConnectionTest result)
+    {
+        var l = _services.Localizer;
         if (result.AuthenticationMechanisms.Count > 0)
         {
-            lines.Add(l.Format(L.UserMessages.Mechanisms, string.Join(", ", result.AuthenticationMechanisms)));
+            yield return l.Format(L.UserMessages.Mechanisms, string.Join(", ", result.AuthenticationMechanisms));
         }
 
         if (result.CertificateSha256 is { } sha)
         {
-            lines.Add(l.Format(L.UserMessages.CertificateSeen, sha));
+            yield return l.Format(L.UserMessages.CertificateSeen, sha);
         }
-
-        return string.Join(Environment.NewLine, lines);
     }
 
     private SmtpConnectionSettings Connection() => new()

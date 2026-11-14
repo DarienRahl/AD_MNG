@@ -3,6 +3,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Formatting;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
+using AdMng.Core.Schema;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
@@ -143,6 +144,12 @@ public sealed class ObjectRowViewModel : INotifyPropertyChanged
         if (!Object.TryGet(attribute, out var values) || values.Count == 0)
         {
             return string.Empty;
+        }
+
+        // Key material is never shown, copied or exported (P1 decision 7) – also when a saved view lists it as a column.
+        if (SecretAttributes.IsNeverShown(attribute, schema: null))
+        {
+            return SecretAttributes.Mask;
         }
 
         return _context.Formatter.Format(attribute, values, _context.Localizer.Culture);

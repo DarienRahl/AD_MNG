@@ -1,6 +1,7 @@
 using AdMng.Core.Audit;
 using AdMng.Core.Directory;
 using AdMng.Presentation.Connection;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -20,7 +21,15 @@ namespace AdMng.Presentation.Dialogs;
 /// cancellation keep the current session. The switch is recorded in the session log; the connection profile's DC is
 /// changed only when the operator asks for it.
 /// </summary>
-public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBase
+/// <remarks>
+/// The window has one status line (<see cref="Status"/>; track V, stage V2b, design note
+/// docs/dev/v-interface-renewal.md "V2b-2 as built"). The list can still be read while the operator already switches to a
+/// name he typed, so there are two holders: the list of domain controllers says that it is read, how many it shows, and -
+/// for as long as it lasts - that it could not be read or that its read was stopped (<see cref="ListStatus"/>, the page
+/// in front); the window says the switch and why it did not happen, and - as the state that lasts - that it has no
+/// session. A switch that succeeded says nothing here: the dialog closes.
+/// </remarks>
+public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBase, IHasPageStatus
 {
     private readonly IAuditLog _auditLog;
     private readonly IDirectoryConnector? _connector;
@@ -37,10 +46,26 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
     {
         _auditLog = auditLog ?? throw new ArgumentNullException(nameof(auditLog));
         _connector = connector;
+        Status = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
+        ListStatus = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
+        Status.Front = ListStatus;
         ProfileName = FindProfile()?.Name;
+        UpdateLasting();
     }
 
     public override string WindowTitle => Localizer[L.ChangeDc.WindowTitle];
+
+    /// <summary>
+    /// The status of the window - what its one status line shows: what the list says while nothing else is said, the
+    /// switch to the chosen domain controller (with Stop) and why it did not happen, and that the window has no session.
+    /// </summary>
+    public PageStatusHolder Status { get; }
+
+    /// <summary>
+    /// The status of the list of domain controllers: reading it (with Stop), how many it shows, and - for as long as it
+    /// lasts - that it could not be read or that its read was stopped, with the command that reads it again.
+    /// </summary>
+    public PageStatusHolder ListStatus { get; }
 
     /// <summary>"Domain: contoso.com" (empty when not connected).</summary>
     public string DomainText => Session is { } session ? Localizer.Format(L.ChangeDc.Domain, session.Info.DomainDnsName) : string.Empty;
@@ -152,15 +177,21 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
     [NotifyCanExecuteChangedFor(nameof(ChangeCommand), nameof(RefreshCommand))]
     public partial bool IsBusy { get; private set; }
 
-    /// <summary>Progress ("Connecting to dc02…") or "cancelled".</summary>
+    /// <summary>Progress ("Connecting to dc02…") or "cancelled" (the status line says it; kept for callers that read it).</summary>
     [ObservableProperty]
     public partial string? StatusText { get; private set; }
 
-    /// <summary>Why the switch failed (the session stays where it was), or "not connected".</summary>
+    /// <summary>
+    /// Why the switch failed (the session stays where it was), or "not connected" - what the status line says, as plain
+    /// text (kept for callers that read it).
+    /// </summary>
     [ObservableProperty]
     public partial string? ErrorText { get; private set; }
 
-    /// <summary>Shown when the list could not be read at all (a name can still be typed).</summary>
+    /// <summary>
+    /// Set when the list could not be read at all (a name can still be typed): the state of the list in the status
+    /// line, as plain text (kept for callers that read it).
+    /// </summary>
     [ObservableProperty]
     public partial string? ListNote { get; private set; }
 
@@ -175,6 +206,7 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
         if (Session is null)
         {
             ErrorText = NoSessionMessage;
+            UpdateLasting();
             ChangeCommand.NotifyCanExecuteChanged();
             RefreshCommand.NotifyCanExecuteChanged();
             return Task.CompletedTask;
@@ -195,6 +227,11 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
         return Task.FromResult(true);
     }
 
+    /// <summary>
+    /// Moves the session to the chosen domain controller. The switch is the operation of the window: its status line
+    /// says "Connecting to …" with Stop - the Change button is its Cancel as well, and so are the dialog's Cancel and
+    /// closing it - and says why the session was not moved. A switch that succeeded says nothing: the dialog closes.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanChange), IncludeCancelCommand = true)]
     private async Task ChangeAsync(CancellationToken cancellationToken)
     {
@@ -216,35 +253,68 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
         var anyWritable = UseAnyWritableInSite;
         IsBusy = true;
         StatusText = Localizer.Format(L.Connect.Connecting, target);
+
+        // The operation of the window: "working" from here on, with Stop. The cancel of the command (the dialog's
+        // Cancel, closing the window) is the same Stop; however this method is left, the line does not stay in "working".
+        using var switching = Status.Begin(StatusText, new PageStatusLog(L.Connect.Connecting));
+        using var stop = cancellationToken.Register(switching.Cancel);
+        var token = switching.Token;
         try
         {
             DomainControllerSwitch result;
             try
             {
                 // Background operations of the current session are cancelled only once the new DC answered.
-                result = await Services.Sessions.SwitchDomainControllerAsync(target, Services.Activities.CancelRunningAsync, cancellationToken)
+                result = await Services.Sessions.SwitchDomainControllerAsync(target, Services.Activities.CancelRunningAsync, token)
                     .ConfigureAwait(true);
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
                 StatusText = Localizer[L.Errors.Cancelled];
+
+                // Only a switch the operator stopped says so: where the session is, and the way to try again.
+                if (switching.IsCancelling)
+                {
+                    var again = Localizer[L.ChangeDc.ChangeButton];
+                    switching.CompleteAttention(
+                        Localizer.Format(L.ChangeDcStatus.Stopped, target, previous.Server, again),
+                        new PageStatusLog(L.ChangeDcStatus.Stopped),
+                        new PageStatusAction(again, ChangeCommand));
+                }
+
                 return;
             }
             catch (SameDomainControllerException ex)
             {
                 StatusText = null;
                 ErrorText = Localizer.Format(L.ChangeDc.AlreadyConnected, ex.Server);
+                switching.CompleteAttention(
+                    PageStatusText.Failure(Localizer[L.ChangeDcStatus.NotChanged], ErrorText), new PageStatusLog(L.ChangeDc.AlreadyConnected));
                 return;
             }
             catch (Exception ex)
             {
                 StatusText = null;
                 var error = Describe(ex);
+                if (Session is null)
+                {
+                    // The session of the dialog ended meanwhile (a disconnect): it does not stay on its DC. The window
+                    // says so as its state; the switch ends without a message of its own.
+                    ErrorText = NoSessionMessage;
+                    UpdateLasting();
+                }
+                else
+                {
+                    // What was tried, why it failed, what to do and where the session is, the code. The dialog is as
+                    // it was: a result that can be closed, and another domain controller can be tried right away.
+                    var stays = Localizer.Format(L.ChangeDc.StaysOn, previous.Server);
+                    ErrorText = error + Environment.NewLine + stays;
+                    var (reason, advice, code) = Explain(ex);
+                    switching.CompleteError(
+                        PageStatusText.Failure(Localizer.Format(L.ChangeDcStatus.Failed, target), reason, advice is null ? stays : $"{advice} {stays}", code),
+                        new PageStatusLog(L.ChangeDcStatus.Failed).WithCode(code));
+                }
 
-                // The session of the dialog may have ended meanwhile (a disconnect): then it does not stay on its DC.
-                ErrorText = Session is null
-                    ? NoSessionMessage
-                    : error + Environment.NewLine + Localizer.Format(L.ChangeDc.StaysOn, previous.Server);
                 Record(previous, previous.Server, target, error);
                 return;
             }
@@ -342,6 +412,10 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
         OnPropertyChanged(nameof(AnyWritableText));
         OnPropertyChanged(nameof(TargetHint));
         OnPropertyChanged(nameof(UpdateProfileText));
+
+        // The window's own sentences in the new language (why the list could not be read stays as it was said).
+        UpdateLasting();
+        UpdateSummary();
     }
 
     protected override void OnSessionEnded()
@@ -352,7 +426,10 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
             return;
         }
 
+        // A read of the list that still runs ends without a word: the line says for good that the session ended.
+        ListStatus.Operation?.Dispose();
         ErrorText = SessionEndedMessage;
+        UpdateLasting();
         ChangeCommand.NotifyCanExecuteChanged();
         RefreshCommand.NotifyCanExecuteChanged();
     }
@@ -367,10 +444,34 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
             }
 
             _lifetime.Cancel();
+
+            // What still runs says nothing any more.
+            Status.Operation?.Dispose();
+            Status.Front = null;
+            ListStatus.Operation?.Dispose();
             _lifetime.Dispose();
         }
     }
 
+    /// <summary>
+    /// The state of the window that lasts: its session ended, or it was opened without one. An error that cannot be
+    /// closed - nothing can be read or switched here. (A switch of this dialog ends its session too, but then the
+    /// dialog closes: <see cref="OnSessionEnded"/> does not get here while it switches.)
+    /// </summary>
+    private void UpdateLasting() => Status.SetLasting(
+        SessionEndedStatus ?? (Session is null ? PageStatus.Error(NoSessionMessage, new PageStatusLog(L.Errors.NotConnected), canClose: false) : null));
+
+    /// <summary>The summary of the list: how many domain controllers it shows (nothing before it was read once).</summary>
+    private void UpdateSummary() => ListStatus.SetIdle(_listShown
+        ? PageStatusText.Count(Localizer, DomainControllers.Count, L.ChangeDcStatus.CountOne, L.ChangeDcStatus.CountFew, L.ChangeDcStatus.CountMany)
+        : null);
+
+    /// <summary>
+    /// Reads the list - the operation of the list (<see cref="ListStatus"/>): its line says so with Stop. A read that
+    /// was stopped, or that could not read anything, leaves a list that lacks domain controllers: the state of the list
+    /// until it is read again, with the command that does so. Closing the window and the end of its session end the
+    /// read without a word.
+    /// </summary>
     private async Task LoadAsync()
     {
         if (Session is not { } session)
@@ -378,9 +479,15 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
             return;
         }
 
-        var token = _lifetime.Token;
+        using var reading = ListStatus.Begin(
+            Localizer.Format(L.ChangeDcStatus.Reading, session.Info.DomainDnsName), new PageStatusLog(L.ChangeDcStatus.Reading));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, reading.Token);
+        var token = linked.Token;
         IsLoading = true;
         ListNote = null;
+
+        // What the last read left is over: this one decides.
+        ListStatus.SetLasting(null);
         try
         {
             // Both sources are best effort and run off the UI thread; the merged list always contains the current DC.
@@ -389,9 +496,13 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
             var locatorTask = connector is null
                 ? Task.FromResult<IReadOnlyList<DomainControllerInfo>>([])
                 : Task.Run(() => connector.FindDomainControllersAsync(session.Info.DomainDnsName, token), token);
-            var directory = await ReadOrNullAsync(directoryTask).ConfigureAwait(true);
-            var located = await ReadOrNullAsync(locatorTask).ConfigureAwait(true);
-            if (token.IsCancellationRequested)
+            var (directory, directoryError) = await ReadOrNullAsync(directoryTask).ConfigureAwait(true);
+            var (located, _) = await ReadOrNullAsync(locatorTask).ConfigureAwait(true);
+
+            // The operator's Stop: the read is asked to stop and has not ended. Every other cancellation - the window
+            // closed, its session ended - leaves the list as it is and says nothing.
+            var stopped = reading.IsCancelling;
+            if (token.IsCancellationRequested && !stopped)
             {
                 return;
             }
@@ -401,13 +512,34 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
 
             // Without a locator (or when it found nothing) it returns only its fallback, the domain name: no DC is known.
             var locatedAny = located?.Any(d => !DomainControllerCatalog.IsLocatorFallback(d, session.Info.DomainDnsName)) == true;
-            ListNote = directory is null && !locatedAny ? Localizer[L.ChangeDc.ListUnavailable] : null;
+            var unavailable = !stopped && directory is null && !locatedAny;
+            ListNote = unavailable ? Localizer[L.ChangeDc.ListUnavailable] : null;
             if (string.IsNullOrWhiteSpace(ServerText))
             {
                 ServerText = session.Info.Server;
             }
 
             ShowList();
+            if (stopped)
+            {
+                ListStatus.SetLasting(PageStatus.Attention(
+                    Localizer[L.ChangeDcStatus.ReadStopped],
+                    new PageStatusLog(L.ChangeDcStatus.ReadStopped),
+                    new PageStatusAction(Localizer[L.Commands.Refresh], RefreshCommand)));
+            }
+            else if (unavailable)
+            {
+                // An attention, not an error: the dialog still works - a name can be typed.
+                var code = ResultCode.Of(directoryError);
+                ListStatus.SetLasting(PageStatus.Attention(
+                    PageStatusText.Failure(
+                        Localizer[L.ChangeDcStatus.ReadFailed],
+                        directoryError is null ? null : Errors.Translate(directoryError),
+                        Localizer[L.ChangeDcStatus.ReadFailedNext],
+                        code),
+                    new PageStatusLog(L.ChangeDcStatus.ReadFailed).WithCode(code),
+                    new PageStatusAction(Localizer[L.Common.Retry], RefreshCommand)));
+            }
         }
         finally
         {
@@ -415,18 +547,19 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
         }
     }
 
-    private static async Task<T?> ReadOrNullAsync<T>(Task<T> read)
+    /// <summary>The result of a read, or null and why it failed.</summary>
+    private static async Task<(T? Result, Exception? Error)> ReadOrNullAsync<T>(Task<T> read)
         where T : class
     {
         try
         {
-            return await read.ConfigureAwait(false);
+            return (await read.ConfigureAwait(false), null);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Best effort (no permission on the configuration partition, no DC locator, network): the list is shorter,
             // a name can still be typed.
-            return null;
+            return (null, ex);
         }
     }
 
@@ -450,15 +583,28 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
         OnPropertyChanged(nameof(TargetServer));
         OnPropertyChanged(nameof(TargetHint));
         ChangeCommand.NotifyCanExecuteChanged();
+        UpdateSummary();
     }
 
-    private string Describe(Exception exception) => exception switch
+    /// <summary>Why a switch failed, as one text for the session log: the reason and, on a line of its own, the advice.</summary>
+    private string Describe(Exception exception)
     {
-        DomainControllerMismatchException mismatch => Localizer.Format(L.ChangeDc.OtherDomain, mismatch.Server, mismatch.ServerDomain, mismatch.ExpectedDomain),
-        NotSupportedException => Localizer[L.ChangeDc.NotSupported],
-        ArgumentException => Localizer[L.ChangeDc.InvalidName],
-        ObjectDisposedException => Localizer[L.WindowSession.Ended],
-        _ => Errors.TranslateConnectError(exception),
+        var (reason, advice, _) = Explain(exception);
+        return advice is null ? reason : reason + Environment.NewLine + advice;
+    }
+
+    /// <summary>
+    /// Why a switch failed, in the parts a status line says: the reason, what to do about it (if anything), and the
+    /// result code - none for the failures this dialog explains itself.
+    /// </summary>
+    private (string Reason, string? Advice, ResultCode Code) Explain(Exception exception) => exception switch
+    {
+        DomainControllerMismatchException mismatch =>
+            (Localizer.Format(L.ChangeDc.OtherDomain, mismatch.Server, mismatch.ServerDomain, mismatch.ExpectedDomain), null, ResultCode.None),
+        NotSupportedException => (Localizer[L.ChangeDc.NotSupported], null, ResultCode.None),
+        ArgumentException => (Localizer[L.ChangeDc.InvalidName], null, ResultCode.None),
+        ObjectDisposedException => (Localizer[L.WindowSession.Ended], null, ResultCode.None),
+        _ => (Errors.Translate(exception), Errors.ConnectHint(exception), ResultCode.Of(exception)),
     };
 
     /// <summary>Session log entry of an attempt (never a password: only names and the localized error).</summary>

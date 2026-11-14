@@ -69,7 +69,7 @@ the third way of sending is the operator's classic Outlook (`OutlookUserMessageT
   the current one and closes the previous one. An error or cancellation leaves the current session unchanged. Windows opened in the previous session
   stay with it (they neither read nor write) and state that they belong to the previous DC; the main window's tabs
   reload from the new DC, and the session log records the change. The DC list combines a read from the directory of the current session
-  (`server`/`nTDSDSA` in `CN=Sites`, `fSMORoleOwner`) with the locator (DsGetDcName/DNS SRV, client site)
+  (`server`/`nTDSDSA` in `CN=Sites`, `fSMORoleOwner`) with the DsGetDcName locator (DNS SRV, client site)
   ([dev/phase1-changedc.md](../dev/phase1-changedc.md)).
 - Well-known containers (`wellKnownObjects`/`otherWellKnownObjects` of the domain head) are read by
   `ISessionManager.GetWellKnownObjectsAsync` once per session and kept in memory (`WellKnownObjectMap`); a new session – also
@@ -163,6 +163,31 @@ replacement, finally the version in `GPT.INI` and a compare-and-swap of `version
 else restores the files from memory. Versions only increase (also on rollback), the rollback plan reverses the order of objects.
 The audit log records the paths, sizes and SHA-256 of files – never the content. Nothing outside the pipeline writes to SYSVOL.
 
+**Creating multiple accounts (F3) in the change pipeline.** The *Create multiple accounts* wizard is the third mode of the
+bulk editor (`BatchSourceMode.Create`), not a separate window. Everything that decides the values is in
+`AdMng.Core/Batch/Creation`: `TableTextReader` (clipboard text, its HTML format when needed, CSV or `.xlsx`) yields an
+`InputTable`, and `IBulkCreatePlanner` (`BulkCreatePlanner`) only reads in `ComputeAsync` – through the window's session
+and, in a forest with several domains, through a read-only session to the global catalog port of **the same** DC
+(`ConnectGlobalCatalogAsync`) – and computes the rows: patterns (the `ITemplateEngine` syntax with the tokens `{$nr}`,
+`{$column:…}`, `{$suffix}`, `{$mailDomain}`), counters, uniqueness, managers, groups and validation
+(`BulkCreateIssueCodes`). `BuildPlan` is pure and yields an ordinary `ChangePlan`: one `ObjectPlan` per row (`SourceRow`,
+`PowerShell` = `New-ADUser … -AccountPassword (Read-Host -AsSecureString …)`) with the steps `Create` (the account
+disabled, UAC 514), `ResetPassword` (the password only in `PlannedChange.Password`), `Modify` (enabling with a
+compare-and-swap of the old UAC value, `pwdLastSet` 0), the manager and `AddMember`; the plan is not sequential, and
+`Server` is the DC the values were read from (the executor refuses any other). Before the plan is built, the wizard
+computes the rows again with the values of the check frozen (`FrozenValues`), so the plan contains exactly what the grid
+showed. Execution goes through `IChangeCoordinator` → `BatchExecutor` (the executor is unchanged; audit, PowerShell
+history and change notifications come from the pipeline) in two parts: first one object as a trial (*canary*), and the
+rest only when all its steps succeeded – a systematic error (no encryption, no reset right, a rejected password) stops
+after one account. The results of all executions of the window are merged (`BulkCreateResults.Merge`); `BuildRetryPlan`
+skips the steps that already succeeded (an account is never created twice and never gets a second password). Undo does
+not use `IRollbackPlanner`, which knows only the last result: `PlanUndoAsync` builds a plan of `Delete` steps for
+everything the window created, after reading each object again by `objectGUID` (an object replaced under the same name is
+skipped). The table, the computed rows, plans, results and passwords live only in the window's view models (rules 1 and
+2); the naming profiles in the settings are patterns and options.
+User description: [CREATING-ACCOUNTS.md](CREATING-ACCOUNTS.md); design:
+[dev/phase3-bulk-create.md](../dev/phase3-bulk-create.md).
+
 ### Group Policy (K2)
 
 `AdMng.Core/GroupPolicy`: `GroupPolicyReader` (GPOs, links, inheritance, WMI filters, sites, PDC emulator,
@@ -174,7 +199,7 @@ the Watchdog (`GroupPolicy/Content`). `AdMng.Presentation/GroupPolicy`: per-conn
 four tabs (`IShellDocument`), tree nodes, window models and the plan preview window (`ChangePlanPreviewViewModel`).
 `AdMng.App/GroupPolicy`: WPF views, windows and `WindowsSysvolFileWriter` (`AdMng.Directory`). Backups and comparison export
 go only to places chosen by the operator (rule 1). User description:
-[ZASADY-GRUPY.md](GROUP-POLICY.md); specification: [dev/k-computers-and-gpo.md](../dev/k-computers-and-gpo.md).
+[GROUP-POLICY.md](GROUP-POLICY.md); specification: [dev/k-computers-and-gpo.md](../dev/k-computers-and-gpo.md).
 
 ### Administrative Templates (K3)
 
@@ -260,6 +285,38 @@ with the pre-edit content as a precondition (conflict) and `SetGpoVersion` of th
   connection window) and the GPO *Status* tab (`GroupPolicyObjectDocumentViewModel.Health.cs`) show the results; snapshots and
   findings exist only in memory, CSV/HTML export goes to an operator's file (rule 1).
 
+### Settings search, copying settings and GPO cleanup (K7)
+
+- **Settings index:** `AdMng.Core/GroupPolicy/Search`: `GpoSettingsIndexBuilder` reads from the session's DC (rule 4) the
+  GPOs, links, `GPT.INI` versions and the folders of all GPOs, streamed through `GpoFolderReader` (`ContentOnly` mode, at
+  most four SYSVOL reads at a time, limits per file, per GPO and per run; the bytes of one GPO are parsed and discarded
+  right away), resolves account names in one pass with `GpoPrincipalResolver` (`LdapFilter` filters, 50 names per query)
+  and groups the settings into **units** (`GpoSettingUnits.Of`): what GPMC shows as one row, with an identifier shared by
+  all GPOs (an ADMX policy by its identifier, a preference item by its natural identity – drive letter, group name, path –
+  not by its `uid`), a value fingerprint, comparability (hidden, conditional, cumulative) and the reason why copying is
+  refused. An incremental refresh reads only the GPOs whose version changed.
+- **Index service per window:** `GpoSettingsIndexService` (`AdMng.Presentation/GroupPolicy/Search`, Scoped – one per
+  connection window) owns every run: its own SYSVOL connection and its own token tied to the lifetime of the GPO
+  services, one run at a time with at most one run queued, a view bound to the session instance and the server, a
+  staleness marker after GPO changes, abandonment when the session changes. The search
+  (`GpoSettingsSearchDocumentViewModel`, matching by `GpoSettingsMatcher` in the background) and the cleanup
+  (`GpoCleanupDocumentViewModel`) read the same view; `GpoIndexTexts` computes the GPMC texts once per view.
+- **Writing through the change plan:** `GroupPolicyPlanner.PlanCopySettingsAsync`, `PlanRemoveSettingsAsync`,
+  `PlanMergeAsync`, `PlanUnlinkAllAsync` and `PlanDeleteAsync` with an expected state read the source and the target
+  **again** at planning time (never values from the index), and the internal `GpoSettingsWriter` changes `Registry.pol`,
+  `GptTmpl.inf`, `audit.csv` and the preference files (`GppPreferenceDocument`) with minimal edits. The result is one
+  `ObjectPlan` per target GPO (extension names, `WriteGpoFile`, a single version increment – one `GpoTransaction`), for a
+  merge also the `gPLink` of the containers and the state of the merged GPO; preview, audit and rollback as for any plan
+  (rule 5). The `GpoSettingsActions` actions (`AdMng.Presentation/GroupPolicy/Copy`) pass on the index's ADMX definition
+  set and build the *Setting changes* section (`GpoSettingChangesBuilder`).
+- **Cleanup advisor:** `GpoCleanupAnalyzer.Analyze(index, options)` (`AdMng.Core/GroupPolicy/Cleanup`) is a pure
+  function of the index records (values are compared by `GpoSettingUnits.SameValue`, the scope by
+  `GroupPolicyInheritance`); proposals and their actions are only data, and every action goes through the planner and
+  the preview. The index, results and proposals exist only in the window's memory, export goes to an operator's file
+  (rule 1). Description:
+  [GROUP-POLICY.md, chapter 12](GROUP-POLICY.md#12-searching-copying-settings-and-cleaning-up-gpos-k7); specification:
+  [dev/k-computers-and-gpo.md](../dev/k-computers-and-gpo.md), chapter 21.
+
 ### Event logs (track E)
 
 - `AdMng.Core/EventLogs`: the `EventLogRecord` model, the `EventLogQuery` query, the `EventLogCoverage` coverage, the contracts
@@ -277,7 +334,7 @@ with the pre-edit content as a precondition (conflict) and `SetGpoVersion` of th
   the tabs *Event logs*, *Find the lockout source* (account state on each DC through `DomainControllerReader` – rule 4,
   `lockoutTime` replication metadata, PSOs, the source computer through the K1 remote actions) and *Failed logons*; saved
   queries in settings (without values from the logs). Events and results exist only in memory; CSV/HTML export goes to an
-  operator's file with a note about personal data (rule 1). Description: [DZIENNIKI-ZDARZEN.md](EVENT-LOGS.md),
+  operator's file with a note about personal data (rule 1). Description: [EVENT-LOGS.md](EVENT-LOGS.md),
   design: [dev/e-event-logs.md](../dev/e-event-logs.md).
 
 ## User interface
@@ -304,11 +361,22 @@ with the pre-edit content as a precondition (conflict) and `SetGpoVersion` of th
 - **Bulk editor:** a wizard operations → preview → execution → results → rollback; CSV import with column mapping.
 - **Localization:** `Strings.resx` (en) and `Strings.pl.resx` resources; attribute names from AD display specifiers (as in the
   Polish ADUC), language switching without a restart.
+- **Look, icons and motion (track V, stage V1;** [dev/v-interface-renewal.md](../dev/v-interface-renewal.md)**):**
+  `Themes/Tokens.xaml` holds what the Fluent theme does not have – spacing, density, radii, the type ramp and the
+  surface styles of the main window (a toolbar card and three panels). Colours are not aliased: views and styles read
+  the Fluent keys with `DynamicResource`, so light, dark and High Contrast switch while the program runs, and a
+  source test keeps the set of keys closed. Things are shown with the colour pictures of the project's icon set
+  (`docs/assets/icons` → generated `Themes/Icons.xaml`), drawn by `ObjectIconView` as one shared frozen image per
+  kind; the monochrome glyphs are a setting and always used in High Contrast (`IconStyleService`). Motion is never
+  written in XAML: the attached properties of `Behaviors/Motion.cs` start every animation from code, with the
+  durations of `Themes/Motion.xaml`, behind one switch (`MotionService`: the setting, the Windows "Animation
+  effects" setting and hardware acceleration; off in UI tests, screenshots and the smoke test). Only opacity and a
+  render transform move, nothing delays input, and nothing moves on a live refresh.
 
 ## Computers (K1)
 
 Design: [dev/k-computers-and-gpo.md](../dev/k-computers-and-gpo.md), chapters 3.1 and 4; administrator description:
-[KOMPUTERY.md](COMPUTERS.md).
+[COMPUTERS.md](COMPUTERS.md).
 
 - **Core/Computers** – pure logic without LDAP: `ComputerFacts` (facts from one search result), `ComputerClassifier`
   (workstation / server / DC / RODC from `userAccountControl`, the primary group and `operatingSystem`), `WindowsReleaseCatalog`
@@ -341,7 +409,7 @@ Design: [dev/k-computers-and-gpo.md](../dev/k-computers-and-gpo.md), chapters 3.
 ## Correspondence (U5)
 
 Design: [dev/u5-outlook-correspondence.md](../dev/u5-outlook-correspondence.md); user description:
-[KORESPONDENCJA.md](CORRESPONDENCE.md). The *Correspondence* window is the *Korespondencja WPiA* program (bulk sending through
+[CORRESPONDENCE.md](CORRESPONDENCE.md). The *Correspondence* window is the *Korespondencja WPiA* program (bulk sending through
 classic Outlook) moved into AD Manager, with recipients from AD and queries to mailbox owners. It writes nothing
 to the directory (rule 5 does not apply – a message is not an AD change); all reads go through the connection window's
 session (rule 4).
@@ -401,6 +469,54 @@ AdMng.Core/Correspondence                 AdMng.Outlook ── COM (dynamic) on 
   `AdMng.Presentation.Tests/Correspondence` (with `FakeOutlookClient` from `AdMng.Testing`), UI tests and screenshots 26–28 on
   Windows. Real Outlook – only the pilot.
 
+## Certificate Services (Track P, P1)
+
+Design: [dev/p-certificate-services.md](../dev/p-certificate-services.md); administrator guide:
+[CERTIFICATES.md](CERTIFICATES.md). P1 is a **read-only** AD CS overview: it writes nothing to the directory (rule 5 –
+no change plan operation, the property tabs return an empty operation list) and reads everything over the LDAP of the
+window's session (rule 4); it does not connect to the certification authority.
+
+- **Core/Pki** – pure logic without Windows types (shared with the Watchdog from P5): `PkiOverviewReader` (one paged
+  search of `CN=Public Key Services` with security descriptors and extended DNs; read notices instead of exceptions; the
+  CA computer resolution), the `CertificateSummary` and `CrlSummary` parsers (DER through `System.Formats.Asn1`, `null`
+  on malformed data), `CertificateTemplate` with the `PkiFlags` flag tables and the `PkiPeriod` periods,
+  `TemplateRightsEvaluator` (AccessCheck: the first ACE per right, deny entries, one pass over the accounts with
+  memoised decisions) and `PrincipalClassifier` (Tier 0 / broad group / other), `PkiHealth` (states computed when shown
+  from the thresholds and the clock), `PkiEscReader` and `PkiEscAnalyzer` (the 11 `PkiFindingCodes`),
+  `AltSecurityIdentity`, `KeyCredentialLink` and the TLS probe contract `IDomainControllerTlsProbe` with the
+  `DcCertificateEvaluation` and `KdcCertificateEvaluation` assessments. Chains are built with `CustomRootTrust` on the
+  CAs read from AD, without downloads (`DisableCertificateDownloads`, `RevocationMode = NoCheck`). U4b
+  (`DirectoryAclGrantSource`) reads the PKI containers in the same pass as `CollectPublicKeyAsync` (ESC5, ESC14).
+- **Directory/Pki** – `SslStreamTlsProbe`: TCP and `SslStream` to port 636 or 3269, only the TLS handshake (no LDAP
+  bind, no client certificate, no application data), 5 s, host names only (`HostNames.IsValid`, no IP addresses); a
+  chain policy with `CustomRootTrust` on an empty store and no downloads, so the platform reaches neither the Windows
+  store nor the AIA URLs. The App registers it (`AddAdMngPkiApp()`).
+- **Presentation/Pki** – `PkiSnapshotService` (**Scoped**, one per connection window) keeps in memory the PKI read, the
+  account pass, the domain controllers, the TLS probe results and the HTTP checks; its key is the session instance and
+  the server, a session change and F5 (`Invalidate`) drop everything, and one build is shared by all documents of the
+  window. `PkiHealthProbe` (a stateless singleton): the AIA, CDP and OCSP checks only on the button – `http`/`https`
+  only, no credentials for the target, at most 3 redirects (each checked), 15 s, 20 MB, the body discarded after
+  parsing. `PkiServices` and `PkiViewModelFactory` (Scoped), `PkiDocumentBase` and the four documents (overview,
+  templates, security review, readiness), the `PkiNodeViewModel` tree node, the `pki.*` and `view.pkiNodes` commands
+  (`ShellViewModel.Pki.cs`), `PkiSettings` (two thresholds and the node toggle) and three read-only property tabs.
+- **Masking** – `SecretAttributes.IsNeverShown` (key material: `userPKCS12`, the roaming credentials, the BitLocker key
+  package, managed and encrypted passwords, every secret with a binary syntax): the Attribute Editor shows the mask
+  without editing and copying, the column chooser leaves these attributes out, and a list cell (e.g. from a saved view)
+  formats as the mask – also in the CSV export (Ctrl+C leaves secret columns out). The Watchdog rejects a configuration
+  that watches `userPKCS12`.
+- **Network** – outside the window's LDAP session only the TLS probe (the *LDAPS certificates* tab: first opening, its
+  button, F5 and a DC change once opened; the readiness report – only its button; at most 4 controllers at a time) and
+  the HTTP checks after *Check HTTP URLs*; never `file:`, UNC or `ldap://host`.
+- **Data** (rule 1) – the read, the findings and the probe results are only in the window's memory; the records of
+  `AdMng.Core.Pki` and `AdMng.Presentation.Pki` have their own value-free `ToString()` (`PkiContractTests`); the PKI
+  documents write nothing of their own to the diagnostic logs; only the operator's exports reach the disk (CSV, HTML,
+  `.cer`).
+- **Tests** – `AdMng.Core.Tests/Pki` (the `AddPublicKeySample` sample: CAs and templates with Polish names, a
+  deliberately vulnerable template for every ESC rule and a safe look-alike; `PkiSamples` with certificates and CRLs
+  with fixed dates), `AdMng.Presentation.Tests/Pki`, `AdMng.Directory.IntegrationTests/Pki` (the probe against an
+  in-process TLS server, in the lab – LDAPS of `localhost`), UI tests and the screenshots 36–39 on Windows. Samba has no
+  AD CS – consistency with `pkiview.msc`, `certtmpl.msc`, Certipy and Locksmith will be confirmed by the pilot.
+
 ## Security
 
 - Sign-in and reset passwords exist only in memory; they do not reach settings, logs or `ToString()`.
@@ -412,6 +528,9 @@ AdMng.Core/Correspondence                 AdMng.Outlook ── COM (dynamic) on 
   containing them are skipped on Ctrl+C); a secret reaches the clipboard only after being explicitly revealed in the Attribute Editor, with
   exclusion from the clipboard history and clearing after 60 s. Rows copied to Excel have the same formula protection as
   CSV export.
+- Key material (`userPKCS12`, the roaming credentials, encrypted LAPS passwords, every secret with a binary syntax) is
+  never shown, copied or exported – not in the Attribute Editor and not in list columns either
+  (`SecretAttributes.IsNeverShown`, P1).
 - Warnings for protected objects (adminCount=1, critical system objects, built-in accounts) and confirmation
   by typing the number of objects for large/risky operations.
 - The application is not a security boundary – permissions are decided by ACLs in AD; the UI only reflects them.
@@ -507,6 +626,7 @@ Principles that distinguish the service from the rest of the solution:
 |---|---|---|
 | Unit | `AdMng.Core.Tests`, `AdMng.Presentation.Tests` | xUnit v3, `FakeDirectorySession`; view model tests on a single UI thread (`UiThreadAttribute`), as in WPF; time limits as logical bounds and linear growth of work (`LinearWork`), not wall-clock time |
 | Integration | `AdMng.Directory.IntegrationTests` | Samba AD DC from `tools/testlab` (locally and in CI on Ubuntu) |
+| PKI (P1) | `AdMng.Core.Tests/Pki`, `AdMng.Presentation.Tests/Pki`, `AdMng.Directory.IntegrationTests/Pki` | the fake directory's PKI sample (deliberately vulnerable templates and safe look-alikes), certificates and CRLs generated in the tests with fixed dates, the TLS probe against an in-process TLS server (Linux and Windows); the Samba lab – only empty PKI containers and the LDAPS probe |
 | Outlook (U5) | `AdMng.Outlook.Tests` | a fake Outlook object model in the CLR: order of message-building steps, `cid:` images, error classification, the STA thread, temporary files, votes, the U1 transport (Linux and Windows); real Outlook – only the pilot |
 | UI smoke | Windows CI | `AdMng.exe --smoke-test` creates all views with test data |
 | Watchdog – engine | `AdMng.Watchdog.Core.Tests` | `FakeDirectorySession` with USN, metadata and controller emulation; recorded 47xx/5136 events; a fake clock |

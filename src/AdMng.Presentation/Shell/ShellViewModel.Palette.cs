@@ -63,6 +63,7 @@ public sealed partial class ShellViewModel
             },
             .. ComputerCommandDescriptors(),
             .. CorrespondenceCommandDescriptors(),
+            .. BulkCreateCommandDescriptors(),
             new("new.user", L.Commands.NewUser, create, "Ctrl+Shift+U", NewUserCommand)
             {
                 DisabledReason = p => CreateBlockedReason(ObjectKind.User, p as string),
@@ -111,8 +112,11 @@ public sealed partial class ShellViewModel
             .. GroupPolicyCommandDescriptors(),
             .. DocumentCommandDescriptors(),
             .. GroupPolicyDiagnosticsCommandDescriptors(),
+            .. GroupPolicySearchCommandDescriptors(),
+            .. GroupPolicyCleanupCommandDescriptors(),
             .. EventLogCommandDescriptors(),
             .. ReadinessCommandDescriptors(),
+            .. PkiCommandDescriptors(),
             new("tools.settings", L.Commands.Settings, tools, "Ctrl+OemComma", ShowSettingsCommand),
             new("session.newWindow", L.Commands.NewConnectionWindow, session, "Ctrl+Shift+N", NewConnectionWindowCommand),
             new("session.changeDc", L.Commands.ChangeDomainController, session, string.Empty, ChangeDomainControllerCommand),

@@ -5,6 +5,7 @@ using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Core.Security;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.PropertySheets;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -17,6 +18,11 @@ namespace AdMng.Presentation.Computers;
 /// (approximate) and – on demand – the exact one from every DC, the site (DNS → subnet), the creator, the object owner,
 /// LAPS, and the buttons of the remote actions and tools. Read only; everything stays in memory.
 /// </summary>
+/// <remarks>
+/// The two reads on demand are operations of the page (track V, stage V2b): the status line of the sheet says what is
+/// read, offers Stop, and says how it ended - an attention when not every domain controller answered, an error when
+/// nothing could be read. Their result is the page itself, so a read that went well ends without a message.
+/// </remarks>
 public sealed partial class ComputerStatusPageViewModel : PropertyPageViewModel
 {
     public const string PageKey = L.Computers.StatusPage;
@@ -145,11 +151,15 @@ public sealed partial class ComputerStatusPageViewModel : PropertyPageViewModel
             return;
         }
 
+        var localizer = Context.Localizer;
+        using var scope = Status.Begin(
+            localizer[L.PropertySheetStatus.ComputerReadingExact], new PageStatusLog(L.PropertySheetStatus.ComputerReadingExact));
+        var token = scope.Token;
         IsReading = true;
         Error = null;
         try
         {
-            var reads = await Task.Run(() => reader.ReadAsync(Context.Session, [row.DistinguishedName], [Attr.LastLogon], CancellationToken.None)).ConfigureAwait(true);
+            var reads = await Task.Run(() => reader.ReadAsync(Context.Session, [row.DistinguishedName], [Attr.LastLogon], token), token).ConfigureAwait(true);
             var best = reads.Where(r => r.Succeeded)
                 .Select(r => (r.Server, Time: r.Find(row.DistinguishedName)?.GetFileTime(Attr.LastLogon)))
                 .Where(v => v.Time is not null)
@@ -159,12 +169,28 @@ public sealed partial class ComputerStatusPageViewModel : PropertyPageViewModel
             var failed = reads.Where(r => !r.Succeeded).Select(r => r.Server).ToList();
             if (failed.Count > 0)
             {
-                Error = Context.Localizer.Format(L.Computers.ExactNotAnswered, string.Join(", ", failed));
+                // What was skipped, and what the page shows all the same. The names of the servers are on screen only:
+                // the log copy has their number.
+                Error = localizer.Format(L.Computers.ExactNotAnswered, string.Join(", ", failed));
+                scope.CompleteAttention(
+                    PageStatusText.Failure(Error, null, localizer[L.PropertySheetStatus.ComputerExactPartialNext]),
+                    new PageStatusLog(L.Computers.ExactNotAnswered, failed.Count));
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // Stopped by the operator: the row keeps what it showed.
+            scope.CompleteAttention(
+                localizer.Format(L.PropertySheetStatus.ComputerExactStopped, localizer[L.Computers.CheckAllDomainControllers]),
+                new PageStatusLog(L.PropertySheetStatus.ComputerExactStopped));
         }
         catch (Exception ex) when (ex is DirectoryException or InvalidOperationException or ObjectDisposedException)
         {
+            var code = ResultCode.Of(ex);
             Error = Context.Services.Errors.Translate(ex);
+            scope.CompleteError(
+                PageStatusText.Failure(localizer[L.PropertySheetStatus.ComputerExactFailed], Error, null, code),
+                new PageStatusLog(L.PropertySheetStatus.ComputerExactFailed).WithCode(code));
         }
         finally
         {
@@ -182,18 +208,32 @@ public sealed partial class ComputerStatusPageViewModel : PropertyPageViewModel
             return;
         }
 
+        var localizer = Context.Localizer;
+        using var scope = Status.Begin(
+            localizer[L.PropertySheetStatus.ComputerResolvingSite], new PageStatusLog(L.PropertySheetStatus.ComputerResolvingSite));
         IsReading = true;
         Error = null;
         try
         {
-            if (await actions.ResolveSiteAsync(Context.Session, row.Facts).ConfigureAwait(true) is { } site)
+            if (await actions.ResolveSiteAsync(Context.Session, row.Facts, scope.Token).ConfigureAwait(true) is { } site)
             {
                 _row = row with { Site = site };
             }
         }
+        catch (OperationCanceledException)
+        {
+            // Stopped by the operator: the row keeps what it showed.
+            scope.CompleteAttention(
+                localizer.Format(L.PropertySheetStatus.ComputerSiteStopped, localizer[L.Computers.ResolveSite]),
+                new PageStatusLog(L.PropertySheetStatus.ComputerSiteStopped));
+        }
         catch (Exception ex) when (ex is DirectoryException or InvalidOperationException or ObjectDisposedException)
         {
+            var code = ResultCode.Of(ex);
             Error = Context.Services.Errors.Translate(ex);
+            scope.CompleteError(
+                PageStatusText.Failure(localizer[L.PropertySheetStatus.ComputerSiteFailed], Error, null, code),
+                new PageStatusLog(L.PropertySheetStatus.ComputerSiteFailed).WithCode(code));
         }
         finally
         {

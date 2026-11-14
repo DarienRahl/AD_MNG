@@ -7,6 +7,7 @@ using AdMng.App.Views;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.PropertySheets;
 using AdMng.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,7 +51,10 @@ public sealed class AccountReviewWindowTests
         Assert.Equal(Visibility.Visible, window.TilesList.Visibility);
         Assert.Equal(Visibility.Collapsed, window.NotRunHint.Visibility);
         Assert.Equal(review.Tiles.Count, window.TilesList.Items.Count);
-        Assert.Equal(review.StatusText, window.StatusText.Text);
+
+        // "Stan na godz. …" is the summary of the tab, said in the status line of the window (track V, stage V2b).
+        Assert.Equal(PageStatusKind.Idle, window.PageStatus.Kind);
+        Assert.Equal(review.StatusText, window.PageStatus.Message);
 
         // The "Locked" tile: its columns and the locked user of the sample company.
         window.TilesList.SelectedItem = review.Tiles.Single(t => t.Check == AccountCheck.Locked);
@@ -110,8 +114,9 @@ public sealed class AccountReviewWindowTests
         Assert.Equal(Visibility.Collapsed, window.PrivilegesNotRunHint.Visibility);
         Assert.Equal(tab.Items.Count, window.PrivilegesList.Items.Count);
         Assert.Equal(4, window.LevelTilesList.Items.Count);
-        Assert.Equal(review.FooterText, window.StatusText.Text);
-        Assert.Equal(tab.StatusText, window.StatusText.Text);
+        Assert.Equal(PageStatusKind.Idle, window.PageStatus.Kind);
+        Assert.Equal(review.FooterText, window.PageStatus.Message);
+        Assert.Equal(tab.StatusText, window.PageStatus.Message);
 
         // The details of an account: every finding with its path.
         var henryk = tab.Items.Single(r => r.Name == "Henryk Żuławski");
@@ -202,6 +207,8 @@ public sealed class AccountReviewWindowTests
         Assert.Contains(tab.SourceOptions, o => o.Source == Core.PrivilegedAccess.PrivilegeSource.GroupPolicy);
         Assert.Contains(tab.SourceOptions, o => o.Source == Core.PrivilegedAccess.PrivilegeSource.DirectoryAcl);
         Assert.Equal(Visibility.Visible, window.PrivilegesNoticeBar.Visibility);
+        Assert.Same(Application.Current.FindResource("Ad.Note.Attention"), window.PrivilegesNoticeBar.Style);
+        Assert.True(window.PrivilegesNoticeText.IsVisible);
         Assert.Equal(tab.NoticeText, window.PrivilegesNoticeText.Text);
 
         // A local right in the details: its title, the GPO and the computers.
@@ -209,7 +216,7 @@ public sealed class AccountReviewWindowTests
         await UiTestSupport.WaitForIdleAsync();
         Assert.Contains(UiWait.Descendants<TextBlock>(window.FindingsList), t => t.Text == "Local right from a group policy: Administrators");
 
-        // SYSVOL cannot be opened with the session's credentials: the bar says why, the other sources still run.
+        // SYSVOL cannot be opened with the session's credentials: the note says why, the other sources still run.
         sysvol.Unavailable = Core.GroupPolicy.SysvolUnavailableReason.LogonFailure;
         await review.RunCommand.ExecuteAsync(null);
         await UiTestSupport.WaitForIdleAsync();
@@ -252,7 +259,8 @@ public sealed class AccountReviewWindowTests
 
         // The builder with two groups and a problem shown next to the condition.
         var services = context.Services.GetRequiredService<DialogServices>();
-        var editor = new Presentation.Filters.FilterEditorViewModel(services.Sessions, services.Dialogs, services.Localizer, services.Errors, services.Time);
+        var editor = new Presentation.Filters.FilterEditorViewModel(
+            services.Sessions, services.Dialogs, services.Localizer, services.Errors, services.Time, services.Dispatcher);
         var builder = (FilterEditorWindow)windows.CreateWindow(editor);
         UiTestSupport.ShowOffScreen(builder);
         editor.Groups[0].Conditions[0].Attribute = Attr.Department;
@@ -260,11 +268,13 @@ public sealed class AccountReviewWindowTests
         editor.AddGroupCommand.Execute(null);
         await UiTestSupport.WaitForIdleAsync();
         Assert.Equal(2, builder.GroupsList.Items.Count);
-        Assert.Equal(Visibility.Visible, builder.ErrorBar.Visibility);
+        Assert.Equal(Visibility.Visible, builder.ErrorNote.Visibility);
+        Assert.Same(Application.Current.FindResource("Ad.Note.Error"), builder.ErrorNote.Style);
+        Assert.Equal(editor.Error, builder.ErrorText.Text);
         Assert.Contains(UiWait.Descendants<TextBlock>(builder.GroupsList), t => t.Text == "Wybierz atrybut.");
         editor.RemoveGroupCommand.Execute(editor.Groups[1]);
         await UiTestSupport.WaitForIdleAsync();
-        Assert.Equal(Visibility.Collapsed, builder.ErrorBar.Visibility);
+        Assert.Equal(Visibility.Collapsed, builder.ErrorNote.Visibility);
         Assert.Equal("(department=Księgowość)", builder.PreviewBox.Text);
         editor.IsRaw = true;
         await UiTestSupport.WaitForIdleAsync();

@@ -50,6 +50,8 @@ public sealed class TrConverter : IValueConverter
             UserAccountControl flag => DisplayNames.UacFlagKey(flag),
             GroupScope scope => DisplayNames.GroupScopeKey(scope),
             ThemePreference theme => DisplayNames.ThemeKey(theme),
+            IconStylePreference iconStyle => DisplayNames.IconStyleKey(iconStyle),
+            MotionPreference motion => DisplayNames.MotionKey(motion),
             AuthenticationMode mode => DisplayNames.AuthenticationKey(mode),
             TransportSecurity security => DisplayNames.SecurityKey(security),
             SearchScope scope => DisplayNames.ScopeKey(scope),

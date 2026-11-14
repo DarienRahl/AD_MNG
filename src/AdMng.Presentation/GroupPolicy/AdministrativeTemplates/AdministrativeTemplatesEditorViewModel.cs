@@ -370,8 +370,8 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         if (gpo is null)
         {
             _gpo = null;
-            Error = Localizer[L.GroupPolicy.Missing];
-            LoadedText = Error;
+            ShowUnavailable(L.GroupPolicy.Missing);
+            LoadedText = Localizer[L.GroupPolicy.Missing];
             OnPropertyChanged(nameof(Title));
             return;
         }

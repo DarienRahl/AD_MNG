@@ -21,10 +21,14 @@
         xmlns:gpmod="clr-namespace:AdMng.Presentation.GroupPolicy.Modeling;assembly=AdMng.Presentation"
         xmlns:gpdiag="clr-namespace:AdMng.Presentation.GroupPolicy.Diagnostics;assembly=AdMng.Presentation"
         xmlns:gpsec="clr-namespace:AdMng.Presentation.GroupPolicy.SecuritySettings;assembly=AdMng.Presentation"
+        xmlns:gpsearch="clr-namespace:AdMng.Presentation.GroupPolicy.Search;assembly=AdMng.Presentation"
+        xmlns:gpclean="clr-namespace:AdMng.Presentation.GroupPolicy.Cleanup;assembly=AdMng.Presentation"
         xmlns:evt="clr-namespace:AdMng.Presentation.EventLogs;assembly=AdMng.Presentation"
         xmlns:evtv="clr-namespace:AdMng.App.EventLogs"
         xmlns:rd="clr-namespace:AdMng.Presentation.Readiness;assembly=AdMng.Presentation"
         xmlns:rdv="clr-namespace:AdMng.App.Readiness"
+        xmlns:pki="clr-namespace:AdMng.Presentation.Pki;assembly=AdMng.Presentation"
+        xmlns:pkiv="clr-namespace:AdMng.App.Pki"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1360"
         Height="840"
@@ -126,6 +130,17 @@
       </StackPanel>
     </HierarchicalDataTemplate>
 
+    <!-- P1 PKI tree (W5): the PkiNodeViewModel template -->
+    <HierarchicalDataTemplate DataType="{x:Type nav:PkiNodeViewModel}" ItemsSource="{Binding Children}">
+      <StackPanel Orientation="Horizontal" ToolTip="{Binding HelpText, Mode=OneWay}">
+        <c:ObjectIconView Margin="0,0,6,0"
+                          VerticalAlignment="Center"
+                          Icon="{Binding Icon, Mode=OneWay}"
+                          Size="16" />
+        <TextBlock VerticalAlignment="Center" Text="{Binding Name, Mode=OneWay}" />
+      </StackPanel>
+    </HierarchicalDataTemplate>
+
     <!-- Document tabs: header only; the documents are hosted below so every tab keeps its list, scroll and selection. -->
     <Style x:Key="TabStripStyle" TargetType="TabControl" BasedOn="{StaticResource {x:Type TabControl}}">
       <Setter Property="Template">
@@ -195,6 +210,7 @@
           <TextBlock FontWeight="SemiBold"
                      Text="{Binding Title, Mode=OneWay}"
                      TextTrimming="CharacterEllipsis" />
+          <!-- How far this one activity is: the progress of a row stays in its row (track V, stage V2b). -->
           <ProgressBar Margin="0,4,0,2"
                        Maximum="1"
                        Minimum="0"
@@ -207,10 +223,15 @@
       </DockPanel>
     </DataTemplate>
 
-    <!-- Toasts -->
+    <!--
+      Toasts. A new toast fades and slides in from the right (b:Motion.Entrance); a dismissed one fades and slides out
+      while the notification service keeps it for Motion.Disappear (b:Motion.Leaving). With motion off both are skipped.
+    -->
     <DataTemplate x:Key="ToastTemplate" DataType="{x:Type svc:ToastViewModel}">
       <Border Width="380"
               Margin="0,8,0,0"
+              b:Motion.Entrance="Toast"
+              b:Motion.Leaving="{Binding IsLeaving, Mode=OneWay}"
               Style="{StaticResource Ad.Overlay}">
         <DockPanel>
           <Button VerticalAlignment="Top"
@@ -250,7 +271,7 @@
     <!-- Identity banner: amber for privileged (Tier 0) identities. -->
     <Style x:Key="IdentityBannerStyle" TargetType="Border">
       <Setter Property="Padding" Value="6,1" />
-      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="CornerRadius" Value="{StaticResource Ad.Radius.Control}" />
       <Setter Property="Background" Value="Transparent" />
       <Style.Triggers>
         <DataTrigger Binding="{Binding IsPrivilegedIdentity, Mode=OneWay}" Value="True">
@@ -270,7 +291,7 @@
     </Style>
     <Style x:Key="DetailsCaption" TargetType="TextBlock" BasedOn="{StaticResource Ad.SecondaryText}">
       <Setter Property="Margin" Value="0,0,0,1" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="{StaticResource Ad.FontSize.Caption}" />
       <Setter Property="TextWrapping" Value="Wrap" />
       <Setter Property="VerticalAlignment" Value="Top" />
     </Style>
@@ -309,7 +330,10 @@
             DockPanel.Dock="Right"
             Foreground="White"
             ToolTip="{Binding ConnectionToolTip, Mode=OneWay}">
-      <!-- A plain pill: the theme's hover/pressed brushes would put the white text on a light background. -->
+      <!--
+        A plain pill: the theme's hover/pressed brushes would put the white text on a light background. The radius is
+        literal on purpose: a pill's radius is half its height (here and on the tab badge), not a token.
+      -->
       <Button.Template>
         <ControlTemplate TargetType="Button">
           <Border x:Name="Pill"
@@ -377,6 +401,8 @@
           <MenuItem b:CommandMenu.Id="new.ou" />
           <MenuItem b:CommandMenu.Id="new.computer" />
           <MenuItem b:CommandMenu.Id="new.contact" />
+          <Separator />
+          <MenuItem b:CommandMenu.Id="new.bulkCreate" />
         </MenuItem>
         <Separator />
         <MenuItem b:CommandMenu.Id="object.addToGroup" />
@@ -432,6 +458,8 @@
           <MenuItem b:CommandMenu.Id="gpo.objects" />
           <MenuItem b:CommandMenu.Id="gpo.wmiFilters" />
           <MenuItem b:CommandMenu.Id="gpo.diagnose" />
+          <MenuItem b:CommandMenu.Id="gpo.searchSettings" />
+          <MenuItem b:CommandMenu.Id="gpo.cleanup" />
         </MenuItem>
         <MenuItem b:CommandMenu.Id="object.delete" />
         <MenuItem b:CommandMenu.Id="object.rename" />
@@ -442,6 +470,8 @@
         <MenuItem b:CommandMenu.Id="view.advanced" IsChecked="{Binding ShowAdvancedFeatures, Mode=OneWay}" />
         <MenuItem b:CommandMenu.Id="view.details" IsChecked="{Binding IsDetailsPaneVisible, Mode=OneWay}" />
         <MenuItem x:Name="GroupPolicyNodesMenuItem" b:CommandMenu.Id="view.groupPolicyNodes" IsChecked="{Binding Tree.IsGroupPolicyShown, Mode=OneWay}" />
+        <!-- P1 PKI view toggle (W5) -->
+        <MenuItem x:Name="PkiNodesMenuItem" b:CommandMenu.Id="view.pkiNodes" IsChecked="{Binding Tree.IsPkiShown, Mode=OneWay}" />
         <MenuItem x:Name="FiltersMenuItem"
                   Click="OnFiltersMenuClick"
                   Header="{l:Tr Ui.ShowFilters}" />
@@ -497,6 +527,13 @@
         <MenuItem b:CommandMenu.Id="events.open" />
         <MenuItem b:CommandMenu.Id="events.failedLogons" />
         <MenuItem b:CommandMenu.Id="tools.readiness" />
+        <!-- P1 PKI menu (W5): the pki.* items -->
+        <MenuItem x:Name="PkiMenu" Header="{l:Tr Pki.MenuHeader}">
+          <MenuItem b:CommandMenu.Id="pki.overview" />
+          <MenuItem b:CommandMenu.Id="pki.templates" />
+          <MenuItem b:CommandMenu.Id="pki.security" />
+          <MenuItem b:CommandMenu.Id="pki.readiness" />
+        </MenuItem>
         <Separator />
         <MenuItem b:CommandMenu.Id="tools.sessionLog" />
         <MenuItem x:Name="PowerShellHistoryMenuItem"
@@ -516,8 +553,12 @@
     </Menu>
     </DockPanel>
 
-    <!-- ===== Toolbar, address bar, global search ===== -->
-    <Grid Grid.Row="1" Margin="6,0,8,6">
+    <!-- ===== Toolbar, address bar, global search: one card (V1) ===== -->
+    <Border x:Name="ToolbarCard"
+            Grid.Row="1"
+            Margin="8,0,8,8"
+            Style="{StaticResource Ad.Surface.Toolbar}">
+    <Grid>
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="*" />
@@ -616,24 +657,42 @@
                  Padding="30,4,10,5"
                  AutomationProperties.Name="{l:Tr Commands.QuickSearch}"
                  PreviewKeyDown="OnSearchKeyDown"
-                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
-        <TextBlock Margin="10,0,0,0"
+                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}">
+          <TextBox.Style>
+            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+              <Style.Triggers>
+                <!-- The ring below is decorative: a screen reader finds "Searching…" as the status of the box. -->
+                <DataTrigger Binding="{Binding IsSearching, Mode=OneWay}" Value="True">
+                  <Setter Property="AutomationProperties.ItemStatus" Value="{l:Tr Ui.Searching}" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBox.Style>
+        </TextBox>
+        <TextBlock x:Name="SearchGlyph"
+                   Margin="10,0,0,0"
                    HorizontalAlignment="Left"
                    FontSize="13"
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                    IsHitTestVisible="False"
                    Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Search}" />
+                   Text="{x:Static c:Glyphs.Search}"
+                   Visibility="{Binding IsSearching, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+        <!--
+          The quick search runs: a progress ring takes the place of the magnifier ("busy" is the ring - track V, stage
+          V2b; the results are the suggestions, so there is nothing to say in a status line).
+        -->
+        <c:ProgressRing x:Name="SearchRing"
+                        Margin="9,0,0,0"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                        IsActive="{Binding IsSearching, Mode=OneWay}"
+                        Size="14" />
         <TextBlock Margin="30,0,10,0"
                    Style="{StaticResource Ad.HintText}"
                    Text="{l:Tr Shell.SearchPlaceholder}"
                    Visibility="{Binding Text, ElementName=SearchBox, Converter={StaticResource Ad.EmptyToVisible}}" />
-        <ProgressBar Height="2"
-                     Margin="6,0,6,2"
-                     VerticalAlignment="Bottom"
-                     AutomationProperties.Name="{l:Tr Ui.Searching}"
-                     IsIndeterminate="{Binding IsSearching, Mode=OneWay}"
-                     Visibility="{Binding IsSearching, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         <Popup x:Name="SuggestionsPopup"
                Width="460"
                AllowsTransparency="True"
@@ -676,17 +735,30 @@
         </Popup>
       </Grid>
     </Grid>
+    </Border>
 
-    <!-- ===== Tree | documents | details ===== -->
-    <Grid x:Name="Workspace" Grid.Row="2">
+    <!--
+      ===== Tree | documents | details: three panels on the window background (V1) =====
+      The two splitters are the gaps between the panels (transparent, Ad.Size.PanelGap wide). The column widths keep
+      their meaning: a panel fills its column, border and padding included.
+      The tree column is 254 wide: the 280 it had before the panels, minus the 26 the panels take from a row (the two
+      margins of 8 and the border and padding of the document panel, 2 + 8). So a document is exactly as wide as before
+      at every window size - the lists of the document views are fitted to that width at 1360 x 840 and 1440 x 900
+      (Watchdog feed, GridViewColumnFit) - and the tree gives the room.
+    -->
+    <Grid x:Name="Workspace"
+          Grid.Row="2"
+          Margin="8,0,8,8">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="280" MinWidth="160" />
+        <ColumnDefinition Width="254" MinWidth="160" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="*" MinWidth="320" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition x:Name="DetailsColumn" Width="300" />
       </Grid.ColumnDefinitions>
 
+      <Border x:Name="TreePanel" Style="{StaticResource Ad.Surface.Panel}">
+      <Grid>
       <TreeView x:Name="NavigationTree"
                 AllowDrop="True"
                 AutomationProperties.Name="{l:Tr Ui.NavigationTree}"
@@ -729,21 +801,27 @@
               HorizontalAlignment="Stretch"
               VerticalAlignment="Bottom"
               Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
-              CornerRadius="4"
+              CornerRadius="{StaticResource Ad.Radius.Control}"
               IsHitTestVisible="False"
               Visibility="Collapsed">
         <TextBlock Text="{l:Tr Connections.CrossConnectionDrop}" TextWrapping="Wrap" />
       </Border>
+      </Grid>
+      </Border>
 
-      <GridSplitter Grid.Column="1"
-                    Width="5"
+      <GridSplitter x:Name="TreeSplitter"
+                    Grid.Column="1"
+                    Width="{StaticResource Ad.Size.PanelGap}"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Stretch"
                     Background="Transparent"
                     ResizeBehavior="PreviousAndNext"
                     ResizeDirection="Columns" />
 
-      <Grid Grid.Column="2">
+      <Border x:Name="DocumentPanel"
+              Grid.Column="2"
+              Style="{StaticResource Ad.Surface.Panel}">
+      <Grid>
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto" />
           <RowDefinition Height="*" />
@@ -761,7 +839,7 @@
                 <c:ObjectIconView Margin="0,0,6,0"
                                   VerticalAlignment="Center"
                                   Icon="{Binding Icon, Mode=OneWay}"
-                                  Size="14" />
+                                  Size="16" />
                 <TextBlock MaxWidth="220"
                            VerticalAlignment="Center"
                            Text="{Binding Title, Mode=OneWay}"
@@ -789,7 +867,7 @@
                 <c:ObjectIconView Margin="0,0,6,0"
                                   VerticalAlignment="Center"
                                   Icon="{Binding Icon, Mode=OneWay}"
-                                  Size="14" />
+                                  Size="16" />
                 <TextBlock VerticalAlignment="Center" Text="{Binding Title, Mode=OneWay}" />
                 <Border MinWidth="18"
                         Margin="6,0,0,0"
@@ -801,7 +879,7 @@
                         ToolTip="{l:Tr Watchdog.Ui.TabBadge}"
                         Visibility="{Binding HasBadge, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
                   <TextBlock HorizontalAlignment="Center"
-                             FontSize="11"
+                             FontSize="{StaticResource Ad.FontSize.Caption}"
                              FontWeight="SemiBold"
                              Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
                              Text="{Binding BadgeText, Mode=OneWay}" />
@@ -827,7 +905,7 @@
                 <c:ObjectIconView Margin="0,0,6,0"
                                   VerticalAlignment="Center"
                                   Icon="{Binding Icon, Mode=OneWay}"
-                                  Size="14" />
+                                  Size="16" />
                 <TextBlock MaxWidth="220"
                            VerticalAlignment="Center"
                            Text="{Binding Title, Mode=OneWay}"
@@ -853,7 +931,33 @@
                 <c:ObjectIconView Margin="0,0,6,0"
                                   VerticalAlignment="Center"
                                   Icon="{Binding Icon, Mode=OneWay}"
-                                  Size="14" />
+                                  Size="16" />
+                <TextBlock MaxWidth="220"
+                           VerticalAlignment="Center"
+                           Text="{Binding Title, Mode=OneWay}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Margin="4,0,0,0"
+                           FontSize="10"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{x:Static c:Glyphs.Refresh}"
+                           Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <Button Margin="6,0,0,0"
+                        AutomationProperties.Name="{l:Tr Commands.CloseTab}"
+                        Click="OnCloseTabClick"
+                        Content="{x:Static c:Glyphs.Close}"
+                        Focusable="False"
+                        Style="{StaticResource Ad.SmallIconButton}"
+                        ToolTip="{l:Tr Commands.CloseTab}" />
+              </StackPanel>
+            </DataTemplate>
+            <!-- PKI documents (P1, docs/dev/p-certificate-services.md 2.5): one header for every PkiDocumentBase. -->
+            <DataTemplate DataType="{x:Type pki:PkiDocumentBase}">
+              <StackPanel Orientation="Horizontal" ToolTip="{Binding Title, Mode=OneWay}">
+                <c:ObjectIconView Margin="0,0,6,0"
+                                  VerticalAlignment="Center"
+                                  Icon="{Binding Icon, Mode=OneWay}"
+                                  Size="16" />
                 <TextBlock MaxWidth="220"
                            VerticalAlignment="Center"
                            Text="{Binding Title, Mode=OneWay}"
@@ -879,7 +983,7 @@
                 <c:ObjectIconView Margin="0,0,6,0"
                                   VerticalAlignment="Center"
                                   Icon="{Binding Icon, Mode=OneWay}"
-                                  Size="14" />
+                                  Size="16" />
                 <TextBlock MaxWidth="220"
                            VerticalAlignment="Center"
                            Text="{Binding Title, Mode=OneWay}"
@@ -909,8 +1013,17 @@
           </TabControl.ItemContainerStyle>
         </TabControl>
 
+        <!--
+          Every open document has its container here; only the one of the selected tab is visible. A container that
+          becomes visible - its document was just opened, or its tab was chosen - rises to its place (page entrance,
+          b:Motion.Entrance; moved, never faded, so the text of a list stays sharp). Nothing inside a document
+          changes the visibility of its container, so a refresh, paging or a selection never replays it. The host
+          clips to its bounds: the content starts below its place and must not cover the panel edge or the status bar.
+          The visibility setter comes first, so a container that starts collapsed never begins an entrance.
+        -->
         <ItemsControl x:Name="DocumentHost"
                       Grid.Row="1"
+                      ClipToBounds="True"
                       Focusable="False"
                       ItemsSource="{Binding Documents}">
           <ItemsControl.ItemsPanel>
@@ -930,6 +1043,7 @@
                   </MultiBinding>
                 </Setter.Value>
               </Setter>
+              <Setter Property="b:Motion.Entrance" Value="Page" />
             </Style>
           </ItemsControl.ItemContainerStyle>
           <!-- Document content by type. -->
@@ -969,6 +1083,14 @@
             <DataTemplate DataType="{x:Type gpdiag:GroupPolicyDiagnosticsDocumentViewModel}">
               <gpv:GroupPolicyDiagnosticsView />
             </DataTemplate>
+            <!-- GPO settings search (K7). -->
+            <DataTemplate DataType="{x:Type gpsearch:GpoSettingsSearchDocumentViewModel}">
+              <gpv:GpoSettingsSearchView />
+            </DataTemplate>
+            <!-- GPO cleanup advisor, "Porządki w GPO" (K7). -->
+            <DataTemplate DataType="{x:Type gpclean:GpoCleanupDocumentViewModel}">
+              <gpv:GpoCleanupView />
+            </DataTemplate>
             <!-- Event logs (track E): the reader, the lockout source, the failed logons. -->
             <DataTemplate DataType="{x:Type evt:EventLogReaderDocumentViewModel}">
               <evtv:EventLogReaderView />
@@ -982,6 +1104,21 @@
             <!-- Gotowość środowiska (stage S). -->
             <DataTemplate DataType="{x:Type rd:ReadinessDocumentViewModel}">
               <rdv:ReadinessView />
+            </DataTemplate>
+            <!-- P1 PKI (W5) -->
+            <DataTemplate DataType="{x:Type pki:PkiOverviewDocumentViewModel}">
+              <pkiv:PkiOverviewView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type pki:PkiTemplatesDocumentViewModel}">
+              <pkiv:PkiTemplatesView />
+            </DataTemplate>
+
+            <!-- P1 PKI security (W6) -->
+            <DataTemplate DataType="{x:Type pki:PkiSecurityReviewDocumentViewModel}">
+              <pkiv:PkiSecurityReviewView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type pki:PkiReadinessDocumentViewModel}">
+              <pkiv:PkiReadinessView />
             </DataTemplate>
           </ItemsControl.Resources>
         </ItemsControl>
@@ -1002,24 +1139,27 @@
                      Visibility="{Binding IsConnected, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         </StackPanel>
       </Grid>
+      </Border>
 
       <GridSplitter x:Name="DetailsSplitter"
                     Grid.Column="3"
-                    Width="5"
+                    Width="{StaticResource Ad.Size.PanelGap}"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Stretch"
                     Background="Transparent"
                     ResizeBehavior="PreviousAndNext"
                     ResizeDirection="Columns" />
 
-      <!-- Details pane -->
+      <!--
+        Details pane: the third panel (shown and collapsed with its column and splitter by UpdateDetailsPane). Its
+        content fades in and rises when the pane is opened (panel entrance on the DockPanel, which becomes visible with
+        the pane) - not when the selected object changes: that swaps what is inside the DockPanel and is live data.
+      -->
       <Border x:Name="DetailsPane"
               Grid.Column="4"
               AutomationProperties.Name="{l:Tr Shell.DetailsPane}"
-              Background="{DynamicResource LayerFillColorDefaultBrush}"
-              BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
-              BorderThickness="1,0,0,0">
-        <DockPanel>
+              Style="{StaticResource Ad.Surface.Panel}">
+        <DockPanel x:Name="DetailsPaneContent" b:Motion.Entrance="Panel">
           <DockPanel Margin="12,8,6,4" DockPanel.Dock="Top">
             <Button b:CommandMenu.Id="view.details"
                     Content="{x:Static c:Glyphs.Close}"
@@ -1060,7 +1200,7 @@
                               Tag="{Binding NameField.Label, Mode=OneWay}"
                               Visibility="{Binding NameField.CanCopy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}, FallbackValue=Collapsed}" />
                       <TextBox AutomationProperties.Name="{Binding Name, Mode=OneWay, TargetNullValue=''}"
-                               FontSize="15"
+                               FontSize="{StaticResource Ad.FontSize.Body}"
                                FontWeight="SemiBold"
                                Style="{StaticResource Ad.SelectableText}"
                                Text="{Binding Name, Mode=OneWay}" />
@@ -1069,19 +1209,15 @@
                   </StackPanel>
                 </DockPanel>
 
-                <Border Margin="0,10,0,0"
-                        Padding="8,6"
-                        Style="{StaticResource Ad.WarningBar}"
-                        Visibility="{Binding IsProtected, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-                  <DockPanel>
-                    <TextBlock Margin="0,0,8,0"
-                               DockPanel.Dock="Left"
-                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                               Style="{StaticResource Ad.GlyphText}"
-                               Text="{x:Static c:Glyphs.Shield}" />
-                    <TextBlock Text="{l:Tr Details.ProtectedObject}" TextWrapping="Wrap" />
-                  </DockPanel>
-                </Border>
+                <!-- A note about the selected object, true for as long as it is shown - not a status of the shell. -->
+                <ContentControl x:Name="ProtectedNote"
+                                Margin="0,10,0,0"
+                                Style="{StaticResource Ad.Note.Attention}"
+                                Visibility="{Binding IsProtected, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <TextBlock x:Name="ProtectedNoteText"
+                             Text="{l:Tr Details.ProtectedObject}"
+                             TextWrapping="Wrap" />
+                </ContentControl>
 
                 <TextBox Margin="0,10,0,0"
                          AutomationProperties.Name="{l:Tr Attribute.description}"
@@ -1139,7 +1275,7 @@
                               Tag="{Binding DnField.Label, Mode=OneWay}" />
                       <TextBox x:Name="DetailsDnText"
                                AutomationProperties.Name="{l:Tr Details.DistinguishedName}"
-                               FontSize="11"
+                               FontSize="{StaticResource Ad.FontSize.Caption}"
                                Style="{StaticResource DetailsValue}"
                                Text="{Binding DistinguishedName, Mode=OneWay}" />
                     </DockPanel>
@@ -1230,7 +1366,7 @@
               </TextBlock.Text>
             </TextBlock>
           </Button.ToolTip>
-          <TextBlock x:Name="VersionText" FontSize="12" Style="{StaticResource Ad.SecondaryText}">
+          <TextBlock x:Name="VersionText" FontSize="{StaticResource Ad.FontSize.Caption}" Style="{StaticResource Ad.SecondaryText}">
             <TextBlock.Text>
               <MultiBinding Converter="{StaticResource Ad.Format}">
                 <l:TrBinding Key="Shell.Version" />
@@ -1252,11 +1388,13 @@
               <TextBlock FontSize="13"
                          Style="{StaticResource Ad.GlyphText}"
                          Text="{x:Static c:Glyphs.Activity}" />
-              <ProgressBar Width="60"
-                           Margin="8,0,0,0"
-                           VerticalAlignment="Center"
-                           IsIndeterminate="{Binding Activities.HasRunning, Mode=OneWay}"
-                           Visibility="{Binding Activities.HasRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <!-- Something runs in this connection: the ring ("busy"); what and how far is the text and the list. -->
+              <c:ProgressRing x:Name="ActivityRing"
+                              Margin="8,0,0,0"
+                              VerticalAlignment="Center"
+                              IsActive="{Binding Activities.HasRunning, Mode=OneWay}"
+                              Size="14"
+                              Visibility="{Binding Activities.HasRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
               <TextBlock Margin="8,0,0,0"
                          VerticalAlignment="Center"
                          Text="{Binding Activities.Summary, Mode=OneWay}"
@@ -1345,7 +1483,7 @@
                      AutomationProperties.Name="{l:Tr List.Virtual.Badge}"
                      ToolTip="{l:Tr List.Virtual.BadgeToolTip}"
                      Visibility="{Binding IsVirtualListShown, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-        <Border Padding="6,0" Background="{DynamicResource AccentFillColorDefaultBrush}" CornerRadius="3">
+        <Border Padding="6,0" Background="{DynamicResource AccentFillColorDefaultBrush}" CornerRadius="{StaticResource Ad.Radius.Control}">
           <StackPanel Orientation="Horizontal">
             <TextBlock Margin="0,0,4,0"
                        VerticalAlignment="Center"
@@ -1360,14 +1498,21 @@
         </Border>
       </StatusBarItem>
 
-      <StatusBarItem DockPanel.Dock="Left">
+      <!--
+        What the selected tab says about itself - only for the tabs that have no status line of their own yet (track V,
+        stage V2): an object list says it in its own line (PageStatus of ObjectListView), and one window never says the
+        same sentence twice.
+      -->
+      <StatusBarItem x:Name="TabStatusItem" DockPanel.Dock="Left">
         <StackPanel Orientation="Horizontal">
-          <TextBlock Margin="12,0,0,0"
-                     Text="{Binding StatusText, Mode=OneWay}"
+          <TextBlock x:Name="TabStatusText"
+                     Margin="12,0,0,0"
+                     Text="{Binding StatusBarText, Mode=OneWay}"
                      TextTrimming="CharacterEllipsis" />
-          <TextBlock Margin="12,0,0,0"
+          <TextBlock x:Name="TabSelectionText"
+                     Margin="12,0,0,0"
                      FontWeight="SemiBold"
-                     Text="{Binding SelectionText, Mode=OneWay}" />
+                     Text="{Binding StatusBarSelectionText, Mode=OneWay}" />
         </StackPanel>
       </StatusBarItem>
     </StatusBar>

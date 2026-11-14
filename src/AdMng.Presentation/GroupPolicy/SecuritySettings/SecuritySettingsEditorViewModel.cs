@@ -242,8 +242,8 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
         if (gpo is null)
         {
             _gpo = null;
-            Error = Localizer[L.GroupPolicy.Missing];
-            LoadedText = Error;
+            ShowUnavailable(L.GroupPolicy.Missing);
+            LoadedText = Localizer[L.GroupPolicy.Missing];
             OnPropertyChanged(nameof(Title));
             return;
         }

@@ -8,6 +8,7 @@ using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
+using AdMng.Presentation.Pki;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Session;
@@ -29,6 +30,7 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
     private bool _suppressActivation;
     private int _viewsInactiveDays;
     private bool _groupPolicyShown;
+    private bool _pkiShown;
 
     public NavigationTreeViewModel(
         ISessionManager sessions,
@@ -38,7 +40,8 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         ErrorTranslator errors,
         ViewLibrary views,
         IDirectoryChangeNotifier changes,
-        GroupPolicyViewModelFactory? groupPolicy = null)
+        GroupPolicyViewModelFactory? groupPolicy = null,
+        PkiViewModelFactory? pki = null)
     {
         Sessions = sessions ?? throw new ArgumentNullException(nameof(sessions));
         Settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -48,6 +51,7 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         _views = views ?? throw new ArgumentNullException(nameof(views));
         _changes = changes ?? throw new ArgumentNullException(nameof(changes));
         GroupPolicy = groupPolicy;
+        Pki = pki;
         ViewsNode = new FolderNodeViewModel(this, null, localizer[L.Tree.Views], ObjectIcon.Query) { IsExpanded = true };
         _views.Changed += OnViewsChanged;
         _changes.Changed += OnDirectoryChanged;
@@ -75,6 +79,15 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
 
     /// <summary>The Group Policy nodes are shown under the domain ("Widok → Zasady grupy w drzewie").</summary>
     public bool IsGroupPolicyShown => _groupPolicyShown;
+
+    /// <summary>
+    /// The AD CS documents of the connection window (P1), null in hosts without them: the domain node then has no
+    /// <i>Usługi kluczy publicznych</i> node.
+    /// </summary>
+    public PkiViewModelFactory? Pki { get; }
+
+    /// <summary>The PKI node is shown under the domain (<i>Widok → Usługi kluczy publicznych w drzewie</i>).</summary>
+    public bool IsPkiShown => _pkiShown;
 
     /// <summary>The domain root node (null while disconnected).</summary>
     [ObservableProperty]
@@ -121,6 +134,8 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         DomainNode = domain;
         _groupPolicyShown = false;
         ShowGroupPolicyNodes(Settings.Current.GroupPolicy.ShowInTree);
+        _pkiShown = false;
+        ShowPkiNodes(Settings.Current.Pki.ShowInTree);
         Roots.Add(domain);
         domain.IsExpanded = true;
         return Task.WhenAll(domain.EnsureChildrenLoadedAsync(), LoadWellKnownAsync(session));
@@ -348,6 +363,53 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         OnPropertyChanged(nameof(IsGroupPolicyShown));
     }
 
+    /// <summary>
+    /// Adds or removes <i>Usługi kluczy publicznych</i> under the domain node, at the index after the last Group Policy node
+    /// (0 when they are hidden; kept there by <see cref="ContainerNodeViewModel"/>'s merge, which keeps the virtual nodes in
+    /// their order). No-op without <see cref="Pki"/> or a domain node.
+    /// </summary>
+    public void ShowPkiNodes(bool show)
+    {
+        if (DomainNode is not { } domain || Pki is not { } pki)
+        {
+            _pkiShown = false;
+            return;
+        }
+
+        var existing = domain.Children.OfType<PkiNodeViewModel>().ToList();
+        if (show && existing.Count == 0)
+        {
+            var index = 0;
+            for (var i = 0; i < domain.Children.Count; i++)
+            {
+                if (domain.Children[i] is GroupPolicyNodeViewModel)
+                {
+                    index = i + 1;
+                }
+            }
+
+            domain.Children.Insert(index, new PublicKeyServicesNodeViewModel(this, domain, pki));
+        }
+        else if (!show)
+        {
+            if (SelectedNode is PkiNodeViewModel selected && (existing.Contains(selected) || selected.Parent is PkiNodeViewModel))
+            {
+                SelectSilently(domain);
+            }
+
+            foreach (var node in existing)
+            {
+                domain.Children.Remove(node);
+            }
+        }
+
+        _pkiShown = show;
+        OnPropertyChanged(nameof(IsPkiShown));
+    }
+
+    /// <summary>The <i>Usługi kluczy publicznych</i> node (null when not shown).</summary>
+    public PublicKeyServicesNodeViewModel? PkiNode => DomainNode?.Children.OfType<PublicKeyServicesNodeViewModel>().FirstOrDefault();
+
     /// <summary>The "Obiekty zasad grupy" node (null when not shown).</summary>
     public GroupPolicyObjectsNodeViewModel? GroupPolicyObjectsNode => DomainNode?.Children.OfType<GroupPolicyObjectsNodeViewModel>().FirstOrDefault();
 
@@ -412,6 +474,12 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         {
             ShowGroupPolicyNodes(Settings.Current.GroupPolicy.ShowInTree);
         }
+
+        // "Widok → Usługi kluczy publicznych w drzewie" (shared by all windows as well).
+        if (Pki is not null && DomainNode is not null && Settings.Current.Pki.ShowInTree != _pkiShown)
+        {
+            ShowPkiNodes(Settings.Current.Pki.ShowInTree);
+        }
     });
 
     /// <summary>A GPO operation was executed in this window: the loaded GPO list of the tree is read again.</summary>
@@ -435,6 +503,11 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
             {
                 child.Relocalize();
             }
+        }
+
+        foreach (var node in DomainNode?.Children.OfType<PkiNodeViewModel>().ToList() ?? [])
+        {
+            node.Relocalize();
         }
     }
 

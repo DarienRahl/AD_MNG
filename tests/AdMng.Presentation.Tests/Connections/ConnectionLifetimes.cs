@@ -38,6 +38,8 @@ internal static class ConnectionLifetimes
         typeof(Presentation.GroupPolicy.GroupPolicyActions),
         typeof(Presentation.GroupPolicy.GroupPolicyViewModelFactory),
         typeof(Presentation.GroupPolicy.AdministrativeTemplates.PolicyDefinitionsService),
+        typeof(Presentation.GroupPolicy.Search.GpoSettingsIndexService),
+        typeof(Presentation.GroupPolicy.Search.IGpoSettingsIndexService),
         typeof(IDialogViewModelFactory),
         typeof(UserMessageServices),
         typeof(Presentation.Correspondence.CorrespondenceServices),
@@ -53,6 +55,10 @@ internal static class ConnectionLifetimes
         typeof(Presentation.Readiness.IReadinessResults),
         typeof(Presentation.Readiness.ReadinessServices),
         typeof(Func<Presentation.Readiness.ReadinessDocumentViewModel>),
+        typeof(Presentation.Pki.PkiServices),
+        typeof(Presentation.Pki.PkiSnapshotService),
+        typeof(Presentation.Pki.IPkiSnapshotService),
+        typeof(Presentation.Pki.PkiViewModelFactory),
         typeof(Func<WatchdogDocumentViewModel>),
         typeof(ConnectionContext),
         typeof(ShellViewModel),
@@ -80,5 +86,6 @@ internal static class ConnectionLifetimes
         typeof(Presentation.GroupPolicy.AdministrativeTemplates.PolicyTemplatePackageLoader),
         typeof(Presentation.EventLogs.IHostNameLookup),
         typeof(Presentation.Readiness.ILocalComputerInfo),
+        typeof(Presentation.Pki.IPkiHealthProbe),
     ];
 }

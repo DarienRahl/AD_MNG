@@ -3,7 +3,8 @@
   (domain, owner, dates, versions of AD and SYSVOL, GUID, GPO status), Ustawienia (the settings in GPMC's words, grouped
   like GPMC's report, search, "Edytuj to ustawienie", "Raport HTML…"; read-only, secrets never shown), Delegowanie (GPMC
   levels) and Stan (the GPO diagnostics, GroupPolicyHealthPanel, with "Napraw…", "Wyrównaj wersje" and "Napraw
-  uprawnienia folderu"). Every change opens the change plan preview.
+  uprawnienia folderu"). Every change opens the change plan preview. A GPO that no longer exists is said by the status
+  line; "Usuń pozostały folder" is the action of that line when the folder is still in SYSVOL.
 -->
 <UserControl x:Class="AdMng.App.GroupPolicy.GroupPolicyObjectView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -70,13 +71,19 @@
                 ToolTip="{l:Tr GroupPolicy.RefreshCommand}" />
       </StackPanel>
     </Grid>
-    <gp:GroupPolicyBanners DockPanel.Dock="Top" />
-    <Border Margin="0,0,0,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding HasOrphanedFolder, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <Button x:Name="DeleteOrphanButton" HorizontalAlignment="Left" Command="{Binding DeleteOrphanedFolderCommand}" Content="{l:Tr GroupPolicy.DeleteOrphanedFolder}" />
-    </Border>
+    <!--
+      Status line (design note 6.1): the read of the GPO with Stop, the summary of the GPO - on the "Stan" tab the check
+      of the GPO, its stages and when it was checked -, that the GPO no longer exists (with "Usuń pozostały folder" when
+      its folder is still there) or could not be read, and what became of an operation that is prepared for the change
+      plan preview. Always present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and
+      the PDC emulator (GroupPolicyNotes).
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="0,0,0,6"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+    <gp:GroupPolicyNotes x:Name="DocumentNotes" DockPanel.Dock="Top" />
 
     <TabControl x:Name="GpoTabs" SelectedIndex="{Binding SelectedTabIndex}">
       <!-- Zakres -->
@@ -245,6 +252,11 @@
               <Button x:Name="EditSettingButton" Margin="6,0,0,0" Command="{Binding EditSettingCommand}" Content="{l:Tr GpoSettings.EditSetting}" />
               <Button x:Name="CopySettingButton" Margin="6,0,0,0" Command="{Binding CopySettingCommand}" Content="{l:Tr GpoSettings.CopySetting}" />
               <Button x:Name="SettingsReportButton" Margin="6,0,0,0" Command="{Binding HtmlReportCommand}" Content="{l:Tr GpoSettings.HtmlReport}" />
+              <Button x:Name="SearchAllGposButton"
+                      Margin="6,0,0,0"
+                      Command="{Binding SearchAllGposCommand}"
+                      Content="{l:Tr GpoSearch.FindInAll}"
+                      ToolTip="{l:Tr GpoSearch.FindInAllHint}" />
             </StackPanel>
             <Grid>
               <TextBox x:Name="SettingsSearchBox"

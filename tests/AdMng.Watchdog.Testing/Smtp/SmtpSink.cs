@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Net;
+using System.Net.Sockets;
 using System.Security.Authentication;
 using AdMng.Watchdog.Testing.Certificates;
 using AdMng.Watchdog.Testing.Net;
@@ -19,6 +20,9 @@ namespace AdMng.Watchdog.Testing.Smtp;
 /// </summary>
 public sealed class SmtpSink : IAsyncDisposable
 {
+    /// <summary>How many ports the sink tries before it gives up (each was free a moment before).</summary>
+    private const int MaxPortAttempts = 10;
+
     private readonly SmtpSinkOptions _options;
     private readonly Lock _gate = new();
     private readonly List<SmtpSinkMessage> _messages = [];
@@ -68,13 +72,41 @@ public sealed class SmtpSink : IAsyncDisposable
             throw new InvalidOperationException("The sink is already started.");
         }
 
-        Port = FreeTcpPort.Next();
+        // The SmtpServer package listens on a port number it is given, so the port is one that was free a moment ago -
+        // and another test, of this process or of a project that runs next to it, may have taken it since. The
+        // listener is bound before StartAsync hands back its task: a port that is taken shows at once, and the sink
+        // asks for the next one instead of failing the test that owns it when the sink is disposed.
+        for (var attempt = 1; ; attempt++)
+        {
+            Port = (_options.NextPort ?? FreeTcpPort.Next)();
+            var server = new SmtpServerHost(ServerOptions(Port), Services());
+            var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var run = server.StartAsync(stop.Token);
+            if (attempt < MaxPortAttempts && PortWasTaken(run))
+            {
+                stop.Dispose();
+                continue;
+            }
+
+            _server = server;
+            _stop = stop;
+            _run = run;
+            return Task.CompletedTask;
+        }
+    }
+
+    /// <summary>The server could not listen because its port belongs to somebody else by now.</summary>
+    private static bool PortWasTaken(Task run) =>
+        run.IsFaulted && run.Exception.InnerExceptions.All(e => e is SocketException { SocketErrorCode: SocketError.AddressAlreadyInUse });
+
+    private ISmtpServerOptions ServerOptions(int port)
+    {
         var certificate = _options.Security == SmtpSinkSecurity.Plain ? null : _options.Certificate ?? TestCertificates.Localhost;
         var builder = new SmtpServerOptionsBuilder()
             .ServerName("localhost")
             .Endpoint(endpoint =>
             {
-                endpoint.Endpoint(new IPEndPoint(IPAddress.Loopback, Port))
+                endpoint.Endpoint(new IPEndPoint(IPAddress.Loopback, port))
                     .IsSecure(_options.Security == SmtpSinkSecurity.ImplicitTls)
                     .AuthenticationRequired(_options.RequireAuthentication)
                     .AllowUnsecureAuthentication(false)
@@ -89,13 +121,15 @@ public sealed class SmtpSink : IAsyncDisposable
             builder.MaxMessageSize(_options.MaxMessageSize, MaxMessageSizeHandling.Strict);
         }
 
+        return builder.Build();
+    }
+
+    private SmtpServiceProvider Services()
+    {
         var services = new SmtpServiceProvider();
         services.Add(new RecordingStore(this));
         services.Add(new RecordingAuthenticator(this));
-        _server = new SmtpServerHost(builder.Build(), services);
-        _stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _run = _server.StartAsync(_stop.Token);
-        return Task.CompletedTask;
+        return services;
     }
 
     /// <summary>Completes when at least <paramref name="count"/> messages have arrived.</summary>
