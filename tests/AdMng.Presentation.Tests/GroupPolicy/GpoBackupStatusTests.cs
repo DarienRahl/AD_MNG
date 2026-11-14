@@ -284,7 +284,7 @@ public sealed class GpoBackupStatusTests
 
     [Theory]
     [InlineData("en-US", "Could not list the backups: The folder could not be read or written. Press Retry to try again. (")]
-    [InlineData("pl-PL", "Nie udało się wyświetlić kopii zapasowych: Nie można odczytać lub zapisać folderu. Wybierz Ponów, aby spróbować ponownie. (")]
+    [InlineData("pl-PL", "Nie udało się wczytać listy kopii zapasowych: Nie można odczytać lub zapisać folderu. Wybierz Ponów, aby spróbować ponownie. (")]
     public async Task AFolderThatCouldNotBeRead_IsTheStateOfTheWindow_WithTheReasonTheCodeAndRetry(string culture, string text)
     {
         var h = await GroupPolicyHarness.CreateAsync(CultureInfo.GetCultureInfo(culture));

@@ -25009,7 +25009,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Wczytywanie kopii zapasowych zatrzymano: listy nie zmieniono. Wybierz „{0}”, aby wczytać folder ponownie.</value>
   </data>
   <data name="GpoBackup.Status.ListFailed" xml:space="preserve">
-    <value>Nie udało się wyświetlić kopii zapasowych</value>
+    <value>Nie udało się wczytać listy kopii zapasowych</value>
   </data>
   <data name="GpoBackup.Status.ReadingBackup" xml:space="preserve">
     <value>Wczytywanie kopii zapasowej „{0}”…</value>
