@@ -211,10 +211,7 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase, IHasP
     {
         SessionEndedOnPages();
         Recipients.CanUseDirectory = false;
-        if (Mailboxes.IsRunning && Mailboxes.CancelCommand.CanExecute(null))
-        {
-            Mailboxes.CancelCommand.Execute(null);
-        }
+        Mailboxes.OnSessionEnded();
     }
 
     /// <summary>The recipients and the mailbox owners pages say that the session of the window ended (and what still works).</summary>

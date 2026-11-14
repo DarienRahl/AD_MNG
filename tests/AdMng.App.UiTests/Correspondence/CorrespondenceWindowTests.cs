@@ -172,7 +172,7 @@ public sealed class CorrespondenceWindowTests
 
         // The status bar and the pages' controls show their view models.
         Assert.Equal(window.ViewModel.Outlook.StateText, window.OutlookStateText.Text);
-        Assert.Equal(window.ViewModel.StatusText, window.StatusText.Text);
+        Assert.Equal(window.ViewModel.Status.Current.Message, window.PageStatus.Message);
         Assert.Same(window.ViewModel.Message, window.MessageEditor.Host);
         Assert.Same(window.ViewModel.Message.SendModeChoices, window.SendModeBox.ItemsSource);
         Assert.Same(window.ViewModel.Preview.WidthChoices, window.PreviewWidthBox.ItemsSource);
@@ -422,7 +422,9 @@ public sealed class CorrespondenceWindowTests
         Assert.Equal("0", window.FailedCountText.Text);
         Assert.NotEmpty(vm.Send.Results);
         Assert.Equal(vm.Send.Results.Count, window.ResultsList.Items.Count);
-        Assert.Equal(vm.Send.ProgressText, window.ProgressText.Text);
+        Assert.Equal(PageStatusKind.Done, window.PageStatus.Status.Kind);
+        Assert.Equal(vm.Send.Status.Current.Message, window.PageStatus.Message);
+        Assert.StartsWith(vm.Send.ProgressText, window.PageStatus.Message, StringComparison.Ordinal);
         Assert.Equal(RecipientStatusKind.Sent, Assert.Single(vm.Recipients.Items).StatusKind);
         context.AssertHealthy();
     });
@@ -449,7 +451,7 @@ public sealed class CorrespondenceWindowTests
         Assert.Equal(Visibility.Collapsed, window.NoExchangeHint.Visibility);
         Assert.Equal(Visibility.Collapsed, window.NoMailboxesHint.Visibility);
         Assert.Equal(mailboxes.View.Count, window.MailboxesGrid.Items.Count);
-        Assert.Equal(mailboxes.SummaryText, window.MailboxSummaryText.Text);
+        Assert.Equal(mailboxes.SummaryText, window.PageStatus.Message);   // the summary of the page in front is the line's
 
         var sekretariat = Row(mailboxes, sample.SekretariatIt);
         Assert.Equal(OwnerMatchStatus.Matched, sekretariat.Status);

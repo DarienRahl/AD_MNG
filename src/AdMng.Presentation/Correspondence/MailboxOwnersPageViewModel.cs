@@ -288,6 +288,16 @@ public sealed partial class MailboxOwnersPageViewModel : ObservableObject, IHasP
     }
 
     /// <summary>
+    /// The session of the window ended (<see cref="SetSessionEnded"/> was called first): what runs - the search, the read of the
+    /// owners - ends without a message of its own, so that the line goes from "working" straight to the state that says why.
+    /// </summary>
+    internal void OnSessionEnded()
+    {
+        Status.Operation?.Dispose();
+        Volatile.Read(ref _run)?.Cancel();
+    }
+
+    /// <summary>
     /// The state of the page that lasts, the most important first: the session of the window ended, or the search failed -
     /// the list is empty because of it, and the line says why, with the search as its action, until the next one starts.
     /// </summary>

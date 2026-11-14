@@ -2,7 +2,10 @@
   Korespondencja (CorrespondenceViewModel, modeless, U5 design note docs/dev/u5-outlook-correspondence.md 6.4 and 9.1):
   MailerWPiA's workflow through classic Outlook per connection window. Tabs (CorrespondenceTabs): "Skrzynki" (mailbox owner
   query, shown when started for mailbox owners or after "Właściciele skrzynek…"), "1 · Odbiorcy", "2 · Wiadomość",
-  "3 · Podgląd", "4 · Wysyłka", "5 · Odpowiedzi"; the status bar shows the window's status and the Outlook connection.
+  "3 · Podgląd", "4 · Wysyłka", "5 · Odpowiedzi"; the footer shows the Outlook connection (and a ring while the window loads),
+  the one status line under the top edge says what the window and the page of the tab that is shown do and how it ended
+  (Status.Current: the sending, the reads of Sent Items, the search for the owners, the import, the state of the journal and
+  of the session and of Outlook).
   Every page binds through its page view model (Recipients, Message, …) - the window keeps one data context. Recipients,
   previews, matches and results exist in memory only (rule 1); the field columns of the recipient grid are built by the
   code-behind from Recipients.Columns.
@@ -21,9 +24,9 @@
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1320"
-        Height="900"
+        Height="936"
         MinWidth="1000"
-        MinHeight="680"
+        MinHeight="716"
         WindowStartupLocation="CenterOwner">
   <Window.Resources>
     <sys:Double x:Key="TextControlThemeMinHeight">30</sys:Double>
@@ -75,6 +78,16 @@
     </Style>
 
     <Style x:Key="AccentBarButton" TargetType="Button" BasedOn="{StaticResource Ad.AccentDialogButton}">
+      <Setter Property="Margin" Value="0,0,6,6" />
+    </Style>
+
+    <!-- The two of them as action buttons (start; Cancel where it was pressed) for what can be stopped. -->
+    <Style x:Key="BarActionButton" TargetType="{x:Type c:ActionButton}" BasedOn="{StaticResource Ad.ActionButton}">
+      <Setter Property="Margin" Value="0,0,6,6" />
+      <Setter Property="Padding" Value="10,4" />
+    </Style>
+
+    <Style x:Key="AccentBarActionButton" TargetType="{x:Type c:ActionButton}" BasedOn="{StaticResource Ad.AccentDialogActionButton}">
       <Setter Property="Margin" Value="0,0,6,6" />
     </Style>
 
@@ -235,7 +248,7 @@
   </Window.Resources>
 
   <DockPanel>
-    <!-- Status bar: busy, the window's status, the Outlook connection, help and close. -->
+    <!-- Footer: the ring while the window loads, the Outlook connection, help and close. -->
     <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
@@ -263,41 +276,34 @@
                   Style="{StaticResource Ad.DialogButton}" />
         </StackPanel>
         <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
-          <ProgressBar x:Name="BusyIndicator"
-                       Width="60"
-                       Margin="0,0,8,0"
-                       VerticalAlignment="Center"
-                       IsIndeterminate="True"
-                       Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <TextBlock x:Name="StatusText"
-                     AutomationProperties.LiveSetting="Polite"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding StatusText, Mode=OneWay}" />
+          <!-- The window reads its settings, the journal and the last draft: busy, with no sentence to say. -->
+          <c:ProgressRing x:Name="BusyRing"
+                          Margin="2,0,0,0"
+                          VerticalAlignment="Center"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                          IsActive="{Binding IsBusy, Mode=OneWay}"
+                          Size="14"
+                          Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         </StackPanel>
       </DockPanel>
     </Border>
 
-    <!-- The session ended (AD actions disabled, Outlook keeps working) and the window's error. -->
-    <StackPanel Margin="16,8,16,0" DockPanel.Dock="Top">
-      <Border x:Name="SessionEndedBar"
-              Margin="0,0,0,8"
-              Style="{StaticResource Ad.WarningBar}"
-              Visibility="{Binding SessionEndedMessage, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <TextBlock Text="{Binding SessionEndedMessage, Mode=OneWay}" TextWrapping="Wrap" />
-      </Border>
-      <Border x:Name="ErrorBar"
-              Margin="0,0,0,8"
-              Style="{StaticResource Ad.ErrorBar}"
-              Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <TextBlock x:Name="ErrorText"
-                   AutomationProperties.LiveSetting="Assertive"
-                   Text="{Binding Error, Mode=OneWay}"
-                   TextWrapping="Wrap" />
-      </Border>
-    </StackPanel>
+    <!--
+      The one status line of the window (stage V2b-4, design note 6.1): what the window says - the journal of the addresses
+      already sent that cannot be used - and, in front of it, what the page of the tab that is shown says: the sending, the
+      reads of Sent Items, the search for the owners and the read of the owners to add, the import and the read of the
+      directory, the preview from Outlook, how each ended, and what lasts - that the session of the window ended (the two
+      pages that read the directory), that Outlook is not available (the sending and the responses). Always present, so
+      nothing under it moves.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="8,8,8,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
 
     <TabControl x:Name="CorrespondenceTabs"
-                Margin="16,4,16,12"
+                Margin="16,8,16,12"
                 SelectedValue="{Binding SelectedTab}"
                 SelectedValuePath="Tag">
 
@@ -465,30 +471,17 @@
                 </StackPanel>
               </Expander>
 
+              <!-- Find: while it searches the same button is its Cancel; how far it is, is said by the line. -->
               <WrapPanel>
-                <Button x:Name="FindOwnersButton"
-                        MinWidth="160"
-                        Command="{Binding Mailboxes.FindOwnersCommand}"
-                        Content="{l:Tr Correspondence.App.Mailboxes.Find}"
-                        Style="{StaticResource AccentBarButton}" />
-                <Button x:Name="CancelFindButton"
-                        Margin="0,0,6,6"
-                        Command="{Binding Mailboxes.CancelCommand}"
-                        Content="{l:Tr Common.Stop}"
-                        Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
+                <c:ActionButton x:Name="FindOwnersButton"
+                                MinWidth="160"
+                                CancelCommand="{Binding Mailboxes.Status.CancelCommand, Mode=OneWay}"
+                                Command="{Binding Mailboxes.FindOwnersCommand}"
+                                Content="{l:Tr Correspondence.App.Mailboxes.Find}"
+                                IsCancelling="{Binding Mailboxes.Status.IsCancelling, Mode=OneWay}"
+                                IsRunning="{Binding Mailboxes.IsFinding, Mode=OneWay}"
+                                Style="{StaticResource AccentBarActionButton}" />
               </WrapPanel>
-              <DockPanel>
-                <ProgressBar Width="40"
-                             Margin="0,0,8,0"
-                             VerticalAlignment="Center"
-                             DockPanel.Dock="Left"
-                             IsIndeterminate="True"
-                             Visibility="{Binding Mailboxes.IsRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-                <TextBlock x:Name="MailboxProgressText"
-                           AutomationProperties.LiveSetting="Polite"
-                           Style="{StaticResource Hint}"
-                           Text="{Binding Mailboxes.ProgressText, Mode=OneWay}" />
-              </DockPanel>
             </StackPanel>
           </ScrollViewer>
 
@@ -502,11 +495,6 @@
                         DockPanel.Dock="Left"
                         ItemsSource="{Binding Mailboxes.FilterChoices, Mode=OneWay}"
                         SelectedItem="{Binding Mailboxes.Filter}" />
-              <TextBlock x:Name="MailboxSummaryText"
-                         Margin="12,0,0,0"
-                         VerticalAlignment="Center"
-                         Style="{StaticResource Ad.SecondaryText}"
-                         Text="{Binding Mailboxes.SummaryText, Mode=OneWay}" />
             </DockPanel>
             <DockPanel Margin="0,8,0,0" DockPanel.Dock="Bottom">
               <Button x:Name="AddToRecipientsButton"
@@ -719,12 +707,6 @@
 
             <!-- Counts and the list commands -->
             <WrapPanel Margin="0,8,0,0" DockPanel.Dock="Bottom">
-              <TextBlock x:Name="CountsText"
-                         Margin="0,0,14,6"
-                         VerticalAlignment="Center"
-                         AutomationProperties.LiveSetting="Polite"
-                         FontWeight="SemiBold"
-                         Text="{Binding Recipients.CountsText, Mode=OneWay}" />
               <Button x:Name="IncludeAllButton"
                       Command="{Binding Recipients.IncludeAllCommand}"
                       Content="{l:Tr Correspondence.App.Recipients.IncludeAll}"
@@ -1051,12 +1033,17 @@
                          DockPanel.Dock="Top"
                          Style="{StaticResource Hint}"
                          Text="{l:Tr Correspondence.App.Message.BodyHint}" />
-              <TextBlock x:Name="PasteProblemsText"
-                         DockPanel.Dock="Bottom"
-                         Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                         Style="{StaticResource Hint}"
-                         Text="{Binding Message.PasteProblemsText, Mode=OneWay}"
-                         Visibility="{Binding Message.PasteProblemsText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+              <!-- What pasting into the body left out: true of this body for as long as it is shown - a note. -->
+              <ContentControl x:Name="PasteProblemsNote"
+                              Margin="0,4,0,0"
+                              DockPanel.Dock="Bottom"
+                              Style="{StaticResource Ad.Note.Attention}"
+                              Visibility="{Binding Message.PasteProblemsText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+                <TextBlock x:Name="PasteProblemsText"
+                           FontSize="12"
+                           Text="{Binding Message.PasteProblemsText, Mode=OneWay}"
+                           TextWrapping="Wrap" />
+              </ContentControl>
               <c:RichMessageEditor x:Name="MessageEditor"
                                    MinHeight="240"
                                    FieldChoices="{Binding Message.FieldChoices, Mode=OneWay}"
@@ -1087,11 +1074,16 @@
                               SelectedItem="{Binding Message.SelectedSignature}" />
                   </DockPanel>
                   <TextBlock Style="{StaticResource Hint}" Text="{l:Tr Correspondence.App.Message.SignatureHint}" />
-                  <TextBlock x:Name="SignatureProblemsText"
-                             Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                             Style="{StaticResource Hint}"
-                             Text="{Binding Message.SignatureProblemsText, Mode=OneWay}"
-                             Visibility="{Binding Message.SignatureProblemsText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+                  <!-- What is wrong with the chosen signature: true for as long as it is chosen - a note. -->
+                  <ContentControl x:Name="SignatureProblemsNote"
+                                  Margin="0,4,0,0"
+                                  Style="{StaticResource Ad.Note.Attention}"
+                                  Visibility="{Binding Message.SignatureProblemsText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+                    <TextBlock x:Name="SignatureProblemsText"
+                               FontSize="12"
+                               Text="{Binding Message.SignatureProblemsText, Mode=OneWay}"
+                               TextWrapping="Wrap" />
+                  </ContentControl>
                 </StackPanel>
               </Border>
 
@@ -1455,11 +1447,14 @@
                         Command="{Binding Preview.RefreshCommand}"
                         Content="{l:Tr Commands.Refresh}"
                         Style="{StaticResource BarButton}" />
-                <Button x:Name="PreviewViaOutlookButton"
-                        Command="{Binding Preview.PreviewViaOutlookCommand}"
-                        Content="{l:Tr Correspondence.App.Preview.ViaOutlook}"
-                        Style="{StaticResource BarButton}"
-                        ToolTip="{l:Tr Correspondence.App.Preview.ViaOutlookHint}" />
+                <c:ActionButton x:Name="PreviewViaOutlookButton"
+                                CancelCommand="{Binding Preview.Status.CancelCommand, Mode=OneWay}"
+                                Command="{Binding Preview.PreviewViaOutlookCommand}"
+                                Content="{l:Tr Correspondence.App.Preview.ViaOutlook}"
+                                IsCancelling="{Binding Preview.Status.IsCancelling, Mode=OneWay}"
+                                IsRunning="{Binding Preview.IsRendering, Mode=OneWay}"
+                                Style="{StaticResource BarActionButton}"
+                                ToolTip="{l:Tr Correspondence.App.Preview.ViaOutlookHint}" />
                 <Button x:Name="OpenInBrowserButton"
                         Command="{Binding Preview.OpenInBrowserCommand}"
                         Content="{l:Tr Correspondence.App.Preview.OpenInBrowser}"
@@ -1474,11 +1469,15 @@
                          Style="{StaticResource Hint}"
                          Text="{Binding Preview.InfoText, Mode=OneWay}"
                          Visibility="{Binding Preview.InfoText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-              <TextBlock x:Name="PreviewFromOutlookText"
-                         Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                         Style="{StaticResource Hint}"
-                         Text="{l:Tr Correspondence.App.Preview.FromOutlook}"
-                         Visibility="{Binding Preview.IsFromOutlook, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <ContentControl x:Name="PreviewFromOutlookNote"
+                              Margin="0,4,0,0"
+                              Style="{StaticResource Ad.Note.Info}"
+                              Visibility="{Binding Preview.IsFromOutlook, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                <TextBlock x:Name="PreviewFromOutlookText"
+                           FontSize="12"
+                           Text="{l:Tr Correspondence.App.Preview.FromOutlook}"
+                           TextWrapping="Wrap" />
+              </ContentControl>
               <TextBlock x:Name="PreviewOkText"
                          Foreground="{DynamicResource SystemFillColorSuccessBrush}"
                          Style="{StaticResource Hint}"
@@ -1492,15 +1491,10 @@
                             Visibility="{Binding Preview.HasWarnings, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate DataType="{x:Type sys:String}">
-                    <DockPanel Margin="0,2,0,0">
-                      <TextBlock Margin="0,0,8,0"
-                                 VerticalAlignment="Top"
-                                 FontSize="14"
-                                 Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                                 Style="{StaticResource Ad.GlyphText}"
-                                 Text="{x:Static c:Glyphs.Warning}" />
+                    <!-- A finding about the message as it is composed: true for as long as the preview shows it - a note. -->
+                    <ContentControl Margin="0,2,0,0" Style="{StaticResource Ad.Note.Attention}">
                       <TextBlock Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
-                    </DockPanel>
+                    </ContentControl>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
@@ -1537,76 +1531,71 @@
             </DockPanel>
           </Border>
 
+          <!--
+            The four buttons that start a run are action buttons over the one operation of the page, each with the flag of its
+            own kind of run: the button that was pressed is the Cancel of the run (Stop between two messages), and what the
+            run does and how far it is, is said by the line.
+          -->
           <WrapPanel Margin="0,0,0,4" DockPanel.Dock="Top">
-            <Button x:Name="SendTestButton"
-                    Command="{Binding Send.SendTestCommand}"
-                    Content="{l:Tr Correspondence.App.Send.Test}"
-                    Style="{StaticResource BarButton}"
-                    ToolTip="{l:Tr Correspondence.App.Send.TestHint}" />
-            <Button x:Name="CreateDraftsButton"
-                    Command="{Binding Send.CreateDraftsCommand}"
-                    Content="{l:Tr Correspondence.App.Send.Drafts}"
-                    Style="{StaticResource BarButton}"
-                    ToolTip="{l:Tr Correspondence.App.Send.DraftsHint}" />
-            <Button x:Name="SendButton"
-                    MinWidth="140"
-                    Command="{Binding Send.SendCommand}"
-                    Content="{l:Tr Correspondence.App.Send.Send}"
-                    Style="{StaticResource AccentBarButton}" />
-            <Button x:Name="StopButton"
-                    Command="{Binding Send.StopCommand}"
-                    Content="{l:Tr Common.Stop}"
-                    Style="{StaticResource BarButton}" />
-            <Button x:Name="RetryFailedButton"
-                    Command="{Binding Send.RetryFailedCommand}"
-                    Content="{l:Tr Correspondence.App.Send.RetryFailed}"
-                    Style="{StaticResource BarButton}" />
+            <c:ActionButton x:Name="SendTestButton"
+                            CancelCommand="{Binding Send.Status.CancelCommand, Mode=OneWay}"
+                            Command="{Binding Send.SendTestCommand}"
+                            Content="{l:Tr Correspondence.App.Send.Test}"
+                            IsCancelling="{Binding Send.Status.IsCancelling, Mode=OneWay}"
+                            IsRunning="{Binding Send.IsTesting, Mode=OneWay}"
+                            Style="{StaticResource BarActionButton}"
+                            ToolTip="{l:Tr Correspondence.App.Send.TestHint}" />
+            <c:ActionButton x:Name="CreateDraftsButton"
+                            CancelCommand="{Binding Send.Status.CancelCommand, Mode=OneWay}"
+                            Command="{Binding Send.CreateDraftsCommand}"
+                            Content="{l:Tr Correspondence.App.Send.Drafts}"
+                            IsCancelling="{Binding Send.Status.IsCancelling, Mode=OneWay}"
+                            IsRunning="{Binding Send.IsCreatingDrafts, Mode=OneWay}"
+                            Style="{StaticResource BarActionButton}"
+                            ToolTip="{l:Tr Correspondence.App.Send.DraftsHint}" />
+            <c:ActionButton x:Name="SendButton"
+                            MinWidth="140"
+                            CancelCommand="{Binding Send.Status.CancelCommand, Mode=OneWay}"
+                            Command="{Binding Send.SendCommand}"
+                            Content="{l:Tr Correspondence.App.Send.Send}"
+                            IsCancelling="{Binding Send.Status.IsCancelling, Mode=OneWay}"
+                            IsRunning="{Binding Send.IsSendingMessages, Mode=OneWay}"
+                            Style="{StaticResource AccentBarActionButton}" />
+            <c:ActionButton x:Name="RetryFailedButton"
+                            CancelCommand="{Binding Send.Status.CancelCommand, Mode=OneWay}"
+                            Command="{Binding Send.RetryFailedCommand}"
+                            Content="{l:Tr Correspondence.App.Send.RetryFailed}"
+                            IsCancelling="{Binding Send.Status.IsCancelling, Mode=OneWay}"
+                            IsRunning="{Binding Send.IsRetrying, Mode=OneWay}"
+                            Style="{StaticResource BarActionButton}" />
           </WrapPanel>
 
-          <Grid Margin="0,0,0,10" DockPanel.Dock="Top">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*" />
-              <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <StackPanel>
-              <ProgressBar x:Name="SendProgress"
-                           Height="8"
-                           AutomationProperties.Name="{l:Tr Correspondence.App.Send.Progress}"
-                           Maximum="{Binding Send.ProgressMaximum, Mode=OneWay}"
-                           Value="{Binding Send.ProgressValue, Mode=OneWay}" />
-              <TextBlock x:Name="ProgressText"
-                         Margin="0,6,0,0"
-                         AutomationProperties.LiveSetting="Polite"
-                         Style="{StaticResource Hint}"
-                         Text="{Binding Send.ProgressText, Mode=OneWay}" />
-            </StackPanel>
-            <StackPanel Grid.Column="1"
-                        Margin="16,0,0,0"
-                        VerticalAlignment="Top"
-                        Orientation="Horizontal">
-              <TextBlock Margin="0,0,4,0"
-                         Style="{StaticResource Ad.SecondaryText}"
-                         Text="{l:Tr Correspondence.App.Send.Sent}" />
-              <TextBlock x:Name="SentCountText"
-                         FontWeight="Bold"
-                         Foreground="{DynamicResource SystemFillColorSuccessBrush}"
-                         Text="{Binding Send.SentCount, Mode=OneWay}" />
-              <TextBlock Margin="14,0,4,0"
-                         Style="{StaticResource Ad.SecondaryText}"
-                         Text="{l:Tr Correspondence.App.Send.Failed}" />
-              <TextBlock x:Name="FailedCountText"
-                         FontWeight="Bold"
-                         Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                         Text="{Binding Send.FailedCount, Mode=OneWay}" />
-              <TextBlock Margin="14,0,4,0"
-                         Style="{StaticResource Ad.SecondaryText}"
-                         Text="{l:Tr Correspondence.App.Send.Skipped}" />
-              <TextBlock x:Name="SkippedCountText"
-                         FontWeight="Bold"
-                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                         Text="{Binding Send.SkippedCount, Mode=OneWay}" />
-            </StackPanel>
-          </Grid>
+          <!-- The tally of the run (the results are the list below; how far it is, is the line). -->
+          <StackPanel Margin="0,0,0,10"
+                      DockPanel.Dock="Top"
+                      Orientation="Horizontal">
+            <TextBlock Margin="0,0,4,0"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr Correspondence.App.Send.Sent}" />
+            <TextBlock x:Name="SentCountText"
+                       FontWeight="Bold"
+                       Foreground="{DynamicResource SystemFillColorSuccessBrush}"
+                       Text="{Binding Send.SentCount, Mode=OneWay}" />
+            <TextBlock Margin="14,0,4,0"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr Correspondence.App.Send.Failed}" />
+            <TextBlock x:Name="FailedCountText"
+                       FontWeight="Bold"
+                       Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                       Text="{Binding Send.FailedCount, Mode=OneWay}" />
+            <TextBlock Margin="14,0,4,0"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr Correspondence.App.Send.Skipped}" />
+            <TextBlock x:Name="SkippedCountText"
+                       FontWeight="Bold"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       Text="{Binding Send.SkippedCount, Mode=OneWay}" />
+          </StackPanel>
 
           <Border Padding="0" Style="{StaticResource Ad.Card}">
             <DockPanel>
@@ -1671,10 +1660,13 @@
                             AutomationProperties.Name="{l:Tr Correspondence.App.Responses.Since}"
                             b:DatePickerWatermark.Text="{l:Tr Ui.SelectDate}"
                             SelectedDate="{Binding Responses.Since}" />
-                <Button x:Name="LoadCampaignsButton"
-                        Command="{Binding Responses.LoadCampaignsCommand}"
-                        Content="{l:Tr Correspondence.App.Responses.LoadCampaigns}"
-                        Style="{StaticResource BarButton}" />
+                <c:ActionButton x:Name="LoadCampaignsButton"
+                                CancelCommand="{Binding Responses.Status.CancelCommand, Mode=OneWay}"
+                                Command="{Binding Responses.LoadCampaignsCommand}"
+                                Content="{l:Tr Correspondence.App.Responses.LoadCampaigns}"
+                                IsCancelling="{Binding Responses.Status.IsCancelling, Mode=OneWay}"
+                                IsRunning="{Binding Responses.IsReadingCampaigns, Mode=OneWay}"
+                                Style="{StaticResource BarActionButton}" />
                 <ComboBox x:Name="CampaignBox"
                           Width="360"
                           Margin="8,0,8,6"
@@ -1682,10 +1674,13 @@
                           DisplayMemberPath="Text"
                           ItemsSource="{Binding Responses.Campaigns, Mode=OneWay}"
                           SelectedItem="{Binding Responses.SelectedCampaign}" />
-                <Button x:Name="LoadResponsesButton"
-                        Command="{Binding Responses.LoadResponsesCommand}"
-                        Content="{l:Tr Correspondence.App.Responses.LoadResponses}"
-                        Style="{StaticResource AccentBarButton}" />
+                <c:ActionButton x:Name="LoadResponsesButton"
+                                CancelCommand="{Binding Responses.Status.CancelCommand, Mode=OneWay}"
+                                Command="{Binding Responses.LoadResponsesCommand}"
+                                Content="{l:Tr Correspondence.App.Responses.LoadResponses}"
+                                IsCancelling="{Binding Responses.Status.IsCancelling, Mode=OneWay}"
+                                IsRunning="{Binding Responses.IsReadingResponses, Mode=OneWay}"
+                                Style="{StaticResource AccentBarActionButton}" />
                 <Button x:Name="ExportResponsesButton"
                         Command="{Binding Responses.ExportCommand}"
                         Content="{l:Tr Correspondence.App.Responses.Export}"
@@ -1694,13 +1689,6 @@
               <TextBlock Style="{StaticResource Hint}" Text="{l:Tr Correspondence.App.Responses.Hint}" />
             </StackPanel>
           </Border>
-          <TextBlock x:Name="ResponsesSummaryText"
-                     Margin="0,0,0,8"
-                     AutomationProperties.LiveSetting="Polite"
-                     DockPanel.Dock="Top"
-                     FontWeight="SemiBold"
-                     Text="{Binding Responses.SummaryText, Mode=OneWay}"
-                     Visibility="{Binding Responses.SummaryText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
           <ListView x:Name="ResponsesGrid"
                     AutomationProperties.Name="{l:Tr Correspondence.App.Tab.Responses}"
                     ItemContainerStyle="{StaticResource ResponseRow}"

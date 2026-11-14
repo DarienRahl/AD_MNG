@@ -68,6 +68,7 @@ public sealed partial class XamlSourceTests
     [
         "Computers/ComputerReviewWindow.xaml",
         "Computers/RemoteComputerWindow.xaml",
+        "Correspondence/CorrespondenceWindow.xaml",
         "EventLogs/EventLogReaderView.xaml",
         "EventLogs/FailedLogonsView.xaml",
         "EventLogs/LockoutView.xaml",
@@ -122,7 +123,8 @@ public sealed partial class XamlSourceTests
     /// line of the window. (V2b-4: the six views of the bulk creation wizard - the wizard is hosted in the first step of the
     /// batch editor and says its status in that window's one line. The dialog that asks for the restart of a computer hands its
     /// request to the remote actions window, which says what became of it. The pages of the Watchdog tab and its trust window:
-    /// the tab has one line, and the pages it hosts say their reads, saves and tests there.)
+    /// the tab has one line, and the pages it hosts say their reads, saves and tests there. The two small windows of the
+    /// correspondence window: a read-only report and a prompt for text - they start no operation.)
     /// <see cref="AConvertedViewWithoutAStatusLine_HasNoBannerAndNoProgressBar"/> keeps the banners of before out of it.
     /// </summary>
     private static readonly string[] ConvertedViewsWithoutAStatusLine =
@@ -135,6 +137,8 @@ public sealed partial class XamlSourceTests
         "BulkCreate/BulkSourceView.xaml",
         "Computers/RestartComputerWindow.xaml",
         "Controls/HtmlPreviewView.xaml",
+        "Correspondence/ReportWindow.xaml",
+        "Correspondence/TextPromptWindow.xaml",
         "GroupPolicy/GpoCopySettingsWindow.xaml",
         "GroupPolicy/GroupPolicyHealthPanel.xaml",
         "GroupPolicy/GroupPolicyNotes.xaml",
