@@ -3,6 +3,9 @@
   the window and the thresholds, the summary and the notes, the severity chips and the filters (severity, kind, text - Ctrl+F),
   the virtualized list of findings and, behind a splitter, the details of the selected one with its accounts (unknown names
   masked until "Pokaż") and its records (drill-down); the top accounts, sources, codes and the audit evidence below.
+  Feedback (track V, stage V2b-4): one status line under the header (PageStatus) says the summary, the stage of the check and
+  Stop, the sources that were not read, a stopped or failed check, and what lasts; "Sprawdź" is an action button that is the
+  Cancel of the check.
 -->
 <UserControl x:Class="AdMng.App.EventLogs.FailedLogonsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -40,34 +43,31 @@
                  Text="{Binding Title, Mode=OneWay}"
                  TextTrimming="CharacterEllipsis" />
       <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
-        <Button x:Name="RunButton"
-                Margin="0,0,6,0"
-                Command="{Binding RunCommand}"
-                Content="{l:Tr EvtFail.Run}"
-                Style="{StaticResource AccentButtonStyle}" />
-        <Button x:Name="CancelButton" Margin="0,0,12,0" Command="{Binding CancelCommand}" Content="{l:Tr Common.Cancel}" />
+        <c:ActionButton x:Name="RunButton"
+                        Margin="0,0,12,0"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding RunCommand}"
+                        Content="{l:Tr EvtFail.Run}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding Status.IsWorking, Mode=OneWay}"
+                        Style="{StaticResource Ad.AccentActionButton}" />
         <Button x:Name="ExportCsvButton" Margin="0,0,6,0" Command="{Binding ExportCsvCommand}" Content="{l:Tr EvtLog.ExportCsv}" />
         <Button x:Name="ExportHtmlButton" Command="{Binding ExportHtmlCommand}" Content="{l:Tr EvtLog.ExportHtml}" />
       </StackPanel>
     </Grid>
 
-    <Border x:Name="NotSupportedBar"
-            Margin="0,0,0,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding IsNotSupported, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <DockPanel>
-        <TextBlock Margin="0,1,10,0"
-                   VerticalAlignment="Center"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Warning}" />
-        <TextBlock x:Name="NotSupportedText" VerticalAlignment="Center" Text="{Binding NotSupportedText, Mode=OneWay}" TextWrapping="Wrap" />
-      </DockPanel>
-    </Border>
+    <!--
+      Status line (design note 6.1): what the last run read (and the selected record), the run with its stage - sources and
+      events so far - and Stop, sources that could not be read, a stopped or failed run, and what lasts: not connected, or
+      that this window cannot read event logs. Always present, so nothing under it moves while a run works.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="0,0,0,6"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
 
-    <!-- The window, the thresholds and the status -->
+    <!-- The window and the thresholds -->
     <WrapPanel Margin="0,0,0,6" DockPanel.Dock="Top">
       <TextBlock Margin="0,0,6,0" VerticalAlignment="Center" Text="{l:Tr EvtFail.WindowLabel}" />
       <ComboBox x:Name="WindowBox"
@@ -77,19 +77,6 @@
                 DisplayMemberPath="Text"
                 ItemsSource="{Binding TimePresetOptions, Mode=OneWay}"
                 SelectedItem="{Binding SelectedTimePreset}" />
-      <ProgressBar x:Name="RunProgress"
-                   Width="180"
-                   Height="4"
-                   Margin="0,0,10,0"
-                   VerticalAlignment="Center"
-                   AutomationProperties.Name="{Binding StatusText, Mode=OneWay}"
-                   IsIndeterminate="True"
-                   Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-      <TextBlock x:Name="StatusLine"
-                 VerticalAlignment="Center"
-                 AutomationProperties.LiveSetting="Polite"
-                 Style="{StaticResource Ad.SecondaryText}"
-                 Text="{Binding StatusText, Mode=OneWay}" />
     </WrapPanel>
     <Expander x:Name="ThresholdsExpander" Margin="0,0,0,6" DockPanel.Dock="Top" Header="{l:Tr EvtFail.ThresholdsHeading}">
       <Grid Margin="0,4,0,0">

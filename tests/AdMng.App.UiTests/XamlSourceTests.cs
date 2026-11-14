@@ -66,6 +66,9 @@ public sealed partial class XamlSourceTests
     /// </summary>
     private static readonly string[] PagesWithAStatusLine =
     [
+        "EventLogs/EventLogReaderView.xaml",
+        "EventLogs/FailedLogonsView.xaml",
+        "EventLogs/LockoutView.xaml",
         "GroupPolicy/AdministrativeTemplatesEditorView.xaml",
         "GroupPolicy/CentralStoreUpdateWindow.xaml",
         "GroupPolicy/GpoBackupWindow.xaml",
