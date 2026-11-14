@@ -1062,4 +1062,102 @@ public static partial class L
         /// <summary>{0} = the computer, {1} = what happened.</summary>
         public const string ActionDone = "RemoteActions.Status.ActionDone";
     }
+
+    /// <summary>
+    /// What the four PKI documents (the overview, the templates, the readiness report and the security review) say in their
+    /// status line (stage V2b-4, unit 3): one set of words for the read that is the operation of the tab, its stages, and the
+    /// two checks that touch the domain controllers or the network. The title of an operation is also the key of its log copy.
+    /// </summary>
+    public static class PkiDocumentStatus
+    {
+        /// <summary>"{0}…" - an operation that has no stage to say yet; {0} = its title.</summary>
+        public const string Working = "PkiDoc.Status.Working";
+
+        /// <summary>"{0} – {1}…" - the stage of an operation; {0} = its title, {1} = the stage.</summary>
+        public const string Stage = "PkiDoc.Status.Stage";
+
+        /// <summary>The read of a document, without the dots: "Reading “{0}”"; {0} = the title of the document.</summary>
+        public const string Reading = "PkiDoc.Status.Reading";
+
+        /// <summary>What was tried, without a full stop: "Could not read “{0}”"; {0} = the title of the document.</summary>
+        public const string ReadFailed = "PkiDoc.Status.ReadFailed";
+
+        /// <summary>A read that was stopped; {0} = its title, {1} = the text of the button that reads again.</summary>
+        public const string Stopped = "PkiDoc.Status.Stopped";
+
+        /// <summary>A check that was stopped and changed nothing; {0} = its title, {1} = the text of the button that checks again.</summary>
+        public const string StoppedKept = "PkiDoc.Status.StoppedKept";
+
+        /// <summary>The detail of a summary: "read from {0}, {1}"; {0} = the domain controller, {1} = when.</summary>
+        public const string ReadAt = "PkiDoc.Status.ReadAt";
+
+        /// <summary>Stage: "AD CS objects: {0}"; {0} = how many were read.</summary>
+        public const string StageObjects = "PkiDoc.Status.StageObjects";
+
+        /// <summary>Stage: "reading the rights of the templates".</summary>
+        public const string StageRights = "PkiDoc.Status.StageRights";
+
+        /// <summary>Stage: "accounts: {0}"; {0} = how many were read.</summary>
+        public const string StageAccounts = "PkiDoc.Status.StageAccounts";
+
+        /// <summary>Stage: "reading the domain controllers".</summary>
+        public const string StageControllers = "PkiDoc.Status.StageControllers";
+
+        /// <summary>Stage: "checking the LDAPS certificates of the domain controllers".</summary>
+        public const string StageLdaps = "PkiDoc.Status.StageLdaps";
+
+        /// <summary>Stage: "reading the permissions of the PKI objects".</summary>
+        public const string StageAccessControl = "PkiDoc.Status.StageAccessControl";
+
+        /// <summary>Stage: "resolving the accounts and groups".</summary>
+        public const string StagePrincipals = "PkiDoc.Status.StagePrincipals";
+
+        /// <summary>Stage: "evaluating the ESC rules".</summary>
+        public const string StageAnalysis = "PkiDoc.Status.StageAnalysis";
+
+        /// <summary>The probe of the LDAPS certificates, without the dots: "Checking the LDAPS certificates of the domain controllers".</summary>
+        public const string LdapsChecking = "PkiDoc.Status.LdapsChecking";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string LdapsFailed = "PkiDoc.Status.LdapsFailed";
+    }
+
+    /// <summary>What the PKI overview says besides <see cref="PkiDocumentStatus"/>: the check of the HTTP addresses (stage V2b-4, unit 3).</summary>
+    public static class PkiOverviewStatus
+    {
+        /// <summary>"Checking the AIA, CDP and OCSP addresses", without the dots.</summary>
+        public const string HttpChecking = "PkiOverview.Status.HttpChecking";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string HttpFailed = "PkiOverview.Status.HttpFailed";
+    }
+
+    /// <summary>What the templates document says besides <see cref="PkiDocumentStatus"/>: the count of the accounts (stage V2b-4, unit 3).</summary>
+    public static class PkiTemplatesStatus
+    {
+        /// <summary>Stage: "counting the accounts: {0}"; {0} = how many were read.</summary>
+        public const string StageCounting = "PkiTemplates.Status.StageCounting";
+
+        /// <summary>The detail of the summary: "accounts counted: {0}".</summary>
+        public const string CountsDone = "PkiTemplates.Status.CountsDone";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string CountFailed = "PkiTemplates.Status.CountFailed";
+
+        /// <summary>What the list lacks and what to do; {0} = the text of the Retry action.</summary>
+        public const string CountFailedNext = "PkiTemplates.Status.CountFailedNext";
+    }
+
+    /// <summary>What the security review says instead of <see cref="PkiDocumentStatus"/>'s reading: its check (stage V2b-4, unit 3).</summary>
+    public static class PkiSecurityStatus
+    {
+        /// <summary>"Checking AD CS security", without the dots.</summary>
+        public const string Checking = "PkiSecurity.Status.Checking";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string CheckFailed = "PkiSecurity.Status.CheckFailed";
+
+        /// <summary>{0} = the title of the check, {1} = the text of the button that checks again.</summary>
+        public const string Stopped = "PkiSecurity.Status.Stopped";
+    }
 }

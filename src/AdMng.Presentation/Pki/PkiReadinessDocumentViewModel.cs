@@ -2,6 +2,7 @@ using System.ComponentModel;
 using AdMng.Core.Directory;
 using AdMng.Core.Pki;
 using AdMng.Core.Pki.Tls;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
@@ -53,14 +54,16 @@ public sealed partial class PkiReadinessDocumentViewModel : PkiDocumentBase
     /// <summary>The progress while something is read, else the summary.</summary>
     public override string StatusText => Error ?? (IsLoading || IsCheckingLdaps ? ProgressText : LoadedText);
 
-    /// <summary>"Odczyt kont (1 500)…" while the document reads.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText))]
-    public partial string ProgressText { get; private set; } = string.Empty;
-
     /// <summary>"Odczytano: 13.10.2026 12:00 na dc01.contoso.test" (or "Jeszcze nie odczytano.").</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SummaryDetail))]
     public partial string LastRunText { get; private set; } = string.Empty;
+
+    /// <summary>When and where the report was read: the detail of the summary of the line, behind what the rows found.</summary>
+    protected override string SummaryDetail => LastRunText;
+
+    /// <summary>The read is a report of the area: its refresh button says "Odczytaj ponownie".</summary>
+    protected override string RefreshLabel => Localizer[L.PkiReadiness.CheckAgain];
 
     /// <summary>The areas with their rows.</summary>
     [ObservableProperty]
@@ -113,8 +116,15 @@ public sealed partial class PkiReadinessDocumentViewModel : PkiDocumentBase
 
         _session = session;
         _domainDns = session.Info.DomainDnsName;
-        ProgressText = Localizer[L.PkiReadiness.StageSnapshot];
-        var snapshot = await Pki.Snapshot.GetAsync(refresh, null, cancellationToken).ConfigureAwait(true);
+        ReportStage(L.PkiDocumentStatus.StageObjects, 0);
+        var snapshotProgress = Pki.Dispatcher.CreateProgress<PkiReadProgress>(p =>
+        {
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                ReportStage(L.PkiDocumentStatus.StageObjects, p.Objects);
+            }
+        });
+        var snapshot = await Pki.Snapshot.GetAsync(refresh, snapshotProgress, cancellationToken).ConfigureAwait(true);
         cancellationToken.ThrowIfCancellationRequested();
         _snapshot = snapshot;
         _readAt = Pki.Time.GetLocalNow();
@@ -127,7 +137,7 @@ public sealed partial class PkiReadinessDocumentViewModel : PkiDocumentBase
         _ldapsError = null;
         Rebuild();
 
-        ProgressText = Localizer[L.PkiReadiness.StageDomainControllers];
+        ReportStage(L.PkiDocumentStatus.StageControllers);
         try
         {
             _domainControllers = await Pki.Snapshot.GetDomainControllersAsync(refresh, cancellationToken).ConfigureAwait(true);
@@ -140,12 +150,12 @@ public sealed partial class PkiReadinessDocumentViewModel : PkiDocumentBase
         cancellationToken.ThrowIfCancellationRequested();
         Rebuild();
 
-        ProgressText = Localizer.Format(L.PkiReadiness.StageAccounts, 0);
+        ReportStage(L.PkiDocumentStatus.StageAccounts, 0);
         var progress = Pki.Dispatcher.CreateProgress<PkiExpansionProgress>(p =>
         {
             if (!cancellationToken.IsCancellationRequested && IsLoading)
             {
-                ProgressText = Localizer.Format(L.PkiReadiness.StageAccounts, p.Accounts.ToString("N0", Localizer.Culture));
+                ReportStage(L.PkiDocumentStatus.StageAccounts, p.Accounts);
             }
         });
         try
@@ -158,7 +168,6 @@ public sealed partial class PkiReadinessDocumentViewModel : PkiDocumentBase
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        ProgressText = string.Empty;
         Rebuild();
     }
 
@@ -173,6 +182,9 @@ public sealed partial class PkiReadinessDocumentViewModel : PkiDocumentBase
         Groups = [];
         SummaryText = string.Empty;
     }
+
+    /// <summary>A stopped or failed read: the areas it did not reach say so (they said "reading…" while it ran).</summary>
+    protected override void OnLoadInterrupted() => Rebuild();
 
     /// <summary>The thresholds changed: the expiry warnings of the LDAPS and KDC rows follow.</summary>
     protected override void OnSettingsChanged() => Rebuild();
@@ -222,27 +234,50 @@ public sealed partial class PkiReadinessDocumentViewModel : PkiDocumentBase
         return Probe;
     }
 
-    private bool CanCheckLdaps() => CanProbe && HasSession && !IsCheckingLdaps && _snapshot is not null;
+    private bool CanCheckLdaps() => CanProbe && HasSession && !IsCheckingLdaps && !IsLoading && _snapshot is not null;
 
+    /// <summary>
+    /// The probe is the operation of the tab while it runs: the line says that the domain controllers are being probed, with
+    /// Stop. What it found is the area <i>LDAPS</i> and the summary, so it ends without a message - unless it was stopped or
+    /// failed. A read that starts meanwhile replaces it (the document then reads what the probe would have been about).
+    /// </summary>
     private async Task ProbeAsync()
     {
         _probing?.Cancel();
         using var probing = CancellationTokenSource.CreateLinkedTokenSource(Pki.Lifetime);
         _probing = probing;
         IsCheckingLdaps = true;
-        ProgressText = Localizer[L.PkiReadiness.StageLdaps];
+        var title = Localizer[L.PkiDocumentStatus.LdapsChecking];
+        using var scope = Status.Begin(Localizer.Format(L.PkiDocumentStatus.Working, title), new PageStatusLog(L.PkiDocumentStatus.LdapsChecking));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(probing.Token, scope.Token);
+        ProgressText = Localizer.Format(L.PkiDocumentStatus.Working, title);
+        PageStatus? result = null;
         try
         {
-            _ldaps = await Pki.Snapshot.GetDcCertificatesAsync(_ldaps is not null, probing.Token).ConfigureAwait(true);
+            _ldaps = await Pki.Snapshot.GetDcCertificatesAsync(_ldaps is not null, linked.Token).ConfigureAwait(true);
             _ldapsError = null;
         }
         catch (OperationCanceledException)
         {
-            // Another probe, a new session or the window closed.
+            // Stopped by the operator: what the area showed before stays. Another probe, a new session or the window closed:
+            // the probe is of no interest any more and says nothing.
+            if (scope.IsCancelling && !probing.IsCancellationRequested)
+            {
+                var label = Localizer[L.PkiReadiness.CheckLdaps];
+                result = PageStatus.Attention(
+                    Localizer.Format(L.PkiDocumentStatus.StoppedKept, title, label),
+                    new PageStatusLog(L.PkiDocumentStatus.StoppedKept),
+                    new PageStatusAction(label, CheckLdapsCommand));
+            }
         }
         catch (Exception ex) when (IsExpected(ex))
         {
             _ldapsError = Pki.Errors.Translate(ex);
+            var code = ResultCode.Of(ex);
+            result = PageStatus.Error(
+                PageStatusText.Failure(Localizer[L.PkiDocumentStatus.LdapsFailed], _ldapsError, Localizer[L.Feedback.RetryNext], code),
+                new PageStatusLog(L.PkiDocumentStatus.LdapsFailed).WithCode(code),
+                new PageStatusAction(Localizer[L.Common.Retry], CheckLdapsCommand));
         }
         finally
         {
@@ -257,6 +292,9 @@ public sealed partial class PkiReadinessDocumentViewModel : PkiDocumentBase
                 }
             }
         }
+
+        // The state first, then the operation: the line goes from "working" to the summary or the result.
+        scope.Complete(result);
     }
 
     /// <summary>Every area from what has been read so far (thresholds and language as they are now).</summary>

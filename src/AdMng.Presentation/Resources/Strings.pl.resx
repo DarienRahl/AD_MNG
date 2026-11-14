@@ -25296,5 +25296,83 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="RemoteActions.Status.ActionDone" xml:space="preserve">
     <value>{0}: {1}</value>
   </data>
+  <data name="PkiDoc.Status.Working" xml:space="preserve">
+    <value>{0}…</value>
+  </data>
+  <data name="PkiDoc.Status.Stage" xml:space="preserve">
+    <value>{0} – {1}…</value>
+  </data>
+  <data name="PkiDoc.Status.Reading" xml:space="preserve">
+    <value>Wczytywanie „{0}”</value>
+  </data>
+  <data name="PkiDoc.Status.ReadFailed" xml:space="preserve">
+    <value>Nie udało się wczytać „{0}”</value>
+  </data>
+  <data name="PkiDoc.Status.Stopped" xml:space="preserve">
+    <value>{0} zatrzymano: karta może nie pokazywać wszystkiego. Wybierz „{1}”, aby wczytać ją ponownie.</value>
+  </data>
+  <data name="PkiDoc.Status.StoppedKept" xml:space="preserve">
+    <value>{0} zatrzymano: wyników nie zmieniono. Wybierz „{1}”, aby sprawdzić ponownie.</value>
+  </data>
+  <data name="PkiDoc.Status.ReadAt" xml:space="preserve">
+    <value>odczytano z {0}, {1}</value>
+  </data>
+  <data name="PkiDoc.Status.StageObjects" xml:space="preserve">
+    <value>obiekty AD CS: {0}</value>
+  </data>
+  <data name="PkiDoc.Status.StageRights" xml:space="preserve">
+    <value>odczyt uprawnień szablonów</value>
+  </data>
+  <data name="PkiDoc.Status.StageAccounts" xml:space="preserve">
+    <value>konta: {0}</value>
+  </data>
+  <data name="PkiDoc.Status.StageControllers" xml:space="preserve">
+    <value>odczyt kontrolerów domeny</value>
+  </data>
+  <data name="PkiDoc.Status.StageLdaps" xml:space="preserve">
+    <value>sprawdzanie certyfikatów LDAPS kontrolerów domeny</value>
+  </data>
+  <data name="PkiDoc.Status.StageAccessControl" xml:space="preserve">
+    <value>odczyt uprawnień obiektów PKI</value>
+  </data>
+  <data name="PkiDoc.Status.StagePrincipals" xml:space="preserve">
+    <value>rozpoznawanie kont i grup</value>
+  </data>
+  <data name="PkiDoc.Status.StageAnalysis" xml:space="preserve">
+    <value>ocena reguł ESC</value>
+  </data>
+  <data name="PkiDoc.Status.LdapsChecking" xml:space="preserve">
+    <value>Sprawdzanie certyfikatów LDAPS kontrolerów domeny</value>
+  </data>
+  <data name="PkiDoc.Status.LdapsFailed" xml:space="preserve">
+    <value>Nie udało się sprawdzić certyfikatów LDAPS</value>
+  </data>
+  <data name="PkiOverview.Status.HttpChecking" xml:space="preserve">
+    <value>Sprawdzanie adresów AIA, CDP i OCSP</value>
+  </data>
+  <data name="PkiOverview.Status.HttpFailed" xml:space="preserve">
+    <value>Nie udało się sprawdzić adresów HTTP</value>
+  </data>
+  <data name="PkiTemplates.Status.StageCounting" xml:space="preserve">
+    <value>liczenie kont: {0}</value>
+  </data>
+  <data name="PkiTemplates.Status.CountsDone" xml:space="preserve">
+    <value>policzone konta: {0}</value>
+  </data>
+  <data name="PkiTemplates.Status.CountFailed" xml:space="preserve">
+    <value>Nie udało się policzyć kont</value>
+  </data>
+  <data name="PkiTemplates.Status.CountFailedNext" xml:space="preserve">
+    <value>Lista pokazuje, kto może się zarejestrować, ale nie liczbę kont. Wybierz „{0}”, aby wczytać ponownie.</value>
+  </data>
+  <data name="PkiSecurity.Status.Checking" xml:space="preserve">
+    <value>Sprawdzanie bezpieczeństwa AD CS</value>
+  </data>
+  <data name="PkiSecurity.Status.CheckFailed" xml:space="preserve">
+    <value>Nie udało się sprawdzić bezpieczeństwa AD CS</value>
+  </data>
+  <data name="PkiSecurity.Status.Stopped" xml:space="preserve">
+    <value>{0} zatrzymano: karta pokazuje wyniki wcześniejszego sprawdzenia, jeśli było. Wybierz „{1}”, aby sprawdzić ponownie.</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

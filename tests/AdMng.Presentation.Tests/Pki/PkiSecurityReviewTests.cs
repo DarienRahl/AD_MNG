@@ -370,9 +370,9 @@ public sealed class PkiSecurityReviewTests
         snapshot.BeforeExpansion = null;
         await review.RefreshCommand.ExecuteAsync(null);
         Assert.Equal(15, review.Rows.Count);
-        Assert.Contains(progress, p => p.StartsWith("Odczyt obiektów PKI (", StringComparison.Ordinal));
-        Assert.Contains(progress, p => p.StartsWith("Odczyt kont (", StringComparison.Ordinal));
-        Assert.Contains("Odczyt uprawnień obiektów PKI…", progress);
+        Assert.Contains(progress, p => p.StartsWith("Sprawdzanie bezpieczeństwa AD CS – obiekty AD CS: ", StringComparison.Ordinal));
+        Assert.Contains(progress, p => p.StartsWith("Sprawdzanie bezpieczeństwa AD CS – konta: ", StringComparison.Ordinal));
+        Assert.Contains("Sprawdzanie bezpieczeństwa AD CS – odczyt uprawnień obiektów PKI…", progress);
         Assert.Equal(string.Empty, review.ProgressText);
         Assert.True(snapshot.Refreshes > 0);
 

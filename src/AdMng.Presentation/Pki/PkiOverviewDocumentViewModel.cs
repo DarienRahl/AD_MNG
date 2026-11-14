@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Pki;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
@@ -46,9 +47,23 @@ public sealed partial class PkiOverviewDocumentViewModel : PkiDocumentBase, IPki
     {
         _pending = request;
         _actions = CancellationTokenSource.CreateLinkedTokenSource(pki.Lifetime);
+        HealthStatus = new PageStatusHolder(Localizer, Pki.Dispatcher, Pki.Ui.Lists.StatusLog);
+        LdapsStatus = new PageStatusHolder(Localizer, Pki.Dispatcher, Pki.Ui.Lists.StatusLog);
         Pki.Snapshot.Changed += OnSnapshotChanged;
         LoadedText = string.Empty;
     }
+
+    /// <summary>
+    /// What the <i>Zdrowie</i> tab says while it is shown (in front of <see cref="PkiDocumentBase.Status"/>): the count of
+    /// its states and the check of the HTTP addresses - an operation of its own, which can run while the document is read.
+    /// </summary>
+    public PageStatusHolder HealthStatus { get; }
+
+    /// <summary>
+    /// What the <i>Certyfikaty LDAPS</i> tab says while it is shown (in front of <see cref="PkiDocumentBase.Status"/>): the
+    /// probe of the domain controllers - an operation of its own - and the count of what it found.
+    /// </summary>
+    public PageStatusHolder LdapsStatus { get; }
 
     public override string Title => Localizer[L.Pki.OverviewTitle];
 
@@ -65,11 +80,6 @@ public sealed partial class PkiOverviewDocumentViewModel : PkiDocumentBase, IPki
 
     /// <summary>The snapshot shown (null before the first load).</summary>
     public PkiSnapshot? Snapshot => _snapshot;
-
-    /// <summary>"Odczyt obiektów PKI: 120…" while the snapshot is read.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText))]
-    public partial string ProgressText { get; private set; } = string.Empty;
 
     /// <summary>The selected tab (as an index of <see cref="PkiOverviewTab"/> for the view's tab control).</summary>
     [ObservableProperty]
@@ -88,7 +98,11 @@ public sealed partial class PkiOverviewDocumentViewModel : PkiDocumentBase, IPki
 
     /// <summary>"Odczytano z dc01.contoso.test, 13.10.2026 14:00.".</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SummaryDetail))]
     public partial string ReadAtText { get; private set; } = string.Empty;
+
+    /// <summary>When and from where the document was read, as the detail of the summary of the line ("read from dc01.contoso.test, 13.10.2026 14:00").</summary>
+    protected override string SummaryDetail => _snapshot is null ? string.Empty : Localizer.Format(L.PkiDocumentStatus.ReadAt, _server, PkiDisplay.Date(Localizer, _snapshot.ReadAt));
 
     /// <summary>The notes of the read (localized, one line per notice).</summary>
     [ObservableProperty]
@@ -157,33 +171,34 @@ public sealed partial class PkiOverviewDocumentViewModel : PkiDocumentBase, IPki
 
     protected override async Task LoadCoreAsync(IDirectorySession session, CancellationToken cancellationToken)
     {
-        ProgressText = Localizer.Format(L.Pki.ReadProgress, 0);
-        var progress = Pki.Dispatcher.CreateProgress<PkiReadProgress>(p => ProgressText = Localizer.Format(L.Pki.ReadProgress, PkiDisplay.Count(Localizer, p.Objects)));
-        try
+        if (IsRefresh)
         {
-            var snapshot = await Pki.Snapshot.GetAsync(IsRefresh, progress, cancellationToken).ConfigureAwait(true);
-            cancellationToken.ThrowIfCancellationRequested();
-            _server = session.Info.Server;
-            Show(snapshot);
-            if (_ldapsActivated || SelectedTab == PkiOverviewTab.Ldaps)
-            {
-                // The LDAPS tab was seen (or opened while the snapshot was read): its rows again – probed on F5 or for another
-                // DC (the probe results were dropped with the snapshot), from the cache after a language switch.
-                _ldapsActivated = true;
-                try
-                {
-                    await LoadLdapsAsync(IsRefresh, cancellationToken).ConfigureAwait(true);
-                }
-                catch (Exception ex) when (IsExpected(ex) && !cancellationToken.IsCancellationRequested)
-                {
-                    // The overview stays; the tab says why its checks are missing.
-                    LdapsStatusText = Pki.Errors.Translate(ex);
-                }
-            }
+            // The checks of the old read are dropped with it (the window's cache): what the tab said about them goes too.
+            LdapsStatus.SetLasting(null);
         }
-        finally
+
+        ReportStage(L.PkiDocumentStatus.StageObjects, 0);
+        var progress = Pki.Dispatcher.CreateProgress<PkiReadProgress>(p => ReportStage(L.PkiDocumentStatus.StageObjects, p.Objects));
+        var snapshot = await Pki.Snapshot.GetAsync(IsRefresh, progress, cancellationToken).ConfigureAwait(true);
+        cancellationToken.ThrowIfCancellationRequested();
+        _server = session.Info.Server;
+        Show(snapshot);
+        if (_ldapsActivated || SelectedTab == PkiOverviewTab.Ldaps)
         {
-            ProgressText = string.Empty;
+            // The LDAPS tab was seen (or opened while the snapshot was read): its rows again – probed on F5 or for another
+            // DC (the probe results were dropped with the snapshot), from the cache after a language switch. A step of this
+            // read, not an operation of the tab: the line of the read says it.
+            _ldapsActivated = true;
+            ReportStage(L.PkiDocumentStatus.StageLdaps);
+            try
+            {
+                await LoadLdapsAsync(IsRefresh, cancellationToken).ConfigureAwait(true);
+            }
+            catch (Exception ex) when (IsExpected(ex) && !cancellationToken.IsCancellationRequested)
+            {
+                // The overview stays; the tab says why its checks are missing.
+                SayLdapsFailure(ex);
+            }
         }
     }
 
@@ -202,7 +217,15 @@ public sealed partial class PkiOverviewDocumentViewModel : PkiDocumentBase, IPki
         SummaryText = string.Empty;
         ReadAtText = string.Empty;
         LoadedText = string.Empty;
+        HealthSummaryText = string.Empty;
+        HttpStatusText = string.Empty;
+        HttpNote = string.Empty;
+        LdapsStatusText = string.Empty;
+        UpdateHealthLine();
+        LdapsStatus.SetLasting(null);
+        LdapsStatus.SetIdle(string.Empty);
         OnPropertyChanged(nameof(Snapshot));
+        OnPropertyChanged(nameof(SummaryDetail));
         RaiseCollectionFlags();
     }
 
@@ -223,12 +246,21 @@ public sealed partial class PkiOverviewDocumentViewModel : PkiDocumentBase, IPki
         {
             Pki.Snapshot.Changed -= OnSnapshotChanged;
             _actions.Cancel();
+            HealthStatus.Operation?.Dispose();
+            LdapsStatus.Operation?.Dispose();
             _actions.Dispose();
         }
     }
 
     partial void OnSelectedTabIndexChanged(int value)
     {
+        // The tab in front says what it has to say: the line of the window shows it unless the window's own read is running.
+        Status.Front = SelectedTab switch
+        {
+            PkiOverviewTab.Health => HealthStatus,
+            PkiOverviewTab.Ldaps => LdapsStatus,
+            _ => null,
+        };
         if (SelectedTab == PkiOverviewTab.Health)
         {
             // "Re-evaluated on activation" (2.5): the clock may have moved since the snapshot was shown.
@@ -306,6 +338,7 @@ public sealed partial class PkiOverviewDocumentViewModel : PkiDocumentBase, IPki
         IsEmpty = snapshot.EnterpriseCas.Count == 0 && snapshot.RootCas.Count == 0 && snapshot.NtAuth is null;
         SummaryText = Localizer.Format(L.Pki.Summary, snapshot.EnterpriseCas.Count, snapshot.Templates.Count, snapshot.RootCas.Count, snapshot.NtAuth?.Certificates.Count ?? 0);
         ReadAtText = Localizer.Format(L.Pki.ReadAt, _server, PkiDisplay.Date(Localizer, snapshot.ReadAt));
+        OnPropertyChanged(nameof(SummaryDetail));
         LoadedText = SummaryText;
         NtAuthText = snapshot.NtAuth is null
             ? Localizer[PkiTextKeys.NoticeKey(PkiReadNoticeCode.ContainerMissing)]

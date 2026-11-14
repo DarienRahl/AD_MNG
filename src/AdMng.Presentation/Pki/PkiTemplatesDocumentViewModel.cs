@@ -5,6 +5,7 @@ using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Pki;
 using AdMng.Core.PrivilegedAccess;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
@@ -37,6 +38,9 @@ public sealed partial class PkiTemplatesDocumentViewModel : PkiDocumentBase, ISe
     private string _server = string.Empty;
     private PkiDocumentRequest? _pending;
 
+    /// <summary>The account pass failed: the rights are shown without the counts (the state of the tab that lasts).</summary>
+    private (string Text, ResultCode Code)? _countFailure;
+
     public PkiTemplatesDocumentViewModel(PkiServices pki, PkiDocumentRequest? request = null)
         : base(pki)
     {
@@ -54,10 +58,28 @@ public sealed partial class PkiTemplatesDocumentViewModel : PkiDocumentBase, ISe
 
     public override string SelectionText => SelectedRow?.DisplayName ?? string.Empty;
 
-    /// <summary>"Odczyt obiektów PKI…" / "Liczenie kont: 500…" while the document loads.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText))]
-    public partial string ProgressText { get; private set; } = string.Empty;
+    /// <summary>How many accounts the account pass counted, as the detail of the summary of the line ("accounts counted: 1,234"); empty before it was done.</summary>
+    protected override string SummaryDetail => _expansion is { } expansion
+        ? Localizer.Format(L.PkiTemplatesStatus.CountsDone, PkiDisplay.Count(Localizer, expansion.AccountsScanned))
+        : string.Empty;
+
+    /// <summary>The account pass failed: the rights are shown, the counts are not - until the document is read again.</summary>
+    protected override PageStatus? DocumentLastingState
+    {
+        get
+        {
+            if (_countFailure is not { } failure)
+            {
+                return null;
+            }
+
+            var retry = Localizer[L.Common.Retry];
+            return PageStatus.Attention(
+                PageStatusText.Failure(Localizer[L.PkiTemplatesStatus.CountFailed], failure.Text, Localizer.Format(L.PkiTemplatesStatus.CountFailedNext, retry), failure.Code),
+                new PageStatusLog(L.PkiTemplatesStatus.CountFailed).WithCode(failure.Code),
+                new PageStatusAction(retry, RefreshCommand));
+        }
+    }
 
     // ---- List and filters -------------------------------------------------------------------------------------------------
 
@@ -190,46 +212,41 @@ public sealed partial class PkiTemplatesDocumentViewModel : PkiDocumentBase, ISe
 
     protected override async Task LoadCoreAsync(IDirectorySession session, CancellationToken cancellationToken)
     {
-        try
+        _countFailure = null;
+        ReportStage(L.PkiDocumentStatus.StageObjects, 0);
+        var readProgress = Pki.Dispatcher.CreateProgress<PkiReadProgress>(p => ReportStage(L.PkiDocumentStatus.StageObjects, p.Objects));
+        var refresh = IsRefresh;
+        var snapshot = await Pki.Snapshot.GetAsync(refresh, readProgress, cancellationToken).ConfigureAwait(true);
+        var pageSize = Math.Clamp(Pki.Settings.Current.PageSize, 1, 5000);
+        var overrides = Pki.Settings.Current.AccountReview.Privileges.OverrideMap();
+
+        // The trustee level at once: the object types, the domain SIDs, the classifier without a graph (SID and RID rules),
+        // the names of the trustees (one OR search per 50 SIDs on the window's DC).
+        ReportStage(L.PkiDocumentStatus.StageRights);
+        (IReadOnlyList<TemplateRights> level, IReadOnlyDictionary<string, Trustee> trustees) = await Task.Run(async () =>
         {
-            ProgressText = Localizer.Format(L.Pki.ReadProgress, 0);
-            var readProgress = Pki.Dispatcher.CreateProgress<PkiReadProgress>(p => ProgressText = Localizer.Format(L.Pki.ReadProgress, PkiDisplay.Count(Localizer, p.Objects)));
-            var refresh = IsRefresh;
-            var snapshot = await Pki.Snapshot.GetAsync(refresh, readProgress, cancellationToken).ConfigureAwait(true);
-            var pageSize = Math.Clamp(Pki.Settings.Current.PageSize, 1, 5000);
-            var overrides = Pki.Settings.Current.AccountReview.Privileges.OverrideMap();
+            var types = await AclObjectTypes.ReadAsync(session, pageSize, cancellationToken).ConfigureAwait(false);
+            var domainSid = (await session.GetAsync(session.Info.DefaultNamingContext, [Attr.ObjectSid], cancellationToken).ConfigureAwait(false))?.ObjectSid;
+            var rootSid = await RootDomainSidAsync(session, domainSid, cancellationToken).ConfigureAwait(false);
+            var options = new PrivilegedAccessOptions { DomainSid = domainSid, RootDomainSid = rootSid, LevelOverrides = overrides, PageSize = pageSize };
+            var classifier = new PrincipalClassifier(domainSid, rootSid, options, null, [.. snapshot.EnterpriseCas.Select(c => c.ComputerSid).OfType<string>()]);
+            var rights = TemplateRightsEvaluator.TrusteeLevel(snapshot.Templates, types, classifier);
+            var names = await ResolveTrusteesAsync(session, rights.SelectMany(r => r.Trustees).Select(t => t.Sid), cancellationToken).ConfigureAwait(false);
+            return (rights, names);
+        }, cancellationToken).ConfigureAwait(true);
+        cancellationToken.ThrowIfCancellationRequested();
+        _server = session.Info.Server;
+        _trustees = trustees;
+        Show(snapshot, level);
 
-            // The trustee level at once: the object types, the domain SIDs, the classifier without a graph (SID and RID rules),
-            // the names of the trustees (one OR search per 50 SIDs on the window's DC).
-            (IReadOnlyList<TemplateRights> level, IReadOnlyDictionary<string, Trustee> trustees) = await Task.Run(async () =>
-            {
-                var types = await AclObjectTypes.ReadAsync(session, pageSize, cancellationToken).ConfigureAwait(false);
-                var domainSid = (await session.GetAsync(session.Info.DefaultNamingContext, [Attr.ObjectSid], cancellationToken).ConfigureAwait(false))?.ObjectSid;
-                var rootSid = await RootDomainSidAsync(session, domainSid, cancellationToken).ConfigureAwait(false);
-                var options = new PrivilegedAccessOptions { DomainSid = domainSid, RootDomainSid = rootSid, LevelOverrides = overrides, PageSize = pageSize };
-                var classifier = new PrincipalClassifier(domainSid, rootSid, options, null, [.. snapshot.EnterpriseCas.Select(c => c.ComputerSid).OfType<string>()]);
-                var rights = TemplateRightsEvaluator.TrusteeLevel(snapshot.Templates, types, classifier);
-                var names = await ResolveTrusteesAsync(session, rights.SelectMany(r => r.Trustees).Select(t => t.Sid), cancellationToken).ConfigureAwait(false);
-                return (rights, names);
-            }, cancellationToken).ConfigureAwait(true);
-            cancellationToken.ThrowIfCancellationRequested();
-            _server = session.Info.Server;
-            _trustees = trustees;
-            Show(snapshot, level);
-
-            // Then the one account pass of the window (shared with the security review and the readiness report).
-            if (!refresh && Pki.Snapshot.Expansion is { } cached && ReferenceEquals(Pki.Snapshot.Current, snapshot))
-            {
-                ApplyExpansion(cached);
-                return;
-            }
-
-            await CountAsync(refresh, cancellationToken).ConfigureAwait(true);
-        }
-        finally
+        // Then the one account pass of the window (shared with the security review and the readiness report).
+        if (!refresh && Pki.Snapshot.Expansion is { } cached && ReferenceEquals(Pki.Snapshot.Current, snapshot))
         {
-            ProgressText = string.Empty;
+            ApplyExpansion(cached);
+            return;
         }
+
+        await CountAsync(refresh, cancellationToken).ConfigureAwait(true);
     }
 
     protected override void OnNotConnected()
@@ -243,6 +260,8 @@ public sealed partial class PkiTemplatesDocumentViewModel : PkiDocumentBase, ISe
         FilterText = string.Empty;
         CountStatusText = string.Empty;
         LoadedText = string.Empty;
+        _countFailure = null;
+        OnPropertyChanged(nameof(SummaryDetail));
         CloseCompare();
         RefreshExportCommands();
     }
@@ -283,15 +302,19 @@ public sealed partial class PkiTemplatesDocumentViewModel : PkiDocumentBase, ISe
         RefreshExportCommands();
     }
 
-    /// <summary>The account pass; a failure leaves the trustee level on screen and says why the counts are missing.</summary>
+    /// <summary>
+    /// The account pass; a failure leaves the trustee level on screen and says why the counts are missing - as the state of the
+    /// tab that lasts, until the document is read again.
+    /// </summary>
     private async Task CountAsync(bool refresh, CancellationToken cancellationToken)
     {
         IsCounting = true;
         CountStatusText = Localizer[L.PkiTemplates.CountingStarted];
+        ReportStage(L.PkiTemplatesStatus.StageCounting, 0);
         var progress = Pki.Dispatcher.CreateProgress<PkiExpansionProgress>(p =>
         {
             CountStatusText = Localizer.Format(L.PkiTemplates.Counting, PkiDisplay.Count(Localizer, p.Accounts));
-            ProgressText = CountStatusText;
+            ReportStage(L.PkiTemplatesStatus.StageCounting, p.Accounts);
         });
         try
         {
@@ -301,8 +324,11 @@ public sealed partial class PkiTemplatesDocumentViewModel : PkiDocumentBase, ISe
         }
         catch (Exception ex) when (IsExpected(ex) && !cancellationToken.IsCancellationRequested)
         {
-            CountStatusText = Localizer.Format(L.PkiTemplates.CountFailed, Pki.Errors.Translate(ex));
+            var reason = Pki.Errors.Translate(ex);
+            CountStatusText = Localizer.Format(L.PkiTemplates.CountFailed, reason);
+            _countFailure = (reason, ResultCode.Of(ex));
             UpdateEnrollTexts();
+            UpdateLasting();
         }
         finally
         {
@@ -315,6 +341,7 @@ public sealed partial class PkiTemplatesDocumentViewModel : PkiDocumentBase, ISe
         var keep = SelectedRow?.Cn;
         _snapshot = snapshot;
         _expansion = null;
+        OnPropertyChanged(nameof(SummaryDetail));
         var byCn = level.ToDictionary(r => r.TemplateCn, StringComparer.OrdinalIgnoreCase);
         var oidNames = snapshot.Oids.GroupBy(o => o.Oid, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First().DisplayName ?? g.Key, StringComparer.Ordinal);
         _all = [.. snapshot.Templates.Select(t => Row(snapshot, t, oidNames, byCn.GetValueOrDefault(t.Cn)))];
@@ -344,6 +371,7 @@ public sealed partial class PkiTemplatesDocumentViewModel : PkiDocumentBase, ISe
         }
 
         CountStatusText = Localizer.Format(L.PkiTemplates.CountsDone, PkiDisplay.Count(Localizer, expansion.AccountsScanned));
+        OnPropertyChanged(nameof(SummaryDetail));
         UpdateEnrollTexts();
         ShowDetails(SelectedRow);
         RefreshCompare();

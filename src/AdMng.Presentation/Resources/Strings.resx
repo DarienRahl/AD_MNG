@@ -25296,5 +25296,83 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="RemoteActions.Status.ActionDone" xml:space="preserve">
     <value>{0}: {1}</value>
   </data>
+  <data name="PkiDoc.Status.Working" xml:space="preserve">
+    <value>{0}…</value>
+  </data>
+  <data name="PkiDoc.Status.Stage" xml:space="preserve">
+    <value>{0} – {1}…</value>
+  </data>
+  <data name="PkiDoc.Status.Reading" xml:space="preserve">
+    <value>Reading “{0}”</value>
+  </data>
+  <data name="PkiDoc.Status.ReadFailed" xml:space="preserve">
+    <value>Could not read “{0}”</value>
+  </data>
+  <data name="PkiDoc.Status.Stopped" xml:space="preserve">
+    <value>{0} was stopped: the tab may not show everything. Press “{1}” to read it again.</value>
+  </data>
+  <data name="PkiDoc.Status.StoppedKept" xml:space="preserve">
+    <value>{0} was stopped: the results were not changed. Press “{1}” to check again.</value>
+  </data>
+  <data name="PkiDoc.Status.ReadAt" xml:space="preserve">
+    <value>read from {0}, {1}</value>
+  </data>
+  <data name="PkiDoc.Status.StageObjects" xml:space="preserve">
+    <value>AD CS objects: {0}</value>
+  </data>
+  <data name="PkiDoc.Status.StageRights" xml:space="preserve">
+    <value>reading the rights of the templates</value>
+  </data>
+  <data name="PkiDoc.Status.StageAccounts" xml:space="preserve">
+    <value>accounts: {0}</value>
+  </data>
+  <data name="PkiDoc.Status.StageControllers" xml:space="preserve">
+    <value>reading the domain controllers</value>
+  </data>
+  <data name="PkiDoc.Status.StageLdaps" xml:space="preserve">
+    <value>checking the LDAPS certificates of the domain controllers</value>
+  </data>
+  <data name="PkiDoc.Status.StageAccessControl" xml:space="preserve">
+    <value>reading the permissions of the PKI objects</value>
+  </data>
+  <data name="PkiDoc.Status.StagePrincipals" xml:space="preserve">
+    <value>resolving the accounts and groups</value>
+  </data>
+  <data name="PkiDoc.Status.StageAnalysis" xml:space="preserve">
+    <value>evaluating the ESC rules</value>
+  </data>
+  <data name="PkiDoc.Status.LdapsChecking" xml:space="preserve">
+    <value>Checking the LDAPS certificates of the domain controllers</value>
+  </data>
+  <data name="PkiDoc.Status.LdapsFailed" xml:space="preserve">
+    <value>Could not check the LDAPS certificates</value>
+  </data>
+  <data name="PkiOverview.Status.HttpChecking" xml:space="preserve">
+    <value>Checking the AIA, CDP and OCSP addresses</value>
+  </data>
+  <data name="PkiOverview.Status.HttpFailed" xml:space="preserve">
+    <value>Could not check the HTTP addresses</value>
+  </data>
+  <data name="PkiTemplates.Status.StageCounting" xml:space="preserve">
+    <value>counting the accounts: {0}</value>
+  </data>
+  <data name="PkiTemplates.Status.CountsDone" xml:space="preserve">
+    <value>accounts counted: {0}</value>
+  </data>
+  <data name="PkiTemplates.Status.CountFailed" xml:space="preserve">
+    <value>Could not count the accounts</value>
+  </data>
+  <data name="PkiTemplates.Status.CountFailedNext" xml:space="preserve">
+    <value>The list shows who may enroll, but not how many accounts that is. Press “{0}” to read again.</value>
+  </data>
+  <data name="PkiSecurity.Status.Checking" xml:space="preserve">
+    <value>Checking AD CS security</value>
+  </data>
+  <data name="PkiSecurity.Status.CheckFailed" xml:space="preserve">
+    <value>Could not check AD CS security</value>
+  </data>
+  <data name="PkiSecurity.Status.Stopped" xml:space="preserve">
+    <value>{0} was stopped: the tab shows the results of the earlier check, if there was one. Press “{1}” to check again.</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

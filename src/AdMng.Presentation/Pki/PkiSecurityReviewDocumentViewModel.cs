@@ -22,10 +22,14 @@ namespace AdMng.Presentation.Pki;
 /// (rule 5): no <i>Napraw</i> in P1 – the actions are <i>Otwórz szablon / urząd / konto</i>, <i>Kopiuj</i> and the CSV / HTML
 /// exports to a file the operator picks (rule 1). Everything is read on the window's DC (rule 4) and kept in memory only.
 /// </summary>
+/// <remarks>
+/// The check is the operation of the tab (<see cref="PkiDocumentBase.Status"/>; track V, stage V2b-4, unit 3): "Checking AD CS
+/// security – …" with the stage it is at and Stop, which is also the cancel of <i>Sprawdź ponownie</i>
+/// (<see cref="CancelCommand"/> is the same Stop). A stopped check leaves the results of the check before it on screen and says
+/// so as the state of the tab that lasts.
+/// </remarks>
 public sealed partial class PkiSecurityReviewDocumentViewModel : PkiDocumentBase, ISearchableDocument, IPkiRequestTarget
 {
-    private CancellationTokenSource? _running;
-    private bool _cancelRequested;
     private ReviewResult? _review;
 
     /// <summary>The selection to restore after the next check (the key of the row, and its index as a fallback).</summary>
@@ -73,14 +77,22 @@ public sealed partial class PkiSecurityReviewDocumentViewModel : PkiDocumentBase
 
     // ---- Check state --------------------------------------------------------------------------------------------------------
 
-    /// <summary>"Odczyt kont (1 500)…" while a check runs.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText))]
-    public partial string ProgressText { get; private set; } = string.Empty;
-
     /// <summary>"Ostatnie sprawdzenie: 13.10.2026 12:00 na dc01.contoso.test" (or "Jeszcze nie sprawdzono.").</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SummaryDetail))]
     public partial string LastRunText { get; private set; } = string.Empty;
+
+    /// <summary>When and where the shown check ran: the detail of the summary of the line.</summary>
+    protected override string SummaryDetail => LastRunText;
+
+    /// <summary>The check, not a read: "Checking AD CS security" is the title of the operation.</summary>
+    protected override string ReadingKey => L.PkiSecurityStatus.Checking;
+
+    protected override string FailedKey => L.PkiSecurityStatus.CheckFailed;
+
+    protected override string StoppedKey => L.PkiSecurityStatus.Stopped;
+
+    protected override string RefreshLabel => Localizer[L.PkiSecurity.CheckAgain];
 
     /// <summary>What the review covers and assumes (decision 3; ESC6/7/8/10/11/16 are P4) – always shown.</summary>
     public string ScopeNote { get; private set; }
@@ -111,23 +123,19 @@ public sealed partial class PkiSecurityReviewDocumentViewModel : PkiDocumentBase
             _restoreSelection ??= (selected.Key, IndexOf(Rows, selected));
         }
 
-        using var running = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _running = running;
-        _cancelRequested = false;
         RefreshCommands();
-        var token = running.Token;
         var refresh = IsRefresh;
         try
         {
-            ProgressText = Localizer.Format(L.PkiSecurity.StageSnapshot, 0);
+            ReportStage(L.PkiDocumentStatus.StageObjects, 0);
             var snapshot = await Pki.Snapshot.GetAsync(refresh,
-                Progress<PkiReadProgress>(running, p => ProgressText = Localizer.Format(L.PkiSecurity.StageSnapshot, p.Objects.ToString("N0", Localizer.Culture))),
-                token).ConfigureAwait(true);
-            ProgressText = Localizer.Format(L.PkiSecurity.StageAccounts, 0);
+                Progress<PkiReadProgress>(cancellationToken, p => ReportStage(L.PkiDocumentStatus.StageObjects, p.Objects)),
+                cancellationToken).ConfigureAwait(true);
+            ReportStage(L.PkiDocumentStatus.StageAccounts, 0);
             var expansion = await Pki.Snapshot.GetExpansionAsync(refresh,
-                Progress<PkiExpansionProgress>(running, p => ProgressText = Localizer.Format(L.PkiSecurity.StageAccounts, p.Accounts.ToString("N0", Localizer.Culture))),
-                token).ConfigureAwait(true);
-            ProgressText = Localizer[L.PkiSecurity.StageAccessControl];
+                Progress<PkiExpansionProgress>(cancellationToken, p => ReportStage(L.PkiDocumentStatus.StageAccounts, p.Accounts)),
+                cancellationToken).ConfigureAwait(true);
+            ReportStage(L.PkiDocumentStatus.StageAccessControl);
             var context = new PrivilegeScanContext
             {
                 Session = session,
@@ -135,26 +143,28 @@ public sealed partial class PkiSecurityReviewDocumentViewModel : PkiDocumentBase
                 Options = expansion.Options,
                 Now = Pki.Time.GetUtcNow(),
             };
-            var escProgress = Progress<PkiEscProgress>(running, p => ProgressText = p.Stage switch
+            var escProgress = Progress<PkiEscProgress>(cancellationToken, p => ReportStage(p.Stage switch
             {
-                PkiEscStage.AccessControl => Localizer[L.PkiSecurity.StageAccessControl],
-                PkiEscStage.Principals => Localizer[L.PkiSecurity.StagePrincipals],
-                _ => Localizer[L.PkiSecurity.StageAnalysis],
-            });
+                PkiEscStage.AccessControl => L.PkiDocumentStatus.StageAccessControl,
+                PkiEscStage.Principals => L.PkiDocumentStatus.StagePrincipals,
+                _ => L.PkiDocumentStatus.StageAnalysis,
+            }));
             var result = await Task.Run(async () =>
             {
-                var read = await PkiEscReader.ReadAsync(context, snapshot, expansion, new PkiEscReadOptions(), escProgress, token).ConfigureAwait(false);
-                token.ThrowIfCancellationRequested();
+                var read = await PkiEscReader.ReadAsync(context, snapshot, expansion, new PkiEscReadOptions(), escProgress, cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
                 return PkiEscAnalyzer.Analyze(read);
-            }, token).ConfigureAwait(true);
-            token.ThrowIfCancellationRequested();
+            }, cancellationToken).ConfigureAwait(true);
+            cancellationToken.ThrowIfCancellationRequested();
             Show(new ReviewResult(snapshot, result, Pki.Time.GetLocalNow(), session.Info.Server, Localizer));
         }
-        catch (OperationCanceledException) when (_cancelRequested && !cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (LoadOperation is { IsCancelling: true })
         {
-            // "Anuluj": the shown results (if any) stay; the status says the check was cancelled.
+            // "Zatrzymaj": the shown results (if any) stay; the summary says the check was cancelled and the base says it as the
+            // state of the tab that lasts.
             _restoreSelection = null;
             LoadedText = Localizer[L.PkiSecurity.Cancelled];
+            throw;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -163,21 +173,15 @@ public sealed partial class PkiSecurityReviewDocumentViewModel : PkiDocumentBase
         }
         finally
         {
-            if (ReferenceEquals(_running, running))
-            {
-                _running = null;
-                ProgressText = string.Empty;
-            }
-
             RefreshCommands();
         }
     }
 
-    /// <summary>A progress that reports on the UI thread only while <paramref name="running"/> is the current check.</summary>
-    private IProgress<T> Progress<T>(CancellationTokenSource running, Action<T> report) =>
+    /// <summary>A progress that reports on the UI thread only while the check it belongs to is the current one.</summary>
+    private IProgress<T> Progress<T>(CancellationToken check, Action<T> report) =>
         Pki.Dispatcher.CreateProgress<T>(p =>
         {
-            if (ReferenceEquals(_running, running) && !running.IsCancellationRequested)
+            if (!check.IsCancellationRequested)
             {
                 report(p);
             }
@@ -230,18 +234,11 @@ public sealed partial class PkiSecurityReviewDocumentViewModel : PkiDocumentBase
         ExportHtmlCommand.NotifyCanExecuteChanged();
     }
 
-    /// <summary>"Anuluj": stops the running check (the shown results stay).</summary>
+    /// <summary>"Zatrzymaj": stops the running check (the shown results stay) - the same Stop as the one of the status line.</summary>
     [RelayCommand(CanExecute = nameof(CanCancel))]
-    public void Cancel()
-    {
-        if (_running is { } running)
-        {
-            _cancelRequested = true;
-            running.Cancel();
-        }
-    }
+    public void Cancel() => LoadOperation?.Cancel();
 
-    private bool CanCancel() => IsLoading && _running is not null;
+    private bool CanCancel() => IsLoading && LoadOperation is { IsCancelling: false };
 
     /// <summary>
     /// Shows a check: rows, chips, filters, notes, the last-run line and the status text (also to rebuild the texts after a
@@ -321,7 +318,6 @@ public sealed partial class PkiSecurityReviewDocumentViewModel : PkiDocumentBase
     {
         if (disposing)
         {
-            _running?.Cancel();
             _review = null;
             _all = [];
         }
