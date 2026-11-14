@@ -24996,5 +24996,44 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="GpoComparison.Status.ExportFailed" xml:space="preserve">
     <value>Nie wyeksportowano porównania</value>
   </data>
+  <data name="GpoBackup.Status.ReadingFolder" xml:space="preserve">
+    <value>Wczytywanie kopii zapasowych z folderu…</value>
+  </data>
+  <data name="GpoBackup.Status.Found" xml:space="preserve">
+    <value>Kopie zapasowe w folderze: {0}</value>
+  </data>
+  <data name="GpoBackup.Status.NoneFound" xml:space="preserve">
+    <value>Brak kopii zapasowych w folderze</value>
+  </data>
+  <data name="GpoBackup.Status.ListStopped" xml:space="preserve">
+    <value>Wczytywanie kopii zapasowych zatrzymano: listy nie zmieniono. Wybierz „{0}”, aby wczytać folder ponownie.</value>
+  </data>
+  <data name="GpoBackup.Status.ListFailed" xml:space="preserve">
+    <value>Nie udało się wyświetlić kopii zapasowych</value>
+  </data>
+  <data name="GpoBackup.Status.ReadingBackup" xml:space="preserve">
+    <value>Wczytywanie kopii zapasowej „{0}”…</value>
+  </data>
+  <data name="GpoBackup.Status.BackupReadStopped" xml:space="preserve">
+    <value>Wczytywanie kopii zapasowej zatrzymano: nie można jeszcze z niej skorzystać. Wybierz „{0}”, aby wczytać ją ponownie.</value>
+  </data>
+  <data name="GpoBackup.Status.BackupReadFailed" xml:space="preserve">
+    <value>Nie udało się wczytać kopii zapasowej „{0}”</value>
+  </data>
+  <data name="GpoBackup.Status.BackingUp" xml:space="preserve">
+    <value>Tworzenie kopii zapasowych GPO…</value>
+  </data>
+  <data name="GpoBackup.Status.BackingUpProgress" xml:space="preserve">
+    <value>Tworzenie kopii zapasowych GPO: {0}…</value>
+  </data>
+  <data name="GpoBackup.Status.BackupStopped" xml:space="preserve">
+    <value>Tworzenie kopii zapasowych zatrzymano: do folderu zapisano {0} z {1} obiektów GPO. Wybierz „{2}”, aby spróbować ponownie.</value>
+  </data>
+  <data name="GpoBackup.Status.BackupFailed" xml:space="preserve">
+    <value>Nie udało się utworzyć kopii zapasowych {0} z {1} obiektów GPO</value>
+  </data>
+  <data name="GpoBackup.Status.NotBackedUp" xml:space="preserve">
+    <value>Nie utworzono kopii zapasowej</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

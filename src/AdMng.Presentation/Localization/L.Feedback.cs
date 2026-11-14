@@ -740,4 +740,48 @@ public static partial class L
         /// <summary>What was skipped, without a full stop: the lead of "…: why."</summary>
         public const string ExportFailed = "GpoComparison.Status.ExportFailed";
     }
+
+    /// <summary>
+    /// What the backup, restore and import window says in its status line (stage V2b-3): the read of the backups of the
+    /// folder, the read of the selected backup, the backup itself and what became of them when they did not end. The plan of
+    /// a restore or an import says what every Group Policy operation says (<see cref="GroupPolicyStatus.Preparing"/>).
+    /// </summary>
+    public static class GpoBackupStatus
+    {
+        public const string ReadingFolder = "GpoBackup.Status.ReadingFolder";
+
+        /// <summary>The summary of the list; {0} = how many backups the folder holds.</summary>
+        public const string Found = "GpoBackup.Status.Found";
+
+        public const string NoneFound = "GpoBackup.Status.NoneFound";
+
+        /// <summary>{0} = the text of the "Retry" button.</summary>
+        public const string ListStopped = "GpoBackup.Status.ListStopped";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string ListFailed = "GpoBackup.Status.ListFailed";
+
+        /// <summary>{0} = the name of the GPO the backup is of.</summary>
+        public const string ReadingBackup = "GpoBackup.Status.ReadingBackup";
+
+        /// <summary>{0} = the text of the "Retry" button.</summary>
+        public const string BackupReadStopped = "GpoBackup.Status.BackupReadStopped";
+
+        /// <summary>What was tried, without a full stop; {0} = the name of the GPO the backup is of.</summary>
+        public const string BackupReadFailed = "GpoBackup.Status.BackupReadFailed";
+
+        public const string BackingUp = "GpoBackup.Status.BackingUp";
+
+        /// <summary>{0} = how far it is ("1 of 3"); logged as <see cref="BackingUp"/>.</summary>
+        public const string BackingUpProgress = "GpoBackup.Status.BackingUpProgress";
+
+        /// <summary>{0} = the backups written, {1} = the GPOs, {2} = the text of the button that backs up.</summary>
+        public const string BackupStopped = "GpoBackup.Status.BackupStopped";
+
+        /// <summary>What was tried, without a full stop; {0} = the backups that failed, {1} = the GPOs.</summary>
+        public const string BackupFailed = "GpoBackup.Status.BackupFailed";
+
+        /// <summary>What was skipped, without a full stop.</summary>
+        public const string NotBackedUp = "GpoBackup.Status.NotBackedUp";
+    }
 }
