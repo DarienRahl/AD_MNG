@@ -81,7 +81,7 @@ public sealed partial class UserMessageComposerViewModel
 
     /// <summary>A paste runs in the background (cancellable).</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(PasteFormattedCommand), nameof(PasteImageCommand), nameof(CancelPasteCommand))]
+    [NotifyCanExecuteChangedFor(nameof(PasteFormattedCommand), nameof(PasteImageCommand))]
     public partial bool IsPasting { get; private set; }
 
     /// <summary>"Podgląd formatowania" instead of the HTML source editor.</summary>
@@ -181,10 +181,6 @@ public sealed partial class UserMessageComposerViewModel
             }
         }
     }
-
-    /// <summary>The Cancel of the paste as a command (the same Stop as in the status line and on the paste button).</summary>
-    [RelayCommand(CanExecute = nameof(IsPasting))]
-    private void CancelPaste() => _pasting?.Cancel();
 
     /// <summary>"Wklej obraz": the clipboard's bitmap at the caret of the HTML source (else as a paragraph at the end).</summary>
     [RelayCommand(CanExecute = nameof(CanEditHtml))]

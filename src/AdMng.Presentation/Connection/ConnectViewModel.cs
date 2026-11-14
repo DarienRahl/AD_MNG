@@ -343,7 +343,7 @@ public sealed partial class ConnectViewModel : ObservableObject, IHasPageStatus
     /// together): the line says it with Stop - its button is its Cancel - and, when it is through, how many domain
     /// controllers the drop-down offers: the summary of the window, because the list itself is the result.
     /// </summary>
-    [RelayCommand(CanExecute = nameof(CanFindDomainControllers), IncludeCancelCommand = true)]
+    [RelayCommand(CanExecute = nameof(CanFindDomainControllers))]
     private async Task FindDomainControllersAsync(CancellationToken cancellationToken)
     {
         var domain = NullIfEmpty(Domain) ?? _connector.GetComputerDomain();

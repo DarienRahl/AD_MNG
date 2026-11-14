@@ -385,10 +385,6 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
     [RelayCommand(CanExecute = nameof(IsIdle))]
     private void Close() => RequestClose(ChangedDirectory);
 
-    /// <summary>Cancels a running backup (the activity center cancels it too).</summary>
-    [RelayCommand]
-    private void CancelWork() => _work.Cancel();
-
     public override Task<bool> CanCloseAsync() => Task.FromResult(!IsBusy);
 
     protected override void OnCultureChanged()
