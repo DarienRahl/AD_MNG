@@ -24,7 +24,6 @@ public static partial class L
 
         /// <summary>The short label of the command on buttons (details pane, property sheet).</summary>
         public const string CompareShort = "Comparison.CompareShort";
-        public const string Stop = "Comparison.Stop";
         public const string Refresh = "Comparison.Refresh";
         public const string ExportCsv = "Comparison.ExportCsv";
         public const string ExportTitle = "Comparison.ExportTitle";
@@ -39,9 +38,6 @@ public static partial class L
         public const string StatusNotFound = "Comparison.StatusNotFound";
 
         public const string StatusNotFoundExplicit = "Comparison.StatusNotFoundExplicit";
-
-        /// <summary>{0} = number of candidates.</summary>
-        public const string StatusAmbiguous = "Comparison.StatusAmbiguous";
 
         public const string StatusTooMany = "Comparison.StatusTooMany";
 

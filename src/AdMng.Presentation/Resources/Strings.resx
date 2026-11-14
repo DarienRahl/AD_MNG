@@ -650,9 +650,6 @@ Apply the change to the remaining {1} object(s) in the domain {2}?</value>
   <data name="Comparison.StateSameOtherDomain" xml:space="preserve">
     <value>Same (other domain)</value>
   </data>
-  <data name="Comparison.StatusAmbiguous" xml:space="preserve">
-    <value>Found {0} objects – choose one</value>
-  </data>
   <data name="Comparison.StatusCancelled" xml:space="preserve">
     <value>Stopped</value>
   </data>
@@ -682,9 +679,6 @@ Apply the change to the remaining {1} object(s) in the domain {2}?</value>
   </data>
   <data name="Comparison.StatusTooMany" xml:space="preserve">
     <value>More than 50 – narrow the search</value>
-  </data>
-  <data name="Comparison.Stop" xml:space="preserve">
-    <value>Stop</value>
   </data>
   <data name="Comparison.TabAttributes" xml:space="preserve">
     <value>Attributes</value>
@@ -2393,9 +2387,6 @@ Anyone who can read the file can sign in with these accounts - store it securely
   </data>
   <data name="Batch.PasswordRequired" xml:space="preserve">
     <value>Enter the new password.</value>
-  </data>
-  <data name="Batch.Planning" xml:space="preserve">
-    <value>Reading current values and validating...</value>
   </data>
   <data name="Batch.PowerShellCopied" xml:space="preserve">
     <value>The PowerShell script was copied to the clipboard.</value>
@@ -7194,9 +7185,6 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="AccountReview.ReadingDomainControllers" xml:space="preserve">
     <value>Reading lastLogon of {0} accounts on every domain controller...</value>
   </data>
-  <data name="AccountReview.ExactDone" xml:space="preserve">
-    <value>Exact last logon read from {0} of {1} domain controllers; {2} accounts are active after all.</value>
-  </data>
   <data name="AccountReview.SendMessage" xml:space="preserve">
     <value>Send message...</value>
   </data>
@@ -10896,9 +10884,6 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="PlanPreview.Close" xml:space="preserve">
     <value>Close</value>
-  </data>
-  <data name="PlanPreview.Cancel" xml:space="preserve">
-    <value>Cancel</value>
   </data>
   <data name="PlanPreview.CopyPowerShell" xml:space="preserve">
     <value>Copy PowerShell</value>

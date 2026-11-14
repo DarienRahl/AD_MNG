@@ -650,9 +650,6 @@ Czy zastosować zmianę do pozostałych obiektów ({1}) w domenie {2}?</value>
   <data name="Comparison.StateSameOtherDomain" xml:space="preserve">
     <value>Takie same (inna domena)</value>
   </data>
-  <data name="Comparison.StatusAmbiguous" xml:space="preserve">
-    <value>Znaleziono {0} obiektów – wybierz jeden</value>
-  </data>
   <data name="Comparison.StatusCancelled" xml:space="preserve">
     <value>Przerwano</value>
   </data>
@@ -682,9 +679,6 @@ Czy zastosować zmianę do pozostałych obiektów ({1}) w domenie {2}?</value>
   </data>
   <data name="Comparison.StatusTooMany" xml:space="preserve">
     <value>Więcej niż 50 – zawęź wyszukiwanie</value>
-  </data>
-  <data name="Comparison.Stop" xml:space="preserve">
-    <value>Przerwij</value>
   </data>
   <data name="Comparison.TabAttributes" xml:space="preserve">
     <value>Atrybuty</value>
@@ -2393,9 +2387,6 @@ Każdy, kto odczyta plik, może zalogować się na te konta - przechowuj go bezp
   </data>
   <data name="Batch.PasswordRequired" xml:space="preserve">
     <value>Wprowadź nowe hasło.</value>
-  </data>
-  <data name="Batch.Planning" xml:space="preserve">
-    <value>Odczytywanie bieżących wartości i sprawdzanie poprawności...</value>
   </data>
   <data name="Batch.PowerShellCopied" xml:space="preserve">
     <value>Skrypt PowerShell skopiowano do schowka.</value>
@@ -7194,9 +7185,6 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="AccountReview.ReadingDomainControllers" xml:space="preserve">
     <value>Odczyt lastLogon {0} kont na każdym kontrolerze domeny...</value>
   </data>
-  <data name="AccountReview.ExactDone" xml:space="preserve">
-    <value>Odczytano dokładne ostatnie logowanie z {0} z {1} kontrolerów domeny; aktywnych mimo wszystko: {2}.</value>
-  </data>
   <data name="AccountReview.SendMessage" xml:space="preserve">
     <value>Wyślij wiadomość...</value>
   </data>
@@ -10896,9 +10884,6 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   </data>
   <data name="PlanPreview.Close" xml:space="preserve">
     <value>Zamknij</value>
-  </data>
-  <data name="PlanPreview.Cancel" xml:space="preserve">
-    <value>Anuluj</value>
   </data>
   <data name="PlanPreview.CopyPowerShell" xml:space="preserve">
     <value>Kopiuj PowerShell</value>
