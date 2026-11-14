@@ -1,6 +1,8 @@
 <!--
   "Wyszukiwarka ustawień GPO" (GpoSettingsSearchDocumentViewModel, K7, design note docs/dev/k-computers-and-gpo.md 21.4):
-  the read of the window's settings index with progress and cancel, the stale bar, the notes, the query with the field, the
+  the reads of the window's settings index (action buttons: while one runs, its button is its Cancel), the status line
+  (the read with its stages, the result of the query with when the GPOs were read, "Group Policy changed in this window"
+  with Refresh), the notes about what the index could not read and about the cap, the query with the field, the
   configuration, the area and "Tylko różne wartości", the summary of a short query, the results grouped by setting
   ("ustawione w N GPO – wartości zgodne / różne") in a virtualized list (also when grouped) and, beside it behind a splitter,
   the details of the selected occurrence with "Otwórz GPO", "Edytuj to ustawienie", "Porównaj GPO", "Kopiuj do innego GPO…" and
@@ -53,55 +55,36 @@
                  TextTrimming="CharacterEllipsis"
                  ToolTip="{Binding Title, Mode=OneWay}" />
       <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
-        <Button x:Name="RefreshIndexButton"
-                Margin="0,0,6,0"
-                Command="{Binding RefreshIndexCommand}"
-                Content="{l:Tr GpoSearch.Refresh}"
-                ToolTip="{l:Tr GpoSearch.RefreshHint}" />
-        <Button x:Name="ReadAllButton"
-                Margin="0,0,6,0"
-                Command="{Binding ReadAllCommand}"
-                Content="{l:Tr GpoSearch.ReadAll}"
-                ToolTip="{l:Tr GpoSearch.ReadAllHint}" />
-        <Button x:Name="CancelButton" Margin="0,0,12,0" Command="{Binding CancelCommand}" Content="{l:Tr Common.Cancel}" />
+        <!-- The reads: while one of them runs, its button is its Cancel (the line says how far it is, "Stopping…" after the press). -->
+        <c:ActionButton x:Name="RefreshIndexButton"
+                        Margin="0,0,6,0"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding RefreshIndexCommand}"
+                        Content="{l:Tr GpoSearch.Refresh}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsRefreshing, Mode=OneWay}"
+                        Style="{StaticResource Ad.ActionButton}"
+                        ToolTip="{l:Tr GpoSearch.RefreshHint}" />
+        <c:ActionButton x:Name="ReadAllButton"
+                        Margin="0,0,12,0"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding ReadAllCommand}"
+                        Content="{l:Tr GpoSearch.ReadAll}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsReadingAll, Mode=OneWay}"
+                        Style="{StaticResource Ad.ActionButton}"
+                        ToolTip="{l:Tr GpoSearch.ReadAllHint}" />
         <Button x:Name="ExportCsvButton" Margin="0,0,6,0" Command="{Binding ExportCsvCommand}" Content="{l:Tr GpoSearch.ExportCsv}" />
         <Button x:Name="ExportHtmlButton" Command="{Binding ExportHtmlCommand}" Content="{l:Tr GpoSearch.ExportHtml}" />
       </StackPanel>
     </Grid>
 
-    <!-- The read the results come from, or the progress of the running one -->
-    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
-      <TextBlock x:Name="IndexInfoText"
-                 VerticalAlignment="Center"
-                 Style="{StaticResource Ad.SecondaryText}"
-                 Text="{Binding IndexInfoText, Mode=OneWay}"
-                 TextTrimming="CharacterEllipsis"
-                 ToolTip="{Binding IndexInfoText, Mode=OneWay}"
-                 Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
-      <DockPanel x:Name="ProgressPanel" Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-        <ProgressBar x:Name="ReadProgress"
-                     Width="220"
-                     Height="4"
-                     Margin="0,0,10,0"
-                     VerticalAlignment="Center"
-                     AutomationProperties.Name="{Binding ProgressText, Mode=OneWay}"
-                     DockPanel.Dock="Left"
-                     IsIndeterminate="{Binding IsProgressIndeterminate, Mode=OneWay}"
-                     Maximum="100"
-                     Value="{Binding ProgressValue, Mode=OneWay}" />
-        <TextBlock x:Name="ProgressText"
-                   VerticalAlignment="Center"
-                   AutomationProperties.LiveSetting="Polite"
-                   Text="{Binding ProgressText, Mode=OneWay}"
-                   TextTrimming="CharacterEllipsis" />
-      </DockPanel>
-    </Grid>
-
     <!--
-      Status line (design note 6.1): the read of the document with Stop, its summary, why it could not be read, and what
-      became of an operation that is prepared for the change plan preview. The bars of this view are converted with it
-      (V2b-3). Always present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and the
-      PDC emulator (GroupPolicyNotes).
+      Status line (design note 6.1): the read of the index with its stages and Stop, the summary (the result of the query,
+      when the GPOs were read, the selected occurrence), why it could not be read, "Group Policy changed in this window"
+      with Refresh, and what became of an operation that is prepared for the change plan preview. Always present, so
+      nothing under it moves while the tab works. Under it the notes about SYSVOL and the PDC emulator
+      (GroupPolicyNotes), then the notes of this view.
     -->
     <c:StatusLine x:Name="PageStatus"
                   Margin="0,0,0,6"
@@ -110,52 +93,23 @@
                   Status="{Binding Status.Current, Mode=OneWay}" />
     <gp:GroupPolicyNotes x:Name="DocumentNotes" DockPanel.Dock="Top" />
 
-    <!-- Group Policy changed after the read -->
-    <Border x:Name="StaleBar"
-            Margin="0,0,0,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding IsStale, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <DockPanel>
-        <Button x:Name="StaleRefreshButton"
-                Margin="12,0,0,0"
-                VerticalAlignment="Center"
-                Command="{Binding RefreshIndexCommand}"
-                Content="{l:Tr GpoSearch.Refresh}"
-                DockPanel.Dock="Right" />
-        <TextBlock Margin="0,1,10,0"
-                   VerticalAlignment="Center"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Warning}" />
-        <TextBlock VerticalAlignment="Center" Text="{l:Tr GpoSearch.Stale}" TextWrapping="Wrap" />
-      </DockPanel>
-    </Border>
-
-    <!-- What the index could not read or search (the GPOs in the tool tips) -->
-    <Border x:Name="NotesBar"
-            Margin="0,0,0,6"
-            Padding="12,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.Card}"
-            Visibility="{Binding HasNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <DockPanel>
-        <TextBlock Margin="0,1,10,0"
-                   VerticalAlignment="Top"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Info}" />
-        <ItemsControl x:Name="NotesList" AutomationProperties.LiveSetting="Polite" Focusable="False" ItemsSource="{Binding Notes, Mode=OneWay}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate DataType="{x:Type gps:GpoSearchNote}">
-              <TextBlock Margin="0,1" Text="{Binding Text, Mode=OneWay}" TextWrapping="Wrap" ToolTip="{Binding Detail, Mode=OneWay}" />
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </DockPanel>
-    </Border>
+    <!--
+      What the index could not read or search (the GPOs in the tool tips): how complete the results are - notes about
+      them, true for as long as they are shown.
+    -->
+    <ContentControl x:Name="NotesBar"
+                    Margin="0,0,0,6"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding HasNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <ItemsControl x:Name="NotesList" AutomationProperties.LiveSetting="Polite" Focusable="False" ItemsSource="{Binding Notes, Mode=OneWay}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type gps:GpoSearchNote}">
+            <TextBlock Margin="0,0,0,2" Text="{Binding Text, Mode=OneWay}" TextWrapping="Wrap" ToolTip="{Binding Detail, Mode=OneWay}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ContentControl>
 
     <!-- The query (Ctrl+F, Enter, Esc), the field and the facets -->
     <WrapPanel Margin="0,0,0,6" DockPanel.Dock="Top">
@@ -215,20 +169,17 @@
               Visibility="{Binding IsFiltered, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
     </WrapPanel>
 
-    <!-- What the query found, and the note when more was found than is shown -->
-    <StackPanel Margin="0,0,0,6" DockPanel.Dock="Top">
-      <TextBlock x:Name="ResultText"
+    <!-- The note when more was found than is shown (what the query found is the summary of the status line) -->
+    <ContentControl x:Name="CapBar"
+                    Margin="0,0,0,6"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding IsCapped, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <TextBlock x:Name="CapText"
                  AutomationProperties.LiveSetting="Polite"
-                 Style="{StaticResource Ad.SecondaryText}"
-                 Text="{Binding ResultText, Mode=OneWay}"
-                 Visibility="{Binding ResultText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-      <Border x:Name="CapBar"
-              Margin="0,4,0,0"
-              Style="{StaticResource Ad.WarningBar}"
-              Visibility="{Binding IsCapped, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-        <TextBlock x:Name="CapText" Text="{Binding CapNote, Mode=OneWay}" TextWrapping="Wrap" />
-      </Border>
-    </StackPanel>
+                 Text="{Binding CapNote, Mode=OneWay}"
+                 TextWrapping="Wrap" />
+    </ContentControl>
 
     <!-- The results grouped by setting and, behind the splitter, the details of the selected occurrence -->
     <Grid>

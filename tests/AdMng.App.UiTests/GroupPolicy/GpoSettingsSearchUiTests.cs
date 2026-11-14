@@ -87,7 +87,7 @@ public sealed class GpoSettingsSearchUiTests
         await document.SearchCommand.ExecuteAsync(null);
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         Assert.False(view.SummaryPanel.IsVisible);
-        Assert.True(view.ResultText.IsVisible);
+        Assert.StartsWith(document.ResultText, view.PageStatus.Message, StringComparison.Ordinal); // the result of the query is said by the status line
         Assert.Equal(document.Rows.Count, view.ResultsList.Items.Count);
         var groups = view.ResultsList.Items.Groups!.Cast<CollectionViewGroup>().ToList();
         Assert.Equal(document.Groups.Count, groups.Count);
