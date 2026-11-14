@@ -151,6 +151,12 @@ internal sealed class LdapConnectionFactory
         var identifier = new LdapDirectoryIdentifier(Host, Port, _isHostName, connectionless: false);
         LdapConnection CreateCore() => new(identifier, credential, _settings.AuthType);
 
+        if (!OperatingSystem.IsWindows())
+        {
+            // A signal that interrupts libldap's wait must not end the connection (see the method).
+            OpenLdapTls.EnableRestartOnSignals();
+        }
+
         var relaxCertificate = _settings.Options.AllowUntrustedCertificate && _settings.UsesTransportEncryption;
         if (relaxCertificate && Interlocked.Exchange(ref _certificateWarningLogged, 1) == 0)
         {

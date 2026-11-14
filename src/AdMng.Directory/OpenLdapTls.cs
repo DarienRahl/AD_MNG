@@ -28,10 +28,13 @@ internal static partial class OpenLdapTls
     private const int OptionRequireCertificate = 0x6006; // LDAP_OPT_X_TLS_REQUIRE_CERT
     private const int RequireCertificateNever = 0; // LDAP_OPT_X_TLS_NEVER
     private const int OptionDescriptor = 0x0001; // LDAP_OPT_DESC
+    private const int OptionRestart = 0x0009; // LDAP_OPT_RESTART
     private const int ShutdownReadWrite = 2; // SHUT_RDWR
     private const int Success = 0;
 
     private static readonly Lock Gate = new();
+
+    private static bool _restartEnabled;
 
     /// <summary>S.DS.P's native LDAP* handle (private field; null if a future version renames it).</summary>
     internal static readonly FieldInfo? HandleField =
@@ -47,6 +50,66 @@ internal static partial class OpenLdapTls
     /// classes of the assembly, which share it (a resolver can be set once per assembly).</summary>
     internal static void EnsureLibraryResolver()
     {
+    }
+
+    /// <summary>
+    /// Makes libldap go on waiting when a signal interrupts the wait for an answer (<c>LDAP_OPT_RESTART</c>), for every
+    /// connection created afterwards (libldap copies its global options into each new handle). The option is off by
+    /// default, and then <c>ldap_result</c> treats an interrupted <c>poll</c> (<c>EINTR</c>) as a lost connection: it
+    /// closes the connection and reports "server down" (LDAP 81) although nothing happened to the server. A process with
+    /// signal handlers of its own (the .NET runtime has them, for child processes among others) delivers signals to any
+    /// thread, also to one that waits inside libldap; the lab runs ended that way now and then - the first failed request
+    /// of a connection had the system error 4 and the Samba log showed no end of the connection on the server's side.
+    /// Called before the first connection is created; does nothing when libldap is not available or already set.
+    /// </summary>
+    public static void EnableRestartOnSignals()
+    {
+        lock (Gate)
+        {
+            if (_restartEnabled)
+            {
+                return;
+            }
+
+            try
+            {
+                var on = 1;
+                _restartEnabled = SetIntOption(IntPtr.Zero, OptionRestart, ref on) == Success;
+            }
+            catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
+            {
+                // No libldap to set it on: the connection itself will say so.
+            }
+        }
+    }
+
+    /// <summary>Does the handle of <paramref name="connection"/> restart a wait that a signal interrupted? Null when it cannot be read.</summary>
+    internal static bool? IsRestartEnabled(LdapConnection connection)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        if (HandleField?.GetValue(connection) is not SafeHandle { IsInvalid: false, IsClosed: false } handle)
+        {
+            return null;
+        }
+
+        var added = false;
+        try
+        {
+            handle.DangerousAddRef(ref added);
+            var value = 0;
+            return GetIntOption(handle.DangerousGetHandle(), OptionRestart, ref value) == Success ? value != 0 : null;
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or ObjectDisposedException)
+        {
+            return null;
+        }
+        finally
+        {
+            if (added)
+            {
+                handle.DangerousRelease();
+            }
+        }
     }
 
     /// <summary>Creates a connection whose TLS layer does not validate the server certificate.</summary>
