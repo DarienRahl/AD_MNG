@@ -2973,7 +2973,10 @@ four of unit 2, where this departs from the recipe, the tests, what is left, and
   `GroupPolicyDiagnosticsUiTests` (no stale bar and no progress panel any more). The four views moved from the
   temporary list to `PagesWithAStatusLine`; only the two editors are left on `ViewsWithAStatusLineNotConvertedYet`.
   The source rules were proven on Linux with a throwaway script that repeats the expressions of the tests (the three
-  lists, "every `StaticResource` key resolves, before its first use" for the four files).
+  lists, "every `StaticResource` key resolves, before its first use" for the four files). The first Windows run found
+  one wrong assumption of a test, none of a view: a check that ends and takes the note of the quick check with it moves
+  the content under the line up by the height of that note, so "the chips did not move" holds only while the notes do
+  not change (fixed in `GroupPolicyDiagnosticsStatusUiTests`); the other seventeen UI tests were green unseen.
 - **After unit 1 of V2b-3** (counted in the XAML, comments excluded): 16 uses of `Ad.ErrorBar` and 33 of
   `Ad.WarningBar` in 30 files and 31 progress bars in 28 files – 37 view files with at least one of the three; in
   `GroupPolicy/` 6 + 14 and 7 in 12 files. 23 views with a status line, 6 with a line and bars of their own, 4 converted
