@@ -389,7 +389,7 @@ public sealed partial class MailboxOwnersPageViewModel
         OnRecipientsAdded();
     }
 
-    /// <summary>Raises a status line (also when it repeats the previous one, so the status bar shows it again).</summary>
+    /// <summary>Sets the last sentence of the page (also when it repeats the previous one); the line says it through the holder.</summary>
     private void ReportStatus(string text)
     {
         StatusText = string.Empty;

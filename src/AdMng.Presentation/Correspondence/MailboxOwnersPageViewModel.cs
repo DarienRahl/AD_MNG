@@ -175,7 +175,7 @@ public sealed partial class MailboxOwnersPageViewModel : ObservableObject, IHasP
     /// <summary>The fields of mailbox rows (mailbox and owner definitions).</summary>
     public ObservableCollection<DirectoryFieldViewModel> MailboxFields { get; } = [];
 
-    /// <summary>The last outcome of an action ("Dodano do odbiorców: …"), for the status bar.</summary>
+    /// <summary>The last outcome of an action ("Dodano do odbiorców: …"); the old text of the status bar, now said by the line.</summary>
     [ObservableProperty]
     public partial string StatusText { get; private set; } = string.Empty;
 

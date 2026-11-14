@@ -124,7 +124,7 @@ public sealed partial class RecipientsPageViewModel : ObservableObject, IHasPage
     /// <summary>The fields of AD rows (target Person).</summary>
     public ObservableCollection<DirectoryFieldViewModel> DirectoryFields { get; } = [];
 
-    /// <summary>The last outcome of an action ("Wczytano plik: 120 nowych, 3 powtórzone, 2 błędne adresy"), for the status bar.</summary>
+    /// <summary>The last outcome of an action ("Wczytano plik: 120 nowych, 3 powtórzone, 2 błędne adresy"); the old text of the status bar, now said by the line.</summary>
     [ObservableProperty]
     public partial string StatusText { get; private set; } = string.Empty;
 
