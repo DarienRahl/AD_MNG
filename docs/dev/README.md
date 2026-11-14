@@ -13,6 +13,7 @@ A design note is written before a stage is built and gets an "as built" part whe
 |---|---|
 | [releasing.md](releasing.md) | How a release is made: `tools/release/release.sh`, the draft `docs/releases/NEXT.md`, the checks, retrying |
 | [multi-window.md](multi-window.md) | One connection window = one DI scope; what must be scoped, how windows are created |
+| [v2-status-controls.md](v2-status-controls.md) | Writing or converting a view: the status line, action button, ring, notes and the status holder - the recipe, the tests to copy, what is still open |
 | [s-pilot-readiness.md](s-pilot-readiness.md) | Stage S: test reliability, the readiness check, the problem report, the pilot checklist |
 
 ## Planned
