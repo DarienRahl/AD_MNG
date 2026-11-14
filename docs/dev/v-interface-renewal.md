@@ -499,6 +499,9 @@ bar of the main window says nothing about a Group Policy tab any more (*V2b-3 as
 As built (V2b-3, unit 2): also the four documents with operations of their own – the settings search, the cleanup
 advisor, the diagnostics and the model of a computer or a user: twenty-seven views, and the two editors are the only
 Group Policy views that keep bars of their own (*V2b-3 as built*, section 8).
+As built (V2b-3, unit 3): also the two editors of a GPO – the administrative templates and the security settings:
+twenty-nine views. Every Group Policy document has its line and no banner now; what is left of the area are the windows
+of unit 4 (*V2b-3 as built*, section 8).
 
 ### 6.2 Navigation – open question 2
 
@@ -1822,7 +1825,9 @@ above.
   set by the view models themselves – `ProgressValue` and `IsProgressIndeterminate` of the settings search, the cleanup
   advisor and the diagnostics, `SummaryText` of the model; `Cancel()` and `CancelCommand` of the three documents have no
   view any more (the Stop of the line is theirs), and tests and code without a line still use them. No string lost its
-  last user in that unit.
+  last user in that unit. Added by V2b-3, unit 3: no longer shown but read by tests and by the view models themselves –
+  `ConflictNote` of the two editors (the text of the state in the line). No string and no command lost its last user in
+  that unit.
 - **Not seen, to confirm on Windows.** Nothing of V2b-1 was seen on a screen.
   - *The property sheet.* How a wrapped result looks in the 640 px wide sheet (two or three lines on the caution or
     critical surface, picture and buttons in the first line). The note next to the old validation texts (glyph and plain
@@ -2586,12 +2591,15 @@ screen yet. What the sweep still has to do is counted in *What V2b has to do*, a
 and converted its four plain documents: the list of GPOs, the Group Policy of a domain, organizational unit or site, one
 GPO with its tabs (and the health panel its *Status* tab hosts), and the WMI filters. Unit 2 converted the four
 documents that read or compute something of their own and had kept their bars: the settings search, the cleanup advisor,
-the diagnostics and the model of a computer or a user. Every Group Policy document is a
-tab of the main window and derives from one base class, so the decisions of that class hold for all ten documents: they
-are written down first, as the sub-list *Group Policy documents*, for the units that convert the other six. The
+the diagnostics and the model of a computer or a user. Unit 3 converted the two editors of a GPO, which edit what they
+show and save it through the change plan preview: the administrative templates and the security settings. Every Group
+Policy document is a tab of the main window and derives from one base class, so the decisions of that class hold for
+all ten documents: they are written down first, as the sub-list *Group Policy documents*, for the units that convert
+the other six. The
 foundations are those of *V2b-1 as built* and the *Dialogs* of *V2b-2 as built*; nothing was added to the model or to
 the controls. The block reads in this order: *Group Policy documents*, the shared bars, the four views of unit 1, the
-four of unit 2, where this departs from the recipe, the tests, what is left, and what nobody has seen on a screen yet.
+four of unit 2, the two editors of unit 3, where this departs from the recipe, the tests, what is left, and what nobody
+has seen on a screen yet.
 
 - **Group Policy documents** (decided in unit 1; what the later units of the area follow).
   1. *The holder is the base class's.* `GroupPolicyDocumentBase` is `IHasPageStatus`: `Status` is created there – the
@@ -2663,7 +2671,9 @@ four of unit 2, where this departs from the recipe, the tests, what is left, and
      `ViewsWithAStatusLineNotConvertedYet` (one line named `PageStatus`, and at least one banner or progress bar left):
      the unit that converts a view moves it to `PagesWithAStatusLine`, and the test fails for a view that stays on the
      list with nothing left to convert. Such a view said some things twice until its unit came – "Reading “…”…" in the
-     line and its own progress text under its toolbar. After unit 2 the two editors are the only ones left on it.
+     line and its own progress text under its toolbar. After unit 2 the two editors were the only ones left on it; unit 3
+     moved them to `PagesWithAStatusLine`, and the list – which was to end empty – went with its test (the rule that
+     a view with a line is on `PagesWithAStatusLine` needs no exception any more).
   10. *Tests.* Presentation: `GroupPolicyHarness.CreateAsync(culture, statusLog)` for the log copies; a slow domain
       controller is a call held in `FakeDirectorySession.BeforeOperation` (the reads of the documents run on pool
       threads; the planner's first read runs on the caller's thread – start such a command with `Task.Run`). UI:
@@ -2718,6 +2728,28 @@ four of unit 2, where this departs from the recipe, the tests, what is left, and
       advisor reads the GPOs again at once, which takes the line and would wipe the sentence). The repair runner of the
       diagnostics ("Napraw…") had the actions of the tree: it has the actions of the document now, so its plan is
       "…: preparing the changes…" with Stop in the line of the tab.
+  18. *A document that edits what it shows* (added by unit 3: the two editors of a GPO). Its changes wait in memory
+      until a save, so besides the states every document has it can be *wrong about the world*: a file it read has
+      changed on SYSVOL under the edits. That is **the state of the document that lasts** (`DocumentLastingState`, 5):
+      an attention that cannot be closed, the sentence the bar had, and the one way out as its action – **Discard
+      changes**. It is not Refresh: a reload keeps the edits and the conflict (the editors reconcile a read with the
+      edits and mark the file), so Refresh would change nothing; discarding is the way out, and it asks first (the
+      destructive confirmation of the editor) – the line offers a command, it does not destroy by itself. The sentence is
+      kept as `ConflictNote` (tests and the state read it) with the server it names, so it follows a language switch at
+      once (`UpdateLasting()` through the property hook, as the stale state of unit 2). It stands behind what every
+      document has (not connected, a read that failed or was stopped): the conflict is still true then and is back when
+      those are gone.
+  19. *What an editor says about the content is a note, and an editor's refusals stay toasts.* That a Registry.pol or a
+      security file cannot be read (that part of the GPO is read only), where the templates come from or that there are
+      none, and what the audit pages leave open are sentences about the content, true for as long as it is shown, and
+      the line has no one action to offer for them – notes, with the look of a note (`Ad.Note.Attention`; the
+      templates of a central store `Ad.Note.Info`), and for the same reason as SYSVOL (*The shared bars*): a state
+      that lasts takes the place of the summary, and a domain without a central store is the common case – every
+      session of the editor would say nothing else. The inline answers to a press in a row – "Type a name or choose one
+      from the list.", "Already listed.", "The value cannot be written to the file …" –, the options that were kept
+      invalid and "This editor does not list the setting …" are toasts as before (the sorting and the reasons: *The two
+      editors*).
+
 - **The shared bars** (`GroupPolicy/GroupPolicyBanners.xaml`, deleted; hosted by all ten document views).
 
   | Old place | Kind | Now |
@@ -2892,6 +2924,80 @@ four of unit 2, where this departs from the recipe, the tests, what is left, and
     | `StaleText` under the inputs ("The inputs changed – click “Recalculate”.") | note, never a banner | unchanged: it belongs to the inputs, and the line is not the place to say what the operator changed a moment ago |
     | `LoopbackText`, the toolbar's refresh, *Recalculate* | – | unchanged; *Recalculate* stays a plain button (it never had a *Cancel*; the line stops the calculation) |
 
+- **The two editors** (`GroupPolicy/AdministrativeTemplatesEditorView.xaml` and `SecuritySettingsEditorView.xaml`;
+  `AdministrativeTemplates/AdministrativeTemplatesEditorViewModel`, `SecuritySettings/SecuritySettingsEditorViewModel`
+  and its partial files). Both are documents that edit what they show and save through the change plan preview – plan,
+  preview, execution, audit and undo are the pipeline's and did not change (rule 5); only what is *said* did.
+  - *What the line says.* Under the header (the title with the number of changed settings, *Save changes…*, *Discard
+    changes*, Refresh), above the notes of the base and the content. **At rest** the numbers of the settings – "12
+    settings, 3 configured" / "Security settings: 14 defined" – and, once something is edited, " · Changed settings: 1
+    (not saved)". **Working:** "Reading “Administrative templates – GPO name”…" / "Reading “Security settings – GPO
+    name”…" with Stop – the read of the templates and of the two Registry.pol files, of the three security files;
+    the templates editor reports the stage that takes the time, "Reading the ADMX and ADML files…", under the key of the
+    load (one message, announced once); "Administrative templates of GPO name: preparing the changes…" /
+    "Security settings of GPO name: preparing the changes…" with Stop – the plan of a save, in the line of the editor
+    (unit 1, 7) until the preview opens. **When nothing comes of a save:** the generic "… – nothing was changed: why.
+    Press Retry to try again. (code)" with Retry, which makes the plan of the same save again; the edits and the editor
+    stay as they were (`IsSaving` ends). **States that last:** those of every document (5) and – behind them – that a
+    file changed on SYSVOL under the edits (attention: "The settings of this GPO changed on dc01.contoso.test since you
+    started editing. Saving will be refused as a conflict: discard your changes to see the current settings.") with
+    *Discard changes*.
+  - *How the old places were sorted* (5 warning bars, 1 card that looked like one).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | warning bar `ConflictBar` of the templates editor, `ConflictBar` of the security editor ("the files of this GPO changed on … since you started editing; saving will be refused as a conflict") | status: "this was changed elsewhere" while edits are pending (foundation 1, as the property sheet) | the state of the document that lasts, an attention with *Discard changes* (18) |
+    | warning bar `FileBar` of the templates editor ("`User/Registry.pol` cannot be read: this part of the GPO cannot be edited"), `FileBar` of the security editor ("… cannot be read: its settings cannot be edited") | note: it says how complete the content is and why that part is read only, true for as long as it is shown | `Ad.Note.Attention` (`FileNote`, text `FileText`) under the notes of the base (19) |
+    | card `DefinitionsBar` of the templates editor (not a banner style: a card with the information glyph and, without a central store, the caution background; the sentence "Templates: central store on dc01 (213 files)" / "dc01 has no central store: templates of this computer …" / "No ADMX templates …", the two buttons, the problems of the templates) | note | `Ad.Note.Info` with a central store (`DefinitionsNote`, text `DefinitionsText`), `Ad.Note.Attention` without one (`DefinitionsMissingNote`) – two siblings, as the Recycle Bin does –; the buttons stay at the right of the sentence, the expander of the problems under it (19) |
+    | warning bar `AuditBar` on the *Audit* page of the security editor ("both the categories and the subcategories are configured, but the subcategories are not forced …") | note: about those pages, true while they are shown | `Ad.Note.Attention` (`AuditNote`, text `AuditNoteText`) above the rows of that page |
+    | policy panel of the templates editor (`InconsistentNote`, `NotWritable`, the problems of the typed options), the information card of the *Groups* page, the notes of the option groups and of the services page, the hints of empty lists | notes that never were banners; descriptions of settings | unchanged |
+
+  - *Decisions.*
+    - **A conflict under the edits is the state of the tab, the rest are notes.** The conflict is the "changed
+      elsewhere while there are pending changes" of the property sheet (foundation 2): it is the answer to a reload the
+      editor did, it concerns the whole document – the edits of both halves, of all pages –, it makes the main action of
+      the document (Save) fail, and it has one way out. It is rare and temporary, so it does not hide the summary for a
+      session; the number of changed settings is also in the header. A file that cannot be read, the origin of the
+      templates and the audit sentence are different: they are true of one part of the content for as long as it is
+      shown, and the line has no one action for them – the update of the templates is a window of its own, and the way
+      out of a damaged file is outside the program. A *lasting* attention for "no central store" would also have taken
+      the place of the summary in every editor of a domain that has none (19).
+    - **The action is *Discard changes*, not Refresh.** Reading the files again keeps the edits and the conflict, so
+      Refresh would leave the line as it was. Discarding is destructive, so the command is the editor's own
+      `DiscardCommand`, which asks for a confirmation first; the line does not do anything by itself that the toolbar
+      button would not.
+    - **The stage of the templates, and no stage for the security files.** The ADMX and ADML files of a central store are
+      hundreds of small reads over SMB, and a cold read takes seconds – the line names it. The security editor reads
+      three small files and, at most, one lookup of names; a stage there would flash. The stage of the templates is
+      reported under the log key of the load, so it is not a new message (11).
+    - **The conflict is said in the language of the moment.** The sentence is made from the server of the conflict
+      (`_conflictServer`), not stored as a text, and rebuilt at the start of the language switch, so the line is Polish
+      or English while the editor reads itself again, not when it is through.
+    - **No `ExecutionStatus` and no `Status.Front`.** The preview executes the plan and says it in its own line; no
+      page of either editor says something of its own that is status (the security pages have one note, the audit one),
+      so there is one holder, the document's.
+    - ***Save changes…* stays a plain button.** It never had a Stop of its own; the plan can be stopped in the line (the
+      button is disabled while the editor is saving anyway). The header keeps the accent text with the number of changed
+      settings under the title: it is the marker of unsaved edits, which this increment leaves as it is (the close
+      question and the unsaved changes are not part of it) – the summary of the line repeats the number.
+    - **The toasts stay.** The editors say eleven things with a toast: in both, "This editor does not list the setting
+      …" and the refusal of a save while an option is not valid ("Correct the options of … first" / "… has a value that
+      is not valid: correct it or undo it before saving"); in the templates editor "…: the options typed are not valid,
+      so they were not put into the GPO"; in the security editor the answers to a press in a row – "Type a name or
+      choose one from the list.", "… cannot be written to the file: a name must not contain …", "Already listed."
+      (twice), "Type the service's short name …" and "The value cannot be written to the file …" (from six rows). By the
+      rule of this increment they say what the editor just did. They were left on purpose. (a) A result in the line
+      stays until it is closed or the next operation, and editing is not an operation: "Type a name or choose one from
+      the list." would stand over a corrected field for the rest of the session – the dialogs of V2b-2 accept that,
+      because they close after the next press; an editor that is open for an hour cannot. (b) "This editor does not
+      list the setting …" answers a press made in *another* tab ("Edit this setting") – a toast by 6.7 – and is raised
+      inside the load of the editor, where a `Show` would cancel the load. (c) The options that were kept invalid belong
+      to the handling of unsaved edits, which this increment leaves; the mark at the row is the lasting cue. The
+      refusal of the save cannot be reached (the command is disabled while an option is invalid). Whether the
+      press-time answers should move to the line, cleared by the next edit, is left to the owner.
+    - `ConflictNote`, `FileNote`, `DefinitionsNote`, `IsCentralStoreMissing`, `AuditNote`, `LoadedText`, `SelectionText`,
+      `IsSaving` and the commands are unchanged for the tests and the code that read them; the views no longer bind
+      `ConflictNote`.
 - **Where this departs from the recipe.**
   - *A third list in the source test.* The recipe knows converted views with a line and converted views without one.
     The base class gave all ten documents their holder at once – with it the status bar stopped speaking for them – so
@@ -2920,6 +3026,17 @@ four of unit 2, where this departs from the recipe, the tests, what is left, and
   - *Unit 2: the reads of the three tabs begin before their own code.* The base opens SYSVOL before
     `LoadCoreAsync`; "Reading “…”…" is therefore what the line says for the first moments of every read, until the first
     stage is reported.
+  - *Unit 3: the temporary third list is gone.* Both editors moved to `PagesWithAStatusLine` and the list – which was to
+    end empty – was removed with its test (`AViewWithAStatusLineThatIsNotConvertedYet_StillHasSomethingToConvert`) and
+    the exception in the rule "a view with a line is on the list". The source test has the two lists of the recipe again.
+  - *Unit 3: nothing of the base, the model or the controls changed.* The editors use the hooks unit 1 and 2 built
+    (`DocumentLastingState`, `UpdateLasting`, `LoadOperation`, `GroupPolicyActions` bound to the holder). New: one L class
+    and one pair of strings (the stage of the templates).
+  - *Unit 3: the toasts of the editors were sorted and left* (the reasons are in *The two editors*, Decisions) – the one
+    place where the brief's rule "a toast that says what the view just did is status" was not followed to the end.
+  - *Unit 3: a card became a note.* `DefinitionsBar` was never a banner style, but with a caution background it looked
+    like one; it is a note now, as the cards of unit 2 (16). The information note is in the secondary text colour where
+    the old information glyph was in the accent colour.
 - **Tests.** Presentation (run on Linux): `GroupPolicy/GroupPolicyDocumentStatusTests` (26 cases: the summary with the
   selection and the search in both languages, and of every document; the status bar that says nothing about a Group
   Policy tab; the read with Stop – "Stopping…" at once, the stopped read as a state with Refresh – in both languages;
@@ -2977,6 +3094,31 @@ four of unit 2, where this departs from the recipe, the tests, what is left, and
   one wrong assumption of a test, none of a view: a check that ends and takes the note of the quick check with it moves
   the content under the line up by the height of that note, so "the chips did not move" holds only while the notes do
   not change (fixed in `GroupPolicyDiagnosticsStatusUiTests`); the other seventeen UI tests were green unseen.
+- **Tests of unit 3.** Presentation (run on Linux): `GroupPolicy/AdministrativeTemplatesEditorStatusTests` (14 cases) and
+  `GroupPolicy/SecuritySettingsEditorStatusTests` (14): the summary with the changed settings in both languages; the read
+  as the operation of the document with Stop, "Stopping…" at once, the held call (a listing of the central store, a read
+  of the first security file) and the recorded sequence, the stage of the templates, the stopped state with Refresh in
+  both languages and that a stopped read does not lose the edits; a file that changed under the edits as the state of
+  the document, in both languages, with Discard as its action – pressed in the line it asks, shows the current file
+  and gives the summary back –, that it follows the language at once while the read still runs, and that "not
+  connected" comes before it; the notes that say nothing to the line (no central store, an unreadable file, the audit
+  sentence); the plan of a save in the line, the summary while the preview is open and the read after it, in both
+  languages; a save whose plan cannot be made, with the edits kept, `IsSaving` ended and Retry that previews and writes;
+  the log copies without a name, a title, a server or a message. Two of the hooks were mutated to see the tests fail
+  (the stage; the lasting state). Unchanged and green: the 497 tests of `GroupPolicy/` that were there – among them
+  `AdministrativeTemplatesEditorTests`, `SecuritySettingsEditorTests` and `GroupPolicyEditingComfortTests`; 3,301 in the
+  project with these. UI (Windows CI only, written without a screen): `AdministrativeTemplatesStatusUiTests` (4) and
+  `SecuritySettingsStatusUiTests` (4): the line under the header with the summary, the changed count and no old
+  feedback; the notes with the note style and their places (the templates note with its buttons, the file note, the
+  audit note on its page, only while that page is shown); the conflict with its action, the growth of the line and that
+  the content under it moved by as much, and Discard through the real confirmation window; a save whose plan cannot
+  be made, with Retry into the real change plan preview, executed. In the templates test "no templates at all" does
+  not depend on the runner: the local templates are replaced by none. `GroupPolicyObjectsStatusUiTests` (every Group
+  Policy tab has its line and notes and the status bar says nothing) has the security editor now. The two views are on
+  `PagesWithAStatusLine`; the source rules – the two lists, the closed set of Fluent brush keys (28, unchanged although
+  the card gave up three uses), "every `StaticResource` key resolves, before its first use" – were proven on Linux with
+  a throwaway script that repeats the expressions of the tests (and the script was shown to catch an old bar and a key
+  that does not exist).
 - **After unit 1 of V2b-3** (counted in the XAML, comments excluded): 16 uses of `Ad.ErrorBar` and 33 of
   `Ad.WarningBar` in 30 files and 31 progress bars in 28 files – 37 view files with at least one of the three; in
   `GroupPolicy/` 6 + 14 and 7 in 12 files. 23 views with a status line, 6 with a line and bars of their own, 4 converted
@@ -2998,6 +3140,15 @@ four of unit 2, where this departs from the recipe, the tests, what is left, and
   `CancelCommand` of the three (kept, 11), and `SummaryText` of the model (the line says it; the property feeds the
   summary and the tests). No string lost its last user in that unit. The error bars and warning bars that are left in
   the area belong to the windows of unit 4 and the two editors of unit 3.
+- **After unit 3 of V2b-3** (counted in the XAML, comments excluded): 16 uses of `Ad.ErrorBar` and 23 of
+  `Ad.WarningBar` in 24 files and 28 progress bars in 25 files – 31 view files with at least one of the three; in
+  `GroupPolicy/` 6 + 4 and 4 in 6 files, all of them in the six windows of unit 4. 29 views with a status line, none with
+  a line and bars of its own, 4 converted views without a line. Unit 3 took 5 warning bars (2 status – the conflict
+  under the edits in each editor –, and 3 notes – the unreadable file in each editor, the audit sentence) and no
+  progress bar; the card of the templates, which never was a banner style, got the note look as well. Left behind on
+  purpose, for the list of *After V2b-1*: `ConflictNote` of the two editors, which the views do not bind any more (it is
+  the text of the state in the line). No string and no command lost its last user. The source test lost its temporary
+  list.
 - **Not seen, to confirm on Windows.** Nothing of this unit was seen on a screen.
   - *Every Group Policy tab is 34 px lower* under its header or toolbar – the line and its 6 px – where the shared bars
     took no room at rest. On the tabs that are not converted yet the line stands above their own bars.
@@ -3039,6 +3190,24 @@ four of unit 2, where this departs from the recipe, the tests, what is left, and
     domain controller it flashes, with a slow SYSVOL logon it is on for the time of the logon.
   - *Long results.* "Delete GPO “…” – nothing was changed: the GPO could not be read to compare it with the analysis: …
     (ServerUnavailable)" in the line of the cleanup wraps to two or three lines; the chips move down with it.
+
+- **Not seen, to confirm on Windows (unit 3).** Nothing of unit 3 was seen on a screen either.
+  - *The templates note.* A glyph and a sentence in the secondary text colour where a card stood (with a central store
+    the note is information, without one attention – on a domain without a central store the attention note is there
+    in every editor, for the whole session, and quieter than the caution card it replaces); the two buttons at its
+    right, in line with the middle of the sentence, and a sentence that wraps in a narrow tab next to them; the
+    expander of the problems under the note, now flush with the left edge instead of inside a card. The README picture
+    `29-administrative-templates.png` changes (the line and the note).
+  - *The conflict in the line.* A sentence of about 170 characters wraps to two or three lines in a tab of 900 px, and
+    the tree and the lists move down with it; *Discard changes* as the link of the line next to the same words as the
+    toolbar button, and the confirmation window it opens.
+  - *"Reading the ADMX and ADML files…"* is a stage after the GPO was read; with the templates already in memory it is
+    on the line for the moment the next await takes (it flashes – the open question of a delay before "Working").
+  - *The header* still has the accent text with the number of changed settings under the title, and the line says it
+    too; whether one of the two should go is for the owner (the unsaved changes are not part of this increment).
+  - *Open for the owner:* whether the answers to a press in a row (the toasts of *The two editors*) should be said in
+    the line, cleared by the next edit; whether "no central store" should offer *Update templates…* as an action of a
+    state that lasts, at the price of the summary.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 

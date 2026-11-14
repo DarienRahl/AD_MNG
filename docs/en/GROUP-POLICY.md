@@ -192,8 +192,9 @@ shown. *Export CSV…* saves the comparison only on request. Both GPOs come from
 
 - **Where templates come from.** From the domain's central store on the window's domain controller
   (`\\<DC>\SYSVOL\<domena>\Policies\PolicyDefinitions`). When the domain does not have one – from the templates of this
-  computer (`%WINDIR%\PolicyDefinitions`), just like Microsoft's editor. The bar above the tree says which templates the
-  tab uses and how many files were loaded; *Reload templates* reads them anew. Names and descriptions are in the
+  computer (`%WINDIR%\PolicyDefinitions`), just like Microsoft's editor. The note above the tree says which templates the
+  tab uses and how many files were loaded (without a central store it is a warning); *Reload templates* reads them
+  anew. Names and descriptions are in the
   program's language (Polish from `pl-PL` files, missing ones from `en-US`). Template problems – an unreadable file, a
   missing language file, two files with the same namespace (e.g. an old and a new version of the Edge template; the
   first is used), an unknown category, categories nested deeper than 32 levels (shown at the top level) – are listed
@@ -222,12 +223,15 @@ shown. *Export CSV…* saves the comparison only on request. Both GPOs come from
   entries. A list changes only its own entries: values of other settings in the same key (and, for an appended list,
   values other than text) stay untouched. The plan preview shows the files with setting differences and the PowerShell
   equivalent (`Set-GPRegistryValue`, `Remove-GPRegistryValue`); it warns when the changed part of the GPO is disabled in
-  the GPO status (clients will apply the settings only after it is enabled). During saving the editor is read-only.
-  *Discard changes* returns to the saved state, *Undo* in the preview – to the state from before the save. Closing the
+  the GPO status (clients will apply the settings only after it is enabled). The status line of the tab shows the plan
+  being prepared (with **Stop**); when the plan cannot be made, the line says why and offers *Retry*. During saving the
+  editor is read-only. *Discard changes* returns to the saved state, *Undo* in the preview – to the state from before
+  the save. Closing the
   tab (or the connection window) with unsaved changes requires confirmation.
 - **Change by someone else.** When the GPO's `Registry.pol` changes on the controller after editing began, saving is
-  rejected as a conflict (the file stays untouched), and the tab asks to discard the changes to show the current
-  settings.
+  rejected as a conflict (the file stays untouched), and the status line of the tab says so and offers *Discard changes*
+  to show the current settings (the program asks for confirmation before discarding). A `Registry.pol` that cannot be
+  read blocks only its own part of the GPO – a note under the status line says so.
 
 ## 8. Updating ADMX templates (central store)
 
@@ -367,7 +371,8 @@ file unchanged.
   mechanism); in other GPOs they apply to the computers' local accounts.
 - **Auditing.** Basic categories (`[Event Audit]`) and advanced subcategories (`audit.csv`), each *Not configured*, *No
   auditing*, *Succeeded*, *Failed* or *Success and failure*. When a GPO has both and the option *Audit: Force audit
-  policy subcategory settings…* is not enabled, the tab warns that the basic categories may overwrite the subcategories.
+  policy subcategory settings…* is not enabled, a note above the list warns that the basic categories may overwrite the
+  subcategories.
 - **Services.** The service name and startup mode (*Automatic*, *Manual*, *Disabled*); service permissions (SDDL) are
   shown and stay unchanged, a new service does not set them.
 
@@ -376,9 +381,10 @@ file unchanged.
 one plan: the computer's extension names in AD (*Security*, *Audit Policy Configuration*, *Local Users and Groups* –
 only for the files being written), the changed files and the computer version. The `GroupPolicy` PowerShell module has
 no commands for these files, so the script in the preview only points to the GPO. A change of a file by someone else
-since editing began is a conflict (the file stays untouched), *Discard changes* returns to the saved state, *Undo* in
-the preview – to the state from before the save, and closing the tab with unsaved changes requires confirmation – as in
-the template editor (chapter 7). A file that cannot be read blocks only its own pages.
+since editing began is a conflict (the file stays untouched; the status line of the tab says so and offers *Discard
+changes*, which returns to the saved state), *Undo* in the preview – to the state from before the save, and closing the
+tab with unsaved changes requires confirmation – as in the template editor (chapter 7). A file that cannot be read
+blocks only its own pages – a note under the status line says which.
 
 ## 11. Readable settings, editing comfort and diagnostics (K6)
 

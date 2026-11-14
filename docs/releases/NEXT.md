@@ -394,11 +394,23 @@
   **Odśwież** i nieudane z przyczyną i poleceniem **Ponów**. Czego model nie mógł użyć (konto lub kontener, który nie
   istnieje, SYSVOL niedostępny), jest uwagą ze znakiem ostrzeżenia nad wynikami. „Dane wejściowe zmienione – kliknij
   »Przelicz«” zostaje zdaniem przy polach.
-- **Pozostałe karty zasad grupy mają już wiersz stanu.** *Szablony administracyjne* i *Ustawienia zabezpieczeń*
-  pokazują w nim odczyt karty (z poleceniem **Zatrzymaj**), podsumowanie, błąd odczytu i przebieg przygotowania zmian, a
-  pod nim te same dwie uwagi. Ich własne ramki ostrzeżeń – na przykład o szablonach – na razie zostają pod spodem i
-  przejdą do wiersza stanu w następnych wydaniach, więc część informacji widać tam dwa razy. Pasek stanu okna głównego
-  nie mówi już nic o żadnej karcie zasad grupy.
+- **Szablony administracyjne: wiersz stanu zamiast ramek.** Wiersz mówi, ile jest ustawień i ile skonfigurowano („12
+  ustawień, 3 skonfigurowane”), a po zmianach także ile ich zmieniono i nie zapisano („… · Zmienione ustawienia: 1
+  (niezapisane)”). Pokazuje odczyt szablonów i plików `Registry.pol` z poleceniem **Zatrzymaj** (z etapem „Wczytywanie
+  plików ADMX i ADML…”), przygotowanie planu zapisu („Szablony administracyjne GPO „…”: przygotowywanie zmian…”) i – gdy
+  planu nie da się przygotować – dlaczego, z poleceniem **Ponów**; edycje zostają. Gdy `Registry.pol` zmieni się na
+  kontrolerze od rozpoczęcia edycji, wiersz mówi o konflikcie jako stan karty (nie da się go zamknąć) i podaje polecenie
+  **Odrzuć zmiany** – dotąd był to żółty pasek bez polecenia. Skąd są szablony (magazyn centralny, szablony tego
+  komputera, brak szablonów) i który plik `Registry.pol` nie daje się odczytać, jest zwykłą uwagą pod wierszem stanu –
+  z ikoną informacji dla magazynu centralnego, ze znakiem ostrzeżenia dla pozostałych – zamiast ramki z tłem; przyciski
+  **Zaktualizuj szablony…** i **Wczytaj szablony ponownie** zostały po prawej stronie uwagi.
+- **Ustawienia zabezpieczeń: wiersz stanu zamiast ramek.** Ten sam wiersz: ile ustawień zdefiniowano i ile zmieniono
+  („Ustawienia zabezpieczeń: zdefiniowane 14 · Zmienione ustawienia: 1 (niezapisane)”), odczyt trzech plików z
+  poleceniem **Zatrzymaj** (zatrzymany odczyt nie gubi edycji; **Odśwież** czyta jeszcze raz), przygotowanie planu zapisu
+  i jego niepowodzenie z poleceniem **Ponów**, a zmianę pliku przez kogoś innego od rozpoczęcia edycji – jako stan karty
+  z poleceniem **Odrzuć zmiany**. Plik, którego nie da się odczytać, jest uwagą pod wierszem stanu, a ostrzeżenie o
+  inspekcji (kategorie podstawowe i podkategorie bez wymuszenia podkategorii) – uwagą nad listą na stronie
+  *Inspekcja*.
 - **Co się nie zmieniło:** wiersz stanu mają teraz lista obiektów, karty zasad grupy i wszystkie okna oraz dialogi
   wymienione wyżej. Pozostałe karty i okna – okna zasad grupy (kopie zapasowe, porównanie GPO, wybór GPO, aktualizacja
   szablonów ADMX, kopiowanie ustawień), Watchdog, dzienniki zdarzeń, certyfikaty, przegląd komputerów i zdalne akcje,

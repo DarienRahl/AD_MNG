@@ -191,8 +191,9 @@ są pokazywane. *Eksportuj CSV…* zapisuje porównanie tylko na żądanie. Oba 
 
 - **Skąd szablony.** Z magazynu centralnego domeny na kontrolerze okna
   (`\\<DC>\SYSVOL\<domena>\Policies\PolicyDefinitions`). Gdy domena go nie ma – z szablonów tego komputera
-  (`%WINDIR%\PolicyDefinitions`), tak jak edytor Microsoftu. Pasek nad drzewem mówi, z których szablonów korzysta karta i
-  ile plików wczytano; *Wczytaj szablony ponownie* czyta je od nowa. Nazwy i opisy są w języku programu (polskie z plików
+  (`%WINDIR%\PolicyDefinitions`), tak jak edytor Microsoftu. Uwaga nad drzewem mówi, z których szablonów korzysta karta i
+  ile plików wczytano (bez magazynu centralnego jest to ostrzeżenie); *Wczytaj szablony ponownie* czyta je od nowa.
+  Nazwy i opisy są w języku programu (polskie z plików
   `pl-PL`, brakujące z `en-US`). Problemy z szablonami – nieczytelny plik, brak pliku językowego, dwa pliki z tą samą
   przestrzenią nazw (np. stara i nowa wersja szablonu Edge; używany jest pierwszy), nieznana kategoria, kategorie
   zagnieżdżone głębiej niż 32 poziomy (pokazane na najwyższym poziomie) – są wymienione pod *Problemy z szablonami*;
@@ -220,11 +221,15 @@ są pokazywane. *Eksportuj CSV…* zapisuje porównanie tylko na żądanie. Oba 
   Lista zmienia tylko swoje wpisy: wartości innych ustawień w tym samym kluczu (i, przy liście dopisywanej, wartości
   inne niż tekst) zostają nietknięte. Podgląd planu pokazuje pliki z różnicami ustawień i odpowiednik w PowerShell
   (`Set-GPRegistryValue`, `Remove-GPRegistryValue`); ostrzega, gdy zmieniana część GPO jest wyłączona w stanie GPO
-  (klienci zastosują ustawienia dopiero po jej włączeniu). Na czas zapisu edytor jest tylko do odczytu. *Odrzuć
-  zmiany* wraca do zapisanego stanu, *Cofnij* w podglądzie – do stanu sprzed zapisu. Zamknięcie karty (albo okna
+  (klienci zastosują ustawienia dopiero po jej włączeniu). Przygotowanie planu pokazuje wiersz stanu karty (z poleceniem
+  **Zatrzymaj**); gdy planu nie da się zrobić, wiersz mówi dlaczego i podaje *Ponów*. Na czas zapisu edytor jest tylko do
+  odczytu. *Odrzuć zmiany* wraca do zapisanego stanu, *Cofnij* w podglądzie – do stanu sprzed zapisu. Zamknięcie karty
+  (albo okna
   połączenia) z niezapisanymi zmianami wymaga potwierdzenia.
 - **Zmiana przez kogoś innego.** Gdy `Registry.pol` GPO zmieni się na kontrolerze od rozpoczęcia edycji, zapis jest
-  odrzucany jako konflikt (plik zostaje nietknięty), a karta prosi o odrzucenie zmian, by pokazać aktualne ustawienia.
+  odrzucany jako konflikt (plik zostaje nietknięty), a wiersz stanu karty mówi o tym i podaje polecenie *Odrzuć zmiany*,
+  by pokazać aktualne ustawienia (przed odrzuceniem program pyta o potwierdzenie). `Registry.pol`, którego nie da się
+  odczytać, blokuje tylko swoją część GPO – mówi o tym uwaga pod wierszem stanu.
 
 ## 8. Aktualizacja szablonów ADMX (magazyn centralny)
 
@@ -364,8 +369,8 @@ nieznane wpisy) zostaje w pliku bez zmian.
   GPO dotyczą kont lokalnych komputerów.
 - **Inspekcja.** Kategorie podstawowe (`[Event Audit]`) i podkategorie zaawansowane (`audit.csv`), każda *Nie
   skonfigurowano*, *Bez inspekcji*, *Powodzenie*, *Niepowodzenie* albo *Powodzenie i niepowodzenie*. Gdy GPO ma
-  jedne i drugie, a opcja *Inspekcja: wymuś ustawienia podkategorii zasad inspekcji…* nie jest włączona, karta
-  ostrzega, że kategorie podstawowe mogą nadpisać podkategorie.
+  jedne i drugie, a opcja *Inspekcja: wymuś ustawienia podkategorii zasad inspekcji…* nie jest włączona, uwaga nad
+  listą ostrzega, że kategorie podstawowe mogą nadpisać podkategorie.
 - **Usługi.** Nazwa usługi i tryb uruchamiania (*Automatyczny*, *Ręczny*, *Wyłączony*); uprawnienia usługi (SDDL) są
   pokazane i zostają bez zmian, nowa usługa ich nie ustawia.
 
@@ -374,9 +379,10 @@ nazwę (`KONTOSO\Serwisanci`), którą każdy komputer rozwiązuje sam; karta to
 tworzy jeden plan: nazwy rozszerzeń komputera w AD (*Zabezpieczenia*, *Konfiguracja zasad inspekcji*, *Użytkownicy i
 grupy lokalne* – tylko dla zapisywanych plików), zmienione pliki i wersja komputera. Grupa PowerShell `GroupPolicy` nie
 ma poleceń dla tych plików, więc skrypt w podglądzie tylko wskazuje GPO. Zmiana pliku przez kogoś innego od
-rozpoczęcia edycji jest konfliktem (plik zostaje nietknięty), *Odrzuć zmiany* wraca do zapisanego stanu, *Cofnij* w
-podglądzie – do stanu sprzed zapisu, a zamknięcie karty z niezapisanymi zmianami wymaga potwierdzenia – jak w
-edytorze szablonów (rozdział 7). Plik, którego nie da się odczytać, blokuje tylko swoje strony.
+rozpoczęcia edycji jest konfliktem (plik zostaje nietknięty; wiersz stanu karty mówi o tym i podaje polecenie *Odrzuć
+zmiany*, które wraca do zapisanego stanu), *Cofnij* w podglądzie – do stanu sprzed zapisu, a zamknięcie karty z
+niezapisanymi zmianami wymaga potwierdzenia – jak w edytorze szablonów (rozdział 7). Plik, którego nie da się odczytać,
+blokuje tylko swoje strony – uwaga pod wierszem stanu podaje, który.
 
 ## 11. Czytelne ustawienia, wygoda edycji i diagnostyka (K6)
 
