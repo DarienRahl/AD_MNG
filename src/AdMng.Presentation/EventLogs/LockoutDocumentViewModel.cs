@@ -151,23 +151,23 @@ public sealed partial class LockoutDocumentViewModel : EventLogDocumentBase
 
     /// <summary>"Sprawdź": the whole investigation (account, DCs, logs, analysis).</summary>
     [RelayCommand(CanExecute = nameof(CanRun))]
-    public Task RunAsync() => RunExclusiveAsync(InvestigateAsync);
+    public Task RunAsync() => RunExclusiveAsync(InvestigateAsync, new RunText(L.EventLogsStatus.Lockout, L.EventLogsStatus.LockoutFailed, _accountName));
 
     private bool CanRun() => IsSupported && HasSession && !IsLoading;
 
     private async Task InvestigateAsync(IDirectorySession session, CancellationToken token)
     {
-        ProgressText = Localizer[L.EventLogsLockout.StageAccount];
+        ReportStage(L.EventLogsStatus.StageAccount);
         var account = await Task.Run(() => session.GetAsync(UserDn, AccountAttributes, token), token).ConfigureAwait(true);
         if (account is null)
         {
-            Error = Localizer[L.EventLogsLockout.AccountNotFound];
+            ShowUnavailable(L.EventLogsLockout.AccountNotFound);
             return;
         }
 
         if (account.Kind is not (ObjectKind.User or ObjectKind.InetOrgPerson) || account.GetString(Attr.SamAccountName) is not { Length: > 0 } sam)
         {
-            Error = Localizer[L.EventLogsLockout.NotAUser];
+            ShowUnavailable(L.EventLogsLockout.NotAUser);
             return;
         }
 
@@ -178,7 +178,7 @@ public sealed partial class LockoutDocumentViewModel : EventLogDocumentBase
         var lockoutAccount = new LockoutAccount(sam, SidOf(account), account.GetString(Attr.UserPrincipalName), account.DistinguishedName);
         var (policy, policySource, psoUnreadable) = await Task.Run(() => ReadPolicyAsync(session, account.GetString(ResultantPsoAttribute), token), token).ConfigureAwait(true);
 
-        ProgressText = Localizer[L.EventLogsLockout.StageDomainControllers];
+        ReportStage(L.EventLogsStatus.StageDomainControllers);
         var controllers = await Task.Run(() => Services.ReadDomainControllersAsync(session, token), token).ConfigureAwait(true);
         var reads = await Task.Run(() => Services.DomainControllers.ReadAsync(session, [UserDn], DomainControllerAttributes, token), token).ConfigureAwait(true);
         var addresses = await Task.Run(() => Services.ResolveAddressesAsync(reads.Select(r => r.Server), token), token).ConfigureAwait(true);
@@ -188,7 +188,7 @@ public sealed partial class LockoutDocumentViewModel : EventLogDocumentBase
         var now = Services.Ui.Time.GetUtcNow();
         if (WindowOf(states, now) is not { } window)
         {
-            Error = Localizer[L.EventLogs.InvalidRange];
+            ShowUnavailable(L.EventLogs.InvalidRange);
             return;
         }
 
@@ -197,13 +197,13 @@ public sealed partial class LockoutDocumentViewModel : EventLogDocumentBase
         var queries = LockoutInvestigation.Queries(lockoutAccount, from, to);
         var hosts = LockoutInvestigation.OrderHosts(states, originating);
         ResetHosts(hosts.Select(h => (h, KindText(h, states, originating))));
-        var progress = HostProgress(from, () => ProgressText = Localizer.Format(L.EventLogsLockout.StageLogs, ReadingProgress()));
-        ProgressText = Localizer.Format(L.EventLogsLockout.StageLogs, ReadingProgress());
+        var progress = HostProgress(from, () => ReportSources(L.EventLogsStatus.StageLogs));
+        ReportSources(L.EventLogsStatus.StageLogs);
         var result = await Task.Run(() => Services.CreateRunner().RunAsync(session, [.. hosts.Select(h => new EventLogTarget(h, queries))], progress, token),
             CancellationToken.None).ConfigureAwait(true);
         token.ThrowIfCancellationRequested();
 
-        ProgressText = Localizer[L.EventLogsLockout.StageAnalysis];
+        ReportStage(L.EventLogsStatus.StageAnalysis);
         var input = new LockoutInvestigationInput
         {
             Account = lockoutAccount,
@@ -552,7 +552,7 @@ public sealed partial class LockoutDocumentViewModel : EventLogDocumentBase
             }
             catch (DirectoryException ex)
             {
-                Error = Services.Ui.Errors.Translate(ex);
+                SayFailure(L.EventLogsStatus.ModelFailed, ex, host);
             }
         }
     }

@@ -909,4 +909,71 @@ public static partial class L
         /// <summary>{0} = the text of the button that checks again.</summary>
         public const string Stale = "Readiness.Status.Stale";
     }
+
+    /// <summary>
+    /// What the event log documents say in their status line (stage V2b-4): the reader, the lockout investigation and the
+    /// failed logons share one set of words. The title of an operation is also the key of its log copy.
+    /// </summary>
+    public static class EventLogsStatus
+    {
+        /// <summary>The reader: "Reading the event logs".</summary>
+        public const string Reading = "EventLogs.Status.Reading";
+
+        /// <summary>"Could not read the event logs", without a full stop.</summary>
+        public const string ReadFailed = "EventLogs.Status.ReadFailed";
+
+        /// <summary>"Loading the channels of {0}"; {0} = the computer.</summary>
+        public const string Channels = "EventLogs.Status.Channels";
+
+        /// <summary>"Could not load the channels of {0}", without a full stop.</summary>
+        public const string ChannelsFailed = "EventLogs.Status.ChannelsFailed";
+
+        /// <summary>The failed logons: "Checking the failed logons".</summary>
+        public const string FailedLogons = "EventLogs.Status.FailedLogons";
+
+        /// <summary>"Could not check the failed logons", without a full stop.</summary>
+        public const string FailedLogonsFailed = "EventLogs.Status.FailedLogonsFailed";
+
+        /// <summary>The lockout investigation: "Investigating the lockout of “{0}”"; {0} = the account.</summary>
+        public const string Lockout = "EventLogs.Status.Lockout";
+
+        /// <summary>"Could not investigate the lockout of “{0}”", without a full stop.</summary>
+        public const string LockoutFailed = "EventLogs.Status.LockoutFailed";
+
+        /// <summary>"{0}…" - an operation that has no stage to say yet; {0} = its title.</summary>
+        public const string Working = "EventLogs.Status.Working";
+
+        /// <summary>"{0} – {1}…" - the stage of an operation; {0} = its title, {1} = the stage.</summary>
+        public const string Stage = "EventLogs.Status.Stage";
+
+        /// <summary>Stage of the reader: "sources: {0}, events: {1}"; {0} = how far ("2 of 3").</summary>
+        public const string StageSources = "EventLogs.Status.StageSources";
+
+        /// <summary>Stage: "reading the logs, sources: {0}, events: {1}".</summary>
+        public const string StageLogs = "EventLogs.Status.StageLogs";
+
+        /// <summary>Stage: "reading the failed logons, sources: {0}, events: {1}".</summary>
+        public const string StageFailures = "EventLogs.Status.StageFailures";
+
+        /// <summary>Stage: "reading the successful logons, accounts: {0}".</summary>
+        public const string StageSuccesses = "EventLogs.Status.StageSuccesses";
+
+        public const string StageAccount = "EventLogs.Status.StageAccount";
+
+        public const string StageDomainControllers = "EventLogs.Status.StageDomainControllers";
+
+        public const string StageAnalysis = "EventLogs.Status.StageAnalysis";
+
+        /// <summary>{0} = the title of the operation, {1} = the text of the button that reads again.</summary>
+        public const string Stopped = "EventLogs.Status.Stopped";
+
+        /// <summary>{0} = the title of the operation, {1} = the events that were read and are shown, {2} = the text of the button.</summary>
+        public const string StoppedPartial = "EventLogs.Status.StoppedPartial";
+
+        /// <summary>{0} = the title of the operation, {1} = the sources not read ("1 of 3"), {2} = their names, {3} = the title of the panel that says why.</summary>
+        public const string NotRead = "EventLogs.Status.NotRead";
+
+        /// <summary>"Could not open the model of {0}", without a full stop.</summary>
+        public const string ModelFailed = "EventLogs.Status.ModelFailed";
+    }
 }

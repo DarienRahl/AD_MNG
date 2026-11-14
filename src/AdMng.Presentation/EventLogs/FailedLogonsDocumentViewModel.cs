@@ -159,7 +159,7 @@ public sealed partial class FailedLogonsDocumentViewModel : EventLogDocumentBase
 
     /// <summary>"Sprawdź": step 1 (failures), step 2 (successes of the candidates), the analysis.</summary>
     [RelayCommand(CanExecute = nameof(CanRun))]
-    public Task RunAsync() => RunExclusiveAsync(AnalyzeAsync);
+    public Task RunAsync() => RunExclusiveAsync(AnalyzeAsync, new RunText(L.EventLogsStatus.FailedLogons, L.EventLogsStatus.FailedLogonsFailed));
 
     private bool CanRun() => IsSupported && HasSession && !IsLoading;
 
@@ -182,6 +182,7 @@ public sealed partial class FailedLogonsDocumentViewModel : EventLogDocumentBase
     {
         var now = Services.Ui.Time.GetUtcNow();
         (_from, _to) = EventLogTimeWindows.Of(SelectedTimePreset.Value, now) ?? (now - EventLogLimits.DefaultWindow, now);
+        ReportStage(L.EventLogsStatus.StageDomainControllers);
         var controllers = await Task.Run(() => Services.ReadDomainControllersAsync(session, token), token).ConfigureAwait(true);
         var hosts = controllers.Select(c => c.Host).ToList();
         var addresses = await Task.Run(() => Services.ResolveAddressesAsync(hosts, token), token).ConfigureAwait(true);
@@ -189,8 +190,8 @@ public sealed partial class FailedLogonsDocumentViewModel : EventLogDocumentBase
         ResetHosts(controllers.Select(c => (c.Host, Localizer[c.IsPdcEmulator ? L.EventLogs.KindPdc : L.EventLogs.KindDomainController])));
 
         // Step 1: the failures.
-        var progress = HostProgress(_from, () => ProgressText = Localizer.Format(L.EventLogsFailedLogons.StageFailures, ReadingProgress()));
-        ProgressText = Localizer.Format(L.EventLogsFailedLogons.StageFailures, ReadingProgress());
+        var progress = HostProgress(_from, () => ReportSources(L.EventLogsStatus.StageFailures));
+        ReportSources(L.EventLogsStatus.StageFailures);
         var failures = FailedLogonAnalysis.Queries(_from, _to);
         var step1 = await Task.Run(() => Services.CreateRunner().RunAsync(session, [.. hosts.Select(h => new EventLogTarget(h, failures))], progress, token),
             CancellationToken.None).ConfigureAwait(true);
@@ -205,7 +206,7 @@ public sealed partial class FailedLogonsDocumentViewModel : EventLogDocumentBase
         {
             candidates.AddRange(await Task.Run(() => StoredNamesAsync(session, candidates, token), token).ConfigureAwait(true));
             var successes = FailedLogonAnalysis.SuccessQueries(candidates.Distinct(StringComparer.Ordinal), _from, _to);
-            ProgressText = Localizer.Format(L.EventLogsFailedLogons.StageSuccesses, candidates.Count);
+            ReportStage(L.EventLogsStatus.StageSuccesses, counts: [candidates.Count], args: candidates.Count);
             var step2 = await Task.Run(() => Services.CreateRunner().RunAsync(session, [.. hosts.Select(h => new EventLogTarget(h, successes))], null, token,
                 EventLogLimits.MaxRecordsInMemory - step1.Records.Count), CancellationToken.None).ConfigureAwait(true);
             token.ThrowIfCancellationRequested();
@@ -216,7 +217,7 @@ public sealed partial class FailedLogonsDocumentViewModel : EventLogDocumentBase
 
         // Audit evidence: step 1 read every account's failures, so a DC whose read completed with nothing dropped proves
         // absence; step 2 read a few accounts' successes only, so they are probed without an account condition.
-        ProgressText = Localizer[L.EventLogsFailedLogons.StageAnalysis];
+        ReportStage(L.EventLogsStatus.StageAnalysis);
         var completed = step1.Hosts.Where(h => h.State == EventLogHostState.Done).Select(h => h.Host).ToList();
         var reads = step1.Dropped == 0 ? completed.ConvertAll(h => new AuditRead(h, AuditEvidence.FailedLogonRequirements)) : [];
         IReadOnlyList<EventLogRecord> evidenceRecords = records;
@@ -454,7 +455,7 @@ public sealed partial class FailedLogonsDocumentViewModel : EventLogDocumentBase
             }
             catch (DirectoryException ex)
             {
-                Error = Services.Ui.Errors.Translate(ex);
+                SayFailure(L.EventLogsStatus.ModelFailed, ex, row.Host);
             }
         }
     }

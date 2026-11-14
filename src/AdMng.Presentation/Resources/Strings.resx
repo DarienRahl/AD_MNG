@@ -25134,5 +25134,68 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Readiness.Status.Stale" xml:space="preserve">
     <value>The connection of this window changed after the shown check: the results may no longer be true. Press “{0}” to check again.</value>
   </data>
+  <data name="EventLogs.Status.Reading" xml:space="preserve">
+    <value>Reading the event logs</value>
+  </data>
+  <data name="EventLogs.Status.ReadFailed" xml:space="preserve">
+    <value>Could not read the event logs</value>
+  </data>
+  <data name="EventLogs.Status.Channels" xml:space="preserve">
+    <value>Loading the channels of {0}</value>
+  </data>
+  <data name="EventLogs.Status.ChannelsFailed" xml:space="preserve">
+    <value>Could not load the channels of {0}</value>
+  </data>
+  <data name="EventLogs.Status.FailedLogons" xml:space="preserve">
+    <value>Checking the failed logons</value>
+  </data>
+  <data name="EventLogs.Status.FailedLogonsFailed" xml:space="preserve">
+    <value>Could not check the failed logons</value>
+  </data>
+  <data name="EventLogs.Status.Lockout" xml:space="preserve">
+    <value>Investigating the lockout of “{0}”</value>
+  </data>
+  <data name="EventLogs.Status.LockoutFailed" xml:space="preserve">
+    <value>Could not investigate the lockout of “{0}”</value>
+  </data>
+  <data name="EventLogs.Status.Working" xml:space="preserve">
+    <value>{0}…</value>
+  </data>
+  <data name="EventLogs.Status.Stage" xml:space="preserve">
+    <value>{0} – {1}…</value>
+  </data>
+  <data name="EventLogs.Status.StageSources" xml:space="preserve">
+    <value>sources: {0}, events: {1}</value>
+  </data>
+  <data name="EventLogs.Status.StageLogs" xml:space="preserve">
+    <value>reading the logs, sources: {0}, events: {1}</value>
+  </data>
+  <data name="EventLogs.Status.StageFailures" xml:space="preserve">
+    <value>reading the failed logons, sources: {0}, events: {1}</value>
+  </data>
+  <data name="EventLogs.Status.StageSuccesses" xml:space="preserve">
+    <value>reading the successful logons, accounts: {0}</value>
+  </data>
+  <data name="EventLogs.Status.StageAccount" xml:space="preserve">
+    <value>reading the account</value>
+  </data>
+  <data name="EventLogs.Status.StageDomainControllers" xml:space="preserve">
+    <value>reading the domain controllers</value>
+  </data>
+  <data name="EventLogs.Status.StageAnalysis" xml:space="preserve">
+    <value>analysing the events</value>
+  </data>
+  <data name="EventLogs.Status.Stopped" xml:space="preserve">
+    <value>{0} was stopped: the results shown were not changed. Press “{1}” to read again.</value>
+  </data>
+  <data name="EventLogs.Status.StoppedPartial" xml:space="preserve">
+    <value>{0} was stopped; events read and shown: {1}. Press “{2}” to read again.</value>
+  </data>
+  <data name="EventLogs.Status.NotRead" xml:space="preserve">
+    <value>{0}: sources not read: {1} ({2}). The reason of each is in “{3}”.</value>
+  </data>
+  <data name="EventLogs.Status.ModelFailed" xml:space="preserve">
+    <value>Could not open the model of {0}</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

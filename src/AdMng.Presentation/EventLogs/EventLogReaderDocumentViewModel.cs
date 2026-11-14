@@ -54,6 +54,18 @@ public sealed partial class EventLogReaderDocumentViewModel : EventLogDocumentBa
 
     public override string SelectionText => SelectedRow is { } row ? row.Summary : string.Empty;
 
+    /// <summary>The search runs - "Wyszukaj" is its Cancel.</summary>
+    public bool IsSearching => IsRunning(L.EventLogsStatus.Reading);
+
+    /// <summary>The channels of a computer are being loaded - "Wczytaj kanały" is its Cancel.</summary>
+    public bool IsLoadingChannels => IsRunning(L.EventLogsStatus.Channels);
+
+    protected override void OnRunningChanged()
+    {
+        OnPropertyChanged(nameof(IsSearching));
+        OnPropertyChanged(nameof(IsLoadingChannels));
+    }
+
     // ---- Results ----------------------------------------------------------------------------------------------------------
 
     /// <summary>The records of the last run that match the search box, newest first.</summary>
@@ -145,7 +157,7 @@ public sealed partial class EventLogReaderDocumentViewModel : EventLogDocumentBa
             return Task.CompletedTask;
         }
 
-        return RunExclusiveAsync((session, token) => ReadAsync(session, query!, sources, token));
+        return RunExclusiveAsync((session, token) => ReadAsync(session, query!, sources, token), new RunText(L.EventLogsStatus.Reading, L.EventLogsStatus.ReadFailed));
     }
 
     private bool CanRun() => IsSupported && HasSession && !IsLoading && Sources.Any(s => s.IsSelected);
@@ -156,8 +168,8 @@ public sealed partial class EventLogReaderDocumentViewModel : EventLogDocumentBa
         ResetHosts(sources.Select(s => (s.Host, s.KindText)));
         ClearDetails();
         var targets = sources.Select(s => new EventLogTarget(s.Host, [query]) { Files = s.IsFiles ? s.Files : null }).ToList();
-        var progress = HostProgress(_lastFrom, () => ProgressText = ReadingProgress());
-        ProgressText = ReadingProgress();
+        var progress = HostProgress(_lastFrom, () => ReportSources(L.EventLogsStatus.StageSources));
+        ReportSources(L.EventLogsStatus.StageSources);
         var result = await Task.Run(() => Services.CreateRunner(MaxRecords).RunAsync(session, targets, progress, token), CancellationToken.None).ConfigureAwait(true);
         var hostTexts = HostTexts(sources);
         var rows = await Task.Run(() => RowsOf(result.Records, hostTexts), CancellationToken.None).ConfigureAwait(true);
@@ -178,6 +190,12 @@ public sealed partial class EventLogReaderDocumentViewModel : EventLogDocumentBa
         _all = rows;
         await ApplyFilterAsync().ConfigureAwait(true);
         var failed = result.Hosts.Count(h => h.State == EventLogHostState.Failed);
+        if (result.Cancelled && CancelRequested)
+        {
+            // The operator stopped the run and what was read until then is shown: the line says how much.
+            MarkPartial(result.Total);
+        }
+
         DroppedNote = result.Dropped > 0
             ? Localizer.Format(L.EventLogs.RecordsDropped, result.Records.Count.ToString("N0", Localizer.Culture), result.Total.ToString("N0", Localizer.Culture))
             : null;

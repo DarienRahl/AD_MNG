@@ -25134,5 +25134,68 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="Readiness.Status.Stale" xml:space="preserve">
     <value>Połączenie tego okna zmieniło się po pokazanym sprawdzeniu: wyniki mogą już nie być aktualne. Wybierz „{0}”, aby sprawdzić ponownie.</value>
   </data>
+  <data name="EventLogs.Status.Reading" xml:space="preserve">
+    <value>Odczytywanie dzienników zdarzeń</value>
+  </data>
+  <data name="EventLogs.Status.ReadFailed" xml:space="preserve">
+    <value>Nie udało się odczytać dzienników zdarzeń</value>
+  </data>
+  <data name="EventLogs.Status.Channels" xml:space="preserve">
+    <value>Wczytywanie kanałów komputera {0}</value>
+  </data>
+  <data name="EventLogs.Status.ChannelsFailed" xml:space="preserve">
+    <value>Nie udało się wczytać kanałów komputera {0}</value>
+  </data>
+  <data name="EventLogs.Status.FailedLogons" xml:space="preserve">
+    <value>Sprawdzanie nieudanych logowań</value>
+  </data>
+  <data name="EventLogs.Status.FailedLogonsFailed" xml:space="preserve">
+    <value>Nie udało się sprawdzić nieudanych logowań</value>
+  </data>
+  <data name="EventLogs.Status.Lockout" xml:space="preserve">
+    <value>Badanie blokady konta „{0}”</value>
+  </data>
+  <data name="EventLogs.Status.LockoutFailed" xml:space="preserve">
+    <value>Nie udało się zbadać blokady konta „{0}”</value>
+  </data>
+  <data name="EventLogs.Status.Working" xml:space="preserve">
+    <value>{0}…</value>
+  </data>
+  <data name="EventLogs.Status.Stage" xml:space="preserve">
+    <value>{0} – {1}…</value>
+  </data>
+  <data name="EventLogs.Status.StageSources" xml:space="preserve">
+    <value>źródła: {0}, zdarzenia: {1}</value>
+  </data>
+  <data name="EventLogs.Status.StageLogs" xml:space="preserve">
+    <value>odczyt dzienników, źródła: {0}, zdarzenia: {1}</value>
+  </data>
+  <data name="EventLogs.Status.StageFailures" xml:space="preserve">
+    <value>odczyt nieudanych logowań, źródła: {0}, zdarzenia: {1}</value>
+  </data>
+  <data name="EventLogs.Status.StageSuccesses" xml:space="preserve">
+    <value>odczyt udanych logowań, konta: {0}</value>
+  </data>
+  <data name="EventLogs.Status.StageAccount" xml:space="preserve">
+    <value>odczyt konta</value>
+  </data>
+  <data name="EventLogs.Status.StageDomainControllers" xml:space="preserve">
+    <value>odczyt kontrolerów domeny</value>
+  </data>
+  <data name="EventLogs.Status.StageAnalysis" xml:space="preserve">
+    <value>analiza zdarzeń</value>
+  </data>
+  <data name="EventLogs.Status.Stopped" xml:space="preserve">
+    <value>{0} zatrzymano: pokazanych wyników nie zmieniono. Wybierz „{1}”, aby odczytać ponownie.</value>
+  </data>
+  <data name="EventLogs.Status.StoppedPartial" xml:space="preserve">
+    <value>{0} zatrzymano; odczytane i pokazane zdarzenia: {1}. Wybierz „{2}”, aby odczytać ponownie.</value>
+  </data>
+  <data name="EventLogs.Status.NotRead" xml:space="preserve">
+    <value>{0}: nie odczytano źródeł: {1} ({2}). Przyczyna każdego jest w sekcji „{3}”.</value>
+  </data>
+  <data name="EventLogs.Status.ModelFailed" xml:space="preserve">
+    <value>Nie udało się otworzyć modelu komputera {0}</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>
