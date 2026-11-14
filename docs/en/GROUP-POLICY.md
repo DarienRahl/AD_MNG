@@ -294,7 +294,7 @@ the user get…** (a selected user); the *Group Policy* tab of a domain or OU �
 a new user in this container); computer properties, the *Status* page – **What will the computer get…**; command
 palette – `gpo.model`, `gpo.modelUser`. Every model opens as a tab (one tab per set of targets).
 
-**Inputs** (a change does not recalculate the model by itself – the bar shows *click "Recalculate"*):
+**Inputs** (a change does not recalculate the model by itself – the sentence next to the fields says *click "Recalculate"*):
 
 | Field | What it gives |
 |---|---|
@@ -442,13 +442,15 @@ errors, consistency problems and weak security settings in all GPOs of the windo
 
 - **Quick check** reads from AD the GPO objects, links, permissions and WMI filters as well as the `GPT.INI` of every
   GPO – usually a few seconds. **Full check** also reads the SYSVOL folders and the settings of all GPOs, counts users
-  and computers under the links, checks SIDs and compares the settings of GPOs acting on the same container. Progress,
-  *Cancel*, the time of the last check; when Group Policy changes in this window, the tab says the results may be
-  outdated (it does not recheck by itself).
+  and computers under the links, checks SIDs and compares the settings of GPOs acting on the same container. Progress
+  (the stages, e.g. “Reading SYSVOL folders: 3 of 8”) and **Stop** are in the status line of the tab, and the button of
+  the check that was started turns into **Cancel**; the number of findings and the time of the last check are there too.
+  When Group Policy changes in this window, the line says the results may be outdated and offers *Check again* (the tab
+  does not recheck by itself).
 - **Results:** counters by severity (*Critical*, *High*, *Medium*, *Low*, *Information* – a click filters), filters by
   severity, area (*Links*, *Scope*, *Filtering*, *Versions*, *SYSVOL folder*, *Settings*, *Conflicts*, *Security*), GPO
   and text, the list of findings and details: *Why it matters*, *What to do*, *What it is about* and **Fix…**, *Open
-  GPO*, *Edit this setting*, *Show in model*, *Copy*. The bar above the list says what was not checked and why (quick
+  GPO*, *Edit this setting*, *Show in model*, *Copy*. A note above the list says what was not checked and why (quick
   check, SYSVOL unavailable, a folder that could not be read).
 - **Fix…** opens the regular change plan preview (rule 5) – with the PowerShell equivalent, execution and *Undo* – and
   after execution the tab checks again. Fixes: *enable the link*, *remove the link*, *keep one link (the one in
@@ -524,22 +526,23 @@ Both tabs exist once per connection window: a second call returns to the open ta
 The first opening of the search or the cleanup reads from the window's domain controller the GPO objects, the links
 (domain, OUs, sites), the `GPT.INI` versions and the folders of all GPOs in SYSVOL (at most four reads at a time),
 resolves account names and groups the settings. The progress shows the stages *Reading GPOs and links*, *Reading GPT.INI
-versions*, *Reading GPO folders*, *Resolving account names*, *Grouping settings*; **Cancel** ends this tab's wait (the
-previous results stay). Both tabs use **one read** per window: opening the second one does not read the folders again.
+versions*, *Reading GPO folders*, *Resolving account names*, *Grouping settings* (in the status line of the tab, with the number of folders read);
+**Cancel** on the button that started the read, or **Stop** in the line, ends this tab's wait (the previous results
+stay, and the line offers *Refresh*, which reads again what was interrupted). Both tabs use **one read** per window: opening the second one does not read the folders again.
 
 - **Refresh** (F5) reads again only the GPOs changed since the last read (a different version in AD or in `GPT.INI`),
   deleted ones disappear, links are always fresh. **Read everything again** reads the folders of all GPOs.
-- When Group Policy changes in this window (also through copying or the cleanup), the tab shows the bar *Group Policy
-  changed in this window – the results may be out of date.* with a *Refresh* button – it does not read again by itself.
+- When Group Policy changes in this window (also through copying or the cleanup), the status line of the tab says *Group Policy
+  changed in this window – the results may be out of date.* and offers *Refresh* – the tab does not read again by itself.
   After an action from these tabs, the refresh (of the changed GPOs only) starts by itself.
 - Changing the domain controller, reconnecting and disconnecting discard the read (the results shown stay, with the
-  out-of-date bar); changing the language only rewrites the texts (without reading the folders again).
+  out-of-date line); changing the language only rewrites the texts (without reading the folders again).
 - **Limits:** a settings file larger than 16 MiB or a GPO's settings over 64 MiB in total are not read (the GPO has
   the status *Not all settings read*, the same as with a `Registry.pol` file of more than 10,000 entries); after 1 GiB
   has been read, the remaining GPOs have the status *Not read*. Other statuses: *Folder not found on SYSVOL*, *Access denied*, *Folder
-  too large*, *Could not be read*. GPOs that the window's account cannot read in AD are not visible at all – the tab
-  header gives the number of GPOs searched and the time of the read (*GPOs searched: N · read …*).
-- Without access to SYSVOL, the tab has only directory data (the bar *SYSVOL is not available (…): only directory data
+  too large*, *Could not be read*. GPOs that the window's account cannot read in AD are not visible at all – the status
+  line of the tab gives the number of GPOs searched and the time of the read (*GPOs searched: N · read …*).
+- Without access to SYSVOL, the tab has only directory data (the note *SYSVOL is not available (…): only directory data
   was read*); the settings from files then cannot be searched or assessed.
 
 ### GPO settings search
@@ -567,11 +570,11 @@ occurrences and GPOs, and the total at the end – never the whole list of all s
 item-level targeting, scripts; disabled items are not counted; when the setting takes effect from one GPO only – just
 *set in N GPO(s)*). Under the header is **every** GPO that sets this setting, also with a different value, with the
 columns *GPO*, *Value*, *Links* (a disabled link with the note *(disabled)*) and *Notes*: *conditional (item-level
-targeting)*, *item disabled*, *value hidden*, *GPO read only in part*. The line above the list: *Settings found: N
-(occurrences: M)*. When there are more than **2,000** groups, the tab shows the first 2,000 and the note *Narrow the
-search – 2,000 of N settings shown*.
+targeting)*, *item disabled*, *value hidden*, *GPO read only in part*. The status line of the tab: *Settings found: N
+(occurrences: M)* (followed by the time of the read). When there are more than **2,000** groups, the tab shows the first
+2,000 and the note *Narrow the search – 2,000 of N settings shown*.
 
-**The notes bar** above the results says what was not searched: GPOs whose folders were not read or were read only in
+**The notes** above the results say what was not searched: GPOs whose folders were not read or were read only in
 part (the number, names and statuses in the tooltip), administrative templates that are not loaded (policies are then
 shown as registry values and cannot be found by their names), the number of hidden values, an unavailable SYSVOL, links
 from other domains of the forest (not visible from this domain controller).
@@ -686,9 +689,9 @@ The **GPO cleanup** tab analyses the read of all GPOs (the same one as the searc
 above the list (a click filters), the filters *Kind:* and *GPO:*, search in the proposals (Ctrl+F), a list with the
 columns *Kind*, *GPO*, *Proposal* and *Actions* and, in the details, **What was found**, **What to do**, **GPOs** (with
 their links), **Setting** (in the GPMC language) and **Remarks**. *Refresh* (F5), *Read everything again*, *Cancel*, the
-bar *Group Policy changed after the analysis – the proposals may be out of date.* and the export (*Export to CSV…*,
+status line *Group Policy changed after the analysis – the proposals may be out of date.* and the export (*Export to CSV…*,
 *Export to HTML…* – to a file of the operator's choice) work as in the search. GPO content is assessed only for GPOs read
-in full; the others have only their links and status assessed (the bar *The settings of N GPOs were not read
+in full; the others have only their links and status assessed (the note *The settings of N GPOs were not read
 completely, …*).
 
 | Kind | When | Actions | Remarks |

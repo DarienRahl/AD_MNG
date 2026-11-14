@@ -291,7 +291,7 @@ użytkownik…** (zaznaczony użytkownik); karta *Zasady grupy* domeny lub OU �
 użytkownik w tym kontenerze); właściwości komputera, strona *Stan* – **Co dostanie komputer…**; paleta poleceń –
 `gpo.model`, `gpo.modelUser`. Każdy model otwiera się jako karta (jedna karta na zestaw celów).
 
-**Dane wejściowe** (zmiana nie przelicza modelu sama – pasek pokazuje *kliknij „Przelicz”*):
+**Dane wejściowe** (zmiana nie przelicza modelu sama – zdanie przy polach mówi *kliknij „Przelicz”*):
 
 | Pole | Co daje |
 |---|---|
@@ -441,13 +441,15 @@ spójności i słabych ustawień zabezpieczeń we wszystkich GPO domeny okna.
 
 - **Szybkie sprawdzenie** czyta z AD obiekty GPO, połączenia, uprawnienia i filtry WMI oraz `GPT.INI` każdego GPO – zwykle
   kilka sekund. **Pełne sprawdzenie** czyta także foldery SYSVOL i ustawienia wszystkich GPO, liczy użytkowników i
-  komputery pod połączeniami, sprawdza SID-y i porównuje ustawienia GPO działających na ten sam kontener. Postęp,
-  *Anuluj*, czas ostatniego sprawdzenia; gdy zasady grupy zmienią się w tym oknie, karta mówi, że wyniki mogą być
-  nieaktualne (nie sprawdza sama od nowa).
+  komputery pod połączeniami, sprawdza SID-y i porównuje ustawienia GPO działających na ten sam kontener. Postęp
+  (etapy, np. „Odczyt folderów SYSVOL: 3 z 8”) i **Zatrzymaj** są w wierszu stanu karty, a przycisk rozpoczętego
+  sprawdzenia zamienia się w **Anuluj**; tam też jest liczba uwag i czas ostatniego sprawdzenia. Gdy zasady grupy
+  zmienią się w tym oknie, wiersz mówi, że wyniki mogą być nieaktualne, i podaje polecenie *Sprawdź ponownie* (karta nie
+  sprawdza sama od nowa).
 - **Wyniki:** liczniki według ważności (*Krytyczne*, *Wysokie*, *Średnie*, *Niskie*, *Informacje* – kliknięcie
   filtruje), filtry ważności, obszaru (*Połączenia*, *Zakres*, *Filtrowanie*, *Wersje*, *Folder SYSVOL*, *Ustawienia*,
   *Konflikty*, *Bezpieczeństwo*), GPO i tekstu, lista uwag i szczegóły: *Dlaczego to ważne*, *Co zrobić*, *Czego dotyczy*
-  oraz **Napraw…**, *Otwórz GPO*, *Edytuj to ustawienie*, *Pokaż w modelu*, *Kopiuj*. Pasek nad listą wymienia, czego
+  oraz **Napraw…**, *Otwórz GPO*, *Edytuj to ustawienie*, *Pokaż w modelu*, *Kopiuj*. Uwaga nad listą wymienia, czego
   nie sprawdzono i dlaczego (szybkie sprawdzenie, niedostępny SYSVOL, folder, którego nie udało się odczytać).
 - **Napraw…** otwiera zwykły podgląd planu zmian (zasada 5) – z odpowiednikiem PowerShell, wykonaniem i *Cofnij* – a
   po wykonaniu karta sprawdza ponownie. Naprawy: *włącz połączenie*, *usuń połączenie*, *pozostaw jedno połączenie (to,
@@ -520,22 +522,23 @@ Obie karty są jedne na okno połączenia: drugie wywołanie wraca do otwartej k
 Pierwsze otwarcie wyszukiwarki albo porządków czyta z kontrolera domeny okna obiekty GPO, połączenia (domena, OU,
 lokacje), wersje `GPT.INI` i foldery wszystkich GPO w SYSVOL – najwyżej cztery odczyty naraz – rozpoznaje nazwy kont
 i grupuje ustawienia. Postęp pokazuje etapy *Odczyt obiektów GPO i połączeń*, *Odczyt wersji GPT.INI*, *Odczyt
-folderów GPO*, *Rozpoznawanie nazw kont*, *Grupowanie ustawień*; **Anuluj** kończy czekanie tej karty (poprzednie
-wyniki zostają). Obie karty korzystają z **jednego odczytu** w oknie: otwarcie drugiej nie czyta folderów jeszcze raz.
+folderów GPO*, *Rozpoznawanie nazw kont*, *Grupowanie ustawień* (w wierszu stanu karty, z liczbą odczytanych folderów);
+**Anuluj** na przycisku, który rozpoczął odczyt, albo **Zatrzymaj** w wierszu kończy czekanie tej karty (poprzednie
+wyniki zostają, a wiersz podaje polecenie *Odśwież*, które odczytuje jeszcze raz to, co przerwano). Obie karty korzystają z **jednego odczytu** w oknie: otwarcie drugiej nie czyta folderów jeszcze raz.
 
 - **Odśwież** (F5) czyta ponownie tylko GPO zmienione od ostatniego odczytu (inna wersja w AD lub `GPT.INI`), usunięte
   znikają, połączenia są zawsze świeże. **Odczytaj wszystko ponownie** czyta foldery wszystkich GPO.
-- Gdy zasady grupy zmienią się w tym oknie (także przez kopiowanie lub porządki), karta pokazuje pasek *Zmieniono zasady
-  grupy w tym oknie – wyniki mogą być nieaktualne.* z przyciskiem *Odśwież* – nie odczytuje sama od nowa. Po wykonaniu
+- Gdy zasady grupy zmienią się w tym oknie (także przez kopiowanie lub porządki), wiersz stanu karty mówi *Zmieniono zasady
+  grupy w tym oknie – wyniki mogą być nieaktualne.* i podaje polecenie *Odśwież* – karta nie odczytuje sama od nowa. Po wykonaniu
   akcji z tych kart odświeżenie (tylko zmienionych GPO) rusza samo.
-- Zmiana kontrolera domeny, ponowne połączenie i rozłączenie usuwają odczyt (pokazane wyniki zostają z paskiem
+- Zmiana kontrolera domeny, ponowne połączenie i rozłączenie usuwają odczyt (pokazane wyniki zostają z wierszem
   nieaktualności); zmiana języka tylko przepisuje teksty (bez ponownego czytania folderów).
 - **Limity:** plik ustawień większy niż 16 MiB albo ustawienia GPO ponad 64 MiB nie są czytane (GPO ma stan *Nie
   wszystkie ustawienia odczytane*, tak samo jak przy pliku `Registry.pol` z ponad 10 000 wpisów); po 1 GiB odczytu
   pozostałe GPO mają stan *Nie odczytano*. Inne stany: *Nie znaleziono folderu w SYSVOL*, *Odmowa dostępu*, *Folder jest
-  za duży*, *Nie udało się odczytać*. GPO, których konto okna nie może odczytać w AD, w ogóle nie są widoczne – nagłówek
-  karty podaje liczbę przeszukiwanych GPO i czas odczytu (*Przeszukiwane obiekty GPO: N · odczyt …*).
-- Bez dostępu do SYSVOL karta ma tylko dane z katalogu (pasek *SYSVOL jest niedostępny (…): odczytano tylko dane z
+  za duży*, *Nie udało się odczytać*. GPO, których konto okna nie może odczytać w AD, w ogóle nie są widoczne – wiersz
+  stanu karty podaje liczbę przeszukiwanych GPO i czas odczytu (*Przeszukiwane obiekty GPO: N · odczyt …*).
+- Bez dostępu do SYSVOL karta ma tylko dane z katalogu (uwaga *SYSVOL jest niedostępny (…): odczytano tylko dane z
   katalogu*); ustawień z plików nie da się wtedy przeszukać ani ocenić.
 
 ### Wyszukiwarka ustawień GPO
@@ -565,10 +568,10 @@ element z kierowaniem na poziomie elementu, skrypty; elementy wyłączone nie s�
 jednego GPO – samo *ustawione w N GPO*). Pod nagłówkiem jest **każde** GPO, które ustawia to ustawienie, także z inną
 wartością, z kolumnami *Obiekt zasad grupy*, *Wartość*, *Połączenia* (wyłączone połączenie z dopiskiem *(wyłączone)*) i
 *Uwagi*: *warunkowe (kierowanie na poziomie elementu)*, *element wyłączony*, *wartość ukryta*, *GPO odczytany
-częściowo*. Wiersz nad listą: *Znalezione ustawienia: N (wystąpienia: M)*. Gdy grup jest więcej niż **2 000**, karta
-pokazuje pierwsze 2 000 i informację *Zawęź wyszukiwanie – pokazano 2 000 z N grup*.
+częściowo*. Wiersz stanu karty: *Znalezione ustawienia: N (wystąpienia: M)* (po nim czas odczytu GPO). Gdy grup jest więcej niż
+**2 000**, karta pokazuje pierwsze 2 000 i uwagę *Zawęź wyszukiwanie – pokazano 2 000 z N grup*.
 
-**Pasek uwag** nad wynikami mówi, czego nie przeszukano: GPO, których folderów nie odczytano albo odczytano częściowo
+**Uwagi** nad wynikami mówią, czego nie przeszukano: GPO, których folderów nie odczytano albo odczytano częściowo
 (liczba, nazwy i stany w podpowiedzi), niewczytane szablony administracyjne (zasady są wtedy pokazane jako wartości
 rejestru i nie można ich wyszukać po nazwie), liczba wartości ukrytych, niedostępny SYSVOL, połączenia z innych domen
 lasu (niewidoczne z tego kontrolera domeny).
@@ -684,9 +687,9 @@ Karta **Porządki w GPO** analizuje odczyt wszystkich GPO (ten sam co wyszukiwar
 według rodzaju nad listą (kliknięcie filtruje), filtry *Rodzaj:* i *Obiekt GPO:*, wyszukiwanie w propozycjach (Ctrl+F),
 lista z kolumnami *Rodzaj*, *Obiekt zasad grupy*, *Propozycja* i *Działania*, a w szczegółach: **Co znaleziono**, **Co
 zrobić**, **Obiekty GPO** (z połączeniami), **Ustawienie** (w języku GPMC) i **Uwagi**. *Odśwież* (F5), *Odczytaj
-wszystko ponownie*, *Anuluj*, pasek *Zasady grupy zmieniono po analizie – propozycje mogą być nieaktualne.* i eksport
+wszystko ponownie*, *Anuluj*, wiersz stanu *Zasady grupy zmieniono po analizie – propozycje mogą być nieaktualne.* i eksport
 (*Eksportuj do CSV…*, *Eksportuj do HTML…* – do pliku operatora) działają jak w wyszukiwarce. Treść GPO oceniana jest
-tylko dla GPO odczytanych w całości; pozostałe mają ocenione tylko połączenia i stan (pasek *Nie odczytano wszystkich
+tylko dla GPO odczytanych w całości; pozostałe mają ocenione tylko połączenia i stan (uwaga *Nie odczytano wszystkich
 ustawień N obiektów GPO …*).
 
 | Rodzaj | Kiedy | Działania | Uwagi |

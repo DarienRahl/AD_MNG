@@ -360,10 +360,43 @@
   znakiem ostrzeżenia albo informacji; *Zmień kontroler…* jest odnośnikiem zaraz za zdaniem. To uwagi o tym, co karta
   pokazuje i gdzie zapisuje, a nie komunikaty o jej działaniu – widać je razem z podsumowaniem w wierszu stanu, dopóki
   karta jest otwarta.
-- **Pozostałe karty zasad grupy mają już wiersz stanu.** *Szablony administracyjne*, *Ustawienia zabezpieczeń*, *Co
-  dostanie komputer*, *Diagnostyka zasad grupy*, *Wyszukiwarka ustawień GPO* i *Porządki w GPO* pokazują w nim odczyt
-  karty (z poleceniem **Zatrzymaj**), podsumowanie, błąd odczytu i przebieg przygotowania zmian, a pod nim te same
-  dwie uwagi. Ich własne ramki ostrzeżeń i paski postępu – na przykład postęp analizy – na razie zostają pod spodem i
+- **Wyszukiwarka ustawień GPO: odczyt, wynik i stan w wierszu stanu karty.** Wiersz stanu mówi, ile ustawień znaleziono
+  i kiedy odczytano obiekty GPO – „Znalezione ustawienia: 1 (wystąpienia: 2) · Przeszukiwane obiekty GPO: 7 · odczyt
+  14.11.2026 10:44” – a po zaznaczeniu wiersza także, które to ustawienie. Odczyt pokazuje swoje etapy z postępem
+  („Odczyt folderów GPO: 12 z 300”) i poleceniem **Zatrzymaj**; dotychczasowy pasek postępu, osobny przycisk *Anuluj*,
+  tekst wyniku nad listą i ramka *Zmieniono zasady grupy w tym oknie* zniknęły. Przyciski **Odśwież** i **Odczytaj
+  wszystko ponownie** są teraz przyciskami z anulowaniem: ten z nich, który rozpoczął odczyt, zamienia się w
+  **Anuluj**, a potem w „Zatrzymywanie…”. Zatrzymany odczyt zostawia poprzednie wyniki i mówi (**Uwaga**), że karta
+  może nie pokazywać wszystkiego, z poleceniem **Odśwież**, które odczytuje jeszcze raz to, co przerwano; odczyt, który
+  się nie udał, pokazuje **Błąd** z przyczyną, kodem wyniku i poleceniem **Ponów**. Zmiana zasad grupy w tym oknie
+  zostawia wyniki i mówi w wierszu: „Zmieniono zasady grupy w tym oknie – wyniki mogą być nieaktualne.” z poleceniem
+  **Odśwież**. Czego indeks nie odczytał (foldery GPO, SYSVOL, szablony, ukryte wartości) i że pokazano tylko część grup,
+  jest zwykłą uwagą ze znakiem ostrzeżenia nad wynikami, a nie ramką ani kartą z ikoną informacji.
+- **Porządki w GPO: to samo w wierszu stanu.** Wiersz mówi, ile jest propozycji i kiedy odczytano obiekty GPO („16
+  propozycji · Przeanalizowano obiektów GPO: 16, ustawienia odczytane 14.11.2026 10:44”), pokazuje odczyt i analizę z
+  etapami oraz poleceniem **Zatrzymaj**, a zmianę zasad grupy po analizie, zatrzymany albo nieudany odczyt – jako stan
+  karty z poleceniem **Odśwież**, **Ponów**. **Odśwież** (wyróżniony) i **Odczytaj wszystko ponownie** są przyciskami z
+  anulowaniem. Czego analiza nie widziała, jest uwagą nad listą. Gdy akcja propozycji (usunięcie GPO, scalenie) nie może
+  ruszyć, bo okno nie ma połączenia albo nie da się odczytać obiektu GPO do porównania, wiersz karty mówi dlaczego
+  („Usunięcie obiektu GPO „…” – nic nie zmieniono: …”) – dotąd było to okno z błędem; pytanie, czy obiekt GPO zmienił się
+  od analizy, i lista ustawień, które niczego by nie zmieniły, zostają oknami.
+- **Diagnostyka zasad grupy: to samo w wierszu stanu.** Wiersz mówi, ile jest uwag oraz kiedy i jak głęboko sprawdzono
+  obiekty GPO („12 uwag · Ostatnie sprawdzenie: pełne, 14.11.2026 10:44”), pokazuje sprawdzanie z etapami („Odczyt
+  folderów SYSVOL: 3 z 8”) i poleceniem **Zatrzymaj**, a zmianę zasad grupy od ostatniego sprawdzenia, zatrzymane i
+  nieudane sprawdzanie – jako stan karty z poleceniami **Sprawdź ponownie**, **Odśwież** i **Ponów** (zatrzymane albo
+  nieudane sprawdzanie powtarza się z tą samą głębokością). **Szybkie sprawdzenie** (wyróżnione) i **Pełne sprawdzenie**
+  są przyciskami z anulowaniem. Czego sprawdzenie nie obejmuje, jest uwagą nad listą. **Napraw…** pokazuje w wierszu karty
+  „…: przygotowywanie zmian…” z poleceniem **Zatrzymaj**, a gdy planu nie da się przygotować – dlaczego, z poleceniem
+  **Ponów**.
+- **Co dostanie komputer: wiersz stanu zamiast pogrubionego podsumowania.** Wiersz mówi, co dostaną komputer i
+  użytkownik („Komputer: 3 GPO, 12 ustawień; Użytkownik: 1 GPO, 2 ustawienia”), pokazuje obliczanie modelu z poleceniem
+  **Zatrzymaj** (rusza je **Przelicz** i odświeżanie na pasku) oraz – jako stan karty – przerwane obliczanie z poleceniem
+  **Odśwież** i nieudane z przyczyną i poleceniem **Ponów**. Czego model nie mógł użyć (konto lub kontener, który nie
+  istnieje, SYSVOL niedostępny), jest uwagą ze znakiem ostrzeżenia nad wynikami. „Dane wejściowe zmienione – kliknij
+  »Przelicz«” zostaje zdaniem przy polach.
+- **Pozostałe karty zasad grupy mają już wiersz stanu.** *Szablony administracyjne* i *Ustawienia zabezpieczeń*
+  pokazują w nim odczyt karty (z poleceniem **Zatrzymaj**), podsumowanie, błąd odczytu i przebieg przygotowania zmian, a
+  pod nim te same dwie uwagi. Ich własne ramki ostrzeżeń – na przykład o szablonach – na razie zostają pod spodem i
   przejdą do wiersza stanu w następnych wydaniach, więc część informacji widać tam dwa razy. Pasek stanu okna głównego
   nie mówi już nic o żadnej karcie zasad grupy.
 - **Co się nie zmieniło:** wiersz stanu mają teraz lista obiektów, karty zasad grupy i wszystkie okna oraz dialogi

@@ -496,6 +496,9 @@ As built (V2b-3, unit 1): the first document tabs after the object list – the 
 container, one GPO and the WMI filters: twenty-three views. The base class of the Group Policy documents owns their
 status, so the other six Group Policy tabs have the line as well, above the bars they keep until their units; the status
 bar of the main window says nothing about a Group Policy tab any more (*V2b-3 as built*, section 8).
+As built (V2b-3, unit 2): also the four documents with operations of their own – the settings search, the cleanup
+advisor, the diagnostics and the model of a computer or a user: twenty-seven views, and the two editors are the only
+Group Policy views that keep bars of their own (*V2b-3 as built*, section 8).
 
 ### 6.2 Navigation – open question 2
 
@@ -1184,7 +1187,7 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     field is said when the button is pressed, how a dialog with tabs, a dialog without a session and a hosted control
     are handled, and that a view with nothing but notes gets no line and goes on the second list
     (`ConvertedViewsWithoutAStatusLine`). Candidates for the action button that are left: bulk check, computer review,
-    remote computer, the event log reader and its two analyses, GPO search, cleanup and diagnostics, the PKI security
+    remote computer, the event log reader and its two analyses, the PKI security
     review, readiness, the sending of correspondence, the Watchdog delivery test. (Done in V2b-2: connect and the search
     for domain controllers, the change of the domain controller, OK of "Reset Password", preview, send and paste of the
     message window, the tests of the filter builder and of the saved view editor.)
@@ -1815,7 +1818,11 @@ above.
   window closes. No string lost its last user in that unit. Added by V2b-3, unit 1: no longer shown but read by tests
   or by the view models themselves – `HasError` of the Group Policy documents, `HealthStatusText` and
   `IsCheckingHealth` of a GPO –, and `StatusText` / `SelectionText` of those documents, which only the shell reads now.
-  No string and no command lost its last user in that unit.
+  No string and no command lost its last user in that unit. Added by V2b-3, unit 2: no longer shown but read by tests or
+  set by the view models themselves – `ProgressValue` and `IsProgressIndeterminate` of the settings search, the cleanup
+  advisor and the diagnostics, `SummaryText` of the model; `Cancel()` and `CancelCommand` of the three documents have no
+  view any more (the Stop of the line is theirs), and tests and code without a line still use them. No string lost its
+  last user in that unit.
 - **Not seen, to confirm on Windows.** Nothing of V2b-1 was seen on a screen.
   - *The property sheet.* How a wrapped result looks in the 640 px wide sheet (two or three lines on the caution or
     critical surface, picture and buttons in the first line). The note next to the old validation texts (glyph and plain
@@ -2577,12 +2584,14 @@ screen yet. What the sweep still has to do is counted in *What V2b has to do*, a
 **V2b-3 as built (Group Policy).** The fourth increment of V2 converts the Group Policy area – the views of
 `GroupPolicy/` with their view models in `Presentation/GroupPolicy` – in four units. Unit 1 built what the area shares
 and converted its four plain documents: the list of GPOs, the Group Policy of a domain, organizational unit or site, one
-GPO with its tabs (and the health panel its *Status* tab hosts), and the WMI filters. Every Group Policy document is a
+GPO with its tabs (and the health panel its *Status* tab hosts), and the WMI filters. Unit 2 converted the four
+documents that read or compute something of their own and had kept their bars: the settings search, the cleanup advisor,
+the diagnostics and the model of a computer or a user. Every Group Policy document is a
 tab of the main window and derives from one base class, so the decisions of that class hold for all ten documents: they
 are written down first, as the sub-list *Group Policy documents*, for the units that convert the other six. The
 foundations are those of *V2b-1 as built* and the *Dialogs* of *V2b-2 as built*; nothing was added to the model or to
-the controls. The block reads in this order: *Group Policy documents*, the shared bars, the four views, where this
-departs from the recipe, the tests, what is left, and what nobody has seen on a screen yet.
+the controls. The block reads in this order: *Group Policy documents*, the shared bars, the four views of unit 1, the
+four of unit 2, where this departs from the recipe, the tests, what is left, and what nobody has seen on a screen yet.
 
 - **Group Policy documents** (decided in unit 1; what the later units of the area follow).
   1. *The holder is the base class's.* `GroupPolicyDocumentBase` is `IHasPageStatus`: `Status` is created there – the
@@ -2649,12 +2658,12 @@ departs from the recipe, the tests, what is left, and what nobody has seen on a 
   9. *The view.* Where the shared bars were: `<c:StatusLine x:Name="PageStatus" Margin="0,0,0,6"
      DockPanel.Dock="Top" …/>` over `Status.Current` / `Status.CloseCommand`, then `<gp:GroupPolicyNotes
      x:Name="DocumentNotes" DockPanel.Dock="Top" />`. Declared in place: visual order is tab order (header, line, notes,
-     content). All ten views have both since unit 1. The six that still have bars of their own – the two editors,
-     modeling, diagnostics, search, cleanup – are on a third, temporary list of `XamlSourceTests`,
+     content). All ten views have both since unit 1. The six that still had bars of their own – the two editors,
+     modeling, diagnostics, search, cleanup – were on a third, temporary list of `XamlSourceTests`,
      `ViewsWithAStatusLineNotConvertedYet` (one line named `PageStatus`, and at least one banner or progress bar left):
      the unit that converts a view moves it to `PagesWithAStatusLine`, and the test fails for a view that stays on the
-     list with nothing left to convert. Until then such a view says some things twice – "Reading “…”…" in the line and
-     its own progress text under its toolbar.
+     list with nothing left to convert. Such a view said some things twice until its unit came – "Reading “…”…" in the
+     line and its own progress text under its toolbar. After unit 2 the two editors are the only ones left on it.
   10. *Tests.* Presentation: `GroupPolicyHarness.CreateAsync(culture, statusLog)` for the log copies; a slow domain
       controller is a call held in `FakeDirectorySession.BeforeOperation` (the reads of the documents run on pool
       threads; the planner's first read runs on the caller's thread – start such a command with `Task.Run`). UI:
@@ -2662,6 +2671,53 @@ departs from the recipe, the tests, what is left, and what nobody has seen on a 
       with its view (`OpenAsync<TDocument, TView>`), `AssertTheLineOf`, `AssertNoOldFeedback`, `AssertNoNotes`,
       `GrowthOf`, and `HeldRead`, which holds a read only on a pool thread (a call held on the UI thread holds the
       test: do not hold a planner's read in a UI test – fail it instead).
+  11. *A document whose `LoadCoreAsync` is a long read of its own* (added by unit 2: the settings search, the cleanup
+      advisor, the diagnostics; the model of a computer, whose read has no stages, needed nothing of it). The base begins
+      the operation, so the document takes it from `LoadOperation` at the start of its read and reports its stages to it
+      – "Reading GPO folders: 12 of 300" with the part done in the ring, one log key (`GroupPolicy.Status.Reading`) with
+      the two numbers, so a stage change is not a new message and is not announced again. The read that is stopped
+      ends in the base's state (5): *Stop* of the line, the *Cancel* of the button that started the read and the
+      `Cancel()` of the document (kept for code without the line) are the same operation. A stopped read leaves the shown
+      results; the status bar of a host without a line still says "cancelled" (`LoadedText`).
+  12. *The buttons that start such a read are action buttons* – one per kind of read, because a holder has one
+      operation and two buttons over it would both say *Cancel* (*Dialogs* 8 of V2b-2): "Odśwież" / "Odczytaj wszystko
+      ponownie", "Szybkie sprawdzenie" / "Pełne sprawdzenie"; the primary one of the cleanup and the diagnostics is
+      `Ad.AccentActionButton`. Which of them runs follows the load (`IsLoading` and the kind of read that was asked
+      for: `IsRefreshing` / `IsReadingAll`, `IsAnalyzing` / `IsReadingAll`, `IsQuickChecking` / `IsFullChecking`), from
+      the first moment – the state of the line and of the button agree while the SYSVOL is opened, before the read
+      begins. A reload that reads nothing (a change elsewhere marks the results stale) shows the ring on "Odśwież" for
+      the moment it takes.
+  13. *A read that was stopped or failed is repeated by the action of the line, and by nothing else.* The state of
+      the base (5) offers *Refresh* or *Retry*, both `RefreshCommand`; a plain reload of these documents only checks
+      whether the results are stale and reads nothing. `RefreshAsync` is virtual now, and these three documents
+      remember the interrupted request (`_interrupted`, apart from the pending one `_requested`) and ask for it in
+      their override. Keeping it pending would have started a long check again at the next change in the window or
+      switch of the language – behind the operator's back, which the design of these tabs rules out.
+  14. *"Group Policy changed in this window" is the state of the tab that lasts* (`DocumentLastingState`, 5):
+      an attention with the one action the old bar had – *Refresh* (the search), *Odśwież* (the cleanup), *Sprawdź
+      ponownie* (the diagnostics). It follows the language (`UpdateLasting()` at the start of `OnCultureChanged`) and
+      stands behind the states every document has.
+  15. *The summary may say when the content was read* (`SummaryDetail`, the only thing added to the base class beyond
+      the hooks of unit 1): "Found settings: 1 (occurrences: 2) · GPOs searched: 7 · read 14.11.2026 10:44 ·
+      *selected occurrence*". The old header line ("GPOs searched … · read …", "Last check: full, …", "Analysed GPOs:
+      …") was the "as of" text of the page – the summary by the rule of foundation 1 – and the property sheet and the
+      health tab fold it into the summary the same way. The parts are joined by " · " in the order count, as of,
+      selection, so that a narrow tab cuts the selection (the details pane shows it) and the tool tip has all of it; a
+      part equal to the one before it is said once (the short query, the document that was never read).
+  16. *What was not read or evaluated is a note, with the caution look.* The cards "what the index could not read",
+      "what the analysis could not see", "what the check could not evaluate" and the former warning bar of the model say
+      how complete the results below them are and are true for as long as they are shown – the health note of unit 1,
+      for all GPOs. They are `Ad.Note.Attention` (`NotesBar`, a list of sentences in one note) above the results; they
+      were cards with the information glyph. The note stands under the notes of the base (`GroupPolicyNotes`), so the
+      operator reads: the line, why SYSVOL is not there, what the results lack, the results.
+  17. *The refusals of the actions of the settings tabs are said where the operator started them.* `GpoSettingsActions`
+      (copy, remove, merge, unlink, the guarded delete) says "not connected" and "the GPO could not be read to compare
+      it" through `GroupPolicyActions.RefuseAsync` – in the line of the cleanup or the search that started the action,
+      in a dialog for the tree and the shell, as before. Two stay dialogs on purpose: the list of the units that would
+      change nothing (a list of reasons per setting, not a sentence) and "the GPO changed since the analysis" (the
+      advisor reads the GPOs again at once, which takes the line and would wipe the sentence). The repair runner of the
+      diagnostics ("Napraw…") had the actions of the tree: it has the actions of the document now, so its plan is
+      "…: preparing the changes…" with Stop in the line of the tab.
 - **The shared bars** (`GroupPolicy/GroupPolicyBanners.xaml`, deleted; hosted by all ten document views).
 
   | Old place | Kind | Now |
@@ -2750,6 +2806,92 @@ departs from the recipe, the tests, what is left, and what nobody has seen on a 
 - **WMI Filters** (`GroupPolicy/WmiFiltersView.xaml`; `WmiFiltersDocumentViewModel`). Under the header, above the notes
   and the list: "1 WMI filters" at rest; "Reading “WMI Filters”…"; "New WMI filter “…”: preparing the changes…" for
   New, Edit and Delete; the states of (5). No bar of its own.
+- **GPO settings search** (`GroupPolicy/GpoSettingsSearchView.xaml`; `GpoSettingsSearchDocumentViewModel` and its
+  partial files).
+  - *What the line says.* Under the header and the two read buttons, above the notes and the query. At rest the
+    result of the query and when the GPOs were read, then the selected occurrence: "Settings found: 1 (occurrences:
+    2) · GPOs searched: 7 · read 14.11.2026 10:44 · Default Domain Policy – Minimum password length"; with a short query
+    only "GPOs searched: 7 · read …". **Working:** "Reading “GPO settings search”…", then the stages of the index
+    ("Reading GPOs and links…", "Reading GPT.INI versions: 3 of 7", "Reading GPO folders: 12 of 300", "Preparing the
+    search…") with Stop and the ring showing the part done; "Copy settings to “…”: preparing the changes…" for the copy
+    to another GPO (7 of unit 1). **States:** a read that was stopped ("Reading “GPO settings search” was stopped: the tab
+    may not show everything. Press Refresh to read it again.", the results of before stay), a read that failed ("Could
+    not read …: reason. Press Retry to try again. (code)"), "Group Policy changed in this window – the results may be
+    out of date." with *Refresh*, and the states of (5).
+  - *How the old places were sorted* (2 warning bars, 1 progress bar, and what never was a banner).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | progress bar `ReadProgress` and the text next to it (`ProgressText`, "Reading GPO folders: 12 of 300") | status | the operation of the document, its stages in the line |
+    | `IndexInfoText` under the toolbar ("GPOs searched: 16 · read …") | summary (as of) | the detail of the summary (15) |
+    | the *Cancel* button | – | gone: *Refresh* and *Read everything again* are action buttons (12) |
+    | warning bar `StaleBar` with the button *Refresh* | status | the lasting attention of the tab with *Refresh* (14) |
+    | `NotesBar` (a card with the information glyph: GPOs not read, no SYSVOL, no templates, hidden values, other domains) | note | `Ad.Note.Attention` (16); the names of the GPOs stay in the tool tips |
+    | `ResultText` above the list ("Settings found: N (occurrences: M)") | summary | the line (`LoadedText`); the TextBlock is gone |
+    | warning bar `CapBar` ("Narrow the search – 2,000 of 2,345 settings shown") | note | `Ad.Note.Attention` above the results: it is about the list below it, true for as long as it is shown |
+    | exports, row actions, details | – | unchanged |
+
+  - *Decisions.* The count of results is no longer a live region of its own: the summary of the line is polite and is
+    never announced when it only changes (V2a), so a screen reader no longer hears "Settings found: 3" after each
+    query. The stale state is behind the failed read and the stopped read: a reload that finds the results stale
+    replaces the stopped state – the read is still undone, and *Refresh* of the stale state reads it (13).
+- **GPO cleanup** (`GroupPolicy/GpoCleanupView.xaml`; `GpoCleanupDocumentViewModel` and its partial files).
+  - *What the line says.* At rest the number of proposals, when the GPOs were read and the selected proposal: "16
+    proposals · Analysed GPOs: 16, settings read 14.11.2026 10:44 · Empty GPO – Cleanup – Empty"; with a filter
+    "Proposals shown: 3 of 16 · …"; before the first analysis "Not analysed yet." **Working:** the same stages as the
+    search, and "Analysing the GPOs…". **States** as for the search; the stale one reads "Group Policy changed after the
+    analysis – the proposals may be out of date." with *Refresh*. The actions of a proposal (*Delete GPO…*,
+    *Unlink everywhere…*, *Disable GPO*, *Copy to another GPO…*, *Remove the duplicate from this GPO*, *Merge with…*)
+    are plans with the preview, as before (rule 5): their plan is "…: preparing the changes…" with Stop in this line,
+    their refusals are in the line (17), and the read after an executed action is the operation of the document.
+  - *How the old places were sorted* (1 warning bar, 1 progress bar).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | progress bar `AnalysisProgress` and `ProgressText` | status | the operation of the document |
+    | `LastRunText` under the toolbar ("Analysed GPOs: 16, settings read …") | summary (as of) | the detail of the summary (15) |
+    | the *Cancel* button | – | gone: *Refresh* (accent) and *Read everything again* are action buttons (12) |
+    | warning bar `StaleBar` with the button *Refresh* | status | the lasting attention with *Refresh* (14) |
+    | `NotesBar` (GPOs whose settings were not read completely, no SYSVOL, no templates, other domains) | note | `Ad.Note.Attention` (16) |
+    | chips, filters, the list, the details and the actions of a proposal | – | unchanged |
+
+- **Group Policy diagnostics** (`GroupPolicy/GroupPolicyDiagnosticsView.xaml`; `GroupPolicyDiagnosticsDocumentViewModel`
+  and its partial files).
+  - *What the line says.* At rest the number of findings, when and how deep the GPOs were checked and the selected
+    finding: "12 findings · Last check: full, 14.11.2026 10:44 · Versions in AD and SYSVOL differ"; with a filter "3 of
+    12 findings shown"; before the first check "Not checked yet." **Working:** "Reading the GPOs, links and WMI
+    filters…", "Reading the GPT.INI versions…", "Reading SYSVOL folders: 3 of 8", "Counting users and computers: 15",
+    "Checking SIDs: 4 of 9", "Analysing the results…", "Reading the names of the principals…", with Stop; a quick check is
+    the first one when the tab opens. **States** as for the search; the stale one reads "Group Policy has changed since
+    the last check – the results may be out of date." with *Check again* (at the depth of the findings). *Fix…* is a plan
+    with the preview as before; while its plan is made the line says "…: preparing the changes…" with Stop, and when the
+    plan cannot be made why, with Retry.
+  - *How the old places were sorted* (1 warning bar, 1 progress bar).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | progress bar `CheckProgress` and `ProgressText` | status | the operation of the document |
+    | `LastRunText` under the toolbar ("Last check: full, …") | summary (as of) | the detail of the summary (15) |
+    | the *Cancel* button | – | gone: *Quick check* (accent) and *Full check* are action buttons (12) |
+    | warning bar `StaleBar` with the button *Check again* | status | the lasting attention with *Check again* (14) |
+    | `NotesBar` (the quick check does not cover …, SYSVOL not available, folders not read) | note | `Ad.Note.Attention` (16) |
+    | chips, filters, the list, the details, *Fix…* and the other actions | – | unchanged |
+
+- **What the computer gets** (`GroupPolicy/GroupPolicyModelingView.xaml`; `GroupPolicyModelingDocumentViewModel`).
+  - *What the line says.* Under the header, above the inputs. At rest what the computer and the user get, in numbers:
+    "Computer: 3 GPO, 12 settings; User: 1 GPO, 2 settings"; before there is a model "No result – choose a computer or a
+    user and click “Recalculate”." **Working:** "Reading “What the computer gets – WAW-PC001”…" with Stop – the model is
+    computed in one go, so there are no stages. **States** as for the search: stopped (the model of before stays, the
+    export waits for a new one), failed (the tab is empty, with Retry).
+  - *How the old places were sorted* (1 warning bar).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | warning bar `NotesBar` (a target that does not exist, SYSVOL not available, nothing chosen) | note | `Ad.Note.Attention` above the loopback line (16) |
+    | `SummaryText`, bold above the tabs | summary | the line (`LoadedText` already said it); the TextBlock is gone |
+    | `StaleText` under the inputs ("The inputs changed – click “Recalculate”.") | note, never a banner | unchanged: it belongs to the inputs, and the line is not the place to say what the operator changed a moment ago |
+    | `LoopbackText`, the toolbar's refresh, *Recalculate* | – | unchanged; *Recalculate* stays a plain button (it never had a *Cancel*; the line stops the calculation) |
+
 - **Where this departs from the recipe.**
   - *A third list in the source test.* The recipe knows converted views with a line and converted views without one.
     The base class gave all ten documents their holder at once – with it the status bar stopped speaking for them – so
@@ -2767,6 +2909,17 @@ departs from the recipe, the tests, what is left, and what nobody has seen on a 
   - *Left as they were:* the error dialog of *History in Watchdog* (the read before another window opens), the
     toasts of the HTML report and of the copy to the clipboard on the *Settings* tab (an export still answers with a
     toast everywhere), and the dialogs of the tree and of the shell.
+  - *Unit 2: the base class got two more touches* – `SummaryDetail` (15) and `RefreshAsync` made virtual (13); nothing
+    else of the base, the model or the controls changed.
+  - *Unit 2: the cancel of the three tabs moved from the document to the line.* `Cancel()` and `CancelCommand` stay
+    (tests and code without a line use them) but they are the Stop of the line now; the separate flag
+    (`_cancelRequested`) and the linked source that only it cancelled are gone from the documents. The wording of a
+    stopped read is the generic one of the base ("Reading “GPO settings search” was stopped …"), not a sentence per
+    document: the title of the tab says what was read.
+  - *Unit 2: no `ExecutionStatus`.* As in unit 1, none of the four documents executes a plan; the preview does.
+  - *Unit 2: the reads of the three tabs begin before their own code.* The base opens SYSVOL before
+    `LoadCoreAsync`; "Reading “…”…" is therefore what the line says for the first moments of every read, until the first
+    stage is reported.
 - **Tests.** Presentation (run on Linux): `GroupPolicy/GroupPolicyDocumentStatusTests` (26 cases: the summary with the
   selection and the search in both languages, and of every document; the status bar that says nothing about a Group
   Policy tab; the read with Stop – "Stopping…" at once, the stopped read as a state with Refresh – in both languages;
@@ -2792,6 +2945,35 @@ departs from the recipe, the tests, what is left, and what nobody has seen on a 
   `ConvertedViewsWithoutAStatusLine`. The source rules – the three lists, the closed set of Fluent brush keys (28,
   unchanged), "every `StaticResource` key resolves, before its first use" – were proven on Linux with a throwaway
   script that repeats the expressions of the tests.
+- **Tests of unit 2.** Presentation (run on Linux): `GroupPolicy/Search/GpoSettingsSearchStatusTests` (17 cases),
+  `GroupPolicy/Cleanup/GpoCleanupStatusTests` (20), `GroupPolicy/Diagnostics/GroupPolicyDiagnosticsStatusTests` (18) and
+  `GroupPolicy/GroupPolicyModelingStatusTests` (11): the summary with the as-of and the selection, the filters, before
+  the first read – in both languages and after a language switch without a read; the read with its stages and the
+  part done, the buttons that know which read runs (the first, the other kind, the one after it); Stop – "Stopping…"
+  observed in the recorded sequence for the two tabs whose wait ends at once (the search, the cleanup) and held for the
+  two whose call cannot be cancelled (the diagnostics, the model) –, the stopped read as the state with Refresh, the
+  results of before that stay, and that only the action of the line repeats it (a change in the window after a stop
+  reads nothing and marks the tab); a failed read with Retry that reads the same thing again, in both languages;
+  "Group Policy changed …" with its action in both languages, said again after a language switch, behind "not
+  connected"; the notes (a folder that was not read, a quick check, a target that does not exist, SYSVOL not available)
+  that say nothing to the line; the refusals of the guarded delete in the line of the cleanup and in a dialog for the
+  tree; a repair of the diagnostics that cannot be planned, with Retry; the inputs that changed, which the line does
+  not say; the log copies without a name, a title, a domain, a stage or a server text. The tests record every change of
+  `Status.Current` (`StatusRecorder`, with the part done of an operation), hold a call of the domain controller
+  (`HeldDirectoryCall`) and script the stages and the end of an index read (`ScriptedIndexService`, over the real
+  service); they are in `GroupPolicy/GroupPolicyStatusTestSupport.cs`, and `K7Harness.CreateAsync` takes a culture and a
+  status log now. Unchanged and green: the 431 tests of `GroupPolicy/` that were there – among them the cancel tests of
+  the three tabs, whose "cancelled" sentence is still said to a host without a line. UI (Windows CI only, written
+  without a screen): `GpoSettingsSearchStatusUiTests` (5), `GpoCleanupStatusUiTests` (5),
+  `GroupPolicyDiagnosticsStatusUiTests` (4) and `GroupPolicyModelingStatusUiTests` (4): the line under the toolbar and
+  its summary, no element of the old bars, the action buttons at rest and while a held read runs, Stop on the button and
+  in the line, the stopped state with its action and the growth of the line, a failed read with Retry, the state of
+  "Group Policy changed" with its action, the notes with the note style and their place. Adapted where the place of a
+  message changed: `GpoSettingsSearchUiTests` (the result is read from the line), `GpoCleanupUiTests` and
+  `GroupPolicyDiagnosticsUiTests` (no stale bar and no progress panel any more). The four views moved from the
+  temporary list to `PagesWithAStatusLine`; only the two editors are left on `ViewsWithAStatusLineNotConvertedYet`.
+  The source rules were proven on Linux with a throwaway script that repeats the expressions of the tests (the three
+  lists, "every `StaticResource` key resolves, before its first use" for the four files).
 - **After unit 1 of V2b-3** (counted in the XAML, comments excluded): 16 uses of `Ad.ErrorBar` and 33 of
   `Ad.WarningBar` in 30 files and 31 progress bars in 28 files – 37 view files with at least one of the three; in
   `GroupPolicy/` 6 + 14 and 7 in 12 files. 23 views with a status line, 6 with a line and bars of their own, 4 converted
@@ -2801,6 +2983,18 @@ departs from the recipe, the tests, what is left, and what nobody has seen on a 
   models themselves – `HasError` of the documents, `HealthStatusText` and `IsCheckingHealth` of a GPO –, and
   `StatusText` / `SelectionText` of the documents, which only the shell reads now (for hosts without a line); no string
   and no command lost its last user.
+- **After unit 2 of V2b-3** (counted in the XAML, comments excluded): 16 uses of `Ad.ErrorBar` and 28 of
+  `Ad.WarningBar` in 26 files and 28 progress bars in 25 files – 33 view files with at least one of the three; in
+  `GroupPolicy/` 6 + 9 and 4 in 8 files. 27 views with a status line, 2 with a line and bars of their own (the two
+  editors), 4 converted views without a line. Unit 2 took 5 warning bars (3 status – "Group Policy changed" in each of the
+  search, the cleanup and the diagnostics –, and 2 notes – the cap of the search, what the model could not use) and 3
+  progress bars (status); the three cards of the same kind that never were a banner (what the index, the analysis and
+  the check could not see) got the note look as well. Left behind on
+  purpose, for the list of *After V2b-1*: no longer shown but read by tests or set by the view models themselves –
+  `ProgressValue` and `IsProgressIndeterminate` of the search, the cleanup and the diagnostics, `Cancel()` and
+  `CancelCommand` of the three (kept, 11), and `SummaryText` of the model (the line says it; the property feeds the
+  summary and the tests). No string lost its last user in that unit. The error bars and warning bars that are left in
+  the area belong to the windows of unit 4 and the two editors of unit 3.
 - **Not seen, to confirm on Windows.** Nothing of this unit was seen on a screen.
   - *Every Group Policy tab is 34 px lower* under its header or toolbar – the line and its 6 px – where the shared bars
     took no room at rest. On the tabs that are not converted yet the line stands above their own bars.
@@ -2822,6 +3016,26 @@ departs from the recipe, the tests, what is left, and what nobody has seen on a 
   - Two README pictures show a Group Policy tab and change with this unit (the line under the header):
     `23-group-policy.png` – the Group Policy of a unit – and `29-administrative-templates.png`, an editor of a later
     unit, which has the line already.
+
+- **Not seen, to confirm on Windows (unit 2).** Nothing of unit 2 was seen on a screen either.
+  - *The four tabs are about 26 px higher than after unit 1* (the line of the as-of text or of the progress under the
+    toolbar is gone; the bold summary of the model, about 24 px) – so about 8 px lower than before V2b-3 (the 34 px of the
+    line, less the row). The README pictures `31-group-policy-model.png` and `35-gpo-cleanup.png` are made by the
+    screenshot tests but are not committed or shown in the READMEs.
+  - *The header of the search, the cleanup and the diagnostics.* Two action buttons and two export buttons next to the
+    title in a narrow tab (the Polish "Odczytaj wszystko ponownie" grows to the width of "Zatrzymywanie…"; the title is
+    trimmed first); the ring in the button of the read that runs.
+  - *The summary line is long.* "Znalezione ustawienia: 1 (wystąpienia: 2) · Przeszukiwane obiekty GPO: 7 · odczyt
+    14.11.2026 10:44 · Stacje robocze – Zasady haseł – Minimalna długość hasła" does not fit a tab of 900 px: the
+    selection is cut with an ellipsis (the tool tip has it all). Whether the as-of text belongs there, or the line should
+    keep the count and the selection only.
+  - *The notes.* A list of sentences in one caution note (the glyph once, the sentences under one another, with the tool
+    tips of the search) where a card with the information glyph stood: whether the caution glyph is too loud for "the
+    quick check does not cover …", which is a statement of the depth the operator chose.
+  - *The ring on "Odśwież"* at every reload that reads nothing (a change in the window marks the tab stale) – with a fast
+    domain controller it flashes, with a slow SYSVOL logon it is on for the time of the logon.
+  - *Long results.* "Delete GPO “…” – nothing was changed: the GPO could not be read to compare it with the analysis: …
+    (ServerUnavailable)" in the line of the cleanup wraps to two or three lines; the chips move down with it.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 
