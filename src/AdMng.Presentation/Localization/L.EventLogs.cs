@@ -34,12 +34,7 @@ public static partial class L
 
         public const string Run = "EvtLog.Run";
 
-        public const string Cancelled = "EvtLog.Cancelled";
-
         public const string NeverRun = "EvtLog.NeverRun";
-
-        /// <summary>{0} sources done, {1} sources, {2} events.</summary>
-        public const string StatusReading = "EvtLog.StatusReading";
 
         /// <summary>{0} events, {1} sources.</summary>
         public const string StatusDone = "EvtLog.StatusDone";
@@ -95,9 +90,6 @@ public static partial class L
         public const string ChannelLabel = "EvtLog.ChannelLabel";
 
         public const string LoadChannels = "EvtLog.LoadChannels";
-
-        /// <summary>{0} = the host.</summary>
-        public const string LoadingChannels = "EvtLog.LoadingChannels";
 
         /// <summary>{0} = the host, {1} = the count.</summary>
         public const string ChannelsLoaded = "EvtLog.ChannelsLoaded";

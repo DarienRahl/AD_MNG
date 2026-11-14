@@ -18493,14 +18493,8 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="EvtLog.Run" xml:space="preserve">
     <value>Wyszukaj</value>
   </data>
-  <data name="EvtLog.Cancelled" xml:space="preserve">
-    <value>Przerwano.</value>
-  </data>
   <data name="EvtLog.NeverRun" xml:space="preserve">
     <value>Wybierz źródła i zapytanie, a potem kliknij Wyszukaj.</value>
-  </data>
-  <data name="EvtLog.StatusReading" xml:space="preserve">
-    <value>Odczyt: {0} z {1} źródeł, zdarzeń: {2}</value>
   </data>
   <data name="EvtLog.StatusDone" xml:space="preserve">
     <value>Zdarzeń: {0} z {1} źródeł</value>
@@ -18573,9 +18567,6 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="EvtLog.LoadChannels" xml:space="preserve">
     <value>Wczytaj kanały</value>
-  </data>
-  <data name="EvtLog.LoadingChannels" xml:space="preserve">
-    <value>Wczytywanie kanałów komputera {0}…</value>
   </data>
   <data name="EvtLog.ChannelsLoaded" xml:space="preserve">
     <value>{0}: wczytano kanały ({1}).</value>
@@ -18841,18 +18832,6 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="EvtLock.WindowLabel" xml:space="preserve">
     <value>Przedział</value>
   </data>
-  <data name="EvtLock.StageAccount" xml:space="preserve">
-    <value>Odczyt konta i zasad blokady…</value>
-  </data>
-  <data name="EvtLock.StageDomainControllers" xml:space="preserve">
-    <value>Odczyt stanu konta na kontrolerach domeny…</value>
-  </data>
-  <data name="EvtLock.StageLogs" xml:space="preserve">
-    <value>Dzienniki Zabezpieczenia – {0}</value>
-  </data>
-  <data name="EvtLock.StageAnalysis" xml:space="preserve">
-    <value>Analiza…</value>
-  </data>
   <data name="EvtLock.StatusDone" xml:space="preserve">
     <value>Źródła: {0}, blokady: {1}, odczytane zdarzenia: {2}</value>
   </data>
@@ -19098,15 +19077,6 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="EvtFail.SuccessAfterLabel" xml:space="preserve">
     <value>Sukces po serii: co najmniej niepowodzeń</value>
-  </data>
-  <data name="EvtFail.StageFailures" xml:space="preserve">
-    <value>Niepowodzenia – {0}</value>
-  </data>
-  <data name="EvtFail.StageSuccesses" xml:space="preserve">
-    <value>Udane logowania kont ({0})…</value>
-  </data>
-  <data name="EvtFail.StageAnalysis" xml:space="preserve">
-    <value>Analiza…</value>
   </data>
   <data name="EvtFail.Summary" xml:space="preserve">
     <value>Niepowodzenia: {0}, udane logowania: {1}, ustalenia: {2} · {3} – {4}</value>
@@ -20105,9 +20075,6 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="Readiness.Copy" xml:space="preserve">
     <value>Kopiuj wyniki</value>
-  </data>
-  <data name="Readiness.Stale" xml:space="preserve">
-    <value>Połączenie okna zmieniło się po tym sprawdzeniu – sprawdź ponownie.</value>
   </data>
   <data name="Readiness.CheckAgain" xml:space="preserve">
     <value>Sprawdź ponownie</value>

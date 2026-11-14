@@ -18493,14 +18493,8 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="EvtLog.Run" xml:space="preserve">
     <value>Search</value>
   </data>
-  <data name="EvtLog.Cancelled" xml:space="preserve">
-    <value>Cancelled.</value>
-  </data>
   <data name="EvtLog.NeverRun" xml:space="preserve">
     <value>Choose the sources and the query, then click Search.</value>
-  </data>
-  <data name="EvtLog.StatusReading" xml:space="preserve">
-    <value>Reading: {0} of {1} sources, {2} events</value>
   </data>
   <data name="EvtLog.StatusDone" xml:space="preserve">
     <value>{0} events from {1} sources</value>
@@ -18573,9 +18567,6 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="EvtLog.LoadChannels" xml:space="preserve">
     <value>Load channels</value>
-  </data>
-  <data name="EvtLog.LoadingChannels" xml:space="preserve">
-    <value>Loading the channels of {0}…</value>
   </data>
   <data name="EvtLog.ChannelsLoaded" xml:space="preserve">
     <value>{0}: {1} channels loaded.</value>
@@ -18841,18 +18832,6 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="EvtLock.WindowLabel" xml:space="preserve">
     <value>Window</value>
   </data>
-  <data name="EvtLock.StageAccount" xml:space="preserve">
-    <value>Reading the account and its lockout policy…</value>
-  </data>
-  <data name="EvtLock.StageDomainControllers" xml:space="preserve">
-    <value>Reading the state of the account on the domain controllers…</value>
-  </data>
-  <data name="EvtLock.StageLogs" xml:space="preserve">
-    <value>Security logs – {0}</value>
-  </data>
-  <data name="EvtLock.StageAnalysis" xml:space="preserve">
-    <value>Analysing…</value>
-  </data>
   <data name="EvtLock.StatusDone" xml:space="preserve">
     <value>{0} sources, {1} lockouts, {2} events read</value>
   </data>
@@ -19098,15 +19077,6 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="EvtFail.SuccessAfterLabel" xml:space="preserve">
     <value>Success after failures: at least failures</value>
-  </data>
-  <data name="EvtFail.StageFailures" xml:space="preserve">
-    <value>Failures – {0}</value>
-  </data>
-  <data name="EvtFail.StageSuccesses" xml:space="preserve">
-    <value>Successful logons of {0} accounts…</value>
-  </data>
-  <data name="EvtFail.StageAnalysis" xml:space="preserve">
-    <value>Analysing…</value>
   </data>
   <data name="EvtFail.Summary" xml:space="preserve">
     <value>{0} failures, {1} successful logons, {2} findings · {3} – {4}</value>
@@ -20105,9 +20075,6 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="Readiness.Copy" xml:space="preserve">
     <value>Copy results</value>
-  </data>
-  <data name="Readiness.Stale" xml:space="preserve">
-    <value>The connection of the window changed after this check – check again.</value>
   </data>
   <data name="Readiness.CheckAgain" xml:space="preserve">
     <value>Check again</value>
