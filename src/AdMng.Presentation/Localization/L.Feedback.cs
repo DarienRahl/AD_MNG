@@ -728,8 +728,11 @@ public static partial class L
         /// <summary>A stage of the comparison, logged as <see cref="Comparing"/>.</summary>
         public const string ReadingTemplates = "GpoComparison.Status.ReadingTemplates";
 
-        /// <summary>{0} = the text of the "Refresh" button.</summary>
+        /// <summary>Stopped before anything was shown; {0} = the text of the "Refresh" button.</summary>
         public const string Stopped = "GpoComparison.Status.Stopped";
+
+        /// <summary>Stopped when the rows of the comparison before are shown; {0} = the text of the "Refresh" button.</summary>
+        public const string StoppedStale = "GpoComparison.Status.StoppedStale";
 
         /// <summary>{0} = the text of the "Refresh" button.</summary>
         public const string TemplatesStopped = "GpoComparison.Status.TemplatesStopped";

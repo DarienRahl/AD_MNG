@@ -3137,7 +3137,7 @@ and what nobody has seen on a screen yet.
     administrative templates to name the policies…" (the same message, the key of the comparison). At rest the count of
     differences ("12 differences in 140 items"; it moved from the footer). **Results and states:** a comparison stopped
     before it showed anything ("Comparing was stopped: nothing is shown. Press “Refresh” to compare again.", attention that
-    lasts) or failed (an error with the reason, the code and Retry that lasts); a comparison stopped while the templates
+    lasts; "…the rows may be out of date…" when the rows of the comparison before are still shown) or failed (an error with the reason, the code and Retry that lasts); a comparison stopped while the templates
     were read is a result that can be closed ("…the policies are shown under their registry names"), because the rows are
     all there; a failed export ("The comparison was not exported: …") is a result that can be closed, a good one keeps its
     toast; the end of the session, or no session.
@@ -3267,7 +3267,7 @@ and what nobody has seen on a screen yet.
     the old information glyph was in the accent colour.
   - *Unit 4: nothing of the base, the model or the controls changed, and no document was touched.* The windows use the
     foundations and the sub-list *The windows*; new are four L classes (`GpoPickerStatus`, `GpoComparisonStatus`,
-    `GpoBackupStatus`, `CentralStoreStatus`) and 31 pairs of strings. The things of other units that were touched are
+    `GpoBackupStatus`, `CentralStoreStatus`) and 32 pairs of strings. The things of other units that were touched are
     their windows only: `WriteBackup` of the central store view model became public (the UI tests hold the backup); the
     comparison computes its summary again after a language switch.
   - *Unit 4: a property changed its meaning.* `Error` of the backup window no longer holds "this backup comes from another
@@ -3369,9 +3369,9 @@ and what nobody has seen on a screen yet.
 - **Tests of unit 4.** Presentation (run on Linux): `GroupPolicy/GpoPickerStatusTests` (12 cases: the read with Stop and the
   count in both languages, the filter and the language switch, "Stopping…" at once with a held call, the stopped read as
   the state with Retry, a failed read with the reason, the code and Retry in both languages, no session from the first
-  moment, the end of the session during the read, the log copies), `GroupPolicy/GpoComparisonStatusTests` (15: the
+  moment, the end of the session during the read, the log copies), `GroupPolicy/GpoComparisonStatusTests` (17: the
   comparison with the templates as its stage, no stage without registry settings, Stop before the rows and during the
-  templates in both languages, a failure with Retry, SYSVOL as a note and no status, an export that failed and one that
+  templates and during a refresh over earlier rows in both languages, a failure with Retry, SYSVOL as a note and no status, an export that failed and one that
   worked, no session, the end of the session during the read, the language switch, the log copies),
   `GroupPolicy/GpoBackupStatusTests` (31: the backup with its part done and nothing said when it ended well, Stop with the
   count written and the action, a failure of one GPO, SYSVOL not available, the read of the folder with its count in both

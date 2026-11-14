@@ -25059,5 +25059,8 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="CentralStore.Status.UpdateStopped" xml:space="preserve">
     <value>Aktualizację zatrzymano: magazynu centralnego nie zmieniono. Wybierz „{0}”, aby spróbować ponownie.</value>
   </data>
+  <data name="GpoComparison.Status.StoppedStale" xml:space="preserve">
+    <value>Porównywanie zatrzymano: wiersze mogą być nieaktualne. Wybierz „{0}”, aby porównać ponownie.</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

@@ -422,8 +422,9 @@
   „Stacje robocze – Pulpit zdalny”…” z poleceniem **Zatrzymaj**; gdy wiersze już widać, a szablony administracyjne jeszcze
   nazywają zasady, kolejny etap „Wczytywanie szablonów administracyjnych, aby nazwać zasady…” (zatrzymany zostawia wiersze
   z nazwami z rejestru – to wynik, który można zamknąć). W spoczynku wiersz mówi, ile jest różnic („Różnice: 12 z 140
-  pozycji”) – to zdanie było dotąd w stopce okna. Porównanie zatrzymane, zanim cokolwiek pokazało, albo nieudane jest
-  stanem okna, dopóki nie powtórzysz go poleceniem **Odśwież** albo **Ponów**. Co się nie dało porównać (SYSVOL
+  pozycji”) – to zdanie było dotąd w stopce okna. Porównanie zatrzymane, zanim cokolwiek pokazało (albo gdy widać jeszcze
+  wiersze poprzedniego – wiersz mówi wtedy, że mogą być nieaktualne), albo nieudane jest stanem okna, dopóki nie
+  powtórzysz go poleceniem **Odśwież** albo **Ponów**. Co się nie dało porównać (SYSVOL
   niedostępny, GPO za duży – „Ustawień i plików nie porównano.”) jest uwagą nad wierszami, tak długo jak je widać. Nieudany
   eksport do CSV mówi w wierszu, dlaczego; udany nadal potwierdza powiadomienie. Dotąd: czerwona i żółta ramka oraz pasek
   postępu na środku listy.

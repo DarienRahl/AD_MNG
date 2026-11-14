@@ -122,6 +122,37 @@ public sealed class GpoComparisonStatusTests
     }
 
     [Theory]
+    [InlineData("en-US", "Comparing was stopped: the rows may be out of date. Press “Refresh” to compare again.")]
+    [InlineData("pl-PL", "Porównywanie zatrzymano: wiersze mogą być nieaktualne. Wybierz „Odśwież”, aby porównać ponownie.")]
+    public async Task Stop_WhileTheRowsOfAnEarlierComparisonAreShown_SaysTheyMayBeOutOfDate_AndTheyStay(string culture, string stoppedText)
+    {
+        var k = await K7Harness.CreateAsync(culture: CultureInfo.GetCultureInfo(culture));
+        using var comparison = await NewAsync(k);
+        await comparison.InitializeAsync();
+        var rows = comparison.Rows.Count;
+        Assert.NotEqual(0, rows);
+
+        // Refresh: the first read of the new comparison waits for the test, and the operator stops it.
+        using var held = new HeldDirectoryCall(k.H.Session);
+        var refreshing = Task.Run(() => comparison.LoadCommand.ExecuteAsync(null), Ct);
+        await held.Reached.WaitAsync(Limit, Ct);
+        comparison.Status.CancelCommand.Execute(null);
+        held.Release();
+        await refreshing.WaitAsync(Limit, Ct);
+
+        // The rows of the comparison before stay - and the line says that they may be out of date, until Refresh repeats it.
+        Assert.Equal(rows, comparison.Rows.Count);
+        var state = comparison.Status.Current;
+        Assert.Equal((PageStatusKind.Attention, stoppedText), (state.Kind, state.Message));
+        Assert.Equal("GpoComparison.Status.StoppedStale", state.Log.ToString());
+        Assert.False(state.CanClose);
+        Assert.Same(state, comparison.Status.Lasting);
+        await ((IAsyncRelayCommand)state.Action!.Command).ExecuteAsync(null);
+        Assert.Null(comparison.Status.Lasting);
+        Assert.Equal((PageStatusKind.Idle, comparison.SummaryText), (comparison.Status.Current.Kind, comparison.Status.Current.Message));
+    }
+
+    [Theory]
     [InlineData("en-US", "Reading the administrative templates was stopped: the policies are shown under their registry names. Press “Refresh” to compare again.")]
     [InlineData("pl-PL", "Wczytywanie szablonów administracyjnych zatrzymano: zasady są pokazane pod nazwami z rejestru. Wybierz „Odśwież”, aby porównać ponownie.")]
     public async Task Stop_WhileTheTemplatesAreRead_IsAResult_TheRowsAreThere_AndClosingItGivesTheCountBack(string culture, string stoppedText)

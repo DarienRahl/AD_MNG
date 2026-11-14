@@ -243,11 +243,11 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase, IHasPa
                 }
                 else
                 {
+                    // Nothing is shown (the first comparison), or the rows of the comparison before this one are.
                     var refresh = Localizer[L.Commands.Refresh];
+                    var key = _compared ? L.GpoComparisonStatus.StoppedStale : L.GpoComparisonStatus.Stopped;
                     _compareState = PageStatus.Attention(
-                        Localizer.Format(L.GpoComparisonStatus.Stopped, refresh),
-                        new PageStatusLog(L.GpoComparisonStatus.Stopped),
-                        new PageStatusAction(refresh, LoadCommand));
+                        Localizer.Format(key, refresh), new PageStatusLog(key), new PageStatusAction(refresh, LoadCommand));
                 }
             }
         }
