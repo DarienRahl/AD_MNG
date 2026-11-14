@@ -2,6 +2,7 @@ using System.Text;
 using AdMng.Core.Correspondence.Import;
 using AdMng.Core.Csv;
 using AdMng.Presentation.Correspondence;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Services;
 using static AdMng.Presentation.Tests.Correspondence.PageTests;
 
@@ -90,13 +91,14 @@ public sealed class RecipientsImportTests
         await page.ImportFilesCommand.ExecuteAsync(null);
 
         Assert.Equal(2, page.Items.Count);
-        var (title, message) = Assert.Single(scenario.Harness.Dialogs.Errors);
-        Assert.Equal("Wczytywanie adresów", title);
-        var lines = message.Split(Environment.NewLine);
-        Assert.Equal(3, lines.Length);
-        Assert.Equal("Nie udało się wczytać „zepsuty.xlsx”: plik jest uszkodzony, większy niż 50 MB albo w formacie, którego nie da się odczytać", lines[0]);
-        Assert.StartsWith("Nie udało się wczytać „duży.csv”: plik jest uszkodzony, większy niż 50 MB", lines[1], StringComparison.Ordinal);
-        Assert.StartsWith("Nie udało się wczytać „usunięty.csv”: ", lines[2], StringComparison.Ordinal);
+        // What was read and why the other files were not is one sentence of the line - no dialog.
+        Assert.Empty(scenario.Harness.Dialogs.Errors);
+        Assert.Equal(PageStatusKind.Attention, page.Status.Current.Kind);
+        var message = page.Status.Current.Message;
+        Assert.StartsWith("Wczytano pliki (1): 2 nowe, 1 błędny adres Nie wczytano: ", message, StringComparison.Ordinal);
+        Assert.Contains("Nie udało się wczytać „zepsuty.xlsx”: plik jest uszkodzony, większy niż 50 MB albo w formacie, którego nie da się odczytać.", message, StringComparison.Ordinal);
+        Assert.Contains("Nie udało się wczytać „duży.csv”: plik jest uszkodzony, większy niż 50 MB", message, StringComparison.Ordinal);
+        Assert.Contains("Nie udało się wczytać „usunięty.csv”: ", message, StringComparison.Ordinal);
         Assert.Equal("Wczytano pliki (1): 2 nowe, 1 błędny adres", page.StatusText);
     }
 
@@ -246,15 +248,19 @@ public sealed class RecipientsImportTests
         Text(scenario, "faktury.csv", "E-mail\r\nfaktury@firma.pl\r\n", downloads);
 
         await page.ImportFromDownloadsCommand.ExecuteAsync(null);
+        Assert.Equal(
+            $"Nic nie wczytano: W folderze Pobrane ({downloads}) nie ma pliku pasującego do „*kontakty*.csv”. Użyj „Z pliku”, jeśli plik leży gdzie indziej.",
+            page.Status.Current.Message);
         scenario.Platform.DownloadsFolder = null;
         await page.ImportFromDownloadsCommand.ExecuteAsync(null);
 
         Assert.Empty(page.Items);
-        Assert.Equal(
-        [
-            ("Wczytywanie adresów", $"W folderze Pobrane ({downloads}) nie ma pliku pasującego do „*kontakty*.csv”. Użyj „Z pliku”, jeśli plik leży gdzie indziej."),
-            ("Wczytywanie adresów", "Nie udało się ustalić folderu Pobrane."),
-        ], scenario.Harness.Dialogs.Errors);
+
+        // The press came to nothing: the line says so - nothing was loaded, and why - in place of a dialog.
+        Assert.Empty(scenario.Harness.Dialogs.Errors);
+        Assert.Equal(PageStatusKind.Attention, page.Status.Current.Kind);
+        Assert.Equal("Nic nie wczytano: Nie udało się ustalić folderu Pobrane.", page.Status.Current.Message);
+        Assert.Equal(page.Status.Current.Message, page.StatusText);
     }
 
     [Fact]

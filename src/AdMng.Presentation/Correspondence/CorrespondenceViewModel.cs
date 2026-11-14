@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using AdMng.Core.Directory;
 using AdMng.Core.Messaging.Images;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Session;
@@ -29,14 +30,22 @@ public enum CorrespondenceTab
 /// session (rule 4); after it ended the AD actions are disabled while Outlook sending keeps working. The window keeps
 /// recipients and directory values in memory only (rule 1): on close it saves the options, the field definitions and the
 /// last draft (operator content) to the settings.
+/// <para>The window has one status line (<see cref="Status"/>; track V, stage V2b, design note
+/// docs/dev/v-interface-renewal.md "V2b-4 as built"). Every page that says something owns a holder - the recipients, the
+/// mailbox owners, the preview, the send and the responses pages - and the window puts the holder of the tab that is shown
+/// in front of its own (<see cref="PageStatusHolder.Front"/>); the window itself says what concerns all of them: the
+/// journal "already sent" that cannot be used (the state that lasts) and that it was started again (a result). That the
+/// session of the window ended is said by the two pages that read the directory, not by the window: sending through
+/// Outlook goes on, and a line of the window that cannot be closed would cover the progress of a run.</para>
 /// </summary>
-public sealed partial class CorrespondenceViewModel : WindowViewModelBase
+public sealed partial class CorrespondenceViewModel : WindowViewModelBase, IHasPageStatus
 {
     public CorrespondenceViewModel(DialogServices services, CorrespondenceServices correspondence, CorrespondenceRequest request)
         : base(services)
     {
         Correspondence = correspondence ?? throw new ArgumentNullException(nameof(correspondence));
         Request = request ?? throw new ArgumentNullException(nameof(request));
+        Status = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
         Outlook = new OutlookConnectionViewModel(services, correspondence);
         Recipients = new RecipientsPageViewModel(services, correspondence, RequireSession);
         Message = new MessagePageViewModel(services, correspondence, Recipients);
@@ -46,6 +55,7 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase
         Responses = new ResponsesPageViewModel(services, correspondence, Outlook);
         IsMailboxesTabVisible = request.Start == CorrespondenceStart.MailboxOwners;
         SelectedTab = IsMailboxesTabVisible ? CorrespondenceTab.Mailboxes : CorrespondenceTab.Recipients;
+        Status.Front = PageStatusOf(SelectedTab);   // the first tab may be the one the property starts with: no change is raised
         Mailboxes.RecipientsAdded += OnMailboxRecipientsAdded;
         Recipients.PropertyChanged += OnPagePropertyChanged;
         Mailboxes.PropertyChanged += OnPagePropertyChanged;
@@ -66,17 +76,30 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase
     [ObservableProperty]
     public partial bool IsMailboxesTabVisible { get; private set; }
 
-    /// <summary>A line for the status bar (e.g. the journal was reset), or empty.</summary>
+    /// <summary>
+    /// The last sentence the window or one of its pages said about an action (e.g. the journal was reset), or empty - the
+    /// text of the old status bar. The line says it now; this is what is left for the code and the tests that read it.
+    /// </summary>
     [ObservableProperty]
     public partial string StatusText { get; private set; } = string.Empty;
 
-    /// <summary>A problem of the window itself (the journal cannot be used, the request could not be read), or null.</summary>
+    /// <summary>
+    /// A problem of the window itself (the journal cannot be used, the request could not be read), or null - the text of the
+    /// old error bar. The line says it now (the journal as the state of the window, the request as an error of the
+    /// recipients page); this is what is left for the code and the tests that read it.
+    /// </summary>
     [ObservableProperty]
     public partial string? Error { get; private set; }
 
     /// <summary>The window is loading (settings, journal, the request's objects).</summary>
     [ObservableProperty]
     public partial bool IsBusy { get; private set; }
+
+    /// <summary>
+    /// What the window says: its own status (the journal) and, in front of it, what the page of the tab that is shown says.
+    /// The status line of the window is bound to <see cref="PageStatusHolder.Current"/>.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     public OutlookConnectionViewModel Outlook { get; }
 
@@ -170,16 +193,68 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase
         Outlook.RefreshTexts();
         Recipients.RefreshTexts();
         Mailboxes.RefreshTexts();
+        Send.UpdateLasting();
+        Responses.UpdateLasting();
+        UpdateLasting();
+        if (IsSessionEnded)
+        {
+            SessionEndedOnPages();
+        }
     }
 
-    /// <summary>The AD actions are disabled and a running mailbox owner query stops; Outlook sending keeps working.</summary>
+    /// <summary>
+    /// The AD actions are disabled and a running mailbox owner query stops; Outlook sending keeps working. The two pages that
+    /// read the directory say it first (the state that lasts), then what runs is stopped: their lines go from "working"
+    /// straight to it.
+    /// </summary>
     protected override void OnSessionEnded()
     {
+        SessionEndedOnPages();
         Recipients.CanUseDirectory = false;
         if (Mailboxes.IsRunning && Mailboxes.CancelCommand.CanExecute(null))
         {
             Mailboxes.CancelCommand.Execute(null);
         }
+    }
+
+    /// <summary>The recipients and the mailbox owners pages say that the session of the window ended (and what still works).</summary>
+    private void SessionEndedOnPages()
+    {
+        PageStatus? ended = SessionEndedMessage is { } message
+            ? PageStatus.Attention(
+                $"{message} {Localizer[L.CorrespondenceStatus.OutlookStillWorks]}", new PageStatusLog(L.WindowSession.Ended), canClose: false)
+            : null;
+        Recipients.SetSessionEnded(ended);
+        Mailboxes.SetSessionEnded(ended);
+    }
+
+    /// <summary>
+    /// The state of the window that lasts: the journal "already sent" cannot be used, so addresses sent to are not skipped by
+    /// later runs. An attention, not an error - sending goes on - which is why it is said at the first moment and never
+    /// later: a state of the window set after a page began an operation would be shown in place of it.
+    /// </summary>
+    private void UpdateLasting() => Status.SetLasting(_journalProblem is { } problem
+        ? PageStatus.Attention(
+            Localizer.Format(L.Correspondence.JournalUnavailable, problem.NoProtector ? Localizer[L.Correspondence.JournalNoProtector] : problem.Reason),
+            new PageStatusLog(L.Correspondence.JournalUnavailable),
+            canClose: false)
+        : null);
+
+    /// <summary>The status holder of the page of a tab (null for the message page: it has nothing to say that is not a note).</summary>
+    private PageStatusHolder? PageStatusOf(CorrespondenceTab tab) => tab switch
+    {
+        CorrespondenceTab.Mailboxes => Mailboxes.Status,
+        CorrespondenceTab.Recipients => Recipients.Status,
+        CorrespondenceTab.Preview => Preview.Status,
+        CorrespondenceTab.Send => Send.Status,
+        CorrespondenceTab.Responses => Responses.Status,
+        _ => null,
+    };
+
+    /// <summary>Why the journal cannot be used: its key cannot be protected on this computer, or the reason of the system.</summary>
+    private sealed record JournalProblem(bool NoProtector, string Reason)
+    {
+        public override string ToString() => nameof(JournalProblem);
     }
 
     protected override void Dispose(bool disposing)
@@ -189,6 +264,7 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase
             Mailboxes.RecipientsAdded -= OnMailboxRecipientsAdded;
             Recipients.PropertyChanged -= OnPagePropertyChanged;
             Mailboxes.PropertyChanged -= OnPagePropertyChanged;
+            Status.Front = null;
             if (Send.IsSending && Send.StopCommand.CanExecute(null))
             {
                 Send.StopCommand.Execute(null);
@@ -199,6 +275,8 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase
 
         base.Dispose(disposing);
     }
+
+    private JournalProblem? _journalProblem;
 
     private async Task InitializeCoreAsync()
     {
@@ -233,16 +311,23 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase
             var load = await Correspondence.Journal.LoadAsync(retention).ConfigureAwait(true);
             if (load.ResetBackup is { } backup)
             {
+                // A new journal was started: what was skipped before is sent again - the operator may close it.
                 StatusText = Localizer.Format(L.Correspondence.JournalReset, backup);
+                Status.Show(PageStatus.Attention(StatusText, new PageStatusLog(L.Correspondence.JournalReset)));
             }
         }
         catch (PlatformNotSupportedException)
         {
             Error = Localizer.Format(L.Correspondence.JournalUnavailable, Localizer[L.Correspondence.JournalNoProtector]);
+            _journalProblem = new JournalProblem(true, string.Empty);
+            UpdateLasting();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
         {
-            Error = Localizer.Format(L.Correspondence.JournalUnavailable, Errors.Translate(ex));
+            var reason = Errors.Translate(ex);
+            Error = Localizer.Format(L.Correspondence.JournalUnavailable, reason);
+            _journalProblem = new JournalProblem(false, reason);
+            UpdateLasting();
         }
     }
 
@@ -332,7 +417,9 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {
-            StatusText = Errors.Translate(ex);
+            var code = ResultCode.Of(ex);
+            StatusText = PageStatusText.Failure(Localizer[L.CorrespondenceStatus.SignaturesNotRead], Errors.Translate(ex), null, code);
+            Status.Show(PageStatus.Attention(StatusText, new PageStatusLog(L.CorrespondenceStatus.SignaturesNotRead).WithCode(code)));
         }
     }
 

@@ -1336,4 +1336,143 @@ public static partial class L
         /// <summary>{0} = the text of the action.</summary>
         public const string AuditStopped = "WatchdogPage.Status.AuditStopped";
     }
+    /// <summary>What the Korespondencja window says in its line besides the sentences it had (stage V2b-4, unit 5).</summary>
+    public static class CorrespondenceStatus
+    {
+        /// <summary>Added to "the session of this window ended" on the pages that read the directory.</summary>
+        public const string OutlookStillWorks = "Correspondence.Status.OutlookStillWorks";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string SignaturesNotRead = "Correspondence.Status.SignaturesNotRead";
+    }
+
+    /// <summary>What a page that needs Outlook says while Outlook cannot be used.</summary>
+    public static class OutlookStatus
+    {
+        /// <summary>{0} = why (the text of the failure).</summary>
+        public const string Unavailable = "Correspondence.Outlook.Status.Unavailable";
+    }
+
+    /// <summary>What the recipients page says in the line besides the sentences it had.</summary>
+    public static class RecipientsStatus
+    {
+        /// <summary>{0} = the objects, counted ("12 objects").</summary>
+        public const string DirectoryReading = "Correspondence.Recipients.Status.DirectoryReading";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string DirectoryNothingAdded = "Correspondence.Recipients.Status.DirectoryNothingAdded";
+
+        /// <summary>Why nothing was added: the operator stopped the read.</summary>
+        public const string DirectoryStopped = "Correspondence.Recipients.Status.DirectoryStopped";
+
+        /// <summary>{0} = the name of the file.</summary>
+        public const string FileReading = "Correspondence.Recipients.Status.FileReading";
+
+        /// <summary>{0} = how far ("2 of 5").</summary>
+        public const string FilesReading = "Correspondence.Recipients.Status.FilesReading";
+
+        /// <summary>{0} = files read, {1} = files.</summary>
+        public const string FilesStopped = "Correspondence.Recipients.Status.FilesStopped";
+
+        /// <summary>{0} = what was loaded, {1} = why the other files were not.</summary>
+        public const string ImportPartly = "Correspondence.Recipients.Status.ImportPartly";
+
+        /// <summary>{0} = why.</summary>
+        public const string ImportFailed = "Correspondence.Recipients.Status.ImportFailed";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string NothingLoaded = "Correspondence.Recipients.Status.NothingLoaded";
+    }
+
+    /// <summary>What the mailbox owners page says in the line besides the sentences it had.</summary>
+    public static class MailboxesStatus
+    {
+        public const string Finding = "Correspondence.Mailboxes.Status.Finding";
+
+        /// <summary>{0} = mailboxes read.</summary>
+        public const string FindingMailboxes = "Correspondence.Mailboxes.Status.FindingMailboxes";
+
+        /// <summary>{0} = mailboxes, {1} = persons read.</summary>
+        public const string FindingPersons = "Correspondence.Mailboxes.Status.FindingPersons";
+
+        /// <summary>What was stopped, without a full stop.</summary>
+        public const string FindStopped = "Correspondence.Mailboxes.Status.FindStopped";
+
+        /// <summary>What the list is like after a stop and what to do.</summary>
+        public const string FindStoppedReason = "Correspondence.Mailboxes.Status.FindStoppedReason";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string FindFailed = "Correspondence.Mailboxes.Status.FindFailed";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string NotSearched = "Correspondence.Mailboxes.Status.NotSearched";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string NothingAdded = "Correspondence.Mailboxes.Status.NothingAdded";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string AddFailed = "Correspondence.Mailboxes.Status.AddFailed";
+    }
+
+    /// <summary>What the send page says in the line besides the sentences it had.</summary>
+    public static class SendStatus
+    {
+        /// <summary>{0} = done, {1} = messages.</summary>
+        public const string Sending = "Correspondence.Send.Status.Sending";
+
+        /// <summary>{0} = done, {1} = messages, {2} = the time that is left.</summary>
+        public const string SendingEta = "Correspondence.Send.Status.SendingEta";
+
+        /// <summary>{0} = done, {1} = messages.</summary>
+        public const string Drafting = "Correspondence.Send.Status.Drafting";
+
+        /// <summary>{0} = done, {1} = messages.</summary>
+        public const string Testing = "Correspondence.Send.Status.Testing";
+
+        /// <summary>Where the result of every message is.</summary>
+        public const string ResultsBelow = "Correspondence.Send.Status.ResultsBelow";
+
+        public const string FailedNext = "Correspondence.Send.Status.FailedNext";
+        public const string StoppedNextSend = "Correspondence.Send.Status.StoppedNextSend";
+        public const string StoppedNextDrafts = "Correspondence.Send.Status.StoppedNextDrafts";
+        public const string StoppedNextTest = "Correspondence.Send.Status.StoppedNextTest";
+
+        /// <summary>{0} = how many failures in a row.</summary>
+        public const string StoppedFailuresInRow = "Correspondence.Send.Status.StoppedFailuresInRow";
+
+        public const string OutlookStoppedNext = "Correspondence.Send.Status.OutlookStoppedNext";
+
+        /// <summary>What was tried, without a full stop (a press that came to nothing).</summary>
+        public const string NothingSent = "Correspondence.Send.Status.NothingSent";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string NothingDrafted = "Correspondence.Send.Status.NothingDrafted";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string TestNotSent = "Correspondence.Send.Status.TestNotSent";
+    }
+
+    /// <summary>What the responses page says in the line besides the sentences it had.</summary>
+    public static class ResponsesStatus
+    {
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string CampaignsFailed = "Correspondence.Responses.Status.CampaignsFailed";
+
+        public const string CampaignsStopped = "Correspondence.Responses.Status.CampaignsStopped";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string ResponsesFailed = "Correspondence.Responses.Status.ResponsesFailed";
+
+        public const string ResponsesStopped = "Correspondence.Responses.Status.ResponsesStopped";
+    }
+
+    /// <summary>What the preview page says in the line.</summary>
+    public static class PreviewStatus
+    {
+        public const string OutlookBuilding = "Correspondence.Preview.Status.OutlookBuilding";
+        public const string OutlookStopped = "Correspondence.Preview.Status.OutlookStopped";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string OutlookFailed = "Correspondence.Preview.Status.OutlookFailed";
+    }
 }

@@ -1,5 +1,6 @@
 using AdMng.Core.Correspondence.Outlook;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -52,7 +53,7 @@ public sealed class ResponseRowViewModel(string recipient, IReadOnlyList<string>
 /// <remarks>Campaign ids exist only in Outlook items (nothing local). A vote is "yes" when it is the first voting option,
 /// "no" when it is the second (the options of the message page, else of the settings, else the built-in ones); the rows and
 /// the export are in memory or an operator export (rule 1).</remarks>
-public sealed partial class ResponsesPageViewModel : ObservableObject
+public sealed partial class ResponsesPageViewModel : ObservableObject, IHasPageStatus
 {
     /// <summary>The file name offered by the export.</summary>
     public const string ExportFileName = "odpowiedzi.csv";
@@ -64,10 +65,31 @@ public sealed partial class ResponsesPageViewModel : ObservableObject
         Services = services ?? throw new ArgumentNullException(nameof(services));
         Correspondence = correspondence ?? throw new ArgumentNullException(nameof(correspondence));
         Outlook = outlook ?? throw new ArgumentNullException(nameof(outlook));
+        Status = new PageStatusHolder(services.Localizer, services.Dispatcher, services.Lists.StatusLog);
         Since = services.Time.GetLocalNow().Date.AddDays(-90);
         VotingOptions = services.Settings.Current.Correspondence.VotingOptions;
         Rows.CollectionChanged += (_, _) => ExportCommand.NotifyCanExecuteChanged();
+
+        // The Outlook connection belongs to the window and lives as long as this page.
+        Outlook.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(OutlookConnectionViewModel.State) or nameof(OutlookConnectionViewModel.StateText))
+            {
+                UpdateLasting();
+            }
+        };
+        UpdateLasting();
     }
+
+    /// <summary>
+    /// What the page says (stage V2b-4, unit 5): the campaigns found and the responses read as its summary, the two reads of
+    /// Sent Items as its operations (with Stop), why a read failed or that it was stopped, and - as the state that lasts -
+    /// that Outlook is not available. The window puts it in front of its own while the tab is shown.
+    /// </summary>
+    public PageStatusHolder Status { get; }
+
+    /// <summary>The state of the page that lasts: Outlook cannot be used (not installed, not supported, the connection failed).</summary>
+    public void UpdateLasting() => Status.SetLasting(Outlook.UnavailableStatus());
 
     /// <summary>Campaigns sent since this day (default 90 days back).</summary>
     [ObservableProperty]
@@ -91,6 +113,14 @@ public sealed partial class ResponsesPageViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(LoadCampaignsCommand), nameof(LoadResponsesCommand))]
     public partial bool IsLoading { get; private set; }
+
+    /// <summary>The read that runs is the search of Sent Items for the runs (the button that starts it is its Cancel).</summary>
+    [ObservableProperty]
+    public partial bool IsReadingCampaigns { get; private set; }
+
+    /// <summary>The read that runs is the read of the responses of one run (the button that starts it is its Cancel).</summary>
+    [ObservableProperty]
+    public partial bool IsReadingResponses { get; private set; }
 
     /// <summary>The voting buttons whose first option is "yes" and second "no" ("Tak;Nie"); the window sets the options of
     /// the message page when the tab is entered.</summary>
@@ -131,26 +161,36 @@ public sealed partial class ResponsesPageViewModel : ObservableObject
         return ResponseKind.Other;
     }
 
+    /// <summary>
+    /// The runs of Korespondencja found in Sent Items since <see cref="Since"/>. The read is the operation of the page: the
+    /// line says it, and Stop gives control back at once (Outlook goes on to its end on its own thread, its answer is
+    /// dropped). What was shown stays when the read is stopped or fails.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanLoadCampaigns))]
     private async Task LoadCampaignsAsync()
     {
         var token = _reads.Next();
         IsLoading = true;
+        IsReadingCampaigns = true;
         SummaryText = Localizer[L.CorrespondenceResponses.Searching];
+        using var scope = Status.Begin(SummaryText, new PageStatusLog(L.CorrespondenceResponses.Searching));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, scope.Token);
+        var cancellation = linked.Token;
         IOutlookSession? session = null;
         try
         {
-            session = await Outlook.EnsureConnectedAsync(token).ConfigureAwait(true);
+            session = await Outlook.EnsureConnectedAsync(cancellation).ConfigureAwait(true);
             if (session is null)
             {
                 SummaryText = Localizer.Format(L.CorrespondenceSend.OutlookUnavailable, Outlook.FailureText ?? Outlook.StateText);
+                NotRead(scope, L.ResponsesStatus.CampaignsFailed, SummaryText, LoadCampaignsCommand, Outlook.Failure is { } failure ? ResultCode.Outlook(failure.Kind) : ResultCode.None);
                 return;
             }
 
             var day = DateTime.SpecifyKind(Since.Date, DateTimeKind.Unspecified);
             var since = new DateTimeOffset(day, Services.Time.LocalTimeZone.GetUtcOffset(day));
-            var campaigns = await session.FindCampaignsAsync(since, token).ConfigureAwait(true);
-            if (token.IsCancellationRequested)
+            var campaigns = await session.FindCampaignsAsync(since, cancellation).WaitAsync(cancellation).ConfigureAwait(true);
+            if (cancellation.IsCancellationRequested)
             {
                 return;
             }
@@ -162,26 +202,32 @@ public sealed partial class ResponsesPageViewModel : ObservableObject
             SummaryText = Campaigns.Count == 0
                 ? Localizer.Format(L.CorrespondenceResponses.NoCampaigns, Since.Date.ToString("d", Localizer.Culture))
                 : Localizer.Format(L.CorrespondenceResponses.CampaignsFound, Campaigns.Count);
+
+            // The runs found are the content of the page: their count is the summary, not a message.
+            Status.SetIdle(SummaryText);
         }
         catch (Exception ex) when (ex is OutlookException or ObjectDisposedException)
         {
-            ShowFailure(ex, session);
+            ShowFailure(ex, session, scope, L.ResponsesStatus.CampaignsFailed, LoadCampaignsCommand);
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
-            // A newer read replaced this one.
+            // A newer read replaced this one, the window closed - or the operator stopped it.
+            Stopped(scope, L.ResponsesStatus.CampaignsStopped, LoadCampaignsCommand);
         }
         finally
         {
             if (!token.IsCancellationRequested)
             {
                 IsLoading = false;
+                IsReadingCampaigns = false;
             }
         }
     }
 
     private bool CanLoadCampaigns() => !IsLoading && Correspondence.Outlook is not null;
 
+    /// <summary>The responses of the chosen run, from Sent Items: an operation of the page like the search for the runs.</summary>
     [RelayCommand(CanExecute = nameof(CanLoadResponses))]
     private async Task LoadResponsesAsync()
     {
@@ -192,19 +238,24 @@ public sealed partial class ResponsesPageViewModel : ObservableObject
 
         var token = _reads.Next();
         IsLoading = true;
+        IsReadingResponses = true;
         SummaryText = Localizer[L.CorrespondenceResponses.Reading];
+        using var scope = Status.Begin(SummaryText, new PageStatusLog(L.CorrespondenceResponses.Reading));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, scope.Token);
+        var cancellation = linked.Token;
         IOutlookSession? session = null;
         try
         {
-            session = await Outlook.EnsureConnectedAsync(token).ConfigureAwait(true);
+            session = await Outlook.EnsureConnectedAsync(cancellation).ConfigureAwait(true);
             if (session is null)
             {
                 SummaryText = Localizer.Format(L.CorrespondenceSend.OutlookUnavailable, Outlook.FailureText ?? Outlook.StateText);
+                NotRead(scope, L.ResponsesStatus.ResponsesFailed, SummaryText, LoadResponsesCommand, Outlook.Failure is { } failure ? ResultCode.Outlook(failure.Kind) : ResultCode.None);
                 return;
             }
 
-            var responses = await session.ReadResponsesAsync(campaign.Id, token).ConfigureAwait(true);
-            if (token.IsCancellationRequested)
+            var responses = await session.ReadResponsesAsync(campaign.Id, cancellation).WaitAsync(cancellation).ConfigureAwait(true);
+            if (cancellation.IsCancellationRequested)
             {
                 return;
             }
@@ -224,17 +275,19 @@ public sealed partial class ResponsesPageViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is OutlookException or ObjectDisposedException)
         {
-            ShowFailure(ex, session);
+            ShowFailure(ex, session, scope, L.ResponsesStatus.ResponsesFailed, LoadResponsesCommand);
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
-            // A newer read replaced this one.
+            // A newer read replaced this one, the window closed - or the operator stopped it.
+            Stopped(scope, L.ResponsesStatus.ResponsesStopped, LoadResponsesCommand);
         }
         finally
         {
             if (!token.IsCancellationRequested)
             {
                 IsLoading = false;
+                IsReadingResponses = false;
             }
         }
     }
@@ -277,13 +330,38 @@ public sealed partial class ResponsesPageViewModel : ObservableObject
 
     private bool CanExport() => Rows.Count > 0;
 
-    /// <summary>A failed read: the failure's text (a released session is a lost Outlook), reported for the session that read
-    /// – so the next read reconnects, while a session the window replaced meanwhile changes nothing.</summary>
-    private void ShowFailure(Exception exception, IOutlookSession? session)
+    /// <summary>
+    /// A failed read: the failure's text (a released session is a lost Outlook), reported for the session that read – so the
+    /// next read reconnects, while a session the window replaced meanwhile changes nothing – and said in the line as an error
+    /// with the read as its action: what was shown stays as it was.
+    /// </summary>
+    private void ShowFailure(Exception exception, IOutlookSession? session, OperationScope scope, string tried, IRelayCommand retry)
     {
         var failure = (exception as OutlookException)?.Failure ?? CorrespondenceSender.SessionClosed;
         Outlook.ReportFailure(failure, session);
-        SummaryText = Localizer.Format(L.CorrespondenceResponses.ReadFailed, CorrespondenceText.FailureText(Localizer, failure));
+        var reason = CorrespondenceText.FailureText(Localizer, failure);
+        SummaryText = Localizer.Format(L.CorrespondenceResponses.ReadFailed, reason);
+        var code = ResultCode.Outlook(failure.Kind);
+        scope.CompleteError(
+            PageStatusText.Failure(Localizer[tried], reason, Localizer[L.Feedback.RetryNext], code),
+            new PageStatusLog(tried).WithCode(code),
+            new PageStatusAction(Localizer[L.Common.Retry], retry));
+    }
+
+    /// <summary>A read that could not even start (Outlook cannot be used): the same error, without a failure of the session.</summary>
+    private void NotRead(OperationScope scope, string tried, string reason, IRelayCommand retry, ResultCode code) =>
+        scope.CompleteError(
+            PageStatusText.Failure(Localizer[tried], reason, Localizer[L.Feedback.RetryNext], code),
+            new PageStatusLog(tried).WithCode(code),
+            new PageStatusAction(Localizer[L.Common.Retry], retry));
+
+    /// <summary>The operator stopped the read: what was shown was not changed, and the action reads again. A newer read or a closed window says nothing.</summary>
+    private void Stopped(OperationScope scope, string key, IRelayCommand again)
+    {
+        if (scope.IsCancelling)
+        {
+            scope.CompleteAttention(Localizer[key], new PageStatusLog(key), new PageStatusAction(Localizer[L.Common.Retry], again));
+        }
     }
 
     private void Summarize(IReadOnlyList<ResponseRowViewModel> rows)
@@ -295,6 +373,7 @@ public sealed partial class ResponsesPageViewModel : ObservableObject
         SummaryText = other > 0
             ? Localizer.Format(L.CorrespondenceResponses.SummaryOther, answered, rows.Count, yes, no, other)
             : Localizer.Format(L.CorrespondenceResponses.Summary, answered, rows.Count, yes, no);
+        Status.SetIdle(SummaryText);
     }
 
     private string LocalDate(DateTimeOffset at) => TimeZoneInfo.ConvertTime(at, Services.Time.LocalTimeZone).ToString("d", Localizer.Culture);

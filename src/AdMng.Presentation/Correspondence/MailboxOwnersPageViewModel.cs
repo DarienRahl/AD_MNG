@@ -4,6 +4,7 @@ using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Schema;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Session;
@@ -40,7 +41,7 @@ public enum MailboxRowFilter
 /// per owner). Reads use the window's session (rule 4); nothing is written (D10). Mailboxes, persons and matches exist in
 /// memory only (rule 1); the settings keep the options, the extra filter and the person base as a portable DN.
 /// </summary>
-public sealed partial class MailboxOwnersPageViewModel : ObservableObject
+public sealed partial class MailboxOwnersPageViewModel : ObservableObject, IHasPageStatus
 {
     private readonly DirectoryFieldEditor _fields;
     private IReadOnlyList<string> _selection = [];
@@ -48,6 +49,8 @@ public sealed partial class MailboxOwnersPageViewModel : ObservableObject
     private string _personBase = string.Empty;
     private MailboxSelection _preferredSelection = MailboxSelection.Shared;
     private bool _refreshingChoices;
+    private PageStatus? _sessionEnded;
+    private RunFailure? _failure;
 
     /// <param name="services">The window's services.</param>
     /// <param name="correspondence">The Korespondencja services.</param>
@@ -60,6 +63,7 @@ public sealed partial class MailboxOwnersPageViewModel : ObservableObject
         Services = services ?? throw new ArgumentNullException(nameof(services));
         Correspondence = correspondence ?? throw new ArgumentNullException(nameof(correspondence));
         Session = session ?? throw new ArgumentNullException(nameof(session));
+        Status = new PageStatusHolder(services.Localizer, services.Dispatcher, services.Lists.StatusLog);
         Recipients = recipients ?? throw new ArgumentNullException(nameof(recipients));
         Message = message ?? throw new ArgumentNullException(nameof(message));
         SelectionChoices = SelectionOptions(true);
@@ -78,6 +82,14 @@ public sealed partial class MailboxOwnersPageViewModel : ObservableObject
 
     /// <summary>"Skrzynki" rows were added as recipients (the window switches to the recipients tab).</summary>
     public event EventHandler? RecipientsAdded;
+
+    /// <summary>
+    /// What the page says (stage V2b-4, unit 5): the counts of the matches as its summary, the search for the owners and
+    /// the read of the owners that are added as its operations, how they ended, and - as the state that lasts - that the
+    /// search failed (the list is empty because of it) or that the session of the window ended. The window puts it in front
+    /// of its own while the tab is shown.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     [ObservableProperty]
     public partial MailboxScopeKind ScopeKind { get; set; } = MailboxScopeKind.Domain;
@@ -135,6 +147,10 @@ public sealed partial class MailboxOwnersPageViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(FindOwnersCommand), nameof(CancelCommand), nameof(AddToRecipientsCommand))]
     public partial bool IsRunning { get; private set; }
+
+    /// <summary>The search for the owners runs (the button that starts it is its Cancel); <see cref="IsRunning"/> is also true while the owners are read to be added.</summary>
+    [ObservableProperty]
+    public partial bool IsFinding { get; private set; }
 
     /// <summary>"Skrzynki: 120 · osoby: 4 210".</summary>
     [ObservableProperty]
@@ -262,6 +278,37 @@ public sealed partial class MailboxOwnersPageViewModel : ObservableObject
 
         UpdateSummary();
         _fields.Validate();
+    }
+
+    /// <summary>The session of the window ended (the window hands the state over; null: computed anew): said while the tab is shown.</summary>
+    internal void SetSessionEnded(PageStatus? state)
+    {
+        _sessionEnded = state;
+        UpdateLasting();
+    }
+
+    /// <summary>
+    /// The state of the page that lasts, the most important first: the session of the window ended, or the search failed -
+    /// the list is empty because of it, and the line says why, with the search as its action, until the next one starts.
+    /// </summary>
+    private void UpdateLasting()
+    {
+        PageStatus? lasting = _sessionEnded;
+        if (lasting is null && _failure is { } failure)
+        {
+            lasting = PageStatus.Error(
+                PageStatusText.Failure(Localizer[L.MailboxesStatus.FindFailed], failure.Reason, Localizer[L.Feedback.RetryNext], failure.Code),
+                new PageStatusLog(L.MailboxesStatus.FindFailed, failure.Count).WithCode(failure.Code),
+                new PageStatusAction(Localizer[L.Common.Retry], FindOwnersCommand));
+        }
+
+        Status.SetLasting(lasting);
+    }
+
+    /// <summary>Why the last search failed (the language it was said in), how many mailboxes or persons the limit was, and the code.</summary>
+    private sealed record RunFailure(string Reason, long Count, ResultCode Code)
+    {
+        public override string ToString() => nameof(RunFailure);
     }
 
     /// <summary>Raises <see cref="RecipientsAdded"/>.</summary>

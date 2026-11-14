@@ -4,6 +4,7 @@ using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Presentation.AccountReview;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
@@ -35,9 +36,12 @@ public sealed partial class RecipientsPageViewModel
     public partial IReadOnlyList<string> SelectedObjects { get; set; } = [];
 
     /// <summary>
-    /// Adds the objects (users, contacts, inetOrgPersons; groups: their members) as AD rows, de-duplicated by address.
-    /// Directory errors and a missing session propagate (the caller reports them); a read cancelled because the session
-    /// ended adds nothing.
+    /// Adds the objects (users, contacts, inetOrgPersons; groups: their members) as AD rows, de-duplicated by address. The
+    /// read is the operation of the page - the line says how many objects it reads, Stop ends it and nothing is added -
+    /// and its outcome is said there too: what was added, what was left out, or why nothing was (with Retry). Directory
+    /// errors and a missing session are also thrown (after the line said them): the caller that keeps its own record of
+    /// them (the window, for the objects it was opened with) still gets them; a read cancelled because the session ended
+    /// adds nothing and says nothing - the page says why in its state that lasts.
     /// </summary>
     /// <exception cref="DirectoryException">The directory refused a read.</exception>
     /// <exception cref="SessionEndedException">The window's session ended.</exception>
@@ -50,21 +54,52 @@ public sealed partial class RecipientsPageViewModel
             return;
         }
 
-        var session = Session();
-        var builder = new DirectoryRowBuilder(Correspondence.Fields, _directoryFields.Definitions, DirectoryRowBuilder.ContextFor(Services, session));
-        var token = _directoryReads.Token;
-        var directorySource = Localizer[L.CorrespondenceRecipients.SourceDirectory];
-        var localizer = Localizer;
-        Func<string, string> groupSource = group => localizer.Format(L.CorrespondenceRecipients.SourceGroup, group);
-        var pageSize = Math.Clamp(Services.Settings.Current.PageSize, 1, 1000);
+        _lastDirectoryRead = dns;
+        using var scope = Status.Begin(
+            Localizer.Format(L.RecipientsStatus.DirectoryReading, PageStatusText.Objects(Localizer, dns.Count)),
+            new PageStatusLog(L.RecipientsStatus.DirectoryReading, dns.Count));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(_directoryReads.Token, scope.Token);
+        var token = linked.Token;
         DirectoryRead read;
         try
         {
+            var session = Session();
+            var builder = new DirectoryRowBuilder(Correspondence.Fields, _directoryFields.Definitions, DirectoryRowBuilder.ContextFor(Services, session));
+            var directorySource = Localizer[L.CorrespondenceRecipients.SourceDirectory];
+            var localizer = Localizer;
+            Func<string, string> groupSource = group => localizer.Format(L.CorrespondenceRecipients.SourceGroup, group);
+            var pageSize = Math.Clamp(Services.Settings.Current.PageSize, 1, 1000);
             read = await Task.Run(() => ReadAsync(session, builder, dns, directorySource, groupSource, pageSize, token), token).ConfigureAwait(true);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            return;   // the window's session ended: the AD actions are disabled
+            // Only the operator's Stop says so: nothing was added, and the read is repeated by the action of the line. The
+            // end of the session and a newer operation say nothing here.
+            if (scope.IsCancelling)
+            {
+                scope.CompleteAttention(
+                    PageStatusText.Failure(Localizer[L.RecipientsStatus.DirectoryNothingAdded], Localizer[L.RecipientsStatus.DirectoryStopped]),
+                    new PageStatusLog(L.RecipientsStatus.DirectoryStopped, dns.Count),
+                    new PageStatusAction(Localizer[L.Common.Retry], RetryDirectoryReadCommand));
+            }
+
+            return;
+        }
+        catch (DirectoryException ex)
+        {
+            var code = ResultCode.Of(ex);
+            scope.CompleteError(
+                PageStatusText.Failure(Localizer[L.RecipientsStatus.DirectoryNothingAdded], Services.Errors.Translate(ex), Localizer[L.Feedback.RetryNext], code),
+                new PageStatusLog(L.RecipientsStatus.DirectoryNothingAdded, dns.Count).WithCode(code),
+                new PageStatusAction(Localizer[L.Common.Retry], RetryDirectoryReadCommand));
+            throw;
+        }
+        catch (Exception ex) when (ex is SessionEndedException or InvalidOperationException or ObjectDisposedException)
+        {
+            scope.CompleteError(
+                PageStatusText.Failure(Localizer[L.RecipientsStatus.DirectoryNothingAdded], Localizer[L.WindowSession.Ended]),
+                new PageStatusLog(L.RecipientsStatus.DirectoryNothingAdded, dns.Count));
+            throw;
         }
 
         var added = AddDirectoryRows(read.Rows, out var withoutAddress);
@@ -74,7 +109,20 @@ public sealed partial class RecipientsPageViewModel
             status += " " + Localizer.Format(L.CorrespondenceRecipients.GroupTruncated, group, MaxGroupMembers);
         }
 
-        ReportStatus(status);
+        StatusText = string.Empty;
+        StatusText = status;
+
+        // A read that found nothing, or left members out of a group, says what was skipped; the others say what was added.
+        var skipped = read.TruncatedGroups.Count > 0 || (FoundNothing(added, 0) && withoutAddress == 0 && read.Other == 0);
+        var log = new PageStatusLog(L.CorrespondenceRecipients.FromDirectory, added.Added, added.Duplicates, withoutAddress, read.Other, read.TruncatedGroups.Count);
+        if (skipped)
+        {
+            scope.CompleteAttention(status, log);
+        }
+        else
+        {
+            scope.CompleteDone(status, log);
+        }
     }
 
     /// <summary>
@@ -206,29 +254,62 @@ public sealed partial class RecipientsPageViewModel
         return (members, false);
     }
 
-    /// <summary>Runs a directory action of a command: errors are shown, cancellation (session ended) is quiet.</summary>
+    /// <summary>
+    /// Runs a directory action of a command: what the picker cannot do is said as an attention of the line (nothing was added
+    /// and why), what the read says is said by the read, cancellation (session ended) is quiet.
+    /// </summary>
     private async Task RunDirectoryAsync(Func<IDirectorySession, Task<IReadOnlyList<string>>> pick)
     {
-        var title = Localizer[L.CorrespondenceRecipients.DirectoryTitle];
+        IReadOnlyList<string> dns;
         try
         {
             var session = Session();
-            var dns = await pick(session).ConfigureAwait(true);
-            await AddFromDirectoryAsync(dns).ConfigureAwait(true);
+            dns = await pick(session).ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
-            // The window's session ended while reading.
+            return;   // The window's session ended while picking.
         }
         catch (DirectoryException ex)
         {
-            await Services.Dialogs.ShowErrorAsync(title, Services.Errors.Translate(ex)).ConfigureAwait(true);
+            NothingAdded(Services.Errors.Translate(ex), ResultCode.Of(ex));
+            return;
         }
         catch (Exception ex) when (ex is SessionEndedException or InvalidOperationException or ObjectDisposedException)
         {
-            await Services.Dialogs.ShowErrorAsync(title, Localizer[L.WindowSession.Ended]).ConfigureAwait(true);
+            NothingAdded(Localizer[L.WindowSession.Ended], ResultCode.None);
+            return;
+        }
+
+        await ReadFromDirectoryAsync(dns).ConfigureAwait(true);
+    }
+
+    /// <summary>The read, whose failures the line said already (the exception is for the caller that records them).</summary>
+    private async Task ReadFromDirectoryAsync(IReadOnlyList<string> dns)
+    {
+        try
+        {
+            await AddFromDirectoryAsync(dns).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is DirectoryException or SessionEndedException or InvalidOperationException or ObjectDisposedException)
+        {
+            // Said by the operation.
         }
     }
+
+    private void NothingAdded(string reason, ResultCode code)
+    {
+        if (!Status.IsWorking)
+        {
+            Status.Show(PageStatus.Error(
+                PageStatusText.Failure(Localizer[L.RecipientsStatus.DirectoryNothingAdded], reason, null, code),
+                new PageStatusLog(L.RecipientsStatus.DirectoryNothingAdded).WithCode(code)));
+        }
+    }
+
+    /// <summary>Reads the objects of the last read again (the action of its stopped or failed result).</summary>
+    [RelayCommand]
+    private Task RetryDirectoryRead() => ReadFromDirectoryAsync(_lastDirectoryRead);
 
     /// <summary>The objects selected in the connection window when this window was opened.</summary>
     [RelayCommand(CanExecute = nameof(CanAddFromSelection))]

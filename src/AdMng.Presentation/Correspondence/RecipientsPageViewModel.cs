@@ -7,6 +7,7 @@ using AdMng.Core.Correspondence.Import;
 using AdMng.Core.Directory;
 using AdMng.Core.Schema;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -34,7 +35,7 @@ public sealed record RecipientUnit(CorrespondenceUnit Unit, IReadOnlyList<Corres
 /// marks, the counts, the filter box and the AD field definitions. Rows exist in memory only (rule 1); AD reads use the
 /// window's session (rule 4).
 /// </summary>
-public sealed partial class RecipientsPageViewModel : ObservableObject
+public sealed partial class RecipientsPageViewModel : ObservableObject, IHasPageStatus
 {
     /// <summary>The most members read from one group (nested membership, users and contacts).</summary>
     public const int MaxGroupMembers = 10_000;
@@ -49,6 +50,8 @@ public sealed partial class RecipientsPageViewModel : ObservableObject
     private (bool Loaded, int Count, DateTimeOffset? Newest)? _journalState;
     private CancellationTokenSource _directoryReads = new();
     private bool _bulk;
+    private IReadOnlyList<string> _lastDirectoryRead = [];
+    private PageStatus? _sessionEnded;
 
     /// <param name="services">The window's services.</param>
     /// <param name="correspondence">The Korespondencja services.</param>
@@ -58,12 +61,21 @@ public sealed partial class RecipientsPageViewModel : ObservableObject
         Services = services ?? throw new ArgumentNullException(nameof(services));
         Correspondence = correspondence ?? throw new ArgumentNullException(nameof(correspondence));
         Session = session ?? throw new ArgumentNullException(nameof(session));
+        Status = new PageStatusHolder(services.Localizer, services.Dispatcher, services.Lists.StatusLog);
         _directoryFields = new DirectoryFieldEditor(DirectoryFields, correspondence.Fields, services.Localizer, TrySchema,
             DirectoryFieldDefinition.Defaults, DirectoryFieldTarget.Person, L.CorrespondenceRecipients.NewFieldName);
         _directoryFields.Load(null);
         UpdateCounts();
         UpdateExclusionsText();
     }
+
+    /// <summary>
+    /// What the page says (stage V2b-4, unit 5): the counts of the list as its summary, a read of the directory or of
+    /// files as its operation, the answer to an action of the list as its result, and - as the state that lasts - that
+    /// the session of the window ended (the buttons that read the directory are off then). The window puts it in front
+    /// of its own while the tab is shown.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     /// <summary>Every row, in import order.</summary>
     public BulkObservableCollection<CorrespondenceRecipientViewModel> Items { get; } = [];
@@ -241,11 +253,36 @@ public sealed partial class RecipientsPageViewModel : ObservableObject
         return added.Count;
     }
 
-    /// <summary>Raises a status line (also when it repeats the previous one, so the status bar shows it again).</summary>
-    internal void ReportStatus(string text)
+    /// <summary>
+    /// The answer to an action that is over at once: <see cref="StatusText"/> (also when it repeats the previous one, so the
+    /// window's status text changes again) and the result in the status line - <paramref name="attention"/> for what came to
+    /// nothing or was skipped. The line is left alone while an operation of the page runs: a quick action never ends a read.
+    /// </summary>
+    /// <param name="text">The sentence, as the operator reads it.</param>
+    /// <param name="key">The resource key of the sentence: its copy in the diagnostic log (with the counts, never the text).</param>
+    /// <param name="attention">Nothing was done, or something was skipped.</param>
+    /// <param name="counts">The numbers the sentence was filled with.</param>
+    internal void ReportStatus(string text, string key, bool attention = false, params long[] counts)
     {
         StatusText = string.Empty;
         StatusText = text ?? string.Empty;
+        if (Status.IsWorking || string.IsNullOrEmpty(StatusText))
+        {
+            return;
+        }
+
+        var log = new PageStatusLog(key, counts);
+        Status.Show(attention ? PageStatus.Attention(StatusText, log) : PageStatus.Done(StatusText, log));
+    }
+
+    /// <summary>
+    /// The session of the window ended (<see cref="CorrespondenceViewModel"/> hands the state over, null again when it is
+    /// computed anew): the page says it for as long as it shows its list.
+    /// </summary>
+    internal void SetSessionEnded(PageStatus? state)
+    {
+        _sessionEnded = state;
+        Status.SetLasting(_sessionEnded);
     }
 
     private static bool IsSendable(CorrespondenceRecipientViewModel row) =>
@@ -397,6 +434,7 @@ public sealed partial class RecipientsPageViewModel : ObservableObject
         }
 
         CountsText = text;
+        Status.SetIdle(text);
     }
 
     private void UpdateExclusionsText() =>
@@ -464,12 +502,12 @@ public sealed partial class RecipientsPageViewModel : ObservableObject
         var selected = SelectedItems?.OfType<CorrespondenceRecipientViewModel>().Distinct().ToList() ?? [];
         if (selected.Count == 0)
         {
-            ReportStatus(Localizer[L.CorrespondenceRecipients.RemoveNone]);
+            ReportStatus(Localizer[L.CorrespondenceRecipients.RemoveNone], L.CorrespondenceRecipients.RemoveNone, attention: true);
             return;
         }
 
         Remove(selected);
-        ReportStatus(Localizer.Format(L.CorrespondenceRecipients.Removed, selected.Count));
+        ReportStatus(Localizer.Format(L.CorrespondenceRecipients.Removed, selected.Count), L.CorrespondenceRecipients.Removed, false, selected.Count);
     }
 
     /// <summary>CSV: Nazwa;E-mail;Źródło;Status and the columns (formulas protected) – an operator export (rule 1).</summary>
@@ -478,7 +516,7 @@ public sealed partial class RecipientsPageViewModel : ObservableObject
     {
         if (Items.Count == 0)
         {
-            ReportStatus(Localizer[L.CorrespondenceRecipients.ExportNothing]);
+            ReportStatus(Localizer[L.CorrespondenceRecipients.ExportNothing], L.CorrespondenceRecipients.ExportNothing, attention: true);
             return;
         }
 
@@ -505,7 +543,7 @@ public sealed partial class RecipientsPageViewModel : ObservableObject
         try
         {
             await CsvFiles.WriteAsync(path, writer => Correspondence.Csv.Write(writer, headers, rows, separator, protectFormulas: true)).ConfigureAwait(true);
-            ReportStatus(Localizer.Format(L.CorrespondenceRecipients.Exported, path));
+            ReportStatus(Localizer.Format(L.CorrespondenceRecipients.Exported, path), L.CorrespondenceRecipients.Exported, false, rows.Count);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -536,7 +574,7 @@ public sealed partial class RecipientsPageViewModel : ObservableObject
         View.Clear();
         Columns.Clear();
         UpdateCounts();
-        ReportStatus(Localizer[L.CorrespondenceRecipients.Cleared]);
+        ReportStatus(Localizer[L.CorrespondenceRecipients.Cleared], L.CorrespondenceRecipients.Cleared);
     }
 
     /// <summary>The journal report: count, oldest, newest, retention; prune or clear after a confirmation.</summary>
@@ -575,12 +613,12 @@ public sealed partial class RecipientsPageViewModel : ObservableObject
             if (await Services.Dialogs.ConfirmAsync(title, Localizer.Format(L.CorrespondenceRecipients.JournalPruneConfirm, retention), destructive: false).ConfigureAwait(true))
             {
                 var removed = await journal.PruneAsync(TimeSpan.FromDays(retention)).ConfigureAwait(true);
-                ReportStatus(Localizer.Format(L.CorrespondenceRecipients.JournalPruned, removed));
+                ReportStatus(Localizer.Format(L.CorrespondenceRecipients.JournalPruned, removed), L.CorrespondenceRecipients.JournalPruned, false, removed);
             }
             else if (await Services.Dialogs.ConfirmAsync(title, Localizer[L.CorrespondenceRecipients.JournalClearConfirm], destructive: true).ConfigureAwait(true))
             {
                 await journal.ClearAsync().ConfigureAwait(true);
-                ReportStatus(Localizer[L.CorrespondenceRecipients.JournalCleared]);
+                ReportStatus(Localizer[L.CorrespondenceRecipients.JournalCleared], L.CorrespondenceRecipients.JournalCleared);
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)

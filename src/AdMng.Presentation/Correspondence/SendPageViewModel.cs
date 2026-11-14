@@ -6,6 +6,7 @@ using AdMng.Core.Correspondence.Composition;
 using AdMng.Core.Correspondence.Import;
 using AdMng.Core.Correspondence.Outlook;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -33,7 +34,7 @@ public sealed record SendResultLine(string Text, bool IsSuccess)
 /// <para>The results and the report hold addresses (the operator sees and may export them); the session log entry holds
 /// only the kind of the run and the counts.</para>
 /// </remarks>
-public sealed partial class SendPageViewModel : ObservableObject
+public sealed partial class SendPageViewModel : ObservableObject, IHasPageStatus
 {
     /// <summary>The action of the session log entry of a run.</summary>
     public const string SessionLogAction = "SendCorrespondence";
@@ -60,11 +61,32 @@ public sealed partial class SendPageViewModel : ObservableObject
         Message = message ?? throw new ArgumentNullException(nameof(message));
         Preview = preview ?? throw new ArgumentNullException(nameof(preview));
         Outlook = outlook ?? throw new ArgumentNullException(nameof(outlook));
+        Status = new PageStatusHolder(services.Localizer, services.Dispatcher, services.Lists.StatusLog);
 
         // The collections live as long as this page.
         Results.CollectionChanged += (_, _) => ExportReportCommand.NotifyCanExecuteChanged();
         Recipients.Items.CollectionChanged += (_, _) => RetryFailedCommand.NotifyCanExecuteChanged();
+
+        // The Outlook connection belongs to the window and lives as long as this page.
+        Outlook.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(OutlookConnectionViewModel.State) or nameof(OutlookConnectionViewModel.StateText))
+            {
+                UpdateLasting();
+            }
+        };
+        UpdateLasting();
     }
+
+    /// <summary>
+    /// What the page says (stage V2b-4, unit 5): a run - the messages, the drafts, the test - as its operation with how far it
+    /// is and Stop, how the run ended, why nothing was started, and - as the state that lasts - that Outlook is not
+    /// available. The window puts it in front of its own while the tab is shown.
+    /// </summary>
+    public PageStatusHolder Status { get; }
+
+    /// <summary>The state of the page that lasts: Outlook cannot be used (not installed, not supported, the connection failed).</summary>
+    public void UpdateLasting() => Status.SetLasting(Outlook.UnavailableStatus());
 
     /// <summary>
     /// MailerWPiA's summary: count with skipped/invalid, sender, on behalf, mode, subject, signature, attachments, deferred,
@@ -76,6 +98,22 @@ public sealed partial class SendPageViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendTestCommand), nameof(CreateDraftsCommand), nameof(SendCommand), nameof(StopCommand), nameof(RetryFailedCommand))]
     public partial bool IsSending { get; private set; }
+
+    /// <summary>The run that runs is a test to the operator (the button that starts it is its Cancel).</summary>
+    [ObservableProperty]
+    public partial bool IsTesting { get; private set; }
+
+    /// <summary>The run that runs saves drafts (not the retry of failed ones).</summary>
+    [ObservableProperty]
+    public partial bool IsCreatingDrafts { get; private set; }
+
+    /// <summary>The run that runs sends the messages (not the retry of failed ones).</summary>
+    [ObservableProperty]
+    public partial bool IsSendingMessages { get; private set; }
+
+    /// <summary>The run that runs is the retry of the failed messages (or drafts).</summary>
+    [ObservableProperty]
+    public partial bool IsRetrying { get; private set; }
 
     [ObservableProperty]
     public partial double ProgressValue { get; private set; }
@@ -199,8 +237,18 @@ public sealed partial class SendPageViewModel : ObservableObject
 
     private bool CanRun() => !IsSending && !_preparing && Correspondence.Outlook is not null;
 
+    /// <summary>Stops the run between two messages: the Stop of the line, which says "Stopping…" at once, and of the buttons.</summary>
     [RelayCommand(CanExecute = nameof(IsSending))]
-    private void Stop() => _run?.Cancel();
+    private void Stop()
+    {
+        if (Status.Operation is { } operation)
+        {
+            operation.Cancel();
+            return;
+        }
+
+        _run?.Cancel();
+    }
 
     /// <summary>
     /// The rows whose message failed, again (after a confirmation; in the chosen mode): sent again after a send run, saved
@@ -306,11 +354,11 @@ public sealed partial class SendPageViewModel : ObservableObject
         var rows = retry ?? set.Rows;
         if (rows.Count == 0)
         {
-            await Services.Dialogs.ShowErrorAsync(Title, Localizer[L.CorrespondenceSend.NothingToSend]).ConfigureAwait(true);
+            NotStarted(kind, Localizer[L.CorrespondenceSend.NothingToSend], L.CorrespondenceSend.NothingToSend);
             return;
         }
 
-        var session = await ConnectAsync().ConfigureAwait(true);
+        var session = await ConnectAsync(kind).ConfigureAwait(true);
         if (session is null)
         {
             return;
@@ -345,8 +393,8 @@ public sealed partial class SendPageViewModel : ObservableObject
 
         var draft = await Message.DraftAsync().ConfigureAwait(true);
         await SaveDraftAsync().ConfigureAwait(true);
-        await RunAsync(kind, Options(kind, draft, set.KnownColumns, deliverAt), jobs, jobRows, session, bcc, retry is null ? set.Skipped + set.Invalid : 0)
-            .ConfigureAwait(true);
+        await RunAsync(kind, Options(kind, draft, set.KnownColumns, deliverAt), jobs, jobRows, session, bcc, retry is null ? set.Skipped + set.Invalid : 0,
+            isRetry: retry is not null).ConfigureAwait(true);
     }
 
     /// <summary>
@@ -396,7 +444,7 @@ public sealed partial class SendPageViewModel : ObservableObject
             return;
         }
 
-        var session = await ConnectAsync().ConfigureAwait(true);
+        var session = await ConnectAsync(SendRunKind.Test).ConfigureAwait(true);
         if (session is null)
         {
             return;
@@ -457,8 +505,8 @@ public sealed partial class SendPageViewModel : ObservableObject
         var draft = await Message.DraftAsync().ConfigureAwait(true);
         await SaveDraftAsync().ConfigureAwait(true);
         var job = new CorrespondenceSendJob(unit, [address], [], [], [address]);
-        await RunAsync(SendRunKind.Test, Options(SendRunKind.Test, draft, set.KnownColumns, deliverAt), [job], [rows], session, bcc: false, skipped: 0)
-            .ConfigureAwait(true);
+        await RunAsync(SendRunKind.Test, Options(SendRunKind.Test, draft, set.KnownColumns, deliverAt), [job], [rows], session, bcc: false, skipped: 0,
+            isRetry: false).ConfigureAwait(true);
     }
 
     /// <summary>The run itself (on the thread pool), its live progress and statuses, the final lines and the session log.</summary>
@@ -469,12 +517,20 @@ public sealed partial class SendPageViewModel : ObservableObject
         IReadOnlyList<IReadOnlyList<CorrespondenceRecipientViewModel>> jobRows,
         IOutlookSession session,
         bool bcc,
-        int skipped)
+        int skipped,
+        bool isRetry)
     {
-        using var cancellation = new CancellationTokenSource();
+        // The run is the operation of the page: the line says how far it is, and its Stop is the run's (between two messages).
+        using var scope = Status.Begin(
+            RunningText(kind, 0, jobs.Count, null), new PageStatusLog(RunningKey(kind, null), 0, jobs.Count), PageProgress.Of(0, jobs.Count));
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(scope.Token);
         _run = cancellation;
         _applied.Clear();
         IsSending = true;
+        IsTesting = kind == SendRunKind.Test;
+        IsCreatingDrafts = kind == SendRunKind.Drafts && !isRetry;
+        IsSendingMessages = kind == SendRunKind.Send && !isRetry;
+        IsRetrying = isRetry;
         Results.Clear();
         SentCount = 0;
         FailedCount = 0;
@@ -502,6 +558,7 @@ public sealed partial class SendPageViewModel : ObservableObject
             FailedCount = p.Failed;
             ProgressValue = p.Done;
             ProgressText = ProgressTextOf(kind, p.Done, p.Total, p.Remaining);
+            scope.Report(RunningText(kind, p.Done, p.Total, p.Remaining), PageProgress.Of(p.Done, p.Total), new PageStatusLog(RunningKey(kind, p.Remaining), p.Done, p.Total));
         });
 
         SendRunResult result;
@@ -527,8 +584,100 @@ public sealed partial class SendPageViewModel : ObservableObject
         ProgressValue = result.Outcomes.Count;
         Finish(kind, result, journal);
         IsSending = false;
+        IsTesting = false;
+        IsCreatingDrafts = false;
+        IsSendingMessages = false;
+        IsRetrying = false;
         RetryFailedCommand.NotifyCanExecuteChanged();
+        CompleteRun(scope, kind, result);
         RefreshSummary();   // the send list reads the journal marks again: the rows' marks, texts and counts follow the run
+    }
+
+    /// <summary>
+    /// How the run ended, in the line. A run the window closed or another operation took the line from says nothing. Done: every
+    /// message went and the list of results is below; attention: some failed, the operator stopped it, or too many failed in a
+    /// row - with the button that continues; error: Outlook stopped it. The totals are the sentences of the results list.
+    /// </summary>
+    private void CompleteRun(OperationScope scope, SendRunKind kind, SendRunResult result)
+    {
+        if (scope.IsEnded)
+        {
+            return;
+        }
+
+        var head = ProgressText;   // the closing line of the results: "Sending finished: 12 succeeded, 1 failed."
+        var counts = new PageStatusLog(HeadKey(kind, result), result.Succeeded, result.Failed, result.NotAttempted);
+        switch (result.Stop)
+        {
+            case SendStopReason.None when result.Failed == 0 && result.NotAttempted == 0:
+                scope.CompleteDone($"{head} {Localizer[L.SendStatus.ResultsBelow]}", counts);
+                break;
+            case SendStopReason.None:
+                scope.CompleteAttention($"{head} {Localizer[L.SendStatus.FailedNext]}", counts);
+                break;
+            case SendStopReason.Cancelled:
+                scope.CompleteAttention($"{head} {Localizer[kind switch
+                {
+                    SendRunKind.Drafts => L.SendStatus.StoppedNextDrafts,
+                    SendRunKind.Test => L.SendStatus.StoppedNextTest,
+                    _ => L.SendStatus.StoppedNextSend,
+                }]}", counts);
+                break;
+            case SendStopReason.FailuresInRow:
+                scope.CompleteAttention($"{head} {Localizer.Format(L.SendStatus.StoppedFailuresInRow, CorrespondenceSender.MaxFailuresInRow)}", counts);
+                break;
+            default:
+                // Outlook stopped the run (a lost connection, an Outlook that does not answer): why, and what to do.
+                var code = result.StopFailure is { } failure ? ResultCode.Outlook(failure.Kind) : ResultCode.None;
+                scope.CompleteError(
+                    PageStatusText.Failure(head, result.StopFailure is { } stop ? CorrespondenceText.FailureText(Localizer, stop) : null, Localizer[L.SendStatus.OutlookStoppedNext], code),
+                    counts.WithCode(code));
+                break;
+        }
+    }
+
+    /// <summary>"Sending messages: 12 of 95 · about 4 min left…" - what the line says while the run goes on.</summary>
+    private string RunningText(SendRunKind kind, int done, int total, TimeSpan? remaining) => kind switch
+    {
+        SendRunKind.Drafts => Localizer.Format(L.SendStatus.Drafting, done, total),
+        SendRunKind.Test => Localizer.Format(L.SendStatus.Testing, done, total),
+        _ => remaining is { } left
+            ? Localizer.Format(L.SendStatus.SendingEta, done, total, EtaText(Localizer, left))
+            : Localizer.Format(L.SendStatus.Sending, done, total),
+    };
+
+    private static string RunningKey(SendRunKind kind, TimeSpan? remaining) => kind switch
+    {
+        SendRunKind.Drafts => L.SendStatus.Drafting,
+        SendRunKind.Test => L.SendStatus.Testing,
+        _ => remaining is null ? L.SendStatus.Sending : L.SendStatus.SendingEta,
+    };
+
+    /// <summary>The key of the closing line of a run (the log copy of its result).</summary>
+    private static string HeadKey(SendRunKind kind, SendRunResult result) => result.Stop != SendStopReason.None
+        ? L.CorrespondenceSend.DoneStopped
+        : kind switch
+        {
+            SendRunKind.Drafts => L.CorrespondenceSend.DoneDrafts,
+            SendRunKind.Test => L.CorrespondenceSend.DoneTest,
+            _ => L.CorrespondenceSend.DoneSend,
+        };
+
+    /// <summary>
+    /// What the press of a start button came to nothing for (nobody to send to, Outlook cannot be used): nothing was sent
+    /// (made, tested) and why. An attention - or an error when Outlook is the reason - in the line, which the operator may close.
+    /// </summary>
+    private void NotStarted(SendRunKind kind, string reason, string key, bool error = false, ResultCode code = default)
+    {
+        var lead = Localizer[kind switch
+        {
+            SendRunKind.Drafts => L.SendStatus.NothingDrafted,
+            SendRunKind.Test => L.SendStatus.TestNotSent,
+            _ => L.SendStatus.NothingSent,
+        }];
+        var text = PageStatusText.Failure(lead, reason, null, code);
+        var log = new PageStatusLog(key).WithCode(code);
+        Status.Show(error ? PageStatus.Error(text, log) : PageStatus.Attention(text, log));
     }
 
     /// <summary>The status of the rows of one message and its result line (once per message); a failure is reported for
@@ -720,13 +869,13 @@ public sealed partial class SendPageViewModel : ObservableObject
             Localizer[L.CorrespondenceSend.CannotSend] + Environment.NewLine + string.Join(Environment.NewLine, errors.Select(e => "• " + e)));
 
     /// <summary>The Outlook session (connected now when needed); null with the reason shown.</summary>
-    private async Task<IOutlookSession?> ConnectAsync()
+    private async Task<IOutlookSession?> ConnectAsync(SendRunKind kind)
     {
         var session = await Outlook.EnsureConnectedAsync().ConfigureAwait(true);
         if (session is null)
         {
-            await Services.Dialogs.ShowErrorAsync(Title,
-                Localizer.Format(L.CorrespondenceSend.OutlookUnavailable, Outlook.FailureText ?? Outlook.StateText)).ConfigureAwait(true);
+            NotStarted(kind, Localizer.Format(L.CorrespondenceSend.OutlookUnavailable, Outlook.FailureText ?? Outlook.StateText),
+                L.CorrespondenceSend.OutlookUnavailable, error: true, Outlook.Failure is { } failure ? ResultCode.Outlook(failure.Kind) : ResultCode.None);
         }
 
         return session;

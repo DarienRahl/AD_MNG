@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows.Input;
 using AdMng.Core.Computers.Remote;
+using AdMng.Core.Correspondence.Outlook;
 using AdMng.Core.Directory;
 using AdMng.Watchdog.Client;
 
@@ -100,6 +101,9 @@ public readonly record struct ResultCode
     /// <summary>The kind of a failed call of the AdMng Watchdog service (the connection, a role, a certificate, a conflict): "Unreachable".</summary>
     public static ResultCode Watchdog(WatchdogClientErrorKind kind) => new(kind.ToString());
 
+    /// <summary>The kind of a failed call of classic Outlook (not installed, busy, not responding, refused, lost…): "NotResponding".</summary>
+    public static ResultCode Outlook(OutlookFailureKind kind) => new(kind.ToString());
+
     /// <summary>
     /// The code of an exception: the LDAP result code and the Win32 detail of a directory error (else its kind), the
     /// type name of any other exception; none for a cancellation. The message of the exception is never read.
@@ -113,6 +117,7 @@ public readonly record struct ResultCode
         DirectoryException { Win32Error: { } win32 } => Win32(win32),
         DirectoryException directory => Kind(directory.Kind),
         WatchdogClientException watchdog => Watchdog(watchdog.Kind),
+        OutlookException outlook => Outlook(outlook.Failure.Kind),
         _ => new ResultCode(exception.GetType().Name),
     };
 

@@ -1,6 +1,7 @@
 using AdMng.Core.Correspondence.Import;
 using AdMng.Core.Correspondence.Outlook;
 using AdMng.Presentation.Correspondence;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
 using AdMng.Testing;
@@ -762,15 +763,22 @@ public sealed class SendPageTests
             "Wiadomości nie można jeszcze wysłać:" + NewLine + "• Wpisz temat wiadomości." + NewLine + "• Treść wiadomości jest pusta.",
             scenario.Ui.Errors[^1].Message);
 
+        // The press that comes to nothing says it in the line of the page - nothing was sent, and why - not in a dialog.
+        var errors = scenario.Ui.Errors.Count;
         window.Message.Subject = Subject;
         window.Message.BodyHtml = "<p>Treść</p>";
         await window.Send.SendCommand.ExecuteAsync(null);
-        Assert.Equal("Nie ma do kogo wysłać – sprawdź zaznaczenia i listę pominięć.", scenario.Ui.Errors[^1].Message);
+        Assert.Equal(PageStatusKind.Attention, window.Send.Status.Current.Kind);
+        Assert.Equal("Nic nie wysłano: Nie ma do kogo wysłać – sprawdź zaznaczenia i listę pominięć.", window.Send.Status.Current.Message);
+        Assert.Equal(errors, scenario.Ui.Errors.Count);
 
         CorrespondencePagesScenario.AddRows(window, CorrespondencePagesScenario.Offices());
         await window.Send.SendCommand.ExecuteAsync(null);
-        Assert.StartsWith("Nie można użyć Outlooka: ", scenario.Ui.Errors[^1].Message, StringComparison.Ordinal);
-        Assert.Contains("Outlook nie odpowiada", scenario.Ui.Errors[^1].Message, StringComparison.Ordinal);
+        Assert.Equal(PageStatusKind.Error, window.Send.Status.Current.Kind);
+        Assert.StartsWith("Nic nie wysłano: Nie można użyć Outlooka: ", window.Send.Status.Current.Message, StringComparison.Ordinal);
+        Assert.Contains("Outlook nie odpowiada", window.Send.Status.Current.Message, StringComparison.Ordinal);
+        Assert.EndsWith("(NotResponding)", window.Send.Status.Current.Message, StringComparison.Ordinal);
+        Assert.Equal(errors, scenario.Ui.Errors.Count);
         Assert.Empty(scenario.Outlook.Items);
         Assert.Empty(scenario.Ui.Shown);
         Assert.Empty(scenario.Harness.AuditLog.Entries);

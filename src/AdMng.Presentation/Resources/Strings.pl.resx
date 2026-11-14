@@ -25518,5 +25518,132 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="WatchdogPage.Status.AuditStopped" xml:space="preserve">
     <value>Wczytywanie dziennika zmian konfiguracji zatrzymano: lista nie została zmieniona. Wybierz „{0}”, aby spróbować ponownie.</value>
   </data>
+  <!-- V2b-4, unit 5: the Korespondencja window -->
+  <data name="Correspondence.Status.OutlookStillWorks" xml:space="preserve">
+    <value>Wysyłanie przez Outlooka nadal działa.</value>
+  </data>
+  <data name="Correspondence.Status.SignaturesNotRead" xml:space="preserve">
+    <value>Nie udało się odczytać podpisów Outlooka</value>
+  </data>
+  <data name="Correspondence.Outlook.Status.Unavailable" xml:space="preserve">
+    <value>Outlook jest niedostępny: {0}</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.DirectoryReading" xml:space="preserve">
+    <value>Odczytuję z katalogu: {0}…</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.DirectoryNothingAdded" xml:space="preserve">
+    <value>Nic nie dodano z katalogu</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.DirectoryStopped" xml:space="preserve">
+    <value>Odczyt został zatrzymany.</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.FileReading" xml:space="preserve">
+    <value>Wczytuję „{0}”…</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.FilesReading" xml:space="preserve">
+    <value>Wczytuję pliki: {0}…</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.FilesStopped" xml:space="preserve">
+    <value>Wczytywanie zatrzymano po {0} z {1} plików: wiersze z już wczytanych plików są na liście.</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.ImportPartly" xml:space="preserve">
+    <value>{0} Nie wczytano: {1}</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.ImportFailed" xml:space="preserve">
+    <value>Nie wczytano żadnego pliku. {0}</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.NothingLoaded" xml:space="preserve">
+    <value>Nic nie wczytano</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.Finding" xml:space="preserve">
+    <value>Szukam właścicieli skrzynek…</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.FindingMailboxes" xml:space="preserve">
+    <value>Szukam właścicieli skrzynek: odczytano skrzynek: {0:N0}…</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.FindingPersons" xml:space="preserve">
+    <value>Szukam właścicieli skrzynek: skrzynek {0:N0}, osób {1:N0}…</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.FindStopped" xml:space="preserve">
+    <value>Wyszukiwanie właścicieli skrzynek zatrzymano</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.FindStoppedReason" xml:space="preserve">
+    <value>Lista może być niepełna. Naciśnij „Ponów”, aby wyszukać jeszcze raz.</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.FindFailed" xml:space="preserve">
+    <value>Nie udało się znaleźć właścicieli skrzynek</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.NotSearched" xml:space="preserve">
+    <value>Niczego nie wyszukano</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.NothingAdded" xml:space="preserve">
+    <value>Nikogo nie dodano do odbiorców</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.AddFailed" xml:space="preserve">
+    <value>Nie dodano właścicieli do odbiorców</value>
+  </data>
+  <data name="Correspondence.Send.Status.Sending" xml:space="preserve">
+    <value>Wysyłam wiadomości: {0} z {1}…</value>
+  </data>
+  <data name="Correspondence.Send.Status.SendingEta" xml:space="preserve">
+    <value>Wysyłam wiadomości: {0} z {1} · zostało ok. {2}…</value>
+  </data>
+  <data name="Correspondence.Send.Status.Drafting" xml:space="preserve">
+    <value>Zapisuję wersje robocze: {0} z {1}…</value>
+  </data>
+  <data name="Correspondence.Send.Status.Testing" xml:space="preserve">
+    <value>Wysyłam test: {0} z {1}…</value>
+  </data>
+  <data name="Correspondence.Send.Status.ResultsBelow" xml:space="preserve">
+    <value>Każda wiadomość jest na liście wyników.</value>
+  </data>
+  <data name="Correspondence.Send.Status.FailedNext" xml:space="preserve">
+    <value>Naciśnij „Ponów nieudane”, aby spróbować jeszcze raz.</value>
+  </data>
+  <data name="Correspondence.Send.Status.StoppedNextSend" xml:space="preserve">
+    <value>Naciśnij „Wyślij”, aby wysłać resztę: adresy, do których już wysłano, są pomijane, dopóki włączone jest „Pomijaj już wysłane”.</value>
+  </data>
+  <data name="Correspondence.Send.Status.StoppedNextDrafts" xml:space="preserve">
+    <value>Naciśnij „Utwórz wersje robocze”, aby utworzyć resztę.</value>
+  </data>
+  <data name="Correspondence.Send.Status.StoppedNextTest" xml:space="preserve">
+    <value>Naciśnij „Test do siebie”, aby wysłać go jeszcze raz.</value>
+  </data>
+  <data name="Correspondence.Send.Status.StoppedFailuresInRow" xml:space="preserve">
+    <value>Zatrzymano po {0} błędach z rzędu: sprawdź Outlooka, potem naciśnij „Ponów nieudane”.</value>
+  </data>
+  <data name="Correspondence.Send.Status.OutlookStoppedNext" xml:space="preserve">
+    <value>Sprawdź Outlooka, potem naciśnij „Ponów nieudane”.</value>
+  </data>
+  <data name="Correspondence.Send.Status.NothingSent" xml:space="preserve">
+    <value>Nic nie wysłano</value>
+  </data>
+  <data name="Correspondence.Send.Status.NothingDrafted" xml:space="preserve">
+    <value>Nie utworzono wersji roboczych</value>
+  </data>
+  <data name="Correspondence.Send.Status.TestNotSent" xml:space="preserve">
+    <value>Nie wysłano testu</value>
+  </data>
+  <data name="Correspondence.Responses.Status.CampaignsFailed" xml:space="preserve">
+    <value>Nie udało się przeszukać Elementów wysłanych</value>
+  </data>
+  <data name="Correspondence.Responses.Status.CampaignsStopped" xml:space="preserve">
+    <value>Przeszukiwanie Elementów wysłanych zatrzymano: lista wysyłek nie została zmieniona.</value>
+  </data>
+  <data name="Correspondence.Responses.Status.ResponsesFailed" xml:space="preserve">
+    <value>Nie udało się odczytać odpowiedzi</value>
+  </data>
+  <data name="Correspondence.Responses.Status.ResponsesStopped" xml:space="preserve">
+    <value>Odczyt odpowiedzi zatrzymano: lista odpowiedzi nie została zmieniona.</value>
+  </data>
+  <data name="Correspondence.Preview.Status.OutlookBuilding" xml:space="preserve">
+    <value>Buduję podgląd w Outlooku…</value>
+  </data>
+  <data name="Correspondence.Preview.Status.OutlookStopped" xml:space="preserve">
+    <value>Budowanie podglądu w Outlooku zatrzymano: podgląd nie został zmieniony.</value>
+  </data>
+  <data name="Correspondence.Preview.Status.OutlookFailed" xml:space="preserve">
+    <value>Nie udało się pobrać podglądu z Outlooka</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

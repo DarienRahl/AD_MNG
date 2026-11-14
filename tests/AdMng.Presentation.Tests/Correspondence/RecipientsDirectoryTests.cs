@@ -2,6 +2,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
 using AdMng.Presentation.Correspondence;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Tests.Dialogs;
 using AdMng.Testing;
@@ -218,7 +219,7 @@ public sealed class RecipientsDirectoryTests
     }
 
     [Fact]
-    public async Task DirectoryErrors_AreShown()
+    public async Task DirectoryErrors_AreSaidInTheLine_WithRetry()
     {
         using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
         using var window = await scenario.OpenAsync();
@@ -229,8 +230,19 @@ public sealed class RecipientsDirectoryTests
         await page.PickUsersCommand.ExecuteAsync(null);
 
         Assert.Empty(page.Items);
-        var (title, _) = Assert.Single(scenario.Harness.Dialogs.Errors);
-        Assert.Equal("Odbiorcy z katalogu", title);
+
+        // A failed read is status: the line says what was tried and why, and its action reads again; no dialog.
+        Assert.Empty(scenario.Harness.Dialogs.Errors);
+        var status = page.Status.Current;
+        Assert.Equal(PageStatusKind.Error, status.Kind);
+        Assert.StartsWith("Nic nie dodano z katalogu: ", status.Message, StringComparison.Ordinal);
+        Assert.EndsWith("(LDAP 51)", status.Message, StringComparison.Ordinal);
+        Assert.Equal("Ponów", status.Action?.Label);
+
+        // Retry reads the same objects again: this time the directory answers.
+        status.Action!.Command.Execute(null);
+        await B2Harness.WaitUntilAsync(() => page.Items.Count == 1);
+        Assert.Equal(PageStatusKind.Done, page.Status.Current.Kind);
     }
 
     [Fact]

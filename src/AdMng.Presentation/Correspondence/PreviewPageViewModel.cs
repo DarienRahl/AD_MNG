@@ -3,6 +3,7 @@ using AdMng.Core.Correspondence.Fields;
 using AdMng.Core.Correspondence.Outlook;
 using AdMng.Core.Messaging.Images;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -24,7 +25,7 @@ namespace AdMng.Presentation.Correspondence;
 /// run off the UI thread; entering the tab, choosing a recipient or a width refreshes after <see cref="RefreshDelay"/>.
 /// "Zapisz jako .html" is an operator export: the card and its image files in a folder the operator picks.
 /// </remarks>
-public sealed partial class PreviewPageViewModel : ObservableObject
+public sealed partial class PreviewPageViewModel : ObservableObject, IHasPageStatus
 {
     /// <summary>The recipients offered (MailerWPiA's 500).</summary>
     public const int MaxRecipients = 500;
@@ -42,12 +43,20 @@ public sealed partial class PreviewPageViewModel : ObservableObject
         Recipients = recipients ?? throw new ArgumentNullException(nameof(recipients));
         Message = message ?? throw new ArgumentNullException(nameof(message));
         Outlook = outlook ?? throw new ArgumentNullException(nameof(outlook));
+        Status = new PageStatusHolder(services.Localizer, services.Dispatcher, services.Lists.StatusLog);
         Debouncer = new Debouncer(services.Time, TimeSpan.FromMilliseconds(200));
         WidthChoices = [.. Enum.GetValues<CorrespondencePreviewWidth>().Select(v => new Option<CorrespondencePreviewWidth>(v, Localizer[CorrespondenceText.WidthKey(v)]))];
         _loadingOptions = true;
         Width = WidthChoices[0];
         _loadingOptions = false;
     }
+
+    /// <summary>
+    /// What the page says (stage V2b-4, unit 5): "Podgląd z Outlooka" - the one thing here that waits for something - as its
+    /// operation, and why it failed. The card itself, its findings and the information line are the content of the page.
+    /// The window puts it in front of its own while the tab is shown.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     /// <summary>The first 500 messages: "Name &lt;email&gt;"; an address with several messages (one per mailbox, rows of one
     /// address without grouping) shows what tells them apart – the mailbox, else the message's number.</summary>
@@ -189,17 +198,24 @@ public sealed partial class PreviewPageViewModel : ObservableObject
         return refresh;
     }
 
-    /// <summary>"Podgląd z Outlooka": the session renders the message (images read into memory).</summary>
+    /// <summary>
+    /// "Podgląd z Outlooka": the session renders the message (images read into memory). The operation of the page: the line
+    /// says it and Stop gives control back at once (Outlook finishes the item it builds and deletes it as it always did, its
+    /// answer is dropped); a failure says why, with Retry, and leaves the card as it was.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanPreviewViaOutlook))]
     private async Task PreviewViaOutlookAsync()
     {
         IsRendering = true;
+        using var scope = Status.Begin(Localizer[L.PreviewStatus.OutlookBuilding], new PageStatusLog(L.PreviewStatus.OutlookBuilding));
+        var token = scope.Token;
         try
         {
-            var session = await Outlook.EnsureConnectedAsync().ConfigureAwait(true);
+            var session = await Outlook.EnsureConnectedAsync(token).ConfigureAwait(true);
             if (session is null)
             {
-                ShowFailure(Localizer.Format(L.CorrespondenceSend.OutlookUnavailable, Outlook.FailureText ?? Outlook.StateText));
+                NotRendered(scope, Localizer.Format(L.CorrespondenceSend.OutlookUnavailable, Outlook.FailureText ?? Outlook.StateText),
+                    Outlook.Failure is { } unavailable ? ResultCode.Outlook(unavailable.Kind) : ResultCode.None);
                 return;
             }
 
@@ -208,13 +224,14 @@ public sealed partial class PreviewPageViewModel : ObservableObject
             OutlookRenderedMessage rendered;
             try
             {
-                rendered = await session.RenderAsync(message, CancellationToken.None).ConfigureAwait(true);
+                // Outlook is not told to stop: it builds the item and deletes it as it always did; the page stops waiting.
+                rendered = await session.RenderAsync(message, CancellationToken.None).WaitAsync(token).ConfigureAwait(true);
             }
             catch (Exception ex) when (ex is OutlookException or ObjectDisposedException)
             {
                 var failure = (ex as OutlookException)?.Failure ?? CorrespondenceSender.SessionClosed;
                 Outlook.ReportFailure(failure, session);   // a session the window replaced meanwhile changes nothing
-                ShowFailure(Localizer.Format(L.CorrespondencePreview.OutlookFailed, CorrespondenceText.FailureText(Localizer, failure)));
+                NotRendered(scope, CorrespondenceText.FailureText(Localizer, failure), ResultCode.Outlook(failure.Kind));
                 return;
             }
 
@@ -241,11 +258,29 @@ public sealed partial class PreviewPageViewModel : ObservableObject
             OkText = Localizer[L.CorrespondencePreview.OutlookDone];
             IsFromOutlook = true;
         }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // Only the operator's Stop says so: the card was not changed, and Retry builds it again.
+            if (scope.IsCancelling)
+            {
+                scope.CompleteAttention(
+                    Localizer[L.PreviewStatus.OutlookStopped],
+                    new PageStatusLog(L.PreviewStatus.OutlookStopped),
+                    new PageStatusAction(Localizer[L.Common.Retry], PreviewViaOutlookCommand));
+            }
+        }
         finally
         {
             IsRendering = false;
         }
     }
+
+    /// <summary>The preview could not be read from Outlook: why, with Retry; the card stays as it was.</summary>
+    private void NotRendered(OperationScope scope, string reason, ResultCode code) =>
+        scope.CompleteError(
+            PageStatusText.Failure(Localizer[L.PreviewStatus.OutlookFailed], reason, Localizer[L.Feedback.RetryNext], code),
+            new PageStatusLog(L.PreviewStatus.OutlookFailed).WithCode(code),
+            new PageStatusAction(Localizer[L.Common.Retry], PreviewViaOutlookCommand));
 
     private bool CanPreviewViaOutlook() => !IsRendering && Correspondence.Outlook is not null;
 
@@ -730,12 +765,6 @@ public sealed partial class PreviewPageViewModel : ObservableObject
         var bcc = state.IsBcc ? Localizer.Format(L.CorrespondencePreview.BccCount, state.Set.AddressCount) : null;
         var attachments = state.AttachmentNames.Count == 0 ? Localizer[L.CorrespondencePreview.None] : string.Join(", ", state.AttachmentNames);
         return new PreviewHeader(from, string.Join(", ", state.Job.To), bcc, attachments);
-    }
-
-    private void ShowFailure(string text)
-    {
-        Warnings = [text];
-        OkText = string.Empty;
     }
 
     /// <summary>What a refresh renders and checks (<paramref name="Today"/>: the window's local date, for date fields).</summary>

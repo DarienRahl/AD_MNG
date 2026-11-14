@@ -1,6 +1,7 @@
 using AdMng.Core.Correspondence.Mailboxes;
 using AdMng.Core.Directory;
 using AdMng.Core.Schema;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Session;
 using AdMng.Presentation.Settings;
@@ -38,14 +39,22 @@ public sealed partial class MailboxOwnersPageViewModel
             .Distinct(StringComparer.OrdinalIgnoreCase),
     ];
 
-    /// <summary>Reads the mailboxes and the persons, builds the index, matches and streams the rows.</summary>
+    /// <summary>
+    /// Reads the mailboxes and the persons, builds the index, matches and streams the rows. It is the operation of the page:
+    /// the line says how many mailboxes and persons were read so far and Stop - the line's, the button's and
+    /// <see cref="CancelCommand"/>, the same one - ends it at the next batch; the rows already shown stay and the line says
+    /// that the list may be incomplete. A search that fails leaves the list empty: its reason is the state of the page
+    /// until the next search.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanFindOwners))]
     private async Task FindOwnersAsync()
     {
         Error = null;
+        _failure = null;
+        UpdateLasting();
         if (TrySession() is not { } session)
         {
-            Fail(Localizer[L.WindowSession.Ended]);
+            Fail(Localizer[L.WindowSession.Ended]);   // the state of the page says why
             return;
         }
 
@@ -54,7 +63,7 @@ public sealed partial class MailboxOwnersPageViewModel
         var attribute = NameAttribute?.Trim() ?? string.Empty;
         if (source == OwnerNameSource.Attribute && !OwnerNameParser.IsUsableAttribute(attribute, session.Schema))
         {
-            Fail(Localizer.Format(L.CorrespondenceMailboxes.NameAttributeInvalid, attribute));
+            Refuse(Localizer.Format(L.CorrespondenceMailboxes.NameAttributeInvalid, attribute), L.CorrespondenceMailboxes.NameAttributeInvalid);
             return;
         }
 
@@ -68,27 +77,41 @@ public sealed partial class MailboxOwnersPageViewModel
             return;
         }
 
-        var run = new CancellationTokenSource();
+        using var finding = Status.Begin(Localizer[L.MailboxesStatus.Finding], new PageStatusLog(L.MailboxesStatus.Finding));
+        var run = CancellationTokenSource.CreateLinkedTokenSource(finding.Token);
         Interlocked.Exchange(ref _run, run)?.Cancel();
         var token = run.Token;
         ClearRows();
         IsRunning = true;
+        IsFinding = true;
         ProgressText = Localizer.Format(L.CorrespondenceMailboxes.ProgressMailboxes, 0);
         try
         {
-            await RunAsync(session, scope, source, attribute, token).ConfigureAwait(true);
+            await RunAsync(session, scope, source, attribute, finding, token).ConfigureAwait(true);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
             ProgressText = Localizer.Format(L.CorrespondenceMailboxes.Cancelled, ProgressText);
+
+            // Only the operator's Stop says so; what was shown stays, and the search is repeated by the action of the line.
+            if (finding.IsCancelling)
+            {
+                finding.CompleteAttention(
+                    PageStatusText.Failure(Localizer[L.MailboxesStatus.FindStopped], Localizer[L.MailboxesStatus.FindStoppedReason]),
+                    new PageStatusLog(L.MailboxesStatus.FindStopped, Rows.Count),
+                    new PageStatusAction(Localizer[L.Common.Retry], FindOwnersCommand));
+            }
         }
         catch (DirectoryException ex)
         {
-            Fail(Localizer.Format(L.CorrespondenceMailboxes.Failed, Services.Errors.Translate(ex)));
+            var reason = Services.Errors.Translate(ex);
+            Fail(Localizer.Format(L.CorrespondenceMailboxes.Failed, reason));
+            _failure = new RunFailure(reason, 0, ResultCode.Of(ex));
+            UpdateLasting();
         }
         catch (Exception ex) when (ex is SessionEndedException or InvalidOperationException or ObjectDisposedException)
         {
-            Fail(Localizer[L.WindowSession.Ended]);
+            Fail(Localizer[L.WindowSession.Ended]);   // the state of the page says why
         }
         finally
         {
@@ -97,6 +120,7 @@ public sealed partial class MailboxOwnersPageViewModel
                 IsRunning = false;
             }
 
+            IsFinding = false;
             UpdateSummary();
             AddToRecipientsCommand.NotifyCanExecuteChanged();
         }
@@ -104,10 +128,24 @@ public sealed partial class MailboxOwnersPageViewModel
 
     private bool CanFindOwners() => !IsRunning && ExtraFilterError is null;
 
+    /// <summary>
+    /// Stops the search or the read of the owners: the Stop of the line, which says "Stopping…" at once (the run that
+    /// was started without a line - there is none - is stopped through its source).
+    /// </summary>
     [RelayCommand(CanExecute = nameof(IsRunning))]
-    private void Cancel() => Volatile.Read(ref _run)?.Cancel();
+    private void Cancel()
+    {
+        if (Status.Operation is { } operation)
+        {
+            operation.Cancel();
+            return;
+        }
 
-    private async Task RunAsync(IDirectorySession session, MailboxSearchScope scope, OwnerNameSource source, string attribute, CancellationToken token)
+        Volatile.Read(ref _run)?.Cancel();
+    }
+
+    private async Task RunAsync(IDirectorySession session, MailboxSearchScope scope, OwnerNameSource source, string attribute, OperationScope finding,
+        CancellationToken token)
     {
         var builder = new DirectoryRowBuilder(Correspondence.Fields, _fields.Definitions, DirectoryRowBuilder.ContextFor(Services, session));
         var attributes = MailboxAttributes(session.Schema, builder, source, attribute);
@@ -118,26 +156,33 @@ public sealed partial class MailboxOwnersPageViewModel
         var enabledOnly = EnabledOwnersOnly;
 
         var (mailboxes, failure) = await Task.Run(
-            () => finder.ReadMailboxesAsync(scope, filter, attributes, source, attribute, count => ShowProgressAsync(token, count, null), token),
+            () => finder.ReadMailboxesAsync(scope, filter, attributes, source, attribute, count => ShowProgressAsync(finding, token, count, null), token),
             token).ConfigureAwait(true);
         if (failure != MailboxReadFailure.None)
         {
-            Fail(Localizer.Format(L.CorrespondenceMailboxes.TooManyMailboxes, MaxMailboxes));
+            var reason = Localizer.Format(L.CorrespondenceMailboxes.TooManyMailboxes, MaxMailboxes);
+            Fail(reason);
+            _failure = new RunFailure(reason, MaxMailboxes, ResultCode.None);
+            UpdateLasting();
             return;
         }
 
         if (mailboxes.Count == 0)
         {
             ProgressText = Localizer[L.CorrespondenceMailboxes.NoMailboxes];
+            finding.CompleteAttention(ProgressText, new PageStatusLog(L.CorrespondenceMailboxes.NoMailboxes));
             return;
         }
 
         var (persons, personFailure) = await Task.Run(
-            () => finder.ReadPersonsAsync(personBase, count => ShowProgressAsync(token, mailboxes.Count, count), token),
+            () => finder.ReadPersonsAsync(personBase, count => ShowProgressAsync(finding, token, mailboxes.Count, count), token),
             token).ConfigureAwait(true);
         if (personFailure != MailboxReadFailure.None)
         {
-            Fail(Localizer.Format(L.CorrespondenceMailboxes.TooManyPersons, MaxPersons));
+            var reason = Localizer.Format(L.CorrespondenceMailboxes.TooManyPersons, MaxPersons);
+            Fail(reason);
+            _failure = new RunFailure(reason, MaxPersons, ResultCode.None);
+            UpdateLasting();
             return;
         }
 
@@ -169,13 +214,20 @@ public sealed partial class MailboxOwnersPageViewModel
         ProgressText = Localizer.Format(L.CorrespondenceMailboxes.Progress, mailboxes.Count, persons.Count);
     }
 
-    private Task ShowProgressAsync(CancellationToken token, int mailboxes, int? persons) => Services.Dispatcher.InvokeAsync(() =>
+    private Task ShowProgressAsync(OperationScope finding, CancellationToken token, int mailboxes, int? persons) => Services.Dispatcher.InvokeAsync(() =>
     {
         if (!token.IsCancellationRequested)
         {
             ProgressText = persons is { } count
                 ? Localizer.Format(L.CorrespondenceMailboxes.Progress, mailboxes, count)
                 : Localizer.Format(L.CorrespondenceMailboxes.ProgressMailboxes, mailboxes);
+            finding.Report(
+                persons is { } read
+                    ? Localizer.Format(L.MailboxesStatus.FindingPersons, mailboxes, read)
+                    : Localizer.Format(L.MailboxesStatus.FindingMailboxes, mailboxes),
+                log: persons is { } people
+                    ? new PageStatusLog(L.MailboxesStatus.FindingPersons, mailboxes, people)
+                    : new PageStatusLog(L.MailboxesStatus.FindingMailboxes, mailboxes));
         }
     });
 
@@ -186,7 +238,7 @@ public sealed partial class MailboxOwnersPageViewModel
         switch (ScopeKind)
         {
             case MailboxScopeKind.Selection when _selection.Count == 0:
-                Fail(Localizer[L.CorrespondenceMailboxes.ScopeSelectionNone]);
+                Refuse(Localizer[L.CorrespondenceMailboxes.ScopeSelectionNone], L.CorrespondenceMailboxes.ScopeSelectionNone);
                 return null;
             case MailboxScopeKind.Selection:
                 return new MailboxSearchScope(domain, _selection);
@@ -206,5 +258,18 @@ public sealed partial class MailboxOwnersPageViewModel
     {
         Error = message;
         ProgressText = message;
+    }
+
+    /// <summary>
+    /// What the press of "Find" came to nothing for (no objects were selected, the attribute of the owner's name is not usable):
+    /// <see cref="Fail"/> and an attention in the line - nothing was searched, and why.
+    /// </summary>
+    private void Refuse(string reason, string key)
+    {
+        Fail(reason);
+        if (!Status.IsWorking)
+        {
+            Status.Show(PageStatus.Attention(PageStatusText.Failure(Localizer[L.MailboxesStatus.NotSearched], reason), new PageStatusLog(key)));
+        }
     }
 }

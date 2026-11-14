@@ -204,7 +204,13 @@ public class PageStatusTests
             "Forbidden",
             ResultCode.Of(new AdMng.Watchdog.Client.WatchdogClientException(AdMng.Watchdog.Client.WatchdogClientErrorKind.Forbidden, "CONTOSO\\jan.kowalski has no role")).ToString());
 
-        foreach (var exception in new Exception[] { both, ldap, win32, kind, other })
+        // The kind of a failed Outlook call, never the code text, the step or the HRESULT of the failure.
+        Assert.Equal("NotResponding", ResultCode.Outlook(AdMng.Core.Correspondence.Outlook.OutlookFailureKind.NotResponding).ToString());
+        var outlook = new AdMng.Core.Correspondence.Outlook.OutlookException(new AdMng.Core.Correspondence.Outlook.OutlookFailure(
+            AdMng.Core.Correspondence.Outlook.OutlookFailureKind.Disconnected, "outlook.disconnected", "jan.kowalski@contoso.test", unchecked((int)0x80010108)));
+        Assert.Equal("Disconnected", ResultCode.Of(outlook).ToString());
+
+        foreach (var exception in new Exception[] { both, ldap, win32, kind, other, outlook })
         {
             var code = ResultCode.Of(exception).ToString();
             Assert.DoesNotContain("Łukasz", code, StringComparison.Ordinal);

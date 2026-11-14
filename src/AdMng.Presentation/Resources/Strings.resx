@@ -25518,5 +25518,132 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="WatchdogPage.Status.AuditStopped" xml:space="preserve">
     <value>Reading the configuration audit was stopped: the list was not changed. Press “{0}” to try again.</value>
   </data>
+  <!-- V2b-4, unit 5: the Korespondencja window -->
+  <data name="Correspondence.Status.OutlookStillWorks" xml:space="preserve">
+    <value>Sending through Outlook still works.</value>
+  </data>
+  <data name="Correspondence.Status.SignaturesNotRead" xml:space="preserve">
+    <value>The Outlook signatures could not be read</value>
+  </data>
+  <data name="Correspondence.Outlook.Status.Unavailable" xml:space="preserve">
+    <value>Outlook is not available: {0}</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.DirectoryReading" xml:space="preserve">
+    <value>Reading {0} from the directory…</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.DirectoryNothingAdded" xml:space="preserve">
+    <value>Nothing was added from the directory</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.DirectoryStopped" xml:space="preserve">
+    <value>Reading was stopped.</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.FileReading" xml:space="preserve">
+    <value>Reading “{0}”…</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.FilesReading" xml:space="preserve">
+    <value>Reading the files: {0}…</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.FilesStopped" xml:space="preserve">
+    <value>Loading was stopped after {0} of {1} files: the rows of the files read so far are on the list.</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.ImportPartly" xml:space="preserve">
+    <value>{0} Not loaded: {1}</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.ImportFailed" xml:space="preserve">
+    <value>No file was loaded. {0}</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.NothingLoaded" xml:space="preserve">
+    <value>Nothing was loaded</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.Finding" xml:space="preserve">
+    <value>Searching for mailbox owners…</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.FindingMailboxes" xml:space="preserve">
+    <value>Searching for mailbox owners: {0:N0} mailboxes read…</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.FindingPersons" xml:space="preserve">
+    <value>Searching for mailbox owners: {0:N0} mailboxes, {1:N0} persons read…</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.FindStopped" xml:space="preserve">
+    <value>The search for mailbox owners was stopped</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.FindStoppedReason" xml:space="preserve">
+    <value>The list may be incomplete. Press “Retry” to search again.</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.FindFailed" xml:space="preserve">
+    <value>The mailbox owners could not be found</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.NotSearched" xml:space="preserve">
+    <value>Nothing was searched</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.NothingAdded" xml:space="preserve">
+    <value>Nobody was added to the recipients</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.AddFailed" xml:space="preserve">
+    <value>The owners were not added to the recipients</value>
+  </data>
+  <data name="Correspondence.Send.Status.Sending" xml:space="preserve">
+    <value>Sending messages: {0} of {1}…</value>
+  </data>
+  <data name="Correspondence.Send.Status.SendingEta" xml:space="preserve">
+    <value>Sending messages: {0} of {1} · about {2} left…</value>
+  </data>
+  <data name="Correspondence.Send.Status.Drafting" xml:space="preserve">
+    <value>Saving drafts: {0} of {1}…</value>
+  </data>
+  <data name="Correspondence.Send.Status.Testing" xml:space="preserve">
+    <value>Sending the test: {0} of {1}…</value>
+  </data>
+  <data name="Correspondence.Send.Status.ResultsBelow" xml:space="preserve">
+    <value>Each message is listed under Results.</value>
+  </data>
+  <data name="Correspondence.Send.Status.FailedNext" xml:space="preserve">
+    <value>Press “Retry failed” to try them again.</value>
+  </data>
+  <data name="Correspondence.Send.Status.StoppedNextSend" xml:space="preserve">
+    <value>Press “Send” to send the rest: addresses already sent to are skipped while “Skip addresses already sent to” is on.</value>
+  </data>
+  <data name="Correspondence.Send.Status.StoppedNextDrafts" xml:space="preserve">
+    <value>Press “Create drafts” to create the rest.</value>
+  </data>
+  <data name="Correspondence.Send.Status.StoppedNextTest" xml:space="preserve">
+    <value>Press “Test to myself” to send it again.</value>
+  </data>
+  <data name="Correspondence.Send.Status.StoppedFailuresInRow" xml:space="preserve">
+    <value>Stopped after {0} failures in a row: check Outlook, then press “Retry failed”.</value>
+  </data>
+  <data name="Correspondence.Send.Status.OutlookStoppedNext" xml:space="preserve">
+    <value>Check Outlook, then press “Retry failed”.</value>
+  </data>
+  <data name="Correspondence.Send.Status.NothingSent" xml:space="preserve">
+    <value>Nothing was sent</value>
+  </data>
+  <data name="Correspondence.Send.Status.NothingDrafted" xml:space="preserve">
+    <value>No drafts were created</value>
+  </data>
+  <data name="Correspondence.Send.Status.TestNotSent" xml:space="preserve">
+    <value>The test was not sent</value>
+  </data>
+  <data name="Correspondence.Responses.Status.CampaignsFailed" xml:space="preserve">
+    <value>Sent Items could not be searched</value>
+  </data>
+  <data name="Correspondence.Responses.Status.CampaignsStopped" xml:space="preserve">
+    <value>Searching Sent Items was stopped: the list of runs was not changed.</value>
+  </data>
+  <data name="Correspondence.Responses.Status.ResponsesFailed" xml:space="preserve">
+    <value>The responses could not be read</value>
+  </data>
+  <data name="Correspondence.Responses.Status.ResponsesStopped" xml:space="preserve">
+    <value>Reading the responses was stopped: the list of responses was not changed.</value>
+  </data>
+  <data name="Correspondence.Preview.Status.OutlookBuilding" xml:space="preserve">
+    <value>Building the preview in Outlook…</value>
+  </data>
+  <data name="Correspondence.Preview.Status.OutlookStopped" xml:space="preserve">
+    <value>Building the preview in Outlook was stopped: the preview was not changed.</value>
+  </data>
+  <data name="Correspondence.Preview.Status.OutlookFailed" xml:space="preserve">
+    <value>The preview could not be read from Outlook</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>
