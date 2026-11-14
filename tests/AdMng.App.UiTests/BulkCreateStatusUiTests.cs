@@ -234,7 +234,7 @@ public sealed class BulkCreateStatusUiTests
             await UiTestSupport.WaitForIdleAsync(rounds: 2);
 
             // Stopped: a state of the page that lasts - what may be wrong and the way out - with the action of the button.
-            Assert.Equal("Attention", line.Title);
+            Assert.Equal("Uwaga", line.Title);
             Assert.StartsWith("Sprawdzanie wierszy zatrzymano: ", line.Message, StringComparison.Ordinal);
             Assert.False(ring.IsActive);
             Assert.Equal(Visibility.Visible, action.Visibility);
