@@ -66,6 +66,8 @@ public sealed partial class XamlSourceTests
     /// </summary>
     private static readonly string[] PagesWithAStatusLine =
     [
+        "Computers/ComputerReviewWindow.xaml",
+        "Computers/RemoteComputerWindow.xaml",
         "EventLogs/EventLogReaderView.xaml",
         "EventLogs/FailedLogonsView.xaml",
         "EventLogs/LockoutView.xaml",
@@ -113,7 +115,8 @@ public sealed partial class XamlSourceTests
     /// their opener, which says how that went in the line of its document). The same holds for a control that a converted
     /// window hosts (the rendered preview of a message): its sentence is a note, and what the window does is said by the
     /// line of the window. (V2b-4: the six views of the bulk creation wizard - the wizard is hosted in the first step of the
-    /// batch editor and says its status in that window's one line.)
+    /// batch editor and says its status in that window's one line. The dialog that asks for the restart of a computer hands its
+    /// request to the remote actions window, which says what became of it.)
     /// <see cref="AConvertedViewWithoutAStatusLine_HasNoBannerAndNoProgressBar"/> keeps the banners of before out of it.
     /// </summary>
     private static readonly string[] ConvertedViewsWithoutAStatusLine =
@@ -124,6 +127,7 @@ public sealed partial class XamlSourceTests
         "BulkCreate/BulkResultsView.xaml",
         "BulkCreate/BulkRulesView.xaml",
         "BulkCreate/BulkSourceView.xaml",
+        "Computers/RestartComputerWindow.xaml",
         "Controls/HtmlPreviewView.xaml",
         "GroupPolicy/GpoCopySettingsWindow.xaml",
         "GroupPolicy/GroupPolicyHealthPanel.xaml",

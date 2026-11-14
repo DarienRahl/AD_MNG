@@ -4,16 +4,21 @@
   computer reports it), logged-on users, services (read only), the actions (Group Policy refresh, restart with
   confirmation, cancel a scheduled restart), the local tools and the window's action log. Every call goes over WinRM with
   the window's credential; nothing is stored.
+  Feedback (track V, stage V2b-4): one status line under the header (PageStatus) says the connection, the one action that runs
+  - with Stop -, how it ended, and what lasts: the session of the window ended, the computer has no DNS name, remote actions
+  are not available. The six buttons that start an action are action buttons: while their action runs the button is its Cancel.
+  The action log of the window stays: it is the history of what was done here.
 -->
 <Window x:Class="AdMng.App.Computers.RemoteComputerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:AdMng.App.Controls"
         xmlns:cv="clr-namespace:AdMng.Presentation.Computers;assembly=AdMng.Presentation"
         xmlns:l="clr-namespace:AdMng.App.Localization"
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1040"
-        Height="780"
+        Height="816"
         MinWidth="760"
         MinHeight="520"
         WindowStartupLocation="CenterOwner">
@@ -23,6 +28,12 @@
     <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
 
     <Style x:Key="ActionButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Margin" Value="0,0,6,6" />
+      <Setter Property="Padding" Value="10,3" />
+    </Style>
+
+    <!-- The same metrics for a button that starts an action which can be stopped (c:ActionButton). -->
+    <Style x:Key="RemoteActionButton" TargetType="{x:Type c:ActionButton}" BasedOn="{StaticResource Ad.ActionButton}">
       <Setter Property="Margin" Value="0,0,6,6" />
       <Setter Property="Padding" Value="10,3" />
     </Style>
@@ -45,32 +56,14 @@
   </Window.InputBindings>
 
   <DockPanel>
+    <!-- Footer: Close. The connection and the progress are said by the status line. -->
     <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
-      <DockPanel>
-        <Button x:Name="CloseButton"
-                Command="{Binding CloseCommand}"
-                Content="{l:Tr Common.Close}"
-                DockPanel.Dock="Right"
-                IsCancel="True"
-                Style="{StaticResource Ad.DialogButton}" />
-        <Button x:Name="StopButton"
-                Margin="0,0,8,0"
-                Command="{Binding StopCommand}"
-                Content="{l:Tr Common.Stop}"
-                DockPanel.Dock="Right"
-                Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
-        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
-          <ProgressBar Width="60"
-                       Margin="0,0,8,0"
-                       VerticalAlignment="Center"
-                       IsIndeterminate="True"
-                       Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <TextBlock x:Name="ConnectionText"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding ConnectionText, Mode=OneWay}"
-                     TextTrimming="CharacterEllipsis" />
-        </StackPanel>
-      </DockPanel>
+      <Button x:Name="CloseButton"
+              HorizontalAlignment="Right"
+              Command="{Binding CloseCommand}"
+              Content="{l:Tr Common.Close}"
+              IsCancel="True"
+              Style="{StaticResource Ad.DialogButton}" />
     </Border>
 
     <!-- Header: the computer and its DNS name. -->
@@ -82,40 +75,42 @@
                  Text="{Binding Target.DnsHostName, Mode=OneWay, FallbackValue=''}" />
     </StackPanel>
 
-    <Border x:Name="SessionEndedBar"
-            Margin="16,10,16,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding SessionEndedMessage, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock Text="{Binding SessionEndedMessage, Mode=OneWay}" TextWrapping="Wrap" />
-    </Border>
-    <Border x:Name="ErrorBar"
-            Margin="16,10,16,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.ErrorBar}"
-            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock x:Name="ErrorText"
-                 AutomationProperties.LiveSetting="Assertive"
-                 Text="{Binding Error, Mode=OneWay}"
-                 TextWrapping="Wrap" />
-    </Border>
+    <!--
+      Status line (design note 6.1): the connection (WinRM, Kerberos, the window's account), the one action that runs with
+      Stop, how it ended, and what lasts - the session of this window ended, no DNS name, remote actions not available.
+      Always present, so nothing under it moves.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="8,8,8,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
 
     <!-- Actions and tools. -->
     <StackPanel Margin="16,10,16,0" DockPanel.Dock="Top">
       <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr RemoteActions.Actions}" />
       <WrapPanel>
-        <Button x:Name="RefreshPolicyButton"
-                Command="{Binding RefreshPolicyCommand}"
-                Content="{l:Tr RemoteActions.Action.RefreshPolicy}"
-                Style="{StaticResource ActionButton}" />
-        <Button x:Name="RestartButton"
-                Command="{Binding RestartCommand}"
-                Content="{l:Tr RemoteActions.Action.Restart}"
-                Style="{StaticResource ActionButton}" />
-        <Button x:Name="AbortRestartButton"
-                Command="{Binding AbortRestartCommand}"
-                Content="{l:Tr RemoteActions.Action.AbortRestart}"
-                Style="{StaticResource ActionButton}" />
+        <c:ActionButton x:Name="RefreshPolicyButton"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding RefreshPolicyCommand}"
+                        Content="{l:Tr RemoteActions.Action.RefreshPolicy}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsRefreshingPolicy, Mode=OneWay}"
+                        Style="{StaticResource RemoteActionButton}" />
+        <c:ActionButton x:Name="RestartButton"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding RestartCommand}"
+                        Content="{l:Tr RemoteActions.Action.Restart}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsSchedulingRestart, Mode=OneWay}"
+                        Style="{StaticResource RemoteActionButton}" />
+        <c:ActionButton x:Name="AbortRestartButton"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding AbortRestartCommand}"
+                        Content="{l:Tr RemoteActions.Action.AbortRestart}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsAbortingRestart, Mode=OneWay}"
+                        Style="{StaticResource RemoteActionButton}" />
         <Border Width="1"
                 Margin="6,2,12,8"
                 Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
@@ -151,10 +146,13 @@
       <Border Style="{StaticResource Ad.Card}">
         <DockPanel>
           <DockPanel DockPanel.Dock="Top">
-            <Button x:Name="RefreshStatusButton"
-                    Command="{Binding RefreshStatusCommand}"
-                    Content="{l:Tr RemoteActions.RefreshStatus}"
-                    DockPanel.Dock="Right" />
+            <c:ActionButton x:Name="RefreshStatusButton"
+                            CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                            Command="{Binding RefreshStatusCommand}"
+                            Content="{l:Tr RemoteActions.RefreshStatus}"
+                            DockPanel.Dock="Right"
+                            IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                            IsRunning="{Binding IsReadingStatus, Mode=OneWay}" />
             <TextBlock VerticalAlignment="Center" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr RemoteActions.Status}" />
           </DockPanel>
           <Grid Margin="0,8,0,0">
@@ -213,10 +211,13 @@
       <!-- Logged-on users. -->
       <DockPanel Grid.Row="1" Grid.ColumnSpan="3" Margin="0,12,0,0">
         <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
-          <Button x:Name="LoadUsersButton"
-                  Command="{Binding LoadUsersCommand}"
-                  Content="{l:Tr RemoteActions.LoadUsers}"
-                  DockPanel.Dock="Right" />
+          <c:ActionButton x:Name="LoadUsersButton"
+                          CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                          Command="{Binding LoadUsersCommand}"
+                          Content="{l:Tr RemoteActions.LoadUsers}"
+                          DockPanel.Dock="Right"
+                          IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                          IsRunning="{Binding IsReadingUsers, Mode=OneWay}" />
           <StackPanel>
             <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr RemoteActions.Users}" />
             <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding UsersNote, Mode=OneWay}" TextWrapping="Wrap" />
@@ -239,10 +240,13 @@
       <!-- Services (read only). -->
       <DockPanel Grid.Row="3" Grid.ColumnSpan="3">
         <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
-          <Button x:Name="LoadServicesButton"
-                  Command="{Binding LoadServicesCommand}"
-                  Content="{l:Tr RemoteActions.LoadServices}"
-                  DockPanel.Dock="Right" />
+          <c:ActionButton x:Name="LoadServicesButton"
+                          CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                          Command="{Binding LoadServicesCommand}"
+                          Content="{l:Tr RemoteActions.LoadServices}"
+                          DockPanel.Dock="Right"
+                          IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                          IsRunning="{Binding IsReadingServices, Mode=OneWay}" />
           <CheckBox x:Name="OnlyStoppedAutomaticBox"
                     Margin="0,0,12,0"
                     Content="{l:Tr RemoteActions.OnlyStoppedAutomatic}"

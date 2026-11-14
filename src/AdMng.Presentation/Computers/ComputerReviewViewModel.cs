@@ -69,6 +69,7 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase, IHasP
 
     /// <summary>The running check (null when none runs), the scope it names, and why it failed (the state of the window).</summary>
     private OperationScope? _checking;
+    private OperationScope? _pingScope;
     private string _checkingScope = string.Empty;
     private PageStatus? _failure;
 
@@ -99,6 +100,13 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase, IHasP
         _actions = actions ?? throw new ArgumentNullException(nameof(actions));
         _resolver = resolver;
         Status = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
+        Status.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PageStatusHolder.Operation))
+            {
+                OnPropertyChanged(nameof(IsPinging));
+            }
+        };
         _refreshDebouncer = new Debouncer(services.Time, TimeSpan.FromMilliseconds(300));
         var settings = services.Settings.Current.Computers;
         ReportOptions = [.. Enum.GetValues<ComputerReport>().Select(r => new ComputerReportOptionViewModel(r) { IsEnabled = !settings.DisabledReports.Contains(r) })];
@@ -204,6 +212,9 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase, IHasP
 
     /// <summary>The sites are being found - "Ustal lokację" is its Cancel.</summary>
     public bool IsResolvingSites => IsReading && _readKind == ReadKind.Sites;
+
+    /// <summary>A ping is on its way - "Ping" is its Cancel.</summary>
+    public bool IsPinging => Status.Operation is { } operation && ReferenceEquals(operation, _pingScope);
 
     [ObservableProperty]
     public partial bool HasRun { get; private set; }
@@ -728,6 +739,8 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase, IHasP
 
         var name = row.Name;
         using var pinging = Status.Begin(Localizer.Format(L.ComputerReviewStatus.Pinging, name), new PageStatusLog(L.ComputerReviewStatus.Pinging));
+        _pingScope = pinging;
+        OnPropertyChanged(nameof(IsPinging));
         try
         {
             var attempt = await _actions.TryPingAsync(session, row.Dn, pinging.Token).ConfigureAwait(true);
