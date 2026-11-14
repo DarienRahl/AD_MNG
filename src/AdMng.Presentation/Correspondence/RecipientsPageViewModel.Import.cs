@@ -146,13 +146,22 @@ public sealed partial class RecipientsPageViewModel
     private Task<ContactImportResult> ReadFileAsync(string path) =>
         ReadFileAsync(path, (name, bytes, codePage) => ContactFileReader.Read(name, bytes, codePage));
 
+    /// <summary>A test seam: a read on the thread pool waits for this task first, so a test can stop an import that nothing else can hold.</summary>
+    internal Task? ReadGate { get; set; }
+
     /// <summary>Reads one file on the thread pool and parses it with <paramref name="parse"/> (file name, bytes, ANSI code page).</summary>
     /// <exception cref="InvalidDataException">Too large, corrupt or not readable as its format.</exception>
     private Task<T> ReadFileAsync<T>(string path, Func<string, byte[], int, T> parse)
     {
         var codePage = AnsiCodePage;
+        var gate = ReadGate;
         return Task.Run(async () =>
         {
+            if (gate is not null)
+            {
+                await gate.ConfigureAwait(false);
+            }
+
             if (new FileInfo(path).Length > ContactFileReader.MaxFileBytes)
             {
                 throw new InvalidDataException("The file is larger than 50 MiB.");

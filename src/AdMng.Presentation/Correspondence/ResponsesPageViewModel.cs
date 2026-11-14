@@ -190,10 +190,9 @@ public sealed partial class ResponsesPageViewModel : ObservableObject, IHasPageS
             var day = DateTime.SpecifyKind(Since.Date, DateTimeKind.Unspecified);
             var since = new DateTimeOffset(day, Services.Time.LocalTimeZone.GetUtcOffset(day));
             var campaigns = await session.FindCampaignsAsync(since, cancellation).WaitAsync(cancellation).ConfigureAwait(true);
-            if (cancellation.IsCancellationRequested)
-            {
-                return;
-            }
+
+            // An answer that came in the moment the operator pressed Stop is not shown: the page said "Stopping…".
+            cancellation.ThrowIfCancellationRequested();
 
             Campaigns = [.. campaigns.Select(c => new Option<OutlookCampaign>(c, Localizer.Format(L.CorrespondenceResponses.Campaign,
                 LocalDate(c.FirstSent), c.Subject, c.Messages)))];
@@ -255,10 +254,7 @@ public sealed partial class ResponsesPageViewModel : ObservableObject, IHasPageS
             }
 
             var responses = await session.ReadResponsesAsync(campaign.Id, cancellation).WaitAsync(cancellation).ConfigureAwait(true);
-            if (cancellation.IsCancellationRequested)
-            {
-                return;
-            }
+            cancellation.ThrowIfCancellationRequested();
 
             var options = VotingOptions;
             var rows = responses.Select(r => new ResponseRowViewModel(

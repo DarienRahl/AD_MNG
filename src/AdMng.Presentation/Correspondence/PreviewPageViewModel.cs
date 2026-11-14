@@ -235,6 +235,7 @@ public sealed partial class PreviewPageViewModel : ObservableObject, IHasPageSta
                 return;
             }
 
+            token.ThrowIfCancellationRequested();   // an answer that came in the moment of Stop is not shown: the page said "Stopping…"
             var images = new Dictionary<string, MessageImage>(StringComparer.OrdinalIgnoreCase);
             foreach (var (id, image) in rendered.Images)
             {
