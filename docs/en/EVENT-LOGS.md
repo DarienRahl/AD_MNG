@@ -54,7 +54,10 @@ Each tab belongs to its connection window and uses its credentials.
   builds an XPath query from these and inserts the values safely (they cannot be used to change the query). **XPath mode
   (expert)** accepts your own expression after a syntax check; the target computer verifies the rest (in this mode the
   time range from the list does not apply).
-- **Search** reads at most four computers at once, with progress for each; *Stop* stops the read on the target computers.
+- **Search** reads at most four computers at once, with progress for each; the status line under the header says how many
+  sources are done and how many events were read, and its *Stop* (or *Search* itself, which is its *Cancel* while the read
+  runs) stops the read on the target computers. A source that could not be read is named by the line; the reason is in the
+  row of the source under *Coverage and access*. The same line serves the lockout investigation and the failed logons.
   Results: a shared **timeline** of all sources (newest first), at most 50,000 events – with more, the tab says how many
   were skipped and asks you to narrow the query. *Ctrl+F* filters the loaded events.
 - **Event details:** all fields by name with explanations of the codes in plain language (e.g. `0xC000006A` – wrong password,

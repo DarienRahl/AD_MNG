@@ -510,6 +510,9 @@ that the Group Policy area has no banner and no progress bar left (*V2b-3 as bui
 As built (V2b-4, unit 1): the bulk creation wizard says its status in the line of the batch editor, in whose first step it
 is hosted - no new line: its six views are on the second list of the source test, `ConvertedViewsWithoutAStatusLine`
 (*V2b-4 as built*, section 8).
+As built (V2b-4, unit 2): also the computer review and the remote actions window, the three event log documents and the
+readiness tab - six more views with a line, thirty-nine in all; the restart dialog is on the second list (a note and no
+line): fourteen converted views without one (*V2b-4 as built*, section 8).
 
 ### 6.2 Navigation – open question 2
 
@@ -1174,7 +1177,12 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
   `Ad.ErrorBar` and 19 of `Ad.WarningBar`, and 24 progress bars, in 25 view files** (one of the progress bars is the row
   of an activity in the main window and stays; the two styles themselves are still defined in `Themes/Controls.xaml`) –
   33 views with a status line and 7 converted views without one. `Views/` and `GroupPolicy/` are done: what is left is
-  seven areas, most of it on document tabs.
+  seven areas, most of it on document tabs. *Counted again after V2b-4, unit 2* (the figures above and the by-area list
+  below are those of the end of V2b-3, and the by-area list says what was left then): **5 uses of `Ad.ErrorBar` and 7 of
+  `Ad.WarningBar` in 14 view files and 15 progress bars in 15 files; 39 views with a status line and 14 converted views
+  without one** - bulk creation, computers, event logs and readiness are done, and three areas are left: `Views/Watchdog/`
+  2 + 4 and 7 in 9 files; `Pki/` 2 + 2 and 4 in 4 files; `Correspondence/` 1 + 1 and 3 in 1 file (plus the row of an
+  activity in the main window, which stays).
   - By area (error bars + warning bars, progress bars), in the order the next increments could take them: `BulkCreate/`
     3 + 5 and 2 in 4 files; `Views/Watchdog/` 2 + 4 and 7 in 9 files; `Computers/` 2 + 3 and 3 in 2 files; `Pki/` 2 + 2 and
     4 in 4 files; `EventLogs/` 0 + 3 and 3 in 3 files; `Correspondence/` 1 + 1 and 3 in 1 file; `Readiness/` 0 + 1 and 1 in
@@ -1200,16 +1208,17 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     how it is declared (tab order, default and cancel button), what a dialog that closes on success says, that a missing
     field is said when the button is pressed, how a dialog with tabs, a dialog without a session and a hosted control
     are handled, and that a view with nothing but notes gets no line and goes on the second list
-    (`ConvertedViewsWithoutAStatusLine`). Candidates for the action button that are left: bulk check, computer review,
-    remote computer, the event log reader and its two analyses, the PKI security
-    review, readiness, the sending of correspondence, the Watchdog delivery test. (Done in V2b-2: connect and the search
+    (`ConvertedViewsWithoutAStatusLine`). Candidates for the action button that are left: the PKI security
+    review, the sending of correspondence, the Watchdog delivery test. (Done in V2b-2: connect and the search
     for domain controllers, the change of the domain controller, OK of "Reset Password", preview, send and paste of the
     message window, the tests of the filter builder and of the saved view editor. Done in V2b-3: the two start buttons
     of the settings search, the cleanup advisor and the diagnostics, the main button of the backup window and *Update…*
-    of the central store.)
+    of the central store. Done in V2b-4: the check and the two start buttons of the bulk wizard's check, the check, the exact
+    last logon, the sites and the ping of the computer review, the six actions of the remote computer window, the run of the
+    event log reader, the loading of its channels and the runs of the two analyses, the two checks of readiness.)
   - Document tabs drop out of `StatusBarText` as they are converted: the ten Group Policy documents did in V2b-3, with
-    the base class they share; Watchdog, event logs, PKI and readiness are left (neither V2b-1 nor V2b-2 had a document
-    tab). The wizard of bulk creation (`BulkCreate/`) is hosted in step 1 of
+    the base class they share, and the three event log documents and readiness in V2b-4, unit 2; Watchdog and PKI are
+    left (neither V2b-1 nor V2b-2 had a document tab). The wizard of bulk creation (`BulkCreate/`) is hosted in step 1 of
     the batch editor: its holder becomes `SourceStatus` of the create mode (done in V2b-4, unit 1). With the last converted view `Ad.ErrorBar`
     and `Ad.WarningBar` leave `Themes/Controls.xaml`, and with them the strings and view-model members that lost their
     last user (listed under *After V2b-1*).
@@ -1879,7 +1888,15 @@ above.
   string lost its last user in that unit. Added by V2b-4, unit 1: the strings `BulkCreate.Reading`, `BulkCheck.Computing` and
   `BulkCheck.StaleNote` have no user any more; no longer shown but read by tests or by the view models themselves - `Error` of
   the source and of the check step of the bulk creation wizard, `ProfileStatus`, `OptionsError`, `ComputedRows` and
-  `TotalRows`; `StopCommand` of the check step has no view.
+  `TotalRows`; `StopCommand` of the check step has no view. Added by V2b-4, unit 2: the strings `Readiness.Stale`,
+  `EvtLog.Cancelled`, `EvtLog.StatusReading`, `EvtLog.LoadingChannels`, `EvtFail.StageFailures`, `EvtFail.StageSuccesses`,
+  `EvtFail.StageAnalysis` and `EvtLock.StageAccount`, `.StageDomainControllers`, `.StageLogs` and `.StageAnalysis` have no
+  user any more (the stages are `EventLogsStatus.*` now); no longer shown but read by tests or by the view models
+  themselves - `ProgressText` and `ProgressValue` of readiness, `LastRunText`, `WasCancelled` and `IsStale` of readiness
+  (the state of the line is computed from them), `Error`, `StatusText`, `SelectionText`, `IsReading`, `AsOf` and
+  `StopCommand` of the computer review, `ConnectionText`, `Error` and `StopCommand` of the remote window,
+  `LoadedText`, `ProgressText`, `StatusText`, `IsSupported`, `NotSupportedText` and `Error` of the event log documents;
+  `Cancel()` and `CancelCommand` of the documents and of readiness are the Stop of the line.
 - **Not seen, to confirm on Windows.** Nothing of V2b-1 was seen on a screen.
   - *The property sheet.* How a wrapped result looks in the 640 px wide sheet (two or three lines on the caution or
     critical surface, picture and buttons in the first line). The note next to the old validation texts (glyph and plain
@@ -3549,11 +3566,14 @@ and what nobody has seen on a screen yet.
 **V2b-4 as built (the remaining areas).** The fifth increment of V2 converts the areas that are left after Group Policy
 - bulk creation, computers, certificates, event logs, readiness, correspondence and the Watchdog views - in five units,
 done one after another. Unit 1 converted the bulk creation wizard (`BulkCreate/` with its view models in
-`Presentation/BulkCreate`). The foundations are those of *V2b-1 as built*, the *Dialogs* of *V2b-2 as built* and the
-decisions of *V2b-3 as built*; nothing was added to the model or to the controls. The block reads in this order: *Areas*
-(what each area decided about its line, its notes and its states that last - the instructions of the units after it),
-the wizard, the tests, what is left (the counts, what was left behind on purpose), and what nobody has seen on a screen
-yet. Every later unit adds its entry to *Areas* and its own section after the wizard.
+`Presentation/BulkCreate`). Unit 2 converted the computer windows (`Computers/`: the review, the remote actions window and
+the restart dialog), the three event log documents (`EventLogs/`) and the readiness tab (`Readiness/`). The foundations are
+those of *V2b-1 as built*, the *Dialogs* of *V2b-2 as built* and the decisions of *V2b-3 as built*; nothing was added to the
+controls, and the model got one factory in unit 2 (`ResultCode.Remote`, the kind of a failed remote action). The block reads
+in this order: *Areas* (what each area decided about its line, its notes and its states that last - the instructions of the
+units after it), the wizard, the unit-2 sections (the computer review, the remote actions window and the restart dialog, the
+event log documents, the readiness tab), the tests, what is left (the counts, what was left behind on purpose), and what
+nobody has seen on a screen yet. Every later unit adds its entry to *Areas* and its own section.
 
 - **Areas** (what each area decided; the next units follow it and add their own).
   1. *Bulk creation (unit 1) - a flow that another window hosts has the line of its host.* The wizard is the first step
@@ -3567,6 +3587,34 @@ yet. Every later unit adds its entry to *Areas* and its own section after the wi
      row, the notes under the results. *States that last:* only the check page has them (why there are no rows, stopped,
      out of date), computed in one method from the facts; the end of the session is the window's (`SessionEndedStatus`),
      the wizard adds none.
+  2. *Computers (unit 2) - a window that does several things one after another has one holder and a flag per button.* The
+     review's check, its read of the exact last logon, its finding of the sites and its ping are operations of one holder
+     that replace one another (the commands of the second kind refuse while one runs, and a new check replaces a read);
+     each ends as a result of its own and the four buttons that start them are action buttons, each with its own flag over
+     the one holder (`IsRunning`, `IsReadingExact`, `IsResolvingSites`, `IsPinging`) - the rule of V2b-4 unit 1 for two
+     buttons over one operation, with four. The remote actions window is the same with six (`IsReadingStatus` ...
+     `IsAbortingRestart`). *States that last:* the end of the session, a window opened without one, a check that failed (the
+     list is empty because of it), and in the remote window that the computer has no DNS name or that remote actions are not
+     available - states of the window, not dialogs on top of it. An action that changes something (a policy refresh, a
+     restart) is never repeated by a link in the line; a read is (Retry). *Notes:* the age of the release catalogue, which
+     is true for as long as the end-of-support results are shown and would otherwise hide the summary for months. A window
+     that only asks (the restart dialog) has a note and no line (*Dialogs* 11).
+  3. *Event logs (unit 2) - a family of documents shares the holder of its base class, as the Group Policy documents do.*
+     `EventLogDocumentBase` owns `Status`, so the reader, the lockout investigation and the failed logons say the same
+     things in the same words. The run is the operation of the tab, its stages are one message of it (the key of the
+     operation stays; "sources: 2 of 3, events: 1,204" is a new count, not a new message), and what it leaves is said by
+     the same four results in all three documents (the summary, an attention that names the sources that were not read,
+     an attention with Refresh for a run that was stopped, an error with Retry for one that failed). *Coverage* was sorted
+     once for the three: the state of each source stays in its row of the panel "Coverage and access" (the progress and the
+     state of a row), *which sources the run could not read* is the answer of the run and is said by the line, and the
+     findings about how far back a log reaches stay in the row and in the notes of the analyses. *States that last:* not
+     connected, the window cannot read event logs (nothing could be read, and its summary was empty anyway), and - in the
+     lockout investigation - that the object is no account.
+  4. *Readiness (unit 2) - what lasts is computed from the facts, and the rows keep their results.* The checks are the
+     operation of the tab with the area they are at and how far (`PageProgress.Of(done, total)`), the result of each check
+     stays in its row, the summary is what the last check found, then when and where it was made. States that last: not
+     connected, the connection changed after the shown check, the shown check was stopped - the same action, "Check
+     again", for the last two.
 
 - **The bulk creation wizard** (`BulkCreate/BulkCreateView.xaml` hosting `BulkSourceView`, `BulkColumnsView`,
   `BulkRulesView` and `BulkCheckView`, and `BulkResultsView` in the results step; `BulkCreateViewModel` with `Source`,
@@ -3671,7 +3719,192 @@ yet. Every later unit adds its entry to *Areas* and its own section after the wi
     exists for exactly this, Dialogs 15). The three source buttons did not become action buttons (above). The profile
     result is said in the line, which is at the top of the window, while *Zapisz* is at the bottom of a long step.
 
-- **Tests.** Presentation (35, on Linux): `BulkCreate/BulkSourceStatusTests` (12: the paste and the file with the sequence
+- **The computer review** (`Computers/ComputerReviewWindow.xaml`; `ComputerReviewViewModel`, `ComputerActions`, `ComputerSites`).
+  - *What the line says.* At the top of the window, 8 px in from its edge, above the scope. **At rest** the summary of the
+    last check ("As of 9:00 AM - 23 computers read - 23 computers in the reports"), with " - 3 selected" once rows are
+    selected; nothing before the first check. **The check:** "Checking the computers in the scope “contoso.test”…", then
+    "…: read: 1,200, with findings: 56…" (one report per batch), with Stop; the scope is named as the operator chose it (the
+    domain, the path of the organizational unit or of the group, the name of the saved view). Stopped - attention "Checking
+    the computers was stopped: the results are incomplete (read: 400). Press “Check” to check again." with *Check*. Failed -
+    an error that lasts: "Could not check the computers: reason. Press Retry to try again. (code)" with Retry; a scope that
+    cannot be resolved - "The computers were not checked: The saved view no longer exists." without an action and a code.
+    **The exact last logon:** "Reading the exact last logon of the computers (12) on all domain controllers…" with Stop;
+    done "2 of 2 domain controllers answered; 1 computers were active after all." (with "Checked 500 of 800 computers." in
+    front when the list was cut), an attention when a controller did not answer ("… No answer from: dc02.contoso.test."),
+    stopped - the list was not changed, with the button as the action; failed - an error with Retry. **The sites:** "Finding
+    the sites of the computers (300)…", then "…: 120 of 300…" with the part done in the ring; done "Sites of the computers
+    determined: 280 of 300.", or - once per check - an attention that adds the subnets that were skipped because of their
+    names; stopped - nothing is applied (the sites are applied after the last computer). **A ping:** "Pinging SRV-APP02…" with
+    Stop, then done with the replies ("Ping srv-app02.contoso.test (10.10.1.15): 4 of 4 replies, average 3 ms."), an attention
+    when there was no reply or it was stopped, an error when there was nothing to ping ("Could not ping PREST-PC201: PREST-PC201
+    has no DNS host name in Active Directory…"). **What lasts:** the session of the window ended; the window was opened without
+    one ("Not connected to a domain."); the check failed.
+  - *How the old places were sorted* (1 error bar, 2 warning bars, 2 progress bars, and the texts and toasts that said the
+    same).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | warning bar `SessionEndedMessage` | status | lasting error of the window |
+    | error bar `Error` (a check that failed, a scope that cannot be resolved, no session) | status | the state of the window: an error with Retry, or without one for the scope |
+    | warning bar "the release catalogue is old" | note | `Ad.Note.Attention` between the scope and the parameters: what the end-of-support results rest on, true while they are shown |
+    | progress bar in the footer (`IsBusy`) and the 3 px bar over the list (`IsRunning`) | status | the operation of the window, with the computers read so far |
+    | footer texts "As of …" and the selection | summary | `SetIdle`; gone from the footer |
+    | the *Stop* button next to *Check* (`Ad.CollapsedWhenDisabledButton`) | - | gone: *Check* is an action button and the Cancel of the check |
+    | the result of the exact last logon (a toast with the failed controllers and their reasons), of the sites and of the invalid subnets (toasts) | status | done / attention / error in the line |
+    | the answer of *Ping* (a toast, a dialog for what could not be pinged) | status | the operation "Pinging …" and its result in the line |
+
+  - *Decisions.*
+    - **One holder, one operation at a time, a flag per button.** Unlike the account review the window has no tabs, so the
+      check, the two reads and the ping share `Status`; they cannot overlap because a second `Begin` would replace the
+      first. *Check* may replace a read (a new check always won, and still does, without a word); a ping, a read and a
+      second read refuse while something runs (`CanPing`). The four buttons are action buttons with `IsRunning`,
+      `IsReadingExact`, `IsResolvingSites` and `IsPinging` - the last follows the operation of the holder, so a ping that
+      was replaced is not "Cancel" any more.
+    - **The check is begun before its first await** and `IsRunning` is true from that moment (the old code set it after the
+      settings were saved and the tiles built), so the button and the line agree; the work between is inside the `try`, a
+      failure there is the state of the window like any other.
+    - **The controllers that did not answer are named, their reasons are not** (as in the account review): the toast used to
+      list "dc02: reason" per controller; the line has the names and the counts, and what a reason says is one more thing to
+      read in a place that is gone after a few seconds. The log copy has the counts only.
+    - **The sites report how far they are.** `ComputerSites.ResolveAsync` got an optional `IProgress<int>` that reports about
+      fifty times (one report per batch of computers, never one per computer) and once at the end, in order. The exact last
+      logon has no count of its own (one read per controller, the same call for all computers): its line is indeterminate.
+    - **A ping says its result in the line.** `ComputerActions.PingAsync` (shell, property sheet) keeps its toast; the review
+      uses the new `TryPingAsync`, which says nothing itself and hands back the result, or why there is none with the kind of
+      the failure. The same split made `FindTargetAsync` (the remote target, or why there is none, without a dialog); the old
+      `ResolveTargetAsync` is built on it and behaves as before.
+    - **The silent refresh after a change keeps its toast** on failure: it never said "working", it re-reads the rows that a
+      change touched and finished elsewhere (6.7), as in the account review.
+    - `Error`, `StatusText`, `SelectionText`, `IsRunning`, `IsReading`, `IsBusy` and `StopCommand` are unchanged for the tests
+      and the code that read them (`StopCommand` is the same Stop as the line's). The window is 36 px higher by default (860
+      to 896).
+- **The remote actions window and the restart dialog** (`Computers/RemoteComputerWindow.xaml`, `RestartComputerWindow.xaml`;
+  `RemoteComputerViewModel`, `RestartComputerViewModel`).
+  - *What the line says.* Under the header (the computer and its DNS name), above the actions. **At rest** the connection:
+    "Connection: WinRM (HTTP 5985, Kerberos) as CONTOSO\admin". **An action** is the operation of the window, one at a time:
+    "Reading the status of KRK-PC101…", "Reading the logged-on users of …", "Reading the services of …", "Refreshing Group
+    Policy on …", "Scheduling the restart of …", "Cancelling the scheduled restart of …" - with Stop. A read ends without a
+    message (the card and the lists are its result); an action ends as done ("KRK-PC101: policy refreshed (computer policy
+    processed 12:04)", "KRK-PC101 restarts in 15 min"); **stopped** - a read: attention "Reading the logged-on users of
+    KRK-PC101 was stopped. Press “Show logged-on users” to read again." with that button; an action: "… was stopped: it is not
+    known whether the computer received the request." without an action; **failed** - an error "Could not read the services
+    of KRK-PC101: The computer does not answer. Check … (Unreachable)" with Retry for a read and without it for an action.
+    **What lasts:** the session of the window ended, no session, the computer has no DNS name ("PREST-PC201 has no DNS host
+    name in Active Directory…"), remote actions are not available in this host.
+  - *How the old places were sorted* (1 error bar, 1 warning bar, 1 progress bar).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | warning bar `SessionEndedMessage` | status | lasting error of the window |
+    | error bar `Error` (a failed call, "Cancelled.", no DNS name, no remote client, no session) | status | the result of the action; the state of the window for what cannot be done at all |
+    | progress bar in the footer (`IsBusy`) and the *Stop* button | status | the action in the line; the six buttons that start one are action buttons |
+    | `ConnectionText` in the footer | summary | `SetIdle`; gone from the footer |
+    | the error dialog of `ResolveTargetAsync` when the window opens on a computer that cannot be acted on | status | the state of the window (no dialog on top of it) |
+    | the validation sentence of the restart dialog (a caution glyph and secondary text by hand) | note | `Ad.Note.Attention`: why *Restart* is not possible yet - a sentence about the fields |
+
+  - *Decisions.*
+    - **Reads end quietly, actions say what was done.** The old window said both in the error bar (failures) and in its
+      action log (successes); the log stays, because it is the history of what was done in this window (it is the twin of the
+      audit and of the PowerShell history, and it survives the next action), while the line says the last answer. A restart
+      says its own sentence, which names the computer; the others get the computer in front.
+    - **A stopped action says that nobody knows.** A call that was cancelled while it was on its way to the computer may or
+      may not have been received; the line says that and offers no link - the operator checks and presses the button. The log
+      and the audit still say "Cancelled." as before (rule 5: only how a result is said changed).
+    - **One more result code** - `ResultCode.Remote(RemoteErrorKind)` ("WinRmNotAvailable", "AccessDenied") - the only
+      change to the model of the increment so far; a kind of failure the program names is allowed in a log copy.
+    - **The dialog on opening is gone.** `FindTargetAsync` is quiet; `InitializeAsync` puts why there is no computer into the
+      state of the window. `ResolveTargetAsync` (tools, ping from the shell) still opens its dialog.
+    - **The restart dialog starts no operation**: it collects a request and hands it to this window. It is on the second list
+      of the source test with the validation sentence as a note (the window kept `ErrorText` for its tests).
+    - The window is 36 px higher by default (780 to 816); `Error`, `IsBusy`, `ConnectionText` and `StopCommand` are unchanged.
+- **The event log documents** (`EventLogs/EventLogReaderView.xaml`, `FailedLogonsView.xaml`, `LockoutView.xaml`;
+  `EventLogDocumentBase` and the three view models).
+  - *What the line says.* Under the header of each document. **At rest** the summary of the last run with the selected
+    record or finding joined by " - " ("7 events from 2 sources", "Choose the sources and the query, then click Search." before
+    the first run). **A run** is the operation of the tab, with its stage as part of one message: the reader "Reading the event
+    logs - sources: 2 of 3, events: 1,204…" (sources as the part done), the failed logons "Checking the failed logons - reading
+    the domain controllers…", "… - reading the failed logons, sources: 2 of 3, events: 1,204…", "… - reading the successful
+    logons, accounts: 12…", "… - analysing the events…", the lockout "Investigating the lockout of “Jan Kowalski” - reading the
+    account…", "… - reading the domain controllers…", "… - reading the logs, sources: …", "… - analysing the events…"; the
+    channels "Loading the channels of dc01…". All with Stop. **What a run leaves:** nothing to say when every source was read;
+    an attention when some were not ("Reading the event logs: sources not read: 1 of 2 (dc02.contoso.test). The reason of each
+    is in “Coverage and access”.", up to three names); a stopped run - an attention with *Refresh* ("Reading the event logs was
+    stopped; events read and shown: 1,204. Press “Refresh” to read again." for the reader, which keeps what it read; "Checking
+    the failed logons was stopped: the results shown were not changed. Press “Refresh” to read again." for the two analyses); a failed run - an error with
+    *Retry* ("Could not investigate the lockout of “Jan Kowalski”: reason. Press Retry to try again. (code)"); the channels -
+    done "dc01.contoso.test: 2 channels loaded." (it no longer overwrites the summary of the last run). **What lasts:** not
+    connected; "Event logs can be read only in AD Manager running on Windows." or the simple-bind sentence (an attention - the
+    banner of before, whose place the summary never had: it was empty in such a window); what the run found it cannot show
+    (the account is not found or no account, the range is not valid) - an error without an action, until the next run.
+  - *How the old places were sorted* (0 error bars, 3 warning bars, 3 progress bars, and the status texts and buttons).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | warning bar "not supported" (not Windows, a simple bind), one per document | status | the state of the tab that lasts (an attention, without an action) |
+    | progress bar and the text beside it (`StatusText`: the progress, then the summary, or the error) | status, summary | the operation with its stage and the part done; the summary; the error as a result |
+    | `LoadedText` "Cancelled after N events - …" / "Cancelled." | status | an attention with Refresh; the reader keeps its text as the summary of what is shown |
+    | the *Cancel* button next to the run button | - | gone: the run buttons are action buttons (`RunButton` of the three, *Load channels* of the reader) |
+    | `Error` assigned in the middle of a run (the account is not found, no account, an invalid range) | status | the state of the tab (`ShowUnavailable`) |
+    | `Error` after "Show in the model" failed | status | an error that can be closed - never over a run that is on the line |
+    | the state, the coverage and the access of each source (`Hosts`: panel "Coverage and access") | state of a row | unchanged |
+    | the notes of the analyses (`Notes`), the validation texts of the query | note | unchanged |
+
+  - *Decisions.*
+    - **The holder is the base class's** (as in the Group Policy documents, *Group Policy documents* 1): `Status` and
+      `RefreshCommand` (the "Refresh" of a stopped run and the "Retry" of a failed one - F5 is `RefreshAsync`), one `RunText`
+      per run (its key is the log key of the operation and what is said when it fails), `ReportStage` and `ReportSources`
+      for the stages, `ShowUnavailable` and `SayFailure` for what a run or an action of the tab has to say.
+    - **A stage is not a message.** The title of the operation is the key; the stage and its counts are new texts of the same
+      message (the log copy is the key with "done, total, events"). `ProgressText` is the same text for what still reads it.
+    - **Coverage is said in two places that are not the same sentence.** *Which sources a run could not read* is what the run
+      did and is said once by the line (names and counts); *why*, for each, is its row in the panel, which opens by itself;
+      *how far back a log reaches* is a finding about the content and stays in its row and in the notes of the analyses. The
+      first is closable, so the second never depends on it.
+    - **A stopped reader keeps what it read** (`MarkPartial`), so the line says how many events are shown and the summary
+      keeps "Cancelled after N events - …"; the two analyses throw when stopped between their steps and leave what they showed.
+    - **A failed run that leaves the tab as it was is a result** (an error with Retry); what the run found the tab cannot
+      show is a state (`ShowUnavailable`) - nothing in the tab explains the empty report. The not connected state is the one of
+      the Group Policy documents.
+    - **The reader's two start buttons** are action buttons with a flag each (`IsSearching`, `IsLoadingChannels`), over one
+      holder - the second is a small button beside the channel box and is as wide as "Zatrzymywanie…" needs.
+    - `Error`, `StatusText`, `SelectionText`, `IsLoading`, `CancelCommand` and `Cancel()` are unchanged for the shell and the
+      tests (`Cancel()` is the same Stop as the line's); the status bar of the main window says nothing about these tabs now.
+- **The readiness tab** (`Readiness/ReadinessView.xaml`; `ReadinessDocumentViewModel`).
+  - *What the line says.* Under the header. **At rest** what the last check found, then when and where it was made ("OK: 20 -
+    Warnings: 3 - Errors: 1 - Not checked: 9 - Last check: full, 3.11.2026 14:32, on dc01.contoso.test"; "Not checked yet. Start
+    with the quick check." before the first one). **A check:** "Full check: 5 of 8 - Event logs (E)…" with the part done in the
+    ring and Stop. **What lasts**, the most important first: not connected; the connection changed after the shown check ("The
+    connection of this window changed after the shown check: the results may no longer be true. Press “Check again” to check
+    again."); the shown check was stopped ("… the checks it did not reach are shown as not checked. Press “Check again”…"),
+    both with *Check again*.
+  - *How the old places were sorted* (0 error bars, 1 warning bar, 1 progress bar, and the texts around them).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | warning bar "the connection changed after this check" with *Check again* | status | the state of the tab that lasts, with *Check again* as its action |
+    | progress bar and "Checking: Event logs (E) (5 of 8)" | status | the check in the line, with how far it is |
+    | "Last check: …" (a text of its own) and the bold "OK: 20 - …" | summary | `SetIdle`; both gone from the tab |
+    | "The check was cancelled; …" in the card | status | the state of the tab that lasts |
+    | "Read only: …" and "The export names …" (a card with an information glyph) | note | one `Ad.Note.Info` above the areas |
+    | the *Cancel* button | - | gone: *Quick check* and *Full check* are action buttons, one flag each |
+    | what each check found (the rows of the areas) | the result of a row | unchanged |
+
+  - *Decisions.*
+    - **A cancelled check is a state, not a result.** The rows of the checks it did not reach say "not checked" until the next
+      check, and the sentence is true for as long as they are shown; "stopped" and "the connection changed" are told apart by
+      the cause (the operator's Stop, or the session of the window), and the connection wins - the rows are of another
+      connection and incomplete, with the same action.
+    - **Two buttons, one holder, one flag each** (`IsQuickChecking`, `IsFullChecking`), as the two buttons of the bulk check.
+    - **The summary has the counts first, the time and the place last**, so a narrow tab cuts the part that is in the tool tip
+      and the list under it anyway (the order of the Group Policy documents).
+    - **Stop gives control back when the check does.** The checker honours the token between the checks and inside the
+      long ones, but a check that sits in a call that takes no token (the SYSVOL folder, a blocking library call) ends when
+      that call does; the line says "Stopping…" at once. The thread of a check is not abandoned: what it found before
+      the stop is the report that is shown.
+    - `StatusText`, `ProgressText`, `ProgressValue`, `SummaryText`, `LastRunText`, `IsStale`, `WasCancelled`, `CancelCommand`
+      and `Cancel()` are unchanged for the shell and the tests.
+
+- **Tests of unit 1.** Presentation (35, on Linux): `BulkCreate/BulkSourceStatusTests` (12: the paste and the file with the sequence
   of the line in both languages, the name of a file never in a log copy, Stop of a paste and of a file with a parse held on
   its thread and released, a clipboard without a table, files that cannot be used - too large, not a sheet, not there -
   with the table of before staying, a header row out of range, a column over the limit closed by the next action, the
@@ -3725,6 +3958,81 @@ yet. Every later unit adds its entry to *Areas* and its own section after the wi
   - The pictures `40-bulk-create-data.png` to `43-bulk-create-check.png` are made by the screenshot tests but are not
     committed or shown in the READMEs; they change with this unit (the summary in the line, the notes, the two action
     buttons) - the line itself was there since V2b-1, empty in this mode.
+- **Tests of unit 2.** Presentation (53, run on Linux): `Readiness/ReadinessStatusTests` (9: the first check with every area
+  and how far, the full check in both languages, Stop with control back at once and the stopped state with its action,
+  `CancelCommand` as the same Stop, a reconnect that ends the run without a word and the connection-changed state - in both
+  languages -, a tab without a session, the window that disconnects after a check, closing the tab during a check with no
+  area in a log copy), `EventLogs/EventLogStatusTests` (16: the reader's sequence from "what to do first" to the summary, in
+  both languages and with the selection joined, Stop with what was read kept and its Refresh, the sources that were not
+  read named by the line and their reasons left in the rows, the channels as an operation that leaves the summary, the
+  flags of the two start buttons, the window that cannot read event logs, not connected, the failed logons and the lockout
+  with their stages, a stopped analysis, an action that fails never over a run, an account that is no account, a failed read
+  with Retry, closing a tab during a run), `Computers/ComputerReviewStatusTests` (15: the summary with the selection, the
+  check with the scope and the computers read so far and no name in a log copy, the scope as the operator chose it, Stop and
+  the same Stop from `StopCommand`, a failed check and a scope that cannot be resolved, the exact last logon with the
+  controllers that did not answer, its Stop with the list unchanged, the sites stopped and how far they are, the ping as an
+  operation with its result in the line and a computer without a DNS name, the end of the session over what runs, a window
+  without a session, closing the window during a check), `Computers/RemoteComputerStatusTests` (12: the connection as the
+  summary, a read that ends as the summary, Stop of a read and its button as the action, `StopCommand` and a Stop during the
+  ping, an action that ends as done and a stopped one that says it is not known whether the computer got the request, a read
+  that fails with Retry and an action that fails without one, Polish, no DNS name, no remote client, the end of the session,
+  closing the window, the language switch) and `ComputerActionsTests` (+1: `FindTargetAsync` says why there is no target with
+  no dialog, `TryPingAsync` hands back the outcome with no toast). UI (Windows CI, written without a screen, 15):
+  `ReadinessStatusUiTests` (3: one line under the header with the summary and the notes as a note, the area of a full
+  check in the line with the button as its Cancel and the stopped state with *Check again*, the end of the connection),
+  `EventLogStatusUiTests` (5: one line under the header of every document with its run button as an action button, a run
+  with its sources and events and a stopped run with *Refresh*, a source that was not read named by the line and its
+  reason in its row, the window that cannot read event logs in the three documents, the channels button), `ComputerStatusUiTests`
+  (7: the review's one line at the top with four action buttons, a check with the scope and Stop as the button, a failed
+  check and the end of the session, the remote window's one line and its six action buttons, a read with its Stop, an
+  action that fails without a link, the window without a DNS name and the restart dialog with a note and no banner); every
+  place that grows with a result is measured with `GrowthOf`. Adapted where the place of a sentence changed:
+  `ComputerReviewViewModelTests` (3 tests read the result of the exact last logon, the sites and the subnets from the line
+  instead of the toasts), `ReadinessUiTests`, `EventLogDocumentsUiTests` (the not-supported banner is the state of the line),
+  `ComputerWindowsTests` (the status and the connection are read from the line), `PageStatusTests` (the code of
+  `ResultCode.Remote`). Source rules: the six views on `PagesWithAStatusLine` and `RestartComputerWindow.xaml` on
+  `ConvertedViewsWithoutAStatusLine` (both lists stay sorted ordinal); the expressions of `XamlSourceTests` for both lists,
+  the `Ad.*` keys, the closed set of Fluent brushes, the motion rule and "every `StaticResource` key is defined before its
+  first use" were proven on Linux with a throwaway script, and the `App.UiTests` project builds without a warning.
+- **After V2b-4, unit 2** (counted in the XAML, comments excluded): **5 uses of `Ad.ErrorBar` and 7 of `Ad.WarningBar` in
+  14 view files, 15 progress bars in 15 view files** (one is the row of an activity in the main window, which stays).
+  By area: `Views/Watchdog/` 2 + 4 and 7 in 9 files; `Pki/` 2 + 2 and 4 in 4 files; `Correspondence/` 1 + 1 and 3 in 1 file -
+  the three areas that are left. **Thirty-nine views have a status line and fourteen converted views none.** Unit 2 took 9
+  banners and 7 progress bars: of the 2 error bars both were status (the failed call of the review and of the remote window),
+  of the 7 warning bars 6 were status (the end of the session in the two windows, the three "not supported" bars of the
+  event logs, the changed connection of the readiness tab) and 1 a note (the age of the release catalogue); all 7 progress
+  bars were status. What never was a banner: the cancelled-check sentence and the stale hint of the readiness tab (states
+  that last), the card "Read only…" (a note), the validation sentence of the restart dialog (a note), the exact last
+  logon, the sites and the ping (toasts and a dialog, now results of an operation). Left behind on purpose (added to *After
+  V2b-1*): the strings `Readiness.Stale`, `EvtLog.Cancelled`, `EvtLog.StatusReading`, `EvtLog.LoadingChannels`,
+  `EvtFail.StageFailures`, `EvtFail.StageSuccesses`, `EvtFail.StageAnalysis` and the four `EvtLock.Stage*`, which have no
+  user any more (the stages are `EventLogsStatus.*` now); no longer shown but read by tests or by the view models
+  themselves - `ProgressText` and `ProgressValue` of readiness and `ProgressText` of the three documents (fed by the same
+  stage), `WasCancelled` and `IsStale` of readiness (the state is computed from them), `Error`, `StatusText`, `SelectionText`,
+  `IsReading`, `AsOf` and `StopCommand` of the review, `ConnectionText` and `Error` of the remote window, `LoadedText`,
+  `IsSupported` and `NotSupportedText` of the event log documents (the last is the sentence of the line). No command lost
+  its last user: `Cancel()` and `CancelCommand` of the documents are the same Stop as the line's.
+- **Not seen, to confirm on Windows (unit 2).** Nothing of unit 2 was seen on a screen either.
+  - *The computer review.* The line sits at the top of a window that is 36 px higher by default; it is an empty band before
+    the first check (the open question of the empty line). The four buttons are action buttons - "Zatrzymywanie…" is wider
+    than their labels, so the row may wrap in a narrow window; the long results (the exact last logon with the names of
+    the controllers that did not answer, the subnets that were skipped) wrap to three lines and push the list down; the
+    note about the release catalogue keeps its place between the scope and the parameters.
+  - *The remote window.* The six start buttons wrap onto a second row (their margin is 6 px at the right and at the bottom,
+    as in the old toolbar); "not known whether the computer got the request" is the longest sentence of the window; the
+    action log under it is unchanged and says "Cancelled." as before. The restart dialog has a note where a hand-made
+    caution glyph and a secondary-colour text were.
+  - *The event log documents.* The line is under the header and above the query; the run button is next to the query and
+    is as wide as "Zatrzymywanie…" needs, the "Load channels" button beside the channel box is small and may be cut in
+    Polish; a run with sources that were not read names three of them and the panel "Coverage and access" opens beside it,
+    so the same fact is on the screen twice, once as a count and once as rows.
+  - *The readiness tab.* The ring in the line shows how many areas are done; "Check again" is one link for two different
+    causes (stopped, changed connection); the summary is long ("OK: 20 · Warnings: 3 · … · Last check: full, … on dc01…")
+    and is cut in a narrow tab with the rest in the tool tip.
+  - *Open for the owner:* whether the review's exact last logon, sites and ping belong in the line as operations at all (a
+    toast was gone after a few seconds, the line stays until the next thing - a result that nobody closes may be read as
+    "still true" long after); whether a stopped remote action should offer a link that reads the status of the computer;
+    whether the sources that a run could not read should be named by the line when their rows say so already.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 

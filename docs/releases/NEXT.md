@@ -482,10 +482,58 @@
   wszystkich wierszy, i uwagi nad wynikami tworzenia kont (replikacja, konta zostawione wyłączone, zatrzymanie po
   pierwszym koncie) są uwagami zamiast żółtych ramek. Gdy sesja okna się zakończy, wiersz mówi to od razu – także w
   trakcie sprawdzania.
+- **Przegląd komputerów: wiersz stanu u góry okna.** Okno mówi w jednym wierszu, co robi i jak się to skończyło. W
+  spoczynku: podsumowanie ostatniego sprawdzenia i liczba zaznaczonych komputerów (to zdanie stało dotąd w stopce).
+  Sprawdzanie to **Trwa** „Sprawdzanie komputerów w zakresie „contoso.test”: odczytano: 1 200, z ustaleniami: 56…” z
+  poleceniem **Zatrzymaj**; zatrzymane („… wyniki są niepełne (odczytano: 400). Wybierz „Sprawdź”, aby sprawdzić ponownie.”)
+  i nieudane sprawdzanie są stanem okna, dopóki nie sprawdzisz ponownie. Wynik **Dokładnego ostatniego logowania**, ustalenia
+  lokacji i polecenia **Ping** – dotąd powiadomienie, które znikało po kilku sekundach, i okno z błędem – jest w wierszu:
+  „Odpowiedziało kontrolerów domeny: 2 z 2; aktywnych okazało się komputerów: 1.”, a gdy któryś kontroler nie odpowiedział,
+  zwraca uwagę i go wymienia. Zatrzymanie któregokolwiek z nich mówi, że listy nie zmieniono. Że sesja okna się zakończyła
+  albo że okno otwarto bez połączenia, wiersz mówi od razu – także w trakcie sprawdzania. Uwaga, że katalog wydań systemu
+  Windows jest stary, została nad parametrami jako uwaga (dotąd żółta ramka), bo jest prawdą o wynikach, dopóki je widać.
+- **Przegląd komputerów: *Sprawdź*, *Dokładne ostatnie logowanie*, *Ustal lokację* i *Ping* przerywa się tym przyciskiem,
+  którym się je zaczęło.** Każdy z nich na czas operacji zamienia się w **Anuluj** (potem „Zatrzymywanie…”); osobnego
+  przycisku *Zatrzymaj* obok *Sprawdź* i paska postępu nad listą nie ma. Jedna operacja trwa naraz; nowe sprawdzanie nadal
+  zastępuje poprzednie. Okno jest o 36 px wyższe.
+- **Zdalne akcje na komputerze: wiersz stanu pod nagłówkiem.** W spoczynku wiersz mówi, jak okno łączy się z komputerem
+  („Połączenie: WinRM (HTTP 5985, Kerberos) jako CONTOSO\admin”; to zdanie stało dotąd w stopce). Odczyt albo akcja to
+  **Trwa** – „Odczytywanie usług komputera KRK-PC101…” – z poleceniem **Zatrzymaj**. Odczyt kończy się bez komunikatu
+  (kartę stanu i listy widać pod spodem); akcja mówi, co zrobiła („KRK-PC101: zasady grupy odświeżone”, „KRK-PC101 uruchomi
+  się ponownie za 15 min”). Odczyt, który się nie udał, jest wynikiem z poleceniem **Ponów**; akcja, która zmienia komputer
+  (odświeżenie zasad, ponowne uruchomienie, jego anulowanie), nie ma odnośnika do powtórzenia. Zatrzymana akcja mówi
+  uczciwie: „… zatrzymano: nie wiadomo, czy komputer otrzymał żądanie.” Że komputer nie ma nazwy DNS w Active Directory albo
+  że zdalne akcje nie są dostępne w tej wersji, jest stanem okna – dotąd był to dziennik i okno błędu nad oknem. Dziennik
+  akcji pod listami zostaje jak był: jest historią tego, co zrobiono w oknie. Sześć przycisków, które coś zaczynają
+  (*Sprawdź stan*, *Pokaż zalogowanych*, *Pokaż usługi*, *Odśwież zasady grupy*, *Uruchom ponownie…*, *Anuluj zaplanowane
+  ponowne uruchomienie*), przerywa to, co rozpoczęło. Okno jest o 36 px wyższe. Okno *Uruchom ponownie* ma zdanie o
+  polach jako uwagę zamiast ręcznie narysowanej ramki.
+- **Dzienniki zdarzeń: wiersz stanu pod nagłówkiem każdego dokumentu.** *Dziennik zdarzeń*, *Nieudane logowania* i
+  *Blokady kont* mówią w jednym wierszu to samo tymi samymi słowami. W spoczynku: podsumowanie ostatniego przebiegu z
+  zaznaczonym zdarzeniem albo ustaleniem („Zdarzeń: 7 z 2 źródeł”). Przebieg to **Trwa** z etapem i licznikami – „Odczytywanie
+  dzienników zdarzeń – źródła: 2 z 3, zdarzenia: 1 204…”, „Sprawdzanie nieudanych logowań – analiza zdarzeń…”, „Badanie
+  blokady konta „Jan Kowalski” – odczyt kontrolerów domeny…” – z poleceniem **Zatrzymaj**. Jeśli nie odczytano któregoś ze
+  źródeł, wiersz zwraca na to uwagę i wymienia najwyżej trzy („… nie odczytano źródeł: 1 z 2 (dc02.contoso.test). Przyczyna
+  każdego jest w sekcji „Zasięg i dostęp”.”); przyczyna zostaje w wierszu źródła w tej sekcji, a to, jak daleko wstecz
+  sięga dziennik, w uwagach analiz. Zatrzymany odczyt zostawia to, co odczytano („… zatrzymano; odczytane i pokazane
+  zdarzenia: 1 204. Wybierz „Odśwież”, aby odczytać ponownie.”), zatrzymana analiza – wyniki, które były; przebieg, który
+  się nie udał, jest wynikiem z poleceniem **Ponów**. Wczytanie kanałów komputera mówi w wierszu, a podsumowanie ostatniego
+  odczytu zostaje. Że dzienników zdarzeń nie da się czytać w tym oknie (nie Windows albo proste wiązanie), jest stanem
+  dokumentu – dotąd żółta ramka u góry, a podsumowanie było puste. Że konto z blokady nie istnieje albo że zakres jest
+  nieprawidłowy, jest stanem do następnego przebiegu. Osobny przycisk *Anuluj* i pasek postępu zniknęły: **Wyszukaj**,
+  **Sprawdź** i **Wczytaj kanały** same są przyciskiem, który przerywa to, co rozpoczęły.
+- **Gotowość środowiska: wiersz stanu pod nagłówkiem.** W spoczynku wiersz mówi, co znalazło ostatnie sprawdzenie, a potem
+  kiedy i gdzie je wykonano („OK: 20 · Ostrzeżenia: 3 · Błędy: 1 · Niesprawdzone: 9 · Ostatnie sprawdzenie: pełne,
+  3.11.2026 14:32, na dc01.contoso.test”) – dotąd były to dwa osobne teksty w karcie. Sprawdzenie to **Trwa** „Pełne
+  sprawdzenie: 5 z 8 – Dzienniki zdarzeń (E)…” z postępem w kółku i poleceniem **Zatrzymaj**; *Szybkie sprawdzenie* i
+  *Pełne sprawdzenie* zamieniają się na jego czas w **Anuluj** – osobnego przycisku i paska postępu nie ma. Sprawdzenie
+  zatrzymane („… sprawdzenia, do których nie doszło, oznaczono jako niesprawdzone. Wybierz „Sprawdź ponownie”…”) i zmiana
+  połączenia po pokazanym sprawdzeniu są stanami karty z poleceniem **Sprawdź ponownie**, dopóki go nie wykonasz; brak
+  połączenia – błędem stanu. „Tylko do odczytu…” i uwaga o eksporcie są jedną uwagą nad obszarami.
 - **Co się nie zmieniło:** wiersz stanu mają teraz lista obiektów, wszystkie karty zasad grupy, kreator zakładania wielu
-  kont i wszystkie okna oraz dialogi wymienione wyżej; uwagi zamiast ramek mają też okna zasad grupy, które tylko zbierają
-  dane. Pozostałe karty i okna – Watchdog, dzienniki zdarzeń, certyfikaty, przegląd komputerów i zdalne akcje,
-  korespondencja, gotowość środowiska – mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski postępu; przejdą
+  kont, przegląd komputerów i zdalne akcje, dzienniki zdarzeń, gotowość środowiska i wszystkie okna oraz dialogi wymienione
+  wyżej; uwagi zamiast ramek mają też okna zasad grupy, które tylko zbierają dane. Pozostałe karty i okna – Watchdog,
+  certyfikaty, korespondencja – mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski postępu; przejdą
   na wiersz stanu w następnych wydaniach. Eksport do pliku i kopiowanie do schowka nadal potwierdza powiadomienie, a pasek postępu pojedynczej
   operacji na liście operacji w tle zostaje w swoim wierszu. Animacja nowego komunikatu (krótkie wsunięcie) i zamiany
   napisu na przycisku działa tylko przy włączonych animacjach (*Ustawienia → Ogólne → Wygląd → Animacje*); kółko postępu

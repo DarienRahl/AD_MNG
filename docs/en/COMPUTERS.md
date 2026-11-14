@@ -24,7 +24,10 @@ Rules that apply everywhere:
 
 **Scope:** the whole domain, an organizational unit (with its subtree), a saved view or the members of a group (as in
 *Account review*). *Check* (F5) reads computer accounts with a single paged query (`sAMAccountType=805306369`, without
-managed service accounts). Results appear as they arrive, and *Stop* halts the read.
+managed service accounts). Results appear as they arrive. The status line at the top of the window says how many computers
+were read and has *Stop*; while the check runs, *Check* itself is its *Cancel*. The same line says how the reads of the
+exact last logon and of the sites and a ping ended (what did not answer, what was skipped), and what lasts: the session of
+the window ended, or the check failed (with *Retry*).
 
 **Reports** (tiles with the number of computers):
 
@@ -131,8 +134,10 @@ The actions work as for other objects, with additional rules for computers:
 ## 4. Remote actions (WinRM, Kerberos)
 
 *Computer → Remote actions…* opens the computer's window (one per computer in a connection window). The window header
-shows the computer name, its DNS name and the connection method, e.g. *Connection: WinRM (HTTP 5985, Kerberos) as
-CONTOSO\admin*.
+shows the computer name and its DNS name, and the status line under it the connection method, e.g. *Connection: WinRM
+(HTTP 5985, Kerberos) as CONTOSO\admin*. The same line says which action runs (with *Stop*; the button of the action is its
+*Cancel*) and how it ended: a read leaves its result in the card or the list, an action says what was done, and an action
+that was stopped says that it is not known whether the computer received the request.
 
 | Action | What it does |
 |---|---|
