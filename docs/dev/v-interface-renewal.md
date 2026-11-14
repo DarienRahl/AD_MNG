@@ -3399,6 +3399,10 @@ and what nobody has seen on a screen yet.
   `ConvertedViewsWithoutAStatusLine`. The source rules – the two lists, the closed set of Fluent brush keys (28,
   unchanged), "every `StaticResource` key resolves, before its first use", the keys of the localization – were proven on
   Linux with a throwaway script that repeats the expressions of the tests (and the script was shown to catch an old bar).
+  The first Windows run found one wrong assumption of the tests, none of a view: GPMC's `manifest.xml` is written with the
+  hidden attribute, and Windows refuses to overwrite a hidden file, so the tests that make a backup come from another
+  domain (one Presentation test, one UI test) clear the attribute first. The other fifteen UI tests of the unit and the
+  adapted ones were green unseen.
 - **After unit 1 of V2b-3** (counted in the XAML, comments excluded): 16 uses of `Ad.ErrorBar` and 33 of
   `Ad.WarningBar` in 30 files and 31 progress bars in 28 files – 37 view files with at least one of the three; in
   `GroupPolicy/` 6 + 14 and 7 in 12 files. 23 views with a status line, 6 with a line and bars of their own, 4 converted
