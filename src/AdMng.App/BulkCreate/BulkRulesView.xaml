@@ -5,6 +5,10 @@
   suffix and the mail domain), Konto (password mode, length, the shared password boxes – set in code-behind, never bound –,
   must-change, enabled, expiry; group scope and type; the computers' joiner), Grupy and a collapsed Zaawansowane with a
   one-line summary.
+  Feedback (track V, stage V2b-4): the step has no status line of its own - the wizard is hosted in the first step of the
+  batch editor, whose one line says the answers to the presses of this step (a profile saved, deleted or made the default,
+  why not; why the account that can join computers was not set) while this step is shown. What stays here are notes: why
+  Dalej is not possible, the pattern errors, the warnings about the suffixes and the groups, the first free number.
 -->
 <UserControl x:Class="AdMng.App.BulkCreate.BulkRulesView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -287,31 +291,19 @@
                        TextWrapping="Wrap" />
           </StackPanel>
 
-          <TextBlock x:Name="ProfileStatusText"
-                     Margin="0,8,0,0"
-                     AutomationProperties.LiveSetting="Polite"
-                     Text="{Binding ProfileStatus, Mode=OneWay}"
-                     TextWrapping="Wrap"
-                     Visibility="{Binding ProfileStatus, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
         </StackPanel>
       </Border>
 
-      <!-- Why Dalej is not possible yet -->
-      <Border Margin="0,0,0,10"
-              Style="{StaticResource Ad.ErrorBar}"
-              Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <DockPanel>
-          <TextBlock Margin="0,0,10,0"
-                     DockPanel.Dock="Left"
-                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                     Style="{StaticResource Ad.GlyphText}"
-                     Text="{x:Static c:Glyphs.Error}" />
-          <TextBlock x:Name="RulesErrorText"
-                     AutomationProperties.LiveSetting="Assertive"
-                     Text="{Binding Error, Mode=OneWay}"
-                     TextWrapping="Wrap" />
-        </DockPanel>
-      </Border>
+      <!-- Why Dalej is not possible yet: true of the rules and options below for as long as they are shown (a note) -->
+      <ContentControl x:Name="RulesErrorNote"
+                      Margin="0,0,0,10"
+                      Style="{StaticResource Ad.Note.Error}"
+                      Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+        <TextBlock x:Name="RulesErrorText"
+                   AutomationProperties.LiveSetting="Assertive"
+                   Text="{Binding Error, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+      </ContentControl>
 
       <!-- ===== Nazwy ===== -->
       <Expander x:Name="NamesSection"
@@ -584,12 +576,6 @@
                       Visibility="{Binding Joiner, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
             </StackPanel>
           </StackPanel>
-
-          <TextBlock Margin="0,8,0,0"
-                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                     Text="{Binding OptionsError, Mode=OneWay}"
-                     TextWrapping="Wrap"
-                     Visibility="{Binding OptionsError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
         </StackPanel>
       </Expander>
 

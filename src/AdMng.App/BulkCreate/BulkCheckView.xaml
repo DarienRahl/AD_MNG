@@ -1,8 +1,13 @@
 <!--
   Step 4 "Sprawdzenie" of the bulk creation wizard (BulkCheckViewModel, docs/dev/phase3-bulk-create.md 2.7): the filter and the
-  row commands, the summary, the uniqueness scope, the run issues and the progress above a virtualized DataGrid. The include
-  check box and the status glyph are fixed columns; the value columns (Nr, Imię, Nazwisko frozen, Uwagi, the attributes,
-  Menedżer, Grupy) are generated in code-behind from BulkCheckViewModel.Columns and bound by index (Cells[i]).
+  row commands, the uniqueness scope and the run issues above a virtualized DataGrid. The include check box and the status
+  glyph are fixed columns; the value columns (Nr, Imię, Nazwisko frozen, Uwagi, the attributes, Menedżer, Grupy) are
+  generated in code-behind from BulkCheckViewModel.Columns and bound by index (Cells[i]).
+  Feedback (track V, stage V2b-4): the step has no status line of its own - the wizard is hosted in the first step of the
+  batch editor, whose one line says the summary of the check, the check itself with the part done and Stop, and what
+  lasts (why there are no rows, stopped, out of date, with "Sprawdź ponownie") while this step is shown. "Sprawdź
+  ponownie" and "Numeruj od nowa" are action buttons: each is the Cancel of the computation it started. What stays here is
+  a note: the problems that concern every row.
 -->
 <UserControl x:Class="AdMng.App.BulkCreate.BulkCheckView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -33,16 +38,22 @@
                 Command="{Binding CopyErrorRowsCommand}"
                 Content="{l:Tr BulkCheck.CopyErrorRows}"
                 ToolTip="{l:Tr BulkCheck.CopyErrorRowsHint}" />
-        <Button x:Name="RecheckButton"
-                Margin="8,0,0,0"
-                Command="{Binding RecheckCommand}"
-                Content="{l:Tr BulkCheck.Recheck}"
-                ToolTip="{l:Tr BulkCheck.RecheckHint}" />
-        <Button x:Name="RenumberButton"
-                Margin="8,0,0,0"
-                Command="{Binding RenumberCommand}"
-                Content="{l:Tr BulkCheck.Renumber}"
-                ToolTip="{l:Tr BulkCheck.RenumberHint}" />
+        <c:ActionButton x:Name="RecheckButton"
+                        Margin="8,0,0,0"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding RecheckCommand}"
+                        Content="{l:Tr BulkCheck.Recheck}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsRechecking, Mode=OneWay}"
+                        ToolTip="{l:Tr BulkCheck.RecheckHint}" />
+        <c:ActionButton x:Name="RenumberButton"
+                        Margin="8,0,0,0"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding RenumberCommand}"
+                        Content="{l:Tr BulkCheck.Renumber}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsRenumbering, Mode=OneWay}"
+                        ToolTip="{l:Tr BulkCheck.RenumberHint}" />
       </StackPanel>
       <StackPanel Orientation="Horizontal">
         <TextBlock Margin="0,0,8,0"
@@ -58,13 +69,7 @@
       </StackPanel>
     </DockPanel>
 
-    <!-- Summary and the uniqueness scope -->
-    <TextBlock x:Name="SummaryText"
-               AutomationProperties.LiveSetting="Polite"
-               DockPanel.Dock="Top"
-               FontWeight="SemiBold"
-               Text="{Binding Summary, Mode=OneWay}"
-               TextWrapping="Wrap" />
+    <!-- The uniqueness scope (the summary of the check is in the status line of the window) -->
     <TextBlock x:Name="ScopeNoteText"
                Margin="0,2,0,0"
                DockPanel.Dock="Top"
@@ -73,87 +78,25 @@
                TextWrapping="Wrap"
                Visibility="{Binding ScopeNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
 
-    <!-- The computation's error -->
-    <Border Margin="0,8,0,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.ErrorBar}"
-            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <DockPanel>
-        <TextBlock Margin="0,0,10,0"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Error}" />
-        <TextBlock x:Name="CheckError"
-                   AutomationProperties.LiveSetting="Assertive"
-                   Text="{Binding Error, Mode=OneWay}"
-                   TextWrapping="Wrap" />
-      </DockPanel>
-    </Border>
-
-    <!-- Problems of the whole run (target, permissions, patterns, password policy …) -->
-    <Border x:Name="RunIssuesBar"
-            Margin="0,8,0,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding RunIssues, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <DockPanel>
-        <TextBlock Margin="0,0,8,0"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Warning}" />
-        <StackPanel>
-          <TextBlock FontWeight="SemiBold" Text="{l:Tr BulkCheck.RunIssuesHeading}" />
-          <ItemsControl ItemsSource="{Binding RunIssues, Mode=OneWay}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <TextBlock Margin="0,2,0,0"
-                           Text="{Binding Mode=OneWay}"
-                           TextWrapping="Wrap" />
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </StackPanel>
-      </DockPanel>
-    </Border>
-
-    <!-- The grid shows an older computation -->
-    <Border Margin="0,8,0,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding IsStale, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <TextBlock Text="{l:Tr BulkCheck.StaleNote}" TextWrapping="Wrap" />
-    </Border>
-
-    <!-- Progress of a computation -->
-    <StackPanel x:Name="ComputingPanel"
-                Margin="0,8,0,0"
-                DockPanel.Dock="Top"
-                Orientation="Horizontal"
-                Visibility="{Binding IsComputing, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <ProgressBar Width="200"
-                   VerticalAlignment="Center"
-                   AutomationProperties.Name="{l:Tr BulkCreate.StepCheck}"
-                   Maximum="{Binding TotalRows, Mode=OneWay}"
-                   Minimum="0"
-                   Value="{Binding ComputedRows, Mode=OneWay}" />
-      <TextBlock Margin="10,0,0,0"
-                 VerticalAlignment="Center"
-                 AutomationProperties.LiveSetting="Polite"
-                 Style="{StaticResource Ad.SecondaryText}">
-        <TextBlock.Text>
-          <MultiBinding Converter="{StaticResource Ad.Format}">
-            <l:TrBinding Key="BulkCheck.Computing" />
-            <Binding Mode="OneWay" Path="ComputedRows" />
-            <Binding Mode="OneWay" Path="TotalRows" />
-          </MultiBinding>
-        </TextBlock.Text>
-      </TextBlock>
-      <Button Margin="10,0,0,0"
-              Command="{Binding StopCommand}"
-              Content="{l:Tr Common.Stop}" />
-    </StackPanel>
+    <!-- Problems of the whole run (target, permissions, patterns, password policy …): how the check below is to be read -->
+    <ContentControl x:Name="RunIssuesBar"
+                    Margin="0,8,0,0"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding RunIssues, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <StackPanel>
+        <TextBlock FontWeight="SemiBold" Text="{l:Tr BulkCheck.RunIssuesHeading}" />
+        <ItemsControl ItemsSource="{Binding RunIssues, Mode=OneWay}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <TextBlock Margin="0,2,0,0"
+                         Text="{Binding Mode=OneWay}"
+                         TextWrapping="Wrap" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ContentControl>
 
     <TextBlock Margin="0,6,0,0"
                DockPanel.Dock="Bottom"

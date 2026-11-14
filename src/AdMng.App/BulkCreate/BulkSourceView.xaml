@@ -4,6 +4,10 @@
   offset, the repeated-paste question, the reading warnings and the editable source grid. The grid's columns are generated in
   code-behind from SourceColumnViewModel (one per table column, bound to the row indexer [i]; password-like columns are
   read-only and show and copy the mask). Rows and columns are virtualized (5 000 rows).
+  Feedback (track V, stage V2b-4): the step has no status line of its own - the wizard is hosted in the first step of the
+  batch editor, whose one line says the summary of the table, reading a paste or a file with Stop and why nothing was
+  loaded while this step is shown. What stays here are notes: the question of a repeated paste (with its three choices)
+  and the reading warnings of the table that is shown.
 -->
 <UserControl x:Class="AdMng.App.BulkCreate.BulkSourceView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -31,13 +35,6 @@
   <DockPanel>
     <!-- Commands -->
     <DockPanel Margin="0,0,0,8" DockPanel.Dock="Top">
-      <ProgressBar Width="72"
-                   Margin="8,0,0,0"
-                   VerticalAlignment="Center"
-                   DockPanel.Dock="Right"
-                   IsIndeterminate="{Binding IsBusy, Mode=OneWay}"
-                   ToolTip="{l:Tr BulkCreate.Reading}"
-                   Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
       <WrapPanel Orientation="Horizontal">
         <Button x:Name="PasteButton"
                 Command="{Binding PasteCommand}"
@@ -88,15 +85,8 @@
       </WrapPanel>
     </DockPanel>
 
-    <!-- Header choice, header line, Excel row offset, summary -->
+    <!-- Header choice, header line, Excel row offset (the summary of the table is in the status line of the window) -->
     <DockPanel Margin="0,0,0,8" DockPanel.Dock="Top">
-      <TextBlock x:Name="SummaryText"
-                 Margin="12,0,0,0"
-                 VerticalAlignment="Center"
-                 AutomationProperties.LiveSetting="Polite"
-                 DockPanel.Dock="Right"
-                 FontWeight="SemiBold"
-                 Text="{Binding Summary, Mode=OneWay}" />
       <WrapPanel Orientation="Horizontal">
         <TextBlock Style="{StaticResource OptionLabel}" Text="{l:Tr BulkCreate.HeaderModeLabel}" />
         <!-- The header choices re-read the table: not while a paste or a file is being read (its result would race them). -->
@@ -126,88 +116,57 @@
       </WrapPanel>
     </DockPanel>
 
-    <!-- Problem of the last paste or file -->
-    <Border Margin="0,0,0,8"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.ErrorBar}"
-            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <DockPanel>
-        <TextBlock Margin="0,0,10,0"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Error}" />
-        <TextBlock x:Name="ErrorText"
-                   AutomationProperties.LiveSetting="Assertive"
-                   Text="{Binding Error, Mode=OneWay}"
-                   TextWrapping="Wrap" />
-      </DockPanel>
-    </Border>
-
     <!-- Te wiersze są już wklejone – Dołącz mimo to / Zastąp / Anuluj -->
-    <Border x:Name="RepeatedPastePanel"
-            Margin="0,0,0,8"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding HasRepeatedPaste, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <DockPanel>
-        <StackPanel Margin="12,0,0,0"
-                    DockPanel.Dock="Right"
-                    Orientation="Horizontal">
-          <Button x:Name="AppendRepeatedButton"
-                  Command="{Binding AppendRepeatedCommand}"
-                  Content="{l:Tr BulkCreate.AppendRepeated}" />
-          <Button x:Name="ReplaceWithRepeatedButton"
-                  Margin="6,0,0,0"
-                  Command="{Binding ReplaceWithRepeatedCommand}"
-                  Content="{l:Tr BulkCreate.ReplaceWithRepeated}" />
-          <Button x:Name="CancelRepeatedButton"
-                  Margin="6,0,0,0"
-                  Command="{Binding CancelRepeatedCommand}"
-                  Content="{l:Tr Common.Cancel}" />
-        </StackPanel>
-        <TextBlock Margin="0,0,10,0"
-                   VerticalAlignment="Center"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Question}" />
+    <DockPanel x:Name="RepeatedPastePanel"
+               Margin="0,0,0,8"
+               DockPanel.Dock="Top"
+               Visibility="{Binding HasRepeatedPaste, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <StackPanel Margin="12,0,0,0"
+                  VerticalAlignment="Top"
+                  DockPanel.Dock="Right"
+                  Orientation="Horizontal">
+        <Button x:Name="AppendRepeatedButton"
+                Command="{Binding AppendRepeatedCommand}"
+                Content="{l:Tr BulkCreate.AppendRepeated}" />
+        <Button x:Name="ReplaceWithRepeatedButton"
+                Margin="6,0,0,0"
+                Command="{Binding ReplaceWithRepeatedCommand}"
+                Content="{l:Tr BulkCreate.ReplaceWithRepeated}" />
+        <Button x:Name="CancelRepeatedButton"
+                Margin="6,0,0,0"
+                Command="{Binding CancelRepeatedCommand}"
+                Content="{l:Tr Common.Cancel}" />
+      </StackPanel>
+      <ContentControl x:Name="RepeatedPasteNote"
+                      VerticalAlignment="Center"
+                      Style="{StaticResource Ad.Note.Attention}">
         <TextBlock x:Name="RepeatedPasteText"
-                   VerticalAlignment="Center"
                    AutomationProperties.LiveSetting="Assertive"
                    Text="{Binding RepeatedPasteQuestion, Mode=OneWay}"
                    TextWrapping="Wrap" />
-      </DockPanel>
-    </Border>
+      </ContentControl>
+    </DockPanel>
 
     <!-- Reading warnings (localized, Excel rows) -->
-    <Border x:Name="WarningsPanel"
-            Margin="0,0,0,8"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding Warnings, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <DockPanel>
-        <TextBlock Margin="0,1,10,0"
-                   VerticalAlignment="Top"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Warning}" />
-        <ScrollViewer MaxHeight="88" VerticalScrollBarVisibility="Auto">
-          <ItemsControl x:Name="WarningsList"
-                        AutomationProperties.Name="{l:Tr Common.Warning}"
-                        ItemsSource="{Binding Warnings, Mode=OneWay}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <TextBlock Margin="0,0,0,2"
-                           Text="{Binding Mode=OneWay}"
-                           TextWrapping="Wrap" />
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </ScrollViewer>
-      </DockPanel>
-    </Border>
+    <ContentControl x:Name="WarningsPanel"
+                    Margin="0,0,0,8"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding Warnings, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <ScrollViewer MaxHeight="88" VerticalScrollBarVisibility="Auto">
+        <ItemsControl x:Name="WarningsList"
+                      AutomationProperties.Name="{l:Tr Common.Warning}"
+                      ItemsSource="{Binding Warnings, Mode=OneWay}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <TextBlock Margin="0,0,0,2"
+                         Text="{Binding Mode=OneWay}"
+                         TextWrapping="Wrap" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </ContentControl>
 
     <!-- The source grid; the hint shows while nothing is loaded -->
     <Grid>

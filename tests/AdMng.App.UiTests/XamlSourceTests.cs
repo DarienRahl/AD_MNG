@@ -108,11 +108,18 @@ public sealed partial class XamlSourceTests
     /// WMI filter editor, the copy and merge window, the name of a GPO - what they ask for is planned and previewed by
     /// their opener, which says how that went in the line of its document). The same holds for a control that a converted
     /// window hosts (the rendered preview of a message): its sentence is a note, and what the window does is said by the
-    /// line of the window.
+    /// line of the window. (V2b-4: the six views of the bulk creation wizard - the wizard is hosted in the first step of the
+    /// batch editor and says its status in that window's one line.)
     /// <see cref="AConvertedViewWithoutAStatusLine_HasNoBannerAndNoProgressBar"/> keeps the banners of before out of it.
     /// </summary>
     private static readonly string[] ConvertedViewsWithoutAStatusLine =
     [
+        "BulkCreate/BulkCheckView.xaml",
+        "BulkCreate/BulkColumnsView.xaml",
+        "BulkCreate/BulkCreateView.xaml",
+        "BulkCreate/BulkResultsView.xaml",
+        "BulkCreate/BulkRulesView.xaml",
+        "BulkCreate/BulkSourceView.xaml",
         "Controls/HtmlPreviewView.xaml",
         "GroupPolicy/GpoCopySettingsWindow.xaml",
         "GroupPolicy/GroupPolicyHealthPanel.xaml",

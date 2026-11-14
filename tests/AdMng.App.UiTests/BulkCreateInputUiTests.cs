@@ -52,7 +52,7 @@ public sealed class BulkCreateInputUiTests
 
         Assert.Equal(6, source.SourceGrid.Columns.Count);
         Assert.Equal(5, source.SourceGrid.Items.Count);
-        Assert.Equal("Wiersze: 5, kolumny: 5 – nagłówki rozpoznane", source.SummaryText.Text);
+        Assert.Equal("Wiersze: 5, kolumny: 5 – nagłówki rozpoznane", window.PageStatus.Message); // the summary is in the line of the window
         Assert.Equal(Visibility.Collapsed, source.EmptyHint.Visibility);
         Assert.True(wizard.NextStepCommand.CanExecute(null));
         Assert.True(Single<BulkCreateView>(window).NextStepButton.IsEnabled, "Dalej is enabled once the paste is done");

@@ -3,6 +3,8 @@
   of the sheet with its samples, the target (Pomiń, Atrybut, Tylko we wzorcach, Imię i nazwisko, Menedżer, Grupy, Kraj/region,
   Konto wygasa), the attribute (an editable, virtualized combo of the class's writable attributes from the live schema with
   their Polish labels), the name order, the case and the suggestion note with the "Format międzynarodowy" offer.
+  Feedback (track V, stage V2b-4): the step has nothing to say but notes (why Dalej is not possible, the suggestion) - no
+  status line of its own, and none in the line of the batch editor either.
 -->
 <UserControl x:Class="AdMng.App.BulkCreate.BulkColumnsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -53,22 +55,17 @@
                  TextWrapping="Wrap" />
     </DockPanel>
 
-    <!-- Why Dalej is not possible yet -->
-    <DockPanel Margin="0,0,0,8"
-               DockPanel.Dock="Top"
-               Visibility="{Binding MappingError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock Margin="0,1,6,0"
-                 VerticalAlignment="Top"
-                 DockPanel.Dock="Left"
-                 FontSize="12"
-                 Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                 Style="{StaticResource Ad.GlyphText}"
-                 Text="{x:Static c:Glyphs.Warning}" />
+    <!-- Why Dalej is not possible yet: true of the mapping below for as long as it is shown (a note) -->
+    <ContentControl x:Name="MappingErrorNote"
+                    Margin="0,0,0,8"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding MappingError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
       <TextBlock x:Name="MappingErrorText"
                  AutomationProperties.LiveSetting="Polite"
                  Text="{Binding MappingError, Mode=OneWay}"
                  TextWrapping="Wrap" />
-    </DockPanel>
+    </ContentControl>
 
     <ListView x:Name="MappingList"
               AutomationProperties.Name="{l:Tr BulkCreate.StepColumns}"

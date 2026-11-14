@@ -4,6 +4,9 @@
   target container; body: one ContentControl per child with the implicit DataTemplates below (the child views are owned by
   B3 – BulkSourceView, BulkColumnsView, BulkRulesView – and B4 – BulkCheckView); footer: Wstecz / Dalej within the wizard
   (the batch editor's own footer continues with Podgląd).
+  Feedback (track V, stage V2b-4): the wizard is hosted in the first step of the batch editor and says its status in that
+  window's one line - the page of the step shown (BulkCreateViewModel.Status) - never in a banner or a bar of its own; what
+  stays in the pages are notes. So none of the views of this folder has a status line.
 -->
 <UserControl x:Class="AdMng.App.BulkCreate.BulkCreateView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"

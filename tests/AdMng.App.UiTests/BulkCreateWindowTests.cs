@@ -45,7 +45,7 @@ public sealed class BulkCreateWindowTests
         Assert.Equal(["Nr", "Imię", "Nazwisko"], view.ValueColumns.Take(3).Select(c => (string)c.Header));
         Assert.Equal(BulkCreateSamples.Rows.Length, grid.Items.Count);
         Assert.True(bulk.IsReadyToPlan);
-        Assert.Contains("z błędami: 1", view.SummaryText.Text, StringComparison.Ordinal);
+        Assert.Contains("z błędami: 1", window.PageStatus.Message, StringComparison.Ordinal); // the summary is in the line of the window
         Assert.Equal(Visibility.Visible, view.ScopeNoteText.Visibility);
         var glyphs = BatchEditorWindowTests.Descendants<TextBlock>(grid).Where(t => t.Name == "StatusGlyph").Select(t => t.Text).ToList();
         Assert.Contains(Controls.Glyphs.Error, glyphs);
