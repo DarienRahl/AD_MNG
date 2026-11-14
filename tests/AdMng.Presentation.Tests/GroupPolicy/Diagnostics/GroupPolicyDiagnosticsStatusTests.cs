@@ -231,6 +231,34 @@ public sealed class GroupPolicyDiagnosticsStatusTests
         Assert.Null(document.Status.Lasting);
     }
 
+    [Fact]
+    public async Task AStoppedCheck_IsRepeatedByTheActionOfTheLine_AndByNothingElse()
+    {
+        var h = await GroupPolicyHarness.CreateAsync(English);
+        using var document = await GroupPolicyDiagnosticsDocumentTests.OpenAsync(h);
+        using (var held = new HeldDirectoryCall(h.Session))
+        {
+            var checking = document.FullCheckCommand.ExecuteAsync(null);
+            await held.Reached.WaitAsync(HeldDirectoryCall.Limit, Ct);
+            document.Status.CancelCommand.Execute(null);
+            held.Release();
+            await checking.WaitAsync(HeldDirectoryCall.Limit, Ct);
+        }
+
+        Assert.Equal(PageStatusKind.Attention, document.Status.Current.Kind);
+
+        // A change elsewhere in the window reloads the tab, and a reload only marks the findings: the long check is not
+        // started behind the operator's back, and the stopped one is not started again by it.
+        h.Services.NotifyChanged();
+        await B2Harness.WaitUntilAsync(() => document.IsStale && !document.IsLoading && document.Status.Current.Message.StartsWith("Group Policy has changed", StringComparison.Ordinal));
+        Assert.Equal(GpoDiagnosticsDepth.Quick, document.LastDepth);
+
+        // The action of the line for that state checks again at the depth of the findings.
+        document.Status.Current.Action!.Command.Execute(null);
+        await B2Harness.WaitUntilAsync(() => !document.IsStale && !document.IsLoading && document.Status.Current.Kind == PageStatusKind.Idle);
+        Assert.Equal(GpoDiagnosticsDepth.Quick, document.LastDepth);
+    }
+
     [Theory]
     [InlineData("en-US", "Could not read “Group Policy diagnostics”: ", " Press Retry to try again. (ServerUnavailable)", "Retry")]
     [InlineData("pl-PL", "Nie udało się wczytać „Diagnostyka zasad grupy”: ", " Wybierz Ponów, aby spróbować ponownie. (ServerUnavailable)", "Ponów")]

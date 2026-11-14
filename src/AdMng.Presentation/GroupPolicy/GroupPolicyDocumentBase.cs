@@ -154,9 +154,13 @@ public abstract partial class GroupPolicyDocumentBase : ObservableObject, IShell
     /// <summary>Asks before unsaved edits are discarded (Ctrl+W, the tab's close button, the main window). True when the tab may close.</summary>
     public virtual Task<bool> CanCloseAsync() => Task.FromResult(true);
 
-    /// <summary>F5: reloads everything the document shows.</summary>
+    /// <summary>
+    /// Reloads everything the document shows: the "Refresh" and "Retry" of its status line (the shell's F5 is
+    /// <see cref="IShellDocument.RefreshAsync"/>). A document whose read can be stopped or fail overrides it to repeat that
+    /// read.
+    /// </summary>
     [RelayCommand(AllowConcurrentExecutions = true)]
-    public Task RefreshAsync() => LoadAsync();
+    public virtual Task RefreshAsync() => LoadAsync();
 
     /// <summary>
     /// Loads (or reloads) the document on the current session; never throws. The load is the operation of the document:

@@ -44,6 +44,9 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
     private CancellationTokenSource? _running;
     private Analysis? _shown;
 
+    /// <summary>The read that was stopped or failed: "Refresh" and "Retry" of the status line ask for it again, nothing else does.</summary>
+    private GpoIndexRefresh? _interrupted;
+
     /// <summary>The read that runs (or was asked for last) reads every folder again: <see cref="IsReadingAll"/>.</summary>
     private bool _readingAll;
 
@@ -171,19 +174,24 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
             var result = await Task.Run(() => GpoCleanupAnalyzer.Analyze(view.Index), token).ConfigureAwait(true);
             token.ThrowIfCancellationRequested();
             _requested = null;
+            _interrupted = null;
             Show(new Analysis(view, result) { Session = session });
         }
         catch (OperationCanceledException) when (operation is { IsCancelling: true })
         {
             // The operator's Stop: the shown results (if any) stay, the status bar of a host without a line says the analysis
-            // was cancelled, and the base says the state of the tab. The read stays requested: "Refresh" of the line repeats it.
+            // was cancelled, and the base says the state of the tab. "Refresh" of the line repeats the read (RefreshAsync).
+            _requested = null;
+            _interrupted = refresh;
             _restoreSelection = null;
             LoadedText = Localizer[L.GpoCleanup.Cancelled];
             throw;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // The read failed (the base says why, with Retry): it stays requested, so that Retry reads the index again.
+            // The read failed (the base says why, with Retry): Retry repeats it (RefreshAsync).
+            _requested = null;
+            _interrupted = refresh;
             _restoreSelection = null;
             throw;
         }
@@ -303,12 +311,33 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
     /// <summary>Reads the index (<paramref name="refresh"/>) and analyses it; a running analysis is replaced.</summary>
     public Task AnalyzeAsync(GpoIndexRefresh refresh)
     {
+        Request(refresh);
+        RememberSelection();
+        return LoadAsync();
+    }
+
+    /// <summary>
+    /// "Refresh" and "Retry" of the status line: a read that was stopped or failed is made again (a plain reload only checks
+    /// whether the shown results are stale, and does not read the folders).
+    /// </summary>
+    public override Task RefreshAsync()
+    {
+        if (_interrupted is { } again)
+        {
+            Request(again);
+        }
+
+        return base.RefreshAsync();
+    }
+
+    /// <summary>The next load reads the index as <paramref name="refresh"/> says; the buttons know which read runs.</summary>
+    private void Request(GpoIndexRefresh refresh)
+    {
         _requested = refresh;
+        _interrupted = null;
         _readingAll = refresh == GpoIndexRefresh.Full;
         OnPropertyChanged(nameof(IsReadingAll));
         OnPropertyChanged(nameof(IsAnalyzing));
-        RememberSelection();
-        return LoadAsync();
     }
 
     private bool CanAnalyze() => HasSession && !IsLoading;

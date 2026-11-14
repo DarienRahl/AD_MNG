@@ -231,6 +231,35 @@ public sealed class GpoSettingsSearchStatusTests
         Assert.StartsWith(document.ResultText, document.Status.Current.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task AStoppedRead_IsRepeatedByTheActionOfTheLine_AndByNothingElse()
+    {
+        var h = await GroupPolicyHarness.CreateAsync(English);
+        var index = new ScriptedIndexService(h.Factory.Index);
+        using var document = new GpoSettingsSearchDocumentViewModel(h.Services, h.Actions, index, "MinimumPasswordLength");
+        await document.LoadAsync();
+        var view = document.View;
+        var gate = index.HoldNextRead();
+        var loading = document.ReadAllCommand.ExecuteAsync(null);
+        await gate.Reached.WaitAsync(HeldDirectoryCall.Limit, Ct);
+        document.Status.CancelCommand.Execute(null);
+        await loading.WaitAsync(HeldDirectoryCall.Limit, Ct);
+        Assert.Equal(PageStatusKind.Attention, document.Status.Current.Kind);
+
+        // A change elsewhere in the window reloads the tab, and a reload only marks the results: the folders are not read
+        // behind the operator's back, and the stopped read is not started again by it.
+        h.Sysvol.ClearCalls();
+        h.Services.NotifyChanged();
+        await B2Harness.WaitUntilAsync(() => document.IsStale && !document.IsLoading && document.Status.Current.Message.StartsWith("Group Policy changed", StringComparison.Ordinal));
+        Assert.Same(view, document.View);
+        Assert.DoesNotContain(h.Sysvol.Calls, c => c.Operation == "List" && c.GpoId != Guid.Empty);
+
+        // The action of the line for that state is an ordinary refresh - the GPOs that changed.
+        document.Status.Current.Action!.Command.Execute(null);
+        await B2Harness.WaitUntilAsync(() => !document.IsStale && !document.IsLoading && document.Status.Current.Kind == PageStatusKind.Idle);
+        Assert.NotSame(view, document.View);
+    }
+
     [Theory]
     [InlineData("en-US", "Could not read “GPO settings search”: ", " Press Retry to try again. (ServerUnavailable)", "Retry")]
     [InlineData("pl-PL", "Nie udało się wczytać „Wyszukiwarka ustawień GPO”: ", " Wybierz Ponów, aby spróbować ponownie. (ServerUnavailable)", "Ponów")]

@@ -43,6 +43,9 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
     private CancellationTokenSource? _running;
     private CheckResult? _check;
 
+    /// <summary>The check that was stopped or failed: "Refresh" and "Retry" of the status line ask for it again, nothing else does.</summary>
+    private GpoDiagnosticsDepth? _interrupted;
+
     /// <summary>The check that runs (or was asked for last) is the full one: <see cref="IsFullChecking"/>.</summary>
     private bool _fullCheck;
 
@@ -172,19 +175,24 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
             var names = await Task.Run(() => GpoFindingRows.ResolveNamesAsync(session, result, Localizer, token), token).ConfigureAwait(true);
             token.ThrowIfCancellationRequested();
             _requested = null;
+            _interrupted = null;
             Show(new CheckResult(snapshot, result, names, depth.Value, Gp.Time.GetLocalNow(), sysvol is null ? SysvolWarning : null, session.Info.Server));
         }
         catch (OperationCanceledException) when (operation is { IsCancelling: true })
         {
             // The operator's Stop: the shown results (if any) stay, the status bar of a host without a line says the check was
-            // cancelled, and the base says the state of the tab. The check stays requested: "Refresh" of the line repeats it.
+            // cancelled, and the base says the state of the tab. "Refresh" of the line repeats the check (RefreshAsync).
+            _requested = null;
+            _interrupted = depth;
             _restoreSelection = null;
             LoadedText = Localizer[L.GpoDiagnostics.Cancelled];
             throw;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // The check failed (the base says why, with Retry): it stays requested, so that Retry checks again.
+            // The check failed (the base says why, with Retry): Retry repeats it (RefreshAsync).
+            _requested = null;
+            _interrupted = depth;
             _restoreSelection = null;
             throw;
         }
@@ -282,16 +290,37 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
     /// <summary>Runs a check of <paramref name="depth"/> (a running one is replaced).</summary>
     public Task CheckAsync(GpoDiagnosticsDepth depth)
     {
-        _requested = depth;
-        _fullCheck = depth == GpoDiagnosticsDepth.Full;
-        OnPropertyChanged(nameof(IsFullChecking));
-        OnPropertyChanged(nameof(IsQuickChecking));
+        Request(depth);
         if (SelectedRow is { } selected)
         {
             _restoreSelection ??= (selected.Key, IndexOf(Rows, selected));
         }
 
         return LoadAsync();
+    }
+
+    /// <summary>
+    /// "Refresh" and "Retry" of the status line: a check that was stopped or failed is run again at its depth (a plain reload
+    /// only marks the shown results stale, and checks nothing).
+    /// </summary>
+    public override Task RefreshAsync()
+    {
+        if (_interrupted is { } again)
+        {
+            Request(again);
+        }
+
+        return base.RefreshAsync();
+    }
+
+    /// <summary>The next load runs a check of <paramref name="depth"/>; the buttons know which check runs.</summary>
+    private void Request(GpoDiagnosticsDepth depth)
+    {
+        _requested = depth;
+        _interrupted = null;
+        _fullCheck = depth == GpoDiagnosticsDepth.Full;
+        OnPropertyChanged(nameof(IsFullChecking));
+        OnPropertyChanged(nameof(IsQuickChecking));
     }
 
     private bool CanCheck() => HasSession && !IsLoading;
