@@ -8,17 +8,18 @@
   * Sizes, radii and spacing come from Themes/Tokens.xaml (StaticResource). Glyph sizes of the icon font stay literal.
   * The controls of our own (c:StatusLine, c:ActionButton) have string keyed styles too and take them by themselves
     (a resource reference set in their constructors), so the first rule holds for them as well.
-  Feedback (track V, stage V2; docs/dev/v-interface-renewal.md 6.7 and "V2b-1 as built") - one place each:
+  Feedback (track V, stage V2) - one place each. How to write or convert a view: docs/dev/v2-status-controls.md; why it
+  is built this way: docs/dev/v-interface-renewal.md 6.7 and "V2b-1 as built":
   * What a page did or is doing: its status line (Ad.StatusLine, taken by c:StatusLine) - never a banner in the page.
   * A sentence that belongs to one field or one section and is true while that content is shown: a note
     (Ad.Note.Info, Ad.Note.Attention, Ad.Note.Error on a ContentControl) - quiet, inline, a glyph and words.
   * A command that starts an operation that can be cancelled: c:ActionButton (Ad.ActionButton by itself;
     Ad.AccentActionButton for the primary action; Ad.DialogActionButton and Ad.AccentDialogActionButton with the
     metrics of the dialog buttons).
-  * Ad.ErrorBar and Ad.WarningBar are the banners of before stage V2: only for the views that are not converted yet
-    (a converted view is on one of the two lists of XamlSourceTests - PagesWithAStatusLine, or
-    ConvertedViewsWithoutAStatusLine when it has only notes and no status to say - and uses neither). They go with the
-    last of those views; nothing new uses them.
+  * How far one item of a list is stays in its row (the bar of one activity in the main window); a place that only
+    shows "busy" has a c:ProgressRing and no sentence.
+  There is no banner style: the two of before stage V2 were removed once the last view was converted (V2b-5a). A view
+  that asked for one would fail when it is loaded, as a missing StaticResource, and XamlSourceTests fails it before that.
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -632,22 +633,6 @@
   <Style x:Key="Ad.HorizontalDivider" TargetType="Rectangle">
     <Setter Property="Height" Value="1" />
     <Setter Property="Fill" Value="{DynamicResource DividerStrokeColorDefaultBrush}" />
-  </Style>
-
-  <!--
-    The banners of before stage V2 (see the header): kept as they were for the views that are not converted yet. A
-    converted view says what it did in its status line and what belongs to a section in a note.
-  -->
-  <Style x:Key="Ad.ErrorBar" TargetType="Border">
-    <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="{StaticResource Ad.Radius.Control}" />
-    <Setter Property="Padding" Value="12,8" />
-  </Style>
-
-  <Style x:Key="Ad.WarningBar" TargetType="Border" BasedOn="{StaticResource Ad.ErrorBar}">
-    <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
   </Style>
 
   <Style x:Key="Ad.Card" TargetType="Border">

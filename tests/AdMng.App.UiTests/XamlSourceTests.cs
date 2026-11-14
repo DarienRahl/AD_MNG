@@ -15,7 +15,8 @@ namespace AdMng.App.UiTests;
 /// the Fluent brush keys in use are a closed, documented set read with <c>DynamicResource</c> (track V, stage V1). And
 /// the one source of motion (design note 5.3, rule 6): no XAML file writes a storyboard, an animation or a visual
 /// state, and durations and easings are entries of Themes/Motion.xaml only. And the one place of feedback (stage V2,
-/// design note 6.1 and goal G2): a page that was converted says its status through one status line named PageStatus.
+/// design note 6.1 and goal G2): a page that was converted says its status through one status line named PageStatus,
+/// and no XAML file names a banner of before stage V2 or says a status in a progress bar (V2b-5a).
 /// </summary>
 public sealed partial class XamlSourceTests
 {
@@ -125,7 +126,9 @@ public sealed partial class XamlSourceTests
     /// request to the remote actions window, which says what became of it. The pages of the Watchdog tab and its trust window:
     /// the tab has one line, and the pages it hosts say their reads, saves and tests there. The two small windows of the
     /// correspondence window: a read-only report and a prompt for text - they start no operation.)
-    /// <see cref="AConvertedViewWithoutAStatusLine_HasNoBannerAndNoProgressBar"/> keeps the banners of before out of it.
+    /// <see cref="AConvertedViewWithoutAStatusLine_HasNoStatusLine"/> keeps a status line out of it, and
+    /// <see cref="NoXamlFile_MentionsABannerOfBefore_OrHasAProgressBarThatSaysStatus"/> the banners and the progress bars
+    /// - as it does for every view.
     /// </summary>
     private static readonly string[] ConvertedViewsWithoutAStatusLine =
     [
@@ -158,6 +161,17 @@ public sealed partial class XamlSourceTests
         "Views/Watchdog/WatchdogSecretFieldView.xaml",
         "Views/Watchdog/WatchdogSourcesView.xaml",
         "Views/Watchdog/WatchdogStatusView.xaml",
+    ];
+
+    /// <summary>
+    /// The only progress bars of the application, as "file: number of bars", sorted: a bar that says how far one item of a
+    /// list is, in its row (design note 6.7). The bar of one activity in the list of background operations of the main
+    /// window (<c>MainWindowFeedbackUiTests</c> looks at it in the running window). Anything that says what a page is doing
+    /// is its status line, and a place that only shows "busy" is a <c>ProgressRing</c>.
+    /// </summary>
+    private static readonly string[] ProgressBarsOfARow =
+    [
+        "Views/MainWindow.xaml: 1",
     ];
 
     [Fact]
@@ -315,13 +329,10 @@ public sealed partial class XamlSourceTests
         {
             Assert.True(views.TryGetValue(page, out var xaml), $"{page} is not a view of the application");
 
-            // Exactly one status line, with the fixed name of design note 6.1, over the status holder of the page.
+            // Exactly one status line, with the fixed name of design note 6.1, over the status holder of the page. (That
+            // the page says what happened in no other place - no banner, no progress bar - is the rule of
+            // NoXamlFile_MentionsABannerOfBefore_OrHasAProgressBarThatSaysStatus, which holds for every view.)
             AssertOneStatusLine(page, xaml!);
-
-            // The page says what happened in no other place: no banner of the old styles, no progress bar of its own.
-            Assert.False(xaml!.Contains("Ad.ErrorBar", StringComparison.Ordinal), $"{page} still has an error bar");
-            Assert.False(xaml.Contains("Ad.WarningBar", StringComparison.Ordinal), $"{page} still has a warning bar");
-            Assert.False(xaml.Contains("<ProgressBar", StringComparison.Ordinal), $"{page} still has a progress bar");
         }
 
         // The other way round: a view with a status line is on the list, and nothing else takes the name PageStatus.
@@ -336,7 +347,7 @@ public sealed partial class XamlSourceTests
     }
 
     [Fact]
-    public void AConvertedViewWithoutAStatusLine_HasNoBannerAndNoProgressBar()
+    public void AConvertedViewWithoutAStatusLine_HasNoStatusLine()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "Runs with the Windows test suite.");
         var views = XamlFiles().Where(file => !IsApplicationDictionary(file)).ToDictionary(
@@ -354,13 +365,46 @@ public sealed partial class XamlSourceTests
         {
             Assert.True(views.TryGetValue(view, out var xaml), $"{view} is not a view of the application");
 
-            // No status line (a view that gets one moves to PagesWithAStatusLine), no banner of the old styles and no
-            // progress bar: what the view says, it says in notes.
+            // No status line (a view that gets one moves to PagesWithAStatusLine): what the view says, it says in notes.
             Assert.False(StatusLineElement().IsMatch(xaml!), $"{view} has a status line: it belongs on PagesWithAStatusLine");
-            Assert.False(xaml!.Contains("Ad.ErrorBar", StringComparison.Ordinal), $"{view} still has an error bar");
-            Assert.False(xaml.Contains("Ad.WarningBar", StringComparison.Ordinal), $"{view} still has a warning bar");
-            Assert.False(xaml.Contains("<ProgressBar", StringComparison.Ordinal), $"{view} still has a progress bar");
         }
+    }
+
+    /// <summary>
+    /// The banners of before stage V2 are gone for good (V2b-5a). <c>Ad.ErrorBar</c> and <c>Ad.WarningBar</c> are no
+    /// entries of Themes/Controls.xaml any more, so no XAML file of the application names them - not in a comment either,
+    /// there is nothing a comment could still point at. This is the rule that used to be written twice, for the views of
+    /// the two lists, as "no <c>Ad.ErrorBar</c>, no <c>Ad.WarningBar</c>"; now it holds for every file at once, and the UI
+    /// tests no longer look up the two styles to compare them with the style of a border (a lookup of a key that is not
+    /// there throws). A view that tried to use one anyway would not get this far: a <c>{StaticResource Ad.ErrorBar}</c>
+    /// that finds nothing fails when the view is loaded - at run time, on Windows, as a missing StaticResource - and this
+    /// test shows the same mistake on the source, before that.
+    /// Nor does a status come as a progress bar: a page says what it is doing in its status line (the ring and the part
+    /// done are the line's) and its "busy" as a <c>ProgressRing</c>. The only <c>ProgressBar</c> of the application is the
+    /// bar of one activity in the list of background operations of the main window - how far one item of a list is stays
+    /// in its row (design note 6.7); its own rule is <c>MainWindowFeedbackUiTests</c>. A new row with a bar is a
+    /// deliberate edit of <see cref="ProgressBarsOfARow"/>.
+    /// </summary>
+    [Fact]
+    public void NoXamlFile_MentionsABannerOfBefore_OrHasAProgressBarThatSaysStatus()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Runs with the Windows test suite.");
+        var files = XamlFiles()
+            .Select(file => (Name: Path.GetRelativePath(SourceDirectory(), file).Replace('\\', '/'), Text: File.ReadAllText(file)))
+            .ToList();
+        Assert.True(files.Count > 50, $"only {files.Count} XAML files found");
+        Assert.Contains(files, file => file.Name == "Themes/Controls.xaml");
+
+        // The raw text, comments included: the styles do not exist, so nothing may still speak of them.
+        Assert.Equal([], files.Where(file => OldBanner().IsMatch(file.Text)).Select(file => file.Name));
+
+        // A progress bar in an element (a comment may name one): only the rows that are listed, as many as listed.
+        var bars = files
+            .Select(file => (file.Name, Count: ProgressBarElement().Matches(WithoutComments(file.Text)).Count))
+            .Where(file => file.Count > 0)
+            .Select(file => $"{file.Name}: {file.Count}")
+            .Order(StringComparer.Ordinal);
+        Assert.Equal(ProgressBarsOfARow, bars);
     }
 
     /// <summary>Exactly one status line, with the fixed name of design note 6.1, over the status holder of the page.</summary>
@@ -430,6 +474,14 @@ public sealed partial class XamlSourceTests
 
     [GeneratedRegex(@"<!--.*?-->", RegexOptions.Singleline)]
     private static partial Regex XmlComment();
+
+    /// <summary>The key of one of the two banner styles of before stage V2 (gone since V2b-5a).</summary>
+    [GeneratedRegex(@"Ad\.(?:Error|Warning)Bar")]
+    private static partial Regex OldBanner();
+
+    /// <summary>A progress bar as an element, with or without a namespace prefix.</summary>
+    [GeneratedRegex(@"<(?:\w+:)?ProgressBar\b")]
+    private static partial Regex ProgressBarElement();
 
     /// <summary>The start tag of a status line (c:StatusLine) with its attributes.</summary>
     [GeneratedRegex(@"<(?:\w+:)?StatusLine\b[^>]*>")]
