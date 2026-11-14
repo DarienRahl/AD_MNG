@@ -896,4 +896,17 @@ public static partial class L
         /// <summary>{0} = the text of the "Check again" button.</summary>
         public const string Stale = "BulkCheck.Status.Stale";
     }
+
+    /// <summary>What the readiness check says in its status line (stage V2b-4).</summary>
+    public static class ReadinessStatus
+    {
+        /// <summary>{0} = the name of the check ("Quick check"), {1} = how far ("5 of 8"), {2} = the area that is checked.</summary>
+        public const string Checking = "Readiness.Status.Checking";
+
+        /// <summary>{0} = the text of the button that checks again.</summary>
+        public const string Stopped = "Readiness.Status.Stopped";
+
+        /// <summary>{0} = the text of the button that checks again.</summary>
+        public const string Stale = "Readiness.Status.Stale";
+    }
 }

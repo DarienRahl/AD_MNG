@@ -25125,5 +25125,14 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="BulkCheck.Status.Stale" xml:space="preserve">
     <value>Dane, reguły lub utworzone konta zmieniły się od tego sprawdzenia: wiersze mogą być nieaktualne. Wybierz „{0}”, aby sprawdzić ponownie.</value>
   </data>
+  <data name="Readiness.Status.Checking" xml:space="preserve">
+    <value>{0}: {1} – {2}…</value>
+  </data>
+  <data name="Readiness.Status.Stopped" xml:space="preserve">
+    <value>Sprawdzanie zatrzymano: sprawdzenia, do których nie doszło, oznaczono jako niesprawdzone. Wybierz „{0}”, aby sprawdzić ponownie.</value>
+  </data>
+  <data name="Readiness.Status.Stale" xml:space="preserve">
+    <value>Połączenie tego okna zmieniło się po pokazanym sprawdzeniu: wyniki mogą już nie być aktualne. Wybierz „{0}”, aby sprawdzić ponownie.</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>
