@@ -462,12 +462,31 @@
   uruchamiają żadnej operacji – oddają to, co zebrały, poleceniu, które je otworzyło, a ono przygotowuje plan, pokazuje
   podgląd i mówi w wierszu swojej karty, jak poszło. Nie mają więc wiersza stanu; to, co mówią, jest prawdą o polach dopóty,
   dopóki je widać, i stoi obok nich jako uwaga (znak błędu albo ostrzeżenia i zdanie, bez tła).
-- **Co się nie zmieniło:** wiersz stanu mają teraz lista obiektów, wszystkie karty zasad grupy i wszystkie okna oraz
-  dialogi wymienione wyżej; uwagi zamiast ramek mają też okna zasad grupy, które tylko zbierają dane. Pozostałe karty i
-  okna – Watchdog, dzienniki zdarzeń, certyfikaty, przegląd komputerów i zdalne akcje, korespondencja, gotowość
-  środowiska – mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski postępu; przejdą na wiersz stanu w
-  następnych wydaniach. Dotyczy to także kreatora zakładania wielu kont, który jest pierwszym krokiem w oknie edytora
-  zbiorczego. Eksport do pliku i kopiowanie do schowka nadal potwierdza powiadomienie, a pasek postępu pojedynczej
+- **Kreator zakładania wielu kont: wiersz stanu okna zamiast ramek i pasków.** Kreator jest pierwszym krokiem okna
+  edytora zbiorczego i mówi w jego jednym wierszu stanu – pod paskiem kroków – to, co mówi strona kroku, który widać.
+  *Dane:* w spoczynku podsumowanie tabeli („Wiersze: 120, kolumny: 7 – nagłówki rozpoznane”; to zdanie stało dotąd nad
+  tabelą); wklejanie i wczytywanie pliku jest operacją – **Trwa** „Odczytywanie pliku „dane.xlsx”…” z poleceniem
+  **Zatrzymaj** (po zatrzymaniu tabela się nie zmienia, a wiersz proponuje ponowienie). Gdy z wklejenia albo pliku nic nie
+  wynika, wiersz mówi, co pominięto i dlaczego („Nic nie wklejono: Schowek nie zawiera tabeli …”, „Nie wczytano pliku
+  „dane.xlsx”: Plik jest większy niż 50 MB. Wybierz inny plik.”), a wcześniej wczytana tabela zostaje – dotąd była to
+  czerwona ramka nad tabelą i pasek postępu obok przycisków. Ostrzeżenia odczytu arkusza i pytanie o powtórne wklejenie
+  (z jego trzema przyciskami) zostały nad tabelą jako uwagi. *Nazwy i opcje:* wynik poleceń profilu – zapisano, usunięto,
+  ustawiono jako domyślny, albo dlaczego nie („Nie zapisano profilu: Wpisz nazwę profilu.”) – i niepowodzenie odczytu
+  konta, które może dołączać komputery, są w wierszu stanu, a nie pod przyciskami; powód, dla którego *Dalej* nie jest
+  jeszcze możliwe, jest uwagą nad regułami (dotąd czerwoną ramką). *Sprawdzenie:* podsumowanie („Wiersze: 120 – OK: 108,
+  z ostrzeżeniami: 6 …”) w wierszu; samo sprawdzenie to **Trwa** „Sprawdzanie wierszy: 40 z 120…” z postępem i poleceniem
+  **Zatrzymaj**, a **Sprawdź ponownie** i **Numeruj od nowa** zamieniają się na czas sprawdzenia, które rozpoczęły, w
+  **Anuluj** – osobnego przycisku *Zatrzymaj* i paska postępu nie ma. Sprawdzenie zatrzymane, nieudane albo nieaktualne
+  („Dane, reguły lub utworzone konta zmieniły się od tego sprawdzenia: wiersze mogą być nieaktualne…”) jest stanem
+  strony, dopóki nie sprawdzisz ponownie – z poleceniem **Sprawdź ponownie** albo **Ponów**. Problemy, które dotyczą
+  wszystkich wierszy, i uwagi nad wynikami tworzenia kont (replikacja, konta zostawione wyłączone, zatrzymanie po
+  pierwszym koncie) są uwagami zamiast żółtych ramek. Gdy sesja okna się zakończy, wiersz mówi to od razu – także w
+  trakcie sprawdzania.
+- **Co się nie zmieniło:** wiersz stanu mają teraz lista obiektów, wszystkie karty zasad grupy, kreator zakładania wielu
+  kont i wszystkie okna oraz dialogi wymienione wyżej; uwagi zamiast ramek mają też okna zasad grupy, które tylko zbierają
+  dane. Pozostałe karty i okna – Watchdog, dzienniki zdarzeń, certyfikaty, przegląd komputerów i zdalne akcje,
+  korespondencja, gotowość środowiska – mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski postępu; przejdą
+  na wiersz stanu w następnych wydaniach. Eksport do pliku i kopiowanie do schowka nadal potwierdza powiadomienie, a pasek postępu pojedynczej
   operacji na liście operacji w tle zostaje w swoim wierszu. Animacja nowego komunikatu (krótkie wsunięcie) i zamiany
   napisu na przycisku działa tylko przy włączonych animacjach (*Ustawienia → Ogólne → Wygląd → Animacje*); kółko postępu
   obraca się zawsze.

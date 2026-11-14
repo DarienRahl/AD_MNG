@@ -507,6 +507,9 @@ comparison of two GPOs, the window that backs up, restores and imports GPOs, and
 of the central store: thirty-three views. The WMI filter editor, the window that copies settings or merges two GPOs and the
 name of a GPO start no operation and are on the second list of the source test, `ConvertedViewsWithoutAStatusLine`. With
 that the Group Policy area has no banner and no progress bar left (*V2b-3 as built*, section 8).
+As built (V2b-4, unit 1): the bulk creation wizard says its status in the line of the batch editor, in whose first step it
+is hosted - no new line: its six views are on the second list of the source test, `ConvertedViewsWithoutAStatusLine`
+(*V2b-4 as built*, section 8).
 
 ### 6.2 Navigation – open question 2
 
@@ -1207,7 +1210,7 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
   - Document tabs drop out of `StatusBarText` as they are converted: the ten Group Policy documents did in V2b-3, with
     the base class they share; Watchdog, event logs, PKI and readiness are left (neither V2b-1 nor V2b-2 had a document
     tab). The wizard of bulk creation (`BulkCreate/`) is hosted in step 1 of
-    the batch editor: its holder becomes `SourceStatus` of the create mode. With the last converted view `Ad.ErrorBar`
+    the batch editor: its holder becomes `SourceStatus` of the create mode (done in V2b-4, unit 1). With the last converted view `Ad.ErrorBar`
     and `Ad.WarningBar` leave `Themes/Controls.xaml`, and with them the strings and view-model members that lost their
     last user (listed under *After V2b-1*).
   - Settled in V2b-1, of what was open in the controls after V2a: the accent variant of the action button
@@ -1873,7 +1876,10 @@ above.
   comparison, `SummaryText` of the comparison and the central store window, `StatusText` of the backup window (with the
   strings `GroupPolicy.BackupsFound`, `GroupPolicy.NoBackups` and `GroupPolicy.BackupRunning`), `ProgressText`, `BusyText`,
   `IsWorking` and `ResultText` of the central store window; `CancelWorkCommand` of the backup window never had a view. No
-  string lost its last user in that unit.
+  string lost its last user in that unit. Added by V2b-4, unit 1: the strings `BulkCreate.Reading`, `BulkCheck.Computing` and
+  `BulkCheck.StaleNote` have no user any more; no longer shown but read by tests or by the view models themselves - `Error` of
+  the source and of the check step of the bulk creation wizard, `ProfileStatus`, `OptionsError`, `ComputedRows` and
+  `TotalRows`; `StopCommand` of the check step has no view.
 - **Not seen, to confirm on Windows.** Nothing of V2b-1 was seen on a screen.
   - *The property sheet.* How a wrapped result looks in the 640 px wide sheet (two or three lines on the caution or
     critical surface, picture and buttons in the first line). The note next to the old validation texts (glyph and plain
@@ -3539,6 +3545,179 @@ and what nobody has seen on a screen yet.
     when the definitions are cached.
   - *The README picture* `30-central-store-update.png` is made by the screenshot test but is not committed or shown in the
     READMEs; with the line it has 34 px less for the list in the fixed client size of 900 × 680.
+
+**V2b-4 as built (the remaining areas).** The fifth increment of V2 converts the areas that are left after Group Policy
+- bulk creation, computers, certificates, event logs, readiness, correspondence and the Watchdog views - in five units,
+done one after another. Unit 1 converted the bulk creation wizard (`BulkCreate/` with its view models in
+`Presentation/BulkCreate`). The foundations are those of *V2b-1 as built*, the *Dialogs* of *V2b-2 as built* and the
+decisions of *V2b-3 as built*; nothing was added to the model or to the controls. The block reads in this order: *Areas*
+(what each area decided about its line, its notes and its states that last - the instructions of the units after it),
+the wizard, the tests, what is left (the counts, what was left behind on purpose), and what nobody has seen on a screen
+yet. Every later unit adds its entry to *Areas* and its own section after the wizard.
+
+- **Areas** (what each area decided; the next units follow it and add their own).
+  1. *Bulk creation (unit 1) - a flow that another window hosts has the line of its host.* The wizard is the first step
+     of the batch editor in create mode, so it has **no `StatusLine`**: the one line of that window says what the page of
+     the step shown says (`BatchEditorViewModel.SourceStatus` is the wizard's holder, the place V2b-1 prepared), and none
+     of the six views of the folder is on `PagesWithAStatusLine` - they are on `ConvertedViewsWithoutAStatusLine`, and the
+     UI tests look through the whole window for the old banners. Before a line goes into a view, ask who hosts the view:
+     a view that is only a part of a converted window says its status through that window. *Notes:* what belongs to the
+     table or to the fields stays next to them with the look of a note - the reading warnings, the question of a repeated
+     paste (with its three buttons: a status has one action), why *Dalej* is not possible, the problems that concern every
+     row, the notes under the results. *States that last:* only the check page has them (why there are no rows, stopped,
+     out of date), computed in one method from the facts; the end of the session is the window's (`SessionEndedStatus`),
+     the wizard adds none.
+
+- **The bulk creation wizard** (`BulkCreate/BulkCreateView.xaml` hosting `BulkSourceView`, `BulkColumnsView`,
+  `BulkRulesView` and `BulkCheckView`, and `BulkResultsView` in the results step; `BulkCreateViewModel` with `Source`,
+  `Columns`, `Rules`, `Check`).
+  - *What the line says.* One line - under the step strip of the batch editor, 8 px in from the window edge, over the wizard
+    header - and it follows the step of the wizard that is shown (two `Front`s: the window, the wizard, the page).
+    **Dane:** at rest the summary of the table ("Wiersze: 120, kolumny: 7 - nagłówki rozpoznane"); **working** "Reading
+    the pasted table…" and "Reading “users.xlsx”…" with Stop - the thread that parses goes on to its end, the page gets
+    control back at once and drops what it read -, "Updating the table…" (a header choice, repeated rows appended or
+    replacing the table) without Stop; **attention** for an answer that came to nothing - "Nothing was pasted: The
+    clipboard holds no table…", "The header row was not changed: Row 99 is not in the pasted range…", "The column was not
+    added: …", a file without data rows - and **error** for a file that could not be used ("“users.xlsx” was not loaded:
+    The file is larger than 50 MB. Choose another file.", the reason of the system with its kind as the code); a stopped
+    read - "Reading the pasted table was stopped: the table was not changed. Press “Paste” to try again." / "…Press “Load
+    file…” to load a file again." - with the button that started it as the action. The table that was loaded before always
+    stays. **Kolumny:** nothing (the page has a note only). **Nazwy i opcje:** the answers to the profile commands as results -
+    done: "Profile “Staff” saved. Remembered columns: …", deleted, default of the container or not; attention: "The profile was
+    not saved: Type a name for the profile.", "The default profile was not changed: …"; the account that can join computers
+    - attention "…was not changed: The chosen user or group could not be read." or error with the reason and the code
+    (V2b-2 Dialogs 10). **Sprawdzenie:** at rest the summary of the check; **working** "Checking the rows…" and then "Checking
+    the rows: 40 of 120…" with the part done in the ring and Stop; as the state of the page - **error** "Could not check the
+    rows: reason. Press Retry to try again. (code)" with Retry, "The rows were not checked: …" (the earlier steps are
+    incomplete, no session) without an action, **attention** "Checking the rows was stopped: the results may not match the
+    data and your changes. Press “Check again” to check again." and "The data, the rules or the created accounts changed
+    since this check: the rows may be out of date. Press “Check again” to check again." with *Check again*. After the
+    wizard - preview, execution, results - the line is the window's own (V2b-1), and when the operator goes *Back* the page
+    of the step it left is in front again and says what it said.
+  - *How the old places were sorted* (3 error bars, 5 warning bars, 2 progress bars, and the sentences that said the same).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `Error` of *Dane* (a paste or a file that failed, a header row out of range, too many columns) | status | what was skipped or could not be read, in the line; the property keeps its sentence |
+    | progress bar next to the buttons of *Dane* (`IsBusy`) | status | the read as an operation with Stop; the rebuild of the table as one without |
+    | `Summary` right of the header choice; `Summary` of *Sprawdzenie* | summary | `SetIdle` of the page; the text blocks are gone |
+    | warning bar "these rows are already pasted" with *Dołącz mimo to / Zastąp / Anuluj* | note | `Ad.Note.Attention` with its three buttons beside it (V2b-2 Dialogs 13) |
+    | warning bar of the reading warnings (rows and columns of the sheet) | note | `Ad.Note.Attention` above the table: true for as long as that table is shown |
+    | `ProfileStatus` under the profile card; `OptionsError` under the joiner | status | the answer to a press, in the line; the properties keep the sentences |
+    | error bar `Error` of *Nazwy i opcje* ("why *Dalej* is not possible") | note | `Ad.Note.Error` above the sections |
+    | `MappingError` of *Kolumny* (a glyph and a text by hand) | note | `Ad.Note.Attention`: the same look, one style |
+    | error bar `Error` of *Sprawdzenie* (failed, incomplete input, no session) | status | the state of the check page, with Retry where a retry can help |
+    | warning bar of the stale grid (no action) | status | the state of the check page, with *Check again* |
+    | `ComputingPanel`: progress bar with the known count, "Checking rows: 12 of 120", *Zatrzymaj* | status | the check in the line with the part done and Stop; the button is gone |
+    | *Sprawdź ponownie*, *Numeruj od nowa* | - | action buttons, each the Cancel of the check it started |
+    | warning bar of the problems that concern every row | note | `Ad.Note.Attention` above the grid (the findings of a check) |
+    | one warning bar per note of the results (canary, replication, accounts left disabled, the forest UPN hint) | note | one `Ad.Note.Attention` per note, above the accounts: how the results are to be read |
+    | the scope of the check, the hints, the first free number, pattern errors, the warnings about suffixes and groups | note / hint | unchanged |
+
+  - *Decisions.*
+    - **The line of the host, through two levels.** `BulkCreateViewModel` is `IHasPageStatus` with a holder that says
+      nothing of its own and has the page of the step in front (`Step` → `Front`); the batch editor's `SourceStatus` is
+      that holder (`??` after the targets and the CSV import), and the window already put its source in front while the
+      first step is shown. The pages that have something to say - source, rules, check - own a holder, like the CSV
+      import; *Kolumny* has none (a note is not a status, V2b-1 foundation 1). Nothing new in the model: `Front` already
+      chained.
+    - **The end of the session is the window's.** Its own error that cannot be closed covers every page, so the wizard
+      adds no state of its own; the wizard ends what runs *after* the window said it - `BatchEditorViewModel.OnSessionEnded`
+      calls `BulkCreate.OnSessionEnded()` after `Status.SetLasting(SessionEndedStatus)` (V2b-2 Dialogs 22), and the check
+      disposes its operation there - so the line goes from "working" straight to the end of the session. The second change
+      the shared view model needed besides `SourceStatus`; the order of the other lines is unchanged.
+    - **Stop on a read that nothing can interrupt.** Pasting and loading a file parse on the thread pool; Stop is
+      `Task.Run(…).WaitAsync(token)`: the line says "Stopping…" and the page is free at once (`IsBusy` ends), the thread runs
+      to its end and its result is dropped - there is no state to undo, the table is applied only after the wait. A
+      small test seam, `BulkSourceViewModel.ReadGate`, holds the parse on its thread so a test can stop and release it.
+      The rebuild after a header choice, the appending of repeated rows and replacing the table with them are begun with
+      `canCancel: false`: they are in memory and quick, a stopped half would leave the header choice out of step with the
+      table. The three buttons that start a read (*Wklej*, *Wklej i zastąp*, *Wczytaj plik…*) stay buttons: the Stop of
+      the line is theirs (the open question of V2b-3 about buttons whose operation is stopped in the line only).
+    - **A press that came to nothing is an attention built from "what was skipped: why"** (V2b-2 Dialogs 5), with the key
+      of what was skipped as its log copy and the old sentence of the view model as the reason; the file name, the
+      header, a cell and a profile name are on screen only - a log copy is the key, a count (the columns remembered by a
+      profile, the rows checked) and a result code. A file that could not be read is an error with "Choose another file.";
+      a file or a paste that was read and held nothing is an attention.
+    - **The check is one operation, whoever asked for it.** Entering the step, *Sprawdź ponownie*, an edit, an exclusion
+      and the arrival of the global-catalog session all begin it on the page's holder, a newer one replaces the running one
+      without a word, and Stop - the line's, the button's and `StopCommand`, the same Stop - says "Stopping…" and ends as
+      the state of the page. Both buttons are action buttons with one holder, so each has its own flag: *Sprawdź ponownie*
+      is the Cancel of every check except the one *Numeruj od nowa* started (`CheckRunKind`), as *Refresh* of the Recycle
+      Bin is the Cancel of the read whoever started it. The planner reports at the start, every 250 rows and at the end:
+      "Checking the rows: 0 of 120…" and "120 of 120…" are what a small sheet shows.
+    - **Stopped, failed and out of date are states, not results.** The grid then stands without an explanation of its
+      own - empty after a first check that was stopped, older after a recompute - and the sentence is true until the next
+      check applies. They are computed from the facts in one method (`UpdateLasting`: the failure, the stop, `IsStale`),
+      so "stopped" and "out of date" follow a language switch at once; a failure keeps the language it was said in.
+      `IsStale` and `Error` are unchanged for the tests and the plan. *Noticed, not changed (rule 5):* a recompute that
+      was stopped after an edit leaves `HasPendingRecompute` false, so *Podgląd* plans from the older computation without
+      that edit; the line now says so ("the results may not match … your changes") but the preview does not refuse.
+    - **A result goes with what it was about.** Choosing another profile closes what the line said about the last profile
+      command (V2b-2 Dialogs 18); the next action in the table (a row, a column, *Wyczyść*) closes the last read's answer
+      (6.7: a result stays until the next operation or until it is closed).
+    - **The notes of the results do not repeat the window's result.** How the execution ended is said by the line of the
+      window (foundation 9); the notes say how the list below them is to be read, for as long as it is shown.
+    - `Error` of *Dane* and of *Sprawdzenie*, `ProfileStatus`, `OptionsError`, `Summary`, `IsBusy`, `IsComputing`,
+      `ComputedRows`, `TotalRows` and `StopCommand` are unchanged for the tests and the code that read them.
+  - *Where this differs from the plan.* The recipe wants one line per converted view; the wizard has none, because the
+    window that hosts it has one and a second would say its status in two places (the second list of the source test
+    exists for exactly this, Dialogs 15). The three source buttons did not become action buttons (above). The profile
+    result is said in the line, which is at the top of the window, while *Zapisz* is at the bottom of a long step.
+
+- **Tests.** Presentation (34, on Linux): `BulkCreate/BulkSourceStatusTests` (12: the paste and the file with the sequence
+  of the line in both languages, the name of a file never in a log copy, Stop of a paste and of a file with a parse held on
+  its thread and released, a clipboard without a table, files that cannot be used - too large, not a sheet, not there -
+  with the table of before staying, a header row out of range, a column over the limit closed by the next action, the
+  repeated-paste question as a note, the summary after a language switch, closing the window during a read),
+  `BulkRulesStatusTests` (7: nothing at rest, why *Dalej* is not possible is not status, a profile that cannot be saved, the
+  results of save / default / delete with no name in the log copy, a built-in profile as the default, the limit of
+  profiles, the account that can join computers - not found, a failing read, closed by the next pick -, the sentence
+  back when the step is shown again), `BulkCheckStatusTests` (11: the part done from the first row with its fractions in
+  both languages, no cell in a log copy, Stop with a read held on its way to the domain controller - "Stopping…" at once,
+  the stopped state and its action -, `StopCommand` as the same Stop, the two buttons' flags and their Cancel, a failed
+  check with Retry, incomplete input, the stale state in both languages and its action, an edit that replaces a running
+  check without a word, the end of the session during a check - straight to the end, nothing from the call that returns
+  later -, closing the window), `BulkCreateStatusTests` (4: the chain window → wizard → page through the steps, the
+  preview and *Back*, closing, the wizard's own holder empty). `BulkCreateBatchEditorTests`, `BulkCheckTests`,
+  `BulkSourceTests`, `BulkRulesTests` and `BulkCreateProfileTests` are unchanged. UI (Windows CI, written without a screen):
+  `BulkCreateStatusUiTests` (5: one line in the whole window and the summary in it, the notes of the table, the answer to a
+  profile command and the note of the rules - with `GrowthOf` -, the check in the line with Stop and the button as its
+  Cancel - the grid moves by as much as the line grew -, the notes of the check and of the results). Adapted where the
+  place of a sentence changed: the two UI tests that read the summary of a step from a text block read it from the
+  line (`BulkCreateInputUiTests`, `BulkCreateWindowTests`), and `BatchEditorStatusUiTests.AssertNoOldFeedback` no longer
+  exempts the views of the wizard. Source rules: the six views on `ConvertedViewsWithoutAStatusLine`; the expressions of
+  `XamlSourceTests` for both lists, the `Ad.*` keys, the closed set of Fluent brushes, the motion rule and "every
+  `StaticResource` key is defined before its first use" were proven on Linux with a throwaway script.
+- **After V2b-4, unit 1** (counted in the XAML, comments excluded): **7 uses of `Ad.ErrorBar` and 14 of `Ad.WarningBar` in
+  21 view files, 22 progress bars** (one is the row of an activity, which stays). By area: `Views/Watchdog/` 2 + 4 and 7 in
+  9 files; `Computers/` 2 + 3 and 3 in 2 files; `Pki/` 2 + 2 and 4 in 4 files; `EventLogs/` 0 + 3 and 3 in 3 files;
+  `Correspondence/` 1 + 1 and 3 in 1 file; `Readiness/` 0 + 1 and 1 in 1 file. Thirty-three views have a status line and
+  thirteen converted views none. Left behind on purpose (added to *After V2b-1*): the strings `BulkCreate.Reading`,
+  `BulkCheck.Computing` and `BulkCheck.StaleNote`, which have no user any more; no longer shown but read by tests or by the
+  view models themselves - `Error` of the source and of the check, `ProfileStatus`, `OptionsError`, `ComputedRows` and
+  `TotalRows`, and `StopCommand` of the check, which has no view. The three views that were notes already (`MappingError`,
+  the scope of the check, the first free number) were not renamed.
+- **Not seen, to confirm on Windows (unit 1).** Nothing of this unit was seen on a screen.
+  - *The line over the wizard.* It is the line of the batch editor, so it is there at rest in every step, empty on
+    *Kolumny* (an empty band of 28 px, the open question of the empty line) - it was there since V2b-1, empty in this mode.
+  - *The toolbars.* *Dane* without the bar and the bold summary at its right; *Sprawdzenie* with two action buttons next to
+    the plain *Następny błąd* and *Kopiuj wiersze z błędami* (as wide as "Zatrzymywanie…" needs: "Sprawdź ponownie" is
+    wider, "Numeruj od nowa" is not), the scope of the check right under the filter row where the bold summary stood.
+  - *The notes.* The reading warnings in one note with their own scroll (88 px), glyph in the first line; the repeated-paste
+    note with three buttons at its right, which wraps in a narrow window; the note of *Nazwy i opcje* above the sections.
+  - *Long results.* "Nie wczytano pliku „…”: Plik jest większy niż 50 MB. Wybierz inny plik." with a long file name, the
+    stopped-check sentence (about 150 characters) and the stale sentence wrap to two or three lines and move the wizard
+    down with them.
+  - *Coming back from the preview.* The stale state of the check shows for the moment between *Back* and the recompute that
+    the execution scheduled (300 ms); with a result of the line closed or not.
+  - *The profile commands* answer in the line at the top of the window while the buttons are at the bottom of a long step.
+  - *Open for the owner:* whether the three source buttons become action buttons (Stop is in the line only); whether
+    *Podgląd* should refuse, or compute again, after a check that was stopped (rule 5 says how a plan is made is not this
+    increment's business); whether the profile commands' answers belong next to the buttons as notes.
+  - The pictures `40-bulk-create-data.png` to `43-bulk-create-check.png` are made by the screenshot tests but are not
+    committed or shown in the READMEs; they change with this unit (the summary in the line, the notes, the two action
+    buttons) - the line itself was there since V2b-1, empty in this mode.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 

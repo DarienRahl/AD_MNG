@@ -77,6 +77,14 @@ CSV i tekst: separator `;`, `,` albo tabulator (wykrywany z pierwszego wiersza),
 Unicode (\*.txt)*), UTF-8 z BOM albo bez, a w pozostałych przypadkach strona kodowa Windows (w polskim Windows – cp1250).
 Pliki są czytane do pamięci, bez plików tymczasowych.
 
+**Odczyt i jego wynik.** Wiersz stanu okna – pod paskiem kroków edytora, ten sam w każdym kroku kreatora – mówi, co
+kreator robi z tabelą: *Odczytywanie wklejonej tabeli…* albo *Odczytywanie pliku „dane.xlsx”…* z poleceniem *Zatrzymaj*
+(po zatrzymaniu tabela się nie zmienia, a wiersz proponuje ponowienie), a potem podsumowanie tabeli (*Wiersze: 120,
+kolumny: 7 – nagłówki rozpoznane*). Gdy z wklejenia albo pliku nic nie wynika, wiersz mówi, co pominięto i dlaczego
+(*Nic nie wklejono: Schowek nie zawiera tabeli …*, *Nie wczytano pliku „dane.xlsx”: Plik jest większy niż 50 MB. Wybierz
+inny plik.*); tabela wczytana wcześniej zostaje, a wynik zamykasz krzyżykiem. Ostrzeżenia odczytu (poniżej) stoją nad
+tabelą jako uwaga, dopóki pokazywana jest ta tabela, a pytanie o powtórne wklejenie ma przy sobie swoje trzy przyciski.
+
 **Wpisywanie.** Komórki tabeli można poprawiać na miejscu. *Dodaj wiersz* w pustym kreatorze zaczyna tabelę z kolumnami
 *Imię, Nazwisko, E-mail, Telefon komórkowy, Dział*, które następny krok przypisze sam. *Dodaj kolumnę* dodaje kolumnę o
 nagłówku wpisanym w polu *Nagłówek nowej kolumny*; *Usuń zaznaczone wiersze* i *Wyczyść* usuwają dane.
@@ -86,8 +94,8 @@ nagłówkiem jest wiersz ze znanymi nazwami kolumn (rozdział 4), także pod tyt
 listopad 2026*) – wiersze nad nagłówkiem są pomijane z ostrzeżeniem, a *Wiersz nagłówków* pozwala wskazać inny wiersz
 zakresu. Tabela bez nagłówków ma kolumny oznaczone literami (`A`, `B`, `C`…). *Pierwszy wiersz danych w Excelu*
 (domyślnie 2 z nagłówkiem, 1 bez) służy tylko do wyświetlania: kolumna *Nr* w kroku *Sprawdzenie* i w wynikach pokazuje
-numer wiersza arkusza, więc poprawki łatwo znaleźć w pliku źródłowym. Podsumowanie pod tabelą ma postać *Wiersze: 120,
-kolumny: 7 – nagłówki rozpoznane*.
+numer wiersza arkusza, więc poprawki łatwo znaleźć w pliku źródłowym. Podsumowanie w wierszu stanu okna ma postać
+*Wiersze: 120, kolumny: 7 – nagłówki rozpoznane*.
 
 **Co kreator robi z komórkami.** Usuwa BOM i znaki niewidoczne (np. spacje zerowej szerokości), zamienia spacje
 nierozdzielające na zwykłe, skleja powtórzone spacje i obcina spacje na początku i końcu. Puste kolumny i wiersze na
@@ -108,7 +116,8 @@ zwykłymi znakami. Ostrzeżenia podają numer wiersza i kolumny – nigdy warto�
 > Excel kopiuje także **ukryte kolumny**, ale **nie wiersze ukryte filtrem**. Przed kopiowaniem sprawdźcie, czy filtr
 > arkusza nie ukrywa osób, które mają dostać konta.
 
-*Dalej* jest dostępne, gdy wybrano kontener, a tabela ma co najmniej jeden wiersz.
+*Dalej* jest dostępne, gdy wybrano kontener, a tabela ma co najmniej jeden wiersz. Dlaczego *Dalej* nie jest jeszcze
+możliwe w krokach 2 i 3, mówi uwaga nad przypisaniami kolumn albo nad regułami – wiersz stanu jej nie powtarza.
 
 ## 4. Krok 2 – Kolumny
 
@@ -200,7 +209,10 @@ przeciwnym razie ostatnio używany profil tego rodzaju, a w końcu *Standardowy*
 (nazwa podpowiadana z dopiskiem *(kopia)*): panel ma pole *Nazwa profilu*, opcję *Domyślny dla tego kontenera* i
 informację, które przypisania kolumn profil zapamięta (*Profil zapamięta też przypisanie kolumn: …*). *Domyślny dla tego
 kontenera* przy zapisanym profilu włącza go albo wyłącza jako domyślny; *Usuń* usuwa zapisany profil (utworzone obiekty
-się nie zmieniają). Można zapisać do 50 profili; profile są wspólne dla wszystkich okien programu.
+się nie zmieniają). Można zapisać do 50 profili; profile są wspólne dla wszystkich okien programu. Wynik polecenia –
+*Zapisano profil „Kadry”. Zapamiętane kolumny: …* albo powód, dla którego nic nie zapisano (*Nie zapisano profilu: Wpisz
+nazwę profilu.*) – jest w wierszu stanu okna, a nie pod przyciskami; to samo dotyczy konta, które może dołączać
+komputery (rozdział 5.5), gdy nie da się go odczytać.
 
 **Co zawiera profil:** reguły (atrybut, wzorzec, *Reguła zastępuje kolumnę*), wybrany sufiks UPN i domenę adresów
 e-mail, opcje kont i opcje zaawansowane, grupy (z nazwą domeny – w oknie innej domeny są pomijane z ostrzeżeniem
@@ -405,15 +417,20 @@ obiektu będzie wymagało zmiany nazwy.
 
 ## 6. Krok 4 – Sprawdzenie
 
-Po wejściu w krok kreator wylicza wszystkie wiersze (*Sprawdzanie wierszy: 40 z 120*, przycisk *Zatrzymaj*). Czyta
-katalog przez kontroler okna – zajęte nazwy, numery licznika, menedżerów, grupy, możliwe istniejące konta, zasady haseł
-domeny, uprawnienia do kontenera – i niczego nie zapisuje.
+Po wejściu w krok kreator wylicza wszystkie wiersze. Postęp – *Sprawdzanie wierszy: 40 z 120…*, z poleceniem
+*Zatrzymaj* – jest w wierszu stanu okna; przycisk *Sprawdź ponownie* (a gdy sprawdzenie zaczęło *Numeruj od nowa* – ten
+przycisk) zamienia się wtedy w *Anuluj* tego sprawdzenia. Czyta katalog przez kontroler okna – zajęte nazwy, numery
+licznika, menedżerów, grupy, możliwe istniejące konta, zasady haseł domeny, uprawnienia do kontenera – i niczego nie
+zapisuje. Zatrzymane sprawdzenie zostawia w wierszu stanu uwagę: *Sprawdzanie wierszy zatrzymano: wyniki mogą nie
+odpowiadać danym i wprowadzonym zmianom. Wybierz „Sprawdź ponownie”, aby sprawdzić ponownie.* Taka sama uwaga pojawia się,
+gdy dane, reguły albo utworzone konta zmieniły się od sprawdzenia; sprawdzenie, które się nie udało, podaje powód i ma
+polecenie *Ponów*.
 
 **Tabela.** Kolumny: *Utwórz* (pole wyboru), *Stan*, *Nr* (wiersz arkusza), imię i nazwisko (dla grup i komputerów –
 nazwa) przypięte z lewej, *Uwagi*, potem wyliczone atrybuty (`cn`, nazwa logowania, UPN, adres e-mail, imię, nazwisko i
 każdy atrybut, który ma wartość w którymś wierszu) oraz *Menedżer* i *Grupy*. *Kliknij dwukrotnie komórkę, aby ją
-poprawić (Enter zapisuje); odznacz wiersz, aby go pominąć.* Podsumowanie: *Wiersze: 120 – OK: 108, z ostrzeżeniami: 6,
-z błędami: 4, wykluczone: 2*; pod nim zakres sprawdzenia: *Unikalność UPN i adresów: cały las (jedna domena)*, *cały las
+poprawić (Enter zapisuje); odznacz wiersz, aby go pominąć.* Podsumowanie w wierszu stanu okna: *Wiersze: 120 – OK: 108,
+z ostrzeżeniami: 6, z błędami: 4, wykluczone: 2*; nad tabelą zakres sprawdzenia: *Unikalność UPN i adresów: cały las (jedna domena)*, *cały las
 (wykaz globalny na DC01)* albo *sprawdzone tylko w domenie*.
 
 | Stan | Znaczenie |

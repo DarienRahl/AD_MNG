@@ -78,6 +78,15 @@ shortened. CSV and text: the separator `;`, `,` or tab (detected from the first 
 *Unicode Text (\*.txt)*), UTF-8 with or without a BOM, and otherwise the Windows ANSI code page of the workstation
 (cp1250 on Polish Windows). Files are read into memory, without temporary files.
 
+**Reading and its result.** The status line of the window - under the step bar of the editor, the same in every step of
+the wizard - says what the wizard does with the table: *Reading the pasted table…* or *Reading "data.xlsx"…* with the
+*Stop* command (after a stop the table is not changed and the line offers to try again), and then the summary of the table
+(*Rows: 120, columns: 7 – headers recognized*). When a paste or a file comes to nothing, the line says what was skipped
+and why (*Nothing was pasted: The clipboard holds no table …*, *"data.xlsx" was not loaded: The file is larger than 50
+MB. Choose another file.*); a table loaded earlier stays, and you close the result with the cross. The warnings of
+reading (below) stand above the table as a note for as long as that table is shown, and the question about a repeated
+paste has its three buttons next to it.
+
 **Typing.** The table cells can be corrected in place. In an empty wizard, *Add row* starts a table with the columns
 *Given name, Surname, E-mail, Mobile, Department*, which the next step maps by itself. *Add column* adds a column with
 the header typed in the *Header of the new column* box; *Remove selected rows* and *Clear* remove data.
@@ -87,8 +96,8 @@ row with known column names (chapter 4), also below a sheet title (e.g. *New emp
 above the header are skipped with a warning, and *Header row* lets you point to another row of the range. A table
 without headers has columns named by letters (`A`, `B`, `C`…). *First data row in Excel* (default 2 with a header, 1
 without) is used only for display: the *Row* column in the *Check* step and in the results shows the row number of the
-sheet, so corrections are easy to find in the source file. The summary below the table reads *Rows: 120, columns: 7 –
-headers recognized*.
+sheet, so corrections are easy to find in the source file. The summary in the status line of the window reads *Rows:
+120, columns: 7 – headers recognized*.
 
 **What the wizard does with the cells.** It removes the BOM and invisible characters (e.g. zero-width spaces), replaces
 non-breaking spaces with ordinary ones, collapses repeated spaces and trims spaces at the start and the end. Empty
@@ -109,7 +118,8 @@ zespół`) remain ordinary characters. Warnings give the row and column number �
 > Excel also copies **hidden columns**, but **not rows hidden by a filter**. Before copying, check that the sheet's
 > filter does not hide people who are supposed to get accounts.
 
-*Next* is available when a container is chosen and the table has at least one row.
+*Next* is available when a container is chosen and the table has at least one row. Why *Next* is not yet possible in
+steps 2 and 3 is said by the note above the column mappings or above the rules - the status line does not repeat it.
 
 ## 4. Step 2 – Columns
 
@@ -203,7 +213,10 @@ when you switch the profile or the *Object kind*, the wizard asks whether to dis
 name has the suffix *(copy)*): the panel has the *Profile name* box, the *Default for this container* option and a note
 on which column mappings the profile will remember (*The profile also remembers the mapping of the columns: …*). With a
 saved profile, *Default for this container* makes it the default or stops it being one; *Delete* deletes a saved profile
-(created objects do not change). Up to 50 profiles can be saved; profiles are shared by all windows of the program.
+(created objects do not change). Up to 50 profiles can be saved; profiles are shared by all windows of the program. The
+result of the command - *Profile "Staff" saved. Remembered columns: …*, or the reason why nothing was saved (*The profile
+was not saved: Type a name for the profile.*) - is in the status line of the window, not under the buttons; so is the
+failure to read the account that can join computers (chapter 5.5).
 
 **What a profile contains:** the rules (attribute, pattern, *Rule replaces the column*), the chosen UPN suffix and
 e-mail domain, the account options and the advanced options, the groups (with the domain name – in a window of another
@@ -413,15 +426,20 @@ does not block the row but gives a warning: restoring that object will require a
 
 ## 6. Step 4 – Check
 
-When you enter the step, the wizard computes all rows (*Checking rows: 40 of 120*, the *Stop* button). It reads the
-directory through the window's controller – taken names, counter numbers, managers, groups, possibly existing accounts,
-the domain's password policy, permissions on the container – and writes nothing.
+When you enter the step, the wizard computes all rows. The progress - *Checking the rows: 40 of 120…*, with the *Stop*
+command - is in the status line of the window; the *Check again* button (or *Renumber*, when it started the check) turns
+into *Cancel* of that check for the time. It reads the directory through the window's controller – taken names, counter
+numbers, managers, groups, possibly existing accounts, the domain's password policy, permissions on the container – and
+writes nothing. A check that was stopped leaves a note in the status line: *Checking the rows was stopped: the results may
+not match the data and your changes. Press "Check again" to check again.* The same note appears when the data, the rules
+or the created accounts changed since the check; a check that failed gives the reason and has the *Retry* command.
 
 **Table.** Columns: *Create* (a check box), *Status*, *Row* (the row of the sheet), the given name and surname (for
 groups and computers – the name) pinned on the left, *Notes*, then the computed attributes (`cn`, logon name, UPN,
 e-mail address, given name, surname and every attribute that has a value in some row) and *Manager* and *Groups*.
-*Double-click a cell to correct it (Enter saves), clear the check box of a row to leave it out.* Summary: *Rows: 120 –
-OK: 108, with warnings: 6, with errors: 4, excluded: 2*; below it the scope of the check: *Uniqueness of UPNs and
+*Double-click a cell to correct it (Enter saves), clear the check box of a row to leave it out.* The summary in the
+status line of the window: *Rows: 120 – OK: 108, with warnings: 6, with errors: 4, excluded: 2*; above the table the
+scope of the check: *Uniqueness of UPNs and
 addresses: the whole forest (one domain)*, *the whole forest (global catalog on DC01)* or *checked in the domain only*.
 
 | Status | Meaning |
