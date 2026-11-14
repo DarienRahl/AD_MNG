@@ -80,10 +80,20 @@ chapter 4.2): a second document does not read the directory again. *Refresh*, *C
 of them reads everything again, and the other open PKI documents show the new read. *Change Domain Controller...*,
 disconnecting and closing the window drop the read from memory.
 
+**Status line.** Each of the four documents has one status line under its header. At rest it gives the summary (what was
+read, when and from where, the selected row). While a read runs it says what is being read and at which stage (*AD CS
+objects: 1,204*, *accounts: 500*) and has a *Stop* button; the button that started the read (*Refresh*, *Check again*,
+*Read again*) is its *Cancel* meanwhile. A read that was stopped or failed stays on the line as the state of the tab – with
+*Refresh* or *Retry* – until the document is read again. The check of the HTTP URLs (3.6), the check of the LDAPS
+certificates (3.7, 6) and the check of the security review (5) say it the same way: the stage, *Stop* and – when it fails
+or is stopped – the result on the line. Sentences that are true of the content for as long as it is shown (the notes of
+the read, a CA outside NTAuth, a template whose rights were not evaluated, the scope of the review) are notes next to it,
+not the line.
+
 ## 3. The "Public Key Services" overview
 
-The header gives a summary (e.g. *2 enterprise CAs · 26 templates · 1 trusted root CAs · 1 NTAuth certificates*) and
-where and when the data was read (*Read from dc01.contoso.test at 10/13/2026 2:00 PM.*). The overview reads with one
+The status line under the header gives a summary (e.g. *2 enterprise CAs · 26 templates · 1 trusted root CAs · 1 NTAuth
+certificates*) and where and when the data was read (*read from dc01.contoso.test, 10/13/2026 2:00 PM*). The overview reads with one
 paged search of `CN=Public Key Services,CN=Services,CN=Configuration,…` including the security descriptors. *Refresh*
 (F5) reads again.
 
@@ -171,8 +181,9 @@ Locations:
 - `http://` and `https://` – *Unknown* until the operator presses *Check HTTP URLs* (3.6).
 - OCSP has no health row (as in `pkiview.msc`) – it is only on the *HTTP URLs* list.
 
-Above the list: a summary (*OK: 9 · expiring: 1 · expired: 0 · unavailable: 1 · unknown: 4*) and the thresholds used.
-The states are computed **when shown** from the read, the current thresholds and the clock: every time the tab is
+On the status line of the tab: a summary (*OK: 9 · expiring: 1 · expired: 0 · unavailable: 1 · unknown: 4*) and, after the
+HTTP URLs were checked, their count; above the list the thresholds used and – until the URLs were checked – a note that
+their rows are *Unknown*. The states are computed **when shown** from the read, the current thresholds and the clock: every time the tab is
 selected, after F5 and after the thresholds change in the settings – without reading the directory again.
 
 ### 3.6 Checking the HTTP URLs
@@ -194,6 +205,8 @@ when the operator presses *Check HTTP URLs*** on the *Health* tab. Nothing is fe
   host name does not resolve*, *The connection failed*, *Not checked (not an http/https URL)*), and the health rows get
   their states. The fetched body is discarded right after it has been read; the results stay in the window's memory
   until F5.
+- The progress (*Checking the AIA, CDP and OCSP addresses – 3 of 8…*) is on the status line of the tab; *Check HTTP URLs*
+  is its *Cancel* meanwhile, and a stopped check does not change the results.
 
 ### 3.7 LDAPS certificates of the domain controllers
 
@@ -210,6 +223,10 @@ LDAPS port:
 - **Columns:** *Domain controller*, *Port* (*636* or *3269 (global catalog)*), *Result* (*LDAPS certificate presented*,
   *Host name not resolved*, *Port closed*, *DC without an LDAPS certificate (the TLS handshake failed)*, *No answer
   within 5 s*, *Not a valid host name*), *Checks*, *Valid to* and *KDC certificate*.
+- **Status line:** the probe (*Checking the LDAPS certificates of the domain controllers…*) can be stopped – *Check LDAPS
+  certificates* is its *Cancel* meanwhile, and a stopped probe does not change the results. The result is the rows and the
+  summary (*Ports checked: 3; OK: 2; with a problem: 1.*). A probe that could not be made is not hidden by the tab: the
+  line says why and offers *Retry*.
 - **Checks** of the presented certificate: the name matches the controller (a DNS entry of the subject alternative name,
   without one the common name; a wildcard only as the whole first label), the domain name in the SAN (a warning only:
   *the domain name is not in the SAN (ldaps://contoso.test fails)*), the Server Authentication EKU (or no EKU), the
@@ -239,11 +256,14 @@ A list of all `CN=Certificate Templates` objects with the columns:
 | *Issued by* | the enterprise CAs that list the template in `certificateTemplates`; otherwise *not issued by any CA* |
 | *Who can enroll* | the summary of 4.2 |
 
-Above the list: the search (Ctrl+F; name, OID, purpose, CA, trustee), the *Only templates no CA issues* box and the
-summary *26 templates, 2 not issued by any CA*. The details pane of the selected template has the parts *General*
+The status line gives the summary *26 templates, 2 not issued by any CA · accounts counted: 1,234* and the selected
+template. Above the list: the search (Ctrl+F; name, OID, purpose, CA, trustee) and the *Only templates no CA issues* box.
+The details pane of the selected template has the parts *General*
 (template OID, application policies, extended key usage (`pKIExtendedKeyUsage`), policies an authorized signature must
 carry, cryptographic providers), *Flags*, *Who can enroll* and *Who can change the template*. *Copy details* copies the
-template's description to the clipboard, *Refresh* (F5) reads again.
+template's description to the clipboard, *Refresh* (F5) reads again. The count of the accounts is a stage of the read
+(*counting the accounts: 500*) and can be stopped; when it fails, the line says that the list shows who may enroll but not
+how many accounts that is, and offers *Retry*.
 
 ### 4.1 Flags
 
@@ -303,8 +323,10 @@ shows *The template's security descriptor could not be read: its rights are not 
 The **AD CS security review** document looks for configurations open to the known attacks on AD CS. When opened it uses
 the window's PKI read and account count, reads the permissions of the PKI objects (containers, NTAuth, OID objects,
 enrollment services, CA objects, the CA computer objects and Tier 0 accounts), resolves the accounts and groups and then
-evaluates the rules – the document shows which stage is running. *Cancel* stops it (the rows shown stay), *Check again*
-(F5) reads everything again. The scope is always shown above the list:
+evaluates the rules – the status line shows which stage is running and lets you stop it (*Stop*). *Check again* (F5)
+reads everything again and is its *Cancel* while a check runs (there is no separate button). Stopping does not remove the
+rows shown; the line says that the tab shows the results of the earlier check until the check is repeated. The scope is
+always shown above the list:
 
 > Reads the templates, the PKI objects and the accounts over LDAP (ESC1–5, 9, 13, 14, 15, 17) and changes nothing.
 > Assumes every CA grants Enroll to Authenticated Users; the CA's own settings (ESC6, 7, 8, 10, 11, 16) are checked in
@@ -425,8 +447,8 @@ both tools find for the ESCs of the LDAP list; the differences are deliberate:
 
 A separate PKI document (this is not *Check environment readiness…* of stage S). It answers the question **who will not
 be able to log on with a certificate** under full enforcement of strong certificate mapping (KB5014754) and without the
-CA in NTAuth. The rows have the status *OK*, *Warning*, *Problem* or *Not checked*, a description and *What to do*;
-above the list are the status counters.
+CA in NTAuth. The rows have the status *OK*, *Warning*, *Problem* or *Not checked*, a description and *What to do*; the
+status line has the status counters, followed by when and where the report was read.
 
 | Area | What it checks | Statuses |
 |---|---|---|
@@ -438,7 +460,8 @@ above the list are the status counters.
 | *KDC events* | the events 39, 40, 41, 45 and 21 of the domain controllers | always *Not checked* – the event analysis comes in stage P5; until then filter the *System* log of every domain controller in the event log reader ([EVENT-LOGS.md](EVENT-LOGS.md)) |
 
 - **Check LDAPS certificates** – the report connects to the domain controllers **only when this button is pressed** (the
-  same TLS handshake as in 3.7). Otherwise it shows the result of an earlier check in the overview or *Not checked*.
+  same TLS handshake as in 3.7). Otherwise it shows the result of an earlier check in the overview or *Not checked*. The
+  check is on the status line and can be stopped; a stopped one does not change the results.
 - *Read again* (F5) reads the PKI objects, the domain controllers and the accounts again.
 - The rows have the buttons *Open account*, *Open template* and *Open CA*. Each area shows up to 100 rows (*… and N
   more*); *Copy* and *Export to CSV…* include all of them.

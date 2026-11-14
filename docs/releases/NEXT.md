@@ -62,7 +62,8 @@
 - **Pasek stanu okna głównego** nie powtarza już podsumowania listy i liczby zaznaczonych obiektów – dla karty
   z listą obiektów są one w wierszu stanu listy, a dla kart zasad grupy – w wierszu stanu karty. Połączenie, kontroler
   domeny, zabezpieczenia połączenia, działania, wersja i znaczek listy wirtualnej zostają na swoim miejscu; dla
-  pozostałych kart (Watchdog, dzienniki zdarzeń, certyfikaty, gotowość środowiska) pasek działa jak dotąd.
+  kart dzienników zdarzeń, gotowości środowiska i certyfikatów jest to wiersz stanu karty, a dla karty Watchdog pasek
+  działa jak dotąd.
 - **Okno główne: kółko postępu zamiast pasków.** Szybkie wyszukiwanie pokazuje na czas szukania kółko w miejscu lupy
   (dotąd: cienki pasek pod polem), a przycisk działań w pasku stanu – kółko obok liczby trwających operacji (dotąd:
   pasek). Pasek postępu każdej operacji na liście operacji w tle został bez zmian. „Konto chronione (adminCount=1)”
@@ -530,11 +531,41 @@
   zatrzymane („… sprawdzenia, do których nie doszło, oznaczono jako niesprawdzone. Wybierz „Sprawdź ponownie”…”) i zmiana
   połączenia po pokazanym sprawdzeniu są stanami karty z poleceniem **Sprawdź ponownie**, dopóki go nie wykonasz; brak
   połączenia – błędem stanu. „Tylko do odczytu…” i uwaga o eksporcie są jedną uwagą nad obszarami.
+- **Certyfikaty (AD CS): wiersz stanu pod nagłówkiem każdego z czterech dokumentów.** *Usługi kluczy publicznych*,
+  *Szablony certyfikatów*, *Przegląd bezpieczeństwa AD CS* i *Gotowość na silne mapowanie i NTAuth* mówią w jednym
+  wierszu to samo tymi samymi słowami. W spoczynku: podsumowanie – co odczytano, kiedy i skąd oraz zaznaczony wiersz
+  („Urzędy przedsiębiorstwa: 2 · szablony: 26 · zaufane urzędy główne: 1 · certyfikaty NTAuth: 1 · odczytano z
+  dc01.contoso.test, 13.10.2026 14:00 · Kontoso Wystawiający CA”); dotąd były to dwa osobne teksty nad kartami. Odczyt to
+  **Trwa** z etapem – „Wczytywanie „Usługi kluczy publicznych” – obiekty AD CS: 1 204…”, w szablonach także „odczyt
+  uprawnień szablonów…” i „liczenie kont: 500…”, w przeglądzie bezpieczeństwa „Sprawdzanie bezpieczeństwa AD CS – odczyt
+  uprawnień obiektów PKI…” – z poleceniem **Zatrzymaj**; przycisk *Odśwież*, *Odczytaj ponownie* albo *Sprawdź ponownie*
+  zamienia się na ten czas w **Anuluj**. Osobnego przycisku *Anuluj* przeglądu bezpieczeństwa i pasków postępu już nie
+  ma. Odczyt zatrzymany („… zatrzymano: karta może nie pokazywać wszystkiego. Wybierz „Odśwież”…”) i odczyt, który się
+  nie udał (z poleceniem **Ponów**), zostają w wierszu, dopóki dokument nie zostanie odczytany ponownie; zatrzymane
+  sprawdzenie bezpieczeństwa zostawia wyniki poprzedniego sprawdzenia i mówi o tym. Brak połączenia jest błędem stanu
+  karty. Czerwona ramka z błędem odczytu zniknęła.
+- **Certyfikaty: sprawdzanie adresów HTTP i certyfikatów LDAPS mówi w wierszu karty.** Na karcie *Zdrowie* sprawdzenie
+  adresów to **Trwa** – „Sprawdzanie adresów AIA, CDP i OCSP – 3 z 8…” z postępem w kółku i poleceniem **Zatrzymaj**;
+  w tym czasie *Sprawdź adresy HTTP* jest przyciskiem **Anuluj**. To samo robi *Sprawdź certyfikaty LDAPS* na karcie
+  *Certyfikaty LDAPS* i w raporcie gotowości: „Sprawdzanie certyfikatów LDAPS kontrolerów domeny…”. Zatrzymane
+  sprawdzenie nie zmienia dotychczasowych wyników i mówi o tym („… zatrzymano: wyników nie zmieniono. Wybierz „Sprawdź
+  adresy HTTP”…”); sondowanie, którego nie dało się wykonać, jest błędem karty z poleceniem **Ponów**. W spoczynku wiersz
+  karty podaje to, co karta znalazła: podsumowanie zdrowia (po sprawdzeniu także liczbę sprawdzonych adresów) albo
+  „Sprawdzone porty: 3; OK: 2; z problemem: 1.”. To, że wiersze adresów HTTP mają stan *Nieznany*, bo sprawdzenia nie
+  uruchomiono, mówi uwaga na karcie.
+- **Szablony certyfikatów: liczenie kont jest etapem odczytu.** Szablony i ich prawa widać od razu, a liczenie kont
+  („liczenie kont: 500…”) można zatrzymać. Gdy się nie uda, szablony zostają, a wiersz mówi, co brakuje: „Nie udało się
+  policzyć kont: … Lista pokazuje, kto może się zarejestrować, ale nie liczbę kont. Wybierz „Ponów”, aby wczytać
+  ponownie.” – dotąd był to tekst pod podsumowaniem.
+- **Certyfikaty: uwagi zamiast ramek.** „Uwagi z odczytu”, ostrzeżenie, że urząd wystawia szablony logowania, a nie
+  jest w NTAuth, „prawa szablonu nie zostały ocenione”, zakres przeglądu bezpieczeństwa wraz z tym, czego jego
+  sprawdzenie nie mogło odczytać, i zdanie „tylko do odczytu” w raporcie gotowości są uwagami przy treści (znak i tekst,
+  bez ramki i bez karty) – dotąd żółtymi ramkami albo kartami.
 - **Co się nie zmieniło:** wiersz stanu mają teraz lista obiektów, wszystkie karty zasad grupy, kreator zakładania wielu
-  kont, przegląd komputerów i zdalne akcje, dzienniki zdarzeń, gotowość środowiska i wszystkie okna oraz dialogi wymienione
-  wyżej; uwagi zamiast ramek mają też okna zasad grupy, które tylko zbierają dane. Pozostałe karty i okna – Watchdog,
-  certyfikaty, korespondencja – mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski postępu; przejdą
-  na wiersz stanu w następnych wydaniach. Eksport do pliku i kopiowanie do schowka nadal potwierdza powiadomienie, a pasek postępu pojedynczej
+  kont, przegląd komputerów i zdalne akcje, dzienniki zdarzeń, gotowość środowiska, cztery dokumenty certyfikatów
+  i wszystkie okna oraz dialogi wymienione wyżej; uwagi zamiast ramek mają też okna zasad grupy, które tylko zbierają
+  dane. Pozostałe karty i okna – Watchdog i korespondencja – mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz
+  paski postępu; przejdą na wiersz stanu w następnych wydaniach. Eksport do pliku i kopiowanie do schowka nadal potwierdza powiadomienie, a pasek postępu pojedynczej
   operacji na liście operacji w tle zostaje w swoim wierszu. Animacja nowego komunikatu (krótkie wsunięcie) i zamiany
   napisu na przycisku działa tylko przy włączonych animacjach (*Ustawienia → Ogólne → Wygląd → Animacje*); kółko postępu
   obraca się zawsze.

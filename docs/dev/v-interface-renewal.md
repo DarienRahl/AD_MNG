@@ -513,6 +513,9 @@ is hosted - no new line: its six views are on the second list of the source test
 As built (V2b-4, unit 2): also the computer review and the remote actions window, the three event log documents and the
 readiness tab - six more views with a line, thirty-nine in all; the restart dialog is on the second list (a note and no
 line): fourteen converted views without one (*V2b-4 as built*, section 8).
+As built (V2b-4, unit 3): also the four PKI documents - the overview, the templates, the readiness report and the security
+review: forty-three views with a line, fourteen converted views without one. The base class of the PKI documents owns their
+status, so the status bar of the main window says nothing about a PKI tab any more (*V2b-4 as built*, section 8).
 
 ### 6.2 Navigation – open question 2
 
@@ -1182,7 +1185,10 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
   `Ad.WarningBar` in 14 view files and 15 progress bars in 15 files; 39 views with a status line and 14 converted views
   without one** - bulk creation, computers, event logs and readiness are done, and three areas are left: `Views/Watchdog/`
   2 + 4 and 7 in 9 files; `Pki/` 2 + 2 and 4 in 4 files; `Correspondence/` 1 + 1 and 3 in 1 file (plus the row of an
-  activity in the main window, which stays).
+  activity in the main window, which stays). *Counted again after V2b-4, unit 3:* **3 uses of `Ad.ErrorBar` and 5 of
+  `Ad.WarningBar` in 6 view files and 11 progress bars in 9 view files (11 view files with at least one of the three); 43
+  views with a status line and 14 converted views without one** - the certificates are done, and two areas are left: `Views/Watchdog/` 2 + 4 and 7 in 9 files and
+  `Correspondence/` 1 + 1 and 3 in 1 file (plus the row of an activity in the main window, which stays).
   - By area (error bars + warning bars, progress bars), in the order the next increments could take them: `BulkCreate/`
     3 + 5 and 2 in 4 files; `Views/Watchdog/` 2 + 4 and 7 in 9 files; `Computers/` 2 + 3 and 3 in 2 files; `Pki/` 2 + 2 and
     4 in 4 files; `EventLogs/` 0 + 3 and 3 in 3 files; `Correspondence/` 1 + 1 and 3 in 1 file; `Readiness/` 0 + 1 and 1 in
@@ -1208,16 +1214,18 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     how it is declared (tab order, default and cancel button), what a dialog that closes on success says, that a missing
     field is said when the button is pressed, how a dialog with tabs, a dialog without a session and a hosted control
     are handled, and that a view with nothing but notes gets no line and goes on the second list
-    (`ConvertedViewsWithoutAStatusLine`). Candidates for the action button that are left: the PKI security
-    review, the sending of correspondence, the Watchdog delivery test. (Done in V2b-2: connect and the search
+    (`ConvertedViewsWithoutAStatusLine`). Candidates for the action button that are left: the sending of
+    correspondence, the Watchdog delivery test. (Done in V2b-2: connect and the search
     for domain controllers, the change of the domain controller, OK of "Reset Password", preview, send and paste of the
     message window, the tests of the filter builder and of the saved view editor. Done in V2b-3: the two start buttons
     of the settings search, the cleanup advisor and the diagnostics, the main button of the backup window and *Update…*
     of the central store. Done in V2b-4: the check and the two start buttons of the bulk wizard's check, the check, the exact
     last logon, the sites and the ping of the computer review, the six actions of the remote computer window, the run of the
-    event log reader, the loading of its channels and the runs of the two analyses, the two checks of readiness.)
+    event log reader, the loading of its channels and the runs of the two analyses, the two checks of readiness; in unit 3 the refresh
+    of the four PKI documents, the check of the security review, the check of the HTTP addresses and the two probes of the domain
+    controllers.)
   - Document tabs drop out of `StatusBarText` as they are converted: the ten Group Policy documents did in V2b-3, with
-    the base class they share, and the three event log documents and readiness in V2b-4, unit 2; Watchdog and PKI are
+    the base class they share, and the three event log documents and readiness in V2b-4, unit 2 and the four PKI documents in unit 3; Watchdog is
     left (neither V2b-1 nor V2b-2 had a document tab). The wizard of bulk creation (`BulkCreate/`) is hosted in step 1 of
     the batch editor: its holder becomes `SourceStatus` of the create mode (done in V2b-4, unit 1). With the last converted view `Ad.ErrorBar`
     and `Ad.WarningBar` leave `Themes/Controls.xaml`, and with them the strings and view-model members that lost their
@@ -1896,7 +1904,12 @@ above.
   (the state of the line is computed from them), `Error`, `StatusText`, `SelectionText`, `IsReading`, `AsOf` and
   `StopCommand` of the computer review, `ConnectionText`, `Error` and `StopCommand` of the remote window,
   `LoadedText`, `ProgressText`, `StatusText`, `IsSupported`, `NotSupportedText` and `Error` of the event log documents;
-  `Cancel()` and `CancelCommand` of the documents and of readiness are the Stop of the line.
+  `Cancel()` and `CancelCommand` of the documents and of readiness are the Stop of the line. Added by V2b-4, unit 3: the strings `Pki.ReadProgress`, `PkiEsc.StageSnapshot`, `PkiEsc.StageAccounts`,
+  `PkiEsc.StageAccessControl`, `PkiEsc.StagePrincipals`, `PkiEsc.StageAnalysis`, `PkiReady.StageSnapshot`,
+  `PkiReady.StageDomainControllers`, `PkiReady.StageAccounts` and `PkiReady.StageLdaps` have no user any more (the stages are
+  `PkiDoc.Status.Stage*` now); no longer shown but read by tests or by the view models themselves - `ProgressText`, `StatusText`,
+  `SelectionText`, `Error`, `SummaryText`, `ReadAtText`, `CountStatusText`, `LastRunText`, `HealthSummaryText` and `LoadedText` of the
+  four PKI documents; `Cancel()` and `CancelCommand` of the security review are the Stop of the line.
 - **Not seen, to confirm on Windows.** Nothing of V2b-1 was seen on a screen.
   - *The property sheet.* How a wrapped result looks in the 640 px wide sheet (two or three lines on the caution or
     critical surface, picture and buttons in the first line). The note next to the old validation texts (glyph and plain
@@ -3567,13 +3580,16 @@ and what nobody has seen on a screen yet.
 - bulk creation, computers, certificates, event logs, readiness, correspondence and the Watchdog views - in five units,
 done one after another. Unit 1 converted the bulk creation wizard (`BulkCreate/` with its view models in
 `Presentation/BulkCreate`). Unit 2 converted the computer windows (`Computers/`: the review, the remote actions window and
-the restart dialog), the three event log documents (`EventLogs/`) and the readiness tab (`Readiness/`). The foundations are
+the restart dialog), the three event log documents (`EventLogs/`) and the readiness tab (`Readiness/`). Unit 3 converted the
+four PKI documents (`Pki/` with their view models in `Presentation/Pki`); the certificate tabs of the property sheet were
+converted with it in V2b-1. The foundations are
 those of *V2b-1 as built*, the *Dialogs* of *V2b-2 as built* and the decisions of *V2b-3 as built*; nothing was added to the
 controls, and the model got one factory in unit 2 (`ResultCode.Remote`, the kind of a failed remote action). The block reads
 in this order: *Areas* (what each area decided about its line, its notes and its states that last - the instructions of the
 units after it), the wizard, the unit-2 sections (the computer review, the remote actions window and the restart dialog, the
-event log documents, the readiness tab), the tests, what is left (the counts, what was left behind on purpose), and what
-nobody has seen on a screen yet. Every later unit adds its entry to *Areas* and its own section.
+event log documents, the readiness tab), the unit-3 section (the PKI documents), the tests, what is left (the counts, what
+was left behind on purpose), and what nobody has seen on a screen yet. Every later unit adds its entry to *Areas* and its own
+section.
 
 - **Areas** (what each area decided; the next units follow it and add their own).
   1. *Bulk creation (unit 1) - a flow that another window hosts has the line of its host.* The wizard is the first step
@@ -3615,6 +3631,19 @@ nobody has seen on a screen yet. Every later unit adds its entry to *Areas* and 
      stays in its row, the summary is what the last check found, then when and where it was made. States that last: not
      connected, the connection changed after the shown check, the shown check was stopped - the same action, "Check
      again", for the last two.
+  5. *Certificates (unit 3) - a family of documents shares the holder of its base class, and a tab with an operation of its
+     own has a holder in front.* `PkiDocumentBase` owns `Status` for the overview, the templates, the readiness report and
+     the security review, as `GroupPolicyDocumentBase` and `EventLogDocumentBase` do: the load is the operation of the tab,
+     its stages are one message (the key of the operation stays, the count is new), and what lasts is computed in one
+     method - not connected, the read failed (Retry), the read was stopped (the action is the text of the document's own
+     button: *Odśwież*, *Sprawdź ponownie*, *Odczytaj ponownie*) and what a kind of document adds. The two checks that touch
+     the network - the HTTP addresses and the probe of the domain controllers - are operations of the *tab* that starts them:
+     they can run while the document is read, so the overview gives its health tab and its LDAPS tab a holder each, in
+     front while the tab is shown (foundations 3 and 4); the readiness report has one holder and refuses the probe while it
+     reads. *Notes:* everything that is true of the content while it is shown - what the read observed, a CA outside NTAuth,
+     rights that were not evaluated, the scope of the review, what its check could not read, what the report is, why the
+     HTTP rows are unknown. *Summary detail:* when and from where the content was read, and how many accounts were counted,
+     are the detail of the summary (V2b-3 *Group Policy documents* 15), not a text of their own.
 
 - **The bulk creation wizard** (`BulkCreate/BulkCreateView.xaml` hosting `BulkSourceView`, `BulkColumnsView`,
   `BulkRulesView` and `BulkCheckView`, and `BulkResultsView` in the results step; `BulkCreateViewModel` with `Source`,
@@ -3904,6 +3933,93 @@ nobody has seen on a screen yet. Every later unit adds its entry to *Areas* and 
     - `StatusText`, `ProgressText`, `ProgressValue`, `SummaryText`, `LastRunText`, `IsStale`, `WasCancelled`, `CancelCommand`
       and `Cancel()` are unchanged for the shell and the tests.
 
+- **The PKI documents** (`Pki/PkiOverviewView.xaml`, `PkiTemplatesView.xaml`, `PkiReadinessView.xaml`,
+  `PkiSecurityReviewView.xaml`; `PkiDocumentBase` and the four view models).
+  - *What the line says.* Under the header of each document, above the notes and the content. **At rest** the summary:
+    the overview "Urzędy przedsiębiorstwa: 2 · szablony: 26 · zaufane urzędy główne: 1 · certyfikaty NTAuth: 1 · odczytano z
+    dc01.contoso.test, 13.10.2026 14:00 · Kontoso Wystawiający CA" (what was read, when and from where, the selected row; the
+    selected certificate on the trust tab); the templates "Szablony: 26, niewystawiane przez żaden urząd: 2 · policzone konta:
+    1 234 · <template>"; the readiness report "OK: 4 · Ostrzeżenia: 3 · Problemy: 3 · Nie sprawdzono: 2 · Odczytano: … na
+    dc01.contoso.test"; the security review "15 uwag · Ostatnie sprawdzenie: … na dc01.contoso.test · <finding>", with "Pokazano
+    uwagi: 2 z 15" under a filter. **The read** is **working** "Wczytywanie „Usługi kluczy publicznych” – obiekty AD CS: 1 204…"
+    with Stop; the stages are the objects, the rights of the templates, the accounts ("konta: 500", the templates also
+    "liczenie kont: 500"), the domain controllers, the probe of the LDAPS certificates when the tab was seen, and for the
+    review "Sprawdzanie bezpieczeństwa AD CS – odczyt uprawnień obiektów PKI…", "rozpoznawanie kont i grup…", "ocena reguł
+    ESC…". **What lasts**, the most important first: not connected (an error without an action); the read failed - "Nie udało
+    się wczytać „…”: reason. Wybierz Ponów, aby spróbować ponownie. (ServerUnavailable)" with Retry; the read was stopped -
+    attention with the refresh action ("…zatrzymano: karta może nie pokazywać wszystkiego. Wybierz „Odśwież”…"; for the review
+    "…karta pokazuje wyniki wcześniejszego sprawdzenia, jeśli było…"); and in the templates that the accounts could not be
+    counted - attention with Retry, the rights stay on screen. **The overview's two tabs** say their own: the health tab the
+    counts of its states and what the HTTP check found, and while it runs "Sprawdzanie adresów AIA, CDP i OCSP – 3 z 8…"
+    with the part done in the ring; the LDAPS tab the count of what it found ("Sprawdzone porty: 3; OK: 2; z problemem: 1.")
+    and "Sprawdzanie certyfikatów LDAPS kontrolerów domeny…". A stopped check is an attention that can be closed - "…zatrzymano:
+    wyników nie zmieniono. Wybierz „Sprawdź adresy HTTP”…" with its own button as the action -, a check that could not be made
+    an error with Retry (the HTTP check: a result that can be closed; the probe: the state of the LDAPS tab, until the next
+    probe).
+  - *How the old places were sorted* (2 error bars, 2 warning bars, 4 progress bars, and the texts and cards that said the same).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | error bar `Error` of the overview and of the templates (a failed read, not connected) | status | the state of the document that lasts: an error with Retry, or without an action for "not connected" |
+    | progress bar and text in the place of the summary (`IsLoading`, `StatusText`) of the overview and the templates; progress bar and "Odczyt…" next to *Odczytaj ponownie* / *Sprawdź ponownie* of the report and the review | status | the read in the line, with the stage and Stop |
+    | `SummaryText`, `ReadAtText`, `CountStatusText`; the bold summary and `LastRunText` of the report; `LastRunText` of the review | summary | `SetIdle` of the document, the "as of" text and the count of accounts as its detail; the text blocks are gone |
+    | `HealthSummaryText`, `HttpStatusText` (checked: n), `LdapsStatusText`, the progress of the two checks | summary, status | the summary and the operation of the tab in front (health, LDAPS); "not checked" and "not available" are a note |
+    | the *Anuluj* button of the review | - | gone: *Sprawdź ponownie* is an action button and the Cancel of the check |
+    | warning bar "the CA issues logon certificates but is not in NTAuth" (`NtAuthWarning`) | note | `Ad.Note.Attention` in the CA's details: true for as long as that CA is shown |
+    | warning bar "the template's rights were not evaluated" | note | `Ad.Note.Attention` in the template's details |
+    | the card "what the read observed" (overview), the card of the scope and notes (review), the card "read only" (report) | note | `Ad.Note.Attention` / `Ad.Note.Info` / `Ad.Note.Info`: how complete the content is and what it is, true while it is shown (the review has two: the scope - information - and what the check could not read - attention) |
+    | `HttpStatusText` "not checked: until then their rows are Unknown" and "not available in this window" | note | `Ad.Note.Info` under the thresholds of the health tab (`HttpNote`) |
+    | `FilterText` ("Pokazane szablony: 3 z 26"), `CompareSummary`, the thresholds, the hints of empty lists | hint of a control | unchanged - a count that belongs to the control beside it |
+    | the certificate tabs of the property sheet (published certificates, key credentials, name mappings) | status, note | unchanged - converted in V2b-1 (their holders, the lasting error with Retry, the weak and invalid mappings as notes) |
+
+  - *Decisions.*
+    - **The base class owns the holder** (*Areas* 5). The base creates it from the services the window already has
+      (`Pki.Localizer`, `Pki.Dispatcher`, `Pki.Ui.Lists.StatusLog`), begins the load before its first await, links the token of
+      the operation with the serial token and the lifetime, ends the operation after the state (the line goes from "working"
+      straight to what the load left) and says "stopped" for any cancellation that came neither from a newer load nor from
+      the closing of the window - so Stop and the replacement of a read by an operation of the same holder (the readiness
+      probe) are told apart from F5. A document supplies the key of its operation (`ReadingKey`: "Wczytywanie „…”", the review
+      "Sprawdzanie bezpieczeństwa AD CS"), what was tried when it fails, the sentence of a stopped read, the text of its refresh
+      button and the detail of its summary; `ReportStage(key, count, progress)` says a stage as a new text of the same message
+      (the log copy is the key and the count). `ProgressText` moved into the base and carries the same text as the line.
+    - **A stage is not a message** (as in the event logs), and **the log copy is a key, a count and a code** - never the title
+      of a document, a CA, a template, a server, an account or the reason of the system (`PkiDoc.Status.Reading (500)`,
+      `PkiDoc.Status.ReadFailed [ServerUnavailable]`, `PkiOverview.Status.HttpChecking (3, 8)`).
+    - **The health and LDAPS tabs have a holder each, and a read that probes is one operation.** The HTTP check and the probe can
+      be started while the document is read (their buttons did not depend on `IsLoading`), so they cannot share its operation
+      (foundation 4); each is in front while its tab is shown, and the document's own working or error that cannot be closed
+      covers them. The probe that a read makes itself when the LDAPS tab was seen (F5, another domain controller) is a *stage of
+      the read* and begins no operation of the tab; the probe the operator starts - the button, or the first time the tab is
+      shown - does. A failed probe is the state of the LDAPS tab (`SetLasting`, Retry) until the next probe or read; a failed or
+      stopped HTTP check is a result of the health tab. The stopped checks say that the results were *not changed* - the
+      window's cache stores a check only when it ends.
+    - **The readiness probe is an operation of the one holder and the read refuses it** (`CanCheckLdaps` now also needs
+      `!IsLoading`; a read that starts meanwhile - F5, another session - replaces the probe without a word). The areas the read did
+      not reach say "not read" (`OnLoadInterrupted` builds the rows again), not "reading…". The areas keep what each found, also
+      the reason of a read that failed (the state of a row).
+    - **The templates' account pass is a stage of the load, and a pass that cannot count is the state of the tab** (an
+      attention, not an error: the rights are shown). `DocumentLastingState` computes it from the facts, so it follows a language
+      switch; the old `CountStatusText` keeps its sentence for the tests.
+    - **Stopping the security check keeps the findings of the check before it.** `LoadedText` says "Sprawdzanie anulowano." as
+      before, and the line says it as the state of the tab. *Zatrzymaj* of the line, the cancel of `CancelCommand` and the button
+      that started the check are one Stop.
+    - **`Refresh` is the Cancel of the read whoever started it** (`IsRunning = IsLoading`): the operator's press, F5, a session
+      change, the reload that follows another document's F5. As in the Recycle Bin and the computer review.
+    - **No "changed elsewhere / older than" state was made up.** The PKI documents follow the window's cache - a read made by
+      another PKI document is shown by every open one at once - and nothing in them measures how old a read is, so there is no
+      lasting state of that kind; when and from where a read was made is the detail of the summary.
+    - `Error`, `StatusText`, `SelectionText`, `IsLoading`, `ProgressText`, `LoadedText`, `SummaryText`, `ReadAtText`,
+      `CountStatusText`, `HttpStatusText`, `LdapsStatusText`, `LastRunText`, `CancelCommand` and `Cancel()` are unchanged for the
+      shell and the tests (`Cancel()` is the same Stop as the line's); the status bar of the main window says nothing about the
+      four tabs now.
+  - *Where this differs from the recipe.* Three small changes beyond how a result is said (rule 5 holds - nothing is written):
+    the probe button of the readiness report is refused while the report is read (`CanCheckLdaps`), the report's read passes a
+    progress to the snapshot service so that its first stage has a count (as the other three documents do), and the health tab
+    got `HttpNote`, the sentence that was a text under the summary. The certificate tabs of the property sheet needed nothing
+    (V2b-1). Strings: `PkiDoc.Status.*`, `PkiOverview.Status.*`, `PkiTemplates.Status.*` and `PkiSecurity.Status.*` in the V2
+    block, with `L.PkiDocumentStatus`, `L.PkiOverviewStatus`, `L.PkiTemplatesStatus` and `L.PkiSecurityStatus`. Nothing was
+    added to the model or the controls.
+
 - **Tests of unit 1.** Presentation (35, on Linux): `BulkCreate/BulkSourceStatusTests` (12: the paste and the file with the sequence
   of the line in both languages, the name of a file never in a log copy, Stop of a paste and of a file with a parse held on
   its thread and released, a clipboard without a table, files that cannot be used - too large, not a sheet, not there -
@@ -4033,6 +4149,67 @@ nobody has seen on a screen yet. Every later unit adds its entry to *Areas* and 
     toast was gone after a few seconds, the line stays until the next thing - a result that nobody closes may be read as
     "still true" long after); whether a stopped remote action should offer a link that reads the status of the computer;
     whether the sources that a run could not read should be named by the line when their rows say so already.
+
+- **Tests of unit 3.** Presentation (33, on Linux; `Pki/PkiStatusTestSupport.cs` has the harness - the window's PKI services over
+  the fake directory with a cache whose calls the test holds, fails or lets report - and a held call that does not hear the
+  token until the test releases it, so "Zatrzymywanie…" stays on the page until the call returns): `Pki/PkiOverviewStatusTests`
+  (13: the summary in both languages with the selection and the tab, the read as an operation with its stage and counts and no
+  name in a log copy, Stop with control back at once and the stopped read that lasts with its action, a failed read with Retry
+  and its code, not connected and the language switch, a newer read that replaces the running one without a word, the health
+  tab in front with the HTTP check - the part done, Stop, the stopped result with its action, then the rows and the summary -,
+  a failed HTTP check that can be closed, the LDAPS probe as the operation of its tab, a probe that cannot be made as the state
+  of the tab until the next probe, the probe a read makes as a stage of the read, every log copy of the three holders, and the
+  status bar of the main window saying nothing of a PKI tab), `PkiTemplatesStatusTests` (6: the summary with the counted accounts
+  in both languages, the stages including the account pass, Stop during the account pass with the templates kept, accounts that
+  could not be counted as a state with Retry in both languages, a failed read, the log copies), `PkiReadinessStatusTests` (7: the
+  summary in both languages, the stages with the areas that wait for the accounts saying "reading…", Stop and the areas the read
+  did not reach saying "not read", the probe with Stop and the area keeping what it showed, a probe that failed with its row and
+  Retry and a read that replaces a probe silently, not connected, the log copies), `PkiSecurityReviewStatusTests` (7: the summary
+  with the selection and the filter in both languages, the check with its stages in order, Stop through the line and through
+  `CancelCommand` with the findings of before kept and the sentence in both languages, a first check that was stopped, a failed
+  check with Retry and the findings kept, not connected, the log copies). UI (Windows CI, written without a screen, 7):
+  `PkiStatusUiTests` (one line under the header of each document with the summary said once and no old banner, the three notes of
+  the overview with their styles, the action buttons over the right commands and holders, a held read of the overview with
+  Stop - "Stopping…" observed through the change of the status - and the stopped read with *Refresh* and the growth of the
+  line, the HTTP check with a gated probe: Stop, the stopped result, the rows and the summary and the note gone, the templates'
+  line and note, the readiness probe with a gated TLS probe, the security review with one button and no *Anuluj*, and the end of
+  the connection). Adapted where the place of a sentence changed: `PkiSecurityReviewTests` (the stage texts of the check),
+  `PkiOverviewUiTests` and `PkiSecurityUiTests` (the summary is read from the line). Source rules: the four views on
+  `PagesWithAStatusLine` (the list stays sorted ordinal); the expressions of `XamlSourceTests` for both lists, the `Ad.*` keys, the
+  closed set of Fluent brushes, the motion rule, "every `StaticResource` key is defined before its first use" and the
+  localization keys were proven on Linux with a throwaway script, and the `App.UiTests` project builds without a warning.
+- **After V2b-4, unit 3** (counted in the XAML, comments excluded): **3 uses of `Ad.ErrorBar` and 5 of `Ad.WarningBar` in 6 view
+  files, 11 progress bars in 9 view files** (one is the row of an activity in the main window, which stays); **43 views have a
+  status line and 14 converted views none.** By area: `Views/Watchdog/` 2 + 4 and 7 in 9 files and `Correspondence/` 1 + 1 and 3
+  in 1 file - the two areas that are left. Unit 3 took 2 error bars and 2 warning bars and 4 progress bars: both error bars were
+  status (a failed read), both warning bars notes (a CA outside NTAuth, rights that were not evaluated), all four progress bars
+  status. What never was a banner: the summaries and "as of" texts (status line), the text of the HTTP check and of the LDAPS probe
+  (the line of their tab), the failure of the account count (a state), the cards of the notes (notes). Left behind on purpose (added
+  to *After V2b-1*): the strings `Pki.ReadProgress`, `PkiEsc.StageSnapshot`, `PkiEsc.StageAccounts`, `PkiEsc.StageAccessControl`,
+  `PkiEsc.StagePrincipals`, `PkiEsc.StageAnalysis`, `PkiReady.StageSnapshot`, `PkiReady.StageDomainControllers`,
+  `PkiReady.StageAccounts` and `PkiReady.StageLdaps` have no user any more (the stages are `PkiDoc.Status.Stage*` now); no longer
+  shown but read by tests or by the view models themselves - `ProgressText`, `StatusText`, `SelectionText`, `Error`, `SummaryText`,
+  `ReadAtText`, `CountStatusText`, `LastRunText`, `HealthSummaryText` and `LoadedText` of the four documents (the texts of the line
+  are computed from them) and `Cancel()` / `CancelCommand` of the security review, which are the Stop of the line.
+- **Not seen, to confirm on Windows (unit 3).** Nothing of unit 3 was seen on a screen either.
+  - *The four documents.* The line sits between the header and the notes; the overview's summary is long ("Urzędy
+    przedsiębiorstwa: 2 · szablony: 26 · … · odczytano z dc01.contoso.test, 13.10.2026 14:00 · <CA>") and is cut in a narrow tab,
+    with all of it in the tool tip; the same for the readiness report. The refresh buttons and the two probe buttons are action
+    buttons as wide as "Zatrzymywanie…" needs (the report's header has four buttons in a wrapping row; the review's *Sprawdź
+    ponownie* is the accent button and is wider); *Sprawdź ponownie* of the review has no *Anuluj* beside it any more.
+  - *The overview's tabs.* The health tab loses its bold summary and the grey sentence about the HTTP check from the area under
+    the header of the tab - they are in the line now - and keeps the thresholds and, until the check, the note about the unknown
+    rows; the LDAPS tab keeps only the note about the KDC column under its button. Switching tabs changes the text of the line
+    (the tab in front says its own) without the entrance motion when the message has the same key.
+  - *Notes.* The card "what the read observed" is a note with its heading and no card; the scope of the review and what its check
+    could not read are two notes where one card was; the note of the readiness report is one sentence.
+  - *Long results.* The failed read of the overview and the stopped one of the review (about 150 characters) wrap to two or three
+    lines and move the tabs and the list down with them; the failure of the account count in the templates is the longest
+    sentence of the unit.
+  - *Open for the owner:* whether a failure of the account count is an attention (the list is useful) or an error; whether the HTTP
+    check and the probe, whose results are rows, should say "done" with their counts in the line besides the summary of the tab; whether
+    *Odśwież* should be the Cancel of a reload that the operator did not start (another document's F5, a language switch); whether
+    the sentence about the unknown HTTP rows belongs in the line as the summary of the health tab instead of a note.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 

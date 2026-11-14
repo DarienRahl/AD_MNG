@@ -485,6 +485,27 @@ public sealed class PkiOverviewStatusTests
         Assert.DoesNotContain(all, log => log.Contains("Kontoso", StringComparison.Ordinal) || log.Contains("contoso", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public async Task TheStatusBarOfTheMainWindow_SaysNothingOfAPkiTab_ThatHasItsOwnLine()
+    {
+        var h = await PkiHarness.CreateAsync();
+        using var shell = h.CreateShell();
+        var overview = Assert.IsType<PkiOverviewDocumentViewModel>(shell.OpenPkiDocument(new PkiDocumentRequest(PkiDocumentKind.Overview)));
+        await B2Harness.WaitUntilAsync(() => !overview.IsLoading && overview.Snapshot is not null);
+
+        // The summary and the selection are the line's: the bar of the window does not say them a second time.
+        Assert.NotEmpty(overview.StatusText);
+        Assert.Equal(string.Empty, shell.StatusBarText);
+        Assert.Equal(string.Empty, shell.StatusBarSelectionText);
+        foreach (var kind in new[] { PkiDocumentKind.Templates, PkiDocumentKind.SecurityReview, PkiDocumentKind.Readiness })
+        {
+            var document = shell.OpenPkiDocument(new PkiDocumentRequest(kind));
+            Assert.Same(document, shell.SelectedTab);
+            Assert.IsAssignableFrom<IHasPageStatus>(document);
+            Assert.Equal(string.Empty, shell.StatusBarText);
+        }
+    }
+
     private static string Date(PkiOverviewDocumentViewModel document) =>
         document.ReadAtText.Substring(document.ReadAtText.IndexOf(", ", StringComparison.Ordinal) + 2).TrimEnd('.');
 }

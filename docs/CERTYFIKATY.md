@@ -78,10 +78,20 @@ kont – rozdział 4.2): drugi dokument nie czyta katalogu ponownie. *Odśwież*
 albo F5 w dowolnym z nich czyta wszystko od nowa, a pozostałe otwarte dokumenty PKI pokazują nowy odczyt. *Zmień
 kontroler domeny…*, rozłączenie i zamknięcie okna usuwają odczyt z pamięci.
 
+**Pasek stanu.** Każdy z czterech dokumentów ma pod nagłówkiem jeden pasek stanu. W spoczynku podaje podsumowanie (co
+odczytano, kiedy i skąd, zaznaczony wiersz). Podczas odczytu mówi, co się czyta i na jakim etapie (*obiekty AD CS:
+1 204*, *konta: 500*), i ma przycisk *Zatrzymaj*; przycisk, który odczyt rozpoczął (*Odśwież*, *Sprawdź ponownie*,
+*Odczytaj ponownie*), jest na ten czas przyciskiem *Anuluj*. Odczyt zatrzymany albo nieudany zostaje na pasku jako stan
+karty – z przyciskiem *Odśwież* albo *Ponów* – dopóki dokument nie zostanie odczytany ponownie. Sprawdzenie adresów HTTP
+(3.6), sprawdzenie certyfikatów LDAPS (3.7, 6) i sprawdzenie przeglądu bezpieczeństwa (5) mówią o sobie tak samo: etap,
+*Zatrzymaj* i – gdy się nie uda albo zostanie zatrzymane – wynik na pasku. Zdania prawdziwe dla zawartości, dopóki jest
+pokazywana (uwagi z odczytu, urząd poza NTAuth, szablon bez ocenionych praw, zakres przeglądu), są uwagami obok niej, a
+nie paskiem.
+
 ## 3. Przegląd „Usługi kluczy publicznych”
 
-Nagłówek podaje podsumowanie (np. *Urzędy przedsiębiorstwa: 2 · szablony: 26 · zaufane urzędy główne: 1 · certyfikaty
-NTAuth: 1*) i skąd oraz kiedy odczytano dane (*Odczytano z dc01.contoso.test, 13.10.2026 14:00.*). Przegląd czyta jednym
+Pasek stanu pod nagłówkiem podaje podsumowanie (np. *Urzędy przedsiębiorstwa: 2 · szablony: 26 · zaufane urzędy główne:
+1 · certyfikaty NTAuth: 1*) i skąd oraz kiedy odczytano dane (*odczytano z dc01.contoso.test, 13.10.2026 14:00*). Przegląd czyta jednym
 stronicowanym wyszukiwaniem `CN=Public Key Services,CN=Services,CN=Configuration,…` z deskryptorami zabezpieczeń.
 *Odśwież* (F5) czyta ponownie.
 
@@ -172,7 +182,9 @@ Lokalizacje:
 - `http://` i `https://` – *Nieznany*, dopóki operator nie naciśnie *Sprawdź adresy HTTP* (3.6).
 - OCSP nie ma wiersza zdrowia (jak w `pkiview.msc`) – jest tylko na liście *Adresy HTTP*.
 
-Nad listą: podsumowanie (*OK: 9 · wygasa: 1 · wygasła: 0 · niedostępna: 1 · nieznany: 4*) i użyte progi. Stany są
+Na pasku stanu karty: podsumowanie (*OK: 9 · wygasa: 1 · wygasła: 0 · niedostępna: 1 · nieznany: 4*), a po sprawdzeniu
+adresów HTTP także ich liczba; nad listą użyte progi i – dopóki adresy nie były sprawdzone – uwaga, że ich wiersze mają
+stan *Nieznany*. Stany są
 liczone **w chwili pokazania** z odczytu, bieżących progów i zegara: przy każdym przejściu na kartę, po F5 i po zmianie
 progów w ustawieniach – bez ponownego czytania katalogu.
 
@@ -195,6 +207,8 @@ program sprawdza **tylko po naciśnięciu *Sprawdź adresy HTTP*** na karcie *Zd
   nie powiodło się*, *Nie można rozpoznać nazwy hosta*, *Nie można nawiązać połączenia*, *Nie sprawdzono (to nie jest
   adres http/https)*), a wiersze zdrowia dostają swój stan. Pobrana treść jest odrzucana zaraz po odczytaniu; wyniki są
   w pamięci okna do F5.
+- Przebieg (*Sprawdzanie adresów AIA, CDP i OCSP – 3 z 8…*) widać na pasku stanu karty; *Sprawdź adresy HTTP* jest na ten
+  czas przyciskiem *Anuluj*, a zatrzymane sprawdzenie nie zmienia wyników.
 
 ### 3.7 Certyfikaty LDAPS kontrolerów domeny
 
@@ -210,6 +224,10 @@ Karta **Certyfikaty LDAPS** sprawdza certyfikat, który każdy kontroler domeny 
 - **Kolumny:** *Kontroler domeny*, *Port* (*636* albo *3269 (wykaz globalny)*), *Wynik* (*Przedstawiony certyfikat
   LDAPS*, *Nie można rozpoznać nazwy hosta*, *Port zamknięty*, *DC bez certyfikatu LDAPS (uzgadnianie TLS nie powiodło
   się)*, *Brak odpowiedzi w ciągu 5 s*, *Nieprawidłowa nazwa hosta*), *Sprawdzenia*, *Ważny do* i *Certyfikat KDC*.
+- **Pasek stanu:** sondowanie (*Sprawdzanie certyfikatów LDAPS kontrolerów domeny…*) można zatrzymać – *Sprawdź
+  certyfikaty LDAPS* jest na ten czas przyciskiem *Anuluj*, a zatrzymane sondowanie nie zmienia wyników. Wynik to wiersze i
+  podsumowanie (*Sprawdzone porty: 3; OK: 2; z problemem: 1.*). Sondowania, którego nie dało się wykonać, karta nie
+  ukrywa: pasek mówi dlaczego i oferuje *Ponów*.
 - **Sprawdzenia** przedstawionego certyfikatu: nazwa pasuje do kontrolera (wpis DNS w alternatywnej nazwie podmiotu, bez
   niego nazwa pospolita; symbol wieloznaczny tylko jako cała pierwsza etykieta), nazwa domeny w SAN (tylko ostrzeżenie:
   *nazwy domeny nie ma w SAN (ldaps://contoso.test nie zadziała)*), EKU uwierzytelniania serwera (albo brak EKU),
@@ -239,12 +257,14 @@ Lista wszystkich obiektów `CN=Certificate Templates` z kolumnami:
 | *Wystawiany przez* | urzędy przedsiębiorstwa, które mają szablon w `certificateTemplates`; inaczej *niewystawiany przez żaden urząd* |
 | *Kto może się zarejestrować* | podsumowanie z 4.2 |
 
-Nad listą: wyszukiwanie (Ctrl+F; nazwa, OID, przeznaczenie, urząd, podmiot zabezpieczeń), pole *Tylko szablony
-niewystawiane przez żaden urząd* i podsumowanie *Szablony: 26, niewystawiane przez żaden urząd: 2*. Panel szczegółów
+Pasek stanu podaje podsumowanie *Szablony: 26, niewystawiane przez żaden urząd: 2 · policzone konta: 1 234* i
+zaznaczony szablon. Nad listą: wyszukiwanie (Ctrl+F; nazwa, OID, przeznaczenie, urząd, podmiot zabezpieczeń) i pole
+*Tylko szablony niewystawiane przez żaden urząd*. Panel szczegółów
 zaznaczonego szablonu ma części *Ogólne* (OID szablonu, zasady aplikacji, rozszerzone użycie klucza
 (`pKIExtendedKeyUsage`), zasady wymagane w podpisie autoryzowanym, dostawcy usług kryptograficznych), *Flagi*, *Kto może
 się zarejestrować* i *Kto może zmienić szablon*. *Kopiuj szczegóły* kopiuje opis szablonu do schowka, *Odśwież* (F5)
-czyta ponownie.
+czyta ponownie. Liczenie kont jest etapem odczytu (*liczenie kont: 500*) i można je zatrzymać; gdy się nie powiedzie,
+pasek mówi, że lista pokazuje, kto może się zarejestrować, ale nie liczbę kont, i oferuje *Ponów*.
 
 ### 4.1 Flagi
 
@@ -306,7 +326,9 @@ bezpieczne).*
 Dokument **Przegląd bezpieczeństwa AD CS** szuka konfiguracji podatnych na znane ataki na AD CS. Po otwarciu korzysta z
 odczytu PKI i liczenia kont okna, czyta uprawnienia obiektów PKI (kontenery, NTAuth, obiekty OID, usługi rejestracji,
 obiekty urzędów, obiekty komputerów urzędów i konta Tier 0), rozpoznaje konta i grupy, a potem ocenia reguły – dokument
-pokazuje, który etap trwa. *Anuluj* przerywa (pokazane wiersze zostają), *Sprawdź ponownie* (F5) czyta wszystko od nowa.
+pokazuje na pasku stanu, który etap trwa, i pozwala go zatrzymać (*Zatrzymaj*). *Sprawdź ponownie* (F5) czyta wszystko
+od nowa, a w trakcie sprawdzania jest przyciskiem *Anuluj* (osobnego przycisku nie ma). Zatrzymanie nie usuwa pokazanych
+wierszy; pasek mówi, że karta pokazuje wyniki wcześniejszego sprawdzenia, dopóki sprawdzenie nie zostanie powtórzone.
 Nad listą zawsze jest zakres:
 
 > Odczytuje przez LDAP szablony, obiekty PKI i konta (ESC1–5, 9, 13, 14, 15, 17) i niczego nie zmienia. Zakłada, że
@@ -426,7 +448,8 @@ znajdują dla ESC z listy LDAP; różnice są celowe:
 
 Osobny dokument PKI (to nie jest *Sprawdź gotowość środowiska…* z etapu S). Odpowiada na pytanie, **kto nie zaloguje się
 certyfikatem** przy pełnym wymuszaniu silnego mapowania certyfikatów (KB5014754) i bez urzędu w NTAuth. Wiersze mają
-stan *OK*, *Ostrzeżenie*, *Problem* albo *Nie sprawdzono*, opis i *Co zrobić*; nad listą są liczniki stanów.
+stan *OK*, *Ostrzeżenie*, *Problem* albo *Nie sprawdzono*, opis i *Co zrobić*; na pasku stanu są liczniki stanów, a po
+nich kiedy i skąd odczytano raport.
 
 | Obszar | Co sprawdza | Stany |
 |---|---|---|
@@ -439,6 +462,7 @@ stan *OK*, *Ostrzeżenie*, *Problem* albo *Nie sprawdzono*, opis i *Co zrobić*;
 
 - **Sprawdź certyfikaty LDAPS** – raport łączy się z kontrolerami domeny **tylko po naciśnięciu tego przycisku** (to
   samo uzgadnianie TLS co w 3.7). Bez tego pokazuje wynik wcześniejszego sprawdzenia z przeglądu albo *Nie sprawdzono*.
+  Sprawdzenie widać na pasku stanu i można je zatrzymać; zatrzymane nie zmienia wyników.
 - *Odczytaj ponownie* (F5) czyta obiekty PKI, kontrolery domeny i konta od nowa.
 - Wiersze mają przyciski *Otwórz konto*, *Otwórz szablon* i *Otwórz urząd*. Każdy obszar pokazuje do 100 wierszy (*… i
   jeszcze N*); *Kopiuj* i *Eksportuj do CSV…* obejmują wszystkie.
