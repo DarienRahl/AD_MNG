@@ -157,11 +157,6 @@ public sealed class MainWindowFeedbackUiTests
         Assert.Same(Application.Current.FindResource("Ad.Note.Attention"), window.ProtectedNote.Style);
         Assert.True(window.ProtectedNoteText.IsVisible);
         Assert.Equal(context.Localizer()[L.Details.ProtectedObject], window.ProtectedNoteText.Text);
-        var warningBar = Application.Current.FindResource("Ad.WarningBar");
-        var errorBar = Application.Current.FindResource("Ad.ErrorBar");
-        Assert.DoesNotContain(
-            UiWait.Descendants<Border>(window.DetailsPane),
-            border => ReferenceEquals(border.Style, warningBar) || ReferenceEquals(border.Style, errorBar));
 
         // Another object again: the note goes with the object it was about.
         list.SelectedItem = otherRow;

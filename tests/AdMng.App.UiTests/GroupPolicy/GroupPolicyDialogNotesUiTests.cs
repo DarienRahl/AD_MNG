@@ -168,15 +168,10 @@ public sealed class GroupPolicyDialogNotesUiTests
 
     // ---- Helpers ------------------------------------------------------------------------------------------------
 
-    /// <summary>No banner of the styles of before, no progress bar - and no status line: the dialog has no status.</summary>
+    /// <summary>No progress bar - and no status line: the dialog has no status. (The banners of before cannot come back: XamlSourceTests.)</summary>
     private static void AssertNoStatusAndNoOldFeedback(Window window)
     {
-        var errorBar = Application.Current.FindResource("Ad.ErrorBar");
-        var warningBar = Application.Current.FindResource("Ad.WarningBar");
         Assert.Empty(UiWait.Descendants<ProgressBar>(window));
-        Assert.DoesNotContain(
-            UiWait.Descendants<Border>(window),
-            border => ReferenceEquals(border.Style, errorBar) || ReferenceEquals(border.Style, warningBar));
         Assert.Empty(UiWait.Descendants<StatusLine>(window));
     }
 }

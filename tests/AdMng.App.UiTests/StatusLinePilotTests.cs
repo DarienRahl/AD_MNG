@@ -76,10 +76,8 @@ public sealed class StatusLinePilotTests
         Assert.Equal(string.Empty, window.TabSelectionText.Text);
         Assert.Equal(string.Empty, window.TabStatusText.Text);
 
-        // The old places are gone: no progress bar and no error bar in the list page.
+        // The old place is gone: no progress bar in the list page.
         Assert.Empty(UiWait.Descendants<ProgressBar>(view));
-        var errorBar = Application.Current.FindResource("Ad.ErrorBar");
-        Assert.DoesNotContain(UiWait.Descendants<Border>(view), border => ReferenceEquals(border.Style, errorBar));
 
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         context.AssertHealthy();

@@ -80,10 +80,6 @@ public sealed class NoteUiTests
         Assert.Same(info, attention.BasedOn);
         Assert.Same(info, error.BasedOn);
         Assert.Equal(3, new[] { GlyphOf("Ad.Note.Info"), GlyphOf("Ad.Note.Attention"), GlyphOf("Ad.Note.Error") }.Distinct(StringComparer.Ordinal).Count());
-
-        // The banners of before stage V2 are still there for the views that were not converted yet.
-        Assert.Equal(typeof(Border), Assert.IsType<Style>(Application.Current.FindResource("Ad.ErrorBar")).TargetType);
-        Assert.Equal(typeof(Border), Assert.IsType<Style>(Application.Current.FindResource("Ad.WarningBar")).TargetType);
         return Task.CompletedTask;
     });
 

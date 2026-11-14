@@ -258,7 +258,7 @@ public sealed class GpoBackupStatusUiTests
         await UiWait.UntilAsync(() => !backup.IsBusy && GpmcBackupFormat.List(folder).Count == gpos.Length, "the backups were written");
     }
 
-    /// <summary>The old places of feedback are gone from the window: no progress bar and no banner of the styles of before.</summary>
+    /// <summary>The old places of feedback are gone from the window: no progress bar of its own. The banners of before cannot come back - XamlSourceTests guards every view.</summary>
     private static void AssertNoOldFeedback(GpoBackupWindow window) => GroupPolicyStatusUiSupport.AssertNoOldFeedback(window);
 
     /// <summary>A folder that goes with the test.</summary>

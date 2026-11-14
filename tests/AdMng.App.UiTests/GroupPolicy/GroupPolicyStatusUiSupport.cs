@@ -79,17 +79,12 @@ internal static class GroupPolicyStatusUiSupport
     }
 
     /// <summary>
-    /// The old places of feedback are gone from a converted view - and from the controls it hosts: no progress bar and
-    /// no banner of the styles of before.
+    /// The old places of feedback are gone from a converted view - and from the controls it hosts: no progress bar of
+    /// its own. The banners of before cannot come back - XamlSourceTests guards every view.
     /// </summary>
     public static void AssertNoOldFeedback(FrameworkElement view)
     {
-        var errorBar = Application.Current.FindResource("Ad.ErrorBar");
-        var warningBar = Application.Current.FindResource("Ad.WarningBar");
         Assert.Empty(UiWait.Descendants<ProgressBar>(view));
-        Assert.DoesNotContain(
-            UiWait.Descendants<Border>(view),
-            border => ReferenceEquals(border.Style, errorBar) || ReferenceEquals(border.Style, warningBar));
         Assert.Single(UiWait.Descendants<StatusLine>(view));
     }
 

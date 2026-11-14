@@ -288,7 +288,7 @@ public sealed class CentralStoreUpdateStatusUiTests
         return path;
     }
 
-    /// <summary>The old places of feedback are gone from the window: no progress bar and no banner of the styles of before.</summary>
+    /// <summary>The old places of feedback are gone from the window: no progress bar of its own. The banners of before cannot come back - XamlSourceTests guards every view.</summary>
     private static void AssertNoOldFeedback(CentralStoreUpdateWindow window) => GroupPolicyStatusUiSupport.AssertNoOldFeedback(window);
 
     /// <summary>The vendor of a download: it does not answer while <see cref="Hold"/> (the request ends when it is cancelled), else it refuses.</summary>

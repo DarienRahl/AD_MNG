@@ -58,9 +58,7 @@ public sealed class PropertySheetStatusUiTests
         Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(line));
 
         // Every page in front: the line follows the selected tab, a page with a count says it there, and no page has a
-        // banner of the old styles or a progress bar of its own.
-        var errorBar = Application.Current.FindResource("Ad.ErrorBar");
-        var warningBar = Application.Current.FindResource("Ad.WarningBar");
+        // progress bar of its own.
         foreach (var page in sheet.Pages.ToList())
         {
             sheet.SelectedPage = page;
@@ -72,9 +70,6 @@ public sealed class PropertySheetStatusUiTests
             Assert.Equal(PageStatusKind.Idle, line.Kind);
             Assert.Equal(page.Status.Current.Message.Length > 0 ? page.Status.Current.Message : summary, line.Message);
             Assert.Empty(UiWait.Descendants<ProgressBar>(window));
-            Assert.DoesNotContain(
-                UiWait.Descendants<Border>(window),
-                border => ReferenceEquals(border.Style, errorBar) || ReferenceEquals(border.Style, warningBar));
             Assert.Same(line, Assert.Single(UiWait.Descendants<StatusLine>(window)));
         }
 

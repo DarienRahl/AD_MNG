@@ -274,6 +274,6 @@ public sealed class GpoComparisonStatusUiTests
         return (window, comparison);
     }
 
-    /// <summary>The old places of feedback are gone from the window: no progress bar and no banner of the styles of before.</summary>
+    /// <summary>The old places of feedback are gone from the window: no progress bar of its own. The banners of before cannot come back - XamlSourceTests guards every view.</summary>
     private static void AssertNoOldFeedback(GpoComparisonWindow window) => GroupPolicyStatusUiSupport.AssertNoOldFeedback(window);
 }

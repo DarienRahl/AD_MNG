@@ -65,10 +65,6 @@ public sealed class DesignTokenTests
         Assert.Equal(new CornerRadius(8), card.CornerRadius);
         Assert.Equal(new Thickness(12), card.Padding);
 
-        var error = new Border { Style = (Style)Application.Current.FindResource("Ad.ErrorBar") };
-        Assert.Equal(new CornerRadius(4), error.CornerRadius);
-        Assert.Equal(new Thickness(12, 8, 12, 8), error.Padding);
-
         var overlay = new Border { Style = (Style)Application.Current.FindResource("Ad.Overlay") };
         Assert.Equal(new CornerRadius(8), overlay.CornerRadius);
         Assert.Equal(new Thickness(8), overlay.Padding);

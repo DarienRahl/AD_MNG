@@ -571,17 +571,12 @@ public sealed class BatchEditorStatusUiTests
     }
 
     /// <summary>
-    /// The old places of feedback are gone from the window: no progress bar and no banner of the styles of before - in the
+    /// The old places of feedback are gone from the window: no progress bar of its own - in the
     /// views of the bulk creation wizard, which this window hosts in its create mode, as well (converted in V2b-4).
     /// </summary>
     private static void AssertNoOldFeedback(BatchEditorWindow window)
     {
-        var errorBar = Application.Current.FindResource("Ad.ErrorBar");
-        var warningBar = Application.Current.FindResource("Ad.WarningBar");
         Assert.Empty(UiWait.Descendants<ProgressBar>(window));
-        Assert.DoesNotContain(
-            UiWait.Descendants<Border>(window),
-            border => ReferenceEquals(border.Style, errorBar) || ReferenceEquals(border.Style, warningBar));
         Assert.Same(window.PageStatus, Assert.Single(UiWait.Descendants<StatusLine>(window)));
     }
 
