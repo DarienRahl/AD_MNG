@@ -1,10 +1,13 @@
 using System.Globalization;
 using AdMng.Core.Csv;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
+using AdMng.Presentation.Lists;
 using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Shell;
 using AdMng.Presentation.Tests.Dialogs;
 using AdMng.Presentation.Watchdog;
+using AdMng.Testing;
 using AdMng.Watchdog.Testing.Client;
 using Microsoft.Extensions.Time.Testing;
 
@@ -23,7 +26,7 @@ internal sealed class WatchdogHarness : IDisposable
 
     private readonly List<WatchdogDocumentViewModel> _documents = [];
 
-    private WatchdogHarness(B2Harness ad, TimeZoneInfo? zone)
+    private WatchdogHarness(B2Harness ad, TimeZoneInfo? zone, ListLogger<PageStatusHolder>? statusLog)
     {
         Ad = ad;
         Time = new FakeTimeProvider(SampleEvents.Now);
@@ -31,9 +34,15 @@ internal sealed class WatchdogHarness : IDisposable
         Client = new FakeWatchdogClient(Time);
         Connection = new WatchdogConnectionService(Client, ad.Settings, ad.Localizer);
         Ui = new TestUiThread();
+        StatusLog = statusLog;
+
+        // The status log of the pages (value-free copies: key, counts, code) is the logger of the list services.
+        var lists = statusLog is null
+            ? ad.Lists
+            : new ObjectListServices(ad.Sessions, ad.Localizer, ad.Dispatcher, ad.Settings, ad.Errors, ad.Changes, ad.Time, statusLog);
         var dialogServices = new DialogServices(
             ad.Sessions, ad.Localizer, Ui, ad.Settings, ad.Errors, ad.Changes, ad.Time, ad.Dialogs, ad.Files, ad.Clipboard,
-            ad.Notifications, ad.Coordinator, ad.Activities, ad.Lists, ad.Regional);
+            ad.Notifications, ad.Coordinator, ad.Activities, lists, ad.Regional);
         Services = new WatchdogServices(Connection, dialogServices, Csv, Time);
         Launcher = new WatchdogObjectHistoryLauncher(Connection);
     }
@@ -55,11 +64,20 @@ internal sealed class WatchdogHarness : IDisposable
 
     public TestUiThread Ui { get; }
 
+    /// <summary>What the status holders of the pages wrote to the diagnostic log (null unless the harness was made with one).</summary>
+    public ListLogger<PageStatusHolder>? StatusLog { get; }
+
     /// <param name="configured">A service address is stored in the settings.</param>
     /// <param name="adSession">An AD session (sample company) is open.</param>
     /// <param name="culture">UI language (default en-US).</param>
     /// <param name="zone">Local time zone of the operator (default UTC).</param>
-    public static async Task<WatchdogHarness> CreateAsync(bool configured = true, bool adSession = true, CultureInfo? culture = null, TimeZoneInfo? zone = null)
+    /// <param name="statusLog">A logger for the value-free copies of the statuses of the pages (a test reads what they wrote).</param>
+    public static async Task<WatchdogHarness> CreateAsync(
+        bool configured = true,
+        bool adSession = true,
+        CultureInfo? culture = null,
+        TimeZoneInfo? zone = null,
+        ListLogger<PageStatusHolder>? statusLog = null)
     {
         var ad = await B2Harness.CreateAsync(culture);
         if (!adSession)
@@ -72,7 +90,7 @@ internal sealed class WatchdogHarness : IDisposable
             await ad.Settings.UpdateAsync(s => s.Watchdog.ServiceUrl = ServiceUrl);
         }
 
-        return new WatchdogHarness(ad, zone);
+        return new WatchdogHarness(ad, zone, statusLog);
     }
 
     /// <summary>A new Watchdog tab (disposed with the harness). Create it on the UI thread.</summary>

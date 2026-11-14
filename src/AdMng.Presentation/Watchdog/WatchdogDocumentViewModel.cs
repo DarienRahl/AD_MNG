@@ -38,6 +38,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     private readonly WatchdogPoller _poller;
     private readonly SerialCancellation _connects = new();
     private Exception? _lastError;
+    private Exception? _liveFailure;
     private Uri? _configAddress;
     private Uri? _connectedAddress;
     private bool _eventsLoaded;
@@ -160,11 +161,13 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     /// <summary>The banner offers "Sprawdź certyfikat…".</summary>
     public bool CanReviewCertificate => PendingCertificate is not null;
 
-    /// <summary>A live update failed (shown inline; the poller retries).</summary>
-    [ObservableProperty]
-    public partial string? LiveError { get; private set; }
-
-    partial void OnLiveErrorChanged(string? value) => UpdateLasting();
+    /// <summary>
+    /// A live update failed (said in the status line while it lasts; the poller retries), null otherwise. Made from the failure
+    /// whenever it is read, so it follows the language.
+    /// </summary>
+    public string? LiveError => _liveFailure is null
+        ? null
+        : _services.Localizer.Format(L.Watchdog.LiveError, _services.Connection.Describe(_liveFailure));
 
     /// <summary>
     /// The service watches another domain than this window is connected to: "Usługa Watchdog monitoruje domenę
@@ -446,7 +449,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     private async Task ConnectCoreAsync(bool askCertificate)
     {
         var token = _connects.Next();
-        LiveError = null;
+        SetLiveFailure(null);
         if (!_services.Connection.HasServiceUrl)
         {
             _poller.Stop();
@@ -759,7 +762,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
 
     private void OnPollFailed(object? sender, Exception error)
     {
-        LiveError = _services.Localizer.Format(L.Watchdog.LiveError, _services.Connection.Describe(error));
+        SetLiveFailure(error);
         if (error is WatchdogClientException
             {
                 Kind: WatchdogClientErrorKind.Unauthorized or WatchdogClientErrorKind.Forbidden or WatchdogClientErrorKind.ApiVersionMismatch
@@ -772,8 +775,15 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
 
     private void OnPollRecovered(object? sender, EventArgs e)
     {
-        LiveError = null;
+        SetLiveFailure(null);
         RestoreConnection();
+    }
+
+    private void SetLiveFailure(Exception? failure)
+    {
+        _liveFailure = failure;
+        OnPropertyChanged(nameof(LiveError));
+        UpdateLasting();
     }
 
     /// <summary>
@@ -859,5 +869,6 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         Sources.Relocalize();
         OnPropertyChanged(nameof(RolloutBannerText));
         OnPropertyChanged(nameof(OtherDomainText));
+        OnPropertyChanged(nameof(LiveError));
     }).Forget();
 }
