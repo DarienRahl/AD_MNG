@@ -95,13 +95,6 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
     [NotifyPropertyChangedFor(nameof(StatusText))]
     public partial string ProgressText { get; private set; } = string.Empty;
 
-    /// <summary>The progress of the current stage in percent (0 while it is not known: <see cref="IsProgressIndeterminate"/>).</summary>
-    [ObservableProperty]
-    public partial double ProgressValue { get; private set; }
-
-    [ObservableProperty]
-    public partial bool IsProgressIndeterminate { get; private set; } = true;
-
     /// <summary>"Analiza: 16 obiektów GPO, odczytane 9.11.2026 14:32" (or "Jeszcze nie przeanalizowano.").</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SummaryDetail))]
@@ -169,7 +162,6 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
             ReportProgress(_index.Progress ?? new GpoIndexProgress(GpoIndexStage.Directory));
             var view = await _index.GetAsync(refresh.Value, token).ConfigureAwait(true);
             ProgressText = Localizer[L.GpoCleanup.AnalyzeStage];
-            IsProgressIndeterminate = true;
             operation?.Report(ProgressText, PageProgress.Indeterminate, new PageStatusLog(L.GroupPolicyStatus.Reading));
             var result = await Task.Run(() => GpoCleanupAnalyzer.Analyze(view.Index), token).ConfigureAwait(true);
             token.ThrowIfCancellationRequested();
@@ -201,8 +193,6 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
             {
                 _running = null;
                 ProgressText = string.Empty;
-                ProgressValue = 0;
-                IsProgressIndeterminate = true;
             }
 
             RefreshCommands();
@@ -378,8 +368,6 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
     {
         var stage = Localizer[L.GpoIndex.StageKey(progress.Stage)];
         ProgressText = progress.Total > 0 ? Localizer.Format(L.GpoIndex.Progress, stage, progress.Done, progress.Total) : stage;
-        IsProgressIndeterminate = progress.Total <= 0;
-        ProgressValue = progress.Total > 0 ? Math.Clamp(100.0 * progress.Done / progress.Total, 0, 100) : 0;
 
         // The status line says the same: "Reading GPO folders: 12 of 300", the ring showing the part done.
         LoadOperation?.Report(

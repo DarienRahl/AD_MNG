@@ -95,10 +95,8 @@ public abstract partial class GroupPolicyDocumentBase : ObservableObject, IShell
     /// load found (<see cref="ShowUnavailable"/>); null when it can. The status line says it as the state that lasts.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText), nameof(HasError))]
+    [NotifyPropertyChangedFor(nameof(StatusText))]
     public partial string? Error { get; private set; }
-
-    public bool HasError => Error is not null;
 
     /// <summary>"SYSVOL niedostępny: …" (null: SYSVOL of the session's DC is writable).</summary>
     [ObservableProperty]

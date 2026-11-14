@@ -91,13 +91,6 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
     [NotifyPropertyChangedFor(nameof(StatusText))]
     public partial string ProgressText { get; private set; } = string.Empty;
 
-    /// <summary>The progress of the current stage in percent (0 while it is not known: <see cref="IsProgressIndeterminate"/>).</summary>
-    [ObservableProperty]
-    public partial double ProgressValue { get; private set; }
-
-    [ObservableProperty]
-    public partial bool IsProgressIndeterminate { get; private set; } = true;
-
     /// <summary>"Ostatnie sprawdzenie: pełne, 3.11.2026 14:32" (or "Jeszcze nie sprawdzono.").</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SummaryDetail))]
@@ -203,8 +196,6 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
                 // The progress is this check's only while no newer check runs.
                 _running = null;
                 ProgressText = string.Empty;
-                ProgressValue = 0;
-                IsProgressIndeterminate = true;
             }
 
             RefreshCommands();
@@ -330,8 +321,6 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
     private void ReportProgress(GpoDiagnosticsProgress progress)
     {
         ProgressText = GpoFindingText.Stage(Localizer, progress);
-        IsProgressIndeterminate = progress.Total <= 0;
-        ProgressValue = progress.Total > 0 ? Math.Clamp(100.0 * progress.Done / progress.Total, 0, 100) : 0;
 
         // The status line says the same: "Reading SYSVOL folders: 3 of 8", the ring showing the part done.
         LoadOperation?.Report(

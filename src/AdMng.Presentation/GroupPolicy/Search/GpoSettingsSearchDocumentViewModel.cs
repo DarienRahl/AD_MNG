@@ -106,12 +106,6 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
     [NotifyPropertyChangedFor(nameof(StatusText))]
     public partial string ProgressText { get; private set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial double ProgressValue { get; private set; }
-
-    [ObservableProperty]
-    public partial bool IsProgressIndeterminate { get; private set; } = true;
-
     /// <summary>"Przeszukiwane obiekty GPO: 16 · odczyt 3.11.2026 14:32" (empty before the first read).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SummaryDetail))]
@@ -163,7 +157,6 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
             ReportProgress(Index.Progress ?? new GpoIndexProgress(GpoIndexStage.Directory));
             var view = await Index.GetAsync(refresh.Value, token).ConfigureAwait(true);
             ProgressText = Localizer[L.GpoSearch.Preparing];
-            IsProgressIndeterminate = true;
             operation?.Report(ProgressText, PageProgress.Indeterminate, new PageStatusLog(L.GroupPolicyStatus.Reading));
             var localizer = Localizer;
             var corpus = await Task.Run(() => GpoSearchCorpus.Build(view, GpoIndexTexts.For(localizer, view), token), token).ConfigureAwait(true);
@@ -201,8 +194,6 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
             {
                 _running = null;
                 ProgressText = string.Empty;
-                ProgressValue = 0;
-                IsProgressIndeterminate = true;
             }
 
             RefreshCommands();
@@ -359,8 +350,6 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
     {
         var stage = Localizer[L.GpoIndex.StageKey(progress.Stage)];
         ProgressText = progress.Total > 0 ? Localizer.Format(L.GpoIndex.Progress, stage, progress.Done, progress.Total) : stage + "…";
-        IsProgressIndeterminate = progress.Total <= 0;
-        ProgressValue = progress.Total > 0 ? Math.Clamp(100.0 * progress.Done / progress.Total, 0, 100) : 0;
 
         // The status line says the same: "Reading GPO folders: 12 of 300", the ring showing the part done.
         LoadOperation?.Report(
