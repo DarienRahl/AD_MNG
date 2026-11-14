@@ -35,7 +35,7 @@ namespace AdMng.Presentation.BulkCreate;
 /// options, header names and portable DNs only (rule 1, rule 2).
 /// <para><b>What the step says</b> (<see cref="Status"/>; track V, stage V2b-4, design note docs/dev/v-interface-renewal.md
 /// "V2b-4 as built"): the answers to the presses of the step - a profile was saved, deleted or made the default of the
-/// container, or why it was not (<see cref="ProfileStatus"/> keeps its sentence), and why the account that can join computers
+/// container, or why it was not, and why the account that can join computers
 /// could not be set. They are shown in the one line of the batch editor while this step is in front. Why <em>Dalej</em> is
 /// not possible (<see cref="Error"/>), the pattern errors, the warnings about the suffixes and the groups and the first free
 /// number are not status: they are true of the fields next to them for as long as the fields are shown and stay notes.</para>

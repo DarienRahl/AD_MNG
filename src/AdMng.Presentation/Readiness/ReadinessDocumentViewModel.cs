@@ -81,10 +81,6 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
     [NotifyPropertyChangedFor(nameof(StatusText))]
     public partial string ProgressText { get; private set; } = string.Empty;
 
-    /// <summary>The share of the areas done, in percent.</summary>
-    [ObservableProperty]
-    public partial double ProgressValue { get; private set; }
-
     /// <summary>"Ostatnie sprawdzenie: pełne, 3.11.2026 14:32, na dc01.contoso.test" (or "Jeszcze nie sprawdzono…").</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatusText))]
@@ -209,7 +205,6 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
         using var running = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, _services.Lifetime, operation.Token);
         _running = running;
         IsLoading = true;
-        ProgressValue = 0;
         ProgressText = Localizer.Format(L.Readiness.Progress, Localizer[ReadinessText.AreaKey(ReadinessArea.Connection)], 1, areas);
         var request = new ReadinessRequest(depth, TestComputer());
         var progress = _services.Ui.Dispatcher.CreateProgress<ReadinessProgress>(p =>
@@ -217,7 +212,6 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
             if (ReferenceEquals(_running, running))
             {
                 ProgressText = Localizer.Format(L.Readiness.Progress, Localizer[ReadinessText.AreaKey(p.Area)], p.Done + 1, p.Total);
-                ProgressValue = p.Total == 0 ? 0 : 100.0 * p.Done / p.Total;
                 operation.Report(
                     CheckingText(depth, p.Area, p.Done + 1, p.Total),
                     PageProgress.Of(p.Done, p.Total),
@@ -243,7 +237,6 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
             // what the check left.
             _running = null;
             ProgressText = string.Empty;
-            ProgressValue = 0;
             IsLoading = false;
         }
     }

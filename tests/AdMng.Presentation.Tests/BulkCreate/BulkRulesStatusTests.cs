@@ -39,7 +39,7 @@ public sealed class BulkRulesStatusTests
     }
 
     [Fact]
-    public async Task AProfileThatCannotBeSaved_IsWhatWasSkippedAndWhy_AndTheOldSentenceStaysInProfileStatus()
+    public async Task AProfileThatCannotBeSaved_IsWhatWasSkippedAndWhy_AndCancelClosesIt()
     {
         using var wizard = await BulkWizardHarness.CreateAsync();
         await wizard.PasteAsync(ExcelSamples.OperatorScenarioTsv);
@@ -56,7 +56,6 @@ public sealed class BulkRulesStatusTests
         Assert.Equal("Nie zapisano profilu: Wpisz nazwę profilu.", skipped.Message);
         Assert.Equal("BulkCreate.Status.ProfileNotSaved", skipped.Log.ToString());
         Assert.True(skipped.CanClose);
-        Assert.Equal("Wpisz nazwę profilu.", rules.ProfileStatus);
 
         // The name is on screen only.
         rules.NewProfileName = "Standardowy";
@@ -67,7 +66,6 @@ public sealed class BulkRulesStatusTests
         // Cancel closes the question and what was said about it.
         rules.CancelSaveProfileAsCommand.Execute(null);
         Assert.Equal((PageStatusKind.Idle, string.Empty), (line.Current.Kind, line.Current.Message));
-        Assert.Null(rules.ProfileStatus);
     }
 
     [Fact]
@@ -87,7 +85,6 @@ public sealed class BulkRulesStatusTests
         var saved = line.Current;
         Assert.Equal(PageStatusKind.Done, saved.Kind);
         Assert.Equal("Zapisano profil „Kadry”. Zapamiętane kolumny: Telefon komórkowy, Imię, Nazwisko, Dział, E-mail.", saved.Message);
-        Assert.Equal(rules.ProfileStatus, saved.Message);
         Assert.Equal("BulkCreate.ProfileSavedWithHeaders (5)", saved.Log.ToString());
         Assert.DoesNotContain("Kadry", saved.Log.ToString(), StringComparison.Ordinal);
         Assert.DoesNotContain("Telefon", saved.Log.ToString(), StringComparison.Ordinal);
@@ -96,7 +93,6 @@ public sealed class BulkRulesStatusTests
         // The default profile of the container.
         await rules.SetDefaultForContainerCommand.ExecuteAsync(null);
         Assert.Equal(PageStatusKind.Done, line.Current.Kind);
-        Assert.Equal(rules.ProfileStatus, line.Current.Message);
         Assert.Equal("BulkCreate.ProfileIsDefault", line.Current.Log.ToString());
         await rules.SetDefaultForContainerCommand.ExecuteAsync(null);
         Assert.Equal("„Kadry” nie jest już domyślnym profilem tego kontenera.", line.Current.Message);
@@ -106,7 +102,6 @@ public sealed class BulkRulesStatusTests
         wizard.Harness.Dialogs.ConfirmAnswers.Enqueue(true);
         await rules.DeleteProfileCommand.ExecuteAsync(null);
         Assert.Equal(PageStatusKind.Done, line.Current.Kind);
-        Assert.Equal(rules.ProfileStatus, line.Current.Message);
         Assert.Contains("Kadry", line.Current.Message, StringComparison.Ordinal);
         Assert.Equal("BulkCreate.ProfileDeleted", line.Current.Log.ToString());
 

@@ -53,13 +53,6 @@ public sealed partial class BulkRulesViewModel
     [ObservableProperty]
     public partial string? SaveHeadersText { get; private set; }
 
-    /// <summary>
-    /// The result of the last profile command (<em>Zapisano profil „…”</em>) or its problem - the sentence the step has always
-    /// had; the line of the batch editor says it as a result (<see cref="Status"/>).
-    /// </summary>
-    [ObservableProperty]
-    public partial string? ProfileStatus { get; private set; }
-
     /// <summary>The profile's groups were picked in another domain and were dropped.</summary>
     [ObservableProperty]
     public partial string? GroupsWarning { get; private set; }
@@ -156,7 +149,6 @@ public sealed partial class BulkRulesViewModel
     private void CancelSaveProfileAs()
     {
         IsNamingProfile = false;
-        ProfileStatus = null;
         Status.Clear();
     }
 
@@ -244,17 +236,15 @@ public sealed partial class BulkRulesViewModel
         }
     }
 
-    /// <summary>What the profile command did: the sentence of <see cref="ProfileStatus"/> and a "done" in the line. The log copy is the key and a count.</summary>
+    /// <summary>What the profile command did: a "done" in the line, in the sentence the step has always had. The log copy is the key and a count.</summary>
     private void ProfileDone(string text, string key, params long[] counts)
     {
-        ProfileStatus = text;
         Status.Show(PageStatus.Done(text, new PageStatusLog(key, counts)));
     }
 
-    /// <summary>A profile command that changed nothing: <see cref="ProfileStatus"/> keeps the reason, the line says "what was skipped: why".</summary>
+    /// <summary>A profile command that changed nothing: the line says "what was skipped: why".</summary>
     private void ProfileRefused(string leadKey, string reason)
     {
-        ProfileStatus = reason;
         Status.Show(PageStatus.Attention(
             PageStatusText.Failure(Services.Localizer[leadKey], reason),
             new PageStatusLog(leadKey)));

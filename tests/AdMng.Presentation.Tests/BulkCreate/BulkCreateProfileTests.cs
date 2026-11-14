@@ -152,10 +152,10 @@ public sealed class BulkCreateProfileTests
         await rules.SaveProfileCommand.ExecuteAsync(null);
         rules.NewProfileName = "  ";
         await rules.ConfirmSaveProfileAsCommand.ExecuteAsync(null);
-        Assert.Equal("Wpisz nazwę profilu.", rules.ProfileStatus);
+        Assert.EndsWith("Wpisz nazwę profilu.", rules.Status.Current.Message, StringComparison.Ordinal);
         rules.NewProfileName = "Standardowy";
         await rules.ConfirmSaveProfileAsCommand.ExecuteAsync(null);
-        Assert.Equal("Profil o nazwie „Standardowy” już istnieje.", rules.ProfileStatus);
+        Assert.EndsWith("Profil o nazwie „Standardowy” już istnieje.", rules.Status.Current.Message, StringComparison.Ordinal);
 
         rules.NewProfileName = "Kadry";
         await rules.ConfirmSaveProfileAsCommand.ExecuteAsync(null);
@@ -164,7 +164,7 @@ public sealed class BulkCreateProfileTests
         Assert.Contains(saved.Rules, r => r.Attribute == Attr.Description && r.Pattern == "Nowy pracownik – {department}");
         Assert.DoesNotContain(wizard.Harness.Settings.Current.BulkCreate.Profiles, p => BulkCreateProfileStore.IsBuiltIn(p.Id));
         Assert.Equal(saved.Id, wizard.Harness.Settings.Current.BulkCreate.LastProfileIds["User"]);
-        Assert.Equal("Zapisano profil „Kadry”. Zapamiętane kolumny: Telefon komórkowy, Imię, Nazwisko, Dział, E-mail.", rules.ProfileStatus);
+        Assert.Equal("Zapisano profil „Kadry”. Zapamiętane kolumny: Telefon komórkowy, Imię, Nazwisko, Dział, E-mail.", rules.Status.Current.Message);
 
         // Zapisz on a saved profile overwrites it.
         wizard.Rule(Attr.Description).Pattern = "Kadry – {department}";
@@ -239,7 +239,7 @@ public sealed class BulkCreateProfileTests
         await rules.SetDefaultForContainerCommand.ExecuteAsync(null);
         Assert.True(rules.IsNamingProfile);
         Assert.True(rules.SaveAsDefaultForContainer);
-        Assert.Equal("Profil wbudowany nie może być domyślny dla kontenera – najpierw zapisz go pod nową nazwą.", rules.ProfileStatus);
+        Assert.EndsWith("Profil wbudowany nie może być domyślny dla kontenera – najpierw zapisz go pod nową nazwą.", rules.Status.Current.Message, StringComparison.Ordinal);
         rules.NewProfileName = "Nowi";
         await rules.ConfirmSaveProfileAsCommand.ExecuteAsync(null);
         Assert.True(rules.IsDefaultForContainer);
@@ -247,7 +247,7 @@ public sealed class BulkCreateProfileTests
         await rules.SetDefaultForContainerCommand.ExecuteAsync(null);
         Assert.False(rules.IsDefaultForContainer);
         Assert.Empty(wizard.Harness.Settings.Current.BulkCreate.Profiles[0].DefaultForContainers);
-        Assert.Equal("„Nowi” nie jest już domyślnym profilem tego kontenera.", rules.ProfileStatus);
+        Assert.Equal("„Nowi” nie jest już domyślnym profilem tego kontenera.", rules.Status.Current.Message);
         await rules.SetDefaultForContainerCommand.ExecuteAsync(null);
         Assert.True(rules.IsDefaultForContainer);
 
@@ -312,7 +312,7 @@ public sealed class BulkCreateProfileTests
         wizard.Rules.NewProfileName = "Jeszcze jeden";
         await wizard.Rules.ConfirmSaveProfileAsCommand.ExecuteAsync(null);
 
-        Assert.Equal("Nie można zapisać więcej profili (limit: 50). Usuń profil, który nie jest już potrzebny.", wizard.Rules.ProfileStatus);
+        Assert.EndsWith("Nie można zapisać więcej profili (limit: 50). Usuń profil, który nie jest już potrzebny.", wizard.Rules.Status.Current.Message, StringComparison.Ordinal);
         Assert.Equal(BulkCreateSettings.MaxProfiles, wizard.Harness.Settings.Current.BulkCreate.Profiles.Count);
         Assert.True(wizard.Rules.IsNamingProfile);
     }

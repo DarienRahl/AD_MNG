@@ -217,10 +217,7 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
     /// <summary><em>Numeruj od nowa</em> started the computation that runs.</summary>
     public bool IsRenumbering => Status.IsWorking && RunKind == CheckRunKind.Renumber;
 
-    /// <summary>Rows computed so far / to compute.</summary>
-    [ObservableProperty]
-    public partial int ComputedRows { get; private set; }
-
+    /// <summary>Rows to compute in the run that is going (the total the line's "n of N" counts to).</summary>
     [ObservableProperty]
     public partial int TotalRows { get; private set; }
 
@@ -686,14 +683,12 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
                 input = input with { PinnedNumbers = PinnedNumbers };
             }
 
-            ComputedRows = 0;
             TotalRows = input.Table.Rows.Count;
             var total = TotalRows;
             var progress = Services.Dispatcher.CreateProgress<int>(n =>
             {
                 if (_computing.IsCurrent(token))
                 {
-                    ComputedRows = n;
                     scope.Report(
                         localizer.Format(L.BulkCheckStatus.Checking, PageStatusText.Progress(localizer, n, total)),
                         PageProgress.Of(n, total),
