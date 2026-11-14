@@ -2,6 +2,7 @@ using AdMng.Core.Csv;
 using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Diagnostics;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -22,6 +23,15 @@ namespace AdMng.Presentation.GroupPolicy.Diagnostics;
 /// DC and its SYSVOL (rule 4) and kept in memory only while the tab is open (rule 1). A change of Group Policy made
 /// elsewhere marks the results as stale instead of starting a (possibly long) check by itself.
 /// </summary>
+/// <remarks>
+/// <b>What the tab says</b> (track V, stage V2b-3; docs/dev/v-interface-renewal.md "V2b-3 as built"): a check is the
+/// operation of the document - "Reading SYSVOL folders: 3 of 8" with Stop in the status line, where the buttons of the
+/// tab are its action buttons -, the summary is the number of findings with when and how deep the GPOs were checked, and
+/// "Group Policy has changed since the last check" is the state of the tab that lasts, with <i>Check again</i>. What the
+/// check could not evaluate (<see cref="Notes"/>) is a note above the findings: it is about how complete they are.
+/// "Napraw…" is a plan with the preview; it speaks through the line of the document while its plan is made, and the
+/// check after it is the operation of the document again.
+/// </remarks>
 public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolicyDocumentBase, ISearchableDocument, IShellDocument
 {
     private readonly ICsvCodec _csv;
@@ -31,8 +41,10 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
     private GpoDiagnosticsDepth? _requested;
 
     private CancellationTokenSource? _running;
-    private bool _cancelRequested;
     private CheckResult? _check;
+
+    /// <summary>The check that runs (or was asked for last) is the full one: <see cref="IsFullChecking"/>.</summary>
+    private bool _fullCheck;
 
     /// <summary>The selection to restore after the next check (the key of the row, and its index as a fallback).</summary>
     private (string Key, int Index)? _restoreSelection;
@@ -41,7 +53,7 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
         : base(services, actions)
     {
         _csv = csv ?? new CsvCodec();
-        _fixes = new GpoQuickFixRunner(actions);
+        _fixes = new GpoQuickFixRunner(Actions);
         SeverityOptions = [];
         AreaOptions = [];
         GpoOptions = [];
@@ -60,6 +72,15 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
 
     public override string SelectionText => SelectedRow is { } row ? row.Title : string.Empty;
 
+    /// <summary>When and how deep the GPOs were checked, after the number of findings ("Ostatnie sprawdzenie: pełne, 3.11.2026 14:32").</summary>
+    protected override string SummaryDetail => LastRunText;
+
+    /// <summary>"Pełne sprawdzenie" is what runs: its action button shows Cancel (the other one is disabled meanwhile).</summary>
+    public bool IsFullChecking => IsLoading && _fullCheck;
+
+    /// <summary>Any other check runs ("Szybkie sprawdzenie", the first one, one after a repair): the action button of "Szybkie sprawdzenie" shows Cancel.</summary>
+    public bool IsQuickChecking => IsLoading && !_fullCheck;
+
     // ---- Check state --------------------------------------------------------------------------------------------------------
 
     /// <summary>"Odczyt folderów SYSVOL: 3 z 8" while a check runs.</summary>
@@ -76,6 +97,7 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
 
     /// <summary>"Ostatnie sprawdzenie: pełne, 3.11.2026 14:32" (or "Jeszcze nie sprawdzono.").</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SummaryDetail))]
     public partial string LastRunText { get; private set; } = string.Empty;
 
     /// <summary>The depth of the shown results (null before the first check).</summary>
@@ -85,6 +107,13 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
     /// <summary>Group Policy changed in this window after the shown check ("wyniki mogą być nieaktualne").</summary>
     [ObservableProperty]
     public partial bool IsStale { get; private set; }
+
+    /// <summary>"Group Policy has changed since the last check - the results may be out of date": the state of the tab that lasts, with "Sprawdź ponownie" as its action.</summary>
+    protected override PageStatus? DocumentLastingState => IsStale
+        ? PageStatus.Attention(Localizer[L.GpoDiagnostics.Stale], new PageStatusLog(L.GpoDiagnostics.Stale), new PageStatusAction(Localizer[L.GpoDiagnostics.CheckAgain], CheckAgainCommand))
+        : null;
+
+    partial void OnIsStaleChanged(bool value) => UpdateLasting();
 
     /// <summary>What the shown check could not evaluate: the rule groups not evaluated (and why) and the folders not read.</summary>
     [ObservableProperty]
@@ -116,9 +145,10 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
             return;
         }
 
+        // The check is the operation of the document (the base began it): its stages go to the status line.
+        var operation = LoadOperation;
         using var running = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _running = running;
-        _cancelRequested = false;
         RefreshCommands();
         var token = running.Token;
         try
@@ -138,21 +168,23 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
                 return (read, GroupPolicyDiagnostics.Analyze(read));
             }, token).ConfigureAwait(true);
             ProgressText = Localizer[L.GpoDiagnostics.NamesStage];
+            operation?.Report(ProgressText, PageProgress.Indeterminate, new PageStatusLog(L.GroupPolicyStatus.Reading));
             var names = await Task.Run(() => GpoFindingRows.ResolveNamesAsync(session, result, Localizer, token), token).ConfigureAwait(true);
             token.ThrowIfCancellationRequested();
             _requested = null;
             Show(new CheckResult(snapshot, result, names, depth.Value, Gp.Time.GetLocalNow(), sysvol is null ? SysvolWarning : null, session.Info.Server));
         }
-        catch (OperationCanceledException) when (_cancelRequested && !cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (operation is { IsCancelling: true })
         {
-            // "Anuluj": the shown results (if any) stay; the status says the check was cancelled.
-            _requested = null;
+            // The operator's Stop: the shown results (if any) stay, the status bar of a host without a line says the check was
+            // cancelled, and the base says the state of the tab. The check stays requested: "Refresh" of the line repeats it.
             _restoreSelection = null;
             LoadedText = Localizer[L.GpoDiagnostics.Cancelled];
+            throw;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _requested = null;
+            // The check failed (the base says why, with Retry): it stays requested, so that Retry checks again.
             _restoreSelection = null;
             throw;
         }
@@ -173,6 +205,7 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
 
     protected override void OnNotConnected()
     {
+        _fullCheck = false;
         _check = null;
         _all = [];
         IsStale = false;
@@ -186,6 +219,7 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
     {
         OnPropertyChanged(nameof(Title));
         BuildFilterOptions();
+        UpdateLasting();
         if (_check is { } check)
         {
             Show(check, keepSelection: true, fresh: false);
@@ -196,7 +230,17 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
         }
     }
 
-    protected override void OnLoadingChanged() => RefreshCommands();
+    protected override void OnLoadingChanged()
+    {
+        if (!IsLoading)
+        {
+            _fullCheck = false;
+        }
+
+        OnPropertyChanged(nameof(IsFullChecking));
+        OnPropertyChanged(nameof(IsQuickChecking));
+        RefreshCommands();
+    }
 
     protected override void RefreshCommands()
     {
@@ -228,21 +272,20 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
     [RelayCommand(CanExecute = nameof(CanCheck))]
     private Task CheckAgainAsync() => CheckAsync(LastDepth ?? GpoDiagnosticsDepth.Quick);
 
-    /// <summary>"Anuluj": stops the running check (the shown results stay).</summary>
+    /// <summary>
+    /// The Stop of the status line: stops the running check (the shown results stay). The buttons of the tab are action
+    /// buttons over the same operation; this command is kept for code that stops the check without the line.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanCancel))]
-    public void Cancel()
-    {
-        if (_running is { } running)
-        {
-            _cancelRequested = true;
-            running.Cancel();
-        }
-    }
+    public void Cancel() => LoadOperation?.Cancel();
 
     /// <summary>Runs a check of <paramref name="depth"/> (a running one is replaced).</summary>
     public Task CheckAsync(GpoDiagnosticsDepth depth)
     {
         _requested = depth;
+        _fullCheck = depth == GpoDiagnosticsDepth.Full;
+        OnPropertyChanged(nameof(IsFullChecking));
+        OnPropertyChanged(nameof(IsQuickChecking));
         if (SelectedRow is { } selected)
         {
             _restoreSelection ??= (selected.Key, IndexOf(Rows, selected));
@@ -260,6 +303,12 @@ public sealed partial class GroupPolicyDiagnosticsDocumentViewModel : GroupPolic
         ProgressText = GpoFindingText.Stage(Localizer, progress);
         IsProgressIndeterminate = progress.Total <= 0;
         ProgressValue = progress.Total > 0 ? Math.Clamp(100.0 * progress.Done / progress.Total, 0, 100) : 0;
+
+        // The status line says the same: "Reading SYSVOL folders: 3 of 8", the ring showing the part done.
+        LoadOperation?.Report(
+            ProgressText,
+            progress.Total > 0 ? PageProgress.Of(progress.Done, progress.Total) : PageProgress.Indeterminate,
+            new PageStatusLog(L.GroupPolicyStatus.Reading, progress.Done, progress.Total));
     }
 
     /// <summary>

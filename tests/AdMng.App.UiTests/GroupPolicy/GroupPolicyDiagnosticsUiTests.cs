@@ -109,7 +109,7 @@ public sealed class GroupPolicyDiagnosticsUiTests
         Assert.False(view.NotesBar.IsVisible);
         Assert.Contains(document.Rows, r => r.Code == GpoFindingCodes.AccountPolicyBelowDomain && r.GpoText == "Stacje robocze – Zasady haseł");
         Assert.Equal(document.Rows.Count, view.FindingsList.Items.Count);
-        Assert.False(view.ProgressPanel.IsVisible);
+        Assert.False(document.Status.IsWorking);
         context.AssertHealthy();
     });
 }

@@ -68,6 +68,7 @@ public sealed partial class XamlSourceTests
     [
         "GroupPolicy/GpoCleanupView.xaml",
         "GroupPolicy/GpoSettingsSearchView.xaml",
+        "GroupPolicy/GroupPolicyDiagnosticsView.xaml",
         "GroupPolicy/GroupPolicyObjectView.xaml",
         "GroupPolicy/GroupPolicyObjectsView.xaml",
         "GroupPolicy/GroupPolicyScopeView.xaml",
@@ -121,7 +122,6 @@ public sealed partial class XamlSourceTests
     private static readonly string[] ViewsWithAStatusLineNotConvertedYet =
     [
         "GroupPolicy/AdministrativeTemplatesEditorView.xaml",
-        "GroupPolicy/GroupPolicyDiagnosticsView.xaml",
         "GroupPolicy/GroupPolicyModelingView.xaml",
         "GroupPolicy/SecuritySettingsEditorView.xaml",
     ];
