@@ -73,6 +73,20 @@ jobs:
         env:
           ADMNG_UI_TESTS: "1"
           ADMNG_WINDOWS_EVENTLOG_TESTS: "1"
+      # The UI tests grew from 11 to 27 minutes within a day of new tests: the thirty slowest of the run, from the trx files,
+      # say where the time goes (a test that waits for its own timeout shows up here).
+      - name: Slowest tests
+        if: always()
+        shell: pwsh
+        run: |
+          $rows = Get-ChildItem TestResults -Filter *.trx -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+            [xml]$trx = Get-Content $_.FullName
+            $trx.TestRun.Results.UnitTestResult | ForEach-Object {
+              [pscustomobject]@{ Seconds = [TimeSpan]::Parse($_.duration).TotalSeconds; Outcome = $_.outcome; Test = $_.testName }
+            }
+          }
+          "{0} tests, {1:N0} s in all" -f @($rows).Count, (($rows | Measure-Object Seconds -Sum).Sum)
+          $rows | Sort-Object Seconds -Descending | Select-Object -First 30 | ForEach-Object { '{0,8:N1} s  {1,-9} {2}' -f $_.Seconds, $_.Outcome, $_.Test }
       - name: Publish (self-contained single file)
         run: dotnet publish src/AdMng.App/AdMng.App.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o publish
       - name: Smoke test published app

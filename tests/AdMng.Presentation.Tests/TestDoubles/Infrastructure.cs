@@ -284,7 +284,8 @@ internal sealed class TempAppPaths : IAppPaths, IDisposable
     public void Dispose()
     {
         // A setting saved as it changes (a toggle, a level) is written fire-and-forget: its file may still be appearing
-        // while the folder is deleted ("Directory not empty"). Retry briefly.
+        // while the folder is deleted ("Directory not empty"), and Windows refuses the deletion of a file that is being
+        // moved over another ("Access to the path 'settings.json.tmp' is denied"). Retry briefly.
         for (var attempt = 0; ; attempt++)
         {
             try
@@ -296,7 +297,7 @@ internal sealed class TempAppPaths : IAppPaths, IDisposable
 
                 return;
             }
-            catch (IOException) when (attempt < 40)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException && attempt < 40)
             {
                 Thread.Sleep(25);
             }
