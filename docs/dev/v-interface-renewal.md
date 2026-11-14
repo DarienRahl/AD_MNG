@@ -3386,7 +3386,7 @@ and what nobody has seen on a screen yet.
   and the log copies). Each hook was mutated once to see the tests fail (the stage, the lasting state, the part done, the
   holder in front, Stop that holds, the handing back of the line, the result after the comparison); unchanged and green: the
   530 tests of `GroupPolicy/` that were there - among them the 22 of `CentralStoreUpdateTests` and the ones of
-  `GroupPolicyBackupAndCompareTests`; 3,382 in the project with these. UI
+  `GroupPolicyBackupAndCompareTests`; 3,384 in the project with these. UI
   (Windows CI only, written without a screen): `GpoPickerStatusUiTests` (3), `GpoComparisonStatusUiTests` (4),
   `GpoBackupStatusUiTests` (3), `CentralStoreUpdateStatusUiTests` (3) and `GroupPolicyDialogNotesUiTests` (3): the line at
   the top or under the header, its summary, the action button that is also the Cancel (`ActionButtonState`), a held read
