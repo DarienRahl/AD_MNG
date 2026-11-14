@@ -13,6 +13,7 @@ using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
 using AdMng.App.Views.Watchdog;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Watchdog;
@@ -156,7 +157,10 @@ public sealed class WatchdogViewTests
         await UiTestSupport.WaitForIdleAsync();
 
         Assert.Equal(WatchdogConnectionState.CertificateInvalid, tab.ConnectionState);
-        Assert.Equal(Visibility.Visible, view.ReviewCertificateButton.Visibility);
+        // The certificate to confirm is the state of the tab that lasts: an error whose one action is "Sprawdź certyfikat…".
+        Assert.Equal(PageStatusKind.Error, view.PageStatus.Kind);
+        Assert.Same(tab.ReviewCertificateCommand, view.PageStatus.ActionCommand);
+        Assert.False(view.PageStatus.CanClose);
         Assert.Null(settings.Current.Watchdog.PinnedCertificateSha256);
 
         var trust = UiWait.DriveModalAsync<WatchdogCertificateTrustWindow>(w =>
@@ -171,7 +175,8 @@ public sealed class WatchdogViewTests
 
         Assert.True(tab.IsConnected);
         Assert.Equal(SampleStatus.Certificate.Sha256, settings.Current.Watchdog.PinnedCertificateSha256);
-        Assert.Equal(Visibility.Collapsed, view.ReviewCertificateButton.Visibility);
+        Assert.NotEqual(PageStatusKind.Error, view.PageStatus.Kind);
+        Assert.False(view.PageStatus.HasAction && ReferenceEquals(view.PageStatus.ActionCommand, tab.ReviewCertificateCommand));
         context.AssertHealthy();
     });
 
@@ -347,10 +352,14 @@ public sealed class WatchdogViewTests
         Assert.Equal(Visibility.Collapsed, window.DetailsPane.Visibility);
         Assert.Equal(0, window.DetailsColumn.ActualWidth);
 
-        // "Połączono admng-wd.contoso.com:8443" once – no second "Połączono z admng-wd.contoso.com:8443".
+        // The host the tab talks to, once, in the connection card.
         var bannerTexts = UiWait.Descendants<TextBlock>(view.ConnectionBanner).Where(t => t.IsVisible).Select(t => t.Text).ToList();
         Assert.Single(bannerTexts, t => t.Contains("admng-wd.contoso.com:8443", StringComparison.Ordinal));
-        Assert.Equal(Visibility.Collapsed, view.ConnectionMessage.Visibility);
+
+        // The card says which service and as whom, not how the connection is (V2b-4): the line does not repeat it either.
+        Assert.DoesNotContain(bannerTexts, t => t.StartsWith("Połączono", StringComparison.Ordinal));
+        Assert.NotEqual(PageStatusKind.Error, view.PageStatus.Kind);
+        Assert.DoesNotContain("admng-wd.contoso.com", view.PageStatus.Message, StringComparison.Ordinal);
 
         // No saved filters: no empty, unlabeled list next to the reset button.
         var events = view.EventsView;

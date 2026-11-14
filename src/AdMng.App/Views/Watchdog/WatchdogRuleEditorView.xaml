@@ -446,11 +446,6 @@
                   Margin="8,0,0,0"
                   Command="{Binding PreviewCommand}"
                   Content="{l:Tr Watchdog.Ui.RunPreview}" />
-          <ProgressBar Width="60"
-                       Margin="8,0,0,0"
-                       VerticalAlignment="Center"
-                       IsIndeterminate="True"
-                       Visibility="{Binding IsPreviewing, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         </StackPanel>
         <TextBlock x:Name="PreviewText"
                    Margin="0,8,0,0"
@@ -459,7 +454,6 @@
                    Text="{Binding PreviewText, Mode=OneWay}"
                    TextWrapping="Wrap"
                    Visibility="{Binding PreviewText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-        <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding PreviewError, Mode=OneWay}" />
         <ItemsControl Focusable="False" ItemsSource="{Binding PreviewDaysList, Mode=OneWay}">
           <ItemsControl.ItemTemplate>
             <DataTemplate>

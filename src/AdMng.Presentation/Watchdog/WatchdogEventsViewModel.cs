@@ -152,8 +152,8 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     [ObservableProperty]
     public partial string SelectionText { get; private set; } = string.Empty;
 
-    /// <summary>Loaded, without error and without events (the view shows a hint).</summary>
-    public bool IsEmpty => !IsLoading && Error is null && Items.Count == 0;
+    /// <summary>Loaded, without error and without events (the view shows a hint). A read that was stopped says why the list is empty.</summary>
+    public bool IsEmpty => !IsLoading && Error is null && !_stopped && Items.Count == 0;
 
     /// <summary>The operator scrolled away from the newest events (set by the view).</summary>
     [ObservableProperty]

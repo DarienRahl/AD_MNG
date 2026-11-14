@@ -109,6 +109,7 @@ public sealed partial class XamlSourceTests
         "Views/SessionLogWindow.xaml",
         "Views/SettingsWindow.xaml",
         "Views/UserMessagesWindow.xaml",
+        "Views/Watchdog/WatchdogView.xaml",
     ];
 
     /// <summary>
@@ -120,7 +121,8 @@ public sealed partial class XamlSourceTests
     /// window hosts (the rendered preview of a message): its sentence is a note, and what the window does is said by the
     /// line of the window. (V2b-4: the six views of the bulk creation wizard - the wizard is hosted in the first step of the
     /// batch editor and says its status in that window's one line. The dialog that asks for the restart of a computer hands its
-    /// request to the remote actions window, which says what became of it.)
+    /// request to the remote actions window, which says what became of it. The pages of the Watchdog tab and its trust window:
+    /// the tab has one line, and the pages it hosts say their reads, saves and tests there.)
     /// <see cref="AConvertedViewWithoutAStatusLine_HasNoBannerAndNoProgressBar"/> keeps the banners of before out of it.
     /// </summary>
     private static readonly string[] ConvertedViewsWithoutAStatusLine =
@@ -139,6 +141,19 @@ public sealed partial class XamlSourceTests
         "GroupPolicy/NewGpoWindow.xaml",
         "GroupPolicy/WmiFilterEditorWindow.xaml",
         "Views/LogonHoursWindow.xaml",
+        "Views/Watchdog/WatchdogCertificateTrustWindow.xaml",
+        "Views/Watchdog/WatchdogChannelEditorView.xaml",
+        "Views/Watchdog/WatchdogChannelsView.xaml",
+        "Views/Watchdog/WatchdogConfigBar.xaml",
+        "Views/Watchdog/WatchdogDeliveryTestView.xaml",
+        "Views/Watchdog/WatchdogDigestView.xaml",
+        "Views/Watchdog/WatchdogEventDetailsView.xaml",
+        "Views/Watchdog/WatchdogEventsView.xaml",
+        "Views/Watchdog/WatchdogRuleEditorView.xaml",
+        "Views/Watchdog/WatchdogRulesView.xaml",
+        "Views/Watchdog/WatchdogSecretFieldView.xaml",
+        "Views/Watchdog/WatchdogSourcesView.xaml",
+        "Views/Watchdog/WatchdogStatusView.xaml",
     ];
 
     [Fact]

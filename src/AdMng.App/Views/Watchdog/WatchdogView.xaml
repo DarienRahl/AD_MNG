@@ -1,7 +1,9 @@
 <!--
-  The Watchdog document tab (WatchdogDocumentViewModel): the connection banner (state, the host the tab talks to, the
-  caller's role, live-update errors, retry / change address), the rollout banner, the address editor (https only) while
-  no service is configured, and the sub-tabs Events / Rules / Channels / Digest / Status / Sources once connected.
+  The Watchdog document tab (WatchdogDocumentViewModel): the connection card (the host the tab talks to - credentials go
+  only there -, the caller's account and role, change address), the one status line of the document (the connection
+  attempt, a connection problem with Retry or "Sprawdź certyfikat…", interrupted live updates, and what the sub-tab that is
+  shown says), the rollout note, the address editor (https only) while no service is configured, and the sub-tabs
+  Events / Rules / Channels / Digest / Status / Sources once connected.
 -->
 <UserControl x:Class="AdMng.App.Views.Watchdog.WatchdogView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -12,34 +14,9 @@
              xmlns:wdv="clr-namespace:AdMng.App.Views.Watchdog"
              AutomationProperties.Name="{Binding Title, Mode=OneWay, TargetNullValue=''}">
   <UserControl.Resources>
-    <!-- Info card while connected or connecting, warning colours for every problem. -->
+    <!-- The connection card: which service and as whom. What the connection is doing, or why it does not work, is said by the line. -->
     <Style x:Key="ConnectionBannerStyle" TargetType="Border" BasedOn="{StaticResource Ad.Card}">
       <Setter Property="Padding" Value="12,8" />
-      <Style.Triggers>
-        <DataTrigger Binding="{Binding HasConnectionProblem, Mode=OneWay}" Value="True">
-          <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
-          <Setter Property="CornerRadius" Value="4" />
-        </DataTrigger>
-      </Style.Triggers>
-    </Style>
-
-    <Style x:Key="ConnectionGlyphStyle" TargetType="TextBlock" BasedOn="{StaticResource Ad.GlyphText}">
-      <Setter Property="FontSize" Value="16" />
-      <Setter Property="Text" Value="{x:Static c:Glyphs.Watchdog}" />
-      <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
-      <Style.Triggers>
-        <DataTrigger Binding="{Binding ConnectionState, Mode=OneWay}" Value="{x:Static wd:WatchdogConnectionState.Connected}">
-          <Setter Property="Text" Value="{x:Static c:Glyphs.Completed}" />
-          <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
-        </DataTrigger>
-        <DataTrigger Binding="{Binding ConnectionState, Mode=OneWay}" Value="{x:Static wd:WatchdogConnectionState.NotConfigured}">
-          <Setter Property="Text" Value="{x:Static c:Glyphs.Info}" />
-        </DataTrigger>
-        <DataTrigger Binding="{Binding HasConnectionProblem, Mode=OneWay}" Value="True">
-          <Setter Property="Text" Value="{x:Static c:Glyphs.Warning}" />
-          <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
-        </DataTrigger>
-      </Style.Triggers>
     </Style>
 
     <Style x:Key="SubTabStyle" TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
@@ -48,78 +25,62 @@
   </UserControl.Resources>
 
   <DockPanel>
-    <!-- Connection banner: always shows the host the tab talks to (credentials go only there). -->
+    <!-- Connection card: always shows the host the tab talks to (credentials go only there) and, once known, the account. -->
     <Border x:Name="ConnectionBanner"
             Margin="8,6,8,0"
             AutomationProperties.Name="{l:Tr Watchdog.Ui.ConnectionBanner}"
             DockPanel.Dock="Top"
-            Style="{StaticResource ConnectionBannerStyle}">
+            Style="{StaticResource ConnectionBannerStyle}"
+            Visibility="{Binding HostText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
       <DockPanel>
         <TextBlock Margin="0,1,10,0"
                    VerticalAlignment="Top"
                    DockPanel.Dock="Left"
-                   Style="{StaticResource ConnectionGlyphStyle}" />
+                   FontSize="16"
+                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Watchdog}" />
         <StackPanel Margin="12,0,0,0"
                     VerticalAlignment="Center"
                     DockPanel.Dock="Right"
                     Orientation="Horizontal">
-          <Button x:Name="ReviewCertificateButton"
-                  Margin="0,0,6,0"
-                  Command="{Binding ReviewCertificateCommand}"
-                  Content="{l:Tr Watchdog.Certificate.Review}"
-                  Visibility="{Binding CanReviewCertificate, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <Button x:Name="RetryButton"
-                  Margin="0,0,6,0"
-                  Command="{Binding RefreshNowCommand}"
-                  Content="{l:Tr Common.Retry}"
-                  Visibility="{Binding HasConnectionProblem, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
           <Button x:Name="ChangeAddressButton"
                   Command="{Binding ChangeAddressCommand}"
                   Content="{l:Tr Watchdog.Ui.ChangeAddress}"
                   Visibility="{Binding ShowAddressEditor, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
         </StackPanel>
         <StackPanel>
-          <TextBlock x:Name="StateText"
-                     AutomationProperties.LiveSetting="Polite"
-                     TextWrapping="Wrap">
-            <Run FontWeight="SemiBold" Text="{Binding StateText, Mode=OneWay}" />
-            <Run Text="{Binding HostText, Mode=OneWay}" />
-          </TextBlock>
-          <!-- Only to explain a problem or the missing address: "Połączono z …" would repeat the line above. -->
-          <TextBlock x:Name="ConnectionMessage"
-                     Margin="0,2,0,0"
-                     AutomationProperties.LiveSetting="Polite"
-                     Text="{Binding BannerMessage, Mode=OneWay}"
-                     TextWrapping="Wrap"
-                     Visibility="{Binding BannerMessage, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+          <TextBlock x:Name="HostLabel"
+                     FontWeight="SemiBold"
+                     Text="{Binding HostText, Mode=OneWay}"
+                     TextWrapping="Wrap" />
           <TextBlock x:Name="AccountText"
                      Margin="0,2,0,0"
                      Style="{StaticResource Ad.SecondaryText}"
                      Text="{Binding AccountText, Mode=OneWay}"
                      Visibility="{Binding AccountText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-          <TextBlock x:Name="LiveError"
-                     Margin="0,2,0,0"
-                     AutomationProperties.LiveSetting="Polite"
-                     Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                     Text="{Binding LiveError, Mode=OneWay}"
-                     TextWrapping="Wrap"
-                     Visibility="{Binding LiveError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
         </StackPanel>
       </DockPanel>
     </Border>
 
-    <!-- Rollout mode (12.5): only Tier-0, bursts and health notify immediately until it ends. -->
-    <Border x:Name="RolloutBanner"
-            Margin="8,6,8,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding ShowRolloutBanner, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+    <!--
+      The one status line of the document (design note 6.1): the connection attempt, why the connection does not work (with
+      Retry, or "Sprawdź certyfikat…"), interrupted live updates, and - in front - what the sub-tab that is shown says: its
+      reads, saves, tests and results. Always present, so nothing under it moves while the tab works.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="8,6,8,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
+    <!-- Rollout mode (12.5): only Tier-0, bursts and health notify immediately until it ends. A fact about the service for as long as it lasts. -->
+    <ContentControl x:Name="RolloutBanner"
+                    Margin="8,6,8,0"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding ShowRolloutBanner, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
       <DockPanel>
-        <TextBlock Margin="0,0,10,0"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Info}" />
         <Button x:Name="EndRolloutButton"
                 Margin="10,0,0,0"
                 Command="{Binding Rules.EndRolloutCommand}"
@@ -132,7 +93,7 @@
                    Text="{Binding RolloutBannerText, Mode=OneWay}"
                    TextWrapping="Wrap" />
       </DockPanel>
-    </Border>
+    </ContentControl>
 
     <!-- Address editor: before the first connection and after "Change address". -->
     <Border x:Name="AddressEditor"

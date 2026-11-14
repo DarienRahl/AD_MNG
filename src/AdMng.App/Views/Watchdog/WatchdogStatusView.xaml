@@ -2,7 +2,8 @@
   The "Status" sub-tab (WatchdogStatusViewModel): cards for the service, the watched DC, storage, the last 24 hours, the
   stage B sections (service account, WEF collector, GPO content, host – "not reported" while the service has no data),
   attribution per DC, the health checks (localized, with remedies) and the channels; for Admins the delivery log
-  (filter, retry of failed deliveries) and the configuration audit.
+  (filter, retry of failed deliveries) and the configuration audit. What its reads do and how they ended is said by the
+  status line of the tab.
 -->
 <UserControl x:Class="AdMng.App.Views.Watchdog.WatchdogStatusView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -140,17 +141,6 @@
               DockPanel.Dock="Left"
               Style="{StaticResource Ad.IconButton}"
               ToolTip="{l:Tr Commands.Refresh}" />
-      <ProgressBar Width="60"
-                   Margin="0,0,8,0"
-                   VerticalAlignment="Center"
-                   DockPanel.Dock="Left"
-                   IsIndeterminate="True"
-                   Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-      <TextBlock x:Name="ErrorText"
-                 VerticalAlignment="Center"
-                 AutomationProperties.LiveSetting="Assertive"
-                 Style="{StaticResource Wd.FieldError}"
-                 Text="{Binding Error, Mode=OneWay}" />
     </DockPanel>
 
     <ScrollViewer x:Name="StatusScroll"
@@ -562,7 +552,6 @@
                          Style="{StaticResource Wd.CardTitle}"
                          Text="{l:Tr Watchdog.Ui.DeliveryLog}" />
             </DockPanel>
-            <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Error, Mode=OneWay}" />
             <!-- The columns fit the card (GridViewColumnFit): subject and error share what the others leave, 3 : 2. -->
             <ListView x:Name="DeliveryLogList"
                       MaxHeight="360"
@@ -685,7 +674,6 @@
                 Visibility="{Binding IsAdmin, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
           <StackPanel>
             <TextBlock Style="{StaticResource Wd.CardTitle}" Text="{l:Tr Watchdog.Ui.ConfigAudit}" />
-            <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding AuditError, Mode=OneWay}" />
             <ListView x:Name="AuditList"
                       MaxHeight="300"
                       AutomationProperties.Name="{l:Tr Watchdog.Ui.ConfigAudit}"

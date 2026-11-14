@@ -1,7 +1,9 @@
 <!--
   Details of the selected event (WatchdogEventDetailsViewModel), like the main window's details pane: what changed
   (before → after), who and from where (actor, source with its origin and confidence, reason and remedy, evidence),
-  lockout sources, related events and deliveries, with acknowledge / open in AD_MNG / unlock / copy.
+  lockout sources, related events and deliveries, with acknowledge / open in AD_MNG / unlock / copy. The pane is hosted by
+  the event feed and says what its actions did in the status line of the tab; its own read is a ring in the pane, and why
+  the details could not be read is a note under the title.
 -->
 <UserControl x:Class="AdMng.App.Views.Watchdog.WatchdogEventDetailsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -92,11 +94,6 @@
                       Style="{StaticResource Ad.IconButton}"
                       ToolTip="{l:Tr Watchdog.Ui.CopyDetails}" />
             </WrapPanel>
-            <TextBlock x:Name="ActionMessage"
-                       AutomationProperties.LiveSetting="Polite"
-                       Style="{StaticResource Wd.Hint}"
-                       Text="{Binding ActionMessage, Mode=OneWay}"
-                       Visibility="{Binding ActionMessage, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
           </StackPanel>
         </Border>
 
@@ -107,6 +104,15 @@
           <StackPanel Margin="12,10,12,12">
             <!-- Header -->
             <DockPanel>
+              <!-- The read of the details of the selected event: a ring in place - no sentence to say while it runs (a read at every selection would announce itself at every key). -->
+              <c:ProgressRing x:Name="LoadingRing"
+                              Margin="8,6,0,0"
+                              VerticalAlignment="Top"
+                              DockPanel.Dock="Right"
+                              Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                              IsActive="{Binding IsLoading, Mode=OneWay}"
+                              Size="14"
+                              Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
               <Ellipse Margin="0,6,8,0"
                        VerticalAlignment="Top"
                        DockPanel.Dock="Left"
@@ -125,14 +131,15 @@
                 </TextBlock>
               </StackPanel>
             </DockPanel>
-            <ProgressBar Height="3"
-                         Margin="0,6,0,0"
-                         IsIndeterminate="True"
-                         Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-            <TextBlock x:Name="ErrorText"
-                       AutomationProperties.LiveSetting="Assertive"
-                       Style="{StaticResource Wd.FieldError}"
-                       Text="{Binding Error, Mode=OneWay}" />
+            <ContentControl x:Name="ErrorNote"
+                            Margin="0,6,0,0"
+                            Style="{StaticResource Ad.Note.Error}"
+                            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+              <TextBlock x:Name="ErrorText"
+                         AutomationProperties.LiveSetting="Assertive"
+                         Text="{Binding Error, Mode=OneWay}"
+                         TextWrapping="Wrap" />
+            </ContentControl>
             <TextBlock x:Name="AcknowledgedText"
                        Margin="0,6,0,0"
                        Foreground="{DynamicResource SystemFillColorSuccessBrush}"
