@@ -104,16 +104,21 @@ public sealed partial class XamlSourceTests
     /// <summary>
     /// The views that were converted in stage V2b and have no status line (design note "V2b-2 as built", Dialogs 11),
     /// sorted: a dialog that starts no operation - it collects input and hands it to its opener - has no status to say;
-    /// what it says is true of its fields for as long as they are shown, and stands next to them as a note. The same
-    /// holds for a control that a converted window hosts (the rendered preview of a message): its sentence is a note,
-    /// and what the window does is said by the line of the window.
+    /// what it says is true of its fields for as long as they are shown, and stands next to them as a note (V2b-3: the
+    /// WMI filter editor, the copy and merge window, the name of a GPO - what they ask for is planned and previewed by
+    /// their opener, which says how that went in the line of its document). The same holds for a control that a converted
+    /// window hosts (the rendered preview of a message): its sentence is a note, and what the window does is said by the
+    /// line of the window.
     /// <see cref="AConvertedViewWithoutAStatusLine_HasNoBannerAndNoProgressBar"/> keeps the banners of before out of it.
     /// </summary>
     private static readonly string[] ConvertedViewsWithoutAStatusLine =
     [
         "Controls/HtmlPreviewView.xaml",
+        "GroupPolicy/GpoCopySettingsWindow.xaml",
         "GroupPolicy/GroupPolicyHealthPanel.xaml",
         "GroupPolicy/GroupPolicyNotes.xaml",
+        "GroupPolicy/NewGpoWindow.xaml",
+        "GroupPolicy/WmiFilterEditorWindow.xaml",
         "Views/LogonHoursWindow.xaml",
     ];
 
