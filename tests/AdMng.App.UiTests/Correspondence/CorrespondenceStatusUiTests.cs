@@ -288,7 +288,7 @@ public sealed class CorrespondenceStatusUiTests
         var (context, _) = await TestDialogService.CreateContextAsync("en");
         await using var _ = context;
         await context.ConnectAsync();
-        var sent = new DateTimeOffset(DateTime.Now.Date.AddDays(-3), TimeSpan.Zero);
+        var sent = DateTimeOffset.Now.AddDays(-3);   // a run of the last days, whatever the time zone of the machine
         context.Outlook!.Campaigns.Add(new OutlookCampaign("4f1c2a9e0b7d4e6f8a3b5c7d9e1f2a3b", "Czy skrzynka jest nadal potrzebna?", sent, sent.AddMinutes(5), 2));
         context.Outlook.Responses["4f1c2a9e0b7d4e6f8a3b5c7d9e1f2a3b"] =
         [

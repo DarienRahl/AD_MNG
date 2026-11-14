@@ -237,10 +237,15 @@ public sealed partial class RecipientsPageViewModel
 
         if (stopped)
         {
-            // What the files read before the stop added stays on the list; the page says so and how far it got.
-            StatusText = string.Empty;
-            StatusText = Localizer.Format(L.RecipientsStatus.FilesStopped, read, paths.Count);
-            scope.CompleteAttention(StatusText, new PageStatusLog(L.RecipientsStatus.FilesStopped, read, paths.Count));
+            // What the files read before the stop added stays on the list; the page says so and how far it got - when the
+            // operator asked for it. A read that another operation of the page replaced says nothing.
+            if (scope.IsCancelling)
+            {
+                StatusText = string.Empty;
+                StatusText = Localizer.Format(L.RecipientsStatus.FilesStopped, read, paths.Count);
+                scope.CompleteAttention(StatusText, new PageStatusLog(L.RecipientsStatus.FilesStopped, read, paths.Count));
+            }
+
             return;
         }
 
