@@ -187,10 +187,12 @@
       </StackPanel>
     </Grid>
     <!--
-      Status line (design note 6.1): the read of the document with Stop, its summary, why it could not be read, and what
-      became of a save that is prepared for the change plan preview. The bars of this view below are converted with it
-      (V2b-3). Always present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and the
-      PDC emulator (GroupPolicyNotes).
+      Status line (design note 6.1): the read of the document with Stop, its summary with the number of changed settings,
+      why it could not be read, what became of a save that is prepared for the change plan preview, and - as the state
+      that lasts - that the GPO's files changed on SYSVOL under the edits (the save would be a conflict; Discard is its
+      action). Always present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and the
+      PDC emulator (GroupPolicyNotes), then the notes of this editor (V2b-3): which Registry.pol cannot be read, and where
+      the templates come from - sentences about the content that are true for as long as it is shown.
     -->
     <c:StatusLine x:Name="PageStatus"
                   Margin="0,0,0,6"
@@ -198,81 +200,60 @@
                   DockPanel.Dock="Top"
                   Status="{Binding Status.Current, Mode=OneWay}" />
     <gp:GroupPolicyNotes x:Name="DocumentNotes" DockPanel.Dock="Top" />
-    <Border x:Name="ConflictBar"
-            Margin="0,0,0,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding ConflictNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock AutomationProperties.LiveSetting="Polite" Text="{Binding ConflictNote, Mode=OneWay}" TextWrapping="Wrap" />
-    </Border>
-    <Border x:Name="FileBar"
-            Margin="0,0,0,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding FileNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock Text="{Binding FileNote, Mode=OneWay}" TextWrapping="Wrap" />
-    </Border>
-    <!-- Templates: where they come from (a warning without a central store), their problems, update and reload -->
-    <Border x:Name="DefinitionsBar"
-            Margin="0,0,0,6"
-            Padding="12,4"
-            DockPanel.Dock="Top"
-            Visibility="{Binding DefinitionsNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <Border.Style>
-        <Style TargetType="Border" BasedOn="{StaticResource Ad.Card}">
-          <Style.Triggers>
-            <DataTrigger Binding="{Binding IsCentralStoreMissing, Mode=OneWay}" Value="True">
-              <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
-            </DataTrigger>
-          </Style.Triggers>
-        </Style>
-      </Border.Style>
-      <StackPanel>
-        <DockPanel>
-          <TextBlock x:Name="DefinitionsGlyph"
-                     Margin="0,1,10,0"
-                     VerticalAlignment="Center"
-                     DockPanel.Dock="Left">
-            <TextBlock.Style>
-              <Style TargetType="TextBlock" BasedOn="{StaticResource Ad.GlyphText}">
-                <Setter Property="Text" Value="{x:Static c:Glyphs.Info}" />
-                <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
-                <Style.Triggers>
-                  <DataTrigger Binding="{Binding IsCentralStoreMissing, Mode=OneWay}" Value="True">
-                    <Setter Property="Text" Value="{x:Static c:Glyphs.Warning}" />
-                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
-                  </DataTrigger>
-                </Style.Triggers>
-              </Style>
-            </TextBlock.Style>
-          </TextBlock>
-          <StackPanel Margin="12,0,0,0" VerticalAlignment="Center" DockPanel.Dock="Right" Orientation="Horizontal">
-            <Button x:Name="UpdateTemplatesButton" Margin="0,0,6,0" Command="{Binding UpdateTemplatesCommand}" Content="{l:Tr CentralStore.Command}" />
-            <Button x:Name="ReloadDefinitionsButton" Command="{Binding ReloadDefinitionsCommand}" Content="{l:Tr AdmTemplates.ReloadDefinitions}" />
-          </StackPanel>
-          <TextBlock x:Name="DefinitionsText" VerticalAlignment="Center" Text="{Binding DefinitionsNote, Mode=OneWay}" TextWrapping="Wrap" />
-        </DockPanel>
-        <Expander x:Name="IssuesExpander"
-                  Margin="0,6,0,0"
-                  Header="{Binding DefinitionIssuesTitle, Mode=OneWay}"
-                  Visibility="{Binding HasDefinitionIssues, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-          <ItemsControl MaxHeight="140" ItemsSource="{Binding DefinitionIssues, Mode=OneWay}">
-            <ItemsControl.Template>
-              <ControlTemplate TargetType="ItemsControl">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                  <ItemsPresenter />
-                </ScrollViewer>
-              </ControlTemplate>
-            </ItemsControl.Template>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate DataType="{x:Type sys:String}">
-                <TextBlock Margin="0,1" Style="{StaticResource Ad.SecondaryText}" Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </Expander>
-      </StackPanel>
-    </Border>
+    <!-- A Registry.pol that cannot be read: that half of the GPO cannot be edited. -->
+    <ContentControl x:Name="FileNote"
+                    Margin="0,0,0,6"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding FileNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <TextBlock x:Name="FileText" Text="{Binding FileNote, Mode=OneWay}" TextWrapping="Wrap" />
+    </ContentControl>
+    <!--
+      Templates: where they come from (an attention without a central store), their problems, update and reload. The
+      sentence is a note - information with the central store, attention without it; the buttons stay at its right.
+    -->
+    <StackPanel x:Name="DefinitionsPanel"
+                Margin="0,0,0,6"
+                DockPanel.Dock="Top"
+                Visibility="{Binding DefinitionsNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <DockPanel>
+        <StackPanel Margin="12,0,0,0" VerticalAlignment="Top" DockPanel.Dock="Right" Orientation="Horizontal">
+          <Button x:Name="UpdateTemplatesButton" Margin="0,0,6,0" Command="{Binding UpdateTemplatesCommand}" Content="{l:Tr CentralStore.Command}" />
+          <Button x:Name="ReloadDefinitionsButton" Command="{Binding ReloadDefinitionsCommand}" Content="{l:Tr AdmTemplates.ReloadDefinitions}" />
+        </StackPanel>
+        <Grid VerticalAlignment="Center">
+          <ContentControl x:Name="DefinitionsNote"
+                          Style="{StaticResource Ad.Note.Info}"
+                          Visibility="{Binding IsCentralStoreMissing, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}">
+            <TextBlock x:Name="DefinitionsText" Text="{Binding DefinitionsNote, Mode=OneWay}" TextWrapping="Wrap" />
+          </ContentControl>
+          <ContentControl x:Name="DefinitionsMissingNote"
+                          Style="{StaticResource Ad.Note.Attention}"
+                          Visibility="{Binding IsCentralStoreMissing, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <TextBlock x:Name="DefinitionsMissingText" Text="{Binding DefinitionsNote, Mode=OneWay}" TextWrapping="Wrap" />
+          </ContentControl>
+        </Grid>
+      </DockPanel>
+      <Expander x:Name="IssuesExpander"
+                Margin="0,6,0,0"
+                Header="{Binding DefinitionIssuesTitle, Mode=OneWay}"
+                Visibility="{Binding HasDefinitionIssues, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <ItemsControl MaxHeight="140" ItemsSource="{Binding DefinitionIssues, Mode=OneWay}">
+          <ItemsControl.Template>
+            <ControlTemplate TargetType="ItemsControl">
+              <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ItemsPresenter />
+              </ScrollViewer>
+            </ControlTemplate>
+          </ItemsControl.Template>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type sys:String}">
+              <TextBlock Margin="0,1" Style="{StaticResource Ad.SecondaryText}" Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Expander>
+    </StackPanel>
 
     <Grid>
       <Grid.ColumnDefinitions>

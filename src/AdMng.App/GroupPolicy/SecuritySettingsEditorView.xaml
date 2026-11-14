@@ -123,10 +123,12 @@
       </StackPanel>
     </Grid>
     <!--
-      Status line (design note 6.1): the read of the document with Stop, its summary, why it could not be read, and what
-      became of a save that is prepared for the change plan preview. The bars of this view below are converted with it
-      (V2b-3). Always present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and the
-      PDC emulator (GroupPolicyNotes).
+      Status line (design note 6.1): the read of the document with Stop, its summary with the number of changed settings,
+      why it could not be read, what became of a save that is prepared for the change plan preview, and - as the state
+      that lasts - that the GPO's files changed on SYSVOL under the edits (the save would be a conflict; Discard is its
+      action). Always present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and the
+      PDC emulator (GroupPolicyNotes), then the note of this editor (V2b-3): which file cannot be read - a sentence about
+      the content that is true for as long as it is shown. The note of the audit pages is on the audit tab.
     -->
     <c:StatusLine x:Name="PageStatus"
                   Margin="0,0,0,6"
@@ -134,20 +136,14 @@
                   DockPanel.Dock="Top"
                   Status="{Binding Status.Current, Mode=OneWay}" />
     <gp:GroupPolicyNotes x:Name="DocumentNotes" DockPanel.Dock="Top" />
-    <Border x:Name="ConflictBar"
-            Margin="0,0,0,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding ConflictNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock AutomationProperties.LiveSetting="Polite" Text="{Binding ConflictNote, Mode=OneWay}" TextWrapping="Wrap" />
-    </Border>
-    <Border x:Name="FileBar"
-            Margin="0,0,0,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding FileNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock Text="{Binding FileNote, Mode=OneWay}" TextWrapping="Wrap" />
-    </Border>
+    <!-- A file that cannot be read: its pages cannot be edited. -->
+    <ContentControl x:Name="FileNote"
+                    Margin="0,0,0,6"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding FileNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <TextBlock x:Name="FileText" Text="{Binding FileNote, Mode=OneWay}" TextWrapping="Wrap" />
+    </ContentControl>
 
     <!-- Search and filters: every page -->
     <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
@@ -716,13 +712,14 @@
       <!-- 4. Inspekcja -->
       <TabItem x:Name="AuditTab" Header="{l:Tr SecSettings.TabAudit}">
         <DockPanel Margin="4,8,4,4">
-          <Border x:Name="AuditBar"
-                  Margin="0,0,0,6"
-                  DockPanel.Dock="Top"
-                  Style="{StaticResource Ad.WarningBar}"
-                  Visibility="{Binding AuditNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-            <TextBlock Text="{Binding AuditNote, Mode=OneWay}" TextWrapping="Wrap" />
-          </Border>
+          <!-- Both kinds of audit are configured and the subcategories are not forced: which one applies depends on the client. -->
+          <ContentControl x:Name="AuditNote"
+                          Margin="0,0,0,6"
+                          DockPanel.Dock="Top"
+                          Style="{StaticResource Ad.Note.Attention}"
+                          Visibility="{Binding AuditNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+            <TextBlock x:Name="AuditNoteText" Text="{Binding AuditNote, Mode=OneWay}" TextWrapping="Wrap" />
+          </ContentControl>
           <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
             <StackPanel MaxWidth="900" HorizontalAlignment="Left">
               <TextBlock Style="{StaticResource PanelHeader}" Text="{l:Tr SecSettings.LegacyAuditHeader}" />

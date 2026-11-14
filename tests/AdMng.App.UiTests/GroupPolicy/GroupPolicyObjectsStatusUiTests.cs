@@ -10,6 +10,7 @@ using AdMng.Core.GroupPolicy;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
+using AdMng.Presentation.GroupPolicy.SecuritySettings;
 using AdMng.Testing;
 using static AdMng.App.UiTests.GroupPolicy.GroupPolicyStatusUiSupport;
 
@@ -259,9 +260,8 @@ public sealed class GroupPolicyObjectsStatusUiTests
             }
         });
 
-        // The four views of this unit, and one of the later units, which has the line already and keeps its own bars
-        // until it is converted: the status holder is the base class's, so no Group Policy tab speaks through the
-        // status bar of the window any more.
+        // The four views of this unit and the two editors: the status holder is the base class's, so no Group Policy tab
+        // speaks through the status bar of the window.
         await AssertAsync<GroupPolicyObjectsDocumentViewModel, GroupPolicyObjectsView>(Objects, v => (v.PageStatus, v.DocumentNotes));
         await AssertAsync<WmiFiltersDocumentViewModel, WmiFiltersView>(new(GroupPolicyDocumentKind.WmiFilters), v => (v.PageStatus, v.DocumentNotes));
         await AssertAsync<GroupPolicyScopeDocumentViewModel, GroupPolicyScopeView>(
@@ -270,6 +270,9 @@ public sealed class GroupPolicyObjectsStatusUiTests
             new(GroupPolicyDocumentKind.Object) { GpoId = sample.WorkstationPasswords, Name = "Stacje robocze – Zasady haseł" }, v => (v.PageStatus, v.DocumentNotes));
         await AssertAsync<AdministrativeTemplatesEditorViewModel, AdministrativeTemplatesEditorView>(
             new(GroupPolicyDocumentKind.AdministrativeTemplates) { GpoId = sample.SitePrinters, Name = "Lokacja Warszawa – Drukarki" },
+            v => (v.PageStatus, v.DocumentNotes));
+        await AssertAsync<SecuritySettingsEditorViewModel, SecuritySettingsEditorView>(
+            new(GroupPolicyDocumentKind.SecuritySettings) { GpoId = sample.SitePrinters, Name = "Lokacja Warszawa – Drukarki" },
             v => (v.PageStatus, v.DocumentNotes));
 
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
