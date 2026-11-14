@@ -67,7 +67,7 @@ public sealed class GpoCleanupUiTests
         Assert.Equal(Enum.GetValues<GpoCleanupKind>().Length, view.ChipsList.Items.Count);
         Assert.Single(UiWait.Descendants<PaneSplitter>(view));
         Assert.True(view.DetailsEmptyText.IsVisible);
-        Assert.False(view.StaleBar.IsVisible);
+        Assert.Null(document.Status.Lasting); // nothing changed after the analysis: the status line has no state to say
 
         // Headers wider than their texts (nothing trimmed).
         var gridView = (GridView)view.ProposalsList.View;
@@ -114,7 +114,7 @@ public sealed class GpoCleanupUiTests
         document.ClearFiltersCommand.Execute(null);
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         Assert.Equal(document.Rows.Count, view.ProposalsList.Items.Count);
-        Assert.False(view.ProgressPanel.IsVisible);
+        Assert.False(document.Status.IsWorking);
         context.AssertHealthy();
     });
 }

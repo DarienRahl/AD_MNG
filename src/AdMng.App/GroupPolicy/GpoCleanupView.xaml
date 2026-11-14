@@ -1,6 +1,8 @@
 <!--
   "Porządki w GPO" (GpoCleanupDocumentViewModel, K7, design note docs/dev/k-computers-and-gpo.md 21.6): the cleanup advisor –
-  refresh / read everything again with progress and cancel, the stale bar, the notes of the index, the chips per kind, the
+  refresh / read everything again (action buttons: while one runs, its button is its Cancel), the status line (the read
+  and the analysis with their stages, the number of proposals with when the GPOs were read, "Group Policy changed after the
+  analysis" with Refresh), the notes about what the analysis could not see, the chips per kind, the
   filters (kind, GPO, text - Ctrl+F, Esc), the virtualized list of proposals and, beside it behind a splitter, the details
   of the selected one with only the actions it offers ("Usuń GPO…", "Odłącz wszędzie…", "Wyłącz GPO", "Kopiuj do innego
   GPO…", "Usuń duplikat z tego GPO", "Scal z…" – each a change plan with preview), "Otwórz GPO", "Porównaj", "Pokaż w
@@ -56,56 +58,36 @@
                  TextTrimming="CharacterEllipsis"
                  ToolTip="{Binding Title, Mode=OneWay}" />
       <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
-        <Button x:Name="AnalyzeButton"
-                Margin="0,0,6,0"
-                Command="{Binding AnalyzeCommand}"
-                Content="{l:Tr GpoCleanup.Analyze}"
-                Style="{StaticResource AccentButtonStyle}"
-                ToolTip="{l:Tr GpoCleanup.AnalyzeHint}" />
-        <Button x:Name="ReadAllButton"
-                Margin="0,0,6,0"
-                Command="{Binding ReadAllCommand}"
-                Content="{l:Tr GpoCleanup.ReadAll}"
-                ToolTip="{l:Tr GpoCleanup.ReadAllHint}" />
-        <Button x:Name="CancelButton" Margin="0,0,12,0" Command="{Binding CancelCommand}" Content="{l:Tr Common.Cancel}" />
+        <!-- The reads: while one of them runs, its button is its Cancel (the line says how far it is, "Stopping…" after the press). -->
+        <c:ActionButton x:Name="AnalyzeButton"
+                        Margin="0,0,6,0"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding AnalyzeCommand}"
+                        Content="{l:Tr GpoCleanup.Analyze}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsAnalyzing, Mode=OneWay}"
+                        Style="{StaticResource Ad.AccentActionButton}"
+                        ToolTip="{l:Tr GpoCleanup.AnalyzeHint}" />
+        <c:ActionButton x:Name="ReadAllButton"
+                        Margin="0,0,12,0"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding ReadAllCommand}"
+                        Content="{l:Tr GpoCleanup.ReadAll}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsReadingAll, Mode=OneWay}"
+                        Style="{StaticResource Ad.ActionButton}"
+                        ToolTip="{l:Tr GpoCleanup.ReadAllHint}" />
         <Button x:Name="ExportCsvButton" Margin="0,0,6,0" Command="{Binding ExportCsvCommand}" Content="{l:Tr GpoCleanup.ExportCsv}" />
         <Button x:Name="ExportHtmlButton" Command="{Binding ExportHtmlCommand}" Content="{l:Tr GpoCleanup.ExportHtml}" />
       </StackPanel>
     </Grid>
 
-    <!-- The last analysis, or the progress of the running one -->
-    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
-      <TextBlock x:Name="LastRunText"
-                 VerticalAlignment="Center"
-                 Style="{StaticResource Ad.SecondaryText}"
-                 Text="{Binding LastRunText, Mode=OneWay}"
-                 TextTrimming="CharacterEllipsis"
-                 ToolTip="{Binding LastRunText, Mode=OneWay}"
-                 Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
-      <DockPanel x:Name="ProgressPanel" Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-        <ProgressBar x:Name="AnalysisProgress"
-                     Width="220"
-                     Height="4"
-                     Margin="0,0,10,0"
-                     VerticalAlignment="Center"
-                     AutomationProperties.Name="{Binding ProgressText, Mode=OneWay}"
-                     DockPanel.Dock="Left"
-                     IsIndeterminate="{Binding IsProgressIndeterminate, Mode=OneWay}"
-                     Maximum="100"
-                     Value="{Binding ProgressValue, Mode=OneWay}" />
-        <TextBlock x:Name="ProgressText"
-                   VerticalAlignment="Center"
-                   AutomationProperties.LiveSetting="Polite"
-                   Text="{Binding ProgressText, Mode=OneWay}"
-                   TextTrimming="CharacterEllipsis" />
-      </DockPanel>
-    </Grid>
-
     <!--
-      Status line (design note 6.1): the read of the document with Stop, its summary, why it could not be read, and what
-      became of an operation that is prepared for the change plan preview. The bars of this view are converted with it
-      (V2b-3). Always present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and the
-      PDC emulator (GroupPolicyNotes).
+      Status line (design note 6.1): the read and the analysis with their stages and Stop, the summary (the number of
+      proposals, when the GPOs were read, the selected proposal), why it could not be read, "Group Policy changed after
+      the analysis" with Refresh, and what became of an action that is prepared for the change plan preview. Always
+      present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and the PDC emulator
+      (GroupPolicyNotes), then the notes of this view.
     -->
     <c:StatusLine x:Name="PageStatus"
                   Margin="0,0,0,6"
@@ -114,52 +96,20 @@
                   Status="{Binding Status.Current, Mode=OneWay}" />
     <gp:GroupPolicyNotes x:Name="DocumentNotes" DockPanel.Dock="Top" />
 
-    <!-- Group Policy changed after the analysis -->
-    <Border x:Name="StaleBar"
-            Margin="0,0,0,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding IsStale, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <DockPanel>
-        <Button x:Name="StaleRefreshButton"
-                Margin="12,0,0,0"
-                VerticalAlignment="Center"
-                Command="{Binding AnalyzeCommand}"
-                Content="{l:Tr GpoCleanup.Analyze}"
-                DockPanel.Dock="Right" />
-        <TextBlock Margin="0,1,10,0"
-                   VerticalAlignment="Center"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Warning}" />
-        <TextBlock VerticalAlignment="Center" Text="{l:Tr GpoCleanup.Stale}" TextWrapping="Wrap" />
-      </DockPanel>
-    </Border>
-
-    <!-- What the analysis could not see -->
-    <Border x:Name="NotesBar"
-            Margin="0,0,0,6"
-            Padding="12,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.Card}"
-            Visibility="{Binding HasNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <DockPanel>
-        <TextBlock Margin="0,1,10,0"
-                   VerticalAlignment="Top"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Info}" />
-        <ItemsControl x:Name="NotesList" AutomationProperties.LiveSetting="Polite" ItemsSource="{Binding Notes, Mode=OneWay}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate DataType="{x:Type sys:String}">
-              <TextBlock Margin="0,1" Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </DockPanel>
-    </Border>
+    <!-- What the analysis could not see: how complete the proposals are - notes about them, true for as long as they are shown. -->
+    <ContentControl x:Name="NotesBar"
+                    Margin="0,0,0,6"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding HasNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <ItemsControl x:Name="NotesList" AutomationProperties.LiveSetting="Polite" Focusable="False" ItemsSource="{Binding Notes, Mode=OneWay}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type sys:String}">
+            <TextBlock Margin="0,0,0,2" Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ContentControl>
 
     <!-- Summary chips (click: only that kind) -->
     <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">

@@ -3,6 +3,7 @@ using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Cleanup;
 using AdMng.Core.GroupPolicy.Search;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
@@ -23,6 +24,15 @@ namespace AdMng.Presentation.GroupPolicy.Cleanup;
 /// index incrementally and analyses again. Everything stays in the window's memory (rule 1); exports go only to files the
 /// operator picks. A change of Group Policy made elsewhere marks the results stale instead of reading every GPO again.
 /// </summary>
+/// <remarks>
+/// <b>What the tab says</b> (track V, stage V2b-3; docs/dev/v-interface-renewal.md "V2b-3 as built"): the read and the
+/// analysis are the operation of the document - "Reading GPO folders: 12 of 300…", "Analysing the GPOs…" with Stop in the
+/// status line, where the buttons of the tab are its action buttons -, the summary is the number of proposals with when
+/// the GPOs were read, and "Group Policy changed after the analysis" is the state of the tab that lasts, with the button
+/// that analyses again. What the analysis could not see (<see cref="Notes"/>) is a note above the proposals: it is about
+/// how complete they are. The actions of a proposal are plans with the preview; they speak through the line of the
+/// document while their plan is made, and the read after them is the operation of the document again.
+/// </remarks>
 public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBase, ISearchableDocument, IShellDocument
 {
     private readonly IGpoSettingsIndexService _index;
@@ -32,8 +42,10 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
     private GpoIndexRefresh? _requested;
 
     private CancellationTokenSource? _running;
-    private bool _cancelRequested;
     private Analysis? _shown;
+
+    /// <summary>The read that runs (or was asked for last) reads every folder again: <see cref="IsReadingAll"/>.</summary>
+    private bool _readingAll;
 
     /// <summary>The selection to restore after the next analysis (the key of the row, and its index as a fallback).</summary>
     private (string Key, int Index)? _restoreSelection;
@@ -59,6 +71,15 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
     /// <summary>The progress while the index is read and analysed, else the summary of the last analysis.</summary>
     public override string StatusText => Error ?? (IsLoading ? ProgressText : LoadedText);
 
+    /// <summary>When the GPOs were read, after the number of proposals ("Przeanalizowano obiektów GPO: 16, ustawienia odczytane 9.11.2026 14:32").</summary>
+    protected override string SummaryDetail => LastRunText;
+
+    /// <summary>"Odczytaj wszystko ponownie" is what reads: its action button shows Cancel (the other one is disabled meanwhile).</summary>
+    public bool IsReadingAll => IsLoading && _readingAll;
+
+    /// <summary>Any other read and analysis runs ("Odśwież", the first one, one after an action): the action button of "Odśwież" shows Cancel.</summary>
+    public bool IsAnalyzing => IsLoading && !_readingAll;
+
     public override string SelectionText => SelectedRow is { } row ? row.Title + " – " + row.GpoName : string.Empty;
 
     /// <summary>The window's settings index.</summary>
@@ -80,11 +101,17 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
 
     /// <summary>"Analiza: 16 obiektów GPO, odczytane 9.11.2026 14:32" (or "Jeszcze nie przeanalizowano.").</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SummaryDetail))]
     public partial string LastRunText { get; private set; } = string.Empty;
 
     /// <summary>Group Policy changed after the shown analysis ("wyniki mogą być nieaktualne").</summary>
     [ObservableProperty]
     public partial bool IsStale { get; private set; }
+
+    /// <summary>"Group Policy changed after the analysis - the proposals may be out of date": the state of the tab that lasts, with the analysis as its action.</summary>
+    protected override PageStatus? DocumentLastingState => IsStale
+        ? PageStatus.Attention(Localizer[L.GpoCleanup.Stale], new PageStatusLog(L.GpoCleanup.Stale), new PageStatusAction(Localizer[L.GpoCleanup.Analyze], AnalyzeCommand))
+        : null;
 
     /// <summary>What the analysis could not see: GPOs not read completely, no SYSVOL, no templates, other domains.</summary>
     [ObservableProperty]
@@ -128,9 +155,10 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
             return;
         }
 
+        // The read and the analysis are the operation of the document (the base began it): their stages go to the status line.
+        var operation = LoadOperation;
         using var running = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _running = running;
-        _cancelRequested = false;
         RefreshCommands();
         var token = running.Token;
         try
@@ -139,21 +167,23 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
             var view = await _index.GetAsync(refresh.Value, token).ConfigureAwait(true);
             ProgressText = Localizer[L.GpoCleanup.AnalyzeStage];
             IsProgressIndeterminate = true;
+            operation?.Report(ProgressText, PageProgress.Indeterminate, new PageStatusLog(L.GroupPolicyStatus.Reading));
             var result = await Task.Run(() => GpoCleanupAnalyzer.Analyze(view.Index), token).ConfigureAwait(true);
             token.ThrowIfCancellationRequested();
             _requested = null;
             Show(new Analysis(view, result) { Session = session });
         }
-        catch (OperationCanceledException) when (_cancelRequested && !cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (operation is { IsCancelling: true })
         {
-            // "Anuluj": the shown results (if any) stay; the status says the analysis was cancelled.
-            _requested = null;
+            // The operator's Stop: the shown results (if any) stay, the status bar of a host without a line says the analysis
+            // was cancelled, and the base says the state of the tab. The read stays requested: "Refresh" of the line repeats it.
             _restoreSelection = null;
             LoadedText = Localizer[L.GpoCleanup.Cancelled];
+            throw;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _requested = null;
+            // The read failed (the base says why, with Retry): it stays requested, so that Retry reads the index again.
             _restoreSelection = null;
             throw;
         }
@@ -171,7 +201,11 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
         }
     }
 
-    protected override void OnNotConnected() => DropAnalysis();
+    protected override void OnNotConnected()
+    {
+        _readingAll = false;
+        DropAnalysis();
+    }
 
     /// <summary>Forgets the shown analysis (disconnected, or made on another session).</summary>
     private void DropAnalysis()
@@ -197,6 +231,7 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
     {
         OnPropertyChanged(nameof(Title));
         BuildFilterOptions();
+        UpdateLasting();
         if (_shown is null)
         {
             LoadedText = Localizer[L.GpoCleanup.NeverRun];
@@ -209,9 +244,23 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
         LoadAsync().Forget();
     }
 
-    protected override void OnLoadingChanged() => RefreshCommands();
+    protected override void OnLoadingChanged()
+    {
+        if (!IsLoading)
+        {
+            _readingAll = false;
+        }
 
-    partial void OnIsStaleChanged(bool value) => RefreshCommands();
+        OnPropertyChanged(nameof(IsReadingAll));
+        OnPropertyChanged(nameof(IsAnalyzing));
+        RefreshCommands();
+    }
+
+    partial void OnIsStaleChanged(bool value)
+    {
+        UpdateLasting();
+        RefreshCommands();
+    }
 
     protected override void RefreshCommands()
     {
@@ -243,21 +292,21 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
     [RelayCommand(CanExecute = nameof(CanAnalyze))]
     private Task ReadAllAsync() => AnalyzeAsync(GpoIndexRefresh.Full);
 
-    /// <summary>"Anuluj": this document stops waiting (the index build stops when no other document waits for it).</summary>
+    /// <summary>
+    /// The Stop of the status line: this document stops waiting (the index build stops when no other document waits for it).
+    /// The buttons of the tab are action buttons over the same operation; this command is kept for code that stops the read
+    /// without the line.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanCancel))]
-    public void Cancel()
-    {
-        if (_running is { } running)
-        {
-            _cancelRequested = true;
-            running.Cancel();
-        }
-    }
+    public void Cancel() => LoadOperation?.Cancel();
 
     /// <summary>Reads the index (<paramref name="refresh"/>) and analyses it; a running analysis is replaced.</summary>
     public Task AnalyzeAsync(GpoIndexRefresh refresh)
     {
         _requested = refresh;
+        _readingAll = refresh == GpoIndexRefresh.Full;
+        OnPropertyChanged(nameof(IsReadingAll));
+        OnPropertyChanged(nameof(IsAnalyzing));
         RememberSelection();
         return LoadAsync();
     }
@@ -302,6 +351,12 @@ public sealed partial class GpoCleanupDocumentViewModel : GroupPolicyDocumentBas
         ProgressText = progress.Total > 0 ? Localizer.Format(L.GpoIndex.Progress, stage, progress.Done, progress.Total) : stage;
         IsProgressIndeterminate = progress.Total <= 0;
         ProgressValue = progress.Total > 0 ? Math.Clamp(100.0 * progress.Done / progress.Total, 0, 100) : 0;
+
+        // The status line says the same: "Reading GPO folders: 12 of 300", the ring showing the part done.
+        LoadOperation?.Report(
+            progress.Total > 0 ? ProgressText : stage + "…",
+            progress.Total > 0 ? PageProgress.Of(progress.Done, progress.Total) : PageProgress.Indeterminate,
+            new PageStatusLog(L.GroupPolicyStatus.Reading, progress.Done, progress.Total));
     }
 
     /// <summary>Shows an analysis: rows, chips, filters, notes, the last-run line and the status text.</summary>

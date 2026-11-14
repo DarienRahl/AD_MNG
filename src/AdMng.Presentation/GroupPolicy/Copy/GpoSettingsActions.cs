@@ -5,6 +5,7 @@ using AdMng.Core.GroupPolicy.AdministrativeTemplates;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Core.Ldap;
 using AdMng.Presentation.Changes;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 
 namespace AdMng.Presentation.GroupPolicy.Copy;
@@ -31,6 +32,13 @@ internal enum GpoCheckedDeleteResult
 /// plan with <c>definitions</c>, the index's definition set (<c>IGpoSettingsIndexService.Current.Index.Definitions</c>),
 /// never a fresh read of the templates.
 /// </summary>
+/// <remarks>
+/// Where it is said that nothing was done (track V, stage V2b-3): an action started by a document - the search and the
+/// cleanup - says it in the status line of that document (<see cref="GroupPolicyActions.RefuseAsync"/>); the same action
+/// of the tree or the shell, which have no line, keeps its dialog. The list of units that would change nothing, and the
+/// refusal of a GPO that changed since the analysis (the advisor reads the GPOs again at once, which takes the line), stay
+/// dialogs: the first is a list, the second would be wiped by the read that follows it.
+/// </remarks>
 public static class GpoSettingsActions
 {
     /// <summary>
@@ -148,7 +156,7 @@ public static class GpoSettingsActions
         var title = localizer.Format(L.GpoCopy.TitleMerge, source.DisplayName, target.DisplayName);
         if (services.Sessions.Current is not { } current)
         {
-            await services.Ui.Dialogs.ShowErrorAsync(title, localizer[L.Errors.NotConnected]).ConfigureAwait(true);
+            await actions.RefuseAsync(title, title, localizer[L.Errors.NotConnected], L.Errors.NotConnected).ConfigureAwait(true);
             return false;
         }
 
@@ -159,7 +167,8 @@ public static class GpoSettingsActions
         }
         catch (Exception ex) when (GroupPolicyText.IsExpected(ex))
         {
-            await services.Ui.Dialogs.ShowErrorAsync(title, GroupPolicyText.Error(localizer, services.Errors, ex)).ConfigureAwait(true);
+            await actions.RefuseAsync(title, title, GroupPolicyText.Error(localizer, services.Errors, ex), L.GroupPolicyStatus.NotChanged, ResultCode.Of(ex))
+                .ConfigureAwait(true);
             return false;
         }
 
@@ -213,7 +222,7 @@ public static class GpoSettingsActions
         var title = localizer.Format(L.GroupPolicy.TitleDelete, gpo.DisplayName);
         if (services.Sessions.Current is not { } session)
         {
-            await services.Ui.Dialogs.ShowErrorAsync(title, localizer[L.Errors.NotConnected]).ConfigureAwait(true);
+            await actions.RefuseAsync(title, title, localizer[L.Errors.NotConnected], L.Errors.NotConnected).ConfigureAwait(true);
             return GpoCheckedDeleteResult.NotDeleted;
         }
 
@@ -226,7 +235,8 @@ public static class GpoSettingsActions
         }
         catch (Exception ex) when (GroupPolicyText.IsExpected(ex))
         {
-            await services.Ui.Dialogs.ShowErrorAsync(title, GroupPolicyText.Error(localizer, services.Errors, ex)).ConfigureAwait(true);
+            await actions.RefuseAsync(title, title, GroupPolicyText.Error(localizer, services.Errors, ex), L.GroupPolicyStatus.NotChanged, ResultCode.Of(ex))
+                .ConfigureAwait(true);
             return GpoCheckedDeleteResult.NotDeleted;
         }
 
