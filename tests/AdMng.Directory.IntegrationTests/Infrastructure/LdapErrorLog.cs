@@ -63,9 +63,9 @@ public sealed class LdapErrorLog : IDisposable
     /// have made calls of its own after the library's (111 a refused connection, 104 a reset one, 110 a timeout, 4 an
     /// interrupted call, 32 a broken pipe).
     /// </summary>
-    internal static string Describe(DateTime utcNow, int thread, LdapException error, int systemError) => string.Create(
+    internal static string Describe(DateTime utcNow, int thread, LdapException error, int systemError, string? test = null) => string.Create(
         CultureInfo.InvariantCulture,
-        $"{utcNow:yyyy-MM-dd HH:mm:ss.ffffff} thread {thread}: LDAP {error.ErrorCode} in {error.TargetSite?.Name ?? "?"} ({OneLine(error.Message)}); libldap: {OneLine(error.ServerErrorMessage)}; errno {systemError}");
+        $"{utcNow:yyyy-MM-dd HH:mm:ss.ffffff} thread {thread}: LDAP {error.ErrorCode} in {error.TargetSite?.Name ?? "?"} ({OneLine(error.Message)}); libldap: {OneLine(error.ServerErrorMessage)}; errno {systemError}; test {OneLine(test)}");
 
     /// <summary>Was it thrown by the LDAP library itself (and not built by a test)?</summary>
     internal static bool IsFromTheLibrary(LdapException error) =>
@@ -90,7 +90,9 @@ public sealed class LdapErrorLog : IDisposable
         var systemError = System.Runtime.InteropServices.Marshal.GetLastSystemError();
         try
         {
-            var line = Describe(DateTime.UtcNow, Environment.CurrentManagedThreadId, error, systemError);
+            // Tests run side by side and some provoke a dropped connection on purpose: the test the error happened in
+            // tells them apart (the context follows the test's asynchronous flow, not the thread).
+            var line = Describe(DateTime.UtcNow, Environment.CurrentManagedThreadId, error, systemError, TestContext.Current.Test?.TestDisplayName);
             lock (Gate)
             {
                 File.AppendAllText(_path, line + Environment.NewLine);

@@ -212,11 +212,14 @@ jobs:
           if [ -s "$ADMNG_TEST_LDAP_ERROR_LOG" ]; then
             echo "--- connection-level LDAP errors the tests saw, in libldap's own words ---"
             cat "$ADMNG_TEST_LDAP_ERROR_LOG"
-            cut -c1-19 "$ADMNG_TEST_LDAP_ERROR_LOG" | sort -u | head -n 10 | while read -r stamp; do
+            # The records of that second, without the descriptor_prepare_commit lines (hundreds per second: they
+            # filled the whole of every block before). A record is its header line starting with "[" and the
+            # lines that follow it.
+            cut -c1-19 "$ADMNG_TEST_LDAP_ERROR_LOG" | sort -u | head -n 12 | while read -r stamp; do
               for offset in -1 0 1; do
                 second=$(date -u -d "$stamp UTC $offset seconds" '+%Y/%m/%d %H:%M:%S')
                 echo "--- Samba log, $second ---"
-                sudo grep -A1 -F "[$second" /var/log/samba/log.samba | head -n 150 || true
+                sudo awk -v want="$second" '/^\[/ { keep = (index($0, "[" want) == 1 && $0 !~ /descriptor_prepare_commit/) } keep { print }' /var/log/samba/log.samba | head -n 70 || true
               done
             done
           else

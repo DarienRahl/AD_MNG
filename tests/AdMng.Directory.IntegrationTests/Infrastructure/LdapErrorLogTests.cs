@@ -34,6 +34,7 @@ public sealed class LdapErrorLogTests
             var lines = File.ReadAllLines(path).Where(line => line.Contains(mine, StringComparison.Ordinal)).ToArray();
             Assert.Equal(2, lines.Length);
             Assert.Contains("LDAP 81 in Throw (The LDAP server is unavailable.); libldap: TLS: the handshake was broken off; errno ", lines[0], StringComparison.Ordinal);
+            Assert.EndsWith($"; test {TestContext.Current.Test!.TestDisplayName}", lines[0], StringComparison.Ordinal);
             Assert.Contains("LDAP 85 in Throw (The operation was aborted because the client side timeout limit was exceeded.); libldap: (nothing); errno ", lines[1], StringComparison.Ordinal);
 
             // The line starts with the UTC time in the form the job cuts the second from ("2026-11-12 23:43:11").
