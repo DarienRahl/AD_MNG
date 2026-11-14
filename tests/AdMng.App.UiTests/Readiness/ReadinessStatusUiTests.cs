@@ -114,6 +114,11 @@ public sealed class ReadinessStatusUiTests
         var ring = ControlHost.Part<ProgressRing>(line, "PART_Ring");
         var areasTop = TopOf(view.GroupsList, view);
 
+        // The audit probes of the DCs read an event log only where the log covers the last days: the two DCs say how far theirs
+        // reach (the empty fake logs say nothing, and then nothing is read and nothing is held - the first run on Windows
+        // waited twenty seconds for a read that never came).
+        EventLogUiSupport.GiveTheDomainControllersACoverage(connector);
+
         // The first read of an event log waits until the test lets it go. It does not hear the Stop while it waits - the read that
         // is on its way to the event log has not returned when the operator presses Stop - so "Stopping…" lasts until then.
         var reading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
