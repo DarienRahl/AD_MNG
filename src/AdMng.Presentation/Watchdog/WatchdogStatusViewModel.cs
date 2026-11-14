@@ -271,6 +271,8 @@ public sealed partial class WatchdogStatusViewModel : ObservableObject
         }
 
         DeliveryLog.Relocalize();
+        UpdateIdle();
+        UpdateLasting();
     }
 
     [RelayCommand(CanExecute = nameof(CanRefresh))]
