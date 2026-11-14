@@ -1,8 +1,9 @@
 <!--
   "Co dostanie komputer" (GroupPolicyModelingDocumentViewModel, K5, design note docs/dev/k-computers-and-gpo.md 18): the
-  inputs (computer, user, site, WMI filter assumption, loopback, "Przelicz"), the summary, and per part ("Konfiguracja
-  komputera", "Konfiguracja użytkownika") the GPO list with each outcome, the winning settings with "Dlaczego", the groups
-  of the token and the warnings. Read only; "Eksportuj do CSV…" is the only file it writes.
+  inputs (computer, user, site, WMI filter assumption, loopback, "Przelicz"), the status line (the calculation with Stop,
+  the summary, why the model could not be made), the notes about what the model could not use, the loopback line, and per
+  part ("Konfiguracja komputera", "Konfiguracja użytkownika") the GPO list with each outcome, the winning settings with
+  "Dlaczego", the groups of the token and the warnings. Read only; "Eksportuj do CSV…" is the only file it writes.
 -->
 <UserControl x:Class="AdMng.App.GroupPolicy.GroupPolicyModelingView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -269,9 +270,10 @@
       </StackPanel>
     </Grid>
     <!--
-      Status line (design note 6.1): the read of the document with Stop, its summary and why it could not be read. The
-      bar of this view below is converted with it (V2b-3). Always present, so nothing under it moves while the tab
-      works. Under it the notes about SYSVOL and the PDC emulator (GroupPolicyNotes).
+      Status line (design note 6.1): the calculation of the model with Stop (the toolbar's refresh and "Przelicz" start
+      it), the summary - what the computer and the user get, in numbers -, and why the model could not be made. Always
+      present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and the PDC emulator
+      (GroupPolicyNotes), then the notes of this view.
     -->
     <c:StatusLine x:Name="PageStatus"
                   Margin="0,0,0,6"
@@ -368,38 +370,29 @@
       </Grid>
     </Border>
 
-    <!-- What the model could not use -->
-    <Border x:Name="NotesBar"
-            Margin="0,0,0,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding HasNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <DockPanel>
-        <TextBlock Margin="0,1,10,0"
-                   VerticalAlignment="Top"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Warning}" />
-        <ItemsControl x:Name="NotesList" AutomationProperties.LiveSetting="Polite" ItemsSource="{Binding Notes, Mode=OneWay}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate DataType="{x:Type sys:String}">
-              <TextBlock Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </DockPanel>
-    </Border>
+    <!-- What the model could not use (a target that does not exist, SYSVOL unavailable, no target): notes about the model, true for as long as it is shown. -->
+    <ContentControl x:Name="NotesBar"
+                    Margin="0,0,0,6"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding HasNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <ItemsControl x:Name="NotesList" AutomationProperties.LiveSetting="Polite" Focusable="False" ItemsSource="{Binding Notes, Mode=OneWay}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type sys:String}">
+            <TextBlock Margin="0,0,0,2" Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ContentControl>
 
-    <!-- Summary -->
-    <StackPanel Margin="0,0,0,4" DockPanel.Dock="Top">
-      <TextBlock x:Name="SummaryText" FontWeight="SemiBold" Text="{Binding SummaryText, Mode=OneWay}" TextWrapping="Wrap" />
-      <TextBlock x:Name="LoopbackText"
-                 Style="{StaticResource Ad.SecondaryText}"
-                 Text="{Binding LoopbackText, Mode=OneWay}"
-                 TextWrapping="Wrap"
-                 Visibility="{Binding LoopbackText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-    </StackPanel>
+    <!-- How loopback was applied (the summary of the model is in the status line) -->
+    <TextBlock x:Name="LoopbackText"
+               Margin="0,0,0,4"
+               DockPanel.Dock="Top"
+               Style="{StaticResource Ad.SecondaryText}"
+               Text="{Binding LoopbackText, Mode=OneWay}"
+               TextWrapping="Wrap"
+               Visibility="{Binding LoopbackText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
 
     <TabControl x:Name="PartTabs">
       <TabItem x:Name="ComputerTab" Header="{l:Tr AdmTemplates.ComputerConfiguration}">
