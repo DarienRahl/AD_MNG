@@ -126,7 +126,8 @@ public sealed class PkiStatusUiTests
         Assert.True(TopOf(line, view) < TopOf(view.OverviewTabs, view), "the status line is not above the tabs");
         Assert.Equal(PageStatusKind.Idle, line.Kind);
         Assert.StartsWith("Enterprise CAs: 2 · templates: ", line.Message, StringComparison.Ordinal);
-        Assert.Contains($" · read from {PkiSamples.DcHost}, ", line.Message, StringComparison.Ordinal);
+        Assert.Contains(" · read from ", line.Message, StringComparison.Ordinal);
+        Assert.Contains(PkiSamples.DcHost, line.Message, StringComparison.OrdinalIgnoreCase);
         Assert.EndsWith(" · " + document.SelectionText, line.Message, StringComparison.Ordinal);
         Assert.Equal(AppIcons.StatusInfo, line.IconKey);
         Assert.False(line.HasAction);

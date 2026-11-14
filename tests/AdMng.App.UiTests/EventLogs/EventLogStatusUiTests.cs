@@ -47,16 +47,22 @@ public sealed class EventLogStatusUiTests
         return (view, reader);
     }
 
-    /// <summary>The first read of an event log waits until the run is stopped.</summary>
-    private static TaskCompletionSource Hold(Testing.EventLogs.FakeEventLogConnector connector)
+    /// <summary>
+    /// The first read of an event log waits until the test lets it go. It does not hear the Stop while it waits - the read that
+    /// is on its way to the event log has not returned when the operator presses Stop - so "Stopping…" lasts until the test
+    /// releases it (and ends with the token then, as the real reader does).
+    /// </summary>
+    private static (TaskCompletionSource Reading, TaskCompletionSource Release) Hold(Testing.EventLogs.FakeEventLogConnector connector)
     {
         var reading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         connector.BeforeRead = async (_, _, token) =>
         {
             reading.TrySetResult();
-            await Task.Delay(Timeout.Infinite, token);
+            await release.Task.WaitAsync(TimeSpan.FromSeconds(60));
+            token.ThrowIfCancellationRequested();
         };
-        return reading;
+        return (reading, release);
     }
 
     [Fact]
@@ -141,7 +147,7 @@ public sealed class EventLogStatusUiTests
         var close = ControlHost.Part<Button>(line, "PART_CloseButton");
         var ring = ControlHost.Part<ProgressRing>(line, "PART_Ring");
         var queryTop = TopOf(view.QueryScroll, view);
-        var reading = Hold(connector);
+        var (reading, release) = Hold(connector);
 
         ControlHost.Press(view.RunButton);
         await UiWait.UntilAsync(() => reading.Task.IsCompleted && reader.IsLoading && line.IsWorking, "the run is held");
@@ -179,6 +185,8 @@ public sealed class EventLogStatusUiTests
         Assert.Equal(Visibility.Collapsed, action.Visibility);
         Assert.True(view.RunButton.IsEnabled);
 
+        // The read that was on its way returns: the run ends.
+        release.TrySetResult();
         await UiWait.UntilAsync(() => !reader.IsLoading && line.Kind == PageStatusKind.Attention, "the run was stopped");
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
 

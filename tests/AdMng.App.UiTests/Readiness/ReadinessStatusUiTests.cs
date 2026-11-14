@@ -114,16 +114,29 @@ public sealed class ReadinessStatusUiTests
         var ring = ControlHost.Part<ProgressRing>(line, "PART_Ring");
         var areasTop = TopOf(view.GroupsList, view);
 
-        // The first read of an event log waits until the check is stopped.
+        // The first read of an event log waits until the test lets it go. It does not hear the Stop while it waits - the read that
+        // is on its way to the event log has not returned when the operator presses Stop - so "Stopping…" lasts until then.
         var reading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         connector.BeforeRead = async (_, _, cancellationToken) =>
         {
             reading.TrySetResult();
-            await Task.Delay(Timeout.Infinite, cancellationToken);
+            await release.Task.WaitAsync(TimeSpan.FromSeconds(60));
+            cancellationToken.ThrowIfCancellationRequested();
         };
 
         ControlHost.Press(view.FullCheckButton);
-        await UiWait.UntilAsync(() => reading.Task.IsCompleted && document.IsLoading && line.IsWorking, "the full check runs");
+        try
+        {
+            await UiWait.UntilAsync(() => reading.Task.IsCompleted && document.IsLoading && line.IsWorking, "the full check runs");
+        }
+        catch (Xunit.Sdk.XunitException)
+        {
+            Assert.Fail(
+                $"The full check did not reach the event logs: read held {reading.Task.IsCompleted}, loading {document.IsLoading}, line {line.Kind} \"{line.Message}\", "
+                + $"button {view.FullCheckButton.State}, enabled {view.FullCheckButton.IsEnabled}, can execute {document.FullCheckCommand.CanExecute(null)}, "
+                + $"progress \"{document.ProgressText}\", status \"{document.Status.Current.Message}\".");
+        }
 
         // Working: the check, how far it is and the area it is at - with Stop, and nothing to close.
         Assert.Equal(PageStatusKind.Working, line.Kind);
@@ -155,6 +168,8 @@ public sealed class ReadinessStatusUiTests
         Assert.Equal(Visibility.Collapsed, action.Visibility);
         Assert.True(view.FullCheckButton.IsEnabled);
 
+        // The read that was on its way returns: the check ends.
+        release.TrySetResult();
         await UiWait.UntilAsync(() => !document.IsLoading && line.Kind == PageStatusKind.Attention, "the check was stopped");
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
 

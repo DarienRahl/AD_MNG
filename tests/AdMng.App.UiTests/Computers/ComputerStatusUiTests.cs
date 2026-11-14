@@ -297,6 +297,7 @@ public sealed class ComputerStatusUiTests
         var actionsTop = TopOf(window.RefreshPolicyButton, window);
 
         remote.HoldNextOperation = true;
+        remote.HeldIgnoresCancellation = true;
         ControlHost.Press(window.LoadUsersButton);
         await UiWait.UntilAsync(() => remote.Held.Task.IsCompleted && vm.IsBusy && line.IsWorking, "the read is held");
 
@@ -322,6 +323,7 @@ public sealed class ComputerStatusUiTests
         ControlHost.Press(window.LoadUsersButton);
         await UiWait.UntilAsync(() => window.LoadUsersButton.State == ActionButtonState.Cancelling && vm.Status.IsCancelling, "the read is stopping");
         Assert.Equal("Stopping…", line.Message);
+        remote.ReleaseHeld();
         await UiWait.UntilAsync(() => !vm.IsBusy && line.Kind == PageStatusKind.Attention, "the read was stopped");
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
 

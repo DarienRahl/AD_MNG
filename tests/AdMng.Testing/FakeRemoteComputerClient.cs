@@ -37,6 +37,17 @@ public sealed class FakeRemoteComputerClient : IRemoteComputerClient
     /// <summary>Completes when an operation started to wait (<see cref="HoldNextOperation"/>).</summary>
     public TaskCompletionSource Held { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+    /// <summary>
+    /// The held operation does not hear its token until <see cref="ReleaseHeld"/> - a call that is on its way to the computer has
+    /// not returned when the operator presses Stop - and ends with the token then. For tests that look at "Stopping…".
+    /// </summary>
+    public bool HeldIgnoresCancellation { get; set; }
+
+    private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>Lets an operation held with <see cref="HeldIgnoresCancellation"/> go on.</summary>
+    public void ReleaseHeld() => _released.TrySetResult();
+
     public Task<IRemoteComputerSession> ConnectAsync(RemoteTarget target, IDirectorySession session, RemoteOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(target);
@@ -125,7 +136,14 @@ public sealed class FakeRemoteComputerClient : IRemoteComputerClient
             {
                 owner.HoldNextOperation = false;
                 owner.Held.TrySetResult();
-                await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                if (owner.HeldIgnoresCancellation)
+                {
+                    await owner._released.Task.WaitAsync(TimeSpan.FromSeconds(60)).ConfigureAwait(false);
+                }
+                else
+                {
+                    await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                }
             }
 
             cancellationToken.ThrowIfCancellationRequested();
