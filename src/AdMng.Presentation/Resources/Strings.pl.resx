@@ -24978,5 +24978,23 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="GpoPicker.Status.ReadFailed" xml:space="preserve">
     <value>Nie udało się wczytać obiektów zasad grupy domeny {0}</value>
   </data>
+  <data name="GpoComparison.Status.Comparing" xml:space="preserve">
+    <value>Porównywanie „{0}” z „{1}”…</value>
+  </data>
+  <data name="GpoComparison.Status.ReadingTemplates" xml:space="preserve">
+    <value>Wczytywanie szablonów administracyjnych, aby nazwać zasady…</value>
+  </data>
+  <data name="GpoComparison.Status.Stopped" xml:space="preserve">
+    <value>Porównywanie zatrzymano: nic nie jest pokazane. Wybierz „{0}”, aby porównać ponownie.</value>
+  </data>
+  <data name="GpoComparison.Status.TemplatesStopped" xml:space="preserve">
+    <value>Wczytywanie szablonów administracyjnych zatrzymano: zasady są pokazane pod nazwami z rejestru. Wybierz „{0}”, aby porównać ponownie.</value>
+  </data>
+  <data name="GpoComparison.Status.CompareFailed" xml:space="preserve">
+    <value>Nie udało się porównać „{0}” z „{1}”</value>
+  </data>
+  <data name="GpoComparison.Status.ExportFailed" xml:space="preserve">
+    <value>Nie wyeksportowano porównania</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

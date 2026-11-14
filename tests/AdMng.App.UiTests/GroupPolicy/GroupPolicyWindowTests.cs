@@ -703,7 +703,8 @@ public sealed class GroupPolicyWindowTests
         comparison.ViewModel.OnlyDifferences = false;
         await UiTestSupport.WaitForIdleAsync();
         Assert.True(comparison.ComparisonList.Items.Count >= differences);
-        Assert.Equal(comparison.ViewModel.SummaryText, comparison.SummaryText.Text);
+        await UiWait.UntilAsync(() => !comparison.ViewModel.Status.IsWorking, "the comparison ended (the templates named the policies)");
+        Assert.Equal(comparison.ViewModel.SummaryText, comparison.PageStatus.Message); // the summary moved from the footer to the line
         context.AssertHealthy();
     });
 

@@ -715,4 +715,29 @@ public static partial class L
         /// <summary>What was tried, without a full stop; {0} = the domain.</summary>
         public const string ReadFailed = "GpoPicker.Status.ReadFailed";
     }
+
+    /// <summary>
+    /// What the comparison of two GPOs says in its status line (stage V2b-3): the comparison itself - reading both GPOs, then
+    /// the administrative templates that name the policies - and what became of it when it did not end.
+    /// </summary>
+    public static class GpoComparisonStatus
+    {
+        /// <summary>{0}, {1} = the names of the two GPOs.</summary>
+        public const string Comparing = "GpoComparison.Status.Comparing";
+
+        /// <summary>A stage of the comparison, logged as <see cref="Comparing"/>.</summary>
+        public const string ReadingTemplates = "GpoComparison.Status.ReadingTemplates";
+
+        /// <summary>{0} = the text of the "Refresh" button.</summary>
+        public const string Stopped = "GpoComparison.Status.Stopped";
+
+        /// <summary>{0} = the text of the "Refresh" button.</summary>
+        public const string TemplatesStopped = "GpoComparison.Status.TemplatesStopped";
+
+        /// <summary>What was tried, without a full stop; {0}, {1} = the names of the two GPOs.</summary>
+        public const string CompareFailed = "GpoComparison.Status.CompareFailed";
+
+        /// <summary>What was skipped, without a full stop: the lead of "…: why."</summary>
+        public const string ExportFailed = "GpoComparison.Status.ExportFailed";
+    }
 }

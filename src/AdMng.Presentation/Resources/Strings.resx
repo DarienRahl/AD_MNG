@@ -24978,5 +24978,23 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="GpoPicker.Status.ReadFailed" xml:space="preserve">
     <value>Could not read the group policy objects of {0}</value>
   </data>
+  <data name="GpoComparison.Status.Comparing" xml:space="preserve">
+    <value>Comparing “{0}” with “{1}”…</value>
+  </data>
+  <data name="GpoComparison.Status.ReadingTemplates" xml:space="preserve">
+    <value>Reading the administrative templates to name the policies…</value>
+  </data>
+  <data name="GpoComparison.Status.Stopped" xml:space="preserve">
+    <value>Comparing was stopped: nothing is shown. Press “{0}” to compare again.</value>
+  </data>
+  <data name="GpoComparison.Status.TemplatesStopped" xml:space="preserve">
+    <value>Reading the administrative templates was stopped: the policies are shown under their registry names. Press “{0}” to compare again.</value>
+  </data>
+  <data name="GpoComparison.Status.CompareFailed" xml:space="preserve">
+    <value>Could not compare “{0}” with “{1}”</value>
+  </data>
+  <data name="GpoComparison.Status.ExportFailed" xml:space="preserve">
+    <value>The comparison was not exported</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>
