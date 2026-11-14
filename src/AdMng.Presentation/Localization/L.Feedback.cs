@@ -784,4 +784,36 @@ public static partial class L
         /// <summary>What was skipped, without a full stop.</summary>
         public const string NotBackedUp = "GpoBackup.Status.NotBackedUp";
     }
+
+    /// <summary>
+    /// What the window that updates the ADMX templates of the central store says in its status line (stage V2b-3) besides
+    /// the texts it had (<see cref="CentralStore"/>: what is read, downloaded, compared and prepared, and the result of an
+    /// update): what became of a load, a comparison and an update when they did not end well. The log copies of the window
+    /// are these keys and the keys of <see cref="CentralStore"/> - never a file, an address or a package.
+    /// </summary>
+    public static class CentralStoreStatus
+    {
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string LoadFailed = "CentralStore.Status.LoadFailed";
+
+        /// <summary>What was tried, without a full stop; {0} = the vendor ("Microsoft Edge").</summary>
+        public const string DownloadFailed = "CentralStore.Status.DownloadFailed";
+
+        /// <summary>What to do after a package that cannot be used (a file or a folder the operator picks).</summary>
+        public const string ChooseAnother = "CentralStore.Status.ChooseAnother";
+
+        public const string LoadStopped = "CentralStore.Status.LoadStopped";
+
+        /// <summary>{0} = the text of the "Retry" button.</summary>
+        public const string CompareStopped = "CentralStore.Status.CompareStopped";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string CompareFailed = "CentralStore.Status.CompareFailed";
+
+        /// <summary>What was skipped, without a full stop.</summary>
+        public const string NotUpdated = "CentralStore.Status.NotUpdated";
+
+        /// <summary>{0} = the text of the button that updates ("Update…").</summary>
+        public const string UpdateStopped = "CentralStore.Status.UpdateStopped";
+    }
 }

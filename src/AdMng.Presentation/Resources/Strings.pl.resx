@@ -25035,5 +25035,29 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="GpoBackup.Status.NotBackedUp" xml:space="preserve">
     <value>Nie utworzono kopii zapasowej</value>
   </data>
+  <data name="CentralStore.Status.LoadFailed" xml:space="preserve">
+    <value>Nie udało się wczytać szablonów</value>
+  </data>
+  <data name="CentralStore.Status.DownloadFailed" xml:space="preserve">
+    <value>Nie udało się pobrać szablonów {0}</value>
+  </data>
+  <data name="CentralStore.Status.ChooseAnother" xml:space="preserve">
+    <value>Wybierz inną paczkę.</value>
+  </data>
+  <data name="CentralStore.Status.LoadStopped" xml:space="preserve">
+    <value>Wczytywanie szablonów zatrzymano: pokazanej paczki nie zmieniono.</value>
+  </data>
+  <data name="CentralStore.Status.CompareStopped" xml:space="preserve">
+    <value>Porównywanie z magazynem centralnym zatrzymano: pliki nie są pokazane. Wybierz „{0}”, aby porównać ponownie.</value>
+  </data>
+  <data name="CentralStore.Status.CompareFailed" xml:space="preserve">
+    <value>Nie udało się porównać szablonów z magazynem centralnym</value>
+  </data>
+  <data name="CentralStore.Status.NotUpdated" xml:space="preserve">
+    <value>Magazyn centralny nie został zaktualizowany</value>
+  </data>
+  <data name="CentralStore.Status.UpdateStopped" xml:space="preserve">
+    <value>Aktualizację zatrzymano: magazynu centralnego nie zmieniono. Wybierz „{0}”, aby spróbować ponownie.</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

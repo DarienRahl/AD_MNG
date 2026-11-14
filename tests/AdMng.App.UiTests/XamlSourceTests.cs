@@ -67,6 +67,7 @@ public sealed partial class XamlSourceTests
     private static readonly string[] PagesWithAStatusLine =
     [
         "GroupPolicy/AdministrativeTemplatesEditorView.xaml",
+        "GroupPolicy/CentralStoreUpdateWindow.xaml",
         "GroupPolicy/GpoBackupWindow.xaml",
         "GroupPolicy/GpoCleanupView.xaml",
         "GroupPolicy/GpoComparisonWindow.xaml",

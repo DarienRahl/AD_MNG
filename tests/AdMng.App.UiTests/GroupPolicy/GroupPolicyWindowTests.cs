@@ -102,7 +102,10 @@ public sealed class GroupPolicyWindowTests
         Assert.True(update.OpenFileButton.IsEnabled);
         Assert.True(update.EdgeButton.IsEnabled);
         Assert.False(update.UpdateButton.IsEnabled);
-        Assert.Equal(Visibility.Collapsed, update.ErrorBar.Visibility);
+        // Opened without a connection, the window says so for good - an error that cannot be closed - and writes nothing.
+        Assert.Equal(PageStatusKind.Error, update.PageStatus.Kind);
+        Assert.Equal("Brak połączenia z domeną.", update.PageStatus.Message);
+        Assert.False(update.PageStatus.CanClose);
 
         // K7: "Kopiuj ustawienia" renders without a connection (it reads nothing; OK plans afterwards).
         var copySettings = (GpoCopySettingsWindow)windows.CreateWindow(new Presentation.GroupPolicy.Copy.GpoCopySettingsViewModel(gp.Ui,
@@ -167,9 +170,10 @@ public sealed class GroupPolicyWindowTests
                 Assert.Equal(["contoso.admx", "en-US/contoso.adml", "pl-PL/contoso.adml"], w.ViewModel.Rows.Select(r => r.Path));
                 Assert.Equal(3, w.FileList.Items.Count);
                 Assert.Equal(2, w.CultureList.Items.Count);
-                Assert.Equal("Do zapisania: 1, bez zmian: 2, pominięte: 0", w.SummaryTextBlock.Text);
+                Assert.Equal("Do zapisania: 1, bez zmian: 2, pominięte: 0", w.PageStatus.Message); // the summary moved from the footer to the line
+                Assert.Equal(PageStatusKind.Idle, w.PageStatus.Kind);
                 Assert.False(w.PackageIssuesExpander.IsVisible); // the package skips nothing
-                Assert.False(w.WorkingProgress.IsVisible);
+                Assert.False(w.ViewModel.Status.IsWorking);
 
                 // The store exists: a backup folder is required before the update (the box is checked by default).
                 Assert.True(w.MakeBackupBox.IsChecked);
@@ -193,7 +197,10 @@ public sealed class GroupPolicyWindowTests
                 await UiWait.UntilAsync(() => !w.ViewModel.IsWorking && w.ViewModel.Rows.Count == 3
                     && w.ViewModel.Rows.All(r => r.Status == Core.GroupPolicy.Management.CentralStoreFileStatus.Unchanged), "the new comparison");
                 await UiTestSupport.WaitForIdleAsync(rounds: 2);
-                Assert.Equal(Visibility.Visible, w.ResultBar.Visibility);
+                await UiWait.UntilAsync(() => w.PageStatus.Kind == PageStatusKind.Done, "the result of the update in the line");
+                Assert.StartsWith("Magazyn centralny zaktualizowany: zapisano plików: ", w.PageStatus.Message, StringComparison.Ordinal);
+                Assert.StartsWith(w.ViewModel.ResultText!, w.PageStatus.Message, StringComparison.Ordinal);
+                Assert.Contains(backups.FullName, w.PageStatus.Message, StringComparison.Ordinal); // where the backup is
                 Assert.True(w.ViewModel.ChangedStore);
                 Assert.True(w.CloseButton.IsEnabled);
                 w.ViewModel.CloseCommand.Execute(null);
