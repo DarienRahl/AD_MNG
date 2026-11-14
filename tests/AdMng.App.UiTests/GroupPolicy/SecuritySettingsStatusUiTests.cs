@@ -76,6 +76,13 @@ public sealed class SecuritySettingsStatusUiTests
         Assert.True(view.ChangedText.IsVisible);
         Assert.Equal(editor.SelectionText, view.ChangedText.Text);
 
+        // The edits go - the operator is asked first - and the changed count goes with them. (A tab with unsaved edits
+        // would make the main window ask again when the test closes it, and that question would outlive the test.)
+        await DiscardAsync(editor);
+        Assert.False(editor.HasChanges);
+        Assert.Equal(editor.LoadedText, line.Message);
+        Assert.False(view.ChangedText.IsVisible);
+
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         context.AssertHealthy();
     });
@@ -263,6 +270,20 @@ public sealed class SecuritySettingsStatusUiTests
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         context.AssertHealthy();
     });
+
+    /// <summary>"Discard changes" of the editor, answered with the confirmation the operator gives.</summary>
+    private static async Task DiscardAsync(SecuritySettingsEditorViewModel editor)
+    {
+        var drive = UiWait.DriveModalAsync<MessageDialogWindow>(dialog =>
+        {
+            dialog.ViewModel.ConfirmCommand.Execute(null);
+            return Task.CompletedTask;
+        });
+        await editor.DiscardCommand.ExecuteAsync(null);
+        await drive;
+        await UiWait.UntilAsync(() => !editor.IsLoading && !editor.Status.IsWorking, "the edits were discarded");
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+    }
 
     /// <summary>A small template: a minimum password length and two rights.</summary>
     private static void PutTemplate(UiTestContext context, GroupPolicyManagementSample sample) =>
