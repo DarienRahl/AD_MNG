@@ -505,6 +505,10 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
         _recompute.Cancel();
         _computing.Cancel();
         HasPendingRecompute = false;
+
+        // The window says that its session ended: a computation that is still on its way to the domain controller ends
+        // without a message and is no operation any more.
+        Status.Operation?.Dispose();
         CloseGlobalCatalog();
         Lookups = new BulkCreateLookups();
     }

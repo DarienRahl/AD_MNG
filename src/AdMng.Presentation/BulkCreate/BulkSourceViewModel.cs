@@ -183,7 +183,11 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IHasPageStat
             var ansiCodePage = Services.Regional.AnsiCodePage;
 
             // The read of the file cannot be interrupted: Stop gives control back at once and the thread finishes it.
-            var table = await Task.Run(() => ReadFileAsync(path, header, ansiCodePage)).WaitAsync(token).ConfigureAwait(true);
+            var table = await Task.Run(async () =>
+            {
+                await WaitForGateAsync().ConfigureAwait(false);
+                return await ReadFileAsync(path, header, ansiCodePage).ConfigureAwait(false);
+            }).WaitAsync(token).ConfigureAwait(true);
             if (_disposed || scope.IsEnded)
             {
                 return;
@@ -365,6 +369,14 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IHasPageStat
 
     private bool CanEdit() => !IsBusy && !_disposed;
 
+    /// <summary>
+    /// Tests: awaited on the thread pool before a paste or a file is parsed - a slow read that the test holds and
+    /// releases. Like the parsing itself it cannot be interrupted, so Stop must not wait for it.
+    /// </summary>
+    internal Func<Task>? ReadGate { get; set; }
+
+    private Task WaitForGateAsync() => ReadGate?.Invoke() ?? Task.CompletedTask;
+
     /// <summary>Drops the table (window closed; rule 1).</summary>
     public void Dispose()
     {
@@ -492,8 +504,9 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IHasPageStat
             var header = append && HeaderMode != HeaderMode.NoHeader ? HeaderMode.Auto : HeaderMode;
 
             // Parsing cannot be interrupted: Stop gives control back at once and the thread finishes it.
-            var (added, repeated) = await Task.Run(() =>
+            var (added, repeated) = await Task.Run(async () =>
             {
+                await WaitForGateAsync().ConfigureAwait(false);
                 var read = TableTextReader.ReadClipboard(content.Text, content.CfHtml, content.CfHtmlText, header);
                 return (read, append ? TableTextReader.CountRepeatedRows(existing, read) : 0);
             }).WaitAsync(token).ConfigureAwait(true);
