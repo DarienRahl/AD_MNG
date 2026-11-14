@@ -2,6 +2,7 @@ using AdMng.Core.Csv;
 using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Search;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
@@ -29,6 +30,14 @@ public sealed record GpoSearchNote(string Text, string? Detail = null)
 /// GPOs, copy the settings into another GPO through the change plan (W5) and export the results to a file the operator picks.
 /// Everything lives in the window's memory only (rule 1).
 /// </summary>
+/// <remarks>
+/// <b>What the tab says</b> (track V, stage V2b-3; docs/dev/v-interface-renewal.md "V2b-3 as built"): the read of the index
+/// is the operation of the document - "Reading GPO folders: 12 of 300…" with Stop in the status line, where the buttons of
+/// the tab are its action buttons -, the summary is the result of the query with when the GPOs were read, and "Group
+/// Policy changed in this window" is the state of the tab that lasts, with <i>Refresh</i>. What the index could not read
+/// or search (<see cref="Notes"/>) and that more was found than is shown (<see cref="CapNote"/>) are notes above the
+/// results: they are about how complete they are.
+/// </remarks>
 public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocumentBase, ISearchableDocument, IShellDocument
 {
     private readonly ICsvCodec _csv;
@@ -37,8 +46,10 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
     private GpoIndexRefresh? _requested;
 
     private CancellationTokenSource? _running;
-    private bool _cancelRequested;
     private GpoSearchCorpus? _corpus;
+
+    /// <summary>The read that runs (or was asked for last) reads every folder again: <see cref="IsReadingAll"/>.</summary>
+    private bool _readingAll;
 
     public GpoSettingsSearchDocumentViewModel(GroupPolicyServices services, GroupPolicyActions actions, IGpoSettingsIndexService index,
         string? searchText = null, ICsvCodec? csv = null)
@@ -76,6 +87,15 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
     /// <summary>Settings were read (the search and the exports have something to work on).</summary>
     public bool HasIndex => _corpus is not null;
 
+    /// <summary>When the GPOs were read, after the result of the query ("Przeszukiwane obiekty GPO: 16 · odczyt 3.11.2026 14:32").</summary>
+    protected override string SummaryDetail => IndexInfoText;
+
+    /// <summary>"Odczytaj wszystko ponownie" is what reads: its action button shows Cancel (the other one is disabled meanwhile).</summary>
+    public bool IsReadingAll => IsLoading && _readingAll;
+
+    /// <summary>Any other read runs ("Odśwież", the first read, one after an operation): the action button of "Odśwież" shows Cancel.</summary>
+    public bool IsRefreshing => IsLoading && !_readingAll;
+
     // ---- Index state --------------------------------------------------------------------------------------------------------
 
     /// <summary>"Odczyt folderów GPO: 3 z 8" while the index is read.</summary>
@@ -91,11 +111,19 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
 
     /// <summary>"Przeszukiwane obiekty GPO: 16 · odczyt 3.11.2026 14:32" (empty before the first read).</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SummaryDetail))]
     public partial string IndexInfoText { get; private set; } = string.Empty;
 
     /// <summary>Group Policy changed in this window after the shown read, or the index was dropped (another DC, reconnect).</summary>
     [ObservableProperty]
     public partial bool IsStale { get; private set; }
+
+    /// <summary>"Group Policy changed in this window - the results may be out of date": the state of the tab that lasts, with the read as its action.</summary>
+    protected override PageStatus? DocumentLastingState => IsStale
+        ? PageStatus.Attention(Localizer[L.GpoSearch.Stale], new PageStatusLog(L.GpoSearch.Stale), new PageStatusAction(Localizer[L.GpoSearch.Refresh], RefreshIndexCommand))
+        : null;
+
+    partial void OnIsStaleChanged(bool value) => UpdateLasting();
 
     /// <summary>What the index could not read or search: GPOs not read, read in part, no SYSVOL, no ADMX, hidden values, other domains.</summary>
     [ObservableProperty]
@@ -121,9 +149,10 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
             return;
         }
 
+        // The read is the operation of the document (the base began it): its stages go to the status line.
+        var operation = LoadOperation;
         using var running = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _running = running;
-        _cancelRequested = false;
         RefreshCommands();
         var token = running.Token;
         try
@@ -132,6 +161,7 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
             var view = await Index.GetAsync(refresh.Value, token).ConfigureAwait(true);
             ProgressText = Localizer[L.GpoSearch.Preparing];
             IsProgressIndeterminate = true;
+            operation?.Report(ProgressText, PageProgress.Indeterminate, new PageStatusLog(L.GroupPolicyStatus.Reading));
             var localizer = Localizer;
             var corpus = await Task.Run(() => GpoSearchCorpus.Build(view, GpoIndexTexts.For(localizer, view), token), token).ConfigureAwait(true);
             token.ThrowIfCancellationRequested();
@@ -139,12 +169,13 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
             Show(corpus);
             await SearchCoreAsync(TimeSpan.Zero).ConfigureAwait(true);
         }
-        catch (OperationCanceledException) when (_cancelRequested && !cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (operation is { IsCancelling: true })
         {
-            // "Anuluj": the shown results (if any) stay; the status says the read was cancelled.
-            _requested = null;
+            // The operator's Stop: the shown results (if any) stay, the status bar of a host without a line says the read was
+            // cancelled, and the base says the state of the tab. The read stays requested: "Refresh" of the line repeats it.
             _restoreSelection = null;
             LoadedText = Localizer[L.GpoSearch.Cancelled];
+            throw;
         }
         catch (ObjectDisposedException) when (IsDisposed || cancellationToken.IsCancellationRequested)
         {
@@ -152,7 +183,7 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _requested = null;
+            // The read failed (the base says why, with Retry): it stays requested, so that Retry reads the index again.
             _restoreSelection = null;
             throw;
         }
@@ -173,6 +204,7 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
     protected override void OnNotConnected()
     {
         _search.Cancel();
+        _readingAll = false;
         _corpus = null;
         IsStale = false;
         Notes = [];
@@ -194,6 +226,7 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
     {
         OnPropertyChanged(nameof(Title));
         BuildOptions();
+        UpdateLasting();
         if (_corpus is { } corpus)
         {
             UpdateStale();
@@ -228,7 +261,17 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
         await SearchCoreAsync(TimeSpan.Zero).ConfigureAwait(true);
     }
 
-    protected override void OnLoadingChanged() => RefreshCommands();
+    protected override void OnLoadingChanged()
+    {
+        if (!IsLoading)
+        {
+            _readingAll = false;
+        }
+
+        OnPropertyChanged(nameof(IsReadingAll));
+        OnPropertyChanged(nameof(IsRefreshing));
+        RefreshCommands();
+    }
 
     protected override void RefreshCommands()
     {
@@ -256,21 +299,21 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
     [RelayCommand(CanExecute = nameof(CanRead))]
     private Task ReadAllAsync() => ReadAsync(GpoIndexRefresh.Full);
 
-    /// <summary>"Anuluj": this tab stops waiting; the build stops when no other tab waits for it. The shown results stay.</summary>
+    /// <summary>
+    /// The Stop of the status line: this tab stops waiting; the build stops when no other tab waits for it. The shown
+    /// results stay. The buttons of the tab are action buttons over the same operation; this command is kept for code
+    /// that stops the read without the line.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanCancel))]
-    public void Cancel()
-    {
-        if (_running is { } running)
-        {
-            _cancelRequested = true;
-            running.Cancel();
-        }
-    }
+    public void Cancel() => LoadOperation?.Cancel();
 
     /// <summary>Reads the index (<paramref name="refresh"/>) and searches again; the selection stays on the same occurrence when it can.</summary>
     public Task ReadAsync(GpoIndexRefresh refresh)
     {
         _requested = refresh;
+        _readingAll = refresh == GpoIndexRefresh.Full;
+        OnPropertyChanged(nameof(IsReadingAll));
+        OnPropertyChanged(nameof(IsRefreshing));
         if (SelectedRow is { } selected)
         {
             _restoreSelection ??= KeyOf(selected);
@@ -289,6 +332,12 @@ public sealed partial class GpoSettingsSearchDocumentViewModel : GroupPolicyDocu
         ProgressText = progress.Total > 0 ? Localizer.Format(L.GpoIndex.Progress, stage, progress.Done, progress.Total) : stage + "…";
         IsProgressIndeterminate = progress.Total <= 0;
         ProgressValue = progress.Total > 0 ? Math.Clamp(100.0 * progress.Done / progress.Total, 0, 100) : 0;
+
+        // The status line says the same: "Reading GPO folders: 12 of 300", the ring showing the part done.
+        LoadOperation?.Report(
+            ProgressText,
+            progress.Total > 0 ? PageProgress.Of(progress.Done, progress.Total) : PageProgress.Indeterminate,
+            new PageStatusLog(L.GroupPolicyStatus.Reading, progress.Done, progress.Total));
     }
 
     /// <summary>The index service's progress and staleness (raised on the UI dispatcher; the progress is shown while this tab waits).</summary>

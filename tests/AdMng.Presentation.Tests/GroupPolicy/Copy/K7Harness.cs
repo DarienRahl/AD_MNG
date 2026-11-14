@@ -2,11 +2,13 @@ using System.Globalization;
 using System.Text;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Core.GroupPolicy.Search;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy.Cleanup;
 using AdMng.Presentation.GroupPolicy.Copy;
 using AdMng.Presentation.GroupPolicy.Search;
 using AdMng.Presentation.Tests.Dialogs;
 using AdMng.Testing;
+using Microsoft.Extensions.Logging;
 
 namespace AdMng.Presentation.Tests.GroupPolicy.Copy;
 
@@ -33,9 +35,15 @@ internal sealed class K7Harness
 
     public static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    public static async Task<K7Harness> CreateAsync(bool centralStore = true, Action<K7Harness>? arrange = null)
+    /// <param name="centralStore">Put the sample templates into the central store.</param>
+    /// <param name="arrange">Runs before the first document is made.</param>
+    /// <param name="culture">UI language (default Polish).</param>
+    /// <param name="statusLog">Where the status lines of the documents write their log copies (default: nowhere).</param>
+    public static async Task<K7Harness> CreateAsync(bool centralStore = true, Action<K7Harness>? arrange = null, CultureInfo? culture = null,
+        ILogger<PageStatusHolder>? statusLog = null)
     {
-        var harness = new K7Harness(await GroupPolicyHarness.CreateAsync(Polish));
+        var inner = statusLog is null ? await GroupPolicyHarness.CreateAsync(culture ?? Polish) : await GroupPolicyHarness.CreateAsync(culture ?? Polish, statusLog);
+        var harness = new K7Harness(inner);
         if (centralStore)
         {
             harness.H.AddCentralStore();

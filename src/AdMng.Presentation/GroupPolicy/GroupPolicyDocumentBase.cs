@@ -23,7 +23,8 @@ namespace AdMng.Presentation.GroupPolicy;
 /// Policy documents</i>). Every document has one status line over <see cref="Status"/>, so the status bar of the main
 /// window says nothing about it (<c>ShellViewModel.StatusBarText</c>):</para>
 /// <list type="bullet">
-/// <item>the summary is <see cref="LoadedText"/>, with <see cref="SelectionText"/> joined by " · ";</item>
+/// <item>the summary is <see cref="LoadedText"/>, with <see cref="SummaryDetail"/> (when a kind of document says when
+/// its content was read) and <see cref="SelectionText"/> joined by " · ";</item>
 /// <item>the load is the operation of the document - "Reading “…”…" with Stop (<see cref="ReadingText"/>; a document
 /// reports the steps of its load through <see cref="LoadOperation"/>);</item>
 /// <item>what lasts for as long as the document shows what it shows is computed in one place
@@ -136,6 +137,13 @@ public abstract partial class GroupPolicyDocumentBase : ObservableObject, IShell
     /// (<see cref="OperationScope.Report"/>), so the line says them and there is one operation for one piece of work.
     /// </summary>
     protected OperationScope? LoadOperation => _loadOperation is { IsEnded: false } operation ? operation : null;
+
+    /// <summary>
+    /// What a kind of document adds to its summary between <see cref="LoadedText"/> and the selection: when what it shows
+    /// was read ("Last check: full, 3.11.2026 14:32"). Empty: nothing; a text equal to <see cref="LoadedText"/> is not
+    /// said twice. A document raises <c>PropertyChanged</c> for <c>SummaryDetail</c> when it changes.
+    /// </summary>
+    protected virtual string SummaryDetail => string.Empty;
 
     /// <summary>
     /// The tab holds edits that closing it would discard (the shell then asks through <see cref="CanCloseAsync"/>; the
@@ -321,11 +329,11 @@ public abstract partial class GroupPolicyDocumentBase : ObservableObject, IShell
         RefreshCommands();
     }
 
-    /// <summary>The summary of the status line follows <see cref="LoadedText"/> and <see cref="SelectionText"/>.</summary>
+    /// <summary>The summary of the status line follows <see cref="LoadedText"/>, <see cref="SummaryDetail"/> and <see cref="SelectionText"/>.</summary>
     protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (e.PropertyName is nameof(LoadedText) or nameof(SelectionText))
+        if (e.PropertyName is nameof(LoadedText) or nameof(SelectionText) or nameof(SummaryDetail))
         {
             UpdateIdle();
         }
@@ -339,12 +347,14 @@ public abstract partial class GroupPolicyDocumentBase : ObservableObject, IShell
 
     // ---- Status line (track V, stage V2b-3) ------------------------------------------------------------------------
 
-    /// <summary>The summary: what was read, and the selection ("6 group policy objects, … · 2 selected").</summary>
+    /// <summary>
+    /// The summary: what was read, when it was read where the kind of document says so, and the selection ("6 group
+    /// policy objects, … · 2 selected"), each part that is there joined by " · ".
+    /// </summary>
     private void UpdateIdle()
     {
-        var loaded = LoadedText;
-        var selection = SelectionText;
-        Status.SetIdle(loaded.Length == 0 || selection.Length == 0 ? loaded + selection : $"{loaded} · {selection}");
+        var parts = new[] { LoadedText, SummaryDetail, SelectionText }.Where(part => !string.IsNullOrEmpty(part)).Distinct(StringComparer.Ordinal);
+        Status.SetIdle(string.Join(" · ", parts));
     }
 
     /// <summary>Why the document cannot show its content, or that it can again (null).</summary>
