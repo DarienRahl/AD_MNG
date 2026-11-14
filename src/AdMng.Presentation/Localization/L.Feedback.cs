@@ -686,4 +686,14 @@ public static partial class L
         /// <summary>What was tried, without a full stop.</summary>
         public const string HealthFailed = "GroupPolicy.Status.HealthFailed";
     }
+
+    /// <summary>
+    /// What the administrative templates editor says in its status line besides what every Group Policy document says
+    /// (<see cref="GroupPolicyStatus"/>; stage V2b-3): the stage of its read that takes the time.
+    /// </summary>
+    public static class AdministrativeTemplatesStatus
+    {
+        /// <summary>The ADMX and ADML files of the central store (or of this computer) are being read; a stage of the load, logged as <see cref="GroupPolicyStatus.Reading"/>.</summary>
+        public const string ReadingTemplates = "AdmTemplates.Status.ReadingTemplates";
+    }
 }

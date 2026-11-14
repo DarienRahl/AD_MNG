@@ -24963,5 +24963,8 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="GroupPolicy.Status.HealthFailed" xml:space="preserve">
     <value>Could not check the GPO</value>
   </data>
+  <data name="AdmTemplates.Status.ReadingTemplates" xml:space="preserve">
+    <value>Reading the ADMX and ADML files…</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

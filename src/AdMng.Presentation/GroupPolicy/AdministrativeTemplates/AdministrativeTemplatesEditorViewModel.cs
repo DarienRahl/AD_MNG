@@ -4,6 +4,7 @@ using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.AdministrativeTemplates;
 using AdMng.Core.GroupPolicy.Management;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -27,6 +28,15 @@ namespace AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 /// (with a warning and a mark on its row) until it is corrected; Ctrl+S saves, Ctrl+F focuses the search; "Edytuj to
 /// ustawienie" selects a policy (<see cref="FocusSetting"/>); the save shows "Zmiany ustawień" in the preview.
 /// </summary>
+/// <remarks>
+/// <para><b>What the status line says</b> (track V, stage V2b-3; docs/dev/v-interface-renewal.md "V2b-3 as built"). The
+/// read of the templates and of the two Registry.pol files is the load of the document (<see cref="LoadCoreAsync"/>; its
+/// stage "Reading the ADMX and ADML files…" is reported to the operation of the load), the plan of a save is the
+/// operation of <see cref="GroupPolicyDocumentBase.Actions"/>, and what this kind of document adds to the state that
+/// lasts is "the GPO's files changed on SYSVOL under your edits" (<see cref="DocumentLastingState"/>, with Discard as its
+/// action). Where the templates came from (<see cref="DefinitionsNote"/>) and which Registry.pol cannot be read
+/// (<see cref="FileNote"/>) are notes of the view: they are true of the content for as long as it is shown.</para>
+/// </remarks>
 public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicyDocumentBase, ISaveableDocument, ISearchableDocument, IGroupPolicySettingEditor
 {
     private readonly PolicyDefinitionsService _definitions;
@@ -160,9 +170,15 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
     [ObservableProperty]
     public partial string? FileNote { get; private set; }
 
-    /// <summary>The GPO's files changed on SYSVOL since the edits started (a save would be a conflict), else null.</summary>
+    /// <summary>
+    /// The GPO's files changed on SYSVOL since the edits started (a save would be a conflict), else null. The status line
+    /// says it as the state of the document that lasts (<see cref="DocumentLastingState"/>).
+    /// </summary>
     [ObservableProperty]
     public partial string? ConflictNote { get; private set; }
+
+    /// <summary>The domain controller whose SYSVOL changed under the edits (null: no conflict); the sentence follows the language.</summary>
+    private string? _conflictServer;
 
     /// <summary>Policies (and extra entries) changed and not saved.</summary>
     [ObservableProperty]
@@ -255,6 +271,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
 
         ForgetInvalid();
 
+        _conflictServer = null;
         ConflictNote = null;
         await LoadAsync().ConfigureAwait(true);
     }
@@ -376,6 +393,8 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
             return;
         }
 
+        // The long part of the read when the templates are not in memory yet: a central store holds hundreds of files.
+        LoadOperation?.Report(Localizer[L.AdministrativeTemplatesStatus.ReadingTemplates], log: new PageStatusLog(L.GroupPolicyStatus.Reading));
         var definitions = await _definitions.GetAsync(session, sysvol, Localizer.Culture, reload: false, cancellationToken).ConfigureAwait(true);
         (byte[]? Content, string? Error) machineFile = (null, null), userFile = (null, null);
         if (sysvol is not null)
@@ -389,7 +408,8 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         OnPropertyChanged(nameof(Title));
         _machine = Reconcile(_machine, PolicyClass.Machine, sysvol is null ? null : machineFile);
         _user = Reconcile(_user, PolicyClass.User, sysvol is null ? null : userFile);
-        ConflictNote = (_machine?.Conflict ?? false) || (_user?.Conflict ?? false) ? Localizer.Format(L.AdministrativeTemplates.ConflictNote, session.Info.Server) : null;
+        _conflictServer = (_machine?.Conflict ?? false) || (_user?.Conflict ?? false) ? session.Info.Server : null;
+        ConflictNote = ConflictText();
         FileNote = string.Join(Environment.NewLine, new[] { _machine?.Error, _user?.Error }.OfType<string>()) is { Length: > 0 } note ? note : null;
 
         var definitionsChanged = !ReferenceEquals(definitions.Set, _set);
@@ -466,10 +486,32 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
 
     protected override void OnCultureChanged()
     {
-        // The texts come from the ADML of the new language: the templates are read again (the edits stay).
+        // The texts come from the ADML of the new language: the templates are read again (the edits stay). The conflict
+        // is said in the new language at once, not when the read is through.
         _set = PolicyDefinitionSet.Empty;
+        ConflictNote = ConflictText();
         base.OnCultureChanged();
     }
+
+    // ---- Status line (track V, stage V2b-3) -------------------------------------------------------------------------
+
+    /// <summary>"The settings of this GPO changed on dc01 since you started editing …" (null: nothing changed under the edits).</summary>
+    private string? ConflictText() =>
+        _conflictServer is { } server ? Localizer.Format(L.AdministrativeTemplates.ConflictNote, server) : null;
+
+    /// <summary>
+    /// The state of this kind of document that lasts: a Registry.pol changed on SYSVOL under the edits, so the save would
+    /// be refused as a conflict. It is the state of the whole document - the edits are of both halves - and it has one way
+    /// out, which the line offers: discard the edits (the operator is asked first), and the current files are shown.
+    /// </summary>
+    protected override PageStatus? DocumentLastingState => ConflictNote is { } note
+        ? PageStatus.Attention(
+            note,
+            new PageStatusLog(L.AdministrativeTemplates.ConflictNote),
+            new PageStatusAction(Localizer[L.AdministrativeTemplates.Discard], DiscardCommand))
+        : null;
+
+    partial void OnConflictNoteChanged(string? value) => UpdateLasting();
 
     /// <summary>A Registry.pol of the GPO: its content (null: none) or a localized reason it cannot be read.</summary>
     private async Task<(byte[]? Content, string? Error)> ReadFileAsync(ISysvolConnection sysvol, string path, CancellationToken cancellationToken)
