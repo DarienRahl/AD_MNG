@@ -4133,7 +4133,8 @@ section.
       one request of 500 events at a time); the result is the rows (the tick, the counts of the summary) and the toast of the
       main window, as before, so the line goes back to the summary; a failure says how many were done and what to do. A save of
       the configuration, "Wyślij teraz" and the retry of a dead delivery are the same. Where the operation had no way to be
-      repeated safely from a link, the error has no action.
+      repeated safely from a link, the error has no action. A write whose line was taken by a read (a filter changed while it
+      ran) says its failure with a toast: it finished elsewhere (6.7).
     - **The details pane's read is a ring and a note, its actions are the line's.** The pane reads at every selection; as an
       operation each key press would put "working" in a live region. Why the read failed is true for as long as that event is
       shown (a note under its title, cleared by the next selection); what the operator pressed in the pane - acknowledge, open,
@@ -4370,17 +4371,18 @@ section.
     *Odśwież* should be the Cancel of a reload that the operator did not start (another document's F5, a language switch); whether
     the sentence about the unknown HTTP rows belongs in the line as the summary of the health tab instead of a note.
 
-- **Tests of unit 4.** Presentation (46, on Linux; `WatchdogHarness` takes an optional `ListLogger<PageStatusHolder>` for the log
+- **Tests of unit 4.** Presentation (48, on Linux; `WatchdogHarness` takes an optional `ListLogger<PageStatusHolder>` for the log
   copies, and the fake client's `Hold`, `HoldEvents` and `FailNext` hold, delay and fail the calls - a held call hears the Stop, so
   "Zatrzymywanie…" is asserted on the same thread before the call returns): `Watchdog/WatchdogDocumentStatusTests` (13: the
   summary of the page shown in both languages with the selection, the connection attempt as an operation without Stop and the line
   going straight to the page - the feed read is held to see it -, five kinds of connection problem as the state that lasts with
   Retry, its code and a log copy with no host, an untrusted certificate with "Sprawdź certyfikat…" as the one action, no address,
   interrupted live updates until they recover and in Polish, the problem in the language of the moment, a page that waits in its
-  holder until it is shown, closing the tab with a read that still runs), `WatchdogEventsStatusTests` (10: the read with Stop and the
+  holder until it is shown, closing the tab with a read that still runs), `WatchdogEventsStatusTests` (11: the read with Stop and the
   summary, Stop with the feed empty and paused and Refresh, a failed read in both languages with Retry and a log copy with no event,
   a newer read that replaces the running one without a word, older events with their count / Stop / a failure that can be repeated,
-  the acknowledgement of 1,200 events with the part done and no Stop and its log copy, a failed acknowledgement, the answers of the
+  the acknowledgement of 1,200 events with the part done and no Stop and its log copy, a failed acknowledgement - also one that fails
+  after a read took the line, which is a toast -, the answers of the
   details pane in the line and the next selection closing them, the read of the details as a ring and a note),
   `WatchdogConfigStatusTests` (9: the version as the summary in both languages, the read with Stop and a stopped read as the state of
   the tabs with *Wczytaj ponownie*, a failed read as a state and then as a result, the validation with its three results and Stop,
@@ -4390,9 +4392,9 @@ section.
   the old preview kept, "Wyślij teraz" in Polish, a preview prepared while the configuration is saved, the preview of a rule with
   Stop and a failure and its end when another rule is selected, "reset to default" saying why instead of a dialog, a delivery
   test through its five endings with no address and no host in the log, a test that replaces another),
-  `WatchdogServiceStatusTests` (7: the three reads one after another, a viewer reading the status only, Stop of the status read,
-  a failed read as a state and then as a result, the delivery log with Stop / a failure / the retry of a dead delivery, the audit,
-  the status page in front). Adapted where the place of a sentence changed: `WatchdogRulesTests` (the reset of a rule the service
+  `WatchdogServiceStatusTests` (8: the three reads one after another, a viewer reading the status only, Stop of the status read,
+  a failed read as a state and then as a result, the delivery log with Stop / a failure / the retry of a dead delivery - and one that
+  fails after a read took the line, a toast -, the audit, the status page in front). Adapted where the place of a sentence changed: `WatchdogRulesTests` (the reset of a rule the service
   no longer ships is read from the line, no dialog), and the tests that read the "Stan" tab through the document (`ServiceStatus`).
   `PageStatusTests` got the assertions of the new factory. UI (Windows CI, written without a screen, 7):
   `WatchdogStatusUiTests` (one line under the card with the summary said once and no old banner on any page, a held read of the

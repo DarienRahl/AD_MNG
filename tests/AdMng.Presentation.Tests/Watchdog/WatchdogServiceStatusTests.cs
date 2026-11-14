@@ -193,6 +193,33 @@ public sealed class WatchdogServiceStatusTests
     }
 
     [Fact]
+    public async Task ARetryThatFailsAfterAReadTookTheLine_IsAToast_NotLost()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var status = new WatchdogStatusViewModel(h.Services) { IsAdmin = true };
+            await status.LoadAsync();
+            var log = status.DeliveryLog;
+            log.SelectedItem = log.Items.First(r => r.IsDead);
+            h.Client.Hold(nameof(IWatchdogClient.RetryOutboxAsync));
+            h.Client.FailNext(nameof(IWatchdogClient.RetryOutboxAsync), new WatchdogClientException(WatchdogClientErrorKind.ServerError, "boom"));
+
+            var retrying = log.RetryCommand.ExecuteAsync(null);
+            await log.LoadAsync();
+            h.Client.Release(nameof(IWatchdogClient.RetryOutboxAsync));
+            await retrying;
+
+            Assert.NotEqual(PageStatusKind.Error, status.PageHolder.Current.Kind);
+            Assert.Contains(
+                h.Ad.Notifications.Items,
+                n => n.Severity == AdMng.Presentation.Services.NotificationSeverity.Error
+                    && n.Message.StartsWith("Could not queue the delivery again: ", StringComparison.Ordinal));
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
     public async Task TheAudit_CanBeStoppedAndReadAgain_AndAFailureIsSaidWithRetry()
     {
         using var h = await WatchdogHarness.CreateAsync();

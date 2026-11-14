@@ -129,9 +129,16 @@ public sealed partial class WatchdogDeliveryLogViewModel : ObservableObject
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             Error = _services.Connection.Describe(ex);
-            scope.CompleteError(
-                PageStatusText.Failure(localizer[L.WatchdogPageStatus.RetryFailed], Error, null, ResultCode.Of(ex)),
-                new PageStatusLog(L.WatchdogPageStatus.RetryFailed).WithCode(ResultCode.Of(ex)));
+            var text = PageStatusText.Failure(localizer[L.WatchdogPageStatus.RetryFailed], Error, null, ResultCode.Of(ex));
+            if (scope.IsEnded)
+            {
+                // A read took the line meanwhile (the filter changed): the failure finished elsewhere - a toast, as 6.7 says.
+                _services.Ui.Notifications.Show(Services.NotificationSeverity.Error, text);
+            }
+            else
+            {
+                scope.CompleteError(text, new PageStatusLog(L.WatchdogPageStatus.RetryFailed).WithCode(ResultCode.Of(ex)));
+            }
         }
     }
 

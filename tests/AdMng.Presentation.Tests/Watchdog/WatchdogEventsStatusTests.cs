@@ -295,6 +295,38 @@ public sealed class WatchdogEventsStatusTests
     }
 
     [Fact]
+    public async Task AnAcknowledgementThatFailsAfterAReadTookTheLine_IsAToast_NotLost()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync(visible: false);
+            var feed = tab.Events;
+            var rows = Enumerable.Range(1, 3)
+                .Select(i => new WatchdogEventRowViewModel(SampleEvents.NewUser($"U{i}", SampleEvents.Now) with { Id = 1000 + i }, h.Ad.Localizer, TimeZoneInfo.Utc))
+                .ToList<object>();
+            feed.SelectedItems = (IList)rows;
+            h.Client.Hold(nameof(IWatchdogClient.AcknowledgeManyAsync));
+            h.Client.FailNext(nameof(IWatchdogClient.AcknowledgeManyAsync), new WatchdogClientException(WatchdogClientErrorKind.ServerError, "boom"));
+
+            // The feed is read again (a filter changed) while the acknowledgement is on its way: the read has the line.
+            var acknowledging = feed.AcknowledgeSelectedCommand.ExecuteAsync(null);
+            await feed.LoadAsync();
+            h.Client.Release(nameof(IWatchdogClient.AcknowledgeManyAsync));
+            await acknowledging;
+
+            // What finished elsewhere is a toast, and the line is not taken from the read that has it.
+            Assert.NotEqual(PageStatusKind.Error, feed.Status.Current.Kind);
+            Assert.Contains(
+                h.Ad.Notifications.Items,
+                n => n.Severity == AdMng.Presentation.Services.NotificationSeverity.Error
+                    && n.Message.StartsWith("Could not acknowledge the events: ", StringComparison.Ordinal));
+            Assert.False(feed.IsBusy);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
     public async Task TheDetailsPane_SaysItsAnswers_InTheLineOfTheFeed_AndTheNextSelectionClosesThem()
     {
         var log = new ListLogger<PageStatusHolder>();

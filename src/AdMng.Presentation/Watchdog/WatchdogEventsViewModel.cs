@@ -402,13 +402,20 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             ReportFailure(ex);
-            scope.CompleteError(
-                PageStatusText.Failure(
-                    localizer[L.WatchdogEventsStatus.AckFailed],
-                    Error,
-                    done > 0 ? localizer.Format(L.WatchdogEventsStatus.AckPartial, done, total) : null,
-                    ResultCode.Of(ex)),
-                new PageStatusLog(L.WatchdogEventsStatus.AckFailed, done, total).WithCode(ResultCode.Of(ex)));
+            var text = PageStatusText.Failure(
+                localizer[L.WatchdogEventsStatus.AckFailed],
+                Error,
+                done > 0 ? localizer.Format(L.WatchdogEventsStatus.AckPartial, done, total) : null,
+                ResultCode.Of(ex));
+            if (scope.IsEnded)
+            {
+                // Another read took the line meanwhile (a filter changed): the failure finished elsewhere - a toast, as 6.7 says.
+                _services.Ui.Notifications.Show(NotificationSeverity.Error, text);
+            }
+            else
+            {
+                scope.CompleteError(text, new PageStatusLog(L.WatchdogEventsStatus.AckFailed, done, total).WithCode(ResultCode.Of(ex)));
+            }
         }
         finally
         {
