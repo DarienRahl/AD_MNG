@@ -29,6 +29,10 @@ public sealed class MultiConnectionTests(LabFixture lab)
     public async Task TwoCredentials_TwoIndependentSessions()
     {
         LabSettings.RequireLab();
+
+        // The OU of the run holds only what the tests create in it, and this test may run before any of them has (two lab
+        // runs failed on "Collection was empty" two seconds in): it makes the entry both identities are to find itself.
+        await lab.CreateOuAsync($"Dwie tożsamości {Guid.NewGuid().ToString("N")[..6]}");
         await using var windows = await Windows.OpenAsync();
         var a = windows.A.Sessions.Current!;
         var b = windows.B.Sessions.Current!;
