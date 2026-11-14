@@ -240,17 +240,13 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase, IHasPa
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(RunCommand), nameof(StopCommand), nameof(ReadExactLastLogonCommand))]
-    [NotifyPropertyChangedFor(nameof(IsEmpty), nameof(IsBusy))]
+    [NotifyPropertyChangedFor(nameof(IsEmpty))]
     public partial bool IsRunning { get; private set; }
 
     /// <summary>"Dokładne ostatnie logowanie" reads the domain controllers.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StopCommand), nameof(ReadExactLastLogonCommand))]
-    [NotifyPropertyChangedFor(nameof(IsBusy))]
     public partial bool IsReadingDomainControllers { get; private set; }
-
-    /// <summary>A run (of either tab) or a read of the domain controllers is in progress ("Przerwij" stops it).</summary>
-    public bool IsBusy => IsRunning || IsReadingDomainControllers || Privileges.IsRunning;
 
     /// <summary>A run was started (the tiles are shown).</summary>
     [ObservableProperty]
@@ -901,7 +897,6 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase, IHasPa
             case nameof(PrivilegedAccessViewModel.IsRunning):
                 RunCommand.NotifyCanExecuteChanged();
                 StopCommand.NotifyCanExecuteChanged();
-                OnPropertyChanged(nameof(IsBusy));
                 break;
             case nameof(PrivilegedAccessViewModel.StatusText):
                 OnPropertyChanged(nameof(FooterText));
