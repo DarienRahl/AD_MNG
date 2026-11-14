@@ -1188,9 +1188,9 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
   10 + 9 and 10; V2b-3 - the Group Policy area, ten documents and six windows, *V2b-3 as built* - took 7 + 17 and 8; V2b-4 -
   the other seven areas in five units, *V2b-4 as built* - took the last 10 + 19 and 23 (by unit: 3 + 5 and 2, 2 + 7 and 7,
   2 + 2 and 4, 2 + 4 and 7, 1 + 1 and 3). **Left: no `Ad.ErrorBar`, no `Ad.WarningBar` and no status progress bar in any
-  view.** What the XAML still has of them (counted by a script, comments excluded) is the definitions of the two styles in
-  `Themes/Controls.xaml` (`Ad.ErrorBar`, and `Ad.WarningBar` based on it) and the one progress bar of the row of an activity
-  in `MainWindow.xaml`, which stays. **Forty-five views have a status line and twenty-nine converted views have none**: the
+  view.** What the XAML still had of them at that point (counted by a script, comments excluded) was the definitions of the two styles in
+  `Themes/Controls.xaml` (`Ad.ErrorBar`, and `Ad.WarningBar` based on it), which V2b-5a removed (*V2b-5a as built*), and the one
+  progress bar of the row of an activity in `MainWindow.xaml`, which stays. **Forty-five views have a status line and twenty-nine converted views have none**: the
   two lists of `XamlSourceTests` (`PagesWithAStatusLine`, `ConvertedViewsWithoutAStatusLine`) hold each other out, and a view
   with a line that is not on the first list fails the rule of the other way round. The figures per increment and unit are
   in *After V2b-1* and *What is left* of *V2b-4 as built*; the by-area list that follows is what was done, in the order it
@@ -1284,12 +1284,13 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     a holder with others keep the Stop of the line - the practice that answers the question of V2b-3 about *Recalculate*, the
     sources of the central store and the three tests of the settings.
   - *What V2b-5 has to do* (what is left of the V2 scope; the part of *After V2b-1* that no increment of V2b did):
-    1. *Retire the old banners:* delete `Ad.ErrorBar` and `Ad.WarningBar` from `Themes/Controls.xaml`, with their lines in the
-       header comment that says where each kind of feedback goes, and add a source rule that no XAML file outside `Themes/`
-       mentions them (the two lists of `XamlSourceTests` already forbid them in every view that is converted, and every view is).
-    2. *Remove what lost its last user:* the strings and the view-model members listed under *After V2b-1*, in both resx files,
-       with the tests that read the members; `Cancel()` and `CancelCommand` that are only the Stop of a line stay as the commands
-       they are.
+    1. *Retire the old banners* - **done in V2b-5a**: `Ad.ErrorBar` and `Ad.WarningBar` are deleted from `Themes/Controls.xaml`, with
+       their lines in the header comment that says where each kind of feedback goes, and one source rule says that no XAML file of the
+       application mentions them or has a progress bar that says status (*V2b-5a as built*).
+    2. *Remove what lost its last user* - **done in V2b-5a** as far as it can be proven: 39 strings, 3 commands and 22 view-model
+       properties went, in both resx files, with the tests that read them changed to read the line; what is read by its own view model,
+       by the shell or by tests as their oracle, and every `Cancel()`, `CancelCommand` and `StopCommand` that is the Stop of a line,
+       stays, each with its reason in *V2b-5a as built*.
     3. *A delay before "Working"* (about 150 ms), so that an operation that ends at once does not flash - the more visible the more
        windows have a line: the read of nested membership after every comparison, the reads of the tabs of the property sheet,
        "Reading the containers of …", a test of a filter in a small domain, "Reading “…”…" at every reload of a Group Policy tab,
@@ -1305,10 +1306,9 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     7. *The screen reader:* a result that only changes the summary is not announced (the settings search no longer announces how
        many settings a query found, and no count of a list does); decide whether a polite live region for such a count is wanted,
        and a mark in the tab header of a page that failed while it was not shown (6.7).
-    8. *The "V2" documentation of the controls:* what `StatusLine`, `ActionButton`, `ProgressRing`, the notes and the holder are,
-       for whoever writes the next view - one page of the developer notes with the recipe of *What V2b has to do*, the dialogs
-       list, the Group Policy documents list and the *Areas* of *V2b-4 as built* as its sources; the header comment of
-       `Controls.xaml` as its pointer.
+    8. *The "V2" documentation of the controls* - **done in V2b-5a**: `docs/dev/v2-status-controls.md` says what `StatusLine`,
+       `ActionButton`, `ProgressRing`, the notes and the holder are, for whoever writes the next view, with the recipe, the tests to copy
+       and what is still open; it is listed in `docs/dev/README.md` and is the pointer in the header comment of `Controls.xaml`.
     9. *Notes:* whether a note may choose its glyph (the replication note of the wizard's results was information and has the
        caution glyph; the protected account became a warning).
   - Still open – in the controls and the model:
@@ -1482,8 +1482,8 @@ above.
      `Ad.Note.Info`, `Ad.Note.Attention`, `Ad.Note.Error` on a `ContentControl` whose content is the text (a wrapping
      `TextBlock`, which keeps its name and its live setting) – the glyph of the severity in its status colour, then
      the content; no fill, no border. Not told by colour alone: each severity has its own glyph and the sentence says
-     what it is about. **Banners**: `Ad.ErrorBar` and `Ad.WarningBar` are unchanged for the views that are not
-     converted yet and go with the last of them; a converted view uses neither (the source test). **Action buttons**:
+     what it is about. **Banners**: `Ad.ErrorBar` and `Ad.WarningBar` were unchanged for the views that were not
+     converted yet and went with the last of them (V2b-5a); a converted view used neither (the source test). **Action buttons**:
      `Ad.AccentActionButton` for the primary action of a window (the theme's accent button with the three contents),
      `Ad.DialogActionButton` and `Ad.AccentDialogActionButton` with the metrics of the dialog buttons; a window that
      needs another size bases a local style on `Ad.ActionButton` (`SmallActionButton` of the property sheet). The
@@ -1985,7 +1985,7 @@ above.
   no user any more; no longer shown but read by tests or by the view models themselves - `StatusText` and `Error` of the
   Korespondencja window, `StatusText` of its recipients and mailboxes pages, `ProgressText`, `SummaryText` and `Error` of the
   mailboxes page, `ProgressText`, `ProgressValue` and `ProgressMaximum` of the send page, `SummaryText` of the responses page;
-  `CancelCommand` of the mailboxes page and `StopCommand` of the send page are the Stop of the line.
+  `CancelCommand` of the mailboxes page and `StopCommand` of the send page are the Stop of the line. V2b-5a went through this whole list: what it removed, and what it kept and why, is in *V2b-5a as built*.
 - **Not seen, to confirm on Windows.** Nothing of V2b-1 was seen on a screen.
   - *The property sheet.* How a wrapped result looks in the 640 px wide sheet (two or three lines on the caution or
     critical surface, picture and buttons in the first line). The note next to the old validation texts (glyph and plain
@@ -2109,7 +2109,8 @@ screen yet. What the sweep still has to do is counted in *What V2b has to do*, a
       called converted (`grep '<c:'` and the local namespaces of the view).
   16. *The second list exists* (created by unit 2, as Dialogs 11 asked).
       `XamlSourceTests.ConvertedViewsWithoutAStatusLine` – sorted, never overlapping `PagesWithAStatusLine` – with the
-      test `AConvertedViewWithoutAStatusLine_HasNoBannerAndNoProgressBar`: no `StatusLine` element, no `Ad.ErrorBar`, no
+      test `AConvertedViewWithoutAStatusLine_HasNoBannerAndNoProgressBar` (V2b-5a: now `AConvertedViewWithoutAStatusLine_HasNoStatusLine`;
+      the banner and progress rules moved into one rule for every view): no `StatusLine` element, no `Ad.ErrorBar`, no
       `Ad.WarningBar`, no `<ProgressBar`. On it after unit 2: the Logon Hours dialog and the rendered preview.
   17. *A dialog that works without a session* (added by unit 3: the filter builder, the editor of a saved view). Its
       view model is no window view model – it is not pinned to a session; a filter or a view can be edited and saved
@@ -4735,6 +4736,115 @@ what each unit left behind on purpose), and what nobody has seen on a screen yet
       for its templates, imports and exports (they answer with toasts and dialogs as before); whether *Podgląd z Outlooka*,
       whose answer is the card, should say "done" in the line; whether the state of the journal belongs in a note of the
       recipients and send pages instead of the line of every tab.
+
+**V2b-5a as built (the old banners go, what lost its last user goes).** The sixth increment of V2 closes the sweep of V2b: the
+items 1, 2 and 8 of *What V2b-5 has to do* - the ones that need no decision of the owner. Nothing a user can see changed (no
+release note), and nothing that is on the screen: a removed style that a view still used would have been a crash at run time, so
+the proof is by script and by the Windows run, not by looking. The other items of the list wait for the owner. The block reads in
+this order: the banners (item 1), what lost its last user (item 2: how it was proven, what was removed, what was kept and why),
+the developer page (item 8), the checks, and what nobody has seen on a screen.
+
+- **The banners (item 1).** `Ad.ErrorBar` and `Ad.WarningBar` are gone from `Themes/Controls.xaml`, with the lines of the header
+  comment that said where each kind of feedback goes: the header now says status line, note, action button, and the bar of a row and
+  the ring, and points at the developer page of item 8 (`docs/dev/v2-status-controls.md`).
+  - *Proof that nothing names them.* A script over all 3,346 tracked files (release notes of earlier versions and the prose of this
+    note excluded) looked for the two keys and for every way a key is read or defined: `StaticResource`, `DynamicResource`,
+    `FindResource`, `TryFindResource`, `Resources[...]`, `x:Key` and `BasedOn`; for resource lookups whose key is not a literal (29 in
+    code and tests - each takes a token, a motion key, a style key of a constant or a list of literals, none can build the name); for
+    merged dictionaries (13, each a file under `src/AdMng.App`). Before the change it found 65 mentions (the two styles and a comment
+    in `Controls.xaml`, 55 look-ups in 27 UI test files, the `DesignTokenTests` and `NoteUiTests` assertions, the four asserts of
+    `XamlSourceTests`); after it, none outside the rule that has to name them. The closed set of Fluent brush keys is unchanged at 28:
+    the two status backgrounds are still read by the template of the status line. The expressions of the source rules that the
+    removal could break (every `Ad.*` key that is used is defined - 1,854 references now, 1,856 before; the brush set; the new rule)
+    were repeated on Linux with a throwaway script, as in the units before.
+  - *The tests.* The 27 UI test files that found the two styles with `FindResource` and walked every `Border` of a window to see that
+    none had one of them as its style lose the look-up and the walk (a look-up of a key that is not there throws; a `Border` cannot
+    have the style of a style that does not exist). Their helpers keep what was not about the banners (no `ProgressBar`, one status
+    line) and say so in their comments; `DesignTokenTests` no longer reads the padding of the error bar, `NoteUiTests` no longer
+    asserts that the two banner styles are still there. What they guarded is guarded by **one source rule for every view**,
+    `XamlSourceTests.NoXamlFile_MentionsABannerOfBefore_OrHasAProgressBarThatSaysStatus`: no XAML file of `src/AdMng.App` -
+    `Themes/` and `App.xaml` included, comments included - names `Ad.ErrorBar` or `Ad.WarningBar`, and the only `ProgressBar` is the row
+    of an activity in `Views/MainWindow.xaml` (the list `ProgressBarsOfARow`, "file: count"; its own UI rule in
+    `MainWindowFeedbackUiTests` stays as it was). The comment of the test says what else holds: a view that tried to use a style that is
+    gone fails at run time as a missing `StaticResource` when it is loaded, and the rule shows the same mistake on the source first.
+    The two lists (`PagesWithAStatusLine`, `ConvertedViewsWithoutAStatusLine`) and their other rules stay (one status line named
+    `PageStatus` over `Status.Current` and `Status.CloseCommand`; a view with a line must be on the first list; never on both); only
+    the banner and progress-bar asserts they repeated moved into the new rule, and the test of the second list is renamed
+    `AConvertedViewWithoutAStatusLine_HasNoStatusLine`, which is all it checks now.
+- **What lost its last user (item 2).**
+  - *How each candidate was proven.* The candidates are the list *After V2b-1* with everything the units added to it. **A string** is
+    removed only when a script over every tracked `.cs` and `.xaml` file finds no `L.<Class>.<Name>` reference, no use of its literal
+    outside its constant, no XAML mention and no dynamic key family that could build it - and the pair of keys leaves both resx files
+    with the constant (the localization tests and `tools/release/release.sh check` compare them). **A member** is removed only when
+    the declaring class (and the classes that derive from it) assigns it and never reads it - a script lists the reads of a member
+    inside the files that declare it - no XAML binds it for that class (a binding by name was looked for in every view, and the
+    bindings that remained belong to other classes: rows, tree nodes), no string literal names it, and the whole solution compiles
+    without it (the compiler finds the readers in `src/AdMng.App`, the tests of **all** projects and the UI tests). A string that lost its
+    last user with a member went with it.
+  - *Removed.* **39 strings** (both resx files, 117 lines each, with their `L` constants): core windows 5 (`Batch.Planning`,
+    `PlanPreview.Cancel`, `Comparison.Stop`, `Comparison.StatusAmbiguous`, `AccountReview.ExactDone`), bulk creation 3, event logs and
+    readiness 11, PKI documents 10, Korespondencja and the paste of the message window 5 (`UserMessages.Rich.CancelPaste` among them),
+    and five that lost their last user with the members below (`UserMessages.Stopping`, `.Reading`, `.Progress`, `.ProgressRetry`,
+    `ChangeDc.ListUnavailable`). **3 commands** that no view and no test used: `CancelPasteCommand` of the message window,
+    `FindDomainControllersCancelCommand` of the Connect window (the generated cancel of the search; `ConnectCancelCommand`, which the
+    window's `Closing` handler calls, stays) and `CancelWorkCommand` of the backup window. **22 properties**: of the message window
+    `StatusText`, `ProgressText`, `ProgressValue`, `ProgressMaximum`; `ListNote` of "Change domain controller"; `IsLoading` of the
+    container picker; `ProgressValue` and `ProgressMaximum` of the send page; `ProgressValue` and `IsProgressIndeterminate` of the
+    settings search, the cleanup advisor and the diagnostics; `HasError` of `GroupPolicyDocumentBase`; `ComputedRows` of the wizard's
+    check; `ProfileStatus` of the wizard's rules step; `ProgressValue` of readiness; `PlanningCompleted` and `PlanningTotal` of the
+    batch editor and `IsLoading` of its CSV import; `IsBusy` of the account review.
+  - *Tests that read a removed member, and what they read now.* `ChangeDomainControllerViewModelTests` and
+    `ChangeDomainControllerStatusTests` (`ListNote` was the sentence "the list could not be read" that the line says with the reason, the
+    code and Retry: the first now assert the kind of `ListStatus.Lasting` and that it is gone after a good read, the second already
+    asserted everything on the line, so their three repeats went); `ContainerPickerStatusTests` (`IsLoading` beside `Status.IsWorking`:
+    the second is asserted now); `SendPageTests` (the pair of numbers; the fractions of the line are asserted by `SendStatusTests`);
+    `BulkRulesStatusTests` (five lines that repeated the adjacent assertions on the line) and `BulkCreateProfileTests` (six assertions of
+    the profile sentence now read `rules.Status.Current.Message`, `EndsWith` for what was skipped) and `BatchEditorStatusTests` (the part
+    done and the CSV flag sat next to assertions of the same fact on the line: the fraction, the log copy, `Status.IsWorking`). A test
+    that proves behaviour stays and reads the line.
+  - *Kept, and why.* Nothing was kept for want of looking: each item of the lists is in one of these groups.
+    **The view model reads it itself** - as the text it hands to the line, or as logic: `ErrorText` and `StatusText` of the Connect
+    window and "Change domain controller" (`StatusText` begins the operations, `ErrorText` is the reason of a refused press), `Error` of
+    "Reset Password", "New Object" and the wizard's steps (`Failure(...)` and the checks read it), `TestResultText`,
+    `RichStatusText` and `Error` of the message window, `TestResult`, `TestSucceeded` and `OutlookAccountsText` of the settings,
+    `TestResult` of the filter builder and the view editor (with `Views.Testing` and `Views.TestResult`), `StatusText` of the object picker
+    (with `Picker.Found` and `Picker.TooMany`), `StatusText` of the backup window (with its three strings: the toast reads it),
+    `ConflictNote` of the two editors (the state that lasts is computed from it), `HealthStatusText` and `IsCheckingHealth` of a GPO,
+    `SummaryText`, `BusyText`, `ResultText` and `Error` of the central store window and `SummaryText` of the comparison, `OptionsError`
+    of the wizard's rules step, `TotalRows` and `IsStale` of its check, `ProgressText`, `LastRunText`, `WasCancelled` and `IsStale` of readiness, `Error`,
+    `StatusText`, `SelectionText`, `IsReading` and `AsOf` of the computer review, `ConnectionText` (it *is* the summary: its change hook
+    calls `SetIdle`) and `Error` of the remote window, `LoadedText`, `ProgressText`, `IsSupported`, `NotSupportedText` and `Error` of the
+    event log documents, `ProgressText`, `SummaryText`, `LastRunText`, `HealthSummaryText`, `LoadedText` and `Error` of the PKI documents,
+    `Error`, `Message`, `PreviewError`, `ActionMessage`, `StateText`, `ConnectionMessage` and `HasConflict` of the Watchdog pages and
+    tab, and `StatusText`, `Error`, `ProgressText` and `SummaryText` of the Korespondencja window and its pages. Making them locals is a
+    refactoring of what the page says, with its tests, and not "lost its last user". The windows of V2b-1 keep what their view models read: `Error`, `StatusText`, `SelectionText`,
+    `IsLoading`, `IsBusy` and `PreviewSummary` of the Recycle Bin, `Error`, `StatusText`, `SelectionText`, `IsRunning` and
+    `IsReadingDomainControllers` of the account review, `ErrorText` and `IsRunning` of the comparison, `LoadError`, `ApplyError`, `Error`,
+    `IsLoading`, `IsDeleted` and `IsOutdated` of the property sheet and `IsNestedLoading` of its membership pages (the code-behind of the
+    window reads it), and `Error`, `TargetSummary`, `IsLoadingTargets`, `PreviewSummary` and `ResultSummary` of the batch editor.
+    **The contract of the shell:** `StatusText` and
+    `SelectionText` of the documents (the shell reads them for a tab that has no line; `ShellViewModel.StatusBarText` is tested).
+    **Tests need them as their oracle and the line is another holder or a hop away:** `IsLoading` of the Group Policy comparison and the
+    GPO picker (22 test sites, among them the wait predicates of Windows UI tests that cannot be run here), `FooterText` of the account
+    review and `Summary` and `ResultText` of the plan preview (the tests assert that the line says exactly that), `StatusText` and
+    `IsNestedLoading` of the comparison (`StatusText` is also the accessible name of the list of candidates), `IsWorking` and
+    `ProgressText` of the central store window, `ReadAtText` and `CountStatusText` of the PKI documents (`AssertNotSaidTwice` looks for that text on the
+    screen), `BannerMessage` of the Watchdog tab (its change notification is tested), `SummaryText` of the delivery test (five assertions
+    of what the test says), `SessionEndedMessage` (the base class builds `SessionEndedStatus` from it). **Commands that are the Stop of a
+    line** stay as the commands they are: `Cancel()` and `CancelCommand` of the documents, readiness, the mailboxes page and the security
+    review, `StopCommand` of the check step, the computer review, the remote window, the send page, the Recycle Bin and the account review
+    (the tests and the window's `Closing` handler call them), `CancelSendCommand` of the message window (three test sites), `TestCancelCommand`
+    of the two editors, `ConnectCancelCommand`, and `PreviewCancelCommand` and `CancelExecutionCommand` of the batch editor.
+- **The developer page (item 8).** `docs/dev/v2-status-controls.md`, listed in `docs/dev/README.md`: what each piece is for, the sorting of
+  a message, the recipe for a view model and a view, the tests to copy and the Windows lessons, the two source-rule lists, what is settled
+  and what is the owner's. The header comment of `Themes/Controls.xaml` points at it. `tools/docs/check_docs.py` passes (every
+  relative link).
+- **The checks.** `dotnet build AdMng.slnx -c Release`: 0 warnings, 0 errors (the whole solution after every removal commit - the Windows-only
+  projects compile on Linux and show a removed member); `AdMng.Presentation.Tests`: 3,603 passed; `tools/release/release.sh check`,
+  `tools/icon/build-icon-set.py --check` and `tools/docs/check_docs.py` pass; the proof scripts above.
+- **Not seen, to confirm on Windows.** Nothing of this changes a screen, and the UI tests that changed (27 files) only lost look-ups of
+  styles that no longer exist; the Windows run of the last push is their proof. The new source rule and the two renamed or reworded
+  tests run there as well.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 
