@@ -206,6 +206,7 @@ public sealed class GpoBackupStatusUiTests
         // The same backup, said to come from another domain: a note under the list - glyph and words - and no status.
         window.Close();
         var manifest = Path.Combine(folder.Path, GpmcBackupFormat.ManifestFile);
+        File.SetAttributes(manifest, FileAttributes.Normal); // GPMC's manifest.xml is written read-only (Windows refuses to overwrite it)
         await File.WriteAllTextAsync(manifest, (await File.ReadAllTextAsync(manifest)).Replace("contoso.test", "fabrikam.test", StringComparison.OrdinalIgnoreCase));
         var (foreign, foreignBackup) = Open(context, GpoBackupMode.Restore, folder.Path);
         await UiWait.InitializedAsync(foreign.Initialization);

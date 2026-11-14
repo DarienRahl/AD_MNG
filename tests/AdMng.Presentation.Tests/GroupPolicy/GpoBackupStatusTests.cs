@@ -432,6 +432,7 @@ public sealed class GpoBackupStatusTests
         using var folder = new TempFolder();
         await BackUpAsync(h, folder.Path, h.Sample.WorkstationPasswords);
         var manifest = Path.Combine(folder.Path, GpmcBackupFormat.ManifestFile);
+        File.SetAttributes(manifest, FileAttributes.Normal); // GPMC's manifest.xml is written read-only (Windows refuses to overwrite it)
         await File.WriteAllTextAsync(manifest, (await File.ReadAllTextAsync(manifest, Ct)).Replace("contoso.test", "fabrikam.test", StringComparison.OrdinalIgnoreCase), Ct);
         using var window = new GpoBackupViewModel(h.Services, GpoBackupMode.Restore, []) { Folder = folder.Path };
 
