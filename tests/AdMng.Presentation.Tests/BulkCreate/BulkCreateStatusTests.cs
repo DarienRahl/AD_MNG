@@ -1,6 +1,7 @@
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.BulkCreate;
 using AdMng.Presentation.Feedback;
+using AdMng.Presentation.Tests.GroupPolicy;
 using AdMng.Testing.BulkCreate;
 
 namespace AdMng.Presentation.Tests.BulkCreate;
@@ -104,5 +105,38 @@ public sealed class BulkCreateStatusTests
         Assert.Equal(PageStatusKind.Idle, wizard.Wizard.Status.Own.Kind);
         Assert.False(wizard.Wizard.Status.IsWorking);
         Assert.Null(wizard.Wizard.Status.Lasting);
+    }
+
+    [Fact]
+    public async Task TheCreation_IsTheExecutionOfTheWindow_AndTheCanaryAndTheRestAddUp()
+    {
+        using var wizard = await B4Wizard.CreateAsync();
+        wizard.Use(wizard.OperatorInput());
+        await wizard.EnterCheckAsync();
+        await wizard.Editor.PreviewCommand.ExecuteAsync(null);
+        Assert.True(wizard.Editor.IsPreviewStep, wizard.Editor.Error);
+        var seen = new StatusRecorder(wizard.Editor.Status);
+        wizard.Harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+
+        await wizard.Editor.ExecuteCommand.ExecuteAsync(null);
+
+        // The execution of the window from the first moment: the canary object and the rest are two activities of one
+        // operation, and the part done only grows from 0 of 5 to 5 of 5.
+        var working = seen.Seen.Where(s => s.Kind == PageStatusKind.Working).ToList();
+        Assert.StartsWith("Wykonywanie „Utworzenie kont (5) w jednostce „Nowi pracownicy”” w domenie contoso.test: 0 z 5…", working[0].Message, StringComparison.Ordinal);
+        Assert.EndsWith(": 5 z 5…", working[^1].Message, StringComparison.Ordinal);
+        Assert.Equal(1d, working[^1].Fraction);
+        var fractions = working.Select(s => s.Fraction ?? 0d).ToList();
+        Assert.Equal(fractions.Order().ToList(), fractions);
+
+        // The result names the domain and where the report is; the wizard is no longer in front of the line.
+        var done = wizard.Editor.Status.Current;
+        Assert.Equal(PageStatusKind.Done, done.Kind);
+        Assert.Equal(
+            "Wykonano „Utworzenie kont (5) w jednostce „Nowi pracownicy”” w domenie contoso.test: zmieniono 5 obiektów. Raport jest na liście operacji w tle.",
+            done.Message);
+        Assert.Equal("Changes.Status.Executed (5)", done.Log.ToString());
+        Assert.Null(wizard.Editor.Status.Front);
+        Assert.True(wizard.Editor.IsResultsStep);
     }
 }

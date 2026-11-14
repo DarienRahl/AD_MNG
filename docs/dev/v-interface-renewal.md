@@ -3656,6 +3656,9 @@ yet. Every later unit adds its entry to *Areas* and its own section after the wi
     - **A result goes with what it was about.** Choosing another profile closes what the line said about the last profile
       command (V2b-2 Dialogs 18); the next action in the table (a row, a column, *Wyczyść*) closes the last read's answer
       (6.7: a result stays until the next operation or until it is closed).
+    - **The creation is the window's execution** (V2b-1 foundation 9): `ExecuteCreateModeAsync` runs the canary object and
+      the rest as two activities of one `ExecutionStatus`, so the line says "Executing “Create accounts (5) in the
+      organizational unit …” in contoso.test: 1 of 5…" without a change of this unit; only the proof was added.
     - **The notes of the results do not repeat the window's result.** How the execution ended is said by the line of the
       window (foundation 9); the notes say how the list below them is to be read, for as long as it is shown.
     - `Error` of *Dane* and of *Sprawdzenie*, `ProfileStatus`, `OptionsError`, `Summary`, `IsBusy`, `IsComputing`,
@@ -3665,7 +3668,7 @@ yet. Every later unit adds its entry to *Areas* and its own section after the wi
     exists for exactly this, Dialogs 15). The three source buttons did not become action buttons (above). The profile
     result is said in the line, which is at the top of the window, while *Zapisz* is at the bottom of a long step.
 
-- **Tests.** Presentation (34, on Linux): `BulkCreate/BulkSourceStatusTests` (12: the paste and the file with the sequence
+- **Tests.** Presentation (35, on Linux): `BulkCreate/BulkSourceStatusTests` (12: the paste and the file with the sequence
   of the line in both languages, the name of a file never in a log copy, Stop of a paste and of a file with a parse held on
   its thread and released, a clipboard without a table, files that cannot be used - too large, not a sheet, not there -
   with the table of before staying, a header row out of range, a column over the limit closed by the next action, the
@@ -3678,8 +3681,9 @@ yet. Every later unit adds its entry to *Areas* and its own section after the wi
   the stopped state and its action -, `StopCommand` as the same Stop, the two buttons' flags and their Cancel, a failed
   check with Retry, incomplete input, the stale state in both languages and its action, an edit that replaces a running
   check without a word, the end of the session during a check - straight to the end, nothing from the call that returns
-  later -, closing the window), `BulkCreateStatusTests` (4: the chain window → wizard → page through the steps, the
-  preview and *Back*, closing, the wizard's own holder empty). `BulkCreateBatchEditorTests`, `BulkCheckTests`,
+  later -, closing the window), `BulkCreateStatusTests` (5: the chain window → wizard → page through the steps, the
+  preview and *Back*, closing, the wizard's own holder empty, and the creation as the execution of the window - the canary
+  and the rest add up from "0 z 5" to "5 z 5" and the result names the domain). `BulkCreateBatchEditorTests`, `BulkCheckTests`,
   `BulkSourceTests`, `BulkRulesTests` and `BulkCreateProfileTests` are unchanged. UI (Windows CI, written without a screen):
   `BulkCreateStatusUiTests` (5: one line in the whole window and the summary in it, the notes of the table, the answer to a
   profile command and the note of the rules - with `GrowthOf` -, the check in the line with Stop and the button as its
