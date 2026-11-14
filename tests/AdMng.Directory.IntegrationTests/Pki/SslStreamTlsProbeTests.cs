@@ -141,12 +141,26 @@ public sealed class SslStreamTlsProbeTests
     public async Task AServerThatNeverAnswers_IsTheProbesOwnTimeout()
     {
         await using var server = RawServer.Start((_, ct) => Task.Delay(Timeout.Infinite, ct));
+        await using var stalls = new StallWatch();
         var stopwatch = Stopwatch.StartNew();
+        var connectStartedMs = -1L;
+        var probe = new SslStreamTlsProbe
+        {
+            ConnectPort = _ =>
+            {
+                Interlocked.CompareExchange(ref connectStartedMs, stopwatch.ElapsedMilliseconds, -1);
+                return server.Port;
+            },
+        };
 
-        var result = await Probe(server.Port).ProbeAsync("localhost", 636, TimeSpan.FromMilliseconds(400), TestContext.Current.CancellationToken);
+        var result = await probe.ProbeAsync("localhost", 636, TimeSpan.FromMilliseconds(400), TestContext.Current.CancellationToken);
+        var took = stopwatch.Elapsed;
 
-        AssertOutcome(TlsProbeOutcome.Timeout, result, server.Seen);
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"Took {stopwatch.Elapsed}.");
+        // Once, on a Windows runner, the outcome was right and the probe's 400 ms took 12.6 s: the story says where the time
+        // went - before the connect, between connect and accept, or after the accept - and whether the whole process stood still.
+        var story = $"{server.Seen}; the probe started to connect {connectStartedMs} ms into the test; {stalls.Describe()}";
+        AssertOutcome(TlsProbeOutcome.Timeout, result, story);
+        Assert.True(took < TimeSpan.FromSeconds(5), $"Took {took}. {story}.");
     }
 
     [Fact]
@@ -617,13 +631,101 @@ public sealed class SslStreamTlsProbeTests
     /// A plain TCP server whose connections are handled by <c>handle</c> (no TLS: it drops or hangs the handshake) -
     /// every connection, so that one that is not the probe's does not take the probe's place.
     /// </summary>
+    /// <summary>
+    /// Tells a probe that was slow from a process that stood still: a thread of its own and a timer of the thread pool each
+    /// tick every 50 ms, and the longest gap each saw is the answer (a gap of seconds on the thread: the operating system did
+    /// not run the process; on the timer only: the pool or the timers were stuck; neither: the stall was the probe's own).
+    /// </summary>
+    private sealed class StallWatch : IAsyncDisposable
+    {
+        private const int TickMs = 50;
+        private readonly CancellationTokenSource _stop = new();
+        private readonly Thread _thread;
+        private readonly Task _timer;
+        private long _threadGapMs;
+        private long _timerGapMs;
+
+        public StallWatch()
+        {
+            _thread = new Thread(() =>
+            {
+                var clock = Stopwatch.StartNew();
+                var last = clock.ElapsedMilliseconds;
+                while (!_stop.IsCancellationRequested)
+                {
+                    Thread.Sleep(TickMs);
+                    var now = clock.ElapsedMilliseconds;
+                    Raise(ref _threadGapMs, now - last);
+                    last = now;
+                }
+            })
+            {
+                IsBackground = true,
+            };
+            _thread.Start();
+            _timer = Task.Run(async () =>
+            {
+                var clock = Stopwatch.StartNew();
+                var last = clock.ElapsedMilliseconds;
+                try
+                {
+                    while (!_stop.IsCancellationRequested)
+                    {
+                        await Task.Delay(TickMs, _stop.Token);
+                        var now = clock.ElapsedMilliseconds;
+                        Raise(ref _timerGapMs, now - last);
+                        last = now;
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    // Stopped.
+                }
+            });
+        }
+
+        public string Describe() =>
+            $"longest gap between two ticks of {TickMs} ms: {Volatile.Read(ref _threadGapMs)} ms on a thread of its own, " +
+            $"{Volatile.Read(ref _timerGapMs)} ms on a timer of the pool";
+
+        public async ValueTask DisposeAsync()
+        {
+            await _stop.CancelAsync();
+            _thread.Join(TimeSpan.FromSeconds(1));
+            try
+            {
+                await _timer.WaitAsync(TimeSpan.FromSeconds(1)).ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+                // A watch that does not stop is not worth a failed test.
+            }
+
+            _stop.Dispose();
+        }
+
+        private static void Raise(ref long field, long value)
+        {
+            long seen;
+            while (value > (seen = Volatile.Read(ref field)))
+            {
+                if (Interlocked.CompareExchange(ref field, value, seen) == seen)
+                {
+                    return;
+                }
+            }
+        }
+    }
+
     private sealed class RawServer : IAsyncDisposable
     {
         private readonly TcpListener _listener;
         private readonly CancellationTokenSource _stop = new();
         private readonly List<Task> _connections = [];
         private readonly Task _accepting;
+        private readonly Stopwatch _clock = Stopwatch.StartNew();
         private int _accepted;
+        private long _firstAcceptedMs = -1;
 
         private RawServer(Func<Socket, CancellationToken, Task> handle)
         {
@@ -635,6 +737,7 @@ public sealed class SslStreamTlsProbeTests
                 while (true)
                 {
                     var socket = await _listener.AcceptSocketAsync(_stop.Token);
+                    Interlocked.CompareExchange(ref _firstAcceptedMs, _clock.ElapsedMilliseconds, -1);
                     Interlocked.Increment(ref _accepted);
                     var connection = HandleAsync(socket, handle, _stop.Token);
                     lock (_connections)
@@ -648,7 +751,8 @@ public sealed class SslStreamTlsProbeTests
         public int Port { get; }
 
         /// <summary>What the server saw so far, for a probe that did not end as expected.</summary>
-        public string Seen => $"{Volatile.Read(ref _accepted)} connection(s) accepted on port {Port}";
+        public string Seen => $"{Volatile.Read(ref _accepted)} connection(s) accepted on port {Port}" +
+            (Volatile.Read(ref _firstAcceptedMs) < 0 ? string.Empty : $", the first {Volatile.Read(ref _firstAcceptedMs)} ms after the server started");
 
         public static RawServer Start(Func<Socket, CancellationToken, Task> handle) => new(handle);
 
