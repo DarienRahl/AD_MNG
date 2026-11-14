@@ -62,8 +62,7 @@
 - **Pasek stanu okna głównego** nie powtarza już podsumowania listy i liczby zaznaczonych obiektów – dla karty
   z listą obiektów są one w wierszu stanu listy, a dla kart zasad grupy – w wierszu stanu karty. Połączenie, kontroler
   domeny, zabezpieczenia połączenia, działania, wersja i znaczek listy wirtualnej zostają na swoim miejscu; dla
-  kart dzienników zdarzeń, gotowości środowiska i certyfikatów jest to wiersz stanu karty, a dla karty Watchdog pasek
-  działa jak dotąd.
+  kart dzienników zdarzeń, gotowości środowiska, certyfikatów i Watchdog jest to wiersz stanu karty.
 - **Okno główne: kółko postępu zamiast pasków.** Szybkie wyszukiwanie pokazuje na czas szukania kółko w miejscu lupy
   (dotąd: cienki pasek pod polem), a przycisk działań w pasku stanu – kółko obok liczby trwających operacji (dotąd:
   pasek). Pasek postępu każdej operacji na liście operacji w tle został bez zmian. „Konto chronione (adminCount=1)”
@@ -561,11 +560,67 @@
   jest w NTAuth, „prawa szablonu nie zostały ocenione”, zakres przeglądu bezpieczeństwa wraz z tym, czego jego
   sprawdzenie nie mogło odczytać, i zdanie „tylko do odczytu” w raporcie gotowości są uwagami przy treści (znak i tekst,
   bez ramki i bez karty) – dotąd żółtymi ramkami albo kartami.
+- **Watchdog: jeden wiersz stanu zakładki.** Zakładka Watchdog mówi teraz w jednym stałym miejscu – w wierszu pod kartą
+  połączenia, nad podzakładkami – co robi i jak się to skończyło; wiersz mówi to, co dotyczy wybranej podzakładki. W
+  spoczynku jest to podsumowanie: na liście zdarzeń „Zdarzeń: 30 · niepotwierdzonych: 28 · stan na 10:30:00” (po
+  zaznaczeniu wierszy także „Zaznaczono: 3”), na kartach reguł, kanałów, raportu dziennego i źródeł wersja konfiguracji
+  („Wersja 7 · 14.10.2026 12:00 · CONTOSO\jan.kowalski”), na karcie Stan – godzina odczytu stanu. Dotąd te informacje
+  były w pasku stanu okna głównego, w tekstach pod przyciskami i w ramkach – pasek stanu nie mówi już nic o zakładce
+  Watchdog. Komunikaty, które wcześniej były czerwoną i żółtą ramką, paskami postępu i napisami pod przyciskami, są
+  teraz jednym wierszem z czterema rodzajami (**Trwa**, **Gotowe**, **Uwaga**, **Błąd**), jednym poleceniem i – gdy
+  operację można zatrzymać – przyciskiem **Zatrzymaj**. To, co wciąż jest prawdziwe, zostaje w wierszu, dopóki się nie
+  zmieni: błąd połączenia, brak adresu usługi, przerwane aktualizacje na żywo, konfiguracja zmieniona przez innego
+  administratora.
+- **Watchdog: karta połączenia mówi, z kim i jako kto.** Karta pod nagłówkiem zakładki pokazuje adres usługi (do niego
+  trafiają poświadczenia) i – po połączeniu – konto, rolę i poziom szczegółowości, z przyciskiem **Zmień adres**. Stanu
+  połączenia już nie mówi: łączenie to **Trwa** „Łączenie z admng-wd.contoso.com:8443…”; gdy się nie uda – **Błąd**
+  „Nie udało się połączyć z admng-wd.contoso.com:8443: … Wybierz Ponów, aby spróbować ponownie. (Unreachable)” z poleceniem
+  **Ponów**, a gdy usługa przedstawiła certyfikat do potwierdzenia – z poleceniem **Sprawdź certyfikat…** (dotąd
+  przyciski w karcie). Błędu połączenia nie można zamknąć, dopóki połączenie nie działa; podzakładki są wtedy ukryte jak
+  dotąd.
+- **Watchdog: odczyt listy zdarzeń można zatrzymać.** Odczyt to **Trwa** „Wczytywanie zdarzeń…” z poleceniem
+  **Zatrzymaj**, odczyt starszych stron („Wczytaj starsze”) – „Wczytywanie starszych zdarzeń (wczytano: 100)…”. Zatrzymany
+  albo nieudany odczyt całej listy zostawia ją pustą, a aktualizacje na żywo wstrzymane, i mówi o tym w wierszu z
+  poleceniem **Odśwież** albo **Ponów**, dopóki lista nie zostanie wczytana ponownie (dotąd czerwona ramka z przyciskiem
+  *Ponów* nad listą). Zatrzymany lub nieudany odczyt starszych zdarzeń zostawia listę, jak była – wynik można zamknąć.
+  Potwierdzanie wielu zdarzeń naraz pokazuje postęp („Potwierdzanie zdarzeń: 500 z 1 200…”) i nie ma przycisku
+  *Zatrzymaj*, bo zmienia dane usługi. W panelu szczegółów zdarzenia odczyt szczegółów to kółko (dotąd cienki pasek), a
+  to, że szczegółów nie udało się odczytać, jest uwagą pod tytułem zdarzenia; odpowiedzi na „Potwierdź”, „Pokaż w AD
+  Manager” i „Odblokuj konto” mówi wiersz zakładki, a następne zaznaczone zdarzenie je zamyka.
+- **Watchdog: konfiguracja usługi mówi w wierszu zakładki – na każdej karcie, która ją edytuje.** Odczyt i sprawdzanie
+  konfiguracji można zatrzymać („Sprawdzanie konfiguracji…”); wynik sprawdzania to **Gotowe** „Konfiguracja jest
+  poprawna.” albo **Uwaga** „Konfiguracja jest nieprawidłowa – popraw uwagi z listy.”; zapis nie ma *Zatrzymaj* i kończy
+  się **Gotowe** „Zapisano konfigurację (wersja 8).”. Zapis, którego usługa nie przyjęła („Konfiguracja nie została
+  zapisana – popraw zaznaczone pola.”), i błąd zapisu zostają wynikiem. Że ktoś inny zapisał konfigurację wcześniej, jest
+  stanem kart, dopóki konfiguracja nie zostanie wczytana ponownie (polecenie **Wczytaj ponownie**); brak konfiguracji
+  (odczyt się nie udał albo go zatrzymano) – stanem z poleceniem **Ponów** albo **Wczytaj ponownie**. Wersja
+  konfiguracji jest podsumowaniem wiersza i zniknęła z paska pod przyciskami, gdzie zostały „Niezapisane zmiany”.
+- **Watchdog: podgląd raportu dziennego i reguły, „Wyślij teraz”, przywracanie reguły.** Podgląd raportu i podgląd
+  reguły to **Trwa** z poleceniem **Zatrzymaj** (podgląd zostaje, jak był, gdy go zatrzymano lub gdy się nie udał – z
+  poleceniem **Ponów**); „Wyślij teraz” zmienia dane usługi i nie ma *Zatrzymaj*. Że wbudowanej reguły nie udało się
+  przywrócić do domyślnej (usługa jej nie zna albo nie odpowiedziała), mówi wiersz, a nie okno z błędem. Zapis
+  konfiguracji może się odbywać, gdy przygotowywany jest podgląd: każde z nich mówi osobno.
+- **Watchdog: test dostarczenia – przycisk, który uruchamia i przerywa.** *Wyślij test* (SMTP) i *Wyślij test* kanału są
+  teraz przyciskami, które na czas testu zamieniają się w **Anuluj** – osobny przycisk i pasek postępu w karcie zniknęły.
+  Wiersz mówi **Trwa** „Wysyłanie testu…”, a potem **Gotowe** „Test zakończony powodzeniem (840 ms).” albo **Błąd** „Test nie
+  powiódł się (1,3 s). Etapy testu pokazują, gdzie się nie powiódł.”; test, którego nie wysłano, i dlaczego („Nic nie
+  zostało wysłane: …”), albo test zatrzymany („nie wiadomo, czy cokolwiek dotarło do miejsca docelowego”) też są w wierszu. Każdy
+  etap zostaje w karcie ze swoim wynikiem (✓ / ✗, kod, czas) razem z podpowiedziami. Test uruchomiony w trakcie innego
+  testu przerywa tamten.
+- **Watchdog: karta Stan.** Odczyt stanu, dziennika dostarczania i dziennika zmian konfiguracji mówi w wierszu jeden po
+  drugim („Wczytywanie stanu usługi…”) z poleceniem **Zatrzymaj**; odczyt, który się nie udał, gdy nic nie jest
+  pokazane, zostaje stanem karty z poleceniem **Ponów**, a przy pokazanym stanie jest wynikiem do zamknięcia.
+  „Ponów” przy martwej wysyłce jest zapisem do usługi i bez *Zatrzymaj*; błąd mówi wiersz, a wiersz listy – że wysyłka
+  czeka znowu.
+- **Watchdog: uwagi zamiast ramek.** Tryb wdrożenia („Tryb wdrożenia do 21.10.2026…” z przyciskiem **Zakończ tryb
+  wdrożenia**), „Wymaga roli administratora” (rola Viewer), uwagi usługi do konfiguracji, podpowiedź o wygenerowanym
+  kluczu podpisu („pokazany tylko raz”) i podpowiedzi do testu dostarczenia są uwagami przy treści (znak i tekst, bez
+  ramki), tam gdzie były żółte i czerwone ramki.
 - **Co się nie zmieniło:** wiersz stanu mają teraz lista obiektów, wszystkie karty zasad grupy, kreator zakładania wielu
-  kont, przegląd komputerów i zdalne akcje, dzienniki zdarzeń, gotowość środowiska, cztery dokumenty certyfikatów
-  i wszystkie okna oraz dialogi wymienione wyżej; uwagi zamiast ramek mają też okna zasad grupy, które tylko zbierają
-  dane. Pozostałe karty i okna – Watchdog i korespondencja – mają na razie dotychczasowe ramki ostrzeżeń i błędów oraz
-  paski postępu; przejdą na wiersz stanu w następnych wydaniach. Eksport do pliku i kopiowanie do schowka nadal potwierdza powiadomienie, a pasek postępu pojedynczej
+  kont, przegląd komputerów i zdalne akcje, dzienniki zdarzeń, gotowość środowiska, cztery dokumenty certyfikatów,
+  zakładka Watchdog i wszystkie okna oraz dialogi wymienione wyżej; uwagi zamiast ramek mają też okna zasad grupy, które
+  tylko zbierają dane. Okno korespondencji ma na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski postępu; przejdzie
+  na wiersz stanu w następnym wydaniu. Eksport do pliku i kopiowanie do schowka nadal potwierdza powiadomienie, a pasek postępu pojedynczej
   operacji na liście operacji w tle zostaje w swoim wierszu. Animacja nowego komunikatu (krótkie wsunięcie) i zamiany
   napisu na przycisku działa tylko przy włączonych animacjach (*Ustawienia → Ogólne → Wygląd → Animacje*); kółko postępu
   obraca się zawsze.

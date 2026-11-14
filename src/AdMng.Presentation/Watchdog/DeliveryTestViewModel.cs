@@ -145,9 +145,6 @@ public sealed partial class DeliveryTestViewModel : ObservableObject
         }
     }
 
-    /// <summary>The test is over (the tab was closed): what still runs ends without a word.</summary>
-    public void End() => _scope?.Dispose();
-
     [RelayCommand(CanExecute = nameof(IsRunning))]
     private void Cancel()
     {

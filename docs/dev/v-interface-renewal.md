@@ -516,6 +516,10 @@ line): fourteen converted views without one (*V2b-4 as built*, section 8).
 As built (V2b-4, unit 3): also the four PKI documents - the overview, the templates, the readiness report and the security
 review: forty-three views with a line, fourteen converted views without one. The base class of the PKI documents owns their
 status, so the status bar of the main window says nothing about a PKI tab any more (*V2b-4 as built*, section 8).
+As built (V2b-4, unit 4): also the Watchdog tab - one line for the tab, whose pages (the feed with its details pane, the rules,
+the channels, the daily report, the status of the service, the sources and the save bar of the configuration) say their status
+there: forty-four views with a line, twenty-seven converted views without one. Of the areas of the sweep only the correspondence
+window is left (*V2b-4 as built*, section 8).
 
 ### 6.2 Navigation – open question 2
 
@@ -1188,7 +1192,10 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
   activity in the main window, which stays). *Counted again after V2b-4, unit 3:* **3 uses of `Ad.ErrorBar` and 5 of
   `Ad.WarningBar` in 6 view files and 11 progress bars in 9 view files (11 view files with at least one of the three); 43
   views with a status line and 14 converted views without one** - the certificates are done, and two areas are left: `Views/Watchdog/` 2 + 4 and 7 in 9 files and
-  `Correspondence/` 1 + 1 and 3 in 1 file (plus the row of an activity in the main window, which stays).
+  `Correspondence/` 1 + 1 and 3 in 1 file (plus the row of an activity in the main window, which stays). *Counted again after V2b-4, unit 4:* **1 use of
+  `Ad.ErrorBar` and 1 of `Ad.WarningBar` in 1 view file and 4 progress bars in 2 view files; 44 views with a status line and 27
+  converted views without one** - the Watchdog tab is done, and one area is left: `Correspondence/` 1 + 1 and 3 in 1 file (the
+  fourth progress bar is the row of an activity in the main window, which stays).
   - By area (error bars + warning bars, progress bars), in the order the next increments could take them: `BulkCreate/`
     3 + 5 and 2 in 4 files; `Views/Watchdog/` 2 + 4 and 7 in 9 files; `Computers/` 2 + 3 and 3 in 2 files; `Pki/` 2 + 2 and
     4 in 4 files; `EventLogs/` 0 + 3 and 3 in 3 files; `Correspondence/` 1 + 1 and 3 in 1 file; `Readiness/` 0 + 1 and 1 in
@@ -1215,7 +1222,7 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     field is said when the button is pressed, how a dialog with tabs, a dialog without a session and a hosted control
     are handled, and that a view with nothing but notes gets no line and goes on the second list
     (`ConvertedViewsWithoutAStatusLine`). Candidates for the action button that are left: the sending of
-    correspondence, the Watchdog delivery test. (Done in V2b-2: connect and the search
+    correspondence. (Done in V2b-2: connect and the search
     for domain controllers, the change of the domain controller, OK of "Reset Password", preview, send and paste of the
     message window, the tests of the filter builder and of the saved view editor. Done in V2b-3: the two start buttons
     of the settings search, the cleanup advisor and the diagnostics, the main button of the backup window and *Update…*
@@ -1223,10 +1230,9 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     last logon, the sites and the ping of the computer review, the six actions of the remote computer window, the run of the
     event log reader, the loading of its channels and the runs of the two analyses, the two checks of readiness; in unit 3 the refresh
     of the four PKI documents, the check of the security review, the check of the HTTP addresses and the two probes of the domain
-    controllers.)
+    controllers; in unit 4 the test buttons of the SMTP card and of the channels.)
   - Document tabs drop out of `StatusBarText` as they are converted: the ten Group Policy documents did in V2b-3, with
-    the base class they share, and the three event log documents and readiness in V2b-4, unit 2 and the four PKI documents in unit 3; Watchdog is
-    left (neither V2b-1 nor V2b-2 had a document tab). The wizard of bulk creation (`BulkCreate/`) is hosted in step 1 of
+    the base class they share, and the three event log documents and readiness in V2b-4, unit 2 and the four PKI documents in unit 3 and the Watchdog tab in unit 4 (neither V2b-1 nor V2b-2 had a document tab). The wizard of bulk creation (`BulkCreate/`) is hosted in step 1 of
     the batch editor: its holder becomes `SourceStatus` of the create mode (done in V2b-4, unit 1). With the last converted view `Ad.ErrorBar`
     and `Ad.WarningBar` leave `Themes/Controls.xaml`, and with them the strings and view-model members that lost their
     last user (listed under *After V2b-1*).
@@ -1909,7 +1915,11 @@ above.
   `PkiReady.StageDomainControllers`, `PkiReady.StageAccounts` and `PkiReady.StageLdaps` have no user any more (the stages are
   `PkiDoc.Status.Stage*` now); no longer shown but read by tests or by the view models themselves - `ProgressText`, `StatusText`,
   `SelectionText`, `Error`, `SummaryText`, `ReadAtText`, `CountStatusText`, `LastRunText`, `HealthSummaryText` and `LoadedText` of the
-  four PKI documents; `Cancel()` and `CancelCommand` of the security review are the Stop of the line.
+  four PKI documents; `Cancel()` and `CancelCommand` of the security review are the Stop of the line. Added by V2b-4, unit 4: no string and no command lost
+  its last user; no longer shown but read by tests or by the view models themselves - `Error`, `Message`, `PreviewError`,
+  `ActionMessage` of the pages of the Watchdog tab, `StatusText`, `SelectionText` and `LoadedText` of the tab and of the feed,
+  `BannerMessage`, `StateText` and `ConnectionMessage` of the tab, `SummaryText` and `Error` of a delivery test, `Error` and
+  `HasConflict` of the configuration.
 - **Not seen, to confirm on Windows.** Nothing of V2b-1 was seen on a screen.
   - *The property sheet.* How a wrapped result looks in the 640 px wide sheet (two or three lines on the caution or
     critical surface, picture and buttons in the first line). The note next to the old validation texts (glyph and plain
@@ -3582,12 +3592,15 @@ done one after another. Unit 1 converted the bulk creation wizard (`BulkCreate/`
 `Presentation/BulkCreate`). Unit 2 converted the computer windows (`Computers/`: the review, the remote actions window and
 the restart dialog), the three event log documents (`EventLogs/`) and the readiness tab (`Readiness/`). Unit 3 converted the
 four PKI documents (`Pki/` with their view models in `Presentation/Pki`); the certificate tabs of the property sheet were
-converted with it in V2b-1. The foundations are
+converted with it in V2b-1. Unit 4 converted the Watchdog tab (`Views/Watchdog/` with its view models in
+`Presentation/Watchdog`). The foundations are
 those of *V2b-1 as built*, the *Dialogs* of *V2b-2 as built* and the decisions of *V2b-3 as built*; nothing was added to the
-controls, and the model got one factory in unit 2 (`ResultCode.Remote`, the kind of a failed remote action). The block reads
+controls, and the model got two factories (`ResultCode.Remote` in unit 2, the kind of a failed remote action, and
+`ResultCode.Watchdog` in unit 4, the kind of a failed call of the service). The block reads
 in this order: *Areas* (what each area decided about its line, its notes and its states that last - the instructions of the
 units after it), the wizard, the unit-2 sections (the computer review, the remote actions window and the restart dialog, the
-event log documents, the readiness tab), the unit-3 section (the PKI documents), the tests, what is left (the counts, what
+event log documents, the readiness tab), the unit-3 section (the PKI documents), the unit-4 section (the Watchdog tab), the
+tests, what is left (the counts, what
 was left behind on purpose), and what nobody has seen on a screen yet. Every later unit adds its entry to *Areas* and its own
 section.
 
@@ -3644,6 +3657,18 @@ section.
      rights that were not evaluated, the scope of the review, what its check could not read, what the report is, why the
      HTTP rows are unknown. *Summary detail:* when and from where the content was read, and how many accounts were counted,
      are the detail of the summary (V2b-3 *Group Policy documents* 15), not a text of their own.
+  6. *Watchdog (unit 4) - one document that is a tab of pages: one line for the tab, a holder for every page that has an
+     operation of its own, the page in front, and a card that says which service and as whom.* The tab owns the holder the one
+     `c:StatusLine` is bound to; the connection attempt is its operation and what lasts while the connection does not work (an
+     error with Retry or "Sprawdź certyfikat…", no address, interrupted live updates) is its state, computed in one method from
+     the facts. Every page that reads or writes the service owns a holder and the tab puts the page that is shown in front
+     (foundation 3): the feed (with the details pane in front of it), the configuration (in front of the four tabs that edit it -
+     and the digest, the rules and the channels, which have operations of their own that can overlap a save, each in front of the
+     configuration's), and the status tab. The service is the thing a Watchdog page talks to: a write to it (a save, an
+     acknowledgement, "Wyślij teraz", the retry of a dead delivery) has no Stop and is repeated by no link, a read has Stop and
+     Retry. *Notes:* what is true of a part of the content for as long as it is shown - the mode of rollout, why the editors are
+     read only, the findings of the service, the hint of a signing secret that is shown once, the hints of a delivery test, why
+     the details of an event could not be read.
 
 - **The bulk creation wizard** (`BulkCreate/BulkCreateView.xaml` hosting `BulkSourceView`, `BulkColumnsView`,
   `BulkRulesView` and `BulkCheckView`, and `BulkResultsView` in the results step; `BulkCreateViewModel` with `Source`,
@@ -4020,6 +4045,140 @@ section.
     block, with `L.PkiDocumentStatus`, `L.PkiOverviewStatus`, `L.PkiTemplatesStatus` and `L.PkiSecurityStatus`. Nothing was
     added to the model or the controls.
 
+- **The Watchdog tab** (`Views/Watchdog/WatchdogView.xaml` hosting `WatchdogConfigBar` and the pages `WatchdogEventsView` with
+  `WatchdogEventDetailsView`, `WatchdogRulesView` with `WatchdogRuleEditorView`, `WatchdogChannelsView` with
+  `WatchdogChannelEditorView`, `WatchdogDeliveryTestView` and `WatchdogSecretFieldView`, `WatchdogDigestView`,
+  `WatchdogStatusView` and `WatchdogSourcesView`; `WatchdogDocumentViewModel` with `Events` (and `Events.Details`), `Config`,
+  `Rules`, `Channels`, `Digest`, `ServiceStatus` and `Sources`; `WatchdogCertificateTrustWindow` is a dialog that only asks and
+  has none of it).
+  - *What the line says.* One line under the connection card, 8 px in from the tab's edge, over the sub-tabs. **At rest** the
+    summary of the page that is shown: the feed "Zdarzeń: 30 · niepotwierdzonych: 28 · stan na 10:30:00" with " · Zaznaczono: 3";
+    the Rules, Channels, Digest and Sources tabs the version of the configuration ("Wersja 7 · 14.10.2026 12:00 · CONTOSO\jan.kowalski",
+    `VersionText`); the status tab "Stan odczytano 10:30:00". **The connection:** "Łączenie z admng-wd.contoso.com:8443…" (no Stop -
+    it never had one); a problem is an error that cannot be closed, "Nie udało się połączyć z admng-wd.contoso.com:8443: <the
+    explanation of the kind of failure, with its remedy> Wybierz Ponów, aby spróbować ponownie. (Unreachable)" with Retry, or -
+    when the service presented a certificate to confirm - with the one action "Sprawdź certyfikat…"; no address is an attention
+    without an action (the address editor is the way out); interrupted live updates an attention without an action (the tab
+    retries by itself). **The feed:** "Wczytywanie zdarzeń…" with Stop; stopped - attention "…zatrzymano: lista jest pusta, a
+    aktualizacje na żywo wstrzymane. Wybierz „Odśwież”…" with Refresh; failed - error with Retry; both are the state of the page,
+    which cannot be closed, until the feed is read again. "Wczytywanie starszych zdarzeń (wczytano: 100)…" with Stop; stopped or
+    failed it leaves the list as it was - a result that can be closed, with "Wczytaj starsze" or Retry. "Potwierdzanie zdarzeń:
+    500 z 1 200…" with the part done, without Stop. **The details pane:** "Potwierdzanie zdarzenia…" without Stop, an error with
+    the reason; "Pokaż w AD Manager" says that the object no longer exists or why it could not be opened, "Odblokuj konto" that
+    the account was unlocked; the next selected event closes what the line said. **The configuration:** "Wczytywanie konfiguracji
+    usługi…" and "Sprawdzanie konfiguracji…" with Stop, "Zapisywanie konfiguracji…" without; done "Zapisano konfigurację (wersja
+    8)."; a save the service refused - attention "Konfiguracja nie została zapisana – popraw zaznaczone pola." with the findings
+    in the list of the bar; the state of the tabs that lasts: nothing could be read or the read was stopped before a
+    configuration was loaded (Retry or "Wczytaj ponownie"), and someone else saved first (attention, "Wczytaj ponownie"). **The
+    digest and the rules:** the preview of the digest and of a rule with Stop (the result is the content: the line returns to the
+    summary; a stopped or failed one leaves the preview as it was and offers the button again or Retry), "Wyślij teraz" without
+    Stop, the read behind "reset to default" with Stop and "Reguła nie została przywrócona: …". **A delivery test:** "Wysyłanie
+    testu…" with Stop; done "Test zakończony powodzeniem (840 ms)."; error "Test nie powiódł się (1,3 s). Etapy testu pokazują,
+    gdzie się nie powiódł."; "Nic nie zostało wysłane: …" (attention for what the operator can put right, error for a failed
+    call); stopped - "nie wiadomo, czy cokolwiek dotarło do miejsca docelowego". **The status tab:** "Wczytywanie stanu usługi…",
+    then "Wczytywanie dziennika dostarczania…" and "Wczytywanie dziennika zmian konfiguracji…", each with Stop; a status read that
+    failed or was stopped while none is shown is the state of the tab, one with a status on screen a result that can be closed;
+    "Ponowne kolejkowanie dostarczenia…" without Stop.
+  - *How the old places were sorted* (2 error bars, 4 warning bars, 7 progress bars, and the texts that said the same).
+
+    | Old place | Kind | Now |
+    |---|---|---|
+    | the connection card - state and host in warning colours for every problem, `BannerMessage` (why), `LiveError`, the buttons *Ponów* and *Sprawdź certyfikat…* | status (and identity) | the card keeps the host, the account and *Zmień adres*; the state is the connection attempt and the lasting error / attention of the line, Retry or "Sprawdź certyfikat…" its one action |
+    | warning bar `RolloutBanner` (rollout mode, *Zakończ tryb wdrożenia*) | note | `Ad.Note.Attention` with its button, in the same place: a fact about the service that lasts for days - as a state of the line it would hide the summary of every page |
+    | warning bar `ReadOnlyBar` of the configuration bar (the Viewer, a redacted copy) | note | `Ad.Note.Attention` (the lock glyph is the glyph of a note now), and a second note, `Ad.Note.Info`, for "the copy is redacted" |
+    | error bar of the findings of the service (configuration bar) | note | the list of findings without the bar: each row has its glyph and its sentence, true for as long as the working copy has them |
+    | warning bar of the generated signing secret ("shown once - copy it now") | note | `Ad.Note.Attention` with the text box and the copy button |
+    | the hints of a delivery test (one warning bar each) | note | `Ad.Note.Attention` each |
+    | `ErrorBar` of the feed (`Error`, *Ponów*) and its 3 px progress bar | status | the read of the feed in the line, the state of the page with Retry |
+    | progress bar, `MessageText` and `ErrorText` of the configuration bar | status | the read, the validation and the save of the configuration in the line; the result, the findings and the conflict as said above |
+    | `VersionText` of the configuration bar | summary | `SetIdle` of the configuration's holder; the marker "Niezapisane zmiany" stays next to the buttons |
+    | progress bar, `ErrorText` and `MessageText` under the digest preview | status | the preview and "Wyślij teraz" in the line |
+    | progress bar next to *Uruchom podgląd* of the rule editor, `PreviewError` | status | the preview of a rule in the line (`PreviewText` - "12 zdarzeń, ok. 4 wiadomości…" - is the caption of the list below it and stays) |
+    | progress bar, *Anuluj*, `SummaryText` and `ErrorText` of the delivery test card | status | the test in the line; *Wyślij test* of the SMTP card and of a channel are action buttons; the stages stay in their rows |
+    | progress bar of the details pane, `Error`, `ActionMessage` | busy / note / status | a `ProgressRing` in the header of the pane (no sentence: a read at every selection would announce itself at every key), why the details could not be read as `Ad.Note.Error` under the title, the answers of the pane's actions in the line |
+    | progress bar and `ErrorText` of the status tab, `Error` of the delivery log, `AuditError` | status | the three reads and the retry of a dead delivery in the line |
+    | the status bar of the main window for this tab (`StatusText` of the feed) | summary | gone: the document is `IHasPageStatus` |
+    | the state and the explanation of the connection in the card (`StateText`, `ConnectionMessage`) | status | gone from the card |
+    | the validation texts of the fields, the hints, `AddressError`, the card of the address editor | note | unchanged |
+
+  - *Decisions.*
+    - **One line for the tab, one holder per page that has an operation of its own, the page that is shown in front.** The
+      sub-tabs are pages of one document, so there is one `c:StatusLine`, and the tab's holder gets
+      `Front = FrontOf(SelectedSubTab)` before the page is activated (foundation 3). The holders are the page's: the feed's
+      (with the details pane's in front of it - the pane's actions can run while the list is read), the configuration's
+      (shared by the four tabs that edit it, in front of each of them), and the digest's, the rules' and the channels', each in
+      front of the configuration's (a preview or a test can be started while a save runs, and a second `Begin` would have taken
+      the first off the line - foundation 4), and the status tab's. Nothing is lost while a page is not shown: a feed that failed
+      while the Rules tab was shown says so when the feed is shown again. The holders are made by
+      `WatchdogServices.CreateStatus()` from what the tab already gets (the localizer, the dispatcher, the status log of the
+      window's list services) and exist in memory only (rule 1: nothing about the service is stored by the WPF process).
+    - **The card says which service and as whom; the state is the line's.** The old card showed the state word and the host in
+      colours of the state, the explanation under it and the buttons - the state said twice. The card keeps what is always true:
+      the host (credentials go only there - one test asserts that it stands once on the tab), the account, the role and the
+      level of detail, and *Zmień adres* (an input, not a status; the line has room for one action). It is collapsed while no
+      address is known.
+    - **`Status` is the holder; the status tab is `ServiceStatus`.** `IHasPageStatus.Status` and the binding `Status.Current`
+      that the source test wants are the holder, so the property that was the "Stan" page's view model got a new name (the tests
+      and the view that read it were changed; the page's own model, `Status` of type `StatusDto`, keeps its name).
+    - **The connection attempt is an operation without Stop; the pages read after it.** It ends right after the reads of the
+      pages have begun (each on its own holder), so the line goes from "Łączenie…" straight to what the page that is shown says;
+      a failure sets the state first and ends the operation after (before the certificate dialog opens, so the line never says
+      "Łączenie…" over it). `LiveError` is made from the failure when it is read - the line follows a language switch at once -
+      and the one state method recomputes after every change of a fact.
+    - **A stopped read of the feed leaves it empty and paused.** The read replaces the rows when it answers, but it has already
+      cleared the poller's cursor and taken the new filter; going on after a Stop would show the rows of one filter next to the
+      filter of another and a feed that never gets a live update. The stopped read is therefore the same state as a failed one -
+      the list is empty, the live updates wait for the next read - and says so, with Refresh.
+    - **Acknowledging and the other writes to the service have no Stop and no link.** The part done is the ring ("500 z 1 200…",
+      one request of 500 events at a time); the result is the rows (the tick, the counts of the summary) and the toast of the
+      main window, as before, so the line goes back to the summary; a failure says how many were done and what to do. A save of
+      the configuration, "Wyślij teraz" and the retry of a dead delivery are the same. Where the operation had no way to be
+      repeated safely from a link, the error has no action.
+    - **The details pane's read is a ring and a note, its actions are the line's.** The pane reads at every selection; as an
+      operation each key press would put "working" in a live region. Why the read failed is true for as long as that event is
+      shown (a note under its title, cleared by the next selection); what the operator pressed in the pane - acknowledge, open,
+      unlock - is the answer of the window and goes to the line, closed by the next selection.
+    - **The configuration says its version; a conflict and a missing configuration are states.** The version, who and when is the
+      "as of" text of the four pages (the summary, no longer a text in the bar); the marker of unsaved edits stays at *Zapisz*
+      (as in the editors of V2b-3). That someone saved first is true until the configuration is read again (or the next edit,
+      which clears the flag as before) and has the one way out - *Wczytaj ponownie*, the command of the bar - so it is the state
+      of the tabs; a read that failed or was stopped before anything was loaded explains empty tabs and is a state as well, a
+      reload that fails with a configuration on screen is a result. A save the service refused is an attention - nothing was
+      saved and why - and the findings stay in the list of the bar; the toast after a save stays, as after an execution.
+    - **A delivery test is one operation of the channels tab; the stages are rows.** The SMTP test and every channel's test
+      begin on the tab's holder, so a test started while another runs replaces it (a second test of one editor always did); the
+      button of each is an action button over its own start command, flag (`IsRunning`) and cancel (the test's own, which says
+      "Zatrzymywanie…" in the line first). The line says whether it ran, how it ended and what to do; the rows keep what each
+      stage did (the mark, the detail, the code, the time) and the hints are notes in the card. A test that was stopped does not
+      know whether the destination got anything, and says so.
+    - **The status tab reads one thing after another.** The status, the delivery log and the audit are three operations of one
+      holder, one after another (they were read in parallel - the only visible difference is that the line shows each in turn);
+      each can be stopped; a stopped or failed read of the status when none is shown is the state of the tab. The summary is
+      when the status shown was received (the poller applies a newer one every half minute and changes only the time).
+    - **The dialogs of two helpers became the line.** "Reset to default" says why nothing was reset ("Reguła nie została
+      przywrócona: …") and a failure with Retry in the line of the rules tab - it was an error dialog, and its read has a token
+      and a Stop now (rule 6); the other answers of the Watchdog pages that were dialogs (a confirmation, the certificate) stay.
+    - **Log copies.** Every message is a key with counts and a result code: `ResultCode.Watchdog(kind)` ("Unreachable",
+      "Forbidden", "Timeout", "ServerError"...) is the one thing added to the model - the kind of failure the client classifies,
+      never what the service said. No host, account, event, recipient, address, rule or value of the configuration is in a log
+      copy, and no secret is in a text or a copy (rule 2: the tests type a password into the configuration, save it and read the
+      line, the recorder and the log); the tests of every holder read the log for exactly those.
+    - `StatusText`, `SelectionText`, `IsLoading`, `Error`, `Message`, `PreviewError`, `ActionMessage`, `LoadedText`... of the view
+      models, `HasConflict`, `IsBusy` and the commands are unchanged for the shell and the tests that read them; `Cancel` of a
+      delivery test is the same Stop as the line's.
+  - *Where this differs from the recipe.* *Validate*, *Reload*, the preview buttons, *Odśwież* of the feed and of the status
+    tab, and the two buttons of the save bar stay plain buttons (or icon buttons): they never had a Stop of their own, the Stop
+    is in the line (the open question of V2b-3: several action buttons over one holder each need a flag). The tab has **one**
+    line where the brief of the increment would have had one per page, because the pages are one document; the card and the
+    sub-tab strip are not part of it. Behaviour that changed beyond how a result is said (nothing about how a request is made,
+    validated or audited - rule 5 holds): a stopped read of the feed clears it (above), the reads of the status tab are
+    sequential, "reset to default" uses the line instead of dialogs, and every read that ran with `CancellationToken.None`
+    (the configuration, its validation, the status, the delivery log, the audit, the previews, the defaults) takes the token of
+    its operation, so it can be stopped (rule 6) - the writes still pass none: a write is not cancelled by a scope that was
+    replaced -, a test replaces a running test of another editor. The constructors of
+    `ChannelEditorViewModel`, `WatchdogRuleEditorViewModel`, `DeliveryTestViewModel` and `WatchdogDeliveryLogViewModel` got an
+    optional holder (the tab's); standalone they make their own, so the existing tests build them as before.
+
 - **Tests of unit 1.** Presentation (35, on Linux): `BulkCreate/BulkSourceStatusTests` (12: the paste and the file with the sequence
   of the line in both languages, the name of a file never in a log copy, Stop of a paste and of a file with a parse held on
   its thread and released, a clipboard without a table, files that cannot be used - too large, not a sheet, not there -
@@ -4210,6 +4369,74 @@ section.
     check and the probe, whose results are rows, should say "done" with their counts in the line besides the summary of the tab; whether
     *Odśwież* should be the Cancel of a reload that the operator did not start (another document's F5, a language switch); whether
     the sentence about the unknown HTTP rows belongs in the line as the summary of the health tab instead of a note.
+
+- **Tests of unit 4.** Presentation (46, on Linux; `WatchdogHarness` takes an optional `ListLogger<PageStatusHolder>` for the log
+  copies, and the fake client's `Hold`, `HoldEvents` and `FailNext` hold, delay and fail the calls - a held call hears the Stop, so
+  "Zatrzymywanie…" is asserted on the same thread before the call returns): `Watchdog/WatchdogDocumentStatusTests` (13: the
+  summary of the page shown in both languages with the selection, the connection attempt as an operation without Stop and the line
+  going straight to the page - the feed read is held to see it -, five kinds of connection problem as the state that lasts with
+  Retry, its code and a log copy with no host, an untrusted certificate with "Sprawdź certyfikat…" as the one action, no address,
+  interrupted live updates until they recover and in Polish, the problem in the language of the moment, a page that waits in its
+  holder until it is shown, closing the tab with a read that still runs), `WatchdogEventsStatusTests` (10: the read with Stop and the
+  summary, Stop with the feed empty and paused and Refresh, a failed read in both languages with Retry and a log copy with no event,
+  a newer read that replaces the running one without a word, older events with their count / Stop / a failure that can be repeated,
+  the acknowledgement of 1,200 events with the part done and no Stop and its log copy, a failed acknowledgement, the answers of the
+  details pane in the line and the next selection closing them, the read of the details as a ring and a note),
+  `WatchdogConfigStatusTests` (9: the version as the summary in both languages, the read with Stop and a stopped read as the state of
+  the tabs with *Wczytaj ponownie*, a failed read as a state and then as a result, the validation with its three results and Stop,
+  a save that is a write without Stop - with a typed password never in a text, the recorder or the log -, a save the service
+  refused, the conflict as the state of the tabs in both languages, another failure of a save without an action, the status of the
+  configuration in front of every tab that edits it), `WatchdogPagesStatusTests` (7: the digest preview with Stop / a failure /
+  the old preview kept, "Wyślij teraz" in Polish, a preview prepared while the configuration is saved, the preview of a rule with
+  Stop and a failure and its end when another rule is selected, "reset to default" saying why instead of a dialog, a delivery
+  test through its five endings with no address and no host in the log, a test that replaces another),
+  `WatchdogServiceStatusTests` (7: the three reads one after another, a viewer reading the status only, Stop of the status read,
+  a failed read as a state and then as a result, the delivery log with Stop / a failure / the retry of a dead delivery, the audit,
+  the status page in front). Adapted where the place of a sentence changed: `WatchdogRulesTests` (the reset of a rule the service
+  no longer ships is read from the line, no dialog), and the tests that read the "Stan" tab through the document (`ServiceStatus`).
+  `PageStatusTests` got the assertions of the new factory. UI (Windows CI, written without a screen, 7):
+  `WatchdogStatusUiTests` (one line under the card with the summary said once and no old banner on any page, a held read of the
+  feed with Stop and the stopped read with Refresh and the growth of the line, a connection problem with Retry and the card keeping
+  the host, the save with the content moving by as much as the line grew, the test button as an action button with the stages in
+  their rows, the notes of the save bar, the ring and the note of the details pane); `WatchdogViewTests` reads the certificate
+  button, the card and the rollout note from their new places. Source rules: `WatchdogView` on `PagesWithAStatusLine` and the
+  twelve pages and the trust window on `ConvertedViewsWithoutAStatusLine` (both lists stay sorted ordinal); the expressions of
+  `XamlSourceTests` for both lists and "every `StaticResource` key is defined before its first use" were proven on Linux with a
+  throwaway script, and the `App.UiTests` project builds without a warning.
+- **After V2b-4, unit 4** (counted in the XAML, comments excluded): **1 use of `Ad.ErrorBar` and 1 of `Ad.WarningBar` in 1 view
+  file, 4 progress bars in 2 view files** (one is the row of an activity in the main window, which stays); **44 views have a
+  status line and 27 converted views none.** The one area that is left is `Correspondence/` (1 + 1 and 3 in 1 file). Unit 4 took 2
+  error bars, 4 warning bars and 7 progress bars: of the 13, 7 were status (the failed read of the feed and the progress of the
+  feed, of the save bar, of the digest, of the rule preview, of the delivery test and of the status tab), 5 notes (the findings of
+  the service, why the editors are read only, the signing secret that is shown once, the hints of a delivery test and the rollout
+  mode) and one a busy mark (the read of the details pane). What never was a banner: the result and error texts of the save bar, the
+  digest, the delivery test, the status tab, its delivery log and audit, and the details pane (status), the version of the
+  configuration (summary), the status bar's text of the feed (summary), the card's state and explanation (status). Left behind on
+  purpose (added to *After V2b-1*): no string lost its last user in this unit; no longer shown but read by tests or by the view
+  models themselves - `Error`, `Message`, `PreviewError`, `ActionMessage` of the pages, `LoadedText` / `StatusText` / `SelectionText`
+  of the tab and of the feed, `BannerMessage`, `StateText` and `ConnectionMessage` of the tab, `SummaryText` and `Error` of a delivery
+  test (and `CancelCommand`, which is the Stop of the line), `HasConflict` and `Error` of the configuration; `ReviewCertificateButton`
+  and `RetryButton` of the card went with their view elements.
+- **Not seen, to confirm on Windows (unit 4).** Nothing of unit 4 was seen on a screen either.
+  - *The connection card and the line.* The card without the state word and its colours (host in semibold, the account under
+    it, *Zmień adres* at the right), the line under it at 8 px from the edge, and the rollout note with *Zakończ tryb wdrożenia*
+    at its right in the narrow tab. A tab that is connected says nothing of "Połączono" any more: the page's summary is under the
+    card. Whether the summary of a page that has none (nothing is read yet) leaves an empty 28 px band under the card.
+  - *Long results.* A connection error - "Nie udało się połączyć z host: <explanation with its remedy> Wybierz Ponów… (kod)" - is
+    the longest sentence of the unit (about 200 characters) and wraps to three lines at the width of the tab; the failed test and the
+    refused save are shorter. The summary of the feed with a selection fits one line at 1360 px.
+  - *The notes.* The mode of rollout with a button inside the note (a `DockPanel` as the content), the generated signing secret with
+    its text box and copy button, the findings of the service as a list without a bar (glyph and sentence per row, scrolling
+    from 140 px), and the note of the details pane under the title; the lock glyph of the read-only bar became the warning glyph.
+  - *The action buttons.* *Wyślij test* with its glyph and "Anuluj" / "Zatrzymywanie…" (the Polish word is wider than the label) in
+    the SMTP card (to the right of the recipients box) and next to the hint of a channel; the ring in the details pane's header, 14
+    px at the top right of the title.
+  - *Open for the owner:* whether *Validate*, *Reload*, the preview buttons and *Odśwież* become action buttons (Stop is in the line);
+    whether a stopped read of the feed should keep the rows of before (it would show a list that does not match the filter, and the
+    live updates would have to be given back); whether the toast after a save, an acknowledgement and "Wyślij teraz" is still needed
+    now that the page says the same in its line; whether the rollout mode should be a state of the line (with its button as the
+    action) instead of a note, at the price of the summary for as long as it lasts; whether the card should say "Połączono" once more
+    when nothing else says it.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 

@@ -586,12 +586,23 @@ zawiera jedną linię na wiadomość (identyfikator, konto operatora, liczba odb
 Otwieranie: menu **Narzędzia → Watchdog**, paleta poleceń (Ctrl+K → „Watchdog”) lub **Ctrl+Shift+A**; dla wybranego
 obiektu: menu kontekstowe / panel szczegółów → **„Historia zmian (Watchdog)”** (zdarzenia tego obiektu po GUID).
 Zakładka działa niezależnie od połączenia z AD (zostaje otwarta po zmianie DC); łączy się z usługą przez HTTPS (tylko
-`https://`) z bieżącym kontem Windows (działa też `runas /netonly`); pasek połączenia zawsze pokazuje adres usługi.
+`https://`) z bieżącym kontem Windows (działa też `runas /netonly`); karta połączenia zawsze pokazuje adres usługi.
 Nagłówek zakładki pokazuje liczbę niepotwierdzonych zdarzeń wysokich i krytycznych (odświeżaną co minutę także w tle).
 AD Manager nie zapisuje danych Watchdoga na dysku – w ustawieniach zapamiętuje tylko adres usługi, układ i nazwane
 filtry.
 
-- **Pasek stanu** pokazuje raz „stan + host”; drugi wiersz pojawia się tylko wtedy, gdy trzeba wyjaśnić problem.
+- **Karta połączenia** (pod nagłówkiem zakładki) pokazuje adres usługi i – po połączeniu – konto, rolę i poziom
+  szczegółowości; przy niej jest przycisk „Zmień adres”. **Linia stanu** pod kartą jest jedynym miejscem, w którym
+  zakładka mówi, co robi i jak się to skończyło: łączenie z usługą, odczyt zdarzeń, starszych zdarzeń i konfiguracji,
+  sprawdzanie i zapis konfiguracji, podgląd raportu dziennego i reguły, test dostarczenia, odczyt stanu usługi,
+  dziennika dostarczania i dziennika zmian konfiguracji. Na co dzień pokazuje podsumowanie podzakładki: liczbę
+  zdarzeń z zaznaczeniem, wersję konfiguracji (kto ją zapisał i kiedy) albo godzinę odczytu stanu. Odczyty i test
+  dostarczenia można zatrzymać przyciskiem „Zatrzymaj” w linii (test także przyciskiem, którym go uruchomiono, który
+  na czas testu zamienia się w „Anuluj”); zapis konfiguracji, potwierdzanie zdarzeń i „Wyślij teraz” zmieniają dane
+  usługi i nie mają „Zatrzymaj”. Błąd połączenia (z przyciskiem „Ponów” albo „Sprawdź certyfikat…”), brak adresu,
+  przerwane aktualizacje na żywo, konfiguracja zmieniona przez innego administratora („Wczytaj ponownie”) oraz pusta i
+  wstrzymana lista zdarzeń po błędzie lub zatrzymaniu odczytu („Ponów” / „Odśwież”) zostają w linii, dopóki są
+  prawdziwe. To, co dotyczy jednej podzakładki, linia mówi tylko wtedy, gdy ta podzakładka jest wybrana.
   Gdy wybrana jest zakładka Watchdog, panel szczegółów obiektu okna głównego jest ukryty (wybór Ctrl+D zostaje
   zapamiętany dla list obiektów). Zdarzenia krytyczne mają obwódkę wokół czerwonej kropki, aby odróżnić je od
   wysokich. Panel szczegółów zdarzenia ma 400 px szerokości; rozdzielaczem można go poszerzyć albo zwęzić do 300 px.
@@ -609,7 +620,7 @@ filtry.
   dwuklik na niej, który dopasowuje kolumnę do zawartości) zostaje, a pozostałe kolumny od razu robią jej miejsce.
 - **Problemy z połączeniem**: pojedyncze żądanie, które przekroczyło czas albo nie dotarło do usługi (np. powolny zapis
   lub wyszukiwanie tekstu), pokazuje błąd w swojej podzakładce, a zakładka zostaje otwarta. Zakładka chowa się za
-  banerem „Ponów” dopiero wtedy, gdy zawodzą także aktualizacje na żywo, i wraca sama po następnym udanym odczycie stanu
+  błędem połączenia w linii stanu („Ponów”) dopiero wtedy, gdy zawodzą także aktualizacje na żywo, i wraca sama po następnym udanym odczycie stanu
   (w ciągu 30–60 s), bez klikania „Ponów”. Po nieudanym połączeniu z **innym** adresem usługi trzeba kliknąć „Ponów”.
 - „Ponów” lub F5 po problemie z połączeniem **zachowują** niezapisane zmiany konfiguracji i wpisane hasła/sekrety
   administratora, jeśli adres usługi się nie zmienił; zmiana adresu usługi wczytuje konfigurację tamtej usługi.
@@ -638,7 +649,7 @@ filtry.
 | Podzakładka | Zawartość |
 |---|---|
 | Zdarzenia | lista na żywo (nowe zdarzenia pojawiają się same), filtry (priorytet, kategoria, rodzaj, obiekt, OU, tagi – np. „uprzywilejowane”, status atrybucji – np. „pokaż nieustalone”, wykonawca, tekst także po stacji/IP, daty, niepotwierdzone) z zapisywanymi zestawami, potwierdzanie wielu zdarzeń naraz; szczegóły: zmiany stara → nowa, wykonawca i źródło z poziomem pewności i dowodami (DC, numer zdarzenia), dla blokad źródła błędnych haseł, powiązane zdarzenia, wysłane powiadomienia; „Potwierdź”, „Pokaż w AD Manager” (bieżące położenie obiektu po GUID; obiekt usunięty – okno Kosza AD), „Odblokuj konto” (przez plan zmian z podglądem), „Kopiuj”, eksport CSV (tylko na polecenie operatora) |
-| Reguły | lista reguł, edytor, wyjątki i propozycje wyjątków, podgląd skutków, baner trybu wdrożenia |
+| Reguły | lista reguł, edytor, wyjątki i propozycje wyjątków, podgląd skutków, uwaga o trybie wdrożenia z przyciskiem „Zakończ tryb wdrożenia” |
 | Kanały i SMTP | SMTP, grupy odbiorców, kanały Teams i webhook, wysyłki testowe z diagnostyką |
 | Raport dzienny | harmonogram, odbiorcy, podgląd treści, „Wyślij teraz” |
 | Stan | połączenie z DC, znacznik USN, zrzut bazowy, kontrola uprawnień, dzienniki każdego DC (pokrycie atrybucji, liczba i czas zapytań o źródło), kanały, baza danych i kopie, dziennik wysyłek (ponawianie), historia zmian konfiguracji; od 0.3.0 także sekcje **Konto usługi** (kvno, ostatnia i następna zmiana hasła, typy szyfrowania, zgodność keytabu z AD, członkostwo w grupach uprzywilejowanych), **Kolektor WEF** (dla każdego DC: ostatni rekord, opóźnienie, zaległości, rekordy zapisane i odrzucone), **Zawartość GPO** (postęp odczytu, błędy, opóźnienie SYSVOL) i **Host** (system, środowisko .NET, wariant klucza sekretów, wolne miejsce, różnica zegara, szyfrowanie LDAP); każdy zgłaszany kod stanu ma opis i zalecenie – m.in. wygasający certyfikat TLS i jego klucz prywatny, rozmiar i konserwacja bazy, planowanie powiadomień, „Nieistniejące DN w konfiguracji”, wykrywanie kontrolerów domeny, źródło atrybucji, odmowa wyszukiwania zmian w katalogu (`permission.search`) |
