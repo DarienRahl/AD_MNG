@@ -8,6 +8,7 @@ using AdMng.App.UiTests.Infrastructure;
 using AdMng.Core.Directory;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy;
+using AdMng.Testing;
 using static AdMng.App.UiTests.GroupPolicy.GroupPolicyStatusUiSupport;
 
 namespace AdMng.App.UiTests.GroupPolicy;
@@ -66,13 +67,12 @@ public sealed class WmiFiltersStatusUiTests
         var session = context.Directory.Session;
         var listTop = TopOf(view.FiltersList, view);
 
-        // The domain controller does not answer the reads of the tab any more (they are made on pool threads; whatever
-        // the window reads on its own thread is left alone).
-        var ui = Environment.CurrentManagedThreadId;
+        // The domain controller does not answer the read of the WMI filters (CN=SOM,CN=WMIPolicy,CN=System) any more.
         var fail = 1;
-        session.BeforeOperation = _ =>
+        session.BeforeOperation = operation =>
         {
-            if (Volatile.Read(ref fail) == 1 && Environment.CurrentManagedThreadId != ui)
+            if (Volatile.Read(ref fail) == 1 && operation.Kind == FakeOperationKind.Search
+                && operation.DistinguishedName.StartsWith("CN=SOM,CN=WMIPolicy,CN=System,", StringComparison.OrdinalIgnoreCase))
             {
                 throw new DirectoryException(DirectoryErrorKind.ServerUnavailable, "the domain controller does not answer");
             }

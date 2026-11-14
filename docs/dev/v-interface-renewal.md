@@ -2605,7 +2605,8 @@ departs from the recipe, the tests, what is left, and what nobody has seen on a 
      The three documents whose `LoadCoreAsync` *is* their long operation (the settings search, the cleanup, the
      diagnostics) have it in the line already – as "Reading “…”…" – next to their own progress bar and text; their unit
      reports the stages through `LoadOperation`, and their *Cancel* becomes the Stop of the line. `IsLoading` is
-     unchanged: the commands and the mark in the tab header follow it.
+     unchanged: the commands and the mark in the tab header follow it. *Refresh* stays the icon button it was: it
+     never had a Stop of its own – the read is stopped in the line.
   5. *What lasts is computed in one method of the base*, `UpdateLasting`, the most important first: **not connected**
      ("Not connected to a domain." – an error without an action); **the content cannot be shown** – the load failed
      ("Could not read “…”: reason. Press Retry to try again. (code)", with Retry = `RefreshCommand`), or the load found
@@ -2635,9 +2636,9 @@ departs from the recipe, the tests, what is left, and what nobody has seen on a 
      values." where the toast was. What a helper of the operations says before a plan exists – a trustee without a
      SID, a read after the object picker that failed, the default GPOs that cannot be deleted – goes through
      `GroupPolicyActions.RefuseAsync(dialogTitle, operation, reason, logKey, code)`: the line of the document when
-     there is one and it is not working, else the dialog. The extension methods of the later units (`CopySettingsAsync`,
-     `DeleteCheckedAsync` …) use it for their own "why nothing was done" dialogs. Only what is *said* changed: plan,
-     preview, confirmation and execution are the pipeline's (rule 5).
+     there is one and it is not working, else the dialog. It is there for the extension methods of the later units
+     (`CopySettingsAsync`, `DeleteCheckedAsync` …), whose own "why nothing was done" dialogs are still dialogs. Only
+     what is *said* changed: plan, preview, confirmation and execution are the pipeline's (rule 5).
   8. *The load and the planning share the holder, and replace one another.* The commands that plan are disabled while
      the document loads (as before), so planning never takes the line from a load; a load that starts while a plan is
      being made (F5, another operation was executed, the session changed, the language) ends that planning without a
@@ -2740,6 +2741,10 @@ departs from the recipe, the tests, what is left, and what nobody has seen on a 
     - **The button that had a bar of its own is the action of the line.** The bar had no sentence – that was in the
       error bar above it. One state, one sentence, one action: the lasting error carries the command
       (`DeleteOrphanedFolderCommand`, which plans and previews like every change).
+    - **The health panel has no line of its own, and neither has the notes control** (Dialogs 15):
+      `GroupPolicyHealthPanel.xaml` and `GroupPolicyNotes.xaml` are controls a document view hosts – what the panel
+      did or is doing is said by the line of that view, and what is left in them are notes. Both are on
+      `ConvertedViewsWithoutAStatusLine`.
     - `HealthStatusText`, `HealthNotes`, `IsCheckingHealth`, `Error` and `LoadedText` are unchanged for the tests and
       the code that read them, except that a failed check no longer puts its reason into `HealthNotes`.
 - **WMI Filters** (`GroupPolicy/WmiFiltersView.xaml`; `WmiFiltersDocumentViewModel`). Under the header, above the notes

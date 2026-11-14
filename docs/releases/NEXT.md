@@ -334,7 +334,7 @@
   grupy zaczyna się o wysokość wiersza stanu niżej.
 - **Operacje na zasadach grupy mówią w wierszu karty, co się z nimi stało.** Po wybraniu polecenia, które kończy się
   podglądem planu zmian (nowe GPO, kopia, zmiana nazwy, usunięcie, połączenia i ich opcje, blokada dziedziczenia, stan
-  GPO, filtr WMI, filtrowanie zabezpieczeń, delegowanie, wyrównanie wersji, naprawa uprawnień folderu, filtry WMI),
+  GPO, filtrowanie zabezpieczeń, delegowanie, wyrównanie wersji, naprawa uprawnień folderu, filtry WMI i ich wybór),
   karta pokazuje **Trwa** – „Zmiana nazwy obiektu GPO „Stacje robocze – Zasady haseł”: przygotowywanie zmian…” – z
   poleceniem **Zatrzymaj**, dopóki plan powstaje; dotąd nic nie było wtedy widać i nie dało się tego przerwać. Gdy z
   operacji nic nie wyszło, wiersz mówi dlaczego: „… – nic nie zmieniono: SYSVOL niedostępny na dc01.contoso.test: …”,
