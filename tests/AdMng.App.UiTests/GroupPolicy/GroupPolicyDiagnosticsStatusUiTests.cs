@@ -105,6 +105,11 @@ public sealed class GroupPolicyDiagnosticsStatusUiTests
         var ring = ControlHost.Part<ProgressRing>(line, "PART_Ring");
         var chipsTop = TopOf(view.ChipsList, view);
 
+        // The quick check of the opening has a note ("a quick check does not cover …"); the full check has none, so the
+        // chips move up by the height of that note when the full check ends.
+        Assert.True(view.NotesBar.IsVisible);
+        var noteHeight = view.NotesBar.ActualHeight + view.NotesBar.Margin.Bottom;
+
         // "Full check": the GPOs are read, and the first read of the domain controller waits for the test.
         using (var held = new HeldRead(context.Directory.Session, IsReadOfThePolicies))
         {
@@ -160,13 +165,15 @@ public sealed class GroupPolicyDiagnosticsStatusUiTests
         view.UpdateLayout();
         Assert.Equal(chipsTop + GrowthOf(line), TopOf(view.ChipsList, view), 0.5);
 
-        // Refresh, pressed in the line, runs the check that was stopped - the full one - again.
+        // Refresh, pressed in the line, runs the check that was stopped - the full one - again: the summary, and without
+        // the note of the quick check the chips are higher by the height of that note.
         ControlHost.Press(action);
         await UiWait.UntilAsync(() => !document.IsLoading && line.Kind == PageStatusKind.Idle, "the check ran again");
         Assert.Equal(GpoDiagnosticsDepth.Full, document.LastDepth);
         Assert.StartsWith("Last check: full, ", document.LastRunText, StringComparison.Ordinal);
+        Assert.False(view.NotesBar.IsVisible);
         view.UpdateLayout();
-        Assert.Equal(chipsTop, TopOf(view.ChipsList, view), 0.5);
+        Assert.Equal(chipsTop - noteHeight, TopOf(view.ChipsList, view), 0.5);
 
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         context.AssertHealthy();
