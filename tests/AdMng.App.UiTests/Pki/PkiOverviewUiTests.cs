@@ -57,7 +57,7 @@ public sealed class PkiOverviewUiTests
         var view = Assert.Single(UiWait.Descendants<PkiOverviewView>(main));
         Assert.Equal("Usługi kluczy publicznych", view.TitleText.Text);
         Assert.Equal(2, view.AuthoritiesList.Items.Count);
-        Assert.Equal(document.SummaryText, view.SummaryText.Text);
+        Assert.StartsWith(document.SummaryText, view.PageStatus.Message, StringComparison.Ordinal);
         Assert.True(view.OpenComputerButton.IsEnabled);
         Assert.NotEmpty(view.PublishedTemplatesList.Items.Cast<object>());
 

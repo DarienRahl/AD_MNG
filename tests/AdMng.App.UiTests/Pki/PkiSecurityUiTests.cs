@@ -128,10 +128,9 @@ public sealed class PkiSecurityUiTests
 
         Assert.Equal("Gotowość na silne mapowanie i NTAuth", view.TitleText.Text);
         Assert.Equal(6, view.GroupsList.Items.Count);
-        Assert.True(view.SummaryTextBlock.IsVisible);
-        Assert.Equal(readiness.SummaryText, view.SummaryTextBlock.Text);
+        Assert.Equal($"{readiness.SummaryText} · {readiness.LastRunText}", view.PageStatus.Message);
         Assert.True(view.ReadOnlyNoteText.IsVisible);
-        Assert.False(view.ProgressPanel.IsVisible);
+        Assert.False(view.PageStatus.IsWorking);
         Assert.Equal(PkiReadinessStatus.NotChecked, readiness.Groups.Single(g => g.Area == PkiReadinessArea.DomainControllerLdaps).Status);
         Assert.Empty(probe.Calls);
 

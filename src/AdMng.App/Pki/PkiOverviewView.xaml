@@ -5,6 +5,12 @@
   recovery agents, OIDs (the linked group opens), the pkiview-style health with "Sprawdź adresy HTTP" (the operator's button
   only) and the DC LDAPS certificates (probed on the tab's first activation or its button). Read-only; layout and palette as
   "Diagnostyka zasad grupy".
+  Feedback (track V, stage V2b-4): one status line under the header (PageStatus) says the summary - what the read found, when
+  and from where, the selected row -, the read with the stage it is at and Stop, why the document cannot show its content, and,
+  in front of it while the tab is shown, what the health tab found and how far its HTTP check is, and what the LDAPS tab found
+  and how far its probe is. The notes (what the read observed, the CA that is not in NTAuth, why the HTTP rows are unknown)
+  stay where they are, with the look of a note. The buttons that start a read, the HTTP check and the probe are action
+  buttons: while their operation runs each is its Cancel.
 -->
 <UserControl x:Class="AdMng.App.Pki.PkiOverviewView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -95,69 +101,44 @@
                  Text="{Binding Title, Mode=OneWay}"
                  TextTrimming="CharacterEllipsis"
                  ToolTip="{Binding Title, Mode=OneWay}" />
-      <Button x:Name="RefreshButton"
-              Grid.Column="2"
-              VerticalAlignment="Center"
-              Command="{Binding RefreshCommand}"
-              Content="{l:Tr Pki.RefreshCommand}" />
+      <c:ActionButton x:Name="RefreshButton"
+                      Grid.Column="2"
+                      VerticalAlignment="Center"
+                      CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                      Command="{Binding RefreshCommand}"
+                      Content="{l:Tr Pki.RefreshCommand}"
+                      IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                      IsRunning="{Binding IsLoading, Mode=OneWay}"
+                      Style="{StaticResource Ad.ActionButton}" />
     </Grid>
 
-    <!-- The summary of the read, or its progress -->
-    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
-      <StackPanel Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}">
-        <TextBlock x:Name="SummaryText" Text="{Binding SummaryText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
-        <TextBlock x:Name="ReadAtText" Style="{StaticResource Ad.SecondaryText}" Text="{Binding ReadAtText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
-      </StackPanel>
-      <DockPanel x:Name="ProgressPanel" Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-        <ProgressBar Width="220"
-                     Height="4"
-                     Margin="0,0,10,0"
-                     VerticalAlignment="Center"
-                     AutomationProperties.Name="{Binding StatusText, Mode=OneWay}"
-                     DockPanel.Dock="Left"
-                     IsIndeterminate="True" />
-        <TextBlock x:Name="ProgressText"
-                   VerticalAlignment="Center"
-                   AutomationProperties.LiveSetting="Polite"
-                   Text="{Binding StatusText, Mode=OneWay}"
-                   TextTrimming="CharacterEllipsis" />
-      </DockPanel>
-    </Grid>
-
-    <Border x:Name="ErrorBar"
-            Margin="0,0,0,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.ErrorBar}"
-            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock x:Name="ErrorText" AutomationProperties.LiveSetting="Assertive" Text="{Binding Error, Mode=OneWay}" TextWrapping="Wrap" />
-    </Border>
+    <!--
+      Status line (design note 6.1): the summary of the document (or of the tab in front), the read with its stage and Stop,
+      and why the document cannot show its content. Always present, so nothing under it moves while the tab works.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="0,0,0,6"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
 
     <!-- What the read observed (no AD CS, a hidden container, an unreadable descriptor …) -->
-    <Border x:Name="NoticesBar"
-            Margin="0,0,0,6"
-            Padding="12,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.Card}"
-            Visibility="{Binding HasNotices, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <DockPanel>
-        <TextBlock Margin="0,1,10,0"
-                   VerticalAlignment="Top"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Info}" />
-        <StackPanel>
-          <TextBlock FontWeight="SemiBold" Text="{l:Tr Pki.NoticesHeading}" />
-          <ItemsControl x:Name="NoticesList" ItemsSource="{Binding Notices, Mode=OneWay}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate DataType="{x:Type sys:String}">
-                <TextBlock Margin="0,1" Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </StackPanel>
-      </DockPanel>
-    </Border>
+    <ContentControl x:Name="NoticesBar"
+                    Margin="0,0,0,6"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding HasNotices, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <StackPanel>
+        <TextBlock FontWeight="SemiBold" Text="{l:Tr Pki.NoticesHeading}" />
+        <ItemsControl x:Name="NoticesList" AutomationProperties.LiveSetting="Polite" Focusable="False" ItemsSource="{Binding Notices, Mode=OneWay}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type sys:String}">
+              <TextBlock Margin="0,1" Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ContentControl>
 
     <TextBlock Margin="0,0,0,6"
                DockPanel.Dock="Bottom"
@@ -245,11 +226,12 @@
                              FontWeight="SemiBold"
                              Text="{Binding SelectedAuthority.Name, Mode=OneWay}"
                              TextWrapping="Wrap" />
-                  <Border Margin="0,0,0,6"
-                          Style="{StaticResource Ad.WarningBar}"
-                          Visibility="{Binding SelectedAuthority.HasNtAuthWarning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}, FallbackValue=Collapsed}">
+                  <ContentControl x:Name="NtAuthWarning"
+                                  Margin="0,0,0,6"
+                                  Style="{StaticResource Ad.Note.Attention}"
+                                  Visibility="{Binding SelectedAuthority.HasNtAuthWarning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}, FallbackValue=Collapsed}">
                     <TextBlock x:Name="NtAuthWarningText" Text="{Binding SelectedAuthority.NtAuthWarning, Mode=OneWay}" TextWrapping="Wrap" />
-                  </Border>
+                  </ContentControl>
                   <WrapPanel>
                     <Button x:Name="OpenComputerButton" Command="{Binding OpenComputerCommand}" Content="{l:Tr Pki.OpenComputer}" Style="{StaticResource ActionButton}" />
                     <Button x:Name="RemoteActionsButton"
@@ -567,21 +549,26 @@
       <TabItem x:Name="HealthTab" Header="{l:Tr Pki.SectionHealth}">
         <DockPanel Margin="0,6,0,0">
           <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
-            <Button x:Name="CheckHttpButton"
-                    Margin="12,0,0,0"
-                    VerticalAlignment="Top"
-                    Command="{Binding CheckHttpCommand}"
-                    Content="{l:Tr Pki.CheckHttp}"
-                    DockPanel.Dock="Right"
-                    ToolTip="{l:Tr Pki.CheckHttpHint}" />
+            <c:ActionButton x:Name="CheckHttpButton"
+                            Margin="12,0,0,0"
+                            VerticalAlignment="Top"
+                            CancelCommand="{Binding HealthStatus.CancelCommand, Mode=OneWay}"
+                            Command="{Binding CheckHttpCommand}"
+                            Content="{l:Tr Pki.CheckHttp}"
+                            DockPanel.Dock="Right"
+                            IsCancelling="{Binding HealthStatus.IsCancelling, Mode=OneWay}"
+                            IsRunning="{Binding IsCheckingHttp, Mode=OneWay}"
+                            Style="{StaticResource Ad.ActionButton}"
+                            ToolTip="{l:Tr Pki.CheckHttpHint}" />
             <StackPanel>
-              <TextBlock x:Name="HealthSummaryText" FontWeight="SemiBold" Text="{Binding HealthSummaryText, Mode=OneWay}" TextWrapping="Wrap" />
               <TextBlock x:Name="ThresholdsText" Style="{StaticResource Ad.SecondaryText}" Text="{Binding ThresholdsText, Mode=OneWay}" TextWrapping="Wrap" />
-              <TextBlock x:Name="HttpStatusText"
-                         AutomationProperties.LiveSetting="Polite"
-                         Style="{StaticResource Ad.SecondaryText}"
-                         Text="{Binding HttpStatusText, Mode=OneWay}"
-                         TextWrapping="Wrap" />
+              <!-- Why the HTTP rows say "unknown": the check was not run (it runs only on its button) or is not available here. -->
+              <ContentControl x:Name="HttpNoteBar"
+                              Margin="0,2,0,0"
+                              Style="{StaticResource Ad.Note.Info}"
+                              Visibility="{Binding HasHttpNote, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                <TextBlock x:Name="HttpNoteText" Text="{Binding HttpNote, Mode=OneWay}" TextWrapping="Wrap" />
+              </ContentControl>
             </StackPanel>
           </DockPanel>
           <Expander x:Name="HttpResultsExpander"
@@ -680,20 +667,18 @@
       <TabItem x:Name="LdapsTab" Header="{l:Tr Pki.SectionLdaps}">
         <DockPanel Margin="0,6,0,0">
           <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
-            <Button x:Name="ProbeLdapsButton"
-                    Margin="12,0,0,0"
-                    VerticalAlignment="Top"
-                    Command="{Binding ProbeLdapsCommand}"
-                    Content="{l:Tr Pki.ProbeLdaps}"
-                    DockPanel.Dock="Right"
-                    ToolTip="{l:Tr Pki.ProbeLdapsHint}" />
-            <StackPanel>
-              <TextBlock x:Name="LdapsStatusText"
-                         AutomationProperties.LiveSetting="Polite"
-                         Text="{Binding LdapsStatusText, Mode=OneWay}"
-                         TextWrapping="Wrap" />
-              <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding KdcNote, Mode=OneWay}" TextWrapping="Wrap" />
-            </StackPanel>
+            <c:ActionButton x:Name="ProbeLdapsButton"
+                            Margin="12,0,0,0"
+                            VerticalAlignment="Top"
+                            CancelCommand="{Binding LdapsStatus.CancelCommand, Mode=OneWay}"
+                            Command="{Binding ProbeLdapsCommand}"
+                            Content="{l:Tr Pki.ProbeLdaps}"
+                            DockPanel.Dock="Right"
+                            IsCancelling="{Binding LdapsStatus.IsCancelling, Mode=OneWay}"
+                            IsRunning="{Binding LdapsStatus.IsWorking, Mode=OneWay}"
+                            Style="{StaticResource Ad.ActionButton}"
+                            ToolTip="{l:Tr Pki.ProbeLdapsHint}" />
+            <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding KdcNote, Mode=OneWay}" TextWrapping="Wrap" />
           </DockPanel>
           <ListView x:Name="LdapsList"
                     AutomationProperties.Name="{l:Tr Pki.SectionLdaps}"

@@ -7,6 +7,11 @@
   their counts, the notes, the related objects, the Certipy / Locksmith / MDI ids) with "Otwórz szablon", "Otwórz urząd",
   "Otwórz konto / komputer / obiekt" and "Kopiuj" - no "Napraw" in P1. Exports to CSV and HTML. Severity colours as the
   K6 diagnostics; theme brushes are DynamicResource only (light, dark and high contrast).
+  Feedback (track V, stage V2b-4): one status line under the header (PageStatus) says the summary - the findings, when and
+  where the shown check ran, the selected finding -, the check with the stage it is at and Stop, a check that was stopped or
+  failed, and why the document cannot show its content. "Sprawdź ponownie" is one action button: while a check runs it is
+  its Cancel (there is no separate "Anuluj"). The scope of the review and what the shown check could not read or evaluate
+  are notes.
 -->
 <UserControl x:Class="AdMng.App.Pki.PkiSecurityReviewView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -111,69 +116,51 @@
                  TextTrimming="CharacterEllipsis"
                  ToolTip="{Binding Title, Mode=OneWay}" />
       <WrapPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
-        <Button x:Name="CheckAgainButton"
-                Margin="0,0,6,0"
-                Command="{Binding RefreshCommand}"
-                Content="{l:Tr PkiEsc.CheckAgain}"
-                Style="{StaticResource AccentButtonStyle}"
-                ToolTip="{l:Tr PkiEsc.CheckAgainHint}" />
-        <Button x:Name="CancelButton" Margin="0,0,12,0" Command="{Binding CancelCommand}" Content="{l:Tr Common.Cancel}" />
+        <c:ActionButton x:Name="CheckAgainButton"
+                        Margin="0,0,12,0"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding RefreshCommand}"
+                        Content="{l:Tr PkiEsc.CheckAgain}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsLoading, Mode=OneWay}"
+                        Style="{StaticResource Ad.AccentActionButton}"
+                        ToolTip="{l:Tr PkiEsc.CheckAgainHint}" />
         <Button x:Name="ExportCsvButton" Margin="0,0,6,0" Command="{Binding ExportCsvCommand}" Content="{l:Tr PkiEsc.ExportCsv}" />
         <Button x:Name="ExportHtmlButton" Command="{Binding ExportHtmlCommand}" Content="{l:Tr PkiEsc.ExportHtml}" />
       </WrapPanel>
     </Grid>
 
-    <!-- The last check, or the progress of the running one -->
-    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
-      <TextBlock x:Name="LastRunText"
-                 VerticalAlignment="Center"
-                 Style="{StaticResource Ad.SecondaryText}"
-                 Text="{Binding LastRunText, Mode=OneWay}"
-                 TextTrimming="CharacterEllipsis"
-                 ToolTip="{Binding LastRunText, Mode=OneWay}"
-                 Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
-      <DockPanel x:Name="ProgressPanel" Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-        <ProgressBar x:Name="CheckProgress"
-                     Width="220"
-                     Height="4"
-                     Margin="0,0,10,0"
-                     VerticalAlignment="Center"
-                     AutomationProperties.Name="{Binding ProgressText, Mode=OneWay}"
-                     DockPanel.Dock="Left"
-                     IsIndeterminate="{Binding IsLoading, Mode=OneWay}" />
-        <TextBlock x:Name="ProgressText"
-                   VerticalAlignment="Center"
-                   AutomationProperties.LiveSetting="Polite"
-                   Text="{Binding ProgressText, Mode=OneWay}"
-                   TextTrimming="CharacterEllipsis" />
-      </DockPanel>
-    </Grid>
+    <!--
+      Status line (design note 6.1): the summary of the shown check, the check with the stage it is at and Stop, a check that
+      was stopped or failed, why the document cannot show its content. Always present, so nothing under it moves while the
+      tab works.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="0,0,0,6"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
 
-    <!-- What the review covers and assumes (always), and what the shown check could not read or evaluate -->
-    <Border x:Name="NotesBar"
-            Margin="0,0,0,6"
-            Padding="12,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.Card}">
-      <DockPanel>
-        <TextBlock Margin="0,1,10,0"
-                   VerticalAlignment="Top"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Info}" />
-        <StackPanel>
-          <TextBlock x:Name="ScopeNoteText" Text="{Binding ScopeNote, Mode=OneWay}" TextWrapping="Wrap" />
-          <ItemsControl x:Name="NotesList"
-                        Margin="0,4,0,0"
-                        AutomationProperties.LiveSetting="Polite"
-                        Focusable="False"
-                        ItemTemplate="{StaticResource PkiEsc.Line}"
-                        ItemsSource="{Binding Notes, Mode=OneWay}"
-                        Visibility="{Binding HasNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        </StackPanel>
-      </DockPanel>
-    </Border>
+    <!-- What the review covers and assumes (always): true for as long as the tab is open - a note -->
+    <ContentControl x:Name="NotesBar"
+                    Margin="0,0,0,6"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Info}">
+      <TextBlock x:Name="ScopeNoteText" Text="{Binding ScopeNote, Mode=OneWay}" TextWrapping="Wrap" />
+    </ContentControl>
+
+    <!-- What the shown check could not read or evaluate: how complete the findings are, true for as long as they are shown - a note -->
+    <ContentControl x:Name="ReadNotesBar"
+                    Margin="0,0,0,6"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding HasNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <ItemsControl x:Name="NotesList"
+                    AutomationProperties.LiveSetting="Polite"
+                    Focusable="False"
+                    ItemTemplate="{StaticResource PkiEsc.Line}"
+                    ItemsSource="{Binding Notes, Mode=OneWay}" />
+    </ContentControl>
 
     <!-- Summary chips (click: only that severity) -->
     <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">

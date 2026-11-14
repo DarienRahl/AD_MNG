@@ -5,6 +5,10 @@
   read-only note, the summary and the six areas (weak mappings, authentication templates without the SID extension, CAs
   outside NTAuth, DC LDAPS, the KDC indicator, the KDC events of P5) with their rows: status glyph, the item and its status,
   what was found, what to do and the row's "Otwórz konto / szablon / urząd". Theme brushes are DynamicResource only.
+  Feedback (track V, stage V2b-4): one status line under the header (PageStatus) says what the rows found, then when and where
+  the report was read, the read with the stage it is at and Stop, the probe of the domain controllers with Stop, and why the
+  report cannot be shown. "Odczytaj ponownie" and "Sprawdź certyfikaty LDAPS" are action buttons: while their operation runs
+  each is its Cancel. What the report is (read-only) is a note; what a row found stays in its row.
 -->
 <UserControl x:Class="AdMng.App.Pki.PkiReadinessView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -60,72 +64,48 @@
                  TextTrimming="CharacterEllipsis"
                  ToolTip="{Binding Title, Mode=OneWay}" />
       <WrapPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
-        <Button x:Name="CheckAgainButton"
-                Margin="0,0,6,0"
-                Command="{Binding RefreshCommand}"
-                Content="{l:Tr PkiReady.CheckAgain}"
-                Style="{StaticResource AccentButtonStyle}"
-                ToolTip="{l:Tr PkiReady.CheckAgainHint}" />
-        <Button x:Name="CheckLdapsButton"
-                Margin="0,0,12,0"
-                Command="{Binding CheckLdapsCommand}"
-                Content="{l:Tr PkiReady.CheckLdaps}"
-                ToolTip="{l:Tr PkiReady.CheckLdapsHint}"
-                ToolTipService.ShowOnDisabled="True" />
+        <c:ActionButton x:Name="CheckAgainButton"
+                        Margin="0,0,6,0"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding RefreshCommand}"
+                        Content="{l:Tr PkiReady.CheckAgain}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsLoading, Mode=OneWay}"
+                        Style="{StaticResource Ad.AccentActionButton}"
+                        ToolTip="{l:Tr PkiReady.CheckAgainHint}" />
+        <c:ActionButton x:Name="CheckLdapsButton"
+                        Margin="0,0,12,0"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding CheckLdapsCommand}"
+                        Content="{l:Tr PkiReady.CheckLdaps}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsCheckingLdaps, Mode=OneWay}"
+                        Style="{StaticResource Ad.ActionButton}"
+                        ToolTip="{l:Tr PkiReady.CheckLdapsHint}"
+                        ToolTipService.ShowOnDisabled="True" />
         <Button x:Name="CopyButton" Margin="0,0,6,0" Command="{Binding CopyCommand}" Content="{l:Tr PkiReady.Copy}" />
         <Button x:Name="ExportCsvButton" Command="{Binding ExportCsvCommand}" Content="{l:Tr PkiReady.ExportCsv}" />
       </WrapPanel>
     </Grid>
 
-    <!-- The last read, or the progress of the running read or LDAPS check -->
-    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
-      <TextBlock x:Name="LastRunText"
-                 VerticalAlignment="Center"
-                 Style="{StaticResource Ad.SecondaryText}"
-                 Text="{Binding LastRunText, Mode=OneWay}"
-                 TextTrimming="CharacterEllipsis"
-                 ToolTip="{Binding LastRunText, Mode=OneWay}"
-                 Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
-      <DockPanel x:Name="ProgressPanel" Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-        <ProgressBar x:Name="ReadProgress"
-                     Width="220"
-                     Height="4"
-                     Margin="0,0,10,0"
-                     VerticalAlignment="Center"
-                     AutomationProperties.Name="{Binding ProgressText, Mode=OneWay}"
-                     DockPanel.Dock="Left"
-                     IsIndeterminate="{Binding IsBusy, Mode=OneWay}" />
-        <TextBlock x:Name="ProgressText"
-                   VerticalAlignment="Center"
-                   AutomationProperties.LiveSetting="Polite"
-                   Text="{Binding ProgressText, Mode=OneWay}"
-                   TextTrimming="CharacterEllipsis" />
-      </DockPanel>
-    </Grid>
+    <!--
+      Status line (design note 6.1): what the rows found, then when and where the report was read; the read with the stage it
+      is at and Stop; the probe of the domain controllers; why the report cannot be shown. Always present, so nothing under
+      it moves while the tab works.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="0,0,0,6"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
 
-    <!-- What the report is (read-only; the LDAPS check only on its button) -->
-    <Border x:Name="NotesBar"
-            Margin="0,0,0,6"
-            Padding="12,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.Card}">
-      <DockPanel>
-        <TextBlock Margin="0,1,10,0"
-                   VerticalAlignment="Top"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Info}" />
-        <TextBlock x:Name="ReadOnlyNoteText" Text="{l:Tr PkiReady.ReadOnlyNote}" TextWrapping="Wrap" />
-      </DockPanel>
-    </Border>
-
-    <TextBlock x:Name="SummaryTextBlock"
-               Margin="0,0,0,6"
-               DockPanel.Dock="Top"
-               FontWeight="SemiBold"
-               Text="{Binding SummaryText, Mode=OneWay}"
-               Visibility="{Binding HasResult, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+    <!-- What the report is (read-only; the LDAPS check only on its button): true for as long as the tab is open - a note -->
+    <ContentControl x:Name="NotesBar"
+                    Margin="0,0,0,6"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Info}">
+      <TextBlock x:Name="ReadOnlyNoteText" Text="{l:Tr PkiReady.ReadOnlyNote}" TextWrapping="Wrap" />
+    </ContentControl>
 
     <!-- The areas with their rows -->
     <ScrollViewer x:Name="ResultsScroll" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">

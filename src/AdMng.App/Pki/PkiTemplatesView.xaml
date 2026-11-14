@@ -5,6 +5,11 @@
   can enroll and who can change it (trustees at once, the account counts when counted; accounts and groups open their
   sheets, a broad group shows its count only); the compare pane below the list (two templates side by side, differences
   marked); exports to CSV and HTML on request. Read-only; layout and palette as "Diagnostyka zasad grupy".
+  Feedback (track V, stage V2b-4): one status line under the header (PageStatus) says the summary - the templates, how many
+  accounts were counted, the selected template -, the read with the stage it is at (the objects, the rights, the accounts) and
+  Stop, why the document cannot show its content and that the accounts could not be counted. "Odśwież" is an action button:
+  while the document is read it is its Cancel. What is true of the selected template while it is shown (its rights were not
+  evaluated) is a note.
 -->
 <UserControl x:Class="AdMng.App.Pki.PkiTemplatesView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -138,7 +143,14 @@
                  TextTrimming="CharacterEllipsis"
                  ToolTip="{Binding Title, Mode=OneWay}" />
       <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
-        <Button x:Name="RefreshButton" Margin="0,0,6,0" Command="{Binding RefreshCommand}" Content="{l:Tr Pki.RefreshCommand}" />
+        <c:ActionButton x:Name="RefreshButton"
+                        Margin="0,0,6,0"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding RefreshCommand}"
+                        Content="{l:Tr Pki.RefreshCommand}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsLoading, Mode=OneWay}"
+                        Style="{StaticResource Ad.ActionButton}" />
         <Button x:Name="CompareButton"
                 Margin="0,0,12,0"
                 Command="{Binding CompareCommand}"
@@ -153,35 +165,16 @@
       </StackPanel>
     </Grid>
 
-    <!-- The summary and the account pass, or the read's progress -->
-    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
-      <StackPanel Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}">
-        <TextBlock x:Name="SummaryText" Text="{Binding SummaryText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
-        <TextBlock x:Name="CountStatusText" Style="{StaticResource Ad.SecondaryText}" Text="{Binding CountStatusText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
-      </StackPanel>
-      <DockPanel x:Name="ProgressPanel" Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-        <ProgressBar Width="220"
-                     Height="4"
-                     Margin="0,0,10,0"
-                     VerticalAlignment="Center"
-                     AutomationProperties.Name="{Binding StatusText, Mode=OneWay}"
-                     DockPanel.Dock="Left"
-                     IsIndeterminate="True" />
-        <TextBlock x:Name="ProgressText"
-                   VerticalAlignment="Center"
-                   AutomationProperties.LiveSetting="Polite"
-                   Text="{Binding StatusText, Mode=OneWay}"
-                   TextTrimming="CharacterEllipsis" />
-      </DockPanel>
-    </Grid>
-
-    <Border x:Name="ErrorBar"
-            Margin="0,0,0,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.ErrorBar}"
-            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock x:Name="ErrorText" AutomationProperties.LiveSetting="Assertive" Text="{Binding Error, Mode=OneWay}" TextWrapping="Wrap" />
-    </Border>
+    <!--
+      Status line (design note 6.1): the summary, the read with its stage (the account pass included) and Stop, why the
+      document cannot show its content, and that the accounts could not be counted. Always present, so nothing under it
+      moves while the tab works.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="0,0,0,6"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
 
     <!-- Filters: text (Ctrl+F, Esc) and the templates no CA issues -->
     <WrapPanel Margin="0,0,0,6" DockPanel.Dock="Top">
@@ -477,11 +470,12 @@
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <Border Margin="0,6,0,0"
-                        Style="{StaticResource Ad.WarningBar}"
-                        Visibility="{Binding IsNotEvaluated, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                <ContentControl x:Name="NotEvaluatedNote"
+                                Margin="0,6,0,0"
+                                Style="{StaticResource Ad.Note.Attention}"
+                                Visibility="{Binding IsNotEvaluated, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
                   <TextBlock x:Name="NotEvaluatedText" Text="{Binding NotEvaluatedText, Mode=OneWay}" TextWrapping="Wrap" />
-                </Border>
+                </ContentControl>
 
                 <TextBlock Style="{StaticResource GpoDiag.DetailHeading}" Text="{l:Tr PkiTpl.EnrollHeading}" />
                 <TextBlock Margin="0,0,0,4" Style="{StaticResource Ad.SecondaryText}" Text="{Binding BroadNote, Mode=OneWay}" TextWrapping="Wrap" />
