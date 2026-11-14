@@ -3,9 +3,19 @@
      comment, fills {{VERSION}}, {{PREVIOUS}} and {{DOWNLOADS}}, and refuses to release while a TODO comment or an
      empty section is left. Sections "Nowe: ...", "Inne zmiany" and "Co dalej" may be removed or repeated; the others
      are required. Notes are in Polish with an English summary at the end. -->
-<!-- TODO: wstęp – jeden akapit: która to wersja zapoznawcza i co w niej najważniejsze (pogrubione nazwy funkcji) -->
+Szesnasta wersja zapoznawcza **AD Manager**: **odnowa interfejsu**. Etap V1 daje **kolorowe ikony obiektów**,
+**panele okna głównego**, wybór **tła okna** i pierwsze **animacje**. Etap V2 daje na każdej stronie **jedno miejsce na to,
+co program robi i co się stało** – wiersz stanu z podsumowaniem, postępem i przyciskiem *Zatrzymaj* – **przyciski, które
+same się anulują**, tam gdzie operację rozpoczęto, i **spokojne notatki zamiast kolorowych ramek**. Obejmuje wszystkie
+okna i karty: listę obiektów, kreator zakładania kont, zasady grupy, komputery, dzienniki zdarzeń, gotowość środowiska,
+certyfikaty, Watchdog i Korespondencję. Działanie funkcji się nie zmienia, a zapisy do katalogu nadal idą wyłącznie
+przez plan zmian z podglądem.
 
-> **Wersja zapoznawcza ({{VERSION}}).** <!-- TODO: czym zostało sprawdzone i czego nie uruchomiono na prawdziwej domenie Windows Server -->
+> **Wersja zapoznawcza ({{VERSION}}).** Odnowa interfejsu przeszła testy jednostkowe, testy modeli widoku na fałszywym katalogu, testy interfejsu na Windows
+> (ponad 650 testów okien i kart), testy integracyjne na kontrolerze Samba AD i test dymny opublikowanego `AdMng.exe`.
+> **Na prawdziwej domenie Windows Server nie była jeszcze uruchamiana, a wyglądu nowych wierszy stanu, ruchu, tła Mica
+> w Windows 11 i trybu dużego kontrastu nikt nie obejrzał na ekranie** – sprawdzały je testy i obrazy interfejsu
+> w spoczynku w README.
 > Lista kontrolna pilotażu: [PILOTAZ.md](https://github.com/DarienRahl/AD_MNG/blob/v{{VERSION}}/docs/PILOTAZ.md).
 
 ## Pobieranie
@@ -683,13 +693,34 @@
 
 ## Znane ograniczenia
 
-<!-- TODO: ograniczenia nowych funkcji i to, czego nie sprawdzono na prawdziwej domenie -->
+- **Odnowa interfejsu nie była oglądana na ekranie:** odstępy i zawijanie wierszy stanu (długi komunikat zajmuje
+  najwyżej trzy wiersze), szerokość przycisków akcji po polsku („Zatrzymywanie…”), ruch, tło Mica i duży kontrast
+  sprawdzały testy, a nie człowiek. Rzeczy, które wyglądają źle, zgłoś.
+- **Wiersz stanu zajmuje stałe miejsce** (ok. 28 px) także wtedy, gdy nie ma nic do powiedzenia – dzięki temu zawartość
+  nie przesuwa się, gdy operacja się zaczyna i kończy.
+- **Czytnik ekranu** odczytuje wyniki, uwagi i błędy, ale nie odczytuje zmiany samego podsumowania, np. liczby wyników
+  wyszukiwania ustawień zasad grupy.
+- **Zatrzymanie operacji na wielu obiektach** kończy krok, który trwa: konto, na którym przerwano np. reset hasła, może
+  mieć nowe hasło bez pozostałych ustawień i jest na liście jako nieudane (tak działał wykonawca zmian zawsze; teraz da się
+  to wywołać z okna).
 - Wszystkie ograniczenia z wersji {{PREVIOUS}} obowiązują nadal.
 
 ## Co dalej
 
-<!-- TODO: następne kroki z ROADMAP.md (albo usuń ten rozdział) -->
+Pilotaż według [PILOTAZ.md](https://github.com/DarienRahl/AD_MNG/blob/v{{VERSION}}/docs/PILOTAZ.md). Dalej dokończenie
+etapu V2 – krótkie opóźnienie przed „Trwa”, żeby szybkie operacje nie migały, znaczki stanu, puste stany list, postęp na
+pasku zadań i pytanie przy zamykaniu okna z trwającą operacją – potem **okno PowerShell** (ścieżka R, R1), szkielet stron
+(V3) i **wystawianie certyfikatów** (P2).
 
 ## English summary
 
-<!-- TODO: one paragraph in English: "AD Manager {{VERSION}} (preview) adds ...", links to docs/en with the tag v{{VERSION}} -->
+AD Manager {{VERSION}} (preview) is the first release of the **interface renewal**. Stage V1 adds colour icons for
+objects, rounded panels in the main window, a choice of window background and the first animations (Settings → General →
+Appearance). Stage V2 gives every page one **status line** – what the program is doing and what happened, with progress and
+a **Stop** button – makes the button that starts an operation its own **Cancel**, and replaces coloured banners with quiet
+**notes**; it covers the object list, the account wizard, Group Policy, computers, event logs, readiness, certificates,
+Watchdog and Korespondencja ([CREATING-ACCOUNTS.md](https://github.com/DarienRahl/AD_MNG/blob/v{{VERSION}}/docs/en/CREATING-ACCOUNTS.md),
+[GROUP-POLICY.md](https://github.com/DarienRahl/AD_MNG/blob/v{{VERSION}}/docs/en/GROUP-POLICY.md),
+[CERTIFICATES.md](https://github.com/DarienRahl/AD_MNG/blob/v{{VERSION}}/docs/en/CERTIFICATES.md)). What the functions do
+and how changes reach the directory (always through the change plan) has not changed. AdMng Watchdog is unchanged. Not yet
+piloted on a real Windows Server domain, and the new look has been checked by tests, not by eye.
