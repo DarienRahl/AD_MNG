@@ -162,15 +162,22 @@ public sealed class RetentionAndBackupTests
         var needleOriginal = Encoding.UTF8.GetBytes(text);
         foreach (var path in new[] { store.Database.DatabasePath, store.Database.DatabasePath + "-wal" })
         {
-            if (!File.Exists(path))
+            byte[] bytes;
+            try
             {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                using var copy = new MemoryStream();
+                stream.CopyTo(copy);
+                bytes = copy.ToArray();
+            }
+            catch (FileNotFoundException)
+            {
+                // SQLite removes the write-ahead log when it has copied it into the database (a checkpoint, the last
+                // connection closing): a file that is not there is a file that holds nothing. Checking File.Exists first
+                // left a gap in which the lab job saw it vanish ("Could not find file ...watchdog.db-wal").
                 continue;
             }
 
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            using var copy = new MemoryStream();
-            stream.CopyTo(copy);
-            var bytes = copy.ToArray();
             if (bytes.AsSpan().IndexOf(needle) >= 0 || bytes.AsSpan().IndexOf(needleOriginal) >= 0)
             {
                 return true;
