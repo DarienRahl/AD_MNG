@@ -25374,5 +25374,149 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="PkiSecurity.Status.Stopped" xml:space="preserve">
     <value>{0} was stopped: the tab shows the results of the earlier check, if there was one. Press “{1}” to check again.</value>
   </data>
+  <data name="WatchdogDoc.Status.ConnectFailed" xml:space="preserve">
+    <value>Could not connect to {0}</value>
+  </data>
+  <data name="WatchdogDoc.Status.ReviewNext" xml:space="preserve">
+    <value>Press “{0}” to see the certificate the service presented.</value>
+  </data>
+  <data name="WatchdogEvents.Status.Reading" xml:space="preserve">
+    <value>Reading the events…</value>
+  </data>
+  <data name="WatchdogEvents.Status.ReadingOlder" xml:space="preserve">
+    <value>Reading older events ({0} loaded)…</value>
+  </data>
+  <data name="WatchdogEvents.Status.Acknowledging" xml:space="preserve">
+    <value>Acknowledging the events: {0}…</value>
+  </data>
+  <data name="WatchdogEvents.Status.ReadFailed" xml:space="preserve">
+    <value>Could not read the events</value>
+  </data>
+  <data name="WatchdogEvents.Status.OlderFailed" xml:space="preserve">
+    <value>Could not read older events</value>
+  </data>
+  <data name="WatchdogEvents.Status.AckFailed" xml:space="preserve">
+    <value>Could not acknowledge the events</value>
+  </data>
+  <data name="WatchdogEvents.Status.AckPartial" xml:space="preserve">
+    <value>Acknowledged: {0} of {1}. Select the rest and try again.</value>
+  </data>
+  <data name="WatchdogEvents.Status.Stopped" xml:space="preserve">
+    <value>Reading the events was stopped: the list is empty and live updates are paused. Press “{0}” to read it again.</value>
+  </data>
+  <data name="WatchdogEvents.Status.StoppedOlder" xml:space="preserve">
+    <value>Reading older events was stopped: the list was not changed. Press “{0}” to try again.</value>
+  </data>
+  <data name="WatchdogDetails.Status.Acknowledging" xml:space="preserve">
+    <value>Acknowledging the event…</value>
+  </data>
+  <data name="WatchdogDetails.Status.AckFailed" xml:space="preserve">
+    <value>Could not acknowledge the event</value>
+  </data>
+  <data name="WatchdogDetails.Status.OpenFailed" xml:space="preserve">
+    <value>Could not open the object</value>
+  </data>
+  <data name="WatchdogConfig.Status.Loading" xml:space="preserve">
+    <value>Reading the configuration of the service…</value>
+  </data>
+  <data name="WatchdogConfig.Status.ReadFailed" xml:space="preserve">
+    <value>Could not read the configuration</value>
+  </data>
+  <data name="WatchdogConfig.Status.Stopped" xml:space="preserve">
+    <value>Reading the configuration was stopped: the tabs show the configuration read before, if there was one. Press “{0}” to read it again.</value>
+  </data>
+  <data name="WatchdogConfig.Status.Validating" xml:space="preserve">
+    <value>Validating the configuration…</value>
+  </data>
+  <data name="WatchdogConfig.Status.ValidateFailed" xml:space="preserve">
+    <value>Could not validate the configuration</value>
+  </data>
+  <data name="WatchdogConfig.Status.ValidateStopped" xml:space="preserve">
+    <value>Validating the configuration was stopped. Press “{0}” to validate again.</value>
+  </data>
+  <data name="WatchdogConfig.Status.Invalid" xml:space="preserve">
+    <value>The configuration is not valid – correct the findings in the list.</value>
+  </data>
+  <data name="WatchdogConfig.Status.Saving" xml:space="preserve">
+    <value>Saving the configuration…</value>
+  </data>
+  <data name="WatchdogConfig.Status.SaveFailed" xml:space="preserve">
+    <value>The configuration was not saved</value>
+  </data>
+  <data name="WatchdogDigest.Status.Previewing" xml:space="preserve">
+    <value>Preparing the digest preview…</value>
+  </data>
+  <data name="WatchdogDigest.Status.PreviewFailed" xml:space="preserve">
+    <value>Could not prepare the digest preview</value>
+  </data>
+  <data name="WatchdogDigest.Status.PreviewStopped" xml:space="preserve">
+    <value>Preparing the preview was stopped: the preview was not changed. Press “{0}” to try again.</value>
+  </data>
+  <data name="WatchdogDigest.Status.Queuing" xml:space="preserve">
+    <value>Queueing the digest for sending…</value>
+  </data>
+  <data name="WatchdogDigest.Status.QueueFailed" xml:space="preserve">
+    <value>Could not queue the digest</value>
+  </data>
+  <data name="WatchdogRules.Status.Previewing" xml:space="preserve">
+    <value>Checking what the rule would have matched…</value>
+  </data>
+  <data name="WatchdogRules.Status.PreviewFailed" xml:space="preserve">
+    <value>Could not check the rule</value>
+  </data>
+  <data name="WatchdogRules.Status.PreviewStopped" xml:space="preserve">
+    <value>Checking the rule was stopped: the preview was not changed. Press “{0}” to try again.</value>
+  </data>
+  <data name="WatchdogRules.Status.ResetReading" xml:space="preserve">
+    <value>Reading the built-in rules of the service…</value>
+  </data>
+  <data name="WatchdogRules.Status.ResetFailed" xml:space="preserve">
+    <value>The rule was not reset</value>
+  </data>
+  <data name="WatchdogRules.Status.ResetStopped" xml:space="preserve">
+    <value>Reading the built-in rules was stopped: the rule was not reset. Press “{0}” to try again.</value>
+  </data>
+  <data name="WatchdogChannels.Status.TestStopped" xml:space="preserve">
+    <value>The test was stopped: it is not known whether anything reached the destination.</value>
+  </data>
+  <data name="WatchdogChannels.Status.TestFailedNext" xml:space="preserve">
+    <value>The stages of the test show where it failed.</value>
+  </data>
+  <data name="WatchdogPage.Status.Reading" xml:space="preserve">
+    <value>Reading the status of the service…</value>
+  </data>
+  <data name="WatchdogPage.Status.ReadFailed" xml:space="preserve">
+    <value>Could not read the status of the service</value>
+  </data>
+  <data name="WatchdogPage.Status.Stopped" xml:space="preserve">
+    <value>Reading the status was stopped: the tab may show an older one. Press “{0}” to read it again.</value>
+  </data>
+  <data name="WatchdogPage.Status.Summary" xml:space="preserve">
+    <value>Status read {0}</value>
+  </data>
+  <data name="WatchdogPage.Status.LogReading" xml:space="preserve">
+    <value>Reading the delivery log…</value>
+  </data>
+  <data name="WatchdogPage.Status.LogFailed" xml:space="preserve">
+    <value>Could not read the delivery log</value>
+  </data>
+  <data name="WatchdogPage.Status.LogStopped" xml:space="preserve">
+    <value>Reading the delivery log was stopped: the list was not changed. Press “{0}” to try again.</value>
+  </data>
+  <data name="WatchdogPage.Status.RetryQueuing" xml:space="preserve">
+    <value>Queueing the delivery again…</value>
+  </data>
+  <data name="WatchdogPage.Status.RetryFailed" xml:space="preserve">
+    <value>Could not queue the delivery again</value>
+  </data>
+  <data name="WatchdogPage.Status.AuditReading" xml:space="preserve">
+    <value>Reading the configuration audit…</value>
+  </data>
+  <data name="WatchdogPage.Status.AuditFailed" xml:space="preserve">
+    <value>Could not read the configuration audit</value>
+  </data>
+  <data name="WatchdogPage.Status.AuditStopped" xml:space="preserve">
+    <value>Reading the configuration audit was stopped: the list was not changed. Press “{0}” to try again.</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

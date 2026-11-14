@@ -207,7 +207,7 @@
       <TabItem x:Name="StatusTab"
                Header="{l:Tr Watchdog.Tab.Status}"
                Style="{StaticResource SubTabStyle}">
-        <wdv:WatchdogStatusView x:Name="StatusView" DataContext="{Binding Status}" />
+        <wdv:WatchdogStatusView x:Name="StatusView" DataContext="{Binding ServiceStatus}" />
       </TabItem>
       <TabItem x:Name="SourcesTab"
                Header="{l:Tr Watchdog.Tab.Sources}"

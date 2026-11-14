@@ -1160,4 +1160,180 @@ public static partial class L
         /// <summary>{0} = the title of the check, {1} = the text of the button that checks again.</summary>
         public const string Stopped = "PkiSecurity.Status.Stopped";
     }
+
+    /// <summary>What the Watchdog tab says about its connection to the service in its one status line (stage V2b-4, unit 4).</summary>
+    public static class WatchdogDocStatus
+    {
+        /// <summary>What was tried, without a full stop; {0} = host:port of the service.</summary>
+        public const string ConnectFailed = "WatchdogDoc.Status.ConnectFailed";
+
+        /// <summary>What to do about a certificate; {0} = the text of the action.</summary>
+        public const string ReviewNext = "WatchdogDoc.Status.ReviewNext";
+    }
+
+    /// <summary>What the event feed of the Watchdog tab says in the status line.</summary>
+    public static class WatchdogEventsStatus
+    {
+        /// <summary>The read of the newest page with the current filter.</summary>
+        public const string Reading = "WatchdogEvents.Status.Reading";
+
+        /// <summary>{0} = the events loaded so far.</summary>
+        public const string ReadingOlder = "WatchdogEvents.Status.ReadingOlder";
+
+        /// <summary>{0} = how far it is ("12 of 300").</summary>
+        public const string Acknowledging = "WatchdogEvents.Status.Acknowledging";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string ReadFailed = "WatchdogEvents.Status.ReadFailed";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string OlderFailed = "WatchdogEvents.Status.OlderFailed";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string AckFailed = "WatchdogEvents.Status.AckFailed";
+
+        /// <summary>What to do after a partial acknowledgement.</summary>
+        public const string AckPartial = "WatchdogEvents.Status.AckPartial";
+
+        /// <summary>{0} = the text of the action that reads again.</summary>
+        public const string Stopped = "WatchdogEvents.Status.Stopped";
+
+        /// <summary>{0} = the text of the action.</summary>
+        public const string StoppedOlder = "WatchdogEvents.Status.StoppedOlder";
+    }
+
+    /// <summary>What the details pane of an event says in the status line of the feed.</summary>
+    public static class WatchdogDetailsStatus
+    {
+        /// <summary>The acknowledgement of the shown event.</summary>
+        public const string Acknowledging = "WatchdogDetails.Status.Acknowledging";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string AckFailed = "WatchdogDetails.Status.AckFailed";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string OpenFailed = "WatchdogDetails.Status.OpenFailed";
+    }
+
+    /// <summary>What the configuration of the service (the Rules, Channels, Digest and Sources tabs) says in the status line.</summary>
+    public static class WatchdogConfigStatus
+    {
+        /// <summary>The read of the configuration.</summary>
+        public const string Loading = "WatchdogConfig.Status.Loading";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string ReadFailed = "WatchdogConfig.Status.ReadFailed";
+
+        /// <summary>{0} = the text of the action.</summary>
+        public const string Stopped = "WatchdogConfig.Status.Stopped";
+
+        /// <summary>The validation on the service.</summary>
+        public const string Validating = "WatchdogConfig.Status.Validating";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string ValidateFailed = "WatchdogConfig.Status.ValidateFailed";
+
+        /// <summary>{0} = the text of the action.</summary>
+        public const string ValidateStopped = "WatchdogConfig.Status.ValidateStopped";
+
+        /// <summary>The answer of a validation that found errors.</summary>
+        public const string Invalid = "WatchdogConfig.Status.Invalid";
+
+        /// <summary>The save (no Stop: it is a write).</summary>
+        public const string Saving = "WatchdogConfig.Status.Saving";
+
+        /// <summary>What was skipped, without a full stop.</summary>
+        public const string SaveFailed = "WatchdogConfig.Status.SaveFailed";
+    }
+
+    /// <summary>What the digest tab says in the status line.</summary>
+    public static class WatchdogDigestStatus
+    {
+        /// <summary>The preview of the digest as it would be sent now.</summary>
+        public const string Previewing = "WatchdogDigest.Status.Previewing";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string PreviewFailed = "WatchdogDigest.Status.PreviewFailed";
+
+        /// <summary>{0} = the text of the action.</summary>
+        public const string PreviewStopped = "WatchdogDigest.Status.PreviewStopped";
+
+        /// <summary>The "send now" (no Stop: it is a write).</summary>
+        public const string Queuing = "WatchdogDigest.Status.Queuing";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string QueueFailed = "WatchdogDigest.Status.QueueFailed";
+    }
+
+    /// <summary>What the rules tab says in the status line (the preview of a rule, the reset of a built-in rule).</summary>
+    public static class WatchdogRulesStatus
+    {
+        /// <summary>The preview of the rule being edited.</summary>
+        public const string Previewing = "WatchdogRules.Status.Previewing";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string PreviewFailed = "WatchdogRules.Status.PreviewFailed";
+
+        /// <summary>{0} = the text of the action.</summary>
+        public const string PreviewStopped = "WatchdogRules.Status.PreviewStopped";
+
+        /// <summary>The read of the shipped rules behind "reset to default".</summary>
+        public const string ResetReading = "WatchdogRules.Status.ResetReading";
+
+        /// <summary>What was skipped, without a full stop.</summary>
+        public const string ResetFailed = "WatchdogRules.Status.ResetFailed";
+
+        /// <summary>{0} = the text of the action.</summary>
+        public const string ResetStopped = "WatchdogRules.Status.ResetStopped";
+    }
+
+    /// <summary>What the channels tab says in the status line besides the existing words of a test (stage V2b-4, unit 4).</summary>
+    public static class WatchdogChannelsStatus
+    {
+        /// <summary>A test that was stopped.</summary>
+        public const string TestStopped = "WatchdogChannels.Status.TestStopped";
+
+        /// <summary>What to do after a failed test.</summary>
+        public const string TestFailedNext = "WatchdogChannels.Status.TestFailedNext";
+    }
+
+    /// <summary>What the status tab of the service says in the status line.</summary>
+    public static class WatchdogPageStatus
+    {
+        /// <summary>The read of the status.</summary>
+        public const string Reading = "WatchdogPage.Status.Reading";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string ReadFailed = "WatchdogPage.Status.ReadFailed";
+
+        /// <summary>{0} = the text of the action.</summary>
+        public const string Stopped = "WatchdogPage.Status.Stopped";
+
+        /// <summary>The summary; {0} = the time.</summary>
+        public const string Summary = "WatchdogPage.Status.Summary";
+
+        /// <summary>The read of a page of the delivery log.</summary>
+        public const string LogReading = "WatchdogPage.Status.LogReading";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string LogFailed = "WatchdogPage.Status.LogFailed";
+
+        /// <summary>{0} = the text of the action.</summary>
+        public const string LogStopped = "WatchdogPage.Status.LogStopped";
+
+        /// <summary>The retry of a dead delivery (no Stop: it is a write).</summary>
+        public const string RetryQueuing = "WatchdogPage.Status.RetryQueuing";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string RetryFailed = "WatchdogPage.Status.RetryFailed";
+
+        /// <summary>The read of a page of the configuration audit.</summary>
+        public const string AuditReading = "WatchdogPage.Status.AuditReading";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string AuditFailed = "WatchdogPage.Status.AuditFailed";
+
+        /// <summary>{0} = the text of the action.</summary>
+        public const string AuditStopped = "WatchdogPage.Status.AuditStopped";
+    }
 }

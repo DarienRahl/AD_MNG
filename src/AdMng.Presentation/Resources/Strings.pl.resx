@@ -25374,5 +25374,149 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="PkiSecurity.Status.Stopped" xml:space="preserve">
     <value>{0} zatrzymano: karta pokazuje wyniki wcześniejszego sprawdzenia, jeśli było. Wybierz „{1}”, aby sprawdzić ponownie.</value>
   </data>
+  <data name="WatchdogDoc.Status.ConnectFailed" xml:space="preserve">
+    <value>Nie udało się połączyć z {0}</value>
+  </data>
+  <data name="WatchdogDoc.Status.ReviewNext" xml:space="preserve">
+    <value>Wybierz „{0}”, aby zobaczyć certyfikat przedstawiony przez usługę.</value>
+  </data>
+  <data name="WatchdogEvents.Status.Reading" xml:space="preserve">
+    <value>Wczytywanie zdarzeń…</value>
+  </data>
+  <data name="WatchdogEvents.Status.ReadingOlder" xml:space="preserve">
+    <value>Wczytywanie starszych zdarzeń (wczytano: {0})…</value>
+  </data>
+  <data name="WatchdogEvents.Status.Acknowledging" xml:space="preserve">
+    <value>Potwierdzanie zdarzeń: {0}…</value>
+  </data>
+  <data name="WatchdogEvents.Status.ReadFailed" xml:space="preserve">
+    <value>Nie udało się wczytać zdarzeń</value>
+  </data>
+  <data name="WatchdogEvents.Status.OlderFailed" xml:space="preserve">
+    <value>Nie udało się wczytać starszych zdarzeń</value>
+  </data>
+  <data name="WatchdogEvents.Status.AckFailed" xml:space="preserve">
+    <value>Nie udało się potwierdzić zdarzeń</value>
+  </data>
+  <data name="WatchdogEvents.Status.AckPartial" xml:space="preserve">
+    <value>Potwierdzono: {0} z {1}. Zaznacz resztę i spróbuj ponownie.</value>
+  </data>
+  <data name="WatchdogEvents.Status.Stopped" xml:space="preserve">
+    <value>Wczytywanie zdarzeń zatrzymano: lista jest pusta, a aktualizacje na żywo wstrzymane. Wybierz „{0}”, aby wczytać ją ponownie.</value>
+  </data>
+  <data name="WatchdogEvents.Status.StoppedOlder" xml:space="preserve">
+    <value>Wczytywanie starszych zdarzeń zatrzymano: lista nie została zmieniona. Wybierz „{0}”, aby spróbować ponownie.</value>
+  </data>
+  <data name="WatchdogDetails.Status.Acknowledging" xml:space="preserve">
+    <value>Potwierdzanie zdarzenia…</value>
+  </data>
+  <data name="WatchdogDetails.Status.AckFailed" xml:space="preserve">
+    <value>Nie udało się potwierdzić zdarzenia</value>
+  </data>
+  <data name="WatchdogDetails.Status.OpenFailed" xml:space="preserve">
+    <value>Nie udało się otworzyć obiektu</value>
+  </data>
+  <data name="WatchdogConfig.Status.Loading" xml:space="preserve">
+    <value>Wczytywanie konfiguracji usługi…</value>
+  </data>
+  <data name="WatchdogConfig.Status.ReadFailed" xml:space="preserve">
+    <value>Nie udało się wczytać konfiguracji</value>
+  </data>
+  <data name="WatchdogConfig.Status.Stopped" xml:space="preserve">
+    <value>Wczytywanie konfiguracji zatrzymano: karty pokazują wcześniej wczytaną konfigurację, jeśli była. Wybierz „{0}”, aby wczytać ją ponownie.</value>
+  </data>
+  <data name="WatchdogConfig.Status.Validating" xml:space="preserve">
+    <value>Sprawdzanie konfiguracji…</value>
+  </data>
+  <data name="WatchdogConfig.Status.ValidateFailed" xml:space="preserve">
+    <value>Nie udało się sprawdzić konfiguracji</value>
+  </data>
+  <data name="WatchdogConfig.Status.ValidateStopped" xml:space="preserve">
+    <value>Sprawdzanie konfiguracji zatrzymano. Wybierz „{0}”, aby sprawdzić ponownie.</value>
+  </data>
+  <data name="WatchdogConfig.Status.Invalid" xml:space="preserve">
+    <value>Konfiguracja jest nieprawidłowa – popraw uwagi z listy.</value>
+  </data>
+  <data name="WatchdogConfig.Status.Saving" xml:space="preserve">
+    <value>Zapisywanie konfiguracji…</value>
+  </data>
+  <data name="WatchdogConfig.Status.SaveFailed" xml:space="preserve">
+    <value>Konfiguracja nie została zapisana</value>
+  </data>
+  <data name="WatchdogDigest.Status.Previewing" xml:space="preserve">
+    <value>Przygotowywanie podglądu raportu dziennego…</value>
+  </data>
+  <data name="WatchdogDigest.Status.PreviewFailed" xml:space="preserve">
+    <value>Nie udało się przygotować podglądu raportu dziennego</value>
+  </data>
+  <data name="WatchdogDigest.Status.PreviewStopped" xml:space="preserve">
+    <value>Przygotowywanie podglądu zatrzymano: podgląd nie został zmieniony. Wybierz „{0}”, aby spróbować ponownie.</value>
+  </data>
+  <data name="WatchdogDigest.Status.Queuing" xml:space="preserve">
+    <value>Kolejkowanie raportu dziennego do wysłania…</value>
+  </data>
+  <data name="WatchdogDigest.Status.QueueFailed" xml:space="preserve">
+    <value>Nie udało się zakolejkować raportu dziennego</value>
+  </data>
+  <data name="WatchdogRules.Status.Previewing" xml:space="preserve">
+    <value>Sprawdzanie, co dopasowałaby reguła…</value>
+  </data>
+  <data name="WatchdogRules.Status.PreviewFailed" xml:space="preserve">
+    <value>Nie udało się sprawdzić reguły</value>
+  </data>
+  <data name="WatchdogRules.Status.PreviewStopped" xml:space="preserve">
+    <value>Sprawdzanie reguły zatrzymano: podgląd nie został zmieniony. Wybierz „{0}”, aby spróbować ponownie.</value>
+  </data>
+  <data name="WatchdogRules.Status.ResetReading" xml:space="preserve">
+    <value>Wczytywanie wbudowanych reguł usługi…</value>
+  </data>
+  <data name="WatchdogRules.Status.ResetFailed" xml:space="preserve">
+    <value>Reguła nie została przywrócona</value>
+  </data>
+  <data name="WatchdogRules.Status.ResetStopped" xml:space="preserve">
+    <value>Wczytywanie wbudowanych reguł zatrzymano: reguła nie została przywrócona. Wybierz „{0}”, aby spróbować ponownie.</value>
+  </data>
+  <data name="WatchdogChannels.Status.TestStopped" xml:space="preserve">
+    <value>Test zatrzymano: nie wiadomo, czy cokolwiek dotarło do miejsca docelowego.</value>
+  </data>
+  <data name="WatchdogChannels.Status.TestFailedNext" xml:space="preserve">
+    <value>Etapy testu pokazują, gdzie się nie powiódł.</value>
+  </data>
+  <data name="WatchdogPage.Status.Reading" xml:space="preserve">
+    <value>Wczytywanie stanu usługi…</value>
+  </data>
+  <data name="WatchdogPage.Status.ReadFailed" xml:space="preserve">
+    <value>Nie udało się wczytać stanu usługi</value>
+  </data>
+  <data name="WatchdogPage.Status.Stopped" xml:space="preserve">
+    <value>Wczytywanie stanu zatrzymano: karta może pokazywać starszy stan. Wybierz „{0}”, aby wczytać go ponownie.</value>
+  </data>
+  <data name="WatchdogPage.Status.Summary" xml:space="preserve">
+    <value>Stan odczytano {0}</value>
+  </data>
+  <data name="WatchdogPage.Status.LogReading" xml:space="preserve">
+    <value>Wczytywanie dziennika dostarczania…</value>
+  </data>
+  <data name="WatchdogPage.Status.LogFailed" xml:space="preserve">
+    <value>Nie udało się wczytać dziennika dostarczania</value>
+  </data>
+  <data name="WatchdogPage.Status.LogStopped" xml:space="preserve">
+    <value>Wczytywanie dziennika dostarczania zatrzymano: lista nie została zmieniona. Wybierz „{0}”, aby spróbować ponownie.</value>
+  </data>
+  <data name="WatchdogPage.Status.RetryQueuing" xml:space="preserve">
+    <value>Ponowne kolejkowanie dostarczenia…</value>
+  </data>
+  <data name="WatchdogPage.Status.RetryFailed" xml:space="preserve">
+    <value>Nie udało się ponownie zakolejkować dostarczenia</value>
+  </data>
+  <data name="WatchdogPage.Status.AuditReading" xml:space="preserve">
+    <value>Wczytywanie dziennika zmian konfiguracji…</value>
+  </data>
+  <data name="WatchdogPage.Status.AuditFailed" xml:space="preserve">
+    <value>Nie udało się wczytać dziennika zmian konfiguracji</value>
+  </data>
+  <data name="WatchdogPage.Status.AuditStopped" xml:space="preserve">
+    <value>Wczytywanie dziennika zmian konfiguracji zatrzymano: lista nie została zmieniona. Wybierz „{0}”, aby spróbować ponownie.</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

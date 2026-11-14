@@ -1,3 +1,4 @@
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
@@ -20,7 +21,18 @@ namespace AdMng.Presentation.Watchdog;
 /// connection attempt (stage B design 18 item 1) and can be checked again from the banner; it is pinned only when the
 /// operator trusts it.
 /// </summary>
-public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShellDocument
+/// <remarks>
+/// <para><b>What the tab says</b> (track V, stage V2b-4, unit 4; docs/dev/v-interface-renewal.md "V2b-4 as built", <i>Areas</i>
+/// 7). The sub-tabs are one document with one status line over <see cref="Status"/>, the document's own holder: the connection
+/// attempt is its operation (no Stop - it never had one), and what lasts as long as it is true is computed in one place
+/// (<see cref="UpdateLasting"/>): the connection problem (an error with Retry, or with "Sprawdź certyfikat…" when the service
+/// presented a certificate to confirm), no address configured, and the live updates that were interrupted. The holder of the
+/// sub-tab that is shown is in front of it (<see cref="PageStatusHolder.Front"/>), so a page says its own reads, saves and
+/// results, and a status of a page that is not shown waits in its holder until the page is shown. The connection card keeps
+/// the host the tab talks to and the account; the state is not said there. A log copy is a key, counts and a result code -
+/// never a host, an account, an event or a value of the configuration.</para>
+/// </remarks>
+public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShellDocument, IHasPageStatus
 {
     private readonly WatchdogServices _services;
     private readonly WatchdogPoller _poller;
@@ -42,9 +54,11 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         Rules = new WatchdogRulesViewModel(services, Config);
         Channels = new WatchdogChannelsViewModel(services, Config);
         Digest = new WatchdogDigestViewModel(services, Config);
-        Status = new WatchdogStatusViewModel(services);
+        ServiceStatus = new WatchdogStatusViewModel(services);
         Sources = new WatchdogSourcesViewModel(services, Config);
+        Status = services.CreateStatus();
         SelectedSubTab = Enum.TryParse<WatchdogSubTab>(services.Settings.Current.Watchdog.LastSubTab, out var tab) && Enum.IsDefined(tab) ? tab : WatchdogSubTab.Events;
+        Status.Front = FrontOf(SelectedSubTab);
         ServiceUrlInput = services.Connection.ServiceUrl ?? string.Empty;
 
         _poller.StatusReceived += OnStatusReceived;
@@ -55,8 +69,8 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         Events.Details.LocateRequested += OnLocateRequested;
         Config.Failed += OnCallFailed;
         Config.PropertyChanged += OnConfigPropertyChanged;
-        Status.Failed += OnCallFailed;
-        Status.StatusLoaded += OnStatusLoaded;
+        ServiceStatus.Failed += OnCallFailed;
+        ServiceStatus.StatusLoaded += OnStatusLoaded;
         services.Localizer.CultureChanged += OnCultureChanged;
         services.Sessions.SessionChanged += OnSessionChanged;
         services.Connection.ServiceDomainChanged += OnServiceDomainChanged;
@@ -69,6 +83,12 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     // ---- IShellDocument ---------------------------------------------------------------------------------------
 
     public string Title => _services.Localizer[L.Watchdog.Title];
+
+    /// <summary>
+    /// What the tab says in its one status line: the connection attempt, the states of the connection that last, and - in front -
+    /// what the sub-tab that is shown says.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     public ObjectIcon Icon => ObjectIcon.Watchdog;
 
@@ -144,6 +164,8 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     [ObservableProperty]
     public partial string? LiveError { get; private set; }
 
+    partial void OnLiveErrorChanged(string? value) => UpdateLasting();
+
     /// <summary>
     /// The service watches another domain than this window is connected to: "Usługa Watchdog monitoruje domenę
     /// fabrikam.test; to okno jest połączone z contoso.test" (an information bar; the events stay readable). Null otherwise.
@@ -202,7 +224,8 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
 
     public WatchdogDigestViewModel Digest { get; }
 
-    public WatchdogStatusViewModel Status { get; }
+    /// <summary>The "Stan" sub-tab: the status of the service, the delivery log and the configuration audit.</summary>
+    public WatchdogStatusViewModel ServiceStatus { get; }
 
     /// <summary>"Źródła i retencja": attribution source and collector, GPO content, logon-record retention.</summary>
     public WatchdogSourcesViewModel Sources { get; }
@@ -257,7 +280,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         return SelectedSubTab switch
         {
             WatchdogSubTab.Events => Events.LoadAsync(),
-            WatchdogSubTab.Status => Status.LoadAsync(),
+            WatchdogSubTab.Status => ServiceStatus.LoadAsync(),
             _ => Config.IsDirty ? Task.CompletedTask : Config.LoadAsync(),
         };
     }
@@ -330,13 +353,16 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         Events.Details.LocateRequested -= OnLocateRequested;
         Config.Failed -= OnCallFailed;
         Config.PropertyChanged -= OnConfigPropertyChanged;
-        Status.Failed -= OnCallFailed;
-        Status.StatusLoaded -= OnStatusLoaded;
+        ServiceStatus.Failed -= OnCallFailed;
+        ServiceStatus.StatusLoaded -= OnStatusLoaded;
+        Status.Operation?.Dispose();
         Events.Dispose();
         Rules.Dispose();
         Channels.Dispose();
         Digest.Dispose();
         Sources.Dispose();
+        ServiceStatus.End();
+        Config.Dispose();
     }
 
     /// <summary>Saves the typed address (https only) and connects.</summary>
@@ -403,6 +429,8 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
 
     partial void OnSelectedSubTabChanged(WatchdogSubTab value)
     {
+        // The page that is shown says its own status in the line, before it is activated.
+        Status.Front = FrontOf(value);
         var name = value.ToString();
         if (!string.Equals(_services.Settings.Current.Watchdog.LastSubTab, name, StringComparison.Ordinal))
         {
@@ -411,7 +439,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
 
         if (value == WatchdogSubTab.Status && IsConnected)
         {
-            Status.LoadAsync().Forget();
+            ServiceStatus.LoadAsync().Forget();
         }
     }
 
@@ -437,6 +465,13 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         }
 
         UpdateState(WatchdogConnectionState.Connecting, null);
+
+        // The attempt is the operation of the tab. It has no Stop (it never had one); it ends before the pages read what they
+        // show, so the line goes from "Connecting…" to what the page that is shown says.
+        var scope = Status.Begin(
+            _services.Localizer.Format(L.Watchdog.ConnectionConnecting, HostText),
+            new PageStatusLog(L.Watchdog.ConnectionConnecting),
+            canCancel: false);
         try
         {
             var client = _services.Client;
@@ -471,9 +506,11 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
 
             if (SelectedSubTab == WatchdogSubTab.Status)
             {
-                loads.Add(Status.LoadAsync());
+                loads.Add(ServiceStatus.LoadAsync());
             }
 
+            // The reads have begun (each on the holder of its page): the connection is made.
+            scope.Dispose();
             await Task.WhenAll(loads).ConfigureAwait(true);
             Rules.LoadRolloutCountsAsync().Forget();
         }
@@ -484,7 +521,9 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
+            // The state first, then the end of the operation: the line goes from "Connecting…" to what lasts.
             UpdateState(WatchdogConnectionService.StateFor(ex), ex);
+            scope.Dispose();
             if (askCertificate && PendingCertificate is not null && await ConfirmCertificateAsync().ConfigureAwait(true) && !token.IsCancellationRequested)
             {
                 // Trusted: one more attempt with the new pin, without asking again (a certificate that changes once more
@@ -492,6 +531,10 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
                 Connecting = ConnectCoreAsync(askCertificate: false);
                 await Connecting.ConfigureAwait(true);
             }
+        }
+        finally
+        {
+            scope.Dispose();
         }
     }
 
@@ -532,6 +575,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
 
             PendingCertificate = null;
             PendingPreviousPin = null;
+            UpdateLasting();
             return true;
         }
         finally
@@ -577,7 +621,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     {
         Me = me;
         Config.IsAdmin = IsAdmin;
-        Status.IsAdmin = IsAdmin;
+        ServiceStatus.IsAdmin = IsAdmin;
         Events.Account = me.Account;
         Events.Details.Account = me.Account;
         Rules.Account = me.Account;
@@ -591,7 +635,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         Rules.ApplyStatus(status);
         RolloutUntil = status.RolloutModeUntil;
         OnPropertyChanged(nameof(RolloutBannerText));
-        Status.ApplyStatus(status);
+        ServiceStatus.ApplyStatus(status);
     }
 
     private void UpdateState(WatchdogConnectionState state, Exception? error)
@@ -623,6 +667,64 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         }
 
         OnPropertyChanged(nameof(IsLoading));
+        UpdateLasting();
+    }
+
+    /// <summary>The holder of the sub-tab that is shown (the one status line says what that page says).</summary>
+    private PageStatusHolder FrontOf(WatchdogSubTab tab) => tab switch
+    {
+        WatchdogSubTab.Rules => Rules.Status,
+        WatchdogSubTab.Channels => Channels.Status,
+        WatchdogSubTab.Digest => Digest.Status,
+        WatchdogSubTab.Status => ServiceStatus.PageHolder,
+        WatchdogSubTab.Sources => Config.Status,
+        _ => Events.Status,
+    };
+
+    /// <summary>
+    /// Says the state of the connection that lasts, the most important first: no service address (an attention - the address
+    /// editor is the way out), a connection problem (an error with Retry, or with "Sprawdź certyfikat…" when the service
+    /// presented a certificate to confirm), live updates that were interrupted (an attention - the tab retries by itself).
+    /// Computed from the facts whenever one of them changes, so it follows the language.
+    /// </summary>
+    private void UpdateLasting() => Status.SetLasting(LastingState());
+
+    private PageStatus? LastingState()
+    {
+        var localizer = _services.Localizer;
+        if (ConnectionState == WatchdogConnectionState.NotConfigured)
+        {
+            return PageStatus.Attention(localizer[L.Watchdog.ConnectionNotConfigured], new PageStatusLog(L.Watchdog.ConnectionNotConfigured), canClose: false);
+        }
+
+        if (HasConnectionProblem)
+        {
+            var code = ResultCode.Of(_lastError);
+            var log = new PageStatusLog(L.WatchdogDocStatus.ConnectFailed).WithCode(code);
+            var tried = localizer.Format(L.WatchdogDocStatus.ConnectFailed, HostText);
+            if (PendingCertificate is not null)
+            {
+                var review = localizer[L.WatchdogLinux.CertificateReview];
+                return PageStatus.Error(
+                    PageStatusText.Failure(tried, ConnectionMessage, localizer.Format(L.WatchdogDocStatus.ReviewNext, review), code),
+                    log,
+                    new PageStatusAction(review, ReviewCertificateCommand),
+                    canClose: false);
+            }
+
+            return PageStatus.Error(
+                PageStatusText.Failure(tried, ConnectionMessage, localizer[L.Feedback.RetryNext], code),
+                log,
+                new PageStatusAction(localizer[L.Common.Retry], RefreshNowCommand),
+                canClose: false);
+        }
+
+        if (!string.IsNullOrEmpty(LiveError))
+        {
+            return PageStatus.Attention(LiveError, new PageStatusLog(L.Watchdog.LiveError), canClose: false);
+        }
+
+        return null;
     }
 
     private void OnStatusReceived(object? sender, StatusDto status)
@@ -753,7 +855,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         Rules.Relocalize();
         Channels.Relocalize();
         Digest.Relocalize();
-        Status.Relocalize();
+        ServiceStatus.Relocalize();
         Sources.Relocalize();
         OnPropertyChanged(nameof(RolloutBannerText));
         OnPropertyChanged(nameof(OtherDomainText));

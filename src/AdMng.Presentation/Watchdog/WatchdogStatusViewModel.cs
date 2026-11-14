@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Events;
@@ -14,18 +15,31 @@ namespace AdMng.Presentation.Watchdog;
 /// WEF”, „Zawartość GPO” and „Host” (design 18 item 2; "not reported" while the service has no data for them); for Admins
 /// the delivery log (filter, retry of dead deliveries) and the configuration audit.
 /// </summary>
+/// <remarks>
+/// What the tab says (track V, stage V2b-4, unit 4): <see cref="PageHolder"/> is the one holder of the tab - the read of the
+/// status, then (Admin) of the delivery log and of the configuration audit, one operation after another, each stoppable; the
+/// summary says when the status shown was received. A status read that failed while none is shown is the state of the tab
+/// that lasts; one that failed with a status on screen is a result that can be closed. The log copies are keys, counts and a
+/// result code - never a delivery, a channel, an address or an account.
+/// </remarks>
 public sealed partial class WatchdogStatusViewModel : ObservableObject
 {
     public const int AuditPageSize = 50;
 
     private readonly WatchdogServices _services;
+    private DateTimeOffset? _receivedAt;
+    private Problem? _problem;
 
     public WatchdogStatusViewModel(WatchdogServices services)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
-        DeliveryLog = new WatchdogDeliveryLogViewModel(services);
+        PageHolder = services.CreateStatus();
+        DeliveryLog = new WatchdogDeliveryLogViewModel(services, PageHolder);
         ResetSections();
     }
+
+    /// <summary>What the tab says in the status line: the reads of the status, the delivery log and the audit, and their results.</summary>
+    public PageStatusHolder PageHolder { get; }
 
     /// <summary>A service call failed.</summary>
     public event EventHandler<Exception>? Failed;
@@ -158,32 +172,89 @@ public sealed partial class WatchdogStatusViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(status);
         Status = status;
         Fill(status);
+        _receivedAt = _services.Time.GetUtcNow();
+        _problem = null;
+        UpdateIdle();
+        UpdateLasting();
     }
+
+    /// <summary>The tab was closed: what still runs ends without a word.</summary>
+    public void End() => PageHolder.Operation?.Dispose();
 
     /// <summary>Reads the status and, for Admins, the delivery log and the configuration audit. Never throws.</summary>
     public async Task LoadAsync()
     {
-        IsLoading = true;
-        Error = null;
-        try
+        var localizer = _services.Localizer;
+        using (var scope = PageHolder.Begin(localizer[L.WatchdogPageStatus.Reading], new PageStatusLog(L.WatchdogPageStatus.Reading)))
         {
-            var status = await _services.Client.GetStatusAsync(CancellationToken.None).ConfigureAwait(true);
-            ApplyStatus(status);
-            StatusLoaded?.Invoke(this, status);
-        }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            Error = _services.Connection.Describe(ex);
-            Failed?.Invoke(this, ex);
-        }
-        finally
-        {
-            IsLoading = false;
+            IsLoading = true;
+            Error = null;
+            try
+            {
+                var status = await _services.Client.GetStatusAsync(scope.Token).ConfigureAwait(true);
+                if (scope.IsEnded)
+                {
+                    // Replaced by a newer read, or the tab was closed: the newer one owns the tab.
+                    return;
+                }
+
+                ApplyStatus(status);
+                StatusLoaded?.Invoke(this, status);
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsCancelling)
+            {
+                // The operator's Stop: the tab may show an older status (or none), and the lists are not read.
+                var refresh = localizer[L.Commands.Refresh];
+                if (Status is null)
+                {
+                    _problem = new Problem(string.Empty, default, Stopped: true);
+                    UpdateLasting();
+                }
+                else
+                {
+                    scope.CompleteAttention(
+                        localizer.Format(L.WatchdogPageStatus.Stopped, refresh),
+                        new PageStatusLog(L.WatchdogPageStatus.Stopped),
+                        new PageStatusAction(refresh, RefreshCommand));
+                }
+
+                return;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsEnded)
+            {
+                return;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                Error = _services.Connection.Describe(ex);
+                if (Status is null)
+                {
+                    // Nothing is shown: the failure is the explanation of the empty cards, until a status arrives.
+                    _problem = new Problem(Error, ResultCode.Of(ex));
+                    UpdateLasting();
+                }
+                else
+                {
+                    scope.CompleteError(
+                        PageStatusText.Failure(localizer[L.WatchdogPageStatus.ReadFailed], Error, localizer[L.Feedback.RetryNext], ResultCode.Of(ex)),
+                        new PageStatusLog(L.WatchdogPageStatus.ReadFailed).WithCode(ResultCode.Of(ex)),
+                        new PageStatusAction(localizer[L.Common.Retry], RefreshCommand));
+                }
+
+                Failed?.Invoke(this, ex);
+            }
+            finally
+            {
+                IsLoading = false;
+            }
         }
 
+        // The delivery log and the audit follow the status, one after another on the holder of the tab. A read that failed
+        // still reads them (the service may answer these); one that was stopped does not (handled above).
         if (IsAdmin)
         {
-            await Task.WhenAll(DeliveryLog.LoadAsync(), LoadAuditAsync(null)).ConfigureAwait(true);
+            await DeliveryLog.LoadAsync().ConfigureAwait(true);
+            await LoadAuditAsync(null).ConfigureAwait(true);
         }
     }
 
@@ -212,10 +283,17 @@ public sealed partial class WatchdogStatusViewModel : ObservableObject
 
     private async Task LoadAuditAsync(long? before)
     {
+        var localizer = _services.Localizer;
+        using var scope = PageHolder.Begin(localizer[L.WatchdogPageStatus.AuditReading], new PageStatusLog(L.WatchdogPageStatus.AuditReading));
         AuditError = null;
         try
         {
-            var page = await _services.Client.GetConfigAuditAsync(before, AuditPageSize, CancellationToken.None).ConfigureAwait(true);
+            var page = await _services.Client.GetConfigAuditAsync(before, AuditPageSize, scope.Token).ConfigureAwait(true);
+            if (scope.IsEnded)
+            {
+                return;
+            }
+
             if (before is null)
             {
                 Audit.Clear();
@@ -228,10 +306,70 @@ public sealed partial class WatchdogStatusViewModel : ObservableObject
 
             AuditHasMore = page.HasMore;
         }
+        catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsCancelling)
+        {
+            var label = AuditActionLabel(before);
+            scope.CompleteAttention(
+                localizer.Format(L.WatchdogPageStatus.AuditStopped, label),
+                new PageStatusLog(L.WatchdogPageStatus.AuditStopped),
+                new PageStatusAction(label, before is null ? RefreshCommand : LoadMoreAuditCommand));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsEnded)
+        {
+            // Replaced or closed: nothing to say.
+        }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             AuditError = _services.Connection.Describe(ex);
+            scope.CompleteError(
+                PageStatusText.Failure(localizer[L.WatchdogPageStatus.AuditFailed], AuditError, localizer[L.Feedback.RetryNext], ResultCode.Of(ex)),
+                new PageStatusLog(L.WatchdogPageStatus.AuditFailed).WithCode(ResultCode.Of(ex)),
+                new PageStatusAction(localizer[L.Common.Retry], before is null ? RefreshCommand : LoadMoreAuditCommand));
         }
+    }
+
+    private string AuditActionLabel(long? before) =>
+        _services.Localizer[before is null ? L.Commands.Refresh : L.WatchdogUi.LoadOlder];
+
+    /// <summary>The summary: when the status shown was received.</summary>
+    private void UpdateIdle() =>
+        PageHolder.SetIdle(_receivedAt is { } at
+            ? _services.Localizer.Format(L.WatchdogPageStatus.Summary, _services.Localizer.FormatTimeWithSeconds(at, _services.TimeZone))
+            : string.Empty);
+
+    /// <summary>
+    /// Says the state of the tab that lasts: no status could be read (with Retry) or its read was stopped (with Refresh) while
+    /// none is shown. Computed anew whenever a condition changes, so it follows the language.
+    /// </summary>
+    private void UpdateLasting()
+    {
+        var localizer = _services.Localizer;
+        if (_problem is null)
+        {
+            PageHolder.SetLasting(null);
+        }
+        else if (_problem.Stopped)
+        {
+            var refresh = localizer[L.Commands.Refresh];
+            PageHolder.SetLasting(PageStatus.Attention(
+                localizer.Format(L.WatchdogPageStatus.Stopped, refresh),
+                new PageStatusLog(L.WatchdogPageStatus.Stopped),
+                new PageStatusAction(refresh, RefreshCommand)));
+        }
+        else
+        {
+            PageHolder.SetLasting(PageStatus.Error(
+                PageStatusText.Failure(localizer[L.WatchdogPageStatus.ReadFailed], _problem.Text, localizer[L.Feedback.RetryNext], _problem.Code),
+                new PageStatusLog(L.WatchdogPageStatus.ReadFailed).WithCode(_problem.Code),
+                new PageStatusAction(localizer[L.Common.Retry], RefreshCommand)));
+        }
+    }
+
+    /// <summary>Why the status could not be read: the sentence on screen and the result code - or that the read was stopped.</summary>
+    private sealed record Problem(string Text, ResultCode Code, bool Stopped = false)
+    {
+        /// <summary>The code only - never the text.</summary>
+        public override string ToString() => $"{nameof(Problem)}({Code})";
     }
 
     private void Fill(StatusDto status)

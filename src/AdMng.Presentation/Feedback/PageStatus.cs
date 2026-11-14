@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows.Input;
 using AdMng.Core.Computers.Remote;
 using AdMng.Core.Directory;
+using AdMng.Watchdog.Client;
 
 namespace AdMng.Presentation.Feedback;
 
@@ -96,6 +97,9 @@ public readonly record struct ResultCode
     /// <summary>The kind of a failed remote action on a computer (WinRM, CIM, ping): "WinRmNotAvailable".</summary>
     public static ResultCode Remote(RemoteErrorKind kind) => new(kind.ToString());
 
+    /// <summary>The kind of a failed call of the AdMng Watchdog service (the connection, a role, a certificate, a conflict): "Unreachable".</summary>
+    public static ResultCode Watchdog(WatchdogClientErrorKind kind) => new(kind.ToString());
+
     /// <summary>
     /// The code of an exception: the LDAP result code and the Win32 detail of a directory error (else its kind), the
     /// type name of any other exception; none for a cancellation. The message of the exception is never read.
@@ -108,6 +112,7 @@ public readonly record struct ResultCode
         DirectoryException { LdapResultCode: { } ldap } => Ldap(ldap),
         DirectoryException { Win32Error: { } win32 } => Win32(win32),
         DirectoryException directory => Kind(directory.Kind),
+        WatchdogClientException watchdog => Watchdog(watchdog.Kind),
         _ => new ResultCode(exception.GetType().Name),
     };
 

@@ -1,3 +1,4 @@
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Watchdog;
 using AdMng.Watchdog.Client;
@@ -165,7 +166,11 @@ public sealed class WatchdogRulesTests
             h.Client.Defaults = h.Client.Defaults with { Rules = [] };
             h.Ad.Dialogs.ConfirmAnswers.Enqueue(true);
             await rules.ResetRuleCommand.ExecuteAsync(null);
-            Assert.Contains(h.Ad.Dialogs.Errors, e => e.Message == h.Ad.Localizer[L.Watchdog.RulesNoDefault]);
+
+            // Said in the line of the tab, no longer in a dialog (V2b-4, unit 4): nothing was reset, and why.
+            Assert.Empty(h.Ad.Dialogs.Errors);
+            Assert.Equal(PageStatusKind.Attention, rules.Status.Current.Kind);
+            Assert.Contains(h.Ad.Localizer[L.Watchdog.RulesNoDefault], rules.Status.Current.Message, StringComparison.Ordinal);
         });
     }
 

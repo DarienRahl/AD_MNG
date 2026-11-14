@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Watchdog.Contracts.Api;
@@ -13,7 +14,9 @@ namespace AdMng.Presentation.Watchdog;
 /// The Rules sub-tab: rule rows with the inline editor of the selected rule; New / Duplicate / Delete (not built-in) /
 /// Reset to default (built-in, from <c>GET /config/defaults</c>); exclusion suggestions of the status ("Dodaj wyjątek" →
 /// the exclusion editor prefilled, saved through the normal PUT); the rollout banner with "Zakończ tryb wdrożenia" and
-/// per rule "wysłałaby N" during rollout; Viewers see the redacted configuration read-only.
+/// per rule "wysłałaby N" during rollout; Viewers see the redacted configuration read-only. The preview of the rule being
+/// edited and the read behind "reset to default" are operations of the tab (<see cref="Status"/>, in front of the
+/// configuration's own holder); the rollout banner is a note of the view.
 /// </summary>
 public sealed partial class WatchdogRulesViewModel : ObservableObject, IDisposable
 {
@@ -25,12 +28,17 @@ public sealed partial class WatchdogRulesViewModel : ObservableObject, IDisposab
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
         Session = session ?? throw new ArgumentNullException(nameof(session));
+        Status = services.CreateStatus();
+        Status.Front = session.Status;
         Session.Reloaded += OnReloaded;
         Session.IssuesChanged += OnIssuesChanged;
         Session.PropertyChanged += OnSessionPropertyChanged;
     }
 
     public WatchdogConfigSession Session { get; }
+
+    /// <summary>What the tab says in the status line: the preview of a rule and the reset of a built-in one; in front of the configuration's status.</summary>
+    public PageStatusHolder Status { get; }
 
     public ObservableCollection<WatchdogRuleRowViewModel> Rules { get; } = [];
 
@@ -98,6 +106,7 @@ public sealed partial class WatchdogRulesViewModel : ObservableObject, IDisposab
     public void Dispose()
     {
         _disposed = true;
+        Status.Operation?.Dispose();
         Session.Reloaded -= OnReloaded;
         Session.IssuesChanged -= OnIssuesChanged;
         Session.PropertyChanged -= OnSessionPropertyChanged;
@@ -203,12 +212,20 @@ public sealed partial class WatchdogRulesViewModel : ObservableObject, IDisposab
             return;
         }
 
+        using var scope = Status.Begin(localizer[L.WatchdogRulesStatus.ResetReading], new PageStatusLog(L.WatchdogRulesStatus.ResetReading));
         try
         {
-            var defaults = await _services.Client.GetDefaultConfigAsync(CancellationToken.None).ConfigureAwait(true);
+            var defaults = await _services.Client.GetDefaultConfigAsync(scope.Token).ConfigureAwait(true);
+            if (scope.IsEnded)
+            {
+                return;
+            }
+
             if (defaults.Rules.FirstOrDefault(r => string.Equals(r.Id, row.Id, StringComparison.OrdinalIgnoreCase)) is not { } shipped)
             {
-                await _services.Dialogs.ShowErrorAsync(localizer[L.Common.ResetToDefault], localizer[L.Watchdog.RulesNoDefault]).ConfigureAwait(true);
+                scope.CompleteAttention(
+                    PageStatusText.Failure(localizer[L.WatchdogRulesStatus.ResetFailed], localizer[L.Watchdog.RulesNoDefault]),
+                    new PageStatusLog(L.Watchdog.RulesNoDefault));
                 return;
             }
 
@@ -216,9 +233,24 @@ public sealed partial class WatchdogRulesViewModel : ObservableObject, IDisposab
             Session.Update(c => c with { Rules = [.. c.Rules.Select((r, i) => i == index ? shipped : r)] });
             Rebuild(selectIndex: index);
         }
+        catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsCancelling)
+        {
+            var label = localizer[L.Common.ResetToDefault];
+            scope.CompleteAttention(
+                localizer.Format(L.WatchdogRulesStatus.ResetStopped, label),
+                new PageStatusLog(L.WatchdogRulesStatus.ResetStopped),
+                new PageStatusAction(label, ResetRuleCommand));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsEnded)
+        {
+            // Replaced or closed: nothing to say.
+        }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            await _services.Dialogs.ShowErrorAsync(localizer[L.Common.ResetToDefault], _services.Connection.Describe(ex)).ConfigureAwait(true);
+            scope.CompleteError(
+                PageStatusText.Failure(localizer[L.WatchdogRulesStatus.ResetFailed], _services.Connection.Describe(ex), localizer[L.Feedback.RetryNext], ResultCode.Of(ex)),
+                new PageStatusLog(L.WatchdogRulesStatus.ResetFailed).WithCode(ResultCode.Of(ex)),
+                new PageStatusAction(localizer[L.Common.Retry], ResetRuleCommand));
         }
     }
 
@@ -273,7 +305,7 @@ public sealed partial class WatchdogRulesViewModel : ObservableObject, IDisposab
             return;
         }
 
-        var editor = new WatchdogRuleEditorViewModel(_services, Session, value.Index) { Account = Account };
+        var editor = new WatchdogRuleEditorViewModel(_services, Session, value.Index, Status) { Account = Account };
         editor.RuleChanged += OnRuleEdited;
         Editor = editor;
     }
@@ -376,6 +408,7 @@ public sealed partial class WatchdogRulesViewModel : ObservableObject, IDisposab
         if (Editor is { } editor)
         {
             editor.RuleChanged -= OnRuleEdited;
+            editor.EndPreview();
         }
     }
 }

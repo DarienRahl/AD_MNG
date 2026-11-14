@@ -197,6 +197,12 @@ public class PageStatusTests
         Assert.Equal(ResultCode.Ldap(81), ResultCode.Of(ldap));
         Assert.Equal("ServerUnavailable", ResultCode.Kind(DirectoryErrorKind.ServerUnavailable).ToString());
         Assert.Equal("WinRmNotAvailable", ResultCode.Remote(AdMng.Core.Computers.Remote.RemoteErrorKind.WinRmNotAvailable).ToString());
+        Assert.Equal("Unreachable", ResultCode.Watchdog(AdMng.Watchdog.Client.WatchdogClientErrorKind.Unreachable).ToString());
+
+        // The kind of a failed Watchdog call, never what the service or the exception said.
+        Assert.Equal(
+            "Forbidden",
+            ResultCode.Of(new AdMng.Watchdog.Client.WatchdogClientException(AdMng.Watchdog.Client.WatchdogClientErrorKind.Forbidden, "CONTOSO\\jan.kowalski has no role")).ToString());
 
         foreach (var exception in new Exception[] { both, ldap, win32, kind, other })
         {

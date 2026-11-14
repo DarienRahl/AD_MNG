@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Text.Json;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Watchdog.Client;
@@ -18,15 +19,29 @@ namespace AdMng.Presentation.Watchdog;
 /// another administrator – reload") and revert. Secret values typed into the editors live only in the working copy and
 /// are gone after a save or revert (the service returns IsSet/Hint only). Viewers get a redacted, read-only copy.
 /// </summary>
+/// <remarks>
+/// What the configuration says in the status line (track V, stage V2b-4, unit 4): its version is the summary, a read, a
+/// validation and a save are its operations (a read and a validation can be stopped, a save is a write and cannot), and what
+/// lasts is computed in one place (<see cref="UpdateLasting"/>): the configuration could not be read or the read was stopped
+/// while none is loaded, and the conflict of a save (someone else saved first). The holder is in front of the four tabs that
+/// edit the configuration. The log copy of every message is a key, counts and a result code - never a value of the
+/// configuration (CLAUDE.md rule 2: no secret reaches a text, a log copy or a <c>ToString()</c>).
+/// </remarks>
 public sealed partial class WatchdogConfigSession : ObservableObject
 {
     private readonly WatchdogServices _services;
     private string _loadedJson = string.Empty;
+    private Problem? _problem;
+    private bool _stopped;
 
     public WatchdogConfigSession(WatchdogServices services)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
+        Status = services.CreateStatus();
     }
+
+    /// <summary>What the configuration says in the status line: its version, its reads and saves, the states that last.</summary>
+    public PageStatusHolder Status { get; }
 
     /// <summary>The working copy was replaced (loaded, saved, reverted): editors rebuild from it.</summary>
     public event EventHandler? Reloaded;
@@ -88,6 +103,10 @@ public sealed partial class WatchdogConfigSession : ObservableObject
     [ObservableProperty]
     public partial bool HasConflict { get; private set; }
 
+    partial void OnHasConflictChanged(bool value) => UpdateLasting();
+
+    partial void OnEnvelopeChanged(ConfigEnvelope? value) => UpdateIdle();
+
     /// <summary>"Wersja 7 · 14.10.2026 12:00 · CONTOSO\jan.kowalski".</summary>
     public string VersionText => Envelope is { } envelope
         ? _services.Localizer.Format(L.Watchdog.ConfigVersion, envelope.Version, _services.Localizer.FormatTime(envelope.UpdatedAt, _services.TimeZone), envelope.UpdatedBy ?? string.Empty)
@@ -135,18 +154,53 @@ public sealed partial class WatchdogConfigSession : ObservableObject
             return false;
         }
 
+        var localizer = _services.Localizer;
+        using var scope = Status.Begin(localizer[L.WatchdogConfigStatus.Validating], new PageStatusLog(L.WatchdogConfigStatus.Validating));
         IsBusy = true;
         Error = null;
         try
         {
-            var result = await _services.Client.ValidateConfigAsync(working, CancellationToken.None).ConfigureAwait(true);
+            var result = await _services.Client.ValidateConfigAsync(working, scope.Token).ConfigureAwait(true);
             SetIssues(result.Issues);
-            Message = result.IsValid ? _services.Localizer[L.Watchdog.ConfigValid] : null;
+            Message = result.IsValid ? localizer[L.Watchdog.ConfigValid] : null;
+            if (!scope.IsEnded)
+            {
+                if (result.IsValid)
+                {
+                    scope.CompleteDone(localizer[L.Watchdog.ConfigValid], new PageStatusLog(L.Watchdog.ConfigValid));
+                }
+                else
+                {
+                    var errors = result.Issues.Count(i => i.Severity == IssueSeverity.Error);
+                    scope.CompleteAttention(
+                        localizer[L.WatchdogConfigStatus.Invalid],
+                        new PageStatusLog(L.WatchdogConfigStatus.Invalid, errors, result.Issues.Count - errors));
+                }
+            }
+
             return result.IsValid;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsCancelling)
+        {
+            // The operator's Stop (a newer operation or the end of the tab end it without a word).
+            var validate = localizer[L.WatchdogUi.Validate];
+            scope.CompleteAttention(
+                localizer.Format(L.WatchdogConfigStatus.ValidateStopped, validate),
+                new PageStatusLog(L.WatchdogConfigStatus.ValidateStopped),
+                new PageStatusAction(validate, ValidateCommand));
+            return false;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsEnded)
+        {
+            return false;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             ReportFailure(ex);
+            scope.CompleteError(
+                PageStatusText.Failure(localizer[L.WatchdogConfigStatus.ValidateFailed], Error, localizer[L.Feedback.RetryNext], ResultCode.Of(ex)),
+                new PageStatusLog(L.WatchdogConfigStatus.ValidateFailed).WithCode(ResultCode.Of(ex)),
+                new PageStatusAction(localizer[L.Common.Retry], ValidateCommand));
             return false;
         }
         finally
@@ -168,6 +222,8 @@ public sealed partial class WatchdogConfigSession : ObservableObject
             return false;
         }
 
+        // A write: no Stop. Its token is never cancelled by a scope that was replaced or ended.
+        using var scope = Status.Begin(_services.Localizer[L.WatchdogConfigStatus.Saving], new PageStatusLog(L.WatchdogConfigStatus.Saving), canCancel: false);
         IsBusy = true;
         Error = null;
         Message = null;
@@ -179,23 +235,12 @@ public sealed partial class WatchdogConfigSession : ObservableObject
             SetIssues([]);
             Message = _services.Localizer.Format(L.Watchdog.ConfigSaved, saved.Version);
             _services.Ui.Notifications.Show(NotificationSeverity.Success, Message);
+            scope.CompleteDone(Message, new PageStatusLog(L.Watchdog.ConfigSaved, saved.Version));
             return true;
-        }
-        catch (WatchdogClientException ex) when (ex.Kind == WatchdogClientErrorKind.Validation)
-        {
-            SetIssues(ex.Issues);
-            Error = _services.Localizer[L.Watchdog.ConfigInvalid];
-            return false;
-        }
-        catch (WatchdogClientException ex) when (ex.Kind == WatchdogClientErrorKind.VersionConflict)
-        {
-            HasConflict = true;
-            Error = _services.Localizer[L.Watchdog.ErrorVersionConflict];
-            return false;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            ReportFailure(ex);
+            ReportSaveFailure(scope, ex);
             return false;
         }
         finally
@@ -221,6 +266,7 @@ public sealed partial class WatchdogConfigSession : ObservableObject
             return false;
         }
 
+        using var scope = Status.Begin(_services.Localizer[L.WatchdogConfigStatus.Saving], new PageStatusLog(L.WatchdogConfigStatus.Saving), canCancel: false);
         IsBusy = true;
         Error = null;
         Message = null;
@@ -239,28 +285,46 @@ public sealed partial class WatchdogConfigSession : ObservableObject
 
             Message = _services.Localizer.Format(L.Watchdog.ConfigSaved, saved.Version);
             _services.Ui.Notifications.Show(NotificationSeverity.Success, Message);
+            scope.CompleteDone(Message, new PageStatusLog(L.Watchdog.ConfigSaved, saved.Version));
             return true;
-        }
-        catch (WatchdogClientException ex) when (ex.Kind == WatchdogClientErrorKind.Validation)
-        {
-            SetIssues(ex.Issues);
-            Error = _services.Localizer[L.Watchdog.ConfigInvalid];
-            return false;
-        }
-        catch (WatchdogClientException ex) when (ex.Kind == WatchdogClientErrorKind.VersionConflict)
-        {
-            HasConflict = true;
-            Error = _services.Localizer[L.Watchdog.ErrorVersionConflict];
-            return false;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            ReportFailure(ex);
+            ReportSaveFailure(scope, ex);
             return false;
         }
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// A save that did not happen: the service refused the values (the findings are listed - nothing was saved), someone else
+    /// saved first (the state that lasts, <see cref="UpdateLasting"/>) or the call failed.
+    /// </summary>
+    private void ReportSaveFailure(OperationScope scope, Exception ex)
+    {
+        var localizer = _services.Localizer;
+        if (ex is WatchdogClientException { Kind: WatchdogClientErrorKind.Validation } validation)
+        {
+            SetIssues(validation.Issues);
+            Error = localizer[L.Watchdog.ConfigInvalid];
+            scope.CompleteAttention(Error, new PageStatusLog(L.Watchdog.ConfigInvalid, validation.Issues.Count));
+        }
+        else if (ex is WatchdogClientException { Kind: WatchdogClientErrorKind.VersionConflict })
+        {
+            // The state of the configuration, said until it is read again; the save itself ends without a word.
+            HasConflict = true;
+            Error = localizer[L.Watchdog.ErrorVersionConflict];
+            scope.Complete(null);
+        }
+        else
+        {
+            ReportFailure(ex);
+            scope.CompleteError(
+                PageStatusText.Failure(localizer[L.WatchdogConfigStatus.SaveFailed], Error, null, ResultCode.Of(ex)),
+                new PageStatusLog(L.WatchdogConfigStatus.SaveFailed).WithCode(ResultCode.Of(ex)));
         }
     }
 
@@ -293,27 +357,84 @@ public sealed partial class WatchdogConfigSession : ObservableObject
         SetIssues([.. Issues.Select(i => i.Issue)]);
         OnPropertyChanged(nameof(VersionText));
         OnPropertyChanged(nameof(ReadOnlyReason));
+        UpdateIdle();
+        UpdateLasting();
     }
+
+    /// <summary>The tab was closed: what still runs ends without a word.</summary>
+    public void Dispose() => Status.Operation?.Dispose();
 
     private async Task LoadCoreAsync()
     {
+        var localizer = _services.Localizer;
+        using var scope = Status.Begin(localizer[L.WatchdogConfigStatus.Loading], new PageStatusLog(L.WatchdogConfigStatus.Loading));
         IsBusy = true;
         Error = null;
         Message = null;
         HasConflict = false;
+        _problem = null;
+        _stopped = false;
+        UpdateLasting();
         try
         {
-            var envelope = await _services.Client.GetConfigAsync(CancellationToken.None).ConfigureAwait(true);
+            var envelope = await _services.Client.GetConfigAsync(scope.Token).ConfigureAwait(true);
+            if (scope.IsEnded)
+            {
+                // Replaced by a newer read, or the tab was closed: the newer one owns the page.
+                return;
+            }
+
             SetLoaded(envelope);
             SetIssues([]);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsCancelling)
+        {
+            // The operator's Stop: what the tabs show may be older. With nothing loaded the tabs are empty - that is the
+            // state of the configuration; with a configuration loaded it is a result that can be closed.
+            if (IsLoaded)
+            {
+                var reload = localizer[L.WatchdogUi.Reload];
+                scope.CompleteAttention(
+                    localizer.Format(L.WatchdogConfigStatus.Stopped, reload),
+                    new PageStatusLog(L.WatchdogConfigStatus.Stopped),
+                    new PageStatusAction(reload, ReloadCommand));
+            }
+            else
+            {
+                _stopped = true;
+                UpdateLasting();
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsEnded)
+        {
+            // Replaced or closed: nothing to say.
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             ReportFailure(ex);
+            if (IsLoaded)
+            {
+                scope.CompleteError(
+                    PageStatusText.Failure(localizer[L.WatchdogConfigStatus.ReadFailed], Error, localizer[L.Feedback.RetryNext], ResultCode.Of(ex)),
+                    new PageStatusLog(L.WatchdogConfigStatus.ReadFailed).WithCode(ResultCode.Of(ex)),
+                    new PageStatusAction(localizer[L.Common.Retry], ReloadCommand));
+            }
+            else
+            {
+                _problem = new Problem(Error ?? string.Empty, ResultCode.Of(ex));
+                UpdateLasting();
+            }
         }
         finally
         {
-            IsBusy = false;
+            if (!scope.IsEnded)
+            {
+                IsBusy = false;
+            }
+            else if (Status.Operation is null)
+            {
+                IsBusy = false;
+            }
         }
     }
 
@@ -321,6 +442,8 @@ public sealed partial class WatchdogConfigSession : ObservableObject
     /// <param name="pending">Unsaved edits to keep as the working copy on top of <paramref name="envelope"/> (null: none).</param>
     private void SetLoaded(ConfigEnvelope envelope, WatchdogConfiguration? pending = null)
     {
+        _problem = null;
+        _stopped = false;
         Envelope = envelope;
         _loadedJson = Serialize(envelope.Configuration);
         Working = pending ?? envelope.Configuration;
@@ -349,6 +472,54 @@ public sealed partial class WatchdogConfigSession : ObservableObject
     {
         Error = _services.Connection.Describe(ex);
         Failed?.Invoke(this, ex);
+    }
+
+    /// <summary>The summary: the version of the configuration, who saved it and when.</summary>
+    private void UpdateIdle() => Status.SetIdle(VersionText);
+
+    /// <summary>
+    /// Says the state of the configuration that lasts, the most important first: no configuration could be read (with Retry),
+    /// the read was stopped before one was loaded (with Reload), someone else saved first (with Reload). Computed anew
+    /// whenever a condition changes, so it follows the language.
+    /// </summary>
+    private void UpdateLasting() => Status.SetLasting(LastingState());
+
+    private PageStatus? LastingState()
+    {
+        var localizer = _services.Localizer;
+        if (_problem is { } problem)
+        {
+            return PageStatus.Error(
+                PageStatusText.Failure(localizer[L.WatchdogConfigStatus.ReadFailed], problem.Text, localizer[L.Feedback.RetryNext], problem.Code),
+                new PageStatusLog(L.WatchdogConfigStatus.ReadFailed).WithCode(problem.Code),
+                new PageStatusAction(localizer[L.Common.Retry], ReloadCommand));
+        }
+
+        if (_stopped)
+        {
+            var reload = localizer[L.WatchdogUi.Reload];
+            return PageStatus.Attention(
+                localizer.Format(L.WatchdogConfigStatus.Stopped, reload),
+                new PageStatusLog(L.WatchdogConfigStatus.Stopped),
+                new PageStatusAction(reload, ReloadCommand));
+        }
+
+        if (HasConflict)
+        {
+            return PageStatus.Attention(
+                localizer[L.Watchdog.ErrorVersionConflict],
+                new PageStatusLog(L.Watchdog.ErrorVersionConflict),
+                new PageStatusAction(localizer[L.WatchdogUi.Reload], ReloadCommand));
+        }
+
+        return null;
+    }
+
+    /// <summary>Why the configuration could not be read: the sentence on screen and the result code of the failed call.</summary>
+    private sealed record Problem(string Text, ResultCode Code)
+    {
+        /// <summary>The code only - never the text.</summary>
+        public override string ToString() => $"{nameof(Problem)}({Code})";
     }
 
     private static string Serialize(WatchdogConfiguration configuration) => JsonSerializer.Serialize(configuration, WatchdogJson.Options);

@@ -114,7 +114,7 @@ public sealed class WatchdogViewTests
 
         // Status: cards, checks, delivery log and audit.
         await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
-        await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.Audit.Count > 0 && tab.Status.DeliveryLog.Items.Count > 0, "the status");
+        await UiWait.UntilAsync(() => tab.ServiceStatus.HasStatus && tab.ServiceStatus.Audit.Count > 0 && tab.ServiceStatus.DeliveryLog.Items.Count > 0, "the status");
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         Assert.Equal(6, view.StatusView.ChecksList.Items.Count);
         Assert.Equal(Visibility.Visible, view.StatusView.DeliveryLogCard.Visibility);
@@ -211,7 +211,7 @@ public sealed class WatchdogViewTests
         var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
 
         await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
-        await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.ServiceAccountSection.IsReported, "the status of the Linux service");
+        await UiWait.UntilAsync(() => tab.ServiceStatus.HasStatus && tab.ServiceStatus.ServiceAccountSection.IsReported, "the status of the Linux service");
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         var status = view.StatusView;
         foreach (var card in new FrameworkElement[] { status.ServiceAccountCard, status.CollectorCard, status.GpoContentCard, status.HostCard })
@@ -260,7 +260,7 @@ public sealed class WatchdogViewTests
         Assert.False(view.ChannelsView.SendTestEmailButton.IsEnabled);
 
         await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
-        await UiWait.UntilAsync(() => tab.Status.HasStatus, "the status");
+        await UiWait.UntilAsync(() => tab.ServiceStatus.HasStatus, "the status");
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         Assert.Equal(Visibility.Collapsed, view.StatusView.DeliveryLogCard.Visibility);
         Assert.Equal(Visibility.Collapsed, view.StatusView.AuditCard.Visibility);
@@ -285,7 +285,7 @@ public sealed class WatchdogViewTests
 
         // A status without rollout (read by the poller or the Status sub-tab) hides the banner.
         client.Status = SampleStatus.Create();
-        await tab.Status.LoadAsync();
+        await tab.ServiceStatus.LoadAsync();
         await UiWait.UntilAsync(() => view.RolloutBanner.Visibility == Visibility.Collapsed, "the banner to disappear");
         context.AssertHealthy();
     });
@@ -529,7 +529,7 @@ public sealed class WatchdogViewTests
         AssertColumnsFit(view.RulesView.RulesList);
 
         await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
-        await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.DeliveryLog.Items.Count > 0, "the status");
+        await UiWait.UntilAsync(() => tab.ServiceStatus.HasStatus && tab.ServiceStatus.DeliveryLog.Items.Count > 0, "the status");
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         AssertColumnsFit(view.StatusView.DeliveryLogList);
         Assert.Equal(8, ((GridView)view.StatusView.DeliveryLogList.View).Columns.Count);
@@ -552,7 +552,7 @@ public sealed class WatchdogViewTests
         await window.Shell.InitializeAsync();
         var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
         await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
-        await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.Audit.Count > 0 && tab.Status.DeliveryLog.Items.Count > 0, "the status");
+        await UiWait.UntilAsync(() => tab.ServiceStatus.HasStatus && tab.ServiceStatus.Audit.Count > 0 && tab.ServiceStatus.DeliveryLog.Items.Count > 0, "the status");
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
 
         var log = view.StatusView.DeliveryLogList;

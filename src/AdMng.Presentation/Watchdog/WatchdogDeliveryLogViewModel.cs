@@ -1,3 +1,4 @@
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Watchdog.Contracts.Api;
@@ -16,12 +17,19 @@ public sealed partial class WatchdogDeliveryLogViewModel : ObservableObject
     public const int PageSize = 100;
 
     private readonly WatchdogServices _services;
+    private readonly PageStatusHolder _pageStatus;
     private readonly SerialCancellation _loads = new();
     private bool _initialized;
 
-    public WatchdogDeliveryLogViewModel(WatchdogServices services)
+    /// <param name="services">The tab's services.</param>
+    /// <param name="pageStatus">
+    /// The holder the log says its status in (the status tab's: its reads and the retry of a dead delivery are operations of
+    /// that tab, one after another); a standalone log makes its own.
+    /// </param>
+    public WatchdogDeliveryLogViewModel(WatchdogServices services, PageStatusHolder? pageStatus = null)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
+        _pageStatus = pageStatus ?? services.CreateStatus();
         Statuses = CreateStatuses();
         Status = Statuses[0];
     }
@@ -105,17 +113,25 @@ public sealed partial class WatchdogDeliveryLogViewModel : ObservableObject
             return;
         }
 
+        var localizer = _services.Localizer;
+
+        // A write to the service: no Stop. The row says the result (it is pending again); only a failure is said in the line.
+        using var scope = _pageStatus.Begin(localizer[L.WatchdogPageStatus.RetryQueuing], new PageStatusLog(L.WatchdogPageStatus.RetryQueuing), canCancel: false);
         Error = null;
         try
         {
             await _services.Client.RetryOutboxAsync(row.Id, CancellationToken.None).ConfigureAwait(true);
             row.Update(row.Item with { Status = OutboxStatus.Pending, NextAttemptAt = _services.Time.GetUtcNow(), LastError = null, LastErrorCode = null });
             RetryCommand.NotifyCanExecuteChanged();
-            _services.Ui.Notifications.Show(Services.NotificationSeverity.Success, _services.Localizer[L.Watchdog.OutboxRetried]);
+            _services.Ui.Notifications.Show(Services.NotificationSeverity.Success, localizer[L.Watchdog.OutboxRetried]);
+            scope.Complete(null);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             Error = _services.Connection.Describe(ex);
+            scope.CompleteError(
+                PageStatusText.Failure(localizer[L.WatchdogPageStatus.RetryFailed], Error, null, ResultCode.Of(ex)),
+                new PageStatusLog(L.WatchdogPageStatus.RetryFailed).WithCode(ResultCode.Of(ex)));
         }
     }
 
@@ -146,7 +162,10 @@ public sealed partial class WatchdogDeliveryLogViewModel : ObservableObject
 
     private async Task LoadCoreAsync(long? before)
     {
+        var localizer = _services.Localizer;
         var token = _loads.Next();
+        using var scope = _pageStatus.Begin(localizer[L.WatchdogPageStatus.LogReading], new PageStatusLog(L.WatchdogPageStatus.LogReading));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, scope.Token);
         IsLoading = true;
         Error = null;
         try
@@ -158,8 +177,8 @@ public sealed partial class WatchdogDeliveryLogViewModel : ObservableObject
                 Before = before,
                 Limit = PageSize,
             };
-            var page = await _services.Client.GetOutboxAsync(query, token).ConfigureAwait(true);
-            token.ThrowIfCancellationRequested();
+            var page = await _services.Client.GetOutboxAsync(query, linked.Token).ConfigureAwait(true);
+            linked.Token.ThrowIfCancellationRequested();
             var rows = page.Items.Select(i => new WatchdogOutboxRowViewModel(i, _services.Localizer, _services.TimeZone));
             if (before is null)
             {
@@ -177,13 +196,26 @@ public sealed partial class WatchdogDeliveryLogViewModel : ObservableObject
             HasMore = page.HasMore;
             Error = null;
         }
-        catch (Exception ex) when (ex is not OutOfMemoryException && token.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsCancelling && !token.IsCancellationRequested)
+        {
+            // The operator's Stop: the list is as it was.
+            var label = localizer[before is null ? L.Commands.Refresh : L.WatchdogUi.LoadOlder];
+            scope.CompleteAttention(
+                localizer.Format(L.WatchdogPageStatus.LogStopped, label),
+                new PageStatusLog(L.WatchdogPageStatus.LogStopped),
+                new PageStatusAction(label, before is null ? RefreshCommand : LoadMoreCommand));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException && (token.IsCancellationRequested || scope.IsEnded))
         {
             // Superseded (OperationCanceledException or a WatchdogClientException of kind Cancelled): never an error.
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             Error = _services.Connection.Describe(ex);
+            scope.CompleteError(
+                PageStatusText.Failure(localizer[L.WatchdogPageStatus.LogFailed], Error, localizer[L.Feedback.RetryNext], ResultCode.Of(ex)),
+                new PageStatusLog(L.WatchdogPageStatus.LogFailed).WithCode(ResultCode.Of(ex)),
+                new PageStatusAction(localizer[L.Common.Retry], before is null ? RefreshCommand : LoadMoreCommand));
         }
         finally
         {
