@@ -149,9 +149,6 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, 
     [ObservableProperty]
     public partial bool IsPlanning { get; private set; }
 
-    [ObservableProperty]
-    public partial string? StatusText { get; private set; }
-
     /// <summary>Localized error of the last action (template errors, read failure, transport problem).</summary>
     [ObservableProperty]
     public partial string? Error { get; private set; }
@@ -276,15 +273,6 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, 
     // ---- Sending and report --------------------------------------------------------------------------------------
 
     [ObservableProperty]
-    public partial int ProgressValue { get; private set; }
-
-    [ObservableProperty]
-    public partial int ProgressMaximum { get; private set; } = 1;
-
-    [ObservableProperty]
-    public partial string? ProgressText { get; private set; }
-
-    [ObservableProperty]
     public partial string? ReportSummary { get; private set; }
 
     // ---- Lifecycle -----------------------------------------------------------------------------------------------
@@ -340,7 +328,6 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, 
             planning.Dispose();
             IsBusy = false;
             IsPlanning = false;
-            StatusText = null;
         }
 
         UpdateLasting();
@@ -657,11 +644,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, 
     /// same as Stop in the line and Cancel on the Send button.
     /// </summary>
     [RelayCommand(CanExecute = nameof(IsSending))]
-    private void CancelSend()
-    {
-        _sendRun?.Cancel();
-        ProgressText = Localizer[L.UserMessages.Stopping];
-    }
+    private void CancelSend() => _sendRun?.Cancel();
 
     /// <summary>"Ponów nieudane": plans the failed and not sent messages again (fresh read) and shows their preview.</summary>
     [RelayCommand(CanExecute = nameof(CanRetryFailed))]
@@ -726,7 +709,6 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, 
         IsPlanning = true;
         Error = null;
         TestResultText = null;
-        StatusText = Localizer[L.UserMessages.Reading];
         try
         {
             var session = RequireSession();
@@ -828,7 +810,6 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, 
                 _planning = null;
                 IsBusy = false;
                 IsPlanning = false;
-                StatusText = null;
             }
 
             _planAgainCommand.NotifyCanExecuteChanged();
@@ -954,9 +935,6 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, 
         }
 
         Stage = UserMessageStage.Sending;
-        ProgressMaximum = items.Count;
-        ProgressValue = 0;
-        ProgressText = Localizer.Format(L.UserMessages.Progress, 0, items.Count, 0, 0);
         var operatorName = Session?.Info.BoundIdentity ?? string.Empty;
         var domainNc = Session?.Info.DefaultNamingContext ?? string.Empty;
         var templateName = WithRunNote(SelectedTemplate?.Text ?? string.Empty);
@@ -967,11 +945,6 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, 
             {
                 return;
             }
-
-            ProgressValue = p.Completed;
-            ProgressText = p.IsWaitingForRetry
-                ? Localizer.Format(L.UserMessages.ProgressRetry, p.Completed, p.Total, p.Accepted, p.Failed)
-                : Localizer.Format(L.UserMessages.Progress, p.Completed, p.Total, p.Accepted, p.Failed);
 
             // One message for the whole send: the ring shows the part done, the text the numbers.
             sending.Report(

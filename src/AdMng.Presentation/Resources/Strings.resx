@@ -8529,26 +8529,14 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="UserMessages.ConfirmTyped" xml:space="preserve">
     <value>You are about to send {0} messages via {1} – one per user of the domain {2}. Messages accepted by the server cannot be recalled. Type the number of messages to confirm.</value>
   </data>
-  <data name="UserMessages.Stopping" xml:space="preserve">
-    <value>Stopping after the current message...</value>
-  </data>
   <data name="UserMessages.ExportReport" xml:space="preserve">
     <value>Export report (CSV)...</value>
   </data>
   <data name="UserMessages.ReportFileName" xml:space="preserve">
     <value>Message report</value>
   </data>
-  <data name="UserMessages.Reading" xml:space="preserve">
-    <value>Reading the accounts from the domain controller...</value>
-  </data>
   <data name="UserMessages.Summary" xml:space="preserve">
     <value>Ready: {0} · With warnings: {1} · Errors: {2} · Skipped: {3} · Excluded: {4}</value>
-  </data>
-  <data name="UserMessages.Progress" xml:space="preserve">
-    <value>Sent {0} of {1} · accepted {2} · failed {3}</value>
-  </data>
-  <data name="UserMessages.ProgressRetry" xml:space="preserve">
-    <value>Sent {0} of {1} · accepted {2} · failed {3} · waiting to retry after a temporary failure...</value>
   </data>
   <data name="UserMessages.ReportSummary" xml:space="preserve">
     <value>Accepted by the server: {0} · Failed: {1} · Not sent: {2} · Not in this send: {3}</value>

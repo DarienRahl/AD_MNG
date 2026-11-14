@@ -8529,26 +8529,14 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="UserMessages.ConfirmTyped" xml:space="preserve">
     <value>Za chwilę zostanie wysłanych {0} wiadomości przez {1} – po jednej dla każdego użytkownika z domeny {2}. Wiadomości przyjętych przez serwer nie da się wycofać. Wpisz liczbę wiadomości, aby potwierdzić.</value>
   </data>
-  <data name="UserMessages.Stopping" xml:space="preserve">
-    <value>Przerywanie po bieżącej wiadomości...</value>
-  </data>
   <data name="UserMessages.ExportReport" xml:space="preserve">
     <value>Eksportuj raport (CSV)...</value>
   </data>
   <data name="UserMessages.ReportFileName" xml:space="preserve">
     <value>Raport wiadomości</value>
   </data>
-  <data name="UserMessages.Reading" xml:space="preserve">
-    <value>Odczyt kont z kontrolera domeny...</value>
-  </data>
   <data name="UserMessages.Summary" xml:space="preserve">
     <value>Gotowe: {0} · Z ostrzeżeniami: {1} · Błędy: {2} · Pominięte: {3} · Wykluczone: {4}</value>
-  </data>
-  <data name="UserMessages.Progress" xml:space="preserve">
-    <value>Wysłano {0} z {1} · przyjęte {2} · nieudane {3}</value>
-  </data>
-  <data name="UserMessages.ProgressRetry" xml:space="preserve">
-    <value>Wysłano {0} z {1} · przyjęte {2} · nieudane {3} · oczekiwanie na ponowienie po błędzie przejściowym...</value>
   </data>
   <data name="UserMessages.ReportSummary" xml:space="preserve">
     <value>Przyjęte przez serwer: {0} · Nieudane: {1} · Niewysłane: {2} · Poza tą wysyłką: {3}</value>
