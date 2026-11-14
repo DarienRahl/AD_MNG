@@ -60,12 +60,16 @@ Zasady, które obowiązują wszędzie:
 
 Okno należy do okna połączenia: ma jego kolorowy pasek, a tytuł *Korespondencja – contoso.test* podaje domenę. Zakładki
 odpowiadają krokom pracy: *Skrzynki* (tylko gdy potrzebna), **1 · Odbiorcy**, **2 · Wiadomość**, **3 · Podgląd**,
-**4 · Wysyłka**, **5 · Odpowiedzi**. Pasek stanu pokazuje połączenie z Outlookiem (*Outlook: połączono (2 konta)*) i
-ostatni komunikat; *Pomoc* wyświetla skróconą instrukcję.
+**4 · Wysyłka**, **5 · Odpowiedzi**. Stopka pokazuje połączenie z Outlookiem (*Outlook: połączono (2 konta)*) i kółko,
+gdy okno się wczytuje; *Pomoc* wyświetla skróconą instrukcję. Pod górną krawędzią jest jedna **linia stanu**: mówi, co robi
+zakładka, którą widzisz (liczby odbiorców, trwającą wysyłkę, szukanie właścicieli, odczyt *Elementów wysłanych*), jak się to
+skończyło i – dopóki trwa – czego nie da się teraz zrobić (Outlook niedostępny, koniec sesji, dziennik „już wysłane” nie do
+użycia). Wynik można zamknąć krzyżykiem; trwający odczyt, wczytywanie, szukanie i wysyłkę przerywa *Zatrzymaj* w linii.
 
 Przy otwarciu okno łączy się z Outlookiem w tle: dołącza do uruchomionego Outlooka albo go uruchamia (trzy próby).
-Brak Outlooka nie jest błędem okna – widać go tylko na pasku stanu, a *Połącz z Outlookiem* na zakładce *Wiadomość*
-próbuje ponownie. Zamknięcie okna w trakcie wysyłki pyta, czy ją przerwać; przy zamknięciu zapisywany jest ostatni
+Brak Outlooka nie jest błędem okna – widać go w stopce, a na zakładkach *Wysyłka* i *Odpowiedzi* także w linii stanu (z
+przyciskiem *Połącz z Outlookiem*, gdy połączenie się nie udało); *Połącz z Outlookiem* na zakładce *Wiadomość* próbuje
+ponownie. Zamknięcie okna w trakcie wysyłki pyta, czy ją przerwać; przy zamknięciu zapisywany jest ostatni
 szkic i opcje.
 
 Outlook, którego AD Manager musiał uruchomić, działa bez okna aż do zamknięcia AD Managera, także po zamknięciu okna
@@ -88,8 +92,9 @@ Outlooka uruchomionego przez Ciebie AD Manager nie zamyka.
 | *Członkowie grupy…* | członkowie wybranej grupy, także zagnieżdżeni i konta, dla których jest grupą podstawową (np. *Domain Users*; użytkownicy i kontakty, do 10 000) |
 | *Właściciele skrzynek…* | zakładka *Skrzynki* (rozdział 8) |
 
-Powtórzone adresy są usuwane – także względem odbiorców wczytanych wcześniej. Pasek stanu podsumowuje każde
-wczytanie, np. *Wczytano plik: 120 nowych, 3 powtórzone, 2 błędne adresy*.
+Powtórzone adresy są usuwane – także względem odbiorców wczytanych wcześniej. Linia stanu podsumowuje każde
+wczytanie, np. *Wczytano plik: 120 nowych, 3 powtórzone, 2 błędne adresy* (a przy kilku plikach – też te, których nie udało
+się wczytać, i dlaczego); wczytywanie plików i odczyt z katalogu można zatrzymać.
 
 **Jak czytane są pliki i tabele:**
 
@@ -109,7 +114,7 @@ wczytanie, np. *Wczytano plik: 120 nowych, 3 powtórzone, 2 błędne adresy*.
   „Nazwa (adres)”, potem pojedyncze adresy.
 - **Excel:** każdy arkusz ma własny nagłówek, a arkusze z kolumną adresów są łączone; komórki trafiają do kolumn według
   ich adresu (A1, C1 …), więc puste komórki nie przesuwają kolumn. Arkusze i wiersze, których Excel nie pokazuje
-  (ukryte ręcznie, odfiltrowane, w zwiniętej grupie), są pomijane i liczone – pasek stanu podaje np. *pominięte ukryte
+  (ukryte ręcznie, odfiltrowane, w zwiniętej grupie), są pomijane i liczone – linia stanu podaje np. *pominięte ukryte
   arkusze: 1, pominięte ukryte wiersze: 15*; w plikach ODS ukryte arkusze i wiersze są na razie wczytywane. Daty i
   godziny trafiają do pól jako daty, a nie jako liczby, którymi Excel je zapisuje – w polskim zapisie, bez względu na
   format komórki („15.03.2026”, „15.03.2026 10:00”, „10:00”); liczby z formatem takim jak kod pocztowy (`00-000`) albo
@@ -406,7 +411,6 @@ każdej wiadomości, sposób wysyłki, temat, podpis, załączniki, dostarczenie
 | *Test do siebie* | jedna wiadomość na Twój adres (wybrane konto, a bez wyboru – bieżąca skrzynka Outlooka; gdy i jej nie ma, okno pyta o adres), z tematem „[TEST] …” i polami wiadomości wybranej w podglądzie (np. o drugiej skrzynce tej samej osoby; bez wyboru – pierwszej); nie trafia do dziennika |
 | *Utwórz wersje robocze* | zapisuje wiadomości w *Wersjach roboczych* Outlooka – nic nie jest wysyłane ani wpisywane do dziennika; wysłane później ręcznie z Outlooka też nie trafią do dziennika |
 | *Wyślij* | wysyłka po potwierdzeniu |
-| *Zatrzymaj* | przerywa po bieżącej wiadomości |
 | *Ponów nieudane* | powtarza wysyłkę tylko do odbiorców z błędem |
 | *Zapisz raport…* | raport tekstowy (data, temat, wynik każdego odbiorcy) we wskazanym pliku |
 | *Dziennik „już wysłane”…* | jak na zakładce *Odbiorcy* |
@@ -415,7 +419,11 @@ każdej wiadomości, sposób wysyłki, temat, podpis, załączniki, dostarczenie
 adresy oraz porę dostarczenia, ostrzega przy odstępie poniżej 2 s i ponad 50 wiadomościach i przypomina, że wysyłki nie
 da się cofnąć. Powyżej 20 wiadomości trzeba wpisać ich liczbę.
 
-**W trakcie** pasek pokazuje postęp i czas do końca (*Wysyłam 12 z 95 · zostało ok. 4 min*), liczniki *wysłane*,
+**W trakcie** linia stanu pokazuje postęp i czas do końca (*Wysyłam wiadomości: 12 z 95 · zostało ok. 4 min…*), a przycisk,
+którym zaczęto (*Wyślij*, *Utwórz wersje robocze*, *Test do siebie* albo *Ponów nieudane*), jest *Anuluj* – tak samo jak
+*Zatrzymaj* w linii przerywa po bieżącej wiadomości. Okno mówi „Zatrzymywanie…” od razu, a kończy po wiadomości, która już
+idzie do Outlooka; wynik (*Wysyłka przerwana: udane 1, błędy 0, niewysłane 2.* i co nacisnąć, żeby wysłać resztę) zostaje w
+linii, dopóki go nie zamkniesz. Liczniki *wysłane*,
 *błędy* i *pominięte*, a lista *Do kogo poszło* – wynik każdej wiadomości; kolumna *Status* listy odbiorców pokazuje
 *wysłano*, *wersja robocza*, *test wysłany* albo *błąd – …*. Okno przez cały czas odpowiada: rozmowa z Outlookiem idzie
 osobnym wątkiem, więc *Zatrzymaj*, przewijanie i zakładki działają normalnie.
@@ -442,7 +450,7 @@ osobnym wątkiem, więc *Zatrzymaj*, przewijanie i zakładki działają normalni
   wiadomości** (dotyczy trybu UDW; każdy adresat w UDW liczy się do dobowego limitu). Exchange w firmie może mieć inne
   limity – zapytaj administratora poczty.
 - Zostaw odstęp 3 s – to ok. 20 wiadomości na minutę, poniżej limitu. Jedna wiadomość zajmuje Outlookowi ok. 1–3 s,
-  więc 300 wiadomości to ok. 15–17 minut; pasek pokazuje czas do końca.
+  więc 300 wiadomości to ok. 15–17 minut; linia stanu pokazuje czas do końca.
 - Nie zamykaj Outlooka i nie usypiaj komputera w trakcie wysyłki.
 - Załącznik dolicza się do **każdej** wiadomości (rozdział 5).
 - **Lista odbiorców nie jest zapisywana** (inaczej niż w Korespondencji WPiA, rozdział 11). Po przerwaniu – także po
@@ -487,7 +495,10 @@ jedno słowo to samo nazwisko.
   nie są wybierane automatycznie.
 - Sama skrzynka i inne konta skrzynek (współdzielonych, sal, sprzętu) nigdy nie są kandydatami.
 
-*Znajdź właścicieli* uruchamia wyszukiwanie (postęp: *Skrzynki: 120 · osoby: 4 210*), *Zatrzymaj* je przerywa.
+*Znajdź właścicieli* uruchamia wyszukiwanie; linia stanu podaje postęp (*Szukam właścicieli skrzynek: skrzynek 120, osób
+4 210…*), a ten sam przycisk – teraz *Anuluj* – i *Zatrzymaj* w linii je przerywają (lista może być wtedy niepełna, a linia
+oferuje *Ponów*). Po wyszukiwaniu linia pokazuje liczby dopasowań (*Dopasowane: … · do sprawdzenia: …*); gdy wyszukiwanie
+się nie udało, mówi dlaczego, dopóki nie zaczniesz następnego.
 
 ### Jak AD Manager znajduje właściciela
 
@@ -608,7 +619,7 @@ Zakładka czyta głosy z *Elementów wysłanych* Outlooka – nic nie jest zapis
 1. *Wysłane od* (domyślnie 90 dni wstecz) i *Szukaj w Elementach wysłanych* – lista wysyłek z okna *Korespondencja*, np.
    *28.10.2026 · Weryfikacja skrzynek pocztowych · 95 wiad.*
 2. *Wysyłka* i *Pokaż odpowiedzi* – tabela: *Odbiorca*, *Skrzynki* (których skrzynek dotyczy odpowiedź), *Odpowiedź*
-   (tekst przycisku albo „brak odpowiedzi”) i *Kiedy*; podsumowanie, np. *Odpowiedzi: 40 z 95 · Tak: 30 · Nie: 10*.
+   (tekst przycisku albo „brak odpowiedzi”) i *Kiedy*; podsumowanie w linii stanu, np. *Odpowiedzi: 40 z 95 · Tak: 30 · Nie: 10*. Oba odczyty można zatrzymać.
 3. *Eksport CSV…* – tabela do pliku (z ochroną przed formułami).
 
 Jak to działa: każda wiadomość wysłana z okna *Korespondencja* niesie w Outlooku ukryte właściwości – identyfikator wysyłki i adresy

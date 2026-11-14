@@ -616,14 +616,48 @@
   wdrożenia**), „Wymaga roli administratora” (rola Viewer), uwagi usługi do konfiguracji, podpowiedź o wygenerowanym
   kluczu podpisu („pokazany tylko raz”) i podpowiedzi do testu dostarczenia są uwagami przy treści (znak i tekst, bez
   ramki), tam gdzie były żółte i czerwone ramki.
+- **Korespondencja: wiersz stanu pod górną krawędzią okna zamiast ramek, pasków postępu i tekstu w stopce.** Okno mówi
+  w jednym stałym miejscu, co robi zakładka, którą widzisz, i jak się to skończyło. W spoczynku: liczby z danej zakładki –
+  *Odbiorcy* („Odbiorcy: 120 • do wysłania: 95 • pominięci: 20”), *Skrzynki* („Dopasowane: 90 · do sprawdzenia: 12 · …”),
+  a na zakładce *Odpowiedzi* – ile wysyłek znaleziono i podsumowanie odpowiedzi („Odpowiedzi: 40 z 95 · Tak: 30 · Nie: 10”);
+  dotąd te teksty były osobnymi napisami na zakładkach, a ostatni komunikat – w stopce okna. Wynik wczytania i działań
+  na liście odbiorców („Wczytano plik „kontakty.csv” (CSV): 120 nowych, 3 powtórzone, 2 błędne adresy”) jest w tym wierszu
+  jako **Gotowe** albo **Uwaga** – także to, że część plików nie dała się wczytać i dlaczego, że w schowku nie ma adresów,
+  że folderu *Pobrane* nie ma – i można go zamknąć krzyżykiem. Stopka zostaje przy połączeniu z Outlookiem i ma kółko, gdy
+  okno się wczytuje (dotąd: pasek).
+- **Korespondencja: stany, które trwają.** Że sesja okna się zakończyła, mówią zakładki, które czytają katalog – *Odbiorcy*
+  i *Skrzynki* – razem z tym, że wysyłanie przez Outlooka nadal działa; zakładka *Wysyłka* niczego z tego nie pokazuje, więc
+  trwająca wysyłka nie jest zasłonięta. Że Outlook jest niedostępny (nie ma klasycznego Outlooka, nie działa tu albo połączenie
+  się nie udało), mówią zakładki *Wysyłka* i *Odpowiedzi* – z powodem i, gdy połączenie się nie udało, z poleceniem **Połącz
+  z Outlookiem**; zakładki *Odbiorcy*, *Skrzynki* i *Wiadomość* niczego o nim nie mówią. Że dziennika „już wysłane” nie da się
+  użyć (albo że założono nowy – ze ścieżką kopii poprzedniego), mówi okno na każdej zakładce; dotąd była to czerwona ramka u
+  góry okna.
+- **Korespondencja: wysyłkę, odczyty i szukanie przerywa się tym przyciskiem, którym się je zaczęło.** *Test do siebie*,
+  *Utwórz wersje robocze*, *Wyślij* i *Ponów nieudane* na czas przebiegu zamieniają się w **Anuluj** (ten, którym zaczęto;
+  pozostałe są wyłączone), a *Znajdź właścicieli*, *Szukaj w Elementach wysłanych*, *Pokaż odpowiedzi* i *Podgląd z Outlooka* –
+  tak samo; osobnego przycisku *Zatrzymaj* i pasków postępu już nie ma. Wiersz mówi **Trwa** „Wysyłam wiadomości: 12 z 95 ·
+  zostało ok. 4 min…” (z częścią wykonaną w kółku), „Szukam właścicieli skrzynek: skrzynek 120, osób 4 210…”,
+  „Przeszukuję „Elementy wysłane”…”, a po naciśnięciu pokazuje „Zatrzymywanie…” od razu; wysyłkę przerywa się po wiadomości,
+  która już idzie do Outlooka. Wynik: **Gotowe** („Wysyłka zakończona: udane 95, błędy 0. Każda wiadomość jest na liście
+  wyników.”), **Uwaga** – z tym, co nacisnąć dalej („Wysyłka przerwana: udane 12, błędy 0, niewysłane 83. Naciśnij „Wyślij”,
+  aby wysłać resztę…”; „… Naciśnij „Ponów nieudane”…”; zatrzymanie po pięciu błędach z rzędu), albo **Błąd** z rodzajem
+  awarii Outlooka na końcu. Przerwane szukanie właścicieli, odczyt *Elementów wysłanych* i podgląd z Outlooka mówią, co
+  zostało bez zmian, i oferują **Ponów**; wczytywanie plików i odczyt z katalogu (*Zaznaczone obiekty*, *Wybierz
+  użytkowników…*, *Członkowie grupy…*) też można przerwać, a błąd odczytu z katalogu ma **Ponów** – dotąd: okno błędu.
+  Szukanie, które się nie udało, mówi dlaczego w wierszu zakładki *Skrzynki*, dopóki nie zaczniesz następnego.
+- **Korespondencja: uwagi przy treści zamiast żółtych tekstów.** Co zostało pominięte przy wklejaniu do treści, co jest nie
+  tak z wybranym podpisem, ostrzeżenia podglądu (nieznane pola, puste pola, rozmiar) i „Podgląd z Outlooka” są uwagami
+  przy treści (znak i tekst, bez ramki). Nieudany podgląd z Outlooka jest błędem w wierszu z poleceniem **Ponów**, a nie
+  jednym z ostrzeżeń podglądu; okno jest o 36 px wyższe.
 - **Co się nie zmieniło:** wiersz stanu mają teraz lista obiektów, wszystkie karty zasad grupy, kreator zakładania wielu
   kont, przegląd komputerów i zdalne akcje, dzienniki zdarzeń, gotowość środowiska, cztery dokumenty certyfikatów,
-  zakładka Watchdog i wszystkie okna oraz dialogi wymienione wyżej; uwagi zamiast ramek mają też okna zasad grupy, które
-  tylko zbierają dane. Okno korespondencji ma na razie dotychczasowe ramki ostrzeżeń i błędów oraz paski postępu; przejdzie
-  na wiersz stanu w następnym wydaniu. Eksport do pliku i kopiowanie do schowka nadal potwierdza powiadomienie, a pasek postępu pojedynczej
-  operacji na liście operacji w tle zostaje w swoim wierszu. Animacja nowego komunikatu (krótkie wsunięcie) i zamiany
-  napisu na przycisku działa tylko przy włączonych animacjach (*Ustawienia → Ogólne → Wygląd → Animacje*); kółko postępu
-  obraca się zawsze.
+  zakładka Watchdog, okno korespondencji i wszystkie okna oraz dialogi wymienione wyżej; uwagi zamiast ramek mają też okna
+  zasad grupy, które tylko zbierają dane. Eksport do pliku i kopiowanie do schowka nadal potwierdza powiadomienie, a pasek
+  postępu pojedynczej operacji na liście operacji w tle zostaje w swoim wierszu. W oknie korespondencji nadal pokazują
+  okna: lista powodów, dla których wiadomości nie można jeszcze wysłać („Wiadomości nie można jeszcze wysłać: …”), błędny
+  adres testu, błędy zapisu raportu, szablonów i dziennika oraz pytania; powiadomienie po zakończeniu wysyłki też zostaje.
+  Animacja nowego komunikatu (krótkie wsunięcie) i zamiany napisu na przycisku działa tylko przy włączonych animacjach
+  (*Ustawienia → Ogólne → Wygląd → Animacje*); kółko postępu obraca się zawsze.
 
 ## Inne zmiany
 

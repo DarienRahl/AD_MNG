@@ -62,12 +62,17 @@ Rules that apply everywhere:
 
 The window belongs to the connection window: it has its colored bar, and the title *Correspondence – contoso.test* gives
 the domain. The tabs correspond to the steps of the work: *Mailboxes* (only when needed), **1 · Recipients**,
-**2 · Message**, **3 · Preview**, **4 · Sending**, **5 · Responses**. The status bar shows the connection to Outlook
-(*Outlook: connected (2 accounts)*) and the last message; *Help* shows a short guide.
+**2 · Message**, **3 · Preview**, **4 · Sending**, **5 · Responses**. The footer shows the connection to Outlook
+(*Outlook: connected (2 accounts)*) and a ring while the window loads; *Help* shows a short guide. Under the top edge there
+is one **status line**: it says what the tab you see does (the number of recipients, a run that goes on, the search for
+the owners, the read of *Sent Items*), how it ended and - for as long as it lasts - what cannot be done now (Outlook not
+available, the end of the session, the journal of sent addresses that cannot be used). A result can be closed with the
+cross; a read, a load, a search and a run that goes on are interrupted by *Stop* in the line.
 
 On opening, the window connects to Outlook in the background: it attaches to a running Outlook or starts it (three
-attempts). A missing Outlook is not an error of the window – it is visible only on the status bar, and *Connect to
-Outlook* on the *Message* tab tries again. Closing the window during sending asks whether to interrupt it; on closing,
+attempts). A missing Outlook is not an error of the window – it is visible in the footer, and on the *Sending* and *Responses* tabs
+also in the status line (with the *Connect to Outlook* button when the connection failed); *Connect to Outlook* on the
+*Message* tab tries again. Closing the window during sending asks whether to interrupt it; on closing,
 the last draft and the options are saved.
 
 An Outlook that AD Manager had to start runs without a window until AD Manager is closed, also after the
@@ -90,8 +95,9 @@ An Outlook that AD Manager had to start runs without a window until AD Manager i
 | *Group members…* | members of the chosen group, also nested ones and accounts for which it is the primary group (e.g. *Domain Users*; users and contacts, up to 10,000) |
 | *Mailbox owners…* | the *Mailboxes* tab (chapter 8) |
 
-Repeated addresses are removed – also against the recipients loaded earlier. The status bar summarizes every load, e.g.
-*Read the file: 120 new, 3 duplicates, 2 invalid addresses*.
+Repeated addresses are removed – also against the recipients loaded earlier. The status line summarizes every load, e.g.
+*Read the file: 120 new, 3 duplicates, 2 invalid addresses* (and with several files also the ones that could not be read,
+and why); loading files and reading the directory can be stopped.
 
 **How files and tables are read:**
 
@@ -111,7 +117,7 @@ Repeated addresses are removed – also against the recipients loaded earlier. T
   "Name (address)", then single addresses.
 - **Excel:** every sheet has its own header, and sheets with an address column are merged; cells go to columns by their
   address (A1, C1 …), so empty cells do not shift the columns. Sheets and rows that Excel does not show (hidden by hand,
-  filtered out, in a collapsed group) are skipped and counted – the status bar says e.g. *hidden sheets skipped: 1,
+  filtered out, in a collapsed group) are skipped and counted – the status line says e.g. *hidden sheets skipped: 1,
   hidden rows skipped: 15*; in ODS files hidden sheets and rows are for now read. Dates and times go into the fields as
   dates, not as the numbers Excel stores them as – in Polish notation, regardless of the cell format ("15.03.2026",
   "15.03.2026 10:00", "10:00"); numbers with a format such as a postal code (`00-000`) or PESEL (Polish national ID
@@ -419,7 +425,6 @@ time.
 | *Test to myself* | one message to your address (the chosen account, and without a choice – the current Outlook mailbox; when there is none either, the window asks for an address), with the subject "[TEST] …" and the fields of the message chosen in the preview (e.g. about the second mailbox of the same person; without a choice – the first); it does not go into the journal |
 | *Create drafts* | saves the messages in Outlook's *Drafts* – nothing is sent or written to the journal; if sent later by hand from Outlook, they will not go into the journal either |
 | *Send* | sending after confirmation |
-| *Stop* | interrupts after the current message |
 | *Retry failed* | repeats the sending only to recipients with an error |
 | *Save report…* | a text report (date, subject, the result for each recipient) in the chosen file |
 | *Journal of sent addresses…* | as on the *Recipients* tab |
@@ -428,8 +433,11 @@ time.
 skipped and invalid addresses and the delivery time, warns about a pause below 2 s and over 50 messages, and reminds you
 that sending cannot be undone. Above 20 messages you must type their number.
 
-**During sending** the bar shows the progress and the time to the end (*Sending 12 of 95 · about 4 min left*), the
-counters *sent*, *failed* and *skipped*, and the *Who it went to* list – the result of each message; the *Status*
+**During sending** the status line shows the progress and the time to the end (*Sending messages: 12 of 95 · about 4 min
+left…*), and the button that started it (*Send*, *Create drafts*, *Test to myself* or *Retry failed*) is *Cancel* - as
+*Stop* in the line interrupts after the current message. The window says "Stopping…" at once and ends after the message
+that is already on its way to Outlook; the result (*Sending stopped: 1 succeeded, 0 failed, 2 not sent.* and what to press
+to send the rest) stays in the line until you close it. The counters *sent*, *failed* and *skipped*, and the *Who it went to* list – the result of each message; the *Status*
 column of the recipient list shows *sent*, *draft*, *test sent* or *error – …*. The window responds all the time: the
 conversation with Outlook runs on a separate thread, so *Stop*, scrolling and the tabs work normally.
 
@@ -455,7 +463,7 @@ conversation with Outlook runs on a separate thread, so *Stop*, scrolling and th
   message** (applies to Bcc mode; every Bcc addressee counts toward the daily limit). Exchange in a company may have
   other limits – ask the mail administrator.
 - Leave a pause of 3 s – that is about 20 messages per minute, below the limit. One message takes Outlook about 1–3 s,
-  so 300 messages take about 15–17 minutes; the bar shows the time to the end.
+  so 300 messages take about 15–17 minutes; the status line shows the time to the end.
 - Do not close Outlook and do not put the computer to sleep during sending.
 - An attachment is added to **every** message (chapter 5).
 - **The recipient list is not saved** (unlike in Korespondencja WPiA, chapter 11). After an interruption – also after
@@ -501,7 +509,10 @@ the earlier ones are first names; a single word is a surname only.
   never chosen automatically.
 - The mailbox itself and other mailbox accounts (shared, rooms, equipment) are never candidates.
 
-*Find owners* starts the search (progress: *Mailboxes: 120 · persons: 4,210*), *Stop* interrupts it.
+*Find owners* starts the search; the status line gives the progress (*Searching for mailbox owners: 120 mailboxes, 4,210
+persons read…*), and the same button - now *Cancel* - and *Stop* in the line interrupt it (the list may then be incomplete,
+and the line offers *Retry*). After the search the line shows the counts of the matches (*Matched: … · to review: …*); when
+the search failed, it says why until you start the next one.
 
 ### How AD Manager finds the owner
 
@@ -625,8 +636,8 @@ The tab reads the votes from Outlook's *Sent Items* – nothing is saved on this
 1. *Sent since* (by default 90 days back) and *Find in Sent Items* – the list of runs from the *Correspondence* window,
    e.g. *28.10.2026 · Weryfikacja skrzynek pocztowych · 95 msg.*
 2. *Mailing* and *Show responses* – a table: *Recipient*, *Mailboxes* (which mailboxes the response concerns),
-   *Response* (the button text or "no response") and *Answered*; a summary, e.g. *Responses: 40 of 95 · Yes: 30 ·
-   No: 10*.
+   *Response* (the button text or "no response") and *Answered*; a summary in the status line, e.g. *Responses: 40 of 95 ·
+   Yes: 30 · No: 10*. Both reads can be stopped.
 3. *Export CSV…* – the table to a file (with protection against formulas).
 
 How it works: every message sent from the *Correspondence* window carries hidden properties in Outlook – the run

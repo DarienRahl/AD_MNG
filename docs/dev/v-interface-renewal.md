@@ -518,8 +518,13 @@ review: forty-three views with a line, fourteen converted views without one. The
 status, so the status bar of the main window says nothing about a PKI tab any more (*V2b-4 as built*, section 8).
 As built (V2b-4, unit 4): also the Watchdog tab - one line for the tab, whose pages (the feed with its details pane, the rules,
 the channels, the daily report, the status of the service, the sources and the save bar of the configuration) say their status
-there: forty-four views with a line, twenty-seven converted views without one. Of the areas of the sweep only the correspondence
-window is left (*V2b-4 as built*, section 8).
+there: forty-four views with a line, twenty-seven converted views without one (*V2b-4 as built*, section 8).
+As built (V2b-4, unit 5): also the Korespondencja window - one line above its tabs that says what the tab in front says (the
+recipients, mailbox owners, preview, send and responses pages each own a holder, the window puts the one of the tab that is
+shown in front of its own): forty-five views with a line, twenty-nine converted views without one - the report and the text
+prompt of that folder start no operation and are on the second list. With that no view of the application has an
+`Ad.ErrorBar`, an `Ad.WarningBar` or a progress bar that says status, and the sweep of V2b is over (*V2b-4 as built*,
+section 8).
 
 ### 6.2 Navigation – open question 2
 
@@ -1176,32 +1181,27 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
   list `PagesWithAStatusLine` has exactly one status line named `PageStatus` over `Status.Current`, no `Ad.ErrorBar`,
   no `Ad.WarningBar` and no `ProgressBar`, and a view with a status line must be on the list; the 81 views that are
   not converted yet are not touched by it.
-- **What V2b has to do** (rewritten at the end of V2b-3; counted in the XAML, comments excluded). At the end of V2a
-  there were 43 uses of `Ad.ErrorBar` and 58 of `Ad.WarningBar` in 51 files, and 65 progress bars. V2b-1 – seven core
-  windows, *V2b-1 as built* below – took 16 + 13 of the banners and 23 of the progress bars away; V2b-2 – the twelve
-  remaining windows of `Views/` and the rendered preview of a message, *V2b-2 as built* – took 10 + 9 and 10; V2b-3 – the
-  Group Policy area, ten documents and six windows, *V2b-3 as built* – took 7 + 17 and 8. **Left: 10 uses of
-  `Ad.ErrorBar` and 19 of `Ad.WarningBar`, and 24 progress bars, in 25 view files** (one of the progress bars is the row
-  of an activity in the main window and stays; the two styles themselves are still defined in `Themes/Controls.xaml`) –
-  33 views with a status line and 7 converted views without one. `Views/` and `GroupPolicy/` are done: what is left is
-  seven areas, most of it on document tabs. *Counted again after V2b-4, unit 2* (the figures above and the by-area list
-  below are those of the end of V2b-3, and the by-area list says what was left then): **5 uses of `Ad.ErrorBar` and 7 of
-  `Ad.WarningBar` in 14 view files and 15 progress bars in 15 files; 39 views with a status line and 14 converted views
-  without one** - bulk creation, computers, event logs and readiness are done, and three areas are left: `Views/Watchdog/`
-  2 + 4 and 7 in 9 files; `Pki/` 2 + 2 and 4 in 4 files; `Correspondence/` 1 + 1 and 3 in 1 file (plus the row of an
-  activity in the main window, which stays). *Counted again after V2b-4, unit 3:* **3 uses of `Ad.ErrorBar` and 5 of
-  `Ad.WarningBar` in 6 view files and 11 progress bars in 9 view files (11 view files with at least one of the three); 43
-  views with a status line and 14 converted views without one** - the certificates are done, and two areas are left: `Views/Watchdog/` 2 + 4 and 7 in 9 files and
-  `Correspondence/` 1 + 1 and 3 in 1 file (plus the row of an activity in the main window, which stays). *Counted again after V2b-4, unit 4:* **1 use of
-  `Ad.ErrorBar` and 1 of `Ad.WarningBar` in 1 view file and 4 progress bars in 2 view files; 44 views with a status line and 27
-  converted views without one** - the Watchdog tab is done, and one area is left: `Correspondence/` 1 + 1 and 3 in 1 file (the
-  fourth progress bar is the row of an activity in the main window, which stays).
-  - By area (error bars + warning bars, progress bars), in the order the next increments could take them: `BulkCreate/`
-    3 + 5 and 2 in 4 files; `Views/Watchdog/` 2 + 4 and 7 in 9 files; `Computers/` 2 + 3 and 3 in 2 files; `Pki/` 2 + 2 and
-    4 in 4 files; `EventLogs/` 0 + 3 and 3 in 3 files; `Correspondence/` 1 + 1 and 3 in 1 file; `Readiness/` 0 + 1 and 1 in
-    1 file; and the row of an activity in the main window (no banner, 1 progress bar), which stays. The HTML preview
-    control (`Controls/HtmlPreviewView.xaml`) is done: it was converted with the message window that hosts it, and the
-    correspondence window, which hosts it too, shows its one note next to its own bars until its increment.
+- **What V2b has to do** (rewritten at the end of V2b-4, when the sweep was over; counted in the XAML, comments excluded).
+  **V2b is done.** At the end of V2a there were 43 uses of `Ad.ErrorBar` and 58 of `Ad.WarningBar` in 51 files, and 65
+  progress bars. V2b-1 - seven core windows, *V2b-1 as built* below - took 16 + 13 of the banners and 23 of the progress bars
+  away; V2b-2 - the twelve remaining windows of `Views/` and the rendered preview of a message, *V2b-2 as built* - took
+  10 + 9 and 10; V2b-3 - the Group Policy area, ten documents and six windows, *V2b-3 as built* - took 7 + 17 and 8; V2b-4 -
+  the other seven areas in five units, *V2b-4 as built* - took the last 10 + 19 and 23 (by unit: 3 + 5 and 2, 2 + 7 and 7,
+  2 + 2 and 4, 2 + 4 and 7, 1 + 1 and 3). **Left: no `Ad.ErrorBar`, no `Ad.WarningBar` and no status progress bar in any
+  view.** What the XAML still has of them (counted by a script, comments excluded) is the definitions of the two styles in
+  `Themes/Controls.xaml` (`Ad.ErrorBar`, and `Ad.WarningBar` based on it) and the one progress bar of the row of an activity
+  in `MainWindow.xaml`, which stays. **Forty-five views have a status line and twenty-nine converted views have none**: the
+  two lists of `XamlSourceTests` (`PagesWithAStatusLine`, `ConvertedViewsWithoutAStatusLine`) hold each other out, and a view
+  with a line that is not on the first list fails the rule of the other way round. The figures per increment and unit are
+  in *After V2b-1* and *What is left* of *V2b-4 as built*; the by-area list that follows is what was done, in the order it
+  was done.
+  - By area (error bars + warning bars, progress bars, as they were when the area was taken): `Views/` and `GroupPolicy/` -
+    V2b-1 to V2b-3; V2b-4: `BulkCreate/` 3 + 5 and 2 in 4 files (unit 1, hosted in the first step of the batch editor);
+    `Computers/` 2 + 3 and 3 in 2 files, `EventLogs/` 0 + 3 and 3 in 3 files and `Readiness/` 0 + 1 and 1 in 1 file (unit 2);
+    `Pki/` 2 + 2 and 4 in 4 files (unit 3); `Views/Watchdog/` 2 + 4 and 7 in 9 files (unit 4); `Correspondence/` 1 + 1 and 3 in
+    1 file (unit 5); and the row of an activity in the main window (no banner, 1 progress bar), which stays. The HTML preview
+    control (`Controls/HtmlPreviewView.xaml`) was converted with the message window that hosts it, and is hosted by the
+    correspondence window as well.
   - Sort first (foundation 1 of *V2b-1 as built*): status goes to the line, a note stays where it is with the look of a
     note (`Ad.Note.Info`, `Ad.Note.Attention`, `Ad.Note.Error`), the progress of a row stays in its row, and a place
     that only shows "busy" gets a progress ring – unless its read can fail: then it has status to say (*V2b-2 as built*,
@@ -1221,8 +1221,7 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     how it is declared (tab order, default and cancel button), what a dialog that closes on success says, that a missing
     field is said when the button is pressed, how a dialog with tabs, a dialog without a session and a hosted control
     are handled, and that a view with nothing but notes gets no line and goes on the second list
-    (`ConvertedViewsWithoutAStatusLine`). Candidates for the action button that are left: the sending of
-    correspondence. (Done in V2b-2: connect and the search
+    (`ConvertedViewsWithoutAStatusLine`). No candidate for the action button is left. (Done in V2b-2: connect and the search
     for domain controllers, the change of the domain controller, OK of "Reset Password", preview, send and paste of the
     message window, the tests of the filter builder and of the saved view editor. Done in V2b-3: the two start buttons
     of the settings search, the cleanup advisor and the diagnostics, the main button of the backup window and *Update…*
@@ -1230,12 +1229,14 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     last logon, the sites and the ping of the computer review, the six actions of the remote computer window, the run of the
     event log reader, the loading of its channels and the runs of the two analyses, the two checks of readiness; in unit 3 the refresh
     of the four PKI documents, the check of the security review, the check of the HTTP addresses and the two probes of the domain
-    controllers; in unit 4 the test buttons of the SMTP card and of the channels.)
+    controllers; in unit 4 the test buttons of the SMTP card and of the channels; in unit 5 the four buttons that start a run of the
+    send page, the search for the mailbox owners, the two reads of Sent Items and the preview from Outlook.)
   - Document tabs drop out of `StatusBarText` as they are converted: the ten Group Policy documents did in V2b-3, with
     the base class they share, and the three event log documents and readiness in V2b-4, unit 2 and the four PKI documents in unit 3 and the Watchdog tab in unit 4 (neither V2b-1 nor V2b-2 had a document tab). The wizard of bulk creation (`BulkCreate/`) is hosted in step 1 of
-    the batch editor: its holder becomes `SourceStatus` of the create mode (done in V2b-4, unit 1). With the last converted view `Ad.ErrorBar`
-    and `Ad.WarningBar` leave `Themes/Controls.xaml`, and with them the strings and view-model members that lost their
-    last user (listed under *After V2b-1*).
+    the batch editor: its holder becomes `SourceStatus` of the create mode (done in V2b-4, unit 1). The Korespondencja window is a
+    window of its own and has no tab of the main window. Now that the last view is converted, `Ad.ErrorBar` and `Ad.WarningBar`
+    leave `Themes/Controls.xaml`, and with them the strings and view-model members that lost their last user (listed under
+    *After V2b-1*) - the first two items of *What V2b-5 has to do*.
   - Settled in V2b-1, of what was open in the controls after V2a: the accent variant of the action button
     (`Ad.AccentActionButton`, and `Ad.DialogActionButton` / `Ad.AccentDialogActionButton` with the metrics of the dialog
     buttons); the status line of a page with several operations (a state that lasts, several holders with the page in
@@ -1267,6 +1268,49 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     windows*, 6); a sentence about the selected item that is a note, not a state (*The windows*, 8); a dialog that only
     collects input gets no line even when it belongs to a flow that has one (*The windows*, 9); and what a document that
     edits what it shows does with a conflict (18, 19).
+  - Settled in V2b-4 (*V2b-4 as built*), without a change to the controls and with three factories of the model
+    (`ResultCode.Remote`, `ResultCode.Watchdog`, `ResultCode.Outlook`): a flow that another window hosts has the line of its
+    host (*Areas* 1); a window that does several things one after another has one holder and a flag per button (2), a family of
+    documents shares the holder of its base class (3, 5) and a tab with operations of its own has a holder in front (5, 6); what
+    lasts is computed from the facts in one method, in the language of the moment where it is a state of the window and in the
+    language it was said in where it is a failure (3, 4, 5, 6); the states of a window of tabs are said by the pages they are
+    true for, and a state that a window sets after a page began an operation is shown in its place (7); a stop that cannot give
+    control back - the messages already handed to Outlook - ends when the call returns, and one that can - synchronous IO, a
+    call nothing can interrupt - returns at once with `Task.Run(…).WaitAsync(token)` and drops the late answer; a read is
+    repeated by a link, a change never (2, 6); a quick action never ends an operation of its page (7); the coverage of a read is
+    said in the line for what the run could not read and stays in rows and notes for the rest (3); the working text carries the
+    key and the numbers, the stages are one message (3, 5); a start button with a separate Stop or Cancel button became an action
+    button, with its own flag where several buttons share one holder, and the buttons that never had a Stop of their own and share
+    a holder with others keep the Stop of the line - the practice that answers the question of V2b-3 about *Recalculate*, the
+    sources of the central store and the three tests of the settings.
+  - *What V2b-5 has to do* (what is left of the V2 scope; the part of *After V2b-1* that no increment of V2b did):
+    1. *Retire the old banners:* delete `Ad.ErrorBar` and `Ad.WarningBar` from `Themes/Controls.xaml`, with their lines in the
+       header comment that says where each kind of feedback goes, and add a source rule that no XAML file outside `Themes/`
+       mentions them (the two lists of `XamlSourceTests` already forbid them in every view that is converted, and every view is).
+    2. *Remove what lost its last user:* the strings and the view-model members listed under *After V2b-1*, in both resx files,
+       with the tests that read the members; `Cancel()` and `CancelCommand` that are only the Stop of a line stay as the commands
+       they are.
+    3. *A delay before "Working"* (about 150 ms), so that an operation that ends at once does not flash - the more visible the more
+       windows have a line: the read of nested membership after every comparison, the reads of the tabs of the property sheet,
+       "Reading the containers of …", a test of a filter in a small domain, "Reading “…”…" at every reload of a Group Policy tab,
+       "preparing the changes…" before every preview, the first read of the Korespondencja pages, the ring on the first read button
+       of a tab whose reload reads nothing.
+    4. *The rest of the V2 scope that is not started:* `StatusPill` (the status pictures at 16 px), `EmptyState` (48 px icon, one
+       sentence, one action - also the answer to the empty 28 px band of a line with nothing to say, which every view with a line
+       has: collapse it or keep the one fixed place?), `Skeleton`.
+    5. *Taskbar progress* (6.7): a send of messages that takes minutes shows its progress only in the 16 px ring and the numbers of
+       the line, and so does every long read.
+    6. *The close question tied to running activities:* a window that is closed during an operation - only the Korespondencja
+       window asks, and only for a send.
+    7. *The screen reader:* a result that only changes the summary is not announced (the settings search no longer announces how
+       many settings a query found, and no count of a list does); decide whether a polite live region for such a count is wanted,
+       and a mark in the tab header of a page that failed while it was not shown (6.7).
+    8. *The "V2" documentation of the controls:* what `StatusLine`, `ActionButton`, `ProgressRing`, the notes and the holder are,
+       for whoever writes the next view - one page of the developer notes with the recipe of *What V2b has to do*, the dialogs
+       list, the Group Policy documents list and the *Areas* of *V2b-4 as built* as its sources; the header comment of
+       `Controls.xaml` as its pointer.
+    9. *Notes:* whether a note may choose its glyph (the replication note of the wizard's results was information and has the
+       caution glyph; the protected account became a warning).
   - Still open – in the controls and the model:
     - *A delay before "Working"* (about 150 ms), so that an operation that ends at once does not flash – more visible
       with every window: the read of nested membership after every comparison, the reads of the tabs of the property
@@ -1318,17 +1362,34 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
       language it was said in, and only "the session of this window ended" and "not connected" follow the switch at once. A
       result - "Central store updated…", a stopped backup - always stays in the language it was said in. The Connect window and the two
       editors do not follow a switch at all (they are modal, and the settings cannot be opened over them).
-    - *Open for the owner, from V2b-3* (the questions the four units left): whether the "as of" text belongs to the summary
-      of the settings search, the cleanup and the diagnostics - the line gets long - or the line should keep the count and
-      the selection only; whether the caution glyph of the notes that state how complete results are ("the quick check does
-      not cover …") is too loud, and whether the information note of the templates in the secondary text colour is enough;
-      whether the screen reader should hear the count of a search after each query (the summary of the line is never
-      announced when it only changes); whether the press-time answers of the editors ("Type a name or choose one from the
-      list.") move to the line, cleared by the next edit; whether a domain without a central store offers *Update
-      templates…* as the action of a state that lasts, at the price of the summary; whether the accent "Changed settings: N
-      (not saved)" under the title of an editor stays now that the summary of the line says it; whether *Recalculate* and
-      the sources of the central store become action buttons; and whether the "as of" and "stale" states of the document
-      tabs need the delay before "Working" to stop flashing.
+    - *Open for the owner, from V2b-3 and V2b-4* (the questions the nine units left, sorted at the end of V2b-4):
+      *Settled.* The "as of" text belongs to the summary as its detail, counts first and the time and the place last (V2b-3,
+      Group Policy documents 15, followed by readiness and the PKI documents in V2b-4); a hosted flow has the line of its host and
+      a view with nothing but notes none; *Recalculate*, the sources of the central store, the three tests of the settings, the
+      source buttons of the wizard, *Validate*, *Reload* and the preview buttons of the Watchdog stay plain buttons with the Stop
+      in the line - they never had a Stop of their own and share a holder with other buttons; after a stopped
+      recompute of the wizard *Podgląd* plans from the latest computation (a fix after unit 1: the plan step computes again);
+      the results of the exact last logon, the sites and the ping of the computer review are results of the line (a toast was
+      gone after a few seconds and the line stays until the next operation - the operator closes it); a window whose pages differ
+      in what they need says each state on the pages it is true for.
+      *Still the owner's.* Whether the caution glyph of the notes that state how complete results are is too loud, and whether the
+      information note of the templates in the secondary text colour is enough; whether the press-time answers of the editors
+      ("Type a name or choose one from the list.") and the answers to the profile commands of the wizard belong in the line,
+      cleared by the next edit, or next to their buttons; whether a domain without a central store offers *Update templates…*
+      as the action of a state that lasts; whether the accent "Changed settings: N (not saved)" under the title of an editor
+      stays now that the summary says it; whether a stopped remote action offers a link that reads the status of the computer;
+      whether the line names the sources a run could not read when the coverage panel shows the same in rows; whether
+      *Check again* of readiness is two actions for its two causes; whether the failure of the templates' account count is an
+      attention or an error, whether the HTTP check and the LDAPS probe also say "done" in the line, whether *Refresh* is the
+      Cancel of a read the operator did not start, whether the sentence about HTTP addresses belongs in the line, and whether a
+      stopped security check keeps the count of its findings; whether the Watchdog's stopped read of the feed keeps the old
+      rows, whether the toast after a save, an acknowledgement and "Wyślij teraz" is still needed, whether the rollout mode is a
+      state of the line, whether a connected card says "Połączono", and whether a test may replace the running test of another
+      editor; and, from unit 5, whether the reasons before a send, the address of a test and the errors of saving files leave
+      their dialogs for the line, whether the footer keeps the state of Outlook next to the pages that say it, whether the
+      message page needs a holder, whether the preview from Outlook says "done", whether the journal that cannot be used belongs in
+      a note of two pages instead of the line of every tab, and - open since V2b-1, and in every view with a line now - whether the
+      empty 28 px band of a line with nothing to say stays (V2b-5, item 4).
     - *Tests:* summaries show the time of day, so README pictures of converted windows differ with every screenshot run
       – a fixed clock for the UI tests would end that.
 - **Not seen, to confirm on Windows:** nothing of this was seen on a screen. Open: the look of the line on the status
@@ -1919,7 +1980,12 @@ above.
   its last user; no longer shown but read by tests or by the view models themselves - `Error`, `Message`, `PreviewError`,
   `ActionMessage` of the pages of the Watchdog tab, `StatusText`, `SelectionText` and `LoadedText` of the tab and of the feed,
   `BannerMessage`, `StateText` and `ConnectionMessage` of the tab, `SummaryText` and `Error` of a delivery test, `Error` and
-  `HasConflict` of the configuration.
+  `HasConflict` of the configuration. Added by V2b-4, unit 5: the strings `Correspondence.Preview.OutlookFailed`,
+  `Correspondence.Recipients.ImportTitle`, `Correspondence.Recipients.DirectoryTitle` and `Correspondence.App.Send.Progress` have
+  no user any more; no longer shown but read by tests or by the view models themselves - `StatusText` and `Error` of the
+  Korespondencja window, `StatusText` of its recipients and mailboxes pages, `ProgressText`, `SummaryText` and `Error` of the
+  mailboxes page, `ProgressText`, `ProgressValue` and `ProgressMaximum` of the send page, `SummaryText` of the responses page;
+  `CancelCommand` of the mailboxes page and `StopCommand` of the send page are the Stop of the line.
 - **Not seen, to confirm on Windows.** Nothing of V2b-1 was seen on a screen.
   - *The property sheet.* How a wrapped result looks in the 640 px wide sheet (two or three lines on the caution or
     critical surface, picture and buttons in the first line). The note next to the old validation texts (glyph and plain
@@ -3593,16 +3659,18 @@ done one after another. Unit 1 converted the bulk creation wizard (`BulkCreate/`
 the restart dialog), the three event log documents (`EventLogs/`) and the readiness tab (`Readiness/`). Unit 3 converted the
 four PKI documents (`Pki/` with their view models in `Presentation/Pki`); the certificate tabs of the property sheet were
 converted with it in V2b-1. Unit 4 converted the Watchdog tab (`Views/Watchdog/` with its view models in
-`Presentation/Watchdog`). The foundations are
+`Presentation/Watchdog`). Unit 5 converted the Korespondencja window (`Correspondence/` with its view models in
+`Presentation/Correspondence`) and closed the sweep. The foundations are
 those of *V2b-1 as built*, the *Dialogs* of *V2b-2 as built* and the decisions of *V2b-3 as built*; nothing was added to the
-controls, and the model got two factories (`ResultCode.Remote` in unit 2, the kind of a failed remote action, and
-`ResultCode.Watchdog` in unit 4, the kind of a failed call of the service). The block reads
-in this order: *Areas* (what each area decided about its line, its notes and its states that last - the instructions of the
-units after it), the wizard, the unit-2 sections (the computer review, the remote actions window and the restart dialog, the
-event log documents, the readiness tab), the unit-3 section (the PKI documents), the unit-4 section (the Watchdog tab), the
-tests, what is left (the counts, what
-was left behind on purpose), and what nobody has seen on a screen yet. Every later unit adds its entry to *Areas* and its own
-section.
+controls, and the model got three factories (`ResultCode.Remote` in unit 2, the kind of a failed remote action,
+`ResultCode.Watchdog` in unit 4, the kind of a failed call of the service, and `ResultCode.Outlook` in unit 5, the kind of a
+failed call of classic Outlook). The block reads
+in this order: *Areas* (what each area decided about its line, its notes and its states that last - the instructions for
+whoever converts a view next), the wizard, the unit-2 sections (the computer review, the remote actions window and the
+restart dialog, the event log documents, the readiness tab), the unit-3 section (the PKI documents), the unit-4 section (the
+Watchdog tab), the unit-5 section (the Korespondencja window), the tests (by unit), what is left (the final count, then
+what each unit left behind on purpose), and what nobody has seen on a screen yet (by unit). What V2b-5 still has to do is in
+*What V2b has to do* in the block of V2a.
 
 - **Areas** (what each area decided; the next units follow it and add their own).
   1. *Bulk creation (unit 1) - a flow that another window hosts has the line of its host.* The wizard is the first step
@@ -3669,6 +3737,24 @@ section.
      Retry. *Notes:* what is true of a part of the content for as long as it is shown - the mode of rollout, why the editors are
      read only, the findings of the service, the hint of a signing secret that is shown once, the hints of a delivery test, why
      the details of an event could not be read.
+  7. *Correspondence (unit 5) - a window of tabs of which only some talk to the directory: one line for the window, a holder
+     for every page that says something of its own, and a state that lasts only on the pages it is true for.* The window is
+     tabs (the mailbox owners, the recipients, the message, the preview, the send and the responses), so it has one line and
+     the page of the tab that is shown is in front (foundation 3). The recipients, mailbox owners, preview, send and responses
+     pages own a holder; the message page has none - what it says about a field is a note, and its templates, exports and
+     imports answer with a toast or a dialog as before. *What lasts is told by who it is true for.* That the session of the
+     window ended is said by the two pages that read the directory, not by the window: sending through Outlook goes on, and a
+     window's own error that cannot be closed - `SessionEndedStatus`, the first condition of every other window - makes
+     "nothing a page says matters" (foundation 3), so it would have covered a send that runs. That Outlook is not available
+     is said by the send and the responses pages, with *Connect to Outlook* as the action where connecting again can help;
+     the footer keeps the state of the connection as an indicator, like the connection in the main window's status bar. That
+     the journal of the addresses sent to cannot be used is the window's own - set at its first moment and never later: a
+     state of the window that is set after a page began an operation would be what was said last, and be shown in its place.
+     *Operations:* the send run, the two reads of Sent Items, the search for the owners and the read of the owners that are
+     added, the preview from Outlook, the read of the directory and the reading of files - each with Stop, and the buttons
+     that start the run, the search, the two reads and the preview are action buttons with a flag of their own over the holder
+     of their page. *Notes:* what pasting left out, what is wrong with the chosen signature, the findings of the preview and
+     where it came from.
 
 - **The bulk creation wizard** (`BulkCreate/BulkCreateView.xaml` hosting `BulkSourceView`, `BulkColumnsView`,
   `BulkRulesView` and `BulkCheckView`, and `BulkResultsView` in the results step; `BulkCreateViewModel` with `Source`,
@@ -4180,265 +4266,475 @@ section.
     `ChannelEditorViewModel`, `WatchdogRuleEditorViewModel`, `DeliveryTestViewModel` and `WatchdogDeliveryLogViewModel` got an
     optional holder (the tab's); standalone they make their own, so the existing tests build them as before.
 
-- **Tests of unit 1.** Presentation (35, on Linux): `BulkCreate/BulkSourceStatusTests` (12: the paste and the file with the sequence
-  of the line in both languages, the name of a file never in a log copy, Stop of a paste and of a file with a parse held on
-  its thread and released, a clipboard without a table, files that cannot be used - too large, not a sheet, not there -
-  with the table of before staying, a header row out of range, a column over the limit closed by the next action, the
-  repeated-paste question as a note, the summary after a language switch, closing the window during a read),
-  `BulkRulesStatusTests` (7: nothing at rest, why *Dalej* is not possible is not status, a profile that cannot be saved, the
-  results of save / default / delete with no name in the log copy, a built-in profile as the default, the limit of
-  profiles, the account that can join computers - not found, a failing read, closed by the next pick -, the sentence
-  back when the step is shown again), `BulkCheckStatusTests` (11: the part done from the first row with its fractions in
-  both languages, no cell in a log copy, Stop with a read held on its way to the domain controller - "Stopping…" at once,
-  the stopped state and its action -, `StopCommand` as the same Stop, the two buttons' flags and their Cancel, a failed
-  check with Retry, incomplete input, the stale state in both languages and its action, an edit that replaces a running
-  check without a word, the end of the session during a check - straight to the end, nothing from the call that returns
-  later -, closing the window), `BulkCreateStatusTests` (5: the chain window → wizard → page through the steps, the
-  preview and *Back*, closing, the wizard's own holder empty, and the creation as the execution of the window - the canary
-  and the rest add up from "0 z 5" to "5 z 5" and the result names the domain). `BulkCreateBatchEditorTests`, `BulkCheckTests`,
-  `BulkSourceTests`, `BulkRulesTests` and `BulkCreateProfileTests` are unchanged. UI (Windows CI, written without a screen):
-  `BulkCreateStatusUiTests` (5: one line in the whole window and the summary in it, the notes of the table, the answer to a
-  profile command and the note of the rules - with `GrowthOf` -, the check in the line with Stop and the button as its
-  Cancel - the grid moves by as much as the line grew -, the notes of the check and of the results). Adapted where the
-  place of a sentence changed: the two UI tests that read the summary of a step from a text block read it from the
-  line (`BulkCreateInputUiTests`, `BulkCreateWindowTests`), and `BatchEditorStatusUiTests.AssertNoOldFeedback` no longer
-  exempts the views of the wizard. Source rules: the six views on `ConvertedViewsWithoutAStatusLine`; the expressions of
-  `XamlSourceTests` for both lists, the `Ad.*` keys, the closed set of Fluent brushes, the motion rule and "every
-  `StaticResource` key is defined before its first use" were proven on Linux with a throwaway script.
-- **After V2b-4, unit 1** (counted in the XAML, comments excluded): **7 uses of `Ad.ErrorBar` and 14 of `Ad.WarningBar` in
-  21 view files, 22 progress bars** (one is the row of an activity, which stays). By area: `Views/Watchdog/` 2 + 4 and 7 in
-  9 files; `Computers/` 2 + 3 and 3 in 2 files; `Pki/` 2 + 2 and 4 in 4 files; `EventLogs/` 0 + 3 and 3 in 3 files;
-  `Correspondence/` 1 + 1 and 3 in 1 file; `Readiness/` 0 + 1 and 1 in 1 file. Thirty-three views have a status line and
-  thirteen converted views none. Left behind on purpose (added to *After V2b-1*): the strings `BulkCreate.Reading`,
-  `BulkCheck.Computing` and `BulkCheck.StaleNote`, which have no user any more; no longer shown but read by tests or by the
-  view models themselves - `Error` of the source and of the check, `ProfileStatus`, `OptionsError`, `ComputedRows` and
-  `TotalRows`, and `StopCommand` of the check, which has no view. The three views that were notes already (`MappingError`,
-  the scope of the check, the first free number) were not renamed.
-- **Not seen, to confirm on Windows (unit 1).** Nothing of this unit was seen on a screen.
-  - *The line over the wizard.* It is the line of the batch editor, so it is there at rest in every step, empty on
-    *Kolumny* (an empty band of 28 px, the open question of the empty line) - it was there since V2b-1, empty in this mode.
-  - *The toolbars.* *Dane* without the bar and the bold summary at its right; *Sprawdzenie* with two action buttons next to
-    the plain *Następny błąd* and *Kopiuj wiersze z błędami* (as wide as "Zatrzymywanie…" needs: "Sprawdź ponownie" is
-    wider, "Numeruj od nowa" is not), the scope of the check right under the filter row where the bold summary stood.
-  - *The notes.* The reading warnings in one note with their own scroll (88 px), glyph in the first line; the repeated-paste
-    note with three buttons at its right, which wraps in a narrow window; the note of *Nazwy i opcje* above the sections.
-  - *Long results.* "Nie wczytano pliku „…”: Plik jest większy niż 50 MB. Wybierz inny plik." with a long file name, the
-    stopped-check sentence (about 150 characters) and the stale sentence wrap to two or three lines and move the wizard
-    down with them.
-  - *Coming back from the preview.* The stale state of the check shows for the moment between *Back* and the recompute that
-    the execution scheduled (300 ms); with a result of the line closed or not.
-  - *The profile commands* answer in the line at the top of the window while the buttons are at the bottom of a long step.
-  - *Open for the owner:* whether the three source buttons become action buttons (Stop is in the line only); whether
-    *Podgląd* should refuse, or compute again, after a check that was stopped (rule 5 says how a plan is made is not this
-    increment's business); whether the profile commands' answers belong next to the buttons as notes.
-  - The pictures `40-bulk-create-data.png` to `43-bulk-create-check.png` are made by the screenshot tests but are not
-    committed or shown in the READMEs; they change with this unit (the summary in the line, the notes, the two action
-    buttons) - the line itself was there since V2b-1, empty in this mode.
-- **Tests of unit 2.** Presentation (53, run on Linux): `Readiness/ReadinessStatusTests` (9: the first check with every area
-  and how far, the full check in both languages, Stop with control back at once and the stopped state with its action,
-  `CancelCommand` as the same Stop, a reconnect that ends the run without a word and the connection-changed state - in both
-  languages -, a tab without a session, the window that disconnects after a check, closing the tab during a check with no
-  area in a log copy), `EventLogs/EventLogStatusTests` (16: the reader's sequence from "what to do first" to the summary, in
-  both languages and with the selection joined, Stop with what was read kept and its Refresh, the sources that were not
-  read named by the line and their reasons left in the rows, the channels as an operation that leaves the summary, the
-  flags of the two start buttons, the window that cannot read event logs, not connected, the failed logons and the lockout
-  with their stages, a stopped analysis, an action that fails never over a run, an account that is no account, a failed read
-  with Retry, closing a tab during a run), `Computers/ComputerReviewStatusTests` (15: the summary with the selection, the
-  check with the scope and the computers read so far and no name in a log copy, the scope as the operator chose it, Stop and
-  the same Stop from `StopCommand`, a failed check and a scope that cannot be resolved, the exact last logon with the
-  controllers that did not answer, its Stop with the list unchanged, the sites stopped and how far they are, the ping as an
-  operation with its result in the line and a computer without a DNS name, the end of the session over what runs, a window
-  without a session, closing the window during a check), `Computers/RemoteComputerStatusTests` (12: the connection as the
-  summary, a read that ends as the summary, Stop of a read and its button as the action, `StopCommand` and a Stop during the
-  ping, an action that ends as done and a stopped one that says it is not known whether the computer got the request, a read
-  that fails with Retry and an action that fails without one, Polish, no DNS name, no remote client, the end of the session,
-  closing the window, the language switch) and `ComputerActionsTests` (+1: `FindTargetAsync` says why there is no target with
-  no dialog, `TryPingAsync` hands back the outcome with no toast). UI (Windows CI, written without a screen, 15):
-  `ReadinessStatusUiTests` (3: one line under the header with the summary and the notes as a note, the area of a full
-  check in the line with the button as its Cancel and the stopped state with *Check again*, the end of the connection),
-  `EventLogStatusUiTests` (5: one line under the header of every document with its run button as an action button, a run
-  with its sources and events and a stopped run with *Refresh*, a source that was not read named by the line and its
-  reason in its row, the window that cannot read event logs in the three documents, the channels button), `ComputerStatusUiTests`
-  (7: the review's one line at the top with four action buttons, a check with the scope and Stop as the button, a failed
-  check and the end of the session, the remote window's one line and its six action buttons, a read with its Stop, an
-  action that fails without a link, the window without a DNS name and the restart dialog with a note and no banner); every
-  place that grows with a result is measured with `GrowthOf`. Adapted where the place of a sentence changed:
-  `ComputerReviewViewModelTests` (3 tests read the result of the exact last logon, the sites and the subnets from the line
-  instead of the toasts), `ReadinessUiTests`, `EventLogDocumentsUiTests` (the not-supported banner is the state of the line),
-  `ComputerWindowsTests` (the status and the connection are read from the line), `PageStatusTests` (the code of
-  `ResultCode.Remote`). Source rules: the six views on `PagesWithAStatusLine` and `RestartComputerWindow.xaml` on
-  `ConvertedViewsWithoutAStatusLine` (both lists stay sorted ordinal); the expressions of `XamlSourceTests` for both lists,
-  the `Ad.*` keys, the closed set of Fluent brushes, the motion rule and "every `StaticResource` key is defined before its
-  first use" were proven on Linux with a throwaway script, and the `App.UiTests` project builds without a warning.
-- **After V2b-4, unit 2** (counted in the XAML, comments excluded): **5 uses of `Ad.ErrorBar` and 7 of `Ad.WarningBar` in
-  14 view files, 15 progress bars in 15 view files** (one is the row of an activity in the main window, which stays).
-  By area: `Views/Watchdog/` 2 + 4 and 7 in 9 files; `Pki/` 2 + 2 and 4 in 4 files; `Correspondence/` 1 + 1 and 3 in 1 file -
-  the three areas that are left. **Thirty-nine views have a status line and fourteen converted views none.** Unit 2 took 9
-  banners and 7 progress bars: of the 2 error bars both were status (the failed call of the review and of the remote window),
-  of the 7 warning bars 6 were status (the end of the session in the two windows, the three "not supported" bars of the
-  event logs, the changed connection of the readiness tab) and 1 a note (the age of the release catalogue); all 7 progress
-  bars were status. What never was a banner: the cancelled-check sentence and the stale hint of the readiness tab (states
-  that last), the card "Read only…" (a note), the validation sentence of the restart dialog (a note), the exact last
-  logon, the sites and the ping (toasts and a dialog, now results of an operation). Left behind on purpose (added to *After
-  V2b-1*): the strings `Readiness.Stale`, `EvtLog.Cancelled`, `EvtLog.StatusReading`, `EvtLog.LoadingChannels`,
-  `EvtFail.StageFailures`, `EvtFail.StageSuccesses`, `EvtFail.StageAnalysis` and the four `EvtLock.Stage*`, which have no
-  user any more (the stages are `EventLogsStatus.*` now); no longer shown but read by tests or by the view models
-  themselves - `ProgressText` and `ProgressValue` of readiness and `ProgressText` of the three documents (fed by the same
-  stage), `WasCancelled` and `IsStale` of readiness (the state is computed from them), `Error`, `StatusText`, `SelectionText`,
-  `IsReading`, `AsOf` and `StopCommand` of the review, `ConnectionText` and `Error` of the remote window, `LoadedText`,
-  `IsSupported` and `NotSupportedText` of the event log documents (the last is the sentence of the line). No command lost
-  its last user: `Cancel()` and `CancelCommand` of the documents are the same Stop as the line's.
-- **Not seen, to confirm on Windows (unit 2).** Nothing of unit 2 was seen on a screen either.
-  - *The computer review.* The line sits at the top of a window that is 36 px higher by default; it is an empty band before
-    the first check (the open question of the empty line). The four buttons are action buttons - "Zatrzymywanie…" is wider
-    than their labels, so the row may wrap in a narrow window; the long results (the exact last logon with the names of
-    the controllers that did not answer, the subnets that were skipped) wrap to three lines and push the list down; the
-    note about the release catalogue keeps its place between the scope and the parameters.
-  - *The remote window.* The six start buttons wrap onto a second row (their margin is 6 px at the right and at the bottom,
-    as in the old toolbar); "not known whether the computer got the request" is the longest sentence of the window; the
-    action log under it is unchanged and says "Cancelled." as before. The restart dialog has a note where a hand-made
-    caution glyph and a secondary-colour text were.
-  - *The event log documents.* The line is under the header and above the query; the run button is next to the query and
-    is as wide as "Zatrzymywanie…" needs, the "Load channels" button beside the channel box is small and may be cut in
-    Polish; a run with sources that were not read names three of them and the panel "Coverage and access" opens beside it,
-    so the same fact is on the screen twice, once as a count and once as rows.
-  - *The readiness tab.* The ring in the line shows how many areas are done; "Check again" is one link for two different
-    causes (stopped, changed connection); the summary is long ("OK: 20 · Warnings: 3 · … · Last check: full, … on dc01…")
-    and is cut in a narrow tab with the rest in the tool tip.
-  - *Open for the owner:* whether the review's exact last logon, sites and ping belong in the line as operations at all (a
-    toast was gone after a few seconds, the line stays until the next thing - a result that nobody closes may be read as
-    "still true" long after); whether a stopped remote action should offer a link that reads the status of the computer;
-    whether the sources that a run could not read should be named by the line when their rows say so already.
+- **The Korespondencja window** (`Correspondence/CorrespondenceWindow.xaml`; `CorrespondenceViewModel` with the pages
+  `RecipientsPageViewModel`, `MailboxOwnersPageViewModel`, `PreviewPageViewModel`, `SendPageViewModel` and
+  `ResponsesPageViewModel`, and `OutlookConnectionViewModel`; `ReportWindow` and `TextPromptWindow` of the folder start no
+  operation and are on `ConvertedViewsWithoutAStatusLine`).
+  - *What the line says.* One line above the tabs, 8 px in from the edge, bound to the holder of the window, which has the page
+    of the tab in front. **Odbiorcy:** at rest the counts of the list ("Odbiorcy: 120 • do wysłania: 95 • pominięci: 20"),
+    where the old text block under the grid was; **working** "Reading “contacts.csv”…", "Reading the files: 2 of 5…" (the
+    part done in the ring) and "Reading 12 objects from the directory…", all with Stop - the thread that parses runs to its
+    end, the page has control back at once and the file it was reading is dropped; **done** or **attention** is what the
+    action came to, in the sentence the page already had ("Read the file “contacts.csv” (CSV): 120 new, 3 duplicates, 2
+    invalid addresses", a paste that found nothing, "Nothing was loaded: The Downloads folder could not be found."), with the
+    files that were not read and why in the same sentence ("… Not loaded: Could not read “broken.xlsx”: …"); a stopped load
+    ("Loading was stopped after 2 of 5 files: the rows of the files read so far are on the list.") and a stopped directory read
+    ("Nothing was added from the directory: Reading was stopped." with *Retry*); **error** for a failed directory read, with the
+    LDAP code and *Retry*. **Skrzynki:** at rest the counts of the matches; **working** "Searching for mailbox owners: 120
+    mailboxes, 4,210 persons read…" and "Reading the owners (9)…" with Stop; **attention** for a search that was stopped ("The
+    list may be incomplete. Press “Retry” to search again."), that found no mailbox, that did not start ("Nothing was
+    searched: No objects were selected.") and for nobody to add; **done** "Added to the recipients: mailboxes - 9, owners - 9.",
+    said by the recipients page as well, which is the one in front after the switch; **error that lasts** - the search failed
+    and the list is empty because of it - with *Retry*, until the next search starts. **Podgląd:** "Building the preview in
+    Outlook…" with Stop; "The preview could not be read from Outlook: reason. Press Retry to try again. (NotResponding)"; the
+    card, its findings and its information line are the content. **Wysyłka:** **working** "Sending messages: 12 of 95 · about
+    4 min left…" ("Saving drafts: …", "Sending the test: …") with the part done in the ring and Stop; **done** "Sending finished:
+    95 succeeded, 0 failed. Each message is listed under Results."; **attention** "… 2 failed. Press “Retry failed” to try them
+    again.", "Sending stopped: 12 succeeded, 0 failed, 83 not sent. Press “Send” to send the rest: …" and "… Stopped after 5
+    failures in a row: check Outlook, then press “Retry failed”."; **error** when Outlook stopped the run ("…: reason. Check
+    Outlook, then press “Retry failed”. (Disconnected)"); a press that came to nothing - "Nothing was sent: There is nobody to
+    send to…", "Nothing was sent: Outlook cannot be used: … (NotResponding)"; and the state that lasts - Outlook is not
+    available. **Odpowiedzi:** at rest "Runs found: 1 - choose one and read its responses." or the summary of the votes; **working**
+    "Searching “Sent Items”…" and "Reading the responses…" with Stop; **error** "The responses could not be read: reason (code)"
+    with *Retry*; **attention** for a read that was stopped, with *Retry*; the state that lasts - Outlook is not available.
+    **Wiadomość:** nothing - the line is empty, the page has notes only. **The window itself:** that the journal "already
+    sent" was started again (a result that can be closed, the path of the old one on screen only), that it cannot be used (the
+    state that lasts) and that the signatures could not be read.
+  - *How the old places were sorted* (1 error bar, 1 warning bar, 3 progress bars, and the sentences that said the same).
 
-- **Tests of unit 3.** Presentation (33, on Linux; `Pki/PkiStatusTestSupport.cs` has the harness - the window's PKI services over
-  the fake directory with a cache whose calls the test holds, fails or lets report - and a held call that does not hear the
-  token until the test releases it, so "Zatrzymywanie…" stays on the page until the call returns): `Pki/PkiOverviewStatusTests`
-  (13: the summary in both languages with the selection and the tab, the read as an operation with its stage and counts and no
-  name in a log copy, Stop with control back at once and the stopped read that lasts with its action, a failed read with Retry
-  and its code, not connected and the language switch, a newer read that replaces the running one without a word, the health
-  tab in front with the HTTP check - the part done, Stop, the stopped result with its action, then the rows and the summary -,
-  a failed HTTP check that can be closed, the LDAPS probe as the operation of its tab, a probe that cannot be made as the state
-  of the tab until the next probe, the probe a read makes as a stage of the read, every log copy of the three holders, and the
-  status bar of the main window saying nothing of a PKI tab), `PkiTemplatesStatusTests` (6: the summary with the counted accounts
-  in both languages, the stages including the account pass, Stop during the account pass with the templates kept, accounts that
-  could not be counted as a state with Retry in both languages, a failed read, the log copies), `PkiReadinessStatusTests` (7: the
-  summary in both languages, the stages with the areas that wait for the accounts saying "reading…", Stop and the areas the read
-  did not reach saying "not read", the probe with Stop and the area keeping what it showed, a probe that failed with its row and
-  Retry and a read that replaces a probe silently, not connected, the log copies), `PkiSecurityReviewStatusTests` (7: the summary
-  with the selection and the filter in both languages, the check with its stages in order, Stop through the line and through
-  `CancelCommand` with the findings of before kept and the sentence in both languages, a first check that was stopped, a failed
-  check with Retry and the findings kept, not connected, the log copies). UI (Windows CI, written without a screen, 7):
-  `PkiStatusUiTests` (one line under the header of each document with the summary said once and no old banner, the three notes of
-  the overview with their styles, the action buttons over the right commands and holders, a held read of the overview with
-  Stop - "Stopping…" observed through the change of the status - and the stopped read with *Refresh* and the growth of the
-  line, the HTTP check with a gated probe: Stop, the stopped result, the rows and the summary and the note gone, the templates'
-  line and note, the readiness probe with a gated TLS probe, the security review with one button and no *Anuluj*, and the end of
-  the connection). Adapted where the place of a sentence changed: `PkiSecurityReviewTests` (the stage texts of the check),
-  `PkiOverviewUiTests` and `PkiSecurityUiTests` (the summary is read from the line). Source rules: the four views on
-  `PagesWithAStatusLine` (the list stays sorted ordinal); the expressions of `XamlSourceTests` for both lists, the `Ad.*` keys, the
-  closed set of Fluent brushes, the motion rule, "every `StaticResource` key is defined before its first use" and the
-  localization keys were proven on Linux with a throwaway script, and the `App.UiTests` project builds without a warning.
-- **After V2b-4, unit 3** (counted in the XAML, comments excluded): **3 uses of `Ad.ErrorBar` and 5 of `Ad.WarningBar` in 6 view
-  files, 11 progress bars in 9 view files** (one is the row of an activity in the main window, which stays); **43 views have a
-  status line and 14 converted views none.** By area: `Views/Watchdog/` 2 + 4 and 7 in 9 files and `Correspondence/` 1 + 1 and 3
-  in 1 file - the two areas that are left. Unit 3 took 2 error bars and 2 warning bars and 4 progress bars: both error bars were
-  status (a failed read), both warning bars notes (a CA outside NTAuth, rights that were not evaluated), all four progress bars
-  status. What never was a banner: the summaries and "as of" texts (status line), the text of the HTTP check and of the LDAPS probe
-  (the line of their tab), the failure of the account count (a state), the cards of the notes (notes). Left behind on purpose (added
-  to *After V2b-1*): the strings `Pki.ReadProgress`, `PkiEsc.StageSnapshot`, `PkiEsc.StageAccounts`, `PkiEsc.StageAccessControl`,
-  `PkiEsc.StagePrincipals`, `PkiEsc.StageAnalysis`, `PkiReady.StageSnapshot`, `PkiReady.StageDomainControllers`,
-  `PkiReady.StageAccounts` and `PkiReady.StageLdaps` have no user any more (the stages are `PkiDoc.Status.Stage*` now); no longer
-  shown but read by tests or by the view models themselves - `ProgressText`, `StatusText`, `SelectionText`, `Error`, `SummaryText`,
-  `ReadAtText`, `CountStatusText`, `LastRunText`, `HealthSummaryText` and `LoadedText` of the four documents (the texts of the line
-  are computed from them) and `Cancel()` / `CancelCommand` of the security review, which are the Stop of the line.
-- **Not seen, to confirm on Windows (unit 3).** Nothing of unit 3 was seen on a screen either.
-  - *The four documents.* The line sits between the header and the notes; the overview's summary is long ("Urzędy
-    przedsiębiorstwa: 2 · szablony: 26 · … · odczytano z dc01.contoso.test, 13.10.2026 14:00 · <CA>") and is cut in a narrow tab,
-    with all of it in the tool tip; the same for the readiness report. The refresh buttons and the two probe buttons are action
-    buttons as wide as "Zatrzymywanie…" needs (the report's header has four buttons in a wrapping row; the review's *Sprawdź
-    ponownie* is the accent button and is wider); *Sprawdź ponownie* of the review has no *Anuluj* beside it any more.
-  - *The overview's tabs.* The health tab loses its bold summary and the grey sentence about the HTTP check from the area under
-    the header of the tab - they are in the line now - and keeps the thresholds and, until the check, the note about the unknown
-    rows; the LDAPS tab keeps only the note about the KDC column under its button. Switching tabs changes the text of the line
-    (the tab in front says its own) without the entrance motion when the message has the same key.
-  - *Notes.* The card "what the read observed" is a note with its heading and no card; the scope of the review and what its check
-    could not read are two notes where one card was; the note of the readiness report is one sentence.
-  - *Long results.* The failed read of the overview and the stopped one of the review (about 150 characters) wrap to two or three
-    lines and move the tabs and the list down with them; the failure of the account count in the templates is the longest
-    sentence of the unit.
-  - *Open for the owner:* whether a failure of the account count is an attention (the list is useful) or an error; whether the HTTP
-    check and the probe, whose results are rows, should say "done" with their counts in the line besides the summary of the tab; whether
-    *Odśwież* should be the Cancel of a reload that the operator did not start (another document's F5, a language switch); whether
-    the sentence about the unknown HTTP rows belongs in the line as the summary of the health tab instead of a note.
+    | Old place | Kind | Now |
+    |---|---|---|
+    | progress bar in the footer (`IsBusy`: the window reads its settings, the journal, the last draft, the signatures) | busy, no sentence | a ring in the footer (14 px), the same flag |
+    | text of the footer (`StatusText`: the last sentence of the window and of the recipients and mailboxes pages) | status | the results of the pages and of the window, in the line; the property keeps the sentence |
+    | warning bar "the session ended" | status | the state that lasts of the recipients and the mailboxes pages |
+    | error bar `Error` (the journal cannot be used; the objects the window was opened with could not be read) | status | the journal: the state that lasts of the window; the objects: an error of the recipients page, with *Retry*; the property keeps the sentence |
+    | progress bar and text of the owner search, and its *Zatrzymaj* | status | the search in the line with Stop; *Znajdź właścicieli* is the action button |
+    | progress bar and text of the send page, and its *Zatrzymaj* | status | the run in the line with the part done and Stop; the four buttons that start a run are action buttons; the tally (sent, failed, skipped) stays - it belongs to the list of results |
+    | counts of the recipients, the matches and the responses | summary | `SetIdle` of the pages; the text blocks are gone |
+    | `SummaryText` of the responses while it searched, read or failed | status | the operation and the error of the page |
+    | what pasting left out, what is wrong with the signature, the findings of the preview, "from Outlook" | note | `Ad.Note.Attention` and `Ad.Note.Info`, in their places |
+    | dialogs: the directory read failed, files that could not be read, no Downloads folder or file, nothing to send, Outlook cannot be used (send), no owner to add, the preview from Outlook failed | status | results in the line |
+    | validation errors before a send ("The message cannot be sent yet: • …"), the address of a test that is not valid, errors of saving files and templates, the journal report, the questions | dialog | unchanged |
 
-- **Tests of unit 4.** Presentation (48, on Linux; `WatchdogHarness` takes an optional `ListLogger<PageStatusHolder>` for the log
-  copies, and the fake client's `Hold`, `HoldEvents` and `FailNext` hold, delay and fail the calls - a held call hears the Stop, so
-  "Zatrzymywanie…" is asserted on the same thread before the call returns): `Watchdog/WatchdogDocumentStatusTests` (13: the
-  summary of the page shown in both languages with the selection, the connection attempt as an operation without Stop and the line
-  going straight to the page - the feed read is held to see it -, five kinds of connection problem as the state that lasts with
-  Retry, its code and a log copy with no host, an untrusted certificate with "Sprawdź certyfikat…" as the one action, no address,
-  interrupted live updates until they recover and in Polish, the problem in the language of the moment, a page that waits in its
-  holder until it is shown, closing the tab with a read that still runs), `WatchdogEventsStatusTests` (11: the read with Stop and the
-  summary, Stop with the feed empty and paused and Refresh, a failed read in both languages with Retry and a log copy with no event,
-  a newer read that replaces the running one without a word, older events with their count / Stop / a failure that can be repeated,
-  the acknowledgement of 1,200 events with the part done and no Stop and its log copy, a failed acknowledgement - also one that fails
-  after a read took the line, which is a toast -, the answers of the
-  details pane in the line and the next selection closing them, the read of the details as a ring and a note),
-  `WatchdogConfigStatusTests` (9: the version as the summary in both languages, the read with Stop and a stopped read as the state of
-  the tabs with *Wczytaj ponownie*, a failed read as a state and then as a result, the validation with its three results and Stop,
-  a save that is a write without Stop - with a typed password never in a text, the recorder or the log -, a save the service
-  refused, the conflict as the state of the tabs in both languages, another failure of a save without an action, the status of the
-  configuration in front of every tab that edits it), `WatchdogPagesStatusTests` (7: the digest preview with Stop / a failure /
-  the old preview kept, "Wyślij teraz" in Polish, a preview prepared while the configuration is saved, the preview of a rule with
-  Stop and a failure and its end when another rule is selected, "reset to default" saying why instead of a dialog, a delivery
-  test through its five endings with no address and no host in the log, a test that replaces another),
-  `WatchdogServiceStatusTests` (8: the three reads one after another, a viewer reading the status only, Stop of the status read,
-  a failed read as a state and then as a result, the delivery log with Stop / a failure / the retry of a dead delivery - and one that
-  fails after a read took the line, a toast -, the audit, the status page in front). Adapted where the place of a sentence changed: `WatchdogRulesTests` (the reset of a rule the service
-  no longer ships is read from the line, no dialog), and the tests that read the "Stan" tab through the document (`ServiceStatus`).
-  `PageStatusTests` got the assertions of the new factory. UI (Windows CI, written without a screen, 7):
-  `WatchdogStatusUiTests` (one line under the card with the summary said once and no old banner on any page, a held read of the
-  feed with Stop and the stopped read with Refresh and the growth of the line, a connection problem with Retry and the card keeping
-  the host, the save with the content moving by as much as the line grew, the test button as an action button with the stages in
-  their rows, the notes of the save bar, the ring and the note of the details pane); `WatchdogViewTests` reads the certificate
-  button, the card and the rollout note from their new places. Source rules: `WatchdogView` on `PagesWithAStatusLine` and the
-  twelve pages and the trust window on `ConvertedViewsWithoutAStatusLine` (both lists stay sorted ordinal); the expressions of
-  `XamlSourceTests` for both lists and "every `StaticResource` key is defined before its first use" were proven on Linux with a
-  throwaway script, and the `App.UiTests` project builds without a warning.
-- **After V2b-4, unit 4** (counted in the XAML, comments excluded): **1 use of `Ad.ErrorBar` and 1 of `Ad.WarningBar` in 1 view
-  file, 4 progress bars in 2 view files** (one is the row of an activity in the main window, which stays); **44 views have a
-  status line and 27 converted views none.** The one area that is left is `Correspondence/` (1 + 1 and 3 in 1 file). Unit 4 took 2
-  error bars, 4 warning bars and 7 progress bars: of the 13, 7 were status (the failed read of the feed and the progress of the
-  feed, of the save bar, of the digest, of the rule preview, of the delivery test and of the status tab), 5 notes (the findings of
-  the service, why the editors are read only, the signing secret that is shown once, the hints of a delivery test and the rollout
-  mode) and one a busy mark (the read of the details pane). What never was a banner: the result and error texts of the save bar, the
-  digest, the delivery test, the status tab, its delivery log and audit, and the details pane (status), the version of the
-  configuration (summary), the status bar's text of the feed (summary), the card's state and explanation (status). Left behind on
-  purpose (added to *After V2b-1*): no string lost its last user in this unit; no longer shown but read by tests or by the view
-  models themselves - `Error`, `Message`, `PreviewError`, `ActionMessage` of the pages, `LoadedText` / `StatusText` / `SelectionText`
-  of the tab and of the feed, `BannerMessage`, `StateText` and `ConnectionMessage` of the tab, `SummaryText` and `Error` of a delivery
-  test (and `CancelCommand`, which is the Stop of the line), `HasConflict` and `Error` of the configuration; `ReviewCertificateButton`
-  and `RetryButton` of the card went with their view elements.
-- **Not seen, to confirm on Windows (unit 4).** Nothing of unit 4 was seen on a screen either.
-  - *The connection card and the line.* The card without the state word and its colours (host in semibold, the account under
-    it, *Zmień adres* at the right), the line under it at 8 px from the edge, and the rollout note with *Zakończ tryb wdrożenia*
-    at its right in the narrow tab. A tab that is connected says nothing of "Połączono" any more: the page's summary is under the
-    card. Whether the summary of a page that has none (nothing is read yet) leaves an empty 28 px band under the card.
-  - *Long results.* A connection error - "Nie udało się połączyć z host: <explanation with its remedy> Wybierz Ponów… (kod)" - is
-    the longest sentence of the unit (about 200 characters) and wraps to three lines at the width of the tab; the failed test and the
-    refused save are shorter. The summary of the feed with a selection fits one line at 1360 px.
-  - *The notes.* The mode of rollout with a button inside the note (a `DockPanel` as the content), the generated signing secret with
-    its text box and copy button, the findings of the service as a list without a bar (glyph and sentence per row, scrolling
-    from 140 px), and the note of the details pane under the title; the lock glyph of the read-only bar became the warning glyph.
-  - *The action buttons.* *Wyślij test* with its glyph and "Anuluj" / "Zatrzymywanie…" (the Polish word is wider than the label) in
-    the SMTP card (to the right of the recipients box) and next to the hint of a channel; the ring in the details pane's header, 14
-    px at the top right of the title.
-  - *Open for the owner:* whether *Validate*, *Reload*, the preview buttons and *Odśwież* become action buttons (Stop is in the line);
-    whether a stopped read of the feed should keep the rows of before (it would show a list that does not match the filter, and the
-    live updates would have to be given back); whether the toast after a save, an acknowledgement and "Wyślij teraz" is still needed
-    now that the page says the same in its line; whether the rollout mode should be a state of the line (with its button as the
-    action) instead of a note, at the price of the summary for as long as it lasts; whether the card should say "Połączono" once more
-    when nothing else says it.
+  - *Decisions.*
+    - **One line, the page in front; the message page has none.** The window owns a holder of its own (the journal, the
+      signatures) and `Status.Front` follows `SelectedTab`, also for the tab the window starts on (the property raises no
+      change for its default). Every page that has an operation, a result or a state of its own owns a holder created from
+      the services it already gets (`services.Lists.StatusLog`); the message page says nothing that is not a note, and the
+      templates, imports and exports keep their toasts and dialogs (a left-behind item below).
+    - **The end of the session is the pages', and the line goes straight to it.** `CorrespondenceViewModel.OnSessionEnded`
+      hands the state to the recipients and the mailboxes pages first (the sentence of the window and "Sending through Outlook
+      still works."), then ends what runs: the reads of the directory end through the token that was already there, and the
+      search through `MailboxOwnersPageViewModel.OnSessionEnded`, which disposes its operation - so the line goes from "working"
+      to the state with no "Stopping…" and no message of a stop that nobody asked for (the old `CancelCommand.Execute` would have
+      said it). A test asserts that the line changes exactly once.
+    - **The state of Outlook is computed from the connection and said where it is needed.** `OutlookConnectionViewModel.UnavailableStatus`
+      is an attention that cannot be closed - not installed, not supported here, the connection failed or was lost - with the
+      reason of the failure and *Connect to Outlook* as the action unless connecting again cannot help; the send and the
+      responses pages put it in their `UpdateLasting` when the connection changes, and the window repeats it after a language
+      switch. It is null while Outlook is being connected. The preview does not need Outlook, so it says nothing until its own
+      button is pressed.
+    - **A state of the window is set at its first moment.** The journal is loaded once, when the window opens. A state that a
+      window sets later - while a page runs something - is what was said last and takes the line from the page (the rule of
+      foundation 3), so such a state belongs to the page it is true for.
+    - **The send run is one operation however it was started, and Stop does not give control back before the message that is
+      in flight.** `RunAsync` begins it after the confirmation, with "0 of N" and the ring at zero; each report of the sender
+      moves the text and the ring ("Sending messages: 12 of 95 · about 4 min left…", the estimate from the sender, the key of the
+      sentence and the two numbers in the log copy). Its token is the one of the scope, linked to the source the run used;
+      `StopCommand`, the line and the pressed button are the same Stop (`Status.Operation.Cancel()`), which says "Stopping…" at
+      once. The run is not abandoned with a `WaitAsync`: the operator wants the count of what went, so it ends when the message
+      that Outlook is handed returns, and a test holds that message to look at "Stopping…". How it ended is `CompleteRun`: no
+      failure and nothing left - done; failures, a stop, five failures in a row - attention with the button to press next
+      (never a link: a link that repeats a send would skip the confirmation); Outlook stopped it - error, with the kind of the
+      failure as its code. The four buttons are action buttons with their own flag over the one holder (`IsTesting`,
+      `IsCreatingDrafts`, `IsSendingMessages`, `IsRetrying`), so each shows *Cancel* only while its own run goes on; the others
+      are disabled by `CanRun`. The toast after the run, the results list, the audit entry and the journal notes are as they
+      were; the sentence of the line is the closing line of the results plus where the results are.
+    - **The reads of Sent Items and the preview return control at once and drop a late answer.** The call is not told to stop
+      (the preview deletes the item it builds, as it always did): the page waits with `WaitAsync(token)`, and an answer that
+      arrives in the moment of Stop is not shown - `ThrowIfCancellationRequested` after the await - so "the list was not
+      changed" is true.
+    - **Quick actions never end a read.** `ReportStatus` of the recipients page sets the old `StatusText` always and shows
+      the result in the line only while the page is not working; `Status.Show` replaces a running operation, and pressing
+      *Clear exclusions* must not cancel an import.
+    - **Reading files is one operation with Stop.** `Task.Run(…).WaitAsync(token)` per file, "Reading the files: 2 of 5…" with
+      `PageProgress.Of`; the rows of the files read before a stop stay on the list and the line says how far it got; the thread
+      that parses runs to its end and its result is dropped. A small test seam, `RecipientsPageViewModel.ReadGate`, holds the
+      read on its thread (the unit-1 pattern).
+    - **The search for the owners lasts when it failed and is quiet when it was refused.** Facts - the reason, the number of the
+      limit, the code - are kept and the sentence is built in `UpdateLasting`, behind "the session ended"; a refused press (no
+      objects selected, an attribute that cannot hold a name) is an attention that can be closed, in the sentence "Nothing was
+      searched: reason". `Stop` of the search and of the read of the owners say "stopped" only for the operator's Stop.
+    - **What was a dialog about an operation is its result.** The directory read says its own failure and rethrows for the
+      window, which keeps the old `Error` for the request it was opened with; the files that were not read are one sentence
+      with what was read (a dialog is a place for a decision, and a list of reasons that must be acknowledged is read in the
+      line as well, whose whole text is the tool tip); "no Downloads folder", "nothing to send", "Outlook cannot be used" and
+      "no owner to add" are the answer to a press, built with `PageStatusText.Failure(what was not done, why)` and the key of
+      the reason as the log copy.
+    - **The preview's failure is no finding.** `Warnings` held the failure of "Podgląd z Outlooka" in place of the findings of
+      the card, and `OkText` was emptied; now the failure is an error of the line with *Retry* and the card, its findings and its
+      "looks good" text stay as they were.
+    - **The model.** `ResultCode.Outlook(OutlookFailureKind)` and the mapping of `OutlookException` in `ResultCode.Of`: the
+      kind of a failure the program names is allowed in a log copy, the code text, the step and the HRESULT of the failure are
+      not read. Log copies are keys, counts and that code: no address, name, subject, path, file or mailbox.
+  - *Where this differs from the recipe.* The brief asked for `SessionEndedStatus` as the window's first condition; it is not
+    used, for the reason above (the end of the session is a state of two pages), and Outlook is a state of two pages, not of the
+    window. The window is 36 px higher by default (900 to 936, minimum 680 to 716). The message page has no holder. Behaviour
+    that changed beyond how a result is said: the failure of the preview is no longer in `Warnings`; the directory read can
+    be stopped and says its failure itself; importing files can be stopped; the end of the session ends the owner search
+    without a "stopped" message; seven Presentation tests and three UI assertions were adapted (below).
+
+- **Tests.** Presentation tests run on Linux and are the bulk; UI tests run on Windows CI only and were written without a
+  screen (they assert states that last until the test changes them, and look at "Stopping…" only while a held call is on its way).
+  - *Unit 1.* Presentation (35, on Linux): `BulkCreate/BulkSourceStatusTests` (12: the paste and the file with the sequence
+    of the line in both languages, the name of a file never in a log copy, Stop of a paste and of a file with a parse held on
+    its thread and released, a clipboard without a table, files that cannot be used - too large, not a sheet, not there -
+    with the table of before staying, a header row out of range, a column over the limit closed by the next action, the
+    repeated-paste question as a note, the summary after a language switch, closing the window during a read),
+    `BulkRulesStatusTests` (7: nothing at rest, why *Dalej* is not possible is not status, a profile that cannot be saved, the
+    results of save / default / delete with no name in the log copy, a built-in profile as the default, the limit of
+    profiles, the account that can join computers - not found, a failing read, closed by the next pick -, the sentence
+    back when the step is shown again), `BulkCheckStatusTests` (11: the part done from the first row with its fractions in
+    both languages, no cell in a log copy, Stop with a read held on its way to the domain controller - "Stopping…" at once,
+    the stopped state and its action -, `StopCommand` as the same Stop, the two buttons' flags and their Cancel, a failed
+    check with Retry, incomplete input, the stale state in both languages and its action, an edit that replaces a running
+    check without a word, the end of the session during a check - straight to the end, nothing from the call that returns
+    later -, closing the window), `BulkCreateStatusTests` (5: the chain window → wizard → page through the steps, the
+    preview and *Back*, closing, the wizard's own holder empty, and the creation as the execution of the window - the canary
+    and the rest add up from "0 z 5" to "5 z 5" and the result names the domain). `BulkCreateBatchEditorTests`, `BulkCheckTests`,
+    `BulkSourceTests`, `BulkRulesTests` and `BulkCreateProfileTests` are unchanged. UI (Windows CI, written without a screen):
+    `BulkCreateStatusUiTests` (5: one line in the whole window and the summary in it, the notes of the table, the answer to a
+    profile command and the note of the rules - with `GrowthOf` -, the check in the line with Stop and the button as its
+    Cancel - the grid moves by as much as the line grew -, the notes of the check and of the results). Adapted where the
+    place of a sentence changed: the two UI tests that read the summary of a step from a text block read it from the
+    line (`BulkCreateInputUiTests`, `BulkCreateWindowTests`), and `BatchEditorStatusUiTests.AssertNoOldFeedback` no longer
+    exempts the views of the wizard. Source rules: the six views on `ConvertedViewsWithoutAStatusLine`; the expressions of
+    `XamlSourceTests` for both lists, the `Ad.*` keys, the closed set of Fluent brushes, the motion rule and "every
+    `StaticResource` key is defined before its first use" were proven on Linux with a throwaway script.
+  - *Unit 2.* Presentation (53, run on Linux): `Readiness/ReadinessStatusTests` (9: the first check with every area
+    and how far, the full check in both languages, Stop with control back at once and the stopped state with its action,
+    `CancelCommand` as the same Stop, a reconnect that ends the run without a word and the connection-changed state - in both
+    languages -, a tab without a session, the window that disconnects after a check, closing the tab during a check with no
+    area in a log copy), `EventLogs/EventLogStatusTests` (16: the reader's sequence from "what to do first" to the summary, in
+    both languages and with the selection joined, Stop with what was read kept and its Refresh, the sources that were not
+    read named by the line and their reasons left in the rows, the channels as an operation that leaves the summary, the
+    flags of the two start buttons, the window that cannot read event logs, not connected, the failed logons and the lockout
+    with their stages, a stopped analysis, an action that fails never over a run, an account that is no account, a failed read
+    with Retry, closing a tab during a run), `Computers/ComputerReviewStatusTests` (15: the summary with the selection, the
+    check with the scope and the computers read so far and no name in a log copy, the scope as the operator chose it, Stop and
+    the same Stop from `StopCommand`, a failed check and a scope that cannot be resolved, the exact last logon with the
+    controllers that did not answer, its Stop with the list unchanged, the sites stopped and how far they are, the ping as an
+    operation with its result in the line and a computer without a DNS name, the end of the session over what runs, a window
+    without a session, closing the window during a check), `Computers/RemoteComputerStatusTests` (12: the connection as the
+    summary, a read that ends as the summary, Stop of a read and its button as the action, `StopCommand` and a Stop during the
+    ping, an action that ends as done and a stopped one that says it is not known whether the computer got the request, a read
+    that fails with Retry and an action that fails without one, Polish, no DNS name, no remote client, the end of the session,
+    closing the window, the language switch) and `ComputerActionsTests` (+1: `FindTargetAsync` says why there is no target with
+    no dialog, `TryPingAsync` hands back the outcome with no toast). UI (Windows CI, written without a screen, 15):
+    `ReadinessStatusUiTests` (3: one line under the header with the summary and the notes as a note, the area of a full
+    check in the line with the button as its Cancel and the stopped state with *Check again*, the end of the connection),
+    `EventLogStatusUiTests` (5: one line under the header of every document with its run button as an action button, a run
+    with its sources and events and a stopped run with *Refresh*, a source that was not read named by the line and its
+    reason in its row, the window that cannot read event logs in the three documents, the channels button), `ComputerStatusUiTests`
+    (7: the review's one line at the top with four action buttons, a check with the scope and Stop as the button, a failed
+    check and the end of the session, the remote window's one line and its six action buttons, a read with its Stop, an
+    action that fails without a link, the window without a DNS name and the restart dialog with a note and no banner); every
+    place that grows with a result is measured with `GrowthOf`. Adapted where the place of a sentence changed:
+    `ComputerReviewViewModelTests` (3 tests read the result of the exact last logon, the sites and the subnets from the line
+    instead of the toasts), `ReadinessUiTests`, `EventLogDocumentsUiTests` (the not-supported banner is the state of the line),
+    `ComputerWindowsTests` (the status and the connection are read from the line), `PageStatusTests` (the code of
+    `ResultCode.Remote`). Source rules: the six views on `PagesWithAStatusLine` and `RestartComputerWindow.xaml` on
+    `ConvertedViewsWithoutAStatusLine` (both lists stay sorted ordinal); the expressions of `XamlSourceTests` for both lists,
+    the `Ad.*` keys, the closed set of Fluent brushes, the motion rule and "every `StaticResource` key is defined before its
+    first use" were proven on Linux with a throwaway script, and the `App.UiTests` project builds without a warning.
+  - *Unit 3.* Presentation (33, on Linux; `Pki/PkiStatusTestSupport.cs` has the harness - the window's PKI services over
+    the fake directory with a cache whose calls the test holds, fails or lets report - and a held call that does not hear the
+    token until the test releases it, so "Zatrzymywanie…" stays on the page until the call returns): `Pki/PkiOverviewStatusTests`
+    (13: the summary in both languages with the selection and the tab, the read as an operation with its stage and counts and no
+    name in a log copy, Stop with control back at once and the stopped read that lasts with its action, a failed read with Retry
+    and its code, not connected and the language switch, a newer read that replaces the running one without a word, the health
+    tab in front with the HTTP check - the part done, Stop, the stopped result with its action, then the rows and the summary -,
+    a failed HTTP check that can be closed, the LDAPS probe as the operation of its tab, a probe that cannot be made as the state
+    of the tab until the next probe, the probe a read makes as a stage of the read, every log copy of the three holders, and the
+    status bar of the main window saying nothing of a PKI tab), `PkiTemplatesStatusTests` (6: the summary with the counted accounts
+    in both languages, the stages including the account pass, Stop during the account pass with the templates kept, accounts that
+    could not be counted as a state with Retry in both languages, a failed read, the log copies), `PkiReadinessStatusTests` (7: the
+    summary in both languages, the stages with the areas that wait for the accounts saying "reading…", Stop and the areas the read
+    did not reach saying "not read", the probe with Stop and the area keeping what it showed, a probe that failed with its row and
+    Retry and a read that replaces a probe silently, not connected, the log copies), `PkiSecurityReviewStatusTests` (7: the summary
+    with the selection and the filter in both languages, the check with its stages in order, Stop through the line and through
+    `CancelCommand` with the findings of before kept and the sentence in both languages, a first check that was stopped, a failed
+    check with Retry and the findings kept, not connected, the log copies). UI (Windows CI, written without a screen, 7):
+    `PkiStatusUiTests` (one line under the header of each document with the summary said once and no old banner, the three notes of
+    the overview with their styles, the action buttons over the right commands and holders, a held read of the overview with
+    Stop - "Stopping…" observed through the change of the status - and the stopped read with *Refresh* and the growth of the
+    line, the HTTP check with a gated probe: Stop, the stopped result, the rows and the summary and the note gone, the templates'
+    line and note, the readiness probe with a gated TLS probe, the security review with one button and no *Anuluj*, and the end of
+    the connection). Adapted where the place of a sentence changed: `PkiSecurityReviewTests` (the stage texts of the check),
+    `PkiOverviewUiTests` and `PkiSecurityUiTests` (the summary is read from the line). Source rules: the four views on
+    `PagesWithAStatusLine` (the list stays sorted ordinal); the expressions of `XamlSourceTests` for both lists, the `Ad.*` keys, the
+    closed set of Fluent brushes, the motion rule, "every `StaticResource` key is defined before its first use" and the
+    localization keys were proven on Linux with a throwaway script, and the `App.UiTests` project builds without a warning.
+  - *Unit 4.* Presentation (48, on Linux; `WatchdogHarness` takes an optional `ListLogger<PageStatusHolder>` for the log
+    copies, and the fake client's `Hold`, `HoldEvents` and `FailNext` hold, delay and fail the calls - a held call hears the Stop, so
+    "Zatrzymywanie…" is asserted on the same thread before the call returns): `Watchdog/WatchdogDocumentStatusTests` (13: the
+    summary of the page shown in both languages with the selection, the connection attempt as an operation without Stop and the line
+    going straight to the page - the feed read is held to see it -, five kinds of connection problem as the state that lasts with
+    Retry, its code and a log copy with no host, an untrusted certificate with "Sprawdź certyfikat…" as the one action, no address,
+    interrupted live updates until they recover and in Polish, the problem in the language of the moment, a page that waits in its
+    holder until it is shown, closing the tab with a read that still runs), `WatchdogEventsStatusTests` (11: the read with Stop and the
+    summary, Stop with the feed empty and paused and Refresh, a failed read in both languages with Retry and a log copy with no event,
+    a newer read that replaces the running one without a word, older events with their count / Stop / a failure that can be repeated,
+    the acknowledgement of 1,200 events with the part done and no Stop and its log copy, a failed acknowledgement - also one that fails
+    after a read took the line, which is a toast -, the answers of the
+    details pane in the line and the next selection closing them, the read of the details as a ring and a note),
+    `WatchdogConfigStatusTests` (9: the version as the summary in both languages, the read with Stop and a stopped read as the state of
+    the tabs with *Wczytaj ponownie*, a failed read as a state and then as a result, the validation with its three results and Stop,
+    a save that is a write without Stop - with a typed password never in a text, the recorder or the log -, a save the service
+    refused, the conflict as the state of the tabs in both languages, another failure of a save without an action, the status of the
+    configuration in front of every tab that edits it), `WatchdogPagesStatusTests` (7: the digest preview with Stop / a failure /
+    the old preview kept, "Wyślij teraz" in Polish, a preview prepared while the configuration is saved, the preview of a rule with
+    Stop and a failure and its end when another rule is selected, "reset to default" saying why instead of a dialog, a delivery
+    test through its five endings with no address and no host in the log, a test that replaces another),
+    `WatchdogServiceStatusTests` (8: the three reads one after another, a viewer reading the status only, Stop of the status read,
+    a failed read as a state and then as a result, the delivery log with Stop / a failure / the retry of a dead delivery - and one that
+    fails after a read took the line, a toast -, the audit, the status page in front). Adapted where the place of a sentence changed: `WatchdogRulesTests` (the reset of a rule the service
+    no longer ships is read from the line, no dialog), and the tests that read the "Stan" tab through the document (`ServiceStatus`).
+    `PageStatusTests` got the assertions of the new factory. UI (Windows CI, written without a screen, 7):
+    `WatchdogStatusUiTests` (one line under the card with the summary said once and no old banner on any page, a held read of the
+    feed with Stop and the stopped read with Refresh and the growth of the line, a connection problem with Retry and the card keeping
+    the host, the save with the content moving by as much as the line grew, the test button as an action button with the stages in
+    their rows, the notes of the save bar, the ring and the note of the details pane); `WatchdogViewTests` reads the certificate
+    button, the card and the rollout note from their new places. Source rules: `WatchdogView` on `PagesWithAStatusLine` and the
+    twelve pages and the trust window on `ConvertedViewsWithoutAStatusLine` (both lists stay sorted ordinal); the expressions of
+    `XamlSourceTests` for both lists and "every `StaticResource` key is defined before its first use" were proven on Linux with a
+    throwaway script, and the `App.UiTests` project builds without a warning.
+  - *Unit 5.* Presentation (49 new, on Linux): `Correspondence/CorrespondenceStatusTests` (8: the tab in front and what each one
+    says - also for the tab the window starts on, which raises no change -, a tab that said something while it was not shown
+    says it again, the journal that cannot be used as the state of the window in both languages and not covering what a
+    page says, the restarted journal as a result with the path only on the screen, the end of the session not said by the
+    window while a send goes on, the window that is closed, and no page that does not need Outlook saying it is not there),
+    `SendStatusTests` (15: a run - "0 of 3" first, then the part done in the ring and the estimate, a done that says where the
+    results are, the line never going through the summary, the result closed -, Stop with a message that is held ("Stopping…"
+    at once, then the attention with what to press), `StopCommand` as the same Stop, a failed message, Outlook that stops the
+    run with the kind of the failure as the code and the state that lasts under it, five failures in a row, drafts in both
+    languages, the flags of a test and of a retry, the presses that came to nothing, the log copies with no address, subject
+    or name, closing the window during a run, the state of Outlook following the connection and the language, and without
+    classic Outlook), `MailboxesStatusTests` (10: the search with its counts and the summary after it, Stop with a held read -
+    "Stopping…" at once, the attention with *Retry* -, a failed search as the state with its code, the two limits, the presses
+    that came to nothing, the owners that are added - the result on both pages -, Stop of that read, the end of the session
+    during a search - exactly one change of the line -, the log copies), `ResponsesStatusTests` (5: the two reads and their
+    summaries, the flag of each, Stop with a held read and an answer that arrives anyway, a failed read with its code, a press
+    without Outlook), `RecipientsStatusTests` (7: the counts and the language, a file with its working and done and no name in
+    the log copy, several files with how far they are and the files that were not read as one sentence, Stop of a load with
+    the thread held and released, the directory read with Stop and *Retry*, the end of the session during a read, a quick
+    action that does not end a read) and `PreviewStatusTests` (4: the preview as an operation, Stop with an answer that arrives
+    anyway, a failed preview as an error with *Retry* and not as a finding, a press without Outlook); one block of assertions
+    in `PageStatusTests` (`ResultCode.Outlook` and the mapping of the exception, never the code text or the step). Held calls:
+    a held Outlook call is `BeforeSend` or `BeforeRead` blocking a pool thread (a read of Sent Items is started with
+    `Task.Run`, because the fake calls its hook on the caller's thread), a held directory call `HeldDirectoryCall`. Adapted
+    where behaviour or the place of a sentence changed (7) - each reads the line where it read a dialog or `Warnings`:
+    `SendPageTests.Validation_NoRecipients_AndOutlookUnavailable_StopBeforeSending`,
+    `MailboxOwnersReviewTests.AddToRecipients_WithoutAReadyOwner_SaysSo`, two of `RecipientsImportTests` (the files that cannot
+    be read, the Downloads folder), `RecipientsDirectoryTests.DirectoryErrors_AreSaidInTheLine_WithRetry` and two of
+    `PreviewPageTests`. UI (Windows CI, written without a screen, 7): `Correspondence/CorrespondenceStatusUiTests` (one line
+    above the tabs with the counts of the page in front and no second place for them, the notes with their styles and the
+    line empty for them, a run of the send page - four action buttons over one holder, the button that started it as the
+    Cancel, "Stopping…" while the message is held, the attention and the content moving by as much as the line grew,
+    the result closed -, the owner search stopped by its button with *Retry* in the line, the two reads of Sent Items, Outlook
+    that cannot be used on the send and the responses pages with its way out, the end of the session on the recipients tab and
+    not on the send tab). Adapted: three assertions of `CorrespondenceWindowTests` that read the footer text, the progress text
+    of the send page and the summary of the mailboxes read the line. Source rules: the window on `PagesWithAStatusLine`, the
+    report and the prompt on `ConvertedViewsWithoutAStatusLine`; the expressions of `XamlSourceTests` for both lists and "every
+    `StaticResource` key is defined before its first use" were proven with a throwaway script on Linux, and the `App.UiTests`
+    project builds on Linux without a warning.
+- **What is left** (counted in the XAML, comments excluded; the final state of V2b-4, after unit 5): **no `Ad.ErrorBar`, no
+  `Ad.WarningBar` and no progress bar that says status in any view.** The XAML has them only as the definitions of the two styles in
+  `Themes/Controls.xaml` (they leave with V2b-5) and as the one progress bar of the row of an activity in `MainWindow.xaml`,
+  which stays. **Forty-five views have a status line and twenty-nine converted views none** - the two lists of `XamlSourceTests`
+  hold each other out and no view with a line is missing from the first. V2b-4 took 10 error bars, 19 warning bars and 23 progress bars
+  (by unit: 3 + 5 and 2; 2 + 7 and 7; 2 + 2 and 4; 2 + 4 and 7; 1 + 1 and 3). The counts at the end of each unit, and what each unit left
+  behind on purpose (the strings and members were added to *After V2b-1*, nothing was removed):
+  - *Unit 1, at the end of that unit* (counted in the XAML, comments excluded): **7 uses of `Ad.ErrorBar` and 14 of `Ad.WarningBar` in
+    21 view files, 22 progress bars** (one is the row of an activity, which stays). By area: `Views/Watchdog/` 2 + 4 and 7 in
+    9 files; `Computers/` 2 + 3 and 3 in 2 files; `Pki/` 2 + 2 and 4 in 4 files; `EventLogs/` 0 + 3 and 3 in 3 files;
+    `Correspondence/` 1 + 1 and 3 in 1 file; `Readiness/` 0 + 1 and 1 in 1 file. Thirty-three views have a status line and
+    thirteen converted views none. Left behind on purpose (added to *After V2b-1*): the strings `BulkCreate.Reading`,
+    `BulkCheck.Computing` and `BulkCheck.StaleNote`, which have no user any more; no longer shown but read by tests or by the
+    view models themselves - `Error` of the source and of the check, `ProfileStatus`, `OptionsError`, `ComputedRows` and
+    `TotalRows`, and `StopCommand` of the check, which has no view. The three views that were notes already (`MappingError`,
+    the scope of the check, the first free number) were not renamed.
+  - *Unit 2, at the end of that unit* (counted in the XAML, comments excluded): **5 uses of `Ad.ErrorBar` and 7 of `Ad.WarningBar` in
+    14 view files, 15 progress bars in 15 view files** (one is the row of an activity in the main window, which stays).
+    By area: `Views/Watchdog/` 2 + 4 and 7 in 9 files; `Pki/` 2 + 2 and 4 in 4 files; `Correspondence/` 1 + 1 and 3 in 1 file -
+    the three areas that are left. **Thirty-nine views have a status line and fourteen converted views none.** Unit 2 took 9
+    banners and 7 progress bars: of the 2 error bars both were status (the failed call of the review and of the remote window),
+    of the 7 warning bars 6 were status (the end of the session in the two windows, the three "not supported" bars of the
+    event logs, the changed connection of the readiness tab) and 1 a note (the age of the release catalogue); all 7 progress
+    bars were status. What never was a banner: the cancelled-check sentence and the stale hint of the readiness tab (states
+    that last), the card "Read only…" (a note), the validation sentence of the restart dialog (a note), the exact last
+    logon, the sites and the ping (toasts and a dialog, now results of an operation). Left behind on purpose (added to *After
+    V2b-1*): the strings `Readiness.Stale`, `EvtLog.Cancelled`, `EvtLog.StatusReading`, `EvtLog.LoadingChannels`,
+    `EvtFail.StageFailures`, `EvtFail.StageSuccesses`, `EvtFail.StageAnalysis` and the four `EvtLock.Stage*`, which have no
+    user any more (the stages are `EventLogsStatus.*` now); no longer shown but read by tests or by the view models
+    themselves - `ProgressText` and `ProgressValue` of readiness and `ProgressText` of the three documents (fed by the same
+    stage), `WasCancelled` and `IsStale` of readiness (the state is computed from them), `Error`, `StatusText`, `SelectionText`,
+    `IsReading`, `AsOf` and `StopCommand` of the review, `ConnectionText` and `Error` of the remote window, `LoadedText`,
+    `IsSupported` and `NotSupportedText` of the event log documents (the last is the sentence of the line). No command lost
+    its last user: `Cancel()` and `CancelCommand` of the documents are the same Stop as the line's.
+  - *Unit 3, at the end of that unit* (counted in the XAML, comments excluded): **3 uses of `Ad.ErrorBar` and 5 of `Ad.WarningBar` in 6 view
+    files, 11 progress bars in 9 view files** (one is the row of an activity in the main window, which stays); **43 views have a
+    status line and 14 converted views none.** By area: `Views/Watchdog/` 2 + 4 and 7 in 9 files and `Correspondence/` 1 + 1 and 3
+    in 1 file - the two areas that are left. Unit 3 took 2 error bars and 2 warning bars and 4 progress bars: both error bars were
+    status (a failed read), both warning bars notes (a CA outside NTAuth, rights that were not evaluated), all four progress bars
+    status. What never was a banner: the summaries and "as of" texts (status line), the text of the HTTP check and of the LDAPS probe
+    (the line of their tab), the failure of the account count (a state), the cards of the notes (notes). Left behind on purpose (added
+    to *After V2b-1*): the strings `Pki.ReadProgress`, `PkiEsc.StageSnapshot`, `PkiEsc.StageAccounts`, `PkiEsc.StageAccessControl`,
+    `PkiEsc.StagePrincipals`, `PkiEsc.StageAnalysis`, `PkiReady.StageSnapshot`, `PkiReady.StageDomainControllers`,
+    `PkiReady.StageAccounts` and `PkiReady.StageLdaps` have no user any more (the stages are `PkiDoc.Status.Stage*` now); no longer
+    shown but read by tests or by the view models themselves - `ProgressText`, `StatusText`, `SelectionText`, `Error`, `SummaryText`,
+    `ReadAtText`, `CountStatusText`, `LastRunText`, `HealthSummaryText` and `LoadedText` of the four documents (the texts of the line
+    are computed from them) and `Cancel()` / `CancelCommand` of the security review, which are the Stop of the line.
+  - *Unit 4, at the end of that unit* (counted in the XAML, comments excluded): **1 use of `Ad.ErrorBar` and 1 of `Ad.WarningBar` in 1 view
+    file, 4 progress bars in 2 view files** (one is the row of an activity in the main window, which stays); **44 views have a
+    status line and 27 converted views none.** The one area that is left is `Correspondence/` (1 + 1 and 3 in 1 file). Unit 4 took 2
+    error bars, 4 warning bars and 7 progress bars: of the 13, 7 were status (the failed read of the feed and the progress of the
+    feed, of the save bar, of the digest, of the rule preview, of the delivery test and of the status tab), 5 notes (the findings of
+    the service, why the editors are read only, the signing secret that is shown once, the hints of a delivery test and the rollout
+    mode) and one a busy mark (the read of the details pane). What never was a banner: the result and error texts of the save bar, the
+    digest, the delivery test, the status tab, its delivery log and audit, and the details pane (status), the version of the
+    configuration (summary), the status bar's text of the feed (summary), the card's state and explanation (status). Left behind on
+    purpose (added to *After V2b-1*): no string lost its last user in this unit; no longer shown but read by tests or by the view
+    models themselves - `Error`, `Message`, `PreviewError`, `ActionMessage` of the pages, `LoadedText` / `StatusText` / `SelectionText`
+    of the tab and of the feed, `BannerMessage`, `StateText` and `ConnectionMessage` of the tab, `SummaryText` and `Error` of a delivery
+    test (and `CancelCommand`, which is the Stop of the line), `HasConflict` and `Error` of the configuration; `ReviewCertificateButton`
+    and `RetryButton` of the card went with their view elements.
+  - *Unit 5, at the end of that unit* (counted in the XAML, comments excluded): **no use of `Ad.ErrorBar` and `Ad.WarningBar` in
+    any view and one progress bar in the whole application - the row of an activity in `MainWindow.xaml`**; **forty-five views have
+    a status line and twenty-nine converted views none.** Unit 5 took 1 error bar, 1 warning bar and 3 progress bars: both bars were
+    status (the journal that cannot be used; the end of the session), of the three progress bars one was busy without a sentence
+    (the window loads: a ring) and two were status (the owner search, the run). What never was a banner: the counts of the
+    recipients and of the matches, the summary of the votes (status line), the text of the footer and of the progress texts (the
+    results and operations of the pages), the dialogs of the operations (results), the sentences about a paste, a signature and
+    the findings of the preview (notes). Left behind on purpose (added to *After V2b-1*): the strings
+    `Correspondence.Preview.OutlookFailed`, `Correspondence.Recipients.ImportTitle`, `Correspondence.Recipients.DirectoryTitle` and
+    `Correspondence.App.Send.Progress` have no user any more; no longer shown but read by tests or by the view models themselves -
+    `StatusText` and `Error` of the window, `StatusText` of the recipients and mailboxes pages, `ProgressText`, `SummaryText` and
+    `Error` of the mailboxes page and `ProgressText`, `ProgressValue` and `ProgressMaximum` of the send page (the text of the line is
+    built from the same facts), `SummaryText` of the responses page (it still holds the sentences of the reads), and
+    `CancelCommand` of the mailboxes page and `StopCommand` of the send page, which are the Stop of the line. Unit 5 changed what
+    the pages said in a few places beyond how a result is said (above), and the controls and the model by nothing but
+    `ResultCode.Outlook`.
+- **Not seen, to confirm on Windows.** Nothing of V2b-4 was seen on a screen. By unit:
+  - *Unit 1.* Nothing of this unit was seen on a screen.
+    - *The line over the wizard.* It is the line of the batch editor, so it is there at rest in every step, empty on
+      *Kolumny* (an empty band of 28 px, the open question of the empty line) - it was there since V2b-1, empty in this mode.
+    - *The toolbars.* *Dane* without the bar and the bold summary at its right; *Sprawdzenie* with two action buttons next to
+      the plain *Następny błąd* and *Kopiuj wiersze z błędami* (as wide as "Zatrzymywanie…" needs: "Sprawdź ponownie" is
+      wider, "Numeruj od nowa" is not), the scope of the check right under the filter row where the bold summary stood.
+    - *The notes.* The reading warnings in one note with their own scroll (88 px), glyph in the first line; the repeated-paste
+      note with three buttons at its right, which wraps in a narrow window; the note of *Nazwy i opcje* above the sections.
+    - *Long results.* "Nie wczytano pliku „…”: Plik jest większy niż 50 MB. Wybierz inny plik." with a long file name, the
+      stopped-check sentence (about 150 characters) and the stale sentence wrap to two or three lines and move the wizard
+      down with them.
+    - *Coming back from the preview.* The stale state of the check shows for the moment between *Back* and the recompute that
+      the execution scheduled (300 ms); with a result of the line closed or not.
+    - *The profile commands* answer in the line at the top of the window while the buttons are at the bottom of a long step.
+    - *Open for the owner:* whether the three source buttons become action buttons (Stop is in the line only); whether
+      *Podgląd* should refuse, or compute again, after a check that was stopped (rule 5 says how a plan is made is not this
+      increment's business); whether the profile commands' answers belong next to the buttons as notes.
+    - The pictures `40-bulk-create-data.png` to `43-bulk-create-check.png` are made by the screenshot tests but are not
+      committed or shown in the READMEs; they change with this unit (the summary in the line, the notes, the two action
+      buttons) - the line itself was there since V2b-1, empty in this mode.
+  - *Unit 2.* Nothing of unit 2 was seen on a screen either.
+    - *The computer review.* The line sits at the top of a window that is 36 px higher by default; it is an empty band before
+      the first check (the open question of the empty line). The four buttons are action buttons - "Zatrzymywanie…" is wider
+      than their labels, so the row may wrap in a narrow window; the long results (the exact last logon with the names of
+      the controllers that did not answer, the subnets that were skipped) wrap to three lines and push the list down; the
+      note about the release catalogue keeps its place between the scope and the parameters.
+    - *The remote window.* The six start buttons wrap onto a second row (their margin is 6 px at the right and at the bottom,
+      as in the old toolbar); "not known whether the computer got the request" is the longest sentence of the window; the
+      action log under it is unchanged and says "Cancelled." as before. The restart dialog has a note where a hand-made
+      caution glyph and a secondary-colour text were.
+    - *The event log documents.* The line is under the header and above the query; the run button is next to the query and
+      is as wide as "Zatrzymywanie…" needs, the "Load channels" button beside the channel box is small and may be cut in
+      Polish; a run with sources that were not read names three of them and the panel "Coverage and access" opens beside it,
+      so the same fact is on the screen twice, once as a count and once as rows.
+    - *The readiness tab.* The ring in the line shows how many areas are done; "Check again" is one link for two different
+      causes (stopped, changed connection); the summary is long ("OK: 20 · Warnings: 3 · … · Last check: full, … on dc01…")
+      and is cut in a narrow tab with the rest in the tool tip.
+    - *Open for the owner:* whether the review's exact last logon, sites and ping belong in the line as operations at all (a
+      toast was gone after a few seconds, the line stays until the next thing - a result that nobody closes may be read as
+      "still true" long after); whether a stopped remote action should offer a link that reads the status of the computer;
+      whether the sources that a run could not read should be named by the line when their rows say so already.
+
+  - *Unit 3.* Nothing of unit 3 was seen on a screen either.
+    - *The four documents.* The line sits between the header and the notes; the overview's summary is long ("Urzędy
+      przedsiębiorstwa: 2 · szablony: 26 · … · odczytano z dc01.contoso.test, 13.10.2026 14:00 · <CA>") and is cut in a narrow tab,
+      with all of it in the tool tip; the same for the readiness report. The refresh buttons and the two probe buttons are action
+      buttons as wide as "Zatrzymywanie…" needs (the report's header has four buttons in a wrapping row; the review's *Sprawdź
+      ponownie* is the accent button and is wider); *Sprawdź ponownie* of the review has no *Anuluj* beside it any more.
+    - *The overview's tabs.* The health tab loses its bold summary and the grey sentence about the HTTP check from the area under
+      the header of the tab - they are in the line now - and keeps the thresholds and, until the check, the note about the unknown
+      rows; the LDAPS tab keeps only the note about the KDC column under its button. Switching tabs changes the text of the line
+      (the tab in front says its own) without the entrance motion when the message has the same key.
+    - *Notes.* The card "what the read observed" is a note with its heading and no card; the scope of the review and what its check
+      could not read are two notes where one card was; the note of the readiness report is one sentence.
+    - *Long results.* The failed read of the overview and the stopped one of the review (about 150 characters) wrap to two or three
+      lines and move the tabs and the list down with them; the failure of the account count in the templates is the longest
+      sentence of the unit.
+    - *Open for the owner:* whether a failure of the account count is an attention (the list is useful) or an error; whether the HTTP
+      check and the probe, whose results are rows, should say "done" with their counts in the line besides the summary of the tab; whether
+      *Odśwież* should be the Cancel of a reload that the operator did not start (another document's F5, a language switch); whether
+      the sentence about the unknown HTTP rows belongs in the line as the summary of the health tab instead of a note.
+
+  - *Unit 4.* Nothing of unit 4 was seen on a screen either.
+    - *The connection card and the line.* The card without the state word and its colours (host in semibold, the account under
+      it, *Zmień adres* at the right), the line under it at 8 px from the edge, and the rollout note with *Zakończ tryb wdrożenia*
+      at its right in the narrow tab. A tab that is connected says nothing of "Połączono" any more: the page's summary is under the
+      card. Whether the summary of a page that has none (nothing is read yet) leaves an empty 28 px band under the card.
+    - *Long results.* A connection error - "Nie udało się połączyć z host: <explanation with its remedy> Wybierz Ponów… (kod)" - is
+      the longest sentence of the unit (about 200 characters) and wraps to three lines at the width of the tab; the failed test and the
+      refused save are shorter. The summary of the feed with a selection fits one line at 1360 px.
+    - *The notes.* The mode of rollout with a button inside the note (a `DockPanel` as the content), the generated signing secret with
+      its text box and copy button, the findings of the service as a list without a bar (glyph and sentence per row, scrolling
+      from 140 px), and the note of the details pane under the title; the lock glyph of the read-only bar became the warning glyph.
+    - *The action buttons.* *Wyślij test* with its glyph and "Anuluj" / "Zatrzymywanie…" (the Polish word is wider than the label) in
+      the SMTP card (to the right of the recipients box) and next to the hint of a channel; the ring in the details pane's header, 14
+      px at the top right of the title.
+    - *Open for the owner:* whether *Validate*, *Reload*, the preview buttons and *Odśwież* become action buttons (Stop is in the line);
+      whether a stopped read of the feed should keep the rows of before (it would show a list that does not match the filter, and the
+      live updates would have to be given back); whether the toast after a save, an acknowledgement and "Wyślij teraz" is still needed
+      now that the page says the same in its line; whether the rollout mode should be a state of the line (with its button as the
+      action) instead of a note, at the price of the summary for as long as it lasts; whether the card should say "Połączono" once more
+      when nothing else says it.
+  - *Unit 5.* Nothing of the Korespondencja window was seen on a screen either.
+    - *The line and the window.* The line sits under the top edge of the window, 8 px from the sides, and above the tabs: the
+      window is 36 px higher by default (936 px, minimum 716), which may not fit a laptop screen of 768 px; the line is an
+      empty 28 px band on the message tab and before anything was done (the open question of the empty line). The footer has
+      lost its left half - the ring shows only while the window loads - and keeps the Outlook state, *Pomoc* and *Zamknij*.
+    - *The counts moved.* The counts of the recipients were under the grid next to its buttons and are above the tabs now; the
+      summary of the matches was next to the filter and the summary of the votes above the grid. The counts of the recipients and
+      the answer to the last action are one line, so a result covers the counts until it is closed.
+    - *The buttons.* The four buttons that start a run, the search, the two reads and the preview are action buttons in bars of
+      buttons of the old size (padding 10,4, margin 0,0,6,6), each as wide as the widest of its three contents (the Polish
+      "Zatrzymywanie…" is wider than most of the labels), so a narrow window may wrap a bar one button earlier; *Wyślij* keeps
+      its width of 140 px and its accent.
+    - *The notes.* The note of the paste under the editor (its own row above the editor), the note of the signature under its
+      hint in the narrow right column, and one note per finding of the preview: the glyph is 12 px where it was 14 px.
+    - *Long results.* "Wysyłka przerwana: udane 12, błędy 0, niewysłane 83. Naciśnij „Wyślij”, aby wysłać resztę: adresy, do
+      których już wysłano, są pomijane, dopóki włączone jest „Pomijaj już wysłane”." (about 190 characters) and an error with
+      the cause of Outlook, the advice and the code wrap to two or three lines at the width of the window and move the tabs
+      down with them; a send of 300 messages ends with such a sentence under the line for as long as it is not closed.
+    - *The state of the journal* covers the counts and the summaries of every tab for as long as it lasts (a host without a key
+      protector; on Windows with DPAPI it should never appear).
+    - *Open for the owner:* whether the list of reasons before a send ("The message cannot be sent yet: • …"), the address of a
+      test that is not valid and the errors of saving files should leave their dialogs for the line (they were left because a
+      list of reasons is read better in a dialog, and the dialog is one answer); whether the footer should keep the state of
+      Outlook as well as the pages that need it saying it (they say the same fact); whether the message page needs a holder
+      for its templates, imports and exports (they answer with toasts and dialogs as before); whether *Podgląd z Outlooka*,
+      whose answer is the card, should say "done" in the line; whether the state of the journal belongs in a note of the
+      recipients and send pages instead of the line of every tab.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 
