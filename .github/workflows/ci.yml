@@ -77,10 +77,13 @@ jobs:
       # say where the time goes (a test that waits for its own timeout shows up here).
       - name: Slowest tests
         if: always()
+        # A diagnostic: whatever goes wrong in it must never turn a green test run red.
+        continue-on-error: true
         shell: pwsh
         run: |
           $rows = Get-ChildItem TestResults -Filter *.trx -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-            [xml]$trx = Get-Content $_.FullName
+            # -LiteralPath: a second run of one assembly is named "...net10.0[1].trx", and in -Path the brackets are a wildcard.
+            [xml]$trx = Get-Content -LiteralPath $_.FullName
             $trx.TestRun.Results.UnitTestResult | ForEach-Object {
               [pscustomobject]@{ Seconds = [TimeSpan]::Parse($_.duration).TotalSeconds; Outcome = $_.outcome; Test = $_.testName }
             }
