@@ -19,7 +19,12 @@ namespace AdMng.Directory.IntegrationTests.Pki;
 /// </summary>
 public sealed class SslStreamTlsProbeTests
 {
-    private static readonly TimeSpan Generous = TimeSpan.FromSeconds(10);
+    // The probe's own timeout in the tests that expect an outcome, and the bound of every wait on the test server. On the
+    // Windows runner (4 processors, every test project running side by side) a whole process has stood still for
+    // 8-20 s at a time: a probe with 10 s returned its Timeout after 17.7 s, a loopback connect took 3.2 s, the accept loop
+    // took its first connection 21 s after the start. No test here waits for this value to elapse - the tests that
+    // expect a timeout or a cancellation pass their own short ones - so a long value costs nothing unless something hangs.
+    private static readonly TimeSpan Generous = TimeSpan.FromSeconds(60);
 
     [Fact]
     public async Task AHandshake_CapturesTheLeafAndThePresentedIntermediate_AndOffersNoClientCertificate()
@@ -160,7 +165,8 @@ public sealed class SslStreamTlsProbeTests
         // went - before the connect, between connect and accept, or after the accept - and whether the whole process stood still.
         var story = $"{server.Seen}; the probe started to connect {connectStartedMs} ms into the test; {stalls.Describe()}";
         AssertOutcome(TlsProbeOutcome.Timeout, result, story);
-        Assert.True(took < TimeSpan.FromSeconds(5), $"Took {took}. {story}.");
+        // A probe that ignores its 400 ms would run until the test's own limit; a stalled runner is not that.
+        Assert.True(took < TimeSpan.FromSeconds(30), $"Took {took}. {story}.");
     }
 
     [Fact]
