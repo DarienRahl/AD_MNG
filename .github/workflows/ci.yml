@@ -216,7 +216,9 @@ jobs:
       - name: Watchdog lab logs
         if: failure()
         run: tail -n 200 ~/.cache/admng/watchdog-lab/watchdog.log ~/.cache/admng/watchdog-lab/webhook-sink.log || true
-      # The report names the signal, the thread and the frames of the crashed process; the dump itself is not uploaded.
+      # The report names the signal, the thread and the frames of the crashed process: tools/testlab/crash-report-summary.py
+      # prints the crashed thread in full (the first 20,000 bytes of the JSON, which this step printed before, held only
+      # waiting threads) and the report itself is uploaded; the dump is not.
       - name: Crash reports
         if: failure()
         run: |
@@ -224,9 +226,16 @@ jobs:
           for report in /tmp/admng-crash-*.crashreport.json; do
             [ -e "$report" ] || continue
             echo "=== $report ==="
-            head -c 20000 "$report"
-            echo
+            python3 tools/testlab/crash-report-summary.py "$report" || head -c 20000 "$report"
           done
+      - name: Crash report files
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab-crash-reports
+          path: /tmp/admng-crash-*.crashreport.json
+          if-no-files-found: ignore
+          retention-days: 14
       # A dropped LDAP connection (ServerUnavailable) shows here as a crashed or restarted Samba worker.
       - name: Samba DC log
         if: failure()
