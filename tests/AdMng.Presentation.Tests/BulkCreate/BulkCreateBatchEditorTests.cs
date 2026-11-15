@@ -2,6 +2,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
 using AdMng.Core.Batch.Creation;
 using AdMng.Presentation.BulkCreate;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Tests.Dialogs;
 using AdMng.Testing;
@@ -199,34 +200,34 @@ public class BulkCreateBatchEditorTests
         await editor.PreviewCommand.ExecuteAsync(null);
         wizard.Harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
 
-        // The Create of the canary waits for the test; Stop is pressed in the line meanwhile.
-        using var held = new SemaphoreSlim(0);
-        using var release = new ManualResetEventSlim();
+        // The Create of the canary waits for the test - without a blocked thread; Stop is pressed in the line meanwhile.
+        var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var hold = 1;
-        wizard.Harness.Session.BeforeOperation = operation =>
+        wizard.Harness.Session.BeforeOperationAsync = async operation =>
         {
             if (operation.IsWrite && Interlocked.Exchange(ref hold, 0) == 1)
             {
-                held.Release();
-                release.Wait(TimeSpan.FromSeconds(30));
+                reached.SetResult();
+                await release.Task;
             }
         };
         Task execution;
         try
         {
             execution = editor.ExecuteCommand.ExecuteAsync(null);
-            Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
-            var stop = Assert.IsType<AdMng.Presentation.Feedback.PageStatusAction>(editor.Status.Current.Action);
+            await reached.Task.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+            var stop = Assert.IsType<PageStatusAction>(editor.Status.Current.Action);
             stop.Command.Execute(stop.Parameter);
             await B2Harness.WaitUntilAsync(() => editor.CurrentActivity!.IsCancelling);
         }
         finally
         {
-            release.Set();
+            release.TrySetResult();
         }
 
         await execution.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
-        wizard.Harness.Session.BeforeOperation = null;
+        wizard.Harness.Session.BeforeOperationAsync = null;
 
         // The account that was being created is complete - password reset, enabled, must change at next logon, in its group -
         // and not one of the others was started. Before "Stop finishes the object in progress" it stayed disabled, without a
@@ -246,7 +247,7 @@ public class BulkCreateBatchEditorTests
 
         // The line says how far it got, in the language of the window.
         var stopped = editor.Status.Current;
-        Assert.Equal(AdMng.Presentation.Feedback.PageStatusKind.Attention, stopped.Kind);
+        Assert.Equal(PageStatusKind.Attention, stopped.Kind);
         Assert.Contains("wykonano 1 z 5 obiektów, niepowodzenia: 0, obiekt, który był w toku, został dokończony", stopped.Message, StringComparison.Ordinal);
         Assert.Equal("Changes.Status.Stopped (1, 0, 1)", stopped.Log.ToString());
     }

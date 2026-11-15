@@ -151,9 +151,15 @@ public class BatchExecutorStopTests
         // The first change of each of the three objects that run waits until all three have arrived; the Stop comes then.
         Session.BeforeOperationAsync = async operation =>
         {
-            if (operation.Kind == FakeOperationKind.Modify && Interlocked.Increment(ref arrived) <= 3)
+            if (operation.Kind != FakeOperationKind.Modify)
             {
-                if (arrived == 3)
+                return;
+            }
+
+            var number = Interlocked.Increment(ref arrived);
+            if (number <= 3)
+            {
+                if (number == 3)
                 {
                     stop.Cancel();
                     allThree.SetResult();

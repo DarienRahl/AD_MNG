@@ -1515,8 +1515,8 @@ above.
      execution goes on in the background, as before. Several activities one after another (the wizard's first object,
      then the rest) add up. Results name the domain (4.5): **done** "“…” was executed in contoso.test: 12 objects
      changed. The report is in the list of background operations."; **attention** when it was executed only in part
-     or stopped (what was changed, how many failed, that the rest was not executed, then the window's own advice and
-     action – `next`, `action`); **error** when nothing was changed or the plan could not be executed at all (reason
+     or stopped (how many objects are done of how many, how many failed, that the one that ran was finished – V2b-5b; before it:
+     what was changed and that the rest was not executed –, then the window's own advice and action – `next`, `action`); **error** when nothing was changed or the plan could not be executed at all (reason
      and result code). It only *says* what happens: planning, validation, execution, audit and rollback are the
      pipeline's, untouched (rule 5 of `CLAUDE.md`).
 - **The property sheet** (`Views/PropertiesWindow.xaml`; `PropertySheets/`, the pages of `Computers/` and `Pki/`).
