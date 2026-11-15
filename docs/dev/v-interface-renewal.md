@@ -388,6 +388,8 @@ All in `Themes/Motion.xaml` (new); no duration or easing is written anywhere els
 | `Motion.Shimmer` | 1600 ms loop | reference (`CC/ToolKits/Shimmer.cs:51`) |
 | `Motion.HoverIntent` | 500 ms delay | reference (`HSS/CustomUIElements/LinkButtonV2.cs:44`) |
 | `Motion.Ring` | 1 s per turn | **ours** – the progress ring (catalogue row 11); progress, not motion: not behind the switch |
+| `Motion.WorkingDelay` | 150 ms delay | **ours** (V2b-5b) – the status line shows "Working" only after it, so an operation that ends at once never flashes; a delay, not a movement: not behind the switch |
+| `Motion.SummaryThrottle` | 800 ms delay | **ours** (V2b-5b) – a screen reader is told a changed summary this long after its last change; a delay, not a movement: not behind the switch |
 | `Motion.Offset.Page` / `Motion.Offset.Panel` | 24 px / 8 px | reference uses 50 px for pages and 24 px for panels; **ours** are smaller for a dense tool |
 | `Motion.Ease.Enter` | cubic ease-out; key spline `0,0,0,1` | reference (`InfoBarV2.cs:189`, `SettingsExpander.xaml:166-227`) |
 | `Motion.Ease.Exit` | cubic ease-in; key spline `1,1,0,1` | reference (`InfoBarV2.cs:1438`, `SettingsExpander.xaml`) |
@@ -755,7 +757,9 @@ Settings, page *Appearance*:
 **Screen reader and vision**
 
 - The status line is a live region: polite for working and done, assertive for errors. As built (V2a): attention is
-  assertive too, the summary is polite.
+  assertive too, the summary is polite. As built (V2b-5b): a summary whose text changes while the page stays as it is
+  (the count of a search) is announced once, politely, 800 ms after the last change, when its page is in front and its
+  window is active; "Working" is announced when it is shown, not when the page says it (*V2b-5b as built*).
 - Page titles are headings (`AutomationProperties.HeadingLevel`); every new control has an automation peer and a
   name; decorative icons stay out of the automation tree as `ObjectIconView` does today.
 - Text contrast at least 4.5:1, icons and control borders at least 3:1, in light and dark; High Contrast uses only
@@ -1105,7 +1109,8 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     `Message`, `IconKey`, `IsWorking`, `HasAction`, `CanClose` …) and the template only lays them out. It is a live
     region (`AutomationControlType.StatusBar`, name "Error: …", "Status" when empty): polite for the summary, working
     and done, assertive for attention and error; a new message raises the live region event, a new count of the same
-    message and a changed summary do not. Its own words (title, name) follow a language switch at once.
+    message does not (a changed summary does since V2b-5b - once, after a quiet time: *V2b-5b as built*). Its own words
+    (title, name) follow a language switch at once.
   - `ActionButton` – a `Button` with the theme's own template and a content template with three contents in one cell:
     its own content (with an optional `Glyph`) at rest, ring + "Cancel" while the operation runs, ring + "Stopping…"
     after that. All three stay in the layout and differ only in opacity (`Motion.Swap`), so the button has the width
@@ -1162,8 +1167,8 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     stands). *Row 3:* only the entrance of the new message is built (`Motion.Appear`); the old message does not fade
     out first (`Motion.Disappear`), because the line would have to keep showing a status the page no longer has.
   - *Section 7* said "polite for working and done, assertive for errors". Attention is assertive too (something was
-    skipped or stopped and the operator has to act); the summary is polite and is never announced when it only
-    changes.
+    skipped or stopped and the operator has to act); the summary is polite and was never announced when it only
+    changed (since V2b-5b it is, once, after a quiet time - the owner's decision 2, *V2b-5b as built*).
   - *6.7, progress:* in the action button and in the status line. The tab header keeps its loading mark of today; the
     taskbar is not done.
   - *4.1:* one more Fluent brush in the closed set, `SystemFillColorSuccessBackgroundBrush` (28 keys). In High
@@ -1291,7 +1296,8 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
        properties went, in both resx files, with the tests that read them changed to read the line; what is read by its own view model,
        by the shell or by tests as their oracle, and every `Cancel()`, `CancelCommand` and `StopCommand` that is the Stop of a line,
        stays, each with its reason in *V2b-5a as built*.
-    3. *A delay before "Working"* (about 150 ms), so that an operation that ends at once does not flash - the more visible the more
+    3. *A delay before "Working"* (about 150 ms) - **done in V2b-5b, unit 2** (*The delay before "Working"* in *V2b-5b as built*).
+       The case for it: an operation that ends at once must not flash - the more visible the more
        windows have a line: the read of nested membership after every comparison, the reads of the tabs of the property sheet,
        "Reading the containers of …", a test of a filter in a small domain, "Reading “…”…" at every reload of a Group Policy tab,
        "preparing the changes…" before every preview, the first read of the Korespondencja pages, the ring on the first read button
@@ -1304,18 +1310,20 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     6. *The close question tied to running activities:* a window that is closed during an operation - only the Korespondencja
        window asks, and only for a send.
     7. *The screen reader:* a result that only changes the summary is not announced (the settings search no longer announces how
-       many settings a query found, and no count of a list does); decide whether a polite live region for such a count is wanted,
-       and a mark in the tab header of a page that failed while it was not shown (6.7).
+       many settings a query found, and no count of a list does) - **done in V2b-5b, unit 2**: it is announced politely and
+       throttled (*The announcement of a summary* in *V2b-5b as built*); still to do: a mark in the tab header of a page that
+       failed while it was not shown (6.7).
     8. *The "V2" documentation of the controls* - **done in V2b-5a**: `docs/dev/v2-status-controls.md` says what `StatusLine`,
        `ActionButton`, `ProgressRing`, the notes and the holder are, for whoever writes the next view, with the recipe, the tests to copy
        and what is still open; it is listed in `docs/dev/README.md` and is the pointer in the header comment of `Controls.xaml`.
     9. *Notes:* whether a note may choose its glyph (the replication note of the wizard's results was information and has the
-       caution glyph; the protected account became a warning).
+       caution glyph; the protected account became a warning) - **done in V2b-5b, unit 2**: it may (*The glyph of a note* in
+       *V2b-5b as built*).
 
     The owner decided items 3 to 7 and 9, and the question of the half-done account, at the start of V2b-5b - the decisions
     and their reasons are the first list of *V2b-5b as built*; each unit of V2b-5b marks its item done when it lands.
   - Still open – in the controls and the model:
-    - *A delay before "Working"* (about 150 ms), so that an operation that ends at once does not flash – more visible
+    - *A delay before "Working"* (about 150 ms; **built in V2b-5b, unit 2**), so that an operation that ends at once does not flash – more visible
       with every window: the read of nested membership after every comparison, the reads of the tabs of the property
       sheet, "Reading the containers of …" at every opening of the container picker, a test of a filter in a small
       domain, and in the Group Policy area "Reading “…”…" at every reload of a tab, "…: preparing the changes…" before
@@ -1330,7 +1338,8 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
       without the entrance motion and without a live region event (the control compares kind and key).
     - *Reports are not coalesced:* an operation that reports per object (planning thousands of objects) updates the line
       as often.
-    - *Notes:* whether a note may choose its glyph (the shield of the protected account became the warning glyph).
+    - *Notes:* whether a note may choose its glyph (the shield of the protected account became the warning glyph) -
+      **it may, since V2b-5b** (`c:AdNote.Icon`).
     - *Stop for a write:* Apply of the property sheet and OK of "New Object" cannot be stopped from the line (the
       execution is an activity). **The half-done account is gone (V2b-5b, decision 1):** the executor no longer leaves the
       account it was working on with its password reset and "must change" not set - Stop finishes the object in progress,
@@ -3031,9 +3040,9 @@ and what nobody has seen on a screen yet.
     | warning bar `CapBar` ("Narrow the search – 2,000 of 2,345 settings shown") | note | `Ad.Note.Attention` above the results: it is about the list below it, true for as long as it is shown |
     | exports, row actions, details | – | unchanged |
 
-  - *Decisions.* The count of results is no longer a live region of its own: the summary of the line is polite and is
-    never announced when it only changes (V2a), so a screen reader no longer hears "Settings found: 3" after each
-    query. The stale state is behind the failed read and the stopped read: a reload that finds the results stale
+  - *Decisions.* The count of results is no longer a live region of its own: the summary of the line is polite and was
+    never announced when it only changed (V2a), so a screen reader no longer heard "Settings found: 3" after each
+    query - since V2b-5b it hears the count once, after the operator stops typing (*V2b-5b as built*). The stale state is behind the failed read and the stopped read: a reload that finds the results stale
     replaces the stopped state – the read is still undone, and *Refresh* of the stale state reads it (13).
 - **GPO cleanup** (`GroupPolicy/GpoCleanupView.xaml`; `GpoCleanupDocumentViewModel` and its partial files).
   - *What the line says.* At rest the number of proposals, when the GPOs were read and the selected proposal: "16
@@ -4854,7 +4863,8 @@ the developer page (item 8), the checks, and what nobody has seen on a screen.
 
 **V2b-5b as built (the decisions of the owner, and what they changed).** The seventh increment of V2 builds what V2b-5a left for the
 owner. The block reads in this order: the **Decisions** (the six answers of the owner, each with its reason), then one section for every
-unit - so far *The Stop of an execution* (decision 1). Not in this increment: the PowerShell window (R1), the page skeleton (V3) and
+unit - so far *The Stop of an execution* (decision 1, unit 1) and, from unit 2, *The delay before "Working"* (decision 5), *The
+announcement of a summary* (decision 2), *The glyph of a note* (decision 4) and *The band stays* (decision 3). Not in this increment: the PowerShell window (R1), the page skeleton (V3) and
 anything about releases.
 
 - **Decisions** (the owner's, given before V2b-5b; every later unit builds them as they stand; the reasons are those of the questions
@@ -4936,6 +4946,104 @@ anything about releases.
     still says only "Cancelled" for a stopped execution, with its counters; the line is where the new sentence is. **Apply and "New
     Object"** could now offer Stop in the line (see *Stop for a write*). **Not seen on a screen or on Windows:** the new sentence wraps to
     two or three lines in the dialogs (three at most, then the tool tip) and the two changed UI tests ran only on Windows CI.
+
+- **The delay before "Working" (decision 5, unit 2).** The line shows a running operation only after `Motion.WorkingDelay`.
+  - *Where it lives.* The logic is `StatusFlow` (`Controls/StatusFlow.cs`): no WPF type, a clock behind the one-method interface
+    `IStatusScheduler` (`DispatcherStatusScheduler` in the application - a `DispatcherTimer` of the line's dispatcher at normal
+    priority, so a busy thread does not postpone it; `ManualStatusScheduler` in the tests). `StatusLine` owns one flow and only puts what
+    it decides on the screen. The token is `Motion.WorkingDelay`, 150 ms, in `Themes/Motion.xaml` - the one owner of durations
+    (`MotionDictionary_IsTheOnlyPlaceOfDurationsAndEasings`), next to `Motion.HoverIntent`, which is also a delay and not a movement - read
+    by key with `Motion.TimeOf` at the moment an operation arrives. **It is not motion:** `Motion.IsEnabled` is not consulted, so the delay is
+    there with animations off (and in every UI test); a missing or non-positive token means no delay.
+  - *The rule.* A status of the kind Working that arrives while the line shows anything else - the summary, nothing, or a result - is
+    held for the delay. The line keeps showing what it showed; if the operation ends first (a result, the summary, nothing), the line goes
+    straight to that and the working look is never shown: not the kind, not `IsWorking`, not the ring, no announcement (asserted by
+    recording every change of `Kind`, `IsWorking` and the ring). A second Working status during the delay (a new count, a new text) only
+    replaces the first; the delay runs on from the first moment, it is not restarted. A Working status that is already shown is not
+    delayed again by a new message, another stage or "Stopping…" (they are shown at once); the next operation, after anything that is
+    not Working, is delayed again.
+  - *What stays as it was.* **The model:** `PageStatusHolder` says Working at once, `StatusLine.Status` is what the page says and is never
+    late, `Kind`, `Title`, `Message`, `IsWorking` ... are what the line shows (`StatusLine.Shown` for a test); no Presentation test changed.
+    **The automation events:** the name, the live setting and the live region event of Working are set and raised when it is shown. **The
+    action button** (`ActionButton`) is not delayed: it goes to "Cancel" and, after a press, to "Stopping…" at once - it is what the operator
+    pressed and it must answer; only the line waits, so for 150 ms the button says "Cancel" while the line still says the summary. Goal G3
+    holds (the button at once, the line within 150 ms, both within 200 ms).
+  - *Decision 3 holds for the delay:* what the line keeps showing may be nothing. A page whose summary is empty at rest shows its empty
+    band of 28 px for those 150 ms (`Working_IsShownOnlyWhenTheDelayHasRunOut_AndTheEmptyBandKeepsItsHeightAndWhatLiesUnderIt`: the height of
+    the line and the top of what lies under it are asserted before the Working look, in the middle of the delay, and after it).
+  - *Which tests had to change, and how they were found.* Every assertion of the working look in the UI tests (the title "Working", the kind,
+    `IsWorking`, the ring, the Stop link, the ring's turning) was listed with the `await` before it by a throwaway script. Almost every window
+    test already waited with `UiWait` for `line.Kind == Working` or `line.IsWorking` (a held call lasts until the test lets it go, so the
+    wait always ends); two did not and wait for the line now (`BulkCreateStatusUiTests`: the check of the wizard waited for idle;
+    `StatusLinePilotTests`: Find Now). `StatusLineUiTests` drives its lines with a `ManualStatusScheduler` and moves it by the delay after a
+    status that is Working (`ShowWorking`). The assertions of "Stopping…" all follow a Working assertion of the same test, so they are
+    immediate. `MotionUiTests` has the two new tokens.
+  - *New tests.* `StatusFlowTests` (17, pure logic, they run on Linux too - proved through a scratch project that compiled the same files):
+    the delay at the millisecond (149 ms not yet, 150 ms shown), an operation that ends within it as a result or as the summary, two
+    Working statuses, the stages of a shown operation, the operation after a result, no token, `Cancel`. `StatusLineTimingUiTests`:
+    the same through the real control and its parts, the empty band and the content under it at each step, the entrance of the working
+    look (motion on) played when it is shown and not before, and one test over the **real clock** with a held operation: the model is
+    Working and the line is not at the same turn of the dispatcher, the line is Working a moment later and stays so, and an operation that
+    ends in the same turn never shows it.
+- **The announcement of a summary (decision 2, unit 2).** A summary whose text changes while the page stays as it is - the count of a
+  search, a number of rows, a selection - is announced to a screen reader politely, once, after a quiet time.
+  - *The rule* (`StatusFlow`, token `Motion.SummaryThrottle`, 800 ms, also in `Motion.xaml`). When the line shows a summary and the page says
+    another text (the same message: summaries always are), the text on the screen follows at once and the announcement is scheduled
+    `SummaryThrottle` after this change; every further change restarts it, so a search box that counts after every letter is announced once,
+    for the last text. Nothing is announced for **the very first summary of a page** (the first text the line shows for a page that opens: it
+    is what the page says, not a change), for **an empty summary**, for **a text the operator has heard already** (typing and deleting a
+    letter), when the line is **not visible** (its page is not in front) or its **window is not active** (`MayAnnounceSummary`: `IsVisible`
+    and `Window.IsActive`, asked at the moment of the announcement; the text is then consumed and does not come back as news), and not
+    while a result is shown or "Working" is shown - such a message cancels a summary that waits (it would say what the line says anyway).
+  - *What is unchanged.* A **new message** - a result, "Working" once it is shown, the summary that follows an operation the operator
+    watched - is announced at once, as before: Done and Working politely, Attention and Error assertively; a new count of the same message
+    is not announced. The summary that follows a Working that was *not* shown is a change of the summary (the operation never existed for
+    the operator): the quick read of a search that changes the count is announced after the quiet time, and the first summary of a page that
+    reads quickly is not announced.
+  - *The name follows the announcement.* While a changed summary waits, the text on the screen is the new one but the name a screen reader
+    reads (`AutomationProperties.Name`) is still the old one, and becomes the new one together with the announcement - so the throttle does
+    not depend on whether a screen reader speaks a changed name of a live region by itself, which nobody could check on Linux (see *Blind spots*).
+    Everything else sets the name at once. A language switch sets it at once as well.
+  - *How it is tested.* `StatusFlowTests` (the quiet time at the millisecond, restarted by every change, the first summary, an empty one,
+    back to what was heard, a result that arrives, a gate that says no, no token, a typed search that never shows "Working") and
+    `StatusLineTimingUiTests` (the real control with a manual clock: `Announced` and `Announcements` are raised at the moment the line decides
+    to tell a screen reader, whether or not one listens - `ListenerExists` is false in a test - the name before and after, the live setting
+    and the peer, the gate in both states, an assertive result at once, a result that drops a waiting summary).
+  - *The case that motivated it:* the settings search of the Group Policy area. "N settings found" is part of the summary of its tab; the
+    operator types, the count changes with every query, and a screen reader says it once after the typing stops. The selection of a row adds
+    "· 1 selected" to the same summary, so a change of the selection that changes that text is announced after the quiet time as well (see
+    *Open*).
+- **The glyph of a note (decision 4, unit 2).** `c:AdNote.Icon` (`Controls/AdNote.cs`), an attached property on a note, names one icon
+  of the closed set of the four status icons - `AppIcons.StatusInfo`, `StatusOk`, `StatusWarning`, `StatusError`, the ones the status line
+  shows (`StatusLine.IconOf`; a test asserts that the two agree) - and puts its glyph in place of the glyph of the style. The colour, the
+  size, the text and the template stay those of the style: the severity chooses the colour and the weight of the sentence, the icon its shape.
+  The style carries its glyph in `Tag`; the property sets `Tag` as a local value and clears it again when it is set to null or to a key outside
+  the set, so the default is the glyph of the style and no existing note changed. The set is closed: `EveryNoteIconUsedInXaml_IsAnIconOfTheClosedSet`
+  reads every value written in XAML (the attribute and the setter form; a mention it cannot read fails the count) and fails a key that is
+  not in `AppIcons.All` and in the set - proved with a throwaway script over the real XAML files.
+  - *The two cases of the owner.* **The replication note of the bulk creation results** is information: `BulkCreateViewModel.ResultNotes` is
+    now a list of `BulkResultNote(Text, IsInformation)` (strings before), the replication note is the one with `IsInformation`, and the item
+    template of `BulkResultsView` sets `c:AdNote.Icon` to the information icon with a data trigger on it. It keeps the style of an attention
+    - its caution colour - and wears the information glyph; the other three notes of the list (canary stop, accounts left disabled, the forest
+    UPN hint) keep the caution glyph. `BulkResultNote.ToString()` names the kind and never the sentence, which may name a domain controller (the
+    records of that namespace print no value - a contract test). **The protected account** of the details pane (`adminCount=1`,
+    `ProtectedNote`) is a warning and stays one: `Ad.Note.Attention`, the warning glyph, untouched. No other note was changed.
+  - *Tests.* `NoteUiTests` - each style with each icon of the set (glyph, `Tag`, colour, size and room unchanged), the information glyph on a
+    note of attention, a key outside the set and `null` back to the glyph of the style, and the set against the status line;
+    `BulkCreateStatusUiTests` - every note of the results has the glyph its `IsInformation` says and the caution colour;
+    `BulkCreateBatchEditorTests` (Presentation) - the replication note is information and the others are not.
+- **The band stays (decision 3, unit 2).** No code was needed: the status line is, and stays, a band of `Ad.Size.StatusLine` (28 px) whatever
+  it has to say, also when it has nothing to say and in the 150 ms of the delay; nothing built in this increment collapses it, and the
+  tests of the delay assert its height and the top of what lies under it at every step. `EmptyState` (a later unit) is the answer for a
+  list without rows.
+- *V2b-5b, unit 2 - Open.* **Selections in the summary:** the summary of the object list and of the search tab contains "· N selected", so
+  a selection that changes the text is announced after the quiet time - with the arrow keys in a list the selected row is read by the list
+  anyway; whether the selection should be left out of the announcement (only the count of the list is told) is to be decided after use with a
+  screen reader. **The replication note** wears the caution colour of its section with the information glyph, as the owner asked; the quieter
+  alternative is the style `Ad.Note.Info` for it, which needs no property - to be decided when the page is seen. **Blind spots:** the
+  announcement was never heard (no screen reader on Linux, and the CI windows are not activated), only decided and counted; whether Narrator
+  and NVDA treat a `LiveRegionChanged` of a polite status bar as speech, and whether they would also speak a changed name by itself, is for
+  the pilot of a Windows machine with a screen reader. The 150 ms were not seen on a screen either.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 

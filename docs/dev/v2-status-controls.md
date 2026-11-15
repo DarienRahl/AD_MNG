@@ -4,8 +4,9 @@ For whoever writes or converts a view after the sweep of stage V2: what the piec
 message goes where, the recipe for a page, the tests to copy and what is still open. It is a reader's guide, not the design: the
 reasons, the alternatives and the as-built record of every window are in
 [v-interface-renewal.md](v-interface-renewal.md) (sections *6.7 Feedback, one place each* and *V2 - Feedback*, blocks *V2a as built*,
-*V2b-1 as built* with its **Foundations**, *V2b-2 as built* with its **Dialogs**, *V2b-3 as built* with its **Group Policy documents**
-and *V2b-4 as built* with its **Areas**). Where this page and the as-built blocks disagree, the blocks win.
+*V2b-1 as built* with its **Foundations**, *V2b-2 as built* with its **Dialogs**, *V2b-3 as built* with its **Group Policy documents**,
+*V2b-4 as built* with its **Areas** and *V2b-5b as built*, the owner's decisions of the end of the stage). Where this page and the
+as-built blocks disagree, the blocks win.
 
 The one rule behind all of it: **a page says what it did or is doing in one place, its status line.** Nothing of it is a banner, a
 progress bar under the header, a text in the footer or a toast of the same window. There are no banner styles any more
@@ -20,10 +21,10 @@ progress bar under the header, a text in the footer or a toast of the same windo
 | `OperationScope` | returned by `Begin` | One running operation: `Token`, `Report` (a new text or count, from any thread), `Cancel`, `Complete`, `CompleteDone` / `CompleteAttention` / `CompleteError`, `IsEnded`, `IsCancelling`, `Dispose`. | "Working" exists only through a scope. A scope that is disposed without a completion ends as the summary, so no path out of a method leaves a page "working". |
 | `ExecutionStatus` | `Presentation/Changes` | The execution of a change plan as an operation: working from the first moment ("Executing ... 12 of 300..."), Stop that cancels the activity, results that name the domain. | Every window that executes a plan through the coordinator, so every window says the same. It only says what happens; the pipeline (rule 5) is untouched. |
 | `PageStatusText` | `Presentation/Feedback` | Text helpers: `Failure(tried, reason, next, code)`, `Progress(localizer, done, total)` ("12 of 300"), `Objects` / `Count` (the plural forms). | One shape of an error: "what we tried: why it failed. What to do next. (code)". |
-| `c:StatusLine` | `App/Controls`, style `Ad.StatusLine` | Shows a `PageStatus` in a line of a fixed height (the summary and a running operation: one line; a result: up to three lines, then the tool tip): the picture of the severity (a ring while it works), the fixed title, the text, the action as a link, a close button where `CanClose`. A live region: polite for the summary, working and done, assertive for attention and error. | The one place. |
+| `c:StatusLine` | `App/Controls`, style `Ad.StatusLine` | Shows a `PageStatus` in a line of a fixed height (the summary and a running operation: one line; a result: up to three lines, then the tool tip): the picture of the severity (a ring while it works), the fixed title, the text, the action as a link, a close button where `CanClose`. A live region: polite for the summary, working and done, assertive for attention and error. Two things of time (V2b-5b): a running operation is **shown 150 ms after the page says it** (`Motion.WorkingDelay`; the line keeps showing what it showed, so a quick operation never flashes), and a summary whose text changes is **announced once, 800 ms after the last change** (`Motion.SummaryThrottle`). The band of 28 px never collapses. | The one place. |
 | `c:ActionButton` | `App/Controls`, styles `Ad.ActionButton`, `Ad.AccentActionButton`, `Ad.DialogActionButton`, `Ad.AccentDialogActionButton` | A button with three contents in one cell: its own at rest, ring + "Cancel" while the operation runs, ring + "Stopping..." after the press. `Command` starts, `CancelCommand` stops; Enter starts and never cancels; it keeps the keyboard focus by staying enabled. | A command that starts an operation that can be stopped. Replaces the old pair "start button + Stop button". |
 | `c:ProgressRing` | `App/Controls` | A 14 or 16 px ring, indeterminate or showing a part done; costs nothing while hidden. | "Busy" where there is no sentence to say (the quick search of the main window, the images of a template being read). |
-| Notes | `Ad.Note.Info`, `Ad.Note.Attention`, `Ad.Note.Error` on a `ContentControl` whose content is a wrapping `TextBlock` | A glyph of the severity and a sentence, no fill, no border. | A sentence that belongs to one field or one section and is true for as long as that content is shown. |
+| Notes | `Ad.Note.Info`, `Ad.Note.Attention`, `Ad.Note.Error` on a `ContentControl` whose content is a wrapping `TextBlock` | A glyph of the severity and a sentence, no fill, no border. The glyph may be another of the four status icons: `c:AdNote.Icon="{x:Static c:AppIcons.StatusInfo}"` (V2b-5b; the colour stays the style's). | A sentence that belongs to one field or one section and is true for as long as that content is shown. |
 
 ## Sort every message first
 
@@ -122,6 +123,12 @@ things. The test for the first two: *is this the answer to something the operato
 10. **The same message key on two pages.** `StatusLine` decides "a new message" by kind and key: switching between two tabs that say
     messages of the same key changes the text without the entrance motion and without a live-region announcement. Give pages that
     can follow one another their own keys (open question, below).
+11. **Time is the line's business, not the page's** (V2b-5b). Say "Working" the moment the work begins - never wait 150 ms yourself and
+    never hold the status back to avoid a flash: the line delays what it *shows* (an operation that ends within 150 ms never shows the
+    working look; a page whose summary is empty shows its empty band meanwhile), the model and your tests of it stay immediate. Say the
+    summary as it is - a count that changes with every key is fine: the line tells a screen reader once, after the last change. A page
+    that wants its count announced politely needs nothing; a page that does *not* want a text announced puts it in a note or a field,
+    not in the summary.
 
 ## The recipe: view
 
@@ -145,7 +152,11 @@ things. The test for the first two: *is this the answer to something the operato
   the primary action and the dialog styles in a footer.
 - **Notes** are `ContentControl` with `Ad.Note.Info`, `Ad.Note.Attention` or `Ad.Note.Error` and a wrapping `TextBlock` that keeps its name
   and `AutomationProperties.LiveSetting`. They are not told by colour alone: each severity has its own glyph. A note stays in its
-  place whatever the window is doing; it is hidden by a converter on its text, not by the status.
+  place whatever the window is doing; it is hidden by a converter on its text, not by the status. **A note may choose its glyph**
+  (V2b-5b): `c:AdNote.Icon="{x:Static c:AppIcons.StatusInfo}"` - one of `StatusInfo`, `StatusOk`, `StatusWarning`, `StatusError`, nothing
+  else (`XamlSourceTests` fails another key) - for a sentence whose severity is not the one of the style's glyph (the replication note of
+  the bulk creation results is information among cautions). The style still decides the colour; choose the style for how serious the
+  sentence is and the icon for what it is. Without the property the glyph is the style's.
 - **A ring** for "busy" without a sentence: a `c:ProgressRing` in the place, and the old sentence as the `AutomationProperties.ItemStatus`
   of that place (the ring is outside UI Automation).
 - **Register the file in the source tests.** A view with a line goes on `PagesWithAStatusLine`, a converted view with no status to say
@@ -174,12 +185,22 @@ Presentation tests run on Linux and are the bulk: the view models run against th
 - **Assert** the kind, the text, the log copy (`status.Log.ToString()`: the key and counts, never a name) and the action in both
   languages, Stop with a held call, a replaced operation that says nothing, the end of the session (also during an operation), closing
   the window during an operation, and that no log copy carries a value.
+- **The time of the line:** `StatusFlowTests` (no WPF type, runs on Linux through a scratch project that links the file and the tests)
+  and `StatusLineTimingUiTests`; both drive the line with a `ManualStatusScheduler` (`StatusLine.Scheduler`, `MayAnnounceSummary`,
+  `Announced`, `Announcements` are the internal seams) so the delay and the quiet time are asserted at the millisecond without a wait.
+  A test of a page does not need them: it waits for what it looks at.
 - **UI tests** (Windows CI only, written without a screen; properties, resources and view model state, never pixels): one file per
   window in the style of `PropertySheetStatusUiTests`, through the real window over the fake directory, with `UiTestContext`, `UiWait`,
   `ControlHost`, `LanguageScope` and `MotionScope`. `GroupPolicy/GroupPolicyStatusUiSupport.cs` has `HeldRead`, `GrowthOf` (the line
   grows by 20 px per extra line and what lies under it moves by as much), `AssertTheLineOf`, `AssertNoNotes`. The lessons that cost a
   Windows run each:
   - **Transient states.** Assert only a state that lasts until the test changes it; never look for a transient state after an idle wait.
+  - **The working look is 150 ms late** (V2b-5b). A held call lasts, but the line shows "Working" only after the delay: a test that
+    asserts the working look (the title, `line.IsWorking`, the ring, the Stop link, "Stopping…" of a line that never showed
+    "Working") waits for it with `UiWait.UntilAsync(() => held.IsSet && line.Kind == PageStatusKind.Working, ...)` - never with
+    `WaitForIdleAsync` (rounds of 40 ms) and never with a wait for the model alone (`IsLoading`, `Status.IsWorking`, `IsCancelling`).
+    The button of an operation (`ActionButton`) is not delayed. A control test of the line itself sets `Scheduler` to a
+    `ManualStatusScheduler` and advances it by `Motion.TimeOf(Motion.WorkingDelayKey)` after a status that is Working.
   - **"Stopping..." lasts until the test lets the held call go.** A hold that ends when the call is cancelled makes "Stopping..." vanish
     before the test looks (the remote fake has `HoldUntilReleased`, off by default). Hold a read only on a pool thread (`HeldRead`): a
     call held on the UI thread holds the test.
@@ -207,12 +228,16 @@ ring); the look of the notes; the execution of a plan as an operation; "busy" as
 three lines at most (the owner's decision of 2026-11-11); how a dialog carries its line and when it has none; a flow that another window
 hosts has the line of its host; a family of documents shares the holder of its base class; an "as of" text is the detail of the summary;
 a quick action never ends an operation of its page; the coverage of a run is said in the line for what it could not read and stays in rows
-and notes for the rest.
+and notes for the rest. And, by the owner's decisions of V2b-5b: Stop finishes the object in progress; a delay of about 150 ms before
+"Working" is shown; a changed summary is announced politely and throttled; the status line keeps its band of 28 px when it has nothing to
+say; a note may choose its glyph from the closed set of four.
 
-**Not started, waiting for the owner** (*What V2b-5 has to do* in the design note): a delay (about 150 ms) before "Working" so that an
-operation that ends at once does not flash; `StatusPill`, `EmptyState` (the answer for lists without rows; the 28 px band of a line with nothing to
-say **stays** - owner's decision of V2b-5b) and `Skeleton`; taskbar progress; the close question of a window closed during an operation; the screen reader (a result that only
-changes the summary is not announced, a mark in the tab header of a page that failed while it was not shown); whether a note may choose
-its glyph. The list *Still the owner's* in *What V2b has to do* holds the smaller questions of the units (the loudness of the caution glyph
-of the notes, where the press-time answers of the editors belong, whether *Refresh* is the Cancel of a read the operator did not start,
-what a stopped run keeps). Do not decide them in a view; if a view needs one answered, ask.
+**Not started** (*What V2b-5 has to do* in the design note; the owner has decided them in V2b-5b and the later units build them):
+`StatusPill`, `EmptyState` (the answer for lists without rows; the 28 px band of a line with nothing to say **stays** - owner's decision
+of V2b-5b) and `Skeleton`; taskbar progress; the close question of a window closed during an operation. Built in unit 2 of V2b-5b and
+described above: the delay before "Working", the throttled announcement of a summary, the glyph of a note. Still open from them: a mark in
+the tab header of a page that failed while it was not shown (6.7), and whether the selection ("· 1 selected") belongs in the summary that is
+announced (*V2b-5b as built*, *Open*). The list *Still the owner's* in *What V2b has to do* holds the smaller questions of the units (the
+loudness of the caution glyph of the notes, where the press-time answers of the editors belong, whether *Refresh* is the Cancel of a read the
+operator did not start, what a stopped run keeps - answered in V2b-5b: the object in progress is finished). Do not decide them in a view; if
+a view needs one answered, ask.

@@ -27,6 +27,16 @@
   niepowodzenia: 0, obiekt, który był w toku, został dokończony.* Zatrzymanie nie przerywa też ponawiania żądania, które
   kontroler odrzucił jako chwilowo zajęty – przy awarii kontrolera czeka więc na te próby (kilka sekund) i dopiero wtedy
   kończy obiekt błędem. Plan cofnięcia i dziennik sesji obejmują każdą wykonaną zmianę.
+- **Wiersz stanu nie błyska przy szybkich operacjach, a czytnik ekranu mówi, ile znaleziono.** Stan *Trwa* z kółkiem
+  postępu pojawia się dopiero po około 0,15 s od początku operacji: operacja, która kończy się od razu (np. odczyt jednej
+  zakładki właściwości albo przygotowanie zmian przed podglądem), nie miga już wierszem stanu. Do tego czasu wiersz
+  pokazuje to, co pokazywał – a pusty zostaje pustym paskiem, więc zawartość pod nim się nie przesuwa; przycisk, którym
+  uruchomiono operację, zmienia się na *Anuluj* od razu. Zmieniająca się liczba w podsumowaniu strony – np. liczba
+  ustawień znalezionych w wyszukiwarce ustawień zasad grupy – jest odczytywana przez czytnik ekranu uprzejmie (bez
+  przerywania mowy) i tylko raz, około 0,8 s po ostatniej zmianie, a nie po każdym wpisanym znaku; nie jest odczytywana,
+  gdy okno nie jest aktywne ani gdy strona nie jest na wierzchu, i nie jest odczytywane pierwsze podsumowanie otwartej
+  strony. Uwaga o replikacji w wynikach kreatora zakładania kont jest informacją, więc ma ikonę informacji zamiast
+  ostrzeżenia (kolor uwagi bez zmian).
 
 ## AdMng Watchdog {{VERSION}}
 
@@ -44,6 +54,8 @@
 <!-- TODO: ograniczenia nowych funkcji i to, czego nie sprawdzono na prawdziwej domenie -->
 - Wszystkie ograniczenia z wersji {{PREVIOUS}} obowiązują nadal, z jednym wyjątkiem: zatrzymanie wykonania nie zostawia już
   obiektu w połowie (zob. „Inne zmiany”).
+- Odczytywanie zmienionego podsumowania i opóźnienie stanu *Trwa* sprawdzono testami automatycznymi i na podstawie kodu;
+  nie sprawdzono ich z prawdziwym czytnikiem ekranu (Narrator, NVDA) ani na ekranie.
 
 ## Co dalej
 
