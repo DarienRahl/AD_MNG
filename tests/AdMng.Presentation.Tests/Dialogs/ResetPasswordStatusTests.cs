@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Globalization;
+using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Feedback;
@@ -477,17 +478,22 @@ public sealed class ResetPasswordStatusTests
         await resetting.WaitAsync(Limit, Ct);
         harness.Session.BeforeOperation = null;
 
-        // The step that was on its way ended (its account is not complete: the steps after it were not made); the other
-        // account was not touched. Both are in the result list, and the line says that the rest was not executed - and
+        // The account that was on its way was finished (Stop finishes the object in progress: its password is reset AND
+        // "must change at next logon" is set - not a new password without the rest); the other account was not started.
+        // Both are in the result list, and the line says how many are done and that the one that ran was finished - and
         // does not point to reasons the list does not have.
         var result = dialog.Status.Current;
         Assert.Equal(PageStatusKind.Attention, result.Kind);
-        Assert.StartsWith("Executing “Reset Password” in contoso.test was stopped: ", result.Message, StringComparison.Ordinal);
-        Assert.EndsWith(" the rest was not executed.", result.Message, StringComparison.Ordinal);
-        Assert.StartsWith("Changes.Status.Stopped (", result.Log.ToString(), StringComparison.Ordinal);
+        Assert.Equal(
+            "Executing “Reset Password” in contoso.test was stopped: 1 of 2 objects done, failed: 0, the one that ran was finished.", result.Message);
+        Assert.Equal("Changes.Status.Stopped (1, 0, 1)", result.Log.ToString());
         Assert.True(result.CanClose);
         Assert.Single(harness.Session.PasswordResets);
+        Assert.Contains(harness.Session.Writes, w => w.Kind == FakeOperationKind.Modify && w.DistinguishedName == harness.Company.JanKowalski
+            && w.Modifications.Any(m => m.Attribute == Attr.PwdLastSet));
+        Assert.DoesNotContain(harness.Session.Writes, w => w.DistinguishedName == harness.Company.LukaszWisniewski);
         Assert.True(dialog.IsCompleted);
+        Assert.Equal([true, false], dialog.Results.Select(r => r.Succeeded));
         Assert.Equal(2, dialog.Results.Count);
         Assert.False(dialog.IsBusy);
         Assert.False(dialog.Status.IsWorking);

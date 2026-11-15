@@ -24396,8 +24396,23 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="Changes.Status.Counts" xml:space="preserve">
     <value>zmieniono {0}, niepowodzenia: {1:N0}</value>
   </data>
-  <data name="Changes.Status.CountsStopped" xml:space="preserve">
-    <value>zmieniono {0}, niepowodzenia: {1:N0}, pozostałych nie wykonano</value>
+  <data name="Changes.Status.CountsStopped.One" xml:space="preserve">
+    <value>wykonano {0:N0} z {1:N0} obiektu, niepowodzenia: {2:N0}</value>
+  </data>
+  <data name="Changes.Status.CountsStopped.Few" xml:space="preserve">
+    <value>wykonano {0:N0} z {1:N0} obiektów, niepowodzenia: {2:N0}</value>
+  </data>
+  <data name="Changes.Status.CountsStopped.Many" xml:space="preserve">
+    <value>wykonano {0:N0} z {1:N0} obiektów, niepowodzenia: {2:N0}</value>
+  </data>
+  <data name="Changes.Status.Finished.One" xml:space="preserve">
+    <value>obiekt, który był w toku, został dokończony</value>
+  </data>
+  <data name="Changes.Status.Finished.Few" xml:space="preserve">
+    <value>dokończono {0:N0} obiekty, które były w toku</value>
+  </data>
+  <data name="Changes.Status.Finished.Many" xml:space="preserve">
+    <value>dokończono {0:N0} obiektów, które były w toku</value>
   </data>
   <data name="Changes.Status.NothingChanged" xml:space="preserve">
     <value>niczego nie zmieniono, niepowodzenia: {0:N0}</value>

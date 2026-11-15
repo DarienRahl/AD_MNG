@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using AdMng.Core.Batch;
+using AdMng.Presentation.Correspondence;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 
@@ -20,6 +21,9 @@ namespace AdMng.Presentation.Changes;
 /// <para>Stop works both ways: asked for in the window it cancels the activity, and an activity that was cancelled in
 /// the list of background operations makes the window say "Stopping…". An operation that merely ends - the window was
 /// closed - does <b>not</b> cancel the activity: the execution keeps running in the background.</para>
+/// <para>Stop <b>finishes the object in progress</b> (V2b-5b, the executor's rule): nothing new is started, but the
+/// objects that ran when it came get all their changes. The stopped result therefore says how many objects are done
+/// and that the ones that ran were finished (<see cref="BatchResult.FinishedAfterStopCount"/>) - never "half done".</para>
 /// <para>UI-thread object, like the view model that owns it; put it in a <c>using</c>: disposed without a result the
 /// window shows its summary again, never "working".</para>
 /// </remarks>
@@ -122,9 +126,8 @@ public sealed class ExecutionStatus : IDisposable
         if (result.WasCancelled)
         {
             _scope.CompleteAttention(
-                PageStatusText.Failure(
-                    _localizer.Format(L.ChangeStatus.Stopped, _title, _domain), _localizer.Format(L.ChangeStatus.CountsStopped, objects, failed), next),
-                new PageStatusLog(L.ChangeStatus.Stopped, changed, failed),
+                PageStatusText.Failure(_localizer.Format(L.ChangeStatus.Stopped, _title, _domain), StoppedCounts(result), next),
+                new PageStatusLog(L.ChangeStatus.Stopped, changed, failed, result.FinishedAfterStopCount),
                 action);
         }
         else if (failed == 0)
@@ -146,6 +149,27 @@ public sealed class ExecutionStatus : IDisposable
                 new PageStatusLog(L.ChangeStatus.ExecuteFailed, changed, failed),
                 action);
         }
+    }
+
+    /// <summary>
+    /// What a Stop left, in one clause: "12 of 300 objects done, failed: 1, the one that ran was finished". Stop finishes the
+    /// object in progress, so the objects that ran when it came are not counted as half done - they are done, and the line
+    /// says that they were carried through (nothing is said when the Stop came between two objects).
+    /// </summary>
+    private string StoppedCounts(BatchResult result)
+    {
+        var done = result.SucceededCount;
+
+        // The objects the plan had to change; the plan of a merged result (the bulk creation) holds all of them.
+        var total = Math.Max(result.Plan.ExecutableCount, done + result.FailedCount);
+        var counts = _localizer.Format(
+            CorrespondenceText.PluralKey(total, L.ChangeStatus.CountsStoppedOne, L.ChangeStatus.CountsStoppedFew, L.ChangeStatus.CountsStoppedMany),
+            done,
+            total,
+            result.FailedCount);
+        return result.FinishedAfterStopCount > 0
+            ? $"{counts}, {PageStatusText.Count(_localizer, result.FinishedAfterStopCount, L.ChangeStatus.FinishedOne, L.ChangeStatus.FinishedFew, L.ChangeStatus.FinishedMany)}"
+            : counts;
     }
 
     /// <summary>The plan could not be executed at all: what was tried, why, and the result code.</summary>

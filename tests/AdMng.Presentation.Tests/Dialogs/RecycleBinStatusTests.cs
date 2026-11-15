@@ -642,14 +642,15 @@ public sealed class RecycleBinStatusTests
         await restoring.WaitAsync(TimeSpan.FromSeconds(20), Ct);
         harness.Session.BeforeOperation = null;
 
-        // The step that was on its way ended; the rest was not executed and is still in the list.
+        // The object that was on its way was restored (Stop finishes the object in progress); the next one was not started
+        // and is still in the list.
         var result = bin.Status.Current;
         Assert.Equal(PageStatusKind.Attention, result.Kind);
         Assert.Equal(
-            "Executing “Restore from the AD Recycle Bin (2)” in contoso.test was stopped: 1 object changed, failed: 0, the rest was not executed. "
+            "Executing “Restore from the AD Recycle Bin (2)” in contoso.test was stopped: 1 of 2 objects done, failed: 0, the one that ran was finished. "
             + "What was not restored is still in the list.",
             result.Message);
-        Assert.Equal("Changes.Status.Stopped (1, 0)", result.Log.ToString());
+        Assert.Equal("Changes.Status.Stopped (1, 0, 1)", result.Log.ToString());
         Assert.Single(bin.Items);
         Assert.Empty(harness.Dialogs.Errors);
     }

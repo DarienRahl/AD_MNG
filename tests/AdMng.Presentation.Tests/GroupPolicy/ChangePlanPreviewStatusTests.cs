@@ -203,9 +203,19 @@ public sealed class ChangePlanPreviewStatusTests
         Assert.True(preview.Result!.WasCancelled);
         var stopped = preview.Status.Current;
         Assert.Equal(PageStatusKind.Attention, stopped.Kind);
-        Assert.StartsWith("Executing “Kopia” in contoso.test was stopped: ", stopped.Message, StringComparison.Ordinal);
-        Assert.Contains("the rest was not executed.", stopped.Message, StringComparison.Ordinal);
-        Assert.Equal($"Changes.Status.Stopped ({preview.Result.SucceededCount}, {preview.Result.FailedCount})", stopped.Log.ToString());
+        // The object that ran when Stop came - the first of the sequential plan, with all its steps - was finished; the
+        // ones after it were not started.
+        var first = preview.Result.Objects[0];
+        Assert.Equal(ObjectResultStatus.Succeeded, first.Status);
+        Assert.Equal(first.Plan.Changes.Count, first.Changes.Count(c => c.Succeeded));
+        Assert.All(preview.Result.Objects.Skip(1), o => Assert.Equal(ObjectResultStatus.Cancelled, o.Status));
+        Assert.Equal(1, preview.Result.SucceededCount);
+        Assert.Equal(1, preview.Result.FinishedAfterStopCount);
+        Assert.StartsWith(
+            $"Executing “Kopia” in contoso.test was stopped: 1 of {preview.Result.Plan.ExecutableCount} objects done, failed: 0, the one that ran was finished. ",
+            stopped.Message,
+            StringComparison.Ordinal);
+        Assert.Equal("Changes.Status.Stopped (1, 0, 1)", stopped.Log.ToString());
         Assert.True(preview.CloseCommand.CanExecute(null));
     }
 

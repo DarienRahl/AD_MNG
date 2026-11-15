@@ -24396,8 +24396,23 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Changes.Status.Counts" xml:space="preserve">
     <value>{0} changed, failed: {1:N0}</value>
   </data>
-  <data name="Changes.Status.CountsStopped" xml:space="preserve">
-    <value>{0} changed, failed: {1:N0}, the rest was not executed</value>
+  <data name="Changes.Status.CountsStopped.One" xml:space="preserve">
+    <value>{0:N0} of {1:N0} object done, failed: {2:N0}</value>
+  </data>
+  <data name="Changes.Status.CountsStopped.Few" xml:space="preserve">
+    <value>{0:N0} of {1:N0} objects done, failed: {2:N0}</value>
+  </data>
+  <data name="Changes.Status.CountsStopped.Many" xml:space="preserve">
+    <value>{0:N0} of {1:N0} objects done, failed: {2:N0}</value>
+  </data>
+  <data name="Changes.Status.Finished.One" xml:space="preserve">
+    <value>the one that ran was finished</value>
+  </data>
+  <data name="Changes.Status.Finished.Few" xml:space="preserve">
+    <value>the {0:N0} that ran were finished</value>
+  </data>
+  <data name="Changes.Status.Finished.Many" xml:space="preserve">
+    <value>the {0:N0} that ran were finished</value>
   </data>
   <data name="Changes.Status.NothingChanged" xml:space="preserve">
     <value>nothing was changed, failed: {0:N0}</value>

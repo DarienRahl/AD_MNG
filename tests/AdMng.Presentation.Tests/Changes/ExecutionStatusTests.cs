@@ -228,6 +228,95 @@ public class ExecutionStatusTests
         Assert.Equal("Nie udało się wykonać „Zakładanie kont”: Brak połączenia z katalogiem.", status.Current.Message);
     }
 
+    [Fact]
+    public async Task AStoppedExecution_SaysHowManyAreDone_AndThatTheObjectsThatRanWereFinished()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+
+        // The Stop came while one object ran: Stop finishes it, so it is done, and the line says so.
+        using (var one = ExecutionStatus.Begin(status, harness.Localizer, "Disable accounts", "contoso.test", 12))
+        {
+            one.Complete(Stopped(done: 5, failed: 1, notStarted: 6, finishedAfterStop: 1));
+            Assert.Equal(PageStatusKind.Attention, status.Current.Kind);
+            Assert.Equal(
+                "Executing “Disable accounts” in contoso.test was stopped: 5 of 12 objects done, failed: 1, the one that ran was finished.",
+                status.Current.Message);
+            Assert.Equal("Changes.Status.Stopped (5, 1, 1)", status.Current.Log.ToString());
+        }
+
+        // Objects that ran in parallel: how many.
+        using (var several = ExecutionStatus.Begin(status, harness.Localizer, "Disable accounts", "contoso.test", 12))
+        {
+            several.Complete(Stopped(done: 7, failed: 0, notStarted: 5, finishedAfterStop: 3), "Press Retry to try again.");
+            Assert.Equal(
+                "Executing “Disable accounts” in contoso.test was stopped: 7 of 12 objects done, failed: 0, the 3 that ran were finished. Press Retry to try again.",
+                status.Current.Message);
+        }
+
+        // A Stop between two objects finished nothing, and the line does not claim it did.
+        using (var between = ExecutionStatus.Begin(status, harness.Localizer, "Disable accounts", "contoso.test", 12))
+        {
+            between.Complete(Stopped(done: 5, failed: 0, notStarted: 7, finishedAfterStop: 0));
+            Assert.Equal("Executing “Disable accounts” in contoso.test was stopped: 5 of 12 objects done, failed: 0.", status.Current.Message);
+            Assert.Equal("Changes.Status.Stopped (5, 0, 0)", status.Current.Log.ToString());
+        }
+
+        // One object in all: "1 of 1 object done".
+        using var single = ExecutionStatus.Begin(status, harness.Localizer, "Reset Password", "contoso.test", 1);
+        single.Complete(Stopped(done: 1, failed: 0, notStarted: 0, finishedAfterStop: 1));
+        Assert.Equal("Executing “Reset Password” in contoso.test was stopped: 1 of 1 object done, failed: 0, the one that ran was finished.", status.Current.Message);
+        Assert.DoesNotContain("the rest was not executed", status.Current.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AStoppedExecution_IsSaidInPolish_WithTheFormsOfTheNouns()
+    {
+        var harness = await B2Harness.CreateAsync(Polish);
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+        var cases = new (int Done, int Failed, int NotStarted, int Finished, string Expected)[]
+        {
+            (5, 1, 6, 1, "Wykonywanie „Zakładanie kont” w domenie contoso.test zatrzymano: wykonano 5 z 12 obiektów, niepowodzenia: 1, obiekt, który był w toku, został dokończony."),
+            (7, 0, 3, 2, "Wykonywanie „Zakładanie kont” w domenie contoso.test zatrzymano: wykonano 7 z 10 obiektów, niepowodzenia: 0, dokończono 2 obiekty, które były w toku."),
+            (4, 0, 2, 5, "Wykonywanie „Zakładanie kont” w domenie contoso.test zatrzymano: wykonano 4 z 6 obiektów, niepowodzenia: 0, dokończono 5 obiektów, które były w toku."),
+            (1, 0, 0, 1, "Wykonywanie „Zakładanie kont” w domenie contoso.test zatrzymano: wykonano 1 z 1 obiektu, niepowodzenia: 0, obiekt, który był w toku, został dokończony."),
+            (5, 0, 7, 0, "Wykonywanie „Zakładanie kont” w domenie contoso.test zatrzymano: wykonano 5 z 12 obiektów, niepowodzenia: 0."),
+        };
+
+        foreach (var (done, failed, notStarted, finished, expected) in cases)
+        {
+            using var execution = ExecutionStatus.Begin(status, harness.Localizer, "Zakładanie kont", "contoso.test", done + failed + notStarted);
+            execution.Complete(Stopped(done, failed, notStarted, finished));
+            Assert.Equal(expected, status.Current.Message);
+        }
+    }
+
+    /// <summary>The result of an execution that Stop ended: the objects done, failed and not started, and those that Stop found running.</summary>
+    private static BatchResult Stopped(int done, int failed, int notStarted, int finishedAfterStop)
+    {
+        var at = DateTimeOffset.UnixEpoch;
+        var results = new List<ObjectResult>();
+        var number = 0;
+        foreach (var (status, count) in new[] { (ObjectResultStatus.Succeeded, done), (ObjectResultStatus.Failed, failed), (ObjectResultStatus.Cancelled, notStarted) })
+        {
+            for (var i = 0; i < count; i++)
+            {
+                var plan = new ObjectPlan
+                {
+                    DistinguishedName = $"CN=Konto {number++},OU=Test,DC=contoso,DC=test",
+                    DisplayName = $"Konto {number}",
+                    Changes = [new PlannedChange { Action = ChangeAction.Delete }],
+                };
+                results.Add(new ObjectResult(plan, status, [], plan.DistinguishedName, at, at));
+            }
+        }
+
+        return new BatchResult(new ChangePlan { Objects = [.. results.Select(r => r.Plan)] }, results, "dc01.contoso.test", "CONTOSO\\operator", at, at, WasCancelled: true)
+        {
+            FinishedAfterStopCount = finishedAfterStop,
+        };
+    }
+
     private static BatchResult Result(bool cancelled = false)
     {
         var at = DateTimeOffset.UnixEpoch;

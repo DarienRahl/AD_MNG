@@ -177,8 +177,22 @@ public static partial class L
         /// <summary>The numbers of a result: {0} = the objects that were changed, {1} = the objects that failed.</summary>
         public const string Counts = "Changes.Status.Counts";
 
-        /// <summary>The numbers of a stopped execution: {0} = the objects that were changed, {1} = the objects that failed.</summary>
-        public const string CountsStopped = "Changes.Status.CountsStopped";
+        /// <summary>
+        /// The numbers of a stopped execution in the three plural forms of the total (one, few, many): "{0} of {1} objects
+        /// done, failed: {2}" - {0} = the objects that were done, {1} = the objects the plan had to change, {2} = the objects
+        /// that failed.
+        /// </summary>
+        public const string CountsStoppedOne = "Changes.Status.CountsStopped.One";
+        public const string CountsStoppedFew = "Changes.Status.CountsStopped.Few";
+        public const string CountsStoppedMany = "Changes.Status.CountsStopped.Many";
+
+        /// <summary>
+        /// What the Stop did to the objects that ran when it came, in the three plural forms ({0} = how many): "the one that
+        /// ran was finished" - Stop finishes the object in progress.
+        /// </summary>
+        public const string FinishedOne = "Changes.Status.Finished.One";
+        public const string FinishedFew = "Changes.Status.Finished.Few";
+        public const string FinishedMany = "Changes.Status.Finished.Many";
 
         /// <summary>No object was changed; {0} = the objects that failed.</summary>
         public const string NothingChanged = "Changes.Status.NothingChanged";

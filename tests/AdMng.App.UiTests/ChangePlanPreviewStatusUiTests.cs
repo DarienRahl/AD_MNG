@@ -259,14 +259,16 @@ public sealed class ChangePlanPreviewStatusUiTests
         session.BeforeOperation = null;
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
 
-        // Stopped: what was changed, what was not, in which domain - and Undo as the way to revert what was made.
+        // Stopped: how many are done, that the object that ran was finished (Stop finishes the object in progress), in
+        // which domain - and Undo as the way to revert what was made.
         var result = preview.Result!;
         Assert.True(result.WasCancelled);
         Assert.Equal(1, result.SucceededCount);
         Assert.Equal(0, result.FailedCount);
+        Assert.Equal(1, result.FinishedAfterStopCount);
         Assert.Equal("Attention", line.Title);
         Assert.Equal(
-            $"Executing “{Title}” in {domain} was stopped: 1 object changed, failed: 0, the rest was not executed. "
+            $"Executing “{Title}” in {domain} was stopped: 1 of {result.Plan.ExecutableCount} objects done, failed: 0, the one that ran was finished. "
             + "Press Undo to revert what was made.",
             line.Message);
         Assert.Equal(AppIcons.StatusWarning, line.IconKey);

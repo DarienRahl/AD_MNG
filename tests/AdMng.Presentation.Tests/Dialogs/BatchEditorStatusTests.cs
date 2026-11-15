@@ -542,17 +542,19 @@ public class BatchEditorStatusTests
         await execution;
         harness.Session.BeforeOperation = null;
 
-        // The step that was on its way to the domain controller completed; the rest was not executed.
+        // The object that was on its way to the domain controller was finished (Stop finishes the object in progress); the
+        // next one was not started - the line says how many are done and that the one that ran was finished.
         Assert.Equal((PageStatusKind.Working, "Stopping…"), seen[0]);
         Assert.Equal(BatchEditorStep.Results, editor.Step);
         Assert.True(editor.Result!.WasCancelled);
+        Assert.Equal(1, editor.Result.FinishedAfterStopCount);
         var stopped = editor.Status.Current;
         Assert.Equal(PageStatusKind.Attention, stopped.Kind);
         Assert.Equal(
-            "Executing “Batch edit (2 objects)” in contoso.test was stopped: 1 object changed, failed: 0, the rest was not executed. "
+            "Executing “Batch edit (2 objects)” in contoso.test was stopped: 1 of 2 objects done, failed: 0, the one that ran was finished. "
             + "Press “Retry failed” to plan the objects that were not changed again.",
             stopped.Message);
-        Assert.Equal("Changes.Status.Stopped (1, 0)", stopped.Log.ToString());
+        Assert.Equal("Changes.Status.Stopped (1, 0, 1)", stopped.Log.ToString());
         var retry = Assert.IsType<PageStatusAction>(stopped.Action);
         Assert.Equal("Retry failed", retry.Label);
         Assert.Same(editor.RetryFailedCommand, retry.Command);

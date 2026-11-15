@@ -456,10 +456,12 @@ public sealed class BatchEditorStatusUiTests
         session.BeforeOperation = null;
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
 
-        // Stopped: what was changed, what was not, in which domain - and the way on as the action of the line.
+        // Stopped: how many are done, that the object that ran was finished (Stop finishes the object in progress), in
+        // which domain - and the way on as the action of the line.
         Assert.True(editor.Result!.WasCancelled);
+        Assert.Equal(1, editor.Result.FinishedAfterStopCount);
         Assert.Equal(
-            $"Executing “{editor.ChangeTitle}” in {domain} was stopped: 1 object changed, failed: 0, the rest was not executed. "
+            $"Executing “{editor.ChangeTitle}” in {domain} was stopped: 1 of {editor.Result.Plan.ExecutableCount} objects done, failed: 0, the one that ran was finished. "
             + "Press “Retry failed” to plan the objects that were not changed again.",
             line.Message);
         Assert.Equal(AppIcons.StatusWarning, line.IconKey);
