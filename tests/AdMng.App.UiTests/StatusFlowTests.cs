@@ -9,7 +9,7 @@ namespace AdMng.App.UiTests;
 /// built"): the delay before "Working" is shown and the polite, throttled announcement of a changed summary. The logic
 /// is <see cref="StatusFlow"/> - no WPF type, no UI thread - driven by a clock the test moves by hand
 /// (<see cref="ManualStatusScheduler"/>), so every assertion is about a millisecond and nothing waits. The control that
-/// uses it is covered in <c>StatusLineDelayUiTests</c>.
+/// uses it is covered in <c>StatusLineTimingUiTests</c>.
 /// </summary>
 public sealed class StatusFlowTests
 {

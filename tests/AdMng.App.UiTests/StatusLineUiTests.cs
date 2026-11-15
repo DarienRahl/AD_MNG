@@ -36,7 +36,8 @@ public sealed class StatusLineUiTests
     {
         using var language = LanguageScope.Use("en-US");
         var stop = new RelayCommand(() => { });
-        var line = new StatusLine { Width = 640, CloseCommand = new RelayCommand(() => { }) };
+        var clock = new ManualStatusScheduler();
+        var line = new StatusLine { Width = 640, CloseCommand = new RelayCommand(() => { }), Scheduler = clock };
         var window = ControlHost.Show(line);
         try
         {
@@ -77,6 +78,7 @@ public sealed class StatusLineUiTests
 
             // A running operation: the turning ring in place of a picture, the title in words, Stop, no close button.
             line.Status = PageStatus.Working(Reading, new PageStatusLog("Test.Reading", 1500), action: new PageStatusAction("Zatrzymaj", stop));
+            ShowWorking(clock);
             Assert.Equal(PageStatusKind.Working, line.Kind);
             Assert.True(line.IsWorking);
             Assert.Equal("Working", line.Title);
@@ -164,7 +166,8 @@ public sealed class StatusLineUiTests
     {
         using var language = LanguageScope.Use("pl-PL");
         var command = new RelayCommand(() => { });
-        var line = new StatusLine { Width = 480, CloseCommand = command };
+        var clock = new ManualStatusScheduler();
+        var line = new StatusLine { Width = 480, CloseCommand = command, Scheduler = clock };
         var below = new Border { Width = 40, Height = 20 };
         var window = ControlHost.Show(line, below);
         try
@@ -192,6 +195,7 @@ public sealed class StatusLineUiTests
             foreach (var status in statuses)
             {
                 line.Status = status;
+                ShowWorking(clock);
                 window.UpdateLayout();
                 Assert.Equal(height, line.ActualHeight, 0.5);
                 Assert.Equal(480d, line.ActualWidth);
@@ -200,6 +204,7 @@ public sealed class StatusLineUiTests
 
             // A long text of a running operation stays on one line and is cut; the whole text is in the tool tip.
             line.Status = PageStatus.Working(longText, new PageStatusLog("Test.Reading"), action: new PageStatusAction("Zatrzymaj", command));
+            ShowWorking(clock);
             window.UpdateLayout();
             Assert.Equal(TextWrapping.NoWrap, parts.Message.TextWrapping);
             Assert.Equal(TextTrimming.CharacterEllipsis, parts.Message.TextTrimming);
@@ -222,7 +227,8 @@ public sealed class StatusLineUiTests
     {
         using var language = LanguageScope.Use("pl-PL");
         var command = new RelayCommand(() => { });
-        var line = new StatusLine { Width = 480, CloseCommand = command };
+        var clock = new ManualStatusScheduler();
+        var line = new StatusLine { Width = 480, CloseCommand = command, Scheduler = clock };
         var below = new Border { Width = 40, Height = 20 };
         var window = ControlHost.Show(line, below);
         try
@@ -287,6 +293,7 @@ public sealed class StatusLineUiTests
             Assert.Equal(height, line.ActualHeight, 0.5);
             Assert.Equal(height, TopOf(below, window), 0.5);
             line.Status = PageStatus.Working(longText, new PageStatusLog("Test.Reading"));
+            ShowWorking(clock);
             window.UpdateLayout();
             Assert.Equal(height, line.ActualHeight, 0.5);
             Assert.Equal(height, TopOf(below, window), 0.5);
@@ -305,7 +312,8 @@ public sealed class StatusLineUiTests
     {
         using var language = LanguageScope.Use("en-US");
         var holder = new PageStatusHolder(language.Localizer, new WpfUiDispatcher(Dispatcher.CurrentDispatcher));
-        var line = new StatusLine { Width = 640, CloseCommand = holder.CloseCommand };
+        var clock = new ManualStatusScheduler();
+        var line = new StatusLine { Width = 640, CloseCommand = holder.CloseCommand, Scheduler = clock };
         line.SetBinding(StatusLine.StatusProperty, new Binding(nameof(PageStatusHolder.Current)) { Source = holder, Mode = BindingMode.OneWay });
         var window = ControlHost.Show(line);
         try
@@ -317,6 +325,7 @@ public sealed class StatusLineUiTests
 
             // An operation of the page: working, with Stop as the link of the line.
             using var scope = holder.Begin(Reading, new PageStatusLog("Test.Reading"));
+            ShowWorking(clock);
             Assert.True(line.IsWorking);
             Assert.Equal(Reading, line.Message);
             Assert.Equal(Visibility.Visible, parts.Action.Visibility);
@@ -380,7 +389,8 @@ public sealed class StatusLineUiTests
         var dispatcher = new WpfUiDispatcher(Dispatcher.CurrentDispatcher);
         var sheet = new PageStatusHolder(language.Localizer, dispatcher);
         var page = new PageStatusHolder(language.Localizer, dispatcher);
-        var line = new StatusLine { Width = 640, CloseCommand = sheet.CloseCommand };
+        var clock = new ManualStatusScheduler();
+        var line = new StatusLine { Width = 640, CloseCommand = sheet.CloseCommand, Scheduler = clock };
         line.SetBinding(StatusLine.StatusProperty, new Binding(nameof(PageStatusHolder.Current)) { Source = sheet, Mode = BindingMode.OneWay });
         var window = ControlHost.Show(line);
         try
@@ -399,6 +409,7 @@ public sealed class StatusLineUiTests
             // An operation of the page over many objects. Not known how far: the ring turns, Stop is the page's.
             var log = new PageStatusLog("Test.Saving");
             using var scope = page.Begin("Saving the accounts…", log);
+            ShowWorking(clock);
             Assert.True(line.IsWorking);
             Assert.False(sheet.IsWorking);
             Assert.True(parts.Ring.IsActive);
@@ -458,7 +469,8 @@ public sealed class StatusLineUiTests
     public Task TheLine_IsALiveRegion_PoliteForProgressAndResults_AssertiveForWhatNeedsTheOperator() => WpfTestHost.RunAsync(async () =>
     {
         using var language = LanguageScope.Use("en-US");
-        var line = new StatusLine { Width = 640 };
+        var clock = new ManualStatusScheduler();
+        var line = new StatusLine { Width = 640, Scheduler = clock };
         var window = ControlHost.Show(line);
         try
         {
@@ -481,6 +493,7 @@ public sealed class StatusLineUiTests
             foreach (var (status, name, live) in cases)
             {
                 line.Status = status;
+                ShowWorking(clock);
                 Assert.Equal(name, AutomationProperties.GetName(line));
                 Assert.Equal(name, peer.GetName());
                 Assert.Equal(live, AutomationProperties.GetLiveSetting(line));
@@ -532,7 +545,8 @@ public sealed class StatusLineUiTests
     {
         using var language = LanguageScope.Use("en-US");
         var command = new RelayCommand(() => { });
-        var line = new StatusLine { Width = 640, CloseCommand = command };
+        var clock = new ManualStatusScheduler();
+        var line = new StatusLine { Width = 640, CloseCommand = command, Scheduler = clock };
         var window = ControlHost.Show(line);
         try
         {
@@ -546,6 +560,7 @@ public sealed class StatusLineUiTests
             line.Status = PageStatus.Idle(Summary);
             ControlHost.AssertAtRest(parts.Content);
             line.Status = PageStatus.Working(Reading, new PageStatusLog("Test.Reading", 0));
+            ShowWorking(clock);
             ControlHost.AssertAtRest(parts.Content);
 
             using (MotionScope.On())
@@ -593,7 +608,8 @@ public sealed class StatusLineUiTests
     public Task TheLinesOwnWords_FollowTheLanguage_AlsoWhileItIsShown() => WpfTestHost.RunAsync(() =>
     {
         using var language = LanguageScope.Use("pl-PL");
-        var line = new StatusLine { Status = PageStatus.Error(Failed, new PageStatusLog("Test.Failed")) };
+        var clock = new ManualStatusScheduler();
+        var line = new StatusLine { Scheduler = clock, Status = PageStatus.Error(Failed, new PageStatusLog("Test.Failed")) };
         Assert.Equal("Błąd", line.Title);
         Assert.Equal("Błąd: " + Failed, AutomationProperties.GetName(line));
 
@@ -615,6 +631,7 @@ public sealed class StatusLineUiTests
         foreach (var (status, english, polish) in titles)
         {
             line.Status = status;
+            ShowWorking(clock);
             Assert.Equal(english, line.Title);
             language.Switch("pl-PL");
             Assert.Equal(polish, line.Title);
@@ -628,6 +645,13 @@ public sealed class StatusLineUiTests
         Assert.Equal("Stan", AutomationProperties.GetName(line));
         return Task.CompletedTask;
     });
+
+    /// <summary>
+    /// The delay before "Working" (<c>Motion.WorkingDelay</c>) has run out on the clock of a line: what the page said is
+    /// shown. The look of the line for every kind of status is asserted here; the delay itself in
+    /// <see cref="StatusLineTimingUiTests"/>.
+    /// </summary>
+    private static void ShowWorking(ManualStatusScheduler clock) => clock.Advance(Motion.TimeOf(Motion.WorkingDelayKey)!.Value);
 
     private static void AssertEmpty(StatusLine line, Parts parts)
     {

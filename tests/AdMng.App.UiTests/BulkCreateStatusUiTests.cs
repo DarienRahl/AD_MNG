@@ -195,8 +195,8 @@ public sealed class BulkCreateStatusUiTests
         try
         {
             var entering = wizard.NextStepCommand.ExecuteAsync(null);
-            await UiWait.UntilAsync(() => held.IsSet, "the check waits for the domain controller");
-            await UiTestSupport.WaitForIdleAsync(rounds: 2);
+            // The line shows "Working" 150 ms after the check began (Motion.WorkingDelay): wait for the line, not for idle.
+            await UiWait.UntilAsync(() => held.IsSet && line.Kind == PageStatusKind.Working, "the check waits for the domain controller");
             var check = BulkCreateInputUiTests.Single<BulkCheckView>(window);
             var top = TopOf(check.FilterBox, window);
 

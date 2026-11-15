@@ -314,7 +314,7 @@ public sealed class StatusLinePilotTests
         {
             // Find Now on a slow domain controller.
             ControlHost.Press(button);
-            await UiWait.UntilAsync(() => button.State == ActionButtonState.Running && find.Results.IsLoading, "the search runs");
+            await UiWait.UntilAsync(() => button.State == ActionButtonState.Running && find.Results.IsLoading && line.IsWorking, "the search runs");
 
             // The line says what runs; the button is the Cancel of this search and stays enabled - it keeps the focus -
             // although its start command cannot execute while it runs.
