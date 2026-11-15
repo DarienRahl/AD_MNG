@@ -26,6 +26,13 @@ namespace AdMng.Core.Batch;
 /// (the object exists with the requested values) mean that the attempt that seemed to fail went through.
 /// Audit log failures (e.g. a throwing <see cref="IAuditLog.EntryRecorded"/> subscriber) are logged, never thrown.
 /// The diagnostic log contains counts, actions and error kinds only - never DNs or values.
+/// <b>Stop finishes the object in progress</b> (V2b-5b): cancellation never starts a new object, but an object whose first
+/// change has succeeded gets all its remaining changes (nothing looks at the token between them, the SYSVOL steps and their
+/// transactions run with no token, and the back-off of a retry is not interrupted), so a stop cannot leave an account with a
+/// new password and without its other settings. An object whose first change has not begun is not started
+/// (<see cref="ObjectResultStatus.Cancelled"/>); a failed change still ends its object, and objects running in parallel each
+/// finish. <see cref="BatchResult.FinishedAfterStopCount"/> counts the objects that a stop found running and that were
+/// carried through to the end.
 /// <see cref="ChangeAction.Restore"/>: an object restored into a container that an earlier object of the same plan restores
 /// (<see cref="RecycleBin.PlanRestoreAsync"/> orders parents first) starts only after that object finished; when the parent
 /// was not restored, the child fails with <see cref="ParentNotRestoredMessage"/> without a request to the DC.
@@ -150,6 +157,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
         private readonly Lock _reportGate = new();
         private int _completed;
         private int _failed;
+        private int _finishedAfterStop;
         private volatile bool _stopRequested;
 
         public Run(BatchExecutor owner, IDirectorySession session, ChangePlan plan, BatchOptions options, IProgress<BatchProgress>? progress, CancellationToken cancellationToken)
@@ -243,7 +251,10 @@ public sealed partial class BatchExecutor : IBatchExecutor
             var finishedAt = Now;
             var wasCancelled = _cancellationToken.IsCancellationRequested
                 || results.Any(r => r.Status == ObjectResultStatus.Cancelled);
-            var result = new BatchResult(_plan, results, _session.Info.Server, _session.Info.BoundIdentity, startedAt, finishedAt, wasCancelled);
+            var result = new BatchResult(_plan, results, _session.Info.Server, _session.Info.BoundIdentity, startedAt, finishedAt, wasCancelled)
+            {
+                FinishedAfterStopCount = Volatile.Read(ref _finishedAfterStop),
+            };
             if (_owner._logger is { } finishedLogger)
             {
                 LogFinished(finishedLogger, (finishedAt - startedAt).TotalSeconds, result.SucceededCount, result.FailedCount, result.SkippedCount, wasCancelled);
@@ -334,6 +345,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
             var currentDn = objectPlan.DistinguishedName;
             var results = new List<ChangeResult>();
             var anySucceeded = false;
+            var begunBeforeStop = false;
             var status = ObjectResultStatus.Succeeded;
             foreach (var change in objectPlan.Changes)
             {
@@ -350,13 +362,23 @@ public sealed partial class BatchExecutor : IBatchExecutor
                     _transactionOutcomes.TryGetValue(change, out decided);
                 }
 
-                if (decided is null && _cancellationToken.IsCancellationRequested)
+                // Stop finishes the object in progress: the token is looked at only before the FIRST change of an object. Once
+                // that change has succeeded, the rest of the object is executed whatever happens to the token (a failure still
+                // ends the object), because an account with a new password and without its other settings is worse than a
+                // few more requests after Stop.
+                if (decided is null && !anySucceeded)
                 {
-                    status = anySucceeded ? ObjectResultStatus.PartiallySucceeded : ObjectResultStatus.Cancelled;
-                    break;
+                    if (_cancellationToken.IsCancellationRequested)
+                    {
+                        status = ObjectResultStatus.Cancelled;
+                        break;
+                    }
+
+                    begunBeforeStop = true;
                 }
 
-                var outcome = decided ?? await ExecuteStepAsync(objectPlan, change, currentDn).ConfigureAwait(false);
+                var outcome = decided ?? await ExecuteStepAsync(objectPlan, change, currentDn, anySucceeded ? CancellationToken.None : _cancellationToken)
+                    .ConfigureAwait(false);
                 results.Add(outcome.Result);
                 Audit(change, currentDn, outcome);
                 if (!outcome.Result.Succeeded)
@@ -384,6 +406,12 @@ public sealed partial class BatchExecutor : IBatchExecutor
                 }
             }
 
+            if (begunBeforeStop && status == ObjectResultStatus.Succeeded && _cancellationToken.IsCancellationRequested)
+            {
+                // The stop came while this object ran, and it was carried through to its last change.
+                Interlocked.Increment(ref _finishedAfterStop);
+            }
+
             return new ObjectResult(objectPlan, status, results, currentDn, startedAt, Now);
         }
 
@@ -401,14 +429,24 @@ public sealed partial class BatchExecutor : IBatchExecutor
             return new ObjectResult(objectPlan, ObjectResultStatus.Failed, [failed], objectPlan.DistinguishedName, now, now);
         }
 
-        private async Task<StepOutcome> ExecuteStepAsync(ObjectPlan objectPlan, PlannedChange change, string dn)
+        /// <summary>Executes one step.</summary>
+        /// <param name="objectPlan">The object.</param>
+        /// <param name="change">The step.</param>
+        /// <param name="dn">The object's current DN.</param>
+        /// <param name="stopToken">
+        /// The token a Stop reaches the step through: the run's token for the first change of an object, and
+        /// <see cref="CancellationToken.None"/> for every later one (Stop finishes the object in progress). Only the SYSVOL
+        /// steps look at it - opening SYSVOL and the stage and verify phases of the transactions; the directory requests are
+        /// never cancelled and their retries are not interrupted.
+        /// </param>
+        private async Task<StepOutcome> ExecuteStepAsync(ObjectPlan objectPlan, PlannedChange change, string dn, CancellationToken stopToken)
         {
             switch (change.Action)
             {
                 case ChangeAction.CreateGpoFolder or ChangeAction.WriteGpoFile or ChangeAction.DeleteGpoFile or ChangeAction.SyncGpoFolderSecurity
                     or ChangeAction.SetGpoFolderSecurity or ChangeAction.SetGpoVersion or ChangeAction.DeleteGpoFolder
                     or ChangeAction.WritePolicyDefinitionsFile or ChangeAction.DeletePolicyDefinitionsFile:
-                    return await SysvolStepAsync(objectPlan, change, dn).ConfigureAwait(false);
+                    return await SysvolStepAsync(objectPlan, change, dn, stopToken).ConfigureAwait(false);
                 case ChangeAction.Modify:
                     return await ModifyAsync(change, dn).ConfigureAwait(false);
                 case ChangeAction.AddMember or ChangeAction.RemoveMember:
@@ -793,8 +831,12 @@ public sealed partial class BatchExecutor : IBatchExecutor
         };
 
         /// <summary>
-        /// Runs one directory request. The request itself is not cancelled (a write that reached the DC must finish
-        /// so that its outcome is known); cancellation only interrupts the back-off between retries.
+        /// Runs one directory request. Neither the request nor the back-off between its retries is cancelled: a write that
+        /// reached the DC must finish so that its outcome is known, and an object that sent its first request is carried
+        /// through to its last change (Stop finishes the object in progress; before V2b-5b a Stop interrupted the back-off and
+        /// left the object half done, or - after a timeout that the DC had applied - with a change nobody knew about). The cost
+        /// is that a Stop during an outage waits for the retries (<see cref="BatchOptions.MaxRetries"/>, about 3.5 s with the
+        /// defaults) before the object ends as a failure.
         /// </summary>
         private async Task<Attempted<T>> InvokeAsync<T>(ChangeAction action, Func<Task<T>> request)
         {
@@ -812,14 +854,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
                         LogRetry(logger, ex.Kind, action, attempt, _options.MaxRetries + 1, delay.TotalMilliseconds);
                     }
 
-                    try
-                    {
-                        await Task.Delay(delay, _owner._timeProvider, _cancellationToken).ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException cancelled)
-                    {
-                        return new Attempted<T>(default, attempt, new OperationCanceledException("Cancelled while waiting to retry.", cancelled, _cancellationToken));
-                    }
+                    await Task.Delay(delay, _owner._timeProvider, CancellationToken.None).ConfigureAwait(false);
                 }
                 catch (DirectoryException ex)
                 {

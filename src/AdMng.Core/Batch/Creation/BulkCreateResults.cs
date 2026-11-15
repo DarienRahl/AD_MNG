@@ -59,7 +59,10 @@ public static class BulkCreateResults
             next.Operator,
             accumulated.StartedAt < next.StartedAt ? accumulated.StartedAt : next.StartedAt,
             next.FinishedAt > accumulated.FinishedAt ? next.FinishedAt : accumulated.FinishedAt,
-            next.WasCancelled);
+            next.WasCancelled)
+        {
+            FinishedAfterStopCount = accumulated.FinishedAfterStopCount + next.FinishedAfterStopCount,
+        };
     }
 
     private static string Key(ObjectPlan plan) =>

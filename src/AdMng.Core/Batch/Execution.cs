@@ -69,12 +69,17 @@ public enum ObjectResultStatus
 {
     Succeeded,
 
-    /// <summary>Some steps succeeded, a later step failed (e.g. attributes set, move denied).</summary>
+    /// <summary>Some steps succeeded, a later step failed (e.g. attributes set, move denied). A Stop never makes it.</summary>
     PartiallySucceeded,
     Failed,
 
     /// <summary>Not executed: validation error, no-op, or stopped after an earlier error.</summary>
     Skipped,
+
+    /// <summary>
+    /// Not started: the Stop came before the first change of the object began (nothing of it was changed). An object whose
+    /// first change succeeded is carried through to its last change whatever the Stop, so a stop leaves no object half done.
+    /// </summary>
     Cancelled,
 }
 
@@ -113,6 +118,13 @@ public sealed record BatchResult(
     DateTimeOffset FinishedAt,
     bool WasCancelled)
 {
+    /// <summary>
+    /// The objects that a Stop found running and that were carried through to the end all the same (every change of them
+    /// made): Stop finishes the object in progress. Zero for an execution that was not stopped, or one whose Stop came
+    /// between two objects. The status line says it - "the one that ran was finished".
+    /// </summary>
+    public int FinishedAfterStopCount { get; init; }
+
     public int SucceededCount => Objects.Count(o => o.Status == ObjectResultStatus.Succeeded);
 
     public int FailedCount => Objects.Count(o => o.Status is ObjectResultStatus.Failed or ObjectResultStatus.PartiallySucceeded);
@@ -128,9 +140,11 @@ public interface IBatchExecutor
 {
     /// <summary>
     /// Executes all objects without errors that are not no-ops. Never throws for per-object failures -
-    /// they are reported in the result. Cancellation stops scheduling new objects; running objects finish
-    /// their current step and are reported as Cancelled/PartiallySucceeded. Every executed step is written
-    /// to the audit log (without passwords).
+    /// they are reported in the result. Cancellation (Stop) starts no new object and <b>finishes the object in
+    /// progress</b>: an object whose first change has succeeded gets all its remaining changes (the objects that run in
+    /// parallel each finish), an object whose first change has not begun is reported as
+    /// <see cref="ObjectResultStatus.Cancelled"/>, and a failed change still ends its object. Every executed step is
+    /// written to the audit log (without passwords).
     /// </summary>
     Task<BatchResult> ExecuteAsync(
         IDirectorySession session,

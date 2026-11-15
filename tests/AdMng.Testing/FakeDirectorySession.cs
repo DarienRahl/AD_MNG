@@ -139,6 +139,12 @@ public sealed partial class FakeDirectorySession : IDirectorySession
     public Action<FakeOperation>? BeforeOperation { get; set; }
 
     /// <summary>
+    /// Like <see cref="BeforeOperation"/>, but awaited right after it: a call that waits here holds no thread, so a test can
+    /// keep several calls on their way until they have all arrived (objects that run in parallel), then let them go.
+    /// </summary>
+    public Func<FakeOperation, Task>? BeforeOperationAsync { get; set; }
+
+    /// <summary>
     /// Simulates AD's MaxValRange: reads (GetAsync, SearchAsync) return at most this many values of an attribute, under
     /// a ranged description such as <c>member;range=0-1</c>, like AD does beyond 1500 values. Only
     /// <see cref="GetAllValuesAsync(string, string, CancellationToken)"/> returns everything. Null (default) returns all values.
@@ -653,6 +659,11 @@ public sealed partial class FakeDirectorySession : IDirectorySession
         ObjectDisposedException.ThrowIf(_disposed, this);
         cancellationToken.ThrowIfCancellationRequested();
         BeforeOperation?.Invoke(operation);
+        if (BeforeOperationAsync is { } before)
+        {
+            await before(operation).ConfigureAwait(false);
+        }
+
         var inFlight = Interlocked.Increment(ref _inFlight);
         int observed;
         while (inFlight > (observed = Volatile.Read(ref _maxObservedConcurrency))
