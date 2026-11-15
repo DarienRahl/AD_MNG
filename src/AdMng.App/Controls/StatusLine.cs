@@ -32,6 +32,12 @@ namespace AdMng.App.Controls;
 /// "Error: what was tried…"; a new message is announced, a new count of the same message is not.</para>
 /// <para>A new message enters with a fade and a short rise (design note 5.2, row 3) when motion is on and is simply
 /// there when it is off; a new count of the same message and a changed summary never move.</para>
+/// <para>Two things of time (stage V2b-5b, owner's decisions 5 and 2; <see cref="StatusFlow"/> has the logic): a running
+/// operation is shown only after <c>Motion.WorkingDelay</c> (about 150 ms), so one that ends at once never flashes - the
+/// line keeps showing what it showed, and keeps its band; and a summary whose text changes (a count, a number of rows) is
+/// announced politely once, <c>Motion.SummaryThrottle</c> (about 800 ms) after the last change, when the line is visible
+/// and its window is active. <see cref="Status"/> is what the page says and is never late; <see cref="Kind"/>,
+/// <see cref="Message"/> and the other read-only properties are what the line shows.</para>
 /// </remarks>
 public class StatusLine : Control
 {
@@ -138,6 +144,7 @@ public class StatusLine : Control
     private static readonly DependencyProperty LanguageOfTextsProperty = DependencyProperty.Register(
         "LanguageOfTexts", typeof(CultureInfo), typeof(StatusLine), new PropertyMetadata(null, OnLanguageOfTextsChanged));
 
+    private readonly StatusFlow _flow;
     private FrameworkElement? _content;
 
     static StatusLine()
@@ -149,7 +156,16 @@ public class StatusLine : Control
     public StatusLine()
     {
         SetResourceReference(StyleProperty, StyleKey);
-        Show(PageStatus.Empty);
+        MayAnnounceSummary = () => IsVisible && Window.GetWindow(this) is { IsActive: true };
+        _flow = new StatusFlow(
+            new DispatcherStatusScheduler(Dispatcher),
+            () => Motion.TimeOf(Motion.WorkingDelayKey),
+            () => Motion.TimeOf(Motion.SummaryThrottleKey),
+            () => MayAnnounceSummary(),
+            Present,
+            SettleName,
+            Announce);
+        Show(PageStatus.Empty, nameNow: true);
         SetBinding(LanguageOfTextsProperty, new Binding(nameof(LocalizedTexts.Culture)) { Source = TranslationSource.Texts, Mode = BindingMode.OneWay });
     }
 
@@ -193,6 +209,34 @@ public class StatusLine : Control
 
     public bool CanClose => (bool)GetValue(CanCloseProperty);
 
+    /// <summary>The clock of the delay before "Working" and of the throttle of the summary; a test replaces it before the first status.</summary>
+    internal IStatusScheduler Scheduler
+    {
+        get => _flow.Scheduler;
+        set => _flow.Scheduler = value;
+    }
+
+    /// <summary>
+    /// Whether a changed summary may be told to a screen reader now: the line is visible (its page is in front) and its
+    /// window is active. A test replaces it - the windows of the UI tests are not activated.
+    /// </summary>
+    internal Func<bool> MayAnnounceSummary { get; set; }
+
+    /// <summary>How often the line told a screen reader that it says something new (whether or not one listened).</summary>
+    internal int Announcements { get; private set; }
+
+    /// <summary>Raised each time the line tells a screen reader that it says something new; the live setting is then <see cref="AutomationProperties.GetLiveSetting"/>.</summary>
+    internal event EventHandler? Announced;
+
+    /// <summary>What the line shows now (the page may already say something else: the delay before "Working").</summary>
+    internal PageStatus Shown => _flow.Shown;
+
+    /// <summary>A running operation of the page waits for its delay to run out; the line still shows what it showed.</summary>
+    internal bool IsWaitingForWorking => _flow.IsWaiting;
+
+    /// <summary>A changed summary waits for its quiet time to run out before a screen reader is told.</summary>
+    internal bool IsAnnouncingSummary => _flow.IsAnnouncing;
+
     /// <summary>The picture of a severity and the glyph that stands in for it; none for a running operation (the ring).</summary>
     internal static (string? IconKey, string? Glyph) IconOf(PageStatusKind kind) => kind switch
     {
@@ -215,41 +259,46 @@ public class StatusLine : Control
 
     protected override AutomationPeer OnCreateAutomationPeer() => new StatusLineAutomationPeer(this);
 
-    private static void OnStatusChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    private static void OnStatusChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
+        ((StatusLine)d)._flow.Set(e.NewValue as PageStatus);
+
+    /// <summary>The flow decided that the line shows <paramref name="status"/> now.</summary>
+    private void Present(PageStatus status, bool isNewMessage, bool nameNow)
     {
-        var line = (StatusLine)d;
-        var previous = e.OldValue as PageStatus ?? PageStatus.Empty;
-        var status = e.NewValue as PageStatus ?? PageStatus.Empty;
-        line.Show(status);
-        if (status.IsSameMessageAs(previous))
+        Show(status, nameNow);
+        if (!isNewMessage)
         {
-            // A new count of the same message, or a summary that changed: no motion and no announcement.
+            // A new count of the same message, or a summary that changed: no motion and no announcement here (a
+            // changed summary is told after its quiet time, by the flow).
             return;
         }
 
-        if (line._content is { } content)
+        if (_content is { } content)
         {
             Motion.Play(content, MotionEntrance.Status);
         }
 
-        line.Announce();
+        Announce();
     }
 
     private static void OnCloseCommandChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         var line = (StatusLine)d;
-        line.SetValue(CanClosePropertyKey, (line.Status?.CanClose ?? false) && e.NewValue is not null);
+        line.SetValue(CanClosePropertyKey, line._flow.Shown.CanClose && e.NewValue is not null);
     }
 
     /// <summary>The language changed: the same status in the words of the new language - no motion, no announcement.</summary>
     private static void OnLanguageOfTextsChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         var line = (StatusLine)d;
-        line.Show(line.Status ?? PageStatus.Empty);
+        line.Show(line._flow.Shown, nameNow: true);
     }
 
-    /// <summary>Puts the parts of a status into the properties the template shows.</summary>
-    private void Show(PageStatus status)
+    /// <summary>
+    /// Puts the parts of a status into the properties the template shows. <paramref name="nameNow"/> false leaves the name a
+    /// screen reader reads as it was: a changed summary is read when it is announced.
+    /// </summary>
+    private void Show(PageStatus status, bool nameNow)
     {
         var localizer = TranslationSource.Localizer;
         var hasText = status.Message.Length > 0;
@@ -270,7 +319,18 @@ public class StatusLine : Control
         SetValue(CanClosePropertyKey, status.CanClose && CloseCommand is not null);
 
         // What a screen reader hears, and how urgently.
-        AutomationProperties.SetName(this, PageStatusText.Name(localizer, status));
+        if (nameNow)
+        {
+            SettleName(status);
+        }
+    }
+
+    /// <summary>The name a screen reader reads follows what the line shows now.</summary>
+    private void SettleName() => SettleName(_flow.Shown);
+
+    private void SettleName(PageStatus status)
+    {
+        AutomationProperties.SetName(this, PageStatusText.Name(TranslationSource.Localizer, status));
         AutomationProperties.SetLiveSetting(this, LiveSettingOf(status.Kind));
     }
 
@@ -280,6 +340,8 @@ public class StatusLine : Control
     /// </summary>
     private void Announce()
     {
+        Announcements++;
+        Announced?.Invoke(this, EventArgs.Empty);
         if (AutomationPeer.ListenerExists(AutomationEvents.LiveRegionChanged))
         {
             Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>

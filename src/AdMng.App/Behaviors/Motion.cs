@@ -70,6 +70,8 @@ public static class Motion
     internal const string HoverKey = "Motion.Hover";
     internal const string SwapKey = "Motion.Swap";
     internal const string RingKey = "Motion.Ring";
+    internal const string WorkingDelayKey = "Motion.WorkingDelay";
+    internal const string SummaryThrottleKey = "Motion.SummaryThrottle";
     internal const string FastKey = "Motion.Fast";
     internal const string AppearKey = "Motion.Appear";
     internal const string DisappearKey = "Motion.Disappear";

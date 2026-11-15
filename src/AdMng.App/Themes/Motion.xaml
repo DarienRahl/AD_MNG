@@ -14,7 +14,11 @@
                            Motion.Appear 250 ms · Motion.Disappear 167 ms · Motion.Entrance 200 ms ·
                            Motion.Expand 333 ms · Motion.Collapse 167 ms · Motion.Highlight 2 s · Motion.Shimmer 1.6 s ·
                            Motion.HoverIntent 500 ms (a delay, not a movement) · Motion.Ring 1 s (one turn of the
-                           progress ring: progress, not motion - it turns also when motion is switched off)
+                           progress ring: progress, not motion - it turns also when motion is switched off) ·
+                           Motion.WorkingDelay 150 ms (the status line shows "Working" only after it: an operation
+                           that ends at once never flashes) · Motion.SummaryThrottle 800 ms (a screen reader is told a
+                           changed summary this long after the last change). The last two are delays, not movements:
+                           they apply also when motion is switched off.
   Offsets (Double, px)     Motion.Offset.Page 24 · Motion.Offset.Panel 8 · Motion.Offset.Toast 16
   Easings                  Motion.Ease.Enter (cubic, ease out) · Motion.Ease.Exit (cubic, ease in) ·
                            Motion.Ease.Change (quadratic, ease in and out)
@@ -40,6 +44,9 @@
   <Duration x:Key="Motion.Shimmer">0:0:1.6</Duration>
   <Duration x:Key="Motion.HoverIntent">0:0:0.5</Duration>
   <Duration x:Key="Motion.Ring">0:0:1</Duration>
+  <!-- Delays of the status line (V2b-5b): not movements, so they are not behind the motion switch -->
+  <Duration x:Key="Motion.WorkingDelay">0:0:0.15</Duration>
+  <Duration x:Key="Motion.SummaryThrottle">0:0:0.8</Duration>
 
   <!-- Offsets: how far an entering element travels to its place -->
   <sys:Double x:Key="Motion.Offset.Page">24</sys:Double>

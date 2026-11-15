@@ -50,6 +50,8 @@ public sealed class MotionUiTests
         ("Motion.Shimmer", 1600),
         ("Motion.HoverIntent", 500),
         ("Motion.Ring", 1000),
+        ("Motion.WorkingDelay", 150),
+        ("Motion.SummaryThrottle", 800),
     ];
 
     private static readonly (string Key, double Pixels)[] Offsets =
@@ -97,6 +99,8 @@ public sealed class MotionUiTests
         Assert.Equal(TimeSpan.FromMilliseconds(167), Motion.TimeOf(Motion.DisappearKey));
         Assert.Equal(TimeSpan.FromMilliseconds(150), Motion.TimeOf(Motion.SwapKey));
         Assert.Equal(TimeSpan.FromSeconds(1), Motion.TimeOf(Motion.RingKey));
+        Assert.Equal(TimeSpan.FromMilliseconds(150), Motion.TimeOf(Motion.WorkingDelayKey));
+        Assert.Equal(TimeSpan.FromMilliseconds(800), Motion.TimeOf(Motion.SummaryThrottleKey));
         Assert.Null(Motion.TimeOf("Motion.NoSuchToken"));
         return Task.CompletedTask;
     });
