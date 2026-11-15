@@ -432,7 +432,7 @@ public sealed class BatchEditorStatusUiTests
         {
             ControlHost.Press(window.ExecuteButton);
             await UiWait.UntilAsync(
-                () => held.IsSet && editor.CurrentActivity is { IsRunning: true } && window.ExecuteButton.State == ActionButtonState.Running,
+                () => held.IsSet && editor.CurrentActivity is { IsRunning: true } && window.ExecuteButton.State == ActionButtonState.Running && line.IsWorking,
                 "the execution runs");
             var activity = editor.CurrentActivity!;
 

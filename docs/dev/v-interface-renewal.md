@@ -4974,10 +4974,15 @@ anything about releases.
   - *Which tests had to change, and how they were found.* Every assertion of the working look in the UI tests (the title "Working", the kind,
     `IsWorking`, the ring, the Stop link, the ring's turning) was listed with the `await` before it by a throwaway script. Almost every window
     test already waited with `UiWait` for `line.Kind == Working` or `line.IsWorking` (a held call lasts until the test lets it go, so the
-    wait always ends); two did not and wait for the line now (`BulkCreateStatusUiTests`: the check of the wizard waited for idle;
-    `StatusLinePilotTests`: Find Now). `StatusLineUiTests` drives its lines with a `ManualStatusScheduler` and moves it by the delay after a
-    status that is Working (`ShowWorking`). The assertions of "Stopping…" all follow a Working assertion of the same test, so they are
-    immediate. `MotionUiTests` has the two new tokens.
+    wait always ends); four did not and wait for the line now: `BulkCreateStatusUiTests` (the check of the wizard waited for idle),
+    `StatusLinePilotTests` (Find Now) and the two stop tests of an execution, `BatchEditorStatusUiTests` and
+    `ChangePlanPreviewStatusUiTests`, which waited for the model (the running activity, the button) and then asserted "Stopping…" in a line
+    that had never shown "Working". **The first scan missed the last two** - it read the assertion lines and accepted a wait for
+    `IsCancelling` - and the first Windows run of this unit failed on them (`Expected: Working, Actual: Idle`); the second scan reads
+    every test method and asks that a wait for the line precede its first assertion of the working look, and finds nothing else. The
+    other assertions of "Stopping…" follow a Working assertion of the same test, so they are immediate. `StatusLineUiTests` drives
+    its lines with a `ManualStatusScheduler` and moves it by the delay after a status that is Working (`ShowWorking`). `MotionUiTests`
+    has the two new tokens.
   - *New tests.* `StatusFlowTests` (17, pure logic, they run on Linux too - proved through a scratch project that compiled the same files):
     the delay at the millisecond (149 ms not yet, 150 ms shown), an operation that ends within it as a result or as the summary, two
     Working statuses, the stages of a shown operation, the operation after a result, no token, `Cancel`. `StatusLineTimingUiTests`:

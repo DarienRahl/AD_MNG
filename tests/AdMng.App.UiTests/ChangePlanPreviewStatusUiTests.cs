@@ -234,7 +234,7 @@ public sealed class ChangePlanPreviewStatusUiTests
         {
             ControlHost.Press(window.ExecuteButton);
             await UiWait.UntilAsync(
-                () => held.IsSet && preview.CurrentActivity is { IsRunning: true } && window.ExecuteButton.State == ActionButtonState.Running,
+                () => held.IsSet && preview.CurrentActivity is { IsRunning: true } && window.ExecuteButton.State == ActionButtonState.Running && line.IsWorking,
                 "the execution runs");
             var activity = preview.CurrentActivity!;
 
