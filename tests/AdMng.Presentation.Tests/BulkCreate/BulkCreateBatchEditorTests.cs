@@ -131,7 +131,9 @@ public class BulkCreateBatchEditorTests
         Assert.Equal(CreatedAccountViewModel.Mask, first.PasswordText);
         Assert.DoesNotContain(first.Password!, first.ToString(), StringComparison.Ordinal);
         Assert.True(editor.HasUnsavedGeneratedPasswords);
-        Assert.Contains(wizard.Bulk.ResultNotes, n => n.StartsWith("Konta utworzono na kontrolerze", StringComparison.Ordinal));
+        var replication = Assert.Single(wizard.Bulk.ResultNotes, n => n.Text.StartsWith("Konta utworzono na kontrolerze", StringComparison.Ordinal));
+        Assert.True(replication.IsInformation, "the replication note informs, it does not warn");
+        Assert.DoesNotContain(wizard.Bulk.ResultNotes, n => n.IsInformation && !ReferenceEquals(n, replication));
 
         // Created rows are marked in the check step.
         await wizard.BackToCheckAsync();
@@ -161,7 +163,8 @@ public class BulkCreateBatchEditorTests
         var editor = wizard.Editor;
         Assert.True(editor.IsResultsStep, editor.Error);
         Assert.True(wizard.Bulk.WasStoppedAfterCanary);
-        Assert.Equal(wizard.Harness.Localizer[L.BulkCreateCheck.CanaryStopped], wizard.Bulk.ResultNotes[0]);
+        Assert.Equal(wizard.Harness.Localizer[L.BulkCreateCheck.CanaryStopped], wizard.Bulk.ResultNotes[0].Text);
+        Assert.False(wizard.Bulk.ResultNotes[0].IsInformation, "the canary stop is a caution");
         Assert.Equal([1], wizard.Bulk.CreatedRows.Keys);
         Assert.Equal(ObjectResultStatus.PartiallySucceeded, editor.Result!.Objects[0].Status);
         Assert.All(editor.Result.Objects.Skip(1), o => Assert.Equal(ObjectResultStatus.Cancelled, o.Status));

@@ -16,6 +16,10 @@
   * A command that starts an operation that can be cancelled: c:ActionButton (Ad.ActionButton by itself;
     Ad.AccentActionButton for the primary action; Ad.DialogActionButton and Ad.AccentDialogActionButton with the
     metrics of the dialog buttons).
+  * A note may choose its glyph (V2b-5b): c:AdNote.Icon="{x:Static c:AppIcons.StatusInfo}" puts the glyph of one of the
+    four status icons (Icon.StatusInfo, Icon.StatusOk, Icon.StatusWarning, Icon.StatusError - the closed set of
+    AdNote.Icons) in place of the glyph of the style; the colour and everything else stay those of the style, and a
+    note that does not set it is as it was. XamlSourceTests fails a value outside the set.
   * How far one item of a list is stays in its row (the bar of one activity in the main window); a place that only
     shows "busy" has a c:ProgressRing and no sentence.
   There is no banner style: the two of before stage V2 were removed once the last view was converted (V2b-5a). A view
@@ -583,6 +587,10 @@
     * The glyph is a template part: a screen reader reads the text of the note, not the glyph. Give that text a live
       setting when the note can appear while the operator works.
     * The style carries the glyph in Tag and its colour in BorderBrush (a ContentControl draws no border of its own).
+    * A note that is information in a section of cautions - or the other way round - may choose another glyph:
+      c:AdNote.Icon="{x:Static c:AppIcons.StatusInfo}" (a key of the closed set of AdNote.Icons) sets the Tag as a local
+      value and takes it away again when it is cleared. Only the glyph changes: choose the style for the colour and the
+      weight of the sentence, the icon for its shape.
     * Use: <ContentControl Style="{StaticResource Ad.Note.Attention}" Visibility="…">
              <TextBlock Text="…" TextWrapping="Wrap" />
            </ContentControl>

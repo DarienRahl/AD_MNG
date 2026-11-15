@@ -1934,8 +1934,9 @@ additions:
 * **Results.** `Result` is the accumulated result after a create or retry execution and the undo's own result after an undo;
   the undo removes the deleted objects (and their passwords) from `Accumulated`; their accounts stay listed as *Usunięte
   (cofnięte)* without a password. `BulkResultsView`'s DataContext is the `BatchEditorViewModel` (its `CreatedAccounts`; the
-  wizard's commands and notes through `BulkCreate`), not the wizard. Run notes (`ResultNotes`): the canary stop, the
-  replication note (DC and PDC emulator of the plan's computation), *Konto bez hasła pozostaje wyłączone*, the forest UPN hint.
+  wizard's commands and notes through `BulkCreate`), not the wizard. Run notes (`ResultNotes`, a list of `BulkResultNote`): the canary stop, the
+  replication note (DC and PDC emulator of the plan's computation; it is information, so the view gives it the information
+  glyph with `c:AdNote.Icon`, V2b-5b), *Konto bez hasła pozostaje wyłączone*, the forest UPN hint.
   The created accounts list contacts and groups too (without a password); computers never. *Kopiuj tabelę z hasłami…* asks
   with its own clipboard wording (`BulkCheck.CopyPasswordsTitle` / `CopyPasswordsWarning`) instead of the file-export warning;
   the sheet's columns of the copy are chosen in `CopyColumns` (`SheetColumnOption`; phone and pattern-only columns

@@ -305,8 +305,20 @@ public sealed class BulkCreateStatusUiTests
         var notes = UiWait.Descendants<ContentControl>(results.ResultNotesList).Where(c => ReferenceEquals(c.Style, attention)).ToList();
         Assert.Equal(bulk.ResultNotes.Count, notes.Count);
         Assert.Equal(
-            bulk.ResultNotes,
+            bulk.ResultNotes.Select(note => note.Text),
             notes.Select(note => Assert.IsType<TextBlock>(note.Content).Text));
+
+        // They share the look of an attention, except for one thing: the replication note informs and does not warn, so
+        // it has the information glyph - in the caution colour of its style - and every other note keeps the caution glyph.
+        Assert.Contains(bulk.ResultNotes, note => note.IsInformation);
+        for (var i = 0; i < notes.Count; i++)
+        {
+            var expected = bulk.ResultNotes[i].IsInformation ? Glyphs.Info : Glyphs.Warning;
+            Assert.Equal(expected, ControlHost.Part<TextBlock>(notes[i], "PART_Glyph").Text);
+            Assert.Equal(expected, Assert.IsType<string>(notes[i].Tag));
+            Assert.Equal(ControlHost.ThemeColor(notes[i], "SystemFillColorCautionBrush"), ControlHost.ColorOf(ControlHost.Part<TextBlock>(notes[i], "PART_Glyph").Foreground));
+        }
+
         AssertNoOldFeedback(window);
         context.AssertHealthy();
     });

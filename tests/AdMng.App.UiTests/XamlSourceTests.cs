@@ -239,6 +239,41 @@ public sealed partial class XamlSourceTests
     }
 
     [Fact]
+    public void EveryNoteIconUsedInXaml_IsAnIconOfTheClosedSet()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Runs with the Windows test suite.");
+
+        // c:AdNote.Icon (stage V2b-5b) lets a note choose its glyph: a key of AppIcons, written as {x:Static c:AppIcons.Name}
+        // or as the key itself, and one of the status icons the set of the property holds - no other icon has a glyph here.
+        var files = XamlFiles().Where(file => !IsThemeDictionary(file)).ToList();
+        var uses = files.SelectMany(file => NoteIconValue().Matches(WithoutComments(File.ReadAllText(file)))
+            .Select(m => (File: Path.GetFileName(file), Written: m.Groups["value"].Value))).ToList();
+
+        // Every mention of the property is one of the two forms the pattern reads (an attribute, a setter) - a third form
+        // would escape the check - and the property is in use (the replication note of the bulk creation results).
+        var mentions = files.Sum(file => NoteIconName().Matches(WithoutComments(File.ReadAllText(file))).Count);
+        Assert.NotEmpty(uses);
+        Assert.Equal(mentions, uses.Count);
+
+        var unknown = new List<string>();
+        foreach (var (file, written) in uses)
+        {
+            var key = written;
+            if (NoteIconStatic().Match(written) is { Success: true } named)
+            {
+                key = typeof(AdMng.App.Controls.AppIcons).GetField(named.Groups["name"].Value, BindingFlags.Public | BindingFlags.Static)?.GetRawConstantValue() as string ?? written;
+            }
+
+            if (!AdMng.App.Controls.AppIcons.All.Contains(key) || !AdMng.App.Controls.AdNote.Icons.Contains(key))
+            {
+                unknown.Add($"{file}: {written}");
+            }
+        }
+
+        Assert.Equal([], unknown);
+    }
+
+    [Fact]
     public void FluentBrushKeysInUse_AreTheDocumentedSet()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "Runs with the Windows test suite.");
@@ -463,6 +498,18 @@ public sealed partial class XamlSourceTests
     /// <summary>{StaticResource Key} / {DynamicResource Key} with a plain key (not {x:Type ...} or {x:Static ...}).</summary>
     [GeneratedRegex(@"\{(?<kind>StaticResource|DynamicResource)\s+(?:ResourceKey=)?(?<key>[^\s{}=,]+)\s*\}")]
     private static partial Regex ResourceReference();
+
+    /// <summary>The value of c:AdNote.Icon: the attribute (<c>c:AdNote.Icon="..."</c>) or the setter (<c>Property="c:AdNote.Icon" Value="..."</c>).</summary>
+    [GeneratedRegex(@"AdNote\.Icon(?:""\s+Value)?\s*=\s*""(?<value>[^""]*)""")]
+    private static partial Regex NoteIconValue();
+
+    /// <summary>Any mention of the attached property in markup.</summary>
+    [GeneratedRegex(@"AdNote\.Icon\b")]
+    private static partial Regex NoteIconName();
+
+    /// <summary>{x:Static c:AppIcons.Name}, with any prefix.</summary>
+    [GeneratedRegex(@"^\{x:Static\s+(?:\w+:)?AppIcons\.(?<name>\w+)\s*\}$")]
+    private static partial Regex NoteIconStatic();
 
     /// <summary>x:Key="Key" with a plain string key.</summary>
     [GeneratedRegex(@"x:Key=""(?<key>[^""{]+)""")]

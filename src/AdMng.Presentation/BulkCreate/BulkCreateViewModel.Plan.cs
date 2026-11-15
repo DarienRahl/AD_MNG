@@ -99,7 +99,7 @@ public sealed partial class BulkCreateViewModel
 
     /// <summary>The notes above the created accounts (canary stop, replication, accounts left disabled, the forest UPN hint).</summary>
     [ObservableProperty]
-    public partial IReadOnlyList<string> ResultNotes { get; private set; } = [];
+    public partial IReadOnlyList<BulkResultNote> ResultNotes { get; private set; } = [];
 
     /// <summary>
     /// The domain refused the shared password: the results show <em>Nowe hasło dla kont bez hasła</em> and the retry reads
@@ -809,11 +809,11 @@ public sealed partial class BulkCreateViewModel
     private void UpdateRunState()
     {
         var localizer = Services.Localizer;
-        var notes = new List<string>();
+        var notes = new List<BulkResultNote>();
         var accumulated = Accumulated;
         if (WasStoppedAfterCanary)
         {
-            notes.Add(localizer[L.BulkCreateCheck.CanaryStopped]);
+            notes.Add(new BulkResultNote(localizer[L.BulkCreateCheck.CanaryStopped]));
         }
 
         if (_accounts.Any(a => !a.IsUndone) && accumulated is not null)
@@ -824,19 +824,19 @@ public sealed partial class BulkCreateViewModel
                 false => localizer[L.BulkCreateCheck.PdcNo],
                 _ => localizer[L.BulkCreateCheck.PdcUnknown],
             };
-            notes.Add(localizer.Format(L.BulkCreateCheck.ReplicationNote, accumulated.Server, pdc));
+            notes.Add(new BulkResultNote(localizer.Format(L.BulkCreateCheck.ReplicationNote, accumulated.Server, pdc), IsInformation: true));
         }
 
         if (_accounts.Any(a => !a.IsUndone && !a.HasPassword && a.Outcome != ObjectResultStatus.Succeeded && IsUserKind(ObjectKind)))
         {
-            notes.Add(localizer[L.BulkCreateCheck.DisabledWithoutPassword]);
+            notes.Add(new BulkResultNote(localizer[L.BulkCreateCheck.DisabledWithoutPassword]));
         }
 
         var domainOnly = _planned is { Scope: UniquenessScope.Domain };
         if (domainOnly && accumulated is not null && accumulated.Objects.Any(o => o.Changes.Any(c =>
                 c.Change.Action == ChangeAction.Create && !c.Succeeded && c.ErrorKind == DirectoryErrorKind.ConstraintViolation)))
         {
-            notes.Add(localizer[L.BulkCreateCheck.UpnMaybeInOtherDomain]);
+            notes.Add(new BulkResultNote(localizer[L.BulkCreateCheck.UpnMaybeInOtherDomain]));
         }
 
         ResultNotes = notes;

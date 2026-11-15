@@ -83,6 +83,89 @@ public sealed class NoteUiTests
         return Task.CompletedTask;
     });
 
+    [Theory]
+    [InlineData("Ad.Note.Info", "TextFillColorSecondaryBrush")]
+    [InlineData("Ad.Note.Attention", "SystemFillColorCautionBrush")]
+    [InlineData("Ad.Note.Error", "SystemFillColorCriticalBrush")]
+    public Task ANote_MayChooseItsGlyph_FromTheStatusIcons_AndKeepsTheRestOfItsStyle(string styleKey, string glyphColourKey) =>
+        WpfTestHost.RunAsync(async () =>
+        {
+            var text = new TextBlock { Text = Weak, TextWrapping = TextWrapping.Wrap };
+            var note = new ContentControl { Style = (Style)Application.Current.FindResource(styleKey), Content = text, Width = 320 };
+            var window = ControlHost.Show(note);
+            try
+            {
+                await UiTestSupport.WaitForIdleAsync(rounds: 2);
+                var glyph = ControlHost.Part<TextBlock>(note, "PART_Glyph");
+                var colour = ControlHost.ThemeColor(note, glyphColourKey);
+
+                // Without the property: the glyph of the style, as ever.
+                Assert.Null(AdNote.GetIcon(note));
+                Assert.Equal(GlyphOf(styleKey), glyph.Text);
+
+                // Each icon of the closed set puts its glyph in place of the style's - and nothing else changes: the
+                // colour, the size, the text and the room the glyph takes are those of the style.
+                var width = glyph.ActualWidth;
+                foreach (var icon in AdNote.Icons)
+                {
+                    AdNote.SetIcon(note, icon);
+                    note.UpdateLayout();
+                    Assert.Equal(AdNote.GlyphOf(icon), glyph.Text);
+                    Assert.Equal(AdNote.GlyphOf(icon), Assert.IsType<string>(note.Tag));
+                    Assert.Equal(colour, ControlHost.ColorOf(glyph.Foreground));
+                    Assert.Equal(12d, glyph.FontSize);
+                    Assert.Same(text, ControlHost.Part<ContentPresenter>(note, "PART_Text").Content);
+                    Assert.True(glyph.ActualWidth > 0 && glyph.ActualWidth <= width + 4, "the glyph of the note takes another room");
+                }
+
+                // The information glyph on a note of attention - the case of the replication note of the bulk creation.
+                AdNote.SetIcon(note, AppIcons.StatusInfo);
+                Assert.Equal(Glyphs.Info, glyph.Text);
+
+                // A key outside the set, or none: the glyph of the style again.
+                AdNote.SetIcon(note, AppIcons.User);
+                Assert.Equal(GlyphOf(styleKey), glyph.Text);
+                AdNote.SetIcon(note, AppIcons.StatusError);
+                AdNote.SetIcon(note, null);
+                Assert.Equal(GlyphOf(styleKey), glyph.Text);
+                Assert.Equal(GlyphOf(styleKey), Assert.IsType<string>(note.Tag));
+                Assert.Equal(colour, ControlHost.ColorOf(glyph.Foreground));
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    [Fact]
+    public Task TheIconsOfANote_AreTheClosedSetOfTheStatusLine_EachWithTheGlyphThatTheLineShows() => WpfTestHost.RunAsync(() =>
+    {
+        // A key of the icon set, one glyph each, the same glyph the status line shows for the same severity.
+        Assert.Equal(4, AdNote.Icons.Count);
+        Assert.Equal(AdNote.Icons.Count, AdNote.Icons.Distinct(StringComparer.Ordinal).Count());
+        Assert.All(AdNote.Icons, icon =>
+        {
+            Assert.Contains(icon, AppIcons.All);
+            Assert.True(AppIcons.Find(icon) is not null, $"no picture {icon}");
+            Assert.False(string.IsNullOrEmpty(AdNote.GlyphOf(icon)), $"no glyph for {icon}");
+        });
+        Assert.Equal(AdNote.Icons.Count, AdNote.Icons.Select(AdNote.GlyphOf).Distinct(StringComparer.Ordinal).Count());
+        foreach (var kind in Enum.GetValues<AdMng.Presentation.Feedback.PageStatusKind>().Where(kind => kind != AdMng.Presentation.Feedback.PageStatusKind.Working))
+        {
+            var (key, glyph) = StatusLine.IconOf(kind);
+            Assert.Contains(Assert.IsType<string>(key), AdNote.Icons);
+            Assert.Equal(glyph, AdNote.GlyphOf(key));
+        }
+
+        // Outside the set: nothing (the glyph of the style stays).
+        Assert.Null(AdNote.GlyphOf(null));
+        Assert.Null(AdNote.GlyphOf(string.Empty));
+        Assert.Null(AdNote.GlyphOf(AppIcons.StatusUnknown));
+        Assert.Null(AdNote.GlyphOf(AppIcons.User));
+        Assert.Null(AdNote.GlyphOf("Icon.NoSuchIcon"));
+        return Task.CompletedTask;
+    });
+
     private static string GlyphOf(string styleKey) => styleKey switch
     {
         "Ad.Note.Info" => Glyphs.Info,
