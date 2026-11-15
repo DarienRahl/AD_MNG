@@ -521,7 +521,10 @@ usual bulk editor preview: objects with steps (the "before" value is empty), fil
 **Execute.** The confirmation window gives the title of the change, the number of objects to create and the domain,
 reminds you that *The initial passwords will be available in this window only*, and requires typing the number of
 objects. The execution runs in the background (activity center); its progress – with the *Stop* command – is in the
-status line of the window, and the *Execute* button turns into *Cancel* for that time.
+status line of the window, and the *Execute* button turns into *Cancel* for that time. *Stop* no longer starts the next
+account, but the account that is being created is finished: it has its password, is enabled, must change the password at
+the first logon and belongs to its groups. The status line says how many objects are done (*1 of 5 objects done, failed:
+0, the one that ran was finished*); the rows that were not started can be run later (*Retry failed*).
 
 **One account first.** The wizard first creates one object; only when all its steps succeed does it run the rest (the
 activity center and the session log then have two entries). A systematic error – no encryption, no right to reset the

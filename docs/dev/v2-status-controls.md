@@ -100,7 +100,9 @@ things. The test for the first two: *is this the answer to something the operato
    starts goes to `execution.Follow(activity)`, the end is `execution.Complete(result, next, action)` or `execution.Fail(reason, code)`.
    Where a step that can be stopped is followed by a write, check `scope.IsCancelling` after the step returned as well as in the
    `catch`: a planner that finished although Stop was pressed must not lead to the write. A read is repeated by a link in the line
-   (Retry); a change never is.
+   (Retry); a change never is. **Stop finishes the object in progress** (V2b-5b): the executor starts no new object after it, but an
+   object whose first change has succeeded gets all its changes, so a stopped result is "12 of 300 objects done, the one that ran
+   was finished" and never "half done" - `ExecutionStatus` says it, and `BatchResult.FinishedAfterStopCount` is the number.
 6. **Stop returns control at once.** The operator's Stop puts "Stopping..." on the page first and then cancels the token; the page
    must be free before the work has ended. For a call that nothing can interrupt (parsing, synchronous IO) run it as
    `Task.Run(...).WaitAsync(token)`, free the page when the wait ends and drop the late answer (there must be no state to undo).
@@ -208,8 +210,8 @@ a quick action never ends an operation of its page; the coverage of a run is sai
 and notes for the rest.
 
 **Not started, waiting for the owner** (*What V2b-5 has to do* in the design note): a delay (about 150 ms) before "Working" so that an
-operation that ends at once does not flash; `StatusPill`, `EmptyState` (also the answer to the empty 28 px band of a line with nothing to
-say) and `Skeleton`; taskbar progress; the close question of a window closed during an operation; the screen reader (a result that only
+operation that ends at once does not flash; `StatusPill`, `EmptyState` (the answer for lists without rows; the 28 px band of a line with nothing to
+say **stays** - owner's decision of V2b-5b) and `Skeleton`; taskbar progress; the close question of a window closed during an operation; the screen reader (a result that only
 changes the summary is not announced, a mark in the tab header of a page that failed while it was not shown); whether a note may choose
 its glyph. The list *Still the owner's* in *What V2b has to do* holds the smaller questions of the units (the loudness of the caution glyph
 of the notes, where the press-time answers of the editors belong, whether *Refresh* is the Cancel of a read the operator did not start,

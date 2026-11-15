@@ -511,7 +511,10 @@ PowerShell* – `New-ADUser … -AccountPassword (Read-Host -AsSecureString -Pro
 **Wykonaj.** Okno potwierdzenia podaje tytuł zmiany, liczbę obiektów do utworzenia i domenę, przypomina, że *Hasła
 początkowe będą dostępne tylko w tym oknie*, i wymaga wpisania liczby obiektów. Wykonanie działa w tle (centrum
 aktywności); jego postęp – z poleceniem *Zatrzymaj* – widać w wierszu stanu okna, a przycisk *Wykonaj* zamienia się na
-ten czas w *Anuluj*.
+ten czas w *Anuluj*. *Zatrzymaj* nie zaczyna już następnego konta, ale konto, które właśnie powstaje, jest dokończone:
+ma hasło, jest włączone, wymaga zmiany hasła przy pierwszym logowaniu i należy do swoich grup. Wiersz stanu mówi, ile
+obiektów jest gotowych (*wykonano 1 z 5 obiektów, niepowodzenia: 0, obiekt, który był w toku, został dokończony*); wiersze,
+których nie zaczęto, można wykonać później (*Ponów nieudane*).
 
 **Najpierw jedno konto.** Kreator tworzy najpierw jeden obiekt; dopiero gdy wszystkie jego kroki się udadzą, wykonuje
 resztę (w centrum aktywności i dzienniku sesji są wtedy dwa wpisy). Błąd systematyczny – brak szyfrowania, brak prawa

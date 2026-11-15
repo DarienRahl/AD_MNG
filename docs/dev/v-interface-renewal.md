@@ -1297,8 +1297,8 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
        "preparing the changes…" before every preview, the first read of the Korespondencja pages, the ring on the first read button
        of a tab whose reload reads nothing.
     4. *The rest of the V2 scope that is not started:* `StatusPill` (the status pictures at 16 px), `EmptyState` (48 px icon, one
-       sentence, one action - also the answer to the empty 28 px band of a line with nothing to say, which every view with a line
-       has: collapse it or keep the one fixed place?), `Skeleton`.
+       sentence, one action - the answer for lists without rows; the empty 28 px band of a line with nothing to say is **kept**,
+       owner's decision of V2b-5b: it does not collapse), `Skeleton`.
     5. *Taskbar progress* (6.7): a send of messages that takes minutes shows its progress only in the 16 px ring and the numbers of
        the line, and so does every long read.
     6. *The close question tied to running activities:* a window that is closed during an operation - only the Korespondencja
@@ -1311,6 +1311,9 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
        and what is still open; it is listed in `docs/dev/README.md` and is the pointer in the header comment of `Controls.xaml`.
     9. *Notes:* whether a note may choose its glyph (the replication note of the wizard's results was information and has the
        caution glyph; the protected account became a warning).
+
+    The owner decided items 3 to 7 and 9, and the question of the half-done account, at the start of V2b-5b - the decisions
+    and their reasons are the first list of *V2b-5b as built*; each unit of V2b-5b marks its item done when it lands.
   - Still open – in the controls and the model:
     - *A delay before "Working"* (about 150 ms), so that an operation that ends at once does not flash – more visible
       with every window: the read of nested membership after every comparison, the reads of the tabs of the property
@@ -1329,9 +1332,10 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
       as often.
     - *Notes:* whether a note may choose its glyph (the shield of the protected account became the warning glyph).
     - *Stop for a write:* Apply of the property sheet and OK of "New Object" cannot be stopped from the line (the
-      execution is an activity). Where a write can be stopped – "Reset Password" through `ExecutionStatus` – the
-      executor leaves the account it was working on half done (password reset, "must change" not set) and reports it as
-      failed without a message.
+      execution is an activity). **The half-done account is gone (V2b-5b, decision 1):** the executor no longer leaves the
+      account it was working on with its password reset and "must change" not set - Stop finishes the object in progress,
+      and the line says "the one that ran was finished" (*V2b-5b as built*, *The Stop of an execution*). Whether Apply
+      and "New Object" now offer Stop in the line - the reason that held them back is gone - is still to be decided.
     - *Reads that take no token:* the containers of the tree (the main window and the container picker – the picker's
       read therefore has no Stop), the two short reads before a send, the checks of "New Object".
     - *Said twice, or said elsewhere:* the toast of the main window after an execution, a restore or a send repeats what
@@ -1345,7 +1349,8 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
       central store window (a file, a folder, this computer, three downloads – only one of them can run, and the Stop is in
       the line). Whether they become action buttons is to be decided with the owner (6.7: "cancel where you started").
     - *The empty line of a dialog:* a small dialog shows an empty band of 28 px at rest, and always on a tab that has
-      nothing to say. Collapse an empty line in dialogs, or keep the one fixed place?
+      nothing to say. **Settled in V2b-5b (decision 3): the one fixed place stays** - the owner's priority is that content does
+      not move when an operation starts or ends; `EmptyState` is for lists without rows.
     - *Long results in narrow dialogs:* a failed connect with its advice does not fit three lines at 560 px – a shorter
       advice for the line, or a fourth line.
     - *A window without a session:* the lasting "session ended" takes the place of the summary and covers what the page
@@ -1389,7 +1394,7 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
       their dialogs for the line, whether the footer keeps the state of Outlook next to the pages that say it, whether the
       message page needs a holder, whether the preview from Outlook says "done", whether the journal that cannot be used belongs in
       a note of two pages instead of the line of every tab, and - open since V2b-1, and in every view with a line now - whether the
-      empty 28 px band of a line with nothing to say stays (V2b-5, item 4).
+      empty 28 px band of a line with nothing to say stays (V2b-5, item 4) - settled in V2b-5b: it stays.
     - *Tests:* summaries show the time of day, so README pictures of converted windows differ with every screenshot run
       – a fixed clock for the UI tests would end that.
 - **Not seen, to confirm on Windows:** nothing of this was seen on a screen. Open: the look of the line on the status
@@ -2258,10 +2263,10 @@ screen yet. What the sweep still has to do is counted in *What V2b has to do*, a
       The check before it got the operation's token (planning ran with `CancellationToken.None`), and a Stop during the
       check never proceeds to the execution (Dialogs 9). The line is at rest while the typed confirmation of several
       accounts is asked; for one account the execution takes the line from the check without a pause.
-    - **A Stop during the execution may leave one account half done** (its password reset, "must change" not set): that
-      is how the executor stops, as it did from the list of background operations. That account is in the result list
-      as failed, without a message of its own, so the line says how many were changed and that the rest was not executed
-      – and does not point to reasons the list does not have.
+    - **A Stop during the execution finishes the account it is working on** (V2b-5b; until then it "may leave one account
+      half done": its password reset, "must change" not set, listed as failed without a message of its own). The account
+      has all its changes, the one that was not started is in the result list as not done, and the line says "1 of 2 objects
+      done, failed: 0, the one that ran was finished" - and does not point to reasons the list does not have.
     - **A password is never said.** The line says the title of the change, the domain and counts; the generated password
       is in its result row, masked until asked for, as before.
     - `Error`, `ResultSummary`, `IsBusy` and `IsCompleted` are unchanged for the tests and the code that read them.
@@ -2287,7 +2292,8 @@ screen yet. What the sweep still has to do is counted in *What V2b has to do*, a
   - *Decisions.*
     - **One operation without Stop, like Apply of the property sheet:** the checks of the name, the plan and its
       execution are "Creating …" (`canCancel: false`); OK stays a plain button. A creation stopped half way would leave
-      an account without its password, the checks are single reads, and the execution can be cancelled in the list of
+      an account without its password (V2b-5b: it no longer would - Stop finishes the object in progress; offering Stop
+      here is still open), the checks are single reads, and the execution can be cancelled in the list of
       background operations, as before. The reads of the checks still run with `CancellationToken.None` – *Stop for a
       write* stays open (see *What V2b has to do*).
     - **`ExecutionStatus` is not used:** one object, and no result that stays – the dialog closes. "Executing “New User:
@@ -4845,6 +4851,91 @@ the developer page (item 8), the checks, and what nobody has seen on a screen.
 - **Not seen, to confirm on Windows.** Nothing of this changes a screen, and the UI tests that changed (27 files) only lost look-ups of
   styles that no longer exist; the Windows run of the last push is their proof. The new source rule and the two renamed or reworded
   tests run there as well.
+
+**V2b-5b as built (the decisions of the owner, and what they changed).** The seventh increment of V2 builds what V2b-5a left for the
+owner. The block reads in this order: the **Decisions** (the six answers of the owner, each with its reason), then one section for every
+unit - so far *The Stop of an execution* (decision 1). Not in this increment: the PowerShell window (R1), the page skeleton (V3) and
+anything about releases.
+
+- **Decisions** (the owner's, given before V2b-5b; every later unit builds them as they stand; the reasons are those of the questions
+  in *What V2b-5 has to do* and of the owner's answers).
+  1. **The Stop of an execution finishes the object in progress.** Nothing new is started, but the object whose changes already began
+     gets all its changes: no account with a new password and without its other settings. *Reason:* the operator presses Stop to
+     keep what has not started from happening, not to leave one object broken - an account without "must change", a created
+     account disabled and without its groups, a GPO container without its files is worse than a few more requests after Stop. The
+     first change of an object is still the operator's to stop (nothing of it has changed then), and a failed change still ends its
+     object.
+  2. **A result that only changes the summary** (the count of a search, the number of rows) **is announced to a screen reader
+     politely and throttled** - not on every keystroke. *Reason:* a user of a screen reader should hear that the search found 12
+     settings without hunting for the line, but a count that changes with every key would drown the speech.
+  3. **The status line keeps its fixed band (about 28 px) also when it has nothing to say; it does not collapse.** *Reason:* the owner's
+     priority is that content does not move when an operation starts or ends. `EmptyState` is the answer for lists without rows, not
+     a collapsing line. This closes the question "collapse an empty line or keep the one fixed place?" of V2b-1, V2b-3 and V2b-4
+     (*Still open* and *Still the owner's*), in the controls, the dialogs and every view with a line.
+  4. **A note may choose its glyph from the closed icon set.** *Reason:* the severity decides the colour and the role, the subject
+     decides the picture; one glyph per severity made the replication note of the bulk wizard (information) show the caution glyph, and
+     the protected account is a warning. The set stays closed - no note takes a picture that is not in `Icons.xaml`.
+  5. **A delay of about 150 ms before "Working" is shown.** *Reason:* an operation that ends at once - the read of nested membership
+     after a comparison, the reads of the tabs of the property sheet, "preparing the changes…" before a preview - must not flash a
+     status line and a ring. 150 ms keeps goal G3 (an operation shows "in progress" within 200 ms).
+  6. **`StatusPill`, `EmptyState` and `Skeleton` controls, each with a first use; taskbar progress; the close question of running
+     operations.** *Reason:* the V2 control set of 6.7 is finished, but no control is built without the place that uses it (so none
+     stays unused), a send or a long read shows its progress on the taskbar where the operator looks while he works in another window,
+     and a window closed during an operation asks - as the Korespondencja window does for a send - instead of ending it silently.
+- **The Stop of an execution (decision 1, unit 1).** The rule lives in `BatchExecutor` (`ExecuteObjectAsync`); the windows only say it.
+  - *The rule.* `ExecuteObjectAsync` looks at the cancellation token only before the first change of an object that has not made one:
+    `Cancelled` then means "nothing of it was changed". Once the first change has succeeded the rest is executed, whatever happens to the
+    token (no check between the changes); a failure still ends the object (`PartiallySucceeded`, `Failed`), `BatchOptions.StopOnFirstError`
+    and `plan.Sequential` are as before, no new object is started (`TryEnterAsync` and the delay between objects still end with the
+    token), and the objects that run in parallel each finish. `ExecuteStepAsync` takes a *stop token* - the run's token for the first
+    change, `CancellationToken.None` for every later one.
+  - *Which steps could be cancelled in the middle by their own token, and what happens to each.* A step is cancelled only in these
+    places; each was checked so that none can leave half an object. **(1) The back-off between the retries of a directory request**
+    (`InvokeAsync`, used by Modify - which sends two requests when it mixes replace and add/remove and could end after the first -,
+    AddMember, RemoveMember, ResetPassword, Rename, Move, Delete, Create, Restore, ModifySecurity and the version write inside a GPO
+    transaction): the back-off is no longer interrupted at all, so an object that sent its first request is carried through; the
+    request itself was never cancelled (`CancellationToken.None`). The cost is that a Stop during an outage waits for the retries
+    (`MaxRetries`, 3.5 s with the defaults) before the object ends as a failure. **(2) Opening SYSVOL** (`OpenSysvolAsync`, before the
+    first SYSVOL step of a run) **and (3) the stage and verify phases of `GpoTransaction` and `PolicyDefinitionsTransaction`** (steps
+    WriteGpoFile, DeleteGpoFile, SetGpoVersion, WritePolicyDefinitionsFile, DeletePolicyDefinitionsFile): they take the stop token, so
+    they are cancelled only when they are the first change of their object - and then nothing was written (the transaction deletes
+    its temporary files); after the first change they run with no token. The switch of the transactions still ignores cancellation (the
+    SYSVOL rule), CreateGpoFolder, SyncGpoFolderSecurity, SetGpoFolderSecurity and DeleteGpoFolder never took a token. An
+    administrative templates plan starts with a Modify of the extension names on the container, so a Stop that came while its files
+    were staged used to leave the extensions named without files; it now commits the files and the version.
+  - *The result.* `BatchResult.FinishedAfterStopCount`: the objects that a Stop found running and that were carried through to the end
+    (`ObjectResult`s of status `Succeeded` whose run was crossed by the cancellation); `BulkCreateResults.Merge` adds the counts. It is the
+    only addition to the result model, and the texts need it: without it the line could not say "the one that ran was finished" and be
+    right when the Stop came between two objects. `WasCancelled` keeps its meaning (the token was cancelled), because the wizard's canary
+    reads it to start no other row.
+  - *The line.* The one sentence of a stopped execution, `Changes.Status.CountsStopped`, was changed - not joined by a second one - and
+    now has the three plural forms of the total: "Executing “Reset Password” in contoso.test was stopped: 1 of 2 objects done, failed: 0,
+    the one that ran was finished." (Polish: "… zatrzymano: wykonano 1 z 2 obiektów, niepowodzenia: 0, obiekt, który był w toku, został
+    dokończony." - the genitive after "z"). The clause about the objects that ran is `Changes.Status.Finished.One/Few/Many` ("the one
+    that ran was finished", "the 3 that ran were finished") and is left out when the Stop came between two objects; the total is
+    `Plan.ExecutableCount`, "done" are the objects that succeeded. The log copy is `Changes.Status.Stopped (done, failed, finished)` -
+    counts only. `CorrespondenceText.PluralKey` is the plural rule of `Plural` for a sentence that has more to fill in than the count.
+    Every window that executes a plan says it through `ExecutionStatus` - Reset Password, the batch editor and with it the bulk creation,
+    the Recycle Bin restore, the change plan preview of the Group Policy actions and its undo - so none of them changed. The property
+    sheet and "New Object" cannot be stopped from the line; stopped in the list of background operations they now end as saved or created
+    (`Succeeded`) whenever the first change began, and "was stopped: nothing saved" is left for a Stop that came before it.
+  - *Tests that changed, and why.* `BatchExecutorTests.Cancellation_…` (Jan Kowalski gets his move too); the stopped line of
+    `BatchEditorStatusTests`, `RecycleBinStatusTests`, `ChangePlanPreviewStatusTests` and the two Windows UI tests (`BatchEditorStatusUiTests`,
+    `ChangePlanPreviewStatusUiTests`): the new sentence and the log copy with the third number; `ResetPasswordStatusTests`: the account is
+    complete (password and must-change). **New tests that fail without the change** (proved by restoring the check between the changes and
+    by restoring the interruptible back-off): `BatchExecutorStopTests` - three changes each and a Stop after the first change of the second
+    object, the audit, the undo plan (and that it works), three objects in parallel with the Stop while all three run (the new
+    `FakeDirectorySession.BeforeOperationAsync` holds the three first changes without a blocked thread), a failed first change, a failure
+    after the Stop, a Stop between two objects, a Stop during a back-off; `SysvolPipelineTests` and `TransactionCancellationTests` - a new
+    GPO stopped after its first change commits its file and version, a templates plan stopped after the extensions were set commits, and a
+    transaction that is the first change and is cancelled while staging changes nothing; `ExecutionStatusTests` - the sentence in both
+    languages with every form; `BulkCreateBatchEditorTests` - a Stop during the canary finishes the account.
+  - *Open.* **A sequential plan is several objects:** a new GPO is the container with its files, the Machine and User containers and the
+    link, so a Stop between two of them leaves a GPO that the undo has to remove - as before; "finish the object" is not "finish the
+    action" (to decide with the owner whether a sequential plan should finish as a whole). **The row of the list of background operations**
+    still says only "Cancelled" for a stopped execution, with its counters; the line is where the new sentence is. **Apply and "New
+    Object"** could now offer Stop in the line (see *Stop for a write*). **Not seen on a screen or on Windows:** the new sentence wraps to
+    two or three lines in the dialogs (three at most, then the tool tip) and the two changed UI tests ran only on Windows CI.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 

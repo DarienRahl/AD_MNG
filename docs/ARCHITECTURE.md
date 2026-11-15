@@ -148,6 +148,11 @@ głównym ([dev/multi-window.md](dev/multi-window.md)):
 
 Kolejność kroków na obiekcie: reset hasła → modyfikacja atrybutów → członkostwo w grupach → zmiana nazwy →
 przeniesienie (usuwanie zawsze osobno). Zmiana jednej wartości w oknie właściwości korzysta z tego samego potoku.
+Anulowanie (*Zatrzymaj*) nie zaczyna nowego obiektu, ale **kończy obiekt w toku**: gdy pierwsza zmiana obiektu się
+udała, wykonawca wykonuje resztę, nie patrząc już na token (kroki SYSVOL i ich transakcje działają bez niego, a ponawianie
+żądań nie jest przerywane), więc obiekt nie zostaje w połowie; obiekt, którego pierwsza zmiana się nie zaczęła, ma status
+`Cancelled`, a nieudana zmiana nadal kończy swój obiekt. `BatchResult.FinishedAfterStopCount` liczy obiekty, które
+zatrzymanie zastało w toku i które dokończono.
 Wartości w planie są tekstem; atrybutów binarnych nie edytuje się zbiorczo – wyjątkiem jest `logonHours` (okno „Godziny
 logowania”), który w planie, dzienniku i cofnięciu jest zapisem szesnastkowym, a do DC trafia jako 21 bajtów
 (`PipelineValues`).
