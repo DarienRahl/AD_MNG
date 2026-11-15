@@ -190,6 +190,68 @@ public class BulkCreateBatchEditorTests
     }
 
     [Fact]
+    public async Task Stop_WhileTheCanaryRuns_FinishesTheAccount_AndTheOtherRowsAreNotStarted()
+    {
+        using var wizard = await B4Wizard.CreateAsync();
+        wizard.Use(wizard.OperatorInput());
+        await wizard.EnterCheckAsync();
+        var editor = wizard.Editor;
+        await editor.PreviewCommand.ExecuteAsync(null);
+        wizard.Harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+
+        // The Create of the canary waits for the test; Stop is pressed in the line meanwhile.
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var hold = 1;
+        wizard.Harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.IsWrite && Interlocked.Exchange(ref hold, 0) == 1)
+            {
+                held.Release();
+                release.Wait(TimeSpan.FromSeconds(30));
+            }
+        };
+        Task execution;
+        try
+        {
+            execution = editor.ExecuteCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+            var stop = Assert.IsType<AdMng.Presentation.Feedback.PageStatusAction>(editor.Status.Current.Action);
+            stop.Command.Execute(stop.Parameter);
+            await B2Harness.WaitUntilAsync(() => editor.CurrentActivity!.IsCancelling);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await execution.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+        wizard.Harness.Session.BeforeOperation = null;
+
+        // The account that was being created is complete - password reset, enabled, must change at next logon, in its group -
+        // and not one of the others was started. Before "Stop finishes the object in progress" it stayed disabled, without a
+        // password and without its group.
+        Assert.True(editor.Result!.WasCancelled);
+        Assert.Equal(ObjectResultStatus.Succeeded, editor.Result.Objects[0].Status);
+        Assert.All(editor.Result.Objects.Skip(1), o => Assert.Equal(ObjectResultStatus.Cancelled, o.Status));
+        Assert.Equal(1, editor.Result.FinishedAfterStopCount);
+        Assert.Equal([1], wizard.Bulk.CreatedRows.Keys);
+        var dn = wizard.Bulk.CreatedRows[1];
+        Assert.Equal("512", wizard.Harness.Value(dn, Attr.UserAccountControl));
+        Assert.Equal("0", wizard.Harness.Value(dn, Attr.PwdLastSet));
+        Assert.Contains(wizard.Harness.Values(wizard.Sample.GroupNew, Attr.Member), m => Core.Ldap.DistinguishedName.AreEqual(m, dn));
+        var account = Assert.Single(editor.CreatedAccounts);
+        Assert.True(account.HasPassword);
+        Assert.False(wizard.Bulk.WasStoppedAfterCanary);
+
+        // The line says how far it got, in the language of the window.
+        var stopped = editor.Status.Current;
+        Assert.Equal(AdMng.Presentation.Feedback.PageStatusKind.Attention, stopped.Kind);
+        Assert.Contains("wykonano 1 z 5 obiektów, niepowodzenia: 0, obiekt, który był w toku, został dokończony", stopped.Message, StringComparison.Ordinal);
+        Assert.Equal("Changes.Status.Stopped (1, 0, 1)", stopped.Log.ToString());
+    }
+
+    [Fact]
     public async Task Canary_AValueTakenMeanwhile_HandsOverToTheNextRow()
     {
         using var wizard = await B4Wizard.CreateAsync();
