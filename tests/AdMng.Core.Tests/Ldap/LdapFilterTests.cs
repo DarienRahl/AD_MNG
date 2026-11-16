@@ -23,6 +23,34 @@ public class LdapFilterTests
         Assert.Equal(@"(anr=Jan Kow)", LdapFilter.Anr("Jan Kow"));
     }
 
+    [Theory]
+    [InlineData("jan", "(cn=jan)")]
+    [InlineData("jan*", @"(cn=jan*)")]
+    [InlineData("*jan", @"(cn=*jan)")]
+    [InlineData("*", "(cn=*)")]
+    [InlineData("a**b***c", "(cn=a*b*c)")]
+    [InlineData("Łukasz (Kraków)*", @"(cn=Łukasz \28Kraków\29*)")]
+    [InlineData(@"x\y*(z)", @"(cn=x\5cy*\28z\29)")]
+    [InlineData("a\0b", @"(cn=a\00b)")]
+    public void Pattern_makes_the_star_the_only_wildcard_and_escapes_the_rest(string pattern, string expected)
+    {
+        Assert.Equal(expected, LdapFilter.Pattern("cn", pattern));
+    }
+
+    [Fact]
+    public void Pattern_refuses_an_empty_pattern_and_a_bad_attribute_name()
+    {
+        Assert.Throws<ArgumentException>(() => LdapFilter.Pattern("cn", string.Empty));
+        Assert.Throws<ArgumentException>(() => LdapFilter.Pattern("cn=x", "a"));
+    }
+
+    [Fact]
+    public void EqualBinary_escapes_every_byte()
+    {
+        Assert.Equal(@"(objectSid=\01\05\ff)", LdapFilter.EqualBinary("objectSid", [0x01, 0x05, 0xff]));
+        Assert.Throws<ArgumentException>(() => LdapFilter.EqualBinary("objectSid", []));
+    }
+
     [Fact]
     public void Combine_FlattensSingleAndSkipsEmpty()
     {
