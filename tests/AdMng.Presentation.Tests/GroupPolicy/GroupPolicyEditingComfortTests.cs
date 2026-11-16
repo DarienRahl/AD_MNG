@@ -1,9 +1,11 @@
 using System.Globalization;
 using AdMng.Core.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.Changes;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.GroupPolicy.SecuritySettings;
+using AdMng.Presentation.Icons;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Shell;
 using AdMng.Presentation.Tests.Dialogs;
@@ -236,18 +238,53 @@ public sealed class GroupPolicyEditingComfortTests
         Assert.Null(objects.SelectedRow); // the selection keeps only rows still listed
         Assert.Empty(objects.Selection);
 
+        // The search hides every GPO: the list says so, with the way out as its one action (stage V2b-5b).
         objects.SearchText = "nie ma takiego";
         Assert.Empty(objects.Rows);
-        Assert.Equal("Żaden GPO nie pasuje do wyszukiwania.", objects.ListNote);
+        var empty = objects.EmptyState;
+        Assert.Equal("Żaden GPO nie pasuje do wyszukiwania.", empty.Message);
+        Assert.Equal("Wyczyść wyszukiwanie", empty.ActionText);
+        Assert.Equal(ObjectIcon.Query, empty.Icon);
+        Assert.Same(objects.ClearSearchCommand, empty.ActionCommand);
 
-        objects.ClearSearchCommand.Execute(null);
+        empty.ActionCommand!.Execute(empty.ActionParameter);
         Assert.Equal(7, objects.Rows.Count);
-        Assert.Null(objects.ListNote);
+        Assert.False(objects.EmptyState.HasMessage);
         Assert.Equal(countText, objects.LoadedText);
 
         objects.SearchText = "dysków"; // the search survives a reload
         await objects.LoadAsync();
         Assert.Equal([h.Sample.DriveMappings], objects.Rows.Select(r => r.Gpo.Id));
+    }
+
+    [Fact]
+    public async Task ADomainWithoutGpos_SaysSo_AndOffersRefresh_ButAnUnreadListSaysNothing()
+    {
+        var h = await GroupPolicyHarness.CreateAsync(Polish);
+        var objects = (GroupPolicyObjectsDocumentViewModel)h.Factory.Create(new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.Objects));
+
+        // Not read yet: nothing to say - "no GPO" would be a claim nobody has checked.
+        Assert.Same(EmptyListState.None, objects.EmptyState);
+        await objects.LoadAsync();
+        Assert.Equal(7, objects.Rows.Count);
+        Assert.Same(EmptyListState.None, objects.EmptyState);
+
+        foreach (var id in new[]
+        {
+            h.Sample.DefaultDomainPolicy, h.Sample.DefaultDomainControllersPolicy, h.Sample.WorkstationPasswords, h.Sample.WorkstationRemoteDesktop,
+            h.Sample.ServerSecurity, h.Sample.DriveMappings, h.Sample.SitePrinters,
+        })
+        {
+            await h.Session.DeleteAsync(h.GpoDn(id), subtree: true, CancellationToken.None);
+        }
+
+        await objects.LoadAsync();
+        Assert.Empty(objects.Rows);
+        var empty = objects.EmptyState;
+        Assert.Equal("W tej domenie nie ma obiektów zasad grupy.", empty.Message);
+        Assert.Equal(ObjectIcon.GroupPolicy, empty.Icon);
+        Assert.Equal("Odśwież", empty.ActionText);
+        Assert.Same(objects.RefreshCommand, empty.ActionCommand);
     }
 
     [Fact]

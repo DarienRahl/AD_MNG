@@ -416,6 +416,18 @@
         </ListView.View>
       </ListView>
 
+      <!--
+        A list that was read and shows no template says why, with the next step (stage V2b-5b): "no template matches the
+        filters" with "Clear the filters", or "no certificate templates were found" with Refresh. Not while the list is read
+        and not when it could not be read - the status line says that.
+      -->
+      <c:EmptyState x:Name="EmptyList"
+                    ActionCommand="{Binding EmptyState.ActionCommand, Mode=OneWay}"
+                    ActionParameter="{Binding EmptyState.ActionParameter, Mode=OneWay}"
+                    ActionText="{Binding EmptyState.ActionText, Mode=OneWay}"
+                    Icon="{Binding EmptyState.Icon, Mode=OneWay}"
+                    Message="{Binding EmptyState.Message, Mode=OneWay}" />
+
       <gp:PaneSplitter Grid.Column="1" ResizeDirection="Columns" />
 
       <Border Grid.Column="2" Padding="12,8" Style="{StaticResource Ad.Card}">

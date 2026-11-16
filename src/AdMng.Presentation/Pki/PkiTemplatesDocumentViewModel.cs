@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
@@ -112,6 +113,43 @@ public sealed partial class PkiTemplatesDocumentViewModel : PkiDocumentBase, ISe
     public partial string FilterText { get; private set; } = string.Empty;
 
     public bool IsFiltered => FilterText.Length > 0;
+
+    /// <summary>
+    /// What the list says when it has no rows (V2b-5b): "Żaden szablon nie pasuje do filtrów." with "Wyczyść filtry" when the
+    /// filters hide every template, "Nie znaleziono żadnych szablonów certyfikatów." with Refresh when the forest has none.
+    /// <see cref="EmptyListState.None"/> while the list has rows, is read or could not be read.
+    /// </summary>
+    public EmptyListState EmptyState
+    {
+        get
+        {
+            if (_snapshot is null || IsLoading || Error is not null || Rows.Count > 0)
+            {
+                return EmptyListState.None;
+            }
+
+            return _all.Count > 0
+                ? new EmptyListState(Localizer[L.PkiTemplates.EmptyFiltered], ObjectIcon.Query, new PageStatusAction(Localizer[L.PkiTemplates.ClearFilters], ClearFiltersCommand))
+                : new EmptyListState(Localizer[L.PkiTemplates.EmptyNone], ObjectIcon.Certificate, new PageStatusAction(RefreshLabel, RefreshCommand));
+        }
+    }
+
+    /// <summary>The action of the empty list: the search text and the "not issued" filter off.</summary>
+    [RelayCommand]
+    private void ClearFilters()
+    {
+        SearchText = string.Empty;
+        UnpublishedOnly = false;
+    }
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.PropertyName is nameof(IsLoading) or nameof(Error))
+        {
+            OnPropertyChanged(nameof(EmptyState));
+        }
+    }
 
     /// <summary>The account pass: "Liczenie kont…", "Policzone konta: 1 234.", or why it failed.</summary>
     [ObservableProperty]
@@ -258,6 +296,7 @@ public sealed partial class PkiTemplatesDocumentViewModel : PkiDocumentBase, ISe
         SelectedRow = null;
         SummaryText = string.Empty;
         FilterText = string.Empty;
+        OnPropertyChanged(nameof(EmptyState));
         CountStatusText = string.Empty;
         LoadedText = string.Empty;
         _countFailure = null;
@@ -459,6 +498,7 @@ public sealed partial class PkiTemplatesDocumentViewModel : PkiDocumentBase, ISe
         }
 
         FilterText = shown.Count == _all.Count ? string.Empty : Localizer.Format(L.PkiTemplates.Filtered, shown.Count, _all.Count);
+        OnPropertyChanged(nameof(EmptyState));
         if (selected is not null && !shown.Contains(selected))
         {
             SelectedRow = shown.FirstOrDefault();

@@ -200,10 +200,19 @@ public sealed class GroupPolicyEditingUiTests
         objects.SearchText = "pulpit";
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         Assert.Single(list.GpoList.Items);
-        Assert.Equal(Visibility.Collapsed, list.ListNoteText.Visibility);
+        Assert.Equal(Visibility.Collapsed, list.EmptyList.Visibility);
         objects.SearchText = "nie ma takiego";
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
-        Assert.Equal(Visibility.Visible, list.ListNoteText.Visibility);
+
+        // A search that hides every GPO: the empty state says so and offers to clear the search (stage V2b-5b) - it replaced the
+        // text this list had for it.
+        Assert.Equal(Visibility.Visible, list.EmptyList.Visibility);
+        Assert.Equal("Żaden GPO nie pasuje do wyszukiwania.", list.EmptyList.Message);
+        Assert.Equal("Wyczyść wyszukiwanie", ControlHost.Part<Button>(list.EmptyList, EmptyState.ActionPartName).Content);
+        Assert.Single(UiWait.Descendants<TextBlock>(list), text => text.IsVisible && text.Text == list.EmptyList.Message);
+        ControlHost.Press(ControlHost.Part<Button>(list.EmptyList, EmptyState.ActionPartName));
+        await UiWait.UntilAsync(() => objects.SearchText.Length == 0 && list.GpoList.Items.Count == 7, "the search is cleared by the empty state");
+        Assert.Equal(Visibility.Collapsed, list.EmptyList.Visibility);
         objects.SearchText = string.Empty;
 
         var scope = Assert.IsType<GroupPolicyScopeDocumentViewModel>(shell.OpenGroupPolicyDocument(

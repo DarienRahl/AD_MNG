@@ -2,6 +2,8 @@ using System.Globalization;
 using AdMng.Core.Csv;
 using AdMng.Core.Directory;
 using AdMng.Core.Pki;
+using AdMng.Presentation.Feedback;
+using AdMng.Presentation.Icons;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Pki;
 using AdMng.Presentation.Tests.Dialogs;
@@ -104,6 +106,52 @@ public sealed class PkiTemplatesTests
         document.SearchText = "GG_IT";
         Assert.Contains(document.Rows, r => r.Cn == PublicKeyTemplates.Esc2);
         Assert.DoesNotContain(document.Rows, r => r.Cn == PublicKeyTemplates.Esc1);
+    }
+
+    [Fact]
+    public async Task FiltersThatHideEveryTemplate_SayWhatToDo_AndTheActionClearsThem()
+    {
+        var (_, document) = await OpenAsync();
+        using var __ = document;
+
+        // Templates are listed: nothing to say.
+        Assert.False(document.EmptyState.HasMessage);
+
+        document.UnpublishedOnly = true;
+        document.SearchText = "zzz-no-such-template";
+        Assert.Empty(document.Rows);
+        var empty = document.EmptyState;
+        Assert.Equal("Żaden szablon nie pasuje do filtrów.", empty.Message);
+        Assert.Equal("Wyczyść filtry", empty.ActionText);
+        Assert.Equal(ObjectIcon.Query, empty.Icon);
+        Assert.Same(document.ClearFiltersCommand, empty.ActionCommand);
+
+        // The action puts the filters out: the templates are back and the sentence is gone.
+        empty.ActionCommand!.Execute(empty.ActionParameter);
+        Assert.False(document.UnpublishedOnly);
+        Assert.Equal(string.Empty, document.SearchText);
+        Assert.Equal(PublicKeyTemplates.All.Count, document.Rows.Count);
+        Assert.False(document.EmptyState.HasMessage);
+    }
+
+    [Fact]
+    public async Task AForestWithoutTemplates_SaysSo_AndOffersRefresh_AfterTheReadAndNotBefore()
+    {
+        var b2 = await B2Harness.CreateAsync(CultureInfo.GetCultureInfo("pl-PL"));
+        var snapshot = new DirectPkiSnapshotService(b2.Services, null, null);
+        using var document = new PkiTemplatesDocumentViewModel(new PkiServices(b2.Services, new CsvCodec(), snapshot));
+
+        // Not read yet: "no templates" would be a claim nobody has checked.
+        Assert.Same(EmptyListState.None, document.EmptyState);
+        await document.LoadAsync();
+
+        Assert.Null(document.Error);
+        Assert.Empty(document.Rows);
+        var empty = document.EmptyState;
+        Assert.Equal("Nie znaleziono żadnych szablonów certyfikatów.", empty.Message);
+        Assert.Equal(ObjectIcon.Certificate, empty.Icon);
+        Assert.Same(document.RefreshCommand, empty.ActionCommand);
+        Assert.False(string.IsNullOrEmpty(empty.ActionText));
     }
 
     [Fact]

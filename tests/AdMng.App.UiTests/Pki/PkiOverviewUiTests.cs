@@ -1,5 +1,6 @@
 using System.Windows.Controls;
 using AdMng.App.Behaviors;
+using AdMng.App.Controls;
 using AdMng.App.Infrastructure;
 using AdMng.App.Pki;
 using AdMng.App.Services;
@@ -133,6 +134,46 @@ public sealed class PkiOverviewUiTests
         // The search box filters (Ctrl+F reaches it through the shell).
         view.SearchBox.Text = "bezpieczn";
         await UiWait.UntilAsync(() => document.Rows.Count == PublicKeyTemplates.Safe.Count, "the search");
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task TheTemplates_SayWhenTheFiltersHideEveryTemplate_AndOfferToClearThem() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync(language: "pl");
+        context.Directory.AddPublicKeySample(context.Company);
+        await context.ConnectAsync();
+        var main = context.Services.GetRequiredService<MainWindow>();
+        UiTestSupport.ShowOffScreen(main);
+        var shell = main.Shell;
+        await shell.InitializeAsync();
+
+        var document = Assert.IsType<PkiTemplatesDocumentViewModel>(shell.OpenPkiDocument(new PkiDocumentRequest(PkiDocumentKind.Templates)));
+        await UiWait.UntilAsync(() => !document.IsLoading && document.Rows.Count == PublicKeyTemplates.All.Count, "the templates");
+        main.UpdateLayout();
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        var view = Assert.Single(UiWait.Descendants<PkiTemplatesView>(main));
+        var state = view.EmptyList;
+
+        // Templates are listed: the empty state has nothing to say and takes no room.
+        Assert.False(state.HasMessage);
+        Assert.False(state.IsVisible);
+
+        // Filters that no template passes: the list says so - once, in the place of the rows - and offers to clear the filters.
+        document.SearchText = "zzz-no-such-template";
+        await UiWait.UntilAsync(() => view.TemplatesList.Items.Count == 0 && state.IsVisible, "the empty state of the filters");
+        var action = ControlHost.Part<Button>(state, EmptyState.ActionPartName);
+        Assert.Equal("Żaden szablon nie pasuje do filtrów.", state.Message);
+        Assert.Equal("Wyczyść filtry", action.Content);
+        Assert.Same(document.ClearFiltersCommand, action.Command);
+        Assert.Single(UiWait.Descendants<TextBlock>(view), text => text.IsVisible && text.Text == state.Message);
+        Assert.True(state.TranslatePoint(new System.Windows.Point(state.ActualWidth / 2, 0), view.TemplatesList).X <= view.TemplatesList.ActualWidth, "the empty state is not over the list");
+
+        // The action: the filters are gone, the templates are back, and the empty state with them.
+        ControlHost.Press(action);
+        await UiWait.UntilAsync(() => document.SearchText.Length == 0 && view.TemplatesList.Items.Count == PublicKeyTemplates.All.Count, "the filters are cleared");
+        await UiWait.UntilAsync(() => !state.IsVisible, "the empty state is gone");
+        Assert.Equal(string.Empty, view.SearchBox.Text);
         context.AssertHealthy();
     });
 
