@@ -43,21 +43,6 @@
         </DataTrigger>
       </Style.Triggers>
     </Style>
-
-    <!-- "No items" hint: only when nothing is loading, there is no error and the list is empty. -->
-    <Style x:Key="EmptyHintStyle" TargetType="TextBlock" BasedOn="{StaticResource Ad.SecondaryText}">
-      <Setter Property="Visibility" Value="Collapsed" />
-      <Style.Triggers>
-        <MultiDataTrigger>
-          <MultiDataTrigger.Conditions>
-            <Condition Binding="{Binding Rows.Count, Mode=OneWay}" Value="0" />
-            <Condition Binding="{Binding IsLoading, Mode=OneWay}" Value="False" />
-            <Condition Binding="{Binding Error, Mode=OneWay}" Value="{x:Null}" />
-          </MultiDataTrigger.Conditions>
-          <Setter Property="Visibility" Value="Visible" />
-        </MultiDataTrigger>
-      </Style.Triggers>
-    </Style>
   </UserControl.Resources>
 
   <Grid>
@@ -302,11 +287,26 @@
         </ListView.ContextMenu>
       </ListView>
 
-      <TextBlock Margin="0,60,0,0"
-                 HorizontalAlignment="Center"
-                 VerticalAlignment="Top"
-                 Style="{StaticResource EmptyHintStyle}"
-                 Text="{l:Tr List.Empty}" />
+      <!--
+        The first read of what the list shows (stage V2b-5b): placeholder rows under the column headers (28 px and the
+        1 px border of the list) instead of blank space - not for a reload of rows that were shown. They come after the
+        delay of the status line, so a read that ends at once never flashes them.
+      -->
+      <c:Skeleton x:Name="LoadingSkeleton"
+                  Margin="0,29,0,0"
+                  IsActive="{Binding ShowsSkeleton, Mode=OneWay}"
+                  RowCount="12" />
+
+      <!--
+        A list that was read and has no rows says why, with the next step: "no objects here" with Refresh, "no object matches
+        the filter" with "Clear the filter". Not while it is read and not when it could not be read - the status line says that.
+      -->
+      <c:EmptyState x:Name="EmptyList"
+                    ActionCommand="{Binding EmptyState.ActionCommand, Mode=OneWay}"
+                    ActionParameter="{Binding EmptyState.ActionParameter, Mode=OneWay}"
+                    ActionText="{Binding EmptyState.ActionText, Mode=OneWay}"
+                    Icon="{Binding EmptyState.Icon, Mode=OneWay}"
+                    Message="{Binding EmptyState.Message, Mode=OneWay}" />
 
       <!-- Inline rename (F2): an editor placed over the name cell of the row. -->
       <Canvas x:Name="EditorLayer" ClipToBounds="True">

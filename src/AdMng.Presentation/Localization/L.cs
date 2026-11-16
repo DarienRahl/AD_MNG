@@ -218,6 +218,10 @@ public static partial class L
         public const string FilterMatches = "List.FilterMatches";
         public const string QuickFilterPlaceholder = "List.QuickFilterPlaceholder";
         public const string Empty = "List.Empty";
+
+        /// <summary>What an empty list says when a filter hides every row (V2b-5b); the action clears the filter.</summary>
+        public const string EmptyFiltered = "List.EmptyFiltered";
+        public const string ClearFilter = "List.ClearFilter";
         public const string LocationDeleted = "List.LocationDeleted";
         public const string ServerFilters = "List.ServerFilters";
     }

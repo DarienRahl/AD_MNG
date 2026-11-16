@@ -25543,5 +25543,26 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="Correspondence.Preview.Status.OutlookFailed" xml:space="preserve">
     <value>Nie udało się pobrać podglądu z Outlooka</value>
   </data>
+  <data name="List.EmptyFiltered" xml:space="preserve">
+    <value>Żaden obiekt nie pasuje do filtra.</value>
+  </data>
+  <data name="List.ClearFilter" xml:space="preserve">
+    <value>Wyczyść filtr</value>
+  </data>
+  <data name="GpEditing.GpoNone" xml:space="preserve">
+    <value>W tej domenie nie ma obiektów zasad grupy.</value>
+  </data>
+  <data name="GpEditing.ClearSearch" xml:space="preserve">
+    <value>Wyczyść wyszukiwanie</value>
+  </data>
+  <data name="PkiTpl.EmptyNone" xml:space="preserve">
+    <value>Nie znaleziono żadnych szablonów certyfikatów.</value>
+  </data>
+  <data name="PkiTpl.EmptyFiltered" xml:space="preserve">
+    <value>Żaden szablon nie pasuje do filtrów.</value>
+  </data>
+  <data name="PkiTpl.ClearFilters" xml:space="preserve">
+    <value>Wyczyść filtry</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

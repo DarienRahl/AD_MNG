@@ -25543,5 +25543,26 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Correspondence.Preview.Status.OutlookFailed" xml:space="preserve">
     <value>The preview could not be read from Outlook</value>
   </data>
+  <data name="List.EmptyFiltered" xml:space="preserve">
+    <value>No object matches the filter.</value>
+  </data>
+  <data name="List.ClearFilter" xml:space="preserve">
+    <value>Clear the filter</value>
+  </data>
+  <data name="GpEditing.GpoNone" xml:space="preserve">
+    <value>There are no Group Policy objects in this domain.</value>
+  </data>
+  <data name="GpEditing.ClearSearch" xml:space="preserve">
+    <value>Clear the search</value>
+  </data>
+  <data name="PkiTpl.EmptyNone" xml:space="preserve">
+    <value>No certificate templates were found.</value>
+  </data>
+  <data name="PkiTpl.EmptyFiltered" xml:space="preserve">
+    <value>No template matches the filters.</value>
+  </data>
+  <data name="PkiTpl.ClearFilters" xml:space="preserve">
+    <value>Clear the filters</value>
+  </data>
   <!-- V interface renewal (V2): end -->
 </root>

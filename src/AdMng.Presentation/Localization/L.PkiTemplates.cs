@@ -23,6 +23,13 @@ public static partial class L
         /// <summary>{0} of {1} templates shown</summary>
         public const string Filtered = "PkiTpl.Filtered";
 
+        /// <summary>The empty list when the forest has no templates (V2b-5b); the action reads again.</summary>
+        public const string EmptyNone = "PkiTpl.EmptyNone";
+
+        /// <summary>The empty list when the filters hide every template (V2b-5b); the action clears them.</summary>
+        public const string EmptyFiltered = "PkiTpl.EmptyFiltered";
+        public const string ClearFilters = "PkiTpl.ClearFilters";
+
         public const string ColumnName = "PkiTpl.ColumnName";
 
         public const string ColumnCn = "PkiTpl.ColumnCn";

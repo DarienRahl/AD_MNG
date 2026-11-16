@@ -82,6 +82,17 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
     private bool _settingChips;
     private string _nothingLoadedText = string.Empty;
 
+    // The first read of what is shown (V2b-5b): placeholder rows stand in for the rows until it has delivered rows or ended,
+    // and never for a reload of a list that was shown already.
+    private bool _firstRead;
+
+    // The rows on screen - or their absence - are the result of a read of the shown location that ended well: only then is an
+    // empty list "empty" (a read that is running, stopped or failed says so in the status line).
+    private bool _readComplete;
+
+    // Rows.Count == 0 as of the last notification (the empty state follows the transitions only).
+    private bool _rowsEmpty = true;
+
     // Saved filters (README U4) of the last search: their client checks (constructed attributes), null when none.
     private Filters.SavedFilterPlan? _clientPlan;
 
@@ -111,6 +122,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         RefreshSavedFilterChips();
 
         Columns.CollectionChanged += (_, _) => OnPropertyChanged(nameof(VisibleColumns));
+        Items.CollectionChanged += OnItemsChanged;
         services.Changes.Changed += OnDirectoryChanged;
         services.Localizer.CultureChanged += OnCultureChanged;
         services.Settings.Changed += OnSettingsChanged;
@@ -188,6 +200,38 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
 
     /// <summary>True when every result of the current location is loaded (local sorting is exact).</summary>
     public bool IsFullyLoaded => !IsLoading && !Partial && Error is null && Location is not null && !IsVirtual;
+
+    /// <summary>
+    /// The first read of the shown location is running and has delivered no row yet (V2b-5b): the view shows placeholder
+    /// rows instead of blank space. A reload of a location that was shown already never does - its rows come back at
+    /// once - and neither does a read that failed.
+    /// </summary>
+    public bool ShowsSkeleton => IsLoading && _firstRead && Error is null && Rows.Count == 0;
+
+    /// <summary>
+    /// What the list says when it has no rows (V2b-5b): "no objects here" with Refresh, or "no object matches the filter"
+    /// with "Clear the filter" when a filter hides everything. <see cref="EmptyListState.None"/> while the list has rows,
+    /// is read, was stopped or could not be read - those are said by the status line.
+    /// </summary>
+    public EmptyListState EmptyState
+    {
+        get
+        {
+            if (!_readComplete || IsLoading || Partial || Error is not null || Rows.Count > 0)
+            {
+                return EmptyListState.None;
+            }
+
+            var l = _services.Localizer;
+            return HasActiveFilter
+                ? new EmptyListState(l[L.List.EmptyFiltered], ObjectIcon.Query, new PageStatusAction(l[L.List.ClearFilter], ClearFiltersCommand))
+                : new EmptyListState(l[L.List.Empty], Icon, new PageStatusAction(l[L.Commands.Refresh], RefreshCommand));
+        }
+    }
+
+    /// <summary>The quick filter has a text, or a chip (quick or saved filter) is on: what the list shows is narrowed.</summary>
+    public bool HasActiveFilter =>
+        !string.IsNullOrWhiteSpace(QuickFilterText) || FilterChips.Any(c => c.IsActive) || SavedFilterChips.Any(c => c.IsActive);
 
     /// <summary>Number of loaded rows (before the quick filter).</summary>
     public int TotalCount => _allRows.Count;
@@ -458,6 +502,41 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
     [RelayCommand]
     private void ClearQuickFilter() => QuickFilterText = string.Empty;
 
+    /// <summary>
+    /// The action of the empty list: the quick filter's text and every chip off, and one read when a chip was on (a chip
+    /// is a filter of the server - the rows have to be read again).
+    /// </summary>
+    [RelayCommand]
+    private void ClearFilters()
+    {
+        QuickFilterText = string.Empty;
+        var changed = false;
+        _settingChips = true;
+        try
+        {
+            foreach (var chip in FilterChips.Where(c => c.IsActive))
+            {
+                chip.IsActive = false;
+                changed = true;
+            }
+
+            foreach (var chip in SavedFilterChips.Where(c => c.IsActive))
+            {
+                chip.IsActive = false;
+                changed = true;
+            }
+        }
+        finally
+        {
+            _settingChips = false;
+        }
+
+        if (changed && Location is not null && !_disposed)
+        {
+            LoadAsync().Forget();
+        }
+    }
+
     [RelayCommand(CanExecute = nameof(CanGoBack), AllowConcurrentExecutions = true)]
     private Task GoBackAsync() => _history.GoBack() is { } previous ? ShowLocationAsync(previous) : Task.CompletedTask;
 
@@ -570,6 +649,10 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         }
 
         var previousKey = Location?.ColumnLayoutKey;
+
+        // The first read of a location that is not the one shown: placeholder rows until its rows arrive (V2b-5b).
+        _firstRead = !SameSource(Location, location);
+        _readComplete = false;
         Location = location;
         if (!string.Equals(previousKey, location.ColumnLayoutKey, StringComparison.Ordinal) || Columns.Count == 0)
         {
@@ -621,6 +704,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         ClearRows();
         Error = null;
         Partial = false;
+        _readComplete = false;
         IsLoading = true;
         OnPropertyChanged(nameof(TotalCount));
         var started = _services.Time.GetTimestamp();
@@ -682,6 +766,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
 
             LoadedAt = _services.Time.GetLocalNow();
             Elapsed = _services.Time.GetElapsedTime(started);
+            _readComplete = true;
             IsLoading = false;
 
             // The result of a load is the list itself: the operation ends without a message and the status line shows
@@ -723,8 +808,10 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         {
             if (generation == _generation)
             {
+                _firstRead = false;
                 IsLoading = false;
                 OnPropertyChanged(nameof(QuickFilterStatus));
+                RaiseEmptiness();
             }
         }
     }
@@ -1832,6 +1919,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(QuickFilterStatus));
         OnPropertyChanged(nameof(SelectionText));
+        OnPropertyChanged(nameof(EmptyState));
     }
 
     private void OnSelectedItemsChanged(object? sender, NotifyCollectionChangedEventArgs e) => RaiseSelectionChanged();
@@ -1853,8 +1941,40 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
             case nameof(LoadedCount) when IsLoading:
                 Status.Operation?.Report(ReadingText(LoadedCount), log: new PageStatusLog(L.ListStatus.Reading, LoadedCount));
                 break;
+            case nameof(IsLoading) or nameof(Error) or nameof(Partial) or nameof(Rows) or nameof(Location) or nameof(QuickFilterText):
+                RaiseEmptiness();
+                break;
         }
     }
+
+    // ---- Empty list and placeholder rows (stage V2b-5b) -------------------------------------------------------------
+
+    /// <summary>The list has no rows now, or has some again: what it says instead of rows changes.</summary>
+    private void OnItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        var empty = Rows.Count == 0;
+        if (empty != _rowsEmpty)
+        {
+            _rowsEmpty = empty;
+            RaiseEmptiness();
+        }
+    }
+
+    private void RaiseEmptiness()
+    {
+        OnPropertyChanged(nameof(ShowsSkeleton));
+        OnPropertyChanged(nameof(EmptyState));
+    }
+
+    /// <summary>The same list: the same kind of location with the same base, scope, filter, view and search text.</summary>
+    private static bool SameSource(ListLocation? shown, ListLocation next) =>
+        shown is not null
+        && shown.Kind == next.Kind
+        && shown.Scope == next.Scope
+        && string.Equals(shown.BaseDn, next.BaseDn, StringComparison.OrdinalIgnoreCase)
+        && string.Equals(shown.Filter, next.Filter, StringComparison.Ordinal)
+        && string.Equals(shown.ViewId, next.ViewId, StringComparison.Ordinal)
+        && string.Equals(shown.SearchText, next.SearchText, StringComparison.Ordinal);
 
     /// <summary>
     /// What is loaded, in one sentence: "428 objects · 0.17 s · as of 14:35:02", the virtual list summary, "Stopped – 150
