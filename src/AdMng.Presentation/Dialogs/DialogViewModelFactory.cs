@@ -59,6 +59,13 @@ public interface IDialogViewModelFactory
     /// </summary>
     Diagnostics.ProblemReportViewModel CreateProblemReport();
 
+    /// <summary>
+    /// The PowerShell window of this connection window (track R, stage R1; modeless, one per launch): its own runspace, disposed with
+    /// the window. Throws <see cref="InvalidOperationException"/> when the host registered no
+    /// <see cref="PowerShell.PowerShellServices"/>.
+    /// </summary>
+    PowerShell.PowerShellWindowViewModel CreatePowerShell();
+
     /// <summary>For <see cref="IDialogService.ShowRecycleBinAsync"/> (modeless): deleted objects of the current session's domain.</summary>
     RecycleBinViewModel CreateRecycleBin();
 
@@ -116,7 +123,8 @@ public sealed class DialogViewModelFactory(
     Connections.ConnectionRegistry? connections = null,
     Comparison.IObjectComparisonLauncher? comparison = null,
     EventLogs.EventLogLauncher? eventLogs = null,
-    Diagnostics.ProblemReportServices? problemReport = null) : IDialogViewModelFactory
+    Diagnostics.ProblemReportServices? problemReport = null,
+    PowerShell.PowerShellServices? powerShell = null) : IDialogViewModelFactory
 {
     private readonly AccountReview.DomainControllerReader _domainControllers = new(connector, services.Errors);
     private readonly Filters.FilterLibrary _filters = filters ?? new Filters.FilterLibrary(services.Settings);
@@ -155,6 +163,9 @@ public sealed class DialogViewModelFactory(
 
     public Diagnostics.ProblemReportViewModel CreateProblemReport() =>
         new(services, problemReport ?? throw new InvalidOperationException("The problem report services are not registered."));
+
+    public PowerShell.PowerShellWindowViewModel CreatePowerShell() =>
+        new(services, powerShell ?? throw new InvalidOperationException("The PowerShell window's services are not registered."));
 
     public RecycleBinViewModel CreateRecycleBin() => new(services);
 

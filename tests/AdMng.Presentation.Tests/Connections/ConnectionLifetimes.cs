@@ -51,6 +51,7 @@ internal static class ConnectionLifetimes
         typeof(Presentation.EventLogs.EventLogLauncher),
         typeof(Presentation.EventLogs.EventLogServices),
         typeof(Presentation.Diagnostics.ProblemReportServices),
+        typeof(Presentation.PowerShell.PowerShellServices),
         typeof(Presentation.Readiness.ReadinessResults),
         typeof(Presentation.Readiness.IReadinessResults),
         typeof(Presentation.Readiness.ReadinessServices),

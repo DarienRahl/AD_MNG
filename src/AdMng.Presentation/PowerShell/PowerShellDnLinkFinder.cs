@@ -15,10 +15,13 @@ public readonly record struct PowerShellDnSpan(int Start, int Length, string Dis
 /// </summary>
 public static partial class PowerShellDnLinkFinder
 {
-    // Not in the middle of a word or of an assignment (member=CN=…, a\CN=…); the components of a DN: the leading ones end in a
-    // comma, the trailing ones are the domain components - a domain label has no space or comma, which is what ends the name.
+    // A name starts where a word does: not after a letter, a digit, a backslash or a comma (xCN=…, a\CN=…, and never the tail of a
+    // longer name) - after an equals sign it is fine, that is how a hashtable prints one (@{DistinguishedName=CN=…}). The leading
+    // components end in a comma and hold anything but an unescaped separator of a list (; { } |) or an equals sign (so that a name
+    // does not run on into the next one: "…DC=b and CN=C,DC=…"); the trailing ones are the domain components - a domain label has no
+    // space or comma, which is what ends the name. A value with an unescaped '=' is no name to this finder (rare, and not a link).
     [GeneratedRegex(
-        @"(?<![\p{L}\p{N}_=\\])(?<dn>(?:(?:CN|OU|DC|O|L|ST|C|UID|STREET)=(?:\\.|[^,\\\r\n<>""])+,)*DC=[A-Za-z0-9][A-Za-z0-9-]*(?:,DC=[A-Za-z0-9][A-Za-z0-9-]*)*)",
+        @"(?<![\p{L}\p{N}_\\,])(?<dn>(?:(?:CN|OU|DC|O|L|ST|C|UID|STREET)=(?:\\.|[^,\\\r\n<>"";{}|=])+,)*DC=[A-Za-z0-9][A-Za-z0-9-]*(?:,DC=[A-Za-z0-9][A-Za-z0-9-]*)*)",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
         matchTimeoutMilliseconds: 200)]
     private static partial Regex Candidate();

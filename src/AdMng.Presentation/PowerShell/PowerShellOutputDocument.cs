@@ -271,7 +271,12 @@ public sealed class PowerShellOutputDocument : ObservableObject
 
     private void Commit(List<PowerShellOutputLine> added)
     {
-        if (added.Count > 0)
+        if (added.Count == 1)
+        {
+            // One line: the ordinary notification, which keeps a scrolled list where it is; more: one Reset for the lot.
+            _lines.Add(added[0]);
+        }
+        else if (added.Count > 1)
         {
             _lines.AddRange(added);
         }

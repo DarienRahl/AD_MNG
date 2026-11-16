@@ -20,6 +20,7 @@ using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Pki;
+using AdMng.Presentation.PowerShell;
 using AdMng.Presentation.Readiness;
 using AdMng.Presentation.Session;
 using AdMng.Presentation.Settings;
@@ -128,6 +129,10 @@ public static class ServiceCollectionExtensions
         // Dzienniki zdarzeń (track E): the launcher and the documents' services per connection window; the host adds the
         // reader (IEventLogConnector, Windows only).
         services.AddAdMngEventLogs();
+
+        // The PowerShell window (track R, stage R1): its services per connection window; the host adds the engine's session
+        // factory, the window actions and the policy source.
+        services.AddAdMngPowerShell();
 
         // Problem report (Pomoc → Zgłoś problem…, design note s-pilot-readiness.md 3): the diagnostic buffer is one for the
         // application (log templates, no directory values; the App feeds it from its logging); the report's services are
