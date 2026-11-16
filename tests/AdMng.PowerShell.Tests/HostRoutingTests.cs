@@ -191,9 +191,11 @@ public sealed class HostRoutingTests
     public async Task A_nested_prompt_is_not_available()
     {
         await using var session = await TestSessions.CreateAsync();
+        await session.SetLanguageModeAsync(PowerShellLanguageMode.Full, TestContext.Current.CancellationToken);
 
         var items = await TestSessions.RunAsync(session, "$Host.EnterNestedPrompt()");
 
+        Assert.Contains("Nested prompts are not available", TestSessions.Text(items, PowerShellStream.Error), StringComparison.Ordinal);
         Assert.True(TestSessions.End(items).HadErrors);
     }
 

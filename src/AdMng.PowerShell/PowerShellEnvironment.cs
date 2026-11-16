@@ -5,9 +5,9 @@ namespace AdMng.PowerShell;
 /// first runspace of the process, and over what the user's own environment says - a variable of the user must not weaken a
 /// privacy setting. Every public entry point of the engine calls <see cref="Apply"/>. What each setting prevents was observed
 /// with Microsoft.PowerShell.SDK 7.6.10 (the dev note has the table): without <c>POWERSHELL_TELEMETRY_OPTOUT</c> the first
-/// runspace writes a telemetry identifier file; with module auto-loading on (the default) and discovery, the module analysis
+/// command writes a telemetry identifier file; with module auto-loading on (the default) and discovery, the module analysis
 /// cache is written to the user's cache folder about 12 s later; <c>Get-Module -ListAvailable</c> writes it even with
-/// auto-loading off unless <c>PSModuleAnalysisCachePath</c> is a null device (or unwritable).
+/// auto-loading off unless <c>PSModuleAnalysisCachePath</c> is unwritable.
 /// </summary>
 public static class PowerShellEnvironment
 {
@@ -16,6 +16,14 @@ public static class PowerShellEnvironment
 
     /// <summary>The null device of this platform: <c>/dev/null</c>, or <c>NUL</c> on Windows.</summary>
     public static string NullDevice => OperatingSystem.IsWindows() ? "NUL" : "/dev/null";
+
+    /// <summary>
+    /// The path the module analysis cache is pointed at: a file "inside" the null device. Creating its folder fails with an
+    /// ordinary I/O error, which the engine swallows (a cache that cannot be written is common: a service account, a
+    /// read-only profile) - the same path as the unwritable <c>/proc/nonexistent/cache</c> that was observed on Linux, and
+    /// no device name used bare as a path, whose handling on Windows was not observed.
+    /// </summary>
+    public static string UnwritableCachePath => Path.Combine(NullDevice, "ModuleAnalysisCache");
 
     /// <summary>The variables <see cref="Apply"/> sets, with their values.</summary>
     public static IReadOnlyDictionary<string, string> Variables { get; } = new Dictionary<string, string>
@@ -30,7 +38,7 @@ public static class PowerShellEnvironment
         ["POWERSHELL_UPDATECHECK"] = "Off",
 
         // The module analysis cache is never written (an unwritable path is swallowed by the engine).
-        ["PSModuleAnalysisCachePath"] = OperatingSystem.IsWindows() ? "NUL" : "/dev/null",
+        ["PSModuleAnalysisCachePath"] = UnwritableCachePath,
     };
 
     /// <summary>True once <see cref="Apply"/> ran in this process.</summary>

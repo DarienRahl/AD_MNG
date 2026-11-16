@@ -15,7 +15,7 @@ public sealed class EnvironmentTests
         }
 
         var items = await TestSessions.RunAsync(session, "$env:POWERSHELL_TELEMETRY_OPTOUT; $env:POWERSHELL_DIAGNOSTICS_OPTOUT; $env:PSModuleAnalysisCachePath");
-        Assert.Equal("1\n1\n" + PowerShellEnvironment.NullDevice + "\n", TestSessions.Text(items));
+        Assert.Equal("1\n1\n" + PowerShellEnvironment.UnwritableCachePath + "\n", TestSessions.Text(items));
     }
 
     [Fact]
@@ -24,7 +24,7 @@ public sealed class EnvironmentTests
         Assert.Equal("1", PowerShellEnvironment.Variables["POWERSHELL_TELEMETRY_OPTOUT"]);
         Assert.Equal("1", PowerShellEnvironment.Variables["POWERSHELL_DIAGNOSTICS_OPTOUT"]);
         Assert.Equal("Off", PowerShellEnvironment.Variables["POWERSHELL_UPDATECHECK"]);
-        Assert.Equal(OperatingSystem.IsWindows() ? "NUL" : "/dev/null", PowerShellEnvironment.Variables["PSModuleAnalysisCachePath"]);
+        Assert.Equal(Path.Combine(OperatingSystem.IsWindows() ? "NUL" : "/dev/null", "ModuleAnalysisCache"), PowerShellEnvironment.Variables["PSModuleAnalysisCachePath"]);
         Assert.Equal(4, PowerShellEnvironment.Variables.Count);
     }
 

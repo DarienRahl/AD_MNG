@@ -115,7 +115,7 @@ because a variable of the user must not weaken a privacy setting:
 | `POWERSHELL_TELEMETRY_OPTOUT=1` | Without it the first **command** (opening the runspace is not enough) writes `telemetry.uuid` (`$XDG_CACHE_HOME/powershell`; on Windows in the user's local application data). With it no file is written. The test of 9.1 has the control. |
 | `POWERSHELL_DIAGNOSTICS_OPTOUT=1` | The name is in the engine (the diagnostics channel of `Enter-PSHostProcess`). A plain runspace creates no `PSHost.*` pipe on Linux, so the proof is the Windows run of the pipe test (no `\\.\pipe\PSHost.*`). |
 | `POWERSHELL_UPDATECHECK=Off` | No update notification (a console host feature; set so that nothing ever looks for one). |
-| `PSModuleAnalysisCachePath` = the null device (`/dev/null`, `NUL`) | See below. |
+| `PSModuleAnalysisCachePath` = a file "inside" the null device (`/dev/null/ModuleAnalysisCache`, `NUL\ModuleAnalysisCache`) | See below. |
 
 **The module analysis cache** is the only file the engine writes by itself that is not telemetry. It is
 `ModuleAnalysisCache-<hash>` in the cache directory, written by a timer about 12 s after module discovery (measured: it
@@ -128,13 +128,17 @@ process never shows it). A probe on Linux with a fake module on `PSModulePath` a
 | `PSModuleAutoLoadingPreference = None` | the same, plus `Get-Command -Module`, `Get-Command` | **no file** (completion still lists 49 commands) |
 | `None`, then `Get-Module -ListAvailable` | explicit module listing | file written (auto-loading off alone is not enough) |
 | `PSModuleAnalysisCachePath=/dev/null`, `Get-Module -ListAvailable` | explicit module listing | **no file**, no error |
+| `PSModuleAnalysisCachePath=/dev/null/ModuleAnalysisCache` (what the window sets; the opt-in test) | discovery, `Get-Module -ListAvailable`, completion | **no file**, no error |
 | `PSModuleAnalysisCachePath=/proc/nonexistent/cache`, `Get-Module -ListAvailable` | explicit module listing | **no file**, no error (a failed write is swallowed) |
 
-So the window turns auto-loading off **and** points the cache at the null device. The probe is repeatable as the opt-in test
+So the window turns auto-loading off **and** points the cache at a file inside the null device. The path is not the bare
+device name on purpose: `/dev/null` as such worked on Linux, but a bare `NUL` on Windows (a path whose folder part is empty)
+was not observed, whereas "a folder that cannot be created" is the failure the engine was seen to swallow (the
+`/proc/nonexistent` row) and the same on both systems. The probe is repeatable as the opt-in test
 `NoFilesTests.The_module_analysis_cache_is_never_written_but_would_be_with_auto_loading_on` (`ADMNG_POWERSHELL_SLOW_TESTS=1`,
-about 40 s; it passed here). The null device on Windows (`NUL`) is the one part not verified: the engine swallows an
-unwritable cache path, so the worst case is a file in the user's local application data, which part 4's Windows run looks
-for.
+about 40 s; it passed here with the path above). `NUL\ModuleAnalysisCache` on Windows is the one part not verified: if the engine
+did not swallow its error, the process could fail 12 s after an operator lists the modules – part 4's Windows run is where
+this is looked at (the opt-in test passes or fails there the same way).
 
 **Other process-level facts** found while proving it, relevant to later parts:
 
@@ -454,7 +458,7 @@ The criteria about writes and RSAT in the README (the change plan, translated RS
 
 - Whether `powershell.config.json` `PowerShellPolicies` are read by the engine on Windows next to the registry policies, and
   where `$PSHOME` is in the single-file layout (part 4, Windows).
-- `NUL` as the analysis cache path on Windows (part 4, Windows).
+- `NUL\ModuleAnalysisCache` as the analysis cache path on Windows (part 4, Windows).
 - The stage S readiness item for the policies and the language mode: optional, added in part 5 only if the readiness check's
   shape makes it a small addition.
 - The two R3 questions of the README ("To be agreed with the team"): the list of translated RSAT commands and the window's
@@ -498,7 +502,7 @@ engine until part 4, and there is no release note.
    line; `-ErrorAction Stop` printed "The running command stopped because …"; `Write-Error -CategoryActivity <name>` printed
    exactly `Start-Job: <message>`.
 8. *`InitialSessionState.ExecutionPolicy` only on Windows* (it throws `PlatformNotSupportedException` elsewhere).
-9. *`PSModuleAutoLoadingPreference = None` and `PSModuleAnalysisCachePath` = the null device*, both needed (4.2).
+9. *`PSModuleAutoLoadingPreference = None` and `PSModuleAnalysisCachePath` = a file inside the null device*, both needed (4.2).
 10. *A bounded output channel (4096) with a grace period on Stop*, so that neither a flood nor a command stuck in .NET code can
     freeze the window.
 11. *Every consumer of the engine imports `PowerShellEngineConsumer.props`* – excluding the `sni` packages in the engine's own
@@ -523,7 +527,7 @@ none); a mutation check (the file-completion filter removed) made the completion
 
 **What could not be verified on Linux, and why it should still be right.**
 
-- *Windows behaviour of the engine setup:* `PSModuleAnalysisCachePath=NUL` (the engine swallows an unwritable path on Linux; the
+- *Windows behaviour of the engine setup:* `PSModuleAnalysisCachePath=NUL\ModuleAnalysisCache` (the engine swallows an unwritable path on Linux; the
   proof test runs on Windows only if someone sets `ADMNG_POWERSHELL_SLOW_TESTS=1`), `InitialSessionState.ExecutionPolicy =
   Restricted` and whether it is the process environment variable `PSExecutionPolicyPreference` (a Windows-only test asserts
   `Get-ExecutionPolicy` is `Restricted`), the STA apartment with `ReuseThread`, the absence of `\\.\pipe\PSHost.*` (the Linux run
