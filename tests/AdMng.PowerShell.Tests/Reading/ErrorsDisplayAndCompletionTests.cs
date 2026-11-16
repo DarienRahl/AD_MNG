@@ -159,6 +159,18 @@ public sealed class ErrorsDisplayAndCompletionTests
     }
 
     [Fact]
+    public async Task A_function_of_the_operator_named_like_a_command_the_completer_uses_does_not_stand_in_for_it()
+    {
+        await using var harness = await ReadHarness.CreateAsync();
+        await harness.RunAsync("function Get-Variable { throw 'hijacked' }");
+
+        const string Script = "Get-AdmUser -Properties dep";
+        var completion = await harness.Session.CompleteAsync(Script, Script.Length, TestContext.Current.CancellationToken);
+
+        Assert.Contains(completion.Matches, m => m.Text == "department");
+    }
+
+    [Fact]
     public async Task Search_base_completes_the_naming_contexts_and_the_containers_the_window_already_showed_and_quotes_them()
     {
         await using var harness = await ReadHarness.CreateAsync();

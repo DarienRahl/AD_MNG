@@ -24,6 +24,9 @@ internal sealed class AdmObjectProjector
     private readonly IDirectoryReader _reader;
     private readonly AdmKnownContainers? _known;
 
+    // The mandatory attributes of a class set, by the classes of the object: 100,000 objects have a handful of class sets.
+    private readonly Dictionary<string, IReadOnlyCollection<string>> _mandatory = new(StringComparer.OrdinalIgnoreCase);
+
     public AdmObjectProjector(IDirectoryReader reader, AdmKnownContainers? known)
     {
         _reader = reader ?? throw new ArgumentNullException(nameof(reader));
@@ -142,7 +145,7 @@ internal sealed class AdmObjectProjector
     /// A mandatory attribute (the schema says every object of the class has it) that was asked for and did not come back:
     /// the account may not read it - the DC returns an unreadable attribute as if it were empty.
     /// </summary>
-    private static IReadOnlyList<string> Hidden(DirectoryObject obj, AdmProjection projection, ISchemaCatalog schema)
+    private IReadOnlyList<string> Hidden(DirectoryObject obj, AdmProjection projection, ISchemaCatalog schema)
     {
         var classes = obj.GetStrings(Attr.ObjectClass);
         if (classes.Count == 0)
@@ -150,7 +153,13 @@ internal sealed class AdmObjectProjector
             return [];
         }
 
-        var mandatory = schema.GetMandatoryAttributes(classes);
+        var key = string.Join('\n', classes);
+        if (!_mandatory.TryGetValue(key, out var mandatory))
+        {
+            mandatory = schema.GetMandatoryAttributes(classes);
+            _mandatory[key] = mandatory;
+        }
+
         return [.. projection.Request.Where(name => name != "*" && mandatory.Contains(name) && !obj.Has(name))];
     }
 

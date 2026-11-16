@@ -71,6 +71,12 @@ public abstract class AdmReadCmdlet : AdmCmdlet
         }
         catch (DirectoryException error) when (error.Kind != DirectoryErrorKind.NoSuchObject || missingBaseIsAnError)
         {
+            if (StopToken.IsCancellationRequested)
+            {
+                // The read ended because the operator stopped it, not because the directory failed.
+                throw new PipelineStoppedException();
+            }
+
             WriteError(AdmErrors.FromDirectory(error, target));
         }
 

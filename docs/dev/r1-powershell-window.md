@@ -706,8 +706,9 @@ help in `Help/AdMng.PowerShell.dll-Help.xml`, and in Core `LdapFilter.Pattern` a
 12. *Completion reads memory only.* `-Properties` and `-Attribute` complete the schema's LDAP names (not the confidential ones, 200 at most, tool tip: the
     syntax); `-SearchBase` completes the naming contexts of the root DSE and the containers this window's commands have returned (`AdmKnownContainers`, in the window context;
     bounded to 256, memory only, the newest first; the session exposes no cache of the tree, so nothing else is known) and quotes a DN that needs it. A completer finds its window with a
-    nested `Get-Variable Host` of the current runspace (`SessionStateProxy` cannot be used there: "A pipeline is already running"); a test asserts the fake
-    session saw no call during completion.
+    nested `Microsoft.PowerShell.Utility\Get-Variable Host` of the current runspace (module-qualified, so a function of the operator named `Get-Variable` cannot
+    stand in for it – a test defines one; `SessionStateProxy` cannot be used there: "A pipeline is already running"); a test asserts the fake session saw no call
+    during completion.
 13. *Help is MAML beside the assembly.* `SessionStateCmdletEntry` takes the **absolute path** of `AdMng.PowerShell.dll-Help.xml` (a relative name is not
     searched; the project copies the file to the output with `Link=` so it is beside the dll, not in `Help/`); with the file `Get-Help` shows synopsis, syntax of every
     parameter set, a description of every parameter and one example. `CommandHelpTests` fails when a command lacks a synopsis, a description or an

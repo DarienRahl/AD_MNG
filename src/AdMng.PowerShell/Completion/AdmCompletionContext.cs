@@ -16,7 +16,8 @@ internal static class AdmCompletionContext
     /// <summary>
     /// The window's services for the completion in progress, or null outside a window. A completer runs on a pipeline thread of the
     /// runspace, which is busy with the completion itself, so the host is fetched by a nested command of the current runspace
-    /// (<c>Get-Variable Host</c>) and not through <c>SessionStateProxy</c>.
+    /// (<c>Get-Variable Host</c>, by its module-qualified name so that a function of the operator cannot stand in for it) and not through
+    /// <c>SessionStateProxy</c>.
     /// </summary>
     public static IAdmWindowContext? Current()
     {
@@ -28,7 +29,7 @@ internal static class AdmCompletionContext
         try
         {
             using var shell = System.Management.Automation.PowerShell.Create(RunspaceMode.CurrentRunspace);
-            var host = shell.AddCommand("Get-Variable").AddParameter("Name", "Host").AddParameter("ValueOnly", true).Invoke();
+            var host = shell.AddCommand("Microsoft.PowerShell.Utility\\Get-Variable").AddParameter("Name", "Host").AddParameter("ValueOnly", true).Invoke();
             return host.Count > 0 && host[0].BaseObject is PSHost { PrivateData.BaseObject: WindowPrivateData data } ? data.Context : null;
         }
         catch (Exception ex) when (ex is InvalidRunspaceStateException or InvalidOperationException or RuntimeException)
