@@ -102,14 +102,18 @@ public sealed class WatchdogStatusUiTests
             view.UpdateLayout();
             Assert.Equal(listTop, TopOf(view.EventsView.EventsList, view));
 
+            // Stop. The press is a click that WPF posts to the dispatcher (the Invoke pattern of a button is asynchronous), so
+            // the held read must stay held until the test has SEEN the Stop take effect: a read released at the moment of the
+            // press could end with its own result before the click ran - and then there is nothing left to stop. A read the
+            // client holds honours the Stop like the real client does: its request ends as cancelled, without a release.
             ControlHost.Press(action);
+            await UiWait.UntilAsync(() => !tab.Events.IsLoading && line.Kind == PageStatusKind.Attention, "the read was stopped");
         }
         finally
         {
             client.ReleaseEvents();
         }
 
-        await UiWait.UntilAsync(() => !tab.Events.IsLoading && line.Kind == PageStatusKind.Attention, "the read was stopped");
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
 
         // Stopped: the feed is empty and paused - the state of the page, which cannot be closed - and Refresh is the way out.

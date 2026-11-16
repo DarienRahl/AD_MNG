@@ -4983,6 +4983,15 @@ anything about releases.
     other assertions of "Stopping…" follow a Working assertion of the same test, so they are immediate. `StatusLineUiTests` drives
     its lines with a `ManualStatusScheduler` and moves it by the delay after a status that is Working (`ShowWorking`). `MotionUiTests`
     has the two new tokens.
+  - *A press is not a call.* `ControlHost.Press` goes through the Invoke pattern of a button, and WPF does not click at once: it posts the
+    click to the dispatcher at `Input` priority, below the `Normal` priority of the continuation of a finished call. A test that presses
+    Stop and releases the held call in the same turn of the dispatcher (a `finally` right after the press) therefore races: when the
+    read's continuation is posted first, the read ends with its own result, the line shows the summary, and the click finds nothing to
+    stop - `WatchdogStatusUiTests.TheRead_OfTheFeed_SaysWorkingWithStop_…` timed out on "the read was stopped" on one Windows run of two.
+    The test now holds the read until it has **seen** the Stop take effect (the held request honours the cancellation, as the real
+    client does, so it ends without a release) and releases it afterwards in the `finally`; every other test that presses Stop or Cancel
+    of a held call already waits for "Stopping…" before it releases (checked by listing every release that follows a press without an
+    `await` in between: this was the only one).
   - *New tests.* `StatusFlowTests` (17, pure logic, they run on Linux too - proved through a scratch project that compiled the same files):
     the delay at the millisecond (149 ms not yet, 150 ms shown), an operation that ends within it as a result or as the summary, two
     Working statuses, the stages of a shown operation, the operation after a result, no token, `Cancel`. `StatusLineTimingUiTests`:
