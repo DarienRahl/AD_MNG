@@ -1323,7 +1323,8 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
          the quieter alternative is the style `Ad.Note.Info`, which needs no property.
       6. *Other empty lists.* The event logs, the failed logons, the PKI security review, the Group Policy diagnostics and the clean-up keep
          the `ListNote` that names the filters that hide the rows: should each become an `EmptyState` with an action of its own? And is the
-         sentence of the `EmptyState` enough in the Find window, whose own status line is off?
+         sentence of the `EmptyState` enough in the Find window, where the list has no line of its own and the line of the window says
+         what the search did?
       7. *More pills.* Should the findings of the PKI security review and of the Group Policy diagnostics, and the channel and domain
          controller rows of the Watchdog status (narrow columns, the state in a tool tip), get a `StatusPill`?
       8. *A write on a page that is not in front* (the Korespondencja send on the *Sending* tab while another tab is shown) is asked about
@@ -5298,7 +5299,7 @@ releases.
   - *The three controls:* the tint of the pill in the dark theme and its outline in High Contrast; the 48 px picture and the 420 px sentence
     of the empty state; the grey of the placeholder bars on the layer colour, the 29 px offset under the column headers at other densities
     and the breathing of the rows with motion on; the width of the pill column in a narrow window; the sentence of the Find window's empty
-    list, whose own line is off.
+    list, whose own line is switched off (the line of the window says what the search did).
   - *The taskbar and the question:* the button itself (also in a remote session and with the taskbar hidden - the tracker and the wiring are
     asserted through `TaskbarItemInfo`), the yellow and the red of a state that lasts, the wording and the wrapping of the close question
     with what is running listed one per line, and the order of the two questions of the main window.
