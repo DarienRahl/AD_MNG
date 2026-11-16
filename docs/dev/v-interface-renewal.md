@@ -418,7 +418,7 @@ As built (V2a): rows 2 and 3 and the ring of row 11 exist, built the same way (`
 | 7 | Toast in and out | `ToastHost` | toast added, removed | slide 16 px from the right, fade | Appear, Disappear | "something happened elsewhere" | behaviour on the item container | at most three toasts on screen |
 | 8 | Expander | Fluent `Expander` (31 uses) | expand, collapse | content slides | Expand, Collapse (theme) | "the group opens downwards" | the theme, unchanged | nothing of ours |
 | 9 | "Look here" highlight | list row, settings card, tree node | navigation from search or from a result link | background tint fades to normal | Highlight | "this is what you searched for" | behaviour `Motion.Highlight` on the realized container after `ScrollIntoView` | one element; cleared when the container is recycled |
-| 10 | Skeleton | list host while the first page loads | loading and no rows yet | gradient sweep over at most 12 placeholder rows | Shimmer | "rows are coming" – not "empty" | opacity-mask animation | removed from the tree when rows arrive or the window is minimized; static bars under reduced motion |
+| 10 | Skeleton | list host while the first page loads | loading and no rows yet | gradient sweep over at most 12 placeholder rows (as built, V2b-5b: the rows breathe - an opacity pulse over `Motion.Shimmer` - after the 150 ms of the status line; *V2b-5b as built*) | Shimmer | "rows are coming" – not "empty" | opacity-mask animation (as built: opacity of the host of the rows, from `Motion.Pulse`) | removed from the tree when rows arrive or the window is minimized; static bars under reduced motion |
 | 11 | Progress | `ProgressBar` (theme), ring in `ActionButton` and tab header | operation runs | indeterminate or bound value | theme; ring 1 s per turn **(ours)** | "busy", or "how far" | theme storyboard; small ring control | the only endless animations allowed are 10 and 11 |
 | 12 | Area indicator | area strip | area changes | accent bar slides to the new item | Fast; Change | "you are now here" | `RenderTransform` animation | – |
 | 13 | Refused drop | tree (`DropRefusedText`) | drop not allowed | text fades in and out | Fast | "not here, and why" | storyboard | – |
@@ -1304,7 +1304,8 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
        of a tab whose reload reads nothing.
     4. *The rest of the V2 scope that is not started:* `StatusPill` (the status pictures at 16 px), `EmptyState` (48 px icon, one
        sentence, one action - the answer for lists without rows; the empty 28 px band of a line with nothing to say is **kept**,
-       owner's decision of V2b-5b: it does not collapse), `Skeleton`.
+       owner's decision of V2b-5b: it does not collapse), `Skeleton` - **done in V2b-5b, unit 3**, each with a first use (*The status pill,
+       the empty state and the skeleton* in *V2b-5b as built*).
     5. *Taskbar progress* (6.7): a send of messages that takes minutes shows its progress only in the 16 px ring and the numbers of
        the line, and so does every long read.
     6. *The close question tied to running activities:* a window that is closed during an operation - only the Korespondencja
@@ -1329,8 +1330,8 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
       domain, and in the Group Policy area "Reading “…”…" at every reload of a tab, "…: preparing the changes…" before
       every preview, the stage of the templates in the editor and in the comparison, and the ring on the first read
       button of a tab whose reload reads nothing.
-    - *The rest of the V2 scope:* the status pictures at 16 px for pills, `StatusPill`, `EmptyState`, `Skeleton`,
-      taskbar progress and the close question tied to running activities are not started. A send of messages that takes
+    - *The rest of the V2 scope:* `StatusPill`, `EmptyState` and `Skeleton` are **built (V2b-5b, unit 3)**; taskbar progress and the
+      close question tied to running activities are not started. A send of messages that takes
       minutes now shows its progress only in the 16 px ring and the numbers of the line – taskbar progress would be its
       place.
     - *A mark in the tab header* of a page that reads or failed (6.7): a failed tab says so only when it is selected.
@@ -4864,7 +4865,8 @@ the developer page (item 8), the checks, and what nobody has seen on a screen.
 **V2b-5b as built (the decisions of the owner, and what they changed).** The seventh increment of V2 builds what V2b-5a left for the
 owner. The block reads in this order: the **Decisions** (the six answers of the owner, each with its reason), then one section for every
 unit - so far *The Stop of an execution* (decision 1, unit 1) and, from unit 2, *The delay before "Working"* (decision 5), *The
-announcement of a summary* (decision 2), *The glyph of a note* (decision 4) and *The band stays* (decision 3). Not in this increment: the PowerShell window (R1), the page skeleton (V3) and
+announcement of a summary* (decision 2), *The glyph of a note* (decision 4) and *The band stays* (decision 3), and from unit 3 *The status
+pill, the empty state and the skeleton* (decision 6). Not in this increment: the PowerShell window (R1), the page skeleton (V3) and
 anything about releases.
 
 - **Decisions** (the owner's, given before V2b-5b; every later unit builds them as they stand; the reasons are those of the questions
@@ -5048,7 +5050,7 @@ anything about releases.
     `BulkCreateBatchEditorTests` (Presentation) - the replication note is information and the others are not.
 - **The band stays (decision 3, unit 2).** No code was needed: the status line is, and stays, a band of `Ad.Size.StatusLine` (28 px) whatever
   it has to say, also when it has nothing to say and in the 150 ms of the delay; nothing built in this increment collapses it, and the
-  tests of the delay assert its height and the top of what lies under it at every step. `EmptyState` (a later unit) is the answer for a
+  tests of the delay assert its height and the top of what lies under it at every step. `EmptyState` (unit 3, below) is the answer for a
   list without rows.
 - *V2b-5b, unit 2 - Open.* **Selections in the summary:** the summary of the object list and of the search tab contains "· N selected", so
   a selection that changes the text is announced after the quiet time - with the arrow keys in a list the selected row is read by the list
@@ -5058,6 +5060,85 @@ anything about releases.
   announcement was never heard (no screen reader on Linux, and the CI windows are not activated), only decided and counted; whether Narrator
   and NVDA treat a `LiveRegionChanged` of a polite status bar as speech, and whether they would also speak a changed name by itself, is for
   the pilot of a Windows machine with a screen reader. The 150 ms were not seen on a screen either.
+- **The status pill, the empty state and the skeleton (decision 6, unit 3).** Three controls of `App/Controls`, each with a style in
+  `Themes/Controls.xaml` that the control takes by itself, each with a first use, and no colour, duration or animation of its own: the
+  closed set of Fluent brush keys as dynamic resources, `Ad.Radius.Pill`, `Ad.FontSize.Caption`, and the one clock of the application,
+  `Behaviors/Motion.cs`. How to choose among them, and the wiring, is *Pill, empty state or skeleton?* of `docs/dev/v2-status-controls.md`.
+  - *`StatusPill`* (`Kind`: `Presentation/Feedback/StatusPillKind` - `Unknown`, `Ok`, `Info`, `Attention`, `Error`; `Text`). The picture of
+    the kind at 16 px - `AreaIconView`: the coloured picture of the icon set in the colour style, the glyph of the icon font in the
+    monochrome style and in High Contrast - and the word, 22 px high, the radius of the pill token. Each kind has its own picture and its own
+    glyph (the four of the status line and the notes, and `StatusUnknown` with the question mark), so the meaning is told by shape and word and
+    never by colour; the surface is the tint of the kind (the success, attention, caution and critical backgrounds; "unknown" has none), and
+    the 1 px stroke (`CardStrokeColorDefaultBrush`) is what outlines it where High Contrast makes the backgrounds the window colour. The word is
+    the `AutomationProperties.Name`, the pill is one `Text` element for a screen reader (its template parts are no children of their own),
+    and it takes no focus and no pointer. *Uses:* the result of every check and the worst result of every area in the readiness report
+    (`ReadinessRowViewModel.PillKind`, `ReadinessGroupViewModel.PillKind`; `ReadinessText.PillKind`: ok, warning to attention, error, "not
+    checked" to unknown) and the state of every health check on the status tab of the Watchdog (`WatchdogHealthCheckRowViewModel.PillKind`;
+    "disabled" and "unknown" are both the unknown kind and their word tells them apart). The pills of a list are one column - `Grid.IsSharedSizeScope`
+    with a `SharedSizeGroup` - so the titles start at the same place whatever the word; the pair of a glyph and a word that followed the title
+    ("title host · status") is gone, and so is the glyph style of the readiness view. *Not changed, on purpose:* the channel and the domain
+    controller rows of the Watchdog status (a glyph in a narrow column with the state in the tool tip: a pill would cut the names) and the
+    glyph-and-word headers of the cards of that tab (not rows of a list). Other views that show a state with a glyph were not looked at in
+    this unit; a pill there is a later, separate decision.
+  - *`EmptyState`* (`Icon` - an `ObjectIcon`, drawn by `ObjectIconView` at 48 px -, `Message`, `ActionText`, `ActionCommand`,
+    `ActionParameter`). Collapsed while `Message` is empty (a style trigger on `HasMessage`), centred in its host, at most 420 px wide, the
+    sentence wrapped in the secondary text colour, the action the `Ad.LinkButton` of the status line (a real button in the tab order, shown only
+    with a label *and* a command). For a screen reader a group named by its sentence (control and content element only while it has one). The state
+    of a list is one value, `Presentation/Feedback/EmptyListState` (`Message`, `Icon`, at most one `PageStatusAction`; `EmptyListState.None`), that
+    the view binds one way - the view needs no visibility and no trigger of its own. *The rule of when a list is empty* (a view model computes
+    it, tested on Linux): the read of the shown list **ended well** (a flag set when the load completes and cleared when a load begins, a
+    stop or a failure leaves it off), nothing is loading, there is no error and there are no rows - so "could not be read" is the status
+    line's error, a stopped read is the line's attention, and the first read is the skeleton's. *Uses:* the object list of the main window and of the Find
+    window (`ObjectListViewModel.EmptyState`: "There are no items to show in this view." with Refresh - the text this list had for it moved
+    into the control; "No object matches the filter." with "Clear the filter", the new `ClearFiltersCommand`, which puts the quick filter
+    text and every quick and saved chip out and reads once when a chip was on), the Group Policy objects
+    (`GroupPolicyObjectsDocumentViewModel.EmptyState`: "No GPO matches the search." with "Clear the search" - this replaced `ListNote` and the
+    text under it -, "There are no Group Policy objects in this domain." with Refresh) and the PKI templates
+    (`PkiTemplatesDocumentViewModel.EmptyState`: "No template matches the filters." with "Clear the filters", the new `ClearFiltersCommand`;
+    "No certificate templates were found." with Refresh). *Not changed:* the other lists with a `ListNote` of their own (the event logs, the
+    failed logons, the PKI security review, the Group Policy diagnostics and the clean-up) - their notes say which filters hide the rows and
+    stay a note until they are converted; no list was given an action it did not have a command for. *The band stays (decision 3):* the 28 px
+    band of the status line is still there when it has nothing to say - an empty list is answered by this control, in the list, and not by
+    a line that collapses, so nothing moves when a list becomes empty or gets rows.
+  - *`Skeleton`* (`RowCount` 1 to 12, 8 by default; `RowHeight`, 26 by default; `IsActive`; read-only `IsShown`). The style holds only the host
+    panel `PART_Rows`; the control builds the rows (a 16 px picture and three bars of lengths that differ from row to row, the same ones every
+    time) as `Border`s with the brush `CardStrokeColorDefaultBrush` as a dynamic resource, and rebuilds them when the count or the height change.
+    Collapsed while it is not active; **the bars appear after `Motion.WorkingDelay`** (150 ms, the delay of decision 5, on the same
+    `IStatusScheduler` seam as the status line, so a test moves it with a `ManualStatusScheduler`): a read that ends at once never flashes
+    placeholder rows, as it never flashes "Working". Without motion the rows stand still; with motion `Motion.Pulse` runs one opacity animation
+    on the host of the rows (down to 0.55 and back over `Motion.Shimmer`, 1.6 s each way), only while the control is shown *and* visible, and
+    takes it off when it is hidden - no clock for a list that has its rows. It is decorative: no peer, no focus, no pointer. *Use:* the object
+    list puts it in the grid cell of the list under the column headers (a top margin of 29 px: the 28 px header and the 1 px border), 12
+    rows of the list's own height (26 px), `IsActive` bound to `ObjectListViewModel.ShowsSkeleton` - loading, the **first read of a location
+    that is not the one shown** (a different kind, base, scope, filter, view or search text; set when a location is shown, cleared when its read
+    ends, however it ends), no error and no row yet. A reload (F5, a chip, a sort), `ReplaceLocationAsync` of the same list, a stopped read
+    and a failed read never show it. *The opacity pulse instead of the sweep* of 5.2 (row 10) is the owner's instruction for this unit: no
+    gradient, no opacity mask, one animation on one element.
+  - *Decisions of the unit.* **(1)** The pill takes its kind from a view model property and never from a converter in XAML: the mapping is a
+    value-free function of an enum, tested on Linux (`StatusPillKindTests`). **(2)** The empty state is a value of the view model, not a set of
+    triggers in the view: it is the same three bindings in every view and the rule above is a test of the view model. **(3)** The delay of the
+    skeleton is the control's, not the view model's: the model says "the first read runs" the moment it does, as the holder says "Working". **(4)**
+    The bars use the card stroke brush because the closed set has no other grey that reads on both the light and the dark layer: the
+    subtle fills are nearly transparent; a new key would need all three theme dictionaries. **(5)** Both pill words and empty sentences are
+    strings of both languages (`List.EmptyFiltered`, `List.ClearFilter`, `GpEditing.GpoNone`, `GpEditing.ClearSearch`, `PkiTpl.EmptyNone`,
+    `PkiTpl.EmptyFiltered`, `PkiTpl.ClearFilters`; the first sentence and "Refresh" are `List.Empty` and `Commands.Refresh` of before).
+  - *Tests.* `StatusPillUiTests`, `EmptyStateUiTests`, `SkeletonUiTests` (parts, properties, the automation name and peer, the manual clock,
+    `MotionScope.On()` for the pulse, nothing left running); `ObjectListEmptyStateUiTests` (an empty container with its Refresh, a filter and
+    its action, the held first read with the placeholder rows after the manual delay and a reload without them, a read that ends before the
+    delay, a failed read), the Group Policy list in `GroupPolicyEditingUiTests`, the PKI templates in `PkiOverviewUiTests`, the pills in
+    `ReadinessStatusUiTests` (one pill per area and per check, the words, the kinds, one column, no old glyph, no word said twice) and
+    `WatchdogViewTests`; Presentation: `ObjectListEmptyStateTests`, `StatusPillKindTests`, the empty states in `GroupPolicyEditingComfortTests` and
+    `PkiTemplatesTests`; and two source rules in `XamlSourceTests` (the three styles have no colour of their own; every pill, empty state and
+    skeleton in the views is bound to what makes it complete). The keys of the new styles were proved with a script over the real XAML
+    files (every `Ad.*` key defined, the closed set of Fluent brushes unchanged and all dynamic, the `StaticResource` order of
+    `Controls.xaml`).
+- *V2b-5b, unit 3 - Open.* **The look was never seen:** nobody could look at the rendered pill, empty state or placeholder rows (Linux, no screen);
+  the tint of the pill in the dark theme, the grey of the bars on the layer colour, the 29 px offset under the column headers of other
+  densities and the width of the pill column in a narrow window are reasoned, not seen. **The Find window** has the empty state and the
+  skeleton through the same list control but its own status line is switched off: "No object matches the filter" is its only sentence for a
+  search without results - to be seen. **The other lists** with their own `ListNote` text (see above) are the next candidates, one at a time,
+  each with its own action. **A pill for the rows of findings** (PKI, Group Policy) was not built: whether a finding's severity wants the same
+  picture-and-word label is for the owner.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 

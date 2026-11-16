@@ -37,6 +37,20 @@
   gdy okno nie jest aktywne ani gdy strona nie jest na wierzchu, i nie jest odczytywane pierwsze podsumowanie otwartej
   strony. Uwaga o replikacji w wynikach kreatora zakładania kont jest informacją, więc ma ikonę informacji zamiast
   ostrzeżenia (kolor uwagi bez zmian).
+- **Puste listy mówią, dlaczego są puste, i podpowiadają następny krok; pierwszy odczyt pokazuje szare wiersze zastępcze;
+  wyniki sprawdzeń są plakietkami.** Lista obiektów (okno główne i okno *Znajdź*), lista obiektów zasad grupy i lista
+  szablonów certyfikatów, które zostały odczytane i nie mają wierszy, pokazują duży obrazek, jedno zdanie i jedno
+  działanie na środku listy: *Brak elementów do pokazania w tym widoku.* z działaniem *Odśwież*, a gdy filtr lub
+  wyszukiwanie ukrywa wszystko – np. *Żaden obiekt nie pasuje do filtra.* z działaniem *Wyczyść filtr* (usuwa tekst i
+  wszystkie przyciski filtrów i czyta listę jeden raz), *Żaden GPO nie pasuje do wyszukiwania.* z *Wyczyść wyszukiwanie*,
+  *Żaden szablon nie pasuje do filtrów.* z *Wyczyść filtry*. Dawny osobny tekst o braku dopasowania na liście zasad grupy
+  zniknął – zdanie jest jedno. Lista, którą odczytywano z błędem albo zatrzymano, nie jest „pusta”: mówi o tym wiersz
+  stanu, jak dotąd. Gdy lista obiektów czyta kontener po raz pierwszy (nie przy odświeżeniu, które ma już wiersze), pod
+  nagłówkami kolumn pokazują się szare wiersze zastępcze (najwyżej 12) – po około 0,15 s, więc odczyt, który kończy się od
+  razu, ich nie pokazuje; bez ruchu stoją nieruchomo, z ruchem delikatnie „oddychają”. Wynik każdego sprawdzenia w raporcie
+  gotowości środowiska i stan każdego sprawdzenia na karcie *Stan* AdMng Watchdog to teraz plakietka: obrazek stanu i
+  słowo (OK, Ostrzeżenie, Błąd, Nie sprawdzono…), w jednej kolumnie przed tytułem; obszary raportu mają plakietkę swojego
+  najgorszego wyniku. Stan nie jest już podawany samym kolorem ani powtórzony za tytułem.
 
 ## AdMng Watchdog {{VERSION}}
 
@@ -56,6 +70,10 @@
   obiektu w połowie (zob. „Inne zmiany”).
 - Odczytywanie zmienionego podsumowania i opóźnienie stanu *Trwa* sprawdzono testami automatycznymi i na podstawie kodu;
   nie sprawdzono ich z prawdziwym czytnikiem ekranu (Narrator, NVDA) ani na ekranie.
+- Plakietki stanu, puste listy i szare wiersze zastępcze sprawdzono testami automatycznymi (właściwości, zasoby, stan
+  modeli widoku), ale nikt ich jeszcze nie oglądał na ekranie: wygląd w jasnym, ciemnym i wysokim kontraście oraz szerokość
+  plakietek w wąskich oknach czeka na pilotaż. Plakietki stanu kanałów i kontrolerów domeny na karcie *Stan* Watchdoga nie
+  zostały wprowadzone (te kolumny są wąskie) – zostają przy ikonie z podpowiedzią.
 
 ## Co dalej
 

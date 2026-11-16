@@ -25,6 +25,40 @@ progress bar under the header, a text in the footer or a toast of the same windo
 | `c:ActionButton` | `App/Controls`, styles `Ad.ActionButton`, `Ad.AccentActionButton`, `Ad.DialogActionButton`, `Ad.AccentDialogActionButton` | A button with three contents in one cell: its own at rest, ring + "Cancel" while the operation runs, ring + "Stopping..." after the press. `Command` starts, `CancelCommand` stops; Enter starts and never cancels; it keeps the keyboard focus by staying enabled. | A command that starts an operation that can be stopped. Replaces the old pair "start button + Stop button". |
 | `c:ProgressRing` | `App/Controls` | A 14 or 16 px ring, indeterminate or showing a part done; costs nothing while hidden. | "Busy" where there is no sentence to say (the quick search of the main window, the images of a template being read). |
 | Notes | `Ad.Note.Info`, `Ad.Note.Attention`, `Ad.Note.Error` on a `ContentControl` whose content is a wrapping `TextBlock` | A glyph of the severity and a sentence, no fill, no border. The glyph may be another of the four status icons: `c:AdNote.Icon="{x:Static c:AppIcons.StatusInfo}"` (V2b-5b; the colour stays the style's). | A sentence that belongs to one field or one section and is true for as long as that content is shown. |
+| `c:StatusPill` | `App/Controls`, style `Ad.StatusPill`; kinds in `Presentation/Feedback/StatusPillKind` | A small rounded label: the picture of its `Kind` (`Ok`, `Info`, `Attention`, `Error`, `Unknown`) at 16 px and a short `Text`, which is also its automation name. The surface only tints the kind; a 1 px stroke outlines it in High Contrast. Not interactive. (V2b-5b) | The state of **one row or one item**: the result of a check, a health state, a channel state. |
+| `c:EmptyState` | `App/Controls`, style `Ad.EmptyState`; the state in `Presentation/Feedback/EmptyListState` | A 48 px picture (`Icon`, an `ObjectIcon`), one sentence (`Message`) and at most one action (`ActionText` + `ActionCommand`, the link button of the line), centred in its host and collapsed while `Message` is empty. A group for a screen reader, named by its sentence. (V2b-5b) | A list that was **read** and has no rows. Never for "could not be read" (the line's error) and never for the first read (a skeleton). |
+| `c:Skeleton` | `App/Controls`, style `Ad.Skeleton` | Placeholder rows (`RowCount`, at most 12, of `RowHeight`): a picture and three grey bars per row. `IsActive` shows it, the bars are drawn after `Motion.WorkingDelay`; still without motion, a gentle opacity pulse (`Motion.Pulse`, over `Motion.Shimmer`) with it and only while visible. Decorative (no automation peer, no focus, no pointer). (V2b-5b) | The **first read** of a list, in place of blank space. Never for a reload of rows that were shown. |
+
+## Pill, empty state or skeleton? (V2b-5b)
+
+Three small controls say something about *an item* or *a list*, and none of them is a status of a page:
+
+| You have | Use | Not |
+|---|---|---|
+| The state of one row or one card - "OK", "Warning", "Not checked" - that belongs to that item and is true while it is shown | `c:StatusPill` in the row: `Kind` from a computed property of the row view model (`PillKind`), `Text` the word you already have (`StatusText`) | A coloured glyph with the word run into the title, or a glyph alone with the word in a tool tip: the picture and the word have to be there together |
+| A list that was read **and** has no rows | `c:EmptyState` over the list: one sentence that says why, and the next step as the one action | A text in the middle of the list that the list invented (replace it - the sentence is said once), or an empty state for a failed read (that is the line's error with Retry) |
+| A list that is being read for the **first** time | `c:Skeleton` over the body of the list, `IsActive` bound to the first-read state of the view model | Placeholder rows for a reload, a stopped read or a failed one - the rows come back at once, or the line says why they do not |
+
+How each is wired (the first uses are the model):
+
+- **Pill.** The view model gives the row a `StatusPillKind` (`ReadinessRowViewModel.PillKind`, `WatchdogHealthCheckRowViewModel.PillKind`: a
+  pure mapping, tested on Linux) and the word; the view binds `Kind` and `Text` one way. Put pills of a column in one `Grid.IsSharedSizeScope`
+  with `SharedSizeGroup` on their column, so the titles line up whatever the width of the words (the readiness report, the health checks). Do
+  not put a pill where its column is narrow (the channel and domain controller rows of the Watchdog keep their glyph with a tool tip).
+- **Empty state.** The view model has one computed property, `EmptyState` (`EmptyListState`: the sentence, the `ObjectIcon`, at most one
+  `PageStatusAction`), that is `EmptyListState.None` unless the list **was read well** (a flag of the load that ended without a failure or a
+  stop), is not loading, has no error and has no rows. Raise `PropertyChanged` for it where those change. The action is *Clear the filter* or
+  *Clear the search* when a filter hides everything (a command that puts the filter out - and reads once if a server-side chip was on),
+  otherwise *Refresh*. The view binds the four properties one way (`Message`, `Icon`, `ActionText`, `ActionCommand`) and needs no visibility
+  of its own. The list's own text for "nothing matches" is removed, not kept beside it.
+- **Skeleton.** The view model has `ShowsSkeleton` (loading, the first read of a location that was not shown, no error, no rows - a reload of
+  the same source, `ReplaceLocationAsync`, a stop and a failure never are); the view puts the control in the grid cell of the list with a top
+  margin of the column header (29 px) and binds `IsActive`. The 150 ms before the bars are the control's own (`IStatusScheduler`, as the
+  status line's), so a test replaces `Skeleton.Scheduler` with a `ManualStatusScheduler` and never waits.
+
+The sentence of an empty state and the word of a pill are strings of both languages like every other (`List.EmptyFiltered`, `PkiTpl.EmptyNone`).
+`XamlSourceTests` fails a pill without `Kind` and `Text`, an empty state without `Message` or with a label and no command (or the other way
+round), and a skeleton that is never `IsActive`; and the three styles may not write a colour of their own.
 
 ## Sort every message first
 
@@ -215,6 +249,12 @@ Presentation tests run on Linux and are the bulk: the view models run against th
   - **Warnings are errors.** A nullable warning in a UI test file fails the Windows build; the project compiles on Linux, so build the
     whole solution after every change of a member (`dotnet build AdMng.slnx -c Release`), not just the project you touched. A wrong
     `StaticResource` key compiles and fails only at run time on Windows; never `Freeze()` a pen or brush built from a theme brush.
+- **The controls of V2b-5b:** `StatusPillUiTests`, `EmptyStateUiTests`, `SkeletonUiTests` (the template parts, what each property does, the
+  automation name and peer, the delay of the skeleton with a `ManualStatusScheduler`, the pulse only with `MotionScope.On()`); the first uses
+  through the real views: `ObjectListEmptyStateUiTests` (a held read for the placeholder rows - `FakeDirectorySession.BeforeOperationAsync`
+  holds a search without blocking a thread - and a reload that shows none), the GPO list in `GroupPolicyEditingUiTests`, the PKI templates in
+  `PkiOverviewUiTests`, the pills in `ReadinessStatusUiTests` and `WatchdogViewTests`; on Linux `ObjectListEmptyStateTests`,
+  `StatusPillKindTests` and the empty states in `GroupPolicyEditingComfortTests` and `PkiTemplatesTests`.
 - **Source rules** (`XamlSourceTests`, they run on Windows CI; prove a new one on Linux with a throwaway script that repeats its
   expression): the two lists above; `NoXamlFile_MentionsABannerOfBefore_OrHasAProgressBarThatSaysStatus` (no XAML file names a banner
   style, and the only `ProgressBar` is the row of an activity: `ProgressBarsOfARow`); every `Ad.*` key that is used is defined; the closed
@@ -233,9 +273,10 @@ and notes for the rest. And, by the owner's decisions of V2b-5b: Stop finishes t
 say; a note may choose its glyph from the closed set of four.
 
 **Not started** (*What V2b-5 has to do* in the design note; the owner has decided them in V2b-5b and the later units build them):
-`StatusPill`, `EmptyState` (the answer for lists without rows; the 28 px band of a line with nothing to say **stays** - owner's decision
-of V2b-5b) and `Skeleton`; taskbar progress; the close question of a window closed during an operation. Built in unit 2 of V2b-5b and
-described above: the delay before "Working", the throttled announcement of a summary, the glyph of a note. Still open from them: a mark in
+taskbar progress; the close question of a window closed during an operation. Built in unit 2 of V2b-5b and described above: the delay
+before "Working", the throttled announcement of a summary, the glyph of a note; and in unit 3: `StatusPill`, `EmptyState` (the answer for
+lists without rows; the 28 px band of a line with nothing to say **stays** - owner's decision of V2b-5b) and `Skeleton`, each with its
+first use. Still open from them: a mark in
 the tab header of a page that failed while it was not shown (6.7), and whether the selection ("· 1 selected") belongs in the summary that is
 announced (*V2b-5b as built*, *Open*). The list *Still the owner's* in *What V2b has to do* holds the smaller questions of the units (the
 loudness of the caution glyph of the notes, where the press-time answers of the editors belong, whether *Refresh* is the Cancel of a read the
