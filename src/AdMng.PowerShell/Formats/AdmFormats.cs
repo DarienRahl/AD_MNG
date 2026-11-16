@@ -28,26 +28,26 @@ internal static class AdmFormats
     {
         yield return Table(
             "AdMng.User",
-            Column("Name", 24),
-            Column("sAMAccountName", 18),
-            Column("Enabled", 8),
+            Column("Name", 22),
+            Column("sAMAccountName", 20),
+            Column("Enabled", 7),
             Column("DistinguishedName", 0));
         yield return Table(
             "AdMng.Computer",
-            Column("Name", 18),
-            Column("Enabled", 8),
-            Column("operatingSystem", 24),
+            Column("Name", 16),
+            Column("Enabled", 7),
+            Column("operatingSystem", 22),
             Column("DistinguishedName", 0));
         yield return Table(
             "AdMng.Group",
-            Column("Name", 26),
+            Column("Name", 24),
             Column("GroupScope", 12),
-            Column("GroupCategory", 14),
+            Column("GroupCategory", 13),
             Column("DistinguishedName", 0));
         yield return Table(
             "AdMng.Object",
             Column("ObjectKind", 18),
-            Column("Name", 26),
+            Column("Name", 24),
             Column("DistinguishedName", 0));
     }
 

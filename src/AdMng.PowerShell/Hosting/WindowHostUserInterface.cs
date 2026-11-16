@@ -121,8 +121,13 @@ internal sealed class WindowHostUserInterface : PSHostUserInterface
 
     private OutputSink? Sink => Volatile.Read(ref _sink);
 
+    /// <summary>
+    /// The engine's own formatting decorates table headers, list labels and error text with ANSI escape sequences (the
+    /// <c>$PSStyle</c> of PowerShell 7.2 and later) and leaves it to the host to remove them; the window shows text and colours
+    /// them itself from the items, so none may reach it (R1 part 2: found by reading the formatted output of the read commands).
+    /// </summary>
     private void Text(PowerShellStream stream, string text, ConsoleColor? foreground = null, ConsoleColor? background = null) =>
-        Sink?.Post(new PowerShellTextItem(stream, text ?? string.Empty, foreground, background));
+        Sink?.Post(new PowerShellTextItem(stream, GetOutputString(text ?? string.Empty, supportsVirtualTerminal: false), foreground, background));
 
     /// <summary>Posts a prompt and waits for its answer on the pipeline thread; a stop or a missing run cancels it.</summary>
     private object? Ask(PowerShellPromptItem item)

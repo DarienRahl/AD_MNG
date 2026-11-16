@@ -138,6 +138,19 @@ public sealed class GetAdmCommandsTests
     }
 
     [Fact]
+    public async Task The_commands_work_in_constrained_language_the_default_and_give_the_same_result_in_the_trusted_mode()
+    {
+        await using var harness = await ReadHarness.CreateAsync();
+
+        var constrained = await harness.RunAsync("Get-AdmUser -Department IT | Sort-Object sAMAccountName | ForEach-Object { $_.sAMAccountName + '|' + (Get-AdmVersion).LanguageMode }");
+        await harness.Session.SetLanguageModeAsync(PowerShellLanguageMode.Full, TestContext.Current.CancellationToken);
+        var full = await harness.RunAsync("Get-AdmUser -Department IT | Sort-Object sAMAccountName | ForEach-Object { $_.sAMAccountName + '|' + (Get-AdmVersion).LanguageMode }");
+
+        Assert.Equal(["jan.kowalski|Constrained", "lukasz.wisniewski|Constrained"], constrained.Objects.Select(o => o.ToString()).ToArray());
+        Assert.Equal(["jan.kowalski|Full", "lukasz.wisniewski|Full"], full.Objects.Select(o => o.ToString()).ToArray());
+    }
+
+    [Fact]
     public async Task Get_AdmObject_finds_one_object_by_dn_guid_sam_and_sid_of_any_kind()
     {
         await using var harness = await ReadHarness.CreateAsync();

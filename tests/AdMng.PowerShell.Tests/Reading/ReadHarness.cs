@@ -7,7 +7,11 @@ namespace AdMng.PowerShell.Tests.Reading;
 /// <summary>What a script produced in object mode: the objects, the error and warning text, how it ended.</summary>
 internal sealed record ScriptResult(IReadOnlyList<PSObject> Objects, string Errors, string Warnings, PowerShellRunEndItem End)
 {
-    public PSObject Single() => Assert.Single(Objects);
+    public PSObject Single()
+    {
+        Assert.True(Objects.Count == 1, $"{Objects.Count} objects instead of one; errors: {Errors}");
+        return Objects[0];
+    }
 
     public object? Property(string name) => Single().Properties[name]?.Value;
 
@@ -57,6 +61,12 @@ internal sealed class ReadHarness : IAsyncDisposable
         var builder = new FakeDirectoryBuilder();
         var company = builder.AddSampleCompany();
         seed?.Invoke(builder, company);
+        return await CreateAsync(builder, company);
+    }
+
+    /// <summary>A harness over a directory the test built itself (a schema of its own, extra objects).</summary>
+    public static async Task<ReadHarness> CreateAsync(FakeDirectoryBuilder builder, SampleCompany company)
+    {
         var context = new FakeWindowContext(builder.Session);
         var session = await TestSessions.CreateAsync(context);
         return new ReadHarness(builder, company, context, session);
