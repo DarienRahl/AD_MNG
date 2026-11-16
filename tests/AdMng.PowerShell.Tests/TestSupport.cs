@@ -10,10 +10,10 @@ internal sealed class FakeWindowContext : IAdmWindowContext
 {
     private readonly AdmWindowContext _inner;
 
-    public FakeWindowContext(FakeDirectorySession? session = null)
+    public FakeWindowContext(FakeDirectorySession? session = null, IAdmWindowServices? services = null)
     {
         Session = session ?? new FakeDirectorySession();
-        _inner = new AdmWindowContext(Session, "1.2.3-test");
+        _inner = new AdmWindowContext(Session, "1.2.3-test", services);
     }
 
     public FakeDirectorySession Session { get; }
@@ -23,6 +23,64 @@ internal sealed class FakeWindowContext : IAdmWindowContext
     public string ApplicationVersion => _inner.ApplicationVersion;
 
     public AdmKnownContainers KnownContainers => _inner.KnownContainers;
+
+    public IAdmWindowServices Services => _inner.Services;
+}
+
+/// <summary>What the window's commands asked the program to do: the grids shown, the objects opened, the exports written (none really is).</summary>
+internal sealed class RecordingWindowServices : IAdmWindowServices
+{
+    public List<PowerShellGridTable> Grids { get; } = [];
+
+    public List<string> Opened { get; } = [];
+
+    public List<(PowerShellGridTable Table, string? Path, char? Delimiter)> Exports { get; } = [];
+
+    /// <summary>What <see cref="OpenObjectAsync"/> answers.</summary>
+    public bool OpenResult { get; set; } = true;
+
+    /// <summary>What <see cref="ExportListAsync"/> answers when it is given no path (the operator's choice in Save As); null is a cancelled dialog.</summary>
+    public string? ChosenPath { get; set; }
+
+    /// <summary>A call waits for this before it answers (a test that stops the command while it waits).</summary>
+    public TaskCompletionSource? Hold { get; set; }
+
+    public CancellationToken LastToken { get; private set; }
+
+    /// <summary>Completes when the first call arrives (a test waits for it instead of sleeping, then stops the command).</summary>
+    public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public async Task ShowGridAsync(PowerShellGridTable table, CancellationToken cancellationToken)
+    {
+        LastToken = cancellationToken;
+        Entered.TrySetResult();
+        await WaitAsync(cancellationToken);
+        Grids.Add(table);
+    }
+
+    public async Task<bool> OpenObjectAsync(string distinguishedName, CancellationToken cancellationToken)
+    {
+        LastToken = cancellationToken;
+        await WaitAsync(cancellationToken);
+        Opened.Add(distinguishedName);
+        return OpenResult;
+    }
+
+    public async Task<string?> ExportListAsync(PowerShellGridTable table, string? path, char? delimiter, CancellationToken cancellationToken)
+    {
+        LastToken = cancellationToken;
+        await WaitAsync(cancellationToken);
+        Exports.Add((table, path, delimiter));
+        return path ?? ChosenPath;
+    }
+
+    private async Task WaitAsync(CancellationToken cancellationToken)
+    {
+        if (Hold is { } hold)
+        {
+            await hold.Task.WaitAsync(cancellationToken);
+        }
+    }
 }
 
 /// <summary>A lockdown probe that reports what a test says (and counts how often it was asked).</summary>

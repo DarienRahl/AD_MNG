@@ -20,6 +20,9 @@ public static class AdmCommands
         ("Get-AdmComputer", typeof(GetAdmComputerCommand)),
         ("Get-AdmGroupMember", typeof(GetAdmGroupMemberCommand)),
         ("Search-AdmObject", typeof(SearchAdmObjectCommand)),
+        ("Out-AdmGrid", typeof(OutAdmGridCommand)),
+        ("Open-AdmObject", typeof(OpenAdmObjectCommand)),
+        ("Export-AdmList", typeof(ExportAdmListCommand)),
     ];
 
     /// <summary>The MAML help file of the commands (English), beside the assembly.</summary>

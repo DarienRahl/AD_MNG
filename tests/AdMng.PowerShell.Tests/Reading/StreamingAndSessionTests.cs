@@ -260,5 +260,7 @@ public sealed class StreamingAndSessionTests
         public string ApplicationVersion => _inner.ApplicationVersion;
 
         public AdmKnownContainers KnownContainers => _inner.KnownContainers;
+
+        public IAdmWindowServices Services => _inner.Services;
     }
 }

@@ -4,8 +4,8 @@ namespace AdMng.PowerShell.Commands;
 
 /// <summary>
 /// What an AD Manager command may use of the window it runs in (docs/dev/r1-powershell-window.md 4.5). The session injects
-/// it through the host, so no global, no variable and no parameter carries it. Part 2 adds the window services (open an
-/// object, the grid, the save-path chooser); R2 adds the pending plan.
+/// it through the host, so no global, no variable and no parameter carries it. <see cref="Services"/> are the window's own
+/// services (open an object, the grid, the export); R2 adds the pending plan.
 /// </summary>
 public interface IAdmWindowContext
 {
@@ -21,4 +21,7 @@ public interface IAdmWindowContext
 
     /// <summary>The containers the window's commands returned so far, for the completion of <c>-SearchBase</c> (memory only, bounded).</summary>
     AdmKnownContainers KnownContainers { get; }
+
+    /// <summary>What <c>Out-AdmGrid</c>, <c>Open-AdmObject</c> and <c>Export-AdmList</c> call back into; <see cref="UnavailableWindowServices"/> when the host gave none.</summary>
+    IAdmWindowServices Services { get; }
 }

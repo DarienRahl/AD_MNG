@@ -39,6 +39,20 @@ public abstract class AdmCmdlet : PSCmdlet
         }
     }
 
+    /// <summary>Waits for <paramref name="task"/> on the pipeline thread; a stop turns into <see cref="PipelineStoppedException"/>.</summary>
+    protected void Wait(Task task)
+    {
+        ArgumentNullException.ThrowIfNull(task);
+        try
+        {
+            task.GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException) when (_stop.IsCancellationRequested)
+        {
+            throw new PipelineStoppedException();
+        }
+    }
+
     /// <summary>
     /// Pulls <paramref name="source"/> on the pipeline thread and writes each mapped item as it arrives (streaming: nothing
     /// is collected). A stop ends the pull and the pipeline.

@@ -1088,4 +1088,157 @@
     </command:examples>
     <maml:relatedLinks />
   </command:command>
+  <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+    <command:details>
+      <command:name>Out-AdmGrid</command:name>
+      <maml:description><maml:para>Shows the objects of the pipeline in a grid of the program.</maml:para></maml:description>
+      <command:verb>Out</command:verb>
+      <command:noun>AdmGrid</command:noun>
+    </command:details>
+    <maml:description><maml:para>Out-AdmGrid opens a window with the objects as rows and their properties as columns, the way the lists of the program look: click a column to sort, type in the filter box to narrow the rows, copy the selected rows with Ctrl+C, export them to CSV (formulas are protected), and open an object with Enter or a double-click when the objects have a DistinguishedName. Every value is turned into text before the grid opens, and nothing is written anywhere unless you export from the grid. Like Out-GridView it opens a new window each time.</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Out-AdmGrid</maml:name>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue)" position="named">
+          <maml:name>InputObject</maml:name>
+          <command:parameterValue required="true" variableLength="false">PSObject</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Title</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue)" position="named" aliases="none">
+        <maml:name>InputObject</maml:name>
+        <maml:description><maml:para>The objects to show; normally they come from the pipeline. An array is shown row by row.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">PSObject</command:parameterValue>
+        <dev:type><maml:name>PSObject</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Title</maml:name>
+        <maml:description><maml:para>The title of the grid window. The default is the name of the command.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes><command:inputType><dev:type><maml:name>System.Management.Automation.PSObject</maml:name><maml:uri /></dev:type><maml:description><maml:para>Any objects.</maml:para></maml:description></command:inputType></command:inputTypes>
+    <command:returnValues><command:returnValue><dev:type><maml:name>None</maml:name><maml:uri /></dev:type><maml:description><maml:para>Nothing is returned.</maml:para></maml:description></command:returnValue></command:returnValues>
+    <command:examples>
+      <command:example>
+        <maml:title>Example 1</maml:title>
+        <dev:code>Out-AdmGrid -InputObject (Get-AdmUser -Department IT) -Title 'IT staff'</dev:code>
+        <dev:remarks><maml:para>Shows the users of the department in a grid that can be sorted, filtered, copied and exported. The same with the pipeline: Get-AdmUser -Department IT | Out-AdmGrid.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks />
+  </command:command>
+  <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+    <command:details>
+      <command:name>Open-AdmObject</command:name>
+      <maml:description><maml:para>Opens the properties of an object in the program.</maml:para></maml:description>
+      <command:verb>Open</command:verb>
+      <command:noun>AdmObject</command:noun>
+    </command:details>
+    <maml:description><maml:para>Open-AdmObject opens the properties window of an object, as a double-click in a list does. The identity is a distinguished name, an objectGUID, a SID, a sAMAccountName or a user principal name. The object is read first through the connection of this window (one domain controller), so a name that does not exist is an error and no window is opened for it. One command opens at most 10 windows.</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Open-AdmObject</maml:name>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0">
+          <maml:name>Identity</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0" aliases="DistinguishedName">
+        <maml:name>Identity</maml:name>
+        <maml:description><maml:para>The object: a distinguished name, an objectGUID, a SID, a sAMAccountName or a user principal name. Accepts what the pipeline brings: names as text, or objects that have a DistinguishedName.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        <dev:type><maml:name>String[]</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes><command:inputType><dev:type><maml:name>System.String[]</maml:name><maml:uri /></dev:type><maml:description><maml:para>Identities as text, or objects that have a DistinguishedName.</maml:para></maml:description></command:inputType></command:inputTypes>
+    <command:returnValues><command:returnValue><dev:type><maml:name>None</maml:name><maml:uri /></dev:type><maml:description><maml:para>Nothing is returned.</maml:para></maml:description></command:returnValue></command:returnValues>
+    <command:examples>
+      <command:example>
+        <maml:title>Example 1</maml:title>
+        <dev:code>Open-AdmObject -Identity jkowalski</dev:code>
+        <dev:remarks><maml:para>Opens the properties of the account. The same with the pipeline: Get-AdmUser jkowalski | Open-AdmObject.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks />
+  </command:command>
+  <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+    <command:details>
+      <command:name>Export-AdmList</command:name>
+      <maml:description><maml:para>Writes the objects of the pipeline to a CSV file, the way the program exports a list.</maml:para></maml:description>
+      <command:verb>Export</command:verb>
+      <command:noun>AdmList</command:noun>
+    </command:details>
+    <maml:description><maml:para>Export-AdmList writes a CSV file with the properties of the objects as columns. It protects formulas (a value that begins with =, +, - or @ is written so that Excel does not run it), uses the list separator of the regional settings and UTF-8 with a signature, as the list export of the program does. It writes only to the file named in -Path, or to the one you choose in the Save As window when -Path is missing - never to a default place; if you close the window without a file nothing is written. An existing file is replaced only with -Force.</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Export-AdmList</maml:name>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue)" position="named">
+          <maml:name>InputObject</maml:name>
+          <command:parameterValue required="true" variableLength="false">PSObject</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="0">
+          <maml:name>Path</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Delimiter</maml:name>
+          <command:parameterValue required="true" variableLength="false">Char</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Force</maml:name>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue)" position="named" aliases="none">
+        <maml:name>InputObject</maml:name>
+        <maml:description><maml:para>The objects to export; normally they come from the pipeline. An array is written row by row.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">PSObject</command:parameterValue>
+        <dev:type><maml:name>PSObject</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="0" aliases="LiteralPath, PSPath">
+        <maml:name>Path</maml:name>
+        <maml:description><maml:para>The file to write; it is taken literally, so brackets are not wildcards. Without it the Save As window opens and nothing is written until you choose a file.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Delimiter</maml:name>
+        <maml:description><maml:para>The field separator, one visible character. The default is the list separator of the regional settings (a semicolon in Poland).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">Char</command:parameterValue>
+        <dev:type><maml:name>Char</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Force</maml:name>
+        <maml:description><maml:para>Replaces the file when it exists. Without it an existing file is an error and nothing is written.</maml:para></maml:description>
+        <dev:type><maml:name>SwitchParameter</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes><command:inputType><dev:type><maml:name>System.Management.Automation.PSObject</maml:name><maml:uri /></dev:type><maml:description><maml:para>Any objects.</maml:para></maml:description></command:inputType></command:inputTypes>
+    <command:returnValues><command:returnValue><dev:type><maml:name>AdMng.PowerShell.Commands.AdmExportResult</maml:name><maml:uri /></dev:type><maml:description><maml:para>The file written and the number of rows and columns.</maml:para></maml:description></command:returnValue></command:returnValues>
+    <command:examples>
+      <command:example>
+        <maml:title>Example 1</maml:title>
+        <dev:code>Export-AdmList -InputObject (Get-AdmUser -Department IT) -Path C:\Temp\it.csv</dev:code>
+        <dev:remarks><maml:para>Writes the users of the department to the file. The same with the pipeline: Get-AdmUser -Department IT | Export-AdmList C:\Temp\it.csv.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks />
+  </command:command>
 </helpItems>

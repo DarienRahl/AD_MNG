@@ -12,11 +12,12 @@ public sealed class CommandCatalogTests
 {
     /// <summary>
     /// R1 builds the read commands of ADR-0010 decision 4: part 2 the commands that read the directory, part 4 Out-AdmGrid,
-    /// Open-AdmObject and Export-AdmList. R2 changes this list.
+    /// Open-AdmObject and Export-AdmList (they show, open and export what the window already read). R2 changes this list.
     /// </summary>
     private static readonly string[] Expected =
     [
         "Get-AdmVersion", "Get-AdmObject", "Get-AdmUser", "Get-AdmGroup", "Get-AdmComputer", "Get-AdmGroupMember", "Search-AdmObject",
+        "Out-AdmGrid", "Open-AdmObject", "Export-AdmList",
     ];
 
     /// <summary>The only verbs of R1's commands: they read, search or report.</summary>

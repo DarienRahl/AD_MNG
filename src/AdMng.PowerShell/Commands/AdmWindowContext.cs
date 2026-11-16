@@ -9,12 +9,16 @@ namespace AdMng.PowerShell.Commands;
 /// </summary>
 public sealed class AdmWindowContext : IAdmWindowContext
 {
-    public AdmWindowContext(IDirectoryReader reader, string applicationVersion)
+    /// <param name="reader">The window's directory session; the context keeps only a read-only view of it.</param>
+    /// <param name="applicationVersion">The program's version.</param>
+    /// <param name="services">The window's own services for the grid, the object dialog and the export; none when the host has none.</param>
+    public AdmWindowContext(IDirectoryReader reader, string applicationVersion, IAdmWindowServices? services = null)
     {
         ArgumentNullException.ThrowIfNull(reader);
         ArgumentNullException.ThrowIfNull(applicationVersion);
         Reader = ReadOnlyDirectoryReader.Of(reader);
         ApplicationVersion = applicationVersion;
+        Services = services ?? UnavailableWindowServices.Instance;
     }
 
     /// <inheritdoc />
@@ -25,4 +29,7 @@ public sealed class AdmWindowContext : IAdmWindowContext
 
     /// <inheritdoc />
     public AdmKnownContainers KnownContainers { get; } = new();
+
+    /// <inheritdoc />
+    public IAdmWindowServices Services { get; }
 }
