@@ -25571,4 +25571,48 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>{0}&#10;&#10;Tej operacji nie można zatrzymać po jej rozpoczęciu. Poczekaj, aż się zakończy, i zamknij okno.</value>
   </data>
   <!-- V interface renewal (V2): end -->
+  <!-- R1 PowerShell window: begin -->
+  <data name="PowerShell.Policy.Note" xml:space="preserve">
+    <value>Zasady rejestrują PowerShell w tym oknie.</value>
+  </data>
+  <data name="PowerShell.Policy.Transcription" xml:space="preserve">
+    <value>Transkrypcja jest włączona ({0}): polecenia wykonywane w tym oknie i ich wyniki, także dane z katalogu, są zapisywane w {1}.</value>
+  </data>
+  <data name="PowerShell.Policy.TranscriptionDefault" xml:space="preserve">
+    <value>Transkrypcja jest włączona ({0}): polecenia wykonywane w tym oknie i ich wyniki, także dane z katalogu, są zapisywane w folderze Dokumenty Twojego konta.</value>
+  </data>
+  <data name="PowerShell.Policy.ScriptBlockLogging" xml:space="preserve">
+    <value>Rejestrowanie bloków skryptów jest włączone ({0}): treść poleceń wykonywanych w tym oknie jest zapisywana w dzienniku zdarzeń systemu Windows (PowerShellCore/Operational).</value>
+  </data>
+  <data name="PowerShell.Policy.ModuleLogging" xml:space="preserve">
+    <value>Rejestrowanie modułów jest włączone ({0}, moduły: {1}): szczegóły poleceń tych modułów są zapisywane w dzienniku zdarzeń systemu Windows.</value>
+  </data>
+  <data name="PowerShell.Policy.NoModules" xml:space="preserve">
+    <value>brak na liście</value>
+  </data>
+  <data name="PowerShell.Policy.Closing" xml:space="preserve">
+    <value>AD Manager nie zmienia tych zasad i ich nie omija.</value>
+  </data>
+  <data name="PowerShell.Policy.Origin.CoreComputer" xml:space="preserve">
+    <value>zasady komputera</value>
+  </data>
+  <data name="PowerShell.Policy.Origin.CoreUser" xml:space="preserve">
+    <value>zasady użytkownika</value>
+  </data>
+  <data name="PowerShell.Policy.Origin.WindowsComputer" xml:space="preserve">
+    <value>zasady komputera dla Windows PowerShell</value>
+  </data>
+  <data name="PowerShell.Policy.Origin.WindowsUser" xml:space="preserve">
+    <value>zasady użytkownika dla Windows PowerShell</value>
+  </data>
+  <data name="PowerShell.Policy.Origin.FileComputer" xml:space="preserve">
+    <value>plik powershell.config.json silnika</value>
+  </data>
+  <data name="PowerShell.Policy.Origin.FileUser" xml:space="preserve">
+    <value>Twój plik powershell.config.json</value>
+  </data>
+  <data name="PowerShell.Policy.Origin.Unknown" xml:space="preserve">
+    <value>zasady</value>
+  </data>
+  <!-- R1 PowerShell window: end -->
 </root>

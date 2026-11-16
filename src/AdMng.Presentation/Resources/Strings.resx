@@ -25571,4 +25571,48 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>{0}&#10;&#10;This operation cannot be stopped once it has started. Wait until it ends, then close the window.</value>
   </data>
   <!-- V interface renewal (V2): end -->
+  <!-- R1 PowerShell window: begin -->
+  <data name="PowerShell.Policy.Note" xml:space="preserve">
+    <value>A policy records PowerShell in this window.</value>
+  </data>
+  <data name="PowerShell.Policy.Transcription" xml:space="preserve">
+    <value>Transcription is on ({0}): the commands you run here and their results, which can include directory data, are written to {1}.</value>
+  </data>
+  <data name="PowerShell.Policy.TranscriptionDefault" xml:space="preserve">
+    <value>Transcription is on ({0}): the commands you run here and their results, which can include directory data, are written to the Documents folder of your account.</value>
+  </data>
+  <data name="PowerShell.Policy.ScriptBlockLogging" xml:space="preserve">
+    <value>Script block logging is on ({0}): the text of the commands you run here is written to the Windows event log (PowerShellCore/Operational).</value>
+  </data>
+  <data name="PowerShell.Policy.ModuleLogging" xml:space="preserve">
+    <value>Module logging is on ({0}, modules: {1}): details of the commands of these modules are written to the Windows event log.</value>
+  </data>
+  <data name="PowerShell.Policy.NoModules" xml:space="preserve">
+    <value>none listed</value>
+  </data>
+  <data name="PowerShell.Policy.Closing" xml:space="preserve">
+    <value>AD Manager does not change these policies and does not get around them.</value>
+  </data>
+  <data name="PowerShell.Policy.Origin.CoreComputer" xml:space="preserve">
+    <value>computer policy</value>
+  </data>
+  <data name="PowerShell.Policy.Origin.CoreUser" xml:space="preserve">
+    <value>user policy</value>
+  </data>
+  <data name="PowerShell.Policy.Origin.WindowsComputer" xml:space="preserve">
+    <value>computer policy of Windows PowerShell</value>
+  </data>
+  <data name="PowerShell.Policy.Origin.WindowsUser" xml:space="preserve">
+    <value>user policy of Windows PowerShell</value>
+  </data>
+  <data name="PowerShell.Policy.Origin.FileComputer" xml:space="preserve">
+    <value>powershell.config.json of the engine</value>
+  </data>
+  <data name="PowerShell.Policy.Origin.FileUser" xml:space="preserve">
+    <value>your powershell.config.json</value>
+  </data>
+  <data name="PowerShell.Policy.Origin.Unknown" xml:space="preserve">
+    <value>policy</value>
+  </data>
+  <!-- R1 PowerShell window: end -->
 </root>
