@@ -72,7 +72,15 @@ internal static class Program
         await using var second = await CreateAsync();
         var secondMs = watch.ElapsedMilliseconds;
 
-        await RunAsync(first, "Get-Date; Get-Command *-Adm* | Out-Null; Get-Module -ListAvailable | Out-Null; 1..200 | ForEach-Object { \"line $_\" } | Out-String | Out-Null; Get-Process | Select-Object -First 3 | Format-Table; Write-Warning 'w'; Get-AdmVersion");
+        await RunAsync(first, "Get-Date; Get-Command *-Adm* | Out-Null; 1..200 | ForEach-Object { \"line $_\" } | Out-String | Out-Null; Get-Date | Format-List; Write-Warning 'w'; Get-AdmVersion");
+
+        // Module discovery as the engine does it for an explicit listing. Not on Windows: there the engine's files go to known
+        // folders that this test cannot watch, and a listing of a runner's installed modules (hundreds) takes from 20 s to minutes.
+        if (!OperatingSystem.IsWindows())
+        {
+            await RunAsync(first, "Get-Module -ListAvailable | Out-Null");
+        }
+
         await first.CompleteAsync("Get-Ad", 6, CancellationToken.None);
         await first.CompleteAsync("$PS", 3, CancellationToken.None);
         first.Tokenize("Get-AdmVersion -Verbose | Where-Object { $_ }");

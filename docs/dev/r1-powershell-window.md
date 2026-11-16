@@ -431,8 +431,9 @@ few tests, the real engine):
   switched **on** in its environment runs two sessions, a script touching the formatter, module discovery, completion, syntax and
   the history policy, and the folder holds no file afterwards; a **positive control** (an ordinary runspace of the SDK, Unix
   only) leaves `telemetry.uuid` there, so the probe would see it; the opt-in **module analysis cache proof**
-  (`ADMNG_POWERSHELL_SLOW_TESTS=1`, about 40 s). The probe is not an xunit run on purpose: the first version started this test
-  assembly as the child (`-method`) and took 18.6 s on the Windows runner, the slowest test of the whole CI run.
+  (`ADMNG_POWERSHELL_SLOW_TESTS=1`, about 40 s). The probe is not an xunit run on purpose (the first version started this test
+  assembly as the child and took 18.6 s on the Windows runner) and does not list modules on Windows (`Get-Module -ListAvailable`
+  on a runner with hundreds of modules took 30 s to minutes); on Unix it does, with the module path of the machine.
 - **`HistoryPolicyTests`**, **`SyntaxTests`**, **`CompletionTests`** – section 4.9 (the matrices are in the tests); the
   completion test has a mutation check (it fails when the file system matches are not dropped).
 - **`CommandCatalogTests`** – section 4.8, and the context mechanism: `Get-AdmVersion` reports the fake session's domain, DC and
@@ -557,9 +558,12 @@ none); a mutation check (the file-completion filter removed) made the completion
 2 failed) found two mistakes of the tests, not of the engine: the pipe test listed `\\.\pipe\PSHost.*` of every process on
 the runner (the `pwsh` that runs the CI step has one) – it now counts only the pipes with its own process id – and the
 PSReadLine test counted the modules *available* on disk (the runner has PSReadLine installed: listing it is fine, loading it is
-what is refused). The same run showed that the "no files" test started the test assembly as its child process and took 18.6 s
-(the slowest test of the whole run): the child is now the small `AdMng.PowerShell.Probe` program. The engine tests themselves
-(session, host, language mode, guards, completion, catalog, `sni`, the "no files" child) passed on Windows at their first run.
+what is refused). The same run showed that the "no files" test started the test assembly as its child process and took 18.6 s (the slowest test of
+the whole run); with the small `AdMng.PowerShell.Probe` program it still took 29.5 s in one run and timed out at 120 s in another
+run of the same commit: the cause is `Get-Module -ListAvailable`, which on a Windows runner analyses the hundreds of modules of
+the image (and writes to folders the test cannot watch anyway), so the probe skips that listing on Windows. The engine tests
+themselves (session, host, language mode, guards, completion, catalog, `sni`, the "no files" child) passed on Windows at their
+first run.
 The result of the last Windows run is recorded in the report of the part.
 
 **What could not be verified on Linux, and why it should still be right.**
