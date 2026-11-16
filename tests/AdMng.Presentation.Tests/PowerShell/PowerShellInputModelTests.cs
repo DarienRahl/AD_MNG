@@ -17,6 +17,90 @@ public sealed class PowerShellInputModelTests
 
     private static PowerShellCompletionMatch Match(string text, PowerShellCompletionKind kind = PowerShellCompletionKind.Command) => new(text, text, kind, null);
 
+    // ---- Highlighting off the UI thread ---------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ALongText_IsHighlightedOnAPoolThread_AndNextChangeStopsThat()
+    {
+        var (input, session, _) = Create();
+        var hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        session.TokenizeHook = text =>
+        {
+            // Only the long text is held, on its pool thread; the short one that supersedes it is tokenized at once.
+            if (text.Length > PowerShellInputModel.SynchronousHighlightLength)
+            {
+                started.TrySetResult();
+                hold.Task.GetAwaiter().GetResult();
+            }
+        };
+        var longText = "Get-AdmUser " + new string('x', PowerShellInputModel.SynchronousHighlightLength);
+
+        input.SetText(longText, longText.Length);
+        var first = input.HighlightTask;
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(30), Ct);
+
+        Assert.Empty(input.Spans);
+        Assert.False(first.IsCompleted);
+
+        // The next keystroke supersedes it: the first result, when it arrives, is dropped.
+        input.SetText("Get-AdmUser", 11);
+        hold.SetResult();
+        await first.WaitAsync(TimeSpan.FromSeconds(30), Ct);
+
+        Assert.Equal("Get-AdmUser", input.Text);
+        Assert.NotEmpty(input.Spans);
+        Assert.All(input.Spans, span => Assert.True(span.Start + span.Length <= input.Text.Length));
+    }
+
+    [Fact]
+    public async Task ALongText_GetsItsSpans_WhenNothingChanged()
+    {
+        var (input, _, _) = Create();
+        var longText = "Get-AdmUser -Name " + new string('x', PowerShellInputModel.SynchronousHighlightLength);
+
+        input.SetText(longText, longText.Length);
+        await input.HighlightTask.WaitAsync(TimeSpan.FromSeconds(30), Ct);
+
+        Assert.Equal(PowerShellSyntaxKind.Command, input.Spans[0].Kind);
+        Assert.Equal(longText, input.Text);
+    }
+
+    [Fact]
+    public void ACommandLine_IsHighlightedAtOnce_AndATextPastTheLimitNotAtAll()
+    {
+        var (input, _, _) = Create();
+
+        input.SetText("Get-AdmUser", 3);
+        Assert.True(input.HighlightTask.IsCompleted);
+        Assert.NotEmpty(input.Spans);
+
+        var huge = new string('a', PowerShellInputModel.MaxHighlightedLength + 1);
+        input.SetText(huge, 0);
+        Assert.Empty(input.Spans);
+        Assert.True(input.HighlightTask.IsCompleted);
+    }
+
+    [Fact]
+    public async Task AClickOnAMatch_TakesThatMatch()
+    {
+        var (input, session, _) = Create();
+        session.Completion = (_, _) => new PowerShellCompletionResult(0, 3, [Match("Get-AdmUser"), Match("Get-AdmGroup"), Match("Get-AdmComputer")]);
+        input.SetText("Get", 3);
+        await input.CompleteAsync(Ct);
+        Assert.True(input.IsCompletionOpen);
+
+        input.AcceptCompletionAt(5);
+        Assert.True(input.IsCompletionOpen);
+        input.AcceptCompletionAt(2);
+
+        Assert.False(input.IsCompletionOpen);
+        Assert.Equal("Get-AdmComputer", input.Text);
+        Assert.Equal(15, input.CaretIndex);
+        input.AcceptCompletionAt(0);
+        Assert.Equal("Get-AdmComputer", input.Text);
+    }
+
     // ---- Text -------------------------------------------------------------------------------------------------------
 
     [Fact]

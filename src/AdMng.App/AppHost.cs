@@ -247,6 +247,8 @@ public static class AppHost
         // the dialogs and files of the connection window they belong to (scoped). The window is opened through ToolWindows. ----
         services.AddSingleton<IPowerShellSessionFactory, PowerShellSessionFactory>();
         services.AddSingleton<IPowerShellPolicySource, WindowsPowerShellPolicySource>();
+        services.AddWindow<PowerShellWindowViewModel, PowerShellWindow>();
+        services.AddWindow<PowerShellGridViewModel, PowerShellGridWindow>();
         services.AddScoped<IPowerShellWindowActions>(sp => new PowerShellWindowActions(sp.GetRequiredService<DialogServices>(), sp.GetRequiredService<ICsvCodec>()));
         return services;
     }

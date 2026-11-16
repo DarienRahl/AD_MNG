@@ -232,6 +232,7 @@ public sealed class DesignTokenTests
         ("Ad.FontSize.Body", 14d),
         ("Ad.FontSize.Subtitle", 20d),
         ("Ad.FontSize.Title", 28d),
+        ("Ad.Font.Mono", new System.Windows.Media.FontFamily("Cascadia Mono, Consolas")),
         ("Ad.Radius.Control", new CornerRadius(4)),
         ("Ad.Radius.Card", new CornerRadius(8)),
         ("Ad.Radius.Pill", new CornerRadius(12)),

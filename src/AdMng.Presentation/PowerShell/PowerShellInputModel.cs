@@ -43,8 +43,16 @@ public sealed partial class PowerShellInputModel : ObservableObject
     /// <summary>The longest text that is highlighted on every change (a pasted script past it is shown plain).</summary>
     public const int MaxHighlightedLength = 20_000;
 
+    /// <summary>
+    /// The longest text that is highlighted at once, while the key is pressed (a command line is a few hundred characters, and the
+    /// parser takes well under a millisecond for it). A longer text - a script that was pasted - is highlighted on a pool thread,
+    /// and the next change stops that work (CLAUDE.md rule 6): the text is shown plain until the spans arrive.
+    /// </summary>
+    public const int SynchronousHighlightLength = 2_000;
+
     private readonly Func<IPowerShellSession?> _session;
     private CancellationTokenSource? _completion;
+    private CancellationTokenSource? _highlight;
     private int _replaceIndex;
     private int _replaceLength;
     private int _searchIndex;
@@ -345,6 +353,15 @@ public sealed partial class PowerShellInputModel : ObservableObject
         }
     }
 
+    /// <summary>A click on a match of the open list: takes that match into the text. Nothing when the list is closed or the index is outside it.</summary>
+    public void AcceptCompletionAt(int index)
+    {
+        if (IsCompletionOpen && index >= 0 && index < Completions.Count)
+        {
+            Apply(Completions[index]);
+        }
+    }
+
     /// <summary>Escape: closes the list; the text stays as it is.</summary>
     public void CloseCompletion()
     {
@@ -436,7 +453,44 @@ public sealed partial class PowerShellInputModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsMultiLine));
         OnPropertyChanged(nameof(IsBlank));
-        Spans = !IsAnswering && value.Length is > 0 and <= MaxHighlightedLength && _session() is { } session ? session.Tokenize(value) : [];
+        Interlocked.Exchange(ref _highlight, null)?.Cancel();
+        if (IsAnswering || value.Length is 0 or > MaxHighlightedLength || _session() is not { } session)
+        {
+            Spans = [];
+            HighlightTask = Task.CompletedTask;
+            return;
+        }
+
+        if (value.Length <= SynchronousHighlightLength)
+        {
+            Spans = session.Tokenize(value);
+            HighlightTask = Task.CompletedTask;
+            return;
+        }
+
+        Spans = [];
+        var mine = new CancellationTokenSource();
+        _highlight = mine;
+        HighlightTask = HighlightAsync(session, value, mine.Token);
+    }
+
+    /// <summary>The highlighting of the last change: completed at once for a command line, running for a long text. (Tests.)</summary>
+    internal Task HighlightTask { get; private set; } = Task.CompletedTask;
+
+    private async Task HighlightAsync(IPowerShellSession session, string text, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var spans = await Task.Run(() => session.Tokenize(text), cancellationToken).ConfigureAwait(true);
+            if (!cancellationToken.IsCancellationRequested && Text == text)
+            {
+                Spans = spans;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The text changed again: its own highlighting is on the way.
+        }
     }
 
     private void Find()

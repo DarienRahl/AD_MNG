@@ -125,8 +125,12 @@ internal sealed class FakePowerShellSession : IPowerShellSession
         return Complete(input, cursorIndex);
     }
 
+    /// <summary>Called at the start of every <see cref="Tokenize"/> (a test that holds the highlighting of a long text on its pool thread).</summary>
+    public Action<string>? TokenizeHook { get; set; }
+
     public IReadOnlyList<PowerShellSyntaxSpan> Tokenize(string input)
     {
+        TokenizeHook?.Invoke(input);
         // The first word is a command, a word that starts with '-' a parameter: enough to see that the spans follow the text.
         var spans = new List<PowerShellSyntaxSpan>();
         var index = 0;

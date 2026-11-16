@@ -1,8 +1,12 @@
 using System.Globalization;
 using System.Text;
+using AdMng.App.Infrastructure;
+using AdMng.App.Services;
 using AdMng.Core.PowerShell;
 using AdMng.PowerShell;
 using AdMng.PowerShell.Commands;
+using AdMng.Presentation.Dialogs;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AdMng.App;
 
@@ -57,6 +61,21 @@ internal static partial class SmokeTest
         var clock = System.Diagnostics.Stopwatch.StartNew();
         await using var session = await PowerShellSession.CreateAsync(new PowerShellSessionOptions { Culture = CultureInfo.InvariantCulture }, CancellationToken.None).ConfigureAwait(true);
         return clock.Elapsed;
+    }
+
+    /// <summary>
+    /// The PowerShell window as the factory makes it for a connection that is not there (it says so and starts no engine: the window
+    /// of a connected domain is covered by the UI tests), and the grid of <c>Out-AdmGrid</c> over a sample table.
+    /// </summary>
+    private static void RenderPowerShellWindows(IServiceProvider services, IWindowService windows)
+    {
+        var factory = services.GetRequiredService<IDialogViewModelFactory>();
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreatePowerShell()));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreatePowerShellGrid(new PowerShellGridTable(
+            ["DistinguishedName", "Name", "Count"],
+            [["CN=Jan Kowalski,OU=Firma,DC=contoso,DC=test", "Jan Kowalski", "10"], ["CN=Łukasz Żółć,OU=Firma,DC=contoso,DC=test", "Łukasz Żółć", null]],
+            "Sample",
+            "DistinguishedName"))));
     }
 
     private static async Task<string> RunPowerShellAsync(IPowerShellSession session, string script)

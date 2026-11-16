@@ -25842,5 +25842,11 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="PowerShellGrid.Menu.CopyRowsWithHeaders" xml:space="preserve">
     <value>Copy rows with the column names</value>
   </data>
+  <data name="PowerShell.CopiedLines" xml:space="preserve">
+    <value>Copied lines: {0:N0}.</value>
+  </data>
+  <data name="PowerShell.Menu.CopyDn" xml:space="preserve">
+    <value>Copy the distinguished name</value>
+  </data>
   <!-- R1 PowerShell window: end -->
 </root>

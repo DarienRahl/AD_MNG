@@ -25842,5 +25842,11 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="PowerShellGrid.Menu.CopyRowsWithHeaders" xml:space="preserve">
     <value>Kopiuj wiersze z nazwami kolumn</value>
   </data>
+  <data name="PowerShell.CopiedLines" xml:space="preserve">
+    <value>Skopiowano wiersze: {0:N0}.</value>
+  </data>
+  <data name="PowerShell.Menu.CopyDn" xml:space="preserve">
+    <value>Kopiuj nazwę wyróżniającą</value>
+  </data>
   <!-- R1 PowerShell window: end -->
 </root>

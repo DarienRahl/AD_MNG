@@ -10,6 +10,7 @@
                            Ad.Size.StatusLine 28 (the height of the status line of a page while it shows one line)
   Type ramp (Double)       Ad.FontSize.Caption 12 · Ad.FontSize.Compact 12 (list rows, tree rows, details values) ·
                            Ad.FontSize.Body 14 · Ad.FontSize.Subtitle 20 · Ad.FontSize.Title 28
+  Fonts (FontFamily)       Ad.Font.Mono "Cascadia Mono, Consolas" (code and command lines: the PowerShell window and its editor)
   Radii (CornerRadius)     Ad.Radius.Control 4 · Ad.Radius.Card 8 (cards, panels, popups, toasts) · Ad.Radius.Pill 12 (at height 24)
   Surfaces (Border styles) Ad.Surface.Panel (a workspace panel on the window background) · Ad.Surface.Toolbar (the toolbar card)
 
@@ -51,6 +52,9 @@
   <sys:Double x:Key="Ad.FontSize.Body">14</sys:Double>
   <sys:Double x:Key="Ad.FontSize.Subtitle">20</sys:Double>
   <sys:Double x:Key="Ad.FontSize.Title">28</sys:Double>
+
+  <!-- Fonts: monospace for what is typed and printed as code (the PowerShell window); Windows 11 has Cascadia Mono, older systems Consolas -->
+  <FontFamily x:Key="Ad.Font.Mono">Cascadia Mono, Consolas</FontFamily>
 
   <!-- Radii -->
   <CornerRadius x:Key="Ad.Radius.Control">4</CornerRadius>

@@ -535,6 +535,7 @@
           <MenuItem b:CommandMenu.Id="pki.readiness" />
         </MenuItem>
         <Separator />
+        <MenuItem b:CommandMenu.Id="tools.powershell" />
         <MenuItem b:CommandMenu.Id="tools.sessionLog" />
         <MenuItem x:Name="PowerShellHistoryMenuItem"
                   Click="OnPowerShellHistoryClick"

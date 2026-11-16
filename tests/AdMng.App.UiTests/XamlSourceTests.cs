@@ -91,6 +91,8 @@ public sealed partial class XamlSourceTests
         "Pki/PkiReadinessView.xaml",
         "Pki/PkiSecurityReviewView.xaml",
         "Pki/PkiTemplatesView.xaml",
+        "PowerShell/PowerShellGridWindow.xaml",
+        "PowerShell/PowerShellWindow.xaml",
         "Readiness/ReadinessView.xaml",
         "Views/AccountReviewWindow.xaml",
         "Views/BatchEditorWindow.xaml",

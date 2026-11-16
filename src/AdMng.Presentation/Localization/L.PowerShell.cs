@@ -87,6 +87,11 @@ public static partial class L
         public const string KindWarning = "PowerShell.Kind.Warning";
 
         public const string KindNote = "PowerShell.Kind.Note";
+
+        /// <summary>{0} = the number of lines copied from the output.</summary>
+        public const string CopiedLines = "PowerShell.CopiedLines";
+
+        public const string CopyDn = "PowerShell.Menu.CopyDn";
     }
 
     /// <summary>The grid window of <c>Out-AdmGrid</c> (track R, stage R1): its title, filter, summary, copy and export.</summary>

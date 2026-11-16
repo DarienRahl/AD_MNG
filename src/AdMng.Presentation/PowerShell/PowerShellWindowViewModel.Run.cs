@@ -136,6 +136,26 @@ public sealed partial class PowerShellWindowViewModel
         await Services.Dialogs.ShowPropertiesAsync(distinguishedName).ConfigureAwait(true);
     }
 
+    /// <summary>Copies a distinguished name of the scrollback (<i>Copy the distinguished name</i> of its context menu).</summary>
+    [RelayCommand]
+    private void CopyDistinguishedName(string? distinguishedName)
+    {
+        if (!string.IsNullOrWhiteSpace(distinguishedName))
+        {
+            Infrastructure.ClipboardCopy.Text(Services.Clipboard, Services.Notifications, distinguishedName, Localizer.Format(L.Shell.CopiedDn, 1));
+        }
+    }
+
+    /// <summary>Ctrl+C on selected lines of the scrollback: their text, one line each. Nothing for no line.</summary>
+    public void CopyLines(IEnumerable<PowerShellOutputLine>? lines)
+    {
+        var text = (lines ?? []).Select(line => line.Text).ToList();
+        if (text.Count > 0)
+        {
+            Infrastructure.ClipboardCopy.Text(Services.Clipboard, Services.Notifications, string.Join(Environment.NewLine, text), Localizer.Format(L.PowerShell.CopiedLines, text.Count));
+        }
+    }
+
     // ---- The stream of the engine -------------------------------------------------------------------------------
 
     /// <summary>
