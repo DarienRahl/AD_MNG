@@ -6,11 +6,16 @@
   * Theme brushes are always DynamicResource (light/dark/high contrast switch at runtime).
   * Keys are prefixed "Ad." so they never collide with Fluent theme keys.
   * Sizes, radii and spacing come from Themes/Tokens.xaml (StaticResource). Glyph sizes of the icon font stay literal.
-  * The controls of our own (c:StatusLine, c:ActionButton) have string keyed styles too and take them by themselves
-    (a resource reference set in their constructors), so the first rule holds for them as well.
+  * The controls of our own - c:StatusLine, c:ActionButton, c:StatusPill, c:EmptyState and c:Skeleton - have string
+    keyed styles too and take them by themselves (a resource reference set in their constructors), so the first rule
+    holds for them as well. c:ProgressRing is a light element without a template: it draws itself in the inherited text
+    colour and has no style.
   Feedback (track V, stage V2) - one place each. How to write or convert a view: docs/dev/v2-status-controls.md; why it
   is built this way: docs/dev/v-interface-renewal.md 6.7 and "V2b-1 as built":
   * What a page did or is doing: its status line (Ad.StatusLine, taken by c:StatusLine) - never a banner in the page.
+    The line is a band of Ad.Size.StatusLine (28 px) whatever it has to say: also when it has nothing to say and during
+    the Motion.WorkingDelay before a running operation is shown, so that the content under it does not move when an
+    operation starts or ends (V2b-5b, owner's decision). It never collapses; an empty list is the c:EmptyState's.
   * A sentence that belongs to one field or one section and is true while that content is shown: a note
     (Ad.Note.Info, Ad.Note.Attention, Ad.Note.Error on a ContentControl) - quiet, inline, a glyph and words.
   * A command that starts an operation that can be cancelled: c:ActionButton (Ad.ActionButton by itself;
@@ -22,9 +27,14 @@
     note that does not set it is as it was. XamlSourceTests fails a value outside the set.
   * How far one item of a list is stays in its row (the bar of one activity in the main window); a place that only
     shows "busy" has a c:ProgressRing and no sentence.
-  * The state of one row or one item (a check result, a health state): a c:StatusPill - the picture and a word.
-    A list that was read and has no rows: a c:EmptyState - a sentence and at most one action. A list that is read for the
-    first time: a c:Skeleton, placeholder rows (V2b-5b).
+  * The state of one row or one item (a check result, a health state): a c:StatusPill - the picture of its kind
+    (Presentation/Feedback/StatusPillKind, from a property of the row's view model) and a word, never colour alone.
+    A list that was read and has no rows: a c:EmptyState - a 48 px picture, a sentence and at most one action (the state
+    is one value, Presentation/Feedback/EmptyListState, computed by the view model). A list that is read for the first
+    time: a c:Skeleton - placeholder rows that appear after Motion.WorkingDelay, like the working look of the line (V2b-5b).
+  * Not in this dictionary, and named by no view: the progress of the window on its taskbar button (Behaviors/
+    TaskbarProgress, one handler for every window) and the question of a window that is closed while an operation writes
+    (Presentation/Feedback/RunningWork). Both read the page's status holder, so a window gets them by having one.
   There is no banner style: the two of before stage V2 were removed once the last view was converted (V2b-5a). A view
   that asked for one would fail when it is loaded, as a missing StaticResource, and XamlSourceTests fails it before that.
 -->

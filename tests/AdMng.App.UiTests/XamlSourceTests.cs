@@ -443,6 +443,31 @@ public sealed partial class XamlSourceTests
     }
 
     /// <summary>
+    /// The header comment of Themes/Controls.xaml is where whoever writes a view learns which control says what (design note
+    /// 6.7, docs/dev/v2-status-controls.md): it names every control of ours that has a style of its own - each of them declares
+    /// a <c>StyleKey</c> -, the progress ring, which has none, and the glyph property of a note. A control that is added
+    /// without a line there fails this test (V2b-5b: the header describes all six controls and the notes with a glyph).
+    /// </summary>
+    [Fact]
+    public void TheHeaderOfControlsXaml_NamesEveryControlOfOurs()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Runs with the Windows test suite.");
+        var text = File.ReadAllText(Path.Combine(SourceDirectory(), "Themes", "Controls.xaml"));
+        var header = text[..text.IndexOf("-->", StringComparison.Ordinal)];
+        var controls = typeof(AdMng.App.Controls.StatusLine).Assembly.GetTypes()
+            .Where(type => type.Namespace == "AdMng.App.Controls"
+                && type.GetField("StyleKey", BindingFlags.Public | BindingFlags.Static) is { IsLiteral: true })
+            .Select(type => type.Name)
+            .Append(nameof(AdMng.App.Controls.ProgressRing))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        Assert.Equal(["ActionButton", "EmptyState", "ProgressRing", "Skeleton", "StatusLine", "StatusPill"], controls);
+        Assert.Equal([], controls.Where(name => !header.Contains($"c:{name}", StringComparison.Ordinal)));
+        Assert.Contains("c:AdNote.Icon", header, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// The three controls of stage V2b-5b - the status pill, the empty state and the placeholder rows - are styled in
     /// Themes/Controls.xaml under the key each of them takes by itself, with the colours of the theme and no colour of their
     /// own: no hex colour, no solid brush, no animation (the other source rules - the closed set of Fluent brush keys as dynamic
