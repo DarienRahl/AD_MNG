@@ -180,6 +180,10 @@ public sealed class HostTests
 
         // AD CS (P1, W7): the DC LDAPS handshake probe (stateless; the UI tests replace it with the in-memory fake).
         typeof(Core.Pki.Tls.IDomainControllerTlsProbe),
+
+        // Track R: the engine's factory and the reads of the workstation's PowerShell policies (stateless; a window's state is in its session).
+        typeof(Presentation.PowerShell.IPowerShellSessionFactory),
+        typeof(Presentation.PowerShell.IPowerShellPolicySource),
     ];
 
     /// <summary>

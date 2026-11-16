@@ -41,6 +41,22 @@ public static class PowerShellEnvironment
         ["PSModuleAnalysisCachePath"] = UnwritableCachePath,
     };
 
+    /// <summary>
+    /// The folder the engine calls <c>$PSHOME</c>: where it looks for its all-users <c>powershell.config.json</c> and its modules. It is the
+    /// folder of <c>System.Management.Automation.dll</c>; in a single-file program the assembly is bundled, has no location, and the engine
+    /// takes the folder of the program (observed with a self-contained single-file publish: <c>$PSHOME</c> was the program's folder).
+    /// </summary>
+    public static string EngineHome
+    {
+        get
+        {
+#pragma warning disable IL3000 // Location is empty for an assembly bundled in a single-file app: handled below, as the engine itself does.
+            var location = typeof(System.Management.Automation.PSObject).Assembly.Location;
+#pragma warning restore IL3000
+            return string.IsNullOrEmpty(location) ? AppContext.BaseDirectory : Path.GetDirectoryName(location) ?? AppContext.BaseDirectory;
+        }
+    }
+
     /// <summary>True once <see cref="Apply"/> ran in this process.</summary>
     public static bool IsApplied
     {

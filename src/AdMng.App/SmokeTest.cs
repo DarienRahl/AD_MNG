@@ -106,6 +106,9 @@ internal static partial class SmokeTest
             host.Services.GetRequiredService<MotionService>().ForceOff();
             await AppHost.InitializeAsync(host.Services, options).ConfigureAwait(true);
 
+            // Track R: the embedded engine runs in the published program (once; it is language independent).
+            await CheckPowerShellEngineAsync().ConfigureAwait(true);
+
             var localizer = host.Services.GetRequiredService<ILocalizer>();
             foreach (var language in (string[])["en", "pl"])
             {
