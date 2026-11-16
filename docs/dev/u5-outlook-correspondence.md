@@ -771,7 +771,9 @@ All in `AdMng.Presentation.Correspondence`; `CorrespondenceViewModel : WindowVie
 - Pages: `Outlook` (`OutlookConnectionViewModel`), `Mailboxes` (`MailboxOwnersPageViewModel`), `Recipients` (`RecipientsPageViewModel`), `Message` (`MessagePageViewModel`), `Preview` (`PreviewPageViewModel`), `Send` (`SendPageViewModel`), `Responses` (`ResponsesPageViewModel`).
 - Commands: `ShowMailboxesCommand`, `HelpCommand` (report dialog with the Polish help text), `CloseCommand`.
 - `InitializeAsync`: load settings into pages, journal, signatures, template draft; apply the request (DNs → recipients from AD, or mailbox scope = selection + switch to Mailboxes); connect Outlook in the background (no modal error; status only).
-- `CanCloseAsync`: while sending asks to stop; saves `LastDraft` and options.
+- `CanCloseAsync` (the base class, V2b-5b): while sending asks the one question of every window that writes (`RunningWork`: Stop of the
+  holder, the window closes after the run ended - also when the send page is not in front, `IHasPageStatusParts`); then
+  `CanCloseCoreAsync` saves `LastDraft` and options.
 - `OnSessionEnded`: AD actions disabled (`Recipients.CanUseDirectory=false`), Outlook sending continues to work.
 
 **`OutlookConnectionViewModel`**: `State` (`OutlookState { Unknown, Connecting, Connected, NotInstalled, Failed, NotSupported }`), `StateText` ("Outlook: połączono (2 konta)" …), `Accounts` (`ObservableCollection<OutlookAccount>`), `SelectedAccount` (after connecting: the account of the settings when the profile has it, else the profile's default – the current user's, else the first – so never empty while connected; that default is not saved as the operator's choice), `OnBehalfOf`, `Session` (internal), `ConnectCommand`, `CheckCommand` ("Sprawdź Outlooka" → diagnostics report incl. journal folder path, Downloads folder, signatures folder), `EnsureConnectedAsync()`; failures show the localized code text (`Correspondence.Outlook.{code}`).

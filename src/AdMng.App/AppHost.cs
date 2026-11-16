@@ -257,6 +257,10 @@ public static class AppHost
 
         // Once per process, before the theme mode of the settings is applied and before any window exists.
         WindowBackdrop.Apply(settings.Current.WindowBackground);
+
+        // Every window, whatever it is and wherever it was made, shows the progress of its status line on its taskbar button
+        // (track V, V2b-5b): one class handler for all of them, before the first window exists.
+        Behaviors.TaskbarProgress.Register();
         services.GetRequiredService<AppearanceService>().Start(options.Language);
     }
 }

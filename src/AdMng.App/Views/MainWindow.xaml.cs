@@ -11,6 +11,7 @@ using AdMng.App.Connections;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.Presentation.Connections;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
@@ -129,6 +130,13 @@ public partial class MainWindow : Window
         return request;
     }
 
+    /// <summary>
+    /// The view models whose operations the close question looks at (<see cref="RunningWork"/>): the shell, so every tab, and the
+    /// windows this one owns - closing this window closes them without asking, so a send or a save that runs in one of them is asked
+    /// about here, once.
+    /// </summary>
+    private object?[] WorkViewModels() => [Shell, .. OwnedWindows.OfType<Window>().Select(window => window.DataContext)];
+
     /// <summary>The domain this window works in, for the questions before it closes.</summary>
     private string Domain => Shell.Connection?.Identity?.DomainDnsName ?? string.Empty;
 
@@ -136,14 +144,16 @@ public partial class MainWindow : Window
     {
         ArgumentNullException.ThrowIfNull(e);
         base.OnClosing(e);
-        if (e.Cancel || _closeConfirmed || (!Shell.Activities.HasRunning && !_tools.HasUnsavedGeneratedPasswords && !Shell.HasUnsavedDocuments))
+        if (e.Cancel || _closeConfirmed
+            || (!Shell.Activities.HasRunning && !_tools.HasUnsavedGeneratedPasswords && !Shell.HasUnsavedDocuments
+                && !RunningWork.HasRunningWrites(WorkViewModels())))
         {
             return;
         }
 
-        // Running batches would be interrupted, generated passwords that were not exported would be lost with the batch
-        // editors (owned windows close without asking), and a tab's unsaved changes (the Watchdog configuration) would be
-        // discarded: cancel this close and ask first. The question (a modal dialog) and the second Close() must run after
+        // Running batches would be interrupted, a send, a save or an update that runs in a tab or in a window of this one would be
+        // cut off, generated passwords that were not exported would be lost with the batch editors (owned windows close without
+        // asking), and a tab's unsaved changes (the Watchdog configuration) would be discarded: cancel this close and ask first. The question (a modal dialog) and the second Close() must run after
         // this event: WPF throws when Close() is called while the window is closing.
         e.Cancel = true;
         if (!_confirmingClose)
@@ -174,6 +184,7 @@ public partial class MainWindow : Window
             // Only this connection window closes: the questions name its domain (title, dialog header and sentence).
             var title = _localizer.Format(L.Connections.CloseWindowTitle, Domain);
             if (!_closed
+                && await RunningWork.ConfirmCloseAsync(_localizer, _dialogs, title, RunningWork.HoldersOf(WorkViewModels())).ConfigureAwait(true)
                 && (!Shell.Activities.HasRunning
                     || await _dialogs.ConfirmAsync(title, _localizer.Format(L.Shell.CloseWindowWhileRunning, Domain), destructive: true).ConfigureAwait(true))
                 && (!_tools.HasUnsavedGeneratedPasswords
