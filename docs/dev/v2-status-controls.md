@@ -287,14 +287,17 @@ and notes for the rest. And, by the owner's decisions of V2b-5b: Stop finishes t
 say; a note may choose its glyph from the closed set of four; the taskbar button of a window shows what its line says; a window closed
 while an operation writes asks one question.
 
-**Built in V2b-5b** (*What V2b-5 has to do* in the design note; the owner decided them and the units built them): in unit 2 the delay
-before "Working", the throttled announcement of a summary and the glyph of a note; in unit 3 `StatusPill`, `EmptyState` (the answer for
-lists without rows; the 28 px band of a line with nothing to say **stays** - owner's decision of V2b-5b) and `Skeleton`, each with its
-first use; in unit 4 the progress of the taskbar button of every window and the one close question of a window that writes
-(`OperationWrites`, `RunningWork`; *Taskbar progress and the close question* in *V2b-5b as built*, with what is still open: a write on
-a page that is not in front is asked about but is not on the button). Still open from the stage: a mark in
-the tab header of a page that failed while it was not shown (6.7), and whether the selection ("· 1 selected") belongs in the summary that is
-announced (*V2b-5b as built*, *Open*). The list *Still the owner's* in *What V2b has to do* holds the smaller questions of the units (the
-loudness of the caution glyph of the notes, where the press-time answers of the editors belong, whether *Refresh* is the Cancel of a read the
-operator did not start, what a stopped run keeps - answered in V2b-5b: the object in progress is finished). Do not decide them in a view; if
-a view needs one answered, ask.
+**Built in V2b-5b** (the owner decided them and the units built them; *V2b-5b as built* in the design note): in unit 1 the Stop that finishes
+the object in progress; in unit 2 the delay before "Working", the throttled announcement of a summary and the glyph of a note; in unit 3
+`StatusPill`, `EmptyState` (the answer for lists without rows; the 28 px band of a line with nothing to say **stays** - owner's decision of
+V2b-5b) and `Skeleton`, each with its first use; in unit 4 the progress of the taskbar button of every window and the one close question of a
+window that writes (`OperationWrites`, `RunningWork`). Unit 5 recounted the stage: no banner, 45 views with a line, 29 converted views
+without one (*Counts* in *V2b-5b as built*).
+
+**Still open.** One thing is decided and not built: a mark in the tab header of a page that failed while it was not shown (6.7). The rest are
+the owner's questions, listed in *What is still open after V2* in the design note - from V2b-5b among them whether a sequential plan should
+finish as a whole, whether Apply and "New Object" now offer Stop in the line, whether the selection ("· 1 selected") belongs in the summary
+that is announced, whether the other lists with a note become empty states, whether a write on a page that is not in front belongs on the
+taskbar button, and whether the wait after Yes in the close question gets a limit; from V2b-3 and V2b-4 the loudness of the caution glyph of
+the notes, where the press-time answers of the editors belong, and whether *Refresh* is the Cancel of a read the operator did not start. Do
+not decide them in a view; if a view needs one answered, ask.

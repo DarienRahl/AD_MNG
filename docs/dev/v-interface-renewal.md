@@ -1028,6 +1028,15 @@ the first four places that move. No structure change, no element renamed.
 
 ### V2 – Feedback: status line, command shape, action button (L)
 
+**Built.** Stage V2 is built and closed: V2a (the model and the controls, two pilot pages), V2b-1 to V2b-4 (the sweep over every
+view, by area) and V2b-5a and V2b-5b (the old banners removed, then the owner's decisions built: the Stop that finishes the object in
+progress, the delay before "Working", the throttled announcement of a summary, the glyph of a note, the status pill, the empty state and
+the skeleton, taskbar progress and the close question). Every item of the scope below exists and has a use. The figures are in *Counts*
+of *V2b-5b as built*; what is still open - the owner's questions and one thing to do - is *What is still open after V2* in the block of
+V2a. The exit criteria are met as the as-built blocks define them (every page that has something to say has exactly one line, counted by
+a source test; an operation shows its state within the 150 ms of the line and the button that started it at once), and **by tests, not by
+looking: nothing of the stage was seen on a screen** (*Not seen on a screen yet* in *V2b-5b as built*).
+
 - **Scope:** `PageStatus` and `OperationScope` in Presentation (with the session-log copy and the value-free log
   template); controls `StatusLine`, `ActionButton`, `StatusPill`, `EmptyState`, `Skeleton`; taskbar progress; the
   close question tied to running activities; replace `Ad.ErrorBar`/`Ad.WarningBar` (106 uses in 54 files),
@@ -1241,7 +1250,7 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     the batch editor: its holder becomes `SourceStatus` of the create mode (done in V2b-4, unit 1). The Korespondencja window is a
     window of its own and has no tab of the main window. Now that the last view is converted, `Ad.ErrorBar` and `Ad.WarningBar`
     leave `Themes/Controls.xaml`, and with them the strings and view-model members that lost their last user (listed under
-    *After V2b-1*) - the first two items of *What V2b-5 has to do*.
+    *After V2b-1*) - the first two items of the list that became *What is still open after V2*.
   - Settled in V2b-1, of what was open in the controls after V2a: the accent variant of the action button
     (`Ad.AccentActionButton`, and `Ad.DialogActionButton` / `Ad.AccentDialogActionButton` with the metrics of the dialog
     buttons); the status line of a page with several operations (a state that lasts, several holders with the page in
@@ -1288,60 +1297,71 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
     button, with its own flag where several buttons share one holder, and the buttons that never had a Stop of their own and share
     a holder with others keep the Stop of the line - the practice that answers the question of V2b-3 about *Recalculate*, the
     sources of the central store and the three tests of the settings.
-  - *What V2b-5 has to do* (what is left of the V2 scope; the part of *After V2b-1* that no increment of V2b did):
-    1. *Retire the old banners* - **done in V2b-5a**: `Ad.ErrorBar` and `Ad.WarningBar` are deleted from `Themes/Controls.xaml`, with
-       their lines in the header comment that says where each kind of feedback goes, and one source rule says that no XAML file of the
-       application mentions them or has a progress bar that says status (*V2b-5a as built*).
-    2. *Remove what lost its last user* - **done in V2b-5a** as far as it can be proven: 39 strings, 3 commands and 22 view-model
-       properties went, in both resx files, with the tests that read them changed to read the line; what is read by its own view model,
-       by the shell or by tests as their oracle, and every `Cancel()`, `CancelCommand` and `StopCommand` that is the Stop of a line,
-       stays, each with its reason in *V2b-5a as built*.
-    3. *A delay before "Working"* (about 150 ms) - **done in V2b-5b, unit 2** (*The delay before "Working"* in *V2b-5b as built*).
-       The case for it: an operation that ends at once must not flash - the more visible the more
-       windows have a line: the read of nested membership after every comparison, the reads of the tabs of the property sheet,
-       "Reading the containers of …", a test of a filter in a small domain, "Reading “…”…" at every reload of a Group Policy tab,
-       "preparing the changes…" before every preview, the first read of the Korespondencja pages, the ring on the first read button
-       of a tab whose reload reads nothing.
-    4. *The rest of the V2 scope that is not started:* `StatusPill` (the status pictures at 16 px), `EmptyState` (48 px icon, one
-       sentence, one action - the answer for lists without rows; the empty 28 px band of a line with nothing to say is **kept**,
-       owner's decision of V2b-5b: it does not collapse), `Skeleton` - **done in V2b-5b, unit 3**, each with a first use (*The status pill,
-       the empty state and the skeleton* in *V2b-5b as built*).
-    5. *Taskbar progress* (6.7): a send of messages that takes minutes shows its progress only in the 16 px ring and the numbers of
-       the line, and so does every long read - **done in V2b-5b, unit 4**: the taskbar button of every window follows its line
-       (*Taskbar progress* in *V2b-5b as built*).
-    6. *The close question tied to running activities:* a window that is closed during an operation - only the Korespondencja
-       window asks, and only for a send - **done in V2b-5b, unit 4**: one question for every window, asked about the operations that
-       write (*The close question* in *V2b-5b as built*).
-    7. *The screen reader:* a result that only changes the summary is not announced (the settings search no longer announces how
-       many settings a query found, and no count of a list does) - **done in V2b-5b, unit 2**: it is announced politely and
-       throttled (*The announcement of a summary* in *V2b-5b as built*); still to do: a mark in the tab header of a page that
-       failed while it was not shown (6.7).
-    8. *The "V2" documentation of the controls* - **done in V2b-5a**: `docs/dev/v2-status-controls.md` says what `StatusLine`,
-       `ActionButton`, `ProgressRing`, the notes and the holder are, for whoever writes the next view, with the recipe, the tests to copy
-       and what is still open; it is listed in `docs/dev/README.md` and is the pointer in the header comment of `Controls.xaml`.
-    9. *Notes:* whether a note may choose its glyph (the replication note of the wizard's results was information and has the
-       caution glyph; the protected account became a warning) - **done in V2b-5b, unit 2**: it may (*The glyph of a note* in
-       *V2b-5b as built*).
-
-    The owner decided items 3 to 7 and 9, and the question of the half-done account, at the start of V2b-5b - the decisions
-    and their reasons are the first list of *V2b-5b as built*; each unit of V2b-5b marks its item done when it lands.
+  - *What is still open after V2* (until the end of V2b-5b this was *What V2b-5 has to do*, the list of what was left of the V2 scope when the
+    sweep of V2b was over: items 1, 2 and 8 were done in V2b-5a and items 3 to 7 and 9 in V2b-5b, after the owner's decisions - *V2b-5a as
+    built* and *V2b-5b as built*; what was done is not repeated here).
+    - **Taken, no longer open.** The status line keeps its band of about 28 px also when it has nothing to say: it does not collapse,
+      because the owner's priority is that content does not move when an operation starts or ends, and a list without rows is answered by
+      `EmptyState` in the list (decision 3 of V2b-5b; the question was open since V2b-1 in every view with a line). The Stop of an execution
+      finishes the object in progress (1); a changed summary is announced politely and throttled (2); a note may choose its glyph from the
+      closed set (4); the delay of about 150 ms before "Working" (5); `StatusPill`, `EmptyState` and `Skeleton`, each with a first use,
+      taskbar progress and the close question of a running write (6).
+    - **Still to do** (decided, not built): a mark in the tab header of a page that failed while it was not shown (6.7).
+    - **Still the owner's - from V2b-5b.** Questions the four units left, to be answered after the screens were seen; none of them blocks
+      R1 or V3:
+      1. *Sequential plans.* "Finish the object" is not "finish the action": a new Group Policy object is the container with its files, the
+         Machine and User containers and the link, so a Stop between two of them leaves a GPO that the undo has to remove (as before
+         V2b-5b). Should a sequential plan finish as a whole? (*The Stop of an execution*.)
+      2. *The list of background operations* says only "Cancelled" for a stopped execution, with its counters; should its row say "stopped:
+         1 of 2" as the line does?
+      3. *Stop in the line for a write.* What held Apply of the property sheet and OK of "New Object" back - the half-done account - is gone.
+         Should they offer Stop in the line now? (Closing them during their write says "still working", which is true.)
+      4. *The selection in the announced summary.* The summary of the object list and of the search tab carries "· N selected", so a
+         selection that changes the text is announced after the quiet time (with the arrow keys in a list the selected row is read by the
+         list anyway). Should only the count of the list be told? To be decided after use with a screen reader.
+      5. *The replication note* of the results of the bulk wizard wears the caution colour with the information glyph, as the owner asked;
+         the quieter alternative is the style `Ad.Note.Info`, which needs no property.
+      6. *Other empty lists.* The event logs, the failed logons, the PKI security review, the Group Policy diagnostics and the clean-up keep
+         the `ListNote` that names the filters that hide the rows: should each become an `EmptyState` with an action of its own? And is the
+         sentence of the `EmptyState` enough in the Find window, whose own status line is off?
+      7. *More pills.* Should the findings of the PKI security review and of the Group Policy diagnostics, and the channel and domain
+         controller rows of the Watchdog status (narrow columns, the state in a tool tip), get a `StatusPill`?
+      8. *A write on a page that is not in front* (the Korespondencja send on the *Sending* tab while another tab is shown) is asked about
+         when the window is closed but is on neither the line nor the taskbar button. Should the button follow the busiest holder of the
+         window instead of the line?
+      9. *The main window asks twice in one case:* first about the writes of its tabs and of the windows it owns (the new question), then, as
+         before, about the background operations of the connection, generated passwords and unsaved tabs. Should these be one dialog? And
+         should a write that cannot be stopped in an owned window (a property sheet that is saving) keep the main window open, as it does
+         now?
+      10. *The wait after Yes* in the close question has no time limit: an operation that never ends keeps the window open and the line says
+          "Stopping…". Should there be a limit, or a way to give up?
+    - **Still the owner's - from V2b-3 and V2b-4** (the questions the nine units left, sorted at the end of V2b-4; the settled ones are in
+      *Open for the owner*, below):
+      - whether the caution glyph of the notes that state how complete results are is too loud, and whether the information note of the
+        templates in the secondary text colour is enough;
+      - whether the press-time answers of the editors ("Type a name or choose one from the list.") and the answers to the profile commands of
+        the wizard belong in the line, cleared by the next edit, or next to their buttons;
+      - whether a domain without a central store offers *Update templates…* as the action of a state that lasts;
+      - whether the accent "Changed settings: N (not saved)" under the title of an editor stays now that the summary says it;
+      - whether a stopped remote action offers a link that reads the status of the computer;
+      - whether the line names the sources a run could not read when the coverage panel shows the same in rows;
+      - whether *Check again* of readiness is two actions for its two causes;
+      - whether the failure of the templates' account count is an attention or an error; whether the HTTP check and the LDAPS probe also say
+        "done" in the line; whether *Refresh* is the Cancel of a read the operator did not start; whether the sentence about HTTP addresses
+        belongs in the line; whether a stopped security check keeps the count of its findings;
+      - whether the Watchdog's stopped read of the feed keeps the old rows; whether the toast after a save, an acknowledgement and "Wyślij
+        teraz" is still needed; whether the rollout mode is a state of the line; whether a connected card says "Połączono"; whether a test may
+        replace the running test of another editor;
+      - from the Korespondencja window: whether the reasons before a send, the address of a test and the errors of saving files leave their
+        dialogs for the line; whether the footer keeps the state of Outlook next to the pages that say it; whether the message page needs a
+        holder; whether the preview from Outlook says "done"; whether the journal that cannot be used belongs in a note of two pages instead
+        of the line of every tab.
   - Still open – in the controls and the model:
-    - *A delay before "Working"* (about 150 ms; **built in V2b-5b, unit 2**), so that an operation that ends at once does not flash – more visible
-      with every window: the read of nested membership after every comparison, the reads of the tabs of the property
-      sheet, "Reading the containers of …" at every opening of the container picker, a test of a filter in a small
-      domain, and in the Group Policy area "Reading “…”…" at every reload of a tab, "…: preparing the changes…" before
-      every preview, the stage of the templates in the editor and in the comparison, and the ring on the first read
-      button of a tab whose reload reads nothing.
-    - *The rest of the V2 scope:* `StatusPill`, `EmptyState` and `Skeleton` are **built (V2b-5b, unit 3)**; taskbar progress and the
-      close question tied to running activities are **built (V2b-5b, unit 4)**: a send of messages that takes minutes shows its
-      progress on the taskbar button of its window as well as in the 16 px ring and the numbers of the line.
     - *A mark in the tab header* of a page that reads or failed (6.7): a failed tab says so only when it is selected.
     - *The same message on two pages:* switching between two tabs that say a message of the same key changes the text
       without the entrance motion and without a live region event (the control compares kind and key).
     - *Reports are not coalesced:* an operation that reports per object (planning thousands of objects) updates the line
       as often.
-    - *Notes:* whether a note may choose its glyph (the shield of the protected account became the warning glyph) -
-      **it may, since V2b-5b** (`c:AdNote.Icon`).
     - *Stop for a write:* Apply of the property sheet and OK of "New Object" cannot be stopped from the line (the
       execution is an activity). **The half-done account is gone (V2b-5b, decision 1):** the executor no longer leaves the
       account it was working on with its password reset and "must change" not set - Stop finishes the object in progress,
@@ -1359,7 +1379,7 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
       changes…* of the two editors, *Recalculate* of the model, *Browse…* of the backup window and the six sources of the
       central store window (a file, a folder, this computer, three downloads – only one of them can run, and the Stop is in
       the line). Whether they become action buttons is to be decided with the owner (6.7: "cancel where you started").
-    - *The empty line of a dialog:* a small dialog shows an empty band of 28 px at rest, and always on a tab that has
+    - *The empty line of a dialog* (settled, see *What is still open after V2*): a small dialog shows an empty band of 28 px at rest, and always on a tab that has
       nothing to say. **Settled in V2b-5b (decision 3): the one fixed place stays** - the owner's priority is that content does
       not move when an operation starts or ends; `EmptyState` is for lists without rows.
     - *Long results in narrow dialogs:* a failed connect with its advice does not fit three lines at 560 px – a shorter
@@ -1388,24 +1408,9 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
       the results of the exact last logon, the sites and the ping of the computer review are results of the line (a toast was
       gone after a few seconds and the line stays until the next operation - the operator closes it); a window whose pages differ
       in what they need says each state on the pages it is true for.
-      *Still the owner's.* Whether the caution glyph of the notes that state how complete results are is too loud, and whether the
-      information note of the templates in the secondary text colour is enough; whether the press-time answers of the editors
-      ("Type a name or choose one from the list.") and the answers to the profile commands of the wizard belong in the line,
-      cleared by the next edit, or next to their buttons; whether a domain without a central store offers *Update templates…*
-      as the action of a state that lasts; whether the accent "Changed settings: N (not saved)" under the title of an editor
-      stays now that the summary says it; whether a stopped remote action offers a link that reads the status of the computer;
-      whether the line names the sources a run could not read when the coverage panel shows the same in rows; whether
-      *Check again* of readiness is two actions for its two causes; whether the failure of the templates' account count is an
-      attention or an error, whether the HTTP check and the LDAPS probe also say "done" in the line, whether *Refresh* is the
-      Cancel of a read the operator did not start, whether the sentence about HTTP addresses belongs in the line, and whether a
-      stopped security check keeps the count of its findings; whether the Watchdog's stopped read of the feed keeps the old
-      rows, whether the toast after a save, an acknowledgement and "Wyślij teraz" is still needed, whether the rollout mode is a
-      state of the line, whether a connected card says "Połączono", and whether a test may replace the running test of another
-      editor; and, from unit 5, whether the reasons before a send, the address of a test and the errors of saving files leave
-      their dialogs for the line, whether the footer keeps the state of Outlook next to the pages that say it, whether the
-      message page needs a holder, whether the preview from Outlook says "done", whether the journal that cannot be used belongs in
-      a note of two pages instead of the line of every tab, and - open since V2b-1, and in every view with a line now - whether the
-      empty 28 px band of a line with nothing to say stays (V2b-5, item 4) - settled in V2b-5b: it stays.
+      *Still the owner's:* the questions of the nine units are listed one by one, with those of V2b-5b, in *What is still open after V2*,
+      above. (Settled in V2b-5b, decision 3: the empty 28 px band of a line with nothing to say - open since V2b-1, and in every view with
+      a line now - stays.)
     - *Tests:* summaries show the time of day, so README pictures of converted windows differ with every screenshot run
       – a fixed clock for the UI tests would end that.
 - **Not seen, to confirm on Windows:** nothing of this was seen on a screen. Open: the look of the line on the status
@@ -4755,7 +4760,7 @@ what each unit left behind on purpose), and what nobody has seen on a screen yet
       recipients and send pages instead of the line of every tab.
 
 **V2b-5a as built (the old banners go, what lost its last user goes).** The sixth increment of V2 closes the sweep of V2b: the
-items 1, 2 and 8 of *What V2b-5 has to do* - the ones that need no decision of the owner. Nothing a user can see changed (no
+items 1, 2 and 8 of the list *What V2b-5 has to do* (now *What is still open after V2*) - the ones that need no decision of the owner. Nothing a user can see changed (no
 release note), and nothing that is on the screen: a removed style that a view still used would have been a crash at run time, so
 the proof is by script and by the Windows run, not by looking. The other items of the list wait for the owner. The block reads in
 this order: the banners (item 1), what lost its last user (item 2: how it was proven, what was removed, what was kept and why),
@@ -4863,15 +4868,18 @@ the developer page (item 8), the checks, and what nobody has seen on a screen.
   styles that no longer exist; the Windows run of the last push is their proof. The new source rule and the two renamed or reworded
   tests run there as well.
 
-**V2b-5b as built (the decisions of the owner, and what they changed).** The seventh increment of V2 builds what V2b-5a left for the
-owner. The block reads in this order: the **Decisions** (the six answers of the owner, each with its reason), then one section for every
-unit - so far *The Stop of an execution* (decision 1, unit 1) and, from unit 2, *The delay before "Working"* (decision 5), *The
-announcement of a summary* (decision 2), *The glyph of a note* (decision 4) and *The band stays* (decision 3), from unit 3 *The status
-pill, the empty state and the skeleton* (decision 6) and from unit 4 *Taskbar progress and the close question* (decision 6). Not in this
-increment: the PowerShell window (R1), the page skeleton (V3) and anything about releases.
+**V2b-5b as built (the decisions of the owner, and what they changed).** The seventh and last increment of V2 builds what V2b-5a left
+for the owner and closes the stage. The block reads as one text, in this order: the **Decisions** (the six answers of the owner, each with
+its reason); one section for every decision as it was built - *The Stop of an execution* (decision 1, unit 1); *The delay before "Working"*,
+*The announcement of a summary*, *The glyph of a note* and *The band stays* (decisions 5, 2, 4 and 3, unit 2); *The status pill, the empty
+state and the skeleton* (decision 6, unit 3); *Taskbar progress and the close question* (decision 6, unit 4); then **Counts** (what the stage
+came to, recounted by a script in unit 5), **Tests** (what the increment added or changed, and what the Windows runs taught) and **Not seen
+on a screen yet**. What is still open - the owner's questions that remain and one thing to do - is *What is still open after V2* in the block
+of V2a, which replaced *What V2b-5 has to do*. Not in this increment: the PowerShell window (R1), the page skeleton (V3) and anything about
+releases.
 
 - **Decisions** (the owner's, given before V2b-5b; every later unit builds them as they stand; the reasons are those of the questions
-  in *What V2b-5 has to do* and of the owner's answers).
+  in the list *What V2b-5 has to do*, which this block worked off, and of the owner's answers).
   1. **The Stop of an execution finishes the object in progress.** Nothing new is started, but the object whose changes already began
      gets all its changes: no account with a new password and without its other settings. *Reason:* the operator presses Stop to
      keep what has not started from happening, not to leave one object broken - an account without "must change", a created
@@ -4884,7 +4892,7 @@ increment: the PowerShell window (R1), the page skeleton (V3) and anything about
   3. **The status line keeps its fixed band (about 28 px) also when it has nothing to say; it does not collapse.** *Reason:* the owner's
      priority is that content does not move when an operation starts or ends. `EmptyState` is the answer for lists without rows, not
      a collapsing line. This closes the question "collapse an empty line or keep the one fixed place?" of V2b-1, V2b-3 and V2b-4
-     (*Still open* and *Still the owner's*), in the controls, the dialogs and every view with a line.
+     (the lists of open questions of those blocks), in the controls, the dialogs and every view with a line.
   4. **A note may choose its glyph from the closed icon set.** *Reason:* the severity decides the colour and the role, the subject
      decides the picture; one glyph per severity made the replication note of the bulk wizard (information) show the caution glyph, and
      the protected account is a warning. The set stays closed - no note takes a picture that is not in `Icons.xaml`.
@@ -4944,12 +4952,11 @@ increment: the PowerShell window (R1), the page skeleton (V3) and anything about
     GPO stopped after its first change commits its file and version, a templates plan stopped after the extensions were set commits, and a
     transaction that is the first change and is cancelled while staging changes nothing; `ExecutionStatusTests` - the sentence in both
     languages with every form; `BulkCreateBatchEditorTests` - a Stop during the canary finishes the account.
-  - *Open.* **A sequential plan is several objects:** a new GPO is the container with its files, the Machine and User containers and the
+  - *Limits.* **A sequential plan is several objects:** a new GPO is the container with its files, the Machine and User containers and the
     link, so a Stop between two of them leaves a GPO that the undo has to remove - as before; "finish the object" is not "finish the
-    action" (to decide with the owner whether a sequential plan should finish as a whole). **The row of the list of background operations**
-    still says only "Cancelled" for a stopped execution, with its counters; the line is where the new sentence is. **Apply and "New
-    Object"** could now offer Stop in the line (see *Stop for a write*). **Not seen on a screen or on Windows:** the new sentence wraps to
-    two or three lines in the dialogs (three at most, then the tool tip) and the two changed UI tests ran only on Windows CI.
+    action". **The row of the list of background operations** still says only "Cancelled" for a stopped execution, with its counters; the
+    line is where the new sentence is. **Apply and "New Object"** offer no Stop in the line (see *Stop for a write*). The owner's questions
+    about the three are in *What is still open after V2*.
 
 - **The delay before "Working" (decision 5, unit 2).** The line shows a running operation only after `Motion.WorkingDelay`.
   - *Where it lives.* The logic is `StatusFlow` (`Controls/StatusFlow.cs`): no WPF type, a clock behind the one-method interface
@@ -5029,8 +5036,8 @@ increment: the PowerShell window (R1), the page skeleton (V3) and anything about
     and the peer, the gate in both states, an assertive result at once, a result that drops a waiting summary).
   - *The case that motivated it:* the settings search of the Group Policy area. "N settings found" is part of the summary of its tab; the
     operator types, the count changes with every query, and a screen reader says it once after the typing stops. The selection of a row adds
-    "· 1 selected" to the same summary, so a change of the selection that changes that text is announced after the quiet time as well (see
-    *Open*).
+    "· 1 selected" to the same summary, so a change of the selection that changes that text is announced after the quiet time as well (whether the
+    selection belongs in it is a question of *What is still open after V2*).
 - **The glyph of a note (decision 4, unit 2).** `c:AdNote.Icon` (`Controls/AdNote.cs`), an attached property on a note, names one icon
   of the closed set of the four status icons - `AppIcons.StatusInfo`, `StatusOk`, `StatusWarning`, `StatusError`, the ones the status line
   shows (`StatusLine.IconOf`; a test asserts that the two agree) - and puts its glyph in place of the glyph of the style. The colour, the
@@ -5054,14 +5061,6 @@ increment: the PowerShell window (R1), the page skeleton (V3) and anything about
   it has to say, also when it has nothing to say and in the 150 ms of the delay; nothing built in this increment collapses it, and the
   tests of the delay assert its height and the top of what lies under it at every step. `EmptyState` (unit 3, below) is the answer for a
   list without rows.
-- *V2b-5b, unit 2 - Open.* **Selections in the summary:** the summary of the object list and of the search tab contains "· N selected", so
-  a selection that changes the text is announced after the quiet time - with the arrow keys in a list the selected row is read by the list
-  anyway; whether the selection should be left out of the announcement (only the count of the list is told) is to be decided after use with a
-  screen reader. **The replication note** wears the caution colour of its section with the information glyph, as the owner asked; the quieter
-  alternative is the style `Ad.Note.Info` for it, which needs no property - to be decided when the page is seen. **Blind spots:** the
-  announcement was never heard (no screen reader on Linux, and the CI windows are not activated), only decided and counted; whether Narrator
-  and NVDA treat a `LiveRegionChanged` of a polite status bar as speech, and whether they would also speak a changed name by itself, is for
-  the pilot of a Windows machine with a screen reader. The 150 ms were not seen on a screen either.
 - **The status pill, the empty state and the skeleton (decision 6, unit 3).** Three controls of `App/Controls`, each with a style in
   `Themes/Controls.xaml` that the control takes by itself, each with a first use, and no colour, duration or animation of its own: the
   closed set of Fluent brush keys as dynamic resources, `Ad.Radius.Pill`, `Ad.FontSize.Caption`, and the one clock of the application,
@@ -5134,14 +5133,6 @@ increment: the PowerShell window (R1), the page skeleton (V3) and anything about
     skeleton in the views is bound to what makes it complete). The keys of the new styles were proved with a script over the real XAML
     files (every `Ad.*` key defined, the closed set of Fluent brushes unchanged and all dynamic, the `StaticResource` order of
     `Controls.xaml`).
-- *V2b-5b, unit 3 - Open.* **The look was never seen:** nobody could look at the rendered pill, empty state or placeholder rows (Linux, no screen);
-  the tint of the pill in the dark theme, the grey of the bars on the layer colour, the 29 px offset under the column headers of other
-  densities and the width of the pill column in a narrow window are reasoned, not seen. **The Find window** has the empty state and the
-  skeleton through the same list control but its own status line is switched off: "No object matches the filter" is its only sentence for a
-  search without results - to be seen. **The other lists** with their own `ListNote` text (see above) are the next candidates, one at a time,
-  each with its own action. **A pill for the rows of findings** (PKI, Group Policy) was not built: whether a finding's severity wants the same
-  picture-and-word label is for the owner.
-
 - **Taskbar progress and the close question (decision 6, unit 4).** Two answers to "this window works", both made of what the holder
   already says: the taskbar button of every window shows the progress of its line, and a window that is closed while it writes asks one
   question. Neither adds a status: they read the holder (`Current`, `Operation`) and the flag of the operation.
@@ -5226,18 +5217,93 @@ increment: the PowerShell window (R1), the page skeleton (V3) and anything about
     without a status line) and `CloseWhileWorkingUiTests` (an execution: No, Yes, after the end, the account that ran was finished; a
     read: no question; a creation that cannot be stopped: the notice and the window stays), through the real lifecycle with a scripted
     dialog service and calls held without blocking a thread.
-  - *Open.* **Not seen on a taskbar:** nobody could look at the button (Linux, no screen), in a remote session or with the taskbar
-    hidden; the tracker and the wiring are asserted through `TaskbarItemInfo`. **A write on a page that is not in front** is asked about
-    but is not on the button, as it is not in the line: the Korespondencja send on the *Sending* tab shows its progress only while that tab
-    is shown - following the busiest holder of the window is the alternative, and it would put on the button what the line does not say.
-    **The main window asks twice in one case:** a background activity that no window of this one runs (an action of the list) is still the
-    old question about the operations of the connection; a window of this one that runs an execution is the new one, and Yes there stops
-    it first. **A write that cannot be stopped keeps the main window open too** (a property sheet that is saving): it is short, and the
-    activity of the connection is the only thing that survives a window. **No time limit** on the wait after Yes: an operation that
-    never ends keeps the window open (the line says "Stopping…"); a second close is ignored while one is waiting. **Apply and "New
-    Object"** still offer no Stop in the line - closing them during their write says "still working", which is true. The settings window
-    saving its own settings is not a write in this sense (no operation, a file). **Not marked:** an operation that writes without a holder
-    (the activity center's own - the main window's question; the export and the clipboard).
+  - *Limits.* **A write on a page that is not in front** is asked about but is not on the button, as it is not in the line: the
+    Korespondencja send on the *Sending* tab shows its progress only while that tab is shown - following the busiest holder of the window is
+    the alternative, and it would put on the button what the line does not say. **The main window asks twice in one case:** a background
+    activity that no window of this one runs (an action of the list) is still the old question about the operations of the connection; a
+    window of this one that runs an execution is the new one, and Yes there stops it first. **A write that cannot be stopped keeps the main
+    window open too** (a property sheet that is saving): it is short, and the activity of the connection is the only thing that survives a
+    window. **No time limit** on the wait after Yes: an operation that never ends keeps the window open (the line says "Stopping…"); a
+    second close is ignored while one is waiting. **Apply and "New Object"** still offer no Stop in the line - closing them during their
+    write says "still working", which is true. The settings window saving its own settings is not a write in this sense (no operation, a
+    file). **Not marked:** an operation that writes without a holder (the activity center's own - the main window's question; the export
+    and the clipboard). The owner's questions about these are in *What is still open after V2*.
+
+- **Counts (unit 5).** The stage recounted by a script over the tracked files, comments excluded (`XamlSourceTests` counts the same with
+  its own expressions; the script is the proof that its two lists and its rules say what is there).
+  - *Banners: none.* No XAML file of the application names `Ad.ErrorBar` or `Ad.WarningBar` (89 XAML files: `App.xaml`, 5 dictionaries of
+    `Themes/` and 83 views), and no file outside `docs/` does but the rule that has to name them (5 mentions in `XamlSourceTests`: the
+    expression and its comments). They were 106 uses in 54 files when the stage was planned, 43 + 58 in 51 files at the end of V2a, and
+    none after V2b-4; the two styles went in V2b-5a. There is **one** `ProgressBar` in the application, the row of an activity in
+    `Views/MainWindow.xaml` (65 at the end of V2a); what says "busy" is a `ProgressRing` (5 elements in 4 views, 2 of them in the main
+    window) or the ring and the part done of a line.
+  - *Views with a line, views without.* Of the 83 views, **45 have a status line** - exactly one `c:StatusLine` named `PageStatus` each, 45
+    elements: 20 in `Views/` (the Watchdog tab among them), 14 in `GroupPolicy/`, 4 in `Pki/`, 3 in `EventLogs/`, 2 in `Computers/`, one each in
+    `Correspondence/` and `Readiness/` - and **29 converted views have none** (the six views of the bulk wizard, which the batch editor
+    hosts; the pages and small windows of the Watchdog tab; the dialogs that only collect input; the two small windows of the Korespondencja
+    window; a few small views that hold notes; the rendered preview of a message). **Nine never said a status and were never part of the sweep:** the main window (its own
+    status bar of the connection; the lines are the lines of its tabs), `EventLogs/EventLogResources.xaml`,
+    `GroupPolicy/GroupPolicyDiagnosticsResources.xaml` and `Controls/RichMessageEditor.xaml` (two dictionaries and an editor, no page),
+    and five small windows with no operation and no message - `ColumnChooserWindow`, `MessageDialogWindow`, `PowerShellHistoryWindow`,
+    `ProblemReportWindow` and `SavedFiltersWindow`. 45 + 29 + 9 = 83. The two lists of `XamlSourceTests` (`PagesWithAStatusLine`,
+    `ConvertedViewsWithoutAStatusLine`) were checked against the files: sorted, disjoint, every entry a view, and the views with a line are
+    exactly the first list. The nine are on no list on purpose: the source test asks that a view with a line be on the first list and that
+    a view on the second have none, not that every view be on one of them (a question for V3, which adds a header to every page).
+  - *The controls, and where they are used* (elements in the markup of the views; each item template counts once, a pill in a row appears
+    once per row at run time): `StatusLine` 45 in 45 views; `ActionButton` 62 in 32 views (the most in `CorrespondenceWindow` 8,
+    `RemoteComputerWindow` 6, `ComputerReviewWindow` 4); `ProgressRing` 5 in 4 views; `StatusPill` 3 in 2 views (`ReadinessView` - areas and
+    checks - and `WatchdogStatusView`); `EmptyState` 3 in 3 views (`ObjectListView`, which is also the list of the Find window,
+    `GroupPolicyObjectsView`, `PkiTemplatesView`); `Skeleton` 1 in 1 view (`ObjectListView`); notes: `Ad.Note.Info` 9 uses in 9 views,
+    `Ad.Note.Attention` 55 in 39 and `Ad.Note.Error` 8 in 7 - 72 in all; `c:AdNote.Icon` 1 (the replication note of the bulk results). Not
+    in any view, and so for every window: taskbar progress (`TaskbarProgress.Register()`, called once by `AppHost.InitializeAsync`) and the
+    close question (`WindowViewModelBase.CanCloseAsync`).
+  - *Strings and tests.* 8,462 strings in each resx file (8,448 at the notes of 0.16.0: 17 keys added - the stopped sentence in three plural
+    forms and its finished clause in three, the four texts of the close question and the seven sentences and actions of the empty lists -
+    and three removed: the old stopped sentence and the two old close questions of Korespondencja and of the e-mail messages window). `AdMng.Core.Tests` 5,526 passed (2,705 test methods before the increment, 2,717 now);
+    `AdMng.Presentation.Tests` 3,666 passed (3,603 at the end of V2b-5a; 2,738 methods before, 2,793 now); `AdMng.App.UiTests`, Windows
+    only: 613 test methods (546 before the increment).
+- **Tests (V2b-5b).** What the increment added, by unit (the names are in the sections above), and what the Windows runs taught.
+  - *Added.* Unit 1: `BatchExecutorStopTests` (9: a Stop after the first change of the second object, the audit, the undo plan and that it works,
+    three objects in parallel, a failed first change, a failure after the Stop, a Stop between two objects, a Stop during a back-off), the SYSVOL cases of
+    `SysvolPipelineTests` and `TransactionCancellationTests`, the sentence in `ExecutionStatusTests`, the canary in
+    `BulkCreateBatchEditorTests`; `FakeDirectorySession.BeforeOperationAsync` holds calls without blocking a thread. Unit 2: `StatusFlowTests`
+    (17, pure logic), `StatusLineTimingUiTests` (12, the real control on a manual clock and one test on the real clock), the glyph cases of
+    `NoteUiTests` and `BulkCreateStatusUiTests`. Unit 3: `StatusPillUiTests` (6), `EmptyStateUiTests` (6), `SkeletonUiTests` (7),
+    `ObjectListEmptyStateUiTests` (5), `ObjectListEmptyStateTests` (10, Presentation), `StatusPillKindTests` (3) and two source rules. Unit 4:
+    `RunningWorkTests` (14), `TaskbarProgressTrackerTests` (13), `ShellRunningWorkTests` (5), `TaskbarProgressUiTests` (3) and
+    `CloseWhileWorkingUiTests` (3). Unit 5: `XamlSourceTests.TheHeaderOfControlsXaml_NamesEveryControlOfOurs` (the header comment of
+    `Controls.xaml` names every control that has a style, the ring, and the glyph property of a note).
+  - *The lessons of the Windows runs*, each of which cost a run and is written next to the test that learned it. A press is not a call - the
+    Invoke pattern posts the click at `Input` priority, so a test that presses Stop waits for the effect before it releases the held call
+    (*The delay before "Working"*). A transient state is looked for only while the call is held, and the working look is 150 ms late, so a
+    test waits for the line to say "Working" before it asserts "Stopping…". A collapsed control has no template until it has been laid
+    out once, so a test lays the view out before it looks for a part of an empty state that has just become visible. A test that moves a
+    fake clock right after a recorded call waits until the code under test has created its timer (`TimerWatchingTime` in
+    `WatchdogPollerTests`), and the waits of the Watchdog presentation tests are on events with a bound of 60 s - the runner has stood still
+    for 8 to 20 seconds per process. A Watchdog test that queued a refusal waits until the poller has parked on its long-poll. A style key
+    that is wrong compiles and fails at run time: every key of the new styles was proved by a script over the real XAML files (every
+    `Ad.*` key defined, the closed set of Fluent brushes unchanged and dynamic, the `StaticResource` order of `Controls.xaml`).
+  - *Left alone, for whoever shortens the Windows job.* The tests of this increment hold their calls and wait for events: no real sleep,
+    no wait that always runs to its timeout. The biggest outlier of the *Slowest tests* step is `TheDetailsPane_ShowsARing_…` (it waits for
+    idle while a ring turns) - start there; and the other 10 s event waits of `AdMng.Presentation.Tests` (the PKI, event log, readiness
+    and property sheet tests) could take the 60 s of `WatchdogTestWait` - they wait on events, so a long bound costs nothing.
+- **Not seen on a screen yet (V2b-5b).** Nothing of this increment was seen on a screen or on a taskbar (Linux, no screen); the Windows CI
+  tests assert properties, template parts, geometry and the model, not pixels, and a screen reader was never heard. To confirm on Windows, in
+  light, dark and High Contrast:
+  - *The stopped line:* the new sentence of a stopped execution wraps to two or three lines in the dialogs (three at most, then the tool
+    tip); the two UI tests that changed with it ran on Windows CI only.
+  - *The delay and the announcement:* the 150 ms before "Working" and the empty band for that time; whether Narrator and NVDA treat a
+    `LiveRegionChanged` of a polite status bar as speech, and whether they would also speak a changed name by itself - the announcement was
+    only decided and counted (no screen reader on Linux, and the CI windows are not activated).
+  - *The three controls:* the tint of the pill in the dark theme and its outline in High Contrast; the 48 px picture and the 420 px sentence
+    of the empty state; the grey of the placeholder bars on the layer colour, the 29 px offset under the column headers at other densities
+    and the breathing of the rows with motion on; the width of the pill column in a narrow window; the sentence of the Find window's empty
+    list, whose own line is off.
+  - *The taskbar and the question:* the button itself (also in a remote session and with the taskbar hidden - the tracker and the wiring are
+    asserted through `TaskbarItemInfo`), the yellow and the red of a state that lasts, the wording and the wrapping of the close question
+    with what is running listed one per line, and the order of the two questions of the main window.
+  - What V2a left unseen (the look of the line on the status backgrounds, the ring at 14 and 16 px, the cross-fade of the button, the
+    width of "Zatrzymywanie…") stays on its own list in the block of V2a.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 
@@ -5316,6 +5382,9 @@ restyled twice:
 | then | – | V4 | the shell change gets a release of its own |
 | then | N (first stage) | V5 | new area in the strip; settings as cards |
 | then | – | V6, V7 | the large windows, then the audit |
+
+**As built:** V1 and V2 are built; R1 and V3 are next in the table. The PowerShell window is the first window written against the status
+line, the action button and the close question of V2 (the recipe is `docs/dev/v2-status-controls.md`).
 
 ## 9. Open questions for the owner
 
