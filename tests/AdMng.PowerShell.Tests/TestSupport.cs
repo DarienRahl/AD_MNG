@@ -21,6 +21,8 @@ internal sealed class FakeWindowContext : IAdmWindowContext
     public IDirectoryReader Reader => _inner.Reader;
 
     public string ApplicationVersion => _inner.ApplicationVersion;
+
+    public AdmKnownContainers KnownContainers => _inner.KnownContainers;
 }
 
 /// <summary>A lockdown probe that reports what a test says (and counts how often it was asked).</summary>

@@ -22,4 +22,7 @@ public sealed class AdmWindowContext : IAdmWindowContext
 
     /// <inheritdoc />
     public string ApplicationVersion { get; }
+
+    /// <inheritdoc />
+    public AdmKnownContainers KnownContainers { get; } = new();
 }

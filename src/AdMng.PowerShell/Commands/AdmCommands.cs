@@ -14,6 +14,12 @@ public static class AdmCommands
     public static IReadOnlyList<(string Name, Type Type)> Catalog { get; } =
     [
         ("Get-AdmVersion", typeof(GetAdmVersionCommand)),
+        ("Get-AdmObject", typeof(GetAdmObjectCommand)),
+        ("Get-AdmUser", typeof(GetAdmUserCommand)),
+        ("Get-AdmGroup", typeof(GetAdmGroupCommand)),
+        ("Get-AdmComputer", typeof(GetAdmComputerCommand)),
+        ("Get-AdmGroupMember", typeof(GetAdmGroupMemberCommand)),
+        ("Search-AdmObject", typeof(SearchAdmObjectCommand)),
     ];
 
     /// <summary>The names of the registered commands.</summary>

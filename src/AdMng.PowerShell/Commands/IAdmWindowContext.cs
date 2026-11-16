@@ -18,4 +18,7 @@ public interface IAdmWindowContext
 
     /// <summary>The program's version, as shown by <c>Get-AdmVersion</c>.</summary>
     string ApplicationVersion { get; }
+
+    /// <summary>The containers the window's commands returned so far, for the completion of <c>-SearchBase</c> (memory only, bounded).</summary>
+    AdmKnownContainers KnownContainers { get; }
 }

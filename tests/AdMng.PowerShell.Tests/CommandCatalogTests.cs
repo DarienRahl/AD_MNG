@@ -10,8 +10,17 @@ namespace AdMng.PowerShell.Tests;
 /// <summary>D9: the registered AD Manager commands are exactly the read commands; the mechanism of the window context.</summary>
 public sealed class CommandCatalogTests
 {
-    /// <summary>R1 builds the read commands of ADR-0010 decision 4 in part 2; part 1 has only Get-AdmVersion. R2 changes this list.</summary>
-    private static readonly string[] Expected = ["Get-AdmVersion"];
+    /// <summary>
+    /// R1 builds the read commands of ADR-0010 decision 4: part 2 the commands that read the directory, part 4 Out-AdmGrid,
+    /// Open-AdmObject and Export-AdmList. R2 changes this list.
+    /// </summary>
+    private static readonly string[] Expected =
+    [
+        "Get-AdmVersion", "Get-AdmObject", "Get-AdmUser", "Get-AdmGroup", "Get-AdmComputer", "Get-AdmGroupMember", "Search-AdmObject",
+    ];
+
+    /// <summary>The only verbs of R1's commands: they read, search or report.</summary>
+    private static readonly string[] ReadVerbs = ["Get", "Search", "Out", "Open", "Export"];
 
     /// <summary>Verbs that change something or send something; no command of R1 may have one.</summary>
     private static readonly string[] WriteVerbs =
@@ -25,6 +34,7 @@ public sealed class CommandCatalogTests
     public void The_catalog_lists_exactly_the_expected_read_commands()
     {
         Assert.Equal(Expected, AdmCommands.Names.ToArray());
+        Assert.All(AdmCommands.Names, name => Assert.Contains(name.Split('-')[0], ReadVerbs));
         Assert.Equal(AdmCommands.Names.Count, AdmCommands.Names.Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.All(AdmCommands.Catalog, entry => Assert.Contains("-Adm", entry.Name, StringComparison.Ordinal));
     }

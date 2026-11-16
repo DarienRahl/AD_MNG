@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using AdMng.Core.PowerShell;
 using AdMng.PowerShell.Commands;
+using AdMng.PowerShell.Formats;
 using AdMng.PowerShell.Guards;
 using AdMng.PowerShell.Hosting;
 using AdMng.PowerShell.Input;
@@ -295,6 +296,7 @@ public sealed class PowerShellSession : IPowerShellSession
             PSModuleAutoLoadingPreference.None,
             "Modules are not loaded automatically in the AD Manager PowerShell window."));
         CommandGuards.Apply(state);
+        AdmFormats.Apply(state);
         foreach (var entry in AdmCommands.Entries())
         {
             state.Commands.Add(entry);
