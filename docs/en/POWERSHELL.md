@@ -147,8 +147,8 @@ The commands never paste your text into a filter. Every value is escaped by the 
 
 PowerShell has its own rules for what you type:
 
-- Prefer **single quotes**. In double quotes `$` starts a variable: `"WAW-PC001$"` is not what you mean; `'WAW-PC001$'` is.
-  A single quote inside single quotes is doubled: `'O''Brien'`.
+- Prefer **single quotes**. In double quotes `$` starts a variable: `"CN=$name"` inserts the variable `$name`, while `'CN=$name'`
+  is the text as written. A single quote inside single quotes is doubled: `'O''Brien'`.
 - A value with a space, a comma or a parenthesis needs quotes: `-Name 'Jan Kowalski'`.
 - A path with brackets, such as `C:\Temp\[2026]\it.csv`, is taken literally by `Export-AdmList -Path`; other cmdlets read
   brackets in `-Path` as a wildcard (use `-LiteralPath`).
@@ -169,7 +169,7 @@ attributes under their LDAP names (`sAMAccountName`, `mail`, `memberOf`). `Get-M
 - an attribute with many values is an array (an empty array when it has none); an attribute without a value is `$null`;
 - **secrets are masked** as in the *Attribute Editor*: key material, managed and encrypted passwords and the like show the
   program's mask text. The secrets the Attribute Editor shows to the operator (the clear-text LAPS password, a BitLocker
-  recovery password) are shown here too – **do not run them in a window while Group Policy records commands and results**
+  recovery password) are shown here too – **do not read them in a window while Group Policy records commands and results**
   (chapter 8).
 
 **The table and the distinguished name.** The default tables end with the `DistinguishedName` column, which gets the rest
@@ -227,8 +227,8 @@ outside the program's control; for a CSV that is going to Excel use `Export-AdmL
   password asked for by `Read-Host -AsSecureString` or a mandatory parameter is typed into a password box and never shown.
 - **The program writes nothing else.** PSReadLine is not loaded (no history file), no profile is run (`$PROFILE` is never
   loaded), the engine's telemetry and diagnostics channel are off, module auto-loading and the module analysis cache are
-  off, and a test checks that working in the window leaves no file in the user's folders. The program's own diagnostic log
-  never holds a command or a value.
+  off, and a test checks that the engine writes no file of its own (on Windows only in the folders a variable can redirect, so
+  the settings above are what carries the proof). The program's own diagnostic log never holds a command or a value.
 
 ## 7. Language modes and the trusted mode
 
@@ -337,7 +337,7 @@ The editor colours the command as you type it: commands, parameters, variables, 
 | *PowerShell could not be started* | Close the window and open it again. If it repeats, report it ([PILOT.md, chapter 4](PILOT.md#4-reporting-problems)) with the program version. |
 | A command does not end | **Stop** (or Ctrl+C). The window waits 5 seconds for the command to react, then shows it as stopped. A command stuck in .NET code (trusted mode) may keep running, and a new command can be refused until it ends – close the window. |
 | *Cannot find a user with identity …* | The identity does not exist, is of another type (`Get-AdmUser` finds no computer) or the account cannot see it. A distinguished name with a comma in a value needs quotes. |
-| *Access denied reading …* / *… attribute … was not returned* | The window's account has no right to read the object or the attribute; a domain controller answers an unreadable attribute as if it were empty. The message names the attribute once. |
+| *Access denied reading …* / *The attribute '…' of '…' was not returned …* | The window's account has no right to read the object or the attribute; a domain controller answers an unreadable attribute as if it were empty. The message names the attribute once. |
 | *The LDAP filter is not valid* | The syntax of `-LdapFilter` or `-Filter`: balanced parentheses, `(attribute=value)`. |
 | Nothing is returned | Check the filter and `-SearchBase`; with several filter parameters all of them must match. A missing search base is an error that names it. |
 | *Only core types are supported in this language mode* | See chapter 7: use `New-Object PSObject -Property`, or turn the trusted mode on. |

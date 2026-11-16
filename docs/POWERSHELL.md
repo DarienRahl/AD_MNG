@@ -94,7 +94,7 @@ przyjmuje `*` jako wieloznacznik.
 - `-ResultPageSize` (1–10000, domyślnie 500) i `-ResultSetSize` (0 = wszystko) – rozmiar strony i limit wyniku.
 
 **`Get-AdmGroupMember`.** Bez `-Recursive`: bezpośredni członkowie (grupa dowolnej wielkości, także powyżej 1500 członków). Z
-`-Recursive`: ta sama lista co *Wszyscy (zagnieżdżeni)* na stronie *Członkowie* programu – zagnieżdżenia oblicza kontroler
+`-Recursive`: ta sama lista co *Wszystkie (zagnieżdżone)* na stronie *Członkowie* programu – zagnieżdżenia oblicza kontroler
 domeny, cykl grup go kończy, a **same grupy zagnieżdżone są w wyniku**; `-ExcludeGroups` je pomija i zostawia tylko konta i
 komputery. Członkowie, dla których ta grupa jest *grupą podstawową*, nie są tu członkami (jak na zakładce *Członkowie*).
 
@@ -147,8 +147,8 @@ znak.
 
 PowerShell ma własne zasady dla tego, co wpisujesz:
 
-- Używaj **apostrofów**. W cudzysłowie `$` zaczyna zmienną: `"WAW-PC001$"` nie znaczy tego, co chcesz; `'WAW-PC001$'` znaczy.
-  Apostrof wewnątrz apostrofów podwaja się: `'O''Brien'`.
+- Używaj **apostrofów**. W cudzysłowie `$` zaczyna zmienną: `"CN=$name"` wstawia zmienną `$name`, a `'CN=$name'` to tekst taki,
+  jak go napisano. Apostrof wewnątrz apostrofów podwaja się: `'O''Brien'`.
 - Wartość ze spacją, przecinkiem lub nawiasem wymaga cudzysłowu: `-Name 'Jan Kowalski'`.
 - Ścieżkę z nawiasami kwadratowymi, np. `C:\Temp\[2026]\it.csv`, `Export-AdmList -Path` bierze dosłownie; inne cmdlety czytają
   nawiasy w `-Path` jako wieloznacznik (użyj `-LiteralPath`).
@@ -226,8 +226,9 @@ programu; do CSV, który trafi do Excela, użyj `Export-AdmList`.
   nigdy nie jest pokazywane.
 - **Program nie zapisuje niczego więcej.** PSReadLine nie jest ładowany (nie ma pliku historii), żaden profil nie jest
   uruchamiany (`$PROFILE` nigdy nie jest ładowany), telemetria i kanał diagnostyczny silnika są wyłączone, automatyczne
-  ładowanie modułów i pamięć podręczna analizy modułów są wyłączone, a test sprawdza, że praca w oknie nie zostawia pliku w
-  folderach użytkownika. Dziennik diagnostyczny programu nigdy nie zawiera polecenia ani wartości.
+  ładowanie modułów i pamięć podręczna analizy modułów są wyłączone, a test sprawdza, że silnik nie zapisuje własnych plików (na
+  Windows tylko w folderach, które da się przekierować zmienną, więc dowodem są przede wszystkim powyższe ustawienia).
+  Dziennik diagnostyczny programu nigdy nie zawiera polecenia ani wartości.
 
 ## 7. Tryby języka i tryb zaufany
 
@@ -336,7 +337,7 @@ Edytor koloruje polecenie w trakcie pisania: polecenia, parametry, zmienne, cią
 | *Nie można uruchomić PowerShell* | Zamknij okno i otwórz je ponownie. Jeśli się powtarza, zgłoś to ([PILOTAZ.md, rozdział 4](PILOTAZ.md#4-zgłaszanie-problemów)) z wersją programu. |
 | Polecenie się nie kończy | **Zatrzymaj** (albo Ctrl+C). Okno czeka 5 sekund, aż polecenie zareaguje, potem pokazuje je jako zatrzymane. Polecenie utknięte w kodzie .NET (tryb zaufany) może działać dalej, a nowe polecenie może być odrzucane, dopóki się nie skończy – zamknij okno. |
 | *Cannot find a user with identity …* | Tożsamość nie istnieje, jest innego typu (`Get-AdmUser` nie znajdzie komputera) albo konto jej nie widzi. Nazwa wyróżniająca z przecinkiem w wartości wymaga cudzysłowu. |
-| *Access denied reading …* / *… attribute … was not returned* | Konto okna nie ma prawa czytać obiektu albo atrybutu; kontroler domeny odpowiada na nieczytelny atrybut tak, jakby był pusty. Komunikat podaje atrybut jeden raz. |
+| *Access denied reading …* / *The attribute '…' of '…' was not returned …* | Konto okna nie ma prawa czytać obiektu albo atrybutu; kontroler domeny odpowiada na nieczytelny atrybut tak, jakby był pusty. Komunikat podaje atrybut jeden raz. |
 | *The LDAP filter is not valid* | Składnia `-LdapFilter` lub `-Filter`: zrównoważone nawiasy, `(atrybut=wartość)`. |
 | Nic nie wraca | Sprawdź filtr i `-SearchBase`; przy kilku parametrach filtra muszą pasować wszystkie. Nieistniejąca baza wyszukiwania to błąd, który ją nazywa. |
 | *Only core types are supported in this language mode* | Zob. rozdział 7: użyj `New-Object PSObject -Property` albo włącz tryb zaufany. |
