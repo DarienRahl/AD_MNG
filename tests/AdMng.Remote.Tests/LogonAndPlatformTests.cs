@@ -107,7 +107,9 @@ public class LogonAndPlatformTests
     [Fact]
     public async Task Resolver_LocalhostResolves_InvalidNamesGiveNothing()
     {
-        var resolver = new DnsHostAddressResolver();
+        // The application's resolver gives a name 2 s; a loaded Windows runner has stood still for longer than that
+        // (a timeout of "localhost"), and nothing here waits for the limit to elapse.
+        var resolver = new DnsHostAddressResolver(TimeSpan.FromSeconds(30));
 
         var addresses = await resolver.ResolveAsync("localhost", Ct);
 
