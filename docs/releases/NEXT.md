@@ -51,6 +51,21 @@
   gotowości środowiska i stan każdego sprawdzenia na karcie *Stan* AdMng Watchdog to teraz plakietka: obrazek stanu i
   słowo (OK, Ostrzeżenie, Błąd, Nie sprawdzono…), w jednej kolumnie przed tytułem; obszary raportu mają plakietkę swojego
   najgorszego wyniku. Stan nie jest już podawany samym kolorem ani powtórzony za tytułem.
+- **Przycisk okna na pasku zadań pokazuje postęp, a zamknięcie okna w trakcie zapisu najpierw pyta.** Każde okno AD Managera
+  pokazuje na swoim przycisku na pasku zadań to, co mówi jego wiersz stanu: ile już zrobiono (zielony pasek – np. przy
+  wykonywaniu zmian na wielu obiektach albo przy wysyłce, która trwa minuty), że operacja trwa, a nie wiadomo, ile jeszcze
+  (pasek w ruchu), albo – gdy operacja, której postęp było widać, skończyła się stanem, który trwa (np. nie udało się odczytać
+  listy) – żółty lub czerwony pasek, dopóki strona nie powie czegoś innego. Pasek pojawia się po tym samym czasie co stan
+  *Trwa* (około 0,15 s), działa także przy wyłączonych animacjach, a okno główne pokazuje postęp karty, która jest na wierzchu.
+  Zamknięcie okna w trakcie operacji, która coś zapisuje – wykonania zmian, wysyłki wiadomości, przywracania, aktualizacji
+  magazynu centralnego, zapisu konfiguracji Watchdoga, polecenia dla komputera – zadaje jedno pytanie: *Zatrzymać trwającą
+  operację i zamknąć okno?*, z tym, co trwa, i z tym, co się stanie (przy wykonaniu zmian: nic nowego nie jest zaczynane, a obiekt
+  w toku zostaje dokończony). *Tak* zatrzymuje operację i zamyka okno dopiero po jej końcu; *Nie* zostawia okno. Operacja, której
+  nie da się zatrzymać (np. zapis właściwości obiektu, utworzenie obiektu, zapis konfiguracji Watchdoga), nie jest pytaniem: okno
+  mówi, że jeszcze pracuje, i zostaje otwarte do jej końca. Okno, które tylko czyta, zamyka się bez pytania, a odczyt jest przerywany,
+  jak dotąd. To samo pytanie zadaje okno główne o zapisy w swoich kartach i w oknach, które do niego należą, i karta Watchdoga przy
+  zamknięciu. Wcześniej pytało tylko okno *Korespondencja* i tylko przy wysyłce, a edytor zbiorczy zamknięty w trakcie wykonania
+  zostawiał je w tle.
 
 ## AdMng Watchdog {{VERSION}}
 
@@ -74,6 +89,11 @@
   modeli widoku), ale nikt ich jeszcze nie oglądał na ekranie: wygląd w jasnym, ciemnym i wysokim kontraście oraz szerokość
   plakietek w wąskich oknach czeka na pilotaż. Plakietki stanu kanałów i kontrolerów domeny na karcie *Stan* Watchdoga nie
   zostały wprowadzone (te kolumny są wąskie) – zostają przy ikonie z podpowiedzią.
+- Postęp na pasku zadań i pytanie o zamknięcie okna sprawdzono testami automatycznymi (model na Linuksie, okna na Windows),
+  ale nikt nie oglądał przycisku na prawdziwym pasku zadań ani w sesji zdalnej. Zapis na stronie, której nie widać (np. wysyłka
+  na zakładce *Korespondencji*, gdy pokazana jest inna), nie jest na pasku postępu – nie ma go też w wierszu stanu – za to pytanie
+  o zamknięcie okna go uwzględnia. Zamknięcie okna przez zamknięcie okna, do którego należy, albo przez zamknięcie programu nie
+  zadaje pytania samo: pyta okno główne.
 
 ## Co dalej
 

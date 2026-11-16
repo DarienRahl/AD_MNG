@@ -1307,9 +1307,11 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
        owner's decision of V2b-5b: it does not collapse), `Skeleton` - **done in V2b-5b, unit 3**, each with a first use (*The status pill,
        the empty state and the skeleton* in *V2b-5b as built*).
     5. *Taskbar progress* (6.7): a send of messages that takes minutes shows its progress only in the 16 px ring and the numbers of
-       the line, and so does every long read.
+       the line, and so does every long read - **done in V2b-5b, unit 4**: the taskbar button of every window follows its line
+       (*Taskbar progress* in *V2b-5b as built*).
     6. *The close question tied to running activities:* a window that is closed during an operation - only the Korespondencja
-       window asks, and only for a send.
+       window asks, and only for a send - **done in V2b-5b, unit 4**: one question for every window, asked about the operations that
+       write (*The close question* in *V2b-5b as built*).
     7. *The screen reader:* a result that only changes the summary is not announced (the settings search no longer announces how
        many settings a query found, and no count of a list does) - **done in V2b-5b, unit 2**: it is announced politely and
        throttled (*The announcement of a summary* in *V2b-5b as built*); still to do: a mark in the tab header of a page that
@@ -1331,9 +1333,8 @@ controls that show it, and two pilot pages. Everything else keeps its banners un
       every preview, the stage of the templates in the editor and in the comparison, and the ring on the first read
       button of a tab whose reload reads nothing.
     - *The rest of the V2 scope:* `StatusPill`, `EmptyState` and `Skeleton` are **built (V2b-5b, unit 3)**; taskbar progress and the
-      close question tied to running activities are not started. A send of messages that takes
-      minutes now shows its progress only in the 16 px ring and the numbers of the line – taskbar progress would be its
-      place.
+      close question tied to running activities are **built (V2b-5b, unit 4)**: a send of messages that takes minutes shows its
+      progress on the taskbar button of its window as well as in the 16 px ring and the numbers of the line.
     - *A mark in the tab header* of a page that reads or failed (6.7): a failed tab says so only when it is selected.
     - *The same message on two pages:* switching between two tabs that say a message of the same key changes the text
       without the entrance motion and without a live region event (the control compares kind and key).
@@ -4865,9 +4866,9 @@ the developer page (item 8), the checks, and what nobody has seen on a screen.
 **V2b-5b as built (the decisions of the owner, and what they changed).** The seventh increment of V2 builds what V2b-5a left for the
 owner. The block reads in this order: the **Decisions** (the six answers of the owner, each with its reason), then one section for every
 unit - so far *The Stop of an execution* (decision 1, unit 1) and, from unit 2, *The delay before "Working"* (decision 5), *The
-announcement of a summary* (decision 2), *The glyph of a note* (decision 4) and *The band stays* (decision 3), and from unit 3 *The status
-pill, the empty state and the skeleton* (decision 6). Not in this increment: the PowerShell window (R1), the page skeleton (V3) and
-anything about releases.
+announcement of a summary* (decision 2), *The glyph of a note* (decision 4) and *The band stays* (decision 3), from unit 3 *The status
+pill, the empty state and the skeleton* (decision 6) and from unit 4 *Taskbar progress and the close question* (decision 6). Not in this
+increment: the PowerShell window (R1), the page skeleton (V3) and anything about releases.
 
 - **Decisions** (the owner's, given before V2b-5b; every later unit builds them as they stand; the reasons are those of the questions
   in *What V2b-5 has to do* and of the owner's answers).
@@ -4894,6 +4895,7 @@ anything about releases.
      operations.** *Reason:* the V2 control set of 6.7 is finished, but no control is built without the place that uses it (so none
      stays unused), a send or a long read shows its progress on the taskbar where the operator looks while he works in another window,
      and a window closed during an operation asks - as the Korespondencja window does for a send - instead of ending it silently.
+     (The controls: unit 3. Taskbar progress and the close question: unit 4.)
 - **The Stop of an execution (decision 1, unit 1).** The rule lives in `BatchExecutor` (`ExecuteObjectAsync`); the windows only say it.
   - *The rule.* `ExecuteObjectAsync` looks at the cancellation token only before the first change of an object that has not made one:
     `Cancelled` then means "nothing of it was changed". Once the first change has succeeded the rest is executed, whatever happens to the
@@ -5139,6 +5141,103 @@ anything about releases.
   search without results - to be seen. **The other lists** with their own `ListNote` text (see above) are the next candidates, one at a time,
   each with its own action. **A pill for the rows of findings** (PKI, Group Policy) was not built: whether a finding's severity wants the same
   picture-and-word label is for the owner.
+
+- **Taskbar progress and the close question (decision 6, unit 4).** Two answers to "this window works", both made of what the holder
+  already says: the taskbar button of every window shows the progress of its line, and a window that is closed while it writes asks one
+  question. Neither adds a status: they read the holder (`Current`, `Operation`) and the flag of the operation.
+  - *Taskbar progress - what it shows.* `TaskbarProgressTracker` (`Presentation/Feedback`, no WPF type, tested on Linux with a fake clock)
+    follows one holder and gives `State` (`TaskbarProgressState`: a `TaskbarProgressKind` - `None`, `Indeterminate`, `Normal`, `Paused`,
+    `Error` - and a fraction). **Working** with a part done is `Normal` with that fraction (the execution of a plan: "12 of 300" is 4 %);
+    without a count - and while the line says "Stopping…" - it is `Indeterminate`. **An operation that ended with a state that lasts**
+    - an attention or an error that cannot be closed, as "could not be read" is - keeps the button `Paused` (yellow) or `Error` (red)
+    at the fraction where it stopped (a full bar when it had none) for as long as the page shows that state; a new operation that is
+    on the button, a result the operator may close, the summary - anything the page says instead - ends it. **Everything else is
+    `None`:** the summary, a closable result, a state that lasts with no operation behind it (the session ended, the object was
+    deleted: the line says it, the button is not the place), no holder.
+  - *Which holder, and when.* The holder in front is the one that counts: a window with a status line of its own follows that holder
+    (`PageStatusHolder.Current` is already what the page in front says, `Front` included); the main window, whose lines are the lines of
+    its tabs, follows the selected tab through `IHasFrontStatus.FrontStatus` (`ShellViewModel` raises it with `SelectedTab`); a window
+    whose view model has no holder (the message dialogs) is never touched - not even given a `TaskbarItemInfo`. Switching to another
+    holder starts from nothing: what was on the button for the first one goes, and a holder that is working when it is handed over shows
+    its progress after the delay, like the line of its new view. **The delay is the line's** (`Motion.WorkingDelay`, handed in as a
+    function, read when an operation arrives): the button follows the line *as shown*, so a read that ends at once never flashes and a
+    button that shows progress always has a line that says what; a second status of the same operation during the delay only replaces
+    what will be shown, an operation that ends first leaves the button alone. A state that lasts is latched **only when the progress had
+    been on the button** (a quick read that fails is the line's error and nothing more); while a new operation waits for its delay the
+    button keeps what it showed, as the line does.
+  - *Where it is wired.* `Behaviors/TaskbarProgress.cs`: `TaskbarProgress.Register()` adds one class handler for the `Loaded` event of every
+    `Window`, called from `AppHost.InitializeAsync` - the one place the application, the smoke test and every UI test run before the first
+    window exists. No XAML file and no window class names it, so every present and future window follows its status without being told.
+    Per window one `Follower` (an attached property) owns a tracker, hands it the holder of the window's view model (`IHasFrontStatus`,
+    else `IHasPageStatus`, else none; again when the `DataContext` changes) and puts `State` on `Window.TaskbarItemInfo` (the main window's,
+    which carries the connection's dot, or one it creates when there is something to show; a button with nothing to show that never had
+    anything is left alone). The window's `Closed` ends it. **Not motion:** `Motion.IsEnabled` is not consulted. **No taskbar:** the known
+    exceptions of the taskbar calls (`COMException`, `InvalidOperationException`, `Win32Exception`, `NotSupportedException`) are
+    swallowed - a session without a taskbar works as before. `TaskbarProgress.Time` is the clock (`TimeProvider`), the seam of the UI tests.
+  - *The close question - what is a write.* `OperationScope.Writes` (`OperationWrites`: `None` - the default, a read -, `Changes`, `Messages`,
+    `Other`) is set by the code that starts the operation: `PageStatusHolder.Begin(..., canCancel, writes)`; `ExecutionStatus` sets
+    `Changes` itself, so every window that executes a plan through it is a writing window without saying it. Nothing is guessed from a name:
+    every `Begin` of Presentation was read. **Writes:** the execution of a plan (batch editor and the bulk creation wizard, Reset
+    Password, Recycle Bin restore, the change plan preview of the Group Policy and its undo); **`Changes` that cannot be stopped:** the save
+    of the property sheet and "New Object" (their execution is an activity of the connection); **`Messages`:** the send of Korespondencja
+    (also drafts and the test message), of the e-mail messages window (also its test message) and the test of a Watchdog channel;
+    **`Other`:** the update of the central store, the backup of GPOs, the remote commands that do something to a computer (refresh the
+    policy, restart, abort the restart; not status, users, services), and the Watchdog's writes - acknowledging one event or many, saving
+    the configuration, queuing a digest, retrying a delivery - all of which cannot be stopped. **Reads, by decision not writes:** every
+    list, check, preview, search, planning and connection attempt, the test of an SMTP connection, the read of the files of the bulk wizard
+    and its "Updating" (a rebuild of the wizard's table, not a change of the directory).
+  - *The close question - what it does.* `RunningWork` (`Presentation/Feedback`, no WPF type: it takes a localizer and an `IDialogService`)
+    is the one mechanism. It looks at the holders of the window's view models - the own holder, those a view model lists through
+    `IHasPageStatusParts` (the Korespondencja pages, the sub-tabs of the Watchdog tab, the e-mail messages tab of the settings, every tab of
+    the shell) and everything in front of them - and only at operations whose `Writes` is not `None`. **A read** is not a question: the
+    window closes and its read is cancelled when the view model is disposed, as before. **A write that can be stopped** is asked about with
+    the title of the window and the text of the line ("what is running"), then one sentence of what the stop does
+    (`CloseWork.StopChanges`: nothing new is started, the object in progress is finished first - the Stop of V2b-5b unit 1 -, the objects
+    not reached stay unchanged; `StopMessages`: what was not sent is not sent, what was accepted cannot be recalled; `StopOther`: what was
+    written stays, the rest is not done; several writes are one question with the strongest sentence). **Yes** is the holder's own Stop -
+    the line says "Stopping…", the token is cancelled, `ExecutionStatus` stops the activity - and the window closes **after the operation
+    ended** (`OperationScope.Ended`), never in the middle of a step; **No** keeps the window and the operation. A write that was stopped
+    already is not asked about again: the window waits for its end. **A write that cannot be stopped** is not a question: the window says
+    it is still working (`CloseWork.Wait`, a notice) and stays open - the "wait until it ends" of what a window that cannot be closed had
+    to say; the windows that refused silently until now (New Object, the property sheet while it applies, the store update) say why.
+  - *Where it is asked.* `WindowViewModelBase.CanCloseAsync` is no longer overridable: it asks `RunningWork` first and then the window's own
+    questions, `CanCloseCoreAsync` (unsaved changes, generated passwords, "not while it is busy") - the eleven windows that overrode
+    `CanCloseAsync` override that. So every window the lifecycle (`WindowViewModelLifecycle`, `WindowViewModelHost`) closes - the title
+    bar, Alt+F4, a Close or Cancel button that asks `CanCloseAsync` - asks it, and the Korespondencja and e-mail messages questions
+    (`Correspondence.StopOnClose`, `UserMessages.StopOnClose`) are this one. `ShellViewModel.CloseTabAsync` asks it of a tab (a Watchdog
+    tab that is saving stays and says so). The main window asks it **first** of its tabs and of the windows it owns - they are closed
+    without asking when it closes - then the question about the background operations of the connection, the generated passwords and the
+    unsaved tabs, as before; an execution that Yes stopped is no longer running when the second question is looked at. A batch editor
+    that is closed during its execution no longer leaves the execution running in the background: it asks, and Yes stops it.
+  - *Decisions of the unit.* **(1)** The taskbar follows the line, not the model: the same delay, so the two never disagree and a quick
+    read never flashes the button. **(2)** A state that lasts is latched only when the progress was on the button; "could not be read"
+    after a quick read is the line's. **(3)** `Writes` is a flag with a kind, not a boolean: the kind chooses the sentence of what the stop
+    does. **(4)** The question lives in one static class over holders, so the main window, a tab and a window view model use the same
+    code; a view model that has more holders than it shows says so with `IHasPageStatusParts`. **(5)** `CanCloseAsync` became a template
+    method so that no window can forget the question (the other way was a call in each override). **(6)** Closing waits for the end of the
+    operation with no time limit: "never kill a write mid-step" is the owner's rule; the line says "Stopping…" for as long as it lasts.
+  - *Tests.* Linux: `RunningWorkTests` (a read, a write that can be stopped with Yes and No, one that was stopped already, one that cannot
+    be, the chain of `Front`, parts, several writes, a replaced operation, both languages), `TaskbarProgressTrackerTests` (the delay at the
+    millisecond, a count, no count, an operation that ends before the delay, every ending, a state that lasts in red and yellow, Stopping,
+    the holder in front, no delay, disposal), `ShellRunningWorkTests` (the front holder, the parts, closing a tab that reads, writes and
+    cannot be stopped) and the windows through their real view models: Reset Password (No, Yes, the window's own question after the
+    end), New Object and the Watchdog save (the notice), the e-mail composer and Korespondencja (No, Yes, after the end). Windows CI:
+    `TaskbarProgressUiTests` (a held execution without and with a count, the main window and its tabs, a read that failed, a window
+    without a status line) and `CloseWhileWorkingUiTests` (an execution: No, Yes, after the end, the account that ran was finished; a
+    read: no question; a creation that cannot be stopped: the notice and the window stays), through the real lifecycle with a scripted
+    dialog service and calls held without blocking a thread.
+  - *Open.* **Not seen on a taskbar:** nobody could look at the button (Linux, no screen), in a remote session or with the taskbar
+    hidden; the tracker and the wiring are asserted through `TaskbarItemInfo`. **A write on a page that is not in front** is asked about
+    but is not on the button, as it is not in the line: the Korespondencja send on the *Sending* tab shows its progress only while that tab
+    is shown - following the busiest holder of the window is the alternative, and it would put on the button what the line does not say.
+    **The main window asks twice in one case:** a background activity that no window of this one runs (an action of the list) is still the
+    old question about the operations of the connection; a window of this one that runs an execution is the new one, and Yes there stops
+    it first. **A write that cannot be stopped keeps the main window open too** (a property sheet that is saving): it is short, and the
+    activity of the connection is the only thing that survives a window. **No time limit** on the wait after Yes: an operation that
+    never ends keeps the window open (the line says "Stopping…"); a second close is ignored while one is waiting. **Apply and "New
+    Object"** still offer no Stop in the line - closing them during their write says "still working", which is true. The settings window
+    saving its own settings is not a write in this sense (no operation, a file). **Not marked:** an operation that writes without a holder
+    (the activity center's own - the main window's question; the export and the clipboard).
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 

@@ -20,6 +20,9 @@ progress bar under the header, a text in the footer or a toast of the same windo
 | `PageStatusHolder` | `Presentation/Feedback` | The observable holder a page view model owns (`IHasPageStatus.Status`); the view binds to `Status.Current`. `SetIdle` (the summary, shown whenever nothing else is), `SetLasting` (a state that lasts), `Show` (a result), `Clear`, `Begin` (an operation), `Front` (the page in front of a window of pages), `CloseCommand`, `CancelCommand`, `IsWorking`, `IsCancelling`. | The one status of one page. Created by the view model, dies with it; there is no hub and no service. |
 | `OperationScope` | returned by `Begin` | One running operation: `Token`, `Report` (a new text or count, from any thread), `Cancel`, `Complete`, `CompleteDone` / `CompleteAttention` / `CompleteError`, `IsEnded`, `IsCancelling`, `Dispose`. | "Working" exists only through a scope. A scope that is disposed without a completion ends as the summary, so no path out of a method leaves a page "working". |
 | `ExecutionStatus` | `Presentation/Changes` | The execution of a change plan as an operation: working from the first moment ("Executing ... 12 of 300..."), Stop that cancels the activity, results that name the domain. | Every window that executes a plan through the coordinator, so every window says the same. It only says what happens; the pipeline (rule 5) is untouched. |
+| `OperationWrites` | `Presentation/Feedback`, `OperationScope.Writes`, the `writes:` argument of `Begin` | What an operation changes: `None` (a read - the default), `Changes` (the execution of a plan), `Messages` (a send), `Other` (a restore, a store update, a backup, a save, a remote command). `ExecutionStatus` sets `Changes` itself. (V2b-5b) | The operations a window may not be closed on silently: say it where the operation begins, never guess it from a name. |
+| `RunningWork` | `Presentation/Feedback` (no WPF type) | The one question of a window closed while it works: over the holders of its view models (`IHasPageStatus`, `IHasPageStatusParts`, `Front`), only for operations that write - "Stop the running operation and close the window?" with what runs and what the stop does; Yes stops it through the holder's own Stop and the window closes after it ended, No keeps the window, a write that cannot be stopped keeps it open and says so, a read closes without a question. Asked by `WindowViewModelBase.CanCloseAsync`, `ShellViewModel.CloseTabAsync` and the main window. (V2b-5b) | Every window; a view model has nothing to do except `writes:` where it begins a write, and `IHasPageStatusParts` when it holds pages that are not always in front. |
+| `TaskbarProgressTracker` / `TaskbarProgress` | `Presentation/Feedback` (the tracker, tested on Linux) and `App/Behaviors` (one class handler for every `Window`, registered by `AppHost.InitializeAsync`) | The progress of the taskbar button of a window: it follows the holder in front - the line - after the same delay: a part done is green, an unknown part the marquee, an operation that was on the button and ended with a state that lasts yellow or red until the page says anything else; everything else nothing. The main window follows its selected tab (`IHasFrontStatus`). (V2b-5b) | Nothing to wire: a window that has a holder gets it. A window without one is never touched. |
 | `PageStatusText` | `Presentation/Feedback` | Text helpers: `Failure(tried, reason, next, code)`, `Progress(localizer, done, total)` ("12 of 300"), `Objects` / `Count` (the plural forms). | One shape of an error: "what we tried: why it failed. What to do next. (code)". |
 | `c:StatusLine` | `App/Controls`, style `Ad.StatusLine` | Shows a `PageStatus` in a line of a fixed height (the summary and a running operation: one line; a result: up to three lines, then the tool tip): the picture of the severity (a ring while it works), the fixed title, the text, the action as a link, a close button where `CanClose`. A live region: polite for the summary, working and done, assertive for attention and error. Two things of time (V2b-5b): a running operation is **shown 150 ms after the page says it** (`Motion.WorkingDelay`; the line keeps showing what it showed, so a quick operation never flashes), and a summary whose text changes is **announced once, 800 ms after the last change** (`Motion.SummaryThrottle`). The band of 28 px never collapses. | The one place. |
 | `c:ActionButton` | `App/Controls`, styles `Ad.ActionButton`, `Ad.AccentActionButton`, `Ad.DialogActionButton`, `Ad.AccentDialogActionButton` | A button with three contents in one cell: its own at rest, ring + "Cancel" while the operation runs, ring + "Stopping..." after the press. `Command` starts, `CancelCommand` stops; Enter starts and never cancels; it keeps the keyboard focus by staying enabled. | A command that starts an operation that can be stopped. Replaces the old pair "start button + Stop button". |
@@ -122,7 +125,11 @@ things. The test for the first two: *is this the answer to something the operato
    A second `Begin` on a holder **replaces** the running operation (its token is cancelled and what it says later is ignored); two
    operations that can overlap live in two holders, or the second is refused by its command while the first runs. An operation that
    *contains* a step that is an operation elsewhere does not begin a second scope for it. An operation that cannot be stopped is
-   begun with `canCancel: false` (no Stop is offered).
+   begun with `canCancel: false` (no Stop is offered). **An operation that writes says so** (V2b-5b): `writes: OperationWrites.Other`
+   (or `Messages` for a send; `ExecutionStatus` says `Changes` itself). The window then asks before it is closed while it runs - Yes
+   stops it and the window closes after its end, an operation with `canCancel: false` keeps the window open and says it is still
+   working - and a read says nothing. Its progress is on the taskbar button of the window like every other (a part done through
+   `PageProgress.Of(done, total)` in `Report`), with nothing to wire.
 4. **A state that lasts is computed in one method.** "Could not be read", "was deleted", "is out of date", "the session of this window ended"
    are true for as long as the page shows what it shows. A cancelled or failed read that leaves the content empty or stale is
    `SetLasting(error with Retry)` and the operation ends without a message; one that leaves the content as it was is a result
@@ -255,6 +262,13 @@ Presentation tests run on Linux and are the bulk: the view models run against th
   holds a search without blocking a thread - and a reload that shows none), the GPO list in `GroupPolicyEditingUiTests`, the PKI templates in
   `PkiOverviewUiTests`, the pills in `ReadinessStatusUiTests` and `WatchdogViewTests`; on Linux `ObjectListEmptyStateTests`,
   `StatusPillKindTests` and the empty states in `GroupPolicyEditingComfortTests` and `PkiTemplatesTests`.
+- **The taskbar and the close question** (V2b-5b): `TaskbarProgressTrackerTests` and `RunningWorkTests` (Linux, a fake clock and a scripted
+  dialog service - copy them for a new rule), `ShellRunningWorkTests`; in a window's own tests the close question is one test: begin the
+  write held, close, answer No (the window stays, nothing stopped), answer Yes (the line says "Stopping…", the window waits), release,
+  and assert that the object in progress is finished and the window's own question comes after the end (`ResetPasswordStatusTests`,
+  `UserMessageComposerStatusTests`). Windows CI: `TaskbarProgressUiTests` (`TaskbarClock` moves the delay; assert
+  `Window.TaskbarItemInfo`) and `CloseWhileWorkingUiTests` (the real lifecycle: `window.Close()`, `ScriptedDialogService.ConfirmAnswer`,
+  `ConfirmationMessages` and `InfoMessages`; wait for the model to say "Stopping…" before releasing the held write).
 - **Source rules** (`XamlSourceTests`, they run on Windows CI; prove a new one on Linux with a throwaway script that repeats its
   expression): the two lists above; `NoXamlFile_MentionsABannerOfBefore_OrHasAProgressBarThatSaysStatus` (no XAML file names a banner
   style, and the only `ProgressBar` is the row of an activity: `ProgressBarsOfARow`); every `Ad.*` key that is used is defined; the closed
@@ -270,13 +284,15 @@ hosts has the line of its host; a family of documents shares the holder of its b
 a quick action never ends an operation of its page; the coverage of a run is said in the line for what it could not read and stays in rows
 and notes for the rest. And, by the owner's decisions of V2b-5b: Stop finishes the object in progress; a delay of about 150 ms before
 "Working" is shown; a changed summary is announced politely and throttled; the status line keeps its band of 28 px when it has nothing to
-say; a note may choose its glyph from the closed set of four.
+say; a note may choose its glyph from the closed set of four; the taskbar button of a window shows what its line says; a window closed
+while an operation writes asks one question.
 
-**Not started** (*What V2b-5 has to do* in the design note; the owner has decided them in V2b-5b and the later units build them):
-taskbar progress; the close question of a window closed during an operation. Built in unit 2 of V2b-5b and described above: the delay
-before "Working", the throttled announcement of a summary, the glyph of a note; and in unit 3: `StatusPill`, `EmptyState` (the answer for
+**Built in V2b-5b** (*What V2b-5 has to do* in the design note; the owner decided them and the units built them): in unit 2 the delay
+before "Working", the throttled announcement of a summary and the glyph of a note; in unit 3 `StatusPill`, `EmptyState` (the answer for
 lists without rows; the 28 px band of a line with nothing to say **stays** - owner's decision of V2b-5b) and `Skeleton`, each with its
-first use. Still open from them: a mark in
+first use; in unit 4 the progress of the taskbar button of every window and the one close question of a window that writes
+(`OperationWrites`, `RunningWork`; *Taskbar progress and the close question* in *V2b-5b as built*, with what is still open: a write on
+a page that is not in front is asked about but is not on the button). Still open from the stage: a mark in
 the tab header of a page that failed while it was not shown (6.7), and whether the selection ("· 1 selected") belongs in the summary that is
 announced (*V2b-5b as built*, *Open*). The list *Still the owner's* in *What V2b has to do* holds the smaller questions of the units (the
 loudness of the caution glyph of the notes, where the press-time answers of the editors belong, whether *Refresh* is the Cancel of a read the

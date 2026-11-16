@@ -132,7 +132,16 @@ public sealed class CloseWhileWorkingUiTests
             read.Release();
         }
 
-        await previewing.WaitAsync(HoldLimit);
+        try
+        {
+            // The check was cancelled with the window; however the command reports that, it ends once the held read let go.
+            await previewing.WaitAsync(HoldLimit);
+        }
+        catch (OperationCanceledException)
+        {
+            // The expected end of a cancelled check.
+        }
+
         Assert.Empty(dialogs.Confirmations);
         Assert.Empty(dialogs.InfoMessages);
         Assert.True(editor.IsDisposed);
