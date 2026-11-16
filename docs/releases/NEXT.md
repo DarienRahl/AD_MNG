@@ -64,10 +64,12 @@ się nie zmienia, a zapisy do katalogu nadal idą wyłącznie przez plan zmian z
 Z okna połączenia można teraz otworzyć okno **PowerShell** (*Narzędzia → PowerShell…*, **Ctrl+Shift+P** albo paleta poleceń):
 wiersz poleceń z podpowiadaniem, kolorowaniem i historią, w którym działają polecenia AD Managera – tylko do odczytu – na
 sesji tego okna, czyli tym samym kontrolerze domeny i z tymi samymi uprawnieniami co okno główne. Nic w nim nie zapisuje do
-katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w następnych etapach ścieżki R.
+katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w następnych etapach ścieżki R (R2 i R3). Instrukcja:
+[POWERSHELL.md](https://github.com/DarienRahl/AD_MNG/blob/v{{VERSION}}/docs/POWERSHELL.md).
 
 - **Polecenia.** `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`, `Get-AdmGroupMember` (z `-Recursive`
-  dla członków zagnieżdżonych), `Search-AdmObject` (wartości są zawsze dosłowne, więc `Łukasz (Kraków)*` znajduje tylko to, co
+  dla członków zagnieżdżonych – wynik zawiera też same grupy zagnieżdżone, tak jak lista *Wszyscy (zagnieżdżeni)*;
+  `-ExcludeGroups` je pomija), `Search-AdmObject` (wartości są zawsze dosłowne, więc `Łukasz (Kraków)*` znajduje tylko to, co
   napisano), `Get-AdmVersion`, `Out-AdmGrid`, `Open-AdmObject` i `Export-AdmList`. Wyniki są zwykłymi obiektami PowerShella
   (`Where-Object`, `Select-Object`, `Sort-Object`… działają), z wartościami dekodowanymi tak jak w oknach programu, a hasła i
   klucze, których edytor atrybutów nie pokazuje, są zamaskowane. Wyniki są czytane strumieniem – 100 000 obiektów nie blokuje
@@ -90,7 +92,9 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   skryptów i modułów) oraz oba pliki `powershell.config.json` i, zanim uruchomisz pierwsze polecenie, mówi stałą uwagą, co jest
   gdzie zapisywane („transkrypcja jest włączona zasadą komputera: polecenia i wyniki zapisuje Windows w …”). Program niczego
   nie zmienia i niczego nie obchodzi; plik `powershell.config.json` obok `AdMng.exe` wyłącza tylko to, co włączył plik
-  użytkownika (zasada komputera ma pierwszeństwo przed nim).
+  użytkownika (zasada komputera ma pierwszeństwo przed nim). Wyniki pokazują te same sekrety, które pokazuje Edytor atrybutów
+  (np. hasło LAPS jawnym tekstem), więc przy włączonej transkrypcji trafią one do transkrypcji – uwaga o zasadach mówi to z
+  góry.
 - **`Out-AdmGrid`, `Open-AdmObject`, `Export-AdmList`.** `Out-AdmGrid` otwiera okno z siatką jak lista obiektów: kolumny z
   właściwości obiektów, sortowanie kliknięciem w nagłówek, filtr, kopiowanie (Ctrl+C), eksport CSV z ochroną formuł i otwieranie
   obiektu (Enter) – każde wywołanie to osobne okno. `Open-AdmObject` otwiera właściwości obiektu (nazwa wyróżniająca,
@@ -100,9 +104,13 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
 - **Nic na dysku.** Wynik, historia i zawartość okna są tylko w pamięci i znikają z oknem. Silnik (PowerShell 7.6 wbudowany w
   program) ma wyłączone: telemetrię, kanał diagnostyczny, sprawdzanie aktualizacji, automatyczne ładowanie modułów i zapis
   pamięci podręcznej analizy modułów; test „bez plików” sprawdza, że praca w oknie nie zostawia pliku. Dane logowania okna nie
-  są widoczne dla skryptu (polecenia czytają przez widok tylko do odczytu sesji okna).
-- **Rozmiar.** Silnik zwiększa `AdMng.exe` (jeden plik, bez kompresji) o około 38 MB, a folder publikacji o około 37 MB;
-  każda poprawka bezpieczeństwa PowerShella oznacza nową wersję AD Managera. Serwis AdMng Watchdog nie zawiera silnika.
+  są widoczne dla skryptu (polecenia czytają przez widok tylko do odczytu sesji okna). Zwykłe cmdlety PowerShella (`Export-Csv`,
+  `Out-File`, `Start-Transcript`) zapisują tam, gdzie je skierujesz – program ich w R1 nie przechwytuje; plik, który
+  zapiszesz, jest Twój.
+- **Rozmiar.** Silnik zwiększa `AdMng.exe` (jeden plik, bez kompresji) o około 38 MB – z 143,5 MB w {{PREVIOUS}} do 181,9 MB
+  (173,5 MiB) – a folder publikacji o około 40 MB (z 164,7 do 204,3 MB); spakowane archiwum rośnie o około 14 MB (z 68,8 do
+  82,4 MB w artefakcie CI). Silnik działa w samym `AdMng.exe`; obok niego leżą tylko `powershell.config.json` i plik pomocy.
+  Każda poprawka bezpieczeństwa PowerShella oznacza nową wersję AD Managera. Serwis AdMng Watchdog nie zawiera silnika.
 
 ## Inne zmiany
 
@@ -152,7 +160,10 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   (tekst w polu jest przezroczysty, kolory rysuje warstwa pod nim), listy uzupełnień pod kursorem, odnośników do nazw i okna siatki
   w jasnym, ciemnym i wysokim kontraście, a także to, czy czytnik ekranu czyta okno sensownie (lista uzupełnień nie jest
   ogłaszana), czeka na pilotaż. Zachowanie silnika pod WDAC/AppLocker i przy włączonych zasadach transkrypcji nie zostało
-  sprawdzone na prawdziwej maszynie z takimi zasadami. W trybie ograniczonym `[pscustomobject]@{}` i wywołania metod typów spoza
+  sprawdzone na prawdziwej maszynie z takimi zasadami, a polecenia nie były uruchamiane na prawdziwym Windows Server AD (tylko
+nad sztucznym katalogiem i kontrolerem Samba). Nie ma jeszcze poleceń zapisu ani modułów RSAT (etapy R2 i R3), uzupełniania
+nazw plików ani `N obiektów` w wierszu stanu (liczy wiersze danych wyjściowych); `LockedOut` nie uwzględnia czasu blokady z
+zasad domeny, gdy kontroler nie zwraca własnej flagi. W trybie ograniczonym `[pscustomobject]@{}` i wywołania metod typów spoza
   rdzenia są odrzucane (`New-Object PSObject -Property` działa); skrypt w trybie zaufanym, który używa `System.Data.SqlClient`, nie
   znajdzie `sni.dll` (pakiet bez licencji OSI jest wyłączony).
 
