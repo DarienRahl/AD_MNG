@@ -321,6 +321,9 @@ Get-AdmUser jan | Out-AdmGrid                              ->  OutAdmGridCommand
 
 ## 5. The read commands (part 2)
 
+The table is the plan; what was built, with the parameters it has, is section 12.2 (it wins: `-SizeLimit` became `-ResultSetSize` and
+`-ResultPageSize`, there is no `-Raw` and no `.Attributes`, `-Scope` is an alias of `-SearchScope`).
+
 | Command | Parameters (besides the common `-Properties`, `-SizeLimit`, `-Raw`) | What it does |
 |---|---|---|
 | `Get-AdmObject` | `-Identity` (DN, `objectGUID`, SID, sAMAccountName, name), `-LdapFilter`, `-SearchBase`, `-Scope` | One object, or a search with a raw filter checked by the filter parser. |
@@ -593,3 +596,143 @@ process is the only way to set `HOME` and the like before the runtime starts.
 columns model); how the window shows a stream's text (part 3: the glyphs and colours of the status line apply to the window's
 own messages, the output area has its own colours); whether `Out-AdmGrid` posts a table through the context or calls a window
 service (decide in part 2 together with `Open-AdmObject` and `Export-AdmList`); whether the stage S readiness item fits.
+
+### 12.2 Part 2 – the read commands
+
+**What exists.** `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`, `Get-AdmGroupMember` and `Search-AdmObject`
+in `src/AdMng.PowerShell/Commands/` (plain `PSCmdlet`s over `AdmReadCmdlet` / `AdmSearchCmdlet`, registered in `AdmCommands.Catalog`),
+the reading code in `Reading/` (`AdmIdentity`, `AdmFilterBuilder`, `AdmProjection`, `AdmObjectProjector`, `AdmValueConverter`,
+`AdmGroupMembers`, `AdmSearchPlan`, `AdmErrors`), the completers in `Completion/`, the default display in `Formats/AdmFormats.cs`, the
+help in `Help/AdMng.PowerShell.dll-Help.xml`, and in Core `LdapFilter.Pattern` and `LdapFilter.EqualBinary`. `Out-AdmGrid`,
+`Open-AdmObject` and `Export-AdmList` are part 4 (they need the window). No command writes (D9): the catalog test lists exactly
+`Get-AdmVersion` and these six, its verb check allows only `Get`, `Search`, `Out`, `Open` and `Export`.
+
+**Parameters** (all read through the window's reader only; there is no `-Server`, no `-Credential`, no `-ComputerName`):
+
+| Command | Parameter sets and parameters (besides the common ones below) |
+|---|---|
+| `Get-AdmObject` | `Identity`: `-Identity` (DN, `objectGUID`, `<GUID=…>`, SID, `<SID=…>`, `sAMAccountName`, user principal name; from the pipeline by value or by the property `DistinguishedName`). `LdapFilter`: `-LdapFilter` (a ready filter; syntax-checked, a wrong one is a terminating error before any read). |
+| `Get-AdmUser` | `Identity` as above, or `Filter`: `-Name -SamAccountName -UserPrincipalName -GivenName -Surname -DisplayName -Mail (EmailAddress) -Department -Title -Company -Description` (a `*` is the wildcard, everything else literal), `-Enabled <bool>`, `-LdapFilter` (added); all of them are ANDed. |
+| `Get-AdmGroup` | `Identity` or `Filter`: `-Name -SamAccountName -Description`, `-GroupScope DomainLocal\|Global\|Universal`, `-GroupCategory Security\|Distribution`, `-LdapFilter`. |
+| `Get-AdmComputer` | `Identity` (the account name with or without the `$`) or `Filter`: `-Name -SamAccountName -DnsHostName -OperatingSystem -Location -Description`, `-Enabled`, `-LdapFilter`. |
+| `Get-AdmGroupMember` | `-Identity` (a group), `-Recursive`, `-ExcludeGroups`; no `-SearchBase`. |
+| `Search-AdmObject` | `Name`: `-Name`; `Attribute`: `-Attribute`, `-Value` (both arrays: any attribute may match any value); `Filter`: `-Filter`; `-Match Exact\|StartsWith\|Contains\|EndsWith`, `-ObjectClass`. |
+| common | `-Properties`, `-ResultPageSize` (1–10000, default 500), `-ResultSetSize` (0 = all); with a base: `-SearchBase`, `-SearchScope Base\|OneLevel\|Subtree` (alias `-Scope`; `Get-AdmGroupMember` has no base). |
+
+**Decisions of part 2 that the later parts follow** (each with its reason):
+
+1. *Every filter is built by `AdmFilterBuilder` from `LdapFilter`* (rule 3). Two primitives were missing and went into Core:
+   `LdapFilter.Pattern(attribute, pattern)` (the star is the only wildcard, a run of stars is one, everything else is escaped) and
+   `LdapFilter.EqualBinary` (a SID). The text parameters of `Get-AdmUser/Group/Computer` use `Pattern` (`Jan*` is what an
+   administrator types); `Search-AdmObject` never does: its `-Value`/`-Name` are literal, `-Match` says how they are compared, so
+   `Łukasz (Kraków)*\` finds exactly that object (the tests assert the text of the filter sent: `(name=Łukasz \28Kraków\29\2a\5c)`, the
+   results on the fake and on Samba, and a mutation check: without escaping 10 of 20 tests fail). A `-LdapFilter` is wrapped and
+   checked with `LdapFilter.Validate` (the check of the Find window and the saved views); its error is a terminating error of the command
+   (`AdmInvalidLdapFilter`), so it is an ordinary error record the script can catch.
+2. *An identity is classified, not guessed* (`AdmIdentity`): `<GUID=…>` / any GUID text → `objectGUID` (`EqualGuid`); `S-1-…` → `objectSid`
+   (`EqualBinary`); a text with `=` that parses as a DN → read **where it is** (base scope; `-SearchBase` does not apply, as in the AD
+   module); anything else → `sAMAccountName` (and the user principal name for users and objects; the name with `$` for computers). The type
+   of the command is part of the filter, with the program's own indexed filters (`ObjectKind.ToLdapFilter`): `Get-AdmUser` is
+   `sAMAccountType=805306368`, so unlike `Get-ADUser` it does not return computers. An identity that finds nothing (or finds an object of
+   another type) is a non-terminating error `AdmObjectNotFound` (category ObjectNotFound) whose message holds the identity: `Cannot find a user
+   with identity 'CN=…': it does not exist, or this account cannot see it.`
+3. *Typed values by the rules of the program's formatter* (`AdmValueConverter`; the comparison test below keeps them equal):
+
+   | Attribute | Property value |
+   |---|---|
+   | Boolean syntax | `bool` |
+   | Integer, Enumeration; `userAccountControl`, `msDS-User-Account-Control-Computed`, `groupType` | `int` (also `userAccountControl` as a number: scripts compare bits) |
+   | LargeInteger | `long` |
+   | FILETIME attributes (`Attr.FileTimeAttributes`) | `DateTime` in local time (`TimeZoneInfo.Local`, what the program shows); `0` and `long.MaxValue` ("never") are `$null`; a text that is no number stays text |
+   | GeneralizedTime / UTC time (also `whenCreated`, `whenChanged` without a schema entry) | `DateTime` in local time; year 1601 is `$null` |
+   | `objectGUID`, any 16-byte attribute whose name ends in `guid` | `Guid` |
+   | `objectSid`, `sIDHistory`, `tokenGroups…`, syntax SID | text `S-1-5-…` |
+   | DN syntax, text syntaxes | `string` |
+   | other binary of a known binary syntax (`logonHours`, `thumbnailPhoto`, certificates) | `byte[]` |
+   | bytes of an attribute the schema does not know | text when they are UTF-8 text, otherwise **base64** (the only place base64 is used) |
+   | multi-valued (schema: not single-valued; without a schema entry: more than one value) | an array, typed when every element has one type (`string[]`, `int[]`, `Guid[]`, `DateTime[]`), else `object[]`; none = an empty array |
+   | single-valued without value | `$null` |
+   | ranged (`member;range=0-1499`) | completed with ranged retrieval first |
+
+   Beside the attributes every object carries `DistinguishedName`, `Name` (the `name` attribute, or the RDN) and `ObjectKind`
+   (`ObjectKind` as text), accounts carry `Enabled`, `LockedOut` (users only; the DC's own `msDS-User-Account-Control-Computed` flag when it was
+   returned, else `lockoutTime` > 0 – the same rule as `DirectoryObject.IsLockedOut`, which does not know the domain's lockout
+   duration the list view applies) and `UserAccountControlFlags` (the ADSI names of the formatter's table), groups carry `GroupScope`,
+   `GroupCategory` and `GroupTypeFlags`. These names are not LDAP attribute names, so they never collide with an attribute (property names
+   are case-insensitive: `Name` and `name`, `DistinguishedName` and `distinguishedName` are one property).
+4. *Type names by what the object is* (`ObjectKinds`): `AdMng.User` (also inetOrgPerson), `AdMng.Computer`, `AdMng.Group`, otherwise
+   `AdMng.Object`; each object also has the base name `AdMng.Object`. There is **no `.Attributes` property** (the plan of section 5 had one): the
+   typed values are the attributes, and a second copy of every value would double the memory of a 100,000-object result.
+5. *Which attributes are asked for:* the defaults of the type (`AdmProjection.DefaultsOf`: the program's name, account and class
+   attributes, a handful) plus `-Properties`; a name is canonicalised to the schema's spelling and one the schema does not know ends the
+   command before any read (`AdmInvalidProperty`; with an empty schema nothing is checked); `*` asks for everything the account may read. A default
+   attribute is a property only when the object has a value; one named in `-Properties` is always a property (`$null` or an empty array).
+   `DistinguishedName` in `-Properties` is accepted and not requested.
+6. *Secrets exactly as the Attribute Editor treats them* (`AttributeRowViewModel.IsMasked`): `SecretAttributes.IsNeverShown` (key
+   material – `userPKCS12`, the roaming credentials, the BitLocker key package, managed and encrypted passwords, `unicodePwd`, binary secrets,
+   `supplementalCredentials`) → the property is `SecretAttributes.Mask` as one string, whatever the number of values, and `$null` when there is no value (the editor says
+   "not set"); the **operator-readable** secrets (the clear-text LAPS password, the BitLocker recovery password, a confidential text
+   attribute) are shown, because the editor shows them (it copies them through the secret clipboard, which a script has no equivalent
+   of). `Search-AdmObject` refuses to compare any secret attribute (`AdmSecretAttribute`): a search by the value of a LAPS password would be
+   an oracle the program does not offer elsewhere.
+7. *A mandatory attribute that did not come back is a permission error, once* (`AdmAttributeHidden`, category PermissionDenied): the DC returns an
+   attribute the account may not read as if it were empty, and the schema (`GetMandatoryAttributes` of the object's classes) says which empty attributes are
+   impossible – only the attributes the command asked for are checked (the defaults and `-Properties`, not what `*` happens to return), and the message
+   names the attribute and the first object and says it is shown once. An attribute that is merely not set is no error. A read the DC refuses
+   (`AccessDenied`) is `Access denied reading '<target>': the account of this window may not read it.`; an unreachable DC, a missing search
+   base and the other directory errors are non-terminating error records with the target in the message (`AdmErrors.FromDirectory`).
+8. *Nested membership is the program's own query, not a second engine.* The Members page's "All (nested)" list and the comparison window
+   send `(memberOf:1.2.840.113556.1.4.1941:=<group>)` from the domain's default naming context; so does `-Recursive` (`AdmGroupMembers.NestedSearch`,
+   with `Not(group filter)` appended for `-ExcludeGroups`). The DC evaluates the nesting and ends a cycle; the lab test makes a cycle on Samba.
+   Unlike `Get-ADGroupMember -Recursive` the result **includes the nested groups** (what the program's list shows), so `-ExcludeGroups` is what R3
+   maps the AD module's `-Recursive` to. The direct members are the values of `member` (`GetAllValuesAsync` completes ranges beyond 1500)
+   looked up in batches of 100 DNs with one OR search each (the program's `DirectoryLookup`); members that cannot be found are counted in one
+   warning with three DNs as examples. Members by primary group are not members here (as in the program's Members tab).
+9. *Streaming, stop and no buffering* (CLAUDE.md rule 6): a command pulls the async search one object at a time **on the pipeline thread**
+   (`AdmCmdlet.WriteAll`) with the pipeline's stop token, so a downstream `Select-Object -First 50` stops the read after 50 objects (a test with a reader that
+   makes 100,000 objects lazily: 50 results, at most 60 made), the output channel of the session is the only buffer (4096 items: after 100 results
+   taken and Stop, fewer than 4,710 of 100,000 were made, and the token that reached the directory read was cancelled) and Stop ends the read at the
+   directory. A stop between two identities is a `PipelineStoppedException`, not an error text.
+10. *The default display is data, registered in memory* (`AdmFormats`: `ExtendedTypeDefinition`s through `SessionStateFormatEntry`, no `.ps1xml`,
+    no file): a table per type name – user `Name sAMAccountName Enabled DistinguishedName`, computer `Name Enabled operatingSystem DistinguishedName`,
+    group `Name GroupScope GroupCategory DistinguishedName`, object `ObjectKind Name DistinguishedName` – with the other columns of a fixed width, so that
+    the DN gets the rest of the line and is the **last** column (the window makes DNs links). At the default width of 120 a usual DN (up to about 70
+    characters) is whole; a longer one is **cut with `…`** by the engine's table (a window that is wider, or `Format-List`, shows it whole). The DN finder of
+    part 3 must not take the text before a `…` for a DN (the prefix of a DN is often another valid DN).
+11. *The host removes the ANSI sequences of the engine's formatting* (a defect of part 1, found by reading the output of these commands): PowerShell 7.2+
+    decorates table headers, list labels and errors with `ESC[32;1m…` and leaves it to the host; `WindowHostUserInterface` now passes every text through
+    `PSHostUserInterface.GetOutputString(text, supportsVirtualTerminal: false)`. Without it the window would have shown the escape characters as
+    boxes. (`$PSStyle.OutputRendering = PlainText` was tried first and does not remove them.)
+12. *Completion reads memory only.* `-Properties` and `-Attribute` complete the schema's LDAP names (not the confidential ones, 200 at most, tool tip: the
+    syntax); `-SearchBase` completes the naming contexts of the root DSE and the containers this window's commands have returned (`AdmKnownContainers`, in the window context;
+    bounded to 256, memory only, the newest first; the session exposes no cache of the tree, so nothing else is known) and quotes a DN that needs it. A completer finds its window with a
+    nested `Get-Variable Host` of the current runspace (`SessionStateProxy` cannot be used there: "A pipeline is already running"); a test asserts the fake
+    session saw no call during completion.
+13. *Help is MAML beside the assembly.* `SessionStateCmdletEntry` takes the **absolute path** of `AdMng.PowerShell.dll-Help.xml` (a relative name is not
+    searched; the project copies the file to the output with `Link=` so it is beside the dll, not in `Help/`); with the file `Get-Help` shows synopsis, syntax of every
+    parameter set, a description of every parameter and one example. `CommandHelpTests` fails when a command lacks a synopsis, a description or an
+    example, when a parameter has no description or when the help lists a parameter the command does not have. The XML is the source (it was generated once from
+    the commands' metadata and written by hand after that). In a **single-file** `AdMng.exe` `Assembly.Location` is empty, the file is not found and `Get-Help` falls back to the
+    engine's generated syntax without descriptions and examples – part 4 decides whether the publish layout puts the file beside `AdMng.exe` (then
+    `HelpFilePath` must look in `AppContext.BaseDirectory`).
+14. *The engine project references no new package and the lab tests reference the engine:* `tests/AdMng.Directory.IntegrationTests` got a project reference
+    to `AdMng.PowerShell` and the `PowerShellEngineConsumer.props` import (the lab job restores the PowerShell SDK too).
+
+**Tests** (all on Linux): `AdMng.PowerShell.Tests` – `Reading/GetAdmCommandsTests` (identities of every kind, filters, properties, errors, pipeline, language mode),
+`GroupMemberAndSearchTests` (direct, nested, cycle, ranged, a hostile-value table), `ValueComparisonTests` (**1000 generated objects, every attribute
+compared with `AttributeFormatter` / `SecretAttributes`**: more than 15,000 values; it also runs in another time zone – a mutation to UTC dates fails it),
+`StreamingAndSessionTests` (lazy 100,000-object reader, stop, one session, no write, no `-Server`/`-Credential`), `ErrorsDisplayAndCompletionTests`, and
+`CommandHelpTests`; `AdMng.Core.Tests` – `LdapFilter.Pattern`/`EqualBinary`; `AdMng.Directory.IntegrationTests/Integration/PowerShellReadLabTests` against the
+Samba lab (the administrator with typed values, a filter compared with a session search, an escaped value `Łukasz (Kraków)*\` among decoys, nested groups with a cycle, a missing object
+and a missing base). Mutation checks done: unescaped filter values (10 of 20 fail), a command that buffers the result set (3 of 8 fail), dates in UTC (1 of 6 fails
+in another time zone).
+
+**What could not be verified on Linux, and why it should still be right.** The Windows run of the new tests is the last push's CI run (recorded in the report of the
+part). Things only Windows can show: the table of a long DN (`…` is the engine's own ellipsis, the same on both systems); `TimeZoneInfo.Local` conversions (the same
+call as the program's formatter); the help file when the engine runs from a published folder (above); and the completer's nested pipeline in the STA runspace of Windows
+(the engine's `ThreadOptions = ReuseThread` is the same on both systems; the completion test runs in the Windows job).
+
+**Open questions for the next parts.** (1) Part 3: the DN link finder and the `…` of a cut table (decision 10). (2) Part 4: where the help file goes in the
+published layout (decision 13); whether `Out-AdmGrid` takes its columns from the objects' properties (`DistinguishedName` is the first one on every object, the attribute
+properties follow in request order). (3) Whether `LockedOut` should use the domain's lockout duration like the list (it needs a read of the domain head; the
+DC's computed flag is used when it is returned). (4) `Get-AdmGroupMember` does not list the members whose primary group it is (as the Members tab does not).

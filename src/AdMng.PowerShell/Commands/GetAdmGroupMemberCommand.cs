@@ -33,7 +33,11 @@ public sealed class GetAdmGroupMemberCommand : AdmReadCmdlet
         var projection = Project(context, AdmObjectType.Object);
         foreach (var text in Identity)
         {
-            StopToken.ThrowIfCancellationRequested();
+            if (StopToken.IsCancellationRequested)
+            {
+                throw new PipelineStoppedException();
+            }
+
             var identity = AdmIdentity.Parse(text);
             if (identity is null)
             {

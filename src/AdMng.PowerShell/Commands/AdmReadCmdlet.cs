@@ -151,7 +151,11 @@ public abstract class AdmSearchCmdlet : AdmReadCmdlet
     {
         foreach (var text in identities)
         {
-            StopToken.ThrowIfCancellationRequested();
+            if (StopToken.IsCancellationRequested)
+            {
+                throw new PipelineStoppedException();
+            }
+
             var identity = AdmIdentity.Parse(text);
             if (identity is null)
             {

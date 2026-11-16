@@ -122,6 +122,18 @@ public sealed class GroupMemberAndSearchTests
     }
 
     [Fact]
+    public async Task The_result_set_size_limits_the_direct_and_the_nested_members()
+    {
+        await using var harness = await ReadHarness.CreateAsync();
+
+        var direct = await harness.RunAsync("Get-AdmGroupMember -Identity GG_Ksiegowosc -ResultSetSize 2");
+        var nested = await harness.RunAsync("Get-AdmGroupMember -Identity DL_Wszyscy -Recursive -ResultSetSize 4");
+
+        Assert.Equal(2, direct.Objects.Count);
+        Assert.Equal(4, nested.Objects.Count);
+    }
+
+    [Fact]
     public async Task Get_AdmGroupMember_for_a_missing_group_or_a_user_is_not_found_and_names_it()
     {
         await using var harness = await ReadHarness.CreateAsync();
