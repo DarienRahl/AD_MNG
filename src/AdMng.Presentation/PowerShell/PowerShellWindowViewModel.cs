@@ -160,9 +160,6 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
         {
             // StartAsync reports what it knows; this is the net under it ("never throws").
             _startError ??= ex.Message;
-        }
-        finally
-        {
             IsStarting = false;
             UpdateLasting();
             NotifyAvailability();
@@ -181,6 +178,21 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
         IsStarting = true;
         NotifyAvailability();
         using var starting = Status.Begin(Localizer[L.PowerShellStatus.Starting], new PageStatusLog(L.PowerShellStatus.Starting), canCancel: false);
+        try
+        {
+            await StartCoreAsync(directory).ConfigureAwait(true);
+        }
+        finally
+        {
+            // The state that lasts is set while the operation still has the line, so it goes from "starting" straight to the note.
+            IsStarting = false;
+            UpdateLasting();
+            NotifyAvailability();
+        }
+    }
+
+    private async Task StartCoreAsync(IDirectorySession directory)
+    {
         var policies = ReadPoliciesAsync();
         if (_powerShell.Sessions is not { } factory)
         {

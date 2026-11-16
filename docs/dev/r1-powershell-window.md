@@ -56,7 +56,7 @@ The owner's decisions D1–D9 (the full text and the reasons are in ADR-0010):
 
 ```
 AdMng.Core            contracts the window shares with the engine: AdMng.Core.PowerShell (IPowerShellSession,
-                      output items, completion, syntax spans, language mode, policy snapshot) – no PowerShell types
+                      output items, completion, syntax spans, language mode, the grid table) – no PowerShell types
 AdMng.PowerShell      the engine (net10.0, Microsoft.PowerShell.SDK): PowerShellSession, the host, the commands, guards,
                       history policy, syntax, completion, lockdown probe – references AdMng.Core only
 AdMng.Presentation    PowerShellWindowViewModel and its parts (no WPF types, no reference to the engine): talks to the
@@ -343,8 +343,11 @@ are the program's names with the raw attribute values available through `.Attrib
 
 ## 6. Presentation (part 3)
 
-`PowerShellWindowViewModel` (scoped, one per connection scope, tested on Linux against a fake `IPowerShellSession` and, in a
-few tests, the real engine):
+This is the plan; what was built is section 12.3 and it wins (the policy types are in Presentation, not Core; the raw reads are
+`IPowerShellPolicySource`, not `IPowerShellPolicyRegistry`; the real engine is not used in the Presentation tests).
+
+`PowerShellWindowViewModel` (one per window, created by the connection's `IDialogViewModelFactory`, tested on Linux against a fake
+`IPowerShellSession`):
 
 - the **status line** (`PageStatusHolder`, `docs/dev/v2-status-controls.md`): the summary is "domain · DC · account · mode"; a
   running command is an `OperationScope` (`Status.Begin`) with the Stop of the line (the window's own Stop button is the
@@ -359,10 +362,8 @@ few tests, the real engine):
   expression anchored on `CN=`/`OU=`/`DC=`, and becomes a link (`OpenObjectCommand`).
 - **A place for the pending plan** (R2): a `PendingPlanState` property of the view model with its own area in the window
   (collapsed, empty) so that R2 adds the panel without changing the layout.
-- the policy note: `PowerShellPolicySnapshot` (Core) from `PowerShellPolicyReader`, which takes an `IPowerShellPolicyRegistry`
-  (reads a value of a hive/key/name, and the two `powershell.config.json` files) – the Windows implementation is in `AdMng.App`,
-  the fake in the tests; the snapshot says transcription (on/off, directory), script block logging, module logging, the
-  execution policy and the lockdown state, and `PowerShellPolicyNote.For(snapshot)` is the text.
+- the policy note: `PowerShellPolicies` from `PowerShellPolicyReader` over an `IPowerShellPolicySource` (the raw reads; the Windows implementation is in `AdMng.App`, the fake in the tests) and
+  `PowerShellPolicyNotes.For(policies)` (section 12.3 has the keys, the order and the text);
 - the command descriptor `tools.powershell` (`Ctrl+Shift+P`, category Tools) with the palette entry, and the window title
   "PowerShell – domain – DC – account" (plus "– Trusted mode" while on).
 - strings in `Strings.resx` / `Strings.pl.resx` with `L.PowerShell.*` constants, following the wording rules of
@@ -401,8 +402,8 @@ few tests, the real engine):
 | 1 | `tests/AdMng.PowerShell.Tests` | `PowerShellSessionTests`, `LanguageModeTests`, `HostRoutingTests`, `GuardTests`, `EnvironmentTests`, `HistoryPolicyTests`, `SyntaxTests`, `CompletionTests`, `CommandCatalogTests`, `PackageLicenseTests`, `NoFilesTests` (+ `ChildProcess`, `TempFolder`), `TestSupport`, `TestCommands` |
 | 1 | `tests/AdMng.PowerShell.Probe` | `Program.cs` – the child process of the file tests (a console program, referenced by the tests, which start it) |
 | 2 | `AdMng.PowerShell` | `Commands/Get*Command.cs`, `SearchAdmObjectCommand.cs`, `OpenAdmObjectCommand.cs`, `OutAdmGridCommand.cs`, `ExportAdmListCommand.cs`, `Directory/AdmFilterBuilder.cs`, `AdmObjectProjector.cs`, `AdmAttributeCompleter.cs`, `AdmDnCompleter.cs`, `Commands/IAdmWindowServices.cs` |
-| 3 | `AdMng.Core` | `PowerShell/Policies/PowerShellPolicySnapshot.cs`, `PowerShellPolicyReader.cs`, `IPowerShellPolicyRegistry.cs`, `PowerShellPolicyNote.cs`, `IPowerShellSessionFactory.cs` |
-| 3 | `AdMng.Presentation` | `PowerShell/PowerShellWindowViewModel.cs`, `PowerShellInputModel.cs`, `PowerShellHistory.cs`, `PowerShellOutputDocument.cs`, `DnLinkFinder.cs`, `Shell/ShellViewModel.Palette.cs` (changed), `Resources/Strings*.resx` + `L.cs` |
+| 3 | `AdMng.Core` | `PowerShell/PowerShellGridTable.cs` (the plain table of `Out-AdmGrid` / `Export-AdmList`) |
+| 3 | `AdMng.Presentation` | `PowerShell/PowerShellWindowViewModel.cs` (+ `.Run.cs`, `.Mode.cs`), `PowerShellInputModel.cs`, `PowerShellInputHistory.cs`, `PowerShellOutputDocument.cs`, `PowerShellDnLinkFinder.cs`, `PowerShellPromptState.cs` (+ the pending plan state), `PowerShellPolicies.cs`, `IPowerShellPolicyReader.cs` (+ `IPowerShellPolicySource`, `PowerShellPolicyKeys`), `PowerShellPolicyReader.cs`, `PowerShellPolicyNote.cs`, `IPowerShellSessionFactory.cs`, `IPowerShellWindowActions.cs`, `PowerShellServices.cs`, `PowerShellServiceCollectionExtensions.cs`, `Localization/L.PowerShell.cs`, `Dialogs/DialogViewModelFactory.cs` (`CreatePowerShell`), `ServiceCollectionExtensions.cs`, `Resources/Strings*.resx` (block "R1 PowerShell window") |
 | 4 | `AdMng.App` | `PowerShell/PowerShellWindow.xaml(.cs)`, `PowerShellEditor.cs`, `PowerShellSessionFactory.cs`, `WindowsPowerShellPolicyRegistry.cs`, `AppHost.cs`, `Services/DialogService.cs`, `SmokeTest.cs` (changed), `AdMng.App.csproj` (reference), `tests/AdMng.App.UiTests/PowerShell*` |
 | 5 | docs | `docs/POWERSHELL.md` + `docs/en/POWERSHELL.md` (the operator's guide: commands, the window, the policies, the trusted mode, what is on disk), `docs/releases/NEXT.md`, the readiness item (if small), the closing checks |
 
@@ -494,7 +495,8 @@ The criteria about writes and RSAT in the README (the change plan, translated RS
   where `$PSHOME` is in the single-file layout (part 4, Windows).
 - `NUL\ModuleAnalysisCache` as the analysis cache path on Windows (part 4, Windows).
 - The stage S readiness item for the policies and the language mode: optional, added in part 5 only if the readiness check's
-  shape makes it a small addition.
+  shape makes it a small addition. (Part 3 gives it its facts: `PowerShellPolicyReader` over a source and
+  `PowerShellPolicyNotes.For`; the item itself is not built.)
 - The two R3 questions of the README ("To be agreed with the team"): the list of translated RSAT commands and the window's
   credentials for the `ActiveDirectory` module.
 
@@ -737,3 +739,113 @@ call as the program's formatter); the help file when the engine runs from a publ
 published layout (decision 13); whether `Out-AdmGrid` takes its columns from the objects' properties (`DistinguishedName` is the first one on every object, the attribute
 properties follow in request order). (3) Whether `LockedOut` should use the domain's lockout duration like the list (it needs a read of the domain head; the
 DC's computed flag is used when it is returned). (4) `Get-AdmGroupMember` does not list the members whose primary group it is (as the Members tab does not).
+
+### 12.3 Part 3 - the window's view model, the line editor's model and the policies
+
+**What exists.** Everything of the window that is not WPF, in `src/AdMng.Presentation/PowerShell/` (namespace
+`AdMng.Presentation.PowerShell`), tested on Linux with a fake engine session (220 tests in `tests/AdMng.Presentation.Tests/PowerShell`, 8 more of the grid table in `tests/AdMng.Core.Tests/PowerShell`):
+
+| Piece | What it is |
+|---|---|
+| `PowerShellWindowViewModel` | One per window: the title, the scrollback (`Output`), the editor (`Input`), the history (`History`), `Status` (the status line), `RunCommand` / `SubmitCommand` / `StopCommand` / `ClearCommand` / `OpenObjectCommand` / `ToggleTrustedModeCommand`, the language mode, the question of a running command (`PendingPrompt`), the notes about the policies, `PendingPlan` (the empty place of R2), `SetOutputWidth`. A `WindowViewModelBase` (session pinning, the close question, `Dispose`). |
+| `PowerShellInputModel` + `PowerShellInputHistory` | The editor's state: text, caret, highlight spans, completion list and selection, Enter / Shift+Enter, Up / Down (lines of a multi-line input, then the history, then the draft), Ctrl+R, the answer modes. |
+| `PowerShellOutputDocument` | The scrollback: lines of runs (colours, links), partial lines, the cap, the count of lines of output. |
+| `PowerShellDnLinkFinder` | The distinguished names of a text. |
+| `PowerShellPolicies`, `IPowerShellPolicyReader`, `IPowerShellPolicySource`, `PowerShellPolicyReader`, `PowerShellPolicyNotes` | The policies (D7): the record, the raw reads the Windows host implements, the rules that turn them into the record, the note. |
+| `IPowerShellSessionFactory`, `PowerShellSessionRequest` | How the window gets its engine session (App implements). |
+| `IPowerShellWindowActions` (+ `AdMng.Core.PowerShell.PowerShellGridTable`) | What `Out-AdmGrid`, `Open-AdmObject` and `Export-AdmList` call back into (App implements). |
+| `PowerShellServices`, `AddAdMngPowerShell()`, `IDialogViewModelFactory.CreatePowerShell()` | The scoped services of a window and its creation. |
+
+**What part 4 implements and binds** (the whole list; nothing else of the window is missing):
+
+1. *Register* `IPowerShellSessionFactory` (creates the engine's `PowerShellSession` from a `PowerShellSessionRequest`: the directory session
+   becomes `new AdmWindowContext(request.Directory, request.ApplicationVersion)`, `Culture` and `OutputWidth` go to the options, the real lockdown probe is the default),
+   `IPowerShellPolicySource` (the registry and the files, below) and `IPowerShellWindowActions` (scoped: it needs the window's dialogs and
+   the grid). `AddAdMngPowerShell()` (called by `AddAdMngPresentation`) builds `PowerShellServices` from whatever is registered, so a host that registers
+   nothing still works - the window says "This installation has no PowerShell engine."
+2. *Open the window:* add `IDialogService.ShowPowerShellAsync()` (and the fakes in both test projects) that calls `IDialogViewModelFactory.CreatePowerShell()`, hosts the
+   result as every `IWindowViewModel` (the window calls `InitializeAsync()` after it is shown and `CanCloseAsync()` before it closes),
+   `services.AddWindow<PowerShellWindowViewModel, PowerShellWindow>()`, `SmokeTest`, the command descriptor `tools.powershell` (Ctrl+Shift+P)
+   and the menu entry. The window is **not** opened by anything in this part: no `IDialogService` member exists yet.
+3. *The engine adapter of the three commands:* the engine's own interface of window services (the plan of 4.10, `IAdmWindowServices`, part 4 defines it in `AdMng.PowerShell` next
+   to `IAdmWindowContext`) is an adapter over `IPowerShellWindowActions`; `Out-AdmGrid` builds a `PowerShellGridTable` from the objects (columns from
+   their properties - `DistinguishedName` first, then the attributes in request order - cells as the text the window shows, `null` for no value, the
+   column named `DistinguishedName` as `distinguishedNameColumn`) and calls `ShowInGridAsync`; the host turns the table into the rows of the program's
+   object list. `Open-AdmObject` calls `OpenObjectAsync` (a DN, or an `objectGUID` the host resolves through the window's session; `NotFound` is an error
+   record of the command). `Export-AdmList` calls `ExportListAsync` (a path, or `null` for *Save As*; the host writes CSV through `ICsvCodec.Write(..., protectFormulas: true)` and
+   `CsvFiles.WriteAsync`, delimiter `CsvFiles.ListSeparator(regional culture)` when none is given; it returns the path or `null` when the operator cancelled).
+   All three are called **on the pipeline thread** with the pipeline's token and waited for there.
+4. *The view:* the `c:StatusLine` named `PageStatus` bound to `Status.Current` as the V2 guide says (the file goes on `PagesWithAStatusLine`); the action button
+   (`Command="{Binding RunCommand}"`, `CancelCommand="{Binding StopCommand}"`, `IsRunning="{Binding IsRunning}"`, `IsCancelling="{Binding Status.IsCancelling}"`);
+   `Output.Lines` as the scrollback (`Kind` chooses the colour and the glyph: `Error`, `Warning`, `PolicyNote` use the status line's glyphs; `Runs` are the pieces, a run with
+   `IsLink` is a link that executes `OpenObjectCommand` with its `DistinguishedName`, tool tip `L.PowerShell.OpenLinkTip`; `DroppedNote` is shown above the list while it is not null; follow the end
+   of the list while the operator has not scrolled up); the editor (below); the switch of the trusted mode (`IsChecked` one way from `IsTrustedMode`, `Command="{Binding ToggleTrustedModeCommand}"`,
+   `TrustedModeDisabledReason` as its tool tip, label `L.PowerShell.TrustedSwitch`); the empty `PendingPlan` area (`IsVisible`); `SetOutputWidth(characters)` when the output area is resized.
+   The strings that only the view needs (the labels of the buttons, the placeholder, automation names) are part 4's, in the same block of the resx files.
+5. *The editor control* forwards keys to `PowerShellInputModel` and draws it: edits -> `SetText(text, caret)`; Enter -> `SubmitCommand`; Shift+Enter -> `Input.InsertNewLine()`; Tab -> `await Input.CompleteAsync()`;
+   Shift+Tab -> `Input.CompletePrevious()`; Esc -> `CloseCompletion()` or `CancelSearch()`; Up / Down -> `MoveUp()` / `MoveDown()` (a key they refuse goes on to the control); Ctrl+R -> `BeginSearch()`,
+   then the characters typed go to `SetSearchQuery(...)` while `IsSearching`; Ctrl+C -> copy with a selection, else `StopCommand`; Ctrl+L -> `ClearCommand`. It draws `Spans` (kinds of `PowerShellSyntaxKind`),
+   dots while `IsSecret`, `InputPrompt` before the text, the list of `Completions` with `SelectedCompletionIndex`, and `SearchQuery` / `SearchMatch` / `SearchFailed` while `IsSearching`.
+6. *The Windows source of the policies* (`IPowerShellPolicySource`) - the keys, exactly (`PowerShellPolicyKeys` has them as constants; `HKLM` is `PowerShellPolicyScope.Computer`, `HKCU` is `User`):
+
+| What | Where | Value |
+|---|---|---|
+| The switch "Use Windows PowerShell Policy setting" | `HKLM` or `HKCU`, `Software\Policies\Microsoft\PowerShellCore` | `UseWindowsPowerShellPolicySetting` `REG_DWORD`, non-zero = on |
+| Execution policy | the root key (`PowerShellCore`, or `Software\Policies\Microsoft\Windows\PowerShell` while the switch is on) | `EnableScripts` `REG_DWORD` (0 = scripts off), `ExecutionPolicy` `REG_SZ` |
+| Transcription | `<root>\Transcription` | `EnableTranscripting` `REG_DWORD`, `EnableInvocationHeader` `REG_DWORD`, `OutputDirectory` `REG_SZ` |
+| Script block logging | `<root>\ScriptBlockLogging` | `EnableScriptBlockLogging` `REG_DWORD`, `EnableScriptBlockInvocationLogging` `REG_DWORD` |
+| Module logging | `<root>\ModuleLogging` | `EnableModuleLogging` `REG_DWORD`; the modules are the value **names** under `<root>\ModuleLogging\ModuleNames` |
+| The config files | `ReadConfigFile(Computer)`: `powershell.config.json` in the folder of `System.Management.Automation.dll` (the engine's all-users file, the one the publish places); `ReadConfigFile(User)`: `<Documents>\PowerShell\powershell.config.json` | the text, or `null`; the reader parses `PowerShellPolicies` (`ScriptExecution`, `Transcription`, `ScriptBlockLogging`, `ModuleLogging` with the value names above; booleans or numbers) |
+| The lockdown | `GetLockdownState()` | `SystemPolicy.GetSystemLockdownPolicy()` mapped to `PowerShellLockdownState` (the engine's `SystemPolicyLockdownProbe` already does it) |
+
+   The source returns `null` / an empty list for an absent key, absent value or a value of another type, and throws for a real failure (the window then says it could not tell). The names were taken from
+   what `System.Management.Automation.dll` 7.6.10 reads (the paths `Software\Policies\Microsoft\PowerShellCore\…` and `…\Windows\PowerShell\…` and the property names of its policy classes were found in its metadata).
+
+**Decisions of part 3 that the later parts follow** (each with its reason):
+
+1. *The policy types and the reader are in Presentation, not Core.* The plan put a snapshot in Core; nothing outside the window uses it (the engine learns the lockdown from its own probe), so
+   Core would only carry types for the view model. `IPowerShellPolicyReader` is what the window depends on (a fake in the tests); `PowerShellPolicyReader` over `IPowerShellPolicySource` holds every rule, so the
+   Windows part is only the raw reads.
+2. *The order the reader takes* (what the engine does, as far as it could be seen): `HKLM` then `HKCU` of the PowerShell 7 key; with the switch on in either hive the Windows PowerShell keys **stand in** for them; then the all-users config
+   file, then the user's. For each of the four settings the **first place that sets it decides**, also when it sets it off (that is how a policy, or the file AD Manager ships next to the engine, turns off what a user's file turned on).
+   *Not verified:* whether the engine reads the Windows PowerShell keys instead of, or besides, the PowerShell 7 ones while the switch is on, and whether it reads the JSON policies on Windows at all. The reader reports what it finds; the worst case is a note about a
+   setting the engine ignores - never a missing note for one it applies.
+3. *The note is plain and says where* (D7): one sentence per recording policy - transcription (where the files go, "Documents folder of your account" when no directory is named), script block logging (the PowerShell Core event log), module logging (the modules) - each with its origin
+   ("computer policy", "user policy of Windows PowerShell", "your powershell.config.json"…), then "AD Manager does not change these policies and does not get around them." Execution policy and a lockdown record nothing and make no note (the lockdown is the reason of the disabled switch and a line of the scrollback).
+   The log copy is the key and a mask of what is on (1 transcription, 2 script block logging, 4 module logging) - never the directory or the modules.
+4. *What lasts, and what covers it* (`UpdateLasting`, one method): the end of the session (error), a start that failed (error), then **notes**: the policy note, "the policies could not be read" (an attention - not knowing is said), the trusted mode; when more than one is true they are one attention, one after the other, with the
+   log key `PowerShell.Status.Notes` and their number. A running command and its result cover the lasting state, as everywhere in V2, and it is back when the result is closed - which is what "a lasting note before the first command" means. The policy note is also the first lines of the scrollback (`PolicyNote`), where nothing covers it.
+5. *A command is an operation with `OperationWrites.Other`.* In R1 no command writes, but what a window runs is whatever the operator typed (in the trusted mode, anything), so closing the window while it runs asks "Stop the running operation and close the window?" and waits for the end - the existing `RunningWork` question, nothing of its own.
+6. *`Status.Show` while a command runs ends the command* (a holder shows one thing; `Show` replaces the operation). The switch of the language mode, which may be refused by the engine, therefore says its refusal in the scrollback always and on the line only when no command runs (a test found it).
+7. *No count of objects.* The status line says what it knows: lines of output ("12 lines of output in the window, 0.8 s"; Polish plural forms), not the "N objects" of the plan, because the formatted mode (part 1, decision 4) hands the window text, not objects. A count needs the engine (an `Out-Default` that counts, or the commands reporting what they wrote);
+   the contract `PowerShellRunEndItem` has no such field. Open question 1.
+8. *The stream is read off the UI thread and handed over in steps* (`PumpAsync`): what is ready when the next item would have to be waited for goes at once (a line appears as it is written), a burst goes in batches of 500, and each step is awaited on the UI thread - a command that writes faster than the window shows is held back (the engine's bounded channel does the rest), 100,000 lines are about 200 hand-overs, not 100,000 (a test counts them).
+9. *The scrollback is bounded:* 20,000 lines, dropped in steps (it may hold up to 22,000 before it drops the oldest down to 20,000, so a window fed line by line does not copy its list for every line); `DroppedLines` and `DroppedNote` say how many. A batch of one line is an ordinary `Add`, more than one a `Reset` (the `BulkObservableCollection` convention).
+   The lines of the window's own (welcome, the note, the answers) are not counted as output.
+10. *The questions of a command* are answered in the editor, in `Answer` or `Secret` mode (no highlight, no completion, no history, always "run" on Enter): text, secret (a `SecureString` built from the typed characters; the echo has no answer in it), a choice (the letter, the text, `?` for the help messages, an empty answer for the default, an unknown answer asks again). The answer is never a command and never in the history. `PendingPrompt` is set **last** (a test saw the question pending before its lines were there).
+    Stop cancels a pending question.
+11. *Highlighting, completion and history are the engine's* (`Tokenize`, `CompleteAsync`, `IsInputComplete`, `ShouldRemember` through `IPowerShellSession`); the model decides only the keys and the state. A completion result for text that changed meanwhile is dropped; one match is put in, several open the list (first selected, Tab cycles, Enter takes), a second Tab supersedes the first request.
+    The history keeps 500 lines, no consecutive repeats, and never a line the engine refuses.
+12. *The finder of distinguished names* recognises a name by its shape - leading components of the usual types and the trailing `DC=` components - and checks it with `DistinguishedName.TryParse`. It ignores a name followed by the engine's ellipsis, or by a comma that goes straight on (a cut table cell: the beginning of a name is often another valid name), a value with an
+    unescaped `=`, text longer than 8,000 characters, and anything it cannot read in 200 ms.
+13. *`PowerShellGridTable` is in Core* (the engine builds it, the window shows it): cells are text (`null` = no value), the column names are unique ignoring case, rows have one cell per column, the DN column is named; its `ToString()` shows only the counts. `IPowerShellWindowActions` is in Presentation (the engine reaches it through part 4's adapter).
+14. *`PowerShellSessionRequest` carries the window's `IDirectorySession`* - the factory builds the read-only context from it (D8, rule 4); the request's `ToString()` names nothing.
+
+**Tests.** `AdMng.Presentation.Tests` (Linux, 220 new): `PowerShellPolicyReaderTests` (every combination: each hive, the switch in either hive, the Windows PowerShell keys, both config files, precedence, off beats on, comments and case in the file, a file that is not usable, the lockdown),
+`PowerShellPolicyNoteTests` (each setting, several, both languages, the log copy), `PowerShellWindowRunTests` (the echo, streaming and the status sequence with and without Stop, in both languages, a result of 100,000 lines, a line shown as soon as it is written, errors, a failed command, progress,
+the close question with No and Yes, disposal during a run, the questions of a command, the history rules, Enter, the width), `PowerShellWindowStatusTests` (title, summary, starting, a failed or missing engine, a disconnected window, the end of the session, every combination of the notes, the trusted mode with its
+confirmation, a lockdown from the session or the policies, a refusal by the engine), `PowerShellInputModelTests`, `PowerShellInputHistoryTests`, `PowerShellOutputDocumentTests`, `PowerShellDnLinkFinderTests`, `PowerShellWindowActionsTests` (the contract through a fake, the actions of a host that gave none; the table itself is `AdMng.Core.Tests` `PowerShellGridTableTests`),
+`PowerShellRegistrationTests` (scoped, built from the host's registrations, a window from the factory), `PowerShellRulesTests` (Presentation does not reference the engine; the window's code names no file write, registry, settings or write API). `ConnectionLifetimes` has `PowerShellServices`.
+Mutation checks done: the close question without `OperationWrites.Other` (1 test fails), the computer and user policy layers swapped (1 fails), the ellipsis rule of the finder removed (4 fail).
+The tests use a fake `IPowerShellSession` whose "pipeline" has a thread of its own and a channel, like the engine, so a command that blocks on a question does not block the reader; there is no real-engine test in `AdMng.Presentation.Tests` (it would add the PowerShell SDK to the test project; the engine has its own tests, and the window talks to it through `IPowerShellSession`).
+
+**What could not be verified on Linux, and why it should still be right.** How the view draws any of it (nobody has looked; part 4 writes the view against the properties above); the Windows source of the policies (the keys come from the engine's metadata and the documented templates, the rules are tested here); whether the engine's `Write-Progress`, `Read-Host` and `-Confirm`
+arrive as the items the fake streams (part 1 tests them against the real host); the timing of the UI-thread hand-over under the real `Dispatcher` (the logic is the same as the list loads', and the Windows UI test of part 4 holds a command and watches the line).
+
+**Open questions for the next parts.**
+1. *"N objects" in the status line* needs a count from the engine (`PowerShellRunEndItem` has none); the line says lines of output meanwhile. A proposal: the engine counts what reaches `Out-Default`, or the commands report what they wrote through the context.
+2. *`UseWindowsPowerShellPolicySetting`:* where the switch lives (read from the `PowerShellCore` key of either hive here) and whether the Windows PowerShell keys replace or add to the PowerShell 7 ones is to be confirmed on a machine with such a GPO (part 4's Windows run can read what the engine reports for the same keys).
+3. *The default actions in Presentation:* `IPowerShellWindowActions` is only a contract; the logic that does not need WPF - the GUID lookup of `Open-AdmObject`, *Save As* and the CSV file of `Export-AdmList` - could be a Presentation class with a Linux test (it needs one new member, "show a table in the grid", from the host); part 4 decides.
+4. *Where the policy note lives:* as the lasting state of the status line it is covered by every command's result until the result is closed (V2 behaviour). If the owner prefers it always visible, it is `PolicyNoteText` - a note (`Ad.Note.Attention`) in the window's layout costs the view one line, and the view model needs nothing.
+5. *The stage S readiness item* can reuse `PowerShellPolicyReader` and `PowerShellPolicyNotes` as they are.
+
