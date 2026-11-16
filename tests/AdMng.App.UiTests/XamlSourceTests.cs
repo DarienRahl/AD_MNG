@@ -149,6 +149,7 @@ public sealed partial class XamlSourceTests
         "GroupPolicy/GroupPolicyNotes.xaml",
         "GroupPolicy/NewGpoWindow.xaml",
         "GroupPolicy/WmiFilterEditorWindow.xaml",
+        "PowerShell/PowerShellEditor.xaml",
         "Views/LogonHoursWindow.xaml",
         "Views/Watchdog/WatchdogCertificateTrustWindow.xaml",
         "Views/Watchdog/WatchdogChannelEditorView.xaml",

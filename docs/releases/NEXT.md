@@ -59,6 +59,51 @@ się nie zmienia, a zapisy do katalogu nadal idą wyłącznie przez plan zmian z
   zamknięciu. Wcześniej pytało tylko okno *Korespondencja* i tylko przy wysyłce, a edytor zbiorczy zamknięty w trakcie wykonania
   zostawiał je w tle.
 
+## Nowe: okno PowerShell (R1)
+
+Z okna połączenia można teraz otworzyć okno **PowerShell** (*Narzędzia → PowerShell…*, **Ctrl+Shift+P** albo paleta poleceń):
+wiersz poleceń z podpowiadaniem, kolorowaniem i historią, w którym działają polecenia AD Managera – tylko do odczytu – na
+sesji tego okna, czyli tym samym kontrolerze domeny i z tymi samymi uprawnieniami co okno główne. Nic w nim nie zapisuje do
+katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w następnych etapach ścieżki R.
+
+- **Polecenia.** `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`, `Get-AdmGroupMember` (z `-Recursive`
+  dla członków zagnieżdżonych), `Search-AdmObject` (wartości są zawsze dosłowne, więc `Łukasz (Kraków)*` znajduje tylko to, co
+  napisano), `Get-AdmVersion`, `Out-AdmGrid`, `Open-AdmObject` i `Export-AdmList`. Wyniki są zwykłymi obiektami PowerShella
+  (`Where-Object`, `Select-Object`, `Sort-Object`… działają), z wartościami dekodowanymi tak jak w oknach programu, a hasła i
+  klucze, których edytor atrybutów nie pokazuje, są zamaskowane. Wyniki są czytane strumieniem – 100 000 obiektów nie blokuje
+  okna, a **Stop** (przycisk albo Ctrl+C) przerywa odczyt na kontrolerze domeny.
+- **Co jest w oknie.** Wiersz stanu na górze mówi, co robi polecenie, i ma **Stop**; błędy i ostrzeżenia mają ikonę
+  (nie tylko kolor); nazwa wyróżniająca w wyniku jest odnośnikiem (*Otwórz w programie*, prawy przycisk: *Kopiuj nazwę
+  wyróżniającą*, Enter otwiera pierwszą nazwę zaznaczonego wiersza). **Tab** uzupełnia (polecenia, parametry, zmienne, nazwy
+  atrybutów ze schematu i kontenery, które okno już zna – bez odczytu z katalogu przy każdym znaku; nie ma uzupełniania nazw
+  plików), **Enter** uruchamia kompletne polecenie albo dodaje wiersz, gdy jest niedokończone (otwarty cudzysłów, nawias, ukośnik
+  pionowy), **Shift+Enter** zawsze dodaje wiersz, **Góra/Dół** chodzą po wierszach, a potem po historii, **Ctrl+R** przeszukuje
+  historię, **Esc** zamyka listę, **Ctrl+L** czyści okno. Historia jest tylko w pamięci okna; wiersz z hasłem jawnym
+  (`-AsPlainText`, `ConvertTo-SecureString '…'`, parametr `…Password` z wartością wpisaną wprost) nie trafia do niej.
+- **Tryb ograniczony i tryb zaufany.** Okno zaczyna w ConstrainedLanguage: polecenia programu działają, wywołania .NET i
+  skrypty są ograniczone, nie ma profili, PSReadLine, `Start-Job` ani ładowania modułów, a pliki `.ps1` odrzuca polityka
+  wykonywania `Restricted`. Przełącznik **Tryb zaufany (FullLanguage)** po potwierdzeniu, które mówi, co daje (dowolny kod .NET,
+  zapis do katalogu z pominięciem planu zmian – bez podglądu, dziennika i cofania), włącza pełny język tylko w tym oknie, na
+  stałej uwadze i w tytule okna; nie jest pamiętany. Gdy system wymusza ConstrainedLanguage (WDAC, AppLocker), przełącznik jest
+  wyłączony z podanym powodem. To ochrona przed pomyłką, nie granica bezpieczeństwa: granicą są uprawnienia konta w AD.
+- **Zasady PowerShella tego komputera.** Przy otwarciu okno czyta zasady grupy PowerShella (transkrypcję, rejestrowanie bloków
+  skryptów i modułów) oraz oba pliki `powershell.config.json` i, zanim uruchomisz pierwsze polecenie, mówi stałą uwagą, co jest
+  gdzie zapisywane („transkrypcja jest włączona zasadą komputera: polecenia i wyniki zapisuje Windows w …”). Program niczego
+  nie zmienia i niczego nie obchodzi; plik `powershell.config.json` obok `AdMng.exe` wyłącza tylko to, co włączył plik
+  użytkownika (zasada komputera ma pierwszeństwo przed nim).
+- **`Out-AdmGrid`, `Open-AdmObject`, `Export-AdmList`.** `Out-AdmGrid` otwiera okno z siatką jak lista obiektów: kolumny z
+  właściwości obiektów, sortowanie kliknięciem w nagłówek, filtr, kopiowanie (Ctrl+C), eksport CSV z ochroną formuł i otwieranie
+  obiektu (Enter) – każde wywołanie to osobne okno. `Open-AdmObject` otwiera właściwości obiektu (nazwa wyróżniająca,
+  `objectGUID`, SID, nazwa konta; najwyżej 10 okien naraz). `Export-AdmList` zapisuje CSV tak jak eksport listy (formuły
+  chronione, separator z ustawień regionalnych, UTF-8 z BOM) tylko do pliku z `-Path` albo wybranego w oknie *Zapisz jako*;
+  istniejący plik zastępuje tylko z `-Force`, a bez ścieżki i bez wybranego pliku nic nie zapisuje.
+- **Nic na dysku.** Wynik, historia i zawartość okna są tylko w pamięci i znikają z oknem. Silnik (PowerShell 7.6 wbudowany w
+  program) ma wyłączone: telemetrię, kanał diagnostyczny, sprawdzanie aktualizacji, automatyczne ładowanie modułów i zapis
+  pamięci podręcznej analizy modułów; test „bez plików” sprawdza, że praca w oknie nie zostawia pliku. Dane logowania okna nie
+  są widoczne dla skryptu (polecenia czytają przez widok tylko do odczytu sesji okna).
+- **Rozmiar.** Silnik zwiększa `AdMng.exe` (jeden plik, bez kompresji) o około 38 MB, a folder publikacji o około 37 MB;
+  każda poprawka bezpieczeństwa PowerShella oznacza nową wersję AD Managera. Serwis AdMng Watchdog nie zawiera silnika.
+
 ## Inne zmiany
 
 - **Zatrzymanie wykonania kończy obiekt, który trwa.** *Zatrzymaj* w wierszu stanu (albo *Anuluj* na przycisku *Wykonaj*)
@@ -102,6 +147,14 @@ się nie zmienia, a zapisy do katalogu nadal idą wyłącznie przez plan zmian z
   na zakładce *Korespondencji*, gdy pokazana jest inna), nie jest na pasku postępu – nie ma go też w wierszu stanu – za to pytanie
   o zamknięcie okna go uwzględnia. Zamknięcie okna przez zamknięcie okna, do którego należy, albo przez zamknięcie programu nie
   zadaje pytania samo: pyta okno główne.
+- Okno PowerShell (R1) sprawdzono testami automatycznymi: silnik, polecenia i model okna na Linuksie i Windows oraz prawdziwe
+  okno z prawdziwym silnikiem nad sztuczną domeną na Windows; nikt nie oglądał go jeszcze na ekranie. Wygląd kolorowanego tekstu
+  (tekst w polu jest przezroczysty, kolory rysuje warstwa pod nim), listy uzupełnień pod kursorem, odnośników do nazw i okna siatki
+  w jasnym, ciemnym i wysokim kontraście, a także to, czy czytnik ekranu czyta okno sensownie (lista uzupełnień nie jest
+  ogłaszana), czeka na pilotaż. Zachowanie silnika pod WDAC/AppLocker i przy włączonych zasadach transkrypcji nie zostało
+  sprawdzone na prawdziwej maszynie z takimi zasadami. W trybie ograniczonym `[pscustomobject]@{}` i wywołania metod typów spoza
+  rdzenia są odrzucane (`New-Object PSObject -Property` działa); skrypt w trybie zaufanym, który używa `System.Data.SqlClient`, nie
+  znajdzie `sni.dll` (pakiet bez licencji OSI jest wyłączony).
 
 ## Co dalej
 

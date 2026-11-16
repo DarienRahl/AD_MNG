@@ -119,6 +119,15 @@ created more than once per window, such as the reconnect `ConnectWindow` + `Conn
 non-disposable or be created with `ActivatorUtilities`/`new`. The command palette is not resolved at all: the shell
 creates it with `new`.
 
+**The PowerShell window (track R, stage R1).** One runspace per window, never shared between connection windows
+(`docs/dev/r1-powershell-window.md`, ADR-0010): `PowerShellServices` (Presentation) is **Scoped** and built from whatever the host
+registered; the App registers `IPowerShellWindowActions` (`PowerShellWindowActions`: the dialogs and files of the connection)
+**Scoped**, and `IPowerShellSessionFactory` and `IPowerShellPolicySource` as singletons without a connection (everything of a window is
+in its request). `PowerShellWindowViewModel` and `PowerShellGridViewModel` are created by `IDialogViewModelFactory` in the connection's
+scope; the window is opened through `ToolWindows.ShowPowerShell` (singleton key `tools:powershell`: one per connection window, an open
+one is activated) and the grids of `Out-AdmGrid` through `ToolWindows.ShowPowerShellGrid` (one per call). The runspace is disposed with
+the view model when the window closes; a window of an ended session stops its command and refuses to start another.
+
 **Per connection (Scoped), App side.** In `src/AdMng.App/AppHost.cs`:
 
 * `IWindowService`/`WindowService`;

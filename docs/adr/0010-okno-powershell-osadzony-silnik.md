@@ -39,7 +39,8 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    aktualizacją platformy. Rozmiar pakietu (+19…54 MB) i wydanie AD Managera przy każdej poprawce bezpieczeństwa
    PowerShell są **zaakceptowane**. Jeśli silnik nie działa w jednoplikowym `AdMng.exe` (SDK potrzebuje manifestów
    modułów obok hosta), pliki silnika zostaną opublikowane w folderze obok `AdMng.exe`; rozstrzyga test dymny w CI na
-   Windows (część 4 R1), a wynik wpisujemy do notatki wykonawczej. Powód: tylko silnik w procesie daje dostęp do sesji
+   Windows (część 4 R1) – **rozstrzygnął: silnik działa w jednoplikowym `AdMng.exe`, folder nie jest potrzebny** (rozdział
+   „Układ publikacji”). Powód: tylko silnik w procesie daje dostęp do sesji
    i poświadczeń okna bez ich ujawniania, obiekty przekazywane do siatki programu i własny edytor wiersza; zewnętrzne
    `pwsh.exe` nie daje żadnej z tych rzeczy (rozdział „Rozważone alternatywy”).
 2. **Jeden runspace na okno (D2).** Runspace nigdy nie jest współdzielony między oknami połączeń; powstaje i jest
@@ -124,8 +125,34 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
   tylko na Windows. Dzięki temu cała logika (host, tryb języka, historia, uzupełnianie, polecenia) ma testy jednostkowe
   poza interfejsem.
 - **Dalsze etapy.** R2 doda polecenia zapisu przez plan zmian (okno ma na to miejsce) bez zmiany tej decyzji; R3 doda moduły
-  RSAT przez listę modułów z punktu 2. Plik `powershell.config.json` w folderze silnika (wyłączenie transkrypcji i
-  rejestrowania ustawionych w plikach użytkownika) powstanie razem z układem publikacji (część 4 R1).
+  RSAT przez listę modułów z punktu 2. Plik `powershell.config.json` obok `AdMng.exe` (wyłączenie transkrypcji i
+  rejestrowania ustawionych w plikach użytkownika) jest częścią układu publikacji (rozdział „Układ publikacji”).
+
+## Układ publikacji
+
+Wynik części 4 R1, sprawdzony w CI na Windows (krok „Smoke test published app” publikowanego jednoplikowego `AdMng.exe`):
+
+- **Silnik działa w jednoplikowym, samodzielnym `AdMng.exe`.** Test dymny tworzy runspace, wykonuje `1 + 1`, `Get-AdmVersion`, sprawdza
+  tryb języka (ConstrainedLanguage), politykę wykonywania (`Restricted`), listę dziesięciu poleceń, odrzucenie `Import-Module` i
+  pomoc polecenia; pierwszy runspace procesu trwa ok. 0,5 s (523 ms), drugi ok. 10 ms (9 ms). Zestaw `System.Management.Automation`
+  jest w pliku; silnik, nie mając jego lokalizacji (`Assembly.Location` jest pusty), przyjmuje za `$PSHOME` folder programu
+  (zaobserwowane: `$PSHOME` = folder `AdMng.exe`). **Folder z plikami silnika obok programu nie jest więc potrzebny** i nie
+  jest stosowany; zapasowe rozwiązanie z punktu 1 pozostaje opisane na wypadek zmiany silnika.
+- **Obok `AdMng.exe` trafiają tylko pliki, których .NET nie umieszcza w pliku:** natywne biblioteki silnika (`pwrshplugin.dll`,
+  `PowerShell.Core.Instrumentation.dll`, `getfilesiginforedist.dll`, `microsoft.management.infrastructure.native.unmanaged.dll`),
+  `build.manifest(.sig)`, manifesty modułów (`runtimes/*/lib/net10.0/Modules`; nic ich nie ładuje – domyślny stan sesji wiąże polecenia
+  bezpośrednio), pomoc poleceń (`AdMng.PowerShell.dll-Help.xml`, wskazywana przez `AppContext.BaseDirectory`, bo w jednym pliku
+  `Assembly.Location` jest pusty) i **`powershell.config.json`**: wyłącza transkrypcję, rejestrowanie bloków skryptów i modułów oraz
+  warstwę zgodności z Windows PowerShell 5.1. Silnik czyta go z `$PSHOME`, a ustawienie w nim wygrywa z tym samym ustawieniem w pliku
+  użytkownika (sprawdzone na Linuksie w części 1); zasady komputera (GPO) mają pierwszeństwo przed oboma, a okno mówi o nich przed
+  pierwszym poleceniem.
+- **Rozmiar.** `AdMng.exe` (jeden plik, bez kompresji): 143,7 MB bez silnika, 181,9 MB z silnikiem, czyli **+38,2 MB**; cały folder
+  publikacji 157,5 MB → 194,8 MB (**+37,3 MB**); archiwum artefaktu CI z silnikiem 82,4 MB (pomiar publikacji win-x64 wykonanej
+  na Linuksie tym samym poleceniem co CI, rozmiar artefaktu z CI). Pomiar części 1 (puste programy, +48,4 MB bez kompresji) był
+  wyższy, prawdopodobnie dlatego, że program ma już część tego, co przynosi silnik (biblioteki .NET są w pliku raz).
+- **Pakiet Watchdoga nie zawiera silnika.** Żaden projekt Watchdoga nie odwołuje się do `AdMng.PowerShell` ani do
+  `Microsoft.PowerShell.SDK` (test `EngineBoundaryTests`), skrypty pakietu Debian go nie znają, a CI sprawdza, że wynik publikacji
+  Watchdoga nie ma `System.Management.Automation*.dll`. Wynik publikacji AD Managera nie ma `sni.dll`.
 
 ## Licencje pakietów
 

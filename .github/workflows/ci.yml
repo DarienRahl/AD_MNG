@@ -101,6 +101,17 @@ jobs:
             -RedirectStandardOutput smoke-out.txt -RedirectStandardError smoke-err.txt
           Get-Content smoke-out.txt, smoke-err.txt -ErrorAction SilentlyContinue
           if ($p.ExitCode -ne 0) { throw "Smoke test failed with exit code $($p.ExitCode)" }
+      - name: Published layout of the PowerShell engine
+        # Track R (ADR-0010): the engine runs from the single-file AdMng.exe (the smoke test above proves it); its all-users configuration and
+        # the help of its commands are published beside the program, and the four sni.dll packages (not OSI licensed) are not in the output.
+        shell: pwsh
+        run: |
+          foreach ($file in 'powershell.config.json', 'AdMng.PowerShell.dll-Help.xml') {
+            if (-not (Test-Path "publish/$file")) { throw "$file is missing from the publish output" }
+          }
+          if (Get-ChildItem publish -Recurse -Filter 'sni*.dll') { throw 'The output has an sni.dll (ADR-0010, Package licenses)' }
+          $folder = (Get-ChildItem publish -Recurse -File | Measure-Object Length -Sum).Sum
+          'AdMng.exe {0:N1} MB, the publish folder {1:N1} MB' -f ((Get-Item publish/AdMng.exe).Length / 1MB), ($folder / 1MB)
       - uses: actions/upload-artifact@v4
         with:
           name: AdMng-win-x64
@@ -119,6 +130,11 @@ jobs:
           foreach ($script in 'Install-AdMngWatchdog.ps1', 'AdMngWatchdog.Install.psm1', 'Uninstall-AdMngWatchdog.ps1') {
             if (-not (Test-Path "publish-watchdog/Deploy/$script")) { throw "Deploy/$script is missing from the publish output" }
           }
+      - name: The Watchdog package has no PowerShell engine
+        # Track R (ADR-0010): the engine is used by AdMng.App only and never ships with the service.
+        shell: pwsh
+        run: |
+          if (Get-ChildItem publish-watchdog -Recurse -Filter 'System.Management.Automation*.dll') { throw 'The Watchdog publish output has the PowerShell engine' }
       - uses: actions/upload-artifact@v4
         with:
           name: AdMng-Watchdog-win-x64

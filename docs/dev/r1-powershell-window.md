@@ -371,6 +371,10 @@ This is the plan; what was built is section 12.3 and it wins (the policy types a
 
 ## 7. The window (part 4)
 
+This is the plan; what was built is section 12.4 and it wins (the editor is a `UserControl` over a `TextBox` with a coloured layer, not a
+`Control` with a template of its own; the engine's files are not published in a folder - the single file runs it; `Out-AdmGrid` opens a
+grid window of its own instead of the main window's object list).
+
 - `src/AdMng.App/PowerShell/PowerShellWindow.xaml(.cs)` – registered with `services.AddWindow<PowerShellWindowViewModel,
   PowerShellWindow>()` in `AppHost`, opened from `Services/DialogService.cs` (`ShowPowerShellAsync`), added to `SmokeTest` and a
   UI test. The window has the page header, the status line, the output area, the pending-plan area (collapsed), and the line
@@ -849,3 +853,100 @@ arrive as the items the fake streams (part 1 tests them against the real host); 
 4. *Where the policy note lives:* as the lasting state of the status line it is covered by every command's result until the result is closed (V2 behaviour). If the owner prefers it always visible, it is `PolicyNoteText` - a note (`Ad.Note.Attention`) in the window's layout costs the view one line, and the view model needs nothing.
 5. *The stage S readiness item* can reuse `PowerShellPolicyReader` and `PowerShellPolicyNotes` as they are.
 
+### 12.4 Part 4 - the window, the grid, the engine in the program
+
+**What exists.** In `AdMng.App` (`src/AdMng.App/PowerShell/`): `PowerShellWindow` (+ `PowerShellWindowViewModel` of part 3), `PowerShellEditor`
+(a `UserControl`; the text conversion in `PowerShellEditorText`), `PowerShellRuns` (the pieces of a line as `Run`s and links),
+`StateCheckBox` (the trusted-mode switch), `PowerShellGridWindow` (the grid of `Out-AdmGrid`), `PowerShellSessionFactory` (the engine session of
+a window) and `WindowsPowerShellPolicySource` (the registry and the two config files); `powershell.config.json` beside the program;
+`SmokeTest.PowerShell.cs`; the registrations in `AppHost`; *Tools > PowerShell...* in the main window; `IDialogService.ShowPowerShellAsync` and
+`ShowPowerShellGridAsync` (+ `ToolWindows.ShowPowerShell`, key `tools:powershell`, one window per connection window). In `AdMng.Presentation`:
+`PowerShellGridViewModel` (+ `PowerShellGridRow`), `PowerShellWindowActions`, the descriptor `tools.powershell` (`Ctrl+Shift+P`), `CopyLines` and
+`CopyDistinguishedName` of the window, `PowerShellInputModel.AcceptCompletionAt` and the off-thread highlighting of long text, the strings of both languages (`L.PowerShell*`, `L.PowerShellGrid`, `L.Commands.PowerShell`). In `AdMng.PowerShell`: `Out-AdmGrid`, `Open-AdmObject`,
+`Export-AdmList` (+ MAML help), `IAdmWindowServices` on the context, `AdmTableBuilder`, `PowerShellEnvironment.EngineHome`. The token `Ad.Font.Mono`
+(Tokens.xaml, `DesignTokenTests`). A CI step checks the published layout and that the Watchdog output has no engine.
+
+**Decisions of part 4 that the later parts follow** (each with its reason):
+
+1. *The single-file `AdMng.exe` runs the engine; the fallback layout is not needed.* The step "Smoke test published app" of Windows CI passed
+   with the engine check of `SmokeTest.PowerShell.cs` (a runspace, `1 + 1`, `Get-AdmVersion`, ConstrainedLanguage, execution policy `Restricted`, the
+   ten commands, `Import-Module` refused, the help of a command): `$PSHOME` was `...\publish`, the first runspace 523 ms, the second 9 ms. Without a
+   location of the bundled assembly the engine takes the folder of the program (also seen on Linux in a single-file publish). Two things
+   had to change for it: `Assembly.Location` (empty in a single file; the analyser IL3000 fails the single-file build) is not used for the help
+   file any more - it is looked up in `AppContext.BaseDirectory` - and `PowerShellEnvironment.EngineHome` reads it under a pragma that says why.
+   Sizes: `AdMng.exe` 143.7 MB -> 181.9 MB (+38.2 MB, uncompressed single file), the publish folder 157.5 MB -> 194.8 MB, the CI artifact 82.4 MB.
+2. *The editor is a `TextBox` that draws no text and a `TextBlock` under it that draws the text in colours* (the header of `PowerShellEditor.xaml`).
+   The box edits (selection, undo, clipboard, input methods, a screen reader reads it); its `Foreground` is transparent and its template is
+   the bare text host. The layer is built from the model's `Spans` as `Run`s with `SetResourceReference` to the theme's text brushes (command, keyword and type
+   `AccentTextFillColorPrimaryBrush`, variable `SystemFillColorSuccessBrush`, string `SystemFillColorCautionBrush`, number `SystemFillColorAttentionBrush`, parameter,
+   operator, comment and member `TextFillColorSecondaryBrush`, the rest `TextFillColorPrimaryBrush`: only keys of the closed set, so the colours follow light,
+   dark and High Contrast, where they collapse to the text colour and the structure is still readable). It is placed where the box puts its first character
+   (`GetRectFromCharacterIndex(0)`, asked after the layout and again when the box scrolls or resizes), not by a metric of the template, so a one pixel difference of
+   the text host's internals cannot show. *Why not a text surface of our own:* it would need the caret, selection, clipboard, input methods and a UI Automation
+   text pattern again; the cost of this design is the alignment of two layers, which nobody has seen (below).
+3. *Newlines.* The box breaks lines with `\r\n`, the model with `\n`. The box is the source of the text while the operator edits (`TextChanged` -> `SetText(ToModel(text), ToModelIndex(...))`),
+   the model while it changes the text itself (history, completion, the end of a command: `ApplyText` writes it into the box and puts the caret by `ToBoxIndex`); a flag
+   keeps the two from echoing. `PowerShellEditorText` is pure and has tests.
+4. *Keys* (`PowerShellEditor.HandleKey(key, modifiers)`, tested without a keyboard): Enter = `SubmitCommand` (the view model's: question, completion, search, run or new line);
+   Shift+Enter inserts a line in the box; Tab / Shift+Tab / Ctrl+Space complete; Esc closes the list or the search; Up / Down are the model's (lines, then history); Ctrl+R searches
+   (typed characters go to the search while it is on, Backspace removes one); Ctrl+L clears; Ctrl+C with no selection is Stop (with one it is the box's copy). In the output list Ctrl+C copies
+   the selected lines (nothing selected: Stop), Enter opens the first distinguished name of the selected line, Esc returns to the editor. A secret answer is a `PasswordBox` (a screen
+   reader says "password"), not the box with dots.
+5. *Highlighting and completion are off the UI thread.* Completion was already (`CompleteAsync`, one request at a time, a changed text drops the answer); the model now
+   highlights a text of up to 2,000 characters at once - a command line is a few hundred and the parser takes well under a millisecond - and a longer one (up to 20,000) on a pool
+   thread, shown plain until the spans arrive, the next keystroke cancels it (`HighlightTask`, tested with a held tokenizer). The list of completions is a `Popup` under the caret
+   that takes no focus; a click takes a match (`AcceptCompletionAt`); it closes when the box loses the keyboard.
+6. *The window.* Top to bottom: the status line, three notes that last (what the policies record - `PolicyNoteText`; the trusted mode; the cut scrollback), the output (a virtualised `ListBox`
+   of lines, extended selection, a context menu with copy and select all, following the end until the operator scrolls up), the area of the plan R2 will fill (a collapsed `Border`), the editor, and
+   *Run* (the action button: its Stop is the command's) / *Clear* / the switch. A line is a glyph column (errors, warnings and the policy note have their glyph - never the colour alone),
+   the pieces of the line as `Run`s (the colours of `Write-Host` are mapped to the theme's status brushes; white, grey and black keep the text's own) and a distinguished name as a `Hyperlink`
+   (click: open; context menu: open, copy the name; no tab stop - Enter on the line does it). The width the engine formats for is the width of the output in characters (`SetOutputWidth`).
+   The policy note is therefore in four places: the status line (lasting, covered by a command's result as everywhere in V2), the layout note, the first lines of the scrollback and - as a
+   fact - the log copy; the owner asked for the layout note, part 3 built the rest.
+7. *The trusted-mode switch is a `CheckBox` that never toggles by itself* (`StateCheckBox`): a click runs the command, the box says what the view model says, so a refused or declined change leaves it
+   as it was. Disabled, its tool tip is `TrustedModeDisabledReason`.
+8. *`Out-AdmGrid` opens a window of its own, not the object list of the main window.* The object list (`ObjectListViewModel`) is a view of a directory location - a container, a search, a saved view, a Find
+   query - which it reads, refreshes, watches for changes and virtualises by itself, and whose cells it formats a second time with the attribute formatter; the rows of a pipeline are none of
+   that, and feeding them in would be a fifth kind of location in a 2,000-line class that nobody can run here. `PowerShellGridViewModel` instead uses the list's own parts: `ColumnViewModel` (header,
+   sort glyph, width), `b:DynamicColumns` (the `GridView` from the columns, a click on a header sorts), `b:Density`, the row height and the footer. It adds a filter (case and diacritics folded, over all columns),
+   numeric-aware sorting (empty cells last), copy (tab separated, formulas protected as the list copies them), *Copy DN*, CSV export of the rows as shown (formulas protected, the regional separator,
+   UTF-8 with a BOM, only to the file the operator chose), and *Open in the program* (Enter or a double click; at most 10 windows; only rows that have a distinguished name). Every call opens a new window
+   (like `Out-GridView`); it belongs to its connection window and ends with its session ("session ended" on the line, rows stay, nothing can be opened).
+9. *The three commands.* `Out-AdmGrid` and `Export-AdmList` turn each object into a row as it arrives (`AdmTableBuilder`: columns = the properties in order of first appearance, the
+   `DistinguishedName` first; plain values are one column `Value`; cell text: dates `yyyy-MM-dd HH:mm:ss` in local time, numbers and booleans independent of the language, lists joined by `; ` as the program's
+   lists do, binary as `(binary, N bytes)`, a `SecureString` never as anything but its name, no value is `null`). `Open-AdmObject` resolves the identity itself - a DN, `objectGUID`, SID, account name - through the
+   window's reader (`AdmIdentity`, `AdmSearchPlan`: escaped filters, one DC, only `name` is read), so the host opens a distinguished name and never reads the directory; a missing object is an error that names it and no window
+   opens. `Export-AdmList` takes `-Path` literally (brackets are no wildcard), refuses a path outside the file system, an existing file without `-Force` and a delimiter that is not one visible character; without
+   `-Path` it asks in *Save As*, and when nobody chose a file it writes nothing and says so (a warning). The host writes the file (`PowerShellWindowActions`, `CsvFiles.WriteAsync`; the one place besides the grid that
+   writes - `PowerShellRulesTests` pins it).
+10. *`PowerShellWindowActions` is a Presentation class* (the open question 3 of part 3): the actions need no WPF, so they are tested on Linux; the host registers it scoped (`AppHost`) because it needs the connection's dialogs
+    and files. The factory adapts it to the engine's `IAdmWindowServices`.
+11. *The policies of the workstation* are read by `WindowsPowerShellPolicySource` through the keys of `PowerShellPolicyKeys`: only reads (`RegistryKey.OpenSubKey(writable: false)`), an absent key is "not set", a key that cannot be read is an
+    exception that the window says it could not tell (never "nothing is recorded"), strings are not expanded. The all-users file is in `PowerShellEnvironment.EngineHome` (`$PSHOME`), the user's in `Documents\PowerShell`.
+    `powershell.config.json` ships beside the program (`CopyToPublishDirectory`): it turns off the three logs that a user's file could switch on, and the Windows PowerShell compatibility layer.
+12. *Shortcut and menu.* `tools.powershell`, `Ctrl+Shift+P`, category Tools; the menu entry is in the Tools menu before the session log; a test asserts that no other descriptor uses the shortcut (and `Key="P"` is in no XAML).
+
+**Criteria of section 10 and where each is shown.** (1) the read commands: part 2 tests; the commands that need the window: `WindowCommandsTests` (Linux), `PowerShellWindowUiTests` (Windows). (2) the escaping: part 2, and `Open_AdmObject_escapes...`.
+(3) no file, no history of passwords, the note before the first command: part 1 "no files" test, `APlainTextPassword_NeverEntersTheHistory`, `TheNoteAboutTheRecordingPolicies_IsSaidBeforeTheFirstCommand...`. (4) the language mode: `TheTrustedMode_AsksFirst...`, `AnEnforcedLockdown_...`.
+(5) no write command: `CommandCatalogTests` (ten commands). (6) the environment: part 1; `powershell.config.json`: `EngineBoundaryTests`. (7) the window opens from the menu, the palette and `Ctrl+Shift+P`, belongs to its connection, shows domain, DC and account, and its
+runspace is disposed with the scope: `PowerShell_IsOfferedWhileConnected...` (Linux), `TheWindow_OpensFromTheConnection...` and `AnIdleWindow_ClosesWithoutAQuestion...` (Windows). (8) the single file: the CI step of the smoke test.
+
+**Tests.** `AdMng.PowerShell.Tests`: `WindowCommandsTests` (24: grid table, cell text, identities, the 10-window limit, escaping, export path rules, stop through the call into the window, Constrained), `EngineBoundaryTests`, the catalog and help tests
+for the three commands. `AdMng.Presentation.Tests`: `PowerShellGridViewModelTests` (17), `PowerShellWindowActionsHostTests` (7), `PowerShellWindowCopyTests`, the highlighting and `AcceptCompletionAt` tests of the input model, the
+shell test of the command, the rule that only two files write. `AdMng.App.UiTests` (Windows): `PowerShellWindowUiTests` (the window over the real engine and the fake directory: open, run, the editor's colours, completion, Enter and Shift+Enter, history, Stop of a held command, the
+error glyph, a distinguished name as a link, `Open-AdmObject`, `Out-AdmGrid`, `Export-AdmList`, the policy note, a lockdown, the trusted mode, closing), `PowerShellEditorPartsTests`, the lists of `XamlSourceTests`, `HostTests`, `DesignTokenTests`; the smoke test
+renders both windows in both languages and starts the engine in the published file.
+
+**What could not be verified here, and why it should still be right.** *Nobody has seen any of the window on a screen.* In particular: the alignment of the coloured layer and the caret of the box (placed from `GetRectFromCharacterIndex(0)`; if the box
+internals disagree by a pixel the caret is a pixel off the text, nothing more); that a transparent `Foreground` keeps the caret and the selection visible in every theme (the caret brush is set, the selection is the system's); the look in High Contrast (the colours collapse to the text colour);
+the popup of completions near the screen edge; how a screen reader reads the window (the list of completions is not announced - the box keeps the focus); the grid window's columns at narrow widths; the width of the output in characters for a window with a scroll bar. The Windows behaviour of
+policies under a real GPO and of the engine under WDAC / AppLocker (the keys come from the engine's metadata and the templates; the rules are tested). `PowerShellRuns` finds the commands of a link by the inheritance of an attached property through the list - a Windows UI test clicks a link, but
+a right-click menu is only checked for its entries.
+
+**Deviations from the task text.** (1) `Out-AdmGrid` shows a window of its own, not "the program's object list grid" (decision 8). (2) The editor is a `UserControl`, not a `Control` with a style in `Themes/Controls.xaml` (that file's test wants every control with a `StyleKey` named in its header; a
+`UserControl` has none, and the template is in its own XAML). (3) The monospace font is a new token `Ad.Font.Mono` (the token test lists the tokens on purpose). (4) `Open-AdmObject` resolves the identity in the engine (the host gets a DN) instead of the host resolving a GUID. (5) The status line
+has no "N objects" (unit 3). (6) The policy note is in four places (decision 6). (7) The Windows PowerShell policy keys and JSON policies on Windows are still the reader's best reading of the engine (unit 3).
+
+**Open questions.** (1) The completion list is not announced to a screen reader (no UI Automation event is raised for the selected match). (2) Should the grid of `Out-AdmGrid` become a tab of the main window? A window per call is `Out-GridView`'s model, a tab would need `IShellDocument`. (3) Should `Out-AdmGrid` accept `-PassThru`
+and `-Wait` like `Out-GridView`? (4) `LockedOut` ignores the domain's lockout duration (part 2) - the grid shows what the command returned. (5) The stage S readiness item for the policies and the lockdown is not built (the reader is ready: `PowerShellPolicyReader` over `WindowsPowerShellPolicySource`); the readiness
+check's shape (a list of facts of this computer, each with a state and a way to fix it) would make it a small addition, but it is a new row, its strings and a test of its own, and nobody asked for it in this part - left for part 5 or the owner.

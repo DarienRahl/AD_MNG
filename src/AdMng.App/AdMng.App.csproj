@@ -31,6 +31,15 @@
   <ItemGroup>
     <Resource Include="Assets\AdMng.ico" />
   </ItemGroup>
+  <!-- The all-users configuration of the PowerShell engine (ADR-0010 "The publish layout"): the engine reads powershell.config.json from
+       its own folder - in the single-file program the folder of AdMng.exe - and a setting there wins over the same setting in a user's
+       file (a policy of the computer wins over both). It turns off the transcription, the module logging and the script block logging
+       that a user's own file switched on, so that nothing of what the window shows is recorded by the engine unless a policy says so
+       - and the window then says it (decision D7) - and the Windows PowerShell compatibility layer. It is published beside the program,
+       never bundled in it. -->
+  <ItemGroup>
+    <None Include="powershell.config.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+  </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="AdMng.App.UiTests" />
   </ItemGroup>

@@ -40,7 +40,8 @@ the Watchdog package.
    platform upgrade. The package size (+19…54 MB) and an AD Manager release with each PowerShell security update are
    **accepted**. If the engine cannot run in the single-file `AdMng.exe` (the SDK needs its module manifests beside the
    host), the engine's files will be published in a folder beside `AdMng.exe`; the smoke test in Windows CI decides (part
-   4 of R1) and the result goes to the implementation note. The reason: only an in-process engine gives access to the
+   4 of R1) – **it decided: the engine runs in the single-file `AdMng.exe` and no folder is needed** (section "The publish
+   layout"). The reason: only an in-process engine gives access to the
    window's session and credentials without exposing them, objects handed to the program's grid and our own line editor;
    an external `pwsh.exe` gives none of these (section "Alternatives considered").
 2. **One runspace per window (D2).** A runspace is never shared between connection windows; it is created and disposed with
@@ -125,9 +126,37 @@ the Watchdog package.
   only on Windows. As a result all the logic (the host, the language mode, the history, completion, the commands) has unit
   tests outside the UI.
 - **Next stages.** R2 will add the write commands through the change plan (the window has a place for it) without changing
-  this decision; R3 will add the RSAT modules through the module list of item 2. A `powershell.config.json` file in the
-  engine's folder (turning off transcription and logging set in the users' files) comes with the publish layout (part 4
-  of R1).
+  this decision; R3 will add the RSAT modules through the module list of item 2. A `powershell.config.json` file beside
+  `AdMng.exe` (turning off transcription and logging set in the users' files) is part of the publish layout (section "The
+  publish layout").
+
+## The publish layout
+
+The result of part 4 of R1, checked in Windows CI (the step "Smoke test published app" of the published single-file `AdMng.exe`):
+
+- **The engine runs in the single-file, self-contained `AdMng.exe`.** The smoke test creates a runspace, runs `1 + 1` and
+  `Get-AdmVersion`, checks the language mode (ConstrainedLanguage), the execution policy (`Restricted`), the list of the ten
+  commands, the refusal of `Import-Module` and the help of a command; the first runspace of the process takes about 0.5 s
+  (523 ms), the second about 10 ms (9 ms). The `System.Management.Automation` assembly is inside the file; the engine, finding
+  no location of it (`Assembly.Location` is empty), takes the folder of the program for `$PSHOME` (observed: `$PSHOME` was the
+  folder of `AdMng.exe`). **A folder with the engine's files beside the program is therefore not needed** and is not used; the
+  fallback of item 1 stays described in case the engine changes.
+- **Only the files .NET does not put into the single file land beside `AdMng.exe`:** the engine's native libraries
+  (`pwrshplugin.dll`, `PowerShell.Core.Instrumentation.dll`, `getfilesiginforedist.dll`,
+  `microsoft.management.infrastructure.native.unmanaged.dll`), `build.manifest(.sig)`, the module manifests
+  (`runtimes/*/lib/net10.0/Modules`; nothing loads them – the default session state binds the commands directly), the help of
+  the commands (`AdMng.PowerShell.dll-Help.xml`, found through `AppContext.BaseDirectory` because `Assembly.Location` is empty in a
+  single file) and **`powershell.config.json`**, which turns off transcription, script block logging, module logging and the
+  Windows PowerShell 5.1 compatibility layer. The engine reads it from `$PSHOME`, and a setting there wins over the same
+  setting in a user's file (checked on Linux in part 1); the computer's policies (GPO) take precedence over both, and the window
+  says what they record before the first command.
+- **Size.** `AdMng.exe` (one file, uncompressed): 143.7 MB without the engine, 181.9 MB with it, that is **+38.2 MB**; the whole
+  publish folder 157.5 MB → 194.8 MB (**+37.3 MB**); the CI artifact archive with the engine is 82.4 MB (measured on a win-x64
+  publish made on Linux with the command CI uses; the artifact size from CI). The measurement of part 1 (empty programs, +48.4 MB
+  uncompressed) was higher, probably because the program already has part of what the engine brings (the .NET libraries are in the file once).
+- **The Watchdog package has no engine.** No Watchdog project references `AdMng.PowerShell` or `Microsoft.PowerShell.SDK` (test
+  `EngineBoundaryTests`), the scripts of the Debian package do not know it, and CI checks that the publish output of the
+  Watchdog has no `System.Management.Automation*.dll`. The publish output of AD Manager has no `sni.dll`.
 
 ## Package licenses
 
