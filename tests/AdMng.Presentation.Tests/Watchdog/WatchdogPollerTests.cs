@@ -13,7 +13,7 @@ public sealed class WatchdogPollerTests : IDisposable
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private readonly FakeTimeProvider _time = new(SampleEvents.Now);
+    private readonly TimerWatchingTime _time = new(SampleEvents.Now);
     private readonly FakeWatchdogClient _client;
     private readonly TestUiThread _ui = new();
     private readonly WatchdogPoller _poller;
@@ -98,6 +98,7 @@ public sealed class WatchdogPollerTests : IDisposable
         _poller.Start();
 
         await _client.Calls.CallsAsync(nameof(IWatchdogClient.GetStatusAsync), 1);
+        await _time.TimersAsync(1);
         _time.Advance(WatchdogPoller.VisibleStatusInterval);
         await _client.Calls.CallsAsync(nameof(IWatchdogClient.GetStatusAsync), 2);
 
@@ -113,6 +114,7 @@ public sealed class WatchdogPollerTests : IDisposable
         _poller.Start();
 
         await _client.Calls.CallsAsync(nameof(IWatchdogClient.GetStatusAsync), 1);
+        await _time.TimersAsync(1);
         _time.Advance(WatchdogPoller.HiddenStatusInterval - TimeSpan.FromSeconds(1));
         await _ui.IdleAsync();
         Assert.Equal(1, _client.Calls.Count(nameof(IWatchdogClient.GetStatusAsync)));
@@ -198,6 +200,10 @@ public sealed class WatchdogPollerTests : IDisposable
             await WaitForFailuresAsync(i + 1);
             Assert.Equal(TimeSpan.FromSeconds(expected[i]), _poller.CurrentBackoff);
 
+            // The clock moves only after the poller waits for the back-off (its timer exists): a timer created after the
+            // clock moved would count the back-off from the new time and never fire when the test moves the clock on.
+            await _time.TimersAsync(i + 1);
+
             // Nothing happens before the back-off ends.
             _time.Advance(_poller.CurrentBackoff - TimeSpan.FromMilliseconds(1));
             await _ui.IdleAsync();
@@ -206,8 +212,12 @@ public sealed class WatchdogPollerTests : IDisposable
         }
 
         await _client.Calls.CallsAsync(nameof(IWatchdogClient.GetStatusAsync), expected.Length + 1);
-        _client.ClearFailures();
+
+        // The fake client records a call before it decides whether the call fails: the failures are cleared only after
+        // the failure of this call was seen, or the call itself could still succeed and no failure would ever come.
         await WaitForFailuresAsync(expected.Length + 1);
+        _client.ClearFailures();
+        await _time.TimersAsync(expected.Length + 1);
         _time.Advance(_poller.CurrentBackoff);
         await _client.Calls.CallsAsync(nameof(IWatchdogClient.GetStatusAsync), expected.Length + 2);
         await WatchdogTestWait.UntilAsync(_ui, () => Volatile.Read(ref _recoveries) > 0, "the recovery");
@@ -230,16 +240,59 @@ public sealed class WatchdogPollerTests : IDisposable
         Assert.True(_poller.IsRunning);
 
         _poller.Stop();
-        await _poller.Completion.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        await _poller.Completion.WaitAsync(WatchdogTestWait.Limit, Ct);
         Assert.False(_poller.IsRunning);
         Assert.Empty(_failures);
 
         _poller.Start();
         await _client.Calls.CallsAsync(nameof(IWatchdogClient.GetEventsAsync), 2);
         _poller.Dispose();
-        await _poller.Completion.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        await _poller.Completion.WaitAsync(WatchdogTestWait.Limit, Ct);
         Assert.Throws<ObjectDisposedException>(_poller.Start);
     }
 
     private Task WaitForFailuresAsync(int count) => WatchdogTestWait.UntilAsync(_ui, () => _failures.Count >= count, $"{count} failures");
+
+    /// <summary>A fake clock that counts the timers created from it, so a test can wait until the poller sleeps on one.</summary>
+    private sealed class TimerWatchingTime(DateTimeOffset start) : FakeTimeProvider(start)
+    {
+        private readonly Lock _timers = new();
+        private readonly List<(int Count, TaskCompletionSource Reached)> _waiters = [];
+        private int _created;
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            var timer = base.CreateTimer(callback, state, dueTime, period);
+            List<TaskCompletionSource> reached;
+            lock (_timers)
+            {
+                _created++;
+                reached = [.. _waiters.Where(w => _created >= w.Count).Select(w => w.Reached)];
+                _waiters.RemoveAll(w => _created >= w.Count);
+            }
+
+            foreach (var waiter in reached)
+            {
+                waiter.TrySetResult();
+            }
+
+            return timer;
+        }
+
+        /// <summary>Completes when at least <paramref name="count"/> timers were created from this clock.</summary>
+        public Task TimersAsync(int count)
+        {
+            lock (_timers)
+            {
+                if (_created >= count)
+                {
+                    return Task.CompletedTask;
+                }
+
+                var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _waiters.Add((count, reached));
+                return reached.Task.WaitAsync(WatchdogTestWait.Limit, TestContext.Current.CancellationToken);
+            }
+        }
+    }
 }
