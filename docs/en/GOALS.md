@@ -59,7 +59,7 @@ security settings (0.10.0), GPO readability and diagnostics (0.11.0), event logs
 readiness (0.13.0), GPO search, copying and cleanup (0.14.0), creating multiple accounts from Excel and the read-only
 AD CS overview (0.15.0).
 
-On the [roadmap](../../README.md#-roadmap) phase 0 is done; phases 1 and 2 and the tracks W, U, K, E and P1 are
+On the [roadmap](../../README.md#-roadmap) phase 0 is done; phases 1 and 2 and the tracks W, U, K, E, P1 and R1 are
 implemented and marked 🟡, because they wait for a pilot on Windows Server AD. The releases are not signed yet.
 
 ## Goals of the next releases (proposal)
@@ -80,9 +80,9 @@ between them, so that every new window is built in the new style and nothing is 
 
 The owner decided on 10 November 2026: the WPF app is evolved in place (no WinUI 3 shell – see the
 [technology decision](../dev/v-interface-renewal.md#3-technology-decision-the-owners-decision)), the tree stays the
-main navigation with a narrow area strip next to it, and stage V1 comes before R1. Stages V1 and V2 are built (V2 – the
-status line, the cancellable action button, status pills, empty lists and progress on the taskbar – was not seen on a
-screen yet), so R1 and V3 are next in the table. The rest of the order in the table stays a proposal.
+main navigation with a narrow area strip next to it, and stage V1 comes before R1. Stages V1, V2 and R1 are built (V2 – the
+status line, the cancellable action button, status pills, empty lists and progress on the taskbar – and R1 – the
+PowerShell window with the read commands – were not seen on a screen yet), so V3 and P2 are next in the table. The rest of the order in the table stays a proposal.
 
 ## The road to 1.0 (proposal)
 

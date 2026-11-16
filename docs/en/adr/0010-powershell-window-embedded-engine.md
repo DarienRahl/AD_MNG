@@ -6,7 +6,7 @@
   agreed with the team" section of track R and the names of the commands. They concern stage R1 and bind stages R2 and
   R3; in the README of track R the settled entries moved to the section "Decided"
 - Date: 2026-11-16
-- Applies to: track R in the [README](../../../README.md#track-r--powershell-window-); rules 1–6 of `CLAUDE.md` stay
+- Applies to: track R in the [README](../../../README.md#track-r--powershell-window--r1-); rules 1–6 of `CLAUDE.md` stay
   unchanged (the PowerShell window works within them and is no exception to any)
 - Implementation note: [`docs/dev/r1-powershell-window.md`](../../dev/r1-powershell-window.md) (binding for stage R1;
   its "R1 as built" part records what was actually built and what could not be verified)

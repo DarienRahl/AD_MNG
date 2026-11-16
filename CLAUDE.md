@@ -6,7 +6,8 @@ keep both in sync (same sections and order; Polish docs link to `README.pl.md`).
 `docs/` and in English in `docs/en/` (same headings, numbering and order – update both; English file names:
 `COMPUTERS.md` = `KOMPUTERY.md`, `EVENT-LOGS.md` = `DZIENNIKI-ZDARZEN.md`, `GROUP-POLICY.md` = `ZASADY-GRUPY.md`,
 `CORRESPONDENCE.md` = `KORESPONDENCJA.md`, `PILOT.md` = `PILOTAZ.md`, `CERTIFICATES.md` = `CERTYFIKATY.md`,
-`CREATING-ACCOUNTS.md` = `ZAKLADANIE-KONT.md`, `GOALS.md` = `CELE.md`, ADRs under `docs/en/adr/`); the test lab
+`CREATING-ACCOUNTS.md` = `ZAKLADANIE-KONT.md`, `GOALS.md` = `CELE.md`, `POWERSHELL.md` = `POWERSHELL.md` (the same name in
+both folders, no entry in `check_docs.py`), ADRs under `docs/en/adr/`); the test lab
 READMEs are `README.md` (English) and `README.pl.md`. `tools/docs/check_docs.py` (CI job `checks`) verifies the pairs
 and every relative link. The English UI points to `docs/en/` (`Readiness.Doc.*` in `Strings.resx`).
 Code, comments, commit messages and these notes are in English.

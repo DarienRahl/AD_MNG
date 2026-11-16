@@ -32,7 +32,7 @@ DOC_NAMES = {
     "CERTYFIKATY.md": "CERTIFICATES.md",
     "ZAKLADANIE-KONT.md": "CREATING-ACCOUNTS.md",
     "CELE.md": "GOALS.md",
-}
+}  # POWERSHELL.md is POWERSHELL.md in both folders, so it needs no entry
 # Directories whose README.md must have a README.pl.md (a README.pl.md always needs its README.md).
 BILINGUAL_README_DIRS = ["", "tools/testlab", "tools/testlab/watchdog"]
 # Not checked for links: release notes (they link to tags that do not exist yet) and prototypes.

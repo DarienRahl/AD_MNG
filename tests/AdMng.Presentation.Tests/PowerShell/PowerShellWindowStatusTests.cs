@@ -549,6 +549,29 @@ public sealed class PowerShellWindowStatusTests
     }
 
     [Fact]
+    public async Task TheWelcome_NamesTheGuideOfItsLanguage_AndTheGuideExists()
+    {
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        Assert.Contains(window.Output.Lines, line => line.Text.Contains("docs/en/POWERSHELL.md", StringComparison.Ordinal));
+
+        harness.Directory.Localizer.SetCulture(Polish);
+        var polish = harness.Directory.Localizer[AdMng.Presentation.Localization.L.PowerShell.WelcomeHelp];
+        Assert.Contains("docs/POWERSHELL.md", polish, StringComparison.Ordinal);
+        Assert.DoesNotContain("docs/en/", polish, StringComparison.Ordinal);
+
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "AdMng.slnx")))
+        {
+            root = root.Parent;
+        }
+
+        Assert.NotNull(root);
+        Assert.True(File.Exists(Path.Combine(root.FullName, "docs", "POWERSHELL.md")));
+        Assert.True(File.Exists(Path.Combine(root.FullName, "docs", "en", "POWERSHELL.md")));
+    }
+
+    [Fact]
     public async Task NoLogCopy_OfAnythingTheWindowSays_CarriesAValue()
     {
         var harness = await PowerShellHarness.CreateAsync(policies: Transcribing);

@@ -207,6 +207,17 @@ Szczegóły: [ścieżka P](#ścieżka-p--urząd-certyfikacji-ad-cs-i-certyfikaty
 Szczegóły: [ścieżka E](#ścieżka-e--dzienniki-zdarzeń-czytnik-i-analiza--e1-i-część-e2-),
 [docs/DZIENNIKI-ZDARZEN.md](docs/DZIENNIKI-ZDARZEN.md).
 
+### ⌨ Okno PowerShell
+
+- ⌨ **Okno PowerShell** – *Narzędzia → PowerShell…* (Ctrl+Shift+P): wiersz poleceń PowerShell 7 wbudowany w program, przy
+  oknie połączenia, z własnymi poleceniami odczytu AD Managera (`Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`,
+  `Get-AdmGroupMember -Recursive`, `Search-AdmObject` …), które korzystają z sesji okna – ten sam kontroler domeny i to samo
+  konto, każda wartość zabezpieczona, wyniki jako zwykłe obiekty otwierane w siatce i połączone z obiektem. Na razie tylko
+  odczyt: domyślnie ConstrainedLanguage (tryb zaufany na życzenie), bez profili, bez historii na dysku, wyraźna uwaga, gdy
+  zasady grupy rejestrują PowerShell. Zapisy przez plan zmian i moduły RSAT to następne etapy.
+
+Szczegóły: [ścieżka R](#ścieżka-r--okno-powershell--r1-), [docs/POWERSHELL.md](docs/POWERSHELL.md).
+
 ### ✉ Wiadomości do użytkowników
 
 - ✉ **Wiadomości e-mail do użytkowników** – z szablonów z danymi konta (np. „hasło wygasa …”), do jednej osoby z okna
@@ -363,7 +374,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K7: 🟡)"] ~~~ EVT["🟡 E · Dzienniki zdarzeń<br/>czytnik i analiza<br/>(E1, część E2: 🟡)"] ~~~ PKI["🟡 P · Urząd certyfikacji<br/>(AD CS) i certyfikaty<br/>(P1: 🟡)"] ~~~ NET["⬜ N · DNS i DHCP<br/>strefy, rekordy, zakresy"] ~~~ PWSH["⬜ R · Okno PowerShell<br/>zapytania i skrypty,<br/>zapis przez plan zmian"] ~~~ UIX["⬜ V · Odnowa interfejsu<br/>wygląd, animacje, ikony"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1–K7: 🟡)"] ~~~ EVT["🟡 E · Dzienniki zdarzeń<br/>czytnik i analiza<br/>(E1, część E2: 🟡)"] ~~~ PKI["🟡 P · Urząd certyfikacji<br/>(AD CS) i certyfikaty<br/>(P1: 🟡)"] ~~~ NET["⬜ N · DNS i DHCP<br/>strefy, rekordy, zakresy"] ~~~ PWSH["🟡 R · Okno PowerShell<br/>zapytania i skrypty,<br/>zapis przez plan zmian<br/>(R1: 🟡)"] ~~~ UIX["⬜ V · Odnowa interfejsu<br/>wygląd, animacje, ikony"]
     end
     A --> B
     B ~~~ C
@@ -371,8 +382,8 @@ flowchart TB
     classDef wip fill:#fff8c5,stroke:#9a6700,color:#3b2300
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
-    class F1,F2,W,U,K,EVT,PKI wip
-    class F3,F4,F5,F6,F7,M365,TEAM,NET,PWSH,UIX todo
+    class F1,F2,W,U,K,EVT,PKI,PWSH wip
+    class F3,F4,F5,F6,F7,M365,TEAM,NET,UIX todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -396,7 +407,7 @@ flowchart TB
 | E | Dzienniki zdarzeń: czytnik i analiza (ścieżka równoległa) | Czytanie dzienników zdarzeń DC, serwerów, stacji i plików `.evtx` z poziomu programu (dowolny kanał, wspólna oś czasu wielu komputerów, objaśnione pola i obiekty AD) oraz analizy: źródło blokady konta, rozpylanie haseł, Kerberos/RC4, NTLMv1, podpisywanie LDAP („kto przestanie działać”), historia logowań, zmiany kont i grup, GPO na komputerze, zdrowie DC, integralność inspekcji; osobno od Watchdoga, bez zapisu na dysku | 🟡 (E1 – czytnik oraz z E2 źródło blokady konta i nieudane logowania: zaimplementowane, czekają na pilotaż na Windows Server AD) |
 | P | Urząd certyfikacji (AD CS) i certyfikaty (ścieżka równoległa) | Przegląd PKI lasu na żywo z LDAP (urzędy, szablony z odczytanymi flagami i tym, kto może się zarejestrować, NTAuth, AIA, listy CRL, OID) ze zdrowiem w stylu `pkiview.msc`; przegląd bezpieczeństwa ESC1–ESC17 z naprawą w AD przez plan zmian z cofnięciem; karty *Opublikowane certyfikaty*, *Mapowania nazw* (silne mapowanie, KB5014754) i *Poświadczenia kluczy*, certyfikaty LDAPS/KDC na DC; wystawianie certyfikatów z szablonów urzędu, z objaśnieniem wymagań szablonu (dla użytkowników, komputerów, serwerów WWW z SAN i DC, z wniosków PKCS#10 z dowolnego systemu, w imieniu innych przez agenta rejestracji; odnowienie, żądania oczekujące) – także certyfikat HTTPS usługi Watchdog z wniosku hosta i certyfikat podpisywania kodu dla AD Managera – jako akcja planu zmian z podglądem i audytem; praca z urzędem przez DCOM z kontem okna (wystawione, oczekujące, odwołane, zatwierdzanie, odwołanie, publikacja CRL); powiązania z Watchdogiem, dziennikami zdarzeń, GPO i powiadomieniami | 🟡 (P1 – przegląd PKI tylko do odczytu z LDAP: urzędy, NTAuth, listy CRL, zdrowie, certyfikaty LDAPS DC, szablony z uprawnieniami do rejestracji, przegląd bezpieczeństwa ESC, raport gotowości na silne mapowanie i NTAuth, karty certyfikatów na kontach: zaimplementowane, czeka na pilotaż na Windows Server AD z AD CS; P2–P5: ⬜) |
 | N | DNS i DHCP (ścieżka równoległa) | Strefy i rekordy DNS na żywo z AD (wszystkie partycje, rekordy zdekodowane z `dnsRecord`, starzenie i rekordy nieaktualne, warunkowe usługi przesyłania dalej, rekordy lokalizatora DC), przejście od komputera do jego rekordów, dzierżawy i rezerwacji; ustawienia serwerów DNS oraz zakresy, dzierżawy, rezerwacje, opcje, zasady i praca awaryjna DHCP przez WinRM/CIM albo RPC z kontem okna; przegląd bezpieczeństwa i zdrowia (kto może tworzyć rekordy, DnsAdmins, DnsUpdateProxy, niezabezpieczone aktualizacje dynamiczne, DHCP na DC, poświadczenia DNS, ochrona nazw, zakresy bliskie wyczerpania) z naprawą w AD przez plan zmian z cofnięciem; powiązania z komputerami, lokacjami i podsieciami, Koszem AD, dziennikami zdarzeń i Watchdogiem | ⬜ zaplanowane |
-| R | Okno PowerShell (ścieżka równoległa) | Konsola PowerShell 7 przy każdym oknie połączenia do doraźnych zapytań, zrzutów danych z AD i skryptów: wbudowane polecenia odczytu w sesji okna (ten sam DC, poświadczenia tylko w pamięci, bez RSAT) z bezpiecznie budowanymi filtrami LDAP, wyniki jako obiekty PowerShell do otwarcia w siatce programu, z przejściem do obiektu, eksport tylko do pliku wskazanego przez operatora; zapisy nigdy wprost do AD – polecenia AD Managera i przetłumaczone polecenia RSAT trafiają do oczekującego planu zmian z podglądem, audytem i cofnięciem, pozostałe zapisy RSAT są odrzucane; zainstalowane moduły RSAT `ActiveDirectory` i `GroupPolicy` domyślnie skierowane na DC okna (`ActiveDirectory` także z poświadczeniami okna); bez historii poleceń i transkrypcji na dysku | ⬜ zaplanowane |
+| R | Okno PowerShell (ścieżka równoległa) | Konsola PowerShell 7 przy każdym oknie połączenia do doraźnych zapytań, zrzutów danych z AD i skryptów: wbudowane polecenia odczytu w sesji okna (ten sam DC, poświadczenia tylko w pamięci, bez RSAT) z bezpiecznie budowanymi filtrami LDAP, wyniki jako obiekty PowerShell do otwarcia w siatce programu, z przejściem do obiektu, eksport tylko do pliku wskazanego przez operatora; zapisy nigdy wprost do AD – polecenia AD Managera i przetłumaczone polecenia RSAT trafiają do oczekującego planu zmian z podglądem, audytem i cofnięciem, pozostałe zapisy RSAT są odrzucane; zainstalowane moduły RSAT `ActiveDirectory` i `GroupPolicy` domyślnie skierowane na DC okna (`ActiveDirectory` także z poświadczeniami okna); bez historii poleceń i transkrypcji na dysku | 🟡 (R1 – okno i polecenia odczytu: zbudowane, nikt jeszcze nie widział ich na ekranie; instrukcja: [POWERSHELL.md](docs/POWERSHELL.md); R2, R3: ⬜) |
 | V | Odnowa interfejsu: wygląd, animacje, ikony (ścieżka równoległa) | Ten sam szkielet strony wszędzie (nagłówek strony z opisem i odnośnikiem do instrukcji, jedna linia stanu, karta paska narzędzi, treść), przycisk akcji z anulowaniem, wyszukiwanie w pasku tytułu – polecenia, strony, ustawienia i obiekty (Ctrl+K), obszary programu na widoku i strona startowa po połączeniu, jeden pasek listy, ustawienia jako karty, jeden styl okien dialogowych; tokeny projektowe (jasny, ciemny, wysoki kontrast, Mica tam, gdzie Windows ją daje, zwarta gęstość), katalog krótkich animacji z ustawieniem ograniczenia ruchu i nowy zestaw kolorowych ikon narysowanych dla projektu; wzorem łatwości obsługi są *Harden System Security* i *AppControl Manager*, bez kopiowania ich grafiki | 🟡 etapy V1 i V2 zbudowane: kolorowe ikony, tokeny projektowe i panele okna głównego, pierwsze animacje, ustawienia *Ikony*, *Tło* i *Animacje*; linia stanu, przycisk akcji z anulowaniem, etykiety stanu, puste listy, wiersze zastępcze i postęp na pasku zadań na każdej stronie i w każdym oknie (V2 nie był jeszcze oglądany na ekranie); V3–V7 zaplanowane (notatka projektowa: [v-interface-renewal.md](docs/dev/v-interface-renewal.md)) |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
@@ -1438,7 +1449,7 @@ raporty, etapy</summary>
   SharePoint); **moduły PowerShell** tam, gdzie Graph nie sięga: `ExchangeOnlineManagement`, `MicrosoftTeams`,
   `PnP.PowerShell` – w osadzonym PowerShell 7 w procesie AD Managera, z tokenem z tego samego logowania (bez drugiego
   logowania). Każda operacja ma równoważne polecenie PowerShell w historii, jak dziś dla AD. Z tego samego osadzonego
-  PowerShell 7 korzysta okno PowerShell ([ścieżka R](#ścieżka-r--okno-powershell-)).
+  PowerShell 7 korzysta okno PowerShell ([ścieżka R](#ścieżka-r--okno-powershell--r1-)).
 - Wyłącznie **uprawnienia delegowane**: AD Manager działa zawsze w imieniu zalogowanej osoby i nigdy z własnymi
   uprawnieniami aplikacji – nie da więcej, niż pozwalają role tej osoby.
 - Domyślnie tylko odczyt; zmiany przez ten sam potok co w AD (plan → walidacja → podgląd → wykonanie → raport) z
@@ -2133,7 +2144,8 @@ urząd, etapy</summary>
   DC.
 - **Faza 7 – wdrożenie:** certyfikat podpisywania kodu z P2 dla `AdMng.exe` i instalatora MSI.
 - **R – Okno PowerShell:** obiekty PKI, szablony z odczytanymi flagami i ustalenia ESC dostępne także przez polecenia
-  odczytu w oknie PowerShell; R1 jest w kolejce przed P2.
+  odczytu w oknie PowerShell (R1 jest zbudowane, a P2 w kolejce po nim; R1 nie ma poleceń specyficznych dla PKI, `Get-AdmObject`
+  czyta obiekty PKI jako zwykłe obiekty).
 
 #### Jak to działa technicznie
 
@@ -2216,7 +2228,7 @@ urząd, etapy</summary>
   certyfikaty*, *Mapowania nazw* i *Poświadczenia kluczy*; raport gotowości na silne mapowanie i NTAuth. Silnik ACL U4b
   czyta kontenery PKI w partycji konfiguracji (lokacje nadal pomijane). Pierwsza wersja gotowa (zob. *Stan
   realizacji*), czeka na pilotaż na Windows Server AD z AD CS; opis: [CERTYFIKATY.md](docs/CERTYFIKATY.md).
-- **P2** – wystawianie certyfikatów (w kolejce po R1 – [ścieżka R](#ścieżka-r--okno-powershell-)): kreator z wyborem
+- **P2** – wystawianie certyfikatów (w kolejce po R1 – [ścieżka R](#ścieżka-r--okno-powershell--r1-)): kreator z wyborem
   urzędu i szablonu oraz objaśnieniem wymagań szablonu; certyfikaty dla siebie i dla komputera z kluczem w magazynie
   Windows, z wniosku PKCS#10 z dowolnego systemu (także certyfikat HTTPS usługi Watchdog z wniosku hosta), w imieniu
   innych przez agenta rejestracji, odnowienie, certyfikat podpisywania kodu dla AD Managera, serwery WWW z SAN, DC
@@ -2595,7 +2607,7 @@ przez WinRM/CIM z poświadczeniami okna (K1), lokacji i podsieci (K1), czytnika 
 
 </details>
 
-### Ścieżka R – Okno PowerShell ⬜
+### Ścieżka R – Okno PowerShell 🟡 (R1: 🟡)
 
 **Cel:** okno PowerShell 7 przy każdym oknie połączenia – do doraźnych zapytań, zrzutów danych z AD (atrybutów, list i
 członkostw) i skryptów – bez osobnej konsoli, bez RSAT i bez ponownego logowania. Wbudowane polecenia korzystają z sesji
@@ -2605,7 +2617,8 @@ wtedy, gdy operator go wskaże. **Odczyty działają od razu, zapisy nigdy nie i
 Managera i przetłumaczone polecenia modułu `ActiveDirectory`) dodają operacje do oczekującego planu zmian, który
 operator ogląda w podglądzie i wykonuje – z audytem, cofnięciem i historią PowerShell; pozostałe polecenia zapisu RSAT
 okno odrzuca. Zainstalowane moduły RSAT `ActiveDirectory` i `GroupPolicy` domyślnie łączą się z DC okna
-(`ActiveDirectory` także z poświadczeniami okna). Ścieżka równoległa; R1 jest w kolejce zaraz po P1 (przed P2). Korzysta
+(`ActiveDirectory` także z poświadczeniami okna). Ścieżka równoległa; **R1 jest zbudowane** (okno i polecenia odczytu; nikt
+jeszcze nie widział go na ekranie, zob. listę etapów), R2 i R3 są zaplanowane. Korzysta
 z potoku zmian (faza 2), wielu połączeń naraz (osobne okno na połączenie) i eksportu list; osadzony PowerShell dzieli ze
 ścieżką C. Decyzje właściciela: [ADR-0010](docs/adr/0010-okno-powershell-osadzony-silnik.md); projekt R1:
 [dev/r1-powershell-window.md](docs/dev/r1-powershell-window.md).
@@ -2749,9 +2762,9 @@ etapy</summary>
   przejdziemy na niego dopiero razem z aktualizacją do .NET 11. Własny host (`PSHost`, `PSHostUserInterface`) – tekst
   `-WhatIf` i pytania o potwierdzenie trafiają do okna; osobny obszar działania (runspace) na każde okno PowerShell.
   Pakiet zwiększa program o ok. 19 MB (pojedynczy plik z kompresją) albo o ok. 54 MB (bez kompresji), a każda poprawka
-  bezpieczeństwa PowerShell (mniej więcej co miesiąc) oznacza nowe wydanie AD Managera. Działanie w pojedynczym pliku
-  `AdMng.exe` – do potwierdzenia testem dymnym w CI na Windows; jeśli się nie uda, pliki silnika są publikowane w folderze
-  obok `AdMng.exe` (ustalone, zob. „Ustalone”).
+  bezpieczeństwa PowerShell (mniej więcej co miesiąc) oznacza nowe wydanie AD Managera. Silnik działa w pojedynczym pliku
+  `AdMng.exe` (test dymny opublikowanego pliku w CI na Windows go uruchamia), który jest większy o ok. 38 MB (bez
+  kompresji); obok niego leżą `powershell.config.json` i plik pomocy.
 - **Polecenia AD Managera** to polecenia cmdlet z zestawu programu dodane do `InitialSessionState` (bez modułu na
   dysku), które wywołują te same usługi co okna programu: `IDirectorySession` okna (zasada 4), `LdapFilter` i
   `DistinguishedName` (zasada 3), mechanizm planowania zmian (`IChangePlanner`) dla zapisów (zasada 5). Wywołania są
@@ -2779,11 +2792,14 @@ etapy</summary>
 
 #### Etapy
 
-- **R1** – okno i odczyt (w kolejce zaraz po P1): okno PowerShell przy oknie połączenia, z własnym edytorem wiersza
+- 🟡 **R1** – okno i odczyt: okno PowerShell przy oknie połączenia, z własnym edytorem wiersza
   (uzupełnianie, kolorowanie, historia w pamięci), polecenia odczytu AD Managera w sesji okna (`Get-Adm…`, `Search-Adm…`
   z bezpiecznie budowanymi filtrami), wyniki jako obiekty, `Out-AdmGrid`, *Otwórz w programie* dla DN, eksport tylko do
   pliku wskazanego przez operatora; wykrywanie zasad transkrypcji i rejestrowania z GPO i trybu języka; bez PSReadLine,
-  profili, telemetrii i kanału diagnostycznego.
+  profili, telemetrii i kanału diagnostycznego. **Zbudowane:** silnik, dziesięć poleceń, okno, okno siatki, uwaga o zasadach,
+  przełącznik trybu zaufanego; testy automatyczne na Linuksie i Windows oraz opublikowany `AdMng.exe` uruchamiają silnik, ale
+  **nikt jeszcze nie widział okna na ekranie** i nic nie uruchomiono na Windows Server AD ani przy prawdziwych zasadach grupy;
+  instrukcja: [POWERSHELL.md](docs/POWERSHELL.md); opis powykonawczy: [dev/r1-powershell-window.md](docs/dev/r1-powershell-window.md#12-r1-as-built).
 - **R2** – zapis przez plan zmian: polecenia zapisu AD Managera dodające operacje do oczekującego planu, panel
   oczekującego planu z podglądem i wykonaniem przez potok (audyt, cofnięcie, historia PowerShell), kopiowanie poleceń z
   historii potoku do okna.
@@ -2804,9 +2820,9 @@ Właściciel rozstrzygnął te sprawy dla R1 (uzasadnienie i alternatywy:
 - **Silnik i rozmiar pakietu:** osadzony PowerShell 7 z pakietu `Microsoft.PowerShell.SDK` (linia LTS 7.6.x) w nowym
   projekcie `src/AdMng.PowerShell`, używanym tylko przez aplikację i nigdy w pakiecie Watchdoga. Rozmiar (ok. 19–54 MB) i
   wydanie przy każdej jego poprawce bezpieczeństwa są zaakceptowane; alternatywa – `pwsh.exe` poza procesem w terminalu
-  (ConPTY), z PSReadLine, ale bez dostępu do sesji i poświadczeń okna i bez obiektów w siatce programu – odrzucona. Jeśli
-  pojedynczy plik `AdMng.exe` nie uruchomi silnika, jego pliki są publikowane w folderze obok `AdMng.exe`; rozstrzyga CI na
-  Windows.
+  (ConPTY), z PSReadLine, ale bez dostępu do sesji i poświadczeń okna i bez obiektów w siatce programu – odrzucona. CI na
+  Windows rozstrzygnął: pojedynczy plik `AdMng.exe` uruchamia silnik, więc folder z plikami silnika nie jest publikowany
+  (zmierzony przyrost `AdMng.exe` to ok. 38 MB).
 - **Jeden runspace na okno,** nigdy niewspółdzielony między oknami połączeń i zwalniany z zakresem okna; własny host kieruje
   tekst, pytania i potwierdzenia do okna. Bez profili, PSReadLine i `Start-Job`, automatyczne ładowanie modułów wyłączone,
   polityka wykonywania `Restricted` (w R1 bez plików `.ps1`).
@@ -3380,6 +3396,7 @@ Lokalnie (Windows): `$env:ADMNG_SCREENSHOTS_DIR = "$PWD\zrzuty"; dotnet test tes
 | 📜 [Zasady grupy](docs/ZASADY-GRUPY.md) | obiekty zasad grupy w drzewie, karta *Zasady grupy*, operacje na GPO, filtrowanie zabezpieczeń, filtry WMI, delegowanie, kopie zapasowe, porównanie, edytory ustawień, model „co dostanie komputer”, diagnostyka zasad grupy, wyszukiwanie i kopiowanie ustawień, porządki w GPO |
 | 🏛 [Usługi certyfikatów](docs/CERTYFIKATY.md) | przegląd PKI lasu tylko do odczytu (etap P1): węzeł *Usługi kluczy publicznych*, urzędy, NTAuth, listy CRL, zdrowie, sprawdzenie adresów HTTP, certyfikaty LDAPS kontrolerów domeny, szablony i prawa do rejestracji, przegląd bezpieczeństwa ESC i różnice względem Certipy i Locksmith, gotowość na silne mapowanie i NTAuth, karty certyfikatów na kontach, maskowanie kluczy, prywatność i sieć, pilotaż |
 | 📨 [Korespondencja](docs/KORESPONDENCJA.md) | okno *Korespondencja (Outlook)*: odbiorcy z plików i z AD, pola, wiadomość, podgląd, wysyłka przez Outlooka, dziennik „już wysłane”, zapytania do właścicieli skrzynek, odpowiedzi, rozwiązywanie problemów, pilotaż |
+| ⌨ [Okno PowerShell](docs/POWERSHELL.md) | okno *PowerShell* (etap R1): otwieranie, polecenia odczytu AD Managera z przykładami, znaki specjalne, wyniki i siatka, eksport, historia tylko w pamięci, ConstrainedLanguage i tryb zaufany, co robi z oknem rejestrowanie z zasad grupy, klawiatura, rozwiązywanie problemów, pilotaż |
 | ✅ [Pilotaż](docs/PILOTAZ.md) | lista kontrolna pilotażu na Windows Server AD: środowisko, sprawdzenie gotowości, scenariusze z narzędziem Microsoftu do porównania, zgłaszanie problemów, wyniki |
 | 🧪 [Laboratorium testowe](tools/testlab/README.pl.md) | Samba AD DC z danymi „polskiej firmy”; [Watchdog w laboratorium](tools/testlab/watchdog/README.pl.md) |
 | 🧑‍💻 [Notatki dla deweloperów](CLAUDE.md) | zasady, układ projektów, polecenia, konwencje |

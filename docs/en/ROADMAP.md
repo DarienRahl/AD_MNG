@@ -26,7 +26,7 @@ What the project is for and the proposed goals of the next releases: [GOALS.md](
 | 🟡 (E1 and part of E2: 🟡 implemented, awaiting a pilot on Windows Server AD) | [Track E – Event logs: reader and analysis](../../README.md#track-e--event-logs-reader-and-analysis--e1-and-part-of-e2-) |
 | 🟡 (P1 – read-only AD CS overview: 🟡 implemented, awaiting a pilot on Windows Server AD with AD CS; guide: [CERTIFICATES.md](CERTIFICATES.md); P2–P5: ⬜) | [Track P – Certification authority (AD CS) and certificates](../../README.md#track-p--certification-authority-ad-cs-and-certificates--p1-) |
 | ⬜ | [Track N – DNS and DHCP](../../README.md#track-n--dns-and-dhcp-) |
-| ⬜ | [Track R – PowerShell window](../../README.md#track-r--powershell-window-) |
+| 🟡 (R1 – the window and the read commands: built, nothing seen on a screen yet; guide: [POWERSHELL.md](POWERSHELL.md); R2, R3: ⬜) | [Track R – PowerShell window](../../README.md#track-r--powershell-window--r1-) |
 | 🟡 V1 and V2 (design note: [v-interface-renewal.md](../dev/v-interface-renewal.md)) | [Track V – Interface renewal (look, motion, icons)](../../README.md#track-v--interface-renewal-look-motion-icons--v1-v2-) |
 | 🟡 (checklist: [PILOT.md](PILOT.md)) | [Stage S – stabilization and pilot readiness](../../README.md#stage-s--stabilization-and-pilot-readiness-) |
 

@@ -209,6 +209,17 @@ Details: [Track P](#track-p--certification-authority-ad-cs-and-certificates--p1-
 Details: [Track E](#track-e--event-logs-reader-and-analysis--e1-and-part-of-e2-),
 [docs/en/EVENT-LOGS.md](docs/en/EVENT-LOGS.md).
 
+### ⌨ PowerShell window
+
+- ⌨ **PowerShell window** – *Tools → PowerShell…* (Ctrl+Shift+P): a PowerShell 7 command line built into the program, next
+  to the connection window, with AD Manager's own read commands (`Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`,
+  `Get-AdmGroupMember -Recursive`, `Search-AdmObject` …) that use the window's session – the same domain controller and
+  account, every value escaped, results as ordinary objects that open in a grid and link to the object. Reads only for
+  now: ConstrainedLanguage by default (a trusted mode on request), no profiles, no history on disk, a plain note when a
+  Group Policy records PowerShell. Writes through the change plan and the RSAT modules are the next stages.
+
+Details: [Track R](#track-r--powershell-window--r1-), [docs/en/POWERSHELL.md](docs/en/POWERSHELL.md).
+
 ### ✉ Messages to users
 
 - ✉ **E-mail messages to users** – from templates with account data (e.g. "your password expires on …"), to one user
@@ -365,7 +376,7 @@ flowchart TB
     end
     subgraph C["Parallel tracks"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>AD change monitor"] ~~~ U["🟡 U · Account review, privileges,<br/>e-mail messages and correspondence<br/>via Outlook<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Team collaboration<br/>shared pins<br/>and object notes"] ~~~ K["🟡 K · Computers<br/>and Group Policy (GPO)<br/>(K1–K7: 🟡)"] ~~~ EVT["🟡 E · Event logs<br/>reader and analysis<br/>(E1, part of E2: 🟡)"] ~~~ PKI["🟡 P · Certification authority<br/>(AD CS) and certificates<br/>(P1: 🟡)"] ~~~ NET["⬜ N · DNS and DHCP<br/>zones, records, scopes"] ~~~ PWSH["⬜ R · PowerShell window<br/>queries and scripts,<br/>writes through the change plan"] ~~~ UIX["⬜ V · Interface renewal<br/>look, motion, icons"]
+        W["🟡 W · AdMng Watchdog<br/>AD change monitor"] ~~~ U["🟡 U · Account review, privileges,<br/>e-mail messages and correspondence<br/>via Outlook<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Team collaboration<br/>shared pins<br/>and object notes"] ~~~ K["🟡 K · Computers<br/>and Group Policy (GPO)<br/>(K1–K7: 🟡)"] ~~~ EVT["🟡 E · Event logs<br/>reader and analysis<br/>(E1, part of E2: 🟡)"] ~~~ PKI["🟡 P · Certification authority<br/>(AD CS) and certificates<br/>(P1: 🟡)"] ~~~ NET["⬜ N · DNS and DHCP<br/>zones, records, scopes"] ~~~ PWSH["🟡 R · PowerShell window<br/>queries and scripts,<br/>writes through the change plan<br/>(R1: 🟡)"] ~~~ UIX["⬜ V · Interface renewal<br/>look, motion, icons"]
     end
     A --> B
     B ~~~ C
@@ -373,8 +384,8 @@ flowchart TB
     classDef wip fill:#fff8c5,stroke:#9a6700,color:#3b2300
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
-    class F1,F2,W,U,K,EVT,PKI wip
-    class F3,F4,F5,F6,F7,M365,TEAM,NET,PWSH,UIX todo
+    class F1,F2,W,U,K,EVT,PKI,PWSH wip
+    class F3,F4,F5,F6,F7,M365,TEAM,NET,UIX todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -398,7 +409,7 @@ flowchart TB
 | E | Event logs: reader and analysis (parallel track) | Reading the event logs of DCs, servers, workstations and `.evtx` files from within the program (any channel, a shared timeline across multiple computers, explained fields and AD objects) and analyses: source of an account lockout, password spraying, Kerberos/RC4, NTLMv1, LDAP signing ("who will stop working"), logon history, account and group changes, GPO on a computer, DC health, audit integrity; separate from the Watchdog, nothing written to disk | 🟡 (E1 – reader and, from E2, the account lockout source and failed logons: implemented, awaiting a pilot on Windows Server AD) |
 | P | Certification authority (AD CS) and certificates (parallel track) | A live overview of the forest's PKI from LDAP (CAs, templates with decoded flags and who can enroll, NTAuth, AIA, CRLs, OIDs) with health in the style of `pkiview.msc`; an ESC1–ESC17 security review with fixes in AD through the change plan with rollback; the *Published Certificates*, *Name Mappings* (strong mapping, KB5014754) and *Key Credentials* tabs, LDAPS/KDC certificates on DCs; issuing certificates from the CA's templates with the template's requirements explained (for users, computers, web servers with SANs and DCs, from PKCS#10 requests from any system, on behalf of others through an enrollment agent; renewal, pending requests) – including the HTTPS certificate of the Watchdog service from the host's request and a code signing certificate for AD Manager – as a change plan action with preview and audit; working with the CA over DCOM with the window's account (issued, pending, revoked, approval, revocation, CRL publication); links with the Watchdog, event logs, GPOs and notifications | 🟡 (P1 – a read-only overview of the PKI from LDAP: CAs, NTAuth, CRLs, health, DC LDAPS certificates, templates with enrollment permissions, the ESC security review, the strong mapping and NTAuth readiness report, certificate tabs on accounts: implemented, awaiting a pilot on Windows Server AD with AD CS; P2–P5: ⬜) |
 | N | DNS and DHCP (parallel track) | DNS zones and records live from AD (all partitions, records decoded from `dnsRecord`, aging and stale records, conditional forwarders, DC locator records), going from a computer to its records, leases and reservations; DNS server settings and DHCP scopes, leases, reservations, options, policies and failover over WinRM/CIM or RPC with the window's account; a security and health review (who can create records, DnsAdmins, DnsUpdateProxy, nonsecure dynamic updates, DHCP on DCs, DNS credentials, name protection, scopes close to exhaustion) with fixes in AD through the change plan with rollback; links with computers, sites and subnets, the AD Recycle Bin, event logs and the Watchdog | ⬜ planned |
-| R | PowerShell window (parallel track) | A PowerShell 7 console next to every connection window for ad hoc queries, AD data dumps and scripts: built-in read commands in the window's session (the same DC, credentials in memory only, no RSAT) with safely built LDAP filters, results as PowerShell objects that open in the program's grid, with a jump to the object, export only to a file the operator chooses; writes never go straight to AD – AD Manager commands and translated RSAT commands go into the pending change plan with preview, audit and rollback, other RSAT writes are rejected; installed RSAT `ActiveDirectory` and `GroupPolicy` modules pointed by default at the window's DC (`ActiveDirectory` also with the window's credentials); no command history and no transcripts on disk | ⬜ planned |
+| R | PowerShell window (parallel track) | A PowerShell 7 console next to every connection window for ad hoc queries, AD data dumps and scripts: built-in read commands in the window's session (the same DC, credentials in memory only, no RSAT) with safely built LDAP filters, results as PowerShell objects that open in the program's grid, with a jump to the object, export only to a file the operator chooses; writes never go straight to AD – AD Manager commands and translated RSAT commands go into the pending change plan with preview, audit and rollback, other RSAT writes are rejected; installed RSAT `ActiveDirectory` and `GroupPolicy` modules pointed by default at the window's DC (`ActiveDirectory` also with the window's credentials); no command history and no transcripts on disk | 🟡 (R1 – the window and the read commands: built, nothing seen on a screen yet; guide: [POWERSHELL.md](docs/en/POWERSHELL.md); R2, R3: ⬜) |
 | V | Interface renewal: look, motion, icons (parallel track) | The same page skeleton everywhere (page header with a description and a guide link, one status line, toolbar card, content), a cancellable action button, search in the title bar for commands, pages, settings and objects (Ctrl+K), the areas of the program in view and a home page after connecting, one list toolbar, settings as cards, one dialog style; design tokens (light, dark, High Contrast, Mica where Windows offers it, compact density), a catalogue of short animations with a reduced-motion setting and a new set of colourful icons drawn for the project; modelled on *Harden System Security* and *AppControl Manager* for ease of use, without copying their artwork | 🟡 stages V1 and V2 built: colour icons, design tokens and panels in the main window, first motion, the settings *Icons*, *Background* and *Motion*; the status line, the cancellable action button, status pills, empty lists, placeholder rows and progress on the taskbar on every page and window (nothing of V2 was seen on a screen yet); V3–V7 planned (design note: [v-interface-renewal.md](docs/dev/v-interface-renewal.md)) |
 
 Details of each phase are below – click to expand.
@@ -1463,7 +1474,7 @@ reports, stages</summary>
   SharePoint); **PowerShell modules** where Graph does not reach: `ExchangeOnlineManagement`, `MicrosoftTeams`,
   `PnP.PowerShell` – in an embedded PowerShell 7 inside the AD Manager process, with the token from the same sign-in
   (no second sign-in). Every operation has an equivalent PowerShell command in the history, as for AD today. The
-  PowerShell window ([Track R](#track-r--powershell-window-)) uses the same embedded PowerShell 7.
+  PowerShell window ([Track R](#track-r--powershell-window--r1-)) uses the same embedded PowerShell 7.
 - **Delegated permissions** only: AD Manager always acts on behalf of the signed-in person and never with application
   permissions of its own – it cannot grant more than that person's roles allow.
 - Read-only by default; changes go through the same pipeline as in AD (plan → validation → preview → execution →
@@ -2181,7 +2192,8 @@ issuance, CA, stages</summary>
 - **Stage S – readiness check:** a warning about an expiring CA certificate, CRL or DC LDAPS certificate.
 - **Phase 7 – deployment:** the code signing certificate from P2 for `AdMng.exe` and the MSI installer.
 - **R – PowerShell window:** PKI objects, templates with decoded flags and ESC findings available also through the read
-  commands of the PowerShell window; R1 is queued before P2.
+  commands of the PowerShell window (R1 is built and P2 is queued after it; R1 has no PKI-specific commands, `Get-AdmObject`
+  reads PKI objects as plain objects).
 
 #### How it works technically
 
@@ -2267,7 +2279,7 @@ issuance, CA, stages</summary>
   and *Key Credentials* tabs; the readiness report for strong mapping and NTAuth. The U4b ACL engine reads the PKI
   containers in the configuration partition (sites are still skipped). First version done (see *Implementation
   status*), awaiting a pilot on Windows Server AD with AD CS; user guide: [CERTIFICATES.md](docs/en/CERTIFICATES.md).
-- **P2** – issuing certificates (queued after R1 – [Track R](#track-r--powershell-window-)): a wizard with the choice
+- **P2** – issuing certificates (queued after R1 – [Track R](#track-r--powershell-window--r1-)): a wizard with the choice
   of the CA and the template and an explanation of the template's requirements; certificates for yourself and for the
   computer with the key in the Windows store, from a PKCS#10 request from any system (also the HTTPS certificate of the
   Watchdog service from the host's request), on behalf of others through an enrollment agent, renewal, a code signing
@@ -2658,7 +2670,7 @@ part of the U4b limitation about the DNS zones (N1). It uses the U4 permission e
 
 </details>
 
-### Track R – PowerShell window ⬜
+### Track R – PowerShell window 🟡 (R1: 🟡)
 
 **Goal:** a PowerShell 7 window next to every connection window – for ad hoc queries, AD data dumps (attributes, lists
 and memberships) and scripts – without a separate console, without RSAT and without signing in again. The built-in
@@ -2669,7 +2681,8 @@ the write commands (AD Manager's and the translated commands of the `ActiveDirec
 pending change plan, which the operator looks at in the preview and executes – with audit, rollback and PowerShell
 history; the window rejects the other RSAT write commands. The installed RSAT `ActiveDirectory` and `GroupPolicy`
 modules connect to the window's DC by default (`ActiveDirectory` also with the window's credentials). A parallel track;
-R1 is queued right after P1 (before P2). It uses the change pipeline (phase 2), multiple connections at once (a separate
+**R1 is built** (the window and the read commands; nothing of it has been seen on a screen yet, see the stage list), R2 and R3
+are planned. It uses the change pipeline (phase 2), multiple connections at once (a separate
 window per connection) and list export; it shares the embedded PowerShell with Track C. Decisions of the owner:
 [ADR-0010](docs/en/adr/0010-powershell-window-embedded-engine.md); the design of R1:
 [dev/r1-powershell-window.md](docs/dev/r1-powershell-window.md).
@@ -2821,8 +2834,8 @@ stages</summary>
   `PSHostUserInterface`) – the `-WhatIf` text and confirmation prompts go to the window; a separate runspace for every
   PowerShell window. The package makes the program about 19 MB larger (single file with compression) or about 54 MB
   larger (without compression), and every PowerShell security update (roughly once a month) means a new AD Manager
-  release. Whether it works in the single-file `AdMng.exe` is to be confirmed with a smoke test in Windows CI; if it does
-  not, the engine's files are published in a folder beside `AdMng.exe` (decided, see "Decided").
+  release. It works in the single-file `AdMng.exe` (the smoke test of the published file in Windows CI starts the engine),
+  which is about 38 MB larger (uncompressed); `powershell.config.json` and the help file sit beside it.
 - **AD Manager's commands** are cmdlets from the program's assembly added to `InitialSessionState` (no module on
   disk), which call the same services as the program's windows: the window's `IDirectorySession` (rule 4), `LdapFilter`
   and `DistinguishedName` (rule 3), the change planning mechanism (`IChangePlanner`) for writes (rule 5). The calls are
@@ -2851,11 +2864,15 @@ stages</summary>
 
 #### Stages
 
-- **R1** – window and reads (queued right after P1): the PowerShell window next to the connection window, with a custom
+- 🟡 **R1** – window and reads: the PowerShell window next to the connection window, with a custom
   line editor (completion, highlighting, history in memory), AD Manager's read commands in the window's session
   (`Get-Adm…`, `Search-Adm…` with safely built filters), results as objects, `Out-AdmGrid`, *Open in the program* for
   DNs, export only to a file the operator chooses; detection of the transcription and logging policies from GPOs and of
-  the language mode; no PSReadLine, profiles, telemetry or diagnostics channel.
+  the language mode; no PSReadLine, profiles, telemetry or diagnostics channel. **Built:** the engine, ten commands, the
+  window, the grid window, the policy note, the trusted-mode switch; automated tests on Linux and Windows and the published
+  `AdMng.exe` start the engine, but **nobody has seen the window on a screen yet** and nothing ran against a Windows Server
+  AD or a real Group Policy; user guide: [POWERSHELL.md](docs/en/POWERSHELL.md); as-built note:
+  [dev/r1-powershell-window.md](docs/dev/r1-powershell-window.md#12-r1-as-built).
 - **R2** – writes through the change plan: AD Manager's write commands adding operations to the pending plan, the
   pending plan panel with preview and execution through the pipeline (audit, rollback, PowerShell history), copying
   commands from the pipeline history into the window.
@@ -2876,8 +2893,8 @@ the implementation note is [docs/dev/r1-powershell-window.md](docs/dev/r1-powers
   project `src/AdMng.PowerShell`, used by the application only and never in the Watchdog package. The size (about
   19–54 MB) and a release with each of its security updates are accepted; the alternative – `pwsh.exe` out of process in
   a terminal (ConPTY), with PSReadLine, but without access to the window's session and credentials and without objects in
-  the program's grid – is rejected. If the single-file `AdMng.exe` cannot run the engine, its files are published in a
-  folder beside `AdMng.exe`; Windows CI decides.
+  the program's grid – is rejected. Windows CI decided: the single-file `AdMng.exe` runs the engine, so no folder of
+  engine files is published (the measured growth of `AdMng.exe` is about 38 MB).
 - **One runspace per window,** never shared between connection windows and disposed with the window's scope; a custom host
   routes text, prompts and confirmations into the window. No profiles, no PSReadLine, no `Start-Job`, module
   auto-loading off, the execution policy `Restricted` (no `.ps1` files in R1).
@@ -3463,6 +3480,7 @@ Every document is available in English (`docs/en/`) and Polish (`docs/`).
 | 📜 [Group Policy](docs/en/GROUP-POLICY.md) | Group Policy Objects in the tree, the *Group Policy* tab, GPO operations, security filtering, WMI filters, delegation, backups, comparison, settings editors, the "what will the computer get" model, Group Policy diagnostics, searching and copying settings, GPO cleanup |
 | 🏛 [Certificate Services](docs/en/CERTIFICATES.md) | read-only overview of the forest's PKI (stage P1): the *Public Key Services* node, CAs, NTAuth, CRLs, health, the HTTP URL check, the LDAPS certificates of the domain controllers, templates and enrollment rights, the ESC security review and its differences from Certipy and Locksmith, strong mapping and NTAuth readiness, certificate tabs on accounts, key masking, privacy and network, pilot |
 | 📨 [Correspondence](docs/en/CORRESPONDENCE.md) | the *Correspondence (Outlook)* window: recipients from files and from AD, fields, message, preview, sending through Outlook, the "already sent" journal, queries to mailbox owners, replies, troubleshooting, pilot |
+| ⌨ [PowerShell window](docs/en/POWERSHELL.md) | the *PowerShell* window (stage R1): opening it, AD Manager's read commands with examples, escaping, results and the grid, exporting, history in memory only, ConstrainedLanguage and the trusted mode, what Group Policy logging does to it, keyboard, troubleshooting, pilot |
 | ✅ [Pilot](docs/en/PILOT.md) | pilot checklist for Windows Server AD: environment, readiness check, scenarios with a Microsoft tool for comparison, reporting problems, results |
 | 🧪 [Test lab](tools/testlab/README.md) | Samba AD DC with "Polish company" data; [Watchdog in the lab](tools/testlab/watchdog/README.md) |
 | 🧑‍💻 [Developer notes](CLAUDE.md) | rules, project layout, commands, conventions (English) |

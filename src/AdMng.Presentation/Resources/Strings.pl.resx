@@ -25630,7 +25630,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Tryb ConstrainedLanguage: polecenia AD Manager i zwykłe polecenia cmdlet działają; wywołania .NET i skrypty są ograniczone. Przełącznik trybu zaufanego zdejmuje ograniczenia po potwierdzeniu.</value>
   </data>
   <data name="PowerShell.Welcome.Help" xml:space="preserve">
-    <value>Get-Command *-Adm* wyświetla polecenia AD Manager, Get-Help &lt;polecenie&gt; opisuje jedno z nich. Shift+Enter dodaje wiersz, Ctrl+C zatrzymuje uruchomione polecenie, Ctrl+L czyści to okno.</value>
+    <value>Get-Command *-Adm* wyświetla polecenia AD Manager, Get-Help &lt;polecenie&gt; opisuje jedno z nich. Shift+Enter dodaje wiersz, Ctrl+C zatrzymuje uruchomione polecenie, Ctrl+L czyści to okno. Instrukcja: docs/POWERSHELL.md.</value>
   </data>
   <data name="PowerShell.Welcome.Lockdown" xml:space="preserve">
     <value>Zasady systemowe (WDAC lub AppLocker) wymuszają tryb ConstrainedLanguage: tryb zaufany nie jest dostępny w tym oknie.</value>

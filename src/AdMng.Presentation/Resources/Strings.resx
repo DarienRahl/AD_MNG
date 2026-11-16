@@ -25630,7 +25630,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>ConstrainedLanguage mode: AD Manager's commands and the usual cmdlets work; .NET calls and scripts are limited. The trusted mode switch lifts the limits after a confirmation.</value>
   </data>
   <data name="PowerShell.Welcome.Help" xml:space="preserve">
-    <value>Get-Command *-Adm* lists AD Manager's commands, Get-Help &lt;command&gt; describes one. Shift+Enter adds a line, Ctrl+C stops a running command, Ctrl+L clears this window.</value>
+    <value>Get-Command *-Adm* lists AD Manager's commands, Get-Help &lt;command&gt; describes one. Shift+Enter adds a line, Ctrl+C stops a running command, Ctrl+L clears this window. The guide: docs/en/POWERSHELL.md.</value>
   </data>
   <data name="PowerShell.Welcome.Lockdown" xml:space="preserve">
     <value>A system policy (WDAC or AppLocker) enforces ConstrainedLanguage mode: the trusted mode is not available in this window.</value>

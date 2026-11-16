@@ -6,7 +6,7 @@
   z zespołem” ścieżki R oraz nazwy poleceń. Dotyczą etapu R1 i wiążą etapy R2 i R3; w README ścieżki R rozstrzygnięte
   wpisy przeszły do sekcji „Ustalone”
 - Data: 2026-11-16
-- Dotyczy: ścieżka R w [README](../../README.pl.md#ścieżka-r--okno-powershell-); zasady 1–6 z `CLAUDE.md` pozostają bez
+- Dotyczy: ścieżka R w [README](../../README.pl.md#ścieżka-r--okno-powershell--r1-); zasady 1–6 z `CLAUDE.md` pozostają bez
   zmian (okno PowerShell działa w ich granicach, nie jest wyjątkiem od żadnej z nich)
 - Notatka wykonawcza: [`docs/dev/r1-powershell-window.md`](../dev/r1-powershell-window.md) (wiążąca dla etapu R1; część
   „R1 as built” opisuje, co faktycznie zbudowano i czego nie udało się sprawdzić)

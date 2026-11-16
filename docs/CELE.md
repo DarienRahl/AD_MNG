@@ -58,7 +58,7 @@ czytelność i diagnostyka GPO (0.11.0), dzienniki zdarzeń (0.12.0), stabilizac
 wyszukiwanie, kopiowanie i porządki w GPO (0.14.0), zakładanie wielu kont z Excela i przegląd AD CS tylko do odczytu
 (0.15.0).
 
-Na [roadmapie](../README.pl.md#-roadmapa) faza 0 jest zrobiona; fazy 1 i 2 oraz ścieżki W, U, K, E i P1 są
+Na [roadmapie](../README.pl.md#-roadmapa) faza 0 jest zrobiona; fazy 1 i 2 oraz ścieżki W, U, K, E, P1 i R1 są
 zaimplementowane i oznaczone 🟡, bo czekają na pilotaż na Windows Server AD. Wydania nie są jeszcze podpisane.
 
 ## Cele najbliższych wydań (propozycja)
@@ -79,9 +79,9 @@ tak żeby każde nowe okno powstawało już w nowym stylu i niczego nie trzeba b
 
 Właściciel zdecydował 10 listopada 2026: aplikację WPF rozwijamy w miejscu (bez powłoki w WinUI 3 – zob.
 [decyzję technologiczną](dev/v-interface-renewal.md#3-technology-decision-the-owners-decision)), drzewo zostaje główną
-nawigacją z wąskim paskiem obszarów obok, a etap V1 idzie przed R1. Etapy V1 i V2 są zbudowane (V2 – linia stanu,
-przycisk akcji z anulowaniem, etykiety stanu, puste listy i postęp na pasku zadań – nie był jeszcze oglądany na ekranie),
-więc w tabeli czekają R1 i V3. Dalsza kolejność w tabeli pozostaje propozycją.
+nawigacją z wąskim paskiem obszarów obok, a etap V1 idzie przed R1. Etapy V1, V2 i R1 są zbudowane (V2 – linia stanu,
+przycisk akcji z anulowaniem, etykiety stanu, puste listy i postęp na pasku zadań – oraz R1 – okno PowerShell z poleceniami
+odczytu – nie były jeszcze oglądane na ekranie), więc w tabeli czekają V3 i P2. Dalsza kolejność w tabeli pozostaje propozycją.
 
 ## Droga do wersji 1.0 (propozycja)
 
