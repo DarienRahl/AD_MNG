@@ -10,6 +10,25 @@ internal sealed record ScriptResult(IReadOnlyList<PSObject> Objects, string Erro
     public PSObject Single() => Assert.Single(Objects);
 
     public object? Property(string name) => Single().Properties[name]?.Value;
+
+    /// <summary>The value of one property of every object, as text, in the order the objects arrived.</summary>
+    public string[] Texts(string property) =>
+        [.. Objects.Select(o => Convert.ToString(o.Properties[property]?.Value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)];
+
+    /// <summary>Every value of one property of every object (a multi-valued attribute contributes each of its values).</summary>
+    public string[] Flat(string property) =>
+        [.. Objects.SelectMany(o => FlatValues(o.Properties[property]?.Value))];
+
+    private static IEnumerable<string> FlatValues(object? value) => value switch
+    {
+        null => [],
+        string text => [text],
+        System.Collections.IEnumerable values => values.Cast<object?>().Select(v => Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty),
+        _ => [Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty],
+    };
+
+    /// <summary>The distinguished names of the objects, in the order they arrived.</summary>
+    public string[] Dns() => Texts("DistinguishedName");
 }
 
 /// <summary>A window session over the sample company of the fake directory, and a way to run a script and read what it returned.</summary>
