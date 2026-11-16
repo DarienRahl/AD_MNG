@@ -79,7 +79,9 @@ tak żeby każde nowe okno powstawało już w nowym stylu i niczego nie trzeba b
 
 Właściciel zdecydował 10 listopada 2026: aplikację WPF rozwijamy w miejscu (bez powłoki w WinUI 3 – zob.
 [decyzję technologiczną](dev/v-interface-renewal.md#3-technology-decision-the-owners-decision)), drzewo zostaje główną
-nawigacją z wąskim paskiem obszarów obok, a etap V1 idzie przed R1. Dalsza kolejność w tabeli pozostaje propozycją.
+nawigacją z wąskim paskiem obszarów obok, a etap V1 idzie przed R1. Etapy V1 i V2 są zbudowane (V2 – linia stanu,
+przycisk akcji z anulowaniem, etykiety stanu, puste listy i postęp na pasku zadań – nie był jeszcze oglądany na ekranie),
+więc w tabeli czekają R1 i V3. Dalsza kolejność w tabeli pozostaje propozycją.
 
 ## Droga do wersji 1.0 (propozycja)
 
