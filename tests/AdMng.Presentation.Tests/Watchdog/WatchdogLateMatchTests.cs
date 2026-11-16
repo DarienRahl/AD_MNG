@@ -372,12 +372,18 @@ public sealed class WatchdogLateMatchTests
             await WaitForFilteredPollAsync(h, q => q.MinSeverity == Severity.High);
             Assert.True(feed.HasMore);
             var before = feed.Items.Select(r => r.Id).ToList();
-            var reads = LateMatchQueries(h).Count;
 
+            // The poller hands statuses over from its own thread, so one more can arrive at any time: the filter change
+            // may have cut its first round short (the wait above is satisfied by that round's long-poll), and the next
+            // round then reads the status again. Count what each refresh read, not what was read since a moment: queries
+            // and refreshes are read together, while none is in flight.
+            var start = await IdleSnapshotAsync(h, feed);
             await NextStatusRoundAsync(h, feed);
+            var end = await IdleSnapshotAsync(h, feed);
 
             // One page reaches below the oldest loaded row: the rest of the window is left to "Wczytaj starsze".
-            Assert.Equal(reads + 1, LateMatchQueries(h).Count);
+            Assert.True(end.Refreshes > start.Refreshes);
+            Assert.Equal(end.Refreshes - start.Refreshes, end.Reads - start.Reads);
             Assert.Equal(before, feed.Items.Select(r => r.Id));
             Assert.True(feed.HasMore);
         });
@@ -703,10 +709,13 @@ public sealed class WatchdogLateMatchTests
         WatchdogTestWait.UntilAsync(h, () => h.Client.EventQueries.LastOrDefault(q => q.After is not null) is { After: { } after } && after >= id, "the cursor past the new events");
 
     /// <summary>
-    /// Advances the clock to the next status round of the visible tab and waits until its refresh completed; with
-    /// <paramref name="untilDone"/> the clock keeps moving in status intervals until one did (a poller backing off).
+    /// Advances the clock to the next status round of the visible tab and waits until the refresh of its status completed;
+    /// with <paramref name="untilDone"/> the clock keeps moving in status intervals until one did (a poller backing off).
     /// The clock moves only while the poller waits in its long-poll: after a status round the poller requests the next
     /// long-poll on its own thread, and a deadline counted from a clock already moved on would never be reached.
+    /// The round's status is the first one read at or after the new time: the poller hands statuses over from its own
+    /// thread, so one read earlier (the first, or one read again after a wake-up cut the first round short) can still be
+    /// on its way, and its refresh must not end the wait – nor may it still be running when the helper returns.
     /// </summary>
     private static async Task NextStatusRoundAsync(WatchdogHarness h, WatchdogEventsViewModel feed, bool untilDone = false)
     {
@@ -715,17 +724,41 @@ public sealed class WatchdogLateMatchTests
             await WatchdogTestWait.LongPollAsync(h);
         }
 
-        var rounds = feed.CompletedLateRefreshes;
+        var due = h.Time.GetUtcNow() + WatchdogPoller.VisibleStatusInterval;
         h.Time.Advance(WatchdogPoller.VisibleStatusInterval);
         if (untilDone)
         {
-            for (var i = 0; i < 10 && feed.CompletedLateRefreshes == rounds; i++)
+            for (var i = 0; i < 10 && !IsRefreshedSince(feed, due); i++)
             {
                 await h.Ui.IdleAsync();
                 h.Time.Advance(WatchdogPoller.VisibleStatusInterval);
             }
         }
 
-        await WatchdogTestWait.UntilAsync(h, () => feed.CompletedLateRefreshes > rounds, "the next status round");
+        await WatchdogTestWait.UntilAsync(h, () => IsRefreshedSince(feed, due), "the next status round");
+    }
+
+    /// <summary>The refresh of a status read at or after <paramref name="due"/> completed and no refresh is in flight.</summary>
+    private static bool IsRefreshedSince(WatchdogEventsViewModel feed, DateTimeOffset due) =>
+        feed.LastRefreshedStatusAt >= due && feed.StartedLateRefreshes == feed.CompletedLateRefreshes;
+
+    /// <summary>
+    /// The late-match requests the client received and the refreshes the feed completed, read together on the UI thread at
+    /// a moment no refresh is in flight – so every counted refresh has sent all its requests and no other has sent any yet.
+    /// </summary>
+    private static async Task<(int Reads, int Refreshes)> IdleSnapshotAsync(WatchdogHarness h, WatchdogEventsViewModel feed)
+    {
+        var snapshot = (Reads: 0, Refreshes: 0);
+        await WatchdogTestWait.UntilAsync(h, () =>
+        {
+            if (feed.StartedLateRefreshes != feed.CompletedLateRefreshes)
+            {
+                return false;
+            }
+
+            snapshot = (LateMatchQueries(h).Count, feed.CompletedLateRefreshes);
+            return true;
+        }, "no refresh in flight");
+        return snapshot;
     }
 }

@@ -173,8 +173,21 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     /// </summary>
     public TimeSpan LateMatchWindow { get; private set; } = DefaultLateMatchWindow;
 
-    /// <summary>Status-round refreshes (pending attributions, late matches) completed so far (tests wait for the next one).</summary>
+    /// <summary>Status-round refreshes (pending attributions, late matches) started so far (tests).</summary>
+    internal int StartedLateRefreshes { get; private set; }
+
+    /// <summary>
+    /// Status-round refreshes completed so far (tests). Equal to <see cref="StartedLateRefreshes"/> while none is in
+    /// flight: only then do the counters of a test (this one, the requests the refreshes sent) describe whole rounds.
+    /// </summary>
     internal int CompletedLateRefreshes { get; private set; }
+
+    /// <summary>
+    /// The clock reading (<see cref="StatusDto.Now"/>) of the status whose refresh completed last (tests). The poller
+    /// hands statuses over from its own thread, so a test that moved the clock waits for the refresh of a status read at or
+    /// after the new time – not for any refresh: an earlier status may still be on its way.
+    /// </summary>
+    internal DateTimeOffset? LastRefreshedStatusAt { get; private set; }
 
     /// <summary>
     /// The late-match window for <paramref name="configuration"/>: an event is final once its last attribution retry
@@ -552,12 +565,13 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             return;
         }
 
-        RefreshLateChangesAsync().Forget();
+        RefreshLateChangesAsync(status.Now).Forget();
     }
 
-    private async Task RefreshLateChangesAsync()
+    private async Task RefreshLateChangesAsync(DateTimeOffset statusAt)
     {
         _refreshingPending = true;
+        StartedLateRefreshes++;
         try
         {
             await RefreshPendingAttributionAsync().ConfigureAwait(true);
@@ -571,6 +585,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         finally
         {
             _refreshingPending = false;
+            LastRefreshedStatusAt = statusAt;
             CompletedLateRefreshes++;
         }
     }
