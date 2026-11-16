@@ -73,11 +73,7 @@ public class Skeleton : Control
         IsTabStopProperty.OverrideMetadata(typeof(Skeleton), new FrameworkPropertyMetadata(false));
     }
 
-    public Skeleton()
-    {
-        SetResourceReference(StyleProperty, StyleKey);
-        IsVisibleChanged += (_, _) => UpdatePulse();
-    }
+    public Skeleton() => SetResourceReference(StyleProperty, StyleKey);
 
     public int RowCount
     {
@@ -115,7 +111,19 @@ public class Skeleton : Control
     public override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
+        if (_rows is not null)
+        {
+            _rows.IsVisibleChanged -= OnRowsVisibleChanged;
+        }
+
         _rows = GetTemplateChild(RowsPartName) as Panel;
+        if (_rows is not null)
+        {
+            // The rows' own event, not this control's: a control raises its IsVisibleChanged before its children know that they
+            // became visible too, and a pulse that asks the rows would find them hidden.
+            _rows.IsVisibleChanged += OnRowsVisibleChanged;
+        }
+
         BuildRows();
         UpdatePulse();
     }
@@ -157,7 +165,9 @@ public class Skeleton : Control
         UpdatePulse();
     }
 
-    /// <summary>The breathing of the rows: only while they are drawn and visible, and only with motion.</summary>
+    private void OnRowsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e) => UpdatePulse();
+
+    /// <summary>The breathing of the rows: only while they are drawn and visible (in a window nobody hides), and only with motion.</summary>
     private void UpdatePulse()
     {
         if (_rows is null)
@@ -166,7 +176,11 @@ public class Skeleton : Control
             return;
         }
 
-        IsPulsing = Motion.Pulse(_rows, IsShown && IsVisible);
+        var shouldPulse = IsShown && _rows.IsVisible && Motion.IsEnabled;
+        if (shouldPulse != IsPulsing)
+        {
+            IsPulsing = Motion.Pulse(_rows, shouldPulse);
+        }
     }
 
     /// <summary>The rows of the placeholders: a picture and three bars, the bars of a different length from row to row.</summary>

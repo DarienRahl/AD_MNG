@@ -188,11 +188,13 @@ public sealed class ObjectListEmptyStateUiTests
     public Task AReadThatFailed_ShowsNeitherPlaceholderRowsNorAnEmptyList_ThatIsTheStatusLine() => WpfTestHost.RunAsync(async () =>
     {
         await using var context = await UiTestContext.CreateAsync();
-        var (_, document, view) = await OpenAsync(context, ListLocation.ForContainer(context.Company.ItOu));
-        var session = context.Directory.Session;
-        session.FailNext(FakeOperationKind.Search, context.Company.EmployeesOu, AdMng.Core.Directory.DirectoryErrorKind.ServerUnavailable);
 
-        await document.NavigateAsync(ListLocation.ForContainer(context.Company.EmployeesOu));
+        // A container of its own, which nothing else reads: the refusal is for the next search of it, and nobody else takes it.
+        var broken = context.Directory.AddOu("Awaria", context.Company.CompanyOu);
+        var (_, document, view) = await OpenAsync(context, ListLocation.ForContainer(context.Company.ItOu));
+        context.Directory.Session.FailNext(FakeOperationKind.Search, broken, AdMng.Core.Directory.DirectoryErrorKind.ServerUnavailable);
+
+        await document.NavigateAsync(ListLocation.ForContainer(broken));
         await UiWait.UntilAsync(() => !document.IsLoading && document.Error is not null, "the read failed");
 
         // "Could not be read" is an error, not an empty list: the status line says it, with Retry; the empty state stays quiet.

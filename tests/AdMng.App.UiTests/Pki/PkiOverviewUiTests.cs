@@ -149,7 +149,7 @@ public sealed class PkiOverviewUiTests
         await shell.InitializeAsync();
 
         var document = Assert.IsType<PkiTemplatesDocumentViewModel>(shell.OpenPkiDocument(new PkiDocumentRequest(PkiDocumentKind.Templates)));
-        await UiWait.UntilAsync(() => !document.IsLoading && document.Rows.Count == PublicKeyTemplates.All.Count, "the templates");
+        await UiWait.UntilAsync(() => !document.IsLoading && document.IsExpanded && document.Rows.Count == PublicKeyTemplates.All.Count, "the templates and their account counts");
         main.UpdateLayout();
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         var view = Assert.Single(UiWait.Descendants<PkiTemplatesView>(main));
