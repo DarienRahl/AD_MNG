@@ -2670,7 +2670,9 @@ pending change plan, which the operator looks at in the preview and executes –
 history; the window rejects the other RSAT write commands. The installed RSAT `ActiveDirectory` and `GroupPolicy`
 modules connect to the window's DC by default (`ActiveDirectory` also with the window's credentials). A parallel track;
 R1 is queued right after P1 (before P2). It uses the change pipeline (phase 2), multiple connections at once (a separate
-window per connection) and list export; it shares the embedded PowerShell with Track C.
+window per connection) and list export; it shares the embedded PowerShell with Track C. Decisions of the owner:
+[ADR-0010](docs/en/adr/0010-powershell-window-embedded-engine.md); the design of R1:
+[dev/r1-powershell-window.md](docs/dev/r1-powershell-window.md).
 
 <details>
 <summary><b>Track R details</b> – window and reads, writes through the change plan, RSAT modules, security,
@@ -2678,21 +2680,22 @@ stages</summary>
 
 #### Window and read commands
 
-- **The *PowerShell* window** (*Tools → PowerShell…* and the command palette), opened from a connection window and
-  belonging to it, like the other windows of the session; the title shows the domain, the DC and the account. A custom
+- **The *PowerShell* window** (*Tools → PowerShell…*, **Ctrl+Shift+P** and the command palette), opened from a connection
+  window and belonging to it, like the other windows of the session; the title shows the domain, the DC and the account. A custom
   line editor in WPF (PSReadLine works only in a console): completion of commands, parameters, attribute names and DNs,
   syntax highlighting, multi-line scripts, a command history only in the window's memory; a long command does not block
   the window and can be interrupted (rule 6).
-- **AD Manager commands** bound to the window's session, without `-Server` and `-Credential` (names to be decided):
-  `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`, `Get-AdmGroupMember` (also nested membership) and
-  `Search-AdmObject` – with a ready LDAP filter or with parameters (`-Name`, `-Attribute`, `-Value`, `-SearchBase`,
+- **AD Manager commands** bound to the window's session, without `-Server` and `-Credential` (the prefix `Adm` is decided,
+  see "Decided"): `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`, `Get-AdmGroupMember` (`-Recursive`
+  for nested membership) and `Search-AdmObject` – with a ready LDAP filter or with parameters (`-Name`, `-Attribute`, `-Value`, `-SearchBase`,
   `-Scope`) from which the program builds the filter itself through `LdapFilter` (rule 3). Results are streamed, with
   paging and the option to cancel; values are decoded according to the schema as in the program (GUIDs, SIDs, dates,
   `userAccountControl` flags as names), and secret attributes (`SecretAttributes`) are masked as in the Attribute
   Editor.
 - **Results** are ordinary PowerShell objects – `Where-Object`, `Select-Object`, `Group-Object`, `Measure-Object` and
   the pipeline work on them – shown as a table or a list; `Out-AdmGrid` opens them in the program's grid (sorting,
-  filters, columns, copying), and every DN has *Open in the program* (properties, place in the tree).
+  filters, columns, copying), and every DN has *Open in the program* (properties, place in the tree; `Open-AdmObject` does
+  the same for a DN or an `objectGUID`).
 - **Export** (`Export-Csv`, `Export-AdmList` with formula protection as in the list export) only to a file the operator
   chooses – in the *Save As* dialog or with an explicit path in the command; the program itself saves nothing.
 
@@ -2700,7 +2703,7 @@ stages</summary>
 
 - **Write commands never change AD right away.** `Set-AdmObject`, `New-AdmUser`, `New-AdmGroup`, `Remove-AdmObject`,
   `Move-AdmObject`, `Rename-AdmObject`, `Add-AdmGroupMember`, `Remove-AdmGroupMember`, `Enable-AdmAccount`,
-  `Disable-AdmAccount`, `Unlock-AdmAccount`, `Reset-AdmPassword` (names to be decided) add operations to the window's
+  `Disable-AdmAccount`, `Unlock-AdmAccount`, `Reset-AdmPassword` (the names are reserved for R2) add operations to the window's
   **pending change plan** and print what they added (object, attribute, before → after).
 - **A pending plan panel** next to the console: the number of operations, *Preview…* (diff preview, validation and
   confirmations the same as in the bulk editor – object count threshold, deleting, moving, password resets), *Execute*,
@@ -2765,7 +2768,7 @@ stages</summary>
   `Start-Transcript` without `-Path` (by default a file in *Documents*) – transcription only to an explicitly specified
   file. Code snippets saved in the settings contain only code typed by the operator (like saved views: names, DNs,
   filters) – without results or values read from the directory; the program does not save a snippet with a plain-text
-  password. Profiles (`$PROFILE`) are not loaded by default.
+  password. Profiles (`$PROFILE`) are never loaded.
 - **Passwords (rule 2):** the window's credentials are only in memory and do not appear in the history or in the
   results. The `ActiveDirectory` module gets them as a `PSCredential` in `$PSDefaultParameterValues`, from where a
   script in the window can take them and read the password in any language mode (`GetNetworkCredential()`) – see "To be
@@ -2818,7 +2821,8 @@ stages</summary>
   `PSHostUserInterface`) – the `-WhatIf` text and confirmation prompts go to the window; a separate runspace for every
   PowerShell window. The package makes the program about 19 MB larger (single file with compression) or about 54 MB
   larger (without compression), and every PowerShell security update (roughly once a month) means a new AD Manager
-  release. Whether it works in the single-file `AdMng.exe` is to be confirmed with a smoke test in Windows CI.
+  release. Whether it works in the single-file `AdMng.exe` is to be confirmed with a smoke test in Windows CI; if it does
+  not, the engine's files are published in a folder beside `AdMng.exe` (decided, see "Decided").
 - **AD Manager's commands** are cmdlets from the program's assembly added to `InitialSessionState` (no module on
   disk), which call the same services as the program's windows: the window's `IDirectorySession` (rule 4), `LdapFilter`
   and `DistinguishedName` (rule 3), the change planning mechanism (`IChangePlanner`) for writes (rule 5). The calls are
@@ -2832,12 +2836,14 @@ stages</summary>
 - **Language mode:** with WDAC/AppLocker policies the window checks the system lockdown by itself and switches to
   ConstrainedLanguage – an ordinary `Runspace` from `InitialSessionState.CreateDefault()` stays in FullLanguage, because
   the lockdown is enforced only by `ConsoleHost` or `RunspacePool`; the window checks the public
-  `SystemPolicy.GetSystemLockdownPolicy()` or uses a `RunspacePool` (behavior to be confirmed on a machine with WDAC).
-  The default mode without such policies – see "To be agreed with the team".
+  `SystemPolicy.GetSystemLockdownPolicy()` (decided; behavior to be confirmed on a machine with WDAC). Without such
+  policies the window starts in ConstrainedLanguage, and the trusted mode (FullLanguage) is a per-window switch – see
+  "Decided".
 - **The engine's environment**, set before its first use: no telemetry and no diagnostics channel
-  (`POWERSHELL_TELEMETRY_OPTOUT`, `POWERSHELL_DIAGNOSTICS_OPTOUT`), a `powershell.config.json` file in the program
-  folder (`$PSHOME`; GPO settings take precedence over it), a module analysis cache without writes to disk, no
-  PSReadLine, profiles or `Start-Job` (it requires `pwsh.exe`).
+  (`POWERSHELL_TELEMETRY_OPTOUT`, `POWERSHELL_DIAGNOSTICS_OPTOUT`), module auto-loading off and the module analysis cache
+  pointed at a null device (so the engine writes no file of its own – checked on Linux, see the implementation note), a
+  `powershell.config.json` file in the engine's folder (`$PSHOME`; it wins over a user's file, GPO settings take
+  precedence over it), no PSReadLine, profiles or `Start-Job` (it requires `pwsh.exe`).
 - **Tests:** the commands and the plan on `FakeDirectorySession` (unit tests – the package also works on Linux) and on
   the Samba lab; the host and the window in UI tests on Windows; the RSAT modules (ADWS) only on Windows Server – in
   Windows CI with a domain controller or in the pilot; a "no files" test checks that working in the PowerShell window
@@ -2861,17 +2867,49 @@ stages</summary>
   scripts run on a schedule – rather out of scope (AD Manager is not a service), and if at all, then as a separate
   decision about the Watchdog service.
 
+#### Decided
+
+The owner settled these points for R1 (reasons and alternatives: [ADR-0010](docs/en/adr/0010-powershell-window-embedded-engine.md);
+the implementation note is [docs/dev/r1-powershell-window.md](docs/dev/r1-powershell-window.md)):
+
+- **Engine and package size:** the embedded PowerShell 7 from `Microsoft.PowerShell.SDK` (the LTS line 7.6.x) in a new
+  project `src/AdMng.PowerShell`, used by the application only and never in the Watchdog package. The size (about
+  19–54 MB) and a release with each of its security updates are accepted; the alternative – `pwsh.exe` out of process in
+  a terminal (ConPTY), with PSReadLine, but without access to the window's session and credentials and without objects in
+  the program's grid – is rejected. If the single-file `AdMng.exe` cannot run the engine, its files are published in a
+  folder beside `AdMng.exe`; Windows CI decides.
+- **One runspace per window,** never shared between connection windows and disposed with the window's scope; a custom host
+  routes text, prompts and confirmations into the window. No profiles, no PSReadLine, no `Start-Job`, module
+  auto-loading off, the execution policy `Restricted` (no `.ps1` files in R1).
+- **Modules and scripts from disk:** `Import-Module` only for the modules on a list, which is empty in R1 (the RSAT
+  modules come with R3, the Microsoft 365 modules with track C).
+- **Language mode:** ConstrainedLanguage by default (AD Manager's commands work in it); a per-window switch *Trusted mode
+  (FullLanguage)* the operator turns on after a confirmation that says what it allows (any .NET code, writes around the
+  change plan), shown in the window title and in a lasting note while on and never remembered between windows or
+  sessions; with a system lockdown (WDAC / AppLocker) the window stays in ConstrainedLanguage and the switch is
+  disabled with the reason. It is a protection against mistakes, not a security boundary. No mode protects the password in a
+  `PSCredential` object: `PSCredential` is an allowed type in ConstrainedLanguage, so
+  `$cred.GetNetworkCredential().Password` works there too (R1 creates no `PSCredential`).
+- **Names and shortcut:** the prefix `Adm`; R1 builds `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`,
+  `Get-AdmGroupMember` (`-Recursive`), `Search-AdmObject`, `Out-AdmGrid`, `Open-AdmObject` and `Export-AdmList`; the write
+  names above stay reserved for R2. The window's shortcut is **Ctrl+Shift+P** (no existing binding uses it).
+- **The line editor:** our own WPF control without a new dependency; completion of commands, parameters and variables
+  through the engine plus completers on AD Manager's parameters (attribute names from the session's in-memory schema, DNs
+  from what the session already knows – never a directory read per keystroke); no file system completion in R1;
+  highlighting from the parser's tokens; Shift+Enter inserts a line, Enter runs a complete command, Ctrl+C / Stop cancels;
+  the history only in the window's memory (Up/Down, Ctrl+R); a line with a plain-text password is not remembered.
+- **Output:** ordinary objects shown with the engine's own formatting as text with clickable DNs; errors, warnings and
+  verbose messages in the window's colours; `Out-AdmGrid` sends the objects to the program's object list grid.
+- **Policies:** when the window opens it reads the PowerShell policies of GPOs (PowerShell Core, and Windows PowerShell with
+  `UseWindowsPowerShellPolicySetting`: transcription, script block logging, module logging, execution policy) and the
+  lockdown state, and a lasting note before the first command says plainly what is logged where; the program does not try
+  to get around any policy.
+- **Nothing on disk:** the environment of the engine is set before its first use and a "no files" test proves that
+  working in the window leaves no file; the window's credentials are never visible to a script; no write command exists
+  in R1.
+
 #### To be agreed with the team
 
-- Package size: the embedded PowerShell adds about 19–54 MB and forces a release with each of its security updates; the
-  alternative – `pwsh.exe` out of process in a terminal (ConPTY), with PSReadLine, but without access to the window's
-  session and credentials and without objects in the program's grid.
-- The language mode without WDAC/AppLocker policies: whether we allow FullLanguage (any .NET code – including writes
-  around the change plan), or ConstrainedLanguage by default with AD Manager's commands and a switch for trusted
-  operators. No mode protects the password in a `PSCredential` object: `PSCredential` is an allowed type in
-  ConstrainedLanguage, so `$cred.GetNetworkCredential().Password` works there too.
-- Whether the window may load any modules and scripts from disk (`Import-Module`, running `.ps1` files, the user's
-  module folder in `PSModulePath`), or only the modules on a list (RSAT, Microsoft 365).
 - Which RSAT write commands to translate in R3 (to start with `Set-ADUser`, `Set-ADGroup`, `Set-ADComputer`,
   `Set-ADObject`, `New-ADUser`, `New-ADGroup`, `Remove-ADObject`, `Move-ADObject`, `Rename-ADObject`,
   `Add-ADGroupMember`, `Remove-ADGroupMember`, `Enable-ADAccount`, `Disable-ADAccount`, `Unlock-ADAccount`,
@@ -2881,7 +2919,6 @@ stages</summary>
   `$PSDefaultParameterValues` and read the password from it in any language mode (`GetNetworkCredential()`) – whether,
   with a window account other than the current Windows account, to always pass them, or only after the operator
   confirms it at the first RSAT command.
-- The names of AD Manager's commands (the `Adm` prefix) and the window's keyboard shortcut.
 
 **Completion criteria**
 - The read commands return the same objects and values as the program's windows (a comparison for 1,000 lab objects)
@@ -3253,10 +3290,10 @@ next phases:
    AD zones written through LDAP or through the DNS server; who may browse DHCP leases (MAC addresses, host names) and
    whether that requires a reason; whether to narrow the default right of *Authenticated Users* to create records in
    the zones.
-12. **PowerShell window (track R):** full language mode (FullLanguage) or ConstrainedLanguage; whether the window may
-   load any modules and scripts from disk; which RSAT write commands to translate into the change plan; whether to
-   embed PowerShell in the process (about 19–54 MB more and a new release with each of its updates) or to run
-   `pwsh.exe` separately; the PowerShell transcription and logging policies from GPOs on the administrators'
+12. **PowerShell window (track R):** settled for R1 by the owner ([ADR-0010](docs/en/adr/0010-powershell-window-embedded-engine.md):
+   the embedded engine, ConstrainedLanguage by default with a trusted-mode switch, modules only from a list that is empty
+   in R1); still open for R3: which RSAT write commands to translate into the change plan, the window's credentials for
+   the `ActiveDirectory` module, and the PowerShell transcription and logging policies from GPOs on the administrators'
    workstations (they also record directory data).
 
 </details>

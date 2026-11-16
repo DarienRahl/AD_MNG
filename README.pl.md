@@ -2607,7 +2607,8 @@ operator ogląda w podglądzie i wykonuje – z audytem, cofnięciem i historią
 okno odrzuca. Zainstalowane moduły RSAT `ActiveDirectory` i `GroupPolicy` domyślnie łączą się z DC okna
 (`ActiveDirectory` także z poświadczeniami okna). Ścieżka równoległa; R1 jest w kolejce zaraz po P1 (przed P2). Korzysta
 z potoku zmian (faza 2), wielu połączeń naraz (osobne okno na połączenie) i eksportu list; osadzony PowerShell dzieli ze
-ścieżką C.
+ścieżką C. Decyzje właściciela: [ADR-0010](docs/adr/0010-okno-powershell-osadzony-silnik.md); projekt R1:
+[dev/r1-powershell-window.md](docs/dev/r1-powershell-window.md).
 
 <details>
 <summary><b>Szczegóły ścieżki R</b> – okno i odczyt, zapis przez plan zmian, moduły RSAT, bezpieczeństwo,
@@ -2615,19 +2616,20 @@ etapy</summary>
 
 #### Okno i polecenia odczytu
 
-- **Okno *PowerShell*** (*Narzędzia → PowerShell…* i paleta poleceń) otwierane z okna połączenia i do niego należące,
-  jak inne okna sesji; w tytule domena, DC i konto. Własny edytor wiersza w WPF (PSReadLine działa tylko w konsoli):
+- **Okno *PowerShell*** (*Narzędzia → PowerShell…*, **Ctrl+Shift+P** i paleta poleceń) otwierane z okna połączenia i do
+  niego należące, jak inne okna sesji; w tytule domena, DC i konto. Własny edytor wiersza w WPF (PSReadLine działa tylko w konsoli):
   uzupełnianie poleceń, parametrów, nazw atrybutów i DN, kolorowanie składni, skrypty wielowierszowe, historia poleceń
   tylko w pamięci okna; długie polecenie nie blokuje okna i można je przerwać (zasada 6).
-- **Polecenia AD Managera** związane z sesją okna, bez `-Server` i `-Credential` (nazwy do ustalenia): `Get-AdmObject`,
-  `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`, `Get-AdmGroupMember` (także członkostwo zagnieżdżone) i
-  `Search-AdmObject` – z gotowym filtrem LDAP albo z parametrami (`-Name`, `-Attribute`, `-Value`, `-SearchBase`,
+- **Polecenia AD Managera** związane z sesją okna, bez `-Server` i `-Credential` (przedrostek `Adm` jest ustalony, zob.
+  „Ustalone”): `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`, `Get-AdmGroupMember` (`-Recursive` dla
+  członkostwa zagnieżdżonego) i `Search-AdmObject` – z gotowym filtrem LDAP albo z parametrami (`-Name`, `-Attribute`, `-Value`, `-SearchBase`,
   `-Scope`), z których program sam buduje filtr przez `LdapFilter` (zasada 3). Wyniki przychodzą strumieniowo, ze
   stronicowaniem i możliwością przerwania; wartości są zdekodowane według schematu jak w programie (GUID, SID, daty,
   flagi `userAccountControl` jako nazwy), a atrybuty tajne (`SecretAttributes`) – maskowane jak w edytorze atrybutów.
 - **Wyniki** to zwykłe obiekty PowerShell – działają na nich `Where-Object`, `Select-Object`, `Group-Object`,
   `Measure-Object` i potok – pokazywane jako tabela albo lista; `Out-AdmGrid` otwiera je w siatce programu (sortowanie,
-  filtry, kolumny, kopiowanie), a przy każdym DN jest *Otwórz w programie* (właściwości, miejsce w drzewie).
+  filtry, kolumny, kopiowanie), a przy każdym DN jest *Otwórz w programie* (właściwości, miejsce w drzewie; to samo robi
+  `Open-AdmObject` dla DN albo `objectGUID`).
 - **Eksport** (`Export-Csv`, `Export-AdmList` z ochroną przed formułami jak w eksporcie list) tylko do pliku, który
   wskaże operator – w oknie dialogowym *Zapisz jako* albo jawną ścieżką w poleceniu; sam program niczego nie zapisuje.
 
@@ -2635,7 +2637,7 @@ etapy</summary>
 
 - **Polecenia zapisu nigdy nie zmieniają AD od razu.** `Set-AdmObject`, `New-AdmUser`, `New-AdmGroup`,
   `Remove-AdmObject`, `Move-AdmObject`, `Rename-AdmObject`, `Add-AdmGroupMember`, `Remove-AdmGroupMember`,
-  `Enable-AdmAccount`, `Disable-AdmAccount`, `Unlock-AdmAccount`, `Reset-AdmPassword` (nazwy do ustalenia) dodają
+  `Enable-AdmAccount`, `Disable-AdmAccount`, `Unlock-AdmAccount`, `Reset-AdmPassword` (nazwy zarezerwowane dla R2) dodają
   operacje do **oczekującego planu zmian** okna i wypisują, co dodały (obiekt, atrybut, przed → po).
 - **Panel oczekującego planu** obok konsoli: liczba operacji, *Podgląd…* (podgląd różnic, walidacja i potwierdzenia
   takie same jak w edycji zbiorczej – próg liczby obiektów, usuwanie, przenoszenie, resety haseł), *Wykonaj*, *Wyczyść*;
@@ -2696,7 +2698,7 @@ etapy</summary>
   Do pliku trafia tylko to, co operator jawnie wyeksportuje; `Start-Transcript` bez `-Path` (domyślnie plik w
   *Dokumentach*) okno odrzuca – transkrypcja tylko do pliku wskazanego jawnie. Fragmenty kodu zapisane w ustawieniach
   zawierają tylko kod wpisany przez operatora (jak zapisane widoki: nazwy, DN, filtry) – bez wyników i wartości
-  odczytanych z katalogu; fragmentu z hasłem zwykłym tekstem program nie zapisze. Profile (`$PROFILE`) domyślnie nie są
+  odczytanych z katalogu; fragmentu z hasłem zwykłym tekstem program nie zapisze. Profile (`$PROFILE`) nie są nigdy
   ładowane.
 - **Hasła (zasada 2):** poświadczenia okna są tylko w pamięci i nie pojawiają się w historii ani w wynikach. Moduł
   `ActiveDirectory` dostaje je jako `PSCredential` w `$PSDefaultParameterValues`, skąd skrypt w oknie może je pobrać i
@@ -2748,7 +2750,8 @@ etapy</summary>
   `-WhatIf` i pytania o potwierdzenie trafiają do okna; osobny obszar działania (runspace) na każde okno PowerShell.
   Pakiet zwiększa program o ok. 19 MB (pojedynczy plik z kompresją) albo o ok. 54 MB (bez kompresji), a każda poprawka
   bezpieczeństwa PowerShell (mniej więcej co miesiąc) oznacza nowe wydanie AD Managera. Działanie w pojedynczym pliku
-  `AdMng.exe` – do potwierdzenia testem dymnym w CI na Windows.
+  `AdMng.exe` – do potwierdzenia testem dymnym w CI na Windows; jeśli się nie uda, pliki silnika są publikowane w folderze
+  obok `AdMng.exe` (ustalone, zob. „Ustalone”).
 - **Polecenia AD Managera** to polecenia cmdlet z zestawu programu dodane do `InitialSessionState` (bez modułu na
   dysku), które wywołują te same usługi co okna programu: `IDirectorySession` okna (zasada 4), `LdapFilter` i
   `DistinguishedName` (zasada 3), mechanizm planowania zmian (`IChangePlanner`) dla zapisów (zasada 5). Wywołania są
@@ -2761,13 +2764,14 @@ etapy</summary>
   `objectGUID`.
 - **Tryb języka:** przy zasadach WDAC/AppLocker okno samo sprawdza blokadę systemu i przechodzi w ConstrainedLanguage –
   zwykły `Runspace` z `InitialSessionState.CreateDefault()` zostaje w FullLanguage, bo blokadę wymusza dopiero
-  `ConsoleHost` albo `RunspacePool`; okno sprawdza publiczne `SystemPolicy.GetSystemLockdownPolicy()` albo używa
-  `RunspacePool` (działanie do potwierdzenia na maszynie z WDAC). Domyślny tryb bez takich zasad – zob. „Do ustalenia z
-  zespołem”.
+  `ConsoleHost` albo `RunspacePool`; okno sprawdza publiczne `SystemPolicy.GetSystemLockdownPolicy()` (ustalone; działanie
+  do potwierdzenia na maszynie z WDAC). Bez takich zasad okno startuje w ConstrainedLanguage, a tryb zaufany (FullLanguage)
+  jest przełącznikiem okna – zob. „Ustalone”.
 - **Środowisko silnika** ustawione przed jego pierwszym użyciem: bez telemetrii i kanału diagnostycznego
-  (`POWERSHELL_TELEMETRY_OPTOUT`, `POWERSHELL_DIAGNOSTICS_OPTOUT`), plik `powershell.config.json` w folderze programu
-  (`$PSHOME`; ustawienia z GPO mają przed nim pierwszeństwo), pamięć podręczna analizy modułów bez zapisu na dysku, bez
-  PSReadLine, profili i `Start-Job` (wymaga `pwsh.exe`).
+  (`POWERSHELL_TELEMETRY_OPTOUT`, `POWERSHELL_DIAGNOSTICS_OPTOUT`), automatyczne ładowanie modułów wyłączone, a pamięć
+  podręczna analizy modułów skierowana na urządzenie puste (silnik nie zapisuje żadnego własnego pliku – sprawdzone na
+  Linuksie, zob. notatka wykonawcza), plik `powershell.config.json` w folderze silnika (`$PSHOME`; ma pierwszeństwo przed
+  plikiem użytkownika, a ustawienia z GPO przed nim), bez PSReadLine, profili i `Start-Job` (wymaga `pwsh.exe`).
 - **Testy:** polecenia i plan na `FakeDirectorySession` (testy jednostkowe – pakiet działa także na Linuksie) i na
   laboratorium Samba; host i okno w testach UI na Windows; moduły RSAT (ADWS) tylko na Windows Server – w CI na Windows
   z kontrolerem albo w pilotażu; test „żadnych plików” sprawdza, że po pracy w oknie PowerShell nie powstał żaden plik z
@@ -2791,17 +2795,51 @@ etapy</summary>
   uruchamiane według harmonogramu – raczej poza zakresem (AD Manager nie jest usługą), a jeśli w ogóle, to jako
   osobna decyzja dotycząca usługi Watchdog.
 
+#### Ustalone
+
+Właściciel rozstrzygnął te sprawy dla R1 (uzasadnienie i alternatywy:
+[ADR-0010](docs/adr/0010-okno-powershell-osadzony-silnik.md); notatka wykonawcza:
+[docs/dev/r1-powershell-window.md](docs/dev/r1-powershell-window.md)):
+
+- **Silnik i rozmiar pakietu:** osadzony PowerShell 7 z pakietu `Microsoft.PowerShell.SDK` (linia LTS 7.6.x) w nowym
+  projekcie `src/AdMng.PowerShell`, używanym tylko przez aplikację i nigdy w pakiecie Watchdoga. Rozmiar (ok. 19–54 MB) i
+  wydanie przy każdej jego poprawce bezpieczeństwa są zaakceptowane; alternatywa – `pwsh.exe` poza procesem w terminalu
+  (ConPTY), z PSReadLine, ale bez dostępu do sesji i poświadczeń okna i bez obiektów w siatce programu – odrzucona. Jeśli
+  pojedynczy plik `AdMng.exe` nie uruchomi silnika, jego pliki są publikowane w folderze obok `AdMng.exe`; rozstrzyga CI na
+  Windows.
+- **Jeden runspace na okno,** nigdy niewspółdzielony między oknami połączeń i zwalniany z zakresem okna; własny host kieruje
+  tekst, pytania i potwierdzenia do okna. Bez profili, PSReadLine i `Start-Job`, automatyczne ładowanie modułów wyłączone,
+  polityka wykonywania `Restricted` (w R1 bez plików `.ps1`).
+- **Moduły i skrypty z dysku:** `Import-Module` tylko dla modułów z listy, która w R1 jest pusta (moduły RSAT przychodzą w
+  R3, moduły Microsoft 365 ze ścieżką C).
+- **Tryb języka:** domyślnie ConstrainedLanguage (polecenia AD Managera w nim działają); przełącznik okna *Tryb zaufany
+  (FullLanguage)* operator włącza po potwierdzeniu, które mówi, na co pozwala (dowolny kod .NET, zapisy z pominięciem planu
+  zmian); tryb widać w tytule okna i w trwałej notatce, dopóki jest włączony, i nie jest zapamiętywany między oknami ani
+  sesjami; przy blokadzie systemu (WDAC / AppLocker) okno zostaje w ConstrainedLanguage, a przełącznik jest wyłączony z
+  podaniem powodu. To ochrona przed pomyłką, nie granica bezpieczeństwa. Hasła w obiekcie `PSCredential` nie chroni żaden
+  tryb: `PSCredential` jest typem dozwolonym w ConstrainedLanguage, więc `$cred.GetNetworkCredential().Password` działa
+  także tam (R1 nie tworzy żadnego `PSCredential`).
+- **Nazwy i skrót:** przedrostek `Adm`; R1 buduje `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`,
+  `Get-AdmGroupMember` (`-Recursive`), `Search-AdmObject`, `Out-AdmGrid`, `Open-AdmObject` i `Export-AdmList`; nazwy
+  poleceń zapisu powyżej pozostają zarezerwowane dla R2. Skrót okna to **Ctrl+Shift+P** (żaden istniejący skrót go nie
+  używa).
+- **Edytor wiersza:** własna kontrolka WPF bez nowej zależności; uzupełnianie poleceń, parametrów i zmiennych przez silnik
+  oraz uzupełnianie parametrów poleceń AD Managera (nazwy atrybutów ze schematu sesji w pamięci, DN z tego, co sesja już
+  zna – nigdy odczyt katalogu na każdy klawisz); w R1 bez uzupełniania ścieżek i plików; kolorowanie z tokenów parsera;
+  Shift+Enter wstawia wiersz, Enter wykonuje kompletne polecenie, Ctrl+C / Zatrzymaj przerywa; historia tylko w pamięci
+  okna (strzałki, Ctrl+R); wiersz z hasłem zwykłym tekstem nie jest zapamiętywany.
+- **Wyniki:** zwykłe obiekty pokazywane silnikiem formatowania PowerShell jako tekst z klikalnymi DN; błędy, ostrzeżenia i
+  komunikaty szczegółowe w kolorach okna; `Out-AdmGrid` wysyła obiekty do siatki list obiektów programu.
+- **Zasady:** przy otwarciu okno odczytuje zasady PowerShell z GPO (PowerShell Core, a przy `UseWindowsPowerShellPolicySetting`
+  także Windows PowerShell: transkrypcja, rejestrowanie bloków skryptów, rejestrowanie modułów, polityka wykonywania) i stan
+  blokady systemu, a trwała notatka przed pierwszym poleceniem mówi wprost, co i gdzie jest zapisywane; program nie próbuje
+  obejść żadnej zasady.
+- **Niczego na dysku:** środowisko silnika jest ustawiane przed jego pierwszym użyciem, a test „żadnych plików” dowodzi, że
+  praca w oknie nie zostawia pliku; poświadczenia okna nigdy nie są widoczne dla skryptu; w R1 nie ma żadnego polecenia
+  zapisu.
+
 #### Do ustalenia z zespołem
 
-- Rozmiar pakietu: osadzony PowerShell dodaje ok. 19–54 MB i wymusza wydanie przy każdej jego poprawce bezpieczeństwa;
-  alternatywa – `pwsh.exe` poza procesem w terminalu (ConPTY), z PSReadLine, ale bez dostępu do sesji i poświadczeń
-  okna i bez obiektów w siatce programu.
-- Tryb języka bez zasad WDAC/AppLocker: czy pozwalamy na FullLanguage (dowolny kod .NET – także zapis z pominięciem
-  planu zmian), czy domyślnie ConstrainedLanguage z poleceniami AD Managera i przełącznikiem dla zaufanych operatorów.
-  Hasła w obiekcie `PSCredential` nie chroni żaden tryb: `PSCredential` jest typem dozwolonym w ConstrainedLanguage,
-  więc `$cred.GetNetworkCredential().Password` działa także tam.
-- Czy okno może ładować dowolne moduły i skrypty z dysku (`Import-Module`, uruchamianie plików `.ps1`, folder modułów
-  użytkownika w `PSModulePath`), czy tylko moduły z listy (RSAT, Microsoft 365).
 - Które polecenia zapisu RSAT tłumaczyć w R3 (na start `Set-ADUser`, `Set-ADGroup`, `Set-ADComputer`, `Set-ADObject`,
   `New-ADUser`, `New-ADGroup`, `Remove-ADObject`, `Move-ADObject`, `Rename-ADObject`, `Add-ADGroupMember`,
   `Remove-ADGroupMember`, `Enable-ADAccount`, `Disable-ADAccount`, `Unlock-ADAccount`, `Set-ADAccountPassword`), a
@@ -2810,7 +2848,6 @@ etapy</summary>
   `$PSDefaultParameterValues` i odczytać z niego hasło w każdym trybie języka (`GetNetworkCredential()`) – czy przy
   koncie okna innym niż bieżące konto Windows przekazywać je zawsze, czy dopiero po potwierdzeniu operatora przy
   pierwszym poleceniu RSAT.
-- Nazwy poleceń AD Managera (przedrostek `Adm`) i skrót klawiszowy okna.
 
 **Kryteria ukończenia**
 - Polecenia odczytu zwracają te same obiekty i wartości co okna programu (porównanie dla 1000 obiektów laboratorium)
@@ -3176,10 +3213,11 @@ Pełna lista pytań: [RESEARCH.md](docs/RESEARCH.md#11-pytania-otwarte-do-zespo�
    strefach AD zapisywane przez LDAP czy przez serwer DNS; kto może przeglądać dzierżawy DHCP (adresy MAC, nazwy
    hostów) i czy wymaga to podania powodu; czy zawężać domyślne prawo tworzenia rekordów w strefach dla
    *Użytkowników uwierzytelnionych*.
-12. **Okno PowerShell (ścieżka R):** pełny tryb języka (FullLanguage) czy ConstrainedLanguage; czy okno może ładować
-   dowolne moduły i skrypty z dysku; które polecenia zapisu RSAT tłumaczyć na plan zmian; czy osadzać PowerShell w
-   procesie (ok. 19–54 MB więcej i nowe wydanie przy każdej jego poprawce), czy uruchamiać `pwsh.exe` osobno; zasady
-   transkrypcji i rejestrowania PowerShell z GPO na stacjach administratorów (zapisują też dane katalogu).
+12. **Okno PowerShell (ścieżka R):** dla R1 rozstrzygnął właściciel ([ADR-0010](docs/adr/0010-okno-powershell-osadzony-silnik.md):
+   osadzony silnik, domyślnie ConstrainedLanguage z przełącznikiem trybu zaufanego, moduły tylko z listy, która w R1 jest
+   pusta); dla R3 otwarte: które polecenia zapisu RSAT tłumaczyć na plan zmian, poświadczenia okna dla modułu
+   `ActiveDirectory` oraz zasady transkrypcji i rejestrowania PowerShell z GPO na stacjach administratorów (zapisują też
+   dane katalogu).
 
 </details>
 

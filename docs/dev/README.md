@@ -22,6 +22,7 @@ A design note is written before a stage is built and gets an "as built" part whe
 |---|---|---|
 | [v-interface-renewal.md](v-interface-renewal.md) | V – interface renewal (look, motion, icons) | V1 and V2 built (as-built notes V1a–V1c and V2a–V2b-5b in section 8; nothing of V2 seen on a screen yet), V3–V7 planned; decisions for the owner in section 9; clickable prototype: [prototypes/interface-renewal.html](prototypes/interface-renewal.html) |
 | [ideas-logontracer.md](ideas-logontracer.md) | E – event logs | ideas for later review |
+| [r1-powershell-window.md](r1-powershell-window.md) | R – the PowerShell window, stage R1 (window and reads) | designed; R1 is built in five parts and the as-built block records each; decisions: [ADR-0010](../en/adr/0010-powershell-window-embedded-engine.md); R2 (writes through the change plan) and R3 (RSAT) are planned in the README |
 
 ## Design notes of what is built
 
