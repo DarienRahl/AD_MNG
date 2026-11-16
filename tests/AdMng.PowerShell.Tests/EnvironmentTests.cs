@@ -29,16 +29,22 @@ public sealed class EnvironmentTests
     }
 
     [Fact]
-    public async Task No_diagnostics_pipe_of_the_engine_exists_while_a_session_runs()
+    public async Task No_diagnostics_pipe_of_the_engine_exists_in_this_process_while_a_session_runs()
     {
         await using var session = await TestSessions.CreateAsync();
         await TestSessions.RunAsync(session, "Get-Date");
 
-        // Windows: \\.\pipe\PSHost.<ticks>.<pid>.<domain>.<process>; Unix: CoreFxPipe_PSHost.* in the temp folder.
+        // Windows: \\.\pipe\PSHost.<ticks>.<pid>.<domain>.<process>; Unix: CoreFxPipe_PSHost.* in the temp folder. The pipes
+        // of ALL processes are listed there (the pwsh that runs a CI step has one), so only the ones with this process id count.
         var pipes = OperatingSystem.IsWindows()
             ? Directory.GetFiles(@"\\.\pipe\", "PSHost.*")
             : Directory.GetFiles(Path.GetTempPath(), "CoreFxPipe_PSHost*");
+        var ours = pipes.Where(pipe =>
+        {
+            var parts = Path.GetFileName(pipe).Replace("CoreFxPipe_", string.Empty, StringComparison.Ordinal).Split('.');
+            return parts.Length > 2 && parts[2] == Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }).ToList();
 
-        Assert.Empty(pipes);
+        Assert.Empty(ours);
     }
 }

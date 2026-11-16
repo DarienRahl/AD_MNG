@@ -59,15 +59,17 @@ public sealed class GuardTests
     }
 
     [Fact]
-    public async Task No_profile_is_loaded_and_psreadline_is_not_there()
+    public async Task No_profile_is_loaded_and_psreadline_is_not_loaded_or_loadable()
     {
         await using var session = await TestSessions.CreateAsync();
 
+        // PSReadLine may be INSTALLED on the machine (the Windows runner has it): it is listed, but nothing loads it.
         var items = await TestSessions.RunAsync(
             session,
-            "\"[$PROFILE]\"; (Get-Module -Name PSReadLine | Measure-Object).Count; (Get-Module -ListAvailable -Name PSReadLine | Measure-Object).Count; (Get-Command Get-PSReadLineOption -ErrorAction SilentlyContinue | Measure-Object).Count");
+            "\"[$PROFILE]\"; (Get-Module -Name PSReadLine | Measure-Object).Count; (Get-Command Get-PSReadLineOption -ErrorAction SilentlyContinue | Measure-Object).Count; Import-Module PSReadLine -ErrorAction SilentlyContinue; (Get-Module -Name PSReadLine | Measure-Object).Count");
 
         Assert.Equal("[]\n0\n0\n0\n", TestSessions.Text(items));
+        Assert.Contains("Import-Module is limited", TestSessions.Text(items, PowerShellStream.Error), StringComparison.Ordinal);
     }
 
     [Fact]

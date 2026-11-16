@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- R1 part 1 (docs/dev/r1-powershell-window.md 9.1): a small program that AdMng.PowerShell.Tests starts as a CHILD process,
+       so that HOME, TEMP, XDG_* and the like can be set before the runtime and the engine start ("no files" test, the control,
+       the opt-in module analysis cache proof, the measurement of the first and the second runspace). It is not a test run:
+       an xunit run of the test assembly took 18.6 s on the Windows runner, this takes a few seconds. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>AdMng.PowerShell.Probe</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AdMng.PowerShell\AdMng.PowerShell.csproj" />
+    <ProjectReference Include="..\AdMng.Testing\AdMng.Testing.csproj" />
+  </ItemGroup>
+  <Import Project="..\..\src\AdMng.PowerShell\PowerShellEngineConsumer.props" />
+</Project>

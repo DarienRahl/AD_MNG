@@ -1,6 +1,4 @@
-using System.Diagnostics;
 using System.Globalization;
-using System.Management.Automation.Runspaces;
 
 namespace AdMng.PowerShell.Tests;
 
@@ -12,19 +10,17 @@ namespace AdMng.PowerShell.Tests;
 /// </summary>
 public sealed class NoFilesTests
 {
-    private const string ChildClass = "AdMng.PowerShell.Tests.NoFilesChildren";
-
     [Fact]
     public async Task Working_in_the_window_leaves_no_file_behind()
     {
         using var home = new TempFolder();
 
-        var result = await ChildProcess.RunAsync("files", $"{ChildClass}.Scenario", home.Home, home.ReportPath);
+        var result = await ChildProcess.RunAsync("files", home.Home, home.ReportPath);
 
         Assert.True(result.ExitCode == 0, "The child failed:\n" + result.Output);
         Assert.Equal(string.Empty, string.Join('\n', home.Files()));
         Assert.Contains("done", result.Report, StringComparison.Ordinal);
-        TestContext.Current.SendDiagnosticMessage("R1 measurement (child process, " + RuntimeInformation() + "): " + result.Report.Replace('\n', ' '));
+        TestContext.Current.TestOutputHelper?.WriteLine("R1 measurement (child process, " + RuntimeInformation() + "): " + result.Report.Replace('\n', ' '));
         var first = Number(result.Report, "first_ms");
         Assert.InRange(first, 1, 60_000);
     }
@@ -35,7 +31,7 @@ public sealed class NoFilesTests
         Assert.SkipWhen(OperatingSystem.IsWindows(), "On Windows the engine's files go to known folders that an environment variable does not move.");
         using var home = new TempFolder();
 
-        var result = await ChildProcess.RunAsync("control", $"{ChildClass}.Control", home.Home, home.ReportPath);
+        var result = await ChildProcess.RunAsync("control", home.Home, home.ReportPath);
 
         Assert.True(result.ExitCode == 0, "The child failed:\n" + result.Output);
         Assert.Contains("done", result.Report, StringComparison.Ordinal);
@@ -62,14 +58,12 @@ public sealed class NoFilesTests
 
         var controlRun = ChildProcess.RunAsync(
             "cache-control",
-            $"{ChildClass}.CacheControl",
             control.Home,
             control.ReportPath,
             new Dictionary<string, string?> { ["PSModulePath"] = Path.Combine(control.Home, "Modules"), ["PSModuleAnalysisCachePath"] = Path.Combine(control.Home, "cache", "ModuleAnalysisCache") },
             TimeSpan.FromMinutes(2));
         var windowRun = ChildProcess.RunAsync(
             "cache-window",
-            $"{ChildClass}.CacheWindow",
             window.Home,
             window.ReportPath,
             new Dictionary<string, string?> { ["PSModulePath"] = Path.Combine(window.Home, "Modules") },
@@ -136,115 +130,6 @@ internal sealed class TempFolder : IDisposable
         }
         catch (UnauthorizedAccessException)
         {
-        }
-    }
-}
-
-/// <summary>The methods the child processes run; in an ordinary test run they return at once.</summary>
-public sealed class NoFilesChildren
-{
-    [Fact]
-    public async Task Scenario()
-    {
-        if (ChildProcess.Mode != "files")
-        {
-            return;
-        }
-
-        var before = GC.GetTotalMemory(forceFullCollection: true);
-        var workingSetBefore = Environment.WorkingSet;
-        var watch = Stopwatch.StartNew();
-        await using var first = await TestSessions.CreateAsync();
-        var firstMs = watch.ElapsedMilliseconds;
-        var managed = GC.GetTotalMemory(forceFullCollection: true) - before;
-        var workingSet = Environment.WorkingSet - workingSetBefore;
-        watch.Restart();
-        await using var second = await TestSessions.CreateAsync();
-        var secondMs = watch.ElapsedMilliseconds;
-
-        await TestSessions.RunAsync(first, "Get-Date; Get-Command *-Adm* | Out-Null; Get-Module -ListAvailable | Out-Null; 1..200 | ForEach-Object { \"line $_\" } | Out-String | Out-Null; Get-Process | Select-Object -First 3 | Format-Table; Write-Warning 'w'; Get-AdmVersion");
-        await first.CompleteAsync("Get-Ad", 6, TestContext.Current.CancellationToken);
-        await first.CompleteAsync("$PS", 3, TestContext.Current.CancellationToken);
-        first.Tokenize("Get-AdmVersion -Verbose | Where-Object { $_ }");
-        first.ShouldRemember("Get-AdmVersion");
-        await TestSessions.RunAsync(second, "Get-Date");
-
-        await File.WriteAllTextAsync(
-            ChildProcess.ReportPath!,
-            $"first_ms={firstMs}\nsecond_ms={secondMs}\nmanaged_kb={managed / 1024}\nworking_set_mb={workingSet / (1024 * 1024)}\ndone\n",
-            TestContext.Current.CancellationToken);
-    }
-
-    [Fact]
-    public async Task Control()
-    {
-        if (ChildProcess.Mode != "control")
-        {
-            return;
-        }
-
-        // No AdMng code: an ordinary runspace of the SDK with telemetry on, as a plain pwsh-like host would start.
-        using var runspace = RunspaceFactory.CreateRunspace();
-        runspace.Open();
-        using (var ps = System.Management.Automation.PowerShell.Create())
-        {
-            ps.Runspace = runspace;
-            ps.AddScript("Get-Date | Out-Null").Invoke();
-        }
-
-        await File.WriteAllTextAsync(ChildProcess.ReportPath!, "done\n", TestContext.Current.CancellationToken);
-    }
-
-    [Fact]
-    public async Task CacheControl()
-    {
-        if (ChildProcess.Mode != "cache-control")
-        {
-            return;
-        }
-
-        // An ordinary runspace, auto-loading on, the cache pointed at a file of the test: module discovery writes it.
-        using var runspace = RunspaceFactory.CreateRunspace();
-        runspace.Open();
-        using (var ps = System.Management.Automation.PowerShell.Create())
-        {
-            ps.Runspace = runspace;
-            ps.AddScript("Get-Command Get-Fake* | Out-Null; Get-Module -ListAvailable | Out-Null").Invoke();
-        }
-
-        await WaitForCacheAsync(TimeSpan.FromSeconds(40), expectFile: true);
-        await File.WriteAllTextAsync(ChildProcess.ReportPath!, "done\n", TestContext.Current.CancellationToken);
-    }
-
-    [Fact]
-    public async Task CacheWindow()
-    {
-        if (ChildProcess.Mode != "cache-window")
-        {
-            return;
-        }
-
-        // The window's session: auto-loading off and the cache on the null device; discovery as hard as an operator can make it.
-        await using var session = await TestSessions.CreateAsync();
-        await TestSessions.RunAsync(session, "Get-Command Get-Fake* | Out-Null; Get-Module -ListAvailable | Out-Null; Get-Command | Out-Null");
-        await session.CompleteAsync("Get-", 4, TestContext.Current.CancellationToken);
-        await WaitForCacheAsync(TimeSpan.FromSeconds(40), expectFile: false);
-        await File.WriteAllTextAsync(ChildProcess.ReportPath!, "done\n", TestContext.Current.CancellationToken);
-    }
-
-    /// <summary>The engine saves the cache on a timer about 12 s after discovery (no flush at exit): wait for it, or for the window to pass.</summary>
-    private static async Task WaitForCacheAsync(TimeSpan window, bool expectFile)
-    {
-        var cache = Environment.GetEnvironmentVariable("PSModuleAnalysisCachePath");
-        var watch = Stopwatch.StartNew();
-        while (watch.Elapsed < window)
-        {
-            if (expectFile && cache is not null && File.Exists(cache))
-            {
-                return;
-            }
-
-            await Task.Delay(500, TestContext.Current.CancellationToken);
         }
     }
 }

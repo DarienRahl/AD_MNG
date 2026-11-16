@@ -395,7 +395,8 @@ few tests, the real engine):
 | 1 | docs | `docs/adr/0010-…`, `docs/en/adr/0010-…`, this note, `docs/dev/README.md`, the README pair (Track R "Decided"), `CLAUDE.md` layout rows |
 | 1 | `AdMng.Core` | `PowerShell/PowerShellEnums.cs`, `PowerShellOutputItem.cs` (items), `PowerShellCompletion.cs`, `IPowerShellSession.cs` |
 | 1 | `AdMng.PowerShell` | `AdMng.PowerShell.csproj`, `PowerShellEngineConsumer.props`, `PowerShellEnvironment.cs`, `PowerShellSession.cs`, `PowerShellSessionOptions.cs`, `IPowerShellLockdownProbe.cs`, `ErrorText.cs`, `Hosting/OutputSink.cs`, `WindowHost.cs`, `WindowHostUserInterface.cs`, `WindowHostRawUserInterface.cs`, `Commands/AdmCmdlet.cs`, `IAdmWindowContext.cs`, `AdmWindowContext.cs`, `AdmCommands.cs`, `GetAdmVersionCommand.cs`, `Guards/CommandGuards.cs`, `Input/PowerShellHistoryPolicy.cs`, `Input/PowerShellSyntax.cs`; `Directory.Packages.props`, `AdMng.slnx` (changed) |
-| 1 | `tests/AdMng.PowerShell.Tests` | `PowerShellSessionTests`, `LanguageModeTests`, `HostRoutingTests`, `GuardTests`, `EnvironmentTests`, `HistoryPolicyTests`, `SyntaxTests`, `CompletionTests`, `CommandCatalogTests`, `PackageLicenseTests`, `NoFilesTests` (+ `ChildProcess`, `TempFolder`, the child methods), `TestSupport`, `TestCommands` |
+| 1 | `tests/AdMng.PowerShell.Tests` | `PowerShellSessionTests`, `LanguageModeTests`, `HostRoutingTests`, `GuardTests`, `EnvironmentTests`, `HistoryPolicyTests`, `SyntaxTests`, `CompletionTests`, `CommandCatalogTests`, `PackageLicenseTests`, `NoFilesTests` (+ `ChildProcess`, `TempFolder`), `TestSupport`, `TestCommands` |
+| 1 | `tests/AdMng.PowerShell.Probe` | `Program.cs` – the child process of the file tests (a console program, referenced by the tests, which start it) |
 | 2 | `AdMng.PowerShell` | `Commands/Get*Command.cs`, `SearchAdmObjectCommand.cs`, `OpenAdmObjectCommand.cs`, `OutAdmGridCommand.cs`, `ExportAdmListCommand.cs`, `Directory/AdmFilterBuilder.cs`, `AdmObjectProjector.cs`, `AdmAttributeCompleter.cs`, `AdmDnCompleter.cs`, `Commands/IAdmWindowServices.cs` |
 | 3 | `AdMng.Core` | `PowerShell/Policies/PowerShellPolicySnapshot.cs`, `PowerShellPolicyReader.cs`, `IPowerShellPolicyRegistry.cs`, `PowerShellPolicyNote.cs`, `IPowerShellSessionFactory.cs` |
 | 3 | `AdMng.Presentation` | `PowerShell/PowerShellWindowViewModel.cs`, `PowerShellInputModel.cs`, `PowerShellHistory.cs`, `PowerShellOutputDocument.cs`, `DnLinkFinder.cs`, `Shell/ShellViewModel.Palette.cs` (changed), `Resources/Strings*.resx` + `L.cs` |
@@ -424,12 +425,14 @@ few tests, the real engine):
   the execution policy `Restricted` (Windows only).
 - **`EnvironmentTests`** – the variables of 4.2 are set and visible to a script; no `PSHost.*` pipe exists (Windows
   `\\.\pipe\`, Unix the temp folder).
-- **`NoFilesTests`** – the **"no files" test** and the measurement: a child process (this assembly, started with `-method`, so
-  the environment is set before the runtime starts) with `HOME`, `LOCALAPPDATA`, `APPDATA`, `USERPROFILE`, `TEMP`, `TMP`,
-  `TMPDIR` and `XDG_*` pointing at an empty folder and telemetry switched **on** in its environment runs two sessions, a
-  script touching the formatter, module discovery, completion, syntax and the history policy, and the folder holds no
-  file afterwards; a **positive control** (an ordinary runspace of the SDK, Unix only) leaves `telemetry.uuid` there, so the
-  probe would see it; the opt-in **module analysis cache proof** (`ADMNG_POWERSHELL_SLOW_TESTS=1`, about 40 s).
+- **`NoFilesTests`** – the **"no files" test** and the measurement: the probe program (`AdMng.PowerShell.Probe`, a small console
+  app the tests start as a child process, so that the environment is set before the runtime starts) with `HOME`,
+  `LOCALAPPDATA`, `APPDATA`, `USERPROFILE`, `TEMP`, `TMP`, `TMPDIR` and `XDG_*` pointing at an empty folder and telemetry
+  switched **on** in its environment runs two sessions, a script touching the formatter, module discovery, completion, syntax and
+  the history policy, and the folder holds no file afterwards; a **positive control** (an ordinary runspace of the SDK, Unix
+  only) leaves `telemetry.uuid` there, so the probe would see it; the opt-in **module analysis cache proof**
+  (`ADMNG_POWERSHELL_SLOW_TESTS=1`, about 40 s). The probe is not an xunit run on purpose: the first version started this test
+  assembly as the child (`-method`) and took 18.6 s on the Windows runner, the slowest test of the whole CI run.
 - **`HistoryPolicyTests`**, **`SyntaxTests`**, **`CompletionTests`** – section 4.9 (the matrices are in the tests); the
   completion test has a mutation check (it fails when the file system matches are not dropped).
 - **`CommandCatalogTests`** – section 4.8, and the context mechanism: `Get-AdmVersion` reports the fake session's domain, DC and
@@ -503,8 +506,8 @@ output channel and the stop logic; `PowerShellEnvironment`; the lockdown probe; 
 `Get-AdmVersion`; `CommandGuards`; `PowerShellHistoryPolicy`; `PowerShellSyntax`; completion), the contracts in
 `src/AdMng.Core/PowerShell` (`IPowerShellSession`, the output items, completion, syntax spans, the enums), the package
 (`Microsoft.PowerShell.SDK` 7.6.10 in `Directory.Packages.props`, with the four excluded `sni` packages and
-`PowerShellEngineConsumer.props`) and `tests/AdMng.PowerShell.Tests` (131 tests: 129 run, 2 skipped by design – the Windows
-execution policy and the opt-in 40 s cache proof). Nothing is visible to the operator yet: `AdMng.App` does not reference the
+`PowerShellEngineConsumer.props`) and `tests/AdMng.PowerShell.Tests` (128 tests: 126 run, 2 skipped by design – the Windows
+execution policy and the opt-in 40 s cache proof) with the child-process program `tests/AdMng.PowerShell.Probe`. Nothing is visible to the operator yet: `AdMng.App` does not reference the
 engine until part 4, and there is no release note.
 
 **Decisions of part 1 that the later parts follow** (each with its reason):
@@ -547,10 +550,17 @@ engine until part 4, and there is no release note.
 | `[pscustomobject]@{}` and any method call on a non-core type fail in ConstrainedLanguage in 7.6.10. | The guide of part 5. |
 | `Get-Process`, `Get-ChildItem`, `Format-*`, `Out-String`, `Select-Object` calculated properties, `New-Object PSObject -Property` work in ConstrainedLanguage. | The guide. |
 
-**Checks run** (Linux): `dotnet build AdMng.slnx -c Release` – 0 warnings, 0 errors; `dotnet test tests/AdMng.PowerShell.Tests`
-– 129 passed, 2 skipped; the opt-in cache proof passed (41 s: the control's cache file appeared, the window's session wrote
+**Checks run.** Linux: `dotnet build AdMng.slnx -c Release` – 0 warnings, 0 errors; `dotnet test tests/AdMng.PowerShell.Tests` –
+126 passed, 2 skipped (128); the opt-in cache proof passed (41 s: the control's cache file appeared, the window's session wrote
 none); a mutation check (the file-completion filter removed) made the completion test fail; `release.sh check`,
-`build-icon-set.py --check` and `check_docs.py` – OK. The Windows CI run is recorded in the report of the part.
+`build-icon-set.py --check` and `check_docs.py` – OK. **The first Windows CI run** of the engine tests (128 passed, 2 skipped,
+2 failed) found two mistakes of the tests, not of the engine: the pipe test listed `\\.\pipe\PSHost.*` of every process on
+the runner (the `pwsh` that runs the CI step has one) – it now counts only the pipes with its own process id – and the
+PSReadLine test counted the modules *available* on disk (the runner has PSReadLine installed: listing it is fine, loading it is
+what is refused). The same run showed that the "no files" test started the test assembly as its child process and took 18.6 s
+(the slowest test of the whole run): the child is now the small `AdMng.PowerShell.Probe` program. The engine tests themselves
+(session, host, language mode, guards, completion, catalog, `sni`, the "no files" child) passed on Windows at their first run.
+The result of the last Windows run is recorded in the report of the part.
 
 **What could not be verified on Linux, and why it should still be right.**
 
@@ -572,8 +582,8 @@ none); a mutation check (the file-completion filter removed) made the completion
 text (the console model); an `Object` item exists in object mode only (decision 5). (2) The end item carries `HadErrors`
 instead of an error count. (3) The 85-package license check found four packages (`sni`) that are not OSI approved – excluded,
 with a test, instead of "all MIT" (ADR-0010 "Package licenses"). (4) The README's 19 / 54 MB measured as +17 / +48 MB.
-(5) `AdMng.Core/PowerShell` (the contracts) is new Core code, not named in the task. (6) The tests start a child process of
-their own assembly; this is the only way to set `HOME` and the like before the runtime starts.
+(5) `AdMng.Core/PowerShell` (the contracts) is new Core code, not named in the task. (6) The tests start a probe program of their own (`tests/AdMng.PowerShell.Probe`, one more project in the solution); a child
+process is the only way to set `HOME` and the like before the runtime starts.
 
 **Open questions for the next parts.** Where the grid takes its columns from (part 2 reads `ObjectListViewModel` and its
 columns model); how the window shows a stream's text (part 3: the glyphs and colours of the status line apply to the window's

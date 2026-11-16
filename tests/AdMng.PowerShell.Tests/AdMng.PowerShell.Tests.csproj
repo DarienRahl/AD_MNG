@@ -10,6 +10,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\AdMng.PowerShell\AdMng.PowerShell.csproj" />
     <ProjectReference Include="..\AdMng.Testing\AdMng.Testing.csproj" />
+    <!-- Started as a child process by NoFilesTests (copied beside this assembly). -->
+    <ProjectReference Include="..\AdMng.PowerShell.Probe\AdMng.PowerShell.Probe.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />

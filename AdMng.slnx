@@ -22,6 +22,7 @@
     <Project Path="tests/AdMng.EventLogs.Tests/AdMng.EventLogs.Tests.csproj" />
     <Project Path="tests/AdMng.Mail.Tests/AdMng.Mail.Tests.csproj" />
     <Project Path="tests/AdMng.Outlook.Tests/AdMng.Outlook.Tests.csproj" />
+    <Project Path="tests/AdMng.PowerShell.Probe/AdMng.PowerShell.Probe.csproj" />
     <Project Path="tests/AdMng.PowerShell.Tests/AdMng.PowerShell.Tests.csproj" />
     <Project Path="tests/AdMng.Presentation.Tests/AdMng.Presentation.Tests.csproj" />
     <Project Path="tests/AdMng.Remote.Tests/AdMng.Remote.Tests.csproj" />
