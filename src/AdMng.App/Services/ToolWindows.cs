@@ -24,6 +24,9 @@ public sealed partial class ToolWindows(IServiceProvider services, IWindowServic
     /// <summary>Singleton key of the PowerShell history window (one per connection window).</summary>
     public const string PowerShellHistoryKey = "tools:powershell-history";
 
+    /// <summary>Singleton key of the PowerShell window (track R; one per connection window, so one runspace per connection window).</summary>
+    public const string PowerShellKey = "tools:powershell";
+
     /// <summary>Singleton key of the AD Recycle Bin window (one per connection window).</summary>
     public const string RecycleBinKey = "tools:recycle-bin";
 
@@ -61,6 +64,16 @@ public sealed partial class ToolWindows(IServiceProvider services, IWindowServic
 
     /// <summary>The session log (modeless; an open one is activated).</summary>
     public Window ShowSessionLog() => ShowSingleton(SessionLogKey, () => Factory.CreateSessionLog());
+
+    /// <summary>The PowerShell window of this connection (track R, stage R1; modeless; an open one is activated).</summary>
+    public Window ShowPowerShell() => ShowSingleton(PowerShellKey, () => Factory.CreatePowerShell());
+
+    /// <summary>The grid of <c>Out-AdmGrid</c> over <paramref name="table"/> (modeless; a new window for every call).</summary>
+    public Window ShowPowerShellGrid(Core.PowerShell.PowerShellGridTable table)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        return _windows.Show(Factory.CreatePowerShellGrid(table));
+    }
 
     /// <summary>The PowerShell history (modeless; an open one is activated).</summary>
     public Window ShowPowerShellHistory() => ShowSingleton(PowerShellHistoryKey, () => Factory.CreatePowerShellHistory());

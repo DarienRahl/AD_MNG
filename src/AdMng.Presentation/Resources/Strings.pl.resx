@@ -967,6 +967,9 @@ Profil: {2}</value>
   <data name="Commands.SessionLog" xml:space="preserve">
     <value>Dziennik sesji</value>
   </data>
+  <data name="Commands.PowerShell" xml:space="preserve">
+    <value>PowerShell…</value>
+  </data>
   <data name="Commands.Settings" xml:space="preserve">
     <value>Ustawienia</value>
   </data>
@@ -25742,6 +25745,102 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="PowerShell.Status.PolicyUnreadableNext" xml:space="preserve">
     <value>Nie wiadomo, czy polecenia i wyniki są rejestrowane.</value>
+  </data>
+  <data name="PowerShell.Editor.Name" xml:space="preserve">
+    <value>Wiersz poleceń</value>
+  </data>
+  <data name="PowerShell.Output.Name" xml:space="preserve">
+    <value>Dane wyjściowe poleceń</value>
+  </data>
+  <data name="PowerShell.Completion.Name" xml:space="preserve">
+    <value>Podpowiedzi</value>
+  </data>
+  <data name="PowerShell.Editor.Hint" xml:space="preserve">
+    <value>Wpisz polecenie. Tab uzupełnia, Enter uruchamia, Shift+Enter zaczyna nowy wiersz.</value>
+  </data>
+  <data name="PowerShell.Editor.AnswerHint" xml:space="preserve">
+    <value>Wpisz odpowiedź i naciśnij Enter.</value>
+  </data>
+  <data name="PowerShell.Search.Label" xml:space="preserve">
+    <value>Szukanie w historii: {0}</value>
+  </data>
+  <data name="PowerShell.Search.Failed" xml:space="preserve">
+    <value>brak dopasowania</value>
+  </data>
+  <data name="PowerShell.Run" xml:space="preserve">
+    <value>Uruchom</value>
+  </data>
+  <data name="PowerShell.Clear" xml:space="preserve">
+    <value>Wyczyść</value>
+  </data>
+  <data name="PowerShell.Clear.Tip" xml:space="preserve">
+    <value>Czyści okno (Ctrl+L). Historia poleceń zostaje.</value>
+  </data>
+  <data name="PowerShell.Menu.OpenInProgram" xml:space="preserve">
+    <value>Otwórz w programie</value>
+  </data>
+  <data name="PowerShell.Menu.CopyOutput" xml:space="preserve">
+    <value>Kopiuj</value>
+  </data>
+  <data name="PowerShell.Menu.SelectAll" xml:space="preserve">
+    <value>Zaznacz wszystko</value>
+  </data>
+  <data name="PowerShell.Kind.Error" xml:space="preserve">
+    <value>Błąd</value>
+  </data>
+  <data name="PowerShell.Kind.Warning" xml:space="preserve">
+    <value>Ostrzeżenie</value>
+  </data>
+  <data name="PowerShell.Kind.Note" xml:space="preserve">
+    <value>Uwaga</value>
+  </data>
+  <data name="PowerShellGrid.Title" xml:space="preserve">
+    <value>Wyniki</value>
+  </data>
+  <data name="PowerShellGrid.WindowTitle" xml:space="preserve">
+    <value>{0} – {1}</value>
+  </data>
+  <data name="PowerShellGrid.FilterHint" xml:space="preserve">
+    <value>Filtruj wiersze</value>
+  </data>
+  <data name="PowerShellGrid.Rows.One" xml:space="preserve">
+    <value>{0:N0} wiersz</value>
+  </data>
+  <data name="PowerShellGrid.Rows.Few" xml:space="preserve">
+    <value>{0:N0} wiersze</value>
+  </data>
+  <data name="PowerShellGrid.Rows.Many" xml:space="preserve">
+    <value>{0:N0} wierszy</value>
+  </data>
+  <data name="PowerShellGrid.Columns.One" xml:space="preserve">
+    <value>{0:N0} kolumna</value>
+  </data>
+  <data name="PowerShellGrid.Columns.Few" xml:space="preserve">
+    <value>{0:N0} kolumny</value>
+  </data>
+  <data name="PowerShellGrid.Columns.Many" xml:space="preserve">
+    <value>{0:N0} kolumn</value>
+  </data>
+  <data name="PowerShellGrid.Shown" xml:space="preserve">
+    <value>Widocznych wierszy: {0:N0} z {1:N0} · {2}</value>
+  </data>
+  <data name="PowerShellGrid.Summary" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="PowerShellGrid.CopiedRows" xml:space="preserve">
+    <value>Skopiowano wiersze: {0:N0}.</value>
+  </data>
+  <data name="PowerShellGrid.Exporting" xml:space="preserve">
+    <value>Zapisywanie pliku…</value>
+  </data>
+  <data name="PowerShellGrid.ExportFailed" xml:space="preserve">
+    <value>Nie zapisano pliku</value>
+  </data>
+  <data name="PowerShellGrid.Menu.CopyRows" xml:space="preserve">
+    <value>Kopiuj wiersze</value>
+  </data>
+  <data name="PowerShellGrid.Menu.CopyRowsWithHeaders" xml:space="preserve">
+    <value>Kopiuj wiersze z nazwami kolumn</value>
   </data>
   <!-- R1 PowerShell window: end -->
 </root>

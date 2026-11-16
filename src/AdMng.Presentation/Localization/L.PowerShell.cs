@@ -48,6 +48,80 @@ public static partial class L
 
         /// <summary>{0} = the choice that is taken by an empty answer.</summary>
         public const string PromptDefault = "PowerShell.Prompt.Default";
+
+        /// <summary>What a screen reader hears for the command line (the editor) and for the output.</summary>
+        public const string EditorName = "PowerShell.Editor.Name";
+
+        public const string OutputName = "PowerShell.Output.Name";
+
+        public const string CompletionName = "PowerShell.Completion.Name";
+
+        /// <summary>The hint in the empty editor.</summary>
+        public const string EditorHint = "PowerShell.Editor.Hint";
+
+        /// <summary>The hint in the editor while a command waits for an answer.</summary>
+        public const string AnswerHint = "PowerShell.Editor.AnswerHint";
+
+        /// <summary>The line of the history search; {0} = what was typed.</summary>
+        public const string SearchLabel = "PowerShell.Search.Label";
+
+        public const string SearchFailed = "PowerShell.Search.Failed";
+
+        /// <summary>The label of the button that starts the command; it becomes "Stop" while one runs.</summary>
+        public const string RunButton = "PowerShell.Run";
+
+        public const string ClearButton = "PowerShell.Clear";
+
+        public const string ClearTip = "PowerShell.Clear.Tip";
+
+        /// <summary>The context menu of the output.</summary>
+        public const string OpenInProgram = "PowerShell.Menu.OpenInProgram";
+
+        public const string CopyOutput = "PowerShell.Menu.CopyOutput";
+
+        public const string SelectAll = "PowerShell.Menu.SelectAll";
+
+        /// <summary>The words a screen reader hears before the glyph-and-colour of a line kind (never colour alone).</summary>
+        public const string KindError = "PowerShell.Kind.Error";
+
+        public const string KindWarning = "PowerShell.Kind.Warning";
+
+        public const string KindNote = "PowerShell.Kind.Note";
+    }
+
+    /// <summary>The grid window of <c>Out-AdmGrid</c> (track R, stage R1): its title, filter, summary, copy and export.</summary>
+    public static class PowerShellGrid
+    {
+        public const string Title = "PowerShellGrid.Title";
+
+        /// <summary>{0} = the title, {1} = the domain.</summary>
+        public const string WindowTitle = "PowerShellGrid.WindowTitle";
+
+        public const string FilterHint = "PowerShellGrid.FilterHint";
+
+        public const string RowsOne = "PowerShellGrid.Rows.One";
+        public const string RowsFew = "PowerShellGrid.Rows.Few";
+        public const string RowsMany = "PowerShellGrid.Rows.Many";
+        public const string ColumnsOne = "PowerShellGrid.Columns.One";
+        public const string ColumnsFew = "PowerShellGrid.Columns.Few";
+        public const string ColumnsMany = "PowerShellGrid.Columns.Many";
+
+        /// <summary>{0} = the rows shown, {1} = all the rows, {2} = "4 columns".</summary>
+        public const string Shown = "PowerShellGrid.Shown";
+
+        /// <summary>{0} = "12 rows", {1} = "4 columns".</summary>
+        public const string Summary = "PowerShellGrid.Summary";
+
+        /// <summary>{0} = the number of rows copied.</summary>
+        public const string CopiedRows = "PowerShellGrid.CopiedRows";
+
+        public const string Exporting = "PowerShellGrid.Exporting";
+
+        /// <summary>What was tried, without a full stop.</summary>
+        public const string ExportFailed = "PowerShellGrid.ExportFailed";
+
+        public const string CopyRows = "PowerShellGrid.Menu.CopyRows";
+        public const string CopyRowsWithHeaders = "PowerShellGrid.Menu.CopyRowsWithHeaders";
     }
 
     /// <summary>

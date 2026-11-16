@@ -66,6 +66,9 @@ public interface IDialogViewModelFactory
     /// </summary>
     PowerShell.PowerShellWindowViewModel CreatePowerShell();
 
+    /// <summary>The grid of <c>Out-AdmGrid</c> (track R, stage R1; modeless, one per call) over the objects the command made into a table.</summary>
+    PowerShell.PowerShellGridViewModel CreatePowerShellGrid(Core.PowerShell.PowerShellGridTable table);
+
     /// <summary>For <see cref="IDialogService.ShowRecycleBinAsync"/> (modeless): deleted objects of the current session's domain.</summary>
     RecycleBinViewModel CreateRecycleBin();
 
@@ -166,6 +169,8 @@ public sealed class DialogViewModelFactory(
 
     public PowerShell.PowerShellWindowViewModel CreatePowerShell() =>
         new(services, powerShell ?? throw new InvalidOperationException("The PowerShell window's services are not registered."));
+
+    public PowerShell.PowerShellGridViewModel CreatePowerShellGrid(Core.PowerShell.PowerShellGridTable table) => new(services, engines.Csv, table);
 
     public RecycleBinViewModel CreateRecycleBin() => new(services);
 

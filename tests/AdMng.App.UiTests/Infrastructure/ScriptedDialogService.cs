@@ -59,6 +59,16 @@ internal sealed class ScriptedDialogService : IDialogService
 
     public Task ShowSessionLogAsync() => Task.CompletedTask;
 
+    public Task ShowPowerShellAsync() => Task.CompletedTask;
+
+    public List<AdMng.Core.PowerShell.PowerShellGridTable> PowerShellGrids { get; } = [];
+
+    public Task ShowPowerShellGridAsync(AdMng.Core.PowerShell.PowerShellGridTable table)
+    {
+        PowerShellGrids.Add(table);
+        return Task.CompletedTask;
+    }
+
     public Task ShowProblemReportAsync() => Task.CompletedTask;
 
     public Task ShowRecycleBinAsync(Guid? select = null) => Task.CompletedTask;

@@ -967,6 +967,9 @@ Profile: {2}</value>
   <data name="Commands.SessionLog" xml:space="preserve">
     <value>Session log</value>
   </data>
+  <data name="Commands.PowerShell" xml:space="preserve">
+    <value>PowerShell…</value>
+  </data>
   <data name="Commands.Settings" xml:space="preserve">
     <value>Settings</value>
   </data>
@@ -25742,6 +25745,102 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="PowerShell.Status.PolicyUnreadableNext" xml:space="preserve">
     <value>Whether commands and results are recorded is unknown.</value>
+  </data>
+  <data name="PowerShell.Editor.Name" xml:space="preserve">
+    <value>Command line</value>
+  </data>
+  <data name="PowerShell.Output.Name" xml:space="preserve">
+    <value>Output of the commands</value>
+  </data>
+  <data name="PowerShell.Completion.Name" xml:space="preserve">
+    <value>Completions</value>
+  </data>
+  <data name="PowerShell.Editor.Hint" xml:space="preserve">
+    <value>Type a command. Tab completes, Enter runs, Shift+Enter starts a new line.</value>
+  </data>
+  <data name="PowerShell.Editor.AnswerHint" xml:space="preserve">
+    <value>Type the answer and press Enter.</value>
+  </data>
+  <data name="PowerShell.Search.Label" xml:space="preserve">
+    <value>History search: {0}</value>
+  </data>
+  <data name="PowerShell.Search.Failed" xml:space="preserve">
+    <value>no match</value>
+  </data>
+  <data name="PowerShell.Run" xml:space="preserve">
+    <value>Run</value>
+  </data>
+  <data name="PowerShell.Clear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="PowerShell.Clear.Tip" xml:space="preserve">
+    <value>Clear the window (Ctrl+L). The history of commands stays.</value>
+  </data>
+  <data name="PowerShell.Menu.OpenInProgram" xml:space="preserve">
+    <value>Open in the program</value>
+  </data>
+  <data name="PowerShell.Menu.CopyOutput" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="PowerShell.Menu.SelectAll" xml:space="preserve">
+    <value>Select all</value>
+  </data>
+  <data name="PowerShell.Kind.Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="PowerShell.Kind.Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="PowerShell.Kind.Note" xml:space="preserve">
+    <value>Note</value>
+  </data>
+  <data name="PowerShellGrid.Title" xml:space="preserve">
+    <value>Results</value>
+  </data>
+  <data name="PowerShellGrid.WindowTitle" xml:space="preserve">
+    <value>{0} – {1}</value>
+  </data>
+  <data name="PowerShellGrid.FilterHint" xml:space="preserve">
+    <value>Filter the rows</value>
+  </data>
+  <data name="PowerShellGrid.Rows.One" xml:space="preserve">
+    <value>{0:N0} row</value>
+  </data>
+  <data name="PowerShellGrid.Rows.Few" xml:space="preserve">
+    <value>{0:N0} rows</value>
+  </data>
+  <data name="PowerShellGrid.Rows.Many" xml:space="preserve">
+    <value>{0:N0} rows</value>
+  </data>
+  <data name="PowerShellGrid.Columns.One" xml:space="preserve">
+    <value>{0:N0} column</value>
+  </data>
+  <data name="PowerShellGrid.Columns.Few" xml:space="preserve">
+    <value>{0:N0} columns</value>
+  </data>
+  <data name="PowerShellGrid.Columns.Many" xml:space="preserve">
+    <value>{0:N0} columns</value>
+  </data>
+  <data name="PowerShellGrid.Shown" xml:space="preserve">
+    <value>{0:N0} of {1:N0} rows shown · {2}</value>
+  </data>
+  <data name="PowerShellGrid.Summary" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="PowerShellGrid.CopiedRows" xml:space="preserve">
+    <value>Copied rows: {0:N0}.</value>
+  </data>
+  <data name="PowerShellGrid.Exporting" xml:space="preserve">
+    <value>Writing the file…</value>
+  </data>
+  <data name="PowerShellGrid.ExportFailed" xml:space="preserve">
+    <value>The file was not written</value>
+  </data>
+  <data name="PowerShellGrid.Menu.CopyRows" xml:space="preserve">
+    <value>Copy rows</value>
+  </data>
+  <data name="PowerShellGrid.Menu.CopyRowsWithHeaders" xml:space="preserve">
+    <value>Copy rows with the column names</value>
   </data>
   <!-- R1 PowerShell window: end -->
 </root>

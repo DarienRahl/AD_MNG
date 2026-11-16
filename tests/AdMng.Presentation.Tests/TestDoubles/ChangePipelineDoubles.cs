@@ -226,6 +226,21 @@ internal sealed class ScriptedDialogService : IDialogService
         return Task.CompletedTask;
     }
 
+    public Task ShowPowerShellAsync()
+    {
+        Shown.Add("powerShell");
+        return Task.CompletedTask;
+    }
+
+    /// <summary>The tables the grids were asked to show.</summary>
+    public List<AdMng.Core.PowerShell.PowerShellGridTable> PowerShellGrids { get; } = [];
+
+    public Task ShowPowerShellGridAsync(AdMng.Core.PowerShell.PowerShellGridTable table)
+    {
+        PowerShellGrids.Add(table);
+        return Task.CompletedTask;
+    }
+
     public Task ShowProblemReportAsync()
     {
         Shown.Add("problemReport");

@@ -262,6 +262,23 @@ public sealed partial class DialogService : IDialogService, IUserMessageLauncher
 
     public Task ShowSettingsAsync() => OnUiThreadAsync(_tools.ShowSettings);
 
+    // ---- PowerShell, track R, stage R1 (modeless; the window is one per connection window, a grid is one per Out-AdmGrid) ----
+    public Task ShowPowerShellAsync() => OnUiThreadAsync(() =>
+    {
+        _tools.ShowPowerShell();
+        return true;
+    });
+
+    public Task ShowPowerShellGridAsync(Core.PowerShell.PowerShellGridTable table)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        return OnUiThreadAsync(() =>
+        {
+            _tools.ShowPowerShellGrid(table);
+            return true;
+        });
+    }
+
     // ---- Problem report, Pomoc → Zgłoś problem… (modeless, one window) ----
     public Task ShowProblemReportAsync() => OnUiThreadAsync(() =>
     {

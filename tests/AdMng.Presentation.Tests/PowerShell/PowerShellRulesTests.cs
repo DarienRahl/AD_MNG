@@ -56,6 +56,21 @@ public sealed class PowerShellRulesTests
     }
 
     [Fact]
+    public void TheOnlyFilesTheWindowsCodeWrites_AreTheCsvExportsOfTheGridAndOfExportAdmList_ToAPathTheOperatorGave()
+    {
+        // Rule 1 allows a file the operator explicitly exports: the grid writes the path of its Save As, the action of the command
+        // the path of -Path or of Save As. Nothing else of the window's code may use the CSV writer, and neither of the two is
+        // allowed another way of writing (the forbidden words above still hold for them).
+        var writers = SourceFiles()
+            .Where(file => File.ReadAllText(file).Contains("CsvFiles.WriteAsync", StringComparison.Ordinal))
+            .Select(file => Path.GetFileName(file) ?? string.Empty)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(["PowerShellGridViewModel.cs", "PowerShellWindowActions.cs"], writers);
+    }
+
+    [Fact]
     public void NoWriteIsSpelledInTheWindow_ItKnowsNoCommandThatChangesTheDirectory()
     {
         // R1 has no write command (decision D9). The window passes text to the engine and shows what comes back; it never builds

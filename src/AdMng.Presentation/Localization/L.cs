@@ -176,6 +176,9 @@ public static partial class L
         public const string ToggleDetailsPane = "Commands.ToggleDetailsPane";
         public const string CommandPalette = "Commands.CommandPalette";
         public const string SessionLog = "Commands.SessionLog";
+
+        /// <summary>Tools menu, palette: the PowerShell window of track R.</summary>
+        public const string PowerShell = "Commands.PowerShell";
         public const string Settings = "Commands.Settings";
         public const string Disconnect = "Commands.Disconnect";
         public const string ChangeDomainController = "Commands.ChangeDomainController";

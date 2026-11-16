@@ -53,7 +53,7 @@ public sealed partial class ShellViewModel
         UnlockCommand, ResetPasswordCommand, AddToGroupCommand, BatchEditCommand, NewUserCommand, NewGroupCommand,
         NewOrganizationalUnitCommand, NewComputerCommand, NewContactCommand, FindCommand, ExportListCommand, CopyDnCommand, .. CopyStateCommands,
         OpenInNewTabCommand, PinContainerCommand, SaveAsViewCommand, ChooseColumnsCommand, GoBackCommand, GoForwardCommand,
-        GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand, ShowRecycleBinCommand, ShowAccountReviewCommand, ShowWatchdogHistoryCommand,
+        GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand, ShowRecycleBinCommand, ShowAccountReviewCommand, ShowPowerShellCommand, ShowWatchdogHistoryCommand,
         SendMessageCommand, CompareWithConnectionCommand, .. ComputerStateCommands, .. CorrespondenceStateCommands, .. EventLogStateCommands,
         .. PkiStateCommands,
         .. BulkCreateStateCommands,
@@ -726,6 +726,10 @@ public sealed partial class ShellViewModel
 
     [RelayCommand]
     private Task ShowSessionLogAsync() => _dialogs.ShowSessionLogAsync();
+
+    /// <summary>The PowerShell window of this connection (track R): AD Manager's read commands in the window's own session.</summary>
+    [RelayCommand(CanExecute = nameof(IsConnected))]
+    private Task ShowPowerShellAsync() => _dialogs.ShowPowerShellAsync();
 
     /// <summary>The AD Recycle Bin of the connected domain (deleted objects, restore).</summary>
     [RelayCommand(CanExecute = nameof(IsConnected))]

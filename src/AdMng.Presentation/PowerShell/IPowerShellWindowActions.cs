@@ -33,8 +33,10 @@ public interface IPowerShellWindowActions
     Task ShowInGridAsync(PowerShellGridTable table, CancellationToken cancellationToken);
 
     /// <summary>
-    /// <c>Open-AdmObject</c>: opens the properties of an object. <paramref name="identity"/> is a distinguished name or an
-    /// <c>objectGUID</c> (text, with or without braces).
+    /// <c>Open-AdmObject</c>: opens the properties of an object. <paramref name="identity"/> is the distinguished name of the object:
+    /// the command resolves a name, a SID or an <c>objectGUID</c> and reads the object first, through the window's own session (one
+    /// DC, escaped filters), so the host opens what exists and never reads the directory itself. A text that is no distinguished
+    /// name is <see cref="PowerShellOpenOutcome.NotFound"/>.
     /// </summary>
     Task<PowerShellOpenOutcome> OpenObjectAsync(string identity, CancellationToken cancellationToken);
 

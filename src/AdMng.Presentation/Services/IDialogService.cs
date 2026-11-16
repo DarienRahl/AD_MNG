@@ -51,6 +51,18 @@ public interface IDialogService
     Task ShowSessionLogAsync();
 
     /// <summary>
+    /// "Tools → PowerShell…" (track R, stage R1): the PowerShell window of this connection window - its own runspace, disposed with
+    /// the window (modeless, one per connection window; an open one is activated).
+    /// </summary>
+    Task ShowPowerShellAsync();
+
+    /// <summary>
+    /// The grid of <c>Out-AdmGrid</c> (track R, stage R1): the objects of a pipeline as rows that can be sorted, filtered, copied,
+    /// exported and opened in the program (modeless, a new window for every call, like <c>Out-GridView</c>).
+    /// </summary>
+    Task ShowPowerShellGridAsync(Core.PowerShell.PowerShellGridTable table);
+
+    /// <summary>
     /// "Pomoc → Zgłoś problem…": the value-free problem report of this connection window (modeless, one per connection
     /// window; an open one is activated).
     /// </summary>
