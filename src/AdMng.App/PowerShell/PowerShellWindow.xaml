@@ -137,7 +137,7 @@
                   ToolTip="{l:Tr PowerShell.Clear.Tip}" />
           <ps:StateCheckBox x:Name="TrustedSwitch"
                             VerticalAlignment="Center"
-                            AutomationProperties.HelpText="{Binding TrustedModeDisabledReason, Mode=OneWay}"
+                            AutomationProperties.HelpText="{Binding TrustedModeDisabledReason, Mode=OneWay, TargetNullValue=''}"
                             Command="{Binding ToggleTrustedModeCommand}"
                             Content="{l:Tr PowerShell.Trusted.Switch}"
                             DockPanel.Dock="Left"
