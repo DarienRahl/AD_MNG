@@ -35,16 +35,13 @@ public static class AdmCommands
         return Catalog.Select(entry => new SessionStateCmdletEntry(entry.Name, entry.Type, help));
     }
 
-    /// <summary>The help file beside the assembly, or null when there is none (the assembly is bundled, or the file was not copied).</summary>
+    /// <summary>
+    /// The help file beside the program (<see cref="AppContext.BaseDirectory"/>: the folder of the test or of <c>AdMng.exe</c>, where the
+    /// build and the publish put it), or null when there is none. Not <c>Assembly.Location</c>: it is empty in a single-file app.
+    /// </summary>
     private static string? HelpFilePath()
     {
-        var location = typeof(AdmCommands).Assembly.Location;
-        if (string.IsNullOrEmpty(location))
-        {
-            return null;
-        }
-
-        var path = Path.Combine(Path.GetDirectoryName(location)!, HelpFileName);
+        var path = Path.Combine(AppContext.BaseDirectory, HelpFileName);
         return File.Exists(path) ? path : null;
     }
 }
