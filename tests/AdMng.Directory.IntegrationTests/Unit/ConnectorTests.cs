@@ -127,7 +127,11 @@ public sealed class ConnectorTests
             new LdapDirectoryConnector().ConnectAsync(options, new NetworkCredential(string.Empty, "x"), TestContext.Current.CancellationToken));
 
         Assert.Contains(error.Kind, new[] { DirectoryErrorKind.Timeout, DirectoryErrorKind.ServerUnavailable });
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10), $"Took {stopwatch.Elapsed}.");
+
+        // The request timeout (2 s) decides, not the default one (60 s). The bound is wide on purpose, as in the test of the
+        // closed port above: a Windows runner whose test projects run side by side has stood still for 8 s and more, and
+        // this test once took 10.15 s for its 2 s.
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(30), $"Took {stopwatch.Elapsed}.");
     }
 
     [Fact]
