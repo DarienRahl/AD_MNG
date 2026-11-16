@@ -911,8 +911,11 @@ public sealed class SendPageTests
         Assert.False(window.Send.IsSending);
         Assert.Single(scenario.Outlook.Items);
         Assert.Contains("■ zatrzymano", window.Send.Results.Select(r => r.Text));
+
+        // The one question of every window that works (RunningWork): what runs - the text of the line - and what the stop does.
         Assert.Equal(
-            "confirm:Trwa wysyłka przez Outlooka. Przerwać wysyłkę i zamknąć okno? Wiadomości, które Outlook już wysłał, nie da się wycofać.",
+            "confirm:Wysyłam wiadomości: 0 z 3…\n\nZatrzymać trwającą operację i zamknąć okno? Wiadomości, które jeszcze nie zostały wysłane, "
+            + "nie zostaną wysłane; wiadomości przyjętych już przez serwer lub przez Outlooka nie da się wycofać.",
             scenario.Ui.Shown[^1]);
     }
 

@@ -411,6 +411,53 @@ public sealed class UserMessageComposerStatusTests
     }
 
     [Fact]
+    public async Task ClosingTheWindowWhileSending_AsksFirst_YesStopsAfterTheMessageItIsAt_AndClosesAfterTheEnd()
+    {
+        var scenario = await CreateAsync();
+        var company = scenario.Company;
+        using var composer = await scenario.OpenAsync(
+            [company.JanKowalski, company.LukaszWisniewski], BuiltInMessageTemplates.PasswordExpiring, 14);
+        await composer.PlanCommand.ExecuteAsync(null);
+        using var first = new HeldCall();
+        scenario.Transport.BeforeSend = _ => first.HoldOnce();
+        scenario.Harness.Dialogs.ConfirmAnswers.Enqueue(true);
+        Task sending;
+        Task<bool> closing;
+        try
+        {
+            sending = composer.SendCommand.ExecuteAsync(null);
+            Assert.True(await first.Held.WaitAsync(Limit, Ct));
+            Assert.True(composer.Status.Operation is { Writes: OperationWrites.Messages, CanCancel: true });
+
+            // The operator closes the window: one question, the same as in every window that works - the first answer is No.
+            scenario.Harness.Dialogs.Shown.Clear();
+            scenario.Harness.Dialogs.ConfirmAnswers.Clear();
+            scenario.Harness.Dialogs.ConfirmAnswers.Enqueue(false);
+            Assert.False(await composer.CanCloseAsync());
+            Assert.StartsWith(
+                "confirm:Sending the messages: 0 of 2…\n\nStop the running operation and close the window? The messages not yet sent are not sent",
+                Assert.Single(scenario.Harness.Dialogs.Shown),
+                StringComparison.Ordinal);
+            Assert.False(composer.Status.IsCancelling);
+
+            // Yes: Stop of the line - "Stopping…" - and the window closes after the end, not before.
+            scenario.Harness.Dialogs.ConfirmAnswers.Enqueue(true);
+            closing = composer.CanCloseAsync();
+            Assert.True(composer.Status.IsCancelling);
+            Assert.False(closing.IsCompleted);
+        }
+        finally
+        {
+            first.Release();
+        }
+
+        Assert.True(await closing.WaitAsync(Limit, Ct));
+        await sending.WaitAsync(Limit, Ct);
+        Assert.Equal(UserMessageReportStatus.Accepted, Item(composer, "Jan Kowalski").ReportStatus);
+        Assert.Equal(UserMessageReportStatus.NotSent, Item(composer, "Łukasz Wiśniewski").ReportStatus);
+    }
+
+    [Fact]
     public async Task TheCancelOfTheSendCommand_IsTheSameStop()
     {
         var scenario = await CreateAsync();

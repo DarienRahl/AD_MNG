@@ -559,7 +559,7 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
         var changed = false;
         var said = false;
         string? backupText = null;
-        using var updating = Status.Begin(Localizer[L.CentralStore.Updating], new PageStatusLog(L.CentralStore.Updating));
+        using var updating = Status.Begin(Localizer[L.CentralStore.Updating], new PageStatusLog(L.CentralStore.Updating), writes: OperationWrites.Other);
         try
         {
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, _gp.Lifetime, updating.Token);
@@ -676,7 +676,7 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
     private void Close() => RequestClose(true);
 
     /// <summary>Not while the store is being updated (the backup, the plan and its preview); a load or download is cancelled by closing.</summary>
-    public override Task<bool> CanCloseAsync() => Task.FromResult(!IsUpdating);
+    protected override Task<bool> CanCloseCoreAsync() => Task.FromResult(!IsUpdating);
 
     protected override void OnCultureChanged()
     {

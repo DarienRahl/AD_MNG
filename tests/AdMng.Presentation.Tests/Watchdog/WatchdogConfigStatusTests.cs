@@ -320,6 +320,37 @@ public sealed class WatchdogConfigStatusTests
         h.AssertNoUiErrors();
     }
 
+    [Fact]
+    public async Task TheSaveOfTheConfiguration_IsAWriteThatCannotBeStopped_AndTheTabSaysSoWhicheverSubTabIsShown()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync(visible: true);
+            tab.Rules.SelectedRule!.IsEnabled = !tab.Rules.SelectedRule.IsEnabled;
+            h.Client.Hold(nameof(IWatchdogClient.SaveConfigAsync));
+            var saving = tab.Config.SaveAsync();
+
+            // The feed is shown, the save is on another page: the question of closing the tab still finds it (RunningWork).
+            tab.SelectedSubTab = WatchdogSubTab.Events;
+            Assert.True(RunningWork.HasRunningWrites(tab));
+            Assert.Equal(OperationWrites.Other, tab.Config.Status.Operation!.Writes);
+            Assert.False(tab.Config.Status.Operation.CanCancel);
+
+            // It cannot be stopped: the tab stays, and the operator is told it is still saving.
+            var closed = await RunningWork.ConfirmCloseAsync(h.Ad.Localizer, h.Ad.Dialogs, tab.Title, RunningWork.HoldersOf(tab));
+            Assert.False(closed);
+            Assert.Equal($"info:{h.Ad.Localizer.Format(L.CloseWork.Wait, "Saving the configuration…")}", Assert.Single(h.Ad.Dialogs.Shown));
+            Assert.StartsWith("info:Saving the configuration…\n\nThis operation cannot be stopped", h.Ad.Dialogs.Shown[0], StringComparison.Ordinal);
+
+            h.Client.Release(nameof(IWatchdogClient.SaveConfigAsync));
+            await saving;
+            Assert.False(RunningWork.HasRunningWrites(tab));
+            Assert.True(await RunningWork.ConfirmCloseAsync(h.Ad.Localizer, h.Ad.Dialogs, tab.Title, RunningWork.HoldersOf(tab)));
+        });
+        h.AssertNoUiErrors();
+    }
+
     private static async Task<WatchdogConfigSession> LoadAsync(WatchdogHarness h)
     {
         var session = new WatchdogConfigSession(h.Services) { IsAdmin = true };

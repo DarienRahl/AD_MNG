@@ -385,7 +385,7 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
     [RelayCommand(CanExecute = nameof(IsIdle))]
     private void Close() => RequestClose(ChangedDirectory);
 
-    public override Task<bool> CanCloseAsync() => Task.FromResult(!IsBusy);
+    protected override Task<bool> CanCloseCoreAsync() => Task.FromResult(!IsBusy);
 
     protected override void OnCultureChanged()
     {
@@ -462,7 +462,8 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         StatusText = Localizer[L.GroupPolicy.BackupRunning];
         var total = Gpos.Count;
         using var backingUp = Status.Begin(
-            Localizer[L.GpoBackupStatus.BackingUp], new PageStatusLog(L.GpoBackupStatus.BackingUp, 0, total), PageProgress.Of(0, total));
+            Localizer[L.GpoBackupStatus.BackingUp], new PageStatusLog(L.GpoBackupStatus.BackingUp, 0, total), PageProgress.Of(0, total),
+            writes: OperationWrites.Other);
 
         // The operator's Stop, closing the window and the end of its session all end the backup.
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(_work.Next(), backingUp.Token);

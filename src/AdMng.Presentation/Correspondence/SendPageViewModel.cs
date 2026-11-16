@@ -516,7 +516,8 @@ public sealed partial class SendPageViewModel : ObservableObject, IHasPageStatus
     {
         // The run is the operation of the page: the line says how far it is, and its Stop is the run's (between two messages).
         using var scope = Status.Begin(
-            RunningText(kind, 0, jobs.Count, null), new PageStatusLog(RunningKey(kind, null), 0, jobs.Count), PageProgress.Of(0, jobs.Count));
+            RunningText(kind, 0, jobs.Count, null), new PageStatusLog(RunningKey(kind, null), 0, jobs.Count), PageProgress.Of(0, jobs.Count),
+            writes: OperationWrites.Messages);
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(scope.Token);
         _run = cancellation;
         _applied.Clear();

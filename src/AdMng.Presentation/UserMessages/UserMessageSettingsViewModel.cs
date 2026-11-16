@@ -402,7 +402,8 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject, IHa
         TestDetails = null;
 
         // The address is the operator's own, typed into the tab: it may be named on screen - never in the log copy.
-        using var sending = Status.Begin(l.Format(L.MessageWindowStatus.TestSending, address), new PageStatusLog(L.MessageWindowStatus.TestSending));
+        using var sending = Status.Begin(
+            l.Format(L.MessageWindowStatus.TestSending, address), new PageStatusLog(L.MessageWindowStatus.TestSending), writes: OperationWrites.Messages);
         var token = sending.Token;
         try
         {

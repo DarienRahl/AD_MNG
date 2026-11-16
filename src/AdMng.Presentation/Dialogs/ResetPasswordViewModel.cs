@@ -176,7 +176,7 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase, IHasPa
     public bool HasUnsavedGeneratedPasswords => !_passwordsExported && Results.Any(r => r.HasPassword && !r.WasHandedOut);
 
     /// <summary>Generated passwords exist only in this window: closing without taking them leaves unknown passwords.</summary>
-    public override async Task<bool> CanCloseAsync() =>
+    protected override async Task<bool> CanCloseCoreAsync() =>
         !IsBusy
         && (!HasUnsavedGeneratedPasswords
             || await Services.Dialogs.ConfirmAsync(WindowTitle, Localizer[L.Batch.DiscardPasswords], destructive: true).ConfigureAwait(true));

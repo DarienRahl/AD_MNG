@@ -1,6 +1,27 @@
 namespace AdMng.Presentation.Feedback;
 
 /// <summary>
+/// What an operation changes (track V, stage V2b-5b): whether closing its window while it runs needs a question, and
+/// which one. A read changes nothing - its window closes without a question and the read is cancelled. The flag is set
+/// by the code that starts the operation (<see cref="PageStatusHolder.Begin"/>, <c>ExecutionStatus</c>), never guessed
+/// from a name.
+/// </summary>
+public enum OperationWrites
+{
+    /// <summary>A read, a check or a preview: nothing is changed (the default).</summary>
+    None,
+
+    /// <summary>The execution of a change plan: Stop finishes the object in progress and starts no other.</summary>
+    Changes,
+
+    /// <summary>A send (messages, drafts, a test message): what was accepted already cannot be recalled.</summary>
+    Messages,
+
+    /// <summary>Anything else that writes: a restore, an update of the central store, a backup, a save, a remote command.</summary>
+    Other,
+}
+
+/// <summary>
 /// One running operation of a page (track V, stage V2; design note 4.5 and goal G3), started with
 /// <see cref="PageStatusHolder.Begin"/>: the page says "working" from the first moment, the operation gets its
 /// <see cref="Token"/>, reports how far it is, and ends as done, attention or error - or without a message, when its
@@ -21,14 +42,16 @@ public sealed class OperationScope : IDisposable
     // Never disposed: code that still holds the token may register on it, which throws on a disposed source. A source
     // without a timer or a linked parent holds no unmanaged resource.
     private readonly CancellationTokenSource _cancellation = new();
+    private readonly TaskCompletionSource _endedSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private volatile bool _cancelling;
     private volatile bool _ended;
 
-    internal OperationScope(PageStatusHolder holder, PageStatus working, bool canCancel)
+    internal OperationScope(PageStatusHolder holder, PageStatus working, bool canCancel, OperationWrites writes)
     {
         _holder = holder;
         Working = working;
         CanCancel = canCancel;
+        Writes = writes;
     }
 
     /// <summary>Cancelled when the operator stops the operation, when it is replaced and when the scope is disposed.</summary>
@@ -36,6 +59,21 @@ public sealed class OperationScope : IDisposable
 
     /// <summary>False for an operation that cannot be stopped once it started: <see cref="Cancel"/> does nothing.</summary>
     public bool CanCancel { get; }
+
+    /// <summary>
+    /// What the operation changes. Anything but <see cref="OperationWrites.None"/> makes the window ask before it is closed
+    /// while the operation runs (<see cref="RunningWork"/>).
+    /// </summary>
+    public OperationWrites Writes { get; }
+
+    /// <summary>True for an operation that changes something (<see cref="Writes"/> is not <see cref="OperationWrites.None"/>).</summary>
+    public bool IsWrite => Writes != OperationWrites.None;
+
+    /// <summary>
+    /// Completes once the operation ended on the page - completed, disposed or replaced - and never fails. The
+    /// continuations run asynchronously, so the code that ended the operation has run on to its end first.
+    /// </summary>
+    public Task Ended => _endedSignal.Task;
 
     /// <summary>True from <see cref="Cancel"/> until the operation ended: the page says "Stopping…".</summary>
     public bool IsCancelling => _cancelling && !_ended;
@@ -132,12 +170,17 @@ public sealed class OperationScope : IDisposable
     }
 
     /// <summary>The operation ended on the page. UI thread (the holder).</summary>
-    internal void MarkEnded() => _ended = true;
+    internal void MarkEnded()
+    {
+        _ended = true;
+        _endedSignal.TrySetResult();
+    }
 
     /// <summary>The page took this operation off (replaced it or showed something else): it ends and its token is cancelled.</summary>
     internal void Abandon()
     {
         _ended = true;
         _cancellation.Cancel();
+        _endedSignal.TrySetResult();
     }
 }

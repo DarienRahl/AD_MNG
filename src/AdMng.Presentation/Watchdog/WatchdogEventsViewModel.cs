@@ -372,7 +372,8 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             localizer.Format(L.WatchdogEventsStatus.Acknowledging, PageStatusText.Progress(localizer, 0, total)),
             new PageStatusLog(L.WatchdogEventsStatus.Acknowledging, 0, total),
             PageProgress.Of(0, total),
-            canCancel: false);
+            canCancel: false,
+            writes: OperationWrites.Other);
         IsBusy = true;
         try
         {

@@ -190,7 +190,7 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase, IH
     /// <summary>Something was written to the directory or SYSVOL (the caller refreshes what it shows).</summary>
     public bool ChangedDirectory => _executedAny;
 
-    public override Task<bool> CanCloseAsync() => Task.FromResult(Step != PlanPreviewStep.Executing);
+    protected override Task<bool> CanCloseCoreAsync() => Task.FromResult(Step != PlanPreviewStep.Executing);
 
     /// <summary>
     /// The localized text of a failed step: SYSVOL failures say whether the file changes were reverted or the GPO was left

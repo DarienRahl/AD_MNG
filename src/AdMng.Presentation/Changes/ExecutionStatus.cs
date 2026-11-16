@@ -54,7 +54,7 @@ public sealed class ExecutionStatus : IDisposable
         _total = Math.Max(total, 0);
 
         // How far is not known until the first object is done: the ring turns until then.
-        _scope = status.Begin(Text(0, 0), Log(0, 0));
+        _scope = status.Begin(Text(0, 0), Log(0, 0), writes: OperationWrites.Changes);
         _stop = _scope.Token.Register(OnTokenCancelled);
     }
 

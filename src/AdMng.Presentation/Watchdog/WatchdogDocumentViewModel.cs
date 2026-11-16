@@ -32,7 +32,7 @@ namespace AdMng.Presentation.Watchdog;
 /// the host the tab talks to and the account; the state is not said there. A log copy is a key, counts and a result code -
 /// never a host, an account, an event or a value of the configuration.</para>
 /// </remarks>
-public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShellDocument, IHasPageStatus
+public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShellDocument, IHasPageStatus, IHasPageStatusParts
 {
     private readonly WatchdogServices _services;
     private readonly WatchdogPoller _poller;
@@ -90,6 +90,13 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     /// what the sub-tab that is shown says.
     /// </summary>
     public PageStatusHolder Status { get; }
+
+    /// <summary>
+    /// The holders of every sub-tab, whichever is shown: a save or an acknowledgement that runs while another sub-tab is shown
+    /// is asked about when the tab or its window is closed (<see cref="RunningWork"/>).
+    /// </summary>
+    public IEnumerable<PageStatusHolder> StatusParts =>
+        [Events.Status, Rules.Status, Channels.Status, Digest.Status, ServiceStatus.PageHolder, Config.Status];
 
     public ObjectIcon Icon => ObjectIcon.Watchdog;
 

@@ -38,7 +38,7 @@ public enum CorrespondenceTab
 /// session of the window ended is said by the two pages that read the directory, not by the window: sending through
 /// Outlook goes on, and a line of the window that cannot be closed would cover the progress of a run.</para>
 /// </summary>
-public sealed partial class CorrespondenceViewModel : WindowViewModelBase, IHasPageStatus
+public sealed partial class CorrespondenceViewModel : WindowViewModelBase, IHasPageStatus, IHasPageStatusParts
 {
     public CorrespondenceViewModel(DialogServices services, CorrespondenceServices correspondence, CorrespondenceRequest request)
         : base(services)
@@ -101,6 +101,12 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase, IHasP
     /// </summary>
     public PageStatusHolder Status { get; }
 
+    /// <summary>
+    /// The holders of all the pages, whichever tab is shown: a send that runs on the page that is not in front is asked about
+    /// when the window is closed (<see cref="RunningWork"/>).
+    /// </summary>
+    public IEnumerable<PageStatusHolder> StatusParts => [Recipients.Status, Mailboxes.Status, Preview.Status, Send.Status, Responses.Status];
+
     public OutlookConnectionViewModel Outlook { get; }
 
     public MailboxOwnersPageViewModel Mailboxes { get; }
@@ -129,24 +135,12 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase, IHasP
     public override Task InitializeAsync() => Initialization ??= InitializeCoreAsync();
 
     /// <summary>
-    /// While sending asks whether to stop (the run is cancelled when the operator agrees); then saves the options, the
-    /// field definitions and the last draft (with its images) to the settings. A failing save never keeps the window open.
+    /// Saves the options, the field definitions and the last draft (with its images) to the settings. A failing save never
+    /// keeps the window open. A send that runs is asked about before - by <see cref="WindowViewModelBase.CanCloseAsync"/>, for
+    /// every window alike (<see cref="RunningWork"/>) - and has ended when this runs.
     /// </summary>
-    public override async Task<bool> CanCloseAsync()
+    protected override async Task<bool> CanCloseCoreAsync()
     {
-        if (Send.IsSending)
-        {
-            if (!await Services.Dialogs.ConfirmAsync(WindowTitle, Localizer[L.Correspondence.StopOnClose], destructive: true).ConfigureAwait(true))
-            {
-                return false;
-            }
-
-            if (Send.StopCommand.CanExecute(null))
-            {
-                Send.StopCommand.Execute(null);
-            }
-        }
-
         await SaveStateAsync().ConfigureAwait(true);
         return true;
     }

@@ -31,6 +31,25 @@ public static partial class L
         public const string RetryNext = "Feedback.RetryNext";
     }
 
+    /// <summary>
+    /// What a window says when it is closed while an operation that writes runs (stage V2b-5b; <c>RunningWork</c>). {0} is
+    /// what is running - the text of its status line, one line for each operation.
+    /// </summary>
+    public static class CloseWork
+    {
+        /// <summary>An execution of a change plan: nothing new is started, the object in progress is finished first.</summary>
+        public const string StopChanges = "CloseWork.StopChanges";
+
+        /// <summary>A send: what was accepted cannot be recalled.</summary>
+        public const string StopMessages = "CloseWork.StopMessages";
+
+        /// <summary>Anything else that writes: what was written stays, the rest is not done.</summary>
+        public const string StopOther = "CloseWork.StopOther";
+
+        /// <summary>An operation that cannot be stopped: the window stays open until it ends.</summary>
+        public const string Wait = "CloseWork.Wait";
+    }
+
     /// <summary>What the object list says in its status line (the first page of stage V2).</summary>
     public static class ListStatus
     {

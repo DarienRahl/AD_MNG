@@ -282,22 +282,6 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, 
         await RefreshTransportAsync().ConfigureAwait(true);
     }
 
-    public override async Task<bool> CanCloseAsync()
-    {
-        if (Stage != UserMessageStage.Sending)
-        {
-            return true;
-        }
-
-        if (!await Services.Dialogs.ConfirmAsync(WindowTitle, Localizer[L.UserMessages.StopOnClose], destructive: true).ConfigureAwait(true))
-        {
-            return false;
-        }
-
-        _sendRun?.Cancel();
-        return true;
-    }
-
     protected override void Dispose(bool disposing)
     {
         _messages.Templates.Changed -= OnTemplatesChanged;
@@ -572,7 +556,8 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, 
 
         // The address is the operator's own, from the settings: it may be named on screen - never in the log copy.
         using var sending = Status.Begin(
-            Localizer.Format(L.MessageWindowStatus.TestSending, address), new PageStatusLog(L.MessageWindowStatus.TestSending));
+            Localizer.Format(L.MessageWindowStatus.TestSending, address), new PageStatusLog(L.MessageWindowStatus.TestSending),
+            writes: OperationWrites.Messages);
         var token = sending.Token;
         try
         {
@@ -927,7 +912,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, 
     /// </summary>
     private async Task RunAsync(IUserMessageTransport transport, IReadOnlyList<UserMessageItemViewModel> items)
     {
-        using var sending = Status.Begin(SendingText(0, items.Count, 0, waiting: false), SendingLog(0, items.Count, 0));
+        using var sending = Status.Begin(SendingText(0, items.Count, 0, waiting: false), SendingLog(0, items.Count, 0), writes: OperationWrites.Messages);
         _sendRun = sending;
         foreach (var item in _items)
         {

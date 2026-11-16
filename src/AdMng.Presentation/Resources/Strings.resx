@@ -8472,9 +8472,6 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="UserMessages.LanguageEnglish" xml:space="preserve">
     <value>English</value>
   </data>
-  <data name="UserMessages.StopOnClose" xml:space="preserve">
-    <value>Messages are being sent. Stop sending and close the window? Messages already accepted by the server cannot be recalled.</value>
-  </data>
   <data name="UserMessages.RecipientsCount" xml:space="preserve">
     <value>Recipients: {0}</value>
   </data>
@@ -12915,9 +12912,6 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Correspondence.WindowTitleNoDomain" xml:space="preserve">
     <value>Correspondence</value>
-  </data>
-  <data name="Correspondence.StopOnClose" xml:space="preserve">
-    <value>Messages are being sent through Outlook. Stop sending and close the window? Messages Outlook has already sent cannot be recalled.</value>
   </data>
   <data name="Correspondence.Help" xml:space="preserve">
     <value>Help</value>
@@ -25563,6 +25557,18 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="PkiTpl.ClearFilters" xml:space="preserve">
     <value>Clear the filters</value>
+  </data>
+  <data name="CloseWork.StopChanges" xml:space="preserve">
+    <value>{0}&#10;&#10;Stop the running operation and close the window? Nothing new is started, the object that is being changed is finished first (none is left half done), and the objects not reached stay unchanged.</value>
+  </data>
+  <data name="CloseWork.StopMessages" xml:space="preserve">
+    <value>{0}&#10;&#10;Stop the running operation and close the window? The messages not yet sent are not sent; messages already accepted by the server or by Outlook cannot be recalled.</value>
+  </data>
+  <data name="CloseWork.StopOther" xml:space="preserve">
+    <value>{0}&#10;&#10;Stop the running operation and close the window? What was already written stays; the rest is not done.</value>
+  </data>
+  <data name="CloseWork.Wait" xml:space="preserve">
+    <value>{0}&#10;&#10;This operation cannot be stopped once it has started. Wait until it ends, then close the window.</value>
   </data>
   <!-- V interface renewal (V2): end -->
 </root>

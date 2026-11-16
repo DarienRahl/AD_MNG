@@ -262,7 +262,7 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
         var comment = string.IsNullOrWhiteSpace(AcknowledgeComment) ? null : AcknowledgeComment.Trim();
 
         // A write to the service: no Stop.
-        using var scope = Status.Begin(localizer[L.WatchdogDetailsStatus.Acknowledging], new PageStatusLog(L.WatchdogDetailsStatus.Acknowledging), canCancel: false);
+        using var scope = Status.Begin(localizer[L.WatchdogDetailsStatus.Acknowledging], new PageStatusLog(L.WatchdogDetailsStatus.Acknowledging), canCancel: false, writes: OperationWrites.Other);
         IsBusy = true;
         try
         {

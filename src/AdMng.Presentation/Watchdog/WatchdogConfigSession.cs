@@ -223,7 +223,7 @@ public sealed partial class WatchdogConfigSession : ObservableObject
         }
 
         // A write: no Stop. Its token is never cancelled by a scope that was replaced or ended.
-        using var scope = Status.Begin(_services.Localizer[L.WatchdogConfigStatus.Saving], new PageStatusLog(L.WatchdogConfigStatus.Saving), canCancel: false);
+        using var scope = Status.Begin(_services.Localizer[L.WatchdogConfigStatus.Saving], new PageStatusLog(L.WatchdogConfigStatus.Saving), canCancel: false, writes: OperationWrites.Other);
         IsBusy = true;
         Error = null;
         Message = null;
@@ -266,7 +266,7 @@ public sealed partial class WatchdogConfigSession : ObservableObject
             return false;
         }
 
-        using var scope = Status.Begin(_services.Localizer[L.WatchdogConfigStatus.Saving], new PageStatusLog(L.WatchdogConfigStatus.Saving), canCancel: false);
+        using var scope = Status.Begin(_services.Localizer[L.WatchdogConfigStatus.Saving], new PageStatusLog(L.WatchdogConfigStatus.Saving), canCancel: false, writes: OperationWrites.Other);
         IsBusy = true;
         Error = null;
         Message = null;

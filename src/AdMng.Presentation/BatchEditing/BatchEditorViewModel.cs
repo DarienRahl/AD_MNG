@@ -375,7 +375,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
         }
     }
 
-    public override async Task<bool> CanCloseAsync()
+    protected override async Task<bool> CanCloseCoreAsync()
     {
         // Generated passwords exist only in this window: closing without exporting them (or while they are being
         // set) leaves the accounts with passwords nobody knows.

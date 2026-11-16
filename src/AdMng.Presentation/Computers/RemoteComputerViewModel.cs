@@ -411,7 +411,10 @@ public sealed partial class RemoteComputerViewModel : WindowViewModelBase, IHasP
 
         var latest = _calls.Next();
         _active = action;
-        using var operation = Status.Begin(Localizer.Format(L.RemoteStatus.Working, Localizer.Format(TitleKey(action), Name)), new PageStatusLog(TitleKey(action)));
+        using var operation = Status.Begin(
+            Localizer.Format(L.RemoteStatus.Working, Localizer.Format(TitleKey(action), Name)),
+            new PageStatusLog(TitleKey(action)),
+            writes: ChangesTheComputer(action) ? OperationWrites.Other : OperationWrites.None);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, operation.Token);
         IsBusy = true;
         var outcome = CallOutcome.None;
@@ -480,6 +483,12 @@ public sealed partial class RemoteComputerViewModel : WindowViewModelBase, IHasP
                 new PageStatusLog(L.RemoteStatus.ActionDone));
         }
     }
+
+    /// <summary>
+    /// The actions that do something to the computer (a policy refresh, a restart, cancelling one) - the window asks before it is
+    /// closed while one of them is being sent; the three reads (status, users, services) change nothing.
+    /// </summary>
+    private static bool ChangesTheComputer(RemoteAction action) => action is RemoteAction.Policy or RemoteAction.Restart or RemoteAction.AbortRestart;
 
     private static string TitleKey(RemoteAction action) => action switch
     {

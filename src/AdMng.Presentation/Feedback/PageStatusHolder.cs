@@ -295,12 +295,17 @@ public sealed class PageStatusHolder : ObservableObject
     /// <param name="log">The value-free copy of the message.</param>
     /// <param name="progress">How far it is (indeterminate by default).</param>
     /// <param name="canCancel">False for an operation that cannot be stopped once it started.</param>
-    public OperationScope Begin(string message, PageStatusLog log, PageProgress progress = default, bool canCancel = true)
+    /// <param name="writes">
+    /// What the operation changes; the default is a read. An operation that writes makes its window ask before it is
+    /// closed (<see cref="RunningWork"/>): the code that starts it says so - nothing is guessed from a name.
+    /// </param>
+    public OperationScope Begin(
+        string message, PageStatusLog log, PageProgress progress = default, bool canCancel = true, OperationWrites writes = OperationWrites.None)
     {
         var stop = canCancel ? new PageStatusAction(_localizer[L.Common.Stop], CancelCommand) : null;
         var working = PageStatus.Working(message, log, progress, stop);
         var previous = _operation;
-        var scope = new OperationScope(this, working, canCancel);
+        var scope = new OperationScope(this, working, canCancel, writes);
 
         // The new operation is the page's before the old one hears that it was cancelled: whatever the old one says in
         // answer (it may answer inside Abandon, on this thread) is no longer the page's.

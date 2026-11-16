@@ -26,7 +26,7 @@ namespace AdMng.Presentation.Shell;
 /// Main window: header (DC, identity, channel security), navigation tree, document tabs with object lists,
 /// address bar, global quick search, details pane, command palette, status bar and all object commands.
 /// </summary>
-public sealed partial class ShellViewModel : ObservableObject, IDisposable
+public sealed partial class ShellViewModel : ObservableObject, IDisposable, IHasPageStatusParts, IHasFrontStatus
 {
     private static readonly TimeSpan DetailsDelay = TimeSpan.FromMilliseconds(150);
 
@@ -147,8 +147,20 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     /// <summary>The selected tab (bound to the tab strip).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SelectedDocument), nameof(IsDetailsPaneShown))]
+    [NotifyPropertyChangedFor(nameof(SelectedDocument), nameof(IsDetailsPaneShown), nameof(FrontStatus))]
     public partial IShellDocument? SelectedTab { get; set; }
+
+    /// <summary>
+    /// The holder of the selected tab - what the status line of the window shows, and what its taskbar button follows
+    /// (<see cref="IHasFrontStatus"/>); null for a tab without a status line of its own.
+    /// </summary>
+    public PageStatusHolder? FrontStatus => (SelectedTab as IHasPageStatus)?.Status;
+
+    /// <summary>
+    /// The holders of every open tab (and of the pages they hold), whichever is selected: a write that runs in a tab that is
+    /// not in front is asked about when the window is closed (<see cref="RunningWork"/>).
+    /// </summary>
+    public IEnumerable<PageStatusHolder> StatusParts => RunningWork.HoldersOf([.. Documents]);
 
     /// <summary>
     /// The selected object list, or null when no list tab is selected (the list commands disable themselves on the
@@ -350,6 +362,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     {
         document ??= SelectedTab;
         if (document is null || !Documents.Contains(document))
+        {
+            return;
+        }
+
+        // A tab that writes - the Watchdog tab saving its configuration - is asked about first; a tab that only reads is closed and
+        // its read is cancelled, as before.
+        if (!await RunningWork.ConfirmCloseAsync(Localizer, _dialogs, document.Title, RunningWork.HoldersOf(document)).ConfigureAwait(true)
+            || !Documents.Contains(document))
         {
             return;
         }

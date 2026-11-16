@@ -246,7 +246,7 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase, IHasPa
     public Task LoadAsync() => LoadCoreAsync(keepMessages: false);
 
     /// <remarks>The window stays open while changes are being applied (their outcome is shown on the sheet).</remarks>
-    public override async Task<bool> CanCloseAsync() =>
+    protected override async Task<bool> CanCloseCoreAsync() =>
         !IsApplying
         && (!HasChanges || await Services.Dialogs.ConfirmAsync(WindowTitle, Localizer[L.PropertySheet.DiscardChanges], destructive: true).ConfigureAwait(true));
 
@@ -296,7 +296,8 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase, IHasPa
         // cannot be stopped from the line - the execution is an activity of the connection, as before.
         IsApplying = true;
         using var saving = Status.Begin(
-            Localizer.Format(L.PropertySheetStatus.Saving, Name), new PageStatusLog(L.PropertySheetStatus.Saving), canCancel: false);
+            Localizer.Format(L.PropertySheetStatus.Saving, Name), new PageStatusLog(L.PropertySheetStatus.Saving), canCancel: false,
+            writes: OperationWrites.Changes);
         _saving = saving;
         try
         {

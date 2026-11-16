@@ -116,7 +116,7 @@ public sealed partial class WatchdogDeliveryLogViewModel : ObservableObject
         var localizer = _services.Localizer;
 
         // A write to the service: no Stop. The row says the result (it is pending again); only a failure is said in the line.
-        using var scope = _pageStatus.Begin(localizer[L.WatchdogPageStatus.RetryQueuing], new PageStatusLog(L.WatchdogPageStatus.RetryQueuing), canCancel: false);
+        using var scope = _pageStatus.Begin(localizer[L.WatchdogPageStatus.RetryQueuing], new PageStatusLog(L.WatchdogPageStatus.RetryQueuing), canCancel: false, writes: OperationWrites.Other);
         Error = null;
         try
         {

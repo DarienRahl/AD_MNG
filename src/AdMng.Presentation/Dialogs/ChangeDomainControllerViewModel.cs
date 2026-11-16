@@ -209,7 +209,7 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
         return Loading;
     }
 
-    public override Task<bool> CanCloseAsync()
+    protected override Task<bool> CanCloseCoreAsync()
     {
         // Closing while connecting cancels the switch: the current session stays.
         if (IsBusy && ChangeCancelCommand.CanExecute(null))

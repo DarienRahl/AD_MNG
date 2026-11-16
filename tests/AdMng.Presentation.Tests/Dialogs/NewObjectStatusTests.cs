@@ -129,7 +129,11 @@ public sealed class NewObjectStatusTests
             Assert.Null(status.Action);
             Assert.False(status.CanClose);
             Assert.False(dialog.Status.CancelCommand.CanExecute(null));
+
+            // The window cannot be closed while the object is created - and it says so instead of staying silent (RunningWork).
             Assert.False(await dialog.CanCloseAsync());
+            Assert.Equal($"info:{harness.Localizer.Format(L.CloseWork.Wait, working)}", Assert.Single(harness.Dialogs.Shown));
+            Assert.False(dialog.Status.IsCancelling);
         }
         finally
         {

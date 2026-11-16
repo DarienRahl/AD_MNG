@@ -216,7 +216,7 @@ public sealed partial class WatchdogDigestViewModel : ObservableObject, IDisposa
         }
 
         // A write: no Stop, and the call is not given the token of a scope that another operation could end.
-        using var scope = Status.Begin(localizer[L.WatchdogDigestStatus.Queuing], new PageStatusLog(L.WatchdogDigestStatus.Queuing), canCancel: false);
+        using var scope = Status.Begin(localizer[L.WatchdogDigestStatus.Queuing], new PageStatusLog(L.WatchdogDigestStatus.Queuing), canCancel: false, writes: OperationWrites.Other);
         IsBusy = true;
         Error = null;
         try

@@ -12,7 +12,6 @@ public static partial class L
         public const string Command = "UserMessages.Command";
         public const string LanguagePolish = "UserMessages.LanguagePolish";
         public const string LanguageEnglish = "UserMessages.LanguageEnglish";
-        public const string StopOnClose = "UserMessages.StopOnClose";
         public const string RecipientsCount = "UserMessages.RecipientsCount";
         public const string SendCount = "UserMessages.SendCount";
         public const string TemplateSaved = "UserMessages.TemplateSaved";

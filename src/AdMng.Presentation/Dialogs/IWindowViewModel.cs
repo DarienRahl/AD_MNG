@@ -141,7 +141,28 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
 
     public virtual Task InitializeAsync() => Task.CompletedTask;
 
-    public virtual Task<bool> CanCloseAsync() => Task.FromResult(true);
+    /// <summary>
+    /// The window is about to be closed by the operator. First the one question of every window that works
+    /// (<see cref="Feedback.RunningWork"/>, track V stage V2b-5b): an operation that writes and can be stopped is asked
+    /// about - "Stop the running operation and close the window?" - and stopped on Yes, and the window closes after it
+    /// ended; one that cannot be stopped keeps the window open and says so; a read is cancelled without a question. Then
+    /// the window's own questions (<see cref="CanCloseCoreAsync"/>: unsaved changes, generated passwords).
+    /// </summary>
+    public async Task<bool> CanCloseAsync()
+    {
+        if (!await Feedback.RunningWork.ConfirmCloseAsync(Services.Localizer, Services.Dialogs, WindowTitle, Feedback.RunningWork.HoldersOf(this)).ConfigureAwait(true))
+        {
+            return false;
+        }
+
+        return await CanCloseCoreAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// The window's own questions before it closes (pending changes, generated passwords, "not while it is busy"), asked
+    /// after the question about a running operation. True when the window may close.
+    /// </summary>
+    protected virtual Task<bool> CanCloseCoreAsync() => Task.FromResult(true);
 
     public void Dispose()
     {

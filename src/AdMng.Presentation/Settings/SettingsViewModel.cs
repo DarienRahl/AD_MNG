@@ -24,7 +24,7 @@ namespace AdMng.Presentation.Settings;
 /// read of the Outlook accounts as its operations (<see cref="SelectedTabIndex"/>). Why Save is not possible
 /// (<see cref="Error"/>) is computed from the fields for as long as they are shown: a note, not a status.</para>
 /// </remarks>
-public sealed partial class SettingsViewModel : WindowViewModelBase, IHasPageStatus
+public sealed partial class SettingsViewModel : WindowViewModelBase, IHasPageStatus, IHasPageStatusParts
 {
     /// <summary>Index of the "Wiadomości e-mail" tab (<see cref="SelectedTabIndex"/>).</summary>
     public const int MessagesTab = 1;
@@ -113,6 +113,9 @@ public sealed partial class SettingsViewModel : WindowViewModelBase, IHasPageSta
     /// messages" tab); the window has no operation of its own.
     /// </summary>
     public PageStatusHolder Status { get; }
+
+    /// <summary>The holder of the "E-mail messages" tab, shown or not: a test message that is on its way is asked about when the window is closed.</summary>
+    public IEnumerable<PageStatusHolder> StatusParts => Messages is null ? [] : [Messages.Status];
 
     /// <summary>The tab shown (the view keeps it current): its status is in front of the window's.</summary>
     [ObservableProperty]

@@ -71,7 +71,7 @@ public sealed partial class DeliveryTestViewModel : ObservableObject
         var localizer = _services.Localizer;
         var token = _runs.Next();
         _latest = token;
-        using var scope = _status.Begin(localizer[L.Watchdog.TestRunning], new PageStatusLog(L.Watchdog.TestRunning));
+        using var scope = _status.Begin(localizer[L.Watchdog.TestRunning], new PageStatusLog(L.Watchdog.TestRunning), writes: OperationWrites.Messages);
         _scope = scope;
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, scope.Token);
         IsRunning = true;

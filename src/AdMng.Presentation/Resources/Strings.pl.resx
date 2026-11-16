@@ -8472,9 +8472,6 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="UserMessages.LanguageEnglish" xml:space="preserve">
     <value>angielski</value>
   </data>
-  <data name="UserMessages.StopOnClose" xml:space="preserve">
-    <value>Trwa wysyłka wiadomości. Przerwać wysyłkę i zamknąć okno? Wiadomości przyjętych już przez serwer nie da się wycofać.</value>
-  </data>
   <data name="UserMessages.RecipientsCount" xml:space="preserve">
     <value>Odbiorcy: {0}</value>
   </data>
@@ -12915,9 +12912,6 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   </data>
   <data name="Correspondence.WindowTitleNoDomain" xml:space="preserve">
     <value>Korespondencja</value>
-  </data>
-  <data name="Correspondence.StopOnClose" xml:space="preserve">
-    <value>Trwa wysyłka przez Outlooka. Przerwać wysyłkę i zamknąć okno? Wiadomości, które Outlook już wysłał, nie da się wycofać.</value>
   </data>
   <data name="Correspondence.Help" xml:space="preserve">
     <value>Pomoc</value>
@@ -25563,6 +25557,18 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="PkiTpl.ClearFilters" xml:space="preserve">
     <value>Wyczyść filtry</value>
+  </data>
+  <data name="CloseWork.StopChanges" xml:space="preserve">
+    <value>{0}&#10;&#10;Zatrzymać trwającą operację i zamknąć okno? Nic nowego nie zostanie rozpoczęte, obiekt, który jest właśnie zmieniany, zostanie najpierw dokończony (żaden nie zostanie w połowie), a obiekty, do których operacja nie dotarła, pozostaną bez zmian.</value>
+  </data>
+  <data name="CloseWork.StopMessages" xml:space="preserve">
+    <value>{0}&#10;&#10;Zatrzymać trwającą operację i zamknąć okno? Wiadomości, które jeszcze nie zostały wysłane, nie zostaną wysłane; wiadomości przyjętych już przez serwer lub przez Outlooka nie da się wycofać.</value>
+  </data>
+  <data name="CloseWork.StopOther" xml:space="preserve">
+    <value>{0}&#10;&#10;Zatrzymać trwającą operację i zamknąć okno? To, co już zapisano, pozostanie; reszta nie zostanie wykonana.</value>
+  </data>
+  <data name="CloseWork.Wait" xml:space="preserve">
+    <value>{0}&#10;&#10;Tej operacji nie można zatrzymać po jej rozpoczęciu. Poczekaj, aż się zakończy, i zamknij okno.</value>
   </data>
   <!-- V interface renewal (V2): end -->
 </root>
