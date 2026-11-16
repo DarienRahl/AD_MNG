@@ -103,6 +103,46 @@ public sealed class ReadinessStatusUiTests
     });
 
     [Fact]
+    public Task EveryResult_AndEveryArea_TellsItsStatusWithAPill_ThePictureAndTheWord_InOneColumn() => WpfTestHost.RunAsync(async () =>
+    {
+        var connector = EventLogUiSupport.CreateConnector();
+        await using var context = await UiTestContext.CreateAsync("en", EventLogUiSupport.Use(connector));
+        var (main, view, document) = await OpenAsync(context);
+
+        // One pill for every area and every check, in the order they are shown - the area first, then its checks - with the word
+        // of the status in the language of the interface and the kind of the status.
+        var pills = UiWait.Descendants<StatusPill>(view.GroupsList).ToList();
+        var expected = document.Groups
+            .SelectMany(group => new[] { (Word: group.StatusText, Kind: group.PillKind) }.Concat(group.Rows.Select(row => (Word: row.StatusText, Kind: row.PillKind))))
+            .ToList();
+        Assert.Equal(expected.Count, pills.Count);
+        Assert.Equal(expected.Select(e => e.Word), pills.Select(pill => pill.Text));
+        Assert.Equal(expected.Select(e => e.Kind), pills.Select(pill => pill.Kind));
+        Assert.All(pills, pill =>
+        {
+            Assert.True(pill.IsVisible);
+            Assert.True(pill.HasText);
+            Assert.Equal(pill.Text, AutomationProperties.GetName(pill));
+        });
+        Assert.Contains(pills, pill => pill.Kind == StatusPillKind.Ok);
+
+        // No glyph of the old pair is left, and the word is not said twice in a row ("title - host · status").
+        var glyphs = new[] { Glyphs.Completed, Glyphs.Warning, Glyphs.Error, Glyphs.Info };
+        Assert.DoesNotContain(UiWait.Descendants<TextBlock>(view.GroupsList), text => glyphs.Contains(text.Text));
+        var words = document.Groups.SelectMany(group => group.Rows.Select(row => row.StatusText)).Distinct().ToList();
+        Assert.DoesNotContain(UiWait.Descendants<TextBlock>(view.GroupsList), text => words.Any(word => text.Text.EndsWith("· " + word, StringComparison.Ordinal)));
+
+        // One column: the pills are as wide as the widest, so every title and every area starts at the same place.
+        var rows = UiWait.Descendants<Grid>(view.GroupsList)
+            .Where(grid => grid.ColumnDefinitions.Count > 0 && grid.ColumnDefinitions[0].SharedSizeGroup == "ReadinessPill")
+            .ToList();
+        Assert.Equal(pills.Count, rows.Count);
+        var starts = rows.Select(grid => Math.Round(grid.TranslatePoint(new Point(grid.ColumnDefinitions[1].Offset, 0), view).X)).Distinct().ToList();
+        Assert.Single(starts);
+        context.AssertHealthy();
+    });
+
+    [Fact]
     public Task AFullCheck_SaysTheAreaItIsAt_ItsButtonIsItsCancel_AndAStoppedCheckLastsWithCheckAgain() => WpfTestHost.RunAsync(async () =>
     {
         var connector = EventLogUiSupport.CreateConnector();

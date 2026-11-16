@@ -1,4 +1,5 @@
 using System.Globalization;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Localization;
 using AdMng.Watchdog.Contracts.Api;
@@ -221,6 +222,15 @@ public static class WatchdogDisplay
         Text(localizer, ConfidenceKey(confidence), confidence.ToString());
 
     public static string HealthStateName(this ILocalizer localizer, HealthState state) => Text(localizer, HealthStateKey(state), state.ToString());
+
+    /// <summary>The pill that tells a health state: ok, attention, error; what is not known or switched off is "not known" (V2b-5b).</summary>
+    public static StatusPillKind PillKind(HealthState state) => state switch
+    {
+        HealthState.Ok => StatusPillKind.Ok,
+        HealthState.Warning => StatusPillKind.Attention,
+        HealthState.Error => StatusPillKind.Error,
+        _ => StatusPillKind.Unknown,
+    };
 
     public static string StageName(this ILocalizer localizer, DeliveryStage stage) => Text(localizer, StageKey(stage), stage.ToString());
 

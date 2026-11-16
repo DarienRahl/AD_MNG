@@ -1,3 +1,4 @@
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 
 namespace AdMng.Presentation.Readiness;
@@ -22,6 +23,9 @@ public sealed class ReadinessRowViewModel
     public ReadinessStatus Status => Result.Status;
 
     public string StatusText { get; }
+
+    /// <summary>The kind of the pill that shows <see cref="StatusText"/> next to the title (the picture and the word, never colour alone).</summary>
+    public StatusPillKind PillKind => ReadinessText.PillKind(Status);
 
     public string Title => Result.Title;
 
@@ -78,6 +82,9 @@ public sealed class ReadinessGroupViewModel
     public ReadinessStatus Status { get; }
 
     public string StatusText { get; }
+
+    /// <summary>The kind of the pill that shows <see cref="StatusText"/> in the header of the area.</summary>
+    public StatusPillKind PillKind => ReadinessText.PillKind(Status);
 
     /// <summary>"OK: 4 · Ostrzeżenia: 1" (only the statuses that occur).</summary>
     public string SummaryText { get; }

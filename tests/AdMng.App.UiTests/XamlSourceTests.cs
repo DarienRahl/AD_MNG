@@ -473,6 +473,59 @@ public sealed partial class XamlSourceTests
         }
     }
 
+    /// <summary>
+    /// Every status pill in the markup names its kind and its word - the picture and the word are what tell the state, so a pill
+    /// without one of them would tell it by colour alone - every empty state its sentence (an action has a label and a command
+    /// together), and every skeleton the state that makes it active.
+    /// </summary>
+    [Fact]
+    public void EveryStatusPill_EveryEmptyState_AndEverySkeleton_InTheViews_IsBoundToWhatItShows()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Runs with the Windows test suite.");
+        var views = XamlFiles().Where(file => !IsThemeDictionary(file))
+            .Select(file => (Name: Path.GetRelativePath(SourceDirectory(), file).Replace('\\', '/'), Text: WithoutComments(File.ReadAllText(file))))
+            .ToList();
+        var problems = new List<string>();
+        var counts = new[] { 0, 0, 0 };
+        foreach (var (name, text) in views)
+        {
+            foreach (var pill in StatusPillElement().Matches(text).Select(m => m.Value))
+            {
+                counts[0]++;
+                if (!pill.Contains(" Kind=\"", StringComparison.Ordinal) || !pill.Contains(" Text=\"", StringComparison.Ordinal))
+                {
+                    problems.Add($"{name}: a status pill without its kind or its word");
+                }
+            }
+
+            foreach (var state in EmptyStateElement().Matches(text).Select(m => m.Value))
+            {
+                counts[1]++;
+                var hasText = state.Contains(" ActionText=\"", StringComparison.Ordinal);
+                var hasCommand = state.Contains(" ActionCommand=\"", StringComparison.Ordinal);
+                if (!state.Contains(" Message=\"", StringComparison.Ordinal) || hasText != hasCommand)
+                {
+                    problems.Add($"{name}: an empty state without its sentence, or an action without its label or its command");
+                }
+            }
+
+            foreach (var skeleton in SkeletonElement().Matches(text).Select(m => m.Value))
+            {
+                counts[2]++;
+                if (!skeleton.Contains(" IsActive=\"", StringComparison.Ordinal))
+                {
+                    problems.Add($"{name}: a skeleton that is never active");
+                }
+            }
+        }
+
+        // The first uses of the three controls are in the views (a control nobody uses would not be built).
+        Assert.True(counts[0] > 0, "no view has a status pill");
+        Assert.True(counts[1] > 0, "no view has an empty state");
+        Assert.True(counts[2] > 0, "no view has a skeleton");
+        Assert.Equal([], problems);
+    }
+
     /// <summary>Exactly one status line, with the fixed name of design note 6.1, over the status holder of the page.</summary>
     private static void AssertOneStatusLine(string page, string xaml)
     {
@@ -575,6 +628,18 @@ public sealed partial class XamlSourceTests
     /// <summary>A brush of the theme read with StaticResource (a key ending in "Brush" that is not one of ours).</summary>
     [GeneratedRegex(@"\{StaticResource\s+(?!Ad\.|Wd\.)[^\s{}]*Brush\s*\}")]
     private static partial Regex StaticBrush();
+
+    /// <summary>The start tag of a status pill (c:StatusPill) with its attributes.</summary>
+    [GeneratedRegex(@"<(?:\w+:)?StatusPill\b[^>]*>")]
+    private static partial Regex StatusPillElement();
+
+    /// <summary>The start tag of an empty state (c:EmptyState) with its attributes.</summary>
+    [GeneratedRegex(@"<(?:\w+:)?EmptyState\b[^>]*>")]
+    private static partial Regex EmptyStateElement();
+
+    /// <summary>The start tag of a skeleton (c:Skeleton) with its attributes.</summary>
+    [GeneratedRegex(@"<(?:\w+:)?Skeleton\b[^>]*>")]
+    private static partial Regex SkeletonElement();
 
     /// <summary>An element named PageStatus: its tag without the prefix.</summary>
     [GeneratedRegex(@"<(?:\w+:)?(?<tag>[\w.]+)\b[^>]*\bx:Name=""PageStatus""")]

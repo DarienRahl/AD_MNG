@@ -351,25 +351,30 @@
             <ItemsControl x:Name="ChecksList"
                           AutomationProperties.Name="{l:Tr Watchdog.Ui.CardChecks}"
                           Focusable="False"
+                          Grid.IsSharedSizeScope="True"
                           ItemsSource="{Binding Checks, Mode=OneWay}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate DataType="{x:Type wd:WatchdogHealthCheckRowViewModel}">
-                  <DockPanel Margin="0,4">
-                    <TextBlock Margin="0,0,10,0"
+                  <!-- The state of the check: a status pill (the picture and the word), all of one width so that the titles line up. -->
+                  <Grid Margin="0,4">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto" SharedSizeGroup="HealthPill" />
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <c:StatusPill Margin="0,0,12,0"
+                                  VerticalAlignment="Top"
+                                  Kind="{Binding PillKind, Mode=OneWay}"
+                                  Text="{Binding StateText, Mode=OneWay}" />
+                    <TextBlock Grid.Column="2"
+                               Margin="12,0,0,0"
                                VerticalAlignment="Top"
-                               DockPanel.Dock="Left"
-                               Style="{StaticResource Wd.HealthGlyph}"
-                               Tag="{Binding State, Mode=OneWay}" />
-                    <TextBlock Margin="12,0,0,0"
-                               VerticalAlignment="Top"
-                               DockPanel.Dock="Right"
                                Style="{StaticResource Ad.SecondaryText}"
                                Text="{Binding CheckedText, Mode=OneWay}" />
-                    <StackPanel>
-                      <TextBlock TextWrapping="Wrap">
-                        <Run FontWeight="SemiBold" Text="{Binding Title, Mode=OneWay}" />
-                        <Run Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding StateText, Mode=OneWay}" />
-                      </TextBlock>
+                    <StackPanel Grid.Column="1">
+                      <TextBlock FontWeight="SemiBold"
+                                 Text="{Binding Title, Mode=OneWay}"
+                                 TextWrapping="Wrap" />
                       <TextBlock Style="{StaticResource Wd.Value}"
                                  Text="{Binding Remedy, Mode=OneWay}"
                                  Visibility="{Binding Remedy, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
@@ -378,7 +383,7 @@
                                  ToolTip="{Binding Code, Mode=OneWay}"
                                  Visibility="{Binding Detail, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
                     </StackPanel>
-                  </DockPanel>
+                  </Grid>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>

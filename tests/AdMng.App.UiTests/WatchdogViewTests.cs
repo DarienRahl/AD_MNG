@@ -8,6 +8,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using AdMng.App.Behaviors;
+using AdMng.App.Controls;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
@@ -118,6 +119,23 @@ public sealed class WatchdogViewTests
         await UiWait.UntilAsync(() => tab.ServiceStatus.HasStatus && tab.ServiceStatus.Audit.Count > 0 && tab.ServiceStatus.DeliveryLog.Items.Count > 0, "the status");
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         Assert.Equal(6, view.StatusView.ChecksList.Items.Count);
+
+        // The state of a check is a pill - the picture and the word of the state - in one column, and not a glyph with the word
+        // run into the title (stage V2b-5b).
+        var checks = tab.ServiceStatus.Checks;
+        var pills = UiWait.Descendants<StatusPill>(view.StatusView.ChecksList).ToList();
+        Assert.Equal(checks.Select(check => check.StateText), pills.Select(pill => pill.Text));
+        Assert.Equal(checks.Select(check => check.PillKind), pills.Select(pill => pill.Kind));
+        Assert.All(pills, pill => Assert.Equal(pill.Text, AutomationProperties.GetName(pill)));
+        Assert.DoesNotContain(
+            UiWait.Descendants<TextBlock>(view.StatusView.ChecksList),
+            text => checks.Any(check => text.Text.EndsWith(" " + check.StateText, StringComparison.Ordinal) && text.Text.StartsWith(check.Title, StringComparison.Ordinal)));
+        var starts = UiWait.Descendants<Grid>(view.StatusView.ChecksList)
+            .Where(grid => grid.ColumnDefinitions.Count == 3 && grid.ColumnDefinitions[0].SharedSizeGroup == "HealthPill")
+            .Select(grid => Math.Round(grid.TranslatePoint(new Point(grid.ColumnDefinitions[1].Offset, 0), view.StatusView.ChecksList).X))
+            .ToList();
+        Assert.Equal(checks.Count, starts.Count);
+        Assert.Single(starts.Distinct());
         Assert.Equal(Visibility.Visible, view.StatusView.DeliveryLogCard.Visibility);
         Assert.Equal(Visibility.Visible, view.StatusView.AuditCard.Visibility);
         Assert.False(tab.Config.IsDirty);
