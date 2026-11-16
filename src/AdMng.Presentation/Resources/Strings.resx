@@ -25614,5 +25614,134 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="PowerShell.Policy.Origin.Unknown" xml:space="preserve">
     <value>policy</value>
   </data>
+  <data name="PowerShell.Name" xml:space="preserve">
+    <value>PowerShell</value>
+  </data>
+  <data name="PowerShell.WindowTitle" xml:space="preserve">
+    <value>{0} – {1} – {2} – PowerShell</value>
+  </data>
+  <data name="PowerShell.WindowTitleTrusted" xml:space="preserve">
+    <value>{0} – {1} – {2} – PowerShell – trusted mode</value>
+  </data>
+  <data name="PowerShell.Welcome.Mode" xml:space="preserve">
+    <value>ConstrainedLanguage mode: AD Manager's commands and the usual cmdlets work; .NET calls and scripts are limited. The trusted mode switch lifts the limits after a confirmation.</value>
+  </data>
+  <data name="PowerShell.Welcome.Help" xml:space="preserve">
+    <value>Get-Command *-Adm* lists AD Manager's commands, Get-Help &lt;command&gt; describes one. Shift+Enter adds a line, Ctrl+C stops a running command, Ctrl+L clears this window.</value>
+  </data>
+  <data name="PowerShell.Welcome.Lockdown" xml:space="preserve">
+    <value>A system policy (WDAC or AppLocker) enforces ConstrainedLanguage mode: the trusted mode is not available in this window.</value>
+  </data>
+  <data name="PowerShell.Trusted.Switch" xml:space="preserve">
+    <value>Trusted mode (FullLanguage)</value>
+  </data>
+  <data name="PowerShell.Trusted.On" xml:space="preserve">
+    <value>Trusted mode is on for this window: FullLanguage, any .NET code. It is not remembered; a new window starts in ConstrainedLanguage.</value>
+  </data>
+  <data name="PowerShell.Trusted.Off" xml:space="preserve">
+    <value>Trusted mode is off: ConstrainedLanguage.</value>
+  </data>
+  <data name="PowerShell.Trusted.ConfirmTitle" xml:space="preserve">
+    <value>Trusted mode</value>
+  </data>
+  <data name="PowerShell.Trusted.ConfirmMessage" xml:space="preserve">
+    <value>Turn on trusted mode in the PowerShell window of {0}?&#10;&#10;In trusted mode a script can run any .NET code and change the directory directly, around the change plan: without the preview, the audit log and the rollback of AD Manager. It is a protection against mistakes, not a security boundary.&#10;&#10;The mode applies to this window only and is not remembered.</value>
+  </data>
+  <data name="PowerShell.Trusted.BlockedLockdown" xml:space="preserve">
+    <value>A system policy (WDAC or AppLocker) enforces ConstrainedLanguage mode.</value>
+  </data>
+  <data name="PowerShell.Trusted.BlockedRunning" xml:space="preserve">
+    <value>Not while a command is running.</value>
+  </data>
+  <data name="PowerShell.Trusted.BlockedStarting" xml:space="preserve">
+    <value>PowerShell is not ready yet.</value>
+  </data>
+  <data name="PowerShell.DroppedLines" xml:space="preserve">
+    <value>The oldest {0} lines were removed from this window to keep it fast; it keeps the last {1}.</value>
+  </data>
+  <data name="PowerShell.OpenLinkTip" xml:space="preserve">
+    <value>Open in the program: {0}</value>
+  </data>
+  <data name="PowerShell.Prompt.Invalid" xml:space="preserve">
+    <value>Enter one of the letters shown, or ? for help.</value>
+  </data>
+  <data name="PowerShell.Prompt.Help" xml:space="preserve">
+    <value>Help</value>
+  </data>
+  <data name="PowerShell.Prompt.Default" xml:space="preserve">
+    <value>(default is "{0}")</value>
+  </data>
+  <data name="PowerShell.Status.Starting" xml:space="preserve">
+    <value>Starting PowerShell…</value>
+  </data>
+  <data name="PowerShell.Status.StartFailed" xml:space="preserve">
+    <value>PowerShell could not be started</value>
+  </data>
+  <data name="PowerShell.Status.StartFailedNext" xml:space="preserve">
+    <value>Close the window and open it again.</value>
+  </data>
+  <data name="PowerShell.Status.NotAvailable" xml:space="preserve">
+    <value>This installation has no PowerShell engine.</value>
+  </data>
+  <data name="PowerShell.Status.Running" xml:space="preserve">
+    <value>Running the command…</value>
+  </data>
+  <data name="PowerShell.Status.Progress" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="PowerShell.Status.Waiting" xml:space="preserve">
+    <value>The command is waiting for your answer…</value>
+  </data>
+  <data name="PowerShell.Status.Done" xml:space="preserve">
+    <value>The command finished: {0} in the window, {1}.</value>
+  </data>
+  <data name="PowerShell.Status.DoneNoOutput" xml:space="preserve">
+    <value>The command finished with no output, {0}.</value>
+  </data>
+  <data name="PowerShell.Status.Lines.One" xml:space="preserve">
+    <value>{0:N0} line of output</value>
+  </data>
+  <data name="PowerShell.Status.Lines.Few" xml:space="preserve">
+    <value>{0:N0} lines of output</value>
+  </data>
+  <data name="PowerShell.Status.Lines.Many" xml:space="preserve">
+    <value>{0:N0} lines of output</value>
+  </data>
+  <data name="PowerShell.Status.Seconds" xml:space="preserve">
+    <value>{0} s</value>
+  </data>
+  <data name="PowerShell.Status.WithErrors" xml:space="preserve">
+    <value>The command ended with errors</value>
+  </data>
+  <data name="PowerShell.Status.WithErrorsNext" xml:space="preserve">
+    <value>The error text is in the window.</value>
+  </data>
+  <data name="PowerShell.Status.Failed" xml:space="preserve">
+    <value>The command failed</value>
+  </data>
+  <data name="PowerShell.Status.FailedNext" xml:space="preserve">
+    <value>Correct the command and run it again. The error text is in the window.</value>
+  </data>
+  <data name="PowerShell.Status.Stopped" xml:space="preserve">
+    <value>The command was stopped after {0}. The output until then stays in the window.</value>
+  </data>
+  <data name="PowerShell.Status.CouldNotRun" xml:space="preserve">
+    <value>The command could not be started</value>
+  </data>
+  <data name="PowerShell.Status.ModeNotChanged" xml:space="preserve">
+    <value>The language mode was not changed</value>
+  </data>
+  <data name="PowerShell.Status.TrustedNote" xml:space="preserve">
+    <value>Trusted mode is on: scripts in this window can run any .NET code and change the directory around the change plan, without the preview, audit and rollback of AD Manager. The switch turns it off.</value>
+  </data>
+  <data name="PowerShell.Status.Notes" xml:space="preserve">
+    <value>Several notes apply to this window.</value>
+  </data>
+  <data name="PowerShell.Status.PolicyUnreadable" xml:space="preserve">
+    <value>The PowerShell policies of this workstation could not be read</value>
+  </data>
+  <data name="PowerShell.Status.PolicyUnreadableNext" xml:space="preserve">
+    <value>Whether commands and results are recorded is unknown.</value>
+  </data>
   <!-- R1 PowerShell window: end -->
 </root>
