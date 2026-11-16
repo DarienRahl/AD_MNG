@@ -292,6 +292,33 @@ write verb (`Set`, `New`, `Remove`, `Move`, `Rename`, `Add`, `Enable`, `Disable`
   Parameter completers for AD Manager's commands (part 2) are `IArgumentCompleter`s on the parameters: they read
   `Context.Reader.Schema` (attribute names) and the DNs the session already knows, never the directory.
 
+### 4.10 How results reach the window and the grid
+
+```
+pipeline thread (the runspace's own)                         UI thread
+Get-AdmUser jan | Select-Object Name, mail | Out-Default  ->  host.UI.WriteLine(...) -> OutputSink -> channel (4096) -> RunAsync's items -> view model -> output document
+Get-AdmUser jan | Out-AdmGrid                              ->  OutAdmGridCommand collects PSObjects (EndProcessing)
+                                                               -> converts them on the pipeline thread to plain data
+                                                                  (PowerShellGridTable: column names + rows of simple values,
+                                                                  anything else as its string form)
+                                                               -> IAdmWindowContext window service ShowGrid(table, title)  -> view model -> the window opens the
+                                                                  program's object list grid with that table as its source
+```
+
+- **Text** reaches the window through the host (4.3, 4.4): the pipeline thread posts items into the bounded channel, the view model
+  reads them in batches on the UI thread (it never touches a `PSObject`), and a flood is held back by the channel, not by the UI.
+- **The grid** is not fed from the output items: `Out-AdmGrid` is a command inside the pipeline, so it sees the real objects
+  (`Where-Object`, `Select-Object` and `Sort-Object` before it work). It turns them into plain data **on the pipeline thread**
+  (no `PSObject` crosses to the UI thread; values the grid cannot show as such become their string form, `DistinguishedName`
+  values stay recognisable so *Open in the program* works in the grid too) and calls the window service. The service is part 2's
+  interface in the engine (`IAdmWindowServices`: `OpenObject(dn)`, `ShowGrid(table, title)`, `ChooseSavePath(...)`), carried by the
+  context like the reader; part 3's view model implements what is UI-independent and part 4's App implements the rest (opening the
+  object list grid, the *Save As* dialog). The grid's own sorting, filters, copying and CSV export (with formula protection) then
+  work as for any list; nothing is written unless the operator exports (rule 1).
+- **Cancellation** flows the other way: Stop (the button, Ctrl+C, a closed window, the token of `RunAsync`) → `RequestStop` →
+  `PowerShell.BeginStop` → the engine calls `StopProcessing` on the running commands → `AdmCmdlet.StopToken` is cancelled → the
+  directory read (a token of `IDirectoryReader`) is cancelled at the LDAP request (rule 6) → the pipeline ends → the end item.
+
 ## 5. The read commands (part 2)
 
 | Command | Parameters (besides the common `-Properties`, `-SizeLimit`, `-Raw`) | What it does |
