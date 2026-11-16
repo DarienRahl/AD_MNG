@@ -146,9 +146,10 @@ Wynik części 4 R1, sprawdzony w CI na Windows (krok „Smoke test published ap
   warstwę zgodności z Windows PowerShell 5.1. Silnik czyta go z `$PSHOME`, a ustawienie w nim wygrywa z tym samym ustawieniem w pliku
   użytkownika (sprawdzone na Linuksie w części 1); zasady komputera (GPO) mają pierwszeństwo przed oboma, a okno mówi o nich przed
   pierwszym poleceniem.
-- **Rozmiar.** `AdMng.exe` (jeden plik, bez kompresji): 143,7 MB bez silnika, 181,9 MB z silnikiem, czyli **+38,2 MB**; cały folder
-  publikacji 157,5 MB → 194,8 MB (**+37,3 MB**); archiwum artefaktu CI z silnikiem 82,4 MB (pomiar publikacji win-x64 wykonanej
-  na Linuksie tym samym poleceniem co CI, rozmiar artefaktu z CI). Pomiar części 1 (puste programy, +48,4 MB bez kompresji) był
+- **Rozmiar** (MB = 10^6 bajtów; to samo polecenie publikacji co w CI, `-r win-x64 --self-contained -p:PublishSingleFile=true`,
+  uruchomione na Linuksie dla commitu 0.16.0 i dla czoła R1; CI wypisuje te same 173,5 jako „MB”, a to MiB). `AdMng.exe` (jeden
+  plik, bez kompresji): 143,5 MB bez silnika, 181,9 MB z silnikiem, czyli **+38,4 MB**; cały folder publikacji 164,7 MB →
+  204,3 MB (**+39,6 MB**); archiwum artefaktu CI 68,8 MB → 82,4 MB (**+13,6 MB**, pomiar CI). Pomiar części 1 (puste programy, +48,4 MB bez kompresji) był
   wyższy, prawdopodobnie dlatego, że program ma już część tego, co przynosi silnik (biblioteki .NET są w pliku raz).
 - **Pakiet Watchdoga nie zawiera silnika.** Żaden projekt Watchdoga nie odwołuje się do `AdMng.PowerShell` ani do
   `Microsoft.PowerShell.SDK` (test `EngineBoundaryTests`), skrypty pakietu Debian go nie znają, a CI sprawdza, że wynik publikacji

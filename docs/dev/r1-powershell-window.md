@@ -8,10 +8,10 @@ results as objects, `Out-AdmGrid`, *Open in the program*, export, the PowerShell
 harder: the window has a place for a pending plan, and no write command exists. Where this note and the section "R1 as built"
 disagree, "as built" wins.
 
-R1 is built in five parts (the workflow's units): **1** decisions on paper and the engine, **2** the read commands,
+R1 is built in five parts (the workflow's units), all five done: **1** decisions on paper and the engine, **2** the read commands,
 **3** the window's view model, the line editor's model and the policy model, **4** the WPF window, registration, UI tests and
-the Windows decisions (single file, publish layout), **5** documentation for the operator, the readiness item and the closing
-checks. Section 8 says which part builds which file.
+the Windows decisions (single file, publish layout), **5** documentation for the operator and the closing checks (the readiness item
+was optional and is not built). Section 8 says which part was planned to build which file; **section 12.0 is the whole of R1 as built, in one text**.
 
 ## 1. Decisions at a glance
 
@@ -398,6 +398,8 @@ grid window of its own instead of the main window's object list).
 
 ## 8. File and class plan
 
+This is the plan of the parts; the files that exist are in the records of 12.1-12.4 and the totals in 12.0 (the App's editor is `PowerShellEditor.xaml` and the Windows policy reader `WindowsPowerShellPolicySource`, for instance).
+
 | Part | Project | Files (new unless marked) |
 |---|---|---|
 | 1 | docs | `docs/adr/0010-…`, `docs/en/adr/0010-…`, this note, `docs/dev/README.md`, the README pair (Track R "Decided"), `CLAUDE.md` layout rows |
@@ -495,18 +497,170 @@ The criteria about writes and RSAT in the README (the change plan, translated RS
 
 ## 11. Open points
 
-- Whether `powershell.config.json` `PowerShellPolicies` are read by the engine on Windows next to the registry policies, and
-  where `$PSHOME` is in the single-file layout (part 4, Windows).
-- `NUL\ModuleAnalysisCache` as the analysis cache path on Windows (part 4, Windows).
-- The stage S readiness item for the policies and the language mode: optional, added in part 5 only if the readiness check's
-  shape makes it a small addition. (Part 3 gives it its facts: `PowerShellPolicyReader` over a source and
-  `PowerShellPolicyNotes.For`; the item itself is not built.)
-- The two R3 questions of the README ("To be agreed with the team"): the list of translated RSAT commands and the window's
-  credentials for the `ActiveDirectory` module.
+What was open when the design was written and what became of it (the state at the end of R1, with the owner's questions, is in 12.0):
+
+- Whether the engine reads `PowerShellPolicies` from `powershell.config.json` on Windows next to the registry policies, and where `$PSHOME` is in the single-file layout: `$PSHOME` is the program folder (the smoke test in Windows CI
+  shows it); the JSON policies on Windows and the Windows PowerShell keys while `UseWindowsPowerShellPolicySetting` is on are **still unconfirmed** on a machine with such a policy (the reader reports what it finds).
+- `NUL\ModuleAnalysisCache` as the analysis cache path on Windows: the opt-in proof was run on Linux only; **still unconfirmed on Windows**.
+- The stage S readiness item for the policies and the language mode: **not built**; the reader and the note are ready to be reused.
+- The two R3 questions of the README ("To be agreed with the team"): the list of translated RSAT commands and the window's credentials for the `ActiveDirectory` module - **open**.
+- New at the end of R1: the README promises that the window rejects `Start-Transcript` without `-Path`; nothing in R1 does (12.0).
 
 ## 12. R1 as built
 
-Each part adds its block here; the blocks win over the design above.
+Section 12.0 reads the whole of R1 as one text. Sections 12.1 to 12.4 are the records the four parts wrote when they were done (the source comments cite them by number), and 12.5 records part 5. Where a
+record says "not yet" or ends with a question, 12.0 says what became of it. The blocks win over the design above.
+
+### 12.0 R1 in one text
+
+R1 is built. **Nobody has seen the window on a screen.** Sections 12.1 to 12.4 are the records the four parts wrote when they were
+done (the source comments cite them by number); this block is the whole in one text: what exists, how it works, the decisions that
+bind R2 and R3, the counts, what could not be verified and what is open. Where a record below says "not yet" or ends with a
+question, this block says what became of it.
+
+**What exists.** *Tools > PowerShell...*, **Ctrl+Shift+P** and the command palette entry `tools.powershell` open one PowerShell window
+per connection window (a singleton per scope, key `tools:powershell`). It runs an embedded PowerShell 7.6.10
+(`Microsoft.PowerShell.SDK`; 7.7 targets .NET 11) in one runspace of its own, in ConstrainedLanguage, with ten commands of AD Manager and
+our own line editor. The ten commands are all reads or window actions: `Get-AdmVersion`, `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`,
+`Get-AdmComputer`, `Get-AdmGroupMember` (`-Recursive`, `-ExcludeGroups`), `Search-AdmObject`, `Out-AdmGrid`, `Open-AdmObject`,
+`Export-AdmList`. The window has the status line with Stop, the notes that last (what Group Policy records, the trusted mode, the cut
+scrollback), the output (a virtualised list with distinguished names as links), the empty place of the pending plan, the editor
+(colours from the parser's tokens, a completion list, history in memory, Ctrl+R) with *Run* / *Clear*, and the *Trusted mode
+(FullLanguage)* switch behind a confirmation. `Out-AdmGrid` opens a grid window of its own. The window reads the PowerShell policies of the
+workstation when it opens (registry and the two `powershell.config.json` files) and says before the first command what they record.
+The operator's guide is `docs/POWERSHELL.md` / `docs/en/POWERSHELL.md`; the window's first lines name it.
+
+**The pieces and where they live** (files / lines added from the base of R1, `b02d5a03^`, to the end of part 4, `75b100af`; recounted by a script that leaves out the two
+test-stabilisation commits of the orchestrator):
+
+| Project | What it holds | Files / lines |
+|---|---|---|
+| `src/AdMng.PowerShell` (net10.0, App only) | the engine: `PowerShellSession`, `PowerShellEnvironment`, the host, the output channel, language mode, guards, history policy, syntax, completion; the ten commands, the reading code (`Reading/`), completers, default formats, MAML help, `AdmTableBuilder` | 46 / 5,429 |
+| `src/AdMng.Core/PowerShell` | the contracts the window shares with the engine (`IPowerShellSession`, output items, completion, syntax spans, `PowerShellGridTable`); `LdapFilter.Pattern` and `EqualBinary` in `Core/Ldap` | 5 / 345 (+41) |
+| `src/AdMng.Presentation/PowerShell` | the window's view model, editor model, history, scrollback, DN link finder, the policy model and its note, the grid's view model, the window actions, the scoped services | 18 / 3,299 |
+| `src/AdMng.App/PowerShell` | `PowerShellWindow`, `PowerShellEditor`, `PowerShellGridWindow`, `PowerShellRuns`, `StateCheckBox`, `PowerShellSessionFactory`, `WindowsPowerShellPolicySource` | 11 / 1,619 |
+| the rest of the program | registrations (`AppHost`), `SmokeTest.PowerShell.cs`, `powershell.config.json`, the menu and palette entry, `Ad.Font.Mono`, `IDialogService` members, strings (`L.PowerShell.cs`, both resx), the dialog factory | 3 new + 15 changed / +1,019 |
+| tests | `AdMng.PowerShell.Tests` (24 files, 3,685 lines), `AdMng.PowerShell.Probe` (the child process of the "no files" test, 2 / 176), `AdMng.Presentation.Tests` (22 / 4,186), `AdMng.Core.Tests` (2 / 102), `AdMng.Directory.IntegrationTests` (lab, 2 / 213), `AdMng.App.UiTests` (8 / 779) | 60 / 9,141 |
+
+All of parts 1 to 4: 171 files in 28 commits (26 "R1:" commits and 2 test-stabilisation commits of the orchestrator), 135 new and 36 changed, +22,471 / -62 lines. Of these 6 files
+(+1,412 lines) are documentation - the ADR pair, this note, the dev index, `multi-window.md`, the release draft - and 6 more are the README pair, `CLAUDE.md`, `Directory.Packages.props`, `AdMng.slnx` and the CI
+workflow (+166 / -60). Part 5 added the guide pair, the status of Track R in the README pair, the roadmap and the goals, the measured sizes in the ADR pair and the release draft, the guide's name in the window's first
+lines (one string changed in each language, one test) and this block.
+
+**How a command runs.** The editor model asks the engine (through `IPowerShellSession`, which names no PowerShell type) to tokenize,
+complete, decide whether the input is complete and whether a line may enter the history. *Enter* on a complete input makes the view
+model begin an operation on the status line (`OperationWrites.Other`) and call `RunAsync(script)`. On the session's pipeline thread the script
+runs as `script | Out-Default`, error stream merged, in the global scope of the window's runspace; AD Manager's commands read through the
+`ReadOnlyDirectoryReader` of the window's session (async, one object at a time, the pipeline's `StopToken`), the host turns everything written
+into items of a bounded channel (4096), `PumpAsync` hands them to the UI thread in batches, and `PowerShellOutputDocument` keeps the last 20,000 lines
+and finds the distinguished names. `Out-AdmGrid`, `Open-AdmObject` and `Export-AdmList` call back into the window through `IAdmWindowServices` (an adapter over
+`PowerShellWindowActions`) on the pipeline thread and wait there. Stop (button, Ctrl+C, closing the window, the token) goes the other way:
+`BeginStop` -> `StopProcessing` -> the stop token -> the LDAP request, with a 5 s grace period after which the window gives up waiting. Section 4.10
+has the picture.
+
+**Decisions that bind R2 and R3** (each is detailed in the part that made it):
+
+1. *Contracts in Core, the engine App-only* (12.1 decision 1): `AdMng.Presentation` never references an engine project, the Watchdog package never has one
+   (`EngineBoundaryTests` in source, a CI step on the publish output), and every consumer of the engine imports `PowerShellEngineConsumer.props` (the non-OSI `sni` packages).
+2. *The window context reaches a command through the host's `PrivateData`* and holds a `ReadOnlyDirectoryReader` (12.1 decisions 2 and 3). A command cannot write or reach the
+   connector's credential. **R2's writes must come to a command the same way - a separate object of the context that adds operations to the window's pending plan - never the session.**
+3. *The catalog is the one list* (`AdmCommands.Catalog`); `CommandCatalogTests` pins the ten names and allows the verbs Get, Search, Out, Open and Export, and the same test checks that
+   there is no `AD:` drive and no `*-AD*` command. R2 changes the list and the verb test together; R3 flips the `AD:` assertion. `PowerShellRulesTests` pins that the window's presentation code names no
+   write API and that only two files write (the grid's export and the window actions' export).
+4. *The commands do not leave the pipeline thread* (`AdmCmdlet.Wait` / `WriteAll`): any R2 command that waits for the window (a confirmation) does it the same way and passes the stop token.
+5. *Guards are functions* (`Start-Job`, `Import-Module`) over removed cmdlets, so the module-qualified name cannot bypass them; `CommandGuards.AllowedModules` is **empty** and R3 fills it and
+   replaces the `Import-Module` function by a command that checks it. `Get-Credential` is refused and R1 creates no `PSCredential`: R3's credential for the `ActiveDirectory` module is a decision the README still lists.
+6. *The formatted mode is text* (12.1 decision 4): the window shows the engine's formatting, so it has lines, not objects; the objects are real up to `Out-Default`. A count of objects needs a
+   field on `PowerShellRunEndItem` (open point below).
+7. *Read semantics R3 maps to* (12.2): identities are classified, the type of the command is part of the filter, values are typed by the program's own formatter, secrets are masked as the Attribute
+   Editor does and `Search-AdmObject` refuses to compare them, nested membership is the program's own query and **includes the nested groups** (`-ExcludeGroups` is what the AD module's `-Recursive`
+   maps to), every filter is built by `AdmFilterBuilder` from `LdapFilter` (rule 3).
+8. *Status line, close question and notes* (12.3): a command is an operation with `OperationWrites.Other` (R2 sets `writes:` where the plan executes); the policy and trusted-mode notes are
+   one method (`UpdateLasting`) and a command's result covers them until it is closed; the policy note is in four places (status line, layout, first lines, the log copy as a mask).
+9. *The reserved place of the plan* is `PowerShellPendingPlanState` (`PendingPlan.IsVisible`, a collapsed `Border` named `PendingPlanArea` in `PowerShellWindow.xaml`): R2 fills it without changing the layout.
+10. *The editor is a `TextBox` that draws no text over a `TextBlock` that draws it in colours* (12.4 decision 2); newlines are `\r\n` in the box and `\n` in the model (`PowerShellEditorText`).
+11. *`Out-AdmGrid` is a window of its own* (12.4 decision 8), built from the object list's column, sort and density pieces; it is not `ObjectListViewModel`.
+12. *Published layout* (12.4 decision 1, ADR-0010): the single-file `AdMng.exe` runs the engine (no folder fallback was needed); `powershell.config.json` and `AdMng.PowerShell.dll-Help.xml` sit beside it
+    (`ExcludeFromSingleFile`); the engine falls back to the program folder as `$PSHOME`; the help file is found through `AppContext.BaseDirectory`.
+13. *Nothing on disk* (12.1, 4.2): the engine's environment is set before its first use and a probe program proves no file appears; the only writes of the window are operator-requested exports.
+14. *A test seam:* `PowerShellSessionOptions.ExtraCommands` (internal) registers test-only commands outside the catalog.
+
+**Counts** (recounted by a script that reads the catalog, the git diff of the tests and both resx files; results of a local run on Linux):
+
+| What | Number |
+|---|---|
+| Commands in the catalog | 10: 6 `Get-` (`Get-AdmVersion` among them), `Search-`, `Out-`, `Open-`, `Export-`; no write verb |
+| Strings | 92 keys in each of `Strings.resx` and `Strings.pl.resx`: 75 `PowerShell.*`, 16 `PowerShellGrid.*`, 1 `Commands.PowerShell`; 91 constants in `L.PowerShell.cs` |
+| Engine tests (`AdMng.PowerShell.Tests`, Linux and Windows) | 239: 237 passed, 2 skipped by design on each platform (Linux: the Windows-only execution-policy test and the opt-in 40 s cache proof; Windows: the Unix-only positive control and the same opt-in proof) |
+| Presentation tests (Linux) | 253 in `AdMng.Presentation.Tests.PowerShell` (one of them is part 5's test that the window's first lines name the guide), +1 in `ShellViewModelTests`; the project has 3,920 |
+| Core tests (Linux) | 8 of `PowerShellGridTableTests`, 10 cases of `LdapFilter.Pattern` / `EqualBinary`; the project has 5,544 |
+| Lab tests against Samba | 5 (`PowerShellReadLabTests`), skipped without `ADMNG_TEST_LDAP_*`, run by the CI lab job |
+| UI tests (Windows only) | 25 test methods (+6 data rows): 20 of the window, 5 of the editor's parts; the lists of `XamlSourceTests`, `HostTests`, `DesignTokenTests` |
+| Published app | `SmokeTest.PowerShell.cs`: a runspace, `1 + 1`, `Get-AdmVersion`, the ten commands, `Import-Module` refused, the help of a command; both windows rendered in both languages |
+| Sizes (`-r win-x64 --self-contained -p:PublishSingleFile=true`, MB = 10^6 bytes) | `AdMng.exe` 143.5 -> 181.9 MB (+38.4 MB; CI prints 173.5, which is MiB); publish folder 164.7 -> 204.3 MB (+39.6 MB); CI artifact 68.8 -> 82.4 MB (+13.6 MB); the base is the commit of 0.16.0 |
+
+**Checks at the end of R1.** `dotnet build AdMng.slnx -c Release`: 0 warnings, 0 errors. `dotnet test` of `AdMng.PowerShell.Tests`, `AdMng.Presentation.Tests` and `AdMng.Core.Tests`: all pass (numbers above).
+`tools/release/release.sh check`, `python3 tools/icon/build-icon-set.py --check` and `python3 tools/docs/check_docs.py`: OK. The last Windows CI run before part 5 (run 43927187726, head `75b100af`) was green on every job, including
+the published-app smoke test that starts the engine and the two CI steps that check the published layout (no `sni*.dll`, the config and help files present) and the Watchdog package (no engine).
+
+**What could not be verified, and why it should still be right.**
+
+- *Nobody has seen the window.* The coloured layer under the transparent box (alignment with the caret), the selection and caret in every theme, High Contrast (the colours collapse to the text colour), the
+  completion popup near the edge of the screen, 125-200 % scaling, the narrow widths of the grid window, the width of the output in characters with a scroll bar, a screen reader (the completion list is not announced).
+  The UI tests drive the real window over the real engine and a fake directory and found one binding error; a person has not looked.
+- *Policies under a real GPO.* The registry keys come from the engine's own metadata and the documented templates, and the reader's rules are tested on Linux; whether the engine reads the Windows PowerShell keys instead of or besides the
+  PowerShell 7 ones while `UseWindowsPowerShellPolicySetting` is on, and whether it reads the JSON policies on Windows at all, is not confirmed. The worst case is a note about a setting the engine ignores, never a missing note.
+- *WDAC / AppLocker.* The lockdown probe is `SystemPolicy.GetSystemLockdownPolicy()` and its mapping is tested with a fake; the engine under a real lockdown has not been run.
+- *`PSModuleAnalysisCachePath` = `NUL\ModuleAnalysisCache` on Windows.* The opt-in 40 s proof (`ADMNG_POWERSHELL_SLOW_TESTS=1`) was run on Linux only; auto-loading is off, which stops the cache being written by discovery, and the path is the second line of defence.
+- *A real Windows Server AD.* The commands ran over `FakeDirectorySession` and the Samba lab; the lab has no Windows-only behaviour (a hidden attribute, ranged retrieval differences, the DC's computed `msDS-User-Account-Control-Computed`).
+- *Running `AdMng.exe` as a person would.* The CI starts it with `--smoke-test` and the UI tests; the first runspace took 523-791 ms there and the second 9-12 ms.
+
+**Deviations from the owner's brief** (the owner delegated the decisions D1-D9; these are the places where the build differs from the text, with the reason):
+
+1. *No object items in the formatted mode and no "N objects"* - the window shows the engine's formatted text (the console model); `PowerShellRunEndItem` carries `HadErrors`, not a count (12.1, 12.3).
+2. *"All MIT" became "all OSI-approved"* - four `sni` packages (Microsoft .NET Library licence) are excluded with a test; a script in the trusted mode that uses `System.Data.SqlClient` finds no `sni.dll` (ADR-0010).
+3. *The size*: `AdMng.exe` grew by +38.4 MB uncompressed (the README's 19 / 54 MB were estimates; an empty program measured +17.0 / +48.4 MB, part 1).
+4. *`Out-AdmGrid` opens a window of its own*, not the program's object list (D6; 12.4 decision 8).
+5. *The policy types are in Presentation*, not Core (12.3 decision 1); the raw reader interface is `IPowerShellPolicySource`.
+6. *No `.ps1` guard on Linux* (the execution policy exists on Windows only; the window is Windows only).
+7. *`Get-AdmGroupMember -Recursive` includes the nested groups* (the program's *All (nested)* list) instead of the leaves `Get-ADGroupMember -Recursive` returns; `-ExcludeGroups` gives that.
+8. *The operator-readable secrets are shown* (the clear-text LAPS password, a BitLocker recovery password): "as the Attribute Editor" was read literally; the guide and the policy note warn.
+9. *The editor is a `UserControl`* with a `TextBox` for editing (12.4 deviation 2), and the monospace font is a new design token `Ad.Font.Mono`.
+10. *Extra commands and parameters beyond D4:* `Get-AdmVersion`, `-ExcludeGroups`, `-ObjectClass`, `-Match`, the identity forms `<GUID=...>` and `<SID=...>`.
+11. *Parts of the README's "Security and data" are promises of later stages*: the window rejecting `Start-Transcript` without `-Path` is not built (below).
+
+**Open for R2** (writes through the change plan):
+
+- the write commands (`Set-AdmObject`, `New-AdmUser`, ... the names the README reserves) as commands of the catalog that add operations to the window's pending plan, with the object of the context that carries them (decision 2);
+- the panel in `PendingPlanArea` (count, *Preview...*, *Execute*, *Clear*) and `Show-AdmPlan`, `Clear-AdmPlan`, `Invoke-AdmPlan` (the last only opens the preview); execution through `IChangePlanner` / `IBatchExecutor` with audit, report, retry and rollback, and `writes:` set on the status line;
+- passwords in write commands only as `SecureString` or generated by the program; a warning before `-AsPlainText` (the history already refuses such a line);
+- copying an operation from the history of equivalent PowerShell commands into the window;
+- the guard on `Start-Transcript` without `-Path` that the README promises (today `Start-Transcript`, `Export-Csv` and `Out-File` write where the operator points them - checked: they work in the window);
+- `CommandCatalogTests` (names, verbs), `PowerShellRulesTests` (no write API in the presentation code) and `EngineBoundaryTests` change together with the commands.
+
+**Open for R3** (RSAT modules):
+
+- `CommandGuards.AllowedModules` and the `Import-Module` command; the `ActiveDirectory` and `GroupPolicy` modules pointed at the window's DC (`$PSDefaultParameterValues`), the read-only `AD:` drive, the translated write commands and the refusals;
+- the two README questions: which RSAT write commands to translate, and the window's credential for the `ActiveDirectory` module (a `PSCredential` in a script's reach reveals the password in every language mode);
+- ADWS exists only on Windows Server (the Samba lab has none), the `GroupPolicy` module and the Windows PowerShell compatibility layer (`powershell.config.json` already sets `DisableImplicitWinCompat`);
+- snippets saved in the settings (only code typed by the operator); track C reuses the same engine.
+
+**Open in R1 itself** (small, none blocks R2):
+
+- the stage S readiness item for the PowerShell policies and the language mode: not built; `PowerShellPolicyReader` over `WindowsPowerShellPolicySource` and `PowerShellPolicyNotes` are ready to be reused, and it is a new row with its strings and a test;
+- "N objects" in the status line (an engine count), `LockedOut` with the domain's lockout duration, members by primary group in `Get-AdmGroupMember`;
+- the completion list is not announced to a screen reader; `Out-AdmGrid` has no `-PassThru` / `-Wait`; whether the grid should become a tab of the main window;
+- the Windows checks listed above (policies under a real GPO, WDAC, the `NUL` cache path).
+
+**Questions that remain for the owner.**
+
+1. Should a person look at the window on Windows (light, dark, High Contrast, 125-200 % scaling, a screen reader) before it is announced in a release? The release draft says nobody has.
+2. Is an all-users `powershell.config.json` beside `AdMng.exe` acceptable to the operators' security teams? It turns off the engine's own transcription and logging that a user's file turned on; a computer policy still wins and the window says so.
+3. Should the behaviour under a real WDAC / AppLocker and a real recording GPO get a pilot on a managed machine before R2 adds writes?
+4. Should `sni.dll` be offered in some OSI-compatible way for trusted-mode scripts that need SqlClient, or is the documented limit enough?
+5. Should the operator-readable secrets (LAPS, BitLocker) be masked in the window too (one line in `AdmValueConverter`; the Attribute Editor would then differ), or is the warning enough?
+6. Should `Start-Transcript` without `-Path` be refused in R1.x rather than waiting for R2?
+7. The flaky connector timeout and DNS tests of the Windows runner (fixed twice in the CI history by widening bounds) may need a shared helper.
 
 ### 12.1 Part 1 – decisions and the engine
 
@@ -517,8 +671,8 @@ output channel and the stop logic; `PowerShellEnvironment`; the lockdown probe; 
 `src/AdMng.Core/PowerShell` (`IPowerShellSession`, the output items, completion, syntax spans, the enums), the package
 (`Microsoft.PowerShell.SDK` 7.6.10 in `Directory.Packages.props`, with the four excluded `sni` packages and
 `PowerShellEngineConsumer.props`) and `tests/AdMng.PowerShell.Tests` (128 tests: 126 run, 2 skipped by design – the Windows
-execution policy and the opt-in 40 s cache proof) with the child-process program `tests/AdMng.PowerShell.Probe`. Nothing is visible to the operator yet: `AdMng.App` does not reference the
-engine until part 4, and there is no release note.
+execution policy and the opt-in 40 s cache proof) with the child-process program `tests/AdMng.PowerShell.Probe`. At that time nothing was visible to the operator (`AdMng.App` did not reference the
+engine until part 4, and there was no release note); 12.0 has the whole.
 
 **Decisions of part 1 that the later parts follow** (each with its reason):
 
@@ -589,7 +743,7 @@ The result of the last Windows run is recorded in the report of the part.
   the settings of 4.2 (tested in `EnvironmentTests`) are what carries the proof.
 - *Whether the engine reads `PowerShellPolicies` from `powershell.config.json` on Windows* next to the registry; the D7 reader
   will read both, so the note is right either way.
-- *The single-file layout:* where `$PSHOME` points and whether the four modules are found (part 4).
+- *The single-file layout:* where `$PSHOME` points and whether the four modules are found (part 4) - settled in 12.4 decision 1: the single file runs the engine and `$PSHOME` is the program folder.
 
 **Deviations from the task text.** (1) No `Object` item in the formatted mode: results are shown as the engine's formatted
 text (the console model); an `Object` item exists in object mode only (decision 5). (2) The end item carries `HadErrors`
@@ -598,10 +752,9 @@ with a test, instead of "all MIT" (ADR-0010 "Package licenses"). (4) The README'
 (5) `AdMng.Core/PowerShell` (the contracts) is new Core code, not named in the task. (6) The tests start a probe program of their own (`tests/AdMng.PowerShell.Probe`, one more project in the solution); a child
 process is the only way to set `HOME` and the like before the runtime starts.
 
-**Open questions for the next parts.** Where the grid takes its columns from (part 2 reads `ObjectListViewModel` and its
-columns model); how the window shows a stream's text (part 3: the glyphs and colours of the status line apply to the window's
-own messages, the output area has its own colours); whether `Out-AdmGrid` posts a table through the context or calls a window
-service (decide in part 2 together with `Open-AdmObject` and `Export-AdmList`); whether the stage S readiness item fits.
+**Open questions for the next parts, and what became of them.** Where the grid takes its columns from: the grid is a window of its own built from the object list's column, sort and density pieces (12.4 decision 8). How the window shows a
+stream's text: lines with a glyph column for errors, warnings and notes and the theme's colours (12.4 decision 6). Whether `Out-AdmGrid` posts a table through the context or calls a window service: a window service,
+`IAdmWindowServices`, adapted over `PowerShellWindowActions` (12.4 decisions 9 and 10). Whether the stage S readiness item fits: not built (12.0).
 
 ### 12.2 Part 2 – the read commands
 
@@ -721,7 +874,7 @@ help in `Help/AdMng.PowerShell.dll-Help.xml`, and in Core `LdapFilter.Pattern` a
     example, when a parameter has no description or when the help lists a parameter the command does not have. The XML is the source (it was generated once from
     the commands' metadata and written by hand after that). In a **single-file** `AdMng.exe` `Assembly.Location` is empty, the file is not found and `Get-Help` falls back to the
     engine's generated syntax without descriptions and examples – part 4 decides whether the publish layout puts the file beside `AdMng.exe` (then
-    `HelpFilePath` must look in `AppContext.BaseDirectory`).
+    `HelpFilePath` must look in `AppContext.BaseDirectory`) - it does, and it does (12.4 decision 1).
 14. *The engine project references no new package and the lab tests reference the engine:* `tests/AdMng.Directory.IntegrationTests` got a project reference
     to `AdMng.PowerShell` and the `PowerShellEngineConsumer.props` import (the lab job restores the PowerShell SDK too).
 
@@ -739,10 +892,10 @@ part). Things only Windows can show: the table of a long DN (`…` is the engine
 call as the program's formatter); the help file when the engine runs from a published folder (above); and the completer's nested pipeline in the STA runspace of Windows
 (the engine's `ThreadOptions = ReuseThread` is the same on both systems; the completion test runs in the Windows job).
 
-**Open questions for the next parts.** (1) Part 3: the DN link finder and the `…` of a cut table (decision 10). (2) Part 4: where the help file goes in the
-published layout (decision 13); whether `Out-AdmGrid` takes its columns from the objects' properties (`DistinguishedName` is the first one on every object, the attribute
-properties follow in request order). (3) Whether `LockedOut` should use the domain's lockout duration like the list (it needs a read of the domain head; the
-DC's computed flag is used when it is returned). (4) `Get-AdmGroupMember` does not list the members whose primary group it is (as the Members tab does not).
+**Open questions for the next parts, and what became of them.** (1) Part 3: the DN link finder and the `…` of a cut table (decision 10) - settled in 12.3 decision 12. (2) Part 4: where the help file goes in the
+published layout (decision 13) - beside `AdMng.exe` (12.4 decision 1); whether `Out-AdmGrid` takes its columns from the objects' properties (`DistinguishedName` is the first one on every object, the attribute
+properties follow in request order) - it does (12.4 decision 9). (3) Whether `LockedOut` should use the domain's lockout duration like the list (it needs a read of the domain head; the
+DC's computed flag is used when it is returned) - still open (12.0). (4) `Get-AdmGroupMember` does not list the members whose primary group it is (as the Members tab does not) - kept, open for the owner (12.0).
 
 ### 12.3 Part 3 - the window's view model, the line editor's model and the policies
 
@@ -846,11 +999,11 @@ The tests use a fake `IPowerShellSession` whose "pipeline" has a thread of its o
 **What could not be verified on Linux, and why it should still be right.** How the view draws any of it (nobody has looked; part 4 writes the view against the properties above); the Windows source of the policies (the keys come from the engine's metadata and the documented templates, the rules are tested here); whether the engine's `Write-Progress`, `Read-Host` and `-Confirm`
 arrive as the items the fake streams (part 1 tests them against the real host); the timing of the UI-thread hand-over under the real `Dispatcher` (the logic is the same as the list loads', and the Windows UI test of part 4 holds a command and watches the line).
 
-**Open questions for the next parts.**
+**Open questions for the next parts, and what became of them.**
 1. *"N objects" in the status line* needs a count from the engine (`PowerShellRunEndItem` has none); the line says lines of output meanwhile. A proposal: the engine counts what reaches `Out-Default`, or the commands report what they wrote through the context.
 2. *`UseWindowsPowerShellPolicySetting`:* where the switch lives (read from the `PowerShellCore` key of either hive here) and whether the Windows PowerShell keys replace or add to the PowerShell 7 ones is to be confirmed on a machine with such a GPO (part 4's Windows run can read what the engine reports for the same keys).
-3. *The default actions in Presentation:* `IPowerShellWindowActions` is only a contract; the logic that does not need WPF - the GUID lookup of `Open-AdmObject`, *Save As* and the CSV file of `Export-AdmList` - could be a Presentation class with a Linux test (it needs one new member, "show a table in the grid", from the host); part 4 decides.
-4. *Where the policy note lives:* as the lasting state of the status line it is covered by every command's result until the result is closed (V2 behaviour). If the owner prefers it always visible, it is `PolicyNoteText` - a note (`Ad.Note.Attention`) in the window's layout costs the view one line, and the view model needs nothing.
+3. *The default actions in Presentation:* `IPowerShellWindowActions` is only a contract; the logic that does not need WPF - the GUID lookup of `Open-AdmObject`, *Save As* and the CSV file of `Export-AdmList` - could be a Presentation class with a Linux test (it needs one new member, "show a table in the grid", from the host); part 4 decides - decided: `PowerShellWindowActions` is a Presentation class (12.4 decision 10).
+4. *Where the policy note lives:* as the lasting state of the status line it is covered by every command's result until the result is closed (V2 behaviour). If the owner prefers it always visible, it is `PolicyNoteText` - a note (`Ad.Note.Attention`) in the window's layout costs the view one line, and the view model needs nothing - part 4 built that note in the layout (12.4 decision 6).
 5. *The stage S readiness item* can reuse `PowerShellPolicyReader` and `PowerShellPolicyNotes` as they are.
 
 ### 12.4 Part 4 - the window, the grid, the engine in the program
@@ -874,7 +1027,7 @@ a window) and `WindowsPowerShellPolicySource` (the registry and the two config f
    location of the bundled assembly the engine takes the folder of the program (also seen on Linux in a single-file publish). Two things
    had to change for it: `Assembly.Location` (empty in a single file; the analyser IL3000 fails the single-file build) is not used for the help
    file any more - it is looked up in `AppContext.BaseDirectory` - and `PowerShellEnvironment.EngineHome` reads it under a pragma that says why.
-   Sizes: `AdMng.exe` 143.7 MB -> 181.9 MB (+38.2 MB, uncompressed single file), the publish folder 157.5 MB -> 194.8 MB, the CI artifact 82.4 MB.
+   Sizes (re-measured in part 5 with one method, 12.0): `AdMng.exe` 143.5 MB -> 181.9 MB (+38.4 MB, uncompressed single file), the publish folder 164.7 MB -> 204.3 MB, the CI artifact 68.8 MB -> 82.4 MB.
 2. *The editor is a `TextBox` that draws no text and a `TextBlock` under it that draws the text in colours* (the header of `PowerShellEditor.xaml`).
    The box edits (selection, undo, clipboard, input methods, a screen reader reads it); its `Foreground` is transparent and its template is
    the bare text host. The layer is built from the model's `Spans` as `Run`s with `SetResourceReference` to the theme's text brushes (command, keyword and type
@@ -950,3 +1103,25 @@ has no "N objects" (unit 3). (6) The policy note is in four places (decision 6).
 **Open questions.** (1) The completion list is not announced to a screen reader (no UI Automation event is raised for the selected match). (2) Should the grid of `Out-AdmGrid` become a tab of the main window? A window per call is `Out-GridView`'s model, a tab would need `IShellDocument`. (3) Should `Out-AdmGrid` accept `-PassThru`
 and `-Wait` like `Out-GridView`? (4) `LockedOut` ignores the domain's lockout duration (part 2) - the grid shows what the command returned. (5) The stage S readiness item for the policies and the lockdown is not built (the reader is ready: `PowerShellPolicyReader` over `WindowsPowerShellPolicySource`); the readiness
 check's shape (a list of facts of this computer, each with a state and a way to fix it) would make it a small addition, but it is a new row, its strings and a test of its own, and nobody asked for it in this part - left for part 5 or the owner.
+
+### 12.5 Part 5 - the guide, the status, the recount
+
+**What exists.** The operator's guide as a Polish / English pair (`docs/POWERSHELL.md`, `docs/en/POWERSHELL.md`: twelve chapters - the window and how to open it, the commands with an example each, escaping, results and the
+grid, exporting, history, the language modes and the trusted mode, what Group Policy logging does, what it does not do yet, keyboard, troubleshooting, limits and the pilot; the transcripts in it are real runs of the commands over the
+test directory); the guide's name in the window's first lines (`PowerShell.Welcome.Help`, both languages), because the other windows name their guide in plain text where they need to (the readiness check and some
+error messages: `docs/en/COMPUTERS.md`) and there is no other link mechanism before the page header of track V3; the Features entry, the roadmap row and the stage line of Track R in the README pair (heading `Track R - PowerShell window 🟡 (R1: 🟡)`
+with its anchors), `ROADMAP` and `GOALS` in both languages, the pilot scenarios PW1-PW10 (`PILOT.md` / `PILOTAZ.md` 3.7), the English-name list of `CLAUDE.md` (`POWERSHELL.md` = `POWERSHELL.md`), the release draft (`docs/releases/NEXT.md`, one set for R1 with the measured sizes) and
+this block of the design note (12.0 as the one text, the open questions of 12.1-12.4 closed or carried).
+
+**Decisions of part 5.**
+
+1. *The guide links nowhere but names its document* in the window (decision above); the guide itself links the design note and the ADR.
+2. *Sizes are measured again, with one method*: the same `dotnet publish` as CI for the commit of 0.16.0 (`76a4de49`) and for the head of R1 - `AdMng.exe` 143.5 -> 181.9 MB; part 4's 157.5 -> 194.8 for the folder look like MiB under the name MB (this measurement gives 157.1 -> 194.9 MiB), and
+   the ADR pair now says which unit is which. CI prints MiB under the name "MB" (`1MB` of PowerShell), so its 173.5 is the 181.9 here.
+3. *The guide says what the code does, not what the README promises*: `Start-Transcript`, `Export-Csv` and `Out-File` work in the window and write where they are pointed (checked by running them); the README's sentence that the window rejects
+   `Start-Transcript` without `-Path` belongs to a later stage and is listed in 12.0 as open.
+4. *The recount is a script* that reads the catalog, the git diff of the tests (declared `[Fact]`/`[Theory]`, `[InlineData]` rows) and both resx files, and leaves out the two test-stabilisation commits that are not R1; the numbers of 12.0 come from it and from
+   `dotnet test` of the three projects.
+
+**What could not be verified.** The guide's Polish text was written by the engineer of this part and read for diacritics and terms against `Strings.pl.resx`, not by a native editor; the "real session" in it comes from the test directory
+(`contoso.test`, the sample company), not from a domain.

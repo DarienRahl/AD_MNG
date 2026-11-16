@@ -140,6 +140,26 @@ i szczegóły: [CERTYFIKATY.md, rozdział 11](CERTYFIKATY.md#11-ograniczenia-i-p
   [KORESPONDENCJA.md, rozdział 14](KORESPONDENCJA.md#14-lista-kontrolna-pilotażu) – klasyczny Outlook 32- i 64-bitowy,
   wysyłka jako i w imieniu, obrazy, głosowania, Exchange lokalny i Online.
 
+### 3.7 Okno PowerShell (R1)
+
+Tylko odczyt: okno niczego nie zmienia w AD. Nikt jeszcze nie widział go na ekranie, więc pierwsze scenariusze dotyczą
+patrzenia. Uruchom je raz kontem helpdesku i raz administratorem pilotażu.
+
+| # | Scenariusz | Oczekiwany wynik | Porównaj z |
+|---|---|---|---|
+| PW1 | *Narzędzia → PowerShell…* i **Ctrl+Shift+P** z dwóch okien połączeń; wpisz `Get-AdmUser -Department 'IT' -Pro` i naciśnij **Tab**; obejrzyj okno w motywie jasnym, ciemnym i wysokiego kontrastu przy skalowaniu 125 %–200 % | jedno okno na połączenie, w tytule domena, DC i konto; kolory dobrze się czyta, kursor stoi na tekście, lista uzupełnień otwiera się przy kursorze i nie wychodzi poza ekran | – |
+| PW2 | `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer` z kilkoma filtrami (także `-Properties`, `-SearchBase`), 20 obiektów porównanych jeden po drugim | te same obiekty i wartości co na listach programu i w Edytorze atrybutów; daty w czasie lokalnym, flagi jako nazwy | listy programu, `Get-ADUser` |
+| PW3 | `Get-AdmGroupMember <grupa> -Recursive` dla grupy z grupami zagnieżdżonymi (i cyklem); z `-ExcludeGroups` | ta sama lista co *Wszyscy (zagnieżdżeni)* na stronie *Członkowie*; `-ExcludeGroups` daje tylko konta i komputery | `Get-ADGroupMember -Recursive` |
+| PW4 | `Search-AdmObject` z wartościami zawierającymi `(`, `)`, `*`, `\` i polskie litery (utwórz takie obiekty w jednostce testowej) | tylko obiekty z dokładnie taką wartością (albo `-Match StartsWith`); bez dodatkowych wyników | – |
+| PW5 | `Get-AdmUser … \| Out-AdmGrid`: sortowanie, filtr, **Enter** na wierszu, **Ctrl+C** do Excela, *Eksportuj listę…*; `Export-AdmList` ze ścieżką, bez ścieżki (*Zapisz jako*), na istniejący plik | siatka i CSV mają te same wartości; formuła w wartości (`=1+1`) nie uruchamia się w Excelu; istniejący plik jest zastępowany tylko z `-Force` | lista obiektów |
+| PW6 | Włącz transkrypcję (potem rejestrowanie bloków skryptów) zasadami grupy dla konta pilotażu, otwórz okno, wykonaj polecenie | przed pierwszym poleceniem okno mówi, co jest rejestrowane i gdzie; transkrypcja zawiera polecenia i wyniki; okno nie próbuje tego omijać | GPO, folder transkrypcji, dziennik *PowerShellCore/Operational* |
+| PW7 | Komputer z WDAC albo AppLocker wymuszającym ConstrainedLanguage | okno zostaje w trybie ograniczonym, przełącznik *Tryb zaufany* jest wyłączony z podanym powodem, polecenia AD Managera działają | `$ExecutionContext.SessionState.LanguageMode` |
+| PW8 | Tryb zaufany: włącz, wykonaj wywołanie .NET, zamknij okno, otwórz nowe | najpierw pytanie z nazwą domeny; tytuł i uwaga mówią *tryb zaufany*; nowe okno znów jest w trybie ograniczonym | – |
+| PW9 | Polecenie, które zwraca 100 000 obiektów, potem **Zatrzymaj**; zamknięcie okna w trakcie polecenia | okno pozostaje responsywne, Zatrzymaj kończy odczyt na DC, zamknięcie zadaje pytanie; po zamknięciu w profilu i w *Temp* nie zostaje plik z danymi katalogu | Process Monitor |
+| PW10 | Narrator albo NVDA w oknie | wiersz poleceń, wyniki i wiersz stanu są czytane; lista uzupełnień nie jest ogłaszana (znane) | – |
+
+Ograniczenia i szczegóły: [POWERSHELL.md, rozdział 12](POWERSHELL.md#12-ograniczenia-i-pilotaż).
+
 ## 4. Zgłaszanie problemów
 
 **Pomoc → Zgłoś problem…** tworzy opis bez danych katalogu: wersja programu i systemu, sposób połączenia (bez nazw

@@ -150,9 +150,10 @@ The result of part 4 of R1, checked in Windows CI (the step "Smoke test publishe
   Windows PowerShell 5.1 compatibility layer. The engine reads it from `$PSHOME`, and a setting there wins over the same
   setting in a user's file (checked on Linux in part 1); the computer's policies (GPO) take precedence over both, and the window
   says what they record before the first command.
-- **Size.** `AdMng.exe` (one file, uncompressed): 143.7 MB without the engine, 181.9 MB with it, that is **+38.2 MB**; the whole
-  publish folder 157.5 MB → 194.8 MB (**+37.3 MB**); the CI artifact archive with the engine is 82.4 MB (measured on a win-x64
-  publish made on Linux with the command CI uses; the artifact size from CI). The measurement of part 1 (empty programs, +48.4 MB
+- **Size** (MB = 10^6 bytes; the same publish command as CI, `-r win-x64 --self-contained -p:PublishSingleFile=true`, run on Linux for
+  the commit of 0.16.0 and for the head of R1; CI prints the same 173.5 as "MB", which is MiB). `AdMng.exe` (one file, uncompressed):
+  143.5 MB without the engine, 181.9 MB with it, that is **+38.4 MB**; the whole publish folder 164.7 MB → 204.3 MB (**+39.6 MB**);
+  the CI artifact archive 68.8 MB → 82.4 MB (**+13.6 MB**, measured by CI). The measurement of part 1 (empty programs, +48.4 MB
   uncompressed) was higher, probably because the program already has part of what the engine brings (the .NET libraries are in the file once).
 - **The Watchdog package has no engine.** No Watchdog project references `AdMng.PowerShell` or `Microsoft.PowerShell.SDK` (test
   `EngineBoundaryTests`), the scripts of the Debian package do not know it, and CI checks that the publish output of the

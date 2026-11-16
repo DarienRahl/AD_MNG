@@ -22,7 +22,6 @@ A design note is written before a stage is built and gets an "as built" part whe
 |---|---|---|
 | [v-interface-renewal.md](v-interface-renewal.md) | V – interface renewal (look, motion, icons) | V1 and V2 built (as-built notes V1a–V1c and V2a–V2b-5b in section 8; nothing of V2 seen on a screen yet), V3–V7 planned; decisions for the owner in section 9; clickable prototype: [prototypes/interface-renewal.html](prototypes/interface-renewal.html) |
 | [ideas-logontracer.md](ideas-logontracer.md) | E – event logs | ideas for later review |
-| [r1-powershell-window.md](r1-powershell-window.md) | R – the PowerShell window, stage R1 (window and reads) | designed; R1 is built in five parts and the as-built block records each; decisions: [ADR-0010](../en/adr/0010-powershell-window-embedded-engine.md); R2 (writes through the change plan) and R3 (RSAT) are planned in the README |
 
 ## Design notes of what is built
 
@@ -41,6 +40,7 @@ A design note is written before a stage is built and gets an "as built" part whe
 | [k-computers-and-gpo.md](k-computers-and-gpo.md) | K – computers and Group Policy (K1–K7) |
 | [e-event-logs.md](e-event-logs.md) | E – event log reader and analyses |
 | [p-certificate-services.md](p-certificate-services.md) | P – AD Certificate Services (P1 built, P2–P5 planned) |
+| [r1-powershell-window.md](r1-powershell-window.md) | R – the PowerShell window, stage R1 (built, nothing seen on a screen yet; 12.0 is the whole as built and says what is open for R2 and R3; [ADR-0010](../en/adr/0010-powershell-window-embedded-engine.md), [guide](../en/POWERSHELL.md)) |
 | [watchdog-spec.md](watchdog-spec.md) | W – AdMng Watchdog, specification v1 |
 | [watchdog-linux-design.md](watchdog-linux-design.md) | W – the service on Debian (stage B; wins over the specification where they disagree) |
 

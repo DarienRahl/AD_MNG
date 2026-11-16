@@ -361,6 +361,8 @@ pilot on Windows has to confirm:
   come from the engine's own code and the documented templates) and the engine under **WDAC / AppLocker**;
 - the commands against a **real Windows Server AD** (the tests ran over a fake directory and a Samba domain controller).
 
+The scenarios for the pilot are in [PILOT.md, chapter 3.7](PILOT.md#37-powershell-window-r1).
+
 Other limits: PowerShell 7.6 makes `AdMng.exe` about 38 MB larger, and every PowerShell security update means a new AD
 Manager release. A script in the trusted mode that uses `System.Data.SqlClient` does not find `sni.dll` (the package is not
 open source, so it is left out). The engine is not in the Watchdog package.

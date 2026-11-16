@@ -360,6 +360,8 @@ musi potwierdzić:
   pochodzą z kodu samego silnika i z udokumentowanych szablonów) oraz silnik pod **WDAC / AppLocker**;
 - polecenia na **prawdziwym Windows Server AD** (testy przeszły nad sztucznym katalogiem i kontrolerem Samba).
 
+Scenariusze pilotażu są w [PILOTAZ.md, rozdział 3.7](PILOTAZ.md#37-okno-powershell-r1).
+
 Inne ograniczenia: PowerShell 7.6 powiększa `AdMng.exe` o około 38 MB, a każda poprawka bezpieczeństwa PowerShella oznacza nowe
 wydanie AD Managera. Skrypt w trybie zaufanym, który używa `System.Data.SqlClient`, nie znajdzie `sni.dll` (pakiet nie jest
 otwartoźródłowy, więc go pominięto). Silnika nie ma w pakiecie Watchdoga.

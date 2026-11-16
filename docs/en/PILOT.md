@@ -142,6 +142,26 @@ Limitations and details: [CERTIFICATES.md, chapter 11](CERTIFICATES.md#11-limita
   [CORRESPONDENCE.md, chapter 14](CORRESPONDENCE.md#14-pilot-checklist) – classic Outlook 32- and 64-bit,
   sending as and on behalf of, images, voting, on-premises Exchange and Exchange Online.
 
+### 3.7 PowerShell window (R1)
+
+Reads only: the window changes nothing in AD. Nobody has seen it on a screen yet, so the first scenarios are about looking.
+Run it once with a helpdesk account and once with the pilot administrator.
+
+| # | Scenario | Expected result | Compare with |
+|---|---|---|---|
+| PW1 | *Tools → PowerShell…* and **Ctrl+Shift+P** from two connection windows; type `Get-AdmUser -Department 'IT' -Pro` and press **Tab**; look at the window in the light, dark and High Contrast themes at 125 %–200 % scaling | one window per connection, the domain, DC and account in the title; the colours read well, the caret stays on the text, the completion list opens at the caret and does not leave the screen | – |
+| PW2 | `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer` with several filters (also `-Properties`, `-SearchBase`), 20 objects compared one by one | the same objects and values as in the program's lists and the Attribute Editor; dates in local time, flags as names | the program's lists, `Get-ADUser` |
+| PW3 | `Get-AdmGroupMember <group> -Recursive` for a group with nested groups (and a cycle); with `-ExcludeGroups` | the same list as *All (nested)* on the *Members* page; `-ExcludeGroups` gives only accounts and computers | `Get-ADGroupMember -Recursive` |
+| PW4 | `Search-AdmObject` with values containing `(`, `)`, `*`, `\` and Polish letters (create such objects in the test OU) | only the objects with exactly that value (or `-Match StartsWith`); no extra results | – |
+| PW5 | `Get-AdmUser … \| Out-AdmGrid`: sort, filter, **Enter** on a row, **Ctrl+C** into Excel, *Export list…*; `Export-AdmList` with a path, without a path (*Save As*), onto an existing file | the grid and the CSV hold the same values; a formula in a value (`=1+1`) is not run in Excel; an existing file is replaced only with `-Force` | the object list |
+| PW6 | Turn on transcription (then script block logging) by Group Policy for the pilot account, open the window, run a command | before the first command the window says what is recorded and where; the transcript holds the commands and the results; the window does not try to avoid it | the GPO, the transcript folder, the *PowerShellCore/Operational* log |
+| PW7 | A machine with WDAC or AppLocker enforcing ConstrainedLanguage | the window stays constrained, the *Trusted mode* switch is disabled with the reason, AD Manager's commands work | `$ExecutionContext.SessionState.LanguageMode` |
+| PW8 | The trusted mode: turn it on, run a .NET call, close the window, open a new one | a question that names the domain first; the title and a note say *trusted mode*; the new window is constrained again | – |
+| PW9 | A command that returns 100,000 objects, then **Stop**; close the window while a command runs | the window stays responsive, Stop ends the read at the DC, closing asks the question; after closing no file with directory data is left in the profile and *Temp* | Process Monitor |
+| PW10 | Narrator or NVDA on the window | the command line, the output and the status line are read; the completion list is not announced (known) | – |
+
+Limitations and details: [POWERSHELL.md, chapter 12](POWERSHELL.md#12-limitations-and-pilot).
+
 ## 4. Reporting problems
 
 **Help → Report a problem…** creates a description without directory data: the program and system version, the connection
