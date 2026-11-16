@@ -162,6 +162,9 @@ public sealed class PkiOverviewUiTests
         // Filters that no template passes: the list says so - once, in the place of the rows - and offers to clear the filters.
         document.SearchText = "zzz-no-such-template";
         await UiWait.UntilAsync(() => view.TemplatesList.Items.Count == 0 && state.IsVisible, "the empty state of the filters");
+
+        // (A control that was collapsed has no template until it is laid out once: the parts are looked up after that.)
+        view.UpdateLayout();
         var action = ControlHost.Part<Button>(state, EmptyState.ActionPartName);
         Assert.Equal("Żaden szablon nie pasuje do filtrów.", state.Message);
         Assert.Equal("Wyczyść filtry", action.Content);

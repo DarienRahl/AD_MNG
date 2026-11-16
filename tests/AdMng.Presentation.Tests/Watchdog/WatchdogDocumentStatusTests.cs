@@ -281,8 +281,11 @@ public sealed class WatchdogDocumentStatusTests
         {
             var tab = await h.OpenAsync(visible: true);
 
-            // The feed fails while the Rules tab is shown: the line says what the Rules tab says, not the feed's error.
+            // The feed fails while the Rules tab is shown: the line says what the Rules tab says, not the feed's error. The tab is
+            // visible, so its poller reads the feed too: the refusal is queued once the poller waits in its long-poll, or the
+            // poller could take it and the feed's own read would succeed (it did, on a loaded runner).
             tab.SelectedSubTab = WatchdogSubTab.Rules;
+            await WatchdogTestWait.LongPollAsync(h);
             h.Client.FailNext(nameof(IWatchdogClient.GetEventsAsync), new WatchdogClientException(WatchdogClientErrorKind.ServerError, "boom"));
             await tab.Events.LoadAsync();
             Assert.NotNull(tab.Events.Error);

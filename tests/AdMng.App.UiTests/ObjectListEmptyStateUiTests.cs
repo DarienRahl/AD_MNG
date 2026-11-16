@@ -65,7 +65,6 @@ public sealed class ObjectListEmptyStateUiTests
         await using var context = await UiTestContext.CreateAsync();
         var (_, document, view) = await OpenAsync(context, ListLocation.ForContainer(context.Company.ItOu));
         var state = view.EmptyList;
-        var action = ControlHost.Part<Button>(state, EmptyState.ActionPartName);
         var all = document.Items.Count;
 
         // Rows: nothing to say.
@@ -76,6 +75,10 @@ public sealed class ObjectListEmptyStateUiTests
         // A text that no object has: the list is empty because of the filter, and says so - with the way out.
         document.QuickFilterText = "zzz-no-such-object";
         await UiWait.UntilAsync(() => view.ListControl.Items.Count == 0 && state.IsVisible, "the empty state of the filter");
+
+        // (A control that was collapsed has no template until it is laid out once: the parts are looked up after that.)
+        view.UpdateLayout();
+        var action = ControlHost.Part<Button>(state, EmptyState.ActionPartName);
         Assert.Equal("No object matches the filter.", state.Message);
         Assert.Equal(AdMng.Presentation.Icons.ObjectIcon.Query, state.Icon);
         Assert.Equal("Clear the filter", action.Content);
