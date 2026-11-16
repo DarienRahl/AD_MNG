@@ -12,21 +12,13 @@
 
 {{DOWNLOADS}}
 
-## Nowe: <!-- TODO: nazwa funkcji -->
+## Nowe: odnowa interfejsu – dokończenie etapu V2
 
-<!-- TODO: **Gdzie:** wejścia w interfejsie, potem lista najważniejszych możliwości i link do instrukcji w docs/ (z tagiem v{{VERSION}}) -->
+Etap V2 odnowy interfejsu (wiersz stanu, przyciski akcji z anulowaniem, uwagi) z wersji {{PREVIOUS}} jest dokończony: wiersz stanu
+nie miga przy szybkich operacjach, czytnik ekranu mówi, ile znaleziono, puste listy mówią, dlaczego są puste, wyniki sprawdzeń są
+plakietkami, przycisk okna na pasku zadań pokazuje postęp, a zamknięcie okna w trakcie zapisu najpierw pyta. Działanie funkcji
+się nie zmienia, a zapisy do katalogu nadal idą wyłącznie przez plan zmian z podglądem.
 
-## Inne zmiany
-
-- **Zatrzymanie wykonania kończy obiekt, który trwa.** *Zatrzymaj* w wierszu stanu (albo *Anuluj* na przycisku *Wykonaj*)
-  w oknach, które wykonują zmiany na wielu obiektach – reset hasła, edytor zbiorczy, kreator zakładania kont, przywracanie
-  z Kosza AD oraz podgląd planu zasad grupy i jego cofnięcie – nie zaczyna już żadnego nowego obiektu, ale obiekt, którego
-  zmiany już ruszyły, dostaje wszystkie swoje zmiany. Konto nie zostaje więc z nowym hasłem i bez pozostałych ustawień,
-  a konto z kreatora – wyłączone, bez hasła i bez grup. Wiersz stanu mówi, ile obiektów jest gotowych i że ten, który
-  trwał, został dokończony, np. *Wykonywanie „Resetuj hasło” w domenie contoso.test zatrzymano: wykonano 1 z 2 obiektów,
-  niepowodzenia: 0, obiekt, który był w toku, został dokończony.* Zatrzymanie nie przerywa też ponawiania żądania, które
-  kontroler odrzucił jako chwilowo zajęty – przy awarii kontrolera czeka więc na te próby (kilka sekund) i dopiero wtedy
-  kończy obiekt błędem. Plan cofnięcia i dziennik sesji obejmują każdą wykonaną zmianę.
 - **Wiersz stanu nie błyska przy szybkich operacjach, a czytnik ekranu mówi, ile znaleziono.** Stan *Trwa* z kółkiem
   postępu pojawia się dopiero po około 0,15 s od początku operacji: operacja, która kończy się od razu (np. odczyt jednej
   zakładki właściwości albo przygotowanie zmian przed podglądem), nie miga już wierszem stanu. Do tego czasu wiersz
@@ -67,6 +59,18 @@
   zamknięciu. Wcześniej pytało tylko okno *Korespondencja* i tylko przy wysyłce, a edytor zbiorczy zamknięty w trakcie wykonania
   zostawiał je w tle.
 
+## Inne zmiany
+
+- **Zatrzymanie wykonania kończy obiekt, który trwa.** *Zatrzymaj* w wierszu stanu (albo *Anuluj* na przycisku *Wykonaj*)
+  w oknach, które wykonują zmiany na wielu obiektach – reset hasła, edytor zbiorczy, kreator zakładania kont, przywracanie
+  z Kosza AD oraz podgląd planu zasad grupy i jego cofnięcie – nie zaczyna już żadnego nowego obiektu, ale obiekt, którego
+  zmiany już ruszyły, dostaje wszystkie swoje zmiany. Konto nie zostaje więc z nowym hasłem i bez pozostałych ustawień,
+  a konto z kreatora – wyłączone, bez hasła i bez grup. Wiersz stanu mówi, ile obiektów jest gotowych i że ten, który
+  trwał, został dokończony, np. *Wykonywanie „Resetuj hasło” w domenie contoso.test zatrzymano: wykonano 1 z 2 obiektów,
+  niepowodzenia: 0, obiekt, który był w toku, został dokończony.* Zatrzymanie nie przerywa też ponawiania żądania, które
+  kontroler odrzucił jako chwilowo zajęty – przy awarii kontrolera czeka więc na te próby (kilka sekund) i dopiero wtedy
+  kończy obiekt błędem. Plan cofnięcia i dziennik sesji obejmują każdą wykonaną zmianę.
+
 ## AdMng Watchdog {{VERSION}}
 
 - Bez zmian w działaniu usługi i bez migracji bazy.
@@ -83,6 +87,10 @@
 <!-- TODO: ograniczenia nowych funkcji i to, czego nie sprawdzono na prawdziwej domenie -->
 - Wszystkie ograniczenia z wersji {{PREVIOUS}} obowiązują nadal, z jednym wyjątkiem: zatrzymanie wykonania nie zostawia już
   obiektu w połowie (zob. „Inne zmiany”).
+- Zatrzymanie kończy obiekt, który trwa, ale nie całą akcję: plan złożony z kilku obiektów wykonywanych po kolei (np. nowy GPO –
+  kontener z plikami, kontenery Machine i User, dowiązanie) zatrzymany między dwoma z nich zostawia GPO, które trzeba cofnąć
+  planem cofnięcia (tak było dotąd). Wiersz listy operacji w tle mówi o zatrzymanym wykonaniu tylko „Anulowano” – zdanie
+  z liczbą obiektów jest w wierszu stanu okna.
 - Odczytywanie zmienionego podsumowania i opóźnienie stanu *Trwa* sprawdzono testami automatycznymi i na podstawie kodu;
   nie sprawdzono ich z prawdziwym czytnikiem ekranu (Narrator, NVDA) ani na ekranie.
 - Plakietki stanu, puste listy i szare wiersze zastępcze sprawdzono testami automatycznymi (właściwości, zasoby, stan
