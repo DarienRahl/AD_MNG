@@ -100,8 +100,10 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
 ## Konsekwencje
 
 - **Rozmiar.** Pakiet silnika z zależnościami powiększa program o ok. 19 MB (pojedynczy plik z kompresją) albo ok. 54 MB
-  (bez kompresji); pierwszy runspace startuje w ok. pół sekundy i zajmuje kilkanaście MB pamięci (pomiar na Linuksie w
-  notatce wykonawczej). To koszt zaakceptowany przez właściciela.
+  (bez kompresji); pomiar publikacji jednoplikowej win-x64 wykonanej na Linuksie (czyli bez uruchomienia) dał +17,0 MB i
+  +48,4 MB (puste programy: 37,6 MB i 73,5 MB). Pierwszy runspace startuje w ok. 0,4 s, a każdy następny w ok. 10 ms;
+  pamięć zarządzana rośnie o ok. 2 MB, a zestaw roboczy procesu o kilkadziesiąt MB (ładowane zestawy silnika) – pomiary w
+  notatce wykonawczej. To koszt zaakceptowany przez właściciela.
 - **Wydanie przy każdej poprawce bezpieczeństwa.** Każda poprawka PowerShell (mniej więcej co miesiąc) oznacza nową wersję
   `Microsoft.PowerShell.SDK` w `Directory.Packages.props` i nowe wydanie AD Managera. Audyt NuGet (`NuGetAudit`, tryb
   `all`, ostrzeżenia jako błędy) i tak zatrzyma kompilację przy znanej luce w pakiecie. LTS 7.6 jest wspierany do listopada

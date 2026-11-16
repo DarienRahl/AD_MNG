@@ -8,26 +8,39 @@ namespace AdMng.Core.PowerShell;
 /// </summary>
 public abstract record PowerShellOutputItem;
 
-/// <summary>Text the host was asked to write; <see cref="Text"/> includes its line ends and no "WARNING:"-like prefix.</summary>
+/// <summary>
+/// Text the host was asked to write; <see cref="Text"/> includes its line ends and no "WARNING:"-like prefix. It may hold
+/// directory values, so <c>ToString()</c> shows only the stream and the length (CLAUDE.md rule 1: nothing of it in a log).
+/// </summary>
 public sealed record PowerShellTextItem(
     PowerShellStream Stream,
     string Text,
     ConsoleColor? Foreground = null,
-    ConsoleColor? Background = null) : PowerShellOutputItem;
+    ConsoleColor? Background = null) : PowerShellOutputItem
+{
+    public override string ToString() => $"PowerShellTextItem({Stream}, {Text.Length} characters)";
+}
 
-/// <summary><c>Write-Progress</c>.</summary>
+/// <summary><c>Write-Progress</c>; <c>ToString()</c> shows no activity or status text (they may hold directory values).</summary>
 public sealed record PowerShellProgressItem(
     int ActivityId,
     string Activity,
     string Status,
     int PercentComplete,
-    bool Completed) : PowerShellOutputItem;
+    bool Completed) : PowerShellOutputItem
+{
+    public override string ToString() => $"PowerShellProgressItem({ActivityId}, {PercentComplete} %, completed {Completed})";
+}
 
 /// <summary>
 /// In object mode only: an object the pipeline emitted, unformatted. <see cref="Value"/> is the engine's object (a
-/// <c>PSObject</c>); the contract does not name the type so that Core stays free of PowerShell.
+/// <c>PSObject</c>); the contract does not name the type so that Core stays free of PowerShell. <c>ToString()</c> shows
+/// the type only (the object may be a directory object).
 /// </summary>
-public sealed record PowerShellObjectItem(object? Value) : PowerShellOutputItem;
+public sealed record PowerShellObjectItem(object? Value) : PowerShellOutputItem
+{
+    public override string ToString() => $"PowerShellObjectItem({Value?.GetType().Name ?? "null"})";
+}
 
 /// <summary>Always the last item of a run; <see cref="HadErrors"/> is true when any error was written (also a non-terminating one).</summary>
 public sealed record PowerShellRunEndItem(PowerShellRunState State, bool HadErrors) : PowerShellOutputItem;

@@ -208,4 +208,26 @@ public sealed class HostRoutingTests
 
         Assert.Equal("AD Manager PowerShell\npl-PL\n", TestSessions.Text(items));
     }
+
+    [Fact]
+    public async Task No_item_shows_what_it_carries_in_its_ToString()
+    {
+        await using var session = await TestSessions.CreateAsync();
+        var items = new List<PowerShellOutputItem>();
+
+        await foreach (var item in session.RunObjectsAsync("'CN=Łukasz Kowalski,OU=Secret,DC=contoso,DC=test'; Write-Progress -Activity 'Reading CN=Secret' -Status 'Łukasz'; Write-Warning 'Łukasz'", TestContext.Current.CancellationToken))
+        {
+            items.Add(item);
+        }
+
+        Assert.Contains(items, item => item is PowerShellObjectItem);
+        Assert.Contains(items, item => item is PowerShellTextItem);
+        Assert.Contains(items, item => item is PowerShellProgressItem);
+        Assert.All(items, item =>
+        {
+            var text = item.ToString();
+            Assert.DoesNotContain("Łukasz", text, StringComparison.Ordinal);
+            Assert.DoesNotContain("Secret", text, StringComparison.Ordinal);
+        });
+    }
 }

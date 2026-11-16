@@ -101,8 +101,10 @@ the Watchdog package.
 ## Consequences
 
 - **Size.** The engine package with its dependencies makes the program about 19 MB larger (single file with compression)
-  or about 54 MB (without compression); the first runspace starts in about half a second and takes a few tens of MB of
-  memory (the Linux measurement is in the implementation note). This cost was accepted by the owner.
+  or about 54 MB (without compression); a measurement of a single-file win-x64 publish made on Linux (so not run) gave
+  +17.0 MB and +48.4 MB (empty programs: 37.6 MB and 73.5 MB). The first runspace starts in about 0.4 s and each next one in
+  about 10 ms; managed memory grows by about 2 MB and the process working set by a few tens of MB (the engine's assemblies
+  being loaded) – the measurements are in the implementation note. This cost was accepted by the owner.
 - **A release with every security update.** Each PowerShell fix (roughly once a month) means a new version of
   `Microsoft.PowerShell.SDK` in `Directory.Packages.props` and a new AD Manager release. The NuGet audit (`NuGetAudit`, mode
   `all`, warnings as errors) stops the build on a known advisory in the package anyway. LTS 7.6 is supported until November
