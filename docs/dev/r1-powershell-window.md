@@ -76,181 +76,216 @@ reaches the Watchdog build output; a check of the Watchdog publish layout stays 
 
 ### 4.1 `PowerShellSession` – one per window
 
-`PowerShellSession : IPowerShellSession, IAsyncDisposable` owns one runspace, one host and one context. It is created by the
-factory in the connection's DI scope (`IPowerShellSessionFactory.Create`, App) and disposed by the scope. Creation does not
-open the runspace on the caller's thread: `CreateAsync` opens it on a pool thread (the first runspace of a process costs about
-half a second; the status line says "Starting PowerShell…" meanwhile).
+`PowerShellSession : IPowerShellSession` owns one runspace, one host and one context. It is created by the factory in the
+connection's DI scope (`IPowerShellSessionFactory`, App; part 3 defines the contract, part 4 implements it) and disposed by the
+scope. `PowerShellSession.CreateAsync(options)` builds it on a pool thread: the first runspace of a process costs about
+0.4 s, the second about 10 ms (measured, section 12.1), so the window shows "Starting PowerShell…" only once.
 
 - **Initial session state:** `InitialSessionState.CreateDefault()` (not `Create()`: the formatting, `Out-Default` and the
   utility cmdlets are needed), then
   - `LanguageMode = ConstrainedLanguage` (always the start mode, also without a lockdown);
   - `ExecutionPolicy = Restricted` **on Windows only** (`InitialSessionState.ExecutionPolicy` throws
-    `PlatformNotSupportedException` on Linux and macOS; on those systems there is no execution policy and R1 refuses `.ps1`
-    by the command guard of section 4.6);
-  - `ThrowOnRunspaceOpenError = true`; `ThreadOptions = ReuseThread`, apartment `STA` on Windows (a dedicated thread per
-    runspace, as the console host does, so COM-backed cmdlets such as the clipboard work);
+    `PlatformNotSupportedException` on Linux and macOS – there is no execution policy there, so no `.ps1` guard exists on
+    those systems; the window is Windows only);
+  - `ThrowOnRunspaceOpenError = true`; `ThreadOptions = ReuseThread` and, on Windows, the apartment `STA` (one dedicated
+    thread per runspace, as the console host has, so COM-backed cmdlets work);
   - the variable `PSModuleAutoLoadingPreference = None` (module auto-loading off; section 4.2 shows what it prevents);
-  - the commands of AD Manager (`AdmCommands.Entries`, section 4.5) and the command guards (section 4.6).
-- **One run at a time.** `RunAsync` on a busy session throws `InvalidOperationException`; the window's command is disabled
-  while a run is active. Completion and the language mode switch are refused (completion returns nothing, the switch throws)
-  while a run is active.
-- **`DisposeAsync`:** stops the running pipeline (`PowerShell.StopAsync`), closes and disposes the runspace, completes the
-  output channel, detaches the context (the reader is dropped), and is safe to call twice.
+  - the commands of AD Manager (`AdmCommands.Entries`, 4.5) and the command guards (4.6).
+- **One run at a time.** `RunAsync` on a busy session throws `InvalidOperationException` (when the enumeration starts); the
+  window's command is disabled while a run is active. Completion returns nothing and the language switch throws while a run
+  is active; a completion in flight delays the start of a run by its own duration (one gate).
+- **Stop.** `StopAsync()` (the Stop button) and the cancellation token of `RunAsync` do the same: cancel the sink's token
+  (wakes a producer waiting for room in the channel and a prompt waiting for an answer), `PowerShell.BeginStop` (the engine's
+  stop – a `StopProcessing` call on every running command, which cancels the command's `StopToken`), and start the
+  **grace period** (`StopGracePeriod`, 5 s). A run that ends ends with `PowerShellRunEndItem(Stopped)`. A pipeline stuck in
+  .NET code cannot be interrupted: after the grace period the enumeration ends anyway with a synthetic
+  `PowerShellRunEndItem(Stopped)`, `IsRunning` stays true until the thread returns and a new run is refused meanwhile.
+- **`DisposeAsync`:** stops the running pipeline, waits for it (at most the grace period), closes and disposes the runspace
+  (only closes it when the pipeline is abandoned), is safe to call twice, and makes later `RunAsync` calls throw
+  `ObjectDisposedException`.
 
 ### 4.2 The engine's environment (D8, proven)
 
-`PowerShellEnvironment.Apply()` runs once per process, before the first runspace (a `Lazy` in the session's static
-constructor path; idempotent and thread-safe). It sets, overriding what the user's environment says, because a user's
-variable must not weaken a privacy setting:
+`PowerShellEnvironment.Apply()` runs once per process, before the first runspace and before any other use of the engine
+(every public entry point calls it; idempotent and thread-safe). It sets, overriding what the user's environment says,
+because a variable of the user must not weaken a privacy setting:
 
-| Variable | Why (what was observed with Microsoft.PowerShell.SDK 7.6.10 on Linux, a clean `HOME`/`XDG_*`/`TMPDIR`) |
+| Variable | What was observed with Microsoft.PowerShell.SDK 7.6.10 on Linux, with a clean `HOME`/`XDG_*`/`TMPDIR` |
 |---|---|
-| `POWERSHELL_TELEMETRY_OPTOUT=1` | Without it the first runspace writes `telemetry.uuid` (`$XDG_CACHE_HOME/powershell`, on Windows under the user's local application data). With it no file is written. |
-| `POWERSHELL_DIAGNOSTICS_OPTOUT=1` | The name is in the engine (the diagnostics channel of `Enter-PSHostProcess`); a plain runspace creates no `PSHost.*` pipe on Linux, so the proof is the Windows test of section 9.1 (no `\\.\pipe\PSHost.*`). |
+| `POWERSHELL_TELEMETRY_OPTOUT=1` | Without it the first **command** (opening the runspace is not enough) writes `telemetry.uuid` (`$XDG_CACHE_HOME/powershell`; on Windows in the user's local application data). With it no file is written. The test of 9.1 has the control. |
+| `POWERSHELL_DIAGNOSTICS_OPTOUT=1` | The name is in the engine (the diagnostics channel of `Enter-PSHostProcess`). A plain runspace creates no `PSHost.*` pipe on Linux, so the proof is the Windows run of the pipe test (no `\\.\pipe\PSHost.*`). |
 | `POWERSHELL_UPDATECHECK=Off` | No update notification (a console host feature; set so that nothing ever looks for one). |
 | `PSModuleAnalysisCachePath` = the null device (`/dev/null`, `NUL`) | See below. |
 
 **The module analysis cache** is the only file the engine writes by itself that is not telemetry. It is
-`ModuleAnalysisCache-<hash>` in the cache directory, written by a timer about 12 s after module discovery (measured: the file
-appeared 14 s after the process started, with discovery at about 1 s; there is no flush at exit, so a short-lived process never
-shows it). A probe on Linux with a fake module on `PSModulePath` and a clean cache directory gave:
+`ModuleAnalysisCache-<hash>` in the cache directory, written by a timer about 12 s after module discovery (measured: it
+appeared 14 s after the process started, discovery having run at about 1 s; there is no flush at exit, so a short-lived
+process never shows it). A probe on Linux with a fake module on `PSModulePath` and a clean cache directory gave:
 
 | Setting | Discovery that ran | File after 40 s |
 |---|---|---|
 | auto-loading on (the default) | `Get-Command Get-Fake*`, completion of `Get-` | `ModuleAnalysisCache-67BE2BE9` written |
 | `PSModuleAutoLoadingPreference = None` | the same, plus `Get-Command -Module`, `Get-Command` | **no file** (completion still lists 49 commands) |
-| `None`, then `Get-Module -ListAvailable` | explicit module listing | file written (so auto-loading off alone is not enough) |
+| `None`, then `Get-Module -ListAvailable` | explicit module listing | file written (auto-loading off alone is not enough) |
 | `PSModuleAnalysisCachePath=/dev/null`, `Get-Module -ListAvailable` | explicit module listing | **no file**, no error |
-| `PSModuleAnalysisCachePath=/proc/nonexistent/cache`, `Get-Module -ListAvailable` | explicit module listing | **no file**, no error (a write that fails is swallowed) |
+| `PSModuleAnalysisCachePath=/proc/nonexistent/cache`, `Get-Module -ListAvailable` | explicit module listing | **no file**, no error (a failed write is swallowed) |
 
-So the window turns auto-loading off **and** points the cache at the null device. The null device on Windows (`NUL`) is the
-one part not verified here (blind spot in "R1 as built"); the engine swallows an unwritable cache path, so the worst case
-there is a file in the user's local application data, which part 4's Windows tests look for. A slow, opt-in test repeats the
-probe by hand (section 9.1).
+So the window turns auto-loading off **and** points the cache at the null device. The probe is repeatable as the opt-in test
+`NoFilesTests.The_module_analysis_cache_is_never_written_but_would_be_with_auto_loading_on` (`ADMNG_POWERSHELL_SLOW_TESTS=1`,
+about 40 s; it passed here). The null device on Windows (`NUL`) is the one part not verified: the engine swallows an
+unwritable cache path, so the worst case is a file in the user's local application data, which part 4's Windows run looks
+for.
 
 **Other process-level facts** found while proving it, relevant to later parts:
 
 - `$PSHOME` is the folder of `System.Management.Automation.dll`: `runtimes/<rid>/lib/net10.0` of a framework-dependent
-  output, not the application folder. The four manifests the default session state loads
-  (`Microsoft.PowerShell.Host|Management|Security|Utility`) are in its `Modules` folder.
-- A `powershell.config.json` with `PowerShellPolicies` (`Transcription`, `ScriptBlockLogging`) in the **user's** configuration
-  folder makes the embedded engine write transcripts that contain the commands **and their output**; one in `$PSHOME`
-  (the all-users scope) **wins over the user's** (verified on Linux: user on / all-users off = no transcript; user off /
-  all-users on = a transcript). So the README's plan stands – a `powershell.config.json` in the engine's folder turns off
-  what a user's file turned on – and the policy reader of D7 must read these files too, not only the registry (on Windows the
-  registry GPO comes first; whether the engine also reads the JSON policies on Windows is unverified).
-- `.NET`'s own diagnostic sockets (`dotnet-diagnostic-*`, `clr-debug-pipe-*` in the temp folder) belong to the runtime, not to
-  PowerShell. They are not files the program writes and are outside this track.
+  output, not the application folder. The four manifests (`Microsoft.PowerShell.Host|Management|Security|Utility`) are in its
+  `Modules` folder; the default session state loads none of them as modules (its cmdlets are bound directly).
+- A `powershell.config.json` with `PowerShellPolicies` (`Transcription`, `ScriptBlockLogging`) in the **user's**
+  configuration folder makes the embedded engine write transcripts that contain the commands **and their output**; one in
+  `$PSHOME` (the all-users scope) **wins over the user's** (verified on Linux: user on / all-users off = no transcript; user
+  off / all-users on = a transcript). So the README's plan stands – a `powershell.config.json` in the engine's folder turns
+  off what a user's file turned on – and the policy reader of D7 must read these files too, not only the registry (on Windows
+  the registry GPO comes first; whether the engine also reads the JSON policies on Windows is unverified).
+- `.NET`'s own diagnostic sockets (`dotnet-diagnostic-*`, `clr-debug-pipe-*` in the temp folder while the process runs)
+  belong to the runtime, not to PowerShell; they are gone when the process ends and are outside this track.
+- ConstrainedLanguage in 7.6.10 refuses more than the documentation suggests: `[pscustomobject]@{…}` ("Only core types are
+  supported in this language mode"), any method call on a non-core type (`$PSCmdlet.ShouldProcess()`, `[System.IO.File]::`),
+  while `New-Object PSObject -Property @{…}`, `Select-Object` with calculated properties, `Format-*`, `Out-String` and the
+  pipeline cmdlets work. The guide (part 5) says so.
 
 ### 4.3 The host
 
 `WindowHost : PSHost` (internal), `WindowHostUserInterface : PSHostUserInterface`, `WindowHostRawUserInterface :
 PSHostRawUserInterface` (minimal: buffer and window size from the session's width, colours, no cursor, no key reading).
 
-- All output goes through the user interface into the **output channel** of the run, as items (section 4.4): `Write`,
-  `WriteLine` → text of the output stream (with the colours `Write-Host` gave); `WriteErrorLine`, `WriteWarningLine`,
-  `WriteVerboseLine`, `WriteDebugLine` → text items of those streams; `WriteInformation` / `WriteProgress` → information and
-  progress items. The window renders them; nothing goes to a file or a console.
-- **Prompts.** `ReadLine`, `ReadLineAsSecureString`, `Prompt`, `PromptForChoice` (confirmations: `-Confirm`, `ShouldContinue`)
-  post a **prompt item** into the same stream and block the pipeline thread until the consumer answers it (the item carries
-  the answer's task; Stop cancels it). `PromptForCredential` throws `PSNotSupportedException` with a clear message (R1 creates
-  no `PSCredential`). `EnterNestedPrompt` is not supported, `SetShouldExit` asks the window to close and does not end the
-  process, and `NotifyBeginApplication` / `NotifyEndApplication` do nothing.
-- `Name` is "AD Manager PowerShell", `Version` is the program's version, `CurrentCulture` and `CurrentUICulture` follow the
-  window's culture (the UI language).
-- **How a command reaches the window's services** (without a global): `PSCmdlet.Host` returns the external host, which is our
-  `WindowHost`; it holds the `AdmWindowContext` that the session was created with. `AdmCmdlet.Context` reads it from there.
-  The context is an internal property of an internal class: a script sees `$Host` (the engine's wrapper) but no variable and no
+- All output goes through the user interface into the **output channel** of the run, as items (4.4): `Write`, `WriteLine`
+  → text of the output stream (with the colours `Write-Host` gave; `Write-Information` arrives the same way);
+  `WriteErrorLine`, `WriteWarningLine`, `WriteVerboseLine`, `WriteDebugLine` → text items of those streams (without the
+  `WARNING:`-like prefix; the window decides how to show a stream); `WriteProgress` → a progress item. Nothing goes to a
+  file or a console.
+- **Prompts.** `ReadLine`, `ReadLineAsSecureString`, `Prompt` (a missing mandatory parameter: one prompt per field, the
+  answer converted to the parameter's type), `PromptForChoice` (confirmations: `-Confirm`, `ShouldContinue`) post a **prompt
+  item** into the same stream and block the pipeline thread until the consumer answers it; Stop cancels the wait, and a
+  cancelled prompt stops the pipeline (`PipelineStoppedException`, like Ctrl+C at a console prompt). `PromptForCredential`
+  throws `PSNotSupportedException` with a clear message (R1 creates no `PSCredential`). `EnterNestedPrompt` is not supported,
+  `SetShouldExit` raises an event the window may use and does not end the process.
+- `Name` is "AD Manager PowerShell", `Version` the program's version, `CurrentCulture` and `CurrentUICulture` follow the
+  `Culture` option (the window's UI language); `SupportsVirtualTerminal` is false (no ANSI sequences: the window colours
+  text itself).
+- **How a command reaches the window's services** (without a global): `PSCmdlet.Host` is the engine's wrapper of the host,
+  not the host, but the wrapper hands out the host's `PrivateData`. `WindowHost.PrivateData` is an object of an internal type
+  with **no public member** that holds the `IAdmWindowContext`; `AdmCmdlet.ContextOrNull` reads it. A script sees
+  `$Host.PrivateData` (the type name, nothing to read – a test asserts that `Get-Member` finds no member), no variable and no
   parameter carries the context, so a script in ConstrainedLanguage cannot reach it. In FullLanguage reflection can, which is
-  the boundary that ADR-0010 states.
+  the boundary ADR-0010 states.
 
 ### 4.4 Output items and streaming
 
-`IPowerShellSession.RunAsync(script, cancellationToken)` returns `IAsyncEnumerable<PowerShellOutputItem>`:
+`IPowerShellSession.RunAsync(script, cancellationToken)` returns `IAsyncEnumerable<PowerShellOutputItem>` (Core):
 
 | Item | When |
 |---|---|
-| `PowerShellTextItem(Stream, Text, Foreground?, Background?)` | Anything the host UI was asked to write; `Text` includes its line ends; `Stream` is Output, Error, Warning, Verbose, Debug or Information. |
-| `PowerShellProgressItem(...)` | `Write-Progress` (activity, status, percent, completed). |
-| `PowerShellPromptItem(Kind, Caption, Message, Choices, ...)` + `Answer(...)` | A prompt or confirmation (section 4.3). |
-| `PowerShellObjectItem(Value)` | Only in **object mode** (`RunObjectsAsync`): each object the pipeline emits, unformatted. Used by tests and by programmatic callers. |
-| `PowerShellRunEndItem(State)` | Always the last item: `Completed`, `Stopped` or `Failed` (and whether errors were written). |
+| `PowerShellTextItem(Stream, Text, Foreground?, Background?)` | Anything the host was asked to write; `Text` includes its line ends (`\n`); `Stream` is Output, Error, Warning, Verbose or Debug. A formatted error record arrives as one or two text items of the Error stream. |
+| `PowerShellProgressItem(ActivityId, Activity, Status, PercentComplete, Completed)` | `Write-Progress`. |
+| `PowerShellPromptItem` | A prompt or confirmation (4.3): `Kind` Text, Secret or Choice, `Caption`, `Message`, `Label`, `Choices`, `DefaultChoice`; answered with `Respond`, `RespondSecret`, `RespondChoice` or `Cancel`; its `ToString()` shows no question and no answer. |
+| `PowerShellObjectItem(Value)` | Only in **object mode** (`PowerShellSession.RunObjectsAsync`, not on the Core interface): each object the pipeline emits, unformatted (a `PSObject`). For tests of the commands and for programmatic callers. |
+| `PowerShellRunEndItem(State, HadErrors)` | Always the last item: `Completed`, `Stopped` or `Failed` (a terminating error, whose text is the item before it), and whether any error was written. |
 
 The window uses the **formatted mode**: the script is run as one pipeline followed by `Out-Default`, with the error stream
-merged into the output, the way the console host runs a command. The engine's own formatting therefore decides tables and
-lists (a header once, column widths from the window's width), and the text reaches the host UI as above; the objects are real
-objects up to `Out-Default`, so `Where-Object`, `Select-Object` and `Out-AdmGrid` in the pipeline work on them. The channel is
-bounded (back pressure: a producer that outruns the window waits) and the session never buffers a whole result.
+merged into it, the way the console host runs a command. The engine's own formatting therefore decides tables and lists (a
+header once, column widths from `OutputWidth`), and the text reaches the host as above; the objects are real objects up to
+`Out-Default`, so `Where-Object`, `Select-Object` and `Out-AdmGrid` in the pipeline work on them. The script runs in the
+global scope (variables stay between commands, like in a console). The channel is bounded (4096 items; a producer that
+outruns the window waits, so `while ($true) { 1 }` cannot eat the memory before Stop) and the session never buffers a whole
+result. The session is idle again **before** the consumer sees the end item.
 
 ### 4.5 AD Manager's commands
 
-`AdmCommands` is the one catalog (name → type); `Entries` creates the `SessionStateCmdletEntry` list for the initial session
-state. A command class is a plain `PSCmdlet` derived from `AdmCmdlet`:
+`AdmCommands.Catalog` is the one catalog (name → type); `AdmCommands.Entries()` creates the `SessionStateCmdletEntry` list
+for the initial session state. A command class is a plain `PSCmdlet` derived from `AdmCmdlet` (public, so that R3 and the
+tests can derive from it):
 
 ```csharp
 public abstract class AdmCmdlet : PSCmdlet
 {
-    protected IAdmWindowContext Context { get; }        // from the host (section 4.3); throws a clear error without a window
-    protected CancellationToken StopToken { get; }      // cancelled by StopProcessing
+    protected IAdmWindowContext? ContextOrNull { get; }         // from the host's private data (4.3)
+    protected IAdmWindowContext RequireContext();                // throws a clear error outside a window
+    protected CancellationToken StopToken { get; }               // cancelled by StopProcessing
+    protected T Wait<T>(Task<T> task);                           // blocks the pipeline thread (never the UI thread); a stop becomes PipelineStoppedException
     protected void WriteAll<T>(IAsyncEnumerable<T> source, Func<T, object?> map);   // pulls on the pipeline thread, writes as it goes
-    protected T Wait<T>(Task<T> task);                  // blocks the pipeline thread (never the UI thread) with StopToken
 }
 ```
 
-`IAdmWindowContext` is what a command may use: `IDirectoryReader Reader` (a `ReadOnlyDirectoryReader` of the window's session:
-searches, base reads, ranged values, `Info`, `Schema` – no write method exists on it), `string ApplicationVersion`, and from
-part 2 the window services (`OpenObject(dn)`, a sink for the grid, a save-path chooser). Commands are tested without WPF and
-without a directory: a `PowerShellSession` is created over a `FakeDirectorySession` (`tests/AdMng.Testing`) and the command is
-run as a script, which is the same path the window uses. **R1 part 1 ships one command, `Get-AdmVersion`** (kept: it is a
-useful command – the program's and the engine's version, the language mode, the domain, the DC and the account of the window's
-session – and the test that proves the whole mechanism).
+`IAdmWindowContext` is what a command may use: `IDirectoryReader Reader` and `string ApplicationVersion`; part 2 adds the
+window services (`OpenObject(dn)`, the grid, a save-path chooser) and R2 the pending plan. The program builds the context as
+`new AdmWindowContext(session, version)`, which wraps the session in a `ReadOnlyDirectoryReader` (searches, base reads, ranged
+values, `Info`, `Schema` – no write method, and it cannot be cast back to the session, so no path to the connector's
+credential; CLAUDE.md rules 2, 4, 5). Commands are tested without WPF and without a directory: a `PowerShellSession` is
+created over a `FakeDirectorySession` and the command is run as a script, which is the path the window uses. **Part 1 ships
+one command, `Get-AdmVersion`** (kept: the program's and the engine's version, the language mode, the domain, the DC and the
+account of the window's session – a useful command and the end-to-end proof of the mechanism).
+
+**How to add a command (parts 2 and R2):** a class with `[Cmdlet]` under `Commands/`, derived from `AdmCmdlet`; an entry in
+`AdmCommands.Catalog`; the expected list in `CommandCatalogTests`; a test that runs it through a `PowerShellSession` over a
+fake directory (`TestSessions.CreateAsync(new FakeWindowContext(session))` and `RunObjectsAsync` for the objects, `RunAsync`
+for what the window shows).
 
 ### 4.6 The command guards (D2)
 
-The initial session state replaces three commands by guards (a guard is a cmdlet registered under the original name, so
-`Get-Command`, completion and error messages show it):
-
-| Command | Guard |
-|---|---|
-| `Start-Job` (and `Start-ThreadJob`, `Receive-Job` stays) | Throws a `PSNotSupportedException`: "Background jobs are not available in the AD Manager PowerShell window (they need a separate pwsh.exe process). Run the command in the window or use Start-Process explicitly." |
-| `Import-Module` | Allows only a module on `AdmModuleList.Allowed` (empty in R1; R3 fills it with the RSAT modules, track C with the Microsoft 365 ones); anything else throws "Import-Module is limited to a list of modules in this window; no module is on it yet." (the message names the module). `using module` and `Import-PSSession` take the same path or are refused. |
-| a `.ps1` file as a command (`& ./x.ps1`, `. x.ps1`) | On Windows the `Restricted` execution policy refuses it; on Linux and macOS (tests only) a command-lookup guard does. |
-
-A guard is a protection against mistakes, like the language mode. It does not try to make the window a sandbox.
+`CommandGuards.Apply` removes `Start-Job` and `Import-Module` from the initial session state and registers, under the same
+names, functions that write an error naming the command (`Start-Job: Background jobs are not available in the AD Manager
+PowerShell window: …`, `Import-Module: Import-Module is limited to a list of modules …`) with the error id
+`AdmCommandNotAvailable`. A function has no parameters of its own, so whatever the operator typed binds to it and the message
+is what is shown; a call through an alias (`ipmo`) or with the module name (`Microsoft.PowerShell.Core\Import-Module`, which
+is not recognized because the cmdlet is gone) meets the refusal too. Like any failed command it does not stop the script
+unless `$ErrorActionPreference` says so. `CommandGuards.AllowedModules` is the list `Import-Module` may load: **empty** in R1
+(R3 fills it with the RSAT modules and replaces the function by a command that checks the list; track C adds the Microsoft 365
+ones). A guard is a protection against mistakes, like the language mode – not a sandbox. `.ps1` files are refused by the
+`Restricted` execution policy on Windows; there is no guard on Linux (no execution policy exists there).
 
 ### 4.7 Language mode (D3)
 
-- `PowerShellSession.LanguageMode` is `Constrained` until `SetLanguageModeAsync(Full)` succeeds; `CanEnableTrustedMode` and
-  `TrustedModeBlockedReason` say whether the window's switch may be turned on. The probe (`IPowerShellLockdownProbe`,
-  injected; the real one wraps `SystemPolicy.GetSystemLockdownPolicy()`) is asked at creation and again on every switch: under
-  `Enforce` the session stays `Constrained`, the switch is refused with the reason, and `Audit` is reported but does not block.
+- `PowerShellSession.LanguageMode` is `Constrained` until `SetLanguageModeAsync(Full)` succeeds; `TrustedModeBlock` says
+  whether the window's switch may be turned on (`None` or `SystemLockdown`; the window localizes the reason). The probe
+  (`IPowerShellLockdownProbe`, injected; the real one wraps `SystemPolicy.GetSystemLockdownPolicy()`) is asked at creation and
+  again on every switch to the trusted mode: under `Enforce` the session stays `Constrained`, the switch throws and
+  `TrustedModeBlock` is `SystemLockdown`; `Audit` does not block.
 - Switching sets `Runspace.SessionStateProxy.LanguageMode`; it is refused while a run is active. The mode never leaves the
-  session object: nothing persists it and a new window starts in ConstrainedLanguage.
+  session object: nothing persists it, and a new window starts in ConstrainedLanguage (a test creates a session after a
+  trusted one).
 - The confirmation dialog, the title suffix and the lasting note are the window's (parts 3 and 4); the engine only says what is
   possible.
 
 ### 4.8 The command list test (D9)
 
-`AdmCommands.Names` is compared with the expected list in a test; a reflection test finds every public type of the assembly
-with a `[Cmdlet]` attribute and fails if one is not in the catalog or has a write verb (`Set`, `New`, `Remove`, `Move`,
-`Rename`, `Add`, `Enable`, `Disable`, `Unlock`, `Reset`, `Clear`, `Restore`, `Update`, `Write`, `Invoke`, `Grant`, `Revoke`);
-a run-time test lists `Get-Command -Name *-Adm*` in a live session and compares it with the catalog. R2 changes the list and the
-test together.
+`CommandCatalogTests` compares `AdmCommands.Names` with the expected list; a reflection test finds every public type of the
+engine assembly with a `[Cmdlet]` attribute and fails if one is not in the catalog, does not derive from `AdmCmdlet` or has a
+write verb (`Set`, `New`, `Remove`, `Move`, `Rename`, `Add`, `Enable`, `Disable`, `Unlock`, `Reset`, `Clear`, `Restore`,
+`Update`, `Write`, `Invoke`, `Grant`, `Revoke`, `Copy`, `Import`, … – the full list is in the test); a run-time test lists
+`Get-Command -Name *-Adm*` in a live session and compares it with the catalog, and checks that there is no `AD:` drive and no
+`*-AD*` command. R2 changes the list and that test together.
 
 ### 4.9 History, syntax and completion
 
-- `PowerShellHistoryPolicy.ShouldRemember(line)` is a pure function over the parser's tokens and AST: a line is **not**
-  remembered if it has the `-AsPlainText` parameter, a `ConvertTo-SecureString` with a literal string argument, or a named
-  parameter whose name contains `Password` with a literal value (the exact list is in "R1 as built"); an empty line and a
-  line that does not parse as complete input are not remembered either. The window's history lives in `AdMng.Presentation` (memory only) and asks this function through the
-  session (`IPowerShellSession.ShouldRemember`).
+- `PowerShellHistoryPolicy.ShouldRemember(line)` is a pure function over the parser's tokens and AST. A line is **not**
+  remembered if it is empty, still incomplete, has the `-AsPlainText` parameter (also a prefix of three letters or more), a
+  `ConvertTo-SecureString` with a literal argument (positional or `-String`), or a named parameter with `Password`, `Passwd`,
+  `Secret`, `Token` or `ApiKey` in its name whose argument is a literal (a constant, or a string without embedded
+  expressions; also `-Password:'x'` and a bare word). A variable, a subexpression or `Read-Host -AsSecureString` as the
+  argument is fine; a line with a syntax error is still checked from its tokens. (README and ADR name `-AsPlainText`,
+  `ConvertTo-SecureString '…'` and *Password*; the other secret words are the filter PSReadLine applies.) The window's history
+  lives in `AdMng.Presentation` (memory only) and asks this function through `IPowerShellSession.ShouldRemember`.
 - `PowerShellSyntax.Tokenize(input)` returns spans (`Start`, `Length`, `Kind`: command, parameter, variable, string, number,
-  operator, comment, keyword, type, member, other) from `Parser.ParseInput`; `IsComplete(input)` is `true` unless the parse
-  errors are all of the "incomplete input" kind (an open quote, bracket or here-string) – it decides Enter versus a new line.
+  operator, comment, keyword, type, member) from `Parser.ParseInput`'s tokens, in order, never empty, with whitespace,
+  brackets and bare arguments left out (kind `Other` is not listed). `IsComplete(input)` is `true` unless a parse error is of
+  the "incomplete input" kind (an open quote, bracket, script block or here-string, a trailing pipe) – it decides Enter versus a
+  new line; other syntax errors do not count (such a line runs and fails). Both are pure and need no runspace, so the editor
+  may call them on every keystroke.
 - `CompleteAsync(input, cursor)` calls `CommandCompletion.CompleteInput` on the window's idle runspace and returns the
-  replacement span and matches (text, list text, kind, tool tip). File system completion is removed in R1: matches of kind
-  `ProviderItem`, `ProviderContainer` and `Namespace` are dropped, and the editor does not call completion inside a string
-  that is a path. Parameter completers for AD Manager's commands (part 2) are `IArgumentCompleter`s on the parameters: they read
+  replacement span and the matches (text, list text, kind, tool tip). File system completion is removed in R1: matches of
+  kind `ProviderItem` and `ProviderContainer` are dropped (a test shows they would otherwise be offered for `Get-ChildItem /`).
+  Parameter completers for AD Manager's commands (part 2) are `IArgumentCompleter`s on the parameters: they read
   `Context.Reader.Schema` (attribute names) and the DNs the session already knows, never the directory.
 
 ## 5. The read commands (part 2)
@@ -326,10 +361,10 @@ few tests, the real engine):
 
 | Part | Project | Files (new unless marked) |
 |---|---|---|
-| 1 | docs | `docs/adr/0010-…`, `docs/en/adr/0010-…`, this note, `docs/dev/README.md`, README pair (Track R "Decided"), `CLAUDE.md` layout rows |
-| 1 | `AdMng.Core` | `PowerShell/IPowerShellSession.cs`, `PowerShellOutputItem.cs` (items), `PowerShellCompletion.cs`, `PowerShellSyntaxSpan.cs`, `PowerShellLanguageMode.cs` |
-| 1 | `AdMng.PowerShell` | `AdMng.PowerShell.csproj`, `PowerShellEngineConsumer.props`, `PowerShellEnvironment.cs`, `PowerShellSession.cs`, `PowerShellSessionOptions.cs`, `IPowerShellLockdownProbe.cs`, `Hosting/WindowHost.cs`, `WindowHostUserInterface.cs`, `WindowHostRawUserInterface.cs`, `Hosting/OutputSink.cs`, `Commands/AdmCmdlet.cs`, `Commands/IAdmWindowContext.cs`, `Commands/AdmCommands.cs`, `Commands/GetAdmVersionCommand.cs`, `Guards/StartJobGuardCommand.cs`, `Guards/ImportModuleGuardCommand.cs`, `Input/PowerShellHistoryPolicy.cs`, `Input/PowerShellSyntax.cs` |
-| 1 | `tests/AdMng.PowerShell.Tests` | `PowerShellSessionTests`, `LanguageModeTests`, `HostRoutingTests`, `GuardTests`, `NoFilesTests` (+ the child-process helper), `EnvironmentTests`, `HistoryPolicyTests`, `SyntaxTests`, `CompletionTests`, `AdmCommandCatalogTests`, `PackageLicenseTests`, `EngineMeasurementTests` |
+| 1 | docs | `docs/adr/0010-…`, `docs/en/adr/0010-…`, this note, `docs/dev/README.md`, the README pair (Track R "Decided"), `CLAUDE.md` layout rows |
+| 1 | `AdMng.Core` | `PowerShell/PowerShellEnums.cs`, `PowerShellOutputItem.cs` (items), `PowerShellCompletion.cs`, `IPowerShellSession.cs` |
+| 1 | `AdMng.PowerShell` | `AdMng.PowerShell.csproj`, `PowerShellEngineConsumer.props`, `PowerShellEnvironment.cs`, `PowerShellSession.cs`, `PowerShellSessionOptions.cs`, `IPowerShellLockdownProbe.cs`, `ErrorText.cs`, `Hosting/OutputSink.cs`, `WindowHost.cs`, `WindowHostUserInterface.cs`, `WindowHostRawUserInterface.cs`, `Commands/AdmCmdlet.cs`, `IAdmWindowContext.cs`, `AdmWindowContext.cs`, `AdmCommands.cs`, `GetAdmVersionCommand.cs`, `Guards/CommandGuards.cs`, `Input/PowerShellHistoryPolicy.cs`, `Input/PowerShellSyntax.cs`; `Directory.Packages.props`, `AdMng.slnx` (changed) |
+| 1 | `tests/AdMng.PowerShell.Tests` | `PowerShellSessionTests`, `LanguageModeTests`, `HostRoutingTests`, `GuardTests`, `EnvironmentTests`, `HistoryPolicyTests`, `SyntaxTests`, `CompletionTests`, `CommandCatalogTests`, `PackageLicenseTests`, `NoFilesTests` (+ `ChildProcess`, `TempFolder`, the child methods), `TestSupport`, `TestCommands` |
 | 2 | `AdMng.PowerShell` | `Commands/Get*Command.cs`, `SearchAdmObjectCommand.cs`, `OpenAdmObjectCommand.cs`, `OutAdmGridCommand.cs`, `ExportAdmListCommand.cs`, `Directory/AdmFilterBuilder.cs`, `AdmObjectProjector.cs`, `AdmAttributeCompleter.cs`, `AdmDnCompleter.cs`, `Commands/IAdmWindowServices.cs` |
 | 3 | `AdMng.Core` | `PowerShell/Policies/PowerShellPolicySnapshot.cs`, `PowerShellPolicyReader.cs`, `IPowerShellPolicyRegistry.cs`, `PowerShellPolicyNote.cs`, `IPowerShellSessionFactory.cs` |
 | 3 | `AdMng.Presentation` | `PowerShell/PowerShellWindowViewModel.cs`, `PowerShellInputModel.cs`, `PowerShellHistory.cs`, `PowerShellOutputDocument.cs`, `DnLinkFinder.cs`, `Shell/ShellViewModel.Palette.cs` (changed), `Resources/Strings*.resx` + `L.cs` |
@@ -340,28 +375,36 @@ few tests, the real engine):
 
 ### 9.1 `AdMng.PowerShell.Tests` (Linux and Windows)
 
-- the session: a script runs and streams; a long script is stopped (a loop that checks the token, no real sleep); a busy
-  session refuses a second run; dispose stops a run; object mode returns the pipeline's objects.
-- language mode: ConstrainedLanguage by default (a .NET method call fails with the language-mode error); the switch works;
-  it is refused under a fake lockdown (and at creation under `Enforce` the start mode is unchanged and the reason is set); the
-  switch is refused while a run is active.
-- no profile and no PSReadLine (`$PROFILE` is not loaded, `Get-Module PSReadLine` is empty), `Start-Job` and `Import-Module` of
-  an unlisted module fail with the clear message, execution policy `Restricted` on Windows.
-- the host routes streams and prompts: `Write-Host`, `Write-Warning`, `Write-Verbose`, `Write-Error`, `Write-Progress`,
-  `Read-Host` and `-Confirm` arrive as items and the answers go back; `Get-Credential` is refused.
-- the **"no files" test**: a child process (the test assembly started with a filter, so the environment can be set before the
-  runtime starts) runs a script in a runspace with `HOME`, `LOCALAPPDATA`, `APPDATA`, `TEMP`, `TMP`, `TMPDIR` and `XDG_*`
-  pointing at an empty folder and the test asserts that the folder holds no file afterwards; a positive control
-  (telemetry on) shows the check would see a file.
-- the environment: the variables of section 4.2 are set, auto-loading is off in the runspace, no `PSHost.*` pipe exists.
-- the **module analysis cache proof** (opt-in, `ADMNG_POWERSHELL_SLOW_TESTS=1`, about 40 s): the probe of section 4.2 as a test.
-- history policy: lines with `-AsPlainText`, `ConvertTo-SecureString 'x' -AsPlainText -Force`, `-Password 'x'` and
-  `-ClientSecret "x"` are not remembered; ordinary lines are; empty and incomplete lines are not.
-- syntax: tokens of a command, a parameter, a variable, a string and a comment; `IsComplete` for open quotes and brackets.
-- completion: `Get-Ad` returns the Adm commands; a parameter completion works; no file system matches.
-- the command catalog (D9): exactly the expected names, no write verb, the live list equals the catalog.
-- the package licenses: the output folder has no `sni.dll`.
-- the measurement of the first and the second runspace (time and memory), printed as a diagnostic message.
+- **`PowerShellSessionTests`** – a script runs and its output streams as text ending with the end item; variables stay between
+  runs; one table header from the engine's formatting; object mode; a terminating error is `Failed`, a non-terminating one
+  `Completed` with errors; the next run can start at once; a second run while one is active is refused; a spinning script is
+  stopped (`StopAsync`, and the cancellation token, no sleep); a command that waits on `StopToken` ends at Stop; a stop the
+  pipeline does not obey ends the enumeration after the grace period (a `FakeTimeProvider`, no real wait); dispose stops a
+  run and throws on later runs; two sessions share no runspace; `OutputWidth` decides the wrapping.
+- **`LanguageModeTests`** – ConstrainedLanguage by default and the language-mode error for a .NET call; the program's commands
+  work in it; the switch to FullLanguage and back; refused under a fake lockdown (at the start and when it appears later);
+  `Audit` does not block; refused while a run is active; a new session starts constrained after a trusted one.
+- **`HostRoutingTests`** – each stream arrives as text of its own stream; `Write-Host` colours without duplicates; progress;
+  `Read-Host` (text and secret), a missing mandatory parameter, `-Confirm` (both answers) as prompt items with the answer
+  going back; a cancelled prompt and a stopped run at a prompt end the run; `Get-Credential` is refused; no nested prompt; the
+  host's name and culture.
+- **`GuardTests`** – `Start-Job` and `Import-Module` (also `ipmo`) are refused with the message and the script goes on; the
+  module-qualified names are not recognized; the guarded names are functions; no profile and no PSReadLine; auto-loading off;
+  the execution policy `Restricted` (Windows only).
+- **`EnvironmentTests`** – the variables of 4.2 are set and visible to a script; no `PSHost.*` pipe exists (Windows
+  `\\.\pipe\`, Unix the temp folder).
+- **`NoFilesTests`** – the **"no files" test** and the measurement: a child process (this assembly, started with `-method`, so
+  the environment is set before the runtime starts) with `HOME`, `LOCALAPPDATA`, `APPDATA`, `USERPROFILE`, `TEMP`, `TMP`,
+  `TMPDIR` and `XDG_*` pointing at an empty folder and telemetry switched **on** in its environment runs two sessions, a
+  script touching the formatter, module discovery, completion, syntax and the history policy, and the folder holds no
+  file afterwards; a **positive control** (an ordinary runspace of the SDK, Unix only) leaves `telemetry.uuid` there, so the
+  probe would see it; the opt-in **module analysis cache proof** (`ADMNG_POWERSHELL_SLOW_TESTS=1`, about 40 s).
+- **`HistoryPolicyTests`**, **`SyntaxTests`**, **`CompletionTests`** – section 4.9 (the matrices are in the tests); the
+  completion test has a mutation check (it fails when the file system matches are not dropped).
+- **`CommandCatalogTests`** – section 4.8, and the context mechanism: `Get-AdmVersion` reports the fake session's domain, DC and
+  account, follows the trusted mode, answers without a window, and a command that needs the window says so; the reader a command
+  gets is not the session; two sessions give each command its own services; a script finds no member on `$Host.PrivateData`.
+- **`PackageLicenseTests`** – the output has no `sni.dll` and its deps file names none.
 
 ### 9.2 Part 2 – the commands
 
@@ -423,4 +466,85 @@ Each part adds its block here; the blocks win over the design above.
 
 ### 12.1 Part 1 – decisions and the engine
 
-(written when the part is closed)
+**What exists.** The decisions D1–D9 on paper (ADR-0010 in Polish and English, this note, the README pair's "Decided" section,
+the index, the `CLAUDE.md` layout rows) and the engine: `src/AdMng.PowerShell` (`PowerShellSession` with the custom host, the
+output channel and the stop logic; `PowerShellEnvironment`; the lockdown probe; `AdmCmdlet`, `AdmWindowContext`, `AdmCommands`,
+`Get-AdmVersion`; `CommandGuards`; `PowerShellHistoryPolicy`; `PowerShellSyntax`; completion), the contracts in
+`src/AdMng.Core/PowerShell` (`IPowerShellSession`, the output items, completion, syntax spans, the enums), the package
+(`Microsoft.PowerShell.SDK` 7.6.10 in `Directory.Packages.props`, with the four excluded `sni` packages and
+`PowerShellEngineConsumer.props`) and `tests/AdMng.PowerShell.Tests` (131 tests: 129 run, 2 skipped by design – the Windows
+execution policy and the opt-in 40 s cache proof). Nothing is visible to the operator yet: `AdMng.App` does not reference the
+engine until part 4, and there is no release note.
+
+**Decisions of part 1 that the later parts follow** (each with its reason):
+
+1. *Contracts in Core, the engine is App-only.* `AdMng.Presentation` never references an engine project (the `AdMng.Remote`
+   pattern), so the view model is tested against fakes of `IPowerShellSession` and, in a few tests, the real engine. The Core
+   types name no PowerShell type (`PowerShellObjectItem.Value` is an `object`).
+2. *The window context reaches a command through the host's `PrivateData`* – `PSCmdlet.Host` is the engine's wrapper, not our
+   host, so `Host as WindowHost` is null (found by running `Get-AdmVersion`); the wrapper does hand out `PrivateData`. The
+   object has no public member (a test asserts `Get-Member` shows none). No static registry, no variable.
+3. *The context holds a `ReadOnlyDirectoryReader`* (built by `AdmWindowContext`, so the engine decides it, not the caller):
+   there is no write method and no cast back to the session.
+4. *The formatted mode is `script | Out-Default` with the error stream merged into it*, like the console host; text arrives
+   through the host's `Write*` methods. The information stream needs no item of its own (`Write-Information` and `Write-Host`
+   both arrive as Output text; overriding `WriteInformation` duplicated every `Write-Host`).
+5. *Object mode* (`RunObjectsAsync`) is on the session class, not on the Core interface: it serves the tests of part 2 and
+   programmatic callers; the window never needs it.
+6. *Prompts are items of the same stream*, answered through the item; a stop or a `Cancel` ends the pipeline like Ctrl+C.
+   `Get-Credential` is refused in R1.
+7. *Guards are functions that write a non-terminating error with the command's name* (`Start-Job: …`), and the cmdlet is
+   removed from the session state so that the module-qualified name cannot bypass it. A `throw` printed the guard's own source
+   line; `-ErrorAction Stop` printed "The running command stopped because …"; `Write-Error -CategoryActivity <name>` printed
+   exactly `Start-Job: <message>`.
+8. *`InitialSessionState.ExecutionPolicy` only on Windows* (it throws `PlatformNotSupportedException` elsewhere).
+9. *`PSModuleAutoLoadingPreference = None` and `PSModuleAnalysisCachePath` = the null device*, both needed (4.2).
+10. *A bounded output channel (4096) with a grace period on Stop*, so that neither a flood nor a command stuck in .NET code can
+    freeze the window.
+11. *Every consumer of the engine imports `PowerShellEngineConsumer.props`* – excluding the `sni` packages in the engine's own
+    project does not flow to the consumers (tested: `sni.dll` was in the consumer's output until the consumer excluded it
+    too); a single-file win-x64 publish of a consumer has no `sni.dll`.
+
+**Findings with the real engine** (Linux, Microsoft.PowerShell.SDK 7.6.10, .NET 10.0.115):
+
+| Finding | Where it matters |
+|---|---|
+| The first runspace takes about 0.43–0.45 s, the second about 10–14 ms (child process, three runs: 454/429/423 ms and 14/11/10 ms); managed memory after the first is about 1.8 MB, the working set of the process grows by about 52 MB (assemblies and JIT; 14 MB when the engine's assemblies were already loaded). | Part 4: "Starting PowerShell…" is shown once; opening a second window is cheap. |
+| A single-file win-x64 self-contained publish (cross-published on Linux, not run): an empty app is 37.6 MB compressed / 73.5 MB plain, the same with the engine is 54.6 MB / 122.0 MB – **+17.0 MB / +48.4 MB** (the README says about 19 / 54). The publish folder is **not** single: next to the exe go `pwrshplugin.dll`, `PowerShell.Core.Instrumentation.dll`, `getfilesiginforedist.dll`, `microsoft.management.infrastructure.native.unmanaged.dll`, `build.manifest(.sig)` and `runtimes/{win,unix}/lib/net10.0/Modules/*` (the module manifests and format files). | Part 4 decides D1: whether the engine finds `$PSHOME/Modules` there. |
+| Telemetry writes `telemetry.uuid` at the first command, not at open; opt-out env stops it. | 4.2 |
+| User `powershell.config.json` can switch transcription on; the all-users file in `$PSHOME` wins. | D7 reader; part 4 publish layout. |
+| `[pscustomobject]@{}` and any method call on a non-core type fail in ConstrainedLanguage in 7.6.10. | The guide of part 5. |
+| `Get-Process`, `Get-ChildItem`, `Format-*`, `Out-String`, `Select-Object` calculated properties, `New-Object PSObject -Property` work in ConstrainedLanguage. | The guide. |
+
+**Checks run** (Linux): `dotnet build AdMng.slnx -c Release` – 0 warnings, 0 errors; `dotnet test tests/AdMng.PowerShell.Tests`
+– 129 passed, 2 skipped; the opt-in cache proof passed (41 s: the control's cache file appeared, the window's session wrote
+none); a mutation check (the file-completion filter removed) made the completion test fail; `release.sh check`,
+`build-icon-set.py --check` and `check_docs.py` – OK. The Windows CI run is recorded in the report of the part.
+
+**What could not be verified on Linux, and why it should still be right.**
+
+- *Windows behaviour of the engine setup:* `PSModuleAnalysisCachePath=NUL` (the engine swallows an unwritable path on Linux; the
+  proof test runs on Windows only if someone sets `ADMNG_POWERSHELL_SLOW_TESTS=1`), `InitialSessionState.ExecutionPolicy =
+  Restricted` and whether it is the process environment variable `PSExecutionPolicyPreference` (a Windows-only test asserts
+  `Get-ExecutionPolicy` is `Restricted`), the STA apartment with `ReuseThread`, the absence of `\\.\pipe\PSHost.*` (the Linux run
+  cannot show the pipe exists in the first place – a plain runspace creates none there; the Windows run is the proof), and the
+  real `SystemPolicy` probe under WDAC/AppLocker (the engine's own behaviour under lockdown is the README's "to be confirmed on
+  a machine with WDAC").
+- *The "no files" test on Windows* only watches what an environment variable moves (`TEMP`, `TMP`); the engine's files there go
+  to known folders (`%LOCALAPPDATA%`), which a variable does not redirect – the Windows run is weaker than the Linux run, and
+  the settings of 4.2 (tested in `EnvironmentTests`) are what carries the proof.
+- *Whether the engine reads `PowerShellPolicies` from `powershell.config.json` on Windows* next to the registry; the D7 reader
+  will read both, so the note is right either way.
+- *The single-file layout:* where `$PSHOME` points and whether the four modules are found (part 4).
+
+**Deviations from the task text.** (1) No `Object` item in the formatted mode: results are shown as the engine's formatted
+text (the console model); an `Object` item exists in object mode only (decision 5). (2) The end item carries `HadErrors`
+instead of an error count. (3) The 85-package license check found four packages (`sni`) that are not OSI approved – excluded,
+with a test, instead of "all MIT" (ADR-0010 "Package licenses"). (4) The README's 19 / 54 MB measured as +17 / +48 MB.
+(5) `AdMng.Core/PowerShell` (the contracts) is new Core code, not named in the task. (6) The tests start a child process of
+their own assembly; this is the only way to set `HOME` and the like before the runtime starts.
+
+**Open questions for the next parts.** Where the grid takes its columns from (part 2 reads `ObjectListViewModel` and its
+columns model); how the window shows a stream's text (part 3: the glyphs and colours of the status line apply to the window's
+own messages, the output area has its own colours); whether `Out-AdmGrid` posts a table through the context or calls a window
+service (decide in part 2 together with `Open-AdmObject` and `Export-AdmList`); whether the stage S readiness item fits.
