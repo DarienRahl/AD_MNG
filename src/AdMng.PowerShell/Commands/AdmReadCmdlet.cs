@@ -35,14 +35,18 @@ public abstract class AdmReadCmdlet : AdmCmdlet
     /// <param name="search">The search; <see cref="DirectorySearch.PageSize"/> and <see cref="DirectorySearch.SizeLimit"/> are filled in here.</param>
     /// <param name="projection">The attributes of the result objects.</param>
     /// <param name="target">What a directory error names (the identity or the search base).</param>
-    private protected int WriteSearch(IAdmWindowContext context, DirectorySearch search, AdmProjection projection, string? target)
+    /// <param name="missingBaseIsAnError">
+    /// False when the caller reads an object by its distinguished name and reports "not found" itself: the directory's "no such
+    /// object" then reaches it as an exception instead of an error record.
+    /// </param>
+    private protected int WriteSearch(IAdmWindowContext context, DirectorySearch search, AdmProjection projection, string? target, bool missingBaseIsAnError = true)
     {
         var withLimits = search with { PageSize = ResultPageSize, SizeLimit = ResultSetSize };
-        return Stream(context, context.Reader.SearchAsync(withLimits, StopToken), projection, target);
+        return Stream(context, context.Reader.SearchAsync(withLimits, StopToken), projection, target, missingBaseIsAnError);
     }
 
     /// <summary>Writes the objects of <paramref name="source"/> projected as script objects; a directory error becomes an error record.</summary>
-    private protected int Stream(IAdmWindowContext context, IAsyncEnumerable<DirectoryObject> source, AdmProjection projection, string? target)
+    private protected int Stream(IAdmWindowContext context, IAsyncEnumerable<DirectoryObject> source, AdmProjection projection, string? target, bool missingBaseIsAnError = true)
     {
         var projector = new AdmObjectProjector(context.Reader, context.KnownContainers);
         var reported = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -65,7 +69,7 @@ public abstract class AdmReadCmdlet : AdmCmdlet
                     return projected.Object;
                 });
         }
-        catch (DirectoryException error) when (error.Kind != DirectoryErrorKind.NoSuchObject)
+        catch (DirectoryException error) when (error.Kind != DirectoryErrorKind.NoSuchObject || missingBaseIsAnError)
         {
             WriteError(AdmErrors.FromDirectory(error, target));
         }
@@ -161,7 +165,7 @@ public abstract class AdmSearchCmdlet : AdmReadCmdlet
             int found;
             try
             {
-                found = WriteSearch(context, search, projection, identity.Text);
+                found = WriteSearch(context, search, projection, identity.Text, missingBaseIsAnError: false);
             }
             catch (DirectoryException error) when (error.Kind == DirectoryErrorKind.NoSuchObject)
             {

@@ -22,10 +22,29 @@ public static class AdmCommands
         ("Search-AdmObject", typeof(SearchAdmObjectCommand)),
     ];
 
+    /// <summary>The MAML help file of the commands (English), beside the assembly.</summary>
+    public const string HelpFileName = "AdMng.PowerShell.dll-Help.xml";
+
     /// <summary>The names of the registered commands.</summary>
     public static IReadOnlyList<string> Names { get; } = [.. Catalog.Select(entry => entry.Name)];
 
     /// <summary>The session state entries of the catalog.</summary>
-    internal static IEnumerable<SessionStateCommandEntry> Entries() =>
-        Catalog.Select(entry => new SessionStateCmdletEntry(entry.Name, entry.Type, helpFileName: null));
+    internal static IEnumerable<SessionStateCommandEntry> Entries()
+    {
+        var help = HelpFilePath();
+        return Catalog.Select(entry => new SessionStateCmdletEntry(entry.Name, entry.Type, help));
+    }
+
+    /// <summary>The help file beside the assembly, or null when there is none (the assembly is bundled, or the file was not copied).</summary>
+    private static string? HelpFilePath()
+    {
+        var location = typeof(AdmCommands).Assembly.Location;
+        if (string.IsNullOrEmpty(location))
+        {
+            return null;
+        }
+
+        var path = Path.Combine(Path.GetDirectoryName(location)!, HelpFileName);
+        return File.Exists(path) ? path : null;
+    }
 }
