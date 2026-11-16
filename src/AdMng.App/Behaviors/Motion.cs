@@ -70,6 +70,7 @@ public static class Motion
     internal const string HoverKey = "Motion.Hover";
     internal const string SwapKey = "Motion.Swap";
     internal const string RingKey = "Motion.Ring";
+    internal const string ShimmerKey = "Motion.Shimmer";
     internal const string WorkingDelayKey = "Motion.WorkingDelay";
     internal const string SummaryThrottleKey = "Motion.SummaryThrottle";
     internal const string FastKey = "Motion.Fast";
@@ -253,6 +254,41 @@ public static class Motion
         }
 
         rotation.BeginAnimation(RotateTransform.AngleProperty, null);
+        return false;
+    }
+
+    /// <summary>How far the pulse of the placeholder rows goes down: a gentle breath, never a blink.</summary>
+    internal const double PulseLowOpacity = 0.55;
+
+    /// <summary>
+    /// The gentle pulse of the placeholder rows of a list that is read for the first time (design note 5.2, row 10): the
+    /// opacity of <paramref name="element"/> goes down to <see cref="PulseLowOpacity"/> and back, over <c>Motion.Shimmer</c>
+    /// each way, on and on - or stops, and the element has its base opacity again. Unlike <see cref="Turn"/> this is motion,
+    /// not progress: it is behind the switch, so with motion off the placeholder rows stand still (a calm static look), and it
+    /// runs only while the element is visible - nothing is left running for a list that has its rows.
+    /// </summary>
+    /// <returns>Whether a clock runs now.</returns>
+    internal static bool Pulse(UIElement element, bool on)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        if (on && IsEnabled && element.IsVisible && TimeOf(ShimmerKey) is { } time)
+        {
+            element.BeginAnimation(
+                UIElement.OpacityProperty,
+                new DoubleAnimation
+                {
+                    From = 1d,
+                    To = PulseLowOpacity,
+                    Duration = new Duration(time),
+                    AutoReverse = true,
+                    RepeatBehavior = RepeatBehavior.Forever,
+                    EasingFunction = EaseOf(ChangeEaseKey),
+                },
+                HandoffBehavior.SnapshotAndReplace);
+            return true;
+        }
+
+        element.BeginAnimation(UIElement.OpacityProperty, null);
         return false;
     }
 

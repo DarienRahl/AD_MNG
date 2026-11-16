@@ -442,6 +442,37 @@ public sealed partial class XamlSourceTests
         Assert.Equal(ProgressBarsOfARow, bars);
     }
 
+    /// <summary>
+    /// The three controls of stage V2b-5b - the status pill, the empty state and the placeholder rows - are styled in
+    /// Themes/Controls.xaml under the key each of them takes by itself, with the colours of the theme and no colour of their
+    /// own: no hex colour, no solid brush, no animation (the other source rules - the closed set of Fluent brush keys as dynamic
+    /// resources, no storyboard, no duration outside Themes/Motion.xaml - hold for these styles as for every other).
+    /// </summary>
+    [Fact]
+    public void TheStatusPill_TheEmptyState_AndTheSkeleton_AreStyledInControlsXaml_WithNoColourOfTheirOwn()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Runs with the Windows test suite.");
+        var controls = WithoutComments(File.ReadAllText(Path.Combine(SourceDirectory(), "Themes", "Controls.xaml")));
+        (Type Control, string Key)[] styled =
+        [
+            (typeof(AdMng.App.Controls.StatusPill), AdMng.App.Controls.StatusPill.StyleKey),
+            (typeof(AdMng.App.Controls.EmptyState), AdMng.App.Controls.EmptyState.StyleKey),
+            (typeof(AdMng.App.Controls.Skeleton), AdMng.App.Controls.Skeleton.StyleKey),
+        ];
+
+        foreach (var (control, key) in styled)
+        {
+            Assert.Equal($"Ad.{control.Name}", key);
+            var match = StyleOf(key).Match(controls);
+            Assert.True(match.Success, $"{key} is not defined in Themes/Controls.xaml");
+            var style = match.Value;
+            Assert.Contains($"TargetType=\"{{x:Type c:{control.Name}}}\"", style, StringComparison.Ordinal);
+            Assert.False(HexColour().IsMatch(style), $"{key} writes a colour of its own");
+            Assert.DoesNotContain("SolidColorBrush", style, StringComparison.Ordinal);
+            Assert.False(StaticBrush().IsMatch(style), $"{key} reads a brush of the theme with StaticResource");
+        }
+    }
+
     /// <summary>Exactly one status line, with the fixed name of design note 6.1, over the status holder of the page.</summary>
     private static void AssertOneStatusLine(string page, string xaml)
     {
@@ -533,6 +564,17 @@ public sealed partial class XamlSourceTests
     /// <summary>The start tag of a status line (c:StatusLine) with its attributes.</summary>
     [GeneratedRegex(@"<(?:\w+:)?StatusLine\b[^>]*>")]
     private static partial Regex StatusLineElement();
+
+    /// <summary>The whole style with the key <paramref name="key"/> (a style of ours has no nested style element).</summary>
+    private static Regex StyleOf(string key) => new($"<Style x:Key=\"{Regex.Escape(key)}\".*?</Style>", RegexOptions.Singleline | RegexOptions.CultureInvariant);
+
+    /// <summary>A colour written in markup: #RGB, #ARGB, #RRGGBB or #AARRGGBB.</summary>
+    [GeneratedRegex(@"#[0-9A-Fa-f]{3,8}\b")]
+    private static partial Regex HexColour();
+
+    /// <summary>A brush of the theme read with StaticResource (a key ending in "Brush" that is not one of ours).</summary>
+    [GeneratedRegex(@"\{StaticResource\s+(?!Ad\.|Wd\.)[^\s{}]*Brush\s*\}")]
+    private static partial Regex StaticBrush();
 
     /// <summary>An element named PageStatus: its tag without the prefix.</summary>
     [GeneratedRegex(@"<(?:\w+:)?(?<tag>[\w.]+)\b[^>]*\bx:Name=""PageStatus""")]

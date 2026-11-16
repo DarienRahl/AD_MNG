@@ -22,6 +22,9 @@
     note that does not set it is as it was. XamlSourceTests fails a value outside the set.
   * How far one item of a list is stays in its row (the bar of one activity in the main window); a place that only
     shows "busy" has a c:ProgressRing and no sentence.
+  * The state of one row or one item (a check result, a health state): a c:StatusPill - the picture and a word.
+    A list that was read and has no rows: a c:EmptyState - a sentence and at most one action. A list that is read for the
+    first time: a c:Skeleton, placeholder rows (V2b-5b).
   There is no banner style: the two of before stage V2 were removed once the last view was converted (V2b-5a). A view
   that asked for one would fail when it is loaded, as a missing StaticResource, and XamlSourceTests fails it before that.
 -->
@@ -629,6 +632,176 @@
     <Setter Property="Tag" Value="{x:Static c:Glyphs.Error}" />
     <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+  </Style>
+
+  <!--
+    A status pill (stage V2b-5b; c:StatusPill takes this style by itself): a small rounded label that tells the state of one
+    row or one item - the result of a check, the health of a part, the state of a channel: the picture of the state at 16 px and
+    a short word. What a page does is its status line, a sentence of a field is a note; the pill is the state of an item.
+      Kind="Ok"         healthy, passed       success background, success picture
+      Kind="Info"       information          attention background, attention picture
+      Kind="Attention"  needs attention      caution background
+      Kind="Error"      failed               critical background
+      Kind="Unknown"    not checked          the quiet surface of the page (the default)
+    * Never told by colour alone: each kind has its own picture - a different shape - and its word is always there, and it is the
+      automation name. The surface is only the tint of the kind; the 1 px stroke gives the pill its outline in High Contrast,
+      where the status backgrounds are the window colour. The picture takes the status colour of the kind in the monochrome
+      icon style (c:AreaIconView); in the colour style it is the coloured picture of the icon set.
+    * The same brushes as the status line and the notes read - no colour of its own. Not interactive: no focus, no pointer.
+    * 22 px high (the picture 16 px, the word at the caption size), the radius of Ad.Radius.Pill.
+  -->
+  <Style x:Key="Ad.StatusPill" TargetType="{x:Type c:StatusPill}">
+    <Setter Property="IsTabStop" Value="False" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="5,1,8,1" />
+    <Setter Property="FontSize" Value="{StaticResource Ad.FontSize.Caption}" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type c:StatusPill}">
+          <Border x:Name="Surface"
+                  MinHeight="22"
+                  Padding="{TemplateBinding Padding}"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{StaticResource Ad.Radius.Pill}">
+            <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+              <c:AreaIconView x:Name="PART_Icon"
+                              VerticalAlignment="Center"
+                              Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                              Glyph="{TemplateBinding IconGlyph}"
+                              IconKey="{TemplateBinding IconKey}"
+                              Size="16" />
+              <TextBlock x:Name="PART_Text"
+                         Margin="5,0,0,0"
+                         VerticalAlignment="Center"
+                         Foreground="{TemplateBinding Foreground}"
+                         Text="{TemplateBinding Text}"
+                         TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="HasText" Value="False">
+              <Setter TargetName="PART_Text" Property="Visibility" Value="Collapsed" />
+            </Trigger>
+            <Trigger Property="Kind" Value="Ok">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}" />
+              <Setter TargetName="PART_Icon" Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+            </Trigger>
+            <Trigger Property="Kind" Value="Info">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SystemFillColorAttentionBackgroundBrush}" />
+              <Setter TargetName="PART_Icon" Property="Foreground" Value="{DynamicResource SystemFillColorAttentionBrush}" />
+            </Trigger>
+            <Trigger Property="Kind" Value="Attention">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+              <Setter TargetName="PART_Icon" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+            </Trigger>
+            <Trigger Property="Kind" Value="Error">
+              <Setter TargetName="Surface" Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
+              <Setter TargetName="PART_Icon" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!--
+    An empty state (stage V2b-5b; c:EmptyState takes this style by itself): what a list says when it was read and has no rows -
+    a 48 px picture, one sentence and at most one action, centred in its host:
+      [picture 48]
+      The sentence: why the list is empty.
+      [action link]
+    * Collapsed while it has no sentence (HasMessage), so a list binds its four properties and needs no visibility of its own.
+    * Not for "could not be read" (that is an error in the status line) and not for the first read (placeholder rows, c:Skeleton).
+    * The picture is an object icon (c:ObjectIconView: colour or monochrome style, as everywhere); the sentence wraps under the
+      picture in the secondary text colour; the action is the link button of the status line (a real button with a command, in
+      the tab order), shown only while it has a label and a command.
+    * Element order = visual order = tab order: the one action.
+  -->
+  <Style x:Key="Ad.EmptyState" TargetType="{x:Type c:EmptyState}">
+    <Setter Property="IsTabStop" Value="False" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="24" />
+    <Setter Property="MaxWidth" Value="420" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type c:EmptyState}">
+          <StackPanel>
+            <c:ObjectIconView x:Name="PART_Icon"
+                              HorizontalAlignment="Center"
+                              Icon="{TemplateBinding Icon}"
+                              Size="48" />
+            <TextBlock x:Name="PART_Message"
+                       Margin="0,12,0,0"
+                       HorizontalAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       Text="{TemplateBinding Message}"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap" />
+            <Button x:Name="PART_ActionButton"
+                    Margin="0,8,0,0"
+                    HorizontalAlignment="Center"
+                    Command="{TemplateBinding ActionCommand}"
+                    CommandParameter="{TemplateBinding ActionParameter}"
+                    Content="{TemplateBinding ActionText}"
+                    Style="{StaticResource Ad.LinkButton}"
+                    Visibility="Collapsed" />
+          </StackPanel>
+          <ControlTemplate.Triggers>
+            <Trigger Property="HasAction" Value="True">
+              <Setter TargetName="PART_ActionButton" Property="Visibility" Value="Visible" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <Trigger Property="HasMessage" Value="False">
+        <Setter Property="Visibility" Value="Collapsed" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!--
+    Placeholder rows (stage V2b-5b; c:Skeleton takes this style by itself): what a list shows for the first read of what it
+    shows, in place of blank space - rounded grey bars in the shape of rows (a picture and three bars), at most 12.
+    * The style only holds the panel PART_Rows; the control builds the rows (RowCount of RowHeight) and gives their bars the
+      brush CardStrokeColorDefaultBrush as a dynamic resource. The host puts the control over the body of the list, under the
+      column headers, and binds IsActive to the "first read" state of its view model.
+    * Collapsed while it is not active; the bars appear after Motion.WorkingDelay (IsShown), so a read that ends at once never
+      flashes them. A calm static picture without motion; with motion the rows breathe (Motion.Pulse, only while visible).
+    * Decorative: no element of the UI Automation tree, no focus, no pointer. Clipped to its bounds.
+  -->
+  <Style x:Key="Ad.Skeleton" TargetType="{x:Type c:Skeleton}">
+    <Setter Property="IsTabStop" Value="False" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type c:Skeleton}">
+          <StackPanel x:Name="PART_Rows" Visibility="Collapsed" />
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsShown" Value="True">
+              <Setter TargetName="PART_Rows" Property="Visibility" Value="Visible" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <Trigger Property="IsActive" Value="False">
+        <Setter Property="Visibility" Value="Collapsed" />
+      </Trigger>
+    </Style.Triggers>
   </Style>
 
   <!-- Panels -->
