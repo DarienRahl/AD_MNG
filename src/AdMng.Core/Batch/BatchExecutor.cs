@@ -28,8 +28,10 @@ namespace AdMng.Core.Batch;
 /// The diagnostic log contains counts, actions and error kinds only - never DNs or values.
 /// <b>Stop finishes the object in progress</b> (V2b-5b): cancellation never starts a new object, but an object whose first
 /// change has succeeded gets all its remaining changes (nothing looks at the token between them, the SYSVOL steps and their
-/// transactions run with no token, and the back-off of a retry is not interrupted), so a stop cannot leave an account with a
-/// new password and without its other settings. An object whose first change has not begun is not started
+/// transactions run with no token, and the retries of a busy DC go on), so a stop cannot leave an account with a new
+/// password and without its other settings. The one limit is an outage: a request that got no answer (time-out, broken
+/// connection) is not sent again after a Stop, so the object ends with that error after the request in flight instead of
+/// holding the window for every retry's time-out. An object whose first change has not begun is not started
 /// (<see cref="ObjectResultStatus.Cancelled"/>); a failed change still ends its object, and objects running in parallel each
 /// finish. <see cref="BatchResult.FinishedAfterStopCount"/> counts the objects that a stop found running and that were
 /// carried through to the end.
@@ -831,12 +833,18 @@ public sealed partial class BatchExecutor : IBatchExecutor
         };
 
         /// <summary>
-        /// Runs one directory request. Neither the request nor the back-off between its retries is cancelled: a write that
-        /// reached the DC must finish so that its outcome is known, and an object that sent its first request is carried
-        /// through to its last change (Stop finishes the object in progress; before V2b-5b a Stop interrupted the back-off and
-        /// left the object half done, or - after a timeout that the DC had applied - with a change nobody knew about). The cost
-        /// is that a Stop during an outage waits for the retries (<see cref="BatchOptions.MaxRetries"/>, about 3.5 s with the
-        /// defaults) before the object ends as a failure.
+        /// Runs one directory request. The request itself is never cancelled: a write that reached the DC must finish so
+        /// that its outcome is known. What a Stop does to the retries depends on why the attempt failed:
+        /// <list type="bullet">
+        /// <item>a <b>busy</b> DC answered at once, so its retries and their back-off (about 3.5 s with the defaults) go on
+        /// after a Stop - an object that sent its first request is carried through to its last change (Stop finishes the
+        /// object in progress) and a blip does not leave it half done;</item>
+        /// <item>a request that got <b>no answer</b> (time-out, broken connection) is not tried again after a Stop, and a
+        /// Stop ends the wait before its next attempt: every further attempt may cost a whole request time-out (60 s by
+        /// default), so the retries would hold the window for minutes. The step ends with that error - not as cancelled,
+        /// because the DC may have applied the request, exactly as when the retries run out.</item>
+        /// </list>
+        /// So a Stop waits at most for the request in flight (up to the request time-out) and for the retries of a busy DC.
         /// </summary>
         private async Task<Attempted<T>> InvokeAsync<T>(ChangeAction action, Func<Task<T>> request)
         {
@@ -846,7 +854,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
                 {
                     return new Attempted<T>(await request().ConfigureAwait(false), attempt, null);
                 }
-                catch (DirectoryException ex) when (ex.IsTransient && attempt <= _options.MaxRetries)
+                catch (DirectoryException ex) when (ex.IsTransient && attempt <= _options.MaxRetries && !EndsWithTheStop(ex))
                 {
                     var delay = RetryDelay(attempt);
                     if (_owner._logger is { } logger)
@@ -854,7 +862,26 @@ public sealed partial class BatchExecutor : IBatchExecutor
                         LogRetry(logger, ex.Kind, action, attempt, _options.MaxRetries + 1, delay.TotalMilliseconds);
                     }
 
-                    await Task.Delay(delay, _owner._timeProvider, CancellationToken.None).ConfigureAwait(false);
+                    if (ex.Kind == DirectoryErrorKind.Busy)
+                    {
+                        await Task.Delay(delay, _owner._timeProvider, CancellationToken.None).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    try
+                    {
+                        await Task.Delay(delay, _owner._timeProvider, _cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // The Stop came during the wait: the request is not sent again, and its own error is the outcome.
+                        if (_owner._logger is { } stopped)
+                        {
+                            LogStepFailed(stopped, action, ex.Kind);
+                        }
+
+                        return new Attempted<T>(default, attempt, ex);
+                    }
                 }
                 catch (DirectoryException ex)
                 {
@@ -876,6 +903,13 @@ public sealed partial class BatchExecutor : IBatchExecutor
                 }
             }
         }
+
+        /// <summary>
+        /// Whether a transient failure is final because a Stop was asked for: a request that got no answer is not sent
+        /// again (see <see cref="InvokeAsync"/>); a busy DC is still retried.
+        /// </summary>
+        private bool EndsWithTheStop(DirectoryException error) =>
+            error.Kind != DirectoryErrorKind.Busy && _cancellationToken.IsCancellationRequested;
 
         private TimeSpan RetryDelay(int attempt)
         {

@@ -61,7 +61,9 @@ public static class BulkCreateResults
             next.FinishedAt > accumulated.FinishedAt ? next.FinishedAt : accumulated.FinishedAt,
             next.WasCancelled)
         {
-            FinishedAfterStopCount = accumulated.FinishedAfterStopCount + next.FinishedAfterStopCount,
+            // As WasCancelled: of the latest execution. An earlier one that a Stop found running is over (the wizard
+            // returns after a stopped part), so its count must not be added to a later run that was not stopped.
+            FinishedAfterStopCount = next.FinishedAfterStopCount,
         };
     }
 

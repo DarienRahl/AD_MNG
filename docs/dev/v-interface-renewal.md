@@ -4916,9 +4916,20 @@ releases.
     places; each was checked so that none can leave half an object. **(1) The back-off between the retries of a directory request**
     (`InvokeAsync`, used by Modify - which sends two requests when it mixes replace and add/remove and could end after the first -,
     AddMember, RemoveMember, ResetPassword, Rename, Move, Delete, Create, Restore, ModifySecurity and the version write inside a GPO
-    transaction): the back-off is no longer interrupted at all, so an object that sent its first request is carried through; the
-    request itself was never cancelled (`CancellationToken.None`). The cost is that a Stop during an outage waits for the retries
-    (`MaxRetries`, 3.5 s with the defaults) before the object ends as a failure. **(2) Opening SYSVOL** (`OpenSysvolAsync`, before the
+    transaction): the back-off after a *busy* answer is no longer interrupted, so an object that sent its first request is carried
+    through a blip; the request itself was never cancelled (`CancellationToken.None`). *Corrected after the audit of this
+    increment:* as first built, no retry was interruptible, and the cost was given here as "3.5 s with the defaults". That
+    figure held only when every attempt failed at once; an attempt that gets no answer runs for the request time-out (60 s by
+    default), so a Stop during an outage held the window - and the close question behind it - for up to
+    (`MaxRetries` + 1) x 60 s per object in progress. Now a request that got **no answer** (`Timeout`,
+    `ServerUnavailable`) is not sent again once a Stop was asked for, and a Stop ends the wait before its next attempt; the
+    step ends with that error kind (not `Cancelled`: the DC may have applied the request, exactly as when the retries run
+    out). A Stop therefore waits for the request in flight and for the retries of a busy DC (about 3.5 s with the defaults)
+    and no longer. The same audit separated two questions that `BatchResult.WasCancelled` had answered at once: *was a Stop
+    asked for* (still `WasCancelled`; the bulk wizard's canary rule needs it) and *did the Stop leave anything undone*
+    (`WasCutShort`: an object not started or a cancelled step). The status line, the toasts, the activity row and
+    `ChangeOutcome` follow the second, so a one-object plan whose Stop came while it ran reads "executed", not
+    "stopped: 1 of 1 object done", and its caller's follow-up (the re-read after an unlock) happens. **(2) Opening SYSVOL** (`OpenSysvolAsync`, before the
     first SYSVOL step of a run) **and (3) the stage and verify phases of `GpoTransaction` and `PolicyDefinitionsTransaction`** (steps
     WriteGpoFile, DeleteGpoFile, SetGpoVersion, WritePolicyDefinitionsFile, DeletePolicyDefinitionsFile): they take the stop token, so
     they are cancelled only when they are the first change of their object - and then nothing was written (the transaction deletes

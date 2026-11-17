@@ -1290,7 +1290,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase, IHasPageS
     /// </summary>
     private string? AfterRestore(BatchResult result)
     {
-        if (result.FailedCount == 0 && !result.WasCancelled)
+        if (result.FailedCount == 0 && !result.WasCutShort)
         {
             return null;
         }
@@ -1313,7 +1313,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase, IHasPageS
         if (result.FailedCount == 0)
         {
             Services.Notifications.Show(
-                result.WasCancelled ? NotificationSeverity.Warning : NotificationSeverity.Success,
+                result.WasCutShort ? NotificationSeverity.Warning : NotificationSeverity.Success,
                 Localizer.Format(L.RecycleBin.Restored, result.SucceededCount));
             return;
         }

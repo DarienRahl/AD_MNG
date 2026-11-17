@@ -151,9 +151,13 @@ Order of steps on an object: password reset → attribute modification → group
 move (deletion is always separate). Changing a single value in a properties window uses the same pipeline.
 Cancellation (*Stop*) starts no new object but **finishes the object in progress**: once the first change of an object has
 succeeded the executor makes the rest without looking at the token again (the SYSVOL steps and their transactions run
-without it, and the retries of a request are not interrupted), so an object is never left half done; an object whose first
-change has not begun gets the status `Cancelled`, and a failed change still ends its object.
-`BatchResult.FinishedAfterStopCount` counts the objects that the stop found running and that were finished.
+without it, and the retries of a request that a busy DC refused go on), so a stop alone never leaves an object half done;
+an object whose first change has not begun gets the status `Cancelled`, and a failed change still ends its object. The
+limit is an outage: a request that got no answer (time-out, broken connection) is not sent again after a stop – every
+further attempt could cost a whole request time-out (60 s by default) – so that object ends with this error once the
+request in flight has ended. `BatchResult.FinishedAfterStopCount` counts the objects that the stop found running and
+that were finished; `BatchResult.WasCutShort` says whether the stop left anything undone (a stop that comes while the
+last objects run does not, and that result is an ordinary one).
 Values in a plan are text; binary attributes are not edited in bulk – the exception is `logonHours` (the "Logon
 hours" window), which in the plan, the log and the rollback is a hexadecimal string, and reaches the DC as 21 bytes
 (`PipelineValues`).

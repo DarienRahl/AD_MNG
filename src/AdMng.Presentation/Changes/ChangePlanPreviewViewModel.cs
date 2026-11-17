@@ -411,8 +411,8 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase, IH
             return failed is null ? row : new ResultRowViewModel(o, row.StatusText, TranslateFailure(Localizer, Errors, failed.ErrorKind, failed.ErrorMessage));
         })];
         var failedCount = result.FailedCount;
-        ResultHasFailures = failedCount > 0 || result.WasCancelled;
-        ResultText = failedCount == 0 && !result.WasCancelled
+        ResultHasFailures = failedCount > 0 || result.WasCutShort;
+        ResultText = failedCount == 0 && !result.WasCutShort
             ? Localizer[L.PlanPreview.ResultSucceeded]
             : Localizer.Format(L.PlanPreview.ResultFailed, failedCount, result.Objects.Count);
         Step = PlanPreviewStep.Results;

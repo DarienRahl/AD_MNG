@@ -284,6 +284,135 @@ public class BatchExecutorStopTests
         Assert.Equal(ObjectResultStatus.Cancelled, result.Objects[1].Status);
     }
 
+    [Theory]
+    [InlineData(DirectoryErrorKind.Timeout)]
+    [InlineData(DirectoryErrorKind.ServerUnavailable)]
+    public async Task AStopDuringAnOutage_MakesNoFurtherAttemptOfTheRequest_AndReportsItsRealError(DirectoryErrorKind outage)
+    {
+        var plan = await ThreeChangesEachAsync(_company.JanKowalski, _company.LukaszWisniewski);
+        using var stop = new CancellationTokenSource();
+
+        // The second change (AddMember) of the first object gets no answer on any attempt; the Stop comes while its first
+        // attempt is on its way. Every further attempt would cost a request timeout (60 s by default) with a real DC.
+        Session.FailNext(FakeOperationKind.Modify, _company.GroupSales, outage, times: 4);
+        var attempts = 0;
+        Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.Modify && operation.DistinguishedName == _company.GroupSales && Interlocked.Increment(ref attempts) == 1)
+            {
+                stop.Cancel();
+            }
+        };
+
+        var result = await Executor.ExecuteAsync(Session, plan, Fast, null, stop.Token);
+
+        var jan = result.Objects[0];
+        Assert.Equal(ObjectResultStatus.PartiallySucceeded, jan.Status);
+        Assert.Equal(2, jan.Changes.Count);
+        Assert.Equal(1, jan.Changes[1].Attempts);
+        Assert.Equal(1, Volatile.Read(ref attempts));
+
+        // Not "cancelled": the outcome of a request that got no answer is unknown, exactly as when the retries run out.
+        Assert.Equal(outage, jan.Changes[1].ErrorKind);
+        Assert.Equal(ObjectResultStatus.Cancelled, result.Objects[1].Status);
+        Assert.True(result.WasCancelled);
+        Assert.True(result.WasCutShort);
+        Assert.Equal(0, result.FinishedAfterStopCount);
+    }
+
+    [Fact]
+    public async Task AStopDuringAnOutage_AlsoEndsTheFirstChangeOfAnObjectAfterTheRequestInFlight()
+    {
+        var plan = await ThreeChangesEachAsync(_company.JanKowalski, _company.LukaszWisniewski);
+        using var stop = new CancellationTokenSource();
+
+        Session.FailNext(FakeOperationKind.Modify, _company.JanKowalski, DirectoryErrorKind.Timeout, times: 4);
+        var attempts = 0;
+        Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.Modify && operation.DistinguishedName == _company.JanKowalski && Interlocked.Increment(ref attempts) == 1)
+            {
+                stop.Cancel();
+            }
+        };
+
+        var result = await Executor.ExecuteAsync(Session, plan, Fast, null, stop.Token);
+
+        var jan = result.Objects[0];
+        Assert.Equal(ObjectResultStatus.Failed, jan.Status);
+        var change = Assert.Single(jan.Changes);
+        Assert.Equal(DirectoryErrorKind.Timeout, change.ErrorKind);
+        Assert.Equal(1, change.Attempts);
+        Assert.Equal(1, Volatile.Read(ref attempts));
+        Assert.Equal(ObjectResultStatus.Cancelled, result.Objects[1].Status);
+    }
+
+    [Fact]
+    public async Task AStopDuringTheBackOffOfAnOutage_EndsTheWaitAtOnce()
+    {
+        var plan = await ThreeChangesEachAsync(_company.JanKowalski, _company.LukaszWisniewski);
+        using var stop = new CancellationTokenSource();
+
+        // The first attempt fails at once (a broken connection) and the executor waits to retry - for half a minute here,
+        // so that a wait the Stop does not end fails the test by its bound.
+        Session.FailNext(FakeOperationKind.Modify, _company.GroupSales, DirectoryErrorKind.ServerUnavailable, times: 4);
+        var attempts = 0;
+        Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.Modify && operation.DistinguishedName == _company.GroupSales && Interlocked.Increment(ref attempts) == 1)
+            {
+                stop.CancelAfter(TimeSpan.FromMilliseconds(50));
+            }
+        };
+        var slowBackOff = Fast with { InitialRetryDelay = TimeSpan.FromSeconds(30) };
+
+        var result = await Executor.ExecuteAsync(Session, plan, slowBackOff, null, stop.Token).WaitAsync(TimeSpan.FromSeconds(20), Ct);
+
+        var jan = result.Objects[0];
+        Assert.Equal(ObjectResultStatus.PartiallySucceeded, jan.Status);
+        Assert.Equal(DirectoryErrorKind.ServerUnavailable, jan.Changes[1].ErrorKind);
+        Assert.Equal(1, jan.Changes[1].Attempts);
+        Assert.Equal(1, Volatile.Read(ref attempts));
+    }
+
+    [Fact]
+    public async Task AStopDuringTheLastObject_ThatIsCarriedThrough_IsNotAStoppedRun()
+    {
+        var plan = await ThreeChangesEachAsync(_company.JanKowalski, _company.LukaszWisniewski);
+        using var stop = new CancellationTokenSource();
+
+        // Right after the first change of the LAST object: nothing is left that the Stop could keep from running.
+        _audit.EntryRecorded += (_, entry) =>
+        {
+            if (entry.Action == "Modify" && entry.DistinguishedName == _company.LukaszWisniewski)
+            {
+                stop.Cancel();
+            }
+        };
+
+        var result = await Executor.ExecuteAsync(Session, plan, Fast, null, stop.Token);
+
+        Assert.All(result.Objects, o => Assert.Equal(ObjectResultStatus.Succeeded, o.Status));
+        Assert.True(result.WasCancelled);
+        Assert.Equal(1, result.FinishedAfterStopCount);
+
+        // The plan was executed completely: the operator is told an ordinary result, not "stopped: 2 of 2 objects done".
+        Assert.False(result.WasCutShort);
+    }
+
+    [Fact]
+    public async Task ARunThatAStopCutShort_SaysSo_AndOneThatWasNotStoppedDoesNot()
+    {
+        var plan = await ThreeChangesEachAsync(_company.JanKowalski, _company.LukaszWisniewski);
+        using var stop = new CancellationTokenSource();
+
+        var cutShort = await Executor.ExecuteAsync(Session, plan, Fast, new CancelAfterFirstObject(stop), stop.Token);
+        var complete = await Executor.ExecuteAsync(Session, await ThreeChangesEachAsync(_company.MalgorzataWojcik), Fast, null, Ct);
+
+        Assert.True(cutShort.WasCutShort);
+        Assert.False(complete.WasCutShort);
+    }
+
     private sealed class CancelAfterFirstObject(CancellationTokenSource stop) : IProgress<BatchProgress>
     {
         public void Report(BatchProgress value)

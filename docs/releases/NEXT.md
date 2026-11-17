@@ -121,8 +121,12 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   a konto z kreatora – wyłączone, bez hasła i bez grup. Wiersz stanu mówi, ile obiektów jest gotowych i że ten, który
   trwał, został dokończony, np. *Wykonywanie „Resetuj hasło” w domenie contoso.test zatrzymano: wykonano 1 z 2 obiektów,
   niepowodzenia: 0, obiekt, który był w toku, został dokończony.* Zatrzymanie nie przerywa też ponawiania żądania, które
-  kontroler odrzucił jako chwilowo zajęty – przy awarii kontrolera czeka więc na te próby (kilka sekund) i dopiero wtedy
-  kończy obiekt błędem. Plan cofnięcia i dziennik sesji obejmują każdą wykonaną zmianę.
+  kontroler odrzucił jako chwilowo zajęty (kilka sekund). Inaczej jest przy awarii: żądania, na które kontroler nie
+  odpowiedział (przekroczony czas, zerwane połączenie), po zatrzymaniu program nie wysyła ponownie – czeka tylko na
+  żądanie będące w drodze (najwyżej limit czasu żądania, domyślnie 60 s) i kończy obiekt tym błędem. Zatrzymanie, które
+  przyszło, gdy trwały już ostatnie obiekty planu, niczego nie zostawia niewykonanego – wiersz stanu podaje wtedy zwykły
+  wynik (*Wykonano…*), a nie „zatrzymano: wykonano 1 z 1”. Plan cofnięcia i dziennik sesji obejmują każdą wykonaną
+  zmianę.
 
 ## AdMng Watchdog {{VERSION}}
 

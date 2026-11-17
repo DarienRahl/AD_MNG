@@ -262,11 +262,37 @@ public class ExecutionStatusTests
             Assert.Equal("Changes.Status.Stopped (5, 0, 0)", status.Current.Log.ToString());
         }
 
-        // One object in all: "1 of 1 object done".
+        // One object in all, stopped before it began: "0 of 1 object done".
         using var single = ExecutionStatus.Begin(status, harness.Localizer, "Reset Password", "contoso.test", 1);
-        single.Complete(Stopped(done: 1, failed: 0, notStarted: 0, finishedAfterStop: 1));
-        Assert.Equal("Executing “Reset Password” in contoso.test was stopped: 1 of 1 object done, failed: 0, the one that ran was finished.", status.Current.Message);
+        single.Complete(Stopped(done: 0, failed: 0, notStarted: 1, finishedAfterStop: 0));
+        Assert.Equal("Executing “Reset Password” in contoso.test was stopped: 0 of 1 object done, failed: 0.", status.Current.Message);
         Assert.DoesNotContain("the rest was not executed", status.Current.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AStopThatCameWhileTheLastObjectsRan_LeftNothingUndone_SoTheLineSaysAnOrdinaryResult()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+
+        // Stop finishes the object in progress: a one-object plan (Reset Password) whose Stop comes while it runs is
+        // executed completely. "Was stopped: 1 of 1 object done" would be a warning about nothing.
+        using (var single = ExecutionStatus.Begin(status, harness.Localizer, "Reset Password", "contoso.test", 1))
+        {
+            single.Complete(Stopped(done: 1, failed: 0, notStarted: 0, finishedAfterStop: 1));
+            Assert.Equal(PageStatusKind.Done, status.Current.Kind);
+            Assert.Equal(
+                "“Reset Password” was executed in contoso.test: 1 object changed. The report is in the list of background operations.",
+                status.Current.Message);
+            Assert.Equal("Changes.Status.Executed (1)", status.Current.Log.ToString());
+        }
+
+        // The same with failures: they are said as failures of an executed plan, not as what a stop left.
+        using var withFailure = ExecutionStatus.Begin(status, harness.Localizer, "Disable accounts", "contoso.test", 3);
+        withFailure.Complete(Stopped(done: 2, failed: 1, notStarted: 0, finishedAfterStop: 2));
+        Assert.Equal(PageStatusKind.Attention, status.Current.Kind);
+        Assert.DoesNotContain("stopped", status.Current.Message, StringComparison.Ordinal);
+        Assert.Equal("Changes.Status.ExecutedPartly (2, 1)", status.Current.Log.ToString());
     }
 
     [Fact]
@@ -279,7 +305,7 @@ public class ExecutionStatusTests
             (5, 1, 6, 1, "Wykonywanie „Zakładanie kont” w domenie contoso.test zatrzymano: wykonano 5 z 12 obiektów, niepowodzenia: 1, obiekt, który był w toku, został dokończony."),
             (7, 0, 3, 2, "Wykonywanie „Zakładanie kont” w domenie contoso.test zatrzymano: wykonano 7 z 10 obiektów, niepowodzenia: 0, dokończono 2 obiekty, które były w toku."),
             (4, 0, 2, 5, "Wykonywanie „Zakładanie kont” w domenie contoso.test zatrzymano: wykonano 4 z 6 obiektów, niepowodzenia: 0, dokończono 5 obiektów, które były w toku."),
-            (1, 0, 0, 1, "Wykonywanie „Zakładanie kont” w domenie contoso.test zatrzymano: wykonano 1 z 1 obiektu, niepowodzenia: 0, obiekt, który był w toku, został dokończony."),
+            (0, 0, 1, 0, "Wykonywanie „Zakładanie kont” w domenie contoso.test zatrzymano: wykonano 0 z 1 obiektu, niepowodzenia: 0."),
             (5, 0, 7, 0, "Wykonywanie „Zakładanie kont” w domenie contoso.test zatrzymano: wykonano 5 z 12 obiektów, niepowodzenia: 0."),
         };
 

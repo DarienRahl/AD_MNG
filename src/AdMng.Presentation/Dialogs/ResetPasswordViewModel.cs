@@ -383,7 +383,7 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase, IHasPa
             ConfirmPasswordInput?.Clear();
             ShowResults(result, operation.Mode == PasswordMode.GenerateUnique);
 
-            // Where the reasons are - said only when the result list has one (an account that a Stop left half done has none).
+            // Where the reasons are - said only when the result list has one (an account that a Stop kept from starting has none).
             execution.Complete(result, Results.Any(r => !r.Succeeded && r.Message.Length > 0) ? Localizer[L.ChangeStatus.ReasonsNext] : null);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)

@@ -290,12 +290,15 @@ public sealed class ChangeCoordinator : IChangeCoordinator
     {
         if (result.FailedCount == 0)
         {
-            var severity = result.WasCancelled ? NotificationSeverity.Warning : NotificationSeverity.Success;
-            var text = result.WasCancelled
+            // "Cancelled" only when the Stop left something undone: a plan whose every object was changed was executed,
+            // whenever the Stop came, and the caller's follow-up (a re-read, "renamed") must happen.
+            var cutShort = result.WasCutShort;
+            var severity = cutShort ? NotificationSeverity.Warning : NotificationSeverity.Success;
+            var text = cutShort
                 ? _localizer.Format(L.Changes.Cancelled, title, result.SucceededCount)
                 : _localizer.Format(L.Changes.Succeeded, title, result.SucceededCount);
             _notifications.Show(severity, text);
-            return result.WasCancelled ? ChangeOutcome.Cancelled : ChangeOutcome.Executed;
+            return cutShort ? ChangeOutcome.Cancelled : ChangeOutcome.Executed;
         }
 
         var sb = new StringBuilder();

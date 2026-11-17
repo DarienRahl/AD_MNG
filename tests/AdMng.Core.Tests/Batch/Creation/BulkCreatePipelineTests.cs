@@ -90,6 +90,23 @@ public sealed class BulkCreatePipelineTests
     }
 
     [Fact]
+    public async Task Merge_TakesTheStopOfTheLatestExecutionOnly()
+    {
+        // The first execution was stopped while one account ran; "Retry failed" then ran to its end. The accumulated
+        // result is not a stopped one, so it must not claim an object that was finished after a stop either.
+        var (computation, plan) = await PlanAsync(3, new BulkAccountOptions { MatchAttributes = [] });
+        _bed.Session.FailNext(FakeOperationKind.ResetPassword, plan.Objects[1].DistinguishedName, DirectoryErrorKind.PasswordPolicy);
+        var stopped = await _bed.ExecuteAsync(plan) with { WasCancelled = true, FinishedAfterStopCount = 1 };
+        var accumulated = BulkCreateResults.Merge(null, stopped);
+        Assert.Equal((true, 1), (accumulated.WasCancelled, accumulated.FinishedAfterStopCount));
+
+        var retried = await _bed.ExecuteAsync(_bed.Planner.BuildRetryPlan(computation, accumulated, null, "Ponowienie"));
+        accumulated = BulkCreateResults.Merge(accumulated, retried);
+
+        Assert.Equal((false, 0), (accumulated.WasCancelled, accumulated.FinishedAfterStopCount));
+    }
+
+    [Fact]
     public async Task ExecuteRetryUndo_DeletesEveryObjectOfBothExecutions()
     {
         var (computation, plan) = await PlanAsync(6, new BulkAccountOptions { MatchAttributes = [], GroupDns = [_bed.Sample.GroupNew] });

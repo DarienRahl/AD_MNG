@@ -69,7 +69,10 @@ public enum ObjectResultStatus
 {
     Succeeded,
 
-    /// <summary>Some steps succeeded, a later step failed (e.g. attributes set, move denied). A Stop never makes it.</summary>
+    /// <summary>
+    /// Some steps succeeded, a later step failed (e.g. attributes set, move denied). A Stop alone never makes it; a Stop
+    /// during an outage ends the retries of a request that got no answer, and the object ends here with that error.
+    /// </summary>
     PartiallySucceeded,
     Failed,
 
@@ -109,6 +112,17 @@ public sealed record ObjectResult(
     DateTimeOffset FinishedAt);
 
 /// <summary>Result of executing a plan - basis for the report, CSV export and rollback.</summary>
+/// <param name="Plan">The executed plan.</param>
+/// <param name="Objects">One result per object of the plan, in plan order.</param>
+/// <param name="Server">The DC the plan was executed on.</param>
+/// <param name="Operator">The identity the session was bound with.</param>
+/// <param name="StartedAt">When the execution began.</param>
+/// <param name="FinishedAt">When it ended.</param>
+/// <param name="WasCancelled">
+/// A Stop was asked for while the run went on (or an object was cancelled). It does not say that anything was left
+/// undone: a Stop that comes while the last objects run changes nothing, because they are carried through - ask
+/// <see cref="WasCutShort"/> for what the operator is told.
+/// </param>
 public sealed record BatchResult(
     ChangePlan Plan,
     IReadOnlyList<ObjectResult> Objects,
@@ -121,9 +135,18 @@ public sealed record BatchResult(
     /// <summary>
     /// The objects that a Stop found running and that were carried through to the end all the same (every change of them
     /// made): Stop finishes the object in progress. Zero for an execution that was not stopped, or one whose Stop came
-    /// between two objects. The status line says it - "the one that ran was finished".
+    /// between two objects. The status line of a run that was cut short says it - "the one that ran was finished".
     /// </summary>
     public int FinishedAfterStopCount { get; init; }
+
+    /// <summary>
+    /// The Stop left something of the plan undone: an object that was not started, or a step that was cancelled. False
+    /// for a run that was not stopped and for one whose Stop came too late to keep anything from running (every object
+    /// was carried through): that plan was executed completely and its result is an ordinary one - it must not read
+    /// "stopped: 1 of 1 object done".
+    /// </summary>
+    public bool WasCutShort => Objects.Any(o => o.Status == ObjectResultStatus.Cancelled
+        || o.Changes.Any(c => c.ErrorKind == DirectoryErrorKind.Cancelled));
 
     public int SucceededCount => Objects.Count(o => o.Status == ObjectResultStatus.Succeeded);
 

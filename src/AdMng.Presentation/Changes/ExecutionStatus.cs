@@ -112,7 +112,8 @@ public sealed class ExecutionStatus : IDisposable
 
     /// <summary>
     /// The execution ended: what happened, how many, and in which domain - done when every object was changed, attention
-    /// when it was stopped or some objects failed, an error when none was changed.
+    /// when a Stop cut it short (<see cref="BatchResult.WasCutShort"/>) or some objects failed, an error when none was
+    /// changed.
     /// </summary>
     /// <param name="result">The result of this execution.</param>
     /// <param name="next">What the operator can do about what was not changed (a sentence), or null.</param>
@@ -123,7 +124,10 @@ public sealed class ExecutionStatus : IDisposable
         var changed = result.SucceededCount;
         var failed = result.FailedCount;
         var objects = PageStatusText.Objects(_localizer, changed);
-        if (result.WasCancelled)
+
+        // "Stopped" is said when the Stop left something undone. One that came while the last objects ran kept nothing
+        // from running (they are carried through): that plan was executed, and the line says so.
+        if (result.WasCutShort)
         {
             _scope.CompleteAttention(
                 PageStatusText.Failure(_localizer.Format(L.ChangeStatus.Stopped, _title, _domain), StoppedCounts(result), next),

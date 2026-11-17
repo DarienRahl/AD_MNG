@@ -150,9 +150,14 @@ Kolejność kroków na obiekcie: reset hasła → modyfikacja atrybutów → cz�
 przeniesienie (usuwanie zawsze osobno). Zmiana jednej wartości w oknie właściwości korzysta z tego samego potoku.
 Anulowanie (*Zatrzymaj*) nie zaczyna nowego obiektu, ale **kończy obiekt w toku**: gdy pierwsza zmiana obiektu się
 udała, wykonawca wykonuje resztę, nie patrząc już na token (kroki SYSVOL i ich transakcje działają bez niego, a ponawianie
-żądań nie jest przerywane), więc obiekt nie zostaje w połowie; obiekt, którego pierwsza zmiana się nie zaczęła, ma status
-`Cancelled`, a nieudana zmiana nadal kończy swój obiekt. `BatchResult.FinishedAfterStopCount` liczy obiekty, które
-zatrzymanie zastało w toku i które dokończono.
+żądania, które zajęty kontroler odrzucił, trwa dalej), więc samo zatrzymanie nie zostawia obiektu w połowie; obiekt,
+którego pierwsza zmiana się nie zaczęła, ma status `Cancelled`, a nieudana zmiana nadal kończy swój obiekt. Granicą jest
+awaria: żądania, na które nie przyszła odpowiedź (przekroczony czas, zerwane połączenie), po zatrzymaniu nie wysyła się
+ponownie – każda kolejna próba mogłaby kosztować cały limit czasu żądania (domyślnie 60 s) – więc taki obiekt kończy się
+tym błędem, gdy skończy się żądanie będące w drodze. `BatchResult.FinishedAfterStopCount` liczy obiekty, które
+zatrzymanie zastało w toku i które dokończono; `BatchResult.WasCutShort` mówi, czy zatrzymanie zostawiło coś
+niewykonanego (zatrzymanie, które przyszło w trakcie ostatnich obiektów, nie zostawia nic i taki wynik jest zwykłym
+wynikiem).
 Wartości w planie są tekstem; atrybutów binarnych nie edytuje się zbiorczo – wyjątkiem jest `logonHours` (okno „Godziny
 logowania”), który w planie, dzienniku i cofnięciu jest zapisem szesnastkowym, a do DC trafia jako 21 bajtów
 (`PipelineValues`).

@@ -1162,7 +1162,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
         ApplyResultFilter();
         ResultSummary = Localizer.Format(L.Batch.ResultSummary, shown.SucceededCount, shown.FailedCount, shown.SkippedCount);
         Step = BatchEditorStep.Results;
-        var severity = result.FailedCount > 0 ? NotificationSeverity.Warning : result.WasCancelled ? NotificationSeverity.Warning : NotificationSeverity.Success;
+        var severity = result.FailedCount > 0 || result.WasCutShort ? NotificationSeverity.Warning : NotificationSeverity.Success;
         Services.Notifications.Show(severity, Localizer.Format(L.Batch.ExecutedNotification, ChangeTitle, ResultSummary));
     }
 

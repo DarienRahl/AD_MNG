@@ -178,14 +178,17 @@ public sealed partial class ActivityCenterViewModel : ObservableObject, IDisposa
     }
 }
 
-/// <summary>What a finished activity displays: counters only (no plan, no values, no passwords).</summary>
+/// <summary>
+/// What a finished activity displays: counters only (no plan, no values, no passwords). "Cancelled" is said of a run
+/// that a Stop cut short (<see cref="BatchResult.WasCutShort"/>), not of one whose Stop came while its last objects ran.
+/// </summary>
 internal readonly record struct ActivityOutcome(int Executed, int Succeeded, int Failed, bool WasCancelled)
 {
     public static ActivityOutcome From(BatchResult result) => new(
         result.Objects.Count(o => o.Status != ObjectResultStatus.Skipped),
         result.SucceededCount,
         result.FailedCount,
-        result.WasCancelled);
+        result.WasCutShort);
 }
 
 /// <summary>One background operation.</summary>
