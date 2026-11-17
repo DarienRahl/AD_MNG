@@ -656,6 +656,84 @@ public sealed class RecycleBinStatusTests
     }
 
     [Fact]
+    public async Task TheCloseButton_AndEsc_AskWhatTheTitleBarAsks_WhileARestoreRuns()
+    {
+        // The footer button "Close" (IsCancel: also Esc) is bound to CloseCommand. It used to raise CloseRequested
+        // directly - a close the host does not ask about - so the window closed over the restore without a word, while
+        // its title bar asked "Stop the running operation and close the window?".
+        var harness = await B2Harness.CreateAsync();
+        await harness.Settings.UpdateAsync(s => s.BatchMaxParallelism = 1, Ct);
+        await harness.Session.DeleteAsync(harness.Company.JanKowalski, subtree: false, Ct);
+        await harness.Session.DeleteAsync(harness.Company.Laptop, subtree: false, Ct);
+        using var bin = harness.Factory.CreateRecycleBin();
+        await bin.InitializeAsync();
+        bin.SelectedItems = bin.Items.ToList();
+        await bin.RestoreCommand.ExecuteAsync(null);
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var hold = true;
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (hold && operation.Kind == FakeOperationKind.RestoreDeleted)
+            {
+                hold = false;
+                held.Release();
+                release.Wait(HoldLimit);
+            }
+        };
+        var closeRequests = new List<bool?>();
+        bin.CloseRequested += (_, result) => closeRequests.Add(result);
+        Task restoring;
+        Task closing;
+        try
+        {
+            restoring = bin.ConfirmRestoreCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), Ct));
+            await B2Harness.WaitUntilAsync(() => harness.Activities.Activities is [{ IsRunning: true }]);
+            Assert.True(RunningWork.HasRunningWrites(bin));
+            harness.Dialogs.Shown.Clear();
+
+            // No: the window stays and the restore goes on.
+            harness.Dialogs.ConfirmAnswers.Enqueue(false);
+            await bin.CloseCommand.ExecuteAsync(null);
+            Assert.StartsWith("confirm:", Assert.Single(harness.Dialogs.Shown), StringComparison.Ordinal);
+            Assert.Empty(closeRequests);
+            Assert.False(bin.Status.IsCancelling);
+
+            // Yes: the restore is stopped, and the window closes only after it ended.
+            harness.Dialogs.ConfirmAnswers.Enqueue(true);
+            closing = bin.CloseCommand.ExecuteAsync(null);
+            Assert.True(bin.Status.IsCancelling);
+            Assert.Empty(closeRequests);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await restoring.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        await closing.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        harness.Session.BeforeOperation = null;
+        Assert.Equal([true], closeRequests);
+        Assert.False(RunningWork.HasRunningWrites(bin));
+    }
+
+    [Fact]
+    public async Task TheCloseButton_OfAWindowThatDoesNothing_ClosesAtOnce()
+    {
+        var harness = await B2Harness.CreateAsync();
+        using var bin = harness.Factory.CreateRecycleBin();
+        await bin.InitializeAsync();
+        var closeRequests = new List<bool?>();
+        bin.CloseRequested += (_, result) => closeRequests.Add(result);
+
+        bin.CloseCommand.Execute(null);
+
+        Assert.Equal([true], closeRequests);
+        Assert.Empty(harness.Dialogs.Shown);
+    }
+
+    [Fact]
     public async Task ClosingTheWindow_EndsWhatItSays_AndARestoreStillReportsToTheMainWindow()
     {
         var harness = await B2Harness.CreateAsync();

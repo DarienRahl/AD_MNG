@@ -61,6 +61,10 @@ public sealed class PageStatusHolder : ObservableObject
     // What the status line shows: _own, or what the page in front says.
     private PageStatus _current = PageStatus.Empty;
     private OperationScope? _operation;
+
+    // The operations of this page that write and whose code has not ended them yet - also one that another operation
+    // took off the line: the page no longer shows it, but it is still writing.
+    private readonly List<OperationScope> _writes = [];
     private PageStatusHolder? _front;
 
     // What the page in front said last, and whether it said it after this page spoke.
@@ -310,11 +314,23 @@ public sealed class PageStatusHolder : ObservableObject
         // The new operation is the page's before the old one hears that it was cancelled: whatever the old one says in
         // answer (it may answer inside Abandon, on this thread) is no longer the page's.
         _operation = scope;
+        if (scope.IsWrite)
+        {
+            _writes.Add(scope);
+        }
+
         SetOwn(working);
         OperationChanged();
         previous?.Abandon();
         return scope;
     }
+
+    /// <summary>
+    /// The operations of this page that write and that their code has not ended yet (<see cref="OperationScope.Finished"/>),
+    /// in the order they began. Not only <see cref="Operation"/>: a write that another operation took off the line - a
+    /// refresh begun while an acknowledgement is on its way - still writes, and the window that closes must know.
+    /// </summary>
+    internal IReadOnlyList<OperationScope> Writes => _writes;
 
     /// <summary>Runs <paramref name="action"/> on the UI thread: at once when the caller is on it.</summary>
     internal void Post(Action action) => _ = _dispatcher.RunAsync(action);
@@ -347,6 +363,9 @@ public sealed class PageStatusHolder : ObservableObject
     /// <summary>The operation ended with <paramref name="result"/>, or without a message (null). UI thread.</summary>
     internal void Complete(OperationScope scope, PageStatus? result)
     {
+        // Its code has ended, whether or not the page still shows it.
+        _writes.Remove(scope);
+        scope.MarkFinished();
         if (!ReferenceEquals(scope, _operation))
         {
             // Replaced, or completed before: the first result stands.

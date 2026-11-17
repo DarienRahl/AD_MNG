@@ -8,7 +8,9 @@ using AdMng.Presentation.Feedback;
 namespace AdMng.App.Behaviors;
 
 /// <summary>
-/// The progress of the taskbar button of every window (track V, stage V2b-5b, the owner's decision 6; design note
+/// The progress of the taskbar button of every window that has one (track V, stage V2b-5b, the owner's decision 6; a dialog
+/// with <c>ShowInTaskbar="False"</c> - the property sheet, Reset Password, the plan preview - has no button and says it in
+/// its status line only; design note
 /// docs/dev/v-interface-renewal.md 6.7: "how far - in the action button, the tab header and the taskbar"). A window that
 /// is closed to the taskbar or that the operator works away from shows what its status line says: how far a long operation
 /// is (a send that takes minutes, the execution of a large plan, a long read), that it cannot say how far, or that it ended

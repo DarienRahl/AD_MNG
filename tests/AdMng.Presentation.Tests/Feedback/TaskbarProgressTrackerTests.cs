@@ -175,6 +175,73 @@ public class TaskbarProgressTrackerTests
     }
 
     [Fact]
+    public void AStateThatWasThereBeforeAnOperation_IsNotPutOnTheButton_WhenTheOperationEndedWell()
+    {
+        var (tracker, holder, _, time) = Create();
+
+        // "Group Policy changed after these results were made": a state of the page that no operation produced.
+        holder.SetLasting(PageStatus.Attention("Zasady grupy zmieniły się po utworzeniu tych wyników.", new PageStatusLog("Stale"), canClose: false));
+        Assert.Equal(TaskbarProgressState.None, tracker.State);
+
+        // An unrelated operation runs longer than the delay and ends well, without a message ("Preparing the changes…").
+        using (var preparing = holder.Begin("Przygotowywanie zmian…", new PageStatusLog("Preparing")))
+        {
+            time.Advance(Delay);
+            Assert.Equal(TaskbarProgressState.Indeterminate, tracker.State);
+            preparing.Complete(null);
+        }
+
+        // The page shows its state again; the operation did not end badly, and the button does not say it did.
+        Assert.Equal(TaskbarProgressState.None, tracker.State);
+        time.Advance(TimeSpan.FromMinutes(10));
+        Assert.Equal(TaskbarProgressState.None, tracker.State);
+
+        // The same for an error that lasts and an operation that counted to its end.
+        holder.SetLasting(PageStatus.Error("Nie udało się wczytać szczegółów.", new PageStatusLog("E"), canClose: false));
+        using (var export = holder.Begin("Eksport… 1 z 4", new PageStatusLog("X"), PageProgress.Of(1, 4)))
+        {
+            time.Advance(Delay);
+            export.Report("Eksport… 4 z 4", PageProgress.Of(4, 4));
+            export.Complete(null);
+        }
+
+        Assert.Equal(TaskbarProgressState.None, tracker.State);
+    }
+
+    [Fact]
+    public void AStateAnOperationLeftOnTheButton_ComesBack_WhenTheRetryFailsTheSameWay()
+    {
+        var (tracker, holder, _, time) = Create();
+        var failed = PageStatus.Error("Nie udało się wczytać „Kraków”.", new PageStatusLog("E"));
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            using var operation = holder.Begin("Wczytywanie…", new PageStatusLog("A"));
+            time.Advance(Delay);
+            Assert.Equal(TaskbarProgressState.Indeterminate, tracker.State);
+            holder.SetLasting(failed);
+            operation.Complete(null);
+
+            // Also the second time: the page showed this error before the retry, but it was an operation's, and so is this one.
+            Assert.Equal(new TaskbarProgressState(TaskbarProgressKind.Error, 1d), tracker.State);
+        }
+    }
+
+    [Fact]
+    public void AnOperationThatFailedAtItsFirstItem_IsStillSeenOnTheButton()
+    {
+        var (tracker, holder, _, time) = Create();
+        using (var operation = holder.Begin("Wykonywanie… 0 z 12", new PageStatusLog("A"), PageProgress.Of(0, 12)))
+        {
+            time.Advance(Delay);
+            Assert.Equal(TaskbarProgressState.Normal(0d), tracker.State);
+            operation.Complete(PageStatus.Error("Nie udało się wykonać: brak połączenia.", new PageStatusLog("E"), canClose: false));
+        }
+
+        // Red at nothing is drawn as no state at all: the button keeps a part that can be seen.
+        Assert.Equal(new TaskbarProgressState(TaskbarProgressKind.Error, TaskbarProgressTracker.MinimumLatchedFraction), tracker.State);
+    }
+
+    [Fact]
     public void AnOperationThatFailedBeforeTheButtonShowedIt_LeavesItToTheLine()
     {
         var (tracker, holder, changes, time) = Create();

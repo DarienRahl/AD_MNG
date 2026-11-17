@@ -43,8 +43,10 @@ public sealed class OperationScope : IDisposable
     // without a timer or a linked parent holds no unmanaged resource.
     private readonly CancellationTokenSource _cancellation = new();
     private readonly TaskCompletionSource _endedSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _finishedSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private volatile bool _cancelling;
     private volatile bool _ended;
+    private volatile bool _finished;
 
     internal OperationScope(PageStatusHolder holder, PageStatus working, bool canCancel, OperationWrites writes)
     {
@@ -74,6 +76,17 @@ public sealed class OperationScope : IDisposable
     /// continuations run asynchronously, so the code that ended the operation has run on to its end first.
     /// </summary>
     public Task Ended => _endedSignal.Task;
+
+    /// <summary>
+    /// Completes once the code that runs the operation has ended it - completed or disposed the scope - and never
+    /// fails. For an operation that kept the line this is the moment of <see cref="Ended"/>; for one that another
+    /// operation took off the line it is later: the page no longer shows it, but its code runs on (a write that cannot
+    /// be cancelled is still writing). A window that closes waits for this, not for <see cref="Ended"/>.
+    /// </summary>
+    public Task Finished => _finishedSignal.Task;
+
+    /// <summary>True once the code that runs the operation has completed or disposed the scope.</summary>
+    public bool IsFinished => _finished;
 
     /// <summary>True from <see cref="Cancel"/> until the operation ended: the page says "Stopping…".</summary>
     public bool IsCancelling => _cancelling && !_ended;
@@ -123,11 +136,12 @@ public sealed class OperationScope : IDisposable
     /// <summary>Ends the operation with a result: done, attention or error. A summary or null ends it without a message.</summary>
     public void Complete(PageStatus? result)
     {
-        if (_ended)
+        if (_finished)
         {
             return;
         }
 
+        // Also for an operation that was replaced: the page ignores what it says, but its code has ended now.
         _holder.Post(() => _holder.Complete(this, result));
     }
 
@@ -149,7 +163,7 @@ public sealed class OperationScope : IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (!_ended)
+        if (!_finished)
         {
             _holder.Post(() => _holder.Complete(this, null));
         }
@@ -176,7 +190,17 @@ public sealed class OperationScope : IDisposable
         _endedSignal.TrySetResult();
     }
 
-    /// <summary>The page took this operation off (replaced it or showed something else): it ends and its token is cancelled.</summary>
+    /// <summary>The code that runs the operation ended it. UI thread (the holder).</summary>
+    internal void MarkFinished()
+    {
+        _finished = true;
+        _finishedSignal.TrySetResult();
+    }
+
+    /// <summary>
+    /// The page took this operation off (replaced it or showed something else): it ends on the page and its token is
+    /// cancelled. Its code still runs until it completes or disposes the scope (<see cref="Finished"/>).
+    /// </summary>
     internal void Abandon()
     {
         _ended = true;

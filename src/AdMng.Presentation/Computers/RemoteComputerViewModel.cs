@@ -346,7 +346,7 @@ public sealed partial class RemoteComputerViewModel : WindowViewModelBase, IHasP
     }
 
     [RelayCommand]
-    private void Close() => RequestClose(true);
+    private Task CloseAsync() => CloseByOperatorAsync(true);
 
     private bool HasTarget() => Target is not null && !IsSessionEnded;
 

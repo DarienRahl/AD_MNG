@@ -784,7 +784,7 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase, IHasP
     private bool CanPing() => HasSingleSelection() && !IsBusy;
 
     [RelayCommand]
-    private void Close() => RequestClose(true);
+    private Task CloseAsync() => CloseByOperatorAsync(true);
 
     private bool HasRows() => Items.Count > 0 && !IsSessionEnded;
 

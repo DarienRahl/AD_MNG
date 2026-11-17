@@ -335,7 +335,7 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase, IHasPa
     }
 
     [RelayCommand]
-    private void Close() => RequestClose(null);
+    private Task CloseAsync() => CloseByOperatorAsync(null);
 
     protected override void OnCultureChanged()
     {

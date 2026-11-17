@@ -16,7 +16,8 @@ namespace AdMng.Presentation.Dialogs;
 /// <list type="number">
 /// <item>create the view model through <see cref="IDialogViewModelFactory"/>, set it as the window's DataContext and
 /// bind the title to <see cref="WindowTitle"/>;</item>
-/// <item>subscribe to <see cref="CloseRequested"/>: close the window (modal windows set DialogResult to the argument);</item>
+/// <item>subscribe to <see cref="CloseRequested"/>: close the window (modal windows set DialogResult to the argument) -
+/// the view model has decided this close, the host asks nothing;</item>
 /// <item>when the operator closes the window with the title bar button / Alt+F4, cancel the close, await
 /// <see cref="CanCloseAsync"/> and close only when it returns true;</item>
 /// <item>after the window is shown call <see cref="InitializeAsync"/> (it never throws; failures are shown by the view model);</item>
@@ -183,8 +184,28 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
     {
     }
 
-    /// <summary>Raises <see cref="CloseRequested"/>.</summary>
+    /// <summary>
+    /// Raises <see cref="CloseRequested"/>: the window closes at once. For a close that follows from what the window
+    /// did - a choice was made, Apply succeeded. The host does not ask <see cref="CanCloseAsync"/> for it, so a Close or
+    /// Cancel command of the operator must not come here directly: see <see cref="CloseByOperatorAsync"/>.
+    /// </summary>
     protected void RequestClose(bool? dialogResult) => CloseRequested?.Invoke(this, dialogResult);
+
+    /// <summary>
+    /// The operator closes the window with a control of its own - the Close or Cancel button, Esc: the same close as
+    /// the title bar's. <see cref="CanCloseAsync"/> is asked first (the question about a running operation that writes,
+    /// then the window's own questions), and the window closes only when it allows it. A command that raised
+    /// <see cref="CloseRequested"/> directly closed over a running restore, send or remote command without a word,
+    /// while the title bar of the same window asked.
+    /// </summary>
+    /// <param name="dialogResult">The dialog result of the close.</param>
+    protected async Task CloseByOperatorAsync(bool? dialogResult)
+    {
+        if (!IsDisposed && await CanCloseAsync().ConfigureAwait(true) && !IsDisposed)
+        {
+            RequestClose(dialogResult);
+        }
+    }
 
     /// <summary>Called after the UI language changed (on the thread that changed it). Refreshes the title by default.</summary>
     protected virtual void OnCultureChanged()

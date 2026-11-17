@@ -31,6 +31,9 @@ public interface IHasPageStatusParts
 /// finished first, <c>BatchExecutor</c>'s rule). No keeps the window. A write that was stopped already is not asked
 /// about again: the window waits for its end. A write that cannot be stopped (<see cref="OperationScope.CanCancel"/> is
 /// false) is not asked about: the window cannot be closed during it, it says so and stays open.</para>
+/// <para><b>What is looked at</b> is every write whose code has not ended (<see cref="PageStatusHolder.Writes"/>), not only
+/// the operation a line shows: a write that another operation took off the line still writes. And it is looked at again
+/// after the question and after the wait, because the window stays usable under both.</para>
 /// </remarks>
 public static class RunningWork
 {
@@ -58,16 +61,22 @@ public static class RunningWork
         return holders;
     }
 
-    /// <summary>The operations of <paramref name="holders"/> that write and have not ended (also those that are stopping).</summary>
+    /// <summary>
+    /// The operations of <paramref name="holders"/> that write and whose code has not ended them (also those that are
+    /// stopping, and those that another operation took off the line: they still write).
+    /// </summary>
     public static IReadOnlyList<OperationScope> RunningWrites(IEnumerable<PageStatusHolder> holders)
     {
         ArgumentNullException.ThrowIfNull(holders);
         var running = new List<OperationScope>();
         foreach (var holder in holders)
         {
-            if (holder.Operation is { IsWrite: true, IsEnded: false } operation && !running.Contains(operation))
+            foreach (var operation in holder.Writes)
             {
-                running.Add(operation);
+                if (!running.Contains(operation))
+                {
+                    running.Add(operation);
+                }
             }
         }
 
@@ -91,40 +100,48 @@ public static class RunningWork
         ArgumentNullException.ThrowIfNull(localizer);
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(title);
-        var running = RunningWrites(holders);
-        if (running.Count == 0)
-        {
-            return true;
-        }
+        var holderList = holders as IReadOnlyCollection<PageStatusHolder> ?? [.. holders];
 
-        var what = string.Join("\n", running.Select(operation => operation.Working.Message));
-        if (running.Any(operation => !operation.CanCancel))
+        // The window stays usable under the question and during the wait, so what writes is read again after each of
+        // them: a write that began meanwhile is asked about and waited for like the first, not closed over.
+        while (true)
         {
-            // Nothing can stop it and closing the window would leave it half done: the window stays, and says why.
-            await dialogs.ShowInfoAsync(title, localizer.Format(L.CloseWork.Wait, what)).ConfigureAwait(true);
-            return false;
-        }
-
-        if (running.Any(operation => !operation.IsCancelling))
-        {
-            var sentence = running.Any(o => o.Writes == OperationWrites.Changes) ? L.CloseWork.StopChanges
-                : running.Any(o => o.Writes == OperationWrites.Messages) ? L.CloseWork.StopMessages
-                : L.CloseWork.StopOther;
-            if (!await dialogs.ConfirmAsync(title, localizer.Format(sentence, what), destructive: true).ConfigureAwait(true))
+            var running = RunningWrites(holderList);
+            if (running.Count == 0)
             {
+                return true;
+            }
+
+            var what = string.Join("\n", running.Select(operation => operation.Working.Message));
+            if (running.Any(operation => !operation.CanCancel))
+            {
+                // Nothing can stop it and closing the window would leave it half done: the window stays, and says why.
+                await dialogs.ShowInfoAsync(title, localizer.Format(L.CloseWork.Wait, what)).ConfigureAwait(true);
                 return false;
             }
 
-            foreach (var operation in running)
+            // One that is stopping, or that lost the line (its token is cancelled already), is not asked about again.
+            var toStop = running.Where(operation => !operation.IsCancelling && !operation.IsEnded).ToList();
+            if (toStop.Count > 0)
             {
-                // The holder's own Stop: the line says "Stopping…" and the code that runs ends it the way it ends a Stop.
-                operation.Cancel();
-            }
-        }
+                var sentence = running.Any(o => o.Writes == OperationWrites.Changes) ? L.CloseWork.StopChanges
+                    : running.Any(o => o.Writes == OperationWrites.Messages) ? L.CloseWork.StopMessages
+                    : L.CloseWork.StopOther;
+                if (!await dialogs.ConfirmAsync(title, localizer.Format(sentence, what), destructive: true).ConfigureAwait(true))
+                {
+                    return false;
+                }
 
-        // After it ended - never in the middle of a step: the object in progress is finished, the window closes then.
-        await Task.WhenAll(running.Select(operation => operation.Ended)).ConfigureAwait(true);
-        return true;
+                foreach (var operation in toStop)
+                {
+                    // The holder's own Stop: the line says "Stopping…" and the code that runs ends it the way it ends a Stop.
+                    operation.Cancel();
+                }
+            }
+
+            // After its code ended - never in the middle of a step: the object in progress is finished, the window closes then.
+            await Task.WhenAll(running.Select(operation => operation.Finished)).ConfigureAwait(true);
+        }
     }
 
     private static void Add(List<PageStatusHolder> holders, PageStatusHolder holder)

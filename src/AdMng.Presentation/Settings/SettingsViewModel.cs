@@ -277,13 +277,15 @@ public sealed partial class SettingsViewModel : WindowViewModelBase, IHasPageSta
 
         Localizer.SetCulture(ResxLocalizer.ResolveCulture(language));
         _theme.Apply(theme);
-        RequestClose(true);
+
+        // Saved. The window closes like any close of the operator's: a test message that is still on its way is asked about.
+        await CloseByOperatorAsync(true).ConfigureAwait(true);
     }
 
     private bool CanSave() => Error is null;
 
     [RelayCommand]
-    private void Cancel() => RequestClose(false);
+    private Task CancelAsync() => CloseByOperatorAsync(false);
 
     /// <summary>"Usuń przypięcie": the pin is removed on Save; the next connection asks for a confirmation again.</summary>
     [RelayCommand(CanExecute = nameof(HasPinnedCertificate))]

@@ -597,7 +597,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase, IHasPageS
     private bool CanGoBack() => IsPlanning || (IsPreviewing && !IsBusy);
 
     [RelayCommand]
-    private void Close() => RequestClose(true);
+    private Task CloseAsync() => CloseByOperatorAsync(true);
 
     partial void OnNameFilterChanged(string value)
     {

@@ -428,7 +428,7 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase, IHa
 
     /// <summary>"Zamknij": the window closes; every read still running is cancelled.</summary>
     [RelayCommand]
-    private void Close() => RequestClose(true);
+    private Task CloseAsync() => CloseByOperatorAsync(true);
 
     // ---- Property changes -------------------------------------------------------------------------------------
 

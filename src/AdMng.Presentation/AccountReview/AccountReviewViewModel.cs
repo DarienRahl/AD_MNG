@@ -727,7 +727,7 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase, IHasPa
     private bool CanSendMessage() => CanSendMessages && HasRows();
 
     [RelayCommand]
-    private void Close() => RequestClose(true);
+    private Task CloseAsync() => CloseByOperatorAsync(true);
 
     private bool HasRows() => Items.Count > 0 && !IsSessionEnded;
 

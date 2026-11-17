@@ -477,5 +477,5 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase, IHasP
     }
 
     [RelayCommand]
-    private void Close() => RequestClose(null);
+    private Task CloseAsync() => CloseByOperatorAsync(null);
 }

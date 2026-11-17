@@ -54,7 +54,9 @@ public readonly record struct TaskbarProgressState(TaskbarProgressKind Kind, dou
 /// (yellow) or <see cref="TaskbarProgressKind.Error"/> (red) at the place it stopped, for as long as the page shows that state:
 /// the operator who works elsewhere sees that it did not end well. Anything the page says instead - a new operation, a result,
 /// the summary - ends it. A state that lasts without an operation behind it (the session ended, an object that was deleted)
-/// and a result that can be closed are not the button's business: <see cref="TaskbarProgressKind.None"/>.</item>
+/// and a result that can be closed are not the button's business: <see cref="TaskbarProgressKind.None"/> - also when an
+/// operation ran meanwhile and ended well, and the page shows that state again. A state at the very start (the first item
+/// failed) fills a small part of the button, so that it can be seen.</item>
 /// <item><b>Everything else is None:</b> the summary, a closable result, no holder at all.</item>
 /// </list>
 /// A write that runs on a page that is not in front is not on the button, as it is not in the line: the close question of the
@@ -64,7 +66,17 @@ public sealed class TaskbarProgressTracker : ObservableObject, IDisposable
 {
     private readonly IUiDispatcher _dispatcher;
     private readonly TimeProvider _time;
+    /// <summary>
+    /// The least part of the button a yellow or red state fills. An operation that failed before its first item was done
+    /// stopped at nothing, and a state at nothing is drawn as no state at all.
+    /// </summary>
+    internal const double MinimumLatchedFraction = 0.1;
+
     private readonly Func<TimeSpan?> _delay;
+
+    // What the page said before the operation that is (or was last) on the way, and whether that was on the button.
+    private PageStatus? _before;
+    private bool _beforeLatched;
     private PageStatusHolder? _holder;
     private ITimer? _timer;
     private int _generation;
@@ -169,7 +181,7 @@ public sealed class TaskbarProgressTracker : ObservableObject, IDisposable
 
         // Something else is said: an operation that did not reach the button never will, and one that did has ended.
         StopDelay();
-        if (_shown && IsLasting(status))
+        if (_shown && IsLasting(status) && !WasThereBefore(status))
         {
             _latched = status;
         }
@@ -180,10 +192,24 @@ public sealed class TaskbarProgressTracker : ObservableObject, IDisposable
             _latched = null;
         }
 
+        _before = status;
+        _beforeLatched = _latched is not null;
+
         Set(_latched is null
             ? TaskbarProgressState.None
-            : new TaskbarProgressState(_latched.Kind == PageStatusKind.Error ? TaskbarProgressKind.Error : TaskbarProgressKind.Paused, _lastFraction));
+            : new TaskbarProgressState(
+                _latched.Kind == PageStatusKind.Error ? TaskbarProgressKind.Error : TaskbarProgressKind.Paused,
+                Math.Max(_lastFraction, MinimumLatchedFraction)));
     }
+
+    /// <summary>
+    /// The state the page shows again after an operation is the one it had before, and no operation had put it on the
+    /// button: "the results are stale", "the journal cannot be written" are states of the page, and an operation that ran
+    /// meanwhile and ended well has nothing to do with them. (A state that an earlier operation left on the button comes
+    /// back with a retry that fails the same way.)
+    /// </summary>
+    private bool WasThereBefore(PageStatus status) =>
+        !_beforeLatched && _before is { } before && (ReferenceEquals(before, status) || before.HasSameContentAs(status));
 
     /// <summary>An attention or an error that is a state of the page, not a result the operator may close.</summary>
     private static bool IsLasting(PageStatus status) => status is { Kind: PageStatusKind.Attention or PageStatusKind.Error, CanClose: false };

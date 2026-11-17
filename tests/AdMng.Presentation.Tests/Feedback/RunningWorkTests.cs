@@ -194,18 +194,101 @@ public class RunningWorkTests
     }
 
     [Fact]
-    public async Task AnOperationThatIsReplaced_HasEnded_AndTheWindowDoesNotWaitForItForever()
+    public async Task AWriteThatAnotherOperationTookOffTheLine_IsStillAWrite_UntilItsCodeEndedIt()
     {
         var (holder, dialogs) = Create();
         using var first = holder.Begin("Zapisywanie…", new PageStatusLog("A"), writes: OperationWrites.Other);
         dialogs.ConfirmAnswers.Enqueue(true);
         var closing = Ask(dialogs, holder);
 
-        // A second operation takes the page: the first one is over (its token is cancelled, what it says is ignored).
+        // A read takes the page: the write is over for the line (its token is cancelled, what it says is ignored)...
         using var next = holder.Begin("Wczytywanie…", new PageStatusLog("B"));
-
         Assert.True(first.IsEnded);
+        Assert.Same(next, holder.Operation);
+
+        // ...but its code still runs, and the window must not close over it.
+        Assert.False(first.IsFinished);
+        Assert.True(RunningWork.HasRunningWrites(new WindowOf(holder)));
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Assert.False(closing.IsCompleted);
+
+        first.CompleteDone("Zapisano.", new PageStatusLog("A"));
+        Assert.True(first.IsFinished);
         Assert.True(await closing.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+        Assert.False(RunningWork.HasRunningWrites(new WindowOf(holder)));
+
+        // What the replaced write said at its end is not the page's: the read still has the line.
+        Assert.Equal("Wczytywanie…", holder.Current.Message);
+    }
+
+    [Fact]
+    public async Task AWriteThatCannotBeStopped_AndLostTheLineToARead_StillKeepsTheWindowOpen()
+    {
+        // The acknowledgement of events is on its way (it cannot be stopped) and a refresh takes the line: the title bar
+        // must still say "wait" - a line that shows the read is no proof that nothing writes.
+        var (holder, dialogs) = Create();
+        using var write = holder.Begin("Potwierdzanie 3 zdarzeń…", new PageStatusLog("A"), canCancel: false, writes: OperationWrites.Other);
+        using (holder.Begin("Wczytywanie zdarzeń…", new PageStatusLog("B")))
+        {
+            Assert.False(await Ask(dialogs, holder));
+            Assert.StartsWith("info:Potwierdzanie 3 zdarzeń…", Assert.Single(dialogs.Shown), StringComparison.Ordinal);
+            Assert.False(write.IsFinished);
+        }
+
+        dialogs.Shown.Clear();
+        write.Complete(null);
+        Assert.True(await Ask(dialogs, holder));
+        Assert.Empty(dialogs.Shown);
+    }
+
+    [Fact]
+    public async Task AWriteThatBeginsWhileTheQuestionIsOpen_IsAskedAboutAndWaitedForToo()
+    {
+        var (holder, dialogs) = Create();
+        var first = holder.Begin("Krok 1…", new PageStatusLog("A"), writes: OperationWrites.Changes);
+        OperationScope? second = null;
+        dialogs.BeforeConfirmAnswer = () =>
+        {
+            // While the operator reads the question the first step ends and the code that ran it starts its second write.
+            dialogs.BeforeConfirmAnswer = null;
+            first.Complete(null);
+            second = holder.Begin("Krok 2…", new PageStatusLog("B"), writes: OperationWrites.Changes);
+            return Task.CompletedTask;
+        };
+        dialogs.ConfirmAnswers.Enqueue(true);
+        dialogs.ConfirmAnswers.Enqueue(true);
+
+        var closing = Ask(dialogs, holder);
+
+        // The answer was about step 1. Step 2 is asked about in its own right, stopped, and waited for.
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Assert.False(closing.IsCompleted);
+        Assert.Equal(2, dialogs.Shown.Count);
+        Assert.Contains("Krok 2…", dialogs.Shown[1], StringComparison.Ordinal);
+        Assert.True(second!.IsCancelling);
+        second.Complete(null);
+        Assert.True(await closing.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task No_ToTheSecondQuestion_KeepsTheWindow()
+    {
+        var (holder, dialogs) = Create();
+        var first = holder.Begin("Krok 1…", new PageStatusLog("A"), writes: OperationWrites.Changes);
+        OperationScope? second = null;
+        dialogs.BeforeConfirmAnswer = () =>
+        {
+            dialogs.BeforeConfirmAnswer = null;
+            first.Complete(null);
+            second = holder.Begin("Krok 2…", new PageStatusLog("B"), writes: OperationWrites.Changes);
+            return Task.CompletedTask;
+        };
+        dialogs.ConfirmAnswers.Enqueue(true);
+        dialogs.ConfirmAnswers.Enqueue(false);
+
+        Assert.False(await Ask(dialogs, holder).WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+        Assert.False(second!.IsCancelling);
+        second.Dispose();
     }
 
     [Fact]

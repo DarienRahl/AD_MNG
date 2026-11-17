@@ -290,7 +290,7 @@ while an operation writes asks one question.
 **Built in V2b-5b** (the owner decided them and the units built them; *V2b-5b as built* in the design note): in unit 1 the Stop that finishes
 the object in progress; in unit 2 the delay before "Working", the throttled announcement of a summary and the glyph of a note; in unit 3
 `StatusPill`, `EmptyState` (the answer for lists without rows; the 28 px band of a line with nothing to say **stays** - owner's decision of
-V2b-5b) and `Skeleton`, each with its first use; in unit 4 the progress of the taskbar button of every window and the one close question of a
+V2b-5b) and `Skeleton`, each with its first use; in unit 4 the progress of the taskbar button of every window that has one (18 of the 41 windows; a dialog without a button says it in its line only) and the one close question of a
 window that writes (`OperationWrites`, `RunningWork`). Unit 5 recounted the stage: no banner, 45 views with a line, 29 converted views
 without one (*Counts* in *V2b-5b as built*).
 

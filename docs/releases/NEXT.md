@@ -43,20 +43,25 @@ się nie zmienia, a zapisy do katalogu nadal idą wyłącznie przez plan zmian z
   gotowości środowiska i stan każdego sprawdzenia na karcie *Stan* AdMng Watchdog to teraz plakietka: obrazek stanu i
   słowo (OK, Ostrzeżenie, Błąd, Nie sprawdzono…), w jednej kolumnie przed tytułem; obszary raportu mają plakietkę swojego
   najgorszego wyniku. Stan nie jest już podawany samym kolorem ani powtórzony za tytułem.
-- **Przycisk okna na pasku zadań pokazuje postęp, a zamknięcie okna w trakcie zapisu najpierw pyta.** Każde okno AD Managera
-  pokazuje na swoim przycisku na pasku zadań to, co mówi jego wiersz stanu: ile już zrobiono (zielony pasek – np. przy
+- **Przycisk okna na pasku zadań pokazuje postęp, a zamknięcie okna w trakcie zapisu najpierw pyta.** Okno AD Managera, które
+  ma własny przycisk na pasku zadań – okno główne, edytor zbiorczy, Kosz AD, *Korespondencja*, wiadomości do użytkowników,
+  przeglądy kont i komputerów, działania zdalne, porównania, okno PowerShell – pokazuje na nim to, co mówi jego wiersz stanu
+  (okna dialogowe bez własnego przycisku, np. właściwości, reset hasła, podgląd planu, kopia zapasowa GPO, mówią to tylko
+  w wierszu stanu): ile już zrobiono (zielony pasek – np. przy
   wykonywaniu zmian na wielu obiektach albo przy wysyłce, która trwa minuty), że operacja trwa, a nie wiadomo, ile jeszcze
   (pasek w ruchu), albo – gdy operacja, której postęp było widać, skończyła się stanem, który trwa (np. nie udało się odczytać
   listy) – żółty lub czerwony pasek, dopóki strona nie powie czegoś innego. Pasek pojawia się po tym samym czasie co stan
   *Trwa* (około 0,15 s), działa także przy wyłączonych animacjach, a okno główne pokazuje postęp karty, która jest na wierzchu.
   Zamknięcie okna w trakcie operacji, która coś zapisuje – wykonania zmian, wysyłki wiadomości, przywracania, aktualizacji
-  magazynu centralnego, zapisu konfiguracji Watchdoga, polecenia dla komputera – zadaje jedno pytanie: *Zatrzymać trwającą
-  operację i zamknąć okno?*, z tym, co trwa, i z tym, co się stanie (przy wykonaniu zmian: nic nowego nie jest zaczynane, a obiekt
+  magazynu centralnego, zapisu konfiguracji Watchdoga, polecenia dla komputera – zadaje jedno pytanie, tak samo z paska
+  tytułu, przyciskiem *Zamknij* i klawiszem Esc: *Zatrzymać trwającą operację i zamknąć okno?*, z tym, co trwa, i z tym, co się stanie (przy wykonaniu zmian: nic nowego nie jest zaczynane, a obiekt
   w toku zostaje dokończony). *Tak* zatrzymuje operację i zamyka okno dopiero po jej końcu; *Nie* zostawia okno. Operacja, której
   nie da się zatrzymać (np. zapis właściwości obiektu, utworzenie obiektu, zapis konfiguracji Watchdoga), nie jest pytaniem: okno
   mówi, że jeszcze pracuje, i zostaje otwarte do jej końca. Okno, które tylko czyta, zamyka się bez pytania, a odczyt jest przerywany,
   jak dotąd. To samo pytanie zadaje okno główne o zapisy w swoich kartach i w oknach, które do niego należą, i karta Watchdoga przy
-  zamknięciu. Wcześniej pytało tylko okno *Korespondencja* i tylko przy wysyłce, a edytor zbiorczy zamknięty w trakcie wykonania
+  zamknięciu. Pytanie obejmuje także zapis, który stracił wiersz stanu na rzecz odczytu (np. potwierdzanie zdarzeń, gdy
+  w tym czasie odświeżono listę), i zapis zaczęty, gdy pytanie było już otwarte. Wcześniej pytało tylko okno
+  *Korespondencja* i tylko przy wysyłce, a edytor zbiorczy zamknięty w trakcie wykonania
   zostawiał je w tle.
 
 ## Nowe: okno PowerShell (R1)

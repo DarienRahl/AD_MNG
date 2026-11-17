@@ -669,7 +669,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, 
     }
 
     [RelayCommand]
-    private void Close() => RequestClose(true);
+    private Task CloseAsync() => CloseByOperatorAsync(true);
 
     // ---- Plan ----------------------------------------------------------------------------------------------------
 
