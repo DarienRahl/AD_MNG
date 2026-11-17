@@ -225,7 +225,7 @@ public sealed partial class PreviewPageViewModel : ObservableObject, IHasPageSta
             try
             {
                 // Outlook is not told to stop: it builds the item and deletes it as it always did; the page stops waiting.
-                rendered = await session.RenderAsync(message, CancellationToken.None).WaitAsync(token).ConfigureAwait(true);
+                rendered = await session.RenderAsync(message, CancellationToken.None).WaitOrAbandonAsync(token).ConfigureAwait(true);
             }
             catch (Exception ex) when (ex is OutlookException or ObjectDisposedException)
             {

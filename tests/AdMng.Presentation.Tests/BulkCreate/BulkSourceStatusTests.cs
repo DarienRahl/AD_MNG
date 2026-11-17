@@ -1,10 +1,12 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using AdMng.Core.Batch.Creation;
 using AdMng.Presentation.BulkCreate;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Tests.Dialogs;
 using AdMng.Presentation.Tests.GroupPolicy;
+using AdMng.Presentation.Tests.Infrastructure;
 using AdMng.Testing.BulkCreate;
 using CommunityToolkit.Mvvm.Input;
 
@@ -143,6 +145,46 @@ public sealed class BulkSourceStatusTests
         Assert.Equal(5, source.Rows.Count);
         Assert.Equal(PageStatusKind.Idle, wizard.Editor.Status.Current.Kind);
         Assert.Equal(source.Summary, wizard.Editor.Status.Current.Message);
+    }
+
+    [Fact]
+    public async Task AStoppedFileRead_ThatFailsAfterwards_IsNotReportedAsAnUnexpectedError()
+    {
+        // The operator stops a read when it hangs - a workbook on a share that went away. The thread still reads; when it
+        // then fails, nobody waits for it. An exception nobody observed is the application's "unexpected error" dialog,
+        // minutes later, about a file the operator gave up on.
+        using var unobserved = new UnobservedTaskExceptions();
+        var path = Path.Combine(Path.GetTempPath(), "admng-gone-" + Guid.NewGuid().ToString("N") + ".xlsx");
+
+        await StopAReadOfAFileThatIsGoneAsync(path);
+
+        Assert.False(await unobserved.CollectAsync(e => e is FileNotFoundException gone && gone.FileName == path, rounds: 8));
+    }
+
+    /// <summary>In a method of its own so that no local keeps the abandoned read alive when the test collects.</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static async Task StopAReadOfAFileThatIsGoneAsync(string path)
+    {
+        var harness = await B2Harness.CreateAsync(English, bulkCreateSchema: true);
+        using var wizard = await BulkWizardHarness.CreateAsync(harness: harness);
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var read = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        wizard.Source.ReadGate = async () =>
+        {
+            await gate.Task.ConfigureAwait(false);
+            read.SetResult();
+        };
+        harness.Files.NextOpenPath = path;
+
+        var loading = wizard.Source.LoadFileCommand.ExecuteAsync(null);
+        wizard.Editor.Status.Current.Action!.Command.Execute(null);
+        await loading.WaitAsync(Limit, TestContext.Current.CancellationToken);
+        Assert.Equal("BulkCreate.Status.FileStopped", wizard.Editor.Status.Current.Log.ToString());
+
+        // Now the abandoned thread opens the file, which is not there.
+        gate.SetResult();
+        await read.Task.WaitAsync(Limit, TestContext.Current.CancellationToken);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
     }
 
     [Fact]

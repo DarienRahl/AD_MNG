@@ -2,6 +2,7 @@ using AdMng.Core.Correspondence.Composition;
 using AdMng.Core.Correspondence.Import;
 using AdMng.Core.Messaging.Html;
 using AdMng.Presentation.Feedback;
+using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
@@ -201,7 +202,7 @@ public sealed partial class RecipientsPageViewModel
             var name = Path.GetFileName(path);
             try
             {
-                var result = await ReadFileAsync(path).WaitAsync(token).ConfigureAwait(true);
+                var result = await ReadFileAsync(path).WaitOrAbandonAsync(token).ConfigureAwait(true);
                 var outcome = AddRows(result.Contacts, name, RecipientOrigin.File);
                 added += outcome.Added;
                 duplicates += outcome.Duplicates + result.Duplicates;   // on the list already, or repeated in the file

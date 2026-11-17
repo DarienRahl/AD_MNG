@@ -303,7 +303,7 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         UpdateLasting();
         try
         {
-            _entries = await Task.Run(() => GpmcBackupFormat.List(folder)).WaitAsync(token).ConfigureAwait(true);
+            _entries = await Task.Run(() => GpmcBackupFormat.List(folder)).WaitOrAbandonAsync(token).ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
@@ -746,7 +746,7 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         {
             // Off the UI thread: the synchronous part (File.Exists, XML loads of up to 16 MB) may sit on a slow share, and
             // Stop (or another selection) must not wait for it.
-            var backup = await Task.Run(() => GpmcBackupFormat.ReadAsync(folder, row.Entry.BackupId, token)).WaitAsync(token).ConfigureAwait(true);
+            var backup = await Task.Run(() => GpmcBackupFormat.ReadAsync(folder, row.Entry.BackupId, token)).WaitOrAbandonAsync(token).ConfigureAwait(true);
             token.ThrowIfCancellationRequested();
 
             _selectedBackup = backup;

@@ -22,4 +22,28 @@ public static class TaskExtensions
             TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
     }
+
+    /// <summary>
+    /// Waits for <paramref name="task"/> until <paramref name="cancellationToken"/> is cancelled, like
+    /// <see cref="Task{TResult}.WaitAsync(CancellationToken)"/>, and keeps observing the task it stopped waiting for.
+    /// For work that cannot be interrupted - a file read on a share, a parse, a COM call: Stop gives control back at once
+    /// and the work runs to its end with nobody waiting. When it then fails, a plain <c>WaitAsync</c> leaves that
+    /// exception unobserved, and the application reports it later as an unexpected error - a dialog about work the
+    /// operator gave up on. A wait that was not cancelled behaves exactly like <c>WaitAsync</c>: the result, or the
+    /// failure of the work, reaches the caller.
+    /// </summary>
+    public static Task<T> WaitOrAbandonAsync<T>(this Task<T> task, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(task);
+        task.Forget();
+        return task.WaitAsync(cancellationToken);
+    }
+
+    /// <inheritdoc cref="WaitOrAbandonAsync{T}(Task{T}, CancellationToken)"/>
+    public static Task WaitOrAbandonAsync(this Task task, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(task);
+        task.Forget();
+        return task.WaitAsync(cancellationToken);
+    }
 }

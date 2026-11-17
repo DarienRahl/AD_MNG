@@ -189,7 +189,7 @@ public sealed partial class ResponsesPageViewModel : ObservableObject, IHasPageS
 
             var day = DateTime.SpecifyKind(Since.Date, DateTimeKind.Unspecified);
             var since = new DateTimeOffset(day, Services.Time.LocalTimeZone.GetUtcOffset(day));
-            var campaigns = await session.FindCampaignsAsync(since, cancellation).WaitAsync(cancellation).ConfigureAwait(true);
+            var campaigns = await session.FindCampaignsAsync(since, cancellation).WaitOrAbandonAsync(cancellation).ConfigureAwait(true);
 
             // An answer that came in the moment the operator pressed Stop is not shown: the page said "Stopping…".
             cancellation.ThrowIfCancellationRequested();
@@ -253,7 +253,7 @@ public sealed partial class ResponsesPageViewModel : ObservableObject, IHasPageS
                 return;
             }
 
-            var responses = await session.ReadResponsesAsync(campaign.Id, cancellation).WaitAsync(cancellation).ConfigureAwait(true);
+            var responses = await session.ReadResponsesAsync(campaign.Id, cancellation).WaitOrAbandonAsync(cancellation).ConfigureAwait(true);
             cancellation.ThrowIfCancellationRequested();
 
             var options = VotingOptions;

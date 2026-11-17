@@ -182,12 +182,13 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IHasPageStat
             var header = HeaderMode;
             var ansiCodePage = Services.Regional.AnsiCodePage;
 
-            // The read of the file cannot be interrupted: Stop gives control back at once and the thread finishes it.
+            // The read of the file cannot be interrupted: Stop gives control back at once and the thread finishes it
+            // (a failure of a read nobody waits for any more is observed, not reported as an unexpected error).
             var table = await Task.Run(async () =>
             {
                 await WaitForGateAsync().ConfigureAwait(false);
                 return await ReadFileAsync(path, header, ansiCodePage).ConfigureAwait(false);
-            }).WaitAsync(token).ConfigureAwait(true);
+            }).WaitOrAbandonAsync(token).ConfigureAwait(true);
             if (_disposed || scope.IsEnded)
             {
                 return;
@@ -509,7 +510,7 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IHasPageStat
                 await WaitForGateAsync().ConfigureAwait(false);
                 var read = TableTextReader.ReadClipboard(content.Text, content.CfHtml, content.CfHtmlText, header);
                 return (read, append ? TableTextReader.CountRepeatedRows(existing, read) : 0);
-            }).WaitAsync(token).ConfigureAwait(true);
+            }).WaitOrAbandonAsync(token).ConfigureAwait(true);
             if (_disposed || scope.IsEnded)
             {
                 return;
@@ -536,7 +537,7 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IHasPageStat
                 return;
             }
 
-            var appended = await Task.Run(() => TableTextReader.Append(existing, added)).WaitAsync(token).ConfigureAwait(true);
+            var appended = await Task.Run(() => TableTextReader.Append(existing, added)).WaitOrAbandonAsync(token).ConfigureAwait(true);
             if (!_disposed && !scope.IsEnded)
             {
                 await SetTableAsync(appended, replaced: false, token).ConfigureAwait(true);
@@ -674,7 +675,7 @@ public sealed partial class BulkSourceViewModel : ObservableObject, IHasPageStat
     private async Task SetTableAsync(InputTable table, bool replaced, CancellationToken cancellationToken = default)
     {
         var columns = ColumnsOf(table);
-        var rows = await Task.Run(() => BuildRows(table, columns)).WaitAsync(cancellationToken).ConfigureAwait(true);
+        var rows = await Task.Run(() => BuildRows(table, columns)).WaitOrAbandonAsync(cancellationToken).ConfigureAwait(true);
         if (!_disposed)
         {
             // Idle before the change events: the wizard re-evaluates Dalej on them (CanGoNext reads IsBusy), and a WPF
