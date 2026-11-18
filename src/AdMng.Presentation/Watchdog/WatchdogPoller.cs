@@ -165,7 +165,10 @@ public sealed class WatchdogPoller : IDisposable
 
     private async Task RunAsync(CancellationToken stop)
     {
-        DateTimeOffset? lastStatus = null;
+        // Kept across rounds in an object, not handed back by the round: a round that is woken in its long-poll ends by an
+        // exception, and the time of the status it had just fetched must not be lost with it - the next round would fetch
+        // the status again (and raise StatusReceived again) after every wake.
+        var state = new RoundState();
         while (!stop.IsCancellationRequested)
         {
             using var wake = CancellationTokenSource.CreateLinkedTokenSource(stop);
@@ -179,7 +182,7 @@ public sealed class WatchdogPoller : IDisposable
             var roundStart = _time.GetUtcNow();
             try
             {
-                lastStatus = await RunRoundAsync(lastStatus, wake.Token).ConfigureAwait(false);
+                await RunRoundAsync(state, wake.Token).ConfigureAwait(false);
             }
             catch (Exception) when (wake.IsCancellationRequested)
             {
@@ -203,15 +206,15 @@ public sealed class WatchdogPoller : IDisposable
     }
 
     /// <summary>One round: status when due, then a long-poll (visible) or a wait until the next status (hidden).</summary>
-    private async Task<DateTimeOffset?> RunRoundAsync(DateTimeOffset? lastStatus, CancellationToken token)
+    private async Task RunRoundAsync(RoundState state, CancellationToken token)
     {
         var visible = IsVisible;
         var interval = visible ? VisibleStatusInterval : HiddenStatusInterval;
-        if (lastStatus is null || _time.GetUtcNow() - lastStatus >= interval)
+        if (state.LastStatus is not { } last || _time.GetUtcNow() - last >= interval)
         {
             var requestedAt = _time.GetUtcNow();
             var status = await _client.GetStatusAsync(token).ConfigureAwait(false);
-            lastStatus = requestedAt;
+            state.LastStatus = requestedAt;
             Succeeded();
             Raise(() => StatusReceived?.Invoke(this, status));
         }
@@ -227,7 +230,7 @@ public sealed class WatchdogPoller : IDisposable
                 if (_cursor != cursor)
                 {
                     // The feed was reloaded meanwhile: this answer belongs to the old filter.
-                    return lastStatus;
+                    return;
                 }
 
                 var newest = page.Items.Count == 0 ? cursor : page.Items.Max(e => e.Id);
@@ -239,11 +242,16 @@ public sealed class WatchdogPoller : IDisposable
                 Raise(() => EventsReceived?.Invoke(this, page));
             }
 
-            return lastStatus;
+            return;
         }
 
-        await DelayUntilAsync(lastStatus.Value + interval, token).ConfigureAwait(false);
-        return lastStatus;
+        await DelayUntilAsync(state.LastStatus!.Value + interval, token).ConfigureAwait(false);
+    }
+
+    /// <summary>What the rounds of one run share: when the status was last fetched.</summary>
+    private sealed class RoundState
+    {
+        public DateTimeOffset? LastStatus { get; set; }
     }
 
     /// <summary>A request succeeded: the back-off ends and a recovery after failures is reported at once.</summary>

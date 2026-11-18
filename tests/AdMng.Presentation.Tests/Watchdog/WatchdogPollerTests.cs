@@ -165,6 +165,30 @@ public sealed class WatchdogPollerTests : IDisposable
     }
 
     [Fact]
+    public async Task ARoundThatIsWokenInItsLongPoll_KeepsTheTimeOfItsStatus_SoTheStatusIsNotFetchedAgain()
+    {
+        // The round fetches the status and then long-polls. Woken there (the feed was reloaded), it ends by an exception;
+        // the time of the status it had just fetched was lost with it, and every wake cost another status request and
+        // another StatusReceived - one more late-match round of the feed each time.
+        _poller.Filter = () => new EventQuery();
+        _poller.Cursor = 30;
+        _poller.IsVisible = true;
+        _poller.Start();
+        await _client.Calls.CallsAsync(nameof(IWatchdogClient.GetEventsAsync), 1);
+        Assert.Equal(1, _client.Calls.Count(nameof(IWatchdogClient.GetStatusAsync)));
+
+        for (var wake = 2; wake <= 4; wake++)
+        {
+            _poller.Wake();
+            await _client.Calls.CallsAsync(nameof(IWatchdogClient.GetEventsAsync), wake);
+        }
+
+        // The clock has not moved: the status is not due.
+        Assert.Equal(1, _client.Calls.Count(nameof(IWatchdogClient.GetStatusAsync)));
+        Assert.Empty(_failures);
+    }
+
+    [Fact]
     public async Task AnswerForAnOldCursor_IsDropped()
     {
         _poller.Filter = () => new EventQuery();
