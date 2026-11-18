@@ -282,4 +282,67 @@ public sealed class WatchdogServiceStatusTests
         });
         h.AssertNoUiErrors();
     }
+    [Fact]
+    public async Task ARefreshOfAnAdmin_EndsWithItsFirstFailure_ThoughTheLaterReadsTakeTheLine()
+    {
+        // The status, the delivery log and the audit are read one after another on the line of the tab. A failure of the
+        // first or the second used to be on the line for milliseconds: the next read took it, and the refresh ended as the
+        // summary "Status read <an old time>" - with the inline error texts of the cards gone, the failure was never seen.
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var status = new WatchdogStatusViewModel(h.Services) { IsAdmin = true };
+            await status.LoadAsync();
+            Assert.Equal(PageStatusKind.Idle, status.PageHolder.Current.Kind);
+
+            h.Client.FailNext(nameof(IWatchdogClient.GetStatusAsync), new WatchdogClientException(WatchdogClientErrorKind.ServerError, "boom"));
+            await status.RefreshCommand.ExecuteAsync(null);
+
+            var line = status.PageHolder.Current;
+            Assert.Equal(PageStatusKind.Error, line.Kind);
+            Assert.StartsWith("WatchdogPage.Status.ReadFailed", line.Log.ToString(), StringComparison.Ordinal);
+            Assert.Same(status.RefreshCommand, line.Action!.Command);
+
+            // The same for the second read; the third (the audit) was the only one whose failure stayed.
+            h.Client.FailNext(nameof(IWatchdogClient.GetOutboxAsync), new WatchdogClientException(WatchdogClientErrorKind.Unreachable, "down"));
+            await status.RefreshCommand.ExecuteAsync(null);
+
+            line = status.PageHolder.Current;
+            Assert.Equal(PageStatusKind.Error, line.Kind);
+            Assert.StartsWith("WatchdogPage.Status.LogFailed", line.Log.ToString(), StringComparison.Ordinal);
+
+            // A refresh that works ends as the summary again.
+            await status.RefreshCommand.ExecuteAsync(null);
+            Assert.Equal(PageStatusKind.Idle, status.PageHolder.Current.Kind);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task ARefreshThatANewerOneOvertook_ReadsNoFurther_AndTheNewerOneReadsEverything()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var status = new WatchdogStatusViewModel(h.Services) { IsAdmin = true };
+            await status.LoadAsync();
+            var auditReads = h.Client.Calls.Count(nameof(IWatchdogClient.GetConfigAuditAsync));
+
+            // The first refresh is at its delivery-log read when the second begins.
+            h.Client.Hold(nameof(IWatchdogClient.GetOutboxAsync));
+            var first = status.LoadAsync();
+            await h.Ui.IdleAsync();
+            h.Client.Release(nameof(IWatchdogClient.GetOutboxAsync));
+            var second = status.LoadAsync();
+            await first;
+            await second;
+
+            // The first did not go on to the audit (its Begin would have cancelled the status read of the second); the
+            // second read the status, the log and the audit.
+            Assert.Equal(auditReads + 1, h.Client.Calls.Count(nameof(IWatchdogClient.GetConfigAuditAsync)));
+            Assert.Equal(PageStatusKind.Idle, status.PageHolder.Current.Kind);
+        });
+        h.AssertNoUiErrors();
+    }
+
 }

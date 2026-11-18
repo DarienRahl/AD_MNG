@@ -113,6 +113,9 @@ public sealed class PageStatusHolder : ObservableObject
     /// <list type="number">
     /// <item>the window's own running operation, or its own error that cannot be closed (the object is gone, the session
     /// ended, nothing could be read) - then nothing a page says matters;</item>
+    /// <item>a running operation of the page in front, over a state of the window that lasts and is not such an error
+    /// (an attention: "live updates interrupted"): the operation and its Stop stay on the line, the state is back when
+    /// it ended;</item>
     /// <item>otherwise whatever was said last by the window or by the page in front that is not a summary. A page says
     /// its status again when it comes to the front, so the operator always sees why the page in front of them is empty
     /// or stale; a result of the window that was said later covers it and is back under it when closed; a new count of
@@ -477,6 +480,15 @@ public sealed class PageStatusHolder : ObservableObject
         }
 
         var front = part.Current;
+
+        // An operation of the page in front has the line - and its Stop - over a state of the window that lasts: an
+        // attention such as "live updates interrupted", set while a read of the page hangs, would otherwise take the
+        // read and its Stop off the line exactly when the operator wants them. The state is back when the operation ended.
+        if (front.IsWorking && _lasting is not null && ReferenceEquals(_own, _lasting))
+        {
+            return front;
+        }
+
         var (first, second) = _frontSpokeLast ? (front, _own) : (_own, front);
         if (!first.IsIdle)
         {

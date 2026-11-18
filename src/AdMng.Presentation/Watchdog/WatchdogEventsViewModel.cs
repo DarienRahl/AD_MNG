@@ -134,7 +134,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             : SelectedItem is { } single ? [single] : [];
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(LoadOlderCommand), nameof(RefreshCommand))]
+    [NotifyCanExecuteChangedFor(nameof(LoadOlderCommand), nameof(RefreshCommand), nameof(AcknowledgeSelectedCommand))]
     public partial bool IsLoading { get; private set; }
 
     [ObservableProperty]
@@ -425,7 +425,12 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         }
     }
 
-    private bool CanAcknowledge() => !IsBusy && Selection.Any(r => !r.IsAcknowledged);
+    /// <summary>
+    /// Not while the feed is read: the acknowledgement is an operation of the same line, and an operation that begins takes
+    /// the line and cancels the one that runs. Begun during a full read it cancelled that read without a word - and the live
+    /// updates, which wait for the answer of that read, stopped for good with nothing on the page saying so.
+    /// </summary>
+    private bool CanAcknowledge() => !IsBusy && !IsLoading && Selection.Any(r => !r.IsAcknowledged);
 
     /// <summary>Writes the loaded events to a CSV file the operator chooses (formula-injection safe).</summary>
     [RelayCommand(CanExecute = nameof(CanExport))]
@@ -544,10 +549,20 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             HasMore = false;
             _stopped = true;
         }
-        catch (Exception ex) when (ex is not OutOfMemoryException && (token.IsCancellationRequested || scope.IsEnded || _lifetime.IsCancellationRequested))
+        catch (Exception ex) when (ex is not OutOfMemoryException && (token.IsCancellationRequested || _lifetime.IsCancellationRequested))
         {
             // Superseded by a newer load (the client reports a cancelled request as OperationCanceledException or as a
             // WatchdogClientException of kind Cancelled) or the tab was closed: the newer load owns the list and the line.
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsEnded)
+        {
+            // Another operation of the page took the line, and with it the token of this read - and no newer read follows.
+            // The live updates wait for the answer of this read, so the feed cannot go on: it is paused like a read the
+            // operator stopped, and the page says so with Refresh. Never silently: a feed that looks live and is not is
+            // the worst state a monitoring view can be in.
+            Items.ReplaceAll([]);
+            HasMore = false;
+            _stopped = true;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {

@@ -92,6 +92,72 @@ public sealed class WatchdogEventsStatusTests
     }
 
     [Fact]
+    public async Task Acknowledge_IsNotAvailable_WhileTheFeedIsRead_SoItCannotCancelTheRead()
+    {
+        // The acknowledgement is an operation of the feed's line. Begun during a full read it took the line, cancelled the
+        // read without a word, and the live updates - which wait for the answer of that read - stopped for good while the
+        // page showed its normal summary.
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync(visible: true);
+            var feed = tab.Events;
+            feed.SelectedItems = new List<object>(feed.Items.Where(r => !r.IsAcknowledged).Take(2));
+            Assert.True(feed.AcknowledgeSelectedCommand.CanExecute(null));
+            var changes = 0;
+            feed.AcknowledgeSelectedCommand.CanExecuteChanged += (_, _) => changes++;
+
+            h.Client.HoldEvents(q => q.After is null);
+            var reading = feed.RefreshCommand.ExecuteAsync(null);
+
+            Assert.True(feed.IsLoading);
+            Assert.False(feed.AcknowledgeSelectedCommand.CanExecute(null));
+            Assert.True(changes > 0);
+
+            h.Client.ReleaseEvents();
+            await reading;
+            Assert.False(feed.IsLoading);
+            Assert.Equal(PageStatusKind.Idle, feed.Status.Current.Kind);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task ARead_ThatAnotherOperationTookOffTheLine_LeavesTheFeedPaused_AndSaysSo()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync(visible: false);
+            var feed = tab.Events;
+            h.Client.Hold(nameof(IWatchdogClient.GetEventsAsync));
+            var reading = feed.LoadAsync();
+            Assert.True(feed.IsLoading);
+
+            // Whatever operation of the page begins now takes the line and the token of the read; no newer read follows.
+            using (var other = feed.Status.Begin("Inna operacja…", new PageStatusLog("Other")))
+            {
+                await reading;
+                other.Complete(null);
+            }
+
+            // Not a feed that looks live and is not: it is paused, the page says so, and Refresh reads it again.
+            Assert.False(feed.IsLoading);
+            Assert.False(feed.IsEmpty);
+            var line = feed.Status.Current;
+            Assert.Equal(PageStatusKind.Attention, line.Kind);
+            Assert.False(line.CanClose);
+            Assert.Same(feed.RefreshCommand, line.Action!.Command);
+
+            h.Client.Release(nameof(IWatchdogClient.GetEventsAsync));
+            await feed.RefreshCommand.ExecuteAsync(null);
+            Assert.Equal(30, feed.Items.Count);
+            Assert.Equal(PageStatusKind.Idle, feed.Status.Current.Kind);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
     public async Task AFailedRead_IsTheStateOfThePage_WithRetry_AndItsLogCopyHasNoEventAndNoHost()
     {
         var log = new ListLogger<PageStatusHolder>();

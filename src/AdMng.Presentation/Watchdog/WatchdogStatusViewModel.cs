@@ -30,6 +30,9 @@ public sealed partial class WatchdogStatusViewModel : ObservableObject
     private DateTimeOffset? _receivedAt;
     private Problem? _problem;
 
+    // The refreshes begun so far: one that a newer refresh overtook reads no further (LoadAsync).
+    private int _refreshes;
+
     public WatchdogStatusViewModel(WatchdogServices services)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
@@ -185,6 +188,7 @@ public sealed partial class WatchdogStatusViewModel : ObservableObject
     public async Task LoadAsync()
     {
         var localizer = _services.Localizer;
+        var run = ++_refreshes;
         using (var scope = PageHolder.Begin(localizer[L.WatchdogPageStatus.Reading], new PageStatusLog(L.WatchdogPageStatus.Reading)))
         {
             IsLoading = true;
@@ -250,13 +254,34 @@ public sealed partial class WatchdogStatusViewModel : ObservableObject
         }
 
         // The delivery log and the audit follow the status, one after another on the holder of the tab. A read that failed
-        // still reads them (the service may answer these); one that was stopped does not (handled above).
-        if (IsAdmin)
+        // still reads them (the service may answer these); one that was stopped does not (handled above). A refresh that a
+        // newer one overtook reads no further: its next read would take the line - and the token - of the newer one.
+        var failure = FailureOnTheLine();
+        if (IsAdmin && run == _refreshes)
         {
             await DeliveryLog.LoadAsync().ConfigureAwait(true);
-            await LoadAuditAsync(null).ConfigureAwait(true);
+            failure ??= FailureOnTheLine();
+            if (run == _refreshes)
+            {
+                await LoadAuditAsync(null).ConfigureAwait(true);
+            }
+        }
+
+        // The three reads share the line of the tab and each takes it from the one before, so a failure of the first or the
+        // second was on the line for milliseconds and the refresh ended as the summary "Status read <an old time>". The
+        // refresh ends with the first thing that went wrong, and its Retry.
+        if (failure is not null && run == _refreshes && !PageHolder.IsWorking && !ReferenceEquals(PageHolder.Current, failure))
+        {
+            PageHolder.Show(failure);
         }
     }
+
+    /// <summary>The failure a read of this refresh left on the line as its result (not the state of the tab that lasts), or null.</summary>
+    private PageStatus? FailureOnTheLine() =>
+        PageHolder.Current is { Kind: PageStatusKind.Error, IsWorking: false } said
+            && !(PageHolder.Lasting is { } lasting && lasting.HasSameContentAs(said))
+            ? said
+            : null;
 
     /// <summary>Texts after a language switch.</summary>
     public void Relocalize()

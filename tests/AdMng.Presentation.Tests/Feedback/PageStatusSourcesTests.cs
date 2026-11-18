@@ -515,6 +515,36 @@ public class PageStatusSourcesTests
         Assert.True(holder.IsWorking);
     }
 
+    [Fact]
+    public void AnOperationOfThePageInFront_KeepsTheLineAndItsStop_OverAnAttentionOfTheWindowThatLasts()
+    {
+        var (window, _) = Create();
+        var (page, _) = Create();
+        window.Front = page;
+        using var reading = page.Begin("Wczytywanie zdarzeń…", new PageStatusLog("Reading"));
+        Assert.Equal("Wczytywanie zdarzeń…", window.Current.Message);
+
+        // The service does not answer: the window says so as its state that lasts - while the read of the page still hangs.
+        var interrupted = PageStatus.Attention("Aktualizacje na żywo przerwane. Ponawianie…", new PageStatusLog("Live"), canClose: false);
+        window.SetLasting(interrupted);
+
+        // The read and its Stop are what the operator needs now; they stay.
+        Assert.True(window.Current.IsWorking);
+        Assert.Equal("Wczytywanie zdarzeń…", window.Current.Message);
+        Assert.NotNull(window.Current.Action);
+
+        // The state is back when the read ended.
+        reading.Complete(null);
+        Assert.Equal(PageStatusKind.Attention, window.Current.Kind);
+        Assert.Equal("Aktualizacje na żywo przerwane. Ponawianie…", window.Current.Message);
+
+        // And an error of the window that cannot be closed still beats a working page: nothing a page says matters then.
+        using var again = page.Begin("Wczytywanie zdarzeń…", new PageStatusLog("Reading"));
+        Assert.True(window.Current.IsWorking);
+        window.SetLasting(PageStatus.Error("Sesja tego okna zakończyła się.", new PageStatusLog("Ended"), canClose: false));
+        Assert.Equal(PageStatusKind.Error, window.Current.Kind);
+    }
+
     private static string Group(ILocalizer localizer) => localizer.Culture.NumberFormat.NumberGroupSeparator;
 
     private static (PageStatusHolder Holder, List<string?> Changes) Create()
