@@ -237,8 +237,11 @@ public abstract partial class EventLogDocumentBase : ObservableObject, IShellDoc
                 result = Stopped(text, null);
             }
         }
-        catch (Exception ex) when (ex is DirectoryException or InvalidOperationException or ObjectDisposedException or EventLogAccessException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
+            // What the work is known to throw - the directory, the event log - and anything else (a record that cannot be
+            // parsed, an I/O failure): the error of the run, with Retry. Never an exception that leaves the method with the
+            // operation open: the line would say "working" for good, with a Stop of a run that no longer exists.
             if (ReferenceEquals(_running, running))
             {
                 Error = ex is EventLogAccessException access ? EventLogText.AccessError(Localizer, access.Error, access.NativeErrorCode) : Services.Ui.Errors.Translate(ex);
@@ -265,10 +268,11 @@ public abstract partial class EventLogDocumentBase : ObservableObject, IShellDoc
             {
                 _operation = null;
             }
-        }
 
-        operation.Complete(result);
-        operation.Dispose();
+            // On every way out: an operation that is begun is ended (a replaced one ignores what it is told).
+            operation.Complete(result);
+            operation.Dispose();
+        }
     }
 
     /// <summary>
@@ -285,8 +289,8 @@ public abstract partial class EventLogDocumentBase : ObservableObject, IShellDoc
     }
 
     /// <summary>
-    /// Says that something the operator started in the tab (not a run) failed: an error that can be closed - unless a run
-    /// is on the line, which keeps it.
+    /// Says that something the operator started in the tab (not a run) failed: an error that can be closed - or, while a run
+    /// is on the line, which keeps it, a toast (what finished elsewhere is a toast). Never dropped.
     /// </summary>
     /// <param name="failedKey">The resource key of what was tried, without a full stop.</param>
     /// <param name="exception">What went wrong.</param>
@@ -294,15 +298,15 @@ public abstract partial class EventLogDocumentBase : ObservableObject, IShellDoc
     protected void SayFailure(string failedKey, Exception exception, params object[] args)
     {
         ArgumentNullException.ThrowIfNull(exception);
+        var code = ResultCode.Of(exception);
+        var text = PageStatusText.Failure(Localizer.Format(failedKey, args), Services.Ui.Errors.Translate(exception), null, code);
         if (Status.IsWorking)
         {
+            Services.Ui.Notifications.Show(NotificationSeverity.Error, text);
             return;
         }
 
-        var code = ResultCode.Of(exception);
-        Status.Show(PageStatus.Error(
-            PageStatusText.Failure(Localizer.Format(failedKey, args), Services.Ui.Errors.Translate(exception), null, code),
-            new PageStatusLog(failedKey).WithCode(code)));
+        Status.Show(PageStatus.Error(text, new PageStatusLog(failedKey).WithCode(code)));
     }
 
     /// <summary>

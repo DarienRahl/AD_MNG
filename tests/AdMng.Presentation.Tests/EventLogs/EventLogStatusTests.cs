@@ -438,6 +438,33 @@ public sealed partial class EventLogStatusTests
         Assert.Equal(PageStatusKind.Idle, document.Status.Current.Kind);
     }
 
+    [Fact]
+    public async Task ARunThatThrowsWhatNobodyExpected_EndsAsTheErrorOfTheRun_NeverAsALineThatWorksForGood()
+    {
+        // An exception outside the list the run knew (the directory, the event log): the operation was completed only after
+        // the try, so the method left with it open - "working" with a live Stop for a run that no longer existed, the start
+        // button still the Cancel of that run, and the taskbar following the line.
+        var harness = await EventLogHarness.CreateAsync();
+        harness.Connector.Add(EventLogSamples.LockoutScenario());
+        var document = harness.Services.CreateLockout(harness.Company.JanKowalski, "Jan Kowalski");
+        harness.Session.BeforeOperation = _ => throw new FormatException("a record that cannot be parsed");
+
+        await document.RunAsync();
+
+        Assert.False(document.IsLoading);
+        Assert.False(document.Status.IsWorking);
+        Assert.Null(document.Status.Operation);
+        var line = document.Status.Current;
+        Assert.Equal(PageStatusKind.Error, line.Kind);
+        Assert.Same(document.RefreshCommand, line.Action!.Command);
+
+        // Retry works once the cause is gone.
+        harness.Session.BeforeOperation = null;
+        await ((CommunityToolkit.Mvvm.Input.IAsyncRelayCommand)line.Action.Command).ExecuteAsync(null);
+        Assert.NotEqual(PageStatusKind.Error, document.Status.Current.Kind);
+        Assert.False(document.Status.IsWorking);
+    }
+
     // ---- The lockout investigation ---------------------------------------------------------------------------------------------
 
     [Fact]
